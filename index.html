@@ -9,6 +9,8 @@
     body { background-color: #f7fafc; padding: 2rem; font-family: sans-serif; }
     .form-container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 800px; margin: auto; }
     .section-title { margin-top: 1.5rem; margin-bottom: 1rem; color: #2B6CB0; border-bottom: 2px solid #EDF2F7; padding-bottom: 5px; }
+    /* Makes pointers clear on clickable labels */
+    .form-check-label { cursor: pointer; } 
   </style>
 </head>
 <body>
@@ -51,28 +53,58 @@
     <div class="mb-3">
       <label class="form-label">Job Type *</label>
       <div>
-        <input type="radio" name="jobType" value="New content" required> New content (ให้ทีม PR สร้างสื่อ) <br>
-        <input type="radio" name="jobType" value="Ready to post" required> Ready to post
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="jobType" id="jobType1" value="New content" required>
+          <label class="form-check-label" for="jobType1">New content (ให้ทีม PR สร้างสื่อ)</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="jobType" id="jobType2" value="Ready to post" required>
+          <label class="form-check-label" for="jobType2">Ready to post</label>
+        </div>
       </div>
     </div>
 
     <div class="mb-3">
       <label class="form-label">ช่องทางการโพสต์ *</label>
       <div>
-        <input type="radio" name="postingChannel" value="Only Account ฝ่าย" required> Only Account ฝ่าย <br>
-        <input type="radio" name="postingChannel" value="Account ฝ่าย & co-post with mdkkusamo account" required> Account ฝ่าย & co-post with mdkkusamo account <br>
-        <input type="radio" name="postingChannel" value="Only mdkkusamo account" required> Only mdkkusamo account
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="postingChannel" id="postChan1" value="Only Account ฝ่าย" required>
+          <label class="form-check-label" for="postChan1">Only Account ฝ่าย</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="postingChannel" id="postChan2" value="Account ฝ่าย & co-post with mdkkusamo account" required>
+          <label class="form-check-label" for="postChan2">Account ฝ่าย & co-post with mdkkusamo account</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="postingChannel" id="postChan3" value="Only mdkkusamo account" required>
+          <label class="form-check-label" for="postChan3">Only mdkkusamo account</label>
+        </div>
       </div>
     </div>
 
     <div class="mb-3">
       <label class="form-label">Platform *</label>
-      <div>
-        <input type="checkbox" name="platform" value="Ig post"> Ig post
-        <input type="checkbox" name="platform" value="Ig story" class="ms-2"> Ig story
-        <input type="checkbox" name="platform" value="Facebook mdkkusamo" class="ms-2"> Facebook mdkkusamo
-        <input type="checkbox" name="platform" value="Line กลุ่มชั้นปี" class="ms-2"> Line กลุ่มชั้นปี
-        <input type="checkbox" name="platform" value="Other university" class="ms-2"> Other university
+      <div class="d-flex flex-wrap gap-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="platform" id="plat1" value="Ig post">
+          <label class="form-check-label" for="plat1">Ig post</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="platform" id="plat2" value="Ig story">
+          <label class="form-check-label" for="plat2">Ig story</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="platform" id="plat3" value="Facebook mdkkusamo">
+          <label class="form-check-label" for="plat3">Facebook mdkkusamo</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="platform" id="plat4" value="Line กลุ่มชั้นปี">
+          <label class="form-check-label" for="plat4">Line กลุ่มชั้นปี</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="platform" id="plat5" value="Other university">
+          <label class="form-check-label" for="plat5">Other university</label>
+        </div>
       </div>
     </div>
 
@@ -80,13 +112,14 @@
     <div class="row mb-3">
       <div class="col-md-7">
         <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ *</label>
-        <!-- Changed to datetime-local to allow specific time selection -->
         <input type="datetime-local" name="publishDate" id="publishDate" class="form-control" required>
         <small class="text-muted" id="dateHelper">ต้องไม่เร็วกว่า 15 วันนับจากวันนี้</small>
       </div>
       <div class="col-md-5 d-flex align-items-center mt-4">
-        <input type="checkbox" name="rushJob" value="งานด่วน" id="rushJob" class="form-check-input me-2">
-        <label for="rushJob" class="form-check-label text-danger fw-bold">งานด่วน (1 ครั้ง/เดือน/ฝ่าย)</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="rushJob" value="งานด่วน" id="rushJob">
+          <label class="form-check-label text-danger fw-bold" for="rushJob">งานด่วน (1 ครั้ง/เดือน/ฝ่าย)</label>
+        </div>
       </div>
     </div>
 
@@ -106,7 +139,12 @@
       <input type="url" name="largeFileLink" id="largeFileLink" class="form-control mt-2" placeholder="ลิงก์ไฟล์งาน (กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแนบโฟลเดอร์)">
     </div>
 
-    <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-4">Submit</button>
+    <div class="form-check form-switch mt-4 mb-2">
+      <input class="form-check-input" type="checkbox" id="silentNotify" name="silentNotify" value="true">
+      <label class="form-check-label text-muted" for="silentNotify">ส่งแจ้งเตือนเข้า Discord แบบ Silent (ไม่แจ้งเตือนเด้ง)</label>
+    </div>
+
+    <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-2">Submit</button>
   </form>
 </div>
 
@@ -116,7 +154,6 @@
   const rushCheckbox = document.getElementById('rushJob');
   const dateHelper = document.getElementById('dateHelper');
 
-  // Helper function to format Date object to "YYYY-MM-DDThh:mm"
   function formatDateTime(date) {
     const pad = n => n.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -126,30 +163,21 @@
     const now = new Date();
     
     if (isRush) {
-      // Rush Job: Remove the strict minimum limit, let them pick any future time.
-      // We set minimum to "now" just so they can't pick yesterday.
       dateInput.min = formatDateTime(now);
-      
-      // Give a default value of 1 hour from now for convenience
       const defaultRushTime = new Date(now.getTime() + 60 * 60 * 1000); 
       dateInput.value = formatDateTime(defaultRushTime);
-      
       dateHelper.innerText = "งานด่วน: สามารถเลือกเวลาได้ตามต้องการ";
       dateHelper.className = "text-danger";
     } else {
-      // Normal Job: Minimum 15 days from now
       const minDate = new Date(now);
       minDate.setDate(minDate.getDate() + 15);
-      
       dateInput.min = formatDateTime(minDate);
-      dateInput.value = ""; // Clear selection so they must pick
-      
+      dateInput.value = ""; 
       dateHelper.innerText = "ต้องไม่เร็วกว่า 15 วันนับจากวันนี้";
       dateHelper.className = "text-muted";
     }
   }
 
-  // Initialize default rules
   applyDateRules(false);
 
   rushCheckbox.addEventListener('change', function() {
@@ -183,14 +211,14 @@
     // Gather Form Data
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
-    data.platform = formData.getAll('platform'); // Get multiple checkboxes
+    data.platform = formData.getAll('platform'); 
 
     // Function to POST data to Google
     const sendData = async (payload) => {
       try {
         const response = await fetch(GAS_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Bypasses CORS preflight
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
         
@@ -201,7 +229,7 @@
           alertBox.classList.add('alert-success');
           alertBox.innerText = result.message;
           document.getElementById('prForm').reset();
-          applyDateRules(false); // reset date logic
+          applyDateRules(false); 
         } else {
           alertBox.classList.add('alert-danger');
           alertBox.innerText = result.message;
@@ -230,7 +258,6 @@
       
       reader.readAsDataURL(file); 
     } else {
-      // No file attached, just send text
       sendData(data); 
     }
   });
