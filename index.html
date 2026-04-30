@@ -57,41 +57,53 @@
     </div>
 
     <div class="mb-3">
+      <label class="form-label">ช่องทางการโพสต์ *</label>
+      <div>
+        <input type="radio" name="postingChannel" value="Only Account ฝ่าย" required> Only Account ฝ่าย <br>
+        <input type="radio" name="postingChannel" value="Account ฝ่าย & co-post with mdkkusamo account" required> Account ฝ่าย & co-post with mdkkusamo account <br>
+        <input type="radio" name="postingChannel" value="Only mdkkusamo account" required> Only mdkkusamo account
+      </div>
+    </div>
+
+    <div class="mb-3">
       <label class="form-label">Platform *</label>
       <div>
         <input type="checkbox" name="platform" value="Ig post"> Ig post
         <input type="checkbox" name="platform" value="Ig story" class="ms-2"> Ig story
-        <input type="checkbox" name="platform" value="Facebook mdkkusamo" class="ms-2"> Facebook
+        <input type="checkbox" name="platform" value="Facebook mdkkusamo" class="ms-2"> Facebook mdkkusamo
         <input type="checkbox" name="platform" value="Line กลุ่มชั้นปี" class="ms-2"> Line กลุ่มชั้นปี
+        <input type="checkbox" name="platform" value="Other university" class="ms-2"> Other university
       </div>
     </div>
 
     <h4 class="section-title">กำหนดการ</h4>
     <div class="row mb-3">
-      <div class="col-md-6">
-        <label class="form-label">วันที่ต้องการลงประชาสัมพันธ์ *</label>
-        <input type="date" name="publishDate" id="publishDate" class="form-control" required>
+      <div class="col-md-7">
+        <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ *</label>
+        <!-- Changed to datetime-local to allow specific time selection -->
+        <input type="datetime-local" name="publishDate" id="publishDate" class="form-control" required>
         <small class="text-muted" id="dateHelper">ต้องไม่เร็วกว่า 15 วันนับจากวันนี้</small>
       </div>
-      <div class="col-md-6 d-flex align-items-center mt-4">
+      <div class="col-md-5 d-flex align-items-center mt-4">
         <input type="checkbox" name="rushJob" value="งานด่วน" id="rushJob" class="form-check-input me-2">
-        <label for="rushJob" class="form-check-label text-danger fw-bold">งานด่วน (ใช้ได้ 1 ครั้ง/เดือน/ฝ่าย)</label>
+        <label for="rushJob" class="form-check-label text-danger fw-bold">งานด่วน (1 ครั้ง/เดือน/ฝ่าย)</label>
       </div>
     </div>
 
     <h4 class="section-title">เนื้อหาและไฟล์แนบ</h4>
     <div class="mb-3">
       <label class="form-label">Brief</label>
-      <textarea name="brief" class="form-control" rows="3" placeholder="แนวทางที่ต้องการ"></textarea>
+      <textarea name="brief" class="form-control" rows="3" placeholder="บรีฟการออกแบบ หรือแนวทางที่ต้องการ"></textarea>
     </div>
     <div class="mb-3">
       <label class="form-label">Caption</label>
-      <textarea name="caption" class="form-control" rows="3"></textarea>
+      <textarea name="caption" class="form-control" rows="3" placeholder="Caption / ข้อความที่ฝากลง"></textarea>
     </div>
     <div class="mb-3">
       <label class="form-label">อัปโหลดไฟล์ (สูงสุด 35MB)</label>
-      <input type="file" name="fileUpload" id="fileUpload" class="form-control">
-      <small class="text-muted">หากไฟล์ใหญ่กว่า 35MB กรุณาแปะลิงก์ Google Drive ในช่อง Brief แทน</small>
+      <input type="file" name="fileUpload" id="fileUpload" class="form-control mb-2">
+      <small class="text-muted">หากไฟล์ใหญ่กว่า 35MB กรุณาแปะลิงก์ Google Drive ในช่องด้านล่างแทน</small>
+      <input type="url" name="largeFileLink" id="largeFileLink" class="form-control mt-2" placeholder="ลิงก์ไฟล์งาน (กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแนบโฟลเดอร์)">
     </div>
 
     <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-4">Submit</button>
@@ -99,29 +111,49 @@
 </div>
 
 <script>
-  // --- Date Logic (15 days vs 24 hours for rush job) ---
+  // --- Date & Time Logic ---
   const dateInput = document.getElementById('publishDate');
   const rushCheckbox = document.getElementById('rushJob');
   const dateHelper = document.getElementById('dateHelper');
 
-  function setMinDate(daysToAdd) {
-    const minDate = new Date();
-    minDate.setDate(minDate.getDate() + daysToAdd);
-    dateInput.min = minDate.toISOString().split('T')[0];
+  // Helper function to format Date object to "YYYY-MM-DDThh:mm"
+  function formatDateTime(date) {
+    const pad = n => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
-  setMinDate(15); // Default minimum
-
-  rushCheckbox.addEventListener('change', function() {
-    if(this.checked) {
-      setMinDate(1); 
-      dateHelper.innerText = "งานด่วน: ต้องไม่เร็วกว่า 24 ชั่วโมง";
+  function applyDateRules(isRush) {
+    const now = new Date();
+    
+    if (isRush) {
+      // Rush Job: Remove the strict minimum limit, let them pick any future time.
+      // We set minimum to "now" just so they can't pick yesterday.
+      dateInput.min = formatDateTime(now);
+      
+      // Give a default value of 1 hour from now for convenience
+      const defaultRushTime = new Date(now.getTime() + 60 * 60 * 1000); 
+      dateInput.value = formatDateTime(defaultRushTime);
+      
+      dateHelper.innerText = "งานด่วน: สามารถเลือกเวลาได้ตามต้องการ";
       dateHelper.className = "text-danger";
     } else {
-      setMinDate(15);
+      // Normal Job: Minimum 15 days from now
+      const minDate = new Date(now);
+      minDate.setDate(minDate.getDate() + 15);
+      
+      dateInput.min = formatDateTime(minDate);
+      dateInput.value = ""; // Clear selection so they must pick
+      
       dateHelper.innerText = "ต้องไม่เร็วกว่า 15 วันนับจากวันนี้";
       dateHelper.className = "text-muted";
     }
+  }
+
+  // Initialize default rules
+  applyDateRules(false);
+
+  rushCheckbox.addEventListener('change', function() {
+    applyDateRules(this.checked);
   });
 
   // --- Form Submission Logic ---
@@ -138,11 +170,11 @@
     btn.innerText = 'กำลังส่งข้อมูล... (หากมีไฟล์อาจใช้เวลาสักครู่)';
     alertBox.className = 'alert d-none';
 
-    // File Size Check (35MB limit to prevent Google API crash)
+    // File Size Check (35MB limit)
     if (fileInput.files.length > 0 && fileInput.files[0].size > 35 * 1024 * 1024) {
       alertBox.classList.remove('d-none');
       alertBox.classList.add('alert-danger');
-      alertBox.innerText = 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB) กรุณาแนบเป็นลิงก์ Google Drive ในช่อง Brief แทน';
+      alertBox.innerText = 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB) กรุณาแนบเป็นลิงก์ Google Drive ในช่องด้านล่างแทน';
       btn.disabled = false;
       btn.innerText = 'Submit';
       return;
@@ -151,15 +183,14 @@
     // Gather Form Data
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
-    data.platform = formData.getAll('platform');
+    data.platform = formData.getAll('platform'); // Get multiple checkboxes
 
     // Function to POST data to Google
     const sendData = async (payload) => {
       try {
         const response = await fetch(GAS_URL, {
           method: 'POST',
-          // text/plain prevents strict CORS preflight blocks from Google
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Bypasses CORS preflight
           body: JSON.stringify(payload)
         });
         
@@ -170,7 +201,7 @@
           alertBox.classList.add('alert-success');
           alertBox.innerText = result.message;
           document.getElementById('prForm').reset();
-          setMinDate(15);
+          applyDateRules(false); // reset date logic
         } else {
           alertBox.classList.add('alert-danger');
           alertBox.innerText = result.message;
@@ -185,7 +216,7 @@
       }
     };
 
-    // Convert file to Base64 (if file exists) then send
+    // Convert file to Base64 (if attached) and send
     if (fileInput.files.length > 0) {
       const file = fileInput.files[0];
       const reader = new FileReader();
