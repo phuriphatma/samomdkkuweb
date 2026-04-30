@@ -1,29 +1,161 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MDKKU SAMO - PR Form</title>
+  
+  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Fonts: Prompt -->
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  
   <style>
-    body { background-color: #f7fafc; padding: 2rem; font-family: sans-serif; }
-    .form-container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 800px; margin: auto; }
-    .section-title { margin-top: 1.5rem; margin-bottom: 1rem; color: #2B6CB0; border-bottom: 2px solid #EDF2F7; padding-bottom: 5px; }
-    /* Makes pointers clear on clickable labels */
-    .form-check-label { cursor: pointer; } 
+    body { 
+      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      padding: 2rem 1rem; 
+      font-family: 'Prompt', sans-serif;
+      min-height: 100vh;
+      color: #334155;
+    }
+    .form-container { 
+      background: #ffffff; 
+      padding: 2.5rem; 
+      border-radius: 20px; 
+      box-shadow: 0 20px 40px rgba(0,0,0,0.05); 
+      max-width: 800px; 
+      margin: auto; 
+    }
+    .page-header {
+      color: #1e3a8a;
+      font-weight: 600;
+    }
+    .section-title { 
+      margin-top: 2rem; 
+      margin-bottom: 1.25rem; 
+      color: #2563eb; 
+      font-size: 1.25rem;
+      font-weight: 600;
+      border-bottom: 2px solid #eff6ff; 
+      padding-bottom: 10px; 
+    }
+    .form-label {
+      font-weight: 500;
+      color: #475569;
+      margin-bottom: 0.5rem;
+    }
+    .form-control, .form-select {
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      border: 1.5px solid #e2e8f0;
+      background-color: #f8fafc;
+      transition: all 0.2s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #3b82f6;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* -----------------------------------------
+       Modern Radio Cards (แทนที่ Radio แบบเดิม)
+    ------------------------------------------ */
+    .radio-card-label {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 1rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      background-color: #ffffff;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .radio-card-label:hover {
+      border-color: #cbd5e1;
+      background-color: #f8fafc;
+    }
+    .btn-check:checked + .radio-card-label {
+      border-color: #3b82f6;
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+    .btn-check:checked + .radio-card-label .check-icon {
+      color: #3b82f6;
+      opacity: 1;
+      transform: scale(1);
+    }
+    .check-icon {
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.2s ease;
+    }
+
+    /* -----------------------------------------
+       Modern Pill Tags (แทนที่ Checkbox แบบเดิม)
+    ------------------------------------------ */
+    .pill-checkbox-label {
+      border-radius: 50px;
+      padding: 0.5rem 1.2rem;
+      border: 1.5px solid #e2e8f0;
+      color: #64748b;
+      font-weight: 400;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: #ffffff;
+    }
+    .pill-checkbox-label:hover {
+      background-color: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .btn-check:checked + .pill-checkbox-label.ig {
+      background-color: #fff1f2; border-color: #e11d48; color: #e11d48;
+    }
+    .btn-check:checked + .pill-checkbox-label.fb {
+      background-color: #eff6ff; border-color: #2563eb; color: #2563eb;
+    }
+    .btn-check:checked + .pill-checkbox-label.line {
+      background-color: #f0fdf4; border-color: #16a34a; color: #16a34a;
+    }
+    .btn-check:checked + .pill-checkbox-label.other {
+      background-color: #f8fafc; border-color: #475569; color: #475569;
+    }
+
+    /* ตกแต่งปุ่ม Submit */
+    .btn-submit {
+      border-radius: 10px;
+      padding: 0.8rem;
+      font-size: 1.1rem;
+      font-weight: 500;
+      box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+      transition: all 0.3s ease;
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 15px rgba(37, 99, 235, 0.3);
+    }
   </style>
 </head>
 <body>
 
 <div class="form-container">
-  <h2 class="text-center mb-4">สั่งงานและฝากประชาสัมพันธ์</h2>
-  <div id="alertBox" class="alert d-none"></div>
+  <div class="text-center mb-5">
+    <h2 class="page-header"><i class="bi bi-megaphone-fill me-2 text-primary"></i>MDKKU PR Form</h2>
+    <p class="text-muted">ระบบสั่งงานและฝากประชาสัมพันธ์ สโมสรนักศึกษา</p>
+  </div>
+  
+  <div id="alertBox" class="alert d-none shadow-sm"></div>
 
   <form id="prForm">
-    <h4 class="section-title">ข้อมูลผู้ส่งงาน</h4>
-    <div class="row mb-3">
+    <!-- ข้อมูลผู้ส่งงาน -->
+    <h4 class="section-title"><i class="bi bi-person-badge me-2"></i>ข้อมูลผู้ส่งงาน</h4>
+    <div class="row mb-4 g-3">
       <div class="col-md-6">
-        <label class="form-label">ฝ่าย (Department) *</label>
+        <label class="form-label">ฝ่าย (Department) <span class="text-danger">*</span></label>
         <select name="department" class="form-select" required>
           <option value="" disabled selected>เลือกฝ่ายของคุณ</option>
           <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
@@ -39,112 +171,165 @@
         </select>
       </div>
       <div class="col-md-6">
-        <label class="form-label">ช่องทางติดต่อ (Ig/Line) *</label>
-        <input type="text" name="contact" class="form-control" placeholder="เช่น Ig: pukanpts" required>
+        <label class="form-label">ช่องทางติดต่อ (IG/Line) <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-chat-dots"></i></span>
+          <input type="text" name="contact" class="form-control border-start-0 ps-0" placeholder="เช่น Ig: pukanpts" required>
+        </div>
       </div>
     </div>
 
-    <h4 class="section-title">รายละเอียดงาน</h4>
-    <div class="mb-3">
-      <label class="form-label">ชื่องาน / Content *</label>
-      <input type="text" name="content" class="form-control" required>
+    <!-- รายละเอียดงาน -->
+    <h4 class="section-title"><i class="bi bi-card-checklist me-2"></i>รายละเอียดงาน</h4>
+    <div class="mb-4">
+      <label class="form-label">ชื่องาน / Content <span class="text-danger">*</span></label>
+      <input type="text" name="content" class="form-control" placeholder="ระบุชื่องานที่ต้องการโปรโมท" required>
     </div>
     
+    <div class="row mb-4 g-4">
+      <!-- Modern Radio Cards: Job Type -->
+      <div class="col-md-6">
+        <label class="form-label">รูปแบบงาน (Job Type) <span class="text-danger">*</span></label>
+        <div class="d-grid gap-2">
+          <div>
+            <input class="btn-check" type="radio" name="jobType" id="jobType1" value="New content" required>
+            <label class="radio-card-label" for="jobType1">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-magic me-2"></i>New content</span>
+                <i class="bi bi-check-circle-fill check-icon fs-5"></i>
+              </div>
+              <small class="text-muted mt-1 d-block">ให้ทีม PR ช่วยสร้างสรรค์สื่อให้ใหม่</small>
+            </label>
+          </div>
+          <div>
+            <input class="btn-check" type="radio" name="jobType" id="jobType2" value="Ready to post" required>
+            <label class="radio-card-label" for="jobType2">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-image me-2"></i>Ready to post</span>
+                <i class="bi bi-check-circle-fill check-icon fs-5"></i>
+              </div>
+              <small class="text-muted mt-1 d-block">มีรูปภาพ/สื่อพร้อมสำหรับลงโพสต์แล้ว</small>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modern Radio Cards: Posting Channel -->
+      <div class="col-md-6">
+        <label class="form-label">ช่องทางการโพสต์ <span class="text-danger">*</span></label>
+        <div class="d-grid gap-2">
+          <div>
+            <input class="btn-check" type="radio" name="postingChannel" id="postChan1" value="Only Account ฝ่าย" required>
+            <label class="radio-card-label py-2" for="postChan1">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-person-fill me-2"></i>Account ฝ่ายเท่านั้น</span>
+                <i class="bi bi-check-circle-fill check-icon fs-5"></i>
+              </div>
+            </label>
+          </div>
+          <div>
+            <input class="btn-check" type="radio" name="postingChannel" id="postChan2" value="Account ฝ่าย & co-post with mdkkusamo account" required>
+            <label class="radio-card-label py-2" for="postChan2">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people-fill me-2"></i>Account ฝ่าย & Co-post กับ SAMO</span>
+                <i class="bi bi-check-circle-fill check-icon fs-5"></i>
+              </div>
+            </label>
+          </div>
+          <div>
+            <input class="btn-check" type="radio" name="postingChannel" id="postChan3" value="Only mdkkusamo account" required>
+            <label class="radio-card-label py-2" for="postChan3">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-megaphone-fill me-2"></i>Account MDKKU SAMO เท่านั้น</span>
+                <i class="bi bi-check-circle-fill check-icon fs-5"></i>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modern Checkbox Pills: Platform -->
+    <div class="mb-4">
+      <label class="form-label">แพลตฟอร์ม (เลือกได้มากกว่า 1) <span class="text-danger">*</span></label>
+      <div class="d-flex flex-wrap gap-2">
+        <input type="checkbox" class="btn-check" name="platform" id="plat1" value="Ig post">
+        <label class="pill-checkbox-label ig shadow-sm" for="plat1"><i class="bi bi-instagram me-1"></i> IG Post</label>
+        
+        <input type="checkbox" class="btn-check" name="platform" id="plat2" value="Ig story">
+        <label class="pill-checkbox-label ig shadow-sm" for="plat2"><i class="bi bi-instagram me-1"></i> IG Story</label>
+        
+        <input type="checkbox" class="btn-check" name="platform" id="plat3" value="Facebook mdkkusamo">
+        <label class="pill-checkbox-label fb shadow-sm" for="plat3"><i class="bi bi-facebook me-1"></i> Facebook</label>
+        
+        <input type="checkbox" class="btn-check" name="platform" id="plat4" value="Line กลุ่มชั้นปี">
+        <label class="pill-checkbox-label line shadow-sm" for="plat4"><i class="bi bi-line me-1"></i> Line กลุ่มชั้นปี</label>
+        
+        <input type="checkbox" class="btn-check" name="platform" id="plat5" value="Other university">
+        <label class="pill-checkbox-label other shadow-sm" for="plat5"><i class="bi bi-globe me-1"></i> Other university</label>
+      </div>
+    </div>
+
+    <!-- กำหนดการ -->
+    <h4 class="section-title"><i class="bi bi-calendar-event me-2"></i>กำหนดการ</h4>
+    <div class="row mb-4 p-4 rounded-4 mx-0" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+      <div class="col-md-7 px-0 pe-md-3">
+        <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ <span class="text-danger">*</span></label>
+        <input type="datetime-local" name="publishDate" id="publishDate" class="form-control bg-white" required>
+        <small class="text-muted mt-2 d-block" id="dateHelper"><i class="bi bi-info-circle me-1"></i>ต้องไม่เร็วกว่า 15 วันนับจากวันนี้</small>
+      </div>
+      <div class="col-md-5 px-0 d-flex align-items-center mt-3 mt-md-0 border-start ps-md-4">
+        <div class="form-check form-switch fs-5 mb-0">
+          <input class="form-check-input shadow-sm" type="checkbox" name="rushJob" value="งานด่วน" id="rushJob" style="cursor: pointer;">
+          <label class="form-check-label text-danger fw-bold fs-6 mt-1 ms-2" for="rushJob" style="cursor: pointer;">
+            🔥 แจ้งงานด่วน 
+            <br><small class="text-muted fw-normal fs-6">(โควตา 1 ครั้ง/เดือน/ฝ่าย)</small>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- เนื้อหาและไฟล์แนบ -->
+    <h4 class="section-title"><i class="bi bi-folder2-open me-2"></i>เนื้อหาและไฟล์แนบ</h4>
     <div class="mb-3">
-      <label class="form-label">Job Type *</label>
+      <label class="form-label">Brief (บรีฟการออกแบบ)</label>
+      <textarea name="brief" class="form-control" rows="2" placeholder="อธิบายแนวทาง โทนสี หรือ Mood & Tone ที่ต้องการ"></textarea>
+    </div>
+    <div class="mb-4">
+      <label class="form-label">Caption (ข้อความแคปชั่น)</label>
+      <textarea name="caption" class="form-control" rows="3" placeholder="ข้อความที่ต้องการให้ฝากโพสต์ พร้อมแฮชแท็ก (ถ้ามี)"></textarea>
+    </div>
+    
+    <div class="p-4 rounded-4 mb-4" style="background-color: #f0fdfa; border: 1.5px dashed #14b8a6;">
+      <label class="form-label fw-bold text-teal-700" style="color: #0f766e;"><i class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์งาน (สูงสุด 35MB)</label>
+      <input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3">
+      
       <div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="jobType" id="jobType1" value="New content" required>
-          <label class="form-check-label" for="jobType1">New content (ให้ทีม PR สร้างสื่อ)</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="jobType" id="jobType2" value="Ready to post" required>
-          <label class="form-check-label" for="jobType2">Ready to post</label>
+        <label class="form-label mb-1 text-teal-700" style="color: #0f766e;">หรือแปะลิงก์ Google Drive</label>
+        <small class="text-muted d-block mb-2">กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแชร์โฟลเดอร์</small>
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-link-45deg fs-5"></i></span>
+          <input type="url" name="largeFileLink" id="largeFileLink" class="form-control border-start-0 ps-0 bg-white" placeholder="https://drive.google.com/...">
         </div>
       </div>
     </div>
 
-    <div class="mb-3">
-      <label class="form-label">ช่องทางการโพสต์ *</label>
-      <div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="postingChannel" id="postChan1" value="Only Account ฝ่าย" required>
-          <label class="form-check-label" for="postChan1">Only Account ฝ่าย</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="postingChannel" id="postChan2" value="Account ฝ่าย & co-post with mdkkusamo account" required>
-          <label class="form-check-label" for="postChan2">Account ฝ่าย & co-post with mdkkusamo account</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="postingChannel" id="postChan3" value="Only mdkkusamo account" required>
-          <label class="form-check-label" for="postChan3">Only mdkkusamo account</label>
-        </div>
-      </div>
+    <!-- โหมดเงียบ -->
+    <div class="form-check form-switch mt-4 mb-4 p-3 rounded-3" style="background-color: #f1f5f9;">
+      <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify" name="silentNotify" value="true" style="cursor: pointer;">
+      <label class="form-check-label text-secondary mt-1" for="silentNotify" style="cursor: pointer;">
+        <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent (ไม่เด้งเตือนเสียงดังรบกวน)
+      </label>
     </div>
 
-    <div class="mb-3">
-      <label class="form-label">Platform *</label>
-      <div class="d-flex flex-wrap gap-3">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="platform" id="plat1" value="Ig post">
-          <label class="form-check-label" for="plat1">Ig post</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="platform" id="plat2" value="Ig story">
-          <label class="form-check-label" for="plat2">Ig story</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="platform" id="plat3" value="Facebook mdkkusamo">
-          <label class="form-check-label" for="plat3">Facebook mdkkusamo</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="platform" id="plat4" value="Line กลุ่มชั้นปี">
-          <label class="form-check-label" for="plat4">Line กลุ่มชั้นปี</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="platform" id="plat5" value="Other university">
-          <label class="form-check-label" for="plat5">Other university</label>
-        </div>
-      </div>
-    </div>
-
-    <h4 class="section-title">กำหนดการ</h4>
-    <div class="row mb-3">
-      <div class="col-md-7">
-        <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ *</label>
-        <input type="datetime-local" name="publishDate" id="publishDate" class="form-control" required>
-        <small class="text-muted" id="dateHelper">ต้องไม่เร็วกว่า 15 วันนับจากวันนี้</small>
-      </div>
-      <div class="col-md-5 d-flex align-items-center mt-4">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="rushJob" value="งานด่วน" id="rushJob">
-          <label class="form-check-label text-danger fw-bold" for="rushJob">งานด่วน (1 ครั้ง/เดือน/ฝ่าย)</label>
-        </div>
-      </div>
-    </div>
-
-    <h4 class="section-title">เนื้อหาและไฟล์แนบ</h4>
-    <div class="mb-3">
-      <label class="form-label">Brief</label>
-      <textarea name="brief" class="form-control" rows="3" placeholder="บรีฟการออกแบบ หรือแนวทางที่ต้องการ"></textarea>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Caption</label>
-      <textarea name="caption" class="form-control" rows="3" placeholder="Caption / ข้อความที่ฝากลง"></textarea>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">อัปโหลดไฟล์ (สูงสุด 35MB)</label>
-      <input type="file" name="fileUpload" id="fileUpload" class="form-control mb-2">
-      <small class="text-muted">หากไฟล์ใหญ่กว่า 35MB กรุณาแปะลิงก์ Google Drive ในช่องด้านล่างแทน</small>
-      <input type="url" name="largeFileLink" id="largeFileLink" class="form-control mt-2" placeholder="ลิงก์ไฟล์งาน (กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแนบโฟลเดอร์)">
-    </div>
-
-    <div class="form-check form-switch mt-4 mb-2">
-      <input class="form-check-input" type="checkbox" id="silentNotify" name="silentNotify" value="true">
-      <label class="form-check-label text-muted" for="silentNotify">ส่งแจ้งเตือนเข้า Discord แบบ Silent (ไม่แจ้งเตือนเด้ง)</label>
-    </div>
-
-    <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-2">Submit</button>
+    <!-- ปุ่ม Submit -->
+    <button type="submit" id="submitBtn" class="btn btn-primary btn-submit w-100">
+      <span id="btnText"><i class="bi bi-send-fill me-2"></i>ยืนยันการส่งงาน</span>
+      <span id="btnLoading" class="d-none">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        กำลังอัปโหลดและส่งข้อมูล...
+      </span>
+    </button>
   </form>
 </div>
 
@@ -166,15 +351,15 @@
       dateInput.min = formatDateTime(now);
       const defaultRushTime = new Date(now.getTime() + 60 * 60 * 1000); 
       dateInput.value = formatDateTime(defaultRushTime);
-      dateHelper.innerText = "งานด่วน: สามารถเลือกเวลาได้ตามต้องการ";
-      dateHelper.className = "text-danger";
+      dateHelper.innerHTML = "<i class='bi bi-fire me-1'></i> งานด่วน: เลือกเวลาได้ตามต้องการ";
+      dateHelper.className = "text-danger mt-2 d-block fw-bold";
     } else {
       const minDate = new Date(now);
       minDate.setDate(minDate.getDate() + 15);
       dateInput.min = formatDateTime(minDate);
       dateInput.value = ""; 
-      dateHelper.innerText = "ต้องไม่เร็วกว่า 15 วันนับจากวันนี้";
-      dateHelper.className = "text-muted";
+      dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> ต้องไม่เร็วกว่า 15 วันนับจากวันนี้";
+      dateHelper.className = "text-muted mt-2 d-block";
     }
   }
 
@@ -188,6 +373,8 @@
   document.getElementById('prForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoading = document.getElementById('btnLoading');
     const alertBox = document.getElementById('alertBox');
     const fileInput = document.getElementById('fileUpload');
     
@@ -195,25 +382,24 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGfg9RQIJ0B4KK1qM3owtfs9HysAQkar_BPOxGAgAgwNQERspxENm6EeO7xDti9-E/exec'; 
     
     btn.disabled = true;
-    btn.innerText = 'กำลังส่งข้อมูล... (หากมีไฟล์อาจใช้เวลาสักครู่)';
-    alertBox.className = 'alert d-none';
+    btnText.classList.add('d-none');
+    btnLoading.classList.remove('d-none');
+    alertBox.className = 'alert d-none shadow-sm';
 
-    // File Size Check (35MB limit)
     if (fileInput.files.length > 0 && fileInput.files[0].size > 35 * 1024 * 1024) {
       alertBox.classList.remove('d-none');
       alertBox.classList.add('alert-danger');
-      alertBox.innerText = 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB) กรุณาแนบเป็นลิงก์ Google Drive ในช่องด้านล่างแทน';
+      alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB) กรุณาแปะเป็นลิงก์ Google Drive แทนครับ';
       btn.disabled = false;
-      btn.innerText = 'Submit';
+      btnText.classList.remove('d-none');
+      btnLoading.classList.add('d-none');
       return;
     }
 
-    // Gather Form Data
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
     data.platform = formData.getAll('platform'); 
 
-    // Function to POST data to Google
     const sendData = async (payload) => {
       try {
         const response = await fetch(GAS_URL, {
@@ -227,35 +413,34 @@
         
         if(result.success) {
           alertBox.classList.add('alert-success');
-          alertBox.innerText = result.message;
+          alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ${result.message}`;
           document.getElementById('prForm').reset();
           applyDateRules(false); 
         } else {
           alertBox.classList.add('alert-danger');
-          alertBox.innerText = result.message;
+          alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> ${result.message}`;
         }
       } catch (error) {
         alertBox.classList.remove('d-none');
         alertBox.classList.add('alert-danger');
-        alertBox.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่';
+        alertBox.innerHTML = '<i class="bi bi-wifi-off me-2 fs-5"></i> เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย กรุณาลองใหม่อีกครั้ง';
       } finally {
         btn.disabled = false;
-        btn.innerText = 'Submit';
+        btnText.classList.remove('d-none');
+        btnLoading.classList.add('d-none');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
 
-    // Convert file to Base64 (if attached) and send
     if (fileInput.files.length > 0) {
       const file = fileInput.files[0];
       const reader = new FileReader();
-      
       reader.onload = function(event) {
         data.fileData = event.target.result; 
         data.fileName = file.name;
         data.mimeType = file.type;
         sendData(data); 
       };
-      
       reader.readAsDataURL(file); 
     } else {
       sendData(data); 
