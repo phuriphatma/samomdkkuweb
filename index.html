@@ -397,13 +397,6 @@
           <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>หมายเหตุ PR Review:</strong> PR สามารถ <u>Accept, Negotiate แก้วัน หรือ Reject ให้เป็นเวลาปกติได้</u> หลังจากพูดคุยเจรจากันครับ
         </div>
         <div class="row g-3">
-          <div class="col-md-5">
-            <label class="form-label">ขอเวลาดำเนินการกี่วัน? <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <input type="number" name="requestedDays" id="requestedDays" class="form-control bg-white" placeholder="เช่น 3, 5" min="1">
-              <span class="input-group-text bg-white">วัน</span>
-            </div>
-          </div>
           <div class="col-md-12">
             <label class="form-label">เหตุผลความจำเป็นที่ต้องการงานด่วน <span class="text-danger">*</span></label>
             <textarea name="rushReason" id="rushReason" class="form-control bg-white" rows="2" placeholder="อธิบายเหตุผลให้ทีม PR พิจารณา..."></textarea>
@@ -470,7 +463,6 @@
   const dateInput = document.getElementById('publishDate');
   const dateHelper = document.getElementById('dateHelper');
   const prReviewSection = document.getElementById('prReviewSection');
-  const requestedDays = document.getElementById('requestedDays');
   const rushReason = document.getElementById('rushReason');
 
   // Contact Field Elements
@@ -484,6 +476,9 @@
   const projectPostingFormat = document.getElementById('projectPostingFormat');
   const copostWithSection = document.getElementById('copostWithSection');
   const projectFormatRadios = document.getElementsByName('projectFormat');
+
+  // State
+  let lastJobType = '';
 
   // --- Dynamic Form Visibility Logic ---
   function updateFormVisibility() {
@@ -581,14 +576,19 @@
     
     let isNewContent = false;
     const checkedJobType = document.querySelector('input[name="jobType"]:checked');
-    if (checkedJobType && checkedJobType.value === 'New content') {
+    let currentJobType = checkedJobType ? checkedJobType.value : '';
+    
+    // เช็คว่าผู้ใช้กดเปลี่ยน Job Type หรือไม่
+    let jobTypeChanged = currentJobType !== lastJobType && lastJobType !== '';
+    lastJobType = currentJobType;
+
+    if (currentJobType === 'New content') {
       isNewContent = true;
     }
 
     if (isRush) {
       // โหมดขอพิจารณาด่วน ปลดล็อกเวลา บังคับกรอกเหตุผล
       prReviewSection.classList.remove('d-none');
-      requestedDays.setAttribute('required', 'required');
       rushReason.setAttribute('required', 'required');
       
       dateInput.min = formatDateTime(now);
@@ -597,9 +597,7 @@
     } else {
       // โหมดเวลาปกติตามรูปแบบงาน
       prReviewSection.classList.add('d-none');
-      requestedDays.removeAttribute('required');
       rushReason.removeAttribute('required');
-      requestedDays.value = '';
       rushReason.value = '';
 
       let minDate = new Date(now);
@@ -623,8 +621,8 @@
       
       dateInput.min = formatDateTime(minDate);
       
-      // Auto-fill วันเริ่มต้นตามเงื่อนไข (ถ้ายังไม่กรอก หรือกรอกเวลาน้อยกว่าขั้นต่ำ)
-      if (!dateInput.value || new Date(dateInput.value) < minDate) {
+      // Auto-fill วันเริ่มต้น ถ้ายังไม่กรอก, ถ้าน้อยกว่าขั้นต่ำ หรือ *ถ้ามีการเปลี่ยนรูปแบบงาน (Job Type)*
+      if (jobTypeChanged || !dateInput.value || new Date(dateInput.value) < minDate) {
         if (checkedJobType) {
             dateInput.value = formatDateTime(defaultDate);
         } else {
