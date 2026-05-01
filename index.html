@@ -603,12 +603,26 @@
       isNewContent = true;
     }
 
+    let defaultDate = new Date(now);
+    let normalMinDate = new Date(now);
+    
+    if (isNewContent) {
+      defaultDate.setDate(defaultDate.getDate() + 15);
+      normalMinDate.setDate(normalMinDate.getDate() + 15);
+    } else if (currentJobType === 'Ready to post') {
+      defaultDate.setDate(defaultDate.getDate() + 1);
+      normalMinDate.setDate(normalMinDate.getDate() + 1);
+    }
+
+    let actualMinDate = new Date(now);
+
     if (isRush) {
       // โหมดขอพิจารณาด่วน ปลดล็อกเวลา บังคับกรอกเหตุผล
       prReviewSection.classList.remove('d-none');
       rushReason.setAttribute('required', 'required');
       
-      dateInput.min = formatDateTime(now);
+      actualMinDate = new Date(now);
+      dateInput.min = formatDateTime(actualMinDate);
       dateHelper.innerHTML = "<i class='bi bi-rocket-takeoff me-1'></i> Submit for PR Review: เลือกระบุวันที่ต้องการได้เลย";
       dateHelper.className = "text-danger mt-2 d-block fw-bold";
     } else {
@@ -618,35 +632,28 @@
       rushReason.value = '';
       rushReason.style.height = 'auto'; // Reset ความสูงกรณีซ่อนไปแล้ว
 
-      let minDate = new Date(now);
-      let defaultDate = new Date(now);
+      actualMinDate = new Date(normalMinDate);
+      dateInput.min = formatDateTime(actualMinDate);
       
       if (isNewContent) {
-        minDate.setDate(minDate.getDate() + 15);
-        defaultDate.setDate(defaultDate.getDate() + 15);
         dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +15 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้)";
         dateHelper.className = "text-pink-custom mt-2 d-block fw-bold";
-      } 
-      else if (checkedJobType && checkedJobType.value === 'Ready to post') {
-        minDate.setDate(minDate.getDate() + 1);
-        defaultDate.setDate(defaultDate.getDate() + 1);
+      } else if (currentJobType === 'Ready to post') {
         dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +1 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้)";
         dateHelper.className = "text-pink-custom mt-2 d-block fw-bold";
       } else {
         dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> กรุณาเลือกรูปแบบงานก่อน";
         dateHelper.className = "text-muted mt-2 d-block";
       }
-      
-      dateInput.min = formatDateTime(minDate);
-      
-      // Auto-fill วันเริ่มต้น ถ้ายังไม่กรอก, ถ้าน้อยกว่าขั้นต่ำ หรือ *ถ้ามีการเปลี่ยนรูปแบบงาน (Job Type)*
-      if (jobTypeChanged || !dateInput.value || new Date(dateInput.value) < minDate) {
-        if (checkedJobType) {
-            dateInput.value = formatDateTime(defaultDate);
-        } else {
-            dateInput.value = "";
-        }
+    }
+    
+    // Auto-fill วันเริ่มต้น (ปรับให้ใช้งานได้ทั้งสองโหมด)
+    if (checkedJobType) {
+      if (jobTypeChanged || !dateInput.value || new Date(dateInput.value) < actualMinDate) {
+        dateInput.value = formatDateTime(defaultDate);
       }
+    } else {
+      dateInput.value = "";
     }
   }
 
