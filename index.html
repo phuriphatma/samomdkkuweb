@@ -661,7 +661,10 @@
     const contentHtml = creatorQuill.root.innerHTML;
     const contentText = creatorQuill.getText().trim();
     const alertBox = document.getElementById('creatorAlert');
+    
+    // ดึง Element ของปุ่ม และ Element ของข้อความในปุ่มแยกกัน
     const publishBtn = document.querySelector('button[onclick="publishAnnouncement()"]');
+    const publishBtnText = document.getElementById('publishBtnText');
 
     if (!title || contentText.length === 0) {
       alertBox.className = 'alert alert-danger shadow-sm';
@@ -669,8 +672,9 @@
       return;
     }
 
+    // ล็อกปุ่มและเปลี่ยนเฉพาะข้อความด้านใน (ไม่ให้ทับโครงสร้างเดิม)
     publishBtn.disabled = true;
-    publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
+    publishBtnText.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
 
     // ตรวจสอบว่าแก้ไขหรือสร้างใหม่
     const isEditing = editingAnnouncementId !== null;
@@ -699,7 +703,7 @@
         alertBox.className = 'alert alert-success shadow-sm';
         alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${result.message} กำลังพากลับไปหน้าประกาศ...`;
         
-        // รีเซ็ตฟอร์มกลับเป็นโหมดปกติ
+        // รีเซ็ตฟอร์มกลับเป็นโหมดปกติ (ปุ่มจะไม่ null แล้ว)
         cancelEdit();
         
         setTimeout(() => {
@@ -714,9 +718,12 @@
       alertBox.className = 'alert alert-danger shadow-sm';
       alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`;
     } finally {
+      // คืนค่าปุ่มกลับมาเมื่อทำงานเสร็จ (หรือเกิด Error)
       publishBtn.disabled = false;
       const originalText = isEditing ? '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)' : '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
-      publishBtn.innerHTML = originalText;
+      if (document.getElementById('publishBtnText')) {
+         document.getElementById('publishBtnText').innerHTML = originalText;
+      }
     }
   }
 
