@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   
-  <!-- Quill (For Rich Text Editors - ใช้สำหรับหน้าเขียนประกาศลงเว็บเท่านั้น) -->
+  <!-- Quill (For Rich Text Editors) -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   
@@ -95,9 +95,7 @@
 
     /* CSS for Custom Quill Font Sizes */
     .ql-snow .ql-picker.ql-size .ql-picker-label::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item::before {
-      content: '16px';
-    }
+    .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: '16px'; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before { content: '10px'; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before { content: '12px'; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="13px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="13px"]::before { content: '13px'; }
@@ -109,8 +107,7 @@
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before { content: '24px'; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before { content: '32px'; }
 
-
-    /* Modal Styling for Reading Announcements */
+    /* Modal Styling */
     .modal-content { border-radius: 20px; border: none; }
     .modal-header { border-bottom: 1px solid var(--pink-100); background-color: var(--pink-50); border-radius: 20px 20px 0 0; }
     .modal-title { color: var(--pink-900); font-weight: 700; }
@@ -159,7 +156,7 @@
       <button class="nav-link" id="pills-announcements-tab" data-bs-toggle="pill" data-bs-target="#pills-announcements" type="button" role="tab">ประกาศทั้งหมด</button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="pills-creator-tab" data-bs-toggle="pill" data-bs-target="#pills-creator" type="button" role="tab"><i class="bi bi-pencil-square me-1"></i> เขียนประกาศลงเว็บ</button>
+      <button class="nav-link" id="pills-creator-tab" data-bs-toggle="pill" data-bs-target="#pills-creator" type="button" role="tab" onclick="cancelEdit()"><i class="bi bi-pencil-square me-1"></i> เขียนประกาศลงเว็บ</button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="pills-pr-tab" data-bs-toggle="pill" data-bs-target="#pills-pr" type="button" role="tab"><i class="bi bi-megaphone-fill me-1"></i> ฝากลง IG/FB</button>
@@ -211,12 +208,10 @@
           <button class="btn btn-outline-secondary btn-sm" onclick="loadAnnouncements()"><i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช</button>
         </div>
         
-        <!-- This is where dynamic cards will be injected -->
         <div class="row g-4" id="announcementsGrid">
           <!-- Cards go here via JS -->
         </div>
 
-        <!-- Empty State (Hidden by default) -->
         <div id="emptyState" class="text-center py-5 d-none">
           <i class="bi bi-inbox fs-1 text-muted"></i>
           <h4 class="text-muted mt-3">ยังไม่มีประกาศในขณะนี้</h4>
@@ -229,8 +224,8 @@
     <div class="tab-pane fade" id="pills-creator" role="tabpanel">
       <div class="form-container" style="max-width: 900px;">
         <div class="text-center mb-4">
-          <h2 class="page-header"><i class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i> เขียนประกาศลงเว็บไซต์</h2>
-          <p class="text-muted">เขียนเนื้อหา แทรกรูปภาพ แล้ว Publish ขึ้นบอร์ดประกาศได้ทันที</p>
+          <h2 class="page-header" id="creatorPageHeader"><i class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i> เขียนประกาศลงเว็บไซต์</h2>
+          <p class="text-muted" id="creatorPageDesc">เขียนเนื้อหา แทรกรูปภาพ แล้ว Publish ขึ้นบอร์ดประกาศได้ทันที</p>
         </div>
 
         <div id="creatorAlert" class="alert d-none shadow-sm"></div>
@@ -260,13 +255,18 @@
           <small class="text-muted mt-2 d-block"><i class="bi bi-image me-1"></i> <strong>Tip:</strong> ใช้แถบเครื่องมือด้านบนเพื่อปรับขนาดฟอนต์ จัดหน้า และแทรกรูปลิ้งก์ได้เลย</small>
         </div>
 
-        <button onclick="publishAnnouncement()" class="btn btn-submit w-100 btn-lg">
-          <i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)
-        </button>
+        <div class="d-flex gap-2">
+          <button onclick="publishAnnouncement()" class="btn btn-submit flex-grow-1 btn-lg">
+            <span id="publishBtnText"><i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)</span>
+          </button>
+          <button onclick="cancelEdit()" id="cancelEditBtn" class="btn btn-outline-secondary btn-lg d-none">
+            ยกเลิก
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- TAB 4: YOUR ORIGINAL PR FORM -->
+    <!-- TAB 4: PR FORM -->
     <div class="tab-pane fade" id="pills-pr" role="tabpanel">
       <div class="form-container">
         <div class="text-center mb-5">
@@ -564,6 +564,8 @@
         <!-- Quill HTML gets injected here -->
       </div>
       <div class="modal-footer border-0">
+        <!-- ปุ่มแก้ไขประกาศ -->
+        <button type="button" class="btn btn-warning" onclick="editCurrentAnnouncement()"><i class="bi bi-pencil-square me-1"></i> แก้ไขประกาศนี้</button>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
       </div>
     </div>
@@ -577,20 +579,18 @@
      QUILL.JS CONFIGURATION SETUP
      ========================================== -->
 <script>
-  // 1. Register Custom Font Sizes
   const Size = Quill.import('attributors/style/size');
   Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
   Quill.register(Size, true);
 
-  // 2. Define the Universal Toolbar
   const customToolbar = [
-    [{ 'size': ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'] }], // Font size dropdown
-    [{ 'align': [] }], // Alignment (Left, Center, Right, Justify)
-    ['bold', 'italic', 'underline', 'strike'], // Styling
-    [{ color: [] }, { background: [] }], // Colors
-    [{ list: 'ordered' }, { list: 'bullet' }], // Lists
-    ['link', 'image', 'video'], // Link and Media
-    ['clean'] // Clear formatting
+    [{ 'size': ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'] }], 
+    [{ 'align': [] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['link', 'image', 'video'],
+    ['clean']
   ];
 </script>
 
@@ -601,7 +601,9 @@
   // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของคุณตรงนี้ ⚠️
   const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwGfg9RQIJ0B4KK1qM3owtfs9HysAQkar_BPOxGAgAgwNQERspxENm6EeO7xDti9-E/exec';
 
-  let globalAnnouncements = []; // เก็บข้อมูลเพื่อใช้ตอนเปิด Modal อ่านเนื้อหาเต็ม
+  let globalAnnouncements = [];
+  let editingAnnouncementId = null; // ตัวแปรสำหรับจำ ID ที่กำลังจะแก้
+  let viewingAnnouncementId = null; // ตัวแปรจำ ID ตอนเปิดอ่าน
 
   const creatorQuill = new Quill('#creatorQuillEditor', {
     theme: 'snow',
@@ -609,7 +611,50 @@
     modules: { toolbar: customToolbar }
   });
 
-  // ฟังก์ชันเขียนประกาศ (ส่งไป Backend)
+  // ยกเลิกการแก้ไข และรีเซ็ตฟอร์มกลับเป็นโหมด "สร้างใหม่"
+  function cancelEdit() {
+    editingAnnouncementId = null;
+    document.getElementById('creatorTitle').value = '';
+    creatorQuill.setText('');
+    
+    // คืนค่า UI เป็นโหมดปกติ
+    document.getElementById('creatorPageHeader').innerHTML = '<i class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i> เขียนประกาศลงเว็บไซต์';
+    document.getElementById('creatorPageDesc').innerText = 'เขียนเนื้อหา แทรกรูปภาพ แล้ว Publish ขึ้นบอร์ดประกาศได้ทันที';
+    document.getElementById('publishBtnText').innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
+    document.getElementById('cancelEditBtn').classList.add('d-none');
+    
+    document.getElementById('creatorAlert').classList.add('d-none');
+  }
+
+  // นำข้อมูลประกาศที่เปิดอ่านอยู่ ไปใส่ในฟอร์มแก้ไข
+  function editCurrentAnnouncement() {
+    const post = globalAnnouncements.find(p => p.id === viewingAnnouncementId);
+    if (!post) return;
+
+    // ปิด Modal ดูเนื้อหา
+    const modalEl = document.getElementById('viewAnnouncementModal');
+    bootstrap.Modal.getInstance(modalEl).hide();
+
+    // กำหนดสถานะว่ากำลังแก้ไข
+    editingAnnouncementId = post.id;
+
+    // นำข้อมูลเดิมไปใส่ในฟอร์ม
+    document.getElementById('creatorTitle').value = post.title;
+    document.getElementById('creatorDepartment').value = post.department;
+    creatorQuill.root.innerHTML = post.content;
+    
+    // เปลี่ยน UI เป็นโหมดแก้ไข
+    document.getElementById('creatorPageHeader').innerHTML = '<i class="bi bi-pencil-square me-2 text-pink-custom"></i> แก้ไขประกาศ';
+    document.getElementById('creatorPageDesc').innerText = 'ระบบจะทำการบันทึกข้อมูลทับประกาศเดิมของคุณ';
+    document.getElementById('publishBtnText').innerHTML = '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)';
+    document.getElementById('cancelEditBtn').classList.remove('d-none');
+
+    // สลับไปหน้าแท็บฟอร์มเขียน
+    bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-creator-tab')).show();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ฟังก์ชันเขียนหรือแก้ไขประกาศ (ส่งไป Backend)
   async function publishAnnouncement() {
     const title = document.getElementById('creatorTitle').value.trim();
     const dept = document.getElementById('creatorDepartment').value;
@@ -624,16 +669,23 @@
       return;
     }
 
-    // เปลี่ยนปุ่มเป็นสถานะโหลด
     publishBtn.disabled = true;
-    publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังเผยแพร่...';
+    publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
+
+    // ตรวจสอบว่าแก้ไขหรือสร้างใหม่
+    const isEditing = editingAnnouncementId !== null;
+    const actionMode = isEditing ? 'editAnnouncement' : 'addAnnouncement';
 
     const payload = {
-      action: 'addAnnouncement', // ระบุเพื่อให้ Apps Script รู้ว่านี่คือการเขียนเว็บ ไม่ใช่ส่ง PR
+      action: actionMode,
       title: title,
       department: dept,
       content: contentHtml
     };
+
+    if (isEditing) {
+      payload.id = editingAnnouncementId;
+    }
 
     try {
       const response = await fetch(GAS_API_URL, {
@@ -644,15 +696,15 @@
       const result = await response.json();
 
       if (result.success) {
-        document.getElementById('creatorTitle').value = '';
-        creatorQuill.setText('');
-        
         alertBox.className = 'alert alert-success shadow-sm';
-        alertBox.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> เผยแพร่ประกาศเรียบร้อย! กำลังพาไปที่หน้าประกาศ...';
+        alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${result.message} กำลังพากลับไปหน้าประกาศ...`;
+        
+        // รีเซ็ตฟอร์มกลับเป็นโหมดปกติ
+        cancelEdit();
         
         setTimeout(() => {
           alertBox.classList.add('d-none');
-          loadAnnouncements(); // อัปเดตข้อมูลในหน้าประกาศใหม่
+          loadAnnouncements(); 
           bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-announcements-tab')).show(); 
         }, 1500);
       } else {
@@ -663,7 +715,8 @@
       alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`;
     } finally {
       publishBtn.disabled = false;
-      publishBtn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
+      const originalText = isEditing ? '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)' : '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
+      publishBtn.innerHTML = originalText;
     }
   }
 
@@ -681,7 +734,7 @@
       });
       const result = await response.json();
       
-      container.innerHTML = ''; // เคลียร์ Loading 
+      container.innerHTML = ''; 
       globalAnnouncements = result.data || [];
 
       if (globalAnnouncements.length === 0) {
@@ -731,6 +784,8 @@
   function viewAnnouncement(id) {
     const post = globalAnnouncements.find(p => p.id === id);
     if (post) {
+      viewingAnnouncementId = post.id; // จำ ID เพื่อใช้กรณีผู้ใช้กดปุ่มแก้ไข
+      
       document.getElementById('modalTitle').innerText = post.title;
       document.getElementById('modalDeptBadge').innerText = post.department;
       document.getElementById('modalDate').innerHTML = `<i class="bi bi-clock me-1"></i> ${post.date}`;
@@ -741,10 +796,8 @@
     }
   }
 
-  // เรียกฟังก์ชันดึงประกาศทันทีที่เข้าเว็บ
   document.addEventListener('DOMContentLoaded', loadAnnouncements);
 </script>
-
 
 <!-- ==========================================
      ORIGINAL PR FORM LOGIC 
@@ -950,9 +1003,6 @@
     const alertBox = document.getElementById('alertBox');
     const fileInput = document.getElementById('fileUpload');
     
-    // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT URL
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGfg9RQIJ0B4KK1qM3owtfs9HysAQkar_BPOxGAgAgwNQERspxENm6EeO7xDti9-E/exec'; 
-    
     btn.disabled = true;
     btnText.classList.add('d-none');
     btnLoading.classList.remove('d-none');
@@ -974,7 +1024,7 @@
 
     const sendData = async (payload) => {
       try {
-        const response = await fetch(GAS_URL, {
+        const response = await fetch(GAS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
