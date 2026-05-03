@@ -137,6 +137,9 @@
     .btn-submit:hover { background-color: var(--pink-700); border-color: var(--pink-700); color: white; transform: translateY(-2px); box-shadow: 0 8px 15px rgba(219, 39, 119, 0.3); }
     .badge-info-custom { font-size: 0.75rem; background-color: var(--pink-100); color: var(--pink-700); padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: 8px; }
     .text-pink-custom { color: var(--pink-600) !important; }
+    .tl-log   { background: #f1f5f9; border-left: 3px solid #94a3b8; }
+    .tl-remark-staff { background: #eff6ff; border-left: 3px solid #3b82f6; }
+    .tl-remark-user  { background: #f0fdf4; border-left: 3px solid #22c55e; }
   </style>
 </head>
 <body>
@@ -665,6 +668,13 @@
                 <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
               </select>
             </div>
+            <!-- เพิ่มส่วน Silent Notify ตรงนี้ -->
+            <div class="form-check form-switch mb-4 p-3 rounded-3" style="background-color: var(--pink-100);">
+              <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsSilentNotify" name="vsSilentNotify" value="true" style="cursor: pointer;">
+              <label class="form-check-label text-secondary mt-1" for="vsSilentNotify" style="cursor: pointer; color: var(--pink-900) !important;">
+                <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent (ไม่เด้งเตือนเสียงดังรบกวน)
+              </label>
+            </div>
 
             <button type="submit" class="btn btn-submit w-100">
               <i class="bi bi-send-fill me-2"></i> ส่งเรื่องร้องเรียน
@@ -753,6 +763,17 @@
         <div id="vsStaffSection" class="d-none">
           <div id="staffLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; background-color: #f8fafc; border-color: #cbd5e1;">
             <h5 class="fw-bold text-center mb-3">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h5>
+            
+            <div class="mb-3">
+              <label class="form-label">Username</label>
+              <input type="text" id="staffUsername" class="form-control" placeholder="Username (samomdkku69)">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" id="staffPassword" class="form-control" placeholder="รหัสผ่าน">
+            </div>
+
             <div class="mb-3">
               <label class="form-label">เลือกบทบาท (Role)</label>
               <select id="staffRole" class="form-select">
@@ -769,6 +790,9 @@
                 <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
               </select>
             </div>
+            
+            <div id="staffLoginAlert" class="alert alert-danger d-none mb-3 text-center small"></div>
+
             <button type="button" id="btnStaffLogin" class="btn btn-dark w-100" onclick="loginStaff()">เข้าสู่ระบบ</button>
           </div>
 
@@ -814,9 +838,13 @@
         <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
         <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
         
+        <!-- Add this ABOVE the <hr> in staffManageModal modal-body -->
+        <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
+        <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" 
+             style="border-color:var(--pink-200)!important; max-height:250px; overflow-y:auto;"></div>
         <hr>
         
-        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+       <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">เปลี่ยนสถานะ</label>
@@ -851,9 +879,37 @@
               <option value="คณะ">ส่งเรื่องถึงคณะ</option>
             </select>
           </div>
-          <div class="col-12">
+
+          <!-- NEW: แจ้งเตือนปรึกษาระหว่างฝ่าย และ Silent Toggle -->
+          <div class="col-md-6 mt-3">
+            <label class="form-label text-pink-custom fw-bold"><i class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
+            <select id="staffNotifyTo" class="form-select border-danger">
+              <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
+              <option value="SE">ส่งหา SE</option>
+              <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+              <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+              <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+              <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+              <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+              <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+              <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+              <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+              <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+            </select>
+          </div>
+          <div class="col-md-6 mt-3 d-flex align-items-end">
+            <div class="form-check form-switch p-2 rounded-3 w-100" style="background-color: var(--pink-100); border: 1px solid var(--pink-200);">
+              <input class="form-check-input ms-0 me-2 shadow-sm" type="checkbox" id="staffSilentNotify" value="true" style="cursor: pointer;">
+              <label class="form-check-label text-secondary small mt-1" for="staffSilentNotify" style="cursor: pointer; color: var(--pink-900) !important;">
+                <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
+              </label>
+            </div>
+          </div>
+
+          <div class="col-12 mt-3">
             <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
-            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
+            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
           </div>
         </div>
 
@@ -1354,6 +1410,27 @@
   // ⚠️ อย่าลืมใส่ URL Google Apps Script ตัวใหม่ของ Vital Sound ⚠️
   const GAS_VITAL_SOUND_URL = 'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
   
+  let staffTicketsCache = []; // stores full ticket objects
+
+  function formatThaiDate(dateVal) {
+    if (!dateVal) return '-';
+    // If it's already a formatted string like "05/03/2026 16:28:07", return as-is
+    if (typeof dateVal === 'string' && dateVal.includes('/')) return dateVal;
+    // Otherwise parse and format
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      const pad = n => n.toString().padStart(2, '0');
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch(e) { return String(dateVal); }
+  }
+
+  function openStaffModalByIndex(idx) {
+    const t = staffTicketsCache[idx];
+    if (!t) return;
+    openStaffModal(t.id, t.status, t.dept, t.problem, t.date, t.remarks || []);
+  }
+
   let currentActiveTicketId = null; 
   let currentStaffRole = null;
   let canUserReply = false; 
@@ -1490,7 +1567,7 @@
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...';
     btn.disabled = true;
 
-    const formData = new FormData(this);
+const formData = new FormData(this);
     const payload = {
         action: 'submitVitalSound',
         vsName: formData.get('vsName'),
@@ -1500,9 +1577,10 @@
         vsPassword: document.getElementById('vsPassword').value.trim(),
         vsProblem: contentHtml, 
         vsDepartment: formData.get('vsDepartment'),
-        vsEmergency: formData.get('vsEmergency') === 'true'
+        vsEmergency: formData.get('vsEmergency') === 'true',
+        // เพิ่มบรรทัดด้านล่างนี้
+        vsSilentNotify: formData.get('vsSilentNotify') === 'true' 
     };
-
     try {
       const res = await fetch(GAS_VITAL_SOUND_URL, { 
         method: 'POST', 
@@ -1681,6 +1759,43 @@
     }
   }
 
+function renderTimeline(containerId, remarks, ticketDate) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  // First entry: ticket created
+  container.insertAdjacentHTML('beforeend', `
+    <div class="mb-4 position-relative">
+      <span class="position-absolute top-0 start-0 translate-middle p-2 bg-pink-custom border border-light rounded-circle" style="left:-1.5rem!important; background-color:var(--pink-500)!important;"></span>
+      <div class="text-muted small">${ticketDate}</div>
+      <div class="fw-bold">ระบบ</div>
+      <div class="tl-log rounded p-2 mt-1 small">📨 สร้าง Ticket เรียบร้อย — รอ SE รับเรื่อง</div>
+    </div>
+  `);
+
+  if (!remarks || remarks.length === 0) return;
+
+  remarks.forEach(rem => {
+    const isUser  = rem.by === 'ผู้แจ้งปัญหา' || rem.by === 'User';
+    const isLog   = rem.type === 'log';
+
+    let dotColor   = isLog ? '#94a3b8' : (isUser ? '#22c55e' : '#3b82f6');
+    let boxClass   = isLog ? 'tl-log' : (isUser ? 'tl-remark-user' : 'tl-remark-staff');
+    let icon       = isLog ? '🔧' : (isUser ? '💬' : '📝');
+    let label      = isLog ? `<span class="badge bg-secondary fw-normal">${rem.by}</span>` : `<span class="fw-bold">${rem.by}</span>`;
+
+    container.insertAdjacentHTML('beforeend', `
+      <div class="mb-4 position-relative">
+        <span class="position-absolute top-0 start-0 translate-middle p-2 border border-light rounded-circle"
+              style="left:-1.5rem!important; background-color:${dotColor}!important;"></span>
+        <div class="text-muted small">${rem.time}</div>
+        <div>${label}</div>
+        <div class="${boxClass} rounded p-2 mt-1 small">${icon} ${rem.text}</div>
+      </div>
+    `);
+  });
+}
+
   function renderUserDashboard(ticket) {
     document.getElementById('dashTicketId').innerText = `Ticket #${ticket.id}`;
     
@@ -1695,31 +1810,14 @@
     statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${badgeClass}`;
     statusBadge.innerText = ticket.status;
     
-    document.getElementById('dashTicketDate').innerText = `วันที่แจ้ง: ${ticket.date} (ฝ่ายที่รับเรื่อง: ${ticket.dept})`;
+    const formattedDate = formatThaiDate(ticket.date);
+    const deptNote = ticket.status.includes('รออุปนายก') 
+      ? `${ticket.dept} (รอพิจารณา)` 
+      : ticket.dept;
+    document.getElementById('dashTicketDate').innerText = `วันที่แจ้ง: ${formattedDate} | ฝ่ายปัจจุบัน: ${deptNote}`;
     document.getElementById('dashTicketProblem').innerHTML = ticket.problem;
 
-    const timelineContainer = document.getElementById('dashTimeline');
-    timelineContainer.innerHTML = ''; 
-
-    if(ticket.remarks && ticket.remarks.length > 0) {
-      ticket.remarks.forEach(rem => {
-        let isUser = rem.by === "User" || rem.by === "ผู้แจ้งปัญหา";
-        let color = isUser ? "bg-info" : "bg-primary";
-        let html = `
-          <div class="mb-4 position-relative">
-            <span class="position-absolute top-0 start-0 translate-middle p-2 ${color} border border-light rounded-circle" style="left: -1.5rem !important;"></span>
-            <div class="text-muted small">${rem.time}</div>
-            <div class="fw-bold">${rem.by}</div>
-            <div class="card bg-white border-light shadow-sm mt-2 p-2">
-              <p class="mb-0 small">${rem.text}</p>
-            </div>
-          </div>
-        `;
-        timelineContainer.insertAdjacentHTML('beforeend', html);
-      });
-    } else {
-      timelineContainer.innerHTML = '<p class="text-muted small">ระบบได้รับเรื่องแล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ...</p>';
-    }
+    renderTimeline('dashTimeline', ticket.remarks, formattedDate);
 
     const remarkBox = document.getElementById('userRemarkBox');
     if(canUserReply) remarkBox.classList.remove('d-none');
@@ -1765,24 +1863,75 @@
     document.getElementById('trackAlert').classList.add('d-none');
   }
 
-  async function loginStaff() {
-    currentStaffRole = document.getElementById('staffRole').value;
+async function loginStaff() {
+    const user = document.getElementById('staffUsername').value.trim();
+    const pass = document.getElementById('staffPassword').value.trim();
+    const alertBox = document.getElementById('staffLoginAlert');
     const btn = document.getElementById('btnStaffLogin');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
 
-    document.getElementById('staffTitle').innerText = `Dashboard: ${currentStaffRole}`;
-    
+    if (!user || !pass) {
+      alertBox.innerText = 'กรุณากรอก Username และ Password';
+      alertBox.classList.remove('d-none');
+      return;
+    }
+
+    alertBox.classList.add('d-none');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
+
     try {
-      await fetchStaffTickets();
-      document.getElementById('staffLoginBox').classList.add('d-none');
-      document.getElementById('staffDashboardBox').classList.remove('d-none');
+      // โยนให้ Backend เช็ครหัสผ่าน
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'verifyStaffLogin', username: user, password: pass })
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        currentStaffRole = document.getElementById('staffRole').value;
+        document.getElementById('staffTitle').innerText = `Dashboard: ${currentStaffRole}`;
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+        await fetchStaffTickets();
+        
+        document.getElementById('staffLoginBox').classList.add('d-none');
+        document.getElementById('staffDashboardBox').classList.remove('d-none');
+      } else {
+        alertBox.innerText = result.message;
+        alertBox.classList.remove('d-none');
+      }
     } catch(e) {
-      alert("ดึงข้อมูลล้มเหลว");
+      alertBox.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย";
+      alertBox.classList.remove('d-none');
     } finally {
       btn.disabled = false;
       btn.innerHTML = 'เข้าสู่ระบบ';
     }
+  }
+
+  function openStaffModal(id, status, dept, problemHTML, date, remarks) {
+    currentActiveTicketId = id;
+    document.getElementById('staffModalTitle').innerText = id;
+    document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
+    const formattedDate = formatThaiDate(date);
+    document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${formattedDate} | ฝ่ายที่รับผิดชอบ: ${dept}`;
+    document.getElementById('staffModalProblem').innerHTML = problemHTML; 
+    
+    // Render timeline
+    renderTimeline('staffModalTimeline', remarks, formattedDate);
+
+    // ✅ Pre-fill dropdowns with current ticket values
+    document.getElementById('staffActionStatus').value = status;   // current status as default
+    document.getElementById('staffActionTransfer').value = dept;   // current dept as default
+    document.getElementById('staffActionRemark').value = '';
+    
+    // ตั้งค่า Default การส่ง Discord ให้เป็น "ไม่ส่งการแจ้งเตือน" (value="")
+    document.getElementById('staffNotifyTo').value = "";         
+    
+    document.getElementById('staffSilentNotify').checked = false;
+
+    new bootstrap.Modal(document.getElementById('staffManageModal')).show();
   }
 
   async function fetchStaffTickets() {
@@ -1791,72 +1940,69 @@
     
     loading.classList.remove('d-none');
     list.innerHTML = '';
-
     try {
-        const res = await fetch(GAS_VITAL_SOUND_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'getStaffTickets', role: currentStaffRole })
-        });
-        const result = await res.json();
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getStaffTickets', role: currentStaffRole })
+      });
+      const result = await res.json();
+      loading.classList.add('d-none');
+      
+      if (result.success && result.tickets.length > 0) {
+        staffTicketsCache = result.tickets; // cache full objects
+        
+        result.tickets.forEach((t, idx) => {
+          let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
+          if (t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger';
+          let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
 
-        loading.classList.add('d-none');
-
-        if(result.success && result.tickets.length > 0) {
-          result.tickets.forEach(t => {
-            let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
-            if(t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger'; 
-
-            let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
-            let safeProblemHTML = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ''); 
-            
-            const cardHtml = `
-              <div class="col-md-6">
-                <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModal('${t.id}', '${t.status}', '${t.dept}', '${safeProblemHTML}', '${t.date}')">
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                      <span class="fw-bold text-pink-custom">${t.id}</span>
-                      <span class="badge bg-${badgeColor}">${t.status}</span>
-                    </div>
-                    <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${t.dept}</p>
-                    <p class="card-text small text-truncate">${strippedProblem}</p>
+          const cardHtml = `
+            <div class="col-md-6">
+              <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModalByIndex(${idx})">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="fw-bold text-pink-custom">${t.id}</span>
+                    <span class="badge bg-${badgeColor}">${t.status}</span>
                   </div>
+<p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${formatThaiDate(t.date)}</p>
+<p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${t.dept}</p>
+                  <p class="card-text small text-truncate">${strippedProblem}</p>
                 </div>
               </div>
-            `;
-            list.insertAdjacentHTML('beforeend', cardHtml);
-          });
-        } else {
-          list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มี Ticket ที่ต้องจัดการในขณะนี้</div>';
-        }
+            </div>
+          `;
+          list.insertAdjacentHTML('beforeend', cardHtml);
+        });
+      } else {
+        staffTicketsCache = [];
+        list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มี Ticket ที่ต้องจัดการในขณะนี้</div>';
+      }
     } catch(e) {
-        loading.classList.add('d-none');
-        list.innerHTML = '<div class="col-12 text-center text-danger mt-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+      loading.classList.add('d-none');
+      list.innerHTML = '<div class="col-12 text-center text-danger mt-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
     }
   }
 
-  function openStaffModal(id, status, dept, problemHTML, date) {
-    currentActiveTicketId = id;
-    document.getElementById('staffModalTitle').innerText = id;
-    document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
-    document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${date} | ฝ่ายที่รับผิดชอบ: ${dept}`;
-    document.getElementById('staffModalProblem').innerHTML = problemHTML; 
-    
-    document.getElementById('staffActionStatus').value = '';
-    document.getElementById('staffActionTransfer').value = '';
-    document.getElementById('staffActionRemark').value = '';
 
-    new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+async function submitStaffAction() {
+  const newStatus = document.getElementById('staffActionStatus').value;
+  const newDept = document.getElementById('staffActionTransfer').value;
+  const remark = document.getElementById('staffActionRemark').value.trim();
+  const notifyTo = document.getElementById('staffNotifyTo').value;
+  const isSilent = document.getElementById('staffSilentNotify').checked;
+
+  // นำข้อมูล Original จาก Cache มาเช็ค (แม่นยำกว่าการดึง Text จาก DOM)
+  const ticket = staffTicketsCache.find(t => t.id === currentActiveTicketId);
+  if (!ticket) return;
+
+  const statusChanged = newStatus && newStatus !== ticket.status;
+  const deptChanged = newDept && newDept !== ticket.dept;
+
+  if (!statusChanged && !deptChanged && !remark && !notifyTo) {
+    alert("ไม่มีการเปลี่ยนแปลง กรุณาแก้ไขสถานะ โอนย้ายฝ่าย เพิ่ม Remark หรือส่งแจ้งเตือน ก่อนบันทึก");
+    return;
   }
-
-  async function submitStaffAction() {
-    const newStatus = document.getElementById('staffActionStatus').value;
-    const newDept = document.getElementById('staffActionTransfer').value;
-    const remark = document.getElementById('staffActionRemark').value.trim();
-
-    if(!newStatus && !newDept && !remark) {
-      alert("กรุณาเลือกสถานะ โอนย้าย หรือระบุ Remark อย่างน้อย 1 อย่าง"); return;
-    }
     
     const btn = document.querySelector('#staffManageModal .btn-dark');
     btn.disabled = true;
@@ -1866,9 +2012,11 @@
       action: 'updateTicket',
       ticketId: currentActiveTicketId,
       role: currentStaffRole,
-      newStatus: newStatus,
-      newDept: newDept,
-      remark: remark
+      newStatus: statusChanged ? newStatus : '',   // ส่งเฉพาะเมื่อมีการเปลี่ยนจริง
+      newDept: deptChanged ? newDept : '',         // ส่งเฉพาะเมื่อมีการเปลี่ยนจริง
+      remark: remark,
+      notifyTo: notifyTo,
+      isSilent: isSilent
     };
 
     try {
