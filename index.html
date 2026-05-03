@@ -161,7 +161,6 @@
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="pills-pr-tab" data-bs-toggle="pill" data-bs-target="#pills-pr" type="button" role="tab"><i class="bi bi-megaphone-fill me-1"></i> ฝากลง IG/FB</button>
     </li>
-    <!-- เพิ่มแท็บ Vital Sound -->
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="pills-vitalsound-tab" data-bs-toggle="pill" data-bs-target="#pills-vitalsound" type="button" role="tab">
         <i class="bi bi-ear-fill me-1"></i> Vital Sound
@@ -551,7 +550,7 @@
       </div>
     </div>
 
-<!-- TAB 5: VITAL SOUND -->
+    <!-- TAB 5: VITAL SOUND -->
     <div class="tab-pane fade" id="pills-vitalsound" role="tabpanel">
       <div class="form-container" style="max-width: 900px;">
         <div class="text-center mb-4">
@@ -573,12 +572,11 @@
           </div>
         </div>
 
-        <!-- ==========================================
-             SECTION 1: REPORT PROBLEM FORM
-             ========================================== -->
+        <!-- SECTION 1: REPORT PROBLEM FORM -->
         <div id="vsReportSection">
+          <div id="reportAlertBox" class="alert alert-danger d-none shadow-sm fw-bold"></div>
+
           <form id="vitalSoundForm">
-            <!-- ข้อมูลผู้แจ้ง -->
             <h4 class="section-title"><i class="bi bi-person-lines-fill me-2"></i>ข้อมูลผู้แจ้ง (ไม่บังคับ)</h4>
             <div class="row g-3 mb-4">
               <div class="col-md-6">
@@ -599,31 +597,43 @@
               </div>
             </div>
 
-            <!-- สร้างหรือใช้บัญชีนิรนาม -->
             <div class="p-3 mb-4 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
-              <div class="form-check form-switch mb-2">
-                <input class="form-check-input ms-0 me-2" type="checkbox" id="vsCreateAccount" onchange="toggleVsAccountFields()" style="cursor: pointer;">
-                <label class="form-check-label fw-bold text-pink-custom" for="vsCreateAccount" style="cursor: pointer;">
-                  ต้องการสร้างบัญชีใหม่ / หรือใช้บัญชีนิรนามเดิม
-                </label>
+              <label class="form-label fw-bold text-pink-custom mb-2"><i class="bi bi-person-badge me-1"></i> การติดตามสถานะ (เลือกรูปแบบ)</label>
+              <div class="d-flex flex-column gap-2 mb-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccGuest" value="guest" checked onchange="toggleVsAccountFields()" style="cursor: pointer;">
+                  <label class="form-check-label text-muted" for="vsAccGuest" style="cursor: pointer;">ไม่ใช้บัญชี (รับแค่หมายเลข Ticket เพื่อค้นหาสถานะ)</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccCreate" value="create" onchange="toggleVsAccountFields()" style="cursor: pointer;">
+                  <label class="form-check-label fw-bold" for="vsAccCreate" style="cursor: pointer;">สร้างบัญชีใหม่ (เพื่อพิมพ์โต้ตอบใน Ticket ได้)</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccLogin" value="login" onchange="toggleVsAccountFields()" style="cursor: pointer;">
+                  <label class="form-check-label fw-bold" for="vsAccLogin" style="cursor: pointer;">มีบัญชีอยู่แล้ว (เข้าสู่ระบบด้วยบัญชีเดิม)</label>
+                </div>
               </div>
-              <p class="text-muted small mb-3">หากไม่ผูกบัญชี คุณจะได้รับหมายเลข Ticket ไว้ใช้ค้นหาสถานะ (แต่อาจจะไม่สามารถพิมพ์โต้ตอบกลับได้)</p>
-              <div id="vsAccountFields" class="row g-3 d-none">
-                <div class="col-md-6">
-                  <label class="form-label">Username (สร้างใหม่ห้ามซ้ำ / หรือระบุอันเดิม) <span class="text-danger">*</span></label>
-                  <input type="text" id="vsUsername" name="vsUsername" class="form-control" placeholder="เช่น anonymous_01">
+
+              <div id="vsAccountFields" class="row g-3 d-none p-3 rounded" style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
+                <div class="col-md-5">
+                  <label class="form-label text-pink-custom fw-bold">Username <span class="text-danger">*</span></label>
+                  <input type="text" id="vsUsername" name="vsUsername" class="form-control" placeholder="ชื่อผู้ใช้งาน">
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">Password <span class="text-danger">*</span></label>
-                  <input type="password" id="vsPassword" name="vsPassword" class="form-control" placeholder="รหัสผ่านที่ตั้งไว้">
+                <div class="col-md-4">
+                  <label class="form-label text-pink-custom fw-bold">Password <span class="text-danger">*</span></label>
+                  <input type="password" id="vsPassword" name="vsPassword" class="form-control" placeholder="รหัสผ่าน">
                 </div>
+                <div class="col-md-3 d-flex align-items-end">
+                  <button type="button" id="btnVerifyAccount" class="btn btn-outline-danger w-100" onclick="verifyAccount()">ตรวจสอบบัญชี</button>
+                </div>
+                
+                <div class="col-12 text-success d-none fw-bold small mt-2" id="verifySuccessText"><i class="bi bi-check-circle-fill"></i> บัญชีพร้อมใช้งาน! สามารถกรอกปัญหาและส่งเรื่องได้เลย</div>
+                <div class="col-12 text-danger d-none fw-bold small mt-2" id="verifyFailText"></div>
               </div>
             </div>
 
-            <!-- รายละเอียดปัญหา -->
             <h4 class="section-title"><i class="bi bi-chat-square-text me-2"></i>รายละเอียดปัญหา</h4>
             
-            <!-- ปุ่มกรณีฉุกเฉิน -->
             <div class="form-check form-switch mb-3 p-3 rounded-3 shadow-sm" style="background-color: #fff1f2; border: 1.5px solid #fda4af;">
               <input class="form-check-input ms-0 me-3" type="checkbox" id="vsEmergency" name="vsEmergency" value="true" onchange="toggleEmergency()" style="cursor: pointer; transform: scale(1.2);">
               <label class="form-check-label fw-bold text-danger mt-1" for="vsEmergency" style="cursor: pointer;">
@@ -633,7 +643,6 @@
 
             <div class="mb-3">
               <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
-              <!-- กล่องรับข้อความด้วย Quill JS -->
               <div class="caption-editor-shell shadow-sm">
                 <div id="vsQuillEditor"></div>
               </div>
@@ -654,7 +663,6 @@
                 <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
                 <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
                 <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                <!-- ปิดการเลือกคณะโดยตรงสำหรับ User -->
               </select>
             </div>
 
@@ -664,35 +672,57 @@
           </form>
         </div>
 
-        <!-- ==========================================
-             SECTION 2: TRACK PROGRESS DASHBOARD
-             ========================================== -->
+        <!-- SECTION 2: TRACK PROGRESS DASHBOARD -->
         <div id="vsTrackSection" class="d-none">
-          <!-- ฟอร์ม Login หรือค้นหาด้วย Ticket -->
           <div id="vsLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
-            <h5 class="fw-bold text-center mb-3" style="color: var(--pink-900);">เข้าสู่ระบบเพื่อติดตามสถานะ</h5>
-            <div id="trackAlert" class="alert alert-danger d-none small py-2"></div>
             
-            <!-- ใช้ Ticket ID อย่างเดียวก็ได้ -->
-            <div class="mb-3">
-              <label class="form-label">หมายเลข Ticket (กรอกแค่ช่องนี้หากไม่มีบัญชี)</label>
-              <input type="text" id="trackTicketId" class="form-control" placeholder="VS-XXXXXXXX-XXXX">
+            <ul class="nav nav-tabs nav-fill mb-3" id="trackTab" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-guest-track" data-bs-toggle="tab" data-bs-target="#content-guest-track" type="button" role="tab" style="color: var(--pink-700); font-weight: bold;">ค้นหาด้วย Ticket ID</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-user-login" data-bs-toggle="tab" data-bs-target="#content-user-login" type="button" role="tab" style="color: var(--pink-700); font-weight: bold;">เข้าสู่ระบบด้วยบัญชี</button>
+              </li>
+            </ul>
+            
+            <div id="trackAlert" class="alert alert-danger d-none small py-2"></div>
+
+            <div class="tab-content" id="trackTabContent">
+              <div class="tab-pane fade show active" id="content-guest-track" role="tabpanel">
+                <div class="mb-3">
+                  <label class="form-label">หมายเลข Ticket</label>
+                  <input type="text" id="trackTicketId" class="form-control" placeholder="VS-XXXXXXXX-XXXX">
+                </div>
+                <button type="button" id="btnTrackGuest" class="btn btn-submit w-100" onclick="trackWithTicketId()">ค้นหาสถานะ</button>
+              </div>
+
+              <div class="tab-pane fade" id="content-user-login" role="tabpanel">
+                <div class="mb-3">
+                  <label class="form-label">Username</label>
+                  <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Password</label>
+                  <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน">
+                </div>
+                <button type="button" id="btnTrackLogin" class="btn btn-submit w-100" onclick="loginToViewHistory()">เข้าสู่ระบบ</button>
+              </div>
             </div>
 
-            <div class="text-center text-muted mb-2">--- หรือ ---</div>
-
-            <div class="mb-3">
-              <label class="form-label">Username</label>
-              <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Password</label>
-              <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน">
-            </div>
-            <button type="button" id="btnTrackLogin" class="btn btn-submit w-100" onclick="loginToTrack()">ค้นหาสถานะ / เข้าสู่ระบบ</button>
           </div>
 
-          <!-- แดชบอร์ดติดตามสถานะผู้ใช้ -->
+          <div id="vsUserHistoryBox" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0 text-pink-custom"><i class="bi bi-card-checklist me-2"></i>ประวัติการแจ้งปัญหาของคุณ</h5>
+              <div>
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="loginToViewHistory()"><i class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="logoutTrack()">ออกจากระบบ</button>
+              </div>
+            </div>
+            <div class="row g-3" id="userHistoryList">
+            </div>
+          </div>
+
           <div id="vsDashboardBox" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
               <h5 class="fw-bold mb-0" id="dashTicketId">Ticket #</h5>
@@ -707,27 +737,20 @@
             </div>
 
             <h5 class="section-title mt-0"><i class="bi bi-clock-history me-2"></i>Timeline & Remarks</h5>
+            <div id="dashTimeline" class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;"></div>
             
-            <div id="dashTimeline" class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;">
-              <!-- Timeline จะมาแสดงที่นี่ -->
-            </div>
-
-            <!-- กล่องผู้ใช้สื่อสารกลับ (โชว์เฉพาะถ้ามีสิทธิ์) -->
             <div id="userRemarkBox" class="mt-4 p-3 rounded d-none" style="background-color: var(--pink-50);">
               <label class="form-label fw-bold text-pink-custom">เพิ่มข้อความ (Remark) ถึงทีมงาน</label>
               <textarea id="userRemarkInput" class="form-control mb-2" rows="2" placeholder="สอบถามความคืบหน้าเพิ่มเติม..."></textarea>
               <button class="btn btn-sm btn-outline-danger" onclick="submitUserRemark()">ส่งข้อความ</button>
             </div>
             
-            <button class="btn btn-outline-secondary w-100 mt-4" onclick="logoutTrack()">ออกจากระบบ</button>
+            <button class="btn btn-outline-secondary w-100 mt-4" id="btnBackToHistory" onclick="logoutTrack()">กลับหน้าแรก</button>
           </div>
         </div>
 
-        <!-- ==========================================
-             SECTION 3: STAFF DASHBOARD (SE & VP)
-             ========================================== -->
+        <!-- SECTION 3: STAFF DASHBOARD (SE & VP) -->
         <div id="vsStaffSection" class="d-none">
-          <!-- ฟอร์ม Login เจ้าหน้าที่ -->
           <div id="staffLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; background-color: #f8fafc; border-color: #cbd5e1;">
             <h5 class="fw-bold text-center mb-3">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h5>
             <div class="mb-3">
@@ -749,14 +772,16 @@
             <button type="button" id="btnStaffLogin" class="btn btn-dark w-100" onclick="loginStaff()">เข้าสู่ระบบ</button>
           </div>
 
-          <!-- แดชบอร์ดเจ้าหน้าที่ -->
           <div id="staffDashboardBox" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">Dashboard</h4>
                 <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
               </div>
-              <button class="btn btn-outline-secondary btn-sm" onclick="logoutStaff()">ออกจากระบบ</button>
+              <div>
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchStaffTickets()"><i class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="logoutStaff()">ออกจากระบบ</button>
+              </div>
             </div>
             
             <div class="text-center my-3 d-none" id="staffLoading">
@@ -764,83 +789,12 @@
             </div>
 
             <div id="staffTicketList" class="row g-3">
-              <!-- Staff Tickets จะมาแสดงที่นี่ -->
             </div>
           </div>
         </div>
 
       </div>
     </div>
-
-  </div>
-</div>
-
-<!-- Modal สำหรับเจ้าหน้าที่ (Staff Management Modal) -->
-<div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header bg-light">
-        <div>
-          <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
-          <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif;">
-        <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
-        <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
-        
-        <hr>
-        
-        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">เปลี่ยนสถานะ</label>
-            <select id="staffActionStatus" class="form-select">
-              <option value="">-- เลือกสถานะใหม่ --</option>
-              <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
-              <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
-              <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
-              <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
-              <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
-              <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
-              <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
-              <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
-              <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
-            <select id="staffActionTransfer" class="form-select">
-              <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
-              <option value="SE">โอนคืน SE</option>
-              <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-              <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-              <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-              <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-              <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-              <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-              <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-              <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-              <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-              <option value="คณะ">ส่งเรื่องถึงคณะ</option> <!-- Staff เท่านั้นที่กดได้ -->
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
-            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
-          </div>
-        </div>
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
-        <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
-      </div>
-    </div>
-  </div>
-</div>
 
   </div>
 </div>
@@ -912,39 +866,10 @@
   </div>
 </div>
 
-  </div>
-</div>
-
-<!-- Modal for Viewing Announcements -->
-<div class="modal fade" id="viewAnnouncementModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <span id="modalDeptBadge" class="badge bg-pink-custom mb-2" style="background-color: var(--pink-500);"></span>
-          <h4 class="modal-title mb-0" id="modalTitle"></h4>
-          <small class="text-muted" id="modalDate"></small>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body p-4" id="modalBodyContent" style="font-family: 'Prompt', sans-serif;">
-        <!-- Quill HTML gets injected here -->
-      </div>
-      <div class="modal-footer border-0">
-        <!-- ปุ่มแก้ไขประกาศ -->
-        <button type="button" class="btn btn-warning" onclick="editCurrentAnnouncement()"><i class="bi bi-pencil-square me-1"></i> แก้ไขประกาศนี้</button>
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- ==========================================
-     QUILL.JS CONFIGURATION SETUP
-     ========================================== -->
+<!-- QUILL.JS CONFIGURATION SETUP -->
 <script>
   const Size = Quill.import('attributors/style/size');
   Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
@@ -961,9 +886,7 @@
   ];
 </script>
 
-<!-- ==========================================
-     CMS ANNOUNCEMENT & PR FORM SCRIPT CONFIG
-     ========================================== -->
+<!-- CMS ANNOUNCEMENT & PR FORM SCRIPT CONFIG -->
 <script>
   // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของระบบประกาศและ PR Form ตรงนี้ ⚠️
   const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwGfg9RQIJ0B4KK1qM3owtfs9HysAQkar_BPOxGAgAgwNQERspxENm6EeO7xDti9-E/exec';
@@ -1426,18 +1349,17 @@
   });
 </script>
 
-<!-- ==========================================
-     VITAL SOUND LOGIC (TRACKING & STAFF DASHBOARD)
-     ========================================== -->
+<!-- VITAL SOUND LOGIC (TRACKING & STAFF DASHBOARD) -->
 <script>
   // ⚠️ อย่าลืมใส่ URL Google Apps Script ตัวใหม่ของ Vital Sound ⚠️
   const GAS_VITAL_SOUND_URL = 'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
   
   let currentActiveTicketId = null; 
   let currentStaffRole = null;
-  let canUserReply = false; // ตัวแปรบอกว่ายูสเซอร์ล็อกอินด้วย Account ใช่ไหม
+  let canUserReply = false; 
+  let isAccountVerified = false;
+  let loggedInUserTickets = []; 
 
-  // สร้าง QuillJS สำหรับฟอร์มร้องเรียน
   const vsQuill = new Quill('#vsQuillEditor', {
     theme: 'snow',
     placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
@@ -1455,16 +1377,73 @@
   }
 
   function toggleVsAccountFields() {
-    const isCreate = document.getElementById('vsCreateAccount').checked;
+    isAccountVerified = false;
+    document.getElementById('vsUsername').disabled = false;
+    document.getElementById('vsPassword').disabled = false;
+    document.getElementById('verifySuccessText').classList.add('d-none');
+    document.getElementById('verifyFailText').classList.add('d-none');
+    
+    const accMode = document.querySelector('input[name="vsAccountMode"]:checked').value;
     const fieldsBox = document.getElementById('vsAccountFields');
-    if (isCreate) {
+    const btnVerify = document.getElementById('btnVerifyAccount');
+    
+    if (accMode === 'create' || accMode === 'login') {
       fieldsBox.classList.remove('d-none');
-      document.getElementById('vsUsername').setAttribute('required', 'required');
-      document.getElementById('vsPassword').setAttribute('required', 'required');
+      btnVerify.disabled = false;
+      btnVerify.className = 'btn btn-outline-danger w-100';
+      btnVerify.innerHTML = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
     } else {
       fieldsBox.classList.add('d-none');
-      document.getElementById('vsUsername').removeAttribute('required');
-      document.getElementById('vsPassword').removeAttribute('required');
+      isAccountVerified = true; 
+    }
+  }
+
+  async function verifyAccount() {
+    const accMode = document.querySelector('input[name="vsAccountMode"]:checked').value;
+    const user = document.getElementById('vsUsername').value.trim();
+    const pass = document.getElementById('vsPassword').value.trim();
+    const btn = document.getElementById('btnVerifyAccount');
+    const failText = document.getElementById('verifyFailText');
+    const successText = document.getElementById('verifySuccessText');
+
+    failText.classList.add('d-none');
+    successText.classList.add('d-none');
+
+    if(!user || !pass) {
+      failText.innerText = "กรุณากรอก Username และ Password ให้ครบถ้วน";
+      failText.classList.remove('d-none');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'verifyAccount', mode: accMode, username: user, password: pass })
+      });
+      const result = await res.json();
+      
+      if(result.success) {
+        isAccountVerified = true;
+        document.getElementById('vsUsername').disabled = true;
+        document.getElementById('vsPassword').disabled = true;
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> ตรวจสอบผ่าน';
+        btn.classList.replace('btn-outline-danger', 'btn-success');
+        successText.classList.remove('d-none');
+      } else {
+        failText.innerHTML = `<i class="bi bi-x-circle-fill"></i> ${result.message}`;
+        failText.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerText = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
+      }
+    } catch (e) {
+      failText.innerText = "การเชื่อมต่อล้มเหลว กรุณาลองใหม่";
+      failText.classList.remove('d-none');
+      btn.disabled = false;
+      btn.innerText = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
     }
   }
 
@@ -1483,37 +1462,45 @@
     }
   }
 
-  // ============================
-  // ฝั่งผู้ใช้ (USER)
-  // ============================
   document.getElementById('vitalSoundForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const btn = this.querySelector('button[type="submit"]');
     const ogText = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...';
-    btn.disabled = true;
+    const alertBox = document.getElementById('reportAlertBox');
+    
+    alertBox.classList.add('d-none'); 
+
+    const accMode = document.querySelector('input[name="vsAccountMode"]:checked').value;
+    if((accMode === 'create' || accMode === 'login') && !isAccountVerified) {
+       alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณากดปุ่มเพื่อยืนยันบัญชีให้เรียบร้อยก่อนกดยืนยันส่งปัญหา';
+       alertBox.classList.remove('d-none');
+       window.scrollTo({ top: 0, behavior: 'smooth' });
+       return;
+    }
 
     const contentHtml = vsQuill.root.innerHTML;
     const contentText = vsQuill.getText().trim();
-    
     if(contentText.length === 0) {
-      alert("กรุณาระบุรายละเอียดปัญหา");
-      btn.innerHTML = ogText;
-      btn.disabled = false;
+      alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณาระบุรายละเอียดปัญหาในกล่องข้อความ';
+      alertBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...';
+    btn.disabled = true;
 
     const formData = new FormData(this);
     const payload = {
         action: 'submitVitalSound',
         vsName: formData.get('vsName'),
         vsYear: formData.get('vsYear'),
-        vsUsername: formData.get('vsUsername'),
-        vsPassword: formData.get('vsPassword'),
-        vsProblem: contentHtml, // ส่ง HTML เต็มๆ ที่มีรูป Base64
+        vsAccountMode: accMode,
+        vsUsername: document.getElementById('vsUsername').value.trim(), 
+        vsPassword: document.getElementById('vsPassword').value.trim(),
+        vsProblem: contentHtml, 
         vsDepartment: formData.get('vsDepartment'),
-        vsEmergency: formData.get('vsEmergency') === 'true',
-        hasAccount: document.getElementById('vsCreateAccount').checked
+        vsEmergency: formData.get('vsEmergency') === 'true'
     };
 
     try {
@@ -1525,39 +1512,39 @@
       const result = await res.json();
       
       if(result.success) {
-        // หากผู้ใช้ไม่ได้ใช้ Account ให้บังคับเตือนให้จด Ticket ID
-        if(!payload.hasAccount) {
-          alert(`✅ สำเร็จ! โปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n\n${result.ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`);
+        if(accMode === 'guest') {
+          alert(`✅ ส่งข้อมูลสำเร็จ!\n\nโปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n${result.ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`);
         } else {
-          alert(result.message);
+          alert(`✅ สำเร็จ! ${result.message}`);
         }
         
         this.reset();
         vsQuill.setText('');
-        document.getElementById('vsCreateAccount').checked = false;
+        document.getElementById('vsAccGuest').checked = true;
         toggleVsAccountFields(); 
         toggleEmergency(); 
       } else {
-        alert("เกิดข้อผิดพลาด: " + result.message);
+        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${result.message}`;
+        alertBox.classList.remove('d-none');
       }
     } catch (error) {
-      alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: " + error.message);
+      alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้`;
+      alertBox.classList.remove('d-none');
     } finally {
       btn.innerHTML = ogText;
       btn.disabled = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
 
-  async function loginToTrack() {
+  async function trackWithTicketId() {
     const tId = document.getElementById('trackTicketId').value.trim();
-    const user = document.getElementById('trackUsername').value.trim();
-    const pass = document.getElementById('trackPassword').value.trim();
     const alertBox = document.getElementById('trackAlert');
-    const btn = document.getElementById('btnTrackLogin');
+    const btn = document.getElementById('btnTrackGuest');
 
-    if(!tId && (!user || !pass)) { 
+    if(!tId) { 
         alertBox.classList.remove('d-none'); 
-        alertBox.innerText = "กรุณากรอก Ticket ID หรือ (Username และ Password)"; 
+        alertBox.innerText = "กรุณากรอก Ticket ID"; 
         return; 
     }
 
@@ -1569,17 +1556,21 @@
       const res = await fetch(GAS_VITAL_SOUND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'trackVitalSound', ticketId: tId, username: user, password: pass })
+        body: JSON.stringify({ action: 'trackVitalSound', ticketId: tId })
       });
       const result = await res.json();
       
       if(result.success) {
         currentActiveTicketId = result.ticket.id;
-        canUserReply = result.isOwner; // ให้สิทธิ์คอมเมนต์ถ้าใส่ User/Pass ถูกต้อง
+        canUserReply = false; 
         
         renderUserDashboard(result.ticket);
         document.getElementById('vsLoginBox').classList.add('d-none');
         document.getElementById('vsDashboardBox').classList.remove('d-none');
+        
+        const btnBack = document.getElementById('btnBackToHistory');
+        btnBack.innerText = "กลับหน้าค้นหา";
+        btnBack.onclick = logoutTrack;
       } else {
         alertBox.classList.remove('d-none');
         alertBox.innerText = result.message;
@@ -1589,7 +1580,104 @@
       alertBox.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย";
     } finally {
       btn.disabled = false;
-      btn.innerHTML = 'ค้นหาสถานะ / เข้าสู่ระบบ';
+      btn.innerHTML = 'ค้นหาสถานะ';
+    }
+  }
+
+  async function loginToViewHistory() {
+    const user = document.getElementById('trackUsername').value.trim();
+    const pass = document.getElementById('trackPassword').value.trim();
+    const alertBox = document.getElementById('trackAlert');
+    const btn = document.getElementById('btnTrackLogin');
+
+    if(!user || !pass) { 
+        alertBox.classList.remove('d-none'); 
+        alertBox.innerText = "กรุณากรอก Username และ Password"; 
+        return; 
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังเข้าสู่ระบบ...';
+    alertBox.classList.add('d-none');
+
+    try {
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getUserHistory', username: user, password: pass })
+      });
+      const result = await res.json();
+      
+      if(result.success) {
+        loggedInUserTickets = result.tickets;
+        renderUserHistoryList();
+        
+        document.getElementById('vsLoginBox').classList.add('d-none');
+        document.getElementById('vsDashboardBox').classList.add('d-none');
+        document.getElementById('vsUserHistoryBox').classList.remove('d-none');
+      } else {
+        alertBox.classList.remove('d-none');
+        alertBox.innerText = result.message;
+      }
+    } catch (e) {
+      alertBox.classList.remove('d-none');
+      alertBox.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย";
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'เข้าสู่ระบบ';
+    }
+  }
+
+  function renderUserHistoryList() {
+    const listContainer = document.getElementById('userHistoryList');
+    listContainer.innerHTML = '';
+    
+    if(loggedInUserTickets.length === 0) {
+      listContainer.innerHTML = '<div class="col-12 text-center text-muted mt-4">คุณยังไม่มีประวัติการแจ้งปัญหาในระบบ</div>';
+      return;
+    }
+
+    loggedInUserTickets.forEach(t => {
+      let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
+      if(t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger'; 
+      
+      let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
+      
+      const cardHtml = `
+        <div class="col-md-6">
+          <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openTicketDetail('${t.id}')">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="fw-bold text-pink-custom">${t.id}</span>
+                <span class="badge bg-${badgeColor}">${t.status}</span>
+              </div>
+              <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${t.date}</p>
+              <p class="card-text small text-truncate">${strippedProblem}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      listContainer.insertAdjacentHTML('beforeend', cardHtml);
+    });
+  }
+
+  function openTicketDetail(ticketId) {
+    const ticket = loggedInUserTickets.find(t => t.id === ticketId);
+    if(ticket) {
+      currentActiveTicketId = ticket.id;
+      canUserReply = true; 
+      
+      renderUserDashboard(ticket);
+      
+      document.getElementById('vsUserHistoryBox').classList.add('d-none');
+      document.getElementById('vsDashboardBox').classList.remove('d-none');
+      
+      const btnBack = document.getElementById('btnBackToHistory');
+      btnBack.innerText = "กลับหน้าประวัติ";
+      btnBack.onclick = function() {
+        document.getElementById('vsDashboardBox').classList.add('d-none');
+        document.getElementById('vsUserHistoryBox').classList.remove('d-none');
+      };
     }
   }
 
@@ -1615,7 +1703,7 @@
 
     if(ticket.remarks && ticket.remarks.length > 0) {
       ticket.remarks.forEach(rem => {
-        let isUser = rem.by === "User";
+        let isUser = rem.by === "User" || rem.by === "ผู้แจ้งปัญหา";
         let color = isUser ? "bg-info" : "bg-primary";
         let html = `
           <div class="mb-4 position-relative">
@@ -1633,7 +1721,6 @@
       timelineContainer.innerHTML = '<p class="text-muted small">ระบบได้รับเรื่องแล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ...</p>';
     }
 
-    // ซ่อนกล่องคอมเมนต์หากใช้แค่ Ticket ID หา (ไม่มีสิทธิ์ User)
     const remarkBox = document.getElementById('userRemarkBox');
     if(canUserReply) remarkBox.classList.remove('d-none');
     else remarkBox.classList.add('d-none');
@@ -1657,7 +1744,7 @@
       const result = await res.json();
       if(result.success) {
         document.getElementById('userRemarkInput').value = '';
-        loginToTrack(); 
+        loginToViewHistory();
       }
     } catch(e) { alert("ส่งข้อความไม่สำเร็จ"); } 
     finally { btn.innerHTML = ogText; btn.disabled = false; }
@@ -1666,17 +1753,18 @@
   function logoutTrack() {
     currentActiveTicketId = null;
     canUserReply = false;
+    loggedInUserTickets = [];
+    
     document.getElementById('vsDashboardBox').classList.add('d-none');
+    document.getElementById('vsUserHistoryBox').classList.add('d-none');
     document.getElementById('vsLoginBox').classList.remove('d-none');
+    
     document.getElementById('trackTicketId').value = '';
     document.getElementById('trackUsername').value = '';
     document.getElementById('trackPassword').value = '';
     document.getElementById('trackAlert').classList.add('d-none');
   }
 
-  // ============================
-  // ฝั่งเจ้าหน้าที่ (STAFF)
-  // ============================
   async function loginStaff() {
     currentStaffRole = document.getElementById('staffRole').value;
     const btn = document.getElementById('btnStaffLogin');
@@ -1698,8 +1786,11 @@
   }
 
   async function fetchStaffTickets() {
-    document.getElementById('staffLoading').classList.remove('d-none');
-    document.getElementById('staffTicketList').innerHTML = '';
+    const loading = document.getElementById('staffLoading');
+    const list = document.getElementById('staffTicketList');
+    
+    loading.classList.remove('d-none');
+    list.innerHTML = '';
 
     try {
         const res = await fetch(GAS_VITAL_SOUND_URL, {
@@ -1709,16 +1800,15 @@
         });
         const result = await res.json();
 
-        document.getElementById('staffLoading').classList.add('d-none');
+        loading.classList.add('d-none');
 
         if(result.success && result.tickets.length > 0) {
           result.tickets.forEach(t => {
             let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
             if(t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger'; 
 
-            // ลบ HTML Tags ออกให้เหลือแต่ Text สำหรับโชว์บนการ์ด
             let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
-            let safeProblemHTML = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ''); // เก็บแบบเต็มไว้เปิด Modal
+            let safeProblemHTML = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ''); 
             
             const cardHtml = `
               <div class="col-md-6">
@@ -1734,14 +1824,14 @@
                 </div>
               </div>
             `;
-            document.getElementById('staffTicketList').insertAdjacentHTML('beforeend', cardHtml);
+            list.insertAdjacentHTML('beforeend', cardHtml);
           });
         } else {
-          document.getElementById('staffTicketList').innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มี Ticket ที่ต้องจัดการในขณะนี้</div>';
+          list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มี Ticket ที่ต้องจัดการในขณะนี้</div>';
         }
     } catch(e) {
-        document.getElementById('staffLoading').classList.add('d-none');
-        document.getElementById('staffTicketList').innerHTML = '<div class="col-12 text-center text-danger mt-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+        loading.classList.add('d-none');
+        list.innerHTML = '<div class="col-12 text-center text-danger mt-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
     }
   }
 
@@ -1750,7 +1840,7 @@
     document.getElementById('staffModalTitle').innerText = id;
     document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
     document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${date} | ฝ่ายที่รับผิดชอบ: ${dept}`;
-    document.getElementById('staffModalProblem').innerHTML = problemHTML; // ใช้ innerHTML เพราะเก็บมาเป็น Quill format
+    document.getElementById('staffModalProblem').innerHTML = problemHTML; 
     
     document.getElementById('staffActionStatus').value = '';
     document.getElementById('staffActionTransfer').value = '';
@@ -1811,63 +1901,5 @@
   }
 </script>
 
-<!-- Modal สำหรับเจ้าหน้าที่ (Staff Management Modal) -->
-<div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header bg-light">
-        <div>
-          <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
-          <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif;">
-        <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
-        <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
-        
-        <hr>
-        
-        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">เปลี่ยนสถานะ</label>
-            <select id="staffActionStatus" class="form-select">
-              <option value="">-- เลือกสถานะใหม่ --</option>
-              <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
-              <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
-              <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
-              <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
-              <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
-              <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
-              <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
-              <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
-            <select id="staffActionTransfer" class="form-select">
-              <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
-              <option value="SE">โอนคืน SE</option>
-              <option value="อุปนายกฝ่ายบริหาร">อุปนายกฝ่ายบริหาร</option>
-              <option value="อุปนายกฝ่ายดิจิทัล">อุปนายกฝ่ายดิจิทัล</option>
-              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-              <option value="อุปนายกฝ่ายสวัสดิการ">อุปนายกฝ่ายสวัสดิการ</option>
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
-            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
-          </div>
-        </div>
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
-        <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
-      </div>
-    </div>
-  </div>
-</div>
 </body>
 </html>
