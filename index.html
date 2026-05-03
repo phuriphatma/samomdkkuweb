@@ -551,7 +551,7 @@
       </div>
     </div>
 
-    <!-- TAB 5: VITAL SOUND -->
+<!-- TAB 5: VITAL SOUND -->
     <div class="tab-pane fade" id="pills-vitalsound" role="tabpanel">
       <div class="form-container" style="max-width: 900px;">
         <div class="text-center mb-4">
@@ -559,14 +559,17 @@
           <p class="text-muted">กระบอกเสียงนักศึกษา รายงานปัญหาและติดตามความคืบหน้าได้แบบไม่ระบุตัวตน</p>
         </div>
 
-        <!-- Toggle ระหว่างหน้า ส่งเรื่อง กับ หน้าติดตามสถานะ -->
+        <!-- Toggle ระหว่างโหมดต่างๆ -->
         <div class="d-flex justify-content-center mb-4">
-          <div class="btn-group shadow-sm" role="group">
+          <div class="btn-group shadow-sm flex-wrap" role="group">
             <input type="radio" class="btn-check" name="vsMode" id="vsModeReport" autocomplete="off" checked onchange="toggleVitalSoundMode()">
-            <label class="btn btn-outline-danger px-4" for="vsModeReport" style="border-color: var(--pink-500);"><i class="bi bi-megaphone me-2"></i>แจ้งปัญหาใหม่</label>
+            <label class="btn btn-outline-danger px-3" for="vsModeReport" style="border-color: var(--pink-500);"><i class="bi bi-megaphone me-1"></i>แจ้งปัญหาใหม่</label>
           
             <input type="radio" class="btn-check" name="vsMode" id="vsModeTrack" autocomplete="off" onchange="toggleVitalSoundMode()">
-            <label class="btn btn-outline-danger px-4" for="vsModeTrack" style="border-color: var(--pink-500);"><i class="bi bi-search me-2"></i>ติดตามสถานะ</label>
+            <label class="btn btn-outline-danger px-3" for="vsModeTrack" style="border-color: var(--pink-500);"><i class="bi bi-search me-1"></i>ติดตามสถานะ</label>
+            
+            <input type="radio" class="btn-check" name="vsMode" id="vsModeStaff" autocomplete="off" onchange="toggleVitalSoundMode()">
+            <label class="btn btn-outline-dark px-3" for="vsModeStaff"><i class="bi bi-shield-lock me-1"></i>เจ้าหน้าที่</label>
           </div>
         </div>
 
@@ -575,7 +578,7 @@
              ========================================== -->
         <div id="vsReportSection">
           <form id="vitalSoundForm">
-            <!-- ส่วนข้อมูลส่วนตัว -->
+            <!-- ข้อมูลผู้แจ้ง -->
             <h4 class="section-title"><i class="bi bi-person-lines-fill me-2"></i>ข้อมูลผู้แจ้ง (ไม่บังคับ)</h4>
             <div class="row g-3 mb-4">
               <div class="col-md-6">
@@ -596,7 +599,7 @@
               </div>
             </div>
 
-            <!-- ส่วนสร้างบัญชีนิรนาม -->
+            <!-- สร้างบัญชีนิรนาม -->
             <div class="p-3 mb-4 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input ms-0 me-2" type="checkbox" id="vsCreateAccount" onchange="toggleVsAccountFields()" style="cursor: pointer;">
@@ -605,34 +608,48 @@
                 </label>
               </div>
               <p class="text-muted small mb-3">หากไม่สร้างบัญชี คุณจะไม่สามารถกลับมาดูความคืบหน้าของปัญหานี้ได้</p>
-              
               <div id="vsAccountFields" class="row g-3 d-none">
                 <div class="col-md-6">
                   <label class="form-label">Username (ตั้งเองได้เลย) <span class="text-danger">*</span></label>
-                  <input type="text" id="vsUsername" class="form-control" placeholder="เช่น anonymous_01">
+                  <input type="text" id="vsUsername" name="vsUsername" class="form-control" placeholder="เช่น anonymous_01">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Password <span class="text-danger">*</span></label>
-                  <input type="password" id="vsPassword" class="form-control" placeholder="ตั้งรหัสผ่านที่จำได้">
+                  <input type="password" id="vsPassword" name="vsPassword" class="form-control" placeholder="ตั้งรหัสผ่านที่จำได้">
                 </div>
               </div>
             </div>
 
             <!-- รายละเอียดปัญหา -->
             <h4 class="section-title"><i class="bi bi-chat-square-text me-2"></i>รายละเอียดปัญหา</h4>
+            
+            <!-- ปุ่มกรณีฉุกเฉิน -->
+            <div class="form-check form-switch mb-3 p-3 rounded-3 shadow-sm" style="background-color: #fff1f2; border: 1.5px solid #fda4af;">
+              <input class="form-check-input ms-0 me-3" type="checkbox" id="vsEmergency" name="vsEmergency" value="true" onchange="toggleEmergency()" style="cursor: pointer; transform: scale(1.2);">
+              <label class="form-check-label fw-bold text-danger mt-1" for="vsEmergency" style="cursor: pointer;">
+                🚨 กรณีฉุกเฉิน (ส่งเรื่องตรงถึงอุปนายกทันที ข้ามทีมงาน)
+              </label>
+            </div>
+
             <div class="mb-3">
               <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
               <textarea name="vsProblem" class="form-control" rows="4" placeholder="อธิบายปัญหาที่พบเจอ หรือข้อเสนอแนะ..." required></textarea>
             </div>
             
             <div class="mb-4">
-              <label class="form-label">ฝ่ายที่ต้องการส่งเรื่องถึง (ถ้าทราบ)</label>
-              <select name="vsDepartment" class="form-select">
-                <option value="SE" selected>ไม่แน่ใจ (ให้ทีม SE ช่วยพิจารณา)</option>
-                <option value="อุปนายกฝ่ายบริหาร">อุปนายกฝ่ายบริหาร</option>
-                <option value="อุปนายกฝ่ายดิจิทัล">อุปนายกฝ่ายดิจิทัล</option>
+              <label class="form-label">ฝ่ายที่ต้องการส่งเรื่องถึง <span class="text-danger" id="reqDeptStar" style="display:none;">* (จำเป็นต้องระบุ)</span></label>
+              <select name="vsDepartment" id="vsDepartment" class="form-select">
+                <option value="SE" selected>ไม่แน่ใจ (ให้ทีมงานช่วยพิจารณา)</option>
+                <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
                 <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                <option value="อุปนายกฝ่ายสวัสดิการ">อุปนายกฝ่ายสวัสดิการ</option>
+                <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
                 <option value="คณะ">ติดต่อคณะโดยตรง</option>
               </select>
             </div>
@@ -647,10 +664,10 @@
              SECTION 2: TRACK PROGRESS DASHBOARD
              ========================================== -->
         <div id="vsTrackSection" class="d-none">
-          
-          <!-- ฟอร์ม Login บัญชีนิรนาม -->
+          <!-- ฟอร์ม Login ผู้ใช้ทั่วไป -->
           <div id="vsLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
             <h5 class="fw-bold text-center mb-3" style="color: var(--pink-900);">เข้าสู่ระบบเพื่อติดตามสถานะ</h5>
+            <div id="trackAlert" class="alert alert-danger d-none small py-2"></div>
             <div class="mb-3">
               <label class="form-label">Username</label>
               <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ">
@@ -659,70 +676,158 @@
               <label class="form-label">Password</label>
               <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน">
             </div>
-            <button type="button" class="btn btn-submit w-100" onclick="mockLoginToTrack()">เข้าสู่ระบบ</button>
+            <button type="button" id="btnTrackLogin" class="btn btn-submit w-100" onclick="loginToTrack()">เข้าสู่ระบบ</button>
           </div>
 
-          <!-- แดชบอร์ดติดตามสถานะ (ซ่อนไว้ก่อน Login) -->
+          <!-- แดชบอร์ดติดตามสถานะผู้ใช้ -->
           <div id="vsDashboardBox" class="d-none">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="fw-bold mb-0">Ticket #VS-1024</h5>
-              <span class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">กำลังรออุปนายกฝ่ายดิจิทัลพิจารณารับเรื่อง</span>
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <h5 class="fw-bold mb-0" id="dashTicketId">Ticket #</h5>
+              <span id="dashStatusBadge" class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">Status</span>
             </div>
             
             <div class="card mb-4 border-0 shadow-sm">
               <div class="card-body bg-light rounded">
-                <p class="mb-1 text-muted small"><strong>ปัญหาที่แจ้ง:</strong> (12 เม.ย. 2026)</p>
-                <p class="mb-0">Internet หอพักแพทย์เชื่อมต่อหลุดบ่อยมากในช่วงหัวค่ำครับ รบกวนประสานงานศูนย์คอมให้ทีครับ</p>
+                <p class="mb-1 text-muted small"><strong id="dashTicketDate">วันที่แจ้ง:</strong></p>
+                <p class="mb-0" id="dashTicketProblem">รายละเอียดปัญหา</p>
               </div>
             </div>
 
             <h5 class="section-title mt-0"><i class="bi bi-clock-history me-2"></i>Timeline & Remarks</h5>
             
-            <!-- Timeline จำลอง -->
-            <div class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;">
-              
-              <!-- Timeline Item 1 -->
-              <div class="mb-4 position-relative">
-                <span class="position-absolute top-0 start-0 translate-middle p-2 bg-success border border-light rounded-circle" style="left: -1.5rem !important;"></span>
-                <div class="text-muted small">12 เม.ย. 2026 10:00 น.</div>
-                <div class="fw-bold">ระบบได้รับเรื่องแล้ว</div>
-                <p class="mb-0 small text-secondary">ผู้รับผิดชอบเบื้องต้น: SE Team</p>
-              </div>
-
-              <!-- Timeline Item 2 -->
-              <div class="mb-4 position-relative">
-                <span class="position-absolute top-0 start-0 translate-middle p-2 bg-primary border border-light rounded-circle" style="left: -1.5rem !important;"></span>
-                <div class="text-muted small">12 เม.ย. 2026 14:30 น.</div>
-                <div class="fw-bold">SE รับเรื่องแล้ว และส่งต่อให้อุปนายก</div>
-                <div class="card bg-white border-light shadow-sm mt-2 p-2">
-                  <p class="mb-0 small"><strong>Remark จากทีม SE (Parn):</strong> ได้ทำการตรวจสอบข้อมูลเบื้องต้นและโอนเรื่องให้ฝ่ายดิจิทัลรับไปคุยกับศูนย์คอมแล้วครับ</p>
-                </div>
-              </div>
-
-              <!-- Timeline Item 3 (Current) -->
-              <div class="mb-4 position-relative">
-                <span class="spinner-grow spinner-grow-sm text-warning position-absolute top-0 start-0 translate-middle" style="left: -1.5rem !important;" role="status"></span>
-                <div class="text-muted small">รอการตอบกลับ</div>
-                <div class="fw-bold text-warning">กำลังรออุปนายกฝ่ายดิจิทัลพิจารณาการรับเรื่อง</div>
-                <p class="mb-0 small text-secondary">ผู้รับผิดชอบปัจจุบัน: อุปนายกฝ่ายดิจิทัล</p>
-              </div>
-
+            <div id="dashTimeline" class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;">
+              <!-- Timeline จะมาแสดงที่นี่ -->
             </div>
 
-            <!-- กล่องสื่อสาร -->
+            <!-- กล่องผู้ใช้สื่อสารกลับ -->
             <div class="mt-4 p-3 rounded" style="background-color: var(--pink-50);">
               <label class="form-label fw-bold text-pink-custom">เพิ่มข้อความ (Remark) ถึงทีมงาน</label>
-              <textarea class="form-control mb-2" rows="2" placeholder="พิมพ์ข้อความเพิ่มเติม หรือสอบถามความคืบหน้า..."></textarea>
-              <button class="btn btn-sm btn-outline-danger">ส่งข้อความ</button>
+              <textarea id="userRemarkInput" class="form-control mb-2" rows="2" placeholder="สอบถามความคืบหน้าเพิ่มเติม..."></textarea>
+              <button class="btn btn-sm btn-outline-danger" onclick="submitUserRemark()">ส่งข้อความ</button>
             </div>
             
-            <button class="btn btn-outline-secondary w-100 mt-4" onclick="mockLogout()">ออกจากระบบ</button>
+            <button class="btn btn-outline-secondary w-100 mt-4" onclick="logoutTrack()">ออกจากระบบ</button>
+          </div>
+        </div>
 
+        <!-- ==========================================
+             SECTION 3: STAFF DASHBOARD (SE & VP)
+             ========================================== -->
+        <div id="vsStaffSection" class="d-none">
+          <!-- ฟอร์ม Login เจ้าหน้าที่ -->
+          <div id="staffLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; background-color: #f8fafc; border-color: #cbd5e1;">
+            <h5 class="fw-bold text-center mb-3">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h5>
+            <div class="mb-3">
+              <label class="form-label">เลือกบทบาท (Role)</label>
+              <select id="staffRole" class="form-select">
+                <option value="SE">Student Engagement (SE)</option>
+                <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+              </select>
+            </div>
+            <button type="button" id="btnStaffLogin" class="btn btn-dark w-100" onclick="loginStaff()">เข้าสู่ระบบ</button>
           </div>
 
+          <!-- แดชบอร์ดเจ้าหน้าที่ -->
+          <div id="staffDashboardBox" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">Dashboard</h4>
+                <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="logoutStaff()">ออกจากระบบ</button>
+            </div>
+            
+            <div class="text-center my-3 d-none" id="staffLoading">
+              <div class="spinner-border text-pink-custom" role="status"></div>
+            </div>
+
+            <div id="staffTicketList" class="row g-3">
+              <!-- Staff Tickets จะมาแสดงที่นี่ -->
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
+
+  </div>
+</div>
+
+<!-- Modal สำหรับเจ้าหน้าที่ (Staff Management Modal) -->
+<div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <div>
+          <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
+          <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif;">
+        <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+        <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+        
+        <hr>
+        
+        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">เปลี่ยนสถานะ</label>
+            <select id="staffActionStatus" class="form-select">
+              <option value="">-- เลือกสถานะใหม่ --</option>
+              <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+              <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+              <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+              <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+              <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+              <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+              <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+              <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+              <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+            <select id="staffActionTransfer" class="form-select">
+              <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+              <option value="SE">โอนคืน SE</option>
+              <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+              <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+              <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+              <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+              <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+              <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+              <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+              <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+              <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+              <option value="คณะ">ส่งเรื่องถึงคณะ</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
+            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+</div>
 
   </div>
 </div>
@@ -1239,108 +1344,417 @@
 </script>
 
 <!-- ==========================================
-     VITAL SOUND LOGIC 
+     VITAL SOUND LOGIC (TRACKING & STAFF DASHBOARD)
      ========================================== -->
 <script>
-  // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของระบบ Vital Sound ตรงนี้ ⚠️
+  // ⚠️ อย่าลืมใส่ URL Google Apps Script ตัวใหม่ของ Vital Sound ⚠️
   const GAS_VITAL_SOUND_URL = 'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
+  
+  let currentActiveTicketId = null; 
+  let currentStaffRole = null;
 
   function toggleVitalSoundMode() {
     const isReport = document.getElementById('vsModeReport').checked;
-    const reportSection = document.getElementById('vsReportSection');
-    const trackSection = document.getElementById('vsTrackSection');
-
-    if (isReport) {
-      reportSection.classList.remove('d-none');
-      trackSection.classList.add('d-none');
-    } else {
-      reportSection.classList.add('d-none');
-      trackSection.classList.remove('d-none');
-    }
+    const isTrack = document.getElementById('vsModeTrack').checked;
+    const isStaff = document.getElementById('vsModeStaff').checked;
+    
+    document.getElementById('vsReportSection').classList.toggle('d-none', !isReport);
+    document.getElementById('vsTrackSection').classList.toggle('d-none', !isTrack);
+    document.getElementById('vsStaffSection').classList.toggle('d-none', !isStaff);
   }
 
   function toggleVsAccountFields() {
     const isCreate = document.getElementById('vsCreateAccount').checked;
     const fieldsBox = document.getElementById('vsAccountFields');
-    const userIn = document.getElementById('vsUsername');
-    const passIn = document.getElementById('vsPassword');
-
     if (isCreate) {
       fieldsBox.classList.remove('d-none');
-      userIn.setAttribute('required', 'required');
-      passIn.setAttribute('required', 'required');
+      document.getElementById('vsUsername').setAttribute('required', 'required');
+      document.getElementById('vsPassword').setAttribute('required', 'required');
     } else {
       fieldsBox.classList.add('d-none');
-      userIn.removeAttribute('required');
-      passIn.removeAttribute('required');
+      document.getElementById('vsUsername').removeAttribute('required');
+      document.getElementById('vsPassword').removeAttribute('required');
     }
   }
 
-  // จำลองระบบ Login (สำหรับ Frontend Preview)
-  function mockLoginToTrack() {
-    const btn = document.querySelector('#vsLoginBox button');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
+  // ปิดตัวเลือก SE หากผู้ใช้ติ๊กปุ่ม "กรณีฉุกเฉิน"
+  function toggleEmergency() {
+    const isEmergency = document.getElementById('vsEmergency').checked;
+    const deptSelect = document.getElementById('vsDepartment');
+    const seOption = deptSelect.querySelector('option[value="SE"]');
+    const facOption = deptSelect.querySelector('option[value="คณะ"]');
     
-    setTimeout(() => {
-      document.getElementById('vsLoginBox').classList.add('d-none');
-      document.getElementById('vsDashboardBox').classList.remove('d-none');
-      btn.innerHTML = 'เข้าสู่ระบบ';
-    }, 800);
+    if (isEmergency) {
+      seOption.disabled = true;
+      facOption.disabled = true;
+      // ถ้าปัจจุบันเลือก SE หรือ คณะ อยู่ ให้เด้งไปเลือกอุปนายกคนแรกแทน
+      if (deptSelect.value === 'SE' || deptSelect.value === 'คณะ') {
+        deptSelect.value = 'อุปนายกฝ่ายบริหารองค์กร'; 
+      }
+      document.getElementById('reqDeptStar').style.display = 'inline';
+    } else {
+      seOption.disabled = false;
+      facOption.disabled = false;
+      document.getElementById('reqDeptStar').style.display = 'none';
+    }
   }
 
-  function mockLogout() {
-    document.getElementById('vsDashboardBox').classList.add('d-none');
-    document.getElementById('vsLoginBox').classList.remove('d-none');
-    document.getElementById('trackUsername').value = '';
-    document.getElementById('trackPassword').value = '';
-  }
-
-  // Handle Form Submit (ส่งข้อมูลจริงไปยัง Google Apps Script ของ Vital Sound)
+  // ============================
+  // ฝั่งผู้ใช้ (USER)
+  // ============================
   document.getElementById('vitalSoundForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
-    // จัดการ UI ของปุ่ม (แสดงสถานะกำลังโหลด)
     const btn = this.querySelector('button[type="submit"]');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังส่งข้อมูล...';
+    const ogText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...';
     btn.disabled = true;
 
-    // รวบรวมข้อมูลจากฟอร์มให้เป็น Object
     const formData = new FormData(this);
-    const payload = Object.fromEntries(formData.entries());
-    
-    // กำหนด action ให้ Backend ทราบว่านี่คือการส่งข้อมูลของ Vital Sound
-    payload.action = 'submitVitalSound'; 
+    const payload = {
+        action: 'submitVitalSound',
+        vsName: formData.get('vsName'),
+        vsYear: formData.get('vsYear'),
+        vsUsername: formData.get('vsUsername'),
+        vsPassword: formData.get('vsPassword'),
+        vsProblem: formData.get('vsProblem'),
+        vsDepartment: formData.get('vsDepartment'),
+        vsEmergency: formData.get('vsEmergency') === 'true' // ส่งค่าฉุกเฉินไปให้ Backend
+    };
 
     try {
-      // ยิงข้อมูลไปยัง GAS_VITAL_SOUND_URL
-      const response = await fetch(GAS_VITAL_SOUND_URL, {
-        method: 'POST',
+      const res = await fetch(GAS_VITAL_SOUND_URL, { 
+        method: 'POST', 
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload) 
       });
+      const result = await res.json();
       
-      const result = await response.json();
-      
-      // ตรวจสอบผลลัพธ์จาก Backend
       if(result.success) {
-        alert(result.message); // แสดงข้อความสำเร็จพร้อม Ticket ID
-        this.reset(); // ล้างข้อมูลในฟอร์ม
-        
-        // เอาเครื่องหมายถูกออกและซ่อนช่องกรอกรหัสผ่านบัญชีนิรนาม
+        alert(result.message);
+        this.reset();
         document.getElementById('vsCreateAccount').checked = false;
         toggleVsAccountFields(); 
+        toggleEmergency(); // Reset select state
       } else {
         alert("เกิดข้อผิดพลาด: " + result.message);
       }
     } catch (error) {
-      alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: " + error.message);
+      alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: " + error.message);
     } finally {
-      // คืนค่าปุ่มกลับสู่สถานะปกติไม่ว่าจะสำเร็จหรือล้มเหลว
-      btn.innerHTML = originalText;
+      btn.innerHTML = ogText;
       btn.disabled = false;
     }
   });
+
+  async function loginToTrack() {
+    const user = document.getElementById('trackUsername').value.trim();
+    const pass = document.getElementById('trackPassword').value.trim();
+    const alertBox = document.getElementById('trackAlert');
+    const btn = document.getElementById('btnTrackLogin');
+
+    if(!user || !pass) { 
+        alertBox.classList.remove('d-none'); 
+        alertBox.innerText = "กรุณากรอก Username และ Password"; 
+        return; 
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...';
+    alertBox.classList.add('d-none');
+
+    try {
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'trackVitalSound', username: user, password: pass })
+      });
+      const result = await res.json();
+      
+      if(result.success) {
+        currentActiveTicketId = result.ticket.id;
+        renderUserDashboard(result.ticket);
+        document.getElementById('vsLoginBox').classList.add('d-none');
+        document.getElementById('vsDashboardBox').classList.remove('d-none');
+      } else {
+        alertBox.classList.remove('d-none');
+        alertBox.innerText = result.message;
+      }
+    } catch (e) {
+      alertBox.classList.remove('d-none');
+      alertBox.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย";
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'เข้าสู่ระบบ';
+    }
+  }
+
+  function renderUserDashboard(ticket) {
+    document.getElementById('dashTicketId').innerText = `Ticket #${ticket.id}`;
+    
+    let badgeClass = "bg-secondary";
+    if(ticket.status.includes("รอ")) badgeClass = "bg-warning text-dark";
+    if(ticket.status.includes("ด่วน")) badgeClass = "bg-danger"; // สีแดงสำหรับงานด่วน
+    if(ticket.status.includes("ดำเนินการ")) badgeClass = "bg-primary";
+    if(ticket.status.includes("เสร็จสิ้น")) badgeClass = "bg-success";
+    if(ticket.status.includes("ปฏิเสธ")) badgeClass = "bg-danger";
+
+    const statusBadge = document.getElementById('dashStatusBadge');
+    statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${badgeClass}`;
+    statusBadge.innerText = ticket.status;
+    
+    document.getElementById('dashTicketDate').innerText = `วันที่แจ้ง: ${ticket.date} (ฝ่ายที่รับเรื่อง: ${ticket.dept})`;
+    document.getElementById('dashTicketProblem').innerText = ticket.problem;
+
+    const timelineContainer = document.getElementById('dashTimeline');
+    timelineContainer.innerHTML = ''; 
+
+    if(ticket.remarks && ticket.remarks.length > 0) {
+      ticket.remarks.forEach(rem => {
+        let isUser = rem.by === "User";
+        let color = isUser ? "bg-info" : "bg-primary";
+        let html = `
+          <div class="mb-4 position-relative">
+            <span class="position-absolute top-0 start-0 translate-middle p-2 ${color} border border-light rounded-circle" style="left: -1.5rem !important;"></span>
+            <div class="text-muted small">${rem.time}</div>
+            <div class="fw-bold">${rem.by}</div>
+            <div class="card bg-white border-light shadow-sm mt-2 p-2">
+              <p class="mb-0 small">${rem.text}</p>
+            </div>
+          </div>
+        `;
+        timelineContainer.insertAdjacentHTML('beforeend', html);
+      });
+    } else {
+      timelineContainer.innerHTML = '<p class="text-muted small">ระบบได้รับเรื่องแล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ...</p>';
+    }
+  }
+
+  async function submitUserRemark() {
+    const text = document.getElementById('userRemarkInput').value.trim();
+    if(!text) return;
+    
+    const btn = document.querySelector('#vsDashboardBox .btn-outline-danger');
+    const ogText = btn.innerHTML;
+    btn.innerHTML = 'กำลังส่ง...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addRemark', ticketId: currentActiveTicketId, role: "User", remark: text })
+      });
+      const result = await res.json();
+      if(result.success) {
+        document.getElementById('userRemarkInput').value = '';
+        loginToTrack(); 
+      }
+    } catch(e) { alert("ส่งข้อความไม่สำเร็จ"); } 
+    finally { btn.innerHTML = ogText; btn.disabled = false; }
+  }
+
+  function logoutTrack() {
+    currentActiveTicketId = null;
+    document.getElementById('vsDashboardBox').classList.add('d-none');
+    document.getElementById('vsLoginBox').classList.remove('d-none');
+    document.getElementById('trackUsername').value = '';
+    document.getElementById('trackPassword').value = '';
+    document.getElementById('trackAlert').classList.add('d-none');
+  }
+
+
+  // ============================
+  // ฝั่งเจ้าหน้าที่ (STAFF)
+  // ============================
+  async function loginStaff() {
+    currentStaffRole = document.getElementById('staffRole').value;
+    const btn = document.getElementById('btnStaffLogin');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+
+    document.getElementById('staffTitle').innerText = `Dashboard: ${currentStaffRole}`;
+    
+    try {
+      await fetchStaffTickets();
+      document.getElementById('staffLoginBox').classList.add('d-none');
+      document.getElementById('staffDashboardBox').classList.remove('d-none');
+    } catch(e) {
+      alert("ดึงข้อมูลล้มเหลว");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'เข้าสู่ระบบ';
+    }
+  }
+
+  async function fetchStaffTickets() {
+    document.getElementById('staffLoading').classList.remove('d-none');
+    document.getElementById('staffTicketList').innerHTML = '';
+
+    try {
+        const res = await fetch(GAS_VITAL_SOUND_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getStaffTickets', role: currentStaffRole })
+        });
+        const result = await res.json();
+
+        document.getElementById('staffLoading').classList.add('d-none');
+
+        if(result.success && result.tickets.length > 0) {
+          result.tickets.forEach(t => {
+            let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
+            if(t.status.includes('ด่วน')) badgeColor = 'danger'; // สีแดงหากเป็นงานฉุกเฉิน
+
+            const safeProblem = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ' ');
+            
+            const cardHtml = `
+              <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModal('${t.id}', '${t.status}', '${t.dept}', '${safeProblem}', '${t.date}')">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                      <span class="fw-bold text-pink-custom">${t.id}</span>
+                      <span class="badge bg-${badgeColor}">${t.status}</span>
+                    </div>
+                    <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${t.dept}</p>
+                    <p class="card-text small text-truncate">${t.problem}</p>
+                  </div>
+                </div>
+              </div>
+            `;
+            document.getElementById('staffTicketList').insertAdjacentHTML('beforeend', cardHtml);
+          });
+        } else {
+          document.getElementById('staffTicketList').innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มี Ticket ที่ต้องจัดการในขณะนี้</div>';
+        }
+    } catch(e) {
+        document.getElementById('staffLoading').classList.add('d-none');
+        document.getElementById('staffTicketList').innerHTML = '<div class="col-12 text-center text-danger mt-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+    }
+  }
+
+  function openStaffModal(id, status, dept, problem, date) {
+    currentActiveTicketId = id;
+    document.getElementById('staffModalTitle').innerText = id;
+    document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
+    document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${date} | ฝ่ายที่รับผิดชอบ: ${dept}`;
+    document.getElementById('staffModalProblem').innerText = problem;
+    
+    document.getElementById('staffActionStatus').value = '';
+    document.getElementById('staffActionTransfer').value = '';
+    document.getElementById('staffActionRemark').value = '';
+
+    new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+  }
+
+  async function submitStaffAction() {
+    const newStatus = document.getElementById('staffActionStatus').value;
+    const newDept = document.getElementById('staffActionTransfer').value;
+    const remark = document.getElementById('staffActionRemark').value.trim();
+
+    if(!newStatus && !newDept && !remark) {
+      alert("กรุณาเลือกสถานะ โอนย้าย หรือระบุ Remark อย่างน้อย 1 อย่าง"); return;
+    }
+    
+    const btn = document.querySelector('#staffManageModal .btn-dark');
+    btn.disabled = true;
+    btn.innerHTML = 'กำลังบันทึก...';
+
+    const payload = {
+      action: 'updateTicket',
+      ticketId: currentActiveTicketId,
+      role: currentStaffRole,
+      newStatus: newStatus,
+      newDept: newDept,
+      remark: remark
+    };
+
+    try {
+      const res = await fetch(GAS_VITAL_SOUND_URL, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload) 
+      });
+      const result = await res.json();
+      
+      if(result.success) {
+        alert("อัปเดตข้อมูลสำเร็จ!");
+        bootstrap.Modal.getInstance(document.getElementById('staffManageModal')).hide();
+        fetchStaffTickets(); 
+      } else {
+        alert("เกิดข้อผิดพลาด: " + result.message);
+      }
+    } catch(e) { 
+        alert("เกิดข้อผิดพลาดในการบันทึก"); 
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'บันทึกข้อมูล';
+    }
+  }
+
+  function logoutStaff() {
+    currentStaffRole = null;
+    document.getElementById('staffDashboardBox').classList.add('d-none');
+    document.getElementById('staffLoginBox').classList.remove('d-none');
+  }
 </script>
+
+<!-- Modal สำหรับเจ้าหน้าที่ (Staff Management Modal) -->
+<div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <div>
+          <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
+          <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif;">
+        <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+        <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+        
+        <hr>
+        
+        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">เปลี่ยนสถานะ</label>
+            <select id="staffActionStatus" class="form-select">
+              <option value="">-- เลือกสถานะใหม่ --</option>
+              <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+              <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+              <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+              <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+              <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+              <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+              <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+              <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+            <select id="staffActionTransfer" class="form-select">
+              <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+              <option value="SE">โอนคืน SE</option>
+              <option value="อุปนายกฝ่ายบริหาร">อุปนายกฝ่ายบริหาร</option>
+              <option value="อุปนายกฝ่ายดิจิทัล">อุปนายกฝ่ายดิจิทัล</option>
+              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+              <option value="อุปนายกฝ่ายสวัสดิการ">อุปนายกฝ่ายสวัสดิการ</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
+            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
