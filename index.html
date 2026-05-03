@@ -341,6 +341,9 @@
                     </div>
                   </div>
                 </div>
+                
+                <input type="hidden" id="prGoogleUserEmail" name="prGoogleUserEmail" value="" />
+                <input type="hidden" id="prGoogleUserName" name="prGoogleUserName" value="" />
 
                 <!-- ข้อมูลผู้ส่งงาน -->
                 <h4 class="section-title"><i class="bi bi-person-badge me-2"></i>ข้อมูลผู้ส่งงาน</h4>
@@ -552,8 +555,9 @@
                         <div class="alert alert-info small text-center" style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
                           <i class="bi bi-info-circle-fill me-1"></i> ระบบจะค้นหาประวัติจาก Google Account ของคุณ
                         </div>
-                        <button type="button" class="btn btn-outline-danger w-100 fw-bold" onclick="document.getElementById('prAccGoogle').click(); document.getElementById('prModeSubmit').click();">
-                          <i class="bi bi-google me-1"></i> ไปหน้าเข้าสู่ระบบ
+                        <!-- เปลี่ยนปุ่มให้ไปเรียก UI Auth ในฝั่ง ส่งงาน PR ให้แสดงขึ้นมา -->
+                        <button type="button" class="btn btn-outline-danger w-100 fw-bold" onclick="forceShowGoogleAuth()">
+                          <i class="bi bi-google me-1"></i> เข้าสู่ระบบด้วย Google
                         </button>
                     </div>
 
@@ -1126,6 +1130,16 @@
            updateGoogleAuthUI(true);
         }
       });
+
+      // ฟังก์ชันสำหรับบังคับโชว์แท็บ "ส่งงาน PR" เพื่อ Login
+      function forceShowGoogleAuth() {
+         document.getElementById('prAccGoogle').click(); 
+         document.getElementById('prModeSubmit').click();
+         // เลื่อนหน้าจอไปจุดล็อกอิน
+         setTimeout(() => {
+             document.getElementById('prGoogleAuthContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+         }, 100);
+      }
 
       // ฟังก์ชันสำหรับสลับ UI หน้า Login
       function updateGoogleAuthUI(isLoggedIn) {
