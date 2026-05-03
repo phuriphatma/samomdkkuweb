@@ -1017,9 +1017,9 @@
             <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: auto;"></div>
             <hr />
 
-            <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
+           <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
             <div class="row g-3">
-              <div class="col-md-6">
+              <div class="col-md-4">
                 <label class="form-label">เปลี่ยนสถานะ</label>
                 <select id="prStaffActionStatus" class="form-select">
                   <option value="รอทีม PR รับเรื่อง">รอทีม PR รับเรื่อง</option>
@@ -1029,8 +1029,16 @@
                   <option value="ปฏิเสธ / ตีกลับให้แก้ไข">ปฏิเสธ / ตีกลับให้แก้ไข</option>
                 </select>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">ปรับเปลี่ยนวัน-เวลาโพสต์ (Deadline)</label>
+              <div class="col-md-4">
+                <label class="form-label">สถานะความด่วน</label>
+                <select id="prStaffActionDeadlineStatus" class="form-select">
+                  <option value="">-- ไม่เปลี่ยนแปลง --</option>
+                  <option value="ปกติ">ปกติ (Normal)</option>
+                  <option value="ด่วน (PR Review)">ด่วน (PR Review)</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">วัน-เวลาโพสต์ (Deadline)</label>
                 <input type="datetime-local" id="prStaffActionDate" class="form-control" />
               </div>
               <div class="col-12 mt-3">
@@ -1869,14 +1877,16 @@
 
         renderTimeline("prStaffModalTimeline", t.remarks, t.date);
         document.getElementById("prStaffActionStatus").value = t.status;
+        document.getElementById("prStaffActionDeadlineStatus").value = ""; // รีเซ็ตค่าดรอปดาวน์
         document.getElementById("prStaffActionRemark").value = "";
         new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
       }
 
-      async function submitPRStaffAction() {
+     async function submitPRStaffAction() {
         const newStatus = document.getElementById("prStaffActionStatus").value;
+        const newDeadlineStatus = document.getElementById("prStaffActionDeadlineStatus").value; // รับค่าความด่วนใหม่
         const remark = document.getElementById("prStaffActionRemark").value.trim();
-        const newPublishDate = document.getElementById("prStaffActionDate").value.replace('T', ' '); // แปลงกลับ
+        const newPublishDate = document.getElementById("prStaffActionDate").value.replace('T', ' ');
 
         const btn = document.querySelector("#prStaffManageModal .btn-dark");
         btn.disabled = true; btn.innerHTML = "กำลังบันทึก...";
@@ -1885,6 +1895,7 @@
               action: "updatePRTicket", 
               ticketId: currentActivePrTicketId, 
               newStatus: newStatus, 
+              newDeadlineStatus: newDeadlineStatus, // ส่งไป Backend
               remark: remark,
               newPublishDate: newPublishDate
           })});
