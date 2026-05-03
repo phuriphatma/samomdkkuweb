@@ -599,23 +599,23 @@
               </div>
             </div>
 
-            <!-- สร้างบัญชีนิรนาม -->
+            <!-- สร้างหรือใช้บัญชีนิรนาม -->
             <div class="p-3 mb-4 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input ms-0 me-2" type="checkbox" id="vsCreateAccount" onchange="toggleVsAccountFields()" style="cursor: pointer;">
                 <label class="form-check-label fw-bold text-pink-custom" for="vsCreateAccount" style="cursor: pointer;">
-                  ต้องการสร้างบัญชีนิรนามเพื่อติดตามสถานะปัญหา
+                  ต้องการสร้างบัญชีใหม่ / หรือใช้บัญชีนิรนามเดิม
                 </label>
               </div>
-              <p class="text-muted small mb-3">หากไม่สร้างบัญชี คุณจะไม่สามารถกลับมาดูความคืบหน้าของปัญหานี้ได้</p>
+              <p class="text-muted small mb-3">หากไม่ผูกบัญชี คุณจะได้รับหมายเลข Ticket ไว้ใช้ค้นหาสถานะ (แต่อาจจะไม่สามารถพิมพ์โต้ตอบกลับได้)</p>
               <div id="vsAccountFields" class="row g-3 d-none">
                 <div class="col-md-6">
-                  <label class="form-label">Username (ตั้งเองได้เลย) <span class="text-danger">*</span></label>
+                  <label class="form-label">Username (สร้างใหม่ห้ามซ้ำ / หรือระบุอันเดิม) <span class="text-danger">*</span></label>
                   <input type="text" id="vsUsername" name="vsUsername" class="form-control" placeholder="เช่น anonymous_01">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Password <span class="text-danger">*</span></label>
-                  <input type="password" id="vsPassword" name="vsPassword" class="form-control" placeholder="ตั้งรหัสผ่านที่จำได้">
+                  <input type="password" id="vsPassword" name="vsPassword" class="form-control" placeholder="รหัสผ่านที่ตั้งไว้">
                 </div>
               </div>
             </div>
@@ -627,19 +627,23 @@
             <div class="form-check form-switch mb-3 p-3 rounded-3 shadow-sm" style="background-color: #fff1f2; border: 1.5px solid #fda4af;">
               <input class="form-check-input ms-0 me-3" type="checkbox" id="vsEmergency" name="vsEmergency" value="true" onchange="toggleEmergency()" style="cursor: pointer; transform: scale(1.2);">
               <label class="form-check-label fw-bold text-danger mt-1" for="vsEmergency" style="cursor: pointer;">
-                🚨 กรณีฉุกเฉิน (ส่งเรื่องตรงถึงอุปนายกทันที ข้ามทีมงาน)
+                🚨 กรณีฉุกเฉิน (ส่งเรื่องตรงถึงอุปนายกทันที ข้ามทีม SE)
               </label>
             </div>
 
             <div class="mb-3">
               <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
-              <textarea name="vsProblem" class="form-control" rows="4" placeholder="อธิบายปัญหาที่พบเจอ หรือข้อเสนอแนะ..." required></textarea>
+              <!-- กล่องรับข้อความด้วย Quill JS -->
+              <div class="caption-editor-shell shadow-sm">
+                <div id="vsQuillEditor"></div>
+              </div>
+              <small class="text-muted mt-2 d-block"><i class="bi bi-image me-1"></i> สามารถแทรกรูปภาพขนาดเล็ก, แปะลิงก์ YouTube ได้ (ไม่เกินเนื้อที่จำกัด)</small>
             </div>
             
             <div class="mb-4">
               <label class="form-label">ฝ่ายที่ต้องการส่งเรื่องถึง <span class="text-danger" id="reqDeptStar" style="display:none;">* (จำเป็นต้องระบุ)</span></label>
               <select name="vsDepartment" id="vsDepartment" class="form-select">
-                <option value="SE" selected>ไม่แน่ใจ (ให้ทีมงานช่วยพิจารณา)</option>
+                <option value="SE" selected>ไม่แน่ใจ (ให้ทีม SE ช่วยพิจารณา)</option>
                 <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
                 <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
                 <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
@@ -650,7 +654,7 @@
                 <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
                 <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
                 <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                <option value="คณะ">ติดต่อคณะโดยตรง</option>
+                <!-- ปิดการเลือกคณะโดยตรงสำหรับ User -->
               </select>
             </div>
 
@@ -664,10 +668,19 @@
              SECTION 2: TRACK PROGRESS DASHBOARD
              ========================================== -->
         <div id="vsTrackSection" class="d-none">
-          <!-- ฟอร์ม Login ผู้ใช้ทั่วไป -->
+          <!-- ฟอร์ม Login หรือค้นหาด้วย Ticket -->
           <div id="vsLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
             <h5 class="fw-bold text-center mb-3" style="color: var(--pink-900);">เข้าสู่ระบบเพื่อติดตามสถานะ</h5>
             <div id="trackAlert" class="alert alert-danger d-none small py-2"></div>
+            
+            <!-- ใช้ Ticket ID อย่างเดียวก็ได้ -->
+            <div class="mb-3">
+              <label class="form-label">หมายเลข Ticket (กรอกแค่ช่องนี้หากไม่มีบัญชี)</label>
+              <input type="text" id="trackTicketId" class="form-control" placeholder="VS-XXXXXXXX-XXXX">
+            </div>
+
+            <div class="text-center text-muted mb-2">--- หรือ ---</div>
+
             <div class="mb-3">
               <label class="form-label">Username</label>
               <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ">
@@ -676,7 +689,7 @@
               <label class="form-label">Password</label>
               <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน">
             </div>
-            <button type="button" id="btnTrackLogin" class="btn btn-submit w-100" onclick="loginToTrack()">เข้าสู่ระบบ</button>
+            <button type="button" id="btnTrackLogin" class="btn btn-submit w-100" onclick="loginToTrack()">ค้นหาสถานะ / เข้าสู่ระบบ</button>
           </div>
 
           <!-- แดชบอร์ดติดตามสถานะผู้ใช้ -->
@@ -687,9 +700,9 @@
             </div>
             
             <div class="card mb-4 border-0 shadow-sm">
-              <div class="card-body bg-light rounded">
+              <div class="card-body bg-light rounded" style="max-height: 400px; overflow-y: auto;">
                 <p class="mb-1 text-muted small"><strong id="dashTicketDate">วันที่แจ้ง:</strong></p>
-                <p class="mb-0" id="dashTicketProblem">รายละเอียดปัญหา</p>
+                <div id="dashTicketProblem" style="font-family: 'Prompt', sans-serif;">รายละเอียดปัญหา</div>
               </div>
             </div>
 
@@ -699,8 +712,8 @@
               <!-- Timeline จะมาแสดงที่นี่ -->
             </div>
 
-            <!-- กล่องผู้ใช้สื่อสารกลับ -->
-            <div class="mt-4 p-3 rounded" style="background-color: var(--pink-50);">
+            <!-- กล่องผู้ใช้สื่อสารกลับ (โชว์เฉพาะถ้ามีสิทธิ์) -->
+            <div id="userRemarkBox" class="mt-4 p-3 rounded d-none" style="background-color: var(--pink-50);">
               <label class="form-label fw-bold text-pink-custom">เพิ่มข้อความ (Remark) ถึงทีมงาน</label>
               <textarea id="userRemarkInput" class="form-control mb-2" rows="2" placeholder="สอบถามความคืบหน้าเพิ่มเติม..."></textarea>
               <button class="btn btn-sm btn-outline-danger" onclick="submitUserRemark()">ส่งข้อความ</button>
@@ -758,6 +771,76 @@
 
       </div>
     </div>
+
+  </div>
+</div>
+
+<!-- Modal สำหรับเจ้าหน้าที่ (Staff Management Modal) -->
+<div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <div>
+          <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
+          <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif;">
+        <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+        <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+        
+        <hr>
+        
+        <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">เปลี่ยนสถานะ</label>
+            <select id="staffActionStatus" class="form-select">
+              <option value="">-- เลือกสถานะใหม่ --</option>
+              <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+              <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+              <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+              <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+              <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+              <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+              <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+              <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+              <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+            <select id="staffActionTransfer" class="form-select">
+              <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+              <option value="SE">โอนคืน SE</option>
+              <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+              <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+              <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+              <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+              <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+              <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+              <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+              <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+              <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+              <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+              <option value="คณะ">ส่งเรื่องถึงคณะ</option> <!-- Staff เท่านั้นที่กดได้ -->
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
+            <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความถึงผู้ใช้..."></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+</div>
 
   </div>
 </div>
@@ -1352,6 +1435,14 @@
   
   let currentActiveTicketId = null; 
   let currentStaffRole = null;
+  let canUserReply = false; // ตัวแปรบอกว่ายูสเซอร์ล็อกอินด้วย Account ใช่ไหม
+
+  // สร้าง QuillJS สำหรับฟอร์มร้องเรียน
+  const vsQuill = new Quill('#vsQuillEditor', {
+    theme: 'snow',
+    placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
+    modules: { toolbar: customToolbar }
+  });
 
   function toggleVitalSoundMode() {
     const isReport = document.getElementById('vsModeReport').checked;
@@ -1377,24 +1468,17 @@
     }
   }
 
-  // ปิดตัวเลือก SE หากผู้ใช้ติ๊กปุ่ม "กรณีฉุกเฉิน"
   function toggleEmergency() {
     const isEmergency = document.getElementById('vsEmergency').checked;
     const deptSelect = document.getElementById('vsDepartment');
     const seOption = deptSelect.querySelector('option[value="SE"]');
-    const facOption = deptSelect.querySelector('option[value="คณะ"]');
     
     if (isEmergency) {
       seOption.disabled = true;
-      facOption.disabled = true;
-      // ถ้าปัจจุบันเลือก SE หรือ คณะ อยู่ ให้เด้งไปเลือกอุปนายกคนแรกแทน
-      if (deptSelect.value === 'SE' || deptSelect.value === 'คณะ') {
-        deptSelect.value = 'อุปนายกฝ่ายบริหารองค์กร'; 
-      }
+      if (deptSelect.value === 'SE') deptSelect.value = 'อุปนายกฝ่ายบริหารองค์กร'; 
       document.getElementById('reqDeptStar').style.display = 'inline';
     } else {
       seOption.disabled = false;
-      facOption.disabled = false;
       document.getElementById('reqDeptStar').style.display = 'none';
     }
   }
@@ -1409,6 +1493,16 @@
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...';
     btn.disabled = true;
 
+    const contentHtml = vsQuill.root.innerHTML;
+    const contentText = vsQuill.getText().trim();
+    
+    if(contentText.length === 0) {
+      alert("กรุณาระบุรายละเอียดปัญหา");
+      btn.innerHTML = ogText;
+      btn.disabled = false;
+      return;
+    }
+
     const formData = new FormData(this);
     const payload = {
         action: 'submitVitalSound',
@@ -1416,9 +1510,10 @@
         vsYear: formData.get('vsYear'),
         vsUsername: formData.get('vsUsername'),
         vsPassword: formData.get('vsPassword'),
-        vsProblem: formData.get('vsProblem'),
+        vsProblem: contentHtml, // ส่ง HTML เต็มๆ ที่มีรูป Base64
         vsDepartment: formData.get('vsDepartment'),
-        vsEmergency: formData.get('vsEmergency') === 'true' // ส่งค่าฉุกเฉินไปให้ Backend
+        vsEmergency: formData.get('vsEmergency') === 'true',
+        hasAccount: document.getElementById('vsCreateAccount').checked
     };
 
     try {
@@ -1430,11 +1525,18 @@
       const result = await res.json();
       
       if(result.success) {
-        alert(result.message);
+        // หากผู้ใช้ไม่ได้ใช้ Account ให้บังคับเตือนให้จด Ticket ID
+        if(!payload.hasAccount) {
+          alert(`✅ สำเร็จ! โปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n\n${result.ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`);
+        } else {
+          alert(result.message);
+        }
+        
         this.reset();
+        vsQuill.setText('');
         document.getElementById('vsCreateAccount').checked = false;
         toggleVsAccountFields(); 
-        toggleEmergency(); // Reset select state
+        toggleEmergency(); 
       } else {
         alert("เกิดข้อผิดพลาด: " + result.message);
       }
@@ -1447,14 +1549,15 @@
   });
 
   async function loginToTrack() {
+    const tId = document.getElementById('trackTicketId').value.trim();
     const user = document.getElementById('trackUsername').value.trim();
     const pass = document.getElementById('trackPassword').value.trim();
     const alertBox = document.getElementById('trackAlert');
     const btn = document.getElementById('btnTrackLogin');
 
-    if(!user || !pass) { 
+    if(!tId && (!user || !pass)) { 
         alertBox.classList.remove('d-none'); 
-        alertBox.innerText = "กรุณากรอก Username และ Password"; 
+        alertBox.innerText = "กรุณากรอก Ticket ID หรือ (Username และ Password)"; 
         return; 
     }
 
@@ -1466,12 +1569,14 @@
       const res = await fetch(GAS_VITAL_SOUND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'trackVitalSound', username: user, password: pass })
+        body: JSON.stringify({ action: 'trackVitalSound', ticketId: tId, username: user, password: pass })
       });
       const result = await res.json();
       
       if(result.success) {
         currentActiveTicketId = result.ticket.id;
+        canUserReply = result.isOwner; // ให้สิทธิ์คอมเมนต์ถ้าใส่ User/Pass ถูกต้อง
+        
         renderUserDashboard(result.ticket);
         document.getElementById('vsLoginBox').classList.add('d-none');
         document.getElementById('vsDashboardBox').classList.remove('d-none');
@@ -1484,7 +1589,7 @@
       alertBox.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย";
     } finally {
       btn.disabled = false;
-      btn.innerHTML = 'เข้าสู่ระบบ';
+      btn.innerHTML = 'ค้นหาสถานะ / เข้าสู่ระบบ';
     }
   }
 
@@ -1493,8 +1598,8 @@
     
     let badgeClass = "bg-secondary";
     if(ticket.status.includes("รอ")) badgeClass = "bg-warning text-dark";
-    if(ticket.status.includes("ด่วน")) badgeClass = "bg-danger"; // สีแดงสำหรับงานด่วน
-    if(ticket.status.includes("ดำเนินการ")) badgeClass = "bg-primary";
+    if(ticket.status.includes("ด่วน")) badgeClass = "bg-danger"; 
+    if(ticket.status.includes("ดำเนินการ") || ticket.status.includes("ติดต่อคณะ")) badgeClass = "bg-primary";
     if(ticket.status.includes("เสร็จสิ้น")) badgeClass = "bg-success";
     if(ticket.status.includes("ปฏิเสธ")) badgeClass = "bg-danger";
 
@@ -1503,7 +1608,7 @@
     statusBadge.innerText = ticket.status;
     
     document.getElementById('dashTicketDate').innerText = `วันที่แจ้ง: ${ticket.date} (ฝ่ายที่รับเรื่อง: ${ticket.dept})`;
-    document.getElementById('dashTicketProblem').innerText = ticket.problem;
+    document.getElementById('dashTicketProblem').innerHTML = ticket.problem;
 
     const timelineContainer = document.getElementById('dashTimeline');
     timelineContainer.innerHTML = ''; 
@@ -1527,13 +1632,18 @@
     } else {
       timelineContainer.innerHTML = '<p class="text-muted small">ระบบได้รับเรื่องแล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ...</p>';
     }
+
+    // ซ่อนกล่องคอมเมนต์หากใช้แค่ Ticket ID หา (ไม่มีสิทธิ์ User)
+    const remarkBox = document.getElementById('userRemarkBox');
+    if(canUserReply) remarkBox.classList.remove('d-none');
+    else remarkBox.classList.add('d-none');
   }
 
   async function submitUserRemark() {
     const text = document.getElementById('userRemarkInput').value.trim();
     if(!text) return;
     
-    const btn = document.querySelector('#vsDashboardBox .btn-outline-danger');
+    const btn = document.querySelector('#userRemarkBox .btn-outline-danger');
     const ogText = btn.innerHTML;
     btn.innerHTML = 'กำลังส่ง...';
     btn.disabled = true;
@@ -1555,13 +1665,14 @@
 
   function logoutTrack() {
     currentActiveTicketId = null;
+    canUserReply = false;
     document.getElementById('vsDashboardBox').classList.add('d-none');
     document.getElementById('vsLoginBox').classList.remove('d-none');
+    document.getElementById('trackTicketId').value = '';
     document.getElementById('trackUsername').value = '';
     document.getElementById('trackPassword').value = '';
     document.getElementById('trackAlert').classList.add('d-none');
   }
-
 
   // ============================
   // ฝั่งเจ้าหน้าที่ (STAFF)
@@ -1603,20 +1714,22 @@
         if(result.success && result.tickets.length > 0) {
           result.tickets.forEach(t => {
             let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : (t.status.includes('รอ') ? 'warning text-dark' : 'primary');
-            if(t.status.includes('ด่วน')) badgeColor = 'danger'; // สีแดงหากเป็นงานฉุกเฉิน
+            if(t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger'; 
 
-            const safeProblem = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ' ');
+            // ลบ HTML Tags ออกให้เหลือแต่ Text สำหรับโชว์บนการ์ด
+            let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
+            let safeProblemHTML = t.problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ''); // เก็บแบบเต็มไว้เปิด Modal
             
             const cardHtml = `
               <div class="col-md-6">
-                <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModal('${t.id}', '${t.status}', '${t.dept}', '${safeProblem}', '${t.date}')">
+                <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModal('${t.id}', '${t.status}', '${t.dept}', '${safeProblemHTML}', '${t.date}')">
                   <div class="card-body">
                     <div class="d-flex justify-content-between mb-2">
                       <span class="fw-bold text-pink-custom">${t.id}</span>
                       <span class="badge bg-${badgeColor}">${t.status}</span>
                     </div>
                     <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${t.dept}</p>
-                    <p class="card-text small text-truncate">${t.problem}</p>
+                    <p class="card-text small text-truncate">${strippedProblem}</p>
                   </div>
                 </div>
               </div>
@@ -1632,12 +1745,12 @@
     }
   }
 
-  function openStaffModal(id, status, dept, problem, date) {
+  function openStaffModal(id, status, dept, problemHTML, date) {
     currentActiveTicketId = id;
     document.getElementById('staffModalTitle').innerText = id;
     document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
     document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${date} | ฝ่ายที่รับผิดชอบ: ${dept}`;
-    document.getElementById('staffModalProblem').innerText = problem;
+    document.getElementById('staffModalProblem').innerHTML = problemHTML; // ใช้ innerHTML เพราะเก็บมาเป็น Quill format
     
     document.getElementById('staffActionStatus').value = '';
     document.getElementById('staffActionTransfer').value = '';
