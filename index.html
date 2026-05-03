@@ -315,21 +315,29 @@
                     </div>
                   </div>
 
-                  <!-- ส่วนปุ่ม Login ด้วย Google -->
-                  <div id="prGoogleAuthFields" class="d-none p-4 rounded text-center" style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
-                    <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบด้วย Google Account เพื่อยืนยันตัวตน</p>
-                    <div id="g_id_onload"
-                         data-client_id="593995881808-1ojgnuktiqf2a0kh3hsc7ec9dj8epgp3.apps.googleusercontent.com"
-                         data-context="signin"
-                         data-ux_mode="popup"
-                         data-callback="handlePrGoogleLogin"
-                         data-auto_prompt="false">
+                  <!-- ส่วนแสดงผลสถานะ Login ด้วย Google (ใช้แชร์กันทั้งหน้าส่งงานและติดตามสถานะ) -->
+                  <div id="prGoogleAuthContainer" class="d-none p-4 rounded text-center" style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
+                    <div id="prNotLoggedInState">
+                        <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบด้วย Google Account เพื่อยืนยันตัวตน</p>
+                        <div id="g_id_onload"
+                             data-client_id="593995881808-1ojgnuktiqf2a0kh3hsc7ec9dj8epgp3.apps.googleusercontent.com"
+                             data-context="signin"
+                             data-ux_mode="popup"
+                             data-callback="handlePrGoogleLogin"
+                             data-auto_prompt="false">
+                        </div>
+                        <div class="g_id_signin d-flex justify-content-center" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
                     </div>
-                    <div class="g_id_signin d-flex justify-content-center" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
-                    <input type="hidden" id="prGoogleUserEmail" name="prGoogleUserEmail" value="" />
-                    <input type="hidden" id="prGoogleUserName" name="prGoogleUserName" value="" />
-                    <div class="text-success d-none fw-bold small mt-3" id="prVerifySuccessText">
-                      <i class="bi bi-check-circle-fill"></i> ยืนยันตัวตนสำเร็จ! (<span id="prVerifiedEmail"></span>)
+
+                    <div id="prLoggedInState" class="d-none">
+                        <div class="text-success fw-bold small mt-1 mb-2">
+                          <i class="bi bi-check-circle-fill"></i> เข้าสู่ระบบแล้ว
+                        </div>
+                        <div class="d-inline-flex align-items-center bg-light px-3 py-2 rounded-pill border mb-2">
+                           <i class="bi bi-google text-muted me-2"></i>
+                           <span id="prVerifiedEmail" class="fw-bold me-3"></span>
+                           <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="logoutGoogle()">ออกจากระบบ</button>
+                        </div>
                     </div>
                   </div>
                 </div>
@@ -539,10 +547,23 @@
                   </div>
                   <!-- User History -->
                   <div class="tab-pane fade" id="content-user-pr-track" role="tabpanel">
-                    <div class="alert alert-info small" style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
-                      <i class="bi bi-info-circle-fill me-1"></i> ระบบจะค้นหาประวัติจาก Google Account ที่คุณล็อกอินไว้ในหน้า <strong>"ส่งงาน PR"</strong>
+                    
+                    <div id="prTrackNotLoggedIn">
+                        <div class="alert alert-info small text-center" style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                          <i class="bi bi-info-circle-fill me-1"></i> ระบบจะค้นหาประวัติจาก Google Account ของคุณ
+                        </div>
+                        <button type="button" class="btn btn-outline-danger w-100 fw-bold" onclick="document.getElementById('prAccGoogle').click(); document.getElementById('prModeSubmit').click();">
+                          <i class="bi bi-google me-1"></i> ไปหน้าเข้าสู่ระบบ
+                        </button>
                     </div>
-                    <button type="button" id="btnTrackPrUser" class="btn btn-submit w-100" onclick="loadPRHistory()">โหลดประวัติของฉัน</button>
+
+                    <div id="prTrackLoggedIn" class="d-none">
+                        <div class="alert alert-success small mb-3">
+                          <i class="bi bi-person-check-fill me-1"></i> กำลังค้นหาประวัติสำหรับ: <strong id="prTrackEmailDisplay"></strong>
+                        </div>
+                        <button type="button" id="btnTrackPrUser" class="btn btn-submit w-100" onclick="loadPRHistory()">โหลดประวัติของฉัน</button>
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -1083,6 +1104,49 @@
       }
 
       // -----------------------------------------------------
+      // PERSISTENT GOOGLE LOGIN LOGIC (LOCAL STORAGE)
+      // -----------------------------------------------------
+      let isPrAccountVerified = false;
+
+      // เมื่อหน้าเว็บโหลด ให้เช็คว่ามีข้อมูล Login ค้างอยู่ไหม
+      document.addEventListener("DOMContentLoaded", () => {
+        loadAnnouncements(); // โหลดประกาศหน้าแรก
+        
+        const savedEmail = localStorage.getItem("prGoogleUserEmail");
+        const savedName = localStorage.getItem("prGoogleUserName");
+
+        if (savedEmail && savedName) {
+           // ถ้ามีข้อมูล ให้แสดงสถานะว่าล็อกอินแล้วทันที
+           document.getElementById("prGoogleUserEmail").value = savedEmail;
+           document.getElementById("prGoogleUserName").value = savedName;
+           document.getElementById("prVerifiedEmail").innerText = savedEmail;
+           document.getElementById("prTrackEmailDisplay").innerText = savedEmail;
+           
+           isPrAccountVerified = true;
+           updateGoogleAuthUI(true);
+        }
+      });
+
+      // ฟังก์ชันสำหรับสลับ UI หน้า Login
+      function updateGoogleAuthUI(isLoggedIn) {
+        if (isLoggedIn) {
+           // ฝั่งหน้าส่งงาน
+           document.getElementById("prNotLoggedInState").classList.add("d-none");
+           document.getElementById("prLoggedInState").classList.remove("d-none");
+           // ฝั่งหน้าติดตามประวัติ
+           document.getElementById("prTrackNotLoggedIn").classList.add("d-none");
+           document.getElementById("prTrackLoggedIn").classList.remove("d-none");
+        } else {
+           // ฝั่งหน้าส่งงาน
+           document.getElementById("prNotLoggedInState").classList.remove("d-none");
+           document.getElementById("prLoggedInState").classList.add("d-none");
+           // ฝั่งหน้าติดตามประวัติ
+           document.getElementById("prTrackNotLoggedIn").classList.remove("d-none");
+           document.getElementById("prTrackLoggedIn").classList.add("d-none");
+        }
+      }
+
+      // -----------------------------------------------------
       // ANNOUNCEMENTS
       // -----------------------------------------------------
       let globalAnnouncements = [];
@@ -1232,8 +1296,6 @@
           new bootstrap.Modal(document.getElementById("viewAnnouncementModal")).show();
         }
       }
-      document.addEventListener("DOMContentLoaded", loadAnnouncements);
-
 
       // -----------------------------------------------------
       // PR FORM & PR DASHBOARD LOGIC
@@ -1396,8 +1458,6 @@
       jobTypeRadios.forEach((radio) => radio.addEventListener("change", applyDateRules));
       updateFormVisibility();
 
-      let isPrAccountVerified = false;
-
       function togglePrMode() {
         const isSubmit = document.getElementById("prModeSubmit").checked;
         const isTrack = document.getElementById("prModeTrack").checked;
@@ -1410,28 +1470,50 @@
 
       function togglePrAccountFields() {
         const accMode = document.querySelector('input[name="prAccountMode"]:checked').value;
-        const googleAuthFields = document.getElementById("prGoogleAuthFields");
-        const successText = document.getElementById("prVerifySuccessText");
-
-        isPrAccountVerified = false;
-        document.getElementById("prGoogleUserEmail").value = "";
-        successText.classList.add("d-none");
+        const authContainer = document.getElementById("prGoogleAuthContainer");
 
         if (accMode === "google") {
-          googleAuthFields.classList.remove("d-none");
+          authContainer.classList.remove("d-none");
+          if(!isPrAccountVerified){
+              // โชว์ปุ่ม Login ถ้ายังไม่ได้ล็อกอิน
+              document.getElementById("prNotLoggedInState").classList.remove("d-none");
+              document.getElementById("prLoggedInState").classList.add("d-none");
+          } else {
+              // ถ้าเคยล็อกอินไว้แล้ว โชว์สถานะสำเร็จ
+              document.getElementById("prNotLoggedInState").classList.add("d-none");
+              document.getElementById("prLoggedInState").classList.remove("d-none");
+          }
         } else {
-          googleAuthFields.classList.add("d-none");
-          isPrAccountVerified = true; 
+          authContainer.classList.add("d-none");
         }
       }
 
       function handlePrGoogleLogin(response) {
         const responsePayload = decodeJwtResponse(response.credential);
+        
+        // บันทึกข้อมูลลง Local Storage
+        localStorage.setItem("prGoogleUserEmail", responsePayload.email);
+        localStorage.setItem("prGoogleUserName", responsePayload.name);
+        
         document.getElementById("prGoogleUserEmail").value = responsePayload.email;
         document.getElementById("prGoogleUserName").value = responsePayload.name;
         document.getElementById("prVerifiedEmail").innerText = responsePayload.email;
-        document.getElementById("prVerifySuccessText").classList.remove("d-none");
+        document.getElementById("prTrackEmailDisplay").innerText = responsePayload.email;
+        
         isPrAccountVerified = true;
+        updateGoogleAuthUI(true);
+      }
+      
+      function logoutGoogle() {
+        // ล้าง Local Storage
+        localStorage.removeItem("prGoogleUserEmail");
+        localStorage.removeItem("prGoogleUserName");
+        
+        isPrAccountVerified = false;
+        document.getElementById("prGoogleUserEmail").value = "";
+        document.getElementById("prGoogleUserName").value = "";
+        
+        updateGoogleAuthUI(false);
       }
 
       function decodeJwtResponse(token) {
@@ -1443,7 +1525,6 @@
         return JSON.parse(jsonPayload);
       }
 
-      // ป้องกันส่งซ้ำซ้อนโดยให้มี EventListener ตัวนี้ตัวเดียว
       document.getElementById("prForm").addEventListener("submit", async function (e) {
         e.preventDefault();
         const btn = document.getElementById("submitBtn");
@@ -1549,11 +1630,13 @@
         const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
         const alertBox = document.getElementById("prTrackAlert");
         const btn = document.getElementById("btnTrackPrUser");
-        const email = document.getElementById("prGoogleUserEmail").value;
+        
+        // ดึง Email จาก Local Storage
+        const email = localStorage.getItem("prGoogleUserEmail");
 
         if (!isPrAccountVerified || !email) {
           alertBox.classList.remove("d-none");
-          alertBox.innerText = "คุณต้องเข้าสู่ระบบ Google ในหน้า 'ส่งงาน PR' ก่อนครับ"; return;
+          alertBox.innerText = "ไม่พบข้อมูลบัญชี กรุณาเข้าสู่ระบบผ่านแท็บ 'ส่งงาน PR' ก่อน"; return;
         }
 
         btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลด...'; alertBox.classList.add("d-none");
