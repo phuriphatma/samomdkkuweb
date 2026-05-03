@@ -161,6 +161,12 @@
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="pills-pr-tab" data-bs-toggle="pill" data-bs-target="#pills-pr" type="button" role="tab"><i class="bi bi-megaphone-fill me-1"></i> ฝากลง IG/FB</button>
     </li>
+    <!-- เพิ่มแท็บ Vital Sound -->
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="pills-vitalsound-tab" data-bs-toggle="pill" data-bs-target="#pills-vitalsound" type="button" role="tab">
+        <i class="bi bi-ear-fill me-1"></i> Vital Sound
+      </button>
+    </li>
   </ul>
 </nav>
 
@@ -545,6 +551,179 @@
       </div>
     </div>
 
+    <!-- TAB 5: VITAL SOUND -->
+    <div class="tab-pane fade" id="pills-vitalsound" role="tabpanel">
+      <div class="form-container" style="max-width: 900px;">
+        <div class="text-center mb-4">
+          <h2 class="page-header"><i class="bi bi-ear-fill me-2 text-pink-custom"></i>Vital Sound</h2>
+          <p class="text-muted">กระบอกเสียงนักศึกษา รายงานปัญหาและติดตามความคืบหน้าได้แบบไม่ระบุตัวตน</p>
+        </div>
+
+        <!-- Toggle ระหว่างหน้า ส่งเรื่อง กับ หน้าติดตามสถานะ -->
+        <div class="d-flex justify-content-center mb-4">
+          <div class="btn-group shadow-sm" role="group">
+            <input type="radio" class="btn-check" name="vsMode" id="vsModeReport" autocomplete="off" checked onchange="toggleVitalSoundMode()">
+            <label class="btn btn-outline-danger px-4" for="vsModeReport" style="border-color: var(--pink-500);"><i class="bi bi-megaphone me-2"></i>แจ้งปัญหาใหม่</label>
+          
+            <input type="radio" class="btn-check" name="vsMode" id="vsModeTrack" autocomplete="off" onchange="toggleVitalSoundMode()">
+            <label class="btn btn-outline-danger px-4" for="vsModeTrack" style="border-color: var(--pink-500);"><i class="bi bi-search me-2"></i>ติดตามสถานะ</label>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             SECTION 1: REPORT PROBLEM FORM
+             ========================================== -->
+        <div id="vsReportSection">
+          <form id="vitalSoundForm">
+            <!-- ส่วนข้อมูลส่วนตัว -->
+            <h4 class="section-title"><i class="bi bi-person-lines-fill me-2"></i>ข้อมูลผู้แจ้ง (ไม่บังคับ)</h4>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label">ชื่อ-นามสกุล <span class="badge-info-custom">ไม่ระบุตัวตนได้</span></label>
+                <input type="text" name="vsName" class="form-control" placeholder="นามแฝง หรือ ชื่อจริง">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">ชั้นปี <span class="badge-info-custom">ไม่ระบุได้</span></label>
+                <select name="vsYear" class="form-select">
+                  <option value="" selected>ไม่ระบุ</option>
+                  <option value="1">ปี 1</option>
+                  <option value="2">ปี 2</option>
+                  <option value="3">ปี 3</option>
+                  <option value="4">ปี 4</option>
+                  <option value="5">ปี 5</option>
+                  <option value="6">ปี 6</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ส่วนสร้างบัญชีนิรนาม -->
+            <div class="p-3 mb-4 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="vsCreateAccount" onchange="toggleVsAccountFields()" style="cursor: pointer;">
+                <label class="form-check-label fw-bold text-pink-custom" for="vsCreateAccount" style="cursor: pointer;">
+                  ต้องการสร้างบัญชีนิรนามเพื่อติดตามสถานะปัญหา
+                </label>
+              </div>
+              <p class="text-muted small mb-3">หากไม่สร้างบัญชี คุณจะไม่สามารถกลับมาดูความคืบหน้าของปัญหานี้ได้</p>
+              
+              <div id="vsAccountFields" class="row g-3 d-none">
+                <div class="col-md-6">
+                  <label class="form-label">Username (ตั้งเองได้เลย) <span class="text-danger">*</span></label>
+                  <input type="text" id="vsUsername" class="form-control" placeholder="เช่น anonymous_01">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Password <span class="text-danger">*</span></label>
+                  <input type="password" id="vsPassword" class="form-control" placeholder="ตั้งรหัสผ่านที่จำได้">
+                </div>
+              </div>
+            </div>
+
+            <!-- รายละเอียดปัญหา -->
+            <h4 class="section-title"><i class="bi bi-chat-square-text me-2"></i>รายละเอียดปัญหา</h4>
+            <div class="mb-3">
+              <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
+              <textarea name="vsProblem" class="form-control" rows="4" placeholder="อธิบายปัญหาที่พบเจอ หรือข้อเสนอแนะ..." required></textarea>
+            </div>
+            
+            <div class="mb-4">
+              <label class="form-label">ฝ่ายที่ต้องการส่งเรื่องถึง (ถ้าทราบ)</label>
+              <select name="vsDepartment" class="form-select">
+                <option value="SE" selected>ไม่แน่ใจ (ให้ทีม SE ช่วยพิจารณา)</option>
+                <option value="อุปนายกฝ่ายบริหาร">อุปนายกฝ่ายบริหาร</option>
+                <option value="อุปนายกฝ่ายดิจิทัล">อุปนายกฝ่ายดิจิทัล</option>
+                <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                <option value="อุปนายกฝ่ายสวัสดิการ">อุปนายกฝ่ายสวัสดิการ</option>
+                <option value="คณะ">ติดต่อคณะโดยตรง</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-submit w-100">
+              <i class="bi bi-send-fill me-2"></i> ส่งเรื่องร้องเรียน
+            </button>
+          </form>
+        </div>
+
+        <!-- ==========================================
+             SECTION 2: TRACK PROGRESS DASHBOARD
+             ========================================== -->
+        <div id="vsTrackSection" class="d-none">
+          
+          <!-- ฟอร์ม Login บัญชีนิรนาม -->
+          <div id="vsLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
+            <h5 class="fw-bold text-center mb-3" style="color: var(--pink-900);">เข้าสู่ระบบเพื่อติดตามสถานะ</h5>
+            <div class="mb-3">
+              <label class="form-label">Username</label>
+              <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน">
+            </div>
+            <button type="button" class="btn btn-submit w-100" onclick="mockLoginToTrack()">เข้าสู่ระบบ</button>
+          </div>
+
+          <!-- แดชบอร์ดติดตามสถานะ (ซ่อนไว้ก่อน Login) -->
+          <div id="vsDashboardBox" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">Ticket #VS-1024</h5>
+              <span class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">กำลังรออุปนายกฝ่ายดิจิทัลพิจารณารับเรื่อง</span>
+            </div>
+            
+            <div class="card mb-4 border-0 shadow-sm">
+              <div class="card-body bg-light rounded">
+                <p class="mb-1 text-muted small"><strong>ปัญหาที่แจ้ง:</strong> (12 เม.ย. 2026)</p>
+                <p class="mb-0">Internet หอพักแพทย์เชื่อมต่อหลุดบ่อยมากในช่วงหัวค่ำครับ รบกวนประสานงานศูนย์คอมให้ทีครับ</p>
+              </div>
+            </div>
+
+            <h5 class="section-title mt-0"><i class="bi bi-clock-history me-2"></i>Timeline & Remarks</h5>
+            
+            <!-- Timeline จำลอง -->
+            <div class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;">
+              
+              <!-- Timeline Item 1 -->
+              <div class="mb-4 position-relative">
+                <span class="position-absolute top-0 start-0 translate-middle p-2 bg-success border border-light rounded-circle" style="left: -1.5rem !important;"></span>
+                <div class="text-muted small">12 เม.ย. 2026 10:00 น.</div>
+                <div class="fw-bold">ระบบได้รับเรื่องแล้ว</div>
+                <p class="mb-0 small text-secondary">ผู้รับผิดชอบเบื้องต้น: SE Team</p>
+              </div>
+
+              <!-- Timeline Item 2 -->
+              <div class="mb-4 position-relative">
+                <span class="position-absolute top-0 start-0 translate-middle p-2 bg-primary border border-light rounded-circle" style="left: -1.5rem !important;"></span>
+                <div class="text-muted small">12 เม.ย. 2026 14:30 น.</div>
+                <div class="fw-bold">SE รับเรื่องแล้ว และส่งต่อให้อุปนายก</div>
+                <div class="card bg-white border-light shadow-sm mt-2 p-2">
+                  <p class="mb-0 small"><strong>Remark จากทีม SE (Parn):</strong> ได้ทำการตรวจสอบข้อมูลเบื้องต้นและโอนเรื่องให้ฝ่ายดิจิทัลรับไปคุยกับศูนย์คอมแล้วครับ</p>
+                </div>
+              </div>
+
+              <!-- Timeline Item 3 (Current) -->
+              <div class="mb-4 position-relative">
+                <span class="spinner-grow spinner-grow-sm text-warning position-absolute top-0 start-0 translate-middle" style="left: -1.5rem !important;" role="status"></span>
+                <div class="text-muted small">รอการตอบกลับ</div>
+                <div class="fw-bold text-warning">กำลังรออุปนายกฝ่ายดิจิทัลพิจารณาการรับเรื่อง</div>
+                <p class="mb-0 small text-secondary">ผู้รับผิดชอบปัจจุบัน: อุปนายกฝ่ายดิจิทัล</p>
+              </div>
+
+            </div>
+
+            <!-- กล่องสื่อสาร -->
+            <div class="mt-4 p-3 rounded" style="background-color: var(--pink-50);">
+              <label class="form-label fw-bold text-pink-custom">เพิ่มข้อความ (Remark) ถึงทีมงาน</label>
+              <textarea class="form-control mb-2" rows="2" placeholder="พิมพ์ข้อความเพิ่มเติม หรือสอบถามความคืบหน้า..."></textarea>
+              <button class="btn btn-sm btn-outline-danger">ส่งข้อความ</button>
+            </div>
+            
+            <button class="btn btn-outline-secondary w-100 mt-4" onclick="mockLogout()">ออกจากระบบ</button>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -564,7 +743,7 @@
         <!-- Quill HTML gets injected here -->
       </div>
       <div class="modal-footer border-0">
-        <!-- ปุ่มแก้ไขประกาศ -->
+        <!-- ปุ่มแก้ไขประกาศ -->
         <button type="button" class="btn btn-warning" onclick="editCurrentAnnouncement()"><i class="bi bi-pencil-square me-1"></i> แก้ไขประกาศนี้</button>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
       </div>
@@ -595,15 +774,15 @@
 </script>
 
 <!-- ==========================================
-     CMS ANNOUNCEMENT CREATOR LOGIC 
+     CMS ANNOUNCEMENT & PR FORM SCRIPT CONFIG
      ========================================== -->
 <script>
-  // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของคุณตรงนี้ ⚠️
+  // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของระบบประกาศและ PR Form ตรงนี้ ⚠️
   const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwGfg9RQIJ0B4KK1qM3owtfs9HysAQkar_BPOxGAgAgwNQERspxENm6EeO7xDti9-E/exec';
 
   let globalAnnouncements = [];
-  let editingAnnouncementId = null; // ตัวแปรสำหรับจำ ID ที่กำลังจะแก้
-  let viewingAnnouncementId = null; // ตัวแปรจำ ID ตอนเปิดอ่าน
+  let editingAnnouncementId = null; 
+  let viewingAnnouncementId = null; 
 
   const creatorQuill = new Quill('#creatorQuillEditor', {
     theme: 'snow',
@@ -611,13 +790,11 @@
     modules: { toolbar: customToolbar }
   });
 
-  // ยกเลิกการแก้ไข และรีเซ็ตฟอร์มกลับเป็นโหมด "สร้างใหม่"
   function cancelEdit() {
     editingAnnouncementId = null;
     document.getElementById('creatorTitle').value = '';
     creatorQuill.setText('');
     
-    // คืนค่า UI เป็นโหมดปกติ
     document.getElementById('creatorPageHeader').innerHTML = '<i class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i> เขียนประกาศลงเว็บไซต์';
     document.getElementById('creatorPageDesc').innerText = 'เขียนเนื้อหา แทรกรูปภาพ แล้ว Publish ขึ้นบอร์ดประกาศได้ทันที';
     document.getElementById('publishBtnText').innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
@@ -626,35 +803,28 @@
     document.getElementById('creatorAlert').classList.add('d-none');
   }
 
-  // นำข้อมูลประกาศที่เปิดอ่านอยู่ ไปใส่ในฟอร์มแก้ไข
   function editCurrentAnnouncement() {
     const post = globalAnnouncements.find(p => p.id === viewingAnnouncementId);
     if (!post) return;
 
-    // ปิด Modal ดูเนื้อหา
     const modalEl = document.getElementById('viewAnnouncementModal');
     bootstrap.Modal.getInstance(modalEl).hide();
 
-    // กำหนดสถานะว่ากำลังแก้ไข
     editingAnnouncementId = post.id;
 
-    // นำข้อมูลเดิมไปใส่ในฟอร์ม
     document.getElementById('creatorTitle').value = post.title;
     document.getElementById('creatorDepartment').value = post.department;
     creatorQuill.root.innerHTML = post.content;
     
-    // เปลี่ยน UI เป็นโหมดแก้ไข
     document.getElementById('creatorPageHeader').innerHTML = '<i class="bi bi-pencil-square me-2 text-pink-custom"></i> แก้ไขประกาศ';
     document.getElementById('creatorPageDesc').innerText = 'ระบบจะทำการบันทึกข้อมูลทับประกาศเดิมของคุณ';
     document.getElementById('publishBtnText').innerHTML = '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)';
     document.getElementById('cancelEditBtn').classList.remove('d-none');
 
-    // สลับไปหน้าแท็บฟอร์มเขียน
     bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-creator-tab')).show();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ฟังก์ชันเขียนหรือแก้ไขประกาศ (ส่งไป Backend)
   async function publishAnnouncement() {
     const title = document.getElementById('creatorTitle').value.trim();
     const dept = document.getElementById('creatorDepartment').value;
@@ -662,7 +832,6 @@
     const contentText = creatorQuill.getText().trim();
     const alertBox = document.getElementById('creatorAlert');
     
-    // ดึง Element ของปุ่ม และ Element ของข้อความในปุ่มแยกกัน
     const publishBtn = document.querySelector('button[onclick="publishAnnouncement()"]');
     const publishBtnText = document.getElementById('publishBtnText');
 
@@ -672,11 +841,9 @@
       return;
     }
 
-    // ล็อกปุ่มและเปลี่ยนเฉพาะข้อความด้านใน (ไม่ให้ทับโครงสร้างเดิม)
     publishBtn.disabled = true;
     publishBtnText.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
 
-    // ตรวจสอบว่าแก้ไขหรือสร้างใหม่
     const isEditing = editingAnnouncementId !== null;
     const actionMode = isEditing ? 'editAnnouncement' : 'addAnnouncement';
 
@@ -703,7 +870,6 @@
         alertBox.className = 'alert alert-success shadow-sm';
         alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${result.message} กำลังพากลับไปหน้าประกาศ...`;
         
-        // รีเซ็ตฟอร์มกลับเป็นโหมดปกติ (ปุ่มจะไม่ null แล้ว)
         cancelEdit();
         
         setTimeout(() => {
@@ -718,7 +884,6 @@
       alertBox.className = 'alert alert-danger shadow-sm';
       alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`;
     } finally {
-      // คืนค่าปุ่มกลับมาเมื่อทำงานเสร็จ (หรือเกิด Error)
       publishBtn.disabled = false;
       const originalText = isEditing ? '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)' : '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
       if (document.getElementById('publishBtnText')) {
@@ -727,7 +892,6 @@
     }
   }
 
-  // ฟังก์ชันดึงประกาศมาแสดงผล (โหลดจาก Backend)
   async function loadAnnouncements() {
     const container = document.getElementById('announcementsGrid');
     const emptyState = document.getElementById('emptyState');
@@ -787,11 +951,10 @@
     }
   }
 
-  // ฟังก์ชันกดเปิดอ่านประกาศเต็ม
   function viewAnnouncement(id) {
     const post = globalAnnouncements.find(p => p.id === id);
     if (post) {
-      viewingAnnouncementId = post.id; // จำ ID เพื่อใช้กรณีผู้ใช้กดปุ่มแก้ไข
+      viewingAnnouncementId = post.id; 
       
       document.getElementById('modalTitle').innerText = post.title;
       document.getElementById('modalDeptBadge').innerText = post.department;
@@ -806,9 +969,6 @@
   document.addEventListener('DOMContentLoaded', loadAnnouncements);
 </script>
 
-<!-- ==========================================
-     ORIGINAL PR FORM LOGIC 
-     ========================================== -->
 <script>
   const departmentSelect = document.getElementById('department');
   const igPostCheckbox = document.getElementById('plat1');
@@ -1074,6 +1234,111 @@
       reader.readAsDataURL(file); 
     } else {
       sendData(data); 
+    }
+  });
+</script>
+
+<!-- ==========================================
+     VITAL SOUND LOGIC 
+     ========================================== -->
+<script>
+  // ⚠️ ใส่ URL GOOGLE APPS SCRIPT ของระบบ Vital Sound ตรงนี้ ⚠️
+  const GAS_VITAL_SOUND_URL = 'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
+
+  function toggleVitalSoundMode() {
+    const isReport = document.getElementById('vsModeReport').checked;
+    const reportSection = document.getElementById('vsReportSection');
+    const trackSection = document.getElementById('vsTrackSection');
+
+    if (isReport) {
+      reportSection.classList.remove('d-none');
+      trackSection.classList.add('d-none');
+    } else {
+      reportSection.classList.add('d-none');
+      trackSection.classList.remove('d-none');
+    }
+  }
+
+  function toggleVsAccountFields() {
+    const isCreate = document.getElementById('vsCreateAccount').checked;
+    const fieldsBox = document.getElementById('vsAccountFields');
+    const userIn = document.getElementById('vsUsername');
+    const passIn = document.getElementById('vsPassword');
+
+    if (isCreate) {
+      fieldsBox.classList.remove('d-none');
+      userIn.setAttribute('required', 'required');
+      passIn.setAttribute('required', 'required');
+    } else {
+      fieldsBox.classList.add('d-none');
+      userIn.removeAttribute('required');
+      passIn.removeAttribute('required');
+    }
+  }
+
+  // จำลองระบบ Login (สำหรับ Frontend Preview)
+  function mockLoginToTrack() {
+    const btn = document.querySelector('#vsLoginBox button');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
+    
+    setTimeout(() => {
+      document.getElementById('vsLoginBox').classList.add('d-none');
+      document.getElementById('vsDashboardBox').classList.remove('d-none');
+      btn.innerHTML = 'เข้าสู่ระบบ';
+    }, 800);
+  }
+
+  function mockLogout() {
+    document.getElementById('vsDashboardBox').classList.add('d-none');
+    document.getElementById('vsLoginBox').classList.remove('d-none');
+    document.getElementById('trackUsername').value = '';
+    document.getElementById('trackPassword').value = '';
+  }
+
+  // Handle Form Submit (ส่งข้อมูลจริงไปยัง Google Apps Script ของ Vital Sound)
+  document.getElementById('vitalSoundForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // จัดการ UI ของปุ่ม (แสดงสถานะกำลังโหลด)
+    const btn = this.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังส่งข้อมูล...';
+    btn.disabled = true;
+
+    // รวบรวมข้อมูลจากฟอร์มให้เป็น Object
+    const formData = new FormData(this);
+    const payload = Object.fromEntries(formData.entries());
+    
+    // กำหนด action ให้ Backend ทราบว่านี่คือการส่งข้อมูลของ Vital Sound
+    payload.action = 'submitVitalSound'; 
+
+    try {
+      // ยิงข้อมูลไปยัง GAS_VITAL_SOUND_URL
+      const response = await fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      // ตรวจสอบผลลัพธ์จาก Backend
+      if(result.success) {
+        alert(result.message); // แสดงข้อความสำเร็จพร้อม Ticket ID
+        this.reset(); // ล้างข้อมูลในฟอร์ม
+        
+        // เอาเครื่องหมายถูกออกและซ่อนช่องกรอกรหัสผ่านบัญชีนิรนาม
+        document.getElementById('vsCreateAccount').checked = false;
+        toggleVsAccountFields(); 
+      } else {
+        alert("เกิดข้อผิดพลาด: " + result.message);
+      }
+    } catch (error) {
+      alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: " + error.message);
+    } finally {
+      // คืนค่าปุ่มกลับสู่สถานะปกติไม่ว่าจะสำเร็จหรือล้มเหลว
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
   });
 </script>
