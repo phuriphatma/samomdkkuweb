@@ -644,8 +644,10 @@
                     <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
                   </div>
                   <div>
-                    <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()"><i class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
+<!-- แทรกปุ่มนี้เข้าไปในกลุ่มปุ่มด้านขวาบนของ PR Staff Dashboard -->
+<button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()"><i class="bi bi-people"></i> จัดการทีม</button>
+<button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()"><i class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
                   </div>
                 </div>
                 <div class="text-center my-3 d-none" id="prStaffLoading"><div class="spinner-border text-pink-custom" role="status"></div></div>
@@ -1095,12 +1097,15 @@
 <div class="col-12 mt-3 border-top pt-3">
   <label class="form-label text-pink-custom fw-bold"><i class="bi bi-people-fill me-2"></i>ผู้รับผิดชอบงาน (Assignees)</label>
   <div class="input-group mb-2">
-    <input type="text" id="prStaffAssigneeInput" class="form-control" placeholder="พิมพ์ชื่อผู้รับผิดชอบ (เช่น แอดมิน A)...">
+    <!-- 🟢 เปลี่ยนจาก Input ธรรมดาเป็น Select -->
+    <select id="prStaffAssigneeSelect" class="form-select">
+      <option value="" disabled selected>-- เลือกผู้รับผิดชอบ --</option>
+      <!-- ตัวเลือกจะถูกดึงมาใส่ตรงนี้อัตโนมัติ -->
+    </select>
     <button class="btn btn-outline-danger" type="button" onclick="addPRStaffAssignee()">
-      <i class="bi bi-person-plus-fill"></i> เพิ่มชื่อ
+      <i class="bi bi-person-plus-fill"></i> เพิ่ม
     </button>
   </div>
-  <!-- พื้นที่แสดงรายชื่อในรูปแบบ Tag (Pill) -->
   <div id="prStaffAssigneesList" class="d-flex flex-wrap gap-2 mt-2"></div>
 </div>
                 </div>
@@ -1121,6 +1126,49 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal สำหรับจัดการรายชื่อทีม (Manage Agents) -->
+<div class="modal fade" id="manageAgentsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" style="color: var(--pink-700);"><i class="bi bi-people-fill me-2"></i>จัดการทีม PR</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <label class="form-label small text-muted">เพิ่มรายชื่อผู้รับผิดชอบ (เพื่อให้เลือกได้ง่ายๆ)</label>
+        <div class="input-group mb-3">
+          <input type="text" id="newAgentNameInput" class="form-control" placeholder="ชื่อ Staff...">
+          <button class="btn btn-outline-success" type="button" onclick="addNewAgent()"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <ul class="list-group list-group-flush border rounded shadow-sm" id="globalAgentsListUI">
+          <!-- ลิสต์รายชื่อทีมจะมาแสดงตรงนี้ -->
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ดูประกาศ -->
+<div class="modal fade" id="viewAnnouncementModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <span class="badge" id="modalDeptBadge" style="background-color: var(--pink-500);"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pt-2">
+        <h4 class="fw-bold mb-2" id="modalTitle" style="color: var(--pink-900);"></h4>
+        <p class="text-muted small border-bottom pb-3 mb-4" id="modalDate"></p>
+        <div id="modalBodyContent" style="font-family: 'Prompt', sans-serif;"></div>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-outline-danger" onclick="editCurrentAnnouncement()"><i class="bi bi-pencil-square me-2"></i>แก้ไขประกาศนี้</button>
+        <button type="button" class="btn btn-dark" data-bs-dismiss="modal">ปิด</button>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1930,18 +1978,94 @@ if (!ticket.fileUrl || ticket.fileUrl === 'ไม่มีไฟล์แนบ'
         document.getElementById("prTrackAlert").classList.add("d-none");
       }
 
-      // ตัวแปรสำหรับเก็บรายชื่อชั่วคราว
-let currentPrAssignees = [];
+      // ตัวแปรเก็บรายชื่อทีมส่วนกลาง (Global Team List)
+let globalPrAgents = [];
 
-function addPRStaffAssignee() {
-  const input = document.getElementById("prStaffAssigneeInput");
+// 1. โหลดรายชื่อทีมจาก Database
+async function loadGlobalAgents() {
+  try {
+    const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ action: "getAgents" }) });
+    const result = await res.json();
+    if (result.success) {
+      globalPrAgents = result.agents || [];
+      populateAssigneeDropdown(); // โหลดเข้า Dropdown ทันที
+    }
+  } catch (e) { console.error("Failed to load agents", e); }
+}
+
+// 2. เซฟรายชื่อทีมลง Database
+async function saveGlobalAgents() {
+  try {
+    await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ action: "saveAgents", agents: globalPrAgents }) });
+  } catch (e) { console.error("Failed to save agents", e); }
+}
+
+// 3. จัดการ UI ของหน้าต่างเพิ่มชื่อทีม
+function openManageAgentsModal() {
+  renderManageAgentsList();
+  new bootstrap.Modal(document.getElementById("manageAgentsModal")).show();
+}
+
+function renderManageAgentsList() {
+  const listUI = document.getElementById("globalAgentsListUI");
+  listUI.innerHTML = "";
+  if (globalPrAgents.length === 0) {
+    listUI.innerHTML = '<li class="list-group-item text-center text-muted small py-3">ยังไม่มีรายชื่อทีม</li>';
+    return;
+  }
+  globalPrAgents.forEach((agent, index) => {
+    listUI.insertAdjacentHTML("beforeend", `
+      <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
+        <span class="fw-bold text-secondary">${agent}</span>
+        <button class="btn btn-sm btn-outline-danger border-0" onclick="removeAgent(${index})"><i class="bi bi-trash-fill"></i></button>
+      </li>
+    `);
+  });
+}
+
+function addNewAgent() {
+  const input = document.getElementById("newAgentNameInput");
   const name = input.value.trim();
+  if (name && !globalPrAgents.includes(name)) {
+    globalPrAgents.push(name);
+    input.value = "";
+    renderManageAgentsList();
+    populateAssigneeDropdown();
+    saveGlobalAgents(); // อัปเดตขึ้น Database
+  }
+}
+
+function removeAgent(index) {
+  globalPrAgents.splice(index, 1);
+  renderManageAgentsList();
+  populateAssigneeDropdown();
+  saveGlobalAgents(); // อัปเดตขึ้น Database
+}
+
+function populateAssigneeDropdown() {
+  const select = document.getElementById("prStaffAssigneeSelect");
+  if (!select) return;
+  select.innerHTML = '<option value="" disabled selected>-- เลือกผู้รับผิดชอบ --</option>';
+  globalPrAgents.forEach(agent => {
+    select.insertAdjacentHTML("beforeend", `<option value="${agent}">${agent}</option>`);
+  });
+}
+
+// 4. เปลี่ยนฟังก์ชันกดรับชื่อเข้า Ticket จาก Input เป็นรับค่าจาก Select
+function addPRStaffAssignee() {
+  const select = document.getElementById("prStaffAssigneeSelect");
+  const name = select.value;
   if (name && !currentPrAssignees.includes(name)) {
     currentPrAssignees.push(name);
-    input.value = "";
+    select.value = ""; // รีเซ็ตการเลือก
     renderPRStaffAssignees();
   }
 }
+
+      // ตัวแปรสำหรับเก็บรายชื่อชั่วคราว
+let currentPrAssignees = [];
+
+
 
 function removePRStaffAssignee(name) {
   currentPrAssignees = currentPrAssignees.filter(n => n !== name);
@@ -1961,37 +2085,41 @@ function renderPRStaffAssignees() {
   });
 }
 
-    async function loginPRStaff() {
-        const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
-        const user = document.getElementById("prStaffUsername").value.trim();
-        const pass = document.getElementById("prStaffPassword").value.trim();
-        const remember = document.getElementById("prStaffRemember").checked;
-        const alertBox = document.getElementById("prStaffLoginAlert");
-        const btn = document.getElementById("btnPrStaffLogin");
+  async function loginPRStaff() {
+  const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
+  const user = document.getElementById("prStaffUsername").value.trim();
+  const pass = document.getElementById("prStaffPassword").value.trim();
+  const remember = document.getElementById("prStaffRemember").checked;
+  const alertBox = document.getElementById("prStaffLoginAlert");
+  const btn = document.getElementById("btnPrStaffLogin");
 
-        if (!user || !pass) { alertBox.innerText = "กรุณากรอก Username/Password"; alertBox.classList.remove("d-none"); return; }
-        btn.disabled = true; btn.innerHTML = "กำลังตรวจสอบ..."; alertBox.classList.add("d-none");
+  if (!user || !pass) { alertBox.innerText = "กรุณากรอก Username/Password"; alertBox.classList.remove("d-none"); return; }
+  btn.disabled = true; btn.innerHTML = "กำลังตรวจสอบ..."; alertBox.classList.add("d-none");
 
-        try {
-          const res = await fetch(targetUrl, { method: "POST", body: JSON.stringify({ action: "verifyPRStaffLogin", username: user, password: pass }) });
-          const result = await res.json();
-          if (result.success) {
-            // บันทึกรหัสผ่านถ้ากด Remember Me
-            if(remember) {
-               localStorage.setItem('prStaffUser', user);
-               localStorage.setItem('prStaffPass', pass);
-            } else {
-               localStorage.removeItem('prStaffUser');
-               localStorage.removeItem('prStaffPass');
-            }
+  try {
+    const res = await fetch(targetUrl, { method: "POST", body: JSON.stringify({ action: "verifyPRStaffLogin", username: user, password: pass }) });
+    const result = await res.json();
+    if (result.success) {
 
-            await fetchPRStaffTickets();
-            document.getElementById("prStaffLoginBox").classList.add("d-none");
-            document.getElementById("prStaffDashboardBox").classList.remove("d-none");
-          } else { alertBox.innerText = result.message; alertBox.classList.remove("d-none"); }
-        } catch (e) { alertBox.innerText = "เชื่อมต่อล้มเหลว"; alertBox.classList.remove("d-none"); } 
-        finally { btn.disabled = false; btn.innerHTML = "เข้าสู่ระบบจัดการ PR"; }
+      // 🟢 โหลดรายชื่อทีมทันทีที่ Login ผ่าน (ใส่ await เพื่อให้ชัวร์ว่าโหลดเสร็จก่อน)
+      await loadGlobalAgents(); 
+
+      // บันทึกรหัสผ่านถ้ากด Remember Me
+      if(remember) {
+         localStorage.setItem('prStaffUser', user);
+         localStorage.setItem('prStaffPass', pass);
+      } else {
+         localStorage.removeItem('prStaffUser');
+         localStorage.removeItem('prStaffPass');
       }
+
+      await fetchPRStaffTickets();
+      document.getElementById("prStaffLoginBox").classList.add("d-none");
+      document.getElementById("prStaffDashboardBox").classList.remove("d-none");
+    } else { alertBox.innerText = result.message; alertBox.classList.remove("d-none"); }
+  } catch (e) { alertBox.innerText = "เชื่อมต่อล้มเหลว"; alertBox.classList.remove("d-none"); } 
+  finally { btn.disabled = false; btn.innerHTML = "เข้าสู่ระบบจัดการ PR"; }
+}
 
     async function fetchPRStaffTickets() {
         const loading = document.getElementById("prStaffLoading");
@@ -2009,19 +2137,27 @@ function renderPRStaffAssignees() {
               
               // ใส่ Flag งานด่วนถ้ามี
               let rushFlag = t.deadline && t.deadline.includes('ด่วน') ? `<span class="badge bg-danger ms-2"><i class="bi bi-rocket-takeoff me-1"></i>ขอไวกว่าปกติ</span>` : '';
+let assigneesHtml = (t.assignees && t.assignees.length > 0) 
+  ? t.assignees.map(a => `<span class="badge bg-white text-dark border me-1 shadow-sm"><i class="bi bi-person-fill text-pink-custom"></i> ${a}</span>`).join('') 
+  : `<span class="text-muted small"><i class="bi bi-person"></i> ยังไม่มีผู้รับผิดชอบ</span>`;
 
-              list.insertAdjacentHTML("beforeend", `
-                <div class="col-md-6">
-                  <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRStaffModal(${idx})">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${bColor}">${t.status}</span></div>
-                      <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${t.date}</p>
-                      <p class="small text-muted mb-1"><i class="bi bi-building"></i> ${t.dept}</p>
-                      <p class="card-text small fw-bold text-truncate">${t.contentName} ${rushFlag}</p>
-                    </div>
-                  </div>
-                </div>
-              `);
+list.insertAdjacentHTML("beforeend", `
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRStaffModal(${idx})">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${bColor}">${t.status}</span></div>
+        <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${t.date}</p>
+        <p class="small text-muted mb-1"><i class="bi bi-building"></i> ${t.dept}</p>
+        <p class="card-text small fw-bold text-truncate mb-2">${t.contentName} ${rushFlag}</p>
+        
+        <!-- พื้นที่แสดงรายชื่อทีม -->
+        <div class="mt-auto border-top pt-2">
+            ${assigneesHtml}
+        </div>
+      </div>
+    </div>
+  </div>
+`);
             });
           } else { list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>'; }
         } catch (e) { loading.classList.add("d-none"); list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; }
