@@ -497,8 +497,8 @@
                 </div>
                 
                 <div class="p-4 rounded-4 mb-4" style="background-color: #fff1f2; border: 1.5px dashed var(--pink-500)">
-                  <label class="form-label fw-bold text-pink-custom"><i class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์งาน (สูงสุด 35MB)</label>
-                  <input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3" />
+<label class="form-label fw-bold text-pink-custom"><i class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์รูปภาพ (สูงสุด 35MB ต่อรูป)</label>
+<input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3" accept="image/*" multiple />
                   <label class="form-label mb-1 text-pink-custom">หรือแปะลิงก์ Google Drive</label>
                   <small class="text-muted d-block mb-2">กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแชร์โฟลเดอร์</small>
                   <div class="input-group">
@@ -1626,77 +1626,112 @@
       }
 
       document.getElementById("prForm").addEventListener("submit", async function (e) {
-        e.preventDefault();
-        const btn = document.getElementById("submitBtn");
-        const btnText = document.getElementById("btnText");
-        const btnLoading = document.getElementById("btnLoading");
-        const alertBox = document.getElementById("alertBox");
+  e.preventDefault();
+  const btn = document.getElementById("submitBtn");
+  const btnText = document.getElementById("btnText");
+  const btnLoading = document.getElementById("btnLoading");
+  const alertBox = document.getElementById("alertBox");
 
-        const accMode = document.querySelector('input[name="prAccountMode"]:checked') ? document.querySelector('input[name="prAccountMode"]:checked').value : "guest";
+  const accMode = document.querySelector('input[name="prAccountMode"]:checked') ? document.querySelector('input[name="prAccountMode"]:checked').value : "guest";
 
-        if (accMode === "google" && !isPrAccountVerified) {
-          alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณาเข้าสู่ระบบด้วย Google Account ก่อนยืนยันส่งงาน';
-          alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          return;
-        }
+  if (accMode === "google" && !isPrAccountVerified) {
+    alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณาเข้าสู่ระบบด้วย Google Account ก่อนยืนยันส่งงาน';
+    alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
 
-        const fileInput = document.getElementById("fileUpload");
-        btn.disabled = true; btnText.classList.add("d-none"); btnLoading.classList.remove("d-none");
-        alertBox.className = "alert d-none shadow-sm";
+  const fileInput = document.getElementById("fileUpload");
+  btn.disabled = true; btnText.classList.add("d-none"); btnLoading.classList.remove("d-none");
+  alertBox.className = "alert d-none shadow-sm";
 
-        if (fileInput.files.length > 0 && fileInput.files[0].size > 35 * 1024 * 1024) {
-          alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
-          alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> ไฟล์เกิน 35MB กรุณาใช้ลิงก์ G-Drive';
-          btn.disabled = false; btnText.classList.remove("d-none"); btnLoading.classList.add("d-none");
-          return;
-        }
+  // เช็คขนาดไฟล์ล่วงหน้าทุกรูปว่าเกิน 35MB ไหม
+  if (fileInput.files.length > 0) {
+    for (let i = 0; i < fileInput.files.length; i++) {
+      if (fileInput.files[i].size > 35 * 1024 * 1024) {
+        alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
+        alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i> รูปที่ ${i+1} ขนาดเกิน 35MB กรุณาใช้ลิงก์ G-Drive แนบแทน`;
+        btn.disabled = false; btnText.classList.remove("d-none"); btnLoading.classList.add("d-none");
+        return;
+      }
+    }
+  }
 
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData.entries());
-        data.platform = formData.getAll("platform");
-        data.action = "submitPR"; 
-        data.prAccountMode = accMode;
-        data.prSubmitterEmail = document.getElementById("prGoogleUserEmail").value || "Guest";
+  const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
+  let uploadedUrls = [];
 
-        const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
-
-        const sendData = async (payload) => {
-          try {
-            const response = await fetch(targetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-            const result = await response.json();
-            alertBox.classList.remove("d-none");
-            if (result.success) {
-              alertBox.classList.add("alert-success");
-              alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${result.ticketId}</strong>`;
-              if (accMode === "guest") alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${result.ticketId}`);
-              document.getElementById("prForm").reset();
-              updateFormVisibility();
-            } else {
-              alertBox.classList.add("alert-danger");
-              alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> ${result.message}`;
-            }
-          } catch (error) {
-            alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
-            alertBox.innerHTML = '<i class="bi bi-wifi-off me-2 fs-5"></i> เชื่อมต่อล้มเหลว';
-          } finally {
-            btn.disabled = false; btnText.classList.remove("d-none"); btnLoading.classList.add("d-none");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        };
-
-        if (fileInput.files.length > 0) {
-          const file = fileInput.files[0];
+  // 🌟 วนลูปอัปโหลดรูปภาพทีละรูปส่งไปที่ Apps Script (Sequential)
+  if (fileInput.files.length > 0) {
+    for (let i = 0; i < fileInput.files.length; i++) {
+      const file = fileInput.files[i];
+      btnLoading.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> กำลังอัปโหลดรูปที่ ${i+1}/${fileInput.files.length}...`;
+      
+      try {
+        const base64 = await new Promise((resolve) => {
           const reader = new FileReader();
-          reader.onload = function (event) {
-            data.fileData = event.target.result; data.fileName = file.name; data.mimeType = file.type;
-            sendData(data);
-          };
+          reader.onload = (event) => resolve(event.target.result);
           reader.readAsDataURL(file);
+        });
+
+        const uploadRes = await fetch(targetUrl, { 
+          method: "POST", 
+          headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+          body: JSON.stringify({
+            action: "uploadPRFile",
+            fileName: file.name,
+            mimeType: file.type,
+            fileData: base64
+          }) 
+        });
+        
+        const uploadResult = await uploadRes.json();
+        if (uploadResult.success) {
+          uploadedUrls.push(uploadResult.fileUrl);
         } else {
-          sendData(data);
+          throw new Error(uploadResult.message);
         }
-      });
+      } catch (err) {
+        alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
+        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> การอัปโหลดรูปที่ ${i+1} ล้มเหลว กรุณาลองใหม่`;
+        btn.disabled = false; btnText.classList.remove("d-none"); btnLoading.classList.add("d-none");
+        return;
+      }
+    }
+  }
+
+  // 🌟 อัปโหลดครบแล้ว เอาข้อมูลฟอร์ม + Array ของ URLs ส่งสร้าง Ticket
+  btnLoading.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> กำลังสร้าง Ticket งาน...`;
+  
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+  data.platform = formData.getAll("platform");
+  data.action = "submitPR"; 
+  data.prAccountMode = accMode;
+  data.prSubmitterEmail = document.getElementById("prGoogleUserEmail").value || "Guest";
+  data.uploadedUrls = uploadedUrls; // ใส่ Array ของ URL ลงไป
+
+  try {
+    const response = await fetch(targetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(data) });
+    const result = await response.json();
+    alertBox.classList.remove("d-none");
+    if (result.success) {
+      alertBox.classList.add("alert-success");
+      alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${result.ticketId}</strong>`;
+      if (accMode === "guest") alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${result.ticketId}`);
+      document.getElementById("prForm").reset();
+      updateFormVisibility();
+    } else {
+      alertBox.classList.add("alert-danger");
+      alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> ${result.message}`;
+    }
+  } catch (error) {
+    alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
+    alertBox.innerHTML = '<i class="bi bi-wifi-off me-2 fs-5"></i> เชื่อมต่อล้มเหลว';
+  } finally {
+    btn.disabled = false; btnText.classList.remove("d-none"); btnLoading.classList.add("d-none");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
 
       let prStaffTicketsCache = [];
       let currentActivePrTicketId = null;
@@ -1836,12 +1871,22 @@
              detailedHTML += `<div class="alert alert-danger py-2 small mt-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> ${ticket.rushReason}</div>`;
         }
 
-        let linkHTML = '';
-        if (!ticket.fileUrl || ticket.fileUrl === 'ไม่มีไฟล์แนบ' || ticket.fileUrl === '-' || !ticket.fileUrl.startsWith('http')) {
-            linkHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light mt-2 d-inline-block"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
-        } else {
-            linkHTML = `<a href="${ticket.fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-link-45deg"></i> เปิดไฟล์แนบ (หรือลิงก์ G-Drive)</a>`;
-        }
+      // ในฟังก์ชัน renderPRDashboard (หน้า Dashboard ลูกค้า)
+let linkHTML = '';
+if (!ticket.fileUrl || ticket.fileUrl === 'ไม่มีไฟล์แนบ' || ticket.fileUrl === '-') {
+  linkHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light mt-2 d-inline-block"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
+} else {
+  // ไฟล์หลายอันจะถูกคั่นด้วยการขึ้นบรรทัดใหม่
+  const urls = ticket.fileUrl.split('\n');
+  urls.forEach((url, index) => {
+    if (url.startsWith('http')) {
+      linkHTML += `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-primary mt-2 me-2"><i class="bi bi-image"></i> ภาพที่ ${index + 1}</a>`;
+    } else if (url.startsWith('ลิงก์เสริม:')) {
+      const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
+      linkHTML += `<a href="${cleanUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive ส่วนตัว</a>`;
+    }
+  });
+}
 
         detailedHTML += `
             <div class="mt-3 p-3 bg-white border rounded">
@@ -1961,12 +2006,23 @@
             document.getElementById("prStaffModalRushReasonBox").classList.add('d-none');
         }
 
-        let linkBox = document.getElementById("prStaffModalLinkBox");
-        if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.fileUrl === '-' || !t.fileUrl.startsWith('http')) {
-            linkBox.innerHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
-        } else {
-            linkBox.innerHTML = `<a href="${t.fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i> ดูไฟล์แนบ / G-Drive</a>`;
-        }
+       // ในฟังก์ชัน openPRStaffModal (หน้าจัดการงานของ PR Staff)
+let linkBox = document.getElementById("prStaffModalLinkBox");
+if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.fileUrl === '-' || !t.fileUrl.startsWith('http')) {
+  linkBox.innerHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
+} else {
+  let staffLinks = '';
+  const urls = t.fileUrl.split('\n');
+  urls.forEach((url, index) => {
+    if (url.startsWith('http')) {
+      staffLinks += `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-primary me-2"><i class="bi bi-image"></i> ดูภาพที่ ${index + 1}</a>`;
+    } else if (url.startsWith('ลิงก์เสริม:')) {
+      const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
+      staffLinks += `<a href="${cleanUrl}" target="_blank" class="btn btn-sm btn-outline-dark me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive</a>`;
+    }
+  });
+  linkBox.innerHTML = staffLinks;
+}
 
         renderTimeline("prStaffModalTimeline", t.remarks, t.date);
         
