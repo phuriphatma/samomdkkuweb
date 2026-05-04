@@ -1091,6 +1091,18 @@
                     <label class="form-label">เพิ่มข้อความแจ้งผู้ส่งงาน (Remark)</label>
                     <textarea id="prStaffActionRemark" class="form-control" rows="2" placeholder="เช่น ขอให้แก้บรีฟ, เลื่อนวันโพสต์ หรือแนบลิงก์โพสต์ที่เสร็จแล้ว..."></textarea>
                   </div>
+          
+<div class="col-12 mt-3 border-top pt-3">
+  <label class="form-label text-pink-custom fw-bold"><i class="bi bi-people-fill me-2"></i>ผู้รับผิดชอบงาน (Assignees)</label>
+  <div class="input-group mb-2">
+    <input type="text" id="prStaffAssigneeInput" class="form-control" placeholder="พิมพ์ชื่อผู้รับผิดชอบ (เช่น แอดมิน A)...">
+    <button class="btn btn-outline-danger" type="button" onclick="addPRStaffAssignee()">
+      <i class="bi bi-person-plus-fill"></i> เพิ่มชื่อ
+    </button>
+  </div>
+  <!-- พื้นที่แสดงรายชื่อในรูปแบบ Tag (Pill) -->
+  <div id="prStaffAssigneesList" class="d-flex flex-wrap gap-2 mt-2"></div>
+</div>
                 </div>
               </div>
 
@@ -1918,6 +1930,37 @@ if (!ticket.fileUrl || ticket.fileUrl === 'ไม่มีไฟล์แนบ'
         document.getElementById("prTrackAlert").classList.add("d-none");
       }
 
+      // ตัวแปรสำหรับเก็บรายชื่อชั่วคราว
+let currentPrAssignees = [];
+
+function addPRStaffAssignee() {
+  const input = document.getElementById("prStaffAssigneeInput");
+  const name = input.value.trim();
+  if (name && !currentPrAssignees.includes(name)) {
+    currentPrAssignees.push(name);
+    input.value = "";
+    renderPRStaffAssignees();
+  }
+}
+
+function removePRStaffAssignee(name) {
+  currentPrAssignees = currentPrAssignees.filter(n => n !== name);
+  renderPRStaffAssignees();
+}
+
+function renderPRStaffAssignees() {
+  const list = document.getElementById("prStaffAssigneesList");
+  list.innerHTML = "";
+  currentPrAssignees.forEach(name => {
+    list.insertAdjacentHTML("beforeend", `
+      <span class="badge rounded-pill bg-light text-dark border px-3 py-2 d-flex align-items-center shadow-sm">
+        ${name}
+        <i class="bi bi-x-circle-fill ms-2 text-danger" style="cursor:pointer; font-size: 1.1rem;" onclick="removePRStaffAssignee('${name}')"></i>
+      </span>
+    `);
+  });
+}
+
     async function loginPRStaff() {
         const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
         const user = document.getElementById("prStaffUsername").value.trim();
@@ -2042,10 +2085,15 @@ if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.file
         document.getElementById("prStaffActionDeadlineStatus").value = currentDeadline; 
         
         document.getElementById("prStaffActionRemark").value = "";
-        // ----------------------
-        // บังคับให้ Modal เริ่มต้นที่ Tab รายละเอียดเสมอ
-        bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
-        new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
+
+        // 🟢 เพิ่มโค้ดนี้เพื่อดึงรายชื่อมาแสดงผล
+  currentPrAssignees = t.assignees ? [...t.assignees] : [];
+  renderPRStaffAssignees();
+
+// บังคับให้ Modal เริ่มต้นที่ Tab รายละเอียดเสมอ
+  bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
+  new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
+
       }
 
     async function submitPRStaffAction() {
@@ -2082,15 +2130,16 @@ if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.file
         btn.disabled = true; btn.innerHTML = "กำลังบันทึก...";
         
         try {
-          const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ 
-              action: "updatePRTicket", 
-              ticketId: currentActivePrTicketId, 
-              newStatus: newStatus, 
-              newDeadlineStatus: newDeadlineStatus,
-              remark: remark,
-              newPublishDate: newPublishDate,
-              autoLogs: autoLogs // 2. แนบ Array ของ Log ติดไปด้วย
-          })});
+    const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ 
+        action: "updatePRTicket", 
+        ticketId: currentActivePrTicketId, 
+        newStatus: newStatus, 
+        newDeadlineStatus: newDeadlineStatus,
+        remark: remark,
+        newPublishDate: newPublishDate,
+        autoLogs: autoLogs,
+        assignees: currentPrAssignees // 🟢 เพิ่มบรรทัดนี้เพื่อส่งข้อมูล Array รายชื่อไป Backend
+    })});
           const result = await res.json();
           if (result.success) {
             alert("อัปเดตสถานะงาน PR สำเร็จ!");
