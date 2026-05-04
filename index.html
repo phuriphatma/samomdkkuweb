@@ -1876,22 +1876,44 @@
         new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
       }
 
-     async function submitPRStaffAction() {
+    async function submitPRStaffAction() {
         const newStatus = document.getElementById("prStaffActionStatus").value;
         const newDeadlineStatus = document.getElementById("prStaffActionDeadlineStatus").value; // รับค่าความด่วนใหม่
         const remark = document.getElementById("prStaffActionRemark").value.trim();
         const newPublishDate = document.getElementById("prStaffActionDate").value.replace('T', ' ');
 
+        // 1. ดึงข้อมูล Ticket ปัจจุบันจาก Cache เพื่อเปรียบเทียบ
+        const ticket = prStaffTicketsCache.find((t) => t.id === currentActivePrTicketId);
+        let autoLogs = [];
+
+        if (ticket) {
+          // เปรียบเทียบสถานะ
+          if (newStatus && newStatus !== ticket.status) {
+            autoLogs.push(`เปลี่ยนสถานะเป็น: ${newStatus}`);
+          }
+          // เปรียบเทียบความด่วน (ข้ามถ้าเป็นค่าว่าง -- ไม่เปลี่ยนแปลง --)
+          if (newDeadlineStatus && newDeadlineStatus !== ticket.deadline) {
+            autoLogs.push(`อัปเดตสถานะความด่วนเป็น: ${newDeadlineStatus}`);
+          }
+          // จัด Format วันที่เดิมให้ตรงกับ Input (ตัดวินาทีออก)
+          let oldDateClean = ticket.publishDate ? ticket.publishDate.substring(0, 16).replace('T', ' ') : "";
+          if (newPublishDate && newPublishDate !== oldDateClean) {
+            autoLogs.push(`เปลี่ยนวัน-เวลาโพสต์เป็น: ${newPublishDate}`);
+          }
+        }
+
         const btn = document.querySelector("#prStaffManageModal .btn-dark");
         btn.disabled = true; btn.innerHTML = "กำลังบันทึก...";
+        
         try {
           const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ 
               action: "updatePRTicket", 
               ticketId: currentActivePrTicketId, 
               newStatus: newStatus, 
-              newDeadlineStatus: newDeadlineStatus, // ส่งไป Backend
+              newDeadlineStatus: newDeadlineStatus,
               remark: remark,
-              newPublishDate: newPublishDate
+              newPublishDate: newPublishDate,
+              autoLogs: autoLogs // 2. แนบ Array ของ Log ติดไปด้วย
           })});
           const result = await res.json();
           if (result.success) {
