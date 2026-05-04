@@ -602,7 +602,7 @@
               </div>
             </div>
 
-            <!-- SECTION 3: STAFF PR DASHBOARD -->
+          <!-- SECTION 3: STAFF PR DASHBOARD -->
             <div id="prStaffSection" class="d-none">
               <div id="prStaffLoginBox" class="card p-4 mx-auto mb-4" style="max-width: 500px; background-color: #f8fafc; border-color: #cbd5e1;">
                 <h5 class="fw-bold text-center mb-3">เจ้าหน้าที่ฝ่าย PR (ดิจิทัลฯ)</h5>
@@ -613,6 +613,11 @@
                 <div class="mb-3">
                   <label class="form-label">Password</label>
                   <input type="password" id="prStaffPassword" class="form-control" placeholder="รหัสผ่าน">
+                </div>
+                <!-- เพิ่ม Checkbox จดจำฉัน -->
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="prStaffRemember" checked>
+                  <label class="form-check-label small text-muted" for="prStaffRemember">จดจำฉัน (Remember Me)</label>
                 </div>
                 <div id="prStaffLoginAlert" class="alert alert-danger d-none mb-3 text-center small"></div>
                 <button type="button" id="btnPrStaffLogin" class="btn btn-dark w-100" onclick="loginPRStaff()">เข้าสู่ระบบจัดการ PR</button>
@@ -839,6 +844,11 @@
                   <label class="form-label">Password</label>
                   <input type="password" id="staffPassword" class="form-control" placeholder="รหัสผ่าน" />
                 </div>
+                <!-- เพิ่ม Checkbox จดจำฉัน -->
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="staffRemember" checked>
+                  <label class="form-check-label small text-muted" for="staffRemember">จดจำฉัน (Remember Me)</label>
+                </div>
                 <div class="mb-3">
                   <label class="form-label">เลือกบทบาท (Role)</label>
                   <select id="staffRole" class="form-select">
@@ -879,7 +889,7 @@
       </div>
     </div>
 
-    <!-- Modal สำหรับเจ้าหน้าที่ VS -->
+ <!-- Modal สำหรับเจ้าหน้าที่ VS -->
     <div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -894,12 +904,8 @@
             <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
             <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
             
-            <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
-            <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 250px; overflow-y: auto;"></div>
-            <hr />
-
             <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
-            <div class="row g-3">
+            <div class="row g-3 mb-4">
               <div class="col-md-6">
                 <label class="form-label">เปลี่ยนสถานะ</label>
                 <select id="staffActionStatus" class="form-select">
@@ -965,6 +971,14 @@
                 <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
               </div>
             </div>
+
+            <hr />
+            <!-- Timeline ถูกย้ายมาด้านล่างสุด พร้อมปุ่มดูทั้งหมด -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
+              <button type="button" class="btn btn-sm btn-link text-pink-custom text-decoration-none p-0" onclick="toggleTimeline('staffModalTimeline', this)">ดูทั้งหมด</button>
+            </div>
+            <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: hidden; transition: max-height 0.3s ease;"></div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
@@ -1007,12 +1021,8 @@
               <div class="col-12 mt-3" id="prStaffModalLinkBox"></div>
             </div>
 
-            <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
-            <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: auto;"></div>
-            <hr />
-
            <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
-            <div class="row g-3">
+            <div class="row g-3 mb-4">
               <div class="col-md-4">
                 <label class="form-label">เปลี่ยนสถานะ</label>
                 <select id="prStaffActionStatus" class="form-select">
@@ -1039,6 +1049,15 @@
                 <textarea id="prStaffActionRemark" class="form-control" rows="2" placeholder="เช่น ขอให้แก้บรีฟ, เลื่อนวันโพสต์ หรือแนบลิงก์โพสต์ที่เสร็จแล้ว..."></textarea>
               </div>
             </div>
+
+            <hr />
+            <!-- Timeline ถูกย้ายมาด้านล่างสุด พร้อมปุ่มดูทั้งหมด -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
+              <button type="button" class="btn btn-sm btn-link text-pink-custom text-decoration-none p-0" onclick="toggleTimeline('prStaffModalTimeline', this)">ดูทั้งหมด</button>
+            </div>
+            <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: hidden; transition: max-height 0.3s ease;"></div>
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-danger me-auto" onclick="deletePRStaffAction()"><i class="bi bi-trash"></i> ลบงาน</button>
@@ -1131,15 +1150,13 @@
       // -----------------------------------------------------
       let isPrAccountVerified = false;
 
-      // เมื่อหน้าเว็บโหลด ให้เช็คว่ามีข้อมูล Login ค้างอยู่ไหม
       document.addEventListener("DOMContentLoaded", () => {
-        loadAnnouncements(); // โหลดประกาศหน้าแรก
+        loadAnnouncements(); 
         
         const savedEmail = localStorage.getItem("prGoogleUserEmail");
         const savedName = localStorage.getItem("prGoogleUserName");
 
         if (savedEmail && savedName) {
-           // ถ้ามีข้อมูล ให้แสดงสถานะว่าล็อกอินแล้วทันที
            document.getElementById("prGoogleUserEmail").value = savedEmail;
            document.getElementById("prGoogleUserName").value = savedName;
            document.getElementById("prVerifiedEmail").innerText = savedEmail;
@@ -1147,6 +1164,22 @@
            
            isPrAccountVerified = true;
            updateGoogleAuthUI(true);
+        }
+
+        // โหลดข้อมูลเข้าสู่ระบบ Staff อัตโนมัติ (ถ้ายอมรับจำรหัสผ่านไว้)
+        if(localStorage.getItem('prStaffUser')) {
+            document.getElementById('prStaffUsername').value = localStorage.getItem('prStaffUser');
+            document.getElementById('prStaffPassword').value = localStorage.getItem('prStaffPass');
+            document.getElementById('prStaffRemember').checked = true;
+        }
+        if(localStorage.getItem('vsStaffUser')) {
+            document.getElementById('staffUsername').value = localStorage.getItem('vsStaffUser');
+            document.getElementById('staffPassword').value = localStorage.getItem('vsStaffPass');
+            // คืนค่า Role เดิมที่เคยเลือกไว้ได้ด้วยถ้าต้องการ
+            if (localStorage.getItem('vsStaffRole')) {
+                document.getElementById('staffRole').value = localStorage.getItem('vsStaffRole');
+            }
+            document.getElementById('staffRemember').checked = true;
         }
       });
 
@@ -1774,10 +1807,11 @@
         document.getElementById("prTrackAlert").classList.add("d-none");
       }
 
-      async function loginPRStaff() {
+    async function loginPRStaff() {
         const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
         const user = document.getElementById("prStaffUsername").value.trim();
         const pass = document.getElementById("prStaffPassword").value.trim();
+        const remember = document.getElementById("prStaffRemember").checked;
         const alertBox = document.getElementById("prStaffLoginAlert");
         const btn = document.getElementById("btnPrStaffLogin");
 
@@ -1788,6 +1822,15 @@
           const res = await fetch(targetUrl, { method: "POST", body: JSON.stringify({ action: "verifyPRStaffLogin", username: user, password: pass }) });
           const result = await res.json();
           if (result.success) {
+            // บันทึกรหัสผ่านถ้ากด Remember Me
+            if(remember) {
+               localStorage.setItem('prStaffUser', user);
+               localStorage.setItem('prStaffPass', pass);
+            } else {
+               localStorage.removeItem('prStaffUser');
+               localStorage.removeItem('prStaffPass');
+            }
+
             await fetchPRStaffTickets();
             document.getElementById("prStaffLoginBox").classList.add("d-none");
             document.getElementById("prStaffDashboardBox").classList.remove("d-none");
@@ -1881,7 +1924,7 @@
 
         new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
       }
-      
+
     async function submitPRStaffAction() {
         const newStatus = document.getElementById("prStaffActionStatus").value;
         const newDeadlineStatus = document.getElementById("prStaffActionDeadlineStatus").value; // รับค่าความด่วนใหม่
@@ -2229,9 +2272,10 @@
         document.getElementById("trackAlert").classList.add("d-none");
       }
 
-      async function loginStaff() {
+     async function loginStaff() {
         const user = document.getElementById("staffUsername").value.trim();
         const pass = document.getElementById("staffPassword").value.trim();
+        const remember = document.getElementById("staffRemember").checked;
         const alertBox = document.getElementById("staffLoginAlert");
         const btn = document.getElementById("btnStaffLogin");
 
@@ -2243,6 +2287,18 @@
           const result = await res.json();
           if (result.success) {
             currentStaffRole = document.getElementById("staffRole").value;
+            
+            // บันทึกรหัสผ่านถ้ากด Remember Me
+            if(remember) {
+               localStorage.setItem('vsStaffUser', user);
+               localStorage.setItem('vsStaffPass', pass);
+               localStorage.setItem('vsStaffRole', currentStaffRole);
+            } else {
+               localStorage.removeItem('vsStaffUser');
+               localStorage.removeItem('vsStaffPass');
+               localStorage.removeItem('vsStaffRole');
+            }
+
             document.getElementById("staffTitle").innerText = `Dashboard: ${currentStaffRole}`;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
             await fetchStaffTickets();
@@ -2354,6 +2410,19 @@
         currentStaffRole = null;
         document.getElementById("staffDashboardBox").classList.add("d-none");
         document.getElementById("staffLoginBox").classList.remove("d-none");
+      }
+      // ฟังก์ชันเปิด-ปิด Timeline ดูทั้งหมด/ย่อลง
+      function toggleTimeline(containerId, btnElement) {
+        const container = document.getElementById(containerId);
+        if (container.style.maxHeight === 'none') {
+          container.style.maxHeight = '200px';
+          container.style.overflowY = 'hidden';
+          btnElement.innerText = 'ดูทั้งหมด';
+        } else {
+          container.style.maxHeight = 'none';
+          container.style.overflowY = 'visible';
+          btnElement.innerText = 'ย่อลง';
+        }
       }
     </script>
   </body>
