@@ -2259,8 +2259,17 @@ list.insertAdjacentHTML("beforeend", `
         document.getElementById("prStaffModalDept").innerText = t.dept;
         document.getElementById("prStaffModalPubDateText").innerText = t.publishDate;
         
-        let pubDateVal = t.publishDate.replace(' ', 'T');
-        if(pubDateVal.length > 16) pubDateVal = pubDateVal.substring(0, 16);
+        // Convert dd/MM/yyyy HH:mm -> yyyy-MM-ddTHH:mm for datetime-local input
+        let pubDateVal = '';
+        if (t.publishDate && t.publishDate !== '-') {
+          const m = t.publishDate.match(/(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}:\d{2})/);
+          if (m) {
+            pubDateVal = `${m[3]}-${m[2]}-${m[1]}T${m[4]}`;
+          } else {
+            pubDateVal = t.publishDate.replace(' ', 'T');
+            if(pubDateVal.length > 16) pubDateVal = pubDateVal.substring(0, 16);
+          }
+        }
         document.getElementById("prStaffActionDate").value = pubDateVal;
 
         document.getElementById("prStaffModalJobType").innerText = t.jobType;
@@ -2323,7 +2332,9 @@ if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.file
         const newStatus = document.getElementById("prStaffActionStatus").value;
         const newDeadlineStatus = document.getElementById("prStaffActionDeadlineStatus").value; // รับค่าความด่วนใหม่
         const remark = document.getElementById("prStaffActionRemark").value.trim();
-        const newPublishDate = document.getElementById("prStaffActionDate").value.replace('T', ' ');
+        // newPublishDate from datetime-local is yyyy-MM-dd HH:mm; convert to dd/MM/yyyy HH:mm for log display
+        const rawDateVal = document.getElementById("prStaffActionDate").value; // yyyy-MM-ddTHH:mm
+        const newPublishDate = rawDateVal.replace('T', ' ');
 
         // 1. ดึงข้อมูล Ticket ปัจจุบันจาก Cache เพื่อเปรียบเทียบ
         const ticket = prStaffTicketsCache.find((t) => t.id === currentActivePrTicketId);
@@ -2338,14 +2349,20 @@ if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.file
           if (newDeadlineStatus && newDeadlineStatus !== ticket.deadline) {
             autoLogs.push(`อัปเดตสถานะความด่วนเป็น: ${newDeadlineStatus}`);
           }
-          // จัด Format วันที่เดิมให้ตรงกับ Input (ตัดวินาทีออก)
+          // เปรียบเทียบวันที่ - แปลง newPublishDate (yyyy-MM-dd HH:mm) เป็น dd/MM/yyyy HH:mm เพื่อแสดงใน log
+          let newDateDisplay = newPublishDate;
+          const dtMatch = newPublishDate.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/);
+          if (dtMatch) {
+            newDateDisplay = `${dtMatch[3]}/${dtMatch[2]}/${dtMatch[1]} ${dtMatch[4]}`;
+          }
+          
           let oldDateClean = ticket.publishDate && ticket.publishDate !== "-" 
-            ? ticket.publishDate.substring(0, 16).replace('T', ' ') 
+            ? ticket.publishDate.substring(0, 16)
             : "ไม่มีกำหนดการเดิม";
             
-          if (newPublishDate && newPublishDate !== oldDateClean) {
+          if (newPublishDate && newDateDisplay !== oldDateClean) {
             // โชว์ Log จากวันที่เก่าไปวันที่ใหม่แบบที่ต้องการ
-            autoLogs.push(`เปลี่ยนวัน-เวลาโพสต์จาก ${oldDateClean} เป็น ${newPublishDate}`);
+            autoLogs.push(`เปลี่ยนวัน-เวลาโพสต์จาก ${oldDateClean} เป็น ${newDateDisplay}`);
           }
         }
 
