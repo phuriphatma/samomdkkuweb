@@ -900,85 +900,100 @@
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif">
-            <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
-            <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
-            
-            <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
-            <div class="row g-3 mb-4">
-              <div class="col-md-6">
-                <label class="form-label">เปลี่ยนสถานะ</label>
-                <select id="staffActionStatus" class="form-select">
-                  <option value="">-- เลือกสถานะใหม่ --</option>
-                  <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
-                  <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
-                  <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
-                  <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
-                  <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
-                  <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
-                  <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
-                  <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
-                  <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
-                <select id="staffActionTransfer" class="form-select">
-                  <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
-                  <option value="SE">โอนคืน SE</option>
-                  <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                  <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                  <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                  <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                  <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                  <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                  <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                  <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                  <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                  <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                  <option value="คณะ">ส่งเรื่องถึงคณะ</option>
-                </select>
-              </div>
+          
+          <!-- ส่วนหัวของ Tab -->
+          <ul class="nav nav-tabs nav-fill bg-light pt-2 px-3 border-bottom-0" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active fw-bold" id="staff-detail-tab" data-bs-toggle="tab" data-bs-target="#staff-detail-content" type="button" role="tab" style="color: var(--pink-700);">รายละเอียด & อัปเดต</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-bold" id="staff-timeline-tab" data-bs-toggle="tab" data-bs-target="#staff-timeline-content" type="button" role="tab" style="color: var(--pink-700);"><i class="bi bi-clock-history me-1"></i> Timeline</button>
+            </li>
+          </ul>
 
-              <div class="col-md-6 mt-3">
-                <label class="form-label text-pink-custom fw-bold"><i class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
-                <select id="staffNotifyTo" class="form-select border-danger">
-                  <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
-                  <option value="SE">ส่งหา SE</option>
-                  <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                  <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                  <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                  <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                  <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                  <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                  <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                  <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                  <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                  <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                </select>
-              </div>
-              <div class="col-md-6 mt-3 d-flex align-items-end">
-                <div class="form-check form-switch p-2 rounded-3 w-100" style="background-color: var(--pink-100); border: 1px solid var(--pink-200)">
-                  <input class="form-check-input ms-0 me-2 shadow-sm" type="checkbox" id="staffSilentNotify" value="true" style="cursor: pointer" />
-                  <label class="form-check-label text-secondary small mt-1" for="staffSilentNotify" style="cursor: pointer; color: var(--pink-900) !important">
-                    <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
-                  </label>
+          <div class="modal-body p-0" style="font-family: 'Prompt', sans-serif">
+            <div class="tab-content">
+              
+              <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต -->
+              <div class="tab-pane fade show active p-4" id="staff-detail-content" role="tabpanel">
+                <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+                <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+                
+                <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+                <div class="row g-3 mb-2">
+                  <div class="col-md-6">
+                    <label class="form-label">เปลี่ยนสถานะ</label>
+                    <select id="staffActionStatus" class="form-select">
+                      <option value="">-- เลือกสถานะใหม่ --</option>
+                      <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+                      <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+                      <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+                      <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+                      <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+                      <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+                      <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+                      <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+                      <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+                    <select id="staffActionTransfer" class="form-select">
+                      <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+                      <option value="SE">โอนคืน SE</option>
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                      <option value="คณะ">ส่งเรื่องถึงคณะ</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-6 mt-3">
+                    <label class="form-label text-pink-custom fw-bold"><i class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
+                    <select id="staffNotifyTo" class="form-select border-danger">
+                      <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
+                      <option value="SE">ส่งหา SE</option>
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6 mt-3 d-flex align-items-end">
+                    <div class="form-check form-switch p-2 rounded-3 w-100" style="background-color: var(--pink-100); border: 1px solid var(--pink-200)">
+                      <input class="form-check-input ms-0 me-2 shadow-sm" type="checkbox" id="staffSilentNotify" value="true" style="cursor: pointer" />
+                      <label class="form-check-label text-secondary small mt-1" for="staffSilentNotify" style="cursor: pointer; color: var(--pink-900) !important">
+                        <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="col-12 mt-3">
+                    <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
+                    <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
+                  </div>
                 </div>
               </div>
 
-              <div class="col-12 mt-3">
-                <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
-                <textarea id="staffActionRemark" class="form-control" rows="2" placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
+              <!-- Tab 2: Timeline -->
+              <div class="tab-pane fade p-4 bg-light" id="staff-timeline-content" role="tabpanel">
+                <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important;"></div>
               </div>
-            </div>
 
-            <hr />
-            <!-- Timeline ถูกย้ายมาด้านล่างสุด พร้อมปุ่มดูทั้งหมด -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
-              <button type="button" class="btn btn-sm btn-link text-pink-custom text-decoration-none p-0" onclick="toggleTimeline('staffModalTimeline', this)">ดูทั้งหมด</button>
             </div>
-            <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: hidden; transition: max-height 0.3s ease;"></div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
@@ -999,65 +1014,78 @@
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body p-4" style="font-family: 'Prompt', sans-serif">
-            <!-- Full details grid -->
-            <div class="row mb-3 bg-light p-3 rounded mx-1">
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ฝ่ายที่ส่ง:</strong> <span id="prStaffModalDept"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง (เดิม):</strong> <span id="prStaffModalPubDateText"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">รูปแบบงาน:</strong> <span id="prStaffModalJobType"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">แพลตฟอร์ม:</strong> <span id="prStaffModalPlatform"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ช่องทางการโพสต์:</strong> <span id="prStaffModalChannel"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Project Acc / Co-post:</strong> <span id="prStaffModalProjectInfo"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ติดต่อ:</strong> <span id="prStaffModalContact"></span></p></div>
-              <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Email:</strong> <span id="prStaffModalEmail"></span></p></div>
-              <div class="col-sm-12 mt-2 d-none" id="prStaffModalRushReasonBox">
-                <div class="alert alert-danger py-2 small mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> <span id="prStaffModalRushReason"></span></div>
-              </div>
-              <div class="col-12 mt-3 p-2 bg-white border rounded">
-                  <span class="fw-bold small text-muted d-block mb-1">บรีฟ:</span><div id="prStaffModalBrief" class="small" style="white-space: pre-line;"></div>
-                  <hr class="my-2">
-                  <span class="fw-bold small text-muted d-block mb-1">แคปชั่น:</span><div id="prStaffModalCaption" class="small" style="white-space: pre-line;"></div>
-              </div>
-              <div class="col-12 mt-3" id="prStaffModalLinkBox"></div>
-            </div>
+          
+          <!-- ส่วนหัวของ Tab -->
+          <ul class="nav nav-tabs nav-fill bg-light pt-2 px-3 border-bottom-0" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active fw-bold" id="pr-staff-detail-tab" data-bs-toggle="tab" data-bs-target="#pr-staff-detail-content" type="button" role="tab" style="color: var(--pink-700);">รายละเอียด & อัปเดต</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-bold" id="pr-staff-timeline-tab" data-bs-toggle="tab" data-bs-target="#pr-staff-timeline-content" type="button" role="tab" style="color: var(--pink-700);"><i class="bi bi-clock-history me-1"></i> Timeline</button>
+            </li>
+          </ul>
 
-           <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
-            <div class="row g-3 mb-4">
-              <div class="col-md-4">
-                <label class="form-label">เปลี่ยนสถานะ</label>
-                <select id="prStaffActionStatus" class="form-select">
-                  <option value="รอทีม PR รับเรื่อง">รอทีม PR รับเรื่อง</option>
-                  <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">รับบรีฟแล้ว (กำลังดำเนินการ)</option>
-                  <option value="รอโพสต์ตามกำหนดการ">รอโพสต์ตามกำหนดการ</option>
-                  <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">โพสต์เรียบร้อย (เสร็จสิ้น)</option>
-                  <option value="ปฏิเสธ / ตีกลับให้แก้ไข">ปฏิเสธ / ตีกลับให้แก้ไข</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">สถานะความด่วน</label>
-                <select id="prStaffActionDeadlineStatus" class="form-select">
-                  <option value="ปกติ">ปกติ (Normal)</option>
-                  <option value="ด่วน (PR Review)">ด่วน (PR Review)</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">วัน-เวลาโพสต์ (Deadline)</label>
-                <input type="datetime-local" id="prStaffActionDate" class="form-control" />
-              </div>
-              <div class="col-12 mt-3">
-                <label class="form-label">เพิ่มข้อความแจ้งผู้ส่งงาน (Remark)</label>
-                <textarea id="prStaffActionRemark" class="form-control" rows="2" placeholder="เช่น ขอให้แก้บรีฟ, เลื่อนวันโพสต์ หรือแนบลิงก์โพสต์ที่เสร็จแล้ว..."></textarea>
-              </div>
-            </div>
+          <div class="modal-body p-0" style="font-family: 'Prompt', sans-serif">
+            <div class="tab-content">
+              
+              <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต -->
+              <div class="tab-pane fade show active p-4" id="pr-staff-detail-content" role="tabpanel">
+                <div class="row mb-4 bg-light p-3 rounded mx-0">
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ฝ่ายที่ส่ง:</strong> <span id="prStaffModalDept"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง (เดิม):</strong> <span id="prStaffModalPubDateText"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">รูปแบบงาน:</strong> <span id="prStaffModalJobType"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">แพลตฟอร์ม:</strong> <span id="prStaffModalPlatform"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ช่องทางการโพสต์:</strong> <span id="prStaffModalChannel"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Project Acc / Co-post:</strong> <span id="prStaffModalProjectInfo"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ติดต่อ:</strong> <span id="prStaffModalContact"></span></p></div>
+                  <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Email:</strong> <span id="prStaffModalEmail"></span></p></div>
+                  <div class="col-sm-12 mt-2 d-none" id="prStaffModalRushReasonBox">
+                    <div class="alert alert-danger py-2 small mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> <span id="prStaffModalRushReason"></span></div>
+                  </div>
+                  <div class="col-12 mt-3 p-2 bg-white border rounded">
+                      <span class="fw-bold small text-muted d-block mb-1">บรีฟ:</span><div id="prStaffModalBrief" class="small" style="white-space: pre-line;"></div>
+                      <hr class="my-2">
+                      <span class="fw-bold small text-muted d-block mb-1">แคปชั่น:</span><div id="prStaffModalCaption" class="small" style="white-space: pre-line;"></div>
+                  </div>
+                  <div class="col-12 mt-3" id="prStaffModalLinkBox"></div>
+                </div>
 
-            <hr />
-            <!-- Timeline ถูกย้ายมาด้านล่างสุด พร้อมปุ่มดูทั้งหมด -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Timeline</h6>
-              <button type="button" class="btn btn-sm btn-link text-pink-custom text-decoration-none p-0" onclick="toggleTimeline('prStaffModalTimeline', this)">ดูทั้งหมด</button>
-            </div>
-            <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important; max-height: 200px; overflow-y: hidden; transition: max-height 0.3s ease;"></div>
+                <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
+                <div class="row g-3 mb-2">
+                  <div class="col-md-4">
+                    <label class="form-label">เปลี่ยนสถานะ</label>
+                    <select id="prStaffActionStatus" class="form-select">
+                      <option value="รอทีม PR รับเรื่อง">รอทีม PR รับเรื่อง</option>
+                      <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">รับบรีฟแล้ว (กำลังดำเนินการ)</option>
+                      <option value="รอโพสต์ตามกำหนดการ">รอโพสต์ตามกำหนดการ</option>
+                      <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">โพสต์เรียบร้อย (เสร็จสิ้น)</option>
+                      <option value="ปฏิเสธ / ตีกลับให้แก้ไข">ปฏิเสธ / ตีกลับให้แก้ไข</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">สถานะความด่วน</label>
+                    <select id="prStaffActionDeadlineStatus" class="form-select">
+                      <option value="ปกติ">ปกติ (Normal)</option>
+                      <option value="ด่วน (PR Review)">ด่วน (PR Review)</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">วัน-เวลาโพสต์ (Deadline)</label>
+                    <input type="datetime-local" id="prStaffActionDate" class="form-control" />
+                  </div>
+                  <div class="col-12 mt-3">
+                    <label class="form-label">เพิ่มข้อความแจ้งผู้ส่งงาน (Remark)</label>
+                    <textarea id="prStaffActionRemark" class="form-control" rows="2" placeholder="เช่น ขอให้แก้บรีฟ, เลื่อนวันโพสต์ หรือแนบลิงก์โพสต์ที่เสร็จแล้ว..."></textarea>
+                  </div>
+                </div>
+              </div>
 
+              <!-- Tab 2: Timeline -->
+              <div class="tab-pane fade p-4 bg-light" id="pr-staff-timeline-content" role="tabpanel">
+                <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3" style="border-color: var(--pink-200) !important;"></div>
+              </div>
+
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-danger me-auto" onclick="deletePRStaffAction()"><i class="bi bi-trash"></i> ลบงาน</button>
@@ -1921,7 +1949,8 @@
         
         document.getElementById("prStaffActionRemark").value = "";
         // ----------------------
-
+        // บังคับให้ Modal เริ่มต้นที่ Tab รายละเอียดเสมอ
+        bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
         new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
       }
 
@@ -2329,7 +2358,8 @@
         document.getElementById("staffActionRemark").value = "";
         document.getElementById("staffNotifyTo").value = "";
         document.getElementById("staffSilentNotify").checked = false;
-
+        // บังคับให้ Modal เริ่มต้นที่ Tab รายละเอียดเสมอ
+        bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
         new bootstrap.Modal(document.getElementById("staffManageModal")).show();
       }
 
@@ -2411,19 +2441,7 @@
         document.getElementById("staffDashboardBox").classList.add("d-none");
         document.getElementById("staffLoginBox").classList.remove("d-none");
       }
-      // ฟังก์ชันเปิด-ปิด Timeline ดูทั้งหมด/ย่อลง
-      function toggleTimeline(containerId, btnElement) {
-        const container = document.getElementById(containerId);
-        if (container.style.maxHeight === 'none') {
-          container.style.maxHeight = '200px';
-          container.style.overflowY = 'hidden';
-          btnElement.innerText = 'ดูทั้งหมด';
-        } else {
-          container.style.maxHeight = 'none';
-          container.style.overflowY = 'visible';
-          btnElement.innerText = 'ย่อลง';
-        }
-      }
+      
     </script>
   </body>
 </html>
