@@ -1070,6 +1070,10 @@
                   <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Project Acc / Co-post:</strong> <span id="prStaffModalProjectInfo"></span></p></div>
                   <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">ติดต่อ:</strong> <span id="prStaffModalContact"></span></p></div>
                   <div class="col-sm-6"><p class="mb-1 small"><strong class="text-pink-custom">Email:</strong> <span id="prStaffModalEmail"></span></p></div>
+                  <div class="col-12 d-none" id="prStaffModalOtherPlatBox">
+                    <p class="mb-1 small"><strong class="text-pink-custom">Other Platform:</strong> <span id="prStaffModalOtherPlat"></span></p>
+                    <div class="alert alert-info py-2 small mb-0 d-none" id="prStaffModalOtherPlatReasonBox"><i class="bi bi-chat-left-text-fill me-2"></i><strong>เหตุผลที่ต้องการ PR:</strong> <span id="prStaffModalOtherPlatReason"></span></div>
+                  </div>
                   <div class="col-sm-12 mt-2 d-none" id="prStaffModalRushReasonBox">
                     <div class="alert alert-danger py-2 small mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> <span id="prStaffModalRushReason"></span></div>
                   </div>
@@ -1597,11 +1601,16 @@
       }
 
       // Clamp a Date object's time to 08:00-22:00 range
+      // Before 08:00 → set to 08:00 same day
+      // After 22:00 → push to next day 08:00
       function clampTimeToAllowed(d) {
         const h = d.getHours();
         const m = d.getMinutes();
         if (h < 8) { d.setHours(8, 0, 0, 0); }
-        else if (h > 22 || (h === 22 && m > 0)) { d.setHours(22, 0, 0, 0); }
+        else if (h > 22 || (h === 22 && m > 0)) {
+          d.setDate(d.getDate() + 1);
+          d.setHours(8, 0, 0, 0);
+        }
         return d;
       }
 
@@ -2010,6 +2019,14 @@
             <p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง:</strong> ${ticket.publishDate}</p>
         `;
 
+        // แสดง Other Platform ถ้ามี
+        if (ticket.otherPlatforms && ticket.otherPlatforms !== '-') {
+          detailedHTML += `<p class="mb-1 small"><strong class="text-pink-custom">Other Platform:</strong> ${ticket.otherPlatforms}</p>`;
+          if (ticket.otherPlatformReason && ticket.otherPlatformReason !== '-') {
+            detailedHTML += `<div class="alert alert-info py-2 small mt-1 mb-2"><i class="bi bi-chat-left-text-fill me-2"></i><strong>เหตุผลที่ต้องการประชาสัมพันธ์:</strong> ${ticket.otherPlatformReason}</div>`;
+          }
+        }
+
         if (ticket.deadline && ticket.deadline.includes('ด่วน')) {
              detailedHTML += `<div class="alert alert-danger py-2 small mt-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> ${ticket.rushReason}</div>`;
         }
@@ -2278,6 +2295,20 @@ list.insertAdjacentHTML("beforeend", `
         document.getElementById("prStaffModalProjectInfo").innerText = t.projectAccount + ' / ' + t.copostWith;
         document.getElementById("prStaffModalContact").innerText = t.contact;
         document.getElementById("prStaffModalEmail").innerText = t.submitter;
+
+        // Other Platform
+        if (t.otherPlatforms && t.otherPlatforms !== '-') {
+          document.getElementById("prStaffModalOtherPlatBox").classList.remove('d-none');
+          document.getElementById("prStaffModalOtherPlat").innerText = t.otherPlatforms;
+          if (t.otherPlatformReason && t.otherPlatformReason !== '-') {
+            document.getElementById("prStaffModalOtherPlatReasonBox").classList.remove('d-none');
+            document.getElementById("prStaffModalOtherPlatReason").innerText = t.otherPlatformReason;
+          } else {
+            document.getElementById("prStaffModalOtherPlatReasonBox").classList.add('d-none');
+          }
+        } else {
+          document.getElementById("prStaffModalOtherPlatBox").classList.add('d-none');
+        }
         
         document.getElementById("prStaffModalBrief").innerText = t.brief;
         document.getElementById("prStaffModalCaption").innerText = t.caption;
