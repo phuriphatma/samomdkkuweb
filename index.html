@@ -2004,7 +2004,19 @@ async function saveGlobalAgents() {
 }
 
 // 3. จัดการ UI ของหน้าต่างเพิ่มชื่อทีม
-function openManageAgentsModal() {
+async function openManageAgentsModal() {
+  // เปลี่ยนปุ่มเป็นสถานะโหลด (ถ้าต้องการ)
+  const btn = document.querySelector('button[onclick="openManageAgentsModal()"]');
+  const ogText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังโหลด...';
+  btn.disabled = true;
+
+  // โหลดรายชื่ออัปเดตล่าสุดจากเซิร์ฟเวอร์ทุกครั้งก่อนเปิดหน้าต่าง
+  await loadGlobalAgents(); 
+
+  btn.innerHTML = ogText;
+  btn.disabled = false;
+
   renderManageAgentsList();
   new bootstrap.Modal(document.getElementById("manageAgentsModal")).show();
 }
