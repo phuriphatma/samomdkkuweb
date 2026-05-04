@@ -1807,8 +1807,6 @@
       let prStaffTicketsCache = [];
       let currentActivePrTicketId = null;
       let loggedInUserPrTickets = [];
-      let currentPrStaffName = '';
-      let currentTicketTimestamp = '';
 
       async function trackPRTicket() {
         const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
@@ -2118,8 +2116,6 @@ function renderPRStaffAssignees() {
     const result = await res.json();
     if (result.success) {
 
-      currentPrStaffName = user;
-
       // 🟢 โหลดรายชื่อทีมทันทีที่ Login ผ่าน (ใส่ await เพื่อให้ชัวร์ว่าโหลดเสร็จก่อน)
       await loadGlobalAgents(); 
 
@@ -2182,30 +2178,9 @@ list.insertAdjacentHTML("beforeend", `
         } catch (e) { loading.classList.add("d-none"); list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; }
       }
 
-    async function openPRStaffModal(idx) {
-  const t = prStaffTicketsCache[idx];
-  if (!t) return;
-  currentTicketTimestamp = t.lastModified || '';
-  
-  // --- PRESENCE CHECK ---
-  try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'acquirePresenceLock',
-        ticketId: t.id,
-        user: currentPrStaffName
-      })
-    });
-    const result = await res.json();
-    if (!result.success && result.takenBy) {
-      const proceed = confirm(`⚠️ ${result.takenBy} ...`);
-      if (!proceed) return; // ← currentActivePrTicketId not yet set, so releasePrLock is safe
-    }
-  } catch(e) {
-    console.warn('Presence check failed, proceeding anyway', e);
-  }
-
+      function openPRStaffModal(idx) {
+        const t = prStaffTicketsCache[idx];
+        if (!t) return;
         currentActivePrTicketId = t.id;
         document.getElementById("prStaffModalTitle").innerText = t.id;
         document.getElementById("prStaffModalCurrentStatus").innerText = `สถานะปัจจุบัน: ${t.status}`;
@@ -2235,14 +2210,9 @@ list.insertAdjacentHTML("beforeend", `
 
        // ในฟังก์ชัน openPRStaffModal (หน้าจัดการงานของ PR Staff)
 let linkBox = document.getElementById("prStaffModalLinkBox");
-const hasContent = t.fileUrl && 
-  t.fileUrl !== 'ไม่มีไฟล์แนบ' && 
-  t.fileUrl !== '-' &&
-  (t.fileUrl.startsWith('http') || t.fileUrl.startsWith('ลิงก์เสริม:'));
-
-if (!hasContent) {
+if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.fileUrl === '-' || !t.fileUrl.startsWith('http')) {
   linkBox.innerHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
-}  else {
+} else {
   let staffLinks = '';
   const urls = t.fileUrl.split('\n');
   urls.forEach((url, index) => {
@@ -2275,20 +2245,6 @@ if (!hasContent) {
   bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
   new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
 
-  document.getElementById('prStaffManageModal').addEventListener('hidden.bs.modal', releasePrLock, { once: true });
-      }
-
-      async function releasePrLock() {
-        if (!currentActivePrTicketId) return;
-        try {
-          await fetch(GAS_API_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-              action: 'releasePresenceLock',
-              ticketId: currentActivePrTicketId
-            })
-          });
-        } catch(e) {} // fire and forget
       }
 
     async function submitPRStaffAction() {
@@ -2328,7 +2284,6 @@ if (!hasContent) {
     const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ 
         action: "updatePRTicket", 
         ticketId: currentActivePrTicketId, 
-        clientTimestamp: currentTicketTimestamp,
         newStatus: newStatus, 
         newDeadlineStatus: newDeadlineStatus,
         remark: remark,
@@ -2337,19 +2292,11 @@ if (!hasContent) {
         assignees: currentPrAssignees // 🟢 เพิ่มบรรทัดนี้เพื่อส่งข้อมูล Array รายชื่อไป Backend
     })});
           const result = await res.json();
-          if (!result.success && result.conflict) {
-            alert(result.message);
+          if (result.success) {
+            alert("อัปเดตสถานะงาน PR สำเร็จ!");
             bootstrap.Modal.getInstance(document.getElementById("prStaffManageModal")).hide();
             fetchPRStaffTickets();
-            return;
-          }
-// In submitPRStaffAction, after result.success:
-if (result.success) {
-  currentTicketTimestamp = result.newTimestamp || ''; // ADD THIS
-  alert("อัปเดตสถานะงาน PR สำเร็จ!");
-  bootstrap.Modal.getInstance(document.getElementById("prStaffManageModal")).hide();
-  fetchPRStaffTickets();
-} else { alert("เกิดข้อผิดพลาด: " + result.message); }
+          } else { alert("เกิดข้อผิดพลาด: " + result.message); }
         } catch (e) { alert("เกิดข้อผิดพลาดในการบันทึก"); } 
         finally { btn.disabled = false; btn.innerHTML = "บันทึกอัปเดต"; }
       }
