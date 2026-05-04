@@ -422,9 +422,24 @@
                     <label class="pill-checkbox-label fb shadow-sm" for="plat3"><i class="bi bi-facebook me-1"></i> Facebook</label>
                     <input type="checkbox" class="btn-check" name="platform" id="plat4" value="Line กลุ่มชั้นปี" />
                     <label class="pill-checkbox-label line shadow-sm" for="plat4"><i class="bi bi-line me-1"></i> Line กลุ่มชั้นปี</label>
-                    <input type="checkbox" class="btn-check" name="platform" id="plat5" value="Other university" />
-                    <label class="pill-checkbox-label other shadow-sm" for="plat5"><i class="bi bi-globe me-1"></i> Other university</label>
                   </div>
+                </div>
+
+                <div class="mb-4">
+                  <label class="form-label">Other platform <small class="text-muted">(วันเวลาที่ลงอาจไม่แน่นอน)</small> <small class="text-muted">(เลือกได้มากกว่า 1)</small></label>
+                  <div class="d-flex flex-wrap gap-2">
+                    <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat1" value="ประชาสัมพันธ์ของคณะ" onchange="toggleOtherPlatformReason()" />
+                    <label class="pill-checkbox-label other shadow-sm" for="otherPlat1"><i class="bi bi-building me-1"></i> ประชาสัมพันธ์ของคณะ</label>
+                    <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat2" value="ประชาสัมพันธ์ของมหาลัย" onchange="toggleOtherPlatformReason()" />
+                    <label class="pill-checkbox-label other shadow-sm" for="otherPlat2"><i class="bi bi-mortarboard me-1"></i> ประชาสัมพันธ์ของมหาลัย</label>
+                    <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat3" value="ประชาสัมพันธ์ต่างมหาลัย" onchange="toggleOtherPlatformReason()" />
+                    <label class="pill-checkbox-label other shadow-sm" for="otherPlat3"><i class="bi bi-globe me-1"></i> ประชาสัมพันธ์ต่างมหาลัย</label>
+                  </div>
+                </div>
+
+                <div class="mb-4 d-none" id="otherPlatformReasonSection">
+                  <label class="form-label">เหตุผลที่ต้องการประชาสัมพันธ์ <span class="text-danger">*</span></label>
+                  <textarea name="otherPlatformReason" id="otherPlatformReason" class="form-control" rows="2" placeholder="อธิบายเหตุผลให้ทีม PR พิจารณา..."></textarea>
                 </div>
 
                 <div class="mb-4 d-none" id="regularPostingChannel">
@@ -1562,6 +1577,20 @@
       igPostCheckbox.addEventListener("change", updateFormVisibility);
       igStoryCheckbox.addEventListener("change", updateFormVisibility);
 
+      function toggleOtherPlatformReason() {
+        const anyChecked = document.querySelectorAll('input[name="otherPlatform"]:checked').length > 0;
+        const section = document.getElementById("otherPlatformReasonSection");
+        const textarea = document.getElementById("otherPlatformReason");
+        if (anyChecked) {
+          section.classList.remove("d-none");
+          textarea.setAttribute("required", "required");
+        } else {
+          section.classList.add("d-none");
+          textarea.removeAttribute("required");
+          textarea.value = "";
+        }
+      }
+
       function formatDateTime(date) {
         const pad = (n) => n.toString().padStart(2, "0");
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -1776,6 +1805,7 @@
   const formData = new FormData(this);
   const data = Object.fromEntries(formData.entries());
   data.platform = formData.getAll("platform");
+  data.otherPlatform = formData.getAll("otherPlatform");
   data.action = "submitPR"; 
   data.prAccountMode = accMode;
   data.prSubmitterEmail = document.getElementById("prGoogleUserEmail").value || "Guest";
@@ -1791,6 +1821,7 @@
       if (accMode === "guest") alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${result.ticketId}`);
       document.getElementById("prForm").reset();
       updateFormVisibility();
+      toggleOtherPlatformReason();
     } else {
       alertBox.classList.add("alert-danger");
       alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> ${result.message}`;
