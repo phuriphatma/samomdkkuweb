@@ -492,8 +492,16 @@
                 <div class="row mb-4 p-4 rounded-4 mx-0" style="background-color: var(--pink-50); border: 1px solid var(--pink-200)">
                   <div class="col-12 px-0 mb-3">
                     <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ <span class="text-danger">*</span></label>
-                    <input type="datetime-local" name="publishDate" id="publishDate" class="form-control bg-white" required />
-                    <small class="mt-2 d-block text-pink-custom" id="dateHelper"><i class="bi bi-info-circle me-1"></i>กรุณาเลือกรูปแบบงานเพื่อคำนวณวัน</small>
+                    <div class="row g-2">
+                      <div class="col-7">
+                        <input type="date" id="publishDatePart" class="form-control bg-white" required />
+                      </div>
+                      <div class="col-5">
+                        <input type="time" id="publishTimePart" class="form-control bg-white" min="08:00" max="22:00" required />
+                      </div>
+                    </div>
+                    <input type="hidden" name="publishDate" id="publishDate" />
+                    <small class="mt-2 d-block text-pink-custom" id="dateHelper"><i class="bi bi-info-circle me-1"></i>กรุณาเลือกรูปแบบงานเพื่อคำนวณวัน <span class="fw-normal text-muted">(เลือกเวลาได้เฉพาะ 08:00-22:00)</span></small>
                   </div>
                   <div class="col-12 px-0 d-none" id="prReviewSection">
                     <div class="alert alert-warning mb-3" style="background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e">
@@ -1600,6 +1608,21 @@
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
       }
 
+      const publishDatePart = document.getElementById("publishDatePart");
+      const publishTimePart = document.getElementById("publishTimePart");
+      const publishDateHidden = document.getElementById("publishDate");
+
+      // Sync the hidden publishDate from the visible date + time inputs
+      function syncPublishDate() {
+        if (publishDatePart.value && publishTimePart.value) {
+          publishDateHidden.value = publishDatePart.value + "T" + publishTimePart.value;
+        } else {
+          publishDateHidden.value = "";
+        }
+      }
+      publishDatePart.addEventListener("change", syncPublishDate);
+      publishTimePart.addEventListener("change", syncPublishDate);
+
       // Clamp a Date object's time to 08:00-22:00 range
       // Before 08:00 → set to 08:00 same day
       // After 22:00 → push to next day 08:00
@@ -1612,6 +1635,20 @@
           d.setHours(8, 0, 0, 0);
         }
         return d;
+      }
+
+      // Set the split date/time inputs from a Date object
+      function setDateTimeInputs(date) {
+        const pad = (n) => n.toString().padStart(2, "0");
+        publishDatePart.value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+        publishTimePart.value = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        syncPublishDate();
+      }
+
+      // Get the combined Date object from the split inputs (or null)
+      function getDateTimeFromInputs() {
+        if (!publishDatePart.value || !publishTimePart.value) return null;
+        return new Date(publishDatePart.value + "T" + publishTimePart.value);
       }
 
       function applyDateRules() {
@@ -1637,13 +1674,14 @@
         clampTimeToAllowed(defaultDate);
 
         let actualMinDate = new Date(now);
+        const pad = (n) => n.toString().padStart(2, "0");
 
         if (isRush) {
           prReviewSection.classList.remove("d-none");
           rushReason.setAttribute("required", "required");
           actualMinDate = new Date(now);
-          dateInput.min = formatDateTime(actualMinDate);
-          dateHelper.innerHTML = "<i class='bi bi-rocket-takeoff me-1'></i> Submit for PR Review: เลือกระบุวันที่ต้องการได้เลย <span class='fw-normal text-muted'>(เลือกได้เฉพาะ 08:00-22:00)</span>";
+          publishDatePart.min = `${actualMinDate.getFullYear()}-${pad(actualMinDate.getMonth() + 1)}-${pad(actualMinDate.getDate())}`;
+          dateHelper.innerHTML = "<i class='bi bi-rocket-takeoff me-1'></i> Submit for PR Review: เลือกระบุวันที่ต้องการได้เลย <span class='fw-normal text-muted'>(เลือกเวลาได้เฉพาะ 08:00-22:00)</span>";
           dateHelper.className = "text-danger mt-2 d-block fw-bold";
         } else {
           prReviewSection.classList.add("d-none");
@@ -1651,13 +1689,13 @@
           rushReason.value = "";
           rushReason.style.height = "auto";
           actualMinDate = new Date(normalMinDate);
-          dateInput.min = formatDateTime(actualMinDate);
+          publishDatePart.min = `${actualMinDate.getFullYear()}-${pad(actualMinDate.getMonth() + 1)}-${pad(actualMinDate.getDate())}`;
 
           if (currentJobType === "New content") {
-            dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +15 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้) <span class='fw-normal text-muted'>(เลือกได้เฉพาะ 08:00-22:00)</span>";
+            dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +15 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้) <span class='fw-normal text-muted'>(เลือกเวลาได้เฉพาะ 08:00-22:00)</span>";
             dateHelper.className = "text-pink-custom mt-2 d-block fw-bold";
           } else if (currentJobType === "Ready to post") {
-            dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +1 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้) <span class='fw-normal text-muted'>(เลือกได้เฉพาะ 08:00-22:00)</span>";
+            dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> เกณฑ์ปกติ: +1 วันจากวันนี้ (สามารถแก้ไขเลือกวันหลังจากนี้ได้) <span class='fw-normal text-muted'>(เลือกเวลาได้เฉพาะ 08:00-22:00)</span>";
             dateHelper.className = "text-pink-custom mt-2 d-block fw-bold";
           } else {
             dateHelper.innerHTML = "<i class='bi bi-info-circle me-1'></i> กรุณาเลือกรูปแบบงานก่อน";
@@ -1665,26 +1703,16 @@
           }
         }
         if (checkedJobType) {
-          if (jobTypeChanged || !dateInput.value || new Date(dateInput.value) < actualMinDate) {
-            dateInput.value = formatDateTime(defaultDate);
+          const currentVal = getDateTimeFromInputs();
+          if (jobTypeChanged || !currentVal || currentVal < actualMinDate) {
+            setDateTimeInputs(defaultDate);
           }
-        } else { dateInput.value = ""; }
-      }
-
-      // Enforce 08:00-22:00 when user manually changes the datetime
-      dateInput.addEventListener("change", function () {
-        if (!this.value) return;
-        const picked = new Date(this.value);
-        const h = picked.getHours();
-        const m = picked.getMinutes();
-        if (h < 8 || h > 22 || (h === 22 && m > 0)) {
-          clampTimeToAllowed(picked);
-          this.value = formatDateTime(picked);
-          dateHelper.innerHTML = "<i class='bi bi-exclamation-triangle-fill me-1'></i> เวลาถูกปรับอัตโนมัติ — เลือกได้เฉพาะ 08:00-22:00 เท่านั้น";
-          dateHelper.className = "text-danger mt-2 d-block fw-bold";
-          setTimeout(() => { applyDateRules(); }, 2500);
+        } else {
+          publishDatePart.value = "";
+          publishTimePart.value = "";
+          publishDateHidden.value = "";
         }
-      });
+      }
 
       deadlineNormal.addEventListener("change", applyDateRules);
       deadlineRush.addEventListener("change", applyDateRules);
@@ -1777,7 +1805,10 @@
     return;
   }
 
-  // Validate publish time is within 08:00-22:00
+  // Sync hidden publishDate from split inputs before validation
+  syncPublishDate();
+  
+  // Validate publish time is within 08:00-22:00 (safety net — time input already restricts this)
   const pubDateVal = document.getElementById("publishDate").value;
   if (pubDateVal) {
     const pubDate = new Date(pubDateVal);
