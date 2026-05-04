@@ -578,14 +578,20 @@
                 <div class="row g-3" id="prUserHistoryList"></div>
               </div>
 
-              <!-- PR Ticket Dashboard -->
+             <!-- PR Ticket Dashboard -->
               <div id="prDashboardBox" class="d-none">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                   <h5 class="fw-bold mb-0" id="prDashTicketId">PR-XXXXX</h5>
-                  <span id="prDashStatusBadge" class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">Status</span>
+                  <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-primary btn-sm" id="btnRefreshPrDash" onclick="refreshPRTicketDashboard()">
+                      <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+                    </button>
+                    <span id="prDashStatusBadge" class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">Status</span>
+                  </div>
                 </div>
                 <div class="card mb-4 border-0 shadow-sm">
-                  <div class="card-body bg-light rounded" style="max-height: 400px; overflow-y: auto;">
+                  <!-- นำ max-height และ overflow-y: auto ออกเพื่อให้แสดงผลเต็ม -->
+                  <div class="card-body bg-light rounded">
                     <p class="mb-1 text-muted small"><strong id="prDashTicketDate">วันที่ส่ง:</strong></p>
                     <p class="mb-1 small"><strong class="text-pink-custom">ชื่องาน:</strong> <span id="prDashContentName"></span></p>
                     <p class="mb-1 small"><strong class="text-pink-custom">ฝ่าย:</strong> <span id="prDashDept"></span></p>
@@ -598,9 +604,8 @@
                 </div>
                 <h5 class="section-title mt-0"><i class="bi bi-clock-history me-2"></i>Timeline & Remarks</h5>
                 <div id="prDashTimeline" class="border-start border-2 ms-3 ps-4 position-relative" style="border-color: var(--pink-200) !important;"></div>
-                <button class="btn btn-outline-secondary w-100 mt-4" id="btnPrBackToHistory" onclick="logoutPRTrack()">กลับหน้าค้นหา</button>
+                <button class="btn btn-outline-secondary w-100 mt-4" id="btnPrBackToHistory" onclick="logoutPRTrack()">กลับหน้าแรก</button>
               </div>
-            </div>
 
           <!-- SECTION 3: STAFF PR DASHBOARD -->
             <div id="prStaffSection" class="d-none">
@@ -1719,6 +1724,30 @@
         } catch (e) { alertBox.classList.remove("d-none"); alertBox.innerText = "เชื่อมต่อเครือข่ายล้มเหลว"; } 
         finally { btn.disabled = false; btn.innerHTML = "ค้นหาสถานะ"; }
       }
+      async function refreshPRTicketDashboard() {
+        const tId = document.getElementById("prDashTicketId").innerText.trim();
+        const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
+        const btn = document.getElementById("btnRefreshPrDash");
+        const ogText = btn.innerHTML;
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch(targetUrl, { method: "POST", body: JSON.stringify({ action: "trackPR", ticketId: tId }) });
+          const result = await res.json();
+          if (result.success) {
+            renderPRDashboard(result.ticket); // โหลด UI ใหม่ทับไปเลย
+          } else {
+            alert("ไม่สามารถรีเฟรชได้: " + result.message);
+          }
+        } catch (e) {
+          alert("เชื่อมต่อเครือข่ายล้มเหลว");
+        } finally {
+          btn.innerHTML = ogText;
+          btn.disabled = false;
+        }
+      }
 
       async function loadPRHistory() {
         const targetUrl = typeof GAS_API_URL !== "undefined" ? GAS_API_URL : GAS_VITAL_SOUND_URL;
@@ -1964,19 +1993,23 @@
         const ticket = prStaffTicketsCache.find((t) => t.id === currentActivePrTicketId);
         let autoLogs = [];
 
-        if (ticket) {
+       if (ticket) {
           // เปรียบเทียบสถานะ
           if (newStatus && newStatus !== ticket.status) {
             autoLogs.push(`เปลี่ยนสถานะเป็น: ${newStatus}`);
           }
-          // เปรียบเทียบความด่วน (ข้ามถ้าเป็นค่าว่าง -- ไม่เปลี่ยนแปลง --)
+          // เปรียบเทียบความด่วน
           if (newDeadlineStatus && newDeadlineStatus !== ticket.deadline) {
             autoLogs.push(`อัปเดตสถานะความด่วนเป็น: ${newDeadlineStatus}`);
           }
           // จัด Format วันที่เดิมให้ตรงกับ Input (ตัดวินาทีออก)
-          let oldDateClean = ticket.publishDate ? ticket.publishDate.substring(0, 16).replace('T', ' ') : "";
+          let oldDateClean = ticket.publishDate && ticket.publishDate !== "-" 
+            ? ticket.publishDate.substring(0, 16).replace('T', ' ') 
+            : "ไม่มีกำหนดการเดิม";
+            
           if (newPublishDate && newPublishDate !== oldDateClean) {
-            autoLogs.push(`เปลี่ยนวัน-เวลาโพสต์เป็น: ${newPublishDate}`);
+            // โชว์ Log จากวันที่เก่าไปวันที่ใหม่แบบที่ต้องการ
+            autoLogs.push(`เปลี่ยนวัน-เวลาโพสต์จาก ${oldDateClean} เป็น ${newPublishDate}`);
           }
         }
 
