@@ -278,9 +278,13 @@
         <!-- TAB 4: PR FORM -->
         <div class="tab-pane fade" id="pills-pr" role="tabpanel">
           <div class="form-container">
-            <div class="text-center mb-5">
+<div class="text-center mb-5">
               <h2 class="page-header"><i class="bi bi-megaphone-fill me-2 text-pink-custom"></i>MDKKU PR Form</h2>
-              <p class="text-muted">ระบบสั่งงานและฝากประชาสัมพันธ์ สโมสรนักศึกษา (สำหรับลง Social Media)</p>
+              <p class="text-muted mb-2">ระบบสั่งงานและฝากประชาสัมพันธ์ สโมสรนักศึกษา (สำหรับลง Social Media)</p>
+              <!-- ส่วนที่เพิ่มใหม่ -->
+              <span class="badge rounded-pill shadow-sm" style="background-color: var(--pink-100); color: var(--pink-700); font-size: 0.95rem; padding: 0.6rem 1.2rem;">
+                <i class="bi bi-instagram me-1"></i> ติดต่อเพิ่มเติมที่ ig: mdkkusamo
+              </span>
             </div>
 
             <!-- Toggle โหมด PR -->
@@ -496,11 +500,15 @@
                   <textarea name="caption" class="form-control" rows="3" placeholder="ข้อความที่ต้องการให้ฝากโพสต์ พร้อมแฮชแท็ก (ถ้ามี)"></textarea>
                 </div>
                 
-                <div class="p-4 rounded-4 mb-4" style="background-color: #fff1f2; border: 1.5px dashed var(--pink-500)">
-<label class="form-label fw-bold text-pink-custom"><i class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์รูปภาพ (สูงสุด 35MB ต่อรูป)</label>
-<input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3" accept="image/*" multiple />
+               <div class="p-4 rounded-4 mb-4" style="background-color: #fff1f2; border: 1.5px dashed var(--pink-500)">
+                  <label class="form-label fw-bold text-pink-custom"><i class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์รูปภาพ (สูงสุด 35MB ต่อรูป)</label>
+                  <input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3" accept="image/*" multiple />
+                  
                   <label class="form-label mb-1 text-pink-custom">หรือแปะลิงก์ Google Drive</label>
-                  <small class="text-muted d-block mb-2">กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแชร์โฟลเดอร์</small>
+                  <small class="text-muted d-block mb-1">กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแชร์โฟลเดอร์</small>
+                  <!-- ส่วนที่เพิ่มใหม่ -->
+                  <small class="text-danger d-block mb-3 fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i> อย่าลืมเปิด Access ให้เราเข้าไปดูได้ด้วย!</small>
+                  
                   <div class="input-group">
                     <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-link-45deg fs-5"></i></span>
                     <input type="url" name="largeFileLink" id="largeFileLink" class="form-control border-start-0 ps-0 bg-white" placeholder="https://drive.google.com/..." />
