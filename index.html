@@ -755,22 +755,28 @@
               <div id="projectDepartmentSection" class="row mb-4 g-4 d-none">
                 <div class="col-12 d-none" id="projectPostingFormat">
                   <label class="form-label">รูปแบบการลงสื่อ <span class="badge-info-custom">แสดงเพราะเลือก IG Post หรือ
-                      IG Story</span> <span class="text-danger">*</span> <small class="text-muted">(เลือกได้มากกว่า 1)</small></label>
-                  <div class="d-flex flex-wrap gap-2">
-                    <input type="checkbox" class="btn-check" name="projectFormat" id="projFormat1"
+                      IG Story</span> <span class="text-danger">*</span></label>
+                  <div class="d-grid gap-2">
+                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat1"
                       value="ฝากลง mdkkusamo account" />
-                    <label class="pill-checkbox-label other shadow-sm" for="projFormat1">
-                      <i class="bi bi-arrow-right-circle me-1"></i>ฝากลง mdkkusamo account
+                    <label class="radio-card-label py-2" for="projFormat1">
+                      <div class="d-flex justify-content-between align-items-center"><span><i
+                            class="bi bi-arrow-right-circle me-2"></i>ฝากลง mdkkusamo account</span><i
+                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
                     </label>
-                    <input type="checkbox" class="btn-check" name="projectFormat" id="projFormat2"
+                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat2"
                       value="co-post with mdkkusamo" />
-                    <label class="pill-checkbox-label other shadow-sm" for="projFormat2">
-                      <i class="bi bi-people-fill me-1"></i>co-post with mdkkusamo
+                    <label class="radio-card-label py-2" for="projFormat2">
+                      <div class="d-flex justify-content-between align-items-center"><span><i
+                            class="bi bi-people-fill me-2"></i>co-post with mdkkusamo</span><i
+                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
                     </label>
-                    <input type="checkbox" class="btn-check" name="projectFormat" id="projFormat3"
+                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat3"
                       value="co-post with account ฝ่าย" />
-                    <label class="pill-checkbox-label other shadow-sm" for="projFormat3">
-                      <i class="bi bi-diagram-2 me-1"></i>co-post with account ฝ่าย
+                    <label class="radio-card-label py-2" for="projFormat3">
+                      <div class="d-flex justify-content-between align-items-center"><span><i
+                            class="bi bi-diagram-2 me-2"></i>co-post with account ฝ่าย</span><i
+                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
                     </label>
                   </div>
                 </div>
@@ -848,58 +854,6 @@
                 <label class="form-label">Caption (ข้อความแคปชั่น)</label>
                 <textarea name="caption" class="form-control" rows="3"
                   placeholder="ข้อความที่ต้องการให้ฝากโพสต์ พร้อมแฮชแท็ก (ถ้ามี)"></textarea>
-              </div>
-
-              <!-- รายละเอียดวิธีการบรีฟงาน -->
-              <div class="p-4 rounded-4 mb-4" style="background-color: #f8fafc; border: 1.5px solid #e2e8f0;">
-                <div class="d-flex align-items-center mb-3">
-                  <i class="bi bi-lightbulb-fill text-pink-custom fs-5 me-2"></i>
-                  <h6 class="fw-bold mb-0 text-pink-custom">วิธีการบรีฟงาน (Design Brief Template)</h6>
-                </div>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-fonts me-1 text-muted"></i>Title (ชื่องาน)</label>
-                    <input type="text" name="briefTitle" class="form-control" placeholder="ชื่องานหรือโครงการ" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-tag me-1 text-muted"></i>Type (ประเภท)</label>
-                    <input type="text" name="briefType" class="form-control" placeholder="เช่น Poster, Infographic, Story" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-aspect-ratio me-1 text-muted"></i>Size (ขนาด)</label>
-                    <input type="text" name="briefSize" class="form-control" placeholder="เช่น IG Post 4:5 1080x1350" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-palette me-1 text-muted"></i>Color (โทนสี)</label>
-                    <input type="text" name="briefColor" class="form-control" placeholder="สีของฝ่าย หรือกำหนดเองสำหรับโครงการ" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-brush me-1 text-muted"></i>Theme (ธีม)</label>
-                    <input type="text" name="briefTheme" class="form-control" placeholder="ธีมหรือสไตล์ที่ต้องการ" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-stars me-1 text-muted"></i>Elements (องค์ประกอบพิเศษ)</label>
-                    <input type="text" name="briefElements" class="form-control" placeholder="เช่น polaroid, sticker, frame" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-type me-1 text-muted"></i>Font (ฟอนต์)</label>
-                    <input type="text" name="briefFont" class="form-control" placeholder="ชื่อฟอนต์ที่ต้องการใช้" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-link me-1 text-muted"></i>Reference (ตัวอย่างอ้างอิง)</label>
-                    <input type="text" name="briefReference" class="form-control" placeholder="ลิงก์หรืออธิบายตัวอย่างที่อ้างอิง" />
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label fw-semibold"><i class="bi bi-chat-left-text me-1 text-muted"></i>Other / Notes (บรีฟเพิ่มเติม)</label>
-                    <textarea name="briefOther" class="form-control" rows="2"
-                      placeholder="บรีฟอื่นๆ เพิ่มเติม หรือสิ่งที่อยากให้ทีม PR รู้"></textarea>
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label fw-semibold"><i class="bi bi-collection me-1 text-muted"></i>รายละเอียดแต่ละหน้า <small class="text-muted fw-normal">(กรณีงานหลายหน้า)</small></label>
-                    <textarea name="briefPages" class="form-control" rows="3"
-                      placeholder="หน้าที่ 1: ใส่ข้อมูลอะไร&#10;หน้าที่ 2: ใส่ข้อมูลอะไร"></textarea>
-                  </div>
-                </div>
               </div>
 
               <div class="p-4 rounded-4 mb-4" style="background-color: #fff1f2; border: 1.5px dashed var(--pink-500)">
@@ -1603,13 +1557,11 @@
                 <div class="col-md-4">
                   <label class="form-label">เปลี่ยนสถานะ</label>
                   <select id="prStaffActionStatus" class="form-select">
-                    <option value="รอ PR รับเรื่อง">1. รอ PR รับเรื่อง</option>
-                    <option value="PR รับเรื่อง">2. PR รับเรื่อง</option>
-                    <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">3. รับบรีฟแล้ว (กำลังดำเนินการ)</option>
-                    <option value="รอโพสต์ตามกำหนดการ">4. รอโพสต์ตามกำหนดการ</option>
-                    <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">5. โพสต์เรียบร้อย (เสร็จสิ้น)</option>
-                    <option value="ตีกลับให้แก้ไขงาน">6. ตีกลับให้แก้ไขงาน</option>
-                    <option value="กำลังแก้ไขงาน">7. กำลังแก้ไขงาน</option>
+                    <option value="รอทีม PR รับเรื่อง">รอทีม PR รับเรื่อง</option>
+                    <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">รับบรีฟแล้ว (กำลังดำเนินการ)</option>
+                    <option value="รอโพสต์ตามกำหนดการ">รอโพสต์ตามกำหนดการ</option>
+                    <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">โพสต์เรียบร้อย (เสร็จสิ้น)</option>
+                    <option value="ปฏิเสธ / ตีกลับให้แก้ไข">ปฏิเสธ / ตีกลับให้แก้ไข</option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -2029,7 +1981,7 @@
     const projectDepartmentSection = document.getElementById("projectDepartmentSection");
     const projectPostingFormat = document.getElementById("projectPostingFormat");
     const copostWithSection = document.getElementById("copostWithSection");
-    const projectFormatRadios = document.getElementsByName("projectFormat"); // kept for reference, now used as checkboxes
+    const projectFormatRadios = document.getElementsByName("projectFormat");
     let lastJobType = "";
 
     document.querySelectorAll("textarea").forEach((textarea) => {
@@ -2062,16 +2014,17 @@
         document.getElementById("projectAccount").setAttribute("required", "required");
         if (isIgSelected) {
           projectPostingFormat.classList.remove("d-none");
+          document.getElementsByName("projectFormat").forEach((el) => el.setAttribute("required", "required"));
         } else {
           projectPostingFormat.classList.add("d-none");
-          document.getElementsByName("projectFormat").forEach((el) => { el.checked = false; });
+          document.getElementsByName("projectFormat").forEach((el) => { el.removeAttribute("required"); el.checked = false; });
           copostWithSection.classList.add("d-none");
           document.getElementById("copostWith").removeAttribute("required");
         }
       } else {
         projectDepartmentSection.classList.add("d-none");
         document.getElementById("projectAccount").removeAttribute("required");
-        document.getElementsByName("projectFormat").forEach((el) => { el.checked = false; });
+        document.getElementsByName("projectFormat").forEach((el) => el.removeAttribute("required"));
         document.getElementById("copostWith").removeAttribute("required");
         if (isIgSelected) {
           regularPostingChannel.classList.remove("d-none");
@@ -2084,12 +2037,10 @@
       applyDateRules();
     }
 
-    // projectFormat checkboxes — show co-post field if co-post with ฝ่าย is checked
-    document.getElementsByName("projectFormat").forEach((chk) => {
-      chk.addEventListener("change", () => {
-        const copostChecked = document.getElementById("projFormat3").checked;
+    projectFormatRadios.forEach((radio) => {
+      radio.addEventListener("change", (e) => {
         const copostInput = document.getElementById("copostWith");
-        if (copostChecked) {
+        if (e.target.value === "co-post with account ฝ่าย") {
           copostWithSection.classList.remove("d-none");
           copostInput.setAttribute("required", "required");
         } else {
@@ -2419,7 +2370,6 @@
       const data = Object.fromEntries(formData.entries());
       data.platform = formData.getAll("platform");
       data.otherPlatform = formData.getAll("otherPlatform");
-      data.projectFormat = formData.getAll("projectFormat"); // multi-checkbox for project
       data.action = "submitPR";
       data.prAccountMode = accMode;
       data.prSubmitterEmail = document.getElementById("prGoogleUserEmail").value || "Guest";
