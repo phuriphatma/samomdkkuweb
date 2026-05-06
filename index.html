@@ -755,28 +755,22 @@
               <div id="projectDepartmentSection" class="row mb-4 g-4 d-none">
                 <div class="col-12 d-none" id="projectPostingFormat">
                   <label class="form-label">รูปแบบการลงสื่อ <span class="badge-info-custom">แสดงเพราะเลือก IG Post หรือ
-                      IG Story</span> <span class="text-danger">*</span></label>
+                      IG Story</span> <small class="text-muted">(เลือกได้มากกว่า 1)</small> <span class="text-danger">*</span></label>
                   <div class="d-grid gap-2">
-                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat1"
-                      value="ฝากลง mdkkusamo account" />
-                    <label class="radio-card-label py-2" for="projFormat1">
-                      <div class="d-flex justify-content-between align-items-center"><span><i
-                            class="bi bi-arrow-right-circle me-2"></i>ฝากลง mdkkusamo account</span><i
-                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat1"
+                      value="ฝากลง mdkkusamo account" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat1">
+                      <i class="bi bi-arrow-right-circle me-2"></i>ฝากลง mdkkusamo account
                     </label>
-                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat2"
-                      value="co-post with mdkkusamo" />
-                    <label class="radio-card-label py-2" for="projFormat2">
-                      <div class="d-flex justify-content-between align-items-center"><span><i
-                            class="bi bi-people-fill me-2"></i>co-post with mdkkusamo</span><i
-                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat2"
+                      value="co-post with mdkkusamo" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat2">
+                      <i class="bi bi-people-fill me-2"></i>co-post with mdkkusamo
                     </label>
-                    <input class="btn-check" type="radio" name="projectFormat" id="projFormat3"
-                      value="co-post with account ฝ่าย" />
-                    <label class="radio-card-label py-2" for="projFormat3">
-                      <div class="d-flex justify-content-between align-items-center"><span><i
-                            class="bi bi-diagram-2 me-2"></i>co-post with account ฝ่าย</span><i
-                          class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat3"
+                      value="co-post with account ฝ่าย" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat3">
+                      <i class="bi bi-diagram-2 me-2"></i>co-post with account ฝ่าย
                     </label>
                   </div>
                 </div>
@@ -847,6 +841,21 @@
               <h4 class="section-title"><i class="bi bi-folder2-open me-2"></i>เนื้อหาและไฟล์แนบ</h4>
               <div class="mb-3">
                 <label class="form-label">Brief (บรีฟการออกแบบ)</label>
+                <div class="p-3 mb-2 rounded-3" style="background-color: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b; white-space: pre-wrap;"><strong class="text-pink-custom">ตัวอย่างวิธีบรีฟงาน</strong>
+Title: ชื่องาน
+Type: ประเภท
+Size: ขนาดที่ต้องการจะลง (ig post 4:5 1080x1350)
+Color: ถ้าเป็นงานอุปจะเป็นสีของอุป ถ้าเป็นโครงการสามารถกำหนดได้
+Theme: ธีมที่ต้องการ
+Elements: อยากใส่อะไรเป็นพิเศษ เช่น polaroid
+Other/ Notes
+font
+บรีฟอื่นๆเพิ่มเติม
+Reference: ตัวอย่างคร่าวๆ
+(หากเป็นงานที่มีเนื้อหาเยอะ ให้แจ้งว่า)
+รายละเอียดแต่ละหน้า
+หน้าที่ 1: ใส่ข้อมูลอะไร
+หน้าที่ 2: ใส่ข้อมูลอะไร</div>
                 <textarea name="brief" class="form-control" rows="2"
                   placeholder="อธิบายแนวทาง โทนสี หรือ Mood & Tone ที่ต้องการ"></textarea>
               </div>
@@ -1981,7 +1990,7 @@
     const projectDepartmentSection = document.getElementById("projectDepartmentSection");
     const projectPostingFormat = document.getElementById("projectPostingFormat");
     const copostWithSection = document.getElementById("copostWithSection");
-    const projectFormatRadios = document.getElementsByName("projectFormat");
+    // projectFormat checkboxes now use onchange="toggleProjectFormatCopost()" directly
     let lastJobType = "";
 
     document.querySelectorAll("textarea").forEach((textarea) => {
@@ -2014,10 +2023,9 @@
         document.getElementById("projectAccount").setAttribute("required", "required");
         if (isIgSelected) {
           projectPostingFormat.classList.remove("d-none");
-          document.getElementsByName("projectFormat").forEach((el) => el.setAttribute("required", "required"));
         } else {
           projectPostingFormat.classList.add("d-none");
-          document.getElementsByName("projectFormat").forEach((el) => { el.removeAttribute("required"); el.checked = false; });
+          document.getElementsByName("projectFormat").forEach((el) => { el.checked = false; });
           copostWithSection.classList.add("d-none");
           document.getElementById("copostWith").removeAttribute("required");
         }
@@ -2037,19 +2045,19 @@
       applyDateRules();
     }
 
-    projectFormatRadios.forEach((radio) => {
-      radio.addEventListener("change", (e) => {
-        const copostInput = document.getElementById("copostWith");
-        if (e.target.value === "co-post with account ฝ่าย") {
-          copostWithSection.classList.remove("d-none");
-          copostInput.setAttribute("required", "required");
-        } else {
-          copostWithSection.classList.add("d-none");
-          copostInput.removeAttribute("required");
-          copostInput.value = "";
-        }
-      });
-    });
+    // toggleProjectFormatCopost is called via onchange on each checkbox
+    function toggleProjectFormatCopost() {
+      const copostInput = document.getElementById("copostWith");
+      const copostChecked = document.getElementById("projFormat3").checked;
+      if (copostChecked) {
+        copostWithSection.classList.remove("d-none");
+        copostInput.setAttribute("required", "required");
+      } else {
+        copostWithSection.classList.add("d-none");
+        copostInput.removeAttribute("required");
+        copostInput.value = "";
+      }
+    }
 
     departmentSelect.addEventListener("change", updateFormVisibility);
     igPostCheckbox.addEventListener("change", updateFormVisibility);
@@ -2288,6 +2296,18 @@
         return;
       }
 
+      // Validate: if projectPostingFormat is visible, at least one must be checked
+      const projFormatSection = document.getElementById("projectPostingFormat");
+      if (projFormatSection && !projFormatSection.classList.contains("d-none")) {
+        const checkedFormats = document.querySelectorAll('input[name="projectFormat"]:checked');
+        if (checkedFormats.length === 0) {
+          alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณาเลือกรูปแบบการลงสื่ออย่างน้อย 1 ช่อง';
+          alertBox.classList.remove("d-none"); alertBox.classList.add("alert-danger");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
+
       // Sync hidden publishDate from split inputs before validation
       syncPublishDate();
 
@@ -2370,6 +2390,7 @@
       const data = Object.fromEntries(formData.entries());
       data.platform = formData.getAll("platform");
       data.otherPlatform = formData.getAll("otherPlatform");
+      data.projectFormat = formData.getAll("projectFormat");
       data.action = "submitPR";
       data.prAccountMode = accMode;
       data.prSubmitterEmail = document.getElementById("prGoogleUserEmail").value || "Guest";
