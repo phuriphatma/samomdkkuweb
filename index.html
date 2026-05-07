@@ -1566,11 +1566,13 @@ Reference: ตัวอย่างคร่าวๆ
                 <div class="col-md-4">
                   <label class="form-label">เปลี่ยนสถานะ</label>
                   <select id="prStaffActionStatus" class="form-select">
-                    <option value="รอทีม PR รับเรื่อง">รอทีม PR รับเรื่อง</option>
+                    <option value="รอ PR รับเรื่อง">รอ PR รับเรื่อง</option>
+                    <option value="PR รับเรื่อง">PR รับเรื่อง</option>
                     <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">รับบรีฟแล้ว (กำลังดำเนินการ)</option>
                     <option value="รอโพสต์ตามกำหนดการ">รอโพสต์ตามกำหนดการ</option>
                     <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">โพสต์เรียบร้อย (เสร็จสิ้น)</option>
-                    <option value="ปฏิเสธ / ตีกลับให้แก้ไข">ปฏิเสธ / ตีกลับให้แก้ไข</option>
+                    <option value="ตีกลับให้แก้ไขงาน">ตีกลับให้แก้ไขงาน</option>
+                    <option value="กำลังแก้ไขงาน">กำลังแก้ไขงาน</option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -2506,8 +2508,8 @@ Reference: ตัวอย่างคร่าวๆ
       list.innerHTML = "";
       if (loggedInUserPrTickets.length === 0) { list.innerHTML = '<div class="col-12 text-center text-muted mt-4">คุณยังไม่มีประวัติการส่งงาน PR</div>'; return; }
       loggedInUserPrTickets.forEach((t) => {
-        let badgeColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") ? "warning text-dark" : "primary";
-        if (t.status.includes("ปฏิเสธ")) badgeColor = "danger";
+        let badgeColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") || t.status.includes("แก้ไขงาน") ? "warning text-dark" : "primary";
+        if (t.status.includes("ตีกลับ")) badgeColor = "danger";
         list.insertAdjacentHTML("beforeend", `
             <div class="col-md-6">
               <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRTicketDetail('${t.id}')">
@@ -2537,8 +2539,8 @@ Reference: ตัวอย่างคร่าวๆ
 
     function renderPRDashboard(ticket) {
       document.getElementById("prDashTicketId").innerText = ticket.id;
-      let badgeColor = ticket.status.includes("เสร็จสิ้น") ? "bg-success" : ticket.status.includes("รอ") ? "bg-warning text-dark" : "bg-primary";
-      if (ticket.status.includes("ปฏิเสธ")) badgeColor = "bg-danger";
+      let badgeColor = ticket.status.includes("เสร็จสิ้น") ? "bg-success" : ticket.status.includes("รอ") || ticket.status.includes("แก้ไขงาน") ? "bg-warning text-dark" : "bg-primary";
+      if (ticket.status.includes("ตีกลับ")) badgeColor = "bg-danger";
       document.getElementById("prDashStatusBadge").className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${badgeColor}`;
       document.getElementById("prDashStatusBadge").innerText = ticket.status;
 
@@ -2771,8 +2773,8 @@ Reference: ตัวอย่างคร่าวๆ
         if (result.success && result.tickets.length > 0) {
           prStaffTicketsCache = result.tickets;
           result.tickets.forEach((t, idx) => {
-            let bColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") ? "warning text-dark" : "primary";
-            if (t.status.includes("ปฏิเสธ")) bColor = "danger";
+            let bColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") || t.status.includes("แก้ไขงาน") ? "warning text-dark" : "primary";
+            if (t.status.includes("ตีกลับ")) bColor = "danger";
 
             // ใส่ Flag งานด่วนถ้ามี
             let rushFlag = t.deadline && t.deadline.includes('ด่วน') ? `<span class="badge bg-danger ms-2"><i class="bi bi-rocket-takeoff me-1"></i>ขอไวกว่าปกติ</span>` : '';
