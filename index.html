@@ -755,7 +755,8 @@
               <div id="projectDepartmentSection" class="row mb-4 g-4 d-none">
                 <div class="col-12 d-none" id="projectPostingFormat">
                   <label class="form-label">รูปแบบการลงสื่อ <span class="badge-info-custom">แสดงเพราะเลือก IG Post หรือ
-                      IG Story</span> <small class="text-muted">(เลือกได้มากกว่า 1)</small> <span class="text-danger">*</span></label>
+                      IG Story</span> <small class="text-muted">(เลือกได้มากกว่า 1)</small> <span
+                      class="text-danger">*</span></label>
                   <div class="d-grid gap-2">
                     <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat1"
                       value="ฝากลง mdkkusamo account" onchange="toggleProjectFormatCopost()" />
@@ -841,21 +842,24 @@
               <h4 class="section-title"><i class="bi bi-folder2-open me-2"></i>เนื้อหาและไฟล์แนบ</h4>
               <div class="mb-3">
                 <label class="form-label">Brief (บรีฟการออกแบบ)</label>
-                <div class="p-3 mb-2 rounded-3" style="background-color: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b; white-space: pre-wrap;"><strong class="text-pink-custom">ตัวอย่างวิธีบรีฟงาน</strong>
-Title: ชื่องาน
-Type: ประเภท
-Size: ขนาดที่ต้องการจะลง (ig post 4:5 1080x1350)
-Color: ถ้าเป็นงานอุปจะเป็นสีของอุป ถ้าเป็นโครงการสามารถกำหนดได้
-Theme: ธีมที่ต้องการ
-Elements: อยากใส่อะไรเป็นพิเศษ เช่น polaroid
-Other/ Notes
-font
-บรีฟอื่นๆเพิ่มเติม
-Reference: ตัวอย่างคร่าวๆ
-(หากเป็นงานที่มีเนื้อหาเยอะ ให้แจ้งว่า)
-รายละเอียดแต่ละหน้า
-หน้าที่ 1: ใส่ข้อมูลอะไร
-หน้าที่ 2: ใส่ข้อมูลอะไร</div>
+                <div class="p-3 mb-2 rounded-3"
+                  style="background-color: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b; white-space: pre-wrap;">
+                  <strong class="text-pink-custom">ตัวอย่างวิธีบรีฟงาน</strong>
+                  Title: ชื่องาน
+                  Type: ประเภท
+                  Size: ขนาดที่ต้องการจะลง (ig post 4:5 1080x1350)
+                  Color: ถ้าเป็นงานอุปจะเป็นสีของอุป ถ้าเป็นโครงการสามารถกำหนดได้
+                  Theme: ธีมที่ต้องการ
+                  Elements: อยากใส่อะไรเป็นพิเศษ เช่น polaroid
+                  Other/ Notes
+                  font
+                  บรีฟอื่นๆเพิ่มเติม
+                  Reference: ตัวอย่างคร่าวๆ
+                  (หากเป็นงานที่มีเนื้อหาเยอะ ให้แจ้งว่า)
+                  รายละเอียดแต่ละหน้า
+                  หน้าที่ 1: ใส่ข้อมูลอะไร
+                  หน้าที่ 2: ใส่ข้อมูลอะไร
+                </div>
                 <textarea name="brief" class="form-control" rows="2"
                   placeholder="อธิบายแนวทาง โทนสี หรือ Mood & Tone ที่ต้องการ"></textarea>
               </div>
@@ -2939,7 +2943,9 @@ Reference: ตัวอย่างคร่าวๆ
 
       try {
         const res = await fetch(GAS_API_URL, {
-          method: "POST", body: JSON.stringify({
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
             action: "updatePRTicket",
             ticketId: currentActivePrTicketId,
             newStatus: newStatus,
@@ -2956,7 +2962,14 @@ Reference: ตัวอย่างคร่าวๆ
           bootstrap.Modal.getInstance(document.getElementById("prStaffManageModal")).hide();
           fetchPRStaffTickets();
         } else { alert("เกิดข้อผิดพลาด: " + result.message); }
-      } catch (e) { alert("เกิดข้อผิดพลาดในการบันทึก"); }
+      } catch (e) {
+        console.error("Submit error:", e);
+        if (e.message && e.message.includes("Failed to fetch")) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ (Failed to fetch)");
+        } else {
+          alert("เกิดข้อผิดพลาดในการบันทึก: " + e.message);
+        }
+      }
       finally { btn.disabled = false; btn.innerHTML = "บันทึกอัปเดต"; }
     }
 
@@ -3389,7 +3402,14 @@ Reference: ตัวอย่างคร่าวๆ
           bootstrap.Modal.getInstance(document.getElementById("staffManageModal")).hide();
           fetchStaffTickets();
         } else { alert("เกิดข้อผิดพลาด: " + result.message); }
-      } catch (e) { alert("เกิดข้อผิดพลาดในการบันทึก"); }
+      } catch (e) {
+        console.error("Submit error:", e);
+        if (e.message && e.message.includes("Failed to fetch")) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ (Failed to fetch)");
+        } else {
+          alert("เกิดข้อผิดพลาดในการบันทึก: " + e.message);
+        }
+      }
       finally { btn.disabled = false; btn.innerHTML = "บันทึกข้อมูล"; }
     }
 
