@@ -889,15 +889,15 @@
                 </div>
               </div>
 
-              <div class="form-check form-switch mt-4 mb-4 p-3 rounded-3" style="background-color: var(--pink-100)">
-                <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify"
-                  name="silentNotify" value="true" style="cursor: pointer" />
-                <label class="form-check-label text-secondary mt-1" for="silentNotify"
-                  style="cursor: pointer; color: var(--pink-900) !important">
-                  <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
-                  (ไม่เด้งเตือนเสียงดังรบกวน)
-                </label>
-              </div>
+<div class="form-check form-switch mt-4 mb-4 p-3 rounded-3 dev-only-feature d-none" style="background-color: var(--pink-100)">
+  <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify"
+    name="silentNotify" value="true" style="cursor: pointer" />
+  <label class="form-check-label text-secondary mt-1" for="silentNotify"
+    style="cursor: pointer; color: var(--pink-900) !important">
+    <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
+    (ไม่เด้งเตือนเสียงดังรบกวน)
+  </label>
+</div>
 
               <button type="submit" id="submitBtn" class="btn btn-submit w-100">
                 <span id="btnText"><i class="bi bi-send-fill me-2"></i>ยืนยันการส่งงาน</span>
@@ -1200,15 +1200,15 @@
                 </select>
               </div>
 
-              <div class="form-check form-switch mb-4 p-3 rounded-3" style="background-color: var(--pink-100)">
-                <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsSilentNotify"
-                  name="vsSilentNotify" value="true" style="cursor: pointer" />
-                <label class="form-check-label text-secondary mt-1" for="vsSilentNotify"
-                  style="cursor: pointer; color: var(--pink-900) !important">
-                  <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
-                  (ไม่เด้งเตือนเสียงดังรบกวน)
-                </label>
-              </div>
+<div class="form-check form-switch mb-4 p-3 rounded-3 dev-only-feature d-none" style="background-color: var(--pink-100)">
+  <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsSilentNotify"
+    name="vsSilentNotify" value="true" style="cursor: pointer" />
+  <label class="form-check-label text-secondary mt-1" for="vsSilentNotify"
+    style="cursor: pointer; color: var(--pink-900) !important">
+    <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
+    (ไม่เด้งเตือนเสียงดังรบกวน)
+  </label>
+</div>
 
               <button type="submit" class="btn btn-submit w-100"><i class="bi bi-send-fill me-2"></i>
                 ส่งเรื่องร้องเรียน</button>
@@ -1354,6 +1354,12 @@
       </div>
     </div>
   </div>
+
+  <div class="text-center mt-5 pb-3">
+      <span id="footerDevTrigger" class="text-muted" style="font-size: 0.75rem; user-select: none; cursor: default;">
+        © 2024 MDKKU SAMO Portal v1.0.0
+      </span>
+    </div>
 
   <!-- Modal สำหรับเจ้าหน้าที่ VS -->
   <div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
@@ -1762,6 +1768,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       loadAnnouncements();
+      applyDevMode();
 
       const savedEmail = localStorage.getItem("prGoogleUserEmail");
       const savedName = localStorage.getItem("prGoogleUserName");
@@ -3418,6 +3425,46 @@
       document.getElementById("staffDashboardBox").classList.add("d-none");
       document.getElementById("staffLoginBox").classList.remove("d-none");
     }
+
+    // -----------------------------------------------------
+// DEV MODE (PIN CODE PROTECTED)
+// -----------------------------------------------------
+document.getElementById("footerDevTrigger").addEventListener("click", function() {
+  // เช็คว่าเปิด Dev Mode อยู่แล้วหรือยัง
+  const isDev = localStorage.getItem("samoDevMode") === "true";
+  
+  if (isDev) {
+    // ถ้าเปิดอยู่แล้ว ให้ถามว่าจะปิดไหม
+    if(confirm("🔒 คุณอยู่ใน Dev Mode\nต้องการปิดโหมดนักพัฒนาหรือไม่?")) {
+      localStorage.removeItem("samoDevMode");
+      applyDevMode();
+      alert("ปิด Dev Mode เรียบร้อยแล้ว");
+    }
+  } else {
+    // ถ้ายังไม่เปิด ให้เด้งถามรหัส PIN (เปลี่ยนรหัสได้ตามต้องการ ปัจจุบันคือ 9999)
+    const pin = prompt("🔐 Enter Developer PIN:");
+    if (pin === "9999") { 
+      localStorage.setItem("samoDevMode", "true");
+      applyDevMode();
+      alert("🔓 รหัสผ่านถูกต้อง! เปิด Dev Mode สำเร็จ");
+    } else if (pin !== null && pin !== "") {
+      alert("❌ PIN ไม่ถูกต้อง Access Denied");
+    }
+  }
+});
+
+function applyDevMode() {
+  const isDev = localStorage.getItem("samoDevMode") === "true";
+  const devElements = document.querySelectorAll('.dev-only-feature');
+  
+  devElements.forEach(el => {
+    if (isDev) {
+      el.classList.remove('d-none');
+    } else {
+      el.classList.add('d-none');
+    }
+  });
+}
 
   </script>
 </body>
