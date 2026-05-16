@@ -1035,26 +1035,46 @@
                 onclick="loginPRStaff()">เข้าสู่ระบบจัดการ PR</button>
             </div>
 
-            <div id="prStaffDashboardBox" class="d-none">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
-                  <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
-                </div>
-                <div>
-                  <!-- แทรกปุ่มนี้เข้าไปในกลุ่มปุ่มด้านขวาบนของ PR Staff Dashboard -->
-                  <button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()"><i
-                      class="bi bi-people"></i> จัดการทีม</button>
-                  <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()"><i
-                      class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
-                </div>
-              </div>
-              <div class="text-center my-3 d-none" id="prStaffLoading">
-                <div class="spinner-border text-pink-custom" role="status"></div>
-              </div>
-              <div id="prStaffTicketList" class="row g-3"></div>
-            </div>
+<div id="prStaffDashboardBox" class="d-none">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
+      <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
+    </div>
+    <div>
+      <button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()"><i
+          class="bi bi-people"></i> จัดการทีม</button>
+      <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()"><i
+          class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-5 col-lg-4">
+      <div class="input-group input-group-sm shadow-sm">
+        <span class="input-group-text bg-white text-pink-custom border-end-0"><i class="bi bi-funnel-fill"></i></span>
+        <select id="prStaffDeptFilter" class="form-select border-start-0" onchange="filterPRStaffTickets()">
+          <option value="all">ดูทุกฝ่าย (All Departments)</option>
+          <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
+          <option value="ฝ่ายดิจิทัลและสื่อสารองค์กร">ฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+          <option value="ฝ่ายกิจการภายใน">ฝ่ายกิจการภายใน</option>
+          <option value="ฝ่ายกิจการภายนอก">ฝ่ายกิจการภายนอก</option>
+          <option value="ฝ่ายกิจการมหาวิทยาลัย">ฝ่ายกิจการมหาวิทยาลัย</option>
+          <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
+          <option value="ฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+          <option value="ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม">ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม</option>
+          <option value="ฝ่ายเวชนิทัศน์">ฝ่ายเวชนิทัศน์</option>
+          <option value="โครงการอื่นๆ">โครงการอื่นๆ (Projects)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="text-center my-3 d-none" id="prStaffLoading">
+    <div class="spinner-border text-pink-custom" role="status"></div>
+  </div>
+  <div id="prStaffTicketList" class="row g-3"></div>
+</div>
           </div>
         </div>
       </div>
@@ -2773,7 +2793,7 @@
       finally { btn.disabled = false; btn.innerHTML = "เข้าสู่ระบบจัดการ PR"; }
     }
 
-    async function fetchPRStaffTickets() {
+async function fetchPRStaffTickets() {
       const loading = document.getElementById("prStaffLoading");
       const list = document.getElementById("prStaffTicketList");
       loading.classList.remove("d-none"); list.innerHTML = "";
@@ -2781,38 +2801,71 @@
         const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ action: "getStaffPRTickets" }) });
         const result = await res.json();
         loading.classList.add("d-none");
+        
         if (result.success && result.tickets.length > 0) {
           prStaffTicketsCache = result.tickets;
-          result.tickets.forEach((t, idx) => {
-            let bColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") || t.status.includes("แก้ไขงาน") ? "warning text-dark" : "primary";
-            if (t.status.includes("ตีกลับ")) bColor = "danger";
+          // ให้เรียกฟังก์ชันกรองข้อมูลแทนการเรนเดอร์โดยตรง
+          filterPRStaffTickets(); 
+        } else { 
+          list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>'; 
+        }
+      } catch (e) { 
+        loading.classList.add("d-none"); 
+        list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; 
+      }
+    }
 
-            // ใส่ Flag งานด่วนถ้ามี
-            let rushFlag = t.deadline && t.deadline.includes('ด่วน') ? `<span class="badge bg-danger ms-2"><i class="bi bi-rocket-takeoff me-1"></i>ขอไวกว่าปกติ</span>` : '';
-            let assigneesHtml = (t.assignees && t.assignees.length > 0)
-              ? t.assignees.map(a => `<span class="badge bg-white text-dark border me-1 shadow-sm"><i class="bi bi-person-fill text-pink-custom"></i> ${a}</span>`).join('')
-              : `<span class="text-muted small"><i class="bi bi-person"></i> ยังไม่มีผู้รับผิดชอบ</span>`;
+    // 👇 เพิ่ม 2 ฟังก์ชันใหม่นี้ต่อจาก fetchPRStaffTickets เลย 👇
+    function filterPRStaffTickets() {
+      const filterValue = document.getElementById("prStaffDeptFilter").value;
+      let filteredTickets = prStaffTicketsCache;
 
-            list.insertAdjacentHTML("beforeend", `
-  <div class="col-md-6">
-    <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRStaffModal(${idx})">
-      <div class="card-body d-flex flex-column">
-        <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${bColor}">${t.status}</span></div>
-        <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${t.date}</p>
-        <p class="small text-muted mb-1"><i class="bi bi-building"></i> ${t.dept}</p>
-        <p class="card-text small fw-bold text-truncate mb-2">${t.contentName} ${rushFlag}</p>
-        
-        <!-- พื้นที่แสดงรายชื่อทีม -->
-        <div class="mt-auto border-top pt-2">
-            ${assigneesHtml}
-        </div>
-      </div>
-    </div>
-  </div>
-`);
-          });
-        } else { list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>'; }
-      } catch (e) { loading.classList.add("d-none"); list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; }
+      if (filterValue !== "all") {
+        filteredTickets = prStaffTicketsCache.filter(t => t.dept === filterValue);
+      }
+      
+      renderPRStaffTicketsList(filteredTickets);
+    }
+
+    function renderPRStaffTicketsList(ticketsToRender) {
+      const list = document.getElementById("prStaffTicketList");
+      list.innerHTML = "";
+      
+      if (ticketsToRender.length === 0) {
+        list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่พบงานของฝ่ายที่เลือก</div>';
+        return;
+      }
+
+      ticketsToRender.forEach((t) => {
+        // หา Index เดิมอิงจาก cache หลัก เพื่อให้ตอนกดเปิด Modal อ้างอิงได้ถูกต้อง
+        const originalIndex = prStaffTicketsCache.indexOf(t);
+
+        let bColor = t.status.includes("เสร็จสิ้น") ? "success" : t.status.includes("รอ") || t.status.includes("แก้ไขงาน") ? "warning text-dark" : "primary";
+        if (t.status.includes("ตีกลับ")) bColor = "danger";
+
+        // ใส่ Flag งานด่วนถ้ามี
+        let rushFlag = t.deadline && t.deadline.includes('ด่วน') ? `<span class="badge bg-danger ms-2"><i class="bi bi-rocket-takeoff me-1"></i>ขอไวกว่าปกติ</span>` : '';
+        let assigneesHtml = (t.assignees && t.assignees.length > 0)
+          ? t.assignees.map(a => `<span class="badge bg-white text-dark border me-1 shadow-sm"><i class="bi bi-person-fill text-pink-custom"></i> ${a}</span>`).join('')
+          : `<span class="text-muted small"><i class="bi bi-person"></i> ยังไม่มีผู้รับผิดชอบ</span>`;
+
+        list.insertAdjacentHTML("beforeend", `
+          <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRStaffModal(${originalIndex})">
+              <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${bColor}">${t.status}</span></div>
+                <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${t.date}</p>
+                <p class="small text-muted mb-1"><i class="bi bi-building"></i> ${t.dept}</p>
+                <p class="card-text small fw-bold text-truncate mb-2">${t.contentName} ${rushFlag}</p>
+                
+                <div class="mt-auto border-top pt-2">
+                    ${assigneesHtml}
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
+      });
     }
 
     function openPRStaffModal(idx) {
