@@ -382,6 +382,29 @@
       background: #f0fdf4;
       border-left: 3px solid #22c55e;
     }
+
+    #prStaffKanban {
+      min-height: 70vh;
+    }
+
+    .kanban-column {
+      min-width: 320px;
+      width: 320px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+
+    .kanban-header {
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: #e83e8c;
+    }
+
+    .kanban-body {
+      min-height: 400px;
+    }
   </style>
 </head>
 
@@ -392,7 +415,6 @@
       <i class="bi bi-heart-pulse-fill fs-2 me-2"></i>
       <span class="fs-4 fw-bold">SAMO KKU</span>
     </a>
-
     <ul class="nav nav-pills" id="pills-tab" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home"
@@ -422,7 +444,7 @@
       </li>
     </ul>
   </nav>
-
+  
   <!-- Tab Content Area -->
   <div class="container-fluid px-4">
     <div class="tab-content" id="pills-tabContent">
@@ -889,15 +911,15 @@
                 </div>
               </div>
 
-<div class="form-check form-switch mt-4 mb-4 p-3 rounded-3 dev-only-feature d-none" style="background-color: var(--pink-100)">
-  <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify"
-    name="silentNotify" value="true" style="cursor: pointer" />
-  <label class="form-check-label text-secondary mt-1" for="silentNotify"
-    style="cursor: pointer; color: var(--pink-900) !important">
-    <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
-    (ไม่เด้งเตือนเสียงดังรบกวน)
-  </label>
-</div>
+              <div class="form-check form-switch mt-4 mb-4 p-3 rounded-3 dev-only-feature d-none" style="background-color: var(--pink-100)">
+                <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify"
+                  name="silentNotify" value="true" style="cursor: pointer" />
+                <label class="form-check-label text-secondary mt-1" for="silentNotify"
+                  style="cursor: pointer; color: var(--pink-900) !important">
+                  <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
+                  (ไม่เด้งเตือนเสียงดังรบกวน)
+                </label>
+              </div>
 
               <button type="submit" id="submitBtn" class="btn btn-submit w-100">
                 <span id="btnText"><i class="bi bi-send-fill me-2"></i>ยืนยันการส่งงาน</span>
@@ -1034,50 +1056,31 @@
               <button type="button" id="btnPrStaffLogin" class="btn btn-dark w-100"
                 onclick="loginPRStaff()">เข้าสู่ระบบจัดการ PR</button>
             </div>
-
-<div id="prStaffDashboardBox" class="d-none">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-      <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
-      <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
-    </div>
-    <div>
-      <button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()"><i
-          class="bi bi-people"></i> จัดการทีม</button>
-      <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()"><i
-          class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
-    </div>
-  </div>
-
-  <div class="row mb-3">
-    <div class="col-md-5 col-lg-4">
-      <div class="input-group input-group-sm shadow-sm">
-        <span class="input-group-text bg-white text-pink-custom border-end-0"><i class="bi bi-funnel-fill"></i></span>
-        <select id="prStaffDeptFilter" class="form-select border-start-0" onchange="filterPRStaffTickets()">
-          <option value="all">ดูทุกฝ่าย (All Departments)</option>
-          <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
-          <option value="ฝ่ายดิจิทัลและสื่อสารองค์กร">ฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-          <option value="ฝ่ายกิจการภายใน">ฝ่ายกิจการภายใน</option>
-          <option value="ฝ่ายกิจการภายนอก">ฝ่ายกิจการภายนอก</option>
-          <option value="ฝ่ายกิจการมหาวิทยาลัย">ฝ่ายกิจการมหาวิทยาลัย</option>
-          <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
-          <option value="ฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-          <option value="ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม">ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม</option>
-          <option value="ฝ่ายเวชนิทัศน์">ฝ่ายเวชนิทัศน์</option>
-          <option value="โครงการอื่นๆ">โครงการอื่นๆ (Projects)</option>
-        </select>
-      </div>
-    </div>
-  </div>
-  <div class="text-center my-3 d-none" id="prStaffLoading">
-    <div class="spinner-border text-pink-custom" role="status"></div>
-  </div>
-  <div id="prStaffTicketList" class="row g-3"></div>
-</div>
+            <div id="prStaffDashboardBox" class="d-none">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <!-- LEFT TITLE -->
+                    <div>
+                    <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
+                    <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
+                    </div>
+                    <!-- RIGHT BUTTONS -->
+                    <div class="d-flex gap-2">
+                    <button class="btn btn-outline-dark btn-sm"onclick="openPrFilterModal()"><i class="bi bi-funnel"></i> Filter</button>
+                    <button class="btn btn-outline-info btn-sm" onclick="openManageAgentsModal()">จัดการทีม</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="fetchPRStaffTickets()">รีเฟรช</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
+                    </div>
+                </div>
+                <!-- LOADING -->
+                <div class="text-center my-3 d-none" id="prStaffLoading">
+                    <div class="spinner-border text-pink-custom"></div>
+                </div>
+                <!-- LIST -->
+                <div id="prStaffKanban" class="d-flex gap-3 overflow-auto pb-2"></div>
+            </div>
           </div>
-        </div>
       </div>
+    </div>
 
       <!-- TAB 5: VITAL SOUND -->
       <div class="tab-pane fade" id="pills-vitalsound" role="tabpanel">
@@ -1703,6 +1706,88 @@
       </div>
     </div>
   </div>
+  <div class="modal fade" id="prFilterModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-funnel me-2"></i>
+          Sort & Filter
+        </h5>
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- SORT -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold">
+            Sort By
+          </label>
+          <select id="prSortBy"
+                class="form-select"
+                onchange="applyPrStaffView()">
+
+          <option value="newest" selected>
+            Newest
+          </option>
+
+          <option value="oldest">
+            Oldest
+          </option>
+
+        </select>
+        </div>
+        <!-- DEPT -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold">
+            Department
+          </label>
+          <select id="prFilterDept"
+                  class="form-select"
+                  onchange="applyPrStaffView()">
+
+            <option value="all">
+              All Departments
+            </option>
+
+          </select>
+        </div>
+        <!-- MEMBER -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold">
+            Assigned Member
+          </label>
+          <select id="prFilterAgent"
+                  class="form-select"
+                  onchange="applyPrStaffView()">
+
+            <option value="all">
+              All Members
+            </option>
+          </select>
+        </div>
+        <!-- URGENT -->
+        <div class="form-check mt-4">
+          <input class="form-check-input"
+                 type="checkbox"
+                 id="prFilterUrgent"
+                 onchange="applyPrStaffView()">
+
+          <label class="form-check-label">
+            ด่วนเท่านั้น
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary"
+                data-bs-dismiss="modal">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2023,6 +2108,25 @@
     const projectDepartmentSection = document.getElementById("projectDepartmentSection");
     const projectPostingFormat = document.getElementById("projectPostingFormat");
     const copostWithSection = document.getElementById("copostWithSection");
+    const stageOrder = {
+            "รอ PR รับเรื่อง": 1,
+            "PR รับเรื่อง": 2,
+            "รับบรีฟแล้ว (กำลังดำเนินการ)": 3,
+            "ตีกลับให้แก้ไขงาน": 4,
+            "กำลังแก้ไขงาน": 5,
+            "รอโพสต์ตามกำหนดการ": 6,
+            "โพสต์เรียบร้อย (เสร็จสิ้น)": 7
+            };
+    const kanbanStages = [
+            "รอ PR รับเรื่อง",
+            "PR รับเรื่อง",
+            "รับบรีฟแล้ว (กำลังดำเนินการ)",
+            "ตีกลับให้แก้ไขงาน",
+            "กำลังแก้ไขงาน",
+            "รอโพสต์ตามกำหนดการ",
+            "โพสต์เรียบร้อย (เสร็จสิ้น)"
+            ];
+    
     // projectFormat checkboxes now use onchange="toggleProjectFormatCopost()" directly
     let lastJobType = "";
 
@@ -2793,27 +2897,172 @@
       finally { btn.disabled = false; btn.innerHTML = "เข้าสู่ระบบจัดการ PR"; }
     }
 
+//-------feature kanban--------//
 async function fetchPRStaffTickets() {
-      const loading = document.getElementById("prStaffLoading");
-      const list = document.getElementById("prStaffTicketList");
-      loading.classList.remove("d-none"); list.innerHTML = "";
-      try {
-        const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ action: "getStaffPRTickets" }) });
-        const result = await res.json();
-        loading.classList.add("d-none");
-        
-        if (result.success && result.tickets.length > 0) {
-          prStaffTicketsCache = result.tickets;
-          // ให้เรียกฟังก์ชันกรองข้อมูลแทนการเรนเดอร์โดยตรง
-          filterPRStaffTickets(); 
-        } else { 
-          list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>'; 
-        }
-      } catch (e) { 
-        loading.classList.add("d-none"); 
-        list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; 
-      }
+  const loading = document.getElementById("prStaffLoading");
+  const board = document.getElementById("prStaffKanban");
+  loading.classList.remove("d-none");
+  board.innerHTML = "";
+  try {const res = await fetch(GAS_API_URL, {method: "POST",body: JSON.stringify({action: "getStaffPRTickets"})});
+  const result = await res.json();
+  loading.classList.add("d-none");
+  if (result.success && result.tickets.length > 0) {
+  // ✅ store all tickets
+      prStaffTicketsCache = result.tickets;
+      populatePrFilters(); 
+  // ✅ render THROUGH filter/sort system
+      applyPrStaffView();
+  } else {prStaffTicketsCache = [];list.innerHTML = `<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>`;}
+  } catch (e) {loading.classList.add("d-none");list.innerHTML = `<div class="text-danger text-center">เกิดข้อผิดพลาด</div>`;}
+}
+
+function applyPrStaffView() {
+        let data = [...prStaffTicketsCache];
+        const dept = document.getElementById("prFilterDept").value;
+        const agent = document.getElementById("prFilterAgent").value;
+        const urgentOnly = document.getElementById("prFilterUrgent").checked;
+        // FILTER: department
+        if (dept !== "all") {data = data.filter(t => t.dept === dept);}
+        // FILTER: assignee
+        if (agent !== "all") {data = data.filter(t =>(t.assignees || []).includes(agent));}
+        // FILTER: urgent only
+        if (urgentOnly) {data = data.filter(t =>t.deadline?.includes("ด่วน"));}
+        renderPrStaffTickets(data);
+  }
+  function renderPrStaffTickets(tickets) {
+      const board = document.getElementById("prStaffKanban");
+      board.innerHTML = "";
+      const sortMode = document.getElementById("prSortBy").value;
+      // ✅ PREPROCESS ONCE
+      tickets.forEach(t => {t.status = (t.status || "").trim();});
+      // EMPTY STATE
+      if (!tickets.length) {board.innerHTML = `
+        <div class="text-center text-muted w-100 py-5">ไม่มีงานตามตัวกรอง</div>`;return;}
+      // LOOP STAGES
+      kanbanStages.forEach(stage => {
+        // FILTER BY STAGE
+        let stageTickets = tickets.filter(t => t.status === stage);
+        // SKIP EMPTY COLUMNS
+        if (stageTickets.length === 0) return;
+        // SORT (ONLY HERE)
+        stageTickets.sort((a, b) => {
+          const dateA = parseDateSafe(a.date);
+          const dateB = parseDateSafe(b.date);
+          return sortMode === "newest"
+            ? dateB - dateA
+            : dateA - dateB;});
+        // BUILD CARDS
+        let cardsHtml = "";
+        stageTickets.forEach(t => {
+          let bColor =
+            t.status.includes("เสร็จสิ้น") ? "success" :
+            t.status.includes("รอ") || t.status.includes("แก้ไขงาน") ? "warning text-dark" :
+            t.status.includes("ตีกลับ") ? "danger" : "primary";
+          let rushFlag = t.deadline?.includes("ด่วน")
+            ? `<span class="badge bg-danger ms-2">ด่วน</span>`
+            : "";
+          let assigneesHtml = (t.assignees?.length)
+            ? t.assignees.map(a =>
+                `<span class="badge bg-light text-dark border me-1">${a}</span>`
+              ).join("")
+            : `<span class="text-muted small">ไม่มีผู้รับผิดชอบ</span>`;
+          cardsHtml += `
+            <div class="card shadow-sm border-0 mb-3" style="cursor:pointer"onclick="openPRStaffModal('${t.id}')">
+              <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="fw-bold text-pink-custom">${t.id}</span>
+                  <span class="badge bg-${bColor}">${t.status}</span>
+                </div>
+                <p class="small text-muted mb-1">
+                  <i class="bi bi-building"></i> ${t.dept}
+                </p>
+                <p class="small text-muted mb-1">
+                  <i class="bi bi-clock"></i> ${t.date}
+                </p>
+                <p class="fw-bold small mb-2">
+                  ${t.contentName} ${rushFlag}
+                </p>
+                <div class="border-top pt-2">
+                  ${assigneesHtml}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        // RENDER COLUMN
+        board.insertAdjacentHTML("beforeend", `
+          <div class="kanban-column">
+            <div class="kanban-header">
+              ${stage}
+              <span class="badge bg-light text-dark ms-2">
+                ${stageTickets.length}
+              </span>
+            </div>
+            <div class="kanban-body">
+              ${cardsHtml || `<div class="text-muted small text-center py-4">ไม่มีงาน</div>`}
+            </div>
+          </div>
+        `);
+      });
     }
+
+function parseDateSafe(d) {
+        if (!d) return 0;
+        const value = String(d).trim();
+        // native parse
+        const native = Date.parse(value);
+        if (!isNaN(native)) {
+          return native;
+        }
+        // match DD/MM/YYYY or DD-MM-YYYY
+        const match = value.match(
+          /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/
+        );
+        if (match) {
+          let [, dd, mm, yyyy] = match;
+          dd = dd.padStart(2, "0");
+          mm = mm.padStart(2, "0");
+          // Buddhist year
+          if (Number(yyyy) > 2400) {
+            yyyy = Number(yyyy) - 543;
+          }
+          return new Date(
+            `${yyyy}-${mm}-${dd}`
+          ).getTime();
+        }
+        return 0;
+      }
+
+function populatePrFilters() {
+  const deptSelect = document.getElementById("prFilterDept");
+  const agentSelect = document.getElementById("prFilterAgent");
+  // reset
+  deptSelect.innerHTML = `<option value="all">All Departments</option>`;
+  agentSelect.innerHTML = `<option value="all">All Members</option>`;
+  // unique departments
+  const depts = [...new Set(
+    prStaffTicketsCache.map(t => t.dept).filter(Boolean)
+  )];
+  // unique assignees
+  const agents = [...new Set(
+    prStaffTicketsCache.flatMap(t => t.assignees || [])
+  )];
+  // populate departments
+  depts.forEach(dept => {
+    deptSelect.insertAdjacentHTML(
+      "beforeend",
+      `<option value="${dept}">${dept}</option>`
+    );
+  });
+  // populate assignees
+  agents.forEach(agent => {
+    agentSelect.insertAdjacentHTML(
+      "beforeend",
+      `<option value="${agent}">${agent}</option>`
+    );
+  });
+}
+//---------end-kanban-feature----------//
 
     // 👇 เพิ่ม 2 ฟังก์ชันใหม่นี้ต่อจาก fetchPRStaffTickets เลย 👇
     function filterPRStaffTickets() {
@@ -2868,8 +3117,20 @@ async function fetchPRStaffTickets() {
       });
     }
 
-    function openPRStaffModal(idx) {
-      const t = prStaffTicketsCache[idx];
+function openPrFilterModal() {
+        new bootstrap.Modal(
+        document.getElementById("prFilterModal")
+    ).show();
+    }
+
+function openPRStaffModalById(id) {
+      const idx = prStaffTicketsCache.findIndex(t => t.id === id);
+      if (idx === -1) return;
+      openPRStaffModal(idx);
+    }
+
+function openPRStaffModal(id) {
+      const t = prStaffTicketsCache.find(ticket => ticket.id === id);
       if (!t) return;
       currentActivePrTicketId = t.id;
       document.getElementById("prStaffModalTitle").innerText = t.id;
@@ -2958,9 +3219,9 @@ async function fetchPRStaffTickets() {
       bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
       new bootstrap.Modal(document.getElementById("prStaffManageModal")).show();
 
-    }
+}
 
-    async function submitPRStaffAction() {
+async function submitPRStaffAction() {
       const newStatus = document.getElementById("prStaffActionStatus").value;
       const newDeadlineStatus = document.getElementById("prStaffActionDeadlineStatus").value; // รับค่าความด่วนใหม่
       const remark = document.getElementById("prStaffActionRemark").value.trim();
@@ -3031,9 +3292,9 @@ async function fetchPRStaffTickets() {
         }
       }
       finally { btn.disabled = false; btn.innerHTML = "บันทึกอัปเดต"; }
-    }
+}
 
-    async function deletePRStaffAction() {
+async function deletePRStaffAction() {
       if (!confirm("⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบงาน PR นี้? ข้อมูลจะไม่สามารถกู้คืนได้")) return;
       const btn = document.querySelector("#prStaffManageModal .btn-danger");
       const ogText = btn.innerHTML;
@@ -3049,12 +3310,12 @@ async function fetchPRStaffTickets() {
         } else { alert("เกิดข้อผิดพลาด: " + result.message); }
       } catch (e) { alert("เกิดข้อผิดพลาดในการลบ"); }
       finally { btn.disabled = false; btn.innerHTML = ogText; }
-    }
+}
 
-    function logoutPRStaff() {
+function logoutPRStaff() {
       document.getElementById("prStaffDashboardBox").classList.add("d-none");
       document.getElementById("prStaffLoginBox").classList.remove("d-none");
-    }
+}
 
     // -----------------------------------------------------
     // VITAL SOUND (VS) LOGIC
