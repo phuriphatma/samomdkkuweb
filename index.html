@@ -1065,7 +1065,7 @@
                     </div>
                     <!-- RIGHT BUTTONS -->
                     <div class="d-flex gap-2">
-                    <button class="btn btn-outline-dark btn-sm"onclick="openPrFilterModal()"><i class="bi bi-funnel"></i> Filter</button>
+                    <button class="btn btn-outline-dark btn-sm" onclick="openPrFilterModal()"><i class="bi bi-funnel"></i> Filter</button>
                     <button class="btn btn-outline-info btn-sm" onclick="openManageAgentsModal()">จัดการทีม</button>
                     <button class="btn btn-outline-primary btn-sm" onclick="fetchPRStaffTickets()">รีเฟรช</button>
                     <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRStaff()">ออกจากระบบ</button>
@@ -1073,7 +1073,9 @@
                 </div>
                 <!-- LOADING -->
                 <div class="text-center my-3 d-none" id="prStaffLoading">
-                    <div class="spinner-border text-pink-custom"></div>
+                    <div class="spinner-border text-pink-custom" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
                 </div>
                 <!-- LIST -->
                 <div id="prStaffKanban" class="d-flex gap-3 overflow-auto pb-2"></div>
@@ -1706,11 +1708,13 @@
       </div>
     </div>
   </div>
-  <div class="modal fade" id="prFilterModal" tabindex="-1">
+
+<!-- Modal PR Filter-->
+  <div class="modal fade" id="prFilterModal" tabindex="-1" aria-hidden="true" aria-labelledby="prFilterModalLabel" aria-modal="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header">
-        <h5 class="modal-title">
+        <h5 class="modal-title" id="prFilterModalLabel">
           <i class="bi bi-funnel me-2"></i>
           Sort & Filter
         </h5>
@@ -2108,15 +2112,6 @@
     const projectDepartmentSection = document.getElementById("projectDepartmentSection");
     const projectPostingFormat = document.getElementById("projectPostingFormat");
     const copostWithSection = document.getElementById("copostWithSection");
-    const stageOrder = {
-            "รอ PR รับเรื่อง": 1,
-            "PR รับเรื่อง": 2,
-            "รับบรีฟแล้ว (กำลังดำเนินการ)": 3,
-            "ตีกลับให้แก้ไขงาน": 4,
-            "กำลังแก้ไขงาน": 5,
-            "รอโพสต์ตามกำหนดการ": 6,
-            "โพสต์เรียบร้อย (เสร็จสิ้น)": 7
-            };
     const kanbanStages = [
             "รอ PR รับเรื่อง",
             "PR รับเรื่อง",
@@ -2912,8 +2907,8 @@ async function fetchPRStaffTickets() {
       populatePrFilters(); 
   // ✅ render THROUGH filter/sort system
       applyPrStaffView();
-  } else {prStaffTicketsCache = [];list.innerHTML = `<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>`;}
-  } catch (e) {loading.classList.add("d-none");list.innerHTML = `<div class="text-danger text-center">เกิดข้อผิดพลาด</div>`;}
+  } else {prStaffTicketsCache = []; board.innerHTML = `<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>`;}
+  } catch (e) {loading.classList.add("d-none");board.innerHTML = `<div class="text-danger text-center">เกิดข้อผิดพลาด</div>`;}
 }
 
 function applyPrStaffView() {
@@ -2967,7 +2962,7 @@ function applyPrStaffView() {
               ).join("")
             : `<span class="text-muted small">ไม่มีผู้รับผิดชอบ</span>`;
           cardsHtml += `
-            <div class="card shadow-sm border-0 mb-3" style="cursor:pointer"onclick="openPRStaffModal('${t.id}')">
+            <div class="card shadow-sm border-0 mb-3" style="cursor:pointer" onclick="openPRStaffModal('${t.id}')">
               <div class="card-body">
                 <div class="d-flex justify-content-between mb-2">
                   <span class="fw-bold text-pink-custom">${t.id}</span>
@@ -3126,7 +3121,7 @@ function openPrFilterModal() {
 function openPRStaffModalById(id) {
       const idx = prStaffTicketsCache.findIndex(t => t.id === id);
       if (idx === -1) return;
-      openPRStaffModal(idx);
+      openPRStaffModal(id);
     }
 
 function openPRStaffModal(id) {
