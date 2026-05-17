@@ -1,0 +1,23 @@
+  <!-- Modal สำหรับจัดการรายชื่อทีม (Manage Agents) -->
+  <div class="modal fade" id="manageAgentsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold" style="color: var(--pink-700);"><i
+              class="bi bi-people-fill me-2"></i>จัดการทีม PR</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <label class="form-label small text-muted">เพิ่มรายชื่อผู้รับผิดชอบ (เพื่อให้เลือกได้ง่ายๆ)</label>
+          <div class="input-group mb-3">
+            <input type="text" id="newAgentNameInput" class="form-control" placeholder="ชื่อ Staff...">
+            <button class="btn btn-outline-success" type="button" onclick="addNewAgent()"><i
+                class="bi bi-plus-lg"></i></button>
+          </div>
+          <ul class="list-group list-group-flush border rounded shadow-sm" id="globalAgentsListUI">
+            <!-- ลิสต์รายชื่อทีมจะมาแสดงตรงนี้ -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>

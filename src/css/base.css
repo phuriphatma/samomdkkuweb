@@ -1,0 +1,50 @@
+/* ==============================================
+ * BASE — CSS Variables, Body, Typography
+ * ============================================== */
+
+:root {
+  --pink-50: #fdf2f8;
+  --pink-100: #fce7f3;
+  --pink-200: #fbcfe8;
+  --pink-500: #ec4899;
+  --pink-600: #db2777;
+  --pink-700: #be185d;
+  --pink-900: #831843;
+}
+
+body {
+  background: linear-gradient(135deg, var(--pink-50) 0%, #f3f4f6 100%);
+  font-family: "Prompt", sans-serif;
+  min-height: 100vh;
+  color: #334155;
+  margin: 0;
+  padding-bottom: 2rem;
+}
+
+.page-header {
+  color: var(--pink-900);
+  font-weight: 600;
+}
+
+.text-pink-custom {
+  color: var(--pink-600) !important;
+}
+
+.badge-info-custom {
+  font-size: 0.75rem;
+  background-color: var(--pink-100);
+  color: var(--pink-700);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.section-title {
+  margin-top: 2rem;
+  margin-bottom: 1.25rem;
+  color: var(--pink-600);
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-bottom: 2px solid var(--pink-100);
+  padding-bottom: 10px;
+}

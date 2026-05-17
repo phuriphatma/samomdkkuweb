@@ -1,0 +1,152 @@
+  <!-- Modal สำหรับเจ้าหน้าที่ PR -->
+  <div class="modal fade" id="prStaffManageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <div>
+            <h5 class="modal-title fw-bold" id="prStaffModalTitle">จัดการงาน PR</h5>
+            <span class="badge bg-secondary" id="prStaffModalCurrentStatus"></span>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- ส่วนหัวของ Tab -->
+        <ul class="nav nav-tabs nav-fill bg-light pt-2 px-3 border-bottom-0" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="pr-staff-detail-tab" data-bs-toggle="tab"
+              data-bs-target="#pr-staff-detail-content" type="button" role="tab"
+              style="color: var(--pink-700);">รายละเอียด & อัปเดต</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="pr-staff-timeline-tab" data-bs-toggle="tab"
+              data-bs-target="#pr-staff-timeline-content" type="button" role="tab" style="color: var(--pink-700);"><i
+                class="bi bi-clock-history me-1"></i> Timeline</button>
+          </li>
+        </ul>
+
+        <div class="modal-body p-0" style="font-family: 'Prompt', sans-serif">
+          <div class="tab-content">
+
+            <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต -->
+            <div class="tab-pane fade show active p-4" id="pr-staff-detail-content" role="tabpanel">
+              <div class="row mb-4 bg-light p-3 rounded mx-0">
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">ฝ่ายที่ส่ง:</strong> <span
+                      id="prStaffModalDept"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง (เดิม):</strong> <span
+                      id="prStaffModalPubDateText"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">รูปแบบงาน:</strong> <span
+                      id="prStaffModalJobType"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">แพลตฟอร์ม:</strong> <span
+                      id="prStaffModalPlatform"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">ช่องทางการโพสต์:</strong> <span
+                      id="prStaffModalChannel"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">Project Acc / Co-post:</strong> <span
+                      id="prStaffModalProjectInfo"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">ติดต่อ:</strong> <span
+                      id="prStaffModalContact"></span></p>
+                </div>
+                <div class="col-sm-6">
+                  <p class="mb-1 small"><strong class="text-pink-custom">Email:</strong> <span
+                      id="prStaffModalEmail"></span></p>
+                </div>
+                <div class="col-12 d-none" id="prStaffModalOtherPlatBox">
+                  <p class="mb-1 small"><strong class="text-pink-custom">Other Platform:</strong> <span
+                      id="prStaffModalOtherPlat"></span></p>
+                  <div class="alert alert-info py-2 small mb-0 d-none" id="prStaffModalOtherPlatReasonBox"><i
+                      class="bi bi-chat-left-text-fill me-2"></i><strong>เหตุผลที่ต้องการ PR:</strong> <span
+                      id="prStaffModalOtherPlatReason"></span></div>
+                </div>
+                <div class="col-sm-12 mt-2 d-none" id="prStaffModalRushReasonBox">
+                  <div class="alert alert-danger py-2 small mb-0"><i
+                      class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> <span
+                      id="prStaffModalRushReason"></span></div>
+                </div>
+                <div class="col-12 mt-3 p-2 bg-white border rounded">
+                  <span class="fw-bold small text-muted d-block mb-1">บรีฟ:</span>
+                  <div id="prStaffModalBrief" class="small" style="white-space: pre-line;"></div>
+                  <hr class="my-2">
+                  <span class="fw-bold small text-muted d-block mb-1">แคปชั่น:</span>
+                  <div id="prStaffModalCaption" class="small" style="white-space: pre-line;"></div>
+                </div>
+                <div class="col-12 mt-3" id="prStaffModalLinkBox"></div>
+              </div>
+
+              <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตสถานะงาน</h6>
+              <div class="row g-3 mb-2">
+                <div class="col-md-4">
+                  <label class="form-label">เปลี่ยนสถานะ</label>
+                  <select id="prStaffActionStatus" class="form-select">
+                    <option value="รอ PR รับเรื่อง">รอ PR รับเรื่อง</option>
+                    <option value="PR รับเรื่อง">PR รับเรื่อง</option>
+                    <option value="รับบรีฟแล้ว (กำลังดำเนินการ)">รับบรีฟแล้ว (กำลังดำเนินการ)</option>
+                    <option value="รอโพสต์ตามกำหนดการ">รอโพสต์ตามกำหนดการ</option>
+                    <option value="โพสต์เรียบร้อย (เสร็จสิ้น)">โพสต์เรียบร้อย (เสร็จสิ้น)</option>
+                    <option value="ตีกลับให้แก้ไขงาน">ตีกลับให้แก้ไขงาน</option>
+                    <option value="กำลังแก้ไขงาน">กำลังแก้ไขงาน</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">สถานะความด่วน</label>
+                  <select id="prStaffActionDeadlineStatus" class="form-select">
+                    <option value="ปกติ">ปกติ (Normal)</option>
+                    <option value="ด่วน (PR Review)">ด่วน (PR Review)</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">วัน-เวลาโพสต์ (Deadline)</label>
+                  <input type="datetime-local" id="prStaffActionDate" class="form-control" />
+                </div>
+                <div class="col-12 mt-3">
+                  <label class="form-label">เพิ่มข้อความแจ้งผู้ส่งงาน (Remark)</label>
+                  <textarea id="prStaffActionRemark" class="form-control" rows="2"
+                    placeholder="เช่น ขอให้แก้บรีฟ, เลื่อนวันโพสต์ หรือแนบลิงก์โพสต์ที่เสร็จแล้ว..."></textarea>
+                </div>
+
+                <div class="col-12 mt-3 border-top pt-3">
+                  <label class="form-label text-pink-custom fw-bold"><i
+                      class="bi bi-people-fill me-2"></i>ผู้รับผิดชอบงาน (Assignees)</label>
+                  <div class="input-group mb-2">
+                    <!-- 🟢 เปลี่ยนจาก Input ธรรมดาเป็น Select -->
+                    <select id="prStaffAssigneeSelect" class="form-select">
+                      <option value="" disabled selected>-- เลือกผู้รับผิดชอบ --</option>
+                      <!-- ตัวเลือกจะถูกดึงมาใส่ตรงนี้อัตโนมัติ -->
+                    </select>
+                    <button class="btn btn-outline-danger" type="button" onclick="addPRStaffAssignee()">
+                      <i class="bi bi-person-plus-fill"></i> เพิ่ม
+                    </button>
+                  </div>
+                  <div id="prStaffAssigneesList" class="d-flex flex-wrap gap-2 mt-2"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Timeline -->
+            <div class="tab-pane fade p-4 bg-light" id="pr-staff-timeline-content" role="tabpanel">
+              <div id="prStaffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3"
+                style="border-color: var(--pink-200) !important;"></div>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger me-auto" onclick="deletePRStaffAction()"><i
+              class="bi bi-trash"></i> ลบงาน</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+          <button type="button" class="btn btn-dark" onclick="submitPRStaffAction()">บันทึกอัปเดต</button>
+        </div>
+      </div>
+    </div>
+  </div>

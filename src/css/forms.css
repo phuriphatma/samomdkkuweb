@@ -1,0 +1,149 @@
+/* ==============================================
+ * FORMS — Controls, Radio Cards, Pills, Buttons
+ * ============================================== */
+
+.form-container {
+  background: #ffffff;
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(219, 39, 119, 0.08);
+  max-width: 800px;
+  margin: auto;
+}
+
+.form-label {
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.form-control,
+.form-select {
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  background-color: #f8fafc;
+  transition: all 0.2s;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--pink-500);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+}
+
+textarea.form-control {
+  resize: none;
+  overflow: hidden;
+  min-height: 3rem;
+}
+
+/* --- Radio Card Labels --- */
+
+.radio-card-label {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.radio-card-label:hover:not(.disabled) {
+  border-color: var(--pink-200);
+  background-color: #f8fafc;
+}
+
+.btn-check:checked + .radio-card-label {
+  border-color: var(--pink-500);
+  background-color: var(--pink-50);
+  color: var(--pink-700);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+}
+
+.btn-check:checked + .radio-card-label .check-icon {
+  color: var(--pink-500);
+  opacity: 1;
+  transform: scale(1);
+}
+
+.check-icon {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s ease;
+}
+
+.radio-card-label.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+}
+
+/* --- Pill Checkbox Labels --- */
+
+.pill-checkbox-label {
+  border-radius: 50px;
+  padding: 0.5rem 1.2rem;
+  border: 1.5px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #ffffff;
+}
+
+.pill-checkbox-label:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn-check:checked + .pill-checkbox-label.ig {
+  background-color: #fff1f2;
+  border-color: #e11d48;
+  color: #e11d48;
+}
+
+.btn-check:checked + .pill-checkbox-label.fb {
+  background-color: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.btn-check:checked + .pill-checkbox-label.line {
+  background-color: #f0fdf4;
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.btn-check:checked + .pill-checkbox-label.other {
+  background-color: #f8fafc;
+  border-color: #475569;
+  color: #475569;
+}
+
+/* --- Submit Button --- */
+
+.btn-submit {
+  background-color: var(--pink-600);
+  border-color: var(--pink-600);
+  color: white;
+  border-radius: 10px;
+  padding: 0.8rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(219, 39, 119, 0.2);
+  transition: all 0.3s ease;
+}
+
+.btn-submit:hover {
+  background-color: var(--pink-700);
+  border-color: var(--pink-700);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(219, 39, 119, 0.3);
+}

@@ -1,0 +1,31 @@
+/* ==============================================
+ * NAVBAR
+ * ============================================== */
+
+.samo-navbar {
+  background: #ffffff;
+  box-shadow: 0 4px 15px rgba(219, 39, 119, 0.05);
+  padding: 1rem 2rem;
+  border-radius: 0 0 20px 20px;
+  margin-bottom: 2rem;
+}
+
+.nav-pills .nav-link {
+  color: #475569;
+  font-weight: 500;
+  border-radius: 10px;
+  margin: 0 5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.nav-pills .nav-link:hover {
+  background-color: var(--pink-50);
+  color: var(--pink-600);
+}
+
+.nav-pills .nav-link.active {
+  background-color: var(--pink-600);
+  color: white;
+  box-shadow: 0 4px 10px rgba(219, 39, 119, 0.2);
+}

@@ -1,0 +1,18 @@
+/* ==============================================
+ * TIMELINE — Remarks & Activity Log
+ * ============================================== */
+
+.tl-log {
+  background: #f1f5f9;
+  border-left: 3px solid #94a3b8;
+}
+
+.tl-remark-staff {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.tl-remark-user {
+  background: #f0fdf4;
+  border-left: 3px solid #22c55e;
+}

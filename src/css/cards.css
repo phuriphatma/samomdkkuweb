@@ -1,0 +1,31 @@
+/* ==============================================
+ * CARDS — Announcement & Ticket Cards
+ * ============================================== */
+
+.announce-card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  height: 100%;
+  background: white;
+  overflow: hidden;
+}
+
+.announce-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(219, 39, 119, 0.15);
+}
+
+.announce-img-wrapper {
+  height: 200px;
+  overflow: hidden;
+  background-color: #f8fafc;
+}
+
+.announce-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

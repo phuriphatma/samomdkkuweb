@@ -1,0 +1,123 @@
+  <!-- Modal สำหรับเจ้าหน้าที่ VS -->
+  <div class="modal fade" id="staffManageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <div>
+            <h5 class="modal-title fw-bold" id="staffModalTitle">จัดการ Ticket</h5>
+            <span class="badge bg-secondary" id="staffModalCurrentStatus"></span>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- ส่วนหัวของ Tab -->
+        <ul class="nav nav-tabs nav-fill bg-light pt-2 px-3 border-bottom-0" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="staff-detail-tab" data-bs-toggle="tab"
+              data-bs-target="#staff-detail-content" type="button" role="tab" style="color: var(--pink-700);">รายละเอียด
+              & อัปเดต</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="staff-timeline-tab" data-bs-toggle="tab"
+              data-bs-target="#staff-timeline-content" type="button" role="tab" style="color: var(--pink-700);"><i
+                class="bi bi-clock-history me-1"></i> Timeline</button>
+          </li>
+        </ul>
+
+        <div class="modal-body p-0" style="font-family: 'Prompt', sans-serif">
+          <div class="tab-content">
+
+            <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต -->
+            <div class="tab-pane fade show active p-4" id="staff-detail-content" role="tabpanel">
+              <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+              <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+
+              <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
+              <div class="row g-3 mb-2">
+                <div class="col-md-6">
+                  <label class="form-label">เปลี่ยนสถานะ</label>
+                  <select id="staffActionStatus" class="form-select">
+                    <option value="">-- เลือกสถานะใหม่ --</option>
+                    <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+                    <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+                    <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+                    <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+                    <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+                    <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+                    <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+                    <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+                    <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+                  <select id="staffActionTransfer" class="form-select">
+                    <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+                    <option value="SE">โอนคืน SE</option>
+                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                    <option value="คณะ">ส่งเรื่องถึงคณะ</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 mt-3">
+                  <label class="form-label text-pink-custom fw-bold"><i
+                      class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
+                  <select id="staffNotifyTo" class="form-select border-danger">
+                    <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
+                    <option value="SE">ส่งหา SE</option>
+                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mt-3 d-flex align-items-end">
+                  <div class="form-check form-switch p-2 rounded-3 w-100"
+                    style="background-color: var(--pink-100); border: 1px solid var(--pink-200)">
+                    <input class="form-check-input ms-0 me-2 shadow-sm" type="checkbox" id="staffSilentNotify"
+                      value="true" style="cursor: pointer" />
+                    <label class="form-check-label text-secondary small mt-1" for="staffSilentNotify"
+                      style="cursor: pointer; color: var(--pink-900) !important">
+                      <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
+                    </label>
+                  </div>
+                </div>
+
+                <div class="col-12 mt-3">
+                  <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
+                  <textarea id="staffActionRemark" class="form-control" rows="2"
+                    placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Timeline -->
+            <div class="tab-pane fade p-4 bg-light" id="staff-timeline-content" role="tabpanel">
+              <div id="staffModalTimeline" class="border-start border-2 ms-2 ps-3 mb-3"
+                style="border-color: var(--pink-200) !important;"></div>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+          <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
+        </div>
+      </div>
+    </div>
+  </div>
