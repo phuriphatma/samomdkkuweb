@@ -1,0 +1,134 @@
+      <!-- TAB: ADMIN DASHBOARD (visible only to pr_staff / vs_staff / dev) -->
+      <div class="tab-pane fade" id="pills-admin" role="tabpanel">
+        <div class="container">
+
+          <!-- ====== LANDING ====== -->
+          <div id="adminLanding">
+            <header class="admin-header mb-4">
+              <h2 class="admin-title mb-1"><i class="bi bi-shield-lock-fill me-2"></i>Admin Dashboard</h2>
+              <p class="text-muted mb-0">เครื่องมือสำหรับเจ้าหน้าที่ — เลือกระบบที่ต้องการจัดการ</p>
+            </header>
+
+            <div class="row g-3" id="adminLandingCards">
+              <!-- PR Management — pr_staff or dev -->
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
+                  onclick="openAdminSection('pr')">
+                  <span class="admin-card-icon"><i class="bi bi-megaphone-fill"></i></span>
+                  <div class="admin-card-body">
+                    <h5>PR Management</h5>
+                    <p>จัดการคำขอประชาสัมพันธ์ ตรวจสอบงานค้าง และมอบหมายทีม</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+
+              <!-- VitalSound Management — vs_staff or dev -->
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="vs_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
+                  onclick="openAdminSection('vs')">
+                  <span class="admin-card-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+                  <div class="admin-card-body">
+                    <h5>VitalSound Management</h5>
+                    <p>ติดตามและตอบกลับการแจ้งปัญหาจากนักศึกษา</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ====== PR SECTION ====== -->
+          <div id="adminPRSection" class="d-none">
+            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
+              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
+            </button>
+
+            <div id="prStaffDashboardBox">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
+                  <small class="text-muted">คลิกที่การ์ดเพื่ออัปเดตสถานะงาน</small>
+                </div>
+                <div>
+                  <button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()">
+                    <i class="bi bi-people"></i> จัดการทีม
+                  </button>
+                  <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()">
+                    <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+                  </button>
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-md-5 col-lg-4">
+                  <div class="input-group input-group-sm shadow-sm">
+                    <span class="input-group-text bg-white text-pink-custom border-end-0"><i
+                        class="bi bi-funnel-fill"></i></span>
+                    <select id="prStaffDeptFilter" class="form-select border-start-0"
+                      onchange="filterPRStaffTickets()">
+                      <option value="all">ดูทุกฝ่าย (All Departments)</option>
+                      <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
+                      <option value="ฝ่ายดิจิทัลและสื่อสารองค์กร">ฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                      <option value="ฝ่ายกิจการภายใน">ฝ่ายกิจการภายใน</option>
+                      <option value="ฝ่ายกิจการภายนอก">ฝ่ายกิจการภายนอก</option>
+                      <option value="ฝ่ายกิจการมหาวิทยาลัย">ฝ่ายกิจการมหาวิทยาลัย</option>
+                      <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
+                      <option value="ฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                      <option value="ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม">ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม</option>
+                      <option value="ฝ่ายเวชนิทัศน์">ฝ่ายเวชนิทัศน์</option>
+                      <option value="โครงการอื่นๆ">โครงการอื่นๆ (Projects)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="text-center my-3 d-none" id="prStaffLoading">
+                <div class="spinner-border text-pink-custom" role="status"></div>
+              </div>
+              <div id="prStaffKanban" class="pr-kanban"></div>
+              <!-- Hidden, kept so existing pr-staff.js error/empty paths that target
+                   #prStaffTicketList don't blow up. -->
+              <div id="prStaffTicketList" class="d-none"></div>
+            </div>
+          </div>
+
+          <!-- ====== VS SECTION ====== -->
+          <div id="adminVSSection" class="d-none vs-tab">
+            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
+              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
+            </button>
+
+            <div id="staffDashboardBox">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">VitalSound Dashboard</h4>
+                  <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <select id="staffRole" class="form-select form-select-sm" style="max-width: 280px;"
+                    onchange="onVSAdminRoleChange()">
+                    <option value="SE">Student Engagement (SE)</option>
+                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                  </select>
+                  <button class="btn btn-outline-primary btn-sm" onclick="fetchStaffTickets()">
+                    <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+                  </button>
+                </div>
+              </div>
+              <div class="text-center my-3 d-none" id="staffLoading">
+                <div class="spinner-border text-pink-custom" role="status"></div>
+              </div>
+              <div id="staffTicketList" class="row g-3"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>

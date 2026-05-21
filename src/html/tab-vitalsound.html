@@ -1,5 +1,5 @@
       <!-- TAB 5: VITAL SOUND -->
-      <div class="tab-pane fade" id="pills-vitalsound" role="tabpanel">
+      <div class="tab-pane fade vs-tab" id="pills-vitalsound" role="tabpanel">
         <div class="form-container" style="max-width: 900px">
           <div class="text-center mb-4">
             <h2 class="page-header">
@@ -22,10 +22,6 @@
                 onchange="toggleVitalSoundMode()" />
               <label class="btn btn-outline-danger px-3" for="vsModeTrack" style="border-color: var(--pink-500)"><i
                   class="bi bi-search me-1"></i>ติดตามสถานะ</label>
-              <input type="radio" class="btn-check" name="vsMode" id="vsModeStaff" autocomplete="off"
-                onchange="toggleVitalSoundMode()" />
-              <label class="btn btn-outline-dark px-3" for="vsModeStaff"><i
-                  class="bi bi-shield-lock me-1"></i>เจ้าหน้าที่</label>
             </div>
           </div>
 
@@ -54,7 +50,8 @@
               </div>
 
               <!-- การยืนยันตัวตนสำหรับ Vital Sound -->
-              <div class="p-3 mb-4 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1">
+              <div id="vsFormAuthWrapper" class="p-3 mb-4 rounded-3"
+                style="background-color: #f8fafc; border: 1px solid #cbd5e1">
                 <label class="form-label fw-bold text-pink-custom mb-2"><i class="bi bi-person-badge me-1"></i>
                   การติดตามสถานะ (เลือกรูปแบบ)</label>
                 <div class="d-flex flex-column gap-2 mb-3">
@@ -139,7 +136,8 @@
                 </select>
               </div>
 
-              <div class="form-check form-switch mb-4 p-3 rounded-3" style="background-color: var(--pink-100)">
+              <div class="form-check form-switch mb-4 p-3 rounded-3 dev-only-feature d-none"
+                style="background-color: var(--pink-100)">
                 <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsSilentNotify"
                   name="vsSilentNotify" value="true" style="cursor: pointer" />
                 <label class="form-check-label text-secondary mt-1" for="vsSilentNotify"
@@ -232,62 +230,6 @@
             </div>
           </div>
 
-          <!-- SECTION 3: STAFF DASHBOARD (SE & VP) -->
-          <div id="vsStaffSection" class="d-none">
-            <div id="staffLoginBox" class="card p-4 mx-auto mb-4"
-              style="max-width: 500px; background-color: #f8fafc; border-color: #cbd5e1">
-              <h5 class="fw-bold text-center mb-3">เข้าสู่ระบบสำหรับเจ้าหน้าที่ (Vital Sound)</h5>
-              <div class="mb-3">
-                <label class="form-label">Username</label>
-                <input type="text" id="staffUsername" class="form-control" placeholder="Username (samomdkku69)" />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Password</label>
-                <input type="password" id="staffPassword" class="form-control" placeholder="รหัสผ่าน" />
-              </div>
-              <!-- เพิ่ม Checkbox จดจำฉัน -->
-              <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="staffRemember" checked>
-                <label class="form-check-label small text-muted" for="staffRemember">จดจำฉัน (Remember Me)</label>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">เลือกบทบาท (Role)</label>
-                <select id="staffRole" class="form-select">
-                  <option value="SE">Student Engagement (SE)</option>
-                  <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                  <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                  <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                  <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                  <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                  <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                  <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                  <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                  <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                  <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                </select>
-              </div>
-              <div id="staffLoginAlert" class="alert alert-danger d-none mb-3 text-center small"></div>
-              <button type="button" id="btnStaffLogin" class="btn btn-dark w-100"
-                onclick="loginStaff()">เข้าสู่ระบบ</button>
-            </div>
-
-            <div id="staffDashboardBox" class="d-none">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">Dashboard</h4>
-                  <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
-                </div>
-                <div>
-                  <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchStaffTickets()"><i
-                      class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="logoutStaff()">ออกจากระบบ</button>
-                </div>
-              </div>
-              <div class="text-center my-3 d-none" id="staffLoading">
-                <div class="spinner-border text-pink-custom" role="status"></div>
-              </div>
-              <div id="staffTicketList" class="row g-3"></div>
-            </div>
-          </div>
+          <!-- Staff VS dashboard moved to tab-admin.html (#adminVSSection) -->
         </div>
       </div>

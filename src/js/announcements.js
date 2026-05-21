@@ -3,6 +3,7 @@
 // ==============================================
 
 import { GAS_API_URL } from './config.js';
+import { convertDriveUrl } from './uploads.js';
 
 /** In-memory cache of loaded announcements */
 let globalAnnouncements = [];
@@ -40,6 +41,8 @@ export function cancelEdit() {
     '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
   document.getElementById('cancelEditBtn').classList.add('d-none');
   document.getElementById('creatorAlert').classList.add('d-none');
+  // Reset thumbnail
+  if (typeof window.clearCreatorThumb === 'function') window.clearCreatorThumb();
 }
 
 // --------------------------------------------------
@@ -57,6 +60,18 @@ export function editCurrentAnnouncement() {
   document.getElementById('creatorTitle').value = post.title;
   document.getElementById('creatorDepartment').value = post.department;
   creatorQuill.root.innerHTML = post.content;
+
+  // Populate the thumbnail picker if the announcement has one stored.
+  const thumbUrl = post.thumbnail || '';
+  document.getElementById('creatorThumbUrl').value = thumbUrl;
+  const preview = document.getElementById('creatorThumbPreview');
+  const clearBtn = document.getElementById('creatorThumbClearBtn');
+  if (thumbUrl) {
+    if (preview) preview.innerHTML = `<img src="${thumbUrl}" alt="thumbnail">`;
+    if (clearBtn) clearBtn.classList.remove('d-none');
+  } else if (typeof window.clearCreatorThumb === 'function') {
+    window.clearCreatorThumb();
+  }
 
   document.getElementById('creatorPageHeader').innerHTML =
     '<i class="bi bi-pencil-square me-2 text-pink-custom"></i> แก้ไขประกาศ';
@@ -94,11 +109,13 @@ export async function publishAnnouncement() {
     '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
 
   const isEditing = editingAnnouncementId !== null;
+  const thumbnail = document.getElementById('creatorThumbUrl')?.value || '';
   const payload = {
     action: isEditing ? 'editAnnouncement' : 'addAnnouncement',
     title,
     department: dept,
     content: contentHtml,
+    thumbnail,
   };
   if (isEditing) payload.id = editingAnnouncementId;
 
@@ -161,9 +178,11 @@ export async function loadAnnouncements() {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = post.content;
         const firstImg = tempDiv.querySelector('img');
-        const coverSrc = firstImg
-          ? firstImg.src
-          : 'https://images.unsplash.com/photo-1576091160550-2173ff9e5ee5?w=600&h=400&fit=crop';
+        // Prefer explicit thumbnail; fall back to first image in content; finally placeholder.
+        // Run through convertDriveUrl so any legacy /uc?id= URLs still render.
+        const coverSrc = convertDriveUrl(post.thumbnail)
+          || convertDriveUrl(firstImg?.src)
+          || 'https://images.unsplash.com/photo-1576091160550-2173ff9e5ee5?w=600&h=400&fit=crop';
         let snippet = tempDiv.textContent || tempDiv.innerText || '';
         snippet = snippet.length > 80 ? snippet.substring(0, 80) + '...' : snippet;
 
@@ -184,10 +203,56 @@ export async function loadAnnouncements() {
         `);
       });
     }
+    renderHomeAnnouncements();
   } catch (error) {
     container.innerHTML =
       '<div class="col-12 text-center text-danger py-5"><i class="bi bi-exclamation-triangle fs-1"></i><p class="mt-3">เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ กรุณาลองใหม่อีกครั้ง</p></div>';
+    renderHomeAnnouncements({ error: true });
   }
+}
+
+/**
+ * Render announcements into the home carousel. Called by loadAnnouncements
+ * after fetch resolves so the home page reflects the same data that the
+ * announcements tab shows. Cards are flat children of the scroll container
+ * (no row/col wrapping) because the layout uses flex + scroll-snap.
+ */
+function renderHomeAnnouncements({ error = false } = {}) {
+  const homeGrid = document.getElementById('homeAnnouncementsGrid');
+  if (!homeGrid) return;
+
+  if (error) {
+    homeGrid.innerHTML =
+      '<div class="home-announce-loading">โหลดประกาศไม่สำเร็จ — ลองรีเฟรชอีกครั้ง</div>';
+    return;
+  }
+
+  if (globalAnnouncements.length === 0) {
+    homeGrid.innerHTML =
+      '<div class="home-announce-loading">ยังไม่มีประกาศในขณะนี้</div>';
+    return;
+  }
+
+  homeGrid.innerHTML = '';
+  globalAnnouncements.slice(0, 10).forEach((post) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = post.content;
+    const firstImg = tempDiv.querySelector('img');
+    const coverSrc = convertDriveUrl(post.thumbnail)
+      || convertDriveUrl(firstImg?.src)
+      || 'https://images.unsplash.com/photo-1576091160550-2173ff9e5ee5?w=600&h=400&fit=crop';
+
+    homeGrid.insertAdjacentHTML('beforeend', `
+      <a class="home-announce-card" onclick="viewAnnouncement('${post.id}')">
+        <div class="home-announce-img"><img src="${coverSrc}" alt="cover" loading="lazy"></div>
+        <div class="home-announce-body">
+          <span class="home-announce-badge">${post.department}</span>
+          <h5 class="home-announce-title">${post.title}</h5>
+          <span class="home-announce-date"><i class="bi bi-clock"></i> ${post.date}</span>
+        </div>
+      </a>
+    `);
+  });
 }
 
 // --------------------------------------------------
@@ -201,7 +266,13 @@ export function viewAnnouncement(id) {
     document.getElementById('modalTitle').innerText = post.title;
     document.getElementById('modalDeptBadge').innerText = post.department;
     document.getElementById('modalDate').innerHTML = `<i class="bi bi-clock me-1"></i> ${post.date}`;
-    document.getElementById('modalBodyContent').innerHTML = post.content;
+    // Rewrite any legacy Drive img URLs inside the content so they actually render.
+    const body = document.getElementById('modalBodyContent');
+    body.innerHTML = post.content;
+    body.querySelectorAll('img').forEach((img) => {
+      const fixed = convertDriveUrl(img.getAttribute('src'));
+      if (fixed) img.setAttribute('src', fixed);
+    });
     new bootstrap.Modal(document.getElementById('viewAnnouncementModal')).show();
   }
 }

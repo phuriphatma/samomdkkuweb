@@ -1,31 +1,197 @@
       <!-- TAB 1: HOME -->
-      <div class="tab-pane fade show active text-center py-5" id="pills-home" role="tabpanel">
+      <div class="tab-pane fade show active" id="pills-home" role="tabpanel">
         <div class="container">
-          <h1 class="fw-bold" style="color: var(--pink-900); font-size: 3rem">ยินดีต้อนรับสู่ MDKKU SAMO Developer Version</h1>
-          <p class="lead text-muted mb-5">ศูนย์รวมข่าวสารและระบบประสานงาน สโมสรนักศึกษาคณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น
-          </p>
-          <div class="row g-4 justify-content-center mt-3">
-            <div class="col-md-4">
-              <div class="card announce-card p-4" onclick="document.getElementById('pills-announcements-tab').click()">
-                <i class="bi bi-newspaper fs-1 text-pink-custom mb-3"></i>
-                <h4 class="fw-bold">อัปเดตข่าวสาร</h4>
-                <p class="text-muted">อ่านประกาศ กิจกรรม และความเคลื่อนไหวล่าสุดจากสโมสรนักศึกษา</p>
+
+          <!-- HERO -->
+          <section class="home-hero text-center">
+            <h1>ยินดีต้อนรับสู่ <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span> Portal</h1>
+            <p class="lead">ศูนย์รวมเครื่องมือและข่าวสาร สโมสรนักศึกษาคณะแพทยศาสตร์ ม.ขอนแก่น</p>
+          </section>
+
+          <!-- AUTH CTA (signed-out) -->
+          <section id="homeAuthSignedOut" class="home-auth-cta mb-5">
+            <div class="home-auth-cta-accent" aria-hidden="true"></div>
+            <div class="home-auth-cta-body">
+              <h3>เข้าสู่ระบบเพื่อเข้าถึงเครื่องมือฝ่ายของคุณ</h3>
+              <p>เข้าสู่ระบบด้วย Google เพื่อดูเครื่องมือเฉพาะฝ่ายของคุณ, บันทึกประวัติงาน PR ของคุณ และจัดการงานเจ้าหน้าที่</p>
+            </div>
+            <button type="button" class="btn btn-custom home-cta-trigger" data-bs-toggle="modal"
+              data-bs-target="#signinModal">
+              <i class="bi bi-google me-1"></i> เข้าสู่ระบบ
+            </button>
+          </section>
+
+          <!-- WELCOME STRIP (signed-in) -->
+          <section id="homeAuthSignedIn" class="home-welcome mb-5 d-none">
+            <div>
+              <p class="welcome-greeting mb-1">สวัสดี <span id="homeUserName">—</span></p>
+              <span class="welcome-dept" id="homeUserDept">ยังไม่ได้ระบุฝ่าย</span>
+            </div>
+            <button type="button" class="btn btn-outline-success btn-sm" onclick="samoSignOut()">
+              <i class="bi bi-box-arrow-right me-1"></i>ออกจากระบบ
+            </button>
+          </section>
+
+          <!-- LATEST ANNOUNCEMENTS — horizontal carousel, scroll-snap + arrows -->
+          <section class="mb-5">
+            <div class="d-flex justify-content-between align-items-end mb-3 flex-wrap gap-2">
+              <div>
+                <h2 class="home-section-title">ประกาศล่าสุด</h2>
+                <p class="home-section-subtitle mb-0">Latest announcements</p>
+              </div>
+              <a class="home-section-link" href="#"
+                onclick="activateTab('pills-announcements-tab'); return false;">
+                ดูทั้งหมด <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+            <div class="home-announce-carousel">
+              <button class="home-announce-nav home-announce-nav--prev" type="button"
+                onclick="scrollHomeAnnounce(-1)" aria-label="Previous announcements">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <div class="home-announce-scroll" id="homeAnnouncementsGrid">
+                <!-- Populated by announcements.js loadAnnouncements() -->
+                <div class="home-announce-loading">
+                  <div class="spinner-border spinner-border-sm me-2"></div>
+                  <span>กำลังโหลดประกาศ...</span>
+                </div>
+              </div>
+              <button class="home-announce-nav home-announce-nav--next" type="button"
+                onclick="scrollHomeAnnounce(1)" aria-label="Next announcements">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          </section>
+
+          <!-- TOOLS GRID -->
+          <section class="mb-5">
+            <h2 class="home-section-title">เครื่องมือทั้งหมด</h2>
+            <p class="home-section-subtitle">Tools available to everyone</p>
+            <div class="row g-3">
+              <div class="col-md-6 col-lg-6">
+                <a class="tool-card" style="--tool-color: var(--brand-orange);"
+                  onclick="document.getElementById('pills-pr-tab').click()">
+                  <span class="tool-icon"><i class="bi bi-megaphone-fill"></i></span>
+                  <div class="tool-meta">
+                    <h5>PR Form</h5>
+                    <p>ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ</p>
+                  </div>
+                  <i class="bi bi-arrow-right tool-arrow"></i>
+                </a>
+              </div>
+              <div class="col-md-6 col-lg-6">
+                <a class="tool-card" style="--tool-color: var(--dept-quality);"
+                  onclick="document.getElementById('pills-vitalsound-tab').click()">
+                  <span class="tool-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+                  <div class="tool-meta">
+                    <h5>VitalSound</h5>
+                    <p>ระบบส่งคำร้องเรียนและข้อเสนอแนะ</p>
+                  </div>
+                  <i class="bi bi-arrow-right tool-arrow"></i>
+                </a>
+              </div>
+              <div class="col-md-6 col-lg-6">
+                <a class="tool-card" style="--tool-color: var(--brand-accent);"
+                  onclick="document.getElementById('pills-announcements-tab').click()">
+                  <span class="tool-icon"><i class="bi bi-newspaper"></i></span>
+                  <div class="tool-meta">
+                    <h5>ประกาศทั้งหมด</h5>
+                    <p>อ่านข่าวและประกาศล่าสุดจากสโมสร</p>
+                  </div>
+                  <i class="bi bi-arrow-right tool-arrow"></i>
+                </a>
+              </div>
+              <div class="col-md-6 col-lg-6">
+                <a class="tool-card" style="--tool-color: var(--brand-primary);"
+                  onclick="document.getElementById('pills-creator-tab').click()">
+                  <span class="tool-icon"><i class="bi bi-pencil-square"></i></span>
+                  <div class="tool-meta">
+                    <h5>เขียนประกาศ</h5>
+                    <p>สร้างและอัปโหลดประกาศใหม่ขึ้นเว็บ</p>
+                  </div>
+                  <i class="bi bi-arrow-right tool-arrow"></i>
+                </a>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="card announce-card p-4" onclick="document.getElementById('pills-creator-tab').click()">
-                <i class="bi bi-pencil-fill fs-1 text-pink-custom mb-3"></i>
-                <h4 class="fw-bold">เขียนประกาศ</h4>
-                <p class="text-muted">พิมพ์ข้อความ แทรกรูปภาพ แล้วอัปโหลดขึ้นเว็บประกาศได้ทันที</p>
+          </section>
+
+          <!-- DEPARTMENTS GRID -->
+          <section class="mb-5">
+            <h2 class="home-section-title">ฝ่ายในสโมสร</h2>
+            <p class="home-section-subtitle">Our departments — แต่ละฝ่ายจะมีหน้าเว็บและเครื่องมือของตัวเอง เร็วๆ นี้</p>
+            <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5" id="homeDeptGrid">
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="admin" style="--dept-color: var(--dept-admin);">
+                  <span class="dept-icon"><i class="bi bi-shield"></i></span>
+                  <span class="dept-name">ฝ่ายบริหารองค์กร</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="digital" style="--dept-color: var(--dept-digital);">
+                  <span class="dept-icon"><i class="bi bi-megaphone"></i></span>
+                  <span class="dept-name">ฝ่ายดิจิทัลและสื่อสารองค์กร</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="internal" style="--dept-color: var(--dept-internal);">
+                  <span class="dept-icon"><i class="bi bi-people"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการภายใน</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="external" style="--dept-color: var(--dept-external);">
+                  <span class="dept-icon"><i class="bi bi-globe"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการภายนอก</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="university" style="--dept-color: var(--dept-university);">
+                  <span class="dept-icon"><i class="bi bi-buildings"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการมหาวิทยาลัย</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="academic" style="--dept-color: var(--dept-academic);">
+                  <span class="dept-icon"><i class="bi bi-book"></i></span>
+                  <span class="dept-name">ฝ่ายวิชาการ</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="strategy" style="--dept-color: var(--dept-strategy);">
+                  <span class="dept-icon"><i class="bi bi-puzzle"></i></span>
+                  <span class="dept-name">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="quality" style="--dept-color: var(--dept-quality);">
+                  <span class="dept-icon"><i class="bi bi-hospital"></i></span>
+                  <span class="dept-name">ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="media" style="--dept-color: var(--dept-media);">
+                  <span class="dept-icon"><i class="bi bi-camera"></i></span>
+                  <span class="dept-name">ฝ่ายเวชนิทัศน์</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="projects" style="--dept-color: var(--dept-projects);">
+                  <span class="dept-icon"><i class="bi bi-stars"></i></span>
+                  <span class="dept-name">โครงการอื่นๆ</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="card announce-card p-4" onclick="document.getElementById('pills-pr-tab').click()">
-                <i class="bi bi-send-check-fill fs-1 text-pink-custom mb-3"></i>
-                <h4 class="fw-bold">ระบบส่งงาน PR</h4>
-                <p class="text-muted">ฝากงานให้ทีมดิจิทัลช่วยโพสต์ลง Social Media ของคณะ</p>
-              </div>
-            </div>
-          </div>
+          </section>
+
         </div>
       </div>

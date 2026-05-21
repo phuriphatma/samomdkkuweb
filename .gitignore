@@ -2,3 +2,5 @@ node_modules/
 dist/
 pr_code.gs
 vssound_code.gs
+.claude/
+.DS_Store

@@ -1,8 +1,11 @@
 // ==============================================
-// PR AUTH — Google OAuth Login/Logout for PR
+// PR AUTH — PR-form-specific reactions to the
+// global auth state. The actual sign-in/out logic
+// lives in auth.js; this module reflects the
+// current user into the PR form DOM.
 // ==============================================
 
-import { decodeJwtResponse } from './utils.js';
+import { onAuthChange, signOut as authSignOut, signInWithCredential } from './auth.js';
 
 let isPrAccountVerified = false;
 
@@ -10,74 +13,62 @@ export function getIsPrAccountVerified() { return isPrAccountVerified; }
 export function setIsPrAccountVerified(val) { isPrAccountVerified = val; }
 
 export function initPrAuth() {
-  const savedEmail = localStorage.getItem('prGoogleUserEmail');
-  const savedName = localStorage.getItem('prGoogleUserName');
-  if (savedEmail && savedName) {
-    document.getElementById('prGoogleUserEmail').value = savedEmail;
-    document.getElementById('prGoogleUserName').value = savedName;
-    document.getElementById('prVerifiedEmail').innerText = savedEmail;
-    document.getElementById('prTrackEmailDisplay').innerText = savedEmail;
-    isPrAccountVerified = true;
-    updateGoogleAuthUI(true);
-  }
+  onAuthChange((user) => {
+    if (user) {
+      isPrAccountVerified = true;
+      setVal('prGoogleUserEmail', user.email);
+      setVal('prGoogleUserName', user.name);
+      setText('prVerifiedEmail', user.email);
+      setText('prTrackEmailDisplay', user.email);
+      updateGoogleAuthUI(true);
+    } else {
+      isPrAccountVerified = false;
+      setVal('prGoogleUserEmail', '');
+      setVal('prGoogleUserName', '');
+      updateGoogleAuthUI(false);
+    }
+  });
 }
 
+// Google Identity Services callback. Retained as a named export so the
+// existing window.handlePrGoogleLogin binding keeps working for any HTML
+// that still references it via data-callback.
 export function handlePrGoogleLogin(response) {
-  const payload = decodeJwtResponse(response.credential);
-  localStorage.setItem('prGoogleUserEmail', payload.email);
-  localStorage.setItem('prGoogleUserName', payload.name);
-  document.getElementById('prGoogleUserEmail').value = payload.email;
-  document.getElementById('prGoogleUserName').value = payload.name;
-  document.getElementById('prVerifiedEmail').innerText = payload.email;
-  document.getElementById('prTrackEmailDisplay').innerText = payload.email;
-  isPrAccountVerified = true;
-  updateGoogleAuthUI(true);
+  signInWithCredential(response.credential);
 }
 
 export function logoutGoogle() {
-  localStorage.removeItem('prGoogleUserEmail');
-  localStorage.removeItem('prGoogleUserName');
-  isPrAccountVerified = false;
-  document.getElementById('prGoogleUserEmail').value = '';
-  document.getElementById('prGoogleUserName').value = '';
-  updateGoogleAuthUI(false);
+  authSignOut();
 }
 
 export function updateGoogleAuthUI(isLoggedIn) {
-  if (isLoggedIn) {
-    document.getElementById('prNotLoggedInState').classList.add('d-none');
-    document.getElementById('prLoggedInState').classList.remove('d-none');
-    document.getElementById('prTrackNotLoggedIn').classList.add('d-none');
-    document.getElementById('prTrackLoggedIn').classList.remove('d-none');
-  } else {
-    document.getElementById('prNotLoggedInState').classList.remove('d-none');
-    document.getElementById('prLoggedInState').classList.add('d-none');
-    document.getElementById('prTrackNotLoggedIn').classList.remove('d-none');
-    document.getElementById('prTrackLoggedIn').classList.add('d-none');
-  }
+  toggleHidden('prNotLoggedInState', isLoggedIn);
+  toggleHidden('prLoggedInState', !isLoggedIn);
+  toggleHidden('prTrackNotLoggedIn', isLoggedIn);
+  toggleHidden('prTrackLoggedIn', !isLoggedIn);
 }
 
 export function forceShowGoogleAuth() {
-  document.getElementById('prAccGoogle').click();
-  document.getElementById('prModeSubmit').click();
+  document.getElementById('prAccGoogle')?.click();
+  document.getElementById('prModeSubmit')?.click();
   setTimeout(() => {
-    document.getElementById('prGoogleAuthContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('prGoogleAuthContainer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 100);
 }
 
 export function togglePrAccountFields() {
-  const accMode = document.querySelector('input[name="prAccountMode"]:checked').value;
+  const accMode = document.querySelector('input[name="prAccountMode"]:checked')?.value;
   const authContainer = document.getElementById('prGoogleAuthContainer');
+  if (!authContainer) return;
   if (accMode === 'google') {
     authContainer.classList.remove('d-none');
-    if (!isPrAccountVerified) {
-      document.getElementById('prNotLoggedInState').classList.remove('d-none');
-      document.getElementById('prLoggedInState').classList.add('d-none');
-    } else {
-      document.getElementById('prNotLoggedInState').classList.add('d-none');
-      document.getElementById('prLoggedInState').classList.remove('d-none');
-    }
+    toggleHidden('prNotLoggedInState', isPrAccountVerified);
+    toggleHidden('prLoggedInState', !isPrAccountVerified);
   } else {
     authContainer.classList.add('d-none');
   }
 }
+
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
+function setText(id, v) { const el = document.getElementById(id); if (el) el.innerText = v; }
+function toggleHidden(id, hide) { document.getElementById(id)?.classList.toggle('d-none', hide); }

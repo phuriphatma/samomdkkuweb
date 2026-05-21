@@ -68,6 +68,22 @@ export function logoutStaff() {
   document.getElementById('staffLoginBox').classList.remove('d-none');
 }
 
+/**
+ * Enter the VS staff dashboard. Reads the role from the in-page #staffRole
+ * select (which lives in the admin tab now), falling back to the supplied
+ * argument and then 'SE'. No login box anymore — the admin tab is gated by
+ * the global auth modal.
+ */
+export async function enterVSStaffDashboard(roleArg) {
+  const select = document.getElementById('staffRole');
+  const selected = select && select.value ? select.value : null;
+  currentStaffRole = selected || roleArg || 'SE';
+  if (select) select.value = currentStaffRole;
+  const titleEl = document.getElementById('staffTitle');
+  if (titleEl) titleEl.innerText = `Dashboard: ${currentStaffRole}`;
+  await fetchStaffTickets();
+}
+
 // --------------------------------------------------
 // Fetch Staff Tickets
 // --------------------------------------------------

@@ -1,31 +1,210 @@
 /* ==============================================
- * NAVBAR
+ * NAVBAR — Kita-style sticky top, white surface,
+ * green/orange accents only
  * ============================================== */
 
 .samo-navbar {
+  position: sticky;
+  top: 10px;
+  z-index: 1000;
+
   background: #ffffff;
-  box-shadow: 0 4px 15px rgba(219, 39, 119, 0.05);
-  padding: 1rem 2rem;
-  border-radius: 0 0 20px 20px;
-  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  margin: 10px;
+}
+
+.samo-navbar .container-fluid {
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Brand wordmark — MDKKU green + SAMO orange */
+.brand-fixed {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  text-decoration: none;
+}
+
+.brand-fixed span {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+.brand-mdkku {
+  color: var(--brand-primary);
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.brand-samo {
+  color: var(--brand-orange);
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+/* Centered nav cluster */
+.nav-center {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .nav-pills .nav-link {
   color: #475569;
   font-weight: 500;
+  font-size: 0.95rem;
   border-radius: 10px;
-  margin: 0 5px;
-  transition: all 0.3s ease;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
   cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .nav-pills .nav-link:hover {
-  background-color: var(--pink-50);
-  color: var(--pink-600);
+  background-color: var(--green-50);
+  color: var(--brand-primary);
 }
 
+/* Active state applies ONLY to the currently-selected pill tab.
+   Bootstrap also adds .show to dropdown toggles when their menu is open —
+   we deliberately don't include .show here so opening เครื่องมือ or
+   เกี่ยวกับเรา doesn't make them look "active". */
 .nav-pills .nav-link.active {
-  background-color: var(--pink-600);
-  color: white;
-  box-shadow: 0 4px 10px rgba(219, 39, 119, 0.2);
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  transform: scale(0.97);
+  box-shadow: 0 4px 10px rgba(16, 89, 34, 0.18);
+}
+
+.nav-pills .nav-link.active i {
+  color: #ffffff;
+}
+
+/* Dropdown toggles never get the full green pill treatment.
+   - .show is added when the menu is open.
+   - .active is added by Bootstrap's tab JS when an inner tab is the
+     currently-active one. Both states render as a subtle light tint. */
+.nav-pills .nav-link.dropdown-toggle.show,
+.nav-pills .nav-link.dropdown-toggle.active {
+  background-color: var(--green-50);
+  color: var(--brand-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.nav-pills .nav-link.dropdown-toggle.active i,
+.nav-pills .nav-link.dropdown-toggle.show i {
+  color: inherit;
+}
+
+/* Dropdown menu */
+.samo-navbar .dropdown-menu {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 0.5rem;
+}
+
+.samo-navbar .dropdown-item {
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.samo-navbar .dropdown-item:hover {
+  background-color: var(--green-50);
+  color: var(--brand-primary);
+}
+
+.samo-navbar .dropdown-item:active,
+.samo-navbar .dropdown-item.active {
+  background-color: var(--brand-primary);
+  color: #ffffff;
+}
+
+/* Login button — green pill */
+.btn-custom {
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-custom:hover,
+.btn-custom:focus {
+  background-color: #0d4a1d;
+  color: #ffffff;
+}
+
+.btn-custom:active {
+  transform: scale(0.98);
+}
+
+/* Mobile hamburger */
+.navbar-toggler {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 10px;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.navbar-toggler:hover {
+  background-color: var(--green-50);
+  transform: scale(1.05);
+}
+
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 2px rgba(16, 89, 34, 0.25) !important;
+}
+
+/* Auth area sizing */
+.samo-navbar-auth {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+}
+
+.samo-navbar-auth .dropdown-toggle::after {
+  margin-left: 0.4rem;
+}
+
+/* Offcanvas (mobile drawer) */
+.offcanvas .nav-link {
+  border-radius: 8px;
+  color: #334155;
+  padding: 0.65rem 0.9rem;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.offcanvas .nav-link:hover {
+  background-color: var(--green-50);
+  color: var(--brand-primary);
+}
+
+.offcanvas .nav-link.active {
+  background-color: var(--brand-primary);
+  color: #ffffff;
 }

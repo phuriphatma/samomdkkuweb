@@ -8,15 +8,74 @@
 
   <!-- Bootstrap & Fonts -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Cloud:wght@400&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
 
   <!-- Quill (For Rich Text Editors) -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
+  <!-- App stylesheet — parser-blocking link (not JS-imported) so it loads
+       in the first paint, both in dev and production. -->
+  <link rel="stylesheet" href="/src/main.css" />
+
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Critical inline CSS to avoid FOUC before the Vite bundle + Google Fonts load.
+       Covers the body chrome, navbar shell, and brand wordmark — the elements that
+       are visible above the fold and would otherwise flash unstyled. -->
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      padding-bottom: 2rem;
+      background: linear-gradient(135deg, #f9f9f9 0%, #f2f2f2 100%);
+      color: #334155;
+      font-family: "Sora", "Cloud", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    .samo-navbar {
+      position: sticky;
+      top: 10px;
+      z-index: 1000;
+      background: #ffffff;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      padding: 0.75rem 1.5rem;
+      border-radius: 20px;
+      margin: 10px;
+    }
+
+    .brand-fixed {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .brand-fixed span {
+      line-height: 1;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-mdkku {
+      color: #105922;
+      font-weight: 700;
+      font-size: 1.5rem;
+    }
+
+    .brand-samo {
+      color: #FF6F30;
+      font-weight: 700;
+      font-size: 1.5rem;
+    }
+  </style>
 </head>
 
 <body>
@@ -35,8 +94,12 @@
       <include src="./src/html/tab-pr.html" />
 
       <include src="./src/html/tab-vitalsound.html" />
+
+      <include src="./src/html/tab-admin.html" />
     </div>
   </div>
+
+  <include src="./src/html/modal-signin.html" />
 
   <include src="./src/html/modal-vs-staff.html" />
 

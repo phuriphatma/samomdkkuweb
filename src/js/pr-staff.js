@@ -57,45 +57,162 @@ export function logoutPRStaff() {
   document.getElementById('prStaffLoginBox').classList.remove('d-none');
 }
 
+/**
+ * Enter the PR staff dashboard. Used by the admin tab once the user has
+ * been verified as pr_staff (or dev) via the global auth modal — there's
+ * no in-section login box anymore.
+ */
+export async function enterPRStaffDashboard() {
+  await loadGlobalAgents();
+  await fetchPRStaffTickets();
+}
+
 // --------------------------------------------------
 // Fetch & Render Staff Tickets
 // --------------------------------------------------
 
 export async function fetchPRStaffTickets() {
   const loading = document.getElementById('prStaffLoading');
-  const list = document.getElementById('prStaffTicketList');
-  loading.classList.remove('d-none'); list.innerHTML = '';
+  const board = document.getElementById('prStaffKanban');
+  if (loading) loading.classList.remove('d-none');
+  if (board) board.innerHTML = '';
 
   try {
     const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getStaffPRTickets' }) });
     const result = await res.json();
-    loading.classList.add('d-none');
+    if (loading) loading.classList.add('d-none');
     if (result.success && result.tickets.length > 0) {
       prStaffTicketsCache = result.tickets;
-      result.tickets.forEach((t, idx) => {
-        let bColor = t.status.includes('เสร็จสิ้น') ? 'success' : t.status.includes('รอ') || t.status.includes('แก้ไขงาน') ? 'warning text-dark' : 'primary';
-        if (t.status.includes('ตีกลับ')) bColor = 'danger';
-        let rushFlag = t.deadline && t.deadline.includes('ด่วน') ? '<span class="badge bg-danger ms-2"><i class="bi bi-rocket-takeoff me-1"></i>ขอไวกว่าปกติ</span>' : '';
-        let assigneesHtml = (t.assignees && t.assignees.length > 0)
-          ? t.assignees.map(a => `<span class="badge bg-white text-dark border me-1 shadow-sm"><i class="bi bi-person-fill text-pink-custom"></i> ${a}</span>`).join('')
-          : '<span class="text-muted small"><i class="bi bi-person"></i> ยังไม่มีผู้รับผิดชอบ</span>';
+      filterPRStaffTickets();
+    } else {
+      prStaffTicketsCache = [];
+      // Render empty board (7 columns, all empty) so the structure still shows.
+      renderPRStaffKanban([]);
+    }
+  } catch (e) {
+    if (loading) loading.classList.add('d-none');
+    if (board) board.innerHTML = '<div class="text-danger text-center py-4">เกิดข้อผิดพลาดในการโหลด</div>';
+  }
+}
 
-        list.insertAdjacentHTML('beforeend', `
-          <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRStaffModal(${idx})">
-              <div class="card-body d-flex flex-column">
-                <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${bColor}">${t.status}</span></div>
-                <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${t.date}</p>
-                <p class="small text-muted mb-1"><i class="bi bi-building"></i> ${t.dept}</p>
-                <p class="card-text small fw-bold text-truncate mb-2">${t.contentName} ${rushFlag}</p>
-                <div class="mt-auto border-top pt-2">${assigneesHtml}</div>
-              </div>
-            </div>
-          </div>
-        `);
-      });
-    } else { list.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีงาน PR ค้างในระบบ</div>'; }
-  } catch (e) { loading.classList.add('d-none'); list.innerHTML = '<div class="text-danger text-center">เกิดข้อผิดพลาด</div>'; }
+// Canonical kanban statuses (order = column order). Tickets whose status
+// is anything else get bucketed via bucketStatus() below.
+const KANBAN_STATUSES = [
+  'รอ PR รับเรื่อง',
+  'PR รับเรื่อง',
+  'รับบรีฟแล้ว (กำลังดำเนินการ)',
+  'รอโพสต์ตามกำหนดการ',
+  'โพสต์เรียบร้อย (เสร็จสิ้น)',
+  'ตีกลับให้แก้ไขงาน',
+  'กำลังแก้ไขงาน',
+];
+
+const STATUS_COLOR = {
+  'รอ PR รับเรื่อง': '#fbbf24',                      // amber
+  'PR รับเรื่อง': '#3b82f6',                          // blue
+  'รับบรีฟแล้ว (กำลังดำเนินการ)': '#8b5cf6',          // violet
+  'รอโพสต์ตามกำหนดการ': '#f59e0b',                    // orange
+  'โพสต์เรียบร้อย (เสร็จสิ้น)': '#10b981',            // green
+  'ตีกลับให้แก้ไขงาน': '#ef4444',                     // red
+  'กำลังแก้ไขงาน': '#f97316',                         // bright orange
+};
+
+function bucketStatus(rawStatus) {
+  const s = (rawStatus || '').toString();
+  if (KANBAN_STATUSES.includes(s)) return s;
+  // Substring fallbacks for legacy / variant wording
+  if (s.includes('เสร็จสิ้น') || s.includes('โพสต์เรียบร้อย')) return 'โพสต์เรียบร้อย (เสร็จสิ้น)';
+  if (s.includes('ตีกลับ')) return 'ตีกลับให้แก้ไขงาน';
+  if (s.includes('กำลังแก้ไข') || s.includes('แก้ไขงาน')) return 'กำลังแก้ไขงาน';
+  if (s.includes('รอโพสต์')) return 'รอโพสต์ตามกำหนดการ';
+  if (s.includes('บรีฟ') || s.includes('ดำเนินการ')) return 'รับบรีฟแล้ว (กำลังดำเนินการ)';
+  if (s.includes('รับเรื่อง') && !s.includes('รอ')) return 'PR รับเรื่อง';
+  return 'รอ PR รับเรื่อง';
+}
+
+export function filterPRStaffTickets() {
+  const filterEl = document.getElementById('prStaffDeptFilter');
+  const filterValue = filterEl ? filterEl.value : 'all';
+  const filtered = filterValue === 'all'
+    ? prStaffTicketsCache
+    : prStaffTicketsCache.filter((t) => t.dept === filterValue);
+  renderPRStaffKanban(filtered);
+}
+
+function renderPRStaffKanban(tickets) {
+  const board = document.getElementById('prStaffKanban');
+  if (!board) return;
+  board.innerHTML = '';
+
+  // Bucket tickets by status column
+  const buckets = new Map(KANBAN_STATUSES.map((s) => [s, []]));
+  tickets.forEach((t) => {
+    const col = bucketStatus(t.status);
+    buckets.get(col).push(t);
+  });
+
+  KANBAN_STATUSES.forEach((status) => {
+    const list = buckets.get(status) || [];
+    const color = STATUS_COLOR[status] || '#94a3b8';
+
+    const column = document.createElement('section');
+    column.className = 'pr-kanban-column';
+    column.style.setProperty('--col-color', color);
+
+    let cardsHtml;
+    if (list.length === 0) {
+      cardsHtml = '<div class="pr-kanban-empty">ไม่มีงาน</div>';
+    } else {
+      cardsHtml = list.map((t) => renderKanbanCard(t)).join('');
+    }
+
+    column.innerHTML = `
+      <header class="pr-kanban-column-header">
+        <span class="pr-kanban-column-dot"></span>
+        <span class="pr-kanban-column-title">${escapeHtml(status)}</span>
+        <span class="pr-kanban-column-count">${list.length}</span>
+      </header>
+      <div class="pr-kanban-column-body">${cardsHtml}</div>
+    `;
+
+    board.appendChild(column);
+  });
+}
+
+function renderKanbanCard(t) {
+  const originalIndex = prStaffTicketsCache.indexOf(t);
+  const rushFlag = t.deadline && t.deadline.includes('ด่วน')
+    ? '<span class="pr-kanban-card-rush"><i class="bi bi-rocket-takeoff"></i> ด่วน</span>'
+    : '';
+  const assigneesHtml = (t.assignees && t.assignees.length > 0)
+    ? `<div class="pr-kanban-card-assignees">${t.assignees.map(a => `<span class="pr-kanban-card-assignee"><i class="bi bi-person-fill me-1"></i>${escapeHtml(a)}</span>`).join('')}</div>`
+    : '<div class="pr-kanban-card-noassign"><i class="bi bi-person me-1"></i>ยังไม่มีผู้รับผิดชอบ</div>';
+
+  return `
+    <article class="pr-kanban-card" tabindex="0" onclick="openPRStaffModal(${originalIndex})"
+      onkeydown="if(event.key==='Enter'){openPRStaffModal(${originalIndex});}">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <span class="pr-kanban-card-id">${escapeHtml(t.id)}</span>
+        ${rushFlag}
+      </div>
+      <h6 class="pr-kanban-card-title">${escapeHtml(t.contentName || '(ไม่มีชื่องาน)')}</h6>
+      <div class="pr-kanban-card-dept"><i class="bi bi-building"></i> ${escapeHtml(t.dept || '-')}</div>
+      ${assigneesHtml}
+      <div class="pr-kanban-card-meta">
+        <span><i class="bi bi-clock me-1"></i>${escapeHtml(t.date || '')}</span>
+      </div>
+    </article>
+  `;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // --------------------------------------------------

@@ -104,10 +104,8 @@ export function toggleOtherPlatformReason() {
 export function togglePrMode() {
   const isSubmit = document.getElementById('prModeSubmit').checked;
   const isTrack = document.getElementById('prModeTrack').checked;
-  const isStaff = document.getElementById('prModeStaff').checked;
   document.getElementById('prSubmitSection').classList.toggle('d-none', !isSubmit);
   document.getElementById('prTrackSection').classList.toggle('d-none', !isTrack);
-  document.getElementById('prStaffSection').classList.toggle('d-none', !isStaff);
 }
 
 // --------------------------------------------------

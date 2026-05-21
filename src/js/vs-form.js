@@ -7,6 +7,10 @@ import { GAS_VITAL_SOUND_URL } from './config.js';
 let isAccountVerified = false;
 let vsQuill = null;
 
+export function setIsAccountVerified(value) {
+  isAccountVerified = !!value;
+}
+
 export function initVsForm(quillInstance) {
   vsQuill = quillInstance;
   document.getElementById('vitalSoundForm').addEventListener('submit', handleVsFormSubmit);
@@ -19,10 +23,8 @@ export function initVsForm(quillInstance) {
 export function toggleVitalSoundMode() {
   const isReport = document.getElementById('vsModeReport').checked;
   const isTrack = document.getElementById('vsModeTrack').checked;
-  const isStaff = document.getElementById('vsModeStaff').checked;
   document.getElementById('vsReportSection').classList.toggle('d-none', !isReport);
   document.getElementById('vsTrackSection').classList.toggle('d-none', !isTrack);
-  document.getElementById('vsStaffSection').classList.toggle('d-none', !isStaff);
 }
 
 // --------------------------------------------------
