@@ -346,10 +346,14 @@ async function migratePRTickets() {
 
     let remarks = [];
     try { if (r['Remarks']) remarks = JSON.parse(r['Remarks']); } catch {}
+
+    // The PR sheet has THREE columns after "Remarks" with empty headers
+    // in the CSV export, so they're not reachable via r['Name']. Use the
+    // positional _raw array. Schema (from prod GAS parsePRTicketRow):
+    //   col 20 = Assignees       (JSON array)
+    //   col 21 = OtherPlatforms  (comma-separated string)
+    //   col 22 = OtherPlatformReason (free text)
     let assignees = [];
-    // Assignees lives in the column AFTER Remarks (index 20, 0-based).
-    // The CSV export has an empty header for it, so we can't reach it
-    // via r['Assignees']. Use the positional _raw array.
     const rawAssign = r._raw?.[20] || r['Assignees'] || '';
     try {
       if (rawAssign && rawAssign.trim().startsWith('[')) {
@@ -357,6 +361,14 @@ async function migratePRTickets() {
         if (Array.isArray(parsed)) assignees = parsed;
       }
     } catch (e) { console.warn(`[pr ${r['Ticket ID']}] assignees parse failed:`, e.message); }
+
+    const rawOtherPlat = r._raw?.[21] || '';
+    const other_platforms = (rawOtherPlat && rawOtherPlat !== '-')
+      ? rawOtherPlat.split(',').map((x) => x.trim()).filter(Boolean)
+      : [];
+
+    const rawOtherReason = r._raw?.[22] || '';
+    const other_platform_reason = (rawOtherReason && rawOtherReason !== '-') ? rawOtherReason : null;
 
     const row = {
       id: r['Ticket ID'],
@@ -381,28 +393,30 @@ async function migratePRTickets() {
       status: r['Status'] || 'รอ PR รับเรื่อง',
       remarks,
       assignees,
-      other_platforms: [],
-      other_platform_reason: null,
+      other_platforms,
+      other_platform_reason,
     };
 
     if (!row.id) { fail++; continue; }
 
     let error;
     if (PATCH_ASSIGNEES) {
-      // Surgical: just write the assignees column. Leave status,
-      // remarks, etc. untouched in case the staff has been working
-      // tickets via the dashboard since the original migration.
+      // Surgical: write only the columns that were dropped during the
+      // initial migration (CSV columns 20–22 had empty headers and
+      // weren't being read). Leave status, remarks, brief, caption,
+      // etc. untouched so any staff-dashboard edits since the original
+      // migration are preserved.
       ({ error } = await admin
         .from('pr_tickets')
-        .update({ assignees })
+        .update({ assignees, other_platforms, other_platform_reason })
         .eq('id', row.id));
     } else {
       ({ error } = await admin
         .from('pr_tickets')
         .upsert(row, { onConflict: 'id', ignoreDuplicates: RESTORE_ONLY }));
     }
-    if (error) { console.error(`[pr fail] ${row.id}:`, error.message); fail++; }
-    else { ok++; }
+    if (error) { console.error(`[pr fail] ${row.id}:`, error.message); fail++; continue; }
+    ok++;
   }
   console.log(`[pr] ${ok} ok, ${fail} failed`);
 }
