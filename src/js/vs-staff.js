@@ -4,6 +4,7 @@
 
 import { formatThaiDate, renderTimeline } from './utils.js';
 import { db } from './db.js';
+import { sendNotify } from './notify.js';
 
 let staffTicketsCache = [];
 let currentActiveTicketId = null;
@@ -165,20 +166,18 @@ export async function submitStaffAction() {
       .eq('id', currentActiveTicketId);
     if (updErr) throw updErr;
 
-    // Fire-and-forget Discord notification via Supabase Edge Function.
+    // Fire-and-forget Discord notification via the unified helper.
     if (notifyTo) {
-      db.functions.invoke('notify-vs', {
-        body: {
-          mode: 'consult',
-          ticketId: currentActiveTicketId,
-          role: currentStaffRole,
-          notifyTo,
-          silent: isSilent,
-          remark,
-          displayDept: newDept || existing.target_dept,
-          displayStatus: newStatus || existing.status,
-        },
-      }).catch((e) => console.warn('[vs] Discord notify failed (non-fatal):', e));
+      sendNotify('vs', {
+        mode: 'consult',
+        ticketId: currentActiveTicketId,
+        role: currentStaffRole,
+        notifyTo,
+        isSilent,
+        remark,
+        displayDept: newDept || existing.target_dept,
+        displayStatus: newStatus || existing.status,
+      }).catch(() => { /* already warned in notify.js */ });
     }
 
     alert('อัปเดตข้อมูลสำเร็จ!');

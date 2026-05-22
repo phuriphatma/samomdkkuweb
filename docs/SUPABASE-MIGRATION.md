@@ -353,19 +353,17 @@ submissions and announcement covers, Drive is the right fit.
   Every other action in `prform.gs` / `vssound.gs` exists for back-compat
   but the frontend doesn't call them.
 
-### ✅ Phase 5 — Discord notifications via Edge Functions (done)
+### ⏳ Phase 5 — Discord notifications (abstracted; running on GAS)
 
-- `supabase/functions/notify-pr/index.ts` — Deno function that takes a
-  PR ticket body and fires the team Discord webhook. Webhook URL is a
-  Supabase secret (`PR_DISCORD_WEBHOOK_URL`).
-- `supabase/functions/notify-vs/index.ts` — same shape, two modes:
-  - `mode: 'submit'` — new ticket announcement to the routed dept
-  - `mode: 'consult'` — staff cross-dept transfer/consult
-  Department-keyed webhooks come from per-dept secrets
-  (`VS_WEBHOOK_<DEPT_KEY>`) with a `VS_WEBHOOK_DEFAULT` fallback.
-- Frontend (pr-form, vs-form, vs-staff) calls `db.functions.invoke(...)`
-  instead of the legacy GAS notify actions. Fire-and-forget; doesn't
-  block the user's success message.
+- `src/js/notify.js` — single `sendNotify(system, payload)` helper.
+  Every notification call site (`pr-form.js`, `vs-form.js`,
+  `vs-staff.js`) routes through this. Backend swap = change one file.
+- Currently routes to the GAS endpoints (`notifyPROnly`, `notifyVSOnly`,
+  `notifyVSConsult`) defined in `appscript/*.gs`.
+- `supabase/functions/notify-pr/` and `notify-vs/` exist (Deno code +
+  CORS/error handling), but are currently returning 502 in our project.
+  Likely Supabase Edge Runtime version mismatch; needs more diagnosis.
+  When fixed, `notify.js` swaps GAS URLs for `db.functions.invoke()`.
 
 #### Deploying the Edge Functions
 

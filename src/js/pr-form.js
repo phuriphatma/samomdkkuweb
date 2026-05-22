@@ -6,6 +6,7 @@ import { GAS_API_URL } from './config.js';
 import { getIsPrAccountVerified } from './pr-auth.js';
 import { db } from './db.js';
 import { getUser as authGetUser } from './auth.js';
+import { sendNotify } from './notify.js';
 
 // ----------------------------------------------------
 // Ticket ID generator — matches the legacy "PR-XXXXXX" format so old
@@ -438,25 +439,22 @@ async function handlePrFormSubmit(e) {
     const { error: insertErr } = await db.from('pr_tickets').insert(row);
     if (insertErr) throw insertErr;
 
-    // Fire-and-forget Discord notification via Supabase Edge Function.
-    // The user sees the success message immediately even if Discord
-    // notify fails.
+    // Fire-and-forget Discord notification. Uses the unified notify
+    // helper so we can swap backends (GAS ↔ Edge Function) in one place.
     if (!skipDiscord) {
-      db.functions.invoke('notify-pr', {
-        body: {
-          ticketId,
-          department: row.department,
-          content: row.content_name,
-          contact: row.contact,
-          jobType: row.job_type,
-          deadlineMode: formData.get('deadlineMode'),
-          uploadedUrls,
-          largeFileLink: formData.get('largeFileLink'),
-          otherPlatform: row.other_platforms,
-          otherPlatformReason: row.other_platform_reason,
-          silentNotify: row.silent_notify,
-        },
-      }).catch((e) => console.warn('[pr] Discord notify failed (non-fatal):', e));
+      sendNotify('pr', {
+        ticketId,
+        department: row.department,
+        content: row.content_name,
+        contact: row.contact,
+        jobType: row.job_type,
+        deadlineMode: formData.get('deadlineMode'),
+        uploadedUrls,
+        largeFileLink: formData.get('largeFileLink'),
+        otherPlatform: row.other_platforms,
+        otherPlatformReason: row.other_platform_reason,
+        silentNotify: row.silent_notify,
+      }).catch(() => { /* already warned in notify.js */ });
     }
 
     alertBox.classList.remove('d-none');

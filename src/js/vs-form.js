@@ -5,6 +5,7 @@
 import { GAS_VITAL_SOUND_URL } from './config.js';
 import { db } from './db.js';
 import { getUser as authGetUser } from './auth.js';
+import { sendNotify } from './notify.js';
 
 // ----------------------------------------------------
 // Ticket ID generator — matches the legacy "VS-YYMMDD-HHMM" format
@@ -188,19 +189,17 @@ async function handleVsFormSubmit(e) {
     const { error: insertErr } = await db.from('vs_tickets').insert(row);
     if (insertErr) throw insertErr;
 
-    // Fire-and-forget Discord notify via Supabase Edge Function.
+    // Fire-and-forget Discord notify via the unified helper.
     if (!skipDiscord) {
-      db.functions.invoke('notify-vs', {
-        body: {
-          mode: 'submit',
-          ticketId,
-          problem: contentHtml,
-          department: responsibleDept,
-          isEmergency,
-          silent: silentNotify,
-          requestedDept: customerRequestedDept,
-        },
-      }).catch((e) => console.warn('[vs] Discord notify failed (non-fatal):', e));
+      sendNotify('vs', {
+        mode: 'submit',
+        ticketId,
+        vsProblem: contentHtml,
+        department: responsibleDept,
+        isEmergency,
+        vsSilentNotify: silentNotify,
+        requestedDept: customerRequestedDept,
+      }).catch(() => { /* already warned in notify.js */ });
     }
 
     if (!submitter) {
