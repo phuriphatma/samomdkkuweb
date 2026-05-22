@@ -222,7 +222,7 @@ async function handleVsFormSubmit(e) {
   try {
     await insertVSTicketIdempotent(row);
 
-    // Fire-and-forget Discord notify via the unified helper.
+    // Fire-and-forget Discord notify via the unified helper (sendBeacon).
     if (!skipDiscord) {
       sendNotify('vs', {
         mode: 'submit',
@@ -232,7 +232,7 @@ async function handleVsFormSubmit(e) {
         isEmergency,
         vsSilentNotify: silentNotify,
         requestedDept: customerRequestedDept,
-      }).catch(() => { /* already warned in notify.js */ });
+      });
     }
 
     if (!submitter) {

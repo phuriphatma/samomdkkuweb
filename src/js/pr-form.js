@@ -488,8 +488,8 @@ async function handlePrFormSubmit(e) {
     // success.
     await insertPRTicketIdempotent(row);
 
-    // Fire-and-forget Discord notification. Uses the unified notify
-    // helper so we can swap backends (GAS ↔ Edge Function) in one place.
+    // Fire-and-forget Discord notification via the unified helper.
+    // sendNotify uses sendBeacon — no Promise, no connection-pool risk.
     if (!skipDiscord) {
       sendNotify('pr', {
         ticketId,
@@ -503,7 +503,7 @@ async function handlePrFormSubmit(e) {
         otherPlatform: row.other_platforms,
         otherPlatformReason: row.other_platform_reason,
         silentNotify: row.silent_notify,
-      }).catch(() => { /* already warned in notify.js */ });
+      });
     }
 
     alertBox.classList.remove('d-none');

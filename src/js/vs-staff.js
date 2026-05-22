@@ -166,7 +166,7 @@ export async function submitStaffAction() {
       .eq('id', currentActiveTicketId);
     if (updErr) throw updErr;
 
-    // Fire-and-forget Discord notification via the unified helper.
+    // Fire-and-forget Discord notification via the unified helper (sendBeacon).
     if (notifyTo) {
       sendNotify('vs', {
         mode: 'consult',
@@ -177,7 +177,7 @@ export async function submitStaffAction() {
         remark,
         displayDept: newDept || existing.target_dept,
         displayStatus: newStatus || existing.status,
-      }).catch(() => { /* already warned in notify.js */ });
+      });
     }
 
     alert('อัปเดตข้อมูลสำเร็จ!');
