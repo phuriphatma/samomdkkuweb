@@ -24,7 +24,15 @@ function doPost(e) {
     if (data.action === 'uploadPRFile') return handleUploadPRFile(data);
     if (data.action === 'deletePRTicket') return handleDeletePRTicket(data);
 
-    // --- SUBMIT PR FORM (Final Step) ---
+    // --- DISCORD NOTIFY ONLY (Phase 2: ticket already in Supabase) ---
+    // The frontend writes to Supabase directly, then asks GAS to fire the
+    // webhook so the Discord URL stays out of the browser bundle.
+    if (data.action === 'notifyPROnly') {
+      try { sendDiscordNotification(data, data.ticketId); } catch (e) {}
+      return createResponse({ success: true });
+    }
+
+    // --- SUBMIT PR FORM (Final Step — legacy path, kept for back-compat) ---
     return handlePRSubmission(data);
     
   } catch (error) {

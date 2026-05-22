@@ -2,8 +2,43 @@
 // PR STAFF — Dashboard, Modal, Agent Management
 // ==============================================
 
-import { GAS_API_URL } from './config.js';
 import { renderTimeline } from './utils.js';
+import { db } from './db.js';
+
+// ----------------------------------------------------
+// DB row → camelCase ticket shape used by the kanban renderer + modal.
+// ----------------------------------------------------
+function rowToTicket(r) {
+  const submitDate = r.timestamp ? new Date(r.timestamp) : null;
+  const publishDate = r.publish_date ? new Date(r.publish_date) : null;
+  const fmt = (d) => d
+    ? d.toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
+    : '-';
+  return {
+    id: r.id,
+    date: fmt(submitDate),
+    dept: r.department,
+    contact: r.contact || '-',
+    contentName: r.content_name,
+    jobType: r.job_type || '-',
+    platforms: Array.isArray(r.platforms) ? r.platforms.join(', ') : (r.platforms || '-'),
+    postingChannel: r.posting_channel || '-',
+    publishDate: fmt(publishDate),
+    deadline: r.deadline_status || 'ปกติ',
+    rushReason: r.rush_reason || '-',
+    brief: r.brief || '-',
+    caption: r.caption || '-',
+    fileUrl: r.file_url || 'ไม่มีไฟล์แนบ',
+    projectAccount: r.project_account || '-',
+    copostWith: r.copost_with || '-',
+    submitter: r.submitter_label || '',
+    status: r.status,
+    remarks: Array.isArray(r.remarks) ? r.remarks : [],
+    assignees: Array.isArray(r.assignees) ? r.assignees : [],
+    otherPlatforms: Array.isArray(r.other_platforms) ? r.other_platforms.join(', ') : (r.other_platforms || '-'),
+    otherPlatformReason: r.other_platform_reason || '-',
+  };
+}
 
 let prStaffTicketsCache = [];
 let currentActivePrTicketId = null;
@@ -37,20 +72,21 @@ export async function fetchPRStaffTickets() {
   if (board) board.innerHTML = '';
 
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getStaffPRTickets' }) });
-    const result = await res.json();
+    const { data, error } = await db
+      .from('pr_tickets')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
     if (loading) loading.classList.add('d-none');
-    if (result.success && result.tickets.length > 0) {
-      prStaffTicketsCache = result.tickets;
+    prStaffTicketsCache = (data || []).map(rowToTicket);
+    if (prStaffTicketsCache.length > 0) {
       filterPRStaffTickets();
     } else {
-      prStaffTicketsCache = [];
-      // Render empty board (7 columns, all empty) so the structure still shows.
       renderPRStaffKanban([]);
     }
   } catch (e) {
     if (loading) loading.classList.add('d-none');
-    if (board) board.innerHTML = '<div class="text-danger text-center py-4">เกิดข้อผิดพลาดในการโหลด</div>';
+    if (board) board.innerHTML = `<div class="text-danger text-center py-4">เกิดข้อผิดพลาดในการโหลด: ${e.message || e}</div>`;
   }
 }
 
@@ -282,19 +318,45 @@ export async function submitPRStaffAction() {
   btn.disabled = true; btn.innerHTML = 'กำลังบันทึก...';
 
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST', body: JSON.stringify({
-        action: 'updatePRTicket', ticketId: currentActivePrTicketId,
-        newStatus, newDeadlineStatus, remark, newPublishDate, autoLogs, assignees: currentPrAssignees,
-      }),
-    });
-    const result = await res.json();
-    if (result.success) {
-      alert('อัปเดตสถานะงาน PR สำเร็จ!');
-      bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
-      fetchPRStaffTickets();
-    } else { alert('เกิดข้อผิดพลาด: ' + result.message); }
-  } catch (e) { alert('เกิดข้อผิดพลาดในการบันทึก'); }
+    // Fetch current remarks from DB so we don't clobber server-side
+    // updates that happened since the modal was opened.
+    const { data: existing, error: fetchErr } = await db
+      .from('pr_tickets')
+      .select('remarks')
+      .eq('id', currentActivePrTicketId)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+
+    const remarks = Array.isArray(existing?.remarks) ? [...existing.remarks] : [];
+    const time = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).replace(',', '');
+    autoLogs.forEach((text) => remarks.push({ time, by: 'ระบบ', text, type: 'log' }));
+    if (remark) remarks.push({ time, by: 'ทีม PR', text: remark });
+
+    const update = {
+      remarks,
+      assignees: currentPrAssignees,
+    };
+    if (newStatus) update.status = newStatus;
+    if (newDeadlineStatus) update.deadline_status = newDeadlineStatus;
+    if (newPublishDate) {
+      // Convert "YYYY-MM-DD HH:mm" → ISO
+      const isoCandidate = newPublishDate.replace(' ', 'T');
+      const d = new Date(isoCandidate);
+      if (!isNaN(d.getTime())) update.publish_date = d.toISOString();
+    }
+
+    const { error: updErr } = await db
+      .from('pr_tickets')
+      .update(update)
+      .eq('id', currentActivePrTicketId);
+    if (updErr) throw updErr;
+
+    alert('อัปเดตสถานะงาน PR สำเร็จ!');
+    bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
+    fetchPRStaffTickets();
+  } catch (e) { alert('เกิดข้อผิดพลาดในการบันทึก: ' + (e.message || e)); }
   finally { btn.disabled = false; btn.innerHTML = 'บันทึกอัปเดต'; }
 }
 
@@ -309,14 +371,15 @@ export async function deletePRStaffAction() {
   btn.disabled = true; btn.innerHTML = 'กำลังลบ...';
 
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'deletePRTicket', ticketId: currentActivePrTicketId }) });
-    const result = await res.json();
-    if (result.success) {
-      alert('ลบงาน PR เรียบร้อยแล้ว!');
-      bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
-      fetchPRStaffTickets();
-    } else { alert('เกิดข้อผิดพลาด: ' + result.message); }
-  } catch (e) { alert('เกิดข้อผิดพลาดในการลบ'); }
+    const { error } = await db
+      .from('pr_tickets')
+      .delete()
+      .eq('id', currentActivePrTicketId);
+    if (error) throw error;
+    alert('ลบงาน PR เรียบร้อยแล้ว!');
+    bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
+    fetchPRStaffTickets();
+  } catch (e) { alert('เกิดข้อผิดพลาดในการลบ: ' + (e.message || e)); }
   finally { btn.disabled = false; btn.innerHTML = ogText; }
 }
 
@@ -326,15 +389,25 @@ export async function deletePRStaffAction() {
 
 async function loadGlobalAgents() {
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getAgents' }) });
-    const result = await res.json();
-    if (result.success) { globalPrAgents = result.agents || []; populateAssigneeDropdown(); }
+    const { data, error } = await db
+      .from('pr_agents')
+      .select('agents')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) throw error;
+    globalPrAgents = (data?.agents) || [];
+    populateAssigneeDropdown();
   } catch (e) { console.error('Failed to load agents', e); }
 }
 
 async function saveGlobalAgents() {
-  try { await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'saveAgents', agents: globalPrAgents }) }); }
-  catch (e) { console.error('Failed to save agents', e); }
+  try {
+    const { error } = await db
+      .from('pr_agents')
+      .update({ agents: globalPrAgents, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) throw error;
+  } catch (e) { console.error('Failed to save agents', e); }
 }
 
 export async function openManageAgentsModal() {

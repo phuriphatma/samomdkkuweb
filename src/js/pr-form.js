@@ -4,6 +4,21 @@
 
 import { GAS_API_URL } from './config.js';
 import { getIsPrAccountVerified } from './pr-auth.js';
+import { db } from './db.js';
+import { getUser as authGetUser } from './auth.js';
+
+// ----------------------------------------------------
+// Ticket ID generator — matches the legacy "PR-XXXXXX" format so old
+// tickets and new ones look identical in URLs and Discord messages.
+// ----------------------------------------------------
+function generatePRTicketId() {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return `PR-${suffix}`;
+}
 
 let lastJobType = '';
 
@@ -368,37 +383,96 @@ async function handlePrFormSubmit(e) {
   btnLoading.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> กำลังสร้าง Ticket งาน...';
 
   const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData.entries());
-  data.platform = formData.getAll('platform');
-  data.otherPlatform = formData.getAll('otherPlatform');
-  data.projectFormat = formData.getAll('projectFormat');
-  data.action = 'submitPR';
-  data.prAccountMode = accMode;
-  data.prSubmitterEmail = document.getElementById('prGoogleUserEmail').value || 'Guest';
-  data.uploadedUrls = uploadedUrls;
-  // Dev-only: when checked, the backend skips the Discord webhook entirely.
-  // Field is gated by .dev-only-feature visibility but we send the value
-  // regardless — the backend treats "not present" as false.
-  data.skipDiscord = document.getElementById('skipDiscord')?.checked === true;
+  const submitter = authGetUser();
+  const submitterLabel = document.getElementById('prGoogleUserEmail').value || 'Guest';
+
+  // Build pr_tickets row. Multi-value form fields come back as arrays.
+  // Posting channel: for "project" departments, the user picks a multi-
+  // select called projectFormat instead of the single postingChannel radio.
+  const projectFormat = formData.getAll('projectFormat');
+  const postingChannel = formData.get('postingChannel')
+    || (projectFormat.length ? projectFormat.join(', ') : null);
+
+  const ticketId = generatePRTicketId();
+  const fileUrlText = [
+    ...uploadedUrls,
+    formData.get('largeFileLink') ? `ลิงก์เสริม: ${formData.get('largeFileLink')}` : null,
+  ].filter(Boolean).join('\n') || null;
+
+  const publishDateRaw = formData.get('publishDate');
+  let publishDateIso = null;
+  if (publishDateRaw) {
+    const d = new Date(publishDateRaw);
+    if (!isNaN(d.getTime())) publishDateIso = d.toISOString();
+  }
+
+  const row = {
+    id: ticketId,
+    department: formData.get('department') || 'โครงการอื่นๆ',
+    contact: formData.get('contact') || null,
+    content_name: formData.get('content') || '(ไม่ระบุชื่องาน)',
+    job_type: formData.get('jobType') || null,
+    platforms: formData.getAll('platform'),
+    posting_channel: postingChannel,
+    publish_date: publishDateIso,
+    deadline_status: formData.get('deadlineMode') === 'Rush PR Review' ? 'ด่วน (PR Review)' : 'ปกติ',
+    rush_reason: formData.get('rushReason') || null,
+    brief: formData.get('brief') || null,
+    caption: formData.get('caption') || null,
+    file_url: fileUrlText,
+    silent_notify: document.getElementById('silentNotify')?.checked === true,
+    project_account: formData.get('projectAccount') || null,
+    copost_with: formData.get('copostWith') || null,
+    submitter_id: submitter?.id || null,
+    submitter_label: submitterLabel,
+    status: 'รอ PR รับเรื่อง',
+    remarks: [],
+    assignees: [],
+    other_platforms: formData.getAll('otherPlatform'),
+    other_platform_reason: formData.get('otherPlatformReason') || null,
+  };
+
+  const skipDiscord = document.getElementById('skipDiscord')?.checked === true;
 
   try {
-    const response = await fetch(targetUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-    const result = await response.json();
-    alertBox.classList.remove('d-none');
-    if (result.success) {
-      alertBox.classList.add('alert-success');
-      alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${result.ticketId}</strong>`;
-      if (accMode === 'guest') alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${result.ticketId}`);
-      document.getElementById('prForm').reset();
-      updateFormVisibility();
-      toggleOtherPlatformReason();
-    } else {
-      alertBox.classList.add('alert-danger');
-      alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> ${result.message}`;
+    const { error: insertErr } = await db.from('pr_tickets').insert(row);
+    if (insertErr) throw insertErr;
+
+    // Fire-and-forget Discord notification via GAS (still used as a thin
+    // webhook proxy in Phase 2 — Phase 5 moves this to a Supabase Edge
+    // Function). The user gets their success message immediately even if
+    // Discord notify fails.
+    if (!skipDiscord) {
+      fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'notifyPROnly',
+          department: row.department,
+          content: row.content_name,
+          contact: row.contact,
+          jobType: row.job_type,
+          deadlineMode: formData.get('deadlineMode'),
+          uploadedUrls,
+          largeFileLink: formData.get('largeFileLink'),
+          otherPlatform: row.other_platforms,
+          otherPlatformReason: row.other_platform_reason,
+          silentNotify: row.silent_notify,
+          ticketId,
+        }),
+      }).catch((e) => console.warn('[pr] Discord notify failed (non-fatal):', e));
     }
+
+    alertBox.classList.remove('d-none');
+    alertBox.classList.add('alert-success');
+    alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${ticketId}</strong>`;
+    if (accMode === 'guest') alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${ticketId}`);
+    document.getElementById('prForm').reset();
+    updateFormVisibility();
+    toggleOtherPlatformReason();
   } catch (error) {
     alertBox.classList.remove('d-none'); alertBox.classList.add('alert-danger');
-    alertBox.innerHTML = '<i class="bi bi-wifi-off me-2 fs-5"></i> เชื่อมต่อล้มเหลว';
+    alertBox.innerHTML = `<i class="bi bi-wifi-off me-2 fs-5"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
   } finally {
     btn.disabled = false; btnText.classList.remove('d-none'); btnLoading.classList.add('d-none');
     window.scrollTo({ top: 0, behavior: 'smooth' });

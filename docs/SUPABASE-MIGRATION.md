@@ -299,17 +299,24 @@ prod perspective, but recoverable manually from Supabase if needed.
 - PR submitter identifier (`pr-tracking.js`, form auth) sourced from
   unified auth state
 
-### ⏳ Phase 2 — PR data layer (next session)
+### ✅ Phase 2 — PR data layer (done)
 
-PR form submit + tracking + staff dashboard still talk to GAS. Move them
-to Supabase:
+All PR data calls now go to Supabase. GAS only fires Discord webhooks.
 
-- `src/js/pr-form.js handleSubmit` → `db.from('pr_tickets').insert(...)`
-- `src/js/pr-tracking.js trackPRTicket / loadPRHistory` → `db.from('pr_tickets').select(...)`
-- `src/js/pr-staff.js fetchPRStaffTickets / submitPRStaffAction / deletePRStaffAction` → `db.from('pr_tickets').select/update/delete`
-- `pr-staff.js loadGlobalAgents / saveGlobalAgents` → `db.from('pr_agents')`
-- Discord notification: call a Supabase Edge Function (Phase 5) OR keep
-  thin GAS-only `notify` action
+- `src/js/pr-form.js` — submit writes via `db.from('pr_tickets').insert(...)`.
+  Generates the `PR-XXXXXX` ID client-side. After insert succeeds, fires
+  a fire-and-forget POST to GAS `notifyPROnly` so the team still gets
+  Discord pings.
+- `src/js/pr-tracking.js` — `trackPRTicket`, `loadPRHistory`,
+  `refreshPRTicketDashboard` all read from `pr_tickets`. New `rowToTicket`
+  helper maps DB columns to the legacy camelCase shape the renderers
+  expect, so no UI code had to change.
+- `src/js/pr-staff.js` — kanban fetches via `pr_tickets.select`. Updates
+  + deletes via `.update()` / `.delete()`. Now <200ms instead of multi-
+  second GAS roundtrip. Agents list in `pr_agents`.
+- `appscript/prform.gs` — new `notifyPROnly` action does just the
+  Discord webhook (no sheet writes). Old `submitPR` etc. still exist
+  for back-compat / prod use but the frontend doesn't call them.
 
 ### ⏳ Phase 3 — VS data layer (next session)
 

@@ -2,11 +2,50 @@
 // PR TRACKING — User ticket tracking & history
 // ==============================================
 
-import { GAS_API_URL } from './config.js';
 import { renderTimeline } from './utils.js';
 import { getUser as authGetUser } from './auth.js';
+import { db } from './db.js';
 
 let loggedInUserPrTickets = [];
+
+// ----------------------------------------------------
+// Map a pr_tickets DB row into the camelCase shape the existing
+// renderers (renderPRDashboard, openPRTicketDetail, etc.) expect.
+// Keeps the migration minimal — we only had to rewrite the data
+// fetch, not the rendering code.
+// ----------------------------------------------------
+function rowToTicket(r) {
+  if (!r) return null;
+  const submitDate = r.timestamp ? new Date(r.timestamp) : null;
+  const publishDate = r.publish_date ? new Date(r.publish_date) : null;
+  const fmt = (d) => d
+    ? d.toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
+    : '-';
+  return {
+    id: r.id,
+    date: fmt(submitDate),
+    dept: r.department,
+    contact: r.contact || '-',
+    contentName: r.content_name,
+    jobType: r.job_type || '-',
+    platforms: Array.isArray(r.platforms) ? r.platforms.join(', ') : (r.platforms || '-'),
+    postingChannel: r.posting_channel || '-',
+    publishDate: fmt(publishDate),
+    deadline: r.deadline_status || 'ปกติ',
+    rushReason: r.rush_reason || '-',
+    brief: r.brief || '-',
+    caption: r.caption || '-',
+    fileUrl: r.file_url || 'ไม่มีไฟล์แนบ',
+    projectAccount: r.project_account || '-',
+    copostWith: r.copost_with || '-',
+    submitter: r.submitter_label || '',
+    status: r.status,
+    remarks: Array.isArray(r.remarks) ? r.remarks : [],
+    assignees: Array.isArray(r.assignees) ? r.assignees : [],
+    otherPlatforms: Array.isArray(r.other_platforms) ? r.other_platforms.join(', ') : (r.other_platforms || '-'),
+    otherPlatformReason: r.other_platform_reason || '-',
+  };
+}
 
 // --------------------------------------------------
 // Track PR by Ticket ID (Guest)
@@ -21,17 +60,25 @@ export async function trackPRTicket() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
 
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'trackPR', ticketId: tId }) });
-    const result = await res.json();
-    if (result.success) {
-      renderPRDashboard(result.ticket);
+    const { data, error } = await db
+      .from('pr_tickets')
+      .select('*')
+      .ilike('id', tId)  // case-insensitive match
+      .maybeSingle();
+    if (error) throw error;
+    if (data) {
+      renderPRDashboard(rowToTicket(data));
       document.getElementById('prLoginBox').classList.add('d-none');
       document.getElementById('prDashboardBox').classList.remove('d-none');
       document.getElementById('btnPrBackToHistory').onclick = logoutPRTrack;
     } else {
-      alertBox.classList.remove('d-none'); alertBox.innerText = result.message;
+      alertBox.classList.remove('d-none');
+      alertBox.innerText = 'ไม่พบ Ticket ID นี้ในระบบ';
     }
-  } catch (e) { alertBox.classList.remove('d-none'); alertBox.innerText = 'เชื่อมต่อเครือข่ายล้มเหลว'; }
+  } catch (e) {
+    alertBox.classList.remove('d-none');
+    alertBox.innerText = e.message || 'เชื่อมต่อเครือข่ายล้มเหลว';
+  }
   finally { btn.disabled = false; btn.innerHTML = 'ค้นหาสถานะ'; }
 }
 
@@ -46,11 +93,15 @@ export async function refreshPRTicketDashboard() {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; btn.disabled = true;
 
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'trackPR', ticketId: tId }) });
-    const result = await res.json();
-    if (result.success) { renderPRDashboard(result.ticket); }
-    else { alert('ไม่สามารถรีเฟรชได้: ' + result.message); }
-  } catch (e) { alert('เชื่อมต่อเครือข่ายล้มเหลว'); }
+    const { data, error } = await db
+      .from('pr_tickets')
+      .select('*')
+      .eq('id', tId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) renderPRDashboard(rowToTicket(data));
+    else alert('ไม่พบ Ticket นี้');
+  } catch (e) { alert('เชื่อมต่อเครือข่ายล้มเหลว: ' + (e.message || e)); }
   finally { btn.innerHTML = ogText; btn.disabled = false; }
 }
 
@@ -75,16 +126,25 @@ export async function loadPRHistory() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลด...'; alertBox.classList.add('d-none');
 
   try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getUserPRHistory', email: email }) });
-    const result = await res.json();
-    if (result.success) {
-      loggedInUserPrTickets = result.tickets;
-      renderPRHistoryList();
-      document.getElementById('prLoginBox').classList.add('d-none');
-      document.getElementById('prDashboardBox').classList.add('d-none');
-      document.getElementById('prUserHistoryBox').classList.remove('d-none');
-    } else { alertBox.classList.remove('d-none'); alertBox.innerText = result.message; }
-  } catch (e) { alertBox.classList.remove('d-none'); alertBox.innerText = 'ข้อผิดพลาดเครือข่าย'; }
+    // RLS policy on pr_tickets restricts non-staff readers to their own
+    // submitter_id, so we can safely select * for the current user.
+    // Also match by submitter_label for legacy rows migrated from sheets
+    // that may not have submitter_id linked.
+    const { data, error } = await db
+      .from('pr_tickets')
+      .select('*')
+      .or(`submitter_id.eq.${user.id},submitter_label.eq.${email}`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    loggedInUserPrTickets = (data || []).map(rowToTicket);
+    renderPRHistoryList();
+    document.getElementById('prLoginBox').classList.add('d-none');
+    document.getElementById('prDashboardBox').classList.add('d-none');
+    document.getElementById('prUserHistoryBox').classList.remove('d-none');
+  } catch (e) {
+    alertBox.classList.remove('d-none');
+    alertBox.innerText = e.message || 'ข้อผิดพลาดเครือข่าย';
+  }
   finally { btn.disabled = false; btn.innerHTML = 'โหลดประวัติของฉัน'; }
 }
 
