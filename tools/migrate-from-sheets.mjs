@@ -26,6 +26,14 @@
 //     user
 //   - Reads supabase/migrations/0002... reserved_staff_usernames and
 //     ensures each staff/dev account exists with the correct role
+//
+// Modes (set via env var):
+//   default                        : upsert — overwrites existing rows
+//   MIGRATE_RESTORE_ONLY=1         : insert missing rows only; leave
+//                                    existing rows untouched. Use this to
+//                                    recover a deleted ticket WITHOUT
+//                                    reverting any other live edits made
+//                                    via the staff dashboard.
 // ============================================================
 
 // Load env from both .env and .env.local. dotenv only reads .env by default;
@@ -39,6 +47,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+
+// Mode flag. RESTORE_ONLY = only insert rows that don't already exist;
+// never overwrite existing rows. Useful for recovering an accidentally
+// deleted ticket without reverting live edits on other tickets.
+const RESTORE_ONLY = process.env.MIGRATE_RESTORE_ONLY === '1' || process.env.MIGRATE_RESTORE_ONLY === 'true';
+if (RESTORE_ONLY) console.log('[mode] MIGRATE_RESTORE_ONLY — existing rows will NOT be overwritten');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -332,7 +346,9 @@ async function migratePRTickets() {
     };
 
     if (!row.id) { fail++; continue; }
-    const { error } = await admin.from('pr_tickets').upsert(row, { onConflict: 'id' });
+    const { error } = await admin
+      .from('pr_tickets')
+      .upsert(row, { onConflict: 'id', ignoreDuplicates: RESTORE_ONLY });
     if (error) { console.error(`[pr fail] ${row.id}:`, error.message); fail++; }
     else { ok++; }
   }
@@ -374,7 +390,9 @@ async function migrateVSTickets() {
     };
 
     if (!row.id) { fail++; continue; }
-    const { error } = await admin.from('vs_tickets').upsert(row, { onConflict: 'id' });
+    const { error } = await admin
+      .from('vs_tickets')
+      .upsert(row, { onConflict: 'id', ignoreDuplicates: RESTORE_ONLY });
     if (error) { console.error(`[vs fail] ${row.id}:`, error.message); fail++; }
     else { ok++; }
   }
