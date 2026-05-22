@@ -417,9 +417,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load announcements
   loadAnnouncements();
 
+  // Track previous auth identity so we can distinguish "real" auth
+  // transitions (sign in / out / role change) from background events
+  // like token refresh. Several UI side-effects only make sense on a
+  // real transition — e.g. resetting the admin tab back to its
+  // landing page would be wrong on a 25-min token refresh because it
+  // would yank the user out of the kanban they were working in.
+  let prevAuthKey = '__init__';
+
   // Subscribe navbar + home page + sign-in modal to global auth state.
   onAuthChange((user) => {
     const role = user?.role || null;
+    // Identity-and-role fingerprint. Different value = real transition.
+    const authKey = user ? `${user.id}|${role}` : '<signed-out>';
+    const isTransition = authKey !== prevAuthKey;
+    prevAuthKey = authKey;
 
     // Navbar (desktop)
     const navOut = document.getElementById('navAuthSignedOut');
@@ -463,8 +475,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const allowed = el.getAttribute('data-role-only').split(/\s+/);
       el.classList.toggle('d-none', !role || !allowed.includes(role));
     });
-    // Reset admin tab to landing when role changes (e.g. on sign-out)
-    if (typeof window.showAdminLanding === 'function') window.showAdminLanding();
+    // Reset admin tab to landing ONLY on a real auth transition (sign
+    // in, sign out, or role change). Plain token-refresh events also
+    // fire onAuthChange — without this guard, the user gets ejected
+    // from whichever admin section they were working in every 25 min.
+    if (isTransition && typeof window.showAdminLanding === 'function') {
+      window.showAdminLanding();
+    }
 
     // Dev-only features
     document.querySelectorAll('.dev-only-feature').forEach((el) => {
@@ -503,38 +520,37 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // VS form auth wrapper: hide for ANY signed-in user. The VS submit/track
-    // endpoints (still on GAS in Phase 1) key by (username, password); since
-    // Supabase Auth manages passwords now, we synthesize a stable pair from
-    // the user's UUID-based identity:
-    //   - username = email (Google) or "@<username>" (password)
-    //   - password = user.id (Supabase auth UUID)
-    // Old VS tickets created under the legacy plaintext flow won't be
-    // tracked by this — they migrate in Phase 3.
+    // VS form auth wrapper. Visibility is idempotent (toggle every time)
+    // but the input mutations below would clobber whatever the user is
+    // typing if a token-refresh event fires mid-edit — so only run them
+    // on a real transition.
     const vsWrapper = document.getElementById('vsFormAuthWrapper');
     if (vsWrapper) {
-      if (user) {
-        vsWrapper.classList.add('d-none');
-        const vsLoginRadio = document.getElementById('vsAccLogin');
-        const vsUser = document.getElementById('vsUsername');
-        const vsPass = document.getElementById('vsPassword');
-        const synthUser = user.email || (user.username ? `@${user.username}` : '');
-        const synthPass = user.id || '';
-        if (vsLoginRadio) vsLoginRadio.checked = true;
-        if (vsUser) vsUser.value = synthUser;
-        if (vsPass) vsPass.value = synthPass;
-        setIsAccountVerified(true);
-      } else {
-        vsWrapper.classList.remove('d-none');
-        setIsAccountVerified(false);
-        // Reset to guest mode so a signed-out user sees the default option.
-        const vsGuestRadio = document.getElementById('vsAccGuest');
-        if (vsGuestRadio) vsGuestRadio.checked = true;
+      vsWrapper.classList.toggle('d-none', !!user);
+      if (isTransition) {
+        if (user) {
+          const vsLoginRadio = document.getElementById('vsAccLogin');
+          const vsUser = document.getElementById('vsUsername');
+          const vsPass = document.getElementById('vsPassword');
+          const synthUser = user.email || (user.username ? `@${user.username}` : '');
+          const synthPass = user.id || '';
+          if (vsLoginRadio) vsLoginRadio.checked = true;
+          if (vsUser) vsUser.value = synthUser;
+          if (vsPass) vsPass.value = synthPass;
+          setIsAccountVerified(true);
+        } else {
+          setIsAccountVerified(false);
+          // Reset to guest mode so a signed-out user sees the default option.
+          const vsGuestRadio = document.getElementById('vsAccGuest');
+          if (vsGuestRadio) vsGuestRadio.checked = true;
+        }
       }
     }
 
-    // Auto-close sign-in modal on successful sign-in
-    if (user) {
+    // Auto-close sign-in modal — only on the transition to signed-in.
+    // Without this guard, every token refresh would close the modal even
+    // if the user had re-opened it for some reason.
+    if (isTransition && user) {
       const modalEl = document.getElementById('signinModal');
       if (modalEl && window.bootstrap) {
         const inst = window.bootstrap.Modal.getInstance(modalEl);
