@@ -337,31 +337,71 @@ All VS data calls now go to Supabase; GAS only fires Discord webhooks.
 - `appscript/vssound.gs` — new `notifyVSOnly` and `notifyVSConsult`
   actions fire webhooks only (no sheet writes).
 
-### ✅ Phase 4 — File storage (done)
+### ✅ Phase 4 — File storage (Drive by design)
 
-- `supabase/migrations/0003_storage.sql` — creates public `samo-uploads`
-  bucket with RLS policies (public read; authenticated insert;
-  owner/staff delete).
-- `src/js/uploads.js` — `uploadImageToDrive` (kept the name to avoid
-  callsite churn) now uploads to `samo-uploads`. Returns the Supabase
-  public URL via `getPublicUrl`. Filenames sanitized + organized by
-  year/month folder.
-- `convertDriveUrl` retained as a render-time normalizer for legacy
-  Drive-hosted announcement thumbnails. Supabase Storage URLs pass
-  through unchanged.
+We chose to **keep file uploads on Google Drive** instead of moving to
+Supabase Storage. Reason: Drive gives 2 TB on the personal account that
+owns the GAS, vs. 1 GB free on Supabase Storage. For image-heavy PR
+submissions and announcement covers, Drive is the right fit.
 
-### Phase 5 — Discord notifications (intentionally not migrated)
+- `src/js/uploads.js uploadImageToDrive` continues to use GAS
+  `uploadPRFile`. Returns the Drive thumbnail URL (`drive.google.com/
+  thumbnail?id=...`) which embeds directly in `<img>`.
+- `convertDriveUrl` normalizes any Drive URL form (viewer page, `uc?id`)
+  to the thumbnail form so embeds always work.
+- **This is the only thing the GAS deployment is still used for.**
+  Every other action in `prform.gs` / `vssound.gs` exists for back-compat
+  but the frontend doesn't call them.
 
-Discord webhooks stay on GAS as thin proxies (`notifyPROnly`,
-`notifyVSOnly`, `notifyVSConsult`). Rationale:
+### ✅ Phase 5 — Discord notifications via Edge Functions (done)
 
-- They're fire-and-forget; latency doesn't affect dashboard UX.
-- Edge Functions add deployment complexity (Deno toolchain, secrets,
-  separate deploy pipeline) without speed gain.
-- GAS already has the Discord webhook URLs and the formatting code.
+- `supabase/functions/notify-pr/index.ts` — Deno function that takes a
+  PR ticket body and fires the team Discord webhook. Webhook URL is a
+  Supabase secret (`PR_DISCORD_WEBHOOK_URL`).
+- `supabase/functions/notify-vs/index.ts` — same shape, two modes:
+  - `mode: 'submit'` — new ticket announcement to the routed dept
+  - `mode: 'consult'` — staff cross-dept transfer/consult
+  Department-keyed webhooks come from per-dept secrets
+  (`VS_WEBHOOK_<DEPT_KEY>`) with a `VS_WEBHOOK_DEFAULT` fallback.
+- Frontend (pr-form, vs-form, vs-staff) calls `db.functions.invoke(...)`
+  instead of the legacy GAS notify actions. Fire-and-forget; doesn't
+  block the user's success message.
 
-Migrate to Edge Functions only if/when you outgrow Apps Script's quota
-limits or want to drop the GAS dependency entirely.
+#### Deploying the Edge Functions
+
+```bash
+# One-time setup (per machine)
+npm install -g supabase
+supabase login                       # opens browser
+supabase link --project-ref fheueuowbchsnsvbcgil
+
+# Set the secrets
+supabase secrets set \
+  PR_DISCORD_WEBHOOK_URL='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_SE='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_ADMIN='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_DIGITAL='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_INTERNAL='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_EXTERNAL='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_UNIVERSITY='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_ACADEMIC='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_STRATEGY='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_QUALITY='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_MEDIA='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_RADIOLOGY='https://discordapp.com/api/webhooks/...' \
+  VS_WEBHOOK_DEFAULT='https://discordapp.com/api/webhooks/...'
+
+# Deploy
+supabase functions deploy notify-pr --no-verify-jwt
+supabase functions deploy notify-vs --no-verify-jwt
+```
+
+The webhook URLs are the same ones currently hardcoded in `prform.gs`
+`DISCORD_WEBHOOK_URL` and `vssound.gs` `WEBHOOK_MAP`. Copy them over
+to Supabase secrets.
+
+After deploy: test by submitting a PR ticket and a VS ticket; pings
+should arrive in the matching Discord channels.
 
 ---
 

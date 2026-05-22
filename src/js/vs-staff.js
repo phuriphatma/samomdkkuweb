@@ -2,7 +2,6 @@
 // VS STAFF — Staff Dashboard for Vital Sound (Supabase-backed)
 // ==============================================
 
-import { GAS_VITAL_SOUND_URL } from './config.js';
 import { formatThaiDate, renderTimeline } from './utils.js';
 import { db } from './db.js';
 
@@ -166,21 +165,19 @@ export async function submitStaffAction() {
       .eq('id', currentActiveTicketId);
     if (updErr) throw updErr;
 
-    // Fire-and-forget Discord notification via GAS proxy when requested.
+    // Fire-and-forget Discord notification via Supabase Edge Function.
     if (notifyTo) {
-      fetch(GAS_VITAL_SOUND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'notifyVSConsult',
+      db.functions.invoke('notify-vs', {
+        body: {
+          mode: 'consult',
           ticketId: currentActiveTicketId,
           role: currentStaffRole,
           notifyTo,
-          isSilent,
+          silent: isSilent,
           remark,
           displayDept: newDept || existing.target_dept,
           displayStatus: newStatus || existing.status,
-        }),
+        },
       }).catch((e) => console.warn('[vs] Discord notify failed (non-fatal):', e));
     }
 

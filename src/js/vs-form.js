@@ -188,20 +188,18 @@ async function handleVsFormSubmit(e) {
     const { error: insertErr } = await db.from('vs_tickets').insert(row);
     if (insertErr) throw insertErr;
 
-    // Fire-and-forget Discord notify via GAS thin proxy.
+    // Fire-and-forget Discord notify via Supabase Edge Function.
     if (!skipDiscord) {
-      fetch(GAS_VITAL_SOUND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'notifyVSOnly',
+      db.functions.invoke('notify-vs', {
+        body: {
+          mode: 'submit',
           ticketId,
-          vsProblem: contentHtml,
+          problem: contentHtml,
           department: responsibleDept,
           isEmergency,
-          vsSilentNotify: silentNotify,
+          silent: silentNotify,
           requestedDept: customerRequestedDept,
-        }),
+        },
       }).catch((e) => console.warn('[vs] Discord notify failed (non-fatal):', e));
     }
 

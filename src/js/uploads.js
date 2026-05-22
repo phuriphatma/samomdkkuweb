@@ -1,65 +1,65 @@
 // ==============================================
-// UPLOADS — Image upload helper (Supabase Storage)
+// UPLOADS — Image upload helper (Google Drive via GAS)
 //
-// Uploads File objects to the public "samo-uploads" bucket and returns
-// a public URL. Used by:
-//   - Quill custom image handler (announcement + VS editors)
-//   - Creator announcement thumbnail picker
-//   - PR form file uploads (Phase 4 in progress; large multi-image
-//     uploads in pr-form.js still on the legacy path until verified)
+// Why Drive (not Supabase Storage):
+//   Drive gives 2 TB on the personal account that owns the prform GAS;
+//   Supabase Storage free tier caps at 1 GB. For image-heavy PR
+//   submissions and announcement covers, Drive is the better fit.
 //
-// Why this exists: Quill's default image handler embeds images as base64
-// inside the editor's HTML. That bloats every announcement to MB and
-// can trip Postgres/Supabase row size limits. Uploading first + inserting
-// the URL keeps payloads tiny.
+// Wire-up: the upload still uses the GAS uploadPRFile action — that
+// endpoint is the only thing the GAS deployment is still used for
+// (everything else now talks to Supabase directly).
 // ==============================================
 
-import { db } from './db.js';
+import { GAS_API_URL } from './config.js';
 
-const BUCKET = 'samo-uploads';
-
-function safeFilename(name) {
-  // Keep an alphanumeric / dash / dot / underscore subset; replace the rest.
-  // Storage paths can contain most chars, but spaces and Thai characters
-  // make URLs fragile and break some image embedders.
-  return (name || 'file').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
- * Upload an image File to Supabase Storage and return its public URL.
+ * Upload an image File to Drive via GAS and return its public-thumbnail URL.
+ *
+ * The base64-via-JSON shape exists because Apps Script doesn't accept
+ * multipart/form-data; we have to base64-encode the bytes into the JSON
+ * body. Fine for files up to ~30 MB; bigger ones should use the manual
+ * "lay your link" path on the form.
  */
 export async function uploadImageToDrive(file) {
   if (!file) throw new Error('No file');
-  // Path: <yyyy>/<MM>/<timestamp>-<safe-name>. Year/month folders keep
-  // the bucket browser usable as content grows.
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const ts = now.getTime();
-  const path = `${yyyy}/${mm}/${ts}-${safeFilename(file.name)}`;
-
-  const { error: uploadErr } = await db.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type || 'application/octet-stream',
-    });
-  if (uploadErr) throw new Error(uploadErr.message || 'อัปโหลดไม่สำเร็จ');
-
-  const { data } = db.storage.from(BUCKET).getPublicUrl(path);
-  if (!data?.publicUrl) throw new Error('ไม่สามารถสร้างลิงก์รูปได้');
-  return data.publicUrl;
+  const base64 = await readAsDataURL(file);
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'uploadPRFile',
+      fileName: file.name,
+      mimeType: file.type,
+      fileData: base64,
+    }),
+  });
+  const result = await res.json();
+  if (!result.success || !result.fileUrl) {
+    throw new Error(result.message || 'อัปโหลดไม่สำเร็จ');
+  }
+  return convertDriveUrl(result.fileUrl);
 }
 
 /**
- * Legacy Drive URL normalizer. Kept so existing announcements / tickets
- * with Drive thumbnails (from before the Supabase Storage migration)
- * still render. Newly uploaded images use Supabase Storage URLs which
- * pass through unchanged.
+ * Drive's default share URL is the viewer page (`/file/d/<id>/view`),
+ * which doesn't embed in <img>. Rewrite to the thumbnail endpoint that
+ * does. sz=w2000 caps width at 2000px — plenty for any embed.
  */
 export function convertDriveUrl(url) {
   if (!url) return url;
+  // Already-converted URLs and Supabase Storage URLs (from legacy rows
+  // when we briefly tried that) pass through unchanged.
+  if (url.includes('drive.google.com/thumbnail')) return url;
   if (url.includes('supabase.co/storage')) return url;
   const m = url.match(/\/file\/d\/([^/]+)\//) || url.match(/[?&]id=([^&]+)/);
   if (m && m[1]) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000`;

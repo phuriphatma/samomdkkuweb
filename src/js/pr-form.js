@@ -438,16 +438,13 @@ async function handlePrFormSubmit(e) {
     const { error: insertErr } = await db.from('pr_tickets').insert(row);
     if (insertErr) throw insertErr;
 
-    // Fire-and-forget Discord notification via GAS (still used as a thin
-    // webhook proxy in Phase 2 — Phase 5 moves this to a Supabase Edge
-    // Function). The user gets their success message immediately even if
-    // Discord notify fails.
+    // Fire-and-forget Discord notification via Supabase Edge Function.
+    // The user sees the success message immediately even if Discord
+    // notify fails.
     if (!skipDiscord) {
-      fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'notifyPROnly',
+      db.functions.invoke('notify-pr', {
+        body: {
+          ticketId,
           department: row.department,
           content: row.content_name,
           contact: row.contact,
@@ -458,8 +455,7 @@ async function handlePrFormSubmit(e) {
           otherPlatform: row.other_platforms,
           otherPlatformReason: row.other_platform_reason,
           silentNotify: row.silent_notify,
-          ticketId,
-        }),
+        },
       }).catch((e) => console.warn('[pr] Discord notify failed (non-fatal):', e));
     }
 
