@@ -4,7 +4,7 @@
 
 import { GAS_API_URL } from './config.js';
 import { renderTimeline } from './utils.js';
-import { getIsPrAccountVerified } from './pr-auth.js';
+import { getUser as authGetUser } from './auth.js';
 
 let loggedInUserPrTickets = [];
 
@@ -61,11 +61,16 @@ export async function refreshPRTicketDashboard() {
 export async function loadPRHistory() {
   const alertBox = document.getElementById('prTrackAlert');
   const btn = document.getElementById('btnTrackPrUser');
-  const email = localStorage.getItem('prGoogleUserEmail');
+  // PR submitter identifier comes from the unified global auth: email for
+  // Google users, "@<username>" for password users. Old GAS-backed history
+  // is keyed by whatever string was stored in the SubmitterEmail column,
+  // which is the same identifier we now write at submit time.
+  const user = authGetUser();
+  const email = user?.email || (user?.username ? `@${user.username}` : '');
 
-  if (!getIsPrAccountVerified() || !email) {
+  if (!user || !email) {
     alertBox.classList.remove('d-none');
-    alertBox.innerText = "ไม่พบข้อมูลบัญชี กรุณาเข้าสู่ระบบผ่านแท็บ 'ส่งงาน PR' ก่อน"; return;
+    alertBox.innerText = "ไม่พบข้อมูลบัญชี กรุณาเข้าสู่ระบบก่อน"; return;
   }
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลด...'; alertBox.classList.add('d-none');
 

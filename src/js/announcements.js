@@ -1,8 +1,10 @@
 // ==============================================
 // ANNOUNCEMENTS — CRUD for Web Announcements
+// Backed by Supabase (public.announcements). Previously hit GAS
+// addAnnouncement / editAnnouncement / getAnnouncements actions.
 // ==============================================
 
-import { GAS_API_URL } from './config.js';
+import { db } from './db.js';
 import { convertDriveUrl } from './uploads.js';
 
 /** In-memory cache of loaded announcements */
@@ -110,38 +112,34 @@ export async function publishAnnouncement() {
 
   const isEditing = editingAnnouncementId !== null;
   const thumbnail = document.getElementById('creatorThumbUrl')?.value || '';
-  const payload = {
-    action: isEditing ? 'editAnnouncement' : 'addAnnouncement',
+  const row = {
     title,
     department: dept,
     content: contentHtml,
-    thumbnail,
+    thumbnail_url: thumbnail || null,
+    status: 'approved',
   };
-  if (isEditing) payload.id = editingAnnouncementId;
 
   try {
-    const response = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-
-    if (result.success) {
-      alertBox.className = 'alert alert-success shadow-sm';
-      alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${result.message} กำลังพากลับไปหน้าประกาศ...`;
-      cancelEdit();
-      setTimeout(() => {
-        alertBox.classList.add('d-none');
-        loadAnnouncements();
-        bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-announcements-tab')).show();
-      }, 1500);
+    let error;
+    if (isEditing) {
+      ({ error } = await db.from('announcements').update(row).eq('id', editingAnnouncementId));
     } else {
-      throw new Error(result.message);
+      ({ error } = await db.from('announcements').insert(row));
     }
+    if (error) throw error;
+
+    alertBox.className = 'alert alert-success shadow-sm';
+    alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${isEditing ? 'อัปเดตประกาศสำเร็จ!' : 'เผยแพร่ประกาศสำเร็จ!'} กำลังพากลับไปหน้าประกาศ...`;
+    cancelEdit();
+    setTimeout(() => {
+      alertBox.classList.add('d-none');
+      loadAnnouncements();
+      bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-announcements-tab')).show();
+    }, 1500);
   } catch (error) {
     alertBox.className = 'alert alert-danger shadow-sm';
-    alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`;
+    alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
   } finally {
     publishBtn.disabled = false;
     if (document.getElementById('publishBtnText')) {
@@ -165,10 +163,27 @@ export async function loadAnnouncements() {
   emptyState.classList.add('d-none');
 
   try {
-    const response = await fetch(GAS_API_URL + '?action=getAnnouncements', { method: 'GET' });
-    const result = await response.json();
+    const { data, error } = await db
+      .from('announcements')
+      .select('id, title, content, department, thumbnail_url, created_at')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    // Map DB rows to the shape the existing renderer uses (matches the
+    // legacy GAS getAnnouncements response so we don't have to touch
+    // every callsite).
+    globalAnnouncements = (data || []).map((row) => ({
+      id: row.id.toString(),
+      date: row.created_at
+        ? new Date(row.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })
+        : '',
+      title: row.title,
+      department: row.department,
+      content: row.content,
+      thumbnail: row.thumbnail_url || '',
+    }));
     container.innerHTML = '';
-    globalAnnouncements = result.data || [];
 
     if (globalAnnouncements.length === 0) {
       emptyState.classList.remove('d-none');

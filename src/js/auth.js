@@ -1,57 +1,38 @@
 // ==============================================
-// AUTH — Global sign-in state
-// Single source of truth for the signed-in user
-// across the whole site. Supports three credential
-// methods: Google OAuth (JWT), username/password
-// (regular user), and username/password (staff).
+// AUTH — Global Supabase-backed sign-in
 //
-// Subscribers wire up via onAuthChange and react
-// to user changes.
+// Single source of truth for the signed-in user across the site.
+// Wraps Supabase Auth (Google JWT, email/password) and maintains an
+// app-level "currentUser" object enriched from public.users (role,
+// department, username, method).
+//
+// Subscribers via onAuthChange react to user changes.
 // ==============================================
 
+import { db } from './db.js';
 import { decodeJwtResponse } from './utils.js';
-import { GAS_API_URL, GAS_VITAL_SOUND_URL } from './config.js';
 
-const STORAGE_KEY = 'samoUser';
+// ============================================================
+// Username convention for password accounts
+//
+// Supabase Auth requires an email. Our app supports username-only sign-up
+// for users who don't want to share an email. We synthesize an email
+// internally: "<username>@samomdkku.local". The user only ever sees /
+// types their username; the synthetic email is transparent.
+// ============================================================
 
-// Legacy keys used by pr-auth.js before the global auth refactor.
-// Kept in sync so any old code reading them keeps working.
-const LEGACY_EMAIL_KEY = 'prGoogleUserEmail';
-const LEGACY_NAME_KEY = 'prGoogleUserName';
+const PASSWORD_EMAIL_DOMAIN = 'samomdkku.local';
 
-// Magic usernames trigger a role on successful login. The backend still
-// verifies the password against its own staff endpoint; we use the username
-// only to route the verification request.
-const STAFF_ACCOUNTS = {
-  samomdkkupr: 'pr_staff',
-  samomdkkuvssound: 'vs_staff',
-  samomdkkudev: 'dev',
-};
+function usernameToEmail(username) {
+  return `${username.toLowerCase().trim()}@${PASSWORD_EMAIL_DOMAIN}`;
+}
 
-// Dev credentials are client-side because this is an internal toggle for
-// the maintainer (not a security boundary). Change to suit.
-const DEV_USERNAME = 'samomdkkudev';
-const DEV_PASSWORD = 'samo69dev';
+// ============================================================
+// State + subscribers
+// ============================================================
 
 let currentUser = null;
 const subscribers = new Set();
-
-function persist() {
-  if (currentUser) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentUser));
-    // Legacy key holds a *stable identifier* — email for Google users,
-    // "@<username>" for password users — so anything that still reads this
-    // key (e.g. PR tracking history) works for both auth methods.
-    const identifier = currentUser.email
-      || (currentUser.username ? `@${currentUser.username}` : '');
-    localStorage.setItem(LEGACY_EMAIL_KEY, identifier);
-    localStorage.setItem(LEGACY_NAME_KEY, currentUser.name || currentUser.username || '');
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(LEGACY_EMAIL_KEY);
-    localStorage.removeItem(LEGACY_NAME_KEY);
-  }
-}
 
 function notify() {
   for (const cb of subscribers) {
@@ -59,66 +40,74 @@ function notify() {
   }
 }
 
-function setUser(next) {
-  currentUser = next;
-  persist();
-  notify();
-}
+// ============================================================
+// User profile assembly
+//
+// `currentUser` = auth session info + public.users row, flattened.
+// ============================================================
 
-function defaultUser() {
+async function buildCurrentUser(session) {
+  if (!session?.user) return null;
+  const authUser = session.user;
+  const { data: profile } = await db
+    .from('users')
+    .select('id, email, username, display_name, method, role, department')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  // Profile may be null briefly right after signup if the create-on-trigger
+  // hasn't fired (or for unusual race conditions). Fall back to auth data.
   return {
-    method: 'google',  // 'google' | 'password' | 'staff'
-    username: '',
-    // Password is persisted only for method='password' so the VS form can
-    // re-submit the user's identity (the VS backend writes username+password
-    // alongside each ticket so the user can later see history). Pattern
-    // matches the existing pr-staff / vs-staff "Remember Me" remember of
-    // raw credentials in localStorage. Not a security boundary.
-    password: '',
-    email: '',
-    name: '',
-    picture: '',
-    sub: '',
-    role: 'user',      // 'user' | 'pr_staff' | 'vs_staff' | 'dev'
-    department: '',
+    id: authUser.id,
+    method: profile?.method || (authUser.app_metadata?.provider === 'google' ? 'google' : 'password'),
+    username: profile?.username || authUser.user_metadata?.username || '',
+    email: profile?.email || authUser.email || '',
+    name: profile?.display_name || authUser.user_metadata?.display_name || authUser.user_metadata?.name || '',
+    picture: authUser.user_metadata?.picture || authUser.user_metadata?.avatar_url || '',
+    sub: authUser.user_metadata?.sub || authUser.id,
+    role: profile?.role || 'user',
+    department: profile?.department || '',
+    // Password field intentionally absent — Supabase manages auth state.
   };
 }
 
-export function initAuth() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      // Backfill role/method for users stored before the role field existed.
-      currentUser = { ...defaultUser(), ...parsed };
-    } catch {
-      currentUser = null;
-    }
-  } else {
-    // Migrate from legacy PR-scoped keys if present
-    const email = localStorage.getItem(LEGACY_EMAIL_KEY);
-    const name = localStorage.getItem(LEGACY_NAME_KEY);
-    if (email && name) {
-      currentUser = { ...defaultUser(), email, name };
-      persist();
-    }
-  }
+// ============================================================
+// Public API
+// ============================================================
+
+export async function initAuth() {
+  // Pull current session (Supabase restores from storage automatically).
+  const { data: { session } } = await db.auth.getSession();
+  currentUser = await buildCurrentUser(session);
   notify();
+
+  // React to auth state changes (sign in / out / token refresh).
+  db.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = await buildCurrentUser(session);
+    notify();
+  });
 }
 
-export function signInWithCredential(credential) {
+/**
+ * Google One Tap callback handler — receives the GSI credential and
+ * exchanges it with Supabase for a session. The GSI client embeds a nonce
+ * we don't have, so we use the legacy ID-token flow with the raw JWT.
+ */
+export async function signInWithCredential(credential) {
   const payload = decodeJwtResponse(credential);
-  const prevDept = currentUser?.department || '';
-  setUser({
-    ...defaultUser(),
-    method: 'google',
-    email: payload.email || '',
-    name: payload.name || '',
-    picture: payload.picture || '',
-    sub: payload.sub || '',
-    department: prevDept,
+  const { error } = await db.auth.signInWithIdToken({
+    provider: 'google',
+    token: credential,
+    // nonce: omitted — only required when using Supabase's own GSI helper.
   });
-  return currentUser;
+  if (error) {
+    console.error('[auth] Google sign-in failed:', error.message);
+    throw new Error(error.message);
+  }
+  // onAuthStateChange will fire and update currentUser; meanwhile, update
+  // the public.users row with Google profile info on first sign-in.
+  // We defer to onAuthStateChange to avoid duplicating buildCurrentUser logic.
+  return payload;
 }
 
 export async function signInWithPassword(rawUsername, rawPassword) {
@@ -126,43 +115,12 @@ export async function signInWithPassword(rawUsername, rawPassword) {
   const password = (rawPassword || '').trim();
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
 
-  const staffRole = STAFF_ACCOUNTS[username];
-
-  if (staffRole === 'pr_staff') {
-    const res = await postJson(GAS_API_URL, {
-      action: 'verifyPRStaffLogin', username, password,
-    });
-    if (!res.success) throw new Error(res.message || 'Username หรือ Password ไม่ถูกต้อง');
-    setUser({ ...defaultUser(), method: 'staff', username, role: 'pr_staff', name: 'PR Staff' });
-    return currentUser;
+  const email = usernameToEmail(username);
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) {
+    // Supabase returns generic "Invalid login credentials". Translate.
+    throw new Error('Username หรือ Password ไม่ถูกต้อง');
   }
-
-  if (staffRole === 'vs_staff') {
-    const res = await postJson(GAS_VITAL_SOUND_URL, {
-      action: 'verifyStaffLogin', username, password,
-    });
-    if (!res.success) throw new Error(res.message || 'Username หรือ Password ไม่ถูกต้อง');
-    setUser({ ...defaultUser(), method: 'staff', username, role: 'vs_staff', name: 'VitalSound Staff' });
-    return currentUser;
-  }
-
-  if (staffRole === 'dev') {
-    if (username !== DEV_USERNAME || password !== DEV_PASSWORD) {
-      throw new Error('Username หรือ Password ไม่ถูกต้อง');
-    }
-    setUser({ ...defaultUser(), method: 'staff', username, role: 'dev', name: 'Developer' });
-    return currentUser;
-  }
-
-  // Regular user — verify against the VS backend's account check.
-  // The VS sheet doubles as the user store (rows hold username/password
-  // alongside Vital Sound tickets), so VS verifyAccount mode=login is the
-  // canonical user-account check.
-  const res = await postJson(GAS_VITAL_SOUND_URL, {
-    action: 'verifyAccount', mode: 'login', username, password,
-  });
-  if (!res.success) throw new Error(res.message || 'ไม่พบบัญชี');
-  setUser({ ...defaultUser(), method: 'password', username, password, role: 'user', name: username });
   return currentUser;
 }
 
@@ -171,21 +129,38 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   const password = (rawPassword || '').trim();
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
   if (username.length < 3) throw new Error('Username ต้องมีอย่างน้อย 3 ตัวอักษร');
-  if (password.length < 4) throw new Error('Password ต้องมีอย่างน้อย 4 ตัวอักษร');
-  if (STAFF_ACCOUNTS[username]) throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
+  if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
+  // Block reserved staff usernames (frontend check; backend enforces via
+  // unique-username constraint in public.users too).
+  if (['samomdkkupr', 'samomdkkuvssound', 'samomdkkudev'].includes(username.toLowerCase())) {
+    throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
+  }
 
-  // Backend verifyAccount mode=create checks for username collision only;
-  // the account is actually written to the sheet on first VS submission.
-  const res = await postJson(GAS_VITAL_SOUND_URL, {
-    action: 'verifyAccount', mode: 'create', username, password,
+  const email = usernameToEmail(username);
+  const { error } = await db.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        method: 'password',
+        username,
+        display_name: username,
+      },
+    },
   });
-  if (!res.success) throw new Error(res.message || 'ไม่สามารถสมัครสมาชิกได้');
-  setUser({ ...defaultUser(), method: 'password', username, password, role: 'user', name: username });
+  if (error) {
+    if (error.message?.toLowerCase().includes('already')) {
+      throw new Error('Username นี้มีผู้ใช้งานแล้ว');
+    }
+    throw new Error(error.message || 'สมัครสมาชิกไม่สำเร็จ');
+  }
   return currentUser;
 }
 
-export function signOut() {
-  setUser(null);
+export async function signOut() {
+  await db.auth.signOut();
+  currentUser = null;
+  notify();
 }
 
 export function getUser() { return currentUser; }
@@ -193,28 +168,27 @@ export function isSignedIn() { return currentUser !== null; }
 export function getRole() { return currentUser?.role || null; }
 export function getDepartment() { return currentUser?.department || ''; }
 
-export function setDepartment(dept) {
+export async function setDepartment(dept) {
   if (!currentUser) return;
-  setUser({ ...currentUser, department: dept || '' });
+  const { error } = await db
+    .from('users')
+    .update({ department: dept || null })
+    .eq('id', currentUser.id);
+  if (error) {
+    console.error('[auth] setDepartment failed:', error.message);
+    return;
+  }
+  currentUser = { ...currentUser, department: dept || '' };
+  notify();
 }
 
 /**
  * Subscribe to auth changes. The callback is invoked immediately with the
- * current state, then again on every sign-in / sign-out / department change.
+ * current state, then again on every sign-in / sign-out / profile update.
  * Returns an unsubscribe function.
  */
 export function onAuthChange(cb) {
   subscribers.add(cb);
   try { cb(currentUser); } catch (e) { console.error('auth subscriber error', e); }
   return () => subscribers.delete(cb);
-}
-
-async function postJson(url, body) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error('เชื่อมต่อล้มเหลว');
-  return res.json();
 }

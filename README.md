@@ -17,8 +17,8 @@ This project recently underwent a major architectural refactor to move away from
 *   **Core:** HTML5, CSS3 (Vanilla), ES6+ JavaScript
 *   **Build Tool:** [Vite](https://vitejs.dev/) (Fast development server and optimized production builds)
 *   **Styling:** Bootstrap 5 (CSS framework) + Custom CSS Modules
-*   **Backend / API:** Google Apps Script (`.gs` files acting as serverless Webhooks/APIs)
-*   **Libraries:** Quill.js (Rich Text), SweetAlert2 (Popups), Google Identity Services (OAuth)
+*   **Backend / API:** Migrating from Google Apps Script (`appscript/*.gs`) to [Supabase](https://supabase.com/) (Postgres + Auth + RLS). Phase 1 (auth + announcements) is on Supabase; PR/VS still on GAS for now. See `docs/SUPABASE-MIGRATION.md`.
+*   **Libraries:** Quill.js (Rich Text), Google Identity Services (OAuth), `@supabase/supabase-js`
 
 ### Folder Structure
 
@@ -62,6 +62,21 @@ Clone the repository and install the dependencies:
 ```bash
 npm install
 ```
+
+### 1.5 Supabase setup (required)
+Copy `.env.example` → `.env.local` and fill in your Supabase project URL +
+anon key from the Supabase dashboard. Then apply the SQL migrations from
+`supabase/migrations/` to your project (paste each file into the SQL
+editor and Run, in order). See `docs/SUPABASE-MIGRATION.md` for the full
+walkthrough.
+
+### 1.6 Migrate existing data (one-time)
+Export each prod Google Sheet as CSV into `sheetexample/` (gitignored),
+add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`, then:
+```bash
+npm run migrate
+```
+This is idempotent — safe to rerun.
 
 ### 2. Local Development Server
 Start the Vite development server with hot-module replacement (HMR):

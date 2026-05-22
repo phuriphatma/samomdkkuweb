@@ -7,3 +7,8 @@ vssound_code.gs
 
 # Local samples / exports of real production data — never commit
 sheetexample/
+
+# Environment files — secrets live here
+.env
+.env.local
+.env.*.local

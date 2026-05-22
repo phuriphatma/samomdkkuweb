@@ -1,10 +1,11 @@
 # Supabase Migration — Step-by-Step Plan
 
-Status: **plan only** (not started). This is the playbook for moving from
-the current Google Sheets + Apps Script backend to Supabase
-(Postgres + Edge Functions + Auth + Storage) **without data loss**.
+Status: **Phase 1 in code, not yet deployed.** See the phase tracker at the
+bottom of this doc for what's done and what's left.
 
-Expected timeline: ~1-2 weeks of focused work.
+This is the playbook for moving from the current Google Sheets + Apps
+Script backend to Supabase (Postgres + Edge Functions + Auth + Storage)
+**without data loss**.
 
 ## Why migrate
 
@@ -276,3 +277,84 @@ prod perspective, but recoverable manually from Supabase if needed.
 - Analytics / reporting dashboards on the new schema
 - Per-department permission granularity (currently single `role` field)
 - Bot user that posts the Discord notifications under a stable identity
+
+---
+
+## Phase tracker (current implementation status)
+
+### ✅ Phase 1 — Foundation (done in this branch)
+
+- `@supabase/supabase-js` + `dotenv` installed
+- `src/js/db.js` shared client; reads `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
+- `.env.example` documents required env vars
+- `supabase/migrations/0001_initial_schema.sql` — full schema:
+  - `users` (linked to `auth.users` via trigger)
+  - `announcements` + `pr_tickets` + `vs_tickets` + `pr_agents`
+  - RLS policies on every table
+  - Role helper functions
+- `supabase/migrations/0002_seed_staff_accounts.sql` — reserved staff usernames table
+- `tools/migrate-from-sheets.mjs` (`npm run migrate`) — idempotent CSV→Supabase import
+- `src/js/auth.js` rewritten on top of Supabase Auth (Google + password)
+- `src/js/announcements.js` reads/writes via Supabase
+- PR submitter identifier (`pr-tracking.js`, form auth) sourced from
+  unified auth state
+
+### ⏳ Phase 2 — PR data layer (next session)
+
+PR form submit + tracking + staff dashboard still talk to GAS. Move them
+to Supabase:
+
+- `src/js/pr-form.js handleSubmit` → `db.from('pr_tickets').insert(...)`
+- `src/js/pr-tracking.js trackPRTicket / loadPRHistory` → `db.from('pr_tickets').select(...)`
+- `src/js/pr-staff.js fetchPRStaffTickets / submitPRStaffAction / deletePRStaffAction` → `db.from('pr_tickets').select/update/delete`
+- `pr-staff.js loadGlobalAgents / saveGlobalAgents` → `db.from('pr_agents')`
+- Discord notification: call a Supabase Edge Function (Phase 5) OR keep
+  thin GAS-only `notify` action
+
+### ⏳ Phase 3 — VS data layer (next session)
+
+Same shape as Phase 2, for VS:
+
+- `src/js/vs-form.js handleVsFormSubmit` → `db.from('vs_tickets').insert(...)`
+- `src/js/vs-tracking.js trackWithTicketId / loginToViewHistory` → `db.from('vs_tickets').select(...)`
+- `src/js/vs-staff.js fetchStaffTickets / submitStaffAction` → `db.from('vs_tickets').select/update`
+- VS form auto-fill: no longer needs synthetic username/password; tickets
+  are linked by `submitter_id = auth.uid()` directly.
+
+### ⏳ Phase 4 — File storage (later)
+
+- Replace `src/js/uploads.js uploadImageToDrive` with Supabase Storage uploads
+- Migrate existing Drive URLs in `pr_tickets.file_url` (one-time copy script)
+- Public read policies on the storage bucket
+
+### ⏳ Phase 5 — Discord notifications (later)
+
+Two options:
+
+- Keep `appscript/*.gs` purely as a Discord-webhook proxy. Frontend calls
+  GAS with `action: 'notify', payload: {...}`. Tickets stored in Supabase.
+- Move Discord calls to a Supabase Edge Function triggered by `pr_tickets`
+  insert/update.
+
+---
+
+## Quick-start for setting up Supabase (Phase 1)
+
+1. Create a new project at https://supabase.com/dashboard (free tier).
+   Region: Singapore.
+2. Settings → API → copy:
+   - **Project URL** → paste into `.env.local` as `VITE_SUPABASE_URL`
+   - **anon public key** → `VITE_SUPABASE_ANON_KEY`
+   - **service_role secret** → `SUPABASE_SERVICE_ROLE_KEY` (used only by
+     `npm run migrate`, never exposed to the browser)
+3. SQL Editor → paste `supabase/migrations/0001_initial_schema.sql` →
+   Run. Then `0002_seed_staff_accounts.sql` → Run.
+4. Authentication → Providers → enable **Google** (use your existing
+   Google Cloud OAuth credentials).
+5. Authentication → URL Configuration → add your Cloudflare Pages preview
+   URL + production URL to "Site URL" and "Redirect URLs".
+6. Place CSV exports of the prod sheets into `sheetexample/` (gitignored)
+   and run `npm run migrate`.
+7. `npm run dev` → test sign-in (Google + password) and announcement
+   create/edit. PR + VS still hit GAS — that's expected for Phase 1.
+

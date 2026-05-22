@@ -12,7 +12,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, getUser as authGetUser } from './auth.js';
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, viewAnnouncement, cancelEdit, editCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
@@ -202,27 +202,19 @@ window.onVSAdminRoleChange = async () => {
   await enterVSStaffDashboard();
 };
 
-// VS track: load history using the global auth identity. Synthesizes the
-// same username/password the form would have submitted with — that's what
-// the VS backend keys on when looking up a user's tickets.
+// VS track: load history using the global auth identity. VS submission/
+// lookup is still on GAS in Phase 1, keyed by (username, password). We
+// pass the same synthesized pair we used at submit time (email/@username
+// + auth user UUID). Phase 3 migrates VS storage to Supabase and the
+// password becomes irrelevant — auth.uid() is the FK.
 window.loadVSHistoryFromAuth = () => {
-  const userJson = localStorage.getItem('samoUser');
   const alertBox = document.getElementById('trackAlert');
-  if (!userJson) return;
-  let user;
-  try { user = JSON.parse(userJson); } catch { return; }
+  const user = authGetUser();
+  if (!user) return;
 
-  const synthUser = user.method === 'password'
-    ? (user.username || '')
-    : (user.email || user.username || '');
-  const synthPass = user.method === 'password'
-    ? (user.password || '')
-    : (user.sub || user.email || '');
+  const synthUser = user.email || (user.username ? `@${user.username}` : '');
+  const synthPass = user.id || '';
 
-  // Guard: if the stored user is missing credentials (e.g. signed in before
-  // the password field was added to defaultUser), tracking can't work until
-  // they sign out + back in. Surface a clear, actionable error instead of
-  // letting it fall through to a confusing "ไม่พบบัญชี" from the backend.
   if (!synthUser || !synthPass) {
     if (alertBox) {
       alertBox.classList.remove('d-none');
@@ -233,9 +225,6 @@ window.loadVSHistoryFromAuth = () => {
     return;
   }
 
-  // Reuse the existing loginToViewHistory flow by populating its inputs.
-  // (The form lives only in the logged-out block but the function reads
-  // those IDs directly, so we set them transiently then call.)
   const u = document.getElementById('trackUsername');
   const p = document.getElementById('trackPassword');
   if (u) u.value = synthUser;
@@ -507,13 +496,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // VS form auth wrapper: hide for ANY signed-in user. We synthesize a
-    // username/password pair from the global identity so the existing VS
-    // backend (which keys history by username+password) can find their
-    // tickets later.
-    //   - Password users → use their actual username + password.
-    //   - Google users → use email as username, Google sub as password
-    //     (stable, unique to that Google account).
+    // VS form auth wrapper: hide for ANY signed-in user. The VS submit/track
+    // endpoints (still on GAS in Phase 1) key by (username, password); since
+    // Supabase Auth manages passwords now, we synthesize a stable pair from
+    // the user's UUID-based identity:
+    //   - username = email (Google) or "@<username>" (password)
+    //   - password = user.id (Supabase auth UUID)
+    // Old VS tickets created under the legacy plaintext flow won't be
+    // tracked by this — they migrate in Phase 3.
     const vsWrapper = document.getElementById('vsFormAuthWrapper');
     if (vsWrapper) {
       if (user) {
@@ -521,12 +511,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const vsLoginRadio = document.getElementById('vsAccLogin');
         const vsUser = document.getElementById('vsUsername');
         const vsPass = document.getElementById('vsPassword');
-        const synthUser = user.method === 'password'
-          ? (user.username || '')
-          : (user.email || user.username || '');
-        const synthPass = user.method === 'password'
-          ? (user.password || '')
-          : (user.sub || user.email || '');
+        const synthUser = user.email || (user.username ? `@${user.username}` : '');
+        const synthPass = user.id || '';
         if (vsLoginRadio) vsLoginRadio.checked = true;
         if (vsUser) vsUser.value = synthUser;
         if (vsPass) vsPass.value = synthPass;
@@ -553,7 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // PR form reflects global auth state into its own DOM
   initPrAuth();
 
-  // Restore from localStorage (notifies all subscribers above)
+  // Restore the Supabase auth session (it's persisted in localStorage by
+  // the supabase-js client). Async, but we don't await — subscribers will
+  // be notified when the session is ready.
   initAuth();
 
   // Initialize PR form event listeners
