@@ -100,7 +100,17 @@ function parseCSV(text) {
       else { field += c; }
     }
   }
-  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+  // Flush trailing row. The original guard was "if field OR cur is non-
+  // empty" — but a file ending with a comma followed by an empty quoted
+  // field can leave cur populated and field empty (or vice versa).
+  // We push if EITHER is non-empty OR if we're still mid-row mid-quote.
+  if (field.length || cur.length || inQuotes) {
+    cur.push(field);
+    rows.push(cur);
+  }
+  if (inQuotes) {
+    console.warn('[csv] WARNING: EOF reached inside a quoted field — file may be malformed; last row may have absorbed earlier rows.');
+  }
   return rows;
 }
 
@@ -112,9 +122,12 @@ function readCSV(filename) {
   }
   const raw = fs.readFileSync(p, 'utf-8');
   const rows = parseCSV(raw);
+  const debug = process.env.MIGRATE_DEBUG === '1' || process.env.MIGRATE_DEBUG === 'true';
+  if (debug) console.log(`[csv] ${filename}: ${rows.length} total rows (incl. header)`);
   if (rows.length < 2) return { header: [], data: [] };
   const header = rows[0].map((h) => h.trim());
-  const data = rows.slice(1)
+  const beforeFilter = rows.slice(1);
+  const data = beforeFilter
     .filter((r) => r.some((c) => c && c.trim()))
     .map((r) => {
       // Expose both header-keyed access (obj['Status']) AND positional
@@ -125,6 +138,14 @@ function readCSV(filename) {
       header.forEach((h, i) => { obj[h] = (r[i] ?? '').trim(); });
       return obj;
     });
+  if (debug) {
+    console.log(`[csv] ${filename}: ${beforeFilter.length} data rows, ${data.length} after filter`);
+    const filteredOut = beforeFilter.length - data.length;
+    if (filteredOut > 0) console.log(`[csv] ${filename}: ${filteredOut} rows filtered out as all-empty`);
+    // Print first column (usually ID) of every row to make sure the
+    // expected IDs are present.
+    console.log(`[csv] ${filename} IDs:`, data.map((d) => d._raw?.[0] || '<empty>').join(', '));
+  }
   return { header, data };
 }
 
