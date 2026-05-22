@@ -51,13 +51,16 @@
                   </div>
                 </div>
 
-                <!-- ส่วนแสดงผลสถานะ Login ด้วย Google (ใช้แชร์กันทั้งหน้าส่งงานและติดตามสถานะ) -->
+                <!-- ส่วนแสดงผลสถานะ Login (auth now routed via the navbar sign-in modal;
+                     this section just nudges users when they pick the Google radio). -->
                 <div id="prGoogleAuthContainer" class="d-none p-4 rounded text-center"
                   style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
                   <div id="prNotLoggedInState">
-                    <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบด้วย Google Account เพื่อยืนยันตัวตน</p>
-                    <div class="g_id_signin d-flex justify-content-center" data-type="standard" data-shape="rectangular"
-                      data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
+                    <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบเพื่อยืนยันตัวตน</p>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                      data-bs-target="#signinModal">
+                      <i class="bi bi-box-arrow-in-right me-1"></i> เปิดหน้าเข้าสู่ระบบ
+                    </button>
                   </div>
 
                   <div id="prLoggedInState" class="d-none">
