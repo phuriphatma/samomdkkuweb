@@ -207,15 +207,32 @@ window.onVSAdminRoleChange = async () => {
 // the VS backend keys on when looking up a user's tickets.
 window.loadVSHistoryFromAuth = () => {
   const userJson = localStorage.getItem('samoUser');
+  const alertBox = document.getElementById('trackAlert');
   if (!userJson) return;
   let user;
   try { user = JSON.parse(userJson); } catch { return; }
+
   const synthUser = user.method === 'password'
     ? (user.username || '')
     : (user.email || user.username || '');
   const synthPass = user.method === 'password'
     ? (user.password || '')
     : (user.sub || user.email || '');
+
+  // Guard: if the stored user is missing credentials (e.g. signed in before
+  // the password field was added to defaultUser), tracking can't work until
+  // they sign out + back in. Surface a clear, actionable error instead of
+  // letting it fall through to a confusing "ไม่พบบัญชี" from the backend.
+  if (!synthUser || !synthPass) {
+    if (alertBox) {
+      alertBox.classList.remove('d-none');
+      alertBox.innerHTML = 'ข้อมูลการเข้าสู่ระบบไม่สมบูรณ์ กรุณา'
+        + '<a href="#" onclick="event.preventDefault(); samoSignOut();" class="alert-link">ออกจากระบบ</a>'
+        + ' แล้วเข้าสู่ระบบใหม่อีกครั้ง';
+    }
+    return;
+  }
+
   // Reuse the existing loginToViewHistory flow by populating its inputs.
   // (The form lives only in the logged-out block but the function reads
   // those IDs directly, so we set them transiently then call.)

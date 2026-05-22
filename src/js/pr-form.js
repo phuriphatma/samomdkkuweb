@@ -376,6 +376,10 @@ async function handlePrFormSubmit(e) {
   data.prAccountMode = accMode;
   data.prSubmitterEmail = document.getElementById('prGoogleUserEmail').value || 'Guest';
   data.uploadedUrls = uploadedUrls;
+  // Dev-only: when checked, the backend skips the Discord webhook entirely.
+  // Field is gated by .dev-only-feature visibility but we send the value
+  // regardless — the backend treats "not present" as false.
+  data.skipDiscord = document.getElementById('skipDiscord')?.checked === true;
 
   try {
     const response = await fetch(targetUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });

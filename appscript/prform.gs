@@ -144,7 +144,11 @@ function handlePRSubmission(data) {
     otherPlatforms, otherPlatformReason // 🟢 คอลัมน์ 22-23: Other platform + เหตุผล
   ]);
 
-  sendDiscordNotification(data, ticketId);
+  // skipDiscord = dev-only flag: when true, suppress the webhook so test
+  // submissions don't spam the team. The ticket is still recorded.
+  if (data.skipDiscord !== true && data.skipDiscord !== 'true') {
+    sendDiscordNotification(data, ticketId);
+  }
   return createResponse({ success: true, message: 'บันทึกสำเร็จ!', ticketId: ticketId });
 }
 

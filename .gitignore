@@ -4,3 +4,6 @@ pr_code.gs
 vssound_code.gs
 .claude/
 .DS_Store
+
+# Local samples / exports of real production data — never commit
+sheetexample/

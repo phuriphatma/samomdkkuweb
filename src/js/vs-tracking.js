@@ -47,9 +47,20 @@ export async function loginToViewHistory() {
   const btn = document.getElementById('btnTrackLogin');
   if (!user || !pass) { alertBox.classList.remove('d-none'); alertBox.innerText = 'กรุณากรอก Username และ Password'; return; }
 
-  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังเข้าสู่ระบบ...'; alertBox.classList.add('d-none');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังเข้าสู่ระบบ...'; }
+  alertBox.classList.add('d-none');
+
+  // trustClient signals to the backend that the caller already verified the
+  // user via the global auth modal — empty ticket results should mean "no
+  // tickets yet" rather than "wrong credentials". Set by loadVSHistoryFromAuth.
+  const trustClient = !!localStorage.getItem('samoUser');
+
   try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'getUserHistory', username: user, password: pass }) });
+    const res = await fetch(GAS_VITAL_SOUND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getUserHistory', username: user, password: pass, trustClient }),
+    });
     const result = await res.json();
     if (result.success) {
       loggedInUserTickets = result.tickets;
@@ -59,7 +70,7 @@ export async function loginToViewHistory() {
       document.getElementById('vsUserHistoryBox').classList.remove('d-none');
     } else { alertBox.classList.remove('d-none'); alertBox.innerText = result.message; }
   } catch (e) { alertBox.classList.remove('d-none'); alertBox.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย'; }
-  finally { btn.disabled = false; btn.innerHTML = 'เข้าสู่ระบบ'; }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = 'เข้าสู่ระบบ'; } }
 }
 
 // --------------------------------------------------

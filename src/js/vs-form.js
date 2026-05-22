@@ -154,6 +154,9 @@ async function handleVsFormSubmit(e) {
     vsDepartment: formData.get('vsDepartment'),
     vsEmergency: formData.get('vsEmergency') === 'true',
     vsSilentNotify: formData.get('vsSilentNotify') === 'true',
+    // Dev-only: backend skips Discord entirely when true. UI gated by
+    // .dev-only-feature visibility; backend treats missing as false.
+    vsSkipDiscord: document.getElementById('vsSkipDiscord')?.checked === true,
   };
 
   try {

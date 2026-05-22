@@ -1,0 +1,278 @@
+# Supabase Migration — Step-by-Step Plan
+
+Status: **plan only** (not started). This is the playbook for moving from
+the current Google Sheets + Apps Script backend to Supabase
+(Postgres + Edge Functions + Auth + Storage) **without data loss**.
+
+Expected timeline: ~1-2 weeks of focused work.
+
+## Why migrate
+
+| Pain                                                  | Supabase fixes it                                    |
+|-------------------------------------------------------|------------------------------------------------------|
+| Passwords stored in plaintext in `Tickets` sheet      | Supabase Auth handles hashing properly               |
+| No unified user table; PR/VS each invent their own    | One `users` table with foreign-key references        |
+| `getStaffPRTickets` returns *every* row, slow at scale| SQL with proper indexes                              |
+| Google Drive image URLs blocked for embedding         | Supabase Storage public URLs work in `<img>` directly|
+| Apps Script request size / time limits                | Postgres has no such constraints                     |
+| No real auth state on the backend                     | RLS (row-level security) gates every read/write      |
+| Hard to script schema changes                         | Versioned SQL migrations                             |
+
+## Pre-migration prerequisites
+
+1. **Decide what migrates** — out of scope for v1 likely: Discord
+   webhooks (Supabase Edge Functions can call them), file uploads
+   currently on Drive (re-host on Supabase Storage).
+2. **Lock the production schema.** Confirm with stakeholders what
+   columns must survive — don't migrate stale columns.
+3. **Backup everything.** Export each sheet as CSV via File → Download →
+   Comma-separated values. Store the CSVs in a private folder.
+
+## Step 1 — Stand up Supabase
+
+```bash
+# Free tier, no credit card.
+# Create a new project at https://supabase.com/dashboard
+# Region: choose Singapore (closest to KKU).
+```
+
+Note the **project URL** and **anon public key** from Settings → API.
+
+## Step 2 — Define the schema
+
+In Supabase SQL editor, create the tables:
+
+```sql
+-- Single user identity. Supabase Auth provides auth.users; we
+-- mirror profile data here for app-specific fields.
+create table public.users (
+  id              uuid primary key references auth.users(id),
+  email           text unique,
+  display_name    text not null,
+  role            text not null default 'user'
+                  check (role in ('user', 'pr_staff', 'vs_staff', 'dev')),
+  department      text,
+  created_at      timestamptz not null default now(),
+  last_seen_at    timestamptz
+);
+
+create table public.announcements (
+  id              bigserial primary key,
+  title           text not null,
+  content         text not null,        -- HTML from Quill
+  department      text not null,
+  thumbnail_url   text,
+  status          text not null default 'approved',
+  created_by      uuid references public.users(id),
+  created_at      timestamptz not null default now()
+);
+
+create table public.pr_tickets (
+  id              text primary key,     -- "PR-XXXXXX" matches current scheme
+  submitter_id    uuid references public.users(id),
+  department      text not null,
+  contact         text,
+  content_name    text not null,
+  job_type        text,
+  platforms       text[],
+  posting_channel text,
+  publish_at      timestamptz,
+  is_rush         boolean default false,
+  rush_reason     text,
+  brief           text,
+  caption         text,
+  file_urls       text[],
+  silent_notify   boolean default false,
+  project_account text,
+  copost_with     text,
+  status          text not null default 'รอ PR รับเรื่อง',
+  remarks         jsonb default '[]'::jsonb,
+  assignees       text[] default '{}',
+  other_platforms text[],
+  other_platform_reason text,
+  created_at      timestamptz not null default now()
+);
+
+create table public.vs_tickets (
+  id              text primary key,     -- "VS-XXXXXX"
+  submitter_id    uuid references public.users(id),
+  display_name    text,                 -- nullable for anonymous reports
+  year            text,
+  problem         text not null,        -- HTML from Quill
+  target_dept     text not null,
+  requested_dept  text,
+  status          text not null default 'รอ SE รับเรื่อง',
+  is_emergency    boolean default false,
+  remarks         jsonb default '[]'::jsonb,
+  created_at      timestamptz not null default now()
+);
+```
+
+Add **RLS policies**:
+
+```sql
+alter table public.users enable row level security;
+alter table public.announcements enable row level security;
+alter table public.pr_tickets enable row level security;
+alter table public.vs_tickets enable row level security;
+
+-- Anyone authenticated can read announcements.
+create policy "announcements: read" on public.announcements
+  for select using (true);
+
+-- Only pr_staff/dev can write announcements.
+create policy "announcements: write" on public.announcements
+  for all using (
+    exists (select 1 from public.users u
+            where u.id = auth.uid()
+              and u.role in ('pr_staff', 'dev'))
+  );
+
+-- PR tickets: submitters see their own; pr_staff/dev see all.
+create policy "pr_tickets: read own" on public.pr_tickets
+  for select using (
+    submitter_id = auth.uid()
+    or exists (select 1 from public.users u
+               where u.id = auth.uid()
+                 and u.role in ('pr_staff', 'dev'))
+  );
+
+-- (Similar policies for vs_tickets — VS staff sees own role's tickets.)
+```
+
+## Step 3 — Migrate data
+
+Export current sheet data as CSV (one CSV per sheet). Transform with a
+local Python/Node script — match each existing row to a `users` row
+(create new users when not found), then `psql \copy` the rows in.
+
+Sketch:
+
+```python
+# migrate.py
+import csv, uuid, psycopg2
+conn = psycopg2.connect(SUPABASE_DB_URL)
+cur = conn.cursor()
+
+users = {}  # identifier -> uuid
+
+def ensure_user(identifier, display_name, method='password'):
+    if identifier in users: return users[identifier]
+    uid = uuid.uuid4()
+    cur.execute(
+        "insert into users (id, display_name, role) values (%s, %s, %s)",
+        (uid, display_name, 'user'))
+    users[identifier] = uid
+    return uid
+
+with open('Submissions.csv') as f:
+    for row in csv.DictReader(f):
+        submitter = row['submitterEmail'] or 'guest@unknown'
+        uid = ensure_user(submitter, submitter)
+        cur.execute("""insert into pr_tickets
+            (id, submitter_id, department, content_name, ...)
+            values (%s, %s, %s, %s, ...)""", (...))
+
+conn.commit()
+```
+
+**Critical:** test the migration against a **copy** of the prod sheets
+first. Run it twice (idempotency check). Verify counts match.
+
+## Step 4 — Rewrite frontend data layer
+
+Add `@supabase/supabase-js`:
+
+```bash
+npm install @supabase/supabase-js
+```
+
+Replace `GAS_API_URL` / `GAS_VITAL_SOUND_URL` in `config.js` with a
+Supabase client:
+
+```js
+// src/js/db.js
+import { createClient } from '@supabase/supabase-js';
+export const db = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+```
+
+Each module's `fetch(GAS_*, ...)` call gets replaced with the equivalent
+Supabase call. Auth becomes:
+
+```js
+// auth.js
+db.auth.signInWithPassword({ email, password });
+db.auth.signInWithIdToken({ provider: 'google', token: googleJWT });
+```
+
+This is mechanical but tedious — budget ~3 days.
+
+## Step 5 — File storage
+
+Move from the `uploadPRFile` GAS action to Supabase Storage:
+
+```js
+const { data, error } = await db.storage
+  .from('pr-uploads')
+  .upload(`${ticketId}/${file.name}`, file);
+const publicUrl = db.storage.from('pr-uploads').getPublicUrl(data.path).data.publicUrl;
+```
+
+Existing Drive URLs in the migrated `pr_tickets.file_urls` stay valid
+during the cutover (they're public links), but plan a one-time job to
+copy historical files into Supabase Storage if you want to fully retire
+the Drive folder.
+
+## Step 6 — Discord webhooks via Edge Functions
+
+The current `sendDiscordNotification` runs inside Apps Script. Port to a
+Supabase Edge Function (Deno):
+
+```ts
+// supabase/functions/notify-discord/index.ts
+Deno.serve(async (req) => {
+  const { webhook_url, payload } = await req.json();
+  await fetch(webhook_url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return new Response('ok');
+});
+```
+
+Trigger from a Postgres trigger on `pr_tickets` insert.
+
+## Step 7 — Cutover
+
+This is the most sensitive step. Order matters:
+
+1. **Freeze writes** to the production GAS (display a maintenance banner
+   on the live site).
+2. Run the migration script against the frozen sheets.
+3. Spot-check: random sample of 10 PR tickets and 10 VS tickets — do
+   they appear in Supabase with the right submitter, content, status?
+4. Flip Cloudflare Pages env vars (`VITE_SUPABASE_*`) for the production
+   environment and trigger a redeploy.
+5. Unfreeze the site.
+6. **Keep the old sheets read-only for 30 days** — they're your rollback.
+
+## Rollback
+
+If something blows up after cutover:
+
+1. Revert the Cloudflare env vars to the GAS URLs.
+2. Trigger a redeploy.
+3. Restore the GAS deployment.
+
+Any data written to Supabase during the broken window is lost from the
+prod perspective, but recoverable manually from Supabase if needed.
+
+## Out of scope (for this migration)
+
+- Analytics / reporting dashboards on the new schema
+- Per-department permission granularity (currently single `role` field)
+- Bot user that posts the Discord notifications under a stable identity

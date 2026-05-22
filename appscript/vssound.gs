@@ -143,16 +143,21 @@ function handleVitalSoundSubmit(data) {
 
   sheet.appendRow(rowData);
 
-  // แจ้ง SE เสมอ (ยกเว้นฉุกเฉิน แจ้งอุปที่เลือก)
-  // ส่ง customerRequestedDept เข้าไปด้วย เพื่อแสดงในข้อความ Discord
-  sendDiscordNotification(
-    ticketId, 
-    data.vsProblem, 
-    responsibleDept,        // webhook ของใคร (SE หรืออุปฯ กรณีฉุกเฉิน)
-    isEmergency, 
-    data.vsSilentNotify,
-    customerRequestedDept   // ฝ่ายที่ผู้ใช้ขอ (แสดงในข้อความแจ้งเตือน)
-  );
+  // vsSkipDiscord = dev-only flag: suppress webhook for test submissions.
+  // Ticket is still recorded so it appears in admin dashboards.
+  const skipDiscord = (data.vsSkipDiscord === true || data.vsSkipDiscord === 'true');
+  if (!skipDiscord) {
+    // แจ้ง SE เสมอ (ยกเว้นฉุกเฉิน แจ้งอุปที่เลือก)
+    // ส่ง customerRequestedDept เข้าไปด้วย เพื่อแสดงในข้อความ Discord
+    sendDiscordNotification(
+      ticketId,
+      data.vsProblem,
+      responsibleDept,
+      isEmergency,
+      data.vsSilentNotify,
+      customerRequestedDept
+    );
+  }
 
   return { success: true, message: `ระบบบันทึกปัญหาของคุณเรียบร้อยแล้ว\nTicket ID: ${ticketId}`, ticketId: ticketId };
 }
@@ -222,9 +227,19 @@ function getUserHistory(data) {
   if(isLoginValid) {
     tickets.reverse(); // เอาอันใหม่ขึ้นก่อน
     return { success: true, tickets: tickets };
-  } else {
-    return { success: false, message: "ไม่พบบัญชีผู้ใช้นี้ หรือรหัสผ่านไม่ถูกต้อง" };
   }
+
+  // No ticket row matched the credentials. Two real cases:
+  // (a) account exists in some other system but never submitted a ticket
+  //     → "ยังไม่มีประวัติ"
+  // (b) credentials genuinely don't exist → "ไม่พบบัญชี"
+  // We can't fully distinguish without a Users sheet, but if the caller
+  // sends `trustClient: true` (only set by our authenticated frontend
+  // after global sign-in), treat empty results as case (a).
+  if (data.trustClient === true || data.trustClient === 'true') {
+    return { success: true, tickets: [] };
+  }
+  return { success: false, message: "ไม่พบบัญชีผู้ใช้นี้ หรือรหัสผ่านไม่ถูกต้อง" };
 }
 
 // ------------------------------------------
