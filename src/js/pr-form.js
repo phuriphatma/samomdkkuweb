@@ -21,6 +21,49 @@ function generatePRTicketId() {
   return `PR-${suffix}`;
 }
 
+// ----------------------------------------------------
+// Idempotent PR insert with retry on stall.
+// Two attempts, 12s timeout each, session refresh between attempts.
+// PK collision on retry = first attempt actually succeeded → success.
+// ----------------------------------------------------
+async function insertPRTicketIdempotent(row) {
+  const TIMEOUT_MS = 12000;
+  let lastErr;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const insertPromise = db.from('pr_tickets').insert(row);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`timeout-${attempt}`)), TIMEOUT_MS),
+      );
+      const { error } = await Promise.race([insertPromise, timeoutPromise]);
+      if (!error) return;
+      // Postgres unique_violation: ticket id already exists. On a retry
+      // this means attempt 1 actually succeeded — treat as success.
+      if (attempt > 1 && (error.code === '23505' || /duplicate/i.test(error.message || ''))) {
+        console.warn('[pr] retry detected first attempt succeeded; ticket exists');
+        return;
+      }
+      throw error;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 2) break;
+      console.warn(`[pr] insert attempt ${attempt} failed (${e.message || e}); refreshing session + retrying`);
+      // Force a fresh token before the next attempt. Bounded so a stuck
+      // refresh doesn't itself become the hang.
+      await Promise.race([
+        db.auth.refreshSession(),
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]).catch(() => {});
+    }
+  }
+  // Rephrase the final error for the user.
+  const msg = (lastErr && lastErr.message) || String(lastErr);
+  if (/timeout/i.test(msg)) {
+    throw new Error('การส่งใช้เวลานานเกินไป กรุณาลองอีกครั้งหรือเช็คการเชื่อมต่อ');
+  }
+  throw lastErr;
+}
+
 let lastJobType = '';
 
 // --------------------------------------------------
@@ -436,15 +479,14 @@ async function handlePrFormSubmit(e) {
   const skipDiscord = document.getElementById('skipDiscord')?.checked === true;
 
   try {
-    // Race the insert against a 30s timeout. Without this, a stalled
-    // network or hung token refresh can leave the form locked in
-    // "กำลังสร้าง Ticket งาน" forever — neither resolves nor rejects.
-    const insertPromise = db.from('pr_tickets').insert(row);
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('การส่งใช้เวลาเกินกำหนด (30s) — ลองอีกครั้ง หรือเช็คการเชื่อมต่อ')), 30000),
-    );
-    const { error: insertErr } = await Promise.race([insertPromise, timeoutPromise]);
-    if (insertErr) throw insertErr;
+    // Insert with a 12s-per-attempt timeout and one retry. supabase-js
+    // sometimes stalls on background token refresh, leaving requests
+    // pending until they hit our timeout. The retry forces a fresh
+    // session token; idempotency comes from the client-generated id —
+    // if attempt 1 actually succeeded but appeared hung, attempt 2 hits
+    // the PK unique-violation (Postgres code 23505) and we treat it as
+    // success.
+    await insertPRTicketIdempotent(row);
 
     // Fire-and-forget Discord notification. Uses the unified notify
     // helper so we can swap backends (GAS ↔ Edge Function) in one place.

@@ -17,6 +17,40 @@ function generateVSTicketId() {
   return `VS-${(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 
+// Idempotent VS insert with retry on stall (see pr-form.js for rationale).
+async function insertVSTicketIdempotent(row) {
+  const TIMEOUT_MS = 12000;
+  let lastErr;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const insertPromise = db.from('vs_tickets').insert(row);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`timeout-${attempt}`)), TIMEOUT_MS),
+      );
+      const { error } = await Promise.race([insertPromise, timeoutPromise]);
+      if (!error) return;
+      if (attempt > 1 && (error.code === '23505' || /duplicate/i.test(error.message || ''))) {
+        console.warn('[vs] retry detected first attempt succeeded; ticket exists');
+        return;
+      }
+      throw error;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 2) break;
+      console.warn(`[vs] insert attempt ${attempt} failed (${e.message || e}); refreshing session + retrying`);
+      await Promise.race([
+        db.auth.refreshSession(),
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]).catch(() => {});
+    }
+  }
+  const msg = (lastErr && lastErr.message) || String(lastErr);
+  if (/timeout/i.test(msg)) {
+    throw new Error('การส่งใช้เวลานานเกินไป กรุณาลองอีกครั้งหรือเช็คการเชื่อมต่อ');
+  }
+  throw lastErr;
+}
+
 let isAccountVerified = false;
 let vsQuill = null;
 
@@ -186,8 +220,7 @@ async function handleVsFormSubmit(e) {
   const skipDiscord = document.getElementById('vsSkipDiscord')?.checked === true;
 
   try {
-    const { error: insertErr } = await db.from('vs_tickets').insert(row);
-    if (insertErr) throw insertErr;
+    await insertVSTicketIdempotent(row);
 
     // Fire-and-forget Discord notify via the unified helper.
     if (!skipDiscord) {
