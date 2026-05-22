@@ -436,7 +436,14 @@ async function handlePrFormSubmit(e) {
   const skipDiscord = document.getElementById('skipDiscord')?.checked === true;
 
   try {
-    const { error: insertErr } = await db.from('pr_tickets').insert(row);
+    // Race the insert against a 30s timeout. Without this, a stalled
+    // network or hung token refresh can leave the form locked in
+    // "กำลังสร้าง Ticket งาน" forever — neither resolves nor rejects.
+    const insertPromise = db.from('pr_tickets').insert(row);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('การส่งใช้เวลาเกินกำหนด (30s) — ลองอีกครั้ง หรือเช็คการเชื่อมต่อ')), 30000),
+    );
+    const { error: insertErr } = await Promise.race([insertPromise, timeoutPromise]);
     if (insertErr) throw insertErr;
 
     // Fire-and-forget Discord notification. Uses the unified notify
@@ -462,6 +469,17 @@ async function handlePrFormSubmit(e) {
     alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${ticketId}</strong>`;
     if (accMode === 'guest') alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${ticketId}`);
     document.getElementById('prForm').reset();
+    // form.reset() clears the hidden submitter inputs; re-populate from
+    // the current auth state so the *next* submission has the identifier
+    // baked in.
+    const u = authGetUser();
+    if (u) {
+      const identifier = u.email || (u.username ? `@${u.username}` : '');
+      const nameField = document.getElementById('prGoogleUserName');
+      const emailField = document.getElementById('prGoogleUserEmail');
+      if (emailField) emailField.value = identifier;
+      if (nameField) nameField.value = u.name || u.username || identifier;
+    }
     updateFormVisibility();
     toggleOtherPlatformReason();
   } catch (error) {
