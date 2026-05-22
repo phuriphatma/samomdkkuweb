@@ -233,13 +233,16 @@ async function seedStaffAccounts() {
       .update({ role: r.role, username: r.username, method: 'password' })
       .eq('id', id);
     if (updErr) console.error(`[staff] ${r.username}:`, updErr.message);
-    // Set the known password via Admin API (overwrites whatever random
-    // password ensureUser created on first run).
+    // Set the known password via Admin API. Do NOT pass `email` here —
+    // ensureUser already set the email to "<username>@samomdkku.app" which
+    // matches what the frontend sends at sign-in. Overwriting with the
+    // `r.email` value from reserved_staff_usernames (which uses a
+    // "staff-pr@" prefix) would break sign-in because the frontend has
+    // no knowledge of the prefix.
     const pass = STAFF_PASSWORDS[r.username];
     if (pass) {
       const { error: pwErr } = await admin.auth.admin.updateUserById(id, {
         password: pass,
-        email: r.email,
         email_confirm: true,
       });
       if (pwErr) console.error(`[staff] ${r.username} password:`, pwErr.message);
