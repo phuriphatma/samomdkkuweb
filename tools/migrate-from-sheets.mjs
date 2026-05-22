@@ -114,33 +114,60 @@ async function ensureUser({ identifier, displayName, method }) {
   if (!identifier) return null; // guest submission
   if (userCache.has(identifier)) return userCache.get(identifier);
 
-  // Generate a stable synthetic email for Supabase Auth (which requires
-  // one). For real emails, use as-is. For "@username", derive.
+  // Compute the canonical (email, username) pair for this identifier.
+  //   "alice@kkumail.com" → email=alice@kkumail.com, username=null
+  //   "@alice"            → email=alice@samomdkku.app, username=alice
   let email;
   let username = null;
   if (identifier.includes('@') && !identifier.startsWith('@')) {
     email = identifier.toLowerCase();
   } else {
     username = identifier.replace(/^@/, '');
-    // Synthetic email domain — see auth.js PASSWORD_EMAIL_DOMAIN comment.
     email = `${username.toLowerCase()}@samomdkku.app`;
   }
 
-  // Check if user already exists by trying to find them in public.users first.
-  // listUsers is paginated/expensive; this lookup is cheaper.
-  const { data: existing } = await admin
+  // Look up by username first if applicable — that's the truly stable
+  // key. (Email can change across migrations, e.g. when we renamed the
+  // synthetic suffix from .local to .app.)
+  if (username) {
+    const { data: byUsername } = await admin
+      .from('users')
+      .select('id, email')
+      .eq('username', username)
+      .maybeSingle();
+    if (byUsername?.id) {
+      // If the auth row has a stale email, update it so future sign-ins
+      // with the canonical email format work.
+      if ((byUsername.email || '').toLowerCase() !== email) {
+        const { error: updEmailErr } = await admin.auth.admin.updateUserById(byUsername.id, {
+          email,
+          email_confirm: true,
+        });
+        if (updEmailErr) {
+          console.error(`[user] could not update email for ${identifier}:`, updEmailErr.message);
+        } else {
+          await admin.from('users').update({ email }).eq('id', byUsername.id);
+          console.log(`[user] migrated ${identifier} email ${byUsername.email} → ${email}`);
+        }
+      }
+      userCache.set(identifier, byUsername.id);
+      return byUsername.id;
+    }
+  }
+
+  // Fall back to email lookup (covers Google users where username is null).
+  const { data: byEmail } = await admin
     .from('users')
     .select('id')
     .eq('email', email)
     .maybeSingle();
-
-  if (existing?.id) {
-    userCache.set(identifier, existing.id);
-    return existing.id;
+  if (byEmail?.id) {
+    userCache.set(identifier, byEmail.id);
+    return byEmail.id;
   }
 
-  // Create the auth user. We don't know their password; assign a random one
-  // they'll never use — real sign-in will be via password reset or Google.
+  // Doesn't exist yet — create. Random password; the staff seed step
+  // sets known ones afterwards.
   const tempPassword = crypto.randomUUID() + crypto.randomUUID();
   const { data, error } = await admin.auth.admin.createUser({
     email,
@@ -154,9 +181,9 @@ async function ensureUser({ identifier, displayName, method }) {
   });
 
   if (error) {
-    // If the user already exists in auth but not in public.users (rare),
-    // look them up by email via Admin API.
     if (error.message?.toLowerCase().includes('already')) {
+      // Race or username-conflict edge case: find the existing user by
+      // listing and matching.
       const { data: list } = await admin.auth.admin.listUsers();
       const match = list?.users?.find((u) => u.email === email);
       if (match) {
