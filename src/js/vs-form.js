@@ -3,6 +3,18 @@
 // ==============================================
 
 import { GAS_VITAL_SOUND_URL } from './config.js';
+import { db } from './db.js';
+import { getUser as authGetUser } from './auth.js';
+
+// ----------------------------------------------------
+// Ticket ID generator — matches the legacy "VS-YYMMDD-HHMM" format
+// so old and new tickets look the same in URLs and history.
+// ----------------------------------------------------
+function generateVSTicketId() {
+  const d = new Date();
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `VS-${(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
 
 let isAccountVerified = false;
 let vsQuill = null;
@@ -143,32 +155,67 @@ async function handleVsFormSubmit(e) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...'; btn.disabled = true;
 
   const formData = new FormData(e.target);
-  const payload = {
-    action: 'submitVitalSound',
-    vsName: formData.get('vsName'),
-    vsYear: formData.get('vsYear'),
-    vsAccountMode: accMode,
-    vsUsername: document.getElementById('vsUsername').value.trim(),
-    vsPassword: document.getElementById('vsPassword').value.trim(),
-    vsProblem: contentHtml,
-    vsDepartment: formData.get('vsDepartment'),
-    vsEmergency: formData.get('vsEmergency') === 'true',
-    vsSilentNotify: formData.get('vsSilentNotify') === 'true',
-    // Dev-only: backend skips Discord entirely when true. UI gated by
-    // .dev-only-feature visibility; backend treats missing as false.
-    vsSkipDiscord: document.getElementById('vsSkipDiscord')?.checked === true,
+  const submitter = authGetUser();
+  const submitterLabel = submitter
+    ? (submitter.email || (submitter.username ? `@${submitter.username}` : ''))
+    : '';
+  const isEmergency = formData.get('vsEmergency') === 'true';
+  const customerRequestedDept = formData.get('vsDepartment') || 'SE';
+  // Same routing logic as the legacy GAS: emergency → straight to the
+  // selected dept; normal → SE triage first regardless of user selection.
+  const responsibleDept = isEmergency ? customerRequestedDept : 'SE';
+  const initialStatus = isEmergency ? 'กำลังรออุปนายกพิจารณา (ด่วน)' : 'รอ SE รับเรื่อง';
+
+  const ticketId = generateVSTicketId();
+  const row = {
+    id: ticketId,
+    display_name: formData.get('vsName') || 'Anonymous',
+    year: formData.get('vsYear') || '-',
+    submitter_id: submitter?.id || null,
+    submitter_label: submitterLabel || null,
+    problem: contentHtml,
+    target_dept: responsibleDept,
+    requested_dept: customerRequestedDept,
+    status: initialStatus,
+    is_emergency: isEmergency,
+    remarks: [],
   };
 
+  const silentNotify = formData.get('vsSilentNotify') === 'true';
+  const skipDiscord = document.getElementById('vsSkipDiscord')?.checked === true;
+
   try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (result.success) {
-      if (accMode === 'guest') { alert(`✅ ส่งข้อมูลสำเร็จ!\n\nโปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n${result.ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`); }
-      else { alert(`✅ สำเร็จ! ${result.message}`); }
-      e.target.reset(); vsQuill.setText('');
-      document.getElementById('vsAccGuest').checked = true;
-      toggleVsAccountFields(); toggleEmergency();
-    } else { alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${result.message}`; alertBox.classList.remove('d-none'); }
-  } catch (error) { alertBox.innerHTML = '<i class="bi bi-wifi-off me-1"></i> ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'; alertBox.classList.remove('d-none'); }
+    const { error: insertErr } = await db.from('vs_tickets').insert(row);
+    if (insertErr) throw insertErr;
+
+    // Fire-and-forget Discord notify via GAS thin proxy.
+    if (!skipDiscord) {
+      fetch(GAS_VITAL_SOUND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'notifyVSOnly',
+          ticketId,
+          vsProblem: contentHtml,
+          department: responsibleDept,
+          isEmergency,
+          vsSilentNotify: silentNotify,
+          requestedDept: customerRequestedDept,
+        }),
+      }).catch((e) => console.warn('[vs] Discord notify failed (non-fatal):', e));
+    }
+
+    if (!submitter) {
+      alert(`✅ ส่งข้อมูลสำเร็จ!\n\nโปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n${ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`);
+    } else {
+      alert(`✅ สำเร็จ! ระบบบันทึกปัญหาของคุณเรียบร้อยแล้ว\nTicket ID: ${ticketId}`);
+    }
+    e.target.reset(); vsQuill.setText('');
+    document.getElementById('vsAccGuest').checked = true;
+    toggleVsAccountFields(); toggleEmergency();
+  } catch (error) {
+    alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
+    alertBox.classList.remove('d-none');
+  }
   finally { btn.innerHTML = ogText; btn.disabled = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 }

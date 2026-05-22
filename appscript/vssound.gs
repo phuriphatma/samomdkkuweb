@@ -43,6 +43,40 @@ function doPost(e) {
     else if (payload.action === 'addRemark') {
       return createJsonResponse(addRemark(payload));
     }
+    // Phase 3: tickets now live in Supabase. These actions fire Discord
+    // webhooks only — no sheet writes.
+    else if (payload.action === 'notifyVSOnly') {
+      try {
+        sendDiscordNotification(
+          payload.ticketId,
+          payload.vsProblem,
+          payload.department,
+          payload.isEmergency,
+          payload.vsSilentNotify,
+          payload.requestedDept
+        );
+      } catch (e) {}
+      return createJsonResponse({ success: true });
+    }
+    else if (payload.action === 'notifyVSConsult') {
+      try {
+        const url = WEBHOOK_MAP[payload.notifyTo];
+        if (url) {
+          const silent = (payload.isSilent === true || payload.isSilent === 'true');
+          const mention = silent ? '' : '@here ';
+          const content = `💬 ${mention}**${payload.role}** มีการอัปเดตใน Ticket **${payload.ticketId}**`;
+          let desc = `**ฝ่ายที่ดูแล:** ${payload.displayDept || '-'}\n**สถานะ:** ${payload.displayStatus || '-'}\n\n`;
+          desc += payload.remark ? `**ข้อความ:**\n${payload.remark}` : `*(ไม่มีข้อความแนบ)*`;
+          const body = { content, embeds: [{ title: `อัปเดต Ticket: ${payload.ticketId}`, description: desc.substring(0, 2048), color: 3447003 }] };
+          if (silent) body.flags = 4096;
+          UrlFetchApp.fetch(url, {
+            method: 'post', contentType: 'application/json',
+            payload: JSON.stringify(body), muteHttpExceptions: true,
+          });
+        }
+      } catch (e) {}
+      return createJsonResponse({ success: true });
+    }
 
     throw new Error("Action ไม่ถูกต้อง");
 

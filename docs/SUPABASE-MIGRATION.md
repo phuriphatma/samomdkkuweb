@@ -318,30 +318,50 @@ All PR data calls now go to Supabase. GAS only fires Discord webhooks.
   Discord webhook (no sheet writes). Old `submitPR` etc. still exist
   for back-compat / prod use but the frontend doesn't call them.
 
-### ⏳ Phase 3 — VS data layer (next session)
+### ✅ Phase 3 — VS data layer (done)
 
-Same shape as Phase 2, for VS:
+All VS data calls now go to Supabase; GAS only fires Discord webhooks.
 
-- `src/js/vs-form.js handleVsFormSubmit` → `db.from('vs_tickets').insert(...)`
-- `src/js/vs-tracking.js trackWithTicketId / loginToViewHistory` → `db.from('vs_tickets').select(...)`
-- `src/js/vs-staff.js fetchStaffTickets / submitStaffAction` → `db.from('vs_tickets').select/update`
-- VS form auto-fill: no longer needs synthetic username/password; tickets
-  are linked by `submitter_id = auth.uid()` directly.
+- `src/js/vs-form.js handleVsFormSubmit` — inserts into `vs_tickets`.
+  Ticket ID generated client-side. Submitter linked via `submitter_id`
+  (auth.uid) and `submitter_label` (denormalized identifier for legacy
+  matching). SE routing logic preserved.
+- `src/js/vs-tracking.js` — `trackWithTicketId`, `loginToViewHistory`,
+  `submitUserRemark` use `db.from('vs_tickets')`. History lookup matches
+  by submitter_id OR submitter_label so it works for both new tickets
+  and migrated legacy rows.
+- `src/js/vs-staff.js` — `fetchStaffTickets` filters by role:
+  SE sees `target_dept = 'SE'`; aupanayoks see tickets routed to their
+  exact dept name. `submitStaffAction` merges remarks and updates
+  status/dept via Supabase; Discord notify via GAS thin proxy.
+- `appscript/vssound.gs` — new `notifyVSOnly` and `notifyVSConsult`
+  actions fire webhooks only (no sheet writes).
 
-### ⏳ Phase 4 — File storage (later)
+### ✅ Phase 4 — File storage (done)
 
-- Replace `src/js/uploads.js uploadImageToDrive` with Supabase Storage uploads
-- Migrate existing Drive URLs in `pr_tickets.file_url` (one-time copy script)
-- Public read policies on the storage bucket
+- `supabase/migrations/0003_storage.sql` — creates public `samo-uploads`
+  bucket with RLS policies (public read; authenticated insert;
+  owner/staff delete).
+- `src/js/uploads.js` — `uploadImageToDrive` (kept the name to avoid
+  callsite churn) now uploads to `samo-uploads`. Returns the Supabase
+  public URL via `getPublicUrl`. Filenames sanitized + organized by
+  year/month folder.
+- `convertDriveUrl` retained as a render-time normalizer for legacy
+  Drive-hosted announcement thumbnails. Supabase Storage URLs pass
+  through unchanged.
 
-### ⏳ Phase 5 — Discord notifications (later)
+### Phase 5 — Discord notifications (intentionally not migrated)
 
-Two options:
+Discord webhooks stay on GAS as thin proxies (`notifyPROnly`,
+`notifyVSOnly`, `notifyVSConsult`). Rationale:
 
-- Keep `appscript/*.gs` purely as a Discord-webhook proxy. Frontend calls
-  GAS with `action: 'notify', payload: {...}`. Tickets stored in Supabase.
-- Move Discord calls to a Supabase Edge Function triggered by `pr_tickets`
-  insert/update.
+- They're fire-and-forget; latency doesn't affect dashboard UX.
+- Edge Functions add deployment complexity (Deno toolchain, secrets,
+  separate deploy pipeline) without speed gain.
+- GAS already has the Discord webhook URLs and the formatting code.
+
+Migrate to Edge Functions only if/when you outgrow Apps Script's quota
+limits or want to drop the GAS dependency entirely.
 
 ---
 

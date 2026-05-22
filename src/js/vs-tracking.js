@@ -2,12 +2,26 @@
 // VS TRACKING — User ticket tracking & history
 // ==============================================
 
-import { GAS_VITAL_SOUND_URL } from './config.js';
 import { formatThaiDate, renderTimeline } from './utils.js';
+import { db } from './db.js';
+import { getUser as authGetUser } from './auth.js';
 
 let currentActiveTicketId = null;
 let canUserReply = false;
 let loggedInUserTickets = [];
+
+// Map a vs_tickets DB row to the legacy shape rendererers expect.
+function rowToTicket(r) {
+  return {
+    id: r.id,
+    date: r.timestamp || r.created_at,
+    problem: r.problem,
+    dept: r.target_dept,
+    status: r.status,
+    remarks: Array.isArray(r.remarks) ? r.remarks : [],
+    isOwner: false, // overridden by callers when appropriate
+  };
+}
 
 // --------------------------------------------------
 // Track by Ticket ID (Guest)
@@ -21,18 +35,28 @@ export async function trackWithTicketId() {
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
   try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'trackVitalSound', ticketId: tId }) });
-    const result = await res.json();
-    if (result.success) {
-      currentActiveTicketId = result.ticket.id;
+    const { data, error } = await db
+      .from('vs_tickets')
+      .select('*')
+      .eq('id', tId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) {
+      currentActiveTicketId = data.id;
       canUserReply = false;
-      renderUserDashboard(result.ticket);
+      renderUserDashboard(rowToTicket(data));
       document.getElementById('vsLoginBox').classList.add('d-none');
       document.getElementById('vsDashboardBox').classList.remove('d-none');
       const btnBack = document.getElementById('btnBackToHistory');
       btnBack.innerText = 'กลับหน้าค้นหา'; btnBack.onclick = logoutTrack;
-    } else { alertBox.classList.remove('d-none'); alertBox.innerText = result.message; }
-  } catch (e) { alertBox.classList.remove('d-none'); alertBox.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย'; }
+    } else {
+      alertBox.classList.remove('d-none');
+      alertBox.innerText = 'ไม่พบ Ticket นี้ในระบบ';
+    }
+  } catch (e) {
+    alertBox.classList.remove('d-none');
+    alertBox.innerText = e.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย';
+  }
   finally { btn.disabled = false; btn.innerHTML = 'ค้นหาสถานะ'; }
 }
 
@@ -41,35 +65,38 @@ export async function trackWithTicketId() {
 // --------------------------------------------------
 
 export async function loginToViewHistory() {
-  const user = document.getElementById('trackUsername').value.trim();
-  const pass = document.getElementById('trackPassword').value.trim();
   const alertBox = document.getElementById('trackAlert');
   const btn = document.getElementById('btnTrackLogin');
-  if (!user || !pass) { alertBox.classList.remove('d-none'); alertBox.innerText = 'กรุณากรอก Username และ Password'; return; }
+  const authUser = authGetUser();
 
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังเข้าสู่ระบบ...'; }
+  if (!authUser) {
+    alertBox.classList.remove('d-none');
+    alertBox.innerText = 'กรุณาเข้าสู่ระบบก่อน';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลด...'; }
   alertBox.classList.add('d-none');
 
-  // trustClient signals to the backend that the caller already verified the
-  // user via the global auth modal — empty ticket results should mean "no
-  // tickets yet" rather than "wrong credentials". Set by loadVSHistoryFromAuth.
-  const trustClient = !!localStorage.getItem('samoUser');
-
   try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getUserHistory', username: user, password: pass, trustClient }),
-    });
-    const result = await res.json();
-    if (result.success) {
-      loggedInUserTickets = result.tickets;
-      renderUserHistoryList();
-      document.getElementById('vsLoginBox').classList.add('d-none');
-      document.getElementById('vsDashboardBox').classList.add('d-none');
-      document.getElementById('vsUserHistoryBox').classList.remove('d-none');
-    } else { alertBox.classList.remove('d-none'); alertBox.innerText = result.message; }
-  } catch (e) { alertBox.classList.remove('d-none'); alertBox.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย'; }
+    const submitterLabel = authUser.email || (authUser.username ? `@${authUser.username}` : '');
+    // RLS lets you read your own tickets; the OR matches both linked-by-id
+    // (new submissions) and label-matched (migrated legacy rows).
+    const { data, error } = await db
+      .from('vs_tickets')
+      .select('*')
+      .or(`submitter_id.eq.${authUser.id},submitter_label.eq.${submitterLabel}`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    loggedInUserTickets = (data || []).map(rowToTicket);
+    renderUserHistoryList();
+    document.getElementById('vsLoginBox').classList.add('d-none');
+    document.getElementById('vsDashboardBox').classList.add('d-none');
+    document.getElementById('vsUserHistoryBox').classList.remove('d-none');
+  } catch (e) {
+    alertBox.classList.remove('d-none');
+    alertBox.innerText = e.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย';
+  }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = 'เข้าสู่ระบบ'; } }
 }
 
@@ -157,10 +184,25 @@ export async function submitUserRemark() {
   btn.innerHTML = 'กำลังส่ง...'; btn.disabled = true;
 
   try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'addRemark', ticketId: currentActiveTicketId, role: 'User', remark: text }) });
-    const result = await res.json();
-    if (result.success) { document.getElementById('userRemarkInput').value = ''; loginToViewHistory(); }
-  } catch (e) { alert('ส่งข้อความไม่สำเร็จ'); }
+    const { data: existing, error: fetchErr } = await db
+      .from('vs_tickets')
+      .select('remarks')
+      .eq('id', currentActiveTicketId)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+    const remarks = Array.isArray(existing?.remarks) ? [...existing.remarks] : [];
+    const time = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    remarks.push({ by: 'ผู้แจ้งปัญหา', time, text });
+    const { error: updErr } = await db
+      .from('vs_tickets')
+      .update({ remarks })
+      .eq('id', currentActiveTicketId);
+    if (updErr) throw updErr;
+    document.getElementById('userRemarkInput').value = '';
+    loginToViewHistory();
+  } catch (e) { alert('ส่งข้อความไม่สำเร็จ: ' + (e.message || e)); }
   finally { btn.innerHTML = ogText; btn.disabled = false; }
 }
 
