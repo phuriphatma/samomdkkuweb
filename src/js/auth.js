@@ -39,8 +39,13 @@ const subscribers = new Set();
 function persist() {
   if (currentUser) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentUser));
-    localStorage.setItem(LEGACY_EMAIL_KEY, currentUser.email || '');
-    localStorage.setItem(LEGACY_NAME_KEY, currentUser.name || '');
+    // Legacy key holds a *stable identifier* — email for Google users,
+    // "@<username>" for password users — so anything that still reads this
+    // key (e.g. PR tracking history) works for both auth methods.
+    const identifier = currentUser.email
+      || (currentUser.username ? `@${currentUser.username}` : '');
+    localStorage.setItem(LEGACY_EMAIL_KEY, identifier);
+    localStorage.setItem(LEGACY_NAME_KEY, currentUser.name || currentUser.username || '');
   } else {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_EMAIL_KEY);

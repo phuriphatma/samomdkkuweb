@@ -407,11 +407,12 @@ Reference: ตัวอย่างคร่าวๆ
                   <div id="prTrackNotLoggedIn">
                     <div class="alert alert-info small text-center"
                       style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
-                      <i class="bi bi-info-circle-fill me-1"></i> ระบบจะค้นหาประวัติจาก Google Account ของคุณ
+                      <i class="bi bi-info-circle-fill me-1"></i>
+                      เข้าสู่ระบบเพื่อค้นหาประวัติงาน PR ทั้งหมดของคุณ
                     </div>
-                    <!-- เปลี่ยนปุ่มให้ไปเรียก UI Auth ในฝั่ง ส่งงาน PR ให้แสดงขึ้นมา -->
-                    <button type="button" class="btn btn-outline-danger w-100 fw-bold" onclick="forceShowGoogleAuth()">
-                      <i class="bi bi-google me-1"></i> เข้าสู่ระบบด้วย Google
+                    <button type="button" class="btn btn-outline-danger w-100 fw-bold"
+                      data-bs-toggle="modal" data-bs-target="#signinModal">
+                      <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
                     </button>
                   </div>
 

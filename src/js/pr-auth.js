@@ -16,10 +16,18 @@ export function initPrAuth() {
   onAuthChange((user) => {
     if (user) {
       isPrAccountVerified = true;
-      setVal('prGoogleUserEmail', user.email);
-      setVal('prGoogleUserName', user.name);
-      setText('prVerifiedEmail', user.email);
-      setText('prTrackEmailDisplay', user.email);
+      // PR tickets are stored with a single "submitter" string in the sheet
+      // (col 18). We need a stable identifier per user so history lookups
+      // work for both Google sign-in (has email) AND username/password
+      // sign-in (no email). Convention:
+      //   - Google users → their email
+      //   - Password users → "@<username>"
+      const identifier = user.email || (user.username ? `@${user.username}` : '');
+      const displayName = user.name || user.username || identifier;
+      setVal('prGoogleUserEmail', identifier);
+      setVal('prGoogleUserName', displayName);
+      setText('prVerifiedEmail', identifier);
+      setText('prTrackEmailDisplay', identifier);
       updateGoogleAuthUI(true);
     } else {
       isPrAccountVerified = false;

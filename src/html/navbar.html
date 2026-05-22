@@ -67,6 +67,13 @@
               <i class="bi bi-shield-lock me-1"></i> Admin
             </button>
           </li>
+          <!-- Hidden tab button — gives Bootstrap a control inside the tablist
+               that maps to #pills-about, so goToAbout() can show() it. The
+               actual user-visible trigger is the dropdown below. -->
+          <li class="d-none" role="presentation">
+            <button class="nav-link" id="pills-about-tab" data-bs-toggle="pill" data-bs-target="#pills-about"
+              type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
+          </li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="aboutDropdown" role="button" data-bs-toggle="dropdown"
               aria-expanded="false">

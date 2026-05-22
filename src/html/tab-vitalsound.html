@@ -156,37 +156,41 @@
           <div id="vsTrackSection" class="d-none">
             <div id="vsLoginBox" class="card p-4 mx-auto mb-4"
               style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
-              <ul class="nav nav-tabs nav-fill mb-3" id="trackTab" role="tablist">
-                <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-guest-track"
-                    data-bs-toggle="tab" data-bs-target="#content-guest-track" type="button" role="tab"
-                    style="color: var(--pink-700); font-weight: bold">ค้นหาด้วย Ticket ID</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="tab-user-login"
-                    data-bs-toggle="tab" data-bs-target="#content-user-login" type="button" role="tab"
-                    style="color: var(--pink-700); font-weight: bold">เข้าสู่ระบบด้วยบัญชี</button></li>
-              </ul>
-
               <div id="trackAlert" class="alert alert-danger d-none small py-2"></div>
-              <div class="tab-content" id="trackTabContent">
-                <div class="tab-pane fade show active" id="content-guest-track" role="tabpanel">
-                  <div class="mb-3">
-                    <label class="form-label">หมายเลข Ticket</label>
-                    <input type="text" id="trackTicketId" class="form-control" placeholder="VS-XXXXXXXX-XXXX" />
-                  </div>
-                  <button type="button" id="btnTrackGuest" class="btn btn-submit w-100"
-                    onclick="trackWithTicketId()">ค้นหาสถานะ</button>
+
+              <!-- Signed-in users: one-click history load -->
+              <div id="vsTrackLoggedIn" class="d-none">
+                <div class="alert alert-success small mb-3">
+                  <i class="bi bi-person-check-fill me-1"></i> เข้าสู่ระบบในชื่อ
+                  <strong id="vsTrackUserDisplay"></strong>
                 </div>
-                <div class="tab-pane fade" id="content-user-login" role="tabpanel">
-                  <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    <input type="text" id="trackUsername" class="form-control" placeholder="Username นิรนามของคุณ" />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Password</label>
-                    <input type="password" id="trackPassword" class="form-control" placeholder="รหัสผ่าน" />
-                  </div>
-                  <button type="button" id="btnTrackLogin" class="btn btn-submit w-100"
-                    onclick="loginToViewHistory()">เข้าสู่ระบบ</button>
+                <button type="button" id="btnTrackPrUserAuto" class="btn btn-submit w-100"
+                  onclick="loadVSHistoryFromAuth()">โหลดประวัติของฉัน</button>
+                <hr>
+                <div class="mb-2 small fw-bold text-muted">หรือค้นหาด้วยหมายเลข Ticket:</div>
+                <div class="d-flex gap-2">
+                  <input type="text" id="trackTicketIdAuth" class="form-control" placeholder="VS-XXXXXXXX-XXXX" />
+                  <button type="button" class="btn btn-outline-danger" onclick="trackWithTicketIdFromAuth()">ค้นหา</button>
                 </div>
+              </div>
+
+              <!-- Signed-out users: ticket-ID lookup + sign-in CTA -->
+              <div id="vsTrackLoggedOut">
+                <div class="alert alert-info small text-center mb-3"
+                  style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                  <i class="bi bi-info-circle-fill me-1"></i>
+                  เข้าสู่ระบบเพื่อดูประวัติทั้งหมด หรือใช้หมายเลข Ticket ค้นหาสถานะ
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">หมายเลข Ticket</label>
+                  <input type="text" id="trackTicketId" class="form-control" placeholder="VS-XXXXXXXX-XXXX" />
+                </div>
+                <button type="button" id="btnTrackGuest" class="btn btn-submit w-100 mb-2"
+                  onclick="trackWithTicketId()">ค้นหาสถานะ</button>
+                <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal"
+                  data-bs-target="#signinModal">
+                  <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+                </button>
               </div>
             </div>
 

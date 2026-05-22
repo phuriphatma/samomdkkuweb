@@ -202,6 +202,37 @@ window.onVSAdminRoleChange = async () => {
   await enterVSStaffDashboard();
 };
 
+// VS track: load history using the global auth identity. Synthesizes the
+// same username/password the form would have submitted with — that's what
+// the VS backend keys on when looking up a user's tickets.
+window.loadVSHistoryFromAuth = () => {
+  const userJson = localStorage.getItem('samoUser');
+  if (!userJson) return;
+  let user;
+  try { user = JSON.parse(userJson); } catch { return; }
+  const synthUser = user.method === 'password'
+    ? (user.username || '')
+    : (user.email || user.username || '');
+  const synthPass = user.method === 'password'
+    ? (user.password || '')
+    : (user.sub || user.email || '');
+  // Reuse the existing loginToViewHistory flow by populating its inputs.
+  // (The form lives only in the logged-out block but the function reads
+  // those IDs directly, so we set them transiently then call.)
+  const u = document.getElementById('trackUsername');
+  const p = document.getElementById('trackPassword');
+  if (u) u.value = synthUser;
+  if (p) p.value = synthPass;
+  loginToViewHistory();
+};
+
+window.trackWithTicketIdFromAuth = () => {
+  const input = document.getElementById('trackTicketIdAuth');
+  const fallback = document.getElementById('trackTicketId');
+  if (input && fallback) fallback.value = input.value;
+  trackWithTicketId();
+};
+
 // About Us: activate the about tab and scroll to the given section anchor.
 // The CSS scroll-margin-top on .about-section keeps the heading clear of
 // the sticky navbar. Fallback path: if the tab isn't active yet (e.g. user
@@ -446,23 +477,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // already keeps the hidden submitter inputs in sync.
     document.getElementById('prFormAuthWrapper')?.classList.toggle('d-none', !!user);
 
-    // VS form auth wrapper: hide only when method='password' (we have both
-    // username + password to auto-fill the ticket). Google users keep the
-    // wrapper visible since they have no VS-side credentials.
+    // VS track section: swap signed-in/signed-out blocks
+    const vsTrackIn = document.getElementById('vsTrackLoggedIn');
+    const vsTrackOut = document.getElementById('vsTrackLoggedOut');
+    if (vsTrackIn && vsTrackOut) {
+      vsTrackIn.classList.toggle('d-none', !user);
+      vsTrackOut.classList.toggle('d-none', !!user);
+      if (user) {
+        const display = user.email || user.username || '';
+        const el = document.getElementById('vsTrackUserDisplay');
+        if (el) el.textContent = display;
+      }
+    }
+
+    // VS form auth wrapper: hide for ANY signed-in user. We synthesize a
+    // username/password pair from the global identity so the existing VS
+    // backend (which keys history by username+password) can find their
+    // tickets later.
+    //   - Password users → use their actual username + password.
+    //   - Google users → use email as username, Google sub as password
+    //     (stable, unique to that Google account).
     const vsWrapper = document.getElementById('vsFormAuthWrapper');
     if (vsWrapper) {
-      if (user?.method === 'password') {
+      if (user) {
         vsWrapper.classList.add('d-none');
         const vsLoginRadio = document.getElementById('vsAccLogin');
         const vsUser = document.getElementById('vsUsername');
         const vsPass = document.getElementById('vsPassword');
+        const synthUser = user.method === 'password'
+          ? (user.username || '')
+          : (user.email || user.username || '');
+        const synthPass = user.method === 'password'
+          ? (user.password || '')
+          : (user.sub || user.email || '');
         if (vsLoginRadio) vsLoginRadio.checked = true;
-        if (vsUser) vsUser.value = user.username || '';
-        if (vsPass) vsPass.value = user.password || '';
+        if (vsUser) vsUser.value = synthUser;
+        if (vsPass) vsPass.value = synthPass;
         setIsAccountVerified(true);
       } else {
         vsWrapper.classList.remove('d-none');
         setIsAccountVerified(false);
+        // Reset to guest mode so a signed-out user sees the default option.
+        const vsGuestRadio = document.getElementById('vsAccGuest');
+        if (vsGuestRadio) vsGuestRadio.checked = true;
       }
     }
 
