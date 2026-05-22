@@ -374,7 +374,10 @@ function sendDiscordNotification(data, ticketId) {
     content: `🚨 ส่งงาน PR ใหม่ จาก **${data.department}**!`,
     embeds: [{ title: data.content, color: isRush ? 16711680 : 3447003, fields: fields }]
   };
-  if (data.silentNotify === 'true') payload.flags = 4096;
+  // Accept both boolean true (new Supabase frontend) and string 'true'
+  // (legacy form submissions). Without the boolean check, Discord
+  // notifications always @here even when the user picked "Silent".
+  if (data.silentNotify === true || data.silentNotify === 'true') payload.flags = 4096;
 
   try { UrlFetchApp.fetch(DISCORD_WEBHOOK_URL, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true }); } catch (e) {}
 }
