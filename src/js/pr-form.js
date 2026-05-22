@@ -22,43 +22,75 @@ function generatePRTicketId() {
 }
 
 // ----------------------------------------------------
-// Idempotent PR insert with retry on stall.
-// Two attempts, 12s timeout each, session refresh between attempts.
-// PK collision on retry = first attempt actually succeeded → success.
+// Idempotent PR insert via raw fetch.
+//
+// We bypass supabase-js for the insert because the client has been
+// getting into a state where the second-and-subsequent insert hangs
+// for 30+ seconds — see the long debugging thread that led here.
+// Raw fetch against PostgREST is a known-good escape hatch; the
+// behavior is identical from the server's perspective, just without
+// supabase-js's request queue / refresh machinery in the middle.
+//
+// Two attempts, 12s timeout each. PostgREST returns 409 on PK
+// collision; on a retry that means attempt 1 actually succeeded.
 // ----------------------------------------------------
 async function insertPRTicketIdempotent(row) {
   const TIMEOUT_MS = 12000;
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  // Pull the current access token from Supabase's storage. Falling back
+  // to the anon key keeps inserts working for unauthenticated guest
+  // submissions (RLS policy allows insert by any role).
+  let accessToken = ANON_KEY;
+  try {
+    const projectRef = (SUPABASE_URL || '').match(/\/\/([^.]+)\./)?.[1];
+    const stored = projectRef ? localStorage.getItem(`sb-${projectRef}-auth-token`) : null;
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.access_token) accessToken = parsed.access_token;
+    }
+  } catch { /* ignore — use anon */ }
+
+  const headers = {
+    apikey: ANON_KEY,
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
+  };
+  const url = `${SUPABASE_URL}/rest/v1/pr_tickets`;
+  const bodyText = JSON.stringify(row);
+
   let lastErr;
   for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const insertPromise = db.from('pr_tickets').insert(row);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`timeout-${attempt}`)), TIMEOUT_MS),
-      );
-      const { error } = await Promise.race([insertPromise, timeoutPromise]);
-      if (!error) return;
-      // Postgres unique_violation: ticket id already exists. On a retry
-      // this means attempt 1 actually succeeded — treat as success.
-      if (attempt > 1 && (error.code === '23505' || /duplicate/i.test(error.message || ''))) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: bodyText,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) return; // 201 Created (Prefer:return=minimal)
+      // 409 on retry = first attempt actually succeeded.
+      if (attempt > 1 && res.status === 409) {
         console.warn('[pr] retry detected first attempt succeeded; ticket exists');
         return;
       }
-      throw error;
+      const errText = await res.text().catch(() => '');
+      throw new Error(`PostgREST ${res.status}: ${errText.substring(0, 200)}`);
     } catch (e) {
+      clearTimeout(timer);
       lastErr = e;
       if (attempt === 2) break;
-      console.warn(`[pr] insert attempt ${attempt} failed (${e.message || e}); refreshing session + retrying`);
-      // Force a fresh token before the next attempt. Bounded so a stuck
-      // refresh doesn't itself become the hang.
-      await Promise.race([
-        db.auth.refreshSession(),
-        new Promise((resolve) => setTimeout(resolve, 5000)),
-      ]).catch(() => {});
+      const why = e.name === 'AbortError' ? 'timeout' : (e.message || e);
+      console.warn(`[pr] insert attempt ${attempt} failed (${why}); retrying`);
     }
   }
-  // Rephrase the final error for the user.
   const msg = (lastErr && lastErr.message) || String(lastErr);
-  if (/timeout/i.test(msg)) {
+  if (/timeout|abort/i.test(msg) || lastErr?.name === 'AbortError') {
     throw new Error('การส่งใช้เวลานานเกินไป กรุณาลองอีกครั้งหรือเช็คการเชื่อมต่อ');
   }
   throw lastErr;
