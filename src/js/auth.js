@@ -183,9 +183,17 @@ export async function registerWithPassword(rawUsername, rawPassword) {
 }
 
 export async function signOut() {
-  await db.auth.signOut();
+  // Optimistic local clear so the UI updates immediately, even if the
+  // server-side revoke call hangs or fails. onAuthStateChange will also
+  // fire when the actual signOut completes — currentUser is already null
+  // so it's effectively a no-op then.
   currentUser = null;
   notify();
+  try {
+    await db.auth.signOut();
+  } catch (e) {
+    console.warn('[auth] signOut server call failed (local session already cleared):', e);
+  }
 }
 
 export function getUser() { return currentUser; }
