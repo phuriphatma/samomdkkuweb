@@ -1,22 +1,15 @@
 // ==============================================
-// NOTIFY — Deferred fire-and-forget Discord webhook trigger
+// NOTIFY — Fire-and-forget Discord webhook trigger
 //
-// Strategy:
-//   1. Defer to requestIdleCallback / setTimeout so the call doesn't
-//      land in the same task as the form's success-path code.
-//   2. Use navigator.sendBeacon when possible (separate connection
-//      pool, no Promise machinery to leak).
-//   3. Fall back to keepalive fetch.
+// Uses navigator.sendBeacon — the right tool for fire-and-forget POST:
+//   - Browser-managed background request
+//   - Separate connection pool from foreground fetches
+//   - No Promise to leak / no body to drain
+//   - Returns synchronously (boolean: queued)
 //
-// Why the defer matters:
-//   Even with sendBeacon, when the Discord webhook is slow (especially
-//   with @here mentions that hit Discord rate-limits), keeping the
-//   request in-flight in the same tick as form-reset/state-update
-//   somehow correlates with the next user submit hanging. Deferring
-//   via requestIdleCallback ensures the notify only fires once the
-//   browser has settled foreground work — eliminating the interference.
+// Fallback: keepalive fetch with body drained.
 //
-// Usage (fire-and-forget; never returns a Promise):
+// Usage (never returns a Promise; never await):
 //   sendNotify('pr', { ticketId, ... });
 //   sendNotify('vs', { mode: 'submit', ticketId, ... });
 //   sendNotify('vs', { mode: 'consult', ticketId, ... });
@@ -36,16 +29,17 @@ function actionFor(system, mode) {
   throw new Error(`notify: unknown system "${system}" mode "${mode}"`);
 }
 
-function defer(fn) {
-  if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(fn, { timeout: 5000 });
-  } else {
-    setTimeout(fn, 1500);
-  }
-}
+export function sendNotify(system, payload = {}) {
+  const url = SYSTEM_ENDPOINT[system];
+  if (!url) { console.warn(`[notify] unknown system "${system}"`); return; }
+  let action;
+  try { action = actionFor(system, payload.mode); }
+  catch (e) { console.warn('[notify]', e.message); return; }
 
-function fireRequest(url, body, label) {
-  // Primary: sendBeacon — separate connection pool, browser-managed.
+  const body = JSON.stringify({ action, ...payload });
+  const label = `${system}/${action}`;
+
+  // Primary: sendBeacon — separate connection pool, no Promise.
   if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
     try {
       const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
@@ -56,6 +50,7 @@ function fireRequest(url, body, label) {
       console.warn(`[notify] sendBeacon threw for ${label}:`, e);
     }
   }
+
   // Fallback: keepalive fetch with response drained.
   fetch(url, {
     method: 'POST',
@@ -65,20 +60,4 @@ function fireRequest(url, body, label) {
   })
     .then((r) => r.text().catch(() => ''))
     .catch((e) => console.warn(`[notify] ${label} failed:`, e));
-}
-
-export function sendNotify(system, payload = {}) {
-  const url = SYSTEM_ENDPOINT[system];
-  if (!url) { console.warn(`[notify] unknown system "${system}"`); return; }
-  let action;
-  try { action = actionFor(system, payload.mode); }
-  catch (e) { console.warn('[notify]', e.message); return; }
-  const body = JSON.stringify({ action, ...payload });
-  const label = `${system}/${action}`;
-
-  // Defer to when the browser is idle. This isolates the notify request
-  // from any work happening in the same tick as the form's
-  // success-path (state cleanup, UI updates, supabase-js post-insert
-  // bookkeeping, etc.).
-  defer(() => fireRequest(url, body, label));
 }

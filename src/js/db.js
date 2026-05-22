@@ -27,11 +27,25 @@ if (!url || !anonKey) {
 export const db = createClient(url || 'http://invalid', anonKey || 'invalid', {
   auth: {
     persistSession: true,
-    autoRefreshToken: true,
+    // autoRefreshToken disabled by design. The supabase-js auto-refresh
+    // sometimes stalls inline before a foreground request, hanging the
+    // user's submit. We refresh proactively on a 25-minute interval
+    // (well below the 1-hour JWT TTL) so the token never reaches the
+    // "needs refresh now" state during a user action.
+    autoRefreshToken: false,
     detectSessionInUrl: true,
   },
 });
 
+// Proactive refresh: keep the JWT fresh on a fixed interval so it never
+// expires mid-submit. 25 min < 1 hour default TTL → plenty of margin.
+if (typeof window !== 'undefined') {
+  const REFRESH_INTERVAL_MS = 25 * 60 * 1000;
+  setInterval(() => {
+    db.auth.refreshSession().catch((e) => console.warn('[db] periodic refresh failed:', e?.message || e));
+  }, REFRESH_INTERVAL_MS);
+}
+
 // Convenience: announcements bucket / file storage hooks would go here
-// when we move from Drive to Supabase Storage (Phase 4 in the migration
-// plan). For now, file uploads stay on the GAS uploadPRFile endpoint.
+// when we move from Drive to Supabase Storage. For now, file uploads
+// stay on the GAS uploadPRFile endpoint (2 TB Drive quota).
