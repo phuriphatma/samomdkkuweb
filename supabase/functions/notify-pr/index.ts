@@ -8,13 +8,9 @@
 //   supabase functions deploy notify-pr --no-verify-jwt
 // Set the webhook URL:
 //   supabase secrets set PR_DISCORD_WEBHOOK_URL=https://discordapp.com/...
-//
-// --no-verify-jwt is OK here because the function just fires a fixed
-// webhook based on body data — there's nothing to authorize. Locking it
-// down to authenticated users only adds friction (you'd need to attach
-// the session token from the client) without much benefit.
 
 // deno-lint-ignore-file no-explicit-any
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const PR_WEBHOOK = Deno.env.get('PR_DISCORD_WEBHOOK_URL');
 
@@ -24,10 +20,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-Deno.serve(async (req) => {
+serve(async (req) => {
+  try {
+    return await handle(req);
+  } catch (e: any) {
+    console.error('[notify-pr] unhandled:', e?.stack || e?.message || e);
+    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+      status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' },
+    });
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   if (!PR_WEBHOOK) {
+    console.error('[notify-pr] missing PR_DISCORD_WEBHOOK_URL secret');
     return new Response(
       JSON.stringify({ ok: false, error: 'PR_DISCORD_WEBHOOK_URL secret not set' }),
       { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } },
@@ -105,4 +113,4 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ ok: true }), {
     headers: { ...corsHeaders, 'content-type': 'application/json' },
   });
-});
+}

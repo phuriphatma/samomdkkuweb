@@ -31,6 +31,7 @@
 // Set with: supabase secrets set VS_WEBHOOK_SE=https://discordapp.com/...
 
 // deno-lint-ignore-file no-explicit-any
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const DEPT_KEY: Record<string, string> = {
   'SE': 'SE',
@@ -68,7 +69,18 @@ function stripHtml(html: string): string {
     .replace(/<[^>]*>/g, '').trim();
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
+  try {
+    return await handle(req);
+  } catch (e: any) {
+    console.error('[notify-vs] unhandled:', e?.stack || e?.message || e);
+    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+      status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' },
+    });
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   let body: any;
@@ -191,4 +203,4 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ ok: false, error: 'unknown mode: ' + mode }), {
     status: 400, headers: { ...corsHeaders, 'content-type': 'application/json' },
   });
-});
+}
