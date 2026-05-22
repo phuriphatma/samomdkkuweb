@@ -94,24 +94,44 @@ export async function initAuth() {
 }
 
 /**
- * Google One Tap callback handler — receives the GSI credential and
- * exchanges it with Supabase for a session. The GSI client embeds a nonce
- * we don't have, so we use the legacy ID-token flow with the raw JWT.
+ * Sign in with Google via Supabase's OAuth redirect flow. The browser
+ * navigates to Google's consent screen, then to the Supabase callback,
+ * then back to the app with a session attached to the URL (Supabase
+ * client picks it up automatically via detectSessionInUrl).
+ *
+ * Returns a thenable: callers don't actually await the resolution since
+ * the navigation happens immediately. onAuthStateChange fires when the
+ * user lands back on the app.
+ */
+export async function signInWithGoogle() {
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // Land back on the current page after Google returns.
+      redirectTo: window.location.origin + window.location.pathname,
+    },
+  });
+  if (error) {
+    console.error('[auth] Google OAuth start failed:', error.message);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Legacy Google One Tap credential handler. Kept for the existing
+ * data-callback="handlePrGoogleLogin" wiring; in the new flow this is
+ * unused but harmless if invoked. Prefer signInWithGoogle().
  */
 export async function signInWithCredential(credential) {
   const payload = decodeJwtResponse(credential);
   const { error } = await db.auth.signInWithIdToken({
     provider: 'google',
     token: credential,
-    // nonce: omitted — only required when using Supabase's own GSI helper.
   });
   if (error) {
-    console.error('[auth] Google sign-in failed:', error.message);
+    console.error('[auth] ID-token sign-in failed:', error.message);
     throw new Error(error.message);
   }
-  // onAuthStateChange will fire and update currentUser; meanwhile, update
-  // the public.users row with Google profile info on first sign-in.
-  // We defer to onAuthStateChange to avoid duplicating buildCurrentUser logic.
   return payload;
 }
 

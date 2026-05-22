@@ -12,7 +12,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, getUser as authGetUser } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser } from './auth.js';
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, viewAnnouncement, cancelEdit, editCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
@@ -109,6 +109,13 @@ window.editCurrentAnnouncement = editCurrentAnnouncement;
 
 // Global Auth
 window.samoSignOut = samoSignOut;
+window.samoGoogleSignIn = async () => {
+  try {
+    await signInWithGoogle();
+  } catch (e) {
+    alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e));
+  }
+};
 
 // Creator thumbnail picker
 window.onCreatorThumbPicked = async (event) => {
