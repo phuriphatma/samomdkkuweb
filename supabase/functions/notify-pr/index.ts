@@ -100,12 +100,15 @@ async function handle(req: Request): Promise<Response> {
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
-      return new Response(JSON.stringify({ ok: false, status: r.status }), {
+      const text = await r.text().catch(() => '');
+      console.error(`[notify-pr] Discord ${r.status}: ${text.substring(0, 500)}`);
+      return new Response(JSON.stringify({ ok: false, status: r.status, discord: text.substring(0, 500) }), {
         status: 502, headers: { ...corsHeaders, 'content-type': 'application/json' },
       });
     }
   } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+    console.error('[notify-pr] fetch threw:', e?.stack || e?.message || e);
+    return new Response(JSON.stringify({ ok: false, error: e.message || String(e) }), {
       status: 502, headers: { ...corsHeaders, 'content-type': 'application/json' },
     });
   }
