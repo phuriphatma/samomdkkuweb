@@ -54,6 +54,11 @@ function notify() {
 async function buildCurrentUser(session) {
   if (!session?.user) return null;
   const authUser = session.user;
+  // IMPORTANT: this query is sometimes called from inside an
+  // onAuthStateChange callback (see runOutsideAuthCallback below). Even
+  // when it IS called from there, we use the wrapper so it doesn't
+  // deadlock the supabase-js session lock. See:
+  //   https://github.com/supabase/auth-js/issues/762
   const { data: profile } = await db
     .from('users')
     .select('id, email, username, display_name, method, role, department')
@@ -87,9 +92,21 @@ export async function initAuth() {
   notify();
 
   // React to auth state changes (sign in / out / token refresh).
-  db.auth.onAuthStateChange(async (_event, session) => {
-    currentUser = await buildCurrentUser(session);
-    notify();
+  //
+  // CRITICAL: any async supabase-js call made INSIDE this callback will
+  // deadlock the session lock and hang every subsequent supabase call.
+  // This is a known supabase-js bug, ~2 years old:
+  //   https://github.com/supabase/auth-js/issues/762
+  //
+  // The official workaround is to defer the work with setTimeout(0) so
+  // it runs after the auth-state callback has returned and released
+  // the lock. We MUST keep this wrapper — removing it brings back the
+  // "form submit stuck on loading" hang.
+  db.auth.onAuthStateChange((_event, session) => {
+    setTimeout(async () => {
+      currentUser = await buildCurrentUser(session);
+      notify();
+    }, 0);
   });
 }
 
