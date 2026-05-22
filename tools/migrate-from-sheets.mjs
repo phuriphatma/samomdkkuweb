@@ -28,7 +28,13 @@
 //     ensures each staff/dev account exists with the correct role
 // ============================================================
 
-import 'dotenv/config';
+// Load env from both .env and .env.local. dotenv only reads .env by default;
+// Vite loads .env.local natively but Node CLI scripts don't, so we have to
+// be explicit here.
+import { config as dotenvConfig } from 'dotenv';
+dotenvConfig({ path: '.env' });
+dotenvConfig({ path: '.env.local', override: true });
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
