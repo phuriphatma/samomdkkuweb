@@ -10,63 +10,11 @@ let currentActiveTicketId = null;
 let currentStaffRole = null;
 
 // --------------------------------------------------
-// Initialize Remember Me
+// Staff Entry
+// VS staff login is handled globally via the navbar sign-in modal
+// (see auth.js). The legacy in-form login box was removed when the
+// dashboard moved to the Admin tab.
 // --------------------------------------------------
-
-export function initVsStaffRemember() {
-  if (localStorage.getItem('vsStaffUser')) {
-    document.getElementById('staffUsername').value = localStorage.getItem('vsStaffUser');
-    document.getElementById('staffPassword').value = localStorage.getItem('vsStaffPass');
-    if (localStorage.getItem('vsStaffRole')) {
-      document.getElementById('staffRole').value = localStorage.getItem('vsStaffRole');
-    }
-    document.getElementById('staffRemember').checked = true;
-  }
-}
-
-// --------------------------------------------------
-// Staff Login
-// --------------------------------------------------
-
-export async function loginStaff() {
-  const user = document.getElementById('staffUsername').value.trim();
-  const pass = document.getElementById('staffPassword').value.trim();
-  const remember = document.getElementById('staffRemember').checked;
-  const alertBox = document.getElementById('staffLoginAlert');
-  const btn = document.getElementById('btnStaffLogin');
-
-  if (!user || !pass) { alertBox.innerText = 'กรุณากรอก Username และ Password'; alertBox.classList.remove('d-none'); return; }
-  alertBox.classList.add('d-none'); btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
-
-  try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'verifyStaffLogin', username: user, password: pass }) });
-    const result = await res.json();
-    if (result.success) {
-      currentStaffRole = document.getElementById('staffRole').value;
-      if (remember) {
-        localStorage.setItem('vsStaffUser', user);
-        localStorage.setItem('vsStaffPass', pass);
-        localStorage.setItem('vsStaffRole', currentStaffRole);
-      } else {
-        localStorage.removeItem('vsStaffUser');
-        localStorage.removeItem('vsStaffPass');
-        localStorage.removeItem('vsStaffRole');
-      }
-      document.getElementById('staffTitle').innerText = `Dashboard: ${currentStaffRole}`;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
-      await fetchStaffTickets();
-      document.getElementById('staffLoginBox').classList.add('d-none');
-      document.getElementById('staffDashboardBox').classList.remove('d-none');
-    } else { alertBox.innerText = result.message; alertBox.classList.remove('d-none'); }
-  } catch (e) { alertBox.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย'; alertBox.classList.remove('d-none'); }
-  finally { btn.disabled = false; btn.innerHTML = 'เข้าสู่ระบบ'; }
-}
-
-export function logoutStaff() {
-  currentStaffRole = null;
-  document.getElementById('staffDashboardBox').classList.add('d-none');
-  document.getElementById('staffLoginBox').classList.remove('d-none');
-}
 
 /**
  * Enter the VS staff dashboard. Reads the role from the in-page #staffRole

@@ -11,56 +11,15 @@ let globalPrAgents = [];
 let currentPrAssignees = [];
 
 // --------------------------------------------------
-// Staff Login
+// Staff Entry
+// PR staff login is handled globally via the navbar sign-in modal
+// (see auth.js). The legacy in-form login box was removed when the
+// dashboard moved to the Admin tab.
 // --------------------------------------------------
-
-export function initPrStaffRemember() {
-  if (localStorage.getItem('prStaffUser')) {
-    document.getElementById('prStaffUsername').value = localStorage.getItem('prStaffUser');
-    document.getElementById('prStaffPassword').value = localStorage.getItem('prStaffPass');
-    document.getElementById('prStaffRemember').checked = true;
-  }
-}
-
-export async function loginPRStaff() {
-  const user = document.getElementById('prStaffUsername').value.trim();
-  const pass = document.getElementById('prStaffPassword').value.trim();
-  const remember = document.getElementById('prStaffRemember').checked;
-  const alertBox = document.getElementById('prStaffLoginAlert');
-  const btn = document.getElementById('btnPrStaffLogin');
-
-  if (!user || !pass) { alertBox.innerText = 'กรุณากรอก Username/Password'; alertBox.classList.remove('d-none'); return; }
-  btn.disabled = true; btn.innerHTML = 'กำลังตรวจสอบ...'; alertBox.classList.add('d-none');
-
-  try {
-    const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'verifyPRStaffLogin', username: user, password: pass }) });
-    const result = await res.json();
-    if (result.success) {
-      await loadGlobalAgents();
-      if (remember) {
-        localStorage.setItem('prStaffUser', user);
-        localStorage.setItem('prStaffPass', pass);
-      } else {
-        localStorage.removeItem('prStaffUser');
-        localStorage.removeItem('prStaffPass');
-      }
-      await fetchPRStaffTickets();
-      document.getElementById('prStaffLoginBox').classList.add('d-none');
-      document.getElementById('prStaffDashboardBox').classList.remove('d-none');
-    } else { alertBox.innerText = result.message; alertBox.classList.remove('d-none'); }
-  } catch (e) { alertBox.innerText = 'เชื่อมต่อล้มเหลว'; alertBox.classList.remove('d-none'); }
-  finally { btn.disabled = false; btn.innerHTML = 'เข้าสู่ระบบจัดการ PR'; }
-}
-
-export function logoutPRStaff() {
-  document.getElementById('prStaffDashboardBox').classList.add('d-none');
-  document.getElementById('prStaffLoginBox').classList.remove('d-none');
-}
 
 /**
  * Enter the PR staff dashboard. Used by the admin tab once the user has
- * been verified as pr_staff (or dev) via the global auth modal — there's
- * no in-section login box anymore.
+ * been verified as pr_staff (or dev) via the global auth modal.
  */
 export async function enterPRStaffDashboard() {
   await loadGlobalAgents();

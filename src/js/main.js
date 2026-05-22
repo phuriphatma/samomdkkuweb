@@ -17,10 +17,10 @@ import { initAnnouncements, loadAnnouncements, publishAnnouncement, viewAnnounce
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
-import { initPrStaffRemember, loginPRStaff, logoutPRStaff, fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
+import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
 import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
-import { initVsStaffRemember, loginStaff, logoutStaff, fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction } from './vs-staff.js';
+import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction } from './vs-staff.js';
 
 // ==============================================
 // QUILL SETUP
@@ -109,11 +109,6 @@ window.editCurrentAnnouncement = editCurrentAnnouncement;
 
 // Global Auth
 window.samoSignOut = samoSignOut;
-window.samoPromptSignIn = () => {
-  if (window.google && window.google.accounts && window.google.accounts.id) {
-    window.google.accounts.id.prompt();
-  }
-};
 
 // Creator thumbnail picker
 window.onCreatorThumbPicked = async (event) => {
@@ -207,6 +202,20 @@ window.onVSAdminRoleChange = async () => {
   await enterVSStaffDashboard();
 };
 
+// About Us: activate the about tab and scroll to the given section anchor.
+// The CSS scroll-margin-top on .about-section keeps the heading clear of
+// the sticky navbar. Fallback path: if the tab isn't active yet (e.g. user
+// just opened the dropdown), wait one frame so the pane is visible before
+// scrolling — otherwise scrollIntoView measures a hidden element.
+window.goToAbout = (sectionId) => {
+  const btn = document.getElementById('pills-about-tab');
+  if (btn && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(btn).show();
+  requestAnimationFrame(() => {
+    const target = document.getElementById(sectionId);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+};
+
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
   const password = document.getElementById('signinRegisterPassword').value;
@@ -252,9 +261,7 @@ window.loadPRHistory = loadPRHistory;
 window.openPRTicketDetail = openPRTicketDetail;
 window.logoutPRTrack = logoutPRTrack;
 
-// PR Staff
-window.loginPRStaff = loginPRStaff;
-window.logoutPRStaff = logoutPRStaff;
+// PR Staff (login/logout removed — admin tab is gated by global auth)
 window.fetchPRStaffTickets = fetchPRStaffTickets;
 window.filterPRStaffTickets = filterPRStaffTickets;
 window.openPRStaffModal = openPRStaffModal;
@@ -279,9 +286,7 @@ window.submitUserRemark = submitUserRemark;
 window.openTicketDetail = openTicketDetail;
 window.logoutTrack = logoutTrack;
 
-// VS Staff
-window.loginStaff = loginStaff;
-window.logoutStaff = logoutStaff;
+// VS Staff (login/logout removed — admin tab is gated by global auth)
 window.fetchStaffTickets = fetchStaffTickets;
 window.openStaffModalByIndex = openStaffModalByIndex;
 window.submitStaffAction = submitStaffAction;
@@ -476,10 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Restore from localStorage (notifies all subscribers above)
   initAuth();
-
-  // Restore staff remember-me
-  initPrStaffRemember();
-  initVsStaffRemember();
 
   // Initialize PR form event listeners
   initPrForm();

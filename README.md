@@ -7,7 +7,8 @@ Welcome to the official Web Portal for the Medical Student Union of Khon Kaen Un
 *   **Announcements & News Board:** Read the latest updates from the student union and create new announcements via a built-in Rich Text Editor (Quill.js).
 *   **PR Submission System:** A robust form for student clubs and departments to submit PR requests (Instagram/Facebook). Includes an interactive timeline, status tracking, and Google Identity Services for user authentication.
 *   **Vital Sound System:** An anonymous ticketing system for students to voice their concerns. Features a direct pipeline to specific departments, dynamic routing, and interactive chat remarks.
-*   **Staff Dashboards:** Dedicated login portals for PR and SE (Student Engagement) staff to manage incoming tickets, update statuses, assign team members, and communicate via Discord integrations.
+*   **Staff Dashboards:** Dedicated Admin tab (role-gated) hosting the PR Kanban dashboard with status columns and department filter, plus the VS Staff dashboard with a department/role switcher.
+*   **Global Authentication:** One sign-in modal (username/password + Google) at the top right of the navbar. Roles: regular user, PR staff (`samomdkkupr`), VS staff (`samomdkkuvssound`), and dev (`samomdkkudev`). Dev role unlocks features like silent Discord notifications.
 
 ## 🏗 Architecture & Tech Stack
 
@@ -30,8 +31,14 @@ samomdkkuweb/
 │   ├── html/             # Extracted HTML components (Partials)
 │   │   ├── navbar.html
 │   │   ├── tab-home.html
+│   │   ├── tab-announcements.html
+│   │   ├── tab-creator.html
 │   │   ├── tab-pr.html
-│   │   └── ...
+│   │   ├── tab-vitalsound.html
+│   │   ├── tab-admin.html         # Role-gated admin dashboard
+│   │   ├── tab-about.html         # Team / Vision / Mission demo pages
+│   │   ├── modal-signin.html      # Global auth modal
+│   │   └── modal-*.html           # Other modals (announcement, PR/VS staff, agents)
 │   ├── css/              # Modularized CSS
 │   │   ├── main.css      # Central stylesheet (imports others)
 │   │   ├── cards.css
