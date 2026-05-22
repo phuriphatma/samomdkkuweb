@@ -3,19 +3,14 @@
 //
 // Single API for both PR and VS Discord notifications. Currently
 // routes to the GAS endpoints (`notifyPROnly` / `notifyVSOnly` /
-// `notifyVSConsult`). When Supabase Edge Functions are debugged, this
-// file is the only thing that needs to change — call sites stay the same.
+// `notifyVSConsult`). When Supabase Edge Functions are fixed, this
+// file is the only thing that needs to change — call sites stay the
+// same.
 //
-// Usage:
-//   import { sendNotify } from './notify.js';
-//
-//   sendNotify('pr', { ... }).catch(() => {});  // PR new ticket
-//
-//   sendNotify('vs', { mode: 'submit', ... });  // VS new ticket
-//   sendNotify('vs', { mode: 'consult', ... }); // VS staff consult
-//
-// The helper is fire-and-forget by default — callers may .catch() to
-// log a warning but should never await it on the user's critical path.
+// Usage (always fire-and-forget; callers must not await on UX path):
+//   sendNotify('pr', { ticketId, ... });
+//   sendNotify('vs', { mode: 'submit', ticketId, ... });
+//   sendNotify('vs', { mode: 'consult', ticketId, ... });
 // ==============================================
 
 import { GAS_API_URL, GAS_VITAL_SOUND_URL } from './config.js';
@@ -25,8 +20,6 @@ const SYSTEM_ENDPOINT = {
   vs: GAS_VITAL_SOUND_URL,
 };
 
-// Maps the (system, mode) tuple to the GAS action name. The GAS files
-// (appscript/prform.gs + appscript/vssound.gs) define matching actions.
 function actionFor(system, mode) {
   if (system === 'pr') return 'notifyPROnly';
   if (system === 'vs' && mode === 'consult') return 'notifyVSConsult';
@@ -35,29 +28,39 @@ function actionFor(system, mode) {
 }
 
 /**
- * Send a Discord notification.
+ * Send a Discord notification. Fire-and-forget.
  *
- * @param {'pr'|'vs'} system  Which subsystem the notification is for.
- * @param {object}     payload Fields the backend webhook formatter expects.
- *                              For VS, include `mode: 'submit'|'consult'`.
- * @returns {Promise<Response>} Resolves with the fetch Response. Reject on network failure.
+ * Implementation notes (this matters — earlier versions caused the form
+ * to hang on a second submit):
+ *
+ *  - We DON'T use `await fetch(...)` here. The caller would then hold
+ *    a pending promise referencing an unread Response body, which
+ *    keeps the browser's HTTP connection in a half-closed state.
+ *    Subsequent requests (especially supabase-js's background token
+ *    refresh) can deadlock on connection-pool backpressure.
+ *  - We chain `.then(r => r.text())` to actually drain the response
+ *    body, freeing the connection.
+ *  - `keepalive: true` puts the request on a separate connection pool
+ *    that doesn't compete with foreground fetches.
  */
-export async function sendNotify(system, payload = {}) {
+export function sendNotify(system, payload = {}) {
   const url = SYSTEM_ENDPOINT[system];
-  if (!url) throw new Error(`notify: unknown system "${system}"`);
+  if (!url) return Promise.reject(new Error(`notify: unknown system "${system}"`));
 
-  const action = actionFor(system, payload.mode);
+  let action;
+  try { action = actionFor(system, payload.mode); }
+  catch (e) { return Promise.reject(e); }
+
   const body = { action, ...payload };
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body),
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+    keepalive: true,
+  })
+    .then((r) => r.text().catch(() => ''))
+    .catch((e) => {
+      console.warn(`[notify] ${system}/${action} failed:`, e);
     });
-    return res;
-  } catch (e) {
-    console.warn(`[notify] ${system}/${action} failed:`, e);
-    throw e;
-  }
 }
