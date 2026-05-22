@@ -86,7 +86,7 @@ export async function loginToViewHistory() {
       .from('vs_tickets')
       .select('*')
       .or(`submitter_id.eq.${authUser.id},submitter_label.eq.${submitterLabel}`)
-      .order('created_at', { ascending: false });
+      .order('timestamp', { ascending: false });
     if (error) throw error;
     loggedInUserTickets = (data || []).map(rowToTicket);
     renderUserHistoryList();

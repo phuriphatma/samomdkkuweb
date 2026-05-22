@@ -37,7 +37,9 @@ export async function fetchStaffTickets() {
   list.innerHTML = '';
 
   try {
-    let query = db.from('vs_tickets').select('*').order('created_at', { ascending: false });
+    // Order by `timestamp` (set on both live submissions + migrated rows)
+    // rather than created_at (defaults to migration time for legacy rows).
+    let query = db.from('vs_tickets').select('*').order('timestamp', { ascending: false });
     if (currentStaffRole === 'SE') {
       query = query.eq('target_dept', 'SE');
     } else {

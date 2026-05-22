@@ -72,10 +72,14 @@ export async function fetchPRStaffTickets() {
   if (board) board.innerHTML = '';
 
   try {
+    // Order by `timestamp` (the submission time we explicitly set on
+    // both live submissions and the legacy CSV migration). `created_at`
+    // can default to migration-time for legacy rows, putting them in
+    // an arbitrary order within their kanban column.
     const { data, error } = await db
       .from('pr_tickets')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('timestamp', { ascending: false });
     if (error) throw error;
     if (loading) loading.classList.add('d-none');
     prStaffTicketsCache = (data || []).map(rowToTicket);

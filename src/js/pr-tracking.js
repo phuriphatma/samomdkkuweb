@@ -131,7 +131,7 @@ export async function loadPRHistory() {
     const orFilter = encodeURIComponent(`submitter_id.eq.${idEsc},submitter_label.eq.${labelEsc}`)
       .replace(/%2C/g, ','); // PostgREST or= needs raw commas
     const { data, error } = await dbRest(
-      `/pr_tickets?select=*&or=(${orFilter})&order=created_at.desc`
+      `/pr_tickets?select=*&or=(${orFilter})&order=timestamp.desc`
     );
     if (error) throw error;
     loggedInUserPrTickets = (data || []).map(rowToTicket);
