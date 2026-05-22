@@ -1,13 +1,21 @@
 // ==============================================
 // NOTIFY — Fire-and-forget Discord webhook trigger
 //
-// Uses navigator.sendBeacon — the right tool for fire-and-forget POST:
-//   - Browser-managed background request
-//   - Separate connection pool from foreground fetches
-//   - No Promise to leak / no body to drain
-//   - Returns synchronously (boolean: queued)
+// Implementation: plain fetch with keepalive + drained body.
 //
-// Fallback: keepalive fetch with body drained.
+// Why NOT navigator.sendBeacon:
+//   sendBeacon does not follow HTTP redirects. Google Apps Script
+//   `/exec` URLs always 302-redirect to `script.googleusercontent.com`
+//   for the actual response, so sendBeacon would fire the POST, get
+//   the 302, stop, and Discord would never be invoked.
+//
+// Why this doesn't cause the "second submit hangs" bug:
+//   The original hang was caused by supabase-js's autoRefreshToken
+//   running an inline refresh that stalled. That's now disabled in
+//   db.js (see proactive setInterval refresh there). Without that
+//   inline refresh, regular fetches don't block subsequent foreground
+//   requests, and the connection draining below ensures the connection
+//   pool stays healthy.
 //
 // Usage (never returns a Promise; never await):
 //   sendNotify('pr', { ticketId, ... });
@@ -39,23 +47,18 @@ export function sendNotify(system, payload = {}) {
   const body = JSON.stringify({ action, ...payload });
   const label = `${system}/${action}`;
 
-  // Primary: sendBeacon — separate connection pool, no Promise.
-  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-    try {
-      const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
-      const queued = navigator.sendBeacon(url, blob);
-      if (queued) return;
-      console.warn(`[notify] sendBeacon refused for ${label}; falling back to fetch`);
-    } catch (e) {
-      console.warn(`[notify] sendBeacon threw for ${label}:`, e);
-    }
-  }
-
-  // Fallback: keepalive fetch with response drained.
+  // Fire-and-forget. We do NOT await this; the caller continues
+  // immediately and the request runs in parallel with the rest of the
+  // submit handler. The .then(r => r.text()) drains the response body
+  // so the underlying HTTP connection closes cleanly — without this,
+  // the half-read connection pool entry can pile up and degrade
+  // performance over time.
   fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body,
+    // keepalive lets the request survive page unload (rare in our flow
+    // but harmless) and uses a slightly different priority lane.
     keepalive: true,
   })
     .then((r) => r.text().catch(() => ''))
