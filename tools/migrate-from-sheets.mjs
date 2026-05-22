@@ -48,11 +48,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
-// Mode flag. RESTORE_ONLY = only insert rows that don't already exist;
-// never overwrite existing rows. Useful for recovering an accidentally
-// deleted ticket without reverting live edits on other tickets.
+// Mode flags.
+//   MIGRATE_RESTORE_ONLY     : only insert rows that don't already exist
+//                              (recover deleted tickets without reverting
+//                              live edits on other tickets)
+//   MIGRATE_PATCH_ASSIGNEES  : only update the `assignees` field on
+//                              existing pr_tickets rows. Useful when an
+//                              earlier migration left assignees empty
+//                              and you want to backfill them without
+//                              touching status / remarks.
 const RESTORE_ONLY = process.env.MIGRATE_RESTORE_ONLY === '1' || process.env.MIGRATE_RESTORE_ONLY === 'true';
+const PATCH_ASSIGNEES = process.env.MIGRATE_PATCH_ASSIGNEES === '1' || process.env.MIGRATE_PATCH_ASSIGNEES === 'true';
 if (RESTORE_ONLY) console.log('[mode] MIGRATE_RESTORE_ONLY — existing rows will NOT be overwritten');
+if (PATCH_ASSIGNEES) console.log('[mode] MIGRATE_PATCH_ASSIGNEES — only the assignees column will be updated');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -109,7 +117,11 @@ function readCSV(filename) {
   const data = rows.slice(1)
     .filter((r) => r.some((c) => c && c.trim()))
     .map((r) => {
-      const obj = {};
+      // Expose both header-keyed access (obj['Status']) AND positional
+      // access (obj._raw[20]). The latter matters for the PR sheet's
+      // Assignees column which has an empty header in the export and
+      // is otherwise unreachable.
+      const obj = { _raw: r.map((c) => (c ?? '').trim()) };
       header.forEach((h, i) => { obj[h] = (r[i] ?? '').trim(); });
       return obj;
     });
@@ -314,9 +326,16 @@ async function migratePRTickets() {
     let remarks = [];
     try { if (r['Remarks']) remarks = JSON.parse(r['Remarks']); } catch {}
     let assignees = [];
-    // Sheet has Assignees in col 21 (header was missing in the CSV; try common names).
-    const rawAssign = r['Assignees'] || r['Column21'] || '';
-    try { if (rawAssign) assignees = JSON.parse(rawAssign); } catch {}
+    // Assignees lives in the column AFTER Remarks (index 20, 0-based).
+    // The CSV export has an empty header for it, so we can't reach it
+    // via r['Assignees']. Use the positional _raw array.
+    const rawAssign = r._raw?.[20] || r['Assignees'] || '';
+    try {
+      if (rawAssign && rawAssign.trim().startsWith('[')) {
+        const parsed = JSON.parse(rawAssign);
+        if (Array.isArray(parsed)) assignees = parsed;
+      }
+    } catch (e) { console.warn(`[pr ${r['Ticket ID']}] assignees parse failed:`, e.message); }
 
     const row = {
       id: r['Ticket ID'],
@@ -346,9 +365,21 @@ async function migratePRTickets() {
     };
 
     if (!row.id) { fail++; continue; }
-    const { error } = await admin
-      .from('pr_tickets')
-      .upsert(row, { onConflict: 'id', ignoreDuplicates: RESTORE_ONLY });
+
+    let error;
+    if (PATCH_ASSIGNEES) {
+      // Surgical: just write the assignees column. Leave status,
+      // remarks, etc. untouched in case the staff has been working
+      // tickets via the dashboard since the original migration.
+      ({ error } = await admin
+        .from('pr_tickets')
+        .update({ assignees })
+        .eq('id', row.id));
+    } else {
+      ({ error } = await admin
+        .from('pr_tickets')
+        .upsert(row, { onConflict: 'id', ignoreDuplicates: RESTORE_ONLY }));
+    }
     if (error) { console.error(`[pr fail] ${row.id}:`, error.message); fail++; }
     else { ok++; }
   }
