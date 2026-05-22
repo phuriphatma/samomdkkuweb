@@ -1,0 +1,499 @@
+      <!-- TAB 4: PR FORM -->
+      <div class="tab-pane fade" id="pills-pr" role="tabpanel">
+        <div class="form-container">
+          <div class="text-center mb-5">
+            <h2 class="page-header"><i class="bi bi-megaphone-fill me-2 text-pink-custom"></i>MDKKU PR Form</h2>
+            <p class="text-muted mb-2">ระบบสั่งงานและฝากประชาสัมพันธ์ สโมสรนักศึกษา (สำหรับลง Social Media)</p>
+            <!-- ส่วนที่เพิ่มใหม่ -->
+            <span class="badge rounded-pill shadow-sm"
+              style="background-color: var(--pink-100); color: var(--pink-700); font-size: 0.95rem; padding: 0.6rem 1.2rem;">
+              <i class="bi bi-instagram me-1"></i> ติดต่อเพิ่มเติมที่ ig: mdkkusamo
+            </span>
+          </div>
+
+          <!-- Toggle โหมด PR -->
+          <div class="d-flex justify-content-center mb-4">
+            <div class="btn-group shadow-sm flex-wrap" role="group">
+              <input type="radio" class="btn-check" name="prModeTab" id="prModeSubmit" autocomplete="off" checked
+                onchange="togglePrMode()" />
+              <label class="btn btn-outline-danger px-3" for="prModeSubmit" style="border-color: var(--pink-500)"><i
+                  class="bi bi-send-plus me-1"></i>ส่งงาน PR</label>
+              <input type="radio" class="btn-check" name="prModeTab" id="prModeTrack" autocomplete="off"
+                onchange="togglePrMode()" />
+              <label class="btn btn-outline-danger px-3" for="prModeTrack" style="border-color: var(--pink-500)"><i
+                  class="bi bi-search me-1"></i>ติดตามสถานะ</label>
+            </div>
+          </div>
+
+          <div id="alertBox" class="alert d-none shadow-sm"></div>
+
+          <!-- SECTION 1: SUBMIT PR FORM -->
+          <div id="prSubmitSection">
+            <form id="prForm">
+
+              <!-- การยืนยันตัวตน (ปรับใหม่เหลือ 2 ตัวเลือก) -->
+              <div id="prFormAuthWrapper" class="p-3 mb-4 rounded-3"
+                style="background-color: #f8fafc; border: 1px solid #cbd5e1">
+                <label class="form-label fw-bold text-pink-custom mb-2"><i class="bi bi-person-badge me-1"></i>
+                  รูปแบบการติดตามสถานะ PR</label>
+                <div class="d-flex flex-column gap-2 mb-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="prAccountMode" id="prAccGuest" value="guest"
+                      checked onchange="togglePrAccountFields()" style="cursor: pointer;" />
+                    <label class="form-check-label text-muted" for="prAccGuest"
+                      style="cursor: pointer;">ส่งแบบผู้เยี่ยมชม (รับแค่หมายเลข Ticket เพื่อค้นหาสถานะทีหลัง)</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="prAccountMode" id="prAccGoogle" value="google"
+                      onchange="togglePrAccountFields()" style="cursor: pointer;" />
+                    <label class="form-check-label fw-bold" for="prAccGoogle" style="cursor: pointer;">เข้าสู่ระบบด้วย
+                      Google Account (เพื่อดูประวัติย้อนหลังได้)</label>
+                  </div>
+                </div>
+
+                <!-- ส่วนแสดงผลสถานะ Login (auth now routed via the navbar sign-in modal;
+                     this section just nudges users when they pick the Google radio). -->
+                <div id="prGoogleAuthContainer" class="d-none p-4 rounded text-center"
+                  style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
+                  <div id="prNotLoggedInState">
+                    <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบเพื่อยืนยันตัวตน</p>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                      data-bs-target="#signinModal">
+                      <i class="bi bi-box-arrow-in-right me-1"></i> เปิดหน้าเข้าสู่ระบบ
+                    </button>
+                  </div>
+
+                  <div id="prLoggedInState" class="d-none">
+                    <div class="text-success fw-bold small mt-1 mb-2">
+                      <i class="bi bi-check-circle-fill"></i> เข้าสู่ระบบแล้ว
+                    </div>
+                    <div class="d-inline-flex align-items-center bg-light px-3 py-2 rounded-pill border mb-2">
+                      <i class="bi bi-google text-muted me-2"></i>
+                      <span id="prVerifiedEmail" class="fw-bold me-3"></span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill"
+                        onclick="logoutGoogle()">ออกจากระบบ</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <input type="hidden" id="prGoogleUserEmail" name="prGoogleUserEmail" value="" />
+              <input type="hidden" id="prGoogleUserName" name="prGoogleUserName" value="" />
+
+              <!-- ข้อมูลผู้ส่งงาน -->
+              <h4 class="section-title"><i class="bi bi-person-badge me-2"></i>ข้อมูลผู้ส่งงาน</h4>
+              <div class="row mb-4 g-3">
+                <div class="col-md-6">
+                  <label class="form-label">ฝ่าย (Department) <span class="text-danger">*</span></label>
+                  <select name="department" id="department" class="form-select" required>
+                    <option value="" disabled selected>เลือกฝ่ายของคุณ</option>
+                    <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
+                    <option value="ฝ่ายดิจิทัลและสื่อสารองค์กร">ฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                    <option value="ฝ่ายกิจการภายใน">ฝ่ายกิจการภายใน</option>
+                    <option value="ฝ่ายกิจการภายนอก">ฝ่ายกิจการภายนอก</option>
+                    <option value="ฝ่ายกิจการมหาวิทยาลัย">ฝ่ายกิจการมหาวิทยาลัย</option>
+                    <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
+                    <option value="ฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                    <option value="ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม">ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม</option>
+                    <option value="ฝ่ายเวชนิทัศน์">ฝ่ายเวชนิทัศน์</option>
+                    <option value="โครงการอื่นๆ">โครงการอื่นๆ (Projects)</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">
+                    ช่องทางติดต่อ (IG/Line) <span class="text-danger d-none" id="contactReqStar">*</span><small
+                      class="text-muted fw-normal" id="contactOptionalText">(ไม่บังคับ)</small>
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i
+                        class="bi bi-chat-dots"></i></span>
+                    <input type="text" name="contact" id="contactInput" class="form-control border-start-0 ps-0"
+                      placeholder="เช่น Ig: pukanpts" />
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- รายละเอียดงาน -->
+              <h4 class="section-title"><i class="bi bi-card-checklist me-2"></i>รายละเอียดงาน</h4>
+              <div class="mb-4">
+                <label class="form-label">ชื่องาน / Content <span class="text-danger">*</span></label>
+                <input type="text" name="content" class="form-control" placeholder="ระบุชื่องานที่ต้องการโปรโมท"
+                  required />
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label">รูปแบบงาน (Job Type) <span class="text-danger">*</span></label>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <input class="btn-check job-type-radio" type="radio" name="jobType" id="jobType1"
+                      value="New content" required />
+                    <label class="radio-card-label" id="labelJobType1" for="jobType1">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold"><i class="bi bi-magic me-2"></i>New content</span><i
+                          class="bi bi-check-circle-fill check-icon fs-5"></i>
+                      </div>
+                      <small class="text-muted mt-1 d-block">ให้ทีม PR ช่วยสร้างสรรค์สื่อให้ใหม่ (เกณฑ์เวลา 15
+                        วัน)</small>
+                    </label>
+                  </div>
+                  <div class="col-md-6">
+                    <input class="btn-check job-type-radio" type="radio" name="jobType" id="jobType2"
+                      value="Ready to post" required />
+                    <label class="radio-card-label" id="labelJobType2" for="jobType2">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold"><i class="bi bi-image me-2"></i>Ready to post</span><i
+                          class="bi bi-check-circle-fill check-icon fs-5"></i>
+                      </div>
+                      <small class="text-muted mt-1 d-block">มีรูปภาพ/สื่อพร้อมสำหรับลงโพสต์แล้ว (เกณฑ์เวลา 1
+                        วัน)</small>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label">แพลตฟอร์ม (เลือกได้มากกว่า 1) <span class="text-danger">*</span></label>
+                <div class="d-flex flex-wrap gap-2">
+                  <input type="checkbox" class="btn-check" name="platform" id="plat1" value="Ig post" />
+                  <label class="pill-checkbox-label ig shadow-sm" for="plat1"><i class="bi bi-instagram me-1"></i> IG
+                    Post</label>
+                  <input type="checkbox" class="btn-check" name="platform" id="plat2" value="Ig story" />
+                  <label class="pill-checkbox-label ig shadow-sm" for="plat2"><i class="bi bi-instagram me-1"></i> IG
+                    Story</label>
+                  <input type="checkbox" class="btn-check" name="platform" id="plat3" value="Facebook mdkkusamo" />
+                  <label class="pill-checkbox-label fb shadow-sm" for="plat3"><i class="bi bi-facebook me-1"></i>
+                    Facebook</label>
+                  <input type="checkbox" class="btn-check" name="platform" id="plat4" value="Line กลุ่มชั้นปี" />
+                  <label class="pill-checkbox-label line shadow-sm" for="plat4"><i class="bi bi-line me-1"></i> Line
+                    กลุ่มชั้นปี</label>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label">Other platform <small class="text-muted">(วันเวลาที่ลงอาจไม่แน่นอน)</small>
+                  <small class="text-muted">(เลือกได้มากกว่า 1)</small></label>
+                <div class="d-flex flex-wrap gap-2">
+                  <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat1"
+                    value="ประชาสัมพันธ์ของคณะ" onchange="toggleOtherPlatformReason()" />
+                  <label class="pill-checkbox-label other shadow-sm" for="otherPlat1"><i
+                      class="bi bi-building me-1"></i> ประชาสัมพันธ์ของคณะ</label>
+                  <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat2"
+                    value="ประชาสัมพันธ์ของมหาลัย" onchange="toggleOtherPlatformReason()" />
+                  <label class="pill-checkbox-label other shadow-sm" for="otherPlat2"><i
+                      class="bi bi-mortarboard me-1"></i> ประชาสัมพันธ์ของมหาลัย</label>
+                  <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat3"
+                    value="ประชาสัมพันธ์ต่างมหาลัย" onchange="toggleOtherPlatformReason()" />
+                  <label class="pill-checkbox-label other shadow-sm" for="otherPlat3"><i class="bi bi-globe me-1"></i>
+                    ประชาสัมพันธ์ต่างมหาลัย</label>
+                </div>
+              </div>
+
+              <div class="mb-4 d-none" id="otherPlatformReasonSection">
+                <label class="form-label">เหตุผลที่ต้องการประชาสัมพันธ์ <span class="text-danger">*</span></label>
+                <textarea name="otherPlatformReason" id="otherPlatformReason" class="form-control" rows="2"
+                  placeholder="อธิบายเหตุผลให้ทีม PR พิจารณา..."></textarea>
+              </div>
+
+              <div class="mb-4 d-none" id="regularPostingChannel">
+                <label class="form-label">ช่องทางการโพสต์ <span class="badge-info-custom">แสดงเพราะเลือก IG Post หรือ IG
+                    Story</span> <span class="text-danger">*</span></label>
+                <div class="d-grid gap-2">
+                  <input class="btn-check" type="radio" name="postingChannel" id="postChan1"
+                    value="Only Account ฝ่าย" />
+                  <label class="radio-card-label py-2" for="postChan1">
+                    <div class="d-flex justify-content-between align-items-center"><span><i
+                          class="bi bi-person-fill me-2"></i>Account ฝ่ายเท่านั้น</span><i
+                        class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                  </label>
+
+                  <input class="btn-check" type="radio" name="postingChannel" id="postChan2"
+                    value="Account ฝ่าย & co-post with mdkkusamo account" />
+                  <label class="radio-card-label py-2" for="postChan2">
+                    <div class="d-flex justify-content-between align-items-center"><span><i
+                          class="bi bi-people-fill me-2"></i>Account ฝ่าย & Co-post กับ SAMO</span><i
+                        class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                  </label>
+
+                  <input class="btn-check" type="radio" name="postingChannel" id="postChan3"
+                    value="Only mdkkusamo account" />
+                  <label class="radio-card-label py-2" for="postChan3">
+                    <div class="d-flex justify-content-between align-items-center"><span><i
+                          class="bi bi-megaphone-fill me-2"></i>Account MDKKU SAMO เท่านั้น</span><i
+                        class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                  </label>
+                </div>
+              </div>
+
+              <div id="projectDepartmentSection" class="row mb-4 g-4 d-none">
+                <div class="col-12 d-none" id="projectPostingFormat">
+                  <label class="form-label">รูปแบบการลงสื่อ <span class="badge-info-custom">แสดงเพราะเลือก IG Post หรือ
+                      IG Story</span> <small class="text-muted">(เลือกได้มากกว่า 1)</small> <span class="text-danger">*</span></label>
+                  <div class="d-grid gap-2">
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat1"
+                      value="ฝากลง mdkkusamo account" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat1">
+                      <i class="bi bi-arrow-right-circle me-2"></i>ฝากลง mdkkusamo account
+                    </label>
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat2"
+                      value="co-post with mdkkusamo" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat2">
+                      <i class="bi bi-people-fill me-2"></i>co-post with mdkkusamo
+                    </label>
+                    <input class="btn-check" type="checkbox" name="projectFormat" id="projFormat3"
+                      value="co-post with account ฝ่าย" onchange="toggleProjectFormatCopost()" />
+                    <label class="pill-checkbox-label fb shadow-sm w-100 text-start py-3 px-3" for="projFormat3">
+                      <i class="bi bi-diagram-2 me-2"></i>co-post with account ฝ่าย
+                    </label>
+                  </div>
+                </div>
+                <div class="col-12 d-none" id="copostWithSection">
+                  <label class="form-label">Co-post with... <span class="text-danger">*</span></label>
+                  <input type="text" name="copostWith" id="copostWith" class="form-control"
+                    placeholder="ชื่อฝ่ายที่โครงการต้องการลง co ด้วย" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Your project Account <span class="text-danger">*</span></label>
+                  <input type="text" name="projectAccount" id="projectAccount" class="form-control"
+                    placeholder="ชื่อ account โครงการ" />
+                </div>
+              </div>
+
+              <h4 class="section-title"><i class="bi bi-calendar-event me-2"></i>กำหนดการลงสื่อ</h4>
+              <div class="mb-3">
+                <label class="form-label">ประเภทกำหนดการ <span class="text-danger">*</span></label>
+                <div class="d-grid gap-2">
+                  <input class="btn-check" type="radio" name="deadlineMode" id="deadlineNormal" value="Normal" checked
+                    required />
+                  <label class="radio-card-label py-2" for="deadlineNormal">
+                    <div class="d-flex justify-content-between align-items-center"><span><i
+                          class="bi bi-calendar-check me-2"></i>📅 ตามเกณฑ์ปกติ (อิงตามรูปแบบงานที่เลือก)</span><i
+                        class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                  </label>
+                  <input class="btn-check" type="radio" name="deadlineMode" id="deadlineRush" value="Rush PR Review" />
+                  <label class="radio-card-label py-2" for="deadlineRush">
+                    <div class="d-flex justify-content-between align-items-center"><span class="text-danger fw-bold"><i
+                          class="bi bi-rocket-takeoff me-2"></i>⚡ ขอเร็วกว่าปกติ (Submit for PR Review)</span><i
+                        class="bi bi-check-circle-fill check-icon fs-5"></i></div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="row mb-4 p-4 rounded-4 mx-0"
+                style="background-color: var(--pink-50); border: 1px solid var(--pink-200)">
+                <div class="col-12 px-0 mb-3">
+                  <label class="form-label">วันที่และเวลาที่ต้องการลงประชาสัมพันธ์ <span
+                      class="text-danger">*</span></label>
+                  <div class="row g-2">
+                    <div class="col-7">
+                      <input type="date" id="publishDatePart" class="form-control bg-white" required />
+                    </div>
+                    <div class="col-5">
+                      <input type="time" id="publishTimePart" class="form-control bg-white" min="08:00" max="22:00"
+                        required />
+                    </div>
+                  </div>
+                  <input type="hidden" name="publishDate" id="publishDate" />
+                  <small class="mt-2 d-block text-pink-custom" id="dateHelper"><i
+                      class="bi bi-info-circle me-1"></i>กรุณาเลือกรูปแบบงานเพื่อคำนวณวัน <span
+                      class="fw-normal text-muted">(เลือกเวลาได้เฉพาะ 08:00-22:00)</span></small>
+                </div>
+                <div class="col-12 px-0 d-none" id="prReviewSection">
+                  <div class="alert alert-warning mb-3"
+                    style="background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>หมายเหตุ PR Review:</strong> ทีม PR
+                    จะพิจารณาตามความเหมาะสมและภาระงาน โดยสามารถยอมรับ แก้วัน หรือปฏิเสธได้
+                  </div>
+                  <label class="form-label">เหตุผลความจำเป็นที่ต้องการงานด่วน <span class="text-danger">*</span></label>
+                  <textarea name="rushReason" id="rushReason" class="form-control bg-white" rows="2"
+                    placeholder="อธิบายเหตุผลให้ทีม PR พิจารณา..."></textarea>
+                </div>
+              </div>
+
+              <!-- เนื้อหาและไฟล์แนบ -->
+              <h4 class="section-title"><i class="bi bi-folder2-open me-2"></i>เนื้อหาและไฟล์แนบ</h4>
+              <div class="mb-3">
+                <label class="form-label">Brief (บรีฟการออกแบบ)</label>
+                <div class="p-3 mb-2 rounded-3" style="background-color: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b; white-space: pre-wrap;"><strong class="text-pink-custom">ตัวอย่างวิธีบรีฟงาน</strong>
+Title: ชื่องาน
+Type: ประเภท
+Size: ขนาดที่ต้องการจะลง (ig post 4:5 1080x1350)
+Color: ถ้าเป็นงานอุปจะเป็นสีของอุป ถ้าเป็นโครงการสามารถกำหนดได้
+Theme: ธีมที่ต้องการ
+Elements: อยากใส่อะไรเป็นพิเศษ เช่น polaroid
+Other/ Notes
+font
+บรีฟอื่นๆเพิ่มเติม
+Reference: ตัวอย่างคร่าวๆ
+(หากเป็นงานที่มีเนื้อหาเยอะ ให้แจ้งว่า)
+รายละเอียดแต่ละหน้า
+หน้าที่ 1: ใส่ข้อมูลอะไร
+หน้าที่ 2: ใส่ข้อมูลอะไร</div>
+                <textarea name="brief" class="form-control" rows="2"
+                  placeholder="อธิบายแนวทาง โทนสี หรือ Mood & Tone ที่ต้องการ"></textarea>
+              </div>
+              <div class="mb-4">
+                <label class="form-label">Caption (ข้อความแคปชั่น)</label>
+                <textarea name="caption" class="form-control" rows="3"
+                  placeholder="ข้อความที่ต้องการให้ฝากโพสต์ พร้อมแฮชแท็ก (ถ้ามี)"></textarea>
+              </div>
+
+              <div class="p-4 rounded-4 mb-4" style="background-color: #fff1f2; border: 1.5px dashed var(--pink-500)">
+                <label class="form-label fw-bold text-pink-custom"><i
+                    class="bi bi-cloud-arrow-up-fill me-2"></i>อัปโหลดไฟล์รูปภาพได้หลายรูป (สูงสุด 35MB ต่อรูป)</label>
+                <input type="file" name="fileUpload" id="fileUpload" class="form-control bg-white mb-3" accept="image/*"
+                  multiple />
+
+                <label class="form-label mb-1 text-pink-custom">หรือแปะลิงก์ Google Drive</label>
+                <small class="text-muted d-block mb-1">กรณีไฟล์ใหญ่กว่า 35MB หรือเป็นแชร์โฟลเดอร์</small>
+                <!-- ส่วนที่เพิ่มใหม่ -->
+                <small class="text-danger d-block mb-3 fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>
+                  อย่าลืมเปิด Access ให้เราเข้าไปดูได้ด้วย!</small>
+
+                <div class="input-group">
+                  <span class="input-group-text bg-white border-end-0 text-muted"><i
+                      class="bi bi-link-45deg fs-5"></i></span>
+                  <input type="url" name="largeFileLink" id="largeFileLink"
+                    class="form-control border-start-0 ps-0 bg-white" placeholder="https://drive.google.com/..." />
+                </div>
+              </div>
+
+              <div class="dev-only-feature d-none">
+                <div class="form-check form-switch mt-4 mb-2 p-3 rounded-3"
+                  style="background-color: var(--pink-100)">
+                  <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="silentNotify"
+                    name="silentNotify" value="true" style="cursor: pointer" />
+                  <label class="form-check-label text-secondary mt-1" for="silentNotify"
+                    style="cursor: pointer; color: var(--pink-900) !important">
+                    <i class="bi bi-bell-slash-fill me-1"></i> ส่งแจ้งเตือนเข้า Discord แบบ Silent
+                    (ไม่เด้งเตือนเสียงดังรบกวน)
+                  </label>
+                </div>
+                <div class="form-check form-switch mb-4 p-3 rounded-3"
+                  style="background-color: #fffbeb; border: 1px solid #fde68a">
+                  <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="skipDiscord"
+                    name="skipDiscord" value="true" style="cursor: pointer" />
+                  <label class="form-check-label text-secondary mt-1" for="skipDiscord"
+                    style="cursor: pointer; color: #92400e !important">
+                    <i class="bi bi-bug-fill me-1"></i> ทดสอบ — ไม่ส่งแจ้งเตือน Discord เลย (Dev only)
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" id="submitBtn" class="btn btn-submit w-100">
+                <span id="btnText"><i class="bi bi-send-fill me-2"></i>ยืนยันการส่งงาน</span>
+                <span id="btnLoading" class="d-none"><span class="spinner-border spinner-border-sm me-2" role="status"
+                    aria-hidden="true"></span> กำลังอัปโหลดและส่งข้อมูล...</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- SECTION 2: TRACK PR PROGRESS -->
+          <div id="prTrackSection" class="d-none">
+            <div id="prLoginBox" class="card p-4 mx-auto mb-4"
+              style="max-width: 500px; border-color: var(--pink-200); background-color: var(--pink-50);">
+              <ul class="nav nav-tabs nav-fill mb-3" id="prTrackTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="tab-guest-pr-track" data-bs-toggle="tab"
+                    data-bs-target="#content-guest-pr-track" type="button" role="tab"
+                    style="color: var(--pink-700); font-weight: bold;">ค้นหาด้วย Ticket ID</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="tab-user-pr-track" data-bs-toggle="tab"
+                    data-bs-target="#content-user-pr-track" type="button" role="tab"
+                    style="color: var(--pink-700); font-weight: bold;">ประวัติของฉัน</button>
+                </li>
+              </ul>
+              <div id="prTrackAlert" class="alert alert-danger d-none small py-2"></div>
+              <div class="tab-content">
+                <!-- Guest Track -->
+                <div class="tab-pane fade show active" id="content-guest-pr-track" role="tabpanel">
+                  <div class="mb-3">
+                    <label class="form-label">หมายเลข Ticket งาน PR</label>
+                    <input type="text" id="prTrackTicketId" class="form-control" placeholder="PR-XXXXXXXX">
+                  </div>
+                  <button type="button" id="btnTrackPrGuest" class="btn btn-submit w-100"
+                    onclick="trackPRTicket()">ค้นหาสถานะ</button>
+                </div>
+                <!-- User History -->
+                <div class="tab-pane fade" id="content-user-pr-track" role="tabpanel">
+
+                  <div id="prTrackNotLoggedIn">
+                    <div class="alert alert-info small text-center"
+                      style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                      <i class="bi bi-info-circle-fill me-1"></i>
+                      เข้าสู่ระบบเพื่อค้นหาประวัติงาน PR ทั้งหมดของคุณ
+                    </div>
+                    <button type="button" class="btn btn-outline-danger w-100 fw-bold"
+                      data-bs-toggle="modal" data-bs-target="#signinModal">
+                      <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+                    </button>
+                  </div>
+
+                  <div id="prTrackLoggedIn" class="d-none">
+                    <div class="alert alert-success small mb-3">
+                      <i class="bi bi-person-check-fill me-1"></i> กำลังค้นหาประวัติสำหรับ: <strong
+                        id="prTrackEmailDisplay"></strong>
+                    </div>
+                    <button type="button" id="btnTrackPrUser" class="btn btn-submit w-100"
+                      onclick="loadPRHistory()">โหลดประวัติของฉัน</button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- PR User History List -->
+            <div id="prUserHistoryBox" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0 text-pink-custom"><i class="bi bi-card-checklist me-2"></i>ประวัติการส่งงาน PR
+                  ของคุณ</h5>
+                <div>
+                  <button class="btn btn-outline-primary btn-sm me-2" onclick="loadPRHistory()"><i
+                      class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+                  <button class="btn btn-outline-secondary btn-sm" onclick="logoutPRTrack()">กลับ</button>
+                </div>
+              </div>
+              <div class="row g-3" id="prUserHistoryList"></div>
+            </div>
+
+            <!-- PR Ticket Dashboard -->
+            <div id="prDashboardBox" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h5 class="fw-bold mb-0" id="prDashTicketId">PR-XXXXX</h5>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-outline-primary btn-sm" id="btnRefreshPrDash"
+                    onclick="refreshPRTicketDashboard()">
+                    <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+                  </button>
+                  <span id="prDashStatusBadge"
+                    class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">Status</span>
+                </div>
+              </div>
+              <div class="card mb-4 border-0 shadow-sm">
+                <!-- นำ max-height และ overflow-y: auto ออกเพื่อให้แสดงผลเต็ม -->
+                <div class="card-body bg-light rounded">
+                  <p class="mb-1 text-muted small"><strong id="prDashTicketDate">วันที่ส่ง:</strong></p>
+                  <p class="mb-1 small"><strong class="text-pink-custom">ชื่องาน:</strong> <span
+                      id="prDashContentName"></span></p>
+                  <p class="mb-1 small"><strong class="text-pink-custom">ฝ่าย:</strong> <span id="prDashDept"></span>
+                  </p>
+                  <p class="mb-1 small"><strong class="text-pink-custom">รูปแบบ:</strong> <span
+                      id="prDashJobType"></span></p>
+                  <div class="mt-3 p-3 bg-white border rounded">
+                    <span class="fw-bold small text-muted d-block mb-1">บรีฟ / แคปชั่น:</span>
+                    <div id="prDashBrief" class="small" style="white-space: pre-line;"></div>
+                  </div>
+                </div>
+              </div>
+              <h5 class="section-title mt-0"><i class="bi bi-clock-history me-2"></i>Timeline & Remarks</h5>
+              <div id="prDashTimeline" class="border-start border-2 ms-3 ps-4 position-relative"
+                style="border-color: var(--pink-200) !important;"></div>
+              <button class="btn btn-outline-secondary w-100 mt-4" id="btnPrBackToHistory"
+                onclick="logoutPRTrack()">กลับหน้าแรก</button>
+            </div>
+          </div>
+
+          <!-- Staff PR dashboard moved to tab-admin.html (#adminPRSection) -->
+        </div>
+      </div>

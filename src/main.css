@@ -1,0 +1,12 @@
+/* ==============================================
+ * MASTER STYLESHEET
+ * Imports all CSS partials in correct order
+ * ============================================== */
+
+@import './css/base.css';
+@import './css/navbar.css';
+@import './css/cards.css';
+@import './css/forms.css';
+@import './css/modals.css';
+@import './css/quill-overrides.css';
+@import './css/timeline.css';

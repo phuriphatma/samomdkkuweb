@@ -1,0 +1,21 @@
+  <!-- Modal ดูประกาศ -->
+  <div class="modal fade" id="viewAnnouncementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-0">
+          <span class="badge" id="modalDeptBadge" style="background-color: var(--pink-500);"></span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body px-4 pt-2">
+          <h4 class="fw-bold mb-2" id="modalTitle" style="color: var(--pink-900);"></h4>
+          <p class="text-muted small border-bottom pb-3 mb-4" id="modalDate"></p>
+          <div id="modalBodyContent" style="font-family: 'Prompt', sans-serif;"></div>
+        </div>
+        <div class="modal-footer border-0 bg-light">
+          <button type="button" class="btn btn-outline-danger" onclick="editCurrentAnnouncement()"><i
+              class="bi bi-pencil-square me-2"></i>แก้ไขประกาศนี้</button>
+          <button type="button" class="btn btn-dark" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>

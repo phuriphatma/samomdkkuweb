@@ -1,0 +1,26 @@
+/* ==============================================
+ * MODALS
+ * ============================================== */
+
+.modal-content {
+  border-radius: 20px;
+  border: none;
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--pink-100);
+  background-color: var(--pink-50);
+  border-radius: 20px 20px 0 0;
+}
+
+.modal-title {
+  color: var(--pink-900);
+  font-weight: 700;
+}
+
+#modalBodyContent img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  margin: 10px 0;
+}
