@@ -4,7 +4,7 @@
 // addAnnouncement / editAnnouncement / getAnnouncements actions.
 // ==============================================
 
-import { db } from './db.js';
+import { dbRest } from './db.js';
 import { convertDriveUrl } from './uploads.js';
 
 /** In-memory cache of loaded announcements */
@@ -121,13 +121,27 @@ export async function publishAnnouncement() {
   };
 
   try {
-    let error;
+    let result;
     if (isEditing) {
-      ({ error } = await db.from('announcements').update(row).eq('id', editingAnnouncementId));
+      // Use Prefer: return=representation so PostgREST sends back the
+      // updated row(s). If no row matched (RLS or id mismatch), data
+      // will be an empty array — we surface that as a clear error
+      // rather than the silent no-op the previous code had.
+      const idEsc = encodeURIComponent(editingAnnouncementId);
+      result = await dbRest(`/announcements?id=eq.${idEsc}`, {
+        method: 'PATCH',
+        body: row,
+        prefer: 'return=representation',
+      });
+      if (!result.error && (!Array.isArray(result.data) || result.data.length === 0)) {
+        throw new Error('อัปเดตไม่สำเร็จ — ไม่พบประกาศ id=' + editingAnnouncementId + ' หรือคุณไม่มีสิทธิ์แก้ไข (ต้องเป็น pr_staff หรือ dev)');
+      }
     } else {
-      ({ error } = await db.from('announcements').insert(row));
+      result = await dbRest('/announcements', { method: 'POST', body: row });
     }
-    if (error) throw error;
+    if (result.error) {
+      throw new Error(`${result.error.status || ''} ${result.error.message || 'unknown'}`.trim());
+    }
 
     alertBox.className = 'alert alert-success shadow-sm';
     alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${isEditing ? 'อัปเดตประกาศสำเร็จ!' : 'เผยแพร่ประกาศสำเร็จ!'} กำลังพากลับไปหน้าประกาศ...`;
@@ -163,12 +177,10 @@ export async function loadAnnouncements() {
   emptyState.classList.add('d-none');
 
   try {
-    const { data, error } = await db
-      .from('announcements')
-      .select('id, title, content, department, thumbnail_url, created_at')
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const { data, error } = await dbRest(
+      '/announcements?select=id,title,content,department,thumbnail_url,created_at&status=eq.approved&order=created_at.desc'
+    );
+    if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
 
     // Map DB rows to the shape the existing renderer uses (matches the
     // legacy GAS getAnnouncements response so we don't have to touch
