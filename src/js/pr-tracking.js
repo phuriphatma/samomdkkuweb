@@ -4,7 +4,7 @@
 
 import { renderTimeline } from './utils.js';
 import { getUser as authGetUser } from './auth.js';
-import { db } from './db.js';
+import { dbRest } from './db.js';
 
 let loggedInUserPrTickets = [];
 
@@ -60,14 +60,12 @@ export async function trackPRTicket() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
 
   try {
-    const { data, error } = await db
-      .from('pr_tickets')
-      .select('*')
-      .ilike('id', tId)  // case-insensitive match
-      .maybeSingle();
+    const idEsc = encodeURIComponent(tId.toUpperCase());
+    const { data, error } = await dbRest(`/pr_tickets?select=*&id=ilike.${idEsc}&limit=1`);
     if (error) throw error;
-    if (data) {
-      renderPRDashboard(rowToTicket(data));
+    const row = Array.isArray(data) ? data[0] : null;
+    if (row) {
+      renderPRDashboard(rowToTicket(row));
       document.getElementById('prLoginBox').classList.add('d-none');
       document.getElementById('prDashboardBox').classList.remove('d-none');
       document.getElementById('btnPrBackToHistory').onclick = logoutPRTrack;
@@ -93,13 +91,11 @@ export async function refreshPRTicketDashboard() {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; btn.disabled = true;
 
   try {
-    const { data, error } = await db
-      .from('pr_tickets')
-      .select('*')
-      .eq('id', tId)
-      .maybeSingle();
+    const idEsc = encodeURIComponent(tId);
+    const { data, error } = await dbRest(`/pr_tickets?select=*&id=eq.${idEsc}&limit=1`);
     if (error) throw error;
-    if (data) renderPRDashboard(rowToTicket(data));
+    const row = Array.isArray(data) ? data[0] : null;
+    if (row) renderPRDashboard(rowToTicket(row));
     else alert('ไม่พบ Ticket นี้');
   } catch (e) { alert('เชื่อมต่อเครือข่ายล้มเหลว: ' + (e.message || e)); }
   finally { btn.innerHTML = ogText; btn.disabled = false; }
@@ -130,11 +126,13 @@ export async function loadPRHistory() {
     // submitter_id, so we can safely select * for the current user.
     // Also match by submitter_label for legacy rows migrated from sheets
     // that may not have submitter_id linked.
-    const { data, error } = await db
-      .from('pr_tickets')
-      .select('*')
-      .or(`submitter_id.eq.${user.id},submitter_label.eq.${email}`)
-      .order('created_at', { ascending: false });
+    const idEsc = encodeURIComponent(user.id);
+    const labelEsc = encodeURIComponent(email);
+    const orFilter = encodeURIComponent(`submitter_id.eq.${idEsc},submitter_label.eq.${labelEsc}`)
+      .replace(/%2C/g, ','); // PostgREST or= needs raw commas
+    const { data, error } = await dbRest(
+      `/pr_tickets?select=*&or=(${orFilter})&order=created_at.desc`
+    );
     if (error) throw error;
     loggedInUserPrTickets = (data || []).map(rowToTicket);
     renderPRHistoryList();

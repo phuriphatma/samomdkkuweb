@@ -49,3 +49,77 @@ if (typeof window !== 'undefined') {
 // Convenience: announcements bucket / file storage hooks would go here
 // when we move from Drive to Supabase Storage. For now, file uploads
 // stay on the GAS uploadPRFile endpoint (2 TB Drive quota).
+
+
+// ============================================================
+// dbRest — raw-fetch PostgREST helper
+//
+// Use this instead of db.from(...) for queries/mutations that have to
+// be reliable. supabase-js's request layer has been stalling after the
+// first call in a session despite extensive debugging (autoRefresh
+// disabled, response bodies drained, etc.). Raw fetch sidesteps
+// whatever internal state was going bad.
+//
+// Auth: pulls the current session's access token from localStorage.
+// Falls back to anon key (RLS will still gate non-public reads).
+//
+// Returns Supabase-style { data, error } so call sites look familiar.
+//
+//   const { data, error } = await dbRest('/pr_tickets?id=eq.PR-ABC&select=*');
+//   const { error }       = await dbRest('/pr_tickets', { method: 'POST', body: row });
+//   const { error }       = await dbRest('/pr_tickets?id=eq.PR-ABC', { method: 'PATCH', body: { status: 'done' } });
+// ============================================================
+
+const PROJECT_REF = (url || '').match(/\/\/([^.]+)\./)?.[1] || '';
+const SESSION_STORAGE_KEY = PROJECT_REF ? `sb-${PROJECT_REF}-auth-token` : null;
+
+function currentAccessToken() {
+  if (!SESSION_STORAGE_KEY) return anonKey;
+  try {
+    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) return anonKey;
+    const parsed = JSON.parse(stored);
+    return parsed?.access_token || anonKey;
+  } catch {
+    return anonKey;
+  }
+}
+
+export async function dbRest(path, opts = {}) {
+  const {
+    method = 'GET',
+    body,
+    headers: extraHeaders = {},
+    timeout = 15000,
+    prefer,
+  } = opts;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const headers = {
+      apikey: anonKey,
+      Authorization: `Bearer ${currentAccessToken()}`,
+      'Content-Type': 'application/json',
+      ...(prefer ? { Prefer: prefer } : {}),
+      ...extraHeaders,
+    };
+    const res = await fetch(`${url}/rest/v1${path}`, {
+      method,
+      headers,
+      body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { data: null, error: { status: res.status, message: text || res.statusText } };
+    }
+    const data = res.status === 204
+      ? null
+      : await res.json().catch(() => null);
+    return { data, error: null };
+  } catch (e) {
+    clearTimeout(timer);
+    return { data: null, error: { message: e?.message || String(e), name: e?.name } };
+  }
+}
