@@ -370,9 +370,17 @@ async function migratePRTickets() {
     const rawOtherReason = r._raw?.[22] || '';
     const other_platform_reason = (rawOtherReason && rawOtherReason !== '-') ? rawOtherReason : null;
 
+    // Important: also set created_at from the CSV timestamp. The
+    // pr_tickets schema has a default of now() on created_at, which
+    // means without this line every migrated row was getting stamped
+    // with the migration time — breaking chronological sort in the
+    // kanban (which orders by created_at desc).
+    const tsIso = parseTimestamp(r['Timestamp']);
+
     const row = {
       id: r['Ticket ID'],
-      timestamp: parseTimestamp(r['Timestamp']),
+      timestamp: tsIso,
+      created_at: tsIso || undefined,
       department: r['Department'] || 'โครงการอื่นๆ',
       contact: r['Contact'] || null,
       content_name: r['Content'] || '(untitled)',
@@ -440,9 +448,11 @@ async function migrateVSTickets() {
     let remarks = [];
     try { if (r['Remarks']) remarks = JSON.parse(r['Remarks']); } catch {}
 
+    const tsIso = parseTimestamp(r['Timestamp']);
     const row = {
       id: r['Ticket ID'],
-      timestamp: parseTimestamp(r['Timestamp']),
+      timestamp: tsIso,
+      created_at: tsIso || undefined,  // preserve chronological sort order
       display_name: r['Name'] || null,
       year: r['Year'] || null,
       submitter_id,
