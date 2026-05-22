@@ -17,11 +17,16 @@ import { decodeJwtResponse } from './utils.js';
 //
 // Supabase Auth requires an email. Our app supports username-only sign-up
 // for users who don't want to share an email. We synthesize an email
-// internally: "<username>@samomdkku.local". The user only ever sees /
+// internally: "<username>@samomdkku.app". The user only ever sees /
 // types their username; the synthetic email is transparent.
+//
+// Note: we use .app (not .local) because Supabase Auth rejects RFC 6762
+// reserved TLDs like .local with "Email address is invalid". .app is a
+// real public TLD (owned by Google); we never actually deliver mail to
+// it — the format just needs to validate.
 // ============================================================
 
-const PASSWORD_EMAIL_DOMAIN = 'samomdkku.local';
+const PASSWORD_EMAIL_DOMAIN = 'samomdkku.app';
 
 function usernameToEmail(username) {
   return `${username.toLowerCase().trim()}@${PASSWORD_EMAIL_DOMAIN}`;

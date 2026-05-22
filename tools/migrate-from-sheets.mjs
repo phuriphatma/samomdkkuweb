@@ -116,7 +116,8 @@ async function ensureUser({ identifier, displayName, method }) {
     email = identifier.toLowerCase();
   } else {
     username = identifier.replace(/^@/, '');
-    email = `${username.toLowerCase()}@samomdkku.local`;
+    // Synthetic email domain — see auth.js PASSWORD_EMAIL_DOMAIN comment.
+    email = `${username.toLowerCase()}@samomdkku.app`;
   }
 
   // Check if user already exists by trying to find them in public.users first.
@@ -169,6 +170,15 @@ async function ensureUser({ identifier, displayName, method }) {
 // STAFF SEED
 // ============================================================
 
+// Staff passwords are set deterministically on every migration run so
+// the staff can sign in with known credentials. Idempotent — re-running
+// the script just refreshes the password to the canonical value.
+const STAFF_PASSWORDS = {
+  samomdkkupr: 'samo69pr',
+  samomdkkuvssound: 'samo69vssound',
+  samomdkkudev: 'samo69dev',
+};
+
 async function seedStaffAccounts() {
   const { data: reserved, error } = await admin
     .from('reserved_staff_usernames')
@@ -190,7 +200,18 @@ async function seedStaffAccounts() {
       .update({ role: r.role, username: r.username, method: 'password' })
       .eq('id', id);
     if (updErr) console.error(`[staff] ${r.username}:`, updErr.message);
-    else console.log(`[staff] ensured ${r.username} (${r.role})`);
+    // Set the known password via Admin API (overwrites whatever random
+    // password ensureUser created on first run).
+    const pass = STAFF_PASSWORDS[r.username];
+    if (pass) {
+      const { error: pwErr } = await admin.auth.admin.updateUserById(id, {
+        password: pass,
+        email: r.email,
+        email_confirm: true,
+      });
+      if (pwErr) console.error(`[staff] ${r.username} password:`, pwErr.message);
+    }
+    if (!updErr) console.log(`[staff] ensured ${r.username} (${r.role}) password=${pass}`);
   }
 }
 

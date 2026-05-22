@@ -17,11 +17,13 @@ create table if not exists public.reserved_staff_usernames (
   created_at      timestamptz not null default now()
 );
 
+-- Synthetic emails use .app TLD because Supabase Auth rejects .local
+-- (RFC 6762 reserved). These addresses never receive real mail.
 insert into public.reserved_staff_usernames (username, role, email) values
-  ('samomdkkupr',       'pr_staff', 'staff-pr@samomdkku.local'),
-  ('samomdkkuvssound',  'vs_staff', 'staff-vs@samomdkku.local'),
-  ('samomdkkudev',      'dev',      'dev@samomdkku.local')
-on conflict (username) do nothing;
+  ('samomdkkupr',       'pr_staff', 'staff-pr@samomdkku.app'),
+  ('samomdkkuvssound',  'vs_staff', 'staff-vs@samomdkku.app'),
+  ('samomdkkudev',      'dev',      'dev@samomdkku.app')
+on conflict (username) do update set email = excluded.email, role = excluded.role;
 
 alter table public.reserved_staff_usernames enable row level security;
 
