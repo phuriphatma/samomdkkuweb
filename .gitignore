@@ -12,3 +12,7 @@ sheetexample/
 .env
 .env.local
 .env.*.local
+
+# Supabase CLI working dir
+supabase/.temp/
+supabase/.branches/
