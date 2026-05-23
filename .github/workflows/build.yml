@@ -1,16 +1,18 @@
-# Minimal CI: build on every PR + push to main / refactor branches.
-# Catches syntax errors and missing imports before deploy.
+# CI: build + unit tests on every PR + push to main / refactor branches.
 #
-# Why this is enough for now:
-# - npm run build runs Vite, which type-checks JS syntactically and
-#   fails loudly on any module resolution error.
-# - We don't have a test suite to run; adding empty test infra is noise.
-# - Linting / formatting are deferred until a real style disagreement
-#   exists between contributors.
+# What runs:
+# - npm test     — Vitest suite for pure helpers (escHtml, safeUrl,
+#                  convertDriveUrl, formatThaiDate, decodeJwtResponse).
+#                  Cheap (~150 ms) and catches regressions in the
+#                  security-critical escape/url-sanitize helpers.
+# - npm run build — Vite, fails on syntax / module-resolution errors.
 #
-# Cloudflare Pages already builds on push and a failed build there blocks
-# deploy. This CI is mostly a faster signal for PRs (where Cloudflare's
-# preview build also runs but you may not look at it).
+# Cloudflare Pages also builds on push; this CI gives a faster signal
+# on PRs and is what GitHub's required-status-check rule on `main`
+# protects against.
+#
+# Linting / formatting are deferred until a real style disagreement
+# exists between contributors.
 
 name: build
 
@@ -32,4 +34,5 @@ jobs:
       - run: npm ci
       # We don't need real env vars at build time; Vite's import.meta.env
       # access doesn't fail if vars are missing — db.js only logs a warning.
+      - run: npm test
       - run: npm run build

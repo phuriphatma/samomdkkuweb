@@ -35,6 +35,12 @@ table for what a colleague can self-merge vs. what needs review, hard
 "don'ts" mirrored from `mistakes.md`). README + CLAUDE.md cross-link to
 it.
 
+Unit tests (Vitest, 26 tests across `src/js/utils.test.js` and
+`src/js/uploads.test.js`) cover the security-critical pure helpers:
+`escHtml`, `safeUrl`, `convertDriveUrl`, `formatThaiDate`,
+`decodeJwtResponse`. `npm test` now runs in CI before `npm run build`.
+~150 ms total. No DOM mocking, no network — pure functions only.
+
 Most recent change: second audit pass closed XSS class across ticket
 renderers + dead-code admin auto-routing bug. See `2nd audit` row
 below.

@@ -124,8 +124,18 @@ for the full list and the *why*. Highlights:
   - `fix: announcement delete confirms before deleting`
   - `feat: add status filter to PR kanban`
 - One concern per PR if possible. Smaller PRs = faster reviews.
-- Run `npm run build` locally before pushing — CI does too, but it's
-  faster to catch typos before the push.
+- Run `npm test && npm run build` locally before pushing. CI runs both;
+  doing it locally first catches typos faster.
+
+### Tests
+
+We have a small Vitest suite covering the pure helpers in
+`src/js/utils.js` and the Drive-URL normalizer in `src/js/uploads.js`
+(escape functions, URL sanitizer, JWT decode). Run with `npm test`.
+
+If you add a new pure helper in `utils.js`, please add a few test cases
+to `src/js/utils.test.js`. We don't test DOM-touching code (too painful
+for the value) — visual review on the preview deploy covers that.
 
 ## Where to learn more
 
