@@ -96,7 +96,7 @@ export async function publishAnnouncement() {
   const contentHtml = creatorQuill.root.innerHTML;
   const contentText = creatorQuill.getText().trim();
   const alertBox = document.getElementById('creatorAlert');
-  const publishBtn = document.querySelector('button[onclick="publishAnnouncement()"]');
+  const publishBtn = document.getElementById('publishBtn');
   const publishBtnText = document.getElementById('publishBtnText');
 
   if (!title || contentText.length === 0) {
@@ -156,8 +156,12 @@ export async function publishAnnouncement() {
     alertBox.innerHTML = `<i class="bi bi-wifi-off me-2"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
   } finally {
     publishBtn.disabled = false;
+    // Only restore the spinner-replaced label on error; on success
+    // cancelEdit() already set it to the create-mode label and we
+    // must not stomp it back to "Update" using the stale isEditing flag.
+    const stillEditing = editingAnnouncementId !== null;
     if (document.getElementById('publishBtnText')) {
-      document.getElementById('publishBtnText').innerHTML = isEditing
+      document.getElementById('publishBtnText').innerHTML = stillEditing
         ? '<i class="bi bi-save-fill me-2"></i> Update (บันทึกการแก้ไข)'
         : '<i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish (เผยแพร่ลงเว็บไซต์)';
     }

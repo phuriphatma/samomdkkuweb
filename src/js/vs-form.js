@@ -8,13 +8,19 @@ import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 
 // ----------------------------------------------------
-// Ticket ID generator — matches the legacy "VS-YYMMDD-HHMM" format
-// so old and new tickets look the same in URLs and history.
+// Ticket ID generator — VS-YYMMDD-HHMM-XXX. The trailing 3-char random
+// suffix prevents collisions when two submissions land in the same
+// minute. Without it, the idempotent-insert retry path treats the
+// second submitter's PK conflict (409) as "first attempt succeeded"
+// and silently drops their data.
 // ----------------------------------------------------
 function generateVSTicketId() {
   const d = new Date();
   const pad = (n) => n.toString().padStart(2, '0');
-  return `VS-${(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  for (let i = 0; i < 3; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `VS-${(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${suffix}`;
 }
 
 // Idempotent VS insert via raw fetch (see pr-form.js rationale).

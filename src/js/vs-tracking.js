@@ -3,7 +3,7 @@
 // ==============================================
 
 import { formatThaiDate, renderTimeline } from './utils.js';
-import { db } from './db.js';
+import { db, dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 
 let currentActiveTicketId = null;
@@ -195,11 +195,17 @@ export async function submitUserRemark() {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
     });
     remarks.push({ by: 'ผู้แจ้งปัญหา', time, text });
-    const { error: updErr } = await db
-      .from('vs_tickets')
-      .update({ remarks })
-      .eq('id', currentActiveTicketId);
-    if (updErr) throw updErr;
+    // dbRest + return=representation: supabase-js would silently report
+    // success on an RLS-blocked update (mistakes.md).
+    const idEsc = encodeURIComponent(currentActiveTicketId);
+    const { data: updated, error: updErr } = await dbRest(
+      `/vs_tickets?id=eq.${idEsc}`,
+      { method: 'PATCH', body: { remarks }, prefer: 'return=representation' },
+    );
+    if (updErr) throw new Error(updErr.message || 'update failed');
+    if (!Array.isArray(updated) || updated.length === 0) {
+      throw new Error('ส่งข้อความไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ตอบกลับ');
+    }
     document.getElementById('userRemarkInput').value = '';
     loginToViewHistory();
   } catch (e) { alert('ส่งข้อความไม่สำเร็จ: ' + (e.message || e)); }

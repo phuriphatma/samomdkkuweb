@@ -4,7 +4,8 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both `main` and `refactor/modular` are at commit `ac3d0b6` (in sync).
+`refactor/modular` is ahead of `main` by 1 commit (audit fixes, not yet
+merged). `main` still at `ac3d0b6`.
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
@@ -18,16 +19,21 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. The memory-system extraction (CLAUDE.md router, STATE.md,
-`.claude/rules/{mistakes,security}.md`, `skills/*.md`, `docs/CONTEXT.md`,
-and `.github/workflows/build.yml`) was just committed. No bug under
-investigation.
+Nothing active. Most recent change: an audit pass closed six instances of
+the RLS-silent-success bug class (the `db.from().update/delete` pattern
+that returns `{data:null, error:null}` on zero-row writes). All converted
+to `dbRest()` with `prefer:'return=representation'` + length check, the
+same shape the announcement publish uses. Also fixed: VS ticket-ID minute
+collision swallowed as success, announcement publish button stuck on
+"Update" after a successful edit, fragile `querySelector('button[onclick=...]')`
+in announcements.
 
 ## Recent fixes (latest first, last ~10 commits)
 
 | Commit | What |
 |---|---|
-| _(this commit)_ | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
+| _(this commit)_ | Audit pass: close 6 RLS-silent-success sites (pr-staff status/delete/agents, vs-staff status, vs-tracking remarks, auth.setDepartment); fix announcement publish-btn label after edit; VS ticket-ID collision; selector |
+| `acc3ef1` | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
 | `ca20e10` | Memory system: CLAUDE.md router + STATE.md + `.claude/rules/` + `skills/` + `docs/CONTEXT.md` + CI build |
 | `edaacc1` | Sort PR/VS tickets by `timestamp` (not `created_at`) — avoids needing a backfill |
 | `5df7f65` | Migrate script writes `created_at` from CSV timestamp (defense in depth) |

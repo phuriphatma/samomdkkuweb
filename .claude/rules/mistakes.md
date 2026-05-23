@@ -73,15 +73,25 @@ setInterval(() => db.auth.refreshSession().catch(...), 25 * 60 * 1000);
 
 ---
 
-## supabase-js silent-success on RLS-blocked updates
+## supabase-js silent-success on RLS-blocked updates / deletes
 
 **Symptom**: User clicks "Update announcement" → success message → opens the
-announcement → old content. Update silently did nothing.
-**Cause**: `db.from().update().eq(...)` returns `{ data: null, error: null }`
-when zero rows are updated (RLS blocks, id mismatch, etc.). No error to catch.
+announcement → old content. Update silently did nothing. Same shape for
+staff status updates, ticket deletes, agent roster saves, user dept set.
+**Cause**: `db.from().update().eq(...)` and `.delete().eq(...)` return
+`{ data: null, error: null }` when zero rows are touched (RLS blocks, id
+mismatch). No error to catch.
 **Fix**: Use `dbRest()` from `db.js` with `prefer: 'return=representation'`
 and check `data.length`. If 0, throw a real error.
-**Where**: `src/js/announcements.js` `publishAnnouncement()`.
+**Where it lives now**: every write that matters is on dbRest —
+- `src/js/announcements.js` `publishAnnouncement()`
+- `src/js/pr-staff.js` `submitPRStaffAction()` / `deletePRStaffAction()` / `saveGlobalAgents()`
+- `src/js/vs-staff.js` `submitStaffAction()`
+- `src/js/vs-tracking.js` `submitUserRemark()`
+- `src/js/auth.js` `setDepartment()`
+
+**Don't bring back `db.from().update/delete` for any write that matters.**
+If a new write site appears, use `dbRest()` and verify `data.length > 0`.
 
 ---
 
