@@ -4,7 +4,10 @@ pr_code.gs
 vssound_code.gs
 test_gas.py
 .DS_Store
-.claude/
+
+# Claude Code: ignore user-local config, but track shared project rules
+.claude/*
+!.claude/rules/
 
 # Local samples / exports of real production data — never commit
 sheetexample/
