@@ -3,7 +3,6 @@
 // ==============================================
 
 import { GAS_VITAL_SOUND_URL } from './config.js';
-import { db } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 
@@ -253,7 +252,8 @@ async function handleVsFormSubmit(e) {
   try {
     await insertVSTicketIdempotent(row);
 
-    // Fire-and-forget Discord notify via the unified helper (sendBeacon).
+    // Fire-and-forget Discord notify via the unified helper
+    // (fetch + keepalive — see notify.js for why not sendBeacon).
     if (!skipDiscord) {
       sendNotify('vs', {
         mode: 'submit',

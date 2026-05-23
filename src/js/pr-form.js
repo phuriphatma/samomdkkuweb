@@ -448,7 +448,12 @@ async function handlePrFormSubmit(e) {
         }
       } catch (err) {
         alertBox.classList.remove('d-none'); alertBox.classList.add('alert-danger');
-        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> การอัปโหลดรูปที่ ${i + 1} ล้มเหลว กรุณาลองใหม่`;
+        // Tell the user which files already uploaded so they know what's
+        // orphaned on Drive if they retry (and don't double-upload).
+        const okMsg = uploadedUrls.length > 0
+          ? ` (รูปที่ 1–${uploadedUrls.length} ขึ้น Drive แล้ว — กรุณาลบไฟล์ซ้ำหากต้องลองใหม่)`
+          : '';
+        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> การอัปโหลดรูปที่ ${i + 1} ล้มเหลว${okMsg}`;
         btn.disabled = false; btnText.classList.remove('d-none'); btnLoading.classList.add('d-none');
         return;
       }
@@ -521,7 +526,8 @@ async function handlePrFormSubmit(e) {
     await insertPRTicketIdempotent(row);
 
     // Fire-and-forget Discord notification via the unified helper.
-    // sendNotify uses sendBeacon — no Promise, no connection-pool risk.
+    // sendNotify uses fetch + keepalive (not sendBeacon — sendBeacon
+    // can't follow GAS's 302 redirect to script.googleusercontent.com).
     if (!skipDiscord) {
       sendNotify('pr', {
         ticketId,
@@ -543,6 +549,10 @@ async function handlePrFormSubmit(e) {
     alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${ticketId}</strong>`;
     if (accMode === 'guest') alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${ticketId}`);
     document.getElementById('prForm').reset();
+    // form.reset() doesn't always clear a file input's `.files` collection
+    // in every browser — explicit `.value = ''` guarantees the next submit
+    // doesn't accidentally re-upload the previous file set (mistakes.md).
+    fileInput.value = '';
     // form.reset() clears the hidden submitter inputs; re-populate from
     // the current auth state so the *next* submission has the identifier
     // baked in.

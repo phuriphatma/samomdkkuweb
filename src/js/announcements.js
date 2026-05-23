@@ -6,6 +6,7 @@
 
 import { dbRest } from './db.js';
 import { convertDriveUrl } from './uploads.js';
+import { escHtml } from './utils.js';
 
 /** In-memory cache of loaded announcements */
 let globalAnnouncements = [];
@@ -217,17 +218,22 @@ export async function loadAnnouncements() {
         let snippet = tempDiv.textContent || tempDiv.innerText || '';
         snippet = snippet.length > 80 ? snippet.substring(0, 80) + '...' : snippet;
 
+        // Escape non-content fields. post.content is intentionally raw
+        // (Quill HTML); anyone with publish rights — pr_staff / dev — is
+        // trusted for that field. But title/department/snippet are plain
+        // text and going through innerHTML would otherwise let a publisher
+        // run scripts at every viewer.
         container.insertAdjacentHTML('beforeend', `
           <div class="col-md-6 col-lg-4">
-            <div class="card announce-card" onclick="viewAnnouncement('${post.id}')">
-              <div class="announce-img-wrapper"><img src="${coverSrc}" alt="cover"></div>
+            <div class="card announce-card" onclick="viewAnnouncement('${escHtml(post.id)}')">
+              <div class="announce-img-wrapper"><img src="${escHtml(coverSrc)}" alt="cover"></div>
               <div class="card-body d-flex flex-column">
                 <div>
-                  <span class="badge mb-2" style="background-color: var(--pink-500);">${post.department}</span>
-                  <h5 class="card-title fw-bold" style="color: var(--pink-900);">${post.title}</h5>
-                  <p class="card-text text-muted small">${snippet}</p>
+                  <span class="badge mb-2" style="background-color: var(--pink-500);">${escHtml(post.department)}</span>
+                  <h5 class="card-title fw-bold" style="color: var(--pink-900);">${escHtml(post.title)}</h5>
+                  <p class="card-text text-muted small">${escHtml(snippet)}</p>
                 </div>
-                <div class="mt-auto pt-3 border-top text-muted small"><i class="bi bi-clock me-1"></i> ${post.date}</div>
+                <div class="mt-auto pt-3 border-top text-muted small"><i class="bi bi-clock me-1"></i> ${escHtml(post.date)}</div>
               </div>
             </div>
           </div>
@@ -274,12 +280,12 @@ function renderHomeAnnouncements({ error = false } = {}) {
       || 'https://images.unsplash.com/photo-1576091160550-2173ff9e5ee5?w=600&h=400&fit=crop';
 
     homeGrid.insertAdjacentHTML('beforeend', `
-      <a class="home-announce-card" onclick="viewAnnouncement('${post.id}')">
-        <div class="home-announce-img"><img src="${coverSrc}" alt="cover" loading="lazy"></div>
+      <a class="home-announce-card" onclick="viewAnnouncement('${escHtml(post.id)}')">
+        <div class="home-announce-img"><img src="${escHtml(coverSrc)}" alt="cover" loading="lazy"></div>
         <div class="home-announce-body">
-          <span class="home-announce-badge">${post.department}</span>
-          <h5 class="home-announce-title">${post.title}</h5>
-          <span class="home-announce-date"><i class="bi bi-clock"></i> ${post.date}</span>
+          <span class="home-announce-badge">${escHtml(post.department)}</span>
+          <h5 class="home-announce-title">${escHtml(post.title)}</h5>
+          <span class="home-announce-date"><i class="bi bi-clock"></i> ${escHtml(post.date)}</span>
         </div>
       </a>
     `);
