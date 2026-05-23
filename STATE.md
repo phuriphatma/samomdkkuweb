@@ -4,10 +4,9 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both branches in sync after the audit-pass merge. `main` at `2a960fb`,
-`refactor/modular` at `768f862` (the merge commit + the local branch
-HEAD are equivalent — `2a960fb` is `768f862` with the merge-commit
-metadata wrapping it).
+Both branches in sync. `main` at `00017c0` (post 2nd-audit merge);
+`refactor/modular` at `d3c11d1`. The merge commit on main wraps the
+refactor HEAD with no behavioral delta.
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
@@ -26,6 +25,15 @@ Nothing active. The multi-project engine refactor proposed in
 readable/maintainable improvements opportunistically (as we touch each
 module) rather than a multi-week planned refactor. The proposal doc
 stays as future reference.
+
+Last small feature: delete-announcement button (modal-announcement.html
++ announcements.js `deleteCurrentAnnouncement`, RLS-gated, dbRest with
+return=representation + length check).
+
+Collaboration scaffold: added `CONTRIBUTING.md` (branch model, touch-zone
+table for what a colleague can self-merge vs. what needs review, hard
+"don'ts" mirrored from `mistakes.md`). README + CLAUDE.md cross-link to
+it.
 
 Most recent change: second audit pass closed XSS class across ticket
 renderers + dead-code admin auto-routing bug. See `2nd audit` row

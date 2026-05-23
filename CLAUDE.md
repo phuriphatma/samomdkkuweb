@@ -61,6 +61,7 @@ npm run preview      # serve dist locally on :4173
 
 - `STATE.md` — current task / open issues / latest deploy
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
+- `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/SUPABASE-MIGRATION.md` — phase tracker
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
