@@ -30,7 +30,6 @@ Supabase project: `fheueuowbchsnsvbcgil`. Both Cloudflare projects hit it.
 npm run dev          # Vite dev server on :5174
 npm run build        # production build → dist/
 npm run preview      # serve dist locally on :4173
-npm run migrate      # run the CSV→Supabase data migration (see skills/migrate-data.md)
 ```
 
 ## File placement

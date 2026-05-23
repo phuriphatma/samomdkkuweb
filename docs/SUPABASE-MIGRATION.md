@@ -273,7 +273,6 @@ prod perspective, but recoverable manually from Supabase if needed.
   - RLS policies on every table
   - Role helper functions
 - `supabase/migrations/0002_seed_staff_accounts.sql` — reserved staff usernames table
-- `tools/migrate-from-sheets.mjs` (`npm run migrate`) — idempotent CSV→Supabase import
 - `src/js/auth.js` rewritten on top of Supabase Auth (Google + password)
 - `src/js/announcements.js` reads/writes via Supabase
 - PR submitter identifier (`pr-tracking.js`, form auth) sourced from
@@ -355,16 +354,18 @@ submissions and announcement covers, Drive is the right fit.
 2. Settings → API → copy:
    - **Project URL** → paste into `.env.local` as `VITE_SUPABASE_URL`
    - **anon public key** → `VITE_SUPABASE_ANON_KEY`
-   - **service_role secret** → `SUPABASE_SERVICE_ROLE_KEY` (used only by
-     `npm run migrate`, never exposed to the browser)
 3. SQL Editor → paste `supabase/migrations/0001_initial_schema.sql` →
    Run. Then `0002_seed_staff_accounts.sql` → Run.
 4. Authentication → Providers → enable **Google** (use your existing
    Google Cloud OAuth credentials).
 5. Authentication → URL Configuration → add your Cloudflare Pages preview
    URL + production URL to "Site URL" and "Redirect URLs".
-6. Place CSV exports of the prod sheets into `sheetexample/` (gitignored)
-   and run `npm run migrate`.
-7. `npm run dev` → test sign-in (Google + password) and announcement
-   create/edit. PR + VS still hit GAS — that's expected for Phase 1.
+6. `npm run dev` → test sign-in (Google + password) and announcement
+   create/edit.
+
+(The one-time Sheets → Supabase data import has been done; the tooling
+that ran it — `tools/migrate-from-sheets.mjs` and the `sheetexample/`
+CSV exports — has since been deleted. If you ever need to seed a fresh
+project with the production data, recover the script from git history
+at commit `49d4ca1` or earlier.)
 

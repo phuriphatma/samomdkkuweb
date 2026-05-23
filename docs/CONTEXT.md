@@ -121,9 +121,12 @@ Helper SQL functions: `current_user_role()`, `current_user_is_staff()`
   sees the username.
 - **Email confirmation**: must be OFF in Supabase (synthetic emails don't
   receive mail). See `.claude/rules/mistakes.md`.
-- **Staff seeding**: `tools/migrate-from-sheets.mjs` calls
-  `admin.auth.admin.createUser` for the three reserved usernames and sets
-  their passwords via `updateUserById`. Idempotent.
+- **Staff seeding**: done. The three reserved usernames
+  (`samomdkkupr`, `samomdkkuvssound`, `samomdkkudev`) were created via
+  `admin.auth.admin.createUser` during the one-time Sheets cutover. If
+  another staff seat ever needs to be added: do it from the Supabase
+  dashboard (Auth → Users), then `INSERT` the matching row into
+  `public.users` with the right role.
 
 ---
 

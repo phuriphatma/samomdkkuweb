@@ -31,12 +31,19 @@ Nothing active. Most recent change: audit pass — three commits.
    `notify-vs/` (~300 LOC of Deno code that was returning 502 — Discord
    stays on GAS by design now). Trimmed 8 stale references across docs
    and agent rules; net -411 LOC.
+4. Migration-tool removal: deleted `tools/migrate-from-sheets.mjs`
+   (529 LOC), `sheetexample/` (~800 KB student data dumps; already
+   gitignored so never on GitHub), `skills/migrate-data.md`,
+   `skills/recover-ticket.md`. Removed `npm run migrate` from
+   package.json + the unused `dotenv` dep. Updated 6 doc files to
+   remove the now-dead references.
 
 ## Recent fixes (latest first, last ~10 commits)
 
 | Commit | What |
 |---|---|
-| _(this commit)_ | Remove dead Edge Function source (notify-pr, notify-vs) + 8 stale doc references. Discord stays on GAS by design |
+| _(this commit)_ | Remove one-shot migration tool: tools/migrate-from-sheets.mjs, sheetexample/, two skills, dotenv dep, npm run migrate, 11 references |
+| `49d4ca1` | Remove dead Edge Function source (notify-pr, notify-vs) + 8 stale doc references. Discord stays on GAS by design |
 | `a91fa17` | Audit cleanup pass: partial-upload state in pr-form error msg; `fileInput.value=''` after reset; `decodeJwtResponse` guards; `escHtml` helper + applied to announcement renderers; stale comments; unused import |
 | `6a8193e` | Audit pass: close 6 RLS-silent-success sites (pr-staff status/delete/agents, vs-staff status, vs-tracking remarks, auth.setDepartment); fix announcement publish-btn label after edit; VS ticket-ID collision; selector |
 | `acc3ef1` | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
@@ -52,9 +59,6 @@ Nothing active. Most recent change: audit pass — three commits.
 
 ## Open / deferred
 
-- **`PR-0Y0E2R` recovery**: user accidentally deleted a ticket via kanban. CSV
-  has it. Running `MIGRATE_RESTORE_ONLY=1 npm run migrate` will restore it; the
-  user has already retrieved it (confirmed visible).
 - **Phase 4 file storage**: deliberately staying on Drive (2 TB) instead of
   Supabase Storage (1 GB free tier). Documented in `docs/SUPABASE-MIGRATION.md`.
 

@@ -4,7 +4,6 @@ Read this BEFORE touching:
 - `src/js/auth.js`
 - `src/js/db.js`
 - Anything that calls supabase-js or `navigator.sendBeacon`
-- The migration script (`tools/migrate-from-sheets.mjs`)
 
 Each entry: **Symptom → Cause → Fix → Where it lives now**.
 
@@ -100,7 +99,7 @@ If a new write site appears, use `dbRest()` and verify `data.length > 0`.
 **Cause**: Supabase Auth rejects RFC 6762 reserved TLDs (`.local`, `.localhost`).
 **Fix**: Use `samomdkku.app` (real public TLD; we don't actually own it but
 the format passes validation; no mail delivers).
-**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN`, `tools/migrate-from-sheets.mjs`,
+**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN` and
 `supabase/migrations/0002_seed_staff_accounts.sql`. Do not switch back.
 
 ---
@@ -139,19 +138,6 @@ on free tier built-in SMTP).
 **Fix**: Supabase Dashboard → Authentication → Providers → Email →
 toggle off "Confirm email". Synthetic emails don't need confirmation; Google
 users come in via OAuth which is already verified.
-
----
-
-## CSV columns with empty headers need positional access
-
-**Symptom**: Migration silently writes `[]` / `null` for `assignees`,
-`other_platforms`, `other_platform_reason`. CSV has values for them.
-**Cause**: Prod sheet exported with empty header cells for columns 20-22.
-`r['Assignees']` returns `undefined`. With named-key access alone, those
-columns are unreachable.
-**Fix**: `readCSV` now exposes `obj._raw[idx]` for positional access. Use
-`r._raw[20]` etc. for unnamed columns.
-**Where**: `tools/migrate-from-sheets.mjs`.
 
 ---
 

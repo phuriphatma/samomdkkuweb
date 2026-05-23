@@ -72,7 +72,6 @@ Authorized JavaScript origins.
 | `npm run dev` | Vite dev server on :5174 with HMR |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
-| `npm run migrate` | One-shot CSV → Supabase data migration (see `skills/migrate-data.md`) |
 
 ## Project layout
 
@@ -84,11 +83,9 @@ src/
 index.html     Slim shell; tabs/modals/navbar pulled from src/html/
 supabase/
   migrations/  SQL migrations (canonical schema)
-  functions/   Edge Functions (currently unused — Discord goes via GAS)
 appscript/     Slim Apps Script source — file upload + Discord webhook proxy
-tools/         One-off scripts (migrate-from-sheets.mjs)
 docs/          Architecture, schema, deploy plumbing — read on demand
-skills/        Procedure playbooks (migrate-data, deploy-gas, recover-ticket)
+skills/        Procedure playbooks (deploy-gas)
 .claude/       Rules + memory for AI agents working in this repo
 ```
 
