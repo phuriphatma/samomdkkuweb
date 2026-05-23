@@ -30,6 +30,11 @@ Last small feature: delete-announcement button (modal-announcement.html
 + announcements.js `deleteCurrentAnnouncement`, RLS-gated, dbRest with
 return=representation + length check).
 
+Collaboration scaffold: added `CONTRIBUTING.md` (branch model, touch-zone
+table for what a colleague can self-merge vs. what needs review, hard
+"don'ts" mirrored from `mistakes.md`). README + CLAUDE.md cross-link to
+it.
+
 Most recent change: second audit pass closed XSS class across ticket
 renderers + dead-code admin auto-routing bug. See `2nd audit` row
 below.

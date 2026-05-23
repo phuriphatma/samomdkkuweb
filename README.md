@@ -93,6 +93,12 @@ For per-module detail see the Frontend module map in `docs/CONTEXT.md`.
 
 ## Contributing
 
+See **[CONTRIBUTING.md](./CONTRIBUTING.md)** — branch model, touch-zone
+table (what you can self-merge vs. what needs review), test-without-
+spamming-prod tips, hard "don'ts" from past bugs.
+
+Short version:
+
 1. New visual components (tabs, modals) go in `src/html/` and are included
    from `index.html` via the Vite partial plugin.
 2. No inline CSS or JS in `index.html`. CSS lives in `src/css/`, JS in
@@ -105,6 +111,7 @@ For per-module detail see the Frontend module map in `docs/CONTEXT.md`.
 
 ## Where to look next
 
+- **Contributor onboarding (read first):** `CONTRIBUTING.md`
 - **Current state / what just shipped:** `STATE.md`
 - **Agent / day-to-day work router:** `CLAUDE.md`
 - **Architecture + schema + deploy:** `docs/CONTEXT.md`
