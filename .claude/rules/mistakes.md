@@ -71,6 +71,29 @@ setInterval(() => db.auth.refreshSession().catch(...), 25 * 60 * 1000);
 
 ---
 
+## Ticket renderers interpolate user-text into innerHTML → XSS
+
+**Symptom**: A guest who submits a PR/VS ticket with `<img src=x onerror=alert(1)>`
+in any free-text field (brief, caption, rushReason, otherPlatformReason,
+contentName, contact, problem, remark, …) pops scripts at every staff
+viewer of that ticket.
+**Cause**: Renderers like `renderPRDashboard`, `renderPRHistoryList`,
+`renderUserHistoryList`, `renderTimeline`, the VS staff kanban, and
+`renderManageAgentsList` build their HTML with template literals and
+`insertAdjacentHTML` / `innerHTML`. Any user-text field interpolated
+raw is an XSS hole.
+**Fix**: Use `escHtml` from `utils.js` for any text field. Use `safeUrl`
+for any URL going into an `href` attribute (blocks `javascript:`,
+`data:`, attribute-injection payloads). The only string that may go
+through innerHTML *raw* is Quill-produced rich text (announcement
+content + VS problem field) — both are explicitly trusted.
+**Where**: applied in `src/js/pr-tracking.js`, `pr-staff.js`,
+`vs-tracking.js`, `vs-staff.js`, `utils.js renderTimeline`,
+`announcements.js`. Don't add a new renderer without an `escHtml`
+audit.
+
+---
+
 ## supabase-js silent-success on RLS-blocked updates / deletes
 
 **Symptom**: User clicks "Update announcement" → success message → opens the

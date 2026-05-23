@@ -61,7 +61,10 @@ export function convertDriveUrl(url) {
   // when we briefly tried that) pass through unchanged.
   if (url.includes('drive.google.com/thumbnail')) return url;
   if (url.includes('supabase.co/storage')) return url;
-  const m = url.match(/\/file\/d\/([^/]+)\//) || url.match(/[?&]id=([^&]+)/);
+  // The trailing slash on /file/d/<id>/ is optional in Drive's share URLs —
+  // make it optional in the regex too. The second pattern catches
+  // ?id=... / &id=... / open?id=... / uc?id=... forms.
+  const m = url.match(/\/file\/d\/([^/?#]+)/) || url.match(/[?&]id=([^&]+)/);
   if (m && m[1]) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000`;
   return url;
 }

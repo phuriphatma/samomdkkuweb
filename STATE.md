@@ -27,7 +27,9 @@ readable/maintainable improvements opportunistically (as we touch each
 module) rather than a multi-week planned refactor. The proposal doc
 stays as future reference.
 
-Most recent change: audit pass — three commits.
+Most recent change: second audit pass closed XSS class across ticket
+renderers + dead-code admin auto-routing bug. See `2nd audit` row
+below.
 1. Closed six RLS-silent-success sites + announcement button label +
    VS ticket-ID collision + fragile selector.
 2. Cleanup pass: partial-upload state in error message, `fileInput.value=''`
@@ -50,7 +52,8 @@ Most recent change: audit pass — three commits.
 
 | Commit | What |
 |---|---|
-| _(this commit)_ | Remove one-shot migration tool: tools/migrate-from-sheets.mjs, sheetexample/, two skills, dotenv dep, npm run migrate, 11 references |
+| _(this commit)_ | 2nd audit pass: close XSS class across 6 ticket renderers (escHtml + safeUrl applied), fix admin auto-route reading stale `localStorage('samoUser')`, fix `convertDriveUrl` regex on no-trailing-slash URLs, consolidate the duplicate `escapeHtml` helper in pr-staff into utils.js, strip one more stale "sendBeacon" comment |
+| `f309955` | Remove one-shot migration tool: tools/migrate-from-sheets.mjs, sheetexample/, two skills, dotenv dep, npm run migrate, 11 references |
 | `49d4ca1` | Remove dead Edge Function source (notify-pr, notify-vs) + 8 stale doc references. Discord stays on GAS by design |
 | `a91fa17` | Audit cleanup pass: partial-upload state in pr-form error msg; `fileInput.value=''` after reset; `decodeJwtResponse` guards; `escHtml` helper + applied to announcement renderers; stale comments; unused import |
 | `6a8193e` | Audit pass: close 6 RLS-silent-success sites (pr-staff status/delete/agents, vs-staff status, vs-tracking remarks, auth.setDepartment); fix announcement publish-btn label after edit; VS ticket-ID collision; selector |

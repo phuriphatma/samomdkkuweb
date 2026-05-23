@@ -48,16 +48,19 @@ export function renderTimeline(containerId, remarks, ticketDate) {
     const dotColor = isLog ? '#94a3b8' : isUser ? '#22c55e' : '#3b82f6';
     const boxClass = isLog ? 'tl-log' : isUser ? 'tl-remark-user' : 'tl-remark-staff';
     const icon = isLog ? '🔧' : isUser ? '💬' : '📝';
+    // Escape rem.by / rem.text — both come from user input (staff or
+    // submitter typing into remark/comment textareas) and end up in
+    // innerHTML.
     const label = isLog
-      ? `<span class="badge bg-secondary fw-normal">${rem.by}</span>`
-      : `<span class="fw-bold">${rem.by}</span>`;
+      ? `<span class="badge bg-secondary fw-normal">${escHtml(rem.by)}</span>`
+      : `<span class="fw-bold">${escHtml(rem.by)}</span>`;
 
     container.insertAdjacentHTML('beforeend', `
       <div class="mb-4 position-relative">
         <span class="position-absolute top-0 start-0 translate-middle p-2 border border-light rounded-circle" style="left:-1.5rem!important; background-color:${dotColor}!important;"></span>
-        <div class="text-muted small">${rem.time}</div>
+        <div class="text-muted small">${escHtml(rem.time)}</div>
         <div>${label}</div>
-        <div class="${boxClass} rounded p-2 mt-1 small">${icon} ${rem.text}</div>
+        <div class="${boxClass} rounded p-2 mt-1 small">${icon} ${escHtml(rem.text)}</div>
       </div>
     `);
   });
@@ -99,4 +102,16 @@ export function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * Sanitize a URL for safe use in an href attribute. Only allows http(s),
+ * mailto, and tel schemes. Returns '#' for anything else (e.g. javascript:,
+ * data:, or attribute-injection payloads). Always pair with escHtml() when
+ * interpolating into an attribute via innerHTML.
+ */
+export function safeUrl(s) {
+  const u = String(s == null ? '' : s).trim();
+  if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u) || /^tel:/i.test(u)) return u;
+  return '#';
 }

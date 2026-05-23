@@ -2,7 +2,7 @@
 // VS TRACKING — User ticket tracking & history
 // ==============================================
 
-import { formatThaiDate, renderTimeline } from './utils.js';
+import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 
@@ -114,13 +114,16 @@ function renderUserHistoryList() {
     if (t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger';
     let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
 
+    // Escape every user-text field. strippedProblem is post-stripped
+    // HTML so it's plain text already, but we escape again for safety
+    // (the strip regex doesn't catch every payload).
     listContainer.insertAdjacentHTML('beforeend', `
       <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openTicketDetail('${t.id}')">
+        <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openTicketDetail('${escHtml(t.id)}')">
           <div class="card-body">
-            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${badgeColor}">${t.status}</span></div>
-            <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${t.date}</p>
-            <p class="card-text small text-truncate">${strippedProblem}</p>
+            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${escHtml(t.id)}</span><span class="badge bg-${badgeColor}">${escHtml(t.status)}</span></div>
+            <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${escHtml(t.date)}</p>
+            <p class="card-text small text-truncate">${escHtml(strippedProblem)}</p>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 // VS STAFF — Staff Dashboard for Vital Sound (Supabase-backed)
 // ==============================================
 
-import { formatThaiDate, renderTimeline } from './utils.js';
+import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
 
@@ -56,14 +56,17 @@ export async function fetchStaffTickets() {
         if (t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger';
         const strippedProblem = (t.problem || '').replace(/<[^>]+>/g, ' ');
         const dateStr = formatThaiDate(t.timestamp || t.created_at);
+        // Escape every user-text field. Students submit free text to
+        // VS tickets; without this, the staff dashboard renders any
+        // injected script when an อุปนายก opens the list.
         list.insertAdjacentHTML('beforeend', `
           <div class="col-md-6">
             <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openStaffModalByIndex(${idx})">
               <div class="card-body">
-                <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${badgeColor}">${t.status}</span></div>
-                <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${dateStr}</p>
-                <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${t.target_dept}</p>
-                <p class="card-text small text-truncate">${strippedProblem}</p>
+                <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${escHtml(t.id)}</span><span class="badge bg-${badgeColor}">${escHtml(t.status)}</span></div>
+                <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${escHtml(dateStr)}</p>
+                <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${escHtml(t.target_dept)}</p>
+                <p class="card-text small text-truncate">${escHtml(strippedProblem)}</p>
               </div>
             </div>
           </div>
@@ -174,7 +177,8 @@ export async function submitStaffAction() {
       throw new Error('อัปเดตไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์แก้ไข');
     }
 
-    // Fire-and-forget Discord notification via the unified helper (sendBeacon).
+    // Fire-and-forget Discord notification via the unified helper
+    // (fetch + keepalive; see notify.js for why not sendBeacon).
     if (notifyTo) {
       sendNotify('vs', {
         mode: 'consult',
