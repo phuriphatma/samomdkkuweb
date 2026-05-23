@@ -170,6 +170,39 @@ export async function publishAnnouncement() {
 }
 
 // --------------------------------------------------
+// Delete Announcement (staff-only)
+// --------------------------------------------------
+
+export async function deleteCurrentAnnouncement() {
+  if (!viewingAnnouncementId) return;
+  const post = globalAnnouncements.find((p) => p.id === viewingAnnouncementId);
+  const titleHint = post ? `"${post.title}"` : '';
+  if (!confirm(`ลบประกาศ ${titleHint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
+
+  const idEsc = encodeURIComponent(viewingAnnouncementId);
+  // return=representation lets us detect RLS no-ops as a real failure
+  // instead of the supabase-js silent-success pattern (see mistakes.md).
+  const { data, error } = await dbRest(
+    `/announcements?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) {
+    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown'));
+    return;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    alert('ลบไม่สำเร็จ — ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น pr_staff หรือ dev)');
+    return;
+  }
+
+  // Close the view modal, then refresh the list.
+  const modalEl = document.getElementById('viewAnnouncementModal');
+  bootstrap.Modal.getInstance(modalEl)?.hide();
+  viewingAnnouncementId = null;
+  loadAnnouncements();
+}
+
+// --------------------------------------------------
 // Load Announcements from Server
 // --------------------------------------------------
 

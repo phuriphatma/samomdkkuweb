@@ -26,6 +26,10 @@ readable/maintainable improvements opportunistically (as we touch each
 module) rather than a multi-week planned refactor. The proposal doc
 stays as future reference.
 
+Last small feature: delete-announcement button (modal-announcement.html
++ announcements.js `deleteCurrentAnnouncement`, RLS-gated, dbRest with
+return=representation + length check).
+
 Most recent change: second audit pass closed XSS class across ticket
 renderers + dead-code admin auto-routing bug. See `2nd audit` row
 below.

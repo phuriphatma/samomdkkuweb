@@ -12,8 +12,12 @@
           <div id="modalBodyContent" style="font-family: 'Prompt', sans-serif;"></div>
         </div>
         <div class="modal-footer border-0 bg-light">
-          <button type="button" class="btn btn-outline-danger" onclick="editCurrentAnnouncement()"><i
+          <!-- Edit + delete are RLS-gated server-side, but we also hide
+               them from non-staff viewers via [data-role-only]. -->
+          <button type="button" class="btn btn-outline-danger d-none" data-role-only="pr_staff dev" onclick="editCurrentAnnouncement()"><i
               class="bi bi-pencil-square me-2"></i>แก้ไขประกาศนี้</button>
+          <button type="button" class="btn btn-danger d-none" data-role-only="pr_staff dev" onclick="deleteCurrentAnnouncement()"><i
+              class="bi bi-trash-fill me-2"></i>ลบประกาศนี้</button>
           <button type="button" class="btn btn-dark" data-bs-dismiss="modal">ปิด</button>
         </div>
       </div>
