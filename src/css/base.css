@@ -31,6 +31,7 @@
   --pink-100: #fce7f3;
   --pink-200: #fbcfe8;
   --pink-300: #f9a8d4;
+  --pink-400: #e85d9e;
   --pink-500: #ec4899;
   --pink-600: #db2777;
   --pink-700: #be185d;
@@ -39,21 +40,21 @@
   /* --- Per-department colour identity (SAMO 69) ---
          Mapping is the best-fit interpretation of the colour sheet;
          adjust to taste once tools are linked. --- */
-  --dept-admin: #C0413A;        /* ฝ่ายบริหารองค์กร */
-  --dept-digital: #1A9B43;      /* ฝ่ายดิจิทัลและสื่อสารองค์กร */
-  --dept-internal: #D5577E;     /* ฝ่ายกิจการภายใน */
-  --dept-external: #F1B647;     /* ฝ่ายกิจการภายนอก */
-  --dept-university: #FF6F30;   /* ฝ่ายกิจการมหาวิทยาลัย */
-  --dept-academic: #3F7BB7;     /* ฝ่ายวิชาการ */
-  --dept-strategy: #105922;     /* ฝ่ายยุทธศาสตร์และพัฒนาองค์กร */
-  --dept-quality: #2C8F8A;      /* ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม */
-  --dept-media: #7E5BA6;        /* ฝ่ายเวชนิทัศน์ */
+  --dept-admin: #A17A60;        /* ฝ่ายบริหารองค์กร */
+  --dept-digital: #F2CB67;      /* ฝ่ายดิจิทัลและสื่อสารองค์กร */
+  --dept-internal: #E68FAA;     /* ฝ่ายกิจการภายใน */
+  --dept-external: #7DB0CD;     /* ฝ่ายกิจการภายนอก */
+  --dept-university: #F49D5F;   /* ฝ่ายกิจการมหาวิทยาลัย */
+  --dept-academic: #2F5F9C;     /* ฝ่ายวิชาการ */
+  --dept-strategy: #318D65;     /* ฝ่ายยุทธศาสตร์และพัฒนาองค์กร */
+  --dept-quality: #8DC96C;      /* ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม */
+  --dept-media: #2294BC;        /* ฝ่ายเวชนิทัศน์ */
   --dept-projects: #8C6A47;     /* โครงการอื่นๆ */
 }
 
 body {
   background: linear-gradient(135deg, #f9f9f9 0%, #f2f2f2 100%);
-  font-family: "Sora", "Cloud", "Prompt", system-ui, sans-serif;
+  font-family: "Noto Sans Thai", sans-serif;
   min-height: 100vh;
   color: #334155;
   margin: 0;
