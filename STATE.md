@@ -19,7 +19,12 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. Most recent change: audit pass — three commits.
+**Pending design decisions** — see `docs/PROJECT-ARCHITECTURE.md`. The
+user wants to refactor PR + VS into a shared engine + per-project
+config so adding project N+1 is a config drop, not a fork. Five open
+questions in that doc. Don't touch code until they're answered.
+
+Most recent change: audit pass — three commits.
 1. Closed six RLS-silent-success sites + announcement button label +
    VS ticket-ID collision + fragile selector.
 2. Cleanup pass: partial-upload state in error message, `fileInput.value=''`
