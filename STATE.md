@@ -4,10 +4,9 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both branches in sync after the audit-pass merge. `main` at `2a960fb`,
-`refactor/modular` at `768f862` (the merge commit + the local branch
-HEAD are equivalent — `2a960fb` is `768f862` with the merge-commit
-metadata wrapping it).
+Both branches in sync. `main` at `00017c0` (post 2nd-audit merge);
+`refactor/modular` at `d3c11d1`. The merge commit on main wraps the
+refactor HEAD with no behavioral delta.
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
