@@ -4,7 +4,7 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both `main` and `refactor/modular` are at commit `edaacc1` (in sync).
+Both `main` and `refactor/modular` are at commit `ac3d0b6` (in sync).
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
