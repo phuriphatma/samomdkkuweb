@@ -102,9 +102,9 @@ For per-module detail see the Frontend module map in `docs/CONTEXT.md`.
    `src/js/` as ES modules.
 3. Functions wired into HTML attributes (e.g. `onclick="..."`) must be
    exposed on `window` from `src/js/main.js`.
-4. Before touching `src/js/auth.js`, `src/js/db.js`, or anything in
-   `supabase/functions/`, read `.claude/rules/mistakes.md` first — those
-   modules carry hard-won workarounds.
+4. Before touching `src/js/auth.js` or `src/js/db.js`, read
+   `.claude/rules/mistakes.md` first — those modules carry hard-won
+   workarounds.
 
 ## Where to look next
 

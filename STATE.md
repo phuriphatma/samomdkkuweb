@@ -19,7 +19,7 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. Most recent change: audit pass — two commits.
+Nothing active. Most recent change: audit pass — three commits.
 1. Closed six RLS-silent-success sites + announcement button label +
    VS ticket-ID collision + fragile selector.
 2. Cleanup pass: partial-upload state in error message, `fileInput.value=''`
@@ -27,12 +27,17 @@ Nothing active. Most recent change: audit pass — two commits.
    in utils.js applied to announcement renderers (title/dept/snippet only —
    `post.content` stays raw Quill HTML), two stale "sendBeacon" comments,
    one unused import.
+3. Dead-code removal: deleted `supabase/functions/notify-pr/` and
+   `notify-vs/` (~300 LOC of Deno code that was returning 502 — Discord
+   stays on GAS by design now). Trimmed 8 stale references across docs
+   and agent rules; net -411 LOC.
 
 ## Recent fixes (latest first, last ~10 commits)
 
 | Commit | What |
 |---|---|
-| _(this commit)_ | Audit cleanup pass: partial-upload state in pr-form error msg; `fileInput.value=''` after reset; `decodeJwtResponse` guards; `escHtml` helper + applied to announcement renderers; stale comments; unused import |
+| _(this commit)_ | Remove dead Edge Function source (notify-pr, notify-vs) + 8 stale doc references. Discord stays on GAS by design |
+| `a91fa17` | Audit cleanup pass: partial-upload state in pr-form error msg; `fileInput.value=''` after reset; `decodeJwtResponse` guards; `escHtml` helper + applied to announcement renderers; stale comments; unused import |
 | `6a8193e` | Audit pass: close 6 RLS-silent-success sites (pr-staff status/delete/agents, vs-staff status, vs-tracking remarks, auth.setDepartment); fix announcement publish-btn label after edit; VS ticket-ID collision; selector |
 | `acc3ef1` | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
 | `ca20e10` | Memory system: CLAUDE.md router + STATE.md + `.claude/rules/` + `skills/` + `docs/CONTEXT.md` + CI build |
@@ -50,10 +55,6 @@ Nothing active. Most recent change: audit pass — two commits.
 - **`PR-0Y0E2R` recovery**: user accidentally deleted a ticket via kanban. CSV
   has it. Running `MIGRATE_RESTORE_ONLY=1 npm run migrate` will restore it; the
   user has already retrieved it (confirmed visible).
-- **Supabase Edge Functions for Discord (`notify-pr`, `notify-vs`)**: code
-  exists in `supabase/functions/` but returns 502 in our project (suspected
-  Edge Runtime version mismatch). Currently routing Discord notifies via the
-  GAS proxy instead. Defer.
 - **Phase 4 file storage**: deliberately staying on Drive (2 TB) instead of
   Supabase Storage (1 GB free tier). Documented in `docs/SUPABASE-MIGRATION.md`.
 

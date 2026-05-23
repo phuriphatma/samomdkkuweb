@@ -70,8 +70,8 @@ npm run migrate      # run the CSV→Supabase data migration (see skills/migrate
 - `.claude/rules/security.md` — API key hygiene
 - `skills/*.md` — playbooks for the non-obvious workflows
 
-When working in `src/js/auth.js`, `src/js/db.js`, or `supabase/functions/` —
-ALWAYS read `.claude/rules/mistakes.md` first. Those modules carry sharp edges.
+When working in `src/js/auth.js` or `src/js/db.js` — ALWAYS read
+`.claude/rules/mistakes.md` first. Those modules carry sharp edges.
 
 ## End-of-turn loop (MANDATORY)
 

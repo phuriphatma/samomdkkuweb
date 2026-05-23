@@ -3,7 +3,6 @@
 Read this BEFORE touching:
 - `src/js/auth.js`
 - `src/js/db.js`
-- `supabase/functions/`
 - Anything that calls supabase-js or `navigator.sendBeacon`
 - The migration script (`tools/migrate-from-sheets.mjs`)
 
@@ -128,18 +127,6 @@ in place, still hangs.
 same auth headers supabase-js would send.
 **Where**: Use `dbRest('/table?...', { method, body, prefer })` everywhere
 that previously hung. PR tracking and announcements use it now.
-
----
-
-## Edge Functions `Deno.serve` fails on older Supabase Edge Runtime
-
-**Symptom**: Function deploys but returns 502 EDGE_FUNCTION_ERROR with no
-visible logs.
-**Cause**: `Deno.serve()` is the modern API. Supabase's edge runtime may not
-have it (depends on project age / region).
-**Fix**: Use `import { serve } from "https://deno.land/std@0.224.0/http/server.ts";`.
-**Where**: `supabase/functions/notify-pr/index.ts`, `supabase/functions/notify-vs/index.ts`
-(currently unused — Discord stays on GAS).
 
 ---
 

@@ -227,27 +227,7 @@ during the cutover (they're public links), but plan a one-time job to
 copy historical files into Supabase Storage if you want to fully retire
 the Drive folder.
 
-## Step 6 — Discord webhooks via Edge Functions
-
-The current `sendDiscordNotification` runs inside Apps Script. Port to a
-Supabase Edge Function (Deno):
-
-```ts
-// supabase/functions/notify-discord/index.ts
-Deno.serve(async (req) => {
-  const { webhook_url, payload } = await req.json();
-  await fetch(webhook_url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return new Response('ok');
-});
-```
-
-Trigger from a Postgres trigger on `pr_tickets` insert.
-
-## Step 7 — Cutover
+## Step 6 — Cutover
 
 This is the most sensitive step. Order matters:
 
@@ -353,53 +333,18 @@ submissions and announcement covers, Drive is the right fit.
   Every other action in `prform.gs` / `vssound.gs` exists for back-compat
   but the frontend doesn't call them.
 
-### ⏳ Phase 5 — Discord notifications (abstracted; running on GAS)
+### ✅ Phase 5 — Discord notifications (GAS by design)
 
 - `src/js/notify.js` — single `sendNotify(system, payload)` helper.
   Every notification call site (`pr-form.js`, `vs-form.js`,
   `vs-staff.js`) routes through this. Backend swap = change one file.
-- Currently routes to the GAS endpoints (`notifyPROnly`, `notifyVSOnly`,
+- Routes to the GAS endpoints (`notifyPROnly`, `notifyVSOnly`,
   `notifyVSConsult`) defined in `appscript/*.gs`.
-- `supabase/functions/notify-pr/` and `notify-vs/` exist (Deno code +
-  CORS/error handling), but are currently returning 502 in our project.
-  Likely Supabase Edge Runtime version mismatch; needs more diagnosis.
-  When fixed, `notify.js` swaps GAS URLs for `db.functions.invoke()`.
-
-#### Deploying the Edge Functions
-
-```bash
-# One-time setup (per machine)
-npm install -g supabase
-supabase login                       # opens browser
-supabase link --project-ref fheueuowbchsnsvbcgil
-
-# Set the secrets
-supabase secrets set \
-  PR_DISCORD_WEBHOOK_URL='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_SE='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_ADMIN='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_DIGITAL='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_INTERNAL='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_EXTERNAL='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_UNIVERSITY='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_ACADEMIC='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_STRATEGY='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_QUALITY='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_MEDIA='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_RADIOLOGY='https://discordapp.com/api/webhooks/...' \
-  VS_WEBHOOK_DEFAULT='https://discordapp.com/api/webhooks/...'
-
-# Deploy
-supabase functions deploy notify-pr --no-verify-jwt
-supabase functions deploy notify-vs --no-verify-jwt
-```
-
-The webhook URLs are the same ones currently hardcoded in `prform.gs`
-`DISCORD_WEBHOOK_URL` and `vssound.gs` `WEBHOOK_MAP`. Copy them over
-to Supabase secrets.
-
-After deploy: test by submitting a PR ticket and a VS ticket; pings
-should arrive in the matching Discord channels.
+- We initially shipped Edge Function equivalents (`supabase/functions/
+  notify-pr/`, `notify-vs/`) but they returned 502 (Edge Runtime version
+  mismatch) and GAS works fine for the call volume we have. The Edge
+  Function source was removed in a later cleanup pass — if we ever
+  bring it back, `notify.js` is the single integration point.
 
 ---
 

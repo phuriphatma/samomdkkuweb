@@ -36,10 +36,9 @@
 1. Decide whether the frontend needs it. If yes, only the Supabase anon-key
    pattern is safe — public but gated by RLS.
 2. If backend-only, store in:
-   - Supabase Edge Function secrets (`supabase secrets set NAME=value`) for
-     anything inside `supabase/functions/`
    - Apps Script project (Properties → Script properties) for `appscript/*.gs`
    - Cloudflare Pages env vars (NOT exposed to browser via `VITE_*` prefix)
+   - (If we ever bring Edge Functions back: `supabase secrets set NAME=value`.)
 3. Add a row to the table above.
 
 ## Don't trust file paths that look like secrets
