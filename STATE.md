@@ -4,8 +4,10 @@ Last updated: 2026-05-23
 
 ## Branches
 
-`refactor/modular` is ahead of `main` by 1 commit (audit fixes, not yet
-merged). `main` still at `ac3d0b6`.
+Both branches in sync after the audit-pass merge. `main` at `2a960fb`,
+`refactor/modular` at `768f862` (the merge commit + the local branch
+HEAD are equivalent — `2a960fb` is `768f862` with the merge-commit
+metadata wrapping it).
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
