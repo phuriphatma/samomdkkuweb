@@ -4,9 +4,10 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both branches in sync. `main` at `00017c0` (post 2nd-audit merge);
-`refactor/modular` at `d3c11d1`. The merge commit on main wraps the
-refactor HEAD with no behavioral delta.
+Both branches in sync. `main` at `3fc7cd4` (PR #7 merge), `refactor/modular`
+at `80f38a2`. Branch ruleset `main-protect` is active — direct push to
+`main` requires you to be in the Bypass list; otherwise opens a PR
+(which is what the colleague will do).
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
