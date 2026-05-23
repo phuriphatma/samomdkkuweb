@@ -1,7 +1,14 @@
-# Multi-project architecture (proposal)
+# Multi-project architecture (proposal — DEFERRED)
 
-**Status**: design proposal, not yet implemented. Red-pen everything below
-before we touch code.
+**Status**: deferred. The full refactor is multi-week and the current
+code works. We're keeping this doc as future reference; in the meantime
+make targeted improvements as we touch each module (readable variable
+names, extract small helpers, fix obvious dup). Revisit this proposal
+when there's appetite for a planned multi-week refactor or when
+project N=3 actually appears.
+
+When revisiting: red-pen everything below and answer the five "Open
+questions" at the bottom before any code.
 
 ## Goal
 

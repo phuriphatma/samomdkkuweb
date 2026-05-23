@@ -19,10 +19,11 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-**Pending design decisions** — see `docs/PROJECT-ARCHITECTURE.md`. The
-user wants to refactor PR + VS into a shared engine + per-project
-config so adding project N+1 is a config drop, not a fork. Five open
-questions in that doc. Don't touch code until they're answered.
+Nothing active. The multi-project engine refactor proposed in
+`docs/PROJECT-ARCHITECTURE.md` is **deferred** — the user wants
+readable/maintainable improvements opportunistically (as we touch each
+module) rather than a multi-week planned refactor. The proposal doc
+stays as future reference.
 
 Most recent change: audit pass — three commits.
 1. Closed six RLS-silent-success sites + announcement button label +

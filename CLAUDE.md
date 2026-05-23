@@ -65,7 +65,7 @@ npm run preview      # serve dist locally on :4173
 - `docs/SUPABASE-MIGRATION.md` — phase tracker
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
-- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal (PR/VS + N more) — design only, not implemented
+- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
 - `.claude/rules/mistakes.md` — hard-learned anti-patterns (READ before touching auth/network code)
 - `.claude/rules/security.md` — API key hygiene
 - `skills/*.md` — playbooks for the non-obvious workflows
