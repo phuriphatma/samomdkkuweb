@@ -2,7 +2,7 @@
 // PR STAFF — Dashboard, Modal, Agent Management
 // ==============================================
 
-import { renderTimeline } from './utils.js';
+import { renderTimeline, escHtml, safeUrl } from './utils.js';
 import { db, dbRest } from './db.js';
 
 // ----------------------------------------------------
@@ -204,15 +204,10 @@ function renderKanbanCard(t) {
   `;
 }
 
-function escapeHtml(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// Local alias — kept so we don't have to touch every call site. The
+// canonical implementation lives in utils.js (`escHtml`) so all
+// renderers across the app share one definition.
+const escapeHtml = escHtml;
 
 // --------------------------------------------------
 // Open PR Staff Modal
@@ -275,10 +270,13 @@ export function openPRStaffModal(idx) {
     const urls = t.fileUrl.split('\n');
     urls.forEach((url, index) => {
       if (url.startsWith('http')) {
-        staffLinks += `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-primary me-2"><i class="bi bi-image"></i> ดูภาพที่ ${index + 1}</a>`;
+        // safeUrl + escHtml: guests can submit largeFileLink as free
+        // text; without the guard an attacker could inject attributes
+        // into the href via " onclick=... patterns.
+        staffLinks += `<a href="${escapeHtml(safeUrl(url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary me-2"><i class="bi bi-image"></i> ดูภาพที่ ${index + 1}</a>`;
       } else if (url.startsWith('ลิงก์เสริม:')) {
         const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
-        staffLinks += `<a href="${cleanUrl}" target="_blank" class="btn btn-sm btn-outline-dark me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive</a>`;
+        staffLinks += `<a href="${escapeHtml(safeUrl(cleanUrl))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive</a>`;
       }
     });
     linkBox.innerHTML = staffLinks;
@@ -452,7 +450,7 @@ function renderManageAgentsList() {
   globalPrAgents.forEach((agent, index) => {
     listUI.insertAdjacentHTML('beforeend', `
       <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
-        <span class="fw-bold text-secondary">${agent}</span>
+        <span class="fw-bold text-secondary">${escapeHtml(agent)}</span>
         <button class="btn btn-sm btn-outline-danger border-0" onclick="removeAgent(${index})"><i class="bi bi-trash-fill"></i></button>
       </li>
     `);
@@ -483,7 +481,8 @@ function populateAssigneeDropdown() {
   if (!select) return;
   select.innerHTML = '<option value="" disabled selected>-- เลือกผู้รับผิดชอบ --</option>';
   globalPrAgents.forEach(agent => {
-    select.insertAdjacentHTML('beforeend', `<option value="${agent}">${agent}</option>`);
+    const e = escapeHtml(agent);
+    select.insertAdjacentHTML('beforeend', `<option value="${e}">${e}</option>`);
   });
 }
 
@@ -506,10 +505,16 @@ function renderPRStaffAssignees() {
   const list = document.getElementById('prStaffAssigneesList');
   list.innerHTML = '';
   currentPrAssignees.forEach(name => {
+    // Escape twice: for the visible text AND for the onclick arg. Names
+    // come from the editable agent roster, so a malicious dev could put
+    // an apostrophe in to break out of the string — that's a low-risk
+    // self-XSS at best, but the defense is one extra escape.
+    const eHtml = escapeHtml(name);
+    const eAttr = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     list.insertAdjacentHTML('beforeend', `
       <span class="badge rounded-pill bg-light text-dark border px-3 py-2 d-flex align-items-center shadow-sm">
-        ${name}
-        <i class="bi bi-x-circle-fill ms-2 text-danger" style="cursor:pointer; font-size: 1.1rem;" onclick="removePRStaffAssignee('${name}')"></i>
+        ${eHtml}
+        <i class="bi bi-x-circle-fill ms-2 text-danger" style="cursor:pointer; font-size: 1.1rem;" onclick="removePRStaffAssignee('${eAttr}')"></i>
       </span>
     `);
   });

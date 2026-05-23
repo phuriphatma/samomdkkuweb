@@ -367,15 +367,16 @@ document.addEventListener('shown.bs.tab', (e) => {
   // When the Admin tab opens, auto-route single-role users straight to their
   // dashboard (skipping the landing). Dev sees the landing so they can pick.
   if (e.target?.id === 'pills-admin-tab') {
-    try {
-      const userJson = localStorage.getItem('samoUser');
-      const role = userJson ? JSON.parse(userJson).role : null;
-      const landingVisible = !document.getElementById('adminLanding')?.classList.contains('d-none');
-      if (landingVisible) {
-        if (role === 'pr_staff') window.openAdminSection('pr');
-        else if (role === 'vs_staff') window.openAdminSection('vs');
-      }
-    } catch { /* ignore */ }
+    // Auto-route single-role staff straight to their dashboard. The
+    // previous version read localStorage('samoUser') which was never
+    // written (leftover from pre-Supabase) — so role was always null
+    // and this fell through. authGetUser() is the canonical source.
+    const role = authGetUser()?.role || null;
+    const landingVisible = !document.getElementById('adminLanding')?.classList.contains('d-none');
+    if (landingVisible) {
+      if (role === 'pr_staff') window.openAdminSection('pr');
+      else if (role === 'vs_staff') window.openAdminSection('vs');
+    }
   }
 });
 

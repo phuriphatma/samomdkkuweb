@@ -2,7 +2,7 @@
 // PR TRACKING — User ticket tracking & history
 // ==============================================
 
-import { renderTimeline } from './utils.js';
+import { renderTimeline, escHtml, safeUrl } from './utils.js';
 import { getUser as authGetUser } from './auth.js';
 import { dbRest } from './db.js';
 
@@ -160,13 +160,15 @@ function renderPRHistoryList() {
   loggedInUserPrTickets.forEach((t) => {
     let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : t.status.includes('รอ') || t.status.includes('แก้ไขงาน') ? 'warning text-dark' : 'primary';
     if (t.status.includes('ตีกลับ')) badgeColor = 'danger';
+    // Escape every user-text field. t.id / t.date / t.status are
+    // app-controlled but cheap to escape anyway.
     list.insertAdjacentHTML('beforeend', `
       <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRTicketDetail('${t.id}')">
+        <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openPRTicketDetail('${escHtml(t.id)}')">
           <div class="card-body">
-            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${t.id}</span><span class="badge bg-${badgeColor}">${t.status}</span></div>
-            <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${t.date}</p>
-            <p class="card-text small fw-bold">${t.contentName}</p>
+            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${escHtml(t.id)}</span><span class="badge bg-${badgeColor}">${escHtml(t.status)}</span></div>
+            <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${escHtml(t.date)}</p>
+            <p class="card-text small fw-bold">${escHtml(t.contentName)}</p>
           </div>
         </div>
       </div>
@@ -202,26 +204,32 @@ function renderPRDashboard(ticket) {
   document.getElementById('prDashStatusBadge').className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${badgeColor}`;
   document.getElementById('prDashStatusBadge').innerText = ticket.status;
 
+  // Escape every user-text field interpolated into innerHTML below.
+  // PR form lets guests submit free text (brief, caption, contact,
+  // rushReason, otherPlatformReason) — without escaping, a submitter
+  // could inject script tags that fire when staff/submitter view the
+  // ticket. URL fields run through safeUrl() to block javascript: /
+  // data: schemes.
   let html = `
-    <p class="mb-1 text-muted small"><strong>วันที่ส่ง:</strong> ${ticket.date}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">ชื่องาน:</strong> ${ticket.contentName}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">ฝ่าย:</strong> ${ticket.dept}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">ช่องทางติดต่อ:</strong> ${ticket.contact}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">รูปแบบงาน:</strong> ${ticket.jobType}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">แพลตฟอร์ม:</strong> ${ticket.platforms}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">ช่องทางการโพสต์:</strong> ${ticket.postingChannel}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">Project Account / Co-post:</strong> ${ticket.projectAccount} / ${ticket.copostWith}</p>
-    <p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง:</strong> ${ticket.publishDate}</p>
+    <p class="mb-1 text-muted small"><strong>วันที่ส่ง:</strong> ${escHtml(ticket.date)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">ชื่องาน:</strong> ${escHtml(ticket.contentName)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">ฝ่าย:</strong> ${escHtml(ticket.dept)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">ช่องทางติดต่อ:</strong> ${escHtml(ticket.contact)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">รูปแบบงาน:</strong> ${escHtml(ticket.jobType)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">แพลตฟอร์ม:</strong> ${escHtml(ticket.platforms)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">ช่องทางการโพสต์:</strong> ${escHtml(ticket.postingChannel)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">Project Account / Co-post:</strong> ${escHtml(ticket.projectAccount)} / ${escHtml(ticket.copostWith)}</p>
+    <p class="mb-1 small"><strong class="text-pink-custom">วันที่ต้องการลง:</strong> ${escHtml(ticket.publishDate)}</p>
   `;
 
   if (ticket.otherPlatforms && ticket.otherPlatforms !== '-') {
-    html += `<p class="mb-1 small"><strong class="text-pink-custom">Other Platform:</strong> ${ticket.otherPlatforms}</p>`;
+    html += `<p class="mb-1 small"><strong class="text-pink-custom">Other Platform:</strong> ${escHtml(ticket.otherPlatforms)}</p>`;
     if (ticket.otherPlatformReason && ticket.otherPlatformReason !== '-') {
-      html += `<div class="alert alert-info py-2 small mt-1 mb-2"><i class="bi bi-chat-left-text-fill me-2"></i><strong>เหตุผลที่ต้องการประชาสัมพันธ์:</strong> ${ticket.otherPlatformReason}</div>`;
+      html += `<div class="alert alert-info py-2 small mt-1 mb-2"><i class="bi bi-chat-left-text-fill me-2"></i><strong>เหตุผลที่ต้องการประชาสัมพันธ์:</strong> ${escHtml(ticket.otherPlatformReason)}</div>`;
     }
   }
   if (ticket.deadline && ticket.deadline.includes('ด่วน')) {
-    html += `<div class="alert alert-danger py-2 small mt-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> ${ticket.rushReason}</div>`;
+    html += `<div class="alert alert-danger py-2 small mt-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> ${escHtml(ticket.rushReason)}</div>`;
   }
 
   // File links
@@ -232,10 +240,10 @@ function renderPRDashboard(ticket) {
     const urls = ticket.fileUrl.split('\n');
     urls.forEach((url, index) => {
       if (url.startsWith('http')) {
-        linkHTML += `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-primary mt-2 me-2"><i class="bi bi-image"></i> ภาพที่ ${index + 1}</a>`;
+        linkHTML += `<a href="${escHtml(safeUrl(url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-2 me-2"><i class="bi bi-image"></i> ภาพที่ ${index + 1}</a>`;
       } else if (url.startsWith('ลิงก์เสริม:')) {
         const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
-        linkHTML += `<a href="${cleanUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive ส่วนตัว</a>`;
+        linkHTML += `<a href="${escHtml(safeUrl(cleanUrl))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive ส่วนตัว</a>`;
       }
     });
   }
@@ -243,10 +251,10 @@ function renderPRDashboard(ticket) {
   html += `
     <div class="mt-3 p-3 bg-white border rounded">
       <span class="fw-bold small text-muted d-block mb-1">บรีฟ:</span>
-      <div class="small mb-2" style="white-space: pre-line;">${ticket.brief}</div>
+      <div class="small mb-2" style="white-space: pre-line;">${escHtml(ticket.brief)}</div>
       <hr class="my-2">
       <span class="fw-bold small text-muted d-block mb-1">แคปชั่น:</span>
-      <div class="small" style="white-space: pre-line;">${ticket.caption}</div>
+      <div class="small" style="white-space: pre-line;">${escHtml(ticket.caption)}</div>
       ${linkHTML}
     </div>
   `;
