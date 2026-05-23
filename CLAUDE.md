@@ -61,7 +61,8 @@ npm run migrate      # run the CSV→Supabase data migration (see skills/migrate
 ## Read these on demand (not auto-loaded)
 
 - `STATE.md` — current task / open issues / latest deploy
-- `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing
+- `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
+- `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/SUPABASE-MIGRATION.md` — phase tracker
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
@@ -79,9 +80,14 @@ Before sending the final response on any task that modified files:
 1. **Update `STATE.md`** — current branch, what just changed, anything pending.
 2. **If a new bug class was discovered**: append to `.claude/rules/mistakes.md`.
 3. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
-4. State in the user-facing response: "Updated STATE.md / mistakes.md / skills/* as needed."
+4. **Documentation (conditional — only if any of these are true):**
+   - User-visible feature added or removed → update the "Key features" list in `README.md`.
+   - Architecture, schema, RLS, deploy plumbing, or auth flow changed → update `docs/CONTEXT.md`.
+   - Build / install / env setup changed → update `README.md` (Quick start, Commands, Environment).
+   - **If the change is internal-only (refactor, bugfix, test, comment) — skip this step.** Doc edits should be a side-effect of meaningful change, not a tax on every commit.
+5. State in the user-facing response: "Updated STATE.md / mistakes.md / skills/* / docs as needed."
 
-This loop keeps cold-start agents from re-walking the bugs we already paid for.
+This loop keeps cold-start agents from re-walking the bugs we already paid for, AND keeps human-facing docs from going stale — without taxing routine commits.
 
 ## Authority model
 

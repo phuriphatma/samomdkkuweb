@@ -1,108 +1,122 @@
-# MDKKU SAMO - Student Portal
+# MDKKU SAMO — Student Portal
 
-Welcome to the official Web Portal for the Medical Student Union of Khon Kaen University (MDKKU SAMO). This portal serves as a centralized hub for student announcements, public relations (PR) workflows, and the Vital Sound grievance/ticketing system.
+Web portal for the Medical Student Union of Khon Kaen University (MDKKU SAMO).
+Single-page Vite app for student announcements, public-relations (PR) job
+intake, and the Vital Sound grievance/ticket system.
 
-## 🌟 Key Features
+## Live
 
-*   **Announcements & News Board:** Read the latest updates from the student union and create new announcements via a built-in Rich Text Editor (Quill.js).
-*   **PR Submission System:** A robust form for student clubs and departments to submit PR requests (Instagram/Facebook). Includes an interactive timeline, status tracking, and Google Identity Services for user authentication.
-*   **Vital Sound System:** An anonymous ticketing system for students to voice their concerns. Features a direct pipeline to specific departments, dynamic routing, and interactive chat remarks.
-*   **Staff Dashboards:** Dedicated Admin tab (role-gated) hosting the PR Kanban dashboard with status columns and department filter, plus the VS Staff dashboard with a department/role switcher.
-*   **Global Authentication:** One sign-in modal (username/password + Google) at the top right of the navbar. Roles: regular user, PR staff (`samomdkkupr`), VS staff (`samomdkkuvssound`), and dev (`samomdkkudev`). Dev role unlocks features like silent Discord notifications.
+- **Production**: <https://samomdkkuweb.pages.dev> (tracks `main`)
+- **Preview**:    <https://refactorsamomdkkuweb.pages.dev> (tracks `refactor/modular`)
 
-## 🏗 Architecture & Tech Stack
+Both Cloudflare projects hit the same Supabase backend.
 
-This project recently underwent a major architectural refactor to move away from a monolithic codebase into a highly maintainable, modular structure.
+## Key features
 
-*   **Core:** HTML5, CSS3 (Vanilla), ES6+ JavaScript
-*   **Build Tool:** [Vite](https://vitejs.dev/) (Fast development server and optimized production builds)
-*   **Styling:** Bootstrap 5 (CSS framework) + Custom CSS Modules
-*   **Backend / API:** Migrating from Google Apps Script (`appscript/*.gs`) to [Supabase](https://supabase.com/) (Postgres + Auth + RLS). Phase 1 (auth + announcements) is on Supabase; PR/VS still on GAS for now. See `docs/SUPABASE-MIGRATION.md`.
-*   **Libraries:** Quill.js (Rich Text), Google Identity Services (OAuth), `@supabase/supabase-js`
+- **Announcements board.** Public read; staff post via a Quill-based rich-text
+  editor. Per-department thumbnails and theming.
+- **PR submission.** Form-based job intake with file upload, deadline mode,
+  multi-platform targets, and idempotent submit (safe to retry on network blip).
+- **Vital Sound tickets.** Confidential intake with dynamic department routing,
+  remarks thread, and cross-department consult/transfer for staff.
+- **Kanban dashboard.** Status-column board for PR staff with department filter
+  and quick-edit modal.
+- **Global auth.** One sign-in (Google OAuth + username/password). Roles:
+  regular user, `pr_staff`, `vs_staff`, `dev`. Role gates the Admin tab and
+  dev-only flags like silent Discord notify.
 
-### Folder Structure
+## Tech stack
 
-```text
-samomdkkuweb/
-├── index.html            # Main entry point (Routing shell)
-├── package.json          # Project dependencies & scripts
-├── vite.config.js        # Vite configuration (Custom HTML Partials plugin)
-├── src/
-│   ├── html/             # Extracted HTML components (Partials)
-│   │   ├── navbar.html
-│   │   ├── tab-home.html
-│   │   ├── tab-announcements.html
-│   │   ├── tab-creator.html
-│   │   ├── tab-pr.html
-│   │   ├── tab-vitalsound.html
-│   │   ├── tab-admin.html         # Role-gated admin dashboard
-│   │   ├── tab-about.html         # Team / Vision / Mission demo pages
-│   │   ├── modal-signin.html      # Global auth modal
-│   │   └── modal-*.html           # Other modals (announcement, PR/VS staff, agents)
-│   ├── css/              # Modularized CSS
-│   │   ├── main.css      # Central stylesheet (imports others)
-│   │   ├── cards.css
-│   │   ├── forms.css
-│   │   └── ...
-│   └── js/               # Decoupled JavaScript modules
-│       ├── main.js       # Main module bundler
-│       ├── pr-form.js    # PR logic
-│       ├── vs-form.js    # Vital Sound logic
-│       ├── auth.js       # Authentication
-│       └── ...
-└── dist/                 # Production build output (Generated via Vite)
-```
+- **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill
+- **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
+- **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
+- **Discord**: Apps Script webhook proxy (`notifyPROnly` / `notifyVSOnly` /
+  `notifyVSConsult`)
+- **Hosting**: Cloudflare Pages (two projects, one per branch)
 
-## 🚀 Getting Started
+For the full architecture map, schema, and deploy plumbing see
+`docs/CONTEXT.md`.
 
-To run this project locally, you will need [Node.js](https://nodejs.org/) installed on your machine.
+## Quick start
 
-### 1. Installation
-Clone the repository and install the dependencies:
+Prerequisites: Node 20+.
+
 ```bash
+git clone https://github.com/phuriphatma/samomdkkuweb.git
+cd samomdkkuweb
 npm install
 ```
 
-### 1.5 Supabase setup (required)
-Copy `.env.example` → `.env.local` and fill in your Supabase project URL +
-anon key from the Supabase dashboard. Then apply the SQL migrations from
-`supabase/migrations/` to your project (paste each file into the SQL
-editor and Run, in order). See `docs/SUPABASE-MIGRATION.md` for the full
-walkthrough.
+Create `.env.local` with your Supabase credentials:
 
-### 1.6 Migrate existing data (one-time)
-Export each prod Google Sheet as CSV into `sheetexample/` (gitignored),
-add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`, then:
 ```bash
-npm run migrate
+VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings → API>
 ```
-This is idempotent — safe to rerun.
 
-### 2. Local Development Server
-Start the Vite development server with hot-module replacement (HMR):
+Apply the SQL migrations in `supabase/migrations/` to your project (paste
+each file into the Supabase SQL editor and run, in order).
+
 ```bash
-npm run dev
+npm run dev    # http://localhost:5174 with HMR
 ```
-Navigate to `http://localhost:5174` in your browser. *(Note: To test Google Login locally, ensure `http://localhost:5174` is added to your Google Cloud Console OAuth Authorized JavaScript origins).*
 
-### 3. Building for Production
-To bundle and minify the project for production deployment:
-```bash
-npm run build
+To test Google sign-in locally, add `http://localhost:5174` to your Supabase
+project's URL Configuration and to the Google Cloud Console OAuth client's
+Authorized JavaScript origins.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite dev server on :5174 with HMR |
+| `npm run build` | Production build → `dist/` |
+| `npm run preview` | Serve `dist/` locally on :4173 |
+| `npm run migrate` | One-shot CSV → Supabase data migration (see `skills/migrate-data.md`) |
+
+## Project layout
+
+```text
+src/
+  html/        HTML partials inlined into index.html at build time
+  css/         Brand tokens (base.css) + per-tab CSS, all @imported from main.css
+  js/          ES modules — one file per concern
+index.html     Slim shell; tabs/modals/navbar pulled from src/html/
+supabase/
+  migrations/  SQL migrations (canonical schema)
+  functions/   Edge Functions (currently unused — Discord goes via GAS)
+appscript/     Slim Apps Script source — file upload + Discord webhook proxy
+tools/         One-off scripts (migrate-from-sheets.mjs)
+docs/          Architecture, schema, deploy plumbing — read on demand
+skills/        Procedure playbooks (migrate-data, deploy-gas, recover-ticket)
+.claude/       Rules + memory for AI agents working in this repo
 ```
-This command will stitch all HTML partials, transpile/minify the JavaScript, and output the optimized application into the `dist/` directory.
 
-## ☁️ Deployment
+For per-module detail see the Frontend module map in `docs/CONTEXT.md`.
 
-The application consists of static files (HTML, CSS, JS). You can deploy the contents of the `dist/` folder to any static hosting provider, such as:
-*   Cloudflare Pages
-*   GitHub Pages
-*   Vercel
-*   Netlify
+## Contributing
 
-*Note: The backend logic relies on Google Apps Script webhooks. Ensure the frontend `fetch` endpoints are pointing to the correct active GAS deployment URL.*
+1. New visual components (tabs, modals) go in `src/html/` and are included
+   from `index.html` via the Vite partial plugin.
+2. No inline CSS or JS in `index.html`. CSS lives in `src/css/`, JS in
+   `src/js/` as ES modules.
+3. Functions wired into HTML attributes (e.g. `onclick="..."`) must be
+   exposed on `window` from `src/js/main.js`.
+4. Before touching `src/js/auth.js`, `src/js/db.js`, or anything in
+   `supabase/functions/`, read `.claude/rules/mistakes.md` first — those
+   modules carry hard-won workarounds.
 
-## 🤝 Contributing
-1.  All visual components (Tabs, Modals) must be created as partials in `src/html/` and imported into `index.html` via `<include src="..." />`.
-2.  Do not place inline CSS or JS inside `index.html`. Add them to their respective folders in `src/css/` and `src/js/`.
-3.  Any newly created functions that are triggered by HTML attributes (like `onclick`) must be exposed to the `window` object in `src/js/main.js`.
+## Where to look next
+
+- **Current state / what just shipped:** `STATE.md`
+- **Agent / day-to-day work router:** `CLAUDE.md`
+- **Architecture + schema + deploy:** `docs/CONTEXT.md`
+- **Migration history & open phases:** `docs/SUPABASE-MIGRATION.md`
+- **Merge protocol (refactor → main):** `docs/MERGE-CHECKLIST.md`
+- **Anti-patterns (READ before touching auth/network):** `.claude/rules/mistakes.md`
+- **Procedure playbooks:** `skills/*.md`
+
+## License
+
+Internal student-association project. No public license assigned. Contact the
+maintainers before reusing or forking.

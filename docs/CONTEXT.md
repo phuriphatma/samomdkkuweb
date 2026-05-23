@@ -182,6 +182,109 @@ Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 
 ---
 
+## Developer workflows
+
+### The frontend ↔ backend boundary
+
+There are three boundaries the SPA crosses, in descending order of frequency:
+
+1. **PostgREST (Supabase)** — almost all reads/writes. Auth is automatic via
+   the `sb-<project-ref>-auth-token` cookie/localStorage entry. Either use
+   the supabase-js client (`db.from('table')...`) OR the raw-fetch helper
+   `dbRest('/table?...')` from `src/js/db.js`. Prefer `dbRest()` for any
+   hot path — supabase-js has known intermittent hang modes
+   (see `.claude/rules/mistakes.md`).
+2. **Supabase Auth** — `db.auth.signInWithOAuth({ provider: 'google' })` for
+   Google, `db.auth.signInWithPassword({ email, password })` for username
+   accounts. `db.auth.onAuthStateChange()` callbacks MUST wrap their body
+   in `setTimeout(() => ..., 0)` to escape the GoTrue lock deadlock (issue
+   #762). Don't touch this without reading mistakes.md.
+3. **GAS `/exec`** — only for `uploadPRFile` (Drive upload) and the three
+   Discord-notify actions. Always `fetch(url, { keepalive: true, ... })` —
+   do NOT use `sendBeacon` (doesn't follow GAS's mandatory 302 redirect).
+
+### State management
+
+There is no state framework. Pattern:
+
+- **Auth state** lives in `src/js/auth.js` as a module-scoped `currentUser`.
+  Subscribe via `subscribeToAuth(callback)`. Callbacks fire on real
+  transitions (sign in, sign out) AND on token refresh — gate any UI
+  side-effects (e.g. `showAdminLanding`) behind a `prevAuthKey !== nextKey`
+  check, otherwise the kanban will reset on every token refresh.
+- **Form state** lives in the DOM (`<input>` `.value`). Hidden inputs are
+  re-populated from `authGetUser()` after every `form.reset()` because
+  reset clears them too (see mistakes.md).
+- **Tab state** is Bootstrap's. We listen for `shown.bs.tab` to close
+  parent dropdowns that Bootstrap left open.
+- **Server state** is fetched on-demand per panel. No client cache. The
+  kanban / dashboards refetch on every open. Reads are fast enough at our
+  scale (low hundreds of rows) that caching isn't justified.
+
+### Testing locally
+
+There is no automated test suite. The reproducible smoke tests in `STATE.md`
+are the regression bar — exercise them after any auth, network, or form
+change.
+
+**Mocking external services:**
+
+- **Supabase**: we don't mock it. Use the real dev project (same as prod
+  currently — there's no separate dev branch). Sign in with a throwaway
+  password account. The migration script is idempotent; you can wipe a
+  table and re-seed from the CSVs.
+- **Discord webhooks**: don't fire them during dev. Either:
+  - Toggle the `silent_notify` flag on the PR form (dev-role only), OR
+  - Temporarily point `GAS_API_URL` in `src/js/config.js` at a no-op GAS
+    deployment, OR
+  - Point the Apps Script `DISCORD_WEBHOOK_URL` Script Property at a private
+    test channel and redeploy.
+- **Drive uploads**: same project as prod. Files go into `PR_Submissions/`
+  in the GAS owner's Drive. Test files accumulate there — clean up
+  periodically.
+
+There is no record-and-replay or local Apps Script emulator. The lowest-cost
+loop is a real submit against the real backend with a `_test_` prefix in
+the content.
+
+### When you suspect supabase-js is hanging
+
+Switch to `dbRest()`. It's a raw-fetch + AbortController wrapper against
+PostgREST with the same auth headers supabase-js sends. Used today by
+`pr-form.js`, `vs-form.js`, `pr-tracking.js`, `announcements.js`.
+
+```js
+import { dbRest } from './db.js';
+const rows = await dbRest('/pr_tickets?id=eq.PR-XYZ123&select=*');
+```
+
+If the symptom is "hangs only after sign-in", check `auth.js` —
+`onAuthStateChange` body must be inside `setTimeout(() => ..., 0)`.
+
+### When you change the schema
+
+1. Add a new numbered file under `supabase/migrations/` (e.g.
+   `0003_add_priority_column.sql`). Don't edit `0001_*` in place.
+2. Apply it via the Supabase SQL editor (or Supabase CLI if you have it
+   wired).
+3. Update the Tables section of `docs/CONTEXT.md` and the RLS section if
+   policies changed.
+4. If the change is breaking (column rename, type change), update affected
+   queries in `src/js/*.js` and audit `dbRest()` paths.
+
+### When you add a new department or role
+
+- Departments are enumerated in `src/css/base.css` as `--dept-*` variables.
+  Add the new key there for color theming.
+- Department keys are referenced as strings in form `<option>` values and
+  in `pr_tickets.department` / `vs_tickets.requested_dept`. There is no
+  enum on the DB side — strings are free-form.
+- Roles are in `users.role` (CHECK constraint). Adding a role requires a
+  migration to extend the CHECK constraint AND updating
+  `current_user_is_staff()` / RLS policies that reference roles.
+
+---
+
 ## When this doc goes stale
 
 It WILL drift. Trust the code over this doc when they disagree:
