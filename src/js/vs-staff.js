@@ -3,7 +3,7 @@
 // ==============================================
 
 import { formatThaiDate, renderTimeline } from './utils.js';
-import { db } from './db.js';
+import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
 
 let staffTicketsCache = [];
@@ -162,11 +162,17 @@ export async function submitStaffAction() {
     if (statusChanged) update.status = newStatus;
     if (deptChanged) update.target_dept = newDept;
 
-    const { error: updErr } = await db
-      .from('vs_tickets')
-      .update(update)
-      .eq('id', currentActiveTicketId);
-    if (updErr) throw updErr;
+    // dbRest + return=representation so we surface RLS no-ops as errors
+    // (see mistakes.md "supabase-js silent-success on RLS-blocked updates").
+    const idEsc = encodeURIComponent(currentActiveTicketId);
+    const { data: updated, error: updErr } = await dbRest(
+      `/vs_tickets?id=eq.${idEsc}`,
+      { method: 'PATCH', body: update, prefer: 'return=representation' },
+    );
+    if (updErr) throw new Error(updErr.message || 'update failed');
+    if (!Array.isArray(updated) || updated.length === 0) {
+      throw new Error('อัปเดตไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์แก้ไข');
+    }
 
     // Fire-and-forget Discord notification via the unified helper (sendBeacon).
     if (notifyTo) {

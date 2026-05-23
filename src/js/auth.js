@@ -9,7 +9,7 @@
 // Subscribers via onAuthChange react to user changes.
 // ==============================================
 
-import { db } from './db.js';
+import { db, dbRest } from './db.js';
 import { decodeJwtResponse } from './utils.js';
 
 // ============================================================
@@ -220,12 +220,20 @@ export function getDepartment() { return currentUser?.department || ''; }
 
 export async function setDepartment(dept) {
   if (!currentUser) return;
-  const { error } = await db
-    .from('users')
-    .update({ department: dept || null })
-    .eq('id', currentUser.id);
+  // dbRest + return=representation: supabase-js would report success
+  // even when zero rows update (RLS or id mismatch), and our local
+  // currentUser would drift from the server (mistakes.md).
+  const idEsc = encodeURIComponent(currentUser.id);
+  const { data, error } = await dbRest(
+    `/users?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { department: dept || null }, prefer: 'return=representation' },
+  );
   if (error) {
     console.error('[auth] setDepartment failed:', error.message);
+    return;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    console.error('[auth] setDepartment: no row updated (RLS or id mismatch)');
     return;
   }
   currentUser = { ...currentUser, department: dept || '' };

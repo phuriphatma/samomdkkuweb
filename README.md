@@ -72,7 +72,6 @@ Authorized JavaScript origins.
 | `npm run dev` | Vite dev server on :5174 with HMR |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
-| `npm run migrate` | One-shot CSV → Supabase data migration (see `skills/migrate-data.md`) |
 
 ## Project layout
 
@@ -84,11 +83,9 @@ src/
 index.html     Slim shell; tabs/modals/navbar pulled from src/html/
 supabase/
   migrations/  SQL migrations (canonical schema)
-  functions/   Edge Functions (currently unused — Discord goes via GAS)
 appscript/     Slim Apps Script source — file upload + Discord webhook proxy
-tools/         One-off scripts (migrate-from-sheets.mjs)
 docs/          Architecture, schema, deploy plumbing — read on demand
-skills/        Procedure playbooks (migrate-data, deploy-gas, recover-ticket)
+skills/        Procedure playbooks (deploy-gas)
 .claude/       Rules + memory for AI agents working in this repo
 ```
 
@@ -102,9 +99,9 @@ For per-module detail see the Frontend module map in `docs/CONTEXT.md`.
    `src/js/` as ES modules.
 3. Functions wired into HTML attributes (e.g. `onclick="..."`) must be
    exposed on `window` from `src/js/main.js`.
-4. Before touching `src/js/auth.js`, `src/js/db.js`, or anything in
-   `supabase/functions/`, read `.claude/rules/mistakes.md` first — those
-   modules carry hard-won workarounds.
+4. Before touching `src/js/auth.js` or `src/js/db.js`, read
+   `.claude/rules/mistakes.md` first — those modules carry hard-won
+   workarounds.
 
 ## Where to look next
 

@@ -65,18 +65,38 @@ export function renderTimeline(containerId, remarks, ticketDate) {
 
 /**
  * Decode a Google Identity Services JWT token to extract the payload.
+ * Throws a descriptive error rather than the cryptic indexing crashes
+ * the naïve implementation gave on malformed input.
  */
 export function decodeJwtResponse(token) {
-  let base64Url = token.split('.')[1];
-  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  // Fix padding
-  base64 += Array((4 - (base64.length % 4)) % 4 + 1).join('=');
+  if (typeof token !== 'string') throw new Error('JWT must be a string');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Malformed JWT (expected 3 segments)');
+  try {
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    base64 += Array((4 - (base64.length % 4)) % 4 + 1).join('=');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    throw new Error('JWT decode failed: ' + (e.message || e));
+  }
+}
 
-  const jsonPayload = decodeURIComponent(
-    atob(base64)
-      .split('')
-      .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-      .join('')
-  );
-  return JSON.parse(jsonPayload);
+/**
+ * Escape user-supplied strings before interpolation into innerHTML.
+ * Use for non-content fields (title, department, snippet) where the
+ * value is plain text. Don't use for Quill-produced HTML content.
+ */
+export function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

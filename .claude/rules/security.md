@@ -6,7 +6,7 @@
 |---|---|---|
 | `VITE_SUPABASE_URL` | ✅ yes | bundled at build time, public |
 | `VITE_SUPABASE_ANON_KEY` | ✅ yes | bundled at build time, public (RLS gates) |
-| Supabase `service_role` key | ❌ NEVER | only `.env.local`, only used by `npm run migrate` |
+| Supabase `service_role` key | ❌ NEVER | not currently used — keep out of repo / browser if ever re-introduced |
 | Google OAuth client secret | ❌ NEVER | Supabase dashboard only |
 | Discord webhook URLs | ❌ NEVER (in frontend code) | embedded in `appscript/*.gs` only |
 | Apps Script `/exec` URLs | ✅ yes (treated as public webhooks) | `src/js/config.js` |
@@ -36,10 +36,9 @@
 1. Decide whether the frontend needs it. If yes, only the Supabase anon-key
    pattern is safe — public but gated by RLS.
 2. If backend-only, store in:
-   - Supabase Edge Function secrets (`supabase secrets set NAME=value`) for
-     anything inside `supabase/functions/`
    - Apps Script project (Properties → Script properties) for `appscript/*.gs`
    - Cloudflare Pages env vars (NOT exposed to browser via `VITE_*` prefix)
+   - (If we ever bring Edge Functions back: `supabase secrets set NAME=value`.)
 3. Add a row to the table above.
 
 ## Don't trust file paths that look like secrets

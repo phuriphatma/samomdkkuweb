@@ -4,10 +4,7 @@
 // Post-Supabase-migration, GAS serves just two actions:
 //   - uploadPRFile  : upload an image to Drive (chosen over Supabase
 //                     Storage for the 2 TB quota)
-//   - notifyPROnly  : fire the PR-team Discord webhook (Edge Function
-//                     equivalent is in supabase/functions/notify-pr/
-//                     but the Supabase deploy is returning 502 — GAS
-//                     stays as the backend for now)
+//   - notifyPROnly  : fire the PR-team Discord webhook
 //
 // Everything else (PR submit, tracking, staff dashboard, announcements,
 // agents) is now handled directly by Supabase from the frontend.

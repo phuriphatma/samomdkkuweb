@@ -9,10 +9,6 @@
 //
 // Everything else (VS submit, tracking, staff dashboard, account
 // management) is handled directly by Supabase from the frontend.
-//
-// (Edge Function equivalent is in supabase/functions/notify-vs/ but the
-// Supabase deploy is currently returning 502 — GAS stays as the
-// backend for now.)
 // ============================================================
 
 const WEBHOOK_MAP = {

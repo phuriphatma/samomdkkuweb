@@ -30,7 +30,6 @@ Supabase project: `fheueuowbchsnsvbcgil`. Both Cloudflare projects hit it.
 npm run dev          # Vite dev server on :5174
 npm run build        # production build → dist/
 npm run preview      # serve dist locally on :4173
-npm run migrate      # run the CSV→Supabase data migration (see skills/migrate-data.md)
 ```
 
 ## File placement
@@ -66,12 +65,13 @@ npm run migrate      # run the CSV→Supabase data migration (see skills/migrate
 - `docs/SUPABASE-MIGRATION.md` — phase tracker
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
+- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
 - `.claude/rules/mistakes.md` — hard-learned anti-patterns (READ before touching auth/network code)
 - `.claude/rules/security.md` — API key hygiene
 - `skills/*.md` — playbooks for the non-obvious workflows
 
-When working in `src/js/auth.js`, `src/js/db.js`, or `supabase/functions/` —
-ALWAYS read `.claude/rules/mistakes.md` first. Those modules carry sharp edges.
+When working in `src/js/auth.js` or `src/js/db.js` — ALWAYS read
+`.claude/rules/mistakes.md` first. Those modules carry sharp edges.
 
 ## End-of-turn loop (MANDATORY)
 

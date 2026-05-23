@@ -3,9 +3,7 @@
 Read this BEFORE touching:
 - `src/js/auth.js`
 - `src/js/db.js`
-- `supabase/functions/`
 - Anything that calls supabase-js or `navigator.sendBeacon`
-- The migration script (`tools/migrate-from-sheets.mjs`)
 
 Each entry: **Symptom → Cause → Fix → Where it lives now**.
 
@@ -73,15 +71,25 @@ setInterval(() => db.auth.refreshSession().catch(...), 25 * 60 * 1000);
 
 ---
 
-## supabase-js silent-success on RLS-blocked updates
+## supabase-js silent-success on RLS-blocked updates / deletes
 
 **Symptom**: User clicks "Update announcement" → success message → opens the
-announcement → old content. Update silently did nothing.
-**Cause**: `db.from().update().eq(...)` returns `{ data: null, error: null }`
-when zero rows are updated (RLS blocks, id mismatch, etc.). No error to catch.
+announcement → old content. Update silently did nothing. Same shape for
+staff status updates, ticket deletes, agent roster saves, user dept set.
+**Cause**: `db.from().update().eq(...)` and `.delete().eq(...)` return
+`{ data: null, error: null }` when zero rows are touched (RLS blocks, id
+mismatch). No error to catch.
 **Fix**: Use `dbRest()` from `db.js` with `prefer: 'return=representation'`
 and check `data.length`. If 0, throw a real error.
-**Where**: `src/js/announcements.js` `publishAnnouncement()`.
+**Where it lives now**: every write that matters is on dbRest —
+- `src/js/announcements.js` `publishAnnouncement()`
+- `src/js/pr-staff.js` `submitPRStaffAction()` / `deletePRStaffAction()` / `saveGlobalAgents()`
+- `src/js/vs-staff.js` `submitStaffAction()`
+- `src/js/vs-tracking.js` `submitUserRemark()`
+- `src/js/auth.js` `setDepartment()`
+
+**Don't bring back `db.from().update/delete` for any write that matters.**
+If a new write site appears, use `dbRest()` and verify `data.length > 0`.
 
 ---
 
@@ -91,7 +99,7 @@ and check `data.length`. If 0, throw a real error.
 **Cause**: Supabase Auth rejects RFC 6762 reserved TLDs (`.local`, `.localhost`).
 **Fix**: Use `samomdkku.app` (real public TLD; we don't actually own it but
 the format passes validation; no mail delivers).
-**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN`, `tools/migrate-from-sheets.mjs`,
+**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN` and
 `supabase/migrations/0002_seed_staff_accounts.sql`. Do not switch back.
 
 ---
@@ -121,18 +129,6 @@ that previously hung. PR tracking and announcements use it now.
 
 ---
 
-## Edge Functions `Deno.serve` fails on older Supabase Edge Runtime
-
-**Symptom**: Function deploys but returns 502 EDGE_FUNCTION_ERROR with no
-visible logs.
-**Cause**: `Deno.serve()` is the modern API. Supabase's edge runtime may not
-have it (depends on project age / region).
-**Fix**: Use `import { serve } from "https://deno.land/std@0.224.0/http/server.ts";`.
-**Where**: `supabase/functions/notify-pr/index.ts`, `supabase/functions/notify-vs/index.ts`
-(currently unused — Discord stays on GAS).
-
----
-
 ## Email confirmation must be OFF in Supabase for synthetic emails
 
 **Symptom**: Registration hits `Email rate limit exceeded` after 3 attempts.
@@ -142,19 +138,6 @@ on free tier built-in SMTP).
 **Fix**: Supabase Dashboard → Authentication → Providers → Email →
 toggle off "Confirm email". Synthetic emails don't need confirmation; Google
 users come in via OAuth which is already verified.
-
----
-
-## CSV columns with empty headers need positional access
-
-**Symptom**: Migration silently writes `[]` / `null` for `assignees`,
-`other_platforms`, `other_platform_reason`. CSV has values for them.
-**Cause**: Prod sheet exported with empty header cells for columns 20-22.
-`r['Assignees']` returns `undefined`. With named-key access alone, those
-columns are unreachable.
-**Fix**: `readCSV` now exposes `obj._raw[idx]` for positional access. Use
-`r._raw[20]` etc. for unnamed columns.
-**Where**: `tools/migrate-from-sheets.mjs`.
 
 ---
 

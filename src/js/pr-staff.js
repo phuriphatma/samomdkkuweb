@@ -3,7 +3,7 @@
 // ==============================================
 
 import { renderTimeline } from './utils.js';
-import { db } from './db.js';
+import { db, dbRest } from './db.js';
 
 // ----------------------------------------------------
 // DB row → camelCase ticket shape used by the kanban renderer + modal.
@@ -351,11 +351,18 @@ export async function submitPRStaffAction() {
       if (!isNaN(d.getTime())) update.publish_date = d.toISOString();
     }
 
-    const { error: updErr } = await db
-      .from('pr_tickets')
-      .update(update)
-      .eq('id', currentActivePrTicketId);
-    if (updErr) throw updErr;
+    // dbRest + return=representation so we can detect RLS no-ops:
+    // supabase-js returns { data:null, error:null } when zero rows
+    // update, which silently fakes success. See mistakes.md.
+    const idEsc = encodeURIComponent(currentActivePrTicketId);
+    const { data: updated, error: updErr } = await dbRest(
+      `/pr_tickets?id=eq.${idEsc}`,
+      { method: 'PATCH', body: update, prefer: 'return=representation' },
+    );
+    if (updErr) throw new Error(updErr.message || 'update failed');
+    if (!Array.isArray(updated) || updated.length === 0) {
+      throw new Error('อัปเดตไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์แก้ไข');
+    }
 
     alert('อัปเดตสถานะงาน PR สำเร็จ!');
     bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
@@ -375,11 +382,15 @@ export async function deletePRStaffAction() {
   btn.disabled = true; btn.innerHTML = 'กำลังลบ...';
 
   try {
-    const { error } = await db
-      .from('pr_tickets')
-      .delete()
-      .eq('id', currentActivePrTicketId);
-    if (error) throw error;
+    const idEsc = encodeURIComponent(currentActivePrTicketId);
+    const { data: deleted, error } = await dbRest(
+      `/pr_tickets?id=eq.${idEsc}`,
+      { method: 'DELETE', prefer: 'return=representation' },
+    );
+    if (error) throw new Error(error.message || 'delete failed');
+    if (!Array.isArray(deleted) || deleted.length === 0) {
+      throw new Error('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ');
+    }
     alert('ลบงาน PR เรียบร้อยแล้ว!');
     bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
     fetchPRStaffTickets();
@@ -406,11 +417,18 @@ async function loadGlobalAgents() {
 
 async function saveGlobalAgents() {
   try {
-    const { error } = await db
-      .from('pr_agents')
-      .update({ agents: globalPrAgents, updated_at: new Date().toISOString() })
-      .eq('id', 1);
-    if (error) throw error;
+    const { data, error } = await dbRest(
+      `/pr_agents?id=eq.1`,
+      {
+        method: 'PATCH',
+        body: { agents: globalPrAgents, updated_at: new Date().toISOString() },
+        prefer: 'return=representation',
+      },
+    );
+    if (error) throw new Error(error.message || 'save failed');
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('บันทึกไม่สำเร็จ — ไม่พบ agent roster หรือคุณไม่มีสิทธิ์แก้ไข');
+    }
   } catch (e) { console.error('Failed to save agents', e); }
 }
 

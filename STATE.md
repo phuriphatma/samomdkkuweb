@@ -4,7 +4,8 @@ Last updated: 2026-05-23
 
 ## Branches
 
-Both `main` and `refactor/modular` are at commit `ac3d0b6` (in sync).
+`refactor/modular` is ahead of `main` by 1 commit (audit fixes, not yet
+merged). `main` still at `ac3d0b6`.
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
@@ -18,16 +19,40 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. The memory-system extraction (CLAUDE.md router, STATE.md,
-`.claude/rules/{mistakes,security}.md`, `skills/*.md`, `docs/CONTEXT.md`,
-and `.github/workflows/build.yml`) was just committed. No bug under
-investigation.
+Nothing active. The multi-project engine refactor proposed in
+`docs/PROJECT-ARCHITECTURE.md` is **deferred** — the user wants
+readable/maintainable improvements opportunistically (as we touch each
+module) rather than a multi-week planned refactor. The proposal doc
+stays as future reference.
+
+Most recent change: audit pass — three commits.
+1. Closed six RLS-silent-success sites + announcement button label +
+   VS ticket-ID collision + fragile selector.
+2. Cleanup pass: partial-upload state in error message, `fileInput.value=''`
+   after reset (latent), `decodeJwtResponse` input guards, `escHtml` helper
+   in utils.js applied to announcement renderers (title/dept/snippet only —
+   `post.content` stays raw Quill HTML), two stale "sendBeacon" comments,
+   one unused import.
+3. Dead-code removal: deleted `supabase/functions/notify-pr/` and
+   `notify-vs/` (~300 LOC of Deno code that was returning 502 — Discord
+   stays on GAS by design now). Trimmed 8 stale references across docs
+   and agent rules; net -411 LOC.
+4. Migration-tool removal: deleted `tools/migrate-from-sheets.mjs`
+   (529 LOC), `sheetexample/` (~800 KB student data dumps; already
+   gitignored so never on GitHub), `skills/migrate-data.md`,
+   `skills/recover-ticket.md`. Removed `npm run migrate` from
+   package.json + the unused `dotenv` dep. Updated 6 doc files to
+   remove the now-dead references.
 
 ## Recent fixes (latest first, last ~10 commits)
 
 | Commit | What |
 |---|---|
-| _(this commit)_ | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
+| _(this commit)_ | Remove one-shot migration tool: tools/migrate-from-sheets.mjs, sheetexample/, two skills, dotenv dep, npm run migrate, 11 references |
+| `49d4ca1` | Remove dead Edge Function source (notify-pr, notify-vs) + 8 stale doc references. Discord stays on GAS by design |
+| `a91fa17` | Audit cleanup pass: partial-upload state in pr-form error msg; `fileInput.value=''` after reset; `decodeJwtResponse` guards; `escHtml` helper + applied to announcement renderers; stale comments; unused import |
+| `6a8193e` | Audit pass: close 6 RLS-silent-success sites (pr-staff status/delete/agents, vs-staff status, vs-tracking remarks, auth.setDepartment); fix announcement publish-btn label after edit; VS ticket-ID collision; selector |
+| `acc3ef1` | Docs pass 2: rewrite stale `README.md`, add Developer workflows section to `docs/CONTEXT.md`, add conditional rule 4 to CLAUDE.md auto-update loop |
 | `ca20e10` | Memory system: CLAUDE.md router + STATE.md + `.claude/rules/` + `skills/` + `docs/CONTEXT.md` + CI build |
 | `edaacc1` | Sort PR/VS tickets by `timestamp` (not `created_at`) — avoids needing a backfill |
 | `5df7f65` | Migrate script writes `created_at` from CSV timestamp (defense in depth) |
@@ -40,13 +65,6 @@ investigation.
 
 ## Open / deferred
 
-- **`PR-0Y0E2R` recovery**: user accidentally deleted a ticket via kanban. CSV
-  has it. Running `MIGRATE_RESTORE_ONLY=1 npm run migrate` will restore it; the
-  user has already retrieved it (confirmed visible).
-- **Supabase Edge Functions for Discord (`notify-pr`, `notify-vs`)**: code
-  exists in `supabase/functions/` but returns 502 in our project (suspected
-  Edge Runtime version mismatch). Currently routing Discord notifies via the
-  GAS proxy instead. Defer.
 - **Phase 4 file storage**: deliberately staying on Drive (2 TB) instead of
   Supabase Storage (1 GB free tier). Documented in `docs/SUPABASE-MIGRATION.md`.
 
