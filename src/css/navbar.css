@@ -53,7 +53,7 @@
   display: flex;
   justify-content: center;
   flex: 1;
-  gap: 8px;
+  gap: 0.4rem;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -65,11 +65,11 @@
   font-size: 0.95rem;
   border-radius: 10px;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.1rem;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .nav-pills .nav-link:hover {
@@ -96,10 +96,9 @@
    - .show is added when the menu is open.
    - .active is added by Bootstrap's tab JS when an inner tab is the
      currently-active one. Both states render as a subtle light tint. */
-.nav-pills .nav-link.dropdown-toggle.show,
 .nav-pills .nav-link.dropdown-toggle.active {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
+  background-color: var(--brand-primary);
+  color: #ffffff;
   transform: none;
   box-shadow: none;
 }
@@ -115,6 +114,21 @@
   border: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   padding: 0.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0.18s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-item.dropdown:hover .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    display: block;
+  }
 }
 
 .samo-navbar .dropdown-item {
@@ -207,4 +221,13 @@
 .offcanvas .nav-link.active {
   background-color: var(--brand-primary);
   color: #ffffff;
+}
+
+.divider {
+  height: 2px;
+  width: 90%;
+  background: var(--brand-orange);
+  opacity: 0.5;
+  margin-top: 4px;
+  border-radius: 999px;
 }

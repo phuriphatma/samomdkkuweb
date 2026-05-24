@@ -253,13 +253,77 @@ window.trackWithTicketIdFromAuth = () => {
 // just opened the dropdown), wait one frame so the pane is visible before
 // scrolling — otherwise scrollIntoView measures a hidden element.
 window.goToAbout = (sectionId) => {
+  // Activate hidden Bootstrap tab
   const btn = document.getElementById('pills-about-tab');
-  if (btn && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(btn).show();
+  if (btn && window.bootstrap) {
+    window.bootstrap.Tab
+      .getOrCreateInstance(btn)
+      .show();
+  }
+  // Manually highlight About dropdown
+  document
+    .getElementById('toolsDropdown')
+    ?.classList.remove('active');
+
+  document
+    .getElementById('aboutDropdown')
+    ?.classList.add('active');
+  // Scroll to section
   requestAnimationFrame(() => {
     const target = document.getElementById(sectionId);
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (target) {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
   });
 };
+
+document
+  .querySelectorAll('[data-bs-toggle="pill"]')
+  .forEach(tab => {
+    tab.addEventListener('shown.bs.tab', (e) => {
+      const targetId =
+        e.target.getAttribute('id');
+      if (targetId === 'pills-about-tab') return;
+      document
+        .getElementById('aboutDropdown')
+        ?.classList.remove('active');
+    });
+  });
+
+  const aboutDropdown =
+  document.getElementById('aboutDropdown');
+
+let aboutTouched = false;
+
+aboutDropdown.addEventListener('click', (e) => {
+  const isTouch =
+    window.matchMedia('(hover: none)').matches;
+  // DESKTOP:
+  // click directly opens About tab
+  if (!isTouch) {
+    e.preventDefault();
+    goToAbout('tab-about');
+    return;
+  }
+  // MOBILE FIRST TAP:
+  // only open dropdown
+  if (!aboutTouched) {
+    e.preventDefault();
+    aboutTouched = true;
+    setTimeout(() => {
+      aboutTouched = false;
+    }, 1500);
+    return;
+  }
+  // MOBILE SECOND TAP:
+  // open About page
+  e.preventDefault();
+  goToAbout('about-team');
+  aboutTouched = false;
+});
 
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
