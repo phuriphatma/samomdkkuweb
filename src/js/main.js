@@ -274,6 +274,24 @@ window.goToAbout = (sectionId) => {
   });
 };
 
+// Helper function to close all open menus cleanly on touch screens
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-menu').forEach(menu => {
+    menu.classList.remove('show-dropdown');
+  });
+}
+
+// Reset all state trackers and timers for mobile touch events
+function resetTouchStates() {
+  closeAllDropdowns();
+  
+  if (typeof aboutTouched !== 'undefined') aboutTouched = false;
+  if (typeof toolsTouched !== 'undefined') toolsTouched = false;
+  
+  if (typeof aboutTimeout !== 'undefined') clearTimeout(aboutTimeout);
+  if (typeof toolsTimeout !== 'undefined') clearTimeout(toolsTimeout);
+}
+
 // ==========================================
 // 2. BOOTSTRAP TAB ACTIVE MANAGEMENT
 // ==========================================
@@ -282,17 +300,11 @@ document
   .forEach(tab => {
     tab.addEventListener('shown.bs.tab', (e) => {
       const targetId = e.target.getAttribute('id');
-      if (targetId === 'pills-about-tab') return;
-      document.getElementById('aboutDropdown')?.classList.remove('active');
+      if (targetId !== 'pills-about-tab') {
+        document.getElementById('aboutDropdown')?.classList.remove('active');
+      }
     });
   });
-
-// Helper function to close all open menus cleanly on touch screens
-function closeAllDropdowns() {
-  document.querySelectorAll('.dropdown-menu').forEach(menu => {
-    menu.classList.remove('show-dropdown');
-  });
-}
 
 // ==========================================
 // 3. ABOUT DROPDOWN HANDLER (เกี่ยวกับเรา)
@@ -308,12 +320,14 @@ if (aboutDropdown) {
     e.preventDefault(); 
     
     if (!aboutTouched) {
+      // Clear the tools dropdown if it happens to be open
       closeAllDropdowns();
       toolsTouched = false; 
 
       aboutTouched = true;
       if (aboutMenu) aboutMenu.classList.add('show-dropdown');
       
+      // Force page to scroll to top on first tap
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       
       clearTimeout(aboutTimeout);
@@ -370,7 +384,7 @@ if (toolsDropdown) {
 }
 
 // ==========================================
-// 5. GLOBAL SCROLL-TO-TOP MANAGER
+// 5. GLOBAL SCROLL-TO-TOP & AUTO-CLOSE MANAGER
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
   const mainNavbarList = document.getElementById('pills-tab');
@@ -383,17 +397,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = clickableElement.getAttribute('id');
       const dataBsToggle = clickableElement.getAttribute('data-bs-toggle');
 
-      // 1. If clicking "เครื่องมือ" header itself, do nothing (let dropdown open)
+      // 1. If clicking "เครื่องมือ" header itself, let it open normally
       if (id === 'toolsDropdown') {
         return;
       }
 
-      // 2. If clicking options INSIDE "เกี่ยวกับเรา" dropdown, let goToAbout scroll instead
+      // 2. If clicking options INSIDE "เกี่ยวกับเรา" dropdown, let goToAbout handle it
       if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
         return; 
       }
 
-      // 3. For everything else (หน้าหลัก, ประกาศ, options inside เครื่องมือ), smooth scroll to top
+      // 3. INSTANT DISAPPEARANCE FIX: 
+      // Whenever you successfully click another nav tab/item (like หน้าหลัก or ประกาศ),
+      // we immediately wipe out all active dropdown open states on iPad.
+      resetTouchStates();
+
+      // 4. Smooth scroll to top for targeted items (หน้าหลัก, ประกาศ, options inside เครื่องมือ)
       window.scrollTo({
         top: 0,
         left: 0,
