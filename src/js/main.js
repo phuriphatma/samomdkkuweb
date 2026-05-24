@@ -422,6 +422,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// ==========================================
+// 6. TAP-OUTSIDE TO CLOSE DROPDOWNS (iPad/Mobile)
+// ==========================================
+document.addEventListener('touchstart', (e) => {
+  // Find your dropdown wrapper elements
+  const aboutWrapper = document.getElementById('aboutDropdown')?.parentElement;
+  const toolsWrapper = document.getElementById('toolsDropdown')?.parentElement;
+
+  // Check if the user's touch target is inside either dropdown container
+  const touchedInsideAbout = aboutWrapper && aboutWrapper.contains(e.target);
+  const touchedInsideTools = toolsWrapper && toolsWrapper.contains(e.target);
+
+  // If the user tapped outside BOTH dropdown containers, reset the mobile open states instantly
+  if (!touchedInsideAbout && !touchedInsideTools) {
+    resetTouchStates();
+  }
+}, { passive: true }); // Using passive: true optimizes touch performance on mobile devices
+
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
   const password = document.getElementById('signinRegisterPassword').value;
