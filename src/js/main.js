@@ -252,23 +252,17 @@ window.trackWithTicketIdFromAuth = () => {
 // the sticky navbar. Fallback path: if the tab isn't active yet (e.g. user
 // just opened the dropdown), wait one frame so the pane is visible before
 // scrolling — otherwise scrollIntoView measures a hidden element.
+// ==========================================
+// 1. THE GO TO ABOUT FUNCTION
+// ==========================================
 window.goToAbout = (sectionId) => {
-  // Activate hidden Bootstrap tab
   const btn = document.getElementById('pills-about-tab');
   if (btn && window.bootstrap) {
-    window.bootstrap.Tab
-      .getOrCreateInstance(btn)
-      .show();
+    window.bootstrap.Tab.getOrCreateInstance(btn).show();
   }
-  // Manually highlight About dropdown
-  document
-    .getElementById('toolsDropdown')
-    ?.classList.remove('active');
+  document.getElementById('toolsDropdown')?.classList.remove('active');
+  document.getElementById('aboutDropdown')?.classList.add('active');
 
-  document
-    .getElementById('aboutDropdown')
-    ?.classList.add('active');
-  // Scroll to section
   requestAnimationFrame(() => {
     const target = document.getElementById(sectionId);
     if (target) {
@@ -280,46 +274,9 @@ window.goToAbout = (sectionId) => {
   });
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const mainNavbarList = document.getElementById('pills-tab');
-
-  if (mainNavbarList) {
-    mainNavbarList.addEventListener('click', (e) => {
-      // Find the specific item or link that was clicked
-      const clickableElement = e.target.closest('button, a');
-      if (!clickableElement) return;
-
-      const id = clickableElement.getAttribute('id');
-      const dataBsToggle = clickableElement.getAttribute('data-bs-toggle');
-
-      // --- 1. PROTECT ONLY THE TOOLS DROPDOWN TOGGLE ---
-      // We keep "เครื่องมือ" completely isolated so it opens without moving the page.
-      if (id === 'toolsDropdown') {
-        return;
-      }
-
-      // --- 2. PROTECT THE "เกี่ยวกับเรา" SUB-MENU OPTIONS ---
-      // If clicking items *inside* the About list (ทีมงาน, วิสัยทัศน์, พันธกิจ), 
-      // let your custom inline 'goToAbout()' handles the section scrolling instead.
-      if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
-        return; 
-      }
-
-      // --- 3. GLOBAL SCROLL TO TOP ---
-      // This will now capture:
-      // - หน้าหลัก (Home)
-      // - ประกาศ (Announcements)
-      // - The main "เกี่ยวกับเรา" button (aboutDropdown)
-      // - All dropdown items inside the "เครื่องมือ" menu
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: 'smooth'
-      });
-    });
-  }
-});
-
+// ==========================================
+// 2. BOOTSTRAP TAB ACTIVE MANAGEMENT
+// ==========================================
 document
   .querySelectorAll('[data-bs-toggle="pill"]')
   .forEach(tab => {
@@ -330,69 +287,121 @@ document
     });
   });
 
+// Helper function to close all open menus cleanly on touch screens
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-menu').forEach(menu => {
+    menu.classList.remove('show-dropdown');
+  });
+}
+
+// ==========================================
+// 3. ABOUT DROPDOWN HANDLER (เกี่ยวกับเรา)
+// ==========================================
 const aboutDropdown = document.getElementById('aboutDropdown');
 let aboutTouched = false;
-let touchTimeout = null;
+let aboutTimeout = null;
 
 if (aboutDropdown) {
-  // Find the sub-menu element relative to our link wrapper
-  const menuElement = aboutDropdown.parentElement.querySelector('.dropdown-menu');
+  const aboutMenu = aboutDropdown.parentElement.querySelector('.dropdown-menu');
 
-  // --- 1. TOUCH SCREEN HANDLER (iPad/Mobile) ---
   aboutDropdown.addEventListener('touchstart', (e) => {
-    // Stop the touch event from instantly turning into a ghost mouse-click
     e.preventDefault(); 
     
     if (!aboutTouched) {
-      // FIRST TAP: Show the dropdown manually
+      closeAllDropdowns();
+      toolsTouched = false; 
+
       aboutTouched = true;
+      if (aboutMenu) aboutMenu.classList.add('show-dropdown');
       
-      if (menuElement) {
-        menuElement.classList.add('show-dropdown');
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      
+      clearTimeout(aboutTimeout);
+      aboutTimeout = setTimeout(() => {
+        aboutTouched = false;
+        if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
+      }, 2500);
+    } else {
+      clearTimeout(aboutTimeout);
+      aboutTouched = false;
+      if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
+      goToAbout('about-team');
+    }
+  }, { passive: false });
+
+  aboutDropdown.addEventListener('click', (e) => {
+    if (window.matchMedia('(hover: none)').matches) { e.preventDefault(); return; }
+    e.preventDefault();
+    goToAbout('tab-about');
+  });
+}
+
+// ==========================================
+// 4. TOOLS DROPDOWN HANDLER (เครื่องมือ)
+// ==========================================
+const toolsDropdown = document.getElementById('toolsDropdown');
+let toolsTouched = false;
+let toolsTimeout = null;
+
+if (toolsDropdown) {
+  const toolsMenu = toolsDropdown.parentElement.querySelector('.dropdown-menu');
+
+  toolsDropdown.addEventListener('touchstart', (e) => {
+    e.preventDefault(); 
+    
+    if (!toolsTouched) {
+      closeAllDropdowns();
+      aboutTouched = false; 
+
+      toolsTouched = true;
+      if (toolsMenu) toolsMenu.classList.add('show-dropdown');
+      
+      clearTimeout(toolsTimeout);
+      toolsTimeout = setTimeout(() => {
+        toolsTouched = false;
+        if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
+      }, 2500);
+    } else {
+      clearTimeout(toolsTimeout);
+      toolsTouched = false;
+      if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
+    }
+  }, { passive: false });
+}
+
+// ==========================================
+// 5. GLOBAL SCROLL-TO-TOP MANAGER
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+  const mainNavbarList = document.getElementById('pills-tab');
+
+  if (mainNavbarList) {
+    mainNavbarList.addEventListener('click', (e) => {
+      const clickableElement = e.target.closest('button, a');
+      if (!clickableElement) return;
+
+      const id = clickableElement.getAttribute('id');
+      const dataBsToggle = clickableElement.getAttribute('data-bs-toggle');
+
+      // 1. If clicking "เครื่องมือ" header itself, do nothing (let dropdown open)
+      if (id === 'toolsDropdown') {
+        return;
       }
 
-      // ADD THIS: Force the page to scroll to the top on the iPad's first tap!
+      // 2. If clicking options INSIDE "เกี่ยวกับเรา" dropdown, let goToAbout scroll instead
+      if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
+        return; 
+      }
+
+      // 3. For everything else (หน้าหลัก, ประกาศ, options inside เครื่องมือ), smooth scroll to top
       window.scrollTo({
         top: 0,
         left: 0,
         behavior: 'smooth'
       });
-      
-      clearTimeout(touchTimeout);
-      touchTimeout = setTimeout(() => {
-        aboutTouched = false;
-        if (menuElement) menuElement.classList.remove('show-dropdown');
-      }, 2500); // 2.5 second window to tap again
-      
-    } else {
-      // SECOND TAP: Clear states and execute redirection
-      clearTimeout(touchTimeout);
-      aboutTouched = false;
-      
-      if (menuElement) {
-        menuElement.classList.remove('show-dropdown');
-      }
-      
-      goToAbout('about-team');
-    }
-  }, { passive: false }); // Explicitly allows e.preventDefault() on modern touch containers
-
-  // --- 2. DESKTOP MOUSE CLICK HANDLER ---
-  // This listener will only run if a true desktop mouse triggers a click event.
-  aboutDropdown.addEventListener('click', (e) => {
-    const isTouch = window.matchMedia('(hover: none)').matches;
-    
-    // If it's a touch screen, let our touchstart listener handle it instead
-    if (isTouch) {
-      e.preventDefault();
-      return;
-    }
-    
-    // Desktop behavior: CSS hover opens it, clicking jumps to the main tab
-    e.preventDefault();
-    goToAbout('tab-about');
-  });
-}
+    });
+  }
+});
 
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
