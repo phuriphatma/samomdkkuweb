@@ -280,50 +280,119 @@ window.goToAbout = (sectionId) => {
   });
 };
 
+document.addEventListener('DOMContentLoaded', () => {
+  const mainNavbarList = document.getElementById('pills-tab');
+
+  if (mainNavbarList) {
+    mainNavbarList.addEventListener('click', (e) => {
+      // Find the specific item or link that was clicked
+      const clickableElement = e.target.closest('button, a');
+      if (!clickableElement) return;
+
+      const id = clickableElement.getAttribute('id');
+      const dataBsToggle = clickableElement.getAttribute('data-bs-toggle');
+
+      // --- 1. PROTECT ONLY THE TOOLS DROPDOWN TOGGLE ---
+      // We keep "เครื่องมือ" completely isolated so it opens without moving the page.
+      if (id === 'toolsDropdown') {
+        return;
+      }
+
+      // --- 2. PROTECT THE "เกี่ยวกับเรา" SUB-MENU OPTIONS ---
+      // If clicking items *inside* the About list (ทีมงาน, วิสัยทัศน์, พันธกิจ), 
+      // let your custom inline 'goToAbout()' handles the section scrolling instead.
+      if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
+        return; 
+      }
+
+      // --- 3. GLOBAL SCROLL TO TOP ---
+      // This will now capture:
+      // - หน้าหลัก (Home)
+      // - ประกาศ (Announcements)
+      // - The main "เกี่ยวกับเรา" button (aboutDropdown)
+      // - All dropdown items inside the "เครื่องมือ" menu
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+    });
+  }
+});
+
 document
   .querySelectorAll('[data-bs-toggle="pill"]')
   .forEach(tab => {
     tab.addEventListener('shown.bs.tab', (e) => {
-      const targetId =
-        e.target.getAttribute('id');
+      const targetId = e.target.getAttribute('id');
       if (targetId === 'pills-about-tab') return;
-      document
-        .getElementById('aboutDropdown')
-        ?.classList.remove('active');
+      document.getElementById('aboutDropdown')?.classList.remove('active');
     });
   });
 
-  const aboutDropdown =
-  document.getElementById('aboutDropdown');
-
+const aboutDropdown = document.getElementById('aboutDropdown');
 let aboutTouched = false;
+let touchTimeout = null;
 
-aboutDropdown.addEventListener('click', (e) => {
-  const isTouch =
-    window.matchMedia('(hover: none)').matches;
-  // DESKTOP:
-  // click directly opens About tab
-  if (!isTouch) {
+if (aboutDropdown) {
+  // Find the sub-menu element relative to our link wrapper
+  const menuElement = aboutDropdown.parentElement.querySelector('.dropdown-menu');
+
+  // --- 1. TOUCH SCREEN HANDLER (iPad/Mobile) ---
+  aboutDropdown.addEventListener('touchstart', (e) => {
+    // Stop the touch event from instantly turning into a ghost mouse-click
+    e.preventDefault(); 
+    
+    if (!aboutTouched) {
+      // FIRST TAP: Show the dropdown manually
+      aboutTouched = true;
+      
+      if (menuElement) {
+        menuElement.classList.add('show-dropdown');
+      }
+
+      // ADD THIS: Force the page to scroll to the top on the iPad's first tap!
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+      
+      clearTimeout(touchTimeout);
+      touchTimeout = setTimeout(() => {
+        aboutTouched = false;
+        if (menuElement) menuElement.classList.remove('show-dropdown');
+      }, 2500); // 2.5 second window to tap again
+      
+    } else {
+      // SECOND TAP: Clear states and execute redirection
+      clearTimeout(touchTimeout);
+      aboutTouched = false;
+      
+      if (menuElement) {
+        menuElement.classList.remove('show-dropdown');
+      }
+      
+      goToAbout('about-team');
+    }
+  }, { passive: false }); // Explicitly allows e.preventDefault() on modern touch containers
+
+  // --- 2. DESKTOP MOUSE CLICK HANDLER ---
+  // This listener will only run if a true desktop mouse triggers a click event.
+  aboutDropdown.addEventListener('click', (e) => {
+    const isTouch = window.matchMedia('(hover: none)').matches;
+    
+    // If it's a touch screen, let our touchstart listener handle it instead
+    if (isTouch) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Desktop behavior: CSS hover opens it, clicking jumps to the main tab
     e.preventDefault();
     goToAbout('tab-about');
-    return;
-  }
-  // MOBILE FIRST TAP:
-  // only open dropdown
-  if (!aboutTouched) {
-    e.preventDefault();
-    aboutTouched = true;
-    setTimeout(() => {
-      aboutTouched = false;
-    }, 1500);
-    return;
-  }
-  // MOBILE SECOND TAP:
-  // open About page
-  e.preventDefault();
-  goToAbout('about-team');
-  aboutTouched = false;
-});
+  });
+}
 
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
