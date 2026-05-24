@@ -133,13 +133,16 @@
 
 .samo-navbar .dropdown-item {
   border-radius: 8px;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem 0.75rem 0.55rem 0.55rem;
   margin-bottom: 2px;
   font-weight: 500;
   color: #334155;
   cursor: pointer;
   display: flex;
-  align-items: center;
+  align-items: center;          /* important */
+  justify-content: flex-start;
+  width: 100%;                  /* important */
+  text-align: left;             /* important */
 }
 
 .samo-navbar .dropdown-item:hover {
@@ -230,4 +233,26 @@
   opacity: 0.5;
   margin-top: 4px;
   border-radius: 999px;
+}
+
+.dropdown-icon-circle {
+  width: 28px;
+  height: 28px;
+
+  border-radius: 50%;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-right: 0.5rem;
+  margin-left: 0rem;
+
+  background: #ffffff;
+
+  color: #FFFFFF;
+
+  font-size: 0.95rem;
+
+  flex-shrink: 0;
 }

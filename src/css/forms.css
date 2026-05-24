@@ -6,7 +6,7 @@
   background: #ffffff;
   padding: 2.5rem;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(219, 39, 119, 0.08);
+  box-shadow: var(--form-shadow);
   max-width: 800px;
   margin: auto;
 }
@@ -136,7 +136,7 @@ textarea.form-control {
   padding: 0.8rem;
   font-size: 1.1rem;
   font-weight: 500;
-  box-shadow: 0 4px 6px rgba(219, 39, 119, 0.2);
+  box-shadow: var(--btn-shadow);
   transition: all 0.3s ease;
 }
 
@@ -145,5 +145,5 @@ textarea.form-control {
   border-color: var(--pink-700);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 8px 15px rgba(219, 39, 119, 0.3);
+  box-shadow: var(--btn-hover-shadow);
 }

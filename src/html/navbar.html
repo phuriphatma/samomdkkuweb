@@ -33,19 +33,19 @@
               <li>
                 <button class="dropdown-item" id="pills-pr-tab" data-bs-toggle="pill" data-bs-target="#pills-pr"
                   type="button" role="tab">
-                  <i class="bi bi-megaphone-fill me-2" style="color: var(--pink-400);"></i> PR Form
+                  <span class="dropdown-icon-circle"><i class="bi bi-megaphone-fill" style="color: var(--pink-400);"></i></span> PR Form
                 </button>
               </li>
               <li>
                 <button class="dropdown-item" id="pills-vitalsound-tab" data-bs-toggle="pill"
                   data-bs-target="#pills-vitalsound" type="button" role="tab">
-                  <i class="bi bi-clipboard2-pulse me-2" style="color: #2C8F8A;"></i> VitalSound
+                  <span class="dropdown-icon-circle"><i class="bi bi-clipboard2-pulse" style="color: #2C8F8A;"></i></span> VitalSound
                 </button>
               </li>
               <li>
                 <button class="dropdown-item" id="pills-creator-tab" data-bs-toggle="pill"
                   data-bs-target="#pills-creator" type="button" role="tab" onclick="cancelEdit()">
-                  <i class="bi bi-pencil-square me-2" style="color: var(--brand-primary);"></i> เขียนประกาศ
+                  <span class="dropdown-icon-circle"><i class="bi bi-pencil-square" style="color: var(--brand-primary);"></i></span>เขียนประกาศ
                 </button>
               </li>
             </ul>
@@ -71,15 +71,18 @@
             <ul class="dropdown-menu" aria-labelledby="aboutDropdown">
               <li>
                 <a class="dropdown-item" href="#about-team"
-                  onclick="event.preventDefault(); goToAbout('about-team');">ทีมงาน</a>
+                  onclick="event.preventDefault(); goToAbout('about-team');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-diagram-3-fill" style="color: var(--brand-primary);"></i></span>ทีมงาน</a>
               </li>
               <li>
                 <a class="dropdown-item" href="#about-vision"
-                  onclick="event.preventDefault(); goToAbout('about-vision');">วิสัยทัศน์</a>
+                  onclick="event.preventDefault(); goToAbout('about-vision');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-eye" style="color: var(--brand-primary);"></i></span>วิสัยทัศน์</a>
               </li>
               <li>
                 <a class="dropdown-item" href="#about-mission"
-                  onclick="event.preventDefault(); goToAbout('about-mission');">พันธกิจ</a>
+                  onclick="event.preventDefault(); goToAbout('about-mission');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-graph-up-arrow" style="color: var(--brand-primary);"></i></span>พันธกิจ</a>
               </li>
             </ul>
           </li>
