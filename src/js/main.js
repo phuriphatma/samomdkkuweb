@@ -284,8 +284,6 @@ function closeAllDropdowns() {
 // Reset everything to closed state
 function resetDropdownStates() {
   closeAllDropdowns();
-  if (typeof aboutOpened !== 'undefined') aboutOpened = false;
-  if (typeof toolsOpened !== 'undefined') toolsOpened = false;
 }
 
 // ==========================================

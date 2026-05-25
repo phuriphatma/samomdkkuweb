@@ -60,13 +60,18 @@
   --dept-hover-academic: #D6B585;     /* ฝ่ายวิชาการ */
   --dept-hover-strategy: #1F2A26;     /* ฝ่ายยุทธศาสตร์และพัฒนาองค์กร */
   --dept-hover-quality: #FBDE8F;      /* ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม */
-  --dept-hover-media: #112957;        /* ฝ่ายเวชนิทัศน์ */
+  --dept-hover-media: #176581;        /* ฝ่ายเวชนิทัศน์ — distinct from external */
   --dept-hover-projects: #A89A80;
+
+  /* VitalSound accent — historically tied to the teal `--dept-quality` value,
+     but the dept palette has since shifted to a light green. The VS form/icon
+     identity stays teal, so it gets its own token instead of hardcoding hex. */
+  --vs-accent: #2C8F8A;
 }
 
 body {
   background: linear-gradient(135deg, #f9f9f9 0%, #f2f2f2 100%);
-  font-family: "Noto Sans Thai", sans-serif;
+  font-family: "Noto Sans Thai", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100vh;
   color: #334155;
   margin: 0;

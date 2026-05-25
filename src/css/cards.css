@@ -911,11 +911,14 @@
 }
 
 .policy-category-header.creative {
-  background-color: var(--brand-yellow); /* SAMO Theme Orange */
+  /* Yellow + white fails WCAG contrast — switch text to the brand green so
+     the band stays warm but readable. The count badge follows suit. */
+  background-color: var(--brand-yellow);
+  color: var(--brand-primary);
 }
 
 .policy-category-header.lifestyle {
-  background-color: var(--brand-orange); /* Soft Teal matching your site accents */
+  background-color: var(--brand-orange);
 }
 
 /* Header Counts Badge */
@@ -926,6 +929,11 @@
   border-radius: 999px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.policy-category-header.creative .policy-count-badge {
+  background: rgba(16, 89, 34, 0.14);
+  color: var(--brand-primary);
 }
 
 /* List Inner Group Wrapper */

@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-23
+Last updated: 2026-05-25
 
 ## Branches
 
@@ -21,7 +21,48 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. The multi-project engine refactor proposed in
+PR #9 (`ui/font+color`, by Kita) — UI/font/colour refresh. After review,
+applied best-practice fixes directly onto her branch:
+
+- **Critical**: scoped the new `.dropdown-menu` opacity/visibility rule to
+  `#toolsDropdown`/`#aboutDropdown` only. The original blanket selector
+  hid the signed-in user-profile dropdown (still on Bootstrap's `.show`
+  class which doesn't touch opacity).
+- Restored the font fallback chain so the body stays readable if
+  Google Fonts is blocked: `"Noto Sans Thai", "Prompt", system-ui,
+  -apple-system, "Segoe UI", sans-serif`.
+- De-duplicated `--dept-hover-media` (was identical to
+  `--dept-hover-external`); media now gets `#176581`.
+- Introduced `--vs-accent: #2C8F8A` token; replaced three hardcoded
+  hex copies in navbar.html + tab-home.html (VS keeps its teal
+  identity even though `--dept-quality` shifted to a light green).
+- Fixed yellow-on-white contrast on `.policy-category-header.creative`
+  — header text and count badge now use `var(--brand-primary)` on
+  yellow.
+- Closed two missing `;` in tab-home.html dept-card style attrs.
+- Removed dead `aboutOpened` / `toolsOpened` refs from
+  `resetDropdownStates()` (never declared anywhere).
+- Trailing newlines on `src/css/navbar.css` and
+  `src/html/footer.html`.
+
+Outstanding review items NOT fixed in this push (intentional — they
+involve rethinking Kita's authored intent and should be discussed
+before changing):
+
+- The custom dropdown JS (~100 lines) reimplements what Bootstrap's
+  `.show` class already does. A future best-practice pass would
+  delete the bespoke `show-dropdown` class system and drive the
+  fade-in animation from Bootstrap's native `.show`. Left in place
+  here.
+- Inline-styled `--form-shadow` / `--btn-shadow` / `--btn-hover-shadow`
+  on PR/VS/Creator tabs. Works, but would be cleaner as scoped CSS
+  rules under `.vs-tab .form-container { … }` etc. Left in place.
+- Hardcoded `5 ข้อ` / `4 ข้อ` / `3 ข้อ` policy badges — will drift if
+  list items change. Could be removed entirely or computed via JS.
+- New about-page copy + 3-card 3C mission + policy section are content
+  decisions Kita owns — accepted as-is.
+
+Previously: The multi-project engine refactor proposed in
 `docs/PROJECT-ARCHITECTURE.md` is **deferred** — the user wants
 readable/maintainable improvements opportunistically (as we touch each
 module) rather than a multi-week planned refactor. The proposal doc
