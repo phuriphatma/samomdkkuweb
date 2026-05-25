@@ -306,56 +306,50 @@ document
 // 3. UNIFIED DROPDOWN CONTROLLERS (CLICK & TOUCH)
 // ==========================================
 const aboutDropdown = document.getElementById('aboutDropdown');
-let aboutOpened = false;
 
 if (aboutDropdown) {
   const aboutMenu = aboutDropdown.parentElement.querySelector('.dropdown-menu');
 
-  // Unified pointer handler (Handles both finger taps and mouse clicks)
   const handleAboutTrigger = (e) => {
     e.preventDefault();
-    e.stopPropagation(); // Stops event from bubbling to the global click-outside listener
+    e.stopPropagation(); // CRITICAL: Stops the global click-outside listener from running
 
-    if (!aboutOpened) {
-      closeAllDropdowns();
-      toolsOpened = false; // Close sibling menu if open
+    // Check what is actually happening on screen right now
+    const isCurrentlyOpen = aboutMenu.classList.contains('show-dropdown');
 
-      aboutOpened = true;
+    if (!isCurrentlyOpen) {
+      // --- FIRST CLICK: JUST OPEN THE DROPDOWN ---
+      closeAllDropdowns(); // Close Tools if open
       if (aboutMenu) aboutMenu.classList.add('show-dropdown');
-      
-      // Smooth scroll to top when opening the main About category
-      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     } else {
-      // Second click/tap loads your primary default sub-section
-      aboutOpened = false;
+      // --- SECOND CLICK: CLOSE MENU AND JUMP TO ABOUT VIEW ---
       if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
-      goToAbout('about-team');
+      goToAbout('tab-about'); 
     }
   };
 
+  // Bind to both types of pointers securely
   aboutDropdown.addEventListener('click', handleAboutTrigger);
   aboutDropdown.addEventListener('touchstart', handleAboutTrigger, { passive: false });
 }
 
 const toolsDropdown = document.getElementById('toolsDropdown');
-let toolsOpened = false;
 
 if (toolsDropdown) {
   const toolsMenu = toolsDropdown.parentElement.querySelector('.dropdown-menu');
 
   const handleToolsTrigger = (e) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // CRITICAL: Stops the global click-outside listener from running
 
-    if (!toolsOpened) {
-      closeAllDropdowns();
-      aboutOpened = false; // Close sibling menu if open
+    const isCurrentlyOpen = toolsMenu.classList.contains('show-dropdown');
 
-      toolsOpened = true;
+    if (!isCurrentlyOpen) {
+      // --- FIRST CLICK: OPEN TOOLS ---
+      closeAllDropdowns(); // Close About if open
       if (toolsMenu) toolsMenu.classList.add('show-dropdown');
     } else {
-      // Second click/tap simply toggles it closed
-      toolsOpened = false;
+      // --- SECOND CLICK: CLOSE TOOLS ---
       if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
     }
   };
