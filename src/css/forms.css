@@ -6,7 +6,9 @@
   background: #ffffff;
   padding: 2.5rem;
   border-radius: 20px;
-  box-shadow: var(--form-shadow);
+  /* Pink shadow is the default; .vs-tab and .an-tab override the trio of
+     --form-shadow / --btn-shadow / --btn-hover-shadow tokens in base.css. */
+  box-shadow: var(--form-shadow, 0 4px 14px rgba(236, 72, 153, 0.22));
   max-width: 800px;
   margin: auto;
 }
@@ -136,7 +138,7 @@ textarea.form-control {
   padding: 0.8rem;
   font-size: 1.1rem;
   font-weight: 500;
-  box-shadow: var(--btn-shadow);
+  box-shadow: var(--btn-shadow, 0 4px 14px rgba(236, 72, 153, 0.22));
   transition: all 0.3s ease;
 }
 
@@ -145,5 +147,5 @@ textarea.form-control {
   border-color: var(--pink-700);
   color: white;
   transform: translateY(-2px);
-  box-shadow: var(--btn-hover-shadow);
+  box-shadow: var(--btn-hover-shadow, 0 12px 28px rgba(236, 72, 153, 0.38));
 }

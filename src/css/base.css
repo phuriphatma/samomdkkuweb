@@ -120,7 +120,7 @@ body {
  * tab's accent colour without needing !important.
  * ============================================== */
 
-/* VitalSound — teal scale (rooted in dept-quality) */
+/* VitalSound — teal scale (rooted in --vs-accent) */
 .vs-tab {
   --pink-50: #ecf6f5;
   --pink-100: #d4ebe9;
@@ -130,10 +130,16 @@ body {
   --pink-600: #237571;
   --pink-700: #1c5e5b;
   --pink-900: #133e3c;
+  --form-shadow: 0 4px 14px rgba(44, 143, 138, 0.22);
+  --btn-shadow: 0 4px 14px rgba(44, 143, 138, 0.22);
+  --btn-hover-shadow: 0 12px 28px rgba(44, 143, 138, 0.35);
 }
 
 /* Announcements / Creator — neutral slate (no accent theme) */
 .an-tab {
+  --form-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --btn-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --btn-hover-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
   --pink-50: #f8fafc;
   --pink-100: #f1f5f9;
   --pink-200: #e2e8f0;

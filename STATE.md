@@ -45,22 +45,48 @@ applied best-practice fixes directly onto her branch:
 - Trailing newlines on `src/css/navbar.css` and
   `src/html/footer.html`.
 
-Outstanding review items NOT fixed in this push (intentional — they
-involve rethinking Kita's authored intent and should be discussed
-before changing):
+Second pass on the same branch — closed the items I previously left
+in place:
 
-- The custom dropdown JS (~100 lines) reimplements what Bootstrap's
-  `.show` class already does. A future best-practice pass would
-  delete the bespoke `show-dropdown` class system and drive the
-  fade-in animation from Bootstrap's native `.show`. Left in place
-  here.
-- Inline-styled `--form-shadow` / `--btn-shadow` / `--btn-hover-shadow`
-  on PR/VS/Creator tabs. Works, but would be cleaner as scoped CSS
-  rules under `.vs-tab .form-container { … }` etc. Left in place.
-- Hardcoded `5 ข้อ` / `4 ข้อ` / `3 ข้อ` policy badges — will drift if
-  list items change. Could be removed entirely or computed via JS.
-- New about-page copy + 3-card 3C mission + policy section are content
-  decisions Kita owns — accepted as-is.
+- Deleted ~100 lines of bespoke dropdown JS in `main.js` (the
+  `show-dropdown` class, `closeAllDropdowns` /
+  `resetDropdownStates`, the about/tools click+touch handlers, the
+  global outside-click handler, the DOMContentLoaded #pills-tab
+  handler). The dropdowns now rely on Bootstrap's native `.show`
+  class. The existing `shown.bs.tab` handler was upgraded to also
+  strip `.show` from the dropdown-toggle (Bootstrap leaves it
+  attached after a tab-JS-driven activation) and to clear the
+  `.active` we set on `#aboutDropdown` when a non-about tab takes
+  over.
+- `goToAbout` is back to its compact pre-PR form plus an explicit
+  `.active` add on `#aboutDropdown` (because `#pills-about-tab` is
+  hidden — Bootstrap can't visibly mark it).
+- Replaced `.show-dropdown` selectors in `navbar.css` with `.show`;
+  restored `.dropdown-toggle.show` to the green-pill highlight rule
+  so the trigger lights up while the menu is open. Fade is now a
+  simple opacity transition on `.show`, scoped to the two managed
+  menus only.
+- Moved per-tab shadow tokens (`--form-shadow`, `--btn-shadow`,
+  `--btn-hover-shadow`) out of inline `style=""` and into scoped
+  CSS in `base.css` under `.vs-tab` and `.an-tab`. `forms.css`
+  carries the pink defaults via `var(..., default)` fallback, so
+  the PR form (no tab class) renders the default without any inline
+  override.
+- Removed the hardcoded `5 ข้อ` / `4 ข้อ` / `3 ข้อ` policy badges +
+  their CSS — counts were drift-prone and the numbered `01, 02, 03…`
+  prefix already shows the size implicitly.
+- Fixed a stray `</div>` near the end of the policy section in
+  `tab-about.html` and lifted the `<h3>` policy title to `<h2>`
+  to match the other about-sections' heading level.
+- Declared `.about-hero-title { font-weight: 700 }` instead of `800`
+  — only weights 300–700 are loaded from Google Fonts, so 800 was
+  silently falling back.
+- Consolidated the duplicate `.policy-ordered-list` rule in
+  `cards.css` (the PR had two — declarations and counter-reset
+  separated).
+
+New about-page copy + 3-card 3C mission + policy section content
+are Kita's authored decisions and are accepted as-is.
 
 Previously: The multi-project engine refactor proposed in
 `docs/PROJECT-ARCHITECTURE.md` is **deferred** — the user wants

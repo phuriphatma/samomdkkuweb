@@ -92,10 +92,13 @@
   color: #ffffff;
 }
 
-/* Dropdown toggles never get the full green pill treatment.
-   - .show is added when the menu is open.
-   - .active is added by Bootstrap's tab JS when an inner tab is the
-     currently-active one. Both states render as a subtle light tint. */
+/* Dropdown toggles render the same green pill in both "menu open" and
+   "inner tab active" states.
+   - .show is added by Bootstrap when the menu is open.
+   - .active is added by Bootstrap's tab JS when an inner tab is currently
+     active. For the about dropdown, goToAbout adds .active explicitly
+     because #pills-about-tab is the hidden canonical button. */
+.nav-pills .nav-link.dropdown-toggle.show,
 .nav-pills .nav-link.dropdown-toggle.active {
   background-color: var(--brand-primary);
   color: #ffffff;
@@ -103,13 +106,13 @@
   box-shadow: none;
 }
 
-.nav-pills .nav-link.dropdown-toggle.active i,
-.nav-pills .nav-link.dropdown-toggle.show i {
+.nav-pills .nav-link.dropdown-toggle.show i,
+.nav-pills .nav-link.dropdown-toggle.active i {
   color: inherit;
 }
 
-/* Dropdown menu — shared visual rules for any .dropdown-menu inside .samo-navbar
-   (covers the desktop tools/about menus AND the signed-in user profile menu). */
+/* Dropdown menu — shared visual rules for any .dropdown-menu inside
+   .samo-navbar (covers tools/about menus AND the user-profile menu). */
 .samo-navbar .dropdown-menu {
   border-radius: 12px;
   border: none;
@@ -117,25 +120,20 @@
   padding: 0.5rem;
 }
 
-/* Fade animation is opt-in: only the dropdowns we manage with the custom
-   show-dropdown class get the opacity/visibility transition. Other Bootstrap
-   dropdowns (e.g. the signed-in user profile menu) keep Bootstrap's default
-   display:none ↔ display:block behaviour and stay usable. */
+/* Soft fade-in on the tools/about menus only. Bootstrap toggles
+   display:none ↔ display:block via .show — we layer opacity on top for the
+   enter animation. The user-profile menu is intentionally left out so it
+   relies purely on Bootstrap's display toggle (and won't suffer a
+   blank-but-laid-out flash if its scripts run in an unusual order). */
 #toolsDropdown + .dropdown-menu,
 #aboutDropdown + .dropdown-menu {
   opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease,
-    visibility 0.18s;
+  transition: opacity 0.18s ease;
 }
 
-#toolsDropdown + .dropdown-menu.show-dropdown,
-#aboutDropdown + .dropdown-menu.show-dropdown {
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
+#toolsDropdown + .dropdown-menu.show,
+#aboutDropdown + .dropdown-menu.show {
+  opacity: 1;
 }
 
 .samo-navbar .dropdown-item {

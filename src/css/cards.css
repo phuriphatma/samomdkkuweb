@@ -654,7 +654,9 @@
 
 .about-hero-title {
   font-size: clamp(2.2rem, 8vw, 4rem);
-  font-weight: 800;
+  /* Google Fonts URL only loads 300/400/500/600/700 — declaring 800 would
+     fall back to 700 anyway. Declare what we actually render. */
+  font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
@@ -911,8 +913,8 @@
 }
 
 .policy-category-header.creative {
-  /* Yellow + white fails WCAG contrast — switch text to the brand green so
-     the band stays warm but readable. The count badge follows suit. */
+  /* Yellow band: switch text to the brand green so the band stays warm
+     but readable (yellow + white fails WCAG contrast). */
   background-color: var(--brand-yellow);
   color: var(--brand-primary);
 }
@@ -921,37 +923,24 @@
   background-color: var(--brand-orange);
 }
 
-/* Header Counts Badge */
-.policy-count-badge {
-  font-size: 0.75rem;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.policy-category-header.creative .policy-count-badge {
-  background: rgba(16, 89, 34, 0.14);
-  color: var(--brand-primary);
-}
-
 /* List Inner Group Wrapper */
 .policy-category-body {
   padding: 1.5rem;
   flex-grow: 1;
 }
 
+/* Stylized counter list: strip default markers and use a CSS counter so the
+   "01, 02, 03…" prefix stays in sync if items are added/removed. */
 .policy-ordered-list {
-  list-style-type: none; /* Strip standard dots to use our stylized counters */
+  list-style: none;
   padding-left: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  counter-reset: policy-counter;
 }
 
-/* Stylized Row Items */
 .policy-list-item {
   position: relative;
   padding-left: 2.25rem;
@@ -961,14 +950,9 @@
   font-weight: 500;
 }
 
-/* Automatic CSS Counter Number System (1, 2, 3...) */
-.policy-ordered-list {
-  counter-reset: policy-counter;
-}
-
 .policy-list-item::before {
   counter-increment: policy-counter;
-  content: counter(policy-counter, decimal-leading-zero); /* Displays as 01, 02, 03... */
+  content: counter(policy-counter, decimal-leading-zero);
   position: absolute;
   left: 0;
   top: 0.15rem;

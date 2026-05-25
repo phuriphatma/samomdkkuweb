@@ -249,166 +249,17 @@ window.trackWithTicketIdFromAuth = () => {
 
 // About Us: activate the about tab and scroll to the given section anchor.
 // The CSS scroll-margin-top on .about-section keeps the heading clear of
-// the sticky navbar. Fallback path: if the tab isn't active yet (e.g. user
-// just opened the dropdown), wait one frame so the pane is visible before
-// scrolling — otherwise scrollIntoView measures a hidden element.
-// ==========================================
-// 1. THE GO TO ABOUT FUNCTION
-// ==========================================
+// the sticky navbar. Mark aboutDropdown .active because #pills-about-tab is
+// hidden — Bootstrap's tab-system .active would land on the invisible button.
 window.goToAbout = (sectionId) => {
   const btn = document.getElementById('pills-about-tab');
-  if (btn && window.bootstrap) {
-    window.bootstrap.Tab.getOrCreateInstance(btn).show();
-  }
-  document.getElementById('toolsDropdown')?.classList.remove('active');
+  if (btn && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(btn).show();
   document.getElementById('aboutDropdown')?.classList.add('active');
-
   requestAnimationFrame(() => {
     const target = document.getElementById(sectionId);
-    if (target) {
-      target.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 };
-
-// Helper function to close all open menus cleanly across all devices
-function closeAllDropdowns() {
-  document.querySelectorAll('.dropdown-menu').forEach(menu => {
-    menu.classList.remove('show-dropdown');
-  });
-}
-
-// Reset everything to closed state
-function resetDropdownStates() {
-  closeAllDropdowns();
-}
-
-// ==========================================
-// 2. BOOTSTRAP TAB ACTIVE MANAGEMENT
-// ==========================================
-document
-  .querySelectorAll('[data-bs-toggle="pill"]')
-  .forEach(tab => {
-    tab.addEventListener('shown.bs.tab', (e) => {
-      const targetId = e.target.getAttribute('id');
-      if (targetId !== 'pills-about-tab') {
-        document.getElementById('aboutDropdown')?.classList.remove('active');
-      }
-    });
-  });
-
-// ==========================================
-// 3. UNIFIED DROPDOWN CONTROLLERS (CLICK & TOUCH)
-// ==========================================
-const aboutDropdown = document.getElementById('aboutDropdown');
-
-if (aboutDropdown) {
-  const aboutMenu = aboutDropdown.parentElement.querySelector('.dropdown-menu');
-
-  const handleAboutTrigger = (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // CRITICAL: Stops the global click-outside listener from running
-
-    // Check what is actually happening on screen right now
-    const isCurrentlyOpen = aboutMenu.classList.contains('show-dropdown');
-
-    if (!isCurrentlyOpen) {
-      // --- FIRST CLICK: JUST OPEN THE DROPDOWN ---
-      closeAllDropdowns(); // Close Tools if open
-      if (aboutMenu) aboutMenu.classList.add('show-dropdown');
-    } else {
-      // --- SECOND CLICK: CLOSE MENU AND JUMP TO ABOUT VIEW ---
-      if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
-      goToAbout('tab-about'); 
-    }
-  };
-
-  // Bind to both types of pointers securely
-  aboutDropdown.addEventListener('click', handleAboutTrigger);
-  aboutDropdown.addEventListener('touchstart', handleAboutTrigger, { passive: false });
-}
-
-const toolsDropdown = document.getElementById('toolsDropdown');
-
-if (toolsDropdown) {
-  const toolsMenu = toolsDropdown.parentElement.querySelector('.dropdown-menu');
-
-  const handleToolsTrigger = (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // CRITICAL: Stops the global click-outside listener from running
-
-    const isCurrentlyOpen = toolsMenu.classList.contains('show-dropdown');
-
-    if (!isCurrentlyOpen) {
-      // --- FIRST CLICK: OPEN TOOLS ---
-      closeAllDropdowns(); // Close About if open
-      if (toolsMenu) toolsMenu.classList.add('show-dropdown');
-    } else {
-      // --- SECOND CLICK: CLOSE TOOLS ---
-      if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
-    }
-  };
-
-  toolsDropdown.addEventListener('click', handleToolsTrigger);
-  toolsDropdown.addEventListener('touchstart', handleToolsTrigger, { passive: false });
-}
-
-// ==========================================
-// 4. GLOBAL SCROLL-TO-TOP & INTERFACE SYNC
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-  const mainNavbarList = document.getElementById('pills-tab');
-
-  if (mainNavbarList) {
-    mainNavbarList.addEventListener('click', (e) => {
-      const clickableElement = e.target.closest('button, a');
-      if (!clickableElement) return;
-
-      const id = clickableElement.getAttribute('id');
-
-      // 1. Skip if it's the main dropdown headers (handled individually above)
-      if (id === 'toolsDropdown' || id === 'aboutDropdown') {
-        return;
-      }
-
-      // 2. Skip if it's an inner section link within About
-      if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
-        resetDropdownStates(); // Instantly close menu panel
-        return; 
-      }
-
-      // 3. For actual tabs (หน้าหลัก, ประกาศ, Tools sub-items), close dropdowns and go to top
-      resetDropdownStates();
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: 'smooth'
-      });
-    });
-  }
-});
-
-// ==========================================
-// 5. GLOBAL CLICK-OUTSIDE / TAP-OUTSIDE TO CLOSE
-// ==========================================
-const closeOnOutsideAction = (e) => {
-  const aboutWrapper = document.getElementById('aboutDropdown')?.parentElement;
-  const toolsWrapper = document.getElementById('toolsDropdown')?.parentElement;
-
-  const clickedInsideAbout = aboutWrapper && aboutWrapper.contains(e.target);
-  const clickedInsideTools = toolsWrapper && toolsWrapper.contains(e.target);
-
-  // If the user clicked completely away from both elements, shut down the panels cleanly
-  if (!clickedInsideAbout && !clickedInsideTools) {
-    resetDropdownStates();
-  }
-};
-
-document.addEventListener('click', closeOnOutsideAction);
-document.addEventListener('touchstart', closeOnOutsideAction, { passive: true });
 
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
@@ -505,14 +356,25 @@ document.addEventListener('click', (e) => {
 // Bootstrap's tab JS auto-opens (and keeps open) the parent dropdown when an
 // inner tab activates — so clicking "PR Form" inside เครื่องมือ leaves the
 // dropdown stuck open. Bootstrap does this by directly setting .show on the
-// .dropdown-menu, bypassing the Dropdown API — so we strip it manually.
+// .dropdown-menu, bypassing the Dropdown API — so we strip it manually on
+// both the menu and the toggle, and reset aria-expanded.
 document.addEventListener('shown.bs.tab', (e) => {
   document.querySelectorAll('.samo-navbar .dropdown-menu.show').forEach((menu) => {
     menu.classList.remove('show');
   });
+  document.querySelectorAll('.samo-navbar .dropdown-toggle.show').forEach((toggle) => {
+    toggle.classList.remove('show');
+  });
   document.querySelectorAll('.samo-navbar [data-bs-toggle="dropdown"][aria-expanded="true"]').forEach((toggle) => {
     toggle.setAttribute('aria-expanded', 'false');
   });
+
+  // Mirror Bootstrap's .active on the aboutDropdown trigger: #pills-about-tab
+  // is the hidden canonical button so Bootstrap can't visibly mark it. Only
+  // goToAbout adds .active; clear it whenever any other tab takes over.
+  if (e.target?.id !== 'pills-about-tab') {
+    document.getElementById('aboutDropdown')?.classList.remove('active');
+  }
 
   // When the Admin tab opens, auto-route single-role users straight to their
   // dashboard (skipping the landing). Dev sees the landing so they can pick.
