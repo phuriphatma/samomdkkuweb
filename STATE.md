@@ -4,15 +4,15 @@ Last updated: 2026-05-25
 
 ## Branches
 
-Both branches in sync. `main` at `3fc7cd4` (PR #7 merge), `refactor/modular`
-at `80f38a2`. Branch ruleset `main-protect` is active — direct push to
-`main` requires you to be in the Bypass list; otherwise opens a PR
-(which is what the colleague will do).
+`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` at `b4d7048`
+(PR #9 merge — UI/font/colour refresh). Branch ruleset `main-protect`
+is active — direct push to `main` requires you to be in the Bypass
+list; otherwise opens a PR (which is what the colleague will do).
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
 
-## Most recent merge
+## Previous big merge
 
 `refactor/modular` was merged to `main` (`d91a32a`) as the Supabase cutover.
 Two conflicts resolved: `.gitignore` (kept both branches' rules) and
@@ -21,8 +21,14 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-PR #9 (`ui/font+color`, by Kita) — UI/font/colour refresh. After review,
-applied best-practice fixes directly onto her branch:
+Nothing active.
+
+## Most recent merge
+
+PR #9 (`ui/font+color`, by Kita) → `refactor/modular` as **squash commit
+`b4d7048`** on 2026-05-25. Branch carried 11 iterative WIP commits;
+collapsed into one entry. Two best-practice passes were layered on top
+of her work before merge:
 
 - **Critical**: scoped the new `.dropdown-menu` opacity/visibility rule to
   `#toolsDropdown`/`#aboutDropdown` only. The original blanket selector
