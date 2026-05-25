@@ -249,12 +249,12 @@ window.trackWithTicketIdFromAuth = () => {
 
 // About Us: activate the about tab and scroll to the given section anchor.
 // The CSS scroll-margin-top on .about-section keeps the heading clear of
-// the sticky navbar. Fallback path: if the tab isn't active yet (e.g. user
-// just opened the dropdown), wait one frame so the pane is visible before
-// scrolling — otherwise scrollIntoView measures a hidden element.
+// the sticky navbar. Mark aboutDropdown .active because #pills-about-tab is
+// hidden — Bootstrap's tab-system .active would land on the invisible button.
 window.goToAbout = (sectionId) => {
   const btn = document.getElementById('pills-about-tab');
   if (btn && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(btn).show();
+  document.getElementById('aboutDropdown')?.classList.add('active');
   requestAnimationFrame(() => {
     const target = document.getElementById(sectionId);
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -356,14 +356,25 @@ document.addEventListener('click', (e) => {
 // Bootstrap's tab JS auto-opens (and keeps open) the parent dropdown when an
 // inner tab activates — so clicking "PR Form" inside เครื่องมือ leaves the
 // dropdown stuck open. Bootstrap does this by directly setting .show on the
-// .dropdown-menu, bypassing the Dropdown API — so we strip it manually.
+// .dropdown-menu, bypassing the Dropdown API — so we strip it manually on
+// both the menu and the toggle, and reset aria-expanded.
 document.addEventListener('shown.bs.tab', (e) => {
   document.querySelectorAll('.samo-navbar .dropdown-menu.show').forEach((menu) => {
     menu.classList.remove('show');
   });
+  document.querySelectorAll('.samo-navbar .dropdown-toggle.show').forEach((toggle) => {
+    toggle.classList.remove('show');
+  });
   document.querySelectorAll('.samo-navbar [data-bs-toggle="dropdown"][aria-expanded="true"]').forEach((toggle) => {
     toggle.setAttribute('aria-expanded', 'false');
   });
+
+  // Mirror Bootstrap's .active on the aboutDropdown trigger: #pills-about-tab
+  // is the hidden canonical button so Bootstrap can't visibly mark it. Only
+  // goToAbout adds .active; clear it whenever any other tab takes over.
+  if (e.target?.id !== 'pills-about-tab') {
+    document.getElementById('aboutDropdown')?.classList.remove('active');
+  }
 
   // When the Admin tab opens, auto-route single-role users straight to their
   // dashboard (skipping the landing). Dev sees the landing so they can pick.

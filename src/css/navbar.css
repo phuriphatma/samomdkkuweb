@@ -53,7 +53,7 @@
   display: flex;
   justify-content: center;
   flex: 1;
-  gap: 8px;
+  gap: 0.4rem;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -65,11 +65,11 @@
   font-size: 0.95rem;
   border-radius: 10px;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.1rem;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .nav-pills .nav-link:hover {
@@ -92,24 +92,27 @@
   color: #ffffff;
 }
 
-/* Dropdown toggles never get the full green pill treatment.
-   - .show is added when the menu is open.
-   - .active is added by Bootstrap's tab JS when an inner tab is the
-     currently-active one. Both states render as a subtle light tint. */
+/* Dropdown toggles render the same green pill in both "menu open" and
+   "inner tab active" states.
+   - .show is added by Bootstrap when the menu is open.
+   - .active is added by Bootstrap's tab JS when an inner tab is currently
+     active. For the about dropdown, goToAbout adds .active explicitly
+     because #pills-about-tab is the hidden canonical button. */
 .nav-pills .nav-link.dropdown-toggle.show,
 .nav-pills .nav-link.dropdown-toggle.active {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
+  background-color: var(--brand-primary);
+  color: #ffffff;
   transform: none;
   box-shadow: none;
 }
 
-.nav-pills .nav-link.dropdown-toggle.active i,
-.nav-pills .nav-link.dropdown-toggle.show i {
+.nav-pills .nav-link.dropdown-toggle.show i,
+.nav-pills .nav-link.dropdown-toggle.active i {
   color: inherit;
 }
 
-/* Dropdown menu */
+/* Dropdown menu — shared visual rules for any .dropdown-menu inside
+   .samo-navbar (covers tools/about menus AND the user-profile menu). */
 .samo-navbar .dropdown-menu {
   border-radius: 12px;
   border: none;
@@ -117,15 +120,34 @@
   padding: 0.5rem;
 }
 
+/* Soft fade-in on the tools/about menus only. Bootstrap toggles
+   display:none ↔ display:block via .show — we layer opacity on top for the
+   enter animation. The user-profile menu is intentionally left out so it
+   relies purely on Bootstrap's display toggle (and won't suffer a
+   blank-but-laid-out flash if its scripts run in an unusual order). */
+#toolsDropdown + .dropdown-menu,
+#aboutDropdown + .dropdown-menu {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+#toolsDropdown + .dropdown-menu.show,
+#aboutDropdown + .dropdown-menu.show {
+  opacity: 1;
+}
+
 .samo-navbar .dropdown-item {
   border-radius: 8px;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem 0.75rem 0.55rem 0.55rem;
   margin-bottom: 2px;
   font-weight: 500;
   color: #334155;
   cursor: pointer;
   display: flex;
-  align-items: center;
+  align-items: center;          /* important */
+  justify-content: flex-start;
+  width: 100%;                  /* important */
+  text-align: left;             /* important */
 }
 
 .samo-navbar .dropdown-item:hover {
@@ -207,4 +229,26 @@
 .offcanvas .nav-link.active {
   background-color: var(--brand-primary);
   color: #ffffff;
+}
+
+.divider {
+  height: 2px;
+  width: 90%;
+  background: var(--brand-orange);
+  opacity: 0.5;
+  margin-top: 4px;
+  border-radius: 999px;
+}
+
+.dropdown-icon-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+  background: #ffffff;
+  font-size: 0.95rem;
+  flex-shrink: 0;
 }

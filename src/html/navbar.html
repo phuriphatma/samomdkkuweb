@@ -33,19 +33,19 @@
               <li>
                 <button class="dropdown-item" id="pills-pr-tab" data-bs-toggle="pill" data-bs-target="#pills-pr"
                   type="button" role="tab">
-                  <i class="bi bi-megaphone-fill me-2" style="color: var(--brand-orange);"></i> PR Form
+                  <span class="dropdown-icon-circle"><i class="bi bi-megaphone-fill" style="color: var(--pink-400);"></i></span> PR Form
                 </button>
               </li>
               <li>
                 <button class="dropdown-item" id="pills-vitalsound-tab" data-bs-toggle="pill"
                   data-bs-target="#pills-vitalsound" type="button" role="tab">
-                  <i class="bi bi-clipboard2-pulse me-2" style="color: var(--dept-quality);"></i> VitalSound
+                  <span class="dropdown-icon-circle"><i class="bi bi-clipboard2-pulse" style="color: var(--vs-accent);"></i></span> VitalSound
                 </button>
               </li>
               <li>
                 <button class="dropdown-item" id="pills-creator-tab" data-bs-toggle="pill"
                   data-bs-target="#pills-creator" type="button" role="tab" onclick="cancelEdit()">
-                  <i class="bi bi-pencil-square me-2" style="color: var(--brand-primary);"></i> เขียนประกาศ
+                  <span class="dropdown-icon-circle"><i class="bi bi-pencil-square" style="color: var(--brand-primary);"></i></span>เขียนประกาศ
                 </button>
               </li>
             </ul>
@@ -71,15 +71,23 @@
             <ul class="dropdown-menu" aria-labelledby="aboutDropdown">
               <li>
                 <a class="dropdown-item" href="#about-team"
-                  onclick="event.preventDefault(); goToAbout('about-team');">ทีมงาน</a>
+                  onclick="event.preventDefault(); goToAbout('about-team');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-diagram-3-fill" style="color: var(--brand-primary);"></i></span>ทีมงาน</a>
               </li>
               <li>
                 <a class="dropdown-item" href="#about-vision"
-                  onclick="event.preventDefault(); goToAbout('about-vision');">วิสัยทัศน์</a>
+                  onclick="event.preventDefault(); goToAbout('about-vision');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-eye" style="color: var(--brand-primary);"></i></span>วิสัยทัศน์</a>
               </li>
               <li>
                 <a class="dropdown-item" href="#about-mission"
-                  onclick="event.preventDefault(); goToAbout('about-mission');">พันธกิจ</a>
+                  onclick="event.preventDefault(); goToAbout('about-mission');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-graph-up-arrow" style="color: var(--brand-primary);"></i></span>พันธกิจ</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="#about-policy"
+                  onclick="event.preventDefault(); goToAbout('about-policy');">
+                  <span class="dropdown-icon-circle"><i class="bi bi-journal-check" style="color: var(--brand-primary);"></i></span>นโยบาย</a>
               </li>
             </ul>
           </li>
@@ -126,13 +134,14 @@
   <!-- Mobile offcanvas drawer -->
   <div class="offcanvas offcanvas-end" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
     <div class="offcanvas-header">
-      <h4 class="offcanvas-title mb-0" id="mobileMenuLabel">
+      <h4 class="offcanvas-title mb-0 ms-3 mt-2" id="mobileMenuLabel">
         <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
       </h4>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      <button type="button" class="btn-close mt-1 me-2" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
+    <div class="divider ms-3 me-3"></div>
     <div class="offcanvas-body">
-      <ul class="nav flex-column gap-1">
+      <ul class="nav flex-column">
         <!-- Offcanvas pill buttons route through the desktop tab buttons via
              activateTab() so Bootstrap sees the canonical tablist and
              deactivates the previously-active pane. Using data-bs-toggle="pill"
@@ -145,17 +154,17 @@
           <button class="nav-link text-start w-100"
             onclick="activateTab('pills-announcements-tab')">ประกาศ</button>
         </li>
-        <li class="mt-3 ms-2 text-muted small fw-bold">เครื่องมือ</li>
+        <li class="mt-2 mb-2 px-2 small fw-semibold text-secondary">เครื่องมือ</li>
         <li>
           <button class="nav-link text-start w-100"
             onclick="activateTab('pills-pr-tab')">
-            <i class="bi bi-megaphone-fill me-2" style="color: var(--brand-orange);"></i> PR Form
+            <i class="bi bi-megaphone-fill me-2" style="color: var(--pink-400);"></i> PR Form
           </button>
         </li>
         <li>
           <button class="nav-link text-start w-100"
             onclick="activateTab('pills-vitalsound-tab')">
-            <i class="bi bi-clipboard2-pulse me-2" style="color: var(--dept-quality);"></i> VitalSound
+            <i class="bi bi-clipboard2-pulse me-2" style="color: var(--vs-accent);"></i> VitalSound
           </button>
         </li>
         <li>
@@ -170,7 +179,7 @@
           </button>
         </li>
 
-        <li class="mt-3 ms-2 text-muted small fw-bold">เกี่ยวกับเรา</li>
+        <li class="mt-2 mb-2 px-2 small fw-semibold text-secondary">เกี่ยวกับเรา</li>
         <li>
           <a class="nav-link" href="#about-team"
             onclick="event.preventDefault(); goToAbout('about-team');">ทีมงาน</a>
@@ -183,8 +192,12 @@
           <a class="nav-link" href="#about-mission"
             onclick="event.preventDefault(); goToAbout('about-mission');">พันธกิจ</a>
         </li>
+        <li>
+          <a class="nav-link" href="#about-policy"
+            onclick="event.preventDefault(); goToAbout('about-policy');">นโยบาย</a>
+        </li>
 
-        <li class="mt-4" id="mobileAuthSignedOut">
+        <li class="mt-2" id="mobileAuthSignedOut">
           <button class="btn btn-custom w-100" data-bs-toggle="modal" data-bs-target="#signinModal"
            >
             <i class="bi bi-google me-1"></i> เข้าสู่ระบบ

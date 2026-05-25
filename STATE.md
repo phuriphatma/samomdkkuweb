@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-23
+Last updated: 2026-05-25
 
 ## Branches
 
@@ -21,7 +21,74 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 
 ## Currently working
 
-Nothing active. The multi-project engine refactor proposed in
+PR #9 (`ui/font+color`, by Kita) — UI/font/colour refresh. After review,
+applied best-practice fixes directly onto her branch:
+
+- **Critical**: scoped the new `.dropdown-menu` opacity/visibility rule to
+  `#toolsDropdown`/`#aboutDropdown` only. The original blanket selector
+  hid the signed-in user-profile dropdown (still on Bootstrap's `.show`
+  class which doesn't touch opacity).
+- Restored the font fallback chain so the body stays readable if
+  Google Fonts is blocked: `"Noto Sans Thai", "Prompt", system-ui,
+  -apple-system, "Segoe UI", sans-serif`.
+- De-duplicated `--dept-hover-media` (was identical to
+  `--dept-hover-external`); media now gets `#176581`.
+- Introduced `--vs-accent: #2C8F8A` token; replaced three hardcoded
+  hex copies in navbar.html + tab-home.html (VS keeps its teal
+  identity even though `--dept-quality` shifted to a light green).
+- Fixed yellow-on-white contrast on `.policy-category-header.creative`
+  — header text and count badge now use `var(--brand-primary)` on
+  yellow.
+- Closed two missing `;` in tab-home.html dept-card style attrs.
+- Removed dead `aboutOpened` / `toolsOpened` refs from
+  `resetDropdownStates()` (never declared anywhere).
+- Trailing newlines on `src/css/navbar.css` and
+  `src/html/footer.html`.
+
+Second pass on the same branch — closed the items I previously left
+in place:
+
+- Deleted ~100 lines of bespoke dropdown JS in `main.js` (the
+  `show-dropdown` class, `closeAllDropdowns` /
+  `resetDropdownStates`, the about/tools click+touch handlers, the
+  global outside-click handler, the DOMContentLoaded #pills-tab
+  handler). The dropdowns now rely on Bootstrap's native `.show`
+  class. The existing `shown.bs.tab` handler was upgraded to also
+  strip `.show` from the dropdown-toggle (Bootstrap leaves it
+  attached after a tab-JS-driven activation) and to clear the
+  `.active` we set on `#aboutDropdown` when a non-about tab takes
+  over.
+- `goToAbout` is back to its compact pre-PR form plus an explicit
+  `.active` add on `#aboutDropdown` (because `#pills-about-tab` is
+  hidden — Bootstrap can't visibly mark it).
+- Replaced `.show-dropdown` selectors in `navbar.css` with `.show`;
+  restored `.dropdown-toggle.show` to the green-pill highlight rule
+  so the trigger lights up while the menu is open. Fade is now a
+  simple opacity transition on `.show`, scoped to the two managed
+  menus only.
+- Moved per-tab shadow tokens (`--form-shadow`, `--btn-shadow`,
+  `--btn-hover-shadow`) out of inline `style=""` and into scoped
+  CSS in `base.css` under `.vs-tab` and `.an-tab`. `forms.css`
+  carries the pink defaults via `var(..., default)` fallback, so
+  the PR form (no tab class) renders the default without any inline
+  override.
+- Removed the hardcoded `5 ข้อ` / `4 ข้อ` / `3 ข้อ` policy badges +
+  their CSS — counts were drift-prone and the numbered `01, 02, 03…`
+  prefix already shows the size implicitly.
+- Fixed a stray `</div>` near the end of the policy section in
+  `tab-about.html` and lifted the `<h3>` policy title to `<h2>`
+  to match the other about-sections' heading level.
+- Declared `.about-hero-title { font-weight: 700 }` instead of `800`
+  — only weights 300–700 are loaded from Google Fonts, so 800 was
+  silently falling back.
+- Consolidated the duplicate `.policy-ordered-list` rule in
+  `cards.css` (the PR had two — declarations and counter-reset
+  separated).
+
+New about-page copy + 3-card 3C mission + policy section content
+are Kita's authored decisions and are accepted as-is.
+
+Previously: The multi-project engine refactor proposed in
 `docs/PROJECT-ARCHITECTURE.md` is **deferred** — the user wants
 readable/maintainable improvements opportunistically (as we touch each
 module) rather than a multi-week planned refactor. The proposal doc

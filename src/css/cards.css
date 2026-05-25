@@ -649,18 +649,28 @@
  * ============================================== */
 
 .about-hero {
-  padding: 2.5rem 1rem 1rem;
+  padding: 3rem 1rem 2rem;
 }
 
 .about-hero-title {
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  /* Google Fonts URL only loads 300/400/500/600/700 — declaring 800 would
+     fall back to 700 anyway. Declare what we actually render. */
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
+.about-hero-title .brand-mdkku,
+.about-hero-title .brand-samo {
+  font-size: inherit;
+}
+
 .about-hero-lead {
   color: #64748b;
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  font-weight: 400;
+  margin-bottom: 0;
+  line-height: 1.6;
 }
 
 .about-section {
@@ -766,7 +776,7 @@
 }
 
 .about-statement-text {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   line-height: 1.7;
   color: #334155;
   margin: 0 0 1rem;
@@ -862,6 +872,94 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* ==============================================
+ * MISSION / POLICY CATEGORIES — 3 Columns
+ * ============================================== */
+
+/* Main Category Column Containers */
+.policy-category-column {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.policy-category-column:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Category Top Title Bars */
+.policy-category-header {
+  padding: 1.25rem 1.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Color Identity Themes for the 3 Areas */
+.policy-category-header.management {
+  background-color: var(--brand-primary); /* MDKKU Theme Green */
+}
+
+.policy-category-header.creative {
+  /* Yellow band: switch text to the brand green so the band stays warm
+     but readable (yellow + white fails WCAG contrast). */
+  background-color: var(--brand-yellow);
+  color: var(--brand-primary);
+}
+
+.policy-category-header.lifestyle {
+  background-color: var(--brand-orange);
+}
+
+/* List Inner Group Wrapper */
+.policy-category-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+/* Stylized counter list: strip default markers and use a CSS counter so the
+   "01, 02, 03…" prefix stays in sync if items are added/removed. */
+.policy-ordered-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  counter-reset: policy-counter;
+}
+
+.policy-list-item {
+  position: relative;
+  padding-left: 2.25rem;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.policy-list-item::before {
+  counter-increment: policy-counter;
+  content: counter(policy-counter, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-orange);
+  letter-spacing: 0.05em;
 }
 
 /* Sign-in modal — OR divider between password form and Google button */
@@ -965,7 +1063,7 @@
 .dept-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: var(--dept-color, #cbd5e1);
+  border-color: var(--dept-hover-color, #cbd5e1);
   color: inherit;
 }
 
@@ -1008,3 +1106,4 @@
   box-shadow: none;
   border-color: #eaeaea;
 }
+
