@@ -872,6 +872,104 @@
   align-items: center;
 }
 
+/* ==============================================
+ * MISSION / POLICY CATEGORIES — 3 Columns
+ * ============================================== */
+
+/* Main Category Column Containers */
+.policy-category-column {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.policy-category-column:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Category Top Title Bars */
+.policy-category-header {
+  padding: 1.25rem 1.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Color Identity Themes for the 3 Areas */
+.policy-category-header.management {
+  background-color: var(--brand-primary); /* MDKKU Theme Green */
+}
+
+.policy-category-header.creative {
+  background-color: var(--brand-yellow); /* SAMO Theme Orange */
+}
+
+.policy-category-header.lifestyle {
+  background-color: var(--brand-orange); /* Soft Teal matching your site accents */
+}
+
+/* Header Counts Badge */
+.policy-count-badge {
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* List Inner Group Wrapper */
+.policy-category-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+.policy-ordered-list {
+  list-style-type: none; /* Strip standard dots to use our stylized counters */
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Stylized Row Items */
+.policy-list-item {
+  position: relative;
+  padding-left: 2.25rem;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* Automatic CSS Counter Number System (1, 2, 3...) */
+.policy-ordered-list {
+  counter-reset: policy-counter;
+}
+
+.policy-list-item::before {
+  counter-increment: policy-counter;
+  content: counter(policy-counter, decimal-leading-zero); /* Displays as 01, 02, 03... */
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-orange);
+  letter-spacing: 0.05em;
+}
+
 /* Sign-in modal — OR divider between password form and Google button */
 .signin-divider {
   display: flex;
@@ -1016,3 +1114,4 @@
   box-shadow: none;
   border-color: #eaeaea;
 }
+
