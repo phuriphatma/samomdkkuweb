@@ -122,27 +122,6 @@
     visibility 0.18s;
 }
 
-@media (hover: hover) {
-  /* Assumes your dropdown parent has a class like .dropdown or similar Bootstrap structure */
-  .nav-item.dropdown:hover .dropdown-menu {
-    display: block;
-    margin-top: 0; /* Prevents a small gap from causing the hover to stutter */
-  }
-}
-
-/* --- DESKTOP HOVER EFFECT --- */
-/* Simple, clean hover rule that works on all desktop browsers */
-.nav-item.dropdown:hover .dropdown-menu,
-.dropdown:hover .dropdown-menu {
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  margin-top: 0; 
-}
-
-/* --- TOUCH DISPLAY TOGGLE CLASS --- */
-/* This class ensures that when JavaScript manually adds it on touch screens, 
-   the menu is forced open over Bootstrap's layers. */
 .dropdown-menu.show-dropdown {
   display: block !important;
   opacity: 1 !important;

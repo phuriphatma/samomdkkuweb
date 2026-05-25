@@ -274,22 +274,18 @@ window.goToAbout = (sectionId) => {
   });
 };
 
-// Helper function to close all open menus cleanly on touch screens
+// Helper function to close all open menus cleanly across all devices
 function closeAllDropdowns() {
   document.querySelectorAll('.dropdown-menu').forEach(menu => {
     menu.classList.remove('show-dropdown');
   });
 }
 
-// Reset all state trackers and timers for mobile touch events
-function resetTouchStates() {
+// Reset everything to closed state
+function resetDropdownStates() {
   closeAllDropdowns();
-  
-  if (typeof aboutTouched !== 'undefined') aboutTouched = false;
-  if (typeof toolsTouched !== 'undefined') toolsTouched = false;
-  
-  if (typeof aboutTimeout !== 'undefined') clearTimeout(aboutTimeout);
-  if (typeof toolsTimeout !== 'undefined') clearTimeout(toolsTimeout);
+  if (typeof aboutOpened !== 'undefined') aboutOpened = false;
+  if (typeof toolsOpened !== 'undefined') toolsOpened = false;
 }
 
 // ==========================================
@@ -307,84 +303,69 @@ document
   });
 
 // ==========================================
-// 3. ABOUT DROPDOWN HANDLER (เกี่ยวกับเรา)
+// 3. UNIFIED DROPDOWN CONTROLLERS (CLICK & TOUCH)
 // ==========================================
 const aboutDropdown = document.getElementById('aboutDropdown');
-let aboutTouched = false;
-let aboutTimeout = null;
+let aboutOpened = false;
 
 if (aboutDropdown) {
   const aboutMenu = aboutDropdown.parentElement.querySelector('.dropdown-menu');
 
-  aboutDropdown.addEventListener('touchstart', (e) => {
-    e.preventDefault(); 
-    
-    if (!aboutTouched) {
-      // Clear the tools dropdown if it happens to be open
-      closeAllDropdowns();
-      toolsTouched = false; 
+  // Unified pointer handler (Handles both finger taps and mouse clicks)
+  const handleAboutTrigger = (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stops event from bubbling to the global click-outside listener
 
-      aboutTouched = true;
+    if (!aboutOpened) {
+      closeAllDropdowns();
+      toolsOpened = false; // Close sibling menu if open
+
+      aboutOpened = true;
       if (aboutMenu) aboutMenu.classList.add('show-dropdown');
       
-      // Force page to scroll to top on first tap
+      // Smooth scroll to top when opening the main About category
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-      
-      clearTimeout(aboutTimeout);
-      aboutTimeout = setTimeout(() => {
-        aboutTouched = false;
-        if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
-      }, 2500);
     } else {
-      clearTimeout(aboutTimeout);
-      aboutTouched = false;
+      // Second click/tap loads your primary default sub-section
+      aboutOpened = false;
       if (aboutMenu) aboutMenu.classList.remove('show-dropdown');
       goToAbout('about-team');
     }
-  }, { passive: false });
+  };
 
-  aboutDropdown.addEventListener('click', (e) => {
-    if (window.matchMedia('(hover: none)').matches) { e.preventDefault(); return; }
-    e.preventDefault();
-    goToAbout('tab-about');
-  });
+  aboutDropdown.addEventListener('click', handleAboutTrigger);
+  aboutDropdown.addEventListener('touchstart', handleAboutTrigger, { passive: false });
 }
 
-// ==========================================
-// 4. TOOLS DROPDOWN HANDLER (เครื่องมือ)
-// ==========================================
 const toolsDropdown = document.getElementById('toolsDropdown');
-let toolsTouched = false;
-let toolsTimeout = null;
+let toolsOpened = false;
 
 if (toolsDropdown) {
   const toolsMenu = toolsDropdown.parentElement.querySelector('.dropdown-menu');
 
-  toolsDropdown.addEventListener('touchstart', (e) => {
-    e.preventDefault(); 
-    
-    if (!toolsTouched) {
-      closeAllDropdowns();
-      aboutTouched = false; 
+  const handleToolsTrigger = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-      toolsTouched = true;
+    if (!toolsOpened) {
+      closeAllDropdowns();
+      aboutOpened = false; // Close sibling menu if open
+
+      toolsOpened = true;
       if (toolsMenu) toolsMenu.classList.add('show-dropdown');
-      
-      clearTimeout(toolsTimeout);
-      toolsTimeout = setTimeout(() => {
-        toolsTouched = false;
-        if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
-      }, 2500);
     } else {
-      clearTimeout(toolsTimeout);
-      toolsTouched = false;
+      // Second click/tap simply toggles it closed
+      toolsOpened = false;
       if (toolsMenu) toolsMenu.classList.remove('show-dropdown');
     }
-  }, { passive: false });
+  };
+
+  toolsDropdown.addEventListener('click', handleToolsTrigger);
+  toolsDropdown.addEventListener('touchstart', handleToolsTrigger, { passive: false });
 }
 
 // ==========================================
-// 5. GLOBAL SCROLL-TO-TOP & AUTO-CLOSE MANAGER
+// 4. GLOBAL SCROLL-TO-TOP & INTERFACE SYNC
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
   const mainNavbarList = document.getElementById('pills-tab');
@@ -395,24 +376,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!clickableElement) return;
 
       const id = clickableElement.getAttribute('id');
-      const dataBsToggle = clickableElement.getAttribute('data-bs-toggle');
 
-      // 1. If clicking "เครื่องมือ" header itself, let it open normally
-      if (id === 'toolsDropdown') {
+      // 1. Skip if it's the main dropdown headers (handled individually above)
+      if (id === 'toolsDropdown' || id === 'aboutDropdown') {
         return;
       }
 
-      // 2. If clicking options INSIDE "เกี่ยวกับเรา" dropdown, let goToAbout handle it
+      // 2. Skip if it's an inner section link within About
       if (clickableElement.classList.contains('dropdown-item') && clickableElement.closest('#aboutDropdown + .dropdown-menu')) {
+        resetDropdownStates(); // Instantly close menu panel
         return; 
       }
 
-      // 3. INSTANT DISAPPEARANCE FIX: 
-      // Whenever you successfully click another nav tab/item (like หน้าหลัก or ประกาศ),
-      // we immediately wipe out all active dropdown open states on iPad.
-      resetTouchStates();
-
-      // 4. Smooth scroll to top for targeted items (หน้าหลัก, ประกาศ, options inside เครื่องมือ)
+      // 3. For actual tabs (หน้าหลัก, ประกาศ, Tools sub-items), close dropdowns and go to top
+      resetDropdownStates();
       window.scrollTo({
         top: 0,
         left: 0,
@@ -423,22 +400,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 6. TAP-OUTSIDE TO CLOSE DROPDOWNS (iPad/Mobile)
+// 5. GLOBAL CLICK-OUTSIDE / TAP-OUTSIDE TO CLOSE
 // ==========================================
-document.addEventListener('touchstart', (e) => {
-  // Find your dropdown wrapper elements
+const closeOnOutsideAction = (e) => {
   const aboutWrapper = document.getElementById('aboutDropdown')?.parentElement;
   const toolsWrapper = document.getElementById('toolsDropdown')?.parentElement;
 
-  // Check if the user's touch target is inside either dropdown container
-  const touchedInsideAbout = aboutWrapper && aboutWrapper.contains(e.target);
-  const touchedInsideTools = toolsWrapper && toolsWrapper.contains(e.target);
+  const clickedInsideAbout = aboutWrapper && aboutWrapper.contains(e.target);
+  const clickedInsideTools = toolsWrapper && toolsWrapper.contains(e.target);
 
-  // If the user tapped outside BOTH dropdown containers, reset the mobile open states instantly
-  if (!touchedInsideAbout && !touchedInsideTools) {
-    resetTouchStates();
+  // If the user clicked completely away from both elements, shut down the panels cleanly
+  if (!clickedInsideAbout && !clickedInsideTools) {
+    resetDropdownStates();
   }
-}, { passive: true }); // Using passive: true optimizes touch performance on mobile devices
+};
+
+document.addEventListener('click', closeOnOutsideAction);
+document.addEventListener('touchstart', closeOnOutsideAction, { passive: true });
 
 window.samoPasswordRegister = async () => {
   const username = document.getElementById('signinRegisterUsername').value;
