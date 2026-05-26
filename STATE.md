@@ -5,9 +5,8 @@ Last updated: 2026-05-26
 ## Branches
 
 `main` at `3fc7cd4` (PR #7 merge). `refactor/modular` last commits:
-Project tracking module + follow-up polish fixes (chevron toggle on doc
-header, navbar active-pill text-color bleed). See "Currently working"
-below. Branch ruleset `main-protect` is
+Project tracking module + polish + **spreadsheet/table inbox refactor**
+(see "Phase 1.1 UX refactor" below). Branch ruleset `main-protect` is
 active — direct push to `main` requires you to be in the Bypass list;
 otherwise opens a PR (which is what the colleague will do).
 
@@ -21,7 +20,56 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 `index.html` (took the slim refactor version over main's 2700-line monolith).
 `functions/api/submit.js` deleted — refactor talks to Supabase directly.
 
-## Currently working — Project tracking module (2026-05-26)
+## Phase 1.1 UX refactor — spreadsheet/table inbox (2026-05-26)
+
+User feedback after the initial Project-Tracking ship:
+- Left-sidebar single-column project list was hard to scan for "what
+  needs my attention right now."
+- Progression UI was role-asymmetric (different KPI tiles, different
+  buttons, different framings) → confusing.
+- Active nav pill rendered green-on-green (fixed in prior commit).
+
+**Best-practice direction picked: spreadsheet/table** (Notion / Linear /
+Airtable / Jira pattern). Folder-tree was the alternative the user
+floated — rejected because it solves the *nesting* problem but not the
+*surfacing-state* problem.
+
+**What changed**:
+- `src/html/tab-projects.html` — replaced split-pane (left list + right
+  detail) with a single full-width `<table>` + toolbar (search / filter
+  chips / group-by select).
+- `src/js/projects/inbox.js` — full rewrite. Flattens docs across
+  projects into rows; one row per doc; click row → expands inline
+  (Airtable pattern) with the existing stepper + files + actions +
+  timeline. Filter chips: ของฉัน / รออีกฝ่าย / เสร็จสิ้น / ทั้งหมด
+  (role-aware — "ของฉัน" matches docs where the next actor is the
+  current role). Group-by: โครงการ (default) / สถานะ / ฝ่ายรับผิดชอบ /
+  ไม่จัดกลุ่ม. When grouped by project, the Project column is hidden
+  (redundant); when grouped by status, the Status column is hidden.
+- `src/js/projects/index.js` — loading-spinner placeholder targets the
+  new `projectsTableBody` id (was `projectsList`).
+- `src/css/projects.css` — added table / row / group-header /
+  expand-row / filter-chip-with-count / owner-pill styles. Dropped
+  unused split-pane and project-card rules. Stepper / files / timeline
+  / status pills / soft buttons all retained (still used inside the
+  expanded row).
+
+**Action symmetry achieved**: both VPA and uni_staff now see the *same
+layout, same columns, same rows*. Only the action buttons inside the
+expanded row change per role. KPI strip removed — its function moved
+into the filter chips (which now carry counts).
+
+**Manual verification still pending**: the user should click through
+the preview env to confirm. Build + tests green. Cloudflare preview
+rebuilds on push to refactor/modular.
+
+**Not yet done in this refactor (deferred)**:
+- Column-header sorting (clicking "อัปเดต" to flip order).
+- File count column in the table (would need API change to preload counts).
+- Inline row editing of doc title / project name.
+- Saved views / per-user default group-by preference.
+
+## Original Project tracking module (2026-05-26)
 
 Brand-new workflow between SAMO VP-Administration (sender) and a single
 designated university officer "พี่นิค" (receiver). Each "โครงการ" (project)

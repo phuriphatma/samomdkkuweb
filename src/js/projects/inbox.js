@@ -1,11 +1,14 @@
 // ==============================================
-// PROJECTS INBOX — list (left) + detail panel (right)
+// PROJECTS INBOX — spreadsheet table view
 //
-// The "inbox" is a unified view for both roles:
-//   - VP-Admin sees projects they sent + status of each document
-//   - uni_staff sees the same — every project + every doc — but the
-//     action buttons in the detail panel differ (sender vs receiver)
-// On mobile, the detail panel takes over the screen on click (back btn).
+// Single full-width table. One row per document (flattened across all
+// projects). Click row → expands inline (Airtable / Linear pattern) with
+// the stepper + files + actions + timeline.
+//
+// Filter chips at the top are role-aware (mine / waiting / done / all);
+// group-by select (project / status / owner / none) supports the
+// "folder feel" via the project-grouping mode without giving up the
+// cross-cutting power of the flat view.
 // ==============================================
 
 import { escHtml, safeUrl } from '../utils.js';
@@ -15,7 +18,6 @@ import {
   getDocument,
   updateProject,
   deleteProject,
-  updateDocument,
   appendDocTimeline,
   deleteDocument,
   listFiles,
@@ -26,7 +28,6 @@ import {
   PROJECT_STATUS_META,
   DOC_STATUS_META,
   DOC_PATH_ORDER,
-  fmtDate,
   fmtDateTime,
   fmtRelative,
   fmtBytes,
@@ -41,21 +42,137 @@ let onChanged = () => {};
 let onAddDocumentCb = null;
 
 let cache = { projects: [], docTypes: [], settings: null, role: null };
-let selectedProjectId = null;     // null = empty state
-let selectedDocumentId = null;    // null = show project overview
-let filterStatus = 'all';
-let searchQ = '';
+let filterKind = 'all';        // 'mine' | 'waiting' | 'done' | 'all'
+let groupBy    = 'project';    // 'project' | 'status' | 'owner' | 'none'
+let searchQ    = '';
+let expanded   = new Set();    // doc ids currently expanded
 
-// Doc-status counts derived from cache.projects, used by the KPI strip.
-function computeDocCounts(projects) {
-  const c = { sent: 0, received: 0, in_progress: 0, returned: 0, completed: 0, cancelled: 0, total: 0 };
-  for (const p of projects) {
+// Deferred scroll target — set by openProjectDetail / openDocumentDetail;
+// honoured at the end of render().
+let scrollDocId = null;
+let scrollProjectId = null;
+
+const TABLE_COLS = 6;
+
+// ---------- helpers ----------
+
+/** Which role owes the next move on this doc. null = nobody (done/cancel/draft). */
+function nextOwner(doc) {
+  switch (doc.status) {
+    case 'sent':        return 'uni_staff';
+    case 'received':    return 'uni_staff';
+    case 'in_progress': return 'uni_staff';
+    case 'returned':    return 'vp_admin';
+    default:            return null;
+  }
+}
+
+function ownerLabel(role, settings) {
+  if (role === 'uni_staff') return settings?.uni_label || 'พี่นิค';
+  if (role === 'vp_admin')  return settings?.vp_label  || 'SAMO';
+  return '—';
+}
+
+/** Is the current user the next actor on this doc? */
+function isMine(doc, role) {
+  const owner = nextOwner(doc);
+  if (!owner) return false;
+  if (role === 'dev') return true;   // dev sees all action items as "mine"
+  return owner === role;
+}
+
+/** Flatten all docs across all projects into rows the table renders. */
+function flattenDocs(projects) {
+  const rows = [];
+  for (const p of projects || []) {
     for (const d of (p.documents || [])) {
-      c[d.status] = (c[d.status] || 0) + 1;
-      c.total += 1;
+      rows.push({ doc: d, project: p });
     }
   }
-  return c;
+  return rows;
+}
+
+function applyFilter(rows, kind, role) {
+  if (kind === 'all') return rows;
+  if (kind === 'done')    return rows.filter(({ doc }) => doc.status === 'completed' || doc.status === 'cancelled');
+  if (kind === 'mine')    return rows.filter(({ doc }) => isMine(doc, role));
+  if (kind === 'waiting') return rows.filter(({ doc }) => {
+    const o = nextOwner(doc);
+    if (!o) return false;
+    return role !== 'dev' && o !== role;   // dev: nothing is "waiting" — every active item is theirs
+  });
+  return rows;
+}
+
+function applySearch(rows, q) {
+  if (!q) return rows;
+  return rows.filter(({ doc, project }) =>
+    (doc.title    || '').toLowerCase().includes(q)
+    || (doc.id    || '').toLowerCase().includes(q)
+    || (doc.note  || '').toLowerCase().includes(q)
+    || (project.name || '').toLowerCase().includes(q)
+    || (project.id   || '').toLowerCase().includes(q)
+    || (project.description || '').toLowerCase().includes(q)
+  );
+}
+
+function rowTime(r) {
+  return new Date(r.doc.updated_at || r.doc.sent_at || r.doc.created_at).getTime() || 0;
+}
+
+/** Returns [{ key, label, meta, rows }] in display order. */
+function groupRows(rows, mode, settings) {
+  if (mode === 'none') {
+    const sorted = rows.slice().sort((a, b) => rowTime(b) - rowTime(a));
+    return [{ key: 'all', label: '', rows: sorted, headerless: true }];
+  }
+  const map = new Map();
+  for (const r of rows) {
+    let key;
+    if (mode === 'project') key = r.project.id;
+    else if (mode === 'status') key = r.doc.status;
+    else if (mode === 'owner')  key = nextOwner(r.doc) || 'none';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r);
+  }
+  const out = [];
+  for (const [key, list] of map) {
+    list.sort((a, b) => rowTime(b) - rowTime(a));
+    let label = key;
+    let meta = null;
+    if (mode === 'project') {
+      const p = list[0].project;
+      label = p.name;
+      meta = { project: p, count: list.length };
+    } else if (mode === 'status') {
+      const m = DOC_STATUS_META[key];
+      label = m?.label || key;
+      meta = { icon: m?.icon, cls: m?.cls, count: list.length };
+    } else if (mode === 'owner') {
+      if (key === 'uni_staff') label = `${ownerLabel('uni_staff', settings)} (เจ้าหน้าที่)`;
+      else if (key === 'vp_admin') label = `${ownerLabel('vp_admin', settings)} (SAMO VP)`;
+      else label = 'เสร็จสิ้น / ยกเลิก (ไม่มีฝ่ายรับผิดชอบ)';
+      meta = { count: list.length };
+    }
+    out.push({ key, label, meta, rows: list, mode });
+  }
+  // Order the groups themselves
+  if (mode === 'project') {
+    out.sort((a, b) => Math.max(...b.rows.map(rowTime)) - Math.max(...a.rows.map(rowTime)));
+  } else if (mode === 'status') {
+    const order = ['sent', 'returned', 'received', 'in_progress', 'completed', 'cancelled', 'draft'];
+    out.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  } else if (mode === 'owner') {
+    const role = cache.role;
+    const rank = (k) => {
+      if (role === 'dev') return ({ uni_staff: 0, vp_admin: 1, none: 2 })[k] ?? 3;
+      if (k === role) return 0;
+      if (k === 'none') return 2;
+      return 1;
+    };
+    out.sort((a, b) => rank(a.key) - rank(b.key));
+  }
+  return out;
 }
 
 // ---------- mounting ----------
@@ -64,350 +181,306 @@ export function mountInbox({ onChanged: changed, onAddDocument }) {
   if (typeof changed === 'function') onChanged = changed;
   if (typeof onAddDocument === 'function') onAddDocumentCb = onAddDocument;
 
+  // Toolbar
   document.getElementById('projectsFilterRow')?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-projects-filter]');
     if (!chip) return;
-    filterStatus = chip.dataset.projectsFilter;
-    refreshList();
+    filterKind = chip.dataset.projectsFilter;
+    render();
   });
   document.getElementById('projectsSearchInput')?.addEventListener('input', (e) => {
     searchQ = (e.target.value || '').toLowerCase().trim();
-    refreshList();
+    render();
   });
-  document.getElementById('projectsList')?.addEventListener('click', (e) => {
-    // Inline "+ หนังสือ" on a card — open send modal directly, without
-    // navigating into the detail panel.
-    const addBtn = e.target.closest('[data-projects-card-add]');
-    if (addBtn) {
-      e.stopPropagation();
-      const id = addBtn.dataset.projectsCardAdd;
-      const project = cache.projects.find((p) => p.id === id);
-      if (project && onAddDocumentCb) onAddDocumentCb(project);
-      return;
-    }
-    const card = e.target.closest('[data-project-id]');
-    if (!card) return;
-    selectedProjectId = card.dataset.projectId;
-    selectedDocumentId = null;
-    document.querySelector('.projects-layout')?.classList.add('is-detail-open');
-    refreshDetail();
-    refreshList();      // re-highlight active card
-    history.replaceState(null, '', `#projects/${selectedProjectId}`);
+  document.getElementById('projectsGroupBy')?.addEventListener('change', (e) => {
+    groupBy = e.target.value;
+    render();
   });
 
-  // KPI strip — chips at top double as filter shortcuts.
-  document.getElementById('projectsKpiStrip')?.addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-projects-kpi]');
-    if (!chip) return;
-    const next = chip.dataset.projectsKpi;
-    filterStatus = next;
-    renderFilterChips();
-    refreshList();
-  });
-
-  document.getElementById('projectsDetailBack')?.addEventListener('click', () => {
-    document.querySelector('.projects-layout')?.classList.remove('is-detail-open');
-  });
+  // Table body — one delegated click handler for all row interactions.
+  document.getElementById('projectsTableBody')?.addEventListener('click', onTableClick);
+  document.getElementById('projectsTableBody')?.addEventListener('change', onTableChange);
 }
 
 // ---------- public renderers ----------
 
 export function renderInbox(next) {
   cache = { ...cache, ...next };
-  renderKpiStrip();
-  renderFilterChips();
-  refreshList();
-  refreshDetail();
+  render();
 }
 
 export function openProjectDetail(projectId) {
-  selectedProjectId = projectId;
-  selectedDocumentId = null;
-  document.querySelector('.projects-layout')?.classList.add('is-detail-open');
-  refreshList();
-  refreshDetail();
+  scrollProjectId = projectId;
+  // When jumping to a project, force project-grouping so the user lands on
+  // a recognisable section.
+  if (groupBy !== 'project') {
+    groupBy = 'project';
+    const sel = document.getElementById('projectsGroupBy');
+    if (sel) sel.value = 'project';
+  }
+  render();
 }
 
 export async function openDocumentDetail(documentId) {
-  // Locate the parent project via cached data; if not there, fetch.
-  let projectId = null;
+  // Locate the doc; if missing from cache, fetch to keep deep-links robust.
+  let found = null;
   for (const p of cache.projects) {
-    if (Array.isArray(p.documents) && p.documents.some((d) => d.id === documentId)) {
-      projectId = p.id; break;
-    }
+    const d = (p.documents || []).find((x) => x.id === documentId);
+    if (d) { found = { doc: d, project: p }; break; }
   }
-  if (!projectId) {
+  if (!found) {
     const doc = await getDocument(documentId).catch(() => null);
-    projectId = doc?.project_id || null;
+    if (!doc) return;
+    const project = await getProject(doc.project_id).catch(() => null);
+    if (project) found = { doc, project };
   }
-  if (!projectId) return;
-  selectedProjectId = projectId;
-  selectedDocumentId = documentId;
-  document.querySelector('.projects-layout')?.classList.add('is-detail-open');
-  refreshList();
-  refreshDetail();
+  if (!found) return;
+  expanded.add(documentId);
+  scrollDocId = documentId;
+  scrollProjectId = found.project.id;
+  if (groupBy !== 'project') {
+    groupBy = 'project';
+    const sel = document.getElementById('projectsGroupBy');
+    if (sel) sel.value = 'project';
+  }
+  render();
 }
 
-// ---------- KPI strip (top of list pane) ----------
-//
-// Compact action-summary cards at the top of the inbox. They show
-// per-status DOCUMENT counts (not project counts) since "what needs
-// my attention" lives at the document level. Clicking a card filters
-// the list to projects that have at least one doc in that status,
-// so a tap-tap workflow takes the user from the summary to the
-// actionable item.
+// ---------- main render ----------
 
-function renderKpiStrip() {
-  const root = document.getElementById('projectsKpiStrip');
-  if (!root) return;
-  const c = computeDocCounts(cache.projects);
-  const role = cache.role;
-  // For vp_admin: highlight returned (needs their attention).
-  // For uni_staff: highlight sent + returned (her queue).
-  const kpis = [
-    { key: 'doc-attn',  label: role === 'uni_staff' ? 'รับเรื่อง' : 'ส่งกลับ',
-      value: role === 'uni_staff' ? c.sent : c.returned,
-      kind:  role === 'uni_staff' ? 'is-info' : 'is-warn',
-      icon:  role === 'uni_staff' ? 'bi-inbox' : 'bi-arrow-counterclockwise',
-      filter: role === 'uni_staff' ? 'has-sent' : 'has-returned' },
-    { key: 'doc-prog',  label: 'กำลังดำเนินการ', value: c.in_progress, kind: 'is-progress', icon: 'bi-arrow-repeat', filter: 'has-progress' },
-    { key: 'doc-done',  label: 'เสร็จสิ้น', value: c.completed, kind: 'is-ok', icon: 'bi-check-circle', filter: 'has-completed' },
-    { key: 'doc-all',   label: 'หนังสือทั้งหมด', value: c.total, kind: '', icon: 'bi-files', filter: 'all' },
-  ];
-  root.innerHTML = kpis.map((k) => `
-    <button type="button" class="projects-kpi ${k.kind} ${filterStatus === k.filter ? 'is-active' : ''}" data-projects-kpi="${k.filter}">
-      <span class="projects-kpi-icon"><i class="bi ${k.icon}"></i></span>
-      <span class="projects-kpi-body">
-        <span class="projects-kpi-value">${k.value}</span>
-        <span class="projects-kpi-label">${escHtml(k.label)}</span>
-      </span>
-    </button>
-  `).join('');
+function render() {
+  renderFilterChips();
+  renderTable();
+  // Defer scroll until DOM has settled
+  if (scrollDocId || scrollProjectId) {
+    requestAnimationFrame(() => {
+      const target =
+        (scrollDocId && document.querySelector(`[data-projects-row-doc="${cssEsc(scrollDocId)}"]`))
+        || (scrollProjectId && document.querySelector(`[data-projects-group-project="${cssEsc(scrollProjectId)}"]`));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollDocId = null;
+      scrollProjectId = null;
+    });
+  }
 }
-
-// ---------- filter chips ----------
 
 function renderFilterChips() {
   const row = document.getElementById('projectsFilterRow');
   if (!row) return;
+  const all = flattenDocs(cache.projects);
+  const role = cache.role;
+  const cMine    = applyFilter(all, 'mine', role).length;
+  const cWait    = applyFilter(all, 'waiting', role).length;
+  const cDone    = applyFilter(all, 'done', role).length;
+  const cAll     = all.length;
   const chips = [
-    { id: 'all',            label: 'ทั้งหมด' },
-    { id: 'has-sent',       label: 'มีหนังสือใหม่' },
-    { id: 'has-returned',   label: 'มีส่งกลับ' },
-    { id: 'has-progress',   label: 'กำลังดำเนินการ' },
-    { id: 'has-completed',  label: 'มีเสร็จแล้ว' },
-    { id: 'open',           label: 'โครงการเปิด' },
-    { id: 'completed',      label: 'โครงการเสร็จสิ้น' },
-    { id: 'cancelled',      label: 'ยกเลิก' },
+    { id: 'mine',    label: 'ของฉัน',    count: cMine, cls: 'is-mine' },
+    { id: 'waiting', label: 'รออีกฝ่าย', count: cWait, cls: 'is-wait' },
+    { id: 'done',    label: 'เสร็จสิ้น',  count: cDone, cls: 'is-done' },
+    { id: 'all',     label: 'ทั้งหมด',   count: cAll,  cls: 'is-all' },
   ];
-  row.innerHTML = chips.map((c) =>
-    `<button type="button" class="projects-chip ${c.id === filterStatus ? 'is-active' : ''}" data-projects-filter="${c.id}">${escHtml(c.label)}</button>`
-  ).join('');
+  row.innerHTML = chips.map((c) => `
+    <button type="button" class="projects-chip ${c.cls} ${c.id === filterKind ? 'is-active' : ''}"
+      data-projects-filter="${c.id}">
+      <span>${escHtml(c.label)}</span>
+      <span class="projects-chip-count">${c.count}</span>
+    </button>
+  `).join('');
 }
 
-// ---------- list (left pane) ----------
+function renderTable() {
+  const tbody = document.getElementById('projectsTableBody');
+  const table = document.getElementById('projectsTable');
+  const empty = document.getElementById('projectsTableEmpty');
+  if (!tbody) return;
 
-function refreshList() {
-  const list = document.getElementById('projectsList');
-  const empty = document.getElementById('projectsListEmpty');
-  if (!list) return;
-
-  let rows = cache.projects.slice();
-  // Filter modes:
-  //   'all'                 → no filter
-  //   'has-sent' / 'has-returned' / 'has-progress' / 'has-completed'
-  //                         → projects that contain at least one doc in that status
-  //   anything else         → project status equals the filter
-  if (filterStatus === 'has-sent')      rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'sent'));
-  else if (filterStatus === 'has-returned')   rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'returned'));
-  else if (filterStatus === 'has-progress')   rows = rows.filter((p) => (p.documents || []).some((d) => ['received','in_progress'].includes(d.status)));
-  else if (filterStatus === 'has-completed')  rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'completed'));
-  else if (filterStatus !== 'all')      rows = rows.filter((p) => p.status === filterStatus);
-
-  if (searchQ) {
-    rows = rows.filter((p) =>
-      (p.name || '').toLowerCase().includes(searchQ)
-      || (p.id || '').toLowerCase().includes(searchQ)
-      || (p.description || '').toLowerCase().includes(searchQ)
-    );
-  }
+  let rows = flattenDocs(cache.projects);
+  rows = applyFilter(rows, filterKind, cache.role);
+  rows = applySearch(rows, searchQ);
 
   if (rows.length === 0) {
-    list.innerHTML = '';
-    if (empty) empty.classList.remove('d-none');
+    tbody.innerHTML = '';
+    empty?.classList.remove('d-none');
+    table?.classList.add('d-none');
     return;
   }
-  if (empty) empty.classList.add('d-none');
+  empty?.classList.add('d-none');
+  table?.classList.remove('d-none');
 
-  list.innerHTML = rows.map((p) => renderProjectCard(p)).join('');
+  // Toggle redundant-column hiding based on group mode
+  table?.classList.toggle('is-grouped-project', groupBy === 'project');
+  table?.classList.toggle('is-grouped-status',  groupBy === 'status');
+
+  const groups = groupRows(rows, groupBy, cache.settings);
+  tbody.innerHTML = groups.map(renderGroup).join('');
+
+  // Load files for every expanded row that's now in the DOM
+  expanded.forEach((docId) => {
+    if (document.getElementById(`projectsFilesList-${docId}`)) loadFilesForDoc(docId);
+  });
 }
 
-function renderProjectCard(p) {
-  const docs = Array.isArray(p.documents) ? p.documents : [];
-  const total = docs.length;
-  // Per-status badge counts on the card itself, so the user can scan
-  // "what's going on in this project" without clicking in.
-  const cSent      = docs.filter((d) => d.status === 'sent').length;
-  const cInflight  = docs.filter((d) => ['received','in_progress'].includes(d.status)).length;
-  const cReturned  = docs.filter((d) => d.status === 'returned').length;
-  const cCompleted = docs.filter((d) => d.status === 'completed').length;
-  const meta = PROJECT_STATUS_META[p.status] || PROJECT_STATUS_META.open;
-  const active = p.id === selectedProjectId ? 'is-active' : '';
-  const recent = docs.slice().sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0];
-  const lastTouch = recent ? recent.updated_at || recent.created_at : p.created_at;
+function renderGroup(group) {
+  const header = group.headerless ? '' : renderGroupHeader(group);
+  const body = group.rows.map(renderRow).join('');
+  return header + body;
+}
+
+function renderGroupHeader(group) {
   const role = cache.role;
-  const canAdd = role === 'vp_admin' || role === 'dev';
-  return `
-    <div class="projects-card ${active}" data-project-id="${escHtml(p.id)}" role="button" tabindex="0">
-      <div class="projects-card-row">
-        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon}"></i></span>
-        <span class="projects-card-title">${escHtml(p.name)}</span>
-        ${canAdd ? `<button type="button" class="projects-card-add" data-projects-card-add="${escHtml(p.id)}" aria-label="เพิ่มหนังสือในโครงการนี้" title="เพิ่มหนังสือ">
-          <i class="bi bi-plus-lg"></i>
-        </button>` : ''}
-      </div>
-      <div class="projects-card-row projects-card-meta-row">
-        <span class="projects-card-id">${escHtml(p.id)}</span>
-        <span class="projects-card-dot">·</span>
-        <span class="projects-card-badges">
-          <span title="หนังสือทั้งหมด"><i class="bi bi-files"></i> ${total}</span>
-          ${cSent ?      `<span class="badge-mini b-info" title="ส่งแล้ว / รอรับเรื่อง">${cSent}</span>` : ''}
-          ${cInflight ?  `<span class="badge-mini b-warn" title="กำลังดำเนินการ">${cInflight}</span>` : ''}
-          ${cReturned ?  `<span class="badge-mini b-danger" title="ส่งกลับ">${cReturned}</span>` : ''}
-          ${cCompleted ? `<span class="badge-mini b-ok" title="เสร็จสิ้น">${cCompleted}</span>` : ''}
-        </span>
-        <span class="projects-card-last">${escHtml(fmtRelative(lastTouch))}</span>
-      </div>
-    </div>
-  `;
-}
-
-// ---------- detail (right pane) ----------
-
-function refreshDetail() {
-  const root = document.getElementById('projectsDetail');
-  if (!root) return;
-  if (!selectedProjectId) {
-    root.innerHTML = renderEmptyDetail();
-    return;
-  }
-  const project = cache.projects.find((p) => p.id === selectedProjectId);
-  if (!project) {
-    root.innerHTML = renderEmptyDetail('ไม่พบโครงการ');
-    return;
-  }
-  root.innerHTML = renderDetail(project);
-  wireDetailActions(project);
-}
-
-function renderEmptyDetail(msg) {
-  return `
-    <div class="projects-detail-empty">
-      <i class="bi bi-folder2-open"></i>
-      <h4>${escHtml(msg || 'เลือกโครงการเพื่อดูรายละเอียด')}</h4>
-      <p>แตะที่การ์ดทางซ้ายเพื่อเปิดหนังสือทั้งหมดในโครงการ</p>
-    </div>
-  `;
-}
-
-function renderDetail(project) {
-  const meta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.open;
-  const docs = (Array.isArray(project.documents) ? project.documents : []).slice()
-    .sort((a, b) => (a.sequence_no || 0) - (b.sequence_no || 0));
-  const role = cache.role;
-  const canEditProject = role === 'vp_admin' || role === 'dev';
-
-  return `
-    <div class="projects-detail-head">
-      <button type="button" class="projects-back-btn d-md-none" id="projectsDetailBackMobile" aria-label="กลับ"><i class="bi bi-chevron-left"></i></button>
-      <div class="projects-detail-id">${escHtml(project.id)} · ${escHtml(fmtDate(project.created_at))}</div>
-      <div class="projects-detail-title">${escHtml(project.name)}</div>
-      ${project.description ? `<div class="projects-detail-desc">${escHtml(project.description)}</div>` : ''}
-      <div class="projects-detail-meta">
-        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
-        <span class="text-muted small">${docs.length} หนังสือในโครงการนี้</span>
-      </div>
-      <div class="projects-detail-actions">
-        <button type="button" class="btn btn-sm btn-primary-soft" data-projects-role="vp_admin" id="projectsAddDocBtn">
-          <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
-        </button>
-        ${canEditProject ? `
-          <div class="dropdown d-inline-block">
-            <button type="button" class="btn btn-sm btn-ghost dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-three-dots"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li><h6 class="dropdown-header">เปลี่ยนสถานะโครงการ</h6></li>
-              ${['open','in_progress','completed','cancelled'].map((s) =>
-                `<li><button class="dropdown-item ${s===project.status?'active':''}" type="button" data-projects-set-status="${s}"><i class="bi ${PROJECT_STATUS_META[s].icon} me-2"></i>${escHtml(PROJECT_STATUS_META[s].label)}</button></li>`
-              ).join('')}
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item text-danger" type="button" data-projects-delete-project>
-                <i class="bi bi-trash me-2"></i>ลบโครงการ (ลบหนังสือทั้งหมดด้วย)
-              </button></li>
-            </ul>
+  const canManage = role === 'vp_admin' || role === 'dev';
+  if (group.mode === 'project') {
+    const p = group.meta.project;
+    const pmeta = PROJECT_STATUS_META[p.status] || PROJECT_STATUS_META.open;
+    return `
+      <tr class="projects-group-row" data-projects-group-project="${escHtml(p.id)}">
+        <td colspan="${TABLE_COLS}">
+          <div class="projects-group-head">
+            <span class="projects-group-icon"><i class="bi bi-folder2-open"></i></span>
+            <div class="projects-group-title">
+              <span class="projects-group-name">${escHtml(p.name)}</span>
+              <span class="projects-group-id">${escHtml(p.id)}</span>
+              ${p.description ? `<span class="projects-group-desc">${escHtml(p.description)}</span>` : ''}
+            </div>
+            <span class="projects-status-pill ${pmeta.cls}"><i class="bi ${pmeta.icon} me-1"></i>${escHtml(pmeta.label)}</span>
+            <span class="projects-group-count">${group.meta.count} หนังสือ</span>
+            <div class="projects-group-actions">
+              ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(p.id)}">
+                <i class="bi bi-plus-lg me-1"></i>เพิ่มหนังสือ
+              </button>` : ''}
+              <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(p.id)}" title="คัดลอกลิงก์โครงการ">
+                <i class="bi bi-link-45deg"></i>
+              </button>
+              ${canManage ? `
+                <div class="dropdown d-inline-block">
+                  <button type="button" class="btn btn-sm btn-ghost dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-three-dots"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">เปลี่ยนสถานะโครงการ</h6></li>
+                    ${['open','in_progress','completed','cancelled'].map((s) =>
+                      `<li><button class="dropdown-item ${s===p.status?'active':''}" type="button"
+                          data-projects-set-project-status="${s}" data-project-id="${escHtml(p.id)}">
+                          <i class="bi ${PROJECT_STATUS_META[s].icon} me-2"></i>${escHtml(PROJECT_STATUS_META[s].label)}
+                        </button></li>`).join('')}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item text-danger" type="button"
+                      data-projects-delete-project="${escHtml(p.id)}">
+                      <i class="bi bi-trash me-2"></i>ลบโครงการ (ลบหนังสือทั้งหมดด้วย)
+                    </button></li>
+                  </ul>
+                </div>
+              ` : ''}
+            </div>
           </div>
-        ` : ''}
-        <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-link>
-          <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
-        </button>
-      </div>
-    </div>
-
-    <div class="projects-docs-wrap">
-      ${docs.length === 0
-        ? `<div class="projects-detail-empty small"><i class="bi bi-inbox"></i><h4>ยังไม่มีหนังสือในโครงการนี้</h4><p data-projects-role="vp_admin">กด "เพิ่มหนังสือ" ด้านบนเพื่อส่งหนังสือฉบับแรก</p></div>`
-        : (() => {
-            // Sort by sent_at / created_at desc — most recent first — and expand
-            // only docs that need attention (sent / returned / explicitly opened
-            // via deep link). Older or completed docs are collapsed so the page
-            // isn't a wall of text on busy projects.
-            const sorted = docs.slice().sort((a, b) =>
-              new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
-            return sorted.map((d, i) => {
-              const needsAttention = ['sent', 'returned'].includes(d.status);
-              const isDeepLinked = d.id === selectedDocumentId;
-              const expanded = isDeepLinked || needsAttention || i === 0;
-              return renderDocBlock(d, project, expanded);
-            }).join('');
-          })()}
-    </div>
+        </td>
+      </tr>
+    `;
+  }
+  if (group.mode === 'status') {
+    return `
+      <tr class="projects-group-row is-narrow">
+        <td colspan="${TABLE_COLS}">
+          <div class="projects-group-head">
+            <span class="projects-status-pill ${group.meta.cls || ''}"><i class="bi ${group.meta.icon || ''} me-1"></i>${escHtml(group.label)}</span>
+            <span class="projects-group-count">${group.meta.count} หนังสือ</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+  // owner
+  return `
+    <tr class="projects-group-row is-narrow">
+      <td colspan="${TABLE_COLS}">
+        <div class="projects-group-head">
+          <span class="projects-group-name">${escHtml(group.label)}</span>
+          <span class="projects-group-count">${group.meta.count} หนังสือ</span>
+        </div>
+      </td>
+    </tr>
   `;
 }
 
-function renderDocBlock(doc, project, expanded = true) {
-  const meta = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
+function renderRow({ doc, project }) {
+  const m = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
+  const owner = nextOwner(doc);
+  const ownerTxt = owner ? ownerLabel(owner, cache.settings) : '—';
+  const ownerCls = owner === cache.role || (cache.role === 'dev' && owner) ? 'is-mine' : (owner ? 'is-other' : 'is-none');
+  const isOpen = expanded.has(doc.id);
+  const mineFlag = isMine(doc, cache.role) ? '<span class="projects-row-mine-dot" title="ของฉัน"></span>' : '';
+  const dataMine = isMine(doc, cache.role) ? 'data-projects-row-mine="1"' : '';
+
+  const baseRow = `
+    <tr class="projects-row ${isOpen ? 'is-open' : ''}" data-projects-row-doc="${escHtml(doc.id)}" ${dataMine}>
+      <td class="col-status">
+        ${mineFlag}
+        <span class="projects-status-pill ${m.cls}"><i class="bi ${m.icon} me-1"></i>${escHtml(m.label)}</span>
+      </td>
+      <td class="col-doc">
+        <div class="projects-cell-stack">
+          <div class="projects-cell-title">
+            <span class="projects-doc-seq-mini">#${doc.sequence_no || 1}</span>
+            ${escHtml(doc.title)}
+          </div>
+          <div class="projects-cell-sub">
+            <span class="projects-type-pill">${escHtml(type?.label_th || doc.type_id)}</span>
+            <span class="projects-cell-mono d-none d-lg-inline">${escHtml(doc.id)}</span>
+          </div>
+        </div>
+      </td>
+      <td class="col-project">
+        <div class="projects-cell-stack">
+          <div class="projects-cell-title">${escHtml(project.name)}</div>
+          <div class="projects-cell-sub projects-cell-mono">${escHtml(project.id)}</div>
+        </div>
+      </td>
+      <td class="col-owner">
+        <span class="projects-owner-pill ${ownerCls}">${escHtml(ownerTxt)}</span>
+      </td>
+      <td class="col-updated">
+        <span class="projects-cell-sub" title="${escHtml(fmtDateTime(doc.updated_at || doc.created_at))}">${escHtml(fmtRelative(doc.updated_at || doc.created_at))}</span>
+      </td>
+      <td class="col-expand">
+        <button type="button" class="projects-row-expand" aria-label="ขยาย/ย่อ" aria-expanded="${isOpen}">
+          <i class="bi bi-chevron-${isOpen ? 'up' : 'down'}"></i>
+        </button>
+      </td>
+    </tr>
+  `;
+
+  if (!isOpen) return baseRow;
+  return baseRow + renderExpandedRow(doc, project);
+}
+
+function renderExpandedRow(doc, project) {
+  return `
+    <tr class="projects-row-expand-tr" data-projects-expand-of="${escHtml(doc.id)}">
+      <td colspan="${TABLE_COLS}">
+        ${renderExpandedContent(doc, project)}
+      </td>
+    </tr>
+  `;
+}
+
+function renderExpandedContent(doc, project) {
   const stepIndex = DOC_PATH_ORDER.indexOf(doc.status);
-  const onPath = stepIndex >= 0;
   const isReturned  = doc.status === 'returned';
   const isCancelled = doc.status === 'cancelled';
   const isCompleted = doc.status === 'completed';
   const role = cache.role;
-  const isVp = role === 'vp_admin' || role === 'dev';
+  const isVp  = role === 'vp_admin' || role === 'dev';
   const isUni = role === 'uni_staff' || role === 'dev';
+  const tlSorted = (doc.timeline || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
+  const lastReturn = (doc.timeline || []).slice().reverse().find((e) => e.action === 'returned');
 
   return `
-    <article class="projects-doc ${expanded ? 'is-expanded' : 'is-collapsed'}" data-projects-doc-id="${escHtml(doc.id)}">
-      <header class="projects-doc-head" data-projects-doc-toggle="${escHtml(doc.id)}">
-        <div class="projects-doc-seq">หนังสือ ${doc.sequence_no || 1}</div>
-        <div class="projects-doc-title">${escHtml(doc.title)}</div>
-        <div class="projects-doc-meta">
-          <span class="projects-type-pill">${escHtml(type?.label_th || doc.type_id)}</span>
-          <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
-          <span class="text-muted small d-none d-md-inline">${escHtml(doc.id)}</span>
-        </div>
-        <button type="button" class="projects-doc-collapse-btn" aria-label="ขยาย/ย่อ">
-          <i class="bi bi-chevron-down"></i>
-        </button>
-      </header>
-
-      <div class="projects-doc-body">
-
-      ${renderProgressBar(stepIndex, isReturned, isCancelled)}
+    <div class="projects-expand">
+      ${renderProgressBar(stepIndex, isReturned, isCancelled, doc)}
 
       ${doc.note ? `<div class="projects-doc-note"><i class="bi bi-chat-square-quote me-1"></i>${escHtml(doc.note)}</div>` : ''}
-      ${isReturned && doc.return_reason ? `<div class="projects-doc-return"><b>ส่งกลับเพื่อแก้ไข:</b> ${escHtml(doc.return_reason)}</div>` : ''}
+      ${isReturned && (doc.return_reason || lastReturn?.note) ? `<div class="projects-doc-return"><b>ส่งกลับเพื่อแก้ไข:</b> ${escHtml(doc.return_reason || lastReturn?.note || '')}</div>` : ''}
 
       <div class="projects-doc-files" data-projects-files-for="${escHtml(doc.id)}">
         <div class="projects-files-head">
@@ -437,37 +510,37 @@ function renderDocBlock(doc, project, expanded = true) {
         ${(isUni && !isVp) ? `
           <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
         ` : ''}
+        <button type="button" class="btn btn-sm btn-ghost ms-auto" data-projects-copy-doc="${escHtml(doc.id)}" data-project-id="${escHtml(project.id)}">
+          <i class="bi bi-link-45deg me-1"></i>คัดลอกลิงก์
+        </button>
       </div>
 
-      ${renderTimeline(doc)}
-      </div>
-    </article>
-  `;
-}
-
-function renderProgressBar(stepIndex, isReturned, isCancelled) {
-  if (isCancelled) {
-    return `<div class="projects-progress is-cancel"><i class="bi bi-x-circle me-1"></i>หนังสือฉบับนี้ถูกยกเลิก</div>`;
-  }
-  if (isReturned) {
-    return `<div class="projects-progress is-returned"><i class="bi bi-arrow-counterclockwise me-1"></i>ส่งกลับเพื่อแก้ไข — รอ SAMO ส่งใหม่</div>`;
-  }
-  const steps = ['ส่งแล้ว', 'รับเรื่อง', 'ดำเนินการ', 'เสร็จสิ้น'];
-  return `
-    <div class="projects-progress">
-      ${steps.map((label, i) => `
-        <div class="projects-step ${i <= stepIndex ? 'is-done' : ''} ${i === stepIndex ? 'is-current' : ''}">
-          <div class="projects-step-dot">${i < stepIndex ? '<i class="bi bi-check"></i>' : (i + 1)}</div>
-          <div class="projects-step-label">${escHtml(label)}</div>
-        </div>
-      `).join('<div class="projects-step-bar"></div>')}
+      ${tlSorted.length ? renderTimeline(tlSorted) : ''}
     </div>
   `;
 }
 
-function renderTimeline(doc) {
-  const tl = Array.isArray(doc.timeline) ? doc.timeline.slice() : [];
-  if (tl.length === 0) return '';
+function renderProgressBar(stepIndex, isReturned, isCancelled, doc) {
+  const steps = ['ส่งแล้ว', 'รับเรื่อง', 'ดำเนินการ', 'เสร็จสิ้น'];
+  const wrapCls = isCancelled ? 'is-cancel-overlay' : (isReturned ? 'is-returned-overlay' : '');
+  // When returned: clamp the visual progress to step 0 (still on "ส่ง") and
+  // overlay a "ตีกลับ" tag on the first node so the user knows it bounced.
+  const visualIdx = isReturned ? 0 : stepIndex;
+  return `
+    <div class="projects-progress ${wrapCls}">
+      ${steps.map((label, i) => `
+        <div class="projects-step ${i <= visualIdx ? 'is-done' : ''} ${i === visualIdx ? 'is-current' : ''}">
+          <div class="projects-step-dot">${i < visualIdx ? '<i class="bi bi-check"></i>' : (i + 1)}</div>
+          <div class="projects-step-label">${escHtml(label)}</div>
+          ${i === 0 && isReturned ? '<div class="projects-step-overlay"><i class="bi bi-arrow-counterclockwise"></i> ตีกลับ</div>' : ''}
+        </div>
+      `).join('<div class="projects-step-bar"></div>')}
+      ${isCancelled ? '<div class="projects-progress-cancel"><i class="bi bi-x-circle me-1"></i>ถูกยกเลิก</div>' : ''}
+    </div>
+  `;
+}
+
+function renderTimeline(tl) {
   return `
     <details class="projects-doc-timeline" ${tl.length <= 2 ? 'open' : ''}>
       <summary>ประวัติการดำเนินการ (${tl.length})</summary>
@@ -508,165 +581,107 @@ function actionLabel(a) {
   }
 }
 
-// ---------- detail panel wiring ----------
+// ---------- table interactions (event delegation) ----------
 
-function wireDetailActions(project) {
-  // Mobile back
-  document.getElementById('projectsDetailBackMobile')?.addEventListener('click', () => {
-    document.querySelector('.projects-layout')?.classList.remove('is-detail-open');
-  });
-
-  // Per-doc expand/collapse — click anywhere on the header (including the
-  // chevron button) toggles. The header currently has no actionable
-  // buttons of its own; action buttons live in projects-doc-actions below.
-  document.querySelectorAll('[data-projects-doc-toggle]').forEach((head) => {
-    head.addEventListener('click', () => {
-      const card = head.closest('.projects-doc');
-      if (!card) return;
-      card.classList.toggle('is-expanded');
-      card.classList.toggle('is-collapsed');
-    });
-  });
-
-  // Copy deep link
-  const copy = document.querySelector('[data-projects-copy-link]');
-  if (copy) copy.addEventListener('click', async () => {
-    const url = `${window.location.origin}${window.location.pathname}#projects/${project.id}`;
-    try { await navigator.clipboard.writeText(url); flash(copy, 'คัดลอกแล้ว'); }
-    catch { window.prompt('คัดลอกลิงก์:', url); }
-  });
-
-  // Add document
-  document.getElementById('projectsAddDocBtn')?.addEventListener('click', () => {
-    if (onAddDocumentCb) onAddDocumentCb(project);
-  });
-
-  // Project status menu
-  document.querySelectorAll('[data-projects-set-status]').forEach((el) => {
-    el.addEventListener('click', async () => {
-      const next = el.dataset.projectsSetStatus;
-      try {
-        await updateProject(project.id, { status: next });
-        onChanged();
-      } catch (e) { alert(e.message || 'อัปเดตไม่สำเร็จ'); }
-    });
-  });
-
-  // Delete project
-  document.querySelector('[data-projects-delete-project]')?.addEventListener('click', async () => {
-    if (!confirm(`ลบโครงการ "${project.name}" และหนังสือทั้งหมดในนี้? การกระทำนี้ย้อนกลับไม่ได้`)) return;
-    try { await deleteProject(project.id); selectedProjectId = null; onChanged(); }
-    catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
-  });
-
-  // Per-doc actions
-  document.querySelectorAll('[data-projects-doc-status]').forEach((btn) => {
-    btn.addEventListener('click', () => onDocStatusClick(btn, project));
-  });
-  document.querySelectorAll('[data-projects-doc-return]').forEach((btn) => {
-    btn.addEventListener('click', () => onDocReturnClick(btn, project));
-  });
-  document.querySelectorAll('[data-projects-doc-comment]').forEach((btn) => {
-    btn.addEventListener('click', () => onDocCommentClick(btn, project));
-  });
-  document.querySelectorAll('[data-projects-doc-delete]').forEach((btn) => {
-    btn.addEventListener('click', () => onDocDeleteClick(btn, project));
-  });
-  document.querySelectorAll('[data-projects-add-files]').forEach((input) => {
-    input.addEventListener('change', (e) => onDocAddFiles(e, input.dataset.projectsAddFiles, project));
-  });
-
-  // Load files for each doc block
-  const docs = Array.isArray(project.documents) ? project.documents : [];
-  for (const d of docs) loadFilesForDoc(d.id);
-}
-
-async function loadFilesForDoc(docId) {
-  const wrap = document.getElementById(`projectsFilesList-${docId}`);
-  if (!wrap) return;
-  try {
-    const files = await listFiles(docId, { includeSuperseded: true });
-    if (files.length === 0) {
-      wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
-      return;
-    }
-    // Group by supersede chain — only show "active" (not superseded), with
-    // a "previous versions" disclosure below.
-    const byId = new Map(files.map((f) => [f.id, f]));
-    const supersedeFrom = new Map(); // newId -> [oldFile]
-    for (const f of files) {
-      if (f.superseded_by != null) {
-        const arr = supersedeFrom.get(f.superseded_by) || [];
-        arr.push(f);
-        supersedeFrom.set(f.superseded_by, arr);
-      }
-    }
-    const role = cache.role;
-    const isVp = role === 'vp_admin' || role === 'dev';
-    const active = files.filter((f) => f.superseded_by == null);
-    wrap.innerHTML = active.map((f) => renderFileRow(f, supersedeFrom.get(f.id) || [], isVp, docId)).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
-
-    // Wire replace buttons
-    wrap.querySelectorAll('[data-projects-replace-file]').forEach((label) => {
-      const input = label.querySelector('input[type=file]');
-      if (!input) return;
-      input.addEventListener('change', (e) => onReplaceFile(e, input.dataset.replaceForFile, docId));
-    });
-  } catch (e) {
-    wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
+function findRowDoc(el) {
+  const tr = el.closest('[data-projects-row-doc]');
+  if (!tr) return null;
+  const docId = tr.dataset.projectsRowDoc;
+  for (const p of cache.projects) {
+    const d = (p.documents || []).find((x) => x.id === docId);
+    if (d) return { doc: d, project: p };
   }
+  return null;
 }
 
-function renderFileRow(f, superseded, isVp, docId) {
-  const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
-  const icon = iconForExt(ext);
-  return `
-    <div class="projects-file">
-      <i class="bi ${icon} projects-file-icon"></i>
-      <div class="projects-file-info">
-        <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
-        <div class="projects-file-meta">
-          <span>${escHtml(fmtBytes(f.size_bytes))}</span>
-          <span>·</span>
-          <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
-          ${superseded.length ? `<span>·</span><span class="text-warning">v${superseded.length + 1}</span>` : ''}
-        </div>
-      </div>
-      ${isVp ? `<label class="btn btn-sm btn-ghost" data-projects-replace-file>
-        <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
-        <input type="file" hidden data-replace-for-file="${f.id}" />
-      </label>` : ''}
-      ${superseded.length ? `
-        <details class="projects-file-history">
-          <summary>เวอร์ชันก่อนหน้า (${superseded.length})</summary>
-          ${superseded.map((old) => `
-            <div class="projects-file-old">
-              <i class="bi bi-clock-history me-1"></i>
-              <a href="${safeUrl(old.drive_view_url)}" target="_blank" rel="noopener">${escHtml(old.file_name)}</a>
-              <span class="text-muted small ms-2">${escHtml(fmtDateTime(old.uploaded_at))}</span>
-            </div>
-          `).join('')}
-        </details>
-      ` : ''}
-    </div>
-  `;
+function findProjectById(projectId) {
+  return cache.projects.find((p) => p.id === projectId) || null;
 }
 
-function iconForExt(ext) {
-  if (['pdf'].includes(ext)) return 'bi-file-earmark-pdf';
-  if (['doc','docx'].includes(ext)) return 'bi-file-earmark-word';
-  if (['xls','xlsx','csv'].includes(ext)) return 'bi-file-earmark-spreadsheet';
-  if (['ppt','pptx'].includes(ext)) return 'bi-file-earmark-slides';
-  if (['png','jpg','jpeg','webp','gif'].includes(ext)) return 'bi-file-earmark-image';
-  if (['zip','rar','7z'].includes(ext)) return 'bi-file-earmark-zip';
-  return 'bi-file-earmark';
+function onTableClick(e) {
+  // Project group actions
+  const addBtn = e.target.closest('[data-projects-add-doc]');
+  if (addBtn) {
+    const project = findProjectById(addBtn.dataset.projectsAddDoc);
+    if (project && onAddDocumentCb) onAddDocumentCb(project);
+    return;
+  }
+  const copyProj = e.target.closest('[data-projects-copy-project]');
+  if (copyProj) {
+    copyToClipboard(`${window.location.origin}${window.location.pathname}#projects/${copyProj.dataset.projectsCopyProject}`, copyProj);
+    return;
+  }
+  const copyDoc = e.target.closest('[data-projects-copy-doc]');
+  if (copyDoc) {
+    const pid = copyDoc.dataset.projectId;
+    const did = copyDoc.dataset.projectsCopyDoc;
+    copyToClipboard(`${window.location.origin}${window.location.pathname}#projects/${pid}/doc/${did}`, copyDoc);
+    return;
+  }
+  const setProj = e.target.closest('[data-projects-set-project-status]');
+  if (setProj) {
+    onSetProjectStatus(setProj.dataset.projectId, setProj.dataset.projectsSetProjectStatus);
+    return;
+  }
+  const delProj = e.target.closest('[data-projects-delete-project]');
+  if (delProj) {
+    onDeleteProject(delProj.dataset.projectsDeleteProject);
+    return;
+  }
+
+  // Doc actions (inside expanded row)
+  const statusBtn = e.target.closest('[data-projects-doc-status]');
+  if (statusBtn) { onDocStatusClick(statusBtn); return; }
+  const returnBtn = e.target.closest('[data-projects-doc-return]');
+  if (returnBtn) { onDocReturnClick(returnBtn); return; }
+  const cmtBtn = e.target.closest('[data-projects-doc-comment]');
+  if (cmtBtn) { onDocCommentClick(cmtBtn); return; }
+  const delBtn = e.target.closest('[data-projects-doc-delete]');
+  if (delBtn) { onDocDeleteClick(delBtn); return; }
+
+  // Expand toggle — anywhere on the row except action buttons / dropdowns
+  if (e.target.closest('button, a, .dropdown-menu, label, input')) return;
+  const found = findRowDoc(e.target);
+  if (!found) return;
+  toggleExpand(found.doc.id);
 }
 
-// ---------- per-doc actions ----------
+function onTableChange(e) {
+  const addFiles = e.target.closest('[data-projects-add-files]');
+  if (addFiles) { onDocAddFiles(e, addFiles.dataset.projectsAddFiles); return; }
+  const replace = e.target.closest('[data-replace-for-file]');
+  if (replace) { onReplaceFile(e, replace.dataset.replaceForFile, replace.closest('[data-projects-files-for]')?.dataset.projectsFilesFor); return; }
+}
 
-async function onDocStatusClick(btn, project) {
+function toggleExpand(docId) {
+  if (expanded.has(docId)) expanded.delete(docId);
+  else expanded.add(docId);
+  render();
+}
+
+async function onSetProjectStatus(projectId, next) {
+  try {
+    await updateProject(projectId, { status: next });
+    onChanged();
+  } catch (e) { alert(e.message || 'อัปเดตไม่สำเร็จ'); }
+}
+
+async function onDeleteProject(projectId) {
+  const p = findProjectById(projectId);
+  if (!p) return;
+  if (!confirm(`ลบโครงการ "${p.name}" และหนังสือทั้งหมดในนี้? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  try { await deleteProject(projectId); onChanged(); }
+  catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
+}
+
+// ---------- doc actions ----------
+
+async function onDocStatusClick(btn) {
   const docId = btn.dataset.docId;
   const next  = btn.dataset.projectsDocStatus;
+  const found = findRowDocById(docId);
+  if (!found) return;
+  const { project } = found;
   const user = getUser();
   const role = cache.role;
   const note = ({
@@ -686,13 +701,10 @@ async function onDocStatusClick(btn, project) {
       action: next,
       note,
     }, patch);
-
-    // Notify the other side. uni_staff actions ping VP-Admin via Discord;
-    // VP-Admin "cancel" pings uni_staff in-app.
     const doc = await getDocument(docId).catch(() => null);
     if (role === 'uni_staff') {
       await notifyVpAdmin({
-        kind: next === 'completed' ? 'completed' : next === 'cancelled' ? 'status' : 'status',
+        kind: next === 'completed' ? 'completed' : 'status',
         project, document: doc,
         body: `${note} (หนังสือ ${doc?.sequence_no || ''} · ${doc?.title || ''})`,
       });
@@ -708,8 +720,11 @@ async function onDocStatusClick(btn, project) {
   } catch (e) { alert(e.message || 'อัปเดตสถานะไม่สำเร็จ'); }
 }
 
-async function onDocReturnClick(btn, project) {
+async function onDocReturnClick(btn) {
   const docId = btn.dataset.docId;
+  const found = findRowDocById(docId);
+  if (!found) return;
+  const { project } = found;
   const reason = prompt('เหตุผลที่ส่งกลับให้ SAMO แก้ไข:');
   if (!reason || !reason.trim()) return;
   const user = getUser();
@@ -720,7 +735,6 @@ async function onDocReturnClick(btn, project) {
       action: 'returned',
       note: reason.trim(),
     }, { status: 'returned', return_reason: reason.trim() });
-
     const doc = await getDocument(docId).catch(() => null);
     await notifyVpAdmin({
       kind: 'returned',
@@ -732,8 +746,11 @@ async function onDocReturnClick(btn, project) {
   } catch (e) { alert(e.message || 'ส่งกลับไม่สำเร็จ'); }
 }
 
-async function onDocCommentClick(btn, project) {
+async function onDocCommentClick(btn) {
   const docId = btn.dataset.docId;
+  const found = findRowDocById(docId);
+  if (!found) return;
+  const { project } = found;
   const text = prompt('คอมเมนต์ / โน้ตเพิ่มเติม:');
   if (!text || !text.trim()) return;
   const user = getUser();
@@ -754,22 +771,23 @@ async function onDocCommentClick(btn, project) {
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
 
-async function onDocDeleteClick(btn, project) {
+async function onDocDeleteClick(btn) {
   const docId = btn.dataset.docId;
   if (!confirm('ลบหนังสือฉบับนี้และไฟล์แนบทั้งหมด? การกระทำนี้ย้อนกลับไม่ได้')) return;
   try {
     await deleteDocument(docId);
-    if (selectedDocumentId === docId) selectedDocumentId = null;
+    expanded.delete(docId);
     onChanged();
   } catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
 }
 
-async function onDocAddFiles(e, docId, project) {
-  const input = e.currentTarget;
+async function onDocAddFiles(e, docId) {
+  const input = e.currentTarget || e.target;
   const files = Array.from(input.files || []);
   if (files.length === 0) return;
-  const doc = (project.documents || []).find((d) => d.id === docId);
-  if (!doc) return;
+  const found = findRowDocById(docId);
+  if (!found) return;
+  const { doc, project } = found;
   const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
   const user = getUser();
   try {
@@ -807,12 +825,12 @@ async function onDocAddFiles(e, docId, project) {
 }
 
 async function onReplaceFile(e, oldFileId, docId) {
-  const input = e.currentTarget;
+  const input = e.currentTarget || e.target;
   const f = input.files?.[0];
   if (!f) return;
-  const project = cache.projects.find((p) => p.id === selectedProjectId);
-  const doc = (project?.documents || []).find((d) => d.id === docId);
-  if (!project || !doc) return;
+  const found = findRowDocById(docId);
+  if (!found) return;
+  const { doc, project } = found;
   const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
   const user = getUser();
   try {
@@ -848,13 +866,106 @@ async function onReplaceFile(e, oldFileId, docId) {
   }
 }
 
+function findRowDocById(docId) {
+  for (const p of cache.projects) {
+    const d = (p.documents || []).find((x) => x.id === docId);
+    if (d) return { doc: d, project: p };
+  }
+  return null;
+}
+
+// ---------- files (lazy load per expanded row) ----------
+
+async function loadFilesForDoc(docId) {
+  const wrap = document.getElementById(`projectsFilesList-${docId}`);
+  if (!wrap) return;
+  try {
+    const files = await listFiles(docId, { includeSuperseded: true });
+    if (files.length === 0) {
+      wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
+      return;
+    }
+    const supersedeFrom = new Map();
+    for (const f of files) {
+      if (f.superseded_by != null) {
+        const arr = supersedeFrom.get(f.superseded_by) || [];
+        arr.push(f);
+        supersedeFrom.set(f.superseded_by, arr);
+      }
+    }
+    const role = cache.role;
+    const isVp = role === 'vp_admin' || role === 'dev';
+    const active = files.filter((f) => f.superseded_by == null);
+    wrap.innerHTML = active.map((f) => renderFileRow(f, supersedeFrom.get(f.id) || [], isVp)).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
+  } catch (e) {
+    wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
+  }
+}
+
+function renderFileRow(f, superseded, isVp) {
+  const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
+  const icon = iconForExt(ext);
+  return `
+    <div class="projects-file">
+      <i class="bi ${icon} projects-file-icon"></i>
+      <div class="projects-file-info">
+        <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
+        <div class="projects-file-meta">
+          <span>${escHtml(fmtBytes(f.size_bytes))}</span>
+          <span>·</span>
+          <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
+          ${superseded.length ? `<span>·</span><span class="text-warning">v${superseded.length + 1}</span>` : ''}
+        </div>
+      </div>
+      ${isVp ? `<label class="btn btn-sm btn-ghost">
+        <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
+        <input type="file" hidden data-replace-for-file="${f.id}" />
+      </label>` : ''}
+      ${superseded.length ? `
+        <details class="projects-file-history">
+          <summary>เวอร์ชันก่อนหน้า (${superseded.length})</summary>
+          ${superseded.map((old) => `
+            <div class="projects-file-old">
+              <i class="bi bi-clock-history me-1"></i>
+              <a href="${safeUrl(old.drive_view_url)}" target="_blank" rel="noopener">${escHtml(old.file_name)}</a>
+              <span class="text-muted small ms-2">${escHtml(fmtDateTime(old.uploaded_at))}</span>
+            </div>
+          `).join('')}
+        </details>
+      ` : ''}
+    </div>
+  `;
+}
+
+function iconForExt(ext) {
+  if (['pdf'].includes(ext)) return 'bi-file-earmark-pdf';
+  if (['doc','docx'].includes(ext)) return 'bi-file-earmark-word';
+  if (['xls','xlsx','csv'].includes(ext)) return 'bi-file-earmark-spreadsheet';
+  if (['ppt','pptx'].includes(ext)) return 'bi-file-earmark-slides';
+  if (['png','jpg','jpeg','webp','gif'].includes(ext)) return 'bi-file-earmark-image';
+  if (['zip','rar','7z'].includes(ext)) return 'bi-file-earmark-zip';
+  return 'bi-file-earmark';
+}
+
 function showFilesBusy(docId, msg) {
   const wrap = document.getElementById(`projectsFilesList-${docId}`);
   if (wrap) wrap.innerHTML = `<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>${escHtml(msg)}</div>`;
+}
+
+// ---------- utils ----------
+
+async function copyToClipboard(url, srcEl) {
+  try { await navigator.clipboard.writeText(url); flash(srcEl, 'คัดลอกแล้ว'); }
+  catch { window.prompt('คัดลอกลิงก์:', url); }
 }
 
 function flash(el, text) {
   const original = el.innerHTML;
   el.innerHTML = `<i class="bi bi-check2 me-1"></i>${escHtml(text)}`;
   setTimeout(() => { el.innerHTML = original; }, 1400);
+}
+
+function cssEsc(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/["\\]/g, '\\$&');
 }
