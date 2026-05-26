@@ -1,11 +1,12 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 
 ## Branches
 
 `main` at `3fc7cd4` (PR #7 merge). `refactor/modular` at `b4d7048`
-(PR #9 merge — UI/font/colour refresh). Branch ruleset `main-protect`
+(PR #9 merge — UI/font/colour refresh) **plus uncommitted SAMO Shop
+work** (see "Currently working" below). Branch ruleset `main-protect`
 is active — direct push to `main` requires you to be in the Bypass
 list; otherwise opens a PR (which is what the colleague will do).
 
@@ -19,9 +20,71 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 `index.html` (took the slim refactor version over main's 2700-line monolith).
 `functions/api/submit.js` deleted — refactor talks to Supabase directly.
 
-## Currently working
+## Currently working — SAMO Shop feature (2026-05-26)
 
-Nothing active.
+Ported the Claude Design SAMO Shop handoff bundle into the portal as a
+new tab + admin section. Vanilla JS + Bootstrap (matches the rest of the
+codebase), real Supabase backend, slip + product images uploaded to
+organised Drive folders via a new GAS action.
+
+**New files**:
+- `supabase/migrations/0003_samoshop_schema.sql` — shop_products,
+  shop_orders, shop_order_items, shop_pickup_batches, shop_settings;
+  RLS policies; new `shop_admin` role; helper
+  `current_user_is_shop_admin()`.
+- `supabase/migrations/0004_seed_shop_admin.sql` — reserves
+  `samomdkkushop` username (mirrors the 0002 pattern).
+- `src/js/shop/{data,api,state,uploads,products,cart,checkout,orders,admin,index}.js`
+  — feature lives in one folder, lazy-loaded on first tab show.
+- `src/html/tab-shop.html`, `modal-shop-product.html`,
+  `offcanvas-shop-cart.html`, `modal-shop-order-detail.html`.
+- `src/css/shop.css` — all rules scoped under `.shop-tab`.
+
+**Edited files**:
+- `appscript/prform.gs` — new `uploadShopFile` action with `folderPath`
+  param, walks/creates nested folders under My Drive, allow-listed to
+  `SAMO_Shop/...`. **GAS redeploy required** — see
+  `skills/deploy-gas.md`.
+- `src/html/tab-admin.html` — added SAMO Shop landing card +
+  `#adminShopSection` (orders / verify / batches / products / QR).
+- `src/html/navbar.html` — added "ร้านค้า" pill (desktop + mobile).
+- `index.html` — included the new partials.
+- `src/main.css` — `@import './css/shop.css';`.
+- `src/js/main.js` — `import { initShop, openShopAdmin } …`; broadened
+  `isStaffRole` to include `shop_admin`; admin auto-route handles
+  `shop_admin`; `openAdminSection('shop')` calls `openShopAdmin()`.
+- `src/js/auth.js` — added `samomdkkushop` to reserved usernames list.
+- `README.md` "Key features" + `docs/CONTEXT.md` (architecture, schema,
+  RLS, Drive folder layout).
+
+**Drive layout** (created lazily on first upload):
+```
+My Drive/
+├── PR_Submissions/                 ← unchanged
+└── SAMO_Shop/
+    ├── Slips/YYYY-MM/<buyerId>_<ts>.jpg
+    ├── Products/<productId>/<name>_<ts>.jpg
+    └── QR/promptpay_<ts>.png
+```
+
+**Manual steps to ship**:
+1. Apply `0003_samoshop_schema.sql` + `0004_seed_shop_admin.sql` in the
+   Supabase SQL editor (in that order).
+2. Create `samomdkkushop` in Supabase Dashboard → Authentication → Add
+   user (synthetic email `samomdkkushop@samomdkku.app`), then
+   `update public.users set role='shop_admin' where email='samomdkkushop@samomdkku.app';`.
+3. Redeploy the `prform` GAS project so `uploadShopFile` is live (see
+   `skills/deploy-gas.md`).
+4. Sign in as `samomdkkushop` → Admin → SAMO Shop → set PromptPay name,
+   id, instructions, and upload a QR image. Add a few products. Then
+   smoke a guest flow (browse → add to cart → checkout → upload slip →
+   appears in admin Verify queue).
+
+**Not in scope this round**:
+- Discord notification on new order — easy to add later via the existing
+  GAS `notifyPROnly` shape.
+- Real PromptPay EMVCo dynamic QR — admin uploads a static PNG instead;
+  cheaper to maintain and matches the design.
 
 ## Most recent merge
 

@@ -23,9 +23,10 @@ Browser (Cloudflare Pages-hosted SPA)
   │     ↳ Google OAuth + email/password (synthetic emails)
   │
   └─→ GAS /exec (legacy proxy)               ── narrow & specific
-        ↳ uploadPRFile  → writes to Google Drive
-        ↳ notifyPROnly  → fires Discord webhook
-        ↳ notifyVSOnly  / notifyVSConsult → fires Discord webhooks
+        ↳ uploadPRFile   → writes to Google Drive (PR_Submissions/)
+        ↳ uploadShopFile → writes to Drive at SAMO_Shop/<nested path>
+        ↳ notifyPROnly   → fires Discord webhook
+        ↳ notifyVSOnly   / notifyVSConsult → fires Discord webhooks
 ```
 
 GAS is intentionally minimal post-migration. Drops to 104 + 154 lines.
@@ -52,7 +53,21 @@ src/js/
 ├── notify.js            ─ Discord webhook fire-and-forget (via GAS)
 ├── uploads.js           ─ Drive upload via GAS uploadPRFile
 ├── config.js            ─ GAS_API_URL + GAS_VITAL_SOUND_URL (prod)
-└── utils.js             ─ formatThaiDate, renderTimeline, decodeJwtResponse
+├── utils.js             ─ formatThaiDate, renderTimeline, decodeJwtResponse,
+│                          escHtml, safeUrl
+└── shop/                ─ SAMO Shop feature (browse, cart, checkout, orders,
+    │                       admin). Lazy-loads its data on first tab-show.
+    ├── index.js          ─ initShop() entry; sub-nav, FAB, auth subscriber
+    ├── data.js           ─ SHOP_SOURCES / SHOP_TYPES / STAGES_*; thb, fmtDate
+    ├── api.js            ─ dbRest CRUD: products, orders+items, batches, settings
+    ├── state.js          ─ cart store (localStorage), subscribers
+    ├── uploads.js        ─ uploadShopFile(file, folderPath) — Drive via GAS
+    ├── products.js       ─ browse grid, filter bar, launch strip, detail modal
+    ├── cart.js           ─ offcanvas cart drawer + floating FAB
+    ├── checkout.js       ─ checkout panel, slip upload, place-order
+    ├── orders.js         ─ "My Orders" timeline, status filter, pickup callout
+    └── admin.js          ─ orders table, slip-verify queue, batches CRUD,
+                            product CRUD, QR settings (mounts into tab-admin)
 
 src/html/                ─ Vite HTML partials. index.html includes them.
 src/css/                 ─ Bootstrap + brand vars in base.css + topic CSS files.
@@ -92,8 +107,45 @@ pr_agents (id integer PK = 1 [single-row config table], agents text[],
            updated_at)
 
 reserved_staff_usernames (username PK, role, email, created_at)
-  ↳ Lists samomdkkupr / samomdkkuvssound / samomdkkudev for the migrator
+  ↳ Lists samomdkkupr / samomdkkuvssound / samomdkkushop / samomdkkudev
+    for the migrator. Role check allows pr_staff, vs_staff, shop_admin, dev.
 ```
+
+### SAMO Shop (canonical: `0003_samoshop_schema.sql`, `0004_seed_shop_admin.sql`)
+
+```
+shop_products (text id PK, name, sub, description, type, source,
+               price, sizes text[], colors jsonb, fits text[],
+               hue, image_url, is_new, is_presale, presale_note,
+               popularity, is_active, stock_matrix jsonb,
+               added_at, created_by FK users(id), updated_at)
+  ↳ source IN ('project','fund','rt','mdi','merch')
+
+shop_orders (text id PK ["SS-YY-NNNNN"], buyer_id FK users(id),
+             buyer_label, status, subtotal, fee, total,
+             slip_url, slip_uploaded_at,
+             pickup_location, pickup_batch_id FK shop_pickup_batches(id),
+             buyer_note, admin_note, cancel_reason,
+             timeline jsonb, placed_at, updated_at)
+  ↳ status IN ('pending','review','paid','produce','ready','done','cancel')
+
+shop_order_items (bigserial id PK, order_id FK shop_orders(id) CASCADE,
+                  product_id FK shop_products(id) RESTRICT,
+                  size, color, fit, qty, unit_price)
+
+shop_pickup_batches (bigserial id PK, title, product_ids text[],
+                     location, dates text[], hours, note,
+                     contact_gmail, contact_instagram, is_active,
+                     created_by FK users(id), created_at, updated_at)
+
+shop_settings (id integer PK = 1 [single-row config], promptpay_name,
+               promptpay_id, promptpay_qr_url, instructions,
+               contact_gmail, contact_instagram, updated_at)
+```
+
+Also: `users.role` check constraint expanded to admit `shop_admin`.
+Helper `public.current_user_is_shop_admin()` returns true for
+`shop_admin` or `dev`.
 
 ## RLS policies (canonical: same migration file)
 
@@ -106,9 +158,19 @@ reserved_staff_usernames (username PK, role, email, created_at)
   (guest submissions). UPDATE / DELETE for staff/dev only.
 - **vs_tickets**: same shape as pr_tickets (insert-open, mutate-staff).
 - **pr_agents**: any staff role read; pr_staff/dev write.
+- **shop_products / shop_pickup_batches**: public SELECT when
+  `is_active = true`; admin (shop_admin or dev) full write.
+- **shop_orders**: SELECT for buyer (own rows) or admin. INSERT requires
+  `buyer_id = auth.uid()`. UPDATE allowed for admin always; allowed for
+  buyer only while status is `pending` or `review` (used for re-uploading
+  a slip). DELETE admin-only.
+- **shop_order_items**: read/insert piggy-back on parent order's policy.
+- **shop_settings**: public SELECT (so checkout can show the QR); admin
+  write only.
 
 Helper SQL functions: `current_user_role()`, `current_user_is_staff()`
-(both `security definer set search_path = public`).
+(both `security definer set search_path = public`); plus
+`current_user_is_shop_admin()` added in 0003.
 
 ## Auth model details
 
@@ -153,10 +215,33 @@ Build config on both:
 
 ### Apps Script projects (2)
 
-- `prform` — owns the `PR_Submissions` Drive folder + PR-team Discord webhook
+- `prform` — owns the `PR_Submissions` Drive folder + PR-team Discord webhook +
+  the SAMO Shop Drive tree (`SAMO_Shop/Slips/...`, `SAMO_Shop/Products/...`,
+  `SAMO_Shop/QR/`). Add a new file-upload destination by passing a new
+  `folderPath` prefix to `uploadShopFile`.
 - `vssound` — owns the per-dept Discord webhook map
 
 Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
+
+### Drive folder layout (lazily created by GAS on first upload)
+
+```
+My Drive/
+├── PR_Submissions/                ← PR ticket attachments (uploadPRFile)
+└── SAMO_Shop/                     ← Shop assets (uploadShopFile)
+    ├── Slips/
+    │   └── YYYY-MM/               ← monthly partition: keeps any one folder
+    │                                  well under Drive's per-folder cap
+    │       └── <buyerId>_<ts>.jpg
+    ├── Products/
+    │   └── <productId>/
+    │       └── <name>_<ts>.jpg
+    └── QR/
+        └── promptpay_<ts>.png     ← admin-uploaded PromptPay scan
+```
+
+`uploadShopFile` is allow-listed: it only writes under `SAMO_Shop/...` and
+rejects `..` segments. Folders are created lazily on first write.
 
 ### Supabase project
 
@@ -165,7 +250,8 @@ Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 - Auth providers enabled: Email (synthetic), Google OAuth
 - URL Configuration must include both Cloudflare URLs + localhost
 - Migrations applied: `supabase/migrations/0001_initial_schema.sql` +
-  `0002_seed_staff_accounts.sql`
+  `0002_seed_staff_accounts.sql` +
+  `0003_samoshop_schema.sql` + `0004_seed_shop_admin.sql`
 
 ---
 

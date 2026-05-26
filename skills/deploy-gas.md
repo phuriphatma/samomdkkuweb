@@ -42,9 +42,12 @@ For each `.gs` file that changed:
 
 ## What the slim .gs files expose
 
-`prform.gs` (104 lines):
-- `uploadPRFile` action — base64-uploads an image to Drive `PR_Submissions/`
-- `notifyPROnly` action — fires the PR-team Discord webhook
+`prform.gs`:
+- `uploadPRFile`   action — base64-uploads an image to Drive `PR_Submissions/`
+- `uploadShopFile` action — base64-uploads to `SAMO_Shop/<nested path>`
+  (allow-listed; lazily creates folders). Used by the SAMO Shop module
+  for slips, product photos, and the PromptPay QR.
+- `notifyPROnly`   action — fires the PR-team Discord webhook
 - All legacy actions removed (`submitPR`, `trackPR`, etc. — Supabase handles those)
 
 `vssound.gs` (154 lines):

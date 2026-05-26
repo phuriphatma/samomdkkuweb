@@ -21,6 +21,7 @@ import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openP
 import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction } from './vs-staff.js';
+import { initShop, openShopAdmin } from './shop/index.js';
 
 // ==============================================
 // QUILL SETUP
@@ -187,21 +188,25 @@ window.samoPasswordSignIn = async () => {
   }
 };
 
-// Admin tab navigation — landing + PR/VS sub-sections.
+// Admin tab navigation — landing + PR/VS/Shop sub-sections.
 window.showAdminLanding = () => {
   document.getElementById('adminLanding')?.classList.remove('d-none');
   document.getElementById('adminPRSection')?.classList.add('d-none');
   document.getElementById('adminVSSection')?.classList.add('d-none');
+  document.getElementById('adminShopSection')?.classList.add('d-none');
 };
 
 window.openAdminSection = async (which) => {
   document.getElementById('adminLanding')?.classList.add('d-none');
   document.getElementById('adminPRSection')?.classList.toggle('d-none', which !== 'pr');
   document.getElementById('adminVSSection')?.classList.toggle('d-none', which !== 'vs');
+  document.getElementById('adminShopSection')?.classList.toggle('d-none', which !== 'shop');
   if (which === 'pr') {
     await enterPRStaffDashboard();
   } else if (which === 'vs') {
     await enterVSStaffDashboard();
+  } else if (which === 'shop') {
+    await openShopAdmin();
   }
 };
 
@@ -388,6 +393,7 @@ document.addEventListener('shown.bs.tab', (e) => {
     if (landingVisible) {
       if (role === 'pr_staff') window.openAdminSection('pr');
       else if (role === 'vs_staff') window.openAdminSection('vs');
+      else if (role === 'shop_admin') window.openAdminSection('shop');
     }
   }
 });
@@ -481,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('mobileAuthSignedIn')?.classList.toggle('d-none', !user);
 
     // Role-gated nav items + admin landing cards
-    const isStaffRole = role === 'pr_staff' || role === 'vs_staff' || role === 'dev';
+    const isStaffRole = role === 'pr_staff' || role === 'vs_staff' || role === 'shop_admin' || role === 'dev';
     document.getElementById('navAdminItem')?.classList.toggle('d-none', !isStaffRole);
     document.getElementById('mobileAdminItem')?.classList.toggle('d-none', !isStaffRole);
     document.querySelectorAll('[data-role-only]').forEach((el) => {
@@ -582,4 +588,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize PR form event listeners
   initPrForm();
+
+  // Initialize the SAMO Shop tab. Wires the sub-nav, cart FAB, and lazy
+  // loaders. Data is only fetched when the user actually opens the tab.
+  initShop();
 });

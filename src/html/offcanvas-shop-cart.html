@@ -1,0 +1,35 @@
+  <!-- Shop cart offcanvas (right-slide). Bootstrap manages show/hide. -->
+  <div class="offcanvas offcanvas-end shop-tab" tabindex="-1" id="shopCartOffcanvas"
+       aria-labelledby="shopCartOffcanvasLabel" style="width: min(440px, 100vw);">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="shopCartOffcanvasLabel">
+        <i class="bi bi-bag me-2 text-accent"></i> ตะกร้าของคุณ
+      </h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column" style="height: calc(100vh - 67px);">
+      <div id="shopCartEmpty" class="cart-empty">
+        <i class="bi bi-bag"></i>
+        <p class="mt-3 mb-1">ตะกร้าของคุณว่างอยู่</p>
+        <p class="small text-muted">เลือกสินค้าจากด้านบนเพื่อเริ่มช้อปปิ้ง</p>
+      </div>
+      <div id="shopCartList" class="flex-grow-1 d-none" style="overflow-y:auto;"></div>
+      <div id="shopCartFooter" class="pt-3 d-none">
+        <div class="cart-total-row">
+          <span>ยอดสินค้า</span>
+          <span id="shopCartSubtotalLabel">฿0</span>
+        </div>
+        <div class="cart-total-row">
+          <span>ค่าจัดส่ง</span>
+          <span class="text-muted">รับเองที่จุดนัดรับ — ฟรี</span>
+        </div>
+        <div class="cart-total-row grand">
+          <span>ยอดรวม</span>
+          <span class="amount" id="shopCartGrandLabel">฿0</span>
+        </div>
+        <button type="button" class="btn btn-shop w-100 mt-3" id="shopCartCheckoutBtn">
+          <i class="bi bi-qr-code me-1"></i> ชำระเงิน · สแกน PromptPay
+        </button>
+      </div>
+    </div>
+  </div>

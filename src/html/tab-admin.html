@@ -35,6 +35,19 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+
+              <!-- SAMO Shop Management — shop_admin or dev -->
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="shop_admin dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
+                  onclick="openAdminSection('shop')">
+                  <span class="admin-card-icon"><i class="bi bi-shop"></i></span>
+                  <div class="admin-card-body">
+                    <h5>SAMO Shop Management</h5>
+                    <p>คำสั่งซื้อ ตรวจสลิป สินค้า ประกาศการรับสินค้า และตั้งค่า PromptPay</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -128,6 +141,155 @@
               </div>
               <div id="staffTicketList" class="row g-3"></div>
             </div>
+          </div>
+
+          <!-- ====== SHOP SECTION ====== -->
+          <div id="adminShopSection" class="d-none shop-tab">
+            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
+              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
+            </button>
+
+            <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-3">
+              <div>
+                <h2 class="shop-page-title">SAMO Shop · Admin</h2>
+                <p class="shop-page-sub mb-0">จัดการคำสั่งซื้อ ตรวจสอบสลิป และประกาศรับสินค้า</p>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                <i class="bi bi-shield-check me-1"></i> shop_admin
+              </span>
+            </div>
+
+            <div class="admin-tabs" id="shopAdminTabs">
+              <button data-shop-admin-tab="orders"   class="is-active"><i class="bi bi-list-check me-1"></i> คำสั่งซื้อ</button>
+              <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
+              <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
+              <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
+              <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
+            </div>
+
+            <div data-shop-admin-pane="orders">
+              <div id="shopAdminStats" class="admin-stats"></div>
+              <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                <select id="shopAdminOrdersStatus" class="form-select form-select-sm" style="max-width:200px;">
+                  <option value="all">สถานะทั้งหมด</option>
+                </select>
+                <div class="input-group input-group-sm" style="max-width:260px;">
+                  <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                  <input id="shopAdminOrdersSearch" class="form-control" placeholder="ค้นหารหัสคำสั่งซื้อ / ชื่อ" />
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                  <button class="btn btn-ghost btn-sm" id="shopAdminOrdersRefresh">
+                    <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                  </button>
+                </div>
+              </div>
+              <div class="admin-table">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>คำสั่งซื้อ</th>
+                      <th>ลูกค้า</th>
+                      <th>สินค้า</th>
+                      <th>ยอดรวม</th>
+                      <th>สลิป</th>
+                      <th>สถานะ</th>
+                      <th style="width:60px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopAdminOrdersTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div data-shop-admin-pane="verify" class="d-none">
+              <div id="shopAdminVerifyHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="batches" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">ประกาศการรับสินค้า</h5>
+                  <p class="text-muted mb-0 small">ประกาศเมื่อมี batch สินค้าผลิตเสร็จ ระบุจุดและวันรับ</p>
+                </div>
+                <button class="btn btn-shop btn-sm" id="shopAdminBatchesNew">
+                  <i class="bi bi-plus-lg me-1"></i> สร้างประกาศใหม่
+                </button>
+              </div>
+              <div id="shopAdminBatchesCreator"></div>
+              <div id="shopAdminBatchesList"></div>
+            </div>
+
+            <div data-shop-admin-pane="products" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">สินค้าทั้งหมด</h5>
+                  <p class="text-muted mb-0 small">เพิ่ม/แก้ไข/ปิดการขายสินค้า</p>
+                </div>
+                <button class="btn btn-shop btn-sm" id="shopAdminProductsNew">
+                  <i class="bi bi-plus-lg me-1"></i> เพิ่มสินค้าใหม่
+                </button>
+              </div>
+              <div id="shopAdminProductEditor"></div>
+              <div class="admin-table">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>สินค้า</th>
+                      <th>แหล่งที่มา</th>
+                      <th>ราคา</th>
+                      <th>ไซส์ × สี</th>
+                      <th>สถานะ</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopAdminProductsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div data-shop-admin-pane="qr" class="d-none">
+              <div class="admin-detail-card" style="max-width:720px;">
+                <h5><i class="bi bi-qr-code me-2 text-accent"></i> ตั้งค่า PromptPay สำหรับการชำระเงิน</h5>
+                <p class="text-muted small">ทุกคำสั่งซื้อจะใช้ QR เดียวกัน ลูกค้าโอนแล้วอัปโหลดสลิปให้ admin ตรวจ</p>
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">ชื่อผู้รับเงิน</label>
+                    <input id="shopAdminQRName" class="form-control" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">PromptPay (เบอร์ / เลขผู้เสียภาษี)</label>
+                    <input id="shopAdminQRId" class="form-control font-mono" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">รูป QR (อัปโหลดสแกนของจริง)</label>
+                    <div class="slip-thumb" id="shopAdminQRPreview" style="height:220px;">
+                      <div class="text-center">
+                        <i class="bi bi-qr-code fs-1 text-muted"></i>
+                        <div class="mt-1">ยังไม่ได้อัปโหลด</div>
+                      </div>
+                    </div>
+                    <label class="btn btn-ghost btn-sm mt-2 mb-0">
+                      <i class="bi bi-cloud-upload me-1"></i> อัปโหลดไฟล์ใหม่
+                      <input id="shopAdminQRFile" type="file" accept="image/*" hidden />
+                    </label>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">คำสั่งให้ลูกค้า (แสดงในหน้า checkout)</label>
+                    <textarea id="shopAdminQRInstructions" class="form-control" rows="6"></textarea>
+                    <label class="small text-muted mt-3 mb-1">Gmail ติดต่อ</label>
+                    <input id="shopAdminQRContactGmail" class="form-control" />
+                    <label class="small text-muted mt-2 mb-1">Instagram</label>
+                    <input id="shopAdminQRContactInstagram" class="form-control" />
+                  </div>
+                </div>
+                <div class="text-end mt-3">
+                  <button class="btn btn-shop" id="shopAdminQRSave">
+                    <i class="bi bi-save me-1"></i> บันทึก
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>

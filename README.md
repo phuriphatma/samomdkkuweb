@@ -21,9 +21,14 @@ Both Cloudflare projects hit the same Supabase backend.
   remarks thread, and cross-department consult/transfer for staff.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
+- **SAMO Shop.** Product catalogue (filter by source / type, sort, search),
+  cart with localStorage persistence, checkout with static PromptPay QR +
+  slip upload to Drive, order timeline (pending → review → paid → produce →
+  ready → done), pickup-batch announcements, and full admin (orders table,
+  slip-verify queue, batches, product CRUD, QR settings).
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
-  regular user, `pr_staff`, `vs_staff`, `dev`. Role gates the Admin tab and
-  dev-only flags like silent Discord notify.
+  regular user, `pr_staff`, `vs_staff`, `shop_admin`, `dev`. Role gates the
+  Admin tab and dev-only flags like silent Discord notify.
 
 ## Tech stack
 
