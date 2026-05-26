@@ -205,27 +205,40 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.projects-tab .projects-card-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.projects-tab .projects-card-stat {
+.projects-tab .projects-card-attn-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: var(--p-line-soft);
-  color: var(--p-muted);
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  align-self: flex-start;
 }
-.projects-tab .projects-card-stat.is-mine    { background: var(--p-warn-soft);   color: var(--p-warn); font-weight: 700; }
-.projects-tab .projects-card-stat.is-info    { background: var(--p-info-soft);   color: var(--p-info); }
-.projects-tab .projects-card-stat.is-warn    { background: var(--p-warn-soft);   color: var(--p-warn); }
-.projects-tab .projects-card-stat.is-danger  { background: var(--p-danger-soft); color: var(--p-danger); }
-.projects-tab .projects-card-stat.is-ok      { background: var(--p-ok-soft);     color: var(--p-ok); }
+.projects-tab .projects-card-attn-badge.is-new {
+  background: var(--p-warn);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+  animation: projects-pulse-warn 2.2s ease-in-out infinite;
+}
+.projects-tab .projects-card-attn-badge.is-return {
+  background: var(--p-danger);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+@keyframes projects-pulse-warn {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); box-shadow: 0 2px 14px rgba(217, 119, 6, 0.5); }
+}
+
+.projects-tab .projects-card-foot-stat {
+  display: inline-flex;
+  align-items: center;
+  color: var(--p-muted);
+  font-size: 0.78rem;
+}
 
 .projects-tab .projects-card-foot {
   display: flex;

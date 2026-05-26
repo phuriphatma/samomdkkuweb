@@ -112,18 +112,6 @@ function lastActivityTime(p) {
   return t;
 }
 
-function projectStatusCounts(p) {
-  const docs = p.documents || [];
-  return {
-    total: docs.length,
-    sent:        docs.filter((d) => d.status === 'sent').length,
-    inflight:    docs.filter((d) => ['received', 'in_progress'].includes(d.status)).length,
-    returned:    docs.filter((d) => d.status === 'returned').length,
-    completed:   docs.filter((d) => d.status === 'completed').length,
-    mine:        docs.filter((d) => isMine(d, cache.role)).length,
-  };
-}
-
 // ---------- mounting ----------
 
 export function mountInbox({ onChanged: changed, onAddDocument }) {
@@ -272,10 +260,34 @@ function renderGrid() {
 }
 
 function renderProjectCard(p) {
-  const meta = PROJECT_STATUS_META[p.status] || PROJECT_STATUS_META.open;
-  const s = projectStatusCounts(p);
-  const bucket = projectBucket(p, cache.role);
+  const role = cache.role;
+  const docs = p.documents || [];
+  const total    = docs.length;
+  const sent     = docs.filter((d) => d.status === 'sent').length;
+  const returned = docs.filter((d) => d.status === 'returned').length;
+  const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
+
+  // One attention badge per role. Card stays minimal otherwise — drill in
+  // to see per-status detail. Notifications fan out via notifyUniStaff /
+  // notifyVpAdmin so the badge count auto-updates on the next refresh
+  // when more docs are sent.
+  let badge = '';
+  if (role === 'uni_staff' && sent > 0) {
+    badge = `<span class="projects-card-attn-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">
+      <i class="bi bi-bell-fill"></i> ${sent} ใหม่
+    </span>`;
+  } else if (role === 'vp_admin' && returned > 0) {
+    badge = `<span class="projects-card-attn-badge is-return" title="หนังสือถูกตีกลับ ต้องแก้ไข">
+      <i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ
+    </span>`;
+  } else if (role === 'dev') {
+    const parts = [];
+    if (sent > 0)     parts.push(`<span class="projects-card-attn-badge is-new"><i class="bi bi-bell-fill"></i> ${sent} ใหม่</span>`);
+    if (returned > 0) parts.push(`<span class="projects-card-attn-badge is-return"><i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ</span>`);
+    badge = parts.join(' ');
+  }
+
   return `
     <button type="button" class="projects-card-grid is-bucket-${bucket}" data-projects-open-project="${escHtml(p.id)}">
       <div class="projects-card-head">
@@ -284,18 +296,11 @@ function renderProjectCard(p) {
           <div class="projects-card-name">${escHtml(p.name)}</div>
           <div class="projects-card-id">${escHtml(p.id)}</div>
         </div>
-        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
+        ${badge}
       </div>
       ${p.description ? `<div class="projects-card-desc">${escHtml(p.description)}</div>` : ''}
-      <div class="projects-card-stats">
-        <span class="projects-card-stat" title="หนังสือทั้งหมด"><i class="bi bi-files"></i> ${s.total}</span>
-        ${s.mine ? `<span class="projects-card-stat is-mine" title="ของฉัน"><i class="bi bi-exclamation-circle-fill"></i> ${s.mine} ของฉัน</span>` : ''}
-        ${s.sent ? `<span class="projects-card-stat is-info" title="ส่งแล้ว / รอรับ"><i class="bi bi-send"></i> ${s.sent}</span>` : ''}
-        ${s.inflight ? `<span class="projects-card-stat is-warn" title="กำลังดำเนินการ"><i class="bi bi-arrow-repeat"></i> ${s.inflight}</span>` : ''}
-        ${s.returned ? `<span class="projects-card-stat is-danger" title="ตีกลับ"><i class="bi bi-arrow-counterclockwise"></i> ${s.returned}</span>` : ''}
-        ${s.completed ? `<span class="projects-card-stat is-ok" title="เสร็จสิ้น"><i class="bi bi-check-circle"></i> ${s.completed}</span>` : ''}
-      </div>
       <div class="projects-card-foot">
+        <span class="projects-card-foot-stat"><i class="bi bi-files me-1"></i>${total} หนังสือ</span>
         <span class="projects-card-last"><i class="bi bi-clock-history me-1"></i>${escHtml(fmtRelative(lastTouch))}</span>
       </div>
     </button>
