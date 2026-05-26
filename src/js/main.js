@@ -22,6 +22,7 @@ import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount,
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction } from './vs-staff.js';
 import { initShop, openShopAdmin } from './shop/index.js';
+import { initProjects } from './projects/index.js';
 
 // ==============================================
 // QUILL SETUP
@@ -412,6 +413,8 @@ function roleLabel(role) {
   if (role === 'pr_staff')   return 'PR Staff';
   if (role === 'vs_staff')   return 'VS Staff';
   if (role === 'shop_admin') return 'Shop Admin';
+  if (role === 'vp_admin')   return 'VP-Admin';
+  if (role === 'uni_staff')  return 'Uni Staff';
   if (role === 'dev')        return 'Dev';
   return '';
 }
@@ -420,6 +423,8 @@ function roleBadgeClass(role) {
   if (role === 'pr_staff')   return 'bg-warning text-dark';
   if (role === 'vs_staff')   return 'bg-info text-dark';
   if (role === 'shop_admin') return 'bg-orange-subtle text-warning border border-warning-subtle';
+  if (role === 'vp_admin')   return 'bg-success';
+  if (role === 'uni_staff')  return 'bg-primary';
   if (role === 'dev')        return 'bg-dark';
   return 'd-none';
 }
@@ -594,4 +599,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize the SAMO Shop tab. Wires the sub-nav, cart FAB, and lazy
   // loaders. Data is only fetched when the user actually opens the tab.
   initShop();
+
+  // Initialize the project-tracking tab. Wires sub-nav, bell, hash
+  // routing, and the create/send modal. Visibility and data load are
+  // gated by role (vp_admin / uni_staff / dev) inside the module.
+  initProjects();
 });

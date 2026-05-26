@@ -4,11 +4,11 @@ Last updated: 2026-05-26
 
 ## Branches
 
-`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` at `b4d7048`
-(PR #9 merge — UI/font/colour refresh) **plus uncommitted SAMO Shop
-work** (see "Currently working" below). Branch ruleset `main-protect`
-is active — direct push to `main` requires you to be in the Bypass
-list; otherwise opens a PR (which is what the colleague will do).
+`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` at `be96de9`
+(SAMO Shop polish commit) **plus uncommitted Project-Tracking work**
+(see "Currently working" below). Branch ruleset `main-protect` is
+active — direct push to `main` requires you to be in the Bypass list;
+otherwise opens a PR (which is what the colleague will do).
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
@@ -20,7 +20,104 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 `index.html` (took the slim refactor version over main's 2700-line monolith).
 `functions/api/submit.js` deleted — refactor talks to Supabase directly.
 
-## Currently working — SAMO Shop feature (2026-05-26)
+## Currently working — Project tracking module (2026-05-26)
+
+Brand-new workflow between SAMO VP-Administration (sender) and a single
+designated university officer "พี่นิค" (receiver). Each "โครงการ" (project)
+contains one or more "หนังสือ" (documents); each document has N attached
+files (Word/PDF/Excel/etc.) on Drive. Sender can send, edit, replace
+files (non-destructive — old versions kept), cancel, or delete. Receiver
+can mark received → in_progress → completed, return for fixes, or
+comment. Notifications fan out to in-app bell + email (uni) and in-app
+bell + Discord (vp).
+
+**New roles** (CHECK constraints in 0005): `vp_admin` (samomdkkuvpa) +
+`uni_staff` (sastaff / pw 1234). Both are seat-style, mirroring
+samomdkkupr / samomdkkushop. `current_user_is_project_actor()` helper
+gates RLS.
+
+**New files**:
+- `supabase/migrations/0005_project_tracking_schema.sql` — six tables
+  (project_doc_types, projects, project_documents, project_files,
+  project_notifications, project_settings) + RLS + role expansion +
+  4 seeded doc types.
+- `supabase/migrations/0006_seed_project_accounts.sql` — reserves the
+  two usernames.
+- `src/js/projects/{data,api,uploads,notify,index,inbox,send,manage,notifications}.js`
+  — feature lives in one folder, lazy-loaded on first tab show.
+- `src/html/tab-projects.html`, `modal-project-send.html`,
+  `offcanvas-project-notify.html`.
+- `src/css/projects.css` — all rules scoped under `.projects-tab` (plus
+  `.nav-projects-bell` scoped to `.samo-navbar`).
+
+**Edited files**:
+- `appscript/prform.gs` — three new actions: `uploadProjectFile`
+  (allow-listed to `Projects/...`), `notifyProjectEmail` (MailApp),
+  `notifyProjectDiscord` (webhook URL from Script Properties
+  `PROJECT_DISCORD_WEBHOOK_URL`). **GAS redeploy required** — see
+  `skills/deploy-gas.md`.
+- `src/html/navbar.html` — added "หนังสือโครงการ" pill (desktop +
+  mobile) and a bell icon in the auth area, both role-gated.
+- `index.html` — included the new partials.
+- `src/main.css` — `@import './css/projects.css';`.
+- `src/js/main.js` — `import { initProjects } …; initProjects();`,
+  added `vp_admin` + `uni_staff` to `roleLabel` / `roleBadgeClass`.
+- `src/js/auth.js` — added `samomdkkuvpa` and `sastaff` to the
+  reserved-usernames list (frontend mirror of 0006).
+- `README.md` "Key features" + roles list, `docs/CONTEXT.md` request
+  flow, module map, schema section, migrations list.
+
+**Drive layout** (created lazily on first upload, allow-listed to
+`Projects/...`):
+```
+My Drive/
+├── PR_Submissions/                  ← unchanged
+├── SAMO_Shop/...                    ← unchanged
+└── Projects/
+    └── PRJ-2605-0001_<safe-name>/
+        └── DOC-260526-1430-XXXX_<type>/
+            └── <file>.pdf
+```
+
+**Hash routing** (new behaviour in main.js / projects/index.js):
+- `#projects` — open the tab
+- `#projects/PRJ-2605-0001` — open + auto-open that project
+- `#projects/PRJ-2605-0001/doc/DOC-…` — open + jump to that doc
+- A "คัดลอกลิงก์" button on every project detail head exposes the URL.
+
+**Manual steps to ship**:
+1. Apply `0005_project_tracking_schema.sql` + `0006_seed_project_accounts.sql`
+   in the Supabase SQL editor (in that order).
+2. Supabase Dashboard → Authentication → Add user:
+   - `samomdkkuvpa@samomdkku.app` (pick a strong password — you'll use it)
+   - `sastaff@samomdkku.app` with password `1234`
+   Then run:
+   ```sql
+   update public.users set role='vp_admin'  where email='samomdkkuvpa@samomdkku.app';
+   update public.users set role='uni_staff' where email='sastaff@samomdkku.app';
+   ```
+3. In the `prform` GAS project → Project Settings → Script Properties,
+   add `PROJECT_DISCORD_WEBHOOK_URL` = (the `notify-samodocument`
+   webhook URL — given in chat; do NOT commit it).
+4. Redeploy `prform` GAS so the three new actions go live (see
+   `skills/deploy-gas.md`).
+5. Sign in as `samomdkkuvpa` → "หนังสือโครงการ" tab → "การตั้งค่า"
+   sub-tab → fill in p'nick's real email + adjust labels if needed.
+6. Smoke test: create a test project, send a doc with 1 file, sign in
+   as `sastaff` in another browser/incognito, mark received → check
+   Discord channel for the webhook ping + check VP-Admin's in-app bell.
+
+**Security note**: the Discord webhook URL was exposed once in chat.
+Rotate it after smoke testing (Discord channel → Integrations →
+Webhooks → Regenerate) and update the GAS Script Property.
+
+**Not in scope this round** (deferred to Phase 2 UI pass):
+- Holistic nav/IA refresh across the whole portal.
+- "My bookmarks/favorites" personal home panel for staff.
+- Real-time updates (uses refetch-on-open like the rest of the portal).
+- Mobile push / browser notifications.
+
+## Previously working — SAMO Shop feature (2026-05-26)
 
 Ported the Claude Design SAMO Shop handoff bundle into the portal as a
 new tab + admin section. Vanilla JS + Bootstrap (matches the rest of the

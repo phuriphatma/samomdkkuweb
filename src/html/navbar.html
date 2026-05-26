@@ -56,6 +56,12 @@
               </li>
             </ul>
           </li>
+          <li class="nav-item d-none" id="navProjectsItem" role="presentation">
+            <button class="nav-link" id="pills-projects-tab" data-bs-toggle="pill" data-bs-target="#pills-projects"
+              type="button" role="tab" style="color: var(--brand-primary);">
+              <i class="bi bi-folder-symlink me-1"></i> หนังสือโครงการ
+            </button>
+          </li>
           <li class="nav-item d-none" id="navAdminItem" role="presentation">
             <button class="nav-link" id="pills-admin-tab" data-bs-toggle="pill" data-bs-target="#pills-admin"
               type="button" role="tab">
@@ -101,6 +107,11 @@
 
         <!-- Auth area (desktop) -->
         <div class="samo-navbar-auth">
+          <!-- Project notifications bell — only visible for vp_admin / uni_staff / dev -->
+          <button type="button" class="nav-projects-bell d-none me-2" id="navProjectsBell" aria-label="การแจ้งเตือนหนังสือโครงการ">
+            <i class="bi bi-bell-fill"></i>
+            <span class="nav-projects-bell-count d-none" id="navProjectsBellCount">0</span>
+          </button>
           <div id="navAuthSignedOut">
             <button type="button" class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#signinModal">
               เข้าสู่ระบบ
@@ -183,6 +194,11 @@
           <button class="nav-link text-start w-100"
             onclick="cancelEdit(); activateTab('pills-creator-tab')">
             <i class="bi bi-pencil-square me-2" style="color: var(--brand-primary);"></i> เขียนประกาศ
+          </button>
+        </li>
+        <li class="d-none" id="mobileProjectsItem">
+          <button class="nav-link text-start w-100" onclick="activateTab('pills-projects-tab')">
+            <i class="bi bi-folder-symlink me-2" style="color: var(--brand-primary);"></i> หนังสือโครงการ
           </button>
         </li>
         <li class="d-none" id="mobileAdminItem">

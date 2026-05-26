@@ -17,16 +17,21 @@ Browser (Cloudflare Pages-hosted SPA)
   │
   ├─→ Supabase PostgREST (data CRUD)         ── primary read/write path
   │     ↳ public.users / pr_tickets / vs_tickets / announcements / pr_agents
+  │     ↳ projects / project_documents / project_files / project_notifications
   │     ↳ gated by RLS policies (see schema below)
   │
   ├─→ Supabase Auth /auth/v1/*               ── sign in / out / refresh
   │     ↳ Google OAuth + email/password (synthetic emails)
   │
   └─→ GAS /exec (legacy proxy)               ── narrow & specific
-        ↳ uploadPRFile   → writes to Google Drive (PR_Submissions/)
-        ↳ uploadShopFile → writes to Drive at SAMO_Shop/<nested path>
-        ↳ notifyPROnly   → fires Discord webhook
-        ↳ notifyVSOnly   / notifyVSConsult → fires Discord webhooks
+        ↳ uploadPRFile        → writes to Google Drive (PR_Submissions/)
+        ↳ uploadShopFile      → writes to Drive at SAMO_Shop/<nested path>
+        ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
+        ↳ notifyPROnly        → fires Discord webhook (PR team)
+        ↳ notifyVSOnly / notifyVSConsult → fires Discord webhooks (per dept)
+        ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
+        ↳ notifyProjectDiscord → fires SAMO admin Discord webhook
+                                  (URL in Script Property PROJECT_DISCORD_WEBHOOK_URL)
 ```
 
 GAS is intentionally minimal post-migration. Drops to 104 + 154 lines.
@@ -68,6 +73,21 @@ src/js/
     ├── orders.js         ─ "My Orders" timeline, status filter, pickup callout
     └── admin.js          ─ orders table, slip-verify queue, batches CRUD,
                             product CRUD, QR settings (mounts into tab-admin)
+
+└── projects/            ─ Project / document tracking workflow (vp_admin →
+    │                       uni_staff). Lazy-loaded on first tab-show.
+    ├── index.js          ─ initProjects(); role gating; sub-nav; hash routing
+    ├── data.js           ─ statuses, formatters, id generators, Drive paths
+    ├── api.js            ─ dbRest CRUD: projects, documents, files,
+    │                       notifications, settings, doc types
+    ├── uploads.js        ─ uploadProjectFile(file, folderPath) via GAS
+    ├── notify.js         ─ fan-out: in-app row + email (uni) + Discord (vp)
+    ├── send.js           ─ VP-Admin create-project / send-document modal
+    ├── inbox.js          ─ 2-pane list + detail panel; per-doc actions,
+    │                       file replace (non-destructive supersede chain)
+    ├── manage.js         ─ doc type lookup CRUD + settings (recipient
+    │                       email, notification preferences)
+    └── notifications.js  ─ navbar bell + offcanvas drawer, polling
 
 src/html/                ─ Vite HTML partials. index.html includes them.
 src/css/                 ─ Bootstrap + brand vars in base.css + topic CSS files.
@@ -146,6 +166,74 @@ shop_settings (id integer PK = 1 [single-row config], promptpay_name,
 Also: `users.role` check constraint expanded to admit `shop_admin`.
 Helper `public.current_user_is_shop_admin()` returns true for
 `shop_admin` or `dev`.
+
+### Project tracking (canonical: `0005_project_tracking_schema.sql`, `0006_seed_project_accounts.sql`)
+
+Workflow: SAMO VP-Administration sends "หนังสือโครงการ" containing one or
+more documents to a designated university officer ("พี่นิค"). Each document
+has N attached files (Word / PDF / etc.) and an independent status; documents
+within the same project may be sent days/weeks apart.
+
+```
+project_doc_types (text id PK, label_th, sort_order, is_active)
+  ↳ seeded with 4 entries — admin can add more in-app
+  ↳ types: หนังสือโครงการ / หนังสือเชิญอาจารย์ /
+           หนังสือขอความอนุเคราะห์ sponsor / หนังสืออื่นๆ
+
+projects (text id PK ["PRJ-YYMM-NNNN"], name, description, status,
+          created_by, timestamps)
+  ↳ status IN ('open','in_progress','completed','cancelled')
+
+project_documents (text id PK ["DOC-YYMMDD-HHMM-XXXX"],
+                   project_id FK projects(id) CASCADE,
+                   type_id FK project_doc_types(id),
+                   title, note, sequence_no, status, return_reason,
+                   sent_at, received_at, completed_at,
+                   timeline jsonb, drive_folder, created_by, timestamps)
+  ↳ status IN ('draft','sent','received','in_progress','returned',
+               'completed','cancelled')
+  ↳ unique(project_id, sequence_no) → "หนังสือ 1 / 2 / 3" per project
+
+project_files (bigserial id PK, document_id FK CASCADE,
+               file_name, drive_file_id, drive_view_url, mime_type,
+               size_bytes, uploaded_by, uploaded_at,
+               superseded_by FK project_files(id))
+  ↳ replace = insert new + set superseded_by on old (non-destructive)
+
+project_notifications (bigserial id PK, user_id FK users(id) CASCADE,
+                       project_id, document_id, kind, body,
+                       is_read, created_at)
+  ↳ kind: 'sent','received','status','returned','comment',
+          'file_replaced','completed'
+
+project_settings (singleton id=1, uni_staff_email, uni_staff_label,
+                  vp_admin_label, notify_uni_in_app, notify_uni_email,
+                  notify_vp_in_app, notify_vp_discord, updated_at)
+```
+
+Roles: `users.role` CHECK expanded to admit `vp_admin` (SAMO sender) and
+`uni_staff` (university officer receiver). `reserved_staff_usernames` seeds
+`samomdkkuvpa` (vp_admin) + `sastaff` (uni_staff). Helper
+`public.current_user_is_project_actor()` returns true for `vp_admin`,
+`uni_staff`, or `dev`.
+
+RLS: all six tables are gated to project actors. Both vp_admin and
+uni_staff can SELECT + UPDATE projects + documents + files (the workflow
+needs two-way writes); only vp_admin/dev can INSERT projects/documents
+or DELETE. Notifications are scoped to `user_id = auth.uid()` for
+read/update. `project_settings` write is vp_admin/dev only.
+
+Drive layout (lazily created by GAS on first upload):
+
+```
+My Drive/Projects/
+└── PRJ-2605-0001_<safe-name>/
+    └── DOC-260526-1430-XXXX_<type>/
+        └── <file>.pdf
+```
+
+Allow-listed: `uploadProjectFile` only writes under `Projects/...` and
+rejects `..` segments.
 
 ## RLS policies (canonical: same migration file)
 
@@ -251,7 +339,8 @@ rejects `..` segments. Folders are created lazily on first write.
 - URL Configuration must include both Cloudflare URLs + localhost
 - Migrations applied: `supabase/migrations/0001_initial_schema.sql` +
   `0002_seed_staff_accounts.sql` +
-  `0003_samoshop_schema.sql` + `0004_seed_shop_admin.sql`
+  `0003_samoshop_schema.sql` + `0004_seed_shop_admin.sql` +
+  `0005_project_tracking_schema.sql` + `0006_seed_project_accounts.sql`
 
 ---
 

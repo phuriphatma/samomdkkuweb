@@ -26,9 +26,18 @@ Both Cloudflare projects hit the same Supabase backend.
   slip upload to Drive, order timeline (pending → review → paid → produce →
   ready → done), pickup-batch announcements, and full admin (orders table,
   slip-verify queue, batches, product CRUD, QR settings).
+- **Project-document tracking.** SAMO VP-Administration sends "หนังสือโครงการ"
+  (projects containing multiple documents) to a designated university officer.
+  Document workflow: sent → received → in progress → completed (with off-path
+  returned + cancelled). Files (Word / PDF / etc.) upload to Drive under
+  organised per-project folders; replace is non-destructive (old versions
+  kept). Receiver gets in-app + email notifications; sender gets in-app +
+  Discord webhook on every status change / comment. Bookmarkable deep links
+  (`#projects/PRJ-XXXX-NNNN/doc/DOC-…`).
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
-  regular user, `pr_staff`, `vs_staff`, `shop_admin`, `dev`. Role gates the
-  Admin tab and dev-only flags like silent Discord notify.
+  regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
+  `dev`. Role gates the Admin tab, the project-tracking tab + bell, and
+  dev-only flags like silent Discord notify.
 
 ## Tech stack
 
