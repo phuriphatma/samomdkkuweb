@@ -19,6 +19,18 @@ import { openShopAdmin } from './admin.js';
 
 let view = 'shop'; // 'shop' | 'orders' | 'checkout'
 let initialised = false;
+// Track whether the shop tab itself is the active Bootstrap pane.
+let shopTabActive = false;
+// Track whether the cart offcanvas is open (suppresses the FAB so they don't
+// overlap and so the offcanvas's own close button isn't visually shadowed).
+let cartOpen = false;
+
+function syncFab() {
+  // FAB only when the shop tab is the active pane, the user isn't on the
+  // Checkout view (cart is already-in-progress there), and the offcanvas
+  // isn't open.
+  showCartFab(shopTabActive && view !== 'checkout' && !cartOpen);
+}
 
 function setView(next) {
   view = next;
@@ -33,6 +45,7 @@ function setView(next) {
 
   if (next === 'orders')   renderOrdersView();
   if (next === 'checkout') renderCheckout();
+  syncFab();
 }
 
 export function initShop() {
@@ -65,24 +78,37 @@ export function initShop() {
     if (view === 'checkout') renderCheckout();
   });
 
+  // Cart offcanvas open/close → toggle the FAB so they don't overlap.
+  const oc = document.getElementById('shopCartOffcanvas');
+  if (oc) {
+    oc.addEventListener('shown.bs.offcanvas',  () => { cartOpen = true;  syncFab(); });
+    oc.addEventListener('hidden.bs.offcanvas', () => { cartOpen = false; syncFab(); });
+  }
+
   // Lazy load on first tab show — avoids hitting Supabase on cold start
-  // for users who never open the shop.
+  // for users who never open the shop. We also briefly paint a loading
+  // state so the grid doesn't look empty during the fetch.
   document.addEventListener('shown.bs.tab', async (e) => {
     if (e.target?.id === 'pills-shop-tab') {
+      shopTabActive = true;
+      syncFab();
+      const grid = document.getElementById('shopProductGrid');
+      if (grid && grid.childElementCount === 0) {
+        grid.innerHTML = '<div class="text-center text-muted py-5 grid-column: 1/-1"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดสินค้า…</div>';
+      }
       await reloadShop();
       // Hand the freshly-loaded products (including inactive ones, since a
       // cart can hold an item whose product was later deactivated) to the
       // cart module so cart-line names + thumbnails render correctly.
       try { setShopCartProducts(await listProducts({ activeOnly: false })); } catch {}
-      showCartFab(true);
       if (view === 'orders') {
         await renderOrdersView();
       } else {
         refreshReadyCountBadge();
       }
     } else {
-      // Hide the FAB on other tabs so it doesn't shout for attention.
-      showCartFab(false);
+      shopTabActive = false;
+      syncFab();
     }
   });
 }

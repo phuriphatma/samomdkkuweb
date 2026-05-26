@@ -147,7 +147,14 @@ function orderCardHtml(o) {
       </div>
 
       <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-        <span class="text-muted small">${totalQty} ชิ้น</span>
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+          <span class="text-muted small">${totalQty} ชิ้น</span>
+          ${o.slip_url ? `
+            <a href="${safeUrl(o.slip_url)}" target="_blank" rel="noreferrer" class="small text-decoration-none">
+              <i class="bi bi-receipt me-1"></i> ดูสลิปที่ส่ง
+            </a>` : ''}
+          ${o.cancel_reason ? `<span class="small text-danger"><i class="bi bi-info-circle me-1"></i>${escHtml(o.cancel_reason)}</span>` : ''}
+        </div>
         <span style="font-weight:700; font-size:1.05rem; font-family:Prompt;">
           รวม ฿${thb(total)}
         </span>

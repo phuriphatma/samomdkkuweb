@@ -409,16 +409,18 @@ window.activateTab = (tabBtnId) => {
 };
 
 function roleLabel(role) {
-  if (role === 'pr_staff') return 'PR Staff';
-  if (role === 'vs_staff') return 'VS Staff';
-  if (role === 'dev') return 'Dev';
+  if (role === 'pr_staff')   return 'PR Staff';
+  if (role === 'vs_staff')   return 'VS Staff';
+  if (role === 'shop_admin') return 'Shop Admin';
+  if (role === 'dev')        return 'Dev';
   return '';
 }
 
 function roleBadgeClass(role) {
-  if (role === 'pr_staff') return 'bg-warning text-dark';
-  if (role === 'vs_staff') return 'bg-info text-dark';
-  if (role === 'dev') return 'bg-dark';
+  if (role === 'pr_staff')   return 'bg-warning text-dark';
+  if (role === 'vs_staff')   return 'bg-info text-dark';
+  if (role === 'shop_admin') return 'bg-orange-subtle text-warning border border-warning-subtle';
+  if (role === 'dev')        return 'bg-dark';
   return 'd-none';
 }
 

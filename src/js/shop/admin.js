@@ -6,6 +6,7 @@
 // ==============================================
 
 import { escHtml, safeUrl } from '../utils.js';
+import { dbRest } from '../db.js';
 import { thb, fmtDate, fmtDateTime, STAGES_ORDER, STAGES_META,
          SHOP_SOURCES, SHOP_TYPES, findSource, slugify } from './data.js';
 import {
@@ -63,9 +64,15 @@ function ensureMounted() {
     openOrderModal(tr.dataset.orderId);
   });
 
-  // Order modal action buttons
-  document.getElementById('shopAdminOrderModalApprove')?.addEventListener('click', () => modalAction('paid'));
-  document.getElementById('shopAdminOrderModalReject')?.addEventListener('click', () => modalAction('cancel', 'admin rejected slip'));
+  // The Approve / Reject footer buttons are wired per-open in openOrderModal
+  // because their meaning depends on the order's current status. Inert here.
+
+  // Auto-save the internal admin note when the modal closes (otherwise text
+  // typed without acting on a status chip would be lost silently).
+  const orderModalEl = document.getElementById('shopAdminOrderModal');
+  if (orderModalEl) {
+    orderModalEl.addEventListener('hidden.bs.modal', persistAdminNoteIfChanged);
+  }
 
   // Batches
   document.getElementById('shopAdminBatchesNew')?.addEventListener('click', () => {
@@ -219,8 +226,49 @@ function openOrderModal(orderId) {
     btn.addEventListener('click', () => modalAction(btn.dataset.setStatus));
   });
 
+  // Footer buttons: meaning depends on the current status. We re-wire and
+  // re-label on every open instead of trying to keep static labels honest.
+  const approve = document.getElementById('shopAdminOrderModalApprove');
+  const reject  = document.getElementById('shopAdminOrderModalReject');
+  const primary = footerPrimaryFor(o.status);
+  const secondary = footerSecondaryFor(o.status);
+  if (approve) {
+    approve.className = primary ? `btn ${primary.cls}` : 'btn btn-success d-none';
+    approve.innerHTML = primary ? primary.html : '';
+    approve.onclick = primary ? () => modalAction(primary.next, primary.cancelReason) : null;
+    approve.classList.toggle('d-none', !primary);
+  }
+  if (reject) {
+    reject.className = secondary ? `btn ${secondary.cls}` : 'btn btn-outline-danger d-none';
+    reject.innerHTML = secondary ? secondary.html : '';
+    reject.onclick = secondary ? () => modalAction(secondary.next, secondary.cancelReason) : null;
+    reject.classList.toggle('d-none', !secondary);
+  }
+
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
+}
+
+// Map status → the "next obvious step" the admin most likely wants from
+// this modal. Returns null when no automatic action makes sense (chips
+// are still available for manual state changes).
+function footerPrimaryFor(status) {
+  switch (status) {
+    case 'review':  return { next: 'paid',    cls: 'btn-success', html: '<i class="bi bi-check2-circle me-1"></i> อนุมัติสลิป → "ชำระแล้ว"' };
+    case 'paid':    return { next: 'produce', cls: 'btn-shop',    html: '<i class="bi bi-tools me-1"></i> เริ่มผลิต' };
+    case 'produce': return { next: 'ready',   cls: 'btn-success', html: '<i class="bi bi-box-seam me-1"></i> ผลิตเสร็จ → พร้อมรับ' };
+    case 'ready':   return { next: 'done',    cls: 'btn-success', html: '<i class="bi bi-bag-check me-1"></i> ลูกค้ามารับแล้ว' };
+    default:        return null;
+  }
+}
+function footerSecondaryFor(status) {
+  // Reject path is only meaningful while the slip is the bottleneck.
+  if (status === 'review') return { next: 'cancel', cancelReason: 'admin rejected slip', cls: 'btn-outline-danger', html: '<i class="bi bi-x-circle me-1"></i> ปฏิเสธสลิป' };
+  // For non-terminal states, offer "ยกเลิก" as the destructive action.
+  if (status === 'pending' || status === 'paid' || status === 'produce') {
+    return { next: 'cancel', cancelReason: 'admin cancelled', cls: 'btn-outline-danger', html: '<i class="bi bi-x-circle me-1"></i> ยกเลิกคำสั่งซื้อ' };
+  }
+  return null;
 }
 
 function orderModalBodyHtml(o) {
@@ -290,18 +338,56 @@ function orderModalBodyHtml(o) {
             <i class="bi bi-x-circle"></i> ยกเลิก
           </button>
         </div>
+
+        <h5 class="mt-3">หมายเหตุภายใน admin</h5>
+        <textarea id="shopAdminOrderModalNote" class="form-control" rows="3"
+          placeholder="ระบุหมายเหตุ — บันทึกพร้อมเมื่อเปลี่ยนสถานะหรือกดปุ่มในแถบล่าง">${escHtml(o.admin_note || '')}</textarea>
       </div>
     </div>`;
 }
 
+async function persistAdminNoteIfChanged() {
+  if (!modalOrder) return;
+  const noteEl = document.getElementById('shopAdminOrderModalNote');
+  if (!noteEl) { modalOrder = null; return; }
+  const next = noteEl.value;
+  const current = modalOrder.admin_note || '';
+  if (next === current) { modalOrder = null; return; }
+  // PATCH only the note column — status + timeline stay untouched. We
+  // don't go through updateOrderStatus because that always appends a
+  // timeline entry.
+  try {
+    const idEsc = encodeURIComponent(modalOrder.id);
+    const { error } = await dbRest(
+      `/shop_orders?id=eq.${idEsc}`,
+      { method: 'PATCH', body: { admin_note: next }, prefer: 'return=minimal' },
+    );
+    if (error) throw new Error(error.message || 'บันทึกหมายเหตุไม่สำเร็จ');
+    const row = state.orders.find((x) => x.id === modalOrder.id);
+    if (row) row.admin_note = next;
+  } catch (e) {
+    console.warn('[shop/admin] persistAdminNote failed:', e);
+  } finally {
+    modalOrder = null;
+  }
+}
+
 async function modalAction(nextStatus, cancelReason) {
   if (!modalOrder) return;
+  // Pull the admin-note textarea so the note is persisted alongside the
+  // status change. Falls through to undefined (no patch) if absent.
+  const noteEl = document.getElementById('shopAdminOrderModalNote');
+  const adminNote = noteEl ? noteEl.value : undefined;
   try {
     await updateOrderStatus(modalOrder.id, nextStatus, {
       label: STAGES_META[nextStatus]?.label || nextStatus,
       cancelReason,
+      adminNote,
     });
     showShopToast(`อัปเดต #${modalOrder.id} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
+    // Clear modalOrder BEFORE hiding so the close-handler's note-autosave
+    // doesn't double-persist what we just sent.
+    modalOrder = null;
     const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
     inst?.hide();
     await refreshOrders();

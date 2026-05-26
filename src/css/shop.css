@@ -75,9 +75,16 @@
   --shop-radius-lg: 16px;
 
   --shop-card-gap: 1.25rem;
+  /* No background / padding / radius here on purpose: the same class is
+     re-used on modals + the cart offcanvas so children inherit the shop
+     theme tokens. Painting a wash here would override Bootstrap's white
+     chrome on those — which is exactly the transparent-offcanvas bug.
+     The wash lives on the tab-pane selector below. */
+}
 
-  /* Soft cream-orange wash on the shop pane itself (the portal body
-     keeps its gradient). Inset so it doesn't extend full-bleed. */
+/* Decorate ONLY the actual tab pane + the admin shop section. */
+#pills-shop.shop-tab,
+#adminShopSection.shop-tab {
   background:
     radial-gradient(900px 420px at 10% -10%, rgba(244, 237, 218, .55) 0%, rgba(244, 237, 218, 0) 60%),
     radial-gradient(700px 420px at 110% 10%, rgba(255, 226, 204, .35) 0%, rgba(255, 226, 204, 0) 55%),
