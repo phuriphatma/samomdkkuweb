@@ -1,14 +1,13 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-26
+Last updated: 2026-05-26 (end of session, prepared for /clear)
 
 ## Branches
 
-`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` last commits:
-Project tracking module + polish + **spreadsheet/table inbox refactor**
-(see "Phase 1.1 UX refactor" below). Branch ruleset `main-protect` is
-active — direct push to `main` requires you to be in the Bypass list;
-otherwise opens a PR (which is what the colleague will do).
+`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` HEAD at `8459c65`
+— mobile/iPad FAB fix. **Working tree clean, everything pushed.** Build
++ tests green (26/26). Branch ruleset `main-protect` active — direct
+push to `main` requires Bypass list membership.
 
 - `main` → `samomdkkuweb.pages.dev` (production)
 - `refactor/modular` → `refactorsamomdkkuweb.pages.dev` (preview)
@@ -20,88 +19,124 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 `index.html` (took the slim refactor version over main's 2700-line monolith).
 `functions/api/submit.js` deleted — refactor talks to Supabase directly.
 
-## Phase 1.2 UX refactor — two-level drill-down (2026-05-26)
+## Phase 1.x — Project Tracking UX polish round (2026-05-26 session)
 
-Iteration after Phase 1.1 (spreadsheet/table): the spreadsheet was
-"too messy" — fully expanded rows piled on top of grouped sections
-made the screen feel like a wall of cards.
+Took the initial project-tracking ship (`c8584e9`) through ~7 iterations
+of UX feedback in one session. Final shape locked in. Commits in this
+session (newest first):
 
-Final direction: **two-level drill-down** (Google Drive / Outlook /
-Notion pattern). Level 1 is just project cards (one card per
-โครงการ, scannable grid). Level 2 is the focused project view —
-breadcrumb back, project header, list of its หนังสือ as compact
-cards. Click a doc card → expands inline with stepper + files +
-actions + timeline.
+| Commit | What |
+|---|---|
+| `8459c65` | Mobile/iPad — adaptive FAB (folder-plus on grid, file-plus inside a project) + `เพิ่มไฟล์` promoted to primary-soft. FAB now visible up to lg (covers iPad portrait/landscape) |
+| `b3c9bfd` | Bell notifications — proper `kind` per action (`file_added`, `resent` separated from `file_replaced` / `sent`); 60s → 20s poll; bell refresh on `visibilitychange` + `shown.bs.tab` |
+| `180ccc7` | File-level "ใหม่"/"แทนที่ใหม่" pills + orange row background on files uploaded after viewer's last action. Skipped for VPA (they uploaded them) |
+| `a3078f6` | VPA `ส่งใหม่อีกครั้ง` button on returned docs (status → sent + clears return_reason + notifies uni). "เปลี่ยนแปลงล่าสุด" banner at top of expand listing other-side actions since viewer's last move. Default labels: "พี่นิค" → "เจ้าหน้าที่" (settings.uni_staff_label override still wins). Owner pill dropped from doc card head (redundant with status pill) |
+| `c85d208` | Card simplification — one big attention badge per role: "X ใหม่" (uni) / "X ตีกลับ" (vp). Dropped six per-status mini-chips and the project-status pill from the card head |
+| `81a389a` | **Two-level drill-down** (Drive/Outlook/Notion pattern). Final IA. Level 1 = project grid; Level 2 = project detail with breadcrumb back, project header, list of doc cards, click to expand. Replaces the table approach below |
+| `35145b5` | (superseded) Spreadsheet/table inbox — flat table of all docs with group-by toggle. Felt "too messy" per user, replaced 50 min later by `81a389a` |
+| `f3245d1` | Doc-header chevron toggle + navbar active-pill green-on-green text fix |
 
-**Why this won**: each screen has a single job. Level 1: "which
-project needs me?" Level 2: "what's the state of *this* project?"
-Doc detail: "act on *this* หนังสือ." The earlier table view tried
-to surface all three at once.
+### Final UX shape
 
-**What changed (Phase 1.2)**:
-- `src/html/tab-projects.html` — replaced single-table layout with
-  two sibling sections: `#projectsLevelGrid` (grid + toolbar) and
-  `#projectsLevelDetail` (breadcrumb + detail root). Group-by select
-  removed (no longer needed).
-- `src/js/projects/inbox.js` — render() dispatches on
-  `level: 'grid' | 'detail'`. Filter chips operate on projects (not
-  docs) via `projectBucket()`: a project is bucketed `mine` if any
-  doc owes the current role, `waiting` if all active docs wait on
-  the other side, `done` if everything is completed/cancelled.
-- `src/js/projects/index.js` — loading-spinner placeholder targets
-  `projectsGrid`.
-- `src/css/projects.css` — added `.projects-grid`,
-  `.projects-card-grid` (with `.is-bucket-mine` left-border
-  treatment), `.projects-breadcrumb`, `.projects-detail-head`,
-  `.projects-doc-card`. Dropped the table/row/group-header styles.
-  Stepper / files / timeline / soft buttons / status pills retained.
+**Level 1 — project grid**:
+- Toolbar: search + 4 filter chips (ของฉัน / รออีกฝ่าย / เสร็จสิ้น / ทั้งหมด)
+  with per-bucket counts. Buckets computed via `projectBucket(p, role)`.
+- Each card: folder icon + name + id + clamped description + one
+  attention badge (orange "X ใหม่" for uni, red "X ตีกลับ" for VPA) +
+  "X หนังสือ" + relative time. Left-border colour encodes bucket.
+- Mobile FAB bottom-right: green circle, `bi-folder-plus` icon →
+  opens create-project modal. VPA + dev only.
 
-**Action symmetry remains**: same layout for VPA and uni_staff;
-the buckets and labels are role-relative.
+**Level 2 — project detail**:
+- Breadcrumb back ("← หนังสือโครงการทั้งหมด")
+- Project header with id/date, name, description, status pill, action
+  row (เพิ่มหนังสือ / status menu / delete / copy link — all VPA-gated)
+- Doc cards stacked vertically. Each card head: mine-dot + #seq +
+  title/type + "อัปเดต" pill (when applicable) + status pill + time
+  + chevron. Click → expands.
 
-**Manual verification still pending**: reload the preview env and
-confirm the level-1 grid renders, clicking a card drills in,
-breadcrumb-back returns, and the deep-link routing
-(`#projects/PRJ-…`, `#projects/PRJ-…/doc/DOC-…`) still works.
+**Expanded doc card**:
+1. "เปลี่ยนแปลงล่าสุด" banner (orange for uni viewing a `sent` doc;
+   red for VPA viewing a `returned` doc) listing other-side actions
+   since viewer's last move
+2. 4-step stepper (ส่งแล้ว → รับเรื่อง → ดำเนินการ → เสร็จสิ้น) with
+   "ตีกลับ" overlay on step 0 if returned, or grayed/strikethrough
+   if cancelled
+3. doc.note (if present)
+4. Files block — each file row shows "ใหม่" (orange pill) or
+   "แทนที่ใหม่" (deeper amber) if uploaded after the viewer's last
+   action. VPA gets a green "เพิ่มไฟล์" button here.
+5. Action row — role-gated buttons. VPA on `returned` doc gets the
+   green "ส่งใหม่อีกครั้ง" button.
+6. Timeline (collapsible)
 
-## Phase 1.1 UX refactor — spreadsheet/table inbox (superseded by 1.2)
+**Mobile FAB inside Level 2** flips to `bi-file-earmark-plus` →
+adds doc to current project. Same FAB element, adaptive icon + aria.
 
-**What changed**:
-- `src/html/tab-projects.html` — replaced split-pane (left list + right
-  detail) with a single full-width `<table>` + toolbar (search / filter
-  chips / group-by select).
-- `src/js/projects/inbox.js` — full rewrite. Flattens docs across
-  projects into rows; one row per doc; click row → expands inline
-  (Airtable pattern) with the existing stepper + files + actions +
-  timeline. Filter chips: ของฉัน / รออีกฝ่าย / เสร็จสิ้น / ทั้งหมด
-  (role-aware — "ของฉัน" matches docs where the next actor is the
-  current role). Group-by: โครงการ (default) / สถานะ / ฝ่ายรับผิดชอบ /
-  ไม่จัดกลุ่ม. When grouped by project, the Project column is hidden
-  (redundant); when grouped by status, the Status column is hidden.
-- `src/js/projects/index.js` — loading-spinner placeholder targets the
-  new `projectsTableBody` id (was `projectsList`).
-- `src/css/projects.css` — added table / row / group-header /
-  expand-row / filter-chip-with-count / owner-pill styles. Dropped
-  unused split-pane and project-card rules. Stepper / files / timeline
-  / status pills / soft buttons all retained (still used inside the
-  expanded row).
+### What was preserved from the original ship
 
-**Action symmetry achieved**: both VPA and uni_staff now see the *same
-layout, same columns, same rows*. Only the action buttons inside the
-expanded row change per role. KPI strip removed — its function moved
-into the filter chips (which now carry counts).
+- Hash routing: `#projects` / `#projects/PRJ-…` / `#projects/PRJ-…/doc/DOC-…`
+- All notify pipelines (Discord webhook, GAS MailApp, in-app bell)
+- All action handlers (status, return, comment, delete, add files,
+  replace file). Notification recipients: uni gets vp's actions, vp
+  gets uni's actions — you don't see your own actions in your own bell
+- DB schema, RLS policies, GAS deployment — untouched
 
-**Manual verification still pending**: the user should click through
-the preview env to confirm. Build + tests green. Cloudflare preview
-rebuilds on push to refactor/modular.
+### Manual verification pending (next session)
 
-**Not yet done in this refactor (deferred)**:
-- Column-header sorting (clicking "อัปเดต" to flip order).
-- File count column in the table (would need API change to preload counts).
-- Inline row editing of doc title / project name.
-- Saved views / per-user default group-by preference.
+Build + tests are green; I did not click through the running app this
+session. To verify on `refactorsamomdkkuweb.pages.dev`:
 
-## Original Project tracking module (2026-05-26)
+1. **Two sessions needed**: VPA in one browser, sastaff in incognito
+   (notifications go to the other side; you can't see your own in
+   your own bell)
+2. **Mobile/iPad**: FAB visible bottom-right on the grid; tap → create
+   project. Drill into a project → FAB flips to file-plus icon → tap →
+   add doc to this project. The green "เพิ่มไฟล์" button inside an
+   expanded doc should now be obvious in the files panel.
+3. **Resend flow**: VPA sends → sastaff ตีกลับ with reason → VPA opens
+   → sees red "เจ้าหน้าที่ตีกลับ" banner → clicks green "ส่งใหม่อีกครั้ง"
+   → enters change summary → sastaff's bell pops within 20s (or
+   instantly if sastaff focuses the tab)
+4. **File highlights**: VPA adds/replaces a file on a doc sastaff is
+   working on → sastaff opens → file row has orange background + pill
+5. **Deep links** still work: open `#projects/PRJ-xxx/doc/DOC-yyy` in
+   a fresh tab → drills in to Level 2 with that doc expanded
+
+### Caveats / open questions
+
+- The Drive folder `Projects/` allow-list in GAS uses `uploadProjectFile`.
+  GAS redeploy already happened in the original ship — no further redeploy
+  needed for this session's frontend-only changes.
+- `settings.uni_staff_label` in `project_settings` still overrides the
+  "เจ้าหน้าที่" default — if a deployment wants a specific person's name,
+  set it in the manage screen.
+- Phase 2 candidates list below — none implemented this session.
+
+## Phase 2 candidates — discussed but not built
+
+Brief shortlist of workflow improvements from end-of-session brainstorm,
+ordered by ROI (drop these into a future session by name):
+
+1. **Inline comment thread** — replace native `prompt()` with a real
+   reply box + chat-bubble thread at bottom of expand. Comments are
+   the most-frequent interaction and the worst UX right now. (M effort)
+2. **Drag-and-drop file upload** — drop onto the files panel uploads
+   with per-file progress. Same on the send modal. (M effort)
+3. **Undo toast** for status changes — 8s grace period before commit +
+   notification fires. Saves face-palms on misclicks. (M effort)
+4. **Due date** column on `project_documents` (nullable). VPA sets it
+   on send. Overdue red flag on the card. Needs 1-line migration.
+   (M-L effort)
+5. Auto-create project when sending the first doc (combo box "เลือก/
+   สร้างโครงการ"). Currently 2-step. (S-M effort)
+6. Inline PDF/image preview in expand (Drive iframe). Today every file
+   opens in a new tab. (M-L effort)
+
+Skipped: bulk actions, "read but not acting yet" state, fuzzy search,
+mobile push, reminder/nudge — all premature for current volume.
+
+## Original Project tracking module (2026-05-26 — pre-polish ship)
 
 Brand-new workflow between SAMO VP-Administration (sender) and a single
 designated university officer "พี่นิค" (receiver). Each "โครงการ" (project)
