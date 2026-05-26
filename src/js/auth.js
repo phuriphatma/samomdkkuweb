@@ -174,7 +174,7 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
   // Block reserved staff usernames (frontend check; backend enforces via
   // unique-username constraint in public.users too).
-  if (['samomdkkupr', 'samomdkkuvssound', 'samomdkkushop', 'samomdkkudev'].includes(username.toLowerCase())) {
+  if (['samomdkkupr', 'samomdkkuvssound', 'samomdkkushop', 'samomdkkuvpa', 'sastaff', 'samomdkkudev'].includes(username.toLowerCase())) {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 
