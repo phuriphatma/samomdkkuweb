@@ -63,7 +63,7 @@ function applyRoleVisibility(role) {
   // Page title / hint: differs by role
   const hint = document.getElementById('projectsRoleHint');
   if (hint) {
-    if (role === 'vp_admin') hint.textContent = 'ส่งหนังสือโครงการให้พี่นิค และติดตามสถานะ';
+    if (role === 'vp_admin') hint.textContent = 'ส่งหนังสือโครงการให้เจ้าหน้าที่ และติดตามสถานะ';
     else if (role === 'uni_staff') hint.textContent = 'รับเรื่อง / อัปเดตสถานะหนังสือโครงการจาก SAMO';
     else if (role === 'dev') hint.textContent = 'Dev — เห็นทั้งสองด้านของระบบส่งหนังสือ';
     else hint.textContent = '';

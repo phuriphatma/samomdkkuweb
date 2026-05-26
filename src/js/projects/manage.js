@@ -47,7 +47,7 @@ function renderSettings() {
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ''; };
   const check = (id, value) => { const el = document.getElementById(id); if (el) el.checked = !!value; };
   set('projectSettingsUniEmail',         s.uni_staff_email);
-  set('projectSettingsUniLabel',         s.uni_staff_label || 'พี่นิค');
+  set('projectSettingsUniLabel',         s.uni_staff_label || 'เจ้าหน้าที่');
   set('projectSettingsVpLabel',          s.vp_admin_label || 'รองนายกฝ่ายบริหาร');
   check('projectSettingsUniInApp',       s.notify_uni_in_app !== false);
   check('projectSettingsUniEmailNotify', s.notify_uni_email !== false);
@@ -93,7 +93,7 @@ async function onSaveSettings(e) {
   try {
     const patch = {
       uni_staff_email:   document.getElementById('projectSettingsUniEmail').value.trim(),
-      uni_staff_label:   document.getElementById('projectSettingsUniLabel').value.trim() || 'พี่นิค',
+      uni_staff_label:   document.getElementById('projectSettingsUniLabel').value.trim() || 'เจ้าหน้าที่',
       vp_admin_label:    document.getElementById('projectSettingsVpLabel').value.trim() || 'รองนายกฝ่ายบริหาร',
       notify_uni_in_app: document.getElementById('projectSettingsUniInApp').checked,
       notify_uni_email:  document.getElementById('projectSettingsUniEmailNotify').checked,

@@ -468,7 +468,7 @@
   font-size: 0.7rem;
 }
 
-/* ---------- Doc note / return banner (inside expand) ---------- */
+/* ---------- Doc note (inside expand) ---------- */
 .projects-tab .projects-doc-note {
   background: #fff;
   border-left: 3px solid var(--p-accent);
@@ -478,14 +478,105 @@
   font-size: 0.88rem;
   color: var(--p-text);
 }
-.projects-tab .projects-doc-return {
+
+/* ---------- "What changed" banner — top of expanded doc ---------- */
+.projects-tab .projects-update-banner {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  border: 1px solid transparent;
+}
+.projects-tab .projects-update-banner.is-update {
+  background: var(--p-warn-soft);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+.projects-tab .projects-update-banner.is-return {
   background: var(--p-danger-soft);
-  border-left: 3px solid var(--p-danger);
-  padding: 8px 12px;
-  margin: 8px 0;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  color: #7f1d1d;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+.projects-tab .projects-update-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+.projects-tab .projects-update-banner.is-update .projects-update-banner-head { color: #b45309; }
+.projects-tab .projects-update-banner.is-return .projects-update-banner-head { color: #991b1b; }
+.projects-tab .projects-update-banner-head i { font-size: 1.05rem; }
+.projects-tab .projects-update-banner-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+  margin-left: auto;
+}
+.projects-tab .projects-update-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.projects-tab .projects-update-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.86rem;
+  color: var(--p-text);
+  flex-wrap: wrap;
+  padding: 4px 0;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+}
+.projects-tab .projects-update-line:first-child { border-top: none; }
+.projects-tab .projects-update-line i {
+  font-size: 0.9rem;
+  flex: 0 0 auto;
+}
+.projects-tab .projects-update-banner.is-update .projects-update-line i { color: var(--p-warn); }
+.projects-tab .projects-update-banner.is-return .projects-update-line i { color: var(--p-danger); }
+.projects-tab .projects-update-line-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.projects-tab .projects-update-line-note {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--p-text);
+  word-break: break-word;
+}
+.projects-tab .projects-update-line-time {
+  font-size: 0.72rem;
+  color: var(--p-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ---------- "อัปเดต" pill on doc card head ---------- */
+.projects-tab .projects-doc-update-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--p-warn);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.25);
+}
+.projects-tab .projects-doc-card.has-update {
+  border-color: var(--p-warn);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.08);
 }
 
 /* ---------- Progress stepper (inside expand) ---------- */

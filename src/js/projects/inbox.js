@@ -67,7 +67,7 @@ function nextOwner(doc) {
 }
 
 function ownerLabel(role, settings) {
-  if (role === 'uni_staff') return settings?.uni_label || 'พี่นิค';
+  if (role === 'uni_staff') return settings?.uni_label || 'เจ้าหน้าที่';
   if (role === 'vp_admin')  return settings?.vp_label  || 'SAMO';
   return '—';
 }
@@ -373,14 +373,15 @@ function renderDetail() {
 function renderDocCard(doc, project) {
   const m = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
-  const owner = nextOwner(doc);
-  const ownerTxt = owner ? ownerLabel(owner, cache.settings) : '—';
-  const ownerCls = owner === cache.role || (cache.role === 'dev' && owner) ? 'is-mine' : (owner ? 'is-other' : 'is-none');
   const isOpen = expandedDocs.has(doc.id);
   const mineDot = isMine(doc, cache.role) ? '<span class="projects-row-mine-dot" title="ของฉัน"></span>' : '';
+  const hasUpdate = shouldShowUpdateBanner(doc, cache.role);
+  const updateBadge = hasUpdate
+    ? `<span class="projects-doc-update-pill"><i class="bi bi-bell-fill me-1"></i>อัปเดต</span>`
+    : '';
 
   return `
-    <article class="projects-doc-card ${isOpen ? 'is-open' : ''}" data-projects-doc-id="${escHtml(doc.id)}">
+    <article class="projects-doc-card ${isOpen ? 'is-open' : ''} ${hasUpdate ? 'has-update' : ''}" data-projects-doc-id="${escHtml(doc.id)}">
       <header class="projects-doc-card-head" data-projects-doc-toggle="${escHtml(doc.id)}">
         ${mineDot}
         <span class="projects-doc-seq-mini">#${doc.sequence_no || 1}</span>
@@ -391,8 +392,8 @@ function renderDocCard(doc, project) {
             <span class="projects-cell-mono d-none d-md-inline">${escHtml(doc.id)}</span>
           </div>
         </div>
+        ${updateBadge}
         <span class="projects-status-pill ${m.cls}"><i class="bi ${m.icon} me-1"></i>${escHtml(m.label)}</span>
-        <span class="projects-owner-pill ${ownerCls} d-none d-md-inline-flex">${escHtml(ownerTxt)}</span>
         <span class="projects-doc-card-time text-muted small">${escHtml(fmtRelative(doc.updated_at || doc.created_at))}</span>
         <button type="button" class="projects-row-expand" aria-label="ขยาย/ย่อ" aria-expanded="${isOpen}">
           <i class="bi bi-chevron-${isOpen ? 'up' : 'down'}"></i>
@@ -412,13 +413,13 @@ function renderDocExpand(doc, project) {
   const isVp  = role === 'vp_admin' || role === 'dev';
   const isUni = role === 'uni_staff' || role === 'dev';
   const tlSorted = (doc.timeline || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
-  const lastReturn = (doc.timeline || []).slice().reverse().find((e) => e.action === 'returned');
 
   return `
+    ${renderRecentUpdateBanner(doc, role)}
+
     ${renderProgressBar(stepIndex, isReturned, isCancelled)}
 
     ${doc.note ? `<div class="projects-doc-note"><i class="bi bi-chat-square-quote me-1"></i>${escHtml(doc.note)}</div>` : ''}
-    ${isReturned && (doc.return_reason || lastReturn?.note) ? `<div class="projects-doc-return"><b>ส่งกลับเพื่อแก้ไข:</b> ${escHtml(doc.return_reason || lastReturn?.note || '')}</div>` : ''}
 
     <div class="projects-doc-files" data-projects-files-for="${escHtml(doc.id)}">
       <div class="projects-files-head">
@@ -434,6 +435,9 @@ function renderDocExpand(doc, project) {
     </div>
 
     <div class="projects-doc-actions">
+      ${(isVp && isReturned) ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-resend data-doc-id="${escHtml(doc.id)}">
+        <i class="bi bi-send-arrow-up me-1"></i>ส่งใหม่อีกครั้ง
+      </button>` : ''}
       ${(isUni && !isCompleted && !isCancelled) ? `
         ${doc.status === 'sent' ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-status="received" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-inbox me-1"></i>รับเรื่อง</button>` : ''}
         ${(['received','sent'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-warning-soft" data-projects-doc-status="in_progress" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-repeat me-1"></i>กำลังดำเนินการ</button>` : ''}
@@ -454,6 +458,80 @@ function renderDocExpand(doc, project) {
     </div>
 
     ${tlSorted.length ? renderTimeline(tlSorted) : ''}
+  `;
+}
+
+/** Does the current viewer have an open action that needs the "what changed" banner? */
+function shouldShowUpdateBanner(doc, role) {
+  if (role === 'uni_staff') return doc.status === 'sent';
+  if (role === 'vp_admin')  return doc.status === 'returned';
+  return false;
+}
+
+/**
+ * Renders a compact callout above the stepper summarising the most recent
+ * action from the other side — what specifically changed that you need to
+ * react to. Returns '' when not applicable (your turn isn't open, or no
+ * other-side action exists yet).
+ */
+function renderRecentUpdateBanner(doc, role) {
+  if (!shouldShowUpdateBanner(doc, role)) return '';
+  const tl = doc.timeline || [];
+  // Most-recent-first scan for the relevant other-side actions
+  const myRole = role;
+  const relevantActions = role === 'uni_staff'
+    ? ['sent', 'file_added', 'file_replaced']
+    : ['returned', 'comment'];
+  // Collect ALL relevant entries since the current user's most recent action
+  // (so we summarise everything they need to see, not just the latest one).
+  const cuts = [];
+  for (let i = tl.length - 1; i >= 0; i--) {
+    const e = tl[i];
+    if (e.role === myRole) break;  // stop at the viewer's own most-recent entry
+    if (!relevantActions.includes(e.action)) continue;
+    if (e.role && e.role === myRole) continue;
+    cuts.push(e);
+  }
+  if (cuts.length === 0) return '';
+  cuts.reverse(); // oldest first within the chunk
+
+  const headerLabel = role === 'uni_staff' ? 'เปลี่ยนแปลงจาก SAMO' : 'เจ้าหน้าที่ตีกลับ';
+  const headerCls   = role === 'uni_staff' ? 'is-update' : 'is-return';
+  const headerIcon  = role === 'uni_staff' ? 'bi-bell-fill' : 'bi-arrow-counterclockwise';
+  const lines = cuts.map((e) => {
+    const label = ({
+      sent:          'ส่งใหม่อีกครั้ง',
+      file_added:    'เพิ่มไฟล์',
+      file_replaced: 'แทนที่ไฟล์',
+      returned:      'ตีกลับเพื่อแก้ไข',
+      comment:       'คอมเมนต์',
+    })[e.action] || e.action;
+    const icon  = ({
+      sent:          'bi-send-arrow-up',
+      file_added:    'bi-cloud-plus-fill',
+      file_replaced: 'bi-arrow-repeat',
+      returned:      'bi-arrow-counterclockwise',
+      comment:       'bi-chat-left-text',
+    })[e.action] || 'bi-dot';
+    return `
+      <li class="projects-update-line">
+        <i class="bi ${icon}"></i>
+        <span class="projects-update-line-label">${escHtml(label)}</span>
+        ${e.note ? `<span class="projects-update-line-note">${escHtml(e.note)}</span>` : ''}
+        <span class="projects-update-line-time">${escHtml(fmtRelative(e.at))}</span>
+      </li>
+    `;
+  }).join('');
+
+  return `
+    <div class="projects-update-banner ${headerCls}">
+      <div class="projects-update-banner-head">
+        <i class="bi ${headerIcon}"></i>
+        <span>${escHtml(headerLabel)}</span>
+        <span class="projects-update-banner-count">${cuts.length}</span>
+      </div>
+      <ul class="projects-update-list">${lines}</ul>
+    </div>
   `;
 }
 
@@ -494,8 +572,8 @@ function renderTimeline(tl) {
 }
 
 function roleLabel(r) {
-  if (r === 'vp_admin')  return 'รองนายกฝ่ายบริหาร';
-  if (r === 'uni_staff') return 'พี่นิค (เจ้าหน้าที่)';
+  if (r === 'vp_admin')  return 'SAMO VP';
+  if (r === 'uni_staff') return 'เจ้าหน้าที่';
   if (r === 'dev')       return 'Dev';
   return r || '';
 }
@@ -587,6 +665,8 @@ function onInboxClick(e) {
   if (statusBtn) { onDocStatusClick(statusBtn); return; }
   const returnBtn = e.target.closest('[data-projects-doc-return]');
   if (returnBtn) { onDocReturnClick(returnBtn); return; }
+  const resendBtn = e.target.closest('[data-projects-doc-resend]');
+  if (resendBtn) { onDocResendClick(resendBtn); return; }
   const cmtBtn = e.target.closest('[data-projects-doc-comment]');
   if (cmtBtn) { onDocCommentClick(cmtBtn); return; }
   const delBtn = e.target.closest('[data-projects-doc-delete]');
@@ -705,6 +785,33 @@ async function onDocReturnClick(btn) {
     });
     onChanged();
   } catch (e) { alert(e.message || 'ส่งกลับไม่สำเร็จ'); }
+}
+
+async function onDocResendClick(btn) {
+  const docId = btn.dataset.docId;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { project } = found;
+  const summary = prompt('สรุปสิ่งที่แก้ไข / เปลี่ยนแปลง (เพื่อแจ้งให้เจ้าหน้าที่ทราบ):');
+  if (summary === null) return;   // user cancelled
+  const note = summary.trim() || 'ส่งใหม่หลังตีกลับ (ไม่ได้ระบุการเปลี่ยนแปลง)';
+  const user = getUser();
+  try {
+    await appendDocTimeline(docId, {
+      by: user?.id || null,
+      role: cache.role,
+      action: 'sent',
+      note,
+    }, { status: 'sent', return_reason: null });
+    const doc = await getDocument(docId).catch(() => null);
+    await notifyUniStaff({
+      kind: 'sent',
+      project, document: doc,
+      body: `SAMO ส่งหนังสือใหม่อีกครั้ง: ${note}`,
+      subject: `[MDKKU SAMO] ส่งใหม่ — ${project.name}`,
+    });
+    onChanged();
+  } catch (e) { alert(e.message || 'ส่งใหม่ไม่สำเร็จ'); }
 }
 
 async function onDocCommentClick(btn) {
