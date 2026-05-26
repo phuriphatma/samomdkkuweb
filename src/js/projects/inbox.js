@@ -42,6 +42,7 @@ import { notifyUniStaff, notifyVpAdmin } from './notify.js';
 
 let onChanged = () => {};
 let onAddDocumentCb = null;
+let onCreateProjectCb = null;
 
 let cache = { projects: [], docTypes: [], settings: null, role: null };
 
@@ -114,9 +115,19 @@ function lastActivityTime(p) {
 
 // ---------- mounting ----------
 
-export function mountInbox({ onChanged: changed, onAddDocument }) {
+export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject }) {
   if (typeof changed === 'function') onChanged = changed;
   if (typeof onAddDocument === 'function') onAddDocumentCb = onAddDocument;
+  if (typeof onCreateProject === 'function') onCreateProjectCb = onCreateProject;
+
+  // Adaptive FAB — primary add action depends on the current level.
+  document.getElementById('projectsCreateFab')?.addEventListener('click', () => {
+    if (level === 'detail' && selectedProjectId) {
+      const p = cache.projects.find((x) => x.id === selectedProjectId);
+      if (p && onAddDocumentCb) { onAddDocumentCb(p); return; }
+    }
+    if (onCreateProjectCb) onCreateProjectCb();
+  });
 
   document.getElementById('projectsFilterRow')?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-projects-filter]');
@@ -184,6 +195,8 @@ function render() {
   const detailRoot = document.getElementById('projectsLevelDetail');
   if (!gridRoot || !detailRoot) return;
 
+  updateFab();
+
   if (level === 'grid') {
     gridRoot.classList.remove('d-none');
     detailRoot.classList.add('d-none');
@@ -204,6 +217,23 @@ function render() {
         scrollDocId = null;
       });
     }
+  }
+}
+
+/** Reflect the current level on the FAB so its icon + aria-label tell
+ *  the user what tapping it will do. Role-visibility itself is handled
+ *  by applyRoleVisibility() in index.js via the data-projects-role attr. */
+function updateFab() {
+  const fab = document.getElementById('projectsCreateFab');
+  if (!fab) return;
+  if (level === 'detail' && selectedProjectId) {
+    fab.innerHTML = '<i class="bi bi-file-earmark-plus"></i>';
+    fab.setAttribute('aria-label', 'เพิ่มหนังสือในโครงการนี้');
+    fab.setAttribute('title', 'เพิ่มหนังสือ');
+  } else {
+    fab.innerHTML = '<i class="bi bi-folder-plus"></i>';
+    fab.setAttribute('aria-label', 'สร้างโครงการใหม่');
+    fab.setAttribute('title', 'สร้างโครงการใหม่');
   }
 }
 
@@ -424,7 +454,7 @@ function renderDocExpand(doc, project) {
     <div class="projects-doc-files" data-projects-files-for="${escHtml(doc.id)}">
       <div class="projects-files-head">
         <span><i class="bi bi-paperclip me-1"></i>ไฟล์แนบ</span>
-        ${(isVp && !isCancelled) ? `<label class="btn btn-sm btn-ghost">
+        ${(isVp && !isCancelled) ? `<label class="btn btn-sm btn-primary-soft">
           <i class="bi bi-cloud-upload me-1"></i>เพิ่มไฟล์
           <input type="file" hidden multiple data-projects-add-files="${escHtml(doc.id)}" />
         </label>` : ''}

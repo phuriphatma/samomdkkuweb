@@ -161,13 +161,15 @@ export function initProjects() {
     setView(btn.dataset.projectsView);
   });
 
-  // Create-project button (VP-Admin)
+  // Create-project header button (always opens the create flow).
+  // The FAB is wired inside mountInbox() so its action can flip with the
+  // current view (grid → create project; detail → add doc to that project).
   document.getElementById('projectsCreateBtn')?.addEventListener('click', () => openCreateProject());
-  document.getElementById('projectsCreateFab')?.addEventListener('click', () => openCreateProject());
 
   mountInbox({
     onChanged: reloadProjects,
     onAddDocument: (project) => openSendDocument({ project }),
+    onCreateProject: () => openCreateProject(),
   });
   mountSendFlow({ onCreated: reloadProjects });
   mountManage({ onChanged: reloadProjects });

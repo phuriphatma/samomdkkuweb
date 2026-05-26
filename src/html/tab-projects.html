@@ -74,11 +74,14 @@
                 <div id="projectsDetailRoot"></div>
               </div>
 
-              <!-- Mobile-only floating action button for VP-Admin -->
+              <!-- Mobile + tablet FAB for VP-Admin. Icon + aria-label flip
+                   between "create project" (grid) and "add doc" (detail)
+                   via inbox.js updateFab(). Visible up to lg breakpoint so
+                   iPad portrait & landscape both get it. -->
               <button type="button" id="projectsCreateFab"
-                class="projects-fab d-md-none" data-projects-role="vp_admin"
+                class="projects-fab d-lg-none" data-projects-role="vp_admin"
                 aria-label="สร้างโครงการใหม่">
-                <i class="bi bi-plus-lg"></i>
+                <i class="bi bi-folder-plus"></i>
               </button>
             </div>
 
