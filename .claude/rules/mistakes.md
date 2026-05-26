@@ -201,6 +201,26 @@ input element OR explicitly `fileInput.value = ''` if this becomes a problem.
 
 ---
 
+## HTML5 `required` on a hidden field silently blocks form submit
+
+**Symptom**: User fills in every visible field of the project send-document
+modal, clicks "ส่ง" — nothing happens. No error, no spinner, no Discord
+ping, no row. DevTools console quietly says
+`An invalid form control with name='' is not focusable.`
+**Cause**: The same `<form>` does double duty for "create project + first
+doc" and "add doc to existing project". Depending on mode, half its fields
+are hidden via `d-none`. But HTML5 form validation **still runs on hidden
+required fields** — and because the browser can't focus a hidden field to
+show the validation tooltip, it just refuses to submit, silently.
+**Fix**: Add `novalidate` to the `<form>` AND remove all `required`
+attributes from inputs that may be hidden by mode. Do validation in JS
+(`onSubmit` throws clear Thai errors that surface via `alert`). HTML5
+required + dynamic hide/show is a footgun in any multi-mode form here.
+**Where**: `src/html/modal-project-send.html` `#projectSendForm`. If you
+add a new dual-mode modal, do the same.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

@@ -6,7 +6,12 @@
           <h5 class="modal-title fw-bold" id="projectSendTitle">สร้างโครงการใหม่</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
-        <form id="projectSendForm" class="modal-body projects-send-form">
+        <!-- novalidate: validation is done in JS (send.js onSubmit), because
+             when the modal toggles between create / add-doc modes some fields
+             are hidden via d-none and HTML5 `required` on a hidden input
+             silently blocks form submission ("An invalid form control with
+             name='' is not focusable"). -->
+        <form id="projectSendForm" class="modal-body projects-send-form" novalidate>
 
           <!-- Locked project (shown in add-doc mode) -->
           <div id="projectSendLockedProject" class="d-none mb-3"></div>
@@ -15,7 +20,7 @@
           <div id="projectSendProjectFields">
             <div class="mb-3">
               <label class="form-label fw-bold">ชื่อโครงการ <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="projectSendProjectName" required maxlength="120"
+              <input type="text" class="form-control" id="projectSendProjectName" maxlength="120"
                 placeholder="เช่น โครงการสานสัมพันธ์น้องพี่ ปีการศึกษา 2569" />
             </div>
             <div class="mb-3">
@@ -37,7 +42,7 @@
             <div class="row g-3">
               <div class="col-md-5">
                 <label class="form-label fw-bold">ประเภทหนังสือ <span class="text-danger">*</span></label>
-                <select id="projectSendDocType" class="form-select" required></select>
+                <select id="projectSendDocType" class="form-select"></select>
               </div>
               <div class="col-md-7">
                 <label class="form-label fw-bold">ชื่อหนังสือ <span class="text-danger">*</span></label>
