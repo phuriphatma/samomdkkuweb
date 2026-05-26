@@ -46,6 +46,18 @@ let selectedDocumentId = null;    // null = show project overview
 let filterStatus = 'all';
 let searchQ = '';
 
+// Doc-status counts derived from cache.projects, used by the KPI strip.
+function computeDocCounts(projects) {
+  const c = { sent: 0, received: 0, in_progress: 0, returned: 0, completed: 0, cancelled: 0, total: 0 };
+  for (const p of projects) {
+    for (const d of (p.documents || [])) {
+      c[d.status] = (c[d.status] || 0) + 1;
+      c.total += 1;
+    }
+  }
+  return c;
+}
+
 // ---------- mounting ----------
 
 export function mountInbox({ onChanged: changed, onAddDocument }) {
@@ -63,6 +75,16 @@ export function mountInbox({ onChanged: changed, onAddDocument }) {
     refreshList();
   });
   document.getElementById('projectsList')?.addEventListener('click', (e) => {
+    // Inline "+ หนังสือ" on a card — open send modal directly, without
+    // navigating into the detail panel.
+    const addBtn = e.target.closest('[data-projects-card-add]');
+    if (addBtn) {
+      e.stopPropagation();
+      const id = addBtn.dataset.projectsCardAdd;
+      const project = cache.projects.find((p) => p.id === id);
+      if (project && onAddDocumentCb) onAddDocumentCb(project);
+      return;
+    }
     const card = e.target.closest('[data-project-id]');
     if (!card) return;
     selectedProjectId = card.dataset.projectId;
@@ -72,6 +94,17 @@ export function mountInbox({ onChanged: changed, onAddDocument }) {
     refreshList();      // re-highlight active card
     history.replaceState(null, '', `#projects/${selectedProjectId}`);
   });
+
+  // KPI strip — chips at top double as filter shortcuts.
+  document.getElementById('projectsKpiStrip')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-projects-kpi]');
+    if (!chip) return;
+    const next = chip.dataset.projectsKpi;
+    filterStatus = next;
+    renderFilterChips();
+    refreshList();
+  });
+
   document.getElementById('projectsDetailBack')?.addEventListener('click', () => {
     document.querySelector('.projects-layout')?.classList.remove('is-detail-open');
   });
@@ -81,6 +114,7 @@ export function mountInbox({ onChanged: changed, onAddDocument }) {
 
 export function renderInbox(next) {
   cache = { ...cache, ...next };
+  renderKpiStrip();
   renderFilterChips();
   refreshList();
   refreshDetail();
@@ -114,17 +148,57 @@ export async function openDocumentDetail(documentId) {
   refreshDetail();
 }
 
+// ---------- KPI strip (top of list pane) ----------
+//
+// Compact action-summary cards at the top of the inbox. They show
+// per-status DOCUMENT counts (not project counts) since "what needs
+// my attention" lives at the document level. Clicking a card filters
+// the list to projects that have at least one doc in that status,
+// so a tap-tap workflow takes the user from the summary to the
+// actionable item.
+
+function renderKpiStrip() {
+  const root = document.getElementById('projectsKpiStrip');
+  if (!root) return;
+  const c = computeDocCounts(cache.projects);
+  const role = cache.role;
+  // For vp_admin: highlight returned (needs their attention).
+  // For uni_staff: highlight sent + returned (her queue).
+  const kpis = [
+    { key: 'doc-attn',  label: role === 'uni_staff' ? 'รับเรื่อง' : 'ส่งกลับ',
+      value: role === 'uni_staff' ? c.sent : c.returned,
+      kind:  role === 'uni_staff' ? 'is-info' : 'is-warn',
+      icon:  role === 'uni_staff' ? 'bi-inbox' : 'bi-arrow-counterclockwise',
+      filter: role === 'uni_staff' ? 'has-sent' : 'has-returned' },
+    { key: 'doc-prog',  label: 'กำลังดำเนินการ', value: c.in_progress, kind: 'is-progress', icon: 'bi-arrow-repeat', filter: 'has-progress' },
+    { key: 'doc-done',  label: 'เสร็จสิ้น', value: c.completed, kind: 'is-ok', icon: 'bi-check-circle', filter: 'has-completed' },
+    { key: 'doc-all',   label: 'หนังสือทั้งหมด', value: c.total, kind: '', icon: 'bi-files', filter: 'all' },
+  ];
+  root.innerHTML = kpis.map((k) => `
+    <button type="button" class="projects-kpi ${k.kind} ${filterStatus === k.filter ? 'is-active' : ''}" data-projects-kpi="${k.filter}">
+      <span class="projects-kpi-icon"><i class="bi ${k.icon}"></i></span>
+      <span class="projects-kpi-body">
+        <span class="projects-kpi-value">${k.value}</span>
+        <span class="projects-kpi-label">${escHtml(k.label)}</span>
+      </span>
+    </button>
+  `).join('');
+}
+
 // ---------- filter chips ----------
 
 function renderFilterChips() {
   const row = document.getElementById('projectsFilterRow');
   if (!row) return;
   const chips = [
-    { id: 'all',         label: 'ทั้งหมด' },
-    { id: 'open',        label: 'เปิดรับ' },
-    { id: 'in_progress', label: 'กำลังดำเนินการ' },
-    { id: 'completed',   label: 'เสร็จสิ้น' },
-    { id: 'cancelled',   label: 'ยกเลิก' },
+    { id: 'all',            label: 'ทั้งหมด' },
+    { id: 'has-sent',       label: 'มีหนังสือใหม่' },
+    { id: 'has-returned',   label: 'มีส่งกลับ' },
+    { id: 'has-progress',   label: 'กำลังดำเนินการ' },
+    { id: 'has-completed',  label: 'มีเสร็จแล้ว' },
+    { id: 'open',           label: 'โครงการเปิด' },
+    { id: 'completed',      label: 'โครงการเสร็จสิ้น' },
+    { id: 'cancelled',      label: 'ยกเลิก' },
   ];
   row.innerHTML = chips.map((c) =>
     `<button type="button" class="projects-chip ${c.id === filterStatus ? 'is-active' : ''}" data-projects-filter="${c.id}">${escHtml(c.label)}</button>`
@@ -139,7 +213,17 @@ function refreshList() {
   if (!list) return;
 
   let rows = cache.projects.slice();
-  if (filterStatus !== 'all') rows = rows.filter((p) => p.status === filterStatus);
+  // Filter modes:
+  //   'all'                 → no filter
+  //   'has-sent' / 'has-returned' / 'has-progress' / 'has-completed'
+  //                         → projects that contain at least one doc in that status
+  //   anything else         → project status equals the filter
+  if (filterStatus === 'has-sent')      rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'sent'));
+  else if (filterStatus === 'has-returned')   rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'returned'));
+  else if (filterStatus === 'has-progress')   rows = rows.filter((p) => (p.documents || []).some((d) => ['received','in_progress'].includes(d.status)));
+  else if (filterStatus === 'has-completed')  rows = rows.filter((p) => (p.documents || []).some((d) => d.status === 'completed'));
+  else if (filterStatus !== 'all')      rows = rows.filter((p) => p.status === filterStatus);
+
   if (searchQ) {
     rows = rows.filter((p) =>
       (p.name || '').toLowerCase().includes(searchQ)
@@ -161,28 +245,40 @@ function refreshList() {
 function renderProjectCard(p) {
   const docs = Array.isArray(p.documents) ? p.documents : [];
   const total = docs.length;
-  const inflight = docs.filter((d) => ['sent', 'received', 'in_progress', 'returned'].includes(d.status)).length;
-  const done = docs.filter((d) => d.status === 'completed').length;
+  // Per-status badge counts on the card itself, so the user can scan
+  // "what's going on in this project" without clicking in.
+  const cSent      = docs.filter((d) => d.status === 'sent').length;
+  const cInflight  = docs.filter((d) => ['received','in_progress'].includes(d.status)).length;
+  const cReturned  = docs.filter((d) => d.status === 'returned').length;
+  const cCompleted = docs.filter((d) => d.status === 'completed').length;
   const meta = PROJECT_STATUS_META[p.status] || PROJECT_STATUS_META.open;
   const active = p.id === selectedProjectId ? 'is-active' : '';
   const recent = docs.slice().sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0];
+  const lastTouch = recent ? recent.updated_at || recent.created_at : p.created_at;
+  const role = cache.role;
+  const canAdd = role === 'vp_admin' || role === 'dev';
   return `
-    <button type="button" class="projects-card ${active}" data-project-id="${escHtml(p.id)}">
-      <div class="projects-card-head">
-        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
+    <div class="projects-card ${active}" data-project-id="${escHtml(p.id)}" role="button" tabindex="0">
+      <div class="projects-card-row">
+        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon}"></i></span>
+        <span class="projects-card-title">${escHtml(p.name)}</span>
+        ${canAdd ? `<button type="button" class="projects-card-add" data-projects-card-add="${escHtml(p.id)}" aria-label="เพิ่มหนังสือในโครงการนี้" title="เพิ่มหนังสือ">
+          <i class="bi bi-plus-lg"></i>
+        </button>` : ''}
+      </div>
+      <div class="projects-card-row projects-card-meta-row">
         <span class="projects-card-id">${escHtml(p.id)}</span>
+        <span class="projects-card-dot">·</span>
+        <span class="projects-card-badges">
+          <span title="หนังสือทั้งหมด"><i class="bi bi-files"></i> ${total}</span>
+          ${cSent ?      `<span class="badge-mini b-info" title="ส่งแล้ว / รอรับเรื่อง">${cSent}</span>` : ''}
+          ${cInflight ?  `<span class="badge-mini b-warn" title="กำลังดำเนินการ">${cInflight}</span>` : ''}
+          ${cReturned ?  `<span class="badge-mini b-danger" title="ส่งกลับ">${cReturned}</span>` : ''}
+          ${cCompleted ? `<span class="badge-mini b-ok" title="เสร็จสิ้น">${cCompleted}</span>` : ''}
+        </span>
+        <span class="projects-card-last">${escHtml(fmtRelative(lastTouch))}</span>
       </div>
-      <div class="projects-card-title">${escHtml(p.name)}</div>
-      ${p.description ? `<div class="projects-card-sub">${escHtml(p.description).slice(0, 140)}</div>` : ''}
-      <div class="projects-card-meta">
-        <span><i class="bi bi-files me-1"></i>${total} หนังสือ</span>
-        ${inflight ? `<span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>${inflight} ดำเนินการ</span>` : ''}
-        ${done ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${done} เสร็จ</span>` : ''}
-      </div>
-      <div class="projects-card-foot">
-        <span>${escHtml(recent ? fmtRelative(recent.updated_at || recent.created_at) : fmtRelative(p.created_at))}</span>
-      </div>
-    </button>
+    </div>
   `;
 }
 
@@ -261,12 +357,25 @@ function renderDetail(project) {
     <div class="projects-docs-wrap">
       ${docs.length === 0
         ? `<div class="projects-detail-empty small"><i class="bi bi-inbox"></i><h4>ยังไม่มีหนังสือในโครงการนี้</h4><p data-projects-role="vp_admin">กด "เพิ่มหนังสือ" ด้านบนเพื่อส่งหนังสือฉบับแรก</p></div>`
-        : docs.map((d) => renderDocBlock(d, project)).join('')}
+        : (() => {
+            // Sort by sent_at / created_at desc — most recent first — and expand
+            // only docs that need attention (sent / returned / explicitly opened
+            // via deep link). Older or completed docs are collapsed so the page
+            // isn't a wall of text on busy projects.
+            const sorted = docs.slice().sort((a, b) =>
+              new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
+            return sorted.map((d, i) => {
+              const needsAttention = ['sent', 'returned'].includes(d.status);
+              const isDeepLinked = d.id === selectedDocumentId;
+              const expanded = isDeepLinked || needsAttention || i === 0;
+              return renderDocBlock(d, project, expanded);
+            }).join('');
+          })()}
     </div>
   `;
 }
 
-function renderDocBlock(doc, project) {
+function renderDocBlock(doc, project, expanded = true) {
   const meta = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
   const stepIndex = DOC_PATH_ORDER.indexOf(doc.status);
@@ -279,16 +388,21 @@ function renderDocBlock(doc, project) {
   const isUni = role === 'uni_staff' || role === 'dev';
 
   return `
-    <article class="projects-doc" data-projects-doc-id="${escHtml(doc.id)}">
-      <header class="projects-doc-head">
+    <article class="projects-doc ${expanded ? 'is-expanded' : 'is-collapsed'}" data-projects-doc-id="${escHtml(doc.id)}">
+      <header class="projects-doc-head" data-projects-doc-toggle="${escHtml(doc.id)}">
         <div class="projects-doc-seq">หนังสือ ${doc.sequence_no || 1}</div>
         <div class="projects-doc-title">${escHtml(doc.title)}</div>
         <div class="projects-doc-meta">
           <span class="projects-type-pill">${escHtml(type?.label_th || doc.type_id)}</span>
           <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
-          <span class="text-muted small">${escHtml(doc.id)}</span>
+          <span class="text-muted small d-none d-md-inline">${escHtml(doc.id)}</span>
         </div>
+        <button type="button" class="projects-doc-collapse-btn" aria-label="ขยาย/ย่อ">
+          <i class="bi bi-chevron-down"></i>
+        </button>
       </header>
+
+      <div class="projects-doc-body">
 
       ${renderProgressBar(stepIndex, isReturned, isCancelled)}
 
@@ -326,6 +440,7 @@ function renderDocBlock(doc, project) {
       </div>
 
       ${renderTimeline(doc)}
+      </div>
     </article>
   `;
 }
@@ -399,6 +514,19 @@ function wireDetailActions(project) {
   // Mobile back
   document.getElementById('projectsDetailBackMobile')?.addEventListener('click', () => {
     document.querySelector('.projects-layout')?.classList.remove('is-detail-open');
+  });
+
+  // Per-doc expand/collapse
+  document.querySelectorAll('[data-projects-doc-toggle]').forEach((head) => {
+    head.addEventListener('click', (e) => {
+      // Don't fire when an inline button inside the header (e.g. add file
+      // input label) was the actual click target.
+      if (e.target.closest('button, label, input, a')) return;
+      const card = head.closest('.projects-doc');
+      if (!card) return;
+      card.classList.toggle('is-expanded');
+      card.classList.toggle('is-collapsed');
+    });
   });
 
   // Copy deep link

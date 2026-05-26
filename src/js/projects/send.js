@@ -253,7 +253,9 @@ async function onSubmit(e) {
 
     status.textContent = 'สำเร็จ';
     modal?.hide();
-    onCreated();
+    // Pass the new/updated ids so the caller can auto-select the project
+    // and (if applicable) jump to the freshly-sent document.
+    onCreated({ projectId: project?.id || null, documentId: doc?.id || null });
   } catch (err) {
     status.textContent = '';
     alert(err.message || 'ไม่สามารถบันทึกได้');

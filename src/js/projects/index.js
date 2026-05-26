@@ -96,8 +96,11 @@ async function loadInitialData() {
   }
 }
 
-/** Public: re-read everything and re-render. Called after any write action. */
-export async function reloadProjects() {
+/** Public: re-read everything and re-render. Called after any write action.
+ *  Optional { projectId, documentId } auto-opens that item in the detail
+ *  pane — used after the create/send flow so the user lands on the thing
+ *  they just made instead of an empty state. */
+export async function reloadProjects(focus = {}) {
   const [projects, docTypes, settings] = await Promise.all([
     listProjects().catch(() => cache.projects),
     listDocTypes({ activeOnly: false }).catch(() => cache.docTypes),
@@ -107,6 +110,8 @@ export async function reloadProjects() {
   if (view === 'inbox')  renderInbox({ projects: cache.projects, docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
   if (view === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
   refreshNotificationBell();
+  if (focus.documentId)      openDocumentDetail(focus.documentId);
+  else if (focus.projectId)  openProjectDetail(focus.projectId);
 }
 
 export function getCachedDocTypes() { return cache.docTypes; }
