@@ -19,7 +19,7 @@ import { NOTIFY_KIND_META, fmtRelative } from './data.js';
 let onJump = () => {};
 let offcanvas = null;
 
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 20_000;   // was 60s — felt stale when the other party acted while you were on the page
 let pollTimer = null;
 
 export function mountNotifications({ onJump: cb } = {}) {
@@ -51,6 +51,18 @@ export function mountNotifications({ onJump: cb } = {}) {
     refreshNotificationBell();
     offcanvas?.hide();
     if (projectId || documentId) onJump({ projectId, documentId });
+  });
+
+  // Refresh the bell whenever the page becomes visible again (return-to-tab).
+  // Without this, a user staring at the screen had to wait up to one poll
+  // interval before seeing new activity from the other side.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshNotificationBell();
+  });
+
+  // Also refresh when the user clicks into the projects tab itself.
+  document.addEventListener('shown.bs.tab', (e) => {
+    if (e.target?.id === 'pills-projects-tab') refreshNotificationBell();
   });
 
   onAuthChange((user) => {

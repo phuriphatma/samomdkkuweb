@@ -29,13 +29,15 @@ export const DOC_STATUS_META = {
 };
 
 export const NOTIFY_KIND_META = {
-  sent:           { icon: 'bi-send',                cls: 'is-info' },
-  received:       { icon: 'bi-inbox',               cls: 'is-info' },
-  status:         { icon: 'bi-arrow-repeat',        cls: 'is-info' },
+  sent:           { icon: 'bi-send',                   cls: 'is-info' },
+  resent:         { icon: 'bi-send-arrow-up-fill',     cls: 'is-warn' },
+  received:       { icon: 'bi-inbox',                  cls: 'is-info' },
+  status:         { icon: 'bi-arrow-repeat',           cls: 'is-info' },
   returned:       { icon: 'bi-arrow-counterclockwise', cls: 'is-warn' },
-  comment:        { icon: 'bi-chat-left-text',      cls: 'is-info' },
-  file_replaced:  { icon: 'bi-arrow-repeat',        cls: 'is-info' },
-  completed:      { icon: 'bi-check-circle',        cls: 'is-ok' },
+  comment:        { icon: 'bi-chat-left-text',         cls: 'is-info' },
+  file_added:     { icon: 'bi-cloud-plus-fill',        cls: 'is-info' },
+  file_replaced:  { icon: 'bi-arrow-repeat',           cls: 'is-info' },
+  completed:      { icon: 'bi-check-circle',           cls: 'is-ok' },
 };
 
 // ---- Formatters ----

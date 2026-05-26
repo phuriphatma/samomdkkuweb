@@ -805,7 +805,7 @@ async function onDocResendClick(btn) {
     }, { status: 'sent', return_reason: null });
     const doc = await getDocument(docId).catch(() => null);
     await notifyUniStaff({
-      kind: 'sent',
+      kind: 'resent',
       project, document: doc,
       body: `SAMO ส่งหนังสือใหม่อีกครั้ง: ${note}`,
       subject: `[MDKKU SAMO] ส่งใหม่ — ${project.name}`,
@@ -879,7 +879,7 @@ async function onDocAddFiles(e, docId) {
       note: `เพิ่มไฟล์ ${files.length} ไฟล์`,
     });
     await notifyUniStaff({
-      kind: 'file_replaced',
+      kind: 'file_added',
       project, document: doc,
       body: `เพิ่มไฟล์ใหม่ ${files.length} ไฟล์ในหนังสือ "${doc.title}"`,
       subject: `[MDKKU SAMO] ไฟล์ใหม่ใน ${project.name}`,
