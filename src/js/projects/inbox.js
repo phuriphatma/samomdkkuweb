@@ -956,20 +956,60 @@ async function loadFilesForDoc(docId) {
     const role = cache.role;
     const isVp = role === 'vp_admin' || role === 'dev';
     const active = files.filter((f) => f.superseded_by == null);
-    wrap.innerHTML = active.map((f) => renderFileRow(f, supersedeFrom.get(f.id) || [], isVp)).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
+    const doc = findDocById(docId)?.doc;
+    const lastActed = doc ? myLastActionTime(doc, role) : 0;
+    wrap.innerHTML = active.map((f) => {
+      const preds = supersedeFrom.get(f.id) || [];
+      const newness = fileNewnessForRole(f, preds, lastActed, role);
+      return renderFileRow(f, preds, isVp, newness);
+    }).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
   } catch (e) {
     wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
   }
 }
 
-function renderFileRow(f, superseded, isVp) {
+/** Timestamp of the current role's most recent timeline action on this doc.
+ *  0 means "never acted" — for uni_staff on a fresh sent doc, this lights up
+ *  every attached file as ใหม่ on first open. */
+function myLastActionTime(doc, role) {
+  const tl = doc.timeline || [];
+  for (let i = tl.length - 1; i >= 0; i--) {
+    if (tl[i].role === role) {
+      const t = new Date(tl[i].at).getTime();
+      if (!isNaN(t)) return t;
+    }
+  }
+  return 0;
+}
+
+/** Returns 'new' | 'replaced' | null based on whether this file changed since
+ *  the viewer's last action. VPA uploaded the files themselves — skip the
+ *  highlight for them. */
+function fileNewnessForRole(file, predecessors, lastActed, role) {
+  if (role === 'vp_admin') return null;
+  const uploaded = new Date(file.uploaded_at).getTime();
+  if (isNaN(uploaded)) return null;
+  if (lastActed > 0 && uploaded <= lastActed) return null;
+  return predecessors.length > 0 ? 'replaced' : 'new';
+}
+
+function renderFileRow(f, superseded, isVp, newness) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
+  const newnessCls   = newness ? `is-${newness}` : '';
+  const newnessBadge = newness === 'new'
+    ? `<span class="projects-file-newness-pill is-new"><i class="bi bi-stars me-1"></i>ใหม่</span>`
+    : newness === 'replaced'
+    ? `<span class="projects-file-newness-pill is-replaced"><i class="bi bi-arrow-repeat me-1"></i>แทนที่ใหม่</span>`
+    : '';
   return `
-    <div class="projects-file">
+    <div class="projects-file ${newnessCls}">
       <i class="bi ${icon} projects-file-icon"></i>
       <div class="projects-file-info">
-        <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
+        <div class="projects-file-name-row">
+          <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
+          ${newnessBadge}
+        </div>
         <div class="projects-file-meta">
           <span>${escHtml(fmtBytes(f.size_bytes))}</span>
           <span>·</span>

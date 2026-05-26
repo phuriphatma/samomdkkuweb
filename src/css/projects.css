@@ -685,9 +685,25 @@
   border-radius: 6px;
   background: #fff;
   flex-wrap: wrap;
+  transition: background 0.2s, border-color 0.2s;
 }
+.projects-tab .projects-file.is-new,
+.projects-tab .projects-file.is-replaced {
+  background: var(--p-warn-soft);
+  border-color: rgba(217, 119, 6, 0.45);
+  box-shadow: 0 1px 6px rgba(217, 119, 6, 0.12);
+}
+.projects-tab .projects-file.is-new .projects-file-icon,
+.projects-tab .projects-file.is-replaced .projects-file-icon { color: var(--p-warn); }
+
 .projects-tab .projects-file-icon { color: var(--p-accent); font-size: 1.4rem; }
 .projects-tab .projects-file-info { flex: 1 1 200px; min-width: 0; }
+.projects-tab .projects-file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .projects-tab .projects-file-name {
   font-weight: 500;
   color: var(--p-text);
@@ -695,6 +711,21 @@
   word-break: break-word;
 }
 .projects-tab .projects-file-name:hover { color: var(--p-accent); text-decoration: underline; }
+.projects-tab .projects-file-newness-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--p-warn);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.3);
+}
+.projects-tab .projects-file-newness-pill.is-replaced {
+  background: #b45309;   /* darker amber for "replaced", to visually distinguish from "new" */
+}
 .projects-tab .projects-file-meta {
   display: flex;
   flex-wrap: wrap;
