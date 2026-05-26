@@ -190,9 +190,9 @@ export function initProjects() {
     if (e.target?.id === 'pills-projects-tab') {
       tabActive = true;
       if (!initialDataLoaded) {
-        const body = document.getElementById('projectsTableBody');
-        if (body && body.childElementCount === 0) {
-          body.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด…</td></tr>`;
+        const grid = document.getElementById('projectsGrid');
+        if (grid && grid.childElementCount === 0) {
+          grid.innerHTML = `<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด…</div>`;
         }
         await loadInitialData();
       }

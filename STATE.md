@@ -20,19 +20,51 @@ Two conflicts resolved: `.gitignore` (kept both branches' rules) and
 `index.html` (took the slim refactor version over main's 2700-line monolith).
 `functions/api/submit.js` deleted — refactor talks to Supabase directly.
 
-## Phase 1.1 UX refactor — spreadsheet/table inbox (2026-05-26)
+## Phase 1.2 UX refactor — two-level drill-down (2026-05-26)
 
-User feedback after the initial Project-Tracking ship:
-- Left-sidebar single-column project list was hard to scan for "what
-  needs my attention right now."
-- Progression UI was role-asymmetric (different KPI tiles, different
-  buttons, different framings) → confusing.
-- Active nav pill rendered green-on-green (fixed in prior commit).
+Iteration after Phase 1.1 (spreadsheet/table): the spreadsheet was
+"too messy" — fully expanded rows piled on top of grouped sections
+made the screen feel like a wall of cards.
 
-**Best-practice direction picked: spreadsheet/table** (Notion / Linear /
-Airtable / Jira pattern). Folder-tree was the alternative the user
-floated — rejected because it solves the *nesting* problem but not the
-*surfacing-state* problem.
+Final direction: **two-level drill-down** (Google Drive / Outlook /
+Notion pattern). Level 1 is just project cards (one card per
+โครงการ, scannable grid). Level 2 is the focused project view —
+breadcrumb back, project header, list of its หนังสือ as compact
+cards. Click a doc card → expands inline with stepper + files +
+actions + timeline.
+
+**Why this won**: each screen has a single job. Level 1: "which
+project needs me?" Level 2: "what's the state of *this* project?"
+Doc detail: "act on *this* หนังสือ." The earlier table view tried
+to surface all three at once.
+
+**What changed (Phase 1.2)**:
+- `src/html/tab-projects.html` — replaced single-table layout with
+  two sibling sections: `#projectsLevelGrid` (grid + toolbar) and
+  `#projectsLevelDetail` (breadcrumb + detail root). Group-by select
+  removed (no longer needed).
+- `src/js/projects/inbox.js` — render() dispatches on
+  `level: 'grid' | 'detail'`. Filter chips operate on projects (not
+  docs) via `projectBucket()`: a project is bucketed `mine` if any
+  doc owes the current role, `waiting` if all active docs wait on
+  the other side, `done` if everything is completed/cancelled.
+- `src/js/projects/index.js` — loading-spinner placeholder targets
+  `projectsGrid`.
+- `src/css/projects.css` — added `.projects-grid`,
+  `.projects-card-grid` (with `.is-bucket-mine` left-border
+  treatment), `.projects-breadcrumb`, `.projects-detail-head`,
+  `.projects-doc-card`. Dropped the table/row/group-header styles.
+  Stepper / files / timeline / soft buttons / status pills retained.
+
+**Action symmetry remains**: same layout for VPA and uni_staff;
+the buckets and labels are role-relative.
+
+**Manual verification still pending**: reload the preview env and
+confirm the level-1 grid renders, clicking a card drills in,
+breadcrumb-back returns, and the deep-link routing
+(`#projects/PRJ-…`, `#projects/PRJ-…/doc/DOC-…`) still works.
+
+## Phase 1.1 UX refactor — spreadsheet/table inbox (superseded by 1.2)
 
 **What changed**:
 - `src/html/tab-projects.html` — replaced split-pane (left list + right
