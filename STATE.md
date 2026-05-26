@@ -4,9 +4,10 @@ Last updated: 2026-05-26
 
 ## Branches
 
-`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` at `be96de9`
-(SAMO Shop polish commit) **plus uncommitted Project-Tracking work**
-(see "Currently working" below). Branch ruleset `main-protect` is
+`main` at `3fc7cd4` (PR #7 merge). `refactor/modular` last commits:
+Project tracking module + follow-up polish fixes (chevron toggle on doc
+header, navbar active-pill text-color bleed). See "Currently working"
+below. Branch ruleset `main-protect` is
 active — direct push to `main` requires you to be in the Bypass list;
 otherwise opens a PR (which is what the colleague will do).
 

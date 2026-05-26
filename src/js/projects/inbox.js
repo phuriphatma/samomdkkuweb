@@ -516,12 +516,11 @@ function wireDetailActions(project) {
     document.querySelector('.projects-layout')?.classList.remove('is-detail-open');
   });
 
-  // Per-doc expand/collapse
+  // Per-doc expand/collapse — click anywhere on the header (including the
+  // chevron button) toggles. The header currently has no actionable
+  // buttons of its own; action buttons live in projects-doc-actions below.
   document.querySelectorAll('[data-projects-doc-toggle]').forEach((head) => {
-    head.addEventListener('click', (e) => {
-      // Don't fire when an inline button inside the header (e.g. add file
-      // input label) was the actual click target.
-      if (e.target.closest('button, label, input, a')) return;
+    head.addEventListener('click', () => {
       const card = head.closest('.projects-doc');
       if (!card) return;
       card.classList.toggle('is-expanded');
