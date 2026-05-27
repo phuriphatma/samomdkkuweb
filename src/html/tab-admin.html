@@ -165,6 +165,7 @@
               <button data-shop-admin-tab="delivery"><i class="bi bi-clipboard-check me-1"></i> การส่งมอบ</button>
               <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
               <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
+              <button data-shop-admin-tab="stock"><i class="bi bi-box-seam-fill me-1"></i> สต็อก</button>
               <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
             </div>
 
@@ -207,14 +208,19 @@
             </div>
 
             <div data-shop-admin-pane="delivery" class="d-none">
-              <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                  <h5 class="font-prompt mb-0" style="font-weight:700;">รายการรอส่งมอบ</h5>
-                  <p class="text-muted mb-0 small">เช็คลิสต์ส่งมอบสินค้า — กดติ๊กเมื่อลูกค้ามารับครบ หรือบันทึกปัญหา</p>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">การส่งมอบสินค้า</h5>
+                  <p class="text-muted mb-0 small">พิมพ์ชื่อลูกค้าหรือรหัสคำสั่งซื้อ → ติ๊กตามที่ลูกค้ามารับ</p>
                 </div>
                 <button class="btn btn-ghost btn-sm" id="shopAdminDeliveryRefresh">
                   <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
                 </button>
+              </div>
+              <div class="delivery-search-bar mb-3">
+                <i class="bi bi-search"></i>
+                <input id="shopAdminDeliverySearch" type="search" class="form-control form-control-lg"
+                       placeholder="ค้นหาชื่อลูกค้า, รหัสคำสั่งซื้อ, อีเมล..." autocomplete="off" />
               </div>
               <div id="shopAdminDeliveryHost"></div>
             </div>
@@ -259,6 +265,24 @@
                   <tbody id="shopAdminProductsTbody"></tbody>
                 </table>
               </div>
+            </div>
+
+            <div data-shop-admin-pane="stock" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">สต็อกสินค้า</h5>
+                  <p class="text-muted mb-0 small">ดูและแก้ไขจำนวนสินค้าคงเหลือต่อไซส์/สี ได้รวดเร็ว</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="shopAdminStockRefresh">
+                  <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                </button>
+              </div>
+              <div class="delivery-search-bar mb-3">
+                <i class="bi bi-search"></i>
+                <input id="shopAdminStockSearch" type="search" class="form-control form-control-lg"
+                       placeholder="ค้นหาชื่อสินค้า..." autocomplete="off" />
+              </div>
+              <div id="shopAdminStockHost"></div>
             </div>
 
             <div data-shop-admin-pane="qr" class="d-none">

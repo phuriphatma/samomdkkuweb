@@ -87,6 +87,32 @@ test before merge.
      order goes to done.
 5. No GAS redeploy needed (only DB + frontend changed).
 
+### Follow-up: search-first delivery + standalone stock tab (same day)
+
+Iterated on the delivery UX and added a dedicated stock-only tab after
+user feedback ("fast easy access, like search customer and tick").
+
+**Delivery tab (rewrite)**:
+- Big sticky search bar at top: customer name / order ID / email — narrows live.
+- Filter chips: รอส่งมอบ (default) / มีปัญหาค้าง / เสร็จสิ้นวันนี้ / ทั้งหมด.
+- Each row leads with the buyer's avatar + name (order ID secondary).
+- Progress pill with mini bar (e.g. "2/3").
+- **No more `prompt()` popups**: tick auto-fills recipient = buyer_label;
+  pencil icon reveals an inline override input.
+- Issue button opens an inline form (type dropdown + note input + save),
+  not a window.prompt chain.
+- When all items ticked → inline green banner with "ปิดคำสั่งซื้อ"
+  button (no confirm).
+
+**Stock tab (new)**:
+- Search by product name; per-product card with thumb + name + total-stock
+  pill + status select.
+- Inline size × color grid with −/+ steppers + direct input.
+- Cells colour-coded: red `is-zero`, yellow `is-low (≤3)`, green
+  `is-ok`, grey `is-unset` (empty).
+- Per-card "บันทึก" + "ยกเลิก"; dirty card highlighted yellow.
+- PATCH only `stock_matrix` + `stock_status` — image stays untouched.
+
 ### Not in this round (deferred)
 - Discord/email notification when batch published (could reuse
   existing GAS notify actions).

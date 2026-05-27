@@ -31,13 +31,22 @@ const state = {
   products: [],
   batches: [],
   settings: null,
-  pickupRecords: [],   // for the delivery tab
+  pickupRecords: [],
   ordersFilter: 'all',
   ordersSearch: '',
   verifyIdx: 0,
   productEditor: null,
   batchEditor: null,
+  // Delivery tab
   deliveryExpanded: new Set(),
+  deliverySearch: '',
+  deliveryFilter: 'ready',
+  deliveryEditRecipient: new Set(),   // item.id where recipient input is shown
+  deliveryIssueOpen: new Set(),       // item.id where issue form is open
+  deliveryIssueDraft: new Map(),      // item.id → { type, note }
+  // Stock tab
+  stockSearch: '',
+  stockEdits: new Map(),  // productId → { matrix: {...}, status: '...' }  (pending unsaved edits)
 };
 
 const ISSUE_LABELS = {
@@ -101,8 +110,25 @@ function ensureMounted() {
   document.getElementById('shopAdminQRSave')?.addEventListener('click', saveSettingsForm);
   document.getElementById('shopAdminQRFile')?.addEventListener('change', onQRFileChosen);
 
-  // Delivery refresh button
+  // Delivery refresh + search
   document.getElementById('shopAdminDeliveryRefresh')?.addEventListener('click', refreshDelivery);
+  const delSearch = document.getElementById('shopAdminDeliverySearch');
+  if (delSearch) {
+    delSearch.addEventListener('input', () => {
+      state.deliverySearch = delSearch.value.trim().toLowerCase();
+      renderDelivery();
+    });
+  }
+
+  // Stock tab search + refresh
+  const stockSearch = document.getElementById('shopAdminStockSearch');
+  if (stockSearch) {
+    stockSearch.addEventListener('input', () => {
+      state.stockSearch = stockSearch.value.trim().toLowerCase();
+      renderStock();
+    });
+  }
+  document.getElementById('shopAdminStockRefresh')?.addEventListener('click', refreshStock);
 }
 
 function setTab(name) {
@@ -117,6 +143,7 @@ function setTab(name) {
   if (name === 'delivery') refreshDelivery();
   if (name === 'batches')  refreshBatches();
   if (name === 'products') refreshProducts();
+  if (name === 'stock')    refreshStock();
   if (name === 'qr')       loadSettingsIntoForm();
 }
 
@@ -495,7 +522,12 @@ function renderVerifyQueue() {
 }
 
 // ---------------------------------------------------------------------
-// Delivery — pickup checklist for ready orders
+// Delivery — search-first pickup checklist
+//
+// UX goal: when a customer walks up to the table, admin types their name,
+// expands the row, and ticks items off. Default recipient = order's
+// buyer_label (no popup). Override via inline pencil. Issue logging is an
+// inline form (no prompt()).
 // ---------------------------------------------------------------------
 async function refreshDelivery() {
   try {
@@ -505,7 +537,7 @@ async function refreshDelivery() {
     ]);
     state.orders = orders;
     state.products = products;
-    const ids = orders.filter((o) => o.status === 'ready' || o.status === 'done').map((o) => o.id);
+    const ids = orders.filter((o) => ['ready', 'done', 'produce'].includes(o.status)).map((o) => o.id);
     state.pickupRecords = ids.length ? await listPickupRecords({ orderIds: ids }).catch(() => []) : [];
     renderDelivery();
   } catch (e) {
@@ -513,15 +545,51 @@ async function refreshDelivery() {
   }
 }
 
+function deliveryDataset() {
+  const recordsByItem = new Map();
+  for (const r of state.pickupRecords) recordsByItem.set(r.order_item_id, r);
+  return { recordsByItem };
+}
+
+function filteredDeliveryOrders() {
+  const q = state.deliverySearch;
+  const { recordsByItem } = deliveryDataset();
+  let list = state.orders.slice();
+  if (state.deliveryFilter === 'ready') {
+    list = list.filter((o) => o.status === 'ready');
+  } else if (state.deliveryFilter === 'issues') {
+    list = list.filter((o) => {
+      const items = Array.isArray(o.items) ? o.items : [];
+      return items.some((it) => {
+        const r = recordsByItem.get(it.id);
+        return r && r.issue_type && !r.resolved_at;
+      });
+    });
+  } else if (state.deliveryFilter === 'done_today') {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    list = list.filter((o) => {
+      if (o.status !== 'done') return false;
+      const t = new Date(o.updated_at || o.placed_at);
+      return t >= today;
+    });
+  }
+  if (q) {
+    list = list.filter((o) => {
+      const hay = `${o.id} ${o.buyer_label || ''} ${o.buyer_id || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  return { list, recordsByItem };
+}
+
 function renderDelivery() {
   const host = document.getElementById('shopAdminDeliveryHost');
   if (!host) return;
+  const { recordsByItem } = deliveryDataset();
   const ready = state.orders.filter((o) => o.status === 'ready');
-  const recordsByItem = new Map();
-  for (const r of state.pickupRecords) recordsByItem.set(r.order_item_id, r);
 
-  // Summary metrics
-  let pickedUp = 0, totalItems = 0, openIssues = 0;
+  // Counts
+  let totalItems = 0, pickedUp = 0, openIssues = 0;
   for (const o of ready) {
     const items = Array.isArray(o.items) ? o.items : [];
     for (const it of items) {
@@ -531,7 +599,16 @@ function renderDelivery() {
       if (r && r.issue_type && !r.resolved_at) openIssues++;
     }
   }
-  const issuesAll = state.pickupRecords.filter((r) => r.issue_type);
+  const issueCount = state.pickupRecords.filter((r) => r.issue_type && !r.resolved_at).length;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const doneToday = state.orders.filter((o) => {
+    if (o.status !== 'done') return false;
+    const t = new Date(o.updated_at || o.placed_at);
+    return t >= today;
+  }).length;
+
+  // Render summary + filter chips + result list
+  const { list } = filteredDeliveryOrders();
 
   host.innerHTML = `
     <div class="admin-stats mb-3">
@@ -545,26 +622,45 @@ function renderDelivery() {
       </div>
       <div class="stat-card is-warning">
         <div class="stat-label">ปัญหาค้าง</div>
-        <div class="stat-value">${openIssues}<span class="stat-suffix">รายการ</span></div>
+        <div class="stat-value">${issueCount}<span class="stat-suffix">รายการ</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">ปิดคำสั่งซื้อวันนี้</div>
+        <div class="stat-value">${doneToday}<span class="stat-suffix">คำสั่งซื้อ</span></div>
       </div>
     </div>
 
-    <h5 class="font-prompt mb-3" style="font-weight:700;">
-      <i class="bi bi-clipboard-check me-1"></i> รายการรอส่งมอบ
-    </h5>
-    ${ready.length === 0
-      ? `<div class="empty-state"><i class="bi bi-emoji-smile"></i><h4>ไม่มีคำสั่งซื้อรอส่งมอบ</h4></div>`
-      : ready.map((o) => deliveryOrderCardHtml(o, recordsByItem)).join('')}
+    <div class="delivery-filters d-flex flex-wrap gap-2 mb-3">
+      <button type="button" class="chip ${state.deliveryFilter === 'ready' ? 'is-active' : ''}" data-delivery-filter="ready">
+        <i class="bi bi-box-seam me-1"></i> รอส่งมอบ <b>${ready.length}</b>
+      </button>
+      <button type="button" class="chip ${state.deliveryFilter === 'issues' ? 'is-active' : ''}" data-delivery-filter="issues">
+        <i class="bi bi-exclamation-triangle me-1"></i> มีปัญหาค้าง <b>${issueCount}</b>
+      </button>
+      <button type="button" class="chip ${state.deliveryFilter === 'done_today' ? 'is-active' : ''}" data-delivery-filter="done_today">
+        <i class="bi bi-check2-all me-1"></i> เสร็จสิ้นวันนี้ <b>${doneToday}</b>
+      </button>
+      <button type="button" class="chip ${state.deliveryFilter === 'all' ? 'is-active' : ''}" data-delivery-filter="all">
+        ทั้งหมด
+      </button>
+    </div>
 
-    ${issuesAll.length ? `
-      <h5 class="font-prompt mt-4 mb-3" style="font-weight:700;">
-        <i class="bi bi-exclamation-triangle me-1 text-warning"></i> ปัญหาที่บันทึกไว้
-      </h5>
-      ${issuesAll.map((r) => issueRowHtml(r)).join('')}
-    ` : ''}
+    <div id="shopAdminDeliveryList">
+      ${list.length === 0
+        ? `<div class="empty-state"><i class="bi bi-search"></i><h4>ไม่พบคำสั่งซื้อ</h4><p>ลองพิมพ์ชื่อหรือรหัสคำสั่งซื้อ</p></div>`
+        : list.map((o) => deliveryOrderCardHtml(o, recordsByItem)).join('')}
+    </div>
   `;
 
-  // Wire interactions
+  // Filter chips
+  host.querySelectorAll('[data-delivery-filter]').forEach((b) => {
+    b.addEventListener('click', () => {
+      state.deliveryFilter = b.dataset.deliveryFilter;
+      renderDelivery();
+    });
+  });
+
+  // Expand / collapse order
   host.querySelectorAll('[data-delivery-toggle]').forEach((b) => {
     b.addEventListener('click', () => {
       const id = b.dataset.deliveryToggle;
@@ -574,25 +670,57 @@ function renderDelivery() {
     });
   });
 
+  // One-click tick (no prompt)
   host.querySelectorAll('[data-pickup-tick]').forEach((cb) => {
     cb.addEventListener('change', () => handleTick(cb));
   });
 
-  host.querySelectorAll('[data-pickup-issue]').forEach((btn) => {
-    btn.addEventListener('click', () => promptIssue(btn.dataset.pickupIssue.split('|')));
+  // Reveal recipient-override input
+  host.querySelectorAll('[data-recipient-edit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.recipientEdit);
+      if (state.deliveryEditRecipient.has(id)) state.deliveryEditRecipient.delete(id);
+      else state.deliveryEditRecipient.add(id);
+      renderDelivery();
+    });
+  });
+  host.querySelectorAll('[data-recipient-save]').forEach((btn) => {
+    btn.addEventListener('click', () => saveRecipient(btn));
+  });
+
+  // Inline issue form
+  host.querySelectorAll('[data-issue-open]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.issueOpen;
+      if (state.deliveryIssueOpen.has(id)) state.deliveryIssueOpen.delete(id);
+      else state.deliveryIssueOpen.add(id);
+      renderDelivery();
+    });
+  });
+  host.querySelectorAll('[data-issue-save]').forEach((btn) => {
+    btn.addEventListener('click', () => saveIssue(btn));
+  });
+  host.querySelectorAll('[data-issue-input]').forEach((el) => {
+    el.addEventListener('input', () => {
+      const key = el.dataset.issueInput;
+      const [orderId, itemId, field] = key.split('|');
+      const k = `${orderId}|${itemId}`;
+      const draft = state.deliveryIssueDraft.get(k) || { type: 'wrong_size', note: '' };
+      draft[field] = el.value;
+      state.deliveryIssueDraft.set(k, draft);
+    });
   });
 
   host.querySelectorAll('[data-pickup-undo]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const recId = Number(btn.dataset.pickupUndo);
-      if (!confirm('ยกเลิกการบันทึกการรับสินค้านี้?')) return;
       try { await deletePickupRecord(recId); refreshDelivery(); }
       catch (e) { showShopToast(`ยกเลิกไม่สำเร็จ: ${e.message || e}`, 'error'); }
     });
   });
 
   host.querySelectorAll('[data-pickup-resolve]').forEach((btn) => {
-    btn.addEventListener('click', () => promptResolve(Number(btn.dataset.pickupResolve)));
+    btn.addEventListener('click', () => inlineResolve(Number(btn.dataset.pickupResolve)));
   });
 
   host.querySelectorAll('[data-delivery-finish]').forEach((btn) => {
@@ -609,31 +737,43 @@ function deliveryOrderCardHtml(o, recordsByItem) {
     return r && !r.issue_type;
   }).length;
   const allPicked = total > 0 && picked === total;
+  const initial = (o.buyer_label || '?').slice(0, 1);
+  const isDone = o.status === 'done';
 
   return `
-    <div class="delivery-card">
+    <div class="delivery-card ${isDone ? 'is-done-order' : ''}">
       <button type="button" class="delivery-head" data-delivery-toggle="${escHtml(o.id)}">
-        <div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="order-id">#${escHtml(o.id)}</span>
-            <span class="status-pill" data-status="ready"><span class="pulse"></span><i class="bi bi-box-seam"></i> พร้อมรับ</span>
-          </div>
-          <div class="small text-muted mt-1">
-            ${escHtml(o.buyer_label || '—')} · ${escHtml(o.buyer_id || '')}
+        <div class="d-flex align-items-center gap-3" style="min-width:0;">
+          <span class="ravatar" style="width:36px; height:36px; flex:0 0 auto;">${escHtml(initial)}</span>
+          <div style="min-width:0;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span style="font-weight:700; font-size:1rem;">${escHtml(o.buyer_label || '—')}</span>
+              <span class="order-id small">#${escHtml(o.id)}</span>
+              ${isDone ? '<span class="status-pill" data-status="done"><span class="pulse"></span><i class="bi bi-bag-check"></i> เสร็จสิ้น</span>' : ''}
+            </div>
+            <div class="small text-muted text-truncate">
+              ${total} ชิ้น · ${escHtml(o.buyer_id || '')}
+            </div>
           </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="delivery-progress ${allPicked ? 'is-done' : ''}">${picked} / ${total} ส่งมอบแล้ว</span>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+          <div class="delivery-pill ${allPicked ? 'is-done' : ''}">
+            <span class="d-progress-bar"><span style="width: ${total ? Math.round(picked / total * 100) : 0}%;"></span></span>
+            <span>${picked}/${total}</span>
+          </div>
           <i class="bi ${isOpen ? 'bi-chevron-up' : 'bi-chevron-down'}"></i>
         </div>
       </button>
       ${isOpen ? `
         <div class="delivery-body">
           ${items.map((it) => deliveryItemRowHtml(o, it, recordsByItem.get(it.id))).join('')}
-          ${allPicked ? `
-            <div class="d-flex justify-content-end mt-3">
+          ${allPicked && o.status === 'ready' ? `
+            <div class="delivery-finish-banner">
+              <div>
+                <i class="bi bi-check2-all me-2"></i><b>ครบทุกชิ้นแล้ว</b> — พร้อมปิดคำสั่งซื้อ
+              </div>
               <button class="btn btn-success btn-sm" data-delivery-finish="${escHtml(o.id)}">
-                <i class="bi bi-bag-check me-1"></i> ปิดคำสั่งซื้อ → "รับสินค้าแล้ว"
+                <i class="bi bi-bag-check me-1"></i> ปิดคำสั่งซื้อ
               </button>
             </div>` : ''}
         </div>` : ''}
@@ -644,38 +784,72 @@ function deliveryItemRowHtml(o, item, record) {
   const p = state.products.find((x) => x.id === item.product_id);
   const isPicked = !!(record && !record.issue_type);
   const hasIssue = !!(record && record.issue_type);
+  const colors = Array.isArray(p?.colors) ? p.colors : [];
+  const colorLabel = colors.find((c) => c.id === item.color)?.label || item.color || '';
+  const issueKey = `${o.id}|${item.id}`;
+  const issueOpen = state.deliveryIssueOpen.has(issueKey);
+  const draft = state.deliveryIssueDraft.get(issueKey) || { type: 'wrong_size', note: '' };
+  const recipientOpen = state.deliveryEditRecipient.has(item.id);
+
   return `
     <div class="delivery-row ${hasIssue ? 'has-issue' : ''} ${isPicked ? 'is-picked' : ''}">
-      <label class="delivery-tick">
-        <input type="checkbox" data-pickup-tick="${escHtml(o.id)}|${item.id}" ${isPicked ? 'checked' : ''} ${hasIssue ? 'disabled' : ''} />
+      <label class="delivery-tick" title="${isPicked ? 'คลิกอีกครั้งเพื่อยกเลิก' : 'ติ๊กเมื่อลูกค้ารับแล้ว'}">
+        <input type="checkbox" data-pickup-tick="${escHtml(o.id)}|${item.id}" ${isPicked ? 'checked' : ''} ${hasIssue && !record.resolved_at ? 'disabled' : ''} />
         <span></span>
       </label>
       <div class="flex-grow-1" style="min-width:0;">
         <div style="font-weight:600;">${escHtml(p?.name || item.product_id)}</div>
         <div class="small text-muted">
-          ${item.size && item.size !== 'F' ? `ไซส์ ${escHtml(item.size)}` : 'Unisex'}
-          ${item.color ? ` · ${escHtml(item.color)}` : ''}
+          ${item.size && item.size !== 'F' ? `ไซส์ <b>${escHtml(item.size)}</b>` : 'Unisex'}
+          ${colorLabel ? ` · ${escHtml(colorLabel)}` : ''}
           · จำนวน ${item.qty}
         </div>
-        ${record?.recipient_name ? `<div class="small text-success mt-1"><i class="bi bi-person-check me-1"></i>รับโดย ${escHtml(record.recipient_name)} · ${fmtDateTime(record.picked_up_at)}</div>` : ''}
+        ${record?.recipient_name && !record.issue_type ? `
+          <div class="small text-success mt-1">
+            <i class="bi bi-person-check me-1"></i>รับโดย <b>${escHtml(record.recipient_name)}</b>
+            · ${fmtDateTime(record.picked_up_at)}
+            <button class="btn btn-link btn-sm p-0 ms-1" data-recipient-edit="${item.id}" title="เปลี่ยนผู้รับ">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </div>` : ''}
+        ${recipientOpen && isPicked ? `
+          <div class="input-group input-group-sm mt-2" style="max-width:360px;">
+            <input class="form-control" data-recipient-input="${record.id}" value="${escHtml(record.recipient_name || '')}" placeholder="ชื่อผู้รับ" />
+            <button class="btn btn-shop" data-recipient-save="${record.id}">บันทึก</button>
+          </div>` : ''}
         ${hasIssue ? `
           <div class="small text-danger mt-1">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            ปัญหา: ${escHtml(ISSUE_LABELS[record.issue_type] || record.issue_type)}
+            <b>${escHtml(ISSUE_LABELS[record.issue_type] || record.issue_type)}</b>
             ${record.issue_note ? ` · ${escHtml(record.issue_note)}` : ''}
             ${record.resolved_at
-              ? ` · <span class="text-success">แก้ไขแล้ว${record.resolution ? ': ' + escHtml(record.resolution) : ''}</span>`
+              ? ` · <span class="text-success"><i class="bi bi-check2 me-1"></i>แก้ไขแล้ว${record.resolution ? ': ' + escHtml(record.resolution) : ''}</span>`
               : ''}
+          </div>` : ''}
+        ${issueOpen ? `
+          <div class="issue-inline-form mt-2">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+              <select class="form-select form-select-sm" style="max-width:200px;" data-issue-input="${issueKey}|type">
+                ${Object.entries(ISSUE_LABELS).map(([k, lbl]) =>
+                  `<option value="${k}" ${draft.type === k ? 'selected' : ''}>${escHtml(lbl)}</option>`).join('')}
+              </select>
+              <input class="form-control form-control-sm flex-grow-1" data-issue-input="${issueKey}|note"
+                     value="${escHtml(draft.note)}" placeholder="รายละเอียด (เช่น &quot;ขอเปลี่ยนเป็นไซส์ L&quot;)" />
+              <button class="btn btn-shop btn-sm" data-issue-save="${issueKey}">
+                <i class="bi bi-save me-1"></i> บันทึก
+              </button>
+              <button class="btn btn-ghost btn-sm" data-issue-open="${issueKey}">ยกเลิก</button>
+            </div>
           </div>` : ''}
       </div>
       <div class="d-flex flex-column gap-1 align-items-end" style="white-space:nowrap;">
         ${!record ? `
-          <button class="btn btn-outline-warning btn-sm" data-pickup-issue="${escHtml(o.id)}|${item.id}">
-            <i class="bi bi-flag me-1"></i> บันทึกปัญหา
+          <button class="btn btn-outline-warning btn-sm" data-issue-open="${issueKey}" title="บันทึกปัญหา">
+            <i class="bi bi-flag"></i>
           </button>` : ''}
         ${record && !record.issue_type ? `
-          <button class="btn btn-ghost btn-sm" data-pickup-undo="${record.id}">
-            <i class="bi bi-arrow-counterclockwise"></i> ยกเลิก
+          <button class="btn btn-ghost btn-sm text-muted" data-pickup-undo="${record.id}" title="ยกเลิกการบันทึก">
+            <i class="bi bi-arrow-counterclockwise"></i>
           </button>` : ''}
         ${hasIssue && !record.resolved_at ? `
           <button class="btn btn-success btn-sm" data-pickup-resolve="${record.id}">
@@ -685,53 +859,34 @@ function deliveryItemRowHtml(o, item, record) {
     </div>`;
 }
 
-function issueRowHtml(r) {
-  const order = state.orders.find((o) => o.id === r.order_id);
-  const item = (order?.items || []).find((it) => it.id === r.order_item_id);
-  const productName = state.products.find((p) => p.id === item?.product_id)?.name || item?.product_id || '—';
-  return `
-    <div class="delivery-row has-issue ${r.resolved_at ? 'is-resolved' : ''}">
-      <i class="bi bi-flag-fill text-warning" style="font-size:1.2rem;"></i>
-      <div class="flex-grow-1" style="min-width:0;">
-        <div style="font-weight:600;">#${escHtml(r.order_id)} · ${escHtml(productName)}</div>
-        <div class="small text-muted">
-          ${escHtml(ISSUE_LABELS[r.issue_type] || r.issue_type)}
-          ${r.issue_note ? ` · ${escHtml(r.issue_note)}` : ''}
-          · บันทึก ${fmtDateTime(r.created_at)}
-        </div>
-        ${r.resolved_at
-          ? `<div class="small text-success mt-1"><i class="bi bi-check2-circle me-1"></i>แก้ไขแล้ว · ${escHtml(r.resolution || '')}</div>`
-          : ''}
-      </div>
-      ${!r.resolved_at ? `
-        <button class="btn btn-success btn-sm" data-pickup-resolve="${r.id}">
-          <i class="bi bi-check2 me-1"></i> แก้ไขแล้ว
-        </button>` : ''}
-    </div>`;
-}
-
 async function handleTick(cb) {
   const [orderId, itemIdStr] = cb.dataset.pickupTick.split('|');
   const orderItemId = Number(itemIdStr);
+  const order = state.orders.find((o) => o.id === orderId);
+  const defaultRecipient = order?.buyer_label || null;
+  const { recordsByItem } = deliveryDataset();
+  const existing = recordsByItem.get(orderItemId);
+
   if (!cb.checked) {
-    // The undo path is via the dedicated button; un-checking just bounces.
+    // Unchecking → undo. Only allowed if it's a clean pickup record (no issue).
+    if (existing && !existing.issue_type) {
+      try { await deletePickupRecord(existing.id); refreshDelivery(); return; }
+      catch (e) { cb.checked = true; showShopToast(`ยกเลิกไม่สำเร็จ: ${e.message || e}`, 'error'); return; }
+    }
     cb.checked = true;
     return;
   }
-  const name = prompt('ชื่อผู้มารับ (เว้นว่างได้ ถ้าเป็นเจ้าของคำสั่งซื้อเอง):', '');
-  if (name === null) { cb.checked = false; return; }
   try {
     const me = getUser();
     await upsertPickupRecord({
       order_id: orderId,
       order_item_id: orderItemId,
       picked_up_by_admin: me?.id || null,
-      recipient_name: name.trim() || null,
+      recipient_name: defaultRecipient,
       picked_up_at: new Date().toISOString(),
       issue_type: null,
       issue_note: null,
     });
-    showShopToast('บันทึกการรับสินค้าแล้ว', 'success');
     refreshDelivery();
   } catch (e) {
     cb.checked = false;
@@ -739,18 +894,31 @@ async function handleTick(cb) {
   }
 }
 
-async function promptIssue(parts) {
-  const [orderId, itemIdStr] = parts;
-  const orderItemId = Number(itemIdStr);
-  const typeRaw = prompt('ระบุประเภทปัญหา (wrong_size / damaged / missing / other):', 'wrong_size');
-  if (!typeRaw) return;
-  const type = typeRaw.trim().toLowerCase();
-  if (!['wrong_size', 'damaged', 'missing', 'other'].includes(type)) {
-    showShopToast('ประเภทไม่ถูกต้อง — ต้องเป็น wrong_size / damaged / missing / other', 'warn');
-    return;
+async function saveRecipient(btn) {
+  const recId = Number(btn.dataset.recipientSave);
+  const input = document.querySelector(`[data-recipient-input="${recId}"]`);
+  if (!input) return;
+  try {
+    const { error } = await dbRest(
+      `/shop_pickup_records?id=eq.${recId}`,
+      { method: 'PATCH', body: { recipient_name: input.value.trim() || null }, prefer: 'return=minimal' },
+    );
+    if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
+    state.deliveryEditRecipient.delete(Number(btn.closest('.delivery-row').querySelector('[data-recipient-edit]')?.dataset.recipientEdit) || 0);
+    refreshDelivery();
+  } catch (e) {
+    showShopToast(`บันทึกไม่สำเร็จ: ${e.message || e}`, 'error');
   }
-  const note = prompt('รายละเอียดเพิ่มเติม (เช่น "ต้องการเปลี่ยนเป็นไซส์ L"):', '');
-  if (note === null) return;
+}
+
+async function saveIssue(btn) {
+  const key = btn.dataset.issueSave;
+  const [orderId, itemIdStr] = key.split('|');
+  const orderItemId = Number(itemIdStr);
+  const draft = state.deliveryIssueDraft.get(key) || { type: 'wrong_size', note: '' };
+  if (!['wrong_size', 'damaged', 'missing', 'other'].includes(draft.type)) {
+    showShopToast('ประเภทปัญหาไม่ถูกต้อง', 'warn'); return;
+  }
   try {
     const me = getUser();
     await upsertPickupRecord({
@@ -759,23 +927,22 @@ async function promptIssue(parts) {
       picked_up_by_admin: me?.id || null,
       recipient_name: null,
       picked_up_at: new Date().toISOString(),
-      issue_type: type,
-      issue_note: note.trim() || null,
+      issue_type: draft.type,
+      issue_note: draft.note.trim() || null,
     });
     showShopToast('บันทึกปัญหาแล้ว', 'success');
+    state.deliveryIssueOpen.delete(key);
+    state.deliveryIssueDraft.delete(key);
     refreshDelivery();
   } catch (e) {
     showShopToast(`บันทึกไม่สำเร็จ: ${e.message || e}`, 'error');
   }
 }
 
-async function promptResolve(recordId) {
-  const resolution = prompt('สรุปการแก้ไข (เช่น "เปลี่ยนเป็นไซส์ L แล้ว เมื่อ 28 พ.ค."):', '');
+async function inlineResolve(recordId) {
+  const resolution = prompt('สรุปการแก้ไข (เช่น "เปลี่ยนเป็นไซส์ L แล้ว"):', '');
   if (resolution === null) return;
-  if (!resolution.trim()) {
-    showShopToast('กรุณาระบุการแก้ไข', 'warn');
-    return;
-  }
+  if (!resolution.trim()) { showShopToast('กรุณาระบุการแก้ไข', 'warn'); return; }
   try {
     await resolvePickupIssue(recordId, resolution.trim());
     showShopToast('แก้ไขปัญหาแล้ว', 'success');
@@ -786,7 +953,6 @@ async function promptResolve(recordId) {
 }
 
 async function finishOrderPickup(orderId) {
-  if (!confirm(`ปิดคำสั่งซื้อ #${orderId} เป็น "รับสินค้าแล้ว"?`)) return;
   try {
     await updateOrderStatus(orderId, 'done', { label: STAGES_META.done.label });
     showShopToast(`ปิด #${orderId} แล้ว`, 'success');
@@ -1375,6 +1541,218 @@ function miniStyle(p) {
   if (p?.image_url) return `background-image: url('${escHtml(p.image_url)}'); background-size: cover; background-position: center;`;
   const h = Number(p?.hue) || 220;
   return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
+}
+
+// ---------------------------------------------------------------------
+// Stock — fast at-a-glance editor
+//
+// Each product is a card with image + name + total-stock pill + status,
+// and an inline size×color grid where each cell has +/- buttons and a
+// direct-input number. Empty = unspecified, 0 = OOS, ≤3 yellow, ≥1 green.
+// "บันทึก" per card writes only stock_matrix + stock_status (not image).
+// ---------------------------------------------------------------------
+async function refreshStock() {
+  try {
+    state.products = await listProducts({ activeOnly: false });
+    // Drop any pending edits that no longer apply
+    for (const id of Array.from(state.stockEdits.keys())) {
+      if (!state.products.find((p) => p.id === id)) state.stockEdits.delete(id);
+    }
+    renderStock();
+  } catch (e) {
+    showShopToast(`โหลดสินค้าล้มเหลว: ${e.message || e}`, 'error');
+  }
+}
+
+function getStockEditState(p) {
+  let edit = state.stockEdits.get(p.id);
+  if (!edit) {
+    edit = { matrix: { ...(p.stock_matrix || {}) }, status: p.stock_status || 'available', dirty: false };
+    state.stockEdits.set(p.id, edit);
+  }
+  return edit;
+}
+
+function renderStock() {
+  const host = document.getElementById('shopAdminStockHost');
+  if (!host) return;
+  const q = state.stockSearch;
+  let list = state.products.slice();
+  if (q) list = list.filter((p) => `${p.name} ${p.sub || ''} ${p.id}`.toLowerCase().includes(q));
+
+  if (list.length === 0) {
+    host.innerHTML = `<div class="empty-state"><i class="bi bi-search"></i><h4>ไม่พบสินค้า</h4></div>`;
+    return;
+  }
+
+  host.innerHTML = list.map(stockCardHtml).join('');
+
+  host.querySelectorAll('[data-stock-cell]').forEach((input) => {
+    input.addEventListener('input', () => onStockCellChange(input));
+  });
+  host.querySelectorAll('[data-stock-step]').forEach((btn) => {
+    btn.addEventListener('click', () => stepStock(btn));
+  });
+  host.querySelectorAll('[data-stock-status-sel]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const p = state.products.find((x) => x.id === sel.dataset.stockStatusSel);
+      if (!p) return;
+      const edit = getStockEditState(p);
+      edit.status = sel.value;
+      edit.dirty = true;
+      renderStock();
+    });
+  });
+  host.querySelectorAll('[data-stock-save]').forEach((btn) => {
+    btn.addEventListener('click', () => saveStock(btn.dataset.stockSave));
+  });
+  host.querySelectorAll('[data-stock-cancel]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.stockEdits.delete(btn.dataset.stockCancel);
+      renderStock();
+    });
+  });
+}
+
+function stockCardHtml(p) {
+  const edit = getStockEditState(p);
+  const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
+  const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
+  const total = totalStock(edit.matrix);
+  const statusMeta = STOCK_STATUS_META[edit.status] || STOCK_STATUS_META.available;
+  return `
+    <div class="stock-card ${edit.dirty ? 'is-dirty' : ''}">
+      <div class="stock-card-head">
+        <div class="stock-card-thumb" style="${stockThumbStyle(p)}"></div>
+        <div class="flex-grow-1" style="min-width:0;">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <h5 class="mb-0 font-prompt" style="font-weight:700;">${escHtml(p.name)}</h5>
+            <span class="badge ${statusMeta.badgeCls}">${escHtml(statusMeta.label)}</span>
+            ${edit.dirty ? '<span class="badge bg-warning-subtle text-warning border">มีการแก้ไขที่ยังไม่บันทึก</span>' : ''}
+          </div>
+          <div class="small text-muted">${escHtml(p.sub || '')}</div>
+        </div>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="stock-total ${total === null ? 'is-unset' : total === 0 ? 'is-zero' : total <= 5 ? 'is-low' : ''}">
+            ${total === null ? '— ไม่ระบุ —' : `รวม ${total} ชิ้น`}
+          </span>
+          <select class="form-select form-select-sm" data-stock-status-sel="${escHtml(p.id)}" style="max-width:200px;">
+            ${STOCK_STATUSES.map((s) =>
+              `<option value="${s}" ${edit.status === s ? 'selected' : ''}>${escHtml(STOCK_STATUS_META[s]?.label || s)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="stock-grid">
+        <table class="stock-grid-table">
+          <thead>
+            <tr>
+              <th></th>
+              ${sizes.map((s) => `<th>${escHtml(s)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${colors.map((c) => `
+              <tr>
+                <th>
+                  <span class="stock-color-swatch" style="background:${escHtml(c.hex || '#ccc')};"></span>
+                  ${escHtml(c.label || c.id)}
+                </th>
+                ${sizes.map((s) => {
+                  const k = stockKey(s, c.id);
+                  const v = edit.matrix[k];
+                  const cls = v === undefined ? 'is-unset'
+                    : v === 0 ? 'is-zero'
+                    : v <= 3 ? 'is-low'
+                    : 'is-ok';
+                  return `
+                    <td class="stock-cell-wrap ${cls}">
+                      <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|-1" title="ลด 1">−</button>
+                      <input class="stock-cell" data-stock-cell="${escHtml(p.id)}|${escHtml(k)}" inputmode="numeric"
+                             value="${v === undefined ? '' : Number(v)}" placeholder="–" />
+                      <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
+                    </td>`;
+                }).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="stock-card-foot">
+        <div class="small text-muted">
+          <i class="bi bi-info-circle me-1"></i>
+          เว้นว่าง = ไม่ระบุ · 0 = หมด · 1-3 = เหลือน้อย
+        </div>
+        <div class="d-flex gap-2">
+          ${edit.dirty ? `<button class="btn btn-ghost btn-sm" data-stock-cancel="${escHtml(p.id)}">ยกเลิก</button>` : ''}
+          <button class="btn btn-shop btn-sm ${edit.dirty ? '' : 'disabled'}" data-stock-save="${escHtml(p.id)}" ${edit.dirty ? '' : 'disabled'}>
+            <i class="bi bi-save me-1"></i> บันทึก
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function stockThumbStyle(p) {
+  if (p?.image_url) return `background-image: url('${escHtml(p.image_url)}'); background-size: cover; background-position: center;`;
+  const h = Number(p?.hue) || 220;
+  return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
+}
+
+function onStockCellChange(input) {
+  const [pid, key] = input.dataset.stockCell.split('|');
+  const p = state.products.find((x) => x.id === pid);
+  if (!p) return;
+  const edit = getStockEditState(p);
+  const raw = input.value.trim();
+  if (raw === '') { delete edit.matrix[key]; }
+  else {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return;
+    edit.matrix[key] = Math.floor(n);
+  }
+  edit.dirty = true;
+  renderStock();
+}
+
+function stepStock(btn) {
+  const [pid, key, deltaStr] = btn.dataset.stockStep.split('|');
+  const p = state.products.find((x) => x.id === pid);
+  if (!p) return;
+  const edit = getStockEditState(p);
+  const cur = edit.matrix[key];
+  const delta = Number(deltaStr);
+  const next = Math.max(0, (typeof cur === 'number' ? cur : 0) + delta);
+  edit.matrix[key] = next;
+  edit.dirty = true;
+  renderStock();
+}
+
+async function saveStock(productId) {
+  const p = state.products.find((x) => x.id === productId);
+  if (!p) return;
+  const edit = state.stockEdits.get(productId);
+  if (!edit || !edit.dirty) return;
+  try {
+    const { data, error } = await dbRest(
+      `/shop_products?id=eq.${encodeURIComponent(productId)}`,
+      {
+        method: 'PATCH',
+        body: { stock_matrix: edit.matrix, stock_status: edit.status },
+        prefer: 'return=representation',
+      },
+    );
+    if (error) throw new Error(error.message || 'บันทึกล้มเหลว');
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('บันทึกล้มเหลว (RLS หรือสิทธิ์ไม่พอ)');
+    }
+    // Reflect into local cache + clear dirty flag
+    p.stock_matrix = edit.matrix;
+    p.stock_status = edit.status;
+    state.stockEdits.delete(productId);
+    showShopToast(`บันทึก "${p.name}" แล้ว`, 'success');
+    renderStock();
+  } catch (e) {
+    showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error');
+  }
 }
 
 // ---------------------------------------------------------------------
