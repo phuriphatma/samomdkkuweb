@@ -267,6 +267,83 @@ export async function closeBatch(id) {
   return upsertBatch({ id, is_active: false });
 }
 
+// ---- Pickup records (delivery checklist) -------------------------------
+
+export async function listPickupRecordsForOrder(orderId) {
+  const idEsc = encodeURIComponent(orderId);
+  const { data, error } = await dbRest(
+    `/shop_pickup_records?select=*&order_id=eq.${idEsc}&order=created_at.asc`,
+  );
+  if (error) throw new Error(error.message || 'โหลดบันทึกการรับสินค้าไม่สำเร็จ');
+  return data || [];
+}
+
+export async function listPickupRecords({ orderIds } = {}) {
+  let q = '/shop_pickup_records?select=*&order=created_at.desc';
+  if (Array.isArray(orderIds) && orderIds.length) {
+    const inList = orderIds.map((id) => `"${id}"`).join(',');
+    q += `&order_id=in.(${encodeURIComponent(inList)})`;
+  }
+  const { data, error } = await dbRest(q);
+  if (error) throw new Error(error.message || 'โหลดบันทึกการรับสินค้าไม่สำเร็จ');
+  return data || [];
+}
+
+/**
+ * Insert (or upsert by order_item_id) a pickup record. If the item was
+ * already marked picked-up we merge the new fields (e.g. an issue logged
+ * later). Caller passes `recipient_name`, optional `issue_type`/`issue_note`,
+ * and admin uid.
+ */
+export async function upsertPickupRecord(row) {
+  if (!row || !row.order_id || !row.order_item_id) {
+    throw new Error('order_id + order_item_id required');
+  }
+  const { data, error } = await dbRest(
+    `/shop_pickup_records?on_conflict=order_item_id`,
+    {
+      method: 'POST',
+      body: row,
+      prefer: 'return=representation,resolution=merge-duplicates',
+    },
+  );
+  if (error) throw new Error(error.message || 'บันทึกการรับสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกการรับสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function resolvePickupIssue(id, resolution) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_pickup_records?id=eq.${idEsc}`,
+    {
+      method: 'PATCH',
+      body: { resolution, resolved_at: new Date().toISOString() },
+      prefer: 'return=representation',
+    },
+  );
+  if (error) throw new Error(error.message || 'บันทึกการแก้ไขไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกการแก้ไขไม่สำเร็จ');
+  }
+  return data[0];
+}
+
+export async function deletePickupRecord(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_pickup_records?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบบันทึกไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบบันทึกไม่สำเร็จ');
+  }
+  return true;
+}
+
 // ---- Settings ----------------------------------------------------------
 
 export async function getSettings() {

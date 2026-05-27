@@ -7,7 +7,7 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, fmtDateTime, STAGES_ORDER, STAGES_META } from './data.js';
+import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, batchDateEntries } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 
@@ -165,9 +165,11 @@ function orderCardHtml(o) {
           <i class="bi bi-box-seam"></i>
           <div>
             <div class="opc-title">พร้อมรับสินค้าแล้ว · ${escHtml(batch.location)}</div>
-            ${batch.hours ? `<div class="opc-meta">เวลารับ ${escHtml(batch.hours)}</div>` : ''}
             <div class="opc-dates">
-              ${(Array.isArray(batch.dates) ? batch.dates : []).map((d) => `<span class="opc-date">${escHtml(d)}</span>`).join('')}
+              ${batchDateEntries(batch).map((e) => `
+                <span class="opc-date">
+                  ${escHtml(e.date)}${e.hours ? ` · <span class="opc-date-time">${escHtml(e.hours)}</span>` : ''}
+                </span>`).join('')}
             </div>
           </div>
           <i class="bi bi-arrow-right-circle fs-4 text-success"></i>

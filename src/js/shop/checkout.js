@@ -24,7 +24,6 @@ let settingsCache = null;
 const state = {
   slipFile: null,
   slipPreviewUrl: null,
-  pickupLocation: 'samo-room',
   buyerNote: '',
   agree: false,
 };
@@ -94,7 +93,6 @@ function renderHtml() {
           const colors = Array.isArray(p?.colors) ? p.colors : [];
           const colorLabel = colors.find((c) => c.id === it.color)?.label || it.color || '';
           const variantParts = [
-            it.fit === 'men' ? 'ชาย' : it.fit === 'women' ? 'หญิง' : 'Unisex',
             ...(it.size && it.size !== 'F' ? [`ไซส์ ${it.size}`] : []),
             ...(colors.length > 1 && colorLabel ? [colorLabel] : []),
             `จำนวน ${it.qty}`,
@@ -114,28 +112,12 @@ function renderHtml() {
       </div>
 
       <div class="checkout-panel mb-3">
-        <h4><span class="step-num">2</span> จุดนัดรับสินค้า</h4>
-        <div class="row g-2">
-          <div class="col-md-6">
-            <label class="p-3 border rounded d-flex align-items-start gap-2 ${state.pickupLocation === 'samo-room' ? 'border-warning bg-light' : ''}" style="cursor:pointer;">
-              <input type="radio" name="shopPickup" value="samo-room" class="mt-1" ${state.pickupLocation === 'samo-room' ? 'checked' : ''} />
-              <div>
-                <div style="font-weight:600;">ห้องสโมสรนักศึกษาฯ</div>
-                <div class="small text-muted">ชั้น 1 อาคารเตรียมแพทย์ · 10:00–17:00 น.</div>
-              </div>
-            </label>
-          </div>
-          <div class="col-md-6">
-            <label class="p-3 border rounded d-flex align-items-start gap-2 ${state.pickupLocation === 'event' ? 'border-warning bg-light' : ''}" style="cursor:pointer;">
-              <input type="radio" name="shopPickup" value="event" class="mt-1" ${state.pickupLocation === 'event' ? 'checked' : ''} />
-              <div>
-                <div style="font-weight:600;">รับที่งาน (วันงานจริง)</div>
-                <div class="small text-muted">เฉพาะสินค้าผูกกับ event เท่านั้น</div>
-              </div>
-            </label>
-          </div>
-        </div>
-        <textarea id="shopCheckoutNote" class="form-control mt-3" rows="2"
+        <h4><span class="step-num">2</span> หมายเหตุเพิ่มเติม</h4>
+        <p class="small text-muted mb-2">
+          <i class="bi bi-info-circle me-1"></i>
+          จุดและเวลานัดรับ admin จะแจ้งให้ทราบในประกาศการรับสินค้า (ดูที่หน้าร้านค้าและ "คำสั่งซื้อของฉัน")
+        </p>
+        <textarea id="shopCheckoutNote" class="form-control" rows="2"
           placeholder="หมายเหตุเพิ่มเติม (ถ้ามี) — เช่น สลักชื่อ, รับแทนเพื่อน, ฯลฯ">${escHtml(state.buyerNote)}</textarea>
       </div>
 
@@ -222,10 +204,6 @@ function miniThumbStyle(p) {
 function wireEvents() {
   document.getElementById('shopCheckoutBackToShop')?.addEventListener('click', () => onBack());
 
-  document.getElementsByName('shopPickup').forEach((r) => {
-    r.addEventListener('change', () => { state.pickupLocation = r.value; renderCheckout(); });
-  });
-
   const note = document.getElementById('shopCheckoutNote');
   if (note) note.addEventListener('input', () => { state.buyerNote = note.value; });
 
@@ -309,7 +287,7 @@ async function placeOrder() {
       fee: 0,
       slipUrl,
       slipUploadedAt: new Date().toISOString(),
-      pickupLocation: state.pickupLocation,
+      pickupLocation: null,
       buyerNote: state.buyerNote,
     });
 

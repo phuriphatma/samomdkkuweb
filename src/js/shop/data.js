@@ -6,12 +6,11 @@
 // ==============================================
 
 export const SHOP_SOURCES = [
-  { id: 'all',     label: 'ทั้งหมด',       en: 'All' },
-  { id: 'project', label: 'โครงการ',       en: 'Project',     color: 'var(--src-project)' },
-  { id: 'fund',    label: 'จัดหาทุน',      en: 'Fundraising', color: 'var(--src-fund)' },
-  { id: 'rt',      label: 'RT',            en: 'RT',          color: 'var(--src-rt)' },
-  { id: 'mdi',     label: 'MDI',           en: 'MDI',         color: 'var(--src-mdi)' },
-  { id: 'merch',   label: 'ของที่ระลึก',    en: 'Merch',       color: 'var(--src-merch)' },
+  { id: 'all',      label: 'ทั้งหมด',            en: 'All' },
+  { id: 'md',       label: 'MD',                en: 'MD',            color: 'var(--src-md)' },
+  { id: 'rt',       label: 'RT',                en: 'RT',            color: 'var(--src-rt)' },
+  { id: 'mdi',      label: 'MDI',               en: 'MDI',           color: 'var(--src-mdi)' },
+  { id: 'sittikao', label: 'สมาคมสิทธิ์เก่า',     en: 'Sittikao',      color: 'var(--src-sittikao)' },
 ];
 
 export const SHOP_TYPES = [
@@ -20,7 +19,6 @@ export const SHOP_TYPES = [
   { id: 'apparel-polo',    label: 'เสื้อโปโล',    icon: 'bi-person-vcard' },
   { id: 'apparel-trouser', label: 'กางเกง',      icon: 'bi-bookshelf' },
   { id: 'bag',             label: 'กระเป๋า',     icon: 'bi-handbag' },
-  { id: 'accessory',       label: 'ของแถม',     icon: 'bi-stars' },
   { id: 'stationery',      label: 'เครื่องเขียน', icon: 'bi-pencil' },
 ];
 
@@ -43,8 +41,36 @@ export const STAGES_META = {
   cancel:  { label: 'ยกเลิกแล้ว',       icon: 'bi-x-circle' },
 };
 
+// Product-level stock status (independent of is_active soft-archive).
+export const STOCK_STATUSES = ['available', 'sold_out', 'production_closed'];
+
+export const STOCK_STATUS_META = {
+  available:          { label: 'พร้อมจำหน่าย',     ribbon: '',            badgeCls: 'bg-success-subtle text-success border border-success-subtle' },
+  sold_out:           { label: 'หมดสต็อก',         ribbon: 'SOLD OUT',     badgeCls: 'bg-danger-subtle text-danger border' },
+  production_closed:  { label: 'ปิดรอบการผลิต',   ribbon: 'CLOSED',       badgeCls: 'bg-secondary-subtle text-secondary border' },
+};
+
 export function findSource(id) { return SHOP_SOURCES.find((s) => s.id === id); }
 export function findType(id)   { return SHOP_TYPES.find((t) => t.id === id); }
+
+/**
+ * Aggregate total stock across a size×color matrix. Missing keys count as
+ * "unknown / unlimited" (not zero) — admin hasn't filled them in.
+ */
+export function totalStock(matrix) {
+  if (!matrix || typeof matrix !== 'object') return null;
+  let sum = 0;
+  let any = false;
+  for (const v of Object.values(matrix)) {
+    if (typeof v === 'number' && Number.isFinite(v)) { sum += v; any = true; }
+  }
+  return any ? sum : null;
+}
+
+/** A size+color combo is OOS when the matrix explicitly stores 0. */
+export function stockKey(size, color) {
+  return `${size || 'F'}-${color || 'default'}`;
+}
 
 /** Format an integer as a baht-style number, e.g. 1290 → "1,290". */
 export function thb(n) {
@@ -90,4 +116,20 @@ export function slugify(s) {
     .replace(/[^a-z0-9฀-๿]+/g, '-')  // keep Thai unicode block
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'item';
+}
+
+/**
+ * Read a batch's dates as a [{date, hours}] list — falls back to legacy
+ * parallel `dates[]` + shared `hours` if `dates_full` is missing/empty.
+ */
+export function batchDateEntries(batch) {
+  if (!batch) return [];
+  const df = batch.dates_full;
+  if (Array.isArray(df) && df.length) {
+    return df.map((e) => ({ date: String(e?.date || ''), hours: String(e?.hours || '') }))
+             .filter((e) => e.date);
+  }
+  const legacy = Array.isArray(batch.dates) ? batch.dates : [];
+  const sharedHours = String(batch.hours || '');
+  return legacy.filter(Boolean).map((d) => ({ date: String(d), hours: sharedHours }));
 }

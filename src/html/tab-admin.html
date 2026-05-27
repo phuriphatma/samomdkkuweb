@@ -162,6 +162,7 @@
             <div class="admin-tabs" id="shopAdminTabs">
               <button data-shop-admin-tab="orders"   class="is-active"><i class="bi bi-list-check me-1"></i> คำสั่งซื้อ</button>
               <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
+              <button data-shop-admin-tab="delivery"><i class="bi bi-clipboard-check me-1"></i> การส่งมอบ</button>
               <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
               <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
               <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
@@ -203,6 +204,19 @@
 
             <div data-shop-admin-pane="verify" class="d-none">
               <div id="shopAdminVerifyHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="delivery" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">รายการรอส่งมอบ</h5>
+                  <p class="text-muted mb-0 small">เช็คลิสต์ส่งมอบสินค้า — กดติ๊กเมื่อลูกค้ามารับครบ หรือบันทึกปัญหา</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="shopAdminDeliveryRefresh">
+                  <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                </button>
+              </div>
+              <div id="shopAdminDeliveryHost"></div>
             </div>
 
             <div data-shop-admin-pane="batches" class="d-none">

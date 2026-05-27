@@ -221,6 +221,26 @@ add a new dual-mode modal, do the same.
 
 ---
 
+## Check constraint must be dropped BEFORE updating to a new enum value
+
+**Symptom**: Running a migration that renames enum values fails with
+`ERROR: new row for relation "X" violates check constraint "X_col_check"`
+on the `UPDATE` statement itself — even though that UPDATE's whole job
+is to move the values to the new set.
+**Cause**: PostgreSQL evaluates check constraints on every row mutation.
+If the migration UPDATEs to a value that's outside the OLD check, the
+update fails before the new ALTER … ADD CHECK runs.
+**Fix**: Always `ALTER TABLE … DROP CONSTRAINT IF EXISTS X_check` **before**
+`UPDATE … SET col = new_value`, then `ALTER TABLE … ADD CONSTRAINT X_check
+CHECK (col IN (new_set))` afterwards. Also broaden the UPDATE to
+`WHERE col NOT IN (new_set)` so a re-run / unexpected legacy value
+doesn't get left in an invalid state.
+**Where**: `supabase/migrations/0007_shop_refactor.sql` for the shop
+`source` enum (md/rt/mdi/sittikao). Apply this pattern to any future
+enum-rename migration.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

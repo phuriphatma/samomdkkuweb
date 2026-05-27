@@ -37,11 +37,10 @@
   --shop-yellow-700: #a36c00;
 
   /* Source-of-product tags */
-  --src-project:  #3b6fb0;
-  --src-fund:     #c98a1e;
+  --src-md:       #3b6fb0;
   --src-rt:       #b54a6c;
   --src-mdi:      #2e8467;
-  --src-merch:    #6b6b6b;
+  --src-sittikao: #8a5cb5;
 
   /* Order-status palette */
   --status-pending:   #b78103;
@@ -225,43 +224,104 @@
 .shop-tab .pickup-banner .pb-cta:hover { background: #fff; transform: translateY(-1px); }
 
 /* ==============================================
- * Recent launches strip
+ * Recent launches — horizontal "big show" carousel
  * ============================================== */
-.shop-tab .launch-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: .85rem;
-  margin-bottom: 1.5rem;
-}
-.shop-tab .launch-card {
+.shop-tab .launch-arrows { display: inline-flex; gap: .35rem; }
+.shop-tab .launch-arrow {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--shop-ink-100);
   background: #fff;
-  border-radius: var(--shop-radius);
-  padding: .85rem;
-  display: flex; gap: .75rem; align-items: center;
+  color: var(--shop-700);
+  display: inline-flex; align-items: center; justify-content: center;
   box-shadow: var(--shop-shadow-sm);
-  cursor: pointer;
+  transition: background .15s, color .15s, transform .05s;
+}
+.shop-tab .launch-arrow:hover { background: var(--shop-50); color: var(--shop-900); }
+.shop-tab .launch-arrow:active { transform: translateY(1px); }
+.shop-tab .launch-arrow:disabled { opacity: .45; cursor: not-allowed; }
+
+.shop-tab .launch-carousel {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding: .35rem .25rem 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.shop-tab .launch-carousel::-webkit-scrollbar { height: 8px; }
+.shop-tab .launch-carousel::-webkit-scrollbar-thumb { background: var(--shop-ink-100); border-radius: 999px; }
+.shop-tab .launch-big {
+  flex: 0 0 320px;
+  scroll-snap-align: start;
+  background: #fff;
+  border-radius: var(--shop-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shop-shadow-md);
   border: 1px solid transparent;
-  transition: border-color .15s, transform .12s;
+  cursor: pointer;
+  transition: transform .18s, border-color .15s, box-shadow .15s;
+  display: flex; flex-direction: column;
 }
-.shop-tab .launch-card:hover { border-color: var(--brand-orange); transform: translateY(-2px); box-shadow: 0 8px 20px -10px rgba(255,111,48,.35); }
-.shop-tab .launch-thumb {
-  width: 56px; height: 56px;
-  border-radius: var(--shop-radius-sm);
-  flex: 0 0 auto;
-  background-size: cover;
-  background-position: center;
+.shop-tab .launch-big:hover {
+  border-color: var(--brand-orange);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -18px rgba(255,111,48,.45), var(--shop-shadow-md);
 }
-.shop-tab .launch-card .lc-name { font-weight: 600; font-size: .9rem; color: var(--shop-ink-900); line-height: 1.2; }
-.shop-tab .launch-card .lc-date { font-size: .75rem; color: var(--shop-ink-500); }
-.shop-tab .launch-card .lc-new {
-  display: inline-block;
-  background: var(--shop-600); color: #fff;
-  font-size: .65rem; font-weight: 700;
-  padding: .05rem .35rem;
-  border-radius: 4px;
-  letter-spacing: .05em;
-  margin-left: .35rem;
+.shop-tab .launch-big.is-oos { filter: grayscale(.35); opacity: .85; }
+.shop-tab .launch-big-thumb {
+  aspect-ratio: 5 / 4;
+  position: relative;
+  background: var(--shop-ink-50);
+  overflow: hidden;
 }
+.shop-tab .launch-big-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.shop-tab .launch-big-thumb .stripe-placeholder { position: absolute; inset: 0; }
+.shop-tab .launch-big-thumb .ribbons {
+  position: absolute; top: .7rem; left: .7rem;
+  display: flex; flex-wrap: wrap; gap: .3rem;
+}
+.shop-tab .launch-big-body { padding: 1rem 1.15rem 1.15rem; display: flex; flex-direction: column; gap: .25rem; flex: 1; }
+.shop-tab .launch-big-body .lb-name {
+  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-ink-900);
+  font-size: 1.05rem; line-height: 1.25; margin-top: .2rem;
+}
+.shop-tab .launch-big-body .lb-meta { font-size: .8rem; color: var(--shop-ink-500); }
+.shop-tab .launch-big-body .lb-foot {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: auto; padding-top: .55rem;
+}
+.shop-tab .launch-big-body .lb-price {
+  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-700);
+  font-size: 1.15rem;
+}
+.shop-tab .launch-big-body .lb-price .baht { font-size: .8rem; color: var(--shop-ink-500); margin-right: .15rem; font-weight: 500; }
+
+/* ==============================================
+ * Pickup announcements — stack of cards (multi-batch)
+ * ============================================== */
+.shop-tab .pickup-stack { display: flex; flex-direction: column; gap: .85rem; }
+.shop-tab .pickup-banner .pb-dates {
+  display: flex; flex-wrap: wrap; gap: .45rem;
+  margin-top: .6rem;
+}
+.shop-tab .pickup-banner .pb-date {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 999px;
+  padding: .25rem .7rem;
+  font-size: .82rem;
+  display: inline-flex; align-items: center; gap: .35rem;
+}
+.shop-tab .pickup-banner .pb-date .pb-date-time {
+  margin-left: .35rem; padding-left: .55rem; border-left: 1px solid rgba(255,255,255,.4);
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-weight: 600;
+}
+.shop-tab .pickup-banner .pb-note { opacity: .92; max-width: 540px; }
 
 /* ==============================================
  * Filter bar — sort by type + source
@@ -309,11 +369,10 @@
   width: 8px; height: 8px; border-radius: 50%;
   display: inline-block;
 }
-.shop-tab .chip[data-src="project"]  .chip-dot { background: var(--src-project); }
-.shop-tab .chip[data-src="fund"]     .chip-dot { background: var(--src-fund); }
+.shop-tab .chip[data-src="md"]       .chip-dot { background: var(--src-md); }
 .shop-tab .chip[data-src="rt"]       .chip-dot { background: var(--src-rt); }
 .shop-tab .chip[data-src="mdi"]      .chip-dot { background: var(--src-mdi); }
-.shop-tab .chip[data-src="merch"]    .chip-dot { background: var(--src-merch); }
+.shop-tab .chip[data-src="sittikao"] .chip-dot { background: var(--src-sittikao); }
 .shop-tab .filter-bar .form-control,
 .shop-tab .filter-bar .form-select {
   font-size: .9rem;
@@ -367,13 +426,33 @@
   border-radius: 4px;
   letter-spacing: .05em;
 }
-.shop-tab .product-thumb .ribbon-presale {
+.shop-tab .product-thumb .ribbon-preorder,
+.shop-tab .launch-big-thumb .ribbon-preorder {
   background: var(--brand-yellow);
   color: var(--shop-yellow-700);
   font-size: .7rem; font-weight: 700;
   padding: .12rem .45rem;
   border-radius: 4px;
+  letter-spacing: .03em;
 }
+.shop-tab .product-thumb .ribbon-oos,
+.shop-tab .launch-big-thumb .ribbon-oos {
+  background: rgba(20,20,20,.78);
+  color: #fff;
+  font-size: .68rem; font-weight: 700;
+  padding: .12rem .45rem;
+  border-radius: 4px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.shop-tab .launch-big-thumb .ribbon-new {
+  background: var(--shop-600); color: #fff;
+  font-size: .7rem; font-weight: 700;
+  padding: .12rem .45rem;
+  border-radius: 4px;
+  letter-spacing: .05em;
+}
+.shop-tab .product-card.is-oos { filter: grayscale(.35); opacity: .85; }
 .shop-tab .product-body { padding: .85rem 1rem 1rem; display: flex; flex-direction: column; gap: .35rem; flex: 1; }
 .shop-tab .product-source {
   display: inline-flex; align-items: center; gap: .3rem;
@@ -382,11 +461,10 @@
   color: var(--shop-ink-500);
 }
 .shop-tab .product-source .src-dot { width: 7px; height: 7px; border-radius: 50%; }
-.shop-tab .product-source[data-src="project"]  .src-dot { background: var(--src-project); }
-.shop-tab .product-source[data-src="fund"]     .src-dot { background: var(--src-fund); }
+.shop-tab .product-source[data-src="md"]       .src-dot { background: var(--src-md); }
 .shop-tab .product-source[data-src="rt"]       .src-dot { background: var(--src-rt); }
 .shop-tab .product-source[data-src="mdi"]      .src-dot { background: var(--src-mdi); }
-.shop-tab .product-source[data-src="merch"]    .src-dot { background: var(--src-merch); }
+.shop-tab .product-source[data-src="sittikao"] .src-dot { background: var(--src-sittikao); }
 .shop-tab .product-name {
   font-family: "Prompt", sans-serif;
   font-weight: 600;
@@ -552,13 +630,23 @@
   font-size: 1rem;
 }
 
-.shop-tab .detail-presale {
+.shop-tab .detail-preorder {
   background: var(--shop-50);
   border-left: 3px solid var(--shop-400);
   border-radius: 6px;
   padding: .6rem .85rem;
   font-size: .85rem;
   color: var(--shop-700);
+  margin-bottom: 1rem;
+}
+.shop-tab .detail-stock-status {
+  background: var(--status-cancel-bg);
+  border-left: 3px solid var(--status-cancel);
+  border-radius: 6px;
+  padding: .6rem .85rem;
+  font-size: .9rem;
+  color: var(--status-cancel);
+  font-weight: 600;
   margin-bottom: 1rem;
 }
 
@@ -1042,6 +1130,110 @@
   border: 2px solid #fff;
 }
 
+/* ==============================================
+ * Admin: stock matrix grid (sizes × colors)
+ * ============================================== */
+.shop-tab .stock-matrix { overflow-x: auto; }
+.shop-tab .stock-matrix-table {
+  border-collapse: collapse;
+  font-size: .85rem;
+  min-width: 360px;
+}
+.shop-tab .stock-matrix-table th,
+.shop-tab .stock-matrix-table td {
+  border: 1px solid var(--shop-ink-100);
+  padding: .35rem .45rem;
+  text-align: center;
+}
+.shop-tab .stock-matrix-table th {
+  background: var(--shop-ink-50);
+  color: var(--shop-ink-700);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.shop-tab .stock-matrix-table thead th { text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; }
+.shop-tab .stock-matrix-table tbody th { text-align: left; }
+.shop-tab .stock-matrix-table td input {
+  width: 72px;
+  text-align: center;
+}
+.shop-tab .stock-color-swatch {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  margin-right: .35rem;
+  vertical-align: middle;
+  border: 1px solid var(--shop-ink-100);
+}
+
+/* Admin: batch-date chips inside list cards */
+.shop-tab .batch-card .b-date-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  background: var(--shop-50);
+  color: var(--shop-700);
+  border: 1px solid var(--shop-100);
+  border-radius: 999px;
+  padding: .1rem .55rem;
+  font-size: .78rem;
+  margin-right: .35rem;
+}
+
+/* Admin: delivery (pickup checklist) cards */
+.shop-tab .delivery-card {
+  background: #fff;
+  border-radius: var(--shop-radius-lg);
+  box-shadow: var(--shop-shadow-sm);
+  margin-bottom: .85rem;
+  overflow: hidden;
+  border: 1px solid var(--shop-ink-100);
+}
+.shop-tab .delivery-head {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: none; border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s;
+}
+.shop-tab .delivery-head:hover { background: var(--shop-ink-50); }
+.shop-tab .delivery-progress {
+  background: var(--shop-50); color: var(--shop-700);
+  border: 1px solid var(--shop-100);
+  border-radius: 999px;
+  padding: .2rem .65rem;
+  font-size: .8rem; font-weight: 600;
+}
+.shop-tab .delivery-progress.is-done { background: #e1f5ea; color: var(--brand-accent); border-color: #b8e1c4; }
+.shop-tab .delivery-body {
+  border-top: 1px solid var(--shop-ink-100);
+  padding: .5rem .25rem;
+}
+.shop-tab .delivery-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .65rem 1rem;
+  border-radius: 8px;
+  transition: background .12s;
+}
+.shop-tab .delivery-row + .delivery-row { border-top: 1px solid var(--shop-ink-100); }
+.shop-tab .delivery-row.is-picked { background: #f3faf2; }
+.shop-tab .delivery-row.has-issue { background: var(--shop-yellow-50); }
+.shop-tab .delivery-row.is-resolved { opacity: .8; }
+.shop-tab .delivery-tick {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.shop-tab .delivery-tick input[type="checkbox"] {
+  width: 22px; height: 22px; cursor: pointer; accent-color: var(--brand-accent);
+}
+
 /* mobile niceties */
 @media (max-width: 575px) {
   .shop-tab .shop-grid { grid-template-columns: repeat(2, 1fr); gap: .65rem; }
@@ -1049,4 +1241,5 @@
   .shop-tab .product-name { font-size: .88rem; }
   .shop-tab .pickup-banner { grid-template-columns: 1fr; padding: 1.25rem; }
   .shop-tab .pickup-banner .pb-cta { width: 100%; }
+  .shop-tab .launch-big { flex-basis: 78%; }
 }

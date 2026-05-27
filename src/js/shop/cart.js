@@ -93,9 +93,9 @@ function render() {
     const colorLabel = colors.find((c) => c.id === it.color)?.label || it.color || '';
     const thumb = thumbStyle(p);
     const variantParts = [];
-    variantParts.push(it.fit === 'men' ? 'ชาย' : it.fit === 'women' ? 'หญิง' : 'Unisex');
     if (it.size && it.size !== 'F') variantParts.push(`ไซส์ ${it.size}`);
     if (colors.length > 1 && colorLabel) variantParts.push(colorLabel);
+    if (variantParts.length === 0) variantParts.push('Unisex');
 
     return `
       <div class="cart-item">

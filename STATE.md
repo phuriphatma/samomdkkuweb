@@ -1,6 +1,103 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-26 (end of session, prepared for /clear)
+Last updated: 2026-05-27 (SAMO Shop refactor — see top section)
+
+## SAMO Shop refactor (2026-05-27)
+
+Substantial UX + schema change pass on the SAMO Shop module. Build + tests
+green (26/26). **Not yet deployed** — needs schema migration + manual smoke
+test before merge.
+
+### What changed
+- **Sources** reshaped: `md`, `rt`, `mdi`, `sittikao` (replaces
+  project/fund/merch). Legacy rows auto-migrated to `md` by 0007 — admin
+  should re-tag them.
+- **Types**: dropped `accessory` (ของแถม).
+- **Fit dimension removed everywhere** (modal, cart, checkout, admin
+  editor, order detail). All items default to unisex on insert; old
+  `fits` column kept in DB but ignored in UI.
+- **Presale → Preorder** rename across labels (DB column `is_presale`
+  kept to avoid a backfill — only the UI text changed).
+- **New `stock_status`** column on products: `available` | `sold_out` |
+  `production_closed`. Storefront shows OOS ribbon + grays the card +
+  disables Add-to-Cart. Independent of `is_active` (soft-archive).
+- **Stock matrix UI**: editable size × color number grid in the admin
+  product editor. Empty cell = unspecified; `0` = OOS for that combo.
+- **เปิดตัวล่าสุด** is now a horizontal "big show" carousel with prev/next
+  arrows + scroll-snap (mobile: swipe).
+- **ประกาศการรับสินค้า** now stacks multiple active batches on the
+  storefront (was single hero before). Closed batches editable +
+  re-openable in admin.
+- **Per-date hours**: `dates_full` jsonb `[{date, hours}]` lets each
+  pickup date carry its own time window. Backfilled from legacy
+  `dates[]` + shared `hours` by the migration.
+- **Checkout pickup-radio block removed**: location/time come from the
+  admin's pickup announcement instead.
+- **Delivery workflow** (new admin tab "การส่งมอบ"):
+  - One card per `ready` order, expand to per-item checklist.
+  - Tick → prompts for recipient name, writes
+    `shop_pickup_records` row (one per `order_item_id`, unique).
+  - Issue button → captures `issue_type`
+    (wrong_size/damaged/missing/other) + free-text note.
+  - Resolve button on issues → adds resolution text + `resolved_at`.
+  - When all items ticked, "ปิดคำสั่งซื้อ → รับสินค้าแล้ว" advances
+    the order to `done`. Issues block the auto-complete.
+
+### Files touched
+- `supabase/migrations/0007_shop_refactor.sql` (new): source enum,
+  stock_status, dates_full, shop_pickup_records + RLS.
+- `src/js/shop/data.js`: new constants (sources, types, stock-status
+  meta, stockKey helper, batchDateEntries helper).
+- `src/js/shop/api.js`: pickup-record CRUD (`listPickupRecords*`,
+  `upsertPickupRecord`, `resolvePickupIssue`, `deletePickupRecord`).
+- `src/js/shop/products.js`: drop fit options, preorder labels,
+  stock-status banner, big-card carousel, multi-batch banner stack.
+- `src/js/shop/checkout.js`: removed pickup-location radio block,
+  drop fit from variant display.
+- `src/js/shop/cart.js`: drop fit from variant display.
+- `src/js/shop/orders.js`: per-date hours via `batchDateEntries`.
+- `src/js/shop/admin.js`: full rewrite of products editor (stock
+  matrix, drop fits, stock_status), batches (edit anytime, per-date
+  hours + remove rows), new delivery tab.
+- `src/html/tab-shop.html`: launch carousel + arrows.
+- `src/html/tab-admin.html`: new "การส่งมอบ" tab + refresh button.
+- `src/html/modal-shop-product.html`: drop fit group, preorder label,
+  stock-status banner.
+- `src/css/shop.css`: launch carousel, multi-batch banner styles,
+  preorder/sold-out ribbons, OOS card grayscale, stock matrix grid,
+  delivery checklist styling, batch-date chips.
+
+### Manual steps to ship
+1. Apply `supabase/migrations/0007_shop_refactor.sql` (Supabase SQL editor).
+2. Existing products auto-migrate `source` → `md`. Re-tag them
+   (RT/MDI/Sittikao) via admin.
+3. Existing pickup batches auto-build `dates_full` from `dates[]` +
+   shared `hours`. Open each in admin to add per-date times.
+4. Smoke test:
+   - Shop tab: carousel scrolls; arrow disabled at ends; multi-batch
+     banner renders if 2+ active.
+   - Mark a product `sold_out` in admin → OOS ribbon shows, card
+     grayscaled, Add-to-Cart disabled.
+   - Set stock_matrix entry to 0 for a size/color → variant OOS
+     warning in modal.
+   - Place an order → admin Verify → Approve → Produce → Ready.
+   - Delivery tab: tick item → enter recipient name → row turns green.
+     Mark another item as issue (wrong_size) → row turns yellow. Resolve
+     → green-strikethrough. Tick all → "ปิดคำสั่งซื้อ" appears →
+     order goes to done.
+5. No GAS redeploy needed (only DB + frontend changed).
+
+### Not in this round (deferred)
+- Discord/email notification when batch published (could reuse
+  existing GAS notify actions).
+- Stock auto-decrement on order placement (currently admin updates by
+  hand — fine for low volume).
+- Product image multi-shot gallery (today: one image_url).
+- Customer-facing pickup-record badge in "คำสั่งซื้อของฉัน" — would
+  let buyer see "marked picked up by admin on 28 พ.ค." inline.
+
+---
+
 
 ## Branches
 
