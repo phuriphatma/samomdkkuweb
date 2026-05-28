@@ -61,13 +61,26 @@
 
           <!-- ====== VS SECTION ====== -->
           <div id="adminVSSection" class="d-none vs-tab">
-<div id="staffDashboardBox">
+            <div id="staffDashboardBox">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
                   <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">VitalSound Dashboard</h4>
                   <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <!-- View toggle: list vs kanban. Only SE / dev see Kanban —
+                       it's the triage cross-dept view. VPs (vp_admin) get
+                       the dropdown auto-hidden and stay on list view. -->
+                  <div class="vs-view-toggle btn-group" id="vsViewToggle" role="tablist">
+                    <button type="button" class="btn btn-sm active" data-vs-view="list"
+                      onclick="setVsView('list')">
+                      <i class="bi bi-list-ul me-1"></i>รายการ
+                    </button>
+                    <button type="button" class="btn btn-sm d-none" id="vsKanbanToggleBtn"
+                      data-vs-view="kanban" onclick="setVsView('kanban')">
+                      <i class="bi bi-kanban me-1"></i>Kanban (ทุกฝ่าย)
+                    </button>
+                  </div>
                   <select id="staffRole" class="form-select form-select-sm" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
                     <option value="SE">Student Engagement (SE)</option>
@@ -87,10 +100,21 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Per-VP summary chips (visible only for SE / dev). Clicking
+                   a chip filters the list to that dept; counts include an
+                   overdue flag for tickets idle >3 days. -->
+              <div id="vsDeptSummary" class="vs-dept-summary mb-3 d-none"></div>
+
               <div class="text-center my-3 d-none" id="staffLoading">
                 <div class="spinner-border text-pink-custom" role="status"></div>
               </div>
+
+              <!-- List container — used in list view -->
               <div id="staffTicketList" class="row g-3"></div>
+
+              <!-- Kanban container — used in kanban view -->
+              <div id="staffTicketKanban" class="vs-kanban d-none"></div>
             </div>
           </div>
 

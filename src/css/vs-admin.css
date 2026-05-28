@@ -1,0 +1,282 @@
+/* ==============================================
+ * VS ADMIN — per-VP summary chips, age chips,
+ * Kanban triage board for SE staff.
+ * ============================================== */
+
+/* --- View toggle (list / kanban) --- */
+
+.vs-view-toggle {
+  background: var(--ink-50, #f1f5f9);
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 999px;
+  padding: 0.15rem;
+}
+
+.vs-view-toggle .btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-600, #475569);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.vs-view-toggle .btn:hover {
+  color: var(--ink-900, #1f2937);
+}
+
+.vs-view-toggle .btn.active {
+  background: #ffffff;
+  color: var(--ink-900, #1f2937);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* --- Per-VP summary chips --- */
+
+.vs-dept-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--ink-50, #f1f5f9);
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 12px;
+}
+
+.vs-dept-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ffffff;
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem 0.25rem 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-700, #334155);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+.vs-dept-chip:hover {
+  border-color: var(--chip-color, #cbd5e1);
+  background: #fafafa;
+  transform: translateY(-1px);
+}
+
+.vs-dept-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--chip-color, #94a3b8);
+  flex-shrink: 0;
+}
+
+.vs-dept-chip-name { line-height: 1; }
+
+.vs-dept-chip-count {
+  background: var(--ink-100, #f1f5f9);
+  color: var(--ink-700, #334155);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.vs-dept-chip-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.vs-dept-chip.has-overdue {
+  border-color: #fecaca;
+}
+
+/* --- Age chip (used in list cards + kanban cards) --- */
+
+.vs-age-chip {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+
+.vs-age-chip.is-fresh   { background: #dcfce7; color: #15803d; }
+.vs-age-chip.is-warming { background: #fef9c3; color: #854d0e; }
+.vs-age-chip.is-overdue { background: #fee2e2; color: #b91c1c; }
+
+/* --- Kanban board --- */
+
+.vs-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+  .vs-kanban {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .vs-kanban {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vs-kanban-col {
+  background: var(--ink-50, #f8fafc);
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  max-height: 75vh;
+}
+
+.vs-kanban-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--ink-200, #e2e8f0);
+  background: #ffffff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.vs-kanban-col-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-900, #1f2937);
+  flex: 1;
+}
+
+.vs-kanban-col-count {
+  background: var(--ink-100, #f1f5f9);
+  color: var(--ink-600, #475569);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.vs-kanban-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.vs-kanban-col-body {
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.vs-kanban-empty {
+  text-align: center;
+  color: var(--ink-400, #94a3b8);
+  font-size: 0.8rem;
+  padding: 1.5rem 0.5rem;
+  border: 1px dashed var(--ink-200, #e2e8f0);
+  border-radius: 8px;
+  margin: auto 0;
+}
+
+.vs-kanban-card {
+  background: #ffffff;
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-left: 3px solid var(--card-accent, #94a3b8);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.vs-kanban-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.vs-kanban-card.is-overdue {
+  box-shadow: inset 4px 0 0 #ef4444, 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-left-color: #ef4444;
+}
+
+.vs-kanban-card.is-warming {
+  border-left-color: #f59e0b;
+}
+
+.vs-kanban-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.vs-kanban-card-id {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-primary, #105922);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-kanban-card-body {
+  font-size: 0.78rem;
+  color: var(--ink-700, #334155);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.vs-kanban-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.vs-kanban-card-dept {
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.vs-kanban-card-urgent {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
