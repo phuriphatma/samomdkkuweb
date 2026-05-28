@@ -319,10 +319,12 @@
  * ============================================== */
 
 .samo-offcanvas {
-  border-top-left-radius: var(--radius-xl);
-  border-bottom-left-radius: var(--radius-xl);
+  /* Slides in from the left to match /admin/'s sidebar drawer.
+     The exposed edge is the right edge, so the radius + border sit there. */
+  border-top-right-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
   width: min(86vw, 360px);
-  border-left: 1px solid var(--ink-200);
+  border-right: 1px solid var(--ink-200);
 }
 
 .samo-offcanvas .offcanvas-header {
