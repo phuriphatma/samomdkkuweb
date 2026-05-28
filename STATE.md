@@ -1,6 +1,154 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-28 (Navbar slim + tools launcher + premium polish — see top section)
+Last updated: 2026-05-28 (Full UI/UX overhaul + admin app split + per-VP accounts — see top section)
+
+## SESSION SNAPSHOT (2026-05-28) — resume point after `/clear`
+
+Branch `refactor/modular` is at `b67f87b`. Build green, 26/26 tests pass.
+Cloudflare preview `refactorsamomdkkuweb.pages.dev` auto-rebuilds on push.
+
+This session shipped 10 iterations across UI/UX, architecture (public+admin
+split), per-VP accounts with permissions, VS kanban+filter, URL routing,
+and several RLS fixes. **Multiple migrations still need to be applied
+to the prod Supabase project (`fheueuowbchsnsvbcgil`)** — confirm
+0009–0014 are all applied before considering this session "shipped".
+
+### Architecture as it stands now
+
+- **Two SPAs from one repo** (Vite multi-page, one Cloudflare project):
+  - `/` → public site bundle. Tabs: home, ประกาศ, แจ้งปัญหา (VS form),
+    ร้านค้า, เครื่องมือ, เกี่ยวกับเรา.
+  - `/admin/` → operator app bundle. Workspace shell (sidebar +
+    top-bar + collapsible/drawer). Sections: ภาพรวม, PR Management,
+    VitalSound, SAMO Shop, หนังสือโครงการ, เขียนประกาศ.
+  - Same Supabase, same Cloudflare. `public/_redirects` routes
+    `/admin/*` → `/admin/index.html`, `/*` → `/index.html`.
+- **URL routing for public**: `/news` `/news/{id}` `/pr` `/vssound`
+  `/shop` `/tools` `/about`. Path↔tab mirror via shown.bs.tab. Article
+  view uses `/news/{id}` (legacy `#article/{id}` auto-redirects).
+- **Editorial article view** (full-page reader at `/news/{id}`, not modal).
+- **Per-VP accounts** (10 อุปนายก): all role=`vp_admin`,
+  distinguished by `users.department`. Extras via `users.permissions text[]`.
+  `userCanAccess(feature, user)` in auth.js combines role default + perms.
+- **VS dashboard**: list + kanban (9 per-status columns). Per-VP
+  filter dropdown drives both views. Hide-empty-columns toggle persisted
+  in localStorage. VPs see their own dept only (RLS-enforced); SE/dev
+  default to ทุกฝ่าย + kanban.
+
+### Migrations applied vs pending (verify before shipping)
+
+| Migration | Purpose | Status (per user) |
+|---|---|---|
+| 0009_vs_owner_reply.sql | VS owner can reply to own ticket | ⚠️ apply if not yet |
+| 0010_vp_accounts_permissions.sql | users.permissions + per-dept VP RLS + 9 reservations | applied |
+| 0011_vp_corrections.sql | media→mdi rename + corrected UPDATE block (final perms) | applied (UPDATE block run) |
+| 0012_vs_delete.sql | DELETE policy for vs_staff/dev | ⚠️ apply if not yet |
+| 0013_vs_vp_send_back_to_se.sql | WITH CHECK fix: VP can โอนคืน SE | ⚠️ apply if not yet |
+| 0014_permission_aware_rls.sql | pr_tickets/pr_agents/announcements/shop_* honor permissions[] | applied |
+
+User confirmed 0010 + 0014 applied; should sanity-check 0009 + 0012 + 0013
+because they fix specific bugs (VS reply, VS delete, VP→SE transfer). Quick check:
+
+```sql
+select policyname from pg_policies
+where schemaname='public' and tablename='vs_tickets'
+order by policyname;
+-- Should include:
+--   vs_tickets_delete_staff         (0012)
+--   vs_tickets_insert_anyone
+--   vs_tickets_read                  (0010 expanded)
+--   vs_tickets_update_owner          (0009)
+--   vs_tickets_update_staff          (0013 expanded)
+```
+
+### VP account credentials (for the boss)
+
+10 accounts; all sign in via username + password (no @suffix needed).
+Username pattern `samomdkku<short>` / password `samo69<short>`:
+
+| ฝ่าย | Username | Password | Extra perms |
+|---|---|---|---|
+| อุปนายกฝ่ายบริหารองค์กร | `samomdkkuvpa` | `samo69vpa` | projects, samoshop |
+| ฝ่ายดิจิทัลและสื่อสารองค์กร | `samomdkkudigital` | `samo69digital` | pr, creator |
+| ฝ่ายกิจการภายใน | `samomdkkuinternal` | `samo69internal` | — |
+| ฝ่ายกิจการภายนอก | `samomdkkuexternal` | `samo69external` | — |
+| ฝ่ายกิจการมหาวิทยาลัย | `samomdkkuuniversity` | `samo69university` | — |
+| ฝ่ายวิชาการ | `samomdkkuacademic` | `samo69academic` | — |
+| ฝ่ายยุทธศาสตร์ฯ | `samomdkkustrategy` | `samo69strategy` | — |
+| ฝ่ายคุณภาพชีวิตฯ | `samomdkkuquality` | `samo69quality` | — |
+| ฝ่ายเวชนิทัศน์ | `samomdkkumdi` | `samo69mdi` | — |
+| ฝ่ายรังสีเทคนิค | `samomdkkuradiology` | `samo69radiology` | — |
+
+All VPs see: VS for their own dept + nothing else by default. Perms
+stack on top: e.g. samomdkkudigital also sees PR Management + เขียนประกาศ.
+
+Existing super-account `samomdkkuvssound` (role=`vs_staff`) sees all VS.
+
+### Automation script
+
+`tools/vp-accounts.mjs` — drives the Supabase Admin API to create/delete
+VP auth users. Two modes (`cleanup` / `seed`), requires CONFIRM=1 to
+proceed. See script header for env vars. Used earlier this session to
+clean up a misplaced batch in the "passport" Supabase project.
+
+### Files added this session
+
+```
+admin/index.html                                    (new admin entry)
+public/_redirects                                   (Cloudflare SPA routing)
+src/admin.css                                       (admin CSS bundle)
+src/js/admin-main.js                                (admin entry script)
+src/css/article.css                                 (editorial article)
+src/css/footer.css                                  (4-col footer)
+src/css/launcher.css                                (tools launcher)
+src/css/news.css                                    (editorial cards)
+src/css/workspace.css                               (admin shell)
+src/css/vs-admin.css                                (VS kanban + chips)
+src/html/tab-article.html                           (article reader)
+src/html/tab-tools.html                             (tools launcher)
+supabase/migrations/0008_announcements_excerpt.sql  (subhead column)
+supabase/migrations/0009_vs_owner_reply.sql         (VS owner reply RLS)
+supabase/migrations/0010_vp_accounts_permissions.sql (perms + RLS)
+supabase/migrations/0011_vp_corrections.sql         (rename + UPDATE)
+supabase/migrations/0012_vs_delete.sql              (VS delete RLS)
+supabase/migrations/0013_vs_vp_send_back_to_se.sql  (WITH CHECK fix)
+supabase/migrations/0014_permission_aware_rls.sql   (perms-aware RLS)
+tools/vp-accounts.mjs                               (auth admin automation)
+```
+
+### Open items / known not-yet-done
+
+- **9arm-skills install**: optional — user asked about it. Install via
+  `npx skills add thananon/9arm-skills`. Memory notes about when to
+  invoke `/debug-mantra` etc. can be added on demand.
+- **Discord nudge for VP idle tickets** (Phase 3 from earlier triage
+  discussion): not built. Would be a cron / scheduled Edge Function
+  pinging Discord when a ticket sits in รออุปนายก >3 days.
+- **VP "Mark received" explicit ack**: discussed but not built; would
+  add friction without clear payoff.
+- **Per-tab visual polish** for VS form / Shop / Projects content
+  (the global token pass touched the chrome, not the form internals).
+- **Dead CSS** in vs-admin.css for the removed dept-chips. Cosmetic
+  cleanup; not breaking.
+- **modal-announcement.html** file still in src/html/ but not included
+  by any entry. Safe to delete.
+
+### How to resume after /clear
+
+1. Read this STATE.md top section first.
+2. Read `.claude/rules/mistakes.md` if touching auth.js / db.js / RLS.
+3. Verify migration 0009 + 0012 + 0013 are applied (the SQL block above).
+4. Check `refactorsamomdkkuweb.pages.dev` is reachable and the routes
+   `/`, `/pr`, `/vssound`, `/news`, `/admin/` all serve 200.
+5. Sign in as `samomdkkudigital` (a VP with extra perms) and confirm:
+   - Public site → avatar dropdown shows "ไปยัง Admin Dashboard ↗"
+   - `/admin/` → sidebar shows ภาพรวม + VitalSound + PR Management + เขียนประกาศ
+   - `/admin/#pr` → PR kanban populates (this needed 0014 — confirm)
+   - `/admin/#vs` → VS kanban with 9 per-status columns, hide-empty toggle
+6. Sign in as `samomdkkuvssound` → confirm Kanban (ทุกฝ่าย) view shows
+   all VPs' tickets with dept badges.
+
+---
 
 ## Navbar slim + tools launcher + premium UI pass (2026-05-28)
 
