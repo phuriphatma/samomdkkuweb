@@ -19,7 +19,7 @@ import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, 
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
 
 // VS Staff
-import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, setVsView } from './vs-staff.js';
+import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, setVsView, deleteCurrentVSTicket } from './vs-staff.js';
 
 // Shop admin
 import { initShop, openShopAdmin } from './shop/index.js';
@@ -188,14 +188,10 @@ window.fetchStaffTickets = fetchStaffTickets;
 window.openStaffModalByIndex = openStaffModalByIndex;
 window.submitStaffAction = submitStaffAction;
 window.setVsView = setVsView;
+window.deleteCurrentVSTicket = deleteCurrentVSTicket;
 window.onVSAdminRoleChange = async () => { await enterVSStaffDashboard(); };
-// Per-VP summary chip click — selects the chip's dept and re-renders list.
-window.onVSAdminPickDept = (dept) => {
-  const sel = document.getElementById('staffRole');
-  if (sel) sel.value = dept;
-  setVsView('list');
-  enterVSStaffDashboard();
-};
+// (per-VP summary chips removed; the dropdown filter is the single
+// source of truth now and drives both list + kanban views.)
 
 // ==============================================
 // SIDEBAR SECTION SWITCHING

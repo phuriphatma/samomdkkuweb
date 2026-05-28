@@ -321,8 +321,16 @@ document.addEventListener('shown.bs.tab', (e) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  // (Admin and Projects are no longer tabs in the public app — they live
-  // at /admin/. Workspace-mode chrome-hide is gone with them.)
+  // URL sync — whenever a tab activates, mirror the path in the URL
+  // so refresh / share / bookmark all work. Article tab keeps its
+  // /news/{id} path (set explicitly by viewAnnouncement).
+  const target = e.target?.id;
+  if (target !== 'pills-article-tab') {
+    const want = tabToPath(target);
+    if (want && location.pathname !== want) {
+      history.replaceState(null, '', want);
+    }
+  }
 });
 
 // Activate a tab by the desktop tab button's ID. Used from places that
@@ -334,6 +342,73 @@ window.activateTab = (tabBtnId) => {
   if (!btn || !window.bootstrap) return;
   window.bootstrap.Tab.getOrCreateInstance(btn).show();
 };
+
+// ==============================================
+// URL ROUTING — path-based public-site routes.
+//
+// Each top-level page has a real path:
+//   /         → home
+//   /news     → ประกาศ archive
+//   /news/{id}→ individual article
+//   /pr       → PR form
+//   /vssound  → VitalSound form
+//   /shop     → ร้านค้า
+//   /tools    → tools launcher
+//   /about    → เกี่ยวกับเรา
+//
+// Cloudflare Pages serves /index.html for any of these via _redirects;
+// the in-app router (below) reads location.pathname and activates the
+// matching tab. The shown.bs.tab handler later in this file mirrors
+// the active tab back into the URL so opening any tab gives a
+// shareable, bookmarkable, refresh-safe URL.
+// ==============================================
+
+const PATH_ROUTES = [
+  { path: '/',         tab: 'pills-home-tab' },
+  { path: '/news',     tab: 'pills-announcements-tab' },
+  { path: '/pr',       tab: 'pills-pr-tab' },
+  { path: '/vssound',  tab: 'pills-vitalsound-tab' },
+  { path: '/shop',     tab: 'pills-shop-tab' },
+  { path: '/tools',    tab: 'pills-tools-tab' },
+  { path: '/about',    tab: 'pills-about-tab' },
+];
+
+function pathToTab(pathname) {
+  const exact = PATH_ROUTES.find((r) => r.path === pathname);
+  if (exact) return exact.tab;
+  if (/^\/news\/.+/.test(pathname)) return 'pills-article-tab';
+  return null;
+}
+
+function tabToPath(tabBtnId) {
+  const r = PATH_ROUTES.find((r) => r.tab === tabBtnId);
+  return r ? r.path : null;
+}
+
+/** Public — navigate to a path and activate the matching tab.
+ *  Useful for in-app links that want the new URL semantic
+ *  without a full page reload. */
+window.navigateTo = (pathname) => {
+  if (location.pathname !== pathname) {
+    history.pushState(null, '', pathname);
+  }
+  applyPathRoute();
+};
+
+function applyPathRoute() {
+  // Article id in path takes precedence.
+  const articleMatch = location.pathname.match(/^\/news\/(.+)/);
+  if (articleMatch) {
+    const id = decodeURIComponent(articleMatch[1]);
+    if (typeof window.viewAnnouncement === 'function') window.viewAnnouncement(id);
+    return;
+  }
+  const tab = pathToTab(location.pathname);
+  if (tab) window.activateTab(tab);
+}
+
+// Back/forward — keep the active tab in sync with the path.
+window.addEventListener('popstate', () => applyPathRoute());
 
 // (Legacy exitWorkspace removed — admin app at /admin/ has its own
 // "กลับสู่หน้าหลัก" link that hrefs to / directly.)
@@ -665,4 +740,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // About-tab sticky sub-nav: highlight whichever section is in view.
   initAboutSubnav();
+
+  // Apply the URL on first load — if the user lands on /pr or /news/{id}
+  // directly, activate the right tab. Wrapped in a microtask so it runs
+  // after the initial Bootstrap tab activation (default = home).
+  queueMicrotask(applyPathRoute);
 });

@@ -115,6 +115,15 @@
           </div>
         </div>
         <div class="modal-footer">
+          <!-- Delete is staff-destructive: shown only to vs_staff / dev
+               (the SE super accounts). VPs cannot delete; they reject
+               or transfer instead. The actual DELETE is gated by RLS
+               (migration 0012). -->
+          <button type="button" class="btn btn-outline-danger me-auto d-none"
+            data-role-only="vs_staff dev"
+            onclick="deleteCurrentVSTicket()">
+            <i class="bi bi-trash3 me-1"></i>ลบ ticket
+          </button>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
           <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
         </div>

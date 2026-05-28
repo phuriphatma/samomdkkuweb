@@ -109,6 +109,8 @@ function isOverdue(ticket) {
 // For vs_staff / dev (super): keep the picker so they can browse any dept.
 // --------------------------------------------------
 
+const ALL_DEPTS = '__all__';
+
 export async function enterVSStaffDashboard(roleArg) {
   const select = document.getElementById('staffRole');
   const user = authGetUser();
@@ -116,7 +118,7 @@ export async function enterVSStaffDashboard(roleArg) {
   const isSuper = user?.role === 'vs_staff' || user?.role === 'dev';
 
   if (isVP && user.department) {
-    // Lock to the VP's own dept. Hide picker + view-toggle + summary.
+    // Lock to the VP's own dept. Hide picker + kanban toggle.
     currentStaffRole = user.department;
     currentView = 'list';
     if (select) {
@@ -130,31 +132,44 @@ export async function enterVSStaffDashboard(roleArg) {
       select.classList.add('d-none');
     }
     document.getElementById('vsKanbanToggleBtn')?.classList.add('d-none');
-    document.getElementById('vsDeptSummary')?.classList.add('d-none');
   } else {
+    // SE / dev — keep the picker. First load defaults to "all" + kanban
+    // (the triage default; that's the whole point of the cross-dept board).
     const selected = select && select.value ? select.value : null;
-    currentStaffRole = selected || roleArg || 'SE';
+    currentStaffRole = selected || roleArg || ALL_DEPTS;
     if (select) {
       select.value = currentStaffRole;
       select.classList.remove('d-none');
     }
     if (isSuper) {
-      // Super sees the Kanban toggle + dept summary
       document.getElementById('vsKanbanToggleBtn')?.classList.remove('d-none');
-      document.getElementById('vsDeptSummary')?.classList.remove('d-none');
+      // On first entry (no view picked yet), default super to kanban.
+      if (!sessionStorage.getItem('vsViewPicked')) {
+        currentView = 'kanban';
+        sessionStorage.setItem('vsViewPicked', '1');
+      }
     }
   }
 
+  // Reflect view state on the toggle buttons every entry.
+  document.querySelectorAll('[data-vs-view]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.vsView === currentView);
+  });
+
   const titleEl = document.getElementById('staffTitle');
-  if (titleEl) titleEl.innerText = `Dashboard: ${currentStaffRole}`;
+  if (titleEl) {
+    titleEl.innerText = `Dashboard: ${currentStaffRole === ALL_DEPTS ? 'ทุกฝ่าย' : currentStaffRole}`;
+  }
   await fetchStaffTickets();
 }
 
-/** Switch list/kanban view. Public — wired to data-vs-view buttons. */
+/** Switch list/kanban view. Public — wired to data-vs-view buttons.
+ *  Remembers the user's pick in sessionStorage so re-entering the
+ *  dashboard during the same session doesn't reset to the default. */
 export function setVsView(view) {
   if (view !== 'list' && view !== 'kanban') return;
   currentView = view;
-  // Toggle button active states
+  sessionStorage.setItem('vsViewPicked', '1');
   document.querySelectorAll('[data-vs-view]').forEach((b) => {
     b.classList.toggle('active', b.dataset.vsView === view);
   });
@@ -189,7 +204,6 @@ export async function fetchStaffTickets() {
     loading?.classList.add('d-none');
   }
 
-  renderDeptSummary();
   renderActiveView();
 }
 
@@ -211,41 +225,19 @@ function renderActiveView() {
 // Renderers
 // --------------------------------------------------
 
-function ticketsForList() {
-  // List view = single-dept focus (mirrors the old behaviour).
+/** Tickets visible in the current view, respecting the dropdown filter.
+ *  Used by both list and kanban renderers — single source of truth so
+ *  changing the dropdown updates both surfaces consistently. */
+function filteredTickets() {
+  if (currentStaffRole === ALL_DEPTS) return staffTicketsCache;
   return staffTicketsCache.filter((t) => t.target_dept === currentStaffRole);
-}
-
-function renderDeptSummary() {
-  const wrap = document.getElementById('vsDeptSummary');
-  if (!wrap || wrap.classList.contains('d-none')) return;
-  // Counts per VP dept — includes overdue breakdown
-  const html = VP_DEPTS.map((dept) => {
-    const rows = staffTicketsCache.filter(
-      (t) => t.target_dept === dept && !(t.status || '').includes('เสร็จสิ้น'),
-    );
-    if (rows.length === 0) return ''; // omit empty depts to reduce noise
-    const overdue = rows.filter(isOverdue).length;
-    const c = deptColor(dept);
-    return `
-      <button type="button" class="vs-dept-chip ${overdue > 0 ? 'has-overdue' : ''}"
-        style="--chip-color: ${c};"
-        onclick="onVSAdminPickDept('${escHtml(dept)}')">
-        <span class="vs-dept-chip-dot"></span>
-        <span class="vs-dept-chip-name">${escHtml(deptShort(dept))}</span>
-        <span class="vs-dept-chip-count">${rows.length}</span>
-        ${overdue > 0 ? `<span class="vs-dept-chip-overdue" title="ค้างเกิน 3 วัน">${overdue}</span>` : ''}
-      </button>
-    `;
-  }).join('');
-  wrap.innerHTML = html || '<div class="text-muted small">ไม่มีงานค้างของอุปนายก</div>';
 }
 
 function renderList() {
   const list = document.getElementById('staffTicketList');
   if (!list) return;
   list.innerHTML = '';
-  const tickets = ticketsForList();
+  const tickets = filteredTickets();
   if (tickets.length === 0) {
     list.innerHTML = '<div class="col-12 text-center text-muted py-5">ไม่มี ticket ในกล่องนี้</div>';
     return;
@@ -293,8 +285,11 @@ function renderKanban() {
   if (!wrap) return;
   // Columns by status. Open (non-done) statuses sort oldest-first so
   // stale tickets bubble to the top. Done column stays newest-first.
+  // Both list and kanban share filteredTickets() — switching dept in
+  // the dropdown updates both surfaces consistently.
+  const base = filteredTickets();
   const html = KANBAN_COLUMNS.map((col) => {
-    const items = staffTicketsCache.filter((t) => col.statuses.includes(t.status));
+    const items = base.filter((t) => col.statuses.includes(t.status));
     if (col.key !== 'done') {
       items.sort((a, b) => ageMs(b) - ageMs(a));   // oldest first
     } else {
@@ -366,6 +361,39 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffSilentNotify').checked = false;
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+}
+
+// --------------------------------------------------
+// Delete VS Ticket — vs_staff / dev only (RLS enforces).
+// dbRest + return=representation so we surface RLS no-ops as real errors
+// (see mistakes.md "supabase-js silent-success" entry).
+// --------------------------------------------------
+
+export async function deleteCurrentVSTicket() {
+  if (!currentActiveTicketId) return;
+  const ticket = staffTicketsCache.find((t) => t.id === currentActiveTicketId);
+  const hint = ticket ? `"${(ticket.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60)}"` : '';
+  if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
+
+  const idEsc = encodeURIComponent(currentActiveTicketId);
+  const { data, error } = await dbRest(
+    `/vs_tickets?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) {
+    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown'));
+    return;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    alert('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น vs_staff หรือ dev)');
+    return;
+  }
+
+  // Close the modal + refresh.
+  const modalEl = document.getElementById('staffManageModal');
+  bootstrap.Modal.getInstance(modalEl)?.hide();
+  currentActiveTicketId = null;
+  await fetchStaffTickets();
 }
 
 // --------------------------------------------------

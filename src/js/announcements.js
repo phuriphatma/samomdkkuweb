@@ -550,9 +550,11 @@ export function viewAnnouncement(id) {
   // based on [data-role-only]; we just have to make them present in DOM).
   // They're already in tab-article.html — nothing to inject here.
 
-  // Sync the hash so this view is shareable.
-  const want = `#article/${encodeURIComponent(post.id)}`;
-  if (location.hash !== want) history.replaceState(null, '', want);
+  // Sync the path so this view is shareable: /news/{id}.
+  // pushState (not replaceState) so the browser back button returns
+  // to the previous tab/path naturally.
+  const want = `/news/${encodeURIComponent(post.id)}`;
+  if (location.pathname !== want) history.pushState(null, '', want);
 
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -560,8 +562,15 @@ export function viewAnnouncement(id) {
 /** Return from the article reader back to the announcement archive. */
 export function closeArticleView() {
   viewingAnnouncementId = null;
-  if (location.hash.startsWith('#article/')) {
-    history.replaceState(null, '', location.pathname + location.search);
+  // Prefer browser-back so we don't disturb the rest of the history
+  // stack. Falls back to /news if the user landed directly on the
+  // article URL (no entry to go back to).
+  if (location.pathname.startsWith('/news/')) {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    history.replaceState(null, '', '/news');
   }
   const tabBtn = document.getElementById('pills-announcements-tab');
   if (tabBtn && window.bootstrap) {
@@ -570,16 +579,31 @@ export function closeArticleView() {
 }
 
 /**
- * Hash routing: #article/{id} → open that article. Runs on initial load
- * (after loadAnnouncements resolves) and on hashchange. Other hash
- * patterns (e.g. #projects/...) are left to their own modules.
+ * Article routing:
+ *   /news/{id}    — new path form (used by viewAnnouncement)
+ *   #article/{id} — legacy hash form (backward compat for shared links)
+ *
+ * Runs on initial load (after loadAnnouncements resolves), on hashchange
+ * (covers legacy links), and on popstate (covers back/forward). Other
+ * hash patterns (e.g. #projects/...) are left to their own modules.
  */
 function handleArticleHash() {
-  const m = location.hash.match(/^#article\/(.+)$/);
-  if (!m) return;
-  const id = decodeURIComponent(m[1]);
-  if (globalAnnouncements.length === 0) return; // wait for next load
-  viewAnnouncement(id);
+  // Legacy hash → redirect to path
+  const hashMatch = location.hash.match(/^#article\/(.+)$/);
+  if (hashMatch) {
+    const id = decodeURIComponent(hashMatch[1]);
+    history.replaceState(null, '', `/news/${encodeURIComponent(id)}`);
+    if (globalAnnouncements.length === 0) return; // wait for next load
+    viewAnnouncement(id);
+    return;
+  }
+  // Path form
+  const pathMatch = location.pathname.match(/^\/news\/(.+)/);
+  if (pathMatch) {
+    const id = decodeURIComponent(pathMatch[1]);
+    if (globalAnnouncements.length === 0) return;
+    viewAnnouncement(id);
+  }
 }
 
 // Register once — survives loadAnnouncements calls.

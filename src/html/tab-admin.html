@@ -81,30 +81,28 @@
                       <i class="bi bi-kanban me-1"></i>Kanban (ทุกฝ่าย)
                     </button>
                   </div>
-                  <select id="staffRole" class="form-select form-select-sm" style="max-width: 280px;"
+                  <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
+                    <option value="__all__">ทุกฝ่าย (All)</option>
                     <option value="SE">Student Engagement (SE)</option>
-                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                    <optgroup label="อุปนายก">
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">บริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">ดิจิทัลและสื่อสาร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">กิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">กิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">กิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">วิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ยุทธศาสตร์</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">คุณภาพชีวิต</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">เวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">รังสีเทคนิค</option>
+                    </optgroup>
                   </select>
                   <button class="btn btn-outline-primary btn-sm" onclick="fetchStaffTickets()">
                     <i class="bi bi-arrow-clockwise"></i> รีเฟรช
                   </button>
                 </div>
               </div>
-
-              <!-- Per-VP summary chips (visible only for SE / dev). Clicking
-                   a chip filters the list to that dept; counts include an
-                   overdue flag for tickets idle >3 days. -->
-              <div id="vsDeptSummary" class="vs-dept-summary mb-3 d-none"></div>
 
               <div class="text-center my-3 d-none" id="staffLoading">
                 <div class="spinner-border text-pink-custom" role="status"></div>
