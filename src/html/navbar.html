@@ -4,20 +4,19 @@
        hamburger is the cleaner pattern at that width. -->
   <nav class="navbar navbar-expand-lg samo-navbar sticky-top">
     <div class="container-fluid d-flex align-items-center">
+      <!-- Mobile-only hamburger — sits on the LEFT to match /admin/'s
+           workspace toggle. Hidden on lg+ where pills handle navigation. -->
+      <button class="navbar-toggler d-lg-none me-2" type="button"
+        data-bs-toggle="offcanvas" data-bs-target="#mobileMenu"
+        aria-controls="mobileMenu" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
       <!-- Brand -->
       <a class="navbar-brand brand-fixed" href="#"
         onclick="document.getElementById('pills-home-tab').click(); return false;">
         <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
       </a>
-
-      <!-- Mobile-only right cluster: hamburger only. Notifications bell
-           lives in /admin/ now (operator-facing, not public-facing). -->
-      <div class="d-flex d-lg-none align-items-center gap-2 ms-auto">
-        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu"
-          aria-controls="mobileMenu" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-      </div>
 
       <!-- Desktop / iPad menu (≥md) -->
       <div class="collapse navbar-collapse">
