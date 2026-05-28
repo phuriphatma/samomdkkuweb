@@ -1,6 +1,75 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-29 (/scrutinize fix pass — see top section)
+Last updated: 2026-05-29 (mobile sign-out fix + external-link surface — see top section)
+
+## Mobile sign-out + external-link surface (2026-05-29)
+
+User reported (a) the admin sidebar sign-out button was hidden behind iOS
+Safari's bottom chrome on mobile, (b) admin / room-booking / passport
+shortcuts should open in new tabs, and asked where to put the new external
+links for best UX across desktop / iPad / mobile.
+
+### Decisions
+
+- **Two complementary surfaces** for the new external tools (ระบบจองห้องสโม,
+  SAMO Passport): the **public tools launcher** (canonical discovery for
+  students/visitors) **and** the **admin sidebar** under a new
+  "ลิงก์ภายนอก" section (so staff don't have to leave admin to reach them).
+  Also mirrored in the public navbar's avatar dropdown + mobile offcanvas
+  so signed-in users get a one-click shortcut from any tab.
+- **All external links open in a new tab** (`target="_blank" rel="noopener"`),
+  including the existing "ไปยัง Admin Dashboard" entries. Visual cue:
+  `bi-box-arrow-up-right` instead of `bi-arrow-up-right` / `bi-arrow-right`.
+- **Sidebar sign-out visibility** is now safe-area-aware; the workspace
+  sidebar uses `100dvh` (with `100vh` fallback) so iOS Safari's collapsible
+  bottom chrome doesn't steal the bottom of the drawer.
+
+### Changes
+
+- **`src/css/workspace.css`** —
+  - `.workspace-side` (mobile drawer): `height: 100vh; height: 100dvh;`
+    so the drawer matches the actually-visible viewport on iOS Safari.
+  - `.workspace-side-foot` (mobile): `padding-bottom: max(0.85rem,
+    calc(env(safe-area-inset-bottom) + 0.6rem))` so the sign-out button
+    sits above the home-indicator inset.
+  - `.workspace-side-item` text-decoration: none (anchor variants for
+    external links).
+  - `.workspace-side-item-ext` trailing external-arrow icon style; also
+    hidden in collapsed (icon-only) sidebar mode alongside the label spans.
+- **`src/css/launcher.css`** — `.launcher-tool` text-decoration: none so
+  the new `<a>`-based tool cards don't render with underlines.
+- **`src/html/navbar.html`** —
+  - Admin Dashboard link: `target="_blank" rel="noopener"` + box-arrow
+    icon (desktop dropdown + mobile offcanvas).
+  - New external-tool links (ระบบจองห้องสโม + SAMO Passport) in the
+    avatar dropdown (signed-in users; below the admin link).
+  - Same two links also added as standalone offcanvas items (no auth
+    gate; visible to everyone on mobile).
+- **`src/html/tab-tools.html`** — two new `<a class="launcher-tool">`
+  cards in the public "สำหรับทุกคน" section, both `target="_blank"`.
+  data-name covers Thai + English search terms so `/`-search finds them.
+- **`admin/index.html`** — new "ลิงก์ภายนอก" sidebar section with the
+  two external-link items. No `data-admin-side` (these don't switch
+  panes) and no role gate.
+- **`src/js/admin-main.js`** — mobile drawer auto-close handler now
+  fires for any `.workspace-side-item` (was `[data-admin-side]` only),
+  so clicking an external link closes the drawer too.
+
+### Verify on device
+
+- iPhone Safari, signed in as a VP at `/admin/`:
+  - Open the sidebar drawer → scroll if needed → sign-out button is fully
+    visible above the Safari URL bar AND above the home-indicator inset.
+  - Tap ระบบจองห้องสโม or SAMO Passport in "ลิงก์ภายนอก" → opens in a
+    new tab, drawer closes in the current tab.
+- Public site (`/`):
+  - เครื่องมือ tab → "สำหรับทุกคน" section shows 5 cards now (PR / VS /
+    Shop + the two new external ones). Search "ห้อง" or "passport" filters
+    them.
+  - Signed in → avatar dropdown shows Admin Dashboard + the two external
+    links, each opening in a new tab.
+
+---
 
 ## /scrutinize fix pass (2026-05-29)
 

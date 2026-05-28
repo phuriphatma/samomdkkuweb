@@ -97,9 +97,28 @@
                    all live at /admin/ now. -->
               <li class="d-none" id="navAdminLink">
                 <hr class="dropdown-divider my-1">
-                <a class="dropdown-item" href="/admin/">
+                <a class="dropdown-item" href="/admin/" target="_blank" rel="noopener">
                   <i class="bi bi-shield-lock me-2"></i>ไปยัง Admin Dashboard
-                  <i class="bi bi-arrow-up-right ms-2 small text-muted"></i>
+                  <i class="bi bi-box-arrow-up-right ms-2 small text-muted"></i>
+                </a>
+              </li>
+
+              <!-- External tools — same surface on every device, no role gate. -->
+              <li>
+                <hr class="dropdown-divider my-1">
+              </li>
+              <li>
+                <a class="dropdown-item" href="https://script.google.com/a/macros/kkumail.com/s/AKfycbyG28fVJFhldajKVJkVUL14m5KImWLtRK6gTNJaH_A7ONGSaJW6cqQFUV-O99PHmptF/exec"
+                  target="_blank" rel="noopener">
+                  <i class="bi bi-calendar-check me-2" style="color: var(--brand-primary);"></i>ระบบจองห้องสโม
+                  <i class="bi bi-box-arrow-up-right ms-2 small text-muted"></i>
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="https://samomdkkupassport.pages.dev/"
+                  target="_blank" rel="noopener">
+                  <i class="bi bi-patch-check me-2" style="color: var(--brand-orange);"></i>SAMO Passport
+                  <i class="bi bi-box-arrow-up-right ms-2 small text-muted"></i>
                 </a>
               </li>
 
@@ -171,9 +190,29 @@
         </li>
         <li class="d-none" id="mobileAdminLink">
           <div class="samo-offcanvas-divider"></div>
-          <a class="nav-link text-start w-100" href="/admin/">
+          <a class="nav-link text-start w-100" href="/admin/" target="_blank" rel="noopener">
             <i class="bi bi-shield-lock me-2" style="color: var(--brand-primary);"></i>ไปยัง Admin Dashboard
-            <i class="bi bi-arrow-up-right ms-1 small text-muted"></i>
+            <i class="bi bi-box-arrow-up-right ms-1 small text-muted"></i>
+          </a>
+        </li>
+
+        <!-- External tools — visible to everyone (no auth gate); same surface
+             as desktop avatar dropdown but always shown on mobile. -->
+        <li>
+          <div class="samo-offcanvas-divider"></div>
+          <a class="nav-link text-start w-100"
+             href="https://script.google.com/a/macros/kkumail.com/s/AKfycbyG28fVJFhldajKVJkVUL14m5KImWLtRK6gTNJaH_A7ONGSaJW6cqQFUV-O99PHmptF/exec"
+             target="_blank" rel="noopener">
+            <i class="bi bi-calendar-check me-2" style="color: var(--brand-primary);"></i>ระบบจองห้องสโม
+            <i class="bi bi-box-arrow-up-right ms-1 small text-muted"></i>
+          </a>
+        </li>
+        <li>
+          <a class="nav-link text-start w-100"
+             href="https://samomdkkupassport.pages.dev/"
+             target="_blank" rel="noopener">
+            <i class="bi bi-patch-check me-2" style="color: var(--brand-orange);"></i>SAMO Passport
+            <i class="bi bi-box-arrow-up-right ms-1 small text-muted"></i>
           </a>
         </li>
 

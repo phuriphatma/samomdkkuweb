@@ -285,6 +285,29 @@ extend the regex / OR clause — don't fall back to literals.
 
 ---
 
+## iOS Safari `100vh` hides the bottom of a full-height drawer
+
+**Symptom**: Sign-out button (or any bottom-anchored control) in the
+mobile admin sidebar drawer was unreachable on iPhone — buried under
+Safari's bottom URL chrome.
+**Cause**: iOS Safari measures `100vh` against the *large viewport*
+(URL bar hidden). When the URL bar is shown — which is the default
+state on first open — the drawer extends *past* the visible area, and
+the user has to scroll to reach the bottom. Adding `bottom: 0` on a
+fixed element doesn't help: the element is positioned relative to the
+same large viewport.
+**Fix**: Use `100dvh` (dynamic viewport height) for the drawer height,
+which shrinks when the chrome is shown. Keep `100vh` above it as a
+fallback for browsers that don't grok `dvh`. Additionally pad the bottom
+of the bottom-anchored control with
+`max(0.85rem, calc(env(safe-area-inset-bottom) + 0.6rem))` so it sits
+above the iOS home-indicator inset too.
+**Where**: `src/css/workspace.css` `.workspace-side` (mobile @media block)
++ `.workspace-side-foot` (same block). Apply the same pattern to any
+new full-height mobile overlay (offcanvas, modal-fullscreen on mobile).
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

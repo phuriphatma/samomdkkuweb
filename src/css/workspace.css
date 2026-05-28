@@ -170,6 +170,15 @@ body.workspace-mode .tab-content {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  text-decoration: none; /* anchor variants (external links) */
+}
+
+/* Trailing external-link arrow for <a class="workspace-side-item"> rows */
+.workspace-side-item-ext {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--ink-400);
+  flex-shrink: 0;
 }
 
 .workspace-side-item i {
@@ -415,6 +424,7 @@ body.workspace-mode .tab-content {
   body.workspace-sidebar-collapsed .workspace-side-section,
   body.workspace-sidebar-collapsed .workspace-side-item span,
   body.workspace-sidebar-collapsed .workspace-side-item-badge,
+  body.workspace-sidebar-collapsed .workspace-side-item-ext,
   body.workspace-sidebar-collapsed .workspace-side-signout span,
   body.workspace-sidebar-collapsed .workspace-user-mini-body {
     display: none;
@@ -481,7 +491,11 @@ body.workspace-mode .tab-content {
     top: 0;
     left: 0;
     bottom: 0;
+    /* iOS Safari: 100vh treats the URL bar area as part of the viewport,
+       which buries the sign-out button under the browser chrome.
+       100dvh (dynamic viewport) shrinks when the chrome is shown. */
     height: 100vh;
+    height: 100dvh;
     width: 84vw;
     max-width: 320px;
     transform: translateX(-100%);
@@ -492,6 +506,13 @@ body.workspace-mode .tab-content {
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--surface);
+  }
+
+  /* Bottom padding scales with the iOS home-indicator inset so the
+     sign-out button never sits flush against the home bar. Falls back
+     to the desktop padding on devices without an inset. */
+  .workspace-side-foot {
+    padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom) + 0.6rem));
   }
 
   body.workspace-sidebar-open .workspace-side {

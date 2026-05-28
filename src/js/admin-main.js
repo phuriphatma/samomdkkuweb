@@ -332,9 +332,11 @@ function initSidebarToggle() {
 
   // Clicking any sidebar item on mobile closes the drawer (consistent with
   // most SaaS apps — selection should commit + collapse, not just commit).
+  // Covers both section buttons (data-admin-side) and external links
+  // (anchors that open in a new tab).
   sideNav?.addEventListener('click', (e) => {
     if (!isMobileViewport()) return;
-    if (e.target.closest('[data-admin-side]')) {
+    if (e.target.closest('.workspace-side-item')) {
       document.body.classList.remove('workspace-sidebar-open');
       toggle?.setAttribute('aria-expanded', 'false');
     }
