@@ -15,16 +15,26 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. Rename reserved username
+-- 1. Rename reserved username (only if the bookkeeping table exists)
+--
+-- `reserved_staff_usernames` was added by migration 0002. Some
+-- Supabase projects skipped 0002 and have never seen the table —
+-- it's a reservation/reference list, not load-bearing. Wrap in a
+-- table-exists check so this migration runs cleanly either way.
 -- ------------------------------------------------------------
 
--- Drop the old reservation and re-insert as samomdkkumdi.
-delete from public.reserved_staff_usernames
-  where username = 'samomdkkumedia';
-
-insert into public.reserved_staff_usernames (username, role, email) values
-  ('samomdkkumdi', 'vp_admin', 'samomdkkumdi@samomdkku.app')
-on conflict (username) do nothing;
+do $$
+begin
+  if exists (
+    select 1 from pg_tables
+    where schemaname = 'public' and tablename = 'reserved_staff_usernames'
+  ) then
+    delete from public.reserved_staff_usernames where username = 'samomdkkumedia';
+    insert into public.reserved_staff_usernames (username, role, email) values
+      ('samomdkkumdi', 'vp_admin', 'samomdkkumdi@samomdkku.app')
+    on conflict (username) do nothing;
+  end if;
+end $$;
 
 -- If you already created the samomdkkumedia auth user before this
 -- rename, delete it in the Supabase Dashboard (Authentication → Users
