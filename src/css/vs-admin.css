@@ -119,23 +119,21 @@
 /* --- Kanban board --- */
 
 .vs-kanban {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.85rem;
+  display: flex;
+  gap: 0.75rem;
   margin-top: 0.5rem;
+  /* Horizontal scroll — 9 status columns wouldn't fit any viewport
+     stretched to equal widths. Trello / Linear pattern: fixed-width
+     columns + free horizontal scroll. */
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-@media (max-width: 991.98px) {
-  .vs-kanban {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 575.98px) {
-  .vs-kanban {
-    grid-template-columns: 1fr;
-  }
-}
+.vs-kanban::-webkit-scrollbar { height: 8px; }
+.vs-kanban::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
 .vs-kanban-col {
   background: var(--ink-50, #f8fafc);
@@ -143,7 +141,8 @@
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  min-height: 200px;
+  flex: 0 0 260px;       /* fixed width per column */
+  min-width: 260px;
   max-height: 75vh;
 }
 

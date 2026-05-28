@@ -36,30 +36,35 @@ const VP_DEPTS = Object.keys(DEPT_META).filter((k) => k.startsWith('อุปน
 function deptColor(name) { return DEPT_META[name]?.color || '#94a3b8'; }
 function deptShort(name) { return DEPT_META[name]?.short || name; }
 
-// Group statuses into kanban columns. Lifting "ปฏิเสธ" back into SE
-// keeps the board to 4 columns; SE picks it up and re-routes.
+// One kanban column per status — mirrors the dropdown in modal-vs-staff.html
+// so the board reflects exactly the workflow states a staffer can pick.
+// Order left → right is the natural progression: incoming → SE → VP →
+// in-flight → terminal. Donw stays on the right so finished work doesn't
+// crowd active work. Most accounts won't have items in every column;
+// the "ซ่อนคอลัมน์ว่าง" toggle (default ON) hides empties.
 const KANBAN_COLUMNS = [
-  {
-    key: 'se',
-    label: 'รอ SE พิจารณา',
-    statuses: ['รอ SE รับเรื่อง', 'SE รับเรื่องแล้ว', 'ปฏิเสธ (ส่งคืน SE)'],
-  },
-  {
-    key: 'awaiting_vp',
-    label: 'รออุปนายกพิจารณา',
-    statuses: ['กำลังรออุปนายกพิจารณา (ด่วน)', 'กำลังรออุปนายกพิจารณา'],
-  },
-  {
-    key: 'in_progress',
-    label: 'กำลังพิจารณา',
-    statuses: ['อุปนายกรับเรื่องแล้ว', 'กำลังดำเนินการ', 'กำลังติดต่อคณะ'],
-  },
-  {
-    key: 'done',
-    label: 'เสร็จสิ้น',
-    statuses: ['เสร็จสิ้น'],
-  },
+  { key: 'waiting_se',     label: 'รอ SE รับเรื่อง',             statuses: ['รอ SE รับเรื่อง'] },
+  { key: 'se_acked',       label: 'SE รับเรื่องแล้ว',            statuses: ['SE รับเรื่องแล้ว'] },
+  { key: 'urgent_vp',      label: 'รออุปนายก (ด่วน)',            statuses: ['กำลังรออุปนายกพิจารณา (ด่วน)'] },
+  { key: 'waiting_vp',     label: 'รออุปนายกพิจารณา',            statuses: ['กำลังรออุปนายกพิจารณา'] },
+  { key: 'vp_acked',       label: 'อุปนายกรับเรื่องแล้ว',         statuses: ['อุปนายกรับเรื่องแล้ว'] },
+  { key: 'in_progress',    label: 'กำลังดำเนินการ',                statuses: ['กำลังดำเนินการ'] },
+  { key: 'faculty_liaison',label: 'กำลังติดต่อคณะ',                statuses: ['กำลังติดต่อคณะ'] },
+  { key: 'rejected',       label: 'ปฏิเสธ (ส่งคืน SE)',           statuses: ['ปฏิเสธ (ส่งคืน SE)'] },
+  { key: 'done',           label: 'เสร็จสิ้น',                     statuses: ['เสร็จสิ้น'] },
 ];
+
+// Persisted user preference: hide columns that have 0 tickets.
+// Default ON because 9 columns of mostly empty is noisy for any
+// account that only touches part of the workflow.
+const HIDE_EMPTY_KEY = 'vsKanbanHideEmpty';
+function getHideEmpty() {
+  const v = localStorage.getItem(HIDE_EMPTY_KEY);
+  return v === null ? true : v === '1';
+}
+function setHideEmpty(on) {
+  localStorage.setItem(HIDE_EMPTY_KEY, on ? '1' : '0');
+}
 
 // --------------------------------------------------
 // Age helpers — ticket "age" = ms since timestamp (created_at fallback).
@@ -118,9 +123,10 @@ export async function enterVSStaffDashboard(roleArg) {
   const isSuper = user?.role === 'vs_staff' || user?.role === 'dev';
 
   if (isVP && user.department) {
-    // Lock to the VP's own dept. Hide picker + kanban toggle.
+    // Lock the dept filter to the VP's own dept (RLS allows them
+    // nothing else anyway). Picker stays hidden; the kanban toggle
+    // is AVAILABLE so they can see their workflow as columns too.
     currentStaffRole = user.department;
-    currentView = 'list';
     if (select) {
       if (![...select.options].some((o) => o.value === currentStaffRole)) {
         const opt = document.createElement('option');
@@ -131,7 +137,12 @@ export async function enterVSStaffDashboard(roleArg) {
       select.value = currentStaffRole;
       select.classList.add('d-none');
     }
-    document.getElementById('vsKanbanToggleBtn')?.classList.add('d-none');
+    document.getElementById('vsKanbanToggleBtn')?.classList.remove('d-none');
+    // On first entry, default VPs to list view (their workflow is
+    // small enough that list reads cleaner). Saved pick wins after.
+    if (!sessionStorage.getItem('vsViewPicked')) {
+      currentView = 'list';
+    }
   } else {
     // SE / dev — keep the picker. First load defaults to "all" + kanban
     // (the triage default; that's the whole point of the cross-dept board).
@@ -143,7 +154,6 @@ export async function enterVSStaffDashboard(roleArg) {
     }
     if (isSuper) {
       document.getElementById('vsKanbanToggleBtn')?.classList.remove('d-none');
-      // On first entry (no view picked yet), default super to kanban.
       if (!sessionStorage.getItem('vsViewPicked')) {
         currentView = 'kanban';
         sessionStorage.setItem('vsViewPicked', '1');
@@ -210,6 +220,7 @@ export async function fetchStaffTickets() {
 function renderActiveView() {
   const list   = document.getElementById('staffTicketList');
   const kanban = document.getElementById('staffTicketKanban');
+  const hideEmptyWrap = document.getElementById('vsKanbanHideEmptyWrap');
   if (currentView === 'kanban') {
     list?.classList.add('d-none');
     kanban?.classList.remove('d-none');
@@ -217,8 +228,15 @@ function renderActiveView() {
   } else {
     kanban?.classList.add('d-none');
     list?.classList.remove('d-none');
+    hideEmptyWrap?.classList.add('d-none'); // toggle only relevant in kanban
     renderList();
   }
+}
+
+/** Public — toggle the "hide empty columns" preference. */
+export function setVsKanbanHideEmpty(on) {
+  setHideEmpty(!!on);
+  if (currentView === 'kanban') renderKanban();
 }
 
 // --------------------------------------------------
@@ -283,13 +301,21 @@ function renderAgeChip(ticket) {
 function renderKanban() {
   const wrap = document.getElementById('staffTicketKanban');
   if (!wrap) return;
+  // Reflect the hide-empty checkbox state every render.
+  const cb = document.getElementById('vsKanbanHideEmpty');
+  if (cb) cb.checked = getHideEmpty();
+  // Show / hide the hide-empty toggle itself only when kanban is active.
+  document.getElementById('vsKanbanHideEmptyWrap')?.classList.remove('d-none');
+
   // Columns by status. Open (non-done) statuses sort oldest-first so
   // stale tickets bubble to the top. Done column stays newest-first.
   // Both list and kanban share filteredTickets() — switching dept in
   // the dropdown updates both surfaces consistently.
   const base = filteredTickets();
+  const hideEmpty = getHideEmpty();
   const html = KANBAN_COLUMNS.map((col) => {
     const items = base.filter((t) => col.statuses.includes(t.status));
+    if (hideEmpty && items.length === 0) return '';
     if (col.key !== 'done') {
       items.sort((a, b) => ageMs(b) - ageMs(a));   // oldest first
     } else {
