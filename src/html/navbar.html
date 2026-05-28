@@ -6,19 +6,21 @@
     <div class="container-fluid d-flex align-items-center">
       <!-- Mobile-only hamburger — sits on the LEFT to match /admin/'s
            workspace toggle. Hidden on lg+ where pills handle navigation. -->
-      <button class="navbar-toggler d-lg-none me-2" type="button"
+      <button class="navbar-toggler d-lg-none" type="button"
         data-bs-toggle="offcanvas" data-bs-target="#mobileMenu"
         aria-controls="mobileMenu" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <!-- Brand -->
+      <!-- Brand. On desktop: inline at the start. On mobile: navbar.css
+           absolutely-centers it so it stays at viewport center regardless
+           of hamburger / auth widths (Twitter / X pattern). -->
       <a class="navbar-brand brand-fixed" href="#"
         onclick="document.getElementById('pills-home-tab').click(); return false;">
         <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
       </a>
 
-      <!-- Desktop / iPad menu (≥md) -->
+      <!-- Desktop pills (collapse is hidden on <lg) -->
       <div class="collapse navbar-collapse">
         <ul class="nav nav-pills nav-primary" id="pills-tab" role="tablist">
           <li class="nav-item" role="presentation">
@@ -66,9 +68,12 @@
               data-bs-target="#pills-article" type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
           </li>
         </ul>
+      </div>
 
-        <!-- Auth area (desktop) — no bell in public; notifications live in /admin/ -->
-        <div class="samo-navbar-auth">
+      <!-- Auth area — always visible on every breakpoint. On mobile it
+           sits at the right edge; on desktop ms-auto keeps it tucked
+           against the collapse's right edge. -->
+      <div class="samo-navbar-auth ms-auto">
           <div id="navAuthSignedOut">
             <button type="button" class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#signinModal">
               เข้าสู่ระบบ
@@ -131,7 +136,6 @@
               </li>
             </ul>
           </div>
-        </div>
       </div>
     </div>
   </nav>

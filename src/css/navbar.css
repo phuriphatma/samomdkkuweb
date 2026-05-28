@@ -25,6 +25,23 @@
   align-items: center;
   gap: 1rem;
   padding: 0;
+  position: relative; /* anchor for the mobile absolute-centered brand */
+}
+
+/* Mobile (<lg): hamburger sits flush left, auth sits flush right, and
+   the brand is absolutely-centered within the navbar so the wordmark
+   stays at viewport center regardless of the left/right cluster widths
+   (Twitter / X pattern). On lg+ the brand resumes inline flow. */
+@media (max-width: 991.98px) {
+  .samo-navbar .container-fluid > .navbar-brand.brand-fixed {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    z-index: 1; /* below the dropdown but above the (hidden) collapse */
+    pointer-events: auto;
+  }
 }
 
 /* Brand wordmark — MDKKU green + SAMO orange */
