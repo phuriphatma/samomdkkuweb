@@ -10,7 +10,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // Auth (shared with public)
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
 
 // Announcements / Creator
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode } from './announcements.js';
@@ -267,6 +267,17 @@ function showApp()     { BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.cl
 
 const STAFF_ROLES = ['pr_staff', 'vs_staff', 'shop_admin', 'vp_admin', 'uni_staff', 'dev'];
 
+// Features the admin sidebar / landing surfaces. Keyed by data-admin-side.
+// Each value is the permission key passed to userCanAccess().
+const SIDE_FEATURE = {
+  landing:  null,         // landing is always available when signed in as staff
+  pr:       'pr',
+  vs:       'vs',
+  shop:     'samoshop',
+  projects: 'projects',
+  creator:  'creator',
+};
+
 function roleLabel(role) {
   if (role === 'pr_staff')   return 'PR Staff';
   if (role === 'vs_staff')   return 'VS Staff';
@@ -388,8 +399,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (name) name.textContent = user.name || user.username || '';
     if (sub)  sub.textContent  = roleLabel(role) || user.department || '';
 
-    // Role-gate sidebar + landing items
+    // Feature-gate sidebar + landing items: a node is visible if its
+    // data-admin-side / data-admin-pane feature is granted to the user
+    // (via role default OR permissions array). Legacy data-role-only
+    // attributes are honoured too — kept for backward compatibility,
+    // but new gates should use data-admin-side which userCanAccess() owns.
+    document.querySelectorAll('[data-admin-side]').forEach((el) => {
+      const which = el.dataset.adminSide;
+      const feature = SIDE_FEATURE[which];
+      const ok = feature === null ? true : userCanAccess(feature, user);
+      el.classList.toggle('d-none', !ok);
+    });
+    // Landing cards: each col carries data-admin-side too (or fall back
+    // to the legacy data-role-only).
     document.querySelectorAll('[data-role-only]').forEach((el) => {
+      // If the element ALSO has data-admin-side, skip — that path
+      // already handled it above with the permission-aware check.
+      if (el.hasAttribute('data-admin-side')) return;
       const allowed = el.getAttribute('data-role-only').split(/\s+/);
       el.classList.toggle('d-none', !allowed.includes(role));
     });

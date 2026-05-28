@@ -59,11 +59,32 @@ async function buildCurrentUser(session) {
   // when it IS called from there, we use the wrapper so it doesn't
   // deadlock the supabase-js session lock. See:
   //   https://github.com/supabase/auth-js/issues/762
-  const { data: profile } = await db
-    .from('users')
-    .select('id, email, username, display_name, method, role, department')
-    .eq('id', authUser.id)
-    .maybeSingle();
+  // Tries to fetch the post-0010 permissions column. If that 400s
+  // (column missing — migration not yet applied), retries without it.
+  // Same graceful-fallback pattern as announcements.loadAnnouncements.
+  const baseSelect = 'id, email, username, display_name, method, role, department';
+  let profile = null;
+  {
+    const r1 = await db
+      .from('users')
+      .select(baseSelect + ', permissions')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    if (r1.error?.code === '42703' || r1.error?.message?.includes('permissions')) {
+      if (!window.__samoWarnedAuthPermissions) {
+        window.__samoWarnedAuthPermissions = true;
+        console.warn('[auth] permissions column missing — apply migration 0010_vp_accounts_permissions.sql to enable per-account feature gates.');
+      }
+      const r2 = await db
+        .from('users')
+        .select(baseSelect)
+        .eq('id', authUser.id)
+        .maybeSingle();
+      profile = r2.data;
+    } else {
+      profile = r1.data;
+    }
+  }
 
   // Profile may be null briefly right after signup if the create-on-trigger
   // hasn't fired (or for unusual race conditions). Fall back to auth data.
@@ -77,8 +98,37 @@ async function buildCurrentUser(session) {
     sub: authUser.user_metadata?.sub || authUser.id,
     role: profile?.role || 'user',
     department: profile?.department || '',
+    permissions: Array.isArray(profile?.permissions) ? profile.permissions : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
+}
+
+/**
+ * Does the current user have access to a given feature key?
+ * - Role-based defaults:
+ *     pr_staff    → 'pr'
+ *     vs_staff    → 'vs' (super; see all depts)
+ *     shop_admin  → 'samoshop'
+ *     vp_admin    → 'projects' + 'vs' (own dept only — DB RLS gates that)
+ *     uni_staff   → 'projects'
+ *     dev         → everything
+ * - Plus anything in user.permissions stacks on top.
+ *
+ * Use this for UI gating; the database RLS is the real boundary.
+ */
+export function userCanAccess(feature, user = currentUser) {
+  if (!user) return false;
+  if (user.role === 'dev') return true;
+  const roleDefaults = {
+    pr_staff:   ['pr'],
+    vs_staff:   ['vs'],
+    shop_admin: ['samoshop'],
+    vp_admin:   ['projects', 'vs'],
+    uni_staff:  ['projects'],
+  }[user.role] || [];
+  if (roleDefaults.includes(feature)) return true;
+  if (Array.isArray(user.permissions) && user.permissions.includes(feature)) return true;
+  return false;
 }
 
 // ============================================================

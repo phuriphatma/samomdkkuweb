@@ -183,8 +183,11 @@
 
           <!-- LANDING -->
           <section data-admin-pane="landing">
+            <!-- Each col carries data-admin-side so admin-main.js gates
+                 visibility via userCanAccess() — granting access from
+                 either the role default OR the user's permissions[] array. -->
             <div class="row g-3" id="adminLandingCards">
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="pr">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
                   onclick="openAdminSection('pr')">
                   <span class="admin-card-icon"><i class="bi bi-megaphone-fill"></i></span>
@@ -195,7 +198,7 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="vs_staff dev">
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="vs">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
                   onclick="openAdminSection('vs')">
                   <span class="admin-card-icon"><i class="bi bi-clipboard2-pulse"></i></span>
@@ -206,7 +209,7 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="shop_admin dev">
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="shop">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
                   onclick="openAdminSection('shop')">
                   <span class="admin-card-icon"><i class="bi bi-shop"></i></span>
@@ -217,7 +220,7 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="vp_admin uni_staff dev">
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="projects">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
                   onclick="openAdminSection('projects')">
                   <span class="admin-card-icon"><i class="bi bi-folder2"></i></span>
@@ -228,7 +231,7 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="creator">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
                   onclick="openAdminSection('creator')">
                   <span class="admin-card-icon"><i class="bi bi-pencil-square"></i></span>

@@ -12,7 +12,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
@@ -549,13 +549,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mDept) mDept.textContent = user.department || roleLabel(role) || (user.email || `@${user.username || ''}`);
     }
 
-    // Staff role-gating: surface the "ไปยัง Admin" link in the avatar
-    // dropdown and the mobile offcanvas only when the user has a staff
-    // role. The admin link itself navigates to /admin/.
-    const isStaffRole = role === 'pr_staff' || role === 'vs_staff' || role === 'shop_admin'
-      || role === 'vp_admin' || role === 'uni_staff' || role === 'dev';
-    document.getElementById('navAdminLink')?.classList.toggle('d-none', !isStaffRole);
-    document.getElementById('mobileAdminLink')?.classList.toggle('d-none', !isStaffRole);
+    // Surface the "ไปยัง Admin" link whenever the user has access to ANY
+    // admin feature — covers both role defaults and per-account
+    // permissions[] (so a VP with samoshop access still sees the link).
+    const canAccessAdmin = user && (
+      userCanAccess('pr', user)
+      || userCanAccess('vs', user)
+      || userCanAccess('samoshop', user)
+      || userCanAccess('projects', user)
+      || userCanAccess('creator', user)
+    );
+    document.getElementById('navAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
+    document.getElementById('mobileAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
 
     // Generic data-role-only — kept for legacy hooks (used by the article
     // reader's edit/delete buttons that redirect to /admin/).
