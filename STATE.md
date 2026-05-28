@@ -1,6 +1,71 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-28 (Full UI/UX overhaul + admin app split + per-VP accounts — see top section)
+Last updated: 2026-05-29 (/scrutinize fix pass — see top section)
+
+## /scrutinize fix pass (2026-05-29)
+
+End-to-end review of `refactor/modular` vs `main` surfaced two majors plus
+four minors. All fixed in-tree on this branch. Build + tests still green
+(26/26). **One new migration not yet applied** (0016 below).
+
+### Changes
+
+- **`src/js/auth.js`** — staff-username blocklist in `registerWithPassword`
+  was a literal list of 6 names and didn't include the 9 VP accounts
+  added in 0010/0011. A public visitor could squat e.g. `samomdkkuradiology`
+  before the admin seeded that VP. Switched to a prefix check on `samomdkku*`
+  + the legacy `sastaff` literal.
+- **`supabase/migrations/0016_current_user_dept_helper.sql` (new)** —
+  added `public.current_user_dept()` (security definer, `set search_path
+  = public`) and repointed the three vs_tickets policies that embedded
+  `(select department from public.users where id = auth.uid())` inline
+  (read / update / delete). The inline form silently depended on
+  `users_read_all` (0001) staying permissive — tightening that would
+  silently zero out every VP's dashboard. Helper removes that cross-table
+  RLS coupling. Behavior unchanged.
+- **`src/js/admin-main.js`** — admin boot-gate's 4-second timeout used
+  to swap straight to the "เฉพาะเจ้าหน้าที่" deny copy, which a
+  staff user on a slow network would read as access denied right before
+  the dashboard popped in. Now it just updates the spinner copy to
+  "โหลดช้ากว่าปกติ — ลองรีเฟรชหากค้างนาน".
+- **`admin/index.html`** — dropped dead `data-role-only` attributes on
+  the 5 sidebar buttons. The JS path that reads them (`admin-main.js:419`)
+  explicitly skips elements that also have `data-admin-side`, so those
+  attributes never did anything but mislead future readers.
+- **`src/js/db.js`** — 25-min `setInterval(refreshSession,…)` ran forever
+  including after sign-out, emitting a warn every 25 min on long-lived
+  signed-out tabs. Now gated on the supabase session storage key existing.
+- **`STATE.md`** — the previous note "Apply 0012 first thing next session"
+  was wrong: 0015 drops and recreates the same policy with a broader
+  predicate, so 0012 is not a prerequisite. Migration table updated;
+  the misleading "apply 0012" call-out replaced.
+
+### Apply before next ship
+
+`supabase/migrations/0016_current_user_dept_helper.sql` — paste in the
+Supabase SQL editor. It re-creates 3 policies on `vs_tickets` (read /
+update / delete). Verify with:
+
+```sql
+select pg_get_functiondef('public.current_user_dept()'::regprocedure);
+-- should exist and be SECURITY DEFINER
+
+select policyname, qual from pg_policies
+where schemaname='public' and tablename='vs_tickets'
+order by policyname;
+-- read / update / delete should reference current_user_dept()
+```
+
+### Not fixed (deferred — design call needed)
+
+- `pr_agents_write` (0014) is `for all` and lets any user with
+  `permissions[] @> '{pr}'` rewrite the single-row global agent roster.
+  Today only `samomdkkudigital` has `pr` — fine — but if a VP is granted
+  `pr` for read-only PR visibility (likely-future ask), they can wipe the
+  roster too. Splitting into `pr` (read) and `pr_admin` (manage agents)
+  needs a product call on intent.
+
+---
 
 ## SESSION SNAPSHOT (2026-05-28) — resume point after `/clear`
 
@@ -43,19 +108,17 @@ to the prod Supabase project (`fheueuowbchsnsvbcgil`)** — confirm
 | 0009_vs_owner_reply.sql | VS owner can reply to own ticket | applied (vs_tickets_update_owner present) |
 | 0010_vp_accounts_permissions.sql | users.permissions + per-dept VP RLS + 9 reservations | applied |
 | 0011_vp_corrections.sql | media→mdi rename + corrected UPDATE block (final perms) | applied (UPDATE block run) |
-| **0012_vs_delete.sql** | **DELETE policy for vs_staff/dev** | **❌ NOT applied (confirmed via pg_policies query)** |
+| 0012_vs_delete.sql | DELETE policy for vs_staff/dev | superseded by 0015 (see note) |
 | 0013_vs_vp_send_back_to_se.sql | WITH CHECK fix: VP can โอนคืน SE | likely applied (policy redefined; verify body) |
 | 0014_permission_aware_rls.sql | pr_tickets/pr_agents/announcements/shop_* honor permissions[] | applied |
 | 0015_vs_delete_for_all_vs_staff.sql | DELETE extends to VPs (own dept) + 'vs' perm | applied |
+| **0016_current_user_dept_helper.sql** | `current_user_dept()` helper; repoints vs_tickets read/update/delete to use it (removes RLS cross-table coupling on `users_read_all`) | **❌ not yet applied — apply before next ship** |
 
-**Apply 0012 first thing next session.** Without it, the VS delete button
-silently fails (RLS no-op). The full SQL block to paste:
-
-```sql
-drop policy if exists "vs_tickets_delete_staff" on public.vs_tickets;
-create policy "vs_tickets_delete_staff" on public.vs_tickets
-  for delete using (public.current_user_role() in ('vs_staff', 'dev'));
-```
+**0012 is not a prerequisite for 0015.** 0015 does its own
+`drop policy if exists "vs_tickets_delete_staff"` and recreates the policy
+with the broader predicate, so if 0015 is in place the delete button works
+whether or not 0012 ever ran. (Earlier note here said "apply 0012 first" —
+that was wrong.) Verify with the pg_policies query below.
 
 **Verify 0013/0014 bodies** (policy names alone don't prove the body is the new version):
 

@@ -39,9 +39,14 @@ export const db = createClient(url || 'http://invalid', anonKey || 'invalid', {
 
 // Proactive refresh: keep the JWT fresh on a fixed interval so it never
 // expires mid-submit. 25 min < 1 hour default TTL → plenty of margin.
+// Skips refresh when there's no stored session — otherwise long-lived
+// signed-out tabs emit a warn every 25 min for the missing-session error.
 if (typeof window !== 'undefined') {
   const REFRESH_INTERVAL_MS = 25 * 60 * 1000;
+  const projectRefForGate = (url || '').match(/\/\/([^.]+)\./)?.[1] || '';
+  const sessionKeyForGate = projectRefForGate ? `sb-${projectRefForGate}-auth-token` : null;
   setInterval(() => {
+    if (sessionKeyForGate && !localStorage.getItem(sessionKeyForGate)) return;
     db.auth.refreshSession().catch((e) => console.warn('[db] periodic refresh failed:', e?.message || e));
   }, REFRESH_INTERVAL_MS);
 }

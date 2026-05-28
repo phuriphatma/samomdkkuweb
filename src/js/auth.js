@@ -224,9 +224,15 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
   if (username.length < 3) throw new Error('Username ต้องมีอย่างน้อย 3 ตัวอักษร');
   if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
-  // Block reserved staff usernames (frontend check; backend enforces via
-  // unique-username constraint in public.users too).
-  if (['samomdkkupr', 'samomdkkuvssound', 'samomdkkushop', 'samomdkkuvpa', 'sastaff', 'samomdkkudev'].includes(username.toLowerCase())) {
+  // Block reserved staff usernames. All staff accounts in this app
+  // follow the `samomdkku*` convention (samomdkkupr, samomdkkuvssound,
+  // samomdkkushop, the 10 VP accounts samomdkkuvpa / samomdkkudigital /
+  // samomdkkumdi / …) plus the legacy `sastaff` / `samomdkkudev`.
+  // Use a prefix check so a brand-new dept account (e.g. a future
+  // samomdkku<x>) can't be squatted before the admin seeds it.
+  // Backend uniqueness on public.users.username is the second line of defence.
+  const lc = username.toLowerCase();
+  if (/^samomdkku/.test(lc) || lc === 'sastaff') {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 

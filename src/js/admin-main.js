@@ -371,10 +371,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // which is wired below, so this just exists as a fallback safety net.
 
   // Allow the boot gate to time out so users aren't stuck on the spinner
-  // if Supabase is slow / unreachable.
+  // if Supabase is slow / unreachable. Show a "slow load" message rather
+  // than the access-denied UI — a staff user on a slow network would
+  // otherwise read "เฉพาะเจ้าหน้าที่" right before the dashboard pops in.
   const bootTimeout = setTimeout(() => {
     if (!APP_ROOT()?.classList.contains('d-none')) return;
-    showAuthGate();
+    const gate = BOOT_GATE();
+    if (gate && !gate.classList.contains('d-none')) {
+      const sub = gate.querySelector('.small');
+      if (sub) sub.textContent = 'โหลดช้ากว่าปกติ — ลองรีเฟรชหากค้างนาน';
+    }
   }, 4000);
 
   onAuthChange((user) => {

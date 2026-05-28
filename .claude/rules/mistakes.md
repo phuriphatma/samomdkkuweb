@@ -241,6 +241,50 @@ enum-rename migration.
 
 ---
 
+## RLS inline subqueries silently depend on the referenced table's RLS
+
+**Symptom**: Per-dept VP gate stops returning rows after someone tightens
+an unrelated RLS policy on `public.users` (e.g. restricting `users_read_all`
+to self-row only). No error — the dashboard just goes blank for VPs.
+**Cause**: Policies like `vs_tickets_read` (0010), `vs_tickets_update_staff`
+(0013), `vs_tickets_delete_staff` (0015) used
+`target_dept = (select department from public.users where id = auth.uid())`
+inline. That subquery runs under the *caller's* RLS, not as `security definer`.
+It worked only because `users_read_all` (0001) was wide-open. The coupling
+is invisible from the policy body.
+**Fix**: For any cross-table lookup used in an RLS predicate, wrap it in a
+helper function with `language sql stable security definer set search_path = public`
+and `grant execute … to anon, authenticated`. Same pattern as the existing
+`current_user_role()` / `current_user_has_permission()` helpers. The dept
+lookup is now `public.current_user_dept()` (migration 0016).
+**Where**: `current_user_dept()` defined in `0016_current_user_dept_helper.sql`;
+all three `vs_tickets` policies repointed there. Don't reintroduce inline
+`(select … from public.users where id = auth.uid())` in any new policy.
+
+---
+
+## Hardcoded reserved-username lists rot when new staff accounts are added
+
+**Symptom**: Registration form lets a public visitor try
+`samomdkkuradiology` (or any of the 9 VP usernames added in 0010/0011).
+Backend uniqueness on `public.users.username` returns
+"Username นี้มีผู้ใช้งานแล้ว" — but only IF the VP auth user has already
+been seeded. If not, the visitor squats the name and the admin can't
+seed the legitimate account.
+**Cause**: `auth.js registerWithPassword` had a literal list of 6 reserved
+usernames. Every time a new `samomdkku*` staff account is added (per-VP,
+new dept, future role) the list goes out of date. `reserved_staff_usernames`
+is reference-only (0011 itself comments "not load-bearing"), so the only
+defence is the username unique constraint *if* the row exists.
+**Fix**: Use a prefix check — `/^samomdkku/.test(lc) || lc === 'sastaff'`.
+The repo's convention is that ALL staff accounts share the `samomdkku`
+prefix; literal lists shouldn't be added.
+**Where**: `src/js/auth.js` `registerWithPassword`. Don't reintroduce
+the literal list. If a future non-prefix staff username is needed,
+extend the regex / OR clause — don't fall back to literals.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

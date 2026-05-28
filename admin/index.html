@@ -111,27 +111,26 @@
           </button>
 
           <div class="workspace-side-section">งานประจำวัน</div>
-          <button type="button" class="workspace-side-item d-none"
-            data-admin-side="pr" data-role-only="pr_staff dev">
+          <!-- Visibility is gated by admin-main.js userCanAccess(data-admin-side, user)
+               — covers both the role default and the per-account permissions[]
+               array. Don't add data-role-only here; it's dead (the JS path that
+               reads it explicitly skips elements that also have data-admin-side). -->
+          <button type="button" class="workspace-side-item d-none" data-admin-side="pr">
             <i class="bi bi-megaphone"></i><span>PR Management</span>
           </button>
-          <button type="button" class="workspace-side-item d-none"
-            data-admin-side="vs" data-role-only="vs_staff dev">
+          <button type="button" class="workspace-side-item d-none" data-admin-side="vs">
             <i class="bi bi-clipboard2-pulse"></i><span>VitalSound</span>
           </button>
-          <button type="button" class="workspace-side-item d-none"
-            data-admin-side="shop" data-role-only="shop_admin dev">
+          <button type="button" class="workspace-side-item d-none" data-admin-side="shop">
             <i class="bi bi-shop"></i><span>SAMO Shop</span>
           </button>
-          <button type="button" class="workspace-side-item d-none"
-            data-admin-side="projects" data-role-only="vp_admin uni_staff dev">
+          <button type="button" class="workspace-side-item d-none" data-admin-side="projects">
             <i class="bi bi-folder2"></i><span>หนังสือโครงการ</span>
             <span class="workspace-side-item-badge d-none" id="adminProjectsBadge">0</span>
           </button>
 
           <div class="workspace-side-section">เนื้อหา</div>
-          <button type="button" class="workspace-side-item d-none"
-            data-admin-side="creator" data-role-only="pr_staff dev">
+          <button type="button" class="workspace-side-item d-none" data-admin-side="creator">
             <i class="bi bi-pencil-square"></i><span>เขียนประกาศ</span>
           </button>
         </nav>
