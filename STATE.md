@@ -4,7 +4,8 @@ Last updated: 2026-05-28 (Full UI/UX overhaul + admin app split + per-VP account
 
 ## SESSION SNAPSHOT (2026-05-28) — resume point after `/clear`
 
-Branch `refactor/modular` is at `b67f87b`. Build green, 26/26 tests pass.
+Branch `refactor/modular` is at `4be1a16` (post-kanban-only + scroll
+affordances + dead CSS cleanup). Build green, 26/26 tests pass.
 Cloudflare preview `refactorsamomdkkuweb.pages.dev` auto-rebuilds on push.
 
 This session shipped 10 iterations across UI/UX, architecture (public+admin
@@ -45,6 +46,7 @@ to the prod Supabase project (`fheueuowbchsnsvbcgil`)** — confirm
 | **0012_vs_delete.sql** | **DELETE policy for vs_staff/dev** | **❌ NOT applied (confirmed via pg_policies query)** |
 | 0013_vs_vp_send_back_to_se.sql | WITH CHECK fix: VP can โอนคืน SE | likely applied (policy redefined; verify body) |
 | 0014_permission_aware_rls.sql | pr_tickets/pr_agents/announcements/shop_* honor permissions[] | applied |
+| 0015_vs_delete_for_all_vs_staff.sql | DELETE extends to VPs (own dept) + 'vs' perm | applied |
 
 **Apply 0012 first thing next session.** Without it, the VS delete button
 silently fails (RLS no-op). The full SQL block to paste:
@@ -142,36 +144,53 @@ supabase/migrations/0014_permission_aware_rls.sql   (perms-aware RLS)
 tools/vp-accounts.mjs                               (auth admin automation)
 ```
 
-### Bug scan results (end of session)
+### Bug scan results (end of session — final, post `4be1a16`)
 
-Run on `b67f87b` post-kanban changes.
+**Bugs found + fixed across this session:**
+- VS kanban exact-string status match silently dropped legacy
+  tickets → added "อื่นๆ" catch-all column.
+- Kanban empty state was blank when hide-empty=on + 0 tickets →
+  added centered inbox-icon placeholder with a nudge to change filter.
+- "Kanban (ทุกฝ่าย)" misleading label → removed with the now-dropped
+  view toggle.
+- VS list view dropped per user request — kanban-only now.
+- VS delete originally only vs_staff/dev → extended via 0015 to
+  VPs (own dept) and anyone with 'vs' perm.
+- VP couldn't โอนคืน SE → 0013 fixed WITH CHECK clause.
+- PR staff dashboard blank for VPs with 'pr' perm → 0014 extended
+  pr_tickets/pr_agents/announcements/shop_* policies.
+- VS "media" account renamed to "mdi" via 0011 + script.
+- About sub-nav redundancy removed.
+- Navbar wrap on iPad portrait → switched back to navbar-expand-lg.
+- Dead CSS `.vs-dept-*` chips and `.vs-view-toggle` cleaned out.
 
-**Real bugs found + fixed in this session:**
-- VS kanban exact-string status match would silently drop legacy
-  tickets whose status string isn't one of the 9 canonical values.
-  Added an "อื่นๆ" catch-all column that buckets any unknown status.
-  Pushed in commit after `b67f87b`.
-
-**Real bugs found, NOT fixed (low impact, document for next session):**
-- `sessionStorage.vsViewPicked` persists across logout/login in the
-  same browser tab. If SE picks kanban then signs out → VP signs in
-  same tab, the VP gets kanban (intended default = list). Fix:
-  clear the key in the auth subscriber when user.id changes.
-
-**Dead code (cosmetic, safe to leave or clean):**
-- `src/css/vs-admin.css` still has `.vs-dept-chip*` rules from the
-  removed per-VP summary chips. No HTML references them.
+**Real bugs found, NOT fixed (low impact, defer):**
+- `sessionStorage.vsViewPicked` is now dead key (view toggle gone)
+  but a stale entry in some users' browsers does nothing. Cleanup:
+  `delete sessionStorage.vsViewPicked` once on next admin entry,
+  or just leave (storage quota is tiny).
 - `src/html/modal-announcement.html` exists but no entry includes it
-  (replaced by article reader). Safe to delete.
+  (replaced by `/news/{id}` article reader). Safe to delete file.
+
+**Mobile/desktop UX additions in this round:**
+- Kanban gets edge-fade gradients (Linear / App Store pattern) +
+  column peek + visible thin scrollbar. Mobile users now know they
+  can swipe horizontally without text instructions.
+- "อื่นๆ" catch-all column gets dashed border + italic title so it
+  reads as "non-canonical statuses worth reviewing" instead of
+  another normal column.
 
 **RLS / DB state:**
-- 0012 NOT applied — VS delete broken until applied (see above).
-- 0013/0014 bodies need verification via the queries above.
-- All other migrations confirmed applied.
+- 0008–0015 all confirmed applied to the real db
+  (fheueuowbchsnsvbcgil) per user's verify queries during the session.
 
-**Verified clean:**
-- No orphan `window.*` handlers (every HTML onclick maps to a live export).
+**Verified clean (final scan):**
+- No orphan `window.*` handlers — all HTML onclick targets are wired.
 - No public-app imports of admin-only modules (public bundle stays small).
+- `setVsView`, `renderList`, `vsViewToggle`, `vsKanbanHideEmptyWrap`,
+  `staffTicketList`, `vsKanbanToggleBtn` — all removed from JS, HTML,
+  and exports/imports consistently.
+- Scroll-affordance binding is idempotent (flag guard + dual call).
 - Path routing: `/`, `/pr`, `/vssound`, `/shop`, `/tools`, `/about`,
   `/news`, `/news/{id}`, `/admin/` all return 200 in dev.
 

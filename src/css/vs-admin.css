@@ -5,75 +5,10 @@
 
 /* (List/kanban toggle removed — kanban is the only VS staff view.) */
 
-/* --- Per-VP summary chips (legacy — chips removed; CSS kept until
-       confirmed unused elsewhere) --- */
+/* (Per-VP summary chips removed — the dept dropdown is the single
+   source of truth. CSS for .vs-dept-* deleted; HTML refs also gone.) */
 
-.vs-dept-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  background: var(--ink-50, #f1f5f9);
-  border: 1px solid var(--ink-200, #e2e8f0);
-  border-radius: 12px;
-}
-
-.vs-dept-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: #ffffff;
-  border: 1px solid var(--ink-200, #e2e8f0);
-  border-radius: 999px;
-  padding: 0.25rem 0.65rem 0.25rem 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--ink-700, #334155);
-  cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
-}
-
-.vs-dept-chip:hover {
-  border-color: var(--chip-color, #cbd5e1);
-  background: #fafafa;
-  transform: translateY(-1px);
-}
-
-.vs-dept-chip-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--chip-color, #94a3b8);
-  flex-shrink: 0;
-}
-
-.vs-dept-chip-name { line-height: 1; }
-
-.vs-dept-chip-count {
-  background: var(--ink-100, #f1f5f9);
-  color: var(--ink-700, #334155);
-  border-radius: 999px;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.vs-dept-chip-overdue {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-radius: 999px;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.vs-dept-chip.has-overdue {
-  border-color: #fecaca;
-}
-
-/* --- Age chip (used in list cards + kanban cards) --- */
+/* --- Age chip (used in kanban cards) --- */
 
 .vs-age-chip {
   display: inline-block;
