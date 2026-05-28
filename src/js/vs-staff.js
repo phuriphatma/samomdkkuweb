@@ -423,7 +423,7 @@ export async function deleteCurrentVSTicket() {
     return;
   }
   if (!Array.isArray(data) || data.length === 0) {
-    alert('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น vs_staff หรือ dev)');
+    alert('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ\n(VP ลบได้เฉพาะ ticket ของฝ่ายตนเอง — โอนคืน SE ก่อนเพื่อให้ SE ลบให้)');
     return;
   }
 
