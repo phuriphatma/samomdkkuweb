@@ -70,10 +70,11 @@
         </ul>
       </div>
 
-      <!-- Auth area — always visible on every breakpoint. On mobile it
-           sits at the right edge; on desktop ms-auto keeps it tucked
-           against the collapse's right edge. -->
-      <div class="samo-navbar-auth ms-auto">
+      <!-- Auth area — desktop only. On mobile (<lg) all of these
+           actions (sign in/out, Admin Dashboard, external links) live
+           inside the offcanvas drawer instead, so the top bar stays
+           uncluttered with just hamburger + centered brand. -->
+      <div class="samo-navbar-auth ms-auto d-none d-lg-flex">
           <div id="navAuthSignedOut">
             <button type="button" class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#signinModal">
               เข้าสู่ระบบ
