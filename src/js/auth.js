@@ -109,7 +109,9 @@ async function buildCurrentUser(session) {
  *     pr_staff    → 'pr'
  *     vs_staff    → 'vs' (super; see all depts)
  *     shop_admin  → 'samoshop'
- *     vp_admin    → 'projects' + 'vs' (own dept only — DB RLS gates that)
+ *     vp_admin    → 'vs' only (own dept; DB RLS gates per-dept).
+ *                   Projects is NOT a vp_admin default — only the
+ *                   account(s) with 'projects' in permissions[] see it.
  *     uni_staff   → 'projects'
  *     dev         → everything
  * - Plus anything in user.permissions stacks on top.
@@ -123,7 +125,7 @@ export function userCanAccess(feature, user = currentUser) {
     pr_staff:   ['pr'],
     vs_staff:   ['vs'],
     shop_admin: ['samoshop'],
-    vp_admin:   ['projects', 'vs'],
+    vp_admin:   ['vs'],
     uni_staff:  ['projects'],
   }[user.role] || [];
   if (roleDefaults.includes(feature)) return true;

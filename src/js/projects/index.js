@@ -16,11 +16,10 @@ import { mountSendFlow, openCreateProject, openSendDocument } from './send.js';
 import { mountManage, renderManage } from './manage.js';
 import { mountNotifications, refreshNotificationBell } from './notifications.js';
 
-const ROLES_ALLOWED = ['vp_admin', 'uni_staff', 'dev'];
-
 let initialised = false;
 let initialDataLoaded = false;
 let currentRole = null;
+let currentUser = null;  // full user object — needed for permission check (post-0010)
 let view = 'inbox';            // 'inbox' | 'manage'
 let tabActive = false;
 let cache = {
@@ -29,7 +28,19 @@ let cache = {
   settings: null,
 };
 
-function isAllowed(role) { return ROLES_ALLOWED.includes(role); }
+/** Allowed to use the projects module?
+ *  - dev / uni_staff: always (role default)
+ *  - vp_admin: only if their permissions[] includes 'projects'
+ *    (so only the อุปนายกฝ่ายบริหารองค์กร account opts in — the
+ *    other 9 VPs see VS for their dept but not Projects). */
+function isAllowed(user) {
+  if (!user) return false;
+  if (user.role === 'dev' || user.role === 'uni_staff') return true;
+  if (user.role === 'vp_admin'
+      && Array.isArray(user.permissions)
+      && user.permissions.includes('projects')) return true;
+  return false;
+}
 
 function setView(next) {
   view = next;
@@ -46,9 +57,11 @@ function setView(next) {
   if (next === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
 }
 
-function applyRoleVisibility(role) {
+function applyRoleVisibility(user) {
+  currentUser = user;
+  const role = user?.role || null;
   currentRole = role;
-  const allowed = isAllowed(role);
+  const allowed = isAllowed(user);
   document.getElementById('navProjectsItem')?.classList.toggle('d-none', !allowed);
   document.getElementById('mobileProjectsItem')?.classList.toggle('d-none', !allowed);
   document.getElementById('navProjectsBell')?.classList.toggle('d-none', !allowed);
@@ -92,7 +105,7 @@ function applyRoleVisibility(role) {
 }
 
 async function loadInitialData() {
-  if (!isAllowed(currentRole)) return;
+  if (!isAllowed(currentUser)) return;
   try {
     const [projects, docTypes, settings] = await Promise.all([
       listProjects().catch(() => []),
@@ -204,8 +217,8 @@ export function initProjects() {
 
   // Auth subscriber
   onAuthChange((user) => {
-    applyRoleVisibility(user?.role || null);
-    if (isAllowed(user?.role) && tabActive && !initialDataLoaded) {
+    applyRoleVisibility(user);
+    if (isAllowed(user) && tabActive && !initialDataLoaded) {
       loadInitialData();
     }
     if (!user) {
