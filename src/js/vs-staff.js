@@ -418,6 +418,22 @@ export async function submitStaffAction() {
     return;
   }
 
+  // Guard: a VP can only transfer back to SE — not directly to another
+  // VP. RLS (migration 0013's with-check) enforces this server-side; we
+  // catch it here with a friendly Thai message before the request fires
+  // so users don't see the raw RLS error.
+  if (deptChanged) {
+    const user = authGetUser();
+    if (user?.role === 'vp_admin') {
+      const ownDept = user.department || '';
+      const isVPDest = (newDept || '').startsWith('อุปนายก');
+      if (isVPDest && newDept !== ownDept) {
+        alert('ไม่สามารถส่งต่อให้อุปนายกท่านอื่นโดยตรงได้\n\nกรุณาเลือก "โอนคืน SE" เพื่อให้ SE พิจารณาและส่งต่อให้อุปนายกท่านที่เกี่ยวข้อง');
+        return;
+      }
+    }
+  }
+
   const btn = document.querySelector('#staffManageModal .btn-dark');
   btn.disabled = true; btn.innerHTML = 'กำลังบันทึก...';
 
