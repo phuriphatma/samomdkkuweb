@@ -39,12 +39,38 @@ to the prod Supabase project (`fheueuowbchsnsvbcgil`)** — confirm
 
 | Migration | Purpose | Status (per user) |
 |---|---|---|
-| 0009_vs_owner_reply.sql | VS owner can reply to own ticket | ⚠️ apply if not yet |
+| 0009_vs_owner_reply.sql | VS owner can reply to own ticket | applied (vs_tickets_update_owner present) |
 | 0010_vp_accounts_permissions.sql | users.permissions + per-dept VP RLS + 9 reservations | applied |
 | 0011_vp_corrections.sql | media→mdi rename + corrected UPDATE block (final perms) | applied (UPDATE block run) |
-| 0012_vs_delete.sql | DELETE policy for vs_staff/dev | ⚠️ apply if not yet |
-| 0013_vs_vp_send_back_to_se.sql | WITH CHECK fix: VP can โอนคืน SE | ⚠️ apply if not yet |
+| **0012_vs_delete.sql** | **DELETE policy for vs_staff/dev** | **❌ NOT applied (confirmed via pg_policies query)** |
+| 0013_vs_vp_send_back_to_se.sql | WITH CHECK fix: VP can โอนคืน SE | likely applied (policy redefined; verify body) |
 | 0014_permission_aware_rls.sql | pr_tickets/pr_agents/announcements/shop_* honor permissions[] | applied |
+
+**Apply 0012 first thing next session.** Without it, the VS delete button
+silently fails (RLS no-op). The full SQL block to paste:
+
+```sql
+drop policy if exists "vs_tickets_delete_staff" on public.vs_tickets;
+create policy "vs_tickets_delete_staff" on public.vs_tickets
+  for delete using (public.current_user_role() in ('vs_staff', 'dev'));
+```
+
+**Verify 0013/0014 bodies** (policy names alone don't prove the body is the new version):
+
+```sql
+-- 0013: with_check should contain 'SE' in the IN(...) list
+select with_check from pg_policies
+where schemaname='public' and tablename='vs_tickets'
+  and policyname='vs_tickets_update_staff';
+
+-- 0014: pr_tickets read should mention current_user_has_permission
+select qual from pg_policies
+where schemaname='public' and tablename='pr_tickets'
+  and policyname='pr_tickets_read';
+
+-- 0014: shop helper should include perm OR
+select pg_get_functiondef('public.current_user_is_shop_admin()'::regprocedure);
+```
 
 User confirmed 0010 + 0014 applied; should sanity-check 0009 + 0012 + 0013
 because they fix specific bugs (VS reply, VS delete, VP→SE transfer). Quick check:
@@ -115,6 +141,39 @@ supabase/migrations/0013_vs_vp_send_back_to_se.sql  (WITH CHECK fix)
 supabase/migrations/0014_permission_aware_rls.sql   (perms-aware RLS)
 tools/vp-accounts.mjs                               (auth admin automation)
 ```
+
+### Bug scan results (end of session)
+
+Run on `b67f87b` post-kanban changes.
+
+**Real bugs found + fixed in this session:**
+- VS kanban exact-string status match would silently drop legacy
+  tickets whose status string isn't one of the 9 canonical values.
+  Added an "อื่นๆ" catch-all column that buckets any unknown status.
+  Pushed in commit after `b67f87b`.
+
+**Real bugs found, NOT fixed (low impact, document for next session):**
+- `sessionStorage.vsViewPicked` persists across logout/login in the
+  same browser tab. If SE picks kanban then signs out → VP signs in
+  same tab, the VP gets kanban (intended default = list). Fix:
+  clear the key in the auth subscriber when user.id changes.
+
+**Dead code (cosmetic, safe to leave or clean):**
+- `src/css/vs-admin.css` still has `.vs-dept-chip*` rules from the
+  removed per-VP summary chips. No HTML references them.
+- `src/html/modal-announcement.html` exists but no entry includes it
+  (replaced by article reader). Safe to delete.
+
+**RLS / DB state:**
+- 0012 NOT applied — VS delete broken until applied (see above).
+- 0013/0014 bodies need verification via the queries above.
+- All other migrations confirmed applied.
+
+**Verified clean:**
+- No orphan `window.*` handlers (every HTML onclick maps to a live export).
+- No public-app imports of admin-only modules (public bundle stays small).
+- Path routing: `/`, `/pr`, `/vssound`, `/shop`, `/tools`, `/about`,
+  `/news`, `/news/{id}`, `/admin/` all return 200 in dev.
 
 ### Open items / known not-yet-done
 

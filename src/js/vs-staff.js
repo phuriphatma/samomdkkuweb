@@ -313,8 +313,20 @@ function renderKanban() {
   // the dropdown updates both surfaces consistently.
   const base = filteredTickets();
   const hideEmpty = getHideEmpty();
-  const html = KANBAN_COLUMNS.map((col) => {
-    const items = base.filter((t) => col.statuses.includes(t.status));
+  // Collect every status string the 9 canonical columns claim, so we
+  // can build a catch-all "อื่นๆ" column for tickets with legacy /
+  // non-canonical status strings (Sheets-migrated rows in particular).
+  // Without this, those tickets are in the cache but absent from
+  // every column — silently invisible.
+  const knownStatuses = new Set(KANBAN_COLUMNS.flatMap((c) => c.statuses));
+  const columnsWithFallback = [
+    ...KANBAN_COLUMNS,
+    { key: 'other', label: 'อื่นๆ', statuses: null }, // null = catch-all
+  ];
+  const html = columnsWithFallback.map((col) => {
+    const items = col.statuses === null
+      ? base.filter((t) => !knownStatuses.has(t.status))
+      : base.filter((t) => col.statuses.includes(t.status));
     if (hideEmpty && items.length === 0) return '';
     if (col.key !== 'done') {
       items.sort((a, b) => ageMs(b) - ageMs(a));   // oldest first
