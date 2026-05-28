@@ -10,7 +10,8 @@ import { getUser as authGetUser } from './auth.js';
 let staffTicketsCache = [];        // ALL tickets visible to this user (RLS-filtered)
 let currentActiveTicketId = null;
 let currentStaffRole = null;
-let currentView = 'list';          // 'list' | 'kanban'
+// Kanban-only now. List view was dropped — the cross-dept board with
+// the dept dropdown filter is the canonical surface for everyone.
 
 // --------------------------------------------------
 // Dept identity — colour + short label per อุปนายก.
@@ -124,8 +125,7 @@ export async function enterVSStaffDashboard(roleArg) {
 
   if (isVP && user.department) {
     // Lock the dept filter to the VP's own dept (RLS allows them
-    // nothing else anyway). Picker stays hidden; the kanban toggle
-    // is AVAILABLE so they can see their workflow as columns too.
+    // nothing else anyway). Picker stays hidden.
     currentStaffRole = user.department;
     if (select) {
       if (![...select.options].some((o) => o.value === currentStaffRole)) {
@@ -137,53 +137,24 @@ export async function enterVSStaffDashboard(roleArg) {
       select.value = currentStaffRole;
       select.classList.add('d-none');
     }
-    document.getElementById('vsKanbanToggleBtn')?.classList.remove('d-none');
-    // On first entry, default VPs to list view (their workflow is
-    // small enough that list reads cleaner). Saved pick wins after.
-    if (!sessionStorage.getItem('vsViewPicked')) {
-      currentView = 'list';
-    }
   } else {
-    // SE / dev — keep the picker. First load defaults to "all" + kanban
-    // (the triage default; that's the whole point of the cross-dept board).
+    // SE / dev — keep the picker. Default to "all" so the cross-dept
+    // triage board is the first thing they see.
     const selected = select && select.value ? select.value : null;
     currentStaffRole = selected || roleArg || ALL_DEPTS;
     if (select) {
       select.value = currentStaffRole;
       select.classList.remove('d-none');
     }
-    if (isSuper) {
-      document.getElementById('vsKanbanToggleBtn')?.classList.remove('d-none');
-      if (!sessionStorage.getItem('vsViewPicked')) {
-        currentView = 'kanban';
-        sessionStorage.setItem('vsViewPicked', '1');
-      }
-    }
   }
-
-  // Reflect view state on the toggle buttons every entry.
-  document.querySelectorAll('[data-vs-view]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.vsView === currentView);
-  });
 
   const titleEl = document.getElementById('staffTitle');
   if (titleEl) {
     titleEl.innerText = `Dashboard: ${currentStaffRole === ALL_DEPTS ? 'ทุกฝ่าย' : currentStaffRole}`;
   }
+  // Wire the scroll-affordance listener now that admin DOM is alive.
+  bindKanbanScrollAffordance();
   await fetchStaffTickets();
-}
-
-/** Switch list/kanban view. Public — wired to data-vs-view buttons.
- *  Remembers the user's pick in sessionStorage so re-entering the
- *  dashboard during the same session doesn't reset to the default. */
-export function setVsView(view) {
-  if (view !== 'list' && view !== 'kanban') return;
-  currentView = view;
-  sessionStorage.setItem('vsViewPicked', '1');
-  document.querySelectorAll('[data-vs-view]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.vsView === view);
-  });
-  renderActiveView();
 }
 
 // --------------------------------------------------
@@ -214,29 +185,13 @@ export async function fetchStaffTickets() {
     loading?.classList.add('d-none');
   }
 
-  renderActiveView();
-}
-
-function renderActiveView() {
-  const list   = document.getElementById('staffTicketList');
-  const kanban = document.getElementById('staffTicketKanban');
-  const hideEmptyWrap = document.getElementById('vsKanbanHideEmptyWrap');
-  if (currentView === 'kanban') {
-    list?.classList.add('d-none');
-    kanban?.classList.remove('d-none');
-    renderKanban();
-  } else {
-    kanban?.classList.add('d-none');
-    list?.classList.remove('d-none');
-    hideEmptyWrap?.classList.add('d-none'); // toggle only relevant in kanban
-    renderList();
-  }
+  renderKanban();
 }
 
 /** Public — toggle the "hide empty columns" preference. */
 export function setVsKanbanHideEmpty(on) {
   setHideEmpty(!!on);
-  if (currentView === 'kanban') renderKanban();
+  renderKanban();
 }
 
 // --------------------------------------------------
@@ -249,43 +204,6 @@ export function setVsKanbanHideEmpty(on) {
 function filteredTickets() {
   if (currentStaffRole === ALL_DEPTS) return staffTicketsCache;
   return staffTicketsCache.filter((t) => t.target_dept === currentStaffRole);
-}
-
-function renderList() {
-  const list = document.getElementById('staffTicketList');
-  if (!list) return;
-  list.innerHTML = '';
-  const tickets = filteredTickets();
-  if (tickets.length === 0) {
-    list.innerHTML = '<div class="col-12 text-center text-muted py-5">ไม่มี ticket ในกล่องนี้</div>';
-    return;
-  }
-  tickets.forEach((t, idx) => {
-    // We need the cache-index for openStaffModalByIndex.
-    const cacheIdx = staffTicketsCache.indexOf(t);
-    let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success'
-      : t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ') ? 'danger'
-      : t.status.includes('รอ') ? 'warning text-dark'
-      : 'primary';
-    const strippedProblem = (t.problem || '').replace(/<[^>]+>/g, ' ');
-    const dateStr = formatThaiDate(t.timestamp || t.created_at);
-    list.insertAdjacentHTML('beforeend', `
-      <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100 vs-ticket-card" style="cursor: pointer;"
-          onclick="openStaffModalByIndex(${cacheIdx})">
-          <div class="card-body">
-            <div class="d-flex justify-content-between mb-2">
-              <span class="fw-bold text-pink-custom">${escHtml(t.id)}</span>
-              <span class="badge bg-${badgeColor}">${escHtml(t.status)}</span>
-            </div>
-            <p class="small text-muted mb-1"><i class="bi bi-clock me-1"></i> ${escHtml(dateStr)} ${renderAgeChip(t)}</p>
-            <p class="small text-muted mb-1"><i class="bi bi-diagram-3"></i> ฝ่าย: ${escHtml(t.target_dept)}</p>
-            <p class="card-text small text-truncate">${escHtml(strippedProblem)}</p>
-          </div>
-        </div>
-      </div>
-    `);
-  });
 }
 
 // --------------------------------------------------
@@ -304,15 +222,25 @@ function renderKanban() {
   // Reflect the hide-empty checkbox state every render.
   const cb = document.getElementById('vsKanbanHideEmpty');
   if (cb) cb.checked = getHideEmpty();
-  // Show / hide the hide-empty toggle itself only when kanban is active.
-  document.getElementById('vsKanbanHideEmptyWrap')?.classList.remove('d-none');
 
   // Columns by status. Open (non-done) statuses sort oldest-first so
   // stale tickets bubble to the top. Done column stays newest-first.
-  // Both list and kanban share filteredTickets() — switching dept in
-  // the dropdown updates both surfaces consistently.
   const base = filteredTickets();
   const hideEmpty = getHideEmpty();
+
+  // Empty state — when the user's filter has zero tickets, render a
+  // single full-width placeholder so the surface doesn't look broken.
+  if (base.length === 0) {
+    wrap.innerHTML = `
+      <div class="vs-kanban-empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>ไม่มี ticket ในมุมมองนี้</p>
+        <p class="small">ลองเปลี่ยนตัวกรองฝ่าย หรือกดรีเฟรชด้านบน</p>
+      </div>
+    `;
+    syncKanbanScrollAffordance();
+    return;
+  }
   // Collect every status string the 9 canonical columns claim, so we
   // can build a catch-all "อื่นๆ" column for tickets with legacy /
   // non-canonical status strings (Sheets-migrated rows in particular).
@@ -360,7 +288,7 @@ function renderKanban() {
           `;
         }).join('');
     return `
-      <section class="vs-kanban-col">
+      <section class="vs-kanban-col ${col.key === 'other' ? 'is-other' : ''}">
         <header class="vs-kanban-col-head">
           <span class="vs-kanban-col-title">${escHtml(col.label)}</span>
           <span class="vs-kanban-col-count">${items.length}</span>
@@ -371,7 +299,50 @@ function renderKanban() {
     `;
   }).join('');
   wrap.innerHTML = html;
+
+  // After every render, recompute scroll affordances (left/right fade
+  // gradients). Listener attached once; here we just refresh state in
+  // case columns just changed.
+  syncKanbanScrollAffordance();
 }
+
+// --------------------------------------------------
+// Scroll affordances — edge fade gradients on the kanban container.
+// Pattern from Linear / Apple App Store / Notion gallery: subtle
+// gradient on each side that fades as you reach that end. Combined
+// with the natural column-peek (next column ~partially visible),
+// users feel "more content" without being told. Mobile-friendly.
+// --------------------------------------------------
+
+function syncKanbanScrollAffordance() {
+  const wrap   = document.getElementById('vsKanbanWrap');
+  const kanban = document.getElementById('staffTicketKanban');
+  if (!wrap || !kanban) return;
+  const max = kanban.scrollWidth - kanban.clientWidth;
+  // No overflow at all → hide both fades.
+  if (max <= 4) {
+    wrap.classList.remove('is-scrolled');
+    wrap.classList.add('is-end');
+    return;
+  }
+  wrap.classList.toggle('is-scrolled', kanban.scrollLeft > 8);
+  wrap.classList.toggle('is-end', max - kanban.scrollLeft < 8);
+}
+
+// Attach the scroll listener once. Lives at module load (the elements
+// might not exist yet on first import, so we re-bind on first render
+// guarded by a flag).
+let scrollAffordanceBound = false;
+function bindKanbanScrollAffordance() {
+  if (scrollAffordanceBound) return;
+  const kanban = document.getElementById('staffTicketKanban');
+  if (!kanban) return;
+  kanban.addEventListener('scroll', syncKanbanScrollAffordance, { passive: true });
+  window.addEventListener('resize', syncKanbanScrollAffordance);
+  scrollAffordanceBound = true;
+}
+// Bind on next microtask so the DOM has the element by the time we run.
+queueMicrotask(bindKanbanScrollAffordance);
 
 // --------------------------------------------------
 // Open Staff Modal

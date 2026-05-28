@@ -3,36 +3,10 @@
  * Kanban triage board for SE staff.
  * ============================================== */
 
-/* --- View toggle (list / kanban) --- */
+/* (List/kanban toggle removed — kanban is the only VS staff view.) */
 
-.vs-view-toggle {
-  background: var(--ink-50, #f1f5f9);
-  border: 1px solid var(--ink-200, #e2e8f0);
-  border-radius: 999px;
-  padding: 0.15rem;
-}
-
-.vs-view-toggle .btn {
-  border: none;
-  background: transparent;
-  color: var(--ink-600, #475569);
-  border-radius: 999px;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.vs-view-toggle .btn:hover {
-  color: var(--ink-900, #1f2937);
-}
-
-.vs-view-toggle .btn.active {
-  background: #ffffff;
-  color: var(--ink-900, #1f2937);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-}
-
-/* --- Per-VP summary chips --- */
+/* --- Per-VP summary chips (legacy — chips removed; CSS kept until
+       confirmed unused elsewhere) --- */
 
 .vs-dept-summary {
   display: flex;
@@ -118,18 +92,60 @@
 
 /* --- Kanban board --- */
 
+/* Wrapper holds the edge-fade gradients (::before/::after).
+   The scroll-affordance JS toggles `.is-scrolled` and `.is-end`
+   on this element based on scroll position so the fades only show
+   when there's more content in that direction. */
+.vs-kanban-wrap {
+  position: relative;
+  /* Initial state: left fade hidden (we're at start). JS adds
+     .is-scrolled once the user moves. */
+}
+
+.vs-kanban-wrap::before,
+.vs-kanban-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 14px;    /* leave room for horizontal scrollbar */
+  width: 48px;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 200ms ease;
+}
+
+.vs-kanban-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--ink-50, #f8fafc) 10%, transparent);
+  opacity: 0;
+}
+
+.vs-kanban-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--ink-50, #f8fafc) 10%, transparent);
+  opacity: 1;
+}
+
+.vs-kanban-wrap.is-scrolled::before { opacity: 1; }
+.vs-kanban-wrap.is-end::after { opacity: 0; }
+
 .vs-kanban {
   display: flex;
   gap: 0.75rem;
   margin-top: 0.5rem;
-  /* Horizontal scroll — 9 status columns wouldn't fit any viewport
+  /* Horizontal scroll — 9+ status columns wouldn't fit any viewport
      stretched to equal widths. Trello / Linear pattern: fixed-width
-     columns + free horizontal scroll. */
+     columns + free horizontal scroll + edge fades for affordance. */
   overflow-x: auto;
   overflow-y: visible;
   padding-bottom: 0.5rem;
+  /* Right padding creates a peek hint — the last column sits a bit
+     short so users see "there's more space to scroll into". */
+  padding-right: 1.5rem;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+  /* Touch-momentum on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 .vs-kanban::-webkit-scrollbar { height: 8px; }
@@ -144,6 +160,62 @@
   flex: 0 0 260px;       /* fixed width per column */
   min-width: 260px;
   max-height: 75vh;
+}
+
+/* Catch-all "อื่นๆ" column gets a dashed border + muted look so it
+   visually signals "tickets here have non-canonical statuses worth
+   reviewing" rather than blending in. */
+.vs-kanban-col.is-other {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--ink-300, #cbd5e1);
+}
+
+.vs-kanban-col.is-other .vs-kanban-col-head {
+  background: transparent;
+}
+
+.vs-kanban-col.is-other .vs-kanban-col-title {
+  color: var(--ink-500, #64748b);
+  font-style: italic;
+}
+
+/* Empty state — when filter has zero tickets across all columns. */
+.vs-kanban-empty-state {
+  text-align: center;
+  padding: 3rem 1rem 4rem;
+  color: var(--ink-400, #94a3b8);
+}
+
+.vs-kanban-empty-state i {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.vs-kanban-empty-state p {
+  margin: 0;
+}
+
+.vs-kanban-empty-state p.small {
+  margin-top: 0.25rem;
+  color: var(--ink-300, #cbd5e1);
+}
+
+/* Mobile tweaks — slightly narrower columns + larger touch targets,
+   more peek room so the next-column hint is clearer at thin widths. */
+@media (max-width: 575.98px) {
+  .vs-kanban-col {
+    flex: 0 0 230px;
+    min-width: 230px;
+  }
+  .vs-kanban {
+    padding-right: 2.5rem;     /* stronger peek on mobile */
+  }
+  .vs-kanban-wrap::before,
+  .vs-kanban-wrap::after {
+    width: 36px;
+  }
 }
 
 .vs-kanban-col-head {
