@@ -1,0 +1,101 @@
+      <!-- TAB: TOOLS — searchable launcher. Designed to scale to 100+ tools.
+           Each .launcher-tool carries data-name (search), data-cats (filter
+           chips), and data-roles (role-gated visibility). New tools just
+           drop in another card; no JS changes needed. -->
+      <div class="tab-pane fade" id="pills-tools" role="tabpanel">
+        <div class="container launcher-container">
+
+          <header class="launcher-header">
+            <h1 class="launcher-title">เครื่องมือทั้งหมด</h1>
+            <p class="launcher-lead">ค้นหาและเข้าใช้งานเครื่องมือของสโมสร — กรองตามฝ่ายหรือพิมพ์ชื่อ</p>
+
+            <div class="launcher-search">
+              <i class="bi bi-search launcher-search-icon" aria-hidden="true"></i>
+              <input type="search" id="launcherSearchInput" class="launcher-search-input"
+                placeholder="ค้นหาเครื่องมือ..." autocomplete="off"
+                aria-label="ค้นหาเครื่องมือ"
+                oninput="filterLauncher()">
+              <kbd class="launcher-search-kbd d-none d-md-inline-flex">/</kbd>
+            </div>
+
+            <div class="launcher-chips" role="tablist" aria-label="กรองตามหมวด">
+              <button type="button" class="launcher-chip is-active" data-filter="all"
+                onclick="setLauncherFilter('all')">ทั้งหมด</button>
+              <button type="button" class="launcher-chip" data-filter="public"
+                onclick="setLauncherFilter('public')">สาธารณะ</button>
+              <button type="button" class="launcher-chip" data-filter="pr"
+                onclick="setLauncherFilter('pr')">PR</button>
+              <button type="button" class="launcher-chip" data-filter="vs"
+                onclick="setLauncherFilter('vs')">VitalSound</button>
+            </div>
+          </header>
+
+          <!-- ==========================================
+               SECTION: PUBLIC TOOLS (everyone) — currently
+               PR Form, VitalSound, Announcements archive.
+               ========================================== -->
+          <section class="launcher-section" data-section="public">
+            <div class="launcher-section-head">
+              <h2 class="launcher-section-title">
+                <i class="bi bi-globe2 text-success me-2"></i>สำหรับทุกคน
+              </h2>
+              <p class="launcher-section-sub">เครื่องมือที่นักศึกษาทุกคนใช้งานได้</p>
+            </div>
+            <div class="launcher-grid">
+              <button type="button" class="launcher-tool" style="--tool-color: var(--pink-400);"
+                data-name="pr form pr ฝากงาน ประชาสัมพันธ์"
+                data-cats="public pr"
+                onclick="activateTab('pills-pr-tab')">
+                <span class="launcher-tool-icon"><i class="bi bi-megaphone-fill"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">PR Form</span>
+                  <span class="launcher-tool-desc">ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ</span>
+                </span>
+                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
+              </button>
+
+              <button type="button" class="launcher-tool" style="--tool-color: var(--vs-accent);"
+                data-name="vitalsound vs ร้องเรียน ปัญหา ข้อเสนอแนะ"
+                data-cats="public vs"
+                onclick="activateTab('pills-vitalsound-tab')">
+                <span class="launcher-tool-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">VitalSound</span>
+                  <span class="launcher-tool-desc">ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร</span>
+                </span>
+                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
+              </button>
+
+              <button type="button" class="launcher-tool" style="--tool-color: var(--brand-orange);"
+                data-name="shop ร้านค้า สินค้า"
+                data-cats="public"
+                onclick="activateTab('pills-shop-tab')">
+                <span class="launcher-tool-icon"><i class="bi bi-bag-heart"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">ร้านค้า SAMO</span>
+                  <span class="launcher-tool-desc">สั่งซื้อเสื้อ ของที่ระลึก และอื่นๆ</span>
+                </span>
+                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
+              </button>
+            </div>
+          </section>
+
+
+          <!-- Staff tools section removed — Admin / หนังสือโครงการ /
+               เขียนประกาศ all live in the dedicated operator app at /admin/.
+               Staff still see "ไปยัง Admin Dashboard" inside their avatar
+               dropdown when signed in. -->
+          <section class="launcher-section d-none" data-section="staff" id="launcherSectionStaff"></section>
+
+          <!-- ==========================================
+               EMPTY STATE — shown when search/filter has 0 matches
+               ========================================== -->
+          <div class="launcher-empty d-none" id="launcherEmpty">
+            <i class="bi bi-search launcher-empty-icon" aria-hidden="true"></i>
+            <p class="launcher-empty-text">ไม่พบเครื่องมือที่ค้นหา</p>
+            <button type="button" class="btn btn-link launcher-empty-reset"
+              onclick="resetLauncher()">ล้างตัวกรอง</button>
+          </div>
+
+        </div>
+      </div>

@@ -1,29 +1,24 @@
-      <!-- TAB: PROJECT TRACKING -->
-      <div class="tab-pane fade projects-tab" id="pills-projects" role="tabpanel">
-        <div class="container-fluid">
+      <!-- PROJECTS CONTENT — bare content only. Included by /admin/index.html
+           inside its workspace shell. The sidebar + top-bar live in admin's
+           index.html now. This file owns the inbox/manage views and the
+           create-project CTA. -->
+      <div class="projects-tab projects-inner">
 
-          <!-- Page header -->
-          <div class="projects-header">
-            <div>
-              <h2 class="projects-title">
-                <i class="bi bi-folder-symlink me-2"></i> หนังสือโครงการ
-              </h2>
-              <p class="projects-subtitle" id="projectsRoleHint">ส่ง / รับ / ติดตามหนังสือโครงการ ระหว่าง SAMO กับเจ้าหน้าที่มหาวิทยาลัย</p>
-            </div>
-            <div class="projects-header-actions" data-projects-role="vp_admin">
-              <button type="button" id="projectsCreateBtn" class="btn btn-success">
-                <i class="bi bi-plus-lg me-1"></i> สร้างโครงการใหม่
-              </button>
-            </div>
-          </div>
-
-          <!-- Sub-nav -->
+          <!-- A subnav for the projects inner views — used by setView()
+               in projects/index.js to switch between inbox/manage panes.
+               In the admin app the sidebar item is the primary switcher;
+               this bar stays as the secondary inline switcher inside
+               the projects pane (familiar pattern for users used to it). -->
           <div class="projects-subnav" id="projectsSubnav" role="tablist">
             <button type="button" data-projects-view="inbox" class="is-active">
               <i class="bi bi-inbox"></i> กล่องจดหมาย
             </button>
             <button type="button" data-projects-view="manage">
-              <i class="bi bi-sliders"></i> การตั้งค่า / ประเภทหนังสือ
+              <i class="bi bi-sliders"></i> การตั้งค่า
+            </button>
+            <button type="button" id="projectsCreateBtn" class="ms-auto" data-projects-role="vp_admin"
+              style="background: var(--brand-primary); color: #fff;">
+              <i class="bi bi-plus-lg"></i> สร้างโครงการใหม่
             </button>
           </div>
 
@@ -175,5 +170,4 @@
 
           </div>
 
-        </div>
       </div>

@@ -33,7 +33,12 @@ function isAllowed(role) { return ROLES_ALLOWED.includes(role); }
 
 function setView(next) {
   view = next;
-  document.querySelectorAll('#projectsSubnav [data-projects-view]').forEach((b) =>
+  // Query is intentionally broad — the workspace shell rewrite moved the
+  // inbox/manage switcher from inline #projectsSubnav into the sidebar
+  // (#projectsSideNav). Matching any [data-projects-view] keeps both
+  // working if the old subnav comes back, and is robust to future
+  // duplicate access points.
+  document.querySelectorAll('#pills-projects [data-projects-view]').forEach((b) =>
     b.classList.toggle('is-active', b.dataset.projectsView === next));
   document.querySelectorAll('#pills-projects [data-projects-pane]').forEach((p) =>
     p.classList.toggle('d-none', p.dataset.projectsPane !== next));
@@ -47,6 +52,16 @@ function applyRoleVisibility(role) {
   document.getElementById('navProjectsItem')?.classList.toggle('d-none', !allowed);
   document.getElementById('mobileProjectsItem')?.classList.toggle('d-none', !allowed);
   document.getElementById('navProjectsBell')?.classList.toggle('d-none', !allowed);
+  document.getElementById('navProjectsBellMobile')?.classList.toggle('d-none', !allowed);
+
+  // The "เจ้าหน้าที่" section heading inside the avatar dropdown and the
+  // mobile offcanvas should appear when ANY staff-only item is visible.
+  // Recompute here too because projects role-resolution runs independently
+  // of the global auth subscriber in main.js.
+  const showStaffSection = allowed
+    || !document.getElementById('navAdminItem')?.classList.contains('d-none');
+  document.getElementById('navStaffSection')?.classList.toggle('d-none', !showStaffSection);
+  document.getElementById('mobileStaffSection')?.classList.toggle('d-none', !showStaffSection);
 
   // Inside the tab: the "send new" button is vp_admin/dev only; manage stays
   // for both (so uni_staff can adjust her own labels later if needed — but
@@ -135,6 +150,17 @@ export async function openProjectsTab({ projectId, documentId } = {}) {
   else if (projectId) openProjectDetail(projectId);
 }
 
+/** Public: entry-point used by the admin app's sidebar. Same as
+ *  openProjectsTab() but skips the Bootstrap-tab activation (admin
+ *  doesn't use Bootstrap tabs — the sidebar drives section switching
+ *  directly via showAdminSide). Ensures loadInitialData runs so the
+ *  inbox isn't blank on first open. */
+export async function enterProjectsWorkspace() {
+  tabActive = true;
+  setView('inbox');
+  if (!initialDataLoaded) await loadInitialData();
+}
+
 function applyHashRoute() {
   const hash = window.location.hash || '';
   // #projects, #projects/PRJ-..., #projects/PRJ-.../doc/DOC-...
@@ -154,8 +180,9 @@ export function initProjects() {
   if (initialised) return;
   initialised = true;
 
-  // Sub-nav
-  document.getElementById('projectsSubnav')?.addEventListener('click', (e) => {
+  // Sub-nav — delegate on the projects tab so the click works from the
+  // workspace sidebar (#projectsSideNav) and any future access points.
+  document.getElementById('pills-projects')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-projects-view]');
     if (!btn) return;
     setView(btn.dataset.projectsView);

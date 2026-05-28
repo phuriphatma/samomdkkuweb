@@ -1,0 +1,48 @@
+      <!-- TAB: ARTICLE READER — full-page editorial view. Populated by
+           announcements.js renderArticleView(post). Reached either by
+           clicking a news card (viewAnnouncement → activates this tab)
+           or via the hash route #article/{id} (deep links). -->
+      <div class="tab-pane fade an-tab" id="pills-article" role="tabpanel">
+
+        <!-- Sticky back bar — always visible while reading -->
+        <div class="article-backbar">
+          <div class="container article-backbar-inner">
+            <button type="button" class="article-back" onclick="closeArticleView()">
+              <i class="bi bi-arrow-left"></i>
+              <span>กลับไปบอร์ดประกาศ</span>
+            </button>
+            <div class="article-backbar-actions" id="articleStaffActions">
+              <!-- Edit/delete buttons inserted here for staff only.
+                   data-role-only hides them for everyone else. -->
+              <button type="button" class="article-action d-none"
+                data-role-only="pr_staff dev"
+                onclick="editCurrentAnnouncement()">
+                <i class="bi bi-pencil"></i><span>แก้ไข</span>
+              </button>
+              <button type="button" class="article-action article-action--danger d-none"
+                data-role-only="pr_staff dev"
+                onclick="deleteCurrentAnnouncement()">
+                <i class="bi bi-trash3"></i><span>ลบ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <article class="article-page" id="articleContainer">
+          <!-- Renderered into here by renderArticleView():
+               <header class="article-header">
+                 <span class="article-eyebrow">...</span>
+                 <h1 class="article-headline">...</h1>
+                 <p class="article-subhead">...</p>
+                 <div class="article-byline">...</div>
+               </header>
+               <figure class="article-hero"><img></figure>
+               <div class="article-body">...quill content...</div>
+          -->
+          <div class="article-loading">
+            <div class="spinner-border spinner-border-sm me-2"></div>
+            <span>กำลังโหลดบทความ...</span>
+          </div>
+        </article>
+
+      </div>

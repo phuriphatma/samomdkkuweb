@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SAMO Admin — MDKKU</title>
+  <meta name="robots" content="noindex" />
+
+  <!-- Bootstrap & Fonts -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <!-- Quill (for the announcement creator inside admin) -->
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+  <!-- Admin stylesheet — shares base tokens with the public app but
+       loads the workspace shell + admin-only sheets, not the public
+       editorial CSS. -->
+  <link rel="stylesheet" href="/src/admin.css" />
+
+  <!-- Critical inline CSS — full-height workspace bg, prevents the
+       FOUC flash before the bundle resolves. -->
+  <style>
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f8fafc;
+      color: #334155;
+      font-family: "Noto Sans Thai", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Gate shown while auth resolves; replaced by sidebar+content once
+       initAuth fires the first user state. */
+    .admin-boot-gate {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+
+<body class="workspace-mode">
+  <!-- The admin app is permanently in workspace-mode. The public
+       navbar/footer never render here; the workspace shell is the
+       only chrome. -->
+
+  <!-- Boot gate — visible until auth resolves. JS removes it when
+       a signed-in staff user is confirmed, OR redirects to the public
+       site sign-in modal when no session exists. -->
+  <div id="adminBootGate" class="admin-boot-gate">
+    <div class="spinner-border text-success" role="status"></div>
+    <div class="small">กำลังตรวจสอบสิทธิ์...</div>
+  </div>
+
+  <!-- The signed-out / no-access state. Shown if a non-staff user
+       lands here. Provides a way back to the public site. -->
+  <div id="adminAuthGate" class="admin-boot-gate d-none">
+    <i class="bi bi-shield-lock-fill" style="font-size: 3rem; color: #cbd5e1;"></i>
+    <div class="text-center">
+      <h4 class="mb-2" style="color: #1f2937;">เฉพาะเจ้าหน้าที่</h4>
+      <p class="mb-3" style="color: #64748b;">ส่วนนี้เปิดให้เฉพาะบัญชีที่ได้รับสิทธิ์</p>
+      <div class="d-flex gap-2 justify-content-center">
+        <a href="/" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>กลับสู่หน้าหลัก
+        </a>
+        <button type="button" class="btn btn-success" id="adminSignInBtn">
+          <i class="bi bi-box-arrow-in-right me-1"></i>เข้าสู่ระบบ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real admin surface. Hidden until auth confirms a staff role. -->
+  <div id="adminAppRoot" class="d-none">
+    <!-- The workspace shell. Sidebar nav routes between sections
+         (Overview / PR / VS / Shop / Projects / Creator / Settings).
+         The included partials (tab-admin.html, tab-projects.html,
+         tab-creator.html) carry the existing content. Sidebar items
+         drive visibility via the section-switching handlers in admin-main.js. -->
+    <div class="workspace-shell" id="adminShell">
+
+      <aside class="workspace-side">
+        <div class="workspace-side-head">
+          <a class="workspace-back" href="/">
+            <i class="bi bi-arrow-left"></i><span>กลับสู่หน้าหลัก</span>
+          </a>
+          <div class="workspace-side-brand">
+            <span class="workspace-side-brand-icon"><i class="bi bi-shield-lock"></i></span>
+            <span class="workspace-side-brand-text">
+              <span class="workspace-side-brand-title">SAMO Admin</span>
+              <span class="workspace-side-brand-sub">เครื่องมือเจ้าหน้าที่</span>
+            </span>
+          </div>
+        </div>
+
+        <nav class="workspace-side-nav" id="adminSideNav">
+          <button type="button" class="workspace-side-item is-active"
+            data-admin-side="landing">
+            <i class="bi bi-grid-1x2"></i><span>ภาพรวม</span>
+          </button>
+
+          <div class="workspace-side-section">งานประจำวัน</div>
+          <button type="button" class="workspace-side-item d-none"
+            data-admin-side="pr" data-role-only="pr_staff dev">
+            <i class="bi bi-megaphone"></i><span>PR Management</span>
+          </button>
+          <button type="button" class="workspace-side-item d-none"
+            data-admin-side="vs" data-role-only="vs_staff dev">
+            <i class="bi bi-clipboard2-pulse"></i><span>VitalSound</span>
+          </button>
+          <button type="button" class="workspace-side-item d-none"
+            data-admin-side="shop" data-role-only="shop_admin dev">
+            <i class="bi bi-shop"></i><span>SAMO Shop</span>
+          </button>
+          <button type="button" class="workspace-side-item d-none"
+            data-admin-side="projects" data-role-only="vp_admin uni_staff dev">
+            <i class="bi bi-folder2"></i><span>หนังสือโครงการ</span>
+            <span class="workspace-side-item-badge d-none" id="adminProjectsBadge">0</span>
+          </button>
+
+          <div class="workspace-side-section">เนื้อหา</div>
+          <button type="button" class="workspace-side-item d-none"
+            data-admin-side="creator" data-role-only="pr_staff dev">
+            <i class="bi bi-pencil-square"></i><span>เขียนประกาศ</span>
+          </button>
+        </nav>
+
+        <div class="workspace-side-foot">
+          <div class="workspace-user-mini">
+            <img id="adminUserPic" alt="" />
+            <div class="workspace-user-mini-body">
+              <div class="workspace-user-mini-name" id="adminUserName">—</div>
+              <div class="workspace-user-mini-role" id="adminUserRole"></div>
+            </div>
+          </div>
+          <button type="button" class="workspace-side-signout" onclick="samoSignOut()">
+            <i class="bi bi-box-arrow-right"></i><span>ออกจากระบบ</span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="workspace-body">
+        <header class="workspace-top">
+          <button type="button" class="workspace-toggle" id="adminSidebarToggle"
+            aria-label="ซ่อน/แสดงเมนู" aria-expanded="true">
+            <i class="bi bi-list"></i>
+          </button>
+          <div class="workspace-top-title">
+            <h1 id="adminTopTitle">ภาพรวม Admin</h1>
+            <p id="adminTopSub">เลือกระบบที่ต้องการจัดการจากเมนูซ้าย</p>
+          </div>
+          <div class="workspace-top-actions">
+            <!-- Project notifications bell — only visible for vp_admin /
+                 uni_staff / dev. Mirrors public navbar wiring (same id). -->
+            <button type="button" class="nav-projects-bell d-none" id="navProjectsBell"
+              aria-label="การแจ้งเตือนหนังสือโครงการ">
+              <i class="bi bi-bell-fill"></i>
+              <span class="nav-projects-bell-count d-none" id="navProjectsBellCount">0</span>
+            </button>
+          </div>
+        </header>
+        <!-- Backdrop — only visible/clickable when the mobile sidebar drawer
+             is open (body.workspace-sidebar-open). Click closes the drawer. -->
+        <div class="workspace-backdrop" id="adminSidebarBackdrop"></div>
+
+        <main class="workspace-main">
+
+          <!-- Section panes. Hidden by default; admin-main.js shows the
+               active one. The included tab partials drop in their own
+               div#pills-* wrappers; we render those inert (no Bootstrap
+               tabs in admin — sidebar drives the switching). -->
+
+          <!-- LANDING -->
+          <section data-admin-pane="landing">
+            <div class="row g-3" id="adminLandingCards">
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
+                  onclick="openAdminSection('pr')">
+                  <span class="admin-card-icon"><i class="bi bi-megaphone-fill"></i></span>
+                  <div class="admin-card-body">
+                    <h5>PR Management</h5>
+                    <p>จัดการคำขอประชาสัมพันธ์ ตรวจสอบงานค้าง และมอบหมายทีม</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="vs_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
+                  onclick="openAdminSection('vs')">
+                  <span class="admin-card-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+                  <div class="admin-card-body">
+                    <h5>VitalSound Management</h5>
+                    <p>ติดตามและตอบกลับการแจ้งปัญหาจากนักศึกษา</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="shop_admin dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
+                  onclick="openAdminSection('shop')">
+                  <span class="admin-card-icon"><i class="bi bi-shop"></i></span>
+                  <div class="admin-card-body">
+                    <h5>SAMO Shop</h5>
+                    <p>คำสั่งซื้อ ตรวจสลิป สินค้า ประกาศการรับสินค้า</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="vp_admin uni_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
+                  onclick="openAdminSection('projects')">
+                  <span class="admin-card-icon"><i class="bi bi-folder2"></i></span>
+                  <div class="admin-card-body">
+                    <h5>หนังสือโครงการ</h5>
+                    <p>ระบบรับ-ส่งเอกสารระหว่าง VPA และเจ้าหน้าที่</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
+                  onclick="openAdminSection('creator')">
+                  <span class="admin-card-icon"><i class="bi bi-pencil-square"></i></span>
+                  <div class="admin-card-body">
+                    <h5>เขียนประกาศ</h5>
+                    <p>สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- PR / VS / Shop content moved here via included partials.
+               admin-main.js shows/hides these by data-admin-pane. -->
+          <section data-admin-pane="admin" class="d-none">
+            <include src="./src/html/tab-admin.html" />
+          </section>
+
+          <section data-admin-pane="projects" class="d-none">
+            <include src="./src/html/tab-projects.html" />
+          </section>
+
+          <section data-admin-pane="creator" class="d-none an-tab">
+            <include src="./src/html/tab-creator.html" />
+          </section>
+
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared modals + offcanvases (admin uses these too) -->
+  <include src="./src/html/modal-signin.html" />
+  <include src="./src/html/modal-vs-staff.html" />
+  <include src="./src/html/modal-pr-staff.html" />
+  <include src="./src/html/modal-agents.html" />
+  <include src="./src/html/modal-shop-product.html" />
+  <include src="./src/html/modal-shop-order-detail.html" />
+  <include src="./src/html/offcanvas-shop-cart.html" />
+  <include src="./src/html/modal-project-send.html" />
+  <include src="./src/html/offcanvas-project-notify.html" />
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Admin entry script -->
+  <script type="module" src="/src/js/admin-main.js"></script>
+</body>
+
+</html>

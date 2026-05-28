@@ -1,10 +1,17 @@
 /* ==============================================
- * MASTER STYLESHEET
- * Imports all CSS partials in correct order
+ * ADMIN MASTER STYLESHEET
+ * Imports only what the operator app needs:
+ *   - base tokens
+ *   - shared cards / forms / modals
+ *   - shop + projects + timeline
+ *   - workspace shell
+ *   - quill overrides (creator uses Quill)
+ *
+ * Excludes: launcher, footer, news, article — those are
+ * public-only.
  * ============================================== */
 
 @import './css/base.css';
-@import './css/navbar.css';
 @import './css/cards.css';
 @import './css/forms.css';
 @import './css/modals.css';
@@ -12,8 +19,4 @@
 @import './css/timeline.css';
 @import './css/shop.css';
 @import './css/projects.css';
-@import './css/launcher.css';
-@import './css/footer.css';
-@import './css/news.css';
-@import './css/article.css';
 @import './css/workspace.css';

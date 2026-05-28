@@ -1,6 +1,513 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-27 (SAMO Shop refactor — see top section)
+Last updated: 2026-05-28 (Navbar slim + tools launcher + premium polish — see top section)
+
+## Navbar slim + tools launcher + premium UI pass (2026-05-28)
+
+Substantial IA + visual polish pass. Build green, tests 26/26 pass. Manual
+browser verification still pending across breakpoints.
+
+### What changed (intent)
+
+User asked for a more premium / professional / modern UI and noted the
+navbar had too many things — with the constraint that ~100 tools will be
+added later (some dept-scoped, some shared). The fix is to keep the nav
+permanently minimal and route tool discovery through a dedicated launcher.
+
+### Navbar — slimmed and never grows
+
+Old: หน้าหลัก · ประกาศ · ร้านค้า · เครื่องมือ▾ · เกี่ยวกับเรา▾ + role items + auth.
+New: **Brand** · ร้านค้า · เครื่องมือ · (หนังสือโครงการ) · (Admin) + bell + avatar/sign-in.
+
+- `ประกาศ` dropped from nav — home page already carries the announcement
+  carousel + "ดูทั้งหมด" link to the full archive tab (hidden tab button).
+- `เกี่ยวกับเรา` dropdown deleted — 4 sections moved to the new footer.
+  `goToAbout()` still activates the hidden `#pills-about-tab` for footer +
+  mobile-offcanvas links.
+- `เครื่องมือ` dropdown deleted — now a top-level pill that opens the
+  new tools tab (`#pills-tools`).
+- `navbar-expand-md` instead of `-lg` so iPad portrait (768px+) keeps the
+  horizontal nav (the slim shape fits). Pills tighten at md via media query.
+- New translucent glass-light navbar: `rgba(255,255,255,0.92)` +
+  `backdrop-filter: saturate(180%) blur(14px)`. Token-driven shadows.
+- Mobile cluster (<768px): hamburger + a separate mobile bell that mirrors
+  the desktop bell (click, visibility, count) via `mirrorMobileBell()`
+  helper in main.js. `projects/index.js` + `projects/notifications.js`
+  both teach about the mobile bell too.
+
+### Tools launcher tab (`src/html/tab-tools.html`)
+
+Designed to scale to 100+ tools without further layout changes. Each tool
+is a `.launcher-tool` button carrying:
+- `data-name="..."` — searchable text (Thai + English + aliases)
+- `data-cats="..."` — chip-filter categories (public / pr / vs / content / staff)
+- `data-roles="..."` — role gate; only matching roles see the card
+
+Search input filters live. Chip row above the grid (ทั้งหมด /
+สาธารณะ / PR / VitalSound / เนื้อหา / เจ้าหน้าที่). Empty state shown
+when search has 0 matches. Adding a new tool = drop a button in. No JS
+changes required.
+
+`/` keyboard shortcut focuses the search field when the tools tab is open.
+
+### Footer (`src/html/footer.html`)
+
+Replaces the old 1-line copyright stamp. 4-column grid:
+- Brand + tagline
+- เกี่ยวกับเรา (4 about-tab anchors via `goToAbout()`)
+- เครื่องมือ (PR / VS / Announcements / Shop / All tools — all via `activateTab()`)
+- ติดต่อ (Facebook / IG / email)
+Plus a copyright bar below. Stacks to 2-col at 991px, 1-col at 575px.
+
+### Global tokens (`src/css/base.css`)
+
+New CSS variable scales used everywhere from this commit on:
+- `--ink-50..900` (slate scale)
+- `--surface` (#ffffff)
+- `--shadow-xs..xl` + `--shadow-focus-ring` (layered, premium feel)
+- `--radius-xs..2xl` + `--radius-pill`
+- `--ease`, `--t-fast/base/slow` (motion tokens)
+- `prefers-reduced-motion` guard at the bottom of base.css
+- Body bg upgraded to dual radial-gradient over linear (subtle green +
+  orange wash, much less flat than the old plain gray)
+
+### Files touched
+
+- `src/html/navbar.html` — rewritten (slim shape, mobile cluster, user pill)
+- `src/html/footer.html` — rewritten (4-col)
+- `src/html/tab-tools.html` (new) — launcher
+- `src/html/tab-home.html` — tools section gets a "ดูเครื่องมือทั้งหมด" link
+- `index.html` — includes `tab-tools.html`; inline critical CSS updated
+  to match new navbar glass look
+- `src/css/navbar.css` — full rewrite using tokens
+- `src/css/launcher.css` (new) — launcher styles
+- `src/css/footer.css` (new) — footer styles
+- `src/css/base.css` — tokens + new body gradient + reduced-motion guard
+- `src/main.css` — `@import` launcher + footer CSS
+- `src/js/main.js` — launcher search/filter/role-gating; mobile-bell
+  mirror; mobile-user strip wiring (new `mobileUserPic/Name/Dept` IDs +
+  `mobileSignOutItem`); `goToAbout` no longer touches deleted
+  `aboutDropdown`; `shown.bs.tab` handler comments updated
+- `src/js/projects/index.js` — toggle `navProjectsBellMobile` alongside desktop
+- `src/js/projects/notifications.js` — bind click + update count on both bells
+
+### Verification status
+
+- `npm run build` — green
+- `npm test` — 26/26 pass
+- Manual browser verification — **pending**. To check:
+  - Desktop (≥1200): navbar reads Brand · ร้านค้า · เครื่องมือ + auth;
+    glass-light bg; pills tighten on hover, active = green pill with shadow.
+  - iPad landscape (1024) + portrait (768): horizontal nav still shows;
+    user-name text hidden (`d-none d-lg-flex`), only avatar pill visible.
+  - Mobile (<768): hamburger + bell visible right; offcanvas drawer has
+    user-strip on top when signed in.
+  - Tools tab: search filters live; chips switch sections; empty state
+    works; `/` key focuses search; sign in as staff role → staff section
+    + chip appear.
+  - Footer: 4-col on desktop, 2-col on iPad, 1-col on mobile. About
+    links jump to the right section in `#pills-about`.
+
+### Iteration 2 — same session (2026-05-28)
+
+User feedback after first pass:
+- Navbar had weird empty space (pills were centered with `flex: 1`).
+- Wants ประกาศ + เกี่ยวกับเรา back in the navbar.
+- ประกาศ shouldn't live in the tools launcher — visitors flip between
+  news a lot, it's content not a tool.
+
+Adjustments:
+- Navbar pills switched from centered cluster to **left-aligned next to
+  brand** (`.nav-primary { margin-left: 0.5rem }`), with auth pushed
+  right via `margin-left: auto` on `.samo-navbar-auth`. Matches Stripe
+  / Linear / Vercel pattern. Empty space gone.
+- ประกาศ is back as a top pill (uses existing `#pills-announcements-tab`,
+  no longer hidden).
+- เกี่ยวกับเรา is back as a single top pill (uses existing
+  `#pills-about-tab`, no longer hidden) — **not** a dropdown.
+- Inside `#pills-about`, added a **sticky sub-nav** (pill row, glass-light)
+  with 4 sections (ทีมงาน / วิสัยทัศน์ / พันธกิจ / นโยบาย).
+  - Active section tracks scroll via IntersectionObserver in
+    `initAboutSubnav()` (main.js).
+  - On mobile (≤575px), sub-nav becomes icon-only to fit all 4.
+  - `.about-section { scroll-margin-top: 160px }` clears both the
+    global navbar and the sub-nav on anchor jumps.
+- ประกาศทั้งหมด tool card removed from the launcher and from the home
+  quick-tools grid (replaced with ร้านค้า + เครื่องมือทั้งหมด tiles).
+  Launcher chip "เนื้อหา" → "เขียนเนื้อหา" (it now only filters the
+  creator tool).
+- Content tabs scroll-to-top on activation: when the user switches to
+  about / tools / announcements via the navbar, `window.scrollTo(0)`
+  fires from the `shown.bs.tab` handler so the visitor sees the hero,
+  not whatever scroll position they were at on the previous tab.
+  Admin/projects keep their own hash-routed scroll behavior.
+
+Files touched in iteration 2:
+- `src/html/navbar.html` — added ประกาศ + เกี่ยวกับเรา pills, swapped
+  `nav-center` → `nav-primary`, updated mobile offcanvas with ประกาศ.
+- `src/css/navbar.css` — `.nav-primary` (left-aligned), `.samo-navbar-auth`
+  gets `margin-left: auto`.
+- `src/html/tab-about.html` — added `.about-subnav` block.
+- `src/css/cards.css` — `.about-subnav`, `.about-subnav-link`, mobile
+  icon-only variant; bumped `scroll-margin-top` to 160px.
+- `src/js/main.js` — `initAboutSubnav()`, scroll-to-top on content tab
+  activation.
+- `src/html/tab-tools.html` — removed ประกาศทั้งหมด tool card.
+- `src/html/tab-home.html` — replaced two redundant cards with ร้านค้า +
+  เครื่องมือทั้งหมด tiles.
+
+Build green, tests 26/26.
+
+### Iteration 3 — editorial redesign (2026-05-28)
+
+User feedback after iteration 2:
+- Announcement cards "look childish" — wants what professional web does.
+- เครื่องมือยอดนิยม and ฝ่ายในสโมสร on the home page are redundant —
+  they should live where they belong.
+- "Should main page show what else?"
+
+Decisions:
+- **Editorial news style** (Stripe / FT / Linear changelog pattern):
+  border-based cards, no jumpy hover, no heavy drop shadows, tight
+  typography (eyebrow → title → meta), subtle image-zoom on hover only.
+  Dropped the scroll-snap carousel + arrow nav (felt app-y / playful).
+- **Home is now an editorial news index**:
+  1. Slim auth-CTA / welcome strip (no big hero)
+  2. **Featured story** (1 large card, image left, eyebrow + title +
+     excerpt right) — populated from the newest announcement
+  3. **News grid** (up to 6 more cards in a clean grid, image top + meta)
+  4. Restrained **"เริ่มต้นกับ SAMO"** quick-action strip — 3 inline
+     items (PR / VS / Shop), not a card grid
+- **Removed from home**:
+  - Tools quick-grid (4 cards) — redundant with the navbar `เครื่องมือ`
+    pill and the launcher tab.
+  - ฝ่ายในสโมสร (10 dept cards) — they were all disabled "เร็วๆ นี้"
+    placeholders. Real per-dept tools belong in the launcher; the
+    departments-as-org-info is About content.
+- **ฝ่ายในสโมสร moved to About tab** — new `#about-departments` section
+  below นโยบาย, reuses the existing `.dept-card` styling. About sub-nav
+  now has 5 items (added ฝ่าย).
+- **Announcement archive** (`#pills-announcements`) rebuilt with the same
+  editorial card style + a refined page header (eyebrow + h1 + lead +
+  refresh button).
+
+Date formatting: introduced `formatEditorialDate(post)` that returns the
+restrained "28 พ.ค. 2569" format (BE year) instead of the previous full
+`dd/mm/yyyy HH:MM:SS` stamp.
+
+Renderer helpers extracted from `loadAnnouncements`:
+- `renderNewsFeatured(post)` — large featured card
+- `renderNewsCard(post)` — secondary card; used by home grid AND archive
+- `pickCover(post)` / `extractSnippet(content, max)` — shared helpers
+
+Files touched in iteration 3:
+- `src/css/news.css` (new) — editorial card system
+  (`.news-featured`, `.news-card`, `.news-grid`, `.news-eyebrow`,
+  `.news-meta`, `.news-archive-head`, `.news-empty`)
+- `src/main.css` — `@import './css/news.css'`
+- `src/css/cards.css` — deleted `.announce-card`, `.home-announce-*`,
+  `.home-hero`, `.home-section-*`; new `.home-quick-*` strip CSS;
+  refined `.home-auth-cta` + `.home-welcome` to token-based, border-only
+- `src/js/announcements.js` — `renderHomeAnnouncements()` now emits
+  featured+grid; `loadAnnouncements()` archive emits same news cards;
+  shared helpers `pickCover` / `extractSnippet` /
+  `formatEditorialDate` / `renderNewsFeatured` / `renderNewsCard`
+- `src/js/main.js` — removed `window.scrollHomeAnnounce` (carousel gone)
+- `src/html/tab-home.html` — rewrite to editorial structure
+- `src/html/tab-announcements.html` — rewrite to news-archive header
+- `src/html/tab-about.html` — added ฝ่าย to sub-nav + new
+  `#about-departments` section with the 10 dept cards
+
+Build green, tests 26/26.
+
+### Iteration 4 — Harvard-Gazette reader + slot creator (2026-05-28)
+
+User reference: Harvard Gazette home + article pages. Two questions:
+"shouldn't the news look like this" + "how can creators do it easily".
+
+Architecture decisions:
+- **Reader**: dedicated full-page article tab, NOT a modal.
+- **Creator**: 5 slots; no design choices. Live preview reuses the
+  same renderer the reader uses, so authors see exactly what visitors
+  see.
+- **Schema**: additive nullable `excerpt` column on announcements
+  (migration 0008). Old rows fall back to extracted snippet — no
+  breaking change.
+
+### What shipped
+
+**Schema** (`supabase/migrations/0008_announcements_excerpt.sql`):
+- Add `excerpt text` to `public.announcements`. Nullable. No backfill.
+- Apply via Supabase SQL editor before re-pulling from the preview
+  branch; the renderers tolerate the column not existing (defaults to
+  empty string on the JS side) but PostgREST would error on the
+  select-list if the column was missing.
+
+**Reader** (`src/html/tab-article.html` + `src/css/article.css` + JS in
+`announcements.js`):
+- New tab `#pills-article` reached via:
+  - card click → `viewAnnouncement(id)` activates tab + renders + pushes
+    `#article/{id}` to the hash
+  - direct URL → `handleArticleHash()` runs on hashchange and after
+    `loadAnnouncements()` resolves
+- Layout: sticky back-bar (back button + staff edit/delete) →
+  eyebrow → big headline (clamp 1.8–2.8rem) → subhead → byline (dept +
+  date) → wide hero image (max 1100px, rounded) → reading body column
+  (max 720px, 1.08rem / 1.75 line-height) → after-read CTA back to
+  archive.
+- Editorial reading typography: Harvard / Medium / Substack pattern.
+  `prefers-reduced-motion` already handled globally in base.css.
+- `closeArticleView()` pops the hash and returns to
+  `#pills-announcements`.
+
+**Creator** (`src/html/tab-creator.html` + announcements.js):
+- Slim head with title/desc + an Edit / ดูตัวอย่าง pill-toggle
+- 5 slots: หัวเรื่อง · ฝ่าย · **คำโปรย** (NEW, 220 char limit with
+  live counter) · ภาพปก (now REQUIRED — Harvard pattern; publish
+  blocks without one) · เนื้อหา (Quill body)
+- Preview pane mounts `renderArticleView(formSnapshot, {isPreview})` —
+  same renderer as the public reader, so what authors see *is* what
+  visitors get. No second-renderer drift possible.
+- After successful publish, the creator auto-opens the new article
+  (`viewAnnouncement(publishedId)`) so the author lands on the
+  rendered editorial page instead of the archive grid.
+
+**Renderers in `src/js/announcements.js`**:
+- `loadAnnouncements()` selects `excerpt`; maps to `globalAnnouncements`.
+- `renderNewsFeatured(post)` prefers `post.excerpt` over the auto-
+  extracted body snippet. Cards across home + archive show the real
+  subhead now.
+- `renderArticleView(post, {isPreview})` — single source of truth for
+  the article HTML, used by reader and creator preview.
+- `viewAnnouncement(id)` switches to article tab + renders + syncs hash.
+- `closeArticleView()` symmetric exit.
+- `setCreatorMode('edit'|'preview')` toggles the creator panes.
+- `editCurrentAnnouncement()` no longer touches a modal; pulls post,
+  fills form (incl. excerpt), navigates to creator.
+- `deleteCurrentAnnouncement()` calls `closeArticleView()` then reloads.
+- POST uses `prefer: 'return=representation'` so we get the new row id
+  back and can auto-open it.
+
+**Cleanup**:
+- `modal-announcement.html` include removed from `index.html`
+  (file kept in tree as reference; safe to delete later).
+- Hidden `pills-article-tab` button added to navbar.html for Bootstrap
+  Tab API routing.
+
+### Manual steps to ship
+
+1. Apply `supabase/migrations/0008_announcements_excerpt.sql` in the
+   Supabase SQL editor.
+2. (No GAS redeploy.) (No env-var change.)
+3. Smoke test:
+   - **Reader**: click any news card on home or archive → opens
+     full-page article with sticky back bar, hero image, reading column.
+     URL hash becomes `#article/{id}`. Reload the page → opens the
+     same article on cold load.
+   - **Creator (publish)**: เขียนประกาศ → fill title + คำโปรย + pick a
+     cover image + body → กดดูตัวอย่าง → confirm preview matches what
+     you'll see → เผยแพร่ → success → auto-lands on the new article.
+   - **Creator (edit)**: open an existing article → edit button → form
+     populated incl. excerpt → save → article updated, lands back on
+     the article view.
+   - **Creator (image required)**: try to publish without picking a
+     cover image → red alert "กรุณาเลือกภาพปกของบทความ".
+   - **Pre-0008 posts**: render without an excerpt should fall back to
+     the auto-snippet under the headline.
+
+### Iteration 5 — graceful loader + staff workspace in avatar (2026-05-28)
+
+User feedback after iteration 4:
+- 400 error on the local dev when loading announcements (excerpt
+  column missing — migration 0008 hadn't been applied to local
+  Supabase yet).
+- "Should Admin and หนังสือโครงการ be on different page? What's best
+  practice?"
+
+Fixes:
+
+**1. Graceful announcements loader** (`src/js/announcements.js`):
+- `loadAnnouncements()` now tries the select with `excerpt`. On 400,
+  retries without `excerpt` so the site keeps working pre-migration.
+- Logs one console.warn pointing at the pending migration so devs
+  notice it but the UI never breaks.
+- `publishAnnouncement()` mirrors the gate: if `__samoWarnedExcerpt`
+  is set, strips `excerpt` from the POST body so insert/update don't
+  400 on the missing column either.
+- Renderers were already excerpt-tolerant (empty falls back to
+  extracted snippet) — no further change needed.
+
+**2. Staff items move to the avatar dropdown** (`src/html/navbar.html`):
+- Followed the GitHub / Linear / Vercel pattern: public navbar stays
+  clean (ประกาศ · ร้านค้า · เครื่องมือ · เกี่ยวกับเรา); staff
+  workspace links live inside the user-profile dropdown.
+- Avatar dropdown now has a "เจ้าหน้าที่" section heading above the
+  staff items, separated by dividers from profile info and from
+  Sign Out at the bottom.
+- Mobile offcanvas mirrors with a "เจ้าหน้าที่" section heading.
+- `pills-projects-tab` and `pills-admin-tab` buttons remain in the
+  tablist as **hidden** controls (so Bootstrap Tab API can still
+  activate the panes from anywhere) — only the visible top-pill
+  buttons were removed.
+- Existing role-gating logic (main.js + projects/index.js) carries
+  over unchanged because `navProjectsItem` / `navAdminItem` IDs
+  moved but didn't rename.
+- New `#navStaffSection` (dropdown) and `#mobileStaffSection`
+  (offcanvas) toggle visible when ANY staff-only item is visible.
+  Computed in both auth subscribers via the resolved DOM state to
+  cover the projects-role and global-role paths.
+- Bell stays in the navbar — notifications are time-sensitive and
+  belong at the surface, not buried in a dropdown.
+
+**Net effect**:
+- Visitor navbar: 4 pills + auth button.
+- Signed-in staff navbar: 4 pills + bell + avatar dropdown
+  (which now expands to expose Admin Dashboard + หนังสือโครงการ +
+  Sign Out under "เจ้าหน้าที่" heading).
+- Tools launcher still carries the same staff items (different access
+  pattern: browse vs. quick-jump from avatar).
+
+Files touched in iteration 5:
+- `src/js/announcements.js` — graceful loader + publish gate
+- `src/html/navbar.html` — Admin/Projects out of top pills, into
+  dropdown menu items; staff-section labels added (desktop + mobile);
+  hidden tab buttons preserved
+- `src/css/navbar.css` — `.nav-user-section-label` +
+  `.samo-offcanvas-section-label`
+- `src/js/main.js` — toggle `#navStaffSection` / `#mobileStaffSection`
+  via `queueMicrotask` after both visibility paths resolve
+- `src/js/projects/index.js` — toggle same staff-section roots when
+  the projects role-visibility runs
+
+Build green, tests 26/26.
+
+### Iteration 6 — Multi-page split: public + admin app (2026-05-28)
+
+User asked the bigger architecture question: should admin be a separate
+page like real products do (Stripe Dashboard, Vercel, Linear), sharing
+the same Supabase + Cloudflare. Confirmed yes — Option B (path-based
+separation in same repo). Also: หนังสือโครงการ moves INTO the admin app.
+
+**Result**:
+- Two entries from one repo: `/` (public site) and `/admin/` (operator app)
+- Two CSS + JS bundles — public visitors no longer download admin code
+  - Before: 487 KB JS (one monolith)
+  - After: 51 KB public + 161 KB admin + shared chunk 283 KB
+- Same Supabase, same Cloudflare Pages project, same git workflow
+- VitalSound now a public top-nav pill ("แจ้งปัญหา") since it's a
+  report-a-problem system (user feedback during this iteration)
+
+**Vite multi-page** (`vite.config.js`):
+- `build.rollupOptions.input` with `public: index.html` + `admin: admin/index.html`
+- `htmlPartials` plugin processes `<include src="..." />` in both entries
+- Single `npm run build` outputs `dist/index.html` and `dist/admin/index.html`
+
+**Admin entry** (`admin/index.html` + `src/js/admin-main.js` + `src/admin.css`):
+- Permanent `body.workspace-mode` — no public chrome
+- Workspace shell: sidebar (Overview / PR / VS / Shop / Projects / Creator
+  + sign out) + top bar (workspace title, project bell when role allows)
+- Sidebar items drive section switching via `showAdminSide(which)` —
+  hides/shows `[data-admin-pane]` and triggers the legacy
+  `openAdminSection()` for PR/VS/Shop
+- Hash routes: `/admin/#pr`, `/admin/#vs`, `/admin/#shop`, `/admin/#projects`,
+  `/admin/#creator` — bookmarkable, shareable
+- Boot gate: spinner → auth resolves → app or sign-in gate
+- Auth gate (signed-out / non-staff): "เฉพาะเจ้าหน้าที่" with
+  "กลับสู่หน้าหลัก" + sign-in modal
+- Inherits the same Supabase session (cookies/localStorage are origin-scoped)
+
+**Public entry trimmed**:
+- `index.html` dropped includes: tab-admin, tab-projects, tab-creator,
+  modal-pr-staff, modal-agents, modal-vs-staff, modal-project-send,
+  offcanvas-project-notify
+- `src/js/main.js` dropped imports: announcements creator side (kept
+  read-only viewAnnouncement / loadAnnouncements / closeArticleView),
+  pr-staff, vs-staff, projects, openShopAdmin. Creator Quill init removed.
+- Avatar dropdown: "เจ้าหน้าที่" section → single
+  "ไปยัง Admin Dashboard ↗" link to `/admin/`
+- Mobile offcanvas: same — single link
+- Project bell removed from public navbar (lives in admin top bar)
+- Tools launcher: dropped "เนื้อหา" + "เจ้าหน้าที่" sections;
+  เขียนประกาศ moved to admin
+- Editor's "edit"/"delete" action on a published article now redirects
+  to `/admin/#creator` (since admin owns those flows)
+- All `window.*` shims for admin handlers redirect to `/admin/#<section>`
+  so any stray onclick that survives doesn't 404 — it just navigates
+
+**Stripped-content files** (`tab-admin.html`, `tab-projects.html`,
+`tab-creator.html`):
+- Removed the `<div class="tab-pane fade" id="pills-*" role="tabpanel">`
+  and the workspace-shell wrappers I added in iteration 5
+- They're now bare content blocks — `admin/index.html` includes them
+  inside its single canonical workspace shell
+- `tab-admin.html`: dropped the inline `adminLanding` cards (admin
+  entry has its own canonical landing section); per-section
+  "back to dashboard" buttons removed (sidebar drives navigation)
+- `tab-projects.html`: kept the inline `#projectsSubnav` switcher as
+  the secondary in-pane switcher; `setView()` in projects/index.js
+  now delegates by `data-projects-view` regardless of parent ID
+
+**Public navbar** (`src/html/navbar.html`):
+- New top pill: **แจ้งปัญหา** (VitalSound, with clipboard-pulse icon).
+  User asked for it because VS is a report-a-problem system — it
+  deserves to be visible alongside ประกาศ / ร้านค้า.
+- Hidden tab buttons for `pills-admin` / `pills-projects` / `pills-creator`
+  / `pills-vitalsound` removed (creator/admin/projects gone from public;
+  vitalsound is now a visible pill).
+
+### Files touched in iteration 6
+
+- `vite.config.js` — multi-page input
+- `admin/index.html` (new) — admin entry, workspace shell, boot/auth gates, includes
+- `src/admin.css` (new) — admin CSS bundle (base + cards + forms + modals + workspace + shop + projects)
+- `src/js/admin-main.js` (new) — admin entry script
+- `index.html` — dropped admin/projects/creator includes + 5 admin-only modals
+- `src/js/main.js` — heavy trim (admin/projects/creator imports + handlers gone, workspace toggle gone, exitWorkspace gone, mirrorMobileBell gone)
+- `src/html/navbar.html` — added แจ้งปัญหา pill; replaced เจ้าหน้าที่ group with single /admin/ link (dropdown + offcanvas); removed bell from desktop + mobile; cleared dead hidden tab buttons
+- `src/html/tab-admin.html` — stripped workspace shell + tab-pane wrapper + landing cards + back-links
+- `src/html/tab-projects.html` — stripped workspace shell + tab-pane wrapper; restored inline subnav as secondary in-pane switcher
+- `src/html/tab-creator.html` — stripped tab-pane wrapper
+- `src/html/tab-tools.html` — dropped staff section + content section + their filter chips
+- `src/js/projects/index.js` — broader `setView()` selector + click delegation on `#pills-projects`
+
+### Manual steps to ship
+
+1. Apply migration `0008_announcements_excerpt.sql` (still pending from iteration 4).
+2. Cloudflare Pages should serve `dist/index.html` at `/` and
+   `dist/admin/index.html` at `/admin/` automatically. No build config change.
+3. Smoke test:
+   - `/` loads with: ประกาศ · แจ้งปัญหา · ร้านค้า · เครื่องมือ · เกี่ยวกับเรา + sign-in
+   - Sign in as a staff account → avatar dropdown shows
+     "ไปยัง Admin Dashboard ↗" link
+   - Click → navigate to `/admin/` — boot gate spins briefly, then
+     workspace shell appears (sidebar + top bar)
+   - Each sidebar item navigates: PR / VS / Shop / Projects / Creator
+   - `/admin/#shop` deep-links to the shop pane
+   - "กลับสู่หน้าหลัก" returns to `/`
+   - Sign out from sidebar — returns to `/admin/` showing the auth gate
+4. Bundle sizes are smaller for public visitors:
+   - Before: 487 KB JS for everyone
+   - After: 51 KB public + 283 KB shared (still smaller than monolith)
+   - admin-only code (161 KB) is only fetched when an operator
+     navigates to /admin/
+
+### Known not-in-scope
+
+- Home page is news-first as agreed; per-tab visual polish (PR / VS /
+  Shop / Projects / Admin) still pending a dedicated session.
+- Multi-image gallery / inline pull-quotes / related-articles list at
+  article foot — all Harvard Gazette features we could add later if
+  authors want richer storytelling tools.
+- `modal-announcement.html` file still in `src/html/` but no longer
+  included — delete in a cleanup pass.
+- Tabs (PR / VS / Shop / Projects / Admin) not visually polished this
+  round — only the global token shift + body bg affects them. Per-tab
+  pass is its own session.
+- Cmd+K command palette deliberately skipped (user picked dedicated
+  /tools page pattern). `/` shortcut added as a lightweight power-user
+  affordance.
+
+---
 
 ## SAMO Shop refactor (2026-05-27)
 

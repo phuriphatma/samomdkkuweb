@@ -28,10 +28,12 @@ export function mountNotifications({ onJump: cb } = {}) {
   const ocEl = document.getElementById('projectsNotifyOffcanvas');
   if (ocEl) offcanvas = window.bootstrap?.Offcanvas.getOrCreateInstance(ocEl);
 
-  document.getElementById('navProjectsBell')?.addEventListener('click', () => {
+  const openBell = () => {
     refreshNotificationList();
     offcanvas?.show();
-  });
+  };
+  document.getElementById('navProjectsBell')?.addEventListener('click', openBell);
+  document.getElementById('navProjectsBellMobile')?.addEventListener('click', openBell);
 
   document.getElementById('projectsNotifyMarkAll')?.addEventListener('click', async () => {
     const user = getUser();
@@ -93,15 +95,18 @@ export async function refreshNotificationBell() {
 }
 
 function setBellCount(n) {
-  const badge = document.getElementById('navProjectsBellCount');
-  if (!badge) return;
-  if (!n || n <= 0) {
-    badge.classList.add('d-none');
-    badge.textContent = '0';
-  } else {
-    badge.classList.remove('d-none');
-    badge.textContent = n > 99 ? '99+' : String(n);
-  }
+  const apply = (badge) => {
+    if (!badge) return;
+    if (!n || n <= 0) {
+      badge.classList.add('d-none');
+      badge.textContent = '0';
+    } else {
+      badge.classList.remove('d-none');
+      badge.textContent = n > 99 ? '99+' : String(n);
+    }
+  };
+  apply(document.getElementById('navProjectsBellCount'));
+  apply(document.getElementById('navProjectsBellCountMobile'));
 }
 
 async function refreshNotificationList() {

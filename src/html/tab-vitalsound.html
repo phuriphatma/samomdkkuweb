@@ -49,55 +49,49 @@
                 </div>
               </div>
 
-              <!-- การยืนยันตัวตนสำหรับ Vital Sound -->
+              <!-- การยืนยันตัวตนสำหรับ VitalSound — mirrors the PR-form
+                   pattern: 2 options (guest / Google) instead of the old
+                   3-option flow with manual account creation. Picking
+                   "เข้าสู่ระบบด้วย Google" opens the same signin modal as
+                   the navbar; once signed in, main.js auto-populates the
+                   hidden synth fields and flips isAccountVerified = true.
+
+                   The whole wrapper hides entirely when the user is
+                   already signed in (auth subscriber in main.js
+                   toggles vsFormAuthWrapper). -->
               <div id="vsFormAuthWrapper" class="p-3 mb-4 rounded-3"
                 style="background-color: #f8fafc; border: 1px solid #cbd5e1">
                 <label class="form-label fw-bold text-pink-custom mb-2"><i class="bi bi-person-badge me-1"></i>
-                  การติดตามสถานะ (เลือกรูปแบบ)</label>
+                  รูปแบบการแจ้งปัญหา</label>
                 <div class="d-flex flex-column gap-2 mb-3">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccGuest" value="guest"
                       checked onchange="toggleVsAccountFields()" style="cursor: pointer" />
-                    <label class="form-check-label text-muted" for="vsAccGuest" style="cursor: pointer">ไม่ใช้บัญชี
-                      (รับแค่หมายเลข Ticket เพื่อค้นหาสถานะ)</label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccCreate" value="create"
-                      onchange="toggleVsAccountFields()" style="cursor: pointer" />
-                    <label class="form-check-label fw-bold" for="vsAccCreate"
-                      style="cursor: pointer">สร้างบัญชีใหม่แบบไม่ระบุตัวตน (เพื่อพิมพ์โต้ตอบใน Ticket ได้)</label>
+                    <label class="form-check-label text-muted" for="vsAccGuest" style="cursor: pointer">ส่งแบบผู้เยี่ยมชม (รับแค่หมายเลข Ticket เพื่อค้นหาสถานะทีหลัง)</label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="vsAccountMode" id="vsAccLogin" value="login"
                       onchange="toggleVsAccountFields()" style="cursor: pointer" />
-                    <label class="form-check-label fw-bold" for="vsAccLogin" style="cursor: pointer">มีบัญชีอยู่แล้ว
-                      (เข้าสู่ระบบด้วยบัญชีเดิม)</label>
+                    <label class="form-check-label fw-bold" for="vsAccLogin" style="cursor: pointer">เข้าสู่ระบบด้วย Google Account (เพื่อพิมพ์โต้ตอบใน Ticket และดูประวัติย้อนหลังได้)</label>
                   </div>
                 </div>
 
-                <div id="vsAccountFields" class="row g-3 d-none p-3 rounded"
-                  style="background-color: #ffffff; border: 1px dashed var(--pink-300)">
-                  <div class="col-md-5">
-                    <label class="form-label text-pink-custom fw-bold">Username (นามแฝง) <span
-                        class="text-danger">*</span></label>
-                    <input type="text" id="vsUsername" name="vsUsername" class="form-control"
-                      placeholder="ชื่อผู้ใช้งาน" />
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label text-pink-custom fw-bold">Password <span
-                        class="text-danger">*</span></label>
-                    <input type="password" id="vsPassword" name="vsPassword" class="form-control"
-                      placeholder="รหัสผ่าน" />
-                  </div>
-                  <div class="col-md-3 d-flex align-items-end">
-                    <button type="button" id="btnVerifyAccount" class="btn btn-outline-danger w-100"
-                      onclick="verifyAccount()">ตรวจสอบบัญชี</button>
-                  </div>
-                  <div class="col-12 text-success d-none fw-bold small mt-2" id="verifySuccessText">
-                    <i class="bi bi-check-circle-fill"></i> บัญชีพร้อมใช้งาน! สามารถกรอกปัญหาและส่งเรื่องได้เลย
-                  </div>
-                  <div class="col-12 text-danger d-none fw-bold small mt-2" id="verifyFailText"></div>
+                <!-- Modal trigger when user picks Google but isn't signed
+                     in yet. Mirrors PR's #prGoogleAuthContainer. -->
+                <div id="vsGoogleAuthContainer" class="d-none p-4 rounded text-center"
+                  style="background-color: #ffffff; border: 1px dashed var(--pink-300);">
+                  <p class="text-muted small mb-3">กรุณาเข้าสู่ระบบเพื่อยืนยันตัวตน</p>
+                  <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                    data-bs-target="#signinModal">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> เปิดหน้าเข้าสู่ระบบ
+                  </button>
                 </div>
+
+                <!-- Hidden synth fields. vs-form.js submit still reads
+                     these; main.js populates them from the global auth
+                     identity (email / supabase uid) on sign-in. -->
+                <input type="hidden" id="vsUsername" name="vsUsername" />
+                <input type="hidden" id="vsPassword" name="vsPassword" />
               </div>
 
               <h4 class="section-title"><i class="bi bi-chat-square-text me-2"></i>รายละเอียดปัญหา</h4>

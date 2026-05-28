@@ -13,16 +13,13 @@ import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser } from './auth.js';
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, viewAnnouncement, cancelEdit, editCurrentAnnouncement, deleteCurrentAnnouncement } from './announcements.js';
+import { loadAnnouncements, viewAnnouncement, closeArticleView } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
-import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
 import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
-import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction } from './vs-staff.js';
-import { initShop, openShopAdmin } from './shop/index.js';
-import { initProjects } from './projects/index.js';
+import { initShop } from './shop/index.js';
 
 // ==============================================
 // QUILL SETUP
@@ -63,21 +60,11 @@ function makeQuillImageHandler(quillRef) {
   };
 }
 
-let creatorQuillRef = null;
 let vsQuillRef = null;
 
-const creatorQuill = new Quill('#creatorQuillEditor', {
-  theme: 'snow',
-  placeholder: 'เขียนรายละเอียดประกาศของคุณที่นี่... สามารถคลุมดำข้อความเพื่อทำตัวหนา และกดไอคอน 🖼️ เพื่อแทรกรูปภาพได้',
-  modules: {
-    toolbar: {
-      container: QUILL_TOOLBAR,
-      handlers: { image: makeQuillImageHandler(() => creatorQuillRef) },
-    },
-  },
-});
-creatorQuillRef = creatorQuill;
-
+// The public app only initialises Quill for the VS form. The creator
+// (announcement-writing) Quill lives in the admin app (admin-main.js)
+// since /admin/ is where staff publish.
 const vsQuill = new Quill('#vsQuillEditor', {
   theme: 'snow',
   placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
@@ -94,7 +81,6 @@ vsQuillRef = vsQuill;
 // INITIALIZE MODULES
 // ==============================================
 
-initAnnouncements(creatorQuill);
 initVsForm(vsQuill);
 
 // ==============================================
@@ -102,13 +88,13 @@ initVsForm(vsQuill);
 // (Required for inline onclick="" handlers in HTML)
 // ==============================================
 
-// Announcements
+// Announcements (read-only on public site)
 window.loadAnnouncements = loadAnnouncements;
-window.publishAnnouncement = publishAnnouncement;
 window.viewAnnouncement = viewAnnouncement;
-window.cancelEdit = cancelEdit;
-window.editCurrentAnnouncement = editCurrentAnnouncement;
-window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
+window.closeArticleView = closeArticleView;
+// Staff who click "edit"/"delete" on a public article jump to /admin/.
+window.editCurrentAnnouncement = () => { location.href = '/admin/#creator'; };
+window.deleteCurrentAnnouncement = () => { location.href = '/admin/#creator'; };
 
 // Global Auth
 window.samoSignOut = samoSignOut;
@@ -118,40 +104,6 @@ window.samoGoogleSignIn = async () => {
   } catch (e) {
     alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e));
   }
-};
-
-// Creator thumbnail picker
-window.onCreatorThumbPicked = async (event) => {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-  const preview = document.getElementById('creatorThumbPreview');
-  const clearBtn = document.getElementById('creatorThumbClearBtn');
-  const urlInput = document.getElementById('creatorThumbUrl');
-  if (preview) {
-    preview.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-secondary"></div><div class="small text-muted mt-2">กำลังอัปโหลด…</div></div>';
-  }
-  try {
-    const url = await uploadImageToDrive(file);
-    if (urlInput) urlInput.value = url;
-    if (preview) preview.innerHTML = `<img src="${url}" alt="thumbnail">`;
-    if (clearBtn) clearBtn.classList.remove('d-none');
-  } catch (err) {
-    if (preview) preview.innerHTML = '<i class="bi bi-exclamation-triangle text-danger fs-3"></i><span class="text-danger small mt-2">อัปโหลดล้มเหลว</span>';
-    alert('อัปโหลดรูปปกไม่สำเร็จ: ' + (err.message || err));
-  } finally {
-    event.target.value = '';
-  }
-};
-
-window.clearCreatorThumb = () => {
-  const preview = document.getElementById('creatorThumbPreview');
-  const urlInput = document.getElementById('creatorThumbUrl');
-  const clearBtn = document.getElementById('creatorThumbClearBtn');
-  if (preview) {
-    preview.innerHTML = '<i class="bi bi-image fs-1"></i><span class="text-muted small mt-2">ยังไม่ได้เลือกรูปปก</span>';
-  }
-  if (urlInput) urlInput.value = '';
-  if (clearBtn) clearBtn.classList.add('d-none');
 };
 
 // Sign-in modal: toggle between login and register screens
@@ -189,32 +141,12 @@ window.samoPasswordSignIn = async () => {
   }
 };
 
-// Admin tab navigation — landing + PR/VS/Shop sub-sections.
-window.showAdminLanding = () => {
-  document.getElementById('adminLanding')?.classList.remove('d-none');
-  document.getElementById('adminPRSection')?.classList.add('d-none');
-  document.getElementById('adminVSSection')?.classList.add('d-none');
-  document.getElementById('adminShopSection')?.classList.add('d-none');
-};
-
-window.openAdminSection = async (which) => {
-  document.getElementById('adminLanding')?.classList.add('d-none');
-  document.getElementById('adminPRSection')?.classList.toggle('d-none', which !== 'pr');
-  document.getElementById('adminVSSection')?.classList.toggle('d-none', which !== 'vs');
-  document.getElementById('adminShopSection')?.classList.toggle('d-none', which !== 'shop');
-  if (which === 'pr') {
-    await enterPRStaffDashboard();
-  } else if (which === 'vs') {
-    await enterVSStaffDashboard();
-  } else if (which === 'shop') {
-    await openShopAdmin();
-  }
-};
-
-window.onVSAdminRoleChange = async () => {
-  // Refetch tickets for the newly-selected VS staff role.
-  await enterVSStaffDashboard();
-};
+// Admin / projects handlers no longer live in the public bundle —
+// they're in /admin/. If something on the public site references them
+// (e.g. a hardcoded onclick), redirect to /admin/.
+window.showAdminLanding = () => { location.href = '/admin/'; };
+window.openAdminSection = (which) => { location.href = '/admin/#' + which; };
+window.openManageAgentsModal = () => { location.href = '/admin/#pr'; };
 
 // VS track: load history using the global auth identity. VS submission/
 // lookup is still on GAS in Phase 1, keyed by (username, password). We
@@ -253,14 +185,13 @@ window.trackWithTicketIdFromAuth = () => {
   trackWithTicketId();
 };
 
-// About Us: activate the about tab and scroll to the given section anchor.
+// About Us: activate the about tab (hidden tab button — reachable only via
+// footer / mobile offcanvas links) and scroll to the given section anchor.
 // The CSS scroll-margin-top on .about-section keeps the heading clear of
-// the sticky navbar. Mark aboutDropdown .active because #pills-about-tab is
-// hidden — Bootstrap's tab-system .active would land on the invisible button.
+// the sticky navbar.
 window.goToAbout = (sectionId) => {
   const btn = document.getElementById('pills-about-tab');
   if (btn && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(btn).show();
-  document.getElementById('aboutDropdown')?.classList.add('active');
   requestAnimationFrame(() => {
     const target = document.getElementById(sectionId);
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -312,35 +243,36 @@ window.loadPRHistory = loadPRHistory;
 window.openPRTicketDetail = openPRTicketDetail;
 window.logoutPRTrack = logoutPRTrack;
 
-// PR Staff (login/logout removed — admin tab is gated by global auth)
-window.fetchPRStaffTickets = fetchPRStaffTickets;
-window.filterPRStaffTickets = filterPRStaffTickets;
-window.openPRStaffModal = openPRStaffModal;
-window.submitPRStaffAction = submitPRStaffAction;
-window.deletePRStaffAction = deletePRStaffAction;
-window.openManageAgentsModal = openManageAgentsModal;
-window.addNewAgent = addNewAgent;
-window.removeAgent = removeAgent;
-window.addPRStaffAssignee = addPRStaffAssignee;
-window.removePRStaffAssignee = removePRStaffAssignee;
+// PR Staff handlers moved to /admin/. Anything that still touches these
+// (legacy modal triggers) jumps to the admin app.
+window.fetchPRStaffTickets = () => { location.href = '/admin/#pr'; };
+window.filterPRStaffTickets = () => {};
+window.openPRStaffModal = () => { location.href = '/admin/#pr'; };
+window.submitPRStaffAction = () => {};
+window.deletePRStaffAction = () => {};
+window.addNewAgent = () => {};
+window.removeAgent = () => {};
+window.addPRStaffAssignee = () => {};
+window.removePRStaffAssignee = () => {};
 
-// VS Form
+// VS Form (PUBLIC — visitor submits a problem report)
 window.toggleVitalSoundMode = toggleVitalSoundMode;
 window.toggleVsAccountFields = toggleVsAccountFields;
 window.verifyAccount = verifyAccount;
 window.toggleEmergency = toggleEmergency;
 
-// VS Tracking
+// VS Tracking (PUBLIC — visitor checks status of their own ticket)
 window.trackWithTicketId = trackWithTicketId;
 window.loginToViewHistory = loginToViewHistory;
 window.submitUserRemark = submitUserRemark;
 window.openTicketDetail = openTicketDetail;
 window.logoutTrack = logoutTrack;
 
-// VS Staff (login/logout removed — admin tab is gated by global auth)
-window.fetchStaffTickets = fetchStaffTickets;
-window.openStaffModalByIndex = openStaffModalByIndex;
-window.submitStaffAction = submitStaffAction;
+// VS Staff handlers moved to /admin/.
+window.fetchStaffTickets = () => { location.href = '/admin/#vs'; };
+window.openStaffModalByIndex = () => { location.href = '/admin/#vs'; };
+window.submitStaffAction = () => {};
+window.onVSAdminRoleChange = () => {};
 
 // ==============================================
 // DOM CONTENT LOADED
@@ -365,6 +297,10 @@ document.addEventListener('click', (e) => {
 // .dropdown-menu, bypassing the Dropdown API — so we strip it manually on
 // both the menu and the toggle, and reset aria-expanded.
 document.addEventListener('shown.bs.tab', (e) => {
+  // The user-profile dropdown is the only dropdown left in the navbar.
+  // Bootstrap's tab JS sometimes leaves .show stuck on a dropdown when an
+  // inner tab activated it (legacy paths) — sweep it defensively so the
+  // menu can't end up open-but-empty after a programmatic tab switch.
   document.querySelectorAll('.samo-navbar .dropdown-menu.show').forEach((menu) => {
     menu.classList.remove('show');
   });
@@ -375,28 +311,18 @@ document.addEventListener('shown.bs.tab', (e) => {
     toggle.setAttribute('aria-expanded', 'false');
   });
 
-  // Mirror Bootstrap's .active on the aboutDropdown trigger: #pills-about-tab
-  // is the hidden canonical button so Bootstrap can't visibly mark it. Only
-  // goToAbout adds .active; clear it whenever any other tab takes over.
-  if (e.target?.id !== 'pills-about-tab') {
-    document.getElementById('aboutDropdown')?.classList.remove('active');
+  // Content-display tabs (about/tools/announcements) should start at the
+  // top so the visitor sees the hero, not whatever scroll Y they were at
+  // on the previous tab. App tabs (admin/projects) have their own hash
+  // routing that scrolls to specific items — don't override those.
+  if (e.target?.id === 'pills-about-tab'
+      || e.target?.id === 'pills-tools-tab'
+      || e.target?.id === 'pills-announcements-tab') {
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  // When the Admin tab opens, auto-route single-role users straight to their
-  // dashboard (skipping the landing). Dev sees the landing so they can pick.
-  if (e.target?.id === 'pills-admin-tab') {
-    // Auto-route single-role staff straight to their dashboard. The
-    // previous version read localStorage('samoUser') which was never
-    // written (leftover from pre-Supabase) — so role was always null
-    // and this fell through. authGetUser() is the canonical source.
-    const role = authGetUser()?.role || null;
-    const landingVisible = !document.getElementById('adminLanding')?.classList.contains('d-none');
-    if (landingVisible) {
-      if (role === 'pr_staff') window.openAdminSection('pr');
-      else if (role === 'vs_staff') window.openAdminSection('vs');
-      else if (role === 'shop_admin') window.openAdminSection('shop');
-    }
-  }
+  // (Admin and Projects are no longer tabs in the public app — they live
+  // at /admin/. Workspace-mode chrome-hide is gone with them.)
 });
 
 // Activate a tab by the desktop tab button's ID. Used from places that
@@ -408,6 +334,9 @@ window.activateTab = (tabBtnId) => {
   if (!btn || !window.bootstrap) return;
   window.bootstrap.Tab.getOrCreateInstance(btn).show();
 };
+
+// (Legacy exitWorkspace removed — admin app at /admin/ has its own
+// "กลับสู่หน้าหลัก" link that hrefs to / directly.)
 
 function roleLabel(role) {
   if (role === 'pr_staff')   return 'PR Staff';
@@ -429,15 +358,133 @@ function roleBadgeClass(role) {
   return 'd-none';
 }
 
-// Scroll the home announcements carousel by one card width. Direction is
-// -1 (prev) or +1 (next).
-window.scrollHomeAnnounce = (direction) => {
-  const grid = document.getElementById('homeAnnouncementsGrid');
-  if (!grid) return;
-  const firstCard = grid.querySelector('.home-announce-card');
-  const step = (firstCard ? firstCard.offsetWidth : grid.clientWidth * 0.85) + 16;
-  grid.scrollBy({ left: step * direction, behavior: 'smooth' });
+// ==============================================
+// TOOLS LAUNCHER — search + chip filter.
+// Scales to 100+ tools because logic operates on data-* attributes;
+// adding a new tool means dropping a button into tab-tools.html.
+// ==============================================
+
+let _launcherFilter = 'all';
+
+window.setLauncherFilter = (cat) => {
+  _launcherFilter = cat;
+  document.querySelectorAll('.launcher-chip').forEach((chip) => {
+    chip.classList.toggle('is-active', chip.dataset.filter === cat);
+  });
+  applyLauncherFilters();
 };
+
+window.filterLauncher = () => applyLauncherFilters();
+
+window.resetLauncher = () => {
+  const input = document.getElementById('launcherSearchInput');
+  if (input) input.value = '';
+  window.setLauncherFilter('all');
+};
+
+function applyLauncherFilters() {
+  const q = (document.getElementById('launcherSearchInput')?.value || '').trim().toLowerCase();
+  const cat = _launcherFilter;
+  let visibleTotal = 0;
+
+  document.querySelectorAll('.launcher-section').forEach((section) => {
+    // role-gated sections (currently #launcherSectionStaff) keep their
+    // d-none from auth gating; we only flip is-hidden for filter state.
+    const tools = section.querySelectorAll('.launcher-tool');
+    let visibleInSection = 0;
+
+    tools.forEach((tool) => {
+      // role-gated tools start hidden (d-none) until auth wakes them up.
+      // Skip those entirely — keep them invisible regardless of filter.
+      if (tool.classList.contains('d-none')) return;
+
+      const cats = (tool.dataset.cats || '').split(/\s+/).filter(Boolean);
+      const name = (tool.dataset.name || '').toLowerCase();
+
+      const matchesCat = cat === 'all' || cats.includes(cat);
+      const matchesQuery = !q || name.includes(q) || (tool.querySelector('.launcher-tool-name')?.textContent || '').toLowerCase().includes(q);
+
+      const show = matchesCat && matchesQuery;
+      tool.classList.toggle('is-hidden', !show);
+      if (show) visibleInSection += 1;
+    });
+
+    section.classList.toggle('is-hidden', visibleInSection === 0);
+    visibleTotal += visibleInSection;
+  });
+
+  document.getElementById('launcherEmpty')?.classList.toggle('d-none', visibleTotal > 0);
+}
+
+// Apply role-gated launcher visibility: each tool with data-roles="…" shows
+// only when the current role is in the whitelist. Section visibility tracks
+// "any visible tool inside" so an empty section disappears.
+function applyLauncherRoleGating(role) {
+  // Show the staff chip + section if the user has any data-roles tool they qualify for.
+  let staffVisible = false;
+  document.querySelectorAll('.launcher-tool[data-roles]').forEach((tool) => {
+    const allowed = tool.dataset.roles.split(/\s+/).filter(Boolean);
+    const ok = !!role && allowed.includes(role);
+    tool.classList.toggle('d-none', !ok);
+    if (ok && tool.closest('#launcherSectionStaff')) staffVisible = true;
+  });
+  document.getElementById('launcherSectionStaff')?.classList.toggle('d-none', !staffVisible);
+  document.getElementById('launcherChipStaff')?.classList.toggle('d-none', !staffVisible);
+  // Re-apply the current filter so visible counts stay correct.
+  applyLauncherFilters();
+}
+
+// "/" keyboard shortcut focuses the launcher search when the tools tab is open.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+  // Don't hijack while typing into an existing input/textarea/contenteditable.
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if (document.getElementById('pills-tools')?.classList.contains('active')) {
+    const search = document.getElementById('launcherSearchInput');
+    if (search) { e.preventDefault(); search.focus(); }
+  }
+});
+
+// About sub-nav — highlight whichever section is currently in view.
+// Triggered once after DOM load; observer is cheap to leave running.
+function initAboutSubnav() {
+  const links = document.querySelectorAll('.about-subnav-link[data-about-target]');
+  if (!links.length) return;
+  const sections = Array.from(links)
+    .map((a) => document.getElementById(a.dataset.aboutTarget))
+    .filter(Boolean);
+  if (!sections.length) return;
+
+  const linkFor = (id) => document.querySelector(`.about-subnav-link[data-about-target="${id}"]`);
+  const setActive = (id) => {
+    links.forEach((l) => l.classList.toggle('is-active', l.dataset.aboutTarget === id));
+  };
+
+  // Pick the section whose top is closest to (but past) the sub-nav baseline.
+  // rootMargin pulls the activation line below the sticky nav.
+  const observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length) setActive(visible[0].target.id);
+    },
+    { rootMargin: '-180px 0px -55% 0px', threshold: [0, 0.1, 0.5] },
+  );
+  sections.forEach((s) => observer.observe(s));
+
+  // Clicking jumps via goToAbout which already calls scrollIntoView — but
+  // visually pre-select so the highlight doesn't lag the scroll.
+  links.forEach((a) => {
+    a.addEventListener('click', () => setActive(a.dataset.aboutTarget));
+  });
+  // Mark `linkFor` as used for readers; intentionally no further wiring.
+  void linkFor;
+}
+
+// (Project bell removed from the public navbar — it lives only in
+// /admin/ now, since notifications are operator-facing.)
 
 document.addEventListener('DOMContentLoaded', () => {
   // Load announcements
@@ -489,25 +536,33 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Mobile offcanvas auth buttons
+    // Mobile offcanvas: sign-in CTA (signed-out), user strip + sign-out (signed-in)
     document.getElementById('mobileAuthSignedOut')?.classList.toggle('d-none', !!user);
     document.getElementById('mobileAuthSignedIn')?.classList.toggle('d-none', !user);
+    document.getElementById('mobileSignOutItem')?.classList.toggle('d-none', !user);
+    if (user) {
+      const mPic  = document.getElementById('mobileUserPic');
+      const mName = document.getElementById('mobileUserName');
+      const mDept = document.getElementById('mobileUserDept');
+      if (mPic)  mPic.src = user.picture || '';
+      if (mName) mName.textContent = user.name || user.username || '';
+      if (mDept) mDept.textContent = user.department || roleLabel(role) || (user.email || `@${user.username || ''}`);
+    }
 
-    // Role-gated nav items + admin landing cards
-    const isStaffRole = role === 'pr_staff' || role === 'vs_staff' || role === 'shop_admin' || role === 'dev';
-    document.getElementById('navAdminItem')?.classList.toggle('d-none', !isStaffRole);
-    document.getElementById('mobileAdminItem')?.classList.toggle('d-none', !isStaffRole);
+    // Staff role-gating: surface the "ไปยัง Admin" link in the avatar
+    // dropdown and the mobile offcanvas only when the user has a staff
+    // role. The admin link itself navigates to /admin/.
+    const isStaffRole = role === 'pr_staff' || role === 'vs_staff' || role === 'shop_admin'
+      || role === 'vp_admin' || role === 'uni_staff' || role === 'dev';
+    document.getElementById('navAdminLink')?.classList.toggle('d-none', !isStaffRole);
+    document.getElementById('mobileAdminLink')?.classList.toggle('d-none', !isStaffRole);
+
+    // Generic data-role-only — kept for legacy hooks (used by the article
+    // reader's edit/delete buttons that redirect to /admin/).
     document.querySelectorAll('[data-role-only]').forEach((el) => {
       const allowed = el.getAttribute('data-role-only').split(/\s+/);
       el.classList.toggle('d-none', !role || !allowed.includes(role));
     });
-    // Reset admin tab to landing ONLY on a real auth transition (sign
-    // in, sign out, or role change). Plain token-refresh events also
-    // fire onAuthChange — without this guard, the user gets ejected
-    // from whichever admin section they were working in every 25 min.
-    if (isTransition && typeof window.showAdminLanding === 'function') {
-      window.showAdminLanding();
-    }
 
     // Dev-only features
     document.querySelectorAll('.dev-only-feature').forEach((el) => {
@@ -596,12 +651,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize PR form event listeners
   initPrForm();
 
-  // Initialize the SAMO Shop tab. Wires the sub-nav, cart FAB, and lazy
-  // loaders. Data is only fetched when the user actually opens the tab.
+  // Initialize the SAMO Shop tab (customer side). Wires sub-nav, cart
+  // FAB, and lazy loaders.
   initShop();
 
-  // Initialize the project-tracking tab. Wires sub-nav, bell, hash
-  // routing, and the create/send modal. Visibility and data load are
-  // gated by role (vp_admin / uni_staff / dev) inside the module.
-  initProjects();
+  // (Projects module no longer initialised on the public site — it
+  // lives in /admin/.)
+
+  // About-tab sticky sub-nav: highlight whichever section is in view.
+  initAboutSubnav();
 });

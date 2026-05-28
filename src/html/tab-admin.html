@@ -1,63 +1,18 @@
-      <!-- TAB: ADMIN DASHBOARD (visible only to pr_staff / vs_staff / dev) -->
-      <div class="tab-pane fade" id="pills-admin" role="tabpanel">
-        <div class="container">
+      <!-- ADMIN CONTENT — bare content only. Included by /admin/index.html
+           inside its workspace shell. The landing cards live in admin's
+           index.html now; this file owns the PR/VS/Shop sections. -->
+      <div class="admin-inner">
 
-          <!-- ====== LANDING ====== -->
-          <div id="adminLanding">
-            <header class="admin-header mb-4">
-              <h2 class="admin-title mb-1"><i class="bi bi-shield-lock-fill me-2"></i>Admin Dashboard</h2>
-              <p class="text-muted mb-0">เครื่องมือสำหรับเจ้าหน้าที่ — เลือกระบบที่ต้องการจัดการ</p>
-            </header>
-
-            <div class="row g-3" id="adminLandingCards">
-              <!-- PR Management — pr_staff or dev -->
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
-                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
-                  onclick="openAdminSection('pr')">
-                  <span class="admin-card-icon"><i class="bi bi-megaphone-fill"></i></span>
-                  <div class="admin-card-body">
-                    <h5>PR Management</h5>
-                    <p>จัดการคำขอประชาสัมพันธ์ ตรวจสอบงานค้าง และมอบหมายทีม</p>
-                  </div>
-                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
-                </button>
-              </div>
-
-              <!-- VitalSound Management — vs_staff or dev -->
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="vs_staff dev">
-                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
-                  onclick="openAdminSection('vs')">
-                  <span class="admin-card-icon"><i class="bi bi-clipboard2-pulse"></i></span>
-                  <div class="admin-card-body">
-                    <h5>VitalSound Management</h5>
-                    <p>ติดตามและตอบกลับการแจ้งปัญหาจากนักศึกษา</p>
-                  </div>
-                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
-                </button>
-              </div>
-
-              <!-- SAMO Shop Management — shop_admin or dev -->
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="shop_admin dev">
-                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
-                  onclick="openAdminSection('shop')">
-                  <span class="admin-card-icon"><i class="bi bi-shop"></i></span>
-                  <div class="admin-card-body">
-                    <h5>SAMO Shop Management</h5>
-                    <p>คำสั่งซื้อ ตรวจสลิป สินค้า ประกาศการรับสินค้า และตั้งค่า PromptPay</p>
-                  </div>
-                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <!-- ====== LANDING (legacy mount point) ======
+               admin/index.html has the canonical landing in its own
+               section. This block is kept as a no-op anchor so the
+               showAdminLanding() function (which still hides/shows
+               #adminLanding) doesn't crash when nothing references it. -->
+          <div id="adminLanding" class="d-none"></div>
 
           <!-- ====== PR SECTION ====== -->
           <div id="adminPRSection" class="d-none">
-            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
-              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
-            </button>
-
-            <div id="prStaffDashboardBox">
+<div id="prStaffDashboardBox">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
                   <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
@@ -106,11 +61,7 @@
 
           <!-- ====== VS SECTION ====== -->
           <div id="adminVSSection" class="d-none vs-tab">
-            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
-              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
-            </button>
-
-            <div id="staffDashboardBox">
+<div id="staffDashboardBox">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
                   <h4 class="mb-0 fw-bold text-pink-custom" id="staffTitle">VitalSound Dashboard</h4>
@@ -145,11 +96,7 @@
 
           <!-- ====== SHOP SECTION ====== -->
           <div id="adminShopSection" class="d-none shop-tab">
-            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
-              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
-            </button>
-
-            <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-3">
+<div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-3">
               <div>
                 <h2 class="shop-page-title">SAMO Shop · Admin</h2>
                 <p class="shop-page-sub mb-0">จัดการคำสั่งซื้อ ตรวจสอบสลิป และประกาศรับสินค้า</p>
@@ -330,5 +277,4 @@
 
           </div>
 
-        </div>
       </div>

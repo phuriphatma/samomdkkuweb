@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import fs from 'fs';
 import path from 'path';
 
+// Inline-include partials at build time. Used by both entries.
 function htmlPartials() {
   return {
     name: 'html-partials',
@@ -22,6 +23,16 @@ export default defineConfig({
   plugins: [htmlPartials()],
   build: {
     outDir: 'dist',
+    // Multi-page build — public site at /, operator app at /admin/.
+    // Same Supabase, same Cloudflare project; two bundles so public
+    // visitors don't download admin code. Pattern follows Stripe /
+    // Vercel / Linear: public marketing + dedicated operator app.
+    rollupOptions: {
+      input: {
+        public: path.resolve(__dirname, 'index.html'),
+        admin:  path.resolve(__dirname, 'admin/index.html'),
+      },
+    },
   },
   server: {
     port: 5174,

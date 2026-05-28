@@ -1,8 +1,70 @@
-<section class="about-footer text-center">
-    <p class="mb-1 fw-bold" style="color: var(--brand-primary);">
-        <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
-    </p>
-    <p class="text-muted small mb-0">
-        © 2026 สโมสรนักศึกษาคณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น
-    </p>
-</section>
+  <!-- Site footer — institutional content (About / Mission / Policy) lives here
+       since it moved out of the navbar. 4 columns on desktop, stacks on mobile. -->
+  <footer class="samo-footer">
+    <div class="container-fluid samo-footer-container">
+      <div class="samo-footer-grid">
+
+        <!-- Brand column -->
+        <div class="samo-footer-brand">
+          <a class="brand-fixed mb-2" href="#"
+            onclick="document.getElementById('pills-home-tab').click(); return false;">
+            <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
+          </a>
+          <p class="samo-footer-tagline">
+            สโมสรนักศึกษาคณะแพทยศาสตร์<br>มหาวิทยาลัยขอนแก่น
+          </p>
+        </div>
+
+        <!-- About sections -->
+        <div class="samo-footer-col">
+          <h4 class="samo-footer-heading">เกี่ยวกับเรา</h4>
+          <ul class="samo-footer-list">
+            <li><a href="#about-team" onclick="event.preventDefault(); goToAbout('about-team');">ทีมงาน</a></li>
+            <li><a href="#about-vision" onclick="event.preventDefault(); goToAbout('about-vision');">วิสัยทัศน์</a></li>
+            <li><a href="#about-mission" onclick="event.preventDefault(); goToAbout('about-mission');">พันธกิจ</a></li>
+            <li><a href="#about-policy" onclick="event.preventDefault(); goToAbout('about-policy');">นโยบาย</a></li>
+          </ul>
+        </div>
+
+        <!-- Tools quick-links -->
+        <div class="samo-footer-col">
+          <h4 class="samo-footer-heading">เครื่องมือ</h4>
+          <ul class="samo-footer-list">
+            <li><a href="#" onclick="event.preventDefault(); activateTab('pills-tools-tab');">เครื่องมือทั้งหมด</a></li>
+            <li><a href="#" onclick="event.preventDefault(); activateTab('pills-pr-tab');">PR Form</a></li>
+            <li><a href="#" onclick="event.preventDefault(); activateTab('pills-vitalsound-tab');">VitalSound</a></li>
+            <li><a href="#" onclick="event.preventDefault(); activateTab('pills-announcements-tab');">ประกาศทั้งหมด</a></li>
+            <li><a href="#" onclick="event.preventDefault(); activateTab('pills-shop-tab');">ร้านค้า SAMO</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact / external -->
+        <div class="samo-footer-col">
+          <h4 class="samo-footer-heading">ติดต่อ</h4>
+          <ul class="samo-footer-list">
+            <li>
+              <a href="https://www.facebook.com/SAMO.MDKKU" target="_blank" rel="noopener">
+                <i class="bi bi-facebook me-1"></i>Facebook
+              </a>
+            </li>
+            <li>
+              <a href="https://www.instagram.com/samo.mdkku" target="_blank" rel="noopener">
+                <i class="bi bi-instagram me-1"></i>Instagram
+              </a>
+            </li>
+            <li>
+              <a href="mailto:samomdkku@gmail.com">
+                <i class="bi bi-envelope me-1"></i>samomdkku@gmail.com
+              </a>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="samo-footer-bar">
+        <span class="samo-footer-copy">© 2026 สโมสรนักศึกษาคณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น</span>
+        <span class="samo-footer-meta">MDKKU SAMO Portal</span>
+      </div>
+    </div>
+  </footer>
