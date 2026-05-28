@@ -5,6 +5,7 @@
 import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
+import { getUser as authGetUser } from './auth.js';
 
 let staffTicketsCache = [];
 let currentActiveTicketId = null;
@@ -12,13 +13,47 @@ let currentStaffRole = null;
 
 // --------------------------------------------------
 // Staff Entry — gated by global auth (Admin tab)
+//
+// For a VP (role=vp_admin): force the dept filter to THEIR users.department
+// and hide the picker entirely — they're only authorized to see their own
+// dept's tickets, and the picker would just confuse them. RLS (migration
+// 0010) already enforces this at the DB level; this just stops the UI
+// from offering a choice that returns nothing.
+//
+// For vs_staff / dev (super): keep the picker so they can browse any dept.
 // --------------------------------------------------
 
 export async function enterVSStaffDashboard(roleArg) {
   const select = document.getElementById('staffRole');
-  const selected = select && select.value ? select.value : null;
-  currentStaffRole = selected || roleArg || 'SE';
-  if (select) select.value = currentStaffRole;
+  const user = authGetUser();
+  const isVP = user?.role === 'vp_admin';
+
+  if (isVP && user.department) {
+    // Lock to the VP's own dept. Hide the picker.
+    currentStaffRole = user.department;
+    if (select) {
+      select.value = currentStaffRole;
+      // If their dept isn't in the static option list (legacy markup),
+      // add it dynamically so the .value sticks.
+      if (select.value !== currentStaffRole) {
+        const opt = document.createElement('option');
+        opt.value = currentStaffRole;
+        opt.textContent = currentStaffRole;
+        select.appendChild(opt);
+        select.value = currentStaffRole;
+      }
+      // Hide the picker (the surrounding parent too if it's a wrapper).
+      select.classList.add('d-none');
+    }
+  } else {
+    const selected = select && select.value ? select.value : null;
+    currentStaffRole = selected || roleArg || 'SE';
+    if (select) {
+      select.value = currentStaffRole;
+      select.classList.remove('d-none');
+    }
+  }
+
   const titleEl = document.getElementById('staffTitle');
   if (titleEl) titleEl.innerText = `Dashboard: ${currentStaffRole}`;
   await fetchStaffTickets();
