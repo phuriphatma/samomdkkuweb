@@ -62,17 +62,17 @@
   font-family: "Prompt", sans-serif;
 }
 
-/* Primary nav cluster — left-aligned next to the brand (Stripe / Linear /
-   Vercel pattern). The auth area uses ms-auto on its container to push
-   to the right, leaving the whitespace between cluster and auth instead
-   of forcing pills to float in a centered void. */
+/* Primary nav cluster — centered between brand (left) and auth (right).
+   `margin: 0 auto` consumes equal flex remaining-space on both sides;
+   the auth area's `flex-shrink: 0` keeps it at its natural width on
+   the right edge so the pills sit visually between. */
 .nav-primary {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
   list-style: none;
   padding: 0;
-  margin: 0 0 0 0.5rem;
+  margin: 0 auto;
 }
 
 .nav-pills .nav-link {
@@ -203,15 +203,13 @@
   box-shadow: var(--shadow-focus-ring) !important;
 }
 
-/* Auth area sizing — auto-margin pushes it to the far right, balancing
-   the brand+pills cluster on the left. flex-shrink:0 so the auth
-   button never gets squeezed (which previously made "เข้าสู่ระบบ"
-   wrap onto two lines at narrow widths). */
+/* Auth area sizing — sits at the right edge naturally because
+   .nav-primary's `margin: 0 auto` consumes the space on both sides.
+   flex-shrink:0 keeps "เข้าสู่ระบบ" on one line at narrow widths. */
 .samo-navbar-auth {
   display: flex;
   align-items: center;
   min-height: 40px;
-  margin-left: auto;
   flex-shrink: 0;
   white-space: nowrap;
 }
