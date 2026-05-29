@@ -346,13 +346,17 @@ function openOrderModal(orderId) {
     });
   });
 
-  // Wire the footer Save / Cancel / Delete buttons.
+  // Wire the footer Save / Cancel / Delete buttons. Defensive null
+  // checks throughout — handlers can fire after modalOrder is reset
+  // by a prior action (e.g. delete completed then user mis-clicks).
   document.getElementById('shopAdminOrderModalSave')?.addEventListener('click', () => {
+    if (!modalOrder) return;
     if (modalPendingStatus && modalPendingStatus !== modalOrder.status) {
       modalAction(modalPendingStatus);
     }
   });
   document.getElementById('shopAdminOrderModalResetStatus')?.addEventListener('click', () => {
+    if (!modalOrder) return;
     modalPendingStatus = modalOrder.status;
     body.querySelectorAll('[data-set-status]').forEach((b) => {
       b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
@@ -400,7 +404,12 @@ async function deleteCurrentOrder() {
 }
 
 function orderModalBodyHtml(o) {
-  const items = Array.isArray(o.items) ? o.items : [];
+  // Defensive: items array may contain stale references when an old
+  // order's product was renamed. Filter null/undefined entries and
+  // look up the name from state.products so the admin sees something
+  // human-readable instead of "p-shirtttest-685".
+  const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   return `
     <div class="row g-3">
       <div class="col-md-7">
@@ -419,19 +428,24 @@ function orderModalBodyHtml(o) {
         </div>
 
         <h5>รายการสินค้า</h5>
-        ${items.map((it) => `
-          <div class="d-flex gap-3 align-items-center py-2"
+        ${items.map((it) => {
+          const product = productMap.get(it.product_id);
+          const displayName = product?.name || it.product_id || '(สินค้าถูกลบ)';
+          return `
+          <div class="d-flex gap-3 align-items-center py-2 flex-wrap"
                style="border-bottom: 1px solid var(--shop-ink-100, #ebecee);">
-            <div class="flex-grow-1">
-              <div style="font-weight:600;">${escHtml(it.product_id)}</div>
+            <div class="flex-grow-1" style="min-width:160px;">
+              <div style="font-weight:600;">${escHtml(displayName)}</div>
               <div class="small text-muted">
+                ${product?.id ? `<code class="text-muted">${escHtml(product.id)}</code> · ` : ''}
                 ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
                 ${it.color ? ` · ${escHtml(it.color)}` : ''}
               </div>
             </div>
             <div style="min-width:60px; text-align:right;">× ${it.qty}</div>
             <div style="min-width:80px; text-align:right; font-weight:700;">฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
         <div class="d-flex justify-content-between mt-3" style="font-size:1.1rem; font-weight:700;">
           <span>ยอดรวม</span>
           <span style="color:var(--shop-700);">฿${thb(o.total)}</span>
@@ -502,23 +516,30 @@ async function persistAdminNoteIfChanged() {
 
 async function modalAction(nextStatus, cancelReason) {
   if (!modalOrder) return;
+  // Snapshot the id immediately — defensive against the `modalOrder`
+  // reference being nulled by another handler while the PATCH is in
+  // flight (which was producing the "Cannot read properties of null
+  // (reading 'id')" toast on a stale modal click).
+  const orderId = modalOrder.id;
   const noteEl = document.getElementById('shopAdminOrderModalNote');
   const adminNote = noteEl ? noteEl.value : undefined;
   try {
-    await updateOrderStatus(modalOrder.id, nextStatus, {
+    await updateOrderStatus(orderId, nextStatus, {
       label: STAGES_META[nextStatus]?.label || nextStatus,
       cancelReason,
       adminNote,
     });
-    showShopToast(`อัปเดต #${modalOrder.id} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
+    showShopToast(`อัปเดต #${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
     modalOrder = null;
+    modalPendingStatus = null;
     const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
     inst?.hide();
     await refreshOrders();
     if (state.tab === 'verify') renderVerifyQueue();
     if (state.tab === 'delivery') refreshDelivery();
   } catch (e) {
-    showShopToast(`อัปเดตล้มเหลว: ${e.message || e}`, 'error');
+    console.error('[shop/admin] modalAction failed:', e);
+    showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
   }
 }
 

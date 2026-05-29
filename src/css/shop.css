@@ -403,32 +403,61 @@
   border-color: var(--shop-300);
 }
 
-/* Issue chips — coloured per status `tone` so they read at a glance:
-   warning (amber) for actionable, info (blue) for waiting, neutral
-   (gray) for terminal, danger (red) for alerts. Active state goes
-   deeper + border in the same tone. */
-.shop-tab .chip-tone-warning  { background: #fff7ed; color: #b45309; }
-.shop-tab .chip-tone-warning:hover { background: #ffedd5; }
+/* Issue / status chips — selection-state pattern follows the GitHub /
+   Linear / Notion convention:
+     unselected → outlined, white fill, tone-tinted border + text
+     selected   → solid filled in the tone colour, white text, ring
+   So the difference between "I've picked this" and "I'm just hovering"
+   is unambiguous, instead of one wash of pastel that the user couldn't
+   tell apart. Each tone keeps its own colour family. */
+
+/* Default chip (happy-path) — unselected outlined, selected solid green */
+.shop-tab .chip {
+  background: #fff;
+  color: var(--shop-700);
+  border: 1px solid var(--shop-ink-200, #d6d6d6);
+}
+.shop-tab .chip:hover { background: var(--shop-ink-50); }
+.shop-tab .chip.is-active {
+  background: var(--shop-700, #1f6f44);
+  color: #fff;
+  border-color: var(--shop-700, #1f6f44);
+  box-shadow: 0 0 0 2px rgba(31, 111, 68, .15);
+}
+.shop-tab .chip.is-active::before {
+  content: '\F26B'; /* bi bi-check-lg glyph */
+  font-family: 'bootstrap-icons';
+  font-size: .9em;
+  margin-right: .15rem;
+}
+
+/* Tone variants — outlined unselected, solid selected */
+.shop-tab .chip-tone-warning  { color: #b45309; border-color: #f59e0b; }
+.shop-tab .chip-tone-warning:hover { background: #fff7ed; }
 .shop-tab .chip-tone-warning.is-active {
-  background: #fde68a; color: #92400e; border-color: #f59e0b;
+  background: #f59e0b; color: #fff; border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, .25);
 }
 
-.shop-tab .chip-tone-info     { background: #eff6ff; color: #1d4ed8; }
-.shop-tab .chip-tone-info:hover { background: #dbeafe; }
+.shop-tab .chip-tone-info     { color: #1d4ed8; border-color: #3b82f6; }
+.shop-tab .chip-tone-info:hover { background: #eff6ff; }
 .shop-tab .chip-tone-info.is-active {
-  background: #bfdbfe; color: #1e3a8a; border-color: #3b82f6;
+  background: #3b82f6; color: #fff; border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, .25);
 }
 
-.shop-tab .chip-tone-neutral  { background: #f3f4f6; color: #4b5563; }
-.shop-tab .chip-tone-neutral:hover { background: #e5e7eb; }
+.shop-tab .chip-tone-neutral  { color: #4b5563; border-color: #9ca3af; }
+.shop-tab .chip-tone-neutral:hover { background: #f3f4f6; }
 .shop-tab .chip-tone-neutral.is-active {
-  background: #d1d5db; color: #1f2937; border-color: #6b7280;
+  background: #6b7280; color: #fff; border-color: #4b5563;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, .25);
 }
 
-.shop-tab .chip-tone-danger   { background: #fef2f2; color: #b91c1c; }
-.shop-tab .chip-tone-danger:hover { background: #fee2e2; }
+.shop-tab .chip-tone-danger   { color: #b91c1c; border-color: #ef4444; }
+.shop-tab .chip-tone-danger:hover { background: #fef2f2; }
 .shop-tab .chip-tone-danger.is-active {
-  background: #fecaca; color: #7f1d1d; border-color: #ef4444;
+  background: #ef4444; color: #fff; border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, .25);
 }
 .shop-tab .chip .chip-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -1459,6 +1488,45 @@
   color: var(--shop-ink-700);
   text-transform: none; letter-spacing: 0;
 }
+/* ===== Mobile / iPad responsiveness for admin orders ===== */
+
+/* Admin orders table — horizontal scroll wrapper so wide rows don't
+   blow out the page. The .admin-table class already has overflow but
+   tightening it for ≤md ensures Safari iOS gets touch-momentum scroll. */
+.shop-tab .admin-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.shop-tab .admin-table table { min-width: 720px; }
+
+/* Order detail modal — on phones the modal-lg renders too narrow for
+   the 2-column body; switch to a single column and let the body
+   scroll inside the dialog. */
+@media (max-width: 767.98px) {
+  .modal-dialog.modal-lg.modal-dialog-scrollable,
+  .modal-dialog.modal-lg {
+    margin: .5rem;
+    max-width: calc(100% - 1rem);
+  }
+  .modal-dialog.modal-lg .row > .col-md-7,
+  .modal-dialog.modal-lg .row > .col-md-5 {
+    flex: 0 0 100%; max-width: 100%;
+  }
+  .shop-tab .chip {
+    /* Wrap long status labels on small screens instead of overflowing */
+    white-space: normal; line-height: 1.2;
+  }
+  .modal-dialog.modal-lg .modal-footer .btn { font-size: .85rem; }
+  /* Allow the modal body to scroll on iOS */
+  .modal-dialog.modal-lg .modal-body { -webkit-overflow-scrolling: touch; }
+}
+
+/* Admin filter row collapses cleanly on narrow viewports */
+@media (max-width: 575.98px) {
+  #shopAdminOrdersFilterMode .btn { font-size: .75rem; padding: .2rem .55rem; }
+  .shop-tab .admin-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+}
+
 /* Product-editor swatch next to the Hue input — gives admin a live
    preview of the placeholder background they're picking. */
 .shop-tab .shop-hue-swatch { min-width: 2.4rem; }
