@@ -1,6 +1,66 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-29 (mobile sign-out fix + external-link surface — see top section)
+Last updated: 2026-05-29 (news editor polish + drag-reorder + merge to main — see top section)
+
+## News editor polish + drag-reorder + merge to main (2026-05-29)
+
+User-driven iteration on the announcements / news experience plus a
+production merge.
+
+### Shipped on refactor/modular
+
+- **Edit-blank bug** finally root-caused: `loadAnnouncements()` was
+  writing to `#announcementsGrid` and `#emptyState` on its first line
+  — those only exist on the public site. On admin the TypeError was
+  swallowed by `tryCreatorDeepLink`'s catch, `globalAnnouncements`
+  stayed empty, and `editAnnouncement(id)` found nothing. Wrapped
+  every DOM-write in a null guard; re-throw on error so callers see
+  real failures.
+- **Publish self-heals on missing excerpt** column the same way the
+  read path does (gate by response, not by a flag set elsewhere).
+- **16:9 cover-image cropper** via Cropper.js. Picking a file opens
+  a modal; the crop box is locked at 16:9; confirm exports max
+  2000×1125 JPEG @ 0.9 and uploads. Cancel leaves the existing cover
+  untouched. The display-side `aspect-ratio: 16/9 + object-fit:
+  cover` still applies, but now the author picks the framing.
+- **Featured card frame at 16:9** (was `4/3` on desktop) so a
+  1600×900 upload renders edge-to-edge on the home featured card.
+- **Delete that actually deletes**: split `deleteCurrentAnnouncement`
+  into `deleteAnnouncement(id?)`, `deleteCurrentAnnouncement`,
+  `deleteEditingAnnouncement`. Public reader's "ลบ" no longer hops
+  to /admin — it confirms + deletes inline. New "ลบประกาศนี้" button
+  in the admin creator appears when editing.
+- **Drag-to-reorder** via SortableJS in the admin creator's new
+  collapsible "ลำดับการแสดงประกาศ" panel. Drag handle on the left,
+  thumb + title + dept/date middle, edit-pencil right. Drop persists
+  via `display_order` PATCHes (top = highest int, descending).
+- **Migration 0017_announcement_order.sql** adds the `display_order
+  int` column + index. Sort changed to `display_order desc nulls
+  last, created_at desc`. Read path cascades graceful fallback (no
+  excerpt → no display_order → minimal) so the site keeps working
+  pre-migration.
+
+### Pending migrations to apply on prod (`fheueuowbchsnsvbcgil`)
+
+| Migration | Purpose | Status |
+|---|---|---|
+| 0008_announcements_excerpt.sql | excerpt column | applied (user confirmed) |
+| 0016_current_user_dept_helper.sql | `current_user_dept()` security-definer helper + repoint vs_tickets policies | **❌ pending** |
+| 0017_announcement_order.sql | display_order column + index | **❌ pending — apply before next ship to enable reorder** |
+
+Without 0017 applied, the reorder UI still renders (using the fallback
+sort by created_at) but the PATCH on drop will 400 and the toast shows
+"บันทึกลำดับไม่สำเร็จ".
+
+### Merge to main
+
+Merging `refactor/modular` → `main` per user request. Both branches
+build green, 26/26 tests pass. Branch ruleset `main-protect` is
+active; we have Bypass.
+
+---
+
+## Mobile sign-out + external-link surface (2026-05-29)
 
 ## Mobile sign-out + external-link surface (2026-05-29)
 

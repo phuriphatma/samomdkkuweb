@@ -6,6 +6,22 @@
            includes it inside its workspace shell. -->
       <div class="creator-content">
         <div class="form-container creator-shell" style="max-width: 920px;">
+
+          <!-- ANNOUNCEMENT ORDER PANEL — drag to reorder, click pencil
+               to edit. Populated by renderAnnouncementOrderList() on
+               first creator entry and after publish/delete. SortableJS
+               handles the drag UX. -->
+          <details class="announcements-order mb-4" id="announcementsOrderPanel">
+            <summary class="announcements-order-summary">
+              <i class="bi bi-list-ol me-2"></i>
+              <span>ลำดับการแสดงประกาศ</span>
+              <span class="text-muted small ms-2">(ลากเพื่อจัดเรียง · กดดินสอเพื่อแก้ไข)</span>
+            </summary>
+            <ul class="list-group list-group-flush announcements-order-list mt-3" id="announcementsOrderList">
+              <li class="list-group-item text-muted small">กำลังโหลด…</li>
+            </ul>
+          </details>
+
           <div class="creator-head mb-4">
             <div>
               <h2 class="page-header mb-1" id="creatorPageHeader"><i

@@ -13,7 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
@@ -398,10 +398,55 @@ function showAdminSide(which) {
     enterProjectsWorkspace();
   }
 
+  // Creator: lazy-load the announcement list + attach SortableJS so the
+  // reorder panel works. Idempotent — re-entry rerenders + reattaches.
+  if (which === 'creator') {
+    enterCreator();
+  }
+
   // Mirror in the URL hash so admin sub-pages are bookmarkable.
   const want = which === 'landing' ? '' : '#' + which;
   if (location.hash !== want) history.replaceState(null, '', location.pathname + want);
 }
+
+let _orderSortableAttached = false;
+async function enterCreator() {
+  const listEl = document.getElementById('announcementsOrderList');
+  if (!listEl) return;
+  try {
+    await loadAnnouncements();
+  } catch (e) {
+    console.warn('[admin-main] creator: loadAnnouncements failed:', e?.message || e);
+  }
+  renderAnnouncementOrderList(listEl);
+  // Attach SortableJS once. Re-renders replace the <li> elements but
+  // SortableJS works off the parent <ul> so it picks up new children.
+  if (!_orderSortableAttached && window.Sortable) {
+    window.Sortable.create(listEl, {
+      handle: '.order-row-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      onEnd: async () => {
+        const ids = Array.from(listEl.querySelectorAll('.order-row'))
+          .map((li) => li.dataset.id);
+        await saveAnnouncementOrder(ids);
+        // saveAnnouncementOrder reloads announcements; re-render the list.
+        renderAnnouncementOrderList(listEl);
+      },
+    });
+    _orderSortableAttached = true;
+  }
+}
+
+// Exposed for the pencil button inside each order-row.
+window.editAnnouncementById = (id) => {
+  // Open the editor form for this article; collapse the order panel so
+  // the form is the user's focus.
+  editAnnouncement(id);
+  const panel = document.getElementById('announcementsOrderPanel');
+  if (panel) panel.open = false;
+};
 
 /** Handle `#creator/{id}` deep-link: navigate to the creator pane and
  *  pre-populate the form with that article. Returns true if it routed,

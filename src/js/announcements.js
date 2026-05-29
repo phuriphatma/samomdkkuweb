@@ -358,6 +358,68 @@ export async function deleteEditingAnnouncement() {
 }
 
 // --------------------------------------------------
+// Reorder (admin only)
+//
+// Topmost item in the rendered list maps to the HIGHEST display_order
+// integer so the sort `display_order desc nulls last, created_at desc`
+// puts it first. We PATCH each row's display_order; for ~10–20 articles
+// this is a tolerable burst.
+// --------------------------------------------------
+
+/** Persist a new ordering given the list of ids from top to bottom. */
+export async function saveAnnouncementOrder(orderedIds) {
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return false;
+  const n = orderedIds.length;
+  // top = n, second = n-1, …, last = 1 (avoid 0 so the sort sees a
+  // distinct value vs. unset rows that we might have later)
+  const ops = orderedIds.map((id, idx) => ({ id, order: n - idx }));
+  for (const { id, order } of ops) {
+    const { error } = await dbRest(
+      `/announcements?id=eq.${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: { display_order: order }, prefer: 'return=minimal' },
+    );
+    if (error) {
+      console.error('[announcements] saveAnnouncementOrder failed for id', id, error);
+      alert('บันทึกลำดับไม่สำเร็จ: ' + (error.message || 'unknown'));
+      return false;
+    }
+  }
+  // Refresh local cache + any visible lists.
+  await loadAnnouncements();
+  return true;
+}
+
+/** Render the admin reorder panel — one row per article with a drag
+ *  handle + title + thumbnail + a tiny "แก้ไข" shortcut. Caller is
+ *  responsible for attaching SortableJS to the resulting <ul>. */
+export function renderAnnouncementOrderList(rootEl) {
+  if (!rootEl) return;
+  if (globalAnnouncements.length === 0) {
+    rootEl.innerHTML = '<li class="list-group-item text-muted small">ยังไม่มีประกาศที่เผยแพร่</li>';
+    return;
+  }
+  rootEl.innerHTML = globalAnnouncements.map((post) => {
+    const thumb = post.thumbnail
+      ? `<img src="${escHtml(post.thumbnail)}" alt="" class="order-row-thumb">`
+      : '<span class="order-row-thumb order-row-thumb--empty"><i class="bi bi-image"></i></span>';
+    return `
+      <li class="list-group-item order-row" data-id="${escHtml(post.id)}">
+        <span class="order-row-handle" aria-label="ลากเพื่อจัดเรียง"><i class="bi bi-grip-vertical"></i></span>
+        ${thumb}
+        <span class="order-row-body">
+          <span class="order-row-title">${escHtml(post.title)}</span>
+          <span class="order-row-meta">${escHtml(post.department || '')} · ${escHtml(post.date || '')}</span>
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-secondary order-row-edit"
+          onclick="event.stopPropagation(); editAnnouncementById('${escHtml(post.id)}');">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </li>
+    `;
+  }).join('');
+}
+
+// --------------------------------------------------
 // Load Announcements from Server
 // --------------------------------------------------
 
@@ -382,18 +444,38 @@ export async function loadAnnouncements() {
     // keeps working — renderers already fall back to the extracted
     // snippet when excerpt is empty. Log once so the dev sees the
     // pending migration.
-    const baseSelect = 'id,title,content,department,thumbnail_url,created_at';
+    const baseSelect = 'id,title,content,department,thumbnail_url,created_at,display_order';
+    const orderBy = 'display_order.desc.nullslast,created_at.desc';
     let { data, error } = await dbRest(
-      `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=created_at.desc`
+      `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=${orderBy}`
     );
-    if (error && error.status === 400) {
+    // Cascade graceful fallbacks: try `excerpt` first (0008 column).
+    // If that 400s on excerpt, retry without it. If THAT also 400s on
+    // display_order (0017 column), retry with the original minimal
+    // select. Same self-healing pattern the publish path uses.
+    if (error && error.status === 400 && /excerpt/i.test(error.message || '')) {
       if (!window.__samoWarnedExcerpt) {
         window.__samoWarnedExcerpt = true;
-        console.warn('[announcements] excerpt column missing — apply migration 0008_announcements_excerpt.sql to enable author-written subheads. Falling back to auto-snippet for now.');
+        console.warn('[announcements] excerpt column missing — apply migration 0008_announcements_excerpt.sql.');
       }
       ({ data, error } = await dbRest(
-        `/announcements?select=${baseSelect}&status=eq.approved&order=created_at.desc`
+        `/announcements?select=${baseSelect}&status=eq.approved&order=${orderBy}`
       ));
+    }
+    if (error && error.status === 400 && /display_order/i.test(error.message || '')) {
+      if (!window.__samoWarnedOrder) {
+        window.__samoWarnedOrder = true;
+        console.warn('[announcements] display_order column missing — apply migration 0017_announcement_order.sql to enable drag-reorder.');
+      }
+      const minimalSelect = 'id,title,content,department,thumbnail_url,created_at';
+      ({ data, error } = await dbRest(
+        `/announcements?select=${minimalSelect},excerpt&status=eq.approved&order=created_at.desc`
+      ));
+      if (error && error.status === 400 && /excerpt/i.test(error.message || '')) {
+        ({ data, error } = await dbRest(
+          `/announcements?select=${minimalSelect}&status=eq.approved&order=created_at.desc`
+        ));
+      }
     }
     if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
 
@@ -410,6 +492,7 @@ export async function loadAnnouncements() {
       excerpt: row.excerpt || '',
       content: row.content,
       thumbnail: row.thumbnail_url || '',
+      displayOrder: row.display_order ?? null,
     }));
     if (container) container.innerHTML = '';
 
