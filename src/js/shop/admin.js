@@ -452,10 +452,13 @@ function orderModalBodyHtml(o) {
 
         <h5 class="mt-3">สถานะปัญหา</h5>
         <div class="d-flex flex-wrap gap-2">
-          ${ISSUE_STATUSES.map((s) => `
-            <button type="button" class="chip chip-issue ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
+          ${ISSUE_STATUSES.map((s) => {
+            const tone = STAGES_META[s].tone || 'warning';
+            return `
+            <button type="button" class="chip chip-tone-${escHtml(tone)} ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
               <i class="bi ${escHtml(STAGES_META[s].icon)}"></i> ${escHtml(STAGES_META[s].label)}
-            </button>`).join('')}
+            </button>`;
+          }).join('')}
         </div>
 
         <h5 class="mt-3">หมายเหตุภายใน admin</h5>
@@ -1752,12 +1755,17 @@ function stockCardHtml(p) {
                     : v === 0 ? 'is-zero'
                     : v <= 3 ? 'is-low'
                     : 'is-ok';
+                  // The td has to stay display:table-cell so column
+                  // widths align with the size headers above; the
+                  // [-] input [+] cluster lives in an inner wrap.
                   return `
-                    <td class="stock-cell-wrap ${cls}">
-                      <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|-1" title="ลด 1">−</button>
-                      <input class="stock-cell" data-stock-cell="${escHtml(p.id)}|${escHtml(k)}" inputmode="numeric"
-                             value="${v === undefined ? '' : Number(v)}" placeholder="–" />
-                      <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
+                    <td class="stock-cell-td">
+                      <div class="stock-cell-wrap ${cls}">
+                        <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|-1" title="ลด 1">−</button>
+                        <input class="stock-cell" data-stock-cell="${escHtml(p.id)}|${escHtml(k)}" inputmode="numeric"
+                               value="${v === undefined ? '' : Number(v)}" placeholder="–" />
+                        <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
+                      </div>
                     </td>`;
                 }).join('')}
               </tr>`).join('')}

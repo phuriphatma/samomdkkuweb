@@ -403,20 +403,32 @@
   border-color: var(--shop-300);
 }
 
-/* Issue chips read in warm amber by default so the admin can tell at
-   a glance which group they're picking from. Active stays distinct
-   (deeper amber with border) and matches the row header colour. */
-.shop-tab .chip-issue {
-  background: #fff7ed;
-  color: #b45309;
+/* Issue chips — coloured per status `tone` so they read at a glance:
+   warning (amber) for actionable, info (blue) for waiting, neutral
+   (gray) for terminal, danger (red) for alerts. Active state goes
+   deeper + border in the same tone. */
+.shop-tab .chip-tone-warning  { background: #fff7ed; color: #b45309; }
+.shop-tab .chip-tone-warning:hover { background: #ffedd5; }
+.shop-tab .chip-tone-warning.is-active {
+  background: #fde68a; color: #92400e; border-color: #f59e0b;
 }
-.shop-tab .chip-issue:hover {
-  background: #ffedd5;
+
+.shop-tab .chip-tone-info     { background: #eff6ff; color: #1d4ed8; }
+.shop-tab .chip-tone-info:hover { background: #dbeafe; }
+.shop-tab .chip-tone-info.is-active {
+  background: #bfdbfe; color: #1e3a8a; border-color: #3b82f6;
 }
-.shop-tab .chip-issue.is-active {
-  background: #fde68a;
-  color: #92400e;
-  border-color: #f59e0b;
+
+.shop-tab .chip-tone-neutral  { background: #f3f4f6; color: #4b5563; }
+.shop-tab .chip-tone-neutral:hover { background: #e5e7eb; }
+.shop-tab .chip-tone-neutral.is-active {
+  background: #d1d5db; color: #1f2937; border-color: #6b7280;
+}
+
+.shop-tab .chip-tone-danger   { background: #fef2f2; color: #b91c1c; }
+.shop-tab .chip-tone-danger:hover { background: #fee2e2; }
+.shop-tab .chip-tone-danger.is-active {
+  background: #fecaca; color: #7f1d1d; border-color: #ef4444;
 }
 .shop-tab .chip .chip-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -1446,6 +1458,13 @@
   font-size: .85rem;
   color: var(--shop-ink-700);
   text-transform: none; letter-spacing: 0;
+}
+/* td stays a real table-cell so column widths track the size headers.
+   The interactive cluster lives in .stock-cell-wrap inside. */
+.shop-tab .stock-grid-table .stock-cell-td {
+  text-align: center;
+  padding: 0;
+  vertical-align: middle;
 }
 .shop-tab .stock-cell-wrap {
   background: #fff;

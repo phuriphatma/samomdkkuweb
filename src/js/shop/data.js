@@ -43,12 +43,18 @@ export const STAGES_META = {
   ready:          { label: 'ประกาศรอบรับสินค้า',    icon: 'bi-megaphone-fill',      short: 'ประกาศแล้ว' },
   done:           { label: 'ได้รับสินค้าแล้ว',       icon: 'bi-bag-check-fill',      short: 'รับแล้ว' },
   // ── off-path (issue / refund / exchange flow) ───────────────────
-  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',     icon: 'bi-x-circle',               short: 'ยกเลิก',     issue: true },
-  slip_mismatch:  { label: 'สลิปไม่ถูกต้อง',       icon: 'bi-exclamation-triangle',   short: 'สลิปไม่ตรง', issue: true },
-  refund_pending: { label: 'รอคืนเงิน',           icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน',  issue: true },
-  refunded:       { label: 'คืนเงินแล้ว',         icon: 'bi-cash-coin',              short: 'คืนแล้ว',    issue: true },
-  no_show:        { label: 'ยังไม่ได้รับสินค้า',   icon: 'bi-hourglass-bottom',       short: 'ยังไม่รับ',  issue: true },
-  exchange:       { label: 'เปลี่ยนสินค้า',        icon: 'bi-arrow-left-right',       short: 'เปลี่ยน',    issue: true },
+  // `tone` drives the chip colour in the admin issue group so each
+  // off-path status reads at a glance instead of one wash of amber:
+  //   warning (amber)  — actionable / customer fixable
+  //   info    (blue)   — waiting / pending money or process
+  //   neutral (gray)   — terminal, no action needed
+  //   danger  (red)    — alert / destructive
+  slip_mismatch:  { label: 'สลิปไม่ถูกต้อง',       icon: 'bi-exclamation-triangle',   short: 'สลิปไม่ตรง', issue: true, tone: 'warning' },
+  exchange:       { label: 'เปลี่ยนสินค้า',        icon: 'bi-arrow-left-right',       short: 'เปลี่ยน',    issue: true, tone: 'warning' },
+  refund_pending: { label: 'รอคืนเงิน',           icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน',  issue: true, tone: 'info' },
+  no_show:        { label: 'ยังไม่ได้รับสินค้า',   icon: 'bi-hourglass-bottom',       short: 'ยังไม่รับ',  issue: true, tone: 'danger' },
+  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',     icon: 'bi-x-circle',               short: 'ยกเลิก',     issue: true, tone: 'danger' },
+  refunded:       { label: 'คืนเงินแล้ว',         icon: 'bi-cash-coin',              short: 'คืนแล้ว',    issue: true, tone: 'neutral' },
 };
 
 /** Ordered list of "issue" statuses — anything tagged `issue: true`. */
