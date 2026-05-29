@@ -194,6 +194,28 @@ export async function publishAnnouncement() {
     row.excerpt = excerpt || null;
   }
 
+  // Self-heal POST/PATCH for the missing-excerpt-column case. The read
+  // path already retries without `excerpt`; the write path needs the
+  // same fallback so this user flow doesn't depend on loadAnnouncements
+  // having run first to trip the gate. Apply 0008_announcements_excerpt.sql
+  // to remove the need for this retry.
+  const writeWithExcerptFallback = async (path, opts) => {
+    let res = await dbRest(path, opts);
+    const looksLikeExcerptMissing = res.error
+      && String(res.error.status) === '400'
+      && /excerpt/i.test(res.error.message || '')
+      && opts.body && Object.prototype.hasOwnProperty.call(opts.body, 'excerpt');
+    if (looksLikeExcerptMissing) {
+      if (!window.__samoWarnedExcerpt) {
+        window.__samoWarnedExcerpt = true;
+        console.warn('[announcements] excerpt column missing on publish — retrying without it. Apply migration 0008_announcements_excerpt.sql.');
+      }
+      const { excerpt: _drop, ...bodyWithoutExcerpt } = opts.body;
+      res = await dbRest(path, { ...opts, body: bodyWithoutExcerpt });
+    }
+    return res;
+  };
+
   try {
     let result;
     if (isEditing) {
@@ -202,7 +224,7 @@ export async function publishAnnouncement() {
       // will be an empty array — we surface that as a clear error
       // rather than the silent no-op the previous code had.
       const idEsc = encodeURIComponent(editingAnnouncementId);
-      result = await dbRest(`/announcements?id=eq.${idEsc}`, {
+      result = await writeWithExcerptFallback(`/announcements?id=eq.${idEsc}`, {
         method: 'PATCH',
         body: row,
         prefer: 'return=representation',
@@ -211,7 +233,7 @@ export async function publishAnnouncement() {
         throw new Error('อัปเดตไม่สำเร็จ — ไม่พบประกาศ id=' + editingAnnouncementId + ' หรือคุณไม่มีสิทธิ์แก้ไข (ต้องเป็น pr_staff หรือ dev)');
       }
     } else {
-      result = await dbRest('/announcements', {
+      result = await writeWithExcerptFallback('/announcements', {
         method: 'POST',
         body: row,
         prefer: 'return=representation',
