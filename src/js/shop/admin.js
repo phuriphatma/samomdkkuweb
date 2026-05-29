@@ -87,6 +87,13 @@ function ensureMounted() {
   if (prodSel) {
     prodSel.addEventListener('change', () => { state.ordersProduct = prodSel.value; renderOrdersTable(); });
   }
+  // Filter combine mode (AND default / OR).
+  state.ordersFilterMode = state.ordersFilterMode || 'and';
+  document.querySelectorAll('input[name="shopAdminOrdersFilterMode"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      if (r.checked) { state.ordersFilterMode = r.value; renderOrdersTable(); }
+    });
+  });
   document.getElementById('shopAdminOrdersRefresh')?.addEventListener('click', refreshOrders);
 
   // Orders click → modal
@@ -236,16 +243,28 @@ function renderStats() {
 function renderOrdersTable() {
   const tbody = document.getElementById('shopAdminOrdersTbody');
   if (!tbody) return;
-  let list = state.orders.slice();
-  if (state.ordersFilter !== 'all') list = list.filter((o) => o.status === state.ordersFilter);
+  // Filter predicates — each closure returns true/false for one filter.
+  // Only "active" filters (not on "ทั้งหมด" / empty) are evaluated.
+  const activePredicates = [];
+  if (state.ordersFilter && state.ordersFilter !== 'all') {
+    activePredicates.push((o) => o.status === state.ordersFilter);
+  }
   if (state.ordersProduct && state.ordersProduct !== 'all') {
-    list = list.filter((o) =>
+    activePredicates.push((o) =>
       Array.isArray(o.items) && o.items.some((it) => it.product_id === state.ordersProduct));
   }
   if (state.ordersSearch) {
-    list = list.filter((o) =>
-      (o.id || '').toLowerCase().includes(state.ordersSearch)
-      || (o.buyer_label || '').toLowerCase().includes(state.ordersSearch));
+    const q = state.ordersSearch;
+    activePredicates.push((o) =>
+      (o.id || '').toLowerCase().includes(q)
+      || (o.buyer_label || '').toLowerCase().includes(q));
+  }
+  const mode = state.ordersFilterMode || 'and'; // 'and' (default) | 'or'
+  let list = state.orders.slice();
+  if (activePredicates.length > 0) {
+    list = list.filter((o) => mode === 'or'
+      ? activePredicates.some((p) => p(o))
+      : activePredicates.every((p) => p(o)));
   }
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;

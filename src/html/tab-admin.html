@@ -149,6 +149,15 @@
                   <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                   <input id="shopAdminOrdersSearch" class="form-control" placeholder="ค้นหารหัสคำสั่งซื้อ / ชื่อ" />
                 </div>
+                <!-- Combine filters with AND (default) or OR. OR is useful
+                     when admin wants to see "all paid OR all containing
+                     product X" in one view. -->
+                <div class="btn-group btn-group-sm" role="group" id="shopAdminOrdersFilterMode" aria-label="ตรรกะตัวกรอง">
+                  <input type="radio" class="btn-check" name="shopAdminOrdersFilterMode" id="shopAdminOrdersFilterModeAnd" value="and" checked />
+                  <label class="btn btn-outline-secondary" for="shopAdminOrdersFilterModeAnd" title="ตรงทุกตัวกรอง">ทั้งหมด (และ)</label>
+                  <input type="radio" class="btn-check" name="shopAdminOrdersFilterMode" id="shopAdminOrdersFilterModeOr" value="or" />
+                  <label class="btn btn-outline-secondary" for="shopAdminOrdersFilterModeOr" title="ตรงอย่างน้อยหนึ่งตัวกรอง">อย่างน้อยหนึ่ง (หรือ)</label>
+                </div>
                 <div class="ms-auto d-flex gap-2">
                   <button class="btn btn-ghost btn-sm" id="shopAdminOrdersRefresh">
                     <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
