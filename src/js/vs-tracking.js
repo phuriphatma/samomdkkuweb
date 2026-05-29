@@ -35,10 +35,23 @@ export async function trackWithTicketId() {
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
   try {
-    // dbRest, not supabase-js .from(...): the latter has been hanging
-    // on Android Chrome (mistakes.md "supabase-js gets into a bad state").
-    const tIdEsc = encodeURIComponent(tId);
-    const { data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&limit=1`);
+    // Use the security-definer RPC (migration 0021) so the lookup
+    // works whether the caller is signed in or not. Direct table
+    // reads via RLS would deny anonymous users — staff-only.
+    // Pre-0021 fallback: try the direct read via dbRest if the RPC
+    // 404s, so the site still works on databases without the migration.
+    let { data, error } = await dbRest('/rpc/get_vs_ticket_by_id', {
+      method: 'POST',
+      body: { p_id: tId },
+    });
+    if (error && error.status === 404) {
+      if (!window.__samoWarnedGuestRpcVs) {
+        window.__samoWarnedGuestRpcVs = true;
+        console.warn('[vs-tracking] get_vs_ticket_by_id RPC missing — apply migration 0021_guest_ticket_lookup_rpcs.sql for guest lookup. Falling back to direct read.');
+      }
+      const tIdEsc = encodeURIComponent(tId);
+      ({ data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&limit=1`));
+    }
     if (error) throw new Error(error.message || 'ค้นหาล้มเหลว');
     const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
     if (row) {

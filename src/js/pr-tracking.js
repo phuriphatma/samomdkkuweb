@@ -60,8 +60,20 @@ export async function trackPRTicket() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
 
   try {
-    const idEsc = encodeURIComponent(tId.toUpperCase());
-    const { data, error } = await dbRest(`/pr_tickets?select=*&id=ilike.${idEsc}&limit=1`);
+    // RPC (migration 0021) so the lookup works for guests too. Falls
+    // back to the direct ilike read if the RPC is missing pre-0021.
+    let { data, error } = await dbRest('/rpc/get_pr_ticket_by_id', {
+      method: 'POST',
+      body: { p_id: tId.toUpperCase() },
+    });
+    if (error && error.status === 404) {
+      if (!window.__samoWarnedGuestRpcPr) {
+        window.__samoWarnedGuestRpcPr = true;
+        console.warn('[pr-tracking] get_pr_ticket_by_id RPC missing — apply migration 0021_guest_ticket_lookup_rpcs.sql for guest lookup. Falling back to direct read.');
+      }
+      const idEsc = encodeURIComponent(tId.toUpperCase());
+      ({ data, error } = await dbRest(`/pr_tickets?select=*&id=ilike.${idEsc}&limit=1`));
+    }
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : null;
     if (row) {

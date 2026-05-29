@@ -207,10 +207,20 @@ export async function signInWithPassword(rawUsername, rawPassword) {
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
 
   const email = usernameToEmail(username);
-  const { error } = await db.auth.signInWithPassword({ email, password });
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     // Supabase returns generic "Invalid login credentials". Translate.
     throw new Error('Username หรือ Password ไม่ถูกต้อง');
+  }
+  // Belt-and-braces: explicitly populate currentUser and notify
+  // subscribers right here instead of relying purely on the
+  // onAuthStateChange listener. On Android Chrome the supabase-js
+  // client occasionally drops the SIGNED_IN event after a previous
+  // logout cycle (in-memory state goes stale; fresh tab fixes it).
+  // When the listener does fire, this is idempotent.
+  if (data?.session) {
+    currentUser = await buildCurrentUser(data.session);
+    notify();
   }
   return currentUser;
 }
