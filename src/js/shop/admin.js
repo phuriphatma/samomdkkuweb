@@ -568,8 +568,8 @@ function renderVerifyQueue() {
             <button class="btn btn-success flex-grow-1" id="shopVerifyApprove">
               <i class="bi bi-check2-circle me-1"></i> อนุมัติ
             </button>
-            <button class="btn btn-outline-danger" id="shopVerifyReject">
-              <i class="bi bi-x-circle me-1"></i> ปฏิเสธ
+            <button class="btn btn-outline-warning" id="shopVerifyReject">
+              <i class="bi bi-exclamation-triangle me-1"></i> สลิปไม่ถูกต้อง
             </button>
           </div>
         </div>
@@ -588,8 +588,8 @@ function renderVerifyQueue() {
   });
   document.getElementById('shopVerifyReject')?.addEventListener('click', async () => {
     try {
-      await updateOrderStatus(current.id, 'cancel', { label: 'ยกเลิก — สลิปไม่ผ่าน', cancelReason: 'admin rejected slip' });
-      showShopToast('ปฏิเสธสลิปแล้ว', 'warn');
+      await updateOrderStatus(current.id, 'slip_mismatch', { label: STAGES_META.slip_mismatch.label });
+      showShopToast('แจ้งสลิปไม่ถูกต้อง — ลูกค้าจะอัปโหลดสลิปใหม่ได้', 'warn');
       await refreshOrders();
       renderVerifyQueue();
     } catch (e) { showShopToast(`ล้มเหลว: ${e.message || e}`, 'error'); }

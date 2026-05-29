@@ -8,8 +8,10 @@
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
 import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries } from './data.js';
-import { listMyOrders, listActiveBatches, getSettings } from './api.js';
+import { listMyOrders, listActiveBatches, getSettings, setOrderSlip } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
+import { uploadShopFile, slipFolderForNow } from './uploads.js';
+import { showShopToast } from './products.js';
 
 const state = {
   orders: [],
@@ -25,8 +27,59 @@ const state = {
 // don't break, but render() always shows everything.
 
 export async function mountOrdersView() {
-  // (Filter chips were removed; nothing to wire here. Kept as a noop
-  // so the existing call site in index.js doesn't need to change.)
+  // Re-upload slip flow for slip_mismatch orders. Delegated to the
+  // orders-list container so the handler survives every re-render.
+  const list = document.getElementById('shopOrdersList');
+  if (list && !list.dataset.reuploadBound) {
+    list.dataset.reuploadBound = '1';
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-reupload-order]');
+      if (!btn) return;
+      const orderId = btn.dataset.reuploadOrder;
+      const input = list.querySelector(`input[data-reupload-file="${CSS.escape(orderId)}"]`);
+      input?.click();
+    });
+    list.addEventListener('change', async (e) => {
+      const input = e.target.closest('input[data-reupload-file]');
+      if (!input) return;
+      const orderId = input.dataset.reuploadFile;
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      await handleSlipReupload(orderId, file);
+    });
+  }
+}
+
+async function handleSlipReupload(orderId, file) {
+  if (file.size > 5 * 1024 * 1024) {
+    showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
+    return;
+  }
+  const user = getUser();
+  if (!user) { showShopToast('กรุณาเข้าสู่ระบบก่อน', 'warn'); return; }
+  const btn = document.querySelector(`[data-reupload-order="${CSS.escape(orderId)}"]`);
+  const originalHTML = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลด…';
+  }
+  try {
+    const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+    const slipName = `${user.id}_${Date.now()}.${ext}`;
+    const folder = slipFolderForNow(new Date());
+    const slipUrl = await uploadShopFile(file, folder, { fileName: slipName });
+    await setOrderSlip(orderId, slipUrl);
+    showShopToast('ส่งสลิปใหม่แล้ว — รอ admin ตรวจสอบ', 'success');
+    await renderOrdersView();
+  } catch (err) {
+    console.error('[shop/orders] reupload slip failed:', err);
+    showShopToast(`ส่งสลิปไม่สำเร็จ: ${err.message || err}`, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML || '<i class="bi bi-cloud-upload me-1"></i> อัปโหลดสลิปใหม่';
+    }
+  }
 }
 
 /** Show / refresh. Called when the orders sub-nav is activated. */
@@ -163,6 +216,19 @@ function orderCardHtml(o) {
             ${state.contact.gmail ? `<a href="mailto:${safeUrl('mailto:' + state.contact.gmail)}"><i class="bi bi-envelope"></i> Gmail</a>` : ''}
             ${state.contact.instagram ? `<a href="${safeUrl('https://instagram.com/' + state.contact.instagram.replace(/^@/, ''))}" target="_blank" rel="noreferrer"><i class="bi bi-instagram"></i> ${escHtml(state.contact.instagram)}</a>` : ''}
           </div>
+        </div>` : ''}
+
+      ${o.status === 'slip_mismatch' ? `
+        <div class="contact-fallback" style="background:#fff8e1; border:1px solid #fbcf73;">
+          <i class="bi bi-exclamation-triangle text-warning fs-5"></i>
+          <div class="flex-grow-1">
+            <div style="font-weight:600; color:var(--shop-ink-900);">สลิปไม่ถูกต้อง</div>
+            <div class="small text-muted">admin ตรวจสอบแล้วพบว่าสลิปไม่ตรงกับยอดที่สั่ง โปรดอัปโหลดสลิปที่ถูกต้องอีกครั้ง</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-warning" data-reupload-order="${escHtml(o.id)}">
+            <i class="bi bi-cloud-upload me-1"></i> อัปโหลดสลิปใหม่
+          </button>
+          <input type="file" accept="image/*" class="d-none" data-reupload-file="${escHtml(o.id)}" />
         </div>` : ''}
     </div>`;
 }
