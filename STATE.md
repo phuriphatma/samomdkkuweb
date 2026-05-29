@@ -1,6 +1,276 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-29 (news editor polish + drag-reorder + merge to main — see top section)
+Last updated: 2026-05-30 (long shop polish session — see top section)
+
+## SESSION SNAPSHOT (2026-05-30) — resume point after `/clear`
+
+Branch `main` at `b0b8756`. `refactor/modular` synced to the same
+commit. Build green, 53 tests pass (3 test files: utils, uploads,
+ticket-ids; plus shop/data.test.js for the new ticket-id + status
+contracts). Cloudflare auto-rebuilds both production
+(samomdkkuweb.pages.dev → main) and preview
+(refactorsamomdkkuweb.pages.dev → refactor/modular) on push.
+
+### Migrations applied vs pending (verify before next ship)
+
+The user confirmed mid-session that 0016–0022 are applied to prod
+Supabase (`fheueuowbchsnsvbcgil`). 0023–0025 ship NEW columns + a
+trigger and likely haven't been run yet — every JS call site that
+touches them has a graceful fallback (warn-then-degrade) so the site
+keeps working without them.
+
+| Migration | Purpose | Status |
+|---|---|---|
+| 0008–0015 | (prior session — applied) | applied |
+| 0016_current_user_dept_helper.sql | security-definer `current_user_dept()` + vs_tickets policies | applied |
+| 0017_announcement_order.sql | `display_order` column for drag-reorder | applied |
+| 0018_shop_order_status_extras.sql | widens shop_orders.status check to include slip_mismatch / refund_pending / refunded / no_show | applied |
+| 0019_shop_banners.sql | new shop_banners table + RLS | applied |
+| 0020_shop_orders_buyer_slip_reupload.sql | adds slip_mismatch to buyer-update RLS | applied |
+| 0021_guest_ticket_lookup_rpcs.sql | get_vs_ticket_by_id + get_pr_ticket_by_id RPCs | applied |
+| 0022_shop_orders_exchange_status.sql | adds 'exchange' to shop_orders.status check | applied |
+| **0023_shop_product_code.sql** | adds shop_products.code (backfill SH-derived) — drives `<CODE>NNNN` order ids | **❌ pending** |
+| **0024_shop_product_production_status.sql** | shop_products.production_status + apply_product_production_status RPC (cascades on product-status toggle) | **❌ pending** |
+| **0025_shop_orders_paid_cascade.sql** | BEFORE-UPDATE trigger: order moves INTO 'paid' → auto-advances per product production_status | **❌ pending** |
+
+Until 0023 is applied, new orders fall back to `SH<NNNN>` (the
+default code).
+Until 0024 is applied, the product editor's
+"สถานะผลิตสินค้านี้" dropdown surfaces "ติดตั้ง migration 0024
+ก่อน" and the product save still completes.
+Until 0025 is applied,
+admin must toggle the product's production_status to push existing
+'paid' orders forward — newly approved 'paid' orders don't
+auto-cascade until the trigger exists.
+
+### Architecture — unchanged from prior snapshot
+
+- Two SPAs from one repo (`/` public, `/admin/` operator). Same
+  Supabase, same Cloudflare. Vite multi-page input.
+- Per-VP accounts via `users.permissions text[]` + RLS helpers.
+- File uploads still on Drive via GAS `uploadShopFile` / `uploadImageToDrive`.
+- Auth fixes from this session: signInWithPassword explicitly
+  populates currentUser + notify() after the supabase-js call
+  resolves, so Android Chrome's stale-listener case doesn't leave
+  the modal open. Profile fetch in `buildCurrentUser` uses dbRest
+  (not supabase-js .from) for the same reason.
+
+### What shipped this session (newest first, by domain)
+
+**Shop admin order modal (final shape)**
+- Two-group status picker: "เปลี่ยนสถานะ" (6 happy-path chips —
+  pending/review/paid/produce/ready/done) + "สถานะปัญหา" (issue
+  chips: slip_mismatch / exchange / refund_pending / no_show /
+  cancel / refunded, each in its `tone` colour).
+- Selection state: outlined when off, **SOLID FILLED + checkmark
+  prefix** when on. Tone families: warning amber, info blue,
+  neutral gray, danger red. (Pastel-on-pastel was unreadable.)
+- Confirm-button workflow: chip click STAGES the change locally
+  (modalPendingStatus); the new "อัปเดต" footer button writes it.
+  Disabled gray when no change, green + status label when dirty.
+  "ยกเลิกการเปลี่ยนแปลง" link reverts.
+- "ลบคำสั่งซื้อ" button (red, left-aligned in footer) hits
+  shop_orders_delete_admin RLS via deleteOrder() in api.js.
+- Modal no longer carries the old approve / reject / "สถานะอื่น"
+  dropdown — chips replaced them.
+- Order item rendering: shows product NAME from state.products
+  (not the raw internal id like "p-shirtttest-685"). Internal id
+  shows as small grey code reference. Defensive null filtering on
+  the items array.
+- Defensive: `modalAction` snapshots `orderId` to a local before
+  the await, so a downstream null doesn't surface as the
+  "Cannot read properties of null (reading 'id')" toast.
+
+**Shop admin order LIST**
+- New product filter dropdown next to the status filter.
+- AND/OR radio toggle ("ทั้งหมด (และ)" / "อย่างน้อยหนึ่ง (หรือ)")
+  — predicates are collected then evaluated with every() / some().
+  Default stays AND.
+- Old per-product "1 คำสั่งซื้อ · สถานะปัจจุบัน 'X' → ทำเครื่องหมาย
+  เป็น 'Y'" bulk-advance bar REMOVED. Replaced by the
+  per-product production_status cascade.
+
+**Shop products**
+- `shop_products.code` (0023) is the prefix for new order ids:
+  `<CODE><NNNN>` (e.g. SH1234, TS5678). Editor exposes it as
+  "รหัสนำหน้า Order". sanitizeOrderCode() is the SSoT — uppercase
+  alnum, max 5 chars, fallback "SH". `genOrderId(code)` updated.
+- Color picker rebuilt: was a JSON-array textbox, now a row-based
+  picker (native color input + label + optional id + × remove + "+
+  เพิ่มสี"). Empty rows dropped on save.
+- Hue input rebuilt: still 0–360, now flanked by a live hsl()
+  swatch in an input-group.
+- `shop_products.production_status` (0024) — pending / produced /
+  announced. Dropdown in the product editor. Save calls
+  apply_product_production_status RPC which both updates the
+  product AND cascades to every eligible happy-path order. The
+  cascade ONLY moves: paid→produce (on produced), paid/produce→
+  ready (on announced). Off-path orders (slip_mismatch,
+  refund_pending, refunded, cancel, no_show, exchange, done,
+  pending, review) are NEVER touched.
+- 0025 trigger plugs the gap: when a NEW customer's order
+  transitions INTO 'paid' (slip approval) AFTER the product is
+  already at produced/announced, the trigger auto-advances on the
+  spot. Multi-product orders need every item at the target rank.
+
+**Shop product list + stock view**
+- Stock matrix table: `<td>` restored to `display:table-cell` so
+  column widths track the size headers. The interactive cluster
+  (− / input / +) moved into an inner `<div>` wrap.
+
+**Shop banners (admin)**
+- Full admin section ("แบนเนอร์" sub-tab): upload image (Drive),
+  drag-reorder (SortableJS), inline caption + link inputs (save on
+  blur), active toggle, delete. Customer landing carousel prefers
+  banners; falls back to `is_new` products, then to the 5 most
+  recently added.
+
+**Shop hero carousel**
+- One-slide-per-view 21:9 (4:3 on phones) banner format. Image
+  fills, overlay with caption + price. Pagination dots, arrows
+  scroll by viewport width.
+
+**Shop checkout / orders**
+- Removed misleading "ค่าจัดส่ง · รับเอง · ฟรี" — replaced with
+  "การรับสินค้า · รับที่คณะแพทย์" + explainer.
+- Removed the "หมายเหตุเพิ่มเติม" panel (admin announces pickup
+  via batches; the freeform note was rarely used).
+- Dev accounts (role='dev') can checkout without uploading a slip
+  — order lands as 'pending'.
+- Customer orders view: filter chip row REMOVED (per user request
+  — scroll-to-find beats tap-to-filter for ≤20 orders).
+- Customer order card on slip_mismatch: inline "อัปโหลดสลิปใหม่"
+  action calls setOrderSlip() which atomically PATCHes
+  slip_url + slip_uploaded_at + flips status back to 'review'.
+  Migration 0020 widens the buyer-update RLS to include
+  slip_mismatch.
+- Customer status labels (final wording):
+    pending  → "สั่งซื้อแล้ว"
+    review   → "รอการตรวจสอบสลิป"
+    paid     → "ยืนยันการชำระเงิน"
+    produce  → "สินค้าผลิตเสร็จแล้ว"
+    ready    → "ประกาศรอบรับสินค้า"
+    done     → "ได้รับสินค้าแล้ว"
+  Off-path: slip_mismatch / refund_pending / refunded / no_show
+  ("ยังไม่ได้รับสินค้า") / cancel / exchange.
+
+**Shop verify queue**
+- Reject button no longer cancels (terminal). Sets `slip_mismatch`
+  so the buyer can re-upload. Outline-warning styled
+  "สลิปไม่ถูกต้อง".
+
+**Auth / login**
+- Android Chrome login hang root-caused: supabase-js's onAuthState-
+  Change occasionally drops SIGNED_IN after a signOut→signIn cycle.
+  signInWithPassword now explicitly fetches the profile + notifies
+  subscribers itself (belt-and-braces) after db.auth.signInWith-
+  Password resolves. buildCurrentUser uses dbRest (not supabase-js)
+  for the profile query — mistakes.md guidance for any reliable
+  read.
+
+**Guest ticket lookup (VS + PR)**
+- 0021 added security-definer RPCs `get_vs_ticket_by_id` /
+  `get_pr_ticket_by_id` (returns SETOF the row matching p_id).
+  Granted to anon+authenticated. Anyone with the id can read
+  their own ticket; RLS still gates direct table reads.
+
+**VS + PR forms — success card**
+- Native `alert()` replaced with persistent inline success card on
+  both forms. Readonly monospace input + full-width "คัดลอก Ticket
+  ID" button + "ปิด" link. Card sits AFTER the form (right under
+  the submit button), so the user doesn't scroll up. Copy logic:
+  `navigator.clipboard.writeText` with `execCommand('copy')`
+  fallback. `window.scrollTo({top:0})` moved from finally to catch
+  so error visibility still works but success stays put.
+- src/js/ticket-ids.js (new shared module): generators
+  generatePRTicketId / generateVSTicketId + regex contracts
+  PR_TICKET_ID_REGEX / VS_TICKET_ID_REGEX. Both forms import.
+  src/js/ticket-ids.test.js (11 tests) locks format + uniqueness +
+  generator-regex round-trip.
+
+**News / announcements editor**
+- Drag-to-reorder via SortableJS in admin creator's collapsible
+  "ลำดับการแสดงประกาศ" panel.
+- 16:9 Cropper.js for cover images.
+- Edit pre-populates the form (the previous "blank form on edit"
+  bug was loadAnnouncements throwing on missing `#announcements-
+  Grid` in admin — fixed with null guards + re-throw).
+- Featured card frame: 16:9 everywhere (was 4:3 on desktop).
+- Delete works: split into deleteAnnouncement(id?) +
+  deleteCurrentAnnouncement + deleteEditingAnnouncement. New
+  "ลบประกาศนี้" button in the admin creator appears when editing.
+
+**Mobile navbar (public)**
+- Hamburger moved LEFT (matches /admin/). Drawer slides from LEFT.
+- Brand absolutely-centered on mobile (Twitter / X pattern).
+- Auth pill HIDDEN on mobile — drawer carries sign in / out / admin
+  / external links.
+- Admin sidebar mobile drawer: `100dvh` height + safe-area-inset-
+  bottom padding so iOS Safari chrome doesn't bury the sign-out
+  button.
+
+**External links surface**
+- ระบบจองห้องสโม (Apps Script) + SAMO Passport
+  (samomdkkupassport.pages.dev) added to:
+  - Public tools launcher (Thai+English data-name for `/`-search)
+  - Public navbar avatar dropdown (signed-in)
+  - Mobile offcanvas (always)
+  - Admin sidebar "ลิงก์ภายนอก" section
+  All `target="_blank" rel="noopener"` with `bi-box-arrow-up-right`.
+
+**VS kanban**
+- Sorts newest-first in every column (matches PR). Overdue colour
+  on the card still flags stale tickets via age-bucket class.
+
+**SPA back button**
+- Tab activations now `history.pushState` (was replaceState), so
+  the browser back button unwinds /pr → / instead of leaving the
+  site entirely.
+
+### Open items / not built
+
+- **Editable internal product id**: still disabled for existing
+  products. Would need a FK cascade migration on
+  shop_order_items.product_id (currently `on delete restrict`,
+  no `on update cascade`). Defer until there's real demand.
+- **0023–0025 not yet applied on prod** — user needs to run them
+  in Supabase SQL editor before testing the new features end-to-end.
+- **9arm-skills install**: still open from prior snapshot — optional.
+- **Discord nudge for VP idle tickets**: still deferred.
+
+### Reproducible smoke after Cloudflare redeploy
+
+1. Visit `samomdkkuweb.pages.dev` (prod) and
+   `refactorsamomdkkuweb.pages.dev` (preview). Both return 200 at
+   `/`, `/pr`, `/vssound`, `/shop`, `/tools`, `/about`, `/news`,
+   `/news/{id}`, `/admin/`.
+2. Public:
+   - Submit a VS ticket as guest. Success card shows; copy button
+     copies the id; pasting into "ค้นหาสถานะ" finds the ticket
+     (RPC).
+   - Submit a PR ticket as guest. Same card, same flow.
+   - Read a news article. Hero is 16:9, image fills.
+3. Sign in as a staff account on mobile Android Chrome:
+   - Type username + password, tap "เข้าสู่ระบบ". Modal closes,
+     avatar appears. No more "spinner returns, no login".
+4. /admin/ as dev:
+   - Orders tab: filter by status / product / search. Toggle
+     AND/OR. Open an old order. Status chips show product NAMES
+     (not raw ids). Change status to a new chip → "อัปเดต" turns
+     green → click → toast.
+   - Hit "ลบคำสั่งซื้อ" on a test order. Confirms + deletes.
+   - Banners sub-tab: upload an image, drag to reorder.
+   - Products sub-tab: edit a product, set "รหัสนำหน้า Order" to
+     "TS", change "สถานะผลิตสินค้านี้" to "ประกาศรอบรับสินค้า" →
+     confirm dialog → toast says "อัปเดต N คำสั่งซื้อตามสถานะ
+     ผลิตใหม่" (assumes 0024 applied).
+5. After 0023 applied: place a new order; new id format
+   `<CODE><NNNN>`.
+6. After 0025 applied: have the product's production_status at
+   'announced', approve a new buyer's slip → order auto-lands at
+   'ready'.
+
+---
 
 ## News editor polish + drag-reorder + merge to main (2026-05-29)
 
