@@ -8,18 +8,9 @@ import { db } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 
-// ----------------------------------------------------
-// Ticket ID generator — matches the legacy "PR-XXXXXX" format so old
-// tickets and new ones look identical in URLs and Discord messages.
-// ----------------------------------------------------
-function generatePRTicketId() {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let suffix = '';
-  for (let i = 0; i < 6; i++) {
-    suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return `PR-${suffix}`;
-}
+// Ticket ID generator lives in ./ticket-ids.js so the format contract
+// is shared with vs-form and unit-testable in isolation.
+import { generatePRTicketId } from './ticket-ids.js';
 
 // ----------------------------------------------------
 // Idempotent PR insert via raw fetch.

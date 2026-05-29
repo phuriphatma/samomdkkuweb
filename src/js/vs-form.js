@@ -6,21 +6,9 @@ import { GAS_VITAL_SOUND_URL } from './config.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 
-// ----------------------------------------------------
-// Ticket ID generator — VS-YYMMDD-HHMM-XXX. The trailing 3-char random
-// suffix prevents collisions when two submissions land in the same
-// minute. Without it, the idempotent-insert retry path treats the
-// second submitter's PK conflict (409) as "first attempt succeeded"
-// and silently drops their data.
-// ----------------------------------------------------
-function generateVSTicketId() {
-  const d = new Date();
-  const pad = (n) => n.toString().padStart(2, '0');
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let suffix = '';
-  for (let i = 0; i < 3; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return `VS-${(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${suffix}`;
-}
+// Ticket ID generator lives in ./ticket-ids.js so the format contract
+// is shared with pr-form and unit-testable in isolation.
+import { generateVSTicketId } from './ticket-ids.js';
 
 // Idempotent VS insert via raw fetch (see pr-form.js rationale).
 async function insertVSTicketIdempotent(row) {
