@@ -13,23 +13,10 @@
           <!-- Filled by JS: customer block, items list, slip preview,
                status picker, internal notes textarea. -->
         </div>
-        <div class="modal-footer flex-wrap">
+        <div class="modal-footer">
+          <!-- Status changes happen via the chip groups in the body
+               ("เปลี่ยนสถานะ" / "สถานะปัญหา"). No action buttons here. -->
           <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">ปิด</button>
-          <!-- Off-path actions dropdown: slip mismatch, refund, no-show etc.
-               Items wired by admin.js (renders/disables per current status). -->
-          <div class="dropdown me-auto" id="shopAdminOrderModalMoreWrap">
-            <button type="button" class="btn btn-outline-secondary dropdown-toggle"
-              data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-three-dots me-1"></i> สถานะอื่น
-            </button>
-            <ul class="dropdown-menu" id="shopAdminOrderModalMore"></ul>
-          </div>
-          <button type="button" class="btn btn-outline-danger" id="shopAdminOrderModalReject">
-            <i class="bi bi-x-circle me-1"></i> ปฏิเสธสลิป
-          </button>
-          <button type="button" class="btn btn-success" id="shopAdminOrderModalApprove">
-            <i class="bi bi-check2-circle me-1"></i> อนุมัติสลิป → "ชำระแล้ว"
-          </button>
         </div>
       </div>
     </div>

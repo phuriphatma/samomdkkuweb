@@ -9,7 +9,7 @@ import { escHtml, safeUrl } from '../utils.js';
 import { dbRest } from '../db.js';
 import { getUser } from '../auth.js';
 import {
-  thb, fmtDate, fmtDateTime, STAGES_ORDER, STAGES_META,
+  thb, fmtDate, fmtDateTime, STAGES_ORDER, STAGES_META, ISSUE_STATUSES,
   SHOP_SOURCES, SHOP_TYPES, findSource, slugify,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock,
   batchDateEntries,
@@ -379,108 +379,15 @@ function openOrderModal(orderId) {
   if (idEl) idEl.textContent = `#${o.id}`;
   if (body) body.innerHTML = orderModalBodyHtml(o);
 
+  // Click any chip in either "เปลี่ยนสถานะ" / "สถานะปัญหา" group →
+  // immediate update. The footer no longer carries primary/secondary
+  // action buttons — chips are the only interaction.
   body.querySelectorAll('[data-set-status]').forEach((btn) => {
     btn.addEventListener('click', () => modalAction(btn.dataset.setStatus));
   });
 
-  const approve = document.getElementById('shopAdminOrderModalApprove');
-  const reject  = document.getElementById('shopAdminOrderModalReject');
-  const primary = footerPrimaryFor(o.status);
-  const secondary = footerSecondaryFor(o.status);
-  if (approve) {
-    approve.className = primary ? `btn ${primary.cls}` : 'btn btn-success d-none';
-    approve.innerHTML = primary ? primary.html : '';
-    approve.onclick = primary ? () => modalAction(primary.next, primary.cancelReason) : null;
-    approve.classList.toggle('d-none', !primary);
-  }
-  if (reject) {
-    reject.className = secondary ? `btn ${secondary.cls}` : 'btn btn-outline-danger d-none';
-    reject.innerHTML = secondary ? secondary.html : '';
-    reject.onclick = secondary ? () => modalAction(secondary.next, secondary.cancelReason) : null;
-    reject.classList.toggle('d-none', !secondary);
-  }
-
-  // Off-path actions menu — slip mismatch / refund / no-show / cancel.
-  // Build from a static list, filter by current status so we don't show
-  // a "refund" option on a paid order or a "no-show" option on pending.
-  const moreUl = document.getElementById('shopAdminOrderModalMore');
-  if (moreUl) {
-    const off = offPathActionsFor(o.status);
-    moreUl.innerHTML = off.length === 0
-      ? '<li><span class="dropdown-item text-muted">ไม่มีตัวเลือกสำหรับสถานะนี้</span></li>'
-      : off.map((a, idx) => `
-          ${idx > 0 && a.divider ? '<li><hr class="dropdown-divider"></li>' : ''}
-          <li>
-            <button type="button" class="dropdown-item" data-set-status="${escHtml(a.next)}" ${a.cancelReason ? `data-cancel-reason="${escHtml(a.cancelReason)}"` : ''}>
-              <i class="bi ${escHtml(a.icon)} me-2"></i>${escHtml(a.label)}
-            </button>
-          </li>`).join('');
-    moreUl.querySelectorAll('[data-set-status]').forEach((btn) => {
-      btn.addEventListener('click', () => modalAction(btn.dataset.setStatus, btn.dataset.cancelReason || ''));
-    });
-  }
-
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
-}
-
-/** Off-path admin actions, filtered by current status so the dropdown
- *  only shows valid transitions. Keeps the list short + intent-clear. */
-function offPathActionsFor(status) {
-  // Available from anywhere except terminal states.
-  const TERMINAL = new Set(['done', 'cancel', 'refunded']);
-  if (TERMINAL.has(status)) return [];
-
-  const actions = [];
-  // (slip_mismatch from review is the primary secondary button now;
-  // not duplicated here.) Pickup window passed without the customer
-  // showing up:
-  if (status === 'ready') {
-    actions.push({ next: 'no_show', icon: 'bi-question-circle', label: 'ลูกค้าไม่ได้มารับตามรอบ' });
-  }
-  // Refund flow — available once money has been confirmed.
-  if (['paid', 'produce', 'ready', 'no_show'].includes(status)) {
-    actions.push({ next: 'refund_pending', icon: 'bi-arrow-counterclockwise', label: 'ตั้งสถานะ "รอคืนเงิน"', divider: true });
-  }
-  if (status === 'refund_pending') {
-    actions.push({ next: 'refunded', icon: 'bi-cash-coin', label: 'คืนเงินแล้ว' });
-  }
-  // Hard cancel — available everywhere non-terminal except review (the
-  // "ปฏิเสธสลิป" secondary button covers that).
-  if (status !== 'review' && status !== 'refund_pending') {
-    actions.push({
-      next: 'cancel',
-      cancelReason: 'admin cancelled',
-      icon: 'bi-x-circle',
-      label: 'ยกเลิกคำสั่งซื้อ',
-      divider: true,
-    });
-  }
-  return actions;
-}
-
-function footerPrimaryFor(status) {
-  switch (status) {
-    case 'review':  return { next: 'paid',    cls: 'btn-success', html: '<i class="bi bi-check2-circle me-1"></i> อนุมัติสลิป → ยืนยันการชำระเงิน' };
-    case 'paid':    return { next: 'produce', cls: 'btn-shop',    html: '<i class="bi bi-box-seam me-1"></i> สินค้าผลิตเสร็จแล้ว' };
-    case 'produce': return { next: 'ready',   cls: 'btn-success', html: '<i class="bi bi-megaphone me-1"></i> ประกาศรอบรับสินค้า' };
-    case 'ready':   return { next: 'done',    cls: 'btn-success', html: '<i class="bi bi-bag-check me-1"></i> ลูกค้ามารับแล้ว' };
-    // slip_mismatch: buyer fixed the slip → admin re-opens for review.
-    case 'slip_mismatch': return { next: 'review', cls: 'btn-success', html: '<i class="bi bi-arrow-clockwise me-1"></i> ส่งกลับไปตรวจสอบสลิป' };
-    default:        return null;
-  }
-}
-function footerSecondaryFor(status) {
-  // Review rejection is "slip doesn't match" — non-terminal, lets the
-  // buyer re-upload. Hard cancellation stays on the off-path
-  // "สถานะอื่น" dropdown.
-  if (status === 'review') {
-    return { next: 'slip_mismatch', cls: 'btn-outline-warning', html: '<i class="bi bi-exclamation-triangle me-1"></i> สลิปไม่ถูกต้อง' };
-  }
-  if (status === 'pending' || status === 'paid' || status === 'produce') {
-    return { next: 'cancel', cancelReason: 'admin cancelled', cls: 'btn-outline-danger', html: '<i class="bi bi-x-circle me-1"></i> ยกเลิกคำสั่งซื้อ' };
-  }
-  return null;
 }
 
 function orderModalBodyHtml(o) {
@@ -535,24 +442,25 @@ function orderModalBodyHtml(o) {
         </div>
         ${o.slip_uploaded_at ? `<div class="small text-muted mb-3">อัปโหลด ${fmtDateTime(o.slip_uploaded_at)}</div>` : ''}
 
-        <h5>สถานะปัจจุบัน</h5>
-        <div class="mb-3">${statusPillSmall(o)}</div>
-
         <h5>เปลี่ยนสถานะ</h5>
         <div class="d-flex flex-wrap gap-2">
           ${STAGES_ORDER.map((s) => `
             <button type="button" class="chip ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
               <i class="bi ${escHtml(STAGES_META[s].icon)}"></i> ${escHtml(STAGES_META[s].label)}
             </button>`).join('')}
-          <button type="button" class="chip" data-set-status="cancel"
-                  style="background:var(--status-cancel-bg); color:var(--status-cancel);">
-            <i class="bi bi-x-circle"></i> ยกเลิก
-          </button>
+        </div>
+
+        <h5 class="mt-3">สถานะปัญหา</h5>
+        <div class="d-flex flex-wrap gap-2">
+          ${ISSUE_STATUSES.map((s) => `
+            <button type="button" class="chip chip-issue ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
+              <i class="bi ${escHtml(STAGES_META[s].icon)}"></i> ${escHtml(STAGES_META[s].label)}
+            </button>`).join('')}
         </div>
 
         <h5 class="mt-3">หมายเหตุภายใน admin</h5>
         <textarea id="shopAdminOrderModalNote" class="form-control" rows="3"
-          placeholder="ระบุหมายเหตุ — บันทึกพร้อมเมื่อเปลี่ยนสถานะหรือกดปุ่มในแถบล่าง">${escHtml(o.admin_note || '')}</textarea>
+          placeholder="ระบุหมายเหตุ — บันทึกเมื่อปิดหน้านี้">${escHtml(o.admin_note || '')}</textarea>
       </div>
     </div>`;
 }

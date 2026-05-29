@@ -244,13 +244,16 @@ function statusPillHtml(order) {
     </span>`;
 }
 
-// Off-path single-line track (cancel / refund / mismatch / no-show).
+// Off-path single-line track. Text falls back to the canonical label
+// from STAGES_META so customer / admin / filter stay in sync — only
+// list overrides here when a longer phrasing reads better on the card.
 const OFF_PATH_TRACKS = {
   cancel:         { cls: 'is-cancel',  text: 'คำสั่งซื้อถูกยกเลิก' },
   slip_mismatch:  { cls: 'is-cancel',  text: 'สลิปไม่ตรงกับยอด — รอการแก้ไข' },
   refund_pending: { cls: 'is-cancel',  text: 'อยู่ระหว่างดำเนินการคืนเงิน' },
   refunded:       { cls: 'is-cancel',  text: 'คืนเงินแล้ว' },
-  no_show:        { cls: 'is-cancel',  text: 'ไม่ได้มารับสินค้าตามรอบ' },
+  no_show:        { cls: 'is-cancel',  text: 'ยังไม่ได้รับสินค้า' },
+  exchange:       { cls: 'is-cancel',  text: 'อยู่ระหว่างการเปลี่ยนสินค้า' },
 };
 
 function progressTrackHtml(order) {

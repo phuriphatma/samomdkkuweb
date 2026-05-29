@@ -42,13 +42,19 @@ export const STAGES_META = {
   produce:        { label: 'สินค้าผลิตเสร็จแล้ว',    icon: 'bi-box-seam',            short: 'ผลิตเสร็จ' },
   ready:          { label: 'ประกาศรอบรับสินค้า',    icon: 'bi-megaphone-fill',      short: 'ประกาศแล้ว' },
   done:           { label: 'ได้รับสินค้าแล้ว',       icon: 'bi-bag-check-fill',      short: 'รับแล้ว' },
-  // ── off-path (terminal or refund flow) ──────────────────────────
-  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',                                icon: 'bi-x-circle',              short: 'ยกเลิก' },
-  slip_mismatch:  { label: 'สลิปไม่ถูกต้อง',                                  icon: 'bi-exclamation-triangle',  short: 'สลิปไม่ตรง' },
-  refund_pending: { label: 'รอคืนเงิน',                                      icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน' },
-  refunded:       { label: 'คืนเงินแล้ว',                                    icon: 'bi-cash-coin',             short: 'คืนแล้ว' },
-  no_show:        { label: 'ไม่ได้มารับสินค้าตามรอบ',                          icon: 'bi-question-circle',       short: 'ไม่มารับ' },
+  // ── off-path (issue / refund / exchange flow) ───────────────────
+  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',     icon: 'bi-x-circle',               short: 'ยกเลิก',     issue: true },
+  slip_mismatch:  { label: 'สลิปไม่ถูกต้อง',       icon: 'bi-exclamation-triangle',   short: 'สลิปไม่ตรง', issue: true },
+  refund_pending: { label: 'รอคืนเงิน',           icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน',  issue: true },
+  refunded:       { label: 'คืนเงินแล้ว',         icon: 'bi-cash-coin',              short: 'คืนแล้ว',    issue: true },
+  no_show:        { label: 'ยังไม่ได้รับสินค้า',   icon: 'bi-hourglass-bottom',       short: 'ยังไม่รับ',  issue: true },
+  exchange:       { label: 'เปลี่ยนสินค้า',        icon: 'bi-arrow-left-right',       short: 'เปลี่ยน',    issue: true },
 };
+
+/** Ordered list of "issue" statuses — anything tagged `issue: true`. */
+export const ISSUE_STATUSES = Object.entries(STAGES_META)
+  .filter(([, m]) => m.issue)
+  .map(([k]) => k);
 
 /** Returns the display label for an order. Currently a plain lookup;
  *  kept as a wrapper so call sites stay future-proof if labels ever

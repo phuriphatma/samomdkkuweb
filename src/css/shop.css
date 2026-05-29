@@ -402,6 +402,22 @@
   color: var(--shop-700);
   border-color: var(--shop-300);
 }
+
+/* Issue chips read in warm amber by default so the admin can tell at
+   a glance which group they're picking from. Active stays distinct
+   (deeper amber with border) and matches the row header colour. */
+.shop-tab .chip-issue {
+  background: #fff7ed;
+  color: #b45309;
+}
+.shop-tab .chip-issue:hover {
+  background: #ffedd5;
+}
+.shop-tab .chip-issue.is-active {
+  background: #fde68a;
+  color: #92400e;
+  border-color: #f59e0b;
+}
 .shop-tab .chip .chip-dot {
   width: 8px; height: 8px; border-radius: 50%;
   display: inline-block;
