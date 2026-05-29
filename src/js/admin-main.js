@@ -13,7 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
@@ -309,13 +309,16 @@ window.viewAnnouncement = (id) => {
   else location.href = '/';
 };
 // Edit from inside the admin creator: looks up the post by the viewer's
-// current id (set when the recent-articles picker selects one) and fills
-// the form. Public site's "edit" button on the article reader navigates
-// here as /admin/#creator/{id}; loadCreatorWithId() picks that up on entry.
+// current id and fills the form. Public site's "edit" button on the
+// article reader navigates here as /admin/#creator/{id};
+// tryCreatorDeepLink picks that up on entry.
 window.editCurrentAnnouncement = () => editAnnouncement();
-// Deleting from inside admin needs the article id wired in similarly.
-// Until that flow is built, the stub no-ops (visible "delete" UI is on
-// the public reader, which is staff-gated and does its own thing).
+// Delete the article currently loaded into the editor form. Wired to
+// the in-form "ลบประกาศนี้" button (visible only when editing).
+window.deleteEditingAnnouncement = deleteEditingAnnouncement;
+// Public-reader's delete button isn't reachable inside admin (no
+// article reader here), but keep a no-op so any stray HTML reference
+// doesn't ReferenceError.
 window.deleteCurrentAnnouncement = () => {};
 
 // PR Staff

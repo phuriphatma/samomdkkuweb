@@ -70,7 +70,11 @@
 .news-featured-media {
   position: relative;
   background: var(--ink-100);
-  aspect-ratio: 4 / 3;
+  /* 16:9 everywhere — matches the cropper's output and the article hero,
+     so a 1600×900 upload renders edge-to-edge with no extra cropping.
+     (Previously 4:3 on desktop, which sliced the top/bottom off
+     16:9 uploads.) */
+  aspect-ratio: 16 / 9;
   overflow: hidden;
 }
 
@@ -141,10 +145,6 @@
 @media (max-width: 767.98px) {
   .news-featured {
     grid-template-columns: 1fr;
-  }
-
-  .news-featured-media {
-    aspect-ratio: 16 / 9;
   }
 
   .news-featured-body {

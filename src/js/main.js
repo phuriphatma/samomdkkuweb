@@ -13,7 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
-import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId } from './announcements.js';
+import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
@@ -92,17 +92,16 @@ initVsForm(vsQuill);
 window.loadAnnouncements = loadAnnouncements;
 window.viewAnnouncement = viewAnnouncement;
 window.closeArticleView = closeArticleView;
-// Staff who click "edit"/"delete" on a public article jump to /admin/.
-// Pass the current article id so admin can pre-populate the editor form
-// (admin-main.js parses the hash and calls editAnnouncement(id) on load).
+// Staff who click "edit" on a public article jump to /admin/ with the
+// article id so admin can pre-populate the editor form (admin-main.js
+// parses the hash and calls editAnnouncement(id) on load).
 window.editCurrentAnnouncement = () => {
   const id = getViewingAnnouncementId();
   location.href = id ? `/admin/#creator/${encodeURIComponent(id)}` : '/admin/#creator';
 };
-window.deleteCurrentAnnouncement = () => {
-  const id = getViewingAnnouncementId();
-  location.href = id ? `/admin/#creator/${encodeURIComponent(id)}` : '/admin/#creator';
-};
+// Delete happens inline on the public reader — no point hopping to admin
+// for a single confirm + delete + reload.
+window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
 
 // Global Auth
 window.samoSignOut = samoSignOut;

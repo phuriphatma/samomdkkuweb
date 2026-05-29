@@ -56,6 +56,7 @@ export function cancelEdit() {
   if (btnText) btnText.innerHTML =
     '<i class="bi bi-cloud-arrow-up-fill me-2"></i>เผยแพร่ลงเว็บไซต์';
   document.getElementById('cancelEditBtn')?.classList.add('d-none');
+  document.getElementById('deleteEditBtn')?.classList.add('d-none');
   document.getElementById('creatorAlert')?.classList.add('d-none');
   if (typeof window.clearCreatorThumb === 'function') window.clearCreatorThumb();
   // Always return creator UI to edit mode when starting fresh.
@@ -157,6 +158,7 @@ function fillCreatorFormForEdit(post) {
   document.getElementById('publishBtnText').innerHTML =
     '<i class="bi bi-save-fill me-2"></i>บันทึกการแก้ไข';
   document.getElementById('cancelEditBtn').classList.remove('d-none');
+  document.getElementById('deleteEditBtn')?.classList.remove('d-none');
   setCreatorMode('edit');
   // Activate the creator tab if it's a Bootstrap pill (public site uses
   // pills routing). In admin the sidebar routes sections — caller is
@@ -307,31 +309,52 @@ export async function publishAnnouncement() {
 // Delete Announcement (staff-only)
 // --------------------------------------------------
 
-export async function deleteCurrentAnnouncement() {
-  if (!viewingAnnouncementId) return;
-  const post = globalAnnouncements.find((p) => p.id === viewingAnnouncementId);
+/** Delete a specific announcement by id. Confirms first, deletes via
+ *  dbRest with return=representation (so RLS no-ops surface as a real
+ *  error per mistakes.md), then reloads. Returns true on success. */
+export async function deleteAnnouncement(targetId) {
+  const wanted = targetId != null ? String(targetId) : viewingAnnouncementId;
+  if (!wanted) return false;
+  const post = globalAnnouncements.find((p) => String(p.id) === String(wanted));
   const titleHint = post ? `"${post.title}"` : '';
-  if (!confirm(`ลบประกาศ ${titleHint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
+  if (!confirm(`ลบประกาศ ${titleHint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return false;
 
-  const idEsc = encodeURIComponent(viewingAnnouncementId);
-  // return=representation lets us detect RLS no-ops as a real failure
-  // instead of the supabase-js silent-success pattern (see mistakes.md).
+  const idEsc = encodeURIComponent(wanted);
   const { data, error } = await dbRest(
     `/announcements?id=eq.${idEsc}`,
     { method: 'DELETE', prefer: 'return=representation' },
   );
   if (error) {
     alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown'));
-    return;
+    return false;
   }
   if (!Array.isArray(data) || data.length === 0) {
-    alert('ลบไม่สำเร็จ — ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น pr_staff หรือ dev)');
-    return;
+    alert('ลบไม่สำเร็จ — ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น pr_staff / dev หรือสิทธิ์ creator)');
+    return false;
   }
 
-  // Return to the announcements grid and reload.
-  closeArticleView();
+  // If we were viewing this article in the public reader, exit it.
+  // If we were editing it in the admin creator, clear the form.
+  if (String(viewingAnnouncementId) === String(wanted)) {
+    closeArticleView();
+  }
+  if (String(editingAnnouncementId) === String(wanted)) {
+    cancelEdit();
+  }
+  // Reload list — safe on both public and admin (loadAnnouncements is
+  // DOM-resilient).
   loadAnnouncements();
+  return true;
+}
+
+export async function deleteCurrentAnnouncement() {
+  return deleteAnnouncement();
+}
+
+/** Delete the article currently loaded into the admin editor form. */
+export async function deleteEditingAnnouncement() {
+  if (!editingAnnouncementId) return false;
+  return deleteAnnouncement(editingAnnouncementId);
 }
 
 // --------------------------------------------------
