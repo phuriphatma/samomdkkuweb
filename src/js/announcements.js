@@ -339,12 +339,18 @@ export async function deleteCurrentAnnouncement() {
 // --------------------------------------------------
 
 export async function loadAnnouncements() {
+  // These elements only exist on the public site's archive page —
+  // admin calls this function purely to populate globalAnnouncements
+  // (so editAnnouncement(id) can find the row). Guard all DOM writes
+  // so the fetch path runs regardless of where it's called from.
   const container = document.getElementById('announcementsGrid');
   const emptyState = document.getElementById('emptyState');
 
-  container.innerHTML =
-    '<div class="col-12 text-center text-muted py-5"><div class="spinner-border text-pink-custom mb-3" role="status"></div><p>กำลังดึงข้อมูลประกาศล่าสุด...</p></div>';
-  emptyState.classList.add('d-none');
+  if (container) {
+    container.innerHTML =
+      '<div class="col-12 text-center text-muted py-5"><div class="spinner-border text-pink-custom mb-3" role="status"></div><p>กำลังดึงข้อมูลประกาศล่าสุด...</p></div>';
+  }
+  if (emptyState) emptyState.classList.add('d-none');
 
   try {
     // Try fetching with `excerpt` (post-migration-0008 column). If the
@@ -382,22 +388,27 @@ export async function loadAnnouncements() {
       content: row.content,
       thumbnail: row.thumbnail_url || '',
     }));
-    container.innerHTML = '';
+    if (container) container.innerHTML = '';
 
     if (globalAnnouncements.length === 0) {
-      emptyState.classList.remove('d-none');
+      if (emptyState) emptyState.classList.remove('d-none');
     } else {
-      emptyState.classList.add('d-none');
-      const cards = globalAnnouncements.map(renderNewsCard).join('');
-      container.innerHTML = `<div class="news-grid news-grid--archive">${cards}</div>`;
+      if (emptyState) emptyState.classList.add('d-none');
+      if (container) {
+        const cards = globalAnnouncements.map(renderNewsCard).join('');
+        container.innerHTML = `<div class="news-grid news-grid--archive">${cards}</div>`;
+      }
     }
     renderHomeAnnouncements();
     // If the page loaded with #article/{id} before data was ready, open it now.
     handleArticleHash();
   } catch (error) {
-    container.innerHTML =
-      '<div class="col-12 text-center text-danger py-5"><i class="bi bi-exclamation-triangle fs-1"></i><p class="mt-3">เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ กรุณาลองใหม่อีกครั้ง</p></div>';
+    if (container) {
+      container.innerHTML =
+        '<div class="col-12 text-center text-danger py-5"><i class="bi bi-exclamation-triangle fs-1"></i><p class="mt-3">เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ กรุณาลองใหม่อีกครั้ง</p></div>';
+    }
     renderHomeAnnouncements({ error: true });
+    throw error; // let admin's tryCreatorDeepLink see the failure
   }
 }
 
