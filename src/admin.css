@@ -1,0 +1,23 @@
+/* ==============================================
+ * ADMIN MASTER STYLESHEET
+ * Imports only what the operator app needs:
+ *   - base tokens
+ *   - shared cards / forms / modals
+ *   - shop + projects + timeline
+ *   - workspace shell
+ *   - quill overrides (creator uses Quill)
+ *
+ * Excludes: launcher, footer, news, article — those are
+ * public-only.
+ * ============================================== */
+
+@import './css/base.css';
+@import './css/cards.css';
+@import './css/forms.css';
+@import './css/modals.css';
+@import './css/quill-overrides.css';
+@import './css/timeline.css';
+@import './css/shop.css';
+@import './css/projects.css';
+@import './css/workspace.css';
+@import './css/vs-admin.css';

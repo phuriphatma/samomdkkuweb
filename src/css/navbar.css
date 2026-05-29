@@ -1,32 +1,61 @@
 /* ==============================================
- * NAVBAR — Kita-style sticky top, white surface,
- * green/orange accents only
+ * NAVBAR — Slim sticky bar, glass-light surface
+ * Brand green + orange accents; designed to
+ * never grow regardless of tool count (tools
+ * live in the launcher tab).
  * ============================================== */
 
 .samo-navbar {
   position: sticky;
-  top: 10px;
+  top: 12px;
   z-index: 1000;
 
-  background: #ffffff;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-md);
 
-  padding: 0.75rem 1.5rem;
-  border-radius: 20px;
-  margin: 10px;
+  padding: 0.55rem 1.25rem;
+  border-radius: var(--radius-xl);
+  margin: 12px;
 }
 
 .samo-navbar .container-fluid {
   align-items: center;
   gap: 1rem;
+  padding: 0;
+  position: relative; /* anchor for the mobile absolute-centered brand */
+}
+
+/* Mobile (<lg): hamburger sits flush left, auth sits flush right, and
+   the brand is absolutely-centered within the navbar so the wordmark
+   stays at viewport center regardless of the left/right cluster widths
+   (Twitter / X pattern). On lg+ the brand resumes inline flow. */
+@media (max-width: 991.98px) {
+  .samo-navbar .container-fluid > .navbar-brand.brand-fixed {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    z-index: 1; /* below the dropdown but above the (hidden) collapse */
+    pointer-events: auto;
+  }
 }
 
 /* Brand wordmark — MDKKU green + SAMO orange */
 .brand-fixed {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0;
   text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-md);
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+.brand-fixed:hover {
+  background-color: var(--ink-50);
 }
 
 .brand-fixed span {
@@ -39,102 +68,102 @@
 .brand-mdkku {
   color: var(--brand-primary);
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+  font-family: "Prompt", sans-serif;
 }
 
 .brand-samo {
   color: var(--brand-orange);
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+  font-family: "Prompt", sans-serif;
 }
 
-/* Centered nav cluster */
-.nav-center {
+/* Primary nav cluster — centered between brand (left) and auth (right).
+   `margin: 0 auto` consumes equal flex remaining-space on both sides;
+   the auth area's `flex-shrink: 0` keeps it at its natural width on
+   the right edge so the pills sit visually between. */
+.nav-primary {
   display: flex;
-  justify-content: center;
-  flex: 1;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 auto;
 }
 
 .nav-pills .nav-link {
-  color: #475569;
+  color: var(--ink-600);
   font-weight: 500;
-  font-size: 0.95rem;
-  border-radius: 10px;
+  font-size: 0.92rem;
+  border-radius: var(--radius-md);
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.95rem;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.nav-pills .nav-link i {
+  font-size: 0.95rem;
+  position: relative;
+  top: 1px;
 }
 
 .nav-pills .nav-link:hover {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
+  background-color: var(--ink-50);
+  color: var(--ink-900);
 }
 
-/* Active state applies ONLY to the currently-selected pill tab.
-   Bootstrap also adds .show to dropdown toggles when their menu is open —
-   we deliberately don't include .show here so opening เครื่องมือ or
-   เกี่ยวกับเรา doesn't make them look "active". */
+.nav-pills .nav-link:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+/* Active pill — brand green with quiet lift */
 .nav-pills .nav-link.active {
   background-color: var(--brand-primary);
   color: #ffffff;
-  transform: scale(0.97);
-  box-shadow: 0 4px 10px rgba(16, 89, 34, 0.18);
+  box-shadow: 0 6px 14px rgba(16, 89, 34, 0.22);
 }
 
 .nav-pills .nav-link.active i {
   color: #ffffff;
 }
 
-/* Dropdown toggles never get the full green pill treatment.
-   - .show is added when the menu is open.
-   - .active is added by Bootstrap's tab JS when an inner tab is the
-     currently-active one. Both states render as a subtle light tint. */
-.nav-pills .nav-link.dropdown-toggle.show,
-.nav-pills .nav-link.dropdown-toggle.active {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
-  transform: none;
-  box-shadow: none;
-}
-
-.nav-pills .nav-link.dropdown-toggle.active i,
-.nav-pills .nav-link.dropdown-toggle.show i {
-  color: inherit;
-}
-
-/* Dropdown menu */
+/* User-profile dropdown menu — only dropdown left in the navbar */
 .samo-navbar .dropdown-menu {
-  border-radius: 12px;
-  border: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--shadow-lg);
+  padding: 0.4rem;
+  min-width: 220px;
 }
 
 .samo-navbar .dropdown-item {
-  border-radius: 8px;
-  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
   margin-bottom: 2px;
   font-weight: 500;
-  color: #334155;
+  color: var(--ink-700);
   cursor: pointer;
   display: flex;
   align-items: center;
+  width: 100%;
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
 
 .samo-navbar .dropdown-item:hover {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
+  background-color: var(--ink-50);
+  color: var(--ink-900);
 }
 
-.samo-navbar .dropdown-item:active,
-.samo-navbar .dropdown-item.active {
+.samo-navbar .dropdown-item:active {
   background-color: var(--brand-primary);
   color: #ffffff;
 }
@@ -144,67 +173,277 @@
   background-color: var(--brand-primary);
   color: #ffffff;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.5rem 1.25rem;
   font-weight: 600;
-  transition: background-color 0.2s ease, transform 0.15s ease;
+  font-size: 0.92rem;
+  box-shadow: 0 4px 12px rgba(16, 89, 34, 0.18);
+  transition:
+    background-color var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-base) var(--ease);
 }
 
 .btn-custom:hover,
 .btn-custom:focus {
   background-color: #0d4a1d;
   color: #ffffff;
+  box-shadow: 0 6px 16px rgba(16, 89, 34, 0.28);
 }
 
 .btn-custom:active {
-  transform: scale(0.98);
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px rgba(16, 89, 34, 0.22);
+}
+
+.btn-custom:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring), 0 4px 12px rgba(16, 89, 34, 0.18);
 }
 
 /* Mobile hamburger */
 .navbar-toggler {
-  border: none !important;
+  border: 1px solid var(--ink-200) !important;
   box-shadow: none !important;
-  border-radius: 10px;
-  transition: background-color 0.2s ease, transform 0.15s ease;
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.55rem;
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
 }
 
 .navbar-toggler:hover {
-  background-color: var(--green-50);
-  transform: scale(1.05);
+  background-color: var(--ink-50);
+  border-color: var(--ink-300) !important;
 }
 
-.navbar-toggler:focus {
-  box-shadow: 0 0 0 2px rgba(16, 89, 34, 0.25) !important;
+.navbar-toggler:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring) !important;
 }
 
-/* Auth area sizing */
+/* Auth area sizing — sits at the right edge naturally because
+   .nav-primary's `margin: 0 auto` consumes the space on both sides.
+   flex-shrink:0 keeps "เข้าสู่ระบบ" on one line at narrow widths. */
 .samo-navbar-auth {
   display: flex;
   align-items: center;
-  min-height: 38px;
+  min-height: 40px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.btn-custom {
+  white-space: nowrap;
 }
 
 .samo-navbar-auth .dropdown-toggle::after {
   margin-left: 0.4rem;
 }
 
-/* Offcanvas (mobile drawer) */
-.offcanvas .nav-link {
-  border-radius: 8px;
-  color: #334155;
-  padding: 0.65rem 0.9rem;
-  font-weight: 500;
+/* User pill (avatar + name when signed in) */
+.nav-user-pill {
   background: transparent;
-  border: none;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.85rem 0.25rem 0.3rem;
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
 }
 
-.offcanvas .nav-link:hover {
-  background-color: var(--green-50);
+.nav-user-pill:hover,
+.nav-user-pill:focus {
+  background-color: var(--ink-50);
+  border-color: var(--ink-300);
+}
+
+.nav-user-pill:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.nav-user-avatar {
+  background: var(--ink-200);
+  object-fit: cover;
+  border: 2px solid #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-user-sub {
+  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nav-user-menu {
+  min-width: 240px;
+}
+
+/* Section label inside the user-profile dropdown (Staff group, etc.) */
+.nav-user-section-label {
+  display: block;
+  padding: 0.35rem 0.7rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-400);
+}
+
+/* Project notifications bell */
+.nav-projects-bell {
+  position: relative;
+  background: transparent;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-600);
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease), color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+}
+
+.nav-projects-bell:hover {
+  background-color: var(--ink-50);
+  border-color: var(--ink-300);
   color: var(--brand-primary);
 }
 
-.offcanvas .nav-link.active {
+.nav-projects-bell:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.nav-projects-bell-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--brand-orange);
+  color: #ffffff;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  min-width: 18px;
+  line-height: 1.3;
+  text-align: center;
+  border: 2px solid #ffffff;
+}
+
+/* ==============================================
+ * OFFCANVAS (mobile drawer)
+ * ============================================== */
+
+.samo-offcanvas {
+  /* Slides in from the left to match /admin/'s sidebar drawer.
+     The exposed edge is the right edge, so the radius + border sit there. */
+  border-top-right-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
+  width: min(86vw, 360px);
+  border-right: 1px solid var(--ink-200);
+}
+
+.samo-offcanvas .offcanvas-header {
+  padding: 1rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--ink-200);
+}
+
+.samo-offcanvas .offcanvas-body {
+  padding: 1rem 1rem 1.5rem;
+}
+
+.mobile-user-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--ink-50);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-user-strip img {
+  background: var(--ink-200);
+  object-fit: cover;
+  border: 2px solid #ffffff;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.samo-offcanvas-nav {
+  gap: 2px;
+}
+
+.samo-offcanvas .nav-link {
+  border-radius: var(--radius-md);
+  color: var(--ink-700);
+  padding: 0.65rem 0.85rem;
+  font-weight: 500;
+  font-size: 0.95rem;
+  background: transparent;
+  border: none;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  display: flex;
+  align-items: center;
+}
+
+.samo-offcanvas .nav-link:hover,
+.samo-offcanvas .nav-link:focus {
+  background-color: var(--ink-50);
+  color: var(--ink-900);
+}
+
+.samo-offcanvas .nav-link.active {
   background-color: var(--brand-primary);
   color: #ffffff;
+}
+
+.samo-offcanvas-divider {
+  height: 1px;
+  background: var(--ink-200);
+  margin: 0.75rem 0.25rem;
+}
+
+.samo-offcanvas-section-label {
+  display: block;
+  padding: 0.25rem 0.85rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-400);
+}
+
+/* ==============================================
+ * RESPONSIVE — keep the nav clean from 360px → 1920px
+ * ============================================== */
+
+/* iPad portrait (768–991px) now uses the hamburger drawer — pills
+   become the offcanvas list. No tightening rules needed for in-bar
+   horizontal layout at that width. */
+
+@media (max-width: 991.98px) {
+  .samo-navbar {
+    padding: 0.45rem 0.85rem;
+    margin: 8px;
+    border-radius: var(--radius-lg);
+  }
+
+  .brand-mdkku,
+  .brand-samo {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .samo-navbar {
+    margin: 6px;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .brand-mdkku,
+  .brand-samo {
+    font-size: 1.2rem;
+  }
 }

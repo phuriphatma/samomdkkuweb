@@ -59,11 +59,32 @@ async function buildCurrentUser(session) {
   // when it IS called from there, we use the wrapper so it doesn't
   // deadlock the supabase-js session lock. See:
   //   https://github.com/supabase/auth-js/issues/762
-  const { data: profile } = await db
-    .from('users')
-    .select('id, email, username, display_name, method, role, department')
-    .eq('id', authUser.id)
-    .maybeSingle();
+  // Tries to fetch the post-0010 permissions column. If that 400s
+  // (column missing — migration not yet applied), retries without it.
+  // Same graceful-fallback pattern as announcements.loadAnnouncements.
+  const baseSelect = 'id, email, username, display_name, method, role, department';
+  let profile = null;
+  {
+    const r1 = await db
+      .from('users')
+      .select(baseSelect + ', permissions')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    if (r1.error?.code === '42703' || r1.error?.message?.includes('permissions')) {
+      if (!window.__samoWarnedAuthPermissions) {
+        window.__samoWarnedAuthPermissions = true;
+        console.warn('[auth] permissions column missing — apply migration 0010_vp_accounts_permissions.sql to enable per-account feature gates.');
+      }
+      const r2 = await db
+        .from('users')
+        .select(baseSelect)
+        .eq('id', authUser.id)
+        .maybeSingle();
+      profile = r2.data;
+    } else {
+      profile = r1.data;
+    }
+  }
 
   // Profile may be null briefly right after signup if the create-on-trigger
   // hasn't fired (or for unusual race conditions). Fall back to auth data.
@@ -77,8 +98,39 @@ async function buildCurrentUser(session) {
     sub: authUser.user_metadata?.sub || authUser.id,
     role: profile?.role || 'user',
     department: profile?.department || '',
+    permissions: Array.isArray(profile?.permissions) ? profile.permissions : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
+}
+
+/**
+ * Does the current user have access to a given feature key?
+ * - Role-based defaults:
+ *     pr_staff    → 'pr'
+ *     vs_staff    → 'vs' (super; see all depts)
+ *     shop_admin  → 'samoshop'
+ *     vp_admin    → 'vs' only (own dept; DB RLS gates per-dept).
+ *                   Projects is NOT a vp_admin default — only the
+ *                   account(s) with 'projects' in permissions[] see it.
+ *     uni_staff   → 'projects'
+ *     dev         → everything
+ * - Plus anything in user.permissions stacks on top.
+ *
+ * Use this for UI gating; the database RLS is the real boundary.
+ */
+export function userCanAccess(feature, user = currentUser) {
+  if (!user) return false;
+  if (user.role === 'dev') return true;
+  const roleDefaults = {
+    pr_staff:   ['pr'],
+    vs_staff:   ['vs'],
+    shop_admin: ['samoshop'],
+    vp_admin:   ['vs'],
+    uni_staff:  ['projects'],
+  }[user.role] || [];
+  if (roleDefaults.includes(feature)) return true;
+  if (Array.isArray(user.permissions) && user.permissions.includes(feature)) return true;
+  return false;
 }
 
 // ============================================================
@@ -172,9 +224,15 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
   if (username.length < 3) throw new Error('Username ต้องมีอย่างน้อย 3 ตัวอักษร');
   if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
-  // Block reserved staff usernames (frontend check; backend enforces via
-  // unique-username constraint in public.users too).
-  if (['samomdkkupr', 'samomdkkuvssound', 'samomdkkudev'].includes(username.toLowerCase())) {
+  // Block reserved staff usernames. All staff accounts in this app
+  // follow the `samomdkku*` convention (samomdkkupr, samomdkkuvssound,
+  // samomdkkushop, the 10 VP accounts samomdkkuvpa / samomdkkudigital /
+  // samomdkkumdi / …) plus the legacy `sastaff` / `samomdkkudev`.
+  // Use a prefix check so a brand-new dept account (e.g. a future
+  // samomdkku<x>) can't be squatted before the admin seeds it.
+  // Backend uniqueness on public.users.username is the second line of defence.
+  const lc = username.toLowerCase();
+  if (/^samomdkku/.test(lc) || lc === 'sastaff') {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 

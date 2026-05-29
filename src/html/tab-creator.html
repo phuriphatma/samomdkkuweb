@@ -1,65 +1,146 @@
-      <!-- TAB 3: ANNOUNCEMENT CREATOR -->
-      <div class="tab-pane fade an-tab" id="pills-creator" role="tabpanel">
-        <div class="form-container" style="max-width: 900px">
-          <div class="text-center mb-4">
-            <h2 class="page-header" id="creatorPageHeader"><i
-                class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i> เขียนประกาศลงเว็บไซต์</h2>
-            <p class="text-muted" id="creatorPageDesc">เขียนเนื้อหา แทรกรูปภาพ แล้ว Publish ขึ้นบอร์ดประกาศได้ทันที</p>
+      <!-- ANNOUNCEMENT CREATOR — slot-based editorial publishing. Author
+           fills 5 slots; system renders the article layout. Preview pane
+           uses the SAME renderArticleView() as the public reader so what
+           authors see is what visitors get.
+           This file is bare content (no tab-pane wrapper) — admin/index.html
+           includes it inside its workspace shell. -->
+      <div class="creator-content">
+        <div class="form-container creator-shell" style="max-width: 920px;">
+
+          <!-- ANNOUNCEMENT ORDER PANEL — drag to reorder, click pencil
+               to edit. Populated by renderAnnouncementOrderList() on
+               first creator entry and after publish/delete. SortableJS
+               handles the drag UX. -->
+          <details class="announcements-order mb-4" id="announcementsOrderPanel">
+            <summary class="announcements-order-summary">
+              <i class="bi bi-list-ol me-2"></i>
+              <span>ลำดับการแสดงประกาศ</span>
+              <span class="text-muted small ms-2">(ลากเพื่อจัดเรียง · กดดินสอเพื่อแก้ไข)</span>
+            </summary>
+            <ul class="list-group list-group-flush announcements-order-list mt-3" id="announcementsOrderList">
+              <li class="list-group-item text-muted small">กำลังโหลด…</li>
+            </ul>
+          </details>
+
+          <div class="creator-head mb-4">
+            <div>
+              <h2 class="page-header mb-1" id="creatorPageHeader"><i
+                  class="bi bi-layout-text-window-reverse me-2 text-pink-custom"></i>เขียนประกาศลงเว็บไซต์</h2>
+              <p class="text-muted mb-0" id="creatorPageDesc">กรอกหัวเรื่อง คำโปรย ภาพปก และเนื้อหา — ระบบจะจัดหน้าให้อัตโนมัติ</p>
+            </div>
+            <div class="creator-mode-toggle btn-group" role="tablist">
+              <button type="button" class="btn btn-sm active" id="creatorModeEditBtn"
+                onclick="setCreatorMode('edit')">
+                <i class="bi bi-pencil-square me-1"></i>เขียน
+              </button>
+              <button type="button" class="btn btn-sm" id="creatorModePreviewBtn"
+                onclick="setCreatorMode('preview')">
+                <i class="bi bi-eye me-1"></i>ดูตัวอย่าง
+              </button>
+            </div>
           </div>
+
           <div id="creatorAlert" class="alert d-none shadow-sm"></div>
-          <div class="row g-3 mb-4">
-            <div class="col-md-8">
-              <label class="form-label fw-bold">หัวข้อประกาศ (Title) <span class="text-danger">*</span></label>
-              <input type="text" id="creatorTitle" class="form-control" placeholder="ระบุหัวข้อที่น่าสนใจ..." />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold">ฝ่ายที่ประกาศ (Department) <span class="text-danger">*</span></label>
-              <select id="creatorDepartment" class="form-select">
-                <option value="สโมสรนักศึกษา" selected>สโมสรนักศึกษา</option>
-                <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
-                <option value="ฝ่ายกิจกรรม">ฝ่ายกิจกรรม</option>
-                <option value="ฝ่ายสวัสดิการ">ฝ่ายสวัสดิการ</option>
-                <option value="ประกาศทั่วไป">ประกาศทั่วไป</option>
-              </select>
-            </div>
-          </div>
-          <div class="mb-4">
-            <label class="form-label fw-bold">รูปปก (Thumbnail) <span class="text-muted small">— แสดงในการ์ดประกาศ
-              (ไม่บังคับ)</span></label>
-            <div class="creator-thumb">
-              <div class="creator-thumb-preview" id="creatorThumbPreview">
-                <i class="bi bi-image fs-1"></i>
-                <span class="text-muted small mt-2">ยังไม่ได้เลือกรูปปก</span>
+
+          <!-- EDIT PANE -->
+          <div id="creatorEditPane">
+            <div class="row g-3 mb-3">
+              <div class="col-md-8">
+                <label class="form-label fw-bold">หัวเรื่อง (Title) <span class="text-danger">*</span></label>
+                <input type="text" id="creatorTitle" class="form-control" maxlength="120"
+                  placeholder="พาดหัวสั้น คมชัด ดึงคนเข้ามาอ่าน" />
               </div>
-              <div class="creator-thumb-actions">
-                <input type="file" id="creatorThumbInput" accept="image/*" class="d-none"
-                  onchange="onCreatorThumbPicked(event)">
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                  onclick="document.getElementById('creatorThumbInput').click()">
-                  <i class="bi bi-upload me-1"></i> เลือกรูป
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm d-none" id="creatorThumbClearBtn"
-                  onclick="clearCreatorThumb()">
-                  <i class="bi bi-x-lg me-1"></i> ลบรูปปก
-                </button>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">ฝ่ายที่ประกาศ <span class="text-danger">*</span></label>
+                <select id="creatorDepartment" class="form-select">
+                  <option value="สโมสรนักศึกษา" selected>สโมสรนักศึกษา</option>
+                  <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
+                  <option value="ฝ่ายกิจกรรม">ฝ่ายกิจกรรม</option>
+                  <option value="ฝ่ายสวัสดิการ">ฝ่ายสวัสดิการ</option>
+                  <option value="ประกาศทั่วไป">ประกาศทั่วไป</option>
+                </select>
               </div>
             </div>
-            <input type="hidden" id="creatorThumbUrl" value="">
-          </div>
-          <div class="mb-4">
-            <label class="form-label fw-bold">เนื้อหา (Content) <span class="text-danger">*</span></label>
-            <div class="caption-editor-shell shadow-sm">
-              <div id="creatorQuillEditor"></div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">คำโปรย (Subhead) <span class="text-muted small">— สรุปสั้น 1–2 ประโยค จะแสดงใต้พาดหัวและในการ์ดข่าว</span></label>
+              <textarea id="creatorExcerpt" class="form-control" rows="2" maxlength="220"
+                placeholder="สรุปประเด็นสำคัญใน 1–2 ประโยค — ผู้อ่านควรเข้าใจหัวใจของประกาศแม้ไม่ได้อ่านเนื้อหาเต็ม"></textarea>
+              <div class="form-text text-end"><span id="creatorExcerptCount">0</span> / 220</div>
             </div>
-            <small class="text-muted mt-2 d-block"><i class="bi bi-image me-1"></i> <strong>Tip:</strong>
-              คลิกไอคอนรูปในแถบเครื่องมือเพื่อแทรกรูปในเนื้อหา (ระบบจะอัปโหลดให้อัตโนมัติ)</small>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">
+                ภาพปก (Cover Image) <span class="text-danger">*</span>
+              </label>
+              <div class="form-text mb-2">
+                <i class="bi bi-aspect-ratio me-1"></i>
+                แนะนำ <strong>1600 × 900</strong> (สัดส่วน 16:9 — มาตรฐานเว็บข่าวระดับสากล) — ขั้นต่ำ 1200 × 675.
+                ภาพสัดส่วนอื่นจะถูกตัดกรอบให้พอดีแบบกึ่งกลางอัตโนมัติ
+              </div>
+              <div class="creator-thumb">
+                <div class="creator-thumb-preview" id="creatorThumbPreview">
+                  <i class="bi bi-image fs-1"></i>
+                  <span class="text-muted small mt-2">ยังไม่ได้เลือกภาพปก</span>
+                </div>
+                <div class="creator-thumb-actions">
+                  <input type="file" id="creatorThumbInput" accept="image/*" class="d-none"
+                    onchange="onCreatorThumbPicked(event)">
+                  <button type="button" class="btn btn-outline-secondary btn-sm"
+                    onclick="document.getElementById('creatorThumbInput').click()">
+                    <i class="bi bi-upload me-1"></i>เลือกรูป
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm d-none" id="creatorThumbClearBtn"
+                    onclick="clearCreatorThumb()">
+                    <i class="bi bi-x-lg me-1"></i>ลบรูป
+                  </button>
+                </div>
+              </div>
+              <div class="form-text small mt-2" id="creatorThumbHint"></div>
+              <input type="hidden" id="creatorThumbUrl" value="">
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label fw-bold">เนื้อหา (Body) <span class="text-danger">*</span></label>
+              <div class="caption-editor-shell shadow-sm">
+                <div id="creatorQuillEditor"></div>
+              </div>
+              <small class="text-muted mt-2 d-block"><i class="bi bi-image me-1"></i>
+                <strong>เคล็ดลับ:</strong> ใช้หัวข้อ (H2/H3) จัดโครงเรื่อง, ใส่รูปประกอบเพื่อเล่าเรื่อง — ระบบจะอัปโหลดรูปให้อัตโนมัติเมื่อกดไอคอนรูปในแถบเครื่องมือ
+              </small>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+              <button id="publishBtn" onclick="publishAnnouncement()" class="btn btn-submit flex-grow-1 btn-lg">
+                <span id="publishBtnText">
+                  <i class="bi bi-cloud-arrow-up-fill me-2"></i>เผยแพร่ลงเว็บไซต์
+                </span>
+              </button>
+              <button onclick="cancelEdit()" id="cancelEditBtn"
+                class="btn btn-outline-secondary btn-lg d-none">ยกเลิก</button>
+              <!-- Delete is visible only when editing an existing post — see
+                   announcements.js fillCreatorFormForEdit. -->
+              <button onclick="deleteEditingAnnouncement()" id="deleteEditBtn"
+                class="btn btn-outline-danger btn-lg d-none">
+                <i class="bi bi-trash3 me-1"></i>ลบประกาศนี้
+              </button>
+            </div>
           </div>
-          <div class="d-flex gap-2">
-            <button id="publishBtn" onclick="publishAnnouncement()" class="btn btn-submit flex-grow-1 btn-lg"><span
-                id="publishBtnText"><i class="bi bi-cloud-arrow-up-fill me-2"></i> Publish
-                (เผยแพร่ลงเว็บไซต์)</span></button>
-            <button onclick="cancelEdit()" id="cancelEditBtn"
-              class="btn btn-outline-secondary btn-lg d-none">ยกเลิก</button>
+
+          <!-- PREVIEW PANE (populated by setCreatorMode('preview')) -->
+          <div id="creatorPreviewPane" class="d-none">
+            <div class="creator-preview-wrap" id="creatorPreviewMount"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="btn btn-outline-secondary flex-grow-1"
+                onclick="setCreatorMode('edit')">
+                <i class="bi bi-pencil-square me-2"></i>กลับไปแก้ไข
+              </button>
+              <button type="button" class="btn btn-submit flex-grow-1 btn-lg"
+                onclick="publishAnnouncement()">
+                <i class="bi bi-cloud-arrow-up-fill me-2"></i>เผยแพร่ลงเว็บไซต์
+              </button>
+            </div>
           </div>
+
         </div>
       </div>

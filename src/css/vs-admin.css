@@ -1,0 +1,288 @@
+/* ==============================================
+ * VS ADMIN — per-VP summary chips, age chips,
+ * Kanban triage board for SE staff.
+ * ============================================== */
+
+/* (List/kanban toggle removed — kanban is the only VS staff view.) */
+
+/* (Per-VP summary chips removed — the dept dropdown is the single
+   source of truth. CSS for .vs-dept-* deleted; HTML refs also gone.) */
+
+/* --- Age chip (used in kanban cards) --- */
+
+.vs-age-chip {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+
+.vs-age-chip.is-fresh   { background: #dcfce7; color: #15803d; }
+.vs-age-chip.is-warming { background: #fef9c3; color: #854d0e; }
+.vs-age-chip.is-overdue { background: #fee2e2; color: #b91c1c; }
+
+/* --- Kanban board --- */
+
+/* Wrapper holds the edge-fade gradients (::before/::after).
+   The scroll-affordance JS toggles `.is-scrolled` and `.is-end`
+   on this element based on scroll position so the fades only show
+   when there's more content in that direction. */
+.vs-kanban-wrap {
+  position: relative;
+  /* Initial state: left fade hidden (we're at start). JS adds
+     .is-scrolled once the user moves. */
+}
+
+.vs-kanban-wrap::before,
+.vs-kanban-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 14px;    /* leave room for horizontal scrollbar */
+  width: 48px;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 200ms ease;
+}
+
+.vs-kanban-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--ink-50, #f8fafc) 10%, transparent);
+  opacity: 0;
+}
+
+.vs-kanban-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--ink-50, #f8fafc) 10%, transparent);
+  opacity: 1;
+}
+
+.vs-kanban-wrap.is-scrolled::before { opacity: 1; }
+.vs-kanban-wrap.is-end::after { opacity: 0; }
+
+.vs-kanban {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  /* Horizontal scroll — 9+ status columns wouldn't fit any viewport
+     stretched to equal widths. Trello / Linear pattern: fixed-width
+     columns + free horizontal scroll + edge fades for affordance. */
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.5rem;
+  /* Right padding creates a peek hint — the last column sits a bit
+     short so users see "there's more space to scroll into". */
+  padding-right: 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  /* Touch-momentum on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+.vs-kanban::-webkit-scrollbar { height: 8px; }
+.vs-kanban::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+.vs-kanban-col {
+  background: var(--ink-50, #f8fafc);
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 260px;       /* fixed width per column */
+  min-width: 260px;
+  max-height: 75vh;
+}
+
+/* Catch-all "อื่นๆ" column gets a dashed border + muted look so it
+   visually signals "tickets here have non-canonical statuses worth
+   reviewing" rather than blending in. */
+.vs-kanban-col.is-other {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--ink-300, #cbd5e1);
+}
+
+.vs-kanban-col.is-other .vs-kanban-col-head {
+  background: transparent;
+}
+
+.vs-kanban-col.is-other .vs-kanban-col-title {
+  color: var(--ink-500, #64748b);
+  font-style: italic;
+}
+
+/* Empty state — when filter has zero tickets across all columns. */
+.vs-kanban-empty-state {
+  text-align: center;
+  padding: 3rem 1rem 4rem;
+  color: var(--ink-400, #94a3b8);
+}
+
+.vs-kanban-empty-state i {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.vs-kanban-empty-state p {
+  margin: 0;
+}
+
+.vs-kanban-empty-state p.small {
+  margin-top: 0.25rem;
+  color: var(--ink-300, #cbd5e1);
+}
+
+/* Mobile tweaks — slightly narrower columns + larger touch targets,
+   more peek room so the next-column hint is clearer at thin widths. */
+@media (max-width: 575.98px) {
+  .vs-kanban-col {
+    flex: 0 0 230px;
+    min-width: 230px;
+  }
+  .vs-kanban {
+    padding-right: 2.5rem;     /* stronger peek on mobile */
+  }
+  .vs-kanban-wrap::before,
+  .vs-kanban-wrap::after {
+    width: 36px;
+  }
+}
+
+.vs-kanban-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--ink-200, #e2e8f0);
+  background: #ffffff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.vs-kanban-col-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-900, #1f2937);
+  flex: 1;
+}
+
+.vs-kanban-col-count {
+  background: var(--ink-100, #f1f5f9);
+  color: var(--ink-600, #475569);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.vs-kanban-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.vs-kanban-col-body {
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.vs-kanban-empty {
+  text-align: center;
+  color: var(--ink-400, #94a3b8);
+  font-size: 0.8rem;
+  padding: 1.5rem 0.5rem;
+  border: 1px dashed var(--ink-200, #e2e8f0);
+  border-radius: 8px;
+  margin: auto 0;
+}
+
+.vs-kanban-card {
+  background: #ffffff;
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-left: 3px solid var(--card-accent, #94a3b8);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.vs-kanban-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.vs-kanban-card.is-overdue {
+  box-shadow: inset 4px 0 0 #ef4444, 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-left-color: #ef4444;
+}
+
+.vs-kanban-card.is-warming {
+  border-left-color: #f59e0b;
+}
+
+.vs-kanban-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.vs-kanban-card-id {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-primary, #105922);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-kanban-card-body {
+  font-size: 0.78rem;
+  color: var(--ink-700, #334155);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.vs-kanban-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.vs-kanban-card-dept {
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.vs-kanban-card-urgent {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}

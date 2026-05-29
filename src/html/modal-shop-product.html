@@ -1,0 +1,66 @@
+  <!-- Product detail modal (rendered into by src/js/shop/products.js) -->
+  <div class="modal fade shop-tab" id="shopProductModal" tabindex="-1" aria-hidden="true"
+       aria-labelledby="shopProductModalTitle">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div id="shopProductModalHeader" class="flex-grow-1">
+            <!-- source tag + title injected by JS -->
+            <h5 class="modal-title font-prompt mt-1" id="shopProductModalTitle" style="font-weight:700;"></h5>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="product-detail-grid">
+            <div class="detail-hero" id="shopProductModalHero"></div>
+            <div class="detail-info">
+              <div class="text-muted small" id="shopProductModalSub"></div>
+              <div class="detail-price">
+                <span class="baht">฿</span><span id="shopProductModalPrice"></span>
+              </div>
+              <p class="detail-desc" id="shopProductModalDesc"></p>
+              <div id="shopProductModalPreorder" class="detail-preorder d-none">
+                <i class="bi bi-calendar-event me-1"></i>
+                <span id="shopProductModalPreorderNote"></span>
+              </div>
+              <div id="shopProductModalStockStatus" class="detail-stock-status d-none"></div>
+
+              <div class="variant-group d-none" id="shopProductModalSizeGroup">
+                <div class="variant-label">ไซส์ · Size</div>
+                <div class="variant-options" id="shopProductModalSizeOptions"></div>
+              </div>
+              <div class="variant-group d-none" id="shopProductModalColorGroup">
+                <div class="variant-label">
+                  สี · Color
+                  <span class="text-muted ms-2" style="font-weight:400;" id="shopProductModalColorLabel"></span>
+                </div>
+                <div class="variant-options" id="shopProductModalColorOptions"></div>
+              </div>
+
+              <div class="variant-group">
+                <div class="variant-label">จำนวน</div>
+                <div class="qty-stepper">
+                  <button type="button" id="shopProductModalQtyMinus">−</button>
+                  <input id="shopProductModalQty" value="1" readonly />
+                  <button type="button" id="shopProductModalQtyPlus">+</button>
+                </div>
+              </div>
+
+              <div class="alert alert-warning small mb-2 py-2 d-none" id="shopProductModalOOS">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                ตัวเลือกนี้สินค้าหมด ลองเปลี่ยนสีหรือไซส์
+              </div>
+
+              <div class="d-flex gap-2 mt-3">
+                <button type="button" class="btn btn-shop flex-grow-1" id="shopProductModalAdd">
+                  <i class="bi bi-bag-plus me-1"></i>
+                  <span id="shopProductModalAddLabel">เพิ่มลงตะกร้า</span>
+                </button>
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">ปิด</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

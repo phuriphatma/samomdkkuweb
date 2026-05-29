@@ -1,0 +1,119 @@
+      <!-- TAB: SAMO SHOP -->
+      <div class="tab-pane fade shop-tab" id="pills-shop" role="tabpanel">
+        <div class="container">
+
+          <!-- Sub-nav: ร้านค้า / คำสั่งซื้อของฉัน / Checkout (shown contextually) -->
+          <div class="shop-subnav" id="shopSubnav" role="tablist">
+            <button type="button" data-shop-view="shop" class="is-active">
+              <i class="bi bi-shop"></i> ร้านค้า
+            </button>
+            <button type="button" data-shop-view="orders">
+              <i class="bi bi-bag-check"></i> คำสั่งซื้อของฉัน
+              <span class="count-pill d-none" id="shopOrdersReadyCount">0</span>
+            </button>
+            <button type="button" data-shop-view="checkout" class="d-none" id="shopCheckoutNavBtn">
+              <i class="bi bi-qr-code"></i> Checkout
+            </button>
+          </div>
+
+          <!-- View: Shop browse -->
+          <div data-shop-pane="shop">
+            <div id="shopPickupBanner"></div>
+
+            <div class="d-flex align-items-end justify-content-between mb-2">
+              <div>
+                <h3 class="shop-page-title" style="font-size:1.15rem; margin-bottom:0;">
+                  <i class="bi bi-stars me-1 text-accent"></i> เปิดตัวล่าสุด
+                </h3>
+                <p class="shop-page-sub small mb-0">Recent launches from SAMO — เลื่อนซ้ายขวาเพื่อดูเพิ่ม</p>
+              </div>
+              <div class="launch-arrows">
+                <button type="button" class="launch-arrow d-none" id="shopLaunchPrev" aria-label="ก่อนหน้า">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <button type="button" class="launch-arrow d-none" id="shopLaunchNext" aria-label="ถัดไป">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+            <div class="launch-carousel" id="shopLaunchCarousel"></div>
+
+            <div class="filter-bar">
+              <div class="filter-row">
+                <span class="filter-label">แหล่งที่มา</span>
+                <div id="shopSourceChips" class="d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="filter-row">
+                <span class="filter-label">ประเภท</span>
+                <div id="shopTypeChips" class="d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="filter-row">
+                <span class="filter-label">เรียง</span>
+                <select id="shopSortSelect" class="form-select form-select-sm" style="max-width: 180px;"></select>
+                <div class="ms-auto" style="max-width:260px; flex:1 1 200px;">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input id="shopSearchInput" type="search" class="form-control" placeholder="ค้นหาสินค้า..." />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-baseline justify-content-between mb-2">
+              <p class="shop-page-sub mb-0 small">
+                พบสินค้า <b id="shopResultCount">0</b> รายการ
+              </p>
+            </div>
+
+            <div id="shopProductGrid" class="shop-grid"></div>
+            <div id="shopProductEmpty" class="empty-state d-none">
+              <i class="bi bi-search"></i>
+              <h4>ไม่พบสินค้า</h4>
+              <p>ลองเปลี่ยนตัวกรองหรือคำค้นหา</p>
+            </div>
+          </div>
+
+          <!-- View: My Orders -->
+          <div data-shop-pane="orders" class="d-none">
+            <h2 class="shop-page-title">คำสั่งซื้อของฉัน</h2>
+            <p class="shop-page-sub">ติดตามสถานะ ความคืบหน้า และดูประกาศการรับสินค้า</p>
+
+            <div id="shopOrdersAuthGate" class="role-gate d-none p-4 text-center bg-white rounded">
+              <i class="bi bi-person-lock fs-2 text-muted"></i>
+              <p class="mt-3 mb-2"><b>เข้าสู่ระบบก่อนเพื่อดูคำสั่งซื้อของคุณ</b></p>
+              <button class="btn btn-shop" data-bs-toggle="modal" data-bs-target="#signinModal">
+                <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+              </button>
+            </div>
+
+            <div id="shopOrdersFilterRow" class="d-flex flex-wrap gap-2 mb-3"></div>
+            <div id="shopOrdersList"></div>
+            <div id="shopOrdersEmpty" class="empty-state d-none">
+              <i class="bi bi-bag-x"></i>
+              <h4>ยังไม่มีคำสั่งซื้อในสถานะนี้</h4>
+              <p>ลองเปลี่ยนตัวกรองด้านบน หรือกลับไปเลือกสินค้าใหม่</p>
+            </div>
+          </div>
+
+          <!-- View: Checkout -->
+          <div data-shop-pane="checkout" class="d-none">
+            <button class="btn btn-ghost btn-sm mb-3" id="shopCheckoutBack">
+              <i class="bi bi-chevron-left me-1"></i> กลับไปร้าน
+            </button>
+            <h2 class="shop-page-title">ชำระเงินด้วย PromptPay</h2>
+            <p class="shop-page-sub">สแกน QR เพื่อโอน → อัปโหลดสลิป → admin ตรวจสอบและยืนยัน</p>
+
+            <div id="shopCheckoutAuthGate" class="role-gate d-none p-4 text-center bg-white rounded">
+              <i class="bi bi-person-lock fs-2 text-muted"></i>
+              <p class="mt-3 mb-2"><b>เข้าสู่ระบบก่อนทำรายการสั่งซื้อ</b></p>
+              <p class="small text-muted">เราต้องเชื่อมคำสั่งซื้อกับบัญชีของคุณเพื่อให้ admin ติดต่อกลับและคุณติดตามสถานะได้</p>
+              <button class="btn btn-shop" data-bs-toggle="modal" data-bs-target="#signinModal">
+                <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+              </button>
+            </div>
+
+            <div id="shopCheckoutBody" class="checkout-grid d-none"></div>
+          </div>
+
+        </div>
+      </div>

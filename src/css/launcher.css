@@ -1,0 +1,323 @@
+/* ==============================================
+ * TOOLS LAUNCHER — searchable tool catalog
+ * Built to scale to 100+ tools without changing
+ * any layout: cards live in tab-tools.html and
+ * carry data-cats / data-roles attributes that
+ * the filter logic in main.js reads.
+ * ============================================== */
+
+.launcher-container {
+  padding-top: 2.5rem;
+  padding-bottom: 3rem;
+  max-width: 1180px;
+}
+
+/* --- HEADER --- */
+
+.launcher-header {
+  text-align: center;
+  margin-bottom: 2.25rem;
+}
+
+.launcher-title {
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.launcher-lead {
+  color: var(--ink-500);
+  font-size: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+/* Big search field — centered, rounded, with leading icon */
+.launcher-search {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto 1.25rem;
+}
+
+.launcher-search-icon {
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-400);
+  font-size: 1.05rem;
+  pointer-events: none;
+}
+
+.launcher-search-input {
+  width: 100%;
+  padding: 0.9rem 3rem 0.9rem 2.85rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-200);
+  background: var(--surface);
+  font-size: 1rem;
+  color: var(--ink-900);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+
+.launcher-search-input::placeholder {
+  color: var(--ink-400);
+}
+
+.launcher-search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-focus-ring), var(--shadow-sm);
+}
+
+.launcher-search-kbd {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--ink-100);
+  color: var(--ink-500);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-xs);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  display: inline-flex;
+}
+
+/* Filter chips */
+.launcher-chips {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.launcher-chip {
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
+}
+
+.launcher-chip:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+}
+
+.launcher-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.launcher-chip.is-active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #ffffff;
+}
+
+/* --- SECTIONS --- */
+
+.launcher-section {
+  margin-bottom: 2.5rem;
+}
+
+.launcher-section.is-hidden {
+  display: none;
+}
+
+.launcher-section-head {
+  margin-bottom: 1rem;
+}
+
+.launcher-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.launcher-section-title i {
+  color: var(--brand-primary) !important;
+}
+
+.launcher-section-sub {
+  color: var(--ink-500);
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0;
+}
+
+/* --- TOOL GRID --- */
+
+.launcher-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.launcher-tool {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none; /* anchor variants (external links) */
+  box-shadow: var(--shadow-xs);
+  position: relative;
+  transition:
+    transform var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease);
+}
+
+.launcher-tool::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--tool-color, var(--brand-primary));
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease);
+}
+
+.launcher-tool:hover {
+  transform: translateY(-2px);
+  border-color: var(--tool-color, var(--ink-300));
+  box-shadow: var(--shadow-lg);
+}
+
+.launcher-tool:hover::before {
+  opacity: 1;
+}
+
+.launcher-tool:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring), var(--shadow-md);
+  border-color: var(--tool-color, var(--brand-primary));
+}
+
+.launcher-tool.is-hidden {
+  display: none;
+}
+
+.launcher-tool-icon {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #ffffff;
+  background: var(--tool-color, var(--brand-primary));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--tool-color, var(--brand-primary)) 25%, transparent);
+}
+
+.launcher-tool-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.launcher-tool-name {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--ink-900);
+  line-height: 1.3;
+}
+
+.launcher-tool-desc {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+  margin-top: 0.15rem;
+  line-height: 1.4;
+}
+
+.launcher-tool-arrow {
+  color: var(--ink-300);
+  font-size: 1.1rem;
+  transition: transform var(--t-base) var(--ease), color var(--t-base) var(--ease);
+  flex-shrink: 0;
+}
+
+.launcher-tool:hover .launcher-tool-arrow {
+  transform: translateX(3px);
+  color: var(--tool-color, var(--brand-primary));
+}
+
+/* --- EMPTY STATE --- */
+
+.launcher-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--ink-500);
+}
+
+.launcher-empty-icon {
+  font-size: 2.25rem;
+  color: var(--ink-300);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.launcher-empty-text {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.launcher-empty-reset {
+  color: var(--brand-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.launcher-empty-reset:hover {
+  color: #0d4a1d;
+  text-decoration: underline;
+}
+
+/* --- RESPONSIVE --- */
+
+@media (max-width: 575.98px) {
+  .launcher-container {
+    padding-top: 1.5rem;
+  }
+
+  .launcher-search-input {
+    font-size: 0.95rem;
+    padding: 0.8rem 1rem 0.8rem 2.6rem;
+  }
+
+  .launcher-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .launcher-tool {
+    padding: 0.85rem 0.95rem;
+  }
+}

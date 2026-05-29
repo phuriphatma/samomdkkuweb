@@ -1,0 +1,14 @@
+# Cloudflare Pages — SPA routing for the two entries.
+#
+# /admin/* → serve the admin SPA's index.html (admin handles its own
+#            hash routing internally for #pr / #vs / #shop / etc.)
+# /*       → serve the public SPA's index.html (router in main.js
+#            maps the path to a tab — /news, /pr, /vssound, /shop,
+#            /tools, /about, /news/{id} for individual articles)
+#
+# Order matters: Cloudflare evaluates top→bottom and stops at the
+# first match. /admin must be listed before /* so admin URLs don't
+# fall through to the public SPA.
+
+/admin/*  /admin/index.html  200
+/*        /index.html        200

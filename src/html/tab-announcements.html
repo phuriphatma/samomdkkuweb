@@ -1,17 +1,26 @@
-      <!-- TAB 2: ANNOUNCEMENTS -->
+      <!-- TAB 2: ANNOUNCEMENTS — editorial archive -->
       <div class="tab-pane fade an-tab" id="pills-announcements" role="tabpanel">
         <div class="container">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="page-header m-0"><i class="bi bi-pin-angle-fill me-2 text-pink-custom"></i> บอร์ดประกาศ
-              (Announcements)</h2>
-            <button class="btn btn-outline-secondary btn-sm" onclick="loadAnnouncements()"><i
-                class="bi bi-arrow-clockwise me-1"></i> รีเฟรช</button>
+
+          <header class="news-archive-head">
+            <div class="news-archive-head-row">
+              <div>
+                <span class="news-archive-eyebrow">บอร์ดประกาศ</span>
+                <h1>ประกาศและข่าวสาร</h1>
+                <p>รวมประกาศและข่าวจากสโมสรนักศึกษา</p>
+              </div>
+              <button class="news-archive-refresh" onclick="loadAnnouncements()">
+                <i class="bi bi-arrow-clockwise me-1"></i>รีเฟรช
+              </button>
+            </div>
+          </header>
+
+          <div id="announcementsGrid"></div>
+
+          <div id="emptyState" class="news-empty d-none">
+            <i class="bi bi-inbox"></i>
+            <p>ยังไม่มีประกาศในขณะนี้</p>
           </div>
-          <div class="row g-4" id="announcementsGrid"></div>
-          <div id="emptyState" class="text-center py-5 d-none">
-            <i class="bi bi-inbox fs-1 text-muted"></i>
-            <h4 class="text-muted mt-3">ยังไม่มีประกาศในขณะนี้</h4>
-            <p class="text-muted">ไปที่เมนู "เขียนประกาศลงเว็บ" เพื่อเพิ่มประกาศแรกของคุณ</p>
-          </div>
+
         </div>
       </div>

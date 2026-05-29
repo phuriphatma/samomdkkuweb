@@ -1,0 +1,163 @@
+// ==============================================
+// PROJECTS NOTIFY — fan out an event across channels
+//
+// Channels:
+//   - In-app inbox (project_notifications row, gated by user role/prefs)
+//   - Email to uni_staff via GAS MailApp (for VP-Admin → uni_staff events)
+//   - Discord webhook for VP-Admin watchers (for uni_staff → VP-Admin events)
+//
+// All channels are best-effort: a failure on one doesn't stop the others
+// and doesn't break the calling action.
+// ==============================================
+
+import { GAS_API_URL } from '../config.js';
+import {
+  createNotification,
+  getSettings,
+  listUsersByRole,
+} from './api.js';
+
+const PUBLIC_BASE_URL = (() => {
+  try {
+    if (typeof window === 'undefined') return '';
+    return window.location.origin + window.location.pathname;
+  } catch { return ''; }
+})();
+
+function deepLink({ projectId, documentId } = {}) {
+  if (!PUBLIC_BASE_URL) return '';
+  if (documentId && projectId) return `${PUBLIC_BASE_URL}#projects/${projectId}/doc/${documentId}`;
+  if (projectId) return `${PUBLIC_BASE_URL}#projects/${projectId}`;
+  return `${PUBLIC_BASE_URL}#projects`;
+}
+
+function fireGAS(action, payload) {
+  // Fire-and-forget. keepalive lets it survive a navigation, and we never
+  // await the body so a slow webhook doesn't block the user action.
+  try {
+    fetch(GAS_API_URL, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...payload }),
+    }).then((r) => r.text()).catch(() => {});
+  } catch (e) {
+    console.warn(`[projects/notify] ${action} failed:`, e?.message || e);
+  }
+}
+
+/**
+ * Send a "VP-Admin → uni_staff" event:
+ *   - in-app row for the uni_staff user
+ *   - email to settings.uni_staff_email (if enabled)
+ */
+export async function notifyUniStaff({ kind, project, document, body, subject } = {}) {
+  const settings = await getSettings().catch(() => null);
+  const recipients = await listUsersByRole('uni_staff').catch(() => []);
+
+  // In-app
+  if (settings?.notify_uni_in_app !== false) {
+    for (const u of recipients) {
+      await createNotification({
+        user_id: u.id,
+        project_id: project?.id || null,
+        document_id: document?.id || null,
+        kind,
+        body: body || '',
+      }).catch(() => {});
+    }
+  }
+
+  // Email
+  if (settings?.notify_uni_email !== false && settings?.uni_staff_email) {
+    const url = deepLink({ projectId: project?.id, documentId: document?.id });
+    const sub = subject || (project?.name
+      ? `[MDKKU SAMO] ${project.name} — ${kind}`
+      : `[MDKKU SAMO] หนังสือโครงการ`);
+    const html = buildEmailHtml({ kind, project, document, body, link: url });
+    fireGAS('notifyProjectEmail', {
+      to: settings.uni_staff_email,
+      subject: sub,
+      htmlBody: html,
+    });
+  }
+}
+
+/**
+ * Send a "uni_staff → VP-Admin" event:
+ *   - in-app row for each vp_admin user
+ *   - Discord webhook fire to the SAMO admin channel
+ */
+export async function notifyVpAdmin({ kind, project, document, body, title } = {}) {
+  const settings = await getSettings().catch(() => null);
+  const recipients = await listUsersByRole('vp_admin').catch(() => []);
+
+  // In-app
+  if (settings?.notify_vp_in_app !== false) {
+    for (const u of recipients) {
+      await createNotification({
+        user_id: u.id,
+        project_id: project?.id || null,
+        document_id: document?.id || null,
+        kind,
+        body: body || '',
+      }).catch(() => {});
+    }
+  }
+
+  // Discord
+  if (settings?.notify_vp_discord !== false) {
+    const url = deepLink({ projectId: project?.id, documentId: document?.id });
+    const color = kindToDiscordColor(kind);
+    const fields = [];
+    if (project?.id)      fields.push({ name: 'โครงการ',  value: `${project.name || ''} (${project.id})`, inline: false });
+    if (document?.id)     fields.push({ name: 'หนังสือ',  value: `${document.title || ''} (${document.id})`, inline: false });
+    if (body)             fields.push({ name: 'รายละเอียด', value: body.slice(0, 1000), inline: false });
+    if (url)              fields.push({ name: 'ลิงก์',      value: url, inline: false });
+
+    fireGAS('notifyProjectDiscord', {
+      title: title || `อัปเดตหนังสือ — ${kind}`,
+      description: '',
+      color,
+      fields,
+    });
+  }
+}
+
+function kindToDiscordColor(kind) {
+  switch (kind) {
+    case 'received':      return 3447003;  // blue
+    case 'status':        return 3447003;
+    case 'returned':      return 15158332; // red
+    case 'completed':     return 3066993;  // green
+    case 'comment':       return 9807270;  // grey-violet
+    case 'file_replaced': return 15844367; // amber
+    default:              return 3447003;
+  }
+}
+
+function buildEmailHtml({ kind, project, document, body, link }) {
+  const projectName = (project?.name || '').replace(/</g, '&lt;');
+  const docTitle    = (document?.title || '').replace(/</g, '&lt;');
+  const safeBody    = (body || '').replace(/</g, '&lt;');
+  const safeLink    = link ? link.replace(/"/g, '%22') : '';
+  return `
+    <div style="font-family: 'Noto Sans Thai', sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
+      <div style="background: linear-gradient(135deg,#105922,#0d4a1c); color: #fff; padding: 16px 20px; border-radius: 12px 12px 0 0;">
+        <div style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px; opacity: 0.85;">MDKKU SAMO</div>
+        <div style="font-weight: 700; font-size: 18px; margin-top: 2px;">แจ้งเตือนหนังสือโครงการ</div>
+      </div>
+      <div style="background: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+        ${projectName ? `<div style="margin-bottom: 8px;"><b>โครงการ:</b> ${projectName}${project?.id ? ` <span style="color:#6b7280;">(${project.id})</span>` : ''}</div>` : ''}
+        ${docTitle ? `<div style="margin-bottom: 8px;"><b>หนังสือ:</b> ${docTitle}${document?.id ? ` <span style="color:#6b7280;">(${document.id})</span>` : ''}</div>` : ''}
+        ${safeBody ? `<div style="margin: 16px 0; padding: 12px 14px; background: #f9fafb; border-left: 3px solid #FF6F30; border-radius: 6px;">${safeBody}</div>` : ''}
+        ${safeLink ? `<div style="margin-top: 20px; text-align: center;">
+          <a href="${safeLink}" style="display: inline-block; background: #105922; color: #fff; padding: 10px 22px; border-radius: 8px; text-decoration: none; font-weight: 600;">เปิดดูในระบบ</a>
+        </div>` : ''}
+        <div style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+          อีเมลนี้ส่งโดยอัตโนมัติจากระบบ MDKKU SAMO — กรุณาอย่าตอบกลับ
+        </div>
+      </div>
+    </div>
+  `;
+}

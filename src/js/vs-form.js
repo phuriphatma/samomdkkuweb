@@ -109,24 +109,23 @@ export function toggleVitalSoundMode() {
 // --------------------------------------------------
 
 export function toggleVsAccountFields() {
-  isAccountVerified = false;
-  document.getElementById('vsUsername').disabled = false;
-  document.getElementById('vsPassword').disabled = false;
-  document.getElementById('verifySuccessText').classList.add('d-none');
-  document.getElementById('verifyFailText').classList.add('d-none');
-
+  // Two-option pattern (guest / login) — mirrors the PR form. The
+  // legacy "create anonymous account" flow is gone. Login here means
+  // "use the signed-in Google identity"; the auth subscriber in
+  // main.js handles the post-login state by hiding the wrapper
+  // entirely and auto-populating the hidden synth fields.
   const accMode = document.querySelector('input[name="vsAccountMode"]:checked').value;
-  const fieldsBox = document.getElementById('vsAccountFields');
-  const btnVerify = document.getElementById('btnVerifyAccount');
+  const nudge = document.getElementById('vsGoogleAuthContainer');
 
-  if (accMode === 'create' || accMode === 'login') {
-    fieldsBox.classList.remove('d-none');
-    btnVerify.disabled = false;
-    btnVerify.className = 'btn btn-outline-danger w-100';
-    btnVerify.innerHTML = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
-  } else {
-    fieldsBox.classList.add('d-none');
+  if (accMode === 'guest') {
+    nudge?.classList.add('d-none');
     isAccountVerified = true;
+  } else {
+    // login → show the "open sign-in modal" nudge. Once the user
+    // signs in, main.js hides the whole wrapper so this nudge
+    // never re-appears in the same submit.
+    nudge?.classList.remove('d-none');
+    isAccountVerified = false;
   }
 }
 
@@ -134,46 +133,11 @@ export function toggleVsAccountFields() {
 // Account Verification
 // --------------------------------------------------
 
-export async function verifyAccount() {
-  const accMode = document.querySelector('input[name="vsAccountMode"]:checked').value;
-  const user = document.getElementById('vsUsername').value.trim();
-  const pass = document.getElementById('vsPassword').value.trim();
-  const btn = document.getElementById('btnVerifyAccount');
-  const failText = document.getElementById('verifyFailText');
-  const successText = document.getElementById('verifySuccessText');
-
-  failText.classList.add('d-none');
-  successText.classList.add('d-none');
-
-  if (!user || !pass) { failText.innerText = 'กรุณากรอก Username และ Password ให้ครบถ้วน'; failText.classList.remove('d-none'); return; }
-  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-  try {
-    const res = await fetch(GAS_VITAL_SOUND_URL, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'verifyAccount', mode: accMode, username: user, password: pass }),
-    });
-    const result = await res.json();
-    if (result.success) {
-      isAccountVerified = true;
-      document.getElementById('vsUsername').disabled = true;
-      document.getElementById('vsPassword').disabled = true;
-      btn.innerHTML = '<i class="bi bi-check-lg"></i> ตรวจสอบผ่าน';
-      btn.classList.replace('btn-outline-danger', 'btn-success');
-      successText.classList.remove('d-none');
-    } else {
-      failText.innerHTML = `<i class="bi bi-x-circle-fill"></i> ${result.message}`;
-      failText.classList.remove('d-none');
-      btn.disabled = false;
-      btn.innerText = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
-    }
-  } catch (e) {
-    failText.innerText = 'การเชื่อมต่อล้มเหลว กรุณาลองใหม่';
-    failText.classList.remove('d-none');
-    btn.disabled = false;
-    btn.innerText = accMode === 'create' ? 'สร้างบัญชี' : 'ตรวจสอบบัญชี';
-  }
-}
+// No-op now that the manual create/verify UI is gone. Authentication
+// for VS goes through the global Google sign-in modal; main.js sets
+// isAccountVerified=true post-sign-in. Kept exported so the window.*
+// shim in main.js doesn't error.
+export async function verifyAccount() {}
 
 // --------------------------------------------------
 // Emergency Toggle

@@ -1,0 +1,538 @@
+/* ==============================================
+ * ARTICLE — full-page editorial reader.
+ * Harvard-Gazette / Medium / Substack pattern:
+ * full-bleed hero, generous reading column,
+ * tight metadata, restrained chrome.
+ * ============================================== */
+
+#pills-article {
+  padding: 0;
+}
+
+/* --- STICKY BACK BAR --- */
+
+.article-backbar {
+  position: sticky;
+  top: 84px; /* below the floating navbar (12px margin + ~64px nav height) */
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--ink-200);
+  margin-bottom: 0;
+}
+
+.article-backbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  max-width: 1180px;
+}
+
+.article-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: transparent;
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
+}
+
+.article-back:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+  color: var(--ink-900);
+}
+
+.article-backbar-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.article-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
+}
+
+.article-action:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+  color: var(--ink-900);
+}
+
+.article-action--danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+/* --- ARTICLE PAGE --- */
+
+.article-page {
+  padding-top: 2.5rem;
+  padding-bottom: 5rem;
+}
+
+.article-loading {
+  text-align: center;
+  color: var(--ink-500);
+  padding: 4rem 1.5rem;
+}
+
+/* --- HEADER (title + meta block before the hero) --- */
+
+.article-header {
+  max-width: 760px;
+  margin: 0 auto 2rem;
+  padding: 0 1.25rem;
+  text-align: left;
+}
+
+.article-eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--brand-primary);
+  margin-bottom: 1rem;
+}
+
+.article-headline {
+  font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--ink-900);
+  margin: 0 0 1rem;
+}
+
+.article-subhead {
+  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+  color: var(--ink-600);
+  line-height: 1.55;
+  margin: 0 0 1.5rem;
+  font-weight: 400;
+}
+
+.article-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ink-200);
+  font-size: 0.88rem;
+  color: var(--ink-500);
+}
+
+.article-byline-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.article-byline-item i {
+  font-size: 0.95rem;
+  color: var(--ink-400);
+}
+
+.article-byline-item time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- HERO IMAGE — wide, not full-bleed (keeps page comfortable on huge displays) --- */
+
+.article-hero {
+  max-width: 1100px;
+  margin: 0 auto 2.5rem;
+  padding: 0 1.25rem;
+}
+
+.article-hero figure {
+  margin: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--ink-100);
+  /* Fix the cover image to a 16:9 frame. Uploads of any source aspect
+     get center-cropped via object-fit: cover, so all article heroes
+     render at the same shape — editorial consistency. Authors are told
+     "1600 × 900" in the creator picker. */
+  aspect-ratio: 16 / 9;
+}
+
+.article-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.article-hero figcaption {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+  padding: 0.75rem 0.25rem 0;
+  line-height: 1.5;
+}
+
+/* --- BODY (reading column) --- */
+
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  font-size: 1.08rem;
+  line-height: 1.75;
+  color: var(--ink-800);
+}
+
+.article-body > * + * {
+  margin-top: 1.15em;
+}
+
+.article-body p {
+  margin: 0 0 1.15em;
+}
+
+.article-body h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 2em 0 0.6em;
+  letter-spacing: -0.01em;
+}
+
+.article-body h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 1.75em 0 0.5em;
+}
+
+.article-body blockquote {
+  border-left: 3px solid var(--brand-primary);
+  margin: 1.75em 0;
+  padding: 0.5em 0 0.5em 1.4em;
+  font-style: italic;
+  color: var(--ink-700);
+  font-size: 1.15rem;
+  line-height: 1.65;
+}
+
+.article-body a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.article-body a:hover {
+  color: #0d4a1d;
+  text-decoration-thickness: 2px;
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.article-body ul,
+.article-body ol {
+  padding-left: 1.5em;
+  margin: 0 0 1.15em;
+}
+
+.article-body li + li {
+  margin-top: 0.35em;
+}
+
+/* Inline images inside body — full reading-width, rounded, generous spacing */
+.article-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.75em auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.article-body iframe,
+.article-body video {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  margin: 1.75em 0;
+}
+
+/* --- ARTICLE FOOTER (after-read CTAs) --- */
+
+.article-foot {
+  max-width: 720px;
+  margin: 3rem auto 0;
+  padding: 1.75rem 1.25rem 0;
+  border-top: 1px solid var(--ink-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.article-foot-back {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: gap var(--t-fast) var(--ease);
+}
+
+.article-foot-back:hover {
+  gap: 0.6rem;
+}
+
+/* --- RESPONSIVE --- */
+
+@media (max-width: 575.98px) {
+  .article-backbar {
+    top: 72px;
+  }
+
+  .article-back span,
+  .article-action span {
+    display: none; /* icon-only on small screens to save space */
+  }
+
+  .article-back,
+  .article-action {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .article-page {
+    padding-top: 1.5rem;
+  }
+
+  .article-header {
+    padding: 0 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .article-hero {
+    padding: 0 1rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .article-body {
+    padding: 0 1.15rem;
+    font-size: 1.02rem;
+    line-height: 1.7;
+  }
+}
+
+/* ==============================================
+ * CREATOR PREVIEW — when the author toggles "ดูตัวอย่าง"
+ * we render the same article view inside the creator
+ * shell, no extra renderer to maintain.
+ * ============================================== */
+
+.creator-preview-wrap {
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg);
+  padding: 2rem 0;
+  overflow: hidden;
+}
+
+/* Tighten the preview header padding when it's nested inside the creator */
+.creator-preview-wrap .article-header,
+.creator-preview-wrap .article-hero,
+.creator-preview-wrap .article-body {
+  max-width: 680px;
+}
+
+/* --- CREATOR HEAD ROW + MODE TOGGLE --- */
+
+.creator-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.creator-mode-toggle {
+  background: var(--ink-50);
+  border-radius: var(--radius-pill);
+  padding: 0.2rem;
+  border: 1px solid var(--ink-200);
+}
+
+.creator-mode-toggle .btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-600);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.95rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: background-color var(--t-base) var(--ease), color var(--t-base) var(--ease);
+}
+
+.creator-mode-toggle .btn:hover {
+  color: var(--ink-900);
+}
+
+.creator-mode-toggle .btn.active {
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* --- ANNOUNCEMENT ORDER PANEL (admin only) --- */
+
+.announcements-order {
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.1rem;
+}
+
+.announcements-order[open] {
+  padding-bottom: 1rem;
+}
+
+.announcements-order-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink-800);
+  list-style: none;
+  display: flex;
+  align-items: center;
+}
+
+.announcements-order-summary::-webkit-details-marker { display: none; }
+
+.announcements-order-summary::after {
+  content: '\F282'; /* bi-chevron-down (icon font glyph) */
+  font-family: 'bootstrap-icons';
+  margin-left: auto;
+  color: var(--ink-400);
+  transition: transform var(--t-base) var(--ease);
+}
+
+.announcements-order[open] .announcements-order-summary::after {
+  transform: rotate(180deg);
+}
+
+.announcements-order-list {
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.order-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: none !important;
+  border-bottom: 1px solid var(--ink-100) !important;
+}
+
+.order-row:last-child {
+  border-bottom: none !important;
+}
+
+.order-row-handle {
+  color: var(--ink-400);
+  cursor: grab;
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.order-row.sortable-chosen .order-row-handle {
+  cursor: grabbing;
+  color: var(--brand-primary);
+}
+
+.order-row-thumb {
+  width: 56px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: var(--ink-100);
+}
+
+.order-row-thumb--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-400);
+  font-size: 0.95rem;
+}
+
+.order-row-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.order-row-title {
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: var(--ink-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-row-meta {
+  font-size: 0.74rem;
+  color: var(--ink-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-row-edit {
+  flex-shrink: 0;
+  padding: 0.2rem 0.5rem;
+}
+
+.order-row.sortable-ghost {
+  opacity: 0.4;
+  background: var(--green-50);
+}

@@ -201,6 +201,113 @@ input element OR explicitly `fileInput.value = ''` if this becomes a problem.
 
 ---
 
+## HTML5 `required` on a hidden field silently blocks form submit
+
+**Symptom**: User fills in every visible field of the project send-document
+modal, clicks "ส่ง" — nothing happens. No error, no spinner, no Discord
+ping, no row. DevTools console quietly says
+`An invalid form control with name='' is not focusable.`
+**Cause**: The same `<form>` does double duty for "create project + first
+doc" and "add doc to existing project". Depending on mode, half its fields
+are hidden via `d-none`. But HTML5 form validation **still runs on hidden
+required fields** — and because the browser can't focus a hidden field to
+show the validation tooltip, it just refuses to submit, silently.
+**Fix**: Add `novalidate` to the `<form>` AND remove all `required`
+attributes from inputs that may be hidden by mode. Do validation in JS
+(`onSubmit` throws clear Thai errors that surface via `alert`). HTML5
+required + dynamic hide/show is a footgun in any multi-mode form here.
+**Where**: `src/html/modal-project-send.html` `#projectSendForm`. If you
+add a new dual-mode modal, do the same.
+
+---
+
+## Check constraint must be dropped BEFORE updating to a new enum value
+
+**Symptom**: Running a migration that renames enum values fails with
+`ERROR: new row for relation "X" violates check constraint "X_col_check"`
+on the `UPDATE` statement itself — even though that UPDATE's whole job
+is to move the values to the new set.
+**Cause**: PostgreSQL evaluates check constraints on every row mutation.
+If the migration UPDATEs to a value that's outside the OLD check, the
+update fails before the new ALTER … ADD CHECK runs.
+**Fix**: Always `ALTER TABLE … DROP CONSTRAINT IF EXISTS X_check` **before**
+`UPDATE … SET col = new_value`, then `ALTER TABLE … ADD CONSTRAINT X_check
+CHECK (col IN (new_set))` afterwards. Also broaden the UPDATE to
+`WHERE col NOT IN (new_set)` so a re-run / unexpected legacy value
+doesn't get left in an invalid state.
+**Where**: `supabase/migrations/0007_shop_refactor.sql` for the shop
+`source` enum (md/rt/mdi/sittikao). Apply this pattern to any future
+enum-rename migration.
+
+---
+
+## RLS inline subqueries silently depend on the referenced table's RLS
+
+**Symptom**: Per-dept VP gate stops returning rows after someone tightens
+an unrelated RLS policy on `public.users` (e.g. restricting `users_read_all`
+to self-row only). No error — the dashboard just goes blank for VPs.
+**Cause**: Policies like `vs_tickets_read` (0010), `vs_tickets_update_staff`
+(0013), `vs_tickets_delete_staff` (0015) used
+`target_dept = (select department from public.users where id = auth.uid())`
+inline. That subquery runs under the *caller's* RLS, not as `security definer`.
+It worked only because `users_read_all` (0001) was wide-open. The coupling
+is invisible from the policy body.
+**Fix**: For any cross-table lookup used in an RLS predicate, wrap it in a
+helper function with `language sql stable security definer set search_path = public`
+and `grant execute … to anon, authenticated`. Same pattern as the existing
+`current_user_role()` / `current_user_has_permission()` helpers. The dept
+lookup is now `public.current_user_dept()` (migration 0016).
+**Where**: `current_user_dept()` defined in `0016_current_user_dept_helper.sql`;
+all three `vs_tickets` policies repointed there. Don't reintroduce inline
+`(select … from public.users where id = auth.uid())` in any new policy.
+
+---
+
+## Hardcoded reserved-username lists rot when new staff accounts are added
+
+**Symptom**: Registration form lets a public visitor try
+`samomdkkuradiology` (or any of the 9 VP usernames added in 0010/0011).
+Backend uniqueness on `public.users.username` returns
+"Username นี้มีผู้ใช้งานแล้ว" — but only IF the VP auth user has already
+been seeded. If not, the visitor squats the name and the admin can't
+seed the legitimate account.
+**Cause**: `auth.js registerWithPassword` had a literal list of 6 reserved
+usernames. Every time a new `samomdkku*` staff account is added (per-VP,
+new dept, future role) the list goes out of date. `reserved_staff_usernames`
+is reference-only (0011 itself comments "not load-bearing"), so the only
+defence is the username unique constraint *if* the row exists.
+**Fix**: Use a prefix check — `/^samomdkku/.test(lc) || lc === 'sastaff'`.
+The repo's convention is that ALL staff accounts share the `samomdkku`
+prefix; literal lists shouldn't be added.
+**Where**: `src/js/auth.js` `registerWithPassword`. Don't reintroduce
+the literal list. If a future non-prefix staff username is needed,
+extend the regex / OR clause — don't fall back to literals.
+
+---
+
+## iOS Safari `100vh` hides the bottom of a full-height drawer
+
+**Symptom**: Sign-out button (or any bottom-anchored control) in the
+mobile admin sidebar drawer was unreachable on iPhone — buried under
+Safari's bottom URL chrome.
+**Cause**: iOS Safari measures `100vh` against the *large viewport*
+(URL bar hidden). When the URL bar is shown — which is the default
+state on first open — the drawer extends *past* the visible area, and
+the user has to scroll to reach the bottom. Adding `bottom: 0` on a
+fixed element doesn't help: the element is positioned relative to the
+same large viewport.
+**Fix**: Use `100dvh` (dynamic viewport height) for the drawer height,
+which shrinks when the chrome is shown. Keep `100vh` above it as a
+fallback for browsers that don't grok `dvh`. Additionally pad the bottom
+of the bottom-anchored control with
+`max(0.85rem, calc(env(safe-area-inset-bottom) + 0.6rem))` so it sits
+above the iOS home-indicator inset too.
+**Where**: `src/css/workspace.css` `.workspace-side` (mobile @media block)
++ `.workspace-side-foot` (same block). Apply the same pattern to any
+new full-height mobile overlay (offcanvas, modal-fullscreen on mobile).
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

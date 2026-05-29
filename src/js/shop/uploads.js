@@ -1,0 +1,68 @@
+// ==============================================
+// SHOP UPLOADS — Drive uploads via GAS, organised by folderPath
+//
+// Delegates to the `uploadShopFile` action added in appscript/prform.gs.
+// Each caller passes a logical folder path under `SAMO_Shop/...`; GAS
+// walks/creates the nested folders lazily so the 2 TB Drive stays tidy
+// enough to browse manually.
+//
+// Examples:
+//   uploadShopFile(file, 'SAMO_Shop/Slips/2026-05')
+//   uploadShopFile(file, 'SAMO_Shop/Products/p-rt69-tshirt')
+//   uploadShopFile(file, 'SAMO_Shop/QR')
+// ==============================================
+
+import { GAS_API_URL } from '../config.js';
+import { convertDriveUrl } from '../uploads.js';
+
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = (e) => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/**
+ * Upload `file` to Drive into the nested folder `folderPath` (must start
+ * with `SAMO_Shop/`). Returns the Drive thumbnail URL safe to embed
+ * directly in an <img>.
+ *
+ * @param {File} file
+ * @param {string} folderPath  e.g. 'SAMO_Shop/Slips/2026-05'
+ * @param {{ fileName?: string }} [opts]  override the stored filename
+ */
+export async function uploadShopFile(file, folderPath, opts = {}) {
+  if (!file) throw new Error('No file');
+  if (!folderPath || typeof folderPath !== 'string') {
+    throw new Error('folderPath is required');
+  }
+  if (!folderPath.startsWith('SAMO_Shop')) {
+    throw new Error('folderPath must start with SAMO_Shop');
+  }
+  const base64 = await readAsDataURL(file);
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'uploadShopFile',
+      folderPath,
+      fileName: opts.fileName || file.name,
+      mimeType: file.type,
+      fileData: base64,
+    }),
+  });
+  const result = await res.json();
+  if (!result.success || !result.fileUrl) {
+    throw new Error(result.message || 'อัปโหลดไม่สำเร็จ');
+  }
+  return convertDriveUrl(result.fileUrl);
+}
+
+/** Build the monthly partition path for slip uploads. */
+export function slipFolderForNow(now = new Date()) {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `SAMO_Shop/Slips/${yyyy}-${mm}`;
+}

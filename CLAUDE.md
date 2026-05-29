@@ -53,7 +53,7 @@ npm run preview      # serve dist locally on :4173
   - Announcements/Creator → slate (`.an-tab` overrides to neutral)
   - Admin → green primary
 - **Departments**: 10 unique color identities (see `src/css/base.css` `--dept-*`)
-- **Fonts**: Sora (English), Cloud (Thai), Prompt fallback. Loaded via Google Fonts.
+- **Fonts**: Noto Sans Thai (body, English + Thai), Prompt (brand-fixed pill + secondary fallback). Loaded via Google Fonts. System fallback chain (`system-ui`, `-apple-system`, `Segoe UI`) kept in CSS for when Google Fonts is blocked.
 - **Density**: tight spacing on mobile, generous on desktop. Use Bootstrap utility classes.
 - **No emojis in UI text** unless the user explicitly asks.
 

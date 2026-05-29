@@ -1,0 +1,173 @@
+      <!-- PROJECTS CONTENT — bare content only. Included by /admin/index.html
+           inside its workspace shell. The sidebar + top-bar live in admin's
+           index.html now. This file owns the inbox/manage views and the
+           create-project CTA. -->
+      <div class="projects-tab projects-inner">
+
+          <!-- A subnav for the projects inner views — used by setView()
+               in projects/index.js to switch between inbox/manage panes.
+               In the admin app the sidebar item is the primary switcher;
+               this bar stays as the secondary inline switcher inside
+               the projects pane (familiar pattern for users used to it). -->
+          <div class="projects-subnav" id="projectsSubnav" role="tablist">
+            <button type="button" data-projects-view="inbox" class="is-active">
+              <i class="bi bi-inbox"></i> กล่องจดหมาย
+            </button>
+            <button type="button" data-projects-view="manage">
+              <i class="bi bi-sliders"></i> การตั้งค่า
+            </button>
+            <button type="button" id="projectsCreateBtn" class="ms-auto" data-projects-role="vp_admin"
+              style="background: var(--brand-primary); color: #fff;">
+              <i class="bi bi-plus-lg"></i> สร้างโครงการใหม่
+            </button>
+          </div>
+
+          <!-- Auth gate (non-actors) -->
+          <div id="projectsAuthGate" class="role-gate d-none p-4 text-center bg-white rounded">
+            <i class="bi bi-shield-lock fs-2 text-muted"></i>
+            <p class="mt-3 mb-2"><b>เฉพาะ VP-Admin และเจ้าหน้าที่มหาวิทยาลัยเท่านั้น</b></p>
+            <p class="text-muted small mb-0">โมดูลนี้เปิดให้เฉพาะบัญชีที่ได้รับสิทธิ์ใช้งาน</p>
+          </div>
+
+          <!-- Body -->
+          <div id="projectsBody" class="d-none">
+
+            <!-- VIEW: Inbox (two-level drill-down: project grid → project detail) -->
+            <div data-projects-pane="inbox">
+
+              <!-- ========== Level 1: project grid ========== -->
+              <div id="projectsLevelGrid">
+                <!-- Toolbar -->
+                <div class="projects-toolbar">
+                  <div class="input-group input-group-sm projects-search">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input id="projectsSearchInput" type="search" class="form-control" placeholder="ค้นหาชื่อโครงการ / รหัส…" />
+                  </div>
+                  <div id="projectsFilterRow" class="projects-filter-row" role="tablist"></div>
+                </div>
+
+                <!-- Grid of project cards -->
+                <div id="projectsGrid" class="projects-grid"></div>
+
+                <div id="projectsGridEmpty" class="projects-empty d-none">
+                  <i class="bi bi-folder2-open"></i>
+                  <h4>ยังไม่มีโครงการในมุมมองนี้</h4>
+                  <p class="small text-muted mb-0">
+                    <span data-projects-role="vp_admin">เริ่มต้นด้วยการกด "สร้างโครงการใหม่" ด้านบน</span>
+                    <span data-projects-role="uni_staff">เมื่อ SAMO ส่งหนังสือมา จะปรากฏที่นี่</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- ========== Level 2: single-project view ========== -->
+              <div id="projectsLevelDetail" class="d-none">
+                <nav class="projects-breadcrumb" aria-label="breadcrumb">
+                  <button type="button" id="projectsBackToGrid" class="projects-breadcrumb-back">
+                    <i class="bi bi-chevron-left me-1"></i> หนังสือโครงการทั้งหมด
+                  </button>
+                </nav>
+                <div id="projectsDetailRoot"></div>
+              </div>
+
+              <!-- Mobile + tablet FAB for VP-Admin. Icon + aria-label flip
+                   between "create project" (grid) and "add doc" (detail)
+                   via inbox.js updateFab(). Visible up to lg breakpoint so
+                   iPad portrait & landscape both get it. -->
+              <button type="button" id="projectsCreateFab"
+                class="projects-fab d-lg-none" data-projects-role="vp_admin"
+                aria-label="สร้างโครงการใหม่">
+                <i class="bi bi-folder-plus"></i>
+              </button>
+            </div>
+
+            <!-- VIEW: Manage (settings + doc types) -->
+            <div data-projects-pane="manage" class="d-none">
+              <div class="projects-manage-grid">
+
+                <!-- Settings card -->
+                <section class="projects-manage-card">
+                  <h3 class="projects-manage-title"><i class="bi bi-gear me-2"></i>การตั้งค่าผู้รับ & การแจ้งเตือน</h3>
+                  <div id="projectSettingsReadonlyHint" class="alert alert-info small d-none">
+                    <i class="bi bi-info-circle me-1"></i> คุณดูได้อย่างเดียว — แก้ไขได้เฉพาะบัญชี VP-Admin
+                  </div>
+                  <form id="projectSettingsForm" class="projects-manage-form">
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label small fw-bold">อีเมลเจ้าหน้าที่ผู้รับ (สำหรับส่งเมล)</label>
+                        <input type="email" class="form-control" id="projectSettingsUniEmail" placeholder="someone@kku.ac.th" />
+                        <div class="form-text small">ใช้โดย GAS MailApp เพื่อส่งเมลแจ้งเตือนหนังสือใหม่</div>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small fw-bold">ชื่อย่อผู้รับ</label>
+                        <input type="text" class="form-control" id="projectSettingsUniLabel" placeholder="เจ้าหน้าที่" />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small fw-bold">ชื่อย่อผู้ส่ง (VP)</label>
+                        <input type="text" class="form-control" id="projectSettingsVpLabel" placeholder="รองนายกฝ่ายบริหาร" />
+                      </div>
+                    </div>
+
+                    <div class="projects-notify-prefs">
+                      <div class="projects-notify-prefs-group">
+                        <h4>แจ้งเตือนเจ้าหน้าที่มหาวิทยาลัย (ผู้รับ)</h4>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsUniInApp">
+                          <label class="form-check-label" for="projectSettingsUniInApp">การแจ้งเตือนในระบบ (กระดิ่ง)</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsUniEmailNotify">
+                          <label class="form-check-label" for="projectSettingsUniEmailNotify">อีเมลผ่าน GAS MailApp</label>
+                        </div>
+                      </div>
+                      <div class="projects-notify-prefs-group">
+                        <h4>แจ้งเตือน SAMO VP-Admin (ผู้ส่ง)</h4>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsVpInApp">
+                          <label class="form-check-label" for="projectSettingsVpInApp">การแจ้งเตือนในระบบ (กระดิ่ง)</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsVpDiscord">
+                          <label class="form-check-label" for="projectSettingsVpDiscord">Discord webhook (PROJECT_DISCORD_WEBHOOK_URL ใน GAS Script Properties)</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="text-end mt-3">
+                      <button type="submit" id="projectSettingsSubmit" class="btn btn-success">
+                        <i class="bi bi-save me-1"></i> บันทึกการตั้งค่า
+                      </button>
+                    </div>
+                  </form>
+                </section>
+
+                <!-- Doc types card -->
+                <section class="projects-manage-card">
+                  <h3 class="projects-manage-title"><i class="bi bi-tags me-2"></i>ประเภทหนังสือ</h3>
+                  <p class="small text-muted">ประเภทที่ใช้เมื่อสร้างหนังสือใหม่ — เพิ่มหรือปิดใช้งานได้</p>
+                  <div id="projectDocTypeList" class="projects-doctype-list"></div>
+
+                  <form id="projectDocTypeForm" class="projects-doctype-add" data-projects-role="vp_admin">
+                    <div class="row g-2">
+                      <div class="col-sm-4">
+                        <input type="text" class="form-control form-control-sm" id="projectDocTypeNewId"
+                          placeholder="slug (เช่น budget)" maxlength="40" />
+                      </div>
+                      <div class="col-sm-6">
+                        <input type="text" class="form-control form-control-sm" id="projectDocTypeNewLabel"
+                          placeholder="ชื่อภาษาไทย (เช่น หนังสือขออนุมัติงบ)" maxlength="80" />
+                      </div>
+                      <div class="col-sm-2 d-grid">
+                        <button type="submit" id="projectDocTypeAddBtn" class="btn btn-sm btn-success">
+                          <i class="bi bi-plus-lg"></i> เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </section>
+
+              </div>
+            </div>
+
+          </div>
+
+      </div>

@@ -115,6 +115,16 @@
           </div>
         </div>
         <div class="modal-footer">
+          <!-- Delete is visible to anyone who can reach the VS admin
+               surface — RLS is the real boundary (migration 0015):
+                 vs_staff / dev / has('vs')  → delete any ticket
+                 vp_admin                     → delete own-dept ticket
+               No data-role-only gate needed since only VS staff are
+               in this modal in the first place. -->
+          <button type="button" class="btn btn-outline-danger me-auto"
+            onclick="deleteCurrentVSTicket()">
+            <i class="bi bi-trash3 me-1"></i>ลบ ticket
+          </button>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
           <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
         </div>

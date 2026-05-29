@@ -1,50 +1,18 @@
-      <!-- TAB: ADMIN DASHBOARD (visible only to pr_staff / vs_staff / dev) -->
-      <div class="tab-pane fade" id="pills-admin" role="tabpanel">
-        <div class="container">
+      <!-- ADMIN CONTENT — bare content only. Included by /admin/index.html
+           inside its workspace shell. The landing cards live in admin's
+           index.html now; this file owns the PR/VS/Shop sections. -->
+      <div class="admin-inner">
 
-          <!-- ====== LANDING ====== -->
-          <div id="adminLanding">
-            <header class="admin-header mb-4">
-              <h2 class="admin-title mb-1"><i class="bi bi-shield-lock-fill me-2"></i>Admin Dashboard</h2>
-              <p class="text-muted mb-0">เครื่องมือสำหรับเจ้าหน้าที่ — เลือกระบบที่ต้องการจัดการ</p>
-            </header>
-
-            <div class="row g-3" id="adminLandingCards">
-              <!-- PR Management — pr_staff or dev -->
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="pr_staff dev">
-                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
-                  onclick="openAdminSection('pr')">
-                  <span class="admin-card-icon"><i class="bi bi-megaphone-fill"></i></span>
-                  <div class="admin-card-body">
-                    <h5>PR Management</h5>
-                    <p>จัดการคำขอประชาสัมพันธ์ ตรวจสอบงานค้าง และมอบหมายทีม</p>
-                  </div>
-                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
-                </button>
-              </div>
-
-              <!-- VitalSound Management — vs_staff or dev -->
-              <div class="col-md-6 col-lg-4 d-none" data-role-only="vs_staff dev">
-                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
-                  onclick="openAdminSection('vs')">
-                  <span class="admin-card-icon"><i class="bi bi-clipboard2-pulse"></i></span>
-                  <div class="admin-card-body">
-                    <h5>VitalSound Management</h5>
-                    <p>ติดตามและตอบกลับการแจ้งปัญหาจากนักศึกษา</p>
-                  </div>
-                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <!-- ====== LANDING (legacy mount point) ======
+               admin/index.html has the canonical landing in its own
+               section. This block is kept as a no-op anchor so the
+               showAdminLanding() function (which still hides/shows
+               #adminLanding) doesn't crash when nothing references it. -->
+          <div id="adminLanding" class="d-none"></div>
 
           <!-- ====== PR SECTION ====== -->
           <div id="adminPRSection" class="d-none">
-            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
-              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
-            </button>
-
-            <div id="prStaffDashboardBox">
+<div id="prStaffDashboardBox">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
                   <h4 class="mb-0 fw-bold text-pink-custom">PR Staff Dashboard</h4>
@@ -93,10 +61,6 @@
 
           <!-- ====== VS SECTION ====== -->
           <div id="adminVSSection" class="d-none vs-tab">
-            <button type="button" class="admin-back-link mb-3" onclick="showAdminLanding()">
-              <i class="bi bi-arrow-left me-1"></i> กลับ Admin Dashboard
-            </button>
-
             <div id="staffDashboardBox">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
@@ -104,31 +68,232 @@
                   <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <select id="staffRole" class="form-select form-select-sm" style="max-width: 280px;"
+                  <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
+                    <option value="__all__">ทุกฝ่าย (All)</option>
                     <option value="SE">Student Engagement (SE)</option>
-                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                    <optgroup label="อุปนายก">
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">บริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">ดิจิทัลและสื่อสาร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">กิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">กิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">กิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">วิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ยุทธศาสตร์</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">คุณภาพชีวิต</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">เวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">รังสีเทคนิค</option>
+                    </optgroup>
                   </select>
                   <button class="btn btn-outline-primary btn-sm" onclick="fetchStaffTickets()">
                     <i class="bi bi-arrow-clockwise"></i> รีเฟรช
                   </button>
                 </div>
               </div>
+
+              <!-- Hide-empty toggle for kanban -->
+              <div class="form-check form-switch mb-2 ms-1">
+                <input class="form-check-input" type="checkbox" id="vsKanbanHideEmpty"
+                  onchange="setVsKanbanHideEmpty(this.checked)" />
+                <label class="form-check-label small text-muted" for="vsKanbanHideEmpty">
+                  ซ่อนคอลัมน์ว่าง
+                </label>
+              </div>
+
               <div class="text-center my-3 d-none" id="staffLoading">
                 <div class="spinner-border text-pink-custom" role="status"></div>
               </div>
-              <div id="staffTicketList" class="row g-3"></div>
+
+              <!-- Kanban wrap — relative-positioned parent for the
+                   edge-fade gradients (::before / ::after). JS toggles
+                   `.is-scrolled` / `.is-end` based on scroll position. -->
+              <div class="vs-kanban-wrap" id="vsKanbanWrap">
+                <div id="staffTicketKanban" class="vs-kanban"></div>
+              </div>
             </div>
           </div>
 
-        </div>
+          <!-- ====== SHOP SECTION ====== -->
+          <div id="adminShopSection" class="d-none shop-tab">
+<div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-3">
+              <div>
+                <h2 class="shop-page-title">SAMO Shop · Admin</h2>
+                <p class="shop-page-sub mb-0">จัดการคำสั่งซื้อ ตรวจสอบสลิป และประกาศรับสินค้า</p>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                <i class="bi bi-shield-check me-1"></i> shop_admin
+              </span>
+            </div>
+
+            <div class="admin-tabs" id="shopAdminTabs">
+              <button data-shop-admin-tab="orders"   class="is-active"><i class="bi bi-list-check me-1"></i> คำสั่งซื้อ</button>
+              <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
+              <button data-shop-admin-tab="delivery"><i class="bi bi-clipboard-check me-1"></i> การส่งมอบ</button>
+              <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
+              <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
+              <button data-shop-admin-tab="stock"><i class="bi bi-box-seam-fill me-1"></i> สต็อก</button>
+              <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
+            </div>
+
+            <div data-shop-admin-pane="orders">
+              <div id="shopAdminStats" class="admin-stats"></div>
+              <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                <select id="shopAdminOrdersStatus" class="form-select form-select-sm" style="max-width:200px;">
+                  <option value="all">สถานะทั้งหมด</option>
+                </select>
+                <div class="input-group input-group-sm" style="max-width:260px;">
+                  <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                  <input id="shopAdminOrdersSearch" class="form-control" placeholder="ค้นหารหัสคำสั่งซื้อ / ชื่อ" />
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                  <button class="btn btn-ghost btn-sm" id="shopAdminOrdersRefresh">
+                    <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                  </button>
+                </div>
+              </div>
+              <div class="admin-table">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>คำสั่งซื้อ</th>
+                      <th>ลูกค้า</th>
+                      <th>สินค้า</th>
+                      <th>ยอดรวม</th>
+                      <th>สลิป</th>
+                      <th>สถานะ</th>
+                      <th style="width:60px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopAdminOrdersTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div data-shop-admin-pane="verify" class="d-none">
+              <div id="shopAdminVerifyHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="delivery" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">การส่งมอบสินค้า</h5>
+                  <p class="text-muted mb-0 small">พิมพ์ชื่อลูกค้าหรือรหัสคำสั่งซื้อ → ติ๊กตามที่ลูกค้ามารับ</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="shopAdminDeliveryRefresh">
+                  <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                </button>
+              </div>
+              <div class="delivery-search-bar mb-3">
+                <i class="bi bi-search"></i>
+                <input id="shopAdminDeliverySearch" type="search" class="form-control form-control-lg"
+                       placeholder="ค้นหาชื่อลูกค้า, รหัสคำสั่งซื้อ, อีเมล..." autocomplete="off" />
+              </div>
+              <div id="shopAdminDeliveryHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="batches" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">ประกาศการรับสินค้า</h5>
+                  <p class="text-muted mb-0 small">ประกาศเมื่อมี batch สินค้าผลิตเสร็จ ระบุจุดและวันรับ</p>
+                </div>
+                <button class="btn btn-shop btn-sm" id="shopAdminBatchesNew">
+                  <i class="bi bi-plus-lg me-1"></i> สร้างประกาศใหม่
+                </button>
+              </div>
+              <div id="shopAdminBatchesCreator"></div>
+              <div id="shopAdminBatchesList"></div>
+            </div>
+
+            <div data-shop-admin-pane="products" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">สินค้าทั้งหมด</h5>
+                  <p class="text-muted mb-0 small">เพิ่ม/แก้ไข/ปิดการขายสินค้า</p>
+                </div>
+                <button class="btn btn-shop btn-sm" id="shopAdminProductsNew">
+                  <i class="bi bi-plus-lg me-1"></i> เพิ่มสินค้าใหม่
+                </button>
+              </div>
+              <div id="shopAdminProductEditor"></div>
+              <div class="admin-table">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>สินค้า</th>
+                      <th>แหล่งที่มา</th>
+                      <th>ราคา</th>
+                      <th>ไซส์ × สี</th>
+                      <th>สถานะ</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopAdminProductsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div data-shop-admin-pane="stock" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">สต็อกสินค้า</h5>
+                  <p class="text-muted mb-0 small">ดูและแก้ไขจำนวนสินค้าคงเหลือต่อไซส์/สี ได้รวดเร็ว</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="shopAdminStockRefresh">
+                  <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                </button>
+              </div>
+              <div class="delivery-search-bar mb-3">
+                <i class="bi bi-search"></i>
+                <input id="shopAdminStockSearch" type="search" class="form-control form-control-lg"
+                       placeholder="ค้นหาชื่อสินค้า..." autocomplete="off" />
+              </div>
+              <div id="shopAdminStockHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="qr" class="d-none">
+              <div class="admin-detail-card" style="max-width:720px;">
+                <h5><i class="bi bi-qr-code me-2 text-accent"></i> ตั้งค่า PromptPay สำหรับการชำระเงิน</h5>
+                <p class="text-muted small">ทุกคำสั่งซื้อจะใช้ QR เดียวกัน ลูกค้าโอนแล้วอัปโหลดสลิปให้ admin ตรวจ</p>
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">ชื่อผู้รับเงิน</label>
+                    <input id="shopAdminQRName" class="form-control" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">PromptPay (เบอร์ / เลขผู้เสียภาษี)</label>
+                    <input id="shopAdminQRId" class="form-control font-mono" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">รูป QR (อัปโหลดสแกนของจริง)</label>
+                    <div class="slip-thumb" id="shopAdminQRPreview" style="height:220px;">
+                      <div class="text-center">
+                        <i class="bi bi-qr-code fs-1 text-muted"></i>
+                        <div class="mt-1">ยังไม่ได้อัปโหลด</div>
+                      </div>
+                    </div>
+                    <label class="btn btn-ghost btn-sm mt-2 mb-0">
+                      <i class="bi bi-cloud-upload me-1"></i> อัปโหลดไฟล์ใหม่
+                      <input id="shopAdminQRFile" type="file" accept="image/*" hidden />
+                    </label>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="small text-muted mb-1">คำสั่งให้ลูกค้า (แสดงในหน้า checkout)</label>
+                    <textarea id="shopAdminQRInstructions" class="form-control" rows="6"></textarea>
+                    <label class="small text-muted mt-3 mb-1">Gmail ติดต่อ</label>
+                    <input id="shopAdminQRContactGmail" class="form-control" />
+                    <label class="small text-muted mt-2 mb-1">Instagram</label>
+                    <input id="shopAdminQRContactInstagram" class="form-control" />
+                  </div>
+                </div>
+                <div class="text-end mt-3">
+                  <button class="btn btn-shop" id="shopAdminQRSave">
+                    <i class="bi bi-save me-1"></i> บันทึก
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
       </div>

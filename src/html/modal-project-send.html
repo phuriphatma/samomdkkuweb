@@ -1,0 +1,86 @@
+  <!-- Project send/create modal (driven by src/js/projects/send.js) -->
+  <div class="modal fade projects-tab" id="projectSendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="projectSendTitle">สร้างโครงการใหม่</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <!-- novalidate: validation is done in JS (send.js onSubmit), because
+             when the modal toggles between create / add-doc modes some fields
+             are hidden via d-none and HTML5 `required` on a hidden input
+             silently blocks form submission ("An invalid form control with
+             name='' is not focusable"). -->
+        <form id="projectSendForm" class="modal-body projects-send-form" novalidate>
+
+          <!-- Locked project (shown in add-doc mode) -->
+          <div id="projectSendLockedProject" class="d-none mb-3"></div>
+
+          <!-- Project fields (shown in create mode) -->
+          <div id="projectSendProjectFields">
+            <div class="mb-3">
+              <label class="form-label fw-bold">ชื่อโครงการ <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="projectSendProjectName" maxlength="120"
+                placeholder="เช่น โครงการสานสัมพันธ์น้องพี่ ปีการศึกษา 2569" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">รายละเอียดโครงการ (ถ้ามี)</label>
+              <textarea class="form-control" id="projectSendProjectDesc" rows="2" maxlength="500"
+                placeholder="สรุปสั้นๆ ว่าโครงการเกี่ยวกับอะไร"></textarea>
+            </div>
+
+            <div class="form-check form-switch mb-3" id="projectSendIncludeDocWrap">
+              <input class="form-check-input" type="checkbox" id="projectSendIncludeDoc" role="switch">
+              <label class="form-check-label fw-bold" for="projectSendIncludeDoc">ส่งหนังสือฉบับแรกตอนนี้เลย</label>
+              <div class="form-text small">เปิดเพื่อกรอกประเภทหนังสือ + แนบไฟล์ในขั้นตอนเดียวกัน</div>
+            </div>
+          </div>
+
+          <!-- Doc fields (hidden until "include" or always-shown in add-doc mode) -->
+          <div id="projectSendDocSection" class="d-none projects-send-doc-section">
+            <hr class="my-3" />
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label fw-bold">ประเภทหนังสือ <span class="text-danger">*</span></label>
+                <select id="projectSendDocType" class="form-select"></select>
+              </div>
+              <div class="col-md-7">
+                <label class="form-label fw-bold">ชื่อหนังสือ <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="projectSendDocTitle" maxlength="160"
+                  placeholder="เช่น ขออนุมัติงบโครงการ ครั้งที่ 1" />
+              </div>
+              <div class="col-12">
+                <label class="form-label small">โน้ตถึงผู้รับ (ถ้ามี)</label>
+                <textarea class="form-control" id="projectSendDocNote" rows="2" maxlength="500"
+                  placeholder="ข้อความสั้นๆ เพิ่มเติม"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold">ไฟล์แนบ</label>
+                <div class="projects-send-drop" id="projectSendDropZone">
+                  <i class="bi bi-cloud-arrow-up-fill"></i>
+                  <div>
+                    <b>ลากไฟล์มาวาง</b> หรือ
+                    <label class="text-primary text-decoration-underline" style="cursor:pointer;">
+                      เลือกไฟล์
+                      <input type="file" hidden multiple id="projectSendFiles" />
+                    </label>
+                  </div>
+                  <div class="small text-muted">รองรับ Word, PDF, Excel, รูปภาพ, ฯลฯ — แต่ละไฟล์ไม่ควรเกิน ~25 MB</div>
+                </div>
+                <div id="projectSendFileList" class="projects-send-staged-list mt-2"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="projects-send-status small text-muted mt-3" id="projectSendStatus"></div>
+
+        </form>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" form="projectSendForm" id="projectSendSubmit" class="btn btn-success">
+            <i class="bi bi-send me-1"></i> ส่ง
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>

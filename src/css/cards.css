@@ -1,83 +1,41 @@
 /* ==============================================
- * CARDS — Announcement & Ticket Cards
+ * CARDS — Ticket cards live below. Announcement
+ * cards moved to news.css (editorial style).
  * ============================================== */
-
-.announce-card {
-  border: none;
-  border-radius: 15px;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
-  height: 100%;
-  background: white;
-  overflow: hidden;
-}
-
-.announce-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 30px rgba(219, 39, 119, 0.15);
-}
-
-.announce-img-wrapper {
-  height: 200px;
-  overflow: hidden;
-  background-color: #f8fafc;
-}
-
-.announce-img-wrapper img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 /* ==============================================
- * HOME — Hero, Tools, Departments
+ * HOME — Slim auth strip, welcome strip, quick-action row.
+ * News rendering lives in news.css; dept grid moved to About.
  * ============================================== */
 
-.home-hero {
-  padding: 3rem 1rem 2rem;
+.home-container {
+  padding-top: 1.75rem;
+  padding-bottom: 3rem;
+  max-width: 1180px;
 }
 
-.home-hero h1 {
-  font-size: clamp(2rem, 4vw, 3rem);
-  color: #1f2937;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.home-hero h1 .brand-mdkku,
-.home-hero h1 .brand-samo {
-  font-size: inherit;
-}
-
-.home-hero .lead {
-  color: #64748b;
-  font-size: 1.05rem;
-}
-
-/* Auth CTA (signed-out) — white card with green accent strip */
+/* Auth CTA (signed-out) — restrained, no glow strip */
 .home-auth-cta {
-  position: relative;
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 1.75rem 2rem 1.75rem 2.25rem;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.65rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1.25rem;
   flex-wrap: wrap;
-  border: 1px solid #eaeaea;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
+  box-shadow: var(--shadow-xs);
 }
 
-.home-auth-cta-accent {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 6px;
-  background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-accent) 100%);
+.home-auth-cta-eyebrow {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--brand-primary);
+  margin-bottom: 0.35rem;
 }
 
 .home-auth-cta-body {
@@ -86,16 +44,18 @@
 }
 
 .home-auth-cta-body h3 {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.25rem;
   font-weight: 700;
-  font-size: 1.2rem;
-  color: #1f2937;
+  font-size: 1.1rem;
+  color: var(--ink-900);
+  letter-spacing: -0.005em;
 }
 
 .home-auth-cta-body p {
   margin: 0;
-  font-size: 0.92rem;
-  color: #64748b;
+  font-size: 0.88rem;
+  color: var(--ink-500);
+  line-height: 1.55;
 }
 
 .home-cta-trigger {
@@ -104,245 +64,108 @@
 
 /* Signed-in welcome strip */
 .home-welcome {
-  background: white;
-  border-radius: 18px;
-  padding: 1.25rem 1.75rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  border: 1px solid #eaeaea;
 }
 
 .home-welcome .welcome-greeting {
-  color: #1f2937;
+  color: var(--ink-900);
   font-weight: 600;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   margin: 0;
 }
 
 .home-welcome .welcome-dept {
-  color: #64748b;
-  font-size: 0.9rem;
+  color: var(--ink-500);
+  font-size: 0.85rem;
 }
 
-/* Section titles */
-.home-section-title {
-  color: #1f2937;
-  font-weight: 700;
-  font-size: 1.5rem;
-  margin: 0 0 0.25rem;
+/* ==============================================
+ * HOME — Quick actions strip (3 inline CTAs).
+ * Single row on desktop/tablet, stacks on mobile.
+ * ============================================== */
+
+.home-quick-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
 }
 
-.home-section-subtitle {
-  color: #64748b;
-  font-size: 0.95rem;
-  margin: 0 0 1.5rem;
-}
-
-.home-section-link {
-  color: var(--brand-primary);
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-decoration: none;
-  display: inline-flex;
+.home-quick-item {
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
-  transition: color 0.15s ease, gap 0.15s ease;
+  gap: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  padding: 0.95rem 1.05rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--t-base) var(--ease);
 }
 
-.home-section-link:hover {
-  color: #0d4a1d;
-  gap: 0.6rem;
+.home-quick-item:hover {
+  border-color: var(--quick-color, var(--ink-300));
+  color: inherit;
 }
 
-/* Home announcement carousel — scroll-snap with arrow controls */
-.home-announce-carousel {
-  position: relative;
-  margin: 0 -0.25rem;
+.home-quick-item:hover .home-quick-name {
+  color: var(--quick-color, var(--ink-900));
 }
 
-.home-announce-scroll {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  padding: 0.25rem 0.25rem 0.75rem;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.home-announce-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.home-announce-scroll > .home-announce-card {
-  flex: 0 0 calc(85% - 0.5rem);
-  scroll-snap-align: start;
-}
-
-@media (min-width: 576px) {
-  .home-announce-scroll > .home-announce-card {
-    flex: 0 0 calc(50% - 0.5rem);
-  }
-}
-
-@media (min-width: 992px) {
-  .home-announce-scroll > .home-announce-card {
-    flex: 0 0 calc(33.333% - 0.667rem);
-  }
-}
-
-.home-announce-loading {
-  flex: 1;
-  padding: 2rem 1rem;
-  text-align: center;
-  color: #94a3b8;
-  scroll-snap-align: start;
-}
-
-.home-announce-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  background: #ffffff;
-  border: 1px solid #eaeaea;
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
+.home-quick-icon {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
-  cursor: pointer;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  color: #ffffff;
+  background: var(--quick-color, var(--brand-primary));
 }
 
-.home-announce-nav:hover {
-  background-color: var(--green-50);
-  color: var(--brand-primary);
-}
-
-.home-announce-nav:active {
-  transform: translateY(-50%) scale(0.95);
-}
-
-.home-announce-nav--prev {
-  left: -10px;
-}
-
-.home-announce-nav--next {
-  right: -10px;
-}
-
-@media (max-width: 575.98px) {
-  .home-announce-nav {
-    width: 32px;
-    height: 32px;
-    font-size: 0.85rem;
-  }
-
-  .home-announce-nav--prev {
-    left: 2px;
-  }
-
-  .home-announce-nav--next {
-    right: 2px;
-  }
-}
-
-/* Home announcement card (compact) */
-.home-announce-card {
+.home-quick-body {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid #eaeaea;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  text-decoration: none;
-  color: inherit;
-  height: 100%;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.home-announce-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
-  border-color: #d4d4d4;
-  color: inherit;
-}
-
-.home-announce-img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background-color: #f1f5f9;
-  overflow: hidden;
-}
-
-.home-announce-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.home-announce-body {
-  padding: 1rem 1.1rem 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
   flex: 1;
+  min-width: 0;
 }
 
-.home-announce-badge {
-  align-self: flex-start;
-  font-size: 0.7rem;
+.home-quick-name {
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #475569;
-  background: #f1f5f9;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-}
-
-.home-announce-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.home-announce-date {
-  margin-top: auto;
-  font-size: 0.8rem;
-  color: #94a3b8;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.home-announce-empty {
-  text-align: center;
-  padding: 2rem 1rem;
-  color: #94a3b8;
   font-size: 0.95rem;
-  border: 1px dashed #e2e8f0;
-  border-radius: 14px;
+  color: var(--ink-900);
+  line-height: 1.3;
+  transition: color var(--t-base) var(--ease);
+}
+
+.home-quick-desc {
+  font-size: 0.78rem;
+  color: var(--ink-500);
+  margin-top: 0.1rem;
+  line-height: 1.4;
+}
+
+.home-quick-arrow {
+  color: var(--ink-300);
+  font-size: 1rem;
+  transition: transform var(--t-fast) var(--ease), color var(--t-base) var(--ease);
+  flex-shrink: 0;
+}
+
+.home-quick-item:hover .home-quick-arrow {
+  transform: translateX(3px);
+  color: var(--quick-color, var(--brand-primary));
 }
 
 /* ==============================================
@@ -649,22 +472,122 @@
  * ============================================== */
 
 .about-hero {
-  padding: 2.5rem 1rem 1rem;
+  padding: 3rem 1rem 2rem;
 }
 
 .about-hero-title {
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  /* Google Fonts URL only loads 300/400/500/600/700 — declaring 800 would
+     fall back to 700 anyway. Declare what we actually render. */
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
+.about-hero-title .brand-mdkku,
+.about-hero-title .brand-samo {
+  font-size: inherit;
+}
+
 .about-hero-lead {
   color: #64748b;
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  font-weight: 400;
+  margin-bottom: 0;
+  line-height: 1.6;
+}
+
+/* Sticky sub-nav inside the About tab — visitors jump between sections.
+   Sits below the global navbar; uses scroll-padding so anchor jumps clear
+   both the navbar and itself. */
+.about-subnav {
+  position: sticky;
+  top: 76px; /* leaves room for the sticky global navbar (12px margin + ~64px height) */
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem;
+  box-shadow: var(--shadow-sm);
+  margin: 1rem auto 2rem;
+  max-width: fit-content;
+  display: flex;
+  justify-content: center;
+}
+
+.about-subnav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.about-subnav-list::-webkit-scrollbar { display: none; }
+
+.about-subnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-pill);
+  color: var(--ink-600);
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
+}
+
+.about-subnav-link i {
+  font-size: 0.95rem;
+}
+
+.about-subnav-link:hover {
+  background-color: var(--ink-50);
+  color: var(--ink-900);
+}
+
+.about-subnav-link.is-active {
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(16, 89, 34, 0.18);
+}
+
+.about-subnav-link.is-active i { color: #ffffff; }
+
+@media (max-width: 575.98px) {
+  .about-subnav {
+    top: 64px;
+    border-radius: var(--radius-lg);
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .about-subnav-list {
+    padding: 0.1rem;
+  }
+
+  .about-subnav-link {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .about-subnav-link span {
+    display: none; /* icon-only on small screens to fit all 4 */
+  }
 }
 
 .about-section {
-  scroll-margin-top: 100px;
+  scroll-margin-top: 160px; /* clear both the global navbar AND the sub-nav */
   padding: 2.5rem 0;
   border-top: 1px solid #eaeaea;
 }
@@ -766,7 +689,7 @@
 }
 
 .about-statement-text {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   line-height: 1.7;
   color: #334155;
   margin: 0 0 1rem;
@@ -862,6 +785,94 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* ==============================================
+ * MISSION / POLICY CATEGORIES — 3 Columns
+ * ============================================== */
+
+/* Main Category Column Containers */
+.policy-category-column {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.policy-category-column:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Category Top Title Bars */
+.policy-category-header {
+  padding: 1.25rem 1.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Color Identity Themes for the 3 Areas */
+.policy-category-header.management {
+  background-color: var(--brand-primary); /* MDKKU Theme Green */
+}
+
+.policy-category-header.creative {
+  /* Yellow band: switch text to the brand green so the band stays warm
+     but readable (yellow + white fails WCAG contrast). */
+  background-color: var(--brand-yellow);
+  color: var(--brand-primary);
+}
+
+.policy-category-header.lifestyle {
+  background-color: var(--brand-orange);
+}
+
+/* List Inner Group Wrapper */
+.policy-category-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+/* Stylized counter list: strip default markers and use a CSS counter so the
+   "01, 02, 03…" prefix stays in sync if items are added/removed. */
+.policy-ordered-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  counter-reset: policy-counter;
+}
+
+.policy-list-item {
+  position: relative;
+  padding-left: 2.25rem;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.policy-list-item::before {
+  counter-increment: policy-counter;
+  content: counter(policy-counter, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-orange);
+  letter-spacing: 0.05em;
 }
 
 /* Sign-in modal — OR divider between password form and Google button */
@@ -965,7 +976,7 @@
 .dept-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: var(--dept-color, #cbd5e1);
+  border-color: var(--dept-hover-color, #cbd5e1);
   color: inherit;
 }
 
@@ -1008,3 +1019,4 @@
   box-shadow: none;
   border-color: #eaeaea;
 }
+
