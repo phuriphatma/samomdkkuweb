@@ -368,7 +368,10 @@ function showPrSuccessCard(ticketId, isGuest) {
       : 'ระบบบันทึกงานของคุณเรียบร้อยแล้ว — เก็บหมายเลขไว้สำหรับติดตามได้สะดวก';
   }
   card.classList.remove('d-none');
-  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Card sits AFTER the form, right under the submit button. block:
+  // 'nearest' only scrolls if needed — for most submitters the card
+  // is already in view, so the page stays still.
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   const lbl = document.getElementById('prSuccessCopyLabel');
   if (lbl) lbl.textContent = 'คัดลอก Ticket ID';
 }
@@ -616,8 +619,11 @@ async function handlePrFormSubmit(e) {
   } catch (error) {
     alertBox.classList.remove('d-none'); alertBox.classList.add('alert-danger');
     alertBox.innerHTML = `<i class="bi bi-wifi-off me-2 fs-5"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
+    // Error visibility — scroll up to the alert. Success path stays
+    // put (showPrSuccessCard surfaces the card right under the submit
+    // button so the user doesn't have to look up).
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } finally {
     btn.disabled = false; btnText.classList.remove('d-none'); btnLoading.classList.add('d-none');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }

@@ -102,7 +102,10 @@ function showVsSuccessCard(ticketId, isGuest) {
       : 'ระบบบันทึกปัญหาของคุณเรียบร้อยแล้ว — เก็บหมายเลขไว้สำหรับติดตามได้สะดวก';
   }
   card.classList.remove('d-none');
-  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Card sits AFTER the form, right under the submit button. block:
+  // 'nearest' only scrolls if the card is below the viewport — for
+  // most submitters it's already visible, so no jarring auto-scroll.
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   // Reset the copy button label in case it's still showing "คัดลอกแล้ว"
   // from a previous submission.
   const lbl = document.getElementById('vsSuccessCopyLabel');
@@ -284,6 +287,10 @@ async function handleVsFormSubmit(e) {
   } catch (error) {
     alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
     alertBox.classList.remove('d-none');
+    // Error visibility: scroll to top so the user sees the alert.
+    // Success path stays put — showVsSuccessCard reveals the card
+    // right under the submit button where the user's eyes already are.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  finally { btn.innerHTML = ogText; btn.disabled = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  finally { btn.innerHTML = ogText; btn.disabled = false; }
 }
