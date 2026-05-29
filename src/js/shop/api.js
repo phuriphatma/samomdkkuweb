@@ -100,7 +100,10 @@ export async function getOrder(id) {
 export async function createOrder(payload) {
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const id = genOrderId();
+    // Order id prefix = first cart item's product.code (set by admin
+    // in the product editor). Falls back to "SH" inside genOrderId
+    // when nothing usable is supplied.
+    const id = genOrderId(payload.code);
     const now = new Date().toISOString();
     const subtotal = Number(payload.subtotal) || 0;
     const fee = Number(payload.fee) || 0;

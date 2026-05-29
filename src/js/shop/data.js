@@ -132,14 +132,24 @@ export function fmtDateTime(iso) {
 }
 
 /**
- * Generate a new order id of the form "SS-YY-NNNNN".
- * Random-padded; the DB primary key enforces uniqueness, callers retry on
- * collision. (Roughly 1 in 100,000 collision per call — fine at our scale.)
+ * Generate a new order id of the form "<CODE><NNNN>" — e.g. "SH1234".
+ * `code` comes from the first cart item's product.code (admin sets it
+ * in the product editor). Falls back to "SH" when nothing is supplied.
+ * The DB primary key enforces uniqueness, callers retry on collision.
+ * (Random 4-digit pool of 9000 ids per code; collisions are rare and
+ * the retry path absorbs them.)
  */
-export function genOrderId(now = new Date()) {
-  const yy = String(now.getFullYear() + 543).slice(-2); // BE year
-  const n = Math.floor(10000 + Math.random() * 89999);  // 5-digit
-  return `SS-${yy}-${String(n).padStart(5, '0')}`;
+export function genOrderId(code) {
+  const prefix = sanitizeOrderCode(code);
+  const n = Math.floor(1000 + Math.random() * 9000); // 1000..9999
+  return `${prefix}${n}`;
+}
+
+/** Normalise an admin-supplied product.code into something safe for
+ *  an order id prefix: uppercase A–Z + 0–9, max 5 chars, fallback "SH". */
+export function sanitizeOrderCode(code) {
+  const cleaned = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  return cleaned || 'SH';
 }
 
 /** Slug a string for use in a Drive folder name. */

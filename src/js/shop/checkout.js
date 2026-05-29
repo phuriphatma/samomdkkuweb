@@ -287,6 +287,10 @@ async function placeOrder() {
     if (place) place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
 
     const subtotal = cartSubtotal();
+    // Pull the order-id prefix from the first cart item's product. If
+    // the shop hasn't applied migration 0023 yet the field is missing
+    // and createOrder falls back to "SH".
+    const firstProduct = cart.length > 0 ? getProductMap()[cart[0].productId] : null;
     const order = await createOrder({
       buyerId: user.id,
       buyerLabel: user.name || user.username || user.email || '',
@@ -297,6 +301,7 @@ async function placeOrder() {
       slipUploadedAt,
       pickupLocation: null,
       buyerNote: state.buyerNote,
+      code: firstProduct?.code || '',
     });
 
     clearCart();

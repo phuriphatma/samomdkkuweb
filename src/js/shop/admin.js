@@ -10,7 +10,7 @@ import { dbRest } from '../db.js';
 import { getUser } from '../auth.js';
 import {
   thb, fmtDate, fmtDateTime, STAGES_ORDER, STAGES_META, ISSUE_STATUSES,
-  SHOP_SOURCES, SHOP_TYPES, findSource, slugify,
+  SHOP_SOURCES, SHOP_TYPES, findSource, slugify, sanitizeOrderCode,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock,
   batchDateEntries,
 } from './data.js';
@@ -1401,11 +1401,18 @@ function renderProductEditor() {
     <div class="admin-detail-card mb-3" style="border:1.5px solid var(--shop-300);">
       <h5 class="text-accent"><i class="bi bi-pencil-square me-1"></i> ${p.id ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}</h5>
       <div class="row g-3">
-        <div class="col-md-4">
-          <label class="small text-muted mb-1">รหัสสินค้า (id)</label>
+        <div class="col-md-3">
+          <label class="small text-muted mb-1">รหัสสินค้า (id ภายใน)</label>
           <input id="shopProdId" class="form-control font-mono" value="${escHtml(p.id)}" ${p.id ? 'disabled' : ''} placeholder="auto-generate ถ้าว่าง" />
+          ${p.id ? '<div class="form-text">id ภายในแก้ไขไม่ได้ (เป็นกุญแจที่คำสั่งซื้อเก่าอ้างถึง)</div>' : ''}
         </div>
-        <div class="col-md-8">
+        <div class="col-md-2">
+          <label class="small text-muted mb-1">รหัสนำหน้า Order</label>
+          <input id="shopProdCode" class="form-control font-mono text-uppercase" maxlength="5"
+            value="${escHtml(p.code || '')}" placeholder="SH" />
+          <div class="form-text">ใช้นำหน้า Order ID เช่น "SH" → SH1234</div>
+        </div>
+        <div class="col-md-7">
           <label class="small text-muted mb-1">ชื่อสินค้า</label>
           <input id="shopProdName" class="form-control" value="${escHtml(p.name)}" />
         </div>
@@ -1589,6 +1596,7 @@ async function saveProductForm() {
 
   const payload = {
     id: e.id || `p-${slugify(name)}-${Math.floor(Math.random() * 999)}`,
+    code: sanitizeOrderCode(document.getElementById('shopProdCode')?.value || ''),
     name,
     sub: document.getElementById('shopProdSub')?.value.trim() || null,
     description: document.getElementById('shopProdDesc')?.value || null,
