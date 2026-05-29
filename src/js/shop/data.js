@@ -29,16 +29,25 @@ export const SHOP_SORT = [
   { id: 'popular',    label: 'ขายดี' },
 ];
 
+// Happy-path stages, in order. Off-path statuses (cancel, slip_mismatch,
+// refund_pending, refunded, no_show) sit outside this sequence — they're
+// shown as a pill but don't lay out the progress track.
 export const STAGES_ORDER = ['pending', 'review', 'paid', 'produce', 'ready', 'done'];
 
 export const STAGES_META = {
-  pending: { label: 'รอชำระเงิน',     icon: 'bi-hourglass-split' },
-  review:  { label: 'ตรวจสอบสลิป',    icon: 'bi-receipt' },
-  paid:    { label: 'ยืนยันการชำระ',   icon: 'bi-check-circle' },
-  produce: { label: 'กำลังผลิต',       icon: 'bi-tools' },
-  ready:   { label: 'พร้อมรับสินค้า',   icon: 'bi-box-seam' },
-  done:    { label: 'รับสินค้าแล้ว',    icon: 'bi-bag-check' },
-  cancel:  { label: 'ยกเลิกแล้ว',       icon: 'bi-x-circle' },
+  // ── happy path ──────────────────────────────────────────────────
+  pending:        { label: 'สั่งซื้อแล้ว · รอชำระเงิน',          icon: 'bi-bag-check',          short: 'รอชำระ' },
+  review:         { label: 'รอการตรวจสอบสลิป',                   icon: 'bi-receipt',            short: 'ตรวจสลิป' },
+  paid:           { label: 'ยืนยันการชำระแล้ว · รอเข้ารอบผลิต',  icon: 'bi-check-circle',       short: 'ชำระแล้ว' },
+  produce:        { label: 'กำลังผลิตสินค้า',                    icon: 'bi-tools',              short: 'กำลังผลิต' },
+  ready:          { label: 'พร้อมรับ · ดูประกาศวันรับสินค้า',     icon: 'bi-box-seam',           short: 'พร้อมรับ' },
+  done:           { label: 'ได้รับสินค้าแล้ว',                    icon: 'bi-bag-check-fill',     short: 'รับแล้ว' },
+  // ── off-path (terminal or refund flow) ──────────────────────────
+  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',                    icon: 'bi-x-circle',           short: 'ยกเลิก' },
+  slip_mismatch:  { label: 'สลิปไม่ตรง · รอแก้ไข',                icon: 'bi-exclamation-triangle', short: 'สลิปไม่ตรง' },
+  refund_pending: { label: 'รอคืนเงิน',                          icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน' },
+  refunded:       { label: 'คืนเงินแล้ว',                        icon: 'bi-cash-coin',          short: 'คืนแล้ว' },
+  no_show:        { label: 'ไม่ได้มารับตามรอบ',                  icon: 'bi-question-circle',    short: 'ไม่มารับ' },
 };
 
 // Product-level stock status (independent of is_active soft-archive).

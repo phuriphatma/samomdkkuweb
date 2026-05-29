@@ -19,14 +19,23 @@ const state = {
   loaded: false,
 };
 
+// Visible filter chips. Pulls the short labels from STAGES_META so the
+// chip row stays consistent with the pill text. Off-path filters
+// (cancel / refund / slip-mismatch / no-show) appear only when at least
+// one of the user's orders is in that state — keeps the row tidy.
 const FILTERS = [
-  { id: 'all',     label: 'ทั้งหมด' },
-  { id: 'pending', label: 'รอชำระ' },
-  { id: 'review',  label: 'ตรวจสลิป' },
-  { id: 'paid',    label: 'ชำระแล้ว' },
-  { id: 'produce', label: 'กำลังผลิต' },
-  { id: 'ready',   label: 'พร้อมรับ' },
-  { id: 'done',    label: 'รับแล้ว' },
+  { id: 'all',            label: 'ทั้งหมด',         always: true },
+  { id: 'pending',        short: 'รอชำระ',         always: true },
+  { id: 'review',         short: 'ตรวจสลิป',       always: true },
+  { id: 'paid',           short: 'ชำระแล้ว',       always: true },
+  { id: 'produce',        short: 'กำลังผลิต',      always: true },
+  { id: 'ready',          short: 'พร้อมรับ',        always: true },
+  { id: 'done',           short: 'รับแล้ว',         always: true },
+  { id: 'slip_mismatch',  short: 'สลิปไม่ตรง',     always: false },
+  { id: 'refund_pending', short: 'รอคืนเงิน',       always: false },
+  { id: 'refunded',       short: 'คืนแล้ว',         always: false },
+  { id: 'no_show',        short: 'ไม่มารับ',        always: false },
+  { id: 'cancel',         short: 'ยกเลิก',         always: false },
 ];
 
 export async function mountOrdersView() {
@@ -98,11 +107,17 @@ function render() {
   // Counts
   const counts = { all: state.orders.length };
   for (const o of state.orders) counts[o.status] = (counts[o.status] || 0) + 1;
-  row.innerHTML = FILTERS.map((f) => `
+  // Show off-path chips only when at least one matching order exists,
+  // so the row stays compact for the common happy-path case.
+  const visibleFilters = FILTERS.filter((f) => f.always || (counts[f.id] || 0) > 0);
+  row.innerHTML = visibleFilters.map((f) => {
+    const label = f.label || STAGES_META[f.id]?.short || f.short || f.id;
+    return `
     <button type="button" class="chip ${state.filter === f.id ? 'is-active' : ''}" data-order-filter="${f.id}">
-      ${escHtml(f.label)}
+      ${escHtml(label)}
       <b style="font-weight:600; opacity:.7;">${counts[f.id] || 0}</b>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 
   const filtered = state.filter === 'all'
     ? state.orders

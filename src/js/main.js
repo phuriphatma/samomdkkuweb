@@ -331,11 +331,15 @@ document.addEventListener('shown.bs.tab', (e) => {
   // URL sync — whenever a tab activates, mirror the path in the URL
   // so refresh / share / bookmark all work. Article tab keeps its
   // /news/{id} path (set explicitly by viewAnnouncement).
+  // Use pushState (not replaceState) so the browser back-button can
+  // unwind through tab navigation — previously, clicking a link from
+  // home to /pr replaced the entry and back went all the way out of
+  // the site.
   const target = e.target?.id;
   if (target !== 'pills-article-tab') {
     const want = tabToPath(target);
     if (want && location.pathname !== want) {
-      history.replaceState(null, '', want);
+      history.pushState(null, '', want);
     }
   }
 });

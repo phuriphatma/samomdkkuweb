@@ -241,64 +241,101 @@
 .shop-tab .launch-arrow:active { transform: translateY(1px); }
 .shop-tab .launch-arrow:disabled { opacity: .45; cursor: not-allowed; }
 
+/* Hero banner — one slide per view, image fills the box, info+price
+   live as an overlay at the bottom (Shopee / Lazada pattern). */
 .shop-tab .launch-carousel {
   display: flex;
-  gap: 1rem;
+  gap: 0;
   margin-bottom: 1.75rem;
-  padding: .35rem .25rem 1rem;
+  padding: 0;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-}
-.shop-tab .launch-carousel::-webkit-scrollbar { height: 8px; }
-.shop-tab .launch-carousel::-webkit-scrollbar-thumb { background: var(--shop-ink-100); border-radius: 999px; }
-.shop-tab .launch-big {
-  flex: 0 0 320px;
-  scroll-snap-align: start;
-  background: #fff;
+  scrollbar-width: none;
   border-radius: var(--shop-radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shop-shadow-md);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: transform .18s, border-color .15s, box-shadow .15s;
-  display: flex; flex-direction: column;
 }
-.shop-tab .launch-big:hover {
-  border-color: var(--brand-orange);
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px -18px rgba(255,111,48,.45), var(--shop-shadow-md);
+.shop-tab .launch-carousel::-webkit-scrollbar { display: none; }
+.shop-tab .launch-big {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: var(--shop-radius-lg);
+  /* 21:9 reads as a "hero" — wide enough for a banner feel but still
+     tall enough for the product on mobile portrait. */
+  aspect-ratio: 21 / 9;
+  background: var(--shop-ink-50);
+  box-shadow: var(--shop-shadow-md);
 }
 .shop-tab .launch-big.is-oos { filter: grayscale(.35); opacity: .85; }
 .shop-tab .launch-big-thumb {
-  aspect-ratio: 5 / 4;
-  position: relative;
+  position: absolute; inset: 0;
+  aspect-ratio: unset;
   background: var(--shop-ink-50);
-  overflow: hidden;
 }
 .shop-tab .launch-big-thumb img {
   width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform .5s var(--ease, ease);
 }
+.shop-tab .launch-big:hover .launch-big-thumb img { transform: scale(1.02); }
 .shop-tab .launch-big-thumb .stripe-placeholder { position: absolute; inset: 0; }
 .shop-tab .launch-big-thumb .ribbons {
-  position: absolute; top: .7rem; left: .7rem;
-  display: flex; flex-wrap: wrap; gap: .3rem;
+  position: absolute; top: .9rem; left: .9rem;
+  display: flex; flex-wrap: wrap; gap: .35rem;
+  z-index: 2;
 }
-.shop-tab .launch-big-body { padding: 1rem 1.15rem 1.15rem; display: flex; flex-direction: column; gap: .25rem; flex: 1; }
+.shop-tab .launch-big-body {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 1.5rem 1.75rem 1.25rem;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,.78) 0%, rgba(0,0,0,.4) 60%, rgba(0,0,0,0) 100%);
+  display: flex; flex-direction: column; gap: .2rem;
+  z-index: 1;
+}
+.shop-tab .launch-big-body .product-source {
+  color: rgba(255,255,255,.85);
+  align-self: flex-start;
+}
 .shop-tab .launch-big-body .lb-name {
-  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-ink-900);
-  font-size: 1.05rem; line-height: 1.25; margin-top: .2rem;
+  font-family: "Prompt", sans-serif; font-weight: 700; color: #fff;
+  font-size: clamp(1.05rem, 2.2vw, 1.45rem); line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
-.shop-tab .launch-big-body .lb-meta { font-size: .8rem; color: var(--shop-ink-500); }
+.shop-tab .launch-big-body .lb-meta {
+  font-size: .85rem; color: rgba(255,255,255,.85);
+}
 .shop-tab .launch-big-body .lb-foot {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-top: auto; padding-top: .55rem;
+  margin-top: .4rem;
 }
 .shop-tab .launch-big-body .lb-price {
-  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-700);
-  font-size: 1.15rem;
+  font-family: "Prompt", sans-serif; font-weight: 700; color: #fff;
+  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
 }
-.shop-tab .launch-big-body .lb-price .baht { font-size: .8rem; color: var(--shop-ink-500); margin-right: .15rem; font-weight: 500; }
+.shop-tab .launch-big-body .lb-price .baht { font-size: .8rem; color: rgba(255,255,255,.7); margin-right: .15rem; font-weight: 500; }
+.shop-tab .launch-big-body .lb-date { color: rgba(255,255,255,.7) !important; }
+
+/* Pagination dots — quietly indicate slide count + active slide. */
+.shop-tab .launch-dots {
+  display: flex; justify-content: center; gap: .35rem;
+  margin: -1rem auto 1.5rem;
+}
+.shop-tab .launch-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--shop-ink-200, #d1d5db); border: none;
+  padding: 0; cursor: pointer;
+  transition: width .2s, background .2s;
+}
+.shop-tab .launch-dot.is-active {
+  background: var(--brand-orange); width: 18px; border-radius: 999px;
+}
+
+/* On small screens, slightly taller aspect so the banner doesn't feel
+   like a thin strip with no visual weight. */
+@media (max-width: 575.98px) {
+  .shop-tab .launch-big { aspect-ratio: 4 / 3; }
+  .shop-tab .launch-big-body { padding: 1rem 1.15rem .95rem; }
+}
 
 /* ==============================================
  * Pickup announcements — stack of cards (multi-batch)

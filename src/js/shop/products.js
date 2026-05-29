@@ -170,12 +170,25 @@ function pickupBannerCardHtml(b) {
 // ---------------------------------------------------------------------
 function renderLaunches() {
   const host = document.getElementById('shopLaunchCarousel');
+  const dots = document.getElementById('shopLaunchDots');
   if (!host) return;
   const list = cache.products.filter((p) => p.is_new).slice(0, 10);
-  if (list.length === 0) { host.innerHTML = ''; setCarouselArrowsVisible(false); return; }
+  if (list.length === 0) {
+    host.innerHTML = '';
+    if (dots) dots.innerHTML = '';
+    setCarouselArrowsVisible(false);
+    return;
+  }
   host.innerHTML = list.map(launchCardHtml).join('');
-  setCarouselArrowsVisible(true);
+  if (dots) {
+    dots.innerHTML = list.map((_, i) =>
+      `<button type="button" class="launch-dot ${i === 0 ? 'is-active' : ''}" data-dot-i="${i}" aria-label="สไลด์ที่ ${i + 1}"></button>`
+    ).join('');
+  }
+  // Arrows only useful when 2+ slides; dots cover single-slide case.
+  setCarouselArrowsVisible(list.length > 1);
   updateCarouselArrowsState();
+  updateActiveDot();
 }
 
 function launchCardHtml(p) {
@@ -211,12 +224,40 @@ function wireCarouselArrows() {
   const prev = document.getElementById('shopLaunchPrev');
   const next = document.getElementById('shopLaunchNext');
   const car  = document.getElementById('shopLaunchCarousel');
+  const dots = document.getElementById('shopLaunchDots');
   if (!prev || !next || !car) return;
-  const step = () => Math.max(280, Math.floor(car.clientWidth * 0.85));
+  // Hero banner: one slide per view. Scroll by the carousel's exact
+  // visible width so the snap lands cleanly on the next/prev card.
+  const step = () => car.clientWidth || 1;
   prev.addEventListener('click', () => car.scrollBy({ left: -step(), behavior: 'smooth' }));
   next.addEventListener('click', () => car.scrollBy({ left:  step(), behavior: 'smooth' }));
-  car.addEventListener('scroll', updateCarouselArrowsState, { passive: true });
-  window.addEventListener('resize', updateCarouselArrowsState, { passive: true });
+  car.addEventListener('scroll', () => {
+    updateCarouselArrowsState();
+    updateActiveDot();
+  }, { passive: true });
+  window.addEventListener('resize', () => {
+    updateCarouselArrowsState();
+    updateActiveDot();
+  }, { passive: true });
+  // Dot click → scroll to that slide.
+  if (dots) {
+    dots.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-dot-i]');
+      if (!btn) return;
+      const i = Number(btn.dataset.dotI) || 0;
+      car.scrollTo({ left: i * step(), behavior: 'smooth' });
+    });
+  }
+}
+
+function updateActiveDot() {
+  const car  = document.getElementById('shopLaunchCarousel');
+  const dots = document.getElementById('shopLaunchDots');
+  if (!car || !dots) return;
+  const w = car.clientWidth || 1;
+  const active = Math.round(car.scrollLeft / w);
+  dots.querySelectorAll('.launch-dot').forEach((d, i) =>
+    d.classList.toggle('is-active', i === active));
 }
 
 function setCarouselArrowsVisible(show) {

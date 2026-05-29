@@ -72,6 +72,9 @@ function renderHtml() {
     qr:   settingsCache?.promptpay_qr_url || '',
     instructions: settingsCache?.instructions || '',
   };
+  // Dev accounts can test the full checkout without a real slip — the
+  // upload is optional and the placeOrder path tolerates a null slipUrl.
+  const devSkip = getUser()?.role === 'dev';
 
   if (cart.length === 0) {
     return `
@@ -111,18 +114,8 @@ function renderHtml() {
         }).join('')}
       </div>
 
-      <div class="checkout-panel mb-3">
-        <h4><span class="step-num">2</span> หมายเหตุเพิ่มเติม</h4>
-        <p class="small text-muted mb-2">
-          <i class="bi bi-info-circle me-1"></i>
-          จุดและเวลานัดรับ admin จะแจ้งให้ทราบในประกาศการรับสินค้า (ดูที่หน้าร้านค้าและ "คำสั่งซื้อของฉัน")
-        </p>
-        <textarea id="shopCheckoutNote" class="form-control" rows="2"
-          placeholder="หมายเหตุเพิ่มเติม (ถ้ามี) — เช่น สลักชื่อ, รับแทนเพื่อน, ฯลฯ">${escHtml(state.buyerNote)}</textarea>
-      </div>
-
       <div class="checkout-panel">
-        <h4><span class="step-num">3</span> อัปโหลดสลิปการโอน</h4>
+        <h4><span class="step-num">2</span> อัปโหลดสลิปการโอน${devSkip ? ' <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : ''}</h4>
         <div id="shopSlipDrop" class="slip-drop ${state.slipFile ? 'is-filled' : ''}">
           ${state.slipFile ? `
             <i class="bi bi-check2-circle"></i>
@@ -175,18 +168,24 @@ function renderHtml() {
           <span>฿${thb(subtotal)}</span>
         </div>
         <div class="summary-line">
-          <span>ค่าจัดส่ง</span>
-          <span class="text-muted">รับเอง · ฟรี</span>
+          <span>การรับสินค้า</span>
+          <span class="text-muted">รับที่คณะแพทย์</span>
+        </div>
+        <div class="summary-line small text-muted" style="font-size:.78rem; margin-top:-.35rem;">
+          <span style="line-height:1.4;">
+            <i class="bi bi-info-circle me-1"></i>
+            admin จะประกาศวันเวลาสถานที่รับสินค้าและส่งอีเมลแจ้งเตือนอีกครั้ง
+          </span>
         </div>
         <div class="summary-line grand">
           <span>ยอดที่ต้องโอน</span>
           <span class="amount">฿${thb(subtotal)}</span>
         </div>
         <button type="button" class="btn btn-shop w-100 mt-3" id="shopPlaceOrderBtn"
-                ${(!state.slipFile || !state.agree) ? 'disabled' : ''}>
-          <i class="bi bi-send-check me-1"></i> ส่งสลิป & สั่งซื้อ
+                ${((!devSkip && !state.slipFile) || !state.agree) ? 'disabled' : ''}>
+          <i class="bi bi-send-check me-1"></i> ${devSkip && !state.slipFile ? 'สั่งซื้อ (โหมด dev)' : 'ส่งสลิป & สั่งซื้อ'}
         </button>
-        <div class="small text-muted mt-2 text-center ${state.slipFile ? 'd-none' : ''}">
+        <div class="small text-muted mt-2 text-center ${(state.slipFile || devSkip) ? 'd-none' : ''}">
           <i class="bi bi-info-circle me-1"></i> อัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้
         </div>
       </div>
@@ -229,7 +228,8 @@ function wireEvents() {
       state.agree = agree.checked;
       // toggle the place button without a full re-render
       const place = document.getElementById('shopPlaceOrderBtn');
-      if (place) place.disabled = !state.slipFile || !state.agree;
+      const devSkip = getUser()?.role === 'dev';
+      if (place) place.disabled = (!devSkip && !state.slipFile) || !state.agree;
     });
   }
 
@@ -258,7 +258,8 @@ function onSlipChosen(file) {
 async function placeOrder() {
   const user = getUser();
   if (!user) { showShopToast('กรุณาเข้าสู่ระบบก่อน', 'warn'); return; }
-  if (!state.slipFile) { showShopToast('อัปโหลดสลิปก่อน', 'warn'); return; }
+  const devSkip = user.role === 'dev';
+  if (!state.slipFile && !devSkip) { showShopToast('อัปโหลดสลิปก่อน', 'warn'); return; }
   if (!state.agree)   { showShopToast('กรุณายอมรับเงื่อนไข', 'warn'); return; }
   const cart = getCart();
   if (cart.length === 0) { showShopToast('ตะกร้าว่าง', 'warn'); return; }
@@ -267,14 +268,21 @@ async function placeOrder() {
   const originalLabel = place?.innerHTML;
   if (place) {
     place.disabled = true;
-    place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดสลิป…';
+    place.innerHTML = state.slipFile
+      ? '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดสลิป…'
+      : '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
   }
 
   try {
-    const ext = (state.slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
-    const slipName = `${user.id}_${Date.now()}.${ext}`;
-    const folder = slipFolderForNow(new Date());
-    const slipUrl = await uploadShopFile(state.slipFile, folder, { fileName: slipName });
+    let slipUrl = null;
+    let slipUploadedAt = null;
+    if (state.slipFile) {
+      const ext = (state.slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+      const slipName = `${user.id}_${Date.now()}.${ext}`;
+      const folder = slipFolderForNow(new Date());
+      slipUrl = await uploadShopFile(state.slipFile, folder, { fileName: slipName });
+      slipUploadedAt = new Date().toISOString();
+    }
 
     if (place) place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
 
@@ -286,7 +294,7 @@ async function placeOrder() {
       subtotal,
       fee: 0,
       slipUrl,
-      slipUploadedAt: new Date().toISOString(),
+      slipUploadedAt,
       pickupLocation: null,
       buyerNote: state.buyerNote,
     });
