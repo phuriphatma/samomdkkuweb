@@ -80,69 +80,168 @@ initAnnouncements(creatorQuill);
 // CREATOR HELPERS — needed by tab-creator.html onclick handlers
 // ==============================================
 
-// Inspect the picked file's pixel dimensions so we can warn (not block)
-// when it falls below the editorial minimum (1200 × 675) or strays far
-// from the recommended 16:9 aspect. Returns { width, height, ratio } or
-// null on read failure.
-function readImageDimensions(file) {
-  return new Promise((resolve) => {
+// --------------------------------------------------
+// Cover-image cropper (16:9, Cropper.js)
+//
+// Pick a file → open the modal with Cropper.js, lock the crop box to
+// 16:9 → user pans/zooms → "ใช้รูปนี้" → canvas.toBlob → upload.
+// "ยกเลิก" leaves the existing cover untouched.
+// --------------------------------------------------
+
+let _activeCropper = null;
+let _pendingCropFileName = 'cover.jpg';
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      img.onerror = () => resolve(null);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(null);
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
     reader.readAsDataURL(file);
   });
+}
+
+function dataUrlToDimensions(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function destroyActiveCropper() {
+  if (_activeCropper) {
+    try { _activeCropper.destroy(); } catch { /* noop */ }
+    _activeCropper = null;
+  }
 }
 
 window.onCreatorThumbPicked = async (event) => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
-  const preview = document.getElementById('creatorThumbPreview');
-  const clearBtn = document.getElementById('creatorThumbClearBtn');
-  const urlInput = document.getElementById('creatorThumbUrl');
+  _pendingCropFileName = file.name || 'cover.jpg';
+
   const hint = document.getElementById('creatorThumbHint');
+  const cropImg = document.getElementById('creatorCropperImage');
+  const cropHint = document.getElementById('creatorCropperHint');
+  const modalEl = document.getElementById('creatorCropperModal');
 
   if (hint) hint.innerHTML = '';
 
-  // Soft warning: image is below the editorial minimum or far from 16:9.
-  // We still upload — display side uses object-fit: cover so it always
-  // looks consistent — but the author sees the hint and can replace it.
-  const dims = await readImageDimensions(file);
-  if (hint && dims) {
-    const messages = [];
-    if (dims.width < 1200) {
-      messages.push(`รูปกว้างเพียง ${dims.width}px (แนะนำ ≥1200px) — อาจเบลอเมื่อแสดงเต็มหน้า`);
-    }
-    const ratio = dims.width / dims.height;
-    const idealRatio = 16 / 9;
-    const drift = Math.abs(ratio - idealRatio) / idealRatio;
-    if (drift > 0.15) {
-      messages.push(`สัดส่วน ${dims.width}×${dims.height} (แนะนำ 16:9 เช่น 1600×900) — ระบบจะตัดกรอบให้พอดี`);
-    }
-    if (messages.length) {
-      hint.innerHTML = `<i class="bi bi-info-circle me-1 text-warning"></i>${messages.join(' · ')}`;
-    } else {
-      hint.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>ขนาดดีแล้ว ${dims.width}×${dims.height}`;
-    }
+  let dataUrl;
+  try {
+    dataUrl = await fileToDataUrl(file);
+  } catch (err) {
+    alert((err && err.message) || 'อ่านไฟล์ไม่สำเร็จ');
+    event.target.value = '';
+    return;
   }
 
+  const dims = await dataUrlToDimensions(dataUrl);
+  if (cropHint && dims) {
+    let warning = '';
+    if (dims.width < 1200) {
+      warning = ` <span class="text-warning"><i class="bi bi-info-circle"></i> รูปต้นฉบับกว้าง ${dims.width}px (แนะนำ ≥1200px) — ลองภาพใหญ่กว่านี้เพื่อความคมชัด</span>`;
+    }
+    cropHint.innerHTML = `ลากเพื่อจัดวางส่วนสำคัญของภาพ — กรอบล็อกที่สัดส่วน 16:9 อัตโนมัติ.${warning}`;
+  }
+
+  destroyActiveCropper();
+  if (cropImg) cropImg.src = dataUrl;
+
+  // Open the modal; init Cropper.js after `shown.bs.modal` so the
+  // image element is laid out with real dimensions.
+  if (!modalEl || !window.bootstrap) {
+    alert('ไม่สามารถเปิดหน้าตัดรูปได้');
+    event.target.value = '';
+    return;
+  }
+  const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+  modalEl.addEventListener('shown.bs.modal', () => {
+    if (!window.Cropper || !cropImg) return;
+    _activeCropper = new window.Cropper(cropImg, {
+      aspectRatio: 16 / 9,
+      viewMode: 1,        // restrict crop box to within the canvas
+      autoCropArea: 1,    // start with the largest 16:9 fit
+      background: false,
+      movable: true,
+      zoomable: true,
+      scalable: false,
+      rotatable: false,
+      responsive: true,
+      checkOrientation: false,
+    });
+  }, { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    destroyActiveCropper();
+    if (cropImg) cropImg.src = '';
+  }, { once: true });
+  modal.show();
+  // Reset the file input so re-selecting the same file still fires change.
+  event.target.value = '';
+};
+
+// Confirm button inside the cropper modal — extract the cropped canvas,
+// turn it into a JPEG blob, upload, then write the resulting URL into
+// the creator form.
+async function confirmCropAndUpload() {
+  if (!_activeCropper) return;
+  const preview = document.getElementById('creatorThumbPreview');
+  const clearBtn = document.getElementById('creatorThumbClearBtn');
+  const urlInput = document.getElementById('creatorThumbUrl');
+  const confirmBtn = document.getElementById('creatorCropperConfirm');
+  const modalEl = document.getElementById('creatorCropperModal');
+
+  // Output a max-2000px-wide canvas (≈4MP) — good print/retina quality
+  // but keeps the upload size reasonable.
+  const canvas = _activeCropper.getCroppedCanvas({
+    maxWidth: 2000,
+    maxHeight: 1125,
+    imageSmoothingEnabled: true,
+    imageSmoothingQuality: 'high',
+  });
+  if (!canvas) {
+    alert('ตัดภาพไม่สำเร็จ ลองอีกครั้ง');
+    return;
+  }
+
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลด…';
+  }
   if (preview) preview.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-secondary"></div><div class="small text-muted mt-2">กำลังอัปโหลด…</div></div>';
+
   try {
-    const url = await uploadImageToDrive(file);
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('แปลงภาพไม่สำเร็จ'))), 'image/jpeg', 0.9);
+    });
+    const fileForUpload = new File([blob], _pendingCropFileName.replace(/\.(png|webp|gif|bmp)$/i, '.jpg') || 'cover.jpg', { type: 'image/jpeg' });
+    const url = await uploadImageToDrive(fileForUpload);
     if (urlInput) urlInput.value = url;
     if (preview) preview.innerHTML = `<img src="${url}" alt="thumbnail">`;
     if (clearBtn) clearBtn.classList.remove('d-none');
+    // Hint slot below the preview: confirm it's the cropped 16:9.
+    const hint = document.getElementById('creatorThumbHint');
+    if (hint) hint.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>ตัดกรอบ 16:9 เรียบร้อย (${canvas.width}×${canvas.height})`;
+
+    if (modalEl && window.bootstrap) {
+      window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+    }
   } catch (err) {
     if (preview) preview.innerHTML = '<i class="bi bi-exclamation-triangle text-danger fs-3"></i><span class="text-danger small mt-2">อัปโหลดล้มเหลว</span>';
     alert('อัปโหลดรูปปกไม่สำเร็จ: ' + (err.message || err));
   } finally {
-    event.target.value = '';
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>ใช้รูปนี้';
+    }
   }
-};
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('creatorCropperConfirm')
+    ?.addEventListener('click', confirmCropAndUpload);
+});
 
 window.clearCreatorThumb = () => {
   const preview = document.getElementById('creatorThumbPreview');

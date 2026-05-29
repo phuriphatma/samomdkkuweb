@@ -18,6 +18,11 @@
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
+  <!-- Cropper.js — locks the cover-image crop to a 16:9 frame so every
+       article hero looks consistent regardless of upload source. -->
+  <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
+
   <!-- Admin stylesheet — shares base tokens with the public app but
        loads the workspace shell + admin-only sheets, not the public
        editorial CSS. -->
@@ -276,6 +281,39 @@
           </section>
 
         </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cover-image cropper modal — opened by onCreatorThumbPicked() and
+       locks the crop box to 16:9 so every article hero matches the
+       editorial frame. The author drags / zooms to reposition the
+       crop; confirm uploads the resulting blob to Drive. -->
+  <div class="modal fade" id="creatorCropperModal" tabindex="-1" aria-labelledby="creatorCropperLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="creatorCropperLabel">
+            <i class="bi bi-aspect-ratio me-2"></i>ตัดกรอบภาพปก (16:9)
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <div id="creatorCropperFrame" style="max-height: 60vh; background: #0f172a;">
+            <img id="creatorCropperImage" alt="" style="max-width: 100%; display: block;">
+          </div>
+          <div class="form-text mt-2" id="creatorCropperHint">
+            ลากเพื่อจัดวางส่วนสำคัญของภาพ — กรอบล็อกที่สัดส่วน 16:9 อัตโนมัติ
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="creatorCropperCancel">
+            ยกเลิก
+          </button>
+          <button type="button" class="btn btn-success" id="creatorCropperConfirm">
+            <i class="bi bi-check-lg me-1"></i>ใช้รูปนี้
+          </button>
+        </div>
       </div>
     </div>
   </div>
