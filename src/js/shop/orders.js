@@ -19,36 +19,14 @@ const state = {
   loaded: false,
 };
 
-// Visible filter chips. Pulls the short labels from STAGES_META so the
-// chip row stays consistent with the pill text. Off-path filters
-// (cancel / refund / slip-mismatch / no-show) appear only when at least
-// one of the user's orders is in that state — keeps the row tidy.
-const FILTERS = [
-  { id: 'all',            label: 'ทั้งหมด',         always: true },
-  { id: 'pending',        short: 'รอชำระ',         always: true },
-  { id: 'review',         short: 'ตรวจสลิป',       always: true },
-  { id: 'paid',           short: 'ชำระแล้ว',       always: true },
-  { id: 'produce',        short: 'กำลังผลิต',      always: true },
-  { id: 'ready',          short: 'พร้อมรับ',        always: true },
-  { id: 'done',           short: 'รับแล้ว',         always: true },
-  { id: 'slip_mismatch',  short: 'สลิปไม่ตรง',     always: false },
-  { id: 'refund_pending', short: 'รอคืนเงิน',       always: false },
-  { id: 'refunded',       short: 'คืนแล้ว',         always: false },
-  { id: 'no_show',        short: 'ไม่มารับ',        always: false },
-  { id: 'cancel',         short: 'ยกเลิก',         always: false },
-];
+// Customer orders view has no filter chips — most users have a
+// handful of orders and scroll-to-find is faster than tap-to-filter.
+// The state.filter field is kept so external callers (sub-nav badges)
+// don't break, but render() always shows everything.
 
 export async function mountOrdersView() {
-  // Filter chip row is rebuilt on each render — wire delegated click.
-  const row = document.getElementById('shopOrdersFilterRow');
-  if (row) {
-    row.addEventListener('click', (e) => {
-      const chip = e.target.closest('[data-order-filter]');
-      if (!chip) return;
-      state.filter = chip.dataset.orderFilter;
-      render();
-    });
-  }
+  // (Filter chips were removed; nothing to wire here. Kept as a noop
+  // so the existing call site in index.js doesn't need to change.)
 }
 
 /** Show / refresh. Called when the orders sub-nav is activated. */
@@ -102,29 +80,13 @@ function render() {
   const row = document.getElementById('shopOrdersFilterRow');
   const list = document.getElementById('shopOrdersList');
   const empty = document.getElementById('shopOrdersEmpty');
-  if (!row || !list || !empty) return;
+  if (!list || !empty) return;
 
-  // Counts
-  const counts = { all: state.orders.length };
-  for (const o of state.orders) counts[o.status] = (counts[o.status] || 0) + 1;
-  // Show off-path chips only when at least one matching order exists,
-  // so the row stays compact for the common happy-path case.
-  const visibleFilters = FILTERS.filter((f) => f.always || (counts[f.id] || 0) > 0);
-  row.innerHTML = visibleFilters.map((f) => {
-    const label = f.label || STAGES_META[f.id]?.short || f.short || f.id;
-    return `
-    <button type="button" class="chip ${state.filter === f.id ? 'is-active' : ''}" data-order-filter="${f.id}">
-      ${escHtml(label)}
-      <b style="font-weight:600; opacity:.7;">${counts[f.id] || 0}</b>
-    </button>`;
-  }).join('');
+  // Drop the filter chip row entirely (per UX request).
+  if (row) row.innerHTML = '';
 
-  const filtered = state.filter === 'all'
-    ? state.orders
-    : state.orders.filter((o) => o.status === state.filter);
-
-  empty.classList.toggle('d-none', filtered.length > 0);
-  list.innerHTML = filtered.map(orderCardHtml).join('');
+  empty.classList.toggle('d-none', state.orders.length > 0);
+  list.innerHTML = state.orders.map(orderCardHtml).join('');
 
   refreshReadyCountBadge();
 }
@@ -239,13 +201,7 @@ function progressTrackHtml(order) {
     <div class="progress-track">
       ${STAGES_ORDER.map((stage, i) => {
         const cls = i < currentIdx ? 'is-done' : i === currentIdx ? 'is-current' : '';
-        // For the ready stage, swap in the "announced" label when the
-        // current order has a pickup batch — keeps the track consistent
-        // with the pill above it.
-        const label = (stage === 'ready' && order?.pickup_batch_id && status === 'ready')
-          ? STAGES_META.ready_announced.label
-          : STAGES_META[stage].label;
-        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(label)}</div>`;
+        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(STAGES_META[stage].label)}</div>`;
       }).join('')}
     </div>`;
 }

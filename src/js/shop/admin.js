@@ -327,11 +327,9 @@ function offPathActionsFor(status) {
   if (TERMINAL.has(status)) return [];
 
   const actions = [];
-  // Review-specific: slip mismatch (admin saw the slip but amount/name doesn't match).
-  if (status === 'review') {
-    actions.push({ next: 'slip_mismatch', icon: 'bi-exclamation-triangle', label: 'สลิปไม่ตรงกับที่ซื้อมา' });
-  }
-  // Pickup window passed without the customer showing up.
+  // (slip_mismatch from review is the primary secondary button now;
+  // not duplicated here.) Pickup window passed without the customer
+  // showing up:
   if (status === 'ready') {
     actions.push({ next: 'no_show', icon: 'bi-question-circle', label: 'ลูกค้าไม่ได้มารับตามรอบ' });
   }
@@ -358,15 +356,22 @@ function offPathActionsFor(status) {
 
 function footerPrimaryFor(status) {
   switch (status) {
-    case 'review':  return { next: 'paid',    cls: 'btn-success', html: '<i class="bi bi-check2-circle me-1"></i> อนุมัติสลิป → "ชำระแล้ว"' };
-    case 'paid':    return { next: 'produce', cls: 'btn-shop',    html: '<i class="bi bi-tools me-1"></i> เริ่มผลิต' };
-    case 'produce': return { next: 'ready',   cls: 'btn-success', html: '<i class="bi bi-box-seam me-1"></i> ผลิตเสร็จ → พร้อมรับ' };
+    case 'review':  return { next: 'paid',    cls: 'btn-success', html: '<i class="bi bi-check2-circle me-1"></i> อนุมัติสลิป → ยืนยันการชำระเงิน' };
+    case 'paid':    return { next: 'produce', cls: 'btn-shop',    html: '<i class="bi bi-box-seam me-1"></i> สินค้าผลิตเสร็จแล้ว' };
+    case 'produce': return { next: 'ready',   cls: 'btn-success', html: '<i class="bi bi-megaphone me-1"></i> ประกาศรอบรับสินค้า' };
     case 'ready':   return { next: 'done',    cls: 'btn-success', html: '<i class="bi bi-bag-check me-1"></i> ลูกค้ามารับแล้ว' };
+    // slip_mismatch: buyer fixed the slip → admin re-opens for review.
+    case 'slip_mismatch': return { next: 'review', cls: 'btn-success', html: '<i class="bi bi-arrow-clockwise me-1"></i> ส่งกลับไปตรวจสอบสลิป' };
     default:        return null;
   }
 }
 function footerSecondaryFor(status) {
-  if (status === 'review') return { next: 'cancel', cancelReason: 'admin rejected slip', cls: 'btn-outline-danger', html: '<i class="bi bi-x-circle me-1"></i> ปฏิเสธสลิป' };
+  // Review rejection is "slip doesn't match" — non-terminal, lets the
+  // buyer re-upload. Hard cancellation stays on the off-path
+  // "สถานะอื่น" dropdown.
+  if (status === 'review') {
+    return { next: 'slip_mismatch', cls: 'btn-outline-warning', html: '<i class="bi bi-exclamation-triangle me-1"></i> สลิปไม่ถูกต้อง' };
+  }
   if (status === 'pending' || status === 'paid' || status === 'produce') {
     return { next: 'cancel', cancelReason: 'admin cancelled', cls: 'btn-outline-danger', html: '<i class="bi bi-x-circle me-1"></i> ยกเลิกคำสั่งซื้อ' };
   }
