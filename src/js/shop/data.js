@@ -36,19 +36,42 @@ export const STAGES_ORDER = ['pending', 'review', 'paid', 'produce', 'ready', 'd
 
 export const STAGES_META = {
   // ── happy path ──────────────────────────────────────────────────
-  pending:        { label: 'สั่งซื้อแล้ว · รอชำระเงิน',          icon: 'bi-bag-check',          short: 'รอชำระ' },
-  review:         { label: 'รอการตรวจสอบสลิป',                   icon: 'bi-receipt',            short: 'ตรวจสลิป' },
-  paid:           { label: 'ยืนยันการชำระแล้ว · รอเข้ารอบผลิต',  icon: 'bi-check-circle',       short: 'ชำระแล้ว' },
-  produce:        { label: 'กำลังผลิตสินค้า',                    icon: 'bi-tools',              short: 'กำลังผลิต' },
-  ready:          { label: 'พร้อมรับ · ดูประกาศวันรับสินค้า',     icon: 'bi-box-seam',           short: 'พร้อมรับ' },
-  done:           { label: 'ได้รับสินค้าแล้ว',                    icon: 'bi-bag-check-fill',     short: 'รับแล้ว' },
+  // `ready` has two display contexts: with no pickup_batch_id, it's
+  // "produced waiting for pickup announcement"; with one linked, it's
+  // "pickup is scheduled". statusLabelFor() picks the right text.
+  pending:        { label: 'สั่งซื้อแล้ว',                                  icon: 'bi-bag-check',           short: 'สั่งซื้อแล้ว' },
+  review:         { label: 'รอการตรวจสอบสลิป',                              icon: 'bi-receipt',             short: 'ตรวจสลิป' },
+  paid:           { label: 'ยืนยันการชำระเงินรอการผลิต',                    icon: 'bi-check-circle',        short: 'รอผลิต' },
+  produce:        { label: 'กำลังผลิตสินค้า',                                icon: 'bi-tools',               short: 'กำลังผลิต' },
+  ready:          { label: 'สินค้าผลิตเสร็จแล้วรอการประกาศรับสินค้า',          icon: 'bi-box-seam',            short: 'รอประกาศ' },
+  // virtual sub-status of ready: shown when pickup_batch_id is set.
+  ready_announced:{ label: 'ประกาศวันรับสินค้าแล้ว กรุณาตรวจสอบวันรับสินค้า', icon: 'bi-megaphone-fill',      short: 'ประกาศแล้ว' },
+  done:           { label: 'ได้รับสินค้าแล้ว',                                icon: 'bi-bag-check-fill',      short: 'รับแล้ว' },
   // ── off-path (terminal or refund flow) ──────────────────────────
-  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',                    icon: 'bi-x-circle',           short: 'ยกเลิก' },
-  slip_mismatch:  { label: 'สลิปไม่ตรง · รอแก้ไข',                icon: 'bi-exclamation-triangle', short: 'สลิปไม่ตรง' },
-  refund_pending: { label: 'รอคืนเงิน',                          icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน' },
-  refunded:       { label: 'คืนเงินแล้ว',                        icon: 'bi-cash-coin',          short: 'คืนแล้ว' },
-  no_show:        { label: 'ไม่ได้มารับตามรอบ',                  icon: 'bi-question-circle',    short: 'ไม่มารับ' },
+  cancel:         { label: 'ยกเลิกคำสั่งซื้อ',                                icon: 'bi-x-circle',            short: 'ยกเลิก' },
+  slip_mismatch:  { label: 'ตรวจสอบสลิปไม่ตรงกับที่ซื้อมา',                   icon: 'bi-exclamation-triangle', short: 'สลิปไม่ตรง' },
+  refund_pending: { label: 'รอคืนเงิน',                                      icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน' },
+  refunded:       { label: 'คืนเงินแล้ว',                                    icon: 'bi-cash-coin',           short: 'คืนแล้ว' },
+  no_show:        { label: 'ยังไม่ได้สินค้า ไม่ได้มาตามรอบหรือเกิดข้อผิดพลาด',  icon: 'bi-question-circle',     short: 'ไม่มารับ' },
 };
+
+/** Returns the display label for an order, considering side-state like
+ *  pickup_batch_id that affects `ready`'s message but isn't its own status. */
+export function statusLabelFor(order) {
+  if (!order) return '';
+  if (order.status === 'ready' && order.pickup_batch_id) {
+    return STAGES_META.ready_announced.label;
+  }
+  return STAGES_META[order.status]?.label || order.status;
+}
+
+export function statusMetaFor(order) {
+  if (!order) return STAGES_META.pending;
+  if (order.status === 'ready' && order.pickup_batch_id) {
+    return STAGES_META.ready_announced;
+  }
+  return STAGES_META[order.status] || STAGES_META.pending;
+}
 
 // Product-level stock status (independent of is_active soft-archive).
 export const STOCK_STATUSES = ['available', 'sold_out', 'production_closed'];

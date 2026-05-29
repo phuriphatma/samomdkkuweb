@@ -235,19 +235,27 @@ function renderOrdersTable() {
             ? `<span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i> ส่งแล้ว</span>`
             : `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i> ยังไม่ส่ง</span>`}
         </td>
-        <td>${statusPillSmall(o.status)}</td>
+        <td>${statusPillSmall(o)}</td>
         <td><i class="bi bi-chevron-right"></i></td>
       </tr>`;
   }).join('');
 }
 
-function statusPillSmall(status) {
-  const meta = STAGES_META[status] || STAGES_META.pending;
+function statusPillSmall(o) {
+  // Admin tables use the short label so the row stays compact and the
+  // status is fast to scan across many orders. Modal/detail views can
+  // still call statusLabelFor(o) for the full descriptive text.
+  const order = typeof o === 'string' ? { status: o } : (o || { status: 'pending' });
+  const status = order.status;
+  const meta = (status === 'ready' && order.pickup_batch_id)
+    ? STAGES_META.ready_announced
+    : (STAGES_META[status] || STAGES_META.pending);
+  const short = meta.short || meta.label;
   return `
     <span class="status-pill" data-status="${escHtml(status)}">
       <span class="pulse"></span>
       <i class="bi ${escHtml(meta.icon)}"></i>
-      <span>${escHtml(meta.label)}</span>
+      <span>${escHtml(short)}</span>
     </span>`;
 }
 
@@ -282,8 +290,65 @@ function openOrderModal(orderId) {
     reject.classList.toggle('d-none', !secondary);
   }
 
+  // Off-path actions menu — slip mismatch / refund / no-show / cancel.
+  // Build from a static list, filter by current status so we don't show
+  // a "refund" option on a paid order or a "no-show" option on pending.
+  const moreUl = document.getElementById('shopAdminOrderModalMore');
+  if (moreUl) {
+    const off = offPathActionsFor(o.status);
+    moreUl.innerHTML = off.length === 0
+      ? '<li><span class="dropdown-item text-muted">ไม่มีตัวเลือกสำหรับสถานะนี้</span></li>'
+      : off.map((a, idx) => `
+          ${idx > 0 && a.divider ? '<li><hr class="dropdown-divider"></li>' : ''}
+          <li>
+            <button type="button" class="dropdown-item" data-set-status="${escHtml(a.next)}" ${a.cancelReason ? `data-cancel-reason="${escHtml(a.cancelReason)}"` : ''}>
+              <i class="bi ${escHtml(a.icon)} me-2"></i>${escHtml(a.label)}
+            </button>
+          </li>`).join('');
+    moreUl.querySelectorAll('[data-set-status]').forEach((btn) => {
+      btn.addEventListener('click', () => modalAction(btn.dataset.setStatus, btn.dataset.cancelReason || ''));
+    });
+  }
+
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
+}
+
+/** Off-path admin actions, filtered by current status so the dropdown
+ *  only shows valid transitions. Keeps the list short + intent-clear. */
+function offPathActionsFor(status) {
+  // Available from anywhere except terminal states.
+  const TERMINAL = new Set(['done', 'cancel', 'refunded']);
+  if (TERMINAL.has(status)) return [];
+
+  const actions = [];
+  // Review-specific: slip mismatch (admin saw the slip but amount/name doesn't match).
+  if (status === 'review') {
+    actions.push({ next: 'slip_mismatch', icon: 'bi-exclamation-triangle', label: 'สลิปไม่ตรงกับที่ซื้อมา' });
+  }
+  // Pickup window passed without the customer showing up.
+  if (status === 'ready') {
+    actions.push({ next: 'no_show', icon: 'bi-question-circle', label: 'ลูกค้าไม่ได้มารับตามรอบ' });
+  }
+  // Refund flow — available once money has been confirmed.
+  if (['paid', 'produce', 'ready', 'no_show'].includes(status)) {
+    actions.push({ next: 'refund_pending', icon: 'bi-arrow-counterclockwise', label: 'ตั้งสถานะ "รอคืนเงิน"', divider: true });
+  }
+  if (status === 'refund_pending') {
+    actions.push({ next: 'refunded', icon: 'bi-cash-coin', label: 'คืนเงินแล้ว' });
+  }
+  // Hard cancel — available everywhere non-terminal except review (the
+  // "ปฏิเสธสลิป" secondary button covers that).
+  if (status !== 'review' && status !== 'refund_pending') {
+    actions.push({
+      next: 'cancel',
+      cancelReason: 'admin cancelled',
+      icon: 'bi-x-circle',
+      label: 'ยกเลิกคำสั่งซื้อ',
+      divider: true,
+    });
+  }
+  return actions;
 }
 
 function footerPrimaryFor(status) {
@@ -356,7 +421,7 @@ function orderModalBodyHtml(o) {
         ${o.slip_uploaded_at ? `<div class="small text-muted mb-3">อัปโหลด ${fmtDateTime(o.slip_uploaded_at)}</div>` : ''}
 
         <h5>สถานะปัจจุบัน</h5>
-        <div class="mb-3">${statusPillSmall(o.status)}</div>
+        <div class="mb-3">${statusPillSmall(o)}</div>
 
         <h5>เปลี่ยนสถานะ</h5>
         <div class="d-flex flex-wrap gap-2">

@@ -7,7 +7,7 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, batchDateEntries } from './data.js';
+import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 
@@ -143,10 +143,10 @@ function orderCardHtml(o) {
           <span class="order-id">#${escHtml(o.id)}</span>
           <span class="order-date">สั่งเมื่อ ${fmtDateTime(o.placed_at)}</span>
         </div>
-        ${statusPillHtml(o.status)}
+        ${statusPillHtml(o)}
       </div>
 
-      ${progressTrackHtml(o.status)}
+      ${progressTrackHtml(o)}
 
       <div class="order-items-row">
         ${items.map((it) => {
@@ -205,8 +205,9 @@ function orderCardHtml(o) {
     </div>`;
 }
 
-function statusPillHtml(status) {
-  const meta = STAGES_META[status] || STAGES_META.pending;
+function statusPillHtml(order) {
+  const meta = statusMetaFor(order);
+  const status = order?.status || 'pending';
   return `
     <span class="status-pill" data-status="${escHtml(status)}">
       <span class="pulse"></span>
@@ -215,11 +216,22 @@ function statusPillHtml(status) {
     </span>`;
 }
 
-function progressTrackHtml(status) {
-  if (status === 'cancel') {
+// Off-path single-line track (cancel / refund / mismatch / no-show).
+const OFF_PATH_TRACKS = {
+  cancel:         { cls: 'is-cancel',  text: 'คำสั่งซื้อถูกยกเลิก' },
+  slip_mismatch:  { cls: 'is-cancel',  text: 'สลิปไม่ตรงกับยอด — รอการแก้ไข' },
+  refund_pending: { cls: 'is-cancel',  text: 'อยู่ระหว่างดำเนินการคืนเงิน' },
+  refunded:       { cls: 'is-cancel',  text: 'คืนเงินแล้ว' },
+  no_show:        { cls: 'is-cancel',  text: 'ไม่ได้มารับสินค้าตามรอบ' },
+};
+
+function progressTrackHtml(order) {
+  const status = order?.status || 'pending';
+  const off = OFF_PATH_TRACKS[status];
+  if (off) {
     return `
       <div class="progress-track" style="grid-template-columns: 1fr;">
-        <div class="progress-step is-cancel"><span class="pdot"></span>คำสั่งซื้อถูกยกเลิก</div>
+        <div class="progress-step ${off.cls}"><span class="pdot"></span>${escHtml(off.text)}</div>
       </div>`;
   }
   const currentIdx = STAGES_ORDER.indexOf(status);
@@ -227,7 +239,13 @@ function progressTrackHtml(status) {
     <div class="progress-track">
       ${STAGES_ORDER.map((stage, i) => {
         const cls = i < currentIdx ? 'is-done' : i === currentIdx ? 'is-current' : '';
-        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(STAGES_META[stage].label)}</div>`;
+        // For the ready stage, swap in the "announced" label when the
+        // current order has a pickup batch — keeps the track consistent
+        // with the pill above it.
+        const label = (stage === 'ready' && order?.pickup_batch_id && status === 'ready')
+          ? STAGES_META.ready_announced.label
+          : STAGES_META[stage].label;
+        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(label)}</div>`;
       }).join('')}
     </div>`;
 }
