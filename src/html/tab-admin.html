@@ -142,6 +142,9 @@
                 <select id="shopAdminOrdersStatus" class="form-select form-select-sm" style="max-width:200px;">
                   <option value="all">สถานะทั้งหมด</option>
                 </select>
+                <select id="shopAdminOrdersProduct" class="form-select form-select-sm" style="max-width:240px;">
+                  <option value="all">สินค้าทั้งหมด</option>
+                </select>
                 <div class="input-group input-group-sm" style="max-width:260px;">
                   <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                   <input id="shopAdminOrdersSearch" class="form-control" placeholder="ค้นหารหัสคำสั่งซื้อ / ชื่อ" />
@@ -152,6 +155,10 @@
                   </button>
                 </div>
               </div>
+              <!-- Bulk-advance bar — shows above the table when the
+                   current filter selects 1+ orders all eligible for
+                   the same next-step (paid → produce, produce → ready). -->
+              <div id="shopAdminOrdersBulkBar"></div>
               <div class="admin-table">
                 <table class="table align-middle">
                   <thead>

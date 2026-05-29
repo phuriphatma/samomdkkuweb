@@ -80,6 +80,13 @@ function ensureMounted() {
   if (search) {
     search.addEventListener('input', () => { state.ordersSearch = search.value.toLowerCase(); renderOrdersTable(); });
   }
+  // Product filter — populated dynamically when products load (see
+  // populateOrdersProductSelect). Default 'all'.
+  state.ordersProduct = state.ordersProduct || 'all';
+  const prodSel = document.getElementById('shopAdminOrdersProduct');
+  if (prodSel) {
+    prodSel.addEventListener('change', () => { state.ordersProduct = prodSel.value; renderOrdersTable(); });
+  }
   document.getElementById('shopAdminOrdersRefresh')?.addEventListener('click', refreshOrders);
 
   // Orders click → modal
@@ -163,12 +170,105 @@ export async function openShopAdmin() {
 // ---------------------------------------------------------------------
 async function refreshOrders() {
   try {
-    state.orders = await listAllOrders();
+    // Pull products in parallel — the product filter dropdown needs the
+    // current list, and the bulk-advance bar resolves labels from it.
+    const [orders, products] = await Promise.all([
+      listAllOrders(),
+      (!state.products || state.products.length === 0)
+        ? listProducts({ activeOnly: false }).catch(() => [])
+        : Promise.resolve(state.products),
+    ]);
+    state.orders = orders;
+    if (products && products.length) state.products = products;
+    populateOrdersProductSelect();
     renderStats();
     renderOrdersTable();
   } catch (e) {
     showShopToast(`โหลดคำสั่งซื้อล้มเหลว: ${e.message || e}`, 'error');
   }
+}
+
+function populateOrdersProductSelect() {
+  const sel = document.getElementById('shopAdminOrdersProduct');
+  if (!sel) return;
+  const current = sel.value || 'all';
+  const products = state.products || [];
+  sel.innerHTML = '<option value="all">สินค้าทั้งหมด</option>' + products.map((p) =>
+    `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`
+  ).join('');
+  if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+}
+
+// Bulk-advance bar: when the filter narrows to ≥1 order(s) all sharing
+// a single happy-path status (paid or produce), surface a single button
+// that moves all filtered orders to the next step. Designed for the
+// "this product just finished production" / "this product's pickup
+// round has been announced" workflow.
+const BULK_NEXT = {
+  paid:    { next: 'produce', icon: 'bi-box-seam',       label: 'สินค้าผลิตเสร็จแล้ว' },
+  produce: { next: 'ready',   icon: 'bi-megaphone-fill', label: 'ประกาศรอบรับสินค้า' },
+};
+
+function renderOrdersBulkBar(filtered) {
+  const bar = document.getElementById('shopAdminOrdersBulkBar');
+  if (!bar) return;
+  if (!filtered.length) { bar.innerHTML = ''; return; }
+  // Bulk action only applies when every filtered order is in the same
+  // bulk-eligible state. Otherwise the bar stays empty.
+  const firstStatus = filtered[0].status;
+  if (!BULK_NEXT[firstStatus]) { bar.innerHTML = ''; return; }
+  if (!filtered.every((o) => o.status === firstStatus)) { bar.innerHTML = ''; return; }
+  const action = BULK_NEXT[firstStatus];
+  const product = state.ordersProduct && state.ordersProduct !== 'all'
+    ? (state.products || []).find((p) => p.id === state.ordersProduct)
+    : null;
+  const scope = product ? `สินค้า "${escHtml(product.name || product.id)}"` : 'ทั้งหมดที่กรอง';
+  bar.innerHTML = `
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-3"
+      style="background:var(--shop-50, #f0f7f1); border:1px solid var(--shop-100, #d6e9da); border-radius:8px;">
+      <i class="bi ${escHtml(action.icon)} text-success fs-5"></i>
+      <div class="flex-grow-1">
+        <div style="font-weight:600;">
+          ${filtered.length} คำสั่งซื้อ · สถานะปัจจุบัน "${escHtml(STAGES_META[firstStatus]?.short || firstStatus)}"
+        </div>
+        <div class="small text-muted">
+          ${scope} → ทำเครื่องหมายเป็น "${escHtml(action.label)}" ทุกคำสั่งซื้อพร้อมกัน
+        </div>
+      </div>
+      <button class="btn btn-shop btn-sm" id="shopAdminOrdersBulkBtn">
+        <i class="bi ${escHtml(action.icon)} me-1"></i>
+        ทำเครื่องหมาย "${escHtml(action.label)}" (${filtered.length})
+      </button>
+    </div>`;
+  document.getElementById('shopAdminOrdersBulkBtn')?.addEventListener('click', () =>
+    bulkAdvanceOrders(filtered.map((o) => o.id), action.next, action.label));
+}
+
+async function bulkAdvanceOrders(orderIds, nextStatus, label) {
+  if (orderIds.length === 0) return;
+  if (!confirm(`ทำเครื่องหมาย ${orderIds.length} คำสั่งซื้อเป็น "${label}" ใช่หรือไม่?`)) return;
+  const btn = document.getElementById('shopAdminOrdersBulkBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปเดต…`;
+  }
+  let okCount = 0;
+  const errors = [];
+  for (const id of orderIds) {
+    try {
+      await updateOrderStatus(id, nextStatus, { label });
+      okCount += 1;
+    } catch (e) {
+      errors.push(`#${id}: ${e.message || e}`);
+    }
+  }
+  if (errors.length === 0) {
+    showShopToast(`อัปเดต ${okCount} คำสั่งซื้อแล้ว`, 'success');
+  } else {
+    showShopToast(`อัปเดต ${okCount} สำเร็จ · ${errors.length} ล้มเหลว — ดู console`, 'warn');
+    console.warn('[shop/admin] bulkAdvance errors:', errors);
+  }
+  await refreshOrders();
 }
 
 function renderStats() {
@@ -205,11 +305,16 @@ function renderOrdersTable() {
   if (!tbody) return;
   let list = state.orders.slice();
   if (state.ordersFilter !== 'all') list = list.filter((o) => o.status === state.ordersFilter);
+  if (state.ordersProduct && state.ordersProduct !== 'all') {
+    list = list.filter((o) =>
+      Array.isArray(o.items) && o.items.some((it) => it.product_id === state.ordersProduct));
+  }
   if (state.ordersSearch) {
     list = list.filter((o) =>
       (o.id || '').toLowerCase().includes(state.ordersSearch)
       || (o.buyer_label || '').toLowerCase().includes(state.ordersSearch));
   }
+  renderOrdersBulkBar(list);
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
     return;
