@@ -78,7 +78,7 @@ When working in `src/js/auth.js` or `src/js/db.js` — ALWAYS read
 
 Before sending the final response on any task that modified files:
 
-1. **Update `STATE.md`** — current branch, what just changed, anything pending.
+1. **Update `STATE.md`** — only if real state changed (branch HEAD, pending migrations, in-flight work, blocking issues). Do NOT append a session narrative — `git log` is the archive. Keep STATE.md under ~200 lines; if it bloats, prune past-session sections to `docs/state-archive/YYYY-MM-DD.md` and trust `git log --oneline` for the chronology.
 2. **If a new bug class was discovered**: append to `.claude/rules/mistakes.md`.
 3. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
 4. **Documentation (conditional — only if any of these are true):**
