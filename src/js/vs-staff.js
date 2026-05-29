@@ -223,8 +223,11 @@ function renderKanban() {
   const cb = document.getElementById('vsKanbanHideEmpty');
   if (cb) cb.checked = getHideEmpty();
 
-  // Columns by status. Open (non-done) statuses sort oldest-first so
-  // stale tickets bubble to the top. Done column stays newest-first.
+  // Columns by status. Newest-first across every column — same as the
+  // PR kanban. (Was oldest-first for open columns; the "stale at the
+  // top" pattern made sense for a triage queue but felt wrong vs PR
+  // which staff move between constantly. Age-bucket colour on the
+  // card still flags overdue tickets for triage.)
   const base = filteredTickets();
   const hideEmpty = getHideEmpty();
 
@@ -256,11 +259,8 @@ function renderKanban() {
       ? base.filter((t) => !knownStatuses.has(t.status))
       : base.filter((t) => col.statuses.includes(t.status));
     if (hideEmpty && items.length === 0) return '';
-    if (col.key !== 'done') {
-      items.sort((a, b) => ageMs(b) - ageMs(a));   // oldest first
-    } else {
-      items.sort((a, b) => ageMs(a) - ageMs(b));   // newest first
-    }
+    items.sort((a, b) => ageMs(a) - ageMs(b));   // newest first, every column
+
     const overdueCount = items.filter(isOverdue).length;
     const headerBadge = overdueCount > 0
       ? `<span class="vs-kanban-overdue" title="ค้างเกิน 3 วัน">${overdueCount}</span>`
