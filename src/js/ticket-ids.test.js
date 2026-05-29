@@ -5,7 +5,7 @@
 // ever changes the generator format without updating the regex (or
 // vice versa), CI fails before the change ships.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   generatePRTicketId,
   generateVSTicketId,
@@ -61,15 +61,25 @@ describe('generateVSTicketId', () => {
     expect(id.slice(expectedStem.length)).toMatch(/^[A-Z0-9]{3}$/);
   });
 
-  it('returns a different id even when called within the same minute', () => {
-    // Two submitters landing in the same minute generated the same id
-    // before the random suffix was added — that's the collision bug
-    // from mistakes.md that the suffix exists to prevent. This test
-    // pins that the suffix is actually being applied.
+  it('applies the random suffix when called within the same minute', () => {
+    // Two submitters landing in the same minute used to collide before
+    // the random suffix was added — the bug from mistakes.md. Proving
+    // "the suffix is wired" by mocking Math.random with a known
+    // sequence is deterministic; relying on real randomness over N=50
+    // with a 3-char×36-alphabet pool flakes at ~2.7% (birthday).
     const fixed = new Date('2026-03-09T14:07:23Z');
-    const seen = new Set();
-    for (let i = 0; i < 50; i++) seen.add(generateVSTicketId(fixed));
-    expect(seen.size).toBe(50);
+    let i = 0;
+    const seq = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5];
+    const spy = vi.spyOn(Math, 'random').mockImplementation(() => seq[i++ % seq.length]);
+    try {
+      const a = generateVSTicketId(fixed);
+      const b = generateVSTicketId(fixed);
+      expect(a).not.toBe(b);
+      // Stem (date+minute) is identical; only the trailing 3 chars differ.
+      expect(a.slice(0, -3)).toBe(b.slice(0, -3));
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('defaults to the current time when called with no argument', () => {

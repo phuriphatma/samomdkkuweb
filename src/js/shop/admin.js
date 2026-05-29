@@ -1605,10 +1605,9 @@ function refreshMatrixOnly() {
   if (!p) return;
   // pull live values, replace in-memory + re-render only the matrix area
   p.sizes  = (document.getElementById('shopProdSizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
-  try {
-    const parsed = JSON.parse(document.getElementById('shopProdColors')?.value || '[]');
-    if (Array.isArray(parsed)) p.colors = parsed;
-  } catch { /* ignore until save */ }
+  // Read colors from the row picker (replaces the old JSON textarea).
+  // readColorRows returns [] when the list isn't rendered yet — safe.
+  p.colors = readColorRows();
   const host = document.getElementById('shopProdStockMatrix');
   if (host) host.innerHTML = stockMatrixHtml(p);
 }
