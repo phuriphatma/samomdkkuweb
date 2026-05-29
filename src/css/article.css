@@ -179,12 +179,16 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--ink-100);
+  /* Fix the cover image to a 16:9 frame. Uploads of any source aspect
+     get center-cropped via object-fit: cover, so all article heroes
+     render at the same shape — editorial consistency. Authors are told
+     "1600 × 900" in the creator picker. */
+  aspect-ratio: 16 / 9;
 }
 
 .article-hero img {
   width: 100%;
-  height: auto;
-  max-height: 560px;
+  height: 100%;
   object-fit: cover;
   display: block;
 }

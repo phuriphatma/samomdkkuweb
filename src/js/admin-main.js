@@ -13,7 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
@@ -80,12 +80,56 @@ initAnnouncements(creatorQuill);
 // CREATOR HELPERS — needed by tab-creator.html onclick handlers
 // ==============================================
 
+// Inspect the picked file's pixel dimensions so we can warn (not block)
+// when it falls below the editorial minimum (1200 × 675) or strays far
+// from the recommended 16:9 aspect. Returns { width, height, ratio } or
+// null on read failure.
+function readImageDimensions(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
 window.onCreatorThumbPicked = async (event) => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
   const preview = document.getElementById('creatorThumbPreview');
   const clearBtn = document.getElementById('creatorThumbClearBtn');
   const urlInput = document.getElementById('creatorThumbUrl');
+  const hint = document.getElementById('creatorThumbHint');
+
+  if (hint) hint.innerHTML = '';
+
+  // Soft warning: image is below the editorial minimum or far from 16:9.
+  // We still upload — display side uses object-fit: cover so it always
+  // looks consistent — but the author sees the hint and can replace it.
+  const dims = await readImageDimensions(file);
+  if (hint && dims) {
+    const messages = [];
+    if (dims.width < 1200) {
+      messages.push(`รูปกว้างเพียง ${dims.width}px (แนะนำ ≥1200px) — อาจเบลอเมื่อแสดงเต็มหน้า`);
+    }
+    const ratio = dims.width / dims.height;
+    const idealRatio = 16 / 9;
+    const drift = Math.abs(ratio - idealRatio) / idealRatio;
+    if (drift > 0.15) {
+      messages.push(`สัดส่วน ${dims.width}×${dims.height} (แนะนำ 16:9 เช่น 1600×900) — ระบบจะตัดกรอบให้พอดี`);
+    }
+    if (messages.length) {
+      hint.innerHTML = `<i class="bi bi-info-circle me-1 text-warning"></i>${messages.join(' · ')}`;
+    } else {
+      hint.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>ขนาดดีแล้ว ${dims.width}×${dims.height}`;
+    }
+  }
+
   if (preview) preview.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-secondary"></div><div class="small text-muted mt-2">กำลังอัปโหลด…</div></div>';
   try {
     const url = await uploadImageToDrive(file);
@@ -165,10 +209,14 @@ window.viewAnnouncement = (id) => {
   if (id) location.href = '/#article/' + encodeURIComponent(id);
   else location.href = '/';
 };
-// editCurrentAnnouncement / deleteCurrentAnnouncement get called from
-// the public reader page (admin pre-loads announcements list in
-// the creator pane only when the user clicks "เขียนประกาศ").
-window.editCurrentAnnouncement = () => location.href = '/admin/#creator';
+// Edit from inside the admin creator: looks up the post by the viewer's
+// current id (set when the recent-articles picker selects one) and fills
+// the form. Public site's "edit" button on the article reader navigates
+// here as /admin/#creator/{id}; loadCreatorWithId() picks that up on entry.
+window.editCurrentAnnouncement = () => editAnnouncement();
+// Deleting from inside admin needs the article id wired in similarly.
+// Until that flow is built, the stub no-ops (visible "delete" UI is on
+// the public reader, which is staff-gated and does its own thing).
 window.deleteCurrentAnnouncement = () => {};
 
 // PR Staff
@@ -251,6 +299,26 @@ function showAdminSide(which) {
   // Mirror in the URL hash so admin sub-pages are bookmarkable.
   const want = which === 'landing' ? '' : '#' + which;
   if (location.hash !== want) history.replaceState(null, '', location.pathname + want);
+}
+
+/** Handle `#creator/{id}` deep-link: navigate to the creator pane and
+ *  pre-populate the form with that article. Returns true if it routed,
+ *  false to let the caller fall back to the section-only behavior. */
+async function tryCreatorDeepLink(hash) {
+  const m = /^creator\/([^/]+)$/.exec(hash);
+  if (!m) return false;
+  const id = decodeURIComponent(m[1]);
+  showAdminSide('creator');
+  try {
+    await loadAnnouncements();
+    const ok = editAnnouncement(id);
+    if (!ok) {
+      console.warn('[admin-main] /creator/' + id + ' — article not found in loaded list');
+    }
+  } catch (e) {
+    console.warn('[admin-main] creator deep-link load failed:', e?.message || e);
+  }
+  return true;
 }
 
 // Public function — sidebar buttons and legacy onclicks call these.
@@ -432,9 +500,14 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('d-none', !allowed.includes(role));
     });
 
-    // Initial section: read hash, else default landing
-    const hashSection = location.hash.replace(/^#/, '');
-    showAdminSide(SECTION_META[hashSection] ? hashSection : 'landing');
+    // Initial section: read hash, else default landing.
+    // `#creator/{id}` is a deep-link from the public reader's "edit"
+    // button — route to the creator pane and pre-populate the form.
+    const rawHash = location.hash.replace(/^#/, '');
+    tryCreatorDeepLink(rawHash).then((routed) => {
+      if (routed) return;
+      showAdminSide(SECTION_META[rawHash] ? rawHash : 'landing');
+    });
 
     // Auto-close the sign-in modal once a staff session lands
     const modalEl = document.getElementById('signinModal');

@@ -108,10 +108,28 @@ function readCreatorForm() {
 // Edit an Existing Announcement
 // --------------------------------------------------
 
-export function editCurrentAnnouncement() {
-  const post = globalAnnouncements.find((p) => p.id === viewingAnnouncementId);
-  if (!post) return;
+/** Returns the article id the reader is currently viewing, or null.
+ *  Used by main.js to pass the id over to /admin/#creator/{id}. */
+export function getViewingAnnouncementId() {
+  return viewingAnnouncementId;
+}
 
+/** Load a specific article into the creator form. If no id is given,
+ *  falls back to the one currently being viewed in the reader. */
+export function editAnnouncement(targetId) {
+  const wanted = targetId != null ? String(targetId) : viewingAnnouncementId;
+  if (!wanted) return false;
+  const post = globalAnnouncements.find((p) => String(p.id) === String(wanted));
+  if (!post) return false;
+  fillCreatorFormForEdit(post);
+  return true;
+}
+
+export function editCurrentAnnouncement() {
+  return editAnnouncement();
+}
+
+function fillCreatorFormForEdit(post) {
   editingAnnouncementId = post.id;
   document.getElementById('creatorTitle').value = post.title;
   document.getElementById('creatorDepartment').value = post.department;
@@ -140,7 +158,13 @@ export function editCurrentAnnouncement() {
     '<i class="bi bi-save-fill me-2"></i>บันทึกการแก้ไข';
   document.getElementById('cancelEditBtn').classList.remove('d-none');
   setCreatorMode('edit');
-  bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-creator-tab')).show();
+  // Activate the creator tab if it's a Bootstrap pill (public site uses
+  // pills routing). In admin the sidebar routes sections — caller is
+  // expected to have already opened the creator pane.
+  const creatorTabBtn = document.getElementById('pills-creator-tab');
+  if (creatorTabBtn && window.bootstrap) {
+    window.bootstrap.Tab.getOrCreateInstance(creatorTabBtn).show();
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

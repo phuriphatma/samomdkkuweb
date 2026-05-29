@@ -54,7 +54,14 @@
             </div>
 
             <div class="mb-3">
-              <label class="form-label fw-bold">ภาพปก (Cover Image) <span class="text-danger">*</span> <span class="text-muted small">— แสดงเป็นภาพหลักของบทความ ขนาดแนะนำ 1600 × 900</span></label>
+              <label class="form-label fw-bold">
+                ภาพปก (Cover Image) <span class="text-danger">*</span>
+              </label>
+              <div class="form-text mb-2">
+                <i class="bi bi-aspect-ratio me-1"></i>
+                แนะนำ <strong>1600 × 900</strong> (สัดส่วน 16:9 — มาตรฐานเว็บข่าวระดับสากล) — ขั้นต่ำ 1200 × 675.
+                ภาพสัดส่วนอื่นจะถูกตัดกรอบให้พอดีแบบกึ่งกลางอัตโนมัติ
+              </div>
               <div class="creator-thumb">
                 <div class="creator-thumb-preview" id="creatorThumbPreview">
                   <i class="bi bi-image fs-1"></i>
@@ -73,6 +80,7 @@
                   </button>
                 </div>
               </div>
+              <div class="form-text small mt-2" id="creatorThumbHint"></div>
               <input type="hidden" id="creatorThumbUrl" value="">
             </div>
 

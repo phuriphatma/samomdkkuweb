@@ -13,7 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
-import { loadAnnouncements, viewAnnouncement, closeArticleView } from './announcements.js';
+import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
@@ -93,8 +93,16 @@ window.loadAnnouncements = loadAnnouncements;
 window.viewAnnouncement = viewAnnouncement;
 window.closeArticleView = closeArticleView;
 // Staff who click "edit"/"delete" on a public article jump to /admin/.
-window.editCurrentAnnouncement = () => { location.href = '/admin/#creator'; };
-window.deleteCurrentAnnouncement = () => { location.href = '/admin/#creator'; };
+// Pass the current article id so admin can pre-populate the editor form
+// (admin-main.js parses the hash and calls editAnnouncement(id) on load).
+window.editCurrentAnnouncement = () => {
+  const id = getViewingAnnouncementId();
+  location.href = id ? `/admin/#creator/${encodeURIComponent(id)}` : '/admin/#creator';
+};
+window.deleteCurrentAnnouncement = () => {
+  const id = getViewingAnnouncementId();
+  location.href = id ? `/admin/#creator/${encodeURIComponent(id)}` : '/admin/#creator';
+};
 
 // Global Auth
 window.samoSignOut = samoSignOut;
