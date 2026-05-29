@@ -54,36 +54,33 @@ function notify() {
 async function buildCurrentUser(session) {
   if (!session?.user) return null;
   const authUser = session.user;
-  // IMPORTANT: this query is sometimes called from inside an
-  // onAuthStateChange callback (see runOutsideAuthCallback below). Even
-  // when it IS called from there, we use the wrapper so it doesn't
-  // deadlock the supabase-js session lock. See:
-  //   https://github.com/supabase/auth-js/issues/762
-  // Tries to fetch the post-0010 permissions column. If that 400s
-  // (column missing — migration not yet applied), retries without it.
-  // Same graceful-fallback pattern as announcements.loadAnnouncements.
-  const baseSelect = 'id, email, username, display_name, method, role, department';
+  // Called from inside an onAuthStateChange callback (deferred via the
+  // setTimeout(0) wrapper in initAuth). On some browsers — notably
+  // Android Chrome — the supabase-js .from(...).select(...) path here
+  // hangs even after the session lock is supposed to be released,
+  // leaving the sign-in modal open with no error: the spinner returns
+  // to "เข้าสู่ระบบ" because db.auth.signInWithPassword has resolved,
+  // but currentUser is never populated so the auth subscriber never
+  // closes the modal. See mistakes.md "supabase-js gets into a bad
+  // state — bypass with dbRest()". Use dbRest here so the auth wake-
+  // up never depends on supabase-js's PostgREST client state.
+  const baseSelect = 'id,email,username,display_name,method,role,department';
+  const idEsc = encodeURIComponent(authUser.id);
   let profile = null;
   {
-    const r1 = await db
-      .from('users')
-      .select(baseSelect + ', permissions')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    if (r1.error?.code === '42703' || r1.error?.message?.includes('permissions')) {
+    let { data, error } = await dbRest(
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions&limit=1`,
+    );
+    if (error && error.status === 400 && /permissions/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthPermissions) {
         window.__samoWarnedAuthPermissions = true;
         console.warn('[auth] permissions column missing — apply migration 0010_vp_accounts_permissions.sql to enable per-account feature gates.');
       }
-      const r2 = await db
-        .from('users')
-        .select(baseSelect)
-        .eq('id', authUser.id)
-        .maybeSingle();
-      profile = r2.data;
-    } else {
-      profile = r1.data;
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect}&limit=1`,
+      ));
     }
+    if (Array.isArray(data) && data.length > 0) profile = data[0];
   }
 
   // Profile may be null briefly right after signup if the create-on-trigger

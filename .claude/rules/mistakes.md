@@ -308,6 +308,31 @@ new full-height mobile overlay (offcanvas, modal-fullscreen on mobile).
 
 ---
 
+## Android Chrome surfaces the supabase-js "bad state" hang on the FIRST call
+
+**Symptom**: User on Android Chrome types username + password, taps
+"เข้าสู่ระบบ", spinner shows "กำลังตรวจสอบ", then quietly returns to
+the original button text with no error and no closed modal. iPad /
+desktop / iOS Safari all work fine with the same credentials.
+**Cause**: Android Chrome triggers the same supabase-js bad-state bug
+documented above, but earlier in the session than other browsers —
+specifically on the first `db.from('users').select(...).eq(...)`
+inside the `onAuthStateChange` callback. `db.auth.signInWithPassword`
+itself resolves cleanly (so `samoPasswordSignIn`'s `finally` runs and
+the button text resets), but the post-login profile fetch hangs and
+`currentUser` is never populated → the auth subscriber never closes
+the modal → user looks signed-out. Same pattern affects
+`trackWithTicketId` / `loginToViewHistory` on Android Chrome.
+**Fix**: Convert `buildCurrentUser()` in `auth.js` to use `dbRest()` for
+the `public.users` row fetch. Apply the same pattern to any read on
+the post-auth path.
+**Where**: `src/js/auth.js` `buildCurrentUser` and `src/js/vs-tracking.js`
+`trackWithTicketId` + `loginToViewHistory`. If a new auth-related
+fetch is added later, default it to dbRest — supabase-js's PostgREST
+client is the unreliable axis here.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

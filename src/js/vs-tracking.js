@@ -35,16 +35,16 @@ export async function trackWithTicketId() {
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังค้นหา...'; alertBox.classList.add('d-none');
   try {
-    const { data, error } = await db
-      .from('vs_tickets')
-      .select('*')
-      .eq('id', tId)
-      .maybeSingle();
-    if (error) throw error;
-    if (data) {
-      currentActiveTicketId = data.id;
+    // dbRest, not supabase-js .from(...): the latter has been hanging
+    // on Android Chrome (mistakes.md "supabase-js gets into a bad state").
+    const tIdEsc = encodeURIComponent(tId);
+    const { data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&limit=1`);
+    if (error) throw new Error(error.message || 'ค้นหาล้มเหลว');
+    const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (row) {
+      currentActiveTicketId = row.id;
       canUserReply = false;
-      renderUserDashboard(rowToTicket(data));
+      renderUserDashboard(rowToTicket(row));
       document.getElementById('vsLoginBox').classList.add('d-none');
       document.getElementById('vsDashboardBox').classList.remove('d-none');
       const btnBack = document.getElementById('btnBackToHistory');
@@ -82,12 +82,13 @@ export async function loginToViewHistory() {
     const submitterLabel = authUser.email || (authUser.username ? `@${authUser.username}` : '');
     // RLS lets you read your own tickets; the OR matches both linked-by-id
     // (new submissions) and label-matched (migrated legacy rows).
-    const { data, error } = await db
-      .from('vs_tickets')
-      .select('*')
-      .or(`submitter_id.eq.${authUser.id},submitter_label.eq.${submitterLabel}`)
-      .order('timestamp', { ascending: false });
-    if (error) throw error;
+    // dbRest instead of supabase-js .from — same bad-state guard as
+    // trackWithTicketId above. PostgREST `or=(...)` syntax in the URL.
+    const orClause = `or=(submitter_id.eq.${encodeURIComponent(authUser.id)},submitter_label.eq.${encodeURIComponent(submitterLabel)})`;
+    const { data, error } = await dbRest(
+      `/vs_tickets?select=*&${orClause}&order=timestamp.desc`,
+    );
+    if (error) throw new Error(error.message || 'โหลดประวัติล้มเหลว');
     loggedInUserTickets = (data || []).map(rowToTicket);
     renderUserHistoryList();
     document.getElementById('vsLoginBox').classList.add('d-none');
