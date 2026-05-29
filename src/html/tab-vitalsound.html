@@ -28,6 +28,30 @@
           <!-- SECTION 1: REPORT PROBLEM FORM -->
           <div id="vsReportSection">
             <div id="reportAlertBox" class="alert alert-danger d-none shadow-sm fw-bold"></div>
+
+            <!-- Success card — replaces the native alert() after a
+                 ticket is created. Persists until the user navigates
+                 away so they can copy the ID at their own pace. -->
+            <div id="vsSuccessCard" class="alert alert-success shadow-sm d-none">
+              <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-check-circle-fill fs-4 me-2"></i>
+                <strong>ส่งข้อมูลสำเร็จ!</strong>
+              </div>
+              <p class="small mb-2" id="vsSuccessHint">
+                โปรดบันทึก Ticket ID ไว้ติดตามสถานะ — หากลืมจะไม่สามารถกลับมาดูสถานะได้
+              </p>
+              <div class="input-group">
+                <input type="text" class="form-control font-monospace fw-bold"
+                  id="vsSuccessTicket" value="" readonly
+                  onclick="this.select()" />
+                <button class="btn btn-success" type="button" id="vsSuccessCopy">
+                  <i class="bi bi-clipboard me-1"></i><span id="vsSuccessCopyLabel">คัดลอก</span>
+                </button>
+              </div>
+              <div class="mt-2 text-end">
+                <button type="button" class="btn btn-link btn-sm text-success p-0" id="vsSuccessDismiss">ปิด</button>
+              </div>
+            </div>
             <form id="vitalSoundForm">
               <h4 class="section-title"><i class="bi bi-person-lines-fill me-2"></i>ข้อมูลผู้แจ้ง (ไม่บังคับ)</h4>
               <div class="row g-3 mb-4">

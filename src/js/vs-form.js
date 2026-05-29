@@ -91,6 +91,65 @@ export function setIsAccountVerified(value) {
 export function initVsForm(quillInstance) {
   vsQuill = quillInstance;
   document.getElementById('vitalSoundForm').addEventListener('submit', handleVsFormSubmit);
+  // Success-card copy + dismiss handlers (idempotent — initVsForm
+  // is called once on tab load).
+  document.getElementById('vsSuccessCopy')?.addEventListener('click', copyVsTicket);
+  document.getElementById('vsSuccessDismiss')?.addEventListener('click', () => {
+    document.getElementById('vsSuccessCard')?.classList.add('d-none');
+  });
+}
+
+// Persistent success card — replaces the previous native alert() so
+// users on every device (computer / iPad / mobile) can copy the
+// ticket id at their pace instead of memorizing it from a modal.
+function showVsSuccessCard(ticketId, isGuest) {
+  const card = document.getElementById('vsSuccessCard');
+  const input = document.getElementById('vsSuccessTicket');
+  const hint = document.getElementById('vsSuccessHint');
+  if (!card || !input) return;
+  input.value = ticketId;
+  if (hint) {
+    hint.textContent = isGuest
+      ? 'โปรดบันทึก Ticket ID ไว้ติดตามสถานะ — หากลืมจะไม่สามารถกลับมาดูสถานะได้'
+      : 'ระบบบันทึกปัญหาของคุณเรียบร้อยแล้ว — เก็บหมายเลขไว้สำหรับติดตามได้สะดวก';
+  }
+  card.classList.remove('d-none');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Reset the copy button label in case it's still showing "คัดลอกแล้ว"
+  // from a previous submission.
+  const lbl = document.getElementById('vsSuccessCopyLabel');
+  if (lbl) lbl.textContent = 'คัดลอก';
+}
+
+// Copy the ticket id to the clipboard. navigator.clipboard works on
+// modern Safari (iOS 13.4+) and Chrome under a user gesture. Falls
+// back to the legacy execCommand path when clipboard API is blocked
+// (e.g. older browsers, insecure contexts).
+async function copyVsTicket() {
+  const input = document.getElementById('vsSuccessTicket');
+  const lbl = document.getElementById('vsSuccessCopyLabel');
+  if (!input) return;
+  const value = input.value;
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      ok = true;
+    }
+  } catch { /* fall through */ }
+  if (!ok) {
+    try {
+      input.removeAttribute('readonly');
+      input.select();
+      ok = document.execCommand('copy');
+      input.setAttribute('readonly', '');
+      input.blur();
+    } catch { /* still ok = false */ }
+  }
+  if (lbl) {
+    lbl.textContent = ok ? 'คัดลอกแล้ว ✓' : 'คัดลอกไม่สำเร็จ';
+    setTimeout(() => { lbl.textContent = 'คัดลอก'; }, 2000);
+  }
 }
 
 // --------------------------------------------------
@@ -230,11 +289,7 @@ async function handleVsFormSubmit(e) {
       });
     }
 
-    if (!submitter) {
-      alert(`✅ ส่งข้อมูลสำเร็จ!\n\nโปรดบันทึกหมายเลขนี้ไว้ติดตามสถานะ:\n${ticketId}\n\n* หากลืมจะไม่สามารถกลับมาดูสถานะได้`);
-    } else {
-      alert(`✅ สำเร็จ! ระบบบันทึกปัญหาของคุณเรียบร้อยแล้ว\nTicket ID: ${ticketId}`);
-    }
+    showVsSuccessCard(ticketId, !submitter);
     e.target.reset(); vsQuill.setText('');
     document.getElementById('vsAccGuest').checked = true;
     toggleVsAccountFields(); toggleEmergency();
