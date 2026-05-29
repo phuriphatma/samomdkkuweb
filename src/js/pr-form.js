@@ -352,8 +352,61 @@ export function initPrForm() {
   // PR form submit
   document.getElementById('prForm').addEventListener('submit', handlePrFormSubmit);
 
+  // Success-card copy + dismiss (matches the VS form pattern).
+  document.getElementById('prSuccessCopy')?.addEventListener('click', copyPrTicket);
+  document.getElementById('prSuccessDismiss')?.addEventListener('click', () => {
+    document.getElementById('prSuccessCard')?.classList.add('d-none');
+  });
+
   // Initialize form state
   updateFormVisibility();
+}
+
+// Persistent success card — shown after a ticket is created. Replaces
+// the inline alert + native alert() that easily dismissed on mobile
+// before users could memorize the id.
+function showPrSuccessCard(ticketId, isGuest) {
+  const card = document.getElementById('prSuccessCard');
+  const input = document.getElementById('prSuccessTicket');
+  const hint = document.getElementById('prSuccessHint');
+  if (!card || !input) return;
+  input.value = ticketId;
+  if (hint) {
+    hint.textContent = isGuest
+      ? 'โปรดบันทึก Ticket ID ไว้ติดตามสถานะ — หากลืมจะไม่สามารถกลับมาดูสถานะได้'
+      : 'ระบบบันทึกงานของคุณเรียบร้อยแล้ว — เก็บหมายเลขไว้สำหรับติดตามได้สะดวก';
+  }
+  card.classList.remove('d-none');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const lbl = document.getElementById('prSuccessCopyLabel');
+  if (lbl) lbl.textContent = 'คัดลอก Ticket ID';
+}
+
+async function copyPrTicket() {
+  const input = document.getElementById('prSuccessTicket');
+  const lbl = document.getElementById('prSuccessCopyLabel');
+  if (!input) return;
+  const value = input.value;
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      ok = true;
+    }
+  } catch { /* fall through to execCommand */ }
+  if (!ok) {
+    try {
+      input.removeAttribute('readonly');
+      input.select();
+      ok = document.execCommand('copy');
+      input.setAttribute('readonly', '');
+      input.blur();
+    } catch { /* still false */ }
+  }
+  if (lbl) {
+    lbl.textContent = ok ? 'คัดลอกแล้ว ✓' : 'คัดลอกไม่สำเร็จ';
+    setTimeout(() => { lbl.textContent = 'คัดลอก Ticket ID'; }, 2000);
+  }
 }
 
 // --------------------------------------------------
@@ -544,10 +597,13 @@ async function handlePrFormSubmit(e) {
       });
     }
 
-    alertBox.classList.remove('d-none');
-    alertBox.classList.add('alert-success');
-    alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> ส่งงานสำเร็จ! <strong>Ticket ID: ${ticketId}</strong>`;
-    if (accMode === 'guest') alert(`โปรดบันทึกรหัสนี้ไว้ติดตามสถานะ:\n${ticketId}`);
+    // Hide the inline alert (used for in-progress / error states) and
+    // show the persistent success card so the user can copy the id on
+    // any device. Replaces the native alert() popup that was easy to
+    // dismiss before reading the id on phones.
+    alertBox.classList.add('d-none');
+    alertBox.classList.remove('alert-success');
+    showPrSuccessCard(ticketId, accMode === 'guest');
     document.getElementById('prForm').reset();
     // form.reset() doesn't always clear a file input's `.files` collection
     // in every browser — explicit `.value = ''` guarantees the next submit

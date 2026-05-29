@@ -27,6 +27,28 @@
 
           <div id="alertBox" class="alert d-none shadow-sm"></div>
 
+          <!-- Success card — replaces the inline alert + native popup
+               after a ticket is created. Persists until the user
+               dismisses so they can copy the ID at their pace. -->
+          <div id="prSuccessCard" class="alert alert-success shadow-sm d-none">
+            <div class="d-flex align-items-center mb-2">
+              <i class="bi bi-check-circle-fill fs-4 me-2"></i>
+              <strong>ส่งงานสำเร็จ!</strong>
+            </div>
+            <p class="small mb-2" id="prSuccessHint">
+              โปรดบันทึก Ticket ID ไว้ติดตามสถานะ — หากลืมจะไม่สามารถกลับมาดูสถานะได้
+            </p>
+            <input type="text" class="form-control font-monospace fw-bold mb-2"
+              id="prSuccessTicket" value="" readonly
+              onclick="this.select()" />
+            <button class="btn btn-success w-100" type="button" id="prSuccessCopy">
+              <i class="bi bi-clipboard me-1"></i><span id="prSuccessCopyLabel">คัดลอก Ticket ID</span>
+            </button>
+            <div class="mt-2 text-end">
+              <button type="button" class="btn btn-link btn-sm text-success p-0" id="prSuccessDismiss">ปิด</button>
+            </div>
+          </div>
+
           <!-- SECTION 1: SUBMIT PR FORM -->
           <div id="prSubmitSection">
             <form id="prForm">
