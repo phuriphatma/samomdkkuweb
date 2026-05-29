@@ -15,7 +15,7 @@ import {
   batchDateEntries,
 } from './data.js';
 import {
-  listAllOrders, updateOrderStatus,
+  listAllOrders, updateOrderStatus, deleteOrder,
   listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
   getSettings, saveSettings,
@@ -199,77 +199,10 @@ function populateOrdersProductSelect() {
   if ([...sel.options].some((o) => o.value === current)) sel.value = current;
 }
 
-// Bulk-advance bar: when the filter narrows to ≥1 order(s) all sharing
-// a single happy-path status (paid or produce), surface a single button
-// that moves all filtered orders to the next step. Designed for the
-// "this product just finished production" / "this product's pickup
-// round has been announced" workflow.
-const BULK_NEXT = {
-  paid:    { next: 'produce', icon: 'bi-box-seam',       label: 'สินค้าผลิตเสร็จแล้ว' },
-  produce: { next: 'ready',   icon: 'bi-megaphone-fill', label: 'ประกาศรอบรับสินค้า' },
-};
-
-function renderOrdersBulkBar(filtered) {
-  const bar = document.getElementById('shopAdminOrdersBulkBar');
-  if (!bar) return;
-  if (!filtered.length) { bar.innerHTML = ''; return; }
-  // Bulk action only applies when every filtered order is in the same
-  // bulk-eligible state. Otherwise the bar stays empty.
-  const firstStatus = filtered[0].status;
-  if (!BULK_NEXT[firstStatus]) { bar.innerHTML = ''; return; }
-  if (!filtered.every((o) => o.status === firstStatus)) { bar.innerHTML = ''; return; }
-  const action = BULK_NEXT[firstStatus];
-  const product = state.ordersProduct && state.ordersProduct !== 'all'
-    ? (state.products || []).find((p) => p.id === state.ordersProduct)
-    : null;
-  const scope = product ? `สินค้า "${escHtml(product.name || product.id)}"` : 'ทั้งหมดที่กรอง';
-  bar.innerHTML = `
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-3"
-      style="background:var(--shop-50, #f0f7f1); border:1px solid var(--shop-100, #d6e9da); border-radius:8px;">
-      <i class="bi ${escHtml(action.icon)} text-success fs-5"></i>
-      <div class="flex-grow-1">
-        <div style="font-weight:600;">
-          ${filtered.length} คำสั่งซื้อ · สถานะปัจจุบัน "${escHtml(STAGES_META[firstStatus]?.short || firstStatus)}"
-        </div>
-        <div class="small text-muted">
-          ${scope} → ทำเครื่องหมายเป็น "${escHtml(action.label)}" ทุกคำสั่งซื้อพร้อมกัน
-        </div>
-      </div>
-      <button class="btn btn-shop btn-sm" id="shopAdminOrdersBulkBtn">
-        <i class="bi ${escHtml(action.icon)} me-1"></i>
-        ทำเครื่องหมาย "${escHtml(action.label)}" (${filtered.length})
-      </button>
-    </div>`;
-  document.getElementById('shopAdminOrdersBulkBtn')?.addEventListener('click', () =>
-    bulkAdvanceOrders(filtered.map((o) => o.id), action.next, action.label));
-}
-
-async function bulkAdvanceOrders(orderIds, nextStatus, label) {
-  if (orderIds.length === 0) return;
-  if (!confirm(`ทำเครื่องหมาย ${orderIds.length} คำสั่งซื้อเป็น "${label}" ใช่หรือไม่?`)) return;
-  const btn = document.getElementById('shopAdminOrdersBulkBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปเดต…`;
-  }
-  let okCount = 0;
-  const errors = [];
-  for (const id of orderIds) {
-    try {
-      await updateOrderStatus(id, nextStatus, { label });
-      okCount += 1;
-    } catch (e) {
-      errors.push(`#${id}: ${e.message || e}`);
-    }
-  }
-  if (errors.length === 0) {
-    showShopToast(`อัปเดต ${okCount} คำสั่งซื้อแล้ว`, 'success');
-  } else {
-    showShopToast(`อัปเดต ${okCount} สำเร็จ · ${errors.length} ล้มเหลว — ดู console`, 'warn');
-    console.warn('[shop/admin] bulkAdvance errors:', errors);
-  }
-  await refreshOrders();
-}
+// (The old "bulk advance by product+status" bar was removed — its job
+// is now done automatically by the per-product production_status
+// trigger added in migration 0025. Admin changes the product status
+// once; orders cascade. No manual bulk button needed.)
 
 function renderStats() {
   const host = document.getElementById('shopAdminStats');
@@ -314,7 +247,6 @@ function renderOrdersTable() {
       (o.id || '').toLowerCase().includes(state.ordersSearch)
       || (o.buyer_label || '').toLowerCase().includes(state.ordersSearch));
   }
-  renderOrdersBulkBar(list);
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
     return;
@@ -370,24 +302,82 @@ function statusPillSmall(o) {
 }
 
 let modalOrder = null;
+let modalPendingStatus = null; // staged status change, applied on Save click
 function openOrderModal(orderId) {
   const o = state.orders.find((x) => x.id === orderId);
   if (!o) return;
   modalOrder = o;
+  modalPendingStatus = o.status; // start with current status
   const idEl = document.getElementById('shopAdminOrderModalId');
   const body = document.getElementById('shopAdminOrderModalBody');
   if (idEl) idEl.textContent = `#${o.id}`;
   if (body) body.innerHTML = orderModalBodyHtml(o);
 
-  // Click any chip in either "เปลี่ยนสถานะ" / "สถานะปัญหา" group →
-  // immediate update. The footer no longer carries primary/secondary
-  // action buttons — chips are the only interaction.
+  // Click a chip → stage the change. Only the Save button writes to the
+  // server — prevents accidental status changes on mis-tap.
   body.querySelectorAll('[data-set-status]').forEach((btn) => {
-    btn.addEventListener('click', () => modalAction(btn.dataset.setStatus));
+    btn.addEventListener('click', () => {
+      modalPendingStatus = btn.dataset.setStatus;
+      // Update is-active class across BOTH groups so only the picked
+      // chip is highlighted, then refresh the Save/Cancel button row.
+      body.querySelectorAll('[data-set-status]').forEach((b) => {
+        b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
+      });
+      refreshModalSaveBar();
+    });
   });
+
+  // Wire the footer Save / Cancel / Delete buttons.
+  document.getElementById('shopAdminOrderModalSave')?.addEventListener('click', () => {
+    if (modalPendingStatus && modalPendingStatus !== modalOrder.status) {
+      modalAction(modalPendingStatus);
+    }
+  });
+  document.getElementById('shopAdminOrderModalResetStatus')?.addEventListener('click', () => {
+    modalPendingStatus = modalOrder.status;
+    body.querySelectorAll('[data-set-status]').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
+    });
+    refreshModalSaveBar();
+  });
+  document.getElementById('shopAdminOrderModalDelete')?.addEventListener('click', deleteCurrentOrder);
+
+  refreshModalSaveBar();
 
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
+}
+
+function refreshModalSaveBar() {
+  const save = document.getElementById('shopAdminOrderModalSave');
+  const reset = document.getElementById('shopAdminOrderModalResetStatus');
+  if (!save) return;
+  const dirty = modalPendingStatus && modalOrder && modalPendingStatus !== modalOrder.status;
+  save.disabled = !dirty;
+  save.classList.toggle('btn-success', !!dirty);
+  save.classList.toggle('btn-outline-secondary', !dirty);
+  const label = dirty ? `<i class="bi bi-check2 me-1"></i> อัปเดตเป็น "${escHtml(STAGES_META[modalPendingStatus]?.short || modalPendingStatus)}"` : '<i class="bi bi-check2 me-1"></i> ไม่มีการเปลี่ยนแปลง';
+  save.innerHTML = label;
+  if (reset) reset.classList.toggle('d-none', !dirty);
+}
+
+async function deleteCurrentOrder() {
+  if (!modalOrder) return;
+  if (!confirm(`ลบคำสั่งซื้อ #${modalOrder.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
+  const btn = document.getElementById('shopAdminOrderModalDelete');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
+  try {
+    await deleteOrder(modalOrder.id);
+    showShopToast(`ลบคำสั่งซื้อ #${modalOrder.id} แล้ว`, 'success');
+    const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
+    inst?.hide();
+    modalOrder = null;
+    modalPendingStatus = null;
+    await refreshOrders();
+  } catch (e) {
+    showShopToast(`ลบล้มเหลว: ${e.message || e}`, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3 me-1"></i> ลบคำสั่งซื้อ'; }
+  }
 }
 
 function orderModalBodyHtml(o) {

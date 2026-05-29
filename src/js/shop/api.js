@@ -230,6 +230,21 @@ export async function updateOrderStatus(id, nextStatus, extra = {}) {
   return data[0];
 }
 
+/** Admin-only: hard-delete an order. RLS policy `shop_orders_delete_admin`
+ *  from 0003 gates this to shop admins. */
+export async function deleteOrder(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบคำสั่งซื้อไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไม่สำเร็จ — ไม่พบคำสั่งซื้อหรือคุณไม่มีสิทธิ์ลบ');
+  }
+  return true;
+}
+
 /** Buyer-facing: re-upload a slip on a pending/review order. */
 export async function setOrderSlip(id, slipUrl) {
   const idEsc = encodeURIComponent(id);
