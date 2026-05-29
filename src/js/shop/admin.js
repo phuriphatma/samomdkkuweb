@@ -1425,8 +1425,14 @@ function renderProductEditor() {
           <input id="shopProdPrice" type="number" min="0" class="form-control" value="${Number(p.price) || 0}" />
         </div>
         <div class="col-md-3">
-          <label class="small text-muted mb-1">Hue สี placeholder</label>
-          <input id="shopProdHue" type="number" min="0" max="360" class="form-control" value="${Number(p.hue) || 220}" />
+          <label class="small text-muted mb-1">โทนสีพื้นหลังเมื่อไม่มีรูป (0–360)</label>
+          <div class="input-group">
+            <span class="input-group-text shop-hue-swatch" id="shopProdHueSwatch"
+              style="background: hsl(${Number(p.hue) || 220} 30% 90%);"></span>
+            <input id="shopProdHue" type="number" min="0" max="360" class="form-control"
+              value="${Number(p.hue) || 220}" />
+          </div>
+          <div class="form-text">เลื่อนค่าเพื่อปรับพื้นหลังลายพราง (placeholder) ของสินค้านี้</div>
         </div>
         <div class="col-md-4">
           <label class="small text-muted mb-1">แหล่งที่มา</label>
@@ -1454,8 +1460,11 @@ function renderProductEditor() {
           <input id="shopProdSizes" class="form-control" value="${escHtml((p.sizes || []).join(','))}" />
         </div>
         <div class="col-md-6">
-          <label class="small text-muted mb-1">สี (JSON array — [{id,label,hex}, ...])</label>
-          <input id="shopProdColors" class="form-control font-mono" value='${escHtml(JSON.stringify(p.colors || []))}' />
+          <label class="small text-muted mb-1">สี (เพิ่มได้ตามต้องการ — ปล่อยว่างถ้าสินค้านี้ไม่มีตัวเลือกสี)</label>
+          <div id="shopProdColorsList" class="d-flex flex-column gap-2">${colorPickerRowsHtml(p.colors)}</div>
+          <button type="button" class="btn btn-ghost btn-sm mt-1" id="shopProdColorsAdd">
+            <i class="bi bi-plus-lg me-1"></i> เพิ่มสี
+          </button>
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1">รายละเอียด</label>
@@ -1511,10 +1520,37 @@ function renderProductEditor() {
     renderProductEditor();
   });
 
-  // Re-render the matrix when sizes/colors change (so admin can dial in stock
-  // immediately after editing variants).
+  // Re-render the matrix when sizes change so admin can dial in stock
+  // immediately after editing variants. Color rows handle their own
+  // refresh below via the colors-list delegated handler.
   document.getElementById('shopProdSizes')?.addEventListener('change', refreshMatrixOnly);
-  document.getElementById('shopProdColors')?.addEventListener('change', refreshMatrixOnly);
+
+  // Live hue swatch
+  const hueInput = document.getElementById('shopProdHue');
+  const hueSwatch = document.getElementById('shopProdHueSwatch');
+  hueInput?.addEventListener('input', () => {
+    const h = Math.max(0, Math.min(360, Number(hueInput.value) || 0));
+    if (hueSwatch) hueSwatch.style.background = `hsl(${h} 30% 90%)`;
+  });
+
+  // Colors: add row, remove row, label/hex changes → refresh matrix.
+  document.getElementById('shopProdColorsAdd')?.addEventListener('click', () => {
+    const list = document.getElementById('shopProdColorsList');
+    if (!list) return;
+    const idx = list.children.length;
+    list.insertAdjacentHTML('beforeend', colorPickerRowHtml({ id: '', label: '', hex: '#cccccc' }, idx));
+    refreshMatrixOnly();
+  });
+  const colorsList = document.getElementById('shopProdColorsList');
+  if (colorsList) {
+    colorsList.addEventListener('click', (ev) => {
+      const removeBtn = ev.target.closest('[data-color-remove]');
+      if (!removeBtn) return;
+      removeBtn.closest('.shop-color-row')?.remove();
+      refreshMatrixOnly();
+    });
+    colorsList.addEventListener('input', refreshMatrixOnly);
+  }
 
   document.getElementById('shopProdCancel')?.addEventListener('click', () => { state.productEditor = null; renderProductEditor(); });
   document.getElementById('shopProdSave')?.addEventListener('click', saveProductForm);
@@ -1588,11 +1624,10 @@ async function saveProductForm() {
   const name = document.getElementById('shopProdName')?.value.trim() || '';
   if (!name) { showShopToast('กรุณากรอกชื่อสินค้า', 'warn'); return; }
 
-  let colors;
-  try {
-    colors = JSON.parse(document.getElementById('shopProdColors')?.value || '[]');
-    if (!Array.isArray(colors)) throw new Error();
-  } catch { showShopToast('รูปแบบสี (JSON) ไม่ถูกต้อง', 'warn'); return; }
+  // Read color rows out of the picker UI. Each row contributes
+  // { id, label, hex } — id falls back to a slug of the label so admin
+  // doesn't have to think about it.
+  const colors = readColorRows();
 
   const payload = {
     id: e.id || `p-${slugify(name)}-${Math.floor(Math.random() * 999)}`,
@@ -2093,4 +2128,58 @@ async function onBannerLinkChange(id, link) {
     await updateShopBanner(id, { link_url: link || null });
     b.link_url = link;
   } catch (e) { showShopToast(`บันทึกลิงก์ล้มเหลว: ${e.message || e}`, 'error'); }
+}
+
+// =====================================================================
+// PRODUCT EDITOR — color picker helpers
+// =====================================================================
+
+function colorPickerRowsHtml(colors) {
+  const list = Array.isArray(colors) ? colors : [];
+  if (list.length === 0) {
+    return ''; // empty — admin adds rows via the "เพิ่มสี" button
+  }
+  return list.map((c, i) => colorPickerRowHtml(c, i)).join('');
+}
+
+function colorPickerRowHtml(c, i) {
+  const id = String(c?.id || '');
+  const label = String(c?.label || '');
+  const hex = sanitizeHex(c?.hex) || '#cccccc';
+  return `
+    <div class="shop-color-row d-flex align-items-center gap-2" data-color-row="${i}">
+      <input type="color" class="form-control form-control-color shop-color-row-hex"
+        value="${escHtml(hex)}" data-color-hex title="เลือกสี" />
+      <input type="text" class="form-control shop-color-row-label"
+        value="${escHtml(label)}" placeholder="ชื่อสี (เช่น แดง, ขาว)" data-color-label />
+      <input type="text" class="form-control font-mono shop-color-row-id"
+        value="${escHtml(id)}" placeholder="id (ไม่บังคับ)" data-color-id
+        style="max-width:110px;" />
+      <button type="button" class="btn btn-ghost btn-sm" data-color-remove title="ลบสีนี้">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>`;
+}
+
+function readColorRows() {
+  const list = document.getElementById('shopProdColorsList');
+  if (!list) return [];
+  const rows = list.querySelectorAll('.shop-color-row');
+  const out = [];
+  rows.forEach((row) => {
+    const hex = sanitizeHex(row.querySelector('[data-color-hex]')?.value) || '#cccccc';
+    const label = (row.querySelector('[data-color-label]')?.value || '').trim();
+    const rawId = (row.querySelector('[data-color-id]')?.value || '').trim();
+    // Skip totally empty rows so accidental "add" doesn't leak.
+    if (!label && !rawId) return;
+    const id = rawId || slugify(label);
+    out.push({ id, label: label || id, hex });
+  });
+  return out;
+}
+
+function sanitizeHex(s) {
+  if (!s) return '';
+  const v = String(s).trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(v) ? v : '';
 }

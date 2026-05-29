@@ -1459,6 +1459,16 @@
   color: var(--shop-ink-700);
   text-transform: none; letter-spacing: 0;
 }
+/* Product-editor swatch next to the Hue input — gives admin a live
+   preview of the placeholder background they're picking. */
+.shop-tab .shop-hue-swatch { min-width: 2.4rem; }
+
+/* Product-editor color picker row */
+.shop-tab .shop-color-row { width: 100%; }
+.shop-tab .shop-color-row input[type="color"].form-control-color {
+  width: 2.4rem; min-height: 2.4rem; padding: .15rem;
+}
+
 /* td stays a real table-cell so column widths track the size headers.
    The interactive cluster lives in .stock-cell-wrap inside. */
 .shop-tab .stock-grid-table .stock-cell-td {
