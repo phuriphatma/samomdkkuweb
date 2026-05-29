@@ -130,6 +130,7 @@
               <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
               <button data-shop-admin-tab="delivery"><i class="bi bi-clipboard-check me-1"></i> การส่งมอบ</button>
               <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
+              <button data-shop-admin-tab="banners"><i class="bi bi-image me-1"></i> แบนเนอร์</button>
               <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
               <button data-shop-admin-tab="stock"><i class="bi bi-box-seam-fill me-1"></i> สต็อก</button>
               <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
@@ -203,6 +204,27 @@
               </div>
               <div id="shopAdminBatchesCreator"></div>
               <div id="shopAdminBatchesList"></div>
+            </div>
+
+            <div data-shop-admin-pane="banners" class="d-none">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">แบนเนอร์หน้าร้าน</h5>
+                  <p class="text-muted mb-0 small">
+                    อัปโหลดภาพแบนเนอร์โปรโมชัน (16:9 / 21:9). ลากเพื่อจัดเรียง · กดเพื่อเปิด/ปิดการแสดง.
+                    ถ้าไม่มีแบนเนอร์ที่เปิดอยู่ ระบบจะใช้สินค้าใหม่ล่าสุดแทน.
+                  </p>
+                </div>
+                <div class="d-flex gap-2">
+                  <input type="file" id="shopAdminBannerFile" accept="image/*" class="d-none" />
+                  <button class="btn btn-shop btn-sm" id="shopAdminBannerAdd">
+                    <i class="bi bi-plus-lg me-1"></i> เพิ่มแบนเนอร์
+                  </button>
+                </div>
+              </div>
+              <ul class="list-group" id="shopAdminBannersList">
+                <li class="list-group-item text-muted small">กำลังโหลด…</li>
+              </ul>
             </div>
 
             <div data-shop-admin-pane="products" class="d-none">

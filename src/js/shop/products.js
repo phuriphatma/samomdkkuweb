@@ -12,7 +12,7 @@ import {
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey,
 } from './data.js';
-import { listProducts, listActiveBatches } from './api.js';
+import { listProducts, listActiveBatches, listShopBanners } from './api.js';
 import { addItem } from './state.js';
 
 let cache = { products: [], batches: [], loaded: false };
@@ -89,6 +89,18 @@ export function mountShopBrowse() {
   const carousel = document.getElementById('shopLaunchCarousel');
   if (carousel) {
     carousel.addEventListener('click', (e) => {
+      // Banner slide with link_url → open it (new tab if external).
+      const banner = e.target.closest('[data-banner-link]');
+      if (banner) {
+        const href = banner.dataset.bannerLink;
+        if (/^https?:\/\//i.test(href)) {
+          window.open(href, '_blank', 'noopener');
+        } else {
+          location.href = href;
+        }
+        return;
+      }
+      // Product card → open detail modal.
       const card = e.target.closest('[data-product-id]');
       if (!card) return;
       const product = cache.products.find((p) => p.id === card.dataset.productId);
@@ -103,12 +115,14 @@ export function mountShopBrowse() {
 // ---------------------------------------------------------------------
 export async function reloadShop() {
   try {
-    const [products, batches] = await Promise.all([
+    const [products, batches, banners] = await Promise.all([
       listProducts({ activeOnly: true }),
       listActiveBatches().catch(() => []),
+      listShopBanners().catch(() => []),
     ]);
     cache.products = products;
     cache.batches = batches || [];
+    cache.banners = banners || [];
     cache.loaded = true;
     renderBanner();
     renderLaunches();
@@ -172,23 +186,54 @@ function renderLaunches() {
   const host = document.getElementById('shopLaunchCarousel');
   const dots = document.getElementById('shopLaunchDots');
   if (!host) return;
-  const list = cache.products.filter((p) => p.is_new).slice(0, 10);
-  if (list.length === 0) {
+
+  // Priority 1: admin-curated banners. Priority 2 (fallback): the
+  // newest `is_new` products. If we have no banners AND no flagged
+  // products, fall back to the most-recently-added products so the
+  // hero is never empty when there's stock to show.
+  const banners = (cache.banners || []).slice(0, 10);
+  let slides;
+  if (banners.length > 0) {
+    slides = banners.map(bannerSlideHtml);
+  } else {
+    const flagged = cache.products.filter((p) => p.is_new).slice(0, 10);
+    const fallback = flagged.length > 0
+      ? flagged
+      : cache.products.slice().sort((a, b) => new Date(b.added_at || 0) - new Date(a.added_at || 0)).slice(0, 5);
+    slides = fallback.map(launchCardHtml);
+  }
+
+  if (slides.length === 0) {
     host.innerHTML = '';
     if (dots) dots.innerHTML = '';
     setCarouselArrowsVisible(false);
     return;
   }
-  host.innerHTML = list.map(launchCardHtml).join('');
+  host.innerHTML = slides.join('');
   if (dots) {
-    dots.innerHTML = list.map((_, i) =>
+    dots.innerHTML = slides.map((_, i) =>
       `<button type="button" class="launch-dot ${i === 0 ? 'is-active' : ''}" data-dot-i="${i}" aria-label="สไลด์ที่ ${i + 1}"></button>`
     ).join('');
   }
-  // Arrows only useful when 2+ slides; dots cover single-slide case.
-  setCarouselArrowsVisible(list.length > 1);
+  setCarouselArrowsVisible(slides.length > 1);
   updateCarouselArrowsState();
   updateActiveDot();
+}
+
+function bannerSlideHtml(b) {
+  const link = b.link_url ? `data-banner-link="${escHtml(b.link_url)}"` : '';
+  return `
+    <div class="launch-big" ${link}>
+      <div class="launch-big-thumb">
+        ${b.image_url
+          ? `<img src="${safeUrl(b.image_url)}" alt="${escHtml(b.caption || '')}" loading="lazy" />`
+          : '<div class="stripe-placeholder"></div>'}
+      </div>
+      ${b.caption ? `
+        <div class="launch-big-body">
+          <div class="lb-name">${escHtml(b.caption)}</div>
+        </div>` : ''}
+    </div>`;
 }
 
 function launchCardHtml(p) {

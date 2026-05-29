@@ -267,6 +267,72 @@ export async function closeBatch(id) {
   return upsertBatch({ id, is_active: false });
 }
 
+// ---- Shop banners (admin-curated landing carousel) ---------------------
+
+/** Public-readable list of banners. activeOnly defaults to true — the
+ *  customer-facing carousel hides retired banners; the admin tab passes
+ *  false to manage everything. */
+export async function listShopBanners({ activeOnly = true } = {}) {
+  const params = ['select=*', 'order=display_order.asc,created_at.desc'];
+  if (activeOnly) params.push('is_active=eq.true');
+  const { data, error } = await dbRest(`/shop_banners?${params.join('&')}`);
+  if (error) {
+    // Pre-0019: table doesn't exist. Treat as "no banners" so the
+    // carousel just falls back to its product fallback.
+    if (error.status === 404 || /shop_banners/i.test(error.message || '')) {
+      if (!window.__samoWarnedBanners) {
+        window.__samoWarnedBanners = true;
+        console.warn('[shop] shop_banners missing — apply migration 0019_shop_banners.sql.');
+      }
+      return [];
+    }
+    throw new Error(error.message || 'โหลดแบนเนอร์ไม่สำเร็จ');
+  }
+  return data || [];
+}
+
+export async function createShopBanner(row) {
+  const { data, error } = await dbRest('/shop_banners', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มแบนเนอร์ไม่สำเร็จ');
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function updateShopBanner(id, patch) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_banners?id=eq.${idEsc}`,
+    { method: 'PATCH', body: patch, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'อัปเดตแบนเนอร์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ไม่พบแบนเนอร์หรือคุณไม่มีสิทธิ์แก้ไข');
+  }
+  return data[0];
+}
+
+export async function deleteShopBanner(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_banners?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบแบนเนอร์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ไม่พบแบนเนอร์หรือคุณไม่มีสิทธิ์ลบ');
+  }
+  return true;
+}
+
+/** Persist a new ordering. orderedIds[0] is the topmost (display_order=0).
+ *  PATCH-per-row; for ~10 banners this is fast enough. */
+export async function reorderShopBanners(orderedIds) {
+  for (let i = 0; i < orderedIds.length; i += 1) {
+    await updateShopBanner(orderedIds[i], { display_order: i });
+  }
+}
+
 // ---- Pickup records (delivery checklist) -------------------------------
 
 export async function listPickupRecordsForOrder(orderId) {
