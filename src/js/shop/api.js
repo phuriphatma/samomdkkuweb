@@ -41,6 +41,31 @@ export async function upsertProduct(row) {
   return data[0];
 }
 
+/** Set a product's production status (pending / produced / announced)
+ *  and cascade to every eligible happy-path order. Returns the RPC's
+ *  summary row { updated_product, moved_to_produce, moved_to_ready }. */
+export async function applyProductProductionStatus(productId, status) {
+  const { data, error } = await dbRest('/rpc/apply_product_production_status', {
+    method: 'POST',
+    body: { p_product_id: productId, p_status: status },
+  });
+  if (error) {
+    // Pre-0024 fallback: column / RPC missing → flip the field only,
+    // skip the cascade (so admin can at least record intent until they
+    // apply the migration).
+    if (error.status === 404 || /apply_product_production_status/i.test(error.message || '')) {
+      if (!window.__samoWarnedProdStatusRpc) {
+        window.__samoWarnedProdStatusRpc = true;
+        console.warn('[shop] apply_product_production_status RPC missing — apply migration 0024.');
+      }
+      throw new Error('ยังไม่ได้ติดตั้ง migration 0024 — กรุณาเรียก admin');
+    }
+    throw new Error(error.message || 'อัปเดตสถานะผลิตไม่สำเร็จ');
+  }
+  const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  return row || { updated_product: true, moved_to_produce: 0, moved_to_ready: 0 };
+}
+
 export async function deleteProduct(id) {
   const idEsc = encodeURIComponent(id);
   const { data, error } = await dbRest(

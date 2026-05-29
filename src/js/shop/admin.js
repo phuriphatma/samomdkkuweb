@@ -16,7 +16,7 @@ import {
 } from './data.js';
 import {
   listAllOrders, updateOrderStatus,
-  listProducts, upsertProduct, deleteProduct,
+  listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
   getSettings, saveSettings,
   listPickupRecords, upsertPickupRecord, resolvePickupIssue, deletePickupRecord,
@@ -1455,6 +1455,20 @@ function renderProductEditor() {
               `<option value="${s}" ${p.stock_status === s ? 'selected' : ''}>${escHtml(STOCK_STATUS_META[s]?.label || s)}</option>`).join('')}
           </select>
         </div>
+        <div class="col-12">
+          <div class="p-3 rounded" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
+            <label class="small fw-bold mb-1">สถานะผลิตสินค้านี้ (กระทบกับคำสั่งซื้อ)</label>
+            <select id="shopProdProductionStatus" class="form-select mb-2" style="max-width:280px;">
+              <option value="pending"   ${p.production_status === 'pending'   || !p.production_status ? 'selected' : ''}>ยังไม่ผลิต — ไม่ขยับคำสั่งซื้อ</option>
+              <option value="produced"  ${p.production_status === 'produced'  ? 'selected' : ''}>สินค้าผลิตเสร็จแล้ว — ย้าย "ยืนยันการชำระเงิน" → "ผลิตเสร็จ"</option>
+              <option value="announced" ${p.production_status === 'announced' ? 'selected' : ''}>ประกาศรอบรับสินค้า — ย้ายต่อไป "ประกาศแล้ว"</option>
+            </select>
+            <div class="form-text mb-0">
+              เลือก "สินค้าผลิตเสร็จแล้ว" จะย้ายเฉพาะคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน". เลือก "ประกาศรอบรับสินค้า" จะย้ายทั้ง "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว".
+              คำสั่งซื้อที่อยู่ในสถานะปัญหา (สลิปไม่ถูกต้อง · รอคืนเงิน · ยกเลิก · เปลี่ยนสินค้า · ฯลฯ) จะไม่ถูกแตะ.
+            </div>
+          </div>
+        </div>
         <div class="col-md-6">
           <label class="small text-muted mb-1">ไซส์ (คั่นด้วยจุลภาค — เช่น S,M,L,XL หรือ F สำหรับ free-size)</label>
           <input id="shopProdSizes" class="form-control" value="${escHtml((p.sizes || []).join(','))}" />
@@ -1662,6 +1676,27 @@ async function saveProductForm() {
       payload.image_url = await uploadShopFile(e._imageFile, `SAMO_Shop/Products/${payload.id}`, { fileName });
     }
     await upsertProduct(payload);
+
+    // Production status cascade — only when the dropdown changed from
+    // the original. The RPC owns the field + the order cascade so this
+    // path doesn't have to coordinate two writes.
+    const newProdStatus = document.getElementById('shopProdProductionStatus')?.value || 'pending';
+    const oldProdStatus = e.production_status || 'pending';
+    if (newProdStatus !== oldProdStatus) {
+      const ok = await maybeConfirmCascade(newProdStatus);
+      if (ok) {
+        try {
+          const r = await applyProductProductionStatus(payload.id, newProdStatus);
+          const moved = (r.moved_to_produce || 0) + (r.moved_to_ready || 0);
+          if (moved > 0) {
+            showShopToast(`อัปเดต ${moved} คำสั่งซื้อตามสถานะผลิตใหม่`, 'success');
+          }
+        } catch (err) {
+          showShopToast(`สถานะผลิตอัปเดตไม่สำเร็จ: ${err.message || err}`, 'warn');
+        }
+      }
+    }
+
     showShopToast('บันทึกสินค้าแล้ว', 'success');
     state.productEditor = null;
     refreshProducts();
@@ -1669,6 +1704,14 @@ async function saveProductForm() {
     showShopToast(`บันทึกล้มเหลว: ${err.message || err}`, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = original || 'บันทึก'; }
   }
+}
+
+function maybeConfirmCascade(nextStatus) {
+  if (nextStatus === 'pending') return true; // no cascade
+  const msg = nextStatus === 'produced'
+    ? 'จะย้ายคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน" ที่มีสินค้านี้ทั้งหมดไปเป็น "สินค้าผลิตเสร็จแล้ว". ยืนยัน?'
+    : 'จะย้ายคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว" ที่มีสินค้านี้ทั้งหมดไปเป็น "ประกาศแล้ว". ยืนยัน?';
+  return window.confirm(msg);
 }
 
 function miniStyle(p) {
