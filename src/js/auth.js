@@ -38,11 +38,24 @@ function usernameToEmail(username) {
 
 let currentUser = null;
 const subscribers = new Set();
+const beforeSignOutHooks = new Set();
 
 function notify() {
   for (const cb of subscribers) {
     try { cb(currentUser); } catch (e) { console.error('auth subscriber error', e); }
   }
+}
+
+/**
+ * Register a callback that runs synchronously with the CURRENT user
+ * *before* signOut() clears it. Used by account-switch to snapshot the
+ * outgoing account into the saved-accounts list — the onAuthChange
+ * subscriber would otherwise see only `null` (the post-clear state)
+ * and have no way to know who just left. Returns an unsubscribe fn.
+ */
+export function onBeforeSignOut(cb) {
+  beforeSignOutHooks.add(cb);
+  return () => beforeSignOutHooks.delete(cb);
 }
 
 // ============================================================
@@ -364,6 +377,12 @@ export async function registerWithPassword(rawUsername, rawPassword) {
 }
 
 export async function signOut() {
+  // Run any pre-clear hooks while currentUser is still populated, so
+  // account-switch (and similar bookkeeping) can snapshot the outgoing
+  // user without racing the auth subscriber.
+  for (const cb of beforeSignOutHooks) {
+    try { cb(currentUser); } catch (e) { console.error('beforeSignOut hook error', e); }
+  }
   // Optimistic local clear so the UI updates immediately, even if the
   // server-side revoke call hangs or fails. onAuthStateChange will also
   // fire when the actual signOut completes — currentUser is already null

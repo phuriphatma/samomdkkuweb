@@ -772,18 +772,31 @@ function renderRecentUpdateBanner(doc, role) {
 function renderCommentBanner(doc, role) {
   const tl = doc.timeline || [];
   const seenAt = getCommentsSeenAt(doc.id);
+  // A comment is "new to me" when its creation OR last-edit timestamp
+  // is after my last open. That way an edit by the sender re-surfaces
+  // the comment for the reader until they reopen the หนังสือ.
+  const effectiveTs = (e) => {
+    const a = Date.parse(e.at) || 0;
+    const b = e.edited_at ? (Date.parse(e.edited_at) || 0) : 0;
+    return Math.max(a, b);
+  };
   const unread = tl
-    .filter((e) => e.action === 'comment' && e.role !== role && (Date.parse(e.at) || 0) > seenAt)
-    .sort((a, b) => new Date(a.at) - new Date(b.at));
+    .filter((e) => e.action === 'comment' && e.role !== role && effectiveTs(e) > seenAt)
+    .sort((a, b) => effectiveTs(a) - effectiveTs(b));
   if (unread.length === 0) return '';
-  const lines = unread.map((e) => `
-    <li class="projects-update-line">
-      <i class="bi bi-chat-left-text"></i>
-      <span class="projects-update-line-label">คอมเมนต์ใหม่</span>
-      ${e.note ? `<span class="projects-update-line-note">${escHtml(e.note)}</span>` : ''}
-      <span class="projects-update-line-time">${escHtml(fmtRelative(e.at))}</span>
-    </li>
-  `).join('');
+  const lines = unread.map((e) => {
+    const wasEdited = !!e.edited_at && (Date.parse(e.edited_at) || 0) > (Date.parse(e.at) || 0);
+    const label = wasEdited ? 'คอมเมนต์ถูกแก้ไข' : 'คอมเมนต์ใหม่';
+    const shownAt = wasEdited ? e.edited_at : e.at;
+    return `
+      <li class="projects-update-line">
+        <i class="bi ${wasEdited ? 'bi-pencil-square' : 'bi-chat-left-text'}"></i>
+        <span class="projects-update-line-label">${escHtml(label)}</span>
+        ${e.note ? `<span class="projects-update-line-note">${escHtml(e.note)}</span>` : ''}
+        <span class="projects-update-line-time">${escHtml(fmtRelative(shownAt))}</span>
+      </li>
+    `;
+  }).join('');
   return `
     <div class="projects-update-banner is-comment">
       <ul class="projects-update-list">${lines}</ul>
@@ -841,8 +854,16 @@ function renderCommentsList(doc, role) {
   const seenAt = getCommentsSeenAt(doc.id);
   // Sort oldest-first like a chat thread so newest sits at the bottom.
   const ordered = comments.slice().sort((a, b) => new Date(a.at) - new Date(b.at));
+  // A comment is "unread to me" if its creation OR last-edit time is
+  // after my last open — so the sender editing a comment also re-
+  // surfaces it as unread to the reader, until they open the
+  // หนังสือ again (markCommentsSeen).
+  const effectiveTs = (c) => Math.max(
+    Date.parse(c.at) || 0,
+    c.edited_at ? (Date.parse(c.edited_at) || 0) : 0,
+  );
   const unreadCount = ordered.filter((c) =>
-    c.role !== role && (Date.parse(c.at) || 0) > seenAt
+    c.role !== role && effectiveTs(c) > seenAt
   ).length;
   // <details> follows the same collapse pattern as the timeline so the
   // expanded หนังสือ stays scannable when a thread runs long. Default
@@ -862,8 +883,7 @@ function renderCommentsList(doc, role) {
       </summary>
       <ul class="projects-comments-list">
         ${ordered.map((c) => {
-          const ts = Date.parse(c.at) || 0;
-          const isUnread = c.role !== role && ts > seenAt;
+          const isUnread = c.role !== role && effectiveTs(c) > seenAt;
           // Only the author can edit / delete their own comment.
           // `by` carries the auth user id (see appendDocTimeline calls);
           // fall back to role match for legacy entries that pre-date the
@@ -1267,7 +1287,7 @@ async function onCommentEditClick(btn) {
   const at = btn.dataset.projectsCommentEdit;
   const found = findDocById(docId);
   if (!found) return;
-  const { doc } = found;
+  const { doc, project } = found;
   const entry = (doc.timeline || []).find((e) => e.action === 'comment' && e.at === at);
   if (!entry) return;
   const user = getUser();
@@ -1292,6 +1312,20 @@ async function onCommentEditClick(btn) {
   );
   try {
     await updateDocument(docId, { timeline: newTimeline });
+    // Notify the other side that the comment changed so the bell +
+    // the inline comment-banner re-surface it. Renders identically
+    // to a "new comment" — same kind, same body shape — and the
+    // comment row carries an edited_at that the unread tracker uses
+    // to re-light the highlight until the receiver opens the doc.
+    const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
+    const body = `${docRef}\nคอมเมนต์ถูกแก้ไข: ${next}`;
+    if (cache.role === 'uni_staff') {
+      await notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ถูกแก้ไข — ${doc.title || ''}` });
+    } else {
+      await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ถูกแก้ไข — ${project.name}` });
+    }
+    // Author has obviously "seen" their own edit.
+    markCommentsSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');

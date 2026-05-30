@@ -12,7 +12,7 @@
 // `lastUsed` desc. Capped at 6 to keep the chooser scannable.
 // ==============================================
 
-import { onAuthChange, signOut, signInWithGoogle, getUser } from './auth.js';
+import { onAuthChange, onBeforeSignOut, signOut, signInWithGoogle, getUser } from './auth.js';
 import { escHtml } from './utils.js';
 
 const STORAGE_KEY = 'samo.savedAccounts';
@@ -31,16 +31,27 @@ function writeSaved(list) {
   catch {}
 }
 
-/** Key used to dedupe a saved entry. Prefer username (stable & short),
- *  fall back to email (for Google-only accounts that never set one). */
+/** Key used to dedupe a saved entry. Prefer the auth UUID (`id`) which
+ *  is always present on a built user object — username/email can be
+ *  empty on partial profiles (e.g. profile fetch raced) and would lead
+ *  to a "" key colliding across accounts. Fall back to username then
+ *  email for entries written before the `id` was tracked. */
 function keyFor(acct) {
-  return (acct.username || '').toLowerCase() || (acct.email || '').toLowerCase();
+  return (acct.id || '').toLowerCase()
+      || (acct.username || '').toLowerCase()
+      || (acct.email || '').toLowerCase();
 }
 
 /** Remember (or update) an account after a successful sign-in. */
 export function rememberAccount(user) {
   if (!user) return;
+  // Require either an auth id or a usable secondary key. Without either
+  // we'd save a row that we can never reliably re-identify, which is
+  // exactly the bug that surfaced as "old account disappears after a
+  // second sign-in".
+  if (!user.id && !user.username && !user.email) return;
   const entry = {
+    id:          user.id || '',
     username:    user.username || '',
     displayName: user.name || user.username || (user.email || '').split('@')[0] || 'บัญชี',
     email:       user.email || '',
@@ -138,8 +149,12 @@ function refreshList() {
   if (currentWrap) currentWrap.innerHTML = renderCurrentAccountCard(user);
 
   // "Other accounts" — everything saved EXCEPT the current one.
+  // Match by the same key precedence as keyFor() so partial profiles
+  // (no username/email) still de-dupe by auth UUID.
   const currentKey = user
-    ? ((user.username || '').toLowerCase() || (user.email || '').toLowerCase())
+    ? ((user.id || '').toLowerCase()
+       || (user.username || '').toLowerCase()
+       || (user.email || '').toLowerCase())
     : '';
   const others = readSaved().filter((a) => keyFor(a) !== currentKey);
 
@@ -262,6 +277,15 @@ export function mountAccountSwitch() {
   // with the current user on subscribe; rememberAccount is idempotent
   // (dedupes by key + sorts by lastUsed) so this is safe.
   onAuthChange((user) => {
+    if (user) rememberAccount(user);
+  });
+  // Belt-and-braces: snapshot the outgoing user just before the global
+  // signOut flips currentUser to null. The onAuthChange subscriber
+  // would otherwise see only the post-clear `null` state and have no
+  // way to record who just left, which manifested as "old account
+  // disappears after a second sign-in" because the onAuthChange
+  // snapshot path raced with the supabase-js token refresh.
+  onBeforeSignOut((user) => {
     if (user) rememberAccount(user);
   });
 }
