@@ -84,23 +84,28 @@ export function fmtBytes(n) {
 
 // ---- ID generators ----
 
-/** PRJ-YYMM-NNNN (BE year + month + 4-digit random). DB enforces uniqueness. */
-export function genProjectId(now = new Date()) {
-  const yy = String(now.getFullYear() + 543).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const n  = Math.floor(1000 + Math.random() * 8999);
-  return `PRJ-${yy}${mm}-${n}`;
+// Short alphanumeric tail — base36 uppercase, no length/timestamp padding.
+// Trades the embedded creation date (which lived in the old `PRJ-YYMM-…`
+// / `DOC-YYMMDD-HHMM-…` formats) for a much shorter, easier-to-recognise
+// code. Created-at lives on the row already; the ID exists only for
+// human reference and copy-paste, so date inside it was redundant. DB
+// uniqueness is enforced via the primary key + the retry loop in
+// api.js createProject / createDocument.
+function randAlnum(len) {
+  let out = '';
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 chars, no 0/O/1/I/L
+  for (let i = 0; i < len; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
 }
 
-/** DOC-YYMMDD-HHMM-XXXX. */
-export function genDocumentId(now = new Date()) {
-  const yy = String(now.getFullYear() + 543).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mi = String(now.getMinutes()).padStart(2, '0');
-  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `DOC-${yy}${mm}${dd}-${hh}${mi}-${tail}`;
+/** PRJ-XXXX (4-char alphanumeric tail). */
+export function genProjectId() {
+  return `PRJ-${randAlnum(4)}`;
+}
+
+/** DOC-XXXXX (5-char alphanumeric tail). */
+export function genDocumentId() {
+  return `DOC-${randAlnum(5)}`;
 }
 
 /** Slug for Drive folder names — keeps Thai Unicode, strips other chars. */
@@ -118,4 +123,9 @@ export function buildDocFolderPath(projectId, projectName, documentId, typeId) {
   const projectSlug = slugify(projectName);
   const typeSlug = slugify(typeId || 'doc');
   return `Projects/${projectId}_${projectSlug}/${documentId}_${typeSlug}`;
+}
+
+/** Build a logical Drive path for a project's top-level folder. */
+export function buildProjectFolderPath(projectId, projectName) {
+  return `Projects/${projectId}_${slugify(projectName)}`;
 }

@@ -34,6 +34,7 @@ function doPost(e) {
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'uploadProjectFile') return handleUploadProjectFile(data);
+    if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
 
     if (data.action === 'notifyPROnly') {
       try { sendDiscordNotification(data, data.ticketId); } catch (err) { console.error('notifyPROnly: ' + err); }
@@ -214,6 +215,47 @@ function handleUploadProjectFile(data) {
       sizeBytes: file.getSize(),
       mimeType: file.getMimeType(),
     });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// deleteProjectFolder — trash a folder (and everything inside)
+// under `Projects/...`. Called by the frontend when a โครงการ or
+// หนังสือ is deleted, so the Drive side doesn't accumulate orphans.
+//
+// Allow-listed to paths under `Projects/` only. Trashing (vs purge)
+// keeps a 30-day Drive recovery window — same convention as
+// deleteShopFile.
+// ============================================================
+
+function handleDeleteProjectFolder(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (path !== 'Projects' && path.indexOf('Projects/') !== 0) {
+      return createResponse({ success: false, message: 'folderPath must start with Projects/' });
+    }
+    // Refuse to trash the root Projects/ folder — it's the container for
+    // everything; deleting it would nuke every other project on the
+    // same Drive. Only allow sub-paths.
+    if (path === 'Projects' || path === 'Projects/') {
+      return createResponse({ success: false, message: 'refuse to trash the root Projects folder' });
+    }
+    var parts = path.split('/').filter(function (p) { return p && p.length; });
+    var parent = DriveApp.getRootFolder();
+    for (var i = 0; i < parts.length; i++) {
+      var iter = parent.getFoldersByName(parts[i]);
+      if (!iter.hasNext()) {
+        // Folder missing along the path — treat as success (idempotent).
+        return createResponse({ success: true, alreadyGone: true });
+      }
+      parent = iter.next();
+    }
+    parent.setTrashed(true);
+    return createResponse({ success: true });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }

@@ -70,25 +70,30 @@
 
 /* ---------- Level 1 toolbar ---------- */
 .projects-tab .projects-toolbar {
-  display: grid;
-  grid-template-columns: minmax(220px, 360px) 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   margin-bottom: 14px;
 }
-@media (max-width: 767.98px) {
-  .projects-tab .projects-toolbar {
-    grid-template-columns: 1fr;
-  }
+.projects-tab .projects-search {
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 0;
 }
 .projects-tab .projects-search .form-control { font-size: 0.92rem; }
 .projects-tab .projects-filter-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  flex: 1 1 auto;
   justify-content: flex-end;
+  min-width: 0;
 }
 @media (max-width: 767.98px) {
+  /* Mobile: search takes full width on row 1, chips + view toggle
+     flow into row 2 starting from the left. */
+  .projects-tab .projects-search { flex-basis: 100%; max-width: none; }
   .projects-tab .projects-filter-row { justify-content: flex-start; }
 }
 
@@ -130,8 +135,36 @@
   color: #fff;
 }
 .projects-tab .projects-chip.is-mine.is-active { background: #b45309; border-color: #b45309; }
+.projects-tab .projects-chip.is-notif.is-active { background: var(--p-warn); border-color: var(--p-warn); }
 .projects-tab .projects-chip.is-wait.is-active { background: var(--p-info); border-color: var(--p-info); }
 .projects-tab .projects-chip.is-done.is-active { background: var(--p-ok); border-color: var(--p-ok); }
+
+/* ---------- View-mode toggle (grid / list) ---------- */
+.projects-tab .projects-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  flex: 0 0 auto;
+}
+.projects-tab .projects-view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--p-muted);
+  padding: 6px 10px;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+.projects-tab .projects-view-toggle-btn + .projects-view-toggle-btn {
+  border-left: 1px solid var(--p-line);
+}
+.projects-tab .projects-view-toggle-btn:hover { color: var(--p-text); background: var(--p-line-soft); }
+.projects-tab .projects-view-toggle-btn.is-active {
+  background: var(--p-accent);
+  color: #fff;
+}
 
 /* ---------- Level 1: project grid ---------- */
 .projects-tab .projects-grid {
@@ -161,6 +194,139 @@
 .projects-tab .projects-card-grid.is-bucket-waiting { border-left: 4px solid var(--p-info); }
 .projects-tab .projects-card-grid.is-bucket-done    { border-left: 4px solid var(--p-ok); opacity: 0.78; }
 .projects-tab .projects-card-grid.is-bucket-empty   { border-left: 4px solid var(--p-line); }
+
+/* ---------- Level 1: list view (compact one-row-per-project) ----------
+   Layout intent: every row reads as
+     [icon] [Name · PRJ-XXXX]                     [badge] [N] [time]
+            [optional description, second line]
+   Name + ID always share line 1, description (if any) goes to line 2.
+   That keeps vertical rhythm consistent whether the project has a
+   description or not. */
+.projects-tab .projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fff;
+  border: 1px solid var(--p-line);
+  border-radius: 12px;
+  padding: 4px;
+}
+.projects-tab .projects-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  border-left: 3px solid transparent;
+}
+.projects-tab .projects-list-row + .projects-list-row {
+  border-top: 1px solid var(--p-line-soft);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.projects-tab .projects-list-row:hover { background: var(--p-line-soft); }
+.projects-tab .projects-list-row.is-bucket-mine    { border-left-color: var(--p-warn); }
+.projects-tab .projects-list-row.is-bucket-waiting { border-left-color: var(--p-info); }
+.projects-tab .projects-list-row.is-bucket-done    { border-left-color: var(--p-ok); opacity: 0.78; }
+.projects-tab .projects-list-row.is-bucket-empty   { border-left-color: var(--p-line); }
+
+.projects-tab .projects-list-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--p-accent-soft);
+  color: var(--p-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex: 0 0 auto;
+}
+.projects-tab .projects-list-name-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.projects-tab .projects-list-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.projects-tab .projects-list-name {
+  font-weight: 700;
+  color: var(--p-text);
+  font-size: 0.95rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.projects-tab .projects-list-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--p-muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.projects-tab .projects-list-desc {
+  color: var(--p-muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.projects-tab .projects-list-badge-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.projects-tab .projects-list-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.projects-tab .projects-list-badge.is-new    { background: var(--p-warn); color: #fff; }
+.projects-tab .projects-list-badge.is-return { background: var(--p-danger); color: #fff; }
+.projects-tab .projects-list-count {
+  color: var(--p-muted);
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 44px;
+  justify-content: flex-end;
+}
+.projects-tab .projects-list-time {
+  color: var(--p-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 88px;
+  text-align: right;
+}
+@media (max-width: 575.98px) {
+  .projects-tab .projects-list-row { gap: 8px; }
+  .projects-tab .projects-list-id { display: none; }
+  .projects-tab .projects-list-count { min-width: 30px; }
+  .projects-tab .projects-list-time { min-width: 60px; }
+}
 
 .projects-tab .projects-card-head {
   display: flex;
@@ -204,6 +370,10 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Reserve 2 lines worth of vertical space even when one or fewer
+     lines are rendered. Keeps grid card heights consistent across
+     projects whether or not a description is present. */
+  min-height: calc(2 * 1.45em);
 }
 .projects-tab .projects-card-attn-badge {
   display: inline-flex;
@@ -244,11 +414,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px 10px;
+  flex-wrap: wrap;
   padding-top: 6px;
   border-top: 1px dashed var(--p-line);
   font-size: 0.75rem;
   color: var(--p-muted);
+  margin-top: auto;   /* anchor to card bottom so foot lines up across cards */
 }
+.projects-tab .projects-card-last {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--p-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 
 /* ---------- Empty state ---------- */
 .projects-tab .projects-empty {
@@ -414,6 +596,29 @@
   flex: 0 0 auto;
 }
 .projects-tab .projects-row-expand:hover { background: var(--p-line-soft); color: var(--p-text); }
+
+/* Copy-link icon button on the doc card header — shown next to the
+   expand chevron. Both roles see it so uni_staff can grab a deep-link
+   to a specific หนังสือ in one click and paste it to VP-Admin without
+   needing to expand the card first. */
+.projects-tab .projects-doc-card-copy {
+  border: none;
+  background: transparent;
+  color: var(--p-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 1rem;
+  transition: color 0.12s, background 0.12s;
+}
+.projects-tab .projects-doc-card-copy:hover {
+  background: var(--p-accent-soft);
+  color: var(--p-accent);
+}
 
 /* ---------- Status pills ---------- */
 .projects-tab .projects-status-pill {
@@ -756,6 +961,7 @@
 }
 .projects-tab .projects-doc-actions .btn { font-size: 0.82rem; }
 .projects-tab .projects-doc-actions .ms-auto { margin-left: auto !important; }
+
 
 /* ---------- Soft button variants (scoped) ---------- */
 .projects-tab .btn-primary-soft {

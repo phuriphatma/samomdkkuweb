@@ -61,7 +61,7 @@ export async function getProject(id) {
 export async function createProject({ name, description, createdBy }) {
   if (!name) throw new Error('ต้องระบุชื่อโครงการ');
   let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const id = genProjectId();
     const row = {
       id,
@@ -153,7 +153,7 @@ export async function createDocument({ projectId, typeId, title, note, driveFold
   const seq = await nextSequenceNo(projectId);
   const now = new Date().toISOString();
   let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const id = genDocumentId();
     const row = {
       id,
@@ -295,14 +295,20 @@ export async function countMyUnread(userId) {
 
 export async function createNotification(row) {
   if (!row?.user_id || !row?.kind || !row?.body) throw new Error('user_id, kind, body required');
-  const { data, error } = await dbRest(
+  // NOTE: do NOT ask for return=representation. The row's user_id is the
+  // RECIPIENT (uni_staff), but the SELECT policy on project_notifications
+  // is `user_id = auth.uid()`. Postgres requires INSERT...RETURNING rows
+  // to pass the SELECT policy too, so the post-insert read would fail
+  // for the SENDER (vp_admin) and the whole INSERT is rejected with
+  // "new row violates row-level security policy" — same wording as a
+  // WITH CHECK failure, which makes it look like an RLS-WITH-CHECK bug.
+  // Fire-and-forget: callers ignore the return value.
+  const { error } = await dbRest(
     '/project_notifications',
-    { method: 'POST', body: row, prefer: 'return=representation' },
+    { method: 'POST', body: row, prefer: 'return=minimal' },
   );
-  // Notifications are fire-and-forget — log and swallow so a notify failure
-  // doesn't break the action that triggered it.
   if (error) { console.warn('[projects] notification insert failed:', error.message); return null; }
-  return (data && data[0]) || null;
+  return null;
 }
 
 export async function markNotificationRead(id) {

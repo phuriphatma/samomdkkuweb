@@ -421,6 +421,137 @@ also lets the privilege-escalation guard (0028) treat
 
 ---
 
+## Pane-scoped DOM selectors break when the shell is rewritten
+
+**Symptom**: In the admin app, clicking "การตั้งค่า" inside the หนังสือโครงการ
+pane does nothing — the manage view never replaces the inbox view.
+**Cause**: `setView()` in `src/js/projects/index.js` scoped its selectors
+to `#pills-projects [data-projects-view]` / `[data-projects-pane]`, and
+its click delegation listened on `#pills-projects`. The cc27157 public→
+admin split removed the `id="pills-projects"` wrapper (tab-projects.html
+now sits inside `<section data-admin-pane="projects">`), so every
+scoped query found nothing and the click handler never bound.
+**Fix**: Drop the `#pills-projects` scoping — the `data-projects-view`
+/ `data-projects-pane` attributes are unique to this feature, so match
+them at document scope. Delegate the click on `document` too.
+**Where**: `src/js/projects/index.js` `setView()` + the `initProjects()`
+click delegate. Whenever a refactor moves a partial into a new shell,
+audit any module-scoped `#foo`-rooted query selectors against the new
+DOM — the JS module's selector strings travel with the module and
+will silently break if the host wrapper id changes.
+
+---
+
+## Notification `notify_*_in_app` flags gate the in-app fanout — schema default `true`, but a user-toggle silently disables EVERYTHING
+
+**Symptom**: uni_staff signs in, no bell badge, the offcanvas shows
+"ยังไม่มีการแจ้งเตือน" even though VP-Admin has been actively sending
+documents. Discord and email channels also stop firing.
+**Cause**: `public.project_settings` has four channel flags
+(`notify_uni_in_app`, `notify_uni_email`, `notify_vp_in_app`,
+`notify_vp_discord`) defaulting to `true` in schema 0005. The notify
+fanout in `src/js/projects/notify.js` checks each one with the
+shape `if (settings?.notify_uni_in_app !== false) { create row }` —
+so a row flipped to `false` (user save of the manage form, or any
+PATCH) silently disables the entire channel. Bell empty looks like a
+broken query but is really a config-off state.
+**Fix**: Restore via SQL (or the manage UI now that the pane is
+reachable):
+```sql
+update public.project_settings
+   set notify_uni_in_app = true, notify_vp_in_app  = true,
+       notify_uni_email  = true, notify_vp_discord = true
+ where id = 1;
+```
+Past missed sends do NOT backfill — only new actions get rows.
+**Where**: settings row in Supabase; flag checks in
+`src/js/projects/notify.js` (`notifyUniStaff` / `notifyVpAdmin`).
+Future thought: if "no notifications" feels broken often, change
+the offcanvas empty-state to surface a "การแจ้งเตือนในแอปถูกปิดอยู่"
+hint when `settings.notify_*_in_app === false`.
+
+---
+
+## `INSERT ... RETURNING` (a.k.a. `Prefer: return=representation`) re-applies the SELECT RLS policy to the inserted row
+
+**Symptom**: VP-Admin sends a doc → `POST /rest/v1/project_notifications`
+returns `403` with `{"code":"42501","message":"new row violates
+row-level security policy for table \"project_notifications\""}`.
+Browser console confirms the user is signed in (correct `sub` in JWT),
+the user's role in `public.users` is `vp_admin`, the live RLS policy is
+`with_check (current_user_is_project_actor())`, and calling
+`/rpc/current_user_is_project_actor` with the exact same JWT returns
+`true`. WITH CHECK clearly passes. INSERT still fails.
+**Cause**: Postgres rule: when `INSERT ... RETURNING` (which PostgREST
+emits whenever `Prefer: return=representation` is set), the row also
+has to pass the SELECT policy or the entire INSERT is rolled back
+with the same generic "new row violates row-level security policy"
+message. Here:
+- WITH CHECK on INSERT: `current_user_is_project_actor()` → ✅ vp_admin
+- USING on SELECT:     `user_id = auth.uid()` → ❌ because `user_id`
+  is the RECIPIENT (uni_staff), not the caller (vp_admin).
+Same wording as a WITH CHECK failure, so it looks like a WITH CHECK
+bug; the function returns true under impersonation/RPC and you chase
+your tail.
+**Fix**: Drop `prefer: 'return=representation'` on any write where
+- the inserted/updated row targets a DIFFERENT user than the caller, AND
+- the SELECT policy is "owner-only" (`user_id = auth.uid()` or similar).
+Use `prefer: 'return=minimal'` (or omit). Callers that need to confirm
+the write should check `error` only, not `data.length`. This **conflicts
+with the "always check `data.length > 0`" rule** from the
+silent-success entry above — that rule applies when the caller is
+the *recipient* of the row (so SELECT passes naturally). When the
+caller writes "on behalf of" someone else under owner-only SELECT
+RLS, `return=minimal` is the only option.
+**Where**: `src/js/projects/api.js` `createNotification`. Pattern to
+audit on any other "write to another user's row" call site if SELECT
+RLS is owner-only.
+
+---
+
+## `onAuthChange` fires on every refresh — "initial-routing" logic inside it must be gated by a one-shot flag
+
+**Symptom**: User is on the admin app at, say, `#projects/PRJ-K3X7` looking
+at a specific หนังสือโครงการ. They switch to another browser tab for a
+few seconds, then switch back — and the app has jumped to ภาพรวม Admin
+(landing). The hash has been wiped too. The user thinks "did something
+crash?", but the network is fine; the UI just re-routed itself.
+**Cause**: `onAuthChange(user => { ... showAdminSide(...) })` in
+`src/js/admin-main.js` fires on:
+1. initial subscription,
+2. token refresh (every ~25 min via our setInterval, and also when the
+   tab regains focus after being backgrounded — supabase-js wakes up
+   and re-validates the session),
+3. any other auth state change.
+Inside the callback we were unconditionally running:
+```js
+const rawHash = location.hash.replace(/^#/, '');
+showAdminSide(SECTION_META[rawHash] ? rawHash : 'landing');
+```
+which has two problems on each re-fire:
+- `rawHash` for a deep link is `projects/PRJ-K3X7`, not `projects`, so
+  `SECTION_META[rawHash]` is undefined → falls to `'landing'`.
+- Even when the hash IS exactly `#projects`, `showAdminSide` overwrote
+  the hash back to `#projects`, nuking any deep-link path the projects
+  module had set via its own `history.replaceState`.
+**Fix**:
+1. Run "initial section setup" exactly once per session. A module-scope
+   `let initialSectionApplied = false` flipped to true on first signed-in
+   fire prevents subsequent token refreshes from re-routing the user.
+2. Hash lookup uses the FIRST SEGMENT only: `rawHash.split('/')[0]` so
+   deep links like `#projects/PRJ-K3X7/doc/DOC-AB2KX` resolve to the
+   projects section.
+3. `showAdminSide` no longer rewrites the hash when the existing hash
+   already starts with `#<section>/…` — only when the section is
+   genuinely different.
+**Where**: `src/js/admin-main.js` — `initialSectionApplied` flag at module
+scope, the `onAuthChange` block that reads `location.hash`, and the
+`history.replaceState` call inside `showAdminSide`. Any new
+`onAuthChange` callback that wants to do "initial routing" must use the
+same one-shot pattern — never assume the callback fires only once.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

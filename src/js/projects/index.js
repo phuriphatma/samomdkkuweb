@@ -44,14 +44,12 @@ function isAllowed(user) {
 
 function setView(next) {
   view = next;
-  // Query is intentionally broad — the workspace shell rewrite moved the
-  // inbox/manage switcher from inline #projectsSubnav into the sidebar
-  // (#projectsSideNav). Matching any [data-projects-view] keeps both
-  // working if the old subnav comes back, and is robust to future
-  // duplicate access points.
-  document.querySelectorAll('#pills-projects [data-projects-view]').forEach((b) =>
+  // Admin shell wraps tab-projects.html in <section data-admin-pane="projects">,
+  // not the legacy #pills-projects. The data attributes are unique to the
+  // projects feature so we can match them at document scope.
+  document.querySelectorAll('[data-projects-view]').forEach((b) =>
     b.classList.toggle('is-active', b.dataset.projectsView === next));
-  document.querySelectorAll('#pills-projects [data-projects-pane]').forEach((p) =>
+  document.querySelectorAll('[data-projects-pane]').forEach((p) =>
     p.classList.toggle('d-none', p.dataset.projectsPane !== next));
   if (next === 'inbox')  renderInbox({ projects: cache.projects, docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
   if (next === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
@@ -179,7 +177,7 @@ function applyHashRoute() {
   // #projects, #projects/PRJ-..., #projects/PRJ-.../doc/DOC-...
   if (!/^#projects(\/|$)/.test(hash)) return;
   const parts = hash.replace(/^#projects\/?/, '').split('/');
-  // ['PRJ-2605-0001', 'doc', 'DOC-260526-1430-XXXX']
+  // ['PRJ-K3X7', 'doc', 'DOC-AB2KX']
   if (parts[0] && parts[0] !== '') {
     const projectId = parts[0];
     const documentId = parts[1] === 'doc' ? parts[2] : null;
@@ -193,9 +191,10 @@ export function initProjects() {
   if (initialised) return;
   initialised = true;
 
-  // Sub-nav — delegate on the projects tab so the click works from the
-  // workspace sidebar (#projectsSideNav) and any future access points.
-  document.getElementById('pills-projects')?.addEventListener('click', (e) => {
+  // Sub-nav — delegate at document level so the click works from any
+  // access point (inline subnav in tab-projects.html, future sidebar
+  // items, etc.). `[data-projects-view]` is unique to this feature.
+  document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-projects-view]');
     if (!btn) return;
     setView(btn.dataset.projectsView);

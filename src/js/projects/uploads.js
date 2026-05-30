@@ -25,7 +25,7 @@ function readAsDataURL(file) {
  * form here; that's only useful for images embedded via <img>.
  *
  * @param {File} file
- * @param {string} folderPath e.g. 'Projects/PRJ-2605-0001_kickoff/DOC-260526-1430-ABCD_project'
+ * @param {string} folderPath e.g. 'Projects/PRJ-K3X7_kickoff/DOC-AB2KX_project'
  * @param {{ fileName?: string }} [opts]
  */
 export async function uploadProjectFile(file, folderPath, opts = {}) {
@@ -58,4 +58,32 @@ export async function uploadProjectFile(file, folderPath, opts = {}) {
     mimeType: result.mimeType || file.type || null,
     sizeBytes: result.sizeBytes || file.size || null,
   };
+}
+
+/**
+ * Trash a folder (and everything inside) under `Projects/...` via GAS.
+ * Used by the project-tracking delete flows so the Drive side doesn't
+ * orphan when a โครงการ or หนังสือ is deleted in the DB.
+ *
+ * Fire-and-forget from the caller's perspective: a Drive failure must
+ * not block the DB delete or surface a scary error to the user — the
+ * row is the source of truth, and Drive Trash auto-purges after 30
+ * days anyway. Caller catches and logs; this helper still throws on
+ * failure so the caller can choose to log.
+ */
+export async function deleteProjectFolder(folderPath) {
+  if (!folderPath || typeof folderPath !== 'string') {
+    throw new Error('folderPath is required');
+  }
+  if (!folderPath.startsWith('Projects')) {
+    throw new Error('folderPath must start with Projects');
+  }
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'deleteProjectFolder', folderPath }),
+  });
+  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  if (!result.success) throw new Error(result.message || 'ลบโฟลเดอร์ใน Drive ไม่สำเร็จ');
+  return result;
 }

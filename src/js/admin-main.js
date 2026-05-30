@@ -407,12 +407,21 @@ function showAdminSide(which) {
     enterCreator();
   }
 
-  // Mirror in the URL hash so admin sub-pages are bookmarkable.
-  const want = which === 'landing' ? '' : '#' + which;
-  if (location.hash !== want) history.replaceState(null, '', location.pathname + want);
+  // Mirror in the URL hash so admin sub-pages are bookmarkable. Only
+  // rewrite if the existing hash doesn't already point at this section
+  // (so deep links like `#projects/PRJ-XXXX/doc/DOC-Y` survive). For
+  // landing, clear the hash entirely.
+  if (which === 'landing') {
+    if (location.hash !== '') history.replaceState(null, '', location.pathname);
+  } else {
+    const cur = location.hash.replace(/^#/, '');
+    const first = cur.split('/')[0];
+    if (first !== which) history.replaceState(null, '', location.pathname + '#' + which);
+  }
 }
 
 let _orderSortableAttached = false;
+let initialSectionApplied = false;
 async function enterCreator() {
   const listEl = document.getElementById('announcementsOrderList');
   if (!listEl) return;
@@ -609,11 +618,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!user) {
       clearTimeout(bootTimeout);
+      // Reset so the next sign-in re-applies initial routing for the
+      // new user (whose role and accessible panes may differ).
+      initialSectionApplied = false;
       showAuthGate();
       return;
     }
     if (!isStaff) {
       clearTimeout(bootTimeout);
+      initialSectionApplied = false;
       showAuthGate();
       return;
     }
@@ -650,14 +663,27 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('d-none', !allowed.includes(role));
     });
 
-    // Initial section: read hash, else default landing.
-    // `#creator/{id}` is a deep-link from the public reader's "edit"
-    // button — route to the creator pane and pre-populate the form.
-    const rawHash = location.hash.replace(/^#/, '');
-    tryCreatorDeepLink(rawHash).then((routed) => {
-      if (routed) return;
-      showAdminSide(SECTION_META[rawHash] ? rawHash : 'landing');
-    });
+    // Initial section: read hash, else default landing. Run ONCE per
+    // session — subsequent onAuthChange fires (token refresh, tab
+    // re-focus) must NOT yank the user back to landing or wipe out a
+    // deep-link like `#projects/PRJ-XXXX`. The closure flag below
+    // (initialSectionApplied) lives in the module scope so the bound
+    // subscriber sees it across fires.
+    //
+    // Hash matching is done on the FIRST SEGMENT only so deep links
+    // (`#projects/PRJ-XXXX`, `#projects/PRJ-X/doc/DOC-Y`, `#creator/<id>`)
+    // resolve to the right section. Sub-routes are then re-applied by
+    // each module's own hash listener (e.g. projects/index.js's
+    // applyHashRoute on hashchange + initial mount).
+    if (!initialSectionApplied) {
+      initialSectionApplied = true;
+      const rawHash = location.hash.replace(/^#/, '');
+      const first   = rawHash.split('/')[0];
+      tryCreatorDeepLink(rawHash).then((routed) => {
+        if (routed) return;
+        showAdminSide(SECTION_META[first] ? first : 'landing');
+      });
+    }
 
     // Auto-close the sign-in modal once a staff session lands
     const modalEl = document.getElementById('signinModal');

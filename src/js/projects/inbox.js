@@ -17,7 +17,6 @@ import { getUser } from '../auth.js';
 import {
   getProject,
   getDocument,
-  updateProject,
   deleteProject,
   appendDocTimeline,
   deleteDocument,
@@ -26,7 +25,6 @@ import {
   supersedeFile,
 } from './api.js';
 import {
-  PROJECT_STATUS_META,
   DOC_STATUS_META,
   DOC_PATH_ORDER,
   fmtDate,
@@ -34,8 +32,9 @@ import {
   fmtRelative,
   fmtBytes,
   buildDocFolderPath,
+  buildProjectFolderPath,
 } from './data.js';
-import { uploadProjectFile } from './uploads.js';
+import { uploadProjectFile, deleteProjectFolder } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin } from './notify.js';
 
 // ---------- module state ----------
@@ -49,8 +48,16 @@ let cache = { projects: [], docTypes: [], settings: null, role: null };
 let level    = 'grid';     // 'grid' | 'detail'
 let selectedProjectId = null;
 let expandedDocs = new Set();   // doc ids expanded inside the detail view
-let filterKind = 'all';    // 'mine' | 'waiting' | 'done' | 'all'
+let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
+// 'grid' = original card grid; 'list' = compact one-row-per-project list.
+// Persisted per browser so the user's preference sticks across sessions.
+let viewMode = (() => {
+  try {
+    const v = localStorage.getItem('projects.viewMode');
+    return v === 'list' ? 'list' : 'grid';
+  } catch { return 'grid'; }
+})();
 
 // Deferred actions, applied at the end of render()
 let scrollDocId = null;
@@ -93,15 +100,37 @@ function projectBucket(p, role) {
 
 /** Counts for the level-1 filter chips, computed once per render(). */
 function projectBucketCounts(role) {
-  const c = { mine: 0, waiting: 0, done: 0, all: 0 };
+  const c = { mine: 0, notified: 0, waiting: 0, done: 0, all: 0 };
   for (const p of cache.projects) {
     c.all += 1;
     const b = projectBucket(p, role);
     if (b === 'mine') c.mine += 1;
     else if (b === 'waiting') c.waiting += 1;
     else if (b === 'done') c.done += 1;
+    if (projectIsNotified(p, role)) c.notified += 1;
   }
   return c;
+}
+
+/** "ได้รับแจ้งเตือน" — projects with a NEW event for the current viewer.
+ *  Matches the orange/red attention badge on the card: uni_staff sees
+ *  projects with a sent (not-yet-received) doc; vp_admin sees projects
+ *  with a returned (to-fix) doc. Independent from the mine/waiting/done
+ *  bucket so the chip can be a stricter "new only" subset. */
+function projectIsNotified(p, role) {
+  const docs = p.documents || [];
+  if (role === 'uni_staff') return docs.some((d) => d.status === 'sent');
+  if (role === 'vp_admin')  return docs.some((d) => d.status === 'returned');
+  if (role === 'dev')       return docs.some((d) => d.status === 'sent' || d.status === 'returned');
+  return false;
+}
+
+function updateViewToggleUI() {
+  const wrap = document.getElementById('projectsViewToggle');
+  if (!wrap) return;
+  wrap.querySelectorAll('[data-projects-view-mode]').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.projectsViewMode === viewMode);
+  });
 }
 
 function lastActivityTime(p) {
@@ -110,6 +139,42 @@ function lastActivityTime(p) {
     const dt = new Date(d.updated_at || d.sent_at || d.created_at).getTime() || 0;
     if (dt > t) t = dt;
   }
+  return t;
+}
+
+// Sort-key for the inbox: timestamp of the most recent action by the
+// OTHER party — i.e. an "incoming" event from the viewer's perspective.
+// Slack/Gmail/Linear convention: someone else's action bumps the item;
+// your own action does NOT. If we used lastActivityTime, clicking
+// "รับเรื่อง" / "ตีกลับ" would yank the project to the top — disorienting
+// when the user is acting through a list. Falls back to project.created_at
+// so a brand-new project (no other-side activity yet) doesn't sink to
+// time-zero.
+const INCOMING_ACTIONS = {
+  uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'comment']),
+  vp_admin:  new Set(['returned', 'comment', 'received', 'in_progress', 'completed']),
+  dev:       new Set(['sent', 'returned', 'file_added', 'file_replaced', 'comment',
+                       'received', 'in_progress', 'completed']),
+};
+function lastIncomingActivityTime(p, role) {
+  const wanted = INCOMING_ACTIONS[role] || new Set();
+  let t = 0;
+  for (const d of (p.documents || [])) {
+    for (const e of (d.timeline || [])) {
+      if (e.role === role) continue;             // skip the viewer's own actions
+      if (!wanted.has(e.action)) continue;
+      const dt = new Date(e.at).getTime() || 0;
+      if (dt > t) t = dt;
+    }
+    // Initial 'sent' for uni_staff often pre-dates timeline entries — bring
+    // sent_at into play so a brand-new doc still sorts toward the top of
+    // its bucket.
+    if (role === 'uni_staff' || role === 'dev') {
+      const sentAt = new Date(d.sent_at || 0).getTime() || 0;
+      if (sentAt > t) t = sentAt;
+    }
+  }
+  if (t === 0) t = new Date(p.created_at || 0).getTime() || 0;
   return t;
 }
 
@@ -140,6 +205,19 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject 
     searchQ = (e.target.value || '').toLowerCase().trim();
     render();
   });
+
+  document.getElementById('projectsViewToggle')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-projects-view-mode]');
+    if (!btn) return;
+    const next = btn.dataset.projectsViewMode;
+    if (next !== 'grid' && next !== 'list') return;
+    if (next === viewMode) return;
+    viewMode = next;
+    try { localStorage.setItem('projects.viewMode', viewMode); } catch {}
+    updateViewToggleUI();
+    render();
+  });
+  updateViewToggleUI();
 
   document.getElementById('projectsBackToGrid')?.addEventListener('click', () => {
     level = 'grid';
@@ -243,11 +321,17 @@ function renderFilterChips() {
   const row = document.getElementById('projectsFilterRow');
   if (!row) return;
   const c = projectBucketCounts(cache.role);
+  // Role-aware "waiting" label — clarifies *who* the project is waiting on.
+  const role = cache.role;
+  const waitLabel = role === 'uni_staff' ? 'รอ SAMO'
+                  : role === 'vp_admin'  ? 'รอเจ้าหน้าที่'
+                  : 'รออีกฝ่าย';
   const chips = [
-    { id: 'mine',    label: 'ของฉัน',    count: c.mine,    cls: 'is-mine' },
-    { id: 'waiting', label: 'รออีกฝ่าย', count: c.waiting, cls: 'is-wait' },
-    { id: 'done',    label: 'เสร็จสิ้น',  count: c.done,    cls: 'is-done' },
-    { id: 'all',     label: 'ทั้งหมด',   count: c.all,     cls: 'is-all' },
+    { id: 'all',      label: 'ทั้งหมด',         count: c.all,      cls: 'is-all'  },
+    { id: 'mine',     label: 'ของฉัน',          count: c.mine,     cls: 'is-mine' },
+    { id: 'notified', label: 'ได้รับแจ้งเตือน',  count: c.notified, cls: 'is-notif' },
+    { id: 'waiting',  label: waitLabel,         count: c.waiting,  cls: 'is-wait' },
+    { id: 'done',     label: 'เสร็จสิ้น',        count: c.done,     cls: 'is-done' },
   ];
   row.innerHTML = chips.map((k) => `
     <button type="button" class="projects-chip ${k.cls} ${k.id === filterKind ? 'is-active' : ''}"
@@ -264,9 +348,10 @@ function renderGrid() {
   if (!grid) return;
 
   let rows = cache.projects.slice();
-  // Filter by bucket
+  // Filter by bucket / notification state
   const role = cache.role;
-  if (filterKind === 'mine')    rows = rows.filter((p) => projectBucket(p, role) === 'mine');
+  if (filterKind === 'mine')         rows = rows.filter((p) => projectBucket(p, role) === 'mine');
+  else if (filterKind === 'notified') rows = rows.filter((p) => projectIsNotified(p, role));
   else if (filterKind === 'waiting') rows = rows.filter((p) => projectBucket(p, role) === 'waiting');
   else if (filterKind === 'done')    rows = rows.filter((p) => projectBucket(p, role) === 'done');
   // Search
@@ -277,16 +362,107 @@ function renderGrid() {
       || (p.description || '').toLowerCase().includes(searchQ)
     );
   }
-  // Sort by recency
-  rows.sort((a, b) => lastActivityTime(b) - lastActivityTime(a));
+  // Sort (3-level, Gmail Inbox / Linear Inbox pattern):
+  //   1. Bucket — needs-action ("mine") first, then waiting, then done.
+  //   2. Notified items first WITHIN bucket — so a new incoming event
+  //      surfaces to the top even when 100 projects share the bucket.
+  //      Clearing the notification (e.g. uni_staff clicks "รับเรื่อง"
+  //      on the only sent doc) moves the project DOWN into the
+  //      non-notified subgroup of the same bucket; the bucket itself
+  //      doesn't change unless the bucket-defining state did.
+  //   3. Incoming-activity time desc — recent other-side action first.
+  //      Uses INCOMING-only timestamps so your own clicks don't yank
+  //      a project around; only fresh other-side activity bumps it.
+  const bucketRank = { mine: 0, waiting: 1, done: 2, empty: 3 };
+  rows.sort((a, b) => {
+    const ra = bucketRank[projectBucket(a, role)] ?? 9;
+    const rb = bucketRank[projectBucket(b, role)] ?? 9;
+    if (ra !== rb) return ra - rb;
+    const na = projectIsNotified(a, role) ? 0 : 1;
+    const nb = projectIsNotified(b, role) ? 0 : 1;
+    if (na !== nb) return na - nb;
+    return lastIncomingActivityTime(b, role) - lastIncomingActivityTime(a, role);
+  });
 
   if (rows.length === 0) {
     grid.innerHTML = '';
-    empty?.classList.remove('d-none');
+    if (empty) {
+      // Friendly per-filter empty copy. The default static HTML covers
+      // "no projects at all yet"; here we override for the filtered case
+      // so an empty "ต้องทำ" reads as a positive ("งานเคลียร์แล้ว"),
+      // not a confusing "no projects exist."
+      const role = cache.role;
+      const map = {
+        mine: role === 'uni_staff'
+          ? { icon: 'bi-check2-circle', title: 'ไม่มีงานค้าง', hint: 'งานทั้งหมดเคลียร์แล้ว' }
+          : { icon: 'bi-check2-circle', title: 'ไม่มีรายการที่ต้องแก้', hint: 'ไม่มีหนังสือถูกตีกลับให้แก้ในขณะนี้' },
+        waiting: role === 'uni_staff'
+          ? { icon: 'bi-hourglass-split', title: 'ไม่มีรายการรอ SAMO', hint: '' }
+          : { icon: 'bi-hourglass-split', title: 'ไม่มีรายการรอเจ้าหน้าที่', hint: '' },
+        done: { icon: 'bi-archive', title: 'ยังไม่มีโครงการที่เสร็จสิ้น', hint: '' },
+        all:  null,
+      };
+      const m = (searchQ ? null : map[filterKind]);
+      if (m) {
+        empty.innerHTML = `
+          <i class="bi ${m.icon}"></i>
+          <h4>${escHtml(m.title)}</h4>
+          ${m.hint ? `<p class="small text-muted mb-0">${escHtml(m.hint)}</p>` : ''}
+        `;
+      } else if (searchQ) {
+        empty.innerHTML = `
+          <i class="bi bi-search"></i>
+          <h4>ไม่พบโครงการที่ตรงกับคำค้น</h4>
+          <p class="small text-muted mb-0">ลองคำอื่น หรือล้างช่องค้นหา</p>
+        `;
+      }
+      empty.classList.remove('d-none');
+    }
     return;
   }
   empty?.classList.add('d-none');
-  grid.innerHTML = rows.map(renderProjectCard).join('');
+  // Container class drives layout (CSS grid vs compact list). Items
+  // share the same data-projects-open-project attribute and click
+  // handler so navigation works identically in both modes.
+  grid.classList.toggle('projects-grid',  viewMode === 'grid');
+  grid.classList.toggle('projects-list',  viewMode === 'list');
+  const renderer = viewMode === 'list' ? renderProjectListRow : renderProjectCard;
+  grid.innerHTML = rows.map(renderer).join('');
+}
+
+// Compact one-row-per-project layout for the list view. Same data
+// surface as the card; the click target wraps the whole row.
+function renderProjectListRow(p) {
+  const role = cache.role;
+  const docs = p.documents || [];
+  const total    = docs.length;
+  const sent     = docs.filter((d) => d.status === 'sent').length;
+  const returned = docs.filter((d) => d.status === 'returned').length;
+  const bucket = projectBucket(p, role);
+  const lastTouch = lastActivityTime(p);
+
+  let badge = '';
+  if ((role === 'uni_staff' || role === 'dev') && sent > 0) {
+    badge = `<span class="projects-list-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">${sent} ใหม่</span>`;
+  } else if (role === 'vp_admin' && returned > 0) {
+    badge = `<span class="projects-list-badge is-return" title="หนังสือถูกตีกลับ">${returned} ตีกลับ</span>`;
+  }
+
+  return `
+    <button type="button" class="projects-list-row is-bucket-${bucket}" data-projects-open-project="${escHtml(p.id)}">
+      <span class="projects-list-icon"><i class="bi bi-folder2-open"></i></span>
+      <span class="projects-list-name-wrap">
+        <span class="projects-list-name-line">
+          <span class="projects-list-name">${escHtml(p.name)}</span>
+          <span class="projects-list-id">${escHtml(p.id)}</span>
+        </span>
+        ${p.description ? `<span class="projects-list-desc">${escHtml(p.description)}</span>` : ''}
+      </span>
+      <span class="projects-list-badge-wrap">${badge}</span>
+      <span class="projects-list-count"><i class="bi bi-journal-text me-1"></i>${total}</span>
+      <span class="projects-list-time">${escHtml(fmtRelative(lastTouch))}</span>
+    </button>
+  `;
 }
 
 function renderProjectCard(p) {
@@ -328,9 +504,9 @@ function renderProjectCard(p) {
         </div>
         ${badge}
       </div>
-      ${p.description ? `<div class="projects-card-desc">${escHtml(p.description)}</div>` : ''}
+      <div class="projects-card-desc">${escHtml(p.description || '')}</div>
       <div class="projects-card-foot">
-        <span class="projects-card-foot-stat"><i class="bi bi-files me-1"></i>${total} หนังสือ</span>
+        <span class="projects-card-foot-stat"><i class="bi bi-journal-text me-1"></i>${total} หนังสือ</span>
         <span class="projects-card-last"><i class="bi bi-clock-history me-1"></i>${escHtml(fmtRelative(lastTouch))}</span>
       </div>
     </button>
@@ -347,7 +523,6 @@ function renderDetail() {
     root.innerHTML = `<div class="projects-empty"><i class="bi bi-folder-x"></i><h4>ไม่พบโครงการ</h4></div>`;
     return;
   }
-  const meta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.open;
   const docs = (project.documents || []).slice()
     .sort((a, b) => new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
   const role = cache.role;
@@ -359,36 +534,22 @@ function renderDetail() {
       <h2 class="projects-detail-title">${escHtml(project.name)}</h2>
       ${project.description ? `<p class="projects-detail-desc">${escHtml(project.description)}</p>` : ''}
       <div class="projects-detail-meta">
-        <span class="projects-status-pill ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
-        <span class="text-muted small">${docs.length} หนังสือในโครงการนี้</span>
+        <span class="text-muted small">หนังสือทั้งหมด ${docs.length} ฉบับ</span>
       </div>
       <div class="projects-detail-actions">
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
           <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
         </button>` : ''}
-        ${canManage ? `
-          <div class="dropdown d-inline-block">
-            <button type="button" class="btn btn-sm btn-ghost dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-three-dots"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li><h6 class="dropdown-header">เปลี่ยนสถานะโครงการ</h6></li>
-              ${['open','in_progress','completed','cancelled'].map((s) =>
-                `<li><button class="dropdown-item ${s===project.status?'active':''}" type="button"
-                    data-projects-set-project-status="${s}" data-project-id="${escHtml(project.id)}">
-                    <i class="bi ${PROJECT_STATUS_META[s].icon} me-2"></i>${escHtml(PROJECT_STATUS_META[s].label)}
-                  </button></li>`).join('')}
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item text-danger" type="button"
-                data-projects-delete-project="${escHtml(project.id)}">
-                <i class="bi bi-trash me-2"></i>ลบโครงการ (ลบหนังสือทั้งหมดด้วย)
-              </button></li>
-            </ul>
-          </div>
-        ` : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
           <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
         </button>
+        ${canManage ? `
+          <button type="button" class="btn btn-sm btn-ghost text-danger ms-auto"
+            data-projects-delete-project="${escHtml(project.id)}"
+            title="ลบโครงการนี้พร้อมหนังสือทั้งหมด">
+            <i class="bi bi-trash me-1"></i> ลบโครงการ
+          </button>
+        ` : ''}
       </div>
     </header>
 
@@ -425,6 +586,10 @@ function renderDocCard(doc, project) {
         ${updateBadge}
         <span class="projects-status-pill ${m.cls}"><i class="bi ${m.icon} me-1"></i>${escHtml(m.label)}</span>
         <span class="projects-doc-card-time text-muted small">${escHtml(fmtRelative(doc.updated_at || doc.created_at))}</span>
+        <button type="button" class="projects-doc-card-copy" aria-label="คัดลอกลิงก์หนังสือ" title="คัดลอกลิงก์หนังสือ"
+          data-projects-copy-doc="${escHtml(doc.id)}" data-project-id="${escHtml(project.id)}">
+          <i class="bi bi-link-45deg"></i>
+        </button>
         <button type="button" class="projects-row-expand" aria-label="ขยาย/ย่อ" aria-expanded="${isOpen}">
           <i class="bi bi-chevron-${isOpen ? 'up' : 'down'}"></i>
         </button>
@@ -525,9 +690,11 @@ function renderRecentUpdateBanner(doc, role) {
   if (cuts.length === 0) return '';
   cuts.reverse(); // oldest first within the chunk
 
-  const headerLabel = role === 'uni_staff' ? 'เปลี่ยนแปลงจาก SAMO' : 'เจ้าหน้าที่ตีกลับ';
-  const headerCls   = role === 'uni_staff' ? 'is-update' : 'is-return';
-  const headerIcon  = role === 'uni_staff' ? 'bi-bell-fill' : 'bi-arrow-counterclockwise';
+  // Header text ("เปลี่ยนแปลงจาก SAMO" / "เจ้าหน้าที่ตีกลับ") removed:
+  // the per-line action labels below already say what happened, so the
+  // header was redundant and ate vertical space. Banner colour class
+  // stays so the callout still signals "new activity" at a glance.
+  const headerCls = role === 'uni_staff' ? 'is-update' : 'is-return';
   const lines = cuts.map((e) => {
     const label = ({
       sent:          'ส่งใหม่อีกครั้ง',
@@ -555,11 +722,6 @@ function renderRecentUpdateBanner(doc, role) {
 
   return `
     <div class="projects-update-banner ${headerCls}">
-      <div class="projects-update-banner-head">
-        <i class="bi ${headerIcon}"></i>
-        <span>${escHtml(headerLabel)}</span>
-        <span class="projects-update-banner-count">${cuts.length}</span>
-      </div>
       <ul class="projects-update-list">${lines}</ul>
     </div>
   `;
@@ -679,11 +841,6 @@ function onInboxClick(e) {
     copyToClipboard(`${window.location.origin}${window.location.pathname}#projects/${pid}/doc/${did}`, copyDoc);
     return;
   }
-  const setProj = e.target.closest('[data-projects-set-project-status]');
-  if (setProj) {
-    onSetProjectStatus(setProj.dataset.projectId, setProj.dataset.projectsSetProjectStatus);
-    return;
-  }
   const delProj = e.target.closest('[data-projects-delete-project]');
   if (delProj) {
     onDeleteProject(delProj.dataset.projectsDeleteProject);
@@ -715,17 +872,19 @@ function onInboxChange(e) {
 
 // ---------- project actions ----------
 
-async function onSetProjectStatus(projectId, next) {
-  try {
-    await updateProject(projectId, { status: next });
-    onChanged();
-  } catch (e) { alert(e.message || 'อัปเดตไม่สำเร็จ'); }
-}
-
 async function onDeleteProject(projectId) {
   const p = cache.projects.find((x) => x.id === projectId);
   if (!p) return;
   if (!confirm(`ลบโครงการ "${p.name}" และหนังสือทั้งหมดในนี้? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  // Snapshot the Drive folders BEFORE the DB row is gone — once we
+  // delete, we lose `doc.drive_folder`. Use a Set to dedupe. The
+  // project's parent folder is included so we trash everything in one
+  // GAS call (cascades inside Drive).
+  const driveFolders = new Set();
+  driveFolders.add(buildProjectFolderPath(p.id, p.name));
+  for (const d of (p.documents || [])) {
+    if (d.drive_folder) driveFolders.add(d.drive_folder);
+  }
   try {
     await deleteProject(projectId);
     if (selectedProjectId === projectId) {
@@ -734,6 +893,14 @@ async function onDeleteProject(projectId) {
       history.replaceState(null, '', '#projects');
     }
     onChanged();
+    // Fire-and-forget Drive cleanup. The DB row is the source of
+    // truth; if Drive fails we log and let the 30-day Trash auto-
+    // purge handle it. Don't await — the user shouldn't wait for
+    // Drive when the row is already gone.
+    driveFolders.forEach((path) => {
+      deleteProjectFolder(path).catch((e) =>
+        console.warn('[projects] Drive folder trash failed:', path, e?.message || e));
+    });
   } catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
 }
 
@@ -872,10 +1039,20 @@ async function onDocCommentClick(btn) {
 async function onDocDeleteClick(btn) {
   const docId = btn.dataset.docId;
   if (!confirm('ลบหนังสือฉบับนี้และไฟล์แนบทั้งหมด? การกระทำนี้ย้อนกลับไม่ได้')) return;
+  // Snapshot doc's drive folder BEFORE the row is deleted.
+  const found = findDocById(docId);
+  const driveFolder = found?.doc?.drive_folder
+    || (found ? buildDocFolderPath(found.project.id, found.project.name, docId, found.doc.type_id) : null);
   try {
     await deleteDocument(docId);
     expandedDocs.delete(docId);
     onChanged();
+    if (driveFolder) {
+      // Fire-and-forget — Drive Trash is reversible for 30 days, and
+      // the DB row is already gone so the user shouldn't see an error.
+      deleteProjectFolder(driveFolder).catch((e) =>
+        console.warn('[projects] Drive folder trash failed:', driveFolder, e?.message || e));
+    }
   } catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
 }
 
