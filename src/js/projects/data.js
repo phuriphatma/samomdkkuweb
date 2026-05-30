@@ -29,7 +29,10 @@ export const DOC_STATUS_META = {
 
 export const NOTIFY_KIND_META = {
   sent:           { icon: 'bi-send',                   cls: 'is-info' },
-  resent:         { icon: 'bi-send-arrow-up-fill',     cls: 'is-warn' },
+  // bi-send-arrow-up-fill landed after 1.10.5 so it renders as empty in
+  // the offcanvas — use bi-arrow-clockwise (round-trip / redo) which has
+  // been in bootstrap-icons since 1.0 and reads cleanly as "sent again".
+  resent:         { icon: 'bi-arrow-clockwise',        cls: 'is-warn' },
   received:       { icon: 'bi-inbox',                  cls: 'is-info' },
   status:         { icon: 'bi-arrow-repeat',           cls: 'is-info' },
   returned:       { icon: 'bi-arrow-counterclockwise', cls: 'is-warn' },

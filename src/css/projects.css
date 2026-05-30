@@ -1053,7 +1053,12 @@
   font-size: 0.86rem;
   color: var(--p-text);
   margin-bottom: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
+.projects-tab .projects-comments-head::-webkit-details-marker { display: none; }
+.projects-tab details.projects-comments[open] > .projects-comments-head { margin-bottom: 8px; }
 .projects-tab .projects-comments-unread {
   display: inline-block;
   font-size: 0.72rem;

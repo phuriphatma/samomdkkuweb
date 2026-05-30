@@ -13,6 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
@@ -108,17 +109,11 @@ window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
 // Global Auth
 window.samoSignOut = samoSignOut;
 window.samoOpenProfile = openProfileModal;
-// One-tap account switch: sign out + open the sign-in modal so the
-// user is one keystroke away from re-entering credentials. Avoids
-// the standard "click avatar → ออกจากระบบ → click hamburger → click
-// เข้าสู่ระบบ" dance.
-window.samoSwitchAccount = async () => {
-  try { await samoSignOut(); } catch {}
-  const modalEl = document.getElementById('signinModal');
-  if (modalEl && window.bootstrap) {
-    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
-  }
-};
+// One-tap account switch: opens a Gmail-style chooser of saved
+// accounts when at least one is remembered, else falls through to
+// "sign out + open sign-in modal" so first-time users still get a
+// useful action.
+window.samoSwitchAccount = () => openAccountSwitcher();
 window.samoGoogleSignIn = async () => {
   try {
     await signInWithGoogle();
@@ -753,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // be notified when the session is ready.
   initAuth();
   initProfileModal();
+  mountAccountSwitch();
 
   // Global "copy to clipboard" delegate: any [data-copy] element copies
   // its data-copy value when clicked. stopPropagation prevents the

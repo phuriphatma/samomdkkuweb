@@ -233,13 +233,23 @@ export async function initAuth() {
  * the navigation happens immediately. onAuthStateChange fires when the
  * user lands back on the app.
  */
-export async function signInWithGoogle() {
+/**
+ * Kick off the Google OAuth roundtrip.
+ * @param {{ loginHint?: string }} [opts] — pass an email to skip Google's
+ *  account chooser (used by the account-switcher to jump straight to
+ *  the previously-signed-in Google account).
+ */
+export async function signInWithGoogle(opts = {}) {
+  const oauthOptions = {
+    // Land back on the current page after Google returns.
+    redirectTo: window.location.origin + window.location.pathname,
+  };
+  if (opts.loginHint) {
+    oauthOptions.queryParams = { login_hint: opts.loginHint };
+  }
   const { error } = await db.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      // Land back on the current page after Google returns.
-      redirectTo: window.location.origin + window.location.pathname,
-    },
+    options: oauthOptions,
   });
   if (error) {
     console.error('[auth] Google OAuth start failed:', error.message);

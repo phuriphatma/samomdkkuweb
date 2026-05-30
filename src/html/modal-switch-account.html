@@ -1,0 +1,24 @@
+  <!-- Multi-account chooser — listed accounts come from localStorage
+       (samo.savedAccounts). Driven by src/js/account-switch.js. -->
+  <div class="modal fade" id="samoSwitchAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold">เปลี่ยนบัญชี</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body pt-2 pb-3">
+          <p class="text-muted small mb-3">เลือกบัญชีที่จะเข้าใช้ — รหัสผ่านจะให้เบราว์เซอร์เติมให้อัตโนมัติ (หากเคยบันทึกไว้)</p>
+          <ul class="samo-account-list" id="samoAccountList"></ul>
+          <div class="samo-account-empty d-none text-center text-muted small py-3" id="samoAccountEmpty">
+            ยังไม่มีบัญชีที่บันทึกไว้
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-light w-100" id="samoAccountAddBtn">
+            <i class="bi bi-plus-lg me-1"></i> ลงชื่อเข้าสู่บัญชีอื่น
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>

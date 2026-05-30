@@ -11,6 +11,7 @@ import { uploadImageToDrive } from './uploads.js';
 
 // Auth (shared with public)
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
 
@@ -257,16 +258,9 @@ window.clearCreatorThumb = () => {
 // Window-exposed handlers used by inline onclick=""
 window.samoSignOut = samoSignOut;
 window.samoOpenProfile = openProfileModal;
-// One-tap account switch in admin: sign out + reopen the sign-in modal.
-// Particularly handy for staff who jump between dev / vp_admin /
-// uni_staff seats during testing.
-window.samoSwitchAccount = async () => {
-  try { await samoSignOut(); } catch {}
-  const modalEl = document.getElementById('signinModal');
-  if (modalEl && window.bootstrap) {
-    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
-  }
-};
+// Multi-account chooser (Gmail-style). Particularly handy for staff
+// who jump between dev / vp_admin / uni_staff seats during testing.
+window.samoSwitchAccount = () => openAccountSwitcher();
 window.samoGoogleSignIn = async () => {
   try { await signInWithGoogle(); }
   catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }
@@ -705,6 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initAuth();
   initProfileModal();
+  mountAccountSwitch();
   initShop();
   initProjects();
 

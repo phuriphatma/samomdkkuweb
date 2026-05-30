@@ -22,7 +22,6 @@ import {
   deleteDocument,
   listFiles,
   createFile,
-  supersedeFile,
   deleteFile,
 } from './api.js';
 import {
@@ -619,8 +618,11 @@ function renderDocExpand(doc, project) {
   // Build a single "revert status" dropdown so completed/in-flight docs
   // can be sent back to any earlier step. Both vp_admin and uni_staff
   // can revert — staff who closed by mistake shouldn't need a dev to
-  // re-open. The targets list excludes the current status.
-  const revertTargets = DOC_PATH_ORDER.filter((s) => s !== doc.status);
+  // re-open. Includes 'returned' as an off-path target so VPA can flag
+  // a closed/completed หนังสือ back as needing fixes without the
+  // dedicated "ส่งกลับให้แก้" button (which is only visible from
+  // certain states).
+  const revertTargets = [...DOC_PATH_ORDER, 'returned'].filter((s) => s !== doc.status);
   const revertMenu = (isVp || isUni) ? `
       <div class="dropdown d-inline-block">
         <button type="button" class="btn btn-sm btn-ghost dropdown-toggle"
@@ -662,7 +664,7 @@ function renderDocExpand(doc, project) {
 
     <div class="projects-doc-actions">
       ${(isVp && isReturned) ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-resend data-doc-id="${escHtml(doc.id)}">
-        <i class="bi bi-send-arrow-up me-1"></i>หนังสือใหม่
+        <i class="bi bi-arrow-clockwise me-1"></i>หนังสือใหม่
       </button>` : ''}
       ${(isUni && !isCompleted) ? `
         ${doc.status === 'sent' ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-status="received" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-inbox me-1"></i>รับเรื่อง</button>` : ''}
@@ -806,12 +808,17 @@ function renderCommentsList(doc, role) {
   const unreadCount = ordered.filter((c) =>
     c.role !== role && (Date.parse(c.at) || 0) > seenAt
   ).length;
+  // <details> follows the same collapse pattern as the timeline so the
+  // expanded หนังสือ stays scannable when a thread runs long. Default
+  // open when there are unread comments OR the thread is short enough
+  // that hiding it would just hide useful context (≤2 items).
+  const openByDefault = unreadCount > 0 || comments.length <= 2;
   return `
-    <div class="projects-comments">
-      <div class="projects-comments-head">
+    <details class="projects-comments" ${openByDefault ? 'open' : ''}>
+      <summary class="projects-comments-head">
         <span><i class="bi bi-chat-square-text me-1"></i>คอมเมนต์ (${comments.length})</span>
         ${unreadCount > 0 ? `<span class="projects-comments-unread">${unreadCount} ใหม่</span>` : ''}
-      </div>
+      </summary>
       <ul class="projects-comments-list">
         ${ordered.map((c) => {
           const ts = Date.parse(c.at) || 0;
@@ -828,7 +835,7 @@ function renderCommentsList(doc, role) {
           `;
         }).join('')}
       </ul>
-    </div>
+    </details>
   `;
 }
 
@@ -1035,6 +1042,7 @@ async function onDocStatusClick(btn) {
     received:    'รับเรื่องแล้ว',
     in_progress: 'เริ่มดำเนินการ',
     completed:   'เสร็จสิ้น — ปิดเรื่อง',
+    returned:    'ส่งกลับเพื่อแก้',
   })[next] || `เปลี่ยนสถานะเป็น ${next}`;
   const note = isRevert ? `ย้อนสถานะกลับเป็น "${baseNote}"` : baseNote;
   const patch = { status: next };
@@ -1045,6 +1053,8 @@ async function onDocStatusClick(btn) {
   if (next === 'completed' && !isRevert) patch.completed_at = new Date().toISOString();
   // Reverting OFF completed clears the closed-at stamp.
   if (isRevert && next !== 'completed') patch.completed_at = null;
+  // Reverting INTO returned should also clear any stale completed_at.
+  if (next === 'returned') patch.completed_at = null;
   try {
     await appendDocTimeline(docId, {
       by: user?.id || null,
@@ -1287,10 +1297,19 @@ async function onReplaceFile(e, oldFileId, docId) {
   const { doc, project } = found;
   const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
   const user = getUser();
+  // Snapshot the old file's Drive URL BEFORE deleting the DB row so we
+  // can trash it in Drive afterwards. The DB row carries the URL, and
+  // once gone we'd have to dig through Drive folder listings to find it.
+  let oldFileUrl = '';
+  try {
+    const existing = await listFiles(docId, { includeSuperseded: false });
+    const old = existing.find((x) => x.id === oldFileId);
+    if (old) oldFileUrl = old.drive_view_url || '';
+  } catch {}
   try {
     showFilesBusy(docId, 'กำลังแทนที่ไฟล์…');
     const uploaded = await uploadProjectFile(f, folder);
-    const newRow = await createFile({
+    await createFile({
       document_id: docId,
       file_name: f.name,
       drive_file_id: uploaded.fileId,
@@ -1299,7 +1318,16 @@ async function onReplaceFile(e, oldFileId, docId) {
       size_bytes: uploaded.sizeBytes,
       uploaded_by: user?.id || null,
     });
-    await supersedeFile(oldFileId, newRow.id);
+    // Replace = drop the old version entirely. The supersede/version-
+    // history pattern looked nice but the UX cost (extra row, "v2"
+    // label, "เวอร์ชันก่อนหน้า" disclosure) outweighed the audit
+    // benefit for this app. Drive Trash keeps a 30-day undo window.
+    await deleteFile(oldFileId).catch((err) =>
+      console.warn('[projects] old file DB delete failed:', err?.message || err));
+    if (oldFileUrl) {
+      deleteProjectFile(oldFileUrl).catch((err) =>
+        console.warn('[projects] old Drive file trash failed:', oldFileUrl, err?.message || err));
+    }
     await appendDocTimeline(docId, {
       by: user?.id || null,
       role: cache.role,
@@ -1309,7 +1337,7 @@ async function onReplaceFile(e, oldFileId, docId) {
     await notifyUniStaff({
       kind: 'file_replaced',
       project, document: doc,
-      body: `แทนที่ไฟล์ในหนังสือ "${doc.title}" — เวอร์ชันใหม่: ${f.name}`,
+      body: `แทนที่ไฟล์ในหนังสือ "${doc.title}" — ไฟล์ใหม่: ${f.name}`,
       subject: `[MDKKU SAMO] แทนที่ไฟล์ — ${project.name}`,
     });
     onChanged();
@@ -1326,28 +1354,21 @@ async function loadFilesForDoc(docId) {
   const wrap = document.getElementById(`projectsFilesList-${docId}`);
   if (!wrap) return;
   try {
-    const files = await listFiles(docId, { includeSuperseded: true });
+    // Replace now deletes the old row outright (no superseded_by), so
+    // we only fetch active rows. Any legacy superseded rows from
+    // before that change are intentionally hidden — they're dead UI.
+    const files = await listFiles(docId, { includeSuperseded: false });
     if (files.length === 0) {
       wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
       return;
     }
-    const supersedeFrom = new Map();
-    for (const f of files) {
-      if (f.superseded_by != null) {
-        const arr = supersedeFrom.get(f.superseded_by) || [];
-        arr.push(f);
-        supersedeFrom.set(f.superseded_by, arr);
-      }
-    }
     const role = cache.role;
     const isVp = role === 'vp_admin' || role === 'dev';
-    const active = files.filter((f) => f.superseded_by == null);
     const doc = findDocById(docId)?.doc;
     const lastActed = doc ? myLastActionTime(doc, role) : 0;
-    wrap.innerHTML = active.map((f) => {
-      const preds = supersedeFrom.get(f.id) || [];
-      const newness = fileNewnessForRole(f, preds, lastActed, role);
-      return renderFileRow(f, preds, isVp, newness);
+    wrap.innerHTML = files.map((f) => {
+      const newness = fileNewnessForRole(f, [], lastActed, role);
+      return renderFileRow(f, isVp, newness);
     }).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
   } catch (e) {
     wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
@@ -1368,18 +1389,21 @@ function myLastActionTime(doc, role) {
   return 0;
 }
 
-/** Returns 'new' | 'replaced' | null based on whether this file changed since
- *  the viewer's last action. VPA uploaded the files themselves — skip the
- *  highlight for them. */
-function fileNewnessForRole(file, predecessors, lastActed, role) {
+/** Returns 'new' | null — whether the viewer should see a "ใหม่" pill on
+ *  this file (i.e. it was uploaded after their last action on the doc).
+ *  Replace now deletes the prior version, so the file_name + uploaded_at
+ *  on the row IS the new file; there's no separate "replaced" state to
+ *  distinguish from "new". VPA always sees null because they uploaded
+ *  the file themselves. */
+function fileNewnessForRole(file, _predecessors, lastActed, role) {
   if (role === 'vp_admin') return null;
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;
   if (lastActed > 0 && uploaded <= lastActed) return null;
-  return predecessors.length > 0 ? 'replaced' : 'new';
+  return 'new';
 }
 
-function renderFileRow(f, superseded, isVp, newness) {
+function renderFileRow(f, isVp, newness) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
   const newnessCls   = newness ? `is-${newness}` : '';
@@ -1400,7 +1424,6 @@ function renderFileRow(f, superseded, isVp, newness) {
           <span>${escHtml(fmtBytes(f.size_bytes))}</span>
           <span>·</span>
           <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
-          ${superseded.length ? `<span>·</span><span class="text-warning">v${superseded.length + 1}</span>` : ''}
         </div>
       </div>
       ${isVp ? `<label class="btn btn-sm btn-ghost">
@@ -1414,18 +1437,6 @@ function renderFileRow(f, superseded, isVp, newness) {
         aria-label="ลบไฟล์" title="ลบไฟล์">
         <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">ลบ</span>
       </button>` : ''}
-      ${superseded.length ? `
-        <details class="projects-file-history">
-          <summary>เวอร์ชันก่อนหน้า (${superseded.length})</summary>
-          ${superseded.map((old) => `
-            <div class="projects-file-old">
-              <i class="bi bi-clock-history me-1"></i>
-              <a href="${safeUrl(old.drive_view_url)}" target="_blank" rel="noopener">${escHtml(old.file_name)}</a>
-              <span class="text-muted small ms-2">${escHtml(fmtDateTime(old.uploaded_at))}</span>
-            </div>
-          `).join('')}
-        </details>
-      ` : ''}
     </div>
   `;
 }

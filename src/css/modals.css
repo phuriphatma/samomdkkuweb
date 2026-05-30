@@ -24,3 +24,109 @@
   border-radius: 10px;
   margin: 10px 0;
 }
+
+/* ============================================================
+ * Multi-account switcher modal (samoSwitchAccountModal).
+ * Account list reads from localStorage `samo.savedAccounts` via
+ * src/js/account-switch.js. Header/body styling deliberately
+ * neutral (white background, no pink wash) so the chooser looks
+ * the same in the public app and the admin app.
+ * ============================================================ */
+#samoSwitchAccountModal .modal-header {
+  background-color: #fff;
+  border-bottom: 1px solid var(--ink-100, #e5e7eb);
+  border-radius: 20px 20px 0 0;
+}
+#samoSwitchAccountModal .modal-title { color: var(--ink-900, #111827); }
+
+.samo-account-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.samo-account-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.samo-account-pick {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+  min-width: 0;
+}
+.samo-account-pick:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.samo-account-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.samo-account-avatar-initials {
+  color: #374151;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.95rem;
+}
+.samo-account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.samo-account-name {
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.samo-account-sub {
+  font-size: 0.78rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.samo-account-method-pill {
+  font-size: 0.7rem;
+  background: #e5e7eb;
+  color: #374151;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.samo-account-forget {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #9ca3af;
+  border-radius: 10px;
+  padding: 0 10px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.samo-account-forget:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
