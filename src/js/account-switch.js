@@ -163,6 +163,13 @@ async function pickAccount(key) {
   if (switcher && window.bootstrap) {
     window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
   }
+  // Snapshot the current user into the saved list BEFORE sign-out.
+  // The onAuthChange subscriber would normally do this when the user
+  // first signed in, but if that fire was dropped (subscriber not yet
+  // mounted, partial profile, race with init) we'd lose them after
+  // switching away. Belt-and-braces: write now so the next chooser
+  // open still shows the previous account.
+  try { rememberAccount(getUser()); } catch {}
   try { await signOut(); } catch {}
   if (acct.method === 'google') {
     try { await signInWithGoogle({ loginHint: acct.email || undefined }); }
@@ -189,10 +196,20 @@ function openAddAccountFlow() {
   if (switcher && window.bootstrap) {
     window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
   }
+  // Same belt-and-braces save as pickAccount: write the current user
+  // into the saved list BEFORE the sign-out clears them, so the next
+  // open of the chooser still lists them under "บัญชีอื่นที่บันทึกไว้".
+  try { rememberAccount(getUser()); } catch {}
   signOut().catch(() => {});
   setTimeout(() => {
     const signinEl = document.getElementById('signinModal');
     if (signinEl && window.bootstrap) {
+      // Clear any pre-filled username from a prior switch so the form
+      // is genuinely empty for the "add another account" path.
+      const u = document.getElementById('signinLoginUsername');
+      const p = document.getElementById('signinLoginPassword');
+      if (u) u.value = '';
+      if (p) p.value = '';
       window.bootstrap.Modal.getOrCreateInstance(signinEl).show();
     }
   }, 80);

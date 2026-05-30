@@ -19,6 +19,7 @@ import {
   getDocument,
   deleteProject,
   appendDocTimeline,
+  updateDocument,
   deleteDocument,
   listFiles,
   createFile,
@@ -737,11 +738,18 @@ function renderRecentUpdateBanner(doc, role) {
       file_replaced: 'bi-arrow-repeat',
       returned:      'bi-arrow-counterclockwise',
     })[e.action] || 'bi-dot';
+    // Suppress the boilerplate "ส่งหนังสือ" note that createDocument
+    // stamps on the initial sent entry — it duplicates the label and
+    // makes the banner read "หนังสือใหม่ ส่งหนังสือ". A real user-
+    // written resend summary still shows.
+    const note = (e.action === 'sent' && (e.note || '').trim() === 'ส่งหนังสือ')
+      ? ''
+      : (e.note || '');
     return `
       <li class="projects-update-line">
         <i class="bi ${icon}"></i>
         <span class="projects-update-line-label">${escHtml(label)}</span>
-        ${e.note ? `<span class="projects-update-line-note">${escHtml(e.note)}</span>` : ''}
+        ${note ? `<span class="projects-update-line-note">${escHtml(note)}</span>` : ''}
         <span class="projects-update-line-time">${escHtml(fmtRelative(e.at))}</span>
       </li>
     `;
@@ -841,6 +849,8 @@ function renderCommentsList(doc, role) {
   // open when there are unread comments OR the thread is short enough
   // that hiding it would just hide useful context (≤2 items).
   const openByDefault = unreadCount > 0 || comments.length <= 2;
+  const user = getUser();
+  const myId = user?.id || null;
   return `
     <details class="projects-comments" ${openByDefault ? 'open' : ''}>
       <summary class="projects-comments-head">
@@ -854,12 +864,31 @@ function renderCommentsList(doc, role) {
         ${ordered.map((c) => {
           const ts = Date.parse(c.at) || 0;
           const isUnread = c.role !== role && ts > seenAt;
+          // Only the author can edit / delete their own comment.
+          // `by` carries the auth user id (see appendDocTimeline calls);
+          // fall back to role match for legacy entries that pre-date the
+          // by-id stamping. Dev accounts can manage everything.
+          const isMineComment = !!myId && (c.by === myId || role === 'dev');
+          const editedBadge = c.edited_at
+            ? `<span class="projects-comment-edited" title="${escHtml(fmtDateTime(c.edited_at))}">แก้ไขแล้ว</span>`
+            : '';
           return `
-            <li class="projects-comment ${isUnread ? 'is-unread' : ''}">
+            <li class="projects-comment ${isUnread ? 'is-unread' : ''}" data-comment-at="${escHtml(c.at)}">
               <div class="projects-comment-meta">
                 <span class="projects-tl-role ${escHtml(c.role || '')}">${escHtml(roleLabel(c.role))}</span>
                 <span class="projects-comment-time">${escHtml(fmtRelative(c.at))}</span>
+                ${editedBadge}
                 ${isUnread ? '<span class="projects-comment-new-pill">ใหม่</span>' : ''}
+                ${isMineComment ? `
+                  <span class="projects-comment-actions">
+                    <button type="button" class="projects-comment-btn" data-projects-comment-edit="${escHtml(c.at)}" data-doc-id="${escHtml(doc.id)}" aria-label="แก้ไขคอมเมนต์" title="แก้ไข">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="projects-comment-btn text-danger" data-projects-comment-delete="${escHtml(c.at)}" data-doc-id="${escHtml(doc.id)}" aria-label="ลบคอมเมนต์" title="ลบ">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </span>
+                ` : ''}
               </div>
               <div class="projects-comment-body">${escHtml(c.note || '')}</div>
             </li>
@@ -878,14 +907,28 @@ function renderTimeline(tl, doc) {
         <i class="bi bi-chevron-down projects-doc-timeline-chev" aria-hidden="true"></i>
       </summary>
       <ol>
-        ${tl.map((entry) => `
-          <li>
-            <span class="text-muted small">${escHtml(fmtDateTime(entry.at))}</span>
-            ${entry.role ? `<span class="projects-tl-role ${escHtml(entry.role)}">${escHtml(roleLabel(entry.role))}</span>` : ''}
-            <span class="projects-tl-action">${escHtml(actionLabel(entry.action, doc))}</span>
-            ${entry.note ? `<div class="projects-tl-note">${escHtml(entry.note)}</div>` : ''}
-          </li>
-        `).join('')}
+        ${tl.map((entry) => {
+          // 'sent' rows render the doc reference on a sub-line (matches
+          // the banner pattern) and suppress the boilerplate
+          // "ส่งหนังสือ" stored note — that string is a fallback from
+          // createDocument and would duplicate the action label.
+          const isSent = entry.action === 'sent';
+          const docRef = isSent && doc?.sequence_no
+            ? `หนังสือใหม่ #${doc.sequence_no}${doc.title ? ` "${doc.title}"` : ''}`
+            : '';
+          const note = (isSent && (entry.note || '').trim() === 'ส่งหนังสือ')
+            ? ''
+            : (entry.note || '');
+          return `
+            <li>
+              <span class="text-muted small">${escHtml(fmtDateTime(entry.at))}</span>
+              ${entry.role ? `<span class="projects-tl-role ${escHtml(entry.role)}">${escHtml(roleLabel(entry.role))}</span>` : ''}
+              <span class="projects-tl-action">${escHtml(actionLabel(entry.action))}</span>
+              ${docRef ? `<div class="projects-tl-note">${escHtml(docRef)}</div>` : ''}
+              ${note ? `<div class="projects-tl-note">${escHtml(note)}</div>` : ''}
+            </li>
+          `;
+        }).join('')}
       </ol>
     </details>
   `;
@@ -898,15 +941,9 @@ function roleLabel(r) {
   return r || '';
 }
 
-function actionLabel(a, doc) {
+function actionLabel(a) {
   switch (a) {
-    case 'sent': {
-      // Always quote the doc reference so a fresh-eyes reader of the
-      // timeline knows exactly which หนังสือ this row describes.
-      const seq = doc?.sequence_no ? `#${doc.sequence_no} ` : '';
-      const title = doc?.title ? ` "${doc.title}"` : '';
-      return `ส่งหนังสือใหม่ ${seq}${title}`.trim();
-    }
+    case 'sent':         return 'ส่งหนังสือใหม่';
     case 'received':     return 'รับเรื่อง';
     case 'in_progress':  return 'เริ่มดำเนินการ';
     case 'returned':     return 'ส่งกลับเพื่อแก้';
@@ -998,6 +1035,10 @@ function onInboxClick(e) {
     onDeleteFileClick(delFileBtn, docId);
     return;
   }
+  const cmtEditBtn = e.target.closest('[data-projects-comment-edit]');
+  if (cmtEditBtn) { onCommentEditClick(cmtEditBtn); return; }
+  const cmtDelBtn = e.target.closest('[data-projects-comment-delete]');
+  if (cmtDelBtn) { onCommentDeleteClick(cmtDelBtn); return; }
 }
 
 function onInboxChange(e) {
@@ -1219,6 +1260,72 @@ async function onDocCommentClick(btn) {
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
 
+// ---------- comment edit / delete (own-comment only) ----------
+
+async function onCommentEditClick(btn) {
+  const docId = btn.dataset.docId;
+  const at = btn.dataset.projectsCommentEdit;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc } = found;
+  const entry = (doc.timeline || []).find((e) => e.action === 'comment' && e.at === at);
+  if (!entry) return;
+  const user = getUser();
+  if (!user) return;
+  // Author guard, with dev override. The corresponding UI guard hides
+  // the button, but a stale render could still race so we re-check.
+  if (entry.by !== user.id && user.role !== 'dev') return;
+  const next = await openProjectPrompt({
+    title: 'แก้ไขคอมเมนต์',
+    label: 'ข้อความใหม่',
+    placeholder: 'พิมพ์ข้อความใหม่',
+    initial: entry.note || '',
+    okLabel: 'บันทึก',
+    required: true,
+  });
+  if (next == null || next === (entry.note || '').trim()) return;
+  // Build the patched timeline; everything else on the doc stays put.
+  const newTimeline = (doc.timeline || []).map((e) =>
+    (e.action === 'comment' && e.at === at)
+      ? { ...e, note: next, edited_at: new Date().toISOString() }
+      : e
+  );
+  try {
+    await updateDocument(docId, { timeline: newTimeline });
+    onChanged();
+  } catch (err) {
+    alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');
+  }
+}
+
+async function onCommentDeleteClick(btn) {
+  const docId = btn.dataset.docId;
+  const at = btn.dataset.projectsCommentDelete;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc } = found;
+  const entry = (doc.timeline || []).find((e) => e.action === 'comment' && e.at === at);
+  if (!entry) return;
+  const user = getUser();
+  if (!user) return;
+  if (entry.by !== user.id && user.role !== 'dev') return;
+  const ok = await openProjectConfirm({
+    title: 'ลบคอมเมนต์?',
+    body: 'คอมเมนต์นี้จะถูกลบออกจากประวัติของหนังสือ การกระทำนี้ย้อนกลับไม่ได้',
+    okLabel: 'ลบ',
+  });
+  if (!ok) return;
+  const newTimeline = (doc.timeline || []).filter((e) =>
+    !(e.action === 'comment' && e.at === at)
+  );
+  try {
+    await updateDocument(docId, { timeline: newTimeline });
+    onChanged();
+  } catch (err) {
+    alert(err.message || 'ลบคอมเมนต์ไม่สำเร็จ');
+  }
+}
+
 async function onDocDeleteClick(btn) {
   const docId = btn.dataset.docId;
   const ok = await openProjectConfirm({
@@ -1331,14 +1438,19 @@ async function onReplaceFile(e, oldFileId, docId) {
   const { doc, project } = found;
   const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
   const user = getUser();
-  // Snapshot the old file's Drive URL BEFORE deleting the DB row so we
-  // can trash it in Drive afterwards. The DB row carries the URL, and
-  // once gone we'd have to dig through Drive folder listings to find it.
+  // Snapshot the old file's Drive URL + filename BEFORE deleting the
+  // DB row so we can trash it in Drive afterwards and write a useful
+  // timeline note ("แทนที่ X → Y"). The DB row carries both fields,
+  // and once gone we'd have to dig through Drive folder listings.
   let oldFileUrl = '';
+  let oldFileName = '';
   try {
     const existing = await listFiles(docId, { includeSuperseded: false });
     const old = existing.find((x) => x.id === oldFileId);
-    if (old) oldFileUrl = old.drive_view_url || '';
+    if (old) {
+      oldFileUrl  = old.drive_view_url || '';
+      oldFileName = old.file_name || '';
+    }
   } catch {}
   try {
     showFilesBusy(docId, 'กำลังแทนที่ไฟล์…');
@@ -1366,7 +1478,9 @@ async function onReplaceFile(e, oldFileId, docId) {
       by: user?.id || null,
       role: cache.role,
       action: 'file_replaced',
-      note: `แทนที่ไฟล์เป็น "${f.name}"`,
+      note: oldFileName
+        ? `แทนที่ "${oldFileName}" → "${f.name}"`
+        : `แทนที่ไฟล์เป็น "${f.name}"`,
     });
     await notifyUniStaff({
       kind: 'file_replaced',
@@ -1503,18 +1617,18 @@ async function copyToClipboard(url, srcEl) {
 }
 
 /** Lightweight "copied!" feedback: swap the leading icon to a check
- *  for a moment, leaving the rest of the button (label / sizing)
- *  untouched. Replacing innerHTML caused the chip to inflate to
- *  "คัดลอกแล้ว" text on small icon-only buttons; this is calmer and
- *  works the same on desktop, iPad, and mobile. */
+ *  for a moment + add a transient tint class. We avoid replacing the
+ *  button's HTML so an icon-only chip doesn't suddenly grow text
+ *  ("คัดลอกแล้ว") and resize the surrounding row. `bi-check-lg` is
+ *  guaranteed in bootstrap-icons 1.10.5 — earlier iterations used
+ *  the -fill variants which simply rendered as empty squares. */
 function flash(el) {
   if (!el) return;
   const icon = el.querySelector('i.bi');
-  // Add a transient class for any extra styling (e.g. brief tint).
   el.classList.add('is-copied');
   if (icon) {
     const orig = icon.className;
-    icon.className = 'bi bi-check2-circle-fill';
+    icon.className = 'bi bi-check-lg';
     setTimeout(() => {
       icon.className = orig;
       el.classList.remove('is-copied');
