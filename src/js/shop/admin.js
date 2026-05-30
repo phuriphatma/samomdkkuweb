@@ -5,7 +5,7 @@
 // existing openAdminSection('shop') hook (added in main.js).
 // ==============================================
 
-import { escHtml, safeUrl } from '../utils.js';
+import { escHtml, safeUrl, orderIdChipHtml } from '../utils.js';
 import { dbRest } from '../db.js';
 import { getUser } from '../auth.js';
 import {
@@ -33,7 +33,11 @@ const state = {
   batches: [],
   settings: null,
   pickupRecords: [],
-  ordersFilter: 'all',
+  // Multi-select facet filters. Empty Set = "all" for that facet.
+  // Within a facet → OR; across facets → AND. This is the standard
+  // faceted-filter pattern (Shopify/Stripe/Linear/Notion).
+  ordersStatuses: new Set(),
+  ordersProducts: new Set(),
   ordersSearch: '',
   verifyIdx: 0,
   productEditor: null,
@@ -69,32 +73,41 @@ function ensureMounted() {
     setTab(btn.dataset.shopAdminTab);
   });
 
-  // Status filter
-  const sel = document.getElementById('shopAdminOrdersStatus');
-  if (sel) {
-    sel.innerHTML = '<option value="all">สถานะทั้งหมด</option>'
-      + Object.entries(STAGES_META).map(([k, m]) => `<option value="${k}">${escHtml(m.label)}</option>`).join('');
-    sel.addEventListener('change', () => { state.ordersFilter = sel.value; renderOrdersTable(); });
-  }
+  // Multi-select status facet — populated once from STAGES_META.
+  populateStatusFacet();
+  // Search box — searches id, buyer name, and buyer email.
   const search = document.getElementById('shopAdminOrdersSearch');
   if (search) {
     search.addEventListener('input', () => { state.ordersSearch = search.value.toLowerCase(); renderOrdersTable(); });
   }
-  // Product filter — populated dynamically when products load (see
-  // populateOrdersProductSelect). Default 'all'.
-  state.ordersProduct = state.ordersProduct || 'all';
-  const prodSel = document.getElementById('shopAdminOrdersProduct');
-  if (prodSel) {
-    prodSel.addEventListener('change', () => { state.ordersProduct = prodSel.value; renderOrdersTable(); });
-  }
-  // Filter combine mode (AND default / OR).
-  state.ordersFilterMode = state.ordersFilterMode || 'and';
-  document.querySelectorAll('input[name="shopAdminOrdersFilterMode"]').forEach((r) => {
-    r.addEventListener('change', () => {
-      if (r.checked) { state.ordersFilterMode = r.value; renderOrdersTable(); }
-    });
+  // Clear-all chip.
+  document.getElementById('shopAdminOrdersClearFilters')?.addEventListener('click', () => {
+    state.ordersStatuses.clear();
+    state.ordersProducts.clear();
+    state.ordersSearch = '';
+    const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
+    populateStatusFacet();           // re-render checks
+    populateOrdersProductSelect();   // re-render checks
+    renderOrdersTable();
   });
   document.getElementById('shopAdminOrdersRefresh')?.addEventListener('click', refreshOrders);
+  // CSV export — see exportOrdersCsv below.
+  document.getElementById('shopAdminOrdersExport')?.addEventListener('click', exportOrdersCsv);
+
+  // Open the camera scanner. On a successful scan, jump straight to the
+  // order's detail modal if it exists in the loaded list; otherwise
+  // refresh + retry (the order might be newer than the last load).
+  document.getElementById('shopAdminOrdersScan')?.addEventListener('click', async () => {
+    const { openScannerModal } = await import('./qr.js');
+    openScannerModal(async (id) => {
+      const found = state.orders.find((o) => o.id === id);
+      if (found) { openOrderModal(id); return; }
+      await refreshOrders();
+      const retry = state.orders.find((o) => o.id === id);
+      if (retry) openOrderModal(id);
+      else showShopToast(`ไม่พบคำสั่งซื้อ ${id}`, 'warn');
+    });
+  });
 
   // Orders click → modal
   document.getElementById('shopAdminOrdersTbody')?.addEventListener('click', (e) => {
@@ -172,6 +185,24 @@ export async function openShopAdmin() {
   setTab(state.tab || 'orders');
 }
 
+/** Deep-link target: open a specific order's detail modal. Used by the
+ *  /admin/?scan=<id> URL handler in admin-main.js. Lazily mounts the
+ *  admin module, switches to the orders tab, refreshes the list if the
+ *  id isn't found, then opens the modal. */
+export async function openShopAdminOrder(orderId) {
+  if (!orderId) return;
+  ensureMounted();
+  setTab('orders');
+  if (!state.orders.find((o) => o.id === orderId)) {
+    await refreshOrders();
+  }
+  if (state.orders.find((o) => o.id === orderId)) {
+    openOrderModal(orderId);
+  } else {
+    showShopToast(`ไม่พบคำสั่งซื้อ ${orderId}`, 'warn');
+  }
+}
+
 // ---------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------
@@ -195,15 +226,73 @@ async function refreshOrders() {
   }
 }
 
+function populateStatusFacet() {
+  const menu = document.getElementById('shopAdminOrdersStatusMenu');
+  if (!menu) return;
+  menu.innerHTML = Object.entries(STAGES_META).map(([k, m]) => `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0"
+             data-facet="status" value="${escHtml(k)}"
+             ${state.ordersStatuses.has(k) ? 'checked' : ''} />
+      <span class="small">${escHtml(m.label)}</span>
+    </label>
+  `).join('');
+  menu.querySelectorAll('input[data-facet="status"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersStatuses.add(cb.value);
+      else state.ordersStatuses.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
 function populateOrdersProductSelect() {
-  const sel = document.getElementById('shopAdminOrdersProduct');
-  if (!sel) return;
-  const current = sel.value || 'all';
+  const menu = document.getElementById('shopAdminOrdersProductMenu');
+  if (!menu) return;
   const products = state.products || [];
-  sel.innerHTML = '<option value="all">สินค้าทั้งหมด</option>' + products.map((p) =>
-    `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`
-  ).join('');
-  if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+  if (products.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีสินค้า</div>';
+    return;
+  }
+  menu.innerHTML = products.map((p) => `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0"
+             data-facet="product" value="${escHtml(p.id)}"
+             ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
+      <span class="small">${escHtml(p.name || p.id)}</span>
+    </label>
+  `).join('');
+  menu.querySelectorAll('input[data-facet="product"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersProducts.add(cb.value);
+      else state.ordersProducts.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+/** Sync the facet-trigger badges + the "clear all" chip with current state. */
+function updateFilterChromes() {
+  const sBadge = document.getElementById('shopAdminOrdersStatusBadge');
+  const pBadge = document.getElementById('shopAdminOrdersProductBadge');
+  const clear  = document.getElementById('shopAdminOrdersClearFilters');
+  const sN = state.ordersStatuses.size;
+  const pN = state.ordersProducts.size;
+  if (sBadge) {
+    sBadge.textContent = String(sN);
+    sBadge.classList.toggle('d-none', sN === 0);
+  }
+  if (pBadge) {
+    pBadge.textContent = String(pN);
+    pBadge.classList.toggle('d-none', pN === 0);
+  }
+  if (clear) {
+    clear.classList.toggle('d-none', sN === 0 && pN === 0 && !state.ordersSearch);
+  }
 }
 
 // (The old "bulk advance by product+status" bar was removed — its job
@@ -243,53 +332,26 @@ function renderStats() {
 function renderOrdersTable() {
   const tbody = document.getElementById('shopAdminOrdersTbody');
   if (!tbody) return;
-  // Filter predicates — each closure returns true/false for one filter.
-  // Only "active" filters (not on "ทั้งหมด" / empty) are evaluated.
-  const activePredicates = [];
-  if (state.ordersFilter && state.ordersFilter !== 'all') {
-    activePredicates.push((o) => o.status === state.ordersFilter);
-  }
-  if (state.ordersProduct && state.ordersProduct !== 'all') {
-    activePredicates.push((o) =>
-      Array.isArray(o.items) && o.items.some((it) => it.product_id === state.ordersProduct));
-  }
-  if (state.ordersSearch) {
-    const q = state.ordersSearch;
-    activePredicates.push((o) =>
-      (o.id || '').toLowerCase().includes(q)
-      || (o.buyer_label || '').toLowerCase().includes(q));
-  }
-  const mode = state.ordersFilterMode || 'and'; // 'and' (default) | 'or'
-  let list = state.orders.slice();
-  if (activePredicates.length > 0) {
-    list = list.filter((o) => mode === 'or'
-      ? activePredicates.some((p) => p(o))
-      : activePredicates.every((p) => p(o)));
-  }
+  const list = filterOrders(state.orders);
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
     return;
   }
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   tbody.innerHTML = list.map((o) => {
-    const items = Array.isArray(o.items) ? o.items : [];
-    const qty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-    const initial = (o.buyer_label || '?').slice(0, 1);
+    const buyerName  = o.buyer_name  || o.buyer_label || '—';
+    const buyerEmail = o.buyer_email || '';
     return `
       <tr class="is-clickable" data-order-id="${escHtml(o.id)}">
         <td>
-          <div class="order-id">#${escHtml(o.id)}</div>
+          <div class="order-id">${orderIdChipHtml(o.id)}</div>
           <div class="small text-muted">${fmtDate(o.placed_at)}</div>
         </td>
         <td>
-          <div class="row-customer">
-            <span class="ravatar">${escHtml(initial)}</span>
-            <div>
-              <div class="rname">${escHtml(o.buyer_label || '—')}</div>
-              <div class="rsub">${escHtml(o.buyer_id || '')}</div>
-            </div>
-          </div>
+          <div style="font-weight:600;">${escHtml(buyerName)}</div>
+          ${buyerEmail ? `<div class="small text-muted">${escHtml(buyerEmail)}</div>` : ''}
         </td>
-        <td><span class="small text-muted">${items.length} sku · ${qty} ชิ้น</span></td>
+        <td><div class="small">${itemsSummary(o, productMap)}</div></td>
         <td><span style="font-weight:700;">฿${thb(o.total)}</span></td>
         <td>
           ${o.slip_url
@@ -300,6 +362,124 @@ function renderOrdersTable() {
         <td><i class="bi bi-chevron-right"></i></td>
       </tr>`;
   }).join('');
+}
+
+/** Apply the current facet filters. Within-facet OR, across-facet AND.
+ *  Reused by the CSV export so the export honors the visible filter. */
+function filterOrders(source) {
+  const statuses = state.ordersStatuses;
+  const products = state.ordersProducts;
+  const q = (state.ordersSearch || '').trim();
+  return (source || []).filter((o) => {
+    if (statuses.size > 0 && !statuses.has(o.status)) return false;
+    if (products.size > 0) {
+      const items = Array.isArray(o.items) ? o.items : [];
+      if (!items.some((it) => products.has(it.product_id))) return false;
+    }
+    if (q) {
+      const hay = [
+        o.id || '',
+        o.buyer_name || '',
+        o.buyer_label || '',
+        o.buyer_email || '',
+      ].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------
+// CSV export — exports the CURRENTLY-FILTERED list (so the file matches
+// what the admin is looking at on screen, not the unfiltered super-set).
+// Excel-compatible: UTF-8 BOM + CRLF + RFC4180 quoting.
+// ---------------------------------------------------------------------
+
+function csvCell(v) {
+  if (v == null) return '';
+  const s = String(v);
+  // RFC4180: quote when the cell contains comma, quote, newline; double
+  // up internal quotes. Always quote so partial files still parse if
+  // the data later contains a delimiter.
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function ordersToCsv(orders, productMap) {
+  const headers = [
+    'order_id', 'placed_at', 'status',
+    'buyer_name', 'buyer_email', 'buyer_label', 'buyer_id',
+    'items', 'qty_total', 'subtotal', 'fee', 'total',
+    'slip_url', 'slip_uploaded_at',
+    'pickup_batch_id', 'pickup_location',
+    'admin_note', 'cancel_reason', 'buyer_note',
+    'updated_at',
+  ];
+  const rows = orders.map((o) => {
+    const items = Array.isArray(o.items) ? o.items : [];
+    const qty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+    // Items column = pipe-separated "<name> × <qty> (size, color) @฿unit".
+    // Keep it human-readable AND parseable by a simple split.
+    const itemsText = items.map((it) => {
+      const p = productMap.get(it.product_id);
+      const name = p?.name || it.product_id || '?';
+      const variant = [
+        it.size && it.size !== 'F' ? `ไซส์ ${it.size}` : '',
+        it.color || '',
+      ].filter(Boolean).join(', ');
+      return `${name} × ${it.qty || 0}${variant ? ` (${variant})` : ''} @฿${Number(it.unit_price) || 0}`;
+    }).join(' | ');
+    return [
+      o.id, o.placed_at, o.status,
+      o.buyer_name || '', o.buyer_email || '', o.buyer_label || '', o.buyer_id || '',
+      itemsText, qty, o.subtotal || 0, o.fee || 0, o.total || 0,
+      o.slip_url || '', o.slip_uploaded_at || '',
+      o.pickup_batch_id || '', o.pickup_location || '',
+      o.admin_note || '', o.cancel_reason || '', o.buyer_note || '',
+      o.updated_at || '',
+    ].map(csvCell).join(',');
+  });
+  // UTF-8 BOM so Excel renders Thai correctly. CRLF per RFC4180.
+  return '﻿' + [headers.join(','), ...rows].join('\r\n');
+}
+
+function exportOrdersCsv() {
+  const list = filterOrders(state.orders);
+  if (list.length === 0) {
+    showShopToast('ไม่มีรายการในตัวกรองปัจจุบัน', 'warn');
+    return;
+  }
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
+  const csv = ordersToCsv(list, productMap);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `samo-shop-orders-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showShopToast(`ส่งออก ${list.length} รายการแล้ว`, 'success');
+}
+
+/** Compact human-readable items summary for the orders table.
+ *    1 item:  "เสื้อสโม × 1"
+ *    2 items: "เสื้อสโม × 1, กางเกงสโม × 1"
+ *    3+:      "เสื้อสโม × 1 +2 อื่น (รวม 4 ชิ้น)"
+ *  Falls back to total qty if the items array is empty. */
+function itemsSummary(o, productMap) {
+  const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+  if (items.length === 0) return '<span class="text-muted">—</span>';
+  const totalQty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  const nameOf = (it) => {
+    const p = productMap.get(it.product_id);
+    return p?.name || it.product_id || '(สินค้าถูกลบ)';
+  };
+  if (items.length <= 2) {
+    return items.map((it) => `${escHtml(nameOf(it))} × ${Number(it.qty) || 0}`).join(', ');
+  }
+  const first = `${escHtml(nameOf(items[0]))} × ${Number(items[0].qty) || 0}`;
+  return `${first} <span class="text-muted">+${items.length - 1} อื่น (รวม ${totalQty} ชิ้น)</span>`;
 }
 
 function statusPillSmall(o) {
@@ -329,7 +509,7 @@ function openOrderModal(orderId) {
   modalPendingStatus = o.status; // start with current status
   const idEl = document.getElementById('shopAdminOrderModalId');
   const body = document.getElementById('shopAdminOrderModalBody');
-  if (idEl) idEl.textContent = `#${o.id}`;
+  if (idEl) idEl.textContent = String(o.id);
   if (body) body.innerHTML = orderModalBodyHtml(o);
 
   // Click a chip → stage the change. Only the Save button writes to the
@@ -386,12 +566,12 @@ function refreshModalSaveBar() {
 
 async function deleteCurrentOrder() {
   if (!modalOrder) return;
-  if (!confirm(`ลบคำสั่งซื้อ #${modalOrder.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
+  if (!confirm(`ลบคำสั่งซื้อ ${modalOrder.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
   const btn = document.getElementById('shopAdminOrderModalDelete');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
   try {
     await deleteOrder(modalOrder.id);
-    showShopToast(`ลบคำสั่งซื้อ #${modalOrder.id} แล้ว`, 'success');
+    showShopToast(`ลบคำสั่งซื้อ ${modalOrder.id} แล้ว`, 'success');
     const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
     inst?.hide();
     modalOrder = null;
@@ -410,21 +590,19 @@ function orderModalBodyHtml(o) {
   // human-readable instead of "p-shirtttest-685".
   const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
+  const buyerName  = o.buyer_name  || o.buyer_label || '—';
+  const buyerEmail = o.buyer_email || '';
   return `
     <div class="row g-3">
       <div class="col-md-7">
         <h5>ลูกค้า</h5>
-        <div class="d-flex align-items-center gap-3 p-3 bg-light rounded mb-3">
-          <span class="ravatar" style="width:44px; height:44px; font-size:.9rem;
-                background:var(--shop-100); color:var(--shop-700);
-                display:inline-flex; align-items:center; justify-content:center;
-                border-radius:50%; font-weight:600;">
-            ${escHtml((o.buyer_label || '?').slice(0, 1))}
-          </span>
-          <div>
-            <div style="font-weight:600;">${escHtml(o.buyer_label || '—')}</div>
-            <div class="small text-muted">${escHtml(o.buyer_id || '')}</div>
-          </div>
+        <div class="p-3 bg-light rounded mb-3">
+          <div style="font-weight:600;">${escHtml(buyerName)}</div>
+          ${buyerEmail ? `
+            <div class="small mt-1">
+              <i class="bi bi-envelope me-1 text-muted"></i>
+              <a href="mailto:${escHtml(buyerEmail)}" class="text-decoration-none">${escHtml(buyerEmail)}</a>
+            </div>` : '<div class="small text-muted mt-1"><i class="bi bi-envelope-slash me-1"></i>ไม่มีอีเมล</div>'}
         </div>
 
         <h5>รายการสินค้า</h5>
@@ -437,7 +615,6 @@ function orderModalBodyHtml(o) {
             <div class="flex-grow-1" style="min-width:160px;">
               <div style="font-weight:600;">${escHtml(displayName)}</div>
               <div class="small text-muted">
-                ${product?.id ? `<code class="text-muted">${escHtml(product.id)}</code> · ` : ''}
                 ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
                 ${it.color ? ` · ${escHtml(it.color)}` : ''}
               </div>
@@ -529,7 +706,7 @@ async function modalAction(nextStatus, cancelReason) {
       cancelReason,
       adminNote,
     });
-    showShopToast(`อัปเดต #${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
+    showShopToast(`อัปเดต ${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
     modalOrder = null;
     modalPendingStatus = null;
     const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
@@ -596,19 +773,23 @@ function renderVerifyQueue() {
           <h5>เปรียบเทียบยอด</h5>
           <table class="table table-sm">
             <tbody>
-              <tr><th class="text-muted" style="font-weight:500;">คำสั่งซื้อ</th><td>#${escHtml(current.id)}</td></tr>
-              <tr><th class="text-muted" style="font-weight:500;">ลูกค้า</th><td>${escHtml(current.buyer_label || '—')}</td></tr>
+              <tr><th class="text-muted" style="font-weight:500;">คำสั่งซื้อ</th><td>${escHtml(current.id)}</td></tr>
+              <tr><th class="text-muted" style="font-weight:500;">ลูกค้า</th><td>${escHtml(current.buyer_name || current.buyer_label || '—')}${current.buyer_email ? `<div class="small text-muted">${escHtml(current.buyer_email)}</div>` : ''}</td></tr>
               <tr><th class="text-muted" style="font-weight:500;">ยอดที่ต้องโอน</th><td><b>฿${thb(current.total)}</b></td></tr>
               <tr><th class="text-muted" style="font-weight:500;">เวลาส่งสลิป</th><td>${current.slip_uploaded_at ? fmtDateTime(current.slip_uploaded_at) : '—'}</td></tr>
             </tbody>
           </table>
 
           <h5 class="mt-3">รายการ</h5>
-          ${items.map((it) => `
+          ${items.map((it) => {
+            const p = (state.products || []).find((pp) => pp.id === it.product_id);
+            const name = p?.name || it.product_id || '(สินค้าถูกลบ)';
+            return `
             <div class="d-flex justify-content-between py-1 small">
-              <span>${escHtml(it.product_id)} <span class="text-muted">× ${it.qty}</span></span>
+              <span>${escHtml(name)} <span class="text-muted">× ${it.qty}</span></span>
               <span>฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</span>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
 
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-success flex-grow-1" id="shopVerifyApprove">
@@ -696,7 +877,7 @@ function filteredDeliveryOrders() {
   }
   if (q) {
     list = list.filter((o) => {
-      const hay = `${o.id} ${o.buyer_label || ''} ${o.buyer_id || ''}`.toLowerCase();
+      const hay = `${o.id} ${o.buyer_name || ''} ${o.buyer_email || ''} ${o.buyer_label || ''}`.toLowerCase();
       return hay.includes(q);
     });
   }
@@ -858,22 +1039,22 @@ function deliveryOrderCardHtml(o, recordsByItem) {
     return r && !r.issue_type;
   }).length;
   const allPicked = total > 0 && picked === total;
-  const initial = (o.buyer_label || '?').slice(0, 1);
+  const buyerName  = o.buyer_name  || o.buyer_label || '—';
+  const buyerEmail = o.buyer_email || '';
   const isDone = o.status === 'done';
 
   return `
     <div class="delivery-card ${isDone ? 'is-done-order' : ''}">
       <button type="button" class="delivery-head" data-delivery-toggle="${escHtml(o.id)}">
         <div class="d-flex align-items-center gap-3" style="min-width:0;">
-          <span class="ravatar" style="width:36px; height:36px; flex:0 0 auto;">${escHtml(initial)}</span>
           <div style="min-width:0;">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span style="font-weight:700; font-size:1rem;">${escHtml(o.buyer_label || '—')}</span>
-              <span class="order-id small">#${escHtml(o.id)}</span>
+              <span style="font-weight:700; font-size:1rem;">${escHtml(buyerName)}</span>
+              <span class="order-id small">${orderIdChipHtml(o.id)}</span>
               ${isDone ? '<span class="status-pill" data-status="done"><span class="pulse"></span><i class="bi bi-bag-check"></i> เสร็จสิ้น</span>' : ''}
             </div>
             <div class="small text-muted text-truncate">
-              ${total} ชิ้น · ${escHtml(o.buyer_id || '')}
+              ${total} ชิ้น${buyerEmail ? ` · ${escHtml(buyerEmail)}` : ''}
             </div>
           </div>
         </div>
@@ -984,7 +1165,7 @@ async function handleTick(cb) {
   const [orderId, itemIdStr] = cb.dataset.pickupTick.split('|');
   const orderItemId = Number(itemIdStr);
   const order = state.orders.find((o) => o.id === orderId);
-  const defaultRecipient = order?.buyer_label || null;
+  const defaultRecipient = order?.buyer_name || order?.buyer_label || null;
   const { recordsByItem } = deliveryDataset();
   const existing = recordsByItem.get(orderItemId);
 
@@ -1076,7 +1257,7 @@ async function inlineResolve(recordId) {
 async function finishOrderPickup(orderId) {
   try {
     await updateOrderStatus(orderId, 'done', { label: STAGES_META.done.label });
-    showShopToast(`ปิด #${orderId} แล้ว`, 'success');
+    showShopToast(`ปิด ${orderId} แล้ว`, 'success');
     refreshDelivery();
   } catch (e) {
     showShopToast(`ปิดคำสั่งซื้อไม่สำเร็จ: ${e.message || e}`, 'error');

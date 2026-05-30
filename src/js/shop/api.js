@@ -11,6 +11,7 @@
 
 import { dbRest } from '../db.js';
 import { genOrderId } from './data.js';
+import { deleteShopFile } from './uploads.js';
 
 // ---- Products ----------------------------------------------------------
 
@@ -136,6 +137,11 @@ export async function createOrder(payload) {
       id,
       buyer_id: payload.buyerId,
       buyer_label: payload.buyerLabel || null,
+      // buyer_name / buyer_email arrived in migration 0026. If the
+      // migration isn't applied yet PostgREST errors PGRST204; the
+      // retry below strips these and re-sends.
+      ...(payload.buyerName  ? { buyer_name:  payload.buyerName  } : {}),
+      ...(payload.buyerEmail ? { buyer_email: payload.buyerEmail } : {}),
       status: payload.slipUrl ? 'review' : 'pending',
       subtotal,
       fee,
@@ -150,10 +156,26 @@ export async function createOrder(payload) {
       ],
       placed_at: now,
     };
-    const { data: orderData, error: orderErr } = await dbRest(
+    let { data: orderData, error: orderErr } = await dbRest(
       '/shop_orders',
       { method: 'POST', body: orderRow, prefer: 'return=representation' },
     );
+    if (orderErr) {
+      const msg = (orderErr.message || '').toLowerCase();
+      // Migration 0026 not applied → buyer_name / buyer_email missing.
+      // Drop them and retry once so the order can still be placed.
+      if (/buyer_(name|email)/.test(msg) || /pgrst204/.test(msg)) {
+        if (!window.__samoWarnedBuyerContact) {
+          window.__samoWarnedBuyerContact = true;
+          console.warn('[shop] buyer_name/buyer_email missing — apply migration 0026 to persist checkout contact fields.');
+        }
+        const { buyer_name, buyer_email, ...slim } = orderRow;
+        ({ data: orderData, error: orderErr } = await dbRest(
+          '/shop_orders',
+          { method: 'POST', body: slim, prefer: 'return=representation' },
+        ));
+      }
+    }
     if (orderErr) {
       // Unique violation? retry with a new id.
       const msg = (orderErr.message || '').toLowerCase();
@@ -230,10 +252,23 @@ export async function updateOrderStatus(id, nextStatus, extra = {}) {
   return data[0];
 }
 
-/** Admin-only: hard-delete an order. RLS policy `shop_orders_delete_admin`
- *  from 0003 gates this to shop admins. */
+/** Admin-only: hard-delete an order, and trash the attached slip image
+ *  from Drive in the same flow. RLS policy `shop_orders_delete_admin`
+ *  from 0003 gates the row delete to shop admins.
+ *
+ *  Order of operations:
+ *    1. Fetch the order to capture slip_url (we lose it after delete).
+ *    2. DELETE the row (the authoritative state change).
+ *    3. Trash the Drive file via the GAS proxy. Best-effort — a Drive
+ *       blip here MUST NOT roll back the order delete, because the row
+ *       is already gone and re-creating it is hard. The slip file would
+ *       just orphan until manual cleanup.
+ *  Drive uses "trash" (30-day undo) instead of purge — easier to recover
+ *  if an admin deletes the wrong order. */
 export async function deleteOrder(id) {
   const idEsc = encodeURIComponent(id);
+  const existing = await getOrder(id);
+  const slipUrl = existing?.slip_url || null;
   const { data, error } = await dbRest(
     `/shop_orders?id=eq.${idEsc}`,
     { method: 'DELETE', prefer: 'return=representation' },
@@ -241,6 +276,13 @@ export async function deleteOrder(id) {
   if (error) throw new Error(error.message || 'ลบคำสั่งซื้อไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('ลบไม่สำเร็จ — ไม่พบคำสั่งซื้อหรือคุณไม่มีสิทธิ์ลบ');
+  }
+  // Fire-and-forget slip trash. Caller doesn't await it; we still log
+  // a warning if it fails so admin can spot orphans in Drive later.
+  if (slipUrl) {
+    deleteShopFile(slipUrl).then((ok) => {
+      if (!ok) console.warn('[shop/api] order', id, 'deleted but slip not trashed:', slipUrl);
+    });
   }
   return true;
 }

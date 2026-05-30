@@ -138,27 +138,50 @@
 
             <div data-shop-admin-pane="orders">
               <div id="shopAdminStats" class="admin-stats"></div>
+              <!-- Filter toolbar.
+                   Standard faceted-filter behavior — same shape Shopify
+                   / Stripe / Linear use:
+                   - within a facet (status, product), selected values OR together
+                   - across facets, AND together (status OR a OR b) AND (product OR x OR y)
+                   Each facet is a popover with a checkbox list; the
+                   trigger button shows a count badge when the facet is
+                   active. "Clear all" wipes every facet at once. -->
               <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-                <select id="shopAdminOrdersStatus" class="form-select form-select-sm" style="max-width:200px;">
-                  <option value="all">สถานะทั้งหมด</option>
-                </select>
-                <select id="shopAdminOrdersProduct" class="form-select form-select-sm" style="max-width:240px;">
-                  <option value="all">สินค้าทั้งหมด</option>
-                </select>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersStatusBtn">
+                    <i class="bi bi-flag me-1"></i> สถานะ
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersStatusBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 220px;"
+                       id="shopAdminOrdersStatusMenu"></div>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersProductBtn">
+                    <i class="bi bi-tag me-1"></i> สินค้า
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersProductBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 260px;"
+                       id="shopAdminOrdersProductMenu"></div>
+                </div>
                 <div class="input-group input-group-sm" style="max-width:260px;">
                   <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                  <input id="shopAdminOrdersSearch" class="form-control" placeholder="ค้นหารหัสคำสั่งซื้อ / ชื่อ" />
+                  <input id="shopAdminOrdersSearch" class="form-control"
+                         placeholder="ค้นหารหัส / ชื่อ / อีเมล" />
                 </div>
-                <!-- Combine filters with AND (default) or OR. OR is useful
-                     when admin wants to see "all paid OR all containing
-                     product X" in one view. -->
-                <div class="btn-group btn-group-sm" role="group" id="shopAdminOrdersFilterMode" aria-label="ตรรกะตัวกรอง">
-                  <input type="radio" class="btn-check" name="shopAdminOrdersFilterMode" id="shopAdminOrdersFilterModeAnd" value="and" checked />
-                  <label class="btn btn-outline-secondary" for="shopAdminOrdersFilterModeAnd" title="ตรงทุกตัวกรอง">ทั้งหมด (และ)</label>
-                  <input type="radio" class="btn-check" name="shopAdminOrdersFilterMode" id="shopAdminOrdersFilterModeOr" value="or" />
-                  <label class="btn btn-outline-secondary" for="shopAdminOrdersFilterModeOr" title="ตรงอย่างน้อยหนึ่งตัวกรอง">อย่างน้อยหนึ่ง (หรือ)</label>
-                </div>
+                <button class="btn btn-link btn-sm text-muted p-0 d-none" id="shopAdminOrdersClearFilters">
+                  <i class="bi bi-x-circle me-1"></i> ล้างตัวกรอง
+                </button>
                 <div class="ms-auto d-flex gap-2">
+                  <button class="btn btn-outline-secondary btn-sm" id="shopAdminOrdersScan">
+                    <i class="bi bi-qr-code-scan me-1"></i> สแกน QR
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" id="shopAdminOrdersExport">
+                    <i class="bi bi-download me-1"></i> ส่งออก CSV
+                  </button>
                   <button class="btn btn-ghost btn-sm" id="shopAdminOrdersRefresh">
                     <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
                   </button>

@@ -60,6 +60,30 @@ export async function uploadShopFile(file, folderPath, opts = {}) {
   return convertDriveUrl(result.fileUrl);
 }
 
+/** Best-effort trash of a Drive file by URL. Used when admin deletes
+ *  an order to avoid orphaning the slip image in Drive. Returns true
+ *  on success, false on failure (we don't want to block the order
+ *  delete on a Drive blip). */
+export async function deleteShopFile(fileUrl) {
+  if (!fileUrl) return true;
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteShopFile', fileUrl }),
+    });
+    const result = await res.json();
+    if (!result.success) {
+      console.warn('[shop/uploads] deleteShopFile failed:', result.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[shop/uploads] deleteShopFile failed:', e);
+    return false;
+  }
+}
+
 /** Build the monthly partition path for slip uploads. */
 export function slipFolderForNow(now = new Date()) {
   const yyyy = now.getFullYear();

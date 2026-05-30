@@ -1,0 +1,29 @@
+  <!-- Customer-facing order QR modal. Rendered into by src/js/shop/qr.js
+       showOrderQrModal(order). Encodes a deep link to the admin order
+       page so any scanner (LINE, iOS camera, Google Lens, the in-app
+       admin scanner) resolves it consistently. -->
+  <div class="modal fade" id="shopOrderQrModal" tabindex="-1" aria-labelledby="shopOrderQrLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold" id="shopOrderQrLabel">
+            <i class="bi bi-qr-code me-2" style="color: var(--brand-primary);"></i>
+            QR คำสั่งซื้อ
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center p-4 pt-2">
+          <div id="shopOrderQrImage" class="mb-3 d-flex justify-content-center align-items-center"
+               style="min-height: 220px;"></div>
+          <div class="font-mono fw-bold mb-1" id="shopOrderQrCode" style="font-size:1.1rem;
+               letter-spacing:.04em; color: var(--shop-ink-900);"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="shopOrderQrCopyBtn">
+            <i class="bi bi-clipboard me-1"></i> คัดลอกรหัส
+          </button>
+          <p class="small text-muted mt-3 mb-0">
+            แสดง QR นี้ให้ admin สแกนเมื่อมารับสินค้า
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>

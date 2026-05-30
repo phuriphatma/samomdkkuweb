@@ -5,13 +5,14 @@
 // Pickup callout + contact-fallback appear for orders in 'ready' state.
 // ==============================================
 
-import { escHtml, safeUrl } from '../utils.js';
+import { escHtml, safeUrl, orderIdChipHtml } from '../utils.js';
 import { getUser } from '../auth.js';
 import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings, setOrderSlip } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
 import { showShopToast } from './products.js';
+import { showOrderQrModal } from './qr.js';
 
 const state = {
   orders: [],
@@ -30,6 +31,17 @@ export async function mountOrdersView() {
   // Re-upload slip flow for slip_mismatch orders. Delegated to the
   // orders-list container so the handler survives every re-render.
   const list = document.getElementById('shopOrdersList');
+  // "Show QR" button → opens the customer QR modal for that order.
+  if (list && !list.dataset.qrBound) {
+    list.dataset.qrBound = '1';
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-show-qr]');
+      if (!btn) return;
+      e.preventDefault();
+      const o = state.orders.find((x) => x.id === btn.dataset.showQr);
+      if (o) showOrderQrModal(o);
+    });
+  }
   if (list && !list.dataset.reuploadBound) {
     list.dataset.reuploadBound = '1';
     list.addEventListener('click', (e) => {
@@ -155,7 +167,7 @@ function orderCardHtml(o) {
     <div class="order-card" data-status="${escHtml(o.status)}">
       <div class="order-head">
         <div class="d-flex flex-column">
-          <span class="order-id">#${escHtml(o.id)}</span>
+          <span class="order-id">${orderIdChipHtml(o.id)}</span>
           <span class="order-date">สั่งเมื่อ ${fmtDateTime(o.placed_at)}</span>
         </div>
         ${statusPillHtml(o)}
@@ -179,6 +191,10 @@ function orderCardHtml(o) {
       <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
         <div class="d-flex flex-wrap gap-3 align-items-center">
           <span class="text-muted small">${totalQty} ชิ้น</span>
+          <button type="button" class="btn btn-link p-0 small text-decoration-none"
+                  data-show-qr="${escHtml(o.id)}">
+            <i class="bi bi-qr-code me-1"></i> แสดง QR
+          </button>
           ${o.slip_url ? `
             <a href="${safeUrl(o.slip_url)}" target="_blank" rel="noreferrer" class="small text-decoration-none">
               <i class="bi bi-receipt me-1"></i> ดูสลิปที่ส่ง

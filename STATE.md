@@ -4,6 +4,8 @@ Last updated: 2026-05-30. Slim by design — answers "what is true right
 now". Past session narratives live in `git log`; architecture lives in
 `docs/CONTEXT.md`; bug post-mortems live in `.claude/rules/mistakes.md`.
 
+Build green, 45 tests pass (`npm test`).
+
 If you want history: `git log --oneline -50`.
 
 ## Branches
@@ -12,7 +14,6 @@ If you want history: `git log --oneline -50`.
   `samomdkkuweb.pages.dev`.
 - `refactor/modular` HEAD: synced to main (preview branch). Auto-deploys
   to `refactorsamomdkkuweb.pages.dev`.
-- Build green, 53 tests pass (`npm test`).
 - Working tree clean unless this file says otherwise below.
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
@@ -27,6 +28,9 @@ migration won't function until it's applied.
 | 0023_shop_product_code.sql | `<CODE>NNNN` order ids; `shop_products.code` column + backfill | ❌ pending |
 | 0024_shop_product_production_status.sql | `production_status` column + `apply_product_production_status()` RPC (cascades on product toggle) | ❌ pending |
 | 0025_shop_orders_paid_cascade.sql | BEFORE-UPDATE trigger: order INTO 'paid' auto-advances per product status | ❌ pending |
+| 0026_profile_email_and_order_contact.sql | `lookup_email_by_username` RPC (username login keeps working after a real email is verified); auth.users.email → public.users.email mirror trigger; `shop_orders.buyer_name` + `buyer_email` | ❌ pending |
+| 0027_username_case_and_has_password.sql | Case-insensitive `lookup_email_by_username`; `users.has_password` column + trigger mirror of `auth.users.encrypted_password` (reliable UI gate for "Set password" vs "Change password" — supabase-js's identity array lies for Google-only users who added a password via `updateUser({password})`) | ❌ pending |
+| 0028_users_self_update_guard.sql | **Security fix**. BEFORE-UPDATE trigger that blocks non-staff from changing `role`, `permissions`, `method`, `id`, `has_password`, or `username` (after first set) on their own profile row. Without this, any signed-in user could PATCH `/users` and self-promote to `dev` since `users_update_self` is row-level only, not column-level. | ❌ pending |
 
 Verify after applying:
 
@@ -41,22 +45,119 @@ select pg_get_functiondef('public.apply_product_production_status(text,text)'::r
 -- 0025
 select tgname from pg_trigger
   where tgrelid='public.shop_orders'::regclass and not tgisinternal;
+
+-- 0026
+select pg_get_functiondef('public.lookup_email_by_username(text)'::regprocedure);
+select column_name from information_schema.columns
+  where table_schema='public' and table_name='shop_orders'
+    and column_name in ('buyer_name','buyer_email');
+
+-- 0027 (case-insensitive lookup; has_password column + trigger)
+select column_name from information_schema.columns
+  where table_schema='public' and table_name='users' and column_name='has_password';
+select tgname from pg_trigger
+  where tgrelid='auth.users'::regclass and tgname like '%password_sync%';
+
+-- 0028 (self-update guard)
+select tgname from pg_trigger
+  where tgrelid='public.users'::regclass and tgname='users_self_update_guard';
 ```
+
+After 0028 — verify the privilege-escalation hole is closed. Sign in
+as a regular user and try via the browser console (replace `<uid>`):
+```js
+fetch(`${supabaseUrl}/rest/v1/users?id=eq.<uid>`, {
+  method: 'PATCH',
+  headers: { apikey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  body: '{"role":"dev"}'
+}).then(r => r.text()).then(console.log)
+```
+Should respond with the `users_self_update_guard` error, not a 200.
+
+## Supabase config for the profile email-add flow (0026)
+
+**Do NOT flip "Confirm email" ON.** Earlier guidance in this file got
+it backwards — see `.claude/rules/mistakes.md` "Email confirmation
+must be OFF in Supabase for synthetic emails". With confirmation ON,
+Supabase tries to email-verify the synthetic `<user>@samomdkku.app`
+address at signup, bounces, and after 3 attempts the entire project
+hits the email rate-limit and registration breaks for everyone.
+
+Keep:
+- Authentication → Providers → Email → **Confirm email: OFF**
+- Authentication → URL Configuration → Redirect URLs include both
+  `https://samomdkkuweb.pages.dev/**` and
+  `https://refactorsamomdkkuweb.pages.dev/**`.
+
+Consequence — and what the code accommodates:
+
+- `db.auth.updateUser({email})` updates `auth.users.email`
+  *immediately* without sending a verification link (because Confirm
+  email is OFF). The profile UI reflects this: the success message
+  reads "บันทึกอีเมลแล้ว" instead of "ส่งลิงก์ยืนยัน".
+- The actual proof-of-ownership step for "add email and use it to
+  sign in via Google" is the `linkIdentity` Google OAuth round-trip
+  — Supabase only links a Google identity whose OAuth email matches
+  the user's auth email. Someone who saves an email they don't own
+  cannot complete the link step.
+- For users who only need a contact email (no Google link), the
+  email is taken on trust. Acceptable for this app's threat model.
+
+If true email-verification is needed later (gap noted in TODO below),
+the path is: add a server-side OTP via Apps Script (uses Gmail
+daily quota, not Supabase's 3/hour SMTP) + a `verify_email_otp` RPC
+that admin-updates `auth.users.email`. Out of scope this round.
+
+## Identity linking — quirks worth knowing
+
+Manual linking (the API the profile modal's "เชื่อมต่อ Google" /
+"ยกเลิกการเชื่อม" use) is marked **beta** by Supabase. Behaviors that
+have bitten this codebase:
+
+- **Unlink requires ≥2 identity rows**, not just "another way in".
+  `updateUser({password})` adds a password column but doesn't
+  reliably create an `email` identity. See mistakes.md "Supabase
+  `unlinkIdentity` requires ≥2 identities" — the UI gates on both
+  `hasPassword` AND `identities.length >= 2`.
+- **Automatic linking** is enabled by default: signing in via Google
+  for the *first* time with an email that already matches an
+  existing user auto-links the new identity to that user and
+  removes any *unconfirmed* identities. Confirm-email is OFF in this
+  project, so all our identities are auto-confirmed — the removal
+  step doesn't bite. Don't flip Confirm-email ON without thinking
+  about this.
+- **SAML SSO users are excluded from linking.** Not relevant — we
+  don't use SAML.
 
 ## Active work / TODO
 
 Nothing in flight on the working tree.
 
+### Apps Script — redeploy needed
+`appscript/prform.gs` gained a new action `deleteShopFile` (used by
+admin order-delete to trash the slip image from Drive). Redeploy
+the GAS web app once: see `skills/deploy-gas.md`. Until redeployed,
+order deletion still works — but the slip files orphan in Drive.
+
 Next-session candidates (priority order):
 
-1. **Apply 0023–0025 on prod** before exercising the new shop flows in
-   anger.
-2. **Editable internal product id**: deferred. Needs a FK cascade
+1. **Apply 0023–0028 on prod**. 0028 closes a privilege-escalation
+   hole (any authenticated user could PATCH `/users` to set
+   `role='dev'`); apply it ASAP. Do NOT flip "Confirm email" ON — see
+   the "Supabase config for the profile email-add flow" section below.
+   Also enable Authentication → "Manual linking" so `linkIdentity` /
+   `unlinkIdentity` work for the profile Google-connect flow.
+2. **(Optional, when needed) True email-verification for profile-add**:
+   send a 6-digit OTP from Apps Script (uses Gmail's daily quota,
+   not Supabase's rate-limited SMTP); verify server-side; admin-update
+   `auth.users.email`. See the "Supabase config" section for the
+   gap this would close.
+3. **Editable internal product id**: deferred. Needs a FK cascade
    migration on `shop_order_items.product_id` (currently
    `on delete restrict`, no `on update cascade`).
-3. **9arm-skills install**: optional — install via
+4. **9arm-skills install**: optional — install via
    `npx skills add thananon/9arm-skills` if/when needed.
-4. **Discord nudge for VP idle tickets**: scheduled cron / Edge
+5. **Discord nudge for VP idle tickets**: scheduled cron / Edge
    Function pinging Discord when a VS ticket sits in รออุปนายก >3 days.
    Spec only, no code.
 
@@ -78,6 +179,31 @@ After Cloudflare rebuilds both pages projects:
 6. After 0024 + 0025 applied: set a product's production_status to
    announced → existing 'paid' orders cascade; newly approved 'paid'
    orders auto-advance to 'ready'.
+7. After 0026 applied + Supabase email-confirm ON: open user dropdown
+   → "จัดการบัญชี" → add a real email → click the link in inbox →
+   refresh; badge flips to "ยืนยันแล้ว". "เชื่อมต่อ Google" button
+   enables. Sign out, sign back in with username/password — it still
+   works (RPC now points to the real email). Sign in with that
+   email's Google — same account.
+8. Customer order card → "แสดง QR" → SVG QR shows. Admin → orders
+   tab → "สแกน QR" → camera opens → scan the customer's QR → admin
+   order modal opens with that order. Manual entry below the
+   viewfinder still works if camera permission is denied.
+9. iPad scanner: the camera dropdown should appear with both
+   front/back lenses; back camera selected by default; if
+   getUserMedia is refused, the "อัปโหลดรูป QR" + manual entry
+   fallbacks remain usable.
+10. Admin orders tab: facet dropdowns ("สถานะ", "สินค้า") let you
+    pick multiple values per facet (within-facet OR), badge shows
+    the count. Combining facets is AND. "ล้างตัวกรอง" wipes all at
+    once.
+11. Admin "ส่งออก CSV" downloads the currently-filtered orders
+    with Thai chars rendering correctly in Excel (UTF-8 BOM).
+12. Admin deletes an order whose slip is on Drive → the row
+    deletes immediately, the slip is moved to Drive Trash within
+    a few seconds (best-effort; check
+    https://drive.google.com/drive/trash if you don't see it).
+    Requires the GAS redeploy noted above.
 
 ## Routing — what to read for what
 

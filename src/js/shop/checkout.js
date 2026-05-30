@@ -25,6 +25,8 @@ const state = {
   slipFile: null,
   slipPreviewUrl: null,
   buyerNote: '',
+  buyerName: '',
+  buyerEmail: '',
   agree: false,
 };
 
@@ -57,6 +59,11 @@ export async function renderCheckout() {
   if (!settingsCache) {
     try { settingsCache = await getSettings(); } catch { settingsCache = null; }
   }
+  // Prefill buyer name + email from the signed-in profile on first paint —
+  // user can override in the form. We only autofill the first time state
+  // is empty to preserve typed-in changes across re-renders.
+  if (!state.buyerName)  state.buyerName  = user.name  || '';
+  if (!state.buyerEmail) state.buyerEmail = user.email || '';
   body.innerHTML = renderHtml();
   wireEvents();
 }
@@ -89,7 +96,26 @@ function renderHtml() {
   return `
     <div>
       <div class="checkout-panel mb-3">
-        <h4><span class="step-num">1</span> ตรวจสอบรายการ</h4>
+        <h4><span class="step-num">1</span> ข้อมูลผู้สั่ง</h4>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold mb-1" for="shopBuyerName">ชื่อ – นามสกุล</label>
+            <input type="text" class="form-control" id="shopBuyerName"
+                   value="${escHtml(state.buyerName)}" autocomplete="name" required maxlength="80" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold mb-1" for="shopBuyerEmail">อีเมล</label>
+            <input type="email" class="form-control" id="shopBuyerEmail"
+                   value="${escHtml(state.buyerEmail)}" autocomplete="email" required />
+          </div>
+        </div>
+        <div class="form-text small mt-2">
+          <i class="bi bi-info-circle me-1"></i>ใช้สำหรับติดต่อกลับเรื่องสลิป/วันรับสินค้า เปลี่ยนได้ตามต้องการ
+        </div>
+      </div>
+
+      <div class="checkout-panel mb-3">
+        <h4><span class="step-num">2</span> ตรวจสอบรายการ</h4>
         ${cart.map((it, i) => {
           const p = products[it.productId];
           const name = p?.name || it.productId;
@@ -115,7 +141,7 @@ function renderHtml() {
       </div>
 
       <div class="checkout-panel">
-        <h4><span class="step-num">2</span> อัปโหลดสลิปการโอน${devSkip ? ' <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : ''}</h4>
+        <h4><span class="step-num">3</span> อัปโหลดสลิปการโอน${devSkip ? ' <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : ''}</h4>
         <div id="shopSlipDrop" class="slip-drop ${state.slipFile ? 'is-filled' : ''}">
           ${state.slipFile ? `
             <i class="bi bi-check2-circle"></i>
@@ -206,6 +232,11 @@ function wireEvents() {
   const note = document.getElementById('shopCheckoutNote');
   if (note) note.addEventListener('input', () => { state.buyerNote = note.value; });
 
+  const buyerName  = document.getElementById('shopBuyerName');
+  const buyerEmail = document.getElementById('shopBuyerEmail');
+  if (buyerName)  buyerName.addEventListener('input',  () => { state.buyerName  = buyerName.value;  });
+  if (buyerEmail) buyerEmail.addEventListener('input', () => { state.buyerEmail = buyerEmail.value; });
+
   const drop = document.getElementById('shopSlipDrop');
   const file = document.getElementById('shopSlipFile');
   if (drop && file) {
@@ -259,6 +290,14 @@ async function placeOrder() {
   const user = getUser();
   if (!user) { showShopToast('กรุณาเข้าสู่ระบบก่อน', 'warn'); return; }
   const devSkip = user.role === 'dev';
+  const buyerName  = (state.buyerName  || '').trim();
+  const buyerEmail = (state.buyerEmail || '').trim().toLowerCase();
+  if (!buyerName)  { showShopToast('กรุณากรอกชื่อผู้สั่ง', 'warn');
+    document.getElementById('shopBuyerName')?.focus(); return; }
+  if (!buyerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
+    showShopToast('กรุณากรอกอีเมลให้ถูกต้อง', 'warn');
+    document.getElementById('shopBuyerEmail')?.focus(); return;
+  }
   if (!state.slipFile && !devSkip) { showShopToast('อัปโหลดสลิปก่อน', 'warn'); return; }
   if (!state.agree)   { showShopToast('กรุณายอมรับเงื่อนไข', 'warn'); return; }
   const cart = getCart();
@@ -293,7 +332,9 @@ async function placeOrder() {
     const firstProduct = cart.length > 0 ? getProductMap()[cart[0].productId] : null;
     const order = await createOrder({
       buyerId: user.id,
-      buyerLabel: user.name || user.username || user.email || '',
+      buyerLabel: buyerName || user.name || user.username || user.email || '',
+      buyerName,
+      buyerEmail,
       items: cart,
       subtotal,
       fee: 0,
@@ -308,8 +349,10 @@ async function placeOrder() {
     state.slipFile = null;
     state.slipPreviewUrl = null;
     state.buyerNote = '';
+    state.buyerName = '';
+    state.buyerEmail = '';
     state.agree = false;
-    showShopToast(`สั่งซื้อ #${order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`, 'success');
+    showShopToast(`สั่งซื้อ ${order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`, 'success');
     onAfterPlace(order);
   } catch (e) {
     console.error('[shop/checkout] placeOrder failed:', e);

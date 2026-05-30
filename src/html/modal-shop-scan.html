@@ -1,0 +1,54 @@
+  <!-- Admin QR scanner modal. Camera viewfinder via html5-qrcode; manual
+       entry below as a fallback if the camera is denied or unavailable.
+       Wired by src/js/shop/qr.js openScannerModal(). -->
+  <div class="modal fade" id="shopAdminScanModal" tabindex="-1" aria-labelledby="shopAdminScanLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="shopAdminScanLabel">
+            <i class="bi bi-qr-code-scan me-2"></i> สแกน QR คำสั่งซื้อ
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-3">
+          <div id="shopScanViewfinder"
+               style="width:100%; max-width:480px; margin:0 auto; min-height:280px;
+                      background:#000; border-radius:8px; overflow:hidden;"></div>
+
+          <!-- Camera picker for devices with multiple cameras (laptops,
+               many iPads). Hidden when only one camera is present. -->
+          <div class="mt-2 d-none" id="shopScanCameraRow">
+            <label class="form-label small fw-bold mb-1" for="shopScanCameraSelect">กล้อง</label>
+            <select id="shopScanCameraSelect" class="form-select form-select-sm"></select>
+          </div>
+
+          <div id="shopScanError" class="alert alert-warning small mt-3 d-none"></div>
+
+          <hr class="my-3" />
+
+          <!-- Fallback A: pick an image (a screenshot of the customer's
+               QR also works). Uses html5-qrcode's scanFile() — handy
+               on iPadOS where in-page camera streaming sometimes fails
+               from inside a modal even on HTTPS. -->
+          <label class="form-label small fw-bold mb-1" for="shopScanImageInput">
+            อัปโหลดรูป QR
+          </label>
+          <input type="file" class="form-control form-control-sm" id="shopScanImageInput"
+                 accept="image/*" />
+          <div class="form-text small">เลือกภาพถ่ายหรือสกรีนช็อตของ QR — ใช้ได้เมื่อกล้องเปิดไม่ได้</div>
+
+          <hr class="my-3" />
+
+          <!-- Fallback B: type the order id directly. -->
+          <label class="form-label small fw-bold mb-1" for="shopScanManualInput">
+            หรือพิมพ์รหัสคำสั่งซื้อ
+          </label>
+          <div class="input-group">
+            <input type="text" class="form-control font-mono" id="shopScanManualInput"
+                   placeholder="เช่น SH0042" autocomplete="off" />
+            <button type="button" class="btn btn-custom" id="shopScanManualGoBtn">เปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

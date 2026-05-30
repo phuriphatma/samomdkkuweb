@@ -32,6 +32,7 @@ function doPost(e) {
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
+    if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'uploadProjectFile') return handleUploadProjectFile(data);
 
     if (data.action === 'notifyPROnly') {
@@ -105,6 +106,68 @@ function handleUploadShopFile(data) {
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }
+}
+
+/**
+ * Trash a Drive file by URL. Safety-gated to files that live somewhere
+ * under "SAMO_Shop" so a stray call can't nuke unrelated Drive content.
+ * Used when admin deletes a shop order — the attached slip image should
+ * not orphan in Drive after the row is gone.
+ *
+ * Trash (vs purge): keeps a 30-day undo window in Drive. Good enough.
+ */
+function handleDeleteShopFile(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      // File already gone — treat as success so callers don't retry forever.
+      return createResponse({ success: true, alreadyGone: true });
+    }
+    if (!fileLivesUnderSamoShop_(file)) {
+      return createResponse({ success: false, message: 'file is not inside SAMO_Shop' });
+    }
+    file.setTrashed(true);
+    return createResponse({ success: true });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/** Pull a Drive file id out of a viewer/thumbnail/uc url. */
+function extractDriveId_(url) {
+  var m;
+  m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+/** Walk parent chain looking for a folder named SAMO_Shop. Drive files
+ *  can have multiple parents (shortcuts); we only need ONE ancestry
+ *  path that contains SAMO_Shop. */
+function fileLivesUnderSamoShop_(file) {
+  var stack = [];
+  var parents = file.getParents();
+  while (parents.hasNext()) stack.push(parents.next());
+  var seen = {};
+  while (stack.length) {
+    var f = stack.pop();
+    var fid = f.getId();
+    if (seen[fid]) continue;
+    seen[fid] = true;
+    if (f.getName() === 'SAMO_Shop') return true;
+    var ups = f.getParents();
+    while (ups.hasNext()) stack.push(ups.next());
+  }
+  return false;
 }
 
 /**

@@ -15,7 +15,7 @@ import { mountShopBrowse, reloadShop, setShopNavigators } from './products.js';
 import { mountShopCart, setCartNavigators, setShopCartProducts, showCartFab } from './cart.js';
 import { mountCheckout, renderCheckout, setCheckoutNavigators } from './checkout.js';
 import { mountOrdersView, renderOrdersView, refreshReadyCountBadge } from './orders.js';
-import { openShopAdmin } from './admin.js';
+import { openShopAdmin, openShopAdminOrder } from './admin.js';
 
 let view = 'shop'; // 'shop' | 'orders' | 'checkout'
 let initialised = false;
@@ -114,4 +114,4 @@ export function initShop() {
 }
 
 // Re-export so main.js can hand the admin landing-card click straight through.
-export { openShopAdmin };
+export { openShopAdmin, openShopAdminOrder };
