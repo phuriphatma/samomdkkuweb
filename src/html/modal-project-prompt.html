@@ -1,0 +1,52 @@
+  <!-- Universal prompt modal — replaces window.prompt() for project flows
+       (comment / return-reason / resend-summary). Native prompt() is unreliable
+       inside iPad's Google App webview and gets in the way on Android; this is
+       a Bootstrap modal with a textarea that works the same on every device.
+       Driven from src/js/projects/inbox.js via openProjectPrompt(). -->
+  <div class="modal fade projects-tab" id="projectPromptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="projectPromptTitle">กรอกข้อความ</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <form id="projectPromptForm" novalidate>
+          <div class="modal-body">
+            <label class="form-label small fw-bold" id="projectPromptLabel">ข้อความ</label>
+            <textarea id="projectPromptInput" class="form-control" rows="4"
+              maxlength="2000" placeholder=""></textarea>
+            <div class="form-text small text-muted" id="projectPromptHint"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal" id="projectPromptCancel">ยกเลิก</button>
+            <button type="submit" class="btn btn-success" id="projectPromptOk">
+              <i class="bi bi-check2 me-1"></i><span id="projectPromptOkLabel">บันทึก</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal confirm modal — replaces window.confirm() inside the projects
+       module so destructive actions show consistent Thai copy and a focusable
+       confirm button across iPad/Android/desktop. -->
+  <div class="modal fade projects-tab" id="projectConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="projectConfirmTitle">ยืนยัน</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0" id="projectConfirmBody">คุณแน่ใจหรือไม่?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal" id="projectConfirmCancel">ยกเลิก</button>
+          <button type="button" class="btn btn-danger" id="projectConfirmOk">
+            <i class="bi bi-check2 me-1"></i><span id="projectConfirmOkLabel">ยืนยัน</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>

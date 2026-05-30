@@ -108,6 +108,17 @@ window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
 // Global Auth
 window.samoSignOut = samoSignOut;
 window.samoOpenProfile = openProfileModal;
+// One-tap account switch: sign out + open the sign-in modal so the
+// user is one keystroke away from re-entering credentials. Avoids
+// the standard "click avatar → ออกจากระบบ → click hamburger → click
+// เข้าสู่ระบบ" dance.
+window.samoSwitchAccount = async () => {
+  try { await samoSignOut(); } catch {}
+  const modalEl = document.getElementById('signinModal');
+  if (modalEl && window.bootstrap) {
+    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+};
 window.samoGoogleSignIn = async () => {
   try {
     await signInWithGoogle();

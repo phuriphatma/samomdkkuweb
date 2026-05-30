@@ -23,6 +23,7 @@ import {
   listFiles,
   createFile,
   supersedeFile,
+  deleteFile,
 } from './api.js';
 import {
   DOC_STATUS_META,
@@ -34,8 +35,9 @@ import {
   buildDocFolderPath,
   buildProjectFolderPath,
 } from './data.js';
-import { uploadProjectFile, deleteProjectFolder } from './uploads.js';
+import { uploadProjectFile, deleteProjectFolder, deleteProjectFile } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin } from './notify.js';
+import { openProjectPrompt, openProjectConfirm } from './ui-prompt.js';
 
 // ---------- module state ----------
 
@@ -91,7 +93,7 @@ function isMine(doc, role) {
 function projectBucket(p, role) {
   const docs = p.documents || [];
   if (docs.length === 0) return 'empty';
-  const active = docs.filter((d) => !['completed', 'cancelled'].includes(d.status));
+  const active = docs.filter((d) => d.status !== 'completed');
   if (active.length === 0) return 'done';
   const hasMine = active.some((d) => isMine(d, role));
   if (hasMine) return 'mine';
@@ -262,6 +264,7 @@ export async function openDocumentDetail(documentId) {
   selectedProjectId = found.project.id;
   level = 'detail';
   expandedDocs.add(documentId);
+  markCommentsSeen(documentId);
   scrollDocId = documentId;
   render();
 }
@@ -565,8 +568,13 @@ function renderDocCard(doc, project) {
   const m = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
   const isOpen = expandedDocs.has(doc.id);
-  const mineDot = isMine(doc, cache.role) ? '<span class="projects-row-mine-dot" title="ของฉัน"></span>' : '';
-  const hasUpdate = shouldShowUpdateBanner(doc, cache.role);
+  // Dot signals "needs your first action" — narrower than isMine() which
+  // includes received/in_progress (still your responsibility but no longer
+  // demanding immediate acknowledgement). Once uni_staff has clicked
+  // รับเรื่อง the doc is "in motion" and the dot should clear.
+  const needsAck = shouldShowUpdateBanner(doc, cache.role);
+  const mineDot = needsAck ? '<span class="projects-row-mine-dot" title="ต้องดำเนินการ"></span>' : '';
+  const hasUpdate = needsAck;
   const updateBadge = hasUpdate
     ? `<span class="projects-doc-update-pill"><i class="bi bi-bell-fill me-1"></i>อัปเดต</span>`
     : '';
@@ -602,24 +610,45 @@ function renderDocCard(doc, project) {
 function renderDocExpand(doc, project) {
   const stepIndex = DOC_PATH_ORDER.indexOf(doc.status);
   const isReturned  = doc.status === 'returned';
-  const isCancelled = doc.status === 'cancelled';
   const isCompleted = doc.status === 'completed';
   const role = cache.role;
   const isVp  = role === 'vp_admin' || role === 'dev';
   const isUni = role === 'uni_staff' || role === 'dev';
   const tlSorted = (doc.timeline || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
 
+  // Build a single "revert status" dropdown so completed/in-flight docs
+  // can be sent back to any earlier step. Both vp_admin and uni_staff
+  // can revert — staff who closed by mistake shouldn't need a dev to
+  // re-open. The targets list excludes the current status.
+  const revertTargets = DOC_PATH_ORDER.filter((s) => s !== doc.status);
+  const revertMenu = (isVp || isUni) ? `
+      <div class="dropdown d-inline-block">
+        <button type="button" class="btn btn-sm btn-ghost dropdown-toggle"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>ย้อนสถานะ
+        </button>
+        <ul class="dropdown-menu">
+          ${revertTargets.map((s) => {
+            const meta = DOC_STATUS_META[s];
+            return `<li><button type="button" class="dropdown-item"
+                       data-projects-doc-status="${s}" data-doc-id="${escHtml(doc.id)}" data-revert="1">
+                       <i class="bi ${meta.icon} me-2"></i>${escHtml(meta.label)}
+                     </button></li>`;
+          }).join('')}
+        </ul>
+      </div>` : '';
+
   return `
     ${renderRecentUpdateBanner(doc, role)}
 
-    ${renderProgressBar(stepIndex, isReturned, isCancelled)}
+    ${renderProgressBar(stepIndex, isReturned)}
 
     ${doc.note ? `<div class="projects-doc-note"><i class="bi bi-chat-square-quote me-1"></i>${escHtml(doc.note)}</div>` : ''}
 
     <div class="projects-doc-files" data-projects-files-for="${escHtml(doc.id)}">
       <div class="projects-files-head">
         <span><i class="bi bi-paperclip me-1"></i>ไฟล์แนบ</span>
-        ${(isVp && !isCancelled) ? `<label class="btn btn-sm btn-primary-soft">
+        ${isVp ? `<label class="btn btn-sm btn-primary-soft">
           <i class="bi bi-cloud-upload me-1"></i>เพิ่มไฟล์
           <input type="file" hidden multiple data-projects-add-files="${escHtml(doc.id)}" />
         </label>` : ''}
@@ -629,30 +658,27 @@ function renderDocExpand(doc, project) {
       </div>
     </div>
 
+    ${renderCommentsList(doc, role)}
+
     <div class="projects-doc-actions">
       ${(isVp && isReturned) ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-resend data-doc-id="${escHtml(doc.id)}">
-        <i class="bi bi-send-arrow-up me-1"></i>ส่งใหม่อีกครั้ง
+        <i class="bi bi-send-arrow-up me-1"></i>หนังสือใหม่
       </button>` : ''}
-      ${(isUni && !isCompleted && !isCancelled) ? `
+      ${(isUni && !isCompleted) ? `
         ${doc.status === 'sent' ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-status="received" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-inbox me-1"></i>รับเรื่อง</button>` : ''}
         ${(['received','sent'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-warning-soft" data-projects-doc-status="in_progress" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-repeat me-1"></i>กำลังดำเนินการ</button>` : ''}
         ${(['sent','received','in_progress','returned'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-success-soft" data-projects-doc-status="completed" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-check-circle me-1"></i>เสร็จสิ้น</button>` : ''}
         ${(['sent','received','in_progress'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-danger-soft" data-projects-doc-return data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-counterclockwise me-1"></i>ส่งกลับให้แก้</button>` : ''}
       ` : ''}
-      ${(isVp && !isCancelled) ? `
-        <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
-        ${(['draft','sent','returned'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-status="cancelled" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-slash-circle me-1"></i>ยกเลิก/ถอน</button>` : ''}
-        <button type="button" class="btn btn-sm btn-ghost text-danger" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>
-      ` : ''}
-      ${(isUni && !isVp) ? `
-        <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
-      ` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
+      ${revertMenu}
+      ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
       <button type="button" class="btn btn-sm btn-ghost ms-auto" data-projects-copy-doc="${escHtml(doc.id)}" data-project-id="${escHtml(project.id)}">
         <i class="bi bi-link-45deg me-1"></i>คัดลอกลิงก์
       </button>
     </div>
 
-    ${tlSorted.length ? renderTimeline(tlSorted) : ''}
+    ${tlSorted.length ? renderTimeline(tlSorted, doc) : ''}
   `;
 }
 
@@ -727,9 +753,9 @@ function renderRecentUpdateBanner(doc, role) {
   `;
 }
 
-function renderProgressBar(stepIndex, isReturned, isCancelled) {
+function renderProgressBar(stepIndex, isReturned) {
   const steps = ['ส่งแล้ว', 'รับเรื่อง', 'ดำเนินการ', 'เสร็จสิ้น'];
-  const wrapCls = isCancelled ? 'is-cancel-overlay' : (isReturned ? 'is-returned-overlay' : '');
+  const wrapCls = isReturned ? 'is-returned-overlay' : '';
   const visualIdx = isReturned ? 0 : stepIndex;
   return `
     <div class="projects-progress ${wrapCls}">
@@ -740,12 +766,73 @@ function renderProgressBar(stepIndex, isReturned, isCancelled) {
           ${i === 0 && isReturned ? '<div class="projects-step-overlay"><i class="bi bi-arrow-counterclockwise"></i> ตีกลับ</div>' : ''}
         </div>
       `).join('<div class="projects-step-bar"></div>')}
-      ${isCancelled ? '<div class="projects-progress-cancel"><i class="bi bi-x-circle me-1"></i>ถูกยกเลิก</div>' : ''}
     </div>
   `;
 }
 
-function renderTimeline(tl) {
+// ---------- comments list (Slack/Linear-style inline thread) ----------
+
+const COMMENTS_SEEN_KEY = 'projects.commentsSeenAt';
+
+/** Read the per-doc "last opened" timestamp out of localStorage. Returns 0
+ *  if missing or unparseable. */
+function getCommentsSeenAt(docId) {
+  try {
+    const raw = localStorage.getItem(COMMENTS_SEEN_KEY);
+    if (!raw) return 0;
+    const map = JSON.parse(raw);
+    const v = map?.[docId];
+    return v ? Date.parse(v) || 0 : 0;
+  } catch { return 0; }
+}
+
+/** Persist that the user opened a doc just now — comments older than this
+ *  should not flash as "new" any more. */
+function markCommentsSeen(docId) {
+  try {
+    const raw = localStorage.getItem(COMMENTS_SEEN_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[docId] = new Date().toISOString();
+    localStorage.setItem(COMMENTS_SEEN_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+function renderCommentsList(doc, role) {
+  const comments = (doc.timeline || []).filter((e) => e.action === 'comment');
+  if (comments.length === 0) return '';
+  const seenAt = getCommentsSeenAt(doc.id);
+  // Sort oldest-first like a chat thread so newest sits at the bottom.
+  const ordered = comments.slice().sort((a, b) => new Date(a.at) - new Date(b.at));
+  const unreadCount = ordered.filter((c) =>
+    c.role !== role && (Date.parse(c.at) || 0) > seenAt
+  ).length;
+  return `
+    <div class="projects-comments">
+      <div class="projects-comments-head">
+        <span><i class="bi bi-chat-square-text me-1"></i>คอมเมนต์ (${comments.length})</span>
+        ${unreadCount > 0 ? `<span class="projects-comments-unread">${unreadCount} ใหม่</span>` : ''}
+      </div>
+      <ul class="projects-comments-list">
+        ${ordered.map((c) => {
+          const ts = Date.parse(c.at) || 0;
+          const isUnread = c.role !== role && ts > seenAt;
+          return `
+            <li class="projects-comment ${isUnread ? 'is-unread' : ''}">
+              <div class="projects-comment-meta">
+                <span class="projects-tl-role ${escHtml(c.role || '')}">${escHtml(roleLabel(c.role))}</span>
+                <span class="projects-comment-time">${escHtml(fmtRelative(c.at))}</span>
+                ${isUnread ? '<span class="projects-comment-new-pill">ใหม่</span>' : ''}
+              </div>
+              <div class="projects-comment-body">${escHtml(c.note || '')}</div>
+            </li>
+          `;
+        }).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+function renderTimeline(tl, doc) {
   return `
     <details class="projects-doc-timeline" ${tl.length <= 2 ? 'open' : ''}>
       <summary>ประวัติการดำเนินการ (${tl.length})</summary>
@@ -754,7 +841,7 @@ function renderTimeline(tl) {
           <li>
             <span class="text-muted small">${escHtml(fmtDateTime(entry.at))}</span>
             ${entry.role ? `<span class="projects-tl-role ${escHtml(entry.role)}">${escHtml(roleLabel(entry.role))}</span>` : ''}
-            <span class="projects-tl-action">${escHtml(actionLabel(entry.action))}</span>
+            <span class="projects-tl-action">${escHtml(actionLabel(entry.action, doc))}</span>
             ${entry.note ? `<div class="projects-tl-note">${escHtml(entry.note)}</div>` : ''}
           </li>
         `).join('')}
@@ -770,17 +857,23 @@ function roleLabel(r) {
   return r || '';
 }
 
-function actionLabel(a) {
+function actionLabel(a, doc) {
   switch (a) {
-    case 'sent':         return 'ส่งหนังสือ';
+    case 'sent': {
+      // Always quote the doc reference so a fresh-eyes reader of the
+      // timeline knows exactly which หนังสือ this row describes.
+      const seq = doc?.sequence_no ? `#${doc.sequence_no} ` : '';
+      const title = doc?.title ? ` "${doc.title}"` : '';
+      return `ส่งหนังสือใหม่ ${seq}${title}`.trim();
+    }
     case 'received':     return 'รับเรื่อง';
     case 'in_progress':  return 'เริ่มดำเนินการ';
     case 'returned':     return 'ส่งกลับเพื่อแก้';
     case 'completed':    return 'ปิดเรื่อง';
-    case 'cancelled':    return 'ยกเลิก';
     case 'comment':      return 'คอมเมนต์';
     case 'file_added':   return 'เพิ่มไฟล์';
     case 'file_replaced':return 'แทนที่ไฟล์';
+    case 'file_deleted': return 'ลบไฟล์';
     case 'draft':        return 'บันทึกร่าง';
     default:             return a || '';
   }
@@ -804,7 +897,7 @@ function onInboxClick(e) {
   if (docToggle && !e.target.closest('button, a, input, label, .dropdown-menu')) {
     const id = docToggle.dataset.projectsDocToggle;
     if (expandedDocs.has(id)) expandedDocs.delete(id);
-    else expandedDocs.add(id);
+    else { expandedDocs.add(id); markCommentsSeen(id); }
     render();
     return;
   }
@@ -816,7 +909,7 @@ function onInboxClick(e) {
     if (card) {
       const id = card.dataset.projectsDocId;
       if (expandedDocs.has(id)) expandedDocs.delete(id);
-      else expandedDocs.add(id);
+      else { expandedDocs.add(id); markCommentsSeen(id); }
       render();
     }
     return;
@@ -858,6 +951,12 @@ function onInboxClick(e) {
   if (cmtBtn) { onDocCommentClick(cmtBtn); return; }
   const delBtn = e.target.closest('[data-projects-doc-delete]');
   if (delBtn) { onDocDeleteClick(delBtn); return; }
+  const delFileBtn = e.target.closest('[data-projects-delete-file]');
+  if (delFileBtn) {
+    const docId = delFileBtn.closest('[data-projects-files-for]')?.dataset.projectsFilesFor;
+    onDeleteFileClick(delFileBtn, docId);
+    return;
+  }
 }
 
 function onInboxChange(e) {
@@ -875,7 +974,12 @@ function onInboxChange(e) {
 async function onDeleteProject(projectId) {
   const p = cache.projects.find((x) => x.id === projectId);
   if (!p) return;
-  if (!confirm(`ลบโครงการ "${p.name}" และหนังสือทั้งหมดในนี้? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  const ok = await openProjectConfirm({
+    title: 'ลบโครงการ?',
+    body: `โครงการ "${p.name}" และหนังสือทั้งหมดในนี้จะถูกลบ การกระทำนี้ย้อนกลับไม่ได้`,
+    okLabel: 'ลบโครงการ',
+  });
+  if (!ok) return;
   // Snapshot the Drive folders BEFORE the DB row is gone — once we
   // delete, we lose `doc.drive_folder`. Use a Set to dedupe. The
   // project's parent folder is included so we trash everything in one
@@ -917,21 +1021,30 @@ function findDocById(docId) {
 async function onDocStatusClick(btn) {
   const docId = btn.dataset.docId;
   const next  = btn.dataset.projectsDocStatus;
+  const isRevert = btn.dataset.revert === '1';
   const found = findDocById(docId);
   if (!found) return;
   const { project } = found;
   const user = getUser();
   const role = cache.role;
-  const note = ({
+  // Reverts get an explicit "ย้อนสถานะ" prefix so the timeline doesn't
+  // read like a normal forward action — important when an in-flight
+  // หนังสือ is rolled back from completed/in_progress to an earlier step.
+  const baseNote = ({
+    sent:        'ส่งหนังสือ',
     received:    'รับเรื่องแล้ว',
     in_progress: 'เริ่มดำเนินการ',
     completed:   'เสร็จสิ้น — ปิดเรื่อง',
-    cancelled:   'ยกเลิก / ถอนหนังสือ',
   })[next] || `เปลี่ยนสถานะเป็น ${next}`;
+  const note = isRevert ? `ย้อนสถานะกลับเป็น "${baseNote}"` : baseNote;
   const patch = { status: next };
-  if (next === 'received')  patch.received_at  = new Date().toISOString();
-  if (next === 'completed') patch.completed_at = new Date().toISOString();
-  if (next === 'cancelled') patch.completed_at = null;
+  // Stamp received_at on the forward path only; on revert we leave the
+  // historical timestamps alone so the audit trail in `timeline` is the
+  // single source of truth for "when did this happen".
+  if (next === 'received'  && !isRevert) patch.received_at  = new Date().toISOString();
+  if (next === 'completed' && !isRevert) patch.completed_at = new Date().toISOString();
+  // Reverting OFF completed clears the closed-at stamp.
+  if (isRevert && next !== 'completed') patch.completed_at = null;
   try {
     await appendDocTimeline(docId, {
       by: user?.id || null,
@@ -940,18 +1053,21 @@ async function onDocStatusClick(btn) {
       note,
     }, patch);
     const doc = await getDocument(docId).catch(() => null);
+    const docRef = doc
+      ? `(หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}")`
+      : '';
     if (role === 'uni_staff') {
       await notifyVpAdmin({
         kind: next === 'completed' ? 'completed' : 'status',
         project, document: doc,
-        body: `${note} (หนังสือ ${doc?.sequence_no || ''} · ${doc?.title || ''})`,
+        body: `${note} ${docRef}`.trim(),
       });
-    } else if (role === 'vp_admin' && next === 'cancelled') {
+    } else if (role === 'vp_admin' && isRevert) {
       await notifyUniStaff({
         kind: 'status',
         project, document: doc,
-        body: `VP ยกเลิกหนังสือ: ${doc?.title || ''}`,
-        subject: `[MDKKU SAMO] ยกเลิกหนังสือ — ${project.name}`,
+        body: `SAMO ${note} ${docRef}`.trim(),
+        subject: `[MDKKU SAMO] ย้อนสถานะหนังสือ — ${project.name}`,
       });
     }
     onChanged();
@@ -962,22 +1078,29 @@ async function onDocReturnClick(btn) {
   const docId = btn.dataset.docId;
   const found = findDocById(docId);
   if (!found) return;
-  const { project } = found;
-  const reason = prompt('เหตุผลที่ส่งกลับให้ SAMO แก้ไข:');
-  if (!reason || !reason.trim()) return;
+  const { project, doc: docCached } = found;
+  const reason = await openProjectPrompt({
+    title: 'ส่งกลับให้ SAMO แก้ไข',
+    label: 'เหตุผลที่ส่งกลับ',
+    placeholder: 'อธิบายสั้นๆ ว่าต้องการให้แก้ส่วนใด',
+    okLabel: 'ส่งกลับ',
+    required: true,
+  });
+  if (!reason) return;
   const user = getUser();
   try {
     await appendDocTimeline(docId, {
       by: user?.id || null,
       role: cache.role,
       action: 'returned',
-      note: reason.trim(),
-    }, { status: 'returned', return_reason: reason.trim() });
+      note: reason,
+    }, { status: 'returned', return_reason: reason });
     const doc = await getDocument(docId).catch(() => null);
+    const docRef = `#${docCached.sequence_no || ''} "${docCached.title || ''}"`;
     await notifyVpAdmin({
       kind: 'returned',
       project, document: doc,
-      body: `ส่งกลับเพื่อแก้ไข: ${reason.trim()}`,
+      body: `ส่งกลับเพื่อแก้ไข ${docRef}: ${reason}`,
       title: `ส่งกลับ — ${doc?.title || ''}`,
     });
     onChanged();
@@ -988,10 +1111,15 @@ async function onDocResendClick(btn) {
   const docId = btn.dataset.docId;
   const found = findDocById(docId);
   if (!found) return;
-  const { project } = found;
-  const summary = prompt('สรุปสิ่งที่แก้ไข / เปลี่ยนแปลง (เพื่อแจ้งให้เจ้าหน้าที่ทราบ):');
-  if (summary === null) return;   // user cancelled
-  const note = summary.trim() || 'ส่งใหม่หลังตีกลับ (ไม่ได้ระบุการเปลี่ยนแปลง)';
+  const { project, doc: docCached } = found;
+  const summary = await openProjectPrompt({
+    title: 'หนังสือใหม่ (หลังแก้ไข)',
+    label: 'สรุปสิ่งที่แก้ไข / เปลี่ยนแปลง',
+    placeholder: 'แจ้งเจ้าหน้าที่ว่าแก้ส่วนใดไปบ้าง',
+    okLabel: 'ส่งใหม่',
+  });
+  if (summary === null) return;   // cancelled
+  const note = summary || 'ส่งใหม่หลังตีกลับ (ไม่ได้ระบุการเปลี่ยนแปลง)';
   const user = getUser();
   try {
     await appendDocTimeline(docId, {
@@ -1001,11 +1129,12 @@ async function onDocResendClick(btn) {
       note,
     }, { status: 'sent', return_reason: null });
     const doc = await getDocument(docId).catch(() => null);
+    const docRef = `#${docCached.sequence_no || ''} "${docCached.title || ''}"`;
     await notifyUniStaff({
       kind: 'resent',
       project, document: doc,
-      body: `SAMO ส่งหนังสือใหม่อีกครั้ง: ${note}`,
-      subject: `[MDKKU SAMO] ส่งใหม่ — ${project.name}`,
+      body: `หนังสือใหม่ ${docRef}: ${note}`,
+      subject: `[MDKKU SAMO] หนังสือใหม่ — ${project.name}`,
     });
     onChanged();
   } catch (e) { alert(e.message || 'ส่งใหม่ไม่สำเร็จ'); }
@@ -1015,30 +1144,45 @@ async function onDocCommentClick(btn) {
   const docId = btn.dataset.docId;
   const found = findDocById(docId);
   if (!found) return;
-  const { project } = found;
-  const text = prompt('คอมเมนต์ / โน้ตเพิ่มเติม:');
-  if (!text || !text.trim()) return;
+  const { project, doc: docCached } = found;
+  const text = await openProjectPrompt({
+    title: 'คอมเมนต์',
+    label: 'ข้อความคอมเมนต์',
+    placeholder: 'พิมพ์คอมเมนต์ / โน้ตเพิ่มเติม',
+    okLabel: 'ส่งคอมเมนต์',
+    required: true,
+  });
+  if (!text) return;
   const user = getUser();
   try {
     await appendDocTimeline(docId, {
       by: user?.id || null,
       role: cache.role,
       action: 'comment',
-      note: text.trim(),
+      note: text,
     });
     const doc = await getDocument(docId).catch(() => null);
+    const docRef = `หนังสือ #${docCached.sequence_no || ''} "${docCached.title || ''}"`;
+    const body = `${docRef}\nคอมเมนต์ใหม่: ${text}`;
     if (cache.role === 'uni_staff') {
-      await notifyVpAdmin({ kind: 'comment', project, document: doc, body: text.trim(), title: `คอมเมนต์ใหม่ — ${doc?.title || ''}` });
+      await notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ใหม่ — ${doc?.title || ''}` });
     } else {
-      await notifyUniStaff({ kind: 'comment', project, document: doc, body: text.trim(), subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` });
+      await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` });
     }
+    // The author has obviously "seen" their own comment.
+    markCommentsSeen(docId);
     onChanged();
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
 
 async function onDocDeleteClick(btn) {
   const docId = btn.dataset.docId;
-  if (!confirm('ลบหนังสือฉบับนี้และไฟล์แนบทั้งหมด? การกระทำนี้ย้อนกลับไม่ได้')) return;
+  const ok = await openProjectConfirm({
+    title: 'ลบหนังสือฉบับนี้?',
+    body: 'หนังสือและไฟล์แนบทั้งหมดจะถูกลบ การกระทำนี้ย้อนกลับไม่ได้',
+    okLabel: 'ลบ',
+  });
+  if (!ok) return;
   // Snapshot doc's drive folder BEFORE the row is deleted.
   const found = findDocById(docId);
   const driveFolder = found?.doc?.drive_folder
@@ -1096,6 +1240,41 @@ async function onDocAddFiles(e, docId) {
     alert(err.message || 'อัปโหลดไม่สำเร็จ');
   } finally {
     input.value = '';
+  }
+}
+
+async function onDeleteFileClick(btn, docId) {
+  if (!docId) return;
+  const fileId   = btn.dataset.projectsDeleteFile;
+  const fileName = btn.dataset.fileName || 'ไฟล์นี้';
+  const fileUrl  = btn.dataset.fileUrl  || '';
+  const ok = await openProjectConfirm({
+    title: 'ลบไฟล์แนบ?',
+    body: `ลบไฟล์ "${fileName}" ออกจากหนังสือฉบับนี้? การกระทำนี้ย้อนกลับไม่ได้ (ไฟล์ใน Drive จะถูกย้ายไปถังขยะ)`,
+    okLabel: 'ลบไฟล์',
+  });
+  if (!ok) return;
+  const user = getUser();
+  try {
+    showFilesBusy(docId, 'กำลังลบไฟล์…');
+    await deleteFile(fileId);
+    // Best-effort Drive trash; the DB row is the source of truth so a
+    // Drive failure shouldn't block the UI.
+    if (fileUrl) {
+      deleteProjectFile(fileUrl).catch((e) =>
+        console.warn('[projects] Drive file trash failed:', fileUrl, e?.message || e));
+    }
+    await appendDocTimeline(docId, {
+      by: user?.id || null,
+      role: cache.role,
+      action: 'file_deleted',
+      note: `ลบไฟล์ "${fileName}"`,
+    });
+    onChanged();
+  } catch (err) {
+    alert(err.message || 'ลบไฟล์ไม่สำเร็จ');
+    // Refresh the file list to clear the busy state.
+    loadFilesForDoc(docId);
   }
 }
 
@@ -1227,7 +1406,14 @@ function renderFileRow(f, superseded, isVp, newness) {
       ${isVp ? `<label class="btn btn-sm btn-ghost">
         <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
         <input type="file" hidden data-replace-for-file="${f.id}" />
-      </label>` : ''}
+      </label>
+      <button type="button" class="btn btn-sm btn-ghost text-danger"
+        data-projects-delete-file="${escHtml(f.id)}"
+        data-file-name="${escHtml(f.file_name || '')}"
+        data-file-url="${safeUrl(f.drive_view_url || '')}"
+        aria-label="ลบไฟล์" title="ลบไฟล์">
+        <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">ลบ</span>
+      </button>` : ''}
       ${superseded.length ? `
         <details class="projects-file-history">
           <summary>เวอร์ชันก่อนหน้า (${superseded.length})</summary>

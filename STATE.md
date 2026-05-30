@@ -134,10 +134,14 @@ have bitten this codebase:
 Nothing in flight on the working tree.
 
 ### Apps Script — redeploy needed
-`appscript/prform.gs` gained a new action `deleteShopFile` (used by
-admin order-delete to trash the slip image from Drive). Redeploy
-the GAS web app once: see `skills/deploy-gas.md`. Until redeployed,
-order deletion still works — but the slip files orphan in Drive.
+`appscript/prform.gs` now exposes:
+- `deleteShopFile` (admin shop order-delete trashes the slip image)
+- `deleteProjectFile` (VPA can delete a single หนังสือ file from Drive)
+
+Redeploy the GAS web app once: see `skills/deploy-gas.md`. Until
+redeployed, shop-order/หนังสือ file delete still works on the DB side
+— but the files orphan in Drive (30-day Trash auto-purges them
+anyway).
 
 Next-session candidates (priority order):
 

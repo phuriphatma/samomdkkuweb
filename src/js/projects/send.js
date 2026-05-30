@@ -204,6 +204,11 @@ async function onSubmit(e) {
       const note  = document.getElementById('projectSendDocNote').value.trim();
       if (!typeId) throw new Error('กรุณาเลือกประเภทหนังสือ');
       if (!title)  throw new Error('กรุณากรอกชื่อหนังสือ');
+      // Require at least one attached file — dev role can submit without
+      // (so we can smoke-test the create/send flow against the seed db).
+      if (pendingFiles.length === 0 && user?.role !== 'dev') {
+        throw new Error('กรุณาแนบไฟล์อย่างน้อย 1 ไฟล์');
+      }
 
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกหนังสือ…';
       doc = await createDocument({
@@ -246,7 +251,7 @@ async function onSubmit(e) {
         kind: 'sent',
         project,
         document: doc,
-        body: `ส่งหนังสือใหม่ "${doc.title}" (หนังสือ ${doc.sequence_no}) — ${pendingFiles.length} ไฟล์แนบ${note ? `\n\nโน้ตจากผู้ส่ง: ${note}` : ''}`,
+        body: `หนังสือใหม่ #${doc.sequence_no} "${doc.title}" — ${pendingFiles.length} ไฟล์แนบ${note ? `\n\nโน้ตจากผู้ส่ง: ${note}` : ''}`,
         subject: `[MDKKU SAMO] หนังสือใหม่: ${project.name} — ${doc.title}`,
       });
     }

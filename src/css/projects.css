@@ -1037,6 +1037,76 @@
   white-space: pre-wrap;
 }
 
+/* ---------- Inline comments thread on expanded หนังสือ ---------- */
+.projects-tab .projects-comments {
+  margin-top: 14px;
+  border: 1px solid var(--p-line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+}
+.projects-tab .projects-comments-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--p-text);
+  margin-bottom: 6px;
+}
+.projects-tab .projects-comments-unread {
+  display: inline-block;
+  font-size: 0.72rem;
+  background: var(--p-warn-soft, #fef3c7);
+  color: var(--p-warn, #92400e);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.projects-tab .projects-comments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.projects-tab .projects-comment {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--p-line-soft, #f8fafc);
+  border-left: 3px solid transparent;
+}
+.projects-tab .projects-comment.is-unread {
+  background: #fff7ed;
+  border-left-color: var(--p-warn, #f59e0b);
+}
+.projects-tab .projects-comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--p-muted);
+  margin-bottom: 2px;
+}
+.projects-tab .projects-comment-meta .projects-tl-role { margin-left: 0; }
+.projects-tab .projects-comment-time { color: var(--p-muted); }
+.projects-tab .projects-comment-new-pill {
+  font-size: 0.66rem;
+  background: var(--p-warn, #f59e0b);
+  color: #fff;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.projects-tab .projects-comment-body {
+  font-size: 0.9rem;
+  color: var(--p-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---------- Floating action button (mobile) ---------- */
 .projects-tab .projects-fab {
   position: fixed;
@@ -1159,9 +1229,27 @@
 .projects-tab .projects-notify-item.is-info .projects-notify-icon  { color: var(--p-info); }
 .projects-tab .projects-notify-item.is-warn .projects-notify-icon  { color: var(--p-warn); }
 .projects-tab .projects-notify-item.is-ok .projects-notify-icon    { color: var(--p-ok); }
-.projects-tab .projects-notify-body { flex: 1 1 auto; }
+.projects-tab .projects-notify-body { flex: 1 1 auto; min-width: 0; }
 .projects-tab .projects-notify-text { font-size: 0.88rem; color: var(--p-text); white-space: pre-wrap; }
 .projects-tab .projects-notify-time { font-size: 0.72rem; color: var(--p-muted); margin-top: 2px; }
+.projects-tab .projects-notify-ctx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+  font-size: 0.74rem;
+  color: var(--p-muted);
+}
+.projects-tab .projects-notify-ctx-proj,
+.projects-tab .projects-notify-ctx-doc {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.projects-tab .projects-notify-ctx-proj { font-weight: 600; color: var(--p-text); }
 .projects-tab .projects-notify-dot {
   width: 8px;
   height: 8px;

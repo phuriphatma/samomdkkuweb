@@ -257,6 +257,16 @@ window.clearCreatorThumb = () => {
 // Window-exposed handlers used by inline onclick=""
 window.samoSignOut = samoSignOut;
 window.samoOpenProfile = openProfileModal;
+// One-tap account switch in admin: sign out + reopen the sign-in modal.
+// Particularly handy for staff who jump between dev / vp_admin /
+// uni_staff seats during testing.
+window.samoSwitchAccount = async () => {
+  try { await samoSignOut(); } catch {}
+  const modalEl = document.getElementById('signinModal');
+  if (modalEl && window.bootstrap) {
+    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+};
 window.samoGoogleSignIn = async () => {
   try { await signInWithGoogle(); }
   catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }

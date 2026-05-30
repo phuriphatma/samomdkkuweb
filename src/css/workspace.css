@@ -282,7 +282,8 @@ body.workspace-mode .tab-content {
   text-overflow: ellipsis;
 }
 
-.workspace-side-signout {
+.workspace-side-signout,
+.workspace-side-switch {
   width: 100%;
   background: transparent;
   border: 1px solid var(--ink-200);
@@ -297,6 +298,13 @@ body.workspace-mode .tab-content {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+}
+
+.workspace-side-switch { margin-bottom: 0.4rem; }
+.workspace-side-switch:hover {
+  background: rgba(16, 89, 34, 0.05);
+  border-color: rgba(16, 89, 34, 0.35);
+  color: var(--brand-primary, #105922);
 }
 
 .workspace-side-signout:hover {
@@ -426,6 +434,7 @@ body.workspace-mode .tab-content {
   body.workspace-sidebar-collapsed .workspace-side-item-badge,
   body.workspace-sidebar-collapsed .workspace-side-item-ext,
   body.workspace-sidebar-collapsed .workspace-side-signout span,
+  body.workspace-sidebar-collapsed .workspace-side-switch span,
   body.workspace-sidebar-collapsed .workspace-user-mini-body {
     display: none;
   }
@@ -470,7 +479,8 @@ body.workspace-mode .tab-content {
     margin: 0;
   }
 
-  body.workspace-sidebar-collapsed .workspace-side-signout {
+  body.workspace-sidebar-collapsed .workspace-side-signout,
+  body.workspace-sidebar-collapsed .workspace-side-switch {
     padding: 0.45rem 0;
   }
 }

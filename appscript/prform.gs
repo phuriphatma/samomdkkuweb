@@ -34,6 +34,7 @@ function doPost(e) {
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'uploadProjectFile') return handleUploadProjectFile(data);
+    if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
 
     if (data.action === 'notifyPROnly') {
@@ -218,6 +219,52 @@ function handleUploadProjectFile(data) {
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }
+}
+
+// ============================================================
+// deleteProjectFile — trash a single Drive file (by viewer URL)
+// that lives under `Projects/`. Used by the project-tracking
+// frontend when VPA removes a single file attached to a หนังสือ.
+// Mirrors handleDeleteShopFile but allow-listed to the Projects/
+// folder tree.
+// ============================================================
+
+function handleDeleteProjectFile(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      return createResponse({ success: true, alreadyGone: true });
+    }
+    if (!fileLivesUnderProjects_(file)) {
+      return createResponse({ success: false, message: 'file is not inside Projects' });
+    }
+    file.setTrashed(true);
+    return createResponse({ success: true });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+function fileLivesUnderProjects_(file) {
+  var stack = [];
+  var parents = file.getParents();
+  while (parents.hasNext()) stack.push(parents.next());
+  var seen = {};
+  while (stack.length) {
+    var f = stack.pop();
+    var fid = f.getId();
+    if (seen[fid]) continue;
+    seen[fid] = true;
+    if (f.getName() === 'Projects') return true;
+    var ups = f.getParents();
+    while (ups.hasNext()) stack.push(ups.next());
+  }
+  return false;
 }
 
 // ============================================================

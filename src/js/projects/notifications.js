@@ -15,6 +15,7 @@ import {
   markAllNotificationsRead,
 } from './api.js';
 import { NOTIFY_KIND_META, fmtRelative } from './data.js';
+import { getCachedProjects } from './index.js';
 
 let onJump = () => {};
 let offcanvas = null;
@@ -136,6 +137,25 @@ async function refreshNotificationList() {
 
 function renderNotifyItem(n) {
   const meta = NOTIFY_KIND_META[n.kind] || { icon: 'bi-bell', cls: 'is-info' };
+  // Look up the project name + doc title from the local cache so the
+  // notification card answers "which project? which book?" without
+  // forcing the reader to expand a row to find out.
+  const projects = getCachedProjects() || [];
+  const project = n.project_id ? projects.find((p) => p.id === n.project_id) : null;
+  let doc = null;
+  if (project && n.document_id) {
+    doc = (project.documents || []).find((d) => d.id === n.document_id) || null;
+  }
+  const projectLabel = project ? project.name : (n.project_id || '');
+  const docLabel = doc
+    ? `หนังสือ #${doc.sequence_no} "${doc.title}"`
+    : (n.document_id ? `หนังสือ ${n.document_id}` : '');
+  const ctxLine = (projectLabel || docLabel)
+    ? `<div class="projects-notify-ctx">
+         ${projectLabel ? `<span class="projects-notify-ctx-proj"><i class="bi bi-folder2-open me-1"></i>${escHtml(projectLabel)}</span>` : ''}
+         ${docLabel ? `<span class="projects-notify-ctx-doc"><i class="bi bi-journal-text me-1"></i>${escHtml(docLabel)}</span>` : ''}
+       </div>`
+    : '';
   return `
     <button type="button" class="projects-notify-item ${n.is_read ? '' : 'is-unread'} ${meta.cls}"
       data-projects-notify-id="${n.id}"
@@ -143,6 +163,7 @@ function renderNotifyItem(n) {
       data-document-id="${escHtml(n.document_id || '')}">
       <i class="bi ${meta.icon} projects-notify-icon"></i>
       <div class="projects-notify-body">
+        ${ctxLine}
         <div class="projects-notify-text">${escHtml(n.body || '')}</div>
         <div class="projects-notify-time">${escHtml(fmtRelative(n.created_at))}</div>
       </div>

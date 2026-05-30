@@ -255,6 +255,19 @@ export async function createFile(row) {
   return data[0];
 }
 
+export async function deleteFile(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/project_files?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบไฟล์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไฟล์ไม่สำเร็จ (RLS หรือไม่พบ id)');
+  }
+  return true;
+}
+
 /** Mark an old file superseded by a new one (non-destructive replace). */
 export async function supersedeFile(oldId, newId) {
   const oldIdEsc = encodeURIComponent(oldId);

@@ -15,7 +15,7 @@ export const PROJECT_STATUS_META = {
 };
 
 // Doc statuses — ordered for the 4-step progress visualisation.
-// 'returned' and 'cancelled' are off-path (handled separately in UI).
+// 'returned' is off-path (handled separately in UI).
 export const DOC_PATH_ORDER = ['sent', 'received', 'in_progress', 'completed'];
 
 export const DOC_STATUS_META = {
@@ -25,7 +25,6 @@ export const DOC_STATUS_META = {
   in_progress: { label: 'กำลังดำเนินการ',  cls: 'is-progress', icon: 'bi-arrow-repeat' },
   returned:    { label: 'ส่งกลับเพื่อแก้ไข', cls: 'is-returned', icon: 'bi-arrow-counterclockwise' },
   completed:   { label: 'เสร็จสิ้น',        cls: 'is-completed', icon: 'bi-check-circle' },
-  cancelled:   { label: 'ยกเลิก',           cls: 'is-cancel',   icon: 'bi-x-circle' },
 };
 
 export const NOTIFY_KIND_META = {

@@ -61,6 +61,35 @@ export async function uploadProjectFile(file, folderPath, opts = {}) {
 }
 
 /**
+ * Trash a single Drive file (by viewer URL) that lives under `Projects/`.
+ * Mirrors deleteShopFile in src/js/shop/uploads.js — same pattern, just
+ * scoped to the Projects/ tree on the GAS side.
+ *
+ * Fire-and-forget by convention: the DB row is the source of truth, so
+ * a Drive-side failure logs but doesn't surface. Returns true on success
+ * and false on failure / missing helper.
+ */
+export async function deleteProjectFile(fileUrl) {
+  if (!fileUrl) return true;
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteProjectFile', fileUrl }),
+    });
+    const result = await res.json();
+    if (!result.success) {
+      console.warn('[projects/uploads] deleteProjectFile failed:', result.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[projects/uploads] deleteProjectFile failed:', e);
+    return false;
+  }
+}
+
+/**
  * Trash a folder (and everything inside) under `Projects/...` via GAS.
  * Used by the project-tracking delete flows so the Drive side doesn't
  * orphan when a โครงการ or หนังสือ is deleted in the DB.
