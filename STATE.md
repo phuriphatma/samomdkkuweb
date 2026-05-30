@@ -204,6 +204,27 @@ After Cloudflare rebuilds both pages projects:
     a few seconds (best-effort; check
     https://drive.google.com/drive/trash if you don't see it).
     Requires the GAS redeploy noted above.
+13. Admin deletes one order → toast → opens another order's modal:
+    the "ลบคำสั่งซื้อ" button should be in idle state (not stuck on
+    "กำลังลบ…"). Was a state-leak bug.
+14. Admin orders table: tapping the copy icon next to an order id
+    copies, briefly flips to a check, but does NOT also open the
+    detail modal. The chip used to bubble; now stopped.
+15. Customer order in `pending` / `review` / `slip_mismatch` shows
+    an "อัปโหลดสลิป" / "เปลี่ยนสลิป" affordance with status-appropriate
+    copy. Replacing the slip trashes the previous file from Drive.
+    Hidden once the order passes verification.
+16. Customer product card + modal show "เหลือ N ชิ้น" when admin
+    has filled the stock matrix. Low (≤5) gets warning tint; 0 gets
+    "หมดแล้ว" red. NOTE: this reads the matrix as-is — orders do
+    NOT auto-decrement. Admin must maintain the matrix; the stock
+    view summary helps with the math.
+17. Admin stock view: each product card now shows
+    "บนเว็บ X · จองแล้ว Y · ส่งมอบแล้ว Z · ค้างส่ง W · คาดว่าจะคงเหลือ
+    หลังส่งทั้งหมด V" so admin can decide how much to produce/order
+    next without doing arithmetic. Also includes the "สถานะผลิต
+    สินค้านี้" cascade dropdown (same control as the product editor),
+    so admin can flip production status straight from stock view.
 
 ## Routing — what to read for what
 

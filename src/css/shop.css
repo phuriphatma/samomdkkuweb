@@ -584,6 +584,25 @@
   font-size: 1.05rem;
 }
 .shop-tab .product-price .baht { font-size: .82rem; font-weight: 500; color: var(--shop-ink-500); margin-right: .15rem; }
+.shop-tab .product-stock-hint {
+  font-size: .72rem;
+  color: var(--shop-ink-500);
+  padding: .15rem .45rem;
+  border-radius: 999px;
+  background: var(--shop-50, #f0f7f1);
+  border: 1px solid var(--shop-100, #d6e9da);
+  white-space: nowrap;
+}
+.shop-tab .product-stock-hint.is-low {
+  color: #a04a00;
+  background: #fff4e1;
+  border-color: #f5d29b;
+}
+.shop-tab .product-stock-hint.is-out {
+  color: var(--status-cancel, #b94c4c);
+  background: #fde8e8;
+  border-color: #f3b6b6;
+}
 .shop-tab .product-card .add-btn {
   background: var(--shop-cream-100);
   color: var(--shop-700);

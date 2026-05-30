@@ -547,6 +547,17 @@ function openOrderModal(orderId) {
 
   refreshModalSaveBar();
 
+  // Reset the delete button to its idle label every time the modal
+  // opens — the previous open may have left it in the "กำลังลบ…"
+  // spinning state (success path didn't restore the label because the
+  // modal closes), so a subsequent click on a different order would
+  // appear stuck. Defensive: always re-paint here.
+  const delBtn = document.getElementById('shopAdminOrderModalDelete');
+  if (delBtn) {
+    delBtn.disabled = false;
+    delBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> ลบคำสั่งซื้อ';
+  }
+
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
 }
@@ -579,6 +590,10 @@ async function deleteCurrentOrder() {
     await refreshOrders();
   } catch (e) {
     showShopToast(`ลบล้มเหลว: ${e.message || e}`, 'error');
+  } finally {
+    // Always restore the button — `openOrderModal` also re-paints it
+    // on next open, but doing it here too means a quick re-click on the
+    // same modal works without waiting for a re-open cycle.
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3 me-1"></i> ลบคำสั่งซื้อ'; }
   }
 }
@@ -1940,7 +1955,18 @@ function miniStyle(p) {
 // ---------------------------------------------------------------------
 async function refreshStock() {
   try {
-    state.products = await listProducts({ activeOnly: false });
+    // Pull products AND orders — the per-product sales summary in the
+    // stock card uses the orders list to count "reserved" / "delivered"
+    // / "outstanding" so admin can size the next production run without
+    // doing the math by hand.
+    const [products, orders] = await Promise.all([
+      listProducts({ activeOnly: false }),
+      (!state.orders || state.orders.length === 0)
+        ? listAllOrders().catch(() => [])
+        : Promise.resolve(state.orders),
+    ]);
+    state.products = products;
+    if (orders && orders.length) state.orders = orders;
     // Drop any pending edits that no longer apply
     for (const id of Array.from(state.stockEdits.keys())) {
       if (!state.products.find((p) => p.id === id)) state.stockEdits.delete(id);
@@ -1948,6 +1974,67 @@ async function refreshStock() {
     renderStock();
   } catch (e) {
     showShopToast(`โหลดสินค้าล้มเหลว: ${e.message || e}`, 'error');
+  }
+}
+
+/** Aggregate the order qty for a product across the orders cache,
+ *  bucketed so admin can read the per-product stock-vs-demand state
+ *  at a glance:
+ *    reserved   = qty in any happy-path status (review/paid/produce/ready/done)
+ *    delivered  = qty in 'done' specifically
+ *    outstanding = reserved - delivered (i.e. paid-for but not yet picked up)
+ *  Cancel / refund / slip_mismatch / exchange etc. are excluded
+ *  because they don't consume stock. */
+function computeProductSales(productId) {
+  const orders = Array.isArray(state.orders) ? state.orders : [];
+  const reservedStatuses = new Set(['review', 'paid', 'produce', 'ready', 'done']);
+  let reserved = 0, delivered = 0;
+  for (const o of orders) {
+    if (!reservedStatuses.has(o.status)) continue;
+    for (const it of (o.items || [])) {
+      if (it.product_id !== productId) continue;
+      const q = Number(it.qty) || 0;
+      reserved += q;
+      if (o.status === 'done') delivered += q;
+    }
+  }
+  return { reserved, delivered, outstanding: reserved - delivered };
+}
+
+/** Production-status dropdown handler on the stock card. Same
+ *  confirmation + RPC + toast pattern the product editor uses. */
+async function onStockProductionStatusChange(sel) {
+  const productId = sel.dataset.stockProductionSel;
+  const p = state.products.find((x) => x.id === productId);
+  if (!p) return;
+  const previous = p.production_status || 'pending';
+  const next = sel.value;
+  if (next === previous) return;
+  const confirmed = await maybeConfirmCascade(next);
+  if (!confirmed) {
+    // Revert the picker — user backed out of the cascade dialog.
+    sel.value = previous;
+    return;
+  }
+  sel.disabled = true;
+  try {
+    const r = await applyProductProductionStatus(productId, next);
+    p.production_status = next;
+    const moved = (r.moved_to_produce || 0) + (r.moved_to_ready || 0);
+    if (moved > 0) {
+      showShopToast(`เปลี่ยนสถานะ + ย้าย ${moved} คำสั่งซื้อแล้ว`, 'success');
+    } else {
+      showShopToast('เปลี่ยนสถานะแล้ว', 'success');
+    }
+    // Refresh orders so the per-product sales summary reflects the
+    // status moves. We already have products cached.
+    state.orders = await listAllOrders().catch(() => state.orders);
+    renderStock();
+  } catch (e) {
+    showShopToast(`สถานะผลิตอัปเดตไม่สำเร็จ: ${e.message || e}`, 'error');
+    sel.value = previous;
+  } finally {
+    sel.disabled = false;
   }
 }
 
@@ -1990,6 +2077,9 @@ function renderStock() {
       renderStock();
     });
   });
+  host.querySelectorAll('[data-stock-production-sel]').forEach((sel) => {
+    sel.addEventListener('change', () => onStockProductionStatusChange(sel));
+  });
   host.querySelectorAll('[data-stock-save]').forEach((btn) => {
     btn.addEventListener('click', () => saveStock(btn.dataset.stockSave));
   });
@@ -2007,6 +2097,8 @@ function stockCardHtml(p) {
   const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
   const total = totalStock(edit.matrix);
   const statusMeta = STOCK_STATUS_META[edit.status] || STOCK_STATUS_META.available;
+  const sales = computeProductSales(p.id);
+  const prod = p.production_status || 'pending';
   return `
     <div class="stock-card ${edit.dirty ? 'is-dirty' : ''}">
       <div class="stock-card-head">
@@ -2021,12 +2113,41 @@ function stockCardHtml(p) {
         </div>
         <div class="d-flex flex-column align-items-end gap-1">
           <span class="stock-total ${total === null ? 'is-unset' : total === 0 ? 'is-zero' : total <= 5 ? 'is-low' : ''}">
-            ${total === null ? '— ไม่ระบุ —' : `รวม ${total} ชิ้น`}
+            ${total === null ? '— ไม่ระบุ —' : `บนเว็บ ${total} ชิ้น`}
           </span>
           <select class="form-select form-select-sm" data-stock-status-sel="${escHtml(p.id)}" style="max-width:200px;">
             ${STOCK_STATUSES.map((s) =>
               `<option value="${s}" ${edit.status === s ? 'selected' : ''}>${escHtml(STOCK_STATUS_META[s]?.label || s)}</option>`).join('')}
           </select>
+        </div>
+      </div>
+
+      <!-- Per-product sales summary so admin doesn't have to math out
+           "how many more should I produce / order" by hand. All counts
+           come from the orders already loaded in state.orders. -->
+      <div class="stock-sales-summary d-flex flex-wrap gap-3 mb-2 small">
+        <span><span class="text-muted">จองแล้ว:</span> <b>${sales.reserved}</b> ชิ้น</span>
+        <span><span class="text-muted">ส่งมอบแล้ว:</span> <b>${sales.delivered}</b> ชิ้น</span>
+        <span><span class="text-muted">ค้างส่ง:</span> <b class="${sales.outstanding > 0 ? 'text-warning' : ''}">${sales.outstanding}</b> ชิ้น</span>
+        ${total !== null ? `<span><span class="text-muted">คาดว่าจะคงเหลือหลังส่งทั้งหมด:</span>
+          <b class="${total - sales.outstanding < 0 ? 'text-danger' : ''}">${total - sales.outstanding}</b> ชิ้น</span>` : ''}
+      </div>
+
+      <!-- Production status cascade — same control as in the product
+           editor, exposed here so admin can flip status straight from
+           the stock view. Triggers applyProductProductionStatus RPC
+           with a confirmation when it would move orders. -->
+      <div class="p-2 rounded mb-2" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
+        <label class="small fw-bold mb-1 d-block">สถานะผลิตสินค้านี้ (กระทบกับคำสั่งซื้อ)</label>
+        <select class="form-select form-select-sm" data-stock-production-sel="${escHtml(p.id)}" style="max-width:340px;">
+          <option value="pending"   ${prod === 'pending'   ? 'selected' : ''}>ยังไม่ผลิต — ไม่ขยับคำสั่งซื้อ</option>
+          <option value="produced"  ${prod === 'produced'  ? 'selected' : ''}>สินค้าผลิตเสร็จแล้ว — ย้าย "ยืนยันการชำระเงิน" → "ผลิตเสร็จ"</option>
+          <option value="announced" ${prod === 'announced' ? 'selected' : ''}>ประกาศรอบรับสินค้า — ย้ายต่อไป "ประกาศแล้ว"</option>
+        </select>
+        <div class="form-text small mt-1 mb-0">
+          เลือก "สินค้าผลิตเสร็จแล้ว" จะย้ายเฉพาะคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน".
+          เลือก "ประกาศรอบรับสินค้า" จะย้ายทั้ง "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว".
+          คำสั่งซื้อสถานะปัญหา (สลิปไม่ถูกต้อง · รอคืนเงิน · ยกเลิก · เปลี่ยนสินค้า · ฯลฯ) จะไม่ถูกแตะ.
         </div>
       </div>
       <div class="stock-grid">

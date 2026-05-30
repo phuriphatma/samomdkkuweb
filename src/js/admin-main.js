@@ -693,10 +693,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Global "copy to clipboard" delegate — mirrors main.js so admin
   // surfaces (order id chips, etc.) can use [data-copy] markup.
+  // stopPropagation is critical here: the orders table delegates a
+  // row-click that opens the detail modal, and the copy chip is
+  // INSIDE the row — without the stop, tapping copy would also pop
+  // the modal.
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-copy]');
     if (!btn) return;
     e.preventDefault();
+    e.stopPropagation();
     const ok = await copyText(btn.dataset.copy);
     if (!ok) return;
     const icon = btn.querySelector('i');

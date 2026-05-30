@@ -234,18 +234,53 @@ function orderCardHtml(o) {
           </div>
         </div>` : ''}
 
-      ${o.status === 'slip_mismatch' ? `
-        <div class="contact-fallback" style="background:#fff8e1; border:1px solid #fbcf73;">
-          <i class="bi bi-exclamation-triangle text-warning fs-5"></i>
-          <div class="flex-grow-1">
-            <div style="font-weight:600; color:var(--shop-ink-900);">สลิปไม่ถูกต้อง</div>
-            <div class="small text-muted">admin ตรวจสอบแล้วพบว่าสลิปไม่ตรงกับยอดที่สั่ง โปรดอัปโหลดสลิปที่ถูกต้องอีกครั้ง</div>
-          </div>
-          <button type="button" class="btn btn-sm btn-warning" data-reupload-order="${escHtml(o.id)}">
-            <i class="bi bi-cloud-upload me-1"></i> อัปโหลดสลิปใหม่
-          </button>
-          <input type="file" accept="image/*" class="d-none" data-reupload-file="${escHtml(o.id)}" />
-        </div>` : ''}
+      ${reuploadCalloutHtml(o)}
+    </div>`;
+}
+
+/** Show a "change/upload slip" affordance any time the customer's
+ *  slip is still actionable — i.e. before the admin has verified it
+ *  (pending = no slip yet, review = sent but not yet verified) and
+ *  when the admin has explicitly rejected it (slip_mismatch). Once
+ *  the order moves to paid/produce/ready/done/cancel etc., we hide
+ *  this so a paid order can't be confused by a late "new slip".
+ *
+ *  This is the standard Thai e-commerce slip pattern — Shopee/Lazada/
+ *  bank-transfer storefronts all let buyers replace the slip until
+ *  the seller marks it OK. */
+const REUPLOAD_ALLOWED = new Set(['pending', 'review', 'slip_mismatch']);
+
+function reuploadCalloutHtml(o) {
+  if (!REUPLOAD_ALLOWED.has(o.status)) return '';
+  const isReject = o.status === 'slip_mismatch';
+  const hasSlip = !!o.slip_url;
+  const headline = isReject
+    ? 'สลิปไม่ถูกต้อง'
+    : hasSlip
+      ? 'ส่งสลิปแล้ว — แก้ไขได้จนกว่า admin จะตรวจ'
+      : 'ยังไม่ได้ส่งสลิป';
+  const body = isReject
+    ? 'admin ตรวจสอบแล้วพบว่าสลิปไม่ตรงกับยอดที่สั่ง โปรดอัปโหลดสลิปที่ถูกต้องอีกครั้ง'
+    : hasSlip
+      ? 'ถ้าโอนใหม่หรือสลิปไม่ชัด สามารถเปลี่ยนรูปได้ก่อน admin ยืนยัน'
+      : 'อัปโหลดสลิปการโอนเพื่อให้ admin ตรวจสอบ';
+  const btnLabel = hasSlip ? 'เปลี่ยนสลิป' : 'อัปโหลดสลิป';
+  const bg = isReject
+    ? 'background:#fff8e1; border:1px solid #fbcf73;'
+    : 'background:#f4f7fb; border:1px solid #dfe5ee;';
+  const icon = isReject ? 'bi-exclamation-triangle text-warning' : 'bi-info-circle text-primary';
+  return `
+    <div class="contact-fallback" style="${bg}">
+      <i class="bi ${icon} fs-5"></i>
+      <div class="flex-grow-1">
+        <div style="font-weight:600; color:var(--shop-ink-900);">${escHtml(headline)}</div>
+        <div class="small text-muted">${escHtml(body)}</div>
+      </div>
+      <button type="button" class="btn btn-sm ${isReject ? 'btn-warning' : 'btn-outline-primary'}"
+              data-reupload-order="${escHtml(o.id)}">
+        <i class="bi bi-cloud-upload me-1"></i> ${escHtml(btnLabel)}
+      </button>
+      <input type="file" accept="image/*" class="d-none" data-reupload-file="${escHtml(o.id)}" />
     </div>`;
 }
 

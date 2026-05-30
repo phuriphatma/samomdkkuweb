@@ -287,12 +287,17 @@ export async function deleteOrder(id) {
   return true;
 }
 
-/** Buyer-facing: re-upload a slip on a pending/review order. */
+/** Buyer-facing: upload or replace the slip on a pending/review/
+ *  slip_mismatch order. Sends the order back to 'review' so it
+ *  reappears in the admin verify queue. If there was an old slip,
+ *  trash it from Drive afterwards (best-effort — order update is the
+ *  source of truth). */
 export async function setOrderSlip(id, slipUrl) {
   const idEsc = encodeURIComponent(id);
   const now = new Date().toISOString();
   const current = await getOrder(id);
   if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
+  const oldSlipUrl = current.slip_url || null;
   const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
   timeline.push({ stage: 'review', at: now, label: 'ส่งสลิปแล้ว — รอตรวจ' });
   const { data, error } = await dbRest(
@@ -305,7 +310,15 @@ export async function setOrderSlip(id, slipUrl) {
   );
   if (error) throw new Error(error.message || 'ส่งสลิปไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('ส่งสลิปไม่สำเร็จ (RLS หรือสถานะไม่ใช่ pending/review)');
+    throw new Error('ส่งสลิปไม่สำเร็จ (RLS หรือสถานะไม่ใช่ pending/review/slip_mismatch)');
+  }
+  // Trash the prior slip from Drive so replaced files don't pile up.
+  // Fire-and-forget — the new slip is already persisted; orphaning the
+  // old one is a cleanup nuisance at worst, never a correctness issue.
+  if (oldSlipUrl && oldSlipUrl !== slipUrl) {
+    deleteShopFile(oldSlipUrl).then((ok) => {
+      if (!ok) console.warn('[shop/api] order', id, 'slip replaced but old not trashed:', oldSlipUrl);
+    });
   }
   return data[0];
 }

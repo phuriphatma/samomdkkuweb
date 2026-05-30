@@ -44,6 +44,9 @@
                   <input id="shopProductModalQty" value="1" readonly />
                   <button type="button" id="shopProductModalQtyPlus">+</button>
                 </div>
+                <!-- "เหลือ N ชิ้น" hint, populated by renderStockLeftHint
+                     based on the currently selected size+color. -->
+                <span id="shopProductModalStockLeft" class="small text-muted d-none mt-1"></span>
               </div>
 
               <div class="alert alert-warning small mb-2 py-2 d-none" id="shopProductModalOOS">

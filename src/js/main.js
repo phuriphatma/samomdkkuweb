@@ -744,12 +744,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initProfileModal();
 
   // Global "copy to clipboard" delegate: any [data-copy] element copies
-  // its data-copy value when clicked. Briefly swap the icon to a check
-  // mark so the user knows it worked.
+  // its data-copy value when clicked. stopPropagation prevents the
+  // chip's click from bubbling to a parent row-click handler — without
+  // it, copying an order id on the admin table also opens the row's
+  // detail modal, which the user does not expect.
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-copy]');
     if (!btn) return;
     e.preventDefault();
+    e.stopPropagation();
     const ok = await copyText(btn.dataset.copy);
     if (!ok) return;
     const icon = btn.querySelector('i');

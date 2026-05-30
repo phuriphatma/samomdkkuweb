@@ -10,7 +10,7 @@ import { escHtml, safeUrl } from '../utils.js';
 import {
   SHOP_SOURCES, SHOP_TYPES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
-  STOCK_STATUS_META, stockKey,
+  STOCK_STATUS_META, stockKey, totalStock,
 } from './data.js';
 import { listProducts, listActiveBatches, listShopBanners } from './api.js';
 import { addItem } from './state.js';
@@ -353,6 +353,15 @@ function productCardHtml(p) {
   const sizes = Array.isArray(p.sizes) ? p.sizes : [];
   const colors = Array.isArray(p.colors) ? p.colors : [];
   const oos = p.stock_status === 'sold_out' || p.stock_status === 'production_closed';
+  // Stock-left summary for the card. We only surface a hint when admin
+  // filled in the matrix (totalStock returns null when nothing set) and
+  // the product isn't already in a global OOS status (that has its own
+  // ribbon). Highlight low-stock to nudge urgency.
+  const total = oos ? null : totalStock(p.stock_matrix);
+  const stockHint = total === null ? ''
+    : total === 0 ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
+    : total <= 5 ? `<span class="product-stock-hint is-low">เหลือ ${total} ชิ้น</span>`
+    : `<span class="product-stock-hint">เหลือ ${total} ชิ้น</span>`;
   return `
     <div class="product-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="product-thumb">
@@ -379,6 +388,7 @@ function productCardHtml(p) {
           <span class="product-price">
             <span class="baht">฿</span>${thb(p.price)}
           </span>
+          ${stockHint}
         </div>
       </div>
     </div>`;
@@ -542,6 +552,34 @@ function renderOOS() {
   const blocked = isBlockedForPurchase();
   if (box) box.classList.toggle('d-none', !variantOOS || blocked);
   if (addBtn) addBtn.disabled = blocked || variantOOS;
+  renderStockLeftHint();
+}
+
+/** Render a "เหลือ N ชิ้น" badge for the currently selected variant
+ *  on the product modal. Hidden when the admin hasn't filled in the
+ *  matrix value for this cell (undefined → display nothing). Stays
+ *  hidden too when the product is globally blocked (sold_out / closed)
+ *  because the OOS pill already covers that case. */
+function renderStockLeftHint() {
+  const host = document.getElementById('shopProductModalStockLeft');
+  if (!host) return;
+  const p = modalState.product;
+  if (!p || isBlockedForPurchase()) { host.classList.add('d-none'); host.textContent = ''; return; }
+  const matrix = p.stock_matrix || {};
+  const key = stockKey(modalState.size, modalState.color);
+  const left = matrix[key];
+  if (typeof left !== 'number') { host.classList.add('d-none'); host.textContent = ''; return; }
+  host.classList.remove('d-none');
+  if (left === 0) {
+    host.textContent = 'หมดสต็อกแล้ว';
+    host.className = 'small fw-semibold text-danger d-block mt-1';
+  } else if (left <= 5) {
+    host.textContent = `เหลือ ${left} ชิ้น`;
+    host.className = 'small fw-semibold text-warning d-block mt-1';
+  } else {
+    host.textContent = `เหลือ ${left} ชิ้น`;
+    host.className = 'small text-muted d-block mt-1';
+  }
 }
 function isVariantOOS() {
   const p = modalState.product;
