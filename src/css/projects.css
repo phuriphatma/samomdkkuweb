@@ -303,6 +303,7 @@
 }
 .projects-tab .projects-list-badge.is-new    { background: var(--p-warn); color: #fff; }
 .projects-tab .projects-list-badge.is-return { background: var(--p-danger); color: #fff; }
+.projects-tab .projects-list-badge.is-comment { background: #3b82f6; color: #fff; }
 .projects-tab .projects-list-count {
   color: var(--p-muted);
   font-size: 0.82rem;
@@ -397,6 +398,11 @@
   background: var(--p-danger);
   color: #fff;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+.projects-tab .projects-card-attn-badge.is-comment {
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.28);
 }
 @keyframes projects-pulse-warn {
   0%, 100% { transform: scale(1); }

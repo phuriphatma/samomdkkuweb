@@ -61,10 +61,19 @@ export function rememberAccount(user) {
   };
   const key = keyFor(entry);
   if (!key) return;
-  const list = readSaved().filter((a) => keyFor(a) !== key);
+  const prev = readSaved();
+  const list = prev.filter((a) => keyFor(a) !== key);
   list.unshift(entry);
   list.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
   writeSaved(list);
+  // Diagnostic: lets us verify in DevTools that every sign-in cycle
+  // grows the saved-account list as expected. Surface via console
+  // (debug level) so a normal user doesn't see noise but a tester
+  // can flip "Verbose" on and trace the path.
+  try {
+    console.debug('[samo.account-switch] remember',
+      { key, in: prev.map(keyFor), out: list.map(keyFor) });
+  } catch {}
 }
 
 /** Drop one saved account (the "x" on each chooser row). */
@@ -235,6 +244,14 @@ function openAddAccountFlow() {
  *  nobody is signed in AND no accounts are saved (first-time user). */
 export function openSwitcher() {
   const user = getUser();
+  // Snapshot the current user on EVERY chooser open — this is the
+  // last-line-of-defence belt-and-suspenders against any code path
+  // (sync race, missed subscriber fire, third-party tab event) that
+  // could have left the current user out of the saved list. The
+  // user's reported repro ("old account is gone after I add a new
+  // one") only matters from the moment they re-open this modal, so
+  // catching them here is sufficient.
+  try { rememberAccount(user); } catch {}
   const list = readSaved();
   if (!user && list.length === 0) {
     openAddAccountFlow();
@@ -247,6 +264,16 @@ export function openSwitcher() {
   }
   refreshList();
   window.bootstrap.Modal.getOrCreateInstance(el).show();
+}
+
+/** Diagnostic helper exposed on window so a tester can paste the
+ *  current saved-accounts state from DevTools console without having
+ *  to dig through localStorage by hand. */
+if (typeof window !== 'undefined') {
+  window.samoDebugAccounts = () => ({
+    currentUser: getUser(),
+    saved: readSaved(),
+  });
 }
 
 /** Mount: wire one-time DOM handlers + the auth subscriber that records

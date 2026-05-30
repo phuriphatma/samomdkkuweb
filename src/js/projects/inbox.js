@@ -18,6 +18,7 @@ import {
   getProject,
   getDocument,
   deleteProject,
+  updateProject,
   appendDocTimeline,
   updateDocument,
   deleteDocument,
@@ -114,17 +115,46 @@ function projectBucketCounts(role) {
   return c;
 }
 
+/** Does any doc in this project carry an unread comment from the other
+ *  side (relative to the viewer's per-doc seenAt)? Used to extend the
+ *  "ได้รับแจ้งเตือน" badge with comment activity — a comment-only
+ *  update would otherwise be invisible from the grid level. */
+function docHasUnreadComment(doc, role) {
+  const tl = doc.timeline || [];
+  const seenAt = getCommentsSeenAt(doc.id);
+  for (const e of tl) {
+    if (e.action !== 'comment') continue;
+    if (e.role === role) continue;
+    const ts = Math.max(
+      Date.parse(e.at) || 0,
+      e.edited_at ? (Date.parse(e.edited_at) || 0) : 0,
+    );
+    if (ts > seenAt) return true;
+  }
+  return false;
+}
+
+function projectHasUnreadComment(p, role) {
+  return (p.documents || []).some((d) => docHasUnreadComment(d, role));
+}
+
 /** "ได้รับแจ้งเตือน" — projects with a NEW event for the current viewer.
  *  Matches the orange/red attention badge on the card: uni_staff sees
  *  projects with a sent (not-yet-received) doc; vp_admin sees projects
  *  with a returned (to-fix) doc. Independent from the mine/waiting/done
- *  bucket so the chip can be a stricter "new only" subset. */
+ *  bucket so the chip can be a stricter "new only" subset. Also lights
+ *  up when there's an unread comment from the other side — a comment-
+ *  only ping would otherwise be invisible until the user drilled in. */
 function projectIsNotified(p, role) {
   const docs = p.documents || [];
-  if (role === 'uni_staff') return docs.some((d) => d.status === 'sent');
-  if (role === 'vp_admin')  return docs.some((d) => d.status === 'returned');
-  if (role === 'dev')       return docs.some((d) => d.status === 'sent' || d.status === 'returned');
-  return false;
+  const baseStatus = role === 'uni_staff'
+    ? docs.some((d) => d.status === 'sent')
+    : role === 'vp_admin'
+    ? docs.some((d) => d.status === 'returned')
+    : role === 'dev'
+    ? docs.some((d) => d.status === 'sent' || d.status === 'returned')
+    : false;
+  return baseStatus || projectHasUnreadComment(p, role);
 }
 
 function updateViewToggleUI() {
@@ -441,15 +471,21 @@ function renderProjectListRow(p) {
   const total    = docs.length;
   const sent     = docs.filter((d) => d.status === 'sent').length;
   const returned = docs.filter((d) => d.status === 'returned').length;
+  const cmtUnreadDocs = docs.filter((d) => docHasUnreadComment(d, role)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
-  let badge = '';
+  const badges = [];
   if ((role === 'uni_staff' || role === 'dev') && sent > 0) {
-    badge = `<span class="projects-list-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">${sent} ใหม่</span>`;
-  } else if (role === 'vp_admin' && returned > 0) {
-    badge = `<span class="projects-list-badge is-return" title="หนังสือถูกตีกลับ">${returned} ตีกลับ</span>`;
+    badges.push(`<span class="projects-list-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">${sent} ใหม่</span>`);
   }
+  if (role === 'vp_admin' && returned > 0) {
+    badges.push(`<span class="projects-list-badge is-return" title="หนังสือถูกตีกลับ">${returned} ตีกลับ</span>`);
+  }
+  if (cmtUnreadDocs > 0) {
+    badges.push(`<span class="projects-list-badge is-comment" title="มีคอมเมนต์ใหม่">${cmtUnreadDocs} คอมเมนต์</span>`);
+  }
+  const badge = badges.join(' ');
 
   return `
     <button type="button" class="projects-list-row is-bucket-${bucket}" data-projects-open-project="${escHtml(p.id)}">
@@ -474,28 +510,30 @@ function renderProjectCard(p) {
   const total    = docs.length;
   const sent     = docs.filter((d) => d.status === 'sent').length;
   const returned = docs.filter((d) => d.status === 'returned').length;
+  const cmtUnreadDocs = docs.filter((d) => docHasUnreadComment(d, role)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
-  // One attention badge per role. Card stays minimal otherwise — drill in
-  // to see per-status detail. Notifications fan out via notifyUniStaff /
-  // notifyVpAdmin so the badge count auto-updates on the next refresh
-  // when more docs are sent.
-  let badge = '';
-  if (role === 'uni_staff' && sent > 0) {
-    badge = `<span class="projects-card-attn-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">
+  // Stack one attention badge per signal — sent/returned + comments —
+  // so a comment-only update is visible from the grid without the
+  // user drilling in to find it.
+  const parts = [];
+  if ((role === 'uni_staff' || role === 'dev') && sent > 0) {
+    parts.push(`<span class="projects-card-attn-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">
       <i class="bi bi-bell-fill"></i> ${sent} ใหม่
-    </span>`;
-  } else if (role === 'vp_admin' && returned > 0) {
-    badge = `<span class="projects-card-attn-badge is-return" title="หนังสือถูกตีกลับ ต้องแก้ไข">
-      <i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ
-    </span>`;
-  } else if (role === 'dev') {
-    const parts = [];
-    if (sent > 0)     parts.push(`<span class="projects-card-attn-badge is-new"><i class="bi bi-bell-fill"></i> ${sent} ใหม่</span>`);
-    if (returned > 0) parts.push(`<span class="projects-card-attn-badge is-return"><i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ</span>`);
-    badge = parts.join(' ');
+    </span>`);
   }
+  if ((role === 'vp_admin' || role === 'dev') && returned > 0) {
+    parts.push(`<span class="projects-card-attn-badge is-return" title="หนังสือถูกตีกลับ ต้องแก้ไข">
+      <i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ
+    </span>`);
+  }
+  if (cmtUnreadDocs > 0) {
+    parts.push(`<span class="projects-card-attn-badge is-comment" title="มีคอมเมนต์ใหม่">
+      <i class="bi bi-chat-left-text"></i> ${cmtUnreadDocs} คอมเมนต์
+    </span>`);
+  }
+  const badge = parts.join(' ');
 
   return `
     <button type="button" class="projects-card-grid is-bucket-${bucket}" data-projects-open-project="${escHtml(p.id)}">
@@ -543,6 +581,9 @@ function renderDetail() {
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
           <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
         </button>` : ''}
+        ${canManage ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-edit-project="${escHtml(project.id)}" title="แก้ไขชื่อ / รายละเอียดโครงการ">
+          <i class="bi bi-pencil me-1"></i> แก้ไขโครงการ
+        </button>` : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
           <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
         </button>
@@ -571,8 +612,12 @@ function renderDocCard(doc, project) {
   // Dot signals "needs your first action" — narrower than isMine() which
   // includes received/in_progress (still your responsibility but no longer
   // demanding immediate acknowledgement). Once uni_staff has clicked
-  // รับเรื่อง the doc is "in motion" and the dot should clear.
-  const needsAck = shouldShowUpdateBanner(doc, cache.role);
+  // รับเรื่อง the doc is "in motion" and the dot should clear. It also
+  // lights up for unread comments from the other side so a comment-
+  // only update is visible without expanding the card.
+  const needsStatusAck = shouldShowUpdateBanner(doc, cache.role);
+  const needsCommentAck = docHasUnreadComment(doc, cache.role);
+  const needsAck = needsStatusAck || needsCommentAck;
   const mineDot = needsAck ? '<span class="projects-row-mine-dot" title="ต้องดำเนินการ"></span>' : '';
   const hasUpdate = needsAck;
   const updateBadge = hasUpdate
@@ -676,6 +721,7 @@ function renderDocExpand(doc, project) {
       ` : ''}
       <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
       ${revertMenu}
+      ${isVp ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-edit data-doc-id="${escHtml(doc.id)}" title="แก้ไขชื่อ / โน้ตหนังสือ"><i class="bi bi-pencil me-1"></i>แก้ไข</button>` : ''}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger ms-auto" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
     </div>
 
@@ -782,7 +828,7 @@ function renderCommentBanner(doc, role) {
   };
   const unread = tl
     .filter((e) => e.action === 'comment' && e.role !== role && effectiveTs(e) > seenAt)
-    .sort((a, b) => effectiveTs(a) - effectiveTs(b));
+    .sort((a, b) => effectiveTs(b) - effectiveTs(a));   // newest first
   if (unread.length === 0) return '';
   const lines = unread.map((e) => {
     const wasEdited = !!e.edited_at && (Date.parse(e.edited_at) || 0) > (Date.parse(e.at) || 0);
@@ -852,8 +898,11 @@ function renderCommentsList(doc, role) {
   const comments = (doc.timeline || []).filter((e) => e.action === 'comment');
   if (comments.length === 0) return '';
   const seenAt = getCommentsSeenAt(doc.id);
-  // Sort oldest-first like a chat thread so newest sits at the bottom.
-  const ordered = comments.slice().sort((a, b) => new Date(a.at) - new Date(b.at));
+  // Sort newest-first so unread items sit at the top of the thread —
+  // matches the "inbox" pattern (latest activity surfaces first) and
+  // means the reader's eye lands on the unread comment without
+  // scrolling.
+  const ordered = comments.slice().sort((a, b) => new Date(b.at) - new Date(a.at));
   // A comment is "unread to me" if its creation OR last-edit time is
   // after my last open — so the sender editing a comment also re-
   // surfaces it as unread to the reader, until they open the
@@ -1037,6 +1086,11 @@ function onInboxClick(e) {
     onDeleteProject(delProj.dataset.projectsDeleteProject);
     return;
   }
+  const editProj = e.target.closest('[data-projects-edit-project]');
+  if (editProj) {
+    onEditProject(editProj.dataset.projectsEditProject);
+    return;
+  }
 
   // Doc actions
   const statusBtn = e.target.closest('[data-projects-doc-status]');
@@ -1049,6 +1103,8 @@ function onInboxClick(e) {
   if (cmtBtn) { onDocCommentClick(cmtBtn); return; }
   const delBtn = e.target.closest('[data-projects-doc-delete]');
   if (delBtn) { onDocDeleteClick(delBtn); return; }
+  const editDocBtn = e.target.closest('[data-projects-doc-edit]');
+  if (editDocBtn) { onDocEditClick(editDocBtn); return; }
   const delFileBtn = e.target.closest('[data-projects-delete-file]');
   if (delFileBtn) {
     const docId = delFileBtn.closest('[data-projects-files-for]')?.dataset.projectsFilesFor;
@@ -1072,6 +1128,40 @@ function onInboxChange(e) {
 }
 
 // ---------- project actions ----------
+
+async function onEditProject(projectId) {
+  const p = cache.projects.find((x) => x.id === projectId);
+  if (!p) return;
+  // Sequence: name first (mandatory), then description (optional).
+  // Cancelling the name prompt abandons the whole flow; cancelling
+  // the description prompt keeps the prior description.
+  const newName = await openProjectPrompt({
+    title: 'แก้ไขชื่อโครงการ',
+    label: 'ชื่อโครงการ',
+    placeholder: 'เช่น โครงการสานสัมพันธ์น้องพี่',
+    initial: p.name || '',
+    okLabel: 'ถัดไป',
+    required: true,
+  });
+  if (newName == null) return;
+  const newDesc = await openProjectPrompt({
+    title: 'แก้ไขรายละเอียดโครงการ',
+    label: 'รายละเอียด (ปล่อยว่างได้)',
+    placeholder: 'สรุปสั้นๆ ว่าโครงการเกี่ยวกับอะไร',
+    initial: p.description || '',
+    okLabel: 'บันทึก',
+  });
+  // newDesc null = user cancelled the desc step; treat as "keep old".
+  const description = newDesc == null ? (p.description || '') : newDesc;
+  const noChange = newName === (p.name || '') && description === (p.description || '');
+  if (noChange) return;
+  try {
+    await updateProject(projectId, { name: newName, description: description || null });
+    onChanged();
+  } catch (e) {
+    alert(e.message || 'แก้ไขโครงการไม่สำเร็จ');
+  }
+}
 
 async function onDeleteProject(projectId) {
   const p = cache.projects.find((x) => x.id === projectId);
@@ -1357,6 +1447,38 @@ async function onCommentDeleteClick(btn) {
     onChanged();
   } catch (err) {
     alert(err.message || 'ลบคอมเมนต์ไม่สำเร็จ');
+  }
+}
+
+async function onDocEditClick(btn) {
+  const docId = btn.dataset.docId;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc } = found;
+  const newTitle = await openProjectPrompt({
+    title: 'แก้ไขชื่อหนังสือ',
+    label: 'ชื่อหนังสือ',
+    placeholder: 'เช่น ขออนุมัติงบโครงการ ครั้งที่ 1',
+    initial: doc.title || '',
+    okLabel: 'ถัดไป',
+    required: true,
+  });
+  if (newTitle == null) return;
+  const newNote = await openProjectPrompt({
+    title: 'แก้ไขโน้ตหนังสือ',
+    label: 'โน้ตถึงผู้รับ (ปล่อยว่างได้)',
+    placeholder: 'ข้อความสั้นๆ เพิ่มเติม',
+    initial: doc.note || '',
+    okLabel: 'บันทึก',
+  });
+  const note = newNote == null ? (doc.note || '') : newNote;
+  const noChange = newTitle === (doc.title || '') && note === (doc.note || '');
+  if (noChange) return;
+  try {
+    await updateDocument(docId, { title: newTitle, note: note || null });
+    onChanged();
+  } catch (e) {
+    alert(e.message || 'แก้ไขหนังสือไม่สำเร็จ');
   }
 }
 
