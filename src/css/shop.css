@@ -706,10 +706,13 @@
   box-shadow: 0 0 0 2px var(--shop-600);
   transform: scale(1.05);
 }
-.shop-tab .variant-btn.is-disabled {
-  opacity: .35;
+.shop-tab .variant-btn.is-disabled,
+.shop-tab .variant-btn.is-oos,
+.shop-tab .variant-btn[disabled] {
+  opacity: .45;
   cursor: not-allowed;
   text-decoration: line-through;
+  background: var(--shop-ink-50, #f5f6f8);
 }
 .shop-tab .variant-swatch {
   width: 32px; height: 32px;
@@ -720,7 +723,13 @@
   position: relative;
   transition: box-shadow .15s, transform .05s;
 }
-.shop-tab .variant-swatch.is-disabled { opacity: .35; cursor: not-allowed; }
+.shop-tab .variant-swatch.is-disabled,
+.shop-tab .variant-swatch.is-oos,
+.shop-tab .variant-swatch[disabled] {
+  opacity: .35;
+  cursor: not-allowed;
+  filter: grayscale(.6);
+}
 
 .shop-tab .qty-stepper {
   display: inline-flex; align-items: center;
@@ -1592,6 +1601,12 @@
   text-align: center;
   padding: 0;
   vertical-align: middle;
+}
+.shop-tab .stock-cell-note {
+  font-size: .7rem;
+  line-height: 1.1;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 .shop-tab .stock-cell-wrap {
   background: #fff;

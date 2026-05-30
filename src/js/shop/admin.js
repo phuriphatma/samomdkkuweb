@@ -1977,20 +1977,25 @@ async function refreshStock() {
   }
 }
 
+// Statuses that consume stock — uploaded slip onward, until the
+// order completes or moves to a problem status. Problem statuses
+// (cancel, refund_pending, refunded, no_show, slip_mismatch,
+// exchange) are excluded, so admin cancelling an order automatically
+// "frees up" that qty from the reserved bucket — best practice for
+// e-commerce stock management.
+const RESERVED_STATUSES = new Set(['review', 'paid', 'produce', 'ready', 'done']);
+
 /** Aggregate the order qty for a product across the orders cache,
  *  bucketed so admin can read the per-product stock-vs-demand state
  *  at a glance:
- *    reserved   = qty in any happy-path status (review/paid/produce/ready/done)
- *    delivered  = qty in 'done' specifically
- *    outstanding = reserved - delivered (i.e. paid-for but not yet picked up)
- *  Cancel / refund / slip_mismatch / exchange etc. are excluded
- *  because they don't consume stock. */
+ *    reserved    = qty in any happy-path status (RESERVED_STATUSES)
+ *    delivered   = qty in 'done' specifically
+ *    outstanding = reserved - delivered (paid-for, not yet picked up) */
 function computeProductSales(productId) {
   const orders = Array.isArray(state.orders) ? state.orders : [];
-  const reservedStatuses = new Set(['review', 'paid', 'produce', 'ready', 'done']);
   let reserved = 0, delivered = 0;
   for (const o of orders) {
-    if (!reservedStatuses.has(o.status)) continue;
+    if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
       if (it.product_id !== productId) continue;
       const q = Number(it.qty) || 0;
@@ -1999,6 +2004,25 @@ function computeProductSales(productId) {
     }
   }
   return { reserved, delivered, outstanding: reserved - delivered };
+}
+
+/** Same accounting, but bucketed per variant (size + color). Returns
+ *  a Map keyed by `${productId}|${size}|${color}` → qty so the stock
+ *  matrix render can lookup in O(1). Items missing size default to 'F';
+ *  missing color defaults to 'default' — matches stockKey(). */
+function computeVariantReservedMap() {
+  const orders = Array.isArray(state.orders) ? state.orders : [];
+  const out = new Map();
+  for (const o of orders) {
+    if (!RESERVED_STATUSES.has(o.status)) continue;
+    for (const it of (o.items || [])) {
+      const size  = it.size  || 'F';
+      const color = it.color || 'default';
+      const key = `${it.product_id}|${size}|${color}`;
+      out.set(key, (out.get(key) || 0) + (Number(it.qty) || 0));
+    }
+  }
+  return out;
 }
 
 /** Production-status dropdown handler on the stock card. Same
@@ -2059,7 +2083,11 @@ function renderStock() {
     return;
   }
 
-  host.innerHTML = list.map(stockCardHtml).join('');
+  // Precompute reserved-per-variant once for the whole tab so we don't
+  // walk state.orders per cell. Re-used in stockCardHtml for the per-
+  // cell badge + the "available" computation.
+  const reservedMap = computeVariantReservedMap();
+  host.innerHTML = list.map((p) => stockCardHtml(p, reservedMap)).join('');
 
   host.querySelectorAll('[data-stock-cell]').forEach((input) => {
     input.addEventListener('input', () => onStockCellChange(input));
@@ -2091,7 +2119,7 @@ function renderStock() {
   });
 }
 
-function stockCardHtml(p) {
+function stockCardHtml(p, reservedMap = new Map()) {
   const edit = getStockEditState(p);
   const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
   const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
@@ -2168,6 +2196,16 @@ function stockCardHtml(p) {
                 ${sizes.map((s) => {
                   const k = stockKey(s, c.id);
                   const v = edit.matrix[k];
+                  // Reserved count for THIS variant — orders in any
+                  // RESERVED_STATUS, summed. Cancellations / refunds
+                  // / slip_mismatch / no_show / exchange are excluded,
+                  // so an admin who marks an order cancelled
+                  // automatically frees up that qty.
+                  const reserved = reservedMap.get(`${p.id}|${s}|${c.id}`) || 0;
+                  // Computed "available" — what's free to sell after
+                  // subtracting active orders. Only meaningful when
+                  // the cell has a value. May be negative (over-sold).
+                  const available = typeof v === 'number' ? v - reserved : null;
                   const cls = v === undefined ? 'is-unset'
                     : v === 0 ? 'is-zero'
                     : v <= 3 ? 'is-low'
@@ -2183,6 +2221,14 @@ function stockCardHtml(p) {
                                value="${v === undefined ? '' : Number(v)}" placeholder="–" />
                         <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
                       </div>
+                      ${reserved > 0 || available !== null ? `
+                        <div class="stock-cell-note small">
+                          ${reserved > 0 ? `<span class="text-muted">จอง ${reserved}</span>` : ''}
+                          ${available !== null
+                            ? `<span class="${available < 0 ? 'text-danger fw-semibold' : available === 0 ? 'text-warning' : 'text-muted'}">
+                                · เหลือ ${available}</span>`
+                            : ''}
+                        </div>` : ''}
                     </td>`;
                 }).join('')}
               </tr>`).join('')}
@@ -2192,7 +2238,9 @@ function stockCardHtml(p) {
       <div class="stock-card-foot">
         <div class="small text-muted">
           <i class="bi bi-info-circle me-1"></i>
-          เว้นว่าง = ไม่ระบุ · 0 = หมด · 1-3 = เหลือน้อย
+          ช่องในตาราง = ของในคลัง (admin กรอกเอง) · ใต้ช่อง = จองอยู่ในออเดอร์ · เหลือ = ของในคลัง − จอง.
+          เว้นว่าง = ไม่ระบุ · 0 = หมด · ค่าติดลบ = ขายเกิน (ต้องเพิ่มสต็อก).
+          คำสั่งซื้อที่ยกเลิก / คืนเงิน / สลิปไม่ถูกต้อง จะไม่นับเป็นจอง.
         </div>
         <div class="d-flex gap-2">
           ${edit.dirty ? `<button class="btn btn-ghost btn-sm" data-stock-cancel="${escHtml(p.id)}">ยกเลิก</button>` : ''}

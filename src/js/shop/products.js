@@ -403,8 +403,24 @@ function openProductModal(product) {
   const sizes = Array.isArray(product.sizes) ? product.sizes : ['F'];
   const colors = Array.isArray(product.colors) ? product.colors : [];
   modalState.product = product;
-  modalState.size = sizes[0] || 'F';
-  modalState.color = colors[0]?.id || null;
+  // Default to the first IN-STOCK combo so the user doesn't open onto
+  // a greyed-out variant they then have to manually switch off. Only
+  // kicks in when the matrix is configured; otherwise first-of-array
+  // is fine.
+  const matrix = product.stock_matrix || {};
+  const configured = Object.values(matrix).some((v) => typeof v === 'number');
+  let pickedSize = sizes[0] || 'F';
+  let pickedColor = colors[0]?.id || null;
+  if (configured) {
+    outer: for (const s of sizes) {
+      for (const c of (colors.length ? colors : [{ id: 'default' }])) {
+        const v = matrix[stockKey(s, c.id)];
+        if (typeof v === 'number' && v > 0) { pickedSize = s; pickedColor = c.id; break outer; }
+      }
+    }
+  }
+  modalState.size = pickedSize;
+  modalState.color = pickedColor;
   modalState.qty = 1;
 
   // Header
@@ -490,17 +506,46 @@ function openProductModal(product) {
   }
 }
 
+/** Is this size entirely out across every color? Used to grey out the
+ *  size button. "Entirely" = matrix configured AND every color cell for
+ *  this size is either explicitly 0 or undefined. */
+function isSizeAllOOS(size) {
+  const p = modalState.product;
+  if (!p || !matrixIsConfigured(p)) return false;
+  const matrix = p.stock_matrix || {};
+  const colors = Array.isArray(p.colors) && p.colors.length ? p.colors : [{ id: 'default' }];
+  return colors.every((c) => {
+    const v = matrix[stockKey(size, c.id)];
+    return typeof v !== 'number' || v <= 0;
+  });
+}
+function isColorAllOOS(color) {
+  const p = modalState.product;
+  if (!p || !matrixIsConfigured(p)) return false;
+  const matrix = p.stock_matrix || {};
+  const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ['F'];
+  return sizes.every((s) => {
+    const v = matrix[stockKey(s, color)];
+    return typeof v !== 'number' || v <= 0;
+  });
+}
+
 function renderSizeOptions(sizes) {
   const group = document.getElementById('shopProductModalSizeGroup');
   const host  = document.getElementById('shopProductModalSizeOptions');
   if (!group || !host) return;
   group.classList.toggle('d-none', sizes.length <= 1);
-  host.innerHTML = sizes.map((s) =>
-    `<button type="button" class="variant-btn ${modalState.size === s ? 'is-selected' : ''}" data-size="${escHtml(s)}">
-       ${escHtml(s)}
-     </button>`).join('');
+  host.innerHTML = sizes.map((s) => {
+    const oos = isSizeAllOOS(s);
+    return `<button type="button"
+             class="variant-btn ${modalState.size === s ? 'is-selected' : ''} ${oos ? 'is-oos' : ''}"
+             ${oos ? 'disabled' : ''} data-size="${escHtml(s)}"
+             title="${oos ? 'หมดทุกสี' : escHtml(s)}">
+       ${escHtml(s)}${oos ? ' <span class="small text-muted">(หมด)</span>' : ''}
+     </button>`;
+  }).join('');
   host.onclick = (e) => {
-    const btn = e.target.closest('[data-size]');
+    const btn = e.target.closest('[data-size]:not([disabled])');
     if (!btn) return;
     modalState.size = btn.dataset.size;
     host.querySelectorAll('.variant-btn').forEach((el) =>
@@ -514,17 +559,22 @@ function renderColorOptions(colors) {
   const label = document.getElementById('shopProductModalColorLabel');
   if (!group || !host) return;
   group.classList.toggle('d-none', colors.length <= 1);
-  host.innerHTML = colors.map((c) =>
-    `<button type="button" class="variant-swatch ${modalState.color === c.id ? 'is-selected' : ''}"
+  host.innerHTML = colors.map((c) => {
+    const oos = isColorAllOOS(c.id);
+    return `<button type="button"
+             class="variant-swatch ${modalState.color === c.id ? 'is-selected' : ''} ${oos ? 'is-oos' : ''}"
+             ${oos ? 'disabled' : ''}
              data-color="${escHtml(c.id)}" style="background: ${escHtml(c.hex || '#ccc')};"
-             aria-label="${escHtml(c.label || c.id)}" title="${escHtml(c.label || c.id)}">
-     </button>`).join('');
+             aria-label="${escHtml(c.label || c.id)}${oos ? ' (หมด)' : ''}"
+             title="${escHtml(c.label || c.id)}${oos ? ' — หมด' : ''}">
+     </button>`;
+  }).join('');
   if (label) {
     const found = colors.find((c) => c.id === modalState.color);
     label.textContent = found?.label || '';
   }
   host.onclick = (e) => {
-    const btn = e.target.closest('[data-color]');
+    const btn = e.target.closest('[data-color]:not([disabled])');
     if (!btn) return;
     modalState.color = btn.dataset.color;
     host.querySelectorAll('.variant-swatch').forEach((el) =>
@@ -581,12 +631,29 @@ function renderStockLeftHint() {
     host.className = 'small text-muted d-block mt-1';
   }
 }
+/** Has the admin set ANY value on this product's stock matrix?
+ *  If yes, we treat undefined-key as "intentionally not stocked" → OOS.
+ *  If no, the matrix is untracked and we fall back to "purchase allowed"
+ *  (the global stock_status / production_status pills handle the broader
+ *  block). */
+function matrixIsConfigured(p) {
+  const m = p?.stock_matrix || {};
+  for (const v of Object.values(m)) {
+    if (typeof v === 'number' && Number.isFinite(v)) return true;
+  }
+  return false;
+}
+
 function isVariantOOS() {
   const p = modalState.product;
   if (!p) return false;
   const matrix = p.stock_matrix || {};
   const key = stockKey(modalState.size, modalState.color);
-  return matrix[key] === 0;
+  const v = matrix[key];
+  if (typeof v === 'number') return v <= 0;
+  // Key missing — OOS only when the matrix is configured. An empty
+  // matrix means "not tracked" and we don't block.
+  return matrixIsConfigured(p);
 }
 function isBlockedForPurchase() {
   const p = modalState.product;

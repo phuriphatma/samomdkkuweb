@@ -225,6 +225,18 @@ After Cloudflare rebuilds both pages projects:
     next without doing arithmetic. Also includes the "สถานะผลิต
     สินค้านี้" cascade dropdown (same control as the product editor),
     so admin can flip production status straight from stock view.
+18. Customer can't add an out-of-stock variant. With the matrix
+    configured: missing key OR value ≤ 0 blocks. Size/color buttons
+    for fully-OOS variants are greyed + strikethrough + disabled.
+    The product modal defaults to the first IN-STOCK combo when
+    matrix is configured.
+19. Admin stock view also shows per-cell reservation: under each
+    matrix input you'll see "จอง N · เหลือ K" where N = qty in
+    active orders for that exact variant, K = matrix value − N.
+    Negative K shows in red (over-sold — needs more stock).
+    Cancellation / refund / slip_mismatch / no_show / exchange
+    DO NOT count toward "จอง" — so admin marking an order cancelled
+    automatically frees that qty.
 
 ## Routing — what to read for what
 
