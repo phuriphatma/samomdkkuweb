@@ -684,6 +684,13 @@
   color: var(--p-text);
 }
 
+/* Subtle "just copied" highlight — keeps the button at its original
+ * size (no text swap) so the chip in the doc card head doesn't bloat. */
+.projects-tab .is-copied {
+  color: var(--p-ok, #16a34a) !important;
+  transition: color 0.15s ease;
+}
+
 /* ---------- "What changed" banner — top of expanded doc ---------- */
 .projects-tab .projects-update-banner {
   border-radius: 10px;
@@ -698,6 +705,10 @@
 .projects-tab .projects-update-banner.is-return {
   background: var(--p-danger-soft);
   border-color: rgba(220, 38, 38, 0.25);
+}
+.projects-tab .projects-update-banner.is-comment {
+  background: var(--p-info-soft, #eff6ff);
+  border-color: rgba(59, 130, 246, 0.28);
 }
 .projects-tab .projects-update-banner-head {
   display: flex;
@@ -995,6 +1006,19 @@
   font-weight: 600;
   color: var(--p-muted);
   padding: 6px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+}
+.projects-tab .projects-doc-timeline > summary::-webkit-details-marker { display: none; }
+.projects-tab .projects-doc-timeline-title { flex: 1 1 auto; }
+.projects-tab .projects-doc-timeline-chev {
+  font-size: 0.85rem;
+  margin-left: 8px;
+  transition: transform 0.18s ease;
+}
+.projects-tab .projects-doc-timeline[open] > summary .projects-doc-timeline-chev {
+  transform: rotate(180deg);
 }
 .projects-tab .projects-doc-timeline ol {
   list-style: none;
@@ -1059,6 +1083,16 @@
 }
 .projects-tab .projects-comments-head::-webkit-details-marker { display: none; }
 .projects-tab details.projects-comments[open] > .projects-comments-head { margin-bottom: 8px; }
+.projects-tab .projects-comments-title { display: inline-flex; align-items: center; flex: 1 1 auto; }
+.projects-tab .projects-comments-chev {
+  font-size: 0.85rem;
+  color: var(--p-muted);
+  margin-left: 8px;
+  transition: transform 0.18s ease;
+}
+.projects-tab details.projects-comments[open] > .projects-comments-head .projects-comments-chev {
+  transform: rotate(180deg);
+}
 .projects-tab .projects-comments-unread {
   display: inline-block;
   font-size: 0.72rem;

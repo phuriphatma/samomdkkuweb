@@ -12,7 +12,7 @@
 // `lastUsed` desc. Capped at 6 to keep the chooser scannable.
 // ==============================================
 
-import { onAuthChange, signOut, signInWithGoogle } from './auth.js';
+import { onAuthChange, signOut, signInWithGoogle, getUser } from './auth.js';
 import { escHtml } from './utils.js';
 
 const STORAGE_KEY = 'samo.savedAccounts';
@@ -72,16 +72,19 @@ function renderInitials(name) {
   return initials;
 }
 
+function renderAccountAvatar(acct) {
+  return acct.picture
+    ? `<img src="${escHtml(acct.picture)}" alt="" class="samo-account-avatar" />`
+    : `<span class="samo-account-avatar samo-account-avatar-initials">${escHtml(renderInitials(acct.displayName))}</span>`;
+}
+
 function renderAccountRow(acct) {
   const key = keyFor(acct);
   const sub = acct.method === 'google' ? acct.email : (acct.username ? `@${acct.username}` : '');
   return `
     <li class="samo-account-row">
       <button type="button" class="samo-account-pick" data-account-key="${escHtml(key)}">
-        ${acct.picture
-          ? `<img src="${escHtml(acct.picture)}" alt="" class="samo-account-avatar" />`
-          : `<span class="samo-account-avatar samo-account-avatar-initials">${escHtml(renderInitials(acct.displayName))}</span>`
-        }
+        ${renderAccountAvatar(acct)}
         <span class="samo-account-text">
           <span class="samo-account-name">${escHtml(acct.displayName || 'บัญชี')}</span>
           ${sub ? `<span class="samo-account-sub">${escHtml(sub)}</span>` : ''}
@@ -95,18 +98,60 @@ function renderAccountRow(acct) {
   `;
 }
 
+/** "You are signed in as …" card at the top of the chooser, with a
+ *  Sign-out CTA. Matches Google's chooser pattern — clear separation
+ *  between "current" and "switch to". */
+function renderCurrentAccountCard(user) {
+  if (!user) return '';
+  const sub = user.method === 'google'
+    ? (user.email || '')
+    : (user.username ? `@${user.username}` : (user.email || ''));
+  const avatar = user.picture
+    ? `<img src="${escHtml(user.picture)}" alt="" class="samo-account-avatar" />`
+    : `<span class="samo-account-avatar samo-account-avatar-initials">${escHtml(renderInitials(user.name || user.username || sub))}</span>`;
+  return `
+    <div class="samo-account-current">
+      <div class="samo-account-current-head">
+        ${avatar}
+        <div class="samo-account-text">
+          <span class="samo-account-name">${escHtml(user.name || user.username || 'ฉัน')}</span>
+          ${sub ? `<span class="samo-account-sub">${escHtml(sub)}</span>` : ''}
+        </div>
+        <span class="samo-account-current-pill">บัญชีปัจจุบัน</span>
+      </div>
+      <button type="button" class="samo-account-current-signout" id="samoAccountSignOutBtn">
+        <i class="bi bi-box-arrow-right me-1"></i>ออกจากระบบบัญชีนี้
+      </button>
+    </div>
+  `;
+}
+
 function refreshList() {
-  const wrap = document.getElementById('samoAccountList');
+  const currentWrap = document.getElementById('samoAccountCurrent');
+  const wrap  = document.getElementById('samoAccountList');
   const empty = document.getElementById('samoAccountEmpty');
+  const heading = document.getElementById('samoAccountOtherHeading');
   if (!wrap) return;
-  const list = readSaved();
-  if (list.length === 0) {
+
+  // Current account at top.
+  const user = getUser();
+  if (currentWrap) currentWrap.innerHTML = renderCurrentAccountCard(user);
+
+  // "Other accounts" — everything saved EXCEPT the current one.
+  const currentKey = user
+    ? ((user.username || '').toLowerCase() || (user.email || '').toLowerCase())
+    : '';
+  const others = readSaved().filter((a) => keyFor(a) !== currentKey);
+
+  if (others.length === 0) {
     wrap.innerHTML = '';
-    if (empty) empty.classList.remove('d-none');
+    if (heading) heading.classList.add('d-none');
+    if (empty) empty.classList.toggle('d-none', !!user);  // hide empty msg when current is shown
     return;
   }
+  if (heading) heading.classList.remove('d-none');
   if (empty) empty.classList.add('d-none');
-  wrap.innerHTML = list.map(renderAccountRow).join('');
+  wrap.innerHTML = others.map(renderAccountRow).join('');
 }
 
 async function pickAccount(key) {
@@ -153,11 +198,13 @@ function openAddAccountFlow() {
   }, 80);
 }
 
-/** Open the switcher modal. Falls back to "sign out + open sign-in"
- *  when no saved accounts exist (first-time user). */
+/** Open the switcher modal. Shows the current account on top + saved
+ *  accounts below it. Falls back to "sign out + open sign-in" when
+ *  nobody is signed in AND no accounts are saved (first-time user). */
 export function openSwitcher() {
+  const user = getUser();
   const list = readSaved();
-  if (list.length === 0) {
+  if (!user && list.length === 0) {
     openAddAccountFlow();
     return;
   }
@@ -175,11 +222,18 @@ export function openSwitcher() {
 export function mountAccountSwitch() {
   const modalEl = document.getElementById('samoSwitchAccountModal');
   if (modalEl) {
-    modalEl.addEventListener('click', (e) => {
+    modalEl.addEventListener('click', async (e) => {
       const forget = e.target.closest('[data-account-forget]');
       if (forget) {
         forgetAccount(forget.dataset.accountForget);
         refreshList();
+        return;
+      }
+      const signOutBtn = e.target.closest('#samoAccountSignOutBtn');
+      if (signOutBtn) {
+        const bs = window.bootstrap;
+        if (bs && modalEl) bs.Modal.getOrCreateInstance(modalEl).hide();
+        try { await signOut(); } catch {}
         return;
       }
       const pick = e.target.closest('[data-account-key]');

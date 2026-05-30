@@ -642,6 +642,7 @@ function renderDocExpand(doc, project) {
 
   return `
     ${renderRecentUpdateBanner(doc, role)}
+    ${renderCommentBanner(doc, role)}
 
     ${renderProgressBar(stepIndex, isReturned)}
 
@@ -674,10 +675,7 @@ function renderDocExpand(doc, project) {
       ` : ''}
       <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
       ${revertMenu}
-      ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
-      <button type="button" class="btn btn-sm btn-ghost ms-auto" data-projects-copy-doc="${escHtml(doc.id)}" data-project-id="${escHtml(project.id)}">
-        <i class="bi bi-link-45deg me-1"></i>คัดลอกลิงก์
-      </button>
+      ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger ms-auto" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
     </div>
 
     ${tlSorted.length ? renderTimeline(tlSorted, doc) : ''}
@@ -691,52 +689,53 @@ function shouldShowUpdateBanner(doc, role) {
   return false;
 }
 
+// Actions that flip the receiver from "needs to act" to "acted" — i.e.
+// the actions that close out the status banner. Comments deliberately
+// don't count: leaving a question on a sent หนังสือ shouldn't make the
+// "new" indicator disappear.
+const STATUS_CLEARING_ACTIONS = new Set([
+  'received', 'in_progress', 'completed', 'returned', 'sent',
+]);
+
 /**
- * Renders a compact callout above the stepper summarising the most recent
- * action from the other side — what specifically changed that you need to
- * react to. Returns '' when not applicable (your turn isn't open, or no
- * other-side action exists yet).
+ * Status / file update banner. Persists until the receiver actually
+ * changes status (received / in_progress / completed / returned /
+ * resent) — NOT when they merely comment. Once acted on, the banner
+ * (and the file "ใหม่" pills tied to lastActed) disappear together.
  */
 function renderRecentUpdateBanner(doc, role) {
   if (!shouldShowUpdateBanner(doc, role)) return '';
   const tl = doc.timeline || [];
-  // Most-recent-first scan for the relevant other-side actions
   const myRole = role;
   const relevantActions = role === 'uni_staff'
     ? ['sent', 'file_added', 'file_replaced']
-    : ['returned', 'comment'];
-  // Collect ALL relevant entries since the current user's most recent action
-  // (so we summarise everything they need to see, not just the latest one).
+    : ['returned'];
   const cuts = [];
   for (let i = tl.length - 1; i >= 0; i--) {
     const e = tl[i];
-    if (e.role === myRole) break;  // stop at the viewer's own most-recent entry
+    // Stop only at the viewer's STATUS-change action — viewer's own
+    // comments must not collapse the banner.
+    if (e.role === myRole && STATUS_CLEARING_ACTIONS.has(e.action)) break;
+    if (e.role === myRole) continue;
     if (!relevantActions.includes(e.action)) continue;
-    if (e.role && e.role === myRole) continue;
     cuts.push(e);
   }
   if (cuts.length === 0) return '';
-  cuts.reverse(); // oldest first within the chunk
+  cuts.reverse();
 
-  // Header text ("เปลี่ยนแปลงจาก SAMO" / "เจ้าหน้าที่ตีกลับ") removed:
-  // the per-line action labels below already say what happened, so the
-  // header was redundant and ate vertical space. Banner colour class
-  // stays so the callout still signals "new activity" at a glance.
   const headerCls = role === 'uni_staff' ? 'is-update' : 'is-return';
   const lines = cuts.map((e) => {
     const label = ({
-      sent:          'ส่งใหม่อีกครั้ง',
+      sent:          'หนังสือใหม่',
       file_added:    'เพิ่มไฟล์',
       file_replaced: 'แทนที่ไฟล์',
       returned:      'ตีกลับเพื่อแก้ไข',
-      comment:       'คอมเมนต์',
     })[e.action] || e.action;
     const icon  = ({
-      sent:          'bi-send-arrow-up',
+      sent:          'bi-send',
       file_added:    'bi-cloud-plus-fill',
       file_replaced: 'bi-arrow-repeat',
       returned:      'bi-arrow-counterclockwise',
-      comment:       'bi-chat-left-text',
     })[e.action] || 'bi-dot';
     return `
       <li class="projects-update-line">
@@ -750,6 +749,35 @@ function renderRecentUpdateBanner(doc, role) {
 
   return `
     <div class="projects-update-banner ${headerCls}">
+      <ul class="projects-update-list">${lines}</ul>
+    </div>
+  `;
+}
+
+/**
+ * Comment-update banner. Separate from the status banner because its
+ * clear semantics are different: a new comment from the other side
+ * should disappear from the top the moment the receiver OPENS the
+ * หนังสือ to read it (markCommentsSeen()) — NOT only when status
+ * changes. Matches Gmail/Linear "unread message" behaviour.
+ */
+function renderCommentBanner(doc, role) {
+  const tl = doc.timeline || [];
+  const seenAt = getCommentsSeenAt(doc.id);
+  const unread = tl
+    .filter((e) => e.action === 'comment' && e.role !== role && (Date.parse(e.at) || 0) > seenAt)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  if (unread.length === 0) return '';
+  const lines = unread.map((e) => `
+    <li class="projects-update-line">
+      <i class="bi bi-chat-left-text"></i>
+      <span class="projects-update-line-label">คอมเมนต์ใหม่</span>
+      ${e.note ? `<span class="projects-update-line-note">${escHtml(e.note)}</span>` : ''}
+      <span class="projects-update-line-time">${escHtml(fmtRelative(e.at))}</span>
+    </li>
+  `).join('');
+  return `
+    <div class="projects-update-banner is-comment">
       <ul class="projects-update-list">${lines}</ul>
     </div>
   `;
@@ -816,8 +844,11 @@ function renderCommentsList(doc, role) {
   return `
     <details class="projects-comments" ${openByDefault ? 'open' : ''}>
       <summary class="projects-comments-head">
-        <span><i class="bi bi-chat-square-text me-1"></i>คอมเมนต์ (${comments.length})</span>
+        <span class="projects-comments-title">
+          <i class="bi bi-chat-square-text me-1"></i>คอมเมนต์ (${comments.length})
+        </span>
         ${unreadCount > 0 ? `<span class="projects-comments-unread">${unreadCount} ใหม่</span>` : ''}
+        <i class="bi bi-chevron-down projects-comments-chev" aria-hidden="true"></i>
       </summary>
       <ul class="projects-comments-list">
         ${ordered.map((c) => {
@@ -842,7 +873,10 @@ function renderCommentsList(doc, role) {
 function renderTimeline(tl, doc) {
   return `
     <details class="projects-doc-timeline" ${tl.length <= 2 ? 'open' : ''}>
-      <summary>ประวัติการดำเนินการ (${tl.length})</summary>
+      <summary>
+        <span class="projects-doc-timeline-title">ประวัติการดำเนินการ (${tl.length})</span>
+        <i class="bi bi-chevron-down projects-doc-timeline-chev" aria-hidden="true"></i>
+      </summary>
       <ol>
         ${tl.map((entry) => `
           <li>
@@ -1375,14 +1409,17 @@ async function loadFilesForDoc(docId) {
   }
 }
 
-/** Timestamp of the current role's most recent timeline action on this doc.
- *  0 means "never acted" — for uni_staff on a fresh sent doc, this lights up
- *  every attached file as ใหม่ on first open. */
+/** Timestamp of the current role's most recent STATUS-change action on
+ *  this doc. Comments deliberately don't count — leaving a comment on
+ *  a fresh sent หนังสือ shouldn't make the new file pills disappear.
+ *  0 means "never acted on status" — every attached file lights up as
+ *  ใหม่ on first open. */
 function myLastActionTime(doc, role) {
   const tl = doc.timeline || [];
   for (let i = tl.length - 1; i >= 0; i--) {
-    if (tl[i].role === role) {
-      const t = new Date(tl[i].at).getTime();
+    const e = tl[i];
+    if (e.role === role && STATUS_CLEARING_ACTIONS.has(e.action)) {
+      const t = new Date(e.at).getTime();
       if (!isNaN(t)) return t;
     }
   }
@@ -1459,14 +1496,32 @@ function showFilesBusy(docId, msg) {
 // ---------- utils ----------
 
 async function copyToClipboard(url, srcEl) {
-  try { await navigator.clipboard.writeText(url); flash(srcEl, 'คัดลอกแล้ว'); }
-  catch { window.prompt('คัดลอกลิงก์:', url); }
+  try {
+    await navigator.clipboard.writeText(url);
+    flash(srcEl);
+  } catch { window.prompt('คัดลอกลิงก์:', url); }
 }
 
-function flash(el, text) {
-  const original = el.innerHTML;
-  el.innerHTML = `<i class="bi bi-check2 me-1"></i>${escHtml(text)}`;
-  setTimeout(() => { el.innerHTML = original; }, 1400);
+/** Lightweight "copied!" feedback: swap the leading icon to a check
+ *  for a moment, leaving the rest of the button (label / sizing)
+ *  untouched. Replacing innerHTML caused the chip to inflate to
+ *  "คัดลอกแล้ว" text on small icon-only buttons; this is calmer and
+ *  works the same on desktop, iPad, and mobile. */
+function flash(el) {
+  if (!el) return;
+  const icon = el.querySelector('i.bi');
+  // Add a transient class for any extra styling (e.g. brief tint).
+  el.classList.add('is-copied');
+  if (icon) {
+    const orig = icon.className;
+    icon.className = 'bi bi-check2-circle-fill';
+    setTimeout(() => {
+      icon.className = orig;
+      el.classList.remove('is-copied');
+    }, 1100);
+  } else {
+    setTimeout(() => el.classList.remove('is-copied'), 1100);
+  }
 }
 
 function cssEsc(s) {

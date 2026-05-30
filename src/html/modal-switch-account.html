@@ -8,10 +8,17 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body pt-2 pb-3">
-          <p class="text-muted small mb-3">เลือกบัญชีที่จะเข้าใช้ — รหัสผ่านจะให้เบราว์เซอร์เติมให้อัตโนมัติ (หากเคยบันทึกไว้)</p>
+          <!-- Current signed-in account card (filled by account-switch.js).
+               Empty when nobody is signed in. -->
+          <div id="samoAccountCurrent"></div>
+
+          <div class="samo-account-other-heading text-muted small fw-bold mb-2 d-none"
+               id="samoAccountOtherHeading">
+            บัญชีอื่นที่บันทึกไว้
+          </div>
           <ul class="samo-account-list" id="samoAccountList"></ul>
           <div class="samo-account-empty d-none text-center text-muted small py-3" id="samoAccountEmpty">
-            ยังไม่มีบัญชีที่บันทึกไว้
+            ยังไม่มีบัญชีอื่นบันทึกไว้ — กด "ลงชื่อเข้าสู่บัญชีอื่น" เพื่อเพิ่ม
           </div>
         </div>
         <div class="modal-footer border-0 pt-0">
