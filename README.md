@@ -22,10 +22,13 @@ Both Cloudflare projects hit the same Supabase backend.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / type, sort, search),
-  cart with localStorage persistence, checkout with static PromptPay QR +
-  slip upload to Drive, order timeline (pending → review → paid → produce →
-  ready → done), pickup-batch announcements, and full admin (orders table,
-  slip-verify queue, batches, product CRUD, QR settings).
+  cart with localStorage persistence, checkout with name+email contact
+  step, static PromptPay QR + slip upload to Drive, order timeline
+  (pending → review → paid → produce → ready → done), per-order QR codes
+  (customers show, admins scan via the camera viewfinder in the orders
+  tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch
+  announcements, and full admin (orders table, slip-verify queue,
+  batches, product CRUD, QR settings).
 - **Project-document tracking.** SAMO VP-Administration sends "หนังสือโครงการ"
   (projects containing multiple documents) to a designated university officer.
   Document workflow: sent → received → in progress → completed (with off-path
@@ -38,6 +41,10 @@ Both Cloudflare projects hit the same Supabase backend.
   regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
   `dev`. Role gates the Admin tab, the project-tracking tab + bell, and
   dev-only flags like silent Discord notify.
+- **Profile self-edit.** Every signed-in user can change their display
+  name, add/verify a real email (Supabase magic-link), and link a Google
+  identity to a username/password account so they can sign in with
+  either after verifying.
 
 ## Tech stack
 

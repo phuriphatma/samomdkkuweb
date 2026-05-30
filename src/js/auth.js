@@ -51,6 +51,36 @@ function notify() {
 // `currentUser` = auth session info + public.users row, flattened.
 // ============================================================
 
+/** Read identity providers off the auth session. Used by the profile
+ *  modal to decide whether to show "Link Google" or "Google already
+ *  connected". Supabase exposes auth.users.identities[] — each entry has
+ *  a provider (google | email) and per-provider data.
+ *  Returns { hasPassword: bool, hasGoogle: bool, googleEmail: string|null }. */
+function readIdentities(authUser) {
+  const list = Array.isArray(authUser?.identities) ? authUser.identities : [];
+  let hasPassword = false;
+  let hasGoogle = false;
+  let googleEmail = null;
+  for (const id of list) {
+    if (id?.provider === 'email') hasPassword = true;
+    if (id?.provider === 'google') {
+      hasGoogle = true;
+      googleEmail = id?.identity_data?.email || googleEmail;
+    }
+  }
+  // Stash the full identity list so the unlink helpers can hand the
+  // exact object back to db.auth.unlinkIdentity(identity). We also
+  // surface providersCount so callers can enforce "always leave at
+  // least one way to sign in" before unlinking anything.
+  return {
+    hasPassword,
+    hasGoogle,
+    googleEmail,
+    identities: list,
+    providersCount: list.length,
+  };
+}
+
 async function buildCurrentUser(session) {
   if (!session?.user) return null;
   const authUser = session.user;
@@ -68,9 +98,21 @@ async function buildCurrentUser(session) {
   const idEsc = encodeURIComponent(authUser.id);
   let profile = null;
   {
+    // Try with the latest schema (permissions from 0010, has_password
+    // from 0027). Fall back step-wise so pre-migration databases still
+    // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password&limit=1`,
     );
+    if (error && error.status === 400 && /has_password/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthHasPassword) {
+        window.__samoWarnedAuthHasPassword = true;
+        console.warn('[auth] has_password column missing — apply migration 0027 for reliable password UI gating.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /permissions/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthPermissions) {
         window.__samoWarnedAuthPermissions = true;
@@ -85,11 +127,33 @@ async function buildCurrentUser(session) {
 
   // Profile may be null briefly right after signup if the create-on-trigger
   // hasn't fired (or for unusual race conditions). Fall back to auth data.
+  const identities = readIdentities(authUser);
+  // Email shown to the user: prefer the auth.users.email when it is
+  // a real address. Synthetic <username>@samomdkku.app is hidden from
+  // the UI — it's an implementation detail.
+  const rawEmail = profile?.email || authUser.email || '';
+  const isSynthetic = rawEmail.toLowerCase().endsWith(`@${PASSWORD_EMAIL_DOMAIN}`);
+  const emailConfirmed = !!authUser.email_confirmed_at && !isSynthetic;
   return {
     id: authUser.id,
     method: profile?.method || (authUser.app_metadata?.provider === 'google' ? 'google' : 'password'),
     username: profile?.username || authUser.user_metadata?.username || '',
-    email: profile?.email || authUser.email || '',
+    email: isSynthetic ? '' : rawEmail,
+    emailVerified: emailConfirmed,
+    // Pending email change kicked off by db.auth.updateUser({email}).
+    // While Supabase waits for the user to click the magic link the
+    // new value lives at authUser.new_email (and auth.users.email_change).
+    pendingEmail: authUser.new_email || '',
+    // `has_password` from public.users (migration 0027) is the reliable
+    // source — it's a mirror of auth.users.encrypted_password updated by
+    // trigger. The identity-array heuristic stays as a fallback for
+    // pre-0027 databases so the UI doesn't lock new accounts out.
+    hasPassword: typeof profile?.has_password === 'boolean'
+      ? profile.has_password
+      : identities.hasPassword,
+    hasGoogle: identities.hasGoogle,
+    googleEmail: identities.googleEmail,
+    identities: identities.identities,
     name: profile?.display_name || authUser.user_metadata?.display_name || authUser.user_metadata?.name || '',
     picture: authUser.user_metadata?.picture || authUser.user_metadata?.avatar_url || '',
     sub: authUser.user_metadata?.sub || authUser.id,
@@ -206,7 +270,29 @@ export async function signInWithPassword(rawUsername, rawPassword) {
   const password = (rawPassword || '').trim();
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
 
-  const email = usernameToEmail(username);
+  // Resolve the auth email for what the user typed:
+  //   - input contains '@' → treat as an email, use directly
+  //   - otherwise → look it up via the username→email RPC, falling
+  //     back to the synthetic `<username>@samomdkku.app` so pre-0026
+  //     databases and brand-new accounts still work.
+  let email;
+  if (username.includes('@')) {
+    email = username.toLowerCase();
+  } else {
+    email = usernameToEmail(username);
+    try {
+      const { data, error } = await dbRest('/rpc/lookup_email_by_username', {
+        method: 'POST',
+        body: { p_username: username },
+      });
+      if (!error && typeof data === 'string' && data.includes('@')) {
+        email = data;
+      }
+    } catch {
+      // network blip — synthetic fallback is fine.
+    }
+  }
+
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     // Supabase returns generic "Invalid login credentials". Translate.
@@ -226,7 +312,11 @@ export async function signInWithPassword(rawUsername, rawPassword) {
 }
 
 export async function registerWithPassword(rawUsername, rawPassword) {
-  const username = (rawUsername || '').trim();
+  // Lowercase at the door so the unique-username constraint isn't
+  // accidentally bypassed by a case difference. The synthetic email
+  // path already lowercases — this aligns public.users.username with
+  // the lookup-by-username RPC (which compares case-insensitively).
+  const username = (rawUsername || '').trim().toLowerCase();
   const password = (rawPassword || '').trim();
   if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
   if (username.length < 3) throw new Error('Username ต้องมีอย่างน้อย 3 ตัวอักษร');
@@ -238,8 +328,7 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   // Use a prefix check so a brand-new dept account (e.g. a future
   // samomdkku<x>) can't be squatted before the admin seeds it.
   // Backend uniqueness on public.users.username is the second line of defence.
-  const lc = username.toLowerCase();
-  if (/^samomdkku/.test(lc) || lc === 'sastaff') {
+  if (/^samomdkku/.test(username) || username === 'sastaff') {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 
@@ -303,6 +392,273 @@ export async function setDepartment(dept) {
   }
   currentUser = { ...currentUser, department: dept || '' };
   notify();
+}
+
+/** Update the public-facing display name. Writes both auth.users.user_metadata
+ *  (for Supabase consistency) and public.users.display_name (what the rest of
+ *  the app reads). Returns the new user object. */
+export async function updateDisplayName(rawName) {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const name = (rawName || '').trim();
+  if (!name) throw new Error('กรุณากรอกชื่อ');
+  if (name.length > 80) throw new Error('ชื่อยาวเกินไป');
+
+  const idEsc = encodeURIComponent(currentUser.id);
+  const { data, error } = await dbRest(
+    `/users?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { display_name: name }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'อัปเดตชื่อไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('อัปเดตชื่อไม่สำเร็จ (RLS)');
+  }
+
+  // Belt-and-braces: also sync auth.users.user_metadata.display_name so a
+  // fresh session picks the same value up. Ignore failures — public.users
+  // is the source of truth.
+  try { await db.auth.updateUser({ data: { display_name: name } }); } catch {}
+
+  currentUser = { ...currentUser, name };
+  notify();
+  return currentUser;
+}
+
+/** Kick off the add/change-email flow. Supabase sends a magic-link
+ *  confirmation to the new address; once the user clicks it, auth.users.email
+ *  is updated and the on_auth_user_email_change trigger mirrors that into
+ *  public.users.email. The username-to-email lookup RPC then resolves to the
+ *  new address, so username/password sign-in keeps working. */
+export async function updateEmail(rawEmail) {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const email = (rawEmail || '').trim().toLowerCase();
+  if (!email) throw new Error('กรุณากรอกอีเมล');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('รูปแบบอีเมลไม่ถูกต้อง');
+  }
+  if (email.endsWith(`@${PASSWORD_EMAIL_DOMAIN}`)) {
+    throw new Error('กรุณาใช้อีเมลจริงของคุณ');
+  }
+  // With Supabase's "Confirm email" toggle OFF (kept off — see
+  // mistakes.md), updateUser({email}) updates auth.users.email
+  // immediately and does NOT send a confirmation. The emailRedirectTo
+  // option only matters when a magic link is actually sent, so we omit
+  // it. The trigger from migration 0026 mirrors the new email into
+  // public.users.email so the username→email lookup RPC keeps
+  // password sign-in working.
+  const { error } = await db.auth.updateUser({ email });
+  if (error) {
+    const msg = (error.message || '').toLowerCase();
+    if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+      throw new Error('อีเมลนี้มีคนใช้แล้ว');
+    }
+    throw new Error(error.message || 'บันทึกอีเมลไม่สำเร็จ');
+  }
+  // Optimistic local update — the listener will refresh from the live
+  // session right after.
+  currentUser = { ...currentUser, pendingEmail: email };
+  notify();
+}
+
+/** Start the OAuth roundtrip to attach a Google identity to the current
+ *  auth user (without creating a new account). Supabase's linkIdentity
+ *  navigates to Google, then back. On return the auth user gains the
+ *  google provider — onAuthStateChange refreshes currentUser. The Google
+ *  account's email must match the verified email on the auth user, or
+ *  Supabase refuses the link. */
+export async function linkGoogleIdentity() {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const { error } = await db.auth.linkIdentity({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+    },
+  });
+  if (error) {
+    const code = error.code || error?.details?.code || '';
+    const msg  = (error.message || '').toLowerCase();
+    if (code === 'identity_already_exists' || msg.includes('already') || msg.includes('exists') || msg.includes('in use')) {
+      throw new Error('บัญชี Google นี้ผูกกับ user คนอื่นอยู่แล้ว');
+    }
+    if (msg.includes('manual linking') || msg.includes('not enabled')) {
+      throw new Error('เปิด "Manual linking" ใน Supabase ก่อน — ดูคำสั่งใน STATE.md');
+    }
+    throw new Error(error.message || 'เชื่อมต่อ Google ไม่สำเร็จ');
+  }
+}
+
+/** Refresh the currentUser snapshot from a fresh session. Used after any
+ *  mutation (unlinkIdentity, updateUser) that changes auth.users without
+ *  firing a SIGNED_IN/SIGNED_OUT event.
+ *
+ *  We `refreshSession()` first so the in-memory JWT picks up the updated
+ *  identities/email/has_password state — getSession() alone returns the
+ *  cached copy from before the mutation, which makes the modal look like
+ *  the action didn't take effect. */
+async function refreshCurrentUser() {
+  try {
+    await db.auth.refreshSession().catch(() => {});
+    const { data: { session } } = await db.auth.getSession();
+    currentUser = await buildCurrentUser(session);
+    notify();
+  } catch (e) {
+    console.warn('[auth] refreshCurrentUser failed:', e);
+  }
+}
+
+/** Remove the Google identity from the current auth user. Two rules
+ *  Supabase enforces server-side, both pre-checked here:
+ *
+ *    - At least 2 identity rows must remain after the unlink — see the
+ *      official docs ("The user needs to be logged in and have at
+ *      least 2 linked identities to unlink an existing identity") and
+ *      the server error code `single_identity_not_deletable` from
+ *      GoTrueClient.
+ *    - At least one of those remaining must be usable to sign in —
+ *      our extra UX rule. We additionally require `hasPassword=true`
+ *      so the user doesn't paint themselves into a corner.
+ *
+ *  Note: `db.auth.updateUser({password})` does NOT reliably create an
+ *  email-provider identity row on a Google-only account, so a user can
+ *  end up with `hasPassword=true` (password column set, mirrored in
+ *  0027) but `identities=[google]` (length 1). In that case Supabase
+ *  refuses the unlink with `single_identity_not_deletable`, and we
+ *  surface a specific Thai message that points at the cause. */
+export async function unlinkGoogleIdentity() {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  if (!currentUser.hasGoogle) throw new Error('ยังไม่ได้เชื่อม Google');
+  if (!currentUser.hasPassword) {
+    throw new Error('ตั้ง username + รหัสผ่านก่อน เพื่อไม่ให้บัญชีนี้เข้าระบบไม่ได้หลังยกเลิกการเชื่อม');
+  }
+  const list = Array.isArray(currentUser.identities) ? currentUser.identities : [];
+  if (list.length < 2) {
+    throw new Error(
+      'Supabase ต้องการ identity อย่างน้อย 2 รายการเพื่อยกเลิก — ' +
+      'ตอนนี้บัญชีนี้มี identity เดียว แม้จะตั้งรหัสผ่านแล้วก็ตาม',
+    );
+  }
+  const googleIdentity = list.find((id) => id?.provider === 'google');
+  if (!googleIdentity) throw new Error('ไม่พบ identity Google');
+  const { error } = await db.auth.unlinkIdentity(googleIdentity);
+  if (error) {
+    // Use server error codes when available — they're stable. Fall
+    // back to message-matching for older auth-js.
+    const code  = error.code || error?.details?.code || '';
+    const msg   = (error.message || '').toLowerCase();
+    if (code === 'single_identity_not_deletable' || msg.includes('single')) {
+      throw new Error('Supabase ปฏิเสธเพราะเหลือ identity เดียว — ลองตั้งรหัสผ่านอีกครั้งหรือเชื่อมผู้ให้บริการอื่น');
+    }
+    if (msg.includes('manual linking') || msg.includes('not enabled')) {
+      throw new Error('เปิด "Manual linking" ใน Supabase ก่อน — ดูคำสั่งใน STATE.md');
+    }
+    throw new Error(error.message || 'ยกเลิกการเชื่อม Google ไม่สำเร็จ');
+  }
+  await refreshCurrentUser();
+}
+
+/** Revert the user's auth email to the synthetic <username>@samomdkku.app,
+ *  effectively "removing" the real email from the account. Requires both
+ *  a username and a password identity (otherwise we'd lose every way to
+ *  sign in). Synthetic emails don't deliver — see mistakes.md "Email
+ *  confirmation must be OFF in Supabase for synthetic emails" — so this
+ *  is safe to call without burning the SMTP rate limit. */
+export async function unlinkEmail() {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  if (!currentUser.username) {
+    throw new Error('ต้องมี username เพื่อย้อนกลับเป็นอีเมลสังเคราะห์');
+  }
+  if (!currentUser.hasPassword) {
+    throw new Error('ตั้งรหัสผ่านก่อน เพื่อไม่ให้บัญชีเข้าระบบไม่ได้หลังลบอีเมล');
+  }
+  if (!currentUser.email) {
+    // Already on synthetic — nothing to do, success.
+    return;
+  }
+  const synth = usernameToEmail(currentUser.username);
+  const { error } = await db.auth.updateUser({ email: synth });
+  if (error) throw new Error(error.message || 'ลบอีเมลไม่สำเร็จ');
+  await refreshCurrentUser();
+}
+
+/** Set username + password on a Google-only account (or for someone who
+ *  signed up without a password somehow). After this the user can sign
+ *  in via username/password too. Username must be globally unique on
+ *  public.users.username; we pre-check via the lookup_email_by_username
+ *  RPC (returns non-null when taken) before any mutation. */
+export async function setUsernameAndPassword(rawUsername, rawPassword) {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const username = (rawUsername || '').trim().toLowerCase();
+  const password = (rawPassword || '').trim();
+  if (!username || !password) throw new Error('กรุณากรอก Username และ Password');
+  if (username.length < 3) throw new Error('Username ต้องมีอย่างน้อย 3 ตัวอักษร');
+  if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
+  if (!/^[a-z0-9_.-]+$/i.test(username)) {
+    throw new Error('Username ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ -');
+  }
+  // Reserve the staff-prefix namespace from grabs by Google users.
+  if (/^samomdkku/.test(username) || username === 'sastaff') {
+    throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
+  }
+
+  // If user already has a username, they're not allowed to change it
+  // here — username is sticky once set. Use the password-only path.
+  const settingUsername = !currentUser.username;
+  if (settingUsername) {
+    // Uniqueness pre-check. lookup_email_by_username returns the matching
+    // user's email; non-null means the username is already taken.
+    try {
+      const { data, error } = await dbRest('/rpc/lookup_email_by_username', {
+        method: 'POST',
+        body: { p_username: username },
+      });
+      if (!error && typeof data === 'string' && data.includes('@')) {
+        throw new Error('Username นี้มีผู้ใช้งานแล้ว');
+      }
+    } catch (e) {
+      if (/มีผู้ใช้งาน/.test(e.message || '')) throw e;
+      // RPC missing (pre-0026) — fall through to the unique-constraint
+      // collision at write time.
+    }
+
+    const idEsc = encodeURIComponent(currentUser.id);
+    const { data, error } = await dbRest(
+      `/users?id=eq.${idEsc}`,
+      { method: 'PATCH', body: { username }, prefer: 'return=representation' },
+    );
+    if (error) {
+      // Unique-constraint violation = the username was taken between
+      // pre-check and write (or RPC was unavailable). Surface as a
+      // friendly Thai error.
+      const msg = (error.message || '').toLowerCase();
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        throw new Error('Username นี้มีผู้ใช้งานแล้ว');
+      }
+      throw new Error(error.message || 'ตั้ง username ไม่สำเร็จ');
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('ตั้ง username ไม่สำเร็จ (RLS)');
+    }
+  }
+
+  // updateUser({password}) sets the password on the current user.
+  // For users whose auth identity was originally OAuth-only, Supabase
+  // attaches the password to auth.users.encrypted_password; subsequent
+  // signInWithPassword({email: <their auth email>, password}) works.
+  const { error: pwdErr } = await db.auth.updateUser({ password });
+  if (pwdErr) throw new Error(pwdErr.message || 'ตั้งรหัสผ่านไม่สำเร็จ');
+  await refreshCurrentUser();
+}
+
+/** Change password for a user who already has one. Plain wrapper around
+ *  updateUser({password}) — we already trust the session as proof of
+ *  identity, so no "current password" challenge is required (this is the
+ *  Supabase / Google / Apple Account default). */
+export async function changePassword(rawPassword) {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const password = (rawPassword || '').trim();
+  if (password.length < 6) throw new Error('Password ต้องมีอย่างน้อย 6 ตัวอักษร');
+  const { error } = await db.auth.updateUser({ password });
+  if (error) throw new Error(error.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+  await refreshCurrentUser();
 }
 
 /**

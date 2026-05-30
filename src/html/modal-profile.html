@@ -1,0 +1,141 @@
+  <!-- Profile modal — edit display name, manage email + password +
+       Google linking. Wired by src/js/profile.js. Opened from the user
+       dropdown via onclick="samoOpenProfile()". The same modal serves
+       every account shape (password-only, Google-only, both) — sections
+       hide / change copy based on the current identities. -->
+  <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold" id="profileModalLabel">
+            <i class="bi bi-person-circle me-2" style="color: var(--brand-primary);"></i>
+            จัดการบัญชีของคุณ
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4 pt-3">
+
+          <!-- ============== Display name ============== -->
+          <section class="mb-4">
+            <label class="form-label small fw-bold mb-1" for="profileName">ชื่อที่แสดง</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="profileName" maxlength="80"
+                     placeholder="ชื่อ – นามสกุล" autocomplete="name" />
+              <button type="button" class="btn btn-custom" id="profileNameSaveBtn" disabled>
+                บันทึก
+              </button>
+            </div>
+            <div class="form-text small">ใช้แสดงในประวัติคำสั่งซื้อและช่องอื่น ๆ ที่คุณส่งข้อมูล</div>
+            <div id="profileNameAlert" class="alert small py-2 mt-2 d-none"></div>
+          </section>
+
+          <!-- ============== Username (read-only when set) ============== -->
+          <section class="mb-4 d-none" id="profileUsernameSection">
+            <label class="form-label small fw-bold mb-1">Username</label>
+            <input type="text" class="form-control bg-light" id="profileUsername" disabled />
+            <div class="form-text small">เปลี่ยน username ไม่ได้ เพื่อรักษาประวัติของบัญชี</div>
+          </section>
+
+          <!-- ============== Email ============== -->
+          <section class="mb-4">
+            <label class="form-label small fw-bold mb-1" for="profileEmail">อีเมล</label>
+            <div class="input-group">
+              <input type="email" class="form-control" id="profileEmail"
+                     placeholder="you@example.com" autocomplete="email" />
+              <button type="button" class="btn btn-custom" id="profileEmailSaveBtn" disabled>
+                บันทึก
+              </button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2" id="profileEmailBadges"></div>
+            <div class="form-text small" id="profileEmailHelp">
+              อีเมลใช้สำหรับติดต่อกลับและสำหรับเชื่อมเข้ากับบัญชี Google
+            </div>
+            <div class="mt-2 d-none" id="profileEmailUnlinkRow">
+              <button type="button" class="btn btn-link btn-sm text-danger p-0"
+                      id="profileEmailUnlinkBtn">
+                <i class="bi bi-x-circle me-1"></i>ลบอีเมลออกจากบัญชี
+              </button>
+            </div>
+            <div id="profileEmailAlert" class="alert small py-2 mt-2 d-none"></div>
+          </section>
+
+          <!-- ============== Password ==============
+               Two modes:
+                 - hasPassword=true  → "ตั้งรหัสผ่านแล้ว" + change form
+                 - hasPassword=false → set-username-and-password form
+               Toggled in src/js/profile.js. -->
+          <section class="mb-4">
+            <label class="form-label small fw-bold mb-1">รหัสผ่าน</label>
+
+            <!-- When hasPassword=false: set username + password. The
+                 username input is hidden if the user already has one
+                 (e.g. some future legacy state). -->
+            <div id="profilePwSetBlock" class="d-none">
+              <div class="form-text small mb-2">
+                เพิ่ม username + รหัสผ่าน แล้วคุณจะเข้าสู่ระบบด้วย username/password ได้ด้วย
+              </div>
+              <div class="mb-2 d-none" id="profilePwUsernameRow">
+                <input type="text" class="form-control" id="profilePwUsername"
+                       autocomplete="username" placeholder="ตั้ง username (3+ ตัวอักษร, a-z 0-9 . _ -)"
+                       minlength="3" maxlength="40" />
+              </div>
+              <div class="mb-2">
+                <input type="password" class="form-control" id="profilePwNew"
+                       autocomplete="new-password" placeholder="รหัสผ่านใหม่ (6+ ตัวอักษร)" minlength="6" />
+              </div>
+              <div class="mb-2">
+                <input type="password" class="form-control" id="profilePwConfirm"
+                       autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน" minlength="6" />
+              </div>
+              <button type="button" class="btn btn-custom" id="profilePwSetBtn">บันทึก</button>
+            </div>
+
+            <!-- When hasPassword=true: collapsed status + change button. -->
+            <div id="profilePwExistsBlock" class="d-none">
+              <div class="d-flex align-items-center gap-2 p-2 rounded border">
+                <i class="bi bi-shield-check" style="color: var(--brand-primary);"></i>
+                <span class="small flex-grow-1">ตั้งรหัสผ่านแล้ว — ใช้ <span class="font-mono"
+                      id="profilePwUsernameHint"></span> + รหัสผ่าน เข้าสู่ระบบได้</span>
+                <button type="button" class="btn btn-link btn-sm p-0"
+                        id="profilePwChangeToggle">เปลี่ยนรหัสผ่าน</button>
+              </div>
+              <div id="profilePwChangeForm" class="d-none mt-2">
+                <div class="mb-2">
+                  <input type="password" class="form-control" id="profilePwChangeNew"
+                         autocomplete="new-password" placeholder="รหัสผ่านใหม่ (6+ ตัวอักษร)" minlength="6" />
+                </div>
+                <div class="mb-2">
+                  <input type="password" class="form-control" id="profilePwChangeConfirm"
+                         autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน" minlength="6" />
+                </div>
+                <button type="button" class="btn btn-custom btn-sm" id="profilePwChangeSaveBtn">บันทึก</button>
+              </div>
+            </div>
+
+            <div id="profilePwAlert" class="alert small py-2 mt-2 d-none"></div>
+          </section>
+
+          <!-- ============== Link / unlink Google ============== -->
+          <section class="mb-2">
+            <label class="form-label small fw-bold mb-1">บัญชี Google ที่เชื่อมต่อ</label>
+            <div id="profileGoogleStatus" class="p-3 rounded border d-flex align-items-center gap-3 flex-wrap">
+              <i class="bi bi-google fs-3" style="color: #ea4335;"></i>
+              <div class="flex-grow-1 small" style="min-width:140px;">
+                <div id="profileGoogleStatusText" class="fw-semibold">กำลังตรวจสอบ…</div>
+                <div class="text-muted" id="profileGoogleStatusSub"></div>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="profileLinkGoogleBtn">
+                เชื่อมต่อ
+              </button>
+              <button type="button" class="btn btn-link btn-sm text-danger p-0 d-none" id="profileUnlinkGoogleBtn">
+                <i class="bi bi-x-circle me-1"></i>ยกเลิกการเชื่อม
+              </button>
+            </div>
+            <div class="form-text small">หลังเชื่อมต่อแล้ว สามารถ "เข้าสู่ระบบด้วย Google" ที่ตรงกับอีเมลนี้ได้ทันที</div>
+            <div id="profileGoogleAlert" class="alert small py-2 mt-2 d-none"></div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>

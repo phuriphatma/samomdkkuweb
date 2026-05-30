@@ -13,6 +13,7 @@ import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { initProfileModal, openProfileModal } from './profile.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
@@ -20,6 +21,7 @@ import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDet
 import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { initShop } from './shop/index.js';
+import { copyText } from './utils.js';
 
 // ==============================================
 // QUILL SETUP
@@ -105,6 +107,7 @@ window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
 
 // Global Auth
 window.samoSignOut = samoSignOut;
+window.samoOpenProfile = openProfileModal;
 window.samoGoogleSignIn = async () => {
   try {
     await signInWithGoogle();
@@ -738,6 +741,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // the supabase-js client). Async, but we don't await — subscribers will
   // be notified when the session is ready.
   initAuth();
+  initProfileModal();
+
+  // Global "copy to clipboard" delegate: any [data-copy] element copies
+  // its data-copy value when clicked. Briefly swap the icon to a check
+  // mark so the user knows it worked.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    e.preventDefault();
+    const ok = await copyText(btn.dataset.copy);
+    if (!ok) return;
+    const icon = btn.querySelector('i');
+    if (icon) {
+      const prev = icon.className;
+      icon.className = 'bi bi-check2';
+      setTimeout(() => { icon.className = prev; }, 1200);
+    }
+  });
+
 
   // Initialize PR form event listeners
   initPrForm();

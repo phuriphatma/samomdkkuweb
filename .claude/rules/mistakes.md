@@ -162,6 +162,21 @@ on free tier built-in SMTP).
 toggle off "Confirm email". Synthetic emails don't need confirmation; Google
 users come in via OAuth which is already verified.
 
+**This applies to the profile email-add flow too — DO NOT flip "Confirm
+email" ON to "make magic-link verification work".** The toggle is
+project-wide, not per-call. Turning it ON would re-break signup at the
+same rate limit because every new `samomdkkuvpa@samomdkku.app`-style
+account sends a bounced confirmation. With it OFF,
+`db.auth.updateUser({email})` updates the email *immediately* without
+a verification step — that's accepted in this app because the
+ownership proof is the subsequent `linkIdentity` Google OAuth round-
+trip (Supabase will only link a Google identity whose email matches
+the user's auth email). Users who only want a contact email skip the
+proof step; that's the design tradeoff. See `STATE.md` "Supabase
+config for the profile email-add flow (0026)" for the longer write-
+up and the future OTP-via-Apps-Script path if real verification is
+ever needed.
+
 ---
 
 ## Bootstrap tab JS keeps the parent dropdown open
@@ -330,6 +345,79 @@ the post-auth path.
 `trackWithTicketId` + `loginToViewHistory`. If a new auth-related
 fetch is added later, default it to dbRest — supabase-js's PostgREST
 client is the unreliable axis here.
+
+---
+
+## RLS row-level policies don't gate per-column writes
+
+**Symptom**: Any signed-in user can `PATCH /users?id=eq.<their_uid>`
+with `{"role":"dev"}` and silently self-promote to dev — full admin
+access. Nothing in the browser code does this; an attacker uses curl
+or DevTools.
+**Cause**: The 0001 RLS policy is
+`for update using (id = auth.uid())`. PostgreSQL RLS is row-level
+only — it gates *which rows* a caller can mutate, NOT *which columns*.
+Once the row check passes, PostgREST happily writes any column the
+user includes in the body.
+**Fix**: A BEFORE-UPDATE trigger that compares OLD vs NEW and raises
+on privileged-column changes for non-staff. Migration 0028 adds
+`users_self_update_guard` for `public.users`. Pattern is reusable:
+any table where the JS only writes a subset of columns but RLS
+allows a per-row UPDATE needs the same kind of guard.
+**Where**: `supabase/migrations/0028_users_self_update_guard.sql`,
+plus `current_user_is_staff()` (broadened to all staff roles in
+0005) used inside the trigger to let admin tools through. **Don't
+ship a new `for update using (... = auth.uid())` policy without an
+accompanying column guard if any sensitive column lives on the row.**
+
+---
+
+## Supabase `unlinkIdentity` requires ≥2 identities — `hasPassword` is NOT the check
+
+**Symptom**: A Google-only user adds a password via the profile modal
+(`setUsernameAndPassword` → `db.auth.updateUser({password})`), then taps
+"ยกเลิกการเชื่อม Google". Server responds with
+`single_identity_not_deletable`. The UI had let them click because
+we trusted `hasPassword=true` as the green light.
+**Cause**: Supabase's docs and source are explicit: "The user must have
+at least 2 identities in order to unlink an identity"
+(`@supabase/auth-js` GoTrueClient.js, error code
+`single_identity_not_deletable`). `db.auth.updateUser({password})`
+sets `auth.users.encrypted_password` but does NOT reliably create an
+`email`-provider identity row. So a Google-only-then-password user
+can have `hasPassword=true` while `auth.identities = [google]` — one
+row. Unlinking that row is refused.
+**Fix**: Gate unlink UI on both (a) `hasPassword` for the UX rule
+("they still have a way in"), AND (b) `identities.length >= 2` for the
+Supabase rule. Surface a specific Thai message on the server error
+code so the user knows it's not a bug in their click.
+**Where**: `src/js/auth.js unlinkGoogleIdentity` + `src/js/profile.js`
+repaint of `#profileUnlinkGoogleBtn`. Don't ship a new "unlink"
+flow without checking the post-unlink identity count.
+
+---
+
+## supabase-js `updateUser({password})` doesn't create an `email` identity
+
+**Symptom**: A Google-only user opens the profile modal, sets a
+username + password, hits Save, success. They close + reopen the
+modal — the "Set password" form is still there. They try again,
+same result. Confused.
+**Cause**: `db.auth.updateUser({password})` writes
+`auth.users.encrypted_password` but does NOT add an `email`-provider
+identity row in `auth.identities`. So the
+"check `authUser.identities` for `provider === 'email'`" heuristic
+keeps returning `false` forever even though signInWithPassword
+would now work for them.
+**Fix**: Don't read "has password" off the identities array. Mirror
+`auth.users.encrypted_password is not null` into
+`public.users.has_password` via an AFTER-UPDATE trigger
+(migration 0027), then read that column on the normal profile fetch.
+The identity-array heuristic stays as a pre-0027 fallback.
+**Where**: `supabase/migrations/0027_username_case_and_has_password.sql`
++ `src/js/auth.js buildCurrentUser`. The same `has_password` column
+also lets the privilege-escalation guard (0028) treat
+`has_password` as server-only.
 
 ---
 

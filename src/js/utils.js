@@ -115,3 +115,45 @@ export function safeUrl(s) {
   if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u) || /^tel:/i.test(u)) return u;
   return '#';
 }
+
+/** Copy text to the clipboard. Returns true on success.
+ *  Falls back to a hidden textarea trick if Clipboard API is unavailable
+ *  (older mobile browsers, file:// pages). */
+export async function copyText(text) {
+  const value = String(text == null ? '' : text);
+  if (!value) return false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Render an order-id chip: monospaced code + a clipboard-copy button.
+ *  Used in shop customer + admin views. Pairs with the global delegated
+ *  `[data-copy]` handler set up in main.js / admin-main.js. */
+export function orderIdChipHtml(id) {
+  const safe = escHtml(id || '—');
+  return `<span class="order-id-chip">
+    <code>${safe}</code>
+    <button type="button" class="btn btn-link btn-sm p-0 ms-1 order-id-copy"
+            data-copy="${safe}" title="คัดลอกรหัสคำสั่งซื้อ" aria-label="คัดลอกรหัสคำสั่งซื้อ">
+      <i class="bi bi-clipboard"></i>
+    </button>
+  </span>`;
+}

@@ -903,6 +903,36 @@
 }
 .shop-tab .order-date { color: var(--shop-ink-500); font-size: .82rem; }
 
+/* Inline order-id chip with a copy button. Used in customer + admin
+   orders lists. The button looks like a small icon next to the code
+   and gives a quick visual confirmation (icon flips to a check) when
+   the copy succeeds. */
+.order-id-chip {
+  display: inline-flex; align-items: center; gap: .1rem;
+}
+.order-id-chip code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+}
+.order-id-copy {
+  color: var(--shop-ink-400, #94a3b8);
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 4px !important;
+  border-radius: 4px;
+  transition: background .15s, color .15s;
+}
+.order-id-copy:hover {
+  color: var(--shop-700, #105922);
+  background: var(--shop-50, #f0f7f1);
+}
+.order-id-copy .bi-check2 { color: var(--shop-700, #105922); }
+
 .shop-tab .status-pill {
   display: inline-flex; align-items: center; gap: .35rem;
   padding: .25rem .7rem;

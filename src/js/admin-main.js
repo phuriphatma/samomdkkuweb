@@ -11,6 +11,8 @@ import { uploadImageToDrive } from './uploads.js';
 
 // Auth (shared with public)
 import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { initProfileModal, openProfileModal } from './profile.js';
+import { copyText } from './utils.js';
 
 // Announcements / Creator
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder } from './announcements.js';
@@ -22,7 +24,7 @@ import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openP
 import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty } from './vs-staff.js';
 
 // Shop admin
-import { initShop, openShopAdmin } from './shop/index.js';
+import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
 
 // Projects
 import { initProjects, enterProjectsWorkspace } from './projects/index.js';
@@ -254,6 +256,7 @@ window.clearCreatorThumb = () => {
 
 // Window-exposed handlers used by inline onclick=""
 window.samoSignOut = samoSignOut;
+window.samoOpenProfile = openProfileModal;
 window.samoGoogleSignIn = async () => {
   try { await signInWithGoogle(); }
   catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }
@@ -665,6 +668,42 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   initAuth();
+  initProfileModal();
   initShop();
   initProjects();
+
+  // Deep-link: /admin/?scan=<orderId> jumps to that order's detail.
+  // Waits for the first signed-in state — if signed-out, the global
+  // sign-in gate kicks in and we resolve as soon as that completes.
+  // onAuthChange fires synchronously on subscribe, so guard against
+  // double-invocation with a done flag.
+  const scanId = new URLSearchParams(window.location.search).get('scan');
+  if (scanId) {
+    let done = false;
+    onAuthChange((u) => {
+      if (done || !u) return;
+      done = true;
+      showAdminSide('shop');
+      openShopAdminOrder(scanId);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('scan');
+      window.history.replaceState({}, '', url.toString());
+    });
+  }
+
+  // Global "copy to clipboard" delegate — mirrors main.js so admin
+  // surfaces (order id chips, etc.) can use [data-copy] markup.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    e.preventDefault();
+    const ok = await copyText(btn.dataset.copy);
+    if (!ok) return;
+    const icon = btn.querySelector('i');
+    if (icon) {
+      const prev = icon.className;
+      icon.className = 'bi bi-check2';
+      setTimeout(() => { icon.className = prev; }, 1200);
+    }
+  });
 });
