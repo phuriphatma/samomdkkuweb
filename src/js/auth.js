@@ -376,7 +376,15 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   return currentUser;
 }
 
-export async function signOut() {
+/**
+ * @param {{ scope?: 'global' | 'local' | 'others' }} [opts]
+ *   `local` (account-switcher's "+ Add another" path) clears the
+ *   current device's session but does NOT revoke the refresh_token
+ *   on the server — so a saved refresh_token can still be replayed
+ *   later to fast-switch back. `global` (the explicit ออกจากระบบ
+ *   button) revokes the token across all of the user's devices.
+ */
+export async function signOut(opts = {}) {
   // Run any pre-clear hooks while currentUser is still populated, so
   // account-switch (and similar bookkeeping) can snapshot the outgoing
   // user without racing the auth subscriber.
@@ -390,7 +398,7 @@ export async function signOut() {
   currentUser = null;
   notify();
   try {
-    await db.auth.signOut();
+    await db.auth.signOut(opts.scope ? { scope: opts.scope } : undefined);
   } catch (e) {
     console.warn('[auth] signOut server call failed (local session already cleared):', e);
   }
@@ -400,6 +408,51 @@ export function getUser() { return currentUser; }
 export function isSignedIn() { return currentUser !== null; }
 export function getRole() { return currentUser?.role || null; }
 export function getDepartment() { return currentUser?.department || ''; }
+
+/**
+ * Read the current Supabase session's tokens. Used by the multi-account
+ * switcher to snapshot a session so we can replay it later for "fast
+ * switch" without forcing the user back through the sign-in form.
+ * Returns null when no session is active.
+ */
+export async function getCurrentSessionTokens() {
+  try {
+    const { data } = await db.auth.getSession();
+    const s = data?.session;
+    return s ? {
+      access_token:  s.access_token,
+      refresh_token: s.refresh_token,
+    } : null;
+  } catch { return null; }
+}
+
+/**
+ * Replay a previously-saved Supabase session — used by the account
+ * switcher to swap to a different account without re-entering the
+ * password. supabase-js auto-refreshes the access_token from the
+ * refresh_token when the former is expired, so a session saved hours
+ * (or days) ago is still usable as long as the refresh_token is valid.
+ *
+ * Returns the rebuilt currentUser, or null on failure.
+ */
+export async function setAuthSession({ access_token, refresh_token }) {
+  if (!access_token || !refresh_token) return null;
+  try {
+    const { data, error } = await db.auth.setSession({ access_token, refresh_token });
+    if (error) {
+      console.warn('[auth] setSession failed:', error.message);
+      return null;
+    }
+    const session = data?.session || (await db.auth.getSession()).data?.session;
+    if (!session) return null;
+    currentUser = await buildCurrentUser(session);
+    notify();
+    return currentUser;
+  } catch (e) {
+    console.warn('[auth] setSession threw:', e?.message || e);
+    return null;
+  }
+}
 
 export async function setDepartment(dept) {
   if (!currentUser) return;

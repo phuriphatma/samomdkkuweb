@@ -12,7 +12,15 @@
 // `lastUsed` desc. Capped at 6 to keep the chooser scannable.
 // ==============================================
 
-import { onAuthChange, onBeforeSignOut, signOut, signInWithGoogle, getUser } from './auth.js';
+import {
+  onAuthChange,
+  onBeforeSignOut,
+  signOut,
+  signInWithGoogle,
+  getUser,
+  getCurrentSessionTokens,
+  setAuthSession,
+} from './auth.js';
 import { escHtml } from './utils.js';
 
 const STORAGE_KEY = 'samo.savedAccounts';
@@ -61,7 +69,14 @@ export function rememberAccount(user) {
   };
   const key = keyFor(entry);
   if (!key) return;
+  // Preserve any previously-stored session tokens for this account so
+  // a stale-but-non-empty rememberAccount call doesn't blow them away.
+  // The async token capture below will overwrite with fresh tokens
+  // once getSession() resolves.
   const prev = readSaved();
+  const existing = prev.find((a) => keyFor(a) === key);
+  if (existing?.access_token)  entry.access_token  = existing.access_token;
+  if (existing?.refresh_token) entry.refresh_token = existing.refresh_token;
   const list = prev.filter((a) => keyFor(a) !== key);
   list.unshift(entry);
   list.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
@@ -74,6 +89,19 @@ export function rememberAccount(user) {
     console.debug('[samo.account-switch] remember',
       { key, in: prev.map(keyFor), out: list.map(keyFor) });
   } catch {}
+  // Async-capture the current session's tokens and stitch them onto the
+  // saved entry. We can't await this in a sync subscriber, but the
+  // tokens land in localStorage before the user has had time to open
+  // the switcher again — and the entry exists from the line above so
+  // the chooser already shows the account during the brief window.
+  getCurrentSessionTokens().then((tokens) => {
+    if (!tokens?.refresh_token) return;
+    const after = readSaved();
+    const idx = after.findIndex((a) => keyFor(a) === key);
+    if (idx < 0) return;
+    after[idx] = { ...after[idx], ...tokens };
+    writeSaved(after);
+  }).catch(() => {});
 }
 
 /** Drop one saved account (the "x" on each chooser row). */
@@ -181,25 +209,49 @@ function refreshList() {
 async function pickAccount(key) {
   const acct = readSaved().find((a) => keyFor(a) === key);
   if (!acct) return;
-  // Hide the switcher modal first so the sign-in modal can take the
-  // stage without a backdrop fight.
+  // Hide the switcher modal first so any fallback sign-in modal can
+  // take the stage without a backdrop fight.
   const switcher = document.getElementById('samoSwitchAccountModal');
   if (switcher && window.bootstrap) {
     window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
   }
-  // Snapshot the current user into the saved list BEFORE sign-out.
-  // The onAuthChange subscriber would normally do this when the user
-  // first signed in, but if that fire was dropped (subscriber not yet
-  // mounted, partial profile, race with init) we'd lose them after
-  // switching away. Belt-and-braces: write now so the next chooser
-  // open still shows the previous account.
+  // Snapshot the current user into the saved list BEFORE we switch
+  // away — captures fresh tokens and shields against any timing-race
+  // that could lose the prior account from the chooser.
   try { rememberAccount(getUser()); } catch {}
+  // Give the snapshot a microtask + a beat to flush its async token
+  // capture before we replace the current session — otherwise we'd
+  // race ourselves and lose the outgoing account's refresh_token.
+  await new Promise((r) => setTimeout(r, 50));
+
+  // Fast path: if we have the target account's saved refresh_token,
+  // replay the session directly. supabase-js auto-refreshes the
+  // access_token when needed, so an hours/days-old token still works
+  // as long as the refresh_token is valid. No password needed.
+  const refreshed = readSaved().find((a) => keyFor(a) === key);
+  if (refreshed?.refresh_token && refreshed?.access_token) {
+    const swapped = await setAuthSession({
+      access_token:  refreshed.access_token,
+      refresh_token: refreshed.refresh_token,
+    });
+    if (swapped) return;   // success — auth subscriber takes it from here
+    // setSession failed (refresh_token revoked or expired). Fall through
+    // to the credential-entry path with a hint to the user.
+    console.warn('[samo.account-switch] fast switch failed — falling back to sign-in form');
+  }
+
+  // Slow path / first-time switch / Google: clear the local session
+  // and open the sign-in flow. signOut here is the explicit signOut
+  // path so the user can use the bell + global revoke behaviour they
+  // expect when they're switching cold.
   try { await signOut(); } catch {}
+
   if (acct.method === 'google') {
     try { await signInWithGoogle({ loginHint: acct.email || undefined }); }
     catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }
     return;
   }
+
   // Password path: prefill the sign-in modal and let the browser's
   // password manager (or the user) handle the rest.
   setTimeout(() => {
@@ -224,7 +276,11 @@ function openAddAccountFlow() {
   // into the saved list BEFORE the sign-out clears them, so the next
   // open of the chooser still lists them under "บัญชีอื่นที่บันทึกไว้".
   try { rememberAccount(getUser()); } catch {}
-  signOut().catch(() => {});
+  // 'local' scope: clear THIS device's session but DON'T revoke the
+  // refresh_token on the server. That refresh_token stays valid so a
+  // later "switch back" via the saved-account chooser can replay it
+  // (setAuthSession) without forcing the user through the form again.
+  signOut({ scope: 'local' }).catch(() => {});
   setTimeout(() => {
     const signinEl = document.getElementById('signinModal');
     if (signinEl && window.bootstrap) {
