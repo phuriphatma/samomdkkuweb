@@ -2139,10 +2139,19 @@ function stockCardHtml(p, reservedMap = new Map()) {
           </div>
           <div class="small text-muted">${escHtml(p.sub || '')}</div>
         </div>
-        <div class="d-flex flex-column align-items-end gap-1">
-          <span class="stock-total ${total === null ? 'is-unset' : total === 0 ? 'is-zero' : total <= 5 ? 'is-low' : ''}">
-            ${total === null ? '— ไม่ระบุ —' : `บนเว็บ ${total} ชิ้น`}
-          </span>
+        <div class="d-flex flex-column align-items-end gap-1" style="min-width:160px;">
+          ${total === null ? `
+            <span class="stock-total is-unset">— ยังไม่ตั้งสต็อก —</span>
+          ` : (() => {
+            const available = total - sales.outstanding;
+            const cls = available < 0 ? 'is-over'
+              : available === 0 ? 'is-zero'
+              : available <= 5 ? 'is-low'
+              : 'is-ok';
+            return `<span class="stock-available-headline ${cls}">
+              พร้อมขาย <b>${available}</b> ชิ้น
+            </span>`;
+          })()}
           <select class="form-select form-select-sm" data-stock-status-sel="${escHtml(p.id)}" style="max-width:200px;">
             ${STOCK_STATUSES.map((s) =>
               `<option value="${s}" ${edit.status === s ? 'selected' : ''}>${escHtml(STOCK_STATUS_META[s]?.label || s)}</option>`).join('')}
@@ -2150,33 +2159,31 @@ function stockCardHtml(p, reservedMap = new Map()) {
         </div>
       </div>
 
-      <!-- Per-product sales summary so admin doesn't have to math out
-           "how many more should I produce / order" by hand. All counts
-           come from the orders already loaded in state.orders. -->
-      <div class="stock-sales-summary d-flex flex-wrap gap-3 mb-2 small">
-        <span><span class="text-muted">จองแล้ว:</span> <b>${sales.reserved}</b> ชิ้น</span>
-        <span><span class="text-muted">ส่งมอบแล้ว:</span> <b>${sales.delivered}</b> ชิ้น</span>
-        <span><span class="text-muted">ค้างส่ง:</span> <b class="${sales.outstanding > 0 ? 'text-warning' : ''}">${sales.outstanding}</b> ชิ้น</span>
-        ${total !== null ? `<span><span class="text-muted">คาดว่าจะคงเหลือหลังส่งทั้งหมด:</span>
-          <b class="${total - sales.outstanding < 0 ? 'text-danger' : ''}">${total - sales.outstanding}</b> ชิ้น</span>` : ''}
-      </div>
-
-      <!-- Production status cascade — same control as in the product
-           editor, exposed here so admin can flip status straight from
-           the stock view. Triggers applyProductProductionStatus RPC
-           with a confirmation when it would move orders. -->
-      <div class="p-2 rounded mb-2" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
-        <label class="small fw-bold mb-1 d-block">สถานะผลิตสินค้านี้ (กระทบกับคำสั่งซื้อ)</label>
-        <select class="form-select form-select-sm" data-stock-production-sel="${escHtml(p.id)}" style="max-width:340px;">
-          <option value="pending"   ${prod === 'pending'   ? 'selected' : ''}>ยังไม่ผลิต — ไม่ขยับคำสั่งซื้อ</option>
-          <option value="produced"  ${prod === 'produced'  ? 'selected' : ''}>สินค้าผลิตเสร็จแล้ว — ย้าย "ยืนยันการชำระเงิน" → "ผลิตเสร็จ"</option>
-          <option value="announced" ${prod === 'announced' ? 'selected' : ''}>ประกาศรอบรับสินค้า — ย้ายต่อไป "ประกาศแล้ว"</option>
-        </select>
-        <div class="form-text small mt-1 mb-0">
-          เลือก "สินค้าผลิตเสร็จแล้ว" จะย้ายเฉพาะคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน".
-          เลือก "ประกาศรอบรับสินค้า" จะย้ายทั้ง "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว".
-          คำสั่งซื้อสถานะปัญหา (สลิปไม่ถูกต้อง · รอคืนเงิน · ยกเลิก · เปลี่ยนสินค้า · ฯลฯ) จะไม่ถูกแตะ.
+      <!-- Compact secondary line: the supporting numbers behind the
+           "พร้อมขาย" headline. Lets admin see at a glance whether the
+           number went down because of recent orders or shipments. -->
+      ${total !== null ? `
+        <div class="stock-sales-summary small text-muted mb-2">
+          ในคลังรวม <b>${total}</b>
+          · ลูกค้าจองอยู่ <b>${sales.outstanding}</b>${sales.outstanding > 0 ? `<span class="text-muted small ms-1">(ยังไม่ส่งมอบ)</span>` : ''}
+          · ส่งมอบแล้ว <b>${sales.delivered}</b>
         </div>
+      ` : ''}
+
+      <!-- Production-status cascade — same control as the product
+           editor. The detailed explanation lives in the product editor;
+           here we keep just the dropdown so admin can flip it quickly.
+           A small (i) tooltip hints at the cascade behaviour without
+           the full paragraph. -->
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <label class="small fw-semibold mb-0 me-1">สถานะผลิต:</label>
+        <select class="form-select form-select-sm" data-stock-production-sel="${escHtml(p.id)}" style="max-width:280px;">
+          <option value="pending"   ${prod === 'pending'   ? 'selected' : ''}>ยังไม่ผลิต</option>
+          <option value="produced"  ${prod === 'produced'  ? 'selected' : ''}>ผลิตเสร็จแล้ว</option>
+          <option value="announced" ${prod === 'announced' ? 'selected' : ''}>ประกาศรับสินค้า</option>
+        </select>
+        <i class="bi bi-info-circle text-muted" tabindex="0"
+           title='"ผลิตเสร็จแล้ว" ย้ายออเดอร์ "ยืนยันชำระเงิน" → "ผลิตเสร็จ" / "ประกาศรับสินค้า" ย้ายต่อไป "ประกาศแล้ว" / สถานะปัญหาไม่ถูกแตะ'></i>
       </div>
       <div class="stock-grid">
         <table class="stock-grid-table">
@@ -2196,39 +2203,33 @@ function stockCardHtml(p, reservedMap = new Map()) {
                 ${sizes.map((s) => {
                   const k = stockKey(s, c.id);
                   const v = edit.matrix[k];
-                  // Reserved count for THIS variant — orders in any
-                  // RESERVED_STATUS, summed. Cancellations / refunds
-                  // / slip_mismatch / no_show / exchange are excluded,
-                  // so an admin who marks an order cancelled
-                  // automatically frees up that qty.
+                  // Reserved = qty in active orders for this exact
+                  // variant. Cancellations / refunds / slip_mismatch
+                  // / no_show / exchange are excluded, so admin
+                  // cancelling an order auto-frees that qty.
                   const reserved = reservedMap.get(`${p.id}|${s}|${c.id}`) || 0;
-                  // Computed "available" — what's free to sell after
-                  // subtracting active orders. Only meaningful when
-                  // the cell has a value. May be negative (over-sold).
+                  // Available = matrix value − reserved. Null when
+                  // admin hasn't typed anything. Negative = over-sold
+                  // and gets a loud red treatment so admin sees it.
                   const available = typeof v === 'number' ? v - reserved : null;
-                  const cls = v === undefined ? 'is-unset'
+                  const wrapCls = v === undefined ? 'is-unset'
                     : v === 0 ? 'is-zero'
                     : v <= 3 ? 'is-low'
                     : 'is-ok';
-                  // The td has to stay display:table-cell so column
-                  // widths align with the size headers above; the
-                  // [-] input [+] cluster lives in an inner wrap.
+                  const overSold = available !== null && available < 0;
                   return `
                     <td class="stock-cell-td">
-                      <div class="stock-cell-wrap ${cls}">
+                      <div class="stock-cell-wrap ${wrapCls} ${overSold ? 'is-over' : ''}">
                         <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|-1" title="ลด 1">−</button>
                         <input class="stock-cell" data-stock-cell="${escHtml(p.id)}|${escHtml(k)}" inputmode="numeric"
                                value="${v === undefined ? '' : Number(v)}" placeholder="–" />
                         <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
                       </div>
-                      ${reserved > 0 || available !== null ? `
-                        <div class="stock-cell-note small">
-                          ${reserved > 0 ? `<span class="text-muted">จอง ${reserved}</span>` : ''}
-                          ${available !== null
-                            ? `<span class="${available < 0 ? 'text-danger fw-semibold' : available === 0 ? 'text-warning' : 'text-muted'}">
-                                · เหลือ ${available}</span>`
-                            : ''}
+                      ${available !== null ? `
+                        <div class="stock-cell-avail ${overSold ? 'is-over' : available === 0 ? 'is-zero' : available <= 3 ? 'is-low' : 'is-ok'}">
+                          เหลือ ${available}
                         </div>` : ''}
+                      ${reserved > 0 ? `<div class="stock-cell-reserved">จอง ${reserved}</div>` : ''}
                     </td>`;
                 }).join('')}
               </tr>`).join('')}
@@ -2238,9 +2239,7 @@ function stockCardHtml(p, reservedMap = new Map()) {
       <div class="stock-card-foot">
         <div class="small text-muted">
           <i class="bi bi-info-circle me-1"></i>
-          ช่องในตาราง = ของในคลัง (admin กรอกเอง) · ใต้ช่อง = จองอยู่ในออเดอร์ · เหลือ = ของในคลัง − จอง.
-          เว้นว่าง = ไม่ระบุ · 0 = หมด · ค่าติดลบ = ขายเกิน (ต้องเพิ่มสต็อก).
-          คำสั่งซื้อที่ยกเลิก / คืนเงิน / สลิปไม่ถูกต้อง จะไม่นับเป็นจอง.
+          ช่อง = ของในคลัง · ใต้ช่อง = พร้อมขาย (คลัง − จอง). ติดลบ = ขายเกิน
         </div>
         <div class="d-flex gap-2">
           ${edit.dirty ? `<button class="btn btn-ghost btn-sm" data-stock-cancel="${escHtml(p.id)}">ยกเลิก</button>` : ''}

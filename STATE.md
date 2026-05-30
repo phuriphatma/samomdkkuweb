@@ -231,12 +231,16 @@ After Cloudflare rebuilds both pages projects:
     The product modal defaults to the first IN-STOCK combo when
     matrix is configured.
 19. Admin stock view also shows per-cell reservation: under each
-    matrix input you'll see "จอง N · เหลือ K" where N = qty in
-    active orders for that exact variant, K = matrix value − N.
-    Negative K shows in red (over-sold — needs more stock).
-    Cancellation / refund / slip_mismatch / no_show / exchange
-    DO NOT count toward "จอง" — so admin marking an order cancelled
-    automatically frees that qty.
+    matrix input you'll see "เหลือ K" (= matrix value − reserved)
+    plus "จอง N" only when N > 0. The whole cell-wrap goes red-bordered
+    when over-sold. Cancellation / refund / slip_mismatch / no_show /
+    exchange DO NOT count toward "จอง" — so admin marking an order
+    cancelled automatically frees that qty.
+20. Stock card has a single big "พร้อมขาย N ชิ้น" headline (green /
+    yellow / red / dark-red bands depending on the number), a one-
+    line condensed subline (ในคลังรวม · ลูกค้าจองอยู่ · ส่งมอบแล้ว),
+    and the production-status dropdown is just the dropdown plus an
+    (i) tooltip (no more long paragraph under it).
 
 ## Routing — what to read for what
 

@@ -1522,6 +1522,35 @@
   background: var(--shop-yellow-50); color: var(--shop-yellow-700);
   border-color: var(--shop-yellow-100);
 }
+
+/* Big "พร้อมขาย N ชิ้น" headline in the stock-card head — the single
+   number admin cares about most. Color-coded so the at-a-glance
+   read works: green when healthy, yellow when low, red when over-
+   sold, neutral when matrix not configured. */
+.shop-tab .stock-card .stock-available-headline {
+  display: inline-block;
+  padding: .35rem .9rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #e1f5ea; color: var(--brand-accent);
+  border: 1px solid #b8e1c4;
+}
+.shop-tab .stock-card .stock-available-headline b { font-size: 1.25rem; margin: 0 .15rem; }
+.shop-tab .stock-card .stock-available-headline.is-low {
+  background: var(--shop-yellow-50); color: var(--shop-yellow-700);
+  border-color: var(--shop-yellow-100);
+}
+.shop-tab .stock-card .stock-available-headline.is-zero {
+  background: var(--status-cancel-bg); color: var(--status-cancel);
+  border-color: rgba(145,39,43,.18);
+}
+.shop-tab .stock-card .stock-available-headline.is-over {
+  background: #ffe1e1; color: #b71c1c;
+  border: 1px solid #f3b6b6;
+}
+.shop-tab .stock-card .stock-total.is-unset { /* kept for the no-matrix case */ }
 .shop-tab .stock-grid {
   padding: .5rem 1rem 0;
   overflow-x: auto;
@@ -1602,11 +1631,43 @@
   padding: 0;
   vertical-align: middle;
 }
-.shop-tab .stock-cell-note {
+.shop-tab .stock-cell-note { /* legacy — kept for any unmigrated callers */
   font-size: .7rem;
   line-height: 1.1;
   margin-top: 2px;
   white-space: nowrap;
+}
+
+/* "เหลือ K" — the single most actionable number per cell. Visually
+   dominant. Color hints urgency. */
+.shop-tab .stock-cell-avail {
+  font-weight: 700;
+  font-size: .82rem;
+  line-height: 1.1;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  background: #e1f5ea;
+  color: var(--brand-accent);
+}
+.shop-tab .stock-cell-avail.is-low { background: var(--shop-yellow-50, #fff7d6); color: var(--shop-yellow-700, #7a5c00); }
+.shop-tab .stock-cell-avail.is-zero { background: var(--status-cancel-bg, #fde8e8); color: var(--status-cancel, #b94c4c); }
+.shop-tab .stock-cell-avail.is-over { background: #ffd1d1; color: #7a1c1c; border: 1px solid #f3a0a0; }
+
+/* "จอง N" — tertiary info, only shown when > 0. */
+.shop-tab .stock-cell-reserved {
+  font-size: .68rem;
+  color: var(--shop-ink-500);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+/* Cell wrap gets a loud red border when this variant is over-sold —
+   admin can spot it scrolling at a glance without reading the number. */
+.shop-tab .stock-cell-wrap.is-over {
+  border-color: #c62828;
+  box-shadow: 0 0 0 1px #c62828 inset;
 }
 .shop-tab .stock-cell-wrap {
   background: #fff;
