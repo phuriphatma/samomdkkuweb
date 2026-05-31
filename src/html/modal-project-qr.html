@@ -1,0 +1,43 @@
+  <!-- Per-project Drive folder QR. Rendered into by
+       src/js/projects/qr.js showProjectQrModal(project). Encodes the
+       Drive folder URL so anyone with a phone camera can browse the
+       whole project's หนังสือ subfolders + files in one tap. -->
+  <div class="modal fade projects-tab" id="projectQrModal" tabindex="-1" aria-labelledby="projectQrLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold" id="projectQrLabel">
+            <i class="bi bi-qr-code me-2" style="color: var(--brand-primary);"></i>
+            QR โฟลเดอร์โครงการ
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center p-4 pt-2">
+          <div id="projectQrProjectName" class="fw-bold mb-1" style="font-size:1rem;"></div>
+          <div id="projectQrProjectId" class="text-muted small mb-3 font-mono"></div>
+          <div id="projectQrImage" class="mb-3 d-flex justify-content-center align-items-center"
+               style="min-height: 240px;"></div>
+          <p class="small text-muted mb-2">
+            สแกนเพื่อเปิดโฟลเดอร์ใน Google Drive — ภายในจัดเรียงตามหนังสือ และไฟล์แนบของแต่ละหนังสือ
+          </p>
+          <div class="d-grid gap-2 mt-3">
+            <a id="projectQrOpenBtn" class="btn btn-sm btn-primary-soft" href="#" target="_blank" rel="noopener">
+              <i class="bi bi-box-arrow-up-right me-1"></i> เปิดโฟลเดอร์ใน Drive
+            </a>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1" id="projectQrCopyBtn">
+                <i class="bi bi-clipboard me-1"></i> คัดลอกลิงก์
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1" id="projectQrDownloadBtn">
+                <i class="bi bi-download me-1"></i> บันทึก QR
+              </button>
+            </div>
+          </div>
+          <p class="small text-warning mt-3 mb-0" id="projectQrShareNote" style="font-size:0.75rem;">
+            <i class="bi bi-info-circle me-1"></i>
+            ใครก็ตามที่ได้รับลิงก์/QR นี้สามารถเปิดดูไฟล์ทุกฉบับในโครงการได้
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>

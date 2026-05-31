@@ -47,6 +47,15 @@ User has confirmed 0023–0031 are applied. No pending migrations.
   `https://samomdkkuweb.pages.dev/**` and
   `https://refactorsamomdkkuweb.pages.dev/**`.
 
+## Pending GAS redeploy
+
+`appscript/prform.gs` gained a new `getProjectFolderInfo` action used
+by the per-project QR feature. Until the GAS project is redeployed
+(see `skills/deploy-gas.md`), the new "QR โฟลเดอร์" button on the
+project detail header will alert "หา URL โฟลเดอร์ไม่สำเร็จ" because
+the live `/exec` endpoint doesn't know the action yet. Everything
+else still works.
+
 ## What's in flight (carry-over from this session)
 
 - **iPad cached HTML** — `_headers` ships `Cache-Control: no-cache,

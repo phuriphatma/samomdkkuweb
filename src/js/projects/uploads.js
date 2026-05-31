@@ -90,6 +90,39 @@ export async function deleteProjectFile(fileUrl) {
 }
 
 /**
+ * Resolve the Drive folder URL for a logical `Projects/...` path,
+ * creating the folder if it doesn't exist yet and ensuring it's shared
+ * as ANYONE_WITH_LINK view. Drives the per-project QR feature — the
+ * URL is what the QR encodes. Returns { folderId, folderUrl, folderName }.
+ *
+ * Empty-folder case: brand-new projects with no files uploaded yet
+ * still get a valid URL because GAS creates the folder on demand.
+ * The QR is therefore usable immediately on project creation.
+ */
+export async function getProjectFolderInfo(folderPath) {
+  if (!folderPath || typeof folderPath !== 'string') {
+    throw new Error('folderPath is required');
+  }
+  if (!folderPath.startsWith('Projects/')) {
+    throw new Error('folderPath must start with Projects/');
+  }
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getProjectFolderInfo', folderPath }),
+  });
+  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  if (!result.success || !result.folderUrl) {
+    throw new Error(result.message || 'หา URL โฟลเดอร์ไม่สำเร็จ');
+  }
+  return {
+    folderId:   result.folderId   || null,
+    folderUrl:  result.folderUrl,
+    folderName: result.folderName || null,
+  };
+}
+
+/**
  * Trash a folder (and everything inside) under `Projects/...` via GAS.
  * Used by the project-tracking delete flows so the Drive side doesn't
  * orphan when a โครงการ or หนังสือ is deleted in the DB.

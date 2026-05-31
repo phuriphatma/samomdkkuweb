@@ -36,7 +36,10 @@ Both Cloudflare projects hit the same Supabase backend.
   organised per-project folders; replace is non-destructive (old versions
   kept). Receiver gets in-app + email notifications; sender gets in-app +
   Discord webhook on every status change / comment. Bookmarkable deep links
-  (`#projects/PRJ-XXXX-NNNN/doc/DOC-…`).
+  (`#projects/PRJ-XXXX-NNNN/doc/DOC-…`). Per-project QR code generates a
+  scannable link to the Drive folder so the whole project (organised as
+  one subfolder per หนังสือ, each with its file attachments) can be
+  shared in one tap.
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
   regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
   `dev`. Role gates the Admin tab, the project-tracking tab + bell, and

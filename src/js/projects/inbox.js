@@ -42,6 +42,7 @@ import {
 import { uploadProjectFile, deleteProjectFolder, deleteProjectFile } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin } from './notify.js';
 import { openProjectPrompt, openProjectConfirm } from './ui-prompt.js';
+import { showProjectQrModal } from './qr.js';
 
 // ---------- module state ----------
 
@@ -674,6 +675,9 @@ function renderDetail() {
         </button>` : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
           <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost" data-projects-qr-project="${escHtml(project.id)}" title="QR ของโฟลเดอร์ Drive โครงการนี้">
+          <i class="bi bi-qr-code me-1"></i> QR โฟลเดอร์
         </button>
         ${canManage ? `
           <button type="button" class="btn btn-sm btn-ghost text-danger ms-auto"
@@ -1345,6 +1349,12 @@ function onInboxClick(e) {
   const copyProj = e.target.closest('[data-projects-copy-project]');
   if (copyProj) {
     copyToClipboard(`${window.location.origin}${window.location.pathname}#projects/${copyProj.dataset.projectsCopyProject}`, copyProj);
+    return;
+  }
+  const qrProj = e.target.closest('[data-projects-qr-project]');
+  if (qrProj) {
+    const project = cache.projects.find((p) => p.id === qrProj.dataset.projectsQrProject);
+    if (project) showProjectQrModal(project);
     return;
   }
   const copyDoc = e.target.closest('[data-projects-copy-doc]');

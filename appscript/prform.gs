@@ -33,9 +33,10 @@ function doPost(e) {
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
-    if (data.action === 'uploadProjectFile') return handleUploadProjectFile(data);
+    if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
+    if (data.action === 'getProjectFolderInfo') return handleGetProjectFolderInfo(data);
 
     if (data.action === 'notifyPROnly') {
       try { sendDiscordNotification(data, data.ticketId); } catch (err) { console.error('notifyPROnly: ' + err); }
@@ -276,6 +277,53 @@ function fileLivesUnderProjects_(file) {
 // keeps a 30-day Drive recovery window — same convention as
 // deleteShopFile.
 // ============================================================
+
+// ============================================================
+// getProjectFolderInfo — return the Drive folder id + viewer URL
+// for a logical `Projects/...` path, creating any missing folders
+// along the way. Used by the per-project QR feature so a user can
+// share the whole project folder (containing one subfolder per
+// หนังสือ, each with its own files) by scanning a single code.
+//
+// Sharing: sets ANYONE_WITH_LINK + VIEW on the folder itself, so
+// anyone who scans the QR can browse + open files. Individual
+// files are already shared the same way at upload time, so the
+// only thing folder-sharing changes is making the list of files
+// browsable from the link. The action is allow-listed to paths
+// under `Projects/` to keep the same blast radius as the other
+// project-folder helpers.
+//
+// Idempotent: re-calling for the same path returns the same id /
+// url and re-asserts the sharing setting (no-op if already set).
+// ============================================================
+
+function handleGetProjectFolderInfo(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (path.indexOf('Projects/') !== 0) {
+      return createResponse({ success: false, message: 'folderPath must start with Projects/' });
+    }
+    // Refuse the root — sharing it would expose every project on this
+    // Drive. Sub-paths only.
+    if (path === 'Projects' || path === 'Projects/') {
+      return createResponse({ success: false, message: 'refuse to share the root Projects folder' });
+    }
+    var folder = getOrCreateFolderPath_(path);
+    // Re-assert sharing every call. setSharing is idempotent — if
+    // already set to the same access/perm pair, it returns silently.
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({
+      success: true,
+      folderId:  folder.getId(),
+      folderUrl: folder.getUrl(),
+      folderName: folder.getName(),
+    });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
 
 function handleDeleteProjectFolder(data) {
   try {
