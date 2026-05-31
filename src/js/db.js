@@ -108,17 +108,27 @@ export async function dbRest(path, opts = {}) {
       ...(prefer ? { Prefer: prefer } : {}),
       ...extraHeaders,
     };
-    const res = await fetch(`${url}/rest/v1${path}`, {
+    // GET cache busting. iOS Safari shipped the fetch `cache` option
+    // only in 16.4; on older iPads the `cache: 'no-store'` below is
+    // silently ignored and Safari happily serves a stale disk copy of
+    // /projects?select=*&… — surfacing as "comment is in the DB but
+    // the inbox shows yesterday's timeline → no highlight, only
+    // incognito works". A unique query parameter side-steps the cache
+    // at the URL-key level, which every browser honours. PostgREST
+    // ignores unknown query params so this is safe to add to any GET.
+    let finalPath = path;
+    if (method === 'GET') {
+      const sep = path.includes('?') ? '&' : '?';
+      finalPath = `${path}${sep}_=${Date.now()}`;
+    }
+    const res = await fetch(`${url}/rest/v1${finalPath}`, {
       method,
       headers,
       body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
       signal: controller.signal,
-      // iPad / iOS Safari aggressively caches GET responses to the
-      // same URL when the page is restored from bfcache or the tab is
-      // backgrounded. That manifested as "comment is in the DB but the
-      // inbox shows stale timeline → no unread highlight on iPad
-      // normal-mode tab, works in incognito". no-store skips the HTTP
-      // disk cache entirely; every dbRest call hits PostgREST live.
+      // Modern browsers (Safari 16.4+, all Chromium/Firefox) honour
+      // this — see the cache-buster comment above for the older-iOS
+      // story.
       cache: 'no-store',
     });
     clearTimeout(timer);

@@ -54,7 +54,7 @@ let expandedDocs = new Set();   // doc ids expanded inside the detail view
 // Per-doc seenAt frozen at the moment the user expanded the doc.
 // Renders of the expanded body use this frozen value so the unread
 // banner / "ใหม่" pill / is-unread row don't vanish the instant the
-// user opens the doc (the click handler also calls markCommentsSeen
+// user opens the doc (the click handler also calls markDocSeen
 // to persist the "I've seen it" state for the grid + doc card; without
 // the freeze, that write would clear the highlights the user opened
 // the หนังสือ to read).
@@ -123,16 +123,25 @@ function projectBucketCounts(role) {
   return c;
 }
 
-/** Does any doc in this project carry an unread comment from the other
- *  side (relative to the viewer's per-doc seenAt)? Used to extend the
- *  "ได้รับแจ้งเตือน" badge with comment activity — a comment-only
- *  update would otherwise be invisible from the grid level. */
-function docHasUnreadComment(doc, role) {
+/** Does this doc carry any unseen incoming event for the viewer?
+ *  Incoming = any action from the OTHER side that the viewer's per-doc
+ *  seenAt predates. Powers the doc-card "อัปเดต" pill, the inbox grid
+ *  badge, and the project-level notified state.
+ *
+ *  "Other side" here means: filter out events the viewer themself did
+ *  (e.role === role). A new file added by the VPA while uni_staff is
+ *  in "received" status counts — same goes for the status changes that
+ *  used to be invisible until you drilled in.
+ *
+ *  Cleared by: any user action on the doc (markDocSeen) or expanding
+ *  the doc (markDocSeen). */
+function docHasUnseen(doc, role) {
   const tl = doc.timeline || [];
-  const seenAt = getCommentsSeenAt(doc.id);
+  const seenAt = getDocSeenAt(doc.id);
+  const wanted = INCOMING_ACTIONS[role] || new Set();
   for (const e of tl) {
-    if (e.action !== 'comment') continue;
     if (e.role === role) continue;
+    if (!wanted.has(e.action)) continue;
     const ts = Math.max(
       Date.parse(e.at) || 0,
       e.edited_at ? (Date.parse(e.edited_at) || 0) : 0,
@@ -142,17 +151,14 @@ function docHasUnreadComment(doc, role) {
   return false;
 }
 
-function projectHasUnreadComment(p, role) {
-  return (p.documents || []).some((d) => docHasUnreadComment(d, role));
+function projectHasUnseen(p, role) {
+  return (p.documents || []).some((d) => docHasUnseen(d, role));
 }
 
 /** "ได้รับแจ้งเตือน" — projects with a NEW event for the current viewer.
- *  Matches the orange/red attention badge on the card: uni_staff sees
- *  projects with a sent (not-yet-received) doc; vp_admin sees projects
- *  with a returned (to-fix) doc. Independent from the mine/waiting/done
- *  bucket so the chip can be a stricter "new only" subset. Also lights
- *  up when there's an unread comment from the other side — a comment-
- *  only ping would otherwise be invisible until the user drilled in. */
+ *  Combines "action required" status (sent for uni_staff, returned for
+ *  vp_admin) with the seenAt-based unseen-activity check so a file
+ *  upload while status='received' still lights the project up. */
 function projectIsNotified(p, role) {
   const docs = p.documents || [];
   const baseStatus = role === 'uni_staff'
@@ -162,7 +168,7 @@ function projectIsNotified(p, role) {
     : role === 'dev'
     ? docs.some((d) => d.status === 'sent' || d.status === 'returned')
     : false;
-  return baseStatus || projectHasUnreadComment(p, role);
+  return baseStatus || projectHasUnseen(p, role);
 }
 
 function updateViewToggleUI() {
@@ -190,11 +196,17 @@ function lastActivityTime(p) {
 // when the user is acting through a list. Falls back to project.created_at
 // so a brand-new project (no other-side activity yet) doesn't sink to
 // time-zero.
+// Anything the OTHER role can do that should surface as "incoming" to
+// the viewer. Used both for the inbox sort ordering (lastIncoming-
+// ActivityTime) and the new docHasUnseen / banner logic. uni_staff's
+// list includes `returned` so a VPA-initiated revert into returned
+// surfaces; both lists include `file_deleted` so a delete by the other
+// side counts as activity worth re-flashing.
 const INCOMING_ACTIONS = {
-  uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'comment']),
-  vp_admin:  new Set(['returned', 'comment', 'received', 'in_progress', 'completed']),
-  dev:       new Set(['sent', 'returned', 'file_added', 'file_replaced', 'comment',
-                       'received', 'in_progress', 'completed']),
+  uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'file_deleted', 'returned', 'comment']),
+  vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment']),
+  dev:       new Set(['sent', 'received', 'in_progress', 'completed', 'returned',
+                       'file_added', 'file_replaced', 'file_deleted', 'comment']),
 };
 function lastIncomingActivityTime(p, role) {
   const wanted = INCOMING_ACTIONS[role] || new Set();
@@ -229,9 +241,9 @@ function toggleDocExpansion(docId) {
     expandedDocs.delete(docId);
     expandedDocsSeenAt.delete(docId);
   } else {
-    expandedDocsSeenAt.set(docId, getCommentsSeenAt(docId));
+    expandedDocsSeenAt.set(docId, getDocSeenAt(docId));
     expandedDocs.add(docId);
-    markCommentsSeen(docId);
+    markDocSeen(docId);
   }
 }
 
@@ -323,9 +335,9 @@ export async function openDocumentDetail(documentId) {
   // so the deep-link path also shows the comment banner + ใหม่ pill
   // for everything that was new at the time the link was opened.
   if (!expandedDocs.has(documentId)) {
-    expandedDocsSeenAt.set(documentId, getCommentsSeenAt(documentId));
+    expandedDocsSeenAt.set(documentId, getDocSeenAt(documentId));
     expandedDocs.add(documentId);
-    markCommentsSeen(documentId);
+    markDocSeen(documentId);
   }
   scrollDocId = documentId;
   render();
@@ -503,7 +515,15 @@ function renderProjectListRow(p) {
   const total    = docs.length;
   const sent     = docs.filter((d) => d.status === 'sent').length;
   const returned = docs.filter((d) => d.status === 'returned').length;
-  const cmtUnreadDocs = docs.filter((d) => docHasUnreadComment(d, role)).length;
+  // Any incoming activity (comment / file op / status change by the
+  // other side) since last seen — excluding docs already badged for
+  // action-required (sent/returned) so we don't double-stack the same
+  // doc under two labels.
+  const unseenDocs = docs.filter((d) => {
+    if (role !== 'vp_admin' && d.status === 'sent') return false;
+    if (role !== 'uni_staff' && d.status === 'returned') return false;
+    return docHasUnseen(d, role);
+  }).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
@@ -514,8 +534,8 @@ function renderProjectListRow(p) {
   if (role === 'vp_admin' && returned > 0) {
     badges.push(`<span class="projects-list-badge is-return" title="หนังสือถูกตีกลับ">${returned} ตีกลับ</span>`);
   }
-  if (cmtUnreadDocs > 0) {
-    badges.push(`<span class="projects-list-badge is-comment" title="มีคอมเมนต์ใหม่">${cmtUnreadDocs} คอมเมนต์</span>`);
+  if (unseenDocs > 0) {
+    badges.push(`<span class="projects-list-badge is-comment" title="มีอัปเดตที่ยังไม่ได้เปิดดู">${unseenDocs} อัปเดต</span>`);
   }
   const badge = badges.join(' ');
 
@@ -542,13 +562,19 @@ function renderProjectCard(p) {
   const total    = docs.length;
   const sent     = docs.filter((d) => d.status === 'sent').length;
   const returned = docs.filter((d) => d.status === 'returned').length;
-  const cmtUnreadDocs = docs.filter((d) => docHasUnreadComment(d, role)).length;
+  // See renderProjectListRow for the exclusion rules — same logic, just
+  // a richer card layout.
+  const unseenDocs = docs.filter((d) => {
+    if (role !== 'vp_admin' && d.status === 'sent') return false;
+    if (role !== 'uni_staff' && d.status === 'returned') return false;
+    return docHasUnseen(d, role);
+  }).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
-  // Stack one attention badge per signal — sent/returned + comments —
-  // so a comment-only update is visible from the grid without the
-  // user drilling in to find it.
+  // Stack one attention badge per signal so the user can tell at a
+  // glance whether a project carries action-required work (sent /
+  // returned) or just informational updates (อัปเดต).
   const parts = [];
   if ((role === 'uni_staff' || role === 'dev') && sent > 0) {
     parts.push(`<span class="projects-card-attn-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">
@@ -560,9 +586,9 @@ function renderProjectCard(p) {
       <i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ
     </span>`);
   }
-  if (cmtUnreadDocs > 0) {
-    parts.push(`<span class="projects-card-attn-badge is-comment" title="มีคอมเมนต์ใหม่">
-      <i class="bi bi-chat-left-text"></i> ${cmtUnreadDocs} คอมเมนต์
+  if (unseenDocs > 0) {
+    parts.push(`<span class="projects-card-attn-badge is-comment" title="มีอัปเดตที่ยังไม่ได้เปิดดู">
+      <i class="bi bi-bell"></i> ${unseenDocs} อัปเดต
     </span>`);
   }
   const badge = parts.join(' ');
@@ -641,15 +667,18 @@ function renderDocCard(doc, project) {
   const m = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
   const isOpen = expandedDocs.has(doc.id);
-  // Dot signals "needs your first action" — narrower than isMine() which
-  // includes received/in_progress (still your responsibility but no longer
-  // demanding immediate acknowledgement). Once uni_staff has clicked
-  // รับเรื่อง the doc is "in motion" and the dot should clear. It also
-  // lights up for unread comments from the other side so a comment-
-  // only update is visible without expanding the card.
-  const needsStatusAck = shouldShowUpdateBanner(doc, cache.role);
-  const needsCommentAck = docHasUnreadComment(doc, cache.role);
-  const needsAck = needsStatusAck || needsCommentAck;
+  // The dot + "อัปเดต" pill light up on TWO independent signals:
+  //   1. Action required by status — uni_staff + status=sent (ต้อง
+  //      รับเรื่อง), vp_admin + status=returned (ต้องแก้ไข). Persists
+  //      until the user changes status.
+  //   2. Informational unseen activity — any incoming event from the
+  //      other side since the viewer's last seen marker. Cleared by
+  //      expanding the doc OR taking any action on it.
+  // Combining them under one visual is intentional: from the user's
+  // point of view both signals mean "you haven't dealt with this yet".
+  const needsActionRequired = actionRequiredOn(doc, cache.role);
+  const needsActivityAck    = docHasUnseen(doc, cache.role);
+  const needsAck = needsActionRequired || needsActivityAck;
   const mineDot = needsAck ? '<span class="projects-row-mine-dot" title="ต้องดำเนินการ"></span>' : '';
   const hasUpdate = needsAck;
   const updateBadge = hasUpdate
@@ -698,7 +727,7 @@ function renderDocExpand(doc, project) {
   // re-runs after the Map was cleared).
   const seenAtForExpansion = expandedDocsSeenAt.has(doc.id)
     ? expandedDocsSeenAt.get(doc.id)
-    : getCommentsSeenAt(doc.id);
+    : getDocSeenAt(doc.id);
 
   // Build a single "revert status" dropdown so completed/in-flight docs
   // can be sent back to any earlier step. Both vp_admin and uni_staff
@@ -726,7 +755,7 @@ function renderDocExpand(doc, project) {
       </div>` : '';
 
   return `
-    ${renderRecentUpdateBanner(doc, role)}
+    ${renderRecentUpdateBanner(doc, role, seenAtForExpansion)}
     ${renderCommentBanner(doc, role, seenAtForExpansion)}
 
     ${renderProgressBar(stepIndex, isReturned)}
@@ -768,61 +797,81 @@ function renderDocExpand(doc, project) {
   `;
 }
 
-/** Does the current viewer have an open action that needs the "what changed" banner? */
-function shouldShowUpdateBanner(doc, role) {
+/** Status that demands user action — distinct from the seenAt-based
+ *  "unseen activity" check. Persists until the user changes status,
+ *  so the loud red/orange pill on the doc card keeps screaming until
+ *  it's actually addressed (clicking through doesn't clear it). */
+function actionRequiredOn(doc, role) {
   if (role === 'uni_staff') return doc.status === 'sent';
   if (role === 'vp_admin')  return doc.status === 'returned';
+  if (role === 'dev')       return doc.status === 'sent' || doc.status === 'returned';
   return false;
 }
 
-// Actions that flip the receiver from "needs to act" to "acted" — i.e.
-// the actions that close out the status banner. Comments deliberately
-// don't count: leaving a question on a sent หนังสือ shouldn't make the
-// "new" indicator disappear.
-const STATUS_CLEARING_ACTIONS = new Set([
-  'received', 'in_progress', 'completed', 'returned', 'sent',
-]);
+// Map a timeline action to its display label / icon for the update
+// banner. The banner is a chronological "since you last opened…" list,
+// so we cover every incoming action class. Comments deliberately have
+// their own banner (renderCommentBanner) and are excluded here.
+const ACTION_LABEL = {
+  sent:          'หนังสือใหม่',
+  received:      'รับเรื่องแล้ว',
+  in_progress:   'กำลังดำเนินการ',
+  completed:     'เสร็จสิ้น',
+  returned:      'ตีกลับเพื่อแก้ไข',
+  file_added:    'เพิ่มไฟล์',
+  file_replaced: 'แทนที่ไฟล์',
+  file_deleted:  'ลบไฟล์',
+};
+const ACTION_ICON = {
+  sent:          'bi-send',
+  received:      'bi-inbox',
+  in_progress:   'bi-arrow-repeat',
+  completed:     'bi-check-circle',
+  returned:      'bi-arrow-counterclockwise',
+  file_added:    'bi-cloud-plus-fill',
+  file_replaced: 'bi-arrow-repeat',
+  file_deleted:  'bi-x-circle',
+};
 
 /**
- * Status / file update banner. Persists until the receiver actually
- * changes status (received / in_progress / completed / returned /
- * resent) — NOT when they merely comment. Once acted on, the banner
- * (and the file "ใหม่" pills tied to lastActed) disappear together.
+ * "ตั้งแต่คุณเข้าครั้งล่าสุด" banner. Lists every incoming action that
+ * happened after the viewer's last seenAt — sent, file ops, status
+ * changes by the other side, reverts. Cleared by expanding the doc
+ * (markDocSeen at expand time) or by any user action on the doc.
+ *
+ * Comments are deliberately excluded — they have a dedicated banner
+ * (renderCommentBanner) with edit-aware re-surfacing semantics.
+ *
+ * Replaces the old shouldShowUpdateBanner / STATUS_CLEARING_ACTIONS
+ * model, which hid file updates whenever the doc wasn't in 'sent'
+ * status. uni_staff now sees a file upload by VPA regardless of
+ * whether they've already received the doc.
  */
-function renderRecentUpdateBanner(doc, role) {
-  if (!shouldShowUpdateBanner(doc, role)) return '';
+function renderRecentUpdateBanner(doc, role, seenAtOverride) {
   const tl = doc.timeline || [];
-  const myRole = role;
-  const relevantActions = role === 'uni_staff'
-    ? ['sent', 'file_added', 'file_replaced']
-    : ['returned'];
+  const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
+  const wanted = INCOMING_ACTIONS[role] || new Set();
   const cuts = [];
-  for (let i = tl.length - 1; i >= 0; i--) {
-    const e = tl[i];
-    // Stop only at the viewer's STATUS-change action — viewer's own
-    // comments must not collapse the banner.
-    if (e.role === myRole && STATUS_CLEARING_ACTIONS.has(e.action)) break;
-    if (e.role === myRole) continue;
-    if (!relevantActions.includes(e.action)) continue;
+  for (const e of tl) {
+    if (e.role === role) continue;
+    if (e.action === 'comment') continue;        // own banner
+    if (!wanted.has(e.action)) continue;
+    const ts = Math.max(
+      Date.parse(e.at) || 0,
+      e.edited_at ? (Date.parse(e.edited_at) || 0) : 0,
+    );
+    if (ts <= seenAt) continue;
     cuts.push(e);
   }
   if (cuts.length === 0) return '';
-  cuts.reverse();
 
-  const headerCls = role === 'uni_staff' ? 'is-update' : 'is-return';
+  // Visual tone: returned-into-the-viewer's-court reads as "warning"
+  // (red-ish); everything else as a generic "new activity" blue.
+  const hasReturnIncoming = cuts.some((e) => e.action === 'returned');
+  const headerCls = hasReturnIncoming ? 'is-return' : 'is-update';
   const lines = cuts.map((e) => {
-    const label = ({
-      sent:          'หนังสือใหม่',
-      file_added:    'เพิ่มไฟล์',
-      file_replaced: 'แทนที่ไฟล์',
-      returned:      'ตีกลับเพื่อแก้ไข',
-    })[e.action] || e.action;
-    const icon  = ({
-      sent:          'bi-send',
-      file_added:    'bi-cloud-plus-fill',
-      file_replaced: 'bi-arrow-repeat',
-      returned:      'bi-arrow-counterclockwise',
-    })[e.action] || 'bi-dot';
+    const label = ACTION_LABEL[e.action] || e.action;
+    const icon  = ACTION_ICON[e.action]  || 'bi-dot';
     // Suppress the boilerplate "ส่งหนังสือ" note that createDocument
     // stamps on the initial sent entry — it duplicates the label and
     // makes the banner read "หนังสือใหม่ ส่งหนังสือ". A real user-
@@ -851,12 +900,12 @@ function renderRecentUpdateBanner(doc, role) {
  * Comment-update banner. Separate from the status banner because its
  * clear semantics are different: a new comment from the other side
  * should disappear from the top the moment the receiver OPENS the
- * หนังสือ to read it (markCommentsSeen()) — NOT only when status
+ * หนังสือ to read it (markDocSeen()) — NOT only when status
  * changes. Matches Gmail/Linear "unread message" behaviour.
  */
 function renderCommentBanner(doc, role, seenAtOverride) {
   const tl = doc.timeline || [];
-  const seenAt = seenAtOverride != null ? seenAtOverride : getCommentsSeenAt(doc.id);
+  const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
   // A comment is "new to me" when its creation OR last-edit timestamp
   // is after my last open. That way an edit by the sender re-surfaces
   // the comment for the reader until they reopen the หนังสือ.
@@ -908,13 +957,18 @@ function renderProgressBar(stepIndex, isReturned) {
 
 // ---------- comments list (Slack/Linear-style inline thread) ----------
 
-const COMMENTS_SEEN_KEY = 'projects.commentsSeenAt';
+// Storage key name is historical — was "commentsSeenAt" when this only
+// tracked comment acknowledgement; now it's the doc-level "I've seen
+// everything up to here" marker that covers comments, file ops, and
+// status changes. Renaming the key would orphan every existing user's
+// per-doc state and re-flash old highlights, so the name stays.
+const DOC_SEEN_KEY = 'projects.commentsSeenAt';
 
-/** Read the per-doc "last opened" timestamp out of localStorage. Returns 0
+/** Read the per-doc "last seen" timestamp out of localStorage. Returns 0
  *  if missing or unparseable. */
-function getCommentsSeenAt(docId) {
+function getDocSeenAt(docId) {
   try {
-    const raw = localStorage.getItem(COMMENTS_SEEN_KEY);
+    const raw = localStorage.getItem(DOC_SEEN_KEY);
     if (!raw) return 0;
     const map = JSON.parse(raw);
     const v = map?.[docId];
@@ -922,21 +976,26 @@ function getCommentsSeenAt(docId) {
   } catch { return 0; }
 }
 
-/** Persist that the user opened a doc just now — comments older than this
- *  should not flash as "new" any more. */
-function markCommentsSeen(docId) {
+/** Persist that the user has seen everything on this doc as of now.
+ *  Called on expand, on any user action (status change, comment, file
+ *  op), and on deep-link arrival — any moment the user has clearly
+ *  engaged with the doc and shouldn't be re-flashed about what was
+ *  there. The expanded-render path uses a frozen pre-action value
+ *  (see expandedDocsSeenAt) so the in-view highlights survive the
+ *  write — clears happen on the NEXT render, not this one. */
+function markDocSeen(docId) {
   try {
-    const raw = localStorage.getItem(COMMENTS_SEEN_KEY);
+    const raw = localStorage.getItem(DOC_SEEN_KEY);
     const map = raw ? JSON.parse(raw) : {};
     map[docId] = new Date().toISOString();
-    localStorage.setItem(COMMENTS_SEEN_KEY, JSON.stringify(map));
+    localStorage.setItem(DOC_SEEN_KEY, JSON.stringify(map));
   } catch {}
 }
 
 function renderCommentsList(doc, role, seenAtOverride) {
   const comments = (doc.timeline || []).filter((e) => e.action === 'comment');
   if (comments.length === 0) return '';
-  const seenAt = seenAtOverride != null ? seenAtOverride : getCommentsSeenAt(doc.id);
+  const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
   // Sort newest-first so unread items sit at the top of the thread —
   // matches the "inbox" pattern (latest activity surfaces first) and
   // means the reader's eye lands on the unread comment without
@@ -945,7 +1004,7 @@ function renderCommentsList(doc, role, seenAtOverride) {
   // A comment is "unread to me" if its creation OR last-edit time is
   // after my last open — so the sender editing a comment also re-
   // surfaces it as unread to the reader, until they open the
-  // หนังสือ again (markCommentsSeen).
+  // หนังสือ again (markDocSeen).
   const effectiveTs = (c) => Math.max(
     Date.parse(c.at) || 0,
     c.edited_at ? (Date.parse(c.edited_at) || 0) : 0,
@@ -1300,6 +1359,10 @@ async function onDocStatusClick(btn) {
         subject: `[MDKKU SAMO] ย้อนสถานะหนังสือ — ${project.name}`,
       });
     }
+    // Acting on the doc = "I've seen what's there". Clears the "อัปเดต"
+    // pill on the next render even if the viewer never explicitly
+    // expanded the card.
+    markDocSeen(docId);
     onChanged();
   } catch (e) { alert(e.message || 'อัปเดตสถานะไม่สำเร็จ'); }
 }
@@ -1333,6 +1396,7 @@ async function onDocReturnClick(btn) {
       body: `ส่งกลับเพื่อแก้ไข ${docRef}: ${reason}`,
       title: `ส่งกลับ — ${doc?.title || ''}`,
     });
+    markDocSeen(docId);
     onChanged();
   } catch (e) { alert(e.message || 'ส่งกลับไม่สำเร็จ'); }
 }
@@ -1366,6 +1430,7 @@ async function onDocResendClick(btn) {
       body: `หนังสือใหม่ ${docRef}: ${note}`,
       subject: `[MDKKU SAMO] หนังสือใหม่ — ${project.name}`,
     });
+    markDocSeen(docId);
     onChanged();
   } catch (e) { alert(e.message || 'ส่งใหม่ไม่สำเร็จ'); }
 }
@@ -1400,7 +1465,7 @@ async function onDocCommentClick(btn) {
       await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` });
     }
     // The author has obviously "seen" their own comment.
-    markCommentsSeen(docId);
+    markDocSeen(docId);
     onChanged();
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
@@ -1450,7 +1515,7 @@ async function onCommentEditClick(btn) {
       await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ถูกแก้ไข — ${project.name}` });
     }
     // Author has obviously "seen" their own edit.
-    markCommentsSeen(docId);
+    markDocSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');
@@ -1479,6 +1544,7 @@ async function onCommentDeleteClick(btn) {
   );
   try {
     await updateDocument(docId, { timeline: newTimeline });
+    markDocSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'ลบคอมเมนต์ไม่สำเร็จ');
@@ -1578,6 +1644,7 @@ async function onDocAddFiles(e, docId) {
       body: `เพิ่มไฟล์ใหม่ ${files.length} ไฟล์ในหนังสือ "${doc.title}"`,
       subject: `[MDKKU SAMO] ไฟล์ใหม่ใน ${project.name}`,
     });
+    markDocSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'อัปโหลดไม่สำเร็จ');
@@ -1613,6 +1680,7 @@ async function onDeleteFileClick(btn, docId) {
       action: 'file_deleted',
       note: `ลบไฟล์ "${fileName}"`,
     });
+    markDocSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'ลบไฟล์ไม่สำเร็จ');
@@ -1680,6 +1748,7 @@ async function onReplaceFile(e, oldFileId, docId) {
       body: `แทนที่ไฟล์ในหนังสือ "${doc.title}" — ไฟล์ใหม่: ${f.name}`,
       subject: `[MDKKU SAMO] แทนที่ไฟล์ — ${project.name}`,
     });
+    markDocSeen(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'แทนที่ไฟล์ไม่สำเร็จ');
@@ -1704,10 +1773,16 @@ async function loadFilesForDoc(docId) {
     }
     const role = cache.role;
     const isVp = role === 'vp_admin' || role === 'dev';
-    const doc = findDocById(docId)?.doc;
-    const lastActed = doc ? myLastActionTime(doc, role) : 0;
+    // Use the same frozen pre-expand seenAt that the banner uses, so a
+    // file uploaded after the viewer's last seen marker keeps the "ใหม่"
+    // pill while they're reading the doc — and clears on the next
+    // open. Falls back to the live storage value if the doc somehow
+    // rendered without going through the expand handler.
+    const seenAt = expandedDocsSeenAt.has(docId)
+      ? expandedDocsSeenAt.get(docId)
+      : getDocSeenAt(docId);
     wrap.innerHTML = files.map((f) => {
-      const newness = fileNewnessForRole(f, [], lastActed, role);
+      const newness = fileNewnessForRole(f, seenAt, role);
       return renderFileRow(f, isVp, newness);
     }).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
   } catch (e) {
@@ -1715,34 +1790,16 @@ async function loadFilesForDoc(docId) {
   }
 }
 
-/** Timestamp of the current role's most recent STATUS-change action on
- *  this doc. Comments deliberately don't count — leaving a comment on
- *  a fresh sent หนังสือ shouldn't make the new file pills disappear.
- *  0 means "never acted on status" — every attached file lights up as
- *  ใหม่ on first open. */
-function myLastActionTime(doc, role) {
-  const tl = doc.timeline || [];
-  for (let i = tl.length - 1; i >= 0; i--) {
-    const e = tl[i];
-    if (e.role === role && STATUS_CLEARING_ACTIONS.has(e.action)) {
-      const t = new Date(e.at).getTime();
-      if (!isNaN(t)) return t;
-    }
-  }
-  return 0;
-}
-
 /** Returns 'new' | null — whether the viewer should see a "ใหม่" pill on
- *  this file (i.e. it was uploaded after their last action on the doc).
- *  Replace now deletes the prior version, so the file_name + uploaded_at
- *  on the row IS the new file; there's no separate "replaced" state to
- *  distinguish from "new". VPA always sees null because they uploaded
- *  the file themselves. */
-function fileNewnessForRole(file, _predecessors, lastActed, role) {
+ *  this file. Uses the same seenAt marker the banner uses, so the file
+ *  pill clears the moment the user expands the doc OR takes any action
+ *  on it (markDocSeen). VPA always sees null because they uploaded the
+ *  file themselves. */
+function fileNewnessForRole(file, seenAt, role) {
   if (role === 'vp_admin') return null;
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;
-  if (lastActed > 0 && uploaded <= lastActed) return null;
+  if (seenAt > 0 && uploaded <= seenAt) return null;
   return 'new';
 }
 

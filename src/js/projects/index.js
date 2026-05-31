@@ -249,4 +249,18 @@ export function initProjects() {
     // Defer until DOMContentLoaded path has wired everything
     setTimeout(applyHashRoute, 0);
   }
+
+  // bfcache restore (`event.persisted === true`): iOS / iPadOS Safari
+  // restores the WHOLE page from memory when the user switches back
+  // to the tab, so cache.projects is whatever was in memory when they
+  // left. A new comment / file added by the other side while we were
+  // backgrounded is invisible until the user does something that
+  // happens to refetch — and "the highlights don't show" is exactly
+  // how that looks. Force a fresh fetch on every bfcache restore.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    if (!isAllowed(currentUser)) return;
+    reloadProjects().catch((err) =>
+      console.warn('[projects] pageshow reload failed:', err?.message || err));
+  });
 }
