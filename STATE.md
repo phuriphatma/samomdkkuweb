@@ -4,15 +4,14 @@ Last updated: 2026-05-31. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-Build green, 45 tests pass (`npm test`). Working tree dirty: account-
-switch + dbRest + projects inbox UI fixes pending commit.
+Build green, 45 tests pass (`npm test`). Working tree clean. `main`
+HEAD is `dcfd381` (pushed). Cloudflare auto-build runs on push.
 
 ## Branches
 
 - `main` HEAD: latest production. Auto-deploys to `samomdkkuweb.pages.dev`.
 - `refactor/modular`: synced to main (preview). Auto-deploys to
   `refactorsamomdkkuweb.pages.dev`.
-- Working tree clean unless this file says otherwise below.
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
@@ -47,61 +46,50 @@ User has confirmed 0023–0031 are applied. No pending migrations.
   `https://samomdkkuweb.pages.dev/**` and
   `https://refactorsamomdkkuweb.pages.dev/**`.
 
-## Pending GAS redeploy
+## Pending GAS redeploy (`appscript/prform.gs`)
 
-`appscript/prform.gs` has unshipped changes that need a redeploy
-(see `skills/deploy-gas.md`):
+The local `prform.gs` is multiple commits ahead of what's deployed
+to the prod /exec endpoint. See `skills/deploy-gas.md` for the deploy
+procedure. Bundled changes since the last deploy:
 
-1. New `getProjectFolderInfo` action — used by the per-project QR
-   feature AND by the new "rename Drive folder on project/doc edit"
-   hook. Now takes `share` boolean (QR sets true, rename hook leaves
-   default false to avoid quietly exposing folders).
-2. New `walkProjectsPathByCode_` + `extractProjectCode_` helpers that
-   match folders by their PRJ-/DOC- code substring and self-rename
-   them to the current desiredName from the path. Used by
-   `handleUploadProjectFile`, `handleGetProjectFolderInfo`, and
-   `handleDeleteProjectFolder` so a rename in the app self-heals on
-   Drive on the next upload / QR / delete.
-3. `notifyProjectDiscord` and `notifyProjectEmail` now return real
-   send-result status (was: always `success: true` even on Discord
-   429 / expired webhook / mail-quota failure). The frontend
-   `notify.js` `callGAS` helper awaits the Discord ping and logs the
-   actual failure mode — fixes the "sometimes Discord doesn't fire
-   for VPA" intermittent drop. The bell write was always reliable;
-   the Discord channel is the one this redeploy unblocks.
-4. `sendProjectDiscord` now retries ONCE on Discord 429 (per-route
-   rate limit; honours the Retry-After header, clamped 0.4–5s) or
-   on transport-level errors. Addresses "two rapid actions, only
-   one Discord ping" where the second was rate-limited before this
-   fix. Retry status flows back to the frontend in the response
-   payload (`retried: true`) for diagnostics.
+| Area | What's new |
+|---|---|
+| QR + folder ops | New `getProjectFolderInfo` action (takes optional `share:true` for ANYONE_WITH_LINK view — QR sets it, rename hook doesn't). New `walkProjectsPathByCode_` + `extractProjectCode_` helpers: every project-tree path walk now matches folders by their PRJ-/DOC- code substring and self-renames stale names to the current desiredName. Used by `handleUploadProjectFile`, `handleGetProjectFolderInfo`, `handleDeleteProjectFolder` — so a project / doc rename in the app self-heals on Drive on the next upload, QR generation, or delete. Legacy `PRJ-XXXX_<slug>` folders found by code and renamed to new `<slug>_PRJ-XXXX` format transparently. |
+| Discord notify | `sendProjectDiscord` does up to 3 attempts with progressive backoff (1.2s / 2.5s / 4s, Retry-After honoured, clamp bumped 5s → 9s). Detects Cloudflare 1015 in response body and bails the retry loop early (no point burning GAS time when per-IP cooldown won't clear). `doPost notifyProjectDiscord` echoes full diagnostic info in the response (`status`, `attempts`, `firstStatus`, `body`, `retried`) so the frontend can log what Discord said — GAS Cloud Logs are NOT recorded for browser-fetch calls (see `skills/deploy-gas.md` "Where the logs DO and DON'T appear"). `notifyProjectEmail` also surfaces send failures. |
+| Diagnostics | New `testProjectDiscord()` function for manual editor-Run debugging — sends a labelled test embed and logs the full Discord response. Top-of-`doPost` trace log (`doPost: action=...`) for absolute-floor confirmation that the code path is being entered (visible only when called with OAuth token or from the editor). |
 
-Until the redeploy lands: the QR button + rename-on-edit hooks both
-alert / log warnings; the rest of the inbox keeps working. After
-deploy, existing folders (legacy `PRJ-XXXX_<slug>` format) get found
-by code and renamed to the new `<slug>_PRJ-XXXX` format on the next
-access — transparent migration, no manual move-files step needed.
+Until the redeploy lands, the QR button + rename hooks alert
+"หา URL โฟลเดอร์ไม่สำเร็จ"; Discord notify still works but on the old
+single-shot path. Everything else in the inbox is unaffected.
 
-## What's in flight (carry-over from this session)
+## Active external issue: Cloudflare 1015 cooldown on Discord webhook
 
-- **iPad cached HTML** — `_headers` ships `Cache-Control: no-cache,
-  must-revalidate` for HTML so future deploys self-heal via the
-  build-check (src/js/build-check.js). A currently-stuck iPad cache
-  still needs one `?v=<anything>` bust to load the bundle that contains
-  build-check; from then on every deploy auto-reloads.
-- **Account switcher** — pickAccount has a re-entrancy guard, per-row
-  spinner, 10s setSession timeout, post-swap modal hide. When the saved
-  refresh_token is rejected on a fast switch, those cached tokens are
-  now wiped from the saved entry so we don't keep replaying them every
-  open (was a noisy 400 + console.warn loop). aria-hidden a11y warning
-  on focused descendants is handled globally via a `hide.bs.modal` blur
-  installed in `mountAccountSwitch`.
-- **JWT auto-refresh on PostgREST writes** — `dbRest()` now detects
-  `PGRST303 JWT expired` on a 401/403 response, refreshes the session,
-  and retries once (single-flight to avoid N concurrent refreshes when N
-  writes were in flight). Closes the "user typed in a modal for >1hr →
-  submit fails with JWT expired" hole the 25-min proactive interval
-  can't cover when the tab is throttled/backgrounded.
+The GAS server's shared egress IP is currently in Cloudflare's
+penalty box for the Discord API (`/api/webhooks/*`). Caused by
+sustained testing volume today (dozens of pings, many back-to-back).
+Symptoms: `testProjectDiscord` returns `HTTP 429 / body "error
+code: 1015"` from the editor; runtime calls all 3-retry and drop.
+
+This is per-IP, not per-webhook — rotating the webhook URL won't
+help. Recovers passively over 15-60 min of quiet. **Stop testing
+Discord-firing actions** until it clears, then verify with one
+`testProjectDiscord` run from the editor.
+
+Longer-term, if this recurs frequently: move Discord notify off GAS
+to a Cloudflare Worker / Supabase Edge Function (different egress
+IP, dedicated to this app). See `mistakes.md` "Cloudflare 1015" for
+the full writeup.
+
+## Recent work landed today (one-line each, for context)
+
+- per-project QR → Drive folder (frontend live, GAS pending redeploy)
+- Drive folder rename on project/doc title edit (name-first naming + by-code walker, frontend live)
+- JWT auto-refresh in `dbRest` on PGRST303 (single-flight)
+- Account switcher a11y + dead-token cleanup
+- Discord notify: serialised client queue (6s spacing), GAS 3-retry, Cloudflare 1015 detection, response-body diagnostics
+- PR staff dashboard moved to `dbRest` (was supabase-js, slow under session-lock contention)
+- Blue "อัปเดต" pill for comments on sent หนังสือ (separate from yellow status pill)
+- New mistakes.md entries: JWT-expired-mid-modal, fire-and-forget GAS notify, async click handler concurrency, GAS Cloud Logs invisible for browser-fetch, Cloudflare 1015 vs Discord rate limit
 
 ## End-of-turn loop reminder
 
