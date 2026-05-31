@@ -740,6 +740,35 @@ pattern for a future channel, log the failure inside the helper.
 
 ---
 
+## Async click handlers run concurrently → parallel Discord POSTs hit per-webhook rate limit
+
+**Symptom**: User clicks two actions in quick succession (e.g., "เสร็จสิ้น"
+then "คอมเมนต์" within ~1 second). GAS logs both `doPost` executions
+completing — one fast (~1s), one slow (~5-10s). Only ONE Discord
+message lands in the channel. Adding more GAS-side retries doesn't
+help — all 3 retries return 429.
+**Cause**: JS click handlers are async but the event loop INTERLEAVES
+them. When the first handler hits its first `await` (timeline patch,
+profile fetch, etc.), JS yields back to the event loop and the
+SECOND click's handler starts running concurrently. Both eventually
+reach `await callGAS('notifyProjectDiscord', …)` at roughly the same
+moment → two POSTs hit the webhook in parallel → Discord's per-route
+bucket (~5 tokens / 2s) rate-limits one. GAS-side retries don't
+recover because the bucket stays exhausted for the full retry
+window. Bell writes survive because they go through PostgREST, not
+the rate-limited Discord webhook.
+**Fix**: Serialise Discord calls through a module-level promise chain
+with a minimum-spacing delay (>2s, past Discord's bucket refill).
+The first call fires immediately; the second waits its turn. Both
+notifications arrive; the second is delayed by ~2s.
+**Where**: `src/js/projects/notify.js` `queueDiscord` + the
+`notifyVpAdmin` Discord block now wrapped in `queueDiscord(() => …)`.
+Pattern reusable for any other rate-limited side-channel: if the
+callsite is a click handler and the destination has a rate limit,
+the GAS-side retry is insufficient — the queue is required.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

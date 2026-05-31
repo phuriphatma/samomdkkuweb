@@ -42,6 +42,46 @@ function deepLink({ projectId, documentId } = {}) {
  * `.catch(() => {})` was the reason "sometimes Discord doesn't fire"
  * went undetected for weeks — there was literally no surface.
  */
+// ============================================================
+// Discord-call queue
+//
+// JS click handlers are async but the event loop interleaves them: if
+// the user clicks "เสร็จสิ้น" and then "คอมเมนต์" within a second,
+// onDocStatusClick yields on its first await and onDocCommentClick
+// starts running concurrently. Both reach `await callGAS(notifyProject
+// Discord, …)` at roughly the same time → two parallel POSTs to the
+// same Discord webhook → Discord rate-limits the second one with 429
+// (per-webhook bucket is ~5 tokens / 2s and refills slowly), and even
+// 3 GAS-side retries can't recover because the bucket stays exhausted
+// the whole time.
+//
+// Serialise: queue all `notifyProjectDiscord` calls through a single
+// promise chain and enforce a minimum spacing between the end of one
+// call and the start of the next. The first call fires immediately;
+// the second waits its turn. End-to-end the user still sees both
+// notifications arrive; the second is just delayed by ~2s.
+// ============================================================
+let discordChain = Promise.resolve();
+let lastDiscordEndedAt = 0;
+const MIN_DISCORD_SPACING_MS = 2200;   // > Discord webhook bucket refill (~2s)
+
+function queueDiscord(fn) {
+  const next = discordChain.then(async () => {
+    const wait = Math.max(0, MIN_DISCORD_SPACING_MS - (Date.now() - lastDiscordEndedAt));
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    try {
+      return await fn();
+    } finally {
+      lastDiscordEndedAt = Date.now();
+    }
+  });
+  // Re-anchor the chain on a SWALLOWED variant so a failed call doesn't
+  // poison every subsequent call's promise. The original `next` is what
+  // the caller awaits and can observe failures from.
+  discordChain = next.catch(() => {});
+  return next;
+}
+
 async function callGAS(action, payload, { timeoutMs = 20000 } = {}) {
   // 20s default: GAS-side sendProjectDiscord can take up to ~8s when
   // it walks the full 3-attempt retry schedule on a wedged Discord
@@ -144,14 +184,15 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
     }
   }
 
-  // Discord — AWAITED. Discord is the ONLY out-of-app channel VPA gets
-  // (no email fallback like uni_staff has), and the user explicitly
-  // flagged that they sometimes miss pings. Adding 1-2s of latency to
-  // the user action is the right trade-off vs silently dropping the
-  // Discord ping. callGAS bounds the wait at 10s and logs failures.
-  // A failed Discord ping does NOT throw — the bell write already
-  // succeeded above, and we don't want the surrounding action's
-  // try/catch to alert the user as if their click failed.
+  // Discord — AWAITED and SERIALISED via queueDiscord. Discord is the
+  // ONLY out-of-app channel VPA gets (no email fallback like uni_staff
+  // has), and the user flagged that two rapid actions (status + comment
+  // within a second) consistently produced only one Discord ping — the
+  // second was getting silently rate-limited by Discord's per-webhook
+  // bucket because both click handlers fired their POSTs in parallel.
+  // The queue holds the second call until ~2.2s after the first ended,
+  // which is past Discord's bucket-refill window. The user still sees
+  // both pings, just spaced out by a couple of seconds.
   if (settings?.notify_vp_discord !== false) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
     const color = kindToDiscordColor(kind);
@@ -161,12 +202,12 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
     if (body)             fields.push({ name: 'รายละเอียด', value: body.slice(0, 1000), inline: false });
     if (url)              fields.push({ name: 'ลิงก์',      value: url, inline: false });
 
-    await callGAS('notifyProjectDiscord', {
+    await queueDiscord(() => callGAS('notifyProjectDiscord', {
       title: title || `อัปเดตหนังสือ — ${kind}`,
       description: '',
       color,
       fields,
-    });
+    }));
   }
 }
 
