@@ -740,6 +740,38 @@ pattern for a future channel, log the failure inside the helper.
 
 ---
 
+## GAS Cloud Logs are EMPTY for any browser-fetch call (logs simply not recorded)
+
+**Symptom**: You add `Logger.log` / `console.log` to a GAS `doPost`
+handler, redeploy, hit the `/exec` endpoint from the frontend, see
+the execution land in the GAS "Executions" panel — but the Cloud
+Logs section is permanently empty ("No logs are available for this
+execution"). Refreshing, waiting, redeploying don't help.
+**Cause**: GAS deliberately suppresses `Logger.log` / `console.log`
+output for Web Apps deployed as *Execute as: Me + Who has access:
+Anyone* when called from an unauthenticated client — i.e. our
+frontend `fetch(GAS_API_URL, …)` with no `Authorization: Bearer`
+header. The logs are NOT delayed; they're never recorded. This is
+documented GAS behaviour; see `skills/deploy-gas.md` for the full
+matrix.
+**Fix**: One of three workarounds depending on what you're debugging:
+  1. Run the handler manually from the GAS Editor (Editor runs are
+     owner-authenticated, logs always appear). `testProjectDiscord()`
+     in `prform.gs` is the template for this — write a small test
+     function that calls the real handler.
+  2. Echo the diagnostic data in the HTTP response. The frontend
+     `callGAS` / `dbRest` helpers log the response body on failure,
+     so the data lands in the browser console instead.
+  3. Link the GAS project to GCP (Project Settings → GCP → Change
+     project) — once linked, Stackdriver records every execution
+     regardless of caller. Not currently done; one-time setup if
+     deeper diagnostics are needed.
+**Where**: `skills/deploy-gas.md` "Where the logs DO and DON'T appear"
+section has the full table. Don't redeploy repeatedly hoping logs
+will appear for a public-fetch call.
+
+---
+
 ## Async click handlers run concurrently → parallel Discord POSTs hit per-webhook rate limit
 
 **Symptom**: User clicks two actions in quick succession (e.g., "เสร็จสิ้น"

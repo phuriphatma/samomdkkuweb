@@ -77,6 +77,48 @@ fetch('https://script.google.com/macros/s/AKfycbw1.../exec', {
 - Returns `Unknown action: notifyPROnly` → old code is still deployed
   (you forgot the "New version" step)
 
+## Where the logs DO and DON'T appear (read this before chasing "empty Logs")
+
+`Logger.log` / `console.log` from `doPost` are **invisible** when the
+Web App is called from an unauthenticated client — i.e. our frontend
+`fetch(GAS_API_URL, { method: 'POST' })` calls without an `Authorization:
+Bearer` header. The GAS "Executions" panel will list the run (with
+duration + status) but the Cloud Logs section will say
+*"No logs are available for this execution"* permanently — not a
+propagation delay, the logs are never recorded.
+
+This is a documented GAS rule for Web Apps deployed as
+*Execute as: Me + Who has access: Anyone*:
+
+| Caller is logged into Google? | GAS project shared with caller? | Logs visible? |
+|---|---|---|
+| No | No | ❌ |
+| No | Yes | ❌ |
+| Yes | No | ❌ |
+| Yes | Yes | ✅ |
+
+Or, for script/curl callers: logs appear only if an OAuth access token
+is passed. The browser fetch with no Authorization header falls in
+the "❌" rows.
+
+**Workarounds when you need to debug:**
+
+1. **Run the function manually from the Editor** (e.g.
+   `testProjectDiscord()` in `prform.gs`) — Editor runs are owner-
+   authenticated, so logs always appear.
+2. **Add a temporary debug echo** — make the GAS handler return the
+   debug data in the HTTP response. The frontend `dbRest` / `callGAS`
+   logs the response body on failure, so the data lands in the
+   browser console instead of GAS's hidden Cloud Logs.
+3. **Link the GAS project to GCP** (Project Settings → Google Cloud
+   Platform → Change project) — once linked, Stackdriver records
+   every execution's logs regardless of who called. One-time setup.
+   Not currently done for this project; worth doing if Discord /
+   email reliability needs deeper diagnostics next time.
+
+**Don't waste time** redeploying repeatedly to "make the logs appear"
+when calls are coming from the public frontend. They won't.
+
 ## When NOT to redeploy
 
 Don't redeploy during business hours / active campaign cycles unless the
