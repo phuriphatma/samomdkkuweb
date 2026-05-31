@@ -113,6 +113,13 @@ export async function dbRest(path, opts = {}) {
       headers,
       body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
       signal: controller.signal,
+      // iPad / iOS Safari aggressively caches GET responses to the
+      // same URL when the page is restored from bfcache or the tab is
+      // backgrounded. That manifested as "comment is in the DB but the
+      // inbox shows stale timeline → no unread highlight on iPad
+      // normal-mode tab, works in incognito". no-store skips the HTTP
+      // disk cache entirely; every dbRest call hits PostgREST live.
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) {

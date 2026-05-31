@@ -435,10 +435,24 @@ export async function getCurrentSessionTokens() {
  *
  * Returns the rebuilt currentUser, or null on failure.
  */
-export async function setAuthSession({ access_token, refresh_token }) {
+export async function setAuthSession({ access_token, refresh_token }, { timeoutMs = 5000 } = {}) {
   if (!access_token || !refresh_token) return null;
+  // supabase-js setSession can hang on iPad Safari when there's an
+  // in-flight session refresh — the await never resolves, no error
+  // is thrown, and the caller (account switcher) is stuck. Race it
+  // against a timeout so the slow path can take over instead of
+  // leaving the user staring at a frozen UI.
+  const timeoutSentinel = Symbol('setSession-timeout');
   try {
-    const { data, error } = await db.auth.setSession({ access_token, refresh_token });
+    const result = await Promise.race([
+      db.auth.setSession({ access_token, refresh_token }),
+      new Promise((resolve) => setTimeout(() => resolve(timeoutSentinel), timeoutMs)),
+    ]);
+    if (result === timeoutSentinel) {
+      console.warn('[auth] setSession timed out after', timeoutMs, 'ms — caller should fall back');
+      return null;
+    }
+    const { data, error } = result;
     if (error) {
       console.warn('[auth] setSession failed:', error.message);
       return null;

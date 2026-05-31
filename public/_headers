@@ -1,0 +1,24 @@
+# Cloudflare Pages — cache headers.
+#
+# HTML entries reference content-hashed JS / CSS bundles
+# (dist/assets/admin-<hash>.js). If a browser caches the HTML
+# itself, it can keep pointing at an old bundle hash after we
+# deploy a fix — most painfully on iPad Safari, which restores
+# stale HTML aggressively from bfcache and the disk cache.
+# Tell every cache: HTML must revalidate on each navigation.
+#
+# Hashed assets are immutable — the hash changes when the
+# bundle does — so we explicitly allow long-lived caching for
+# /assets/* to keep repeat loads fast.
+
+/*.html
+  Cache-Control: no-cache, must-revalidate
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+/admin/
+  Cache-Control: no-cache, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
