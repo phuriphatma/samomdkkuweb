@@ -42,7 +42,12 @@ function deepLink({ projectId, documentId } = {}) {
  * `.catch(() => {})` was the reason "sometimes Discord doesn't fire"
  * went undetected for weeks — there was literally no surface.
  */
-async function callGAS(action, payload, { timeoutMs = 10000 } = {}) {
+async function callGAS(action, payload, { timeoutMs = 20000 } = {}) {
+  // 20s default: GAS-side sendProjectDiscord can take up to ~8s when
+  // it walks the full 3-attempt retry schedule on a wedged Discord
+  // bucket; plus ~1s of GAS overhead + ~1s of network round-trip on
+  // top means we need more than 10s to avoid spuriously timing out
+  // a call that would have eventually succeeded inside GAS.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

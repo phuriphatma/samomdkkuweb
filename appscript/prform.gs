@@ -29,6 +29,14 @@ const DISCORD_WEBHOOK_URL = 'https://discordapp.com/api/webhooks/149941222737392
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    // Loud start-of-request log. The previous Discord-only console.log
+    // was inside sendProjectDiscord; if it didn't appear in execution
+    // logs the user couldn't tell whether the deploy was stale or
+    // the code wasn't being entered. This line is the absolute floor:
+    // if you see N "doPost: action=..." entries but only M visible
+    // Discord messages where N > M, the gap is on Discord's side or
+    // inside our retry path — and the next log lines tell which.
+    console.log('doPost: action=' + (data && data.action ? data.action : '(unknown)'));
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
@@ -566,36 +574,51 @@ function sendProjectDiscord(data) {
   var urlHost = '';
   try { urlHost = url.replace(/^https?:\/\//, '').split('/')[0]; } catch (e) {}
 
-  // First attempt.
-  var attempt = postOnce_(url, fetchOpts);
-  console.log('notifyProjectDiscord: first attempt → HTTP ' + attempt.status + ' (' + urlHost + ')');
-  if (attempt.ok) return { ok: true, status: attempt.status };
-  // Retry once on the two failure modes that are usually transient:
-  //   - 429 Too Many Requests   → Discord rate limit (per-webhook
-  //                               route is ~5/2s; two rapid pings
-  //                               from a user clicking status THEN
-  //                               comment can trip it).
-  //   - threw (transport error) → network blip / DNS / TLS hiccup.
-  // For 429 we respect Discord's Retry-After header (seconds, often
-  // 0.4–1.0 for webhooks); for transport errors we use a fixed 1.2s.
-  // Clamp the sleep so a misbehaving header can't burn the GAS quota.
-  if (attempt.status === 429 || attempt.threw) {
-    var sleepMs = 1200;
-    if (attempt.status === 429 && attempt.retryAfter > 0) {
-      sleepMs = Math.min(Math.max(Math.floor(attempt.retryAfter * 1000), 400), 5000);
+  // Up to 3 attempts total. Two rapid notifications (status change →
+  // comment within ~5s) consistently produce ONE Discord message + ONE
+  // dropped — single-retry-on-429 wasn't enough to recover the dropped
+  // one. Backoff respects Discord's Retry-After when present, falls
+  // back to a progressive 1.2s / 2.5s / 4s schedule for transport-
+  // level errors. Worst case: ~8s wait inside GAS, fits comfortably
+  // inside the frontend callGAS 10s timeout.
+  var MAX_ATTEMPTS = 3;
+  var FALLBACK_SLEEPS_MS = [1200, 2500, 4000];
+  var firstStatus = null;
+  var lastResult = null;
+  for (var i = 0; i < MAX_ATTEMPTS; i++) {
+    var result = postOnce_(url, fetchOpts);
+    var label = (i === 0 ? 'first' : i === 1 ? 'second' : 'third') + ' attempt';
+    console.log('notifyProjectDiscord: ' + label + ' → HTTP ' + result.status + ' (' + urlHost + ')');
+    if (result.ok) {
+      return i === 0
+        ? { ok: true, status: result.status }
+        : { ok: true, status: result.status, retried: true, attempts: i + 1, firstStatus: firstStatus };
+    }
+    if (i === 0) firstStatus = result.status;
+    lastResult = result;
+    // Only the two transient failure modes warrant a retry. 4xx other
+    // than 429 (400 malformed payload, 401 bad token, 404 deleted
+    // webhook) won't recover by retrying — bail immediately so we
+    // don't waste GAS quota on guaranteed-failed second attempts.
+    var transient = result.status === 429 || result.threw;
+    if (!transient) break;
+    if (i === MAX_ATTEMPTS - 1) break;   // last attempt failed; no point sleeping
+    var sleepMs = FALLBACK_SLEEPS_MS[i] || 4000;
+    if (result.status === 429 && result.retryAfter > 0) {
+      // Honour Retry-After but clamp so a misconfigured header can't
+      // burn the GAS quota or exceed the frontend timeout.
+      sleepMs = Math.min(Math.max(Math.floor(result.retryAfter * 1000), 400), 5000);
     }
     Utilities.sleep(sleepMs);
-    var retry = postOnce_(url, fetchOpts);
-    if (retry.ok) return { ok: true, status: retry.status, retried: true };
-    return {
-      ok: false,
-      status: retry.status,
-      body: retry.body,
-      retried: true,
-      firstStatus: attempt.status,
-    };
   }
-  return { ok: false, status: attempt.status, body: attempt.body };
+  return {
+    ok: false,
+    status: lastResult ? lastResult.status : 0,
+    body: lastResult ? lastResult.body : '',
+    retried: true,
+    attempts: MAX_ATTEMPTS,
+    firstStatus: firstStatus,
+  };
 }
 
 /**
