@@ -40,19 +40,27 @@ create index if not exists project_doc_views_user_idx
 
 alter table public.project_doc_views enable row level security;
 
+-- DROP-then-CREATE keeps the migration idempotent. Postgres has no
+-- `create or replace policy`; without these drops, a partial-then-
+-- replay run fails with "policy ... already exists" (42710) and the
+-- whole script aborts before the grants below.
+drop policy if exists "project_doc_views_select_own" on public.project_doc_views;
 create policy "project_doc_views_select_own"
   on public.project_doc_views for select
   using (user_id = auth.uid());
 
+drop policy if exists "project_doc_views_insert_own" on public.project_doc_views;
 create policy "project_doc_views_insert_own"
   on public.project_doc_views for insert
   with check (user_id = auth.uid());
 
+drop policy if exists "project_doc_views_update_own" on public.project_doc_views;
 create policy "project_doc_views_update_own"
   on public.project_doc_views for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+drop policy if exists "project_doc_views_delete_own" on public.project_doc_views;
 create policy "project_doc_views_delete_own"
   on public.project_doc_views for delete
   using (user_id = auth.uid());

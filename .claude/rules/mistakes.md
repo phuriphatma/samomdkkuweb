@@ -653,6 +653,32 @@ header (e.g. `Cache-Control: no-cache`) or change the URL via a
 
 ---
 
+## Postgres has no `create or replace policy` — partial-replay migrations 42710 out
+
+**Symptom**: User runs an RLS-adding migration once. Later runs the
+same file again (re-applying after a tweak elsewhere, or the SQL editor
+double-fires). Postgres errors:
+`ERROR: 42710: policy "policy_name" for table "x" already exists`
+and the script aborts BEFORE any grants / data fixes below it.
+**Cause**: `create policy` has no `or replace` variant in Postgres
+(through at least 16). `create table if not exists` and `create index
+if not exists` ARE idempotent and lull migration authors into a false
+sense of safety.
+**Fix**: Wrap every `create policy` with `drop policy if exists`:
+```sql
+drop policy if exists "policy_name" on schema.table;
+create policy "policy_name" on schema.table for select using (...);
+```
+Apply to every RLS policy in every new migration. The drop is a no-op
+on first run; it makes the re-run case clean.
+**Where**: First seen in
+`supabase/migrations/0031_project_doc_views.sql`. Pattern to use in
+any future migration that adds RLS policies. (Migrations 0001, 0013,
+0014, etc. predate this rule — leave them; they're applied and not
+re-run.)
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

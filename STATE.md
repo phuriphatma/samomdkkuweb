@@ -19,7 +19,7 @@ Apply in numeric order via the SQL editor. JS callers degrade gracefully
 when missing — site keeps working but the feature behind each migration
 won't function until applied.
 
-User has confirmed 0023–0030 are applied; **0031 is pending**.
+User has confirmed 0023–0031 are applied. No pending migrations.
 
 | Migration | What it unlocks | Status |
 |---|---|---|
@@ -31,7 +31,7 @@ User has confirmed 0023–0030 are applied; **0031 is pending**.
 | 0028_users_self_update_guard | **Security**. BEFORE-UPDATE trigger that blocks self-promotion via `PATCH /users` (column-level guard since RLS is row-level only) | ✅ applied |
 | 0029_shop_preorder_price | `shop_products.preorder_price` nullable column — separate preorder price | ✅ applied |
 | 0030_shop_stock_safety_and_preorder_tag | `shop_orders.is_preorder` + `shop_reserved_matrix_all()` RPC + `place_shop_order()` RPC (atomic stock check via row lock — prevents oversell). Buyer sees `max(0, stock - reserved)`. | ✅ applied |
-| **0031_project_doc_views** | Per-user, per-doc seenAt marker — moves inbox highlights off per-device localStorage so they sync across devices + stop leaking across accounts. RLS-gated to own rows. JS bulk-uploads existing localStorage on first run. | ❌ **pending** |
+| 0031_project_doc_views | Per-user, per-doc seenAt marker — moves inbox highlights off per-device localStorage so they sync across devices + stop leaking across accounts. RLS-gated to own rows. JS bulk-uploads existing localStorage on first run. (File made idempotent after the first apply — re-running is safe.) | ✅ applied |
 
 ## Supabase config notes
 
