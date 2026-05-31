@@ -206,15 +206,47 @@ function refreshList() {
   wrap.innerHTML = others.map(renderAccountRow).join('');
 }
 
-async function pickAccount(key) {
-  const acct = readSaved().find((a) => keyFor(a) === key);
-  if (!acct) return;
-  // Hide the switcher modal first so any fallback sign-in modal can
-  // take the stage without a backdrop fight.
-  const switcher = document.getElementById('samoSwitchAccountModal');
-  if (switcher && window.bootstrap) {
-    window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
+// Re-entrancy guard. The bootstrap modal hide animation runs ~150ms,
+// during which a second tap on a different (or the same) row would
+// kick off a parallel pickAccount → setSession would race itself.
+// The flag stays set until either the fast-switch resolves or the
+// slow-path sign-in modal is on screen.
+let switchInFlight = false;
+
+/** Visually mark the row the user picked: replace the role pill with
+ *  a tiny spinner + Thai status text, and dim the rest of the chooser.
+ *  Gives the user a clear "yes, I heard you" signal during the round-
+ *  trip — without this, taps that take 1–2s feel broken. */
+function markRowBusy(row) {
+  if (!row) return null;
+  const pill = row.querySelector('.samo-account-method-pill');
+  const prevHtml = pill?.innerHTML;
+  if (pill) {
+    pill.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:.8em; height:.8em;"></span>กำลังสลับ…';
   }
+  row.setAttribute('aria-busy', 'true');
+  row.classList.add('is-switching');
+  return () => {
+    if (pill && prevHtml !== undefined) pill.innerHTML = prevHtml;
+    row.removeAttribute('aria-busy');
+    row.classList.remove('is-switching');
+  };
+}
+
+async function pickAccount(key, originRow) {
+  if (switchInFlight) {
+    console.debug('[samo.account-switch] pickAccount ignored — already switching');
+    return;
+  }
+  const acct = readSaved().find((a) => keyFor(a) === key);
+  if (!acct) {
+    console.warn('[samo.account-switch] pickAccount: no saved account for key', key);
+    return;
+  }
+  switchInFlight = true;
+  const undoRowBusy = markRowBusy(originRow);
+  const releaseBusy = () => { switchInFlight = false; undoRowBusy?.(); };
+
   // Snapshot the current user into the saved list BEFORE we switch
   // away — captures fresh tokens and shields against any timing-race
   // that could lose the prior account from the chooser.
@@ -222,7 +254,7 @@ async function pickAccount(key) {
   // Give the snapshot a microtask + a beat to flush its async token
   // capture before we replace the current session — otherwise we'd
   // race ourselves and lose the outgoing account's refresh_token.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => setTimeout(r, 80));
 
   // Fast path: if we have the target account's saved refresh_token,
   // replay the session directly. supabase-js auto-refreshes the
@@ -230,21 +262,39 @@ async function pickAccount(key) {
   // as long as the refresh_token is valid. No password needed.
   const refreshed = readSaved().find((a) => keyFor(a) === key);
   if (refreshed?.refresh_token && refreshed?.access_token) {
+    console.debug('[samo.account-switch] fast-switching to', key);
+    // Bumped to 10s — at 5s, slower connections were timing out on
+    // the supabase-js setSession round-trip and falling silently
+    // through to a slow path the user couldn't see (modal already
+    // hidden). 10s is still under any reasonable user patience.
     const swapped = await setAuthSession({
       access_token:  refreshed.access_token,
       refresh_token: refreshed.refresh_token,
-    });
-    if (swapped) return;   // success — auth subscriber takes it from here
-    // setSession failed (refresh_token revoked or expired). Fall through
-    // to the credential-entry path with a hint to the user.
-    console.warn('[samo.account-switch] fast switch failed — falling back to sign-in form');
+    }, { timeoutMs: 10000 });
+    if (swapped) {
+      console.debug('[samo.account-switch] fast switch ok');
+      // Hide the switcher modal AFTER the swap so the auth subscriber's
+      // UI updates happen on the visible app, not behind a closing
+      // modal — that's what made "tap, modal closes, looks like
+      // nothing happened" feel intermittent.
+      const switcher = document.getElementById('samoSwitchAccountModal');
+      if (switcher && window.bootstrap) {
+        window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
+      }
+      releaseBusy();
+      return;
+    }
+    console.warn('[samo.account-switch] fast switch failed (timeout / revoked refresh) — falling back to sign-in form');
   }
 
-  // Slow path / first-time switch / Google: clear the local session
-  // and open the sign-in flow. signOut here is the explicit signOut
-  // path so the user can use the bell + global revoke behaviour they
-  // expect when they're switching cold.
+  // Slow path / first-time switch / Google: hide the switcher,
+  // sign out, open the sign-in flow.
+  const switcher = document.getElementById('samoSwitchAccountModal');
+  if (switcher && window.bootstrap) {
+    window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
+  }
   try { await signOut(); } catch {}
+  releaseBusy();
 
   if (acct.method === 'google') {
     try { await signInWithGoogle({ loginHint: acct.email || undefined }); }
@@ -352,7 +402,7 @@ export function mountAccountSwitch() {
         return;
       }
       const pick = e.target.closest('[data-account-key]');
-      if (pick) pickAccount(pick.dataset.accountKey);
+      if (pick) pickAccount(pick.dataset.accountKey, pick.closest('.samo-account-row') || pick);
     });
     document.getElementById('samoAccountAddBtn')?.addEventListener('click', openAddAccountFlow);
   }

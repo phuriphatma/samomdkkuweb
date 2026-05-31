@@ -811,6 +811,32 @@ function actionRequiredOn(doc, role) {
   return false;
 }
 
+// Actions that count as "I've meaningfully engaged with this doc"
+// for the file "ใหม่" pill. Comments deliberately don't — leaving a
+// note on a sent หนังสือ shouldn't make the new file pills disappear.
+// The doc-card อัปเดต pill + the update banner clear on view (seenAt);
+// file pills clear ONLY on status change, so uni_staff still sees
+// "ใหม่" on the attachment after they briefly opened the หนังสือ but
+// haven't yet clicked รับเรื่อง.
+const STATUS_CLEARING_ACTIONS = new Set([
+  'received', 'in_progress', 'completed', 'returned', 'sent',
+]);
+
+/** Timestamp of the current role's most recent status-clearing action
+ *  on this doc. 0 = never acted — every attached file lights up as
+ *  ใหม่ on first open and STAYS lit until status changes. */
+function myLastActionTime(doc, role) {
+  const tl = doc.timeline || [];
+  for (let i = tl.length - 1; i >= 0; i--) {
+    const e = tl[i];
+    if (e.role === role && STATUS_CLEARING_ACTIONS.has(e.action)) {
+      const t = new Date(e.at).getTime();
+      if (!isNaN(t)) return t;
+    }
+  }
+  return 0;
+}
+
 // Map a timeline action to its display label / icon for the update
 // banner. The banner is a chronological "since you last opened…" list,
 // so we cover every incoming action class. Comments deliberately have
@@ -1884,16 +1910,16 @@ async function loadFilesForDoc(docId) {
     }
     const role = cache.role;
     const isVp = role === 'vp_admin' || role === 'dev';
-    // Use the same frozen pre-expand seenAt that the banner uses, so a
-    // file uploaded after the viewer's last seen marker keeps the "ใหม่"
-    // pill while they're reading the doc — and clears on the next
-    // open. Falls back to the live storage value if the doc somehow
-    // rendered without going through the expand handler.
-    const seenAt = expandedDocsSeenAt.has(docId)
-      ? expandedDocsSeenAt.get(docId)
-      : getDocSeenAt(docId);
+    // Files use the LAST STATUS-CLEARING ACTION timestamp, not the
+    // seenAt marker. Reason: opening the หนังสือ to look should NOT
+    // make the "ใหม่" pill on an attachment disappear — the user
+    // hasn't committed to acting on the doc yet. Once they actually
+    // click รับเรื่อง / ส่งกลับ / ดำเนินการ / completed, the file
+    // pill clears too (lastActed bumps past file.uploaded_at).
+    const doc = findDocById(docId)?.doc;
+    const lastActed = doc ? myLastActionTime(doc, role) : 0;
     wrap.innerHTML = files.map((f) => {
-      const newness = fileNewnessForRole(f, seenAt, role);
+      const newness = fileNewnessForRole(f, lastActed, role);
       return renderFileRow(f, isVp, newness);
     }).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
   } catch (e) {
@@ -1902,15 +1928,14 @@ async function loadFilesForDoc(docId) {
 }
 
 /** Returns 'new' | null — whether the viewer should see a "ใหม่" pill on
- *  this file. Uses the same seenAt marker the banner uses, so the file
- *  pill clears the moment the user expands the doc OR takes any action
- *  on it (markDocSeen). VPA always sees null because they uploaded the
- *  file themselves. */
-function fileNewnessForRole(file, seenAt, role) {
+ *  this file. Compares the file's upload time to the viewer's last
+ *  status-clearing action (see myLastActionTime). VPA always sees null
+ *  because they uploaded the file themselves. */
+function fileNewnessForRole(file, lastActed, role) {
   if (role === 'vp_admin') return null;
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;
-  if (seenAt > 0 && uploaded <= seenAt) return null;
+  if (lastActed > 0 && uploaded <= lastActed) return null;
   return 'new';
 }
 
