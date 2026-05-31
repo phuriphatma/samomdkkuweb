@@ -87,7 +87,7 @@ the full writeup.
 - JWT auto-refresh in `dbRest` on PGRST303 (single-flight)
 - Account switcher a11y + dead-token cleanup
 - Discord notify: serialised client queue (6s spacing), GAS 3-retry, Cloudflare 1015 detection, response-body diagnostics
-- PR staff dashboard moved to `dbRest` (was supabase-js, slow under session-lock contention)
+- PR staff + VS staff dashboards moved to `dbRest` (were supabase-js, slow under session-lock contention) — no remaining `db.from()` reads in src/
 - Blue "อัปเดต" pill for comments on sent หนังสือ (separate from yellow status pill)
 - New mistakes.md entries: JWT-expired-mid-modal, fire-and-forget GAS notify, async click handler concurrency, GAS Cloud Logs invisible for browser-fetch, Cloudflare 1015 vs Discord rate limit
 
