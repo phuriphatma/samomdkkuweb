@@ -556,8 +556,19 @@ function sendProjectDiscord(data) {
     muteHttpExceptions: true,
   };
 
+  // Diagnostic — confirms that Discord's HTTP response and what the
+  // user sees in the channel actually agree. Empty execution logs +
+  // no Discord message is the symptom of a webhook URL that points
+  // somewhere unexpected (wrong server / deleted channel) — Discord
+  // 204s the POST regardless and we'd have no way to tell without
+  // this line. Hostname-only (not the full URL) so the log doesn't
+  // leak the webhook secret if pasted publicly.
+  var urlHost = '';
+  try { urlHost = url.replace(/^https?:\/\//, '').split('/')[0]; } catch (e) {}
+
   // First attempt.
   var attempt = postOnce_(url, fetchOpts);
+  console.log('notifyProjectDiscord: first attempt → HTTP ' + attempt.status + ' (' + urlHost + ')');
   if (attempt.ok) return { ok: true, status: attempt.status };
   // Retry once on the two failure modes that are usually transient:
   //   - 429 Too Many Requests   → Discord rate limit (per-webhook
@@ -585,6 +596,57 @@ function sendProjectDiscord(data) {
     };
   }
   return { ok: false, status: attempt.status, body: attempt.body };
+}
+
+/**
+ * Manual diagnostic — select this function in the GAS editor and click
+ * Run. It sends a clearly-labelled test message to whatever URL is in
+ * Script Properties' PROJECT_DISCORD_WEBHOOK_URL and prints the full
+ * response (status code, body, headers) to the execution log.
+ *
+ * Use when normal runtime sends silently disappear: if you see "HTTP
+ * 204" in the log AND the channel you're watching, the webhook URL +
+ * channel match. If you see HTTP 204 but the channel is empty, the
+ * URL is pointed at a different channel (most likely cause of the
+ * "GAS ran but no Discord ping" symptom).
+ */
+function testProjectDiscord() {
+  var url = PropertiesService.getScriptProperties().getProperty('PROJECT_DISCORD_WEBHOOK_URL');
+  if (!url) {
+    console.error('testProjectDiscord: PROJECT_DISCORD_WEBHOOK_URL not set in Script Properties');
+    return;
+  }
+  var urlHost = '';
+  try { urlHost = url.replace(/^https?:\/\//, '').split('/')[0]; } catch (e) {}
+  var payload = {
+    content: '',
+    embeds: [{
+      title: '🧪 Test from prform.gs testProjectDiscord()',
+      description: 'If you see this in a Discord channel, the webhook URL is correct. Timestamp: ' + (new Date()).toISOString(),
+      color: 15844367,
+    }],
+  };
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+  } catch (e) {
+    console.error('testProjectDiscord: transport-level error talking to ' + urlHost + ': ' + e);
+    return;
+  }
+  var code = resp.getResponseCode();
+  var body = resp.getContentText() || '';
+  console.log('testProjectDiscord: HTTP ' + code + ' from ' + urlHost);
+  console.log('testProjectDiscord: response body = ' + (body.slice(0, 500) || '(empty)'));
+  if (code >= 200 && code < 300) {
+    console.log('✅ Discord accepted the POST. If the test message is NOT in the channel you expect, the webhook URL points to a different channel — check Discord → Server Settings → Integrations → Webhooks.');
+  } else {
+    console.warn('❌ Discord rejected the POST. Common causes: 401 = invalid token, 404 = webhook deleted, 400 = malformed payload, 429 = rate limit.');
+  }
 }
 
 /** One-shot Discord POST. Normalises both HTTP failures and transport
