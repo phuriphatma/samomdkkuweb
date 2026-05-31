@@ -679,6 +679,32 @@ re-run.)
 
 ---
 
+## `PGRST303 JWT expired` mid-modal when the 25-min proactive refresh misses
+
+**Symptom**: VP-Admin opens the "สร้างโครงการใหม่" modal, types the
+name + description carefully for ~hour+ on iPad (or any mobile that
+backgrounds the tab between thoughts), clicks "บันทึก" — get
+`{"code":"PGRST303","message":"JWT expired"}` and the create fails.
+Reload + immediate retry works. Reproduces only on slow-typing /
+long-idle in a modal; never on quick-fire form submits.
+**Cause**: `db.js` proactively refreshes the JWT on a 25-min
+`setInterval`, which is well below the 1-hour Supabase TTL. But
+`setInterval` is clamped or skipped entirely on backgrounded /
+throttled tabs (Safari especially), so a user who opens the modal,
+the tab gets backgrounded, and they come back ~1h later, the token
+expired without ever getting refreshed.
+**Fix**: `dbRest()` now detects `PGRST303 JWT expired` on a 401/403
+response, calls `db.auth.refreshSession()` (single-flight: concurrent
+expired writes share one refresh), and retries the request once. The
+proactive refresh stays — this is just the safety net.
+**Where**: `src/js/db.js` `dbRest()` + `refreshAccessTokenOnce()` /
+`isJwtExpiredError()`. Don't add a duplicate "refresh before every
+write" path elsewhere — the dbRest retry already covers it, and an
+unconditional pre-write refresh would double network round-trips on
+the 99% of requests that don't need it.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

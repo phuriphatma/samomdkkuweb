@@ -154,6 +154,39 @@ function docHasUnseen(doc, role) {
   return false;
 }
 
+/** Same as docHasUnseen but ignores the action already represented by
+ *  the status "X ใหม่"/"X ตีกลับ" badge — so a comment or file added on a
+ *  sent หนังสือ still surfaces as an อัปเดต instead of being swallowed by
+ *  the new-doc count. Drives both the project-grid blue badge and the
+ *  doc-card blue pill.
+ *
+ *  Optional `seenAtOverride` lets the doc-card head use the SAME frozen
+ *  pre-expand seenAt the banner uses, so the blue pill stays visible
+ *  while the user is reading the comment that triggered it. Without the
+ *  override, expanding the หนังสือ calls markDocSeen → live seenAt jumps
+ *  to "now" → the pill vanishes the same render the banner appears,
+ *  producing the inconsistent "banner says new but the head doesn't"
+ *  the user flagged. */
+function docHasUnseenBeyondStatusBadge(doc, role, seenAtOverride) {
+  const tl = doc.timeline || [];
+  const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
+  const wanted = INCOMING_ACTIONS[role] || new Set();
+  const alreadyBadged = role === 'uni_staff' && doc.status === 'sent' ? 'sent'
+                      : role === 'vp_admin'  && doc.status === 'returned' ? 'returned'
+                      : null;
+  for (const e of tl) {
+    if (e.role === role) continue;
+    if (!wanted.has(e.action)) continue;
+    if (alreadyBadged && e.action === alreadyBadged) continue;
+    const ts = Math.max(
+      Date.parse(e.at) || 0,
+      e.edited_at ? (Date.parse(e.edited_at) || 0) : 0,
+    );
+    if (ts > seenAt) return true;
+  }
+  return false;
+}
+
 function projectHasUnseen(p, role) {
   return (p.documents || []).some((d) => docHasUnseen(d, role));
 }
@@ -518,15 +551,13 @@ function renderProjectListRow(p) {
   const total    = docs.length;
   const sent     = docs.filter((d) => d.status === 'sent').length;
   const returned = docs.filter((d) => d.status === 'returned').length;
-  // Any incoming activity (comment / file op / status change by the
-  // other side) since last seen — excluding docs already badged for
-  // action-required (sent/returned) so we don't double-stack the same
-  // doc under two labels.
-  const unseenDocs = docs.filter((d) => {
-    if (role !== 'vp_admin' && d.status === 'sent') return false;
-    if (role !== 'uni_staff' && d.status === 'returned') return false;
-    return docHasUnseen(d, role);
-  }).length;
+  // Any incoming activity (comment / file op / non-status change by the
+  // other side) since last seen. Excludes the status-defining action so
+  // the "X ใหม่"/"X ตีกลับ" badge and the blue "X อัปเดต" badge don't
+  // double-count the same event — but a comment / file op on a sent
+  // หนังสือ DOES surface, because it's a separate update on top of the
+  // already-badged status.
+  const unseenDocs = docs.filter((d) => docHasUnseenBeyondStatusBadge(d, role)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
@@ -567,11 +598,7 @@ function renderProjectCard(p) {
   const returned = docs.filter((d) => d.status === 'returned').length;
   // See renderProjectListRow for the exclusion rules — same logic, just
   // a richer card layout.
-  const unseenDocs = docs.filter((d) => {
-    if (role !== 'vp_admin' && d.status === 'sent') return false;
-    if (role !== 'uni_staff' && d.status === 'returned') return false;
-    return docHasUnseen(d, role);
-  }).length;
+  const unseenDocs = docs.filter((d) => docHasUnseenBeyondStatusBadge(d, role)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
@@ -670,23 +697,38 @@ function renderDocCard(doc, project) {
   const m = DOC_STATUS_META[doc.status] || DOC_STATUS_META.sent;
   const type = (cache.docTypes || []).find((t) => t.id === doc.type_id);
   const isOpen = expandedDocs.has(doc.id);
-  // The dot + "อัปเดต" pill light up on TWO independent signals:
+  // While expanded, use the SAME frozen pre-expand seenAt the comment
+  // banner / "ใหม่" pill / is-unread row inside the body use — otherwise
+  // markDocSeen (fired on the expand click) clears the head badge the
+  // same render the banner appears, so the user sees the banner saying
+  // "คอมเมนต์ใหม่" but no matching blue indicator on the หนังสือ head.
+  const seenAtForHead = expandedDocsSeenAt.has(doc.id)
+    ? expandedDocsSeenAt.get(doc.id)
+    : undefined;
+  // Two independent attention signals, rendered with distinct colors so
+  // the user can tell at a glance which kind needs their eye:
   //   1. Action required by status — uni_staff + status=sent (ต้อง
-  //      รับเรื่อง), vp_admin + status=returned (ต้องแก้ไข). Persists
-  //      until the user changes status.
-  //   2. Informational unseen activity — any incoming event from the
-  //      other side since the viewer's last seen marker. Cleared by
-  //      expanding the doc OR taking any action on it.
-  // Combining them under one visual is intentional: from the user's
-  // point of view both signals mean "you haven't dealt with this yet".
-  const needsActionRequired = actionRequiredOn(doc, cache.role);
-  const needsActivityAck    = docHasUnseen(doc, cache.role);
-  const needsAck = needsActionRequired || needsActivityAck;
+  //      รับเรื่อง), vp_admin + status=returned (ต้องแก้ไข). Yellow pill.
+  //      Persists until the user changes status.
+  //   2. Informational activity from the other side BEYOND the status
+  //      action that signal #1 already represents — comments, file ops,
+  //      mid-flight status changes. Blue pill. Cleared by expanding the
+  //      doc OR taking any action on it.
+  // A new comment on a sent หนังสือ shows BOTH pills (yellow "must act"
+  // + blue "and there's a comment too"), which is exactly the case the
+  // user flagged as missing the blue indicator before this change.
+  const needsActionRequired   = actionRequiredOn(doc, cache.role);
+  const hasActivityBeyondStat = docHasUnseenBeyondStatusBadge(doc, cache.role, seenAtForHead);
+  const needsAck = needsActionRequired || hasActivityBeyondStat;
   const mineDot = needsAck ? '<span class="projects-row-mine-dot" title="ต้องดำเนินการ"></span>' : '';
   const hasUpdate = needsAck;
-  const updateBadge = hasUpdate
+  const statusPill = needsActionRequired
     ? `<span class="projects-doc-update-pill"><i class="bi bi-bell-fill me-1"></i>อัปเดต</span>`
     : '';
+  const activityPill = hasActivityBeyondStat
+    ? `<span class="projects-doc-update-pill is-comment" title="มีอัปเดต / คอมเมนต์ใหม่"><i class="bi bi-chat-left-dots-fill me-1"></i>อัปเดต</span>`
+    : '';
+  const updateBadge = `${statusPill}${activityPill}`;
 
   return `
     <article class="projects-doc-card ${isOpen ? 'is-open' : ''} ${hasUpdate ? 'has-update' : ''}" data-projects-doc-id="${escHtml(doc.id)}">

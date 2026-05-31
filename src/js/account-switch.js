@@ -110,6 +110,20 @@ export function forgetAccount(key) {
   writeSaved(list);
 }
 
+/** Strip cached tokens (but KEEP the account row) for one saved entry.
+ *  Used after a fast-switch attempt fails — the refresh_token Supabase
+ *  rejected is dead, so replaying it again would just produce the same
+ *  console-noise 400. The entry stays in the chooser so the user can
+ *  still pick it via the password path; only the stale tokens go. */
+function clearSavedTokens(key) {
+  const list = readSaved();
+  const idx = list.findIndex((a) => keyFor(a) === key);
+  if (idx < 0) return;
+  const { access_token, refresh_token, ...rest } = list[idx];
+  list[idx] = rest;
+  writeSaved(list);
+}
+
 export function listSavedAccounts() {
   return readSaved();
 }
@@ -285,6 +299,11 @@ async function pickAccount(key, originRow) {
       return;
     }
     console.warn('[samo.account-switch] fast switch failed (timeout / revoked refresh) — falling back to sign-in form');
+    // The saved refresh_token is dead (rotated past its grace window,
+    // global-signOut revoked it, or supabase wedged setSession). Drop it
+    // so future opens of the chooser go straight to the password path
+    // instead of replaying the same 400 every time.
+    clearSavedTokens(key);
   }
 
   // Slow path / first-time switch / Google: hide the switcher,
@@ -385,6 +404,19 @@ if (typeof window !== 'undefined') {
 /** Mount: wire one-time DOM handlers + the auth subscriber that records
  *  every successful sign-in into the saved-accounts list. */
 export function mountAccountSwitch() {
+  // Global a11y fix for Bootstrap modals: Bootstrap stamps aria-hidden=
+  // "true" on a modal while a descendant (the picked account button, the
+  // signin password input, etc.) still holds focus. Chrome / Edge now
+  // log "Blocked aria-hidden on an element because its descendant
+  // retained focus" for that combo. Bootstrap's recommended escape is
+  // to move focus out before hide completes — do that once here so every
+  // modal in the app is covered.
+  document.addEventListener('hide.bs.modal', (e) => {
+    const modal = e.target;
+    if (!modal || !modal.contains?.(document.activeElement)) return;
+    try { document.activeElement.blur(); } catch {}
+  });
+
   const modalEl = document.getElementById('samoSwitchAccountModal');
   if (modalEl) {
     modalEl.addEventListener('click', async (e) => {

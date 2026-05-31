@@ -4,7 +4,8 @@ Last updated: 2026-05-31. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-Build green, 45 tests pass (`npm test`).
+Build green, 45 tests pass (`npm test`). Working tree dirty: account-
+switch + dbRest + projects inbox UI fixes pending commit.
 
 ## Branches
 
@@ -48,24 +49,24 @@ User has confirmed 0023–0031 are applied. No pending migrations.
 
 ## What's in flight (carry-over from this session)
 
-- **Cross-device seenAt** — code shipped, awaiting 0031 application. Once
-  applied, every device pulls + writes through `project_doc_views`;
-  first run after upgrade bulk-uploads each device's localStorage map
-  so cross-device sync includes historical state. Until then, JS falls
-  back to per-user localStorage and warns once in console.
 - **iPad cached HTML** — `_headers` ships `Cache-Control: no-cache,
   must-revalidate` for HTML so future deploys self-heal via the
   build-check (src/js/build-check.js). A currently-stuck iPad cache
   still needs one `?v=<anything>` bust to load the bundle that contains
   build-check; from then on every deploy auto-reloads.
-- **Account switcher flakiness** — pickAccount now has a re-entrancy
-  guard, visible per-row spinner, 10s setSession timeout (was 5s), and
-  delays the modal hide until AFTER the swap succeeds. Diagnostic
-  `console.debug` lines tag the fast/slow path so an iPad-attached
-  Web Inspector can trace next-time repros. If still flaky after this,
-  the next hop is probably to take a packet trace of `setSession` on
-  iPad and see whether it's the network or supabase-js holding the
-  lock.
+- **Account switcher** — pickAccount has a re-entrancy guard, per-row
+  spinner, 10s setSession timeout, post-swap modal hide. When the saved
+  refresh_token is rejected on a fast switch, those cached tokens are
+  now wiped from the saved entry so we don't keep replaying them every
+  open (was a noisy 400 + console.warn loop). aria-hidden a11y warning
+  on focused descendants is handled globally via a `hide.bs.modal` blur
+  installed in `mountAccountSwitch`.
+- **JWT auto-refresh on PostgREST writes** — `dbRest()` now detects
+  `PGRST303 JWT expired` on a 401/403 response, refreshes the session,
+  and retries once (single-flight to avoid N concurrent refreshes when N
+  writes were in flight). Closes the "user typed in a modal for >1hr →
+  submit fails with JWT expired" hole the 25-min proactive interval
+  can't cover when the tab is throttled/backgrounded.
 
 ## End-of-turn loop reminder
 

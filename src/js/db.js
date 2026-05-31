@@ -90,6 +90,37 @@ function currentAccessToken() {
   }
 }
 
+/** Refresh the Supabase session JWT, deduping concurrent callers so we
+ *  don't fire N parallel refresh round-trips when an expired token blows
+ *  out N in-flight dbRest writes at once. Resolves to true on success,
+ *  false otherwise (timed out, refresh_token revoked, no session). */
+let inFlightRefresh = null;
+async function refreshAccessTokenOnce() {
+  if (inFlightRefresh) return inFlightRefresh;
+  inFlightRefresh = (async () => {
+    try {
+      const { data, error } = await db.auth.refreshSession();
+      if (error || !data?.session) return false;
+      return true;
+    } catch {
+      return false;
+    } finally {
+      // Release after a microtask so callers chained behind this one
+      // observe the result before the next refresh becomes possible.
+      setTimeout(() => { inFlightRefresh = null; }, 0);
+    }
+  })();
+  return inFlightRefresh;
+}
+
+/** True when the PostgREST error body looks like a JWT-expired
+ *  rejection (PGRST303). Used to decide whether to refresh-and-retry. */
+function isJwtExpiredError(status, message) {
+  if (status !== 401 && status !== 403) return false;
+  const m = (message || '').toLowerCase();
+  return m.includes('pgrst303') || m.includes('jwt expired') || m.includes('jwt is expired');
+}
+
 export async function dbRest(path, opts = {}) {
   const {
     method = 'GET',
@@ -98,43 +129,57 @@ export async function dbRest(path, opts = {}) {
     timeout = 15000,
     prefer,
   } = opts;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const headers = {
-      apikey: anonKey,
-      Authorization: `Bearer ${currentAccessToken()}`,
-      'Content-Type': 'application/json',
-      ...(prefer ? { Prefer: prefer } : {}),
-      ...extraHeaders,
-    };
-    const res = await fetch(`${url}/rest/v1${path}`, {
-      method,
-      headers,
-      body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
-      signal: controller.signal,
-      // iPad / iOS Safari aggressively caches GET responses to the
-      // same URL when the page is restored from bfcache or the tab is
-      // backgrounded. cache:'no-store' is the right answer on modern
-      // Safari (16.4+). PostgREST itself sets Cache-Control: no-store
-      // on responses so the browser shouldn't store them in the first
-      // place — the bfcache `pageshow` reload handler in projects/
-      // index.js covers the in-memory restore case independently. Do
-      // NOT try to cache-bust via query string: PostgREST parses
-      // every unknown param as a filter and 400s on `?_=…`.
-      cache: 'no-store',
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      return { data: null, error: { status: res.status, message: text || res.statusText } };
+  const doFetch = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const headers = {
+        apikey: anonKey,
+        Authorization: `Bearer ${currentAccessToken()}`,
+        'Content-Type': 'application/json',
+        ...(prefer ? { Prefer: prefer } : {}),
+        ...extraHeaders,
+      };
+      const res = await fetch(`${url}/rest/v1${path}`, {
+        method,
+        headers,
+        body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
+        signal: controller.signal,
+        // iPad / iOS Safari aggressively caches GET responses to the
+        // same URL when the page is restored from bfcache or the tab is
+        // backgrounded. cache:'no-store' is the right answer on modern
+        // Safari (16.4+). PostgREST itself sets Cache-Control: no-store
+        // on responses so the browser shouldn't store them in the first
+        // place — the bfcache `pageshow` reload handler in projects/
+        // index.js covers the in-memory restore case independently. Do
+        // NOT try to cache-bust via query string: PostgREST parses
+        // every unknown param as a filter and 400s on `?_=…`.
+        cache: 'no-store',
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { data: null, error: { status: res.status, message: text || res.statusText } };
+      }
+      const data = res.status === 204
+        ? null
+        : await res.json().catch(() => null);
+      return { data, error: null };
+    } catch (e) {
+      clearTimeout(timer);
+      return { data: null, error: { message: e?.message || String(e), name: e?.name } };
     }
-    const data = res.status === 204
-      ? null
-      : await res.json().catch(() => null);
-    return { data, error: null };
-  } catch (e) {
-    clearTimeout(timer);
-    return { data: null, error: { message: e?.message || String(e), name: e?.name } };
+  };
+
+  const first = await doFetch();
+  // JWT-expired retry: the 25-min proactive refresh in db.js can miss when
+  // the tab was backgrounded / throttled (mobile Safari especially), or
+  // when the user spent >1hr typing in a modal before submitting. Trying
+  // a refresh-and-retry here is cheap and turns "PGRST303 JWT expired"
+  // into a transparent recovery instead of a "บันทึกไม่สำเร็จ" toast.
+  if (first.error && isJwtExpiredError(first.error.status, first.error.message)) {
+    const refreshed = await refreshAccessTokenOnce();
+    if (refreshed) return doFetch();
   }
+  return first;
 }

@@ -801,6 +801,12 @@
   flex: 0 0 auto;
   box-shadow: 0 1px 4px rgba(217, 119, 6, 0.25);
 }
+/* Blue variant — surfaces comments / file ops / mid-flight status
+   changes alongside (but distinct from) the yellow status pill. */
+.projects-tab .projects-doc-update-pill.is-comment {
+  background: #3b82f6;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.28);
+}
 .projects-tab .projects-doc-card.has-update {
   border-color: var(--p-warn);
   box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.08);
