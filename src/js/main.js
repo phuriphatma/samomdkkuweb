@@ -8,6 +8,8 @@
 // main.css is loaded via a parser-blocking <link> tag in index.html (not
 // imported here) so the styles arrive in the first paint, not after the JS
 // module evaluates. Eliminates the dev-mode FOUC.
+import { startBuildCheck } from './build-check.js';
+startBuildCheck();   // run before anything else — see build-check.js header
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 

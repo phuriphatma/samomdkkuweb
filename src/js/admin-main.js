@@ -6,6 +6,8 @@
 // persists in localStorage on the same origin).
 // ==============================================
 
+import { startBuildCheck } from './build-check.js';
+startBuildCheck();   // run before anything else — see build-check.js header
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 

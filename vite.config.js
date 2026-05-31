@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // Inline-include partials at build time. Used by both entries.
 function htmlPartials() {
@@ -15,6 +16,41 @@ function htmlPartials() {
         return match;
       });
     }
+  };
+}
+
+// Stamp every build with a short id and emit it at /build.json. The
+// runtime fetches build.json with no-store on every page load and
+// compares it to the embedded __BUILD_ID__ — on mismatch it forces a
+// cache-busting reload so a stale Safari HTML cache can never pin a
+// user on an old bundle. See src/js/build-check.js.
+function buildIdPlugin() {
+  const buildId = crypto.randomBytes(6).toString('hex');
+  return {
+    name: 'build-id',
+    config() {
+      return { define: { __BUILD_ID__: JSON.stringify(buildId) } };
+    },
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'build.json',
+        source: JSON.stringify({ buildId }),
+      });
+    },
+    // In dev, expose the same id through /build.json so build-check
+    // never thinks dev is "stale" (it'd reload-loop otherwise).
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url === '/build.json') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify({ buildId }));
+          return;
+        }
+        next();
+      });
+    },
   };
 }
 
@@ -47,7 +83,7 @@ function spaFallback() {
 
 export default defineConfig({
   root: '.',
-  plugins: [htmlPartials(), spaFallback()],
+  plugins: [buildIdPlugin(), htmlPartials(), spaFallback()],
   build: {
     outDir: 'dist',
     // Multi-page build — public site at /, operator app at /admin/.
