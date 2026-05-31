@@ -24,6 +24,86 @@ export async function listProducts({ activeOnly = true } = {}) {
   return data || [];
 }
 
+/** Reserved-stock map across ALL products at once — one RPC call instead
+ *  of one per product. Shape:
+ *    { "p-shirt-id": { "S-red": 3, "M-blue": 1 }, ... }
+ *  Powers the buyer-side "available = max(0, stock - reserved)" view.
+ *  Falls back to {} on any error (e.g. migration 0030 not applied) so
+ *  the UI gracefully degrades to the legacy raw-stock display. */
+export async function fetchReservedMatrixAll() {
+  const { data, error } = await dbRest('/rpc/shop_reserved_matrix_all', {
+    method: 'POST',
+    body: {},
+  });
+  if (error) {
+    if (error.status === 404 || /shop_reserved_matrix_all/i.test(error.message || '')) {
+      if (!window.__samoWarnedReservedRpc) {
+        window.__samoWarnedReservedRpc = true;
+        console.warn('[shop] shop_reserved_matrix_all RPC missing — apply migration 0030 for reservation-aware stock display.');
+      }
+      return {};
+    }
+    console.warn('[shop] reserved matrix fetch failed:', error.message);
+    return {};
+  }
+  return data && typeof data === 'object' ? data : {};
+}
+
+/** Atomic order creation — locks product rows, validates available stock
+ *  under the lock, then inserts header + items in one transaction. The
+ *  legacy 2-step createOrder() below is kept as a fallback for envs
+ *  that haven't applied migration 0030. Returns the new order row
+ *  (re-read after insert so callers get the same shape as before). */
+export async function placeShopOrder(payload) {
+  const items = (payload.items || []).map((it) => ({
+    product_id:  it.productId,
+    size:        it.size || 'F',
+    color:       it.color || 'default',
+    fit:         it.fit || 'unisex',
+    qty:         Number(it.qty) || 1,
+    unit_price:  Number(it.price) || 0,
+  }));
+  const { data, error } = await dbRest('/rpc/place_shop_order', {
+    method: 'POST',
+    body: {
+      p_buyer_id:         payload.buyerId,
+      p_buyer_label:      payload.buyerLabel || null,
+      p_buyer_name:       payload.buyerName || null,
+      p_buyer_email:      payload.buyerEmail || null,
+      p_buyer_note:       payload.buyerNote || null,
+      p_pickup_location:  payload.pickupLocation || null,
+      p_slip_url:         payload.slipUrl || null,
+      p_slip_uploaded_at: payload.slipUploadedAt || null,
+      p_items:            items,
+      p_fee:              Number(payload.fee) || 0,
+    },
+  });
+  if (error) {
+    const msg = error.message || '';
+    // Pre-0030 / migration not applied → fall back to the legacy
+    // direct-insert path so buyers can still check out (no atomic
+    // stock check, but the old behaviour they had yesterday).
+    if (error.status === 404 || /place_shop_order/i.test(msg)) {
+      if (!window.__samoWarnedPlaceOrderRpc) {
+        window.__samoWarnedPlaceOrderRpc = true;
+        console.warn('[shop] place_shop_order RPC missing — apply migration 0030 for atomic stock checks. Using legacy direct-insert.');
+      }
+      return createOrder(payload);
+    }
+    if (/OUT_OF_STOCK/.test(msg)) {
+      throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
+    }
+    throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
+  }
+  // RPC returns just the new id (text). Re-read the full row so callers
+  // get the same shape as createOrder.
+  const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
+  if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
+  const idEsc = encodeURIComponent(orderId);
+  const { data: rows } = await dbRest(`/shop_orders?id=eq.${idEsc}&select=*`);
+  return (rows && rows[0]) || { id: orderId };
+}
+
 export async function upsertProduct(row) {
   if (!row || !row.id) throw new Error('product.id required');
   // Upsert with on_conflict so the same call works for create and update.

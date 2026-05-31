@@ -628,6 +628,31 @@ the user's HTML cache predates the `_headers` fix.
 
 ---
 
+## PostgREST 400s on unknown URL query params — never cache-bust via `?_=…`
+
+**Symptom**: After adding a `&_=Date.now()` cache buster to every dbRest
+GET, the whole app breaks. News doesn't load, the staff-section
+dropdown is empty, projects + shop both fail with
+`{"code":"PGRST100","message":"failed to parse filter (1780199700877)"}`.
+**Cause**: PostgREST treats every URL query parameter (except a small
+reserved set — `select`, `order`, `limit`, `offset`, `on_conflict`,
+`or`, `and`, `not`) as a horizontal filter of the form `column=op.value`.
+A bare `?_=1780199700877` is parsed as a filter on column `_` with no
+operator → 400. There is no "ignored param" escape hatch.
+**Fix**: Use `cache: 'no-store'` on the fetch (modern Safari / Chromium
+/ Firefox honour it) or a custom request header — never a query string.
+PostgREST already sends `Cache-Control: no-store` on its responses so
+the browser shouldn't disk-cache them in the first place. The bfcache
+in-memory restore case has to be handled at the app level — see
+`projects/index.js` `pageshow` reload.
+**Where**: `src/js/db.js` `dbRest()`. Don't reintroduce a URL-param
+cache buster for any PostgREST call. If the underlying problem is a
+specific old browser ignoring `cache: 'no-store'`, add a request
+header (e.g. `Cache-Control: no-cache`) or change the URL via a
+*reserved* param such as `select=`, never invent a new one.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

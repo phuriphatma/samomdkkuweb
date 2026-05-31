@@ -39,6 +39,9 @@ const state = {
   ordersStatuses: new Set(),
   ordersProducts: new Set(),
   ordersSearch: '',
+  // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
+  // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
+  ordersPreorder: 'all',
   verifyIdx: 0,
   productEditor: null,
   batchEditor: null,
@@ -80,12 +83,26 @@ function ensureMounted() {
   if (search) {
     search.addEventListener('input', () => { state.ordersSearch = search.value.toLowerCase(); renderOrdersTable(); });
   }
+  // Preorder tri-state filter (all / preorder-only / in-stock-only).
+  document.getElementById('shopAdminOrdersPreorderGroup')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-orders-preorder]');
+    if (!btn) return;
+    state.ordersPreorder = btn.dataset.ordersPreorder;
+    document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
+      .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === state.ordersPreorder));
+    renderOrdersTable();
+    updateFilterChromes();
+  });
+
   // Clear-all chip.
   document.getElementById('shopAdminOrdersClearFilters')?.addEventListener('click', () => {
     state.ordersStatuses.clear();
     state.ordersProducts.clear();
     state.ordersSearch = '';
+    state.ordersPreorder = 'all';
     const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
+    document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
+      .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
     populateStatusFacet();           // re-render checks
     populateOrdersProductSelect();   // re-render checks
     renderOrdersTable();
@@ -305,7 +322,9 @@ function updateFilterChromes() {
     pBadge.classList.toggle('d-none', pN === 0);
   }
   if (clear) {
-    clear.classList.toggle('d-none', sN === 0 && pN === 0 && !state.ordersSearch);
+    const preorderActive = (state.ordersPreorder || 'all') !== 'all';
+    clear.classList.toggle('d-none',
+      sN === 0 && pN === 0 && !state.ordersSearch && !preorderActive);
   }
 }
 
@@ -352,7 +371,7 @@ function renderOrdersTable() {
     return `
       <tr class="is-clickable" data-order-id="${escHtml(o.id)}">
         <td>
-          <div class="order-id">${orderIdChipHtml(o.id)}</div>
+          <div class="order-id">${orderIdChipHtml(o.id)}${o.is_preorder ? ' <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size:.65rem;">Preorder</span>' : ''}</div>
           <div class="small text-muted">${fmtDate(o.placed_at)}</div>
         </td>
         <td>
@@ -378,12 +397,15 @@ function filterOrders(source) {
   const statuses = state.ordersStatuses;
   const products = state.ordersProducts;
   const q = (state.ordersSearch || '').trim();
+  const preorderFilter = state.ordersPreorder || 'all';
   return (source || []).filter((o) => {
     if (statuses.size > 0 && !statuses.has(o.status)) return false;
     if (products.size > 0) {
       const items = Array.isArray(o.items) ? o.items : [];
       if (!items.some((it) => products.has(it.product_id))) return false;
     }
+    if (preorderFilter === 'preorder' && !o.is_preorder) return false;
+    if (preorderFilter === 'in_stock' && o.is_preorder)  return false;
     if (q) {
       const hay = [
         o.id || '',

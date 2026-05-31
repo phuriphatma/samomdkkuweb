@@ -107,6 +107,51 @@ export function isUnlimitedBuying(p) {
   return !!p?.is_presale;
 }
 
+/** Buyer-facing available qty for one (size, color) cell.
+ *
+ *  Math:  available = max(0, stock - reserved)
+ *    stock     comes from `p.stock_matrix[key]` (what admin loaded)
+ *    reserved  comes from `p.reserved_matrix[key]` (sum of qty in
+ *              every active order, computed server-side by
+ *              shop_reserved_matrix_all in migration 0030)
+ *
+ *  Returns:
+ *    - null when admin hasn't configured a number for this cell —
+ *      "untracked" stock, no display, no gate.
+ *    - a non-negative integer otherwise. 0 = out, blocks add-to-cart.
+ *
+ *  Preorder products bypass this entirely (caller should check
+ *  isUnlimitedBuying first). */
+export function availableForVariant(p, size, color) {
+  if (!p) return null;
+  const stockMatrix = p.stock_matrix || {};
+  const reservedMatrix = p.reserved_matrix || {};
+  const key = stockKey(size, color);
+  const stock = stockMatrix[key];
+  if (typeof stock !== 'number' || !Number.isFinite(stock)) return null;
+  const reserved = Number(reservedMatrix[key]) || 0;
+  return Math.max(0, stock - reserved);
+}
+
+/** Same as availableForVariant but summed across every (size, color)
+ *  cell on the product. Used for the card-level "เหลือ N ชิ้น" hint
+ *  on the grid. Returns null when the matrix isn't configured. */
+export function availableTotal(p) {
+  if (!p) return null;
+  const matrix = p.stock_matrix || {};
+  const reserved = p.reserved_matrix || {};
+  let total = 0;
+  let any = false;
+  for (const key of Object.keys(matrix)) {
+    const stock = matrix[key];
+    if (typeof stock !== 'number' || !Number.isFinite(stock)) continue;
+    any = true;
+    const r = Number(reserved[key]) || 0;
+    total += Math.max(0, stock - r);
+  }
+  return any ? total : null;
+}
+
 /**
  * Aggregate total stock across a size×color matrix. Missing keys count as
  * "unknown / unlimited" (not zero) — admin hasn't filled them in.

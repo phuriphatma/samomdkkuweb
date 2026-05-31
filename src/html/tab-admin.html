@@ -167,6 +167,15 @@
                   <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 260px;"
                        id="shopAdminOrdersProductMenu"></div>
                 </div>
+                <div class="btn-group btn-group-sm" role="group" id="shopAdminOrdersPreorderGroup"
+                     aria-label="กรอง preorder / พร้อมส่ง">
+                  <button type="button" class="btn btn-outline-secondary is-active"
+                          data-orders-preorder="all">ทั้งหมด</button>
+                  <button type="button" class="btn btn-outline-secondary"
+                          data-orders-preorder="preorder">Preorder</button>
+                  <button type="button" class="btn btn-outline-secondary"
+                          data-orders-preorder="in_stock">พร้อมส่ง</button>
+                </div>
                 <div class="input-group input-group-sm" style="max-width:260px;">
                   <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                   <input id="shopAdminOrdersSearch" class="form-control"

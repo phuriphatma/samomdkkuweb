@@ -12,7 +12,7 @@ import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
 import { thb } from './data.js';
 import { getCart, cartSubtotal, clearCart } from './state.js';
-import { getSettings, createOrder } from './api.js';
+import { getSettings, placeShopOrder } from './api.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
 import { getProductMap, ensureProductsLoaded } from './cart.js';
 import { showShopToast } from './products.js';
@@ -328,9 +328,9 @@ async function placeOrder() {
     const subtotal = cartSubtotal();
     // Pull the order-id prefix from the first cart item's product. If
     // the shop hasn't applied migration 0023 yet the field is missing
-    // and createOrder falls back to "SH".
+    // and the RPC falls back to "SH".
     const firstProduct = cart.length > 0 ? getProductMap()[cart[0].productId] : null;
-    const order = await createOrder({
+    const order = await placeShopOrder({
       buyerId: user.id,
       buyerLabel: buyerName || user.name || user.username || user.email || '',
       buyerName,

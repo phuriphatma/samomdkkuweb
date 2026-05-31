@@ -12,8 +12,9 @@ import {
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey, totalStock,
   effectivePrice, isUnlimitedBuying,
+  availableForVariant, availableTotal,
 } from './data.js';
-import { listProducts, listActiveBatches, listShopBanners } from './api.js';
+import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll } from './api.js';
 import { addItem } from './state.js';
 
 let cache = { products: [], batches: [], loaded: false };
@@ -116,12 +117,20 @@ export function mountShopBrowse() {
 // ---------------------------------------------------------------------
 export async function reloadShop() {
   try {
-    const [products, batches, banners] = await Promise.all([
+    const [products, batches, banners, reservedAll] = await Promise.all([
       listProducts({ activeOnly: true }),
       listActiveBatches().catch(() => []),
       listShopBanners().catch(() => []),
+      fetchReservedMatrixAll().catch(() => ({})),
     ]);
-    cache.products = products;
+    // Splice the reserved-qty matrix onto each product so downstream
+    // renderers can compute available = max(0, stock - reserved)
+    // without touching the cache shape further. Reserved entries
+    // missing for a product are treated as 0 across all variants.
+    cache.products = (products || []).map((p) => ({
+      ...p,
+      reserved_matrix: reservedAll[p.id] || {},
+    }));
     cache.batches = batches || [];
     cache.banners = banners || [];
     cache.loaded = true;
@@ -354,13 +363,12 @@ function productCardHtml(p) {
   const sizes = Array.isArray(p.sizes) ? p.sizes : [];
   const colors = Array.isArray(p.colors) ? p.colors : [];
   const oos = p.stock_status === 'sold_out' || p.stock_status === 'production_closed';
-  // Stock-left summary for the card. We only surface a hint when admin
-  // filled in the matrix (totalStock returns null when nothing set) and
-  // the product isn't already in a global OOS status (that has its own
-  // ribbon). Highlight low-stock to nudge urgency. Preorder products
-  // skip this entirely — buyers shouldn't see counts when admin hasn't
-  // committed to a production run yet.
-  const total = (oos || isUnlimitedBuying(p)) ? null : totalStock(p.stock_matrix);
+  // Stock-left summary for the card. availableTotal subtracts active
+  // reservations from admin's loaded stock, so "เหลือ 1 ชิ้น" reflects
+  // what the buyer can actually buy right now — not the 9 admin loaded
+  // when 8 are sitting in pending orders. Preorder products skip this
+  // entirely; products without a configured matrix show no hint.
+  const total = (oos || isUnlimitedBuying(p)) ? null : availableTotal(p);
   const stockHint = total === null ? ''
     : total === 0 ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
     : total <= 5 ? `<span class="product-stock-hint is-low">เหลือ ${total} ชิ้น</span>`
@@ -406,19 +414,18 @@ function openProductModal(product) {
   const sizes = Array.isArray(product.sizes) ? product.sizes : ['F'];
   const colors = Array.isArray(product.colors) ? product.colors : [];
   modalState.product = product;
-  // Default to the first IN-STOCK combo so the user doesn't open onto
-  // a greyed-out variant they then have to manually switch off. Only
-  // kicks in when the matrix is configured; otherwise first-of-array
-  // is fine.
+  // Default to the first variant the buyer can actually buy right now
+  // — admin's stock minus active reservations. If the matrix isn't
+  // configured we let the buyer pick anything (untracked stock).
   const matrix = product.stock_matrix || {};
   const configured = Object.values(matrix).some((v) => typeof v === 'number');
   let pickedSize = sizes[0] || 'F';
   let pickedColor = colors[0]?.id || null;
-  if (configured) {
+  if (configured && !isUnlimitedBuying(product)) {
     outer: for (const s of sizes) {
       for (const c of (colors.length ? colors : [{ id: 'default' }])) {
-        const v = matrix[stockKey(s, c.id)];
-        if (typeof v === 'number' && v > 0) { pickedSize = s; pickedColor = c.id; break outer; }
+        const avail = availableForVariant(product, s, c.id);
+        if (avail != null && avail > 0) { pickedSize = s; pickedColor = c.id; break outer; }
       }
     }
   }
@@ -488,7 +495,16 @@ function openProductModal(product) {
     modalState.qty = Math.max(1, modalState.qty - 1); renderQty();
   }));
   document.getElementById('shopProductModalQtyPlus')?.replaceWith(rebuildBtn('shopProductModalQtyPlus', '+', () => {
-    modalState.qty = Math.min(99, modalState.qty + 1); renderQty();
+    // Cap at available qty for in-stock products so a buyer can't
+    // request more than they can have. Preorder products keep the
+    // legacy 99 ceiling (unlimited buying).
+    const p = modalState.product;
+    let ceiling = 99;
+    if (p && !isUnlimitedBuying(p)) {
+      const avail = availableForVariant(p, modalState.size, modalState.color);
+      if (avail != null) ceiling = Math.max(1, avail);
+    }
+    modalState.qty = Math.min(ceiling, modalState.qty + 1); renderQty();
   }));
 
   const addBtn = document.getElementById('shopProductModalAdd');
@@ -517,21 +533,23 @@ function openProductModal(product) {
 function isSizeAllOOS(size) {
   const p = modalState.product;
   if (!p || isUnlimitedBuying(p) || !matrixIsConfigured(p)) return false;
-  const matrix = p.stock_matrix || {};
   const colors = Array.isArray(p.colors) && p.colors.length ? p.colors : [{ id: 'default' }];
+  // OOS = every colour for this size has zero available (stock minus
+  // reservations). An untracked cell (null) means "no configured stock"
+  // and is treated as OOS only when at least one other cell IS tracked,
+  // matching the existing matrixIsConfigured gate.
   return colors.every((c) => {
-    const v = matrix[stockKey(size, c.id)];
-    return typeof v !== 'number' || v <= 0;
+    const avail = availableForVariant(p, size, c.id);
+    return avail == null || avail <= 0;
   });
 }
 function isColorAllOOS(color) {
   const p = modalState.product;
   if (!p || isUnlimitedBuying(p) || !matrixIsConfigured(p)) return false;
-  const matrix = p.stock_matrix || {};
   const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ['F'];
   return sizes.every((s) => {
-    const v = matrix[stockKey(s, color)];
-    return typeof v !== 'number' || v <= 0;
+    const avail = availableForVariant(p, s, color);
+    return avail == null || avail <= 0;
   });
 }
 
@@ -624,10 +642,8 @@ function renderStockLeftHint() {
   if (!p || isBlockedForPurchase() || isUnlimitedBuying(p)) {
     host.classList.add('d-none'); host.textContent = ''; return;
   }
-  const matrix = p.stock_matrix || {};
-  const key = stockKey(modalState.size, modalState.color);
-  const left = matrix[key];
-  if (typeof left !== 'number') { host.classList.add('d-none'); host.textContent = ''; return; }
+  const left = availableForVariant(p, modalState.size, modalState.color);
+  if (left == null) { host.classList.add('d-none'); host.textContent = ''; return; }
   host.classList.remove('d-none');
   if (left === 0) {
     host.textContent = 'หมดสต็อกแล้ว';
@@ -659,12 +675,10 @@ function isVariantOOS() {
   // Preorder products bypass stock entirely — no variant ever blocks
   // add-to-cart, no matter what the admin's internal numbers look like.
   if (isUnlimitedBuying(p)) return false;
-  const matrix = p.stock_matrix || {};
-  const key = stockKey(modalState.size, modalState.color);
-  const v = matrix[key];
-  if (typeof v === 'number') return v <= 0;
-  // Key missing — OOS only when the matrix is configured. An empty
-  // matrix means "not tracked" and we don't block.
+  const avail = availableForVariant(p, modalState.size, modalState.color);
+  if (avail != null) return avail <= 0;
+  // Key missing — OOS only when the matrix is configured overall. An
+  // empty matrix means "not tracked" and we don't block.
   return matrixIsConfigured(p);
 }
 function isBlockedForPurchase() {
