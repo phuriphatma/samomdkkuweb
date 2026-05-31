@@ -801,6 +801,51 @@ the GAS-side retry is insufficient — the queue is required.
 
 ---
 
+## Cloudflare 1015 (per-IP rate limit) blocks GAS → Discord webhook traffic, NOT Discord's own webhook bucket
+
+**Symptom**: Discord notifications start arriving inconsistently or
+stop entirely. GAS executions complete in ~10s (the 3-retry path);
+HTTP responses are 429 across all attempts. The response BODY is
+literally the string `error code: 1015` (not Discord's standard
+JSON error envelope). Running `testProjectDiscord()` manually from
+the GAS editor — supposedly bypasses all our runtime logic — ALSO
+hits HTTP 429 with body `error code: 1015`.
+**Cause**: Discord's API sits behind Cloudflare. `error code: 1015`
+is Cloudflare's "you are being rate limited" page, not Discord's
+own webhook rate limit. Two important differences:
+
+  - **Per-IP, not per-webhook**: rotating the webhook URL won't help.
+    Every webhook URL on `discord.com` goes through the same
+    Cloudflare edge. The block is on the *source* IP (GAS server's
+    egress IP), not the destination.
+  - **Cooldown is minutes, not seconds**: Discord's webhook bucket
+    refills in ~2s. Cloudflare 1015 cooldowns are typically 30s
+    to several minutes, and *extend* if you keep hammering. So
+    retrying inside the same request window almost never recovers,
+    and aggressive retries make the cooldown worse.
+
+  GAS shares IPs across users — sustained testing volume from one
+  GAS project pushes the *shared* IP into Cloudflare's penalty box.
+**Fix**:
+  - `prform.gs` `sendProjectDiscord` — detect body containing `1015`
+    and bail the retry loop early (no point burning more GAS time).
+    Retry sleep clamp bumped from 5s → 9s for the cases where the
+    cooldown is shorter.
+  - `notify.js` `MIN_DISCORD_SPACING_MS` — bumped from 2.2s → 6s.
+    Wider spacing reduces the chance the next call even sees the
+    1015 page.
+  - **There is NO code-only fix that recovers from an active 1015
+    cooldown** — wait it out (5-60 minutes), reduce ongoing traffic,
+    or move Discord notify off GAS to a dedicated proxy (Cloudflare
+    Worker, Supabase Edge Function, etc.) that uses a different
+    egress IP.
+**Where**: `appscript/prform.gs` `sendProjectDiscord` retry loop;
+`src/js/projects/notify.js` `MIN_DISCORD_SPACING_MS`. If reliability
+becomes important (campaign cycles, demos), seriously consider a
+non-GAS proxy.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

@@ -612,8 +612,22 @@ function sendProjectDiscord(data) {
     var sleepMs = FALLBACK_SLEEPS_MS[i] || 4000;
     if (result.status === 429 && result.retryAfter > 0) {
       // Honour Retry-After but clamp so a misconfigured header can't
-      // burn the GAS quota or exceed the frontend timeout.
-      sleepMs = Math.min(Math.max(Math.floor(result.retryAfter * 1000), 400), 5000);
+      // burn the GAS quota or exceed the frontend timeout. Clamp
+      // upper bumped from 5s → 9s because Cloudflare's per-IP rate
+      // limit on Discord's webhook host (the "error code: 1015"
+      // page) typically returns Retry-After ≥ 10s — 5s wasn't
+      // enough to clear it and all 3 attempts returned 429.
+      sleepMs = Math.min(Math.max(Math.floor(result.retryAfter * 1000), 400), 9000);
+    }
+    // If the response body identifies as Cloudflare 1015 (per-IP rate
+    // limit, not Discord's webhook bucket), retrying inside this
+    // request window almost never recovers — Cloudflare cooldown is
+    // typically 30s-several minutes. Bail to avoid wasting the GAS
+    // execution slot. The serialise queue's 6s spacing on subsequent
+    // calls gives Cloudflare time to relax for the next user action.
+    if (result.body && result.body.indexOf('1015') !== -1) {
+      console.warn('notifyProjectDiscord: Cloudflare 1015 detected — bailing retry loop early');
+      break;
     }
     Utilities.sleep(sleepMs);
   }

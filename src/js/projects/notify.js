@@ -63,7 +63,15 @@ function deepLink({ projectId, documentId } = {}) {
 // ============================================================
 let discordChain = Promise.resolve();
 let lastDiscordEndedAt = 0;
-const MIN_DISCORD_SPACING_MS = 2200;   // > Discord webhook bucket refill (~2s)
+// 6 seconds: Discord sits behind Cloudflare and the per-IP rate-limit
+// (error code 1015) has a much longer cooldown than Discord's own
+// webhook bucket (~2s). 2.2s spacing was enough for Discord's bucket
+// but not for Cloudflare's IP filter — observed in the field as the
+// FIRST action's 3 retries all returning HTTP 429 + body "error
+// code: 1015", while the SECOND action (firing ~15s later) recovered
+// on retry. Bumping spacing to 6s reduces the chance the next call
+// even SEES the 1015 page in the first place.
+const MIN_DISCORD_SPACING_MS = 6000;
 
 function queueDiscord(fn) {
   const next = discordChain.then(async () => {
