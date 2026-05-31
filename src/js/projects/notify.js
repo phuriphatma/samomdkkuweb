@@ -31,18 +31,49 @@ function deepLink({ projectId, documentId } = {}) {
   return `${PUBLIC_BASE_URL}#projects`;
 }
 
-function fireGAS(action, payload) {
-  // Fire-and-forget. keepalive lets it survive a navigation, and we never
-  // await the body so a slow webhook doesn't block the user action.
+/**
+ * Call a GAS action. Returns a promise that resolves to the parsed JSON
+ * response or null on failure. Bounded by `timeoutMs` (default 10s) so
+ * a wedged webhook can't block the user action indefinitely.
+ *
+ * Logging policy: any failure (timeout, network, non-2xx, action-level
+ * `success:false`) logs a single warning so silent drops are debuggable
+ * from the console. The previous fire-and-forget pattern with
+ * `.catch(() => {})` was the reason "sometimes Discord doesn't fire"
+ * went undetected for weeks — there was literally no surface.
+ */
+async function callGAS(action, payload, { timeoutMs = 10000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    fetch(GAS_API_URL, {
+    const res = await fetch(GAS_API_URL, {
       method: 'POST',
+      // keepalive lets it survive a navigation when called fire-and-
+      // forget; the awaited path doesn't strictly need it but it's
+      // harmless and means the same helper covers both callers.
       keepalive: true,
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action, ...payload }),
-    }).then((r) => r.text()).catch(() => {});
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const text = await res.text();
+    let parsed = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+      console.warn(`[projects/notify] ${action} HTTP ${res.status}:`, text?.slice(0, 300) || '');
+      return null;
+    }
+    if (parsed && parsed.success === false) {
+      console.warn(`[projects/notify] ${action} returned success:false`, parsed);
+      return parsed;
+    }
+    return parsed;
   } catch (e) {
-    console.warn(`[projects/notify] ${action} failed:`, e?.message || e);
+    clearTimeout(timer);
+    const aborted = e?.name === 'AbortError';
+    console.warn(`[projects/notify] ${action} ${aborted ? 'timed out' : 'failed'}:`, e?.message || e);
+    return null;
   }
 }
 
@@ -68,18 +99,21 @@ export async function notifyUniStaff({ kind, project, document, body, subject } 
     }
   }
 
-  // Email
+  // Email — fire-and-forget (email isn't time-sensitive and a slow
+  // mail server shouldn't slow the user). callGAS logs failures so
+  // the previously-silent "email didn't arrive" failure mode is now
+  // debuggable from the console.
   if (settings?.notify_uni_email !== false && settings?.uni_staff_email) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
     const sub = subject || (project?.name
       ? `[MDKKU SAMO] ${project.name} — ${kind}`
       : `[MDKKU SAMO] หนังสือโครงการ`);
     const html = buildEmailHtml({ kind, project, document, body, link: url });
-    fireGAS('notifyProjectEmail', {
+    callGAS('notifyProjectEmail', {
       to: settings.uni_staff_email,
       subject: sub,
       htmlBody: html,
-    });
+    }).catch(() => {});  // already logged inside callGAS
   }
 }
 
@@ -105,7 +139,14 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
     }
   }
 
-  // Discord
+  // Discord — AWAITED. Discord is the ONLY out-of-app channel VPA gets
+  // (no email fallback like uni_staff has), and the user explicitly
+  // flagged that they sometimes miss pings. Adding 1-2s of latency to
+  // the user action is the right trade-off vs silently dropping the
+  // Discord ping. callGAS bounds the wait at 10s and logs failures.
+  // A failed Discord ping does NOT throw — the bell write already
+  // succeeded above, and we don't want the surrounding action's
+  // try/catch to alert the user as if their click failed.
   if (settings?.notify_vp_discord !== false) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
     const color = kindToDiscordColor(kind);
@@ -115,7 +156,7 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
     if (body)             fields.push({ name: 'รายละเอียด', value: body.slice(0, 1000), inline: false });
     if (url)              fields.push({ name: 'ลิงก์',      value: url, inline: false });
 
-    fireGAS('notifyProjectDiscord', {
+    await callGAS('notifyProjectDiscord', {
       title: title || `อัปเดตหนังสือ — ${kind}`,
       description: '',
       color,

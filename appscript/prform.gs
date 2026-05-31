@@ -44,13 +44,31 @@ function doPost(e) {
     }
 
     if (data.action === 'notifyProjectEmail') {
-      try { sendProjectEmail(data); } catch (err) { console.error('notifyProjectEmail: ' + err); }
+      try { sendProjectEmail(data); }
+      catch (err) {
+        console.error('notifyProjectEmail: ' + err);
+        return createResponse({ success: false, message: String(err) });
+      }
       return createResponse({ success: true });
     }
 
     if (data.action === 'notifyProjectDiscord') {
-      try { sendProjectDiscord(data); } catch (err) { console.error('notifyProjectDiscord: ' + err); }
-      return createResponse({ success: true });
+      // Return the real send-result so the frontend can log Discord
+      // 4xx/5xx (rate limit, malformed payload, expired webhook) instead
+      // of silently succeeding. sendProjectDiscord throws on the rare
+      // hard failure (no webhook URL configured) AND returns
+      // { ok:false, status, body } for HTTP-level failures.
+      try {
+        var res = sendProjectDiscord(data);
+        if (res && res.ok === false) {
+          console.warn('notifyProjectDiscord: HTTP ' + res.status + ' ' + (res.body || ''));
+          return createResponse({ success: false, message: 'discord HTTP ' + res.status, status: res.status, body: res.body });
+        }
+        return createResponse({ success: true });
+      } catch (err) {
+        console.error('notifyProjectDiscord: ' + err);
+        return createResponse({ success: false, message: String(err) });
+      }
     }
 
     return createResponse({ success: false, message: 'Unknown action: ' + data.action });
@@ -522,12 +540,20 @@ function sendProjectDiscord(data) {
     };
   }
 
-  UrlFetchApp.fetch(url, {
+  // muteHttpExceptions:true so we can READ the response code instead of
+  // GAS throwing on 4xx/5xx — but we surface the result via the return
+  // value so the doPost handler (and ultimately the frontend) can log
+  // a Discord-side failure (rate limit, malformed payload, expired
+  // webhook URL) instead of silently succeeding.
+  var resp = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   });
+  var code = resp.getResponseCode();
+  if (code >= 200 && code < 300) return { ok: true, status: code };
+  return { ok: false, status: code, body: (resp.getContentText() || '').slice(0, 500) };
 }
 
 // ============================================================

@@ -62,6 +62,13 @@ User has confirmed 0023–0031 are applied. No pending migrations.
    `handleUploadProjectFile`, `handleGetProjectFolderInfo`, and
    `handleDeleteProjectFolder` so a rename in the app self-heals on
    Drive on the next upload / QR / delete.
+3. `notifyProjectDiscord` and `notifyProjectEmail` now return real
+   send-result status (was: always `success: true` even on Discord
+   429 / expired webhook / mail-quota failure). The frontend
+   `notify.js` `callGAS` helper awaits the Discord ping and logs the
+   actual failure mode — fixes the "sometimes Discord doesn't fire
+   for VPA" intermittent drop. The bell write was always reliable;
+   the Discord channel is the one this redeploy unblocks.
 
 Until the redeploy lands: the QR button + rename-on-edit hooks both
 alert / log warnings; the rest of the inbox keeps working. After

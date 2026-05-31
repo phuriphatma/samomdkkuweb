@@ -705,6 +705,41 @@ the 99% of requests that don't need it.
 
 ---
 
+## Fire-and-forget GAS notifications + `muteHttpExceptions:true` = invisible drops
+
+**Symptom**: Discord notifications to VPA arrive for "most" uni_staff
+actions but go missing for some. The in-app bell row always lands
+(consistent across the same actions); only Discord is intermittent.
+No errors in the console, no errors in GAS execution logs.
+**Cause**: A two-layer silent-failure stack.
+- Frontend `fireGAS()` in `src/js/projects/notify.js` started the
+  fetch but returned immediately, with `.catch(() => {})` swallowing
+  every network / 4xx / 5xx outcome. The user-action handler moved
+  on (`onChanged`, re-render, sometimes a navigation) before the
+  request completed. iPad Safari + slow networks could drop the
+  in-flight fetch entirely with no surface.
+- GAS `sendProjectDiscord()` used `muteHttpExceptions: true` AND
+  ignored the response code, so Discord rate limits (429), expired
+  webhook URLs (404), and malformed payloads (400) all silently
+  "succeeded" — `notifyProjectDiscord` returned `{ success: true }`
+  regardless of what Discord actually did.
+**Fix**:
+- `callGAS()` replaces `fireGAS()` — awaitable, 10s timeout, logs every
+  failure mode with status code + body. The hot path that depends on
+  reliability (VPA Discord) AWAITS it; the email path keeps
+  fire-and-forget but logs failures via the same helper.
+- GAS `sendProjectDiscord()` still uses `muteHttpExceptions: true`
+  but inspects `getResponseCode()` and returns `{ ok, status, body }`.
+  The `doPost` handler propagates non-2xx as `success: false` with
+  the Discord status so the frontend can log a meaningful warning.
+**Where**: `src/js/projects/notify.js` `callGAS` / `notifyVpAdmin`;
+`appscript/prform.gs` `sendProjectDiscord` + the `notifyProjectDiscord`
+branch of `doPost`. Don't reintroduce a silent `.catch(() => {})` on
+any user-visible side-channel. If a fire-and-forget is the right
+pattern for a future channel, log the failure inside the helper.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks
