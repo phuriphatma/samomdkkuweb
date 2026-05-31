@@ -589,6 +589,45 @@ storage carries the new value.**
 
 ---
 
+## "Login is still there so the cache must be cleared" — localStorage and the HTTP cache are different buckets
+
+**Symptom**: User reports a JS-level bug fixed on main, deploy is up
+and `curl -I` confirms the new `Cache-Control: no-cache` header on
+`/admin/`. User closes Safari, restarts iPad, comes back, sees they
+are still signed in, and concludes "cache hasn't cleared" because
+the JS fix still isn't visible.
+**Cause**: Two different storage layers being confused.
+- **localStorage** (`sb-<ref>-auth-token`, `samo.savedAccounts`,
+  `projects.commentsSeenAt`, etc.) survives Safari restarts,
+  device restarts, and tab closes. That's why the user is still
+  signed in — completely independent of the HTTP cache.
+- **HTTP cache** (the disk-cached copy of `/admin/index.html` and
+  the JS bundle it references) is what carries the JS fix. iPad
+  Safari keeps the cached HTML keyed by the cache headers that
+  were on it AT THE TIME IT WAS CACHED — a later deploy that adds
+  `Cache-Control: no-cache` only governs FUTURE fetches; it does
+  NOT retroactively invalidate the cached copy.
+So the iPad is happily serving stale HTML that points at the OLD
+bundle hash, while the user sees "login still works → cache fine".
+**Fix**: Three escalating options, in order:
+1. Visit a fresh URL — `?v=2` or any querystring works because it's
+   a different cache key. Verifies the new bundle without touching
+   localStorage / signing out.
+2. Settings → Safari → Advanced → Website Data → swipe-delete the
+   entry for the site. iOS rolls localStorage into "Website Data"
+   so this DOES sign the user out — fine, they re-sign-in.
+3. Settings → Safari → Clear History and Website Data — last
+   resort, nukes everything.
+**Where it lives now**: `public/_headers` ships
+`Cache-Control: no-cache, must-revalidate` on HTML so the NEXT
+deploy after this fix won't re-trap a user, but the FIRST deploy
+where this is added still requires one of the three steps above.
+Pattern to recognise: any "fix shipped, deploy verified, user
+still doesn't see it" report — first thing to check is whether
+the user's HTML cache predates the `_headers` fix.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks
