@@ -113,6 +113,15 @@ async function callGAS(action, payload, { timeoutMs = 20000 } = {}) {
       console.warn(`[projects/notify] ${action} returned success:false`, parsed);
       return parsed;
     }
+    // GAS Cloud Logs are NOT recorded for our browser-fetch calls (the
+    // Execute-as-Me + access-Anyone visibility rule). The only path to
+    // see what Discord actually returned for runtime calls is to echo
+    // the diagnostic data in the response body and log it here. Logs
+    // on success ONLY when retries kicked in or final status is non-
+    // 204 — successful first-shot calls stay silent to avoid noise.
+    if (parsed && (parsed.retried || (parsed.attempts && parsed.attempts > 1))) {
+      console.info(`[projects/notify] ${action} took ${parsed.attempts || '?'} attempt(s)`, parsed);
+    }
     return parsed;
   } catch (e) {
     clearTimeout(timer);

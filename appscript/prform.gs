@@ -61,28 +61,34 @@ function doPost(e) {
     }
 
     if (data.action === 'notifyProjectDiscord') {
-      // Return the real send-result so the frontend can log Discord
-      // 4xx/5xx (rate limit, malformed payload, expired webhook) instead
-      // of silently succeeding. sendProjectDiscord throws on the rare
-      // hard failure (no webhook URL configured), returns
-      // { ok:true, status, retried? } on success (with retried:true if
-      // the second attempt succeeded after a 429 / transport error),
-      // and { ok:false, status, body, retried?, firstStatus? } when
-      // both attempts failed.
+      // Echo every diagnostic detail back to the frontend via the
+      // response body. GAS Cloud Logs are NOT recorded for browser-
+      // fetch calls (Execute-as-Me + access-Anyone restriction —
+      // see skills/deploy-gas.md), so this is the only path that
+      // surfaces what Discord actually returned. callGAS in
+      // src/js/projects/notify.js logs the response when retried or
+      // failed, so the data lands in the browser console.
       try {
         var res = sendProjectDiscord(data);
         if (res && res.ok === false) {
-          var note = 'notifyProjectDiscord: HTTP ' + res.status + ' ' + (res.body || '');
-          if (res.retried) note += ' (after retry from ' + res.firstStatus + ')';
-          console.warn(note);
-          return createResponse({ success: false, message: 'discord HTTP ' + res.status, status: res.status, body: res.body, retried: res.retried || false, firstStatus: res.firstStatus || null });
+          return createResponse({
+            success: false,
+            message: 'discord HTTP ' + res.status,
+            status: res.status,
+            body: res.body,
+            attempts: res.attempts || 1,
+            firstStatus: res.firstStatus || null,
+            retried: res.retried || false,
+          });
         }
-        if (res && res.retried) {
-          console.log('notifyProjectDiscord: succeeded on retry (first attempt was rate-limited or transport-failed)');
-        }
-        return createResponse({ success: true, retried: res && res.retried ? true : false });
+        return createResponse({
+          success: true,
+          status: res ? res.status : null,
+          attempts: res && res.attempts ? res.attempts : 1,
+          firstStatus: res && res.firstStatus ? res.firstStatus : null,
+          retried: res && res.retried ? true : false,
+        });
       } catch (err) {
-        console.error('notifyProjectDiscord: ' + err);
         return createResponse({ success: false, message: String(err) });
       }
     }
