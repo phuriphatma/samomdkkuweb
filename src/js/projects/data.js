@@ -120,14 +120,25 @@ export function slugify(s) {
     .slice(0, 60) || 'item';
 }
 
-/** Build a logical Drive path for a document folder. */
-export function buildDocFolderPath(projectId, projectName, documentId, typeId) {
-  const projectSlug = slugify(projectName);
-  const typeSlug = slugify(typeId || 'doc');
-  return `Projects/${projectId}_${projectSlug}/${documentId}_${typeSlug}`;
+/** Build a logical Drive path for a document folder. The path uses the
+ *  HUMAN-READABLE NAME first, then the code as a suffix — matches the
+ *  user's "ชื่อโครงการ_PRJ-XXXX / ชื่อหนังสือ_DOC-XXXXX" expectation.
+ *
+ *  GAS walks these paths via a by-code match (not by exact name), so a
+ *  folder created with a stale name still resolves and auto-renames to
+ *  the current desiredName. That means a project / doc rename in the
+ *  app propagates to Drive on the next upload, QR, or rename hook,
+ *  even though the path string itself is regenerated from scratch
+ *  every time. Callers therefore pass CURRENT names, not whatever was
+ *  stored on `doc.drive_folder` historically. */
+export function buildDocFolderPath(projectId, projectName, documentId, docTitle) {
+  const projectSeg = `${slugify(projectName)}_${projectId}`;
+  const docSeg = `${slugify(docTitle)}_${documentId}`;
+  return `Projects/${projectSeg}/${docSeg}`;
 }
 
-/** Build a logical Drive path for a project's top-level folder. */
+/** Build a logical Drive path for a project's top-level folder. Same
+ *  name-first / code-suffix convention as buildDocFolderPath. */
 export function buildProjectFolderPath(projectId, projectName) {
-  return `Projects/${projectId}_${slugify(projectName)}`;
+  return `Projects/${slugify(projectName)}_${projectId}`;
 }

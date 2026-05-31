@@ -91,25 +91,33 @@ export async function deleteProjectFile(fileUrl) {
 
 /**
  * Resolve the Drive folder URL for a logical `Projects/...` path,
- * creating the folder if it doesn't exist yet and ensuring it's shared
- * as ANYONE_WITH_LINK view. Drives the per-project QR feature — the
- * URL is what the QR encodes. Returns { folderId, folderUrl, folderName }.
+ * creating the folder if it doesn't exist yet. On the GAS side, the
+ * walker self-renames stale folders to the current desiredName from
+ * the path (by-code matching), so this call doubles as the rename
+ * hook fired after a project / doc title edit.
  *
- * Empty-folder case: brand-new projects with no files uploaded yet
- * still get a valid URL because GAS creates the folder on demand.
- * The QR is therefore usable immediately on project creation.
+ * @param {string} folderPath e.g. `Projects/<slug>_PRJ-XXXX[/<slug>_DOC-XXXXX]`
+ * @param {{ share?: boolean }} [opts] — `share:true` asks GAS to set
+ *  ANYONE_WITH_LINK + VIEW on the folder (for the QR flow). Default
+ *  false so the silent rename hook on edit doesn't accidentally make
+ *  every renamed folder public.
  */
-export async function getProjectFolderInfo(folderPath) {
+export async function getProjectFolderInfo(folderPath, opts = {}) {
   if (!folderPath || typeof folderPath !== 'string') {
     throw new Error('folderPath is required');
   }
   if (!folderPath.startsWith('Projects/')) {
     throw new Error('folderPath must start with Projects/');
   }
+  const body = {
+    action: 'getProjectFolderInfo',
+    folderPath,
+    share: opts.share === true,
+  };
   const res = await fetch(GAS_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getProjectFolderInfo', folderPath }),
+    body: JSON.stringify(body),
   });
   const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
   if (!result.success || !result.folderUrl) {

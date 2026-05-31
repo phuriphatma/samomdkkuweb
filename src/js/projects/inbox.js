@@ -39,7 +39,7 @@ import {
   buildDocFolderPath,
   buildProjectFolderPath,
 } from './data.js';
-import { uploadProjectFile, deleteProjectFolder, deleteProjectFile } from './uploads.js';
+import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin } from './notify.js';
 import { openProjectPrompt, openProjectConfirm } from './ui-prompt.js';
 import { showProjectQrModal } from './qr.js';
@@ -1438,9 +1438,20 @@ async function onEditProject(projectId) {
   const description = newDesc == null ? (p.description || '') : newDesc;
   const noChange = newName === (p.name || '') && description === (p.description || '');
   if (noChange) return;
+  const nameChanged = newName !== (p.name || '');
   try {
     await updateProject(projectId, { name: newName, description: description || null });
     onChanged();
+    // Push the rename through to Drive — fire-and-forget so a Drive
+    // hiccup doesn't block the UI. GAS finds the existing folder by
+    // PRJ-code and renames it to the new desiredName from the path;
+    // creates the folder if it didn't exist yet (cheap, harmless).
+    // No-op when only the description changed.
+    if (nameChanged) {
+      const newPath = buildProjectFolderPath(projectId, newName);
+      getProjectFolderInfo(newPath).catch((err) =>
+        console.warn('[projects] Drive project rename failed:', newPath, err?.message || err));
+    }
   } catch (e) {
     alert(e.message || 'แก้ไขโครงการไม่สำเร็จ');
   }
@@ -1764,9 +1775,18 @@ async function onDocEditClick(btn) {
   const note = newNote == null ? (doc.note || '') : newNote;
   const noChange = newTitle === (doc.title || '') && note === (doc.note || '');
   if (noChange) return;
+  const titleChanged = newTitle !== (doc.title || '');
   try {
     await updateDocument(docId, { title: newTitle, note: note || null });
     onChanged();
+    // Same self-healing rename as project edit, but at the doc level.
+    // GAS walks Projects/<project>/<doc>, finds the doc folder by
+    // DOC-code, and renames it to match the new title. Fire-and-forget.
+    if (titleChanged) {
+      const newPath = buildDocFolderPath(found.project.id, found.project.name, docId, newTitle);
+      getProjectFolderInfo(newPath).catch((err) =>
+        console.warn('[projects] Drive doc rename failed:', newPath, err?.message || err));
+    }
   } catch (e) {
     alert(e.message || 'แก้ไขหนังสือไม่สำเร็จ');
   }
@@ -1780,10 +1800,14 @@ async function onDocDeleteClick(btn) {
     okLabel: 'ลบ',
   });
   if (!ok) return;
-  // Snapshot doc's drive folder BEFORE the row is deleted.
+  // Snapshot doc's drive folder BEFORE the row is deleted. Recompute
+  // from the CURRENT title rather than trusting doc.drive_folder — GAS
+  // resolves by code (DOC-XXXXX) so a rename in the app since the
+  // stored path was written still resolves to the actual folder.
   const found = findDocById(docId);
-  const driveFolder = found?.doc?.drive_folder
-    || (found ? buildDocFolderPath(found.project.id, found.project.name, docId, found.doc.type_id) : null);
+  const driveFolder = found
+    ? buildDocFolderPath(found.project.id, found.project.name, docId, found.doc.title)
+    : null;
   try {
     await deleteDocument(docId);
     expandedDocs.delete(docId);
@@ -1805,7 +1829,12 @@ async function onDocAddFiles(e, docId) {
   const found = findDocById(docId);
   if (!found) return;
   const { doc, project } = found;
-  const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
+  // Always recompute the path from the CURRENT names so a rename in
+  // the app since the last upload self-heals on Drive (GAS finds the
+  // folder by PRJ-/DOC- code regardless of the slug). doc.drive_folder
+  // stays around for backwards compatibility but is no longer used as
+  // a source of truth.
+  const folder = buildDocFolderPath(project.id, project.name, doc.id, doc.title);
   const user = getUser();
   try {
     showFilesBusy(docId, 'กำลังอัปโหลด…');
@@ -1885,7 +1914,9 @@ async function onReplaceFile(e, oldFileId, docId) {
   const found = findDocById(docId);
   if (!found) return;
   const { doc, project } = found;
-  const folder = doc.drive_folder || buildDocFolderPath(project.id, project.name, doc.id, doc.type_id);
+  // Same rationale as onDocAddFiles — recompute from current names so
+  // GAS resolves the folder by code and self-heals after a rename.
+  const folder = buildDocFolderPath(project.id, project.name, doc.id, doc.title);
   const user = getUser();
   // Snapshot the old file's Drive URL + filename BEFORE deleting the
   // DB row so we can trash it in Drive afterwards and write a useful

@@ -49,12 +49,25 @@ User has confirmed 0023–0031 are applied. No pending migrations.
 
 ## Pending GAS redeploy
 
-`appscript/prform.gs` gained a new `getProjectFolderInfo` action used
-by the per-project QR feature. Until the GAS project is redeployed
-(see `skills/deploy-gas.md`), the new "QR โฟลเดอร์" button on the
-project detail header will alert "หา URL โฟลเดอร์ไม่สำเร็จ" because
-the live `/exec` endpoint doesn't know the action yet. Everything
-else still works.
+`appscript/prform.gs` has unshipped changes that need a redeploy
+(see `skills/deploy-gas.md`):
+
+1. New `getProjectFolderInfo` action — used by the per-project QR
+   feature AND by the new "rename Drive folder on project/doc edit"
+   hook. Now takes `share` boolean (QR sets true, rename hook leaves
+   default false to avoid quietly exposing folders).
+2. New `walkProjectsPathByCode_` + `extractProjectCode_` helpers that
+   match folders by their PRJ-/DOC- code substring and self-rename
+   them to the current desiredName from the path. Used by
+   `handleUploadProjectFile`, `handleGetProjectFolderInfo`, and
+   `handleDeleteProjectFolder` so a rename in the app self-heals on
+   Drive on the next upload / QR / delete.
+
+Until the redeploy lands: the QR button + rename-on-edit hooks both
+alert / log warnings; the rest of the inbox keeps working. After
+deploy, existing folders (legacy `PRJ-XXXX_<slug>` format) get found
+by code and renamed to the new `<slug>_PRJ-XXXX` format on the next
+access — transparent migration, no manual move-files step needed.
 
 ## What's in flight (carry-over from this session)
 

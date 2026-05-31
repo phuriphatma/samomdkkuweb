@@ -189,6 +189,87 @@ function getOrCreateFolderPath_(path) {
 }
 
 // ============================================================
+// Project-tree path walking with by-CODE folder matching.
+//
+// The frontend names project folders `<slug(name)>_PRJ-XXXX` and doc
+// folders `<slug(title)>_DOC-XXXXX`. When VPA renames a project or
+// หนังสือ in the app, the `<slug(...)>` part of the desired path
+// changes, but the existing Drive folder still has the old name.
+//
+// Exact-name matching (getOrCreateFolderPath_) would miss the old
+// folder, create a NEW empty one with the new name, and orphan all
+// the existing files. The walker below instead:
+//
+//   1. Tries an EXACT-NAME match first (fast path, common case).
+//   2. Falls back to scanning the parent for any folder whose name
+//      contains the PRJ-XXXX / DOC-XXXXX code. If found, RENAMES it
+//      to the desired name (self-healing rename) and reuses it.
+//   3. Only if neither match exists does it create a fresh folder.
+//
+// So a rename in the app propagates to Drive transparently on the
+// next upload / QR / explicit rename hook — no separate "move files"
+// step needed.
+// ============================================================
+
+/** Extract the PRJ-/DOC- code from a folder name. Returns '' when no
+ *  code is found (legacy folders / handwritten names). */
+function extractProjectCode_(name) {
+  var s = String(name || '');
+  // Match the FIRST PRJ-/DOC- code in the name — handles both
+  // `<slug>_PRJ-XXXX` (new) and `PRJ-XXXX_<slug>` (legacy).
+  var m = s.match(/(PRJ|DOC)-[A-Z0-9]+/);
+  return m ? m[0] : '';
+}
+
+/** Find or create a folder under `parent` whose name matches the
+ *  desired name; if a folder with the same code already exists with
+ *  a different name, RENAME it to the desired name and return it. */
+function getOrCreateProjectSubfolderByCode_(parent, desiredName, code) {
+  // Fast path: exact name match.
+  var exact = parent.getFoldersByName(desiredName);
+  if (exact.hasNext()) return exact.next();
+  // By-code rename path: scan parent, rename the first folder whose
+  // name carries this code. `code` is something like PRJ-K3X7 — long
+  // enough that an accidental substring collision is vanishingly
+  // unlikely under a Projects/ tree.
+  if (code) {
+    var iter = parent.getFolders();
+    while (iter.hasNext()) {
+      var f = iter.next();
+      if (f.getName().indexOf(code) !== -1) {
+        // Don't rename if Drive has the right name already (catches
+        // the case where the user reverted the name in the app).
+        if (f.getName() !== desiredName) f.setName(desiredName);
+        return f;
+      }
+    }
+  }
+  // Not found at all: create with the desired name.
+  return parent.createFolder(desiredName);
+}
+
+/** Walk a `Projects/<projectFolder>[/<docFolder>]` path. The first
+ *  segment after `Projects/` matches by PRJ-code; the second by
+ *  DOC-code. Self-renames stale folders to the current desired name. */
+function walkProjectsPathByCode_(path) {
+  var parts = path.split('/').filter(function (p) { return p && p.length; });
+  if (parts.length === 0 || parts[0] !== 'Projects') {
+    throw new Error('walkProjectsPathByCode_ requires a Projects/... path');
+  }
+  var parent = DriveApp.getRootFolder();
+  // Top-level "Projects" folder: exact-name match (no code).
+  var pIter = parent.getFoldersByName('Projects');
+  parent = pIter.hasNext() ? pIter.next() : parent.createFolder('Projects');
+  // Walk each remaining segment with by-code matching.
+  for (var i = 1; i < parts.length; i++) {
+    var name = parts[i];
+    var code = extractProjectCode_(name);
+    parent = getOrCreateProjectSubfolderByCode_(parent, name, code);
+  }
+  return parent;
+}
+
+// ============================================================
 // uploadProjectFile — same lazy-nested-folder pattern as
 // uploadShopFile, but allow-listed to `Projects/...`. The
 // frontend passes a logical path like
@@ -205,7 +286,11 @@ function handleUploadProjectFile(data) {
       return createResponse({ success: false, message: 'folderPath must start with Projects' });
     }
 
-    var folder = getOrCreateFolderPath_(path);
+    // walkProjectsPathByCode_ self-renames stale project/doc folders
+    // to the current desiredName from the path — so a file uploaded
+    // AFTER a rename lands in the correctly-named folder even if the
+    // app skipped firing the explicit rename hook.
+    var folder = walkProjectsPathByCode_(path);
     var base64Data = data.fileData.split(',')[1];
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     var file = folder.createFile(blob);
@@ -308,12 +393,19 @@ function handleGetProjectFolderInfo(data) {
     // Refuse the root — sharing it would expose every project on this
     // Drive. Sub-paths only.
     if (path === 'Projects' || path === 'Projects/') {
-      return createResponse({ success: false, message: 'refuse to share the root Projects folder' });
+      return createResponse({ success: false, message: 'refuse to operate on the root Projects folder' });
     }
-    var folder = getOrCreateFolderPath_(path);
-    // Re-assert sharing every call. setSharing is idempotent — if
-    // already set to the same access/perm pair, it returns silently.
-    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // By-code walk: a rename-hook call after the user edits a project
+    // or doc title finds the existing folder via its PRJ-/DOC- code
+    // and self-renames it to the new desiredName from the path. No
+    // separate "rename" action needed.
+    var folder = walkProjectsPathByCode_(path);
+    // Sharing is OPT-IN — the QR flow asks for it (so a scan can
+    // open the folder), the rename hook doesn't (so we don't quietly
+    // make a freshly-renamed folder public on every edit).
+    if (data.share === true) {
+      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
     return createResponse({
       success: true,
       folderId:  folder.getId(),
@@ -339,15 +431,37 @@ function handleDeleteProjectFolder(data) {
     if (path === 'Projects' || path === 'Projects/') {
       return createResponse({ success: false, message: 'refuse to trash the root Projects folder' });
     }
+    // Mirror upload's by-code walk so a rename in the app between the
+    // last upload and the delete doesn't strand the folder. Each
+    // segment under Projects/ matches by PRJ-/DOC- code, not by exact
+    // name. If a segment can't be found AND can't be created (e.g.,
+    // a non-existent code), bail with alreadyGone:true (idempotent).
     var parts = path.split('/').filter(function (p) { return p && p.length; });
+    if (parts.length === 0 || parts[0] !== 'Projects') {
+      return createResponse({ success: false, message: 'folderPath must start with Projects' });
+    }
     var parent = DriveApp.getRootFolder();
-    for (var i = 0; i < parts.length; i++) {
-      var iter = parent.getFoldersByName(parts[i]);
-      if (!iter.hasNext()) {
-        // Folder missing along the path — treat as success (idempotent).
-        return createResponse({ success: true, alreadyGone: true });
+    var projectsIter = parent.getFoldersByName('Projects');
+    if (!projectsIter.hasNext()) {
+      return createResponse({ success: true, alreadyGone: true });
+    }
+    parent = projectsIter.next();
+    for (var i = 1; i < parts.length; i++) {
+      var name = parts[i];
+      var code = extractProjectCode_(name);
+      var found = null;
+      var exactIter = parent.getFoldersByName(name);
+      if (exactIter.hasNext()) {
+        found = exactIter.next();
+      } else if (code) {
+        var scan = parent.getFolders();
+        while (scan.hasNext()) {
+          var f = scan.next();
+          if (f.getName().indexOf(code) !== -1) { found = f; break; }
+        }
       }
-      parent = iter.next();
+      if (!found) return createResponse({ success: true, alreadyGone: true });
+      parent = found;
     }
     parent.setTrashed(true);
     return createResponse({ success: true });

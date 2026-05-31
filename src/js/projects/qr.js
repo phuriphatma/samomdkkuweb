@@ -71,7 +71,9 @@ export async function showProjectQrModal(project) {
   if (!info) {
     try {
       const folderPath = buildProjectFolderPath(project.id, project.name);
-      info = await getProjectFolderInfo(folderPath);
+      // share:true → GAS sets ANYONE_WITH_LINK+VIEW so a scanned QR
+      // resolves into a browsable folder for the recipient.
+      info = await getProjectFolderInfo(folderPath, { share: true });
       folderInfoCache.set(project.id, info);
     } catch (e) {
       setStatus(imgEl, `<div class="text-danger small">${escHtml(e.message || 'หา URL โฟลเดอร์ไม่สำเร็จ')}</div>`);

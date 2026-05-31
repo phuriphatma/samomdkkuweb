@@ -216,14 +216,16 @@ async function onSubmit(e) {
         typeId,
         title,
         note,
-        driveFolder: buildDocFolderPath(project.id, project.name, '', typeId),
+        // Drive folder path uses the human-readable title; placeholder
+        // doc id is filled in after createDocument returns.
+        driveFolder: buildDocFolderPath(project.id, project.name, '', title),
         createdBy: user?.id || null,
         status: pendingFiles.length === 0 ? 'sent' : 'sent',  // sent even with 0 files
       });
 
       // 3) Files (upload + insert rows)
       if (pendingFiles.length > 0) {
-        const folder = buildDocFolderPath(project.id, project.name, doc.id, typeId);
+        const folder = buildDocFolderPath(project.id, project.name, doc.id, title);
         // Patch the document's drive_folder now that we have the real doc id.
         // (createDocument received an empty placeholder doc id segment.)
         try { await updateDocument(doc.id, { drive_folder: folder }); } catch {}
