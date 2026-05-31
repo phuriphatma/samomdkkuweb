@@ -72,15 +72,23 @@ export async function fetchPRStaffTickets() {
   if (board) board.innerHTML = '';
 
   try {
-    // Order by `timestamp` (the submission time we explicitly set on
-    // both live submissions and the legacy CSV migration). `created_at`
-    // can default to migration-time for legacy rows, putting them in
-    // an arbitrary order within their kanban column.
-    const { data, error } = await db
-      .from('pr_tickets')
-      .select('*')
-      .order('timestamp', { ascending: false });
-    if (error) throw error;
+    // dbRest (raw fetch via PostgREST) instead of db.from(...). The
+    // supabase-js client serialises requests behind a session lock
+    // that the periodic auth refresh in db.js + the new dbRest
+    // JWT-auto-refresh path both contend for, so a heavy / well-used
+    // tab can stall the dashboard fetch for several seconds even on
+    // a healthy network. dbRest skips supabase-js entirely (raw fetch
+    // + AbortController timeout + single-flight JWT refresh) so the
+    // load completes as fast as PostgREST can answer.
+    //
+    // Order by `timestamp` (submission time we explicitly set on both
+    // live submissions and the legacy CSV migration). `created_at` can
+    // default to migration-time for legacy rows, putting them in an
+    // arbitrary order within their kanban column.
+    const { data, error } = await dbRest(
+      '/pr_tickets?select=*&order=timestamp.desc',
+    );
+    if (error) throw new Error(error.message || 'โหลดไม่สำเร็จ');
     if (loading) loading.classList.add('d-none');
     prStaffTicketsCache = (data || []).map(rowToTicket);
     if (prStaffTicketsCache.length > 0) {
