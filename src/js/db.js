@@ -108,27 +108,20 @@ export async function dbRest(path, opts = {}) {
       ...(prefer ? { Prefer: prefer } : {}),
       ...extraHeaders,
     };
-    // GET cache busting. iOS Safari shipped the fetch `cache` option
-    // only in 16.4; on older iPads the `cache: 'no-store'` below is
-    // silently ignored and Safari happily serves a stale disk copy of
-    // /projects?select=*&… — surfacing as "comment is in the DB but
-    // the inbox shows yesterday's timeline → no highlight, only
-    // incognito works". A unique query parameter side-steps the cache
-    // at the URL-key level, which every browser honours. PostgREST
-    // ignores unknown query params so this is safe to add to any GET.
-    let finalPath = path;
-    if (method === 'GET') {
-      const sep = path.includes('?') ? '&' : '?';
-      finalPath = `${path}${sep}_=${Date.now()}`;
-    }
-    const res = await fetch(`${url}/rest/v1${finalPath}`, {
+    const res = await fetch(`${url}/rest/v1${path}`, {
       method,
       headers,
       body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
       signal: controller.signal,
-      // Modern browsers (Safari 16.4+, all Chromium/Firefox) honour
-      // this — see the cache-buster comment above for the older-iOS
-      // story.
+      // iPad / iOS Safari aggressively caches GET responses to the
+      // same URL when the page is restored from bfcache or the tab is
+      // backgrounded. cache:'no-store' is the right answer on modern
+      // Safari (16.4+). PostgREST itself sets Cache-Control: no-store
+      // on responses so the browser shouldn't store them in the first
+      // place — the bfcache `pageshow` reload handler in projects/
+      // index.js covers the in-memory restore case independently. Do
+      // NOT try to cache-bust via query string: PostgREST parses
+      // every unknown param as a filter and 400s on `?_=…`.
       cache: 'no-store',
     });
     clearTimeout(timer);

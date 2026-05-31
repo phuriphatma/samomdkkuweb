@@ -192,14 +192,23 @@ export async function openShopAdmin() {
 
 /** Deep-link target: open a specific order's detail modal. Used by the
  *  /admin/?scan=<id> URL handler in admin-main.js. Lazily mounts the
- *  admin module, switches to the orders tab, refreshes the list if the
- *  id isn't found, then opens the modal. */
+ *  admin module, switches to the orders tab, narrows the visible table
+ *  to just this order so the background pane matches the modal, then
+ *  opens the modal. */
 export async function openShopAdminOrder(orderId) {
   if (!orderId) return;
   ensureMounted();
   setTab('orders');
+  // Narrow the orders table to this single row so the pane behind the
+  // modal is obviously about THIS order. Search-filter is case-
+  // insensitive over id + buyer fields; the order id matches exactly.
+  state.ordersSearch = String(orderId).toLowerCase();
+  const searchInput = document.getElementById('shopAdminOrdersSearch');
+  if (searchInput) searchInput.value = orderId;
   if (!state.orders.find((o) => o.id === orderId)) {
     await refreshOrders();
+  } else {
+    renderOrdersTable();   // refresh facet pills + filtered row count
   }
   if (state.orders.find((o) => o.id === orderId)) {
     openOrderModal(orderId);
@@ -308,9 +317,11 @@ function updateFilterChromes() {
 function renderStats() {
   const host = document.getElementById('shopAdminStats');
   if (!host) return;
+  // Trimmed to the two cards admins actually act on: slip review (the
+  // only one with a daily SLA) and cumulative revenue. Production /
+  // ready counts have their own filter pills below and were just
+  // visual noise here.
   const review = state.orders.filter((o) => o.status === 'review').length;
-  const produce = state.orders.filter((o) => o.status === 'produce').length;
-  const ready = state.orders.filter((o) => o.status === 'ready').length;
   const revenue = state.orders
     .filter((o) => o.status !== 'pending' && o.status !== 'cancel')
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
@@ -319,14 +330,6 @@ function renderStats() {
       <div class="stat-label">รอตรวจสลิป</div>
       <div class="stat-value">${review}<span class="stat-suffix">รายการ</span></div>
       <div class="stat-delta" style="color:var(--status-cancel)">รอจัดการ</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">กำลังผลิต</div>
-      <div class="stat-value">${produce}<span class="stat-suffix">รายการ</span></div>
-    </div>
-    <div class="stat-card is-ready">
-      <div class="stat-label">พร้อมรับ</div>
-      <div class="stat-value">${ready}<span class="stat-suffix">รายการ</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">รายรับสะสม (ไม่รวมยกเลิก/รอชำระ)</div>

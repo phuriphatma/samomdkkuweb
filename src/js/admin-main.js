@@ -683,12 +683,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // applyHashRoute on hashchange + initial mount).
     if (!initialSectionApplied) {
       initialSectionApplied = true;
-      const rawHash = location.hash.replace(/^#/, '');
-      const first   = rawHash.split('/')[0];
-      tryCreatorDeepLink(rawHash).then((routed) => {
-        if (routed) return;
-        showAdminSide(SECTION_META[first] ? first : 'landing');
-      });
+      // /admin/?scan=<id> has its own onAuthChange subscriber (below)
+      // that routes to 'shop' and opens the order modal. If we route
+      // here too, the tryCreatorDeepLink().then() resolves AFTER that
+      // sync route and clobbers shop back to landing — user sees the
+      // order modal floating on top of the ภาพรวม Admin landing
+      // pane instead of the orders table. Skip routing for the scan
+      // path and let the scan subscriber own it.
+      const hasScan = new URLSearchParams(window.location.search).get('scan');
+      if (!hasScan) {
+        const rawHash = location.hash.replace(/^#/, '');
+        const first   = rawHash.split('/')[0];
+        tryCreatorDeepLink(rawHash).then((routed) => {
+          if (routed) return;
+          showAdminSide(SECTION_META[first] ? first : 'landing');
+        });
+      }
     }
 
     // Auto-close the sign-in modal once a staff session lands
