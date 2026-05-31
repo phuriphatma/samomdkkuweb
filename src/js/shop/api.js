@@ -27,14 +27,23 @@ export async function listProducts({ activeOnly = true } = {}) {
 export async function upsertProduct(row) {
   if (!row || !row.id) throw new Error('product.id required');
   // Upsert with on_conflict so the same call works for create and update.
-  const { data, error } = await dbRest(
+  const send = async (body) => dbRest(
     `/shop_products?on_conflict=id`,
-    {
-      method: 'POST',
-      body: row,
-      prefer: 'return=representation,resolution=merge-duplicates',
-    },
+    { method: 'POST', body, prefer: 'return=representation,resolution=merge-duplicates' },
   );
+  let { data, error } = await send(row);
+  // Pre-0029 fallback: preorder_price column not deployed yet. Strip
+  // and retry so admin can still save the rest of the form. One-time
+  // console warning so the missing migration is visible without
+  // spamming on every save.
+  if (error && error.status === 400 && /preorder_price/i.test(error.message || '')) {
+    if (!window.__samoWarnedPreorderPriceCol) {
+      window.__samoWarnedPreorderPriceCol = true;
+      console.warn('[shop] preorder_price column missing — apply migration 0029_shop_preorder_price.sql to enable separate preorder pricing.');
+    }
+    const { preorder_price: _omit, ...rest } = row;
+    ({ data, error } = await send(rest));
+  }
   if (error) throw new Error(error.message || 'บันทึกสินค้าไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('บันทึกสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');

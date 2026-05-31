@@ -11,6 +11,7 @@ import {
   SHOP_SOURCES, SHOP_TYPES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey, totalStock,
+  effectivePrice, isUnlimitedBuying,
 } from './data.js';
 import { listProducts, listActiveBatches, listShopBanners } from './api.js';
 import { addItem } from './state.js';
@@ -258,7 +259,7 @@ function launchCardHtml(p) {
         <div class="lb-name">${escHtml(p.name)}</div>
         <div class="lb-meta">${escHtml(p.sub || '')}</div>
         <div class="lb-foot">
-          <span class="lb-price"><span class="baht">฿</span>${thb(p.price)}</span>
+          <span class="lb-price"><span class="baht">฿</span>${thb(effectivePrice(p))}</span>
           <span class="lb-date small text-muted">${fmtDate(p.added_at)}</span>
         </div>
       </div>
@@ -356,8 +357,10 @@ function productCardHtml(p) {
   // Stock-left summary for the card. We only surface a hint when admin
   // filled in the matrix (totalStock returns null when nothing set) and
   // the product isn't already in a global OOS status (that has its own
-  // ribbon). Highlight low-stock to nudge urgency.
-  const total = oos ? null : totalStock(p.stock_matrix);
+  // ribbon). Highlight low-stock to nudge urgency. Preorder products
+  // skip this entirely — buyers shouldn't see counts when admin hasn't
+  // committed to a production run yet.
+  const total = (oos || isUnlimitedBuying(p)) ? null : totalStock(p.stock_matrix);
   const stockHint = total === null ? ''
     : total === 0 ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
     : total <= 5 ? `<span class="product-stock-hint is-low">เหลือ ${total} ชิ้น</span>`
@@ -386,7 +389,7 @@ function productCardHtml(p) {
         </div>
         <div class="product-foot">
           <span class="product-price">
-            <span class="baht">฿</span>${thb(p.price)}
+            <span class="baht">฿</span>${thb(effectivePrice(p))}
           </span>
           ${stockHint}
         </div>
@@ -448,7 +451,7 @@ function openProductModal(product) {
     }
   }
   setText('shopProductModalSub',   product.sub || '');
-  setText('shopProductModalPrice', thb(product.price));
+  setText('shopProductModalPrice', thb(effectivePrice(product)));
   setText('shopProductModalDesc',  product.description || '');
 
   // Preorder (was "Presale") note
@@ -498,7 +501,7 @@ function openProductModal(product) {
         color: modalState.color,
         fit: 'unisex',
         qty: modalState.qty,
-        price: Number(product.price) || 0,
+        price: effectivePrice(product),
       });
       inst?.hide();
       showShopToast(`เพิ่ม "${product.name}" ลงตะกร้าแล้ว`, 'success');
@@ -508,10 +511,12 @@ function openProductModal(product) {
 
 /** Is this size entirely out across every color? Used to grey out the
  *  size button. "Entirely" = matrix configured AND every color cell for
- *  this size is either explicitly 0 or undefined. */
+ *  this size is either explicitly 0 or undefined. Preorder products
+ *  never grey out — buyers can order any variant regardless of admin's
+ *  internal numbers. */
 function isSizeAllOOS(size) {
   const p = modalState.product;
-  if (!p || !matrixIsConfigured(p)) return false;
+  if (!p || isUnlimitedBuying(p) || !matrixIsConfigured(p)) return false;
   const matrix = p.stock_matrix || {};
   const colors = Array.isArray(p.colors) && p.colors.length ? p.colors : [{ id: 'default' }];
   return colors.every((c) => {
@@ -521,7 +526,7 @@ function isSizeAllOOS(size) {
 }
 function isColorAllOOS(color) {
   const p = modalState.product;
-  if (!p || !matrixIsConfigured(p)) return false;
+  if (!p || isUnlimitedBuying(p) || !matrixIsConfigured(p)) return false;
   const matrix = p.stock_matrix || {};
   const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ['F'];
   return sizes.every((s) => {
@@ -592,7 +597,7 @@ function renderQty() {
   const addLabel = document.getElementById('shopProductModalAddLabel');
   const product = modalState.product;
   if (addLabel && product) {
-    addLabel.textContent = `เพิ่มลงตะกร้า · ฿${thb((Number(product.price) || 0) * modalState.qty)}`;
+    addLabel.textContent = `เพิ่มลงตะกร้า · ฿${thb(effectivePrice(product) * modalState.qty)}`;
   }
 }
 function renderOOS() {
@@ -609,12 +614,16 @@ function renderOOS() {
  *  on the product modal. Hidden when the admin hasn't filled in the
  *  matrix value for this cell (undefined → display nothing). Stays
  *  hidden too when the product is globally blocked (sold_out / closed)
- *  because the OOS pill already covers that case. */
+ *  because the OOS pill already covers that case. Preorder products
+ *  don't show any number — the whole point of preorder is unlimited
+ *  buying before admin commits to a production run. */
 function renderStockLeftHint() {
   const host = document.getElementById('shopProductModalStockLeft');
   if (!host) return;
   const p = modalState.product;
-  if (!p || isBlockedForPurchase()) { host.classList.add('d-none'); host.textContent = ''; return; }
+  if (!p || isBlockedForPurchase() || isUnlimitedBuying(p)) {
+    host.classList.add('d-none'); host.textContent = ''; return;
+  }
   const matrix = p.stock_matrix || {};
   const key = stockKey(modalState.size, modalState.color);
   const left = matrix[key];
@@ -647,6 +656,9 @@ function matrixIsConfigured(p) {
 function isVariantOOS() {
   const p = modalState.product;
   if (!p) return false;
+  // Preorder products bypass stock entirely — no variant ever blocks
+  // add-to-cart, no matter what the admin's internal numbers look like.
+  if (isUnlimitedBuying(p)) return false;
   const matrix = p.stock_matrix || {};
   const key = stockKey(modalState.size, modalState.color);
   const v = matrix[key];

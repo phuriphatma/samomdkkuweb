@@ -87,6 +87,26 @@ export const STOCK_STATUS_META = {
 export function findSource(id) { return SHOP_SOURCES.find((s) => s.id === id); }
 export function findType(id)   { return SHOP_TYPES.find((t) => t.id === id); }
 
+/** Price the BUYER sees right now. Preorder products show preorder_price
+ *  (falling back to price when the admin hasn't set a separate one).
+ *  In-stock products always show the regular price. Cart / order rows
+ *  freeze whatever price was active at add-to-cart time, so a later
+ *  mode flip doesn't retroactively change anyone's order total. */
+export function effectivePrice(p) {
+  if (!p) return 0;
+  if (p.is_presale && p.preorder_price != null) return Number(p.preorder_price) || 0;
+  return Number(p.price) || 0;
+}
+
+/** Preorder products are sold without a stock check — the admin
+ *  hasn't manufactured them yet and is collecting indications of
+ *  interest. matrixIsConfigured / global stock_status still apply
+ *  in admin views, but for buyer-side gating (variant OOS, qty cap,
+ *  add-to-cart block) we treat is_presale = true as unlimited. */
+export function isUnlimitedBuying(p) {
+  return !!p?.is_presale;
+}
+
 /**
  * Aggregate total stock across a size×color matrix. Missing keys count as
  * "unknown / unlimited" (not zero) — admin hasn't filled them in.

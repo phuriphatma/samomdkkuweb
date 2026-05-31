@@ -1658,6 +1658,14 @@ function renderProductEditor() {
         <div class="col-md-3">
           <label class="small text-muted mb-1">ราคา (บาท)</label>
           <input id="shopProdPrice" type="number" min="0" class="form-control" value="${Number(p.price) || 0}" />
+          <div class="form-text">ราคาเมื่อสินค้าพร้อมส่ง</div>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted mb-1">ราคา Preorder (บาท)</label>
+          <input id="shopProdPreorderPrice" type="number" min="0" class="form-control"
+                 value="${p.preorder_price == null ? '' : Number(p.preorder_price)}"
+                 placeholder="ใช้ราคาเดียวกัน" />
+          <div class="form-text">แสดงเมื่อ Preorder ติ๊ก — ปล่อยว่างเพื่อใช้ราคาปกติ</div>
         </div>
         <div class="col-md-3">
           <label class="small text-muted mb-1">โทนสีพื้นหลังเมื่อไม่มีรูป (0–360)</label>
@@ -1886,6 +1894,12 @@ async function saveProductForm() {
     source: document.getElementById('shopProdSource')?.value || 'md',
     type: document.getElementById('shopProdType')?.value || 'apparel-shirt',
     price: Math.max(0, Number(document.getElementById('shopProdPrice')?.value) || 0),
+    preorder_price: (() => {
+      const raw = document.getElementById('shopProdPreorderPrice')?.value;
+      if (raw == null || String(raw).trim() === '') return null;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+    })(),
     hue: Math.max(0, Math.min(360, Number(document.getElementById('shopProdHue')?.value) || 220)),
     sizes: (document.getElementById('shopProdSizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
     fits: ['unisex'],

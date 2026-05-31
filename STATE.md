@@ -31,6 +31,7 @@ migration won't function until it's applied.
 | 0026_profile_email_and_order_contact.sql | `lookup_email_by_username` RPC (username login keeps working after a real email is verified); auth.users.email → public.users.email mirror trigger; `shop_orders.buyer_name` + `buyer_email` | ❌ pending |
 | 0027_username_case_and_has_password.sql | Case-insensitive `lookup_email_by_username`; `users.has_password` column + trigger mirror of `auth.users.encrypted_password` (reliable UI gate for "Set password" vs "Change password" — supabase-js's identity array lies for Google-only users who added a password via `updateUser({password})`) | ❌ pending |
 | 0028_users_self_update_guard.sql | **Security fix**. BEFORE-UPDATE trigger that blocks non-staff from changing `role`, `permissions`, `method`, `id`, `has_password`, or `username` (after first set) on their own profile row. Without this, any signed-in user could PATCH `/users` and self-promote to `dev` since `users_update_self` is row-level only, not column-level. | ❌ pending |
+| 0029_shop_preorder_price.sql | `shop_products.preorder_price` column (nullable). Pairs with the existing `is_presale` flag: when true and the column is set, buyers see the preorder price; when null, falls back to `price`. Behaviour (unlimited buying + hidden stock counts in preorder mode) is JS-only, so this migration is the ONLY schema piece needed for the new mode. Pre-apply, `upsertProduct` drops the field on a 400 and warns once. | ❌ pending |
 
 Verify after applying:
 
