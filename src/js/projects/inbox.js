@@ -25,6 +25,9 @@ import {
   listFiles,
   createFile,
   deleteFile,
+  listMyDocViews,
+  upsertMyDocView,
+  bulkUpsertMyDocViews,
 } from './api.js';
 import {
   DOC_STATUS_META,
@@ -957,39 +960,147 @@ function renderProgressBar(stepIndex, isReturned) {
 
 // ---------- comments list (Slack/Linear-style inline thread) ----------
 
-// Storage key name is historical — was "commentsSeenAt" when this only
-// tracked comment acknowledgement; now it's the doc-level "I've seen
-// everything up to here" marker that covers comments, file ops, and
-// status changes. Renaming the key would orphan every existing user's
-// per-doc state and re-flash old highlights, so the name stays.
-const DOC_SEEN_KEY = 'projects.commentsSeenAt';
+// ===== seenAt storage =====
+//
+// Source of truth is the server-side public.project_doc_views table
+// (migration 0031). The map below is hydrated from that table at
+// inbox load (setServerDocViews) and is the FIRST thing every
+// getDocSeenAt() consults.
+//
+// localStorage stays as a write-through cache so:
+//   - the UI doesn't wait on a round-trip after every action
+//   - the inbox renders something sensible on a flaky network
+//   - pre-migration environments degrade gracefully
+//
+// The localStorage key is now per-user — multi-account-same-device
+// would otherwise share a single map across accounts. The legacy
+// un-keyed key ("projects.commentsSeenAt") is read once on first
+// hydrate and migrated up to the server via legacyLocalStorageMap().
+const LEGACY_DOC_SEEN_KEY = 'projects.commentsSeenAt';
+const BULK_MIGRATED_SENTINEL_KEY = 'projects.docViewsBulkMigrated';
 
-/** Read the per-doc "last seen" timestamp out of localStorage. Returns 0
- *  if missing or unparseable. */
-function getDocSeenAt(docId) {
+function userScopedKey(userId) {
+  return userId ? `projects.docSeenAt.${userId}` : LEGACY_DOC_SEEN_KEY;
+}
+
+// In-memory mirror of public.project_doc_views for the current user,
+// keyed by document_id. Populated by setServerDocViews().
+let serverSeenAt = new Map();   // docId → ISO string
+
+function readLocalSeenMap(userId) {
   try {
-    const raw = localStorage.getItem(DOC_SEEN_KEY);
-    if (!raw) return 0;
+    const raw = localStorage.getItem(userScopedKey(userId));
+    if (!raw) return {};
     const map = JSON.parse(raw);
-    const v = map?.[docId];
-    return v ? Date.parse(v) || 0 : 0;
-  } catch { return 0; }
+    return (map && typeof map === 'object') ? map : {};
+  } catch { return {}; }
+}
+
+function writeLocalSeenMap(userId, map) {
+  try { localStorage.setItem(userScopedKey(userId), JSON.stringify(map)); } catch {}
+}
+
+/** Called by index.js after listMyDocViews resolves. Wipes the in-
+ *  memory mirror (so account switches don't leak the previous user's
+ *  state) and replaces it with the freshly-fetched rows. */
+export function setServerDocViews(rows) {
+  serverSeenAt = new Map();
+  for (const r of (rows || [])) {
+    if (r?.document_id && r?.seen_at) serverSeenAt.set(r.document_id, r.seen_at);
+  }
+}
+
+/** First-run-after-upgrade migration: take whatever's in localStorage
+ *  (including the legacy un-keyed map) and push it up to the server in
+ *  one bulk upsert. Only runs once per (device, user) pair, gated by a
+ *  sentinel in localStorage. */
+export async function migrateLocalSeenAtToServer(userId, knownDocIds) {
+  if (!userId) return;
+  const sentinelKey = `${BULK_MIGRATED_SENTINEL_KEY}.${userId}`;
+  try { if (localStorage.getItem(sentinelKey)) return; } catch {}
+
+  const merged = new Map();
+  // Legacy un-keyed map (everything written before this commit)
+  try {
+    const legacyRaw = localStorage.getItem(LEGACY_DOC_SEEN_KEY);
+    if (legacyRaw) {
+      const m = JSON.parse(legacyRaw);
+      if (m && typeof m === 'object') {
+        for (const [k, v] of Object.entries(m)) {
+          if (k && typeof v === 'string') merged.set(k, v);
+        }
+      }
+    }
+  } catch {}
+  // Per-user map (only present on installs that already upgraded once
+  // and saved while signed in as this user)
+  const scoped = readLocalSeenMap(userId);
+  for (const [k, v] of Object.entries(scoped)) {
+    if (!k || typeof v !== 'string') continue;
+    const prev = merged.get(k);
+    if (!prev || new Date(v) > new Date(prev)) merged.set(k, v);
+  }
+
+  // Filter to docs we currently know about, so FK references resolve.
+  const validIds = new Set(knownDocIds || []);
+  const rows = [];
+  for (const [docId, seenAt] of merged.entries()) {
+    if (validIds.size > 0 && !validIds.has(docId)) continue;
+    rows.push({ user_id: userId, document_id: docId, seen_at: seenAt });
+  }
+  if (rows.length === 0) {
+    try { localStorage.setItem(sentinelKey, '1'); } catch {}
+    return;
+  }
+  const { error } = await bulkUpsertMyDocViews(rows);
+  if (!error) {
+    // Mirror into the in-memory map so the current render sees them
+    for (const r of rows) serverSeenAt.set(r.document_id, r.seen_at);
+    try { localStorage.setItem(sentinelKey, '1'); } catch {}
+  }
+}
+
+/** Read the per-doc "last seen" timestamp. Server-synced value wins;
+ *  falls back to user-scoped localStorage, then to the legacy un-keyed
+ *  map for users who haven't gone through the bulk migration yet, then
+ *  to 0. */
+function getDocSeenAt(docId) {
+  const fromServer = serverSeenAt.get(docId);
+  if (fromServer) return Date.parse(fromServer) || 0;
+  const user = getUser();
+  const scoped = readLocalSeenMap(user?.id);
+  const fromScoped = scoped[docId];
+  if (fromScoped) return Date.parse(fromScoped) || 0;
+  // Legacy un-keyed map — only consulted while the bulk migration
+  // sentinel hasn't been set yet for this user.
+  try {
+    const raw = localStorage.getItem(LEGACY_DOC_SEEN_KEY);
+    if (raw) {
+      const map = JSON.parse(raw);
+      const v = map?.[docId];
+      if (v) return Date.parse(v) || 0;
+    }
+  } catch {}
+  return 0;
 }
 
 /** Persist that the user has seen everything on this doc as of now.
- *  Called on expand, on any user action (status change, comment, file
- *  op), and on deep-link arrival — any moment the user has clearly
- *  engaged with the doc and shouldn't be re-flashed about what was
- *  there. The expanded-render path uses a frozen pre-action value
- *  (see expandedDocsSeenAt) so the in-view highlights survive the
- *  write — clears happen on the NEXT render, not this one. */
+ *  Three-layer write:
+ *    1. serverSeenAt (in-memory) — so this render reads it back
+ *    2. user-scoped localStorage — fast cache + offline resilience
+ *    3. project_doc_views upsert (async, fire-and-forget) — cross-
+ *       device sync. Other devices will see this seen_at on their
+ *       next inbox load. */
 function markDocSeen(docId) {
-  try {
-    const raw = localStorage.getItem(DOC_SEEN_KEY);
-    const map = raw ? JSON.parse(raw) : {};
-    map[docId] = new Date().toISOString();
-    localStorage.setItem(DOC_SEEN_KEY, JSON.stringify(map));
-  } catch {}
+  const now = new Date().toISOString();
+  serverSeenAt.set(docId, now);
+  const user = getUser();
+  const map = readLocalSeenMap(user?.id);
+  map[docId] = now;
+  writeLocalSeenMap(user?.id, map);
+  if (user?.id) {
+    upsertMyDocView(user.id, docId, now).catch(() => {});
+  }
 }
 
 function renderCommentsList(doc, role, seenAtOverride) {

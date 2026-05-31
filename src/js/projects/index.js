@@ -10,8 +10,11 @@
 // ==============================================
 
 import { onAuthChange, getUser } from '../auth.js';
-import { listProjects, listDocTypes, getSettings } from './api.js';
-import { mountInbox, renderInbox, openProjectDetail, openDocumentDetail } from './inbox.js';
+import { listProjects, listDocTypes, getSettings, listMyDocViews } from './api.js';
+import {
+  mountInbox, renderInbox, openProjectDetail, openDocumentDetail,
+  setServerDocViews, migrateLocalSeenAtToServer,
+} from './inbox.js';
 import { mountSendFlow, openCreateProject, openSendDocument } from './send.js';
 import { mountManage, renderManage } from './manage.js';
 import { mountNotifications, refreshNotificationBell } from './notifications.js';
@@ -105,18 +108,35 @@ function applyRoleVisibility(user) {
 async function loadInitialData() {
   if (!isAllowed(currentUser)) return;
   try {
-    const [projects, docTypes, settings] = await Promise.all([
+    // docViews join the in-flight load so the inbox renders with the
+    // server-synced seenAt baked in — no second pass / re-flash.
+    const [projects, docTypes, settings, docViews] = await Promise.all([
       listProjects().catch(() => []),
       listDocTypes({ activeOnly: false }).catch(() => []),
       getSettings().catch(() => null),
+      currentUser?.id ? listMyDocViews(currentUser.id).catch(() => []) : Promise.resolve([]),
     ]);
     cache.projects = projects || [];
     cache.docTypes = docTypes || [];
     cache.settings = settings;
+    setServerDocViews(docViews);
     initialDataLoaded = true;
     if (view === 'inbox')  renderInbox({ projects: cache.projects, docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
     if (view === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
     refreshNotificationBell();
+    // One-shot: push any legacy localStorage seenAt up to the server so
+    // this user's other devices stop showing "many notifications" for
+    // events they already ack'd here. Filtered to docs they can see so
+    // the FK constraint resolves. Runs at most once per (user, device)
+    // via a sentinel in localStorage.
+    if (currentUser?.id) {
+      const knownIds = [];
+      for (const p of cache.projects) {
+        for (const d of (p.documents || [])) knownIds.push(d.id);
+      }
+      migrateLocalSeenAtToServer(currentUser.id, knownIds).catch((err) =>
+        console.warn('[projects] seenAt bulk migration failed:', err?.message || err));
+    }
   } catch (e) {
     console.error('[projects] initial data load failed:', e);
   }
@@ -127,12 +147,17 @@ async function loadInitialData() {
  *  pane — used after the create/send flow so the user lands on the thing
  *  they just made instead of an empty state. */
 export async function reloadProjects(focus = {}) {
-  const [projects, docTypes, settings] = await Promise.all([
+  const [projects, docTypes, settings, docViews] = await Promise.all([
     listProjects().catch(() => cache.projects),
     listDocTypes({ activeOnly: false }).catch(() => cache.docTypes),
     getSettings().catch(() => cache.settings),
+    currentUser?.id ? listMyDocViews(currentUser.id).catch(() => null) : Promise.resolve(null),
   ]);
   cache = { projects, docTypes, settings };
+  // Only repopulate from server when the fetch actually succeeded —
+  // a transient failure shouldn't blow away the in-memory map and
+  // re-flash every highlight.
+  if (Array.isArray(docViews)) setServerDocViews(docViews);
   if (view === 'inbox')  renderInbox({ projects: cache.projects, docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
   if (view === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
   refreshNotificationBell();
@@ -214,15 +239,30 @@ export function initProjects() {
   mountManage({ onChanged: reloadProjects });
   mountNotifications({ onJump: ({ projectId, documentId }) => openProjectsTab({ projectId, documentId }) });
 
-  // Auth subscriber
+  // Auth subscriber. Track the previous user id so we can detect a
+  // genuine account switch (not just a token refresh that re-fires
+  // the same user) and wipe the in-memory doc-views map — otherwise
+  // account B inherits account A's "I've seen this" flags on the
+  // same browser.
+  let lastUserId = null;
   onAuthChange((user) => {
     applyRoleVisibility(user);
+    const switched = !!user && user.id !== lastUserId;
+    lastUserId = user?.id || null;
+    if (switched) {
+      // Drop the previous user's seenAt mirror before any render runs.
+      // loadInitialData below will repopulate it from the new user's
+      // project_doc_views rows.
+      setServerDocViews([]);
+      initialDataLoaded = false;
+    }
     if (isAllowed(user) && tabActive && !initialDataLoaded) {
       loadInitialData();
     }
     if (!user) {
       cache = { projects: [], docTypes: [], settings: null };
       initialDataLoaded = false;
+      setServerDocViews([]);
     }
   });
 

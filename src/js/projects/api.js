@@ -363,6 +363,86 @@ export async function saveSettings(patch) {
   return data[0];
 }
 
+// ---- Per-user doc-seen marker (cross-device sync) ----
+
+/** Fetch every doc-view row for this user. Returns [] if migration 0031
+ *  hasn't been applied yet (table missing) so the seenAt path can
+ *  gracefully fall back to localStorage on legacy databases. */
+export async function listMyDocViews(userId) {
+  if (!userId) return [];
+  const idEsc = encodeURIComponent(userId);
+  const { data, error } = await dbRest(
+    `/project_doc_views?select=document_id,seen_at&user_id=eq.${idEsc}`,
+  );
+  if (error) {
+    const tableMissing = error.status === 404
+      || /project_doc_views/i.test(error.message || '');
+    if (tableMissing) {
+      if (!window.__samoWarnedDocViews) {
+        window.__samoWarnedDocViews = true;
+        console.warn('[projects] project_doc_views missing — apply migration 0031 for cross-device seen-marker sync.');
+      }
+      return [];
+    }
+    console.warn('[projects] doc views fetch failed:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+/** Upsert one user/doc view (used after every markDocSeen). Fire-and-
+ *  forget: the localStorage write happened synchronously so the UI
+ *  is already correct on this device; the server upsert is for the
+ *  user's OTHER devices. Silently swallows table-missing errors so
+ *  pre-0031 envs keep working off localStorage. */
+export async function upsertMyDocView(userId, documentId, seenAt) {
+  if (!userId || !documentId) return;
+  const row = {
+    user_id:     userId,
+    document_id: documentId,
+    seen_at:     seenAt || new Date().toISOString(),
+  };
+  const { error } = await dbRest(
+    '/project_doc_views?on_conflict=user_id,document_id',
+    {
+      method: 'POST',
+      body: row,
+      prefer: 'return=minimal,resolution=merge-duplicates',
+    },
+  );
+  if (error) {
+    const tableMissing = error.status === 404
+      || /project_doc_views/i.test(error.message || '');
+    if (!tableMissing) {
+      console.warn('[projects] doc view upsert failed:', error.message);
+    }
+  }
+}
+
+/** Bulk upsert (used on first-run-after-upgrade to migrate the legacy
+ *  localStorage seenAt map up to the server in one round-trip). Same
+ *  graceful fallback as upsertMyDocView on missing-table errors. */
+export async function bulkUpsertMyDocViews(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return { migrated: 0 };
+  const { error } = await dbRest(
+    '/project_doc_views?on_conflict=user_id,document_id',
+    {
+      method: 'POST',
+      body: rows,
+      prefer: 'return=minimal,resolution=merge-duplicates',
+    },
+  );
+  if (error) {
+    const tableMissing = error.status === 404
+      || /project_doc_views/i.test(error.message || '');
+    if (!tableMissing) {
+      console.warn('[projects] bulk doc-view upsert failed:', error.message);
+    }
+    return { migrated: 0, error };
+  }
+  return { migrated: rows.length };
+}
+
 // ---- Recipient lookup ----
 
 /** Find the uni_staff or vp_admin user(s). Used to address notifications. */
