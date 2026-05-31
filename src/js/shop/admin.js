@@ -111,6 +111,11 @@ function ensureMounted() {
 
   // Orders click → modal
   document.getElementById('shopAdminOrdersTbody')?.addEventListener('click', (e) => {
+    // The order-id chip's copy button lives INSIDE the clickable row.
+    // The global [data-copy] delegate is on `document`, so it fires AFTER
+    // this tbody listener in the bubble path — too late to stopPropagation.
+    // Skip the row-click ourselves when the chip was the actual target.
+    if (e.target.closest('[data-copy]')) return;
     const tr = e.target.closest('[data-order-id]');
     if (!tr) return;
     openOrderModal(tr.dataset.orderId);
@@ -979,7 +984,11 @@ function renderDelivery() {
 
   // Expand / collapse order
   host.querySelectorAll('[data-delivery-toggle]').forEach((b) => {
-    b.addEventListener('click', () => {
+    b.addEventListener('click', (e) => {
+      // Same fix as the orders-table row: the chip's copy button lives
+      // inside this clickable head and bubbles up here before the
+      // document-level [data-copy] delegate can stopPropagation.
+      if (e.target.closest('[data-copy]')) return;
       const id = b.dataset.deliveryToggle;
       if (state.deliveryExpanded.has(id)) state.deliveryExpanded.delete(id);
       else state.deliveryExpanded.add(id);
