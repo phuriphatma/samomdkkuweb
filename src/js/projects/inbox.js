@@ -51,6 +51,14 @@ let cache = { projects: [], docTypes: [], settings: null, role: null };
 let level    = 'grid';     // 'grid' | 'detail'
 let selectedProjectId = null;
 let expandedDocs = new Set();   // doc ids expanded inside the detail view
+// Per-doc seenAt frozen at the moment the user expanded the doc.
+// Renders of the expanded body use this frozen value so the unread
+// banner / "ใหม่" pill / is-unread row don't vanish the instant the
+// user opens the doc (the click handler also calls markCommentsSeen
+// to persist the "I've seen it" state for the grid + doc card; without
+// the freeze, that write would clear the highlights the user opened
+// the หนังสือ to read).
+let expandedDocsSeenAt = new Map();   // docId -> ms-since-epoch frozen at expand
 let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
 // 'grid' = original card grid; 'list' = compact one-row-per-project list.
@@ -210,6 +218,23 @@ function lastIncomingActivityTime(p, role) {
   return t;
 }
 
+/** Open or close the inline-expanded หนังสือ. Captures the pre-expand
+ *  seenAt so the unread highlights inside the body persist for the
+ *  duration of the user's reading session, while the localStorage
+ *  write still happens immediately so the outer grid/card pills clear.
+ *  Releasing on collapse means re-expanding (without a fresh comment
+ *  arriving) shows no highlight — matching "they already read it". */
+function toggleDocExpansion(docId) {
+  if (expandedDocs.has(docId)) {
+    expandedDocs.delete(docId);
+    expandedDocsSeenAt.delete(docId);
+  } else {
+    expandedDocsSeenAt.set(docId, getCommentsSeenAt(docId));
+    expandedDocs.add(docId);
+    markCommentsSeen(docId);
+  }
+}
+
 // ---------- mounting ----------
 
 export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject }) {
@@ -255,6 +280,7 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject 
     level = 'grid';
     selectedProjectId = null;
     expandedDocs.clear();
+    expandedDocsSeenAt.clear();
     history.replaceState(null, '', '#projects');
     render();
   });
@@ -293,8 +319,14 @@ export async function openDocumentDetail(documentId) {
   if (!found) return;
   selectedProjectId = found.project.id;
   level = 'detail';
-  expandedDocs.add(documentId);
-  markCommentsSeen(documentId);
+  // Freeze the pre-expand seenAt the same way the click handler does
+  // so the deep-link path also shows the comment banner + ใหม่ pill
+  // for everything that was new at the time the link was opened.
+  if (!expandedDocs.has(documentId)) {
+    expandedDocsSeenAt.set(documentId, getCommentsSeenAt(documentId));
+    expandedDocs.add(documentId);
+    markCommentsSeen(documentId);
+  }
   scrollDocId = documentId;
   render();
 }
@@ -660,6 +692,13 @@ function renderDocExpand(doc, project) {
   const isVp  = role === 'vp_admin' || role === 'dev';
   const isUni = role === 'uni_staff' || role === 'dev';
   const tlSorted = (doc.timeline || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
+  // Freeze seenAt for the duration of the expansion — see expandedDocsSeenAt
+  // declaration. Falls back to the live localStorage value if we somehow
+  // got here without going through the expand handler (e.g. a renderer
+  // re-runs after the Map was cleared).
+  const seenAtForExpansion = expandedDocsSeenAt.has(doc.id)
+    ? expandedDocsSeenAt.get(doc.id)
+    : getCommentsSeenAt(doc.id);
 
   // Build a single "revert status" dropdown so completed/in-flight docs
   // can be sent back to any earlier step. Both vp_admin and uni_staff
@@ -688,7 +727,7 @@ function renderDocExpand(doc, project) {
 
   return `
     ${renderRecentUpdateBanner(doc, role)}
-    ${renderCommentBanner(doc, role)}
+    ${renderCommentBanner(doc, role, seenAtForExpansion)}
 
     ${renderProgressBar(stepIndex, isReturned)}
 
@@ -707,7 +746,7 @@ function renderDocExpand(doc, project) {
       </div>
     </div>
 
-    ${renderCommentsList(doc, role)}
+    ${renderCommentsList(doc, role, seenAtForExpansion)}
 
     <div class="projects-doc-actions">
       ${(isVp && isReturned) ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-doc-resend data-doc-id="${escHtml(doc.id)}">
@@ -815,9 +854,9 @@ function renderRecentUpdateBanner(doc, role) {
  * หนังสือ to read it (markCommentsSeen()) — NOT only when status
  * changes. Matches Gmail/Linear "unread message" behaviour.
  */
-function renderCommentBanner(doc, role) {
+function renderCommentBanner(doc, role, seenAtOverride) {
   const tl = doc.timeline || [];
-  const seenAt = getCommentsSeenAt(doc.id);
+  const seenAt = seenAtOverride != null ? seenAtOverride : getCommentsSeenAt(doc.id);
   // A comment is "new to me" when its creation OR last-edit timestamp
   // is after my last open. That way an edit by the sender re-surfaces
   // the comment for the reader until they reopen the หนังสือ.
@@ -894,10 +933,10 @@ function markCommentsSeen(docId) {
   } catch {}
 }
 
-function renderCommentsList(doc, role) {
+function renderCommentsList(doc, role, seenAtOverride) {
   const comments = (doc.timeline || []).filter((e) => e.action === 'comment');
   if (comments.length === 0) return '';
-  const seenAt = getCommentsSeenAt(doc.id);
+  const seenAt = seenAtOverride != null ? seenAtOverride : getCommentsSeenAt(doc.id);
   // Sort newest-first so unread items sit at the top of the thread —
   // matches the "inbox" pattern (latest activity surfaces first) and
   // means the reader's eye lands on the unread comment without
@@ -1042,9 +1081,7 @@ function onInboxClick(e) {
   // Level 2 / detail: doc toggle
   const docToggle = e.target.closest('[data-projects-doc-toggle]');
   if (docToggle && !e.target.closest('button, a, input, label, .dropdown-menu')) {
-    const id = docToggle.dataset.projectsDocToggle;
-    if (expandedDocs.has(id)) expandedDocs.delete(id);
-    else { expandedDocs.add(id); markCommentsSeen(id); }
+    toggleDocExpansion(docToggle.dataset.projectsDocToggle);
     render();
     return;
   }
@@ -1054,9 +1091,7 @@ function onInboxClick(e) {
   if (expandBtn) {
     const card = expandBtn.closest('[data-projects-doc-id]');
     if (card) {
-      const id = card.dataset.projectsDocId;
-      if (expandedDocs.has(id)) expandedDocs.delete(id);
-      else { expandedDocs.add(id); markCommentsSeen(id); }
+      toggleDocExpansion(card.dataset.projectsDocId);
       render();
     }
     return;
@@ -1497,6 +1532,7 @@ async function onDocDeleteClick(btn) {
   try {
     await deleteDocument(docId);
     expandedDocs.delete(docId);
+    expandedDocsSeenAt.delete(docId);
     onChanged();
     if (driveFolder) {
       // Fire-and-forget — Drive Trash is reversible for 30 days, and

@@ -552,6 +552,43 @@ same one-shot pattern — never assume the callback fires only once.
 
 ---
 
+## "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
+
+**Symptom**: VPA writes a comment on a หนังสือ. Receiver sees the grid
+"X คอมเมนต์" badge and the doc-card "อัปเดต" pill correctly. They
+click the หนังสือ to read the comment → the inline comment banner
+("คอมเมนต์ใหม่: …"), the "X ใหม่" thread header, and the per-row
+`is-unread` highlight all FAIL to appear. The user can't see WHICH
+comment is new even though they opened the doc specifically to read
+it. Worse on iPad Safari normal-mode (probably timing-related)
+which is why it looked like an iPad-specific bug at first.
+**Cause**: The expand-click handler in `inbox.js` did
+`expandedDocs.add(id); markCommentsSeen(id); render();`. The
+`markCommentsSeen` writes `now` into localStorage BEFORE render runs.
+Then `renderCommentBanner` and `renderCommentsList` both read
+`getCommentsSeenAt(docId)` → get `now` → filter
+`effectiveTs(e) > seenAt` returns nothing → no banner, no "ใหม่"
+pill, no `is-unread` row. The outer grid/card highlights only "work"
+because they render BEFORE expansion (different render pass).
+**Fix**: Capture the **pre-expand** seenAt into a module-scope Map
+(`expandedDocsSeenAt`) at the moment of expansion, then call
+`markCommentsSeen` to persist "I saw it" globally. Pass the frozen
+value into `renderCommentBanner(doc, role, seenAtOverride)` and
+`renderCommentsList(doc, role, seenAtOverride)` so the expanded body
+keeps showing what was new at expand-time. Clear the Map entry on
+collapse / back-to-grid / doc delete so a re-expand without a fresh
+comment shows no highlight (matches "they already read it").
+**Where**: `src/js/projects/inbox.js` `toggleDocExpansion()` is the
+single chokepoint; `openDocumentDetail` (deep-link), the
+`projectsBackToGrid` handler, and `onDocDeleteClick` all touch
+`expandedDocsSeenAt` alongside `expandedDocs`. **Pattern to reuse:
+any time a "mark seen" persistence happens at the same moment the
+view first shows the unread item, freeze the read-side state before
+the write, and let the renderer use the frozen value while the
+storage carries the new value.**
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks
