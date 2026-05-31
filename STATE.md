@@ -69,6 +69,12 @@ User has confirmed 0023–0031 are applied. No pending migrations.
    actual failure mode — fixes the "sometimes Discord doesn't fire
    for VPA" intermittent drop. The bell write was always reliable;
    the Discord channel is the one this redeploy unblocks.
+4. `sendProjectDiscord` now retries ONCE on Discord 429 (per-route
+   rate limit; honours the Retry-After header, clamped 0.4–5s) or
+   on transport-level errors. Addresses "two rapid actions, only
+   one Discord ping" where the second was rate-limited before this
+   fix. Retry status flows back to the frontend in the response
+   payload (`retried: true`) for diagnostics.
 
 Until the redeploy lands: the QR button + rename-on-edit hooks both
 alert / log warnings; the rest of the inbox keeps working. After

@@ -56,15 +56,23 @@ function doPost(e) {
       // Return the real send-result so the frontend can log Discord
       // 4xx/5xx (rate limit, malformed payload, expired webhook) instead
       // of silently succeeding. sendProjectDiscord throws on the rare
-      // hard failure (no webhook URL configured) AND returns
-      // { ok:false, status, body } for HTTP-level failures.
+      // hard failure (no webhook URL configured), returns
+      // { ok:true, status, retried? } on success (with retried:true if
+      // the second attempt succeeded after a 429 / transport error),
+      // and { ok:false, status, body, retried?, firstStatus? } when
+      // both attempts failed.
       try {
         var res = sendProjectDiscord(data);
         if (res && res.ok === false) {
-          console.warn('notifyProjectDiscord: HTTP ' + res.status + ' ' + (res.body || ''));
-          return createResponse({ success: false, message: 'discord HTTP ' + res.status, status: res.status, body: res.body });
+          var note = 'notifyProjectDiscord: HTTP ' + res.status + ' ' + (res.body || '');
+          if (res.retried) note += ' (after retry from ' + res.firstStatus + ')';
+          console.warn(note);
+          return createResponse({ success: false, message: 'discord HTTP ' + res.status, status: res.status, body: res.body, retried: res.retried || false, firstStatus: res.firstStatus || null });
         }
-        return createResponse({ success: true });
+        if (res && res.retried) {
+          console.log('notifyProjectDiscord: succeeded on retry (first attempt was rate-limited or transport-failed)');
+        }
+        return createResponse({ success: true, retried: res && res.retried ? true : false });
       } catch (err) {
         console.error('notifyProjectDiscord: ' + err);
         return createResponse({ success: false, message: String(err) });
@@ -540,20 +548,67 @@ function sendProjectDiscord(data) {
     };
   }
 
-  // muteHttpExceptions:true so we can READ the response code instead of
-  // GAS throwing on 4xx/5xx — but we surface the result via the return
-  // value so the doPost handler (and ultimately the frontend) can log
-  // a Discord-side failure (rate limit, malformed payload, expired
-  // webhook URL) instead of silently succeeding.
-  var resp = UrlFetchApp.fetch(url, {
+  var body = JSON.stringify(payload);
+  var fetchOpts = {
     method: 'post',
     contentType: 'application/json',
-    payload: JSON.stringify(payload),
+    payload: body,
     muteHttpExceptions: true,
-  });
-  var code = resp.getResponseCode();
-  if (code >= 200 && code < 300) return { ok: true, status: code };
-  return { ok: false, status: code, body: (resp.getContentText() || '').slice(0, 500) };
+  };
+
+  // First attempt.
+  var attempt = postOnce_(url, fetchOpts);
+  if (attempt.ok) return { ok: true, status: attempt.status };
+  // Retry once on the two failure modes that are usually transient:
+  //   - 429 Too Many Requests   → Discord rate limit (per-webhook
+  //                               route is ~5/2s; two rapid pings
+  //                               from a user clicking status THEN
+  //                               comment can trip it).
+  //   - threw (transport error) → network blip / DNS / TLS hiccup.
+  // For 429 we respect Discord's Retry-After header (seconds, often
+  // 0.4–1.0 for webhooks); for transport errors we use a fixed 1.2s.
+  // Clamp the sleep so a misbehaving header can't burn the GAS quota.
+  if (attempt.status === 429 || attempt.threw) {
+    var sleepMs = 1200;
+    if (attempt.status === 429 && attempt.retryAfter > 0) {
+      sleepMs = Math.min(Math.max(Math.floor(attempt.retryAfter * 1000), 400), 5000);
+    }
+    Utilities.sleep(sleepMs);
+    var retry = postOnce_(url, fetchOpts);
+    if (retry.ok) return { ok: true, status: retry.status, retried: true };
+    return {
+      ok: false,
+      status: retry.status,
+      body: retry.body,
+      retried: true,
+      firstStatus: attempt.status,
+    };
+  }
+  return { ok: false, status: attempt.status, body: attempt.body };
+}
+
+/** One-shot Discord POST. Normalises both HTTP failures and transport
+ *  exceptions into the same `{ ok, status, body, threw, retryAfter }`
+ *  shape so the retry logic above doesn't have to special-case the
+ *  `try`/`catch` boundary. */
+function postOnce_(url, fetchOpts) {
+  try {
+    var resp = UrlFetchApp.fetch(url, fetchOpts);
+    var code = resp.getResponseCode();
+    if (code >= 200 && code < 300) return { ok: true, status: code };
+    // Pull Retry-After (lowercase per Discord's response). GAS
+    // getHeaders() is a case-sensitive object so check both spellings.
+    var headers = resp.getAllHeaders ? resp.getAllHeaders() : resp.getHeaders();
+    var ra = parseFloat((headers && (headers['Retry-After'] || headers['retry-after'])) || '0');
+    return {
+      ok: false,
+      status: code,
+      body: (resp.getContentText() || '').slice(0, 500),
+      retryAfter: isFinite(ra) ? ra : 0,
+    };
+  } catch (e) {
+    return { ok: false, threw: true, status: 0, body: String(e), retryAfter: 0 };
+  }
 }
 
 // ============================================================
