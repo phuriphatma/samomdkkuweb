@@ -387,14 +387,28 @@ export async function listMyDocViews(userId) {
     console.warn('[projects] doc views fetch failed:', error.message);
     return [];
   }
-  return data || [];
+  const rows = data || [];
+  // One-shot diagnostic so cross-device sync failures show up in the
+  // console without the user having to instrument anything. Zero rows
+  // on a user who has actively been using the app on another device
+  // means the upsert path is broken (RLS, FK, or schema mismatch).
+  console.debug('[projects] loaded', rows.length, 'seenAt rows from project_doc_views for user', userId);
+  return rows;
 }
 
 /** Upsert one user/doc view (used after every markDocSeen). Fire-and-
  *  forget: the localStorage write happened synchronously so the UI
  *  is already correct on this device; the server upsert is for the
  *  user's OTHER devices. Silently swallows table-missing errors so
- *  pre-0031 envs keep working off localStorage. */
+ *  pre-0031 envs keep working off localStorage.
+ *
+ *  Uses return=representation + length check (mistakes.md "silent-
+ *  success on RLS-blocked writes"). The SELECT policy on
+ *  project_doc_views is `user_id = auth.uid()`, which matches the
+ *  inserted row — so reading the row back succeeds for the owner.
+ *  If length is 0 here, the row didn't land — that's a hard sync
+ *  failure worth logging loudly so cross-device staleness is
+ *  catchable from the console instead of being invisible. */
 export async function upsertMyDocView(userId, documentId, seenAt) {
   if (!userId || !documentId) return;
   const row = {
@@ -402,20 +416,29 @@ export async function upsertMyDocView(userId, documentId, seenAt) {
     document_id: documentId,
     seen_at:     seenAt || new Date().toISOString(),
   };
-  const { error } = await dbRest(
+  const { data, error } = await dbRest(
     '/project_doc_views?on_conflict=user_id,document_id',
     {
       method: 'POST',
       body: row,
-      prefer: 'return=minimal,resolution=merge-duplicates',
+      prefer: 'return=representation,resolution=merge-duplicates',
     },
   );
   if (error) {
     const tableMissing = error.status === 404
       || /project_doc_views/i.test(error.message || '');
     if (!tableMissing) {
-      console.warn('[projects] doc view upsert failed:', error.message);
+      console.warn('[projects] doc view upsert failed:', error.status, error.message);
     }
+    return;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    // Silent-success: PostgREST returned 2xx + empty array. With
+    // return=representation that almost always means RLS hid the
+    // inserted row from the SELECT (column constraint, identity mis-
+    // match, JWT carrying a different sub). Cross-device sync is
+    // BROKEN at this point — surface loudly so it's not invisible.
+    console.warn('[projects] doc view upsert returned 0 rows — cross-device sync NOT working for', documentId, '(user', userId, ')');
   }
 }
 
