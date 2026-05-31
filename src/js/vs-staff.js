@@ -168,15 +168,24 @@ export async function fetchStaffTickets() {
   loading?.classList.remove('d-none');
 
   try {
-    // ALWAYS fetch all visible tickets — RLS handles the
-    // boundary (VPs see only their dept; vs_staff/dev see all).
-    // The list view filters client-side by currentStaffRole;
-    // the kanban view shows them all grouped by status.
-    const { data, error } = await db
-      .from('vs_tickets')
-      .select('*')
-      .order('timestamp', { ascending: false });
-    if (error) throw error;
+    // dbRest (raw PostgREST) instead of db.from(...). The supabase-js
+    // client serialises requests behind a session lock that the
+    // periodic auth refresh in db.js + the JWT-auto-refresh path in
+    // dbRest both contend for; under heavy auth churn a `db.from`
+    // read can stall the dashboard for several seconds (or hang
+    // entirely per mistakes.md "supabase-js gets into a bad state").
+    // dbRest skips supabase-js, has an AbortController timeout, and
+    // single-flight refreshes the JWT on 401 — same pattern just
+    // applied to pr-staff in dcfd381.
+    //
+    // ALWAYS fetch all visible tickets — RLS handles the boundary
+    // (VPs see only their dept; vs_staff/dev see all). The list view
+    // filters client-side by currentStaffRole; the kanban view shows
+    // them all grouped by status.
+    const { data, error } = await dbRest(
+      '/vs_tickets?select=*&order=timestamp.desc',
+    );
+    if (error) throw new Error(error.message || 'โหลดไม่สำเร็จ');
     staffTicketsCache = data || [];
   } catch (e) {
     console.error('[vs-staff] fetch failed', e);
