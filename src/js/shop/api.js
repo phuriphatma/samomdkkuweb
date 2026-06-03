@@ -54,8 +54,8 @@ export async function fetchReservedMatrixAll() {
  *  legacy 2-step createOrder() below is kept as a fallback for envs
  *  that haven't applied migration 0030. Returns the new order row
  *  (re-read after insert so callers get the same shape as before). */
-export async function placeShopOrder(payload) {
-  const items = (payload.items || []).map((it) => ({
+function mapOrderItems(items) {
+  return (items || []).map((it) => ({
     product_id:  it.productId,
     size:        it.size || 'F',
     color:       it.color || 'default',
@@ -63,6 +63,61 @@ export async function placeShopOrder(payload) {
     qty:         Number(it.qty) || 1,
     unit_price:  Number(it.price) || 0,
   }));
+}
+
+export async function placeShopOrder(payload) {
+  const items = mapOrderItems(payload.items);
+  const slips = payload.slipUrl
+    ? [{ url: payload.slipUrl, at: payload.slipUploadedAt || new Date().toISOString() }]
+    : [];
+  // Phase-2 RPC (0034): per-item preorder snapshot + item_status, plus
+  // buyer_phone + slips[] handled atomically inside the transaction.
+  const { data, error } = await dbRest('/rpc/place_shop_order', {
+    method: 'POST',
+    body: {
+      p_buyer_id:         payload.buyerId,
+      p_buyer_label:      payload.buyerLabel || null,
+      p_buyer_name:       payload.buyerName || null,
+      p_buyer_email:      payload.buyerEmail || null,
+      p_buyer_phone:      payload.buyerPhone || null,
+      p_buyer_note:       payload.buyerNote || null,
+      p_pickup_location:  payload.pickupLocation || null,
+      p_slip_url:         payload.slipUrl || null,
+      p_slip_uploaded_at: payload.slipUploadedAt || null,
+      p_slips:            slips,
+      p_items:            items,
+      p_fee:              Number(payload.fee) || 0,
+    },
+  });
+  if (error) {
+    const msg = error.message || '';
+    // 0034 not applied → the new (phone/slips) signature isn't found.
+    // Fall back to the pre-0034 RPC + post-create enrichment, which in
+    // turn falls back to legacy direct-insert if 0030 is also missing.
+    if (error.status === 404 || /place_shop_order/i.test(msg)) {
+      if (!window.__samoWarnedPlaceOrderRpc34) {
+        window.__samoWarnedPlaceOrderRpc34 = true;
+        console.warn('[shop] place_shop_order (0034 signature) missing — apply migration 0034. Using pre-0034 path.');
+      }
+      return placeShopOrderPre34(payload);
+    }
+    if (/OUT_OF_STOCK/.test(msg)) {
+      throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
+    }
+    throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
+  }
+  const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
+  if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
+  const idEsc = encodeURIComponent(orderId);
+  const { data: rows } = await dbRest(`/shop_orders?id=eq.${idEsc}&select=*`);
+  return (rows && rows[0]) || { id: orderId };
+}
+
+/** Pre-0034 fallback: the 0030 atomic RPC (no phone/slips params) plus a
+ *  follow-up owner PATCH to stamp phone + seed slips[]. Degrades again to
+ *  legacy direct-insert if 0030 is also missing. */
+async function placeShopOrderPre34(payload) {
+  const items = mapOrderItems(payload.items);
   const { data, error } = await dbRest('/rpc/place_shop_order', {
     method: 'POST',
     body: {
@@ -80,9 +135,6 @@ export async function placeShopOrder(payload) {
   });
   if (error) {
     const msg = error.message || '';
-    // Pre-0030 / migration not applied → fall back to the legacy
-    // direct-insert path so buyers can still check out (no atomic
-    // stock check, but the old behaviour they had yesterday).
     if (error.status === 404 || /place_shop_order/i.test(msg)) {
       if (!window.__samoWarnedPlaceOrderRpc) {
         window.__samoWarnedPlaceOrderRpc = true;
@@ -95,13 +147,72 @@ export async function placeShopOrder(payload) {
     }
     throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
   }
-  // RPC returns just the new id (text). Re-read the full row so callers
-  // get the same shape as createOrder.
   const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
   if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
+  const enriched = await enrichNewOrder(orderId, payload);
+  if (enriched) return enriched;
   const idEsc = encodeURIComponent(orderId);
   const { data: rows } = await dbRest(`/shop_orders?id=eq.${idEsc}&select=*`);
   return (rows && rows[0]) || { id: orderId };
+}
+
+/** Phase-1 enrichment after the atomic place_shop_order RPC: persist
+ *  buyer_phone and seed the slips[] array. The 0030 RPC predates both
+ *  columns, and changing its signature would 404 the whole call on
+ *  envs that haven't applied migration 0034 — so we stamp them in a
+ *  follow-up owner PATCH instead (RLS shop_orders_update_self_early
+ *  allows it while the order is pending/review). Best-effort: a failure
+ *  never undoes a successfully placed order. Returns the patched row, or
+ *  null if nothing to stamp / the columns aren't deployed yet. */
+async function enrichNewOrder(orderId, payload) {
+  const patch = {};
+  if (payload.buyerPhone) patch.buyer_phone = payload.buyerPhone;
+  if (payload.slipUrl) {
+    patch.slips = [{ url: payload.slipUrl, at: payload.slipUploadedAt || new Date().toISOString() }];
+  }
+  if (Object.keys(patch).length === 0) return null;
+  const idEsc = encodeURIComponent(orderId);
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}&select=*`,
+    { method: 'PATCH', body: patch, prefer: 'return=representation' },
+  );
+  if (error) {
+    // 0033 not applied yet → buyer_phone / slips missing. Warn once and
+    // carry on; the order itself is already placed.
+    if (/buyer_phone|slips|pgrst204/i.test(error.message || '')) {
+      if (!window.__samoWarnedOrderPhoneSlips) {
+        window.__samoWarnedOrderPhoneSlips = true;
+        console.warn('[shop] buyer_phone/slips missing — apply migration 0033 to persist phone + multi-slip.');
+      }
+      return null;
+    }
+    console.warn('[shop] order enrichment PATCH failed:', error.message);
+    return null;
+  }
+  return (Array.isArray(data) && data[0]) || null;
+}
+
+/** Admin-only: create an order on a buyer's behalf (walk-in / phone).
+ *  Reuses the atomic place_shop_order RPC (SECURITY DEFINER, so it
+ *  bypasses RLS for the insert and stamps per-item is_preorder +
+ *  item_status). buyer_id is null — the order is admin-visible only. The
+ *  pre-0034 / legacy fallback inside placeShopOrder inserts directly,
+ *  which is why migration 0035 grants admin a shop_orders insert policy. */
+export async function adminCreateOrder({ buyerName, buyerPhone, buyerEmail, buyerNote, items, code }) {
+  return placeShopOrder({
+    buyerId:        null,
+    buyerLabel:     buyerName || 'ลูกค้า (admin สร้าง)',
+    buyerName:      buyerName || null,
+    buyerEmail:     buyerEmail || null,
+    buyerPhone:     buyerPhone || null,
+    buyerNote:      buyerNote || null,
+    items,
+    fee:            0,
+    slipUrl:        null,
+    slipUploadedAt: null,
+    pickupLocation: null,
+    code:           code || '',
+  });
 }
 
 export async function upsertProduct(row) {
@@ -231,12 +342,16 @@ export async function createOrder(payload) {
       // retry below strips these and re-sends.
       ...(payload.buyerName  ? { buyer_name:  payload.buyerName  } : {}),
       ...(payload.buyerEmail ? { buyer_email: payload.buyerEmail } : {}),
+      ...(payload.buyerPhone ? { buyer_phone: payload.buyerPhone } : {}),
       status: payload.slipUrl ? 'review' : 'pending',
       subtotal,
       fee,
       total: subtotal + fee,
       slip_url: payload.slipUrl || null,
       slip_uploaded_at: payload.slipUploadedAt || null,
+      ...(payload.slipUrl
+        ? { slips: [{ url: payload.slipUrl, at: payload.slipUploadedAt || now }] }
+        : {}),
       pickup_location: payload.pickupLocation || null,
       buyer_note: payload.buyerNote || null,
       timeline: [
@@ -251,14 +366,15 @@ export async function createOrder(payload) {
     );
     if (orderErr) {
       const msg = (orderErr.message || '').toLowerCase();
-      // Migration 0026 not applied → buyer_name / buyer_email missing.
-      // Drop them and retry once so the order can still be placed.
-      if (/buyer_(name|email)/.test(msg) || /pgrst204/.test(msg)) {
+      // Migration 0026/0033 not applied → buyer_name / buyer_email /
+      // buyer_phone / slips missing. Drop them and retry once so the
+      // order can still be placed.
+      if (/buyer_(name|email|phone)|slips/.test(msg) || /pgrst204/.test(msg)) {
         if (!window.__samoWarnedBuyerContact) {
           window.__samoWarnedBuyerContact = true;
-          console.warn('[shop] buyer_name/buyer_email missing — apply migration 0026 to persist checkout contact fields.');
+          console.warn('[shop] buyer contact/slips columns missing — apply migrations 0026 + 0033 to persist checkout contact + multi-slip.');
         }
-        const { buyer_name, buyer_email, ...slim } = orderRow;
+        const { buyer_name, buyer_email, buyer_phone, slips, ...slim } = orderRow;
         ({ data: orderData, error: orderErr } = await dbRest(
           '/shop_orders',
           { method: 'POST', body: slim, prefer: 'return=representation' },
@@ -376,24 +492,35 @@ export async function deleteOrder(id) {
   return true;
 }
 
-/** Buyer-facing: upload or replace the slip on a pending/review/
- *  slip_mismatch order. Sends the order back to 'review' so it
- *  reappears in the admin verify queue. If there was an old slip,
- *  trash it from Drive afterwards (best-effort — order update is the
- *  source of truth). */
-export async function setOrderSlip(id, slipUrl) {
+/** Normalise an order's slips into an array of { url, at }, folding the
+ *  legacy single slip_url in when the array is still empty (orders placed
+ *  before migration 0033, or pre-enrichment). */
+function normalizeSlips(order) {
+  const arr = Array.isArray(order?.slips) ? order.slips.slice() : [];
+  if (arr.length === 0 && order?.slip_url) {
+    arr.push({ url: order.slip_url, at: order.slip_uploaded_at || order.placed_at || null });
+  }
+  return arr.filter((s) => s && s.url);
+}
+
+/** Buyer-facing: ADD a slip to a pending/review/slip_mismatch order.
+ *  Appends to the slips[] array, mirrors slip_url to the newest, and
+ *  sends the order back to 'review' so it reappears in the admin verify
+ *  queue. Multiple slips are kept — we no longer trash the prior one. */
+export async function addOrderSlip(id, slipUrl) {
   const idEsc = encodeURIComponent(id);
   const now = new Date().toISOString();
   const current = await getOrder(id);
   if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
-  const oldSlipUrl = current.slip_url || null;
+  const slips = normalizeSlips(current);
+  slips.push({ url: slipUrl, at: now });
   const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
   timeline.push({ stage: 'review', at: now, label: 'ส่งสลิปแล้ว — รอตรวจ' });
   const { data, error } = await dbRest(
     `/shop_orders?id=eq.${idEsc}`,
     {
       method: 'PATCH',
-      body: { slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline },
+      body: { slips, slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline },
       prefer: 'return=representation',
     },
   );
@@ -401,15 +528,172 @@ export async function setOrderSlip(id, slipUrl) {
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('ส่งสลิปไม่สำเร็จ (RLS หรือสถานะไม่ใช่ pending/review/slip_mismatch)');
   }
-  // Trash the prior slip from Drive so replaced files don't pile up.
-  // Fire-and-forget — the new slip is already persisted; orphaning the
-  // old one is a cleanup nuisance at worst, never a correctness issue.
-  if (oldSlipUrl && oldSlipUrl !== slipUrl) {
-    deleteShopFile(oldSlipUrl).then((ok) => {
-      if (!ok) console.warn('[shop/api] order', id, 'slip replaced but old not trashed:', oldSlipUrl);
+  return data[0];
+}
+
+/** Buyer-facing: REMOVE one slip (by url) from a pending/review/
+ *  slip_mismatch order. slip_url is re-pointed to the newest remaining
+ *  slip (or null). If no slips remain, the order drops back to 'pending'
+ *  so it leaves the verify queue. The removed file is trashed from Drive
+ *  (best-effort). */
+export async function removeOrderSlip(id, slipUrl) {
+  const idEsc = encodeURIComponent(id);
+  const now = new Date().toISOString();
+  const current = await getOrder(id);
+  if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
+  const remaining = normalizeSlips(current).filter((s) => s.url !== slipUrl);
+  const latest = remaining.length ? remaining[remaining.length - 1] : null;
+  const body = {
+    slips: remaining,
+    slip_url: latest ? latest.url : null,
+    slip_uploaded_at: latest ? latest.at : null,
+  };
+  if (remaining.length === 0 && ['review', 'slip_mismatch'].includes(current.status)) {
+    body.status = 'pending';
+    const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
+    timeline.push({ stage: 'pending', at: now, label: 'ลบสลิปแล้ว — รอชำระเงิน' });
+    body.timeline = timeline;
+  }
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'PATCH', body, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบสลิปไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสลิปไม่สำเร็จ (RLS หรือสถานะไม่อนุญาตให้แก้ไข)');
+  }
+  if (slipUrl) {
+    deleteShopFile(slipUrl).then((ok) => {
+      if (!ok) console.warn('[shop/api] order', id, 'slip removed but not trashed:', slipUrl);
     });
   }
   return data[0];
+}
+
+/** Admin-only: set ONE line item's fulfilment status (produce / ready /
+ *  done / exchange / no_show / paid) and append an item_timeline entry.
+ *  shop_order_items_write_admin (0003) gates the write. Returns the
+ *  updated item row. */
+export async function setOrderItemStatus(itemId, status, { label, currentTimeline } = {}) {
+  const now = new Date().toISOString();
+  const timeline = Array.isArray(currentTimeline) ? currentTimeline.slice() : [];
+  timeline.push({ stage: status, at: now, label: label || status, by: 'admin' });
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    {
+      method: 'PATCH',
+      body: { item_status: status, item_timeline: timeline },
+      prefer: 'return=representation',
+    },
+  );
+  if (error) {
+    if (/item_status|item_timeline|pgrst204/i.test(error.message || '')) {
+      throw new Error('ยังไม่ได้ติดตั้ง migration 0033 — กรุณาเรียก admin');
+    }
+    throw new Error(error.message || 'อัปเดตสถานะสินค้าไม่สำเร็จ');
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('อัปเดตสถานะสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: flip a single line item between preorder and normal.
+ *  is_preorder is normally a frozen buy-time snapshot, but admin can
+ *  correct it per item (e.g. an order placed during a mode flip). */
+export async function setOrderItemPreorder(itemId, isPreorder) {
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { is_preorder: !!isPreorder }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: add a line item to an existing order. Stock is "reflected"
+ *  automatically because the reserved-matrix aggregates derive from
+ *  shop_order_items — no separate stock write needed. Caller should then
+ *  recomputeOrderTotals(). */
+export async function addOrderItem(orderId, item) {
+  const row = {
+    order_id:   orderId,
+    product_id: item.productId,
+    size:       item.size || 'F',
+    color:      item.color || 'default',
+    fit:        item.fit || 'unisex',
+    qty:        Number(item.qty) || 1,
+    unit_price: Number(item.unitPrice) || 0,
+    is_preorder: !!item.isPreorder,
+    item_status: item.itemStatus || 'paid',
+  };
+  const { data, error } = await dbRest('/shop_order_items', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เพิ่มสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: edit a line item (qty / size / color / unit_price). */
+export async function updateOrderItem(itemId, patch) {
+  const body = {};
+  if (patch.qty != null)        body.qty = Number(patch.qty);
+  if (patch.size != null)       body.size = patch.size;
+  if (patch.color != null)      body.color = patch.color;
+  if (patch.unit_price != null) body.unit_price = Number(patch.unit_price);
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'PATCH', body, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'แก้ไขสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('แก้ไขสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: remove a line item from an order. */
+export async function removeOrderItem(itemId) {
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return true;
+}
+
+/** Recompute + persist an order's subtotal/total from its current items
+ *  (+ existing fee). Call after any add/edit/remove of line items. */
+export async function recomputeOrderTotals(orderId) {
+  const order = await getOrder(orderId);
+  if (!order) throw new Error('ไม่พบคำสั่งซื้อ');
+  const items = Array.isArray(order.items) ? order.items : [];
+  const subtotal = items.reduce(
+    (s, it) => s + (Number(it.unit_price) || 0) * (Number(it.qty) || 0), 0);
+  const fee = Number(order.fee) || 0;
+  const total = subtotal + fee;
+  const idEsc = encodeURIComponent(orderId);
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { subtotal, total }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'อัปเดตยอดรวมไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('อัปเดตยอดรวมไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return { subtotal, total };
 }
 
 // ---- Pickup batches ----------------------------------------------------

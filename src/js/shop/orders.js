@@ -7,8 +7,11 @@
 
 import { escHtml, safeUrl, orderIdChipHtml } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries } from './data.js';
-import { listMyOrders, listActiveBatches, getSettings, setOrderSlip } from './api.js';
+import {
+  thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries,
+  rollupOrderStage, ITEM_STAGES_ORDER, itemStatusMeta,
+} from './data.js';
+import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
 import { showShopToast } from './products.js';
@@ -44,33 +47,50 @@ export async function mountOrdersView() {
   }
   if (list && !list.dataset.reuploadBound) {
     list.dataset.reuploadBound = '1';
-    list.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-reupload-order]');
-      if (!btn) return;
-      const orderId = btn.dataset.reuploadOrder;
-      const input = list.querySelector(`input[data-reupload-file="${CSS.escape(orderId)}"]`);
-      input?.click();
+    list.addEventListener('click', async (e) => {
+      const addBtn = e.target.closest('[data-add-slip-order]');
+      if (addBtn) {
+        const orderId = addBtn.dataset.addSlipOrder;
+        const input = list.querySelector(`input[data-slip-file="${CSS.escape(orderId)}"]`);
+        input?.click();
+        return;
+      }
+      const rmBtn = e.target.closest('[data-remove-slip]');
+      if (rmBtn) {
+        e.preventDefault();
+        await handleSlipRemove(rmBtn.dataset.removeSlipOrder, rmBtn.dataset.removeSlip, rmBtn);
+      }
     });
     list.addEventListener('change', async (e) => {
-      const input = e.target.closest('input[data-reupload-file]');
+      const input = e.target.closest('input[data-slip-file]');
       if (!input) return;
-      const orderId = input.dataset.reuploadFile;
+      const orderId = input.dataset.slipFile;
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
-      await handleSlipReupload(orderId, file);
+      await handleSlipAdd(orderId, file);
     });
   }
 }
 
-async function handleSlipReupload(orderId, file) {
+/** Read the order's slips as an array of { url, at }, folding in the
+ *  legacy single slip when the array is empty. Mirrors api.js. */
+function orderSlips(o) {
+  const arr = Array.isArray(o?.slips) ? o.slips.slice() : [];
+  if (arr.length === 0 && o?.slip_url) {
+    arr.push({ url: o.slip_url, at: o.slip_uploaded_at || o.placed_at || null });
+  }
+  return arr.filter((s) => s && s.url);
+}
+
+async function handleSlipAdd(orderId, file) {
   if (file.size > 5 * 1024 * 1024) {
     showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
     return;
   }
   const user = getUser();
   if (!user) { showShopToast('กรุณาเข้าสู่ระบบก่อน', 'warn'); return; }
-  const btn = document.querySelector(`[data-reupload-order="${CSS.escape(orderId)}"]`);
+  const btn = document.querySelector(`[data-add-slip-order="${CSS.escape(orderId)}"]`);
   const originalHTML = btn?.innerHTML;
   if (btn) {
     btn.disabled = true;
@@ -81,16 +101,30 @@ async function handleSlipReupload(orderId, file) {
     const slipName = `${user.id}_${Date.now()}.${ext}`;
     const folder = slipFolderForNow(new Date());
     const slipUrl = await uploadShopFile(file, folder, { fileName: slipName });
-    await setOrderSlip(orderId, slipUrl);
-    showShopToast('ส่งสลิปใหม่แล้ว — รอ admin ตรวจสอบ', 'success');
+    await addOrderSlip(orderId, slipUrl);
+    showShopToast('เพิ่มสลิปแล้ว — รอ admin ตรวจสอบ', 'success');
     await renderOrdersView();
   } catch (err) {
-    console.error('[shop/orders] reupload slip failed:', err);
+    console.error('[shop/orders] add slip failed:', err);
     showShopToast(`ส่งสลิปไม่สำเร็จ: ${err.message || err}`, 'error');
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = originalHTML || '<i class="bi bi-cloud-upload me-1"></i> อัปโหลดสลิปใหม่';
+      btn.innerHTML = originalHTML || '<i class="bi bi-cloud-upload me-1"></i> เพิ่มสลิป';
     }
+  }
+}
+
+async function handleSlipRemove(orderId, slipUrl, btn) {
+  if (!orderId || !slipUrl) return;
+  if (btn) { btn.disabled = true; btn.classList.add('disabled'); }
+  try {
+    await removeOrderSlip(orderId, slipUrl);
+    showShopToast('ลบสลิปแล้ว', 'success');
+    await renderOrdersView();
+  } catch (err) {
+    console.error('[shop/orders] remove slip failed:', err);
+    showShopToast(`ลบสลิปไม่สำเร็จ: ${err.message || err}`, 'error');
+    if (btn) { btn.disabled = false; btn.classList.remove('disabled'); }
   }
 }
 
@@ -136,7 +170,7 @@ export async function renderOrdersView() {
 export function refreshReadyCountBadge() {
   const badge = document.getElementById('shopOrdersReadyCount');
   if (!badge) return;
-  const ready = state.orders.filter((o) => o.status === 'ready').length;
+  const ready = state.orders.filter((o) => hasReadyItem(o)).length;
   badge.textContent = String(ready);
   badge.classList.toggle('d-none', ready === 0);
 }
@@ -173,20 +207,7 @@ function orderCardHtml(o) {
         ${statusPillHtml(o)}
       </div>
 
-      ${progressTrackHtml(o)}
-
-      <div class="order-items-row">
-        ${items.map((it) => {
-          const p = products[it.product_id];
-          return `
-            <div class="order-mini">
-              <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
-              <span>${escHtml(p?.name || it.product_id)}</span>
-              ${it.size && it.size !== 'F' ? `<span class="text-muted small">(${escHtml(it.size)})</span>` : ''}
-              <span class="om-qty">× ${it.qty}</span>
-            </div>`;
-        }).join('')}
-      </div>
+      ${itemsProgressHtml(o, products)}
 
       <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
         <div class="d-flex flex-wrap gap-3 align-items-center">
@@ -195,10 +216,15 @@ function orderCardHtml(o) {
                   data-show-qr="${escHtml(o.id)}">
             <i class="bi bi-qr-code me-1"></i> แสดง QR
           </button>
-          ${o.slip_url ? `
-            <a href="${safeUrl(o.slip_url)}" target="_blank" rel="noreferrer" class="small text-decoration-none">
-              <i class="bi bi-receipt me-1"></i> ดูสลิปที่ส่ง
-            </a>` : ''}
+          ${(() => {
+            const slips = orderSlips(o);
+            if (!slips.length) return '';
+            const latest = slips[slips.length - 1];
+            return `
+            <a href="${safeUrl(latest.url)}" target="_blank" rel="noreferrer" class="small text-decoration-none">
+              <i class="bi bi-receipt me-1"></i> ดูสลิปที่ส่ง${slips.length > 1 ? ` (${slips.length})` : ''}
+            </a>`;
+          })()}
           ${o.cancel_reason ? `<span class="small text-danger"><i class="bi bi-info-circle me-1"></i>${escHtml(o.cancel_reason)}</span>` : ''}
         </div>
         <span style="font-weight:700; font-size:1.05rem; font-family:Prompt;">
@@ -206,7 +232,7 @@ function orderCardHtml(o) {
         </span>
       </div>
 
-      ${o.status === 'ready' && batch ? `
+      ${hasReadyItem(o) && batch ? `
         <div class="order-pickup-callout">
           <i class="bi bi-box-seam"></i>
           <div>
@@ -221,7 +247,7 @@ function orderCardHtml(o) {
           <i class="bi bi-arrow-right-circle fs-4 text-success"></i>
         </div>` : ''}
 
-      ${(o.status === 'ready' && (state.contact.gmail || state.contact.instagram)) ? `
+      ${(hasReadyItem(o) && (state.contact.gmail || state.contact.instagram)) ? `
         <div class="contact-fallback">
           <i class="bi bi-info-circle text-warning fs-5"></i>
           <div class="flex-grow-1">
@@ -253,46 +279,148 @@ const REUPLOAD_ALLOWED = new Set(['pending', 'review', 'slip_mismatch']);
 function reuploadCalloutHtml(o) {
   if (!REUPLOAD_ALLOWED.has(o.status)) return '';
   const isReject = o.status === 'slip_mismatch';
-  const hasSlip = !!o.slip_url;
+  const slips = orderSlips(o);
+  const hasSlip = slips.length > 0;
   const headline = isReject
     ? 'สลิปไม่ถูกต้อง'
     : hasSlip
-      ? 'ส่งสลิปแล้ว — แก้ไขได้จนกว่า admin จะตรวจ'
+      ? 'สลิปที่ส่ง — เพิ่ม/ลบได้จนกว่า admin จะตรวจ'
       : 'ยังไม่ได้ส่งสลิป';
   const body = isReject
     ? 'admin ตรวจสอบแล้วพบว่าสลิปไม่ตรงกับยอดที่สั่ง โปรดอัปโหลดสลิปที่ถูกต้องอีกครั้ง'
     : hasSlip
-      ? 'ถ้าโอนใหม่หรือสลิปไม่ชัด สามารถเปลี่ยนรูปได้ก่อน admin ยืนยัน'
+      ? 'แนบได้มากกว่าหนึ่งใบ — ลบใบที่ไม่ต้องการหรือเพิ่มใบใหม่ได้ก่อน admin ยืนยัน'
       : 'อัปโหลดสลิปการโอนเพื่อให้ admin ตรวจสอบ';
-  const btnLabel = hasSlip ? 'เปลี่ยนสลิป' : 'อัปโหลดสลิป';
   const bg = isReject
     ? 'background:#fff8e1; border:1px solid #fbcf73;'
     : 'background:#f4f7fb; border:1px solid #dfe5ee;';
   const icon = isReject ? 'bi-exclamation-triangle text-warning' : 'bi-info-circle text-primary';
-  return `
-    <div class="contact-fallback" style="${bg}">
-      <i class="bi ${icon} fs-5"></i>
-      <div class="flex-grow-1">
-        <div style="font-weight:600; color:var(--shop-ink-900);">${escHtml(headline)}</div>
-        <div class="small text-muted">${escHtml(body)}</div>
-      </div>
-      <button type="button" class="btn btn-sm ${isReject ? 'btn-warning' : 'btn-outline-primary'}"
-              data-reupload-order="${escHtml(o.id)}">
-        <i class="bi bi-cloud-upload me-1"></i> ${escHtml(btnLabel)}
+  const thumbs = slips.map((s) => `
+    <div class="slip-chip">
+      <a href="${safeUrl(s.url)}" target="_blank" rel="noreferrer" title="ดูสลิป">
+        <i class="bi bi-receipt"></i> สลิป
+      </a>
+      <button type="button" class="slip-chip-x" title="ลบสลิปนี้"
+              data-remove-slip="${escHtml(s.url)}" data-remove-slip-order="${escHtml(o.id)}">
+        <i class="bi bi-x"></i>
       </button>
-      <input type="file" accept="image/*" class="d-none" data-reupload-file="${escHtml(o.id)}" />
+    </div>`).join('');
+  return `
+    <div class="slip-manager" style="${bg}">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi ${icon} fs-5"></i>
+        <div class="flex-grow-1">
+          <div style="font-weight:600; color:var(--shop-ink-900);">${escHtml(headline)}</div>
+          <div class="small text-muted">${escHtml(body)}</div>
+        </div>
+      </div>
+      ${hasSlip ? `<div class="slip-chip-row">${thumbs}</div>` : ''}
+      <div class="d-flex justify-content-end mt-2">
+        <button type="button" class="btn btn-sm ${isReject ? 'btn-warning' : 'btn-outline-primary'}"
+                data-add-slip-order="${escHtml(o.id)}">
+          <i class="bi bi-cloud-upload me-1"></i> ${hasSlip ? 'เพิ่มสลิป' : 'อัปโหลดสลิป'}
+        </button>
+        <input type="file" accept="image/*" class="d-none" data-slip-file="${escHtml(o.id)}" />
+      </div>
     </div>`;
 }
 
 function statusPillHtml(order) {
   const meta = statusMetaFor(order);
-  const status = order?.status || 'pending';
+  const status = rollupOrderStage(order);
   return `
     <span class="status-pill" data-status="${escHtml(status)}">
       <span class="pulse"></span>
       <i class="bi ${escHtml(meta.icon)}"></i>
       <span>${escHtml(meta.label)}</span>
     </span>`;
+}
+
+/** True when at least one line item is ready for pickup — drives the
+ *  pickup callout + contact fallback even on partial orders where the
+ *  overall rollup is still "in production". */
+function hasReadyItem(o) {
+  if (rollupOrderStage(o) === 'ready') return true;
+  const items = Array.isArray(o?.items) ? o.items : [];
+  return items.some((it) => (it.item_status || 'paid') === 'ready');
+}
+
+// Progress section. Two modes:
+//   * Pre-paid (pending/review), off-path, or legacy whole-order
+//     (produce/ready/done set before the Hybrid migration) → one
+//     order-level track + a plain item list.
+//   * Hybrid 'paid' order → one progress block PER item, so products
+//     that aren't produced at the same time show different progress.
+function itemsProgressHtml(o, products) {
+  const status = o?.status || 'pending';
+  if (status !== 'paid') {
+    return `
+      ${progressTrackHtml(o)}
+      ${plainItemsRowHtml(o, products)}`;
+  }
+  const items = Array.isArray(o.items) ? o.items : [];
+  if (!items.length) return progressTrackHtml(o);
+  return `
+    <div class="order-item-blocks">
+      ${items.map((it) => itemBlockHtml(it, products)).join('')}
+    </div>`;
+}
+
+function plainItemsRowHtml(o, products) {
+  const items = Array.isArray(o.items) ? o.items : [];
+  return `
+    <div class="order-items-row">
+      ${items.map((it) => {
+        const p = products[it.product_id];
+        const variant = variantLabel(p, it);
+        return `
+          <div class="order-mini">
+            <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+            <span>${escHtml(p?.name || it.product_id)}</span>
+            ${it.is_preorder ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
+            ${variant ? `<span class="text-muted small">(${escHtml(variant)})</span>` : ''}
+            <span class="om-qty">× ${it.qty}</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function itemBlockHtml(it, products) {
+  const p = products[it.product_id];
+  const variant = variantLabel(p, it);
+  return `
+    <div class="order-item-block">
+      <div class="oib-head">
+        <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+        <div class="oib-info">
+          <div class="oib-name">
+            ${escHtml(p?.name || it.product_id)}
+            ${it.is_preorder ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
+          </div>
+          ${variant ? `<div class="text-muted small">${escHtml(variant)}</div>` : ''}
+        </div>
+        <span class="om-qty">× ${it.qty}</span>
+      </div>
+      ${itemProgressTrackHtml(it.item_status || 'paid')}
+    </div>`;
+}
+
+function itemProgressTrackHtml(istatus) {
+  const off = OFF_PATH_TRACKS[istatus];
+  if (off) {
+    return `
+      <div class="progress-track item-track" style="grid-template-columns: 1fr;">
+        <div class="progress-step ${off.cls}"><span class="pdot"></span>${escHtml(off.text)}</div>
+      </div>`;
+  }
+  const currentIdx = ITEM_STAGES_ORDER.indexOf(istatus);
+  return `
+    <div class="progress-track item-track">
+      ${ITEM_STAGES_ORDER.map((stage, i) => {
+        const cls = i < currentIdx ? 'is-done' : i === currentIdx ? 'is-current' : '';
+        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(itemStatusMeta(stage).label)}</div>`;
+      }).join('')}
+    </div>`;
 }
 
 // Off-path single-line track. Text falls back to the canonical label
@@ -324,6 +452,22 @@ function progressTrackHtml(order) {
         return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(STAGES_META[stage].label)}</div>`;
       }).join('')}
     </div>`;
+}
+
+/** Human-readable "ไซส์ · สี" for an order line. Maps the stored colour
+ *  id back to its label via the product's colour list (falls back to the
+ *  raw id). Returns '' when there's nothing meaningful to show (free-size,
+ *  no colour). */
+function variantLabel(p, it) {
+  const parts = [];
+  if (it.size && it.size !== 'F') parts.push(it.size);
+  const colorId = it.color && it.color !== 'default' ? it.color : '';
+  if (colorId) {
+    const colors = Array.isArray(p?.colors) ? p.colors : [];
+    const match = colors.find((c) => c && (c.id === colorId || c.label === colorId));
+    parts.push(match?.label || colorId);
+  }
+  return parts.join(' · ');
 }
 
 function miniThumbStyle(p) {

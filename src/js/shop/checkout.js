@@ -27,6 +27,7 @@ const state = {
   buyerNote: '',
   buyerName: '',
   buyerEmail: '',
+  buyerPhone: '',
   agree: false,
 };
 
@@ -64,6 +65,7 @@ export async function renderCheckout() {
   // is empty to preserve typed-in changes across re-renders.
   if (!state.buyerName)  state.buyerName  = user.name  || '';
   if (!state.buyerEmail) state.buyerEmail = user.email || '';
+  if (!state.buyerPhone) state.buyerPhone = user.phone || '';
   body.innerHTML = renderHtml();
   wireEvents();
 }
@@ -107,6 +109,12 @@ function renderHtml() {
             <label class="form-label small fw-bold mb-1" for="shopBuyerEmail">อีเมล</label>
             <input type="email" class="form-control" id="shopBuyerEmail"
                    value="${escHtml(state.buyerEmail)}" autocomplete="email" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold mb-1" for="shopBuyerPhone">เบอร์โทรศัพท์</label>
+            <input type="tel" class="form-control" id="shopBuyerPhone"
+                   value="${escHtml(state.buyerPhone)}" autocomplete="tel" inputmode="tel"
+                   placeholder="08x-xxx-xxxx" required maxlength="20" />
           </div>
         </div>
         <div class="form-text small mt-2">
@@ -234,8 +242,10 @@ function wireEvents() {
 
   const buyerName  = document.getElementById('shopBuyerName');
   const buyerEmail = document.getElementById('shopBuyerEmail');
+  const buyerPhone = document.getElementById('shopBuyerPhone');
   if (buyerName)  buyerName.addEventListener('input',  () => { state.buyerName  = buyerName.value;  });
   if (buyerEmail) buyerEmail.addEventListener('input', () => { state.buyerEmail = buyerEmail.value; });
+  if (buyerPhone) buyerPhone.addEventListener('input', () => { state.buyerPhone = buyerPhone.value; });
 
   const drop = document.getElementById('shopSlipDrop');
   const file = document.getElementById('shopSlipFile');
@@ -292,11 +302,18 @@ async function placeOrder() {
   const devSkip = user.role === 'dev';
   const buyerName  = (state.buyerName  || '').trim();
   const buyerEmail = (state.buyerEmail || '').trim().toLowerCase();
+  const buyerPhone = (state.buyerPhone || '').trim();
   if (!buyerName)  { showShopToast('กรุณากรอกชื่อผู้สั่ง', 'warn');
     document.getElementById('shopBuyerName')?.focus(); return; }
   if (!buyerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
     showShopToast('กรุณากรอกอีเมลให้ถูกต้อง', 'warn');
     document.getElementById('shopBuyerEmail')?.focus(); return;
+  }
+  // Thai mobile / landline — 9-10 digits once non-digits are stripped.
+  const phoneDigits = buyerPhone.replace(/\D/g, '');
+  if (phoneDigits.length < 9 || phoneDigits.length > 10) {
+    showShopToast('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง', 'warn');
+    document.getElementById('shopBuyerPhone')?.focus(); return;
   }
   if (!state.slipFile && !devSkip) { showShopToast('อัปโหลดสลิปก่อน', 'warn'); return; }
   if (!state.agree)   { showShopToast('กรุณายอมรับเงื่อนไข', 'warn'); return; }
@@ -335,6 +352,7 @@ async function placeOrder() {
       buyerLabel: buyerName || user.name || user.username || user.email || '',
       buyerName,
       buyerEmail,
+      buyerPhone,
       items: cart,
       subtotal,
       fee: 0,
@@ -351,6 +369,7 @@ async function placeOrder() {
     state.buyerNote = '';
     state.buyerName = '';
     state.buyerEmail = '';
+    state.buyerPhone = '';
     state.agree = false;
     showShopToast(`สั่งซื้อ ${order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`, 'success');
     onAfterPlace(order);

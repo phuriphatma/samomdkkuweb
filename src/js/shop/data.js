@@ -72,7 +72,47 @@ export function statusLabelFor(order) {
 
 export function statusMetaFor(order) {
   if (!order) return STAGES_META.pending;
-  return STAGES_META[order.status] || STAGES_META.pending;
+  return STAGES_META[rollupOrderStage(order)] || STAGES_META.pending;
+}
+
+// ── Per-item fulfilment phase (Hybrid model, migration 0033/0034) ──────
+// The order-level status carries the PAYMENT phase (pending→review→paid,
+// + cancel/refund/slip_mismatch). Once paid, each line item carries its
+// own fulfilment status here so products in one order can progress
+// independently. Item off-paths (exchange/no_show) reuse STAGES_META.
+export const ITEM_STAGES_ORDER = ['paid', 'produce', 'ready', 'done'];
+
+const ITEM_STAGE_RANK = { paid: 0, produce: 1, ready: 2, done: 3 };
+
+/** Numeric rank of an item fulfilment status (off-paths → 0 so an order
+ *  with an issue item never looks "more done" than it is). */
+export function itemStageRank(s) {
+  return ITEM_STAGE_RANK[s] ?? 0;
+}
+
+/** Meta for one item status — reuses the shared STAGES_META labels. */
+export function itemStatusMeta(s) {
+  return STAGES_META[s] || STAGES_META.paid;
+}
+
+/** Roll an order's per-item statuses up into a single overall stage for
+ *  the headline pill / progress track.
+ *   - Pre-paid (pending/review) and order-level off-paths
+ *     (cancel/slip_mismatch/refund_pending/refunded) are authoritative
+ *     as-is.
+ *   - Legacy orders whose whole-order status was advanced to
+ *     produce/ready/done before the Hybrid migration keep that value.
+ *   - For a 'paid' order, the overall stage is the LEAST-progressed item
+ *     (one product still in production keeps the order "in production").
+ *   An item in exchange/no_show ranks 0, so it holds the order back. */
+export function rollupOrderStage(order) {
+  if (!order) return 'pending';
+  const status = order.status || 'pending';
+  if (status !== 'paid') return status; // pre-paid, off-path, or legacy-advanced
+  const items = Array.isArray(order.items) ? order.items : [];
+  if (!items.length) return 'paid';
+  const minRank = Math.min(...items.map((it) => itemStageRank(it.item_status || 'paid')));
+  return ITEM_STAGES_ORDER[minRank] || 'paid';
 }
 
 // Product-level stock status (independent of is_active soft-archive).
