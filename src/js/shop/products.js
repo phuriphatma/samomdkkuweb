@@ -92,16 +92,7 @@ export function mountShopBrowse() {
   if (carousel) {
     carousel.addEventListener('click', (e) => {
       // Banner slide with link_url → open it (new tab if external).
-      const banner = e.target.closest('[data-banner-link]');
-      if (banner) {
-        const href = banner.dataset.bannerLink;
-        if (/^https?:\/\//i.test(href)) {
-          window.open(href, '_blank', 'noopener');
-        } else {
-          location.href = href;
-        }
-        return;
-      }
+      if (handleBannerLinkClick(e)) return;
       // Product card → open detail modal.
       const card = e.target.closest('[data-product-id]');
       if (!card) return;
@@ -109,7 +100,26 @@ export function mountShopBrowse() {
       if (product) openProductModal(product);
     });
   }
-  wireCarouselArrows();
+  // ประกาศ carousel: link-only banners (no product fallback cards).
+  document.getElementById('shopAnnounceCarousel')
+    ?.addEventListener('click', handleBannerLinkClick);
+
+  wireCarouselArrows(LAUNCH_CAROUSEL);
+  wireCarouselArrows(ANNOUNCE_CAROUSEL);
+}
+
+/** Open a banner slide's link_url (new tab if external). Returns true
+ *  when a banner link was handled so callers can stop further handling. */
+function handleBannerLinkClick(e) {
+  const banner = e.target.closest('[data-banner-link]');
+  if (!banner) return false;
+  const href = banner.dataset.bannerLink;
+  if (/^https?:\/\//i.test(href)) {
+    window.open(href, '_blank', 'noopener');
+  } else {
+    location.href = href;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -133,13 +143,19 @@ export async function reloadShop() {
       reserved_matrix: reservedAll[p.id] || {},
     }));
     cache.batches = batches || [];
-    cache.banners = banners || [];
+    // Partition admin banners by placement (migration 0037). Rows with
+    // no placement (pre-0037) default to the launch hero.
+    const allBanners = banners || [];
+    cache.banners = allBanners;
+    cache.launchBanners   = allBanners.filter((b) => (b.placement || 'launch') === 'launch');
+    cache.announceBanners = allBanners.filter((b) => b.placement === 'announcement');
     cache.contact = {
       instagram: settings?.contact_instagram || '',
       gmail: settings?.contact_gmail || '',
     };
     cache.loaded = true;
     renderContactBanner();
+    renderAnnounceBanners();
     renderBanner();
     renderLaunches();
     renderGrid();
@@ -225,7 +241,7 @@ function renderLaunches() {
   // newest `is_new` products. If we have no banners AND no flagged
   // products, fall back to the most-recently-added products so the
   // hero is never empty when there's stock to show.
-  const banners = (cache.banners || []).slice(0, 10);
+  const banners = (cache.launchBanners || []).slice(0, 10);
   let slides;
   if (banners.length > 0) {
     slides = banners.map(bannerSlideHtml);
@@ -240,7 +256,7 @@ function renderLaunches() {
   if (slides.length === 0) {
     host.innerHTML = '';
     if (dots) dots.innerHTML = '';
-    setCarouselArrowsVisible(false);
+    setCarouselArrowsVisible(LAUNCH_CAROUSEL, false);
     return;
   }
   host.innerHTML = slides.join('');
@@ -249,9 +265,39 @@ function renderLaunches() {
       `<button type="button" class="launch-dot ${i === 0 ? 'is-active' : ''}" data-dot-i="${i}" aria-label="สไลด์ที่ ${i + 1}"></button>`
     ).join('');
   }
-  setCarouselArrowsVisible(slides.length > 1);
-  updateCarouselArrowsState();
-  updateActiveDot();
+  setCarouselArrowsVisible(LAUNCH_CAROUSEL, slides.length > 1);
+  updateCarouselArrowsState(LAUNCH_CAROUSEL);
+  updateActiveDot(LAUNCH_CAROUSEL);
+}
+
+// ---------------------------------------------------------------------
+// Render: ประกาศ swipe carousel — admin-curated banners with
+// placement='announcement'. Same hero markup/CSS as เปิดตัวล่าสุด, but
+// no product fallback: the whole section hides when there are none.
+// ---------------------------------------------------------------------
+function renderAnnounceBanners() {
+  const host = document.getElementById('shopAnnounceCarousel');
+  const dots = document.getElementById('shopAnnounceDots');
+  const wrap = document.getElementById('shopAnnounceSection');
+  if (!host) return;
+  const banners = (cache.announceBanners || []).slice(0, 10);
+  if (banners.length === 0) {
+    host.innerHTML = '';
+    if (dots) dots.innerHTML = '';
+    setCarouselArrowsVisible(ANNOUNCE_CAROUSEL, false);
+    wrap?.classList.add('d-none');
+    return;
+  }
+  wrap?.classList.remove('d-none');
+  host.innerHTML = banners.map(bannerSlideHtml).join('');
+  if (dots) {
+    dots.innerHTML = banners.map((_, i) =>
+      `<button type="button" class="launch-dot ${i === 0 ? 'is-active' : ''}" data-dot-i="${i}" aria-label="สไลด์ที่ ${i + 1}"></button>`
+    ).join('');
+  }
+  setCarouselArrowsVisible(ANNOUNCE_CAROUSEL, banners.length > 1);
+  updateCarouselArrowsState(ANNOUNCE_CAROUSEL);
+  updateActiveDot(ANNOUNCE_CAROUSEL);
 }
 
 function bannerSlideHtml(b) {
@@ -299,39 +345,50 @@ function launchCardHtml(p) {
     </div>`;
 }
 
-function wireCarouselArrows() {
-  const prev = document.getElementById('shopLaunchPrev');
-  const next = document.getElementById('shopLaunchNext');
-  const car  = document.getElementById('shopLaunchCarousel');
-  const dots = document.getElementById('shopLaunchDots');
-  if (!prev || !next || !car) return;
+// Two carousels share identical mechanics (one slide per view, snap,
+// arrows, dots) and CSS — only their element ids differ. Each helper
+// takes a scope object so the launch hero and the ประกาศ carousel run
+// off the same code.
+const LAUNCH_CAROUSEL = {
+  carousel: 'shopLaunchCarousel', dots: 'shopLaunchDots',
+  prev: 'shopLaunchPrev', next: 'shopLaunchNext',
+};
+const ANNOUNCE_CAROUSEL = {
+  carousel: 'shopAnnounceCarousel', dots: 'shopAnnounceDots',
+  prev: 'shopAnnouncePrev', next: 'shopAnnounceNext',
+};
+
+function wireCarouselArrows(c) {
+  const prev = document.getElementById(c.prev);
+  const next = document.getElementById(c.next);
+  const car  = document.getElementById(c.carousel);
+  const dots = document.getElementById(c.dots);
+  if (!car) return;
   // Hero banner: one slide per view. Scroll by the carousel's exact
   // visible width so the snap lands cleanly on the next/prev card.
   const step = () => car.clientWidth || 1;
-  prev.addEventListener('click', () => car.scrollBy({ left: -step(), behavior: 'smooth' }));
-  next.addEventListener('click', () => car.scrollBy({ left:  step(), behavior: 'smooth' }));
+  prev?.addEventListener('click', () => car.scrollBy({ left: -step(), behavior: 'smooth' }));
+  next?.addEventListener('click', () => car.scrollBy({ left:  step(), behavior: 'smooth' }));
   car.addEventListener('scroll', () => {
-    updateCarouselArrowsState();
-    updateActiveDot();
+    updateCarouselArrowsState(c);
+    updateActiveDot(c);
   }, { passive: true });
   window.addEventListener('resize', () => {
-    updateCarouselArrowsState();
-    updateActiveDot();
+    updateCarouselArrowsState(c);
+    updateActiveDot(c);
   }, { passive: true });
   // Dot click → scroll to that slide.
-  if (dots) {
-    dots.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-dot-i]');
-      if (!btn) return;
-      const i = Number(btn.dataset.dotI) || 0;
-      car.scrollTo({ left: i * step(), behavior: 'smooth' });
-    });
-  }
+  dots?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dot-i]');
+    if (!btn) return;
+    const i = Number(btn.dataset.dotI) || 0;
+    car.scrollTo({ left: i * step(), behavior: 'smooth' });
+  });
 }
 
-function updateActiveDot() {
-  const car  = document.getElementById('shopLaunchCarousel');
-  const dots = document.getElementById('shopLaunchDots');
+function updateActiveDot(c) {
+  const car  = document.getElementById(c.carousel);
+  const dots = document.getElementById(c.dots);
   if (!car || !dots) return;
   const w = car.clientWidth || 1;
   const active = Math.round(car.scrollLeft / w);
@@ -339,15 +396,15 @@ function updateActiveDot() {
     d.classList.toggle('is-active', i === active));
 }
 
-function setCarouselArrowsVisible(show) {
-  document.getElementById('shopLaunchPrev')?.classList.toggle('d-none', !show);
-  document.getElementById('shopLaunchNext')?.classList.toggle('d-none', !show);
+function setCarouselArrowsVisible(c, show) {
+  document.getElementById(c.prev)?.classList.toggle('d-none', !show);
+  document.getElementById(c.next)?.classList.toggle('d-none', !show);
 }
 
-function updateCarouselArrowsState() {
-  const car  = document.getElementById('shopLaunchCarousel');
-  const prev = document.getElementById('shopLaunchPrev');
-  const next = document.getElementById('shopLaunchNext');
+function updateCarouselArrowsState(c) {
+  const car  = document.getElementById(c.carousel);
+  const prev = document.getElementById(c.prev);
+  const next = document.getElementById(c.next);
   if (!car || !prev || !next) return;
   prev.disabled = car.scrollLeft <= 2;
   next.disabled = car.scrollLeft + car.clientWidth >= car.scrollWidth - 2;

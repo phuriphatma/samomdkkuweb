@@ -37,7 +37,11 @@ const state = {
   // Within a facet → OR; across facets → AND. This is the standard
   // faceted-filter pattern (Shopify/Stripe/Linear/Notion).
   ordersStatuses: new Set(),
-  ordersProducts: new Set(),
+  ordersProducts: new Set(),   // specific product ids (subtype level)
+  ordersTypes: new Set(),      // product-type ids, e.g. 'apparel-shirt' (type level)
+  ordersSizes: new Set(),      // size strings, e.g. 'S' (default-key 'F')
+  ordersColors: new Set(),     // color ids, e.g. 'black' (default-key 'default')
+  ordersItemStatuses: new Set(), // per-item effective progress (rowDisplayStatus)
   ordersSearch: '',
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
   // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
@@ -48,9 +52,15 @@ const state = {
   batchEditor: null,
   // Preorder tab
   preorderExpanded: new Set(),  // `${productId}` keys expanded to show orders
+  preorderView: 'table',        // 'table' | 'cards'
+  preorderSearch: '',
+  preorderType: 'all',          // SHOP_TYPES id or 'all'
   // Stock tab
   stockSearch: '',
   stockEdits: new Map(),  // productId → { matrix: {...}, status: '...' }  (pending unsaved edits)
+  // Banners tab — which placement set is being managed (mig 0037).
+  // 'launch' = เปิดตัวล่าสุด hero · 'announcement' = ประกาศ carousel.
+  bannerPlacement: 'launch',
 };
 
 let mounted = false;
@@ -79,14 +89,18 @@ function ensureMounted() {
     state.ordersPreorder = btn.dataset.ordersPreorder;
     document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
       .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === state.ordersPreorder));
+    repopulateOrderFacets();
     renderOrdersTable();
-    updateFilterChromes();
   });
 
   // Clear-all chip.
   document.getElementById('shopAdminOrdersClearFilters')?.addEventListener('click', () => {
     state.ordersStatuses.clear();
     state.ordersProducts.clear();
+    state.ordersTypes.clear();
+    state.ordersSizes.clear();
+    state.ordersColors.clear();
+    state.ordersItemStatuses.clear();
     state.ordersSearch = '';
     state.ordersPreorder = 'all';
     const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
@@ -94,6 +108,9 @@ function ensureMounted() {
       .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
     populateStatusFacet();           // re-render checks
     populateOrdersProductSelect();   // re-render checks
+    populateOrdersSizeFacet();
+    populateOrdersColorFacet();
+    populateOrdersItemStatusFacet();
     renderOrdersTable();
   });
   document.getElementById('shopAdminOrdersRefresh')?.addEventListener('click', refreshOrders);
@@ -155,6 +172,26 @@ function ensureMounted() {
 
   // Preorder demand refresh
   document.getElementById('shopAdminPreorderRefresh')?.addEventListener('click', refreshPreorder);
+  // Preorder toolbar: search (content only re-render keeps input focus),
+  // type chips, and card/table view toggle.
+  document.getElementById('shopAdminPreorderSearch')?.addEventListener('input', (e) => {
+    state.preorderSearch = e.target.value || '';
+    renderPreorder();
+  });
+  document.getElementById('shopAdminPreorderTypes')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-preorder-type]');
+    if (!chip) return;
+    state.preorderType = chip.dataset.preorderType;
+    renderPreorder();
+  });
+  document.getElementById('shopAdminPreorderViewToggle')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-preorder-view]');
+    if (!btn) return;
+    state.preorderView = btn.dataset.preorderView;
+    document.querySelectorAll('#shopAdminPreorderViewToggle [data-preorder-view]')
+      .forEach((b) => b.classList.toggle('active', b.dataset.preorderView === state.preorderView));
+    renderPreorder();
+  });
 
   // Stock tab search + refresh
   const stockSearch = document.getElementById('shopAdminStockSearch');
@@ -232,7 +269,11 @@ async function refreshOrders() {
     ]);
     state.orders = orders;
     if (products && products.length) state.products = products;
+    populateStatusFacet();         // re-render now that we have order counts
     populateOrdersProductSelect();
+    populateOrdersSizeFacet();
+    populateOrdersColorFacet();
+    populateOrdersItemStatusFacet();
     renderStats();
     renderOrdersTable();
   } catch (e) {
@@ -240,22 +281,104 @@ async function refreshOrders() {
   }
 }
 
+// ---- facet count helpers (show "(N)" on every option, incl. 0) -------
+//
+// Counts are FACETED: each facet's option counts reflect the OTHER active
+// facets but ignore the facet being counted itself (standard faceted-nav
+// behaviour). So selecting สินค้า=เสื้อยืด makes the ไซส์ counts show only
+// shirt items — not a global tally. `exclude` names the facet to skip:
+// 'status' | 'product' (covers type too) | 'size' | 'color' | 'progress'.
+
+/** Does this item pass every active facet EXCEPT the named one? The
+ *  order-level สถานะ facet is applied here too (unless excluded). */
+function itemPassesExcept(o, it, exclude) {
+  if (exclude !== 'status' && state.ordersStatuses.size > 0 && !state.ordersStatuses.has(o.status)) return false;
+  if (exclude !== 'product'  && !itemMatchesProductDim(it)) return false;
+  if (exclude !== 'size'     && !itemMatchesSize(it))       return false;
+  if (exclude !== 'color'    && !itemMatchesColor(it))      return false;
+  if (exclude !== 'progress' && !itemMatchesProgress(it))   return false;
+  if (!itemMatchesPreorder(it)) return false;   // preorder always applies
+  return true;
+}
+
+/** Orders bucketed by status — counting only orders that have ≥1 item
+ *  surviving the OTHER active facets (so status counts track the item
+ *  facets the same way the table does). */
+function ordersCountByStatus() {
+  const m = new Map();
+  for (const o of (state.orders || [])) {
+    const items = (o.items || []);
+    const qualifies = items.length
+      ? items.some((it) => itemPassesExcept(o, it, 'status'))
+      : !anyItemFacetActive();
+    if (!qualifies) continue;
+    m.set(o.status, (m.get(o.status) || 0) + 1);
+  }
+  return m;
+}
+
+/** Line items bucketed by keyFn, restricted to items passing the other
+ *  active facets (excluding `exclude`). */
+function itemCountBy(keyFn, exclude) {
+  const m = new Map();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) {
+      if (!itemPassesExcept(o, it, exclude)) continue;
+      const k = keyFn(it);
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+  }
+  return m;
+}
+/** Small count-badge pill (muted; selectable even at 0). */
+function facetCountBadge(n) {
+  return `<span class="badge bg-light text-muted border ms-auto" style="font-weight:500;">${n}</span>`;
+}
+
+/** Re-render every facet menu so their faceted counts reflect the latest
+ *  selection. Called from each facet's change handler. Each populate*
+ *  preserves checked state from the state Sets and re-runs updateFilterChromes. */
+function repopulateOrderFacets() {
+  populateStatusFacet();
+  populateOrdersProductSelect();
+  populateOrdersSizeFacet();
+  populateOrdersColorFacet();
+  populateOrdersItemStatusFacet();
+}
+
 function populateStatusFacet() {
   const menu = document.getElementById('shopAdminOrdersStatusMenu');
   if (!menu) return;
-  menu.innerHTML = Object.entries(STAGES_META).map(([k, m]) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+  const counts = ordersCountByStatus();
+  // Split the order-status options into the happy path (สถานะปกติ) vs the
+  // problem statuses (สถานะปัญหา — m.issue) so the menu maps to how staff
+  // actually think about orders: "is it progressing normally, or does it
+  // need attention?".
+  const entries = Object.entries(STAGES_META);
+  const normal = entries.filter(([, m]) => !m.issue);
+  const issues = entries.filter(([, m]) => m.issue);
+  const row = ([k, m]) => {
+    const n = counts.get(k) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0"
              data-facet="status" value="${escHtml(k)}"
              ${state.ordersStatuses.has(k) ? 'checked' : ''} />
-      <span class="small">${escHtml(m.label)}</span>
-    </label>
-  `).join('');
+      <i class="bi ${escHtml(m.icon || 'bi-dot')} small ${m.issue ? 'text-danger' : 'text-muted'}"></i>
+      <span class="small flex-grow-1">${escHtml(m.label)}</span>
+      ${facetCountBadge(n)}
+    </label>`;
+  };
+  const groupHead = (label) => `
+    <div class="dropdown-header small text-uppercase fw-bold px-2 py-1">${escHtml(label)}</div>`;
+  menu.innerHTML =
+    groupHead('สถานะปกติ') + normal.map(row).join('')
+    + (issues.length ? `<div class="dropdown-divider my-1"></div>` + groupHead('สถานะปัญหา') + issues.map(row).join('') : '');
   menu.querySelectorAll('input[data-facet="status"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersStatuses.add(cb.value);
       else state.ordersStatuses.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -270,19 +393,222 @@ function populateOrdersProductSelect() {
     menu.innerHTML = '<div class="small text-muted px-2">ไม่มีสินค้า</div>';
     return;
   }
-  menu.innerHTML = products.map((p) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
-      <input type="checkbox" class="form-check-input m-0"
-             data-facet="product" value="${escHtml(p.id)}"
-             ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
-      <span class="small">${escHtml(p.name || p.id)}</span>
-    </label>
-  `).join('');
+  // Group products under their type. The type row is a TYPE-level filter
+  // ("เสื้อยืด" → every shirt); the products under it are SUBTYPE filters
+  // (one specific product). Only types that actually have products show.
+  const byType = new Map();
+  for (const p of products) {
+    const t = p.type || 'other';
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push(p);
+  }
+  // Order types per SHOP_TYPES (skip the 'all' sentinel), then any
+  // leftover/unknown types at the end.
+  const typeOrder = SHOP_TYPES.filter((t) => t.id !== 'all').map((t) => t.id);
+  const seen = new Set();
+  const orderedTypes = [
+    ...typeOrder.filter((t) => byType.has(t)),
+    ...[...byType.keys()].filter((t) => !typeOrder.includes(t)),
+  ].filter((t) => (seen.has(t) ? false : (seen.add(t), true)));
+
+  // Counts = line items ordered for each product / type (0 when nothing
+  // ordered yet — the product still lists so admin sees the full catalogue).
+  const byProductCount = itemCountBy((it) => it.product_id, 'product');
+  const byTypeCount = itemCountBy((it) => productTypeOf(it.product_id), 'product');
+
+  menu.innerHTML = orderedTypes.map((t) => {
+    const meta = SHOP_TYPES.find((x) => x.id === t);
+    const label = meta?.label || (t === 'other' ? 'อื่น ๆ' : t);
+    const icon = meta?.icon || 'bi-tag';
+    const group = byType.get(t) || [];
+    const tN = byTypeCount.get(t) || 0;
+    return `
+      <div class="orders-facet-group">
+        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-bold ${tN === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+          <input type="checkbox" class="form-check-input m-0"
+                 data-facet="type" value="${escHtml(t)}"
+                 ${state.ordersTypes.has(t) ? 'checked' : ''} />
+          <i class="bi ${escHtml(icon)} small"></i>
+          <span class="small flex-grow-1">${escHtml(label)}</span>
+          ${facetCountBadge(tN)}
+        </label>
+        ${group.map((p) => {
+          const pN = byProductCount.get(p.id) || 0;
+          return `
+          <label class="dropdown-item d-flex align-items-center gap-2 py-1 ps-4 ${pN === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+            <input type="checkbox" class="form-check-input m-0"
+                   data-facet="product" value="${escHtml(p.id)}"
+                   ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
+            <span class="small text-muted flex-grow-1">${escHtml(p.name || p.id)}</span>
+            ${facetCountBadge(pN)}
+          </label>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+
   menu.querySelectorAll('input[data-facet="product"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersProducts.add(cb.value);
       else state.ordersProducts.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
+      renderOrdersTable();
+    });
+  });
+  menu.querySelectorAll('input[data-facet="type"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersTypes.add(cb.value);
+      else state.ordersTypes.delete(cb.value);
+      repopulateOrderFacets();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+/** Every size defined across the catalogue, unioned with any size that
+ *  actually appears in orders — so unused-but-defined sizes still list
+ *  (at count 0), matching the ความคืบหน้า "show the whole set" behaviour. */
+function collectOrderSizes() {
+  const set = new Set();
+  for (const p of (state.products || [])) {
+    for (const s of (Array.isArray(p.sizes) ? p.sizes : [])) set.add(s);
+  }
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) set.add(it.size || 'F');
+  }
+  return [...set].sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+/** Every colour defined across the catalogue (id → label), unioned with
+ *  any colour present in orders. 'default' only appears when ordered. */
+function collectOrderColors() {
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
+  const map = new Map();   // id -> label
+  for (const p of (state.products || [])) {
+    for (const c of (Array.isArray(p.colors) ? p.colors : [])) {
+      const id = c.id || c.label;
+      if (id && !map.has(id)) map.set(id, c.label || id);
+    }
+  }
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) {
+      const id = it.color || 'default';
+      if (map.has(id)) continue;
+      map.set(id, id === 'default' ? 'มาตรฐาน'
+        : (colorLabelFor(productMap.get(it.product_id), id) || id));
+    }
+  }
+  return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'th'));
+}
+
+function populateOrdersSizeFacet() {
+  const menu = document.getElementById('shopAdminOrdersSizeMenu');
+  if (!menu) return;
+  const sizes = collectOrderSizes();
+  if (sizes.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีไซส์</div>';
+    updateFilterChromes();
+    return;
+  }
+  const counts = itemCountBy((it) => it.size || 'F', 'size');
+  menu.innerHTML = sizes.map((s) => {
+    const n = counts.get(s) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="size" value="${escHtml(s)}"
+             ${state.ordersSizes.has(s) ? 'checked' : ''} />
+      <span class="small flex-grow-1">${escHtml(s === 'F' ? 'Free size' : s)}</span>
+      ${facetCountBadge(n)}
+    </label>`;
+  }).join('');
+  menu.querySelectorAll('input[data-facet="size"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersSizes.add(cb.value);
+      else state.ordersSizes.delete(cb.value);
+      repopulateOrderFacets();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+function populateOrdersColorFacet() {
+  const menu = document.getElementById('shopAdminOrdersColorMenu');
+  if (!menu) return;
+  const colors = collectOrderColors();
+  if (colors.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีสี</div>';
+    updateFilterChromes();
+    return;
+  }
+  const counts = itemCountBy((it) => it.color || 'default', 'color');
+  menu.innerHTML = colors.map(([id, label]) => {
+    const n = counts.get(id) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="color" value="${escHtml(id)}"
+             ${state.ordersColors.has(id) ? 'checked' : ''} />
+      <span class="small flex-grow-1">${escHtml(label)}</span>
+      ${facetCountBadge(n)}
+    </label>`;
+  }).join('');
+  menu.querySelectorAll('input[data-facet="color"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersColors.add(cb.value);
+      else state.ordersColors.delete(cb.value);
+      repopulateOrderFacets();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+/** The full canonical per-item fulfilment status set, in workflow order —
+ *  the happy path (paid→produce→ready→done) plus the item-level issue
+ *  states. Always offered in the facet (even at count 0) so admin can see
+ *  the whole pipeline; any unexpected value actually present is appended. */
+function allItemStatuses() {
+  const order = Object.keys(STAGES_META);
+  const canon = [...ITEM_STAGES_ORDER, 'exchange', 'no_show'];
+  const present = new Set();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) present.add(it.item_status || 'paid');
+  }
+  const all = new Set([...canon, ...present]);
+  return [...all].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+}
+
+/** Count of line items at each raw item_status, faceted by the other
+ *  active filters (excludes the progress facet itself). */
+function itemStatusCounts() {
+  return itemCountBy((it) => it.item_status || 'paid', 'progress');
+}
+
+function populateOrdersItemStatusFacet() {
+  const menu = document.getElementById('shopAdminOrdersItemStatusMenu');
+  if (!menu) return;
+  const statuses = allItemStatuses();
+  const counts = itemStatusCounts();
+  menu.innerHTML = statuses.map((s) => {
+    const n = counts.get(s) || 0;
+    const m = STAGES_META[s];
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="itemstatus" value="${escHtml(s)}"
+             ${state.ordersItemStatuses.has(s) ? 'checked' : ''} />
+      <i class="bi ${escHtml(m?.icon || 'bi-dot')} small ${m?.issue ? 'text-danger' : 'text-muted'}"></i>
+      <span class="small flex-grow-1">${escHtml(m?.label || s)}</span>
+      <span class="badge bg-light text-muted border">${n}</span>
+    </label>`;
+  }).join('');
+  menu.querySelectorAll('input[data-facet="itemstatus"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersItemStatuses.add(cb.value);
+      else state.ordersItemStatuses.delete(cb.value);
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -291,23 +617,28 @@ function populateOrdersProductSelect() {
 
 /** Sync the facet-trigger badges + the "clear all" chip with current state. */
 function updateFilterChromes() {
-  const sBadge = document.getElementById('shopAdminOrdersStatusBadge');
-  const pBadge = document.getElementById('shopAdminOrdersProductBadge');
   const clear  = document.getElementById('shopAdminOrdersClearFilters');
   const sN = state.ordersStatuses.size;
-  const pN = state.ordersProducts.size;
-  if (sBadge) {
-    sBadge.textContent = String(sN);
-    sBadge.classList.toggle('d-none', sN === 0);
-  }
-  if (pBadge) {
-    pBadge.textContent = String(pN);
-    pBadge.classList.toggle('d-none', pN === 0);
-  }
+  const pN = state.ordersProducts.size + state.ordersTypes.size;
+  const zN = state.ordersSizes.size;
+  const cN = state.ordersColors.size;
+  const iN = state.ordersItemStatuses.size;
+  const setBadge = (id, n) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = String(n);
+    el.classList.toggle('d-none', n === 0);
+  };
+  setBadge('shopAdminOrdersStatusBadge', sN);
+  setBadge('shopAdminOrdersProductBadge', pN);
+  setBadge('shopAdminOrdersSizeBadge', zN);
+  setBadge('shopAdminOrdersColorBadge', cN);
+  setBadge('shopAdminOrdersItemStatusBadge', iN);
   if (clear) {
     const preorderActive = (state.ordersPreorder || 'all') !== 'all';
     clear.classList.toggle('d-none',
-      sN === 0 && pN === 0 && !state.ordersSearch && !preorderActive);
+      sN === 0 && pN === 0 && zN === 0 && cN === 0 && iN === 0
+      && !state.ordersSearch && !preorderActive);
   }
 }
 
@@ -365,11 +696,12 @@ function renderOrdersTable() {
   const countEl = document.getElementById('shopAdminOrdersCount');
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
-    if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 คำสั่งซื้อ';
+    if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 ชิ้น · 0 คำสั่งซื้อ';
     return;
   }
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   let lineCount = 0;
+  let qtyTotal = 0;   // sum of quantities (pieces) — reconciles with the preorder demand page
   // One <tr> per line item; the Order / Customer / Slip / chevron cells
   // span the order's rows so the grouping stays readable while each
   // product shows its own qty + progress (same product bought preorder
@@ -377,9 +709,14 @@ function renderOrdersTable() {
   tbody.innerHTML = list.map((o) => {
     const buyerName  = o.buyer_name  || o.buyer_label || '—';
     const buyerEmail = o.buyer_email || '';
-    const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+    // When a product / type / preorder facet is active, show ONLY the
+    // matching line items of each order — not the whole order. Filtering
+    // for "เสื้อยืด" should surface the shirt rows, not every unrelated
+    // item the buyer happened to add to the same คำสั่งซื้อ.
+    const items = visibleOrderItems(o);
     const rows = items.length ? items : [null];
     lineCount += rows.length;
+    qtyTotal += items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
     const span = rows.length;
     const orderCell = `
       <td rowspan="${span}" class="order-group-cell">
@@ -426,7 +763,7 @@ function renderOrdersTable() {
   }).join('');
 
   if (countEl) {
-    countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${list.length} คำสั่งซื้อ`;
+    countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${qtyTotal} ชิ้น · ${list.length} คำสั่งซื้อ`;
   }
 }
 
@@ -500,8 +837,8 @@ function renderOrderCreatePanel() {
             ${products.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`).join('')}
           </select>
         </div>
-        <div style="width:80px;"><label class="form-label small mb-0">ไซส์</label><input class="form-control form-control-sm" data-oc-size value="F" /></div>
-        <div style="width:100px;"><label class="form-label small mb-0">สี</label><input class="form-control form-control-sm" data-oc-color value="default" /></div>
+        <div style="width:96px;"><label class="form-label small mb-0">ไซส์</label><select class="form-select form-select-sm" data-oc-size>${variantSizeOptionsHtml(products[0])}</select></div>
+        <div style="width:120px;"><label class="form-label small mb-0">สี</label><select class="form-select form-select-sm" data-oc-color>${variantColorOptionsHtml(products[0])}</select></div>
         <div style="width:64px;"><label class="form-label small mb-0">จำนวน</label><input type="number" min="1" max="99" value="1" class="form-control form-control-sm" data-oc-qty /></div>
         <div style="width:84px;"><label class="form-label small mb-0">ราคา/ชิ้น</label><input type="number" min="0" class="form-control form-control-sm" data-oc-price placeholder="auto" /></div>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-oc-add><i class="bi bi-plus-lg me-1"></i>เพิ่มสินค้า</button>
@@ -520,6 +857,15 @@ function renderOrderCreatePanel() {
   host.querySelectorAll('[data-oc-remove]').forEach((b) => b.addEventListener('click', () => { d.items.splice(Number(b.dataset.ocRemove), 1); renderOrderCreatePanel(); }));
   host.querySelector('[data-oc-add]')?.addEventListener('click', () => onOrderCreateAddItem(host));
   host.querySelector('[data-oc-save]')?.addEventListener('click', onOrderCreateSave);
+  // Repopulate the size + colour dropdowns from the chosen product's
+  // declared variants whenever the product selection changes.
+  host.querySelector('[data-oc-product]')?.addEventListener('change', (e) => {
+    const p = (state.products || []).find((x) => x.id === e.target.value);
+    const sizeSel = host.querySelector('[data-oc-size]');
+    const colorSel = host.querySelector('[data-oc-color]');
+    if (sizeSel) sizeSel.innerHTML = variantSizeOptionsHtml(p);
+    if (colorSel) colorSel.innerHTML = variantColorOptionsHtml(p);
+  });
 }
 
 function onOrderCreateAddItem(host) {
@@ -564,21 +910,87 @@ async function onOrderCreateSave() {
   }
 }
 
+/** Look up a product's type id (e.g. 'apparel-shirt') for facet matching. */
+function productTypeOf(productId) {
+  return (state.products || []).find((p) => p.id === productId)?.type || '';
+}
+
+/** Does this line item match the active "what product" dimension
+ *  (specific product OR product-type)? Within that dimension the two
+ *  facets are OR-combined; an empty dimension matches everything. */
+function itemMatchesProductDim(it) {
+  const products = state.ordersProducts;
+  const types    = state.ordersTypes;
+  if (products.size === 0 && types.size === 0) return true;
+  return products.has(it.product_id) || types.has(productTypeOf(it.product_id));
+}
+
+/** Does this line item match the active preorder facet? */
+function itemMatchesPreorder(it) {
+  const pf = state.ordersPreorder || 'all';
+  if (pf === 'preorder') return !!it.is_preorder;
+  if (pf === 'in_stock') return !it.is_preorder;
+  return true;
+}
+
+/** Size facet — within-facet OR; empty matches everything. */
+function itemMatchesSize(it) {
+  const sizes = state.ordersSizes;
+  return sizes.size === 0 || sizes.has(it.size || 'F');
+}
+
+/** Colour facet — within-facet OR; empty matches everything. */
+function itemMatchesColor(it) {
+  const colors = state.ordersColors;
+  return colors.size === 0 || colors.has(it.color || 'default');
+}
+
+/** Per-item progress facet — matches the item's RAW fulfilment
+ *  `item_status` (paid/produce/ready/done/exchange/…), NOT the effective
+ *  rowDisplayStatus. The effective status masks item progress behind the
+ *  order's payment phase (an item that's `produce` in a still-`review`
+ *  order would otherwise never surface here), which is exactly the bug
+ *  the user hit. Payment phase lives on the separate สถานะ facet. */
+function itemMatchesProgress(it) {
+  const set = state.ordersItemStatuses;
+  return set.size === 0 || set.has(it.item_status || 'paid');
+}
+
+/** Is any item-level facet (product / type / size / colour / progress /
+ *  preorder) currently active? */
+function anyItemFacetActive() {
+  return state.ordersProducts.size > 0
+    || state.ordersTypes.size > 0
+    || state.ordersSizes.size > 0
+    || state.ordersColors.size > 0
+    || state.ordersItemStatuses.size > 0
+    || (state.ordersPreorder || 'all') !== 'all';
+}
+
+/** The line items of an order that survive the item-level facets
+ *  (product / type / size / colour / progress / preorder). Drives both
+ *  the table (renders only these rows) and the order-level filterOrders
+ *  pass (an order shows iff it has ≥1 surviving item). */
+function visibleOrderItems(o) {
+  const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+  if (!anyItemFacetActive()) return items;
+  return items.filter((it) =>
+    itemMatchesProductDim(it) && itemMatchesSize(it)
+    && itemMatchesColor(it) && itemMatchesPreorder(it)
+    && itemMatchesProgress(it));
+}
+
 /** Apply the current facet filters. Within-facet OR, across-facet AND.
- *  Reused by the CSV export so the export honors the visible filter. */
+ *  Reused by the CSV export so the export honors the visible filter.
+ *  Product / type / preorder are item-level: an order passes when it has
+ *  at least one line item surviving those facets. */
 function filterOrders(source) {
   const statuses = state.ordersStatuses;
-  const products = state.ordersProducts;
   const q = (state.ordersSearch || '').trim();
-  const preorderFilter = state.ordersPreorder || 'all';
+  const itemFacetActive = anyItemFacetActive();
   return (source || []).filter((o) => {
     if (statuses.size > 0 && !statuses.has(o.status)) return false;
-    if (products.size > 0) {
-      const items = Array.isArray(o.items) ? o.items : [];
-      if (!items.some((it) => products.has(it.product_id))) return false;
-    }
-    if (preorderFilter === 'preorder' && !o.is_preorder) return false;
-    if (preorderFilter === 'in_stock' && o.is_preorder)  return false;
+    if (itemFacetActive && visibleOrderItems(o).length === 0) return false;
     if (q) {
       const hay = [
         o.id || '',
@@ -607,40 +1019,82 @@ function csvCell(v) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
+// One ROW PER LINE ITEM (tidy / long format) — every order + item field
+// in its own column so the file is filterable, sortable, and pivotable in
+// Excel / Sheets. Order-level fields are repeated on each of an order's
+// item rows so every row is self-contained; `order_item_index` /
+// `order_item_count` flag multi-item orders, and `line_total` sums across
+// rows to the order subtotal (so SUM(line_total) is correct, while order
+// `subtotal/fee/total` are order-level — dedupe by order_id before summing
+// those).
 function ordersToCsv(orders, productMap) {
   const headers = [
-    'order_id', 'placed_at', 'status',
-    'buyer_name', 'buyer_email', 'buyer_label', 'buyer_id',
-    'items', 'qty_total', 'subtotal', 'fee', 'total',
-    'slip_url', 'slip_uploaded_at',
+    // ---- order identity & lifecycle ----
+    'order_id', 'placed_at', 'updated_at',
+    'order_status', 'order_status_label',
+    'order_is_preorder',
+    // ---- buyer ----
+    'buyer_name', 'buyer_email', 'buyer_phone', 'buyer_label', 'buyer_id',
+    // ---- line item ----
+    'order_item_index', 'order_item_count',
+    'product_id', 'product_name', 'product_type', 'product_source',
+    'size', 'color', 'fit', 'qty', 'unit_price', 'line_total',
+    'item_status', 'item_status_label', 'item_is_preorder',
+    // ---- order money (repeated per row) ----
+    'order_subtotal', 'order_fee', 'order_total',
+    // ---- payment / fulfilment ----
+    'slip_count', 'slip_url', 'slip_uploaded_at',
     'pickup_batch_id', 'pickup_location',
-    'admin_note', 'cancel_reason', 'buyer_note',
-    'updated_at',
+    // ---- notes ----
+    'buyer_note', 'admin_note', 'cancel_reason',
   ];
-  const rows = orders.map((o) => {
-    const items = Array.isArray(o.items) ? o.items : [];
-    const qty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-    // Items column = pipe-separated "<name> × <qty> (size, color) @฿unit".
-    // Keep it human-readable AND parseable by a simple split.
-    const itemsText = items.map((it) => {
-      const p = productMap.get(it.product_id);
-      const name = p?.name || it.product_id || '?';
-      const variant = [
-        it.size && it.size !== 'F' ? `ไซส์ ${it.size}` : '',
-        it.color || '',
-      ].filter(Boolean).join(', ');
-      return `${name} × ${it.qty || 0}${variant ? ` (${variant})` : ''} @฿${Number(it.unit_price) || 0}`;
-    }).join(' | ');
-    return [
-      o.id, o.placed_at, o.status,
-      o.buyer_name || '', o.buyer_email || '', o.buyer_label || '', o.buyer_id || '',
-      itemsText, qty, o.subtotal || 0, o.fee || 0, o.total || 0,
-      o.slip_url || '', o.slip_uploaded_at || '',
-      o.pickup_batch_id || '', o.pickup_location || '',
-      o.admin_note || '', o.cancel_reason || '', o.buyer_note || '',
-      o.updated_at || '',
-    ].map(csvCell).join(',');
-  });
+
+  const typeLabel = (t) => SHOP_TYPES.find((x) => x.id === t)?.label || t || '';
+  const srcLabel  = (s) => findSource(s)?.label || s || '';
+
+  const rows = [];
+  for (const o of orders) {
+    // Honor the active item-level facets so the export matches the table.
+    const items = visibleOrderItems(o);
+    const slipCount = Array.isArray(o.slips) ? o.slips.length : (o.slip_url ? 1 : 0);
+    const orderCells = {
+      head: [o.id, o.placed_at || '', o.updated_at || '',
+             o.status || '', STAGES_META[o.status]?.label || o.status || '',
+             o.is_preorder ? 'yes' : 'no'],
+      buyer: [o.buyer_name || '', o.buyer_email || '', o.buyer_phone || '',
+              o.buyer_label || '', o.buyer_id || ''],
+      money: [o.subtotal || 0, o.fee || 0, o.total || 0],
+      fulfil: [slipCount, o.slip_url || '', o.slip_uploaded_at || '',
+               o.pickup_batch_id || '', o.pickup_location || ''],
+      notes: [o.buyer_note || '', o.admin_note || '', o.cancel_reason || ''],
+    };
+    // Edge case: order with zero (visible) items still gets one row so it
+    // isn't silently dropped from the export.
+    const list = items.length ? items : [null];
+    list.forEach((it, i) => {
+      const p = it ? productMap.get(it.product_id) : null;
+      const qty = it ? (Number(it.qty) || 0) : 0;
+      const unit = it ? (Number(it.unit_price) || 0) : 0;
+      const itemStatus = it ? (it.item_status || 'paid') : '';
+      const itemCells = it
+        ? [i + 1, items.length,
+           it.product_id || '', p?.name || it.product_id || '',
+           typeLabel(p?.type), srcLabel(p?.source),
+           it.size || '', colorLabelFor(p, it.color) || it.color || '', it.fit || '',
+           qty, unit, qty * unit,
+           itemStatus, (itemStatusMeta?.(itemStatus)?.label) || STAGES_META[itemStatus]?.label || itemStatus,
+           it.is_preorder ? 'yes' : 'no']
+        : [1, 0, '', '', '', '', '', '', '', 0, 0, 0, '', '', ''];
+      rows.push([
+        ...orderCells.head,
+        ...orderCells.buyer,
+        ...itemCells,
+        ...orderCells.money,
+        ...orderCells.fulfil,
+        ...orderCells.notes,
+      ].map(csvCell).join(','));
+    });
+  }
   // UTF-8 BOM so Excel renders Thai correctly. CRLF per RFC4180.
   return '﻿' + [headers.join(','), ...rows].join('\r\n');
 }
@@ -662,7 +1116,8 @@ function exportOrdersCsv() {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  showShopToast(`ส่งออก ${list.length} รายการแล้ว`, 'success');
+  const lineItems = list.reduce((s, o) => s + Math.max(1, visibleOrderItems(o).length), 0);
+  showShopToast(`ส่งออก ${list.length} คำสั่งซื้อ · ${lineItems} รายการสินค้าแล้ว`, 'success');
 }
 
 let modalOrder = null;
@@ -726,6 +1181,14 @@ function wireOrderModalBody(body) {
     btn.addEventListener('click', () => onRemoveOrderItem(btn.dataset.itemId));
   });
   body.querySelector('[data-add-item-btn]')?.addEventListener('click', () => onAddOrderItem(body));
+  // Repopulate size + colour dropdowns from the chosen product's variants.
+  body.querySelector('[data-add-product]')?.addEventListener('change', (e) => {
+    const p = (state.products || []).find((x) => x.id === e.target.value);
+    const sizeSel = body.querySelector('[data-add-size]');
+    const colorSel = body.querySelector('[data-add-color]');
+    if (sizeSel) sizeSel.innerHTML = variantSizeOptionsHtml(p);
+    if (colorSel) colorSel.innerHTML = variantColorOptionsHtml(p);
+  });
 }
 
 /** Re-fetch the modal's order, sync into state, and repaint the body so
@@ -968,6 +1431,35 @@ function slipThumbsHtml(o) {
     </div>`;
 }
 
+/** <option> list for a product's sizes, used by the admin order
+ *  create/add-item size dropdowns. Falls back to a single free-size
+ *  'F' option when the product declares no sizes. */
+function variantSizeOptionsHtml(product, selected) {
+  const sizes = (Array.isArray(product?.sizes) && product.sizes.length)
+    ? product.sizes
+    : ['F'];
+  return sizes.map((s) => {
+    const label = s === 'F' ? 'Free size' : s;
+    return `<option value="${escHtml(s)}" ${s === selected ? 'selected' : ''}>${escHtml(label)}</option>`;
+  }).join('');
+}
+
+/** <option> list for a product's colours. Value is the colour id (or
+ *  label when no id), so it round-trips through colorLabelFor(). When
+ *  the product has no colours, a single 'default' option keeps the
+ *  stored value consistent with the buyer-side cart. */
+function variantColorOptionsHtml(product, selected) {
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+  if (colors.length === 0) {
+    return `<option value="default" selected>— ไม่มีตัวเลือกสี —</option>`;
+  }
+  return colors.map((c) => {
+    const val = c.id || c.label || '';
+    const isSel = val === selected || c.label === selected;
+    return `<option value="${escHtml(val)}" ${isSel ? 'selected' : ''}>${escHtml(c.label || val)}</option>`;
+  }).join('');
+}
+
 /** Map a stored colour id back to its product colour label. */
 function colorLabelFor(product, colorId) {
   if (!colorId || colorId === 'default') return '';
@@ -1041,13 +1533,13 @@ function editItemsPanelHtml(o, productMap) {
               ${products.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`).join('')}
             </select>
           </div>
-          <div style="width:90px;">
+          <div style="width:100px;">
             <label class="form-label small mb-0">ไซส์</label>
-            <input class="form-control form-control-sm" data-add-size value="F" />
+            <select class="form-select form-select-sm" data-add-size>${variantSizeOptionsHtml(products[0])}</select>
           </div>
-          <div style="width:110px;">
+          <div style="width:120px;">
             <label class="form-label small mb-0">สี</label>
-            <input class="form-control form-control-sm" data-add-color value="default" />
+            <select class="form-select form-select-sm" data-add-color>${variantColorOptionsHtml(products[0])}</select>
           </div>
           <div style="width:70px;">
             <label class="form-label small mb-0">จำนวน</label>
@@ -1312,7 +1804,13 @@ function preorderAggregate() {
       const p = productMap.get(it.product_id);
       let entry = byProduct.get(it.product_id);
       if (!entry) {
-        entry = { productId: it.product_id, name: p?.name || it.product_id, total: 0, variants: new Map(), orders: new Set() };
+        entry = {
+          productId: it.product_id,
+          name: p?.name || it.product_id,
+          type: p?.type || 'other',
+          source: p?.source || '',
+          total: 0, variants: new Map(), orders: new Set(),
+        };
         byProduct.set(it.product_id, entry);
       }
       const qty = Number(it.qty) || 0;
@@ -1328,14 +1826,75 @@ function preorderAggregate() {
       v.orders.add(o.id);
     }
   }
-  return [...byProduct.values()].sort((a, b) => b.total - a.total);
+  // Organize by product type (catalogue order), then by demand desc, then
+  // name — so the page groups เสื้อยืด / กางเกง / เครื่องเขียน together
+  // instead of an unstructured demand ranking.
+  const typeRank = (t) => {
+    const i = SHOP_TYPES.findIndex((x) => x.id === (t || 'other'));
+    return i < 0 ? 99 : i;
+  };
+  return [...byProduct.values()].sort((a, b) =>
+    typeRank(a.type) - typeRank(b.type)
+    || (b.total - a.total)
+    || (a.name || '').localeCompare(b.name || '', 'th'));
+}
+
+/** Apply the search + type filter to the aggregate. */
+function filterPreorderAgg(agg) {
+  const q = (state.preorderSearch || '').trim().toLowerCase();
+  const type = state.preorderType || 'all';
+  return agg.filter((e) => {
+    if (type !== 'all' && e.type !== type) return false;
+    if (!q) return true;
+    if ((e.name || '').toLowerCase().includes(q)) return true;
+    return [...e.variants.values()].some((v) => (v.label || '').toLowerCase().includes(q));
+  });
+}
+
+/** Top summary cards: total pieces, products, orders, variants. */
+function renderPreorderStats(agg) {
+  const host = document.getElementById('shopAdminPreorderStats');
+  if (!host) return;
+  const pieces = agg.reduce((s, e) => s + e.total, 0);
+  const orderIds = new Set();
+  let variantCount = 0;
+  agg.forEach((e) => { e.orders.forEach((o) => orderIds.add(o)); variantCount += e.variants.size; });
+  const card = (label, value, suffix, cls = '') => `
+    <div class="stat-card ${cls}">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value}${suffix ? `<span class="stat-suffix">${suffix}</span>` : ''}</div>
+    </div>`;
+  host.innerHTML = [
+    card('พรีออเดอร์รวม', pieces, 'ชิ้น', 'is-warning'),
+    card('สินค้า', agg.length, 'รายการ'),
+    card('คำสั่งซื้อ', orderIds.size, 'ออเดอร์'),
+    card('ไซส์/สี', variantCount, 'แบบ'),
+  ].join('');
+}
+
+/** Type filter chips — only types that actually have preorder demand. */
+function renderPreorderTypeChips(fullAgg) {
+  const host = document.getElementById('shopAdminPreorderTypes');
+  if (!host) return;
+  const present = new Set(fullAgg.map((e) => e.type));
+  const chips = [{ id: 'all', label: 'ทุกประเภท', icon: 'bi-grid' }]
+    .concat(SHOP_TYPES.filter((t) => t.id !== 'all' && present.has(t.id)));
+  if (present.has('other')) chips.push({ id: 'other', label: 'อื่น ๆ', icon: 'bi-tag' });
+  host.innerHTML = chips.map((t) => `
+    <button type="button" class="chip chip-sm ${state.preorderType === t.id ? 'is-active' : ''}"
+            data-preorder-type="${escHtml(t.id)}">
+      <i class="bi ${escHtml(t.icon || 'bi-tag')} me-1"></i>${escHtml(t.label)}
+    </button>`).join('');
 }
 
 function renderPreorder() {
   const host = document.getElementById('shopAdminPreorderHost');
   if (!host) return;
-  const agg = preorderAggregate();
-  if (!agg.length) {
+  const fullAgg = preorderAggregate();
+  renderPreorderStats(fullAgg);
+  renderPreorderTypeChips(fullAgg);
+
+  if (!fullAgg.length) {
     host.innerHTML = `
       <div class="empty-state">
         <i class="bi bi-hourglass"></i>
@@ -1344,7 +1903,21 @@ function renderPreorder() {
       </div>`;
     return;
   }
-  host.innerHTML = agg.map(preorderCardHtml).join('');
+  const agg = filterPreorderAgg(fullAgg);
+  if (!agg.length) {
+    host.innerHTML = `
+      <div class="empty-state">
+        <i class="bi bi-search"></i>
+        <h4>ไม่พบพรีออเดอร์ที่ตรงกับตัวกรอง</h4>
+        <p>ลองล้างคำค้นหรือเลือกประเภทอื่น</p>
+      </div>`;
+    return;
+  }
+
+  host.innerHTML = state.preorderView === 'cards'
+    ? agg.map(preorderCardHtml).join('')
+    : preorderTableHtml(agg);
+
   host.querySelectorAll('[data-preorder-toggle]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.preorderToggle;
@@ -1356,6 +1929,78 @@ function renderPreorder() {
   host.querySelectorAll('[data-preorder-order]').forEach((a) => {
     a.addEventListener('click', (e) => { e.preventDefault(); openOrderModal(a.dataset.preorderOrder); });
   });
+}
+
+/** Flat table view: one row per product-variant, grouped under a product
+ *  header row, with a grand-total footer. Scannable for production planning. */
+function preorderTableHtml(agg) {
+  const typeLabel = (t) => SHOP_TYPES.find((x) => x.id === t)?.label || (t === 'other' ? 'อื่น ๆ' : t);
+  const typeIcon = (t) => SHOP_TYPES.find((x) => x.id === t)?.icon || 'bi-tag';
+  const grand = agg.reduce((s, e) => s + e.total, 0);
+  // Per-type subtotal for the section header (pieces).
+  const typeTotals = new Map();
+  for (const e of agg) typeTotals.set(e.type, (typeTotals.get(e.type) || 0) + e.total);
+  let lastType = null;
+  const body = agg.map((e) => {
+    const variants = [...e.variants.values()].sort((a, b) => b.qty - a.qty);
+    // Emit a section header row when the product type changes.
+    const section = e.type !== lastType ? (() => {
+      lastType = e.type;
+      return `
+      <tr class="preorder-row-section">
+        <td colspan="2"><i class="bi ${escHtml(typeIcon(e.type))} me-1"></i><span style="font-weight:700;">${escHtml(typeLabel(e.type))}</span></td>
+        <td class="text-end" style="font-weight:700;">${typeTotals.get(e.type) || 0}</td>
+        <td></td>
+      </tr>`;
+    })() : '';
+    const head = `
+      <tr class="preorder-row-product">
+        <td colspan="2" class="ps-3">
+          <span style="font-weight:700;">${escHtml(e.name)}</span>
+        </td>
+        <td class="text-end" style="font-weight:800; color:var(--shop-700);">${e.total}</td>
+        <td class="text-end">${e.orders.size}</td>
+      </tr>`;
+    const rows = variants.map((v) => `
+      <tr class="preorder-row-variant">
+        <td></td>
+        <td class="text-muted small">${escHtml(v.label)}</td>
+        <td class="text-end">${v.qty}</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-link btn-sm p-0" data-preorder-toggle="${escHtml(e.productId)}">${v.orders.size}</button>
+        </td>
+      </tr>`).join('');
+    const expanded = state.preorderExpanded.has(e.productId);
+    const orderRow = expanded ? `
+      <tr class="preorder-row-orders"><td></td><td colspan="3">
+        <div class="d-flex flex-wrap gap-2 py-1">
+          ${[...e.orders].map((oid) => `
+            <a href="#" class="badge bg-light text-dark border" data-preorder-order="${escHtml(oid)}"
+               style="cursor:pointer; font-weight:600;">${escHtml(oid)}</a>`).join('')}
+        </div></td></tr>` : '';
+    return section + head + rows + orderRow;
+  }).join('');
+  return `
+    <div class="table-responsive">
+      <table class="table table-sm align-middle preorder-table mb-0">
+        <thead>
+          <tr>
+            <th style="width:1%;"></th>
+            <th>สินค้า / ไซส์-สี</th>
+            <th class="text-end">จำนวน</th>
+            <th class="text-end">คำสั่งซื้อ</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--shop-ink-200,#dee2e6);">
+            <td colspan="2" style="font-weight:700;">รวมทั้งหมด</td>
+            <td class="text-end" style="font-weight:800; color:var(--shop-700);">${grand}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
 }
 
 function preorderCardHtml(entry) {
@@ -2132,6 +2777,9 @@ function computeProductSales(productId) {
     if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
       if (it.product_id !== productId) continue;
+      // Preorder is made-to-order — it doesn't reserve finite stock
+      // (matches migration 0038's reserved-matrix predicate).
+      if (it.is_preorder) continue;
       const q = Number(it.qty) || 0;
       reserved += q;
       if (o.status === 'done') delivered += q;
@@ -2150,6 +2798,8 @@ function computeVariantReservedMap() {
   for (const o of orders) {
     if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
+      // Preorder doesn't reserve finite stock (see migration 0038).
+      if (it.is_preorder) continue;
       const size  = it.size  || 'F';
       const color = it.color || 'default';
       const key = `${it.product_id}|${size}|${color}`;
@@ -2535,9 +3185,17 @@ async function refreshBanners() {
 function renderBannerList() {
   const list = document.getElementById('shopAdminBannersList');
   if (!list) return;
-  const items = state.banners || [];
+  const placement = state.bannerPlacement || 'launch';
+  // Reflect the active placement on the toggle.
+  document.querySelectorAll('#shopAdminBannerPlacement [data-banner-placement]')
+    .forEach((b) => b.classList.toggle('active', b.dataset.bannerPlacement === placement));
+  const items = (state.banners || []).filter((b) => (b.placement || 'launch') === placement);
   if (items.length === 0) {
-    list.innerHTML = '<li class="list-group-item text-muted small">ยังไม่มีแบนเนอร์ — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น</li>';
+    const hint = placement === 'announcement'
+      ? 'ยังไม่มีแบนเนอร์ประกาศ — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น'
+      : 'ยังไม่มีแบนเนอร์เปิดตัว — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น';
+    list.innerHTML = `<li class="list-group-item text-muted small">${hint}</li>`;
+    if (_bannerSortable) { try { _bannerSortable.destroy(); } catch { /* noop */ } _bannerSortable = null; }
     return;
   }
   list.innerHTML = items.map((b) => `
@@ -2594,6 +3252,16 @@ function wireBanners() {
     document.getElementById('shopAdminBannerFile')?.click();
   });
   document.getElementById('shopAdminBannerFile')?.addEventListener('change', onBannerFilePicked);
+  // Placement toggle: switch which banner set (launch / announcement)
+  // is being managed. Re-renders from the already-loaded state.banners.
+  document.getElementById('shopAdminBannerPlacement')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-banner-placement]');
+    if (!btn) return;
+    const next = btn.dataset.bannerPlacement;
+    if (next === state.bannerPlacement) return;
+    state.bannerPlacement = next;
+    renderBannerList();
+  });
   const list = document.getElementById('shopAdminBannersList');
   if (!list) return;
   list.addEventListener('click', (e) => {
@@ -2627,11 +3295,16 @@ async function onBannerFilePicked(e) {
     const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
     const fileName = `banner_${Date.now()}.${ext}`;
     const imageUrl = await uploadShopFile(file, 'SAMO_Shop/Banners', { fileName });
-    const maxOrder = (state.banners || []).reduce((m, b) => Math.max(m, b.display_order || 0), -1);
+    const placement = state.bannerPlacement || 'launch';
+    // display_order is per-placement — only count banners in this set.
+    const maxOrder = (state.banners || [])
+      .filter((b) => (b.placement || 'launch') === placement)
+      .reduce((m, b) => Math.max(m, b.display_order || 0), -1);
     await createShopBanner({
       image_url: imageUrl,
       display_order: maxOrder + 1,
       is_active: true,
+      placement,
     });
     await refreshBanners();
     showShopToast('เพิ่มแบนเนอร์แล้ว', 'success');

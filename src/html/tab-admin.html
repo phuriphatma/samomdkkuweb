@@ -167,6 +167,36 @@
                   <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 260px;"
                        id="shopAdminOrdersProductMenu"></div>
                 </div>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersSizeBtn">
+                    <i class="bi bi-rulers me-1"></i> ไซส์
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersSizeBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 180px;"
+                       id="shopAdminOrdersSizeMenu"></div>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersColorBtn">
+                    <i class="bi bi-palette me-1"></i> สี
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersColorBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 200px;"
+                       id="shopAdminOrdersColorMenu"></div>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersItemStatusBtn">
+                    <i class="bi bi-bar-chart-steps me-1"></i> ความคืบหน้า
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersItemStatusBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 320px; overflow:auto; min-width: 220px;"
+                       id="shopAdminOrdersItemStatusMenu"></div>
+                </div>
                 <div class="btn-group btn-group-sm" role="group" id="shopAdminOrdersPreorderGroup"
                      aria-label="กรอง preorder / พร้อมส่ง">
                   <button type="button" class="btn btn-outline-secondary is-active"
@@ -234,6 +264,29 @@
                   <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
                 </button>
               </div>
+
+              <!-- Summary stat cards (populated by renderPreorderStats). -->
+              <div class="admin-stats mb-3" id="shopAdminPreorderStats"></div>
+
+              <!-- Toolbar: search + type chips + card/table view toggle.
+                   Static so it keeps focus across content re-renders. -->
+              <div class="preorder-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
+                <div class="input-group input-group-sm" style="max-width:260px;">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input type="search" class="form-control" id="shopAdminPreorderSearch"
+                         placeholder="ค้นหาสินค้า / ไซส์ / สี" />
+                </div>
+                <div class="preorder-type-chips d-flex flex-wrap gap-1" id="shopAdminPreorderTypes"></div>
+                <div class="btn-group btn-group-sm ms-auto" role="group" id="shopAdminPreorderViewToggle">
+                  <button type="button" class="btn btn-outline-secondary active" data-preorder-view="table">
+                    <i class="bi bi-table me-1"></i> ตาราง
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" data-preorder-view="cards">
+                    <i class="bi bi-grid-1x2 me-1"></i> การ์ด
+                  </button>
+                </div>
+              </div>
+
               <div id="shopAdminPreorderHost"></div>
             </div>
 
@@ -266,6 +319,14 @@
                     <i class="bi bi-plus-lg me-1"></i> เพิ่มแบนเนอร์
                   </button>
                 </div>
+              </div>
+              <div class="btn-group btn-group-sm mb-3" role="group" id="shopAdminBannerPlacement">
+                <button type="button" class="btn btn-outline-secondary active" data-banner-placement="launch">
+                  <i class="bi bi-stars me-1"></i> เปิดตัวล่าสุด
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-banner-placement="announcement">
+                  <i class="bi bi-megaphone me-1"></i> ประกาศ
+                </button>
               </div>
               <ul class="list-group" id="shopAdminBannersList">
                 <li class="list-group-item text-muted small">กำลังโหลด…</li>

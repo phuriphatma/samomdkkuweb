@@ -743,14 +743,17 @@ export async function closeBatch(id) {
 /** Public-readable list of banners. activeOnly defaults to true — the
  *  customer-facing carousel hides retired banners; the admin tab passes
  *  false to manage everything. */
-export async function listShopBanners({ activeOnly = true } = {}) {
+export async function listShopBanners({ activeOnly = true, placement = null } = {}) {
   const params = ['select=*', 'order=display_order.asc,created_at.desc'];
   if (activeOnly) params.push('is_active=eq.true');
+  // placement filter (migration 0037). Omitted = all placements, so the
+  // customer fetch can partition client-side in one round-trip.
+  if (placement) params.push(`placement=eq.${encodeURIComponent(placement)}`);
   const { data, error } = await dbRest(`/shop_banners?${params.join('&')}`);
   if (error) {
-    // Pre-0019: table doesn't exist. Treat as "no banners" so the
-    // carousel just falls back to its product fallback.
-    if (error.status === 404 || /shop_banners/i.test(error.message || '')) {
+    // Pre-0019/0037: table or placement column missing. Treat as "no
+    // banners" so the carousel just falls back to its product fallback.
+    if (error.status === 404 || error.status === 400 || /shop_banners|placement/i.test(error.message || '')) {
       if (!window.__samoWarnedBanners) {
         window.__samoWarnedBanners = true;
         console.warn('[shop] shop_banners missing — apply migration 0019_shop_banners.sql.');

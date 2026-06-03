@@ -265,6 +265,9 @@
 .shop-tab .launch-arrow:active { transform: translateY(1px); }
 .shop-tab .launch-arrow:disabled { opacity: .45; cursor: not-allowed; }
 
+/* Required-field marker — red asterisk on mandatory checkout fields. */
+.shop-tab .req-star { color: var(--bs-danger, #dc3545); font-weight: 700; }
+
 /* Hero banner — one slide per view, image fills the box, info+price
    live as an overlay at the bottom (Shopee / Lazada pattern). */
 .shop-tab .launch-carousel {
@@ -280,7 +283,12 @@
 .shop-tab .launch-carousel::-webkit-scrollbar { display: none; }
 .shop-tab .launch-big {
   flex: 0 0 100%;
-  scroll-snap-align: center;
+  min-width: 100%;
+  /* start (not center): the JS arrows/dots scroll to i * clientWidth, and a
+     full-width first slide centered would bleed the next slide in at the
+     right edge on mobile. start keeps each slide flush to the viewport. */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   position: relative;
   cursor: pointer;
   overflow: hidden;
@@ -1251,6 +1259,26 @@
 .shop-tab .stat-card .stat-delta { font-size: .75rem; color: var(--brand-accent); }
 .shop-tab .stat-card.is-warning { border-left: 4px solid var(--status-pending); }
 .shop-tab .stat-card.is-ready { border-left: 4px solid var(--status-ready); }
+
+/* Preorder demand tab — toolbar + flat table view. */
+.shop-tab .preorder-table { background: #fff; border-radius: var(--shop-radius); overflow: hidden; }
+.shop-tab .preorder-table thead th {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--shop-ink-500); background: var(--shop-ink-50);
+}
+.shop-tab .preorder-row-section td {
+  background: var(--shop-100, #e8f1ec);
+  color: var(--shop-800, #14532d);
+  border-top: 2px solid var(--shop-200, #c9e0d4);
+  font-size: .82rem;
+}
+.shop-tab .preorder-row-product td {
+  border-top: 1px solid var(--shop-ink-100, #ebecee);
+  background: var(--shop-ink-50, #f7f8f9);
+}
+.shop-tab .preorder-row-variant td { padding-top: .3rem; padding-bottom: .3rem; }
+.shop-tab .preorder-row-orders td { background: #fff; }
+.shop-tab .preorder-type-chips { row-gap: .35rem; }
 
 .shop-tab .admin-table {
   background: #fff;

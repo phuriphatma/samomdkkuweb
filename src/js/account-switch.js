@@ -312,7 +312,14 @@ async function pickAccount(key, originRow) {
   if (switcher && window.bootstrap) {
     window.bootstrap.Modal.getOrCreateInstance(switcher).hide();
   }
-  try { await signOut(); } catch {}
+  // 'local' scope (same as openAddAccountFlow): clear THIS device's
+  // session but keep the OUTGOING account's refresh_token valid on the
+  // server. We snapshotted its tokens above — a default (global) signOut
+  // would revoke them, so a later "switch back" to the account we're
+  // leaving now would be forced through the password form instead of a
+  // one-tap fast switch. Switching accounts must not log you out
+  // everywhere on the account you're stepping away from.
+  try { await signOut({ scope: 'local' }); } catch {}
   releaseBusy();
 
   if (acct.method === 'google') {

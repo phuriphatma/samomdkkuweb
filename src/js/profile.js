@@ -19,7 +19,7 @@
 
 import {
   getUser, onAuthChange,
-  updateDisplayName, updateEmail, unlinkEmail,
+  updateDisplayName, updatePhone, updateEmail, unlinkEmail,
   linkGoogleIdentity, unlinkGoogleIdentity,
   setUsernameAndPassword, changePassword,
 } from './auth.js';
@@ -43,6 +43,15 @@ export function initProfileModal() {
     const input = document.getElementById('profileName');
     if (!u || !btn || !input) return;
     btn.disabled = !input.value.trim() || input.value.trim() === (u.name || '');
+  });
+
+  // -------- Phone --------
+  document.getElementById('profilePhoneSaveBtn')?.addEventListener('click', onSavePhone);
+  document.getElementById('profilePhone')?.addEventListener('input', () => {
+    const u = getUser(); const btn = document.getElementById('profilePhoneSaveBtn');
+    const input = document.getElementById('profilePhone');
+    if (!u || !btn || !input) return;
+    btn.disabled = input.value.trim() === (u.phone || '');
   });
 
   // -------- Email --------
@@ -91,6 +100,14 @@ function repaint() {
   if (nameInput) {
     nameInput.value = u.name || '';
     const btn = document.getElementById('profileNameSaveBtn');
+    if (btn) btn.disabled = true;
+  }
+
+  // -------- Phone --------
+  const phoneInput = document.getElementById('profilePhone');
+  if (phoneInput) {
+    phoneInput.value = u.phone || '';
+    const btn = document.getElementById('profilePhoneSaveBtn');
     if (btn) btn.disabled = true;
   }
 
@@ -218,7 +235,7 @@ function repaint() {
   }
 
   // Clear stale alerts on every repaint.
-  ['profileNameAlert', 'profileEmailAlert', 'profilePwAlert', 'profileGoogleAlert']
+  ['profileNameAlert', 'profilePhoneAlert', 'profileEmailAlert', 'profilePwAlert', 'profileGoogleAlert']
     .forEach((id) => {
       const el = document.getElementById(id);
       if (el) { el.className = 'alert small py-2 mt-2 d-none'; el.textContent = ''; }
@@ -255,6 +272,17 @@ async function onSaveName() {
     showAlert('profileNameAlert', 'บันทึกชื่อแล้ว', 'success');
   } catch (e) {
     showAlert('profileNameAlert', e.message || 'อัปเดตชื่อไม่สำเร็จ');
+  } finally { stop(); }
+}
+
+async function onSavePhone() {
+  const input = document.getElementById('profilePhone');
+  const stop = spin(document.getElementById('profilePhoneSaveBtn'));
+  try {
+    await updatePhone(input?.value || '');
+    showAlert('profilePhoneAlert', 'บันทึกเบอร์โทรศัพท์แล้ว', 'success');
+  } catch (e) {
+    showAlert('profilePhoneAlert', e.message || 'บันทึกเบอร์โทรศัพท์ไม่สำเร็จ');
   } finally { stop(); }
 }
 

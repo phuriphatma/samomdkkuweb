@@ -101,17 +101,17 @@ function renderHtml() {
         <h4><span class="step-num">1</span> ข้อมูลผู้สั่ง</h4>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label small fw-bold mb-1" for="shopBuyerName">ชื่อ – นามสกุล</label>
+            <label class="form-label small fw-bold mb-1" for="shopBuyerName">ชื่อ – นามสกุล <span class="req-star" aria-hidden="true">*</span></label>
             <input type="text" class="form-control" id="shopBuyerName"
                    value="${escHtml(state.buyerName)}" autocomplete="name" required maxlength="80" />
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-bold mb-1" for="shopBuyerEmail">อีเมล</label>
+            <label class="form-label small fw-bold mb-1" for="shopBuyerEmail">อีเมล <span class="req-star" aria-hidden="true">*</span></label>
             <input type="email" class="form-control" id="shopBuyerEmail"
                    value="${escHtml(state.buyerEmail)}" autocomplete="email" required />
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-bold mb-1" for="shopBuyerPhone">เบอร์โทรศัพท์</label>
+            <label class="form-label small fw-bold mb-1" for="shopBuyerPhone">เบอร์โทรศัพท์ <span class="req-star" aria-hidden="true">*</span></label>
             <input type="tel" class="form-control" id="shopBuyerPhone"
                    value="${escHtml(state.buyerPhone)}" autocomplete="tel" inputmode="tel"
                    placeholder="08x-xxx-xxxx" required maxlength="20" />
@@ -149,7 +149,7 @@ function renderHtml() {
       </div>
 
       <div class="checkout-panel">
-        <h4><span class="step-num">3</span> อัปโหลดสลิปการโอน${devSkip ? ' <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : ''}</h4>
+        <h4><span class="step-num">3</span> อัปโหลดสลิปการโอน ${devSkip ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : '<span class="req-star" aria-hidden="true">*</span>'}</h4>
         <div id="shopSlipDrop" class="slip-drop ${state.slipFile ? 'is-filled' : ''}">
           ${state.slipFile ? `
             <i class="bi bi-check2-circle"></i>
@@ -168,7 +168,7 @@ function renderHtml() {
         <div class="form-check mt-3">
           <input id="shopCheckoutAgree" class="form-check-input" type="checkbox" ${state.agree ? 'checked' : ''} />
           <label class="form-check-label small" for="shopCheckoutAgree">
-            ข้าพเจ้าได้ตรวจสอบรายการและจำนวนเงินก่อนโอนแล้ว ยอมรับนโยบายการคืน/ยกเลิกของ SAMO Shop
+            ข้าพเจ้าได้ตรวจสอบรายการและจำนวนเงินก่อนโอนแล้ว ยอมรับนโยบายการคืน/ยกเลิกของ SAMO Shop <span class="req-star" aria-hidden="true">*</span>
           </label>
         </div>
       </div>
