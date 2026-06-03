@@ -55,8 +55,8 @@ const DEPT_DEFS = {
     icon: 'bi-book',
     colorVar: '--dept-academic',
     tools: [
-      // TODO(samomdkku): swap href to the real Notion URL when ready.
-      { kind: 'external', href: '#', icon: 'bi-journals',
+      { kind: 'external', href: 'https://mdkkusamo-acaddatabase.notion.site/MDKKU-SAMO-Academic-Database-222c27821bb280e28e4dfed25056ec14',
+        icon: 'bi-journals',
         name: 'SAMO Resource Database (Notion)',
         desc: 'ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ',
         color: 'var(--dept-academic)' },
@@ -84,8 +84,7 @@ const DEPT_DEFS = {
     icon: 'bi-camera',
     colorVar: '--dept-media',
     tools: [
-      // TODO(samomdkku): swap href to the real MDI website URL when ready.
-      { kind: 'external', href: '#', icon: 'bi-globe2',
+      { kind: 'external', href: 'https://ge161892.my.canva.site/mdikku', icon: 'bi-globe2',
         name: 'MDI Website', desc: 'เว็บไซต์ของฝ่ายเวชนิทัศน์',
         color: 'var(--dept-media)' },
     ],
@@ -96,8 +95,7 @@ const DEPT_DEFS = {
     icon: 'bi-stars',
     colorVar: '--dept-projects',
     tools: [
-      // TODO(samomdkku): swap href to the real RT website URL when ready.
-      { kind: 'external', href: '#', icon: 'bi-globe2',
+      { kind: 'external', href: 'https://rtkkustudent.com/lander', icon: 'bi-globe2',
         name: 'RT Website', desc: 'เว็บไซต์ของฝ่ายรังสีเทคนิค',
         color: 'var(--dept-projects)' },
     ],
