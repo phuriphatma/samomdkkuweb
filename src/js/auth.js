@@ -115,8 +115,17 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /phone/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthPhone) {
+        window.__samoWarnedAuthPhone = true;
+        console.warn('[auth] phone column missing — apply migration 0036 to enable the contact-phone field + samoshop autofill.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /has_password/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthHasPassword) {
         window.__samoWarnedAuthHasPassword = true;
@@ -172,6 +181,9 @@ async function buildCurrentUser(session) {
     sub: authUser.user_metadata?.sub || authUser.id,
     role: profile?.role || 'user',
     department: profile?.department || '',
+    // Contact phone (migration 0036). Used to autofill the samoshop
+    // checkout buyer-phone field. Empty string when unset / pre-migration.
+    phone: profile?.phone || '',
     permissions: Array.isArray(profile?.permissions) ? profile.permissions : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
@@ -515,6 +527,42 @@ export async function updateDisplayName(rawName) {
   try { await db.auth.updateUser({ data: { display_name: name } }); } catch {}
 
   currentUser = { ...currentUser, name };
+  notify();
+  return currentUser;
+}
+
+/** Update the contact phone (migration 0036). Self-writable; not a
+ *  privileged column so the 0028 guard lets it through. Stored digits-
+ *  and-formatting as typed; validated to 9–10 digits (Thai mobile /
+ *  landline) once non-digits are stripped. Pass an empty string to clear.
+ *  Autofills the samoshop checkout buyer-phone on the next render. */
+export async function updatePhone(rawPhone) {
+  if (!currentUser) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const phone = (rawPhone || '').trim();
+  if (phone) {
+    if (phone.length > 20) throw new Error('เบอร์โทรศัพท์ยาวเกินไป');
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 9 || digits.length > 10) {
+      throw new Error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง');
+    }
+  }
+
+  const idEsc = encodeURIComponent(currentUser.id);
+  const { data, error } = await dbRest(
+    `/users?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { phone: phone || null }, prefer: 'return=representation' },
+  );
+  if (error) {
+    if (error.status === 400 && /phone/i.test(error.message || '')) {
+      throw new Error('ยังไม่ได้เปิดใช้ฟีเจอร์นี้ (รอ migration 0036)');
+    }
+    throw new Error(error.message || 'บันทึกเบอร์โทรศัพท์ไม่สำเร็จ');
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกเบอร์โทรศัพท์ไม่สำเร็จ (RLS)');
+  }
+
+  currentUser = { ...currentUser, phone };
   notify();
   return currentUser;
 }

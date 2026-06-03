@@ -59,6 +59,20 @@
             <div id="profileEmailAlert" class="alert small py-2 mt-2 d-none"></div>
           </section>
 
+          <!-- ============== Phone (contact + samoshop autofill) ============== -->
+          <section class="mb-4">
+            <label class="form-label small fw-bold mb-1" for="profilePhone">เบอร์โทรศัพท์</label>
+            <div class="input-group">
+              <input type="tel" class="form-control" id="profilePhone" maxlength="20"
+                     inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx" />
+              <button type="button" class="btn btn-custom" id="profilePhoneSaveBtn" disabled>
+                บันทึก
+              </button>
+            </div>
+            <div class="form-text small">ใช้ติดต่อกลับ และจะเติมให้อัตโนมัติเมื่อสั่งซื้อใน SAMO Shop</div>
+            <div id="profilePhoneAlert" class="alert small py-2 mt-2 d-none"></div>
+          </section>
+
           <!-- ============== Password ==============
                Two modes:
                  - hasPassword=true  → "ตั้งรหัสผ่านแล้ว" + change form
