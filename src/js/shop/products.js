@@ -14,10 +14,10 @@ import {
   effectivePrice, isUnlimitedBuying,
   availableForVariant, availableTotal,
 } from './data.js';
-import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll } from './api.js';
+import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
 import { addItem } from './state.js';
 
-let cache = { products: [], batches: [], loaded: false };
+let cache = { products: [], batches: [], contact: { instagram: '', gmail: '' }, loaded: false };
 
 const filters = { source: 'all', type: 'all', sort: 'newest', search: '' };
 
@@ -117,11 +117,12 @@ export function mountShopBrowse() {
 // ---------------------------------------------------------------------
 export async function reloadShop() {
   try {
-    const [products, batches, banners, reservedAll] = await Promise.all([
+    const [products, batches, banners, reservedAll, settings] = await Promise.all([
       listProducts({ activeOnly: true }),
       listActiveBatches().catch(() => []),
       listShopBanners().catch(() => []),
       fetchReservedMatrixAll().catch(() => ({})),
+      getSettings().catch(() => null),
     ]);
     // Splice the reserved-qty matrix onto each product so downstream
     // renderers can compute available = max(0, stock - reserved)
@@ -133,7 +134,12 @@ export async function reloadShop() {
     }));
     cache.batches = batches || [];
     cache.banners = banners || [];
+    cache.contact = {
+      instagram: settings?.contact_instagram || '',
+      gmail: settings?.contact_gmail || '',
+    };
     cache.loaded = true;
+    renderContactBanner();
     renderBanner();
     renderLaunches();
     renderGrid();
@@ -145,6 +151,24 @@ export async function reloadShop() {
       grid.innerHTML = `<div class="text-danger small p-3">โหลดสินค้าล้มเหลว: ${escHtml(e.message || e)}</div>`;
     }
   }
+}
+
+// ---------------------------------------------------------------------
+// Render: "if there's a problem, contact us" banner (top of shop view)
+// ---------------------------------------------------------------------
+function renderContactBanner() {
+  const host = document.getElementById('shopContactBanner');
+  if (!host) return;
+  const ig = (cache.contact.instagram || '').replace(/^@/, '');
+  if (!ig) { host.innerHTML = ''; return; }
+  host.innerHTML = `
+    <div class="shop-contact-strip">
+      <i class="bi bi-info-circle"></i>
+      <span>หากมีปัญหาในการสั่งซื้อ ติดต่อได้ที่</span>
+      <a href="${safeUrl('https://instagram.com/' + ig)}" target="_blank" rel="noreferrer">
+        <i class="bi bi-instagram"></i> IG: @${escHtml(ig)}
+      </a>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------
@@ -363,16 +387,15 @@ function productCardHtml(p) {
   const sizes = Array.isArray(p.sizes) ? p.sizes : [];
   const colors = Array.isArray(p.colors) ? p.colors : [];
   const oos = p.stock_status === 'sold_out' || p.stock_status === 'production_closed';
-  // Stock-left summary for the card. availableTotal subtracts active
-  // reservations from admin's loaded stock, so "เหลือ 1 ชิ้น" reflects
-  // what the buyer can actually buy right now — not the 9 admin loaded
-  // when 8 are sitting in pending orders. Preorder products skip this
-  // entirely; products without a configured matrix show no hint.
+  // Per-product quantity ("เหลือ N ชิ้น") is deliberately NOT shown on the
+  // main grid — the count belongs on the product detail, per subtype.
+  // We keep only a non-numeric "หมดแล้ว" badge when nothing is buyable so
+  // shoppers aren't sent into a dead-end product. The numeric per-variant
+  // count still renders inside the product modal (renderVariantStockBadge).
   const total = (oos || isUnlimitedBuying(p)) ? null : availableTotal(p);
-  const stockHint = total === null ? ''
-    : total === 0 ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
-    : total <= 5 ? `<span class="product-stock-hint is-low">เหลือ ${total} ชิ้น</span>`
-    : `<span class="product-stock-hint">เหลือ ${total} ชิ้น</span>`;
+  const stockHint = total === 0
+    ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
+    : '';
   return `
     <div class="product-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="product-thumb">

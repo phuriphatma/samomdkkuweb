@@ -99,9 +99,47 @@ export async function placeShopOrder(payload) {
   // get the same shape as createOrder.
   const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
   if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
+  const enriched = await enrichNewOrder(orderId, payload);
+  if (enriched) return enriched;
   const idEsc = encodeURIComponent(orderId);
   const { data: rows } = await dbRest(`/shop_orders?id=eq.${idEsc}&select=*`);
   return (rows && rows[0]) || { id: orderId };
+}
+
+/** Phase-1 enrichment after the atomic place_shop_order RPC: persist
+ *  buyer_phone and seed the slips[] array. The 0030 RPC predates both
+ *  columns, and changing its signature would 404 the whole call on
+ *  envs that haven't applied migration 0034 — so we stamp them in a
+ *  follow-up owner PATCH instead (RLS shop_orders_update_self_early
+ *  allows it while the order is pending/review). Best-effort: a failure
+ *  never undoes a successfully placed order. Returns the patched row, or
+ *  null if nothing to stamp / the columns aren't deployed yet. */
+async function enrichNewOrder(orderId, payload) {
+  const patch = {};
+  if (payload.buyerPhone) patch.buyer_phone = payload.buyerPhone;
+  if (payload.slipUrl) {
+    patch.slips = [{ url: payload.slipUrl, at: payload.slipUploadedAt || new Date().toISOString() }];
+  }
+  if (Object.keys(patch).length === 0) return null;
+  const idEsc = encodeURIComponent(orderId);
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}&select=*`,
+    { method: 'PATCH', body: patch, prefer: 'return=representation' },
+  );
+  if (error) {
+    // 0033 not applied yet → buyer_phone / slips missing. Warn once and
+    // carry on; the order itself is already placed.
+    if (/buyer_phone|slips|pgrst204/i.test(error.message || '')) {
+      if (!window.__samoWarnedOrderPhoneSlips) {
+        window.__samoWarnedOrderPhoneSlips = true;
+        console.warn('[shop] buyer_phone/slips missing — apply migration 0033 to persist phone + multi-slip.');
+      }
+      return null;
+    }
+    console.warn('[shop] order enrichment PATCH failed:', error.message);
+    return null;
+  }
+  return (Array.isArray(data) && data[0]) || null;
 }
 
 export async function upsertProduct(row) {
@@ -231,12 +269,16 @@ export async function createOrder(payload) {
       // retry below strips these and re-sends.
       ...(payload.buyerName  ? { buyer_name:  payload.buyerName  } : {}),
       ...(payload.buyerEmail ? { buyer_email: payload.buyerEmail } : {}),
+      ...(payload.buyerPhone ? { buyer_phone: payload.buyerPhone } : {}),
       status: payload.slipUrl ? 'review' : 'pending',
       subtotal,
       fee,
       total: subtotal + fee,
       slip_url: payload.slipUrl || null,
       slip_uploaded_at: payload.slipUploadedAt || null,
+      ...(payload.slipUrl
+        ? { slips: [{ url: payload.slipUrl, at: payload.slipUploadedAt || now }] }
+        : {}),
       pickup_location: payload.pickupLocation || null,
       buyer_note: payload.buyerNote || null,
       timeline: [
@@ -251,14 +293,15 @@ export async function createOrder(payload) {
     );
     if (orderErr) {
       const msg = (orderErr.message || '').toLowerCase();
-      // Migration 0026 not applied → buyer_name / buyer_email missing.
-      // Drop them and retry once so the order can still be placed.
-      if (/buyer_(name|email)/.test(msg) || /pgrst204/.test(msg)) {
+      // Migration 0026/0033 not applied → buyer_name / buyer_email /
+      // buyer_phone / slips missing. Drop them and retry once so the
+      // order can still be placed.
+      if (/buyer_(name|email|phone)|slips/.test(msg) || /pgrst204/.test(msg)) {
         if (!window.__samoWarnedBuyerContact) {
           window.__samoWarnedBuyerContact = true;
-          console.warn('[shop] buyer_name/buyer_email missing — apply migration 0026 to persist checkout contact fields.');
+          console.warn('[shop] buyer contact/slips columns missing — apply migrations 0026 + 0033 to persist checkout contact + multi-slip.');
         }
-        const { buyer_name, buyer_email, ...slim } = orderRow;
+        const { buyer_name, buyer_email, buyer_phone, slips, ...slim } = orderRow;
         ({ data: orderData, error: orderErr } = await dbRest(
           '/shop_orders',
           { method: 'POST', body: slim, prefer: 'return=representation' },
@@ -376,24 +419,35 @@ export async function deleteOrder(id) {
   return true;
 }
 
-/** Buyer-facing: upload or replace the slip on a pending/review/
- *  slip_mismatch order. Sends the order back to 'review' so it
- *  reappears in the admin verify queue. If there was an old slip,
- *  trash it from Drive afterwards (best-effort — order update is the
- *  source of truth). */
-export async function setOrderSlip(id, slipUrl) {
+/** Normalise an order's slips into an array of { url, at }, folding the
+ *  legacy single slip_url in when the array is still empty (orders placed
+ *  before migration 0033, or pre-enrichment). */
+function normalizeSlips(order) {
+  const arr = Array.isArray(order?.slips) ? order.slips.slice() : [];
+  if (arr.length === 0 && order?.slip_url) {
+    arr.push({ url: order.slip_url, at: order.slip_uploaded_at || order.placed_at || null });
+  }
+  return arr.filter((s) => s && s.url);
+}
+
+/** Buyer-facing: ADD a slip to a pending/review/slip_mismatch order.
+ *  Appends to the slips[] array, mirrors slip_url to the newest, and
+ *  sends the order back to 'review' so it reappears in the admin verify
+ *  queue. Multiple slips are kept — we no longer trash the prior one. */
+export async function addOrderSlip(id, slipUrl) {
   const idEsc = encodeURIComponent(id);
   const now = new Date().toISOString();
   const current = await getOrder(id);
   if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
-  const oldSlipUrl = current.slip_url || null;
+  const slips = normalizeSlips(current);
+  slips.push({ url: slipUrl, at: now });
   const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
   timeline.push({ stage: 'review', at: now, label: 'ส่งสลิปแล้ว — รอตรวจ' });
   const { data, error } = await dbRest(
     `/shop_orders?id=eq.${idEsc}`,
     {
       method: 'PATCH',
-      body: { slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline },
+      body: { slips, slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline },
       prefer: 'return=representation',
     },
   );
@@ -401,12 +455,43 @@ export async function setOrderSlip(id, slipUrl) {
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('ส่งสลิปไม่สำเร็จ (RLS หรือสถานะไม่ใช่ pending/review/slip_mismatch)');
   }
-  // Trash the prior slip from Drive so replaced files don't pile up.
-  // Fire-and-forget — the new slip is already persisted; orphaning the
-  // old one is a cleanup nuisance at worst, never a correctness issue.
-  if (oldSlipUrl && oldSlipUrl !== slipUrl) {
-    deleteShopFile(oldSlipUrl).then((ok) => {
-      if (!ok) console.warn('[shop/api] order', id, 'slip replaced but old not trashed:', oldSlipUrl);
+  return data[0];
+}
+
+/** Buyer-facing: REMOVE one slip (by url) from a pending/review/
+ *  slip_mismatch order. slip_url is re-pointed to the newest remaining
+ *  slip (or null). If no slips remain, the order drops back to 'pending'
+ *  so it leaves the verify queue. The removed file is trashed from Drive
+ *  (best-effort). */
+export async function removeOrderSlip(id, slipUrl) {
+  const idEsc = encodeURIComponent(id);
+  const now = new Date().toISOString();
+  const current = await getOrder(id);
+  if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
+  const remaining = normalizeSlips(current).filter((s) => s.url !== slipUrl);
+  const latest = remaining.length ? remaining[remaining.length - 1] : null;
+  const body = {
+    slips: remaining,
+    slip_url: latest ? latest.url : null,
+    slip_uploaded_at: latest ? latest.at : null,
+  };
+  if (remaining.length === 0 && ['review', 'slip_mismatch'].includes(current.status)) {
+    body.status = 'pending';
+    const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
+    timeline.push({ stage: 'pending', at: now, label: 'ลบสลิปแล้ว — รอชำระเงิน' });
+    body.timeline = timeline;
+  }
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'PATCH', body, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบสลิปไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสลิปไม่สำเร็จ (RLS หรือสถานะไม่อนุญาตให้แก้ไข)');
+  }
+  if (slipUrl) {
+    deleteShopFile(slipUrl).then((ok) => {
+      if (!ok) console.warn('[shop/api] order', id, 'slip removed but not trashed:', slipUrl);
     });
   }
   return data[0];

@@ -168,6 +168,30 @@
 .shop-tab .text-accent { color: var(--brand-orange); }
 
 /* ==============================================
+ * "Got a problem? contact us" strip (top of shop view)
+ * ============================================== */
+.shop-tab .shop-contact-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .35rem .6rem;
+  padding: .6rem .9rem;
+  margin-bottom: 1rem;
+  border-radius: var(--shop-radius-md, 12px);
+  background: var(--shop-ink-50);
+  border: 1px solid var(--shop-ink-100);
+  color: var(--shop-ink-700);
+  font-size: .9rem;
+}
+.shop-tab .shop-contact-strip > i { color: var(--brand-orange); }
+.shop-tab .shop-contact-strip a {
+  font-weight: 600;
+  color: var(--brand-orange);
+  text-decoration: none;
+}
+.shop-tab .shop-contact-strip a:hover { text-decoration: underline; }
+
+/* ==============================================
  * Pickup-announcement hero banner
  * ============================================== */
 .shop-tab .pickup-banner {
@@ -1105,6 +1129,40 @@
 .shop-tab .contact-fallback .cf-icons { display: flex; gap: .5rem; align-items: center; color: var(--shop-ink-500); }
 .shop-tab .contact-fallback .cf-icons a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }
 .shop-tab .contact-fallback .cf-icons a:hover { color: var(--shop-700); }
+
+/* Multi-slip manager (customer order card) */
+.shop-tab .slip-manager {
+  border-radius: var(--shop-radius);
+  padding: 1rem 1.25rem;
+  margin-top: .75rem;
+  font-size: .88rem;
+  color: var(--shop-ink-700);
+}
+.shop-tab .slip-chip-row {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  margin-top: .75rem;
+}
+.shop-tab .slip-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: #fff;
+  border: 1px solid var(--shop-ink-100);
+  border-radius: 999px;
+  padding: .2rem .35rem .2rem .7rem;
+}
+.shop-tab .slip-chip a {
+  color: var(--shop-ink-700); text-decoration: none;
+  display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem;
+}
+.shop-tab .slip-chip a:hover { color: var(--shop-700); }
+.shop-tab .slip-chip-x {
+  border: none; background: var(--shop-ink-50);
+  color: var(--shop-ink-500);
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; line-height: 1; padding: 0;
+}
+.shop-tab .slip-chip-x:hover { background: #ffe2e2; color: #c0392b; }
+.shop-tab .slip-chip-x:disabled { opacity: .5; cursor: default; }
 
 /* ==============================================
  * Admin (lives inside #adminShopSection in tab-admin.html)
