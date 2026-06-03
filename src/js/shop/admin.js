@@ -2418,6 +2418,9 @@ function computeProductSales(productId) {
     if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
       if (it.product_id !== productId) continue;
+      // Preorder is made-to-order — it doesn't reserve finite stock
+      // (matches migration 0038's reserved-matrix predicate).
+      if (it.is_preorder) continue;
       const q = Number(it.qty) || 0;
       reserved += q;
       if (o.status === 'done') delivered += q;
@@ -2436,6 +2439,8 @@ function computeVariantReservedMap() {
   for (const o of orders) {
     if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
+      // Preorder doesn't reserve finite stock (see migration 0038).
+      if (it.is_preorder) continue;
       const size  = it.size  || 'F';
       const color = it.color || 'default';
       const key = `${it.product_id}|${size}|${color}`;
