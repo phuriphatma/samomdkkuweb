@@ -18,6 +18,7 @@ import QRCode from 'qrcode';
 import { escHtml, copyText } from '../utils.js';
 import { buildProjectFolderPath } from './data.js';
 import { getProjectFolderInfo } from './uploads.js';
+import { cacheProjectFolder } from './api.js';
 
 // Cache: projectId → { folderUrl, folderId } — folders are stable per
 // project, so a second open of the same project's QR shouldn't re-hit
@@ -66,8 +67,19 @@ export async function showProjectQrModal(project) {
   const inst = window.bootstrap.Modal.getOrCreateInstance(modalEl);
   inst.show();
 
-  // Resolve the folder URL — cache hit, otherwise GAS round-trip.
+  // Resolve the folder URL with the FEWEST possible GAS calls:
+  //   1. in-memory cache (this page session)
+  //   2. DB-cached column on the project row (migration 0039) — survives
+  //      reloads + works across devices/users with zero GAS
+  //   3. GAS round-trip (first time only) → then persist to (2)
+  // The Drive folder ID/URL is stable across renames, and sharing was
+  // already enabled when it was first cached, so the cached paths never
+  // need to re-hit GAS.
   let info = folderInfoCache.get(project.id);
+  if (!info && project.drive_folder_url) {
+    info = { folderUrl: project.drive_folder_url, folderId: project.drive_folder_id || null };
+    folderInfoCache.set(project.id, info);
+  }
   if (!info) {
     try {
       const folderPath = buildProjectFolderPath(project.id, project.name);
@@ -75,6 +87,13 @@ export async function showProjectQrModal(project) {
       // resolves into a browsable folder for the recipient.
       info = await getProjectFolderInfo(folderPath, { share: true });
       folderInfoCache.set(project.id, info);
+      // Persist so future opens (any device/session) skip GAS entirely.
+      // Best-effort (anon customers can't write); also mirror onto the
+      // in-memory project object so a re-open before the next data reload
+      // hits the cached path too.
+      cacheProjectFolder(project.id, info);
+      project.drive_folder_url = info.folderUrl;
+      project.drive_folder_id = info.folderId;
     } catch (e) {
       setStatus(imgEl, `<div class="text-danger small">${escHtml(e.message || 'หา URL โฟลเดอร์ไม่สำเร็จ')}</div>`);
       return;

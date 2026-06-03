@@ -318,15 +318,16 @@
 
 /* --- RESPONSIVE --- */
 
-/* Below the desktop breakpoint (iPad portrait + landscape, smaller
-   laptops) the 1100px hero dwarfs the 720px reading column — the image
-   reads as "much wider than the text". Bring the hero down to the
-   header/body column width so the cover lines up with the article text
-   instead of bleeding far past it on both sides. Full-width hero is kept
-   only on genuinely wide (≥1200px) displays where it looks editorial. */
-@media (max-width: 1199.98px) {
+/* Below the large-desktop breakpoint (covers ALL iPads — incl. the 12.9"
+   in landscape at 1366px, which the old 1200px cutoff missed) the 1100px
+   hero dwarfs the 720px reading column: the cover reads as "much wider
+   than the article text". Match the hero to the .article-body width so
+   the image lines up exactly with the paragraphs instead of bleeding past
+   them. The wide editorial hero is kept only on genuinely large (≥1400px)
+   displays. */
+@media (max-width: 1399.98px) {
   .article-hero {
-    max-width: 760px;
+    max-width: 720px;
   }
 }
 

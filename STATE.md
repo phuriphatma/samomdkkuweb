@@ -36,13 +36,25 @@ copy-รหัส button) is still in. Cloudflare auto-build runs on push.
   redesigned (summary stats + table/card view + search/type filters,
   grouped by type). **Migrations 0036/0037/0038 confirmed applied in prod.**
 
-## Latest commit on main
+## Latest commits on main
 
 `caab82a` — batch of หนังสือโครงการ + auth/mobile/UI fixes (customer-mirror
 highlights removed, admin notification jump, mobile boot-gate, faster
 status/comment notify, เปลี่ยนบัญชี first-switch-back race, จัดการบัญชี on
 mobile, article-hero + footer CSS). Full per-change detail is in that
 commit message + the 4 new entries in `.claude/rules/mistakes.md`.
+
+Follow-up batch (this session):
+- **Article hero on iPad** — raised the narrow-hero breakpoint to 1399.98px
+  (the old 1199.98px missed the 12.9" iPad in landscape at 1366px) and
+  matched the hero to the 720px text column so the cover no longer reads
+  as "wider than the article". `src/css/article.css`.
+- **QR generation hits GAS at most once per project** — new migration
+  **0039** caches the Drive folder URL/ID on the project row; `qr.js`
+  resolves in-memory → DB column → GAS (first time only, then persists
+  via `cacheProjectFolder`). Folder ID/URL is stable across renames so
+  the cache never invalidates. Cuts the per-IP Cloudflare-1015 pressure.
+
 Pushed direct to main (branch protection bypassed); Cloudflare auto-build
 deploying.
 
@@ -67,10 +79,11 @@ Apply in numeric order via the SQL editor. JS callers degrade gracefully
 when missing — site keeps working but the feature behind each migration
 won't function until applied.
 
-User has confirmed 0023–0031 + **0033–0035 are applied**. **0032 is
-still pending** — until it lands, the new /projects-view customer mirror
-will show empty (anon SELECT blocked by the existing actor-gated read
-policies).
+User has confirmed 0023–0031 + **0032–0038 are applied** (0032 is in
+active use — the /projects-view customer mirror shows data, which it
+couldn't without anon SELECT). **0039 is the only pending one** — until
+it lands, the QR-folder cache falls back to a GAS call per open (works,
+just doesn't save the round-trip).
 
 | Migration | What it unlocks | Status |
 |---|---|---|
@@ -90,6 +103,7 @@ policies).
 | 0036_users_phone | **Additive**. `users.phone` column (self-writable; not guarded by 0028). Powers the จัดการบัญชี phone field + samoshop checkout autofill. | ✅ applied |
 | 0037_shop_banner_placement | **Additive**. `shop_banners.placement` ('launch' \| 'announcement', default 'launch'); per-placement order index. Unlocks the ประกาศ swipe-banner carousel + admin placement toggle. | ✅ applied |
 | 0038_reserved_excludes_preorder | Redefines `shop_reserved_matrix`, `shop_reserved_matrix_all`, `place_shop_order` so reserved-stock aggregates count only `is_preorder=false` items — preorder no longer depletes finite stock / over-counts the oversell guard. Signatures unchanged. | ✅ applied |
+| 0039_project_drive_folder_cache | **Additive**. `projects.drive_folder_url` + `drive_folder_id` — caches the Drive folder so `qr.js` hits GAS at most once per project (first QR open) instead of on every open. JS degrades to the GAS round-trip when absent. | ⏳ **pending — apply via Supabase SQL editor** |
 
 ## Supabase config notes
 

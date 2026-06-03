@@ -100,6 +100,26 @@ export async function updateProject(id, patch) {
   return data[0];
 }
 
+/** Best-effort cache of a project's resolved Drive folder location so the
+ *  QR feature can skip the GAS round-trip on every subsequent open
+ *  (migration 0039). Silent by design: anon customers (no UPDATE rights)
+ *  and pre-migration DBs (column missing → 400) just no-op — the QR still
+ *  works via the GAS fallback. `return=minimal` so an owner-scoped SELECT
+ *  policy can't turn a successful write into a false failure. */
+export async function cacheProjectFolder(id, { folderUrl, folderId } = {}) {
+  if (!id || !folderUrl) return;
+  try {
+    await dbRest(
+      `/projects?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        body: { drive_folder_url: folderUrl, drive_folder_id: folderId || null },
+        prefer: 'return=minimal',
+      },
+    );
+  } catch { /* best-effort — never block the QR on the cache write */ }
+}
+
 export async function deleteProject(id) {
   const idEsc = encodeURIComponent(id);
   const { data, error } = await dbRest(
