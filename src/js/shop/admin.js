@@ -696,11 +696,12 @@ function renderOrdersTable() {
   const countEl = document.getElementById('shopAdminOrdersCount');
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
-    if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 คำสั่งซื้อ';
+    if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 ชิ้น · 0 คำสั่งซื้อ';
     return;
   }
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   let lineCount = 0;
+  let qtyTotal = 0;   // sum of quantities (pieces) — reconciles with the preorder demand page
   // One <tr> per line item; the Order / Customer / Slip / chevron cells
   // span the order's rows so the grouping stays readable while each
   // product shows its own qty + progress (same product bought preorder
@@ -715,6 +716,7 @@ function renderOrdersTable() {
     const items = visibleOrderItems(o);
     const rows = items.length ? items : [null];
     lineCount += rows.length;
+    qtyTotal += items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
     const span = rows.length;
     const orderCell = `
       <td rowspan="${span}" class="order-group-cell">
@@ -761,7 +763,7 @@ function renderOrdersTable() {
   }).join('');
 
   if (countEl) {
-    countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${list.length} คำสั่งซื้อ`;
+    countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${qtyTotal} ชิ้น · ${list.length} คำสั่งซื้อ`;
   }
 }
 
