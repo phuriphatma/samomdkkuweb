@@ -105,6 +105,64 @@
                 </span>
                 <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
               </a>
+
+              <!-- ฝ่ายบริหารองค์กร: customer view of หนังสือโครงการ.
+                   Internal SPA route — uses window.navigateTo via the
+                   path so the in-app router activates the right tab. -->
+              <a class="launcher-tool" style="--tool-color: var(--brand-primary);"
+                data-name="หนังสือโครงการ ดู สถานะ ลูกค้า customer view projects bookkeeping"
+                data-cats="public"
+                href="/projects-view"
+                onclick="event.preventDefault(); navigateTo('/projects-view');">
+                <span class="launcher-tool-icon"><i class="bi bi-folder2"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">หนังสือโครงการ (มุมมองทั่วไป)</span>
+                  <span class="launcher-tool-desc">ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว</span>
+                </span>
+                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
+              </a>
+
+              <!-- ฝ่ายวิชาการ: Notion SAMO Resource Database. TODO: real URL. -->
+              <a class="launcher-tool" style="--tool-color: var(--dept-academic);"
+                data-name="notion samo resource database ฝ่ายวิชาการ การเรียน แหล่งเรียนรู้"
+                data-cats="public"
+                href="#"
+                target="_blank" rel="noopener">
+                <span class="launcher-tool-icon"><i class="bi bi-journals"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">SAMO Resource Database (Notion)</span>
+                  <span class="launcher-tool-desc">ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ</span>
+                </span>
+                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
+              </a>
+
+              <!-- ฝ่ายเวชนิทัศน์: MDI Website. TODO: real URL. -->
+              <a class="launcher-tool" style="--tool-color: var(--dept-media);"
+                data-name="mdi medical illustration ฝ่ายเวชนิทัศน์ media"
+                data-cats="public"
+                href="#"
+                target="_blank" rel="noopener">
+                <span class="launcher-tool-icon"><i class="bi bi-globe2"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">MDI Website</span>
+                  <span class="launcher-tool-desc">เว็บไซต์ของฝ่ายเวชนิทัศน์</span>
+                </span>
+                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
+              </a>
+
+              <!-- ฝ่ายรังสีเทคนิค: RT Website. TODO: real URL. -->
+              <a class="launcher-tool" style="--tool-color: var(--dept-projects);"
+                data-name="rt rangsi รังสีเทคนิค radiology"
+                data-cats="public"
+                href="#"
+                target="_blank" rel="noopener">
+                <span class="launcher-tool-icon"><i class="bi bi-stars"></i></span>
+                <span class="launcher-tool-body">
+                  <span class="launcher-tool-name">RT Website</span>
+                  <span class="launcher-tool-desc">เว็บไซต์ของฝ่ายรังสีเทคนิค</span>
+                </span>
+                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
+              </a>
             </div>
           </section>
 

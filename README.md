@@ -39,7 +39,17 @@ Both Cloudflare projects hit the same Supabase backend.
   (`#projects/PRJ-XXXX-NNNN/doc/DOC-…`). Per-project QR code generates a
   scannable link to the Drive folder so the whole project (organised as
   one subfolder per หนังสือ, each with its file attachments) can be
-  shared in one tap.
+  shared in one tap. **Customer mirror** at `/projects-view` exposes the
+  same surface read-only to anonymous visitors (gated by migration 0032);
+  reuses the admin renderers via `role='customer'` so admin UI changes
+  flow through without drift.
+- **Departments tab (`ฝ่าย`).** Top-level navbar entry showing all 10
+  ฝ่ายในสโมสร with per-dept tool drill-down. Each ฝ่าย links to its
+  own tools (SAMOShop + customer หนังสือโครงการ for บริหารองค์กร,
+  PR Form for ดิจิทัล, VitalSound + SAMO Passport for ยุทธศาสตร์,
+  Notion resource DB for วิชาการ, external sites for เวชนิทัศน์ /
+  รังสีเทคนิค). All links are also surfaced in the เครื่องมือ launcher
+  search.
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
   regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
   `dev`. Role gates the Admin tab, the project-tracking tab + bell, and

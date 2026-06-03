@@ -48,6 +48,12 @@
             </button>
           </li>
           <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-departments-tab" data-bs-toggle="pill" data-bs-target="#pills-departments"
+              type="button" role="tab">
+              <i class="bi bi-diagram-3 me-1"></i>ฝ่าย
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="pills-about-tab" data-bs-toggle="pill" data-bs-target="#pills-about"
               type="button" role="tab">
               <i class="bi bi-info-circle me-1"></i>เกี่ยวกับเรา
@@ -66,6 +72,10 @@
           <li class="d-none" role="presentation">
             <button class="nav-link" id="pills-article-tab" data-bs-toggle="pill"
               data-bs-target="#pills-article" type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
+          </li>
+          <li class="d-none" role="presentation">
+            <button class="nav-link" id="pills-projects-view-tab" data-bs-toggle="pill"
+              data-bs-target="#pills-projects-view" type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
           </li>
         </ul>
       </div>
@@ -204,6 +214,11 @@
         <li>
           <button class="nav-link text-start w-100" onclick="activateTab('pills-tools-tab')">
             <i class="bi bi-grid-3x3-gap me-2" style="color: var(--brand-primary);"></i>เครื่องมือ
+          </button>
+        </li>
+        <li>
+          <button class="nav-link text-start w-100" onclick="activateTab('pills-departments-tab')">
+            <i class="bi bi-diagram-3 me-2" style="color: var(--brand-primary);"></i>ฝ่าย
           </button>
         </li>
         <li>

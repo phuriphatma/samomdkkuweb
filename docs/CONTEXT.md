@@ -223,6 +223,19 @@ needs two-way writes); only vp_admin/dev can INSERT projects/documents
 or DELETE. Notifications are scoped to `user_id = auth.uid()` for
 read/update. `project_settings` write is vp_admin/dev only.
 
+**Customer-mirror addendum (migration 0032).** Five tables —
+`projects`, `project_documents`, `project_files`,
+`project_doc_types`, `project_settings` — additionally carry a
+`*_read_public` policy `for select to anon, authenticated using (true)`
+so the public `/projects-view` read-only mirror works for anonymous
+visitors. Policies OR-combine so the actor-gated `*_read` policies
+keep working for signed-in staff. Writes are untouched — still
+gated to vp_admin / uni_staff. `project_notifications` and
+`project_doc_views` are intentionally NOT publicised (they're per-
+user state). Customer mode in the JS module skips notification
+mounts and no-ops `markDocSeen` so anonymous viewers never need
+identity-keyed state.
+
 Drive layout (lazily created by GAS on first upload):
 
 ```

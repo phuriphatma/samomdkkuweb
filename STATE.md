@@ -1,11 +1,14 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-05-31. Slim by design — "what is true right now",
+Last updated: 2026-06-03. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-Build green, 45 tests pass (`npm test`). Working tree clean. `main`
-HEAD is `dcfd381` (pushed). Cloudflare auto-build runs on push.
+Build green, 45 tests pass (`npm test`). `main` HEAD lands the ฝ่าย
+nav entry, the new tab-departments page (moved out of เกี่ยวกับเรา),
+the public read-only mirror of หนังสือโครงการ at /projects-view (gated
+by migration 0032), and an easy copy-รหัส button on each project's
+admin detail header. Cloudflare auto-build runs on push.
 
 ## Branches
 
@@ -19,7 +22,9 @@ Apply in numeric order via the SQL editor. JS callers degrade gracefully
 when missing — site keeps working but the feature behind each migration
 won't function until applied.
 
-User has confirmed 0023–0031 are applied. No pending migrations.
+User has confirmed 0023–0031 are applied. **0032 is pending** — until
+it lands, the new /projects-view customer mirror will show empty (anon
+SELECT blocked by the existing actor-gated read policies).
 
 | Migration | What it unlocks | Status |
 |---|---|---|
@@ -32,6 +37,7 @@ User has confirmed 0023–0031 are applied. No pending migrations.
 | 0029_shop_preorder_price | `shop_products.preorder_price` nullable column — separate preorder price | ✅ applied |
 | 0030_shop_stock_safety_and_preorder_tag | `shop_orders.is_preorder` + `shop_reserved_matrix_all()` RPC + `place_shop_order()` RPC (atomic stock check via row lock — prevents oversell). Buyer sees `max(0, stock - reserved)`. | ✅ applied |
 | 0031_project_doc_views | Per-user, per-doc seenAt marker — moves inbox highlights off per-device localStorage so they sync across devices + stop leaking across accounts. RLS-gated to own rows. JS bulk-uploads existing localStorage on first run. (File made idempotent after the first apply — re-running is safe.) | ✅ applied |
+| 0032_projects_public_read | **Public-read RLS** on `projects`, `project_documents`, `project_files`, `project_doc_types`, `project_settings` (`for select to anon, authenticated using (true)`). Unblocks the new /projects-view customer mirror — anonymous visitors can list every project, document, file URL, and the settings row's label fields. Writes are unchanged (still vp_admin / uni_staff gated). Settings table now exposes `uni_email` to anon too — if that becomes sensitive, scope to a column-select view in a follow-up. | ⏳ **pending — apply via Supabase SQL editor** |
 
 ## Supabase config notes
 
@@ -82,14 +88,10 @@ the full writeup.
 
 ## Recent work landed today (one-line each, for context)
 
-- per-project QR → Drive folder (frontend live, GAS pending redeploy)
-- Drive folder rename on project/doc title edit (name-first naming + by-code walker, frontend live)
-- JWT auto-refresh in `dbRest` on PGRST303 (single-flight)
-- Account switcher a11y + dead-token cleanup
-- Discord notify: serialised client queue (6s spacing), GAS 3-retry, Cloudflare 1015 detection, response-body diagnostics
-- PR staff + VS staff dashboards moved to `dbRest` (were supabase-js, slow under session-lock contention) — no remaining `db.from()` reads in src/
-- Blue "อัปเดต" pill for comments on sent หนังสือ (separate from yellow status pill)
-- New mistakes.md entries: JWT-expired-mid-modal, fire-and-forget GAS notify, async click handler concurrency, GAS Cloud Logs invisible for browser-fetch, Cloudflare 1015 vs Discord rate limit
+- `ฝ่าย` navbar entry → new tab-departments page (moved from เกี่ยวกับเรา); 10 dept cards drill into per-ฝ่าย tool lists. Three external sites (Notion, MDI, RT) ship as `#` placeholders pending real URLs from the user.
+- Public read-only customer mirror of หนังสือโครงการ at `/projects-view` — reuses admin renderers via `role='customer'` so admin UI changes auto-mirror (zero duplication). Migration 0032 opens anon SELECT on projects + documents + files + types + settings. **Apply 0032 before users hit /projects-view.**
+- Dept-specific links also mirrored into the เครื่องมือ launcher so search picks them up.
+- Easy "คัดลอกรหัส" button on every project's admin detail header (uses the existing `[data-copy]` delegate).
 
 ## End-of-turn loop reminder
 

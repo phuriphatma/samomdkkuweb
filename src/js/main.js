@@ -24,6 +24,8 @@ import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDet
 import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { initShop } from './shop/index.js';
+import { initDepartments } from './departments.js';
+import { initProjectsView } from './projects-view.js';
 import { copyText } from './utils.js';
 
 // ==============================================
@@ -335,6 +337,8 @@ document.addEventListener('shown.bs.tab', (e) => {
   // routing that scrolls to specific items — don't override those.
   if (e.target?.id === 'pills-about-tab'
       || e.target?.id === 'pills-tools-tab'
+      || e.target?.id === 'pills-departments-tab'
+      || e.target?.id === 'pills-projects-view-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
@@ -392,6 +396,8 @@ const PATH_ROUTES = [
   { path: '/vssound',  tab: 'pills-vitalsound-tab' },
   { path: '/shop',     tab: 'pills-shop-tab' },
   { path: '/tools',    tab: 'pills-tools-tab' },
+  { path: '/departments', tab: 'pills-departments-tab' },
+  { path: '/projects-view', tab: 'pills-projects-view-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
 ];
 
@@ -780,8 +786,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // FAB, and lazy loaders.
   initShop();
 
-  // (Projects module no longer initialised on the public site — it
-  // lives in /admin/.)
+  // Departments tab — grid drill-down to per-ฝ่าย tool list.
+  initDepartments();
+
+  // Public read-only mirror of /admin/'s หนังสือโครงการ (customer view).
+  // Mounts the projects module in role='customer' mode; lazy-loaded
+  // when the user navigates to /projects-view.
+  initProjectsView();
 
   // About-tab sticky sub-nav: highlight whichever section is in view.
   initAboutSubnav();

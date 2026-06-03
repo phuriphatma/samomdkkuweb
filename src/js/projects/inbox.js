@@ -52,6 +52,17 @@ let onCreateProjectCb = null;
 
 let cache = { projects: [], docTypes: [], settings: null, role: null };
 
+// Customer-mirror mode. When true:
+//   - markDocSeen() is a no-op (the customer has no identity to persist
+//     seenAt against — every visit is "fresh")
+//   - the comment button + chevron-only mutation paths are suppressed
+//     in click handlers (defence-in-depth on top of CSS hiding)
+//   - the renderer suppresses copy-link / comment / file-add buttons
+//     that aren't relevant for an anonymous read-only viewer.
+// Set via setInboxCustomerMode() from index.js mountCustomerProjects().
+let customerMode = false;
+export function setInboxCustomerMode(on) { customerMode = !!on; }
+
 let level    = 'grid';     // 'grid' | 'detail'
 let selectedProjectId = null;
 let expandedDocs = new Set();   // doc ids expanded inside the detail view
@@ -660,7 +671,15 @@ function renderDetail() {
 
   root.innerHTML = `
     <header class="projects-detail-head">
-      <div class="projects-detail-id">${escHtml(project.id)} · ${escHtml(fmtDate(project.created_at))}</div>
+      <div class="projects-detail-id">
+        <button type="button" class="projects-detail-id-copy"
+          data-copy="${escHtml(project.id)}"
+          title="คลิกเพื่อคัดลอกรหัสโครงการ">
+          <span class="projects-detail-id-code">${escHtml(project.id)}</span>
+          <i class="bi bi-clipboard"></i>
+        </button>
+        <span class="text-muted"> · ${escHtml(fmtDate(project.created_at))}</span>
+      </div>
       <h2 class="projects-detail-title">${escHtml(project.name)}</h2>
       ${project.description ? `<p class="projects-detail-desc">${escHtml(project.description)}</p>` : ''}
       <div class="projects-detail-meta">
@@ -673,6 +692,9 @@ function renderDetail() {
         ${canManage ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-edit-project="${escHtml(project.id)}" title="แก้ไขชื่อ / รายละเอียดโครงการ">
           <i class="bi bi-pencil me-1"></i> แก้ไขโครงการ
         </button>` : ''}
+        <button type="button" class="btn btn-sm btn-ghost" data-copy="${escHtml(project.id)}" title="คัดลอกรหัสโครงการ">
+          <i class="bi bi-clipboard me-1"></i> คัดลอกรหัส
+        </button>
         <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
           <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
         </button>
@@ -836,7 +858,7 @@ function renderDocExpand(doc, project) {
         ${(['sent','received','in_progress','returned'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-success-soft" data-projects-doc-status="completed" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-check-circle me-1"></i>เสร็จสิ้น</button>` : ''}
         ${(['sent','received','in_progress'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-danger-soft" data-projects-doc-return data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-counterclockwise me-1"></i>ส่งกลับให้แก้</button>` : ''}
       ` : ''}
-      <button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>
+      ${(isVp || isUni) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>` : ''}
       ${revertMenu}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-edit data-doc-id="${escHtml(doc.id)}" title="แก้ไขชื่อ / โน้ตหนังสือ"><i class="bi bi-pencil me-1"></i>แก้ไข</button>` : ''}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger ms-auto" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
@@ -1164,6 +1186,7 @@ function getDocSeenAt(docId) {
  *       device sync. Other devices will see this seen_at on their
  *       next inbox load. */
 function markDocSeen(docId) {
+  if (customerMode) return;     // anonymous customer view — nothing to persist
   const now = new Date().toISOString();
   serverSeenAt.set(docId, now);
   const user = getUser();

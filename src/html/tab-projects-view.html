@@ -1,0 +1,71 @@
+      <!-- TAB: PROJECTS-VIEW — public, read-only mirror of /admin/'s หนังสือโครงการ.
+           Same DOM IDs as the admin tab-projects.html so the projects/inbox.js
+           module's selectors find them — admin and customer entries don't
+           coexist in the same DOM (different bundles), so reusing the IDs is
+           safe. The renderers gate every mutation button on role; setting
+           cache.role to 'customer' (in mountCustomerProjects) makes them
+           invisible without a parallel set of templates. -->
+      <div class="tab-pane fade projects-tab" id="pills-projects-view" role="tabpanel">
+        <div class="container projects-inner">
+
+          <header class="about-section-header text-center mb-3">
+            <span class="about-section-eyebrow">หนังสือโครงการ</span>
+            <h2 class="about-section-title">
+              <i class="bi bi-folder2 me-2" style="color: var(--brand-primary);"></i>
+              หนังสือโครงการ (มุมมองทั่วไป)
+            </h2>
+            <p class="about-section-lead">
+              ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว
+            </p>
+          </header>
+
+          <!-- Body (always visible; no auth gate for customer mirror) -->
+          <div id="projectsBody">
+
+            <!-- VIEW: Inbox (two-level drill-down) -->
+            <div data-projects-pane="inbox">
+
+              <!-- Level 1: project grid -->
+              <div id="projectsLevelGrid">
+                <div class="projects-toolbar">
+                  <div class="input-group input-group-sm projects-search">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input id="projectsSearchInput" type="search" class="form-control"
+                      placeholder="ค้นหาชื่อโครงการ / รหัส…" />
+                  </div>
+                  <div id="projectsFilterRow" class="projects-filter-row" role="tablist"></div>
+                  <div id="projectsViewToggle" class="projects-view-toggle" role="group" aria-label="สลับมุมมอง">
+                    <button type="button" class="projects-view-toggle-btn"
+                      data-projects-view-mode="grid" title="มุมมองกริด" aria-label="มุมมองกริด">
+                      <i class="bi bi-grid-3x3-gap-fill"></i>
+                    </button>
+                    <button type="button" class="projects-view-toggle-btn"
+                      data-projects-view-mode="list" title="มุมมองรายการ" aria-label="มุมมองรายการ">
+                      <i class="bi bi-list-ul"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="projectsGrid" class="projects-grid"></div>
+
+                <div id="projectsGridEmpty" class="projects-empty d-none">
+                  <i class="bi bi-folder2-open"></i>
+                  <h4>ยังไม่มีโครงการ</h4>
+                  <p class="small text-muted mb-0">เมื่อ SAMO ส่งหนังสือโครงการ จะปรากฏที่นี่</p>
+                </div>
+              </div>
+
+              <!-- Level 2: single-project view -->
+              <div id="projectsLevelDetail" class="d-none">
+                <nav class="projects-breadcrumb" aria-label="breadcrumb">
+                  <button type="button" id="projectsBackToGrid" class="projects-breadcrumb-back">
+                    <i class="bi bi-chevron-left me-1"></i> หนังสือโครงการทั้งหมด
+                  </button>
+                </nav>
+                <div id="projectsDetailRoot"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>

@@ -1,0 +1,125 @@
+      <!-- TAB: DEPARTMENTS — 10 ฝ่ายในสโมสร, drill-down into per-dept tool list.
+           Content (icon / color / wording) mirrors the original "Our Departments"
+           section that used to live in tab-about.html. Each card opens an inline
+           detail panel listing that ฝ่าย's tools; "เร็วๆ นี้" cards stay as
+           placeholders until that ฝ่าย ships a tool. -->
+      <div class="tab-pane fade an-tab" id="pills-departments" role="tabpanel">
+        <div class="container">
+
+          <!-- LEVEL 1: dept grid -->
+          <section id="deptsLevelGrid" class="about-section">
+            <header class="about-section-header">
+              <span class="about-section-eyebrow">Our Departments</span>
+              <h2 class="about-section-title">ฝ่ายในสโมสร</h2>
+              <p class="about-section-lead">
+                10 ฝ่ายภายในสโมสร แต่ละฝ่ายดูแลงานในขอบเขตของตนเอง
+                และจะมีเครื่องมือเฉพาะของฝ่ายเปิดให้ใช้งานในอนาคต
+              </p>
+            </header>
+
+            <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5" id="deptsGrid">
+              <div class="col">
+                <a class="dept-card" data-dept-open="admin"
+                  style="--dept-color: var(--dept-admin); --dept-hover-color: var(--dept-hover-admin);">
+                  <span class="dept-icon"><i class="bi bi-shield"></i></span>
+                  <span class="dept-name">ฝ่ายบริหารองค์กร</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="digital"
+                  style="--dept-color: var(--dept-digital); --dept-hover-color: var(--dept-hover-digital);">
+                  <span class="dept-icon"><i class="bi bi-megaphone"></i></span>
+                  <span class="dept-name">ฝ่ายดิจิทัลและสื่อสารองค์กร</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="internal"
+                  style="--dept-color: var(--dept-internal); --dept-hover-color: var(--dept-hover-internal);">
+                  <span class="dept-icon"><i class="bi bi-people"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการภายใน</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="external"
+                  style="--dept-color: var(--dept-external); --dept-hover-color: var(--dept-hover-external);">
+                  <span class="dept-icon"><i class="bi bi-globe"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการภายนอก</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="university"
+                  style="--dept-color: var(--dept-university); --dept-hover-color: var(--dept-hover-university);">
+                  <span class="dept-icon"><i class="bi bi-buildings"></i></span>
+                  <span class="dept-name">ฝ่ายกิจการมหาวิทยาลัย</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="academic"
+                  style="--dept-color: var(--dept-academic); --dept-hover-color: var(--dept-hover-academic);">
+                  <span class="dept-icon"><i class="bi bi-book"></i></span>
+                  <span class="dept-name">ฝ่ายวิชาการ</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="strategy"
+                  style="--dept-color: var(--dept-strategy); --dept-hover-color: var(--dept-hover-strategy);">
+                  <span class="dept-icon"><i class="bi bi-puzzle"></i></span>
+                  <span class="dept-name">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card is-disabled" data-dept="quality"
+                  style="--dept-color: var(--dept-quality); --dept-hover-color: var(--dept-hover-quality);">
+                  <span class="dept-icon"><i class="bi bi-hospital"></i></span>
+                  <span class="dept-name">ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</span>
+                  <span class="dept-tool">เร็วๆ นี้</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="media"
+                  style="--dept-color: var(--dept-media); --dept-hover-color: var(--dept-hover-media);">
+                  <span class="dept-icon"><i class="bi bi-camera"></i></span>
+                  <span class="dept-name">ฝ่ายเวชนิทัศน์</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="rt"
+                  style="--dept-color: var(--dept-projects); --dept-hover-color: var(--dept-hover-projects);">
+                  <span class="dept-icon"><i class="bi bi-stars"></i></span>
+                  <span class="dept-name">ฝ่ายรังสีเทคนิค</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <!-- LEVEL 2: dept detail (one panel per ฝ่าย, only the active one is shown).
+               Title bar uses the same icon/color tokens as the grid card. Tools below
+               reuse the .launcher-tool component so visual consistency carries through
+               from เครื่องมือ. -->
+          <section id="deptsLevelDetail" class="about-section d-none">
+            <nav class="projects-breadcrumb" aria-label="breadcrumb">
+              <button type="button" id="deptsBackToGrid" class="projects-breadcrumb-back">
+                <i class="bi bi-chevron-left me-1"></i> ฝ่ายทั้งหมด
+              </button>
+            </nav>
+
+            <header class="about-section-header" id="deptsDetailHeader">
+              <span class="about-section-eyebrow" id="deptsDetailEyebrow">Department</span>
+              <h2 class="about-section-title" id="deptsDetailTitle">—</h2>
+              <p class="about-section-lead" id="deptsDetailLead">เครื่องมือของฝ่ายนี้</p>
+            </header>
+
+            <div class="launcher-grid" id="deptsDetailTools"></div>
+          </section>
+
+        </div>
+      </div>

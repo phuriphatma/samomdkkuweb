@@ -13,7 +13,7 @@ import { onAuthChange, getUser } from '../auth.js';
 import { listProjects, listDocTypes, getSettings, listMyDocViews } from './api.js';
 import {
   mountInbox, renderInbox, openProjectDetail, openDocumentDetail,
-  setServerDocViews, migrateLocalSeenAtToServer,
+  setServerDocViews, migrateLocalSeenAtToServer, setInboxCustomerMode,
 } from './inbox.js';
 import { mountSendFlow, openCreateProject, openSendDocument } from './send.js';
 import { mountManage, renderManage } from './manage.js';
@@ -303,4 +303,105 @@ export function initProjects() {
     reloadProjects().catch((err) =>
       console.warn('[projects] pageshow reload failed:', err?.message || err));
   });
+}
+
+// ==============================================
+// CUSTOMER MIRROR — public read-only view
+//
+// Mounts the projects module against the public site's
+// tab-projects-view pane, in role='customer'. Reuses the same
+// renderers; the action buttons hide themselves because every
+// `isVp` / `isUni` check returns false for 'customer'. The inbox
+// is also put into "customerMode" so markDocSeen no-ops (anon has
+// no identity to persist seenAt against).
+//
+// We intentionally DON'T call mountSendFlow / mountManage /
+// mountNotifications — none of them apply to an anonymous reader.
+// Hash routing (#projects/PRJ-… → drill in) IS wired so the dept
+// page can deep-link to a specific หนังสือโครงการ.
+// ==============================================
+let customerInitialised = false;
+
+export async function mountCustomerProjects() {
+  if (customerInitialised) {
+    // Tab re-shown after first mount — just refresh from cache.
+    await reloadProjects().catch(() => {});
+    return;
+  }
+  customerInitialised = true;
+
+  // Tell the inbox module it's running in customer mode so
+  // markDocSeen no-ops and the comment button hides.
+  setInboxCustomerMode(true);
+  currentRole = 'customer';
+
+  // Inbox sub-nav + filter row are wired by mountInbox; the
+  // create-project button and FAB exist in the customer markup
+  // intentionally hidden via CSS (data-projects-role="vp_admin")
+  // so the role-visibility loop keeps them invisible.
+  mountInbox({
+    onChanged: reloadProjects,
+    onAddDocument: () => {},          // no-op: customer can't add docs
+    onCreateProject: () => {},         // no-op: customer can't create
+  });
+
+  // Initial data load — same path as the admin entry, just with
+  // currentRole hardcoded to 'customer'. listMyDocViews is skipped
+  // because there's no user.id.
+  try {
+    const [projects, docTypes, settings] = await Promise.all([
+      listProjects().catch(() => []),
+      listDocTypes({ activeOnly: false }).catch(() => []),
+      getSettings().catch(() => null),
+    ]);
+    cache = { projects: projects || [], docTypes: docTypes || [], settings };
+    renderInbox({
+      projects: cache.projects, docTypes: cache.docTypes,
+      settings: cache.settings, role: currentRole,
+    });
+  } catch (e) {
+    console.error('[projects/customer] initial data load failed:', e);
+  }
+
+  // Sub-nav delegate so clicking a project card / doc card works
+  // (inbox.js does this via the inbox pane data attribute).
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-projects-view]');
+    if (!btn) return;
+    // customer view only has 'inbox' — no manage. The button shouldn't
+    // exist in tab-projects-view.html, but defensive guard anyway.
+    if (btn.dataset.projectsView !== 'inbox') return;
+  });
+
+  // Deep-link support: /projects-view#projects/PRJ-XYZ →
+  // open that project's detail. Same hash space as admin's
+  // routing for parity, but only triggers from this tab.
+  const applyCustomerHash = () => {
+    const hash = window.location.hash || '';
+    const m = hash.match(/^#projects\/([^/]+)(?:\/doc\/(.+))?$/);
+    if (!m) return;
+    const projectId = m[1];
+    const documentId = m[2] || null;
+    if (documentId) openDocumentDetail(documentId);
+    else if (projectId) openProjectDetail(projectId);
+  };
+  window.addEventListener('hashchange', () => {
+    if (document.getElementById('pills-projects-view')?.classList.contains('active')) {
+      applyCustomerHash();
+    }
+  });
+  document.addEventListener('shown.bs.tab', (e) => {
+    if (e.target?.id === 'pills-projects-view-tab') {
+      applyCustomerHash();
+      // Fresh fetch when re-entering the tab — same logic as the
+      // admin pageshow handler. Cheap; the data isn't large.
+      reloadProjects().catch(() => {});
+    }
+  });
+
+  // Initial deep-link resolution. If the user landed directly on
+  // /projects-view#projects/PRJ-X the tab was activated BEFORE our
+  // shown.bs.tab handler was registered above (the path router
+  // runs first), so apply it once here after the data is loaded.
+  applyCustomerHash();
 }
