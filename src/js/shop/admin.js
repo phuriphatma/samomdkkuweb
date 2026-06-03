@@ -51,6 +51,9 @@ const state = {
   // Stock tab
   stockSearch: '',
   stockEdits: new Map(),  // productId → { matrix: {...}, status: '...' }  (pending unsaved edits)
+  // Banners tab — which placement set is being managed (mig 0037).
+  // 'launch' = เปิดตัวล่าสุด hero · 'announcement' = ประกาศ carousel.
+  bannerPlacement: 'launch',
 };
 
 let mounted = false;
@@ -2581,9 +2584,17 @@ async function refreshBanners() {
 function renderBannerList() {
   const list = document.getElementById('shopAdminBannersList');
   if (!list) return;
-  const items = state.banners || [];
+  const placement = state.bannerPlacement || 'launch';
+  // Reflect the active placement on the toggle.
+  document.querySelectorAll('#shopAdminBannerPlacement [data-banner-placement]')
+    .forEach((b) => b.classList.toggle('active', b.dataset.bannerPlacement === placement));
+  const items = (state.banners || []).filter((b) => (b.placement || 'launch') === placement);
   if (items.length === 0) {
-    list.innerHTML = '<li class="list-group-item text-muted small">ยังไม่มีแบนเนอร์ — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น</li>';
+    const hint = placement === 'announcement'
+      ? 'ยังไม่มีแบนเนอร์ประกาศ — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น'
+      : 'ยังไม่มีแบนเนอร์เปิดตัว — กด "เพิ่มแบนเนอร์" เพื่อเริ่มต้น';
+    list.innerHTML = `<li class="list-group-item text-muted small">${hint}</li>`;
+    if (_bannerSortable) { try { _bannerSortable.destroy(); } catch { /* noop */ } _bannerSortable = null; }
     return;
   }
   list.innerHTML = items.map((b) => `
@@ -2640,6 +2651,16 @@ function wireBanners() {
     document.getElementById('shopAdminBannerFile')?.click();
   });
   document.getElementById('shopAdminBannerFile')?.addEventListener('change', onBannerFilePicked);
+  // Placement toggle: switch which banner set (launch / announcement)
+  // is being managed. Re-renders from the already-loaded state.banners.
+  document.getElementById('shopAdminBannerPlacement')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-banner-placement]');
+    if (!btn) return;
+    const next = btn.dataset.bannerPlacement;
+    if (next === state.bannerPlacement) return;
+    state.bannerPlacement = next;
+    renderBannerList();
+  });
   const list = document.getElementById('shopAdminBannersList');
   if (!list) return;
   list.addEventListener('click', (e) => {
@@ -2673,11 +2694,16 @@ async function onBannerFilePicked(e) {
     const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
     const fileName = `banner_${Date.now()}.${ext}`;
     const imageUrl = await uploadShopFile(file, 'SAMO_Shop/Banners', { fileName });
-    const maxOrder = (state.banners || []).reduce((m, b) => Math.max(m, b.display_order || 0), -1);
+    const placement = state.bannerPlacement || 'launch';
+    // display_order is per-placement — only count banners in this set.
+    const maxOrder = (state.banners || [])
+      .filter((b) => (b.placement || 'launch') === placement)
+      .reduce((m, b) => Math.max(m, b.display_order || 0), -1);
     await createShopBanner({
       image_url: imageUrl,
       display_order: maxOrder + 1,
       is_active: true,
+      placement,
     });
     await refreshBanners();
     showShopToast('เพิ่มแบนเนอร์แล้ว', 'success');
