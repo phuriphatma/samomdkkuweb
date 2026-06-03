@@ -4,29 +4,24 @@ Last updated: 2026-06-03. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-Build green, 49 tests pass (`npm test`). `main` HEAD lands the ฝ่าย
-nav entry, the new tab-departments page (moved out of เกี่ยวกับเรา),
-the public read-only mirror of หนังสือโครงการ at /projects-view (gated
-by migration 0032), and an easy copy-รหัส button on each project's
-admin detail header. Cloudflare auto-build runs on push.
-
-**In flight:** branch `feat/shop-per-item-progress` (3 commits, NOT
-merged) — the Samoshop per-item overhaul. Moves order fulfilment +
-preorder down to the line-item level (Hybrid model: order status =
-payment phase, `shop_order_items.item_status` = produce→ready→done per
-product), adds multi-slip + required buyer phone + IG contact banner,
-hides the grid "เหลือ N" count (kept inside the product modal),
-redesigns the admin orders table (Product/Qty columns, per-item rows,
-filtered count), adds admin order create + edit-items, a พรีออเดอร์
-demand tab, and removes the การส่งมอบ tab. **Needs migrations 0033–0035
-applied before merge** (see table). JS degrades gracefully pre-migration.
+Build green, 49 tests pass (`npm test`). `main` HEAD now lands the
+**Samoshop per-item overhaul** (merged from `feat/shop-per-item-progress`):
+order status = payment phase, `shop_order_items.item_status` =
+produce→ready→done per product (Hybrid model); multi-slip + required
+buyer phone + IG contact banner; grid "เหลือ N" count hidden (kept in
+the product modal); admin orders table redesigned (Product/Qty columns,
+per-item rows, live filtered count); admin order create + edit-items +
+per-item preorder toggle; status changes write immediately (no Save bar);
+new พรีออเดอร์ demand tab; การส่งมอบ tab removed. Plus a footer
+แหล่งข้อมูล column (SAMO Academic DB / MDI / RT links). Earlier `main`
+work (ฝ่าย nav, tab-departments, /projects-view mirror gated by 0032,
+copy-รหัส button) is still in. Cloudflare auto-build runs on push.
 
 ## Branches
 
 - `main` HEAD: latest production. Auto-deploys to `samomdkkuweb.pages.dev`.
 - `refactor/modular`: synced to main (preview). Auto-deploys to
   `refactorsamomdkkuweb.pages.dev`.
-- `feat/shop-per-item-progress`: in-flight shop overhaul (above).
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
@@ -34,12 +29,10 @@ Apply in numeric order via the SQL editor. JS callers degrade gracefully
 when missing — site keeps working but the feature behind each migration
 won't function until applied.
 
-User has confirmed 0023–0031 are applied. **0032 is pending** — until
-it lands, the new /projects-view customer mirror will show empty (anon
-SELECT blocked by the existing actor-gated read policies). **0033–0035
-are pending** on `feat/shop-per-item-progress` — apply 0033 → 0034 →
-0035 in order before merging that branch (0034 drops the 0030 RPC
-signature, so 0033's columns must exist first).
+User has confirmed 0023–0031 + **0033–0035 are applied**. **0032 is
+still pending** — until it lands, the new /projects-view customer mirror
+will show empty (anon SELECT blocked by the existing actor-gated read
+policies).
 
 | Migration | What it unlocks | Status |
 |---|---|---|
@@ -53,9 +46,9 @@ signature, so 0033's columns must exist first).
 | 0030_shop_stock_safety_and_preorder_tag | `shop_orders.is_preorder` + `shop_reserved_matrix_all()` RPC + `place_shop_order()` RPC (atomic stock check via row lock — prevents oversell). Buyer sees `max(0, stock - reserved)`. | ✅ applied |
 | 0031_project_doc_views | Per-user, per-doc seenAt marker — moves inbox highlights off per-device localStorage so they sync across devices + stop leaking across accounts. RLS-gated to own rows. JS bulk-uploads existing localStorage on first run. (File made idempotent after the first apply — re-running is safe.) | ✅ applied |
 | 0032_projects_public_read | **Public-read RLS** on `projects`, `project_documents`, `project_files`, `project_doc_types`, `project_settings` (`for select to anon, authenticated using (true)`). Unblocks the new /projects-view customer mirror — anonymous visitors can list every project, document, file URL, and the settings row's label fields. Writes are unchanged (still vp_admin / uni_staff gated). Settings table now exposes `uni_email` to anon too — if that becomes sensitive, scope to a column-select view in a follow-up. | ⏳ **pending — apply via Supabase SQL editor** |
-| 0033_shop_per_item_and_buyer_phone | **Additive** (no behaviour change alone). `shop_order_items.item_status`/`item_timeline`/`is_preorder`; `shop_orders.buyer_phone` + `slips` jsonb (backfilled from `slip_url`). Foundation for the Hybrid per-item model. | ⏳ **pending (shop branch)** |
-| 0034_shop_item_status_cascade | Rewrites `place_shop_order` (adds `p_buyer_phone`/`p_slips`, stamps per-item `is_preorder` + seeds `item_status`), repoints `apply_product_production_status` + the order-paid trigger to cascade to `item_status`, moves reserved-matrix aggregates to an item-level predicate. **Drops the 0030 `place_shop_order` signature** — apply 0033 first. | ⏳ **pending (shop branch)** |
-| 0035_shop_orders_admin_insert | Admin `shop_orders` INSERT policy (`with check current_user_is_shop_admin()`) so admin can create walk-in / phone orders (buyer_id null). OR-combined with the buyer insert policy. | ⏳ **pending (shop branch)** |
+| 0033_shop_per_item_and_buyer_phone | **Additive**. `shop_order_items.item_status`/`item_timeline`/`is_preorder`; `shop_orders.buyer_phone` + `slips` jsonb (backfilled from `slip_url`). Foundation for the Hybrid per-item model. | ✅ applied |
+| 0034_shop_item_status_cascade | Rewrites `place_shop_order` (adds `p_buyer_phone`/`p_slips`, stamps per-item `is_preorder` + seeds `item_status`), repoints `apply_product_production_status` + the order-paid trigger to cascade to `item_status`, moves reserved-matrix aggregates to an item-level predicate. Drops the 0030 `place_shop_order` signature. | ✅ applied |
+| 0035_shop_orders_admin_insert | Admin `shop_orders` INSERT policy so admin can create walk-in / phone orders (buyer_id null). OR-combined with the buyer insert policy. | ✅ applied |
 
 ## Supabase config notes
 
