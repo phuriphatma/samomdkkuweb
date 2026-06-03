@@ -726,41 +726,82 @@ function csvCell(v) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
+// One ROW PER LINE ITEM (tidy / long format) — every order + item field
+// in its own column so the file is filterable, sortable, and pivotable in
+// Excel / Sheets. Order-level fields are repeated on each of an order's
+// item rows so every row is self-contained; `order_item_index` /
+// `order_item_count` flag multi-item orders, and `line_total` sums across
+// rows to the order subtotal (so SUM(line_total) is correct, while order
+// `subtotal/fee/total` are order-level — dedupe by order_id before summing
+// those).
 function ordersToCsv(orders, productMap) {
   const headers = [
-    'order_id', 'placed_at', 'status',
-    'buyer_name', 'buyer_email', 'buyer_label', 'buyer_id',
-    'items', 'qty_total', 'subtotal', 'fee', 'total',
-    'slip_url', 'slip_uploaded_at',
+    // ---- order identity & lifecycle ----
+    'order_id', 'placed_at', 'updated_at',
+    'order_status', 'order_status_label',
+    'order_is_preorder',
+    // ---- buyer ----
+    'buyer_name', 'buyer_email', 'buyer_phone', 'buyer_label', 'buyer_id',
+    // ---- line item ----
+    'order_item_index', 'order_item_count',
+    'product_id', 'product_name', 'product_type', 'product_source',
+    'size', 'color', 'fit', 'qty', 'unit_price', 'line_total',
+    'item_status', 'item_status_label', 'item_is_preorder',
+    // ---- order money (repeated per row) ----
+    'order_subtotal', 'order_fee', 'order_total',
+    // ---- payment / fulfilment ----
+    'slip_count', 'slip_url', 'slip_uploaded_at',
     'pickup_batch_id', 'pickup_location',
-    'admin_note', 'cancel_reason', 'buyer_note',
-    'updated_at',
+    // ---- notes ----
+    'buyer_note', 'admin_note', 'cancel_reason',
   ];
-  const rows = orders.map((o) => {
+
+  const typeLabel = (t) => SHOP_TYPES.find((x) => x.id === t)?.label || t || '';
+  const srcLabel  = (s) => findSource(s)?.label || s || '';
+
+  const rows = [];
+  for (const o of orders) {
     // Honor the active item-level facets so the export matches the table.
     const items = visibleOrderItems(o);
-    const qty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-    // Items column = pipe-separated "<name> × <qty> (size, color) @฿unit".
-    // Keep it human-readable AND parseable by a simple split.
-    const itemsText = items.map((it) => {
-      const p = productMap.get(it.product_id);
-      const name = p?.name || it.product_id || '?';
-      const variant = [
-        it.size && it.size !== 'F' ? `ไซส์ ${it.size}` : '',
-        it.color || '',
-      ].filter(Boolean).join(', ');
-      return `${name} × ${it.qty || 0}${variant ? ` (${variant})` : ''} @฿${Number(it.unit_price) || 0}`;
-    }).join(' | ');
-    return [
-      o.id, o.placed_at, o.status,
-      o.buyer_name || '', o.buyer_email || '', o.buyer_label || '', o.buyer_id || '',
-      itemsText, qty, o.subtotal || 0, o.fee || 0, o.total || 0,
-      o.slip_url || '', o.slip_uploaded_at || '',
-      o.pickup_batch_id || '', o.pickup_location || '',
-      o.admin_note || '', o.cancel_reason || '', o.buyer_note || '',
-      o.updated_at || '',
-    ].map(csvCell).join(',');
-  });
+    const slipCount = Array.isArray(o.slips) ? o.slips.length : (o.slip_url ? 1 : 0);
+    const orderCells = {
+      head: [o.id, o.placed_at || '', o.updated_at || '',
+             o.status || '', STAGES_META[o.status]?.label || o.status || '',
+             o.is_preorder ? 'yes' : 'no'],
+      buyer: [o.buyer_name || '', o.buyer_email || '', o.buyer_phone || '',
+              o.buyer_label || '', o.buyer_id || ''],
+      money: [o.subtotal || 0, o.fee || 0, o.total || 0],
+      fulfil: [slipCount, o.slip_url || '', o.slip_uploaded_at || '',
+               o.pickup_batch_id || '', o.pickup_location || ''],
+      notes: [o.buyer_note || '', o.admin_note || '', o.cancel_reason || ''],
+    };
+    // Edge case: order with zero (visible) items still gets one row so it
+    // isn't silently dropped from the export.
+    const list = items.length ? items : [null];
+    list.forEach((it, i) => {
+      const p = it ? productMap.get(it.product_id) : null;
+      const qty = it ? (Number(it.qty) || 0) : 0;
+      const unit = it ? (Number(it.unit_price) || 0) : 0;
+      const itemStatus = it ? (it.item_status || 'paid') : '';
+      const itemCells = it
+        ? [i + 1, items.length,
+           it.product_id || '', p?.name || it.product_id || '',
+           typeLabel(p?.type), srcLabel(p?.source),
+           it.size || '', colorLabelFor(p, it.color) || it.color || '', it.fit || '',
+           qty, unit, qty * unit,
+           itemStatus, (itemStatusMeta?.(itemStatus)?.label) || STAGES_META[itemStatus]?.label || itemStatus,
+           it.is_preorder ? 'yes' : 'no']
+        : [1, 0, '', '', '', '', '', '', '', 0, 0, 0, '', '', ''];
+      rows.push([
+        ...orderCells.head,
+        ...orderCells.buyer,
+        ...itemCells,
+        ...orderCells.money,
+        ...orderCells.fulfil,
+        ...orderCells.notes,
+      ].map(csvCell).join(','));
+    });
+  }
   // UTF-8 BOM so Excel renders Thai correctly. CRLF per RFC4180.
   return '﻿' + [headers.join(','), ...rows].join('\r\n');
 }
@@ -782,7 +823,8 @@ function exportOrdersCsv() {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  showShopToast(`ส่งออก ${list.length} รายการแล้ว`, 'success');
+  const lineItems = list.reduce((s, o) => s + Math.max(1, visibleOrderItems(o).length), 0);
+  showShopToast(`ส่งออก ${list.length} คำสั่งซื้อ · ${lineItems} รายการสินค้าแล้ว`, 'success');
 }
 
 let modalOrder = null;
