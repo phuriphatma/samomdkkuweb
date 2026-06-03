@@ -22,13 +22,16 @@ Both Cloudflare projects hit the same Supabase backend.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / type, sort, search),
-  cart with localStorage persistence, checkout with name+email contact
-  step, static PromptPay QR + slip upload to Drive, order timeline
+  cart with localStorage persistence, checkout with required
+  name+email+phone contact step (phone auto-fills from the signed-in
+  profile), static PromptPay QR + slip upload to Drive, order timeline
   (pending → review → paid → produce → ready → done), per-order QR codes
   (customers show, admins scan via the camera viewfinder in the orders
   tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch
-  announcements, and full admin (orders table, slip-verify queue,
-  batches, product CRUD, QR settings).
+  announcements, an admin-curated swipe-banner carousel for both
+  เปิดตัวล่าสุด and ประกาศ (upload + reorder + per-placement), and full
+  admin (orders table with size/colour variant dropdowns on order
+  create/edit, slip-verify queue, batches, product CRUD, QR settings).
 - **Project-document tracking.** SAMO VP-Administration sends "หนังสือโครงการ"
   (projects containing multiple documents) to a designated university officer.
   Document workflow: sent → received → in progress → completed (with off-path

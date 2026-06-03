@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-03. Slim by design — "what is true right now",
+Last updated: 2026-06-03 (later session). Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
@@ -22,6 +22,14 @@ copy-รหัส button) is still in. Cloudflare auto-build runs on push.
 - `main` HEAD: latest production. Auto-deploys to `samomdkkuweb.pages.dev`.
 - `refactor/modular`: synced to main (preview). Auto-deploys to
   `refactorsamomdkkuweb.pages.dev`.
+- `feat/batch-shop-account-banners-fixes` (in flight, NOT merged): shop
+  checkout required-field `*` markers; mobile launch-banner peek fix;
+  `mistakes.md` trimmed under budget (+ `mistakes-archive.md`); จัดการบัญชี
+  contact phone + samoshop autofill (mig 0036); admin order size/colour
+  dropdowns; ประกาศ swipe-banner carousel + admin placement toggle
+  (mig 0037); account-switch slow-path now uses local-scope signout so
+  the outgoing account stays fast-switchable. **Apply 0036 + 0037 before
+  merge/use.**
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
@@ -49,6 +57,8 @@ policies).
 | 0033_shop_per_item_and_buyer_phone | **Additive**. `shop_order_items.item_status`/`item_timeline`/`is_preorder`; `shop_orders.buyer_phone` + `slips` jsonb (backfilled from `slip_url`). Foundation for the Hybrid per-item model. | ✅ applied |
 | 0034_shop_item_status_cascade | Rewrites `place_shop_order` (adds `p_buyer_phone`/`p_slips`, stamps per-item `is_preorder` + seeds `item_status`), repoints `apply_product_production_status` + the order-paid trigger to cascade to `item_status`, moves reserved-matrix aggregates to an item-level predicate. Drops the 0030 `place_shop_order` signature. | ✅ applied |
 | 0035_shop_orders_admin_insert | Admin `shop_orders` INSERT policy so admin can create walk-in / phone orders (buyer_id null). OR-combined with the buyer insert policy. | ✅ applied |
+| 0036_users_phone | **Additive**. `users.phone` column (self-writable; not guarded by 0028). Powers the จัดการบัญชี phone field + samoshop checkout autofill. | ⏳ **pending — apply via Supabase SQL editor** |
+| 0037_shop_banner_placement | **Additive**. `shop_banners.placement` ('launch' \| 'announcement', default 'launch'); per-placement order index. Unlocks the ประกาศ swipe-banner carousel + admin placement toggle. | ⏳ **pending — apply via Supabase SQL editor** |
 
 ## Supabase config notes
 

@@ -101,8 +101,10 @@ Tables, condensed:
 
 ```
 users (uuid id PK, email, username, display_name, method, role, department,
-       created_at, last_seen_at)
+       permissions, has_password, phone, created_at, last_seen_at)
   ↳ FK to auth.users (cascade delete)
+  ↳ phone (mig 0036): self-set contact phone; autofills samoshop checkout.
+    Self-writable (NOT a privileged column per the 0028 self-update guard).
   ↳ role IN ('user', 'pr_staff', 'vs_staff', 'dev')
   ↳ Trigger handle_new_auth_user populates from raw_user_meta_data on signup
 
@@ -157,6 +159,12 @@ shop_order_items (bigserial id PK, order_id FK shop_orders(id) CASCADE,
                   item_status, item_timeline jsonb, is_preorder)
   ↳ item_status (FULFILMENT phase) IN ('paid','produce','ready','done',
     'exchange','no_show'); is_preorder = frozen is_presale snapshot @ buy-time
+
+shop_banners (uuid id PK, image_url, caption, link_url, display_order,
+              is_active, placement, created_at)   [mig 0019, 0037]
+  ↳ placement IN ('launch','announcement'), default 'launch'. Drives two
+    customer swipe carousels (เปิดตัวล่าสุด / ประกาศ) off one admin UI;
+    display_order is scoped per-placement. RLS: public read, shop-admin write.
 ```
 
 **Hybrid order model (migrations 0033–0035).** The order's `status` carries
