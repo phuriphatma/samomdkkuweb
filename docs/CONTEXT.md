@@ -141,17 +141,36 @@ shop_products (text id PK, name, sub, description, type, source,
                added_at, created_by FK users(id), updated_at)
   ↳ source IN ('project','fund','rt','mdi','merch')
 
-shop_orders (text id PK ["SS-YY-NNNNN"], buyer_id FK users(id),
-             buyer_label, status, subtotal, fee, total,
-             slip_url, slip_uploaded_at,
+shop_orders (text id PK ["<CODE>NNNN"], buyer_id FK users(id) [null=admin-created],
+             buyer_label, buyer_name, buyer_email, buyer_phone, status,
+             subtotal, fee, total, is_preorder [any item preorder@buy-time],
+             slip_url [=latest], slips jsonb [{url,at}…], slip_uploaded_at,
              pickup_location, pickup_batch_id FK shop_pickup_batches(id),
              buyer_note, admin_note, cancel_reason,
              timeline jsonb, placed_at, updated_at)
-  ↳ status IN ('pending','review','paid','produce','ready','done','cancel')
+  ↳ status (PAYMENT phase) IN ('pending','review','paid', +cancel/refund_pending/
+    refunded/slip_mismatch/no_show + legacy produce/ready/done/exchange)
 
 shop_order_items (bigserial id PK, order_id FK shop_orders(id) CASCADE,
                   product_id FK shop_products(id) RESTRICT,
-                  size, color, fit, qty, unit_price)
+                  size, color, fit, qty, unit_price,
+                  item_status, item_timeline jsonb, is_preorder)
+  ↳ item_status (FULFILMENT phase) IN ('paid','produce','ready','done',
+    'exchange','no_show'); is_preorder = frozen is_presale snapshot @ buy-time
+```
+
+**Hybrid order model (migrations 0033–0035).** The order's `status` carries
+only the PAYMENT phase; once paid, each line item carries its own
+fulfilment `item_status` so products in one order progress independently.
+The overall display stage is a JS rollup (`rollupOrderStage` in
+`src/js/shop/data.js` — least-progressed item). `place_shop_order(...)`
+(0034, SECURITY DEFINER) stamps per-item `is_preorder` + seeds
+`item_status`, validates stock atomically under a row lock, and persists
+`buyer_phone` + `slips`. `apply_product_production_status` (stock tab) and
+the order→paid trigger cascade to `item_status`, not the whole order.
+Reserved-stock aggregates (`shop_reserved_matrix_all`) count at the item
+level (an item stops reserving once `item_status='done'`).
+```
 
 shop_pickup_batches (bigserial id PK, title, product_ids text[],
                      location, dates text[], hours, note,
@@ -261,10 +280,11 @@ rejects `..` segments.
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.
-- **shop_orders**: SELECT for buyer (own rows) or admin. INSERT requires
-  `buyer_id = auth.uid()`. UPDATE allowed for admin always; allowed for
-  buyer only while status is `pending` or `review` (used for re-uploading
-  a slip). DELETE admin-only.
+- **shop_orders**: SELECT for buyer (own rows) or admin. INSERT for the
+  buyer (`buyer_id = auth.uid()`) OR admin (0035 — walk-in/phone orders,
+  buyer_id null). UPDATE allowed for admin always; allowed for buyer only
+  while status is `pending` / `review` / `slip_mismatch` (slip add/remove).
+  DELETE admin-only.
 - **shop_order_items**: read/insert piggy-back on parent order's policy.
 - **shop_settings**: public SELECT (so checkout can show the QR); admin
   write only.
