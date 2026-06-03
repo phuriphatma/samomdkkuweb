@@ -37,7 +37,8 @@ const state = {
   // Within a facet → OR; across facets → AND. This is the standard
   // faceted-filter pattern (Shopify/Stripe/Linear/Notion).
   ordersStatuses: new Set(),
-  ordersProducts: new Set(),
+  ordersProducts: new Set(),   // specific product ids (subtype level)
+  ordersTypes: new Set(),      // product-type ids, e.g. 'apparel-shirt' (type level)
   ordersSearch: '',
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
   // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
@@ -90,6 +91,7 @@ function ensureMounted() {
   document.getElementById('shopAdminOrdersClearFilters')?.addEventListener('click', () => {
     state.ordersStatuses.clear();
     state.ordersProducts.clear();
+    state.ordersTypes.clear();
     state.ordersSearch = '';
     state.ordersPreorder = 'all';
     const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
@@ -273,18 +275,62 @@ function populateOrdersProductSelect() {
     menu.innerHTML = '<div class="small text-muted px-2">ไม่มีสินค้า</div>';
     return;
   }
-  menu.innerHTML = products.map((p) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
-      <input type="checkbox" class="form-check-input m-0"
-             data-facet="product" value="${escHtml(p.id)}"
-             ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
-      <span class="small">${escHtml(p.name || p.id)}</span>
-    </label>
-  `).join('');
+  // Group products under their type. The type row is a TYPE-level filter
+  // ("เสื้อยืด" → every shirt); the products under it are SUBTYPE filters
+  // (one specific product). Only types that actually have products show.
+  const byType = new Map();
+  for (const p of products) {
+    const t = p.type || 'other';
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push(p);
+  }
+  // Order types per SHOP_TYPES (skip the 'all' sentinel), then any
+  // leftover/unknown types at the end.
+  const typeOrder = SHOP_TYPES.filter((t) => t.id !== 'all').map((t) => t.id);
+  const seen = new Set();
+  const orderedTypes = [
+    ...typeOrder.filter((t) => byType.has(t)),
+    ...[...byType.keys()].filter((t) => !typeOrder.includes(t)),
+  ].filter((t) => (seen.has(t) ? false : (seen.add(t), true)));
+
+  menu.innerHTML = orderedTypes.map((t) => {
+    const meta = SHOP_TYPES.find((x) => x.id === t);
+    const label = meta?.label || (t === 'other' ? 'อื่น ๆ' : t);
+    const icon = meta?.icon || 'bi-tag';
+    const group = byType.get(t) || [];
+    return `
+      <div class="orders-facet-group">
+        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-bold" style="cursor:pointer;">
+          <input type="checkbox" class="form-check-input m-0"
+                 data-facet="type" value="${escHtml(t)}"
+                 ${state.ordersTypes.has(t) ? 'checked' : ''} />
+          <i class="bi ${escHtml(icon)} small"></i>
+          <span class="small">${escHtml(label)}</span>
+          <span class="badge bg-light text-muted border ms-auto" style="font-weight:500;">${group.length}</span>
+        </label>
+        ${group.map((p) => `
+          <label class="dropdown-item d-flex align-items-center gap-2 py-1 ps-4" style="cursor:pointer;">
+            <input type="checkbox" class="form-check-input m-0"
+                   data-facet="product" value="${escHtml(p.id)}"
+                   ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
+            <span class="small text-muted">${escHtml(p.name || p.id)}</span>
+          </label>
+        `).join('')}
+      </div>`;
+  }).join('');
+
   menu.querySelectorAll('input[data-facet="product"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersProducts.add(cb.value);
       else state.ordersProducts.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  menu.querySelectorAll('input[data-facet="type"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersTypes.add(cb.value);
+      else state.ordersTypes.delete(cb.value);
       updateFilterChromes();
       renderOrdersTable();
     });
@@ -298,7 +344,7 @@ function updateFilterChromes() {
   const pBadge = document.getElementById('shopAdminOrdersProductBadge');
   const clear  = document.getElementById('shopAdminOrdersClearFilters');
   const sN = state.ordersStatuses.size;
-  const pN = state.ordersProducts.size;
+  const pN = state.ordersProducts.size + state.ordersTypes.size;
   if (sBadge) {
     sBadge.textContent = String(sN);
     sBadge.classList.toggle('d-none', sN === 0);
@@ -380,7 +426,11 @@ function renderOrdersTable() {
   tbody.innerHTML = list.map((o) => {
     const buyerName  = o.buyer_name  || o.buyer_label || '—';
     const buyerEmail = o.buyer_email || '';
-    const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+    // When a product / type / preorder facet is active, show ONLY the
+    // matching line items of each order — not the whole order. Filtering
+    // for "เสื้อยืด" should surface the shirt rows, not every unrelated
+    // item the buyer happened to add to the same คำสั่งซื้อ.
+    const items = visibleOrderItems(o);
     const rows = items.length ? items : [null];
     lineCount += rows.length;
     const span = rows.length;
@@ -576,21 +626,55 @@ async function onOrderCreateSave() {
   }
 }
 
+/** Look up a product's type id (e.g. 'apparel-shirt') for facet matching. */
+function productTypeOf(productId) {
+  return (state.products || []).find((p) => p.id === productId)?.type || '';
+}
+
+/** Does this line item match the active "what product" dimension
+ *  (specific product OR product-type)? Within that dimension the two
+ *  facets are OR-combined; an empty dimension matches everything. */
+function itemMatchesProductDim(it) {
+  const products = state.ordersProducts;
+  const types    = state.ordersTypes;
+  if (products.size === 0 && types.size === 0) return true;
+  return products.has(it.product_id) || types.has(productTypeOf(it.product_id));
+}
+
+/** Does this line item match the active preorder facet? */
+function itemMatchesPreorder(it) {
+  const pf = state.ordersPreorder || 'all';
+  if (pf === 'preorder') return !!it.is_preorder;
+  if (pf === 'in_stock') return !it.is_preorder;
+  return true;
+}
+
+/** The line items of an order that survive the item-level facets
+ *  (product / type / preorder). Drives both the table (renders only
+ *  these rows) and the order-level filterOrders pass (an order shows
+ *  iff it has ≥1 surviving item). */
+function visibleOrderItems(o) {
+  const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
+  const itemFacetActive = state.ordersProducts.size > 0
+    || state.ordersTypes.size > 0
+    || (state.ordersPreorder || 'all') !== 'all';
+  if (!itemFacetActive) return items;
+  return items.filter((it) => itemMatchesProductDim(it) && itemMatchesPreorder(it));
+}
+
 /** Apply the current facet filters. Within-facet OR, across-facet AND.
- *  Reused by the CSV export so the export honors the visible filter. */
+ *  Reused by the CSV export so the export honors the visible filter.
+ *  Product / type / preorder are item-level: an order passes when it has
+ *  at least one line item surviving those facets. */
 function filterOrders(source) {
   const statuses = state.ordersStatuses;
-  const products = state.ordersProducts;
   const q = (state.ordersSearch || '').trim();
-  const preorderFilter = state.ordersPreorder || 'all';
+  const itemFacetActive = state.ordersProducts.size > 0
+    || state.ordersTypes.size > 0
+    || (state.ordersPreorder || 'all') !== 'all';
   return (source || []).filter((o) => {
     if (statuses.size > 0 && !statuses.has(o.status)) return false;
-    if (products.size > 0) {
-      const items = Array.isArray(o.items) ? o.items : [];
-      if (!items.some((it) => products.has(it.product_id))) return false;
-    }
-    if (preorderFilter === 'preorder' && !o.is_preorder) return false;
-    if (preorderFilter === 'in_stock' && o.is_preorder)  return false;
+    if (itemFacetActive && visibleOrderItems(o).length === 0) return false;
     if (q) {
       const hay = [
         o.id || '',
@@ -630,7 +714,8 @@ function ordersToCsv(orders, productMap) {
     'updated_at',
   ];
   const rows = orders.map((o) => {
-    const items = Array.isArray(o.items) ? o.items : [];
+    // Honor the active item-level facets so the export matches the table.
+    const items = visibleOrderItems(o);
     const qty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
     // Items column = pipe-separated "<name> × <qty> (size, color) @฿unit".
     // Keep it human-readable AND parseable by a simple split.
