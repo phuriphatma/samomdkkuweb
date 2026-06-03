@@ -265,6 +265,9 @@
 .shop-tab .launch-arrow:active { transform: translateY(1px); }
 .shop-tab .launch-arrow:disabled { opacity: .45; cursor: not-allowed; }
 
+/* Required-field marker — red asterisk on mandatory checkout fields. */
+.shop-tab .req-star { color: var(--bs-danger, #dc3545); font-weight: 700; }
+
 /* Hero banner — one slide per view, image fills the box, info+price
    live as an overlay at the bottom (Shopee / Lazada pattern). */
 .shop-tab .launch-carousel {
@@ -280,7 +283,12 @@
 .shop-tab .launch-carousel::-webkit-scrollbar { display: none; }
 .shop-tab .launch-big {
   flex: 0 0 100%;
-  scroll-snap-align: center;
+  min-width: 100%;
+  /* start (not center): the JS arrows/dots scroll to i * clientWidth, and a
+     full-width first slide centered would bleed the next slide in at the
+     right edge on mobile. start keeps each slide flush to the viewport. */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   position: relative;
   cursor: pointer;
   overflow: hidden;
