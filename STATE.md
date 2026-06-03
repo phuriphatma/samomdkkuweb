@@ -36,69 +36,30 @@ copy-รหัส button) is still in. Cloudflare auto-build runs on push.
   redesigned (summary stats + table/card view + search/type filters,
   grouped by type). **Migrations 0036/0037/0038 confirmed applied in prod.**
 
-## Recently landed (merged to main)
+## Latest commit on main
 
-Batch of หนังสือโครงการ + auth/mobile fixes (build green, 49 tests pass):
+`caab82a` — batch of หนังสือโครงการ + auth/mobile/UI fixes (customer-mirror
+highlights removed, admin notification jump, mobile boot-gate, faster
+status/comment notify, เปลี่ยนบัญชี first-switch-back race, จัดการบัญชี on
+mobile, article-hero + footer CSS). Full per-change detail is in that
+commit message + the 4 new entries in `.claude/rules/mistakes.md`.
+Pushed direct to main (branch protection bypassed); Cloudflare auto-build
+deploying.
 
-1. **Customer mirror (`/projects-view`)** no longer flashes "คอมเมนต์ใหม่"
-   banners / "ใหม่" pills — gated on `!customerMode` in `inbox.js`.
-2. **Customer mirror QR works** — public `index.html` now includes
-   `modal-project-qr.html` (the "QR โฟลเดอร์" button used to silently
-   no-op because the modal lived only in `admin/index.html`). Still
-   depends on the pending GAS redeploy for `getProjectFolderInfo`.
-3. **Admin notification jump fixed** — `openProjectsTab()` detects the
-   admin shell and routes via `window.openAdminSection('projects')`
-   instead of the public-only Bootstrap pill; tapping a notification
-   from any admin section now navigates. `loadInitialData()` got a
-   single-flight guard.
-4. **Mobile admin login-on-refresh fixed** — boot gate stays on the
-   spinner while a persisted session restores instead of flashing the
-   sign-in gate on the synchronous first `onAuthChange(null)`. New
-   `authReady` + `hasPersistedSession()` in `auth.js`; `authSettled`
-   gating + 9s fallback in `admin-main.js`. (If a device is genuinely
-   evicting localStorage this won't help — would need deeper repro.)
-5. **Status/comment clicks faster** — doc handlers re-render BEFORE
-   firing notify (was awaiting the 6s-spaced Discord queue). Notify is
-   now fire-and-forget. Discord reliability itself still gated on the
-   pending GAS redeploy + any active Cloudflare 1015 cooldown; a
-   non-GAS proxy (Supabase Edge Function / Cloudflare Worker, dedicated
-   egress IP) is the durable fix — **decision pending with user**.
-6. **จัดการบัญชี added on mobile** — admin sidebar foot + public mobile
-   offcanvas now have a "จัดการบัญชี" button (`samoOpenProfile()`); it
-   was desktop-only before.
+## Open follow-ups (not yet done)
 
-Second batch (same working tree):
+- **Discord notify platform** — user chose to KEEP GAS for now, scope any
+  Discord work to หนังสือโครงการ only (do NOT touch prform/vitalsound),
+  and migrate to a non-GAS proxy (Edge Function / Worker, dedicated egress
+  IP) later. The rapid-fire rate-limit is already handled by the 6s
+  queue spacing in `projects/notify.js`.
+- **Mobile login fix caveat** — if a phone is genuinely evicting
+  localStorage (not just slow restore), the boot-gate fix won't help;
+  needs a real-device repro to distinguish.
 
-7. **เปลี่ยนบัญชี first-switch-back bug fixed** — `account-switch.js`
-   now awaits the outgoing account's token capture before swapping the
-   session (was fire-and-forget + 80ms sleep, which raced and wrote the
-   incoming account's already-rotated tokens onto the outgoing entry).
-   See mistakes.md "Account-switcher … first switch-back forces a
-   password re-login".
-8. **Article hero image** no longer dwarfs the text column below 1200px
-   (iPad) — `article.css` caps `.article-hero` to 760px on tablet.
-9. **Footer shorter on phones** — `footer.css` keeps 2 columns at
-   <576px instead of stacking all 5 sections into one tall column.
-10. **Profile (จัดการบัญชี) for staff** — verified in code that
-    change-password (`changePassword`) and add-email (`updateEmail`) are
-    auth-only mutations that never touch `public.users.role` /
-    `permissions`, and the modal exposes both to staff (hasPassword
-    accounts). No permission loss. Connect-Google still depends on
-    Supabase "Manual linking" being enabled. Live multi-account / OAuth
-    testing not automatable against prod — needs manual verification.
-
-Follow-up scan fixes:
-
-11. **Customer file "ใหม่" tag** removed — `fileNewnessForRole` returned
-    'new' for every file in the mirror (lastActed always 0). Now gated on
-    `customerMode` like the comment banner/unread (`inbox.js`).
-12. **Customer filter chips** trimmed — the mirror no longer shows the
-    always-zero "ของฉัน" / "ได้รับแจ้งเตือน" staff chips; shows
-    ทั้งหมด / กำลังดำเนินการ / เสร็จสิ้น only.
-13. **Account-switch token capture bounded** — `rememberAccountAwait`
-    races the `getSession()` capture against a 1.5s ceiling so a wedged
-    supabase-js can't freeze the switcher (the old 80ms sleep never
-    froze; an unbounded awaited capture could).
+Resolved by user (2026-06-03): **GAS redeployed** (customer-mirror QR +
+folder/rename ops now live) and **Supabase Manual linking enabled**
+(profile Connect-Google prerequisite met). No code follow-up needed.
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
@@ -143,11 +104,12 @@ policies).
   `https://samomdkkuweb.pages.dev/**` and
   `https://refactorsamomdkkuweb.pages.dev/**`.
 
-## Pending GAS redeploy (`appscript/prform.gs`)
+## GAS deploy (`appscript/prform.gs`) — DEPLOYED 2026-06-03
 
-The local `prform.gs` is multiple commits ahead of what's deployed
-to the prod /exec endpoint. See `skills/deploy-gas.md` for the deploy
-procedure. Bundled changes since the last deploy:
+User redeployed the prod /exec endpoint, so the changes below are now
+LIVE (customer-mirror QR + folder/rename self-heal + the Discord
+retry/1015-aware path). See `skills/deploy-gas.md` for the procedure.
+Bundled changes that landed in this deploy:
 
 | Area | What's new |
 |---|---|
@@ -155,9 +117,8 @@ procedure. Bundled changes since the last deploy:
 | Discord notify | `sendProjectDiscord` does up to 3 attempts with progressive backoff (1.2s / 2.5s / 4s, Retry-After honoured, clamp bumped 5s → 9s). Detects Cloudflare 1015 in response body and bails the retry loop early (no point burning GAS time when per-IP cooldown won't clear). `doPost notifyProjectDiscord` echoes full diagnostic info in the response (`status`, `attempts`, `firstStatus`, `body`, `retried`) so the frontend can log what Discord said — GAS Cloud Logs are NOT recorded for browser-fetch calls (see `skills/deploy-gas.md` "Where the logs DO and DON'T appear"). `notifyProjectEmail` also surfaces send failures. |
 | Diagnostics | New `testProjectDiscord()` function for manual editor-Run debugging — sends a labelled test embed and logs the full Discord response. Top-of-`doPost` trace log (`doPost: action=...`) for absolute-floor confirmation that the code path is being entered (visible only when called with OAuth token or from the editor). |
 
-Until the redeploy lands, the QR button + rename hooks alert
-"หา URL โฟลเดอร์ไม่สำเร็จ"; Discord notify still works but on the old
-single-shot path. Everything else in the inbox is unaffected.
+(Now deployed — the QR button + rename hooks resolve, and Discord notify
+runs the retry/1015-aware path.)
 
 ## Active external issue: Cloudflare 1015 cooldown on Discord webhook
 
