@@ -7,7 +7,10 @@
 
 import { escHtml, safeUrl, orderIdChipHtml } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries } from './data.js';
+import {
+  thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries,
+  rollupOrderStage, ITEM_STAGES_ORDER, itemStatusMeta,
+} from './data.js';
 import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
@@ -167,7 +170,7 @@ export async function renderOrdersView() {
 export function refreshReadyCountBadge() {
   const badge = document.getElementById('shopOrdersReadyCount');
   if (!badge) return;
-  const ready = state.orders.filter((o) => o.status === 'ready').length;
+  const ready = state.orders.filter((o) => hasReadyItem(o)).length;
   badge.textContent = String(ready);
   badge.classList.toggle('d-none', ready === 0);
 }
@@ -204,21 +207,7 @@ function orderCardHtml(o) {
         ${statusPillHtml(o)}
       </div>
 
-      ${progressTrackHtml(o)}
-
-      <div class="order-items-row">
-        ${items.map((it) => {
-          const p = products[it.product_id];
-          const variant = variantLabel(p, it);
-          return `
-            <div class="order-mini">
-              <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
-              <span>${escHtml(p?.name || it.product_id)}</span>
-              ${variant ? `<span class="text-muted small">(${escHtml(variant)})</span>` : ''}
-              <span class="om-qty">× ${it.qty}</span>
-            </div>`;
-        }).join('')}
-      </div>
+      ${itemsProgressHtml(o, products)}
 
       <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
         <div class="d-flex flex-wrap gap-3 align-items-center">
@@ -243,7 +232,7 @@ function orderCardHtml(o) {
         </span>
       </div>
 
-      ${o.status === 'ready' && batch ? `
+      ${hasReadyItem(o) && batch ? `
         <div class="order-pickup-callout">
           <i class="bi bi-box-seam"></i>
           <div>
@@ -258,7 +247,7 @@ function orderCardHtml(o) {
           <i class="bi bi-arrow-right-circle fs-4 text-success"></i>
         </div>` : ''}
 
-      ${(o.status === 'ready' && (state.contact.gmail || state.contact.instagram)) ? `
+      ${(hasReadyItem(o) && (state.contact.gmail || state.contact.instagram)) ? `
         <div class="contact-fallback">
           <i class="bi bi-info-circle text-warning fs-5"></i>
           <div class="flex-grow-1">
@@ -338,13 +327,100 @@ function reuploadCalloutHtml(o) {
 
 function statusPillHtml(order) {
   const meta = statusMetaFor(order);
-  const status = order?.status || 'pending';
+  const status = rollupOrderStage(order);
   return `
     <span class="status-pill" data-status="${escHtml(status)}">
       <span class="pulse"></span>
       <i class="bi ${escHtml(meta.icon)}"></i>
       <span>${escHtml(meta.label)}</span>
     </span>`;
+}
+
+/** True when at least one line item is ready for pickup — drives the
+ *  pickup callout + contact fallback even on partial orders where the
+ *  overall rollup is still "in production". */
+function hasReadyItem(o) {
+  if (rollupOrderStage(o) === 'ready') return true;
+  const items = Array.isArray(o?.items) ? o.items : [];
+  return items.some((it) => (it.item_status || 'paid') === 'ready');
+}
+
+// Progress section. Two modes:
+//   * Pre-paid (pending/review), off-path, or legacy whole-order
+//     (produce/ready/done set before the Hybrid migration) → one
+//     order-level track + a plain item list.
+//   * Hybrid 'paid' order → one progress block PER item, so products
+//     that aren't produced at the same time show different progress.
+function itemsProgressHtml(o, products) {
+  const status = o?.status || 'pending';
+  if (status !== 'paid') {
+    return `
+      ${progressTrackHtml(o)}
+      ${plainItemsRowHtml(o, products)}`;
+  }
+  const items = Array.isArray(o.items) ? o.items : [];
+  if (!items.length) return progressTrackHtml(o);
+  return `
+    <div class="order-item-blocks">
+      ${items.map((it) => itemBlockHtml(it, products)).join('')}
+    </div>`;
+}
+
+function plainItemsRowHtml(o, products) {
+  const items = Array.isArray(o.items) ? o.items : [];
+  return `
+    <div class="order-items-row">
+      ${items.map((it) => {
+        const p = products[it.product_id];
+        const variant = variantLabel(p, it);
+        return `
+          <div class="order-mini">
+            <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+            <span>${escHtml(p?.name || it.product_id)}</span>
+            ${it.is_preorder ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
+            ${variant ? `<span class="text-muted small">(${escHtml(variant)})</span>` : ''}
+            <span class="om-qty">× ${it.qty}</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function itemBlockHtml(it, products) {
+  const p = products[it.product_id];
+  const variant = variantLabel(p, it);
+  return `
+    <div class="order-item-block">
+      <div class="oib-head">
+        <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+        <div class="oib-info">
+          <div class="oib-name">
+            ${escHtml(p?.name || it.product_id)}
+            ${it.is_preorder ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
+          </div>
+          ${variant ? `<div class="text-muted small">${escHtml(variant)}</div>` : ''}
+        </div>
+        <span class="om-qty">× ${it.qty}</span>
+      </div>
+      ${itemProgressTrackHtml(it.item_status || 'paid')}
+    </div>`;
+}
+
+function itemProgressTrackHtml(istatus) {
+  const off = OFF_PATH_TRACKS[istatus];
+  if (off) {
+    return `
+      <div class="progress-track item-track" style="grid-template-columns: 1fr;">
+        <div class="progress-step ${off.cls}"><span class="pdot"></span>${escHtml(off.text)}</div>
+      </div>`;
+  }
+  const currentIdx = ITEM_STAGES_ORDER.indexOf(istatus);
+  return `
+    <div class="progress-track item-track">
+      ${ITEM_STAGES_ORDER.map((stage, i) => {
+        const cls = i < currentIdx ? 'is-done' : i === currentIdx ? 'is-current' : '';
+        return `<div class="progress-step ${cls}"><span class="pdot"></span>${escHtml(itemStatusMeta(stage).label)}</div>`;
+      }).join('')}
+    </div>`;
 }
 
 // Off-path single-line track. Text falls back to the canonical label

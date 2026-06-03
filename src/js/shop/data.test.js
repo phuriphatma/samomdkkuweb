@@ -1,7 +1,10 @@
 // Pure-function tests for shop/data.js.
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeOrderCode, genOrderId, STAGES_META, ISSUE_STATUSES } from './data.js';
+import {
+  sanitizeOrderCode, genOrderId, STAGES_META, ISSUE_STATUSES,
+  rollupOrderStage, itemStageRank,
+} from './data.js';
 
 describe('sanitizeOrderCode', () => {
   it('uppercases + strips non-alnum + caps at 5', () => {
@@ -46,6 +49,43 @@ describe('genOrderId', () => {
   it('sanitises bad codes the same way sanitizeOrderCode does', () => {
     expect(genOrderId('sh!@#')).toMatch(/^SH\d{4}$/);
     expect(genOrderId('Polo123456')).toMatch(/^POLO1\d{4}$/);
+  });
+});
+
+describe('rollupOrderStage (Hybrid per-item model)', () => {
+  it('returns the order status verbatim for pre-paid / off-path / legacy', () => {
+    expect(rollupOrderStage({ status: 'pending', items: [] })).toBe('pending');
+    expect(rollupOrderStage({ status: 'review', items: [] })).toBe('review');
+    expect(rollupOrderStage({ status: 'cancel', items: [] })).toBe('cancel');
+    expect(rollupOrderStage({ status: 'slip_mismatch', items: [] })).toBe('slip_mismatch');
+    // legacy whole-order advanced before the migration → trusted as-is
+    expect(rollupOrderStage({ status: 'ready', items: [{ item_status: 'paid' }] })).toBe('ready');
+  });
+
+  it('for a paid order, rolls up to the least-progressed item', () => {
+    expect(rollupOrderStage({ status: 'paid', items: [
+      { item_status: 'ready' }, { item_status: 'produce' }, { item_status: 'done' },
+    ] })).toBe('produce');
+    expect(rollupOrderStage({ status: 'paid', items: [
+      { item_status: 'ready' }, { item_status: 'ready' },
+    ] })).toBe('ready');
+    expect(rollupOrderStage({ status: 'paid', items: [
+      { item_status: 'done' }, { item_status: 'done' },
+    ] })).toBe('done');
+  });
+
+  it('an item issue (exchange/no_show) holds the order back to "paid"', () => {
+    expect(rollupOrderStage({ status: 'paid', items: [
+      { item_status: 'ready' }, { item_status: 'exchange' },
+    ] })).toBe('paid');
+  });
+
+  it('paid order with no items falls back to paid; itemStageRank orders stages', () => {
+    expect(rollupOrderStage({ status: 'paid', items: [] })).toBe('paid');
+    expect(itemStageRank('paid')).toBeLessThan(itemStageRank('produce'));
+    expect(itemStageRank('produce')).toBeLessThan(itemStageRank('ready'));
+    expect(itemStageRank('ready')).toBeLessThan(itemStageRank('done'));
+    expect(itemStageRank('exchange')).toBe(0);
   });
 });
 

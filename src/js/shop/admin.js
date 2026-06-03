@@ -12,10 +12,10 @@ import {
   thb, fmtDate, fmtDateTime, STAGES_ORDER, STAGES_META, ISSUE_STATUSES,
   SHOP_SOURCES, SHOP_TYPES, findSource, slugify, sanitizeOrderCode,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock,
-  batchDateEntries,
+  batchDateEntries, ITEM_STAGES_ORDER, rollupOrderStage, itemStatusMeta,
 } from './data.js';
 import {
-  listAllOrders, updateOrderStatus, deleteOrder,
+  listAllOrders, updateOrderStatus, deleteOrder, setOrderItemStatus,
   listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
   getSettings, saveSettings,
@@ -517,10 +517,10 @@ function statusPillSmall(o) {
   // status is fast to scan across many orders. Modal/detail views can
   // still call statusLabelFor(o) for the full descriptive text.
   const order = typeof o === 'string' ? { status: o } : (o || { status: 'pending' });
-  const status = order.status;
-  const meta = (status === 'ready' && order.pickup_batch_id)
-    ? STAGES_META.ready_announced
-    : (STAGES_META[status] || STAGES_META.pending);
+  // For object orders, show the per-item rollup so a paid order whose
+  // items have advanced reads as "in production / ready" not "paid".
+  const status = typeof o === 'string' ? order.status : rollupOrderStage(order);
+  const meta = STAGES_META[status] || STAGES_META.pending;
   const short = meta.short || meta.label;
   return `
     <span class="status-pill" data-status="${escHtml(status)}">
@@ -542,19 +542,7 @@ function openOrderModal(orderId) {
   if (idEl) idEl.textContent = String(o.id);
   if (body) body.innerHTML = orderModalBodyHtml(o);
 
-  // Click a chip → stage the change. Only the Save button writes to the
-  // server — prevents accidental status changes on mis-tap.
-  body.querySelectorAll('[data-set-status]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      modalPendingStatus = btn.dataset.setStatus;
-      // Update is-active class across BOTH groups so only the picked
-      // chip is highlighted, then refresh the Save/Cancel button row.
-      body.querySelectorAll('[data-set-status]').forEach((b) => {
-        b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
-      });
-      refreshModalSaveBar();
-    });
-  });
+  wireOrderModalBody(body);
 
   // Wire the footer Save / Cancel / Delete buttons. Defensive null
   // checks throughout — handlers can fire after modalOrder is reset
@@ -590,6 +578,58 @@ function openOrderModal(orderId) {
 
   const inst = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('shopAdminOrderModal'));
   inst?.show();
+}
+
+/** Wire the body-level controls (order-level status chips + per-item
+ *  fulfilment chips). Called on open and after any in-place repaint. */
+function wireOrderModalBody(body) {
+  // Order-level payment chip → stage the change (Save writes it).
+  body.querySelectorAll('[data-set-status]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      modalPendingStatus = btn.dataset.setStatus;
+      body.querySelectorAll('[data-set-status]').forEach((b) => {
+        b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
+      });
+      refreshModalSaveBar();
+    });
+  });
+  // Per-item fulfilment chip → write immediately (one item at a time).
+  body.querySelectorAll('[data-item-status]').forEach((btn) => {
+    btn.addEventListener('click', () => onItemStatusClick(btn, body));
+  });
+}
+
+async function onItemStatusClick(btn, body) {
+  if (!modalOrder) return;
+  const itemId = btn.dataset.itemId;
+  const status = btn.dataset.itemStatus;
+  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
+  if (!item || (item.item_status || 'paid') === status) return;
+  const rowChips = btn.parentElement?.querySelectorAll('[data-item-status]') || [];
+  rowChips.forEach((b) => { b.disabled = true; });
+  try {
+    const updated = await setOrderItemStatus(itemId, status, {
+      label: itemStatusMeta(status).label,
+      currentTimeline: item.item_timeline,
+    });
+    // Sync local state so the repaint + orders table reflect the change.
+    item.item_status = updated.item_status;
+    item.item_timeline = updated.item_timeline;
+    const row = state.orders.find((x) => x.id === modalOrder.id);
+    const rowItem = row && (row.items || []).find((i) => String(i.id) === String(itemId));
+    if (rowItem) { rowItem.item_status = updated.item_status; rowItem.item_timeline = updated.item_timeline; }
+    showShopToast(`${modalOrder.id}: ${itemStatusMeta(status).label}`, 'success');
+    // Repaint the modal body in place (keeps the staged payment status).
+    body.innerHTML = orderModalBodyHtml(modalOrder);
+    wireOrderModalBody(body);
+    refreshModalSaveBar();
+    renderOrdersTable();
+    renderStats();
+  } catch (e) {
+    console.error('[shop/admin] item status update failed:', e);
+    showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
+    rowChips.forEach((b) => { b.disabled = false; });
+  }
 }
 
 function refreshModalSaveBar() {
@@ -628,6 +668,40 @@ async function deleteCurrentOrder() {
   }
 }
 
+// Order-level chips now cover the PAYMENT phase only — production /
+// delivery progress is per line item (Hybrid model, mig 0033/0034).
+const PAYMENT_STAGES = ['pending', 'review', 'paid'];
+// Per-item fulfilment chips offered in the detail modal.
+const ITEM_FULFIL_STAGES = ['paid', 'produce', 'ready', 'done'];
+const ITEM_ISSUE_STAGES = ['exchange', 'no_show'];
+
+/** Map a stored colour id back to its product colour label. */
+function colorLabelFor(product, colorId) {
+  if (!colorId || colorId === 'default') return '';
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+  const match = colors.find((c) => c && (c.id === colorId || c.label === colorId));
+  return match?.label || colorId;
+}
+
+/** Per-item fulfilment status chips inside the order detail. Each chip
+ *  writes immediately (data-item-status + data-item-id wired in
+ *  openOrderModal). */
+function itemStatusControlsHtml(it) {
+  const cur = it.item_status || 'paid';
+  const chip = (s, extra = '') => `
+    <button type="button" class="chip chip-sm ${cur === s ? 'is-active' : ''} ${extra}"
+            data-item-status="${escHtml(s)}" data-item-id="${escHtml(String(it.id))}">
+      ${escHtml(itemStatusMeta(s).short || itemStatusMeta(s).label)}
+    </button>`;
+  return `
+    <div class="d-flex flex-wrap gap-1 align-items-center mt-2">
+      <span class="small text-muted me-1">ความคืบหน้า:</span>
+      ${ITEM_FULFIL_STAGES.map((s) => chip(s)).join('')}
+      <span class="vr mx-1"></span>
+      ${ITEM_ISSUE_STAGES.map((s) => chip(s, `chip-tone-${STAGES_META[s].tone || 'warning'}`)).join('')}
+    </div>`;
+}
+
 function orderModalBodyHtml(o) {
   // Defensive: items array may contain stale references when an old
   // order's product was renamed. Filter null/undefined entries and
@@ -654,18 +728,24 @@ function orderModalBodyHtml(o) {
         ${items.map((it) => {
           const product = productMap.get(it.product_id);
           const displayName = product?.name || it.product_id || '(สินค้าถูกลบ)';
+          const colorLabel = colorLabelFor(product, it.color);
           return `
-          <div class="d-flex gap-3 align-items-center py-2 flex-wrap"
-               style="border-bottom: 1px solid var(--shop-ink-100, #ebecee);">
-            <div class="flex-grow-1" style="min-width:160px;">
-              <div style="font-weight:600;">${escHtml(displayName)}</div>
-              <div class="small text-muted">
-                ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
-                ${it.color ? ` · ${escHtml(it.color)}` : ''}
+          <div class="py-2" style="border-bottom: 1px solid var(--shop-ink-100, #ebecee);">
+            <div class="d-flex gap-3 align-items-center flex-wrap">
+              <div class="flex-grow-1" style="min-width:160px;">
+                <div style="font-weight:600;">
+                  ${escHtml(displayName)}
+                  ${it.is_preorder ? '<span class="preorder-tag ms-1">พรีออเดอร์</span>' : ''}
+                </div>
+                <div class="small text-muted">
+                  ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
+                  ${colorLabel ? ` · ${escHtml(colorLabel)}` : ''}
+                </div>
               </div>
+              <div style="min-width:60px; text-align:right;">× ${it.qty}</div>
+              <div style="min-width:80px; text-align:right; font-weight:700;">฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</div>
             </div>
-            <div style="min-width:60px; text-align:right;">× ${it.qty}</div>
-            <div style="min-width:80px; text-align:right; font-weight:700;">฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</div>
+            ${it.id != null ? itemStatusControlsHtml(it) : ''}
           </div>`;
         }).join('')}
         <div class="d-flex justify-content-between mt-3" style="font-size:1.1rem; font-weight:700;">
@@ -687,9 +767,12 @@ function orderModalBodyHtml(o) {
         </div>
         ${o.slip_uploaded_at ? `<div class="small text-muted mb-3">อัปโหลด ${fmtDateTime(o.slip_uploaded_at)}</div>` : ''}
 
-        <h5>เปลี่ยนสถานะ</h5>
+        <h5>สถานะการชำระเงิน</h5>
+        <p class="small text-muted mb-2">
+          ระยะการชำระเงินของทั้งคำสั่งซื้อ — ความคืบหน้าการผลิต/รับสินค้าตั้งค่าแยกรายสินค้าด้านซ้าย
+        </p>
         <div class="d-flex flex-wrap gap-2">
-          ${STAGES_ORDER.map((s) => `
+          ${PAYMENT_STAGES.map((s) => `
             <button type="button" class="chip ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
               <i class="bi ${escHtml(STAGES_META[s].icon)}"></i> ${escHtml(STAGES_META[s].label)}
             </button>`).join('')}
