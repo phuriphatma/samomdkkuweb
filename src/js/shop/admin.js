@@ -89,8 +89,8 @@ function ensureMounted() {
     state.ordersPreorder = btn.dataset.ordersPreorder;
     document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
       .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === state.ordersPreorder));
+    repopulateOrderFacets();
     renderOrdersTable();
-    updateFilterChromes();
   });
 
   // Clear-all chip.
@@ -282,17 +282,48 @@ async function refreshOrders() {
 }
 
 // ---- facet count helpers (show "(N)" on every option, incl. 0) -------
-/** Orders bucketed by order status. */
+//
+// Counts are FACETED: each facet's option counts reflect the OTHER active
+// facets but ignore the facet being counted itself (standard faceted-nav
+// behaviour). So selecting สินค้า=เสื้อยืด makes the ไซส์ counts show only
+// shirt items — not a global tally. `exclude` names the facet to skip:
+// 'status' | 'product' (covers type too) | 'size' | 'color' | 'progress'.
+
+/** Does this item pass every active facet EXCEPT the named one? The
+ *  order-level สถานะ facet is applied here too (unless excluded). */
+function itemPassesExcept(o, it, exclude) {
+  if (exclude !== 'status' && state.ordersStatuses.size > 0 && !state.ordersStatuses.has(o.status)) return false;
+  if (exclude !== 'product'  && !itemMatchesProductDim(it)) return false;
+  if (exclude !== 'size'     && !itemMatchesSize(it))       return false;
+  if (exclude !== 'color'    && !itemMatchesColor(it))      return false;
+  if (exclude !== 'progress' && !itemMatchesProgress(it))   return false;
+  if (!itemMatchesPreorder(it)) return false;   // preorder always applies
+  return true;
+}
+
+/** Orders bucketed by status — counting only orders that have ≥1 item
+ *  surviving the OTHER active facets (so status counts track the item
+ *  facets the same way the table does). */
 function ordersCountByStatus() {
   const m = new Map();
-  for (const o of (state.orders || [])) m.set(o.status, (m.get(o.status) || 0) + 1);
+  for (const o of (state.orders || [])) {
+    const items = (o.items || []);
+    const qualifies = items.length
+      ? items.some((it) => itemPassesExcept(o, it, 'status'))
+      : !anyItemFacetActive();
+    if (!qualifies) continue;
+    m.set(o.status, (m.get(o.status) || 0) + 1);
+  }
   return m;
 }
-/** Line items bucketed by an arbitrary key function. */
-function itemCountBy(keyFn) {
+
+/** Line items bucketed by keyFn, restricted to items passing the other
+ *  active facets (excluding `exclude`). */
+function itemCountBy(keyFn, exclude) {
   const m = new Map();
   for (const o of (state.orders || [])) {
     for (const it of (o.items || [])) {
+      if (!itemPassesExcept(o, it, exclude)) continue;
       const k = keyFn(it);
       m.set(k, (m.get(k) || 0) + 1);
     }
@@ -302,6 +333,17 @@ function itemCountBy(keyFn) {
 /** Small count-badge pill (muted; selectable even at 0). */
 function facetCountBadge(n) {
   return `<span class="badge bg-light text-muted border ms-auto" style="font-weight:500;">${n}</span>`;
+}
+
+/** Re-render every facet menu so their faceted counts reflect the latest
+ *  selection. Called from each facet's change handler. Each populate*
+ *  preserves checked state from the state Sets and re-runs updateFilterChromes. */
+function repopulateOrderFacets() {
+  populateStatusFacet();
+  populateOrdersProductSelect();
+  populateOrdersSizeFacet();
+  populateOrdersColorFacet();
+  populateOrdersItemStatusFacet();
 }
 
 function populateStatusFacet() {
@@ -336,7 +378,7 @@ function populateStatusFacet() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersStatuses.add(cb.value);
       else state.ordersStatuses.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -371,8 +413,8 @@ function populateOrdersProductSelect() {
 
   // Counts = line items ordered for each product / type (0 when nothing
   // ordered yet — the product still lists so admin sees the full catalogue).
-  const byProductCount = itemCountBy((it) => it.product_id);
-  const byTypeCount = itemCountBy((it) => productTypeOf(it.product_id));
+  const byProductCount = itemCountBy((it) => it.product_id, 'product');
+  const byTypeCount = itemCountBy((it) => productTypeOf(it.product_id), 'product');
 
   menu.innerHTML = orderedTypes.map((t) => {
     const meta = SHOP_TYPES.find((x) => x.id === t);
@@ -408,7 +450,7 @@ function populateOrdersProductSelect() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersProducts.add(cb.value);
       else state.ordersProducts.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -416,7 +458,7 @@ function populateOrdersProductSelect() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersTypes.add(cb.value);
       else state.ordersTypes.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -468,7 +510,7 @@ function populateOrdersSizeFacet() {
     updateFilterChromes();
     return;
   }
-  const counts = itemCountBy((it) => it.size || 'F');
+  const counts = itemCountBy((it) => it.size || 'F', 'size');
   menu.innerHTML = sizes.map((s) => {
     const n = counts.get(s) || 0;
     return `
@@ -483,7 +525,7 @@ function populateOrdersSizeFacet() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersSizes.add(cb.value);
       else state.ordersSizes.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -499,7 +541,7 @@ function populateOrdersColorFacet() {
     updateFilterChromes();
     return;
   }
-  const counts = itemCountBy((it) => it.color || 'default');
+  const counts = itemCountBy((it) => it.color || 'default', 'color');
   menu.innerHTML = colors.map(([id, label]) => {
     const n = counts.get(id) || 0;
     return `
@@ -514,7 +556,7 @@ function populateOrdersColorFacet() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersColors.add(cb.value);
       else state.ordersColors.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
@@ -539,16 +581,10 @@ function allItemStatuses() {
   });
 }
 
-/** Count of line items at each raw item_status across all loaded orders. */
+/** Count of line items at each raw item_status, faceted by the other
+ *  active filters (excludes the progress facet itself). */
 function itemStatusCounts() {
-  const m = new Map();
-  for (const o of (state.orders || [])) {
-    for (const it of (o.items || [])) {
-      const s = it.item_status || 'paid';
-      m.set(s, (m.get(s) || 0) + 1);
-    }
-  }
-  return m;
+  return itemCountBy((it) => it.item_status || 'paid', 'progress');
 }
 
 function populateOrdersItemStatusFacet() {
@@ -572,7 +608,7 @@ function populateOrdersItemStatusFacet() {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersItemStatuses.add(cb.value);
       else state.ordersItemStatuses.delete(cb.value);
-      updateFilterChromes();
+      repopulateOrderFacets();
       renderOrdersTable();
     });
   });
