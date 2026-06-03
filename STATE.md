@@ -28,8 +28,11 @@ copy-รหัส button) is still in. Cloudflare auto-build runs on push.
   contact phone + samoshop autofill (mig 0036); admin order size/colour
   dropdowns; ประกาศ swipe-banner carousel + admin placement toggle
   (mig 0037); account-switch slow-path now uses local-scope signout so
-  the outgoing account stays fast-switchable. **Apply 0036 + 0037 before
-  merge/use.**
+  the outgoing account stays fast-switchable. Plus: reserved stock
+  excludes preorder (mig 0038); admin orders table filter narrows to
+  matching line items + new product-type/subtype facet; พรีออเดอร์ tab
+  redesigned (summary stats + table view + search/type filters).
+  **Apply 0036 + 0037 + 0038 before merge/use.**
 
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
@@ -59,6 +62,7 @@ policies).
 | 0035_shop_orders_admin_insert | Admin `shop_orders` INSERT policy so admin can create walk-in / phone orders (buyer_id null). OR-combined with the buyer insert policy. | ✅ applied |
 | 0036_users_phone | **Additive**. `users.phone` column (self-writable; not guarded by 0028). Powers the จัดการบัญชี phone field + samoshop checkout autofill. | ⏳ **pending — apply via Supabase SQL editor** |
 | 0037_shop_banner_placement | **Additive**. `shop_banners.placement` ('launch' \| 'announcement', default 'launch'); per-placement order index. Unlocks the ประกาศ swipe-banner carousel + admin placement toggle. | ⏳ **pending — apply via Supabase SQL editor** |
+| 0038_reserved_excludes_preorder | Redefines `shop_reserved_matrix`, `shop_reserved_matrix_all`, `place_shop_order` so reserved-stock aggregates count only `is_preorder=false` items — preorder no longer depletes finite stock / over-counts the oversell guard. Signatures unchanged. | ⏳ **pending — apply via Supabase SQL editor** |
 
 ## Supabase config notes
 
