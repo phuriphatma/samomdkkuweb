@@ -192,6 +192,29 @@ async function enrichNewOrder(orderId, payload) {
   return (Array.isArray(data) && data[0]) || null;
 }
 
+/** Admin-only: create an order on a buyer's behalf (walk-in / phone).
+ *  Reuses the atomic place_shop_order RPC (SECURITY DEFINER, so it
+ *  bypasses RLS for the insert and stamps per-item is_preorder +
+ *  item_status). buyer_id is null — the order is admin-visible only. The
+ *  pre-0034 / legacy fallback inside placeShopOrder inserts directly,
+ *  which is why migration 0035 grants admin a shop_orders insert policy. */
+export async function adminCreateOrder({ buyerName, buyerPhone, buyerEmail, buyerNote, items, code }) {
+  return placeShopOrder({
+    buyerId:        null,
+    buyerLabel:     buyerName || 'ลูกค้า (admin สร้าง)',
+    buyerName:      buyerName || null,
+    buyerEmail:     buyerEmail || null,
+    buyerPhone:     buyerPhone || null,
+    buyerNote:      buyerNote || null,
+    items,
+    fee:            0,
+    slipUrl:        null,
+    slipUploadedAt: null,
+    pickupLocation: null,
+    code:           code || '',
+  });
+}
+
 export async function upsertProduct(row) {
   if (!row || !row.id) throw new Error('product.id required');
   // Upsert with on_conflict so the same call works for create and update.
@@ -574,6 +597,87 @@ export async function setOrderItemStatus(itemId, status, { label, currentTimelin
     throw new Error('อัปเดตสถานะสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
   }
   return data[0];
+}
+
+/** Admin-only: add a line item to an existing order. Stock is "reflected"
+ *  automatically because the reserved-matrix aggregates derive from
+ *  shop_order_items — no separate stock write needed. Caller should then
+ *  recomputeOrderTotals(). */
+export async function addOrderItem(orderId, item) {
+  const row = {
+    order_id:   orderId,
+    product_id: item.productId,
+    size:       item.size || 'F',
+    color:      item.color || 'default',
+    fit:        item.fit || 'unisex',
+    qty:        Number(item.qty) || 1,
+    unit_price: Number(item.unitPrice) || 0,
+    is_preorder: !!item.isPreorder,
+    item_status: item.itemStatus || 'paid',
+  };
+  const { data, error } = await dbRest('/shop_order_items', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เพิ่มสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: edit a line item (qty / size / color / unit_price). */
+export async function updateOrderItem(itemId, patch) {
+  const body = {};
+  if (patch.qty != null)        body.qty = Number(patch.qty);
+  if (patch.size != null)       body.size = patch.size;
+  if (patch.color != null)      body.color = patch.color;
+  if (patch.unit_price != null) body.unit_price = Number(patch.unit_price);
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'PATCH', body, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'แก้ไขสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('แก้ไขสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return data[0];
+}
+
+/** Admin-only: remove a line item from an order. */
+export async function removeOrderItem(itemId) {
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ลบสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return true;
+}
+
+/** Recompute + persist an order's subtotal/total from its current items
+ *  (+ existing fee). Call after any add/edit/remove of line items. */
+export async function recomputeOrderTotals(orderId) {
+  const order = await getOrder(orderId);
+  if (!order) throw new Error('ไม่พบคำสั่งซื้อ');
+  const items = Array.isArray(order.items) ? order.items : [];
+  const subtotal = items.reduce(
+    (s, it) => s + (Number(it.unit_price) || 0) * (Number(it.qty) || 0), 0);
+  const fee = Number(order.fee) || 0;
+  const total = subtotal + fee;
+  const idEsc = encodeURIComponent(orderId);
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { subtotal, total }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'อัปเดตยอดรวมไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('อัปเดตยอดรวมไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return { subtotal, total };
 }
 
 // ---- Pickup batches ----------------------------------------------------

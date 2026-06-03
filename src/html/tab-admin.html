@@ -128,7 +128,7 @@
             <div class="admin-tabs" id="shopAdminTabs">
               <button data-shop-admin-tab="orders"   class="is-active"><i class="bi bi-list-check me-1"></i> คำสั่งซื้อ</button>
               <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
-              <button data-shop-admin-tab="delivery"><i class="bi bi-clipboard-check me-1"></i> การส่งมอบ</button>
+              <button data-shop-admin-tab="preorder"><i class="bi bi-hourglass-split me-1"></i> พรีออเดอร์</button>
               <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
               <button data-shop-admin-tab="banners"><i class="bi bi-image me-1"></i> แบนเนอร์</button>
               <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
@@ -185,6 +185,9 @@
                   <i class="bi bi-x-circle me-1"></i> ล้างตัวกรอง
                 </button>
                 <div class="ms-auto d-flex gap-2">
+                  <button class="btn btn-shop btn-sm" id="shopAdminOrdersCreate">
+                    <i class="bi bi-plus-lg me-1"></i> สร้างคำสั่งซื้อ
+                  </button>
                   <button class="btn btn-outline-secondary btn-sm" id="shopAdminOrdersScan">
                     <i class="bi bi-qr-code-scan me-1"></i> สแกน QR
                   </button>
@@ -196,6 +199,8 @@
                   </button>
                 </div>
               </div>
+              <div id="shopAdminOrderCreateHost"></div>
+              <div class="small text-muted mb-2" id="shopAdminOrdersCount"></div>
               <div class="admin-table">
                 <table class="table align-middle">
                   <thead>
@@ -203,7 +208,8 @@
                       <th>คำสั่งซื้อ</th>
                       <th>ลูกค้า</th>
                       <th>สินค้า</th>
-                      <th>ยอดรวม</th>
+                      <th>จำนวน</th>
+                      <th>ราคารวม</th>
                       <th>สลิป</th>
                       <th>สถานะ</th>
                       <th style="width:60px;"></th>
@@ -218,22 +224,17 @@
               <div id="shopAdminVerifyHost"></div>
             </div>
 
-            <div data-shop-admin-pane="delivery" class="d-none">
+            <div data-shop-admin-pane="preorder" class="d-none">
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                  <h5 class="font-prompt mb-0" style="font-weight:700;">การส่งมอบสินค้า</h5>
-                  <p class="text-muted mb-0 small">พิมพ์ชื่อลูกค้าหรือรหัสคำสั่งซื้อ → ติ๊กตามที่ลูกค้ามารับ</p>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">ยอดพรีออเดอร์</h5>
+                  <p class="text-muted mb-0 small">จำนวนพรีออเดอร์แยกตามสินค้าและไซส์/สี · กดเพื่อดูคำสั่งซื้อทั้งหมด</p>
                 </div>
-                <button class="btn btn-ghost btn-sm" id="shopAdminDeliveryRefresh">
+                <button class="btn btn-ghost btn-sm" id="shopAdminPreorderRefresh">
                   <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
                 </button>
               </div>
-              <div class="delivery-search-bar mb-3">
-                <i class="bi bi-search"></i>
-                <input id="shopAdminDeliverySearch" type="search" class="form-control form-control-lg"
-                       placeholder="ค้นหาชื่อลูกค้า, รหัสคำสั่งซื้อ, อีเมล..." autocomplete="off" />
-              </div>
-              <div id="shopAdminDeliveryHost"></div>
+              <div id="shopAdminPreorderHost"></div>
             </div>
 
             <div data-shop-admin-pane="batches" class="d-none">

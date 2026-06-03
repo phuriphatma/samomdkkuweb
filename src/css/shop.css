@@ -1280,6 +1280,35 @@
 .shop-tab .admin-table .table tr:last-child td { border-bottom: 0; }
 .shop-tab .admin-table tbody tr.is-clickable { transition: background .12s; }
 .shop-tab .admin-table tbody tr.is-clickable:hover { background: var(--shop-50); cursor: pointer; }
+/* Per-item rows: a stronger top border opens each order group; rows
+   that continue a group drop their own bottom border so the group reads
+   as one block. */
+.shop-tab .admin-table tbody tr.order-group-start > td { border-top: 2px solid var(--shop-ink-100); }
+.shop-tab .admin-table tbody tr.order-group-cont > td { border-bottom: 0; }
+.shop-tab .admin-table .table td.order-group-cell { vertical-align: top; }
+/* Hover should light the whole order group, not just one item row. */
+.shop-tab .admin-table tbody tr.order-group-cont:hover { background: var(--shop-50); }
+
+/* Admin order create + line-item edit panels */
+.shop-tab .order-create-panel,
+.shop-tab .edit-items-panel {
+  border: 1px solid var(--shop-ink-100);
+  border-radius: var(--shop-radius);
+  background: #fff;
+  padding: 1rem 1.15rem;
+}
+.shop-tab .edit-items-panel { background: var(--shop-ink-50); }
+
+/* Preorder demand cards */
+.shop-tab .preorder-card {
+  border: 1px solid var(--shop-ink-100);
+  border-radius: var(--shop-radius);
+  background: #fff;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+}
+.shop-tab .preorder-card .table-sm th { font-size: .76rem; color: var(--shop-ink-500); font-weight: 600; }
+.shop-tab .preorder-card .table-sm td { font-size: .85rem; padding: .35rem .5rem; }
 
 .shop-tab .row-customer { display: flex; align-items: center; gap: .55rem; }
 .shop-tab .row-customer .ravatar {
@@ -1321,6 +1350,24 @@
   overflow: hidden;
 }
 .shop-tab .slip-thumb img { max-width: 100%; max-height: 360px; display: block; object-fit: contain; }
+
+/* Multi-slip grid (admin sees every slip the buyer attached) */
+.shop-tab .slip-thumb-grid {
+  display: flex; flex-wrap: wrap; gap: .6rem;
+}
+.shop-tab .slip-thumb-grid .slip-thumb {
+  position: relative;
+  width: auto; min-height: 150px;
+  max-width: 200px;
+  margin-bottom: 0;
+  text-decoration: none;
+}
+.shop-tab .slip-thumb-grid .slip-thumb img { max-height: 200px; }
+.shop-tab .slip-thumb-date {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.55); color: #fff;
+  font-size: .68rem; text-align: center; padding: .1rem .2rem;
+}
 
 .shop-tab .batch-card {
   background: #fff;
