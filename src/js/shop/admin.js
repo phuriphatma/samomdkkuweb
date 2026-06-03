@@ -1826,7 +1826,17 @@ function preorderAggregate() {
       v.orders.add(o.id);
     }
   }
-  return [...byProduct.values()].sort((a, b) => b.total - a.total);
+  // Organize by product type (catalogue order), then by demand desc, then
+  // name — so the page groups เสื้อยืด / กางเกง / เครื่องเขียน together
+  // instead of an unstructured demand ranking.
+  const typeRank = (t) => {
+    const i = SHOP_TYPES.findIndex((x) => x.id === (t || 'other'));
+    return i < 0 ? 99 : i;
+  };
+  return [...byProduct.values()].sort((a, b) =>
+    typeRank(a.type) - typeRank(b.type)
+    || (b.total - a.total)
+    || (a.name || '').localeCompare(b.name || '', 'th'));
 }
 
 /** Apply the search + type filter to the aggregate. */
@@ -1925,14 +1935,28 @@ function renderPreorder() {
  *  header row, with a grand-total footer. Scannable for production planning. */
 function preorderTableHtml(agg) {
   const typeLabel = (t) => SHOP_TYPES.find((x) => x.id === t)?.label || (t === 'other' ? 'อื่น ๆ' : t);
+  const typeIcon = (t) => SHOP_TYPES.find((x) => x.id === t)?.icon || 'bi-tag';
   const grand = agg.reduce((s, e) => s + e.total, 0);
+  // Per-type subtotal for the section header (pieces).
+  const typeTotals = new Map();
+  for (const e of agg) typeTotals.set(e.type, (typeTotals.get(e.type) || 0) + e.total);
+  let lastType = null;
   const body = agg.map((e) => {
     const variants = [...e.variants.values()].sort((a, b) => b.qty - a.qty);
+    // Emit a section header row when the product type changes.
+    const section = e.type !== lastType ? (() => {
+      lastType = e.type;
+      return `
+      <tr class="preorder-row-section">
+        <td colspan="2"><i class="bi ${escHtml(typeIcon(e.type))} me-1"></i><span style="font-weight:700;">${escHtml(typeLabel(e.type))}</span></td>
+        <td class="text-end" style="font-weight:700;">${typeTotals.get(e.type) || 0}</td>
+        <td></td>
+      </tr>`;
+    })() : '';
     const head = `
       <tr class="preorder-row-product">
-        <td colspan="2">
+        <td colspan="2" class="ps-3">
           <span style="font-weight:700;">${escHtml(e.name)}</span>
-          <span class="badge bg-light text-muted border ms-2">${escHtml(typeLabel(e.type))}</span>
         </td>
         <td class="text-end" style="font-weight:800; color:var(--shop-700);">${e.total}</td>
         <td class="text-end">${e.orders.size}</td>
@@ -1954,7 +1978,7 @@ function preorderTableHtml(agg) {
             <a href="#" class="badge bg-light text-dark border" data-preorder-order="${escHtml(oid)}"
                style="cursor:pointer; font-weight:600;">${escHtml(oid)}</a>`).join('')}
         </div></td></tr>` : '';
-    return head + rows + orderRow;
+    return section + head + rows + orderRow;
   }).join('');
   return `
     <div class="table-responsive">
