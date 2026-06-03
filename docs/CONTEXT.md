@@ -177,7 +177,9 @@ The overall display stage is a JS rollup (`rollupOrderStage` in
 `buyer_phone` + `slips`. `apply_product_production_status` (stock tab) and
 the order→paid trigger cascade to `item_status`, not the whole order.
 Reserved-stock aggregates (`shop_reserved_matrix_all`) count at the item
-level (an item stops reserving once `item_status='done'`).
+level (an item stops reserving once `item_status='done'`). Migration 0038:
+they also count ONLY `is_preorder=false` items — preorder is made-to-order
+and must not deplete finite stock (or over-count the oversell guard).
 ```
 
 shop_pickup_batches (bigserial id PK, title, product_ids text[],
