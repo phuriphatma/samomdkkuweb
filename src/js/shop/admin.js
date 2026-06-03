@@ -465,37 +465,53 @@ function populateOrdersColorFacet() {
   updateFilterChromes();
 }
 
-/** Distinct RAW per-item fulfilment statuses present across orders,
- *  ordered by the canonical STAGES_META sequence. Uses item_status (not
- *  the effective rowDisplayStatus) so produce/ready/done surface even
- *  while the order is still in a pre-paid payment phase. */
-function collectItemStatuses() {
+/** The full canonical per-item fulfilment status set, in workflow order —
+ *  the happy path (paid→produce→ready→done) plus the item-level issue
+ *  states. Always offered in the facet (even at count 0) so admin can see
+ *  the whole pipeline; any unexpected value actually present is appended. */
+function allItemStatuses() {
   const order = Object.keys(STAGES_META);
+  const canon = [...ITEM_STAGES_ORDER, 'exchange', 'no_show'];
   const present = new Set();
   for (const o of (state.orders || [])) {
     for (const it of (o.items || [])) present.add(it.item_status || 'paid');
   }
-  return [...present].sort((a, b) => {
+  const all = new Set([...canon, ...present]);
+  return [...all].sort((a, b) => {
     const ia = order.indexOf(a), ib = order.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
   });
 }
 
+/** Count of line items at each raw item_status across all loaded orders. */
+function itemStatusCounts() {
+  const m = new Map();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) {
+      const s = it.item_status || 'paid';
+      m.set(s, (m.get(s) || 0) + 1);
+    }
+  }
+  return m;
+}
+
 function populateOrdersItemStatusFacet() {
   const menu = document.getElementById('shopAdminOrdersItemStatusMenu');
   if (!menu) return;
-  const statuses = collectItemStatuses();
-  if (statuses.length === 0) {
-    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีรายการ</div>';
-    updateFilterChromes();
-    return;
-  }
-  menu.innerHTML = statuses.map((s) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+  const statuses = allItemStatuses();
+  const counts = itemStatusCounts();
+  menu.innerHTML = statuses.map((s) => {
+    const n = counts.get(s) || 0;
+    const m = STAGES_META[s];
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0" data-facet="itemstatus" value="${escHtml(s)}"
              ${state.ordersItemStatuses.has(s) ? 'checked' : ''} />
-      <span class="small">${escHtml(STAGES_META[s]?.label || s)}</span>
-    </label>`).join('');
+      <i class="bi ${escHtml(m?.icon || 'bi-dot')} small ${m?.issue ? 'text-danger' : 'text-muted'}"></i>
+      <span class="small flex-grow-1">${escHtml(m?.label || s)}</span>
+      <span class="badge bg-light text-muted border">${n}</span>
+    </label>`;
+  }).join('');
   menu.querySelectorAll('input[data-facet="itemstatus"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersItemStatuses.add(cb.value);
