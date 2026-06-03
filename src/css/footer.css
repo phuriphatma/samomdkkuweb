@@ -19,7 +19,7 @@
 .samo-footer-grid {
   display: grid;
   gap: 2.25rem 2rem;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
   padding-bottom: 1.75rem;
   border-bottom: 1px solid var(--ink-200);
 }
