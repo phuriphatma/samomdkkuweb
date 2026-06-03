@@ -500,8 +500,8 @@ function renderOrderCreatePanel() {
             ${products.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`).join('')}
           </select>
         </div>
-        <div style="width:80px;"><label class="form-label small mb-0">ไซส์</label><input class="form-control form-control-sm" data-oc-size value="F" /></div>
-        <div style="width:100px;"><label class="form-label small mb-0">สี</label><input class="form-control form-control-sm" data-oc-color value="default" /></div>
+        <div style="width:96px;"><label class="form-label small mb-0">ไซส์</label><select class="form-select form-select-sm" data-oc-size>${variantSizeOptionsHtml(products[0])}</select></div>
+        <div style="width:120px;"><label class="form-label small mb-0">สี</label><select class="form-select form-select-sm" data-oc-color>${variantColorOptionsHtml(products[0])}</select></div>
         <div style="width:64px;"><label class="form-label small mb-0">จำนวน</label><input type="number" min="1" max="99" value="1" class="form-control form-control-sm" data-oc-qty /></div>
         <div style="width:84px;"><label class="form-label small mb-0">ราคา/ชิ้น</label><input type="number" min="0" class="form-control form-control-sm" data-oc-price placeholder="auto" /></div>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-oc-add><i class="bi bi-plus-lg me-1"></i>เพิ่มสินค้า</button>
@@ -520,6 +520,15 @@ function renderOrderCreatePanel() {
   host.querySelectorAll('[data-oc-remove]').forEach((b) => b.addEventListener('click', () => { d.items.splice(Number(b.dataset.ocRemove), 1); renderOrderCreatePanel(); }));
   host.querySelector('[data-oc-add]')?.addEventListener('click', () => onOrderCreateAddItem(host));
   host.querySelector('[data-oc-save]')?.addEventListener('click', onOrderCreateSave);
+  // Repopulate the size + colour dropdowns from the chosen product's
+  // declared variants whenever the product selection changes.
+  host.querySelector('[data-oc-product]')?.addEventListener('change', (e) => {
+    const p = (state.products || []).find((x) => x.id === e.target.value);
+    const sizeSel = host.querySelector('[data-oc-size]');
+    const colorSel = host.querySelector('[data-oc-color]');
+    if (sizeSel) sizeSel.innerHTML = variantSizeOptionsHtml(p);
+    if (colorSel) colorSel.innerHTML = variantColorOptionsHtml(p);
+  });
 }
 
 function onOrderCreateAddItem(host) {
@@ -726,6 +735,14 @@ function wireOrderModalBody(body) {
     btn.addEventListener('click', () => onRemoveOrderItem(btn.dataset.itemId));
   });
   body.querySelector('[data-add-item-btn]')?.addEventListener('click', () => onAddOrderItem(body));
+  // Repopulate size + colour dropdowns from the chosen product's variants.
+  body.querySelector('[data-add-product]')?.addEventListener('change', (e) => {
+    const p = (state.products || []).find((x) => x.id === e.target.value);
+    const sizeSel = body.querySelector('[data-add-size]');
+    const colorSel = body.querySelector('[data-add-color]');
+    if (sizeSel) sizeSel.innerHTML = variantSizeOptionsHtml(p);
+    if (colorSel) colorSel.innerHTML = variantColorOptionsHtml(p);
+  });
 }
 
 /** Re-fetch the modal's order, sync into state, and repaint the body so
@@ -968,6 +985,35 @@ function slipThumbsHtml(o) {
     </div>`;
 }
 
+/** <option> list for a product's sizes, used by the admin order
+ *  create/add-item size dropdowns. Falls back to a single free-size
+ *  'F' option when the product declares no sizes. */
+function variantSizeOptionsHtml(product, selected) {
+  const sizes = (Array.isArray(product?.sizes) && product.sizes.length)
+    ? product.sizes
+    : ['F'];
+  return sizes.map((s) => {
+    const label = s === 'F' ? 'Free size' : s;
+    return `<option value="${escHtml(s)}" ${s === selected ? 'selected' : ''}>${escHtml(label)}</option>`;
+  }).join('');
+}
+
+/** <option> list for a product's colours. Value is the colour id (or
+ *  label when no id), so it round-trips through colorLabelFor(). When
+ *  the product has no colours, a single 'default' option keeps the
+ *  stored value consistent with the buyer-side cart. */
+function variantColorOptionsHtml(product, selected) {
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+  if (colors.length === 0) {
+    return `<option value="default" selected>— ไม่มีตัวเลือกสี —</option>`;
+  }
+  return colors.map((c) => {
+    const val = c.id || c.label || '';
+    const isSel = val === selected || c.label === selected;
+    return `<option value="${escHtml(val)}" ${isSel ? 'selected' : ''}>${escHtml(c.label || val)}</option>`;
+  }).join('');
+}
+
 /** Map a stored colour id back to its product colour label. */
 function colorLabelFor(product, colorId) {
   if (!colorId || colorId === 'default') return '';
@@ -1041,13 +1087,13 @@ function editItemsPanelHtml(o, productMap) {
               ${products.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`).join('')}
             </select>
           </div>
-          <div style="width:90px;">
+          <div style="width:100px;">
             <label class="form-label small mb-0">ไซส์</label>
-            <input class="form-control form-control-sm" data-add-size value="F" />
+            <select class="form-select form-select-sm" data-add-size>${variantSizeOptionsHtml(products[0])}</select>
           </div>
-          <div style="width:110px;">
+          <div style="width:120px;">
             <label class="form-label small mb-0">สี</label>
-            <input class="form-control form-control-sm" data-add-color value="default" />
+            <select class="form-select form-select-sm" data-add-color>${variantColorOptionsHtml(products[0])}</select>
           </div>
           <div style="width:70px;">
             <label class="form-label small mb-0">จำนวน</label>
