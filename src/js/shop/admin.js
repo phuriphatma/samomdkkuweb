@@ -269,6 +269,7 @@ async function refreshOrders() {
     ]);
     state.orders = orders;
     if (products && products.length) state.products = products;
+    populateStatusFacet();         // re-render now that we have order counts
     populateOrdersProductSelect();
     populateOrdersSizeFacet();
     populateOrdersColorFacet();
@@ -280,9 +281,33 @@ async function refreshOrders() {
   }
 }
 
+// ---- facet count helpers (show "(N)" on every option, incl. 0) -------
+/** Orders bucketed by order status. */
+function ordersCountByStatus() {
+  const m = new Map();
+  for (const o of (state.orders || [])) m.set(o.status, (m.get(o.status) || 0) + 1);
+  return m;
+}
+/** Line items bucketed by an arbitrary key function. */
+function itemCountBy(keyFn) {
+  const m = new Map();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) {
+      const k = keyFn(it);
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+  }
+  return m;
+}
+/** Small count-badge pill (muted; selectable even at 0). */
+function facetCountBadge(n) {
+  return `<span class="badge bg-light text-muted border ms-auto" style="font-weight:500;">${n}</span>`;
+}
+
 function populateStatusFacet() {
   const menu = document.getElementById('shopAdminOrdersStatusMenu');
   if (!menu) return;
+  const counts = ordersCountByStatus();
   // Split the order-status options into the happy path (สถานะปกติ) vs the
   // problem statuses (สถานะปัญหา — m.issue) so the menu maps to how staff
   // actually think about orders: "is it progressing normally, or does it
@@ -290,14 +315,18 @@ function populateStatusFacet() {
   const entries = Object.entries(STAGES_META);
   const normal = entries.filter(([, m]) => !m.issue);
   const issues = entries.filter(([, m]) => m.issue);
-  const row = ([k, m]) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+  const row = ([k, m]) => {
+    const n = counts.get(k) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0"
              data-facet="status" value="${escHtml(k)}"
              ${state.ordersStatuses.has(k) ? 'checked' : ''} />
       <i class="bi ${escHtml(m.icon || 'bi-dot')} small ${m.issue ? 'text-danger' : 'text-muted'}"></i>
-      <span class="small">${escHtml(m.label)}</span>
+      <span class="small flex-grow-1">${escHtml(m.label)}</span>
+      ${facetCountBadge(n)}
     </label>`;
+  };
   const groupHead = (label) => `
     <div class="dropdown-header small text-uppercase fw-bold px-2 py-1">${escHtml(label)}</div>`;
   menu.innerHTML =
@@ -340,29 +369,38 @@ function populateOrdersProductSelect() {
     ...[...byType.keys()].filter((t) => !typeOrder.includes(t)),
   ].filter((t) => (seen.has(t) ? false : (seen.add(t), true)));
 
+  // Counts = line items ordered for each product / type (0 when nothing
+  // ordered yet — the product still lists so admin sees the full catalogue).
+  const byProductCount = itemCountBy((it) => it.product_id);
+  const byTypeCount = itemCountBy((it) => productTypeOf(it.product_id));
+
   menu.innerHTML = orderedTypes.map((t) => {
     const meta = SHOP_TYPES.find((x) => x.id === t);
     const label = meta?.label || (t === 'other' ? 'อื่น ๆ' : t);
     const icon = meta?.icon || 'bi-tag';
     const group = byType.get(t) || [];
+    const tN = byTypeCount.get(t) || 0;
     return `
       <div class="orders-facet-group">
-        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-bold" style="cursor:pointer;">
+        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-bold ${tN === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
           <input type="checkbox" class="form-check-input m-0"
                  data-facet="type" value="${escHtml(t)}"
                  ${state.ordersTypes.has(t) ? 'checked' : ''} />
           <i class="bi ${escHtml(icon)} small"></i>
-          <span class="small">${escHtml(label)}</span>
-          <span class="badge bg-light text-muted border ms-auto" style="font-weight:500;">${group.length}</span>
+          <span class="small flex-grow-1">${escHtml(label)}</span>
+          ${facetCountBadge(tN)}
         </label>
-        ${group.map((p) => `
-          <label class="dropdown-item d-flex align-items-center gap-2 py-1 ps-4" style="cursor:pointer;">
+        ${group.map((p) => {
+          const pN = byProductCount.get(p.id) || 0;
+          return `
+          <label class="dropdown-item d-flex align-items-center gap-2 py-1 ps-4 ${pN === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
             <input type="checkbox" class="form-check-input m-0"
                    data-facet="product" value="${escHtml(p.id)}"
                    ${state.ordersProducts.has(p.id) ? 'checked' : ''} />
-            <span class="small text-muted">${escHtml(p.name || p.id)}</span>
-          </label>
-        `).join('')}
+            <span class="small text-muted flex-grow-1">${escHtml(p.name || p.id)}</span>
+            ${facetCountBadge(pN)}
+          </label>`;
+        }).join('')}
       </div>`;
   }).join('');
 
@@ -385,29 +423,37 @@ function populateOrdersProductSelect() {
   updateFilterChromes();
 }
 
-/** Distinct sizes present across all loaded orders' items (so the facet
- *  only offers values that actually occur). */
+/** Every size defined across the catalogue, unioned with any size that
+ *  actually appears in orders — so unused-but-defined sizes still list
+ *  (at count 0), matching the ความคืบหน้า "show the whole set" behaviour. */
 function collectOrderSizes() {
   const set = new Set();
+  for (const p of (state.products || [])) {
+    for (const s of (Array.isArray(p.sizes) ? p.sizes : [])) set.add(s);
+  }
   for (const o of (state.orders || [])) {
     for (const it of (o.items || [])) set.add(it.size || 'F');
   }
   return [...set].sort((a, b) => String(a).localeCompare(String(b)));
 }
 
-/** Distinct colour ids across orders → display label (resolved from any
- *  product that defines that colour; 'default' → มาตรฐาน). */
+/** Every colour defined across the catalogue (id → label), unioned with
+ *  any colour present in orders. 'default' only appears when ordered. */
 function collectOrderColors() {
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   const map = new Map();   // id -> label
+  for (const p of (state.products || [])) {
+    for (const c of (Array.isArray(p.colors) ? p.colors : [])) {
+      const id = c.id || c.label;
+      if (id && !map.has(id)) map.set(id, c.label || id);
+    }
+  }
   for (const o of (state.orders || [])) {
     for (const it of (o.items || [])) {
       const id = it.color || 'default';
       if (map.has(id)) continue;
-      const lbl = id === 'default'
-        ? 'มาตรฐาน'
-        : (colorLabelFor(productMap.get(it.product_id), id) || id);
-      map.set(id, lbl);
+      map.set(id, id === 'default' ? 'มาตรฐาน'
+        : (colorLabelFor(productMap.get(it.product_id), id) || id));
     }
   }
   return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'th'));
@@ -422,12 +468,17 @@ function populateOrdersSizeFacet() {
     updateFilterChromes();
     return;
   }
-  menu.innerHTML = sizes.map((s) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+  const counts = itemCountBy((it) => it.size || 'F');
+  menu.innerHTML = sizes.map((s) => {
+    const n = counts.get(s) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0" data-facet="size" value="${escHtml(s)}"
              ${state.ordersSizes.has(s) ? 'checked' : ''} />
-      <span class="small">${escHtml(s === 'F' ? 'Free size' : s)}</span>
-    </label>`).join('');
+      <span class="small flex-grow-1">${escHtml(s === 'F' ? 'Free size' : s)}</span>
+      ${facetCountBadge(n)}
+    </label>`;
+  }).join('');
   menu.querySelectorAll('input[data-facet="size"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersSizes.add(cb.value);
@@ -448,12 +499,17 @@ function populateOrdersColorFacet() {
     updateFilterChromes();
     return;
   }
-  menu.innerHTML = colors.map(([id, label]) => `
-    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+  const counts = itemCountBy((it) => it.color || 'default');
+  menu.innerHTML = colors.map(([id, label]) => {
+    const n = counts.get(id) || 0;
+    return `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0" data-facet="color" value="${escHtml(id)}"
              ${state.ordersColors.has(id) ? 'checked' : ''} />
-      <span class="small">${escHtml(label)}</span>
-    </label>`).join('');
+      <span class="small flex-grow-1">${escHtml(label)}</span>
+      ${facetCountBadge(n)}
+    </label>`;
+  }).join('');
   menu.querySelectorAll('input[data-facet="color"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersColors.add(cb.value);
