@@ -465,13 +465,15 @@ function populateOrdersColorFacet() {
   updateFilterChromes();
 }
 
-/** Distinct EFFECTIVE per-item statuses present across orders, ordered by
- *  the canonical STAGES_META sequence. */
+/** Distinct RAW per-item fulfilment statuses present across orders,
+ *  ordered by the canonical STAGES_META sequence. Uses item_status (not
+ *  the effective rowDisplayStatus) so produce/ready/done surface even
+ *  while the order is still in a pre-paid payment phase. */
 function collectItemStatuses() {
   const order = Object.keys(STAGES_META);
   const present = new Set();
   for (const o of (state.orders || [])) {
-    for (const it of (o.items || [])) present.add(rowDisplayStatus(o, it));
+    for (const it of (o.items || [])) present.add(it.item_status || 'paid');
   }
   return [...present].sort((a, b) => {
     const ia = order.indexOf(a), ib = order.indexOf(b);
@@ -833,11 +835,15 @@ function itemMatchesColor(it) {
   return colors.size === 0 || colors.has(it.color || 'default');
 }
 
-/** Per-item progress facet — matches the item's EFFECTIVE status (what
- *  the row shows: order status before payment, item_status after). */
-function itemMatchesProgress(o, it) {
+/** Per-item progress facet — matches the item's RAW fulfilment
+ *  `item_status` (paid/produce/ready/done/exchange/…), NOT the effective
+ *  rowDisplayStatus. The effective status masks item progress behind the
+ *  order's payment phase (an item that's `produce` in a still-`review`
+ *  order would otherwise never surface here), which is exactly the bug
+ *  the user hit. Payment phase lives on the separate สถานะ facet. */
+function itemMatchesProgress(it) {
   const set = state.ordersItemStatuses;
-  return set.size === 0 || set.has(rowDisplayStatus(o, it));
+  return set.size === 0 || set.has(it.item_status || 'paid');
 }
 
 /** Is any item-level facet (product / type / size / colour / progress /
@@ -861,7 +867,7 @@ function visibleOrderItems(o) {
   return items.filter((it) =>
     itemMatchesProductDim(it) && itemMatchesSize(it)
     && itemMatchesColor(it) && itemMatchesPreorder(it)
-    && itemMatchesProgress(o, it));
+    && itemMatchesProgress(it));
 }
 
 /** Apply the current facet filters. Within-facet OR, across-facet AND.
