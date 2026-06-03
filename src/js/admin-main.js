@@ -12,7 +12,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // Auth (shared with public)
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess, authReady, hasPersistedSession } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
@@ -428,6 +428,10 @@ function showAdminSide(which) {
 
 let _orderSortableAttached = false;
 let initialSectionApplied = false;
+// Flipped true once auth has settled (session restored OR confirmed absent).
+// Until then, a persisted-but-still-loading session keeps the boot spinner
+// up instead of flashing the sign-in gate. See the onAuthChange handler.
+let authSettled = false;
 async function enterCreator() {
   const listEl = document.getElementById('announcementsOrderList');
   if (!listEl) return;
@@ -623,6 +627,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const isStaff = !!role && STAFF_ROLES.includes(role);
 
     if (!user) {
+      // The FIRST onAuthChange fire is synchronous on subscribe — it
+      // happens before initAuth() has restored the session from storage,
+      // so currentUser is null even for a signed-in user. If a session
+      // token is persisted and auth hasn't settled yet, stay on the boot
+      // spinner rather than flashing the sign-in gate. On slow mobile
+      // connections that flash was reading as "logged out — log in again
+      // on every refresh" (the bug report); iPad/desktop settle fast
+      // enough that it was never visible there. authReady (below) shows
+      // the gate for real if the persisted token turns out stale.
+      if (!authSettled && hasPersistedSession()) return;
       clearTimeout(bootTimeout);
       // Reset so the next sign-in re-applies initial routing for the
       // new user (whose role and accessible panes may differ).
@@ -708,6 +722,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inst) inst.hide();
     }
   });
+
+  // Auth has settled (session restored or confirmed absent). Mark it so
+  // the onAuthChange boot-stay above stops suppressing the gate, and if
+  // there's still no staff user, show the sign-in gate now.
+  authReady.then(() => {
+    authSettled = true;
+    const u = authGetUser();
+    if (!u || !STAFF_ROLES.includes(u.role)) {
+      clearTimeout(bootTimeout);
+      showAuthGate();
+    }
+  });
+  // Safety net: if initAuth() ever wedges (e.g. a token refresh hangs on
+  // a flaky mobile network so authReady never resolves), don't trap the
+  // user on the boot spinner forever — fall through to the sign-in gate
+  // after a generous wait so they can re-authenticate manually.
+  setTimeout(() => {
+    if (authSettled) return;
+    authSettled = true;
+    if (!authGetUser()) { clearTimeout(bootTimeout); showAuthGate(); }
+  }, 9000);
 
   initAuth();
   initProfileModal();

@@ -129,6 +129,12 @@
 
   <include src="./src/html/offcanvas-shop-cart.html" />
 
+  <!-- QR modal for the public read-only หนังสือโครงการ mirror (/projects-view):
+       the customer detail header exposes a "QR โฟลเดอร์" button which opens
+       this modal. Without the include the button silently no-ops (showProjectQrModal
+       early-returns when #projectQrModal is absent). -->
+  <include src="./src/html/modal-project-qr.html" />
+
   <include src="./src/html/footer.html"/>
 
   <!-- Bootstrap JS -->

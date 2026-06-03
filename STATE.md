@@ -36,6 +36,70 @@ copy-รหัส button) is still in. Cloudflare auto-build runs on push.
   redesigned (summary stats + table/card view + search/type filters,
   grouped by type). **Migrations 0036/0037/0038 confirmed applied in prod.**
 
+## Recently landed (merged to main)
+
+Batch of หนังสือโครงการ + auth/mobile fixes (build green, 49 tests pass):
+
+1. **Customer mirror (`/projects-view`)** no longer flashes "คอมเมนต์ใหม่"
+   banners / "ใหม่" pills — gated on `!customerMode` in `inbox.js`.
+2. **Customer mirror QR works** — public `index.html` now includes
+   `modal-project-qr.html` (the "QR โฟลเดอร์" button used to silently
+   no-op because the modal lived only in `admin/index.html`). Still
+   depends on the pending GAS redeploy for `getProjectFolderInfo`.
+3. **Admin notification jump fixed** — `openProjectsTab()` detects the
+   admin shell and routes via `window.openAdminSection('projects')`
+   instead of the public-only Bootstrap pill; tapping a notification
+   from any admin section now navigates. `loadInitialData()` got a
+   single-flight guard.
+4. **Mobile admin login-on-refresh fixed** — boot gate stays on the
+   spinner while a persisted session restores instead of flashing the
+   sign-in gate on the synchronous first `onAuthChange(null)`. New
+   `authReady` + `hasPersistedSession()` in `auth.js`; `authSettled`
+   gating + 9s fallback in `admin-main.js`. (If a device is genuinely
+   evicting localStorage this won't help — would need deeper repro.)
+5. **Status/comment clicks faster** — doc handlers re-render BEFORE
+   firing notify (was awaiting the 6s-spaced Discord queue). Notify is
+   now fire-and-forget. Discord reliability itself still gated on the
+   pending GAS redeploy + any active Cloudflare 1015 cooldown; a
+   non-GAS proxy (Supabase Edge Function / Cloudflare Worker, dedicated
+   egress IP) is the durable fix — **decision pending with user**.
+6. **จัดการบัญชี added on mobile** — admin sidebar foot + public mobile
+   offcanvas now have a "จัดการบัญชี" button (`samoOpenProfile()`); it
+   was desktop-only before.
+
+Second batch (same working tree):
+
+7. **เปลี่ยนบัญชี first-switch-back bug fixed** — `account-switch.js`
+   now awaits the outgoing account's token capture before swapping the
+   session (was fire-and-forget + 80ms sleep, which raced and wrote the
+   incoming account's already-rotated tokens onto the outgoing entry).
+   See mistakes.md "Account-switcher … first switch-back forces a
+   password re-login".
+8. **Article hero image** no longer dwarfs the text column below 1200px
+   (iPad) — `article.css` caps `.article-hero` to 760px on tablet.
+9. **Footer shorter on phones** — `footer.css` keeps 2 columns at
+   <576px instead of stacking all 5 sections into one tall column.
+10. **Profile (จัดการบัญชี) for staff** — verified in code that
+    change-password (`changePassword`) and add-email (`updateEmail`) are
+    auth-only mutations that never touch `public.users.role` /
+    `permissions`, and the modal exposes both to staff (hasPassword
+    accounts). No permission loss. Connect-Google still depends on
+    Supabase "Manual linking" being enabled. Live multi-account / OAuth
+    testing not automatable against prod — needs manual verification.
+
+Follow-up scan fixes:
+
+11. **Customer file "ใหม่" tag** removed — `fileNewnessForRole` returned
+    'new' for every file in the mirror (lastActed always 0). Now gated on
+    `customerMode` like the comment banner/unread (`inbox.js`).
+12. **Customer filter chips** trimmed — the mirror no longer shows the
+    always-zero "ของฉัน" / "ได้รับแจ้งเตือน" staff chips; shows
+    ทั้งหมด / กำลังดำเนินการ / เสร็จสิ้น only.
+13. **Account-switch token capture bounded** — `rememberAccountAwait`
+    races the `getSession()` capture against a 1.5s ceiling so a wedged
+    supabase-js can't freeze the switcher (the old 80ms sleep never
+    froze; an unbounded awaited capture could).
+
 ## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
 
 Apply in numeric order via the SQL editor. JS callers degrade gracefully

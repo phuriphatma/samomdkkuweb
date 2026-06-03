@@ -450,8 +450,16 @@ function renderFilterChips() {
   const role = cache.role;
   const waitLabel = role === 'uni_staff' ? 'รอ SAMO'
                   : role === 'vp_admin'  ? 'รอเจ้าหน้าที่'
+                  : customerMode         ? 'กำลังดำเนินการ'
                   : 'รออีกฝ่าย';
-  const chips = [
+  // The customer mirror has no per-user identity, so "ของฉัน" and
+  // "ได้รับแจ้งเตือน" are always 0 and meaningless — show only the
+  // status-oriented chips that make sense for a read-only viewer.
+  const chips = customerMode ? [
+    { id: 'all',      label: 'ทั้งหมด',         count: c.all,      cls: 'is-all'  },
+    { id: 'waiting',  label: waitLabel,         count: c.waiting,  cls: 'is-wait' },
+    { id: 'done',     label: 'เสร็จสิ้น',        count: c.done,     cls: 'is-done' },
+  ] : [
     { id: 'all',      label: 'ทั้งหมด',         count: c.all,      cls: 'is-all'  },
     { id: 'mine',     label: 'ของฉัน',          count: c.mine,     cls: 'is-mine' },
     { id: 'notified', label: 'ได้รับแจ้งเตือน',  count: c.notified, cls: 'is-notif' },
@@ -1001,6 +1009,12 @@ function renderRecentUpdateBanner(doc, role, seenAtOverride) {
  * changes. Matches Gmail/Linear "unread message" behaviour.
  */
 function renderCommentBanner(doc, role, seenAtOverride) {
+  // Customer mirror is a pure read-only view with no identity to track
+  // "seen" against — every comment would otherwise read as "new" (seenAt
+  // is always 0) and flash the banner. Suppress entirely. The recent-
+  // update banner is already empty for 'customer' (no INCOMING_ACTIONS
+  // entry), so this is the only banner that needs an explicit guard.
+  if (customerMode) return '';
   const tl = doc.timeline || [];
   const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
   // A comment is "new to me" when its creation OR last-edit timestamp
@@ -1215,7 +1229,10 @@ function renderCommentsList(doc, role, seenAtOverride) {
     Date.parse(c.at) || 0,
     c.edited_at ? (Date.parse(c.edited_at) || 0) : 0,
   );
-  const unreadCount = ordered.filter((c) =>
+  // In the customer mirror there's no per-user seenAt, so treat every
+  // comment as already-read: no "ใหม่" pills, no is-unread rows, no
+  // unread count. The customer just sees the thread, not "what changed".
+  const unreadCount = customerMode ? 0 : ordered.filter((c) =>
     c.role !== role && effectiveTs(c) > seenAt
   ).length;
   // <details> follows the same collapse pattern as the timeline so the
@@ -1236,7 +1253,7 @@ function renderCommentsList(doc, role, seenAtOverride) {
       </summary>
       <ul class="projects-comments-list">
         ${ordered.map((c) => {
-          const isUnread = c.role !== role && effectiveTs(c) > seenAt;
+          const isUnread = !customerMode && c.role !== role && effectiveTs(c) > seenAt;
           // Only the author can edit / delete their own comment.
           // `by` carries the auth user id (see appendDocTimeline calls);
           // fall back to role match for legacy entries that pre-date the
@@ -1568,25 +1585,29 @@ async function onDocStatusClick(btn) {
     const docRef = doc
       ? `(หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}")`
       : '';
+    // Acting on the doc = "I've seen what's there". Clears the "อัปเดต"
+    // pill on the next render even if the viewer never explicitly
+    // expanded the card. Re-render IMMEDIATELY so the status flips in
+    // the UI without waiting on the notify fan-out — Discord is
+    // serialised + spaced ~6s (see notify.js queueDiscord), so awaiting
+    // it here made every status/comment click feel sluggish.
+    markDocSeen(docId);
+    onChanged();
+    // Notify is best-effort and out-of-band — fire-and-forget.
     if (role === 'uni_staff') {
-      await notifyVpAdmin({
+      notifyVpAdmin({
         kind: next === 'completed' ? 'completed' : 'status',
         project, document: doc,
         body: `${note} ${docRef}`.trim(),
-      });
+      }).catch(() => {});
     } else if (role === 'vp_admin' && isRevert) {
-      await notifyUniStaff({
+      notifyUniStaff({
         kind: 'status',
         project, document: doc,
         body: `SAMO ${note} ${docRef}`.trim(),
         subject: `[MDKKU SAMO] ย้อนสถานะหนังสือ — ${project.name}`,
-      });
+      }).catch(() => {});
     }
-    // Acting on the doc = "I've seen what's there". Clears the "อัปเดต"
-    // pill on the next render even if the viewer never explicitly
-    // expanded the card.
-    markDocSeen(docId);
-    onChanged();
   } catch (e) { alert(e.message || 'อัปเดตสถานะไม่สำเร็จ'); }
 }
 
@@ -1613,14 +1634,14 @@ async function onDocReturnClick(btn) {
     }, { status: 'returned', return_reason: reason });
     const doc = await getDocument(docId).catch(() => null);
     const docRef = `#${docCached.sequence_no || ''} "${docCached.title || ''}"`;
-    await notifyVpAdmin({
+    markDocSeen(docId);
+    onChanged();
+    notifyVpAdmin({
       kind: 'returned',
       project, document: doc,
       body: `ส่งกลับเพื่อแก้ไข ${docRef}: ${reason}`,
       title: `ส่งกลับ — ${doc?.title || ''}`,
-    });
-    markDocSeen(docId);
-    onChanged();
+    }).catch(() => {});
   } catch (e) { alert(e.message || 'ส่งกลับไม่สำเร็จ'); }
 }
 
@@ -1647,14 +1668,14 @@ async function onDocResendClick(btn) {
     }, { status: 'sent', return_reason: null });
     const doc = await getDocument(docId).catch(() => null);
     const docRef = `#${docCached.sequence_no || ''} "${docCached.title || ''}"`;
-    await notifyUniStaff({
+    markDocSeen(docId);
+    onChanged();
+    notifyUniStaff({
       kind: 'resent',
       project, document: doc,
       body: `หนังสือใหม่ ${docRef}: ${note}`,
       subject: `[MDKKU SAMO] หนังสือใหม่ — ${project.name}`,
-    });
-    markDocSeen(docId);
-    onChanged();
+    }).catch(() => {});
   } catch (e) { alert(e.message || 'ส่งใหม่ไม่สำเร็จ'); }
 }
 
@@ -1682,14 +1703,14 @@ async function onDocCommentClick(btn) {
     const doc = await getDocument(docId).catch(() => null);
     const docRef = `หนังสือ #${docCached.sequence_no || ''} "${docCached.title || ''}"`;
     const body = `${docRef}\nคอมเมนต์ใหม่: ${text}`;
-    if (cache.role === 'uni_staff') {
-      await notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ใหม่ — ${doc?.title || ''}` });
-    } else {
-      await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` });
-    }
     // The author has obviously "seen" their own comment.
     markDocSeen(docId);
     onChanged();
+    if (cache.role === 'uni_staff') {
+      notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ใหม่ — ${doc?.title || ''}` }).catch(() => {});
+    } else {
+      notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` }).catch(() => {});
+    }
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
 
@@ -1732,14 +1753,14 @@ async function onCommentEditClick(btn) {
     // to re-light the highlight until the receiver opens the doc.
     const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
     const body = `${docRef}\nคอมเมนต์ถูกแก้ไข: ${next}`;
-    if (cache.role === 'uni_staff') {
-      await notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ถูกแก้ไข — ${doc.title || ''}` });
-    } else {
-      await notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ถูกแก้ไข — ${project.name}` });
-    }
     // Author has obviously "seen" their own edit.
     markDocSeen(docId);
     onChanged();
+    if (cache.role === 'uni_staff') {
+      notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ถูกแก้ไข — ${doc.title || ''}` }).catch(() => {});
+    } else {
+      notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ถูกแก้ไข — ${project.name}` }).catch(() => {});
+    }
   } catch (err) {
     alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');
   }
@@ -2038,6 +2059,10 @@ async function loadFilesForDoc(docId) {
  *  status-clearing action (see myLastActionTime). VPA always sees null
  *  because they uploaded the file themselves. */
 function fileNewnessForRole(file, lastActed, role) {
+  // Customer mirror has no per-user action history, so lastActed is
+  // always 0 and EVERY file would light up "ใหม่". The read-only viewer
+  // has no "new since I last acted" concept — never tag files.
+  if (customerMode) return null;
   if (role === 'vp_admin') return null;
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;

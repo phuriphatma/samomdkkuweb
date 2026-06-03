@@ -745,6 +745,120 @@ non-GAS proxy.
 
 ---
 
+## Synchronous first `onAuthChange` fire flashes the sign-in gate before the session is restored (looks like "logged out on every refresh" on slow mobile)
+
+**Symptom**: On a phone, signing into the admin app then refreshing
+shows the sign-in screen again — the user thinks the session didn't
+persist and re-enters username/password. iPad / desktop are fine with
+the same account.
+**Cause**: `onAuthChange(cb)` invokes `cb(currentUser)` **synchronously**
+on subscribe. At that instant `initAuth()` hasn't awaited
+`db.auth.getSession()` yet, so `currentUser` is `null` even for a
+perfectly valid persisted session. The admin boot handler treated that
+null as "signed out" and called `showAuthGate()` immediately. On a fast
+connection `initAuth` resolves a few ms later and `showApp()` wins, so
+the gate flash is invisible. On a slow mobile network the gate lingers
+long enough that the user starts typing — and a stale/expired token that
+needs a (slow) network refresh makes it worse.
+**Fix**: Distinguish "we don't know yet" from "confirmed signed out".
+`auth.js` exports `authReady` (a promise that resolves after the first
+`getSession()` settles) and `hasPersistedSession()` (checks localStorage
+for `sb-<ref>-auth-token`). The boot handler now: on a null fire, if
+auth hasn't settled AND a token is persisted → stay on the boot spinner
+(`return`, don't show the gate); `authReady.then()` shows the gate for
+real only if the restored session turns out absent/stale. A 9s safety
+timeout falls through to the gate so a wedged `getSession()` can't trap
+the user on the spinner forever.
+**Where**: `src/js/auth.js` (`authReady`, `hasPersistedSession`,
+`markAuthReady` after the first `notify()`); `src/js/admin-main.js`
+(`authSettled` flag, the null-branch boot-stay, the `authReady.then`
+settle handler + fallback timer). Any future full-screen auth gate must
+gate on `authReady` / `hasPersistedSession`, never on the first
+synchronous `onAuthChange(null)`.
+
+---
+
+## A module shared across two shells carries shell-specific assumptions that silently break in the other shell
+
+**Symptom (two faces, same root)**:
+  1. Tapping a หนังสือโครงการ notification from another admin section
+     (ภาพรวม / PR / Shop) does nothing — you must already be on the
+     หนังสือโครงการ section for it to navigate.
+  2. The public read-only customer mirror (`/projects-view`) flashes a
+     "คอมเมนต์ใหม่" banner + "ใหม่" pills on every comment, even though
+     the customer has no unread state.
+**Cause**: `src/js/projects/*` is mounted in BOTH the public SPA and the
+admin app. (1) `openProjectsTab()` switched sections via
+`window.activateTab('pills-projects-tab')` — a Bootstrap pill that only
+exists in the public shell; the admin shell switches sections via
+`showAdminSide()`, so the jump silently no-op'd. (2) `renderCommentBanner`
+/ `renderCommentsList` decided "unread" purely from `e.role !== role`;
+for the synthetic `role='customer'` there is no per-user seenAt
+(`getDocSeenAt` returns 0), so every comment read as new.
+**Fix**: (1) `openProjectsTab()` detects the admin shell
+(`document.getElementById('adminSideNav')`) and routes through
+`window.openAdminSection('projects')` instead of the pill; added a
+single-flight guard on `loadInitialData()` so the sidebar + jump paths
+don't double-fetch. (2) Gate the comment banner + unread highlighting on
+`!customerMode` in `inbox.js`.
+**Where**: `src/js/projects/index.js` `openProjectsTab` + `loadInitialData`
+single-flight; `src/js/projects/inbox.js` `renderCommentBanner` /
+`renderCommentsList`. When reusing a module in a second shell, audit every
+`activateTab` / `#bootstrap-id` / role assumption against the host shell.
+
+---
+
+## Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
+
+**Symptom**: sastaff (uni_staff) clicks "รับเรื่อง" / "เสร็จสิ้น" /
+"คอมเมนต์" and the card takes a noticeable beat to update.
+**Cause**: The doc action handlers `await notifyVpAdmin(...)` BEFORE
+calling `onChanged()` (the re-render). `notifyVpAdmin` awaits
+`queueDiscord(...)`, which enforces `MIN_DISCORD_SPACING_MS` (6s) between
+calls plus up to ~20s of GAS retry budget — so the UI sat waiting on an
+out-of-band side-channel that the user doesn't need to see complete.
+**Fix**: Re-render FIRST (`markDocSeen` + `onChanged()`), then fire the
+notify fire-and-forget (`.catch(() => {})`). Discord is best-effort and
+already serialised + logged inside `notify.js`; nothing depends on the
+await. Applied to `onDocStatusClick`, `onDocReturnClick`,
+`onDocResendClick`, `onDocCommentClick`, `onCommentEditClick`.
+**Where**: `src/js/projects/inbox.js`. Never `await` a serialised /
+rate-limited side-channel on a click handler's render path — fire it
+after the render.
+
+---
+
+## Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back forces a password re-login
+
+**Symptom**: Signed in as VPA, switch to dev (works), then tap back to
+VPA → forced to re-enter VPA username/password. Every *subsequent*
+switch (dev↔vpa, to other accounts) then works. Only the FIRST
+switch-back to a given account fails.
+**Cause**: `pickAccount()` snapshotted the outgoing account with
+`rememberAccount(getUser())` (whose token capture is a fire-and-forget
+`getCurrentSessionTokens().then(write)`), then `await sleep(80)`, then
+`setAuthSession(targetTokens)`. The 80ms was a *hope* that the capture
+flushed first. When it didn't, `getSession()` resolved AFTER the session
+was already swapped to the target — so the **target's** tokens got
+written onto the **outgoing** account's saved entry. Worse, those target
+tokens were the pre-swap refresh_token, which `setAuthSession` had just
+**rotated** (supabase refresh tokens are single-use) — so they were
+already dead. Switching back replayed that dead token → `setAuthSession`
+returns null → `clearSavedTokens` → password path. The re-login then
+saved fresh, correct tokens, so every later switch worked.
+**Fix**: Capture the outgoing tokens *synchronously awaited* while the
+live session is still that account, BEFORE the swap. Split
+`rememberAccount` into `writeAccountEntry()` (sync identity row) +
+`stitchCurrentTokens(key)` (awaitable token capture); add
+`rememberAccountAwait()` and call `await rememberAccountAwait(getUser())`
+in `pickAccount` (dropping the 80ms sleep). The normal sign-in subscriber
+path keeps the fire-and-forget `rememberAccount` (no swap racing it).
+**Where**: `src/js/account-switch.js`. Never capture a session's tokens
+fire-and-forget when the very next step replaces that session — the read
+will race the write and snapshot the wrong (and already-rotated) tokens.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

@@ -105,7 +105,20 @@ function applyRoleVisibility(user) {
   if (body) body.classList.toggle('d-none', !allowed);
 }
 
+let loadInFlight = null;
 async function loadInitialData() {
+  // Single-flight: enterProjectsWorkspace() (sidebar) and
+  // openProjectsTab() (notification jump) can both kick a first load at
+  // nearly the same instant in the admin shell. Without this guard the
+  // second caller starts a duplicate fetch because initialDataLoaded is
+  // only flipped true after the first await resolves.
+  if (loadInFlight) return loadInFlight;
+  loadInFlight = loadInitialDataInner();
+  try { return await loadInFlight; }
+  finally { loadInFlight = null; }
+}
+
+async function loadInitialDataInner() {
   if (!isAllowed(currentUser)) return;
   try {
     // docViews join the in-flight load so the inbox renders with the
@@ -177,9 +190,23 @@ function activateProjectsTab() {
   }
 }
 
-/** Public: jump to the projects tab and (optionally) open a specific item. */
+/** Public: jump to the projects tab and (optionally) open a specific item.
+ *  Works from BOTH shells:
+ *   - public SPA: routes through the Bootstrap pill tablist.
+ *   - admin app: there are no Bootstrap tabs — section switching is driven
+ *     by showAdminSide() (exposed as window.openAdminSection). Clicking a
+ *     หนังสือโครงการ notification while parked on another admin section
+ *     (ภาพรวม, PR, Shop, …) previously did nothing visible because
+ *     activateProjectsTab() targets a tab button that doesn't exist there.
+ *     Detect the admin shell and switch the section first. */
 export async function openProjectsTab({ projectId, documentId } = {}) {
-  activateProjectsTab();
+  const inAdminShell = !!document.getElementById('adminSideNav');
+  if (inAdminShell && typeof window.openAdminSection === 'function') {
+    window.openAdminSection('projects');   // shows the pane + calls enterProjectsWorkspace()
+  } else {
+    activateProjectsTab();
+  }
+  tabActive = true;
   setView('inbox');
   if (!initialDataLoaded) await loadInitialData();
   if (documentId) openDocumentDetail(documentId);

@@ -50,14 +50,15 @@ function keyFor(acct) {
       || (acct.email || '').toLowerCase();
 }
 
-/** Remember (or update) an account after a successful sign-in. */
-export function rememberAccount(user) {
-  if (!user) return;
+/** Write the identity row for an account (no token capture). Returns the
+ *  dedupe key, or null if the user can't be reliably identified. */
+function writeAccountEntry(user) {
+  if (!user) return null;
   // Require either an auth id or a usable secondary key. Without either
   // we'd save a row that we can never reliably re-identify, which is
   // exactly the bug that surfaced as "old account disappears after a
   // second sign-in".
-  if (!user.id && !user.username && !user.email) return;
+  if (!user.id && !user.username && !user.email) return null;
   const entry = {
     id:          user.id || '',
     username:    user.username || '',
@@ -68,11 +69,9 @@ export function rememberAccount(user) {
     lastUsed:    new Date().toISOString(),
   };
   const key = keyFor(entry);
-  if (!key) return;
+  if (!key) return null;
   // Preserve any previously-stored session tokens for this account so
   // a stale-but-non-empty rememberAccount call doesn't blow them away.
-  // The async token capture below will overwrite with fresh tokens
-  // once getSession() resolves.
   const prev = readSaved();
   const existing = prev.find((a) => keyFor(a) === key);
   if (existing?.access_token)  entry.access_token  = existing.access_token;
@@ -81,27 +80,63 @@ export function rememberAccount(user) {
   list.unshift(entry);
   list.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
   writeSaved(list);
-  // Diagnostic: lets us verify in DevTools that every sign-in cycle
-  // grows the saved-account list as expected. Surface via console
-  // (debug level) so a normal user doesn't see noise but a tester
-  // can flip "Verbose" on and trace the path.
   try {
     console.debug('[samo.account-switch] remember',
       { key, in: prev.map(keyFor), out: list.map(keyFor) });
   } catch {}
-  // Async-capture the current session's tokens and stitch them onto the
-  // saved entry. We can't await this in a sync subscriber, but the
-  // tokens land in localStorage before the user has had time to open
-  // the switcher again — and the entry exists from the line above so
-  // the chooser already shows the account during the brief window.
-  getCurrentSessionTokens().then((tokens) => {
+  return key;
+}
+
+/** Stitch the CURRENT session's tokens onto the saved entry for `key`.
+ *  Reads getSession() at call time, so the caller MUST ensure the live
+ *  session still belongs to the account being saved. */
+async function stitchCurrentTokens(key) {
+  if (!key) return;
+  try {
+    const tokens = await getCurrentSessionTokens();
     if (!tokens?.refresh_token) return;
     const after = readSaved();
     const idx = after.findIndex((a) => keyFor(a) === key);
     if (idx < 0) return;
     after[idx] = { ...after[idx], ...tokens };
     writeSaved(after);
-  }).catch(() => {});
+  } catch {}
+}
+
+/** Remember (or update) an account after a successful sign-in. The token
+ *  capture is fire-and-forget — fine for the normal sign-in subscriber
+ *  path where the session isn't about to be swapped out from under it. */
+export function rememberAccount(user) {
+  const key = writeAccountEntry(user);
+  if (!key) return;
+  // Async-capture the current session's tokens and stitch them on. The
+  // entry already exists (above) so the chooser shows the account during
+  // the brief window before the tokens land.
+  stitchCurrentTokens(key);
+}
+
+/** Like rememberAccount but AWAITS the token capture. Used by the account
+ *  switcher right before it swaps the session: capturing the OUTGOING
+ *  account's tokens has to finish while the live session is still that
+ *  account. The old fire-and-forget + 80ms-sleep pattern raced — if
+ *  getSession() resolved after setAuthSession() swapped the session in,
+ *  the INCOMING account's tokens got written onto the OUTGOING account's
+ *  saved entry. Replaying those (already-rotated, now-invalid) tokens on
+ *  the first switch-back is exactly why it forced a password re-login the
+ *  first time but worked on every subsequent attempt. */
+export async function rememberAccountAwait(user) {
+  const key = writeAccountEntry(user);
+  if (!key) return;
+  // Bound the capture: getCurrentSessionTokens() awaits supabase-js
+  // getSession(), which can occasionally wedge (the documented bad-state
+  // hang). The old 80ms sleep never froze, so we must not let an awaited
+  // getSession freeze the switcher either — race a 1.5s ceiling. On
+  // timeout we proceed with whatever tokens were already saved for this
+  // account (worst case == the pre-fix behaviour, not a regression).
+  await Promise.race([
+    stitchCurrentTokens(key),
+    new Promise((r) => setTimeout(r, 1500)),
+  ]);
 }
 
 /** Drop one saved account (the "x" on each chooser row). */
@@ -261,14 +296,13 @@ async function pickAccount(key, originRow) {
   const undoRowBusy = markRowBusy(originRow);
   const releaseBusy = () => { switchInFlight = false; undoRowBusy?.(); };
 
-  // Snapshot the current user into the saved list BEFORE we switch
-  // away — captures fresh tokens and shields against any timing-race
-  // that could lose the prior account from the chooser.
-  try { rememberAccount(getUser()); } catch {}
-  // Give the snapshot a microtask + a beat to flush its async token
-  // capture before we replace the current session — otherwise we'd
-  // race ourselves and lose the outgoing account's refresh_token.
-  await new Promise((r) => setTimeout(r, 80));
+  // Snapshot the current user into the saved list BEFORE we switch away,
+  // AWAITING the token capture so the outgoing account's fresh tokens are
+  // persisted while the live session is still that account. Awaiting (vs
+  // the old fire-and-forget + 80ms sleep) closes the race where the
+  // INCOMING account's tokens could land on the OUTGOING entry and force
+  // a password re-login on the first switch-back.
+  try { await rememberAccountAwait(getUser()); } catch {}
 
   // Fast path: if we have the target account's saved refresh_token,
   // replay the session directly. supabase-js auto-refreshes the

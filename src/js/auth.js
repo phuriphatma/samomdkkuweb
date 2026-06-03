@@ -40,6 +40,34 @@ let currentUser = null;
 const subscribers = new Set();
 const beforeSignOutHooks = new Set();
 
+// Resolves once initAuth() has restored (or confirmed the absence of) a
+// session from storage. Lets app shells distinguish "we don't know yet, a
+// token may still be loading" from "confirmed signed out" — so a slow
+// mobile session restore shows the boot spinner instead of flashing the
+// sign-in gate. See admin-main.js boot gating.
+let markAuthReady;
+export const authReady = new Promise((resolve) => { markAuthReady = resolve; });
+
+// localStorage key supabase-js persists the session under, derived from the
+// project ref in the URL (e.g. sb-fheueuowbchsnsvbcgil-auth-token).
+const PERSISTED_SESSION_KEY = (() => {
+  try {
+    const ref = (import.meta.env.VITE_SUPABASE_URL || '').match(/\/\/([^.]+)\./)?.[1] || '';
+    return ref ? `sb-${ref}-auth-token` : null;
+  } catch { return null; }
+})();
+
+/** True when supabase-js has a persisted session token in localStorage.
+ *  The token may be expired (but still refreshable) — this only answers
+ *  "a sign-in MIGHT be restorable", used to keep the boot spinner up while
+ *  initAuth() resolves rather than flashing the sign-in gate on slow
+ *  mobile connections. */
+export function hasPersistedSession() {
+  if (!PERSISTED_SESSION_KEY) return false;
+  try { return !!localStorage.getItem(PERSISTED_SESSION_KEY); }
+  catch { return false; }
+}
+
 function notify() {
   for (const cb of subscribers) {
     try { cb(currentUser); } catch (e) { console.error('auth subscriber error', e); }
@@ -228,6 +256,10 @@ export async function initAuth() {
   const { data: { session } } = await db.auth.getSession();
   currentUser = await buildCurrentUser(session);
   notify();
+  // Session restore (or its confirmed absence) is now settled — let any
+  // boot gate stop waiting. Fires AFTER notify() so subscribers already
+  // hold the restored user when authReady resolvers run.
+  markAuthReady?.();
 
   // React to auth state changes (sign in / out / token refresh).
   //

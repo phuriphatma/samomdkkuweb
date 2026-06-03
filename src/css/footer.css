@@ -35,9 +35,13 @@
 }
 
 @media (max-width: 575.98px) {
+  /* Keep TWO columns on phones (brand stays full-width via the rule
+     above). A single stacked column made the footer extremely tall —
+     5 sections end-to-end. 2×2 link columns roughly halve the height
+     while staying tappable. */
   .samo-footer-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 1.25rem;
   }
 
   .samo-footer-container {
