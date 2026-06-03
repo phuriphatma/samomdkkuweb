@@ -49,6 +49,9 @@ const state = {
   batchEditor: null,
   // Preorder tab
   preorderExpanded: new Set(),  // `${productId}` keys expanded to show orders
+  preorderView: 'table',        // 'table' | 'cards'
+  preorderSearch: '',
+  preorderType: 'all',          // SHOP_TYPES id or 'all'
   // Stock tab
   stockSearch: '',
   stockEdits: new Map(),  // productId → { matrix: {...}, status: '...' }  (pending unsaved edits)
@@ -160,6 +163,26 @@ function ensureMounted() {
 
   // Preorder demand refresh
   document.getElementById('shopAdminPreorderRefresh')?.addEventListener('click', refreshPreorder);
+  // Preorder toolbar: search (content only re-render keeps input focus),
+  // type chips, and card/table view toggle.
+  document.getElementById('shopAdminPreorderSearch')?.addEventListener('input', (e) => {
+    state.preorderSearch = e.target.value || '';
+    renderPreorder();
+  });
+  document.getElementById('shopAdminPreorderTypes')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-preorder-type]');
+    if (!chip) return;
+    state.preorderType = chip.dataset.preorderType;
+    renderPreorder();
+  });
+  document.getElementById('shopAdminPreorderViewToggle')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-preorder-view]');
+    if (!btn) return;
+    state.preorderView = btn.dataset.preorderView;
+    document.querySelectorAll('#shopAdminPreorderViewToggle [data-preorder-view]')
+      .forEach((b) => b.classList.toggle('active', b.dataset.preorderView === state.preorderView));
+    renderPreorder();
+  });
 
   // Stock tab search + refresh
   const stockSearch = document.getElementById('shopAdminStockSearch');
@@ -1446,7 +1469,13 @@ function preorderAggregate() {
       const p = productMap.get(it.product_id);
       let entry = byProduct.get(it.product_id);
       if (!entry) {
-        entry = { productId: it.product_id, name: p?.name || it.product_id, total: 0, variants: new Map(), orders: new Set() };
+        entry = {
+          productId: it.product_id,
+          name: p?.name || it.product_id,
+          type: p?.type || 'other',
+          source: p?.source || '',
+          total: 0, variants: new Map(), orders: new Set(),
+        };
         byProduct.set(it.product_id, entry);
       }
       const qty = Number(it.qty) || 0;
@@ -1465,11 +1494,62 @@ function preorderAggregate() {
   return [...byProduct.values()].sort((a, b) => b.total - a.total);
 }
 
+/** Apply the search + type filter to the aggregate. */
+function filterPreorderAgg(agg) {
+  const q = (state.preorderSearch || '').trim().toLowerCase();
+  const type = state.preorderType || 'all';
+  return agg.filter((e) => {
+    if (type !== 'all' && e.type !== type) return false;
+    if (!q) return true;
+    if ((e.name || '').toLowerCase().includes(q)) return true;
+    return [...e.variants.values()].some((v) => (v.label || '').toLowerCase().includes(q));
+  });
+}
+
+/** Top summary cards: total pieces, products, orders, variants. */
+function renderPreorderStats(agg) {
+  const host = document.getElementById('shopAdminPreorderStats');
+  if (!host) return;
+  const pieces = agg.reduce((s, e) => s + e.total, 0);
+  const orderIds = new Set();
+  let variantCount = 0;
+  agg.forEach((e) => { e.orders.forEach((o) => orderIds.add(o)); variantCount += e.variants.size; });
+  const card = (label, value, suffix, cls = '') => `
+    <div class="stat-card ${cls}">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value}${suffix ? `<span class="stat-suffix">${suffix}</span>` : ''}</div>
+    </div>`;
+  host.innerHTML = [
+    card('พรีออเดอร์รวม', pieces, 'ชิ้น', 'is-warning'),
+    card('สินค้า', agg.length, 'รายการ'),
+    card('คำสั่งซื้อ', orderIds.size, 'ออเดอร์'),
+    card('ไซส์/สี', variantCount, 'แบบ'),
+  ].join('');
+}
+
+/** Type filter chips — only types that actually have preorder demand. */
+function renderPreorderTypeChips(fullAgg) {
+  const host = document.getElementById('shopAdminPreorderTypes');
+  if (!host) return;
+  const present = new Set(fullAgg.map((e) => e.type));
+  const chips = [{ id: 'all', label: 'ทุกประเภท', icon: 'bi-grid' }]
+    .concat(SHOP_TYPES.filter((t) => t.id !== 'all' && present.has(t.id)));
+  if (present.has('other')) chips.push({ id: 'other', label: 'อื่น ๆ', icon: 'bi-tag' });
+  host.innerHTML = chips.map((t) => `
+    <button type="button" class="chip chip-sm ${state.preorderType === t.id ? 'is-active' : ''}"
+            data-preorder-type="${escHtml(t.id)}">
+      <i class="bi ${escHtml(t.icon || 'bi-tag')} me-1"></i>${escHtml(t.label)}
+    </button>`).join('');
+}
+
 function renderPreorder() {
   const host = document.getElementById('shopAdminPreorderHost');
   if (!host) return;
-  const agg = preorderAggregate();
-  if (!agg.length) {
+  const fullAgg = preorderAggregate();
+  renderPreorderStats(fullAgg);
+  renderPreorderTypeChips(fullAgg);
+
+  if (!fullAgg.length) {
     host.innerHTML = `
       <div class="empty-state">
         <i class="bi bi-hourglass"></i>
@@ -1478,7 +1558,21 @@ function renderPreorder() {
       </div>`;
     return;
   }
-  host.innerHTML = agg.map(preorderCardHtml).join('');
+  const agg = filterPreorderAgg(fullAgg);
+  if (!agg.length) {
+    host.innerHTML = `
+      <div class="empty-state">
+        <i class="bi bi-search"></i>
+        <h4>ไม่พบพรีออเดอร์ที่ตรงกับตัวกรอง</h4>
+        <p>ลองล้างคำค้นหรือเลือกประเภทอื่น</p>
+      </div>`;
+    return;
+  }
+
+  host.innerHTML = state.preorderView === 'cards'
+    ? agg.map(preorderCardHtml).join('')
+    : preorderTableHtml(agg);
+
   host.querySelectorAll('[data-preorder-toggle]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.preorderToggle;
@@ -1490,6 +1584,64 @@ function renderPreorder() {
   host.querySelectorAll('[data-preorder-order]').forEach((a) => {
     a.addEventListener('click', (e) => { e.preventDefault(); openOrderModal(a.dataset.preorderOrder); });
   });
+}
+
+/** Flat table view: one row per product-variant, grouped under a product
+ *  header row, with a grand-total footer. Scannable for production planning. */
+function preorderTableHtml(agg) {
+  const typeLabel = (t) => SHOP_TYPES.find((x) => x.id === t)?.label || (t === 'other' ? 'อื่น ๆ' : t);
+  const grand = agg.reduce((s, e) => s + e.total, 0);
+  const body = agg.map((e) => {
+    const variants = [...e.variants.values()].sort((a, b) => b.qty - a.qty);
+    const head = `
+      <tr class="preorder-row-product">
+        <td colspan="2">
+          <span style="font-weight:700;">${escHtml(e.name)}</span>
+          <span class="badge bg-light text-muted border ms-2">${escHtml(typeLabel(e.type))}</span>
+        </td>
+        <td class="text-end" style="font-weight:800; color:var(--shop-700);">${e.total}</td>
+        <td class="text-end">${e.orders.size}</td>
+      </tr>`;
+    const rows = variants.map((v) => `
+      <tr class="preorder-row-variant">
+        <td></td>
+        <td class="text-muted small">${escHtml(v.label)}</td>
+        <td class="text-end">${v.qty}</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-link btn-sm p-0" data-preorder-toggle="${escHtml(e.productId)}">${v.orders.size}</button>
+        </td>
+      </tr>`).join('');
+    const expanded = state.preorderExpanded.has(e.productId);
+    const orderRow = expanded ? `
+      <tr class="preorder-row-orders"><td></td><td colspan="3">
+        <div class="d-flex flex-wrap gap-2 py-1">
+          ${[...e.orders].map((oid) => `
+            <a href="#" class="badge bg-light text-dark border" data-preorder-order="${escHtml(oid)}"
+               style="cursor:pointer; font-weight:600;">${escHtml(oid)}</a>`).join('')}
+        </div></td></tr>` : '';
+    return head + rows + orderRow;
+  }).join('');
+  return `
+    <div class="table-responsive">
+      <table class="table table-sm align-middle preorder-table mb-0">
+        <thead>
+          <tr>
+            <th style="width:1%;"></th>
+            <th>สินค้า / ไซส์-สี</th>
+            <th class="text-end">จำนวน</th>
+            <th class="text-end">คำสั่งซื้อ</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--shop-ink-200,#dee2e6);">
+            <td colspan="2" style="font-weight:700;">รวมทั้งหมด</td>
+            <td class="text-end" style="font-weight:800; color:var(--shop-700);">${grand}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
 }
 
 function preorderCardHtml(entry) {

@@ -234,6 +234,29 @@
                   <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
                 </button>
               </div>
+
+              <!-- Summary stat cards (populated by renderPreorderStats). -->
+              <div class="admin-stats mb-3" id="shopAdminPreorderStats"></div>
+
+              <!-- Toolbar: search + type chips + card/table view toggle.
+                   Static so it keeps focus across content re-renders. -->
+              <div class="preorder-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
+                <div class="input-group input-group-sm" style="max-width:260px;">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input type="search" class="form-control" id="shopAdminPreorderSearch"
+                         placeholder="ค้นหาสินค้า / ไซส์ / สี" />
+                </div>
+                <div class="preorder-type-chips d-flex flex-wrap gap-1" id="shopAdminPreorderTypes"></div>
+                <div class="btn-group btn-group-sm ms-auto" role="group" id="shopAdminPreorderViewToggle">
+                  <button type="button" class="btn btn-outline-secondary active" data-preorder-view="table">
+                    <i class="bi bi-table me-1"></i> ตาราง
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" data-preorder-view="cards">
+                    <i class="bi bi-grid-1x2 me-1"></i> การ์ด
+                  </button>
+                </div>
+              </div>
+
               <div id="shopAdminPreorderHost"></div>
             </div>
 
