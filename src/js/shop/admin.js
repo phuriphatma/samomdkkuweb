@@ -39,6 +39,9 @@ const state = {
   ordersStatuses: new Set(),
   ordersProducts: new Set(),   // specific product ids (subtype level)
   ordersTypes: new Set(),      // product-type ids, e.g. 'apparel-shirt' (type level)
+  ordersSizes: new Set(),      // size strings, e.g. 'S' (default-key 'F')
+  ordersColors: new Set(),     // color ids, e.g. 'black' (default-key 'default')
+  ordersItemStatuses: new Set(), // per-item effective progress (rowDisplayStatus)
   ordersSearch: '',
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
   // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
@@ -95,6 +98,9 @@ function ensureMounted() {
     state.ordersStatuses.clear();
     state.ordersProducts.clear();
     state.ordersTypes.clear();
+    state.ordersSizes.clear();
+    state.ordersColors.clear();
+    state.ordersItemStatuses.clear();
     state.ordersSearch = '';
     state.ordersPreorder = 'all';
     const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
@@ -102,6 +108,9 @@ function ensureMounted() {
       .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
     populateStatusFacet();           // re-render checks
     populateOrdersProductSelect();   // re-render checks
+    populateOrdersSizeFacet();
+    populateOrdersColorFacet();
+    populateOrdersItemStatusFacet();
     renderOrdersTable();
   });
   document.getElementById('shopAdminOrdersRefresh')?.addEventListener('click', refreshOrders);
@@ -261,6 +270,9 @@ async function refreshOrders() {
     state.orders = orders;
     if (products && products.length) state.products = products;
     populateOrdersProductSelect();
+    populateOrdersSizeFacet();
+    populateOrdersColorFacet();
+    populateOrdersItemStatusFacet();
     renderStats();
     renderOrdersTable();
   } catch (e) {
@@ -271,14 +283,26 @@ async function refreshOrders() {
 function populateStatusFacet() {
   const menu = document.getElementById('shopAdminOrdersStatusMenu');
   if (!menu) return;
-  menu.innerHTML = Object.entries(STAGES_META).map(([k, m]) => `
+  // Split the order-status options into the happy path (สถานะปกติ) vs the
+  // problem statuses (สถานะปัญหา — m.issue) so the menu maps to how staff
+  // actually think about orders: "is it progressing normally, or does it
+  // need attention?".
+  const entries = Object.entries(STAGES_META);
+  const normal = entries.filter(([, m]) => !m.issue);
+  const issues = entries.filter(([, m]) => m.issue);
+  const row = ([k, m]) => `
     <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
       <input type="checkbox" class="form-check-input m-0"
              data-facet="status" value="${escHtml(k)}"
              ${state.ordersStatuses.has(k) ? 'checked' : ''} />
+      <i class="bi ${escHtml(m.icon || 'bi-dot')} small ${m.issue ? 'text-danger' : 'text-muted'}"></i>
       <span class="small">${escHtml(m.label)}</span>
-    </label>
-  `).join('');
+    </label>`;
+  const groupHead = (label) => `
+    <div class="dropdown-header small text-uppercase fw-bold px-2 py-1">${escHtml(label)}</div>`;
+  menu.innerHTML =
+    groupHead('สถานะปกติ') + normal.map(row).join('')
+    + (issues.length ? `<div class="dropdown-divider my-1"></div>` + groupHead('สถานะปัญหา') + issues.map(row).join('') : '');
   menu.querySelectorAll('input[data-facet="status"]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (cb.checked) state.ordersStatuses.add(cb.value);
@@ -361,25 +385,150 @@ function populateOrdersProductSelect() {
   updateFilterChromes();
 }
 
+/** Distinct sizes present across all loaded orders' items (so the facet
+ *  only offers values that actually occur). */
+function collectOrderSizes() {
+  const set = new Set();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) set.add(it.size || 'F');
+  }
+  return [...set].sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+/** Distinct colour ids across orders → display label (resolved from any
+ *  product that defines that colour; 'default' → มาตรฐาน). */
+function collectOrderColors() {
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
+  const map = new Map();   // id -> label
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) {
+      const id = it.color || 'default';
+      if (map.has(id)) continue;
+      const lbl = id === 'default'
+        ? 'มาตรฐาน'
+        : (colorLabelFor(productMap.get(it.product_id), id) || id);
+      map.set(id, lbl);
+    }
+  }
+  return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'th'));
+}
+
+function populateOrdersSizeFacet() {
+  const menu = document.getElementById('shopAdminOrdersSizeMenu');
+  if (!menu) return;
+  const sizes = collectOrderSizes();
+  if (sizes.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีไซส์</div>';
+    updateFilterChromes();
+    return;
+  }
+  menu.innerHTML = sizes.map((s) => `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="size" value="${escHtml(s)}"
+             ${state.ordersSizes.has(s) ? 'checked' : ''} />
+      <span class="small">${escHtml(s === 'F' ? 'Free size' : s)}</span>
+    </label>`).join('');
+  menu.querySelectorAll('input[data-facet="size"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersSizes.add(cb.value);
+      else state.ordersSizes.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+function populateOrdersColorFacet() {
+  const menu = document.getElementById('shopAdminOrdersColorMenu');
+  if (!menu) return;
+  const colors = collectOrderColors();
+  if (colors.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีสี</div>';
+    updateFilterChromes();
+    return;
+  }
+  menu.innerHTML = colors.map(([id, label]) => `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="color" value="${escHtml(id)}"
+             ${state.ordersColors.has(id) ? 'checked' : ''} />
+      <span class="small">${escHtml(label)}</span>
+    </label>`).join('');
+  menu.querySelectorAll('input[data-facet="color"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersColors.add(cb.value);
+      else state.ordersColors.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
+/** Distinct EFFECTIVE per-item statuses present across orders, ordered by
+ *  the canonical STAGES_META sequence. */
+function collectItemStatuses() {
+  const order = Object.keys(STAGES_META);
+  const present = new Set();
+  for (const o of (state.orders || [])) {
+    for (const it of (o.items || [])) present.add(rowDisplayStatus(o, it));
+  }
+  return [...present].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+}
+
+function populateOrdersItemStatusFacet() {
+  const menu = document.getElementById('shopAdminOrdersItemStatusMenu');
+  if (!menu) return;
+  const statuses = collectItemStatuses();
+  if (statuses.length === 0) {
+    menu.innerHTML = '<div class="small text-muted px-2">ไม่มีรายการ</div>';
+    updateFilterChromes();
+    return;
+  }
+  menu.innerHTML = statuses.map((s) => `
+    <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+      <input type="checkbox" class="form-check-input m-0" data-facet="itemstatus" value="${escHtml(s)}"
+             ${state.ordersItemStatuses.has(s) ? 'checked' : ''} />
+      <span class="small">${escHtml(STAGES_META[s]?.label || s)}</span>
+    </label>`).join('');
+  menu.querySelectorAll('input[data-facet="itemstatus"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersItemStatuses.add(cb.value);
+      else state.ordersItemStatuses.delete(cb.value);
+      updateFilterChromes();
+      renderOrdersTable();
+    });
+  });
+  updateFilterChromes();
+}
+
 /** Sync the facet-trigger badges + the "clear all" chip with current state. */
 function updateFilterChromes() {
-  const sBadge = document.getElementById('shopAdminOrdersStatusBadge');
-  const pBadge = document.getElementById('shopAdminOrdersProductBadge');
   const clear  = document.getElementById('shopAdminOrdersClearFilters');
   const sN = state.ordersStatuses.size;
   const pN = state.ordersProducts.size + state.ordersTypes.size;
-  if (sBadge) {
-    sBadge.textContent = String(sN);
-    sBadge.classList.toggle('d-none', sN === 0);
-  }
-  if (pBadge) {
-    pBadge.textContent = String(pN);
-    pBadge.classList.toggle('d-none', pN === 0);
-  }
+  const zN = state.ordersSizes.size;
+  const cN = state.ordersColors.size;
+  const iN = state.ordersItemStatuses.size;
+  const setBadge = (id, n) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = String(n);
+    el.classList.toggle('d-none', n === 0);
+  };
+  setBadge('shopAdminOrdersStatusBadge', sN);
+  setBadge('shopAdminOrdersProductBadge', pN);
+  setBadge('shopAdminOrdersSizeBadge', zN);
+  setBadge('shopAdminOrdersColorBadge', cN);
+  setBadge('shopAdminOrdersItemStatusBadge', iN);
   if (clear) {
     const preorderActive = (state.ordersPreorder || 'all') !== 'all';
     clear.classList.toggle('d-none',
-      sN === 0 && pN === 0 && !state.ordersSearch && !preorderActive);
+      sN === 0 && pN === 0 && zN === 0 && cN === 0 && iN === 0
+      && !state.ordersSearch && !preorderActive);
   }
 }
 
@@ -672,17 +821,47 @@ function itemMatchesPreorder(it) {
   return true;
 }
 
+/** Size facet — within-facet OR; empty matches everything. */
+function itemMatchesSize(it) {
+  const sizes = state.ordersSizes;
+  return sizes.size === 0 || sizes.has(it.size || 'F');
+}
+
+/** Colour facet — within-facet OR; empty matches everything. */
+function itemMatchesColor(it) {
+  const colors = state.ordersColors;
+  return colors.size === 0 || colors.has(it.color || 'default');
+}
+
+/** Per-item progress facet — matches the item's EFFECTIVE status (what
+ *  the row shows: order status before payment, item_status after). */
+function itemMatchesProgress(o, it) {
+  const set = state.ordersItemStatuses;
+  return set.size === 0 || set.has(rowDisplayStatus(o, it));
+}
+
+/** Is any item-level facet (product / type / size / colour / progress /
+ *  preorder) currently active? */
+function anyItemFacetActive() {
+  return state.ordersProducts.size > 0
+    || state.ordersTypes.size > 0
+    || state.ordersSizes.size > 0
+    || state.ordersColors.size > 0
+    || state.ordersItemStatuses.size > 0
+    || (state.ordersPreorder || 'all') !== 'all';
+}
+
 /** The line items of an order that survive the item-level facets
- *  (product / type / preorder). Drives both the table (renders only
- *  these rows) and the order-level filterOrders pass (an order shows
- *  iff it has ≥1 surviving item). */
+ *  (product / type / size / colour / progress / preorder). Drives both
+ *  the table (renders only these rows) and the order-level filterOrders
+ *  pass (an order shows iff it has ≥1 surviving item). */
 function visibleOrderItems(o) {
   const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
-  const itemFacetActive = state.ordersProducts.size > 0
-    || state.ordersTypes.size > 0
-    || (state.ordersPreorder || 'all') !== 'all';
-  if (!itemFacetActive) return items;
-  return items.filter((it) => itemMatchesProductDim(it) && itemMatchesPreorder(it));
+  if (!anyItemFacetActive()) return items;
+  return items.filter((it) =>
+    itemMatchesProductDim(it) && itemMatchesSize(it)
+    && itemMatchesColor(it) && itemMatchesPreorder(it)
+    && itemMatchesProgress(o, it));
 }
 
 /** Apply the current facet filters. Within-facet OR, across-facet AND.
@@ -692,9 +871,7 @@ function visibleOrderItems(o) {
 function filterOrders(source) {
   const statuses = state.ordersStatuses;
   const q = (state.ordersSearch || '').trim();
-  const itemFacetActive = state.ordersProducts.size > 0
-    || state.ordersTypes.size > 0
-    || (state.ordersPreorder || 'all') !== 'all';
+  const itemFacetActive = anyItemFacetActive();
   return (source || []).filter((o) => {
     if (statuses.size > 0 && !statuses.has(o.status)) return false;
     if (itemFacetActive && visibleOrderItems(o).length === 0) return false;
