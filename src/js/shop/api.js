@@ -599,6 +599,22 @@ export async function setOrderItemStatus(itemId, status, { label, currentTimelin
   return data[0];
 }
 
+/** Admin-only: flip a single line item between preorder and normal.
+ *  is_preorder is normally a frozen buy-time snapshot, but admin can
+ *  correct it per item (e.g. an order placed during a mode flip). */
+export async function setOrderItemPreorder(itemId, isPreorder) {
+  const idEsc = encodeURIComponent(itemId);
+  const { data, error } = await dbRest(
+    `/shop_order_items?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { is_preorder: !!isPreorder }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ (RLS หรือไม่พบรายการ)');
+  }
+  return data[0];
+}
+
 /** Admin-only: add a line item to an existing order. Stock is "reflected"
  *  automatically because the reserved-matrix aggregates derive from
  *  shop_order_items — no separate stock write needed. Caller should then

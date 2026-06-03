@@ -16,7 +16,7 @@ import {
   effectivePrice,
 } from './data.js';
 import {
-  listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
+  listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus, setOrderItemPreorder,
   addOrderItem, updateOrderItem, removeOrderItem, recomputeOrderTotals, adminCreateOrder,
   listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
@@ -666,13 +666,11 @@ function exportOrdersCsv() {
 }
 
 let modalOrder = null;
-let modalPendingStatus = null; // staged status change, applied on Save click
 let modalEditItems = false;    // line-item edit mode toggle
 function openOrderModal(orderId) {
   const o = state.orders.find((x) => x.id === orderId);
   if (!o) return;
   modalOrder = o;
-  modalPendingStatus = o.status; // start with current status
   modalEditItems = false;
   const idEl = document.getElementById('shopAdminOrderModalId');
   const body = document.getElementById('shopAdminOrderModalBody');
@@ -681,26 +679,9 @@ function openOrderModal(orderId) {
 
   wireOrderModalBody(body);
 
-  // Wire the footer Save / Cancel / Delete buttons. Defensive null
-  // checks throughout — handlers can fire after modalOrder is reset
-  // by a prior action (e.g. delete completed then user mis-clicks).
-  document.getElementById('shopAdminOrderModalSave')?.addEventListener('click', () => {
-    if (!modalOrder) return;
-    if (modalPendingStatus && modalPendingStatus !== modalOrder.status) {
-      modalAction(modalPendingStatus);
-    }
-  });
-  document.getElementById('shopAdminOrderModalResetStatus')?.addEventListener('click', () => {
-    if (!modalOrder) return;
-    modalPendingStatus = modalOrder.status;
-    body.querySelectorAll('[data-set-status]').forEach((b) => {
-      b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
-    });
-    refreshModalSaveBar();
-  });
+  // Status chips now write immediately (no staged Save bar). Only the
+  // Delete button needs footer wiring.
   document.getElementById('shopAdminOrderModalDelete')?.addEventListener('click', deleteCurrentOrder);
-
-  refreshModalSaveBar();
 
   // Reset the delete button to its idle label every time the modal
   // opens — the previous open may have left it in the "กำลังลบ…"
@@ -720,19 +701,17 @@ function openOrderModal(orderId) {
 /** Wire the body-level controls (order-level status chips + per-item
  *  fulfilment chips). Called on open and after any in-place repaint. */
 function wireOrderModalBody(body) {
-  // Order-level payment chip → stage the change (Save writes it).
+  // Order-level payment / issue chip → write immediately.
   body.querySelectorAll('[data-set-status]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      modalPendingStatus = btn.dataset.setStatus;
-      body.querySelectorAll('[data-set-status]').forEach((b) => {
-        b.classList.toggle('is-active', b.dataset.setStatus === modalPendingStatus);
-      });
-      refreshModalSaveBar();
-    });
+    btn.addEventListener('click', () => applyOrderStatusImmediate(btn.dataset.setStatus));
   });
   // Per-item fulfilment chip → write immediately (one item at a time).
   body.querySelectorAll('[data-item-status]').forEach((btn) => {
     btn.addEventListener('click', () => onItemStatusClick(btn, body));
+  });
+  // Per-item preorder ↔ normal toggle → write immediately.
+  body.querySelectorAll('[data-item-preorder]').forEach((btn) => {
+    btn.addEventListener('click', () => onItemPreorderClick(btn));
   });
 
   // Line-item editing.
@@ -751,14 +730,59 @@ function wireOrderModalBody(body) {
 
 /** Re-fetch the modal's order, sync into state, and repaint the body so
  *  edits (items/totals/statuses) reflect immediately. */
-async function repaintOrderModalBody() {
+function repaintOrderModalBody() {
   if (!modalOrder) return;
   const body = document.getElementById('shopAdminOrderModalBody');
-  if (body) {
-    body.innerHTML = orderModalBodyHtml(modalOrder);
-    wireOrderModalBody(body);
+  if (!body) return;
+  // Preserve any unsaved admin-note text across the repaint (the note is
+  // only persisted on modal close).
+  const note = document.getElementById('shopAdminOrderModalNote')?.value;
+  body.innerHTML = orderModalBodyHtml(modalOrder);
+  wireOrderModalBody(body);
+  if (note != null) {
+    const noteEl = document.getElementById('shopAdminOrderModalNote');
+    if (noteEl) noteEl.value = note;
   }
-  refreshModalSaveBar();
+}
+
+/** Write an order-level payment / issue status immediately, keep the
+ *  modal open, and reload so any server-side cascade (order→paid seeds
+ *  item_status) is reflected. */
+async function applyOrderStatusImmediate(nextStatus) {
+  if (!modalOrder || !nextStatus) return;
+  if ((modalOrder.status || 'pending') === nextStatus) return;
+  const orderId = modalOrder.id;
+  try {
+    await updateOrderStatus(orderId, nextStatus, { label: STAGES_META[nextStatus]?.label || nextStatus });
+    showShopToast(`${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
+    await reloadModalOrderFromServer();
+    if (state.tab === 'verify') renderVerifyQueue();
+    if (state.tab === 'preorder') refreshPreorder();
+  } catch (e) {
+    console.error('[shop/admin] status update failed:', e);
+    showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
+  }
+}
+
+async function onItemPreorderClick(btn) {
+  if (!modalOrder) return;
+  const itemId = btn.dataset.itemId;
+  const next = btn.dataset.itemPreorder === 'true';
+  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
+  if (!item || !!item.is_preorder === next) return;
+  try {
+    const updated = await setOrderItemPreorder(itemId, next);
+    item.is_preorder = updated.is_preorder;
+    const rowItem = (state.orders.find((x) => x.id === modalOrder.id)?.items || [])
+      .find((i) => String(i.id) === String(itemId));
+    if (rowItem) rowItem.is_preorder = updated.is_preorder;
+    showShopToast(next ? 'ตั้งเป็นพรีออเดอร์แล้ว' : 'ตั้งเป็นพร้อมส่งแล้ว', 'success');
+    repaintOrderModalBody();
+    renderOrdersTable();
+    if (state.tab === 'preorder') refreshPreorder();
+  } catch (e) {
+    showShopToast(`เปลี่ยนไม่สำเร็จ: ${e.message || e}`, 'error');
+  }
 }
 
 async function reloadModalOrderFromServer() {
@@ -781,7 +805,16 @@ async function reloadModalOrderFromServer() {
 async function onEditItemQty(inp) {
   if (!modalOrder) return;
   const itemId = inp.dataset.itemId;
+  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
+  const oldQty = Number(item?.qty) || 0;
   const qty = Math.max(1, Math.min(99, Number(inp.value) || 1));
+  if (qty === oldQty) return;
+  const p = item ? (state.products || []).find((x) => x.id === item.product_id) : null;
+  const name = p?.name || item?.product_id || 'สินค้า';
+  if (!confirm(`เปลี่ยนจำนวน "${name}" จาก ${oldQty} เป็น ${qty} ?`)) {
+    inp.value = String(oldQty); // revert
+    return;
+  }
   inp.disabled = true;
   try {
     await updateOrderItem(itemId, { qty });
@@ -824,6 +857,8 @@ async function onAddOrderItem(body) {
   const unitPrice = priceRaw !== '' && priceRaw != null
     ? Math.max(0, Number(priceRaw) || 0)
     : effectivePrice(product);
+  const variant = [size !== 'F' ? `ไซส์ ${size}` : '', colorLabelFor(product, color)].filter(Boolean).join(' · ');
+  if (!confirm(`เพิ่ม "${product?.name || productId}"${variant ? ` (${variant})` : ''} × ${qty} (฿${unitPrice}/ชิ้น) เข้าคำสั่งซื้อ?`)) return;
   const btn = body.querySelector('[data-add-item-btn]');
   if (btn) { btn.disabled = true; }
   try {
@@ -861,10 +896,9 @@ async function onItemStatusClick(btn, body) {
     const rowItem = row && (row.items || []).find((i) => String(i.id) === String(itemId));
     if (rowItem) { rowItem.item_status = updated.item_status; rowItem.item_timeline = updated.item_timeline; }
     showShopToast(`${modalOrder.id}: ${itemStatusMeta(status).label}`, 'success');
-    // Repaint the modal body in place (keeps the staged payment status).
+    // Repaint the modal body in place.
     body.innerHTML = orderModalBodyHtml(modalOrder);
     wireOrderModalBody(body);
-    refreshModalSaveBar();
     renderOrdersTable();
     renderStats();
   } catch (e) {
@@ -872,19 +906,6 @@ async function onItemStatusClick(btn, body) {
     showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
     rowChips.forEach((b) => { b.disabled = false; });
   }
-}
-
-function refreshModalSaveBar() {
-  const save = document.getElementById('shopAdminOrderModalSave');
-  const reset = document.getElementById('shopAdminOrderModalResetStatus');
-  if (!save) return;
-  const dirty = modalPendingStatus && modalOrder && modalPendingStatus !== modalOrder.status;
-  save.disabled = !dirty;
-  save.classList.toggle('btn-success', !!dirty);
-  save.classList.toggle('btn-outline-secondary', !dirty);
-  const label = dirty ? `<i class="bi bi-check2 me-1"></i> อัปเดตเป็น "${escHtml(STAGES_META[modalPendingStatus]?.short || modalPendingStatus)}"` : '<i class="bi bi-check2 me-1"></i> ไม่มีการเปลี่ยนแปลง';
-  save.innerHTML = label;
-  if (reset) reset.classList.toggle('d-none', !dirty);
 }
 
 async function deleteCurrentOrder() {
@@ -898,7 +919,6 @@ async function deleteCurrentOrder() {
     const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
     inst?.hide();
     modalOrder = null;
-    modalPendingStatus = null;
     await refreshOrders();
   } catch (e) {
     showShopToast(`ลบล้มเหลว: ${e.message || e}`, 'error');
@@ -966,12 +986,20 @@ function itemStatusControlsHtml(it) {
             data-item-status="${escHtml(s)}" data-item-id="${escHtml(String(it.id))}">
       ${escHtml(itemStatusMeta(s).short || itemStatusMeta(s).label)}
     </button>`;
+  const pre = !!it.is_preorder;
   return `
     <div class="d-flex flex-wrap gap-1 align-items-center mt-2">
       <span class="small text-muted me-1">ความคืบหน้า:</span>
       ${ITEM_FULFIL_STAGES.map((s) => chip(s)).join('')}
       <span class="vr mx-1"></span>
       ${ITEM_ISSUE_STAGES.map((s) => chip(s, `chip-tone-${STAGES_META[s].tone || 'warning'}`)).join('')}
+    </div>
+    <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
+      <span class="small text-muted me-1">ประเภท:</span>
+      <button type="button" class="chip chip-sm ${pre ? 'is-active' : ''}"
+              data-item-preorder="true" data-item-id="${escHtml(String(it.id))}">พรีออเดอร์</button>
+      <button type="button" class="chip chip-sm ${pre ? '' : 'is-active'}"
+              data-item-preorder="false" data-item-id="${escHtml(String(it.id))}">พร้อมส่ง</button>
     </div>`;
 }
 
@@ -1148,35 +1176,6 @@ async function persistAdminNoteIfChanged() {
     console.warn('[shop/admin] persistAdminNote failed:', e);
   } finally {
     modalOrder = null;
-  }
-}
-
-async function modalAction(nextStatus, cancelReason) {
-  if (!modalOrder) return;
-  // Snapshot the id immediately — defensive against the `modalOrder`
-  // reference being nulled by another handler while the PATCH is in
-  // flight (which was producing the "Cannot read properties of null
-  // (reading 'id')" toast on a stale modal click).
-  const orderId = modalOrder.id;
-  const noteEl = document.getElementById('shopAdminOrderModalNote');
-  const adminNote = noteEl ? noteEl.value : undefined;
-  try {
-    await updateOrderStatus(orderId, nextStatus, {
-      label: STAGES_META[nextStatus]?.label || nextStatus,
-      cancelReason,
-      adminNote,
-    });
-    showShopToast(`อัปเดต ${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
-    modalOrder = null;
-    modalPendingStatus = null;
-    const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
-    inst?.hide();
-    await refreshOrders();
-    if (state.tab === 'verify') renderVerifyQueue();
-    if (state.tab === 'preorder') refreshPreorder();
-  } catch (e) {
-    console.error('[shop/admin] modalAction failed:', e);
-    showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
   }
 }
 
@@ -2185,10 +2184,12 @@ async function onStockProductionStatusChange(sel) {
     } else {
       showShopToast('เปลี่ยนสถานะแล้ว', 'success');
     }
-    // Refresh orders so the per-product sales summary reflects the
-    // status moves. We already have products cached.
+    // Refresh orders so the per-product sales summary + per-item
+    // progress (item_status cascaded by the RPC) reflect the moves.
     state.orders = await listAllOrders().catch(() => state.orders);
     renderStock();
+    renderOrdersTable();
+    if (modalOrder) await reloadModalOrderFromServer();
   } catch (e) {
     showShopToast(`สถานะผลิตอัปเดตไม่สำเร็จ: ${e.message || e}`, 'error');
     sel.value = previous;
