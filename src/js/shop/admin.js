@@ -758,8 +758,8 @@ function renderOrdersTable() {
     const orderCell = `
       <td rowspan="${span}" class="order-group-cell">
         <div class="order-id">${orderIdChipHtml(o.id)}</div>
-        <div class="small text-muted">${fmtDate(o.placed_at)}</div>
-        <div class="small" style="font-weight:600;">฿${thb(o.total)}</div>
+        <div class="small text-muted text-nowrap">${fmtDate(o.placed_at)}</div>
+        <div class="small text-nowrap" style="font-weight:600;">฿${thb(o.total)}</div>
       </td>
       <td rowspan="${span}" class="order-group-cell">
         <div style="font-weight:600;">${escHtml(buyerName)}</div>
@@ -769,8 +769,8 @@ function renderOrdersTable() {
     const slipCell = `
       <td rowspan="${span}" class="order-group-cell">
         ${(o.slip_url || (Array.isArray(o.slips) && o.slips.length))
-          ? `<span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i> ส่งแล้ว${Array.isArray(o.slips) && o.slips.length > 1 ? ` (${o.slips.length})` : ''}</span>`
-          : `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i> ยังไม่ส่ง</span>`}
+          ? `<span class="text-success small text-nowrap"><i class="bi bi-check-circle-fill me-1"></i>ส่งแล้ว${Array.isArray(o.slips) && o.slips.length > 1 ? ` (${o.slips.length})` : ''}</span>`
+          : `<span class="text-muted small text-nowrap"><i class="bi bi-dash-circle me-1"></i>ยังไม่ส่ง</span>`}
       </td>`;
     const chevronCell = `<td rowspan="${span}" class="order-group-cell"><i class="bi bi-chevron-right"></i></td>`;
 

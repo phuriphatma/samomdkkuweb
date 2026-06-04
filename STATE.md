@@ -91,6 +91,11 @@ Latest main batch on top of the per-item overhaul:
 - Order-detail modal item controls + edit panel restyled with a responsive
   CSS grid (`.eir-fields`, `.order-item-line`) so it reads well on
   desktop / iPad / mobile. `issue` + `slip_mismatch` status-pill colours added.
+- Orders table responsiveness: scoped a wider comfortable floor
+  (`table.orders-admin-table` min-width 900px) so on narrow widths it scrolls
+  horizontally instead of squishing columns into per-character wrapping;
+  `status-pill`/`preorder-tag` + slip/date/total set `nowrap`; tighter cell
+  padding ≤991px; the orders toolbar action buttons wrap full-width ≤767px.
 
 **Migration 0040 (`0040_shop_status_cleanup_and_customer_note.sql`) — APPLIED
 by user.** Tightened `shop_order_items.item_status` to

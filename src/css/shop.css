@@ -1853,6 +1853,30 @@
   -webkit-overflow-scrolling: touch;
 }
 .shop-tab .admin-table table { min-width: 720px; }
+/* The orders table carries more columns (select + per-item rows), so it
+   needs a wider comfortable floor — below this it scrolls horizontally
+   instead of squishing columns into per-character wrapping. */
+.shop-tab .admin-table table.orders-admin-table { min-width: 900px; }
+
+/* Pills / tags inside admin tables must never break per-character — they
+   wrap vertically and blow up row height when a column gets tight. */
+.shop-tab .admin-table .status-pill,
+.shop-tab .admin-table .preorder-tag { white-space: nowrap; }
+
+/* Tighter cell padding on phones/iPad so the scrollable table is less
+   bulky and the swipe distance stays short. */
+@media (max-width: 991.98px) {
+  .shop-tab .admin-table .table th { padding: .55rem .7rem; }
+  .shop-tab .admin-table .table td { padding: .65rem .7rem; }
+}
+
+/* Orders toolbar (search + action buttons): the action cluster goes
+   full-width below the filters and its buttons wrap into an even row on
+   narrow screens instead of overflowing. */
+@media (max-width: 767.98px) {
+  .shop-tab .orders-toolbar-actions { width: 100%; flex-wrap: wrap; margin-left: 0 !important; }
+  .shop-tab .orders-toolbar-actions .btn { flex: 1 1 auto; }
+}
 
 /* Order detail modal — on phones the modal-lg renders too narrow for
    the 2-column body; switch to a single column and let the body
