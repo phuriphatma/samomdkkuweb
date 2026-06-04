@@ -230,11 +230,26 @@
                 </div>
               </div>
               <div id="shopAdminOrderCreateHost"></div>
-              <div class="small text-muted mb-2" id="shopAdminOrdersCount"></div>
+              <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                <div class="small text-muted" id="shopAdminOrdersCount"></div>
+                <div class="ms-auto d-none align-items-center gap-2" id="shopAdminOrdersBulkBar">
+                  <span class="small fw-semibold" id="shopAdminOrdersBulkCount"></span>
+                  <button class="btn btn-outline-danger btn-sm" id="shopAdminOrdersBulkDelete">
+                    <i class="bi bi-trash3 me-1"></i> ลบที่เลือก
+                  </button>
+                  <button class="btn btn-link btn-sm text-muted p-0" id="shopAdminOrdersBulkClear">
+                    ยกเลิกการเลือก
+                  </button>
+                </div>
+              </div>
               <div class="admin-table">
                 <table class="table align-middle">
                   <thead>
                     <tr>
+                      <th style="width:36px;">
+                        <input type="checkbox" class="form-check-input" id="shopAdminOrdersSelectAll"
+                               title="เลือกทั้งหมด" />
+                      </th>
                       <th>คำสั่งซื้อ</th>
                       <th>ลูกค้า</th>
                       <th>สินค้า</th>

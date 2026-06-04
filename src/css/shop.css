@@ -1014,6 +1014,8 @@
 .shop-tab .status-pill[data-status="ready"]   { background: #e1f5e6;                 color: var(--brand-accent); }
 .shop-tab .status-pill[data-status="done"]    { background: var(--status-done-bg);    color: var(--status-done); }
 .shop-tab .status-pill[data-status="cancel"]  { background: var(--status-cancel-bg);  color: var(--status-cancel); }
+.shop-tab .status-pill[data-status="issue"]         { background: var(--status-cancel-bg); color: var(--status-cancel); }
+.shop-tab .status-pill[data-status="slip_mismatch"] { background: #fff3cd;                color: #8a5a00; }
 .shop-tab .status-pill .pulse {
   width: 7px; height: 7px; border-radius: 50%;
   background: currentColor;
@@ -1169,6 +1171,19 @@
   font-weight: 500;
   color: var(--shop-ink-700);
 }
+
+.shop-tab .order-customer-note {
+  margin-top: .85rem;
+  background: var(--shop-yellow-50, #fff8e1);
+  border: 1px solid var(--shop-yellow-100, #fbe4a0);
+  border-radius: var(--shop-radius);
+  padding: .7rem .9rem;
+  display: grid; grid-template-columns: 20px 1fr; gap: .6rem;
+  align-items: start;
+}
+.shop-tab .order-customer-note > i { color: var(--brand-accent, #ff6f30); font-size: 1.05rem; margin-top: .1rem; }
+.shop-tab .order-customer-note .ocn-title { font-weight: 600; font-size: .82rem; color: var(--shop-ink-900, #1c1f24); }
+.shop-tab .order-customer-note .ocn-body { font-size: .88rem; color: var(--shop-ink-700, #4a4f57); white-space: pre-wrap; }
 
 .shop-tab .order-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 
@@ -1326,6 +1341,79 @@
   padding: 1rem 1.15rem;
 }
 .shop-tab .edit-items-panel { background: var(--shop-ink-50); }
+
+/* ---- Order-detail item line (display) ---- */
+.shop-tab .order-item-line { padding: .7rem 0; border-bottom: 1px solid var(--shop-ink-100, #ebecee); }
+.shop-tab .order-item-line:last-of-type { border-bottom: 0; }
+.shop-tab .oil-top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: .35rem .9rem;
+}
+.shop-tab .oil-info { min-width: 0; }
+.shop-tab .oil-name { font-weight: 600; line-height: 1.3; word-break: break-word; }
+.shop-tab .oil-variant { font-size: .82rem; color: var(--shop-ink-500); }
+.shop-tab .oil-qty { font-weight: 600; white-space: nowrap; color: var(--shop-ink-700); }
+.shop-tab .oil-price { font-weight: 700; white-space: nowrap; text-align: right; min-width: 70px; }
+
+/* ---- Per-item progress chips ---- */
+.shop-tab .item-status-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .55rem;
+}
+.shop-tab .item-status-controls .isc-label {
+  font-size: .76rem;
+  font-weight: 600;
+  color: var(--shop-ink-500);
+}
+.shop-tab .item-status-controls .isc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+/* Touch-friendly minimum hit area for the small chips on mobile. */
+.shop-tab .item-status-controls .chip-sm { min-height: 32px; }
+
+/* ---- Edit-items panel: responsive field grid ---- */
+.shop-tab .edit-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name actions" "fields fields";
+  gap: .4rem .75rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid var(--shop-ink-100, #ebecee);
+}
+.shop-tab .edit-item-row .eir-name { grid-area: name; font-weight: 600; font-size: .9rem; align-self: center; min-width: 0; word-break: break-word; }
+.shop-tab .edit-item-row .eir-actions { grid-area: actions; display: flex; gap: .4rem; align-self: center; }
+.shop-tab .eir-fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: .5rem .6rem;
+}
+.shop-tab .eir-f { display: flex; flex-direction: column; gap: .15rem; margin: 0; min-width: 0; }
+.shop-tab .eir-f > span { font-size: .72rem; font-weight: 600; color: var(--shop-ink-500); }
+.shop-tab .eir-f.eir-wide { grid-column: 1 / -1; }
+.shop-tab .add-item-form {
+  margin-top: .75rem;
+  padding: .85rem;
+  border-radius: var(--shop-radius);
+  background: #fff;
+  border: 1px dashed var(--shop-ink-100);
+}
+/* On phones the actions drop below the name for a full-width tap target. */
+@media (max-width: 575.98px) {
+  .shop-tab .edit-item-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: "name" "fields" "actions";
+  }
+  .shop-tab .edit-item-row .eir-actions { justify-content: flex-end; }
+  .shop-tab .oil-price { min-width: 0; }
+}
 
 /* Preorder demand cards */
 .shop-tab .preorder-card {

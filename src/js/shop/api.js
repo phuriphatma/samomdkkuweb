@@ -570,8 +570,8 @@ export async function removeOrderSlip(id, slipUrl) {
   return data[0];
 }
 
-/** Admin-only: set ONE line item's fulfilment status (produce / ready /
- *  done / exchange / no_show / paid) and append an item_timeline entry.
+/** Admin-only: set ONE line item's fulfilment status (paid / produce /
+ *  ready / done / issue) and append an item_timeline entry.
  *  shop_order_items_write_admin (0003) gates the write. Returns the
  *  updated item row. */
 export async function setOrderItemStatus(itemId, status, { label, currentTimeline } = {}) {
@@ -595,22 +595,6 @@ export async function setOrderItemStatus(itemId, status, { label, currentTimelin
   }
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('อัปเดตสถานะสินค้าไม่สำเร็จ (RLS หรือไม่พบรายการ)');
-  }
-  return data[0];
-}
-
-/** Admin-only: flip a single line item between preorder and normal.
- *  is_preorder is normally a frozen buy-time snapshot, but admin can
- *  correct it per item (e.g. an order placed during a mode flip). */
-export async function setOrderItemPreorder(itemId, isPreorder) {
-  const idEsc = encodeURIComponent(itemId);
-  const { data, error } = await dbRest(
-    `/shop_order_items?id=eq.${idEsc}`,
-    { method: 'PATCH', body: { is_preorder: !!isPreorder }, prefer: 'return=representation' },
-  );
-  if (error) throw new Error(error.message || 'เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ');
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('เปลี่ยนสถานะพรีออเดอร์ไม่สำเร็จ (RLS หรือไม่พบรายการ)');
   }
   return data[0];
 }
@@ -641,13 +625,15 @@ export async function addOrderItem(orderId, item) {
   return data[0];
 }
 
-/** Admin-only: edit a line item (qty / size / color / unit_price). */
+/** Admin-only: edit a line item (qty / size / color / unit_price /
+ *  is_preorder). */
 export async function updateOrderItem(itemId, patch) {
   const body = {};
-  if (patch.qty != null)        body.qty = Number(patch.qty);
-  if (patch.size != null)       body.size = patch.size;
-  if (patch.color != null)      body.color = patch.color;
-  if (patch.unit_price != null) body.unit_price = Number(patch.unit_price);
+  if (patch.qty != null)         body.qty = Number(patch.qty);
+  if (patch.size != null)        body.size = patch.size;
+  if (patch.color != null)       body.color = patch.color;
+  if (patch.unit_price != null)  body.unit_price = Number(patch.unit_price);
+  if (patch.is_preorder != null) body.is_preorder = !!patch.is_preorder;
   const idEsc = encodeURIComponent(itemId);
   const { data, error } = await dbRest(
     `/shop_order_items?id=eq.${idEsc}`,

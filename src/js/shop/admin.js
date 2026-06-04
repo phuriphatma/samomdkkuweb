@@ -9,14 +9,14 @@ import { escHtml, safeUrl, orderIdChipHtml } from '../utils.js';
 import { dbRest } from '../db.js';
 import { getUser } from '../auth.js';
 import {
-  thb, fmtDate, fmtDateTime, STAGES_META, ISSUE_STATUSES,
+  thb, fmtDate, fmtDateTime, STAGES_META, ORDER_ISSUE_STATUSES,
   SHOP_SOURCES, SHOP_TYPES, findSource, slugify, sanitizeOrderCode,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock,
   batchDateEntries, ITEM_STAGES_ORDER, rollupOrderStage, itemStatusMeta,
   effectivePrice,
 } from './data.js';
 import {
-  listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus, setOrderItemPreorder,
+  listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
   addOrderItem, updateOrderItem, removeOrderItem, recomputeOrderTotals, adminCreateOrder,
   listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
@@ -42,6 +42,7 @@ const state = {
   ordersSizes: new Set(),      // size strings, e.g. 'S' (default-key 'F')
   ordersColors: new Set(),     // color ids, e.g. 'black' (default-key 'default')
   ordersItemStatuses: new Set(), // per-item effective progress (rowDisplayStatus)
+  ordersSelected: new Set(),   // order ids ticked for bulk delete
   ordersSearch: '',
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
   // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
@@ -140,10 +141,33 @@ function ensureMounted() {
     // this tbody listener in the bubble path — too late to stopPropagation.
     // Skip the row-click ourselves when the chip was the actual target.
     if (e.target.closest('[data-copy]')) return;
+    // The per-order select checkbox also lives in a clickable row — a
+    // tick must NOT open the detail modal.
+    if (e.target.closest('[data-order-select]')) return;
     const tr = e.target.closest('[data-order-id]');
     if (!tr) return;
     openOrderModal(tr.dataset.orderId);
   });
+
+  // Bulk-select: per-order checkbox, select-all, bulk delete.
+  document.getElementById('shopAdminOrdersTbody')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('[data-order-select]');
+    if (!cb) return;
+    if (cb.checked) state.ordersSelected.add(cb.dataset.orderSelect);
+    else state.ordersSelected.delete(cb.dataset.orderSelect);
+    syncBulkBar();
+  });
+  document.getElementById('shopAdminOrdersSelectAll')?.addEventListener('change', (e) => {
+    const ids = filterOrders(state.orders).map((o) => o.id);
+    if (e.target.checked) ids.forEach((id) => state.ordersSelected.add(id));
+    else ids.forEach((id) => state.ordersSelected.delete(id));
+    renderOrdersTable();
+  });
+  document.getElementById('shopAdminOrdersBulkClear')?.addEventListener('click', () => {
+    state.ordersSelected.clear();
+    renderOrdersTable();
+  });
+  document.getElementById('shopAdminOrdersBulkDelete')?.addEventListener('click', bulkDeleteSelectedOrders);
 
   // Auto-save the internal admin note when the modal closes.
   const orderModalEl = document.getElementById('shopAdminOrderModal');
@@ -269,6 +293,11 @@ async function refreshOrders() {
     ]);
     state.orders = orders;
     if (products && products.length) state.products = products;
+    // Drop selections for orders that no longer exist (e.g. just deleted).
+    const liveIds = new Set(orders.map((o) => o.id));
+    for (const id of [...state.ordersSelected]) {
+      if (!liveIds.has(id)) state.ordersSelected.delete(id);
+    }
     populateStatusFacet();         // re-render now that we have order counts
     populateOrdersProductSelect();
     populateOrdersSizeFacet();
@@ -356,7 +385,9 @@ function populateStatusFacet() {
   // need attention?".
   const entries = Object.entries(STAGES_META);
   const normal = entries.filter(([, m]) => !m.issue);
-  const issues = entries.filter(([, m]) => m.issue);
+  // Only ORDER-level problem statuses belong in the order-status facet —
+  // the item-level 'issue' (มีปัญหา) is never an order status.
+  const issues = ORDER_ISSUE_STATUSES.map((k) => [k, STAGES_META[k]]).filter(([, m]) => m);
   const row = ([k, m]) => {
     const n = counts.get(k) || 0;
     return `
@@ -569,7 +600,7 @@ function populateOrdersColorFacet() {
  *  the whole pipeline; any unexpected value actually present is appended. */
 function allItemStatuses() {
   const order = Object.keys(STAGES_META);
-  const canon = [...ITEM_STAGES_ORDER, 'exchange', 'no_show'];
+  const canon = [...ITEM_STAGES_ORDER, 'issue'];
   const present = new Set();
   for (const o of (state.orders || [])) {
     for (const it of (o.items || [])) present.add(it.item_status || 'paid');
@@ -695,8 +726,9 @@ function renderOrdersTable() {
   const list = filterOrders(state.orders);
   const countEl = document.getElementById('shopAdminOrdersCount');
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
     if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 ชิ้น · 0 คำสั่งซื้อ';
+    syncBulkBar();
     return;
   }
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
@@ -718,6 +750,11 @@ function renderOrdersTable() {
     lineCount += rows.length;
     qtyTotal += items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
     const span = rows.length;
+    const selectCell = `
+      <td rowspan="${span}" class="order-group-cell text-center">
+        <input type="checkbox" class="form-check-input" data-order-select="${escHtml(o.id)}"
+               ${state.ordersSelected.has(o.id) ? 'checked' : ''} title="เลือกคำสั่งซื้อ" />
+      </td>`;
     const orderCell = `
       <td rowspan="${span}" class="order-group-cell">
         <div class="order-id">${orderIdChipHtml(o.id)}</div>
@@ -745,7 +782,7 @@ function renderOrdersTable() {
       const status = rowDisplayStatus(o, it);
       return `
         <tr class="is-clickable ${idx === 0 ? 'order-group-start' : 'order-group-cont'}" data-order-id="${escHtml(o.id)}">
-          ${idx === 0 ? orderCell : ''}
+          ${idx === 0 ? selectCell + orderCell : ''}
           <td>
             <div class="small" style="font-weight:600;">
               ${escHtml(name)}
@@ -765,6 +802,54 @@ function renderOrdersTable() {
   if (countEl) {
     countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${qtyTotal} ชิ้น · ${list.length} คำสั่งซื้อ`;
   }
+  syncBulkBar();
+}
+
+/** Reflect the current selection into the bulk action bar + the
+ *  select-all header checkbox (checked / indeterminate / clear). */
+function syncBulkBar() {
+  const bar = document.getElementById('shopAdminOrdersBulkBar');
+  const n = state.ordersSelected.size;
+  if (bar) {
+    bar.classList.toggle('d-none', n === 0);
+    bar.classList.toggle('d-flex', n > 0);
+    const countEl = document.getElementById('shopAdminOrdersBulkCount');
+    if (countEl) countEl.textContent = `เลือก ${n} คำสั่งซื้อ`;
+  }
+  const selectAll = document.getElementById('shopAdminOrdersSelectAll');
+  if (selectAll) {
+    const ids = filterOrders(state.orders).map((o) => o.id);
+    const selectedVisible = ids.filter((id) => state.ordersSelected.has(id)).length;
+    selectAll.checked = ids.length > 0 && selectedVisible === ids.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < ids.length;
+  }
+}
+
+/** Bulk hard-delete every selected order (each via the same deleteOrder
+ *  path as the single-order modal — RLS-gated, slip trashed). Runs
+ *  sequentially so one failure doesn't abort the rest; reports a summary. */
+async function bulkDeleteSelectedOrders() {
+  const ids = [...state.ordersSelected];
+  if (ids.length === 0) return;
+  if (!confirm(`ลบ ${ids.length} คำสั่งซื้อถาวร? ไม่สามารถกู้คืนได้`)) return;
+  const btn = document.getElementById('shopAdminOrdersBulkDelete');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
+  let ok = 0;
+  const failed = [];
+  for (const id of ids) {
+    try {
+      await deleteOrder(id);
+      ok += 1;
+      state.ordersSelected.delete(id);
+    } catch (e) {
+      console.error('[shop/admin] bulk delete failed for', id, e);
+      failed.push(id);
+    }
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3 me-1"></i> ลบที่เลือก'; }
+  if (failed.length === 0) showShopToast(`ลบ ${ok} คำสั่งซื้อแล้ว`, 'success');
+  else showShopToast(`ลบสำเร็จ ${ok} · ล้มเหลว ${failed.length} (${failed.join(', ')})`, 'error');
+  await refreshOrders();
 }
 
 /** Size · colour label for an admin table line. */
@@ -946,7 +1031,7 @@ function itemMatchesColor(it) {
 }
 
 /** Per-item progress facet — matches the item's RAW fulfilment
- *  `item_status` (paid/produce/ready/done/exchange/…), NOT the effective
+ *  `item_status` (paid/produce/ready/done/issue), NOT the effective
  *  rowDisplayStatus. The effective status masks item progress behind the
  *  order's payment phase (an item that's `produce` in a still-`review`
  *  order would otherwise never surface here), which is exactly the bug
@@ -1164,30 +1249,30 @@ function wireOrderModalBody(body) {
   body.querySelectorAll('[data-item-status]').forEach((btn) => {
     btn.addEventListener('click', () => onItemStatusClick(btn, body));
   });
-  // Per-item preorder ↔ normal toggle → write immediately.
-  body.querySelectorAll('[data-item-preorder]').forEach((btn) => {
-    btn.addEventListener('click', () => onItemPreorderClick(btn));
-  });
 
   // Line-item editing.
   body.querySelector('[data-toggle-edit-items]')?.addEventListener('click', () => {
     modalEditItems = !modalEditItems;
     repaintOrderModalBody();
   });
-  body.querySelectorAll('[data-edit-qty]').forEach((inp) => {
-    inp.addEventListener('change', () => onEditItemQty(inp));
+  body.querySelectorAll('[data-save-item]').forEach((btn) => {
+    btn.addEventListener('click', () => onSaveOrderItem(btn, body));
   });
   body.querySelectorAll('[data-remove-item]').forEach((btn) => {
     btn.addEventListener('click', () => onRemoveOrderItem(btn.dataset.itemId));
   });
   body.querySelector('[data-add-item-btn]')?.addEventListener('click', () => onAddOrderItem(body));
-  // Repopulate size + colour dropdowns from the chosen product's variants.
+  // Repopulate size + colour + preorder default from the chosen product.
   body.querySelector('[data-add-product]')?.addEventListener('change', (e) => {
     const p = (state.products || []).find((x) => x.id === e.target.value);
     const sizeSel = body.querySelector('[data-add-size]');
     const colorSel = body.querySelector('[data-add-color]');
+    const preSel = body.querySelector('[data-add-preorder]');
+    const priceInp = body.querySelector('[data-add-price]');
     if (sizeSel) sizeSel.innerHTML = variantSizeOptionsHtml(p);
     if (colorSel) colorSel.innerHTML = variantColorOptionsHtml(p);
+    if (preSel) preSel.value = p?.is_presale ? 'true' : 'false';
+    if (priceInp) priceInp.placeholder = p ? `auto (฿${effectivePrice(p)})` : 'auto';
   });
 }
 
@@ -1197,14 +1282,19 @@ function repaintOrderModalBody() {
   if (!modalOrder) return;
   const body = document.getElementById('shopAdminOrderModalBody');
   if (!body) return;
-  // Preserve any unsaved admin-note text across the repaint (the note is
-  // only persisted on modal close).
+  // Preserve any unsaved note text across the repaint (notes are only
+  // persisted on modal close).
   const note = document.getElementById('shopAdminOrderModalNote')?.value;
+  const custNote = document.getElementById('shopAdminOrderModalCustomerNote')?.value;
   body.innerHTML = orderModalBodyHtml(modalOrder);
   wireOrderModalBody(body);
   if (note != null) {
     const noteEl = document.getElementById('shopAdminOrderModalNote');
     if (noteEl) noteEl.value = note;
+  }
+  if (custNote != null) {
+    const cnEl = document.getElementById('shopAdminOrderModalCustomerNote');
+    if (cnEl) cnEl.value = custNote;
   }
 }
 
@@ -1227,27 +1317,6 @@ async function applyOrderStatusImmediate(nextStatus) {
   }
 }
 
-async function onItemPreorderClick(btn) {
-  if (!modalOrder) return;
-  const itemId = btn.dataset.itemId;
-  const next = btn.dataset.itemPreorder === 'true';
-  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
-  if (!item || !!item.is_preorder === next) return;
-  try {
-    const updated = await setOrderItemPreorder(itemId, next);
-    item.is_preorder = updated.is_preorder;
-    const rowItem = (state.orders.find((x) => x.id === modalOrder.id)?.items || [])
-      .find((i) => String(i.id) === String(itemId));
-    if (rowItem) rowItem.is_preorder = updated.is_preorder;
-    showShopToast(next ? 'ตั้งเป็นพรีออเดอร์แล้ว' : 'ตั้งเป็นพร้อมส่งแล้ว', 'success');
-    repaintOrderModalBody();
-    renderOrdersTable();
-    if (state.tab === 'preorder') refreshPreorder();
-  } catch (e) {
-    showShopToast(`เปลี่ยนไม่สำเร็จ: ${e.message || e}`, 'error');
-  }
-}
-
 async function reloadModalOrderFromServer() {
   if (!modalOrder) return;
   try {
@@ -1265,28 +1334,29 @@ async function reloadModalOrderFromServer() {
   renderStats();
 }
 
-async function onEditItemQty(inp) {
+/** Save all edits for one existing line item (ไซส์ / สี / จำนวน / ราคา /
+ *  ประเภท) in a single PATCH, then recompute totals + reload. */
+async function onSaveOrderItem(btn, body) {
   if (!modalOrder) return;
-  const itemId = inp.dataset.itemId;
+  const itemId = btn.dataset.itemId;
+  const row = body.querySelector(`[data-edit-row="${CSS.escape(String(itemId))}"]`);
   const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
-  const oldQty = Number(item?.qty) || 0;
-  const qty = Math.max(1, Math.min(99, Number(inp.value) || 1));
-  if (qty === oldQty) return;
-  const p = item ? (state.products || []).find((x) => x.id === item.product_id) : null;
-  const name = p?.name || item?.product_id || 'สินค้า';
-  if (!confirm(`เปลี่ยนจำนวน "${name}" จาก ${oldQty} เป็น ${qty} ?`)) {
-    inp.value = String(oldQty); // revert
-    return;
-  }
-  inp.disabled = true;
+  if (!row || !item) return;
+  const size = (row.querySelector('[data-edit-size]')?.value || 'F').trim() || 'F';
+  const color = (row.querySelector('[data-edit-color]')?.value || 'default').trim() || 'default';
+  const qty = Math.max(1, Math.min(99, Number(row.querySelector('[data-edit-qty]')?.value) || 1));
+  const unitPrice = Math.max(0, Number(row.querySelector('[data-edit-price]')?.value) || 0);
+  const isPreorder = row.querySelector('[data-edit-preorder]')?.value === 'true';
+  btn.disabled = true;
   try {
-    await updateOrderItem(itemId, { qty });
+    await updateOrderItem(itemId, { size, color, qty, unit_price: unitPrice, is_preorder: isPreorder });
     await recomputeOrderTotals(modalOrder.id);
-    showShopToast('อัปเดตจำนวนแล้ว', 'success');
+    showShopToast('บันทึกรายการแล้ว', 'success');
     await reloadModalOrderFromServer();
+    if (state.tab === 'preorder') refreshPreorder();
   } catch (e) {
-    showShopToast(`แก้ไขล้มเหลว: ${e.message || e}`, 'error');
-    inp.disabled = false;
+    showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error');
+    btn.disabled = false;
   }
 }
 
@@ -1320,6 +1390,7 @@ async function onAddOrderItem(body) {
   const unitPrice = priceRaw !== '' && priceRaw != null
     ? Math.max(0, Number(priceRaw) || 0)
     : effectivePrice(product);
+  const isPreorder = body.querySelector('[data-add-preorder]')?.value === 'true';
   const variant = [size !== 'F' ? `ไซส์ ${size}` : '', colorLabelFor(product, color)].filter(Boolean).join(' · ');
   if (!confirm(`เพิ่ม "${product?.name || productId}"${variant ? ` (${variant})` : ''} × ${qty} (฿${unitPrice}/ชิ้น) เข้าคำสั่งซื้อ?`)) return;
   const btn = body.querySelector('[data-add-item-btn]');
@@ -1327,7 +1398,7 @@ async function onAddOrderItem(body) {
   try {
     await addOrderItem(modalOrder.id, {
       productId, size, color, qty, unitPrice,
-      isPreorder: !!product?.is_presale,
+      isPreorder,
       itemStatus: 'paid', // admin advances it per-item afterwards
     });
     await recomputeOrderTotals(modalOrder.id);
@@ -1398,7 +1469,8 @@ async function deleteCurrentOrder() {
 const PAYMENT_STAGES = ['pending', 'review', 'paid'];
 // Per-item fulfilment chips offered in the detail modal.
 const ITEM_FULFIL_STAGES = ['paid', 'produce', 'ready', 'done'];
-const ITEM_ISSUE_STAGES = ['exchange', 'no_show'];
+// Single per-item problem state (มีปัญหา). Keeps reserving stock.
+const ITEM_ISSUE_STAGES = ['issue'];
 
 /** Normalise an order's slips to [{url, at}], folding in the legacy
  *  single slip when the array is empty. Mirrors api.js. */
@@ -1436,8 +1508,11 @@ function slipThumbsHtml(o) {
  *  'F' option when the product declares no sizes. */
 function variantSizeOptionsHtml(product, selected) {
   const sizes = (Array.isArray(product?.sizes) && product.sizes.length)
-    ? product.sizes
+    ? product.sizes.slice()
     : ['F'];
+  // Preserve the item's stored size even if the product's size list has
+  // since changed — otherwise editing a row would silently re-write it.
+  if (selected && !sizes.includes(selected)) sizes.unshift(selected);
   return sizes.map((s) => {
     const label = s === 'F' ? 'Free size' : s;
     return `<option value="${escHtml(s)}" ${s === selected ? 'selected' : ''}>${escHtml(label)}</option>`;
@@ -1453,11 +1528,18 @@ function variantColorOptionsHtml(product, selected) {
   if (colors.length === 0) {
     return `<option value="default" selected>— ไม่มีตัวเลือกสี —</option>`;
   }
-  return colors.map((c) => {
+  const matched = colors.some((c) => (c.id || c.label) === selected || c.label === selected);
+  const opts = colors.map((c) => {
     const val = c.id || c.label || '';
     const isSel = val === selected || c.label === selected;
     return `<option value="${escHtml(val)}" ${isSel ? 'selected' : ''}>${escHtml(c.label || val)}</option>`;
-  }).join('');
+  });
+  // Preserve a stored colour that's no longer in the product's list so
+  // editing a row doesn't silently re-write it.
+  if (selected && selected !== 'default' && !matched) {
+    opts.unshift(`<option value="${escHtml(selected)}" selected>${escHtml(selected)}</option>`);
+  }
+  return opts.join('');
 }
 
 /** Map a stored colour id back to its product colour label. */
@@ -1470,7 +1552,8 @@ function colorLabelFor(product, colorId) {
 
 /** Per-item fulfilment status chips inside the order detail. Each chip
  *  writes immediately (data-item-status + data-item-id wired in
- *  openOrderModal). */
+ *  openOrderModal). The preorder/normal flag is edited inside
+ *  "แก้ไขรายการสินค้า" — not here — so there's a single place for it. */
 function itemStatusControlsHtml(it) {
   const cur = it.item_status || 'paid';
   const chip = (s, extra = '') => `
@@ -1478,81 +1561,76 @@ function itemStatusControlsHtml(it) {
             data-item-status="${escHtml(s)}" data-item-id="${escHtml(String(it.id))}">
       ${escHtml(itemStatusMeta(s).short || itemStatusMeta(s).label)}
     </button>`;
-  const pre = !!it.is_preorder;
   return `
-    <div class="d-flex flex-wrap gap-1 align-items-center mt-2">
-      <span class="small text-muted me-1">ความคืบหน้า:</span>
-      ${ITEM_FULFIL_STAGES.map((s) => chip(s)).join('')}
-      <span class="vr mx-1"></span>
-      ${ITEM_ISSUE_STAGES.map((s) => chip(s, `chip-tone-${STAGES_META[s].tone || 'warning'}`)).join('')}
-    </div>
-    <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
-      <span class="small text-muted me-1">ประเภท:</span>
-      <button type="button" class="chip chip-sm ${pre ? 'is-active' : ''}"
-              data-item-preorder="true" data-item-id="${escHtml(String(it.id))}">พรีออเดอร์</button>
-      <button type="button" class="chip chip-sm ${pre ? '' : 'is-active'}"
-              data-item-preorder="false" data-item-id="${escHtml(String(it.id))}">พร้อมส่ง</button>
+    <div class="item-status-controls">
+      <span class="isc-label">ความคืบหน้า</span>
+      <div class="isc-chips">
+        ${ITEM_FULFIL_STAGES.map((s) => chip(s)).join('')}
+        ${ITEM_ISSUE_STAGES.map((s) => chip(s, `chip-tone-${STAGES_META[s].tone || 'warning'}`)).join('')}
+      </div>
     </div>`;
 }
 
-/** Inline editor for an order's line items: per-row qty + remove, plus an
- *  add form. Writes are immediate; totals recompute and stock reflects
- *  automatically (reserved aggregates derive from these rows). */
+/** Two <option>s for a preorder/normal selector. */
+function preorderOptionsHtml(isPreorder) {
+  return `
+    <option value="false" ${isPreorder ? '' : 'selected'}>พร้อมส่ง</option>
+    <option value="true" ${isPreorder ? 'selected' : ''}>พรีออเดอร์</option>`;
+}
+
+/** Inline editor for an order's line items: each existing row is fully
+ *  editable (ไซส์ / สี / จำนวน / ราคา / ประเภท) behind a per-row Save,
+ *  plus an add form with the same fields. Totals recompute and stock
+ *  reflects automatically (reserved aggregates derive from these rows). */
 function editItemsPanelHtml(o, productMap) {
   const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
   const products = (state.products || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const field = (label, control, cls = '') => `
+    <label class="eir-f ${cls}"><span>${escHtml(label)}</span>${control}</label>`;
   return `
     <div class="edit-items-panel mt-2">
       <div class="small text-muted mb-2">
-        <i class="bi bi-info-circle me-1"></i>การแก้ไขมีผลกับสต็อก (ยอดจองคำนวณจากรายการนี้)
+        <i class="bi bi-info-circle me-1"></i>แก้ไขไซส์ / สี / จำนวน / ราคา / ประเภท แล้วกดบันทึกรายการนั้น · มีผลกับสต็อก
       </div>
       ${items.map((it) => {
         const p = productMap.get(it.product_id);
         return `
-        <div class="d-flex align-items-center gap-2 py-1 flex-wrap" data-edit-row="${escHtml(String(it.id))}">
-          <div class="flex-grow-1 small" style="min-width:140px;">
-            ${escHtml(p?.name || it.product_id)}
-            <span class="text-muted">${escHtml(itemVariantLabel(p, it))}</span>
+        <div class="edit-item-row" data-edit-row="${escHtml(String(it.id))}">
+          <div class="eir-name">${escHtml(p?.name || it.product_id)}</div>
+          <div class="eir-actions">
+            <button type="button" class="btn btn-shop btn-sm" data-save-item data-item-id="${escHtml(String(it.id))}" title="บันทึกรายการนี้">
+              <i class="bi bi-save"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm"
+                    data-remove-item data-item-id="${escHtml(String(it.id))}" title="ลบรายการ">
+              <i class="bi bi-trash3"></i>
+            </button>
           </div>
-          <input type="number" min="1" max="99" value="${Number(it.qty) || 1}"
-                 class="form-control form-control-sm" style="width:74px;"
-                 data-edit-qty data-item-id="${escHtml(String(it.id))}" />
-          <button type="button" class="btn btn-outline-danger btn-sm"
-                  data-remove-item data-item-id="${escHtml(String(it.id))}" title="ลบรายการ">
-            <i class="bi bi-trash3"></i>
-          </button>
+          <div class="eir-fields">
+            ${field('ไซส์', `<select class="form-select form-select-sm" data-edit-size>${variantSizeOptionsHtml(p, it.size)}</select>`)}
+            ${field('สี', `<select class="form-select form-select-sm" data-edit-color>${variantColorOptionsHtml(p, it.color)}</select>`)}
+            ${field('จำนวน', `<input type="number" min="1" max="99" value="${Number(it.qty) || 1}" class="form-control form-control-sm" data-edit-qty />`)}
+            ${field('ราคา/ชิ้น', `<input type="number" min="0" value="${Number(it.unit_price) || 0}" class="form-control form-control-sm" data-edit-price />`)}
+            ${field('ประเภท', `<select class="form-select form-select-sm" data-edit-preorder>${preorderOptionsHtml(!!it.is_preorder)}</select>`)}
+          </div>
         </div>`;
       }).join('')}
 
-      <div class="add-item-form mt-2 p-2 rounded" style="background:var(--shop-ink-50);">
-        <div class="small fw-bold mb-1">เพิ่มสินค้า</div>
-        <div class="d-flex gap-2 flex-wrap align-items-end">
-          <div style="min-width:150px; flex:1 1 150px;">
-            <label class="form-label small mb-0">สินค้า</label>
-            <select class="form-select form-select-sm" data-add-product>
+      <div class="add-item-form mt-3">
+        <div class="small fw-bold mb-2"><i class="bi bi-plus-circle me-1"></i>เพิ่มสินค้า</div>
+        <div class="eir-fields">
+          ${field('สินค้า', `<select class="form-select form-select-sm" data-add-product>
               ${products.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name || p.id)}</option>`).join('')}
-            </select>
-          </div>
-          <div style="width:100px;">
-            <label class="form-label small mb-0">ไซส์</label>
-            <select class="form-select form-select-sm" data-add-size>${variantSizeOptionsHtml(products[0])}</select>
-          </div>
-          <div style="width:120px;">
-            <label class="form-label small mb-0">สี</label>
-            <select class="form-select form-select-sm" data-add-color>${variantColorOptionsHtml(products[0])}</select>
-          </div>
-          <div style="width:70px;">
-            <label class="form-label small mb-0">จำนวน</label>
-            <input type="number" min="1" max="99" value="1" class="form-control form-control-sm" data-add-qty />
-          </div>
-          <div style="width:90px;">
-            <label class="form-label small mb-0">ราคา/ชิ้น</label>
-            <input type="number" min="0" class="form-control form-control-sm" data-add-price placeholder="auto" />
-          </div>
-          <button type="button" class="btn btn-shop btn-sm" data-add-item-btn>
-            <i class="bi bi-plus-lg me-1"></i> เพิ่ม
-          </button>
+            </select>`, 'eir-wide')}
+          ${field('ไซส์', `<select class="form-select form-select-sm" data-add-size>${variantSizeOptionsHtml(products[0])}</select>`)}
+          ${field('สี', `<select class="form-select form-select-sm" data-add-color>${variantColorOptionsHtml(products[0])}</select>`)}
+          ${field('จำนวน', `<input type="number" min="1" max="99" value="1" class="form-control form-control-sm" data-add-qty />`)}
+          ${field('ราคา/ชิ้น', `<input type="number" min="0" class="form-control form-control-sm" data-add-price placeholder="${products[0] ? `auto (฿${effectivePrice(products[0])})` : 'auto'}" />`)}
+          ${field('ประเภท', `<select class="form-select form-select-sm" data-add-preorder>${preorderOptionsHtml(!!products[0]?.is_presale)}</select>`)}
         </div>
+        <button type="button" class="btn btn-shop btn-sm mt-2" data-add-item-btn>
+          <i class="bi bi-plus-lg me-1"></i> เพิ่มเข้าคำสั่งซื้อ
+        </button>
       </div>
     </div>`;
 }
@@ -1585,20 +1663,20 @@ function orderModalBodyHtml(o) {
           const displayName = product?.name || it.product_id || '(สินค้าถูกลบ)';
           const colorLabel = colorLabelFor(product, it.color);
           return `
-          <div class="py-2" style="border-bottom: 1px solid var(--shop-ink-100, #ebecee);">
-            <div class="d-flex gap-3 align-items-center flex-wrap">
-              <div class="flex-grow-1" style="min-width:160px;">
-                <div style="font-weight:600;">
+          <div class="order-item-line">
+            <div class="oil-top">
+              <div class="oil-info">
+                <div class="oil-name">
                   ${escHtml(displayName)}
                   ${it.is_preorder ? '<span class="preorder-tag ms-1">พรีออเดอร์</span>' : ''}
                 </div>
-                <div class="small text-muted">
+                <div class="oil-variant">
                   ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
                   ${colorLabel ? ` · ${escHtml(colorLabel)}` : ''}
                 </div>
               </div>
-              <div style="min-width:60px; text-align:right;">× ${it.qty}</div>
-              <div style="min-width:80px; text-align:right; font-weight:700;">฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</div>
+              <div class="oil-qty">× ${it.qty}</div>
+              <div class="oil-price">฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</div>
             </div>
             ${it.id != null ? itemStatusControlsHtml(it) : ''}
           </div>`;
@@ -1632,7 +1710,7 @@ function orderModalBodyHtml(o) {
 
         <h5 class="mt-3">สถานะปัญหา</h5>
         <div class="d-flex flex-wrap gap-2">
-          ${ISSUE_STATUSES.map((s) => {
+          ${ORDER_ISSUE_STATUSES.map((s) => {
             const tone = STAGES_META[s].tone || 'warning';
             return `
             <button type="button" class="chip chip-tone-${escHtml(tone)} ${o.status === s ? 'is-active' : ''}" data-set-status="${s}">
@@ -1641,6 +1719,11 @@ function orderModalBodyHtml(o) {
           }).join('')}
         </div>
 
+        <h5 class="mt-3">หมายเหตุสำหรับลูกค้า</h5>
+        <p class="small text-muted mb-1">ข้อความนี้จะแสดงในหน้า "คำสั่งซื้อ" ของลูกค้า</p>
+        <textarea id="shopAdminOrderModalCustomerNote" class="form-control" rows="2"
+          placeholder="เช่น โอนเกินมา 20 บาท เดี๋ยวคืนให้ในรอบรับสินค้า — บันทึกเมื่อปิดหน้านี้">${escHtml(o.customer_note || '')}</textarea>
+
         <h5 class="mt-3">หมายเหตุภายใน admin</h5>
         <textarea id="shopAdminOrderModalNote" class="form-control" rows="3"
           placeholder="ระบุหมายเหตุ — บันทึกเมื่อปิดหน้านี้">${escHtml(o.admin_note || '')}</textarea>
@@ -1648,22 +1731,27 @@ function orderModalBodyHtml(o) {
     </div>`;
 }
 
+/** Persist the internal admin note AND the customer-facing note on modal
+ *  close. Each is only written when its text actually changed; both ride
+ *  in one PATCH when both changed. */
 async function persistAdminNoteIfChanged() {
   if (!modalOrder) return;
   const noteEl = document.getElementById('shopAdminOrderModalNote');
-  if (!noteEl) { modalOrder = null; return; }
-  const next = noteEl.value;
-  const current = modalOrder.admin_note || '';
-  if (next === current) { modalOrder = null; return; }
+  const custEl = document.getElementById('shopAdminOrderModalCustomerNote');
+  if (!noteEl && !custEl) { modalOrder = null; return; }
+  const body = {};
+  if (noteEl && noteEl.value !== (modalOrder.admin_note || '')) body.admin_note = noteEl.value;
+  if (custEl && custEl.value !== (modalOrder.customer_note || '')) body.customer_note = custEl.value;
+  if (Object.keys(body).length === 0) { modalOrder = null; return; }
   try {
     const idEsc = encodeURIComponent(modalOrder.id);
     const { error } = await dbRest(
       `/shop_orders?id=eq.${idEsc}`,
-      { method: 'PATCH', body: { admin_note: next }, prefer: 'return=minimal' },
+      { method: 'PATCH', body, prefer: 'return=minimal' },
     );
     if (error) throw new Error(error.message || 'บันทึกหมายเหตุไม่สำเร็จ');
     const row = state.orders.find((x) => x.id === modalOrder.id);
-    if (row) row.admin_note = next;
+    if (row) Object.assign(row, body);
   } catch (e) {
     console.warn('[shop/admin] persistAdminNote failed:', e);
   } finally {
@@ -1790,12 +1878,12 @@ async function refreshPreorder() {
   }
 }
 
-/** Aggregate active preorder demand. Cancelled / refunded orders are
+/** Aggregate active preorder demand. Cancelled orders are
  *  excluded (they no longer represent demand). Returns products sorted
  *  by total qty desc, each with a per-subtype breakdown + order id set. */
 function preorderAggregate() {
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
-  const dead = new Set(['cancel', 'refunded', 'refund_pending']);
+  const dead = new Set(['cancel']);
   const byProduct = new Map();
   for (const o of state.orders || []) {
     if (dead.has(o.status)) continue;
@@ -2344,7 +2432,12 @@ function renderProductsTable() {
           <span class="src-dot"></span> ${escHtml(findSource(p.source)?.label || p.source)}
         </span>
       </td>
-      <td><b>฿${thb(p.price)}</b></td>
+      <td>
+        <b>฿${thb(effectivePrice(p))}</b>
+        ${p.is_presale
+          ? `<div class="small text-warning">พรีออเดอร์${(p.preorder_price != null && Number(p.preorder_price) !== Number(p.price)) ? ` · ปกติ ฿${thb(p.price)}` : ''}</div>`
+          : ''}
+      </td>
       <td>
         <span class="small text-muted">${(p.sizes || []).length} × ${(p.colors || []).length}</span>
         ${stockSum !== null ? `<div class="small">รวม ${stockSum} ชิ้น</div>` : '<div class="small text-muted">ไม่ระบุ</div>'}
@@ -2464,7 +2557,7 @@ function renderProductEditor() {
             </select>
             <div class="form-text mb-0">
               เลือก "สินค้าผลิตเสร็จแล้ว" จะย้ายเฉพาะคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน". เลือก "ประกาศรอบรับสินค้า" จะย้ายทั้ง "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว".
-              คำสั่งซื้อที่อยู่ในสถานะปัญหา (สลิปไม่ถูกต้อง · รอคืนเงิน · ยกเลิก · เปลี่ยนสินค้า · ฯลฯ) จะไม่ถูกแตะ.
+              คำสั่งซื้อที่อยู่ในสถานะปัญหา (สลิปไม่ถูกต้อง · ยกเลิก) จะไม่ถูกแตะ.
             </div>
           </div>
         </div>
@@ -2756,12 +2849,10 @@ async function refreshStock() {
   }
 }
 
-// Statuses that consume stock — uploaded slip onward, until the
-// order completes or moves to a problem status. Problem statuses
-// (cancel, refund_pending, refunded, no_show, slip_mismatch,
-// exchange) are excluded, so admin cancelling an order automatically
-// "frees up" that qty from the reserved bucket — best practice for
-// e-commerce stock management.
+// Order-level statuses that consume stock — uploaded slip onward, until
+// the order completes. A cancelled order frees its qty from the reserved
+// bucket. (A per-item 'issue' / มีปัญหา does NOT free stock — its order
+// stays 'paid', so it keeps counting here.)
 const RESERVED_STATUSES = new Set(['review', 'paid', 'produce', 'ready', 'done']);
 
 /** Aggregate the order qty for a product across the orders cache,
@@ -2876,7 +2967,13 @@ function renderStock() {
   host.innerHTML = list.map((p) => stockCardHtml(p, reservedMap)).join('');
 
   host.querySelectorAll('[data-stock-cell]').forEach((input) => {
-    input.addEventListener('input', () => onStockCellChange(input));
+    // `input` only syncs state + enables Save — it MUST NOT re-render,
+    // or the focused field is destroyed and the mobile keyboard dismisses
+    // after a single keystroke. We deliberately don't re-render on blur
+    // either: doing so eats the subsequent Save-button tap on touch. The
+    // derived numbers (พร้อมขาย / เหลือ / จอง) refresh on the next natural
+    // render — Save, the +/- step buttons, or a tab switch.
+    input.addEventListener('input', () => onStockCellInput(input));
   });
   host.querySelectorAll('[data-stock-step]').forEach((btn) => {
     btn.addEventListener('click', () => stepStock(btn));
@@ -2990,8 +3087,7 @@ function stockCardHtml(p, reservedMap = new Map()) {
                   const k = stockKey(s, c.id);
                   const v = edit.matrix[k];
                   // Reserved = qty in active orders for this exact
-                  // variant. Cancellations / refunds / slip_mismatch
-                  // / no_show / exchange are excluded, so admin
+                  // variant. Cancellations are excluded, so admin
                   // cancelling an order auto-frees that qty.
                   const reserved = reservedMap.get(`${p.id}|${s}|${c.id}`) || 0;
                   // Available = matrix value − reserved. Null when
@@ -3043,7 +3139,10 @@ function stockThumbStyle(p) {
   return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
 }
 
-function onStockCellChange(input) {
+/** Live keystroke handler — updates the pending edit + enables Save
+ *  WITHOUT re-rendering, so the focused input (and the mobile keyboard)
+ *  survive. The full derived-number refresh happens on blur (`change`). */
+function onStockCellInput(input) {
   const [pid, key] = input.dataset.stockCell.split('|');
   const p = state.products.find((x) => x.id === pid);
   if (!p) return;
@@ -3056,7 +3155,10 @@ function onStockCellChange(input) {
     edit.matrix[key] = Math.floor(n);
   }
   edit.dirty = true;
-  renderStock();
+  // Enable Save + flag the card dirty in place (no re-render → no focus loss).
+  input.closest('.stock-card')?.classList.add('is-dirty');
+  const save = document.querySelector(`[data-stock-save="${CSS.escape(pid)}"]`);
+  if (save) { save.classList.remove('disabled'); save.removeAttribute('disabled'); }
 }
 
 function stepStock(btn) {

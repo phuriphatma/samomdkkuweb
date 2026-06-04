@@ -29,9 +29,9 @@ export const SHOP_SORT = [
   { id: 'popular',    label: 'ขายดี' },
 ];
 
-// Happy-path stages, in order. Off-path statuses (cancel, slip_mismatch,
-// refund_pending, refunded, no_show) sit outside this sequence — they're
-// shown as a pill but don't lay out the progress track.
+// Happy-path stages, in order. Off-path statuses (cancel, slip_mismatch)
+// sit outside this sequence — they're shown as a pill but don't lay out
+// the progress track.
 export const STAGES_ORDER = ['pending', 'review', 'paid', 'produce', 'ready', 'done'];
 
 export const STAGES_META = {
@@ -42,25 +42,28 @@ export const STAGES_META = {
   produce:        { label: 'สินค้าผลิตเสร็จแล้ว',    icon: 'bi-box-seam',            short: 'ผลิตเสร็จ' },
   ready:          { label: 'ประกาศรอบรับสินค้า',    icon: 'bi-megaphone-fill',      short: 'ประกาศแล้ว' },
   done:           { label: 'ได้รับสินค้าแล้ว',       icon: 'bi-bag-check-fill',      short: 'รับแล้ว' },
-  // ── off-path (issue / refund / exchange flow) ───────────────────
-  // `tone` drives the chip colour in the admin issue group so each
-  // off-path status reads at a glance instead of one wash of amber:
-  //   warning (amber)  — actionable / customer fixable
-  //   info    (blue)   — waiting / pending money or process
-  //   neutral (gray)   — terminal, no action needed
-  //   danger  (red)    — alert / destructive
+  // ── off-path (issue) ────────────────────────────────────────────
+  // `tone` drives the chip colour so each off-path status reads at a
+  // glance: warning (amber, customer-fixable) / danger (red, alert).
   slip_mismatch:  { label: 'สลิปไม่ถูกต้อง',       icon: 'bi-exclamation-triangle',   short: 'สลิปไม่ตรง', issue: true, tone: 'warning' },
-  exchange:       { label: 'เปลี่ยนสินค้า',        icon: 'bi-arrow-left-right',       short: 'เปลี่ยน',    issue: true, tone: 'warning' },
-  refund_pending: { label: 'รอคืนเงิน',           icon: 'bi-arrow-counterclockwise', short: 'รอคืนเงิน',  issue: true, tone: 'info' },
-  no_show:        { label: 'ยังไม่ได้รับสินค้า',   icon: 'bi-hourglass-bottom',       short: 'ยังไม่รับ',  issue: true, tone: 'danger' },
   cancel:         { label: 'ยกเลิกคำสั่งซื้อ',     icon: 'bi-x-circle',               short: 'ยกเลิก',     issue: true, tone: 'danger' },
-  refunded:       { label: 'คืนเงินแล้ว',         icon: 'bi-cash-coin',              short: 'คืนแล้ว',    issue: true, tone: 'neutral' },
+  // Per-item problem flag (มีปัญหา) — the single item-level issue state.
+  // Replaces the old exchange/no_show item states. Unlike an order-level
+  // cancel it KEEPS reserving stock (the item is still expected to be
+  // fulfilled once the problem is resolved).
+  issue:          { label: 'มีปัญหา',             icon: 'bi-exclamation-octagon',    short: 'มีปัญหา',    issue: true, tone: 'danger' },
 };
 
-/** Ordered list of "issue" statuses — anything tagged `issue: true`. */
+/** Ordered list of "issue" statuses — anything tagged `issue: true`
+ *  (order-level slip_mismatch/cancel + the item-level 'issue'). */
 export const ISSUE_STATUSES = Object.entries(STAGES_META)
   .filter(([, m]) => m.issue)
   .map(([k]) => k);
+
+/** Order-level problem statuses offered in the admin "สถานะปัญหา"
+ *  picker. The item-level 'issue' is NOT a valid order status, so it's
+ *  excluded here even though it's tagged issue:true above. */
+export const ORDER_ISSUE_STATUSES = ['slip_mismatch', 'cancel'];
 
 /** Returns the display label for an order. Currently a plain lookup;
  *  kept as a wrapper so call sites stay future-proof if labels ever
@@ -79,7 +82,7 @@ export function statusMetaFor(order) {
 // The order-level status carries the PAYMENT phase (pending→review→paid,
 // + cancel/refund/slip_mismatch). Once paid, each line item carries its
 // own fulfilment status here so products in one order can progress
-// independently. Item off-paths (exchange/no_show) reuse STAGES_META.
+// independently. The item off-path 'issue' (มีปัญหา) reuses STAGES_META.
 export const ITEM_STAGES_ORDER = ['paid', 'produce', 'ready', 'done'];
 
 const ITEM_STAGE_RANK = { paid: 0, produce: 1, ready: 2, done: 3 };
@@ -98,13 +101,12 @@ export function itemStatusMeta(s) {
 /** Roll an order's per-item statuses up into a single overall stage for
  *  the headline pill / progress track.
  *   - Pre-paid (pending/review) and order-level off-paths
- *     (cancel/slip_mismatch/refund_pending/refunded) are authoritative
- *     as-is.
+ *     (cancel/slip_mismatch) are authoritative as-is.
  *   - Legacy orders whose whole-order status was advanced to
  *     produce/ready/done before the Hybrid migration keep that value.
  *   - For a 'paid' order, the overall stage is the LEAST-progressed item
  *     (one product still in production keeps the order "in production").
- *   An item in exchange/no_show ranks 0, so it holds the order back. */
+ *   An item tagged 'issue' ranks 0, so it holds the order back. */
 export function rollupOrderStage(order) {
   if (!order) return 'pending';
   const status = order.status || 'pending';

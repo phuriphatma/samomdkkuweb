@@ -58,6 +58,46 @@ Follow-up batch (this session):
 Pushed direct to main (branch protection bypassed); Cloudflare auto-build
 deploying.
 
+## Samoshop admin UX pass (landed on main)
+
+Latest main batch on top of the per-item overhaul:
+- Orders table: per-order **multi-select + select-all + bulk delete**
+  (checkbox column + bulk action bar; `state.ordersSelected`, pruned on
+  refresh).
+- Per-item ความคืบหน้า: happy path unchanged (paid→produce→ready→done);
+  the two problem chips (exchange/no_show) collapsed to a single **มีปัญหา**
+  (`item_status = 'issue'`) that **keeps reserving stock** (order stays
+  `paid`; reserved predicate keys on `item_status <> 'done'`).
+- Order สถานะปัญหา picker reduced to **slip_mismatch + cancel** only
+  (`ORDER_ISSUE_STATUSES`); dead off-path order statuses
+  (exchange/refund_pending/no_show/refunded) removed + folded into `cancel`.
+- New **customer_note** — admin writes it in the order modal; shown on the
+  buyer "คำสั่งซื้อ" card (separate from internal admin_note).
+- แก้ไขรายการสินค้า: existing rows edit ไซส์/สี/จำนวน/ราคา/ประเภท
+  (preorder|normal) behind a per-row save; เพิ่มสินค้า has a preorder
+  selector. `updateOrderItem` accepts `is_preorder`. The old per-item
+  preorder chips (+ `onItemPreorderClick`/`setOrderItemPreorder`) were
+  removed — preorder is now edited in ONE place (the edit panel).
+- variantSize/ColorOptionsHtml preserve a stored size/colour that's no
+  longer in the product list (editing a row won't silently rewrite it).
+- สินค้า table shows `effectivePrice` (preorder-aware) instead of raw price.
+- สต็อก tab keyboard fix: cell `input` no longer full-re-renders (was
+  destroying the focused field → mobile keyboard dismissed each keystroke);
+  no blur re-render either (it ate the Save-button tap on touch). Derived
+  numbers refresh on Save / ± / tab switch.
+- Order-detail modal item controls + edit panel restyled with a responsive
+  CSS grid (`.eir-fields`, `.order-item-line`) so it reads well on
+  desktop / iPad / mobile. `issue` + `slip_mismatch` status-pill colours added.
+
+**Migration 0040 (`0040_shop_status_cleanup_and_customer_note.sql`) — APPLIED
+by user.** Tightened `shop_order_items.item_status` to
+(paid,produce,ready,done,issue), `shop_orders.status` to
+(pending,review,paid,produce,ready,done,cancel,slip_mismatch), added
+`shop_orders.customer_note`, dropped the dead `'exchange'` from the
+reserved-matrix RPCs. (place_shop_order keeps a now-dead `'exchange'` in its
+inline stock-check predicate — harmless, left to avoid re-declaring the
+large function.) Build green, 49 tests pass.
+
 ## Open follow-ups (not yet done)
 
 - **Discord notify platform** — user chose to KEEP GAS for now, scope any

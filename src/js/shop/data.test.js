@@ -74,9 +74,9 @@ describe('rollupOrderStage (Hybrid per-item model)', () => {
     ] })).toBe('done');
   });
 
-  it('an item issue (exchange/no_show) holds the order back to "paid"', () => {
+  it('an item issue (มีปัญหา) holds the order back to "paid"', () => {
     expect(rollupOrderStage({ status: 'paid', items: [
-      { item_status: 'ready' }, { item_status: 'exchange' },
+      { item_status: 'ready' }, { item_status: 'issue' },
     ] })).toBe('paid');
   });
 
@@ -85,7 +85,7 @@ describe('rollupOrderStage (Hybrid per-item model)', () => {
     expect(itemStageRank('paid')).toBeLessThan(itemStageRank('produce'));
     expect(itemStageRank('produce')).toBeLessThan(itemStageRank('ready'));
     expect(itemStageRank('ready')).toBeLessThan(itemStageRank('done'));
-    expect(itemStageRank('exchange')).toBe(0);
+    expect(itemStageRank('issue')).toBe(0);
   });
 });
 

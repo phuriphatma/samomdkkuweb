@@ -207,6 +207,15 @@ function orderCardHtml(o) {
         ${statusPillHtml(o)}
       </div>
 
+      ${o.customer_note ? `
+        <div class="order-customer-note">
+          <i class="bi bi-chat-left-text"></i>
+          <div>
+            <div class="ocn-title">หมายเหตุจากเจ้าหน้าที่</div>
+            <div class="ocn-body">${escHtml(o.customer_note)}</div>
+          </div>
+        </div>` : ''}
+
       ${itemsProgressHtml(o, products)}
 
       <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
@@ -429,10 +438,7 @@ function itemProgressTrackHtml(istatus) {
 const OFF_PATH_TRACKS = {
   cancel:         { cls: 'is-cancel',  text: 'คำสั่งซื้อถูกยกเลิก' },
   slip_mismatch:  { cls: 'is-cancel',  text: 'สลิปไม่ตรงกับยอด — รอการแก้ไข' },
-  refund_pending: { cls: 'is-cancel',  text: 'อยู่ระหว่างดำเนินการคืนเงิน' },
-  refunded:       { cls: 'is-cancel',  text: 'คืนเงินแล้ว' },
-  no_show:        { cls: 'is-cancel',  text: 'ยังไม่ได้รับสินค้า' },
-  exchange:       { cls: 'is-cancel',  text: 'อยู่ระหว่างการเปลี่ยนสินค้า' },
+  issue:          { cls: 'is-cancel',  text: 'มีปัญหา — โปรดติดต่อเจ้าหน้าที่' },
 };
 
 function progressTrackHtml(order) {
