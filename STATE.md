@@ -80,7 +80,10 @@ Latest main batch on top of the per-item overhaul:
   removed — preorder is now edited in ONE place (the edit panel).
 - variantSize/ColorOptionsHtml preserve a stored size/colour that's no
   longer in the product list (editing a row won't silently rewrite it).
-- สินค้า table shows `effectivePrice` (preorder-aware) instead of raw price.
+- สินค้า table shows `effectivePrice` (preorder-aware) on one line; the
+  regular price shows struck-through only when a preorder discount applies
+  (the redundant yellow "พรีออเดอร์" sub-line was dropped — the Preorder
+  badge in the status column already signals it).
 - สต็อก tab keyboard fix: cell `input` no longer full-re-renders (was
   destroying the focused field → mobile keyboard dismissed each keystroke);
   no blur re-render either (it ate the Save-button tap on touch). Derived

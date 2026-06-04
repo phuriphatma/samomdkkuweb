@@ -2432,10 +2432,10 @@ function renderProductsTable() {
           <span class="src-dot"></span> ${escHtml(findSource(p.source)?.label || p.source)}
         </span>
       </td>
-      <td>
+      <td class="text-nowrap">
         <b>฿${thb(effectivePrice(p))}</b>
-        ${p.is_presale
-          ? `<div class="small text-warning">พรีออเดอร์${(p.preorder_price != null && Number(p.preorder_price) !== Number(p.price)) ? ` · ปกติ ฿${thb(p.price)}` : ''}</div>`
+        ${(p.is_presale && p.preorder_price != null && Number(p.preorder_price) !== Number(p.price))
+          ? `<span class="text-muted small text-decoration-line-through ms-1">฿${thb(p.price)}</span>`
           : ''}
       </td>
       <td>
