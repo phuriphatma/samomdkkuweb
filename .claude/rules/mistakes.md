@@ -859,6 +859,51 @@ will race the write and snapshot the wrong (and already-rotated) tokens.
 
 ---
 
+## A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
+
+**Symptom**: Brand-new Google sign-in fails. The Supabase OAuth callback
+(`/auth/v1/callback?...`) 302-redirects back to the app with
+`error_code=unexpected_failure` +
+`error_description=Database+error+saving+new+user`. Existing users log
+in fine; only first-time signups fail. The same failure bricks the
+profile-modal "set password" flow. Looks like an OAuth/redirect-config
+problem; it isn't.
+**Cause**: Two triggers fire on user creation and they fight:
+- 0027 `handle_auth_user_password_sync` (AFTER INSERT / AFTER UPDATE OF
+  `encrypted_password` on `auth.users`) UPDATEs `public.users.has_password`
+  to mirror "does this auth user have a password".
+- 0028 `users_self_update_guard` (BEFORE UPDATE on `public.users`) RAISES
+  if a non-staff caller changes a privileged column — including
+  `has_password` ("server-managed").
+During a GoTrue signup the sync trigger's UPDATE runs with
+`auth.uid() = NULL`, so `current_user_is_staff()` is false, so the guard
+takes its `has_password` branch and aborts the whole signup transaction.
+The guard cannot distinguish the legitimate server-side sync trigger from
+a malicious client PATCH — both execute in a non-staff context.
+**How it was confirmed**: `POST /auth/v1/admin/users` (with the service
+role, with OR without a password) reproduces it exactly:
+`P0001 users_self_update_guard: has_password is server-managed`, HTTP 500,
+no row created. The admin API fires the same triggers as a real OAuth
+signup, so it's a faithful, reversible repro (delete the test user after,
+or nothing is created when it fails).
+**Fix**: 0041 redefines the guard so the `has_password` change is allowed
+when it AGREES with the authoritative `auth.users.encrypted_password`
+state (sync trigger always writes the correct mirror value → passes; a
+client trying to set a contradicting value → still blocked; setting the
+already-correct value → harmless no-op). All other guarded columns
+(id/role/permissions/method/username-once) unchanged.
+**Where**: `supabase/migrations/0041_fix_has_password_guard_blocks_signup.sql`.
+**Pattern to never repeat**: before adding a `raise`-on-change column guard
+keyed on `current_user_is_staff()` / `auth.uid()`, list EVERY other trigger
+that writes that column. Any server-managed column written by another
+trigger will be writing under a NULL `auth.uid()` during signup and will
+trip the guard, taking the whole transaction down. Guard against the
+*client write path*, not the *value* — gate on agreement with the source
+of truth (or a transaction-local bypass flag set by the server writer),
+never on the staff context alone.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

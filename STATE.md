@@ -4,6 +4,24 @@ Last updated: 2026-06-03 (later session). Slim by design — "what is true right
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## Signup fix 0041 — APPLIED & VERIFIED (2026-06-05)
+
+New-user signups (Google OAuth + profile password-set) were broken in prod:
+0028 `users_self_update_guard` aborted the signup transaction when 0027's
+`handle_auth_user_password_sync` wrote `has_password` under a null
+`auth.uid()` (symptom: OAuth callback `error_description=Database error
+saving new user`). Fixed by
+`supabase/migrations/0041_fix_has_password_guard_blocks_signup.sql` —
+**applied in Supabase and verified** (admin-API `POST /auth/v1/admin/users`
+now succeeds, profile row created with correct `has_password`; test user
+deleted). Post-mortem in `.claude/rules/mistakes.md`.
+
+Latent follow-up (not yet biting): `handle_new_auth_user` (0001) aborts the
+whole signup on any `email`/`username` unique collision (only `id` conflict
+is handled). Safe today because password accounts use synthetic
+`@samomdkku.app` emails so a real Google email can't collide. Harden if a
+non-synthetic-email path is ever added.
+
 Build green, 49 tests pass (`npm test`). `main` HEAD now lands the
 **Samoshop per-item overhaul** (merged from `feat/shop-per-item-progress`):
 order status = payment phase, `shop_order_items.item_status` =
