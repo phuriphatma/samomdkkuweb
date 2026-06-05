@@ -214,6 +214,14 @@ large function.) Build green, 49 tests pass.
   The whole `vssound` GAS project + `/exec` can be deleted at leisure.
 - **Mobile login caveat** — if a phone genuinely evicts localStorage (not
   just slow restore), the boot-gate fix won't help; needs a real-device repro.
+- **Migrations tooling — DEFERRED by user (don't re-raise unprompted).**
+  Best practice = Supabase CLI with a tracked `schema_migrations` ledger
+  (`supabase migration repair --status applied 0001..0045` to baseline the
+  already-manually-applied files, then `db push`) + a CI job that replays
+  migrations on a fresh Postgres + an optional `supabase/schema.sql` baseline.
+  The numbered files themselves are fine (append-only, immutable — NEVER
+  squash/rewrite applied ones). Current process = manual SQL-editor apply,
+  applied-state tracked here in STATE. User will set up the CLI later.
 
 ## DB migrations status (Supabase `fheueuowbchsnsvbcgil`)
 
