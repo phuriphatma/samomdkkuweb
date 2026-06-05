@@ -4,13 +4,12 @@ Last updated: 2026-06-06. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations applied through 0044; 0045 PENDING (low-risk)
+## Migrations applied through 0045 — NONE pending
 
-All migrations **0041–0044 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`). The only un-applied file:
-- **`0045_soft_delete_null_role_guard.sql` — PENDING APPLY** (low-risk,
-  not exploitable today): makes the soft-delete RPC auth guards fail CLOSED
-  on a null role (`null in (...)` was failing open). Apply when convenient.
+All migrations through **0045 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`). 0045 verified live: the soft-delete RPC guards now
+fail CLOSED on a null role (probe under the service role returns 42501
+"not authorized", not P0002). No pending migrations.
 
 ## Ticket soft-delete — DONE, on main (0043 + 0044)
 
@@ -202,7 +201,6 @@ large function.) Build green, 49 tests pass.
 
 ## Open follow-ups (not yet done)
 
-- **Apply migration 0045** (low-risk null-role guard hardening — see top).
 - **Rotate Discord webhooks** — PR + 11 VS + projects webhooks leaked in
   chat/repo. Regenerate in Discord, then re-PATCH the Pages env vars with
   `tools/set-notify-secrets.mjs` (PR/VS read from `.gs`; projects from your
@@ -225,13 +223,9 @@ large function.) Build green, 49 tests pass.
 
 ## DB migrations status (Supabase `fheueuowbchsnsvbcgil`)
 
-Apply in numeric order via the SQL editor. **All migrations through 0044
-are APPLIED.** The only PENDING file is
-`0045_soft_delete_null_role_guard.sql` (low-risk hardening — top of file).
-Full numbered history is in `supabase/migrations/`; `git log` carries the
-per-migration context. (JS callers generally degrade gracefully when a
-migration is missing, but the soft-delete reads added in 0043 DO need
-`deleted_at` to exist — which it does, 0043 is applied.)
+Apply in numeric order via the SQL editor. **All migrations through 0045
+are APPLIED — none pending.** Full numbered history is in
+`supabase/migrations/`; `git log` carries the per-migration context.
 
 ## Supabase config notes
 
