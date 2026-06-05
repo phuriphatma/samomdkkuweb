@@ -187,7 +187,7 @@ async function postOnce(url, payload, fetchImpl) {
     if (code >= 200 && code < 300) return { ok: true, status: code };
     const raHeader = resp.headers?.get?.('Retry-After') || resp.headers?.get?.('retry-after') || '0';
     const ra = parseFloat(raHeader);
-    const body = ((await resp.text?.().catch(() => '')) || '').slice(0, 500);
+    const body = (typeof resp.text === 'function' ? await resp.text().catch(() => '') : '').slice(0, 500);
     return { ok: false, status: code, body, retryAfter: isFinite(ra) ? ra : 0 };
   } catch (e) {
     return { ok: false, threw: true, status: 0, body: String(e), retryAfter: 0 };

@@ -172,6 +172,16 @@ describe('postToDiscord', () => {
     expect(fetchImpl).toHaveBeenCalledOnce();  // no retry after 1015
   });
 
+  it('does not crash when an error response body cannot be read', async () => {
+    // resp.text rejects — must NOT be misclassified as a transport throw.
+    const badBody = { status: 400, headers: { get: () => null }, text: async () => { throw new Error('stream'); } };
+    const fetchImpl = vi.fn().mockResolvedValue(badBody);
+    const r = await postToDiscord('u', {}, { fetchImpl, sleep: noSleep });
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(400);          // a real 400, not threw:true
+    expect(fetchImpl).toHaveBeenCalledOnce();  // 400 is non-transient → no retry
+  });
+
   it('treats a transport throw as transient and exhausts attempts', async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('network'));
     const r = await postToDiscord('u', {}, { fetchImpl, sleep: noSleep });
