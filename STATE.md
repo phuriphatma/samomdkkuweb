@@ -4,6 +4,30 @@ Last updated: 2026-06-03 (later session). Slim by design — "what is true right
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## ⚠️ Soft-delete for tickets — on `refactor/modular`, NEEDS 0043 APPLIED FIRST
+
+PR + VS ticket deletion is now SOFT (recoverable) instead of a hard DELETE
+(the dev-account incident: an accidental delete was unrecoverable on free
+tier). Migration `0043_soft_delete_tickets.sql`:
+- adds `deleted_at` to `pr_tickets` + `vs_tickets` (+ partial active indexes)
+- `soft_delete_pr_ticket` / `soft_delete_vs_ticket` SECURITY DEFINER RPCs
+  that re-check the EXACT same authorization as the old DELETE policies
+  (soft-delete is an UPDATE, so a plain PATCH would wrongly inherit the
+  broader UPDATE-policy scope — hence the RPC)
+- guest-lookup RPCs (0021) recreated to also hide `deleted_at` rows
+
+Frontend: `deletePRStaffAction` / `deleteCurrentVSTicket` call the RPCs;
+every list/lookup read filters `&deleted_at=is.null`; PR confirm now shows
+the ticket id + name. Restore = admin SQL `update <table> set deleted_at =
+null where id = '...'` (Supabase SQL editor).
+
+**ORDER MATTERS:** apply 0043 BEFORE the frontend deploys, or the
+`deleted_at=is.null` reads 400 ("column does not exist"). 0043 is additive
+and safe for current prod (main doesn't query deleted_at yet). Plan: apply
+0043 → verify on preview (delete a test ticket, confirm it vanishes from the
+dashboard + is restorable via SQL) → merge `refactor/modular` to main.
+Build green, 90 tests pass.
+
 ## Signup fix 0041 — APPLIED & VERIFIED (2026-06-05)
 
 New-user signups (Google OAuth + profile password-set) were broken in prod:

@@ -86,7 +86,7 @@ export async function fetchPRStaffTickets() {
     // default to migration-time for legacy rows, putting them in an
     // arbitrary order within their kanban column.
     const { data, error } = await dbRest(
-      '/pr_tickets?select=*&order=timestamp.desc',
+      '/pr_tickets?select=*&deleted_at=is.null&order=timestamp.desc',
     );
     if (error) throw new Error(error.message || 'โหลดไม่สำเร็จ');
     if (loading) loading.classList.add('d-none');
@@ -382,22 +382,26 @@ export async function submitPRStaffAction() {
 // --------------------------------------------------
 
 export async function deletePRStaffAction() {
-  if (!confirm('⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบงาน PR นี้? ข้อมูลจะไม่สามารถกู้คืนได้')) return;
+  // Soft-delete (recoverable) via the RPC — shows exactly which ticket so
+  // you can't nuke the wrong one. Restore is an admin SQL update on
+  // deleted_at (see migration 0043).
+  const t = prStaffTicketsCache.find((x) => x.id === currentActivePrTicketId);
+  const name = (t?.contentName || '').slice(0, 60);
+  if (!confirm(`⚠️ ลบงาน PR นี้?\n\n${currentActivePrTicketId}${name ? ' — ' + name : ''}\n\n(ลบแบบกู้คืนได้ — ผู้ดูแลระบบกู้คืนได้ภายหลัง)`)) return;
   const btn = document.querySelector('#prStaffManageModal .btn-danger');
   const ogText = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = 'กำลังลบ...';
 
   try {
-    const idEsc = encodeURIComponent(currentActivePrTicketId);
-    const { data: deleted, error } = await dbRest(
-      `/pr_tickets?id=eq.${idEsc}`,
-      { method: 'DELETE', prefer: 'return=representation' },
+    const { data, error } = await dbRest(
+      '/rpc/soft_delete_pr_ticket',
+      { method: 'POST', body: { p_id: currentActivePrTicketId } },
     );
     if (error) throw new Error(error.message || 'delete failed');
-    if (!Array.isArray(deleted) || deleted.length === 0) {
+    if (!data || !data.id) {
       throw new Error('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ');
     }
-    alert('ลบงาน PR เรียบร้อยแล้ว!');
+    alert('ลบงาน PR เรียบร้อยแล้ว (กู้คืนได้)');
     bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
     fetchPRStaffTickets();
   } catch (e) { alert('เกิดข้อผิดพลาดในการลบ: ' + (e.message || e)); }

@@ -183,7 +183,7 @@ export async function fetchStaffTickets() {
     // filters client-side by currentStaffRole; the kanban view shows
     // them all grouped by status.
     const { data, error } = await dbRest(
-      '/vs_tickets?select=*&order=timestamp.desc',
+      '/vs_tickets?select=*&deleted_at=is.null&order=timestamp.desc',
     );
     if (error) throw new Error(error.message || 'โหลดไม่สำเร็จ');
     staffTicketsCache = data || [];
@@ -391,19 +391,21 @@ export async function deleteCurrentVSTicket() {
   if (!currentActiveTicketId) return;
   const ticket = staffTicketsCache.find((t) => t.id === currentActiveTicketId);
   const hint = ticket ? `"${(ticket.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60)}"` : '';
-  if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
+  if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่?\n(ลบแบบกู้คืนได้ — ผู้ดูแลระบบกู้คืนได้ภายหลัง)`)) return;
 
-  const idEsc = encodeURIComponent(currentActiveTicketId);
+  // Soft-delete (recoverable) via the RPC, which re-checks the SAME
+  // authorization as the old DELETE policy (vs_staff/dev/has('vs') or
+  // vp_admin own-dept). See migration 0043.
   const { data, error } = await dbRest(
-    `/vs_tickets?id=eq.${idEsc}`,
-    { method: 'DELETE', prefer: 'return=representation' },
+    '/rpc/soft_delete_vs_ticket',
+    { method: 'POST', body: { p_id: currentActiveTicketId } },
   );
   if (error) {
-    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown'));
+    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown') + '\n(VP ลบได้เฉพาะ ticket ของฝ่ายตนเอง — โอนคืน SE ก่อนเพื่อให้ SE ลบให้)');
     return;
   }
-  if (!Array.isArray(data) || data.length === 0) {
-    alert('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ\n(VP ลบได้เฉพาะ ticket ของฝ่ายตนเอง — โอนคืน SE ก่อนเพื่อให้ SE ลบให้)');
+  if (!data || !data.id) {
+    alert('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ');
     return;
   }
 

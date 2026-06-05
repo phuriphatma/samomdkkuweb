@@ -50,7 +50,7 @@ export async function trackWithTicketId() {
         console.warn('[vs-tracking] get_vs_ticket_by_id RPC missing — apply migration 0021_guest_ticket_lookup_rpcs.sql for guest lookup. Falling back to direct read.');
       }
       const tIdEsc = encodeURIComponent(tId);
-      ({ data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&limit=1`));
+      ({ data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&deleted_at=is.null&limit=1`));
     }
     if (error) throw new Error(error.message || 'ค้นหาล้มเหลว');
     const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
@@ -99,7 +99,7 @@ export async function loginToViewHistory() {
     // trackWithTicketId above. PostgREST `or=(...)` syntax in the URL.
     const orClause = `or=(submitter_id.eq.${encodeURIComponent(authUser.id)},submitter_label.eq.${encodeURIComponent(submitterLabel)})`;
     const { data, error } = await dbRest(
-      `/vs_tickets?select=*&${orClause}&order=timestamp.desc`,
+      `/vs_tickets?select=*&${orClause}&deleted_at=is.null&order=timestamp.desc`,
     );
     if (error) throw new Error(error.message || 'โหลดประวัติล้มเหลว');
     loggedInUserTickets = (data || []).map(rowToTicket);

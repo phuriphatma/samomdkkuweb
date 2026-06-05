@@ -72,7 +72,7 @@ export async function trackPRTicket() {
         console.warn('[pr-tracking] get_pr_ticket_by_id RPC missing — apply migration 0021_guest_ticket_lookup_rpcs.sql for guest lookup. Falling back to direct read.');
       }
       const idEsc = encodeURIComponent(tId.toUpperCase());
-      ({ data, error } = await dbRest(`/pr_tickets?select=*&id=ilike.${idEsc}&limit=1`));
+      ({ data, error } = await dbRest(`/pr_tickets?select=*&id=ilike.${idEsc}&deleted_at=is.null&limit=1`));
     }
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : null;
@@ -104,7 +104,7 @@ export async function refreshPRTicketDashboard() {
 
   try {
     const idEsc = encodeURIComponent(tId);
-    const { data, error } = await dbRest(`/pr_tickets?select=*&id=eq.${idEsc}&limit=1`);
+    const { data, error } = await dbRest(`/pr_tickets?select=*&id=eq.${idEsc}&deleted_at=is.null&limit=1`);
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : null;
     if (row) renderPRDashboard(rowToTicket(row));
@@ -143,7 +143,7 @@ export async function loadPRHistory() {
     const orFilter = encodeURIComponent(`submitter_id.eq.${idEsc},submitter_label.eq.${labelEsc}`)
       .replace(/%2C/g, ','); // PostgREST or= needs raw commas
     const { data, error } = await dbRest(
-      `/pr_tickets?select=*&or=(${orFilter})&order=timestamp.desc`
+      `/pr_tickets?select=*&or=(${orFilter})&deleted_at=is.null&order=timestamp.desc`
     );
     if (error) throw error;
     loggedInUserPrTickets = (data || []).map(rowToTicket);
