@@ -10,7 +10,7 @@
 // and doesn't break the calling action.
 // ==============================================
 
-import { GAS_API_URL } from '../config.js';
+import { GAS_API_URL, NOTIFY_FN_URL } from '../config.js';
 import { queueDiscord, callGAS } from '../discord-queue.js';
 import {
   createNotification,
@@ -118,7 +118,7 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
     if (body)             fields.push({ name: 'รายละเอียด', value: body.slice(0, 1000), inline: false });
     if (url)              fields.push({ name: 'ลิงก์',      value: url, inline: false });
 
-    await queueDiscord(() => callGAS(GAS_API_URL, 'notifyProjectDiscord', {
+    await queueDiscord(() => callGAS(NOTIFY_FN_URL, 'notifyProjectDiscord', {
       title: title || `อัปเดตหนังสือ — ${kind}`,
       description: '',
       color,

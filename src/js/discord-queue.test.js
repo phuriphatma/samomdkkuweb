@@ -7,7 +7,7 @@ import {
   setDiscordSpacing, getDiscordSpacing, __resetDiscordQueue,
 } from './discord-queue.js';
 import { sendNotify, actionFor } from './notify.js';
-import { GAS_API_URL, GAS_VITAL_SOUND_URL } from './config.js';
+import { NOTIFY_FN_URL } from './config.js';
 
 const PROD_SPACING = getDiscordSpacing();
 const fetchMock = vi.fn();
@@ -121,10 +121,10 @@ describe('queueDiscord', () => {
 describe('sendDiscord', () => {
   it('queues a logged GAS call and resolves with its result', async () => {
     fetchMock.mockResolvedValue(okResp({ success: true }));
-    const r = await sendDiscord(GAS_API_URL, 'notifyProjectDiscord', { title: 'hi' });
+    const r = await sendDiscord('/notify', 'notifyProjectDiscord', { title: 'hi' });
     expect(r).toEqual({ success: true });
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe(GAS_API_URL);
+    expect(fetchMock.mock.calls[0][0]).toBe('/notify');
   });
 });
 
@@ -150,26 +150,27 @@ describe('sendNotify (PR + VS routing over the shared queue)', () => {
     return { url, body: JSON.parse(opts.body) };
   }
 
-  it('routes pr → notifyPROnly to the PR GAS endpoint, preserving payload', async () => {
+  it('routes pr → notifyPROnly to the /notify Function, preserving payload', async () => {
     const sent = await captureSend('pr', { ticketId: 'PR-1', department: 'media' });
-    expect(sent.url).toBe(GAS_API_URL);
+    expect(sent.url).toBe(NOTIFY_FN_URL);
     expect(sent.body.action).toBe('notifyPROnly');
     expect(sent.body.ticketId).toBe('PR-1');
     expect(sent.body.department).toBe('media');
   });
 
-  it('routes vs submit → notifyVSOnly to the Vital Sound endpoint', async () => {
-    const sent = await captureSend('vs', { mode: 'submit', ticketId: 'VS-9' });
-    expect(sent.url).toBe(GAS_VITAL_SOUND_URL);
+  it('routes vs submit → notifyVSOnly to the /notify Function (dept passed for routing)', async () => {
+    const sent = await captureSend('vs', { mode: 'submit', ticketId: 'VS-9', department: 'SE' });
+    expect(sent.url).toBe(NOTIFY_FN_URL);
     expect(sent.body.action).toBe('notifyVSOnly');
     expect(sent.body.ticketId).toBe('VS-9');
+    expect(sent.body.department).toBe('SE');
   });
 
-  it('routes vs consult → notifyVSConsult to the Vital Sound endpoint', async () => {
-    const sent = await captureSend('vs', { mode: 'consult', ticketId: 'VS-9', notifyTo: 'se' });
-    expect(sent.url).toBe(GAS_VITAL_SOUND_URL);
+  it('routes vs consult → notifyVSConsult to the /notify Function', async () => {
+    const sent = await captureSend('vs', { mode: 'consult', ticketId: 'VS-9', notifyTo: 'SE' });
+    expect(sent.url).toBe(NOTIFY_FN_URL);
     expect(sent.body.action).toBe('notifyVSConsult');
-    expect(sent.body.notifyTo).toBe('se');
+    expect(sent.body.notifyTo).toBe('SE');
   });
 
   it('is a no-op for an unknown system (no fetch, warns)', async () => {

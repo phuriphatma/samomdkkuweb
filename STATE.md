@@ -23,6 +23,29 @@ id-only profile row and logs. Companion to 0041, same bug class. Not biting
 today (synthetic `@samomdkku.app` emails can't collide a real Google email),
 so non-urgent, but apply when convenient.
 
+## Discord → Cloudflare Pages Function (on `refactor/modular`, 2026-06-05)
+
+ALL Discord notifications (PR/VS/projects) now proxy through one Cloudflare
+Pages Function `functions/notify.js` (+ pure core `functions/_discord.js`)
+instead of GAS — frontend posts `{action,...payload}` to `NOTIFY_FN_URL`
+(`/notify`) via the shared queue. Cloudflare egress IP ≈ kills the 1015
+per-IP limit; real logs; webhooks in Pages env vars. GAS keeps Drive uploads
++ projects email only. Covered by `functions/notify.test.js` (24 tests:
+builders, per-dept routing, retry/Retry-After/1015-bail, handler outcomes).
+Build green, **89 tests pass**.
+
+**Shipped on `refactor/modular` (preview) for testing — NOT yet on main.**
+TODO before/at merge to main:
+1. Set Pages env vars on BOTH projects (`refactorsamomdkkuweb` for preview,
+   then `samomdkkuweb` for prod): `DISCORD_PR_WEBHOOK`,
+   `DISCORD_PROJECTS_WEBHOOK`, `DISCORD_VS_WEBHOOKS` (JSON map).
+2. **Rotate** all Discord webhooks (old ones exposed in chat/repo) and store
+   the fresh URLs in the env vars.
+3. Verify on `refactorsamomdkkuweb.pages.dev` (submit PR/VS, do a projects
+   action, confirm ping + Function logs), then merge to main.
+Setup playbook: `skills/cloudflare-notify-function.md`. GAS notify actions
+are now dead code (safe to delete on next GAS redeploy).
+
 ## Discord notify unified (2026-06-05)
 
 PR form, Vital Sign, and หนังสือโครงการ now share ONE rate-limit-aware

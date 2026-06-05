@@ -348,11 +348,14 @@ Build config on both:
 
 ### Apps Script projects (2)
 
-- `prform` — owns the `PR_Submissions` Drive folder + PR-team Discord webhook +
-  the SAMO Shop Drive tree (`SAMO_Shop/Slips/...`, `SAMO_Shop/Products/...`,
-  `SAMO_Shop/QR/`). Add a new file-upload destination by passing a new
-  `folderPath` prefix to `uploadShopFile`.
-- `vssound` — owns the per-dept Discord webhook map
+- `prform` — owns the `PR_Submissions` Drive folder + the SAMO Shop Drive
+  tree (`SAMO_Shop/Slips/...`, `SAMO_Shop/Products/...`, `SAMO_Shop/QR/`) +
+  the projects email (MailApp). Add a new file-upload destination by passing
+  a new `folderPath` prefix to `uploadShopFile`. (Its Discord actions are now
+  dead code — Discord moved to the `/notify` Cloudflare Function.)
+- `vssound` — historically owned the per-dept Discord webhook map; that map
+  now lives in the `DISCORD_VS_WEBHOOKS` Pages env var. The `.gs` is dead
+  code pending its next redeploy.
 
 Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 
@@ -392,9 +395,16 @@ rejects `..` segments. Folders are created lazily on first write.
 ## Notable design decisions
 
 - **Drive for files, not Supabase Storage**: 2 TB vs 1 GB free tier.
-- **GAS for Discord, not Edge Functions**: Edge Functions return 502 in our
-  project (Edge Runtime version mismatch); GAS works. Phase 5 in
-  `docs/SUPABASE-MIGRATION.md` tracks this.
+- **Cloudflare Pages Function for Discord** (`functions/notify.js`): ALL
+  Discord notifications (PR/VS/projects) proxy through `/notify`, not GAS.
+  Cloudflare's egress IP (vs GAS's shared IP) ≈ removes the 1015 per-IP rate
+  limit, and gives real logs. Webhook URLs are Pages env vars
+  (`DISCORD_PR_WEBHOOK`, `DISCORD_PROJECTS_WEBHOOK`, `DISCORD_VS_WEBHOOKS`
+  JSON map). Setup + rotation in `skills/cloudflare-notify-function.md`.
+  (Supabase Edge Functions were the earlier candidate but 502 in this
+  project — Cloudflare Pages Functions are the chosen path.)
+- **GAS = Drive uploads + projects email only** now: the 2 TB Drive quota is
+  the one thing nothing free beats, so uploads stay on GAS; Discord moved off.
 - **Raw `fetch` via `dbRest()` for hot paths**: supabase-js has been a
   source of intermittent hangs. The raw-fetch escape hatch is used in
   pr-form, vs-form, pr-tracking, announcements.

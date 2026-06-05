@@ -17,9 +17,17 @@
 export const GAS_API_URL =
   'https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec';
 
-/** Google Apps Script URL for Vital Sound (Discord notify) — PROD */
+/** Google Apps Script URL for Vital Sound (Discord notify) — PROD.
+ *  Discord notifications have moved to the Cloudflare Pages Function
+ *  (NOTIFY_FN_URL); this stays only as a reference / fallback constant. */
 export const GAS_VITAL_SOUND_URL =
   'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
+
+/** Cloudflare Pages Function (`functions/notify.js`) that proxies ALL
+ *  Discord notifications (PR / Vital Sign / หนังสือโครงการ). Same-origin
+ *  path — resolves to the Function on every Pages deployment; GAS keeps
+ *  Drive uploads + the projects email only. */
+export const NOTIFY_FN_URL = '/notify';
 
 /** Quill.js toolbar configuration shared by all editors */
 export const QUILL_TOOLBAR = [
