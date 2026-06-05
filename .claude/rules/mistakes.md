@@ -935,6 +935,30 @@ table's DELETE policy isn't identical to its UPDATE policy.
 
 ---
 
+## `null in (...)` makes a `raise`-on-unauthorized guard fail OPEN
+
+**Symptom**: A SECURITY DEFINER RPC guards itself with
+`if current_user_role() not in ('staff','dev') then raise ...`. A caller
+whose `current_user_role()` is NULL sails straight past the guard and runs
+the privileged body instead of being rejected.
+**Cause**: SQL three-valued logic. `null in ('a','b')` is `NULL` (not
+`false`); `not NULL` is `NULL`; and `IF NULL THEN raise` does NOT execute
+the then-branch (only TRUE does). So the guard is skipped — fails OPEN —
+for any null input. `current_user_role()` is null when there's no
+`public.users` row for `auth.uid()` (and for the service_role JWT, whose
+`auth.uid()` is null).
+**Fix**: capture the value and add an explicit null check that fails CLOSED:
+`if v_role is null or v_role not in (...) then raise`. For an OR of
+predicates, lead with `if v_role is null or not (...) then raise` so a NULL
+inside the OR can't swallow the whole condition.
+**Where**: `supabase/migrations/0045_soft_delete_null_role_guard.sql`
+(hardens the 0043/0044 `soft_delete_pr_ticket` / `soft_delete_vs_ticket`).
+Audit any `current_user_*() in/not in (...)` guard in a definer function for
+the same fail-open. (Granting the RPC to `authenticated` only + a NOT NULL
+role column kept it unexploitable here, but don't rely on that.)
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

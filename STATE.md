@@ -1,52 +1,43 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-03 (later session). Slim by design — "what is true right now",
+Last updated: 2026-06-06. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ⚠️ Soft-delete for tickets — on `refactor/modular`, NEEDS 0043 APPLIED FIRST
+## Migrations applied through 0044; 0045 PENDING (low-risk)
 
-PR + VS ticket deletion is now SOFT (recoverable) instead of a hard DELETE
-(the dev-account incident: an accidental delete was unrecoverable on free
-tier). Migration `0043_soft_delete_tickets.sql`:
-- adds `deleted_at` to `pr_tickets` + `vs_tickets` (+ partial active indexes)
-- `soft_delete_pr_ticket` / `soft_delete_vs_ticket` SECURITY DEFINER RPCs
-  that re-check the EXACT same authorization as the old DELETE policies
-  (soft-delete is an UPDATE, so a plain PATCH would wrongly inherit the
-  broader UPDATE-policy scope — hence the RPC)
-- guest-lookup RPCs (0021) recreated to also hide `deleted_at` rows
+All migrations **0041–0044 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`). The only un-applied file:
+- **`0045_soft_delete_null_role_guard.sql` — PENDING APPLY** (low-risk,
+  not exploitable today): makes the soft-delete RPC auth guards fail CLOSED
+  on a null role (`null in (...)` was failing open). Apply when convenient.
 
-Frontend: `deletePRStaffAction` / `deleteCurrentVSTicket` call the RPCs;
-every list/lookup read filters `&deleted_at=is.null`; PR confirm now shows
-the ticket id + name. Restore = admin SQL `update <table> set deleted_at =
-null where id = '...'` (Supabase SQL editor).
+## Ticket soft-delete — DONE, on main (0043 + 0044)
 
-**0043 APPLIED.** Still PENDING: `0044_vs_delete_any_staff.sql` — relaxes
-VS soft-delete so ANY VS staff or VP may delete ANY ticket (dropped the
-per-dept VP limit, per product decision). Still staff-only (the RPC keeps
-submitters/guests out — that's why it's not a plain PATCH). Apply 0044, then
-merge `refactor/modular` to main. (0043 is applied, so the `deleted_at`
-reads won't 400 — the frontend is safe to deploy once merged; 0044 only
-broadens who can delete VS.) Build green, 90 tests pass.
+PR + VS ticket deletion is SOFT (recoverable) instead of hard DELETE
+(an accidental dev-account delete was unrecoverable on free tier).
+- `deleted_at` on `pr_tickets` + `vs_tickets`; `soft_delete_pr_ticket` /
+  `soft_delete_vs_ticket` SECURITY DEFINER RPCs encode the delete
+  authorization (PR: pr_staff/dev; VS after 0044: ANY vs_staff/dev/vp_admin/
+  has('vs') — per-dept VP limit dropped). RPCs, not a plain PATCH, because
+  soft-delete is an UPDATE that would inherit the broader UPDATE RLS.
+- Guest-lookup RPCs (0021) recreated to hide deleted rows. Every list/lookup
+  read filters `&deleted_at=is.null`.
+- UI does NOT tell staff it's recoverable (they'd ask to undo). PR delete
+  confirm shows ticket id + name. **Restore = admin SQL**
+  `update <table> set deleted_at = null where id = '...'`.
+- PR staff dashboard has a search box (Ticket ID / ชื่องาน) next to the dept
+  filter — `filterPRStaffTickets()` in `src/js/pr-staff.js`.
 
-## Signup fix 0041 — APPLIED & VERIFIED (2026-06-05)
+## Signup fixes 0041 + 0042 — APPLIED & VERIFIED
 
-New-user signups (Google OAuth + profile password-set) were broken in prod:
-0028 `users_self_update_guard` aborted the signup transaction when 0027's
-`handle_auth_user_password_sync` wrote `has_password` under a null
-`auth.uid()` (symptom: OAuth callback `error_description=Database error
-saving new user`). Fixed by
-`supabase/migrations/0041_fix_has_password_guard_blocks_signup.sql` —
-**applied in Supabase and verified** (admin-API `POST /auth/v1/admin/users`
-now succeeds, profile row created with correct `has_password`; test user
-deleted). Post-mortem in `.claude/rules/mistakes.md`.
+0041 (`fix_has_password_guard_blocks_signup`) unblocked all new signups
+(0028 guard aborted signup when 0027 wrote `has_password` under null
+`auth.uid()`). 0042 (`resilient_handle_new_auth_user`) makes the profile-row
+insert never abort signup on an email/username collision. **Both applied.**
+Post-mortems in `.claude/rules/mistakes.md`.
 
-**Migration 0042 — PENDING APPLY** (Supabase SQL editor): hardens
-`handle_new_auth_user` so an `email`/`username` unique collision (or any
-unexpected error) can never abort an auth signup — it falls back to an
-id-only profile row and logs. Companion to 0041, same bug class. Not biting
-today (synthetic `@samomdkku.app` emails can't collide a real Google email),
-so non-urgent, but apply when convenient.
+## (history below — older applied work)
 
 ## Discord → Cloudflare Pages Function — MERGED TO MAIN + CONFIGURED (2026-06-05)
 
@@ -211,50 +202,28 @@ large function.) Build green, 49 tests pass.
 
 ## Open follow-ups (not yet done)
 
-- **Discord notify platform** — user chose to KEEP GAS for now, scope any
-  Discord work to หนังสือโครงการ only (do NOT touch prform/vitalsound),
-  and migrate to a non-GAS proxy (Edge Function / Worker, dedicated egress
-  IP) later. The rapid-fire rate-limit is already handled by the 6s
-  queue spacing in `projects/notify.js`.
-- **Mobile login fix caveat** — if a phone is genuinely evicting
-  localStorage (not just slow restore), the boot-gate fix won't help;
-  needs a real-device repro to distinguish.
+- **Apply migration 0045** (low-risk null-role guard hardening — see top).
+- **Rotate Discord webhooks** — PR + 11 VS + projects webhooks leaked in
+  chat/repo. Regenerate in Discord, then re-PATCH the Pages env vars with
+  `tools/set-notify-secrets.mjs` (PR/VS read from `.gs`; projects from your
+  GAS Script Property). Working now, but spammable until rotated.
+- **Rotate the Cloudflare API token** if not already done (it was pasted in
+  chat during the notify setup).
+- **Redeploy `appscript/prform.gs`** at some point so the live deployment
+  drops the now-removed Discord handlers (uncalled → hygiene, not urgent).
+  The whole `vssound` GAS project + `/exec` can be deleted at leisure.
+- **Mobile login caveat** — if a phone genuinely evicts localStorage (not
+  just slow restore), the boot-gate fix won't help; needs a real-device repro.
 
-Resolved by user (2026-06-03): **GAS redeployed** (customer-mirror QR +
-folder/rename ops now live) and **Supabase Manual linking enabled**
-(profile Connect-Google prerequisite met). No code follow-up needed.
+## DB migrations status (Supabase `fheueuowbchsnsvbcgil`)
 
-## Pending DB migrations (Supabase `fheueuowbchsnsvbcgil`)
-
-Apply in numeric order via the SQL editor. JS callers degrade gracefully
-when missing — site keeps working but the feature behind each migration
-won't function until applied.
-
-User has confirmed 0023–0031 + **0032–0038 are applied** (0032 is in
-active use — the /projects-view customer mirror shows data, which it
-couldn't without anon SELECT). **0039 is the only pending one** — until
-it lands, the QR-folder cache falls back to a GAS call per open (works,
-just doesn't save the round-trip).
-
-| Migration | What it unlocks | Status |
-|---|---|---|
-| 0023_shop_product_code | `<CODE>NNNN` order ids; `shop_products.code` | ✅ applied |
-| 0024_shop_product_production_status | `production_status` column + cascade RPC | ✅ applied |
-| 0025_shop_orders_paid_cascade | BEFORE-UPDATE trigger auto-advances on `paid` | ✅ applied |
-| 0026_profile_email_and_order_contact | `lookup_email_by_username` RPC; auth.email mirror; `buyer_name`/`buyer_email` | ✅ applied |
-| 0027_username_case_and_has_password | Case-insensitive username lookup; `users.has_password` mirror | ✅ applied |
-| 0028_users_self_update_guard | **Security**. BEFORE-UPDATE trigger that blocks self-promotion via `PATCH /users` (column-level guard since RLS is row-level only) | ✅ applied |
-| 0029_shop_preorder_price | `shop_products.preorder_price` nullable column — separate preorder price | ✅ applied |
-| 0030_shop_stock_safety_and_preorder_tag | `shop_orders.is_preorder` + `shop_reserved_matrix_all()` RPC + `place_shop_order()` RPC (atomic stock check via row lock — prevents oversell). Buyer sees `max(0, stock - reserved)`. | ✅ applied |
-| 0031_project_doc_views | Per-user, per-doc seenAt marker — moves inbox highlights off per-device localStorage so they sync across devices + stop leaking across accounts. RLS-gated to own rows. JS bulk-uploads existing localStorage on first run. (File made idempotent after the first apply — re-running is safe.) | ✅ applied |
-| 0032_projects_public_read | **Public-read RLS** on `projects`, `project_documents`, `project_files`, `project_doc_types`, `project_settings` (`for select to anon, authenticated using (true)`). Unblocks the new /projects-view customer mirror — anonymous visitors can list every project, document, file URL, and the settings row's label fields. Writes are unchanged (still vp_admin / uni_staff gated). Settings table now exposes `uni_email` to anon too — if that becomes sensitive, scope to a column-select view in a follow-up. | ⏳ **pending — apply via Supabase SQL editor** |
-| 0033_shop_per_item_and_buyer_phone | **Additive**. `shop_order_items.item_status`/`item_timeline`/`is_preorder`; `shop_orders.buyer_phone` + `slips` jsonb (backfilled from `slip_url`). Foundation for the Hybrid per-item model. | ✅ applied |
-| 0034_shop_item_status_cascade | Rewrites `place_shop_order` (adds `p_buyer_phone`/`p_slips`, stamps per-item `is_preorder` + seeds `item_status`), repoints `apply_product_production_status` + the order-paid trigger to cascade to `item_status`, moves reserved-matrix aggregates to an item-level predicate. Drops the 0030 `place_shop_order` signature. | ✅ applied |
-| 0035_shop_orders_admin_insert | Admin `shop_orders` INSERT policy so admin can create walk-in / phone orders (buyer_id null). OR-combined with the buyer insert policy. | ✅ applied |
-| 0036_users_phone | **Additive**. `users.phone` column (self-writable; not guarded by 0028). Powers the จัดการบัญชี phone field + samoshop checkout autofill. | ✅ applied |
-| 0037_shop_banner_placement | **Additive**. `shop_banners.placement` ('launch' \| 'announcement', default 'launch'); per-placement order index. Unlocks the ประกาศ swipe-banner carousel + admin placement toggle. | ✅ applied |
-| 0038_reserved_excludes_preorder | Redefines `shop_reserved_matrix`, `shop_reserved_matrix_all`, `place_shop_order` so reserved-stock aggregates count only `is_preorder=false` items — preorder no longer depletes finite stock / over-counts the oversell guard. Signatures unchanged. | ✅ applied |
-| 0039_project_drive_folder_cache | **Additive**. `projects.drive_folder_url` + `drive_folder_id` — caches the Drive folder so `qr.js` hits GAS at most once per project (first QR open) instead of on every open. JS degrades to the GAS round-trip when absent. | ⏳ **pending — apply via Supabase SQL editor** |
+Apply in numeric order via the SQL editor. **All migrations through 0044
+are APPLIED.** The only PENDING file is
+`0045_soft_delete_null_role_guard.sql` (low-risk hardening — top of file).
+Full numbered history is in `supabase/migrations/`; `git log` carries the
+per-migration context. (JS callers generally degrade gracefully when a
+migration is missing, but the soft-delete reads added in 0043 DO need
+`deleted_at` to exist — which it does, 0043 is applied.)
 
 ## Supabase config notes
 
@@ -269,46 +238,15 @@ just doesn't save the round-trip).
   `https://samomdkkuweb.pages.dev/**` and
   `https://refactorsamomdkkuweb.pages.dev/**`.
 
-## GAS deploy (`appscript/prform.gs`) — DEPLOYED 2026-06-03
+## GAS (`appscript/prform.gs`) — Drive uploads + projects email ONLY
 
-User redeployed the prod /exec endpoint, so the changes below are now
-LIVE (customer-mirror QR + folder/rename self-heal + the Discord
-retry/1015-aware path). See `skills/deploy-gas.md` for the procedure.
-Bundled changes that landed in this deploy:
-
-| Area | What's new |
-|---|---|
-| QR + folder ops | New `getProjectFolderInfo` action (takes optional `share:true` for ANYONE_WITH_LINK view — QR sets it, rename hook doesn't). New `walkProjectsPathByCode_` + `extractProjectCode_` helpers: every project-tree path walk now matches folders by their PRJ-/DOC- code substring and self-renames stale names to the current desiredName. Used by `handleUploadProjectFile`, `handleGetProjectFolderInfo`, `handleDeleteProjectFolder` — so a project / doc rename in the app self-heals on Drive on the next upload, QR generation, or delete. Legacy `PRJ-XXXX_<slug>` folders found by code and renamed to new `<slug>_PRJ-XXXX` format transparently. |
-| Discord notify | `sendProjectDiscord` does up to 3 attempts with progressive backoff (1.2s / 2.5s / 4s, Retry-After honoured, clamp bumped 5s → 9s). Detects Cloudflare 1015 in response body and bails the retry loop early (no point burning GAS time when per-IP cooldown won't clear). `doPost notifyProjectDiscord` echoes full diagnostic info in the response (`status`, `attempts`, `firstStatus`, `body`, `retried`) so the frontend can log what Discord said — GAS Cloud Logs are NOT recorded for browser-fetch calls (see `skills/deploy-gas.md` "Where the logs DO and DON'T appear"). `notifyProjectEmail` also surfaces send failures. |
-| Diagnostics | New `testProjectDiscord()` function for manual editor-Run debugging — sends a labelled test embed and logs the full Discord response. Top-of-`doPost` trace log (`doPost: action=...`) for absolute-floor confirmation that the code path is being entered (visible only when called with OAuth token or from the editor). |
-
-(Now deployed — the QR button + rename hooks resolve, and Discord notify
-runs the retry/1015-aware path.)
-
-## Active external issue: Cloudflare 1015 cooldown on Discord webhook
-
-The GAS server's shared egress IP is currently in Cloudflare's
-penalty box for the Discord API (`/api/webhooks/*`). Caused by
-sustained testing volume today (dozens of pings, many back-to-back).
-Symptoms: `testProjectDiscord` returns `HTTP 429 / body "error
-code: 1015"` from the editor; runtime calls all 3-retry and drop.
-
-This is per-IP, not per-webhook — rotating the webhook URL won't
-help. Recovers passively over 15-60 min of quiet. **Stop testing
-Discord-firing actions** until it clears, then verify with one
-`testProjectDiscord` run from the editor.
-
-Longer-term, if this recurs frequently: move Discord notify off GAS
-to a Cloudflare Worker / Supabase Edge Function (different egress
-IP, dedicated to this app). See `mistakes.md` "Cloudflare 1015" for
-the full writeup.
-
-## Recent work landed today (one-line each, for context)
-
-- `ฝ่าย` navbar entry → new tab-departments page (moved from เกี่ยวกับเรา); 10 dept cards drill into per-ฝ่าย tool lists. Three external sites (Notion, MDI, RT) ship as `#` placeholders pending real URLs from the user.
-- Public read-only customer mirror of หนังสือโครงการ at `/projects-view` — reuses admin renderers via `role='customer'` so admin UI changes auto-mirror (zero duplication). Migration 0032 opens anon SELECT on projects + documents + files + types + settings. **Apply 0032 before users hit /projects-view.**
-- Dept-specific links also mirrored into the เครื่องมือ launcher so search picks them up.
-- Easy "คัดลอกรหัส" button on every project's admin detail header (uses the existing `[data-copy]` delegate).
+Post-cutover, prform.gs serves only Drive uploads (`uploadPRFile` /
+`uploadShopFile` / project files+folders) + `notifyProjectEmail` (MailApp).
+**All Discord moved to the `/notify` Cloudflare Function**; `vssound.gs` was
+deleted. The LIVE prod /exec deployment still contains the old (uncalled)
+Discord handlers until the next manual redeploy — hygiene, not urgent. The
+1015 rate-limit problem is moot now (CF egress IP, not GAS's shared one).
+Redeploy procedure: `skills/deploy-gas.md`.
 
 ## End-of-turn loop reminder
 
