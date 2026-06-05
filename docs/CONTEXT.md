@@ -55,7 +55,9 @@ src/js/
 ├── vs-tracking.js       ─ VS user history + ticket lookup + reply
 ├── vs-staff.js          ─ VS staff dashboard
 ├── announcements.js     ─ announcement CRUD via dbRest
-├── notify.js            ─ Discord webhook fire-and-forget (via GAS)
+├── discord-queue.js     ─ shared Discord core: ONE global rate-limit-aware
+│                          queue + logged GAS caller for PR/VS/projects
+├── notify.js            ─ PR + VS Discord fire-and-forget (rides discord-queue)
 ├── uploads.js           ─ Drive upload via GAS uploadPRFile
 ├── config.js            ─ GAS_API_URL + GAS_VITAL_SOUND_URL (prod)
 ├── utils.js             ─ formatThaiDate, renderTimeline, decodeJwtResponse,

@@ -16,11 +16,29 @@ saving new user`). Fixed by
 now succeeds, profile row created with correct `has_password`; test user
 deleted). Post-mortem in `.claude/rules/mistakes.md`.
 
-Latent follow-up (not yet biting): `handle_new_auth_user` (0001) aborts the
-whole signup on any `email`/`username` unique collision (only `id` conflict
-is handled). Safe today because password accounts use synthetic
-`@samomdkku.app` emails so a real Google email can't collide. Harden if a
-non-synthetic-email path is ever added.
+**Migration 0042 — PENDING APPLY** (Supabase SQL editor): hardens
+`handle_new_auth_user` so an `email`/`username` unique collision (or any
+unexpected error) can never abort an auth signup — it falls back to an
+id-only profile row and logs. Companion to 0041, same bug class. Not biting
+today (synthetic `@samomdkku.app` emails can't collide a real Google email),
+so non-urgent, but apply when convenient.
+
+## Discord notify unified (2026-06-05)
+
+PR form, Vital Sign, and หนังสือโครงการ now share ONE rate-limit-aware
+Discord core: `src/js/discord-queue.js` (`queueDiscord` + `callGAS` +
+`sendDiscord`). Every Discord-bound GAS POST — whichever webhook — serialises
+through one global chain with `MIN_DISCORD_SPACING_MS` (6s) spacing, since
+the binding limit is Cloudflare's per-IP 1015 (shared GAS egress), not the
+per-webhook bucket. `notify.js` (`sendNotify` for PR/VS) and
+`projects/notify.js` both ride it; the old per-module fetch + private queue
+copies are gone. Covered by `src/js/discord-queue.test.js` (16 tests:
+callGAS success/non-2xx/success-false/timeout/network, queue FIFO/isolation/
+spacing, sendNotify PR/VS routing). **GAS backend NOT yet unified** — the
+PR/VS senders (`sendDiscordNotification` in prform.gs + vssound.gs) still
+lack the retry/1015-bail that `sendProjectDiscord` has; client-side
+serialisation already covers the rate-limit concern. Backend parity =
+optional follow-up (needs a manual redeploy of BOTH GAS deployments).
 
 Build green, 49 tests pass (`npm test`). `main` HEAD now lands the
 **Samoshop per-item overhaul** (merged from `feat/shop-per-item-progress`):
