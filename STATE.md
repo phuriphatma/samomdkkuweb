@@ -199,17 +199,20 @@ reserved-matrix RPCs. (place_shop_order keeps a now-dead `'exchange'` in its
 inline stock-check predicate — harmless, left to avoid re-declaring the
 large function.) Build green, 49 tests pass.
 
+## Automation credentials (live, intentionally un-rotated)
+
+User has **DECLINED rotating** the Discord webhooks + Cloudflare API token
+(informed choice — don't nag). Instead, the working creds are stashed in
+`.env.local` (gitignored) so automation runs across sessions:
+`CLOUDFLARE_API_TOKEN` (Pages:Edit), `CLOUDFLARE_ACCOUNT_ID`,
+`NOTIFY_DISCORD_PR_WEBHOOK`, `NOTIFY_DISCORD_PROJECTS_WEBHOOK`,
+`NOTIFY_DISCORD_VS_WEBHOOKS` (11-dept JSON). `tools/set-notify-secrets.mjs`
+reads these to re-PATCH Pages env vars on `samomdkkuweb` / `refactorsamomdkkuweb`.
+**NEVER commit or echo these values.** They're live and un-rotated, so treat
+`.env.local` as sensitive.
+
 ## Open follow-ups (not yet done)
 
-- **Rotate Discord webhooks** — PR + 11 VS + projects webhooks leaked in
-  chat/repo. Regenerate in Discord, then re-PATCH the Pages env vars with
-  `tools/set-notify-secrets.mjs` (PR/VS read from `.gs`; projects from your
-  GAS Script Property). Working now, but spammable until rotated.
-- **Rotate the Cloudflare API token** if not already done (it was pasted in
-  chat during the notify setup).
-- **Redeploy `appscript/prform.gs`** at some point so the live deployment
-  drops the now-removed Discord handlers (uncalled → hygiene, not urgent).
-  The whole `vssound` GAS project + `/exec` can be deleted at leisure.
 - **Mobile login caveat** — if a phone genuinely evicts localStorage (not
   just slow restore), the boot-gate fix won't help; needs a real-device repro.
 - **Migrations tooling — DEFERRED by user (don't re-raise unprompted).**
@@ -245,10 +248,10 @@ are APPLIED — none pending.** Full numbered history is in
 Post-cutover, prform.gs serves only Drive uploads (`uploadPRFile` /
 `uploadShopFile` / project files+folders) + `notifyProjectEmail` (MailApp).
 **All Discord moved to the `/notify` Cloudflare Function**; `vssound.gs` was
-deleted. The LIVE prod /exec deployment still contains the old (uncalled)
-Discord handlers until the next manual redeploy — hygiene, not urgent. The
-1015 rate-limit problem is moot now (CF egress IP, not GAS's shared one).
-Redeploy procedure: `skills/deploy-gas.md`.
+deleted. **prform.gs REDEPLOYED** (2026-06-06) — the live /exec now matches
+the repo (Discord handlers gone). The `vssound` GAS project + `/exec` can be
+deleted at leisure. The 1015 rate-limit problem is moot now (CF egress IP,
+not GAS's shared one). Redeploy procedure: `skills/deploy-gas.md`.
 
 ## End-of-turn loop reminder
 
