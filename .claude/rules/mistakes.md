@@ -908,9 +908,11 @@ never on the staff context alone.
 
 **Symptom**: You convert a hard `DELETE` to a soft-delete by PATCHing a
 `deleted_at` column. Authorization quietly changes: users who could *update*
-a row but not *delete* it can now "delete" it, and per-row delete rules
-(e.g. "vp_admin may delete only own-dept VS tickets") stop applying because
-the row's UPDATE policy has different `using` / `with check` predicates.
+a row but not *delete* it can now "delete" it — e.g. the VS owner-can-update
+policy (0009) would let a SUBMITTER soft-delete their own ticket via a
+crafted PATCH, even though VS deletion is meant to be staff-only — and any
+per-row delete rules stop applying because the row's UPDATE policy has
+different `using` / `with check` predicates.
 **Cause**: PostgreSQL RLS is per-operation. `pr_tickets`/`vs_tickets` had
 DELETE policies (pr_staff/dev; vs_staff/dev/has('vs')/vp_admin-own-dept) that
 were deliberately narrower than their UPDATE policies (which include
@@ -925,6 +927,7 @@ re-checks the SAME predicates as the original DELETE policy, then stamps
 visible to a direct admin query for restore); guest-lookup RPCs must add the
 filter too, or a deleted ticket stays trackable by id.
 **Where**: `supabase/migrations/0043_soft_delete_tickets.sql`
+(+ `0044_vs_delete_any_staff.sql` relaxed VS delete to any staff/VP)
 (`soft_delete_pr_ticket` / `soft_delete_vs_ticket`, + the 0021 guest RPCs
 recreated with the filter); callers in `src/js/pr-staff.js` /
 `src/js/vs-staff.js`. Apply the RPC pattern to any future soft-delete whose

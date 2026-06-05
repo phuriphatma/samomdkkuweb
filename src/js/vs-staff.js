@@ -393,15 +393,15 @@ export async function deleteCurrentVSTicket() {
   const hint = ticket ? `"${(ticket.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60)}"` : '';
   if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่?\n(ลบแบบกู้คืนได้ — ผู้ดูแลระบบกู้คืนได้ภายหลัง)`)) return;
 
-  // Soft-delete (recoverable) via the RPC, which re-checks the SAME
-  // authorization as the old DELETE policy (vs_staff/dev/has('vs') or
-  // vp_admin own-dept). See migration 0043.
+  // Soft-delete (recoverable) via the RPC. Any VS staff or VP may delete
+  // any ticket (0044); still staff-only (submitters/guests can't). See
+  // migrations 0043 + 0044.
   const { data, error } = await dbRest(
     '/rpc/soft_delete_vs_ticket',
     { method: 'POST', body: { p_id: currentActiveTicketId } },
   );
   if (error) {
-    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown') + '\n(VP ลบได้เฉพาะ ticket ของฝ่ายตนเอง — โอนคืน SE ก่อนเพื่อให้ SE ลบให้)');
+    alert('ลบไม่สำเร็จ: ' + (error.message || 'unknown'));
     return;
   }
   if (!data || !data.id) {

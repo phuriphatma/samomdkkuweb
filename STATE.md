@@ -21,12 +21,13 @@ every list/lookup read filters `&deleted_at=is.null`; PR confirm now shows
 the ticket id + name. Restore = admin SQL `update <table> set deleted_at =
 null where id = '...'` (Supabase SQL editor).
 
-**ORDER MATTERS:** apply 0043 BEFORE the frontend deploys, or the
-`deleted_at=is.null` reads 400 ("column does not exist"). 0043 is additive
-and safe for current prod (main doesn't query deleted_at yet). Plan: apply
-0043 → verify on preview (delete a test ticket, confirm it vanishes from the
-dashboard + is restorable via SQL) → merge `refactor/modular` to main.
-Build green, 90 tests pass.
+**0043 APPLIED.** Still PENDING: `0044_vs_delete_any_staff.sql` — relaxes
+VS soft-delete so ANY VS staff or VP may delete ANY ticket (dropped the
+per-dept VP limit, per product decision). Still staff-only (the RPC keeps
+submitters/guests out — that's why it's not a plain PATCH). Apply 0044, then
+merge `refactor/modular` to main. (0043 is applied, so the `deleted_at`
+reads won't 400 — the frontend is safe to deploy once merged; 0044 only
+broadens who can delete VS.) Build green, 90 tests pass.
 
 ## Signup fix 0041 — APPLIED & VERIFIED (2026-06-05)
 
