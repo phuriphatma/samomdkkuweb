@@ -33,6 +33,23 @@ After saving env vars, trigger a redeploy (Deployments → Retry, or push a
 commit) so the Function picks them up. Env var changes alone do **not**
 hot-reload an existing deployment.
 
+### Automate it — `tools/set-notify-secrets.mjs`
+
+Instead of clicking through the dashboard, push all three as encrypted
+secrets (production + preview) in one call. Put these in `.env.local`
+(gitignored): `CLOUDFLARE_API_TOKEN` (Pages:Edit), `CLOUDFLARE_ACCOUNT_ID`,
+`NOTIFY_DISCORD_PR_WEBHOOK`, `NOTIFY_DISCORD_PROJECTS_WEBHOOK`,
+`NOTIFY_DISCORD_VS_WEBHOOKS` (the JSON map). Then:
+
+```bash
+node tools/set-notify-secrets.mjs --project refactorsamomdkkuweb            # dry run (masked)
+CONFIRM=1 node tools/set-notify-secrets.mjs --project refactorsamomdkkuweb  # apply (preview)
+CONFIRM=1 node tools/set-notify-secrets.mjs --project samomdkkuweb          # apply (prod)
+```
+
+Use FRESH (rotated) webhook URLs in `.env.local`, not the leaked ones. Still
+trigger a redeploy after — env-var changes apply to the next deployment.
+
 ## Rotate the webhooks when you do this
 
 The current webhook URLs (PR const + the 11 VS webhooks in `vssound.gs`)
