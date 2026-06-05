@@ -67,8 +67,8 @@ Both Cloudflare projects hit the same Supabase backend.
 - **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
-- **Discord**: Apps Script webhook proxy (`notifyPROnly` / `notifyVSOnly` /
-  `notifyVSConsult`)
+- **Discord**: Cloudflare Pages Function `/notify` (`functions/notify.js`),
+  one proxy for PR / Vital Sign / หนังสือโครงการ webhooks
 - **Hosting**: Cloudflare Pages (two projects, one per branch)
 
 For the full architecture map, schema, and deploy plumbing see

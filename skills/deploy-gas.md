@@ -1,38 +1,32 @@
 ---
 name: deploy-gas
-description: Redeploy the slim Apps Script files (Discord notify + Drive upload). Required after any edit to appscript/*.gs.
+description: Redeploy the slim Apps Script file (Drive upload + projects email). Required after any edit to appscript/prform.gs.
 ---
 
 # Deploy Apps Script changes
 
-After editing `appscript/prform.gs` or `appscript/vssound.gs`, the changes
-must be deployed to the Google Apps Script project. The `/exec` URL doesn't
-change between deployments.
+After editing `appscript/prform.gs`, the change must be deployed to the
+Google Apps Script project. The `/exec` URL doesn't change between deployments.
 
-## Which projects to deploy to
+> Discord notifications moved OFF GAS to the Cloudflare Pages Function
+> `/notify` (see `skills/cloudflare-notify-function.md`). `vssound.gs` was
+> deleted (it was Discord-only) and `prform.gs` no longer has any Discord
+> code — GAS now only does Drive uploads + the projects email.
 
-There are TWO sets of GAS projects:
+## Which project to deploy to
 
-| | `prform.gs` lives in | `vssound.gs` lives in |
-|---|---|---|
-| Production (used by both main + refactor branches now) | "prform" GAS project | "vssound" GAS project |
-| Dev (legacy, no longer used) | "prform_dev" | "vssound_dev" |
+Only `prform.gs` remains. Deploy to the PROD "prform" GAS project (the legacy
+"prform_dev" / the whole "vssound" project are no longer used).
 
-Since the Supabase cutover, both Cloudflare projects point at PROD GAS for
-file uploads + Discord notify. Deploy to PROD only.
-
-Prod `/exec` URLs (set in `src/js/config.js`):
+Prod `/exec` URL (set as `GAS_API_URL` in `src/js/config.js`):
 - `https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec` (prform)
-- `https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec` (vssound)
 
 ## Procedure
 
-For each `.gs` file that changed:
-
-1. Open the corresponding Apps Script project at <https://script.google.com>
+1. Open the "prform" Apps Script project at <https://script.google.com>
 2. Open the main code file (usually `Code.gs` or similar)
 3. ⌘A to select all → delete
-4. Open `appscript/prform.gs` (or `vssound.gs`) in this repo → ⌘A → ⌘C
+4. Open `appscript/prform.gs` in this repo → ⌘A → ⌘C
 5. Paste into Apps Script editor
 6. ⌘S to save
 7. **Deploy → Manage deployments → click pencil icon next to existing
@@ -40,42 +34,35 @@ For each `.gs` file that changed:
    Description (optional) → Deploy**
 8. The "Deployment URL" remains the same.
 
-## What the slim .gs files expose
+## What `prform.gs` exposes
 
-`prform.gs`:
-- `uploadPRFile`   action — base64-uploads an image to Drive `PR_Submissions/`
-- `uploadShopFile` action — base64-uploads to `SAMO_Shop/<nested path>`
+- `uploadPRFile`    action — base64-uploads an image to Drive `PR_Submissions/`
+- `uploadShopFile`  action — base64-uploads to `SAMO_Shop/<nested path>`
   (allow-listed; lazily creates folders). Used by the SAMO Shop module
   for slips, product photos, and the PromptPay QR.
-- `notifyPROnly`   action — fires the PR-team Discord webhook
-- All legacy actions removed (`submitPR`, `trackPR`, etc. — Supabase handles those)
-
-`vssound.gs` (154 lines):
-- `notifyVSOnly` action — new-ticket Discord ping
-- `notifyVSConsult` action — staff cross-dept consult/transfer ping
-- All legacy actions removed
+- `uploadProjectFile` / `deleteProjectFile` / `deleteProjectFolder` /
+  `getProjectFolderInfo` — Drive ops for หนังสือโครงการ attachments
+- `notifyProjectEmail` action — `MailApp.sendEmail` to uni_staff
+- All Discord actions removed (moved to the `/notify` Cloudflare Function);
+  all legacy actions removed (`submitPR`, `trackPR`, etc. — Supabase handles those)
 
 ## Verifying the deploy worked
 
-In browser DevTools console after the deploy:
+In browser DevTools console after the deploy — a deliberately bad action
+proves the new code is live without side effects:
 
 ```js
 fetch('https://script.google.com/macros/s/AKfycbw1.../exec', {
   method: 'POST',
   headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-  body: JSON.stringify({
-    action: 'notifyPROnly',
-    ticketId: 'PR-TEST',
-    department: 'Test',
-    content: 'test',
-    deadlineMode: 'Normal',
-  })
+  body: JSON.stringify({ action: 'notifyPROnly' })  // a removed action
 }).then(r => r.text()).then(console.log);
 ```
 
-- Returns `{"success":true}` AND Discord pings → working
-- Returns `Unknown action: notifyPROnly` → old code is still deployed
-  (you forgot the "New version" step)
+- Returns `{"success":false,"message":"Unknown action: notifyPROnly"}`
+  → NEW code is live (the Discord action is gone, as expected)
+- Returns `{"success":true}` → OLD code still deployed (you forgot the
+  "New version" step; the deleted Discord handler is still running)
 
 ## Where the logs DO and DON'T appear (read this before chasing "empty Logs")
 

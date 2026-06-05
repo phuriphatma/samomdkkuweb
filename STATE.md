@@ -41,9 +41,21 @@ email only. Covered by `functions/notify.test.js` (24 tests). 89 tests pass.
   the projects webhook. **Still recommended: rotate all webhooks** (they
   leaked in chat/repo) and re-PATCH the env vars — use
   `tools/set-notify-secrets.mjs` or the dashboard.
-- GAS notify actions (`notifyPROnly`/`notifyVSOnly`/`notifyVSConsult`/
-  `notifyProjectDiscord`) are now dead code — delete on next GAS redeploy.
 Setup/automation playbook: `skills/cloudflare-notify-function.md`.
+
+### Dead-code cleanup done (2026-06-05)
+- `appscript/vssound.gs` DELETED (was Discord-only; fully dead).
+- `appscript/prform.gs` stripped of all Discord code (`DISCORD_WEBHOOK_URL`,
+  `sendProjectDiscord`, `testProjectDiscord`, `postOnce_`,
+  `sendDiscordNotification`, the `notifyPROnly`/`notifyProjectDiscord` doPost
+  branches) — 769→493 lines. KEEPS uploads + `notifyProjectEmail`.
+- `src/js/config.js`: removed unused `GAS_VITAL_SOUND_URL`; `vs-form.js`:
+  removed its dead import. CONTEXT.md / README.md / `skills/deploy-gas.md`
+  updated to match.
+- **PENDING: redeploy `prform.gs`** to the prod "prform" GAS project so the
+  live deployment drops the dead Discord handlers (they're uncalled, so this
+  is hygiene, not urgent — see `skills/deploy-gas.md`). The "vssound" GAS
+  project + its `/exec` can be deleted entirely at leisure.
 
 ### Legacy GAS Script Properties (no longer used)
 - `PR_AGENTS` — DEAD. PR agent roster lives in Supabase `pr_agents` (id=1),

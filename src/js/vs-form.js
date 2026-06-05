@@ -2,7 +2,6 @@
 // VS FORM — Vital Sound Report Submission
 // ==============================================
 
-import { GAS_VITAL_SOUND_URL } from './config.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 

@@ -23,15 +23,17 @@ Browser (Cloudflare Pages-hosted SPA)
   ├─→ Supabase Auth /auth/v1/*               ── sign in / out / refresh
   │     ↳ Google OAuth + email/password (synthetic emails)
   │
-  └─→ GAS /exec (legacy proxy)               ── narrow & specific
-        ↳ uploadPRFile        → writes to Google Drive (PR_Submissions/)
-        ↳ uploadShopFile      → writes to Drive at SAMO_Shop/<nested path>
-        ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
-        ↳ notifyPROnly        → fires Discord webhook (PR team)
-        ↳ notifyVSOnly / notifyVSConsult → fires Discord webhooks (per dept)
-        ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
-        ↳ notifyProjectDiscord → fires SAMO admin Discord webhook
-                                  (URL in Script Property PROJECT_DISCORD_WEBHOOK_URL)
+  ├─→ GAS /exec (prform — Drive + email only)  ── narrow & specific
+  │     ↳ uploadPRFile        → writes to Google Drive (PR_Submissions/)
+  │     ↳ uploadShopFile      → writes to Drive at SAMO_Shop/<nested path>
+  │     ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
+  │     ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
+  │
+  └─→ /notify (Cloudflare Pages Function — all Discord)
+        ↳ notifyPROnly                    → PR-team webhook
+        ↳ notifyVSOnly / notifyVSConsult  → per-dept VS webhooks
+        ↳ notifyProjectDiscord            → SAMO admin webhook
+           (webhooks in Pages env vars; see functions/notify.js)
 ```
 
 GAS is intentionally minimal post-migration. Drops to 104 + 154 lines.
@@ -59,7 +61,7 @@ src/js/
 │                          queue + logged GAS caller for PR/VS/projects
 ├── notify.js            ─ PR + VS Discord fire-and-forget (rides discord-queue)
 ├── uploads.js           ─ Drive upload via GAS uploadPRFile
-├── config.js            ─ GAS_API_URL + GAS_VITAL_SOUND_URL (prod)
+├── config.js            ─ GAS_API_URL (uploads+email) + NOTIFY_FN_URL (Discord)
 ├── utils.js             ─ formatThaiDate, renderTimeline, decodeJwtResponse,
 │                          escHtml, safeUrl
 └── shop/                ─ SAMO Shop feature (browse, cart, checkout, orders,

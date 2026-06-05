@@ -2,26 +2,14 @@
 // CONFIG — API Endpoints & Constants
 // ==============================================
 //
-// These URLs point to the PRODUCTION GAS deployments. The prod GAS
-// projects (prform + vssound) own the Drive folder with all historical
-// PR uploads (2 TB quota) and the live Discord webhooks. Both branches
-// of the site (samomdkkuweb.pages.dev + refactorsamomdkkuweb.pages.dev)
-// hit these same URLs.
-//
-// Dev/clone URLs (used briefly during the refactor's testing phase;
-// safe to remove once the migration is settled):
-//   GAS_API_URL          = 'https://script.google.com/macros/s/AKfycbzLlh-Fic1oKBy8BQB16Q1OQ49szv8LcGf6kJADem7d7bBiDUXt5zwjBSMBU3e3Co923A/exec';
-//   GAS_VITAL_SOUND_URL  = 'https://script.google.com/macros/s/AKfycbwKxvtnxIasQoHB2sC1A0nN14meorMCyq5NelczSC5siJotWhBWIMA6GQ1T1wFs3H09/exec';
+// The prod GAS deployment (prform) owns the Drive folder with all PR/shop/
+// project uploads (2 TB quota) and the projects email (MailApp). Both
+// branches of the site hit the same URL. Discord notifications no longer
+// go through GAS — they moved to the Cloudflare Pages Function below.
 
-/** Google Apps Script URL for PR (file upload + Discord notify) — PROD */
+/** Google Apps Script URL for prform — Drive uploads + projects email. PROD */
 export const GAS_API_URL =
   'https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec';
-
-/** Google Apps Script URL for Vital Sound (Discord notify) — PROD.
- *  Discord notifications have moved to the Cloudflare Pages Function
- *  (NOTIFY_FN_URL); this stays only as a reference / fallback constant. */
-export const GAS_VITAL_SOUND_URL =
-  'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
 
 /** Cloudflare Pages Function (`functions/notify.js`) that proxies ALL
  *  Discord notifications (PR / Vital Sign / หนังสือโครงการ). Same-origin
