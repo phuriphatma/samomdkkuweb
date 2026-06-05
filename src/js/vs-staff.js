@@ -391,11 +391,11 @@ export async function deleteCurrentVSTicket() {
   if (!currentActiveTicketId) return;
   const ticket = staffTicketsCache.find((t) => t.id === currentActiveTicketId);
   const hint = ticket ? `"${(ticket.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60)}"` : '';
-  if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่?\n(ลบแบบกู้คืนได้ — ผู้ดูแลระบบกู้คืนได้ภายหลัง)`)) return;
+  if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
 
-  // Soft-delete (recoverable) via the RPC. Any VS staff or VP may delete
-  // any ticket (0044); still staff-only (submitters/guests can't). See
-  // migrations 0043 + 0044.
+  // Soft-delete via the RPC (recoverable by admin — NOT surfaced to staff).
+  // Any VS staff or VP may delete any ticket (0044); still staff-only
+  // (submitters/guests can't). See migrations 0043 + 0044.
   const { data, error } = await dbRest(
     '/rpc/soft_delete_vs_ticket',
     { method: 'POST', body: { p_id: currentActiveTicketId } },

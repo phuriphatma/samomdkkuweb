@@ -140,9 +140,18 @@ function bucketStatus(rawStatus) {
 export function filterPRStaffTickets() {
   const filterEl = document.getElementById('prStaffDeptFilter');
   const filterValue = filterEl ? filterEl.value : 'all';
-  const filtered = filterValue === 'all'
+  const q = (document.getElementById('prStaffSearch')?.value || '').trim().toLowerCase();
+
+  let filtered = filterValue === 'all'
     ? prStaffTicketsCache
     : prStaffTicketsCache.filter((t) => t.dept === filterValue);
+
+  // Free-text search across Ticket ID + ชื่องาน (content name).
+  if (q) {
+    filtered = filtered.filter((t) =>
+      (t.id || '').toLowerCase().includes(q)
+      || (t.contentName || '').toLowerCase().includes(q));
+  }
   renderPRStaffKanban(filtered);
 }
 
@@ -382,12 +391,12 @@ export async function submitPRStaffAction() {
 // --------------------------------------------------
 
 export async function deletePRStaffAction() {
-  // Soft-delete (recoverable) via the RPC — shows exactly which ticket so
-  // you can't nuke the wrong one. Restore is an admin SQL update on
-  // deleted_at (see migration 0043).
+  // Soft-delete via the RPC (recoverable by admin — but we DON'T surface
+  // that to staff, who'd otherwise ask to undo casual deletes). The confirm
+  // shows the ticket id + name so you can't nuke the wrong one.
   const t = prStaffTicketsCache.find((x) => x.id === currentActivePrTicketId);
   const name = (t?.contentName || '').slice(0, 60);
-  if (!confirm(`⚠️ ลบงาน PR นี้?\n\n${currentActivePrTicketId}${name ? ' — ' + name : ''}\n\n(ลบแบบกู้คืนได้ — ผู้ดูแลระบบกู้คืนได้ภายหลัง)`)) return;
+  if (!confirm(`⚠️ ลบงาน PR นี้?\n\n${currentActivePrTicketId}${name ? ' — ' + name : ''}\n\nข้อมูลจะไม่สามารถกู้คืนได้`)) return;
   const btn = document.querySelector('#prStaffManageModal .btn-danger');
   const ogText = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = 'กำลังลบ...';
@@ -401,7 +410,7 @@ export async function deletePRStaffAction() {
     if (!data || !data.id) {
       throw new Error('ลบไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ลบ');
     }
-    alert('ลบงาน PR เรียบร้อยแล้ว (กู้คืนได้)');
+    alert('ลบงาน PR เรียบร้อยแล้ว!');
     bootstrap.Modal.getInstance(document.getElementById('prStaffManageModal')).hide();
     fetchPRStaffTickets();
   } catch (e) { alert('เกิดข้อผิดพลาดในการลบ: ' + (e.message || e)); }
