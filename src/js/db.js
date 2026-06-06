@@ -78,7 +78,7 @@ if (typeof window !== 'undefined') {
 const PROJECT_REF = (url || '').match(/\/\/([^.]+)\./)?.[1] || '';
 const SESSION_STORAGE_KEY = PROJECT_REF ? `sb-${PROJECT_REF}-auth-token` : null;
 
-function currentAccessToken() {
+export function currentAccessToken() {
   if (!SESSION_STORAGE_KEY) return anonKey;
   try {
     const stored = localStorage.getItem(SESSION_STORAGE_KEY);

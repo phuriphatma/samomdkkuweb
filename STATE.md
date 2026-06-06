@@ -4,12 +4,64 @@ Last updated: 2026-06-06. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations applied through 0045 — NONE pending
+## Migrations: 0046 + 0047 APPLIED; 0048 PENDING (team realtime)
 
-All migrations through **0045 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`). 0045 verified live: the soft-delete RPC guards now
-fail CLOSED on a null role (probe under the service role returns 42501
-"not authorized", not P0002). No pending migrations.
+All migrations through **0047 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`) — user ran 0046 (team_nodes/team_members) + 0047 (seed:
+218 nodes, 351 member rows). 0045 and earlier also applied.
+
+**PENDING — not yet run against Supabase:**
+- `0048_team_realtime.sql` — `replica identity full` on both team tables +
+  adds them to the `supabase_realtime` publication (idempotent DO-block guard).
+  Until applied, the ทีม SAMO page still works but **live multi-editor sync
+  shows no remote changes** (postgres_changes deliver nothing when the table
+  isn't in the publication). Presence (who's online) does NOT need 0048.
+
+## SAMO Team management — built, on main, MIGRATIONS PENDING
+
+New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated to
+`vp_admin` + `dev` via `userCanAccess('team')` (vp_admin default now
+`['vs','team']`; dev all). Org tree: divisions → departments → roles → subroles
+(unlimited depth via `team_nodes.parent_id`), people under each node.
+- **Two toolbar modes** (segmented toggle) so the page stays uncluttered:
+  `จัดการทีม` (roles + people) and `จัดการสิทธิ์` (permissions only). Permission
+  chips + the perm editor only appear in perms mode; the node edit modal in team
+  mode is just name + kind.
+- Add / edit / move / delete nodes + members. Two move paths: **drag-and-drop**
+  for fine reorder (SortableJS; cycle guard via `onMove` + `isAncestor`) AND an
+  explicit **ย้าย (move) picker** — a path-labelled `<select>` of valid parents
+  (excludes own subtree; "— ระดับบนสุด —" promotes to a root) — for cross-level
+  promote/demote without fiddly nested drag. Members move via the same select in
+  their edit modal (the `ตำแหน่ง` dropdown).
+- Member rows now show **kkumail** inline (no need to open the editor).
+- Per-node app **permissions** (`pr/vs/samoshop/projects/creator/team`) with an
+  **inherit** toggle, edited in the separate perms mode. v1 = **org metadata
+  only** — NOT wired into live login access yet (chips: own=solid,
+  inherited=dashed). Live-auth wiring is the scoped follow-up if wanted.
+- Files: `src/js/team/{index,api}.js`, `src/html/tab-team.html`,
+  `src/css/team.css`, registered in `admin/index.html` + `admin-main.js`
+  (SECTION_META/SIDE_FEATURE/initTeam/enterTeamWorkspace).
+- Seed pipeline: `tools/extract-team-seed.py` reads
+  `externaldata/roledata.xlsx` (10 division tabs) + `previousroledata.json`
+  (tree order) → `externaldata/team-seed.json` + `0047`. 37 xlsx roles with no
+  JSON match (RT/MDI have no JSON roles + minor spelling variants) land as
+  loose role nodes under their division — drag into place in the UI. Re-run:
+  `python3 tools/extract-team-seed.py` (needs openpyxl).
+- Mutations are optimistic (update model + render, then persist; reload+toast
+  on write failure).
+- **Live multi-editor sync** (`src/js/team/realtime.js`, migration 0048): Supabase
+  Realtime postgres_changes on both tables → remote edits merge into the model
+  and re-render (debounced 120ms; deferred while a drag is in progress to avoid
+  cancelling the gesture). Last-write-wins, NOT character-level OT. Presence
+  shows "N คนกำลังแก้ไข". Socket re-auths every 20 min (client autoRefresh off).
+  Realtime node rows normalize `permissions` in case it arrives as a PG array
+  literal.
+- **Import / export** (`src/js/team/io.js`, pure + unit-tested): export full
+  tree+people as JSON or members as CSV (BOM for Excel Thai); import JSON
+  (append, new ids, parents-first) or members CSV (Thai header aliases; resolves
+  `path` "ฝ่าย / แผนก / ตำแหน่ง", auto-creating missing roles when toggled).
+  Import is additive (never deletes); sequential creates, so a big import is
+  slow but safe.
 
 ## Ticket soft-delete — DONE, on main (0043 + 0044)
 

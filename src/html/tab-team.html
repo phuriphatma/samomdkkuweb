@@ -1,0 +1,263 @@
+<!-- SAMO Team — org tree management (vp_admin + dev). Rendered by
+     src/js/team/index.js into #teamTree. Two modes: "team" (roles + people)
+     and "perms" (per-role app-permission assignment), toggled in the toolbar
+     so the role/people page stays uncluttered. -->
+<div class="team-wrap">
+  <div class="team-modeswitch-row">
+    <div class="team-modeswitch" role="tablist" aria-label="โหมด">
+      <button type="button" class="team-mode-btn is-active" data-team-mode="team">
+        <i class="bi bi-people"></i> จัดการทีม
+      </button>
+      <button type="button" class="team-mode-btn" data-team-mode="perms">
+        <i class="bi bi-shield-lock"></i> จัดการสิทธิ์
+      </button>
+    </div>
+    <span class="team-presence d-none" id="teamPresence" title="ผู้แก้ไขพร้อมกัน">
+      <i class="bi bi-broadcast"></i> <span></span>
+    </span>
+    <div class="team-io">
+      <div class="dropdown">
+        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">นำเข้า/ส่งออก</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button type="button" class="dropdown-item" id="teamImportOpen"><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</button></li>
+          <li><hr class="dropdown-divider" /></li>
+          <li><button type="button" class="dropdown-item" id="teamExportJson"><i class="bi bi-filetype-json me-2"></i>ส่งออกทั้งหมด (JSON)</button></li>
+          <li><button type="button" class="dropdown-item" id="teamExportCsv"><i class="bi bi-filetype-csv me-2"></i>ส่งออกสมาชิก (CSV)</button></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="team-toolbar">
+    <div class="team-toolbar-search">
+      <i class="bi bi-search"></i>
+      <input type="text" id="teamSearch" class="form-control"
+        placeholder="ค้นหาตำแหน่ง หรือ ชื่อ/ชื่อเล่น/รหัส/อีเมล" autocomplete="off" />
+      <button type="button" id="teamSearchClear" class="team-search-clear d-none"
+        aria-label="ล้างการค้นหา"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="team-toolbar-actions">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamExpandAll">
+        <i class="bi bi-arrows-expand"></i><span class="d-none d-md-inline ms-1">ขยายทั้งหมด</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamCollapseAll">
+        <i class="bi bi-arrows-collapse"></i><span class="d-none d-md-inline ms-1">ย่อทั้งหมด</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-primary" id="teamAddRoot">
+        <i class="bi bi-plus-lg"></i><span class="ms-1">เพิ่มฝ่าย</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="team-modehint" id="teamModeHint"></div>
+  <div class="team-statusbar" id="teamStatus"></div>
+
+  <div class="team-tree" id="teamTree" aria-live="polite">
+    <div class="team-empty" id="teamEmpty">กำลังโหลด…</div>
+  </div>
+</div>
+
+<!-- Node editor modal (add / edit a division / department / role) — name + kind
+     only; permissions live in the separate "จัดการสิทธิ์" mode. -->
+<div class="modal fade" id="teamNodeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="teamNodeForm" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title" id="teamNodeModalTitle">ตำแหน่ง</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="teamNodeId" />
+          <input type="hidden" id="teamNodeParentId" />
+          <div class="mb-3">
+            <label class="form-label" for="teamNodeName">ชื่อ</label>
+            <input type="text" class="form-control" id="teamNodeName" required
+              placeholder="เช่น ฝ่ายเอกสาร / หัวหน้าฝ่าย PR" />
+          </div>
+          <div class="mb-1">
+            <label class="form-label" for="teamNodeKind">ประเภท</label>
+            <select class="form-select" id="teamNodeKind">
+              <option value="division">ฝ่าย (Division)</option>
+              <option value="department">แผนก (Department)</option>
+              <option value="role" selected>ตำแหน่ง (Role)</option>
+            </select>
+            <div class="form-text">ประเภทใช้แสดงไอคอนเท่านั้น โครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamNodeDelete">
+            <i class="bi bi-trash"></i> ลบ
+          </button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Move modal — pick a new parent for a node (promote/demote without drag). -->
+<div class="modal fade" id="teamMoveModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="teamMoveForm" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">ย้ายตำแหน่ง</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="teamMoveId" />
+          <div class="team-move-what" id="teamMoveWhat"></div>
+          <label class="form-label" for="teamMoveTarget">ย้ายไปอยู่ใต้</label>
+          <select class="form-select" id="teamMoveTarget"></select>
+          <div class="form-text">เลือก “— ระดับบนสุด —” เพื่อทำให้เป็นฝ่ายหลัก</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">ย้าย</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Permission editor modal — opened from "จัดการสิทธิ์" mode. -->
+<div class="modal fade" id="teamPermModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="teamPermForm" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">สิทธิ์การใช้งานระบบ</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="teamPermNodeId" />
+          <div class="team-perm-node" id="teamPermNodeName"></div>
+          <div class="team-perm-grid" id="teamPermGrid"></div>
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamPermInherit" checked />
+            <label class="form-check-label" for="teamPermInherit">
+              รับสิทธิ์จากตำแหน่งแม่ด้วย (inherit)
+            </label>
+          </div>
+          <div class="team-perm-inherited d-none" id="teamPermInheritedWrap">
+            <span class="team-perm-inherited-label">สิทธิ์ที่ได้รับจากแม่:</span>
+            <span id="teamPermInheritedList"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal fade" id="teamImportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2">
+          รองรับ <b>JSON</b> (โครงสร้าง + สมาชิก จากการส่งออก) หรือ <b>CSV</b> รายชื่อสมาชิก
+          (จาก Google Sheet). คอลัมน์ CSV: <code>path, prefix, full_name, nickname,
+          student_id, year, major, kkumail, confirmed</code> — โดย <code>path</code> คือ
+          “ฝ่าย / แผนก / ตำแหน่ง”. การนำเข้าเป็นแบบ <b>เพิ่มต่อท้าย</b> (ไม่ลบของเดิม).
+        </p>
+        <input type="file" class="form-control mb-2" id="teamImportFile" accept=".json,.csv,.txt" />
+        <textarea class="form-control team-import-text" id="teamImportText" rows="7"
+          placeholder="หรือวางข้อมูล JSON / CSV ที่นี่"></textarea>
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" id="teamImportCreateRoles" checked />
+          <label class="form-check-label" for="teamImportCreateRoles">
+            สร้างตำแหน่งใหม่อัตโนมัติถ้า path ยังไม่มี (CSV)
+          </label>
+        </div>
+        <div class="team-import-status" id="teamImportStatus"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" class="btn btn-primary" id="teamImportRun">
+          <i class="bi bi-box-arrow-in-down me-1"></i>นำเข้า
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Member editor modal -->
+<div class="modal fade" id="teamMemberModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="teamMemberForm" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title" id="teamMemberModalTitle">สมาชิก</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="teamMemberId" />
+          <div class="mb-3">
+            <label class="form-label" for="teamMemberNodeSelect">ตำแหน่ง</label>
+            <select class="form-select" id="teamMemberNodeSelect"></select>
+          </div>
+          <div class="row g-2">
+            <div class="col-4">
+              <label class="form-label" for="teamMemberPrefix">คำนำหน้า</label>
+              <input type="text" class="form-control" id="teamMemberPrefix" placeholder="นางสาว" list="teamPrefixList" />
+              <datalist id="teamPrefixList">
+                <option value="นาย"></option><option value="นางสาว"></option><option value="นาง"></option>
+              </datalist>
+            </div>
+            <div class="col-8">
+              <label class="form-label" for="teamMemberName">ชื่อ-สกุล</label>
+              <input type="text" class="form-control" id="teamMemberName" required />
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="teamMemberNickname">ชื่อเล่น</label>
+              <input type="text" class="form-control" id="teamMemberNickname" />
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="teamMemberStudentId">รหัสนักศึกษา</label>
+              <input type="text" class="form-control" id="teamMemberStudentId" />
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="teamMemberYear">ชั้นปี</label>
+              <input type="text" class="form-control" id="teamMemberYear" placeholder="ปี 5" />
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="teamMemberMajor">สาขา</label>
+              <input type="text" class="form-control" id="teamMemberMajor" placeholder="MD / RT / MDI" list="teamMajorList" />
+              <datalist id="teamMajorList">
+                <option value="MD"></option><option value="RT"></option><option value="MDI"></option>
+              </datalist>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="teamMemberEmail">KKU Mail</label>
+              <input type="email" class="form-control" id="teamMemberEmail" placeholder="name@kkumail.com" />
+            </div>
+          </div>
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamMemberConfirmed" />
+            <label class="form-check-label" for="teamMemberConfirmed">ยืนยันตำแหน่งแล้ว</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamMemberDelete">
+            <i class="bi bi-trash"></i> ลบ
+          </button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

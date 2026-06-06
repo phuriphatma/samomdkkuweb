@@ -239,7 +239,7 @@ export function userCanAccess(feature, user = currentUser) {
     pr_staff:   ['pr'],
     vs_staff:   ['vs'],
     shop_admin: ['samoshop'],
-    vp_admin:   ['vs'],
+    vp_admin:   ['vs', 'team'],
     uni_staff:  ['projects'],
   }[user.role] || [];
   if (roleDefaults.includes(feature)) return true;

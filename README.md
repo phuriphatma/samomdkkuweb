@@ -53,6 +53,14 @@ Both Cloudflare projects hit the same Supabase backend.
   Notion resource DB for วิชาการ, external sites for เวชนิทัศน์ /
   รังสีเทคนิค). All links are also surfaced in the เครื่องมือ launcher
   search.
+- **SAMO Team directory.** Admin section (vp_admin + dev) managing the org as
+  an editable tree — divisions → departments → roles → subroles at unlimited
+  depth — with people under each role (KKU mail, name, nickname, student id,
+  year, สาขา, confirm). Add / edit / move / delete and drag-and-drop reparent +
+  reorder for both roles and members; per-role app-permission tagging with
+  inheritance (in a separate "จัดการสิทธิ์" mode). Live multi-editor sync
+  (Supabase Realtime + presence) and JSON / CSV import-export. Responsive
+  desktop / iPad / phone.
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
   regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
   `dev`. Role gates the Admin tab, the project-tracking tab + bell, and

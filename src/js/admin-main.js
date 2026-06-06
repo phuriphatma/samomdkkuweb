@@ -32,6 +32,9 @@ import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
 // Projects
 import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
+// SAMO Team (org tree)
+import { initTeam, enterTeamWorkspace } from './team/index.js';
+
 // ==============================================
 // QUILL — creator only (no VS form in admin)
 // ==============================================
@@ -368,6 +371,7 @@ const SECTION_META = {
   shop:     { pane: 'admin',    title: 'SAMO Shop',        sub: 'คำสั่งซื้อ ตรวจสลิป สินค้า' },
   projects: { pane: 'projects', title: 'หนังสือโครงการ',   sub: 'ส่ง / รับ / ติดตามหนังสือโครงการ' },
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
+  team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
 };
 
 function showAdminSide(which) {
@@ -411,6 +415,11 @@ function showAdminSide(which) {
   // reorder panel works. Idempotent — re-entry rerenders + reattaches.
   if (which === 'creator') {
     enterCreator();
+  }
+
+  // SAMO Team: lazy-load the org tree on first entry; idempotent thereafter.
+  if (which === 'team') {
+    enterTeamWorkspace();
   }
 
   // Mirror in the URL hash so admin sub-pages are bookmarkable. Only
@@ -517,6 +526,7 @@ const SIDE_FEATURE = {
   shop:     'samoshop',
   projects: 'projects',
   creator:  'creator',
+  team:     'team',
 };
 
 function roleLabel(role) {
@@ -749,6 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
   mountAccountSwitch();
   initShop();
   initProjects();
+  initTeam();
 
   // Deep-link: /admin/?scan=<orderId> jumps to that order's detail.
   // Waits for the first signed-in state — if signed-out, the global

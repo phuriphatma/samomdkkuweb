@@ -138,6 +138,11 @@
             <span class="workspace-side-item-badge d-none" id="adminProjectsBadge">0</span>
           </button>
 
+          <div class="workspace-side-section">องค์กร</div>
+          <button type="button" class="workspace-side-item d-none" data-admin-side="team">
+            <i class="bi bi-diagram-3"></i><span>ทีม SAMO</span>
+          </button>
+
           <div class="workspace-side-section">เนื้อหา</div>
           <button type="button" class="workspace-side-item d-none" data-admin-side="creator">
             <i class="bi bi-pencil-square"></i><span>เขียนประกาศ</span>
@@ -288,6 +293,10 @@
 
           <section data-admin-pane="creator" class="d-none an-tab">
             <include src="./src/html/tab-creator.html" />
+          </section>
+
+          <section data-admin-pane="team" class="d-none team-tab">
+            <include src="./src/html/tab-team.html" />
           </section>
 
         </main>
