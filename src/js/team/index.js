@@ -13,7 +13,6 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { getUser as authGetUser } from '../auth.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
   createMember, updateMember, deleteMember,
@@ -169,8 +168,7 @@ async function reload() {
 function ensureRealtime() {
   if (rtStarted) return;
   rtStarted = true;
-  const u = (() => { try { return authGetUser(); } catch (_) { return null; } })();
-  subscribeTeam(applyRemoteChange, updatePresence, { id: u?.sub || u?.id, name: u?.name || u?.email });
+  subscribeTeam(applyRemoteChange);
 }
 
 /** Coalesce remote-change re-renders; never render mid-drag (it would cancel
@@ -220,18 +218,6 @@ function applyRemoteChange(table, payload) {
     }
   }
   scheduleRemoteRender();
-}
-
-function updatePresence(count) {
-  const el = $('teamPresence');
-  if (!el) return;
-  const label = el.querySelector('span');
-  if (count > 1) {
-    if (label) label.textContent = `${count} คนกำลังแก้ไข`;
-    el.classList.remove('d-none');
-  } else {
-    el.classList.add('d-none');
-  }
 }
 
 // ============================================================
@@ -292,7 +278,10 @@ function renderNode(node, filter) {
   const kids = childrenOf(node.id);
   const mem = membersOf(node.id);
   const showMembers = mode === 'team';
-  const hasChildren = kids.length > 0 || (showMembers && mem.length > 0);
+  // In team mode EVERY node is expandable — a role can always hold members, so
+  // you must be able to open even an empty one to reveal its drop zone / add
+  // button. In perms mode only nodes with child nodes expand.
+  const expandable = showMembers ? true : kids.length > 0;
   const isOpen = filter ? true : expanded.has(node.id);
   const count = subtreeMemberCount(node.id);
 
@@ -328,8 +317,8 @@ function renderNode(node, filter) {
     <div class="team-row" data-node-id="${node.id}">
       ${checkbox}
       <span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
-      <button type="button" class="team-caret ${hasChildren ? '' : 'is-leaf'}" data-act="toggle"
-        aria-label="ขยาย/ย่อ">${hasChildren ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
+      <button type="button" class="team-caret ${expandable ? '' : 'is-leaf'}" data-act="toggle"
+        aria-label="ขยาย/ย่อ">${expandable ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
       <i class="bi ${KIND_ICON[node.kind] || KIND_ICON.role} team-node-icon"></i>
       <span class="team-node-name" data-act="primary">${nameHtml}</span>
       ${count ? `<span class="team-count" title="สมาชิกในสายนี้">${count}</span>` : ''}
@@ -346,6 +335,17 @@ function renderNode(node, filter) {
     mul.className = 'team-members';
     mul.dataset.nodeId = node.id;
     mem.forEach((m) => { const mli = renderMember(m, filter); if (mli) mul.appendChild(mli); });
+    // Empty-role drop zone: on a LEAF role with no members, a placeholder gives
+    // the (otherwise zero-height) list a droppable area AND tells the user they
+    // can drag a person here or add one. Skipped on structural nodes (they have
+    // child nodes) to avoid noise — use the + button to add a direct member.
+    if (!mem.length && !kids.length && !filter) {
+      const ph = document.createElement('li');
+      ph.className = 'team-members-empty';
+      ph.dataset.act = 'add-member';
+      ph.innerHTML = '<i class="bi bi-arrow-down-circle"></i> ลากสมาชิกมาวางที่นี่ หรือกดเพื่อเพิ่ม';
+      mul.appendChild(ph);
+    }
     body.appendChild(mul);
   }
 

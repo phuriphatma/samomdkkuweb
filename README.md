@@ -59,7 +59,7 @@ Both Cloudflare projects hit the same Supabase backend.
   year, สาขา, confirm). Add / edit / move / delete and drag-and-drop reparent +
   reorder for both roles and members; per-role app-permission tagging with
   inheritance (in a separate "จัดการสิทธิ์" mode). Live multi-editor sync
-  (Supabase Realtime + presence) and JSON / CSV import-export. Responsive
+  (Supabase Realtime) and JSON / CSV import-export. Responsive
   desktop / iPad / phone.
 - **Global auth.** One sign-in (Google OAuth + username/password). Roles:
   regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,

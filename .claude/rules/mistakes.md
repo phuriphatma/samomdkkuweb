@@ -40,7 +40,7 @@ tree and the drag gesture dies.
 - Also normalize realtime row payloads: a Postgres `text[]` column can arrive
   as the array LITERAL string `"{pr,vs}"` (not a JS array) on some realtime
   versions — coerce before use.
-**Where**: `src/js/team/realtime.js` (`setAuth` interval, presence),
+**Where**: `src/js/team/realtime.js` (`setAuth` interval),
 `src/js/team/index.js` (`dragging`/`pendingRender`/`scheduleRemoteRender`,
 `normalizeNodeRow`), `src/js/db.js` (`export function currentAccessToken`).
 Realtime needs the table in the `supabase_realtime` publication +

@@ -54,10 +54,14 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
 - **Live multi-editor sync** (`src/js/team/realtime.js`, migration 0048): Supabase
   Realtime postgres_changes on both tables → remote edits merge into the model
   and re-render (debounced 120ms; deferred while a drag is in progress to avoid
-  cancelling the gesture). Last-write-wins, NOT character-level OT. Presence
-  shows "N คนกำลังแก้ไข". Socket re-auths every 20 min (client autoRefresh off).
-  Realtime node rows normalize `permissions` in case it arrives as a PG array
-  literal.
+  cancelling the gesture). Last-write-wins, NOT character-level OT. Socket
+  re-auths every 20 min (client autoRefresh off). Realtime node rows normalize
+  `permissions` in case it arrives as a PG array literal. (No presence indicator
+  — the channel stays open across admin sections, so a count would include
+  people who left; removed as misleading.)
+- Every team-mode node is **expandable** (even an empty leaf role) and an empty
+  leaf role shows a dashed **drop placeholder** so you can drag a person into a
+  role that has no members yet (previously impossible — no drop target existed).
 - **Import / export** (`src/js/team/io.js`, pure + unit-tested): export full
   tree+people as JSON or members as CSV (BOM for Excel Thai); import JSON
   (append, new ids, parents-first) or members CSV (Thai header aliases; resolves
