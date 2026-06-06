@@ -48,6 +48,9 @@ let childrenByParent = new Map(); // parentId|'' -> [nodes]
 const membersByNode = new Map(); // nodeId -> [members]
 const expanded = new Set();     // expanded node ids
 let searchQ = '';
+let selectionMode = false;     // multi-select for bulk move / delete
+const selectedNodes = new Set();
+const selectedMembers = new Set();
 let sortables = [];            // live Sortable instances, destroyed on re-render
 let rtStarted = false;         // realtime subscription established once
 let dragging = false;          // a drag is in progress — defer remote re-renders
@@ -274,9 +277,13 @@ function render() {
   tree.innerHTML = '';
   tree.appendChild(ul);
 
-  // Drag is for fine reordering; disabled while filtering. The "ย้าย" picker
-  // is always available for cross-level moves.
-  if (!searchQ) attachSortables(tree);
+  // Drag is for fine reordering; disabled while filtering or selecting. The
+  // "ย้าย" picker / bulk-move bar handle cross-level + multi moves.
+  if (!searchQ && !selectionMode) attachSortables(tree);
+
+  tree.classList.toggle('is-selectmode', selectionMode);
+  $('teamSelectMode')?.classList.toggle('is-active', selectionMode);
+  updateSelectionBar();
 }
 
 function renderNode(node, filter) {
@@ -289,9 +296,13 @@ function renderNode(node, filter) {
   const count = subtreeMemberCount(node.id);
 
   const li = document.createElement('li');
-  li.className = 'team-node';
+  li.className = 'team-node' + (selectionMode && selectedNodes.has(node.id) ? ' is-selected' : '');
   li.dataset.nodeId = node.id;
   li.dataset.kind = node.kind;
+
+  const checkbox = selectionMode
+    ? `<input type="checkbox" class="team-check" data-act="select" ${selectedNodes.has(node.id) ? 'checked' : ''} aria-label="เลือกตำแหน่ง" />`
+    : '';
 
   let permChips = '';
   if (mode === 'perms') {
@@ -314,6 +325,7 @@ function renderNode(node, filter) {
 
   li.innerHTML = `
     <div class="team-row" data-node-id="${node.id}">
+      ${checkbox}
       <span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
       <button type="button" class="team-caret ${hasChildren ? '' : 'is-leaf'}" data-act="toggle"
         aria-label="ขยาย/ย่อ">${hasChildren ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
@@ -349,14 +361,18 @@ function renderNode(node, filter) {
 function renderMember(m, filter) {
   if (filter && !filter.memberIds.has(m.id)) return null;
   const li = document.createElement('li');
-  li.className = 'team-member';
+  li.className = 'team-member' + (selectionMode && selectedMembers.has(m.id) ? ' is-selected' : '');
   li.dataset.memberId = m.id;
   li.dataset.nodeId = m.node_id;
   const name = `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`;
   const nameHtml = filter ? highlight(name, filter.q) : escHtml(name);
   const nick = m.nickname ? (filter ? highlight(m.nickname, filter.q) : escHtml(m.nickname)) : '';
   const mailHtml = m.kkumail ? (filter ? highlight(m.kkumail, filter.q) : escHtml(m.kkumail)) : '';
+  const checkbox = selectionMode
+    ? `<input type="checkbox" class="team-check" data-act="select" ${selectedMembers.has(m.id) ? 'checked' : ''} aria-label="เลือกสมาชิก" />`
+    : '';
   li.innerHTML = `
+    ${checkbox}
     <span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
     <span class="team-member-main" data-act="edit-member">
       <span class="team-member-name">${nameHtml}${nick ? ` <span class="team-member-nick">(${nick})</span>` : ''}</span>
@@ -514,6 +530,15 @@ function findMember(id) {
   return null;
 }
 
+/** Find an existing member in a node that an import row would duplicate:
+ *  same kkumail (case-insensitive), else same name + student_id. */
+function findExistingMember(nodeId, r) {
+  const mail = (r.kkumail || '').toLowerCase();
+  return membersOf(nodeId).find((m) => mail
+    ? (m.kkumail || '').toLowerCase() === mail
+    : (m.full_name === r.full_name && (m.student_id || '') === (r.student_id || ''))) || null;
+}
+
 // ============================================================
 // TREE EVENT DELEGATION
 // ============================================================
@@ -528,6 +553,19 @@ function wireTreeDelegation() {
     const nodeId = btn.closest('.team-node')?.dataset.nodeId;
     const memberId = btn.closest('.team-member')?.dataset.memberId;
 
+    if (act === 'select') {
+      // Local toggle — avoid a full re-render so the checkbox/scroll stay put.
+      const checked = btn.checked;
+      if (memberId) {
+        checked ? selectedMembers.add(memberId) : selectedMembers.delete(memberId);
+        btn.closest('.team-member')?.classList.toggle('is-selected', checked);
+      } else if (nodeId) {
+        checked ? selectedNodes.add(nodeId) : selectedNodes.delete(nodeId);
+        btn.closest('.team-node')?.classList.toggle('is-selected', checked);
+      }
+      updateSelectionBar();
+      return;
+    }
     if (act === 'toggle') {
       if (!nodeId) return;
       if (expanded.has(nodeId)) expanded.delete(nodeId); else expanded.add(nodeId);
@@ -567,9 +605,20 @@ function wireToolbar() {
       const m = b.dataset.teamMode;
       if (m === mode) return;
       mode = m;
+      if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
       render();
     });
   });
+
+  // Multi-select: toggle checkboxes + the bulk action bar.
+  $('teamSelectMode')?.addEventListener('click', () => {
+    selectionMode = !selectionMode;
+    if (!selectionMode) clearSelection();
+    render();
+  });
+  $('teamSelMove')?.addEventListener('click', openBulkMove);
+  $('teamSelDelete')?.addEventListener('click', bulkDelete);
+  $('teamSelCancel')?.addEventListener('click', () => { selectionMode = false; clearSelection(); render(); });
 
   const search = $('teamSearch');
   const clear = $('teamSearchClear');
@@ -626,7 +675,7 @@ function wirePicker() {
   });
 }
 
-function openPicker({ title, what, currentId = null, excludeSubtreeOf = null, allowRoot = false, onPick }) {
+function openPicker({ title, what, currentId = null, exclude = null, allowRoot = false, onPick }) {
   pickerOnPick = onPick;
   pickerAllowRoot = allowRoot;
   pickerSelected = null;
@@ -636,7 +685,7 @@ function openPicker({ title, what, currentId = null, excludeSubtreeOf = null, al
   pickerCandidates = [];
   const walk = (parentId, depth, trail) => {
     for (const n of childrenOf(parentId)) {
-      if (excludeSubtreeOf && (n.id === excludeSubtreeOf || isAncestor(excludeSubtreeOf, n.id))) continue;
+      if (exclude && exclude(n.id)) continue;
       const path = trail.concat(n.name);
       pickerCandidates.push({ id: n.id, name: n.name, path: path.join(' / '), depth, current: n.id === currentId });
       walk(n.id, depth + 1, path);
@@ -752,7 +801,8 @@ function openMoveNode(id) {
   if (!node) return;
   openPicker({
     title: 'ย้ายตำแหน่ง', what: `กำลังย้าย: ${node.name}`,
-    currentId: node.parent_id, excludeSubtreeOf: id, allowRoot: true,
+    currentId: node.parent_id, allowRoot: true,
+    exclude: (cid) => cid === id || isAncestor(id, cid),
     onPick: (target) => moveNodeTo(id, target),
   });
 }
@@ -792,6 +842,96 @@ function moveMemberTo(id, newNodeId) {
   render();
   updateMember(id, { node_id: newNodeId, position: m.position })
     .catch((err) => { alert(err?.message || 'ย้ายไม่สำเร็จ'); reload(); });
+}
+
+// ============================================================
+// MULTI-SELECT (bulk move / delete)
+// ============================================================
+
+function clearSelection() { selectedNodes.clear(); selectedMembers.clear(); updateSelectionBar(); }
+
+function updateSelectionBar() {
+  const bar = $('teamSelectionBar');
+  if (!bar) return;
+  const n = selectedNodes.size, m = selectedMembers.size;
+  bar.classList.toggle('d-none', !selectionMode);
+  const countEl = $('teamSelectionCount');
+  if (countEl) countEl.textContent = `เลือก ${n} ตำแหน่ง, ${m} สมาชิก`;
+  const none = !n && !m;
+  $('teamSelMove')?.toggleAttribute('disabled', none);
+  $('teamSelDelete')?.toggleAttribute('disabled', none);
+}
+
+function openBulkMove() {
+  if (!selectedNodes.size && !selectedMembers.size) return;
+  // Can't drop a moved node into any selected node's own subtree.
+  const exclude = (id) => {
+    for (const sid of selectedNodes) if (id === sid || isAncestor(sid, id)) return true;
+    return false;
+  };
+  openPicker({
+    title: 'ย้ายรายการที่เลือก',
+    what: `${selectedNodes.size} ตำแหน่ง, ${selectedMembers.size} สมาชิก`,
+    exclude,
+    allowRoot: selectedNodes.size > 0 && selectedMembers.size === 0,  // root only valid for nodes
+    onPick: (target) => bulkMoveTo(target),
+  });
+}
+
+async function bulkMoveTo(target) {
+  const patches = { nodes: [], members: [] };
+  for (const id of selectedNodes) {
+    const node = nodesById.get(id);
+    if (!node) continue;
+    if (target && isAncestor(id, target)) continue;  // safety
+    node.parent_id = target || null;
+    node.position = childrenOf(target || null).length;
+    rebuildChildrenIndexFromNodes();
+    patches.nodes.push({ id, parent_id: target || null, position: node.position });
+  }
+  if (target) {
+    for (const id of selectedMembers) {
+      const m = findMember(id);
+      if (!m || m.node_id === target) continue;
+      m.node_id = target;
+      m.position = membersOf(target).length;
+      rebuildMembersIndex();
+      patches.members.push({ id, node_id: target, position: m.position });
+    }
+  }
+  if (target) expanded.add(target);
+  clearSelection();
+  render();
+  try {
+    await Promise.all([patchNodePositions(patches.nodes), patchMemberPositions(patches.members)]);
+  } catch (e) { console.warn('[team] bulk move failed:', e?.message || e); reload(); }
+}
+
+async function bulkDelete() {
+  const topNodes = [...selectedNodes];
+  const memberIds = [...selectedMembers];
+  if (!topNodes.length && !memberIds.length) return;
+  if (!confirm(`ลบ ${topNodes.length} ตำแหน่ง และ ${memberIds.length} สมาชิกที่เลือก?\n(ตำแหน่งจะลบรายการย่อยและสมาชิกในสายด้วย)`)) return;
+
+  // Collect the full subtree of selected nodes (members under them cascade).
+  const delNodeIds = new Set();
+  const collect = (nid) => { delNodeIds.add(nid); childrenOf(nid).forEach((c) => collect(c.id)); };
+  topNodes.forEach(collect);
+  // Only delete selected members that AREN'T already covered by a deleted node.
+  const memToDelete = memberIds.filter((id) => { const m = findMember(id); return m && !delNodeIds.has(m.node_id); });
+
+  // optimistic model removal
+  delNodeIds.forEach((nid) => { nodesById.delete(nid); membersByNode.delete(nid); expanded.delete(nid); });
+  memToDelete.forEach((id) => {
+    const m = findMember(id);
+    if (m) { const arr = membersByNode.get(m.node_id); if (arr) membersByNode.set(m.node_id, arr.filter((x) => x.id !== id)); }
+  });
+  rebuildChildrenIndexFromNodes();
+  clearSelection();
+  render();
+  try {
+    await Promise.all([...topNodes.map((id) => deleteNode(id)), ...memToDelete.map((id) => deleteMember(id))]);
+  } catch (e) { console.warn('[team] bulk delete failed:', e?.message || e); reload(); }
 }
 
 // ============================================================
@@ -1004,8 +1144,9 @@ function setImportReport(r) {
   const el = $('teamImportStatus');
   if (!el) return;
   el.classList.remove('is-error');
+  const upd = r.updated ? `, อัปเดต ${r.updated}` : '';
   el.innerHTML =
-    `<div class="team-import-ok"><i class="bi bi-check-circle-fill"></i> นำเข้าแล้ว: เพิ่ม ${r.nodes} ตำแหน่ง, ${r.members} สมาชิก</div>` +
+    `<div class="team-import-ok"><i class="bi bi-check-circle-fill"></i> นำเข้าแล้ว: เพิ่ม ${r.nodes} ตำแหน่ง, ${r.members} สมาชิก${upd}</div>` +
     detailBlock('team-import-skip', 'ข้าม', r.skipped) +
     detailBlock('team-import-warn', 'เตือน', r.warnings);
 }
@@ -1106,7 +1247,8 @@ async function importMembersCsv(raw) {
   const rows = parseMembersCsv(raw);
   if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ ชื่อ-สกุล / full_name)');
   const createMissing = $('teamImportCreateRoles').checked;
-  const report = { nodes: 0, members: 0, skipped: [], warnings: [] };
+  const dupMode = $('teamImportDupMode')?.value || 'skip';   // 'skip' | 'update'
+  const report = { nodes: 0, members: 0, updated: 0, skipped: [], warnings: [] };
   const seen = new Set();
   for (const r of rows) {
     const who = r.full_name;
@@ -1121,18 +1263,27 @@ async function importMembersCsv(raw) {
     report.nodes += nodesById.size - before;
 
     const dupKey = nodeId + '::' + ((r.kkumail || '').toLowerCase() || `${who}|${r.student_id || ''}`);
-    const existsInNode = membersOf(nodeId).some((m) =>
-      (r.kkumail && (m.kkumail || '').toLowerCase() === r.kkumail.toLowerCase()) ||
-      (!r.kkumail && m.full_name === who && (m.student_id || '') === (r.student_id || '')));
-    if (seen.has(dupKey) || existsInNode) { report.skipped.push(`${who} (แถว ${r._row}): มีอยู่แล้ว / ซ้ำ`); continue; }
-    seen.add(dupKey);
-
-    const row = await createMember({
-      node_id: nodeId, position: membersOf(nodeId).length,
+    const existing = findExistingMember(nodeId, r);
+    const fields = {
       prefix: r.prefix || null, full_name: who, nickname: r.nickname || null,
       student_id: r.student_id || null, year: r.year || null, major: r.major || null,
       kkumail: r.kkumail || null, confirmed: !!r.confirmed,
-    });
+    };
+    if (seen.has(dupKey) || existing) {
+      if (existing && dupMode === 'update') {
+        Object.assign(existing, fields);
+        await updateMember(existing.id, fields);
+        report.updated++;
+        seen.add(dupKey);
+        setImportStatus(`กำลังอัปเดต… ${report.updated}`);
+      } else {
+        report.skipped.push(`${who} (แถว ${r._row}): มีอยู่แล้ว / ซ้ำ`);
+      }
+      continue;
+    }
+    seen.add(dupKey);
+
+    const row = await createMember({ node_id: nodeId, position: membersOf(nodeId).length, ...fields });
     if (!membersByNode.has(nodeId)) membersByNode.set(nodeId, []);
     membersByNode.get(nodeId).push(row);
     report.members++;

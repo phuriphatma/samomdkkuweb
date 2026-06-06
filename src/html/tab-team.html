@@ -46,6 +46,9 @@
       <button type="button" class="btn btn-sm btn-outline-secondary" id="teamCollapseAll">
         <i class="bi bi-arrows-collapse"></i><span class="d-none d-md-inline ms-1">ย่อทั้งหมด</span>
       </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamSelectMode">
+        <i class="bi bi-check2-square"></i><span class="d-none d-md-inline ms-1">เลือกหลายรายการ</span>
+      </button>
       <button type="button" class="btn btn-sm btn-primary" id="teamAddRoot">
         <i class="bi bi-plus-lg"></i><span class="ms-1">เพิ่มฝ่าย</span>
       </button>
@@ -57,6 +60,20 @@
 
   <div class="team-tree" id="teamTree" aria-live="polite">
     <div class="team-empty" id="teamEmpty">กำลังโหลด…</div>
+  </div>
+
+  <!-- Bulk action bar — shown in select mode; sticks to the bottom. -->
+  <div class="team-selectbar d-none" id="teamSelectionBar">
+    <span class="team-selectbar-count" id="teamSelectionCount">เลือก 0 ตำแหน่ง, 0 สมาชิก</span>
+    <div class="team-selectbar-actions">
+      <button type="button" class="btn btn-sm btn-primary" id="teamSelMove" disabled>
+        <i class="bi bi-arrows-move"></i> ย้าย
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-danger" id="teamSelDelete" disabled>
+        <i class="bi bi-trash"></i> ลบ
+      </button>
+      <button type="button" class="btn btn-sm btn-light" id="teamSelCancel">เสร็จ</button>
+    </div>
   </div>
 </div>
 
@@ -173,16 +190,28 @@
           รองรับ <b>JSON</b> (โครงสร้าง + สมาชิก จากการส่งออก) หรือ <b>CSV</b> รายชื่อสมาชิก
           (จาก Google Sheet). คอลัมน์ CSV: <code>path, prefix, full_name, nickname,
           student_id, year, major, kkumail, confirmed</code> — โดย <code>path</code> คือ
-          “ฝ่าย / แผนก / ตำแหน่ง”. การนำเข้าเป็นแบบ <b>เพิ่มต่อท้าย</b> (ไม่ลบของเดิม).
+          “ฝ่าย / แผนก / ตำแหน่ง” (คั่นด้วย <b>เว้นวรรค-สแลช-เว้นวรรค</b> “ / ”;
+          เครื่องหมาย “/” ที่ติดกับตัวอักษรเช่น <code>Art/Graphic</code> ถือเป็นส่วนของชื่อ).
         </p>
         <input type="file" class="form-control mb-2" id="teamImportFile" accept=".json,.csv,.txt" />
         <textarea class="form-control team-import-text" id="teamImportText" rows="7"
           placeholder="หรือวางข้อมูล JSON / CSV ที่นี่"></textarea>
-        <div class="form-check form-switch mt-2">
-          <input class="form-check-input" type="checkbox" id="teamImportCreateRoles" checked />
-          <label class="form-check-label" for="teamImportCreateRoles">
-            สร้างตำแหน่งใหม่อัตโนมัติถ้า path ยังไม่มี (CSV)
-          </label>
+        <div class="row g-2 mt-1 align-items-center">
+          <div class="col-sm-6">
+            <label class="form-label small mb-1" for="teamImportDupMode">เมื่อพบข้อมูลซ้ำ</label>
+            <select class="form-select form-select-sm" id="teamImportDupMode">
+              <option value="skip" selected>ข้าม (เก็บของเดิม)</option>
+              <option value="update">อัปเดตทับ (ใช้ข้อมูลใหม่)</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="teamImportCreateRoles" checked />
+              <label class="form-check-label small" for="teamImportCreateRoles">
+                สร้างตำแหน่งใหม่ถ้ายังไม่มี (CSV)
+              </label>
+            </div>
+          </div>
         </div>
         <div class="team-import-status" id="teamImportStatus"></div>
       </div>

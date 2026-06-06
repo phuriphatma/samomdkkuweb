@@ -41,8 +41,12 @@ export function cleanSpace(s) {
   return String(s ?? '').replace(/\s+/g, ' ').trim();
 }
 
+/** Split a path on the " / " separator (slash WITH surrounding whitespace) so
+ *  that a slash INSIDE a name is preserved — e.g. "ComArt / Art/Graphic" →
+ *  ["ComArt", "Art/Graphic"]. A bare "A/B" (no spaces) is one segment by
+ *  design; the documented format puts spaces around each level separator. */
 export function splitPath(path) {
-  return String(path ?? '').split('/').map((s) => cleanSpace(s)).filter(Boolean);
+  return String(path ?? '').split(/\s+\/\s+/).map((s) => cleanSpace(s)).filter(Boolean);
 }
 
 // ---- JSON ----

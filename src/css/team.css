@@ -34,6 +34,24 @@
 .team-import-warn b { color: #b45309; }
 .team-import-skip ul, .team-import-warn ul { margin: 0.2rem 0 0; padding-left: 1.1rem; max-height: 8rem; overflow: auto; }
 
+/* ---- multi-select ---- */
+.team-check { width: 1.05rem; height: 1.05rem; flex: 0 0 auto; cursor: pointer; accent-color: var(--brand-primary); }
+.team-node.is-selected > .team-row,
+.team-member.is-selected { background: rgba(16,89,34,0.1); box-shadow: inset 3px 0 0 var(--brand-primary); }
+.team-tree.is-selectmode .team-row-actions,
+.team-tree.is-selectmode .team-member-actions { display: none; }  /* declutter while selecting */
+.team-tree.is-selectmode .team-handle { opacity: 0.35; }
+
+.team-selectbar {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  padding: 0.6rem 0.9rem; margin-top: 0.5rem;
+  background: #fff; border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+}
+.team-selectbar-count { font-size: 0.85rem; font-weight: 600; color: var(--ink-700); }
+.team-selectbar-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+
 /* ---- destination picker ---- */
 .team-picker-what {
   font-size: 0.9rem; color: var(--brand-primary); font-weight: 600; margin-bottom: 0.5rem;

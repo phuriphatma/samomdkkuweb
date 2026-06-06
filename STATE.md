@@ -4,21 +4,12 @@ Last updated: 2026-06-06. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations: 0046 + 0047 APPLIED; 0048 PENDING (team realtime)
+## Migrations through 0049 APPLIED — NONE pending
 
-All migrations through **0047 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`) — user ran 0046 (team_nodes/team_members) + 0047 (seed:
-218 nodes, 351 member rows). 0045 and earlier also applied.
-
-**PENDING — not yet run against Supabase:**
-- `0048_team_realtime.sql` — `replica identity full` on both team tables +
-  adds them to the `supabase_realtime` publication (idempotent DO-block guard).
-  Until applied, the ทีม SAMO page still works but **live multi-editor sync
-  shows no remote changes** (postgres_changes deliver nothing when the table
-  isn't in the publication). Presence (who's online) does NOT need 0048.
-- `0049_team_year_normalize.sql` — one-shot data fix: strips non-digits from
-  `team_members.year` so ชั้นปี is a bare number everywhere ("ปี 5" → "5").
-  The member form + CSV/JSON import now normalize on write too (self-healing).
+All migrations through **0049 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`). SAMO Team: 0046 (tables) + 0047 (seed: 218 nodes,
+351 member rows) + 0048 (realtime publication + replica identity full) +
+0049 (year normalize). No pending migrations.
 
 ## SAMO Team management — built, on main, MIGRATIONS PENDING
 
@@ -38,6 +29,12 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   the clunky 200-option `<select>`. The member modal's ตำแหน่ง field and the
   per-row member "ย้าย" both open the same picker.
 - ชั้นปี stored as a bare number; the year chip renders "ปี N".
+- **Multi-select** ("เลือกหลายรายการ" toolbar toggle): checkboxes on node + member
+  rows, a sticky bulk bar → **ย้าย** (one picker moves all selected: nodes
+  reparent, members reassign; excludes selected nodes' own subtrees) or **ลบ**
+  (bulk delete; nodes cascade, members not under a deleted node deleted
+  individually). Drag is disabled in select mode. Multi-drag was intentionally
+  NOT used (nested-tree multi-drag is unreliable) — bulk move is via the picker.
 - Member rows now show **kkumail** inline (no need to open the editor).
 - Per-node app **permissions** (`pr/vs/samoshop/projects/creator/team`) with an
   **inherit** toggle, edited in the separate perms mode. v1 = **org metadata
@@ -72,8 +69,12 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   shape (aborts with a clear message; orphan nodes go to root with a warning),
   de-dupes within the file AND against existing rows (by kkumail, else
   name+student_id per node), validates email format — and shows a per-import
-  **report** (added / skipped-with-reasons / warnings) instead of failing on the
-  first bad row. The import modal stays open so the report is reviewable.
+  **report** (added / updated / skipped-with-reasons / warnings) instead of
+  failing on the first bad row. The import modal stays open so the report is
+  reviewable. A **"เมื่อพบข้อมูลซ้ำ" select** chooses skip vs **update existing**
+  (overwrite the matched member's fields). Path separator is **" / " with spaces**
+  — a slash touching letters (e.g. `Art/Graphic`) is part of the name, not a
+  level break (`splitPath` splits on `/\s+\/\s+/`).
 
 ## Ticket soft-delete — DONE, on main (0043 + 0044)
 

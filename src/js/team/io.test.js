@@ -41,10 +41,12 @@ describe('team/io CSV', () => {
     expect(parseMembersCsv('full_name\n\n')).toHaveLength(0);
   });
 
-  it('splitPath trims, collapses inner space, drops empties', () => {
-    expect(splitPath(' A / B /  / C ')).toEqual(['A', 'B', 'C']);
-    expect(splitPath('A/B')).toEqual(['A', 'B']);              // no spaces around /
-    expect(splitPath('A  Inc /  B ')).toEqual(['A Inc', 'B']); // collapsed inner space
+  it('splitPath separates on " / " but keeps a slash inside a name', () => {
+    expect(splitPath(' A / B / C ')).toEqual(['A', 'B', 'C']);     // leading/trailing trimmed
+    expect(splitPath('A / B / ')).toEqual(['A', 'B']);            // trailing separator dropped
+    expect(splitPath('A Inc /  B ')).toEqual(['A Inc', 'B']);      // collapsed inner space
+    expect(splitPath('ComArt / Art/Graphic')).toEqual(['ComArt', 'Art/Graphic']); // slash in name kept
+    expect(splitPath('Art/Graphic')).toEqual(['Art/Graphic']);    // bare slash = part of name
   });
 
   it('normalizes year to a bare number', () => {
