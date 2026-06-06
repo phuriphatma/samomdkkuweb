@@ -22,6 +22,7 @@ import {
 import { subscribeTeam } from './realtime.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
+  normalizeYear, isLikelyEmail, validateExportJson,
 } from './io.js';
 
 // App permissions that can be attached to a node (keys match userCanAccess).
@@ -124,7 +125,7 @@ export function initTeam() {
   initialized = true;
   wireToolbar();
   wireNodeModal();
-  wireMoveModal();
+  wirePicker();
   wirePermModal();
   wireMemberModal();
   wireTreeDelegation();
@@ -362,7 +363,7 @@ function renderMember(m, filter) {
       ${mailHtml ? `<span class="team-member-mail"><i class="bi bi-envelope"></i> ${mailHtml}</span>` : ''}
       <span class="team-member-meta">
         ${m.major ? `<span class="team-tag team-tag-major">${escHtml(m.major)}</span>` : ''}
-        ${m.year ? `<span class="team-tag">${escHtml(m.year)}</span>` : ''}
+        ${m.year ? `<span class="team-tag">ปี ${escHtml(m.year)}</span>` : ''}
         ${m.student_id ? `<span class="team-tag team-tag-sid">${escHtml(m.student_id)}</span>` : ''}
         ${m.confirmed
           ? '<span class="team-tag team-tag-ok"><i class="bi bi-check-circle-fill"></i> ยืนยัน</span>'
@@ -542,11 +543,11 @@ function wireTreeDelegation() {
       case 'edit':        openNodeModal({ node: nodesById.get(nodeId) }); break;
       case 'add-child':   openNodeModal({ parentId: nodeId }); break;
       case 'add-member':  openMemberModal({ nodeId }); break;
-      case 'move':        openMoveModal(nodeId); break;
+      case 'move':        openMoveNode(nodeId); break;
       case 'delete':      onDeleteNode(nodeId); break;
       case 'edit-perms':  openPermModal(nodeId); break;
       case 'edit-member': openMemberModal({ member: findMember(memberId) }); break;
-      case 'move-member': openMemberModal({ member: findMember(memberId), focusNode: true }); break;
+      case 'move-member': openMoveMember(memberId); break;
       case 'delete-member': onDeleteMember(memberId); break;
     }
   });
@@ -589,19 +590,93 @@ function modalInstance(id) {
   return el && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(el) : null;
 }
 
-/** Build a flat, path-labelled option list of all nodes, depth-first in
- *  display order. `excludeSubtreeOf` omits a node and its descendants. */
-function nodeOptions({ excludeSubtreeOf = null, selected = null } = {}) {
-  const opts = [];
-  const walk = (parentId, depth) => {
+// ============================================================
+// DESTINATION PICKER — searchable list (used by node-move + member-role assign)
+// A type-to-filter list beats a 200-option <select> and is touch-friendly:
+// select a row, confirm. Far easier than precise nested drag.
+// ============================================================
+
+let pickerCandidates = [];   // [{ id, name, path, depth, current }]
+let pickerSelected = null;   // chosen id ('' = root) or null = nothing yet
+let pickerOnPick = null;     // (id|null) => void
+let pickerAllowRoot = false;
+
+function wirePicker() {
+  $('teamPickerSearch')?.addEventListener('input', () => renderPickerList($('teamPickerSearch').value.trim()));
+  $('teamPickerList')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-pick-id]');
+    if (!row) return;
+    pickerSelected = row.dataset.pickId;  // '' for root
+    $('teamPickerList').querySelectorAll('.is-selected').forEach((x) => x.classList.remove('is-selected'));
+    row.classList.add('is-selected');
+    $('teamPickerConfirm').disabled = false;
+  });
+  $('teamPickerConfirm')?.addEventListener('click', () => {
+    if (pickerSelected === null) return;
+    const cb = pickerOnPick;
+    const sel = pickerSelected;
+    modalInstance('teamPickerModal')?.hide();
+    if (cb) cb(sel || null);
+  });
+  // The picker can open ON TOP of the member modal. When the (inner) picker
+  // closes, Bootstrap can strip `modal-open` from <body> even though the outer
+  // modal is still up, unlocking page scroll. Re-assert it if so.
+  $('teamPickerModal')?.addEventListener('hidden.bs.modal', () => {
+    if (document.querySelector('.modal.show')) document.body.classList.add('modal-open');
+  });
+}
+
+function openPicker({ title, what, currentId = null, excludeSubtreeOf = null, allowRoot = false, onPick }) {
+  pickerOnPick = onPick;
+  pickerAllowRoot = allowRoot;
+  pickerSelected = null;
+  $('teamPickerTitle').textContent = title || 'เลือกตำแหน่ง';
+  $('teamPickerWhat').textContent = what || '';
+  $('teamPickerConfirm').disabled = true;
+  pickerCandidates = [];
+  const walk = (parentId, depth, trail) => {
     for (const n of childrenOf(parentId)) {
       if (excludeSubtreeOf && (n.id === excludeSubtreeOf || isAncestor(excludeSubtreeOf, n.id))) continue;
-      opts.push(`<option value="${n.id}" ${n.id === selected ? 'selected' : ''}>${'&nbsp;&nbsp;'.repeat(depth) + escHtml(n.name)}</option>`);
-      walk(n.id, depth + 1);
+      const path = trail.concat(n.name);
+      pickerCandidates.push({ id: n.id, name: n.name, path: path.join(' / '), depth, current: n.id === currentId });
+      walk(n.id, depth + 1, path);
     }
   };
-  walk(null, 0);
-  return opts.join('');
+  walk(null, 0, []);
+  const search = $('teamPickerSearch');
+  if (search) search.value = '';
+  renderPickerList('');
+  modalInstance('teamPickerModal')?.show();
+  setTimeout(() => search?.focus(), 250);
+}
+
+function renderPickerList(q) {
+  const list = $('teamPickerList');
+  if (!list) return;
+  const ql = q.toLowerCase();
+  const matches = ql ? pickerCandidates.filter((c) => c.path.toLowerCase().includes(ql)) : pickerCandidates;
+  let html = '';
+  if (pickerAllowRoot && !ql) {
+    html += `<button type="button" class="team-picker-item team-picker-root" data-pick-id="">
+      <i class="bi bi-diagram-2"></i> — ระดับบนสุด (ฝ่ายหลัก) —</button>`;
+  }
+  html += matches.slice(0, 300).map((c) => {
+    const parent = c.path.split(' / ').slice(0, -1).join(' / ');
+    return `<button type="button" class="team-picker-item ${c.current ? 'is-current' : ''}" data-pick-id="${c.id}">
+      <span class="team-picker-leaf">${highlightPlain(c.name, q)}</span>
+      ${parent ? `<span class="team-picker-path">${highlightPlain(parent, q)}</span>` : ''}
+      ${c.current ? '<span class="team-picker-badge">ปัจจุบัน</span>' : ''}
+    </button>`;
+  }).join('');
+  if (!html) html = '<div class="team-picker-empty">ไม่พบตำแหน่ง</div>';
+  list.innerHTML = html;
+}
+
+function highlightPlain(text, q) {
+  if (!q) return escHtml(text);
+  const t = String(text || ''); const i = t.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return escHtml(t);
+  return escHtml(t.slice(0, i)) + '<mark>' + escHtml(t.slice(i, i + q.length)) + '</mark>' + escHtml(t.slice(i + q.length));
 }
 
 // ============================================================
@@ -669,38 +744,54 @@ async function onDeleteNode(id) {
 }
 
 // ============================================================
-// MOVE MODAL (node → new parent)
+// MOVE (node → new parent, member → new role) via the picker
 // ============================================================
 
-function wireMoveModal() { $('teamMoveForm')?.addEventListener('submit', onMoveSubmit); }
-
-function openMoveModal(id) {
+function openMoveNode(id) {
   const node = nodesById.get(id);
   if (!node) return;
-  $('teamMoveId').value = id;
-  $('teamMoveWhat').textContent = `ย้าย: ${node.name}`;
-  $('teamMoveTarget').innerHTML =
-    `<option value="">— ระดับบนสุด —</option>` +
-    nodeOptions({ excludeSubtreeOf: id, selected: node.parent_id });
-  modalInstance('teamMoveModal')?.show();
+  openPicker({
+    title: 'ย้ายตำแหน่ง', what: `กำลังย้าย: ${node.name}`,
+    currentId: node.parent_id, excludeSubtreeOf: id, allowRoot: true,
+    onPick: (target) => moveNodeTo(id, target),
+  });
 }
 
-async function onMoveSubmit(e) {
-  e.preventDefault();
-  const id = $('teamMoveId').value;
+function moveNodeTo(id, newParentId) {
   const node = nodesById.get(id);
   if (!node) return;
-  const newParentId = $('teamMoveTarget').value || null;
   if (newParentId && isAncestor(id, newParentId)) { alert('ย้ายไปไว้ใต้ตำแหน่งลูกของตัวเองไม่ได้'); return; }
-  modalInstance('teamMoveModal')?.hide();
   if (newParentId === (node.parent_id || null)) return;
   node.parent_id = newParentId;
   node.position = childrenOf(newParentId).length;  // append at end of new parent
   rebuildChildrenIndexFromNodes();
   if (newParentId) expanded.add(newParentId);
   render();
-  try { await updateNode(id, { parent_id: newParentId, position: node.position }); }
-  catch (err) { alert(err?.message || 'ย้ายไม่สำเร็จ'); reload(); }
+  updateNode(id, { parent_id: newParentId, position: node.position })
+    .catch((err) => { alert(err?.message || 'ย้ายไม่สำเร็จ'); reload(); });
+}
+
+function openMoveMember(id) {
+  const m = findMember(id);
+  if (!m) return;
+  openPicker({
+    title: 'ย้ายสมาชิกไปตำแหน่ง',
+    what: `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`,
+    currentId: m.node_id,
+    onPick: (target) => { if (target) moveMemberTo(id, target); },
+  });
+}
+
+function moveMemberTo(id, newNodeId) {
+  const m = findMember(id);
+  if (!m || !newNodeId || m.node_id === newNodeId) return;
+  m.node_id = newNodeId;
+  m.position = membersOf(newNodeId).length;
+  rebuildMembersIndex();
+  expanded.add(newNodeId);
+  render();
+  updateMember(id, { node_id: newNodeId, position: m.position })
+    .catch((err) => { alert(err?.message || 'ย้ายไม่สำเร็จ'); reload(); });
 }
 
 // ============================================================
@@ -766,12 +857,29 @@ function wireMemberModal() {
     const id = $('teamMemberId').value;
     if (id) { modalInstance('teamMemberModal')?.hide(); onDeleteMember(id); }
   });
+  // The node selector opens the searchable picker (the member modal stays open
+  // underneath; we just stamp the choice into the hidden input + label).
+  $('teamMemberNodeBtn')?.addEventListener('click', () => {
+    openPicker({
+      title: 'เลือกตำแหน่ง', currentId: $('teamMemberNodeId').value || null,
+      onPick: (target) => { if (target) setMemberNode(target); },
+    });
+  });
 }
 
-function openMemberModal({ member = null, nodeId = null, focusNode = false } = {}) {
-  const nid = member?.node_id || nodeId;
+function setMemberNode(nid) {
+  $('teamMemberNodeId').value = nid || '';
+  const label = $('teamMemberNodeLabel');
+  if (label) {
+    label.textContent = nid ? nodePath(nid) : 'เลือกตำแหน่ง…';
+    label.classList.toggle('text-muted', !nid);
+  }
+}
+
+function openMemberModal({ member = null, nodeId = null } = {}) {
+  const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
-  $('teamMemberNodeSelect').innerHTML = nodeOptions({ selected: nid });
+  setMemberNode(nid);
   $('teamMemberPrefix').value = member?.prefix || '';
   $('teamMemberName').value = member?.full_name || '';
   $('teamMemberNickname').value = member?.nickname || '';
@@ -783,22 +891,22 @@ function openMemberModal({ member = null, nodeId = null, focusNode = false } = {
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
-  setTimeout(() => (focusNode ? $('teamMemberNodeSelect') : $('teamMemberName'))?.focus(), 250);
+  setTimeout(() => $('teamMemberName')?.focus(), 250);
 }
 
 async function onMemberSubmit(e) {
   e.preventDefault();
   const id = $('teamMemberId').value;
-  const nodeId = $('teamMemberNodeSelect').value;
+  const nodeId = $('teamMemberNodeId').value;
   const name = $('teamMemberName').value.trim();
   if (!name) { $('teamMemberName').focus(); return; }
-  if (!nodeId) { $('teamMemberNodeSelect').focus(); return; }
+  if (!nodeId) { alert('กรุณาเลือกตำแหน่ง'); return; }
   const payload = {
     prefix: $('teamMemberPrefix').value.trim() || null,
     full_name: name,
     nickname: $('teamMemberNickname').value.trim() || null,
     student_id: $('teamMemberStudentId').value.trim() || null,
-    year: $('teamMemberYear').value.trim() || null,
+    year: normalizeYear($('teamMemberYear').value),
     major: $('teamMemberMajor').value.trim() || null,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
@@ -885,16 +993,41 @@ function setImportStatus(msg, isErr = false) {
   if (el) { el.textContent = msg || ''; el.classList.toggle('is-error', isErr); }
 }
 
+function detailBlock(cls, title, items) {
+  if (!items.length) return '';
+  const shown = items.slice(0, 12).map((s) => `<li>${escHtml(s)}</li>`).join('');
+  const more = items.length > 12 ? `<li>… อีก ${items.length - 12} รายการ</li>` : '';
+  return `<div class="${cls}"><b>${escHtml(title)} (${items.length})</b><ul>${shown}${more}</ul></div>`;
+}
+
+function setImportReport(r) {
+  const el = $('teamImportStatus');
+  if (!el) return;
+  el.classList.remove('is-error');
+  el.innerHTML =
+    `<div class="team-import-ok"><i class="bi bi-check-circle-fill"></i> นำเข้าแล้ว: เพิ่ม ${r.nodes} ตำแหน่ง, ${r.members} สมาชิก</div>` +
+    detailBlock('team-import-skip', 'ข้าม', r.skipped) +
+    detailBlock('team-import-warn', 'เตือน', r.warnings);
+}
+
 async function runImport() {
   const raw = $('teamImportText').value.trim();
   if (!raw) { setImportStatus('ไม่มีข้อมูล', true); return; }
   const btn = $('teamImportRun');
   btn.disabled = true;
+  setImportStatus('กำลังตรวจสอบ…');
   try {
-    if (raw[0] === '{' || raw[0] === '[') await importJson(raw);
-    else await importMembersCsv(raw);
+    let report;
+    if (raw[0] === '{' || raw[0] === '[') {
+      let data;
+      try { data = JSON.parse(raw); }
+      catch { throw new Error('JSON ไม่ถูกต้อง (อ่านไม่สำเร็จ)'); }
+      report = await importJson(data);
+    } else {
+      report = await importMembersCsv(raw);
+    }
     await reload();
-    modalInstance('teamImportModal')?.hide();
+    setImportReport(report);     // keep modal open so the user reviews the result
   } catch (e) {
     console.warn('[team] import failed:', e);
     setImportStatus(`นำเข้าไม่สำเร็จ: ${e?.message || e}`, true);
@@ -903,70 +1036,109 @@ async function runImport() {
   }
 }
 
-/** Append an exported structure (new ids), parents before children. */
-async function importJson(raw) {
-  const data = JSON.parse(raw);
-  const nodes = data.nodes || [];
-  const members = data.members || [];
-  if (!nodes.length) throw new Error('ไม่มีโครงสร้างใน JSON');
+/** Append an exported structure (new ids), parents before children. Validates
+ *  shape; skips bad members with reasons; de-dupes within the file. */
+async function importJson(data) {
+  const v = validateExportJson(data);
+  if (!v.ok) throw new Error(v.error);
+  const nodes = data.nodes;
+  const members = Array.isArray(data.members) ? data.members : [];
+  const report = { nodes: 0, members: 0, skipped: [], warnings: [] };
+
   const byParent = new Map();
   nodes.forEach((n) => { const k = n.parent_id || ''; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(n); });
   for (const arr of byParent.values()) arr.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
   const idMap = new Map();
-  let made = 0;
+  const mkNode = async (n, newParent, position) => {
+    const row = await createNode({
+      parent_id: newParent, name: n.name.trim(), kind: n.kind || 'role',
+      position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
+      inherit_permissions: n.inherit_permissions !== false,
+    });
+    idMap.set(n.id, row.id); report.nodes++;
+    nodesById.set(row.id, row);
+    setImportStatus(`กำลังสร้างตำแหน่ง… ${report.nodes}/${nodes.length}`);
+    return row.id;
+  };
   const createSubtree = async (oldParent, newParent) => {
-    for (const n of (byParent.get(oldParent || '') || [])) {
-      const row = await createNode({
-        parent_id: newParent, name: n.name, kind: n.kind || 'role',
-        position: n.position ?? 0, permissions: n.permissions || [],
-        inherit_permissions: n.inherit_permissions !== false,
-      });
-      idMap.set(n.id, row.id); made++;
-      setImportStatus(`กำลังสร้างตำแหน่ง… ${made}/${nodes.length}`);
-      await createSubtree(n.id, row.id);
+    const kids = byParent.get(oldParent || '') || [];
+    for (let i = 0; i < kids.length; i++) {
+      const newId = await mkNode(kids[i], newParent, i);
+      await createSubtree(kids[i].id, newId);
     }
   };
   await createSubtree(null, null);
+  // Orphans (parent_id points at a node absent from the file) → put at root.
+  for (const n of nodes) {
+    if (idMap.has(n.id)) continue;
+    await mkNode(n, null, childrenOf(null).length);
+    report.warnings.push(`ตำแหน่ง “${n.name}” ไม่มีฝ่ายแม่ในไฟล์ จึงวางไว้ระดับบนสุด`);
+  }
+  rebuildChildrenIndexFromNodes();
 
-  let mmade = 0;
+  const seen = new Set();
   for (const m of members) {
+    const who = String(m?.full_name ?? '').trim();
+    if (!who) { report.skipped.push('สมาชิกที่ไม่มีชื่อ'); continue; }
     const newNode = idMap.get(m.node_id);
-    if (!newNode) continue;
+    if (!newNode) { report.skipped.push(`${who}: ไม่พบตำแหน่งในไฟล์`); continue; }
+    const key = newNode + '::' + ((m.kkumail || '').toLowerCase() || `${who}|${m.student_id || ''}`);
+    if (seen.has(key)) { report.skipped.push(`${who}: ซ้ำในไฟล์`); continue; }
+    seen.add(key);
+    if (m.kkumail && !isLikelyEmail(m.kkumail)) report.warnings.push(`${who}: อีเมลอาจไม่ถูกต้อง (${m.kkumail})`);
     await createMember({
       node_id: newNode, position: m.position ?? 0, prefix: m.prefix || null,
-      full_name: m.full_name, nickname: m.nickname || null, student_id: m.student_id || null,
-      year: m.year || null, major: m.major || null, kkumail: m.kkumail || null,
+      full_name: who, nickname: m.nickname || null, student_id: m.student_id || null,
+      year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
     });
-    setImportStatus(`กำลังเพิ่มสมาชิก… ${++mmade}/${members.length}`);
+    report.members++;
+    setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);
   }
-  setImportStatus(`นำเข้าสำเร็จ: ${made} ตำแหน่ง, ${mmade} สมาชิก`);
+  return report;
 }
 
-/** Add members from a CSV; resolve each row's `path` to a role, creating the
- *  path (division/dept/role) if missing and the toggle is on. Matches existing
- *  nodes by name at each level (case-sensitive Thai) under the running model. */
+/** Add members from a CSV. Resolves each row's `path` to a role (creating the
+ *  path when the toggle is on), de-dupes against the live model + within the
+ *  file, and reports skips + warnings instead of failing on the first bad row. */
 async function importMembersCsv(raw) {
   const rows = parseMembersCsv(raw);
-  if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ full_name)');
+  if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ ชื่อ-สกุล / full_name)');
   const createMissing = $('teamImportCreateRoles').checked;
-  let n = 0;
+  const report = { nodes: 0, members: 0, skipped: [], warnings: [] };
+  const seen = new Set();
   for (const r of rows) {
+    const who = r.full_name;
+    if (!r.confirmedRecognized) report.warnings.push(`${who} (แถว ${r._row}): ค่า "ยืนยัน" ไม่ชัดเจน — ถือว่ายังไม่ยืนยัน`);
+    if (r.kkumail && !isLikelyEmail(r.kkumail)) report.warnings.push(`${who} (แถว ${r._row}): อีเมลอาจไม่ถูกต้อง`);
+
     const segs = splitPath(r.path);
+    if (!segs.length) { report.skipped.push(`${who} (แถว ${r._row}): ไม่ได้ระบุตำแหน่ง (path)`); continue; }
+    const before = nodesById.size;
     const nodeId = await ensurePath(segs, createMissing);
-    if (!nodeId) continue;  // unresolved path + creation off → skip row
+    if (!nodeId) { report.skipped.push(`${who} (แถว ${r._row}): ไม่พบตำแหน่ง “${r.path}”`); continue; }
+    report.nodes += nodesById.size - before;
+
+    const dupKey = nodeId + '::' + ((r.kkumail || '').toLowerCase() || `${who}|${r.student_id || ''}`);
+    const existsInNode = membersOf(nodeId).some((m) =>
+      (r.kkumail && (m.kkumail || '').toLowerCase() === r.kkumail.toLowerCase()) ||
+      (!r.kkumail && m.full_name === who && (m.student_id || '') === (r.student_id || '')));
+    if (seen.has(dupKey) || existsInNode) { report.skipped.push(`${who} (แถว ${r._row}): มีอยู่แล้ว / ซ้ำ`); continue; }
+    seen.add(dupKey);
+
     const row = await createMember({
       node_id: nodeId, position: membersOf(nodeId).length,
-      prefix: r.prefix || null, full_name: r.full_name, nickname: r.nickname || null,
+      prefix: r.prefix || null, full_name: who, nickname: r.nickname || null,
       student_id: r.student_id || null, year: r.year || null, major: r.major || null,
       kkumail: r.kkumail || null, confirmed: !!r.confirmed,
     });
     if (!membersByNode.has(nodeId)) membersByNode.set(nodeId, []);
     membersByNode.get(nodeId).push(row);
-    setImportStatus(`กำลังเพิ่มสมาชิก… ${++n}/${rows.length}`);
+    report.members++;
+    setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}/${rows.length}`);
   }
-  setImportStatus(`นำเข้าสำเร็จ: ${n}/${rows.length} สมาชิก`);
+  return report;
 }
 
 /** Resolve a name path to a node id under the live model, creating missing

@@ -1,10 +1,11 @@
 // ==============================================
-// TEAM IMPORT / EXPORT — pure (de)serialization helpers
+// TEAM IMPORT / EXPORT — pure (de)serialization + normalization helpers
 //
 // Kept side-effect-free so they're unit-testable; index.js orchestrates the
-// actual create calls against the live model + API. Supports:
-//   • JSON  — full structure + members (round-trips an export).
-//   • CSV   — flat member rows with a "path" column ("Division / Dept / Role").
+// actual create calls + dedupe against the live model. Tolerant on input:
+// trims/collapses whitespace, normalizes ชั้นปี to a bare number, and accepts
+// loose `confirmed` spellings (true/TRU/yes/ใช่/เข้าแล้ว…) — flagging only
+// genuinely unrecognized values so the caller can warn.
 // ==============================================
 
 export const CSV_COLUMNS = [
@@ -12,6 +13,37 @@ export const CSV_COLUMNS = [
 ];
 
 export const PATH_SEP = ' / ';
+
+// ---- normalization ----
+
+/** ชั้นปี → bare number string. "ปี 5" → "5", "5" → "5", "ปีที่ 3" → "3". */
+export function normalizeYear(v) {
+  const m = String(v ?? '').match(/\d+/);
+  return m ? m[0] : null;
+}
+
+/** Loose truthiness for the confirm column. Returns { value, recognized } so
+ *  callers can warn on genuinely ambiguous input (e.g. "maybe"). */
+export function parseConfirmed(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return { value: false, recognized: true };
+  if (/^(t|true|y|yes|1|✓|✔|ใช่|ยืนยัน|เข้า)/.test(s)) return { value: true, recognized: true };
+  if (/^(f|false|n|no|0|✗|✘|ไม่|ยังไม่|รอ|-)/.test(s)) return { value: false, recognized: true };
+  return { value: false, recognized: false };
+}
+
+export function isLikelyEmail(s) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s ?? '').trim());
+}
+
+/** Collapse runs of whitespace and trim. "  A   B " → "A B". */
+export function cleanSpace(s) {
+  return String(s ?? '').replace(/\s+/g, ' ').trim();
+}
+
+export function splitPath(path) {
+  return String(path ?? '').split('/').map((s) => cleanSpace(s)).filter(Boolean);
+}
 
 // ---- JSON ----
 
@@ -31,6 +63,24 @@ export function buildExportJson(nodes, members) {
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
     })),
   };
+}
+
+/** Validate a parsed export object. Returns { ok, error } — a hard structural
+ *  problem is a fail (JSON is machine-generated; malformed ⇒ abort with a
+ *  clear message rather than partial import). */
+export function validateExportJson(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, error: 'ต้องเป็น JSON ที่ส่งออกจากระบบ (object ที่มี nodes/members) — ถ้าเป็นรายชื่อให้ใช้ CSV' };
+  }
+  if (!Array.isArray(data.nodes) || !data.nodes.length) {
+    return { ok: false, error: 'JSON ไม่มี nodes' };
+  }
+  const badNode = data.nodes.find((n) => !n || typeof n.name !== 'string' || !n.name.trim());
+  if (badNode) return { ok: false, error: 'มี node ที่ไม่มีชื่อ (name) — ไฟล์อาจเสียหาย' };
+  if (data.members && !Array.isArray(data.members)) {
+    return { ok: false, error: 'members ต้องเป็น array' };
+  }
+  return { ok: true };
 }
 
 // ---- CSV ----
@@ -65,23 +115,28 @@ export function parseCsv(text) {
     } else if (ch === '"') inQ = true;
     else if (ch === ',') { row.push(field); field = ''; }
     else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-    else if (ch === '\r') { /* swallow; \n handles row break */ }
+    else if (ch === '\r') { /* swallow; \n ends the row */ }
     else field += ch;
   }
   if (field.length || row.length) { row.push(field); rows.push(row); }
   return rows.filter((r) => r.length && !(r.length === 1 && r[0] === ''));
 }
 
-/** Parse a members CSV into objects keyed by header. Tolerates header aliases
- *  (Thai labels from a Google Sheet export) and column reordering. */
+/** Parse a members CSV into normalized objects keyed by canonical header.
+ *  Tolerates Thai header aliases, column reordering, stray whitespace. Each
+ *  row carries `confirmedRecognized` so the caller can warn on ambiguous
+ *  confirm values. Rows without a full_name are dropped. */
 export function parseMembersCsv(text) {
   const rows = parseCsv(text);
   if (!rows.length) return [];
   const header = rows[0].map((h) => normHeader(h));
-  return rows.slice(1).map((cells) => {
-    const o = {};
-    header.forEach((key, i) => { if (key) o[key] = (cells[i] ?? '').trim(); });
-    o.confirmed = /^(true|1|yes|ใช่|ยืนยัน|เข้าแล้ว)$/i.test(o.confirmed || '');
+  return rows.slice(1).map((cells, idx) => {
+    const o = { _row: idx + 2 };  // 1-based incl header, for messages
+    header.forEach((key, i) => { if (key) o[key] = cleanSpace(cells[i] ?? ''); });
+    const c = parseConfirmed(o.confirmed);
+    o.confirmed = c.value;
+    o.confirmedRecognized = c.recognized;
+    o.year = normalizeYear(o.year);
     return o;
   }).filter((o) => o.full_name);
 }
@@ -99,13 +154,9 @@ const HEADER_ALIASES = {
 };
 
 function normHeader(h) {
-  const t = String(h || '').trim().toLowerCase();
+  const t = cleanSpace(h).toLowerCase();
   for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
     if (aliases.some((a) => a.toLowerCase() === t)) return key;
   }
   return '';  // unknown column → ignored
-}
-
-export function splitPath(path) {
-  return String(path || '').split('/').map((s) => s.trim()).filter(Boolean);
 }

@@ -16,6 +16,9 @@ All migrations through **0047 are APPLIED** to Supabase (real project
   Until applied, the ทีม SAMO page still works but **live multi-editor sync
   shows no remote changes** (postgres_changes deliver nothing when the table
   isn't in the publication). Presence (who's online) does NOT need 0048.
+- `0049_team_year_normalize.sql` — one-shot data fix: strips non-digits from
+  `team_members.year` so ชั้นปี is a bare number everywhere ("ปี 5" → "5").
+  The member form + CSV/JSON import now normalize on write too (self-healing).
 
 ## SAMO Team management — built, on main, MIGRATIONS PENDING
 
@@ -29,10 +32,12 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   mode is just name + kind.
 - Add / edit / move / delete nodes + members. Two move paths: **drag-and-drop**
   for fine reorder (SortableJS; cycle guard via `onMove` + `isAncestor`) AND an
-  explicit **ย้าย (move) picker** — a path-labelled `<select>` of valid parents
-  (excludes own subtree; "— ระดับบนสุด —" promotes to a root) — for cross-level
-  promote/demote without fiddly nested drag. Members move via the same select in
-  their edit modal (the `ตำแหน่ง` dropdown).
+  explicit **searchable destination picker** (`openPicker` in index.js +
+  `#teamPickerModal`) — type-to-filter list of candidate parents/roles, select,
+  confirm; excludes own subtree, "— ระดับบนสุด —" promotes to a root. Replaced
+  the clunky 200-option `<select>`. The member modal's ตำแหน่ง field and the
+  per-row member "ย้าย" both open the same picker.
+- ชั้นปี stored as a bare number; the year chip renders "ปี N".
 - Member rows now show **kkumail** inline (no need to open the editor).
 - Per-node app **permissions** (`pr/vs/samoshop/projects/creator/team`) with an
   **inherit** toggle, edited in the separate perms mode. v1 = **org metadata
@@ -61,7 +66,14 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   (append, new ids, parents-first) or members CSV (Thai header aliases; resolves
   `path` "ฝ่าย / แผนก / ตำแหน่ง", auto-creating missing roles when toggled).
   Import is additive (never deletes); sequential creates, so a big import is
-  slow but safe.
+  slow but safe. **Robust to messy input**: trims/collapses whitespace,
+  normalizes ชั้นปี to a number, accepts loose `confirmed` spellings
+  (true/TRU/yes/ใช่/เข้าแล้ว…) and flags genuinely ambiguous ones, validates JSON
+  shape (aborts with a clear message; orphan nodes go to root with a warning),
+  de-dupes within the file AND against existing rows (by kkumail, else
+  name+student_id per node), validates email format — and shows a per-import
+  **report** (added / skipped-with-reasons / warnings) instead of failing on the
+  first bad row. The import modal stays open so the report is reviewable.
 
 ## Ticket soft-delete — DONE, on main (0043 + 0044)
 

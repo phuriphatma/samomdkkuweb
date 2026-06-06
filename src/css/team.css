@@ -28,6 +28,44 @@
 .team-import-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
 .team-import-status { margin-top: 0.6rem; font-size: 0.82rem; color: var(--ink-600); min-height: 1.2rem; }
 .team-import-status.is-error { color: #d12; }
+.team-import-ok { color: #15803d; font-weight: 600; margin-bottom: 0.4rem; }
+.team-import-skip, .team-import-warn { font-size: 0.8rem; margin-top: 0.3rem; }
+.team-import-skip b { color: var(--ink-700); }
+.team-import-warn b { color: #b45309; }
+.team-import-skip ul, .team-import-warn ul { margin: 0.2rem 0 0; padding-left: 1.1rem; max-height: 8rem; overflow: auto; }
+
+/* ---- destination picker ---- */
+.team-picker-what {
+  font-size: 0.9rem; color: var(--brand-primary); font-weight: 600; margin-bottom: 0.5rem;
+  word-break: break-word;
+}
+.team-picker-search { position: relative; display: flex; align-items: center; margin-bottom: 0.5rem; }
+.team-picker-search > .bi-search { position: absolute; left: 0.7rem; color: var(--ink-400); }
+.team-picker-search input { padding-left: 2.1rem; }
+.team-picker-list { max-height: 48vh; overflow-y: auto; border: 1px solid var(--ink-200); border-radius: var(--radius-sm); }
+.team-picker-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem;
+  width: 100%; text-align: left; border: 0; background: #fff;
+  padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--ink-100); position: relative;
+}
+.team-picker-item:last-child { border-bottom: 0; }
+.team-picker-item:hover { background: var(--ink-50); }
+.team-picker-item.is-selected { background: rgba(16,89,34,0.1); box-shadow: inset 3px 0 0 var(--brand-primary); }
+.team-picker-leaf { font-size: 0.92rem; color: var(--ink-800); }
+.team-picker-path { font-size: 0.72rem; color: var(--ink-400); }
+.team-picker-root { font-weight: 600; color: var(--brand-primary); flex-direction: row; align-items: center; gap: 0.4rem; }
+.team-picker-badge {
+  position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
+  font-size: 0.65rem; background: var(--ink-100); color: var(--ink-500);
+  padding: 0.05rem 0.45rem; border-radius: var(--radius-pill);
+}
+.team-picker-item.is-current { background: var(--ink-50); }
+.team-picker-empty { padding: 1.2rem; text-align: center; color: var(--ink-400); }
+
+/* member modal: node selector styled like a select but opens the picker */
+.team-node-pick { cursor: pointer; overflow: hidden; }
+.team-node-pick span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-node-pick:focus { box-shadow: 0 0 0 0.25rem rgba(16,89,34,0.15); }
 .team-mode-btn {
   border: 0; background: transparent; color: var(--ink-600);
   font-size: 0.85rem; font-weight: 500; padding: 0.35rem 0.9rem;

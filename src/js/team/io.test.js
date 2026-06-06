@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildMembersCsv, parseCsv, parseMembersCsv, splitPath, buildExportJson,
+  normalizeYear, parseConfirmed, isLikelyEmail, cleanSpace, validateExportJson,
 } from './io.js';
 
 describe('team/io CSV', () => {
@@ -40,8 +41,52 @@ describe('team/io CSV', () => {
     expect(parseMembersCsv('full_name\n\n')).toHaveLength(0);
   });
 
-  it('splitPath trims and drops empties', () => {
+  it('splitPath trims, collapses inner space, drops empties', () => {
     expect(splitPath(' A / B /  / C ')).toEqual(['A', 'B', 'C']);
+    expect(splitPath('A/B')).toEqual(['A', 'B']);              // no spaces around /
+    expect(splitPath('A  Inc /  B ')).toEqual(['A Inc', 'B']); // collapsed inner space
+  });
+
+  it('normalizes year to a bare number', () => {
+    expect(normalizeYear('ปี 5')).toBe('5');
+    expect(normalizeYear('5')).toBe('5');
+    expect(normalizeYear(3)).toBe('3');
+    expect(normalizeYear('ปีที่ 3')).toBe('3');
+    expect(normalizeYear('')).toBe(null);
+    expect(normalizeYear('-')).toBe(null);
+  });
+
+  it('parses loose confirm values + flags unrecognized', () => {
+    expect(parseConfirmed('true')).toEqual({ value: true, recognized: true });
+    expect(parseConfirmed('TRU')).toEqual({ value: true, recognized: true });   // typo, leading t
+    expect(parseConfirmed('เข้าแล้ว')).toEqual({ value: true, recognized: true });
+    expect(parseConfirmed('รอยืนยัน')).toEqual({ value: false, recognized: true });
+    expect(parseConfirmed('')).toEqual({ value: false, recognized: true });
+    expect(parseConfirmed('maybe')).toEqual({ value: false, recognized: false });
+  });
+
+  it('parseMembersCsv normalizes year + carries confirm recognition', () => {
+    const csv = 'path,full_name,year,confirmed\nA/B,สมชาย,ปี 4,เข้าแล้ว\nA/B,สมหญิง,2,หืม';
+    const rows = parseMembersCsv(csv);
+    expect(rows[0].year).toBe('4');
+    expect(rows[0].confirmed).toBe(true);
+    expect(rows[0].confirmedRecognized).toBe(true);
+    expect(rows[1].year).toBe('2');
+    expect(rows[1].confirmedRecognized).toBe(false);  // "หืม" ⇒ warn
+  });
+
+  it('isLikelyEmail / cleanSpace', () => {
+    expect(isLikelyEmail('a@kkumail.com')).toBe(true);
+    expect(isLikelyEmail('nope')).toBe(false);
+    expect(cleanSpace('  a   b ')).toBe('a b');
+  });
+
+  it('validateExportJson rejects malformed shapes', () => {
+    expect(validateExportJson([]).ok).toBe(false);              // array, not object
+    expect(validateExportJson({ nodes: [] }).ok).toBe(false);   // empty nodes
+    expect(validateExportJson({ nodes: [{ name: '' }] }).ok).toBe(false); // nameless node
+    expect(validateExportJson({ nodes: [{ name: 'X' }], members: {} }).ok).toBe(false); // members not array
+    expect(validateExportJson({ nodes: [{ name: 'X' }] }).ok).toBe(true);
   });
 });
 

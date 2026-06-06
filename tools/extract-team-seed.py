@@ -149,10 +149,12 @@ for sheet, dname in SHEET_DIVISION.items():
                 prefix, full_name = None, raw
         nickname = norm(ws.cell(r, 4).value) or None
         student_id = norm(ws.cell(r, 5).value) or None
+        # ชั้นปี → bare number for consistency ("ปี 5" / "5" / 5.0 → "5")
         yr = ws.cell(r, 6).value
         if isinstance(yr, float):
             yr = str(int(yr))
-        year = norm(yr) or None
+        ym = re.search(r'\d+', str(yr or ''))
+        year = ym.group(0) if ym else None
         major = norm(ws.cell(r, 7).value) or None
         stats['people'] += 1
         for role, confirmed in roles:

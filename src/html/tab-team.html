@@ -100,27 +100,29 @@
   </div>
 </div>
 
-<!-- Move modal — pick a new parent for a node (promote/demote without drag). -->
-<div class="modal fade" id="teamMoveModal" tabindex="-1" aria-hidden="true">
+<!-- Destination picker — searchable list used for "ย้าย" (move a node) and for
+     choosing/reassigning a member's role. Type to filter; tap a row to select;
+     confirm. Far easier than a 200-option <select>, and works well on touch. -->
+<div class="modal fade" id="teamPickerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form id="teamMoveForm" novalidate>
-        <div class="modal-header">
-          <h5 class="modal-title">ย้ายตำแหน่ง</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      <div class="modal-header">
+        <h5 class="modal-title" id="teamPickerTitle">ย้ายไปที่…</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body">
+        <div class="team-picker-what" id="teamPickerWhat"></div>
+        <div class="team-picker-search">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-control" id="teamPickerSearch"
+            placeholder="พิมพ์เพื่อค้นหาตำแหน่ง" autocomplete="off" />
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="teamMoveId" />
-          <div class="team-move-what" id="teamMoveWhat"></div>
-          <label class="form-label" for="teamMoveTarget">ย้ายไปอยู่ใต้</label>
-          <select class="form-select" id="teamMoveTarget"></select>
-          <div class="form-text">เลือก “— ระดับบนสุด —” เพื่อทำให้เป็นฝ่ายหลัก</div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">ย้าย</button>
-        </div>
-      </form>
+        <div class="team-picker-list" id="teamPickerList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="teamPickerConfirm" disabled>เลือก</button>
+      </div>
     </div>
   </div>
 </div>
@@ -205,9 +207,12 @@
         </div>
         <div class="modal-body">
           <input type="hidden" id="teamMemberId" />
+          <input type="hidden" id="teamMemberNodeId" />
           <div class="mb-3">
-            <label class="form-label" for="teamMemberNodeSelect">ตำแหน่ง</label>
-            <select class="form-select" id="teamMemberNodeSelect"></select>
+            <label class="form-label">ตำแหน่ง</label>
+            <button type="button" class="form-select text-start team-node-pick" id="teamMemberNodeBtn">
+              <span id="teamMemberNodeLabel" class="text-muted">เลือกตำแหน่ง…</span>
+            </button>
           </div>
           <div class="row g-2">
             <div class="col-4">
@@ -231,7 +236,7 @@
             </div>
             <div class="col-6">
               <label class="form-label" for="teamMemberYear">ชั้นปี</label>
-              <input type="text" class="form-control" id="teamMemberYear" placeholder="ปี 5" />
+              <input type="text" class="form-control" id="teamMemberYear" inputmode="numeric" placeholder="5" />
             </div>
             <div class="col-6">
               <label class="form-label" for="teamMemberMajor">สาขา</label>
