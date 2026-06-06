@@ -51,6 +51,7 @@ let searchQ = '';
 let selectionMode = false;     // multi-select for bulk move / delete
 const selectedNodes = new Set();
 const selectedMembers = new Set();
+let pendingPlan = null;        // CSV import plan awaiting per-conflict resolution
 let sortables = [];            // live Sortable instances, destroyed on re-render
 let rtStarted = false;         // realtime subscription established once
 let dragging = false;          // a drag is in progress — defer remote re-renders
@@ -1118,6 +1119,7 @@ function wireIO() {
     $('teamImportText').value = '';
     $('teamImportFile').value = '';
     setImportStatus('');
+    resetImportView();
     modalInstance('teamImportModal')?.show();
   });
   $('teamImportFile')?.addEventListener('change', async (e) => {
@@ -1125,6 +1127,32 @@ function wireIO() {
     if (f) $('teamImportText').value = await f.text();
   });
   $('teamImportRun')?.addEventListener('click', runImport);
+
+  // Conflict resolver: per-card keep/replace toggle + bulk buttons.
+  $('teamImportConflictList')?.addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-choice]');
+    if (!opt) return;
+    const card = opt.closest('[data-conflict-idx]');
+    card?.querySelectorAll('[data-choice]').forEach((b) => b.classList.remove('active'));
+    opt.classList.add('active');
+  });
+  $('teamImportConflicts')?.addEventListener('click', (e) => {
+    const all = e.target.closest('[data-conflict-all]');
+    if (!all) return;
+    const choice = all.dataset.conflictAll;
+    $('teamImportConflictList').querySelectorAll('[data-conflict-idx]').forEach((card) => {
+      card.querySelectorAll('[data-choice]').forEach((b) => b.classList.toggle('active', b.dataset.choice === choice));
+    });
+  });
+}
+
+function resetImportView() {
+  pendingPlan = null;
+  $('teamImportFormArea')?.classList.remove('d-none');
+  $('teamImportConflicts')?.classList.add('d-none');
+  const list = $('teamImportConflictList'); if (list) list.innerHTML = '';
+  const btn = $('teamImportRun');
+  if (btn) btn.innerHTML = '<i class="bi bi-box-arrow-in-down me-1"></i>นำเข้า';
 }
 
 function stamp() { return new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-'); }
@@ -1152,23 +1180,56 @@ function setImportReport(r) {
 }
 
 async function runImport() {
+  const btn = $('teamImportRun');
+
+  // Phase 2 — apply a plan whose conflicts the user just resolved in the UI.
+  if (pendingPlan) {
+    btn.disabled = true;
+    try {
+      readConflictChoices(pendingPlan);
+      const report = await applyPlan(pendingPlan, $('teamImportCreateRoles').checked);
+      pendingPlan = null;
+      $('teamImportFormArea')?.classList.remove('d-none');
+      $('teamImportConflicts')?.classList.add('d-none');
+      btn.innerHTML = '<i class="bi bi-box-arrow-in-down me-1"></i>นำเข้า';
+      await reload();
+      setImportReport(report);
+    } catch (e) {
+      console.warn('[team] import apply failed:', e);
+      setImportStatus(`นำเข้าไม่สำเร็จ: ${e?.message || e}`, true);
+    } finally { btn.disabled = false; }
+    return;
+  }
+
   const raw = $('teamImportText').value.trim();
   if (!raw) { setImportStatus('ไม่มีข้อมูล', true); return; }
-  const btn = $('teamImportRun');
   btn.disabled = true;
   setImportStatus('กำลังตรวจสอบ…');
   try {
-    let report;
     if (raw[0] === '{' || raw[0] === '[') {
       let data;
       try { data = JSON.parse(raw); }
       catch { throw new Error('JSON ไม่ถูกต้อง (อ่านไม่สำเร็จ)'); }
-      report = await importJson(data);
-    } else {
-      report = await importMembersCsv(raw);
+      const report = await importJson(data);
+      await reload();
+      setImportReport(report);
+      return;
     }
+    const mode = $('teamImportDupMode')?.value || 'choose';
+    const plan = planMembersCsv(raw);
+    if (mode === 'choose' && plan.conflicts.length) {
+      // Pause and let the user resolve each conflict (git-merge style).
+      renderConflictView(plan);
+      pendingPlan = plan;
+      btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>ยืนยันนำเข้า';
+      setImportStatus('');
+      return;
+    }
+    // No interactive conflicts: pin each conflict's choice from the mode.
+    plan.conflicts.forEach((k) => { k.choice = (mode === 'update') ? 'replace' : 'keep'; });
+    const report = await applyPlan(plan, $('teamImportCreateRoles').checked);
     await reload();
-    setImportReport(report);     // keep modal open so the user reviews the result
+    setImportReport(report);
   } catch (e) {
     console.warn('[team] import failed:', e);
     setImportStatus(`นำเข้าไม่สำเร็จ: ${e?.message || e}`, true);
@@ -1240,56 +1301,143 @@ async function importJson(data) {
   return report;
 }
 
-/** Add members from a CSV. Resolves each row's `path` to a role (creating the
- *  path when the toggle is on), de-dupes against the live model + within the
- *  file, and reports skips + warnings instead of failing on the first bad row. */
-async function importMembersCsv(raw) {
+const DIFF_FIELDS = [
+  ['prefix', 'คำนำหน้า'], ['full_name', 'ชื่อ-สกุล'], ['nickname', 'ชื่อเล่น'],
+  ['student_id', 'รหัส'], ['year', 'ชั้นปี'], ['major', 'สาขา'],
+  ['kkumail', 'KKU Mail'], ['confirmed', 'ยืนยัน'],
+];
+
+function rowFields(r) {
+  return {
+    prefix: r.prefix || null, full_name: r.full_name, nickname: r.nickname || null,
+    student_id: r.student_id || null, year: r.year || null, major: r.major || null,
+    kkumail: r.kkumail || null, confirmed: !!r.confirmed,
+  };
+}
+
+/** Resolve a name path to an existing node WITHOUT creating anything. */
+function resolvePathReadOnly(segs) {
+  let parentId = null;
+  for (const name of segs) {
+    const ex = childrenOf(parentId).find((c) => c.name === name);
+    if (!ex) return null;
+    parentId = ex.id;
+  }
+  return parentId;
+}
+
+function memberDiff(existing, fields) {
+  const out = [];
+  for (const [k, label] of DIFF_FIELDS) {
+    const a = k === 'confirmed' ? !!existing[k] : (existing[k] || '');
+    const b = k === 'confirmed' ? !!fields[k] : (fields[k] || '');
+    if (String(a) !== String(b)) out.push({ field: k, label, old: a, new: b });
+  }
+  return out;
+}
+
+function fmtVal(field, v) {
+  if (field === 'confirmed') return v ? 'ยืนยัน' : 'รอยืนยัน';
+  return v === '' || v == null ? '—' : String(v);
+}
+
+/** Read-only pass: classify each CSV row as create / conflict / skip without
+ *  mutating the model. Path creation (for new roles) is deferred to applyPlan. */
+function planMembersCsv(raw) {
   const rows = parseMembersCsv(raw);
   if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ ชื่อ-สกุล / full_name)');
-  const createMissing = $('teamImportCreateRoles').checked;
-  const dupMode = $('teamImportDupMode')?.value || 'skip';   // 'skip' | 'update'
-  const report = { nodes: 0, members: 0, updated: 0, skipped: [], warnings: [] };
+  const plan = { creates: [], conflicts: [], identical: 0, skipped: [], warnings: [] };
   const seen = new Set();
   for (const r of rows) {
     const who = r.full_name;
-    if (!r.confirmedRecognized) report.warnings.push(`${who} (แถว ${r._row}): ค่า "ยืนยัน" ไม่ชัดเจน — ถือว่ายังไม่ยืนยัน`);
-    if (r.kkumail && !isLikelyEmail(r.kkumail)) report.warnings.push(`${who} (แถว ${r._row}): อีเมลอาจไม่ถูกต้อง`);
+    if (!r.confirmedRecognized) plan.warnings.push(`${who} (แถว ${r._row}): ค่า "ยืนยัน" ไม่ชัดเจน — ถือว่ายังไม่ยืนยัน`);
+    if (r.kkumail && !isLikelyEmail(r.kkumail)) plan.warnings.push(`${who} (แถว ${r._row}): อีเมลอาจไม่ถูกต้อง`);
 
     const segs = splitPath(r.path);
-    if (!segs.length) { report.skipped.push(`${who} (แถว ${r._row}): ไม่ได้ระบุตำแหน่ง (path)`); continue; }
-    const before = nodesById.size;
-    const nodeId = await ensurePath(segs, createMissing);
-    if (!nodeId) { report.skipped.push(`${who} (แถว ${r._row}): ไม่พบตำแหน่ง “${r.path}”`); continue; }
-    report.nodes += nodesById.size - before;
-
-    const dupKey = nodeId + '::' + ((r.kkumail || '').toLowerCase() || `${who}|${r.student_id || ''}`);
-    const existing = findExistingMember(nodeId, r);
-    const fields = {
-      prefix: r.prefix || null, full_name: who, nickname: r.nickname || null,
-      student_id: r.student_id || null, year: r.year || null, major: r.major || null,
-      kkumail: r.kkumail || null, confirmed: !!r.confirmed,
-    };
-    if (seen.has(dupKey) || existing) {
-      if (existing && dupMode === 'update') {
-        Object.assign(existing, fields);
-        await updateMember(existing.id, fields);
-        report.updated++;
-        seen.add(dupKey);
-        setImportStatus(`กำลังอัปเดต… ${report.updated}`);
-      } else {
-        report.skipped.push(`${who} (แถว ${r._row}): มีอยู่แล้ว / ซ้ำ`);
-      }
-      continue;
-    }
+    if (!segs.length) { plan.skipped.push(`${who} (แถว ${r._row}): ไม่ได้ระบุตำแหน่ง (path)`); continue; }
+    const nodeId = resolvePathReadOnly(segs);
+    const fields = rowFields(r);
+    const dupKey = (nodeId || segs.join(' / ')) + '::' + ((r.kkumail || '').toLowerCase() || `${who}|${r.student_id || ''}`);
+    if (seen.has(dupKey)) { plan.skipped.push(`${who} (แถว ${r._row}): ซ้ำในไฟล์`); continue; }
     seen.add(dupKey);
 
-    const row = await createMember({ node_id: nodeId, position: membersOf(nodeId).length, ...fields });
+    if (nodeId) {
+      const existing = findExistingMember(nodeId, r);
+      if (existing) {
+        const diffs = memberDiff(existing, fields);
+        if (!diffs.length) { plan.identical++; continue; }   // already up to date
+        plan.conflicts.push({ who, row: r._row, existingId: existing.id, path: nodePath(nodeId), fields, diffs, choice: 'replace' });
+        continue;
+      }
+      plan.creates.push({ nodeId, segs: null, fields });
+    } else {
+      plan.creates.push({ nodeId: null, segs, fields });     // role created at apply time
+    }
+  }
+  return plan;
+}
+
+async function applyPlan(plan, createMissing) {
+  const report = { nodes: 0, members: 0, updated: 0, skipped: [...plan.skipped], warnings: [...plan.warnings] };
+  if (plan.identical) report.skipped.push(`เหมือนเดิม ${plan.identical} รายการ (ไม่ต้องเปลี่ยน)`);
+
+  for (const c of plan.creates) {
+    let nodeId = c.nodeId;
+    if (!nodeId) {
+      const before = nodesById.size;
+      nodeId = await ensurePath(c.segs, createMissing);
+      if (!nodeId) { report.skipped.push(`${c.fields.full_name}: ไม่พบ/สร้างตำแหน่งไม่ได้`); continue; }
+      report.nodes += nodesById.size - before;
+    }
+    const row = await createMember({ node_id: nodeId, position: membersOf(nodeId).length, ...c.fields });
     if (!membersByNode.has(nodeId)) membersByNode.set(nodeId, []);
     membersByNode.get(nodeId).push(row);
     report.members++;
-    setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}/${rows.length}`);
+    setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);
+  }
+  for (const k of plan.conflicts) {
+    if (k.choice === 'replace') {
+      const m = findMember(k.existingId);
+      if (m) Object.assign(m, k.fields);
+      await updateMember(k.existingId, k.fields);
+      report.updated++;
+      setImportStatus(`กำลังอัปเดต… ${report.updated}`);
+    } else {
+      report.skipped.push(`${k.who} (แถว ${k.row}): เก็บของเดิม`);
+    }
   }
   return report;
+}
+
+/** Render the per-conflict resolver (git-merge style) into the import modal. */
+function renderConflictView(plan) {
+  $('teamImportFormArea')?.classList.add('d-none');
+  $('teamImportConflicts')?.classList.remove('d-none');
+  const countEl = $('teamConflictCount');
+  if (countEl) countEl.textContent = `พบข้อมูลซ้ำ ${plan.conflicts.length} รายการ — เลือกว่าจะเก็บอันไหน`;
+  const list = $('teamImportConflictList');
+  if (!list) return;
+  list.innerHTML = plan.conflicts.map((k, i) => `
+    <div class="team-conflict" data-conflict-idx="${i}">
+      <div class="team-conflict-head"><b>${escHtml(k.who)}</b> <span class="team-conflict-path">${escHtml(k.path)}</span></div>
+      <table class="team-conflict-diff"><thead><tr><th></th><th>เดิม</th><th>ใหม่</th></tr></thead><tbody>
+        ${k.diffs.map((d) => `<tr><td>${escHtml(d.label)}</td><td class="old">${escHtml(fmtVal(d.field, d.old))}</td><td class="new">${escHtml(fmtVal(d.field, d.new))}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="team-conflict-choice btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-secondary" data-choice="keep">เก็บเดิม</button>
+        <button type="button" class="btn btn-outline-primary active" data-choice="replace">ใช้ใหม่</button>
+      </div>
+    </div>`).join('');
+}
+
+function readConflictChoices(plan) {
+  const list = $('teamImportConflictList');
+  if (!list) return;
+  list.querySelectorAll('[data-conflict-idx]').forEach((card) => {
+    const idx = Number(card.dataset.conflictIdx);
+    const active = card.querySelector('[data-choice].active');
+    if (plan.conflicts[idx]) plan.conflicts[idx].choice = active?.dataset.choice || 'replace';
+  });
 }
 
 /** Resolve a name path to a node id under the live model, creating missing

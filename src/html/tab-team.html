@@ -121,13 +121,13 @@
      choosing/reassigning a member's role. Type to filter; tap a row to select;
      confirm. Far easier than a 200-option <select>, and works well on touch. -->
 <div class="modal fade" id="teamPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down team-picker-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="teamPickerTitle">ย้ายไปที่…</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body team-picker-body">
         <div class="team-picker-what" id="teamPickerWhat"></div>
         <div class="team-picker-search">
           <i class="bi bi-search"></i>
@@ -179,40 +179,56 @@
 
 <!-- Import modal -->
 <div class="modal fade" id="teamImportModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title"><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small mb-2">
-          รองรับ <b>JSON</b> (โครงสร้าง + สมาชิก จากการส่งออก) หรือ <b>CSV</b> รายชื่อสมาชิก
-          (จาก Google Sheet). คอลัมน์ CSV: <code>path, prefix, full_name, nickname,
-          student_id, year, major, kkumail, confirmed</code> — โดย <code>path</code> คือ
-          “ฝ่าย / แผนก / ตำแหน่ง” (คั่นด้วย <b>เว้นวรรค-สแลช-เว้นวรรค</b> “ / ”;
-          เครื่องหมาย “/” ที่ติดกับตัวอักษรเช่น <code>Art/Graphic</code> ถือเป็นส่วนของชื่อ).
-        </p>
-        <input type="file" class="form-control mb-2" id="teamImportFile" accept=".json,.csv,.txt" />
-        <textarea class="form-control team-import-text" id="teamImportText" rows="7"
-          placeholder="หรือวางข้อมูล JSON / CSV ที่นี่"></textarea>
-        <div class="row g-2 mt-1 align-items-center">
-          <div class="col-sm-6">
-            <label class="form-label small mb-1" for="teamImportDupMode">เมื่อพบข้อมูลซ้ำ</label>
-            <select class="form-select form-select-sm" id="teamImportDupMode">
-              <option value="skip" selected>ข้าม (เก็บของเดิม)</option>
-              <option value="update">อัปเดตทับ (ใช้ข้อมูลใหม่)</option>
-            </select>
-          </div>
-          <div class="col-sm-6">
-            <div class="form-check form-switch mt-3">
-              <input class="form-check-input" type="checkbox" id="teamImportCreateRoles" checked />
-              <label class="form-check-label small" for="teamImportCreateRoles">
-                สร้างตำแหน่งใหม่ถ้ายังไม่มี (CSV)
-              </label>
+        <div id="teamImportFormArea">
+          <p class="text-muted small mb-2">
+            รองรับ <b>JSON</b> (โครงสร้าง + สมาชิก จากการส่งออก) หรือ <b>CSV</b> รายชื่อสมาชิก
+            (จาก Google Sheet). คอลัมน์ CSV: <code>path, prefix, full_name, nickname,
+            student_id, year, major, kkumail, confirmed</code> — โดย <code>path</code> คือ
+            “ฝ่าย / แผนก / ตำแหน่ง” (คั่นด้วย <b>เว้นวรรค-สแลช-เว้นวรรค</b> “ / ”;
+            เครื่องหมาย “/” ที่ติดกับตัวอักษรเช่น <code>Art/Graphic</code> ถือเป็นส่วนของชื่อ).
+          </p>
+          <input type="file" class="form-control mb-2" id="teamImportFile" accept=".json,.csv,.txt" />
+          <textarea class="form-control team-import-text" id="teamImportText" rows="7"
+            placeholder="หรือวางข้อมูล JSON / CSV ที่นี่"></textarea>
+          <div class="row g-2 mt-1 align-items-center">
+            <div class="col-sm-6">
+              <label class="form-label small mb-1" for="teamImportDupMode">เมื่อพบข้อมูลซ้ำ</label>
+              <select class="form-select form-select-sm" id="teamImportDupMode">
+                <option value="choose" selected>เลือกทีละรายการ (เหมือน merge conflict)</option>
+                <option value="skip">ข้ามทั้งหมด (เก็บของเดิม)</option>
+                <option value="update">อัปเดตทับทั้งหมด (ใช้ข้อมูลใหม่)</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" id="teamImportCreateRoles" checked />
+                <label class="form-check-label small" for="teamImportCreateRoles">
+                  สร้างตำแหน่งใหม่ถ้ายังไม่มี (CSV)
+                </label>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Conflict resolver — shown when "เลือกทีละรายการ" finds duplicates. -->
+        <div id="teamImportConflicts" class="d-none">
+          <div class="team-conflict-bar">
+            <span id="teamConflictCount" class="fw-semibold"></span>
+            <div class="ms-auto d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-conflict-all="keep">เก็บเดิมทั้งหมด</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-conflict-all="replace">ใช้ใหม่ทั้งหมด</button>
+            </div>
+          </div>
+          <div id="teamImportConflictList" class="team-conflict-list"></div>
+        </div>
+
         <div class="team-import-status" id="teamImportStatus"></div>
       </div>
       <div class="modal-footer">

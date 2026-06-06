@@ -71,10 +71,17 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   name+student_id per node), validates email format — and shows a per-import
   **report** (added / updated / skipped-with-reasons / warnings) instead of
   failing on the first bad row. The import modal stays open so the report is
-  reviewable. A **"เมื่อพบข้อมูลซ้ำ" select** chooses skip vs **update existing**
-  (overwrite the matched member's fields). Path separator is **" / " with spaces**
-  — a slash touching letters (e.g. `Art/Graphic`) is part of the name, not a
-  level break (`splitPath` splits on `/\s+\/\s+/`).
+  reviewable. The **"เมื่อพบข้อมูลซ้ำ" select** offers three modes:
+  **เลือกทีละรายการ (default)** opens a git-merge-style per-conflict resolver —
+  each duplicate shows a เดิม→ใหม่ field diff with a เก็บเดิม/ใช้ใหม่ toggle (+
+  bulk all-keep / all-replace); **ข้ามทั้งหมด** / **อัปเดตทับทั้งหมด** are the
+  non-interactive shortcuts. CSV import is a read-only **plan** pass
+  (`planMembersCsv` → creates/conflicts/identical/skipped) then **apply**
+  (`applyPlan`); path resolution only mutates at apply time. Path separator is
+  **" / " with spaces** — a slash touching letters (e.g. `Art/Graphic`) is part
+  of the name, not a level break (`splitPath` splits on `/\s+\/\s+/`).
+- The destination picker + import modal are **`modal-fullscreen-sm-down`** with a
+  flex body (sticky search, the list scrolls) so they're clean on iPad/phone.
 
 ## Ticket soft-delete — DONE, on main (0043 + 0044)
 
