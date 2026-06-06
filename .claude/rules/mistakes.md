@@ -13,6 +13,42 @@ Each entry: **Symptom → Cause → Fix → Where it lives now**.
 
 ---
 
+## Supabase Realtime in this app: token goes stale + RLS-gated events silently vanish (autoRefreshToken is OFF), and re-rendering on a remote event cancels an in-flight drag
+
+**Symptom**: A live-collaboration feature (SAMO Team org tree) works for the
+first ~hour, then remote edits stop arriving for long-lived tabs — no error.
+Separately, while a user is mid-drag (SortableJS), a remote change repaints the
+tree and the drag gesture dies.
+**Cause**: Two coupled gotchas.
+1. `src/js/db.js` creates the supabase-js client with `autoRefreshToken: false`
+   (deliberate — see the autoRefresh-stall entry). The Realtime websocket
+   authenticates with whatever JWT it had at `subscribe()` time and does NOT
+   refresh it. After the ~1h TTL, reconnects present a stale token; Realtime
+   re-checks RLS per subscriber, so `postgres_changes` events the user is no
+   longer authorized for (stale token → null role) are silently dropped.
+2. A full re-render (`innerHTML` rebuild) triggered by an incoming Realtime
+   event while SortableJS is mid-gesture removes the dragged node from the DOM,
+   cancelling the drag.
+**Fix**:
+- Re-push the token on an interval: `setInterval(() => db.realtime.setAuth(
+  currentAccessToken()), 20*60*1000)` (and once before subscribe). Export
+  `currentAccessToken()` from `db.js`. dbRest already keeps the stored token
+  fresh on writes, so this just forwards it to the socket.
+- Guard renders: set a `dragging` flag on SortableJS `onStart`, clear it at the
+  top of `onEnd`; remote-change handler buffers (`pendingRender`) instead of
+  rendering while `dragging`, and debounces bursts (~120ms).
+- Also normalize realtime row payloads: a Postgres `text[]` column can arrive
+  as the array LITERAL string `"{pr,vs}"` (not a JS array) on some realtime
+  versions — coerce before use.
+**Where**: `src/js/team/realtime.js` (`setAuth` interval, presence),
+`src/js/team/index.js` (`dragging`/`pendingRender`/`scheduleRemoteRender`,
+`normalizeNodeRow`), `src/js/db.js` (`export function currentAccessToken`).
+Realtime needs the table in the `supabase_realtime` publication +
+`replica identity full` (migration 0048) or events never fire at all. Apply the
+same pattern to any future Realtime subscription in this app.
+
+---
+
 ## supabase-js `onAuthStateChange` deadlocks every subsequent call
 
 **Symptom**: After signing in, the next ~1 supabase call works. The one after
