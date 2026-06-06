@@ -426,9 +426,24 @@ function computeFilter(qRaw) {
 // DRAG / DROP (fine reordering; cross-level use the move picker)
 // ============================================================
 
+/** A list inside a collapsed (d-none) node body can't be a visible drop target,
+ *  so skip it — attaching SortableJS to all ~2×N lists every render (most of
+ *  them hidden) is the main source of jank on big trees / iPad. Structural
+ *  check (not offsetParent) so it's correct even if the pane re-renders while
+ *  the team section itself is hidden. */
+function inCollapsedBody(ul, tree) {
+  let el = ul.parentElement;
+  while (el && el !== tree) {
+    if (el.classList.contains('team-node-body') && el.classList.contains('d-none')) return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 function attachSortables(tree) {
   if (!window.Sortable) return;
   tree.querySelectorAll('ul.team-children').forEach((ul) => {
+    if (inCollapsedBody(ul, tree)) return;
     sortables.push(window.Sortable.create(ul, {
       group: 'team-nodes', handle: '.team-handle:not(.team-handle-sm)',
       draggable: '.team-node', animation: 150, fallbackOnBody: true, ghostClass: 'team-ghost',
@@ -444,6 +459,7 @@ function attachSortables(tree) {
   });
   if (mode === 'team') {
     tree.querySelectorAll('ul.team-members').forEach((ul) => {
+      if (inCollapsedBody(ul, tree)) return;
       sortables.push(window.Sortable.create(ul, {
         group: 'team-members', handle: '.team-handle-sm',
         draggable: '.team-member', animation: 150, fallbackOnBody: true, ghostClass: 'team-ghost',
