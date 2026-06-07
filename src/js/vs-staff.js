@@ -37,7 +37,6 @@ const DEPT_META = {
   'อุปนายกฝ่ายรังสีเทคนิค':                        { color: '#9F84BD', short: 'รังสี' },
   'คณะ':                                          { color: '#475569', short: 'คณะ' },
 };
-const VP_DEPTS = Object.keys(DEPT_META).filter((k) => k.startsWith('อุปนายก'));
 
 function deptColor(name) { return DEPT_META[name]?.color || '#94a3b8'; }
 function deptShort(name) { return DEPT_META[name]?.short || name; }
@@ -122,11 +121,10 @@ function isOverdue(ticket) {
 
 const ALL_DEPTS = '__all__';
 
-export async function enterVSStaffDashboard(roleArg) {
+export async function enterVSStaffDashboard() {
   const select = document.getElementById('staffRole');
   const user = authGetUser();
   const isVP = user?.role === 'vp_admin';
-  const isSuper = user?.role === 'vs_staff' || user?.role === 'dev';
 
   if (isVP && user.department) {
     // Lock the dept filter to the VP's own dept (RLS allows them
@@ -143,15 +141,14 @@ export async function enterVSStaffDashboard(roleArg) {
       select.classList.add('d-none');
     }
   } else {
-    // SE / dev — keep the picker (they can browse any dept). Default to
-    // the user's own home dept if they have one set (e.g. the president
-    // account, department='นายกสโม', lands on นายกสโม first but can still
-    // switch to ทุกฝ่าย / any dept); otherwise default to "all" so the
-    // cross-dept triage board is the first thing they see.
-    // On first entry, ignore the select's default "__all__" so a home-dept
-    // default can win; afterwards, respect whatever the user has picked.
+    // SE / dev — keep the picker (they can browse any dept). On first
+    // entry, ignore the select's default "__all__" so a home-dept default
+    // can win: a super user with a department (e.g. the president account,
+    // department='นายกสโม') lands on that dept first but can still switch to
+    // ทุกฝ่าย / any dept; everyone else falls through to "all" (the cross-
+    // dept triage board). After the first entry, respect the user's pick.
     const selected = staffDashboardEntered && select && select.value ? select.value : null;
-    currentStaffRole = selected || roleArg || user?.department || ALL_DEPTS;
+    currentStaffRole = selected || user?.department || ALL_DEPTS;
     if (select) {
       // Ensure the home-dept value exists as an option before selecting it.
       if (currentStaffRole !== ALL_DEPTS

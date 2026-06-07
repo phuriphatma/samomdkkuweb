@@ -101,8 +101,14 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   re-seeds the row via select→delete→insert (no INSERT guard exists). See
   `mistakes.md`. **vp-accounts.mjs has the same latent block** if re-run.
 - **นายกสโม** added as a VS target dept everywhere: form select
-  (`tab-vitalsound.html`), dashboard filter (`tab-admin.html`), transfer
-  modal (`modal-vs-staff.html`), and `DEPT_META` color/badge in `vs-staff.js`.
+  (`tab-vitalsound.html`), dashboard filter (`tab-admin.html`), transfer +
+  Discord-notify selects (`modal-vs-staff.html`), and `DEPT_META` color/badge
+  in `vs-staff.js`. Discord: a `นายกสโม` webhook was added to
+  `NOTIFY_DISCORD_VS_WEBHOOKS` in `.env.local` and pushed to BOTH Cloudflare
+  Pages projects via `tools/set-notify-secrets.mjs` (12 dept entries now).
+  `notifyVSConsult` / `notifyVSOnly` route to it via `functions/_discord.js`.
+- Cleanup: removed dead `VP_DEPTS`, dead `isSuper`, and the never-passed
+  `roleArg` param in `vs-staff.js`.
 - VS dashboard: a super user (vs_staff/dev) with a `department` set now
   **defaults its dept filter to that dept on first entry** (president →
   นายกสโม) while the picker stays visible so they can still browse ทุกฝ่าย /
