@@ -91,6 +91,25 @@ New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated t
   flex body (sticky search, the list scrolls) so they're clean on iPad/phone.
 
 
+## President account + นายกสโม VS dept (this session)
+
+- New account `samomdkkupresident` / `samo69president`, **role=dev** (full
+  access, "permission like dev"), `department='นายกสโม'`. Provisioned via
+  `tools/president-account.mjs seed` (CONFIRM=1) against real project. The
+  service-role `.from('users').update({role})` is blocked by
+  `users_self_update_guard` (auth.uid()=null → not staff), so the script
+  re-seeds the row via select→delete→insert (no INSERT guard exists). See
+  `mistakes.md`. **vp-accounts.mjs has the same latent block** if re-run.
+- **นายกสโม** added as a VS target dept everywhere: form select
+  (`tab-vitalsound.html`), dashboard filter (`tab-admin.html`), transfer
+  modal (`modal-vs-staff.html`), and `DEPT_META` color/badge in `vs-staff.js`.
+- VS dashboard: a super user (vs_staff/dev) with a `department` set now
+  **defaults its dept filter to that dept on first entry** (president →
+  นายกสโม) while the picker stays visible so they can still browse ทุกฝ่าย /
+  any dept. One-shot via `staffDashboardEntered`; existing dev/SE have empty
+  department → still default to ทุกฝ่าย (no behavior change). `vs-staff.js`
+  `enterVSStaffDashboard`.
+
 ## Branches
 
 - `main` HEAD: latest production. Auto-deploys to `samomdkkuweb.pages.dev`.

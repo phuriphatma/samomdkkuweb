@@ -10,6 +10,10 @@ import { getUser as authGetUser } from './auth.js';
 let staffTicketsCache = [];        // ALL tickets visible to this user (RLS-filtered)
 let currentActiveTicketId = null;
 let currentStaffRole = null;
+// True once the dashboard has been entered at least once this session.
+// The home-dept default (e.g. president → นายกสโม) applies only on the
+// FIRST entry; after that the user's picker selection is authoritative.
+let staffDashboardEntered = false;
 // Kanban-only now. List view was dropped — the cross-dept board with
 // the dept dropdown filter is the canonical surface for everyone.
 
@@ -20,6 +24,7 @@ let currentStaffRole = null;
 
 const DEPT_META = {
   'SE':                                            { color: '#6B7280', short: 'SE' },
+  'นายกสโม':                                        { color: '#C8A951', short: 'นายกสโม' },
   'อุปนายกฝ่ายบริหารองค์กร':                       { color: '#A17A60', short: 'บริหาร' },
   'อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร':            { color: '#F2CB67', short: 'ดิจิทัล' },
   'อุปนายกฝ่ายกิจการภายใน':                       { color: '#E68FAA', short: 'ภายใน' },
@@ -138,11 +143,24 @@ export async function enterVSStaffDashboard(roleArg) {
       select.classList.add('d-none');
     }
   } else {
-    // SE / dev — keep the picker. Default to "all" so the cross-dept
-    // triage board is the first thing they see.
-    const selected = select && select.value ? select.value : null;
-    currentStaffRole = selected || roleArg || ALL_DEPTS;
+    // SE / dev — keep the picker (they can browse any dept). Default to
+    // the user's own home dept if they have one set (e.g. the president
+    // account, department='นายกสโม', lands on นายกสโม first but can still
+    // switch to ทุกฝ่าย / any dept); otherwise default to "all" so the
+    // cross-dept triage board is the first thing they see.
+    // On first entry, ignore the select's default "__all__" so a home-dept
+    // default can win; afterwards, respect whatever the user has picked.
+    const selected = staffDashboardEntered && select && select.value ? select.value : null;
+    currentStaffRole = selected || roleArg || user?.department || ALL_DEPTS;
     if (select) {
+      // Ensure the home-dept value exists as an option before selecting it.
+      if (currentStaffRole !== ALL_DEPTS
+          && ![...select.options].some((o) => o.value === currentStaffRole)) {
+        const opt = document.createElement('option');
+        opt.value = currentStaffRole;
+        opt.textContent = currentStaffRole;
+        select.appendChild(opt);
+      }
       select.value = currentStaffRole;
       select.classList.remove('d-none');
     }
@@ -154,6 +172,7 @@ export async function enterVSStaffDashboard(roleArg) {
   }
   // Wire the scroll-affordance listener now that admin DOM is alive.
   bindKanbanScrollAffordance();
+  staffDashboardEntered = true;
   await fetchStaffTickets();
 }
 
