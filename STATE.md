@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-06. Slim by design — "what is true right now",
+Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
@@ -11,114 +11,41 @@ All migrations through **0049 are APPLIED** to Supabase (real project
 351 member rows) + 0048 (realtime publication + replica identity full) +
 0049 (year normalize). No pending migrations.
 
-## SAMO Team management — SHIPPED to main (0046–0049 applied)
+## Shipped features (detail archived)
 
-New admin section **ทีม SAMO** (sidebar `data-admin-side="team"`), gated to
-`vp_admin` + `dev` via `userCanAccess('team')` (vp_admin default now
-`['vs','team']`; dev all). Org tree: divisions → departments → roles → subroles
-(unlimited depth via `team_nodes.parent_id`), people under each node.
-- **Two toolbar modes** (segmented toggle) so the page stays uncluttered:
-  `จัดการทีม` (roles + people) and `จัดการสิทธิ์` (permissions only). Permission
-  chips + the perm editor only appear in perms mode; the node edit modal in team
-  mode is just name + kind.
-- Add / edit / move / delete nodes + members. Two move paths: **drag-and-drop**
-  for fine reorder (SortableJS; cycle guard via `onMove` + `isAncestor`) AND an
-  explicit **searchable destination picker** (`openPicker` in index.js +
-  `#teamPickerModal`) — type-to-filter list of candidate parents/roles, select,
-  confirm; excludes own subtree, "— ระดับบนสุด —" promotes to a root. Replaced
-  the clunky 200-option `<select>`. The member modal's ตำแหน่ง field and the
-  per-row member "ย้าย" both open the same picker.
-- ชั้นปี stored as a bare number; the year chip renders "ปี N".
-- **Multi-select** ("เลือกหลายรายการ" toolbar toggle): checkboxes on node + member
-  rows, a sticky bulk bar → **ย้าย** (one picker moves all selected: nodes
-  reparent, members reassign; excludes selected nodes' own subtrees) or **ลบ**
-  (bulk delete; nodes cascade, members not under a deleted node deleted
-  individually). Drag is disabled in select mode. Multi-drag was intentionally
-  NOT used (nested-tree multi-drag is unreliable) — bulk move is via the picker.
-- Member rows now show **kkumail** inline (no need to open the editor).
-- Per-node app **permissions** (`pr/vs/samoshop/projects/creator/team`) with an
-  **inherit** toggle, edited in the separate perms mode. v1 = **org metadata
-  only** — NOT wired into live login access yet (chips: own=solid,
-  inherited=dashed). Live-auth wiring is the scoped follow-up if wanted.
-- Files: `src/js/team/{index,api}.js`, `src/html/tab-team.html`,
-  `src/css/team.css`, registered in `admin/index.html` + `admin-main.js`
-  (SECTION_META/SIDE_FEATURE/initTeam/enterTeamWorkspace).
-- Seed pipeline: `tools/extract-team-seed.py` reads
-  `externaldata/roledata.xlsx` (10 division tabs) + `previousroledata.json`
-  (tree order) → `externaldata/team-seed.json` + `0047`. 37 xlsx roles with no
-  JSON match (RT/MDI have no JSON roles + minor spelling variants) land as
-  loose role nodes under their division — drag into place in the UI. Re-run:
-  `python3 tools/extract-team-seed.py` (needs openpyxl).
-- Mutations are optimistic (update model + render, then persist; reload+toast
-  on write failure).
-- **Live multi-editor sync** (`src/js/team/realtime.js`, migration 0048): Supabase
-  Realtime postgres_changes on both tables → remote edits merge into the model
-  and re-render (debounced 120ms; deferred while a drag is in progress to avoid
-  cancelling the gesture). Last-write-wins, NOT character-level OT. Socket
-  re-auths every 20 min (client autoRefresh off). Realtime node rows normalize
-  `permissions` in case it arrives as a PG array literal. (No presence indicator
-  — the channel stays open across admin sections, so a count would include
-  people who left; removed as misleading.)
-- Every team-mode node is **expandable** (even an empty leaf role) and an empty
-  leaf role shows a dashed **drop placeholder** so you can drag a person into a
-  role that has no members yet (previously impossible — no drop target existed).
-- Perf: `attachSortables` skips lists inside collapsed (`d-none`) bodies
-  (`inCollapsedBody`) — only visible drop targets get a SortableJS instance, not
-  all ~2×N lists every render (was iPad jank on the 218-node tree).
-- **Import / export** (`src/js/team/io.js`, pure + unit-tested): export full
-  tree+people as JSON or members as CSV (BOM for Excel Thai); import JSON
-  (append, new ids, parents-first) or members CSV (Thai header aliases; resolves
-  `path` "ฝ่าย / แผนก / ตำแหน่ง", auto-creating missing roles when toggled).
-  Import is additive (never deletes); sequential creates, so a big import is
-  slow but safe. **Robust to messy input**: trims/collapses whitespace,
-  normalizes ชั้นปี to a number, accepts loose `confirmed` spellings
-  (true/TRU/yes/ใช่/เข้าแล้ว…) and flags genuinely ambiguous ones, validates JSON
-  shape (aborts with a clear message; orphan nodes go to root with a warning),
-  de-dupes within the file AND against existing rows (by kkumail, else
-  name+student_id per node), validates email format — and shows a per-import
-  **report** (added / updated / skipped-with-reasons / warnings) instead of
-  failing on the first bad row. The import modal stays open so the report is
-  reviewable. The **"เมื่อพบข้อมูลซ้ำ" select** offers three modes:
-  **เลือกทีละรายการ (default)** opens a git-merge-style per-conflict resolver —
-  each duplicate shows a เดิม→ใหม่ field diff with a เก็บเดิม/ใช้ใหม่ toggle (+
-  bulk all-keep / all-replace); **ข้ามทั้งหมด** / **อัปเดตทับทั้งหมด** are the
-  non-interactive shortcuts. CSV import is a read-only **plan** pass
-  (`planMembersCsv` → creates/conflicts/identical/skipped) then **apply**
-  (`applyPlan`); path resolution only mutates at apply time. Path separator is
-  **" / " with spaces** — a slash touching letters (e.g. `Art/Graphic`) is part
-  of the name, not a level break (`splitPath` splits on `/\s+\/\s+/`).
-- The destination picker + import modal are **`modal-fullscreen-sm-down`** with a
-  flex body (sticky search, the list scrolls) so they're clean on iPad/phone.
+These are live on main + applied; full per-feature write-ups moved to
+`docs/state-archive/2026-06-08.md` to keep this file lean (git log is the
+authoritative history):
+- **SAMO Team management** (ทีม SAMO admin section, migrations 0046–0049) —
+  org tree (divisions→departments→roles→people), drag + picker move,
+  multi-select bulk ops, per-node permissions (org metadata only, NOT wired to
+  live auth yet), live Realtime multi-editor sync, JSON/CSV import-export with a
+  per-conflict resolver. Files: `src/js/team/*`, `src/html/tab-team.html`,
+  `src/css/team.css`.
+- **President account + นายกสโม VS dept** — `samomdkkupresident` (role=dev,
+  dept=นายกสโม) via `tools/president-account.mjs seed`; นายกสโม added as a VS
+  target dept across form/dashboard/transfer/Discord, with its own VS webhook.
 
+## หนังสือโครงการ email — works; channel config is the only switch (this session)
 
-## President account + นายกสโม VS dept (this session)
-
-- New account `samomdkkupresident` / `samo69president`, **role=dev** (full
-  access, "permission like dev"), `department='นายกสโม'`. Provisioned via
-  `tools/president-account.mjs seed` (CONFIRM=1) against real project. The
-  service-role `.from('users').update({role})` is blocked by
-  `users_self_update_guard` (auth.uid()=null → not staff), so the script
-  re-seeds the row via select→delete→insert (no INSERT guard exists). See
-  `mistakes.md`. **vp-accounts.mjs has the same latent block** if re-run.
-- **นายกสโม** added as a VS target dept everywhere: form select
-  (`tab-vitalsound.html`), dashboard filter (`tab-admin.html`), transfer +
-  Discord-notify selects (`modal-vs-staff.html`), and `DEPT_META` color/badge
-  in `vs-staff.js`. Discord: a `นายกสโม` webhook was added to
-  `NOTIFY_DISCORD_VS_WEBHOOKS` in `.env.local` and pushed to BOTH Cloudflare
-  Pages projects via `tools/set-notify-secrets.mjs` (12 dept entries now).
-  `notifyVSConsult` / `notifyVSOnly` route to it via `functions/_discord.js`.
-- Cleanup: removed dead `VP_DEPTS`, dead `isSuper`, and the never-passed
-  `roleArg` param in `vs-staff.js`.
-- VS dashboard: a super user (vs_staff/dev) with a `department` set now
-  **defaults its dept filter to that dept on first entry** (president →
-  นายกสโม) while the picker stays visible so they can still browse ทุกฝ่าย /
-  any dept. One-shot via `staffDashboardEntered`; existing dev/SE have empty
-  department → still default to ทุกฝ่าย (no behavior change). `vs-staff.js`
-  `enterVSStaffDashboard`.
+GAS MailApp email is the deliberate, best free choice (see GAS section below
+for the CF-Worker comparison). Plumbing is verified working; it only sends when
+`project_settings.notify_uni_email = true` AND `uni_staff_email` is non-empty —
+both were off/blank, which is the whole "email doesn't work" story (the
+uni_staff account email is synthetic `@samomdkku.app`, never delivers → a
+curated recipient field exists for a real address). **Admin sets the recipient
+in การตั้งค่า** (left for the user to fill — live DB still has it blank/off).
+Manage UI now has a "ทดสอบ" send-test button, an enabled-but-empty warning, and
+multi-recipient support (`normalizeRecipients` in `src/js/projects/notify.js`,
+splits on `,;`+whitespace, validates, dedupes; unit-tested in
+`projects/notify.test.js`). MailApp quota = GAS owner's Gmail: ~100
+recipients/day consumer, 1,500/day Workspace; counts recipients not emails; no
+documented per-minute/hour throttle; no separate monthly cap.
 
 ## Branches
 
-- `main` HEAD: latest production. Auto-deploys to `samomdkkuweb.pages.dev`.
+- `main` HEAD: latest production (`053a01b`). Auto-deploys to
+  `samomdkkuweb.pages.dev`.
 - `refactor/modular`: **in sync with main** (preview). Auto-deploys to
   `refactorsamomdkkuweb.pages.dev`. Both branches share an identical base — the
   historical big-bang `MERGE-CHECKLIST.md` risks (creds, dev GAS URLs) are moot;
@@ -149,6 +76,8 @@ User has **DECLINED rotating** the Discord webhooks + Cloudflare API token
 `NOTIFY_DISCORD_PR_WEBHOOK`, `NOTIFY_DISCORD_PROJECTS_WEBHOOK`,
 `NOTIFY_DISCORD_VS_WEBHOOKS` (11-dept JSON). `tools/set-notify-secrets.mjs`
 reads these to re-PATCH Pages env vars on `samomdkkuweb` / `refactorsamomdkkuweb`.
+`.env.local` also carries `SUPABASE_SERVICE_ROLE_KEY` (used for live DB
+inspection / provisioning scripts — NEVER bundle to `src/`).
 **NEVER commit or echo these values.** They're live and un-rotated, so treat
 `.env.local` as sensitive.
 
@@ -194,13 +123,6 @@ Gmail* → correct SPF/DKIM, best deliverability, free, no card, no domain,
 free CF tier is dead; Resend/MailerSend need domain verification to email
 arbitrary recipients; Brevo-from-Gmail fails SPF alignment → spam. The 1015
 per-IP limit that moved *Discord* to CF does NOT apply to MailApp.
-- Email only fires when `project_settings.notify_uni_email = true` AND
-  `uni_staff_email` is non-empty. Both were off/blank → "email doesn't work"
-  was pure config (the uni_staff account email is synthetic `@samomdkku.app`,
-  which is why a curated recipient field exists). **Admin sets the real
-  recipient in การตั้งค่า** — manage UI now has a "ทดสอบ" send-test button,
-  an enabled-but-empty warning, and multi-recipient support
-  (`normalizeRecipients` in `projects/notify.js`, splits on `,;` + whitespace).
 
 Post-cutover, prform.gs serves only Drive uploads (`uploadPRFile` /
 `uploadShopFile` / project files+folders) + `notifyProjectEmail` (MailApp).
