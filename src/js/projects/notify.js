@@ -32,6 +32,25 @@ function deepLink({ projectId, documentId } = {}) {
   return `${PUBLIC_BASE_URL}#projects`;
 }
 
+/**
+ * The recipient field (`settings.uni_staff_email`) is a single free-text box
+ * but may hold SEVERAL addresses — admins separate them with commas, spaces,
+ * semicolons, or newlines. MailApp's `to` accepts a comma-separated list, so
+ * we normalise any of those separators down to a clean comma list and drop
+ * anything that doesn't look like an email. Returns '' when nothing valid
+ * remains (so the caller's truthiness gate skips the send instead of POSTing
+ * an empty `to`). Exported so the manage UI's "send test" button and unit
+ * tests share the exact same parsing.
+ */
+export function normalizeRecipients(raw) {
+  return String(raw || '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s))
+    .filter((s, i, arr) => arr.indexOf(s) === i)
+    .join(',');
+}
+
 // The Discord-call queue + logged GAS caller now live in the shared
 // `discord-queue.js` core (imported above) so PR, Vital Sign, and
 // หนังสือโครงการ all serialise through ONE global chain — see that file
@@ -64,14 +83,15 @@ export async function notifyUniStaff({ kind, project, document, body, subject } 
   // mail server shouldn't slow the user). callGAS logs failures so
   // the previously-silent "email didn't arrive" failure mode is now
   // debuggable from the console.
-  if (settings?.notify_uni_email !== false && settings?.uni_staff_email) {
+  const to = normalizeRecipients(settings?.uni_staff_email);
+  if (settings?.notify_uni_email !== false && to) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
     const sub = subject || (project?.name
       ? `[MDKKU SAMO] ${project.name} — ${kind}`
       : `[MDKKU SAMO] หนังสือโครงการ`);
     const html = buildEmailHtml({ kind, project, document, body, link: url });
     callGAS(GAS_API_URL, 'notifyProjectEmail', {
-      to: settings.uni_staff_email,
+      to,
       subject: sub,
       htmlBody: html,
     }).catch(() => {});  // already logged inside callGAS

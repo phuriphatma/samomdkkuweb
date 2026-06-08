@@ -186,6 +186,22 @@ are APPLIED — none pending.** Full numbered history is in
 
 ## GAS (`appscript/prform.gs`) — Drive uploads + projects email ONLY
 
+**หนังสือโครงการ email = GAS MailApp, by design (NOT moving to Cloudflare).**
+The live `/exec` `notifyProjectEmail` path is verified working (test POST →
+`{"success":true}`, real Gmail delivered). MailApp sends *as the owner's
+Gmail* → correct SPF/DKIM, best deliverability, free, no card, no domain,
+~100/day. A CF Worker can't beat this with no custom domain: MailChannels'
+free CF tier is dead; Resend/MailerSend need domain verification to email
+arbitrary recipients; Brevo-from-Gmail fails SPF alignment → spam. The 1015
+per-IP limit that moved *Discord* to CF does NOT apply to MailApp.
+- Email only fires when `project_settings.notify_uni_email = true` AND
+  `uni_staff_email` is non-empty. Both were off/blank → "email doesn't work"
+  was pure config (the uni_staff account email is synthetic `@samomdkku.app`,
+  which is why a curated recipient field exists). **Admin sets the real
+  recipient in การตั้งค่า** — manage UI now has a "ทดสอบ" send-test button,
+  an enabled-but-empty warning, and multi-recipient support
+  (`normalizeRecipients` in `projects/notify.js`, splits on `,;` + whitespace).
+
 Post-cutover, prform.gs serves only Drive uploads (`uploadPRFile` /
 `uploadShopFile` / project files+folders) + `notifyProjectEmail` (MailApp).
 **All Discord moved to the `/notify` Cloudflare Function**; `vssound.gs` was

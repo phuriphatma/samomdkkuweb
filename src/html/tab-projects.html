@@ -102,8 +102,16 @@
                     <div class="row g-3">
                       <div class="col-md-6">
                         <label class="form-label small fw-bold">อีเมลเจ้าหน้าที่ผู้รับ (สำหรับส่งเมล)</label>
-                        <input type="email" class="form-control" id="projectSettingsUniEmail" placeholder="someone@kku.ac.th" />
-                        <div class="form-text small">ใช้โดย GAS MailApp เพื่อส่งเมลแจ้งเตือนหนังสือใหม่</div>
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="projectSettingsUniEmail" placeholder="someone@kku.ac.th, อีกคน@kku.ac.th" />
+                          <button type="button" class="btn btn-outline-success" id="projectSettingsEmailTest" title="ส่งอีเมลทดสอบไปยังที่อยู่ในช่องนี้">
+                            <i class="bi bi-send me-1"></i>ทดสอบ
+                          </button>
+                        </div>
+                        <div class="form-text small">ส่งผ่าน Gmail (GAS MailApp) — ใส่ได้หลายอีเมล คั่นด้วยจุลภาค/เว้นวรรค</div>
+                        <div id="projectSettingsEmailWarn" class="text-danger small mt-1 d-none">
+                          <i class="bi bi-exclamation-triangle me-1"></i>เปิดแจ้งเตือนทางอีเมลไว้ แต่ยังไม่ได้กรอกอีเมลผู้รับ — เมลจะไม่ถูกส่ง
+                        </div>
                       </div>
                       <div class="col-md-3">
                         <label class="form-label small fw-bold">ชื่อย่อผู้รับ</label>

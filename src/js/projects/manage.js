@@ -7,7 +7,10 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
+import { GAS_API_URL } from '../config.js';
+import { callGAS } from '../discord-queue.js';
 import { upsertDocType, saveSettings } from './api.js';
+import { normalizeRecipients } from './notify.js';
 
 let onChanged = () => {};
 let state = { docTypes: [], settings: null, role: null };
@@ -20,6 +23,14 @@ export function mountManage({ onChanged: cb } = {}) {
 
   const docTypeForm = document.getElementById('projectDocTypeForm');
   docTypeForm?.addEventListener('submit', onAddDocType);
+
+  // Live "enabled but no recipient" warning so the silent-off state
+  // (notify_uni_email checked, recipient blank → no mail ever sent)
+  // becomes visible the moment it happens, not weeks later.
+  document.getElementById('projectSettingsUniEmail')?.addEventListener('input', refreshEmailWarn);
+  document.getElementById('projectSettingsUniEmailNotify')?.addEventListener('change', refreshEmailWarn);
+
+  document.getElementById('projectSettingsEmailTest')?.addEventListener('click', onSendTestEmail);
 
   document.getElementById('projectDocTypeList')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-projects-doctype-toggle]');
@@ -55,7 +66,47 @@ function renderSettings() {
   check('projectSettingsVpDiscord',      s.notify_vp_discord !== false);
 
   document.getElementById('projectSettingsSubmit')?.toggleAttribute('disabled', !canEdit);
+  document.getElementById('projectSettingsEmailTest')?.toggleAttribute('disabled', !canEdit);
   document.getElementById('projectSettingsReadonlyHint')?.classList.toggle('d-none', canEdit);
+  refreshEmailWarn();
+}
+
+/** Show the warning when email notifications are ON but no valid recipient
+ *  is entered — the exact config that silently sends nothing. */
+function refreshEmailWarn() {
+  const warn = document.getElementById('projectSettingsEmailWarn');
+  if (!warn) return;
+  const on = document.getElementById('projectSettingsUniEmailNotify')?.checked;
+  const to = normalizeRecipients(document.getElementById('projectSettingsUniEmail')?.value);
+  warn.classList.toggle('d-none', !(on && !to));
+}
+
+/** Send a one-off test email to whatever is currently typed in the recipient
+ *  box (no save required) so the admin can confirm delivery end-to-end. */
+async function onSendTestEmail() {
+  const to = normalizeRecipients(document.getElementById('projectSettingsUniEmail')?.value);
+  if (!to) { alert('กรุณากรอกอีเมลผู้รับก่อนส่งทดสอบ'); return; }
+  const btn = document.getElementById('projectSettingsEmailTest');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังส่ง…';
+  try {
+    const res = await callGAS(GAS_API_URL, 'notifyProjectEmail', {
+      to,
+      subject: '[MDKKU SAMO] ทดสอบอีเมลแจ้งเตือนหนังสือโครงการ',
+      htmlBody: '<div style="font-family:sans-serif">นี่คืออีเมลทดสอบจากระบบหนังสือโครงการ MDKKU SAMO — หากได้รับแสดงว่าการตั้งค่าอีเมลทำงานปกติ</div>',
+    });
+    if (res && res.success !== false) {
+      alert('ส่งอีเมลทดสอบแล้ว — ตรวจสอบกล่องจดหมาย (รวมถึง Spam) ของ ' + to);
+    } else {
+      alert('ส่งไม่สำเร็จ: ' + (res?.message || 'ไม่ทราบสาเหตุ — ดู console'));
+    }
+  } catch (err) {
+    alert('ส่งไม่สำเร็จ: ' + (err?.message || err));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
 }
 
 function renderDocTypes() {
@@ -92,7 +143,7 @@ async function onSaveSettings(e) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…';
   try {
     const patch = {
-      uni_staff_email:   document.getElementById('projectSettingsUniEmail').value.trim(),
+      uni_staff_email:   normalizeRecipients(document.getElementById('projectSettingsUniEmail').value),
       uni_staff_label:   document.getElementById('projectSettingsUniLabel').value.trim() || 'เจ้าหน้าที่',
       vp_admin_label:    document.getElementById('projectSettingsVpLabel').value.trim() || 'รองนายกฝ่ายบริหาร',
       notify_uni_in_app: document.getElementById('projectSettingsUniInApp').checked,

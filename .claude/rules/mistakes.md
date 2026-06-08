@@ -1026,6 +1026,30 @@ access this repo's `.env.local` doesn't carry.)
 
 ---
 
+## "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding it)
+
+**Symptom**: หนังสือโครงการ email never arrives. Easy to assume the GAS
+MailApp path is broken / the deployment is stale / a CF-Worker rewrite is
+needed.
+**Cause**: The send is double-gated in `projects/notify.js notifyUniStaff`:
+`settings.notify_uni_email !== false` AND a truthy `settings.uni_staff_email`.
+Live DB had `notify_uni_email = false` AND `uni_staff_email = ""` → the channel
+was simply OFF. The plumbing was fine — a direct POST to the live `/exec`
+`notifyProjectEmail` returned `{"success":true}` and delivered a real email.
+The uni_staff *account* email is synthetic (`@samomdkku.app`, never delivers),
+which is why a SEPARATE curated `uni_staff_email` recipient field exists — and
+it was never filled. Same shape as the `notify_*_in_app` flag entry above.
+**Fix**: Don't rebuild a working channel — verify it first (curl the live
+endpoint to your own address). Then make the silent-off state IMPOSSIBLE to
+miss: manage UI now shows a warning when email-notify is ON but the recipient
+is blank, plus a "ทดสอบ" send-test button. `normalizeRecipients()` allows
+multiple addresses. GAS MailApp stays the channel (best deliverability with no
+custom domain — see STATE.md GAS section for why CF Workers lose here).
+**Where**: `src/js/projects/notify.js` (`normalizeRecipients`, the `to` gate),
+`src/js/projects/manage.js` (`refreshEmailWarn` / `onSendTestEmail`),
+`src/html/tab-projects.html`. Any future "notification X doesn't arrive": curl
+the channel end-to-end before touching its code, and check the on/off config.
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks
