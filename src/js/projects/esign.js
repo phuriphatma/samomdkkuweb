@@ -44,6 +44,13 @@ let placements = new Map();
 let padDrawing = false;
 let padHasInk = false;
 let padCtx = null;
+let padScale = 1;   // current backing-store / CSS pixel ratio for the pad
+// High-DPI capture: the pad's backing store is sized to its on-screen box
+// times this factor (× devicePixelRatio) so the exported signature PNG is
+// many times denser than the preview — embeds crisp at any PDF size instead
+// of pixelating. Re-sized each time the modal opens (initPadSurface).
+const PAD_QUALITY = 4;
+const PAD_STROKE_CSS = 2.4;   // stroke thickness in CSS px (scaled to backing)
 
 function b64ToBytes(b64) {
   const bin = atob(b64);
@@ -108,34 +115,74 @@ function wire() {
 
 // ---------- signature pad (pointer drawing on a transparent canvas) ----------
 
+/** Apply stroke style to the pad context. Line width is in BACKING px, so it
+ *  scales with the current high-DPI factor to read ~PAD_STROKE_CSS on screen. */
+function applyPadStrokeStyle() {
+  if (!padCtx) return;
+  padCtx.lineWidth = PAD_STROKE_CSS * padScale;
+  padCtx.lineCap = 'round';
+  padCtx.lineJoin = 'round';
+  padCtx.strokeStyle = '#11243a';
+}
+
+/** Size the pad's backing store to (on-screen box × devicePixelRatio ×
+ *  PAD_QUALITY), preserving the displayed aspect ratio so the captured
+ *  signature is dense (crisp) AND undistorted. Resizing a canvas clears it
+ *  and resets context state, so this also re-applies the stroke style + flags
+ *  the pad empty — only ever called on a fresh open (no in-progress ink). */
+function initPadSurface() {
+  const pad = els.pad;
+  if (!pad || !padCtx) return;
+  const rect = pad.getBoundingClientRect();
+  const cssW = Math.max(rect.width || 0, 280);
+  const cssH = Math.max(rect.height || 0, 150);
+  // Crisp but bounded — cap at 8× so a 3× phone doesn't allocate a huge buffer.
+  padScale = Math.min(Math.max(window.devicePixelRatio || 1, 1) * PAD_QUALITY, 8);
+  pad.width = Math.round(cssW * padScale);
+  pad.height = Math.round(cssH * padScale);
+  applyPadStrokeStyle();
+  padHasInk = false;
+}
+
 function setupPad() {
   const pad = els.pad;
   if (!pad) return;
   padCtx = pad.getContext('2d');
-  padCtx.lineWidth = 2.4;
-  padCtx.lineCap = 'round';
-  padCtx.lineJoin = 'round';
-  padCtx.strokeStyle = '#11243a';
+  applyPadStrokeStyle();
 
   const pos = (e) => {
     const r = pad.getBoundingClientRect();
     return { x: (e.clientX - r.left) * (pad.width / r.width), y: (e.clientY - r.top) * (pad.height / r.height) };
   };
+  // Midpoint quadratic smoothing — strokes read as smooth curves instead of
+  // faceted polylines, which (with the high-DPI surface) gives a clean pen feel.
+  let lastX = 0, lastY = 0;
   pad.addEventListener('pointerdown', (e) => {
     padDrawing = true;
     pad.setPointerCapture(e.pointerId);
     const p = pos(e);
+    lastX = p.x; lastY = p.y;
     padCtx.beginPath();
     padCtx.moveTo(p.x, p.y);
+    // A single tap should leave a dot.
+    padCtx.lineTo(p.x + 0.01, p.y + 0.01);
+    padCtx.stroke();
+    padHasInk = true;
   });
   pad.addEventListener('pointermove', (e) => {
     if (!padDrawing) return;
     const p = pos(e);
-    padCtx.lineTo(p.x, p.y);
+    const midX = (lastX + p.x) / 2, midY = (lastY + p.y) / 2;
+    padCtx.quadraticCurveTo(lastX, lastY, midX, midY);
     padCtx.stroke();
+    padCtx.beginPath();
+    padCtx.moveTo(midX, midY);
+    lastX = p.x; lastY = p.y;
     padHasInk = true;
   });
-  const stop = () => { padDrawing = false; };
+  const stop = () => {
+    if (padDrawing) { padDrawing = false; padCtx.beginPath(); }
+  };
   pad.addEventListener('pointerup', stop);
   pad.addEventListener('pointerleave', stop);
   pad.addEventListener('pointercancel', stop);
@@ -348,13 +395,19 @@ async function renderPage(n) {
   const page = await pdf.getPage(n);
   const stageW = Math.max(280, els.stage.clientWidth || 600);
   const base = page.getViewport({ scale: 1 });
-  const scale = Math.min(stageW / base.width, 2);
-  const viewport = page.getViewport({ scale });
+  // CSS scale fits the page to the stage (capped 2×); the backing store is
+  // additionally multiplied by devicePixelRatio so the preview is crisp on
+  // HiDPI screens instead of soft. The overlay uses CSS px (clientWidth) so
+  // its placement maths are unaffected.
+  const cssScale = Math.min(stageW / base.width, 2);
+  const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);   // cap to bound buffer size
+  const cssVp = page.getViewport({ scale: cssScale });
+  const viewport = page.getViewport({ scale: cssScale * dpr });
   const canvas = els.canvas;
   canvas.width = viewport.width;
   canvas.height = viewport.height;
-  canvas.style.width = `${viewport.width}px`;
-  canvas.style.height = `${viewport.height}px`;
+  canvas.style.width = `${cssVp.width}px`;
+  canvas.style.height = `${cssVp.height}px`;
   await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
   els.pageLabel.textContent = `${n} / ${numPages}`;
   els.prev.disabled = n <= 1;
@@ -449,6 +502,9 @@ export function signPdf({ driveFileId, fileName } = {}) {
       currentPage = 1;
       els.loading?.classList.add('d-none');
       els.work?.classList.remove('d-none');
+      // The pad now has layout (its panel is visible) — size its high-DPI
+      // backing store to the on-screen box for crisp capture.
+      initPadSurface();
       await renderPage(1);
     } catch (err) {
       if (els.loading) els.loading.classList.add('d-none');
