@@ -113,7 +113,19 @@ function ownerLabel(role, settings) {
   return '—';
 }
 
+/** Does this หนังสือ carry a PENDING signing request addressed to the
+ *  current professor? This is the prof's "action required" signal — the
+ *  analogue of uni_staff's status='sent' and vp_admin's status='returned'.
+ *  Persists until he accepts/rejects (the request leaves 'pending'). */
+function docPendingSignForProf(doc) {
+  const myId = getUser()?.id;
+  if (!myId) return false;
+  return Array.isArray(doc?.sign_requests)
+    && doc.sign_requests.some((r) => r.prof_id === myId && r.status === 'pending');
+}
+
 function isMine(doc, role) {
+  if (role === 'sa_prof') return docPendingSignForProf(doc);
   const o = nextOwner(doc);
   if (!o) return false;
   if (role === 'dev') return true;
@@ -124,6 +136,12 @@ function isMine(doc, role) {
 function projectBucket(p, role) {
   const docs = p.documents || [];
   if (docs.length === 0) return 'empty';
+  // The professor's lifecycle is the SIGN-REQUEST status, not doc.status —
+  // a หนังสือ may be 'completed' in the sastaff↔vpa workflow yet still be
+  // pending his signature. mine = any pending request to him; else done.
+  if (role === 'sa_prof') {
+    return docs.some((d) => docPendingSignForProf(d)) ? 'mine' : 'done';
+  }
   const active = docs.filter((d) => d.status !== 'completed');
   if (active.length === 0) return 'done';
   const hasMine = active.some((d) => isMine(d, role));
@@ -222,6 +240,8 @@ function projectIsNotified(p, role) {
     ? docs.some((d) => d.status === 'returned')
     : role === 'dev'
     ? docs.some((d) => d.status === 'sent' || d.status === 'returned')
+    : role === 'sa_prof'
+    ? docs.some((d) => docPendingSignForProf(d))
     : false;
   return baseStatus || projectHasUnseen(p, role);
 }
@@ -262,6 +282,12 @@ const INCOMING_ACTIONS = {
   vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment']),
   dev:       new Set(['sent', 'received', 'in_progress', 'completed', 'returned',
                        'file_added', 'file_replaced', 'file_deleted', 'comment']),
+  // The professor only tracks file changes on a หนังสือ shown to him — the
+  // sastaff↔vpa status churn (received / in_progress / completed / comment)
+  // is noise to him. A NEW signing request itself surfaces via the permanent
+  // actionRequiredOn pill, not here (it's a sign_requests event, not a doc
+  // timeline event).
+  sa_prof:   new Set(['file_added', 'file_replaced', 'file_deleted']),
 };
 function lastIncomingActivityTime(p, role) {
   const wanted = INCOMING_ACTIONS[role] || new Set();
@@ -586,6 +612,7 @@ function renderProjectListRow(p) {
   // หนังสือ DOES surface, because it's a separate update on top of the
   // already-badged status.
   const unseenDocs = docs.filter((d) => docHasUnseenBeyondStatusBadge(d, role)).length;
+  const pendingSign = docs.filter((d) => docPendingSignForProf(d)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
@@ -595,6 +622,9 @@ function renderProjectListRow(p) {
   }
   if (role === 'vp_admin' && returned > 0) {
     badges.push(`<span class="projects-list-badge is-return" title="หนังสือถูกตีกลับ">${returned} ตีกลับ</span>`);
+  }
+  if (role === 'sa_prof' && pendingSign > 0) {
+    badges.push(`<span class="projects-list-badge is-new" title="หนังสือที่รอลงนาม">${pendingSign} รอลงนาม</span>`);
   }
   if (unseenDocs > 0) {
     badges.push(`<span class="projects-list-badge is-comment" title="มีอัปเดตที่ยังไม่ได้เปิดดู">${unseenDocs} อัปเดต</span>`);
@@ -627,12 +657,13 @@ function renderProjectCard(p) {
   // See renderProjectListRow for the exclusion rules — same logic, just
   // a richer card layout.
   const unseenDocs = docs.filter((d) => docHasUnseenBeyondStatusBadge(d, role)).length;
+  const pendingSign = docs.filter((d) => docPendingSignForProf(d)).length;
   const bucket = projectBucket(p, role);
   const lastTouch = lastActivityTime(p);
 
   // Stack one attention badge per signal so the user can tell at a
   // glance whether a project carries action-required work (sent /
-  // returned) or just informational updates (อัปเดต).
+  // returned / รอลงนาม) or just informational updates (อัปเดต).
   const parts = [];
   if ((role === 'uni_staff' || role === 'dev') && sent > 0) {
     parts.push(`<span class="projects-card-attn-badge is-new" title="หนังสือใหม่ ยังไม่ได้รับเรื่อง">
@@ -642,6 +673,11 @@ function renderProjectCard(p) {
   if ((role === 'vp_admin' || role === 'dev') && returned > 0) {
     parts.push(`<span class="projects-card-attn-badge is-return" title="หนังสือถูกตีกลับ ต้องแก้ไข">
       <i class="bi bi-arrow-counterclockwise"></i> ${returned} ตีกลับ
+    </span>`);
+  }
+  if (role === 'sa_prof' && pendingSign > 0) {
+    parts.push(`<span class="projects-card-attn-badge is-new" title="หนังสือที่รอลงนาม">
+      <i class="bi bi-pen-fill"></i> ${pendingSign} รอลงนาม
     </span>`);
   }
   if (unseenDocs > 0) {
@@ -765,7 +801,9 @@ function renderDocCard(doc, project) {
   const mineDot = needsAck ? '<span class="projects-row-mine-dot" title="ต้องดำเนินการ"></span>' : '';
   const hasUpdate = needsAck;
   const statusPill = needsActionRequired
-    ? `<span class="projects-doc-update-pill"><i class="bi bi-bell-fill me-1"></i>อัปเดต</span>`
+    ? (cache.role === 'sa_prof'
+        ? `<span class="projects-doc-update-pill"><i class="bi bi-pen-fill me-1"></i>ต้องลงนาม</span>`
+        : `<span class="projects-doc-update-pill"><i class="bi bi-bell-fill me-1"></i>อัปเดต</span>`)
     : '';
   const activityPill = hasActivityBeyondStat
     ? `<span class="projects-doc-update-pill is-comment" title="มีอัปเดต / คอมเมนต์ใหม่"><i class="bi bi-chat-left-dots-fill me-1"></i>อัปเดต</span>`
@@ -900,6 +938,7 @@ function renderDocExpand(doc, project) {
 function actionRequiredOn(doc, role) {
   if (role === 'uni_staff') return doc.status === 'sent';
   if (role === 'vp_admin')  return doc.status === 'returned';
+  if (role === 'sa_prof')   return docPendingSignForProf(doc);
   if (role === 'dev')       return doc.status === 'sent' || doc.status === 'returned';
   return false;
 }
