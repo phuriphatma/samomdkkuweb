@@ -515,7 +515,7 @@ function showBoot()    { BOOT_GATE()?.classList.remove('d-none'); AUTH_GATE()?.c
 function showAuthGate(){ BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.classList.remove('d-none'); APP_ROOT()?.classList.add('d-none'); }
 function showApp()     { BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.classList.add('d-none');   APP_ROOT()?.classList.remove('d-none'); }
 
-const STAFF_ROLES = ['pr_staff', 'vs_staff', 'shop_admin', 'vp_admin', 'uni_staff', 'dev'];
+const STAFF_ROLES = ['pr_staff', 'vs_staff', 'shop_admin', 'vp_admin', 'uni_staff', 'sa_prof', 'dev'];
 
 // Features the admin sidebar / landing surfaces. Keyed by data-admin-side.
 // Each value is the permission key passed to userCanAccess().
@@ -535,6 +535,7 @@ function roleLabel(role) {
   if (role === 'shop_admin') return 'Shop Admin';
   if (role === 'vp_admin')   return 'VP-Admin';
   if (role === 'uni_staff')  return 'Uni Staff';
+  if (role === 'sa_prof')    return 'อาจารย์';
   if (role === 'dev')        return 'Dev';
   return '';
 }

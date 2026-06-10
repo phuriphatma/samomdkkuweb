@@ -27,6 +27,13 @@ export const DOC_STATUS_META = {
   completed:   { label: 'เสร็จสิ้น',        cls: 'is-completed', icon: 'bi-check-circle' },
 };
 
+// Professor signing-request statuses (sastaff → saprof).
+export const SIGN_STATUS_META = {
+  pending:  { label: 'รอลงนาม',   cls: 'is-pending',  icon: 'bi-hourglass-split' },
+  accepted: { label: 'ลงนามแล้ว', cls: 'is-accepted', icon: 'bi-patch-check' },
+  rejected: { label: 'ปฏิเสธ',    cls: 'is-rejected', icon: 'bi-x-octagon' },
+};
+
 export const NOTIFY_KIND_META = {
   sent:           { icon: 'bi-send',                   cls: 'is-info' },
   // bi-send-arrow-up-fill landed after 1.10.5 so it renders as empty in
@@ -39,7 +46,12 @@ export const NOTIFY_KIND_META = {
   comment:        { icon: 'bi-chat-left-text',         cls: 'is-info' },
   file_added:     { icon: 'bi-cloud-plus-fill',        cls: 'is-info' },
   file_replaced:  { icon: 'bi-arrow-repeat',           cls: 'is-info' },
+  file_deleted:   { icon: 'bi-trash',                  cls: 'is-warn' },
   completed:      { icon: 'bi-check-circle',           cls: 'is-ok' },
+  // Professor signing workflow
+  sign_requested: { icon: 'bi-pen',                    cls: 'is-info' },
+  sign_accepted:  { icon: 'bi-patch-check',            cls: 'is-ok' },
+  sign_rejected:  { icon: 'bi-x-octagon',              cls: 'is-warn' },
 };
 
 // ---- Formatters ----
@@ -108,6 +120,11 @@ export function genProjectId() {
 /** DOC-XXXXX (5-char alphanumeric tail). */
 export function genDocumentId() {
   return `DOC-${randAlnum(5)}`;
+}
+
+/** SGN-XXXXX (5-char alphanumeric tail) — professor signing request. */
+export function genSignRequestId() {
+  return `SGN-${randAlnum(5)}`;
 }
 
 /** Slug for Drive folder names — keeps Thai Unicode, strips other chars. */

@@ -6,7 +6,7 @@
 // ==============================================
 
 import { dbRest } from '../db.js';
-import { genProjectId, genDocumentId } from './data.js';
+import { genProjectId, genDocumentId, genSignRequestId } from './data.js';
 
 // ---- Doc types ----
 
@@ -38,7 +38,7 @@ export async function upsertDocType(row) {
 
 // ---- Projects ----
 
-const PROJECT_FIELDS = '*,documents:project_documents(*)';
+const PROJECT_FIELDS = '*,documents:project_documents(*,sign_requests:project_sign_requests(*))';
 
 export async function listProjects({ status } = {}) {
   const filter = status ? `&status=eq.${encodeURIComponent(status)}` : '';
@@ -135,7 +135,7 @@ export async function deleteProject(id) {
 
 // ---- Documents ----
 
-const DOC_FIELDS = '*,files:project_files(*)';
+const DOC_FIELDS = '*,files:project_files(*),sign_requests:project_sign_requests(*)';
 
 export async function listDocuments({ projectId, status } = {}) {
   const parts = ['select=' + encodeURIComponent(DOC_FIELDS), 'order=sent_at.desc.nullslast,created_at.desc'];
@@ -300,6 +300,94 @@ export async function supersedeFile(oldId, newId) {
     throw new Error('แทนที่ไฟล์ไม่สำเร็จ (RLS หรือไม่พบ id)');
   }
   return data[0];
+}
+
+// ---- Sign requests (professor signing workflow) ----
+
+const SIGN_FIELDS = '*';
+
+/** Create a signing request: a bundle of selected files from one หนังสือ,
+ *  addressed to the professor (prof_id). Caller is uni_staff/dev — a
+ *  project actor — so the SELECT policy (`actor OR prof_id=auth.uid()`)
+ *  passes and return=representation is safe here (unlike createNotification). */
+export async function createSignRequest({ documentId, profId, fileIds, note, requestedBy }) {
+  if (!documentId) throw new Error('document_id required');
+  if (!Array.isArray(fileIds) || fileIds.length === 0) throw new Error('เลือกไฟล์อย่างน้อย 1 ไฟล์');
+  const now = new Date().toISOString();
+  let lastErr;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const id = genSignRequestId();
+    const row = {
+      id,
+      document_id: documentId,
+      prof_id: profId || null,
+      status: 'pending',
+      note: note || null,
+      file_ids: fileIds,
+      requested_by: requestedBy || null,
+      requested_at: now,
+      timeline: [{ at: now, by: requestedBy || null, role: 'uni_staff', action: 'requested', note: note || 'ส่งให้อาจารย์ลงนาม' }],
+    };
+    const { data, error } = await dbRest(
+      '/project_sign_requests',
+      { method: 'POST', body: row, prefer: 'return=representation' },
+    );
+    if (error) {
+      const msg = (error.message || '').toLowerCase();
+      if (msg.includes('duplicate') || msg.includes('unique')) { lastErr = error; continue; }
+      throw new Error(error.message || 'สร้างคำขอลงนามไม่สำเร็จ');
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('สร้างคำขอลงนามไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+    }
+    return data[0];
+  }
+  throw new Error(lastErr?.message || 'สร้างคำขอลงนามไม่สำเร็จ (เลขซ้ำ)');
+}
+
+export async function getSignRequest(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/project_sign_requests?select=${SIGN_FIELDS}&id=eq.${idEsc}`,
+  );
+  if (error) throw new Error(error.message || 'โหลดคำขอลงนามไม่สำเร็จ');
+  return (data && data[0]) || null;
+}
+
+export async function updateSignRequest(id, patch) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/project_sign_requests?id=eq.${idEsc}`,
+    { method: 'PATCH', body: patch, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'อัปเดตคำขอลงนามไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('อัปเดตคำขอลงนามไม่สำเร็จ (RLS หรือไม่พบ id)');
+  }
+  return data[0];
+}
+
+/** Append a timeline entry AND patch the request in one round-trip
+ *  (re-reads to merge timeline server-side-safely, like appendDocTimeline). */
+export async function appendSignTimeline(id, entry, extra = {}) {
+  const current = await getSignRequest(id);
+  if (!current) throw new Error('ไม่พบคำขอลงนาม');
+  const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
+  timeline.push({ at: new Date().toISOString(), ...entry });
+  return updateSignRequest(id, { timeline, ...extra });
+}
+
+export async function deleteSignRequest(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/project_sign_requests?id=eq.${idEsc}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ยกเลิกคำขอลงนามไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ยกเลิกคำขอลงนามไม่สำเร็จ (RLS หรือไม่พบ id)');
+  }
+  return true;
 }
 
 // ---- Notifications ----

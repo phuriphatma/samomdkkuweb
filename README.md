@@ -45,7 +45,12 @@ Both Cloudflare projects hit the same Supabase backend.
   shared in one tap. **Customer mirror** at `/projects-view` exposes the
   same surface read-only to anonymous visitors (gated by migration 0032);
   reuses the admin renderers via `role='customer'` so admin UI changes
-  flow through without drift.
+  flow through without drift. **Professor signing (migration 0050).** The
+  university officer can send a chosen subset of a หนังสือ's files to a
+  professor (`saprof` seat) who signs them — either in-browser (draw a
+  signature and place it on the PDF) or by uploading an externally-signed
+  file — or rejects them back. The officer can also add / replace / remove
+  files like the sender; the professor sees only the documents sent to him.
 - **Departments tab (`ฝ่าย`).** Top-level navbar entry showing all 10
   ฝ่ายในสโมสร with per-dept tool drill-down. Each ฝ่าย links to its
   own tools (SAMOShop + customer หนังสือโครงการ for บริหารองค์กร,

@@ -29,8 +29,11 @@ export function mountManage({ onChanged: cb } = {}) {
   // becomes visible the moment it happens, not weeks later.
   document.getElementById('projectSettingsUniEmail')?.addEventListener('input', refreshEmailWarn);
   document.getElementById('projectSettingsUniEmailNotify')?.addEventListener('change', refreshEmailWarn);
+  document.getElementById('projectSettingsProfEmail')?.addEventListener('input', refreshEmailWarn);
+  document.getElementById('projectSettingsProfEmailNotify')?.addEventListener('change', refreshEmailWarn);
 
-  document.getElementById('projectSettingsEmailTest')?.addEventListener('click', onSendTestEmail);
+  document.getElementById('projectSettingsEmailTest')?.addEventListener('click', () => onSendTestEmail('projectSettingsUniEmail'));
+  document.getElementById('projectSettingsProfEmailTest')?.addEventListener('click', () => onSendTestEmail('projectSettingsProfEmail'));
 
   document.getElementById('projectDocTypeList')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-projects-doctype-toggle]');
@@ -64,9 +67,14 @@ function renderSettings() {
   check('projectSettingsUniEmailNotify', s.notify_uni_email !== false);
   check('projectSettingsVpInApp',        s.notify_vp_in_app !== false);
   check('projectSettingsVpDiscord',      s.notify_vp_discord !== false);
+  set('projectSettingsProfEmail',        s.prof_email);
+  set('projectSettingsProfLabel',        s.prof_label || 'อาจารย์');
+  check('projectSettingsProfInApp',      s.notify_prof_in_app !== false);
+  check('projectSettingsProfEmailNotify', s.notify_prof_email !== false);
 
   document.getElementById('projectSettingsSubmit')?.toggleAttribute('disabled', !canEdit);
   document.getElementById('projectSettingsEmailTest')?.toggleAttribute('disabled', !canEdit);
+  document.getElementById('projectSettingsProfEmailTest')?.toggleAttribute('disabled', !canEdit);
   document.getElementById('projectSettingsReadonlyHint')?.classList.toggle('d-none', canEdit);
   refreshEmailWarn();
 }
@@ -74,19 +82,26 @@ function renderSettings() {
 /** Show the warning when email notifications are ON but no valid recipient
  *  is entered — the exact config that silently sends nothing. */
 function refreshEmailWarn() {
-  const warn = document.getElementById('projectSettingsEmailWarn');
-  if (!warn) return;
-  const on = document.getElementById('projectSettingsUniEmailNotify')?.checked;
-  const to = normalizeRecipients(document.getElementById('projectSettingsUniEmail')?.value);
-  warn.classList.toggle('d-none', !(on && !to));
+  const pair = (warnId, notifyId, emailId) => {
+    const warn = document.getElementById(warnId);
+    if (!warn) return;
+    const on = document.getElementById(notifyId)?.checked;
+    const to = normalizeRecipients(document.getElementById(emailId)?.value);
+    warn.classList.toggle('d-none', !(on && !to));
+  };
+  pair('projectSettingsEmailWarn',     'projectSettingsUniEmailNotify',  'projectSettingsUniEmail');
+  pair('projectSettingsProfEmailWarn', 'projectSettingsProfEmailNotify', 'projectSettingsProfEmail');
 }
 
-/** Send a one-off test email to whatever is currently typed in the recipient
- *  box (no save required) so the admin can confirm delivery end-to-end. */
-async function onSendTestEmail() {
-  const to = normalizeRecipients(document.getElementById('projectSettingsUniEmail')?.value);
+/** Send a one-off test email to whatever is currently typed in the given
+ *  recipient box (no save required) so the admin can confirm delivery
+ *  end-to-end. `emailFieldId` selects the uni-staff or professor box. */
+async function onSendTestEmail(emailFieldId = 'projectSettingsUniEmail') {
+  const to = normalizeRecipients(document.getElementById(emailFieldId)?.value);
   if (!to) { alert('กรุณากรอกอีเมลผู้รับก่อนส่งทดสอบ'); return; }
-  const btn = document.getElementById('projectSettingsEmailTest');
+  const btn = emailFieldId === 'projectSettingsProfEmail'
+    ? document.getElementById('projectSettingsProfEmailTest')
+    : document.getElementById('projectSettingsEmailTest');
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังส่ง…';
@@ -150,6 +165,10 @@ async function onSaveSettings(e) {
       notify_uni_email:  document.getElementById('projectSettingsUniEmailNotify').checked,
       notify_vp_in_app:  document.getElementById('projectSettingsVpInApp').checked,
       notify_vp_discord: document.getElementById('projectSettingsVpDiscord').checked,
+      prof_email:         normalizeRecipients(document.getElementById('projectSettingsProfEmail').value),
+      prof_label:         document.getElementById('projectSettingsProfLabel').value.trim() || 'อาจารย์',
+      notify_prof_in_app: document.getElementById('projectSettingsProfInApp').checked,
+      notify_prof_email:  document.getElementById('projectSettingsProfEmailNotify').checked,
     };
     await saveSettings(patch);
     flashOk(btn, orig);

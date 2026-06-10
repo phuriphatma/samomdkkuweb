@@ -33,6 +33,7 @@ function doPost(e) {
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
     if (data.action === 'getProjectFolderInfo') return handleGetProjectFolderInfo(data);
+    if (data.action === 'getProjectFileData')   return handleGetProjectFileData(data);
 
     if (data.action === 'notifyProjectEmail') {
       try { sendProjectEmail(data); }
@@ -326,6 +327,35 @@ function handleDeleteProjectFile(data) {
     }
     file.setTrashed(true);
     return createResponse({ success: true });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// getProjectFileData — return a Drive file's bytes as base64 by id.
+// Used by the in-browser e-sign flow: the browser can't fetch the raw
+// bytes from a Drive viewer URL (CORS), so it round-trips through GAS.
+// Allow-listed to files under `Projects/` only.
+// ============================================================
+function handleGetProjectFileData(data) {
+  try {
+    var id = String(data.fileId || '').trim();
+    if (!id) return createResponse({ success: false, message: 'fileId required' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) { return createResponse({ success: false, message: 'file not found' }); }
+    if (!fileLivesUnderProjects_(file)) {
+      return createResponse({ success: false, message: 'file is not inside Projects' });
+    }
+    var blob = file.getBlob();
+    return createResponse({
+      success: true,
+      base64: Utilities.base64Encode(blob.getBytes()),
+      mimeType: blob.getContentType(),
+      fileName: file.getName(),
+      sizeBytes: file.getSize(),
+    });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }

@@ -147,6 +147,46 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
   }
 }
 
+/**
+ * Send a "→ professor (saprof)" event:
+ *   - in-app row for each sa_prof user
+ *   - email to settings.prof_email (if enabled)
+ * Used when sastaff sends a หนังสือ for signing, and (per the spec) when a
+ * file is added/replaced/removed on a หนังสือ that's been shown to the prof.
+ */
+export async function notifyProf({ kind, project, document, body, subject } = {}) {
+  const settings = await getSettings().catch(() => null);
+  const recipients = await listUsersByRole('sa_prof').catch(() => []);
+
+  // In-app
+  if (settings?.notify_prof_in_app !== false) {
+    for (const u of recipients) {
+      await createNotification({
+        user_id: u.id,
+        project_id: project?.id || null,
+        document_id: document?.id || null,
+        kind,
+        body: body || '',
+      }).catch(() => {});
+    }
+  }
+
+  // Email — fire-and-forget (mirrors the uni_staff email path).
+  const to = normalizeRecipients(settings?.prof_email);
+  if (settings?.notify_prof_email !== false && to) {
+    const url = deepLink({ projectId: project?.id, documentId: document?.id });
+    const sub = subject || (project?.name
+      ? `[MDKKU SAMO] ${project.name} — ${kind}`
+      : `[MDKKU SAMO] หนังสือโครงการ — ลงนาม`);
+    const html = buildEmailHtml({ kind, project, document, body, link: url });
+    callGAS(GAS_API_URL, 'notifyProjectEmail', {
+      to,
+      subject: sub,
+      htmlBody: html,
+    }).catch(() => {});
+  }
+}
+
 function kindToDiscordColor(kind) {
   switch (kind) {
     case 'received':      return 3447003;  // blue

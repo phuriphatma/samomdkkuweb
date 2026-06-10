@@ -1050,6 +1050,37 @@ custom domain — see STATE.md GAS section for why CF Workers lose here).
 `src/html/tab-projects.html`. Any future "notification X doesn't arrive": curl
 the channel end-to-end before touching its code, and check the on/off config.
 
+## A per-recipient SELECT RLS policy is DEAD when a `using(true)` public-read policy already exists on the same table (policies are OR'd)
+
+**Symptom**: You add a narrow "this user sees only their rows" SELECT policy
+to `projects` / `project_documents` / `project_files` (e.g. to scope the new
+professor `sa_prof` seat to "only หนังสือ sent to him"). It has no effect —
+the professor (and in fact anyone with the anon key) can still read EVERY
+project, document, and file, including private drafts.
+**Cause**: migration 0032 (`*_read_public`) already granted
+`for select to anon, authenticated using (true)` on those tables to power the
+public customer mirror (`/projects-view`). Postgres RLS combines multiple
+permissive policies with OR — a `using(true)` policy is unconditionally true,
+so it swallows every narrower SELECT branch you add later. The project tables
+are simply world-readable by design; SELECT RLS can't re-narrow them.
+**Fix**: Don't fight the public-read policy. Enforce the per-recipient scope
+at the UI/query layer instead, keyed off a table that DOESN'T have a public
+policy. Here `project_sign_requests` has only the 0050 RLS (`actor OR
+prof_id = auth.uid()`), so a doc's embedded `sign_requests` is non-empty for
+the professor ONLY when it was sent to him — `scopeProjectsForRole()` in
+`src/js/projects/index.js` filters his inbox on that signal, and
+`loadFilesForDoc()` in `inbox.js` filters his file list to the requested +
+signed files. The genuinely load-bearing prof RLS is the **INSERT** branch
+(signed-file upload), because 0032 added no public INSERT policy.
+**Where**: `supabase/migrations/0050_prof_sign_requests.sql` (the SELECT
+branches are commented as DEFENSIVE); UI scoping in
+`src/js/projects/index.js` + `inbox.js`. **Before adding any "owner-only"
+SELECT RLS to a project table, grep the migrations for an existing
+`*_read_public` / `using (true)` policy on it — if one exists, RLS won't
+narrow reads; scope in the app off a non-public table instead.**
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

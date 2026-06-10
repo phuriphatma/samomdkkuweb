@@ -239,16 +239,48 @@ project_notifications (bigserial id PK, user_id FK users(id) CASCADE,
   ↳ kind: 'sent','received','status','returned','comment',
           'file_replaced','completed'
 
+project_files += sign_request_id FK project_sign_requests(id) SET NULL,
+                 is_signed boolean default false   (migration 0050)
+  ↳ the professor's signed output is a normal project_files row, flagged
+    is_signed + tagged to the request it answers
+
+project_sign_requests (text id PK ["SGN-XXXXX"], migration 0050,
+                  document_id FK project_documents(id) CASCADE,
+                  prof_id FK users(id), status, note, reject_reason,
+                  file_ids bigint[], timeline jsonb, requested_by,
+                  requested_at, decided_at, timestamps)
+  ↳ status IN ('pending','accepted','rejected')
+  ↳ sastaff sends a SUBSET (file_ids) of a หนังสือ's files to the prof;
+    he accepts (e-sign / reupload) or rejects (→ back to sastaff)
+
 project_settings (singleton id=1, uni_staff_email, uni_staff_label,
                   vp_admin_label, notify_uni_in_app, notify_uni_email,
-                  notify_vp_in_app, notify_vp_discord, updated_at)
+                  notify_vp_in_app, notify_vp_discord, updated_at,
+                  + prof_email, prof_label, notify_prof_in_app,
+                    notify_prof_email   (migration 0050))
 ```
 
-Roles: `users.role` CHECK expanded to admit `vp_admin` (SAMO sender) and
-`uni_staff` (university officer receiver). `reserved_staff_usernames` seeds
-`samomdkkuvpa` (vp_admin) + `sastaff` (uni_staff). Helper
+Roles: `users.role` CHECK admits `vp_admin` (SAMO sender), `uni_staff`
+(university officer receiver), and `sa_prof` (professor signer, migration
+0050). `reserved_staff_usernames` seeds `samomdkkuvpa` (vp_admin) + `sastaff`
+(uni_staff); `saprof` is seeded by `tools/saprof-account.mjs`. Helper
 `public.current_user_is_project_actor()` returns true for `vp_admin`,
-`uni_staff`, or `dev`.
+`uni_staff`, or `dev` — `sa_prof` is deliberately NOT an actor (narrow helper
+`current_user_is_prof()` instead). `auth.js registerWithPassword` reserves
+`saprof` (the one non-`samomdkku` staff username).
+
+**Professor signing (migration 0050).** A third seat, `sa_prof`, signs
+documents. uni_staff (+ dev) create a `project_sign_requests` row addressed to
+the prof; the prof accepts (in-browser PDF e-sign via `pdf-lib`+`pdfjs-dist`,
+or upload an externally-signed file) or rejects. uni_staff also gained file
+add/replace/remove parity with vp_admin (file ops now notify the OTHER seat +
+the prof when the doc has a sign request — `fanFileOp` in `inbox.js`,
+`notifyProf` in `notify.js`). E-sign loads original PDF bytes via a new GAS
+`getProjectFileData` action (Drive CORS) and is a lazy-loaded JS chunk.
+Modules: `src/js/projects/{sign,esign}.js`, `src/html/modal-project-{sign,esign}.html`.
+The professor's "only docs sent to him" scope is enforced in the UI
+(`scopeProjectsForRole` in `index.js`, file filter in `loadFilesForDoc`), NOT
+RLS — see the customer-mirror addendum below for why, and `mistakes.md`.
 
 RLS: all six tables are gated to project actors. Both vp_admin and
 uni_staff can SELECT + UPDATE projects + documents + files (the workflow

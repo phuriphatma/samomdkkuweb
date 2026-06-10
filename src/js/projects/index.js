@@ -16,6 +16,7 @@ import {
   setServerDocViews, migrateLocalSeenAtToServer, setInboxCustomerMode,
 } from './inbox.js';
 import { mountSendFlow, openCreateProject, openSendDocument } from './send.js';
+import { mountSignFlow, openSignRequest } from './sign.js';
 import { mountManage, renderManage } from './manage.js';
 import { mountNotifications, refreshNotificationBell } from './notifications.js';
 
@@ -38,7 +39,7 @@ let cache = {
  *    other 9 VPs see VS for their dept but not Projects). */
 function isAllowed(user) {
   if (!user) return false;
-  if (user.role === 'dev' || user.role === 'uni_staff') return true;
+  if (user.role === 'dev' || user.role === 'uni_staff' || user.role === 'sa_prof') return true;
   if (user.role === 'vp_admin'
       && Array.isArray(user.permissions)
       && user.permissions.includes('projects')) return true;
@@ -94,6 +95,7 @@ function applyRoleVisibility(user) {
   if (hint) {
     if (role === 'vp_admin') hint.textContent = 'ส่งหนังสือโครงการให้เจ้าหน้าที่ และติดตามสถานะ';
     else if (role === 'uni_staff') hint.textContent = 'รับเรื่อง / อัปเดตสถานะหนังสือโครงการจาก SAMO';
+    else if (role === 'sa_prof') hint.textContent = 'หนังสือที่ส่งมาให้อาจารย์ลงนาม — ยอมรับ(ลงนาม) หรือส่งกลับ';
     else if (role === 'dev') hint.textContent = 'Dev — เห็นทั้งสองด้านของระบบส่งหนังสือ';
     else hint.textContent = '';
   }
@@ -103,6 +105,25 @@ function applyRoleVisibility(user) {
   if (gate) gate.classList.toggle('d-none', allowed);
   const body = document.getElementById('projectsBody');
   if (body) body.classList.toggle('d-none', !allowed);
+}
+
+/** The project tables are world-readable (migration 0032 powers the public
+ *  customer mirror via `*_read_public using(true)`), so RLS can't narrow the
+ *  professor's inbox. But `project_sign_requests` has NO public policy — its
+ *  RLS only returns the prof his OWN requests — so a doc's embedded
+ *  `sign_requests` is non-empty for the prof ONLY when it was sent to him.
+ *  Scope his inbox to those docs/projects at the query layer. (For all other
+ *  roles this is a pass-through.) */
+function scopeProjectsForRole(projects) {
+  if (currentRole !== 'sa_prof' || !currentUser?.id) return projects;
+  const myId = currentUser.id;
+  return (projects || [])
+    .map((p) => ({
+      ...p,
+      documents: (p.documents || []).filter((d) =>
+        Array.isArray(d.sign_requests) && d.sign_requests.some((r) => r.prof_id === myId)),
+    }))
+    .filter((p) => (p.documents || []).length > 0);
 }
 
 let loadInFlight = null;
@@ -129,7 +150,7 @@ async function loadInitialDataInner() {
       getSettings().catch(() => null),
       currentUser?.id ? listMyDocViews(currentUser.id).catch(() => []) : Promise.resolve([]),
     ]);
-    cache.projects = projects || [];
+    cache.projects = scopeProjectsForRole(projects || []);
     cache.docTypes = docTypes || [];
     cache.settings = settings;
     setServerDocViews(docViews);
@@ -166,7 +187,7 @@ export async function reloadProjects(focus = {}) {
     getSettings().catch(() => cache.settings),
     currentUser?.id ? listMyDocViews(currentUser.id).catch(() => null) : Promise.resolve(null),
   ]);
-  cache = { projects, docTypes, settings };
+  cache = { projects: scopeProjectsForRole(projects), docTypes, settings };
   // Only repopulate from server when the fetch actually succeeded —
   // a transient failure shouldn't blow away the in-memory map and
   // re-flash every highlight.
@@ -261,8 +282,10 @@ export function initProjects() {
     onChanged: reloadProjects,
     onAddDocument: (project) => openSendDocument({ project }),
     onCreateProject: () => openCreateProject(),
+    onSendToProf: ({ doc, project }) => openSignRequest({ doc, project }),
   });
   mountSendFlow({ onCreated: reloadProjects });
+  mountSignFlow({ onSent: (focus) => reloadProjects(focus) });
   mountManage({ onChanged: reloadProjects });
   mountNotifications({ onJump: ({ projectId, documentId }) => openProjectsTab({ projectId, documentId }) });
 

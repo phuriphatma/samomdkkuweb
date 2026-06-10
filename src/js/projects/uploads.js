@@ -61,6 +61,33 @@ export async function uploadProjectFile(file, folderPath, opts = {}) {
 }
 
 /**
+ * Fetch a Drive file's raw bytes (base64) by its Drive file id. Used by
+ * the in-browser e-sign flow: the browser CANNOT fetch the bytes directly
+ * from a Drive viewer URL (CORS), so we round-trip through GAS the same way
+ * uploads do. Returns { base64, mimeType, fileName, sizeBytes }.
+ *
+ * `base64` is the bare base64 string (no data: prefix).
+ */
+export async function getProjectFileData(driveFileId) {
+  if (!driveFileId) throw new Error('driveFileId is required');
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getProjectFileData', fileId: driveFileId }),
+  });
+  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  if (!result.success || !result.base64) {
+    throw new Error(result.message || 'โหลดไฟล์จาก Drive ไม่สำเร็จ');
+  }
+  return {
+    base64:    result.base64,
+    mimeType:  result.mimeType || 'application/octet-stream',
+    fileName:  result.fileName || 'file',
+    sizeBytes: result.sizeBytes || null,
+  };
+}
+
+/**
  * Trash a single Drive file (by viewer URL) that lives under `Projects/`.
  * Mirrors deleteShopFile in src/js/shop/uploads.js — same pattern, just
  * scoped to the Projects/ tree on the GAS side.

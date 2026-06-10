@@ -28,10 +28,14 @@ import {
   listMyDocViews,
   upsertMyDocView,
   bulkUpsertMyDocViews,
+  appendSignTimeline,
+  updateSignRequest,
+  deleteSignRequest,
 } from './api.js';
 import {
   DOC_STATUS_META,
   DOC_PATH_ORDER,
+  SIGN_STATUS_META,
   fmtDate,
   fmtDateTime,
   fmtRelative,
@@ -39,8 +43,10 @@ import {
   buildDocFolderPath,
   buildProjectFolderPath,
 } from './data.js';
-import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo } from './uploads.js';
-import { notifyUniStaff, notifyVpAdmin } from './notify.js';
+import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo, getProjectFileData } from './uploads.js';
+import { notifyUniStaff, notifyVpAdmin, notifyProf } from './notify.js';
+// esign.js (with pdf.js + pdf-lib, ~1.4 MB) is lazy-loaded on demand so
+// the heavy PDF libs never ship in the main bundle / public mirror.
 import { openProjectPrompt, openProjectConfirm } from './ui-prompt.js';
 import { showProjectQrModal } from './qr.js';
 
@@ -49,6 +55,7 @@ import { showProjectQrModal } from './qr.js';
 let onChanged = () => {};
 let onAddDocumentCb = null;
 let onCreateProjectCb = null;
+let onSendToProfCb = null;   // open the "ส่งให้อาจารย์ลงนาม" picker modal
 
 let cache = { projects: [], docTypes: [], settings: null, role: null };
 
@@ -297,10 +304,11 @@ function toggleDocExpansion(docId) {
 
 // ---------- mounting ----------
 
-export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject }) {
+export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject, onSendToProf }) {
   if (typeof changed === 'function') onChanged = changed;
   if (typeof onAddDocument === 'function') onAddDocumentCb = onAddDocument;
   if (typeof onCreateProject === 'function') onCreateProjectCb = onCreateProject;
+  if (typeof onSendToProf === 'function') onSendToProfCb = onSendToProf;
 
   // Adaptive FAB — primary add action depends on the current level.
   document.getElementById('projectsCreateFab')?.addEventListener('click', () => {
@@ -799,6 +807,12 @@ function renderDocExpand(doc, project) {
   const role = cache.role;
   const isVp  = role === 'vp_admin' || role === 'dev';
   const isUni = role === 'uni_staff' || role === 'dev';
+  const isProf = role === 'sa_prof';
+  // File add/replace/remove is now allowed for BOTH vp_admin and uni_staff
+  // (sastaff file-op parity — RLS widened in 0050). The professor never
+  // manages the doc's general files; he only uploads signed output via the
+  // sign section.
+  const canManageFiles = isVp || isUni;
   const tlSorted = (doc.timeline || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
   // Freeze seenAt for the duration of the expansion — see expandedDocsSeenAt
   // declaration. Falls back to the live localStorage value if we somehow
@@ -844,7 +858,7 @@ function renderDocExpand(doc, project) {
     <div class="projects-doc-files" data-projects-files-for="${escHtml(doc.id)}">
       <div class="projects-files-head">
         <span><i class="bi bi-paperclip me-1"></i>ไฟล์แนบ</span>
-        ${isVp ? `<label class="btn btn-sm btn-primary-soft">
+        ${canManageFiles ? `<label class="btn btn-sm btn-primary-soft">
           <i class="bi bi-cloud-upload me-1"></i>เพิ่มไฟล์
           <input type="file" hidden multiple data-projects-add-files="${escHtml(doc.id)}" />
         </label>` : ''}
@@ -853,6 +867,8 @@ function renderDocExpand(doc, project) {
         <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลดไฟล์…</div>
       </div>
     </div>
+
+    <div class="projects-sign-section" data-projects-sign-for="${escHtml(doc.id)}"></div>
 
     ${renderCommentsList(doc, role, seenAtForExpansion)}
 
@@ -867,6 +883,7 @@ function renderDocExpand(doc, project) {
         ${(['sent','received','in_progress'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-danger-soft" data-projects-doc-return data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-counterclockwise me-1"></i>ส่งกลับให้แก้</button>` : ''}
       ` : ''}
       ${(isVp || isUni) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>` : ''}
+      ${isUni ? `<button type="button" class="btn btn-sm btn-teal-soft" data-projects-send-sign data-doc-id="${escHtml(doc.id)}"><i class="bi bi-pen me-1"></i>ส่งให้อาจารย์ลงนาม</button>` : ''}
       ${revertMenu}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-edit data-doc-id="${escHtml(doc.id)}" title="แก้ไขชื่อ / โน้ตหนังสือ"><i class="bi bi-pencil me-1"></i>แก้ไข</button>` : ''}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger ms-auto" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
@@ -1438,6 +1455,18 @@ function onInboxClick(e) {
   if (cmtEditBtn) { onCommentEditClick(cmtEditBtn); return; }
   const cmtDelBtn = e.target.closest('[data-projects-comment-delete]');
   if (cmtDelBtn) { onCommentDeleteClick(cmtDelBtn); return; }
+
+  // Professor signing workflow
+  const sendSign = e.target.closest('[data-projects-send-sign]');
+  if (sendSign) { onSendSignClick(sendSign); return; }
+  const signEsign = e.target.closest('[data-sign-esign]');
+  if (signEsign) { onSignEsignClick(signEsign); return; }
+  const signAccept = e.target.closest('[data-sign-accept]');
+  if (signAccept) { onSignAcceptClick(signAccept); return; }
+  const signReject = e.target.closest('[data-sign-reject]');
+  if (signReject) { onSignRejectClick(signReject); return; }
+  const signCancel = e.target.closest('[data-sign-cancel]');
+  if (signCancel) { onSignCancelClick(signCancel); return; }
 }
 
 function onInboxChange(e) {
@@ -1447,7 +1476,10 @@ function onInboxChange(e) {
   if (replace) {
     const docId = replace.closest('[data-projects-files-for]')?.dataset.projectsFilesFor;
     onReplaceFile(e, replace.dataset.replaceForFile, docId);
+    return;
   }
+  const signReup = e.target.closest('[data-sign-reupload]');
+  if (signReup) { onSignReupload(e); return; }
 }
 
 // ---------- project actions ----------
@@ -1866,6 +1898,32 @@ async function onDocDeleteClick(btn) {
   } catch (e) { alert(e.message || 'ลบไม่สำเร็จ'); }
 }
 
+/** Whether a หนังสือ has been shown to the professor (any sign request
+ *  exists for it). Used to decide whether file ops also ping the prof. */
+function docHasSignRequest(doc) {
+  return Array.isArray(doc?.sign_requests) && doc.sign_requests.length > 0;
+}
+
+/** Fan a file add/replace/remove out to the OTHER internal seat — so
+ *  vp_admin and uni_staff each learn of the other's file ops (the original
+ *  notify was one-way vpa→sastaff) — PLUS the professor when the หนังสือ
+ *  has been shown to him for signing. Fire-and-forget: never awaited on a
+ *  click's render path (mistakes.md — serialised side-channels block the
+ *  re-render). */
+function fanFileOp({ role, project, document, kind, body, subject, title }) {
+  const tasks = [];
+  if (role === 'vp_admin' || role === 'dev') {
+    tasks.push(notifyUniStaff({ kind, project, document, body, subject }));
+  }
+  if (role === 'uni_staff' || role === 'dev') {
+    tasks.push(notifyVpAdmin({ kind, project, document, body, title }));
+  }
+  if (docHasSignRequest(document)) {
+    tasks.push(notifyProf({ kind, project, document, body, subject }));
+  }
+  return Promise.allSettled(tasks);
+}
+
 async function onDocAddFiles(e, docId) {
   const input = e.target;
   const files = Array.from(input.files || []);
@@ -1900,14 +1958,15 @@ async function onDocAddFiles(e, docId) {
       action: 'file_added',
       note: `เพิ่มไฟล์ ${files.length} ไฟล์`,
     });
-    await notifyUniStaff({
-      kind: 'file_added',
-      project, document: doc,
-      body: `เพิ่มไฟล์ใหม่ ${files.length} ไฟล์ในหนังสือ "${doc.title}"`,
-      subject: `[MDKKU SAMO] ไฟล์ใหม่ใน ${project.name}`,
-    });
     markDocSeen(docId);
     onChanged();
+    fanFileOp({
+      role: cache.role, project, document: doc,
+      kind: 'file_added',
+      body: `เพิ่มไฟล์ใหม่ ${files.length} ไฟล์ในหนังสือ "${doc.title}"`,
+      subject: `[MDKKU SAMO] ไฟล์ใหม่ใน ${project.name}`,
+      title: `ไฟล์ใหม่ — ${doc.title || ''}`,
+    }).catch(() => {});
   } catch (err) {
     alert(err.message || 'อัปโหลดไม่สำเร็จ');
   } finally {
@@ -1944,6 +2003,16 @@ async function onDeleteFileClick(btn, docId) {
     });
     markDocSeen(docId);
     onChanged();
+    const found = findDocById(docId);
+    if (found) {
+      fanFileOp({
+        role: cache.role, project: found.project, document: found.doc,
+        kind: 'file_deleted',
+        body: `ลบไฟล์ "${fileName}" ออกจากหนังสือ "${found.doc.title}"`,
+        subject: `[MDKKU SAMO] ลบไฟล์ — ${found.project.name}`,
+        title: `ลบไฟล์ — ${found.doc.title || ''}`,
+      }).catch(() => {});
+    }
   } catch (err) {
     alert(err.message || 'ลบไฟล์ไม่สำเร็จ');
     // Refresh the file list to clear the busy state.
@@ -2006,14 +2075,15 @@ async function onReplaceFile(e, oldFileId, docId) {
         ? `แทนที่ "${oldFileName}" → "${f.name}"`
         : `แทนที่ไฟล์เป็น "${f.name}"`,
     });
-    await notifyUniStaff({
-      kind: 'file_replaced',
-      project, document: doc,
-      body: `แทนที่ไฟล์ในหนังสือ "${doc.title}" — ไฟล์ใหม่: ${f.name}`,
-      subject: `[MDKKU SAMO] แทนที่ไฟล์ — ${project.name}`,
-    });
     markDocSeen(docId);
     onChanged();
+    fanFileOp({
+      role: cache.role, project, document: doc,
+      kind: 'file_replaced',
+      body: `แทนที่ไฟล์ในหนังสือ "${doc.title}" — ไฟล์ใหม่: ${f.name}`,
+      subject: `[MDKKU SAMO] แทนที่ไฟล์ — ${project.name}`,
+      title: `แทนที่ไฟล์ — ${doc.title || ''}`,
+    }).catch(() => {});
   } catch (err) {
     alert(err.message || 'แทนที่ไฟล์ไม่สำเร็จ');
   } finally {
@@ -2030,13 +2100,22 @@ async function loadFilesForDoc(docId) {
     // Replace now deletes the old row outright (no superseded_by), so
     // we only fetch active rows. Any legacy superseded rows from
     // before that change are intentionally hidden — they're dead UI.
-    const files = await listFiles(docId, { includeSuperseded: false });
-    if (files.length === 0) {
-      wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
-      return;
-    }
+    let files = await listFiles(docId, { includeSuperseded: false });
     const role = cache.role;
-    const isVp = role === 'vp_admin' || role === 'dev';
+    const canManage = role === 'vp_admin' || role === 'uni_staff' || role === 'dev';
+    // Files are world-readable (0032), so the professor's listFiles returns
+    // the whole หนังสือ — including the private docx drafts. Scope HIS view
+    // to only the files he was asked to sign (+ his own signed uploads),
+    // mirroring the doc-level scoping in index.js scopeProjectsForRole.
+    if (role === 'sa_prof') {
+      const myId = getUser()?.id;
+      const reqs = (findDocById(docId)?.doc?.sign_requests || []).filter((r) => r.prof_id === myId);
+      const allowed = new Set();
+      reqs.forEach((r) => (r.file_ids || []).forEach((id) => allowed.add(String(id))));
+      const reqIds = new Set(reqs.map((r) => String(r.id)));
+      files = files.filter((f) =>
+        allowed.has(String(f.id)) || (f.is_signed && reqIds.has(String(f.sign_request_id))));
+    }
     // Files use the LAST STATUS-CLEARING ACTION timestamp, not the
     // seenAt marker. Reason: opening the หนังสือ to look should NOT
     // make the "ใหม่" pill on an attachment disappear — the user
@@ -2045,10 +2124,23 @@ async function loadFilesForDoc(docId) {
     // pill clears too (lastActed bumps past file.uploaded_at).
     const doc = findDocById(docId)?.doc;
     const lastActed = doc ? myLastActionTime(doc, role) : 0;
-    wrap.innerHTML = files.map((f) => {
-      const newness = fileNewnessForRole(f, lastActed, role);
-      return renderFileRow(f, isVp, newness);
-    }).join('') || '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
+    // The professor's signed uploads are rendered inside the sign section
+    // (so they sit next to the request they answer) — keep them out of the
+    // generic attached-files list to avoid duplication. A signed file whose
+    // request was cancelled (FK set null) is an orphan with no sign section
+    // to live in, so fall it BACK into the general list rather than hiding it.
+    const listFilesForRow = files.filter((f) => !(f.is_signed && f.sign_request_id));
+    if (listFilesForRow.length === 0) {
+      wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
+    } else {
+      wrap.innerHTML = listFilesForRow.map((f) => {
+        const newness = fileNewnessForRole(f, lastActed, role);
+        return renderFileRow(f, canManage, newness);
+      }).join('');
+    }
+    // Render the professor signing section with the freshly-fetched file
+    // rows so request file-names + signed outputs resolve to real files.
+    renderSignSection(docId, files);
   } catch (e) {
     wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
   }
@@ -2070,7 +2162,7 @@ function fileNewnessForRole(file, lastActed, role) {
   return 'new';
 }
 
-function renderFileRow(f, isVp, newness) {
+function renderFileRow(f, canManage, newness) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
   const newnessCls   = newness ? `is-${newness}` : '';
@@ -2093,7 +2185,7 @@ function renderFileRow(f, isVp, newness) {
           <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
         </div>
       </div>
-      ${isVp ? `<label class="btn btn-sm btn-ghost">
+      ${canManage ? `<label class="btn btn-sm btn-ghost">
         <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
         <input type="file" hidden data-replace-for-file="${f.id}" />
       </label>
@@ -2121,6 +2213,249 @@ function iconForExt(ext) {
 function showFilesBusy(docId, msg) {
   const wrap = document.getElementById(`projectsFilesList-${docId}`);
   if (wrap) wrap.innerHTML = `<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>${escHtml(msg)}</div>`;
+}
+
+// ---------- professor signing (sastaff → saprof) ----------
+
+function isPdfFile(f) {
+  const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
+  return ext === 'pdf' || /pdf/i.test(f.mime_type || '');
+}
+
+/** Render the "การลงนามของอาจารย์" section inside an expanded หนังสือ. Called
+ *  from loadFilesForDoc with the freshly-fetched file rows so request file
+ *  names + signed outputs resolve to real files. For actors it's a
+ *  read-only progress view; for the professor (pending requests) it carries
+ *  the e-sign / reupload / accept / reject actions. */
+function renderSignSection(docId, files) {
+  const wrap = document.querySelector(`[data-projects-sign-for="${cssEsc(docId)}"]`);
+  if (!wrap) return;
+  const doc = findDocById(docId)?.doc;
+  const requests = (doc?.sign_requests || []).slice().sort((a, b) =>
+    new Date(b.requested_at || b.created_at) - new Date(a.requested_at || a.created_at));
+  if (requests.length === 0) { wrap.innerHTML = ''; return; }
+
+  const role = cache.role;
+  const isProf = role === 'sa_prof';
+  const canCancel = role === 'uni_staff' || role === 'dev';
+  const byId = new Map(files.map((f) => [String(f.id), f]));
+
+  const cards = requests.map((r) => {
+    const meta = SIGN_STATUS_META[r.status] || SIGN_STATUS_META.pending;
+    const pending = r.status === 'pending';
+    const reqFiles = (r.file_ids || []).map((id) => byId.get(String(id))).filter(Boolean);
+    const signedFiles = files.filter((f) => f.is_signed && String(f.sign_request_id) === String(r.id));
+    return `
+      <div class="projects-sign-card ${meta.cls}">
+        <div class="projects-sign-card-head">
+          <span class="projects-sign-status ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
+          <span class="text-muted small ms-2">${escHtml(fmtDateTime(r.requested_at || r.created_at))}</span>
+        </div>
+        ${r.note ? `<div class="projects-sign-note"><i class="bi bi-chat-square-quote me-1"></i>${escHtml(r.note)}</div>` : ''}
+        <div class="projects-sign-files">
+          <div class="projects-sign-files-label">ไฟล์ที่ขอลงนาม</div>
+          ${reqFiles.length ? reqFiles.map((f) => `
+            <div class="projects-sign-file">
+              <i class="bi ${iconForExt((f.file_name || '').split('.').pop()?.toLowerCase())} me-1"></i>
+              <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="text-truncate">${escHtml(f.file_name)}</a>
+              ${(isProf && pending && isPdfFile(f)) ? `<button type="button" class="btn btn-sm btn-teal-soft ms-auto" data-sign-esign data-sign-req="${escHtml(r.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-pen me-1"></i>ลงนาม</button>` : ''}
+            </div>`).join('') : '<div class="text-muted small">— ไม่พบไฟล์ —</div>'}
+        </div>
+        ${signedFiles.length ? `
+          <div class="projects-sign-files signed">
+            <div class="projects-sign-files-label">ไฟล์ที่ลงนามแล้ว</div>
+            ${signedFiles.map((f) => `
+              <div class="projects-sign-file">
+                <i class="bi bi-patch-check-fill text-success me-1"></i>
+                <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="text-truncate">${escHtml(f.file_name)}</a>
+              </div>`).join('')}
+          </div>` : ''}
+        ${r.status === 'rejected' && r.reject_reason
+          ? `<div class="projects-sign-reject"><i class="bi bi-exclamation-triangle me-1"></i>เหตุผลที่ส่งกลับ: ${escHtml(r.reject_reason)}</div>` : ''}
+        ${(isProf && pending) ? `
+          <div class="projects-sign-actions">
+            <label class="btn btn-sm btn-primary-soft">
+              <i class="bi bi-cloud-upload me-1"></i>อัปโหลดไฟล์ที่เซ็นแล้ว
+              <input type="file" hidden multiple data-sign-reupload="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}" />
+            </label>
+            <button type="button" class="btn btn-sm btn-success-soft" data-sign-accept data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-check-circle me-1"></i>ยอมรับการลงนาม</button>
+            <button type="button" class="btn btn-sm btn-danger-soft" data-sign-reject data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-x-circle me-1"></i>ปฏิเสธ</button>
+          </div>` : ''}
+        ${(canCancel && pending) ? `
+          <div class="projects-sign-actions">
+            <button type="button" class="btn btn-sm btn-ghost text-danger" data-sign-cancel data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-x-lg me-1"></i>ยกเลิกคำขอ</button>
+          </div>` : ''}
+      </div>`;
+  });
+
+  wrap.innerHTML = `
+    <div class="projects-files-head mt-3"><span><i class="bi bi-pen me-1"></i>การลงนามของอาจารย์</span></div>
+    ${cards.join('')}`;
+}
+
+function onSendSignClick(btn) {
+  const found = findDocById(btn.dataset.docId);
+  if (!found || !onSendToProfCb) return;
+  onSendToProfCb({ doc: found.doc, project: found.project });
+}
+
+/** Upload one signed file (esign Blob or reuploaded File) and record it as
+ *  an is_signed project_files row tagged to the request. */
+async function uploadSignedFile({ doc, project, reqId, fileLike, user }) {
+  const folder = buildDocFolderPath(project.id, project.name, doc.id, doc.title);
+  const up = await uploadProjectFile(fileLike, folder);
+  await createFile({
+    document_id: doc.id,
+    file_name: fileLike.name,
+    drive_file_id: up.fileId,
+    drive_view_url: up.url,
+    mime_type: up.mimeType,
+    size_bytes: up.sizeBytes,
+    uploaded_by: user?.id || null,
+    sign_request_id: reqId,
+    is_signed: true,
+  });
+}
+
+async function onSignEsignClick(btn) {
+  const reqId = btn.dataset.signReq;
+  const fileId = btn.dataset.signFile;
+  const docId = btn.dataset.docId;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc, project } = found;
+  let fileRow;
+  try {
+    const files = await listFiles(docId, { includeSuperseded: false });
+    fileRow = files.find((f) => String(f.id) === String(fileId));
+  } catch {}
+  if (!fileRow || !fileRow.drive_file_id) { alert('ไม่พบไฟล์ต้นฉบับสำหรับลงนาม'); return; }
+  const user = getUser();
+  try {
+    // signPdf opens the e-sign modal (loads bytes via GAS, lets the prof
+    // draw + place a signature, embeds it with pdf-lib). Resolves to a
+    // signed PDF Blob, or null if cancelled. Lazy-imported so the heavy
+    // pdf.js + pdf-lib chunk only loads when the prof actually signs.
+    const { signPdf } = await import('./esign.js');
+    const signedBlob = await signPdf({ driveFileId: fileRow.drive_file_id, fileName: fileRow.file_name });
+    if (!signedBlob) return;  // cancelled
+    const base = (fileRow.file_name || 'document.pdf').replace(/\.pdf$/i, '');
+    const signedName = `${base} (ลงนาม).pdf`;
+    showFilesBusy(docId, 'กำลังบันทึกไฟล์ที่ลงนาม…');
+    const signedFile = new File([signedBlob], signedName, { type: 'application/pdf' });
+    await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user });
+    await appendSignTimeline(reqId, {
+      by: user?.id || null, role: 'sa_prof', action: 'signed_file',
+      note: `ลงนามไฟล์ "${fileRow.file_name}" (e-sign)`,
+    });
+    onChanged();
+  } catch (err) {
+    alert(err.message || 'ลงนามไม่สำเร็จ');
+    loadFilesForDoc(docId);
+  }
+}
+
+async function onSignReupload(e) {
+  const input = e.target;
+  const reqId = input.dataset.signReupload;
+  const docId = input.dataset.docId;
+  const files = Array.from(input.files || []);
+  if (files.length === 0) return;
+  const found = findDocById(docId);
+  if (!found) { input.value = ''; return; }
+  const { doc, project } = found;
+  const user = getUser();
+  try {
+    showFilesBusy(docId, 'กำลังอัปโหลดไฟล์ที่ลงนาม…');
+    for (const f of files) {
+      await uploadSignedFile({ doc, project, reqId, fileLike: f, user });
+    }
+    await appendSignTimeline(reqId, {
+      by: user?.id || null, role: 'sa_prof', action: 'signed_file',
+      note: `อัปโหลดไฟล์ที่ลงนาม ${files.length} ไฟล์`,
+    });
+    onChanged();
+  } catch (err) {
+    alert(err.message || 'อัปโหลดไม่สำเร็จ');
+    loadFilesForDoc(docId);
+  } finally {
+    input.value = '';
+  }
+}
+
+/** Notify the requester (uni_staff) + VP-Admin of the professor's decision.
+ *  Both are pinged — sastaff acts on it, and vpa "sees all progress". */
+function notifySignDecision({ project, document, accepted, body }) {
+  const kind = accepted ? 'sign_accepted' : 'sign_rejected';
+  const head = accepted ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ส่งกลับ';
+  notifyUniStaff({ kind, project, document, body, subject: `[MDKKU SAMO] ${head} — ${project?.name || ''}` }).catch(() => {});
+  notifyVpAdmin({ kind, project, document, body, title: `${head} — ${document?.title || ''}` }).catch(() => {});
+}
+
+async function onSignAcceptClick(btn) {
+  const reqId = btn.dataset.signReq;
+  const docId = btn.dataset.docId;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc, project } = found;
+  let signedCount = 0;
+  try {
+    const files = await listFiles(docId, { includeSuperseded: false });
+    signedCount = files.filter((f) => f.is_signed && String(f.sign_request_id) === String(reqId)).length;
+  } catch {}
+  if (signedCount === 0) {
+    alert('กรุณาแนบไฟล์ที่ลงนามอย่างน้อย 1 ไฟล์ (ลงนามในระบบ หรืออัปโหลดไฟล์ที่เซ็นแล้ว) ก่อนยอมรับ');
+    return;
+  }
+  const user = getUser();
+  try {
+    await appendSignTimeline(reqId, {
+      by: user?.id || null, role: 'sa_prof', action: 'accepted', note: 'ยอมรับและลงนามแล้ว',
+    }, { status: 'accepted', decided_at: new Date().toISOString() });
+    onChanged();
+    const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
+    notifySignDecision({ project, document: doc, accepted: true, body: `อาจารย์ลงนามแล้ว — ${docRef}` });
+  } catch (err) { alert(err.message || 'ยอมรับไม่สำเร็จ'); }
+}
+
+async function onSignRejectClick(btn) {
+  const reqId = btn.dataset.signReq;
+  const docId = btn.dataset.docId;
+  const found = findDocById(docId);
+  if (!found) return;
+  const { doc, project } = found;
+  const reason = await openProjectPrompt({
+    title: 'ปฏิเสธการลงนาม',
+    label: 'เหตุผลที่ส่งกลับให้เจ้าหน้าที่',
+    placeholder: 'อธิบายสั้นๆ ว่าต้องแก้ส่วนใด',
+    okLabel: 'ส่งกลับ',
+    required: true,
+  });
+  if (!reason) return;
+  const user = getUser();
+  try {
+    await appendSignTimeline(reqId, {
+      by: user?.id || null, role: 'sa_prof', action: 'rejected', note: reason,
+    }, { status: 'rejected', reject_reason: reason, decided_at: new Date().toISOString() });
+    onChanged();
+    const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
+    notifySignDecision({ project, document: doc, accepted: false, body: `อาจารย์ส่งกลับเพื่อแก้ไข — ${docRef}: ${reason}` });
+  } catch (err) { alert(err.message || 'ส่งกลับไม่สำเร็จ'); }
+}
+
+async function onSignCancelClick(btn) {
+  const reqId = btn.dataset.signReq;
+  const docId = btn.dataset.docId;
+  const ok = await openProjectConfirm({
+    title: 'ยกเลิกคำขอลงนาม?',
+    body: 'คำขอลงนามนี้จะถูกยกเลิกและอาจารย์จะไม่เห็นอีก',
+    okLabel: 'ยกเลิกคำขอ',
+  });
+  if (!ok) return;
+  try {
+    await deleteSignRequest(reqId);
+    onChanged();
+  } catch (err) { alert(err.message || 'ยกเลิกไม่สำเร็จ'); }
 }
 
 // ---------- utils ----------

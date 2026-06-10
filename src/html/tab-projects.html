@@ -123,6 +123,26 @@
                       </div>
                     </div>
 
+                    <div class="row g-3 mt-1">
+                      <div class="col-md-9">
+                        <label class="form-label small fw-bold">อีเมลอาจารย์ (สำหรับส่งหนังสือให้ลงนาม)</label>
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="projectSettingsProfEmail" placeholder="prof@kku.ac.th" />
+                          <button type="button" class="btn btn-outline-success" id="projectSettingsProfEmailTest" title="ส่งอีเมลทดสอบไปยังที่อยู่ในช่องนี้">
+                            <i class="bi bi-send me-1"></i>ทดสอบ
+                          </button>
+                        </div>
+                        <div class="form-text small">ส่งผ่าน Gmail (GAS MailApp) — ใส่ได้หลายอีเมล คั่นด้วยจุลภาค/เว้นวรรค</div>
+                        <div id="projectSettingsProfEmailWarn" class="text-danger small mt-1 d-none">
+                          <i class="bi bi-exclamation-triangle me-1"></i>เปิดแจ้งเตือนทางอีเมลไว้ แต่ยังไม่ได้กรอกอีเมลอาจารย์ — เมลจะไม่ถูกส่ง
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small fw-bold">ชื่อย่ออาจารย์</label>
+                        <input type="text" class="form-control" id="projectSettingsProfLabel" placeholder="อาจารย์" />
+                      </div>
+                    </div>
+
                     <div class="projects-notify-prefs">
                       <div class="projects-notify-prefs-group">
                         <h4>แจ้งเตือนเจ้าหน้าที่มหาวิทยาลัย (ผู้รับ)</h4>
@@ -144,6 +164,17 @@
                         <div class="form-check">
                           <input class="form-check-input" type="checkbox" id="projectSettingsVpDiscord">
                           <label class="form-check-label" for="projectSettingsVpDiscord">Discord webhook (PROJECT_DISCORD_WEBHOOK_URL ใน GAS Script Properties)</label>
+                        </div>
+                      </div>
+                      <div class="projects-notify-prefs-group">
+                        <h4>แจ้งเตือนอาจารย์ (ผู้ลงนาม)</h4>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsProfInApp">
+                          <label class="form-check-label" for="projectSettingsProfInApp">การแจ้งเตือนในระบบ (กระดิ่ง)</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="projectSettingsProfEmailNotify">
+                          <label class="form-check-label" for="projectSettingsProfEmailNotify">อีเมลผ่าน GAS MailApp</label>
                         </div>
                       </div>
                     </div>

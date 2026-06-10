@@ -227,6 +227,8 @@ async function buildCurrentUser(session) {
  *                   Projects is NOT a vp_admin default — only the
  *                   account(s) with 'projects' in permissions[] see it.
  *     uni_staff   → 'projects'
+ *     sa_prof     → 'projects' (professor signing seat; RLS narrows
+ *                   his view to only หนังสือ sent to him)
  *     dev         → everything
  * - Plus anything in user.permissions stacks on top.
  *
@@ -241,6 +243,7 @@ export function userCanAccess(feature, user = currentUser) {
     shop_admin: ['samoshop'],
     vp_admin:   ['vs', 'team'],
     uni_staff:  ['projects'],
+    sa_prof:    ['projects'],
   }[user.role] || [];
   if (roleDefaults.includes(feature)) return true;
   if (Array.isArray(user.permissions) && user.permissions.includes(feature)) return true;
@@ -395,7 +398,7 @@ export async function registerWithPassword(rawUsername, rawPassword) {
   // Use a prefix check so a brand-new dept account (e.g. a future
   // samomdkku<x>) can't be squatted before the admin seeds it.
   // Backend uniqueness on public.users.username is the second line of defence.
-  if (/^samomdkku/.test(username) || username === 'sastaff') {
+  if (/^samomdkku/.test(username) || username === 'sastaff' || username === 'saprof') {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 
@@ -771,7 +774,7 @@ export async function setUsernameAndPassword(rawUsername, rawPassword) {
     throw new Error('Username ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ -');
   }
   // Reserve the staff-prefix namespace from grabs by Google users.
-  if (/^samomdkku/.test(username) || username === 'sastaff') {
+  if (/^samomdkku/.test(username) || username === 'sastaff' || username === 'saprof') {
     throw new Error('Username นี้สงวนไว้สำหรับเจ้าหน้าที่');
   }
 
