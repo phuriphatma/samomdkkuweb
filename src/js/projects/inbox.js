@@ -284,13 +284,13 @@ const INCOMING_ACTIONS = {
   // professor's sign decisions (sign_accepted / sign_rejected, appended to
   // the doc timeline so the inbox highlight + banner pick them up).
   uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'file_deleted', 'returned', 'comment',
-                       'sign_accepted', 'sign_rejected']),
+                       'sign_accepted', 'sign_rejected', 'signed_file']),
   vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment',
                        'file_added', 'file_replaced', 'file_deleted',
-                       'sign_accepted', 'sign_rejected']),
+                       'sign_accepted', 'sign_rejected', 'signed_file']),
   dev:       new Set(['sent', 'received', 'in_progress', 'completed', 'returned',
                        'file_added', 'file_replaced', 'file_deleted', 'comment',
-                       'sign_accepted', 'sign_rejected']),
+                       'sign_accepted', 'sign_rejected', 'signed_file']),
   // The professor tracks file changes AND comments on a หนังสือ shown to him
   // (he's now part of the comment thread). The sastaff↔vpa status churn
   // (received / in_progress / completed) is still noise to him. A NEW signing
@@ -968,6 +968,7 @@ const ACTION_LABEL = {
   file_deleted:  'ลบไฟล์',
   sign_accepted: 'อาจารย์ลงนาม/อนุมัติ',
   sign_rejected: 'อาจารย์ส่งกลับ',
+  signed_file:   'อาจารย์ลงนามไฟล์',
 };
 const ACTION_ICON = {
   sent:          'bi-send',
@@ -980,6 +981,7 @@ const ACTION_ICON = {
   file_deleted:  'bi-x-circle',
   sign_accepted: 'bi-patch-check',
   sign_rejected: 'bi-x-octagon',
+  signed_file:   'bi-pen',
 };
 
 // ---- return / resend timeline helpers (item: persistent ส่งกลับ context) ----
@@ -2641,17 +2643,38 @@ async function uploadSignedFile({ doc, project, reqId, fileLike, user, signsFile
  *  e-sign / reupload REPLACE semantics (so re-signing edits rather than piling
  *  up duplicates). The prof may delete his own signed files (migration 0053). */
 async function removeExistingSignedFor(docId, originalId) {
-  if (!originalId) return;
+  if (!originalId) return 0;
+  let removed = 0;
   try {
     const files = await listFiles(docId, { includeSuperseded: false });
     const existing = files.filter((s) => s.is_signed && String(s.signs_file_id) === String(originalId));
     for (const s of existing) {
       await deleteFile(s.id).catch((err) => console.warn('[projects] old signed delete failed:', err?.message || err));
       if (s.drive_view_url) deleteProjectFile(s.drive_view_url).catch(() => {});
+      removed++;
     }
   } catch (err) {
     console.warn('[projects] removeExistingSignedFor failed:', err?.message || err);
   }
+  return removed;   // >0 → this was a re-sign / change (replaced a prior signed file)
+}
+
+/** Append a doc-level "ประวัติการดำเนินการ" log entry for a professor signing
+ *  action — what หนังสือ (this doc), which original file, the produced signed
+ *  file, the method, and whether it replaced an earlier signature. The doc
+ *  timeline renders the date/time (fmtDateTime), so the log is timestamped. */
+async function logSignToDoc({ doc, originalName, signedName, method, replaced }) {
+  const user = getUser();
+  const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`.trim();
+  const verb = replaced ? 'ลงนามใหม่ (แทนที่ฉบับเดิม)' : 'ลงนามไฟล์';
+  const orig = originalName ? ` "${originalName}"` : '';
+  const out  = signedName ? ` → "${signedName}"` : '';
+  // Note: what หนังสือ, what file, the produced signed file, and the method.
+  // The doc-timeline renderer stamps the date/time, so this is the full log.
+  const note = `${docRef} — ${verb}${orig}${out} [${method}]`.replace(/ +/g, ' ').trim();
+  await appendDocTimeline(doc.id, {
+    by: user?.id || null, role: 'sa_prof', action: 'signed_file', note,
+  }).catch((err) => console.warn('[projects] signed_file doc-timeline failed:', err?.message || err));
 }
 
 async function onSignEsignClick(btn) {
@@ -2679,13 +2702,15 @@ async function onSignEsignClick(btn) {
     const base = (fileRow.file_name || 'document.pdf').replace(/\.pdf$/i, '');
     const signedName = `${base} (ลงนาม).pdf`;
     showFilesBusy(docId, 'กำลังบันทึกไฟล์ที่ลงนาม…');
-    await removeExistingSignedFor(docId, fileRow.id);   // re-sign replaces
+    const replaced = await removeExistingSignedFor(docId, fileRow.id);   // re-sign replaces
     const signedFile = new File([signedBlob], signedName, { type: 'application/pdf' });
     await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user, signsFileId: fileRow.id });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `ลงนามไฟล์ "${fileRow.file_name}" (e-sign)`,
-    });
+    }).catch((err) => console.warn('[projects] sign-request timeline failed:', err?.message || err));
+    // Timestamped doc-level log: which file the prof signed + the output.
+    await logSignToDoc({ doc, originalName: fileRow.file_name, signedName, method: 'e-sign', replaced: replaced > 0 });
     markDocSeenAndClear(docId);
     onChanged();
   } catch (err) {
@@ -2705,14 +2730,25 @@ async function onSignReupload(e) {
   if (!found) { input.value = ''; return; }
   const { doc, project } = found;
   const user = getUser();
+  // Resolve the original file name (best-effort) so the log says which file
+  // this signed upload covers.
+  let originalName = '';
+  if (fileId) {
+    try {
+      const files = await listFiles(docId, { includeSuperseded: false });
+      originalName = files.find((x) => String(x.id) === String(fileId))?.file_name || '';
+    } catch {}
+  }
   try {
     showFilesBusy(docId, 'กำลังอัปโหลดไฟล์ที่ลงนาม…');
-    await removeExistingSignedFor(docId, fileId);   // reupload replaces
+    const replaced = await removeExistingSignedFor(docId, fileId);   // reupload replaces
     await uploadSignedFile({ doc, project, reqId, fileLike: f, user, signsFileId: fileId ? Number(fileId) : null });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `อัปโหลดไฟล์ที่ลงนาม "${f.name}"`,
-    });
+    }).catch((err) => console.warn('[projects] sign-request timeline failed:', err?.message || err));
+    // Timestamped doc-level log: the original signed + the uploaded file.
+    await logSignToDoc({ doc, originalName, signedName: f.name, method: 'อัปโหลด', replaced: replaced > 0 });
     markDocSeenAndClear(docId);
     onChanged();
   } catch (err) {
