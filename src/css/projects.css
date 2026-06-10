@@ -259,15 +259,18 @@
   align-items: baseline;
   gap: 8px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 .projects-tab .projects-list-name {
   font-weight: 700;
   color: var(--p-text);
   font-size: 0.95rem;
   line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Wrap the full name instead of truncating — Thai has no spaces, so
+     overflow-wrap: anywhere is needed to break long names cleanly. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   min-width: 0;
 }
 .projects-tab .projects-list-id {
@@ -1545,14 +1548,26 @@
 }
 .projects-tab .projects-file-signed-row {
   display: flex; align-items: center; gap: 0.4rem;
-  font-size: 0.82rem; min-width: 0;
+  font-size: 0.82rem; min-width: 0; flex-wrap: wrap;
 }
 .projects-tab .projects-file-signed-label {
   font-weight: 700; color: var(--p-ok); font-size: 0.72rem;
+  white-space: nowrap; flex: 0 0 auto;
 }
-.projects-tab .projects-file-signed-name { color: var(--p-accent); text-decoration: none; min-width: 0; }
+.projects-tab .projects-file-signed-name { color: var(--p-accent); text-decoration: none; min-width: 0; flex: 1 1 auto; }
 .projects-tab .projects-file-signed-name:hover { text-decoration: underline; }
 .projects-tab .projects-file-signed-meta { margin-left: auto; color: var(--p-muted); font-size: 0.72rem; white-space: nowrap; }
+
+/* Defensive wrapping for free-text blocks — Thai runs have no spaces, so
+   without overflow-wrap a long note/reason pushes the layout wider than the
+   viewport on mobile/iPad. */
+.projects-tab .projects-doc-note,
+.projects-tab .projects-sign-note,
+.projects-tab .projects-sign-reject,
+.projects-tab .projects-tl-note {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 /* Persistent ส่งกลับ context banner — a slightly bolder left accent than the
    transient seenAt banners so "this is still waiting on you" reads clearly. */

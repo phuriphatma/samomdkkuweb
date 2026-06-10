@@ -88,8 +88,9 @@ let searchQ    = '';
 let viewMode = (() => {
   try {
     const v = localStorage.getItem('projects.viewMode');
-    return v === 'list' ? 'list' : 'grid';
-  } catch { return 'grid'; }
+    // Default to the compact list (only honour an explicit 'grid' choice).
+    return v === 'grid' ? 'grid' : 'list';
+  } catch { return 'list'; }
 })();
 
 // Deferred actions, applied at the end of render()
