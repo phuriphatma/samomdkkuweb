@@ -516,20 +516,22 @@ export async function loadAnnouncements() {
     // the home featured slot reads it. Like excerpt/display_order it
     // self-heals — a 400 naming `pinned` drops it and disables pin until the
     // migration is applied.
+    // baseSelect deliberately EXCLUDES `pinned` so the excerpt/display_order
+    // fallbacks below never re-request a column we already know is missing.
+    // Only the first query appends `pinned`; if it 400s we retry off baseSelect.
+    const baseSelect = 'id,title,content,department,thumbnail_url,created_at,display_order';
     const pinnedCol = window.__samoWarnedPinned ? '' : ',pinned';
-    const baseSelect = `id,title,content,department,thumbnail_url,created_at,display_order${pinnedCol}`;
     const orderBy = 'display_order.desc.nullslast,created_at.desc';
     let { data, error } = await dbRest(
-      `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=${orderBy}`
+      `/announcements?select=${baseSelect}${pinnedCol},excerpt&status=eq.approved&order=${orderBy}`
     );
     if (error && error.status === 400 && /pinned/i.test(error.message || '')) {
       if (!window.__samoWarnedPinned) {
         window.__samoWarnedPinned = true;
         console.warn('[announcements] pinned column missing — apply migration 0054_announcement_pinned.sql to enable the home featured pin.');
       }
-      const noPin = 'id,title,content,department,thumbnail_url,created_at,display_order';
       ({ data, error } = await dbRest(
-        `/announcements?select=${noPin},excerpt&status=eq.approved&order=${orderBy}`
+        `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=${orderBy}`
       ));
     }
     // Cascade graceful fallbacks: try `excerpt` first (0008 column).
