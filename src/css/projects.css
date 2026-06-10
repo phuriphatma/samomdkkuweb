@@ -1112,6 +1112,7 @@
   margin-left: 6px;
 }
 .projects-tab .projects-tl-role.uni_staff { background: var(--p-accent-soft); color: var(--p-accent); }
+.projects-tab .projects-tl-role.sa_prof   { background: rgba(13, 148, 136, 0.12); color: #0d7a70; }
 .projects-tab .projects-tl-role.dev       { background: #fde68a; color: #92400e; }
 .projects-tab .projects-tl-action { margin-left: 6px; font-weight: 500; }
 .projects-tab .projects-tl-note {

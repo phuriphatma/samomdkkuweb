@@ -282,12 +282,12 @@ const INCOMING_ACTIONS = {
   vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment']),
   dev:       new Set(['sent', 'received', 'in_progress', 'completed', 'returned',
                        'file_added', 'file_replaced', 'file_deleted', 'comment']),
-  // The professor only tracks file changes on a หนังสือ shown to him — the
-  // sastaff↔vpa status churn (received / in_progress / completed / comment)
-  // is noise to him. A NEW signing request itself surfaces via the permanent
-  // actionRequiredOn pill, not here (it's a sign_requests event, not a doc
-  // timeline event).
-  sa_prof:   new Set(['file_added', 'file_replaced', 'file_deleted']),
+  // The professor tracks file changes AND comments on a หนังสือ shown to him
+  // (he's now part of the comment thread). The sastaff↔vpa status churn
+  // (received / in_progress / completed) is still noise to him. A NEW signing
+  // request itself surfaces via the permanent actionRequiredOn pill, not here
+  // (it's a sign_requests event, not a doc timeline event).
+  sa_prof:   new Set(['file_added', 'file_replaced', 'file_deleted', 'comment']),
 };
 function lastIncomingActivityTime(p, role) {
   const wanted = INCOMING_ACTIONS[role] || new Set();
@@ -920,7 +920,7 @@ function renderDocExpand(doc, project) {
         ${(['sent','received','in_progress','returned'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-success-soft" data-projects-doc-status="completed" data-doc-id="${escHtml(doc.id)}"><i class="bi bi-check-circle me-1"></i>เสร็จสิ้น</button>` : ''}
         ${(['sent','received','in_progress'].includes(doc.status)) ? `<button type="button" class="btn btn-sm btn-danger-soft" data-projects-doc-return data-doc-id="${escHtml(doc.id)}"><i class="bi bi-arrow-counterclockwise me-1"></i>ส่งกลับให้แก้</button>` : ''}
       ` : ''}
-      ${(isVp || isUni) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>` : ''}
+      ${(isVp || isUni || isProf) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>` : ''}
       ${isUni ? `<button type="button" class="btn btn-sm btn-teal-soft" data-projects-send-sign data-doc-id="${escHtml(doc.id)}"><i class="bi bi-pen me-1"></i>ส่งให้อาจารย์ลงนาม</button>` : ''}
       ${revertMenu}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-edit data-doc-id="${escHtml(doc.id)}" title="แก้ไขชื่อ / โน้ตหนังสือ"><i class="bi bi-pencil me-1"></i>แก้ไข</button>` : ''}
@@ -1383,6 +1383,7 @@ function renderTimeline(tl, doc) {
 function roleLabel(r) {
   if (r === 'vp_admin')  return 'SAMO VP';
   if (r === 'uni_staff') return 'เจ้าหน้าที่';
+  if (r === 'sa_prof')   return 'อาจารย์';
   if (r === 'dev')       return 'Dev';
   return r || '';
 }
@@ -1777,12 +1778,34 @@ async function onDocCommentClick(btn) {
     // The author has obviously "seen" their own comment.
     markDocSeen(docId);
     onChanged();
-    if (cache.role === 'uni_staff') {
-      notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ใหม่ — ${doc?.title || ''}` }).catch(() => {});
-    } else {
-      notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project.name}` }).catch(() => {});
-    }
+    fanComment({ role: cache.role, project, document: doc, body, docCached });
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
+}
+
+/** Fan a comment out to the OTHER project seats. uni_staff→vpa, vp_admin→uni,
+ *  sa_prof→both seats; and when an actor comments on a หนังสือ shown to the
+ *  professor, ping him too (he's part of the thread now). Fire-and-forget. */
+function fanComment({ role, project, document, body, docCached }) {
+  const tasks = [];
+  const subj = `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project?.name || ''}`;
+  const profSubj = `[MDKKU SAMO] คอมเมนต์จากอาจารย์ — ${project?.name || ''}`;
+  const title = `คอมเมนต์ใหม่ — ${document?.title || ''}`;
+  if (role === 'uni_staff') {
+    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title }));
+  } else if (role === 'vp_admin') {
+    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: subj }));
+  } else if (role === 'sa_prof') {
+    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: profSubj }));
+    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title: `คอมเมนต์จากอาจารย์ — ${document?.title || ''}` }));
+  } else {  // dev — notify both seats
+    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: subj }));
+    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title }));
+  }
+  // An actor's comment on a doc shown to the prof also reaches the prof.
+  if (role !== 'sa_prof' && docHasSignRequest(docCached)) {
+    tasks.push(notifyProf({ kind: 'comment', project, document, body, subject: subj }));
+  }
+  Promise.allSettled(tasks);
 }
 
 // ---------- comment edit / delete (own-comment only) ----------
@@ -1827,11 +1850,7 @@ async function onCommentEditClick(btn) {
     // Author has obviously "seen" their own edit.
     markDocSeen(docId);
     onChanged();
-    if (cache.role === 'uni_staff') {
-      notifyVpAdmin({ kind: 'comment', project, document: doc, body, title: `คอมเมนต์ถูกแก้ไข — ${doc.title || ''}` }).catch(() => {});
-    } else {
-      notifyUniStaff({ kind: 'comment', project, document: doc, body, subject: `[MDKKU SAMO] คอมเมนต์ถูกแก้ไข — ${project.name}` }).catch(() => {});
-    }
+    fanComment({ role: cache.role, project, document: doc, body, docCached: doc });
   } catch (err) {
     alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');
   }
@@ -2437,23 +2456,26 @@ async function onSignAcceptClick(btn) {
   const found = findDocById(docId);
   if (!found) return;
   const { doc, project } = found;
-  let signedCount = 0;
+  // Accepting is an APPROVAL — attaching a signed file (e-sign / reupload)
+  // is optional, so don't require one. Whether a signed file is present
+  // only changes the wording of the decision note + notification.
+  let hasSigned = false;
   try {
     const files = await listFiles(docId, { includeSuperseded: false });
-    signedCount = files.filter((f) => f.is_signed && String(f.sign_request_id) === String(reqId)).length;
+    hasSigned = files.some((f) => f.is_signed && String(f.sign_request_id) === String(reqId));
   } catch {}
-  if (signedCount === 0) {
-    alert('กรุณาแนบไฟล์ที่ลงนามอย่างน้อย 1 ไฟล์ (ลงนามในระบบ หรืออัปโหลดไฟล์ที่เซ็นแล้ว) ก่อนยอมรับ');
-    return;
-  }
   const user = getUser();
   try {
     await appendSignTimeline(reqId, {
-      by: user?.id || null, role: 'sa_prof', action: 'accepted', note: 'ยอมรับและลงนามแล้ว',
+      by: user?.id || null, role: 'sa_prof', action: 'accepted',
+      note: hasSigned ? 'ยอมรับและลงนามแล้ว' : 'ยอมรับ (อนุมัติ)',
     }, { status: 'accepted', decided_at: new Date().toISOString() });
     onChanged();
     const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
-    notifySignDecision({ project, document: doc, accepted: true, body: `อาจารย์ลงนามแล้ว — ${docRef}` });
+    notifySignDecision({
+      project, document: doc, accepted: true,
+      body: `${hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ยอมรับ (อนุมัติ)'} — ${docRef}`,
+    });
   } catch (err) { alert(err.message || 'ยอมรับไม่สำเร็จ'); }
 }
 
