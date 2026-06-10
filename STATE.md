@@ -4,41 +4,33 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0049 APPLIED — 0050 PENDING
+## Migrations through 0050 APPLIED — NONE pending
 
-All migrations through **0049 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`). SAMO Team: 0046 (tables) + 0047 (seed: 218 nodes,
-351 member rows) + 0048 (realtime publication + replica identity full) +
-0049 (year normalize).
+All migrations through **0050 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050.
+No pending migrations.
 
-**0050 (professor signing workflow) is NOT yet applied** — see next section.
+## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
-## Professor (saprof) signing workflow — built, NOT yet deployed (this session)
-
-New third seat in หนังสือโครงการ: **`saprof` / role `sa_prof`** signs documents.
+Third seat in หนังสือโครงการ: **`saprof` / role `sa_prof`** signs documents.
 sastaff sends a chosen SUBSET of a หนังสือ's files to the professor; he accepts
 (in-browser e-sign on the PDF, or upload an externally-signed file) or rejects
 (back to sastaff). vpa sees all progress. sastaff also got file add/replace/remove
 parity with vpa (file ops now notify the other seat + the prof if shown to him).
 
-**Three deploy steps remain (in order):**
-1. **Apply `supabase/migrations/0050_prof_sign_requests.sql`** in the SQL editor
-   (real project). Adds `sa_prof` role, `project_sign_requests` table,
-   `project_files.sign_request_id`/`is_signed`, prof RLS, prof settings cols.
-2. **Seed the account**: `CONFIRM=1 node tools/saprof-account.mjs seed`
-   (saprof / password `1234`). **Must run AFTER step 1** — the role check
-   constraint needs `sa_prof` to exist. (Password is weak but user-requested;
-   synthetic email never delivers.)
-3. **Redeploy GAS** (`appscript/prform.gs` gained `getProjectFileData` for the
-   in-browser e-sign Drive-bytes round-trip). The REUPLOAD fallback works
-   without this; only the draw-on-PDF e-sign needs it. See `skills/deploy-gas.md`.
+Live: migration 0050 applied, `saprof` seeded (password `1234`; synthetic email
+never delivers), GAS redeployed with `getProjectFileData` (e-sign Drive-bytes
+round-trip; the reupload fallback works without it). **Remaining setup:** set the
+prof email in การตั้งค่า (admin manage tab) if email-to-prof is wanted.
 
-After deploy: set the prof email in การตั้งค่า (admin manage tab). Key insight
-this session — the project tables are world-readable (0032 `*_read_public`), so
-the prof's "only docs sent to him" scope is a UI/query filter
-(`scopeProjectsForRole`), not RLS; the real signal is that
-`project_sign_requests` has no public policy. New deps: `pdf-lib`, `pdfjs-dist`
-(e-sign is a lazy-loaded chunk, kept out of the public bundle).
+Key design note — the project tables are world-readable (0032 `*_read_public`),
+so the prof's "only docs sent to him" scope is a UI/query filter
+(`scopeProjectsForRole` in `index.js`, file filter in `loadFilesForDoc`), NOT
+RLS; the real signal is that `project_sign_requests` has no public policy (see
+`.claude/rules/mistakes.md`). New deps: `pdf-lib`, `pdfjs-dist` (e-sign is a
+lazy-loaded chunk, kept out of the public bundle). Modules:
+`src/js/projects/{sign,esign}.js`, `src/html/modal-project-{sign,esign}.html`,
+`tools/saprof-account.mjs`.
 
 ## Shipped features (detail archived)
 
