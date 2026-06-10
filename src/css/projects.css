@@ -1498,6 +1498,7 @@
   font-size: 0.85rem; font-weight: 600; color: var(--p-muted);
 }
 .projects-tab .esign-size-wrap { display: flex; align-items: center; }
+.projects-tab .esign-page-controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .projects-tab .esign-stage {
   position: relative; padding: 0; overflow: auto;
   max-height: 60vh; border: 1px solid var(--p-line);
@@ -1552,3 +1553,52 @@
 .projects-tab .projects-file-signed-name { color: var(--p-accent); text-decoration: none; min-width: 0; }
 .projects-tab .projects-file-signed-name:hover { text-decoration: underline; }
 .projects-tab .projects-file-signed-meta { margin-left: auto; color: var(--p-muted); font-size: 0.72rem; white-space: nowrap; }
+
+/* Persistent ส่งกลับ context banner — a slightly bolder left accent than the
+   transient seenAt banners so "this is still waiting on you" reads clearly. */
+.projects-tab .projects-update-banner.projects-context-banner { border-left-width: 4px; }
+.projects-tab .projects-update-banner.is-return.projects-context-banner { border-left-color: var(--p-danger, #dc2626); }
+.projects-tab .projects-update-banner.is-update.projects-context-banner { border-left-color: var(--p-warn, #d97706); }
+
+/* สถานะการลงนาม collapse — mirrors the comments thread (summary + chevron +
+   "ใหม่" indicator, auto-open on a new update). */
+.projects-tab .projects-sign-collapse {
+  margin-top: 14px;
+  border: 1px solid var(--p-line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+}
+.projects-tab .projects-sign-collapse-head {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--p-text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.projects-tab .projects-sign-collapse-head::-webkit-details-marker { display: none; }
+.projects-tab .projects-sign-collapse-title { display: inline-flex; align-items: center; flex: 1 1 auto; }
+.projects-tab .projects-sign-collapse-new {
+  display: inline-block;
+  font-size: 0.72rem;
+  background: var(--p-warn-soft, #fef3c7);
+  color: var(--p-warn, #92400e);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+.projects-tab .projects-sign-collapse-chev {
+  font-size: 0.85rem;
+  color: var(--p-muted);
+  margin-left: 8px;
+  transition: transform 0.18s ease;
+}
+.projects-tab details.projects-sign-collapse[open] > .projects-sign-collapse-head .projects-sign-collapse-chev {
+  transform: rotate(180deg);
+}
+.projects-tab details.projects-sign-collapse[open] > .projects-sign-collapse-head { margin-bottom: 8px; }
+.projects-tab .projects-sign-collapse-body { display: flex; flex-direction: column; gap: 8px; }

@@ -31,6 +31,17 @@ export function mountSignFlow({ onSent: cb } = {}) {
   if (!el) return;
   modal = window.bootstrap?.Modal.getOrCreateInstance(el);
   document.getElementById('projectSignForm')?.addEventListener('submit', onSubmit);
+  // Bulk-select helpers — default is NO files checked, so these give a fast
+  // way to grab the usual targets (all PDFs) or everything.
+  const setAll = (pred) => document
+    .querySelectorAll('#projectSignFileList input[type=checkbox]')
+    .forEach((cb) => { cb.checked = pred(cb); });
+  document.getElementById('projectSignSelectPdf')?.addEventListener('click',
+    () => setAll((cb) => cb.dataset.isPdf === '1'));
+  document.getElementById('projectSignSelectAll')?.addEventListener('click',
+    () => setAll(() => true));
+  document.getElementById('projectSignClear')?.addEventListener('click',
+    () => setAll(() => false));
   el.addEventListener('hidden.bs.modal', () => {
     ctxDoc = null; ctxProject = null; files = [];
     const list = document.getElementById('projectSignFileList');
@@ -64,10 +75,11 @@ function renderPickList() {
     list.innerHTML = '<div class="text-muted small py-2">หนังสือนี้ยังไม่มีไฟล์แนบให้ส่ง</div>';
     return;
   }
-  // Default-check PDFs (the usual sign targets); leave docx/other unchecked.
+  // Default = NOTHING checked (the user picks explicitly). The toolbar's
+  // "เลือก PDF ทั้งหมด" / "เลือกทั้งหมด" buttons use data-is-pdf to bulk-select.
   list.innerHTML = files.map((f) => `
     <label class="projects-sign-pick">
-      <input type="checkbox" class="form-check-input me-2" value="${escHtml(f.id)}" ${isPdf(f) ? 'checked' : ''} />
+      <input type="checkbox" class="form-check-input me-2" value="${escHtml(f.id)}" data-is-pdf="${isPdf(f) ? '1' : '0'}" />
       <span class="flex-grow-1 text-truncate">${escHtml(f.file_name)}</span>
       <span class="text-muted small ms-2">${escHtml(fmtBytes(f.size_bytes))}</span>
     </label>`).join('');

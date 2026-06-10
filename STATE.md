@@ -4,23 +4,15 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0051 APPLIED — 0052 + 0053 PENDING
+## Migrations through 0053 APPLIED — none pending
 
-All migrations through **0051 are APPLIED** to Supabase (real project
+All migrations through **0053 are APPLIED** to Supabase (real project
 `fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
-(workflow) + 0051 (prof comment via column-guarded project_documents UPDATE).
-
-**0052 (`signed_file_link`) — MANDATORY for any signing.** Adds
-`project_files.signs_file_id` (links a signed output to the original it
-signs, for the inline-status file UI). `uploadSignedFile` always sends this
-column now, and PostgREST rejects unknown columns — so until 0052 is applied
-BOTH e-sign and reupload signed-file inserts fail.
-
-**0053 (`prof_replace_signed_file`) — needed for re-sign/edit.** Widens the
-project_files DELETE policy so a sa_prof caller may delete his OWN signed
-files (is_signed AND uploaded_by = auth.uid()). Without it, re-signing /
-re-uploading a signed file leaves the old one behind (a duplicate). First-time
-signing works without 0053.
+(workflow) + 0051 (prof comment via column-guarded project_documents UPDATE)
++ 0052 (`signs_file_id` link for inline signed-file UI) + 0053 (sa_prof may
+delete his own signed files for re-sign). The latest signing-UX round (return/
+resend persistence + batching, comment notify-scope, collapsible sign status,
+multi-page e-sign) is **client-only — no migration**.
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
@@ -33,7 +25,21 @@ The prof can also COMMENT (0051) and is wired into the inbox highlight system
 (permanent "รอลงนาม" pill + seenAt "อัปเดต"). Accepting does NOT require a signed
 file (it's an approval; signing is optional). Signing status is shown INLINE on
 each attached file with the signed version nested beneath it (renderFileCard) —
-the old separate "การลงนาม" section is now just a compact request-status bar.
+the old separate "การลงนาม" section is now a collapsible request-status bar
+(auto-expands + "ใหม่" indicator on a new decision, like the comments thread).
+
+Latest UX round (client-only): (1) **ส่งกลับ persistence** — the ตีกลับ reason
+persists for vpa until ส่งใหม่, and the resend summary + the files vpa changed
+stay highlighted for sastaff until they change status (status-keyed, NOT
+clear-on-view — `renderReturnContextBanner` + `persistIds` in loadFilesForDoc).
+(2) **Notification batching** — during the ส่งกลับ phase (status=returned) vpa's
+per-file edits do NOT ping sastaff each time; they're consolidated into the one
+ส่งใหม่ notification (`fanFileOp` skip + `summarizeFileOpsSince`). Other statuses
+still notify per edit. (3) **Comment notify-scope** — author picks "ทุกคน"
+(default) or a single seat (`commentTargetSeats` + the prompt's new select; entry
+carries `notify`). (4) **Sign picker** defaults to no files + เลือก PDF/ทั้งหมด/
+ล้าง buttons. (5) **Multi-page e-sign** — stamp the signature on any/all pages
+(per-page `placements` Map + "ทุกหน้า").
 
 Live: migration 0050 applied, `saprof` seeded (password `1234`; synthetic email
 never delivers), GAS redeployed with `getProjectFileData` (e-sign Drive-bytes

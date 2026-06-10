@@ -894,6 +894,7 @@ function renderDocExpand(doc, project) {
       </div>` : '';
 
   return `
+    ${renderReturnContextBanner(doc, role)}
     ${renderRecentUpdateBanner(doc, role, seenAtForExpansion)}
     ${renderCommentBanner(doc, role, seenAtForExpansion)}
 
@@ -980,6 +981,102 @@ const ACTION_ICON = {
   sign_rejected: 'bi-x-octagon',
 };
 
+// ---- return / resend timeline helpers (item: persistent ส่งกลับ context) ----
+
+/** Most-recent timestamp (ms) of a given timeline action, or 0. */
+function lastActionTs(tl, action) {
+  let ts = 0;
+  for (const e of tl || []) {
+    if (e.action === action) ts = Math.max(ts, Date.parse(e.at) || 0);
+  }
+  return ts;
+}
+
+/** A หนังสือ is a RESEND (vpa fixed + sent again) when its latest `sent`
+ *  happened AFTER a `returned` — distinguishes it from a first-time send. */
+function isResendDoc(tl) {
+  const lastSent = lastActionTs(tl, 'sent');
+  const lastReturned = lastActionTs(tl, 'returned');
+  return lastReturned > 0 && lastSent > lastReturned;
+}
+
+/** Note of the most-recent entry for an action (skips the boilerplate
+ *  'ส่งหนังสือ' that createDocument stamps on the first send). */
+function latestActionNote(tl, action) {
+  let best = null, ts = -1;
+  for (const e of tl || []) {
+    if (e.action !== action) continue;
+    const t = Date.parse(e.at) || 0;
+    if (t >= ts) { ts = t; best = e; }
+  }
+  const note = (best?.note || '').trim();
+  return note === 'ส่งหนังสือ' ? '' : note;
+}
+
+/** Human summary of vpa's file ops since `sinceTs` (counts add/replace/delete
+ *  operations) — consolidated into the single resend notification + banner so
+ *  sastaff isn't pinged per-edit during the ส่งกลับ phase. '' when nothing. */
+function summarizeFileOpsSince(tl, sinceTs) {
+  let added = 0, replaced = 0, deleted = 0;
+  for (const e of tl || []) {
+    if ((Date.parse(e.at) || 0) <= sinceTs) continue;
+    if (e.action === 'file_added') added++;
+    else if (e.action === 'file_replaced') replaced++;
+    else if (e.action === 'file_deleted') deleted++;
+  }
+  const parts = [];
+  if (added)    parts.push(`เพิ่ม ${added}`);
+  if (replaced) parts.push(`แทนที่ ${replaced}`);
+  if (deleted)  parts.push(`ลบ ${deleted}`);
+  return parts.length ? `ไฟล์ที่เปลี่ยน: ${parts.join(', ')}` : '';
+}
+
+/**
+ * PERSISTENT ส่งกลับ context banner — unlike the seenAt banners below, this
+ * one is keyed off STATUS, so it keeps showing until the recipient acts:
+ *  - vp_admin, status=returned: the reason sastaff sent it back, shown until
+ *    vpa ส่งใหม่ (status leaves returned).
+ *  - uni_staff, status=sent AND this is a resend: vpa's "what I changed"
+ *    summary, shown until sastaff changes status (รับเรื่อง / …).
+ * The matching "ใหม่" highlight on the files vpa changed is handled in
+ * loadFilesForDoc (persistIds), with the same status-based clear.
+ */
+function renderReturnContextBanner(doc, role) {
+  const tl = doc.timeline || [];
+  if ((role === 'vp_admin' || role === 'dev') && doc.status === 'returned') {
+    const reason = (doc.return_reason || latestActionNote(tl, 'returned') || '').trim();
+    return `
+      <div class="projects-update-banner is-return projects-context-banner">
+        <ul class="projects-update-list">
+          <li class="projects-update-line">
+            <i class="bi bi-arrow-counterclockwise"></i>
+            <span class="projects-update-line-label">เจ้าหน้าที่ส่งกลับให้แก้ไข</span>
+            ${reason ? `<span class="projects-update-line-note">${escHtml(reason)}</span>` : ''}
+          </li>
+        </ul>
+      </div>`;
+  }
+  if ((role === 'uni_staff' || role === 'dev') && doc.status === 'sent' && isResendDoc(tl)) {
+    const summary = latestActionNote(tl, 'sent');
+    const fileSummary = summarizeFileOpsSince(tl, lastActionTs(tl, 'returned'));
+    return `
+      <div class="projects-update-banner is-update projects-context-banner">
+        <ul class="projects-update-list">
+          <li class="projects-update-line">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span class="projects-update-line-label">SAMO แก้ไขและส่งใหม่</span>
+            ${summary ? `<span class="projects-update-line-note">${escHtml(summary)}</span>` : ''}
+          </li>
+          ${fileSummary ? `<li class="projects-update-line">
+            <i class="bi bi-paperclip"></i>
+            <span class="projects-update-line-note">${escHtml(fileSummary)}</span>
+          </li>` : ''}
+        </ul>
+      </div>`;
+  }
+  return '';
+}
+
 /**
  * "ตั้งแต่คุณเข้าครั้งล่าสุด" banner. Lists every incoming action that
  * happened after the viewer's last seenAt — sent, file ops, status
@@ -998,10 +1095,16 @@ function renderRecentUpdateBanner(doc, role, seenAtOverride) {
   const tl = doc.timeline || [];
   const seenAt = seenAtOverride != null ? seenAtOverride : getDocSeenAt(doc.id);
   const wanted = INCOMING_ACTIONS[role] || new Set();
+  // These are surfaced by the PERSISTENT context banner instead (and clear on
+  // status change, not on view) — drop them here so they don't show twice.
+  const ctxReturned = (role === 'vp_admin' || role === 'dev') && doc.status === 'returned';
+  const ctxResend   = (role === 'uni_staff' || role === 'dev') && doc.status === 'sent' && isResendDoc(tl);
   const cuts = [];
   for (const e of tl) {
     if (e.role === role) continue;
     if (e.action === 'comment') continue;        // own banner
+    if (ctxReturned && e.action === 'returned') continue;
+    if (ctxResend   && e.action === 'sent') continue;
     if (!wanted.has(e.action)) continue;
     const ts = Math.max(
       Date.parse(e.at) || 0,
@@ -1394,8 +1497,8 @@ function actionLabel(a) {
     case 'file_added':   return 'เพิ่มไฟล์';
     case 'file_replaced':return 'แทนที่ไฟล์';
     case 'file_deleted': return 'ลบไฟล์';
-    case 'sign_accepted':return 'อาจารย์ลงนาม / อนุมัติ';
-    case 'sign_rejected':return 'อาจารย์ส่งกลับ';
+    case 'sign_accepted':return 'ลงนามแล้ว / อนุมัติ';
+    case 'sign_rejected':return 'ส่งกลับเพื่อแก้ไข';
     case 'signed_file':  return 'แนบไฟล์ที่ลงนาม';
     case 'draft':        return 'บันทึกร่าง';
     default:             return a || '';
@@ -1620,9 +1723,16 @@ async function onDocStatusClick(btn) {
   const isRevert = btn.dataset.revert === '1';
   const found = findDocById(docId);
   if (!found) return;
-  const { project } = found;
+  const { project, doc: docCached } = found;
   const user = getUser();
   const role = cache.role;
+  // If vpa is leaving the ส่งกลับ phase via the revert menu (not the dedicated
+  // ส่งใหม่ button), fold the consolidated file-change summary into the
+  // notification so the held-back changes aren't silently dropped.
+  const leavingReturned = docCached?.status === 'returned' && next !== 'returned';
+  const exitFileSummary = leavingReturned
+    ? summarizeFileOpsSince(docCached.timeline, lastActionTs(docCached.timeline, 'returned'))
+    : '';
   // Reverts get an explicit "ย้อนสถานะ" prefix so the timeline doesn't
   // read like a normal forward action — important when an in-flight
   // หนังสือ is rolled back from completed/in_progress to an earlier step.
@@ -1670,12 +1780,12 @@ async function onDocStatusClick(btn) {
         project, document: doc,
         body: `${note} ${docRef}`.trim(),
       }).catch(() => {});
-    } else if (role === 'vp_admin' && isRevert) {
+    } else if (role === 'vp_admin' && (isRevert || leavingReturned)) {
       notifyUniStaff({
         kind: 'status',
         project, document: doc,
-        body: `SAMO ${note} ${docRef}`.trim(),
-        subject: `[MDKKU SAMO] ย้อนสถานะหนังสือ — ${project.name}`,
+        body: `SAMO ${note} ${docRef}`.trim() + (exitFileSummary ? `\n${exitFileSummary}` : ''),
+        subject: `[MDKKU SAMO] อัปเดตสถานะหนังสือ — ${project.name}`,
       }).catch(() => {});
     }
   } catch (e) { alert(e.message || 'อัปเดตสถานะไม่สำเร็จ'); }
@@ -1729,6 +1839,11 @@ async function onDocResendClick(btn) {
   if (summary === null) return;   // cancelled
   const note = summary || 'ส่งใหม่หลังตีกลับ (ไม่ได้ระบุการเปลี่ยนแปลง)';
   const user = getUser();
+  // Consolidate every file change vpa made during the ส่งกลับ phase (which
+  // were intentionally NOT notified one-by-one — see fanFileOp) into this
+  // single ส่งใหม่ notification so sastaff learns of them all at once.
+  const fileSummary = summarizeFileOpsSince(
+    docCached.timeline, lastActionTs(docCached.timeline, 'returned'));
   try {
     await appendDocTimeline(docId, {
       by: user?.id || null,
@@ -1743,10 +1858,23 @@ async function onDocResendClick(btn) {
     notifyUniStaff({
       kind: 'resent',
       project, document: doc,
-      body: `หนังสือใหม่ ${docRef}: ${note}`,
+      body: `หนังสือใหม่ ${docRef}: ${note}${fileSummary ? `\n${fileSummary}` : ''}`,
       subject: `[MDKKU SAMO] หนังสือใหม่ — ${project.name}`,
     }).catch(() => {});
   } catch (e) { alert(e.message || 'ส่งใหม่ไม่สำเร็จ'); }
+}
+
+/** Seats a comment from `role` could be addressed to, given whether the
+ *  professor is on this หนังสือ. Drives the "แจ้งเตือนถึง" picker. */
+function commentTargetSeats(role, docCached) {
+  const seats = [];
+  if (role !== 'vp_admin') seats.push({ value: 'vp_admin',  label: 'SAMO VP' });
+  if (role !== 'uni_staff') seats.push({ value: 'uni_staff', label: 'เจ้าหน้าที่' });
+  if (role !== 'sa_prof' && docHasSignRequest(docCached)) seats.push({ value: 'sa_prof', label: 'อาจารย์' });
+  if (role === 'sa_prof') {
+    // prof can only ever reach the two internal seats (already added above).
+  }
+  return seats;
 }
 
 async function onDocCommentClick(btn) {
@@ -1754,13 +1882,24 @@ async function onDocCommentClick(btn) {
   const found = findDocById(docId);
   if (!found) return;
   const { project, doc: docCached } = found;
-  const text = await openProjectPrompt({
+  const seats = commentTargetSeats(cache.role, docCached);
+  // Default = notify everyone ("ทุกคน"); the user can narrow to one seat.
+  const selectOptions = seats.length > 1
+    ? [{ value: 'all', label: 'ทุกคน' }, ...seats]
+    : null;
+  const res = await openProjectPrompt({
     title: 'คอมเมนต์',
     label: 'ข้อความคอมเมนต์',
     placeholder: 'พิมพ์คอมเมนต์ / โน้ตเพิ่มเติม',
     okLabel: 'ส่งคอมเมนต์',
     required: true,
+    selectLabel: 'แจ้งเตือนถึง',
+    selectOptions,
+    selectInitial: 'all',
   });
+  if (!res) return;
+  const text = selectOptions ? (res.text || '').trim() : res;
+  const notify = selectOptions ? (res.select || 'all') : 'all';
   if (!text) return;
   const user = getUser();
   try {
@@ -1769,6 +1908,7 @@ async function onDocCommentClick(btn) {
       role: cache.role,
       action: 'comment',
       note: text,
+      notify,   // 'all' | seat role — who the author chose to ping
     });
     const doc = await getDocument(docId).catch(() => null);
     const docRef = `หนังสือ #${docCached.sequence_no || ''} "${docCached.title || ''}"`;
@@ -1776,31 +1916,30 @@ async function onDocCommentClick(btn) {
     // The author has obviously "seen" their own comment.
     markDocSeen(docId);
     onChanged();
-    fanComment({ role: cache.role, project, document: doc, body, docCached });
+    fanComment({ role: cache.role, project, document: doc, body, docCached, notify });
   } catch (e) { alert(e.message || 'บันทึกคอมเมนต์ไม่สำเร็จ'); }
 }
 
-/** Fan a comment out to the OTHER project seats. uni_staff→vpa, vp_admin→uni,
- *  sa_prof→both seats; and when an actor comments on a หนังสือ shown to the
- *  professor, ping him too (he's part of the thread now). Fire-and-forget. */
-function fanComment({ role, project, document, body, docCached }) {
+/** Fan a comment out to the OTHER project seats, honouring the author's
+ *  "แจ้งเตือนถึง" choice (`notify`: 'all' or a single seat role). Fire-and-
+ *  forget. The professor is included only when the doc was shown to him. */
+function fanComment({ role, project, document, body, docCached, notify = 'all' }) {
   const tasks = [];
   const subj = `[MDKKU SAMO] คอมเมนต์ใหม่ — ${project?.name || ''}`;
   const profSubj = `[MDKKU SAMO] คอมเมนต์จากอาจารย์ — ${project?.name || ''}`;
   const title = `คอมเมนต์ใหม่ — ${document?.title || ''}`;
-  if (role === 'uni_staff') {
-    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title }));
-  } else if (role === 'vp_admin') {
-    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: subj }));
-  } else if (role === 'sa_prof') {
-    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: profSubj }));
-    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title: `คอมเมนต์จากอาจารย์ — ${document?.title || ''}` }));
-  } else {  // dev — notify both seats
-    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body, subject: subj }));
-    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body, title }));
+  const want = (seat) => notify === 'all' || notify === seat;
+  const profOnDoc = role !== 'sa_prof' && docHasSignRequest(docCached);
+
+  if (want('vp_admin') && role !== 'vp_admin') {
+    tasks.push(notifyVpAdmin({ kind: 'comment', project, document, body,
+      title: role === 'sa_prof' ? `คอมเมนต์จากอาจารย์ — ${document?.title || ''}` : title }));
   }
-  // An actor's comment on a doc shown to the prof also reaches the prof.
-  if (role !== 'sa_prof' && docHasSignRequest(docCached)) {
+  if (want('uni_staff') && role !== 'uni_staff') {
+    tasks.push(notifyUniStaff({ kind: 'comment', project, document, body,
+      subject: role === 'sa_prof' ? profSubj : subj }));
+  }
+  if (want('sa_prof') && profOnDoc) {
     tasks.push(notifyProf({ kind: 'comment', project, document, body, subject: subj }));
   }
   Promise.allSettled(tasks);
@@ -1848,7 +1987,7 @@ async function onCommentEditClick(btn) {
     // Author has obviously "seen" their own edit.
     markDocSeen(docId);
     onChanged();
-    fanComment({ role: cache.role, project, document: doc, body, docCached: doc });
+    fanComment({ role: cache.role, project, document: doc, body, docCached: doc, notify: entry.notify || 'all' });
   } catch (err) {
     alert(err.message || 'แก้ไขคอมเมนต์ไม่สำเร็จ');
   }
@@ -1968,7 +2107,14 @@ function docHasSignRequest(doc) {
  *  re-render). */
 function fanFileOp({ role, project, document, kind, body, subject, title }) {
   const tasks = [];
-  if (role === 'vp_admin' || role === 'dev') {
+  // EXCEPTION: while a หนังสือ is in the ส่งกลับ phase (status=returned, vpa
+  // is fixing), DON'T ping sastaff on each vpa file edit — those changes are
+  // consolidated into the single ส่งใหม่ notification (onDocResendClick). In
+  // any other status (sent/received/in_progress) sastaff IS notified per edit
+  // so they don't miss a mid-flight file change. The reverse direction
+  // (sastaff→vpa) and the prof are unaffected.
+  const batchingToUni = (role === 'vp_admin' || role === 'dev') && document?.status === 'returned';
+  if ((role === 'vp_admin' || role === 'dev') && !batchingToUni) {
     tasks.push(notifyUniStaff({ kind, project, document, body, subject }));
   }
   if (role === 'uni_staff' || role === 'dev') {
@@ -2187,6 +2333,21 @@ async function loadFilesForDoc(docId) {
       ? expandedDocsSeenAt.get(docId)
       : getDocSeenAt(docId);
 
+    // PERSISTENT highlight set: when a returned หนังสือ has been ส่งใหม่,
+    // the files vpa added/replaced during the fix stay flagged "ใหม่" for
+    // sastaff until they change status (the user-requested exception to the
+    // clear-on-view rule). Keyed off status, so รับเรื่อง clears it.
+    const persistIds = new Set();
+    if ((role === 'uni_staff' || role === 'dev') && doc?.status === 'sent'
+        && isResendDoc(doc.timeline)) {
+      const sinceTs = lastActionTs(doc.timeline, 'returned');
+      files.forEach((f) => {
+        if (f.is_signed) return;
+        if (f.uploaded_by && f.uploaded_by === myId) return;
+        if ((new Date(f.uploaded_at).getTime() || 0) > sinceTs) persistIds.add(String(f.id));
+      });
+    }
+
     // UNIFIED file list: each ORIGINAL file carries its own signing status
     // chip + its signed version nested right beneath it, so the reader never
     // has to cross-reference a separate "การลงนาม" section to learn what's
@@ -2215,6 +2376,7 @@ async function loadFilesForDoc(docId) {
         docId,
         myId,
         seenAt: seenAtForFiles,
+        persistIds,
         request: requestForFile(f.id),
         signedVersions: signedFor(f.id),
       })).join('');
@@ -2222,7 +2384,7 @@ async function loadFilesForDoc(docId) {
     // Request-level bar: the sastaff note, the prof's accept/reject decision,
     // reject reason, reupload, actor cancel, and any signed uploads NOT tied
     // to a specific original (reupload path → signs_file_id null).
-    renderSignSection(docId, files);
+    renderSignSection(docId, files, seenAtForFiles);
   } catch (e) {
     wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
   }
@@ -2234,9 +2396,12 @@ async function loadFilesForDoc(docId) {
  *    - never flag a file I uploaded myself (so sastaff's own upload isn't
  *      stuck "ใหม่" — only the other side sees it), and
  *    - clear on VIEW (seenAt), so opening the หนังสือ removes the pill. */
-function fileNewnessForViewer(file, seenAt, myId) {
+function fileNewnessForViewer(file, seenAt, myId, persistIds = null) {
   if (customerMode || !myId) return null;       // no identity → no "new" concept
   if (file.uploaded_by && file.uploaded_by === myId) return null;  // my own upload
+  // Persistent highlight: files vpa changed during the ส่งกลับ phase stay
+  // flagged for sastaff until they change status (NOT cleared by view).
+  if (persistIds && persistIds.has(String(file.id))) return 'new';
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;
   return uploaded > (seenAt || 0) ? 'new' : null;
@@ -2247,7 +2412,7 @@ function fileNewnessForViewer(file, seenAt, myId) {
  *  the actor replace/delete controls, and any signed version(s) nested right
  *  beneath. Merges what used to be two cross-referenced sections (ไฟล์แนบ +
  *  การลงนาม) into one. */
-function renderFileCard(f, { canManage, role, docId, myId, seenAt, request, signedVersions }) {
+function renderFileCard(f, { canManage, role, docId, myId, seenAt, persistIds, request, signedVersions }) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
   const isProf = role === 'sa_prof';
@@ -2256,7 +2421,7 @@ function renderFileCard(f, { canManage, role, docId, myId, seenAt, request, sign
   const canSign = isProf && request && (request.status === 'pending' || request.status === 'accepted');
   const hasSigned = signedVersions.length > 0;
 
-  const newness = fileNewnessForViewer(f, seenAt, myId);
+  const newness = fileNewnessForViewer(f, seenAt, myId, persistIds);
   const newnessCls   = newness ? `is-${newness}` : '';
   const newnessBadge = newness === 'new'
     ? `<span class="projects-file-newness-pill is-new"><i class="bi bi-stars me-1"></i>ใหม่</span>`
@@ -2359,7 +2524,7 @@ function isPdfFile(f) {
  *  names + signed outputs resolve to real files. For actors it's a
  *  read-only progress view; for the professor (pending requests) it carries
  *  the e-sign / reupload / accept / reject actions. */
-function renderSignSection(docId, files) {
+function renderSignSection(docId, files, seenAt = 0) {
   const wrap = document.querySelector(`[data-projects-sign-for="${cssEsc(docId)}"]`);
   if (!wrap) return;
   const doc = findDocById(docId)?.doc;
@@ -2370,6 +2535,26 @@ function renderSignSection(docId, files) {
   const role = cache.role;
   const isProf = role === 'sa_prof';
   const canCancel = role === 'uni_staff' || role === 'dev';
+
+  // "New update since I last opened" — drives the collapse default + the
+  // "ใหม่" indicator, mirroring the comments thread. Frozen seenAt (passed
+  // in) keeps it stable while reading and clears on next open.
+  const myId = getUser()?.id || null;
+  const signedFiles = files.filter((f) => f.is_signed);
+  const tsAfter = (v) => v && (Date.parse(v) || 0) > seenAt;
+  const hasUnseen = !customerMode && (
+    requests.some((r) => {
+      // a decision (prof accept/reject) the actor hasn't seen yet
+      if (role !== 'sa_prof' && tsAfter(r.decided_at)) return true;
+      // a freshly-arrived pending request the prof hasn't seen yet
+      if (role === 'sa_prof' && r.status === 'pending'
+          && tsAfter(r.requested_at || r.created_at) && r.requested_by !== myId) return true;
+      // any request-scoped event after seenAt authored by someone else
+      return (r.timeline || []).some((e) => tsAfter(e.at) && e.by !== myId);
+    })
+    || signedFiles.some((f) => (new Date(f.uploaded_at).getTime() || 0) > seenAt && f.uploaded_by !== myId)
+  );
+  const openByDefault = hasUnseen || requests.length <= 1;
 
   // The per-file signing status + signed versions now live INLINE in the file
   // list (renderFileCard). This bar only carries the REQUEST-level bits: the
@@ -2414,8 +2599,14 @@ function renderSignSection(docId, files) {
   });
 
   wrap.innerHTML = `
-    <div class="projects-files-head mt-3"><span><i class="bi bi-pen me-1"></i>สถานะการลงนาม</span></div>
-    ${cards.join('')}`;
+    <details class="projects-sign-collapse" ${openByDefault ? 'open' : ''}>
+      <summary class="projects-sign-collapse-head">
+        <span class="projects-sign-collapse-title"><i class="bi bi-pen me-1"></i>สถานะการลงนาม (${requests.length})</span>
+        ${hasUnseen ? '<span class="projects-sign-collapse-new">ใหม่</span>' : ''}
+        <i class="bi bi-chevron-down projects-sign-collapse-chev" aria-hidden="true"></i>
+      </summary>
+      <div class="projects-sign-collapse-body">${cards.join('')}</div>
+    </details>`;
 }
 
 function onSendSignClick(btn) {
@@ -2566,7 +2757,10 @@ async function onSignAcceptClick(btn) {
     // (migration 0051, column-guarded).
     await appendDocTimeline(docId, {
       by: user?.id || null, role: 'sa_prof', action: 'sign_accepted',
-      note: hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ยอมรับ (อนุมัติ)',
+      // Role badge already renders "อาจารย์" + the action label says
+      // "ลงนามแล้ว / อนุมัติ" — so the note just carries the หนังสือ reference
+      // (avoids the old "อาจารย์ อาจารย์ลงนาม อาจารย์ลงนามแล้ว" triplication).
+      note: `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`.trim(),
     }).catch((err) => console.warn('[projects] sign_accepted doc-timeline failed:', err?.message || err));
     markDocSeenAndClear(docId);
     onChanged();
@@ -2599,7 +2793,7 @@ async function onSignRejectClick(btn) {
     }, { status: 'rejected', reject_reason: reason, decided_at: new Date().toISOString() });
     await appendDocTimeline(docId, {
       by: user?.id || null, role: 'sa_prof', action: 'sign_rejected',
-      note: `อาจารย์ส่งกลับเพื่อแก้ไข: ${reason}`,
+      note: reason,
     }).catch((err) => console.warn('[projects] sign_rejected doc-timeline failed:', err?.message || err));
     markDocSeenAndClear(docId);
     onChanged();

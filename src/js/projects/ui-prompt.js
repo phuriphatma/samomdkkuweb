@@ -25,21 +25,32 @@ function getBootstrap() {
  *    initial?: string,
  *    okLabel?: string,
  *    required?: boolean,
+ *    selectLabel?: string,
+ *    selectOptions?: { value: string, label: string }[],
+ *    selectInitial?: string,
  * }} ProjectPromptOpts */
 
 /**
  * Open the universal prompt modal and wait for the user to submit or
  * cancel it. Returns a Promise that resolves to the trimmed string the
  * user typed, or `null` if they dismissed the dialog without confirming.
+ *
+ * When `selectOptions` is supplied the modal also shows a <select> and the
+ * resolved value becomes `{ text, select }` instead of a bare string (still
+ * `null` on cancel). Callers that don't pass `selectOptions` keep the old
+ * string contract.
  * @param {ProjectPromptOpts} [opts]
  */
 export function openProjectPrompt(opts = {}) {
+  const hasSelect = Array.isArray(opts.selectOptions) && opts.selectOptions.length > 0;
   const bs = getBootstrap();
   const modalEl = document.getElementById('projectPromptModal');
   if (!bs || !modalEl) {
     // Fallback for any context where the modal partial wasn't loaded.
     const v = window.prompt(opts.title || opts.label || '');
-    return Promise.resolve(v == null ? null : v.trim());
+    const text = v == null ? null : v.trim();
+    if (text == null) return Promise.resolve(null);
+    return Promise.resolve(hasSelect ? { text, select: opts.selectInitial || opts.selectOptions[0].value } : text);
   }
   const titleEl  = document.getElementById('projectPromptTitle');
   const labelEl  = document.getElementById('projectPromptLabel');
@@ -48,6 +59,9 @@ export function openProjectPrompt(opts = {}) {
   const okLabel  = document.getElementById('projectPromptOkLabel');
   const formEl   = document.getElementById('projectPromptForm');
   const okBtn    = document.getElementById('projectPromptOk');
+  const selWrap  = document.getElementById('projectPromptSelectWrap');
+  const selLabel = document.getElementById('projectPromptSelectLabel');
+  const selEl    = document.getElementById('projectPromptSelect');
 
   if (titleEl) titleEl.textContent = opts.title || 'กรอกข้อความ';
   if (labelEl) labelEl.textContent = opts.label || 'ข้อความ';
@@ -58,6 +72,19 @@ export function openProjectPrompt(opts = {}) {
   if (hintEl) hintEl.textContent = opts.hint || '';
   if (okLabel) okLabel.textContent = opts.okLabel || 'บันทึก';
   if (okBtn) okBtn.disabled = false;
+  if (selWrap && selEl) {
+    if (hasSelect) {
+      if (selLabel) selLabel.textContent = opts.selectLabel || 'แจ้งเตือนถึง';
+      selEl.innerHTML = opts.selectOptions
+        .map((o) => `<option value="${String(o.value).replace(/"/g, '&quot;')}">${String(o.label).replace(/</g, '&lt;')}</option>`)
+        .join('');
+      selEl.value = opts.selectInitial != null ? opts.selectInitial : opts.selectOptions[0].value;
+      selWrap.classList.remove('d-none');
+    } else {
+      selWrap.classList.add('d-none');
+      selEl.innerHTML = '';
+    }
+  }
 
   const modal = bs.Modal.getOrCreateInstance(modalEl);
   return new Promise((resolve) => {
@@ -72,7 +99,7 @@ export function openProjectPrompt(opts = {}) {
         inputEl?.classList.add('is-invalid');
         return;
       }
-      result = v;
+      result = hasSelect ? { text: v, select: selEl?.value || '' } : v;
       settled = true;
       modal.hide();
     };
@@ -80,6 +107,7 @@ export function openProjectPrompt(opts = {}) {
       formEl?.removeEventListener('submit', onSubmit);
       modalEl.removeEventListener('hidden.bs.modal', onHidden);
       inputEl?.classList.remove('is-invalid');
+      if (selWrap) selWrap.classList.add('d-none');
       resolve(settled ? result : null);
     };
 

@@ -15,7 +15,14 @@
             </div>
           </div>
 
-          <label class="form-label fw-bold">ไฟล์ที่จะส่งให้ลงนาม <span class="text-danger">*</span></label>
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+            <label class="form-label fw-bold mb-0">ไฟล์ที่จะส่งให้ลงนาม <span class="text-danger">*</span></label>
+            <div class="btn-group btn-group-sm" role="group" aria-label="เลือกไฟล์">
+              <button type="button" class="btn btn-ghost" id="projectSignSelectPdf">เลือก PDF ทั้งหมด</button>
+              <button type="button" class="btn btn-ghost" id="projectSignSelectAll">เลือกทั้งหมด</button>
+              <button type="button" class="btn btn-ghost" id="projectSignClear">ล้าง</button>
+            </div>
+          </div>
           <div id="projectSignFileList" class="projects-sign-picklist"></div>
 
           <div class="mt-3">

@@ -34,7 +34,11 @@ let pdf = null;             // pdfjs document
 let numPages = 0;
 let currentPage = 1;
 let sigDataUrl = null;      // trimmed signature PNG (data URL)
-let placed = false;         // signature has been dropped on the page
+// Per-page placements: pageNum -> { xRatio, yRatio, wRatio, aspect } (page-
+// relative ratios so they're render-scale independent). A page is "signed"
+// iff it has an entry — the prof can stamp the signature on as many pages as
+// they like, and embed runs over every entry at confirm time.
+let placements = new Map();
 
 // drawing-pad state
 let padDrawing = false;
@@ -71,6 +75,11 @@ function wire() {
     clearPad: document.getElementById('esignClearPad'),
     useSig: document.getElementById('esignUseSig'),
     confirm: document.getElementById('esignConfirm'),
+    pageControls: document.getElementById('esignPageControls'),
+    thisPage: document.getElementById('esignThisPage'),
+    thisPageLabel: document.getElementById('esignThisPageLabel'),
+    allPages: document.getElementById('esignAllPages'),
+    signedCount: document.getElementById('esignSignedCount'),
   };
 
   els.prev?.addEventListener('click', () => gotoPage(currentPage - 1));
@@ -78,11 +87,15 @@ function wire() {
   els.clearPad?.addEventListener('click', clearPad);
   els.useSig?.addEventListener('click', useSignature);
   els.confirm?.addEventListener('click', onConfirm);
+  els.thisPage?.addEventListener('click', toggleThisPage);
+  els.allPages?.addEventListener('click', signAllPages);
   els.size?.addEventListener('input', () => {
     if (els.overlay && !els.overlay.classList.contains('d-none')) {
       els.overlay.style.width = `${els.size.value}px`;
       els.overlay.style.height = 'auto';
       clampOverlay();
+      capturePlacement();   // resizing updates this page's placement
+      updateSignControls();
     }
   });
 
@@ -173,15 +186,115 @@ function useSignature() {
   // Drop it roughly centered on the visible page.
   o.style.left = `${Math.max(0, (els.canvas.clientWidth - o.clientWidth) / 2)}px`;
   o.style.top = `${Math.max(0, (els.canvas.clientHeight - o.clientHeight) / 2)}px`;
-  placed = true;
   els.sizeWrap?.classList.remove('d-none');
-  els.confirm.disabled = false;
+  els.pageControls?.classList.remove('d-none');
   if (document.getElementById('esignHint')) {
-    document.getElementById('esignHint').textContent = 'ลากลายเซ็นไปยังตำแหน่งที่ต้องการ แล้วกด "ยืนยันลงนาม"';
+    document.getElementById('esignHint').textContent = 'ลากลายเซ็นไปยังตำแหน่งที่ต้องการ • ใช้ "ทุกหน้า" เพื่อลงทุกหน้า แล้วกด "ยืนยันลงนาม"';
   }
-  // overlay clientHeight is only valid after the image loads
-  o.onload = () => clampOverlay();
+  // overlay clientHeight is only valid after the image loads — capture the
+  // placement once it's measurable.
+  o.onload = () => { clampOverlay(); capturePlacement(); updateSignControls(); };
   clampOverlay();
+  capturePlacement();        // stamps the current page as signed
+  updateSignControls();
+}
+
+// ---------- per-page placement bookkeeping ----------
+
+/** Current overlay position as page-relative ratios, or null if hidden. */
+function currentRatios() {
+  const o = els.overlay, c = els.canvas;
+  if (!o || !c || o.classList.contains('d-none')) return null;
+  const cw = c.clientWidth, ch = c.clientHeight;
+  if (!cw || !ch) return null;
+  return {
+    xRatio: o.offsetLeft / cw,
+    yRatio: o.offsetTop / ch,
+    wRatio: o.clientWidth / cw,
+    aspect: o.clientHeight / o.clientWidth,
+  };
+}
+
+/** Persist the overlay's current spot as this page's placement. */
+function capturePlacement() {
+  const r = currentRatios();
+  if (r) placements.set(currentPage, r);
+}
+
+/** Show/hide + position the overlay for page n from its stored placement. */
+function restoreOverlayForPage(n) {
+  const o = els.overlay, c = els.canvas;
+  if (!o || !c) return;
+  const p = placements.get(n);
+  if (!p || !sigDataUrl) { o.classList.add('d-none'); return; }
+  o.src = sigDataUrl;
+  o.classList.remove('d-none');
+  o.style.width = `${p.wRatio * c.clientWidth}px`;
+  o.style.height = 'auto';
+  o.style.left = `${p.xRatio * c.clientWidth}px`;
+  o.style.top = `${p.yRatio * c.clientHeight}px`;
+  clampOverlay();
+}
+
+/** Drop the signature on the current page at a sensible default position
+ *  (reuse the last placement's ratios if any, else centre). */
+function placeOnCurrentPage() {
+  const o = els.overlay, c = els.canvas;
+  if (!o || !c || !sigDataUrl) return;
+  const ref = placements.values().next().value;  // any existing placement
+  o.src = sigDataUrl;
+  o.classList.remove('d-none');
+  o.style.width = `${ref ? ref.wRatio * c.clientWidth : (els.size?.value || 170)}px`;
+  o.style.height = 'auto';
+  if (ref) {
+    o.style.left = `${ref.xRatio * c.clientWidth}px`;
+    o.style.top = `${ref.yRatio * c.clientHeight}px`;
+  } else {
+    o.style.left = `${Math.max(0, (c.clientWidth - o.clientWidth) / 2)}px`;
+    o.style.top = `${Math.max(0, (c.clientHeight - o.clientHeight) / 2)}px`;
+  }
+  clampOverlay();
+  capturePlacement();
+}
+
+/** Toggle whether the current page carries the signature. */
+function toggleThisPage() {
+  if (!sigDataUrl) { alert('วาดลายเซ็นและกด "ใช้ลายเซ็นนี้" ก่อน'); return; }
+  if (placements.has(currentPage)) {
+    placements.delete(currentPage);
+    els.overlay?.classList.add('d-none');
+  } else {
+    placeOnCurrentPage();
+  }
+  updateSignControls();
+}
+
+/** Stamp every page at the current page's (or any) placement ratios. */
+function signAllPages() {
+  if (!sigDataUrl) { alert('วาดลายเซ็นและกด "ใช้ลายเซ็นนี้" ก่อน'); return; }
+  capturePlacement();
+  const ref = placements.get(currentPage) || placements.values().next().value;
+  if (!ref) { placeOnCurrentPage(); }
+  const base = placements.get(currentPage) || placements.values().next().value;
+  if (!base) return;
+  for (let n = 1; n <= numPages; n++) placements.set(n, { ...base });
+  restoreOverlayForPage(currentPage);
+  updateSignControls();
+}
+
+/** Sync the toolbar (confirm enabled, this-page label, signed-page count). */
+function updateSignControls() {
+  const signed = placements.size;
+  if (els.confirm) els.confirm.disabled = signed === 0;
+  if (els.thisPage && els.thisPageLabel) {
+    const on = placements.has(currentPage);
+    els.thisPageLabel.textContent = on ? 'เอาออกจากหน้านี้' : 'ลงนามหน้านี้';
+    els.thisPage.classList.toggle('btn-primary-soft', !on);
+    els.thisPage.classList.toggle('btn-danger-soft', on);
+  }
+  if (els.signedCount) {
+    els.signedCount.textContent = signed ? `ลงแล้ว ${signed} หน้า` : '';
+  }
 }
 
 // ---------- drag the signature overlay over the page ----------
@@ -204,7 +317,9 @@ function setupOverlayDrag() {
     o.style.top = `${ot + (e.clientY - sy)}px`;
     clampOverlay();
   });
-  const stop = () => { dragging = false; };
+  const stop = () => {
+    if (dragging) { dragging = false; capturePlacement(); updateSignControls(); }
+  };
   o.addEventListener('pointerup', stop);
   o.addEventListener('pointercancel', stop);
 }
@@ -222,8 +337,11 @@ function clampOverlay() {
 
 async function gotoPage(n) {
   if (!pdf || n < 1 || n > numPages) return;
+  capturePlacement();            // save the page we're leaving
   currentPage = n;
   await renderPage(n);
+  restoreOverlayForPage(n);      // show the signature if this page has one
+  updateSignControls();
 }
 
 async function renderPage(n) {
@@ -247,29 +365,27 @@ async function renderPage(n) {
 // ---------- confirm: embed with pdf-lib ----------
 
 async function onConfirm() {
-  if (!placed || !sigDataUrl) { alert('กรุณาวางลายเซ็นบนเอกสารก่อน'); return; }
+  capturePlacement();   // make sure the page currently shown is included
+  if (!sigDataUrl || placements.size === 0) { alert('กรุณาวางลายเซ็นบนเอกสารก่อน'); return; }
   const btn = els.confirm;
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังลงนาม…';
   try {
-    const o = els.overlay, c = els.canvas;
-    const cw = c.clientWidth, ch = c.clientHeight;
-    const xRatio = o.offsetLeft / cw;
-    const yRatio = o.offsetTop / ch;
-    const wRatio = o.clientWidth / cw;
-    const sigAspect = o.clientHeight / o.clientWidth;
-
     const doc = await PDFDocument.load(originalBytes);
     const png = await doc.embedPng(sigDataUrl);
     const pages = doc.getPages();
-    const page = pages[currentPage - 1];
-    const { width: pw, height: ph } = page.getSize();
-    const w = wRatio * pw;
-    const h = w * sigAspect;
-    const x = xRatio * pw;
-    const yTop = yRatio * ph;
-    page.drawImage(png, { x, y: ph - yTop - h, width: w, height: h });
+    // Embed the signature on EVERY page the prof placed it on.
+    for (const [pageNum, p] of placements.entries()) {
+      const page = pages[pageNum - 1];
+      if (!page) continue;
+      const { width: pw, height: ph } = page.getSize();
+      const w = p.wRatio * pw;
+      const h = w * p.aspect;
+      const x = p.xRatio * pw;
+      const yTop = p.yRatio * ph;
+      page.drawImage(png, { x, y: ph - yTop - h, width: w, height: h });
+    }
     const out = await doc.save();
     const blob = new Blob([out], { type: 'application/pdf' });
     finish(blob);
@@ -288,10 +404,12 @@ function resetState() {
   numPages = 0;
   currentPage = 1;
   sigDataUrl = null;
-  placed = false;
+  placements = new Map();
   padHasInk = false;
   if (els.overlay) { els.overlay.classList.add('d-none'); els.overlay.removeAttribute('src'); }
   els.sizeWrap?.classList.add('d-none');
+  els.pageControls?.classList.add('d-none');
+  if (els.signedCount) els.signedCount.textContent = '';
   if (els.confirm) els.confirm.disabled = true;
   if (els.confirm) els.confirm.innerHTML = '<i class="bi bi-pen me-1"></i> ยืนยันลงนาม';
   els.work?.classList.add('d-none');
