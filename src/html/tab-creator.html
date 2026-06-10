@@ -7,20 +7,13 @@
       <div class="creator-content">
         <div class="form-container creator-shell" style="max-width: 920px;">
 
-          <!-- ANNOUNCEMENT ORDER PANEL — drag to reorder, click pencil
-               to edit. Populated by renderAnnouncementOrderList() on
-               first creator entry and after publish/delete. SortableJS
-               handles the drag UX. -->
-          <details class="announcements-order mb-4" id="announcementsOrderPanel">
-            <summary class="announcements-order-summary">
-              <i class="bi bi-list-ol me-2"></i>
-              <span>ลำดับการแสดงประกาศ</span>
-              <span class="text-muted small ms-2">(ลากเพื่อจัดเรียง · กดดินสอเพื่อแก้ไข)</span>
-            </summary>
-            <ul class="list-group list-group-flush announcements-order-list mt-3" id="announcementsOrderList">
-              <li class="list-group-item text-muted small">กำลังโหลด…</li>
-            </ul>
-          </details>
+          <!-- Close button — only shown when the editor is opened as a popup
+               overlay (.editor-overlay on the pane). Hidden in the inline
+               เขียนประกาศ page. -->
+          <button type="button" class="editor-overlay-close" id="creatorOverlayClose"
+            onclick="closeAnnouncementEditor()" aria-label="ปิด">
+            <i class="bi bi-x-lg"></i>
+          </button>
 
           <div class="creator-head mb-4">
             <div>
@@ -75,7 +68,7 @@
               </label>
               <div class="form-text mb-2">
                 <i class="bi bi-aspect-ratio me-1"></i>
-                แนะนำ <strong>1600 × 900</strong> (สัดส่วน 16:9 — มาตรฐานเว็บข่าวระดับสากล) — ขั้นต่ำ 1200 × 675.
+                แนะนำ <strong>1536 x 2048</strong> (สัดส่วน 3:4 — แบบเดียวกับที่ใช้ใน IG) — ขั้นต่ำ 900 x 1200.
                 ภาพสัดส่วนอื่นจะถูกตัดกรอบให้พอดีแบบกึ่งกลางอัตโนมัติ
               </div>
               <div class="creator-thumb">
@@ -116,7 +109,7 @@
                   <i class="bi bi-cloud-arrow-up-fill me-2"></i>เผยแพร่ลงเว็บไซต์
                 </span>
               </button>
-              <button onclick="cancelEdit()" id="cancelEditBtn"
+              <button onclick="closeAnnouncementEditor()" id="cancelEditBtn"
                 class="btn btn-outline-secondary btn-lg d-none">ยกเลิก</button>
               <!-- Delete is visible only when editing an existing post — see
                    announcements.js fillCreatorFormForEdit. -->

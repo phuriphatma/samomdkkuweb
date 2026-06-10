@@ -281,10 +281,15 @@ export async function publishAnnouncement() {
     setTimeout(async () => {
       alertBox.classList.add('d-none');
       await loadAnnouncements();
-      if (publishedId != null) {
+      // Let the admin shell react (close the editor popup, refresh the
+      // manage cards). No-op on the public site (no listener bound there).
+      document.dispatchEvent(new CustomEvent('announcement:changed'));
+      // In the admin editor popup, the listener above closes it; only the
+      // public/standalone flow falls through to opening the article reader.
+      if (document.getElementById('articleContainer') && publishedId != null) {
         // Open the new article directly so the author sees the rendered result.
         viewAnnouncement(String(publishedId));
-      } else {
+      } else if (document.getElementById('pills-announcements-tab')) {
         bootstrap.Tab.getOrCreateInstance(document.getElementById('pills-announcements-tab')).show();
       }
     }, 1200);
@@ -343,7 +348,9 @@ export async function deleteAnnouncement(targetId) {
   }
   // Reload list — safe on both public and admin (loadAnnouncements is
   // DOM-resilient).
-  loadAnnouncements();
+  await loadAnnouncements();
+  // Admin shell hook: close the editor popup (if open) + refresh manage cards.
+  document.dispatchEvent(new CustomEvent('announcement:changed'));
   return true;
 }
 
@@ -389,34 +396,95 @@ export async function saveAnnouncementOrder(orderedIds) {
   return true;
 }
 
-/** Render the admin reorder panel — one row per article with a drag
- *  handle + title + thumbnail + a tiny "แก้ไข" shortcut. Caller is
- *  responsible for attaching SortableJS to the resulting <ul>. */
+/**
+ * Pin (or unpin) an announcement. Pinning makes it the single large
+ * featured post on the home page. Enforces the "at most one pinned"
+ * invariant in the app: when pinning a post, every other currently-pinned
+ * row is unpinned first. Toggling an already-pinned post simply unpins it
+ * (home falls back to all-small with no featured).
+ */
+export async function togglePinAnnouncement(targetId) {
+  if (window.__samoWarnedPinned) {
+    alert('ฟีเจอร์ปักหมุดยังไม่พร้อมใช้งาน — ต้องอัปเดตฐานข้อมูลก่อน (migration 0054)');
+    return false;
+  }
+  const id = String(targetId);
+  const target = globalAnnouncements.find((p) => p.id === id);
+  if (!target) return false;
+  const willPin = !target.pinned;
+  try {
+    if (willPin) {
+      // Move the pin: clear any other pinned rows so only one stays featured.
+      const others = globalAnnouncements.filter((p) => p.pinned && p.id !== id);
+      for (const p of others) {
+        const { error } = await dbRest(
+          `/announcements?id=eq.${encodeURIComponent(p.id)}`,
+          { method: 'PATCH', body: { pinned: false }, prefer: 'return=minimal' },
+        );
+        if (error) throw new Error(error.message || 'unpin failed');
+      }
+    }
+    const { data, error } = await dbRest(
+      `/announcements?id=eq.${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: { pinned: willPin }, prefer: 'return=representation' },
+    );
+    if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('ไม่พบประกาศ หรือคุณไม่มีสิทธิ์ (ต้องเป็น pr_staff หรือ dev)');
+    }
+  } catch (e) {
+    alert('ปักหมุดไม่สำเร็จ: ' + (e.message || e));
+    return false;
+  }
+  await loadAnnouncements();
+  return true;
+}
+
+/** Render the admin manage view — each announcement as an editorial card
+ *  (same 3:4 image + text the public archive uses), with a drag handle and
+ *  pin chip overlaid on the image. Clicking a card opens it in the editor
+ *  popup; the handle reorders; the pin chip toggles the featured home post.
+ *  Caller attaches SortableJS to the grid (handle `.order-card-handle`,
+ *  items `.order-card`). */
 export function renderAnnouncementOrderList(rootEl) {
   if (!rootEl) return;
   if (globalAnnouncements.length === 0) {
-    rootEl.innerHTML = '<li class="list-group-item text-muted small">ยังไม่มีประกาศที่เผยแพร่</li>';
+    rootEl.innerHTML = '<p class="text-muted small text-center py-4 mb-0 order-grid-empty">ยังไม่มีประกาศที่เผยแพร่</p>';
     return;
   }
-  rootEl.innerHTML = globalAnnouncements.map((post) => {
-    const thumb = post.thumbnail
-      ? `<img src="${escHtml(post.thumbnail)}" alt="" class="order-row-thumb">`
-      : '<span class="order-row-thumb order-row-thumb--empty"><i class="bi bi-image"></i></span>';
-    return `
-      <li class="list-group-item order-row" data-id="${escHtml(post.id)}">
-        <span class="order-row-handle" aria-label="ลากเพื่อจัดเรียง"><i class="bi bi-grip-vertical"></i></span>
-        ${thumb}
-        <span class="order-row-body">
-          <span class="order-row-title">${escHtml(post.title)}</span>
-          <span class="order-row-meta">${escHtml(post.department || '')} · ${escHtml(post.date || '')}</span>
+  rootEl.innerHTML = globalAnnouncements.map(renderOrderCard).join('');
+}
+
+function renderOrderCard(post) {
+  const cover = pickCover(post);
+  return `
+    <div class="news-card order-card${post.pinned ? ' is-pinned' : ''}" data-id="${escHtml(post.id)}"
+      onclick="editAnnouncementById('${escHtml(post.id)}')" title="คลิกเพื่อแก้ไขประกาศนี้">
+      <div class="news-card-media">
+        <img src="${escHtml(cover)}" alt="" loading="lazy">
+        <span class="order-card-handle" aria-label="ลากเพื่อจัดเรียง"
+          onclick="event.stopPropagation();">
+          <i class="bi bi-grip-vertical"></i>
         </span>
-        <button type="button" class="btn btn-sm btn-outline-secondary order-row-edit"
-          onclick="event.stopPropagation(); editAnnouncementById('${escHtml(post.id)}');">
-          <i class="bi bi-pencil"></i>
+        <button type="button"
+          class="order-card-pin${post.pinned ? ' is-pinned' : ''}"
+          title="${post.pinned ? 'เลิกปักหมุด' : 'ปักหมุดเป็นโพสต์เด่นบนหน้าแรก'}"
+          aria-pressed="${post.pinned ? 'true' : 'false'}"
+          onclick="event.stopPropagation(); togglePinAnnouncement('${escHtml(post.id)}');">
+          <i class="bi ${post.pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i>
+          <span>${post.pinned ? 'ปักหมุดอยู่' : 'ปักหมุด'}</span>
         </button>
-      </li>
-    `;
-  }).join('');
+      </div>
+      <div class="news-card-body">
+        <span class="news-eyebrow">${escHtml(post.department || 'ประกาศ')}</span>
+        <h4 class="news-card-title">${escHtml(post.title)}</h4>
+        <div class="news-meta">
+          <time>${escHtml(formatEditorialDate(post))}</time>
+          <span class="order-card-edit"><i class="bi bi-pencil"></i> แก้ไข</span>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // --------------------------------------------------
@@ -444,11 +512,26 @@ export async function loadAnnouncements() {
     // keeps working — renderers already fall back to the extracted
     // snippet when excerpt is empty. Log once so the dev sees the
     // pending migration.
-    const baseSelect = 'id,title,content,department,thumbnail_url,created_at,display_order';
+    // `pinned` (0054) is appended only until we learn the column is missing;
+    // the home featured slot reads it. Like excerpt/display_order it
+    // self-heals — a 400 naming `pinned` drops it and disables pin until the
+    // migration is applied.
+    const pinnedCol = window.__samoWarnedPinned ? '' : ',pinned';
+    const baseSelect = `id,title,content,department,thumbnail_url,created_at,display_order${pinnedCol}`;
     const orderBy = 'display_order.desc.nullslast,created_at.desc';
     let { data, error } = await dbRest(
       `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=${orderBy}`
     );
+    if (error && error.status === 400 && /pinned/i.test(error.message || '')) {
+      if (!window.__samoWarnedPinned) {
+        window.__samoWarnedPinned = true;
+        console.warn('[announcements] pinned column missing — apply migration 0054_announcement_pinned.sql to enable the home featured pin.');
+      }
+      const noPin = 'id,title,content,department,thumbnail_url,created_at,display_order';
+      ({ data, error } = await dbRest(
+        `/announcements?select=${noPin},excerpt&status=eq.approved&order=${orderBy}`
+      ));
+    }
     // Cascade graceful fallbacks: try `excerpt` first (0008 column).
     // If that 400s on excerpt, retry without it. If THAT also 400s on
     // display_order (0017 column), retry with the original minimal
@@ -493,7 +576,9 @@ export async function loadAnnouncements() {
       content: row.content,
       thumbnail: row.thumbnail_url || '',
       displayOrder: row.display_order ?? null,
+      pinned: row.pinned === true,
     }));
+
     if (container) container.innerHTML = '';
 
     if (globalAnnouncements.length === 0) {
@@ -551,9 +636,22 @@ function renderHomeAnnouncements({ error = false } = {}) {
 
   if (empty) empty.classList.add('d-none');
 
-  const [headPost, ...rest] = globalAnnouncements;
-  featured.innerHTML = headPost ? renderNewsFeatured(headPost) : '';
-  grid.innerHTML = rest.slice(0, 6).map(renderNewsCard).join('');
+  // Featured slot is driven by the explicit `pinned` flag — NOT by list
+  // position. If an admin has pinned a post, it becomes the single large
+  // card and the rest render small. If nothing is pinned, every post shows
+  // at the same small size (no featured). At most one row is pinned (the
+  // toggle unpins others); find() picks the first if a stale extra exists.
+  const pinned = globalAnnouncements.find((p) => p.pinned);
+  if (pinned) {
+    // Pinned = the single large card at the top, then the 2 most recent
+    // other posts as small cards below it.
+    featured.innerHTML = renderNewsFeatured(pinned);
+    const rest = globalAnnouncements.filter((p) => p.id !== pinned.id);
+    grid.innerHTML = rest.slice(0, 2).map(renderNewsCard).join('');
+  } else {
+    featured.innerHTML = '';
+    grid.innerHTML = globalAnnouncements.slice(0, 8).map(renderNewsCard).join('');
+  }
 }
 
 // --------------------------------------------------
@@ -605,7 +703,7 @@ function renderNewsFeatured(post) {
     <a class="news-featured" onclick="viewAnnouncement('${escHtml(post.id)}')">
       <div class="news-featured-media">
         <img src="${escHtml(cover)}" alt="" loading="eager">
-        <span class="news-featured-pin"><i class="bi bi-pin-angle-fill"></i> ฉบับล่าสุด</span>
+        <span class="news-featured-pin"><i class="bi bi-pin-angle-fill"></i> ปักหมุด</span>
       </div>
       <div class="news-featured-body">
         <span class="news-eyebrow">${escHtml(post.department || 'ประกาศ')}</span>

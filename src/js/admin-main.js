@@ -18,7 +18,7 @@ import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
@@ -371,11 +371,17 @@ const SECTION_META = {
   shop:     { pane: 'admin',    title: 'SAMO Shop',        sub: 'คำสั่งซื้อ ตรวจสลิป สินค้า' },
   projects: { pane: 'projects', title: 'หนังสือโครงการ',   sub: 'ส่ง / รับ / ติดตามหนังสือโครงการ' },
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
+  order:    { pane: 'order',    title: 'ลำดับการแสดงประกาศ', sub: 'จัดเรียงลำดับ ปักหมุดโพสต์เด่น และแก้ไขประกาศ' },
   team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
 };
 
 function showAdminSide(which) {
   const meta = SECTION_META[which] || SECTION_META.landing;
+
+  // Drop any editor popup state — a section switch always lands on a real
+  // pane, never the floating editor overlay.
+  document.getElementById('creatorPane')?.classList.remove('editor-overlay');
+  document.body.classList.remove('editor-overlay-open');
 
   // Mark sidebar item active
   document.querySelectorAll('#adminSideNav [data-admin-side]').forEach((btn) => {
@@ -417,6 +423,11 @@ function showAdminSide(which) {
     enterCreator();
   }
 
+  // Announcement order/pin list — its own section.
+  if (which === 'order') {
+    enterAnnouncementOrder();
+  }
+
   // SAMO Team: lazy-load the org tree on first entry; idempotent thereafter.
   if (which === 'team') {
     enterTeamWorkspace();
@@ -441,28 +452,45 @@ let initialSectionApplied = false;
 // Until then, a persisted-but-still-loading session keeps the boot spinner
 // up instead of flashing the sign-in gate. See the onAuthChange handler.
 let authSettled = false;
+// Writer pane (เขียนประกาศ). Just ensure announcements are loaded so
+// editAnnouncement(id) deep-links / the order section's pencil can resolve
+// the post against the in-memory cache.
 async function enterCreator() {
+  // เขียนประกาศ is the "new post" page — start clean. (Deep-link edits via
+  // `#creator/{id}` call editAnnouncement() right after this, re-filling it.)
+  cancelEdit();
+  try {
+    await loadAnnouncements();
+  } catch (e) {
+    console.warn('[admin-main] creator: loadAnnouncements failed:', e?.message || e);
+  }
+}
+
+// Order pane (ลำดับการแสดงประกาศ) — its own admin section below เขียนประกาศ.
+// Renders the drag-reorder + pin list and attaches SortableJS once.
+async function enterAnnouncementOrder() {
   const listEl = document.getElementById('announcementsOrderList');
   if (!listEl) return;
   try {
     await loadAnnouncements();
   } catch (e) {
-    console.warn('[admin-main] creator: loadAnnouncements failed:', e?.message || e);
+    console.warn('[admin-main] order: loadAnnouncements failed:', e?.message || e);
   }
   renderAnnouncementOrderList(listEl);
   // Attach SortableJS once. Re-renders replace the <li> elements but
   // SortableJS works off the parent <ul> so it picks up new children.
   if (!_orderSortableAttached && window.Sortable) {
     window.Sortable.create(listEl, {
-      handle: '.order-row-handle',
+      handle: '.order-card-handle',
+      draggable: '.order-card',
       animation: 150,
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       onEnd: async () => {
-        const ids = Array.from(listEl.querySelectorAll('.order-row'))
-          .map((li) => li.dataset.id);
+        const ids = Array.from(listEl.querySelectorAll('.order-card'))
+          .map((el) => el.dataset.id);
         await saveAnnouncementOrder(ids);
-        // saveAnnouncementOrder reloads announcements; re-render the list.
+        // saveAnnouncementOrder reloads announcements; re-render the cards.
         renderAnnouncementOrderList(listEl);
       },
     });
@@ -470,13 +498,53 @@ async function enterCreator() {
   }
 }
 
-// Exposed for the pencil button inside each order-row.
+// Open the announcement editor as a popup overlay (used when editing from the
+// manage cards). The editor lives in the creator pane; we float it on top of
+// whatever section is active instead of switching to it.
+function openEditorOverlay() {
+  const pane = document.getElementById('creatorPane');
+  if (!pane) return;
+  pane.classList.remove('d-none');
+  pane.classList.add('editor-overlay');
+  document.body.classList.add('editor-overlay-open');
+  pane.scrollTop = 0;
+}
+
+// Close the editor popup + reset the form. Hides the creator pane again unless
+// the creator section is itself active (inline edit via `#creator/{id}` deep
+// link), in which case it stays as a normal page.
+window.closeAnnouncementEditor = () => {
+  const pane = document.getElementById('creatorPane');
+  if (pane) {
+    pane.classList.remove('editor-overlay');
+    const activeSection = location.hash.replace(/^#/, '').split('/')[0];
+    if (activeSection !== 'creator') pane.classList.add('d-none');
+  }
+  document.body.classList.remove('editor-overlay-open');
+  cancelEdit();
+};
+
+// Publish / delete finished — close the popup (if open) and refresh the
+// manage cards so order + pin state reflect the change.
+document.addEventListener('announcement:changed', () => {
+  const pane = document.getElementById('creatorPane');
+  if (pane?.classList.contains('editor-overlay')) window.closeAnnouncementEditor();
+  const listEl = document.getElementById('announcementsOrderList');
+  if (listEl) renderAnnouncementOrderList(listEl);
+});
+
+// Exposed for clicking a manage card. Fill the editor form with that post and
+// float it as a popup overlay (instead of redirecting to the เขียนประกาศ pane).
 window.editAnnouncementById = (id) => {
-  // Open the editor form for this article; collapse the order panel so
-  // the form is the user's focus.
   editAnnouncement(id);
-  const panel = document.getElementById('announcementsOrderPanel');
-  if (panel) panel.open = false;
+  openEditorOverlay();
+};
+
+// Exposed for the pin chip on each manage card. togglePinAnnouncement reloads
+// announcements; re-render the cards so the new pin state shows.
+window.togglePinAnnouncement = async (id) => {
+  const ok = await togglePinAnnouncement(id);
+  if (ok) renderAnnouncementOrderList(document.getElementById('announcementsOrderList'));
 };
 
 /** Handle `#creator/{id}` deep-link: navigate to the creator pane and
@@ -526,6 +594,7 @@ const SIDE_FEATURE = {
   shop:     'samoshop',
   projects: 'projects',
   creator:  'creator',
+  order:    'creator',   // same gate as เขียนประกาศ — announcement management
   team:     'team',
 };
 

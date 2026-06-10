@@ -22,3 +22,7 @@
 @import './css/workspace.css';
 @import './css/vs-admin.css';
 @import './css/team.css';
+/* news.css: the announcement manage page (ลำดับการแสดงประกาศ) reuses the
+   public news-card system so admin cards match the public page. */
+@import './css/news.css';
+@import './css/announcements-admin.css';

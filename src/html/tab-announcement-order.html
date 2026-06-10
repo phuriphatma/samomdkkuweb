@@ -1,0 +1,24 @@
+      <!-- ANNOUNCEMENT ORDER — its own admin section (below เขียนประกาศ).
+           Drag rows to reorder, use the pin button to pick the single
+           featured home post, pencil to edit. Populated by
+           renderAnnouncementOrderList() on entry and refreshed after
+           pin / reorder / publish. SortableJS handles the drag UX.
+           This file is bare content — admin/index.html includes it inside
+           its workspace shell pane. -->
+      <div class="creator-content">
+        <div class="form-container creator-shell" style="max-width: 920px;">
+
+          <div class="creator-head mb-4">
+            <div>
+              <h2 class="page-header mb-1"><i
+                  class="bi bi-list-ol me-2 text-pink-custom"></i>ลำดับการแสดงประกาศ</h2>
+              <p class="text-muted mb-0">คลิกการ์ดเพื่อแก้ไข · ลากที่จับ <i class="bi bi-grip-vertical"></i> เพื่อจัดเรียงลำดับ · กดหมุดเพื่อเลือกโพสต์เด่นบนหน้าแรก</p>
+            </div>
+          </div>
+
+          <div class="news-grid news-grid--archive announcements-order-grid" id="announcementsOrderList">
+            <p class="text-muted small text-center py-4 mb-0">กำลังโหลด…</p>
+          </div>
+
+        </div>
+      </div>

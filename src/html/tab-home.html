@@ -5,6 +5,10 @@
       <div class="tab-pane fade show active" id="pills-home" role="tabpanel">
         <div class="container home-container">
 
+          <!-- WELCOME BANNER — first thing a visitor sees, above the auth strip. -->
+          <img src="/welcome-banner.svg" class="home-welcome-banner"
+            alt="ยินดีต้อนรับสู่ MDKKU SAMO PORTAL" />
+
           <!-- AUTH STRIP — compact CTA when signed-out, slim welcome when signed-in.
                No giant hero; the news IS the hero now. -->
           <section id="homeAuthSignedOut" class="home-auth-cta">
@@ -41,7 +45,7 @@
             </header>
 
             <div id="homeNewsFeatured"></div>
-            <div id="homeNewsGrid" class="news-grid"></div>
+            <div id="homeNewsGrid" class="news-grid news-grid--home"></div>
 
             <div class="news-empty d-none" id="homeNewsEmpty">
               <i class="bi bi-newspaper"></i>

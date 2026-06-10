@@ -147,6 +147,9 @@
           <button type="button" class="workspace-side-item d-none" data-admin-side="creator">
             <i class="bi bi-pencil-square"></i><span>เขียนประกาศ</span>
           </button>
+          <button type="button" class="workspace-side-item d-none" data-admin-side="order">
+            <i class="bi bi-list-ol"></i><span>ลำดับการแสดงประกาศ</span>
+          </button>
 
           <!-- External tools — opens in a new tab. No data-admin-side
                (these don't switch admin panes) and no role gate (everyone
@@ -291,8 +294,12 @@
             <include src="./src/html/tab-projects.html" />
           </section>
 
-          <section data-admin-pane="creator" class="d-none an-tab">
+          <section data-admin-pane="creator" class="d-none an-tab" id="creatorPane">
             <include src="./src/html/tab-creator.html" />
+          </section>
+
+          <section data-admin-pane="order" class="d-none an-tab">
+            <include src="./src/html/tab-announcement-order.html" />
           </section>
 
           <section data-admin-pane="team" class="d-none team-tab">

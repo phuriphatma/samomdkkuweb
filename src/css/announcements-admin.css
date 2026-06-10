@@ -1,0 +1,158 @@
+/* ==============================================
+ * ANNOUNCEMENT MANAGEMENT (admin only)
+ *
+ * Styles for the "ลำดับการแสดงประกาศ" manage page (cards mirroring the
+ * public announcement archive, with a drag handle + pin chip) and the
+ * editor popup overlay. Loaded only by admin.css — the public app has no
+ * manage page. The card base (.news-card / .news-grid--archive) comes from
+ * news.css, which admin.css also imports so the cards match the public page.
+ * ============================================== */
+
+/* --- ANNOUNCEMENT MANAGE CARDS --- */
+
+/* Grid of editorial cards (reuses .news-grid--archive look). Each card is
+   clickable to edit; the drag handle + pin chip overlay the image. */
+.announcements-order-grid .order-card {
+  position: relative;
+  cursor: pointer;
+}
+
+.order-card .news-card-media {
+  position: relative;   /* anchor the handle + pin chip */
+}
+
+/* The pinned card is ringed in brand-orange so the featured home post is
+   obvious at a glance. Only one card carries .is-pinned at a time. */
+.order-card.is-pinned {
+  outline: 2px solid var(--brand-orange);
+  outline-offset: -2px;
+}
+
+.order-card-edit {
+  color: var(--brand-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Drag handle — top-left grip over the image. */
+.order-card-handle {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  background: rgba(17, 17, 17, 0.55);
+  cursor: grab;
+}
+
+.order-card.sortable-chosen .order-card-handle { cursor: grabbing; }
+
+/* Pin chip — top-right. Dark glass by default, solid brand-orange when this
+   is the featured post. */
+.order-card-pin {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  background: rgba(17, 17, 17, 0.6);
+  cursor: pointer;
+}
+
+.order-card-pin:hover { background: rgba(17, 17, 17, 0.8); }
+
+.order-card-pin.is-pinned,
+.order-card-pin.is-pinned:hover { background: var(--brand-orange); }
+
+.order-card.sortable-ghost {
+  opacity: 0.4;
+}
+
+.order-card.sortable-ghost .news-card-media { background: var(--green-50); }
+
+/* --- ANNOUNCEMENT EDITOR POPUP OVERLAY --- */
+
+/* The creator pane normally renders inline (เขียนประกาศ page). When opened
+   for editing from a manage card, JS adds .editor-overlay so the SAME editor
+   floats on top of the current section as a popup — no duplicate editor. */
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;                 /* below Bootstrap modals (1050+) so the
+                                    cover-image cropper still stacks on top */
+  overflow-y: auto;
+  background: rgba(15, 15, 20, 0.55);
+  padding: 1.5rem 1rem 3rem;
+}
+
+.editor-overlay .creator-content { width: 100%; }
+
+.editor-overlay .creator-shell {
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.3);
+  padding: 1.5rem 1.5rem 1.75rem;
+  position: relative;
+}
+
+body.editor-overlay-open { overflow: hidden; }
+
+/* Close (X) — only visible in popup mode. */
+.editor-overlay-close {
+  display: none;
+}
+
+.editor-overlay .editor-overlay-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  color: var(--ink-600);
+  background: var(--ink-100);
+  font-size: 0.9rem;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.editor-overlay .editor-overlay-close:hover {
+  background: var(--ink-200);
+  color: var(--ink-900);
+}
+
+/* --- CREATOR PREVIEW (ดูตัวอย่าง) --- */
+
+/* The preview renders the public article layout (renderArticleView), but the
+   admin bundle doesn't load article.css — so without this the cover/body
+   images render at their intrinsic size and overflow the card. Clamp every
+   image (and reset the default <figure> margin) to the preview width. */
+.creator-preview-wrap img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.creator-preview-wrap figure {
+  margin: 0;
+}

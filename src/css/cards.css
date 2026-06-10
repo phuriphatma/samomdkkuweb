@@ -14,6 +14,15 @@
   max-width: 1180px;
 }
 
+/* Welcome banner — above the auth strip; spans full content width */
+.home-welcome-banner {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 0 1.5rem;
+  border-radius: var(--radius-lg);
+}
+
 /* Auth CTA (signed-out) — restrained, no glow strip */
 .home-auth-cta {
   background: var(--surface);

@@ -4,7 +4,7 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0053 APPLIED — none pending
+## Migrations through 0053 APPLIED — 0054 PENDING (announcements.pinned)
 
 All migrations through **0053 are APPLIED** to Supabase (real project
 `fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
@@ -13,6 +13,12 @@ All migrations through **0053 are APPLIED** to Supabase (real project
 delete his own signed files for re-sign). The latest signing-UX round (return/
 resend persistence + batching, comment notify-scope, collapsible sign status,
 multi-page e-sign) is **client-only — no migration**.
+
+**PENDING: `0054_announcement_pinned.sql`** — adds `announcements.pinned`
+(boolean, default false). The loader self-heals if the column is missing
+(warns once, disables pin) so the site keeps working pre-apply, but the home
+featured pin + the admin pin toggle do nothing until 0054 is applied. No new
+RLS policy (announcements_write already covers staff/dev/creator UPDATE).
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
@@ -60,6 +66,45 @@ RLS; the real signal is that `project_sign_requests` has no public policy (see
 lazy-loaded chunk, kept out of the public bundle). Modules:
 `src/js/projects/{sign,esign}.js`, `src/html/modal-project-{sign,esign}.html`,
 `tools/saprof-account.mjs`.
+## Announcement pinning + home featured + card manage page (feat/announcement-pin-cards)
+
+The home featured (large) card is now driven by an explicit `pinned` flag,
+NOT list position. The **"ลำดับการแสดงประกาศ" admin section** is its own sidebar tab below
+เขียนประกาศ (`data-admin-side="order"` → pane `data-admin-pane="order"`,
+`src/html/tab-announcement-order.html`, gated same as creator via
+`SIDE_FEATURE.order = 'creator'`, rendered by `enterAnnouncementOrder()`). It
+renders each announcement as an **editorial card** (reuses the public
+`news-grid--archive` look) via `renderAnnouncementOrderList` → `renderOrderCard`:
+drag handle + pin chip overlay the image, click the card to edit. SortableJS
+reorders (handle `.order-card-handle`, items `.order-card`); pin chip →
+`togglePinAnnouncement` (unpins others, at most one pinned).
+
+**Editing is a popup overlay, not a redirect.** Clicking a card calls
+`editAnnouncementById` → `editAnnouncement(id)` + `openEditorOverlay()`, which
+floats the SINGLE existing creator editor (the `#creatorPane`) on top via the
+`.editor-overlay` class (z-index 1040, below Bootstrap modals so the cover
+cropper still stacks). No duplicate editor / Quill instance. Close via the X
+or cancel (`window.closeAnnouncementEditor`), or automatically after
+publish/delete: `announcements.js` dispatches `announcement:changed`, and
+admin-main's listener closes the overlay + re-renders the cards. เขียนประกาศ
+sidebar tab still shows the same editor inline for NEW posts (`enterCreator`
+calls `cancelEdit()` for a clean form); `#creator/{id}` deep links also edit
+inline.
+
+CSS bundling note: `src/admin.css` now imports `news.css` (so the manage
+cards reuse the public news-card system) + a new `css/announcements-admin.css`
+(the `.order-card*` + `.editor-overlay*` styles, moved out of the public-only
+`article.css`). Previously admin.css excluded news/article as "public-only".
+Home render: **pinned post = big card on top + the 2 most recent others as
+small cards**; if nothing is pinned, all posts render small (no featured).
+Also this session: announcement archive page (`news-grid--archive`) switched
+to side-by-side cards (3:4 image left, text right, 3 per row desktop / 2
+tablet / 1 mobile); home grid is 2-up horizontal (`news-grid--home`); a
+`/welcome-banner.svg` home banner was added; archive + manage cards show 2 per
+row on phones. Files: `src/js/announcements.js`, `src/js/admin-main.js`,
+`src/css/news.css`, `src/css/article.css`, `src/css/cards.css`,
+`src/css/announcements-admin.css`, `src/html/tab-home.html`,
+`src/html/tab-announcement-order.html`.
 
 ## Shipped features (detail archived)
 

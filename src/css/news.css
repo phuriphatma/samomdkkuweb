@@ -160,9 +160,93 @@
   gap: 1.25rem;
 }
 
+/* HOME — two announcements per row, each a horizontal card:
+   3:4 portrait image on the left, text filling the rest. */
+.news-grid--home {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.news-grid--home .news-card {
+  flex-direction: row;
+}
+
+.news-grid--home .news-card-media {
+  flex: 0 0 40%;   /* 3:4 image takes ~40% of card width */
+}
+
+.news-grid--home .news-card-body {
+  flex: 1;
+  min-width: 0;    /* let the title clamp instead of forcing overflow */
+}
+
+/* HOME mobile — keep 2 per row but stack each card vertically (image top,
+   text below). Must come AFTER the desktop image-left rules above: media
+   queries don't add specificity, so at phone width the later same-specificity
+   rule wins — placing this block last is what makes it override `row`. */
+@media (max-width: 767.98px) {
+  .news-grid--home .news-card {
+    flex-direction: column;
+  }
+
+  .news-grid--home .news-card-media {
+    flex: none;   /* drop the 40% basis; full-width image on top */
+  }
+}
+
+/* Phones — keep the home grid 2 per row with a tighter gap. */
+@media (max-width: 575.98px) {
+  .news-grid--home {
+    gap: 0.75rem;
+  }
+}
+
+/* ARCHIVE — horizontal cards: 3:4 portrait image on the LEFT, text filling
+   the rest. 3 per row on desktop, 2 on tablet AND phones. Web-only
+   side-by-side — each card stacks vertically (image top) at phone width. */
 .news-grid--archive {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 991.98px) {
+  .news-grid--archive {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Phones — keep 2 per row (tighter gap so two cards fit a narrow screen). */
+@media (max-width: 575.98px) {
+  .news-grid--archive {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.news-grid--archive .news-card {
+  flex-direction: row;
+}
+
+.news-grid--archive .news-card-media {
+  flex: 0 0 38%;   /* 3:4 image column; body fills the remaining ~62% */
+}
+
+.news-grid--archive .news-card-body {
+  flex: 1;
+  min-width: 0;    /* let the title clamp instead of forcing overflow */
+}
+
+/* ARCHIVE mobile — stack each card vertically (image top, text below). Must
+   come AFTER the image-left rules above: media queries don't add specificity,
+   so the later same-specificity rule wins at phone width. */
+@media (max-width: 767.98px) {
+  .news-grid--archive .news-card {
+    flex-direction: column;
+  }
+
+  .news-grid--archive .news-card-media {
+    flex: none;
+  }
 }
 
 .news-card {
@@ -189,7 +273,10 @@
 
 .news-card-media {
   background: var(--ink-100);
-  aspect-ratio: 16 / 9;
+  /* 3:4 portrait — image is cropped (object-fit: cover) to this box, never
+     stretched. Shared by the home 2-up cards and the archive gallery. The
+     featured story keeps its own 16:9 via .news-featured-media. */
+  aspect-ratio: 3 / 4;
   overflow: hidden;
 }
 
