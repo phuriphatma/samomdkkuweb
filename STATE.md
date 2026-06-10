@@ -4,11 +4,15 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0050 APPLIED — NONE pending
+## Migrations through 0050 APPLIED — 0051 PENDING
 
 All migrations through **0050 are APPLIED** to Supabase (real project
 `fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050.
-No pending migrations.
+
+**0051 (`prof_comment_on_documents`) PENDING** — lets sa_prof UPDATE
+project_documents (comment) with a column guard limiting him to the
+`timeline` column only. Apply in the SQL editor; until then the prof's
+comment button is visible but his comment PATCH fails RLS.
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
