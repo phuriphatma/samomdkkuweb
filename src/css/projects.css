@@ -1518,3 +1518,37 @@
 @media (max-width: 720px) {
   .projects-tab .esign-side { flex-basis: 100%; }
 }
+
+/* ---- Unified file card: inline signing status + nested signed version ---- */
+.projects-tab .projects-file-block { margin-bottom: 0.35rem; }
+.projects-tab .projects-file-block .projects-file { margin-bottom: 0; }
+.projects-tab .projects-file-block.has-signed .projects-file {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+}
+
+.projects-tab .projects-file-sign-chip {
+  display: inline-flex; align-items: center;
+  font-size: 0.7rem; font-weight: 700;
+  padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+  white-space: nowrap;
+}
+.projects-tab .projects-file-sign-chip.is-pending  { background: rgba(13,148,136,0.12); color: #0d7a70; }
+.projects-tab .projects-file-sign-chip.is-signed   { background: var(--p-ok-soft); color: var(--p-ok); }
+.projects-tab .projects-file-sign-chip.is-rejected { background: var(--p-danger-soft); color: var(--p-danger); }
+
+.projects-tab .projects-file-signed {
+  border: 1px solid var(--p-line); border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: rgba(16, 185, 129, 0.04);
+  padding: 0.3rem 0.6rem 0.4rem 2.1rem;
+}
+.projects-tab .projects-file-signed-row {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.82rem; min-width: 0;
+}
+.projects-tab .projects-file-signed-label {
+  font-weight: 700; color: var(--p-ok); font-size: 0.72rem;
+}
+.projects-tab .projects-file-signed-name { color: var(--p-accent); text-decoration: none; min-width: 0; }
+.projects-tab .projects-file-signed-name:hover { text-decoration: underline; }
+.projects-tab .projects-file-signed-meta { margin-left: auto; color: var(--p-muted); font-size: 0.72rem; white-space: nowrap; }

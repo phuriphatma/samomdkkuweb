@@ -4,15 +4,17 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0050 APPLIED — 0051 PENDING
+## Migrations through 0051 APPLIED — 0052 PENDING
 
-All migrations through **0050 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050.
+All migrations through **0051 are APPLIED** to Supabase (real project
+`fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
+(workflow) + 0051 (prof comment via column-guarded project_documents UPDATE).
 
-**0051 (`prof_comment_on_documents`) PENDING** — lets sa_prof UPDATE
-project_documents (comment) with a column guard limiting him to the
-`timeline` column only. Apply in the SQL editor; until then the prof's
-comment button is visible but his comment PATCH fails RLS.
+**0052 (`signed_file_link`) PENDING — MANDATORY for any signing.** Adds
+`project_files.signs_file_id` (links a signed output to the original it
+signs, for the inline-status file UI). `uploadSignedFile` always sends this
+column now, and PostgREST rejects unknown columns — so until 0052 is applied
+BOTH e-sign and reupload signed-file inserts fail. Apply in the SQL editor.
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
@@ -21,6 +23,11 @@ sastaff sends a chosen SUBSET of a หนังสือ's files to the professo
 (in-browser e-sign on the PDF, or upload an externally-signed file) or rejects
 (back to sastaff). vpa sees all progress. sastaff also got file add/replace/remove
 parity with vpa (file ops now notify the other seat + the prof if shown to him).
+The prof can also COMMENT (0051) and is wired into the inbox highlight system
+(permanent "รอลงนาม" pill + seenAt "อัปเดต"). Accepting does NOT require a signed
+file (it's an approval; signing is optional). Signing status is shown INLINE on
+each attached file with the signed version nested beneath it (renderFileCard) —
+the old separate "การลงนาม" section is now just a compact request-status bar.
 
 Live: migration 0050 applied, `saprof` seeded (password `1234`; synthetic email
 never delivers), GAS redeployed with `getProjectFileData` (e-sign Drive-bytes

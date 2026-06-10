@@ -2182,22 +2182,42 @@ async function loadFilesForDoc(docId) {
     // pill clears too (lastActed bumps past file.uploaded_at).
     const doc = findDocById(docId)?.doc;
     const lastActed = doc ? myLastActionTime(doc, role) : 0;
-    // The professor's signed uploads are rendered inside the sign section
-    // (so they sit next to the request they answer) — keep them out of the
-    // generic attached-files list to avoid duplication. A signed file whose
-    // request was cancelled (FK set null) is an orphan with no sign section
-    // to live in, so fall it BACK into the general list rather than hiding it.
-    const listFilesForRow = files.filter((f) => !(f.is_signed && f.sign_request_id));
-    if (listFilesForRow.length === 0) {
+    const requests = doc?.sign_requests || [];
+
+    // UNIFIED file list: each ORIGINAL file carries its own signing status
+    // chip + its signed version nested right beneath it, so the reader never
+    // has to cross-reference a separate "การลงนาม" section to learn what's
+    // been signed.
+    const originals = files.filter((f) => !f.is_signed);
+    const signedFiles = files.filter((f) => f.is_signed);
+    // Most-relevant request covering an original file (prefer pending, else
+    // the most recent).
+    const requestForFile = (fid) => {
+      const reqs = requests.filter((r) => (r.file_ids || []).map(String).includes(String(fid)));
+      if (reqs.length === 0) return null;
+      reqs.sort((a, b) =>
+        (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1)
+        || new Date(b.requested_at || b.created_at) - new Date(a.requested_at || a.created_at));
+      return reqs[0];
+    };
+    // Signed outputs linked to a specific original (e-sign sets signs_file_id).
+    const signedFor = (fid) => signedFiles.filter((s) => String(s.signs_file_id) === String(fid));
+
+    if (originals.length === 0) {
       wrap.innerHTML = '<div class="text-muted small py-2">ยังไม่มีไฟล์แนบ</div>';
     } else {
-      wrap.innerHTML = listFilesForRow.map((f) => {
-        const newness = fileNewnessForRole(f, lastActed, role);
-        return renderFileRow(f, canManage, newness);
-      }).join('');
+      wrap.innerHTML = originals.map((f) => renderFileCard(f, {
+        canManage,
+        newness: fileNewnessForRole(f, lastActed, role),
+        role,
+        docId,
+        request: requestForFile(f.id),
+        signedVersions: signedFor(f.id),
+      })).join('');
     }
-    // Render the professor signing section with the freshly-fetched file
-    // rows so request file-names + signed outputs resolve to real files.
+    // Request-level bar: the sastaff note, the prof's accept/reject decision,
+    // reject reason, reupload, actor cancel, and any signed uploads NOT tied
+    // to a specific original (reupload path → signs_file_id null).
     renderSignSection(docId, files);
   } catch (e) {
     wrap.innerHTML = `<div class="text-danger small py-2">โหลดไฟล์ไม่สำเร็จ: ${escHtml(e.message || e)}</div>`;
@@ -2220,30 +2240,39 @@ function fileNewnessForRole(file, lastActed, role) {
   return 'new';
 }
 
-function renderFileRow(f, canManage, newness) {
+/** Unified attached-file card: the file itself, its inline signing-status
+ *  chip, the professor's e-sign button (when a pending request covers it),
+ *  the actor replace/delete controls, and any signed version(s) nested right
+ *  beneath. Merges what used to be two cross-referenced sections (ไฟล์แนบ +
+ *  การลงนาม) into one. */
+function renderFileCard(f, { canManage, newness, role, docId, request, signedVersions }) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
+  const isProf = role === 'sa_prof';
+  const pending = request?.status === 'pending';
+  const hasSigned = signedVersions.length > 0;
+
   const newnessCls   = newness ? `is-${newness}` : '';
   const newnessBadge = newness === 'new'
     ? `<span class="projects-file-newness-pill is-new"><i class="bi bi-stars me-1"></i>ใหม่</span>`
-    : newness === 'replaced'
-    ? `<span class="projects-file-newness-pill is-replaced"><i class="bi bi-arrow-repeat me-1"></i>แทนที่ใหม่</span>`
     : '';
-  return `
-    <div class="projects-file ${newnessCls}">
-      <i class="bi ${icon} projects-file-icon"></i>
-      <div class="projects-file-info">
-        <div class="projects-file-name-row">
-          <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
-          ${newnessBadge}
-        </div>
-        <div class="projects-file-meta">
-          <span>${escHtml(fmtBytes(f.size_bytes))}</span>
-          <span>·</span>
-          <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
-        </div>
-      </div>
-      ${canManage ? `<label class="btn btn-sm btn-ghost">
+
+  // Signing-status chip ON the file (no cross-reference needed). A file that
+  // has a signed version reads "ลงนามแล้ว" regardless of request status.
+  let chip = '';
+  if (hasSigned) {
+    chip = `<span class="projects-file-sign-chip is-signed"><i class="bi bi-patch-check-fill me-1"></i>ลงนามแล้ว</span>`;
+  } else if (request) {
+    if (request.status === 'pending')       chip = `<span class="projects-file-sign-chip is-pending"><i class="bi bi-hourglass-split me-1"></i>รอลงนาม</span>`;
+    else if (request.status === 'accepted') chip = `<span class="projects-file-sign-chip is-signed"><i class="bi bi-patch-check me-1"></i>อนุมัติแล้ว</span>`;
+    else if (request.status === 'rejected') chip = `<span class="projects-file-sign-chip is-rejected"><i class="bi bi-x-octagon me-1"></i>ตีกลับ</span>`;
+  }
+
+  const esignBtn = (isProf && pending && request && isPdfFile(f))
+    ? `<button type="button" class="btn btn-sm btn-teal-soft" data-sign-esign data-sign-req="${escHtml(request.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-pen me-1"></i>ลงนาม</button>`
+    : '';
+
+  const manageBtns = canManage ? `<label class="btn btn-sm btn-ghost">
         <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
         <input type="file" hidden data-replace-for-file="${f.id}" />
       </label>
@@ -2253,7 +2282,35 @@ function renderFileRow(f, canManage, newness) {
         data-file-url="${safeUrl(f.drive_view_url || '')}"
         aria-label="ลบไฟล์" title="ลบไฟล์">
         <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">ลบ</span>
-      </button>` : ''}
+      </button>` : '';
+
+  const signedRows = signedVersions.map((s) => `
+    <div class="projects-file-signed-row">
+      <i class="bi bi-patch-check-fill text-success"></i>
+      <span class="projects-file-signed-label">ฉบับลงนาม</span>
+      <a href="${safeUrl(s.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-signed-name text-truncate">${escHtml(s.file_name)}</a>
+      <span class="projects-file-signed-meta">${escHtml(fmtDateTime(s.uploaded_at))}</span>
+    </div>`).join('');
+
+  return `
+    <div class="projects-file-block ${hasSigned ? 'has-signed' : ''}">
+      <div class="projects-file ${newnessCls}">
+        <i class="bi ${icon} projects-file-icon"></i>
+        <div class="projects-file-info">
+          <div class="projects-file-name-row">
+            <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-name">${escHtml(f.file_name)}</a>
+            ${newnessBadge}${chip}
+          </div>
+          <div class="projects-file-meta">
+            <span>${escHtml(fmtBytes(f.size_bytes))}</span>
+            <span>·</span>
+            <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
+          </div>
+        </div>
+        ${esignBtn}
+        ${manageBtns}
+      </div>
+      ${signedRows ? `<div class="projects-file-signed">${signedRows}</div>` : ''}
     </div>
   `;
 }
@@ -2296,33 +2353,29 @@ function renderSignSection(docId, files) {
   const role = cache.role;
   const isProf = role === 'sa_prof';
   const canCancel = role === 'uni_staff' || role === 'dev';
-  const byId = new Map(files.map((f) => [String(f.id), f]));
 
+  // The per-file signing status + signed versions now live INLINE in the file
+  // list (renderFileCard). This bar only carries the REQUEST-level bits: the
+  // sastaff note, the prof's accept/reject decision, the reject reason, the
+  // reupload action, the actor cancel, and any signed uploads that aren't tied
+  // to a specific original (reupload path → signs_file_id null).
   const cards = requests.map((r) => {
     const meta = SIGN_STATUS_META[r.status] || SIGN_STATUS_META.pending;
     const pending = r.status === 'pending';
-    const reqFiles = (r.file_ids || []).map((id) => byId.get(String(id))).filter(Boolean);
-    const signedFiles = files.filter((f) => f.is_signed && String(f.sign_request_id) === String(r.id));
+    const looseSigned = files.filter((f) =>
+      f.is_signed && String(f.sign_request_id) === String(r.id) && !f.signs_file_id);
+    const nFiles = (r.file_ids || []).length;
     return `
       <div class="projects-sign-card ${meta.cls}">
         <div class="projects-sign-card-head">
           <span class="projects-sign-status ${meta.cls}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.label)}</span>
-          <span class="text-muted small ms-2">${escHtml(fmtDateTime(r.requested_at || r.created_at))}</span>
+          <span class="text-muted small ms-2">${nFiles} ไฟล์ · ${escHtml(fmtDateTime(r.requested_at || r.created_at))}</span>
         </div>
         ${r.note ? `<div class="projects-sign-note"><i class="bi bi-chat-square-quote me-1"></i>${escHtml(r.note)}</div>` : ''}
-        <div class="projects-sign-files">
-          <div class="projects-sign-files-label">ไฟล์ที่ขอลงนาม</div>
-          ${reqFiles.length ? reqFiles.map((f) => `
-            <div class="projects-sign-file">
-              <i class="bi ${iconForExt((f.file_name || '').split('.').pop()?.toLowerCase())} me-1"></i>
-              <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="text-truncate">${escHtml(f.file_name)}</a>
-              ${(isProf && pending && isPdfFile(f)) ? `<button type="button" class="btn btn-sm btn-teal-soft ms-auto" data-sign-esign data-sign-req="${escHtml(r.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-pen me-1"></i>ลงนาม</button>` : ''}
-            </div>`).join('') : '<div class="text-muted small">— ไม่พบไฟล์ —</div>'}
-        </div>
-        ${signedFiles.length ? `
+        ${looseSigned.length ? `
           <div class="projects-sign-files signed">
-            <div class="projects-sign-files-label">ไฟล์ที่ลงนามแล้ว</div>
-            ${signedFiles.map((f) => `
+            <div class="projects-sign-files-label">ไฟล์ที่ลงนาม (อัปโหลด)</div>
+            ${looseSigned.map((f) => `
               <div class="projects-sign-file">
                 <i class="bi bi-patch-check-fill text-success me-1"></i>
                 <a href="${safeUrl(f.drive_view_url)}" target="_blank" rel="noopener" class="text-truncate">${escHtml(f.file_name)}</a>
@@ -2336,7 +2389,7 @@ function renderSignSection(docId, files) {
               <i class="bi bi-cloud-upload me-1"></i>อัปโหลดไฟล์ที่เซ็นแล้ว
               <input type="file" hidden multiple data-sign-reupload="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}" />
             </label>
-            <button type="button" class="btn btn-sm btn-success-soft" data-sign-accept data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-check-circle me-1"></i>ยอมรับการลงนาม</button>
+            <button type="button" class="btn btn-sm btn-success-soft" data-sign-accept data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-check-circle me-1"></i>ยอมรับ (อนุมัติ)</button>
             <button type="button" class="btn btn-sm btn-danger-soft" data-sign-reject data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-x-circle me-1"></i>ปฏิเสธ</button>
           </div>` : ''}
         ${(canCancel && pending) ? `
@@ -2347,7 +2400,7 @@ function renderSignSection(docId, files) {
   });
 
   wrap.innerHTML = `
-    <div class="projects-files-head mt-3"><span><i class="bi bi-pen me-1"></i>การลงนามของอาจารย์</span></div>
+    <div class="projects-files-head mt-3"><span><i class="bi bi-pen me-1"></i>สถานะการลงนาม</span></div>
     ${cards.join('')}`;
 }
 
@@ -2358,8 +2411,10 @@ function onSendSignClick(btn) {
 }
 
 /** Upload one signed file (esign Blob or reuploaded File) and record it as
- *  an is_signed project_files row tagged to the request. */
-async function uploadSignedFile({ doc, project, reqId, fileLike, user }) {
+ *  an is_signed project_files row tagged to the request. `signsFileId` links
+ *  the signed output to the ORIGINAL file it signs (e-sign knows it; reupload
+ *  leaves it null → shown at request level). */
+async function uploadSignedFile({ doc, project, reqId, fileLike, user, signsFileId = null }) {
   const folder = buildDocFolderPath(project.id, project.name, doc.id, doc.title);
   const up = await uploadProjectFile(fileLike, folder);
   await createFile({
@@ -2372,6 +2427,7 @@ async function uploadSignedFile({ doc, project, reqId, fileLike, user }) {
     uploaded_by: user?.id || null,
     sign_request_id: reqId,
     is_signed: true,
+    signs_file_id: signsFileId,
   });
 }
 
@@ -2401,7 +2457,7 @@ async function onSignEsignClick(btn) {
     const signedName = `${base} (ลงนาม).pdf`;
     showFilesBusy(docId, 'กำลังบันทึกไฟล์ที่ลงนาม…');
     const signedFile = new File([signedBlob], signedName, { type: 'application/pdf' });
-    await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user });
+    await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user, signsFileId: fileRow.id });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `ลงนามไฟล์ "${fileRow.file_name}" (e-sign)`,
