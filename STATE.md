@@ -1,24 +1,26 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-08. Slim by design — "what is true right now",
+Last updated: 2026-06-10. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0053 APPLIED — 0054 PENDING (announcements.pinned)
+## Migrations through 0054 APPLIED — none pending
 
-All migrations through **0053 are APPLIED** to Supabase (real project
+All migrations through **0054 are APPLIED** to Supabase (real project
 `fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
 (workflow) + 0051 (prof comment via column-guarded project_documents UPDATE)
 + 0052 (`signs_file_id` link for inline signed-file UI) + 0053 (sa_prof may
-delete his own signed files for re-sign). The latest signing-UX round (return/
-resend persistence + batching, comment notify-scope, collapsible sign status,
-multi-page e-sign) is **client-only — no migration**.
+delete his own signed files for re-sign). 0054 (`announcements.pinned` flag —
+home featured post). The latest signing-UX round (return/resend persistence +
+batching, comment notify-scope, collapsible sign status, multi-page e-sign) is
+**client-only — no migration**.
 
-**PENDING: `0054_announcement_pinned.sql`** — adds `announcements.pinned`
-(boolean, default false). The loader self-heals if the column is missing
-(warns once, disables pin) so the site keeps working pre-apply, but the home
-featured pin + the admin pin toggle do nothing until 0054 is applied. No new
-RLS policy (announcements_write already covers staff/dev/creator UPDATE).
+`main` and `refactor/modular` are **in sync at the same commit** (PR #11
+fast-forwarded into both). `announcements.pinned` (0054) is live — verified
+queryable via anon PostgREST (`select=pinned` → 200). The loader self-heals if
+the column is ever absent (warns once, disables pin), and `baseSelect` excludes
+`pinned` so the excerpt/display_order fallbacks never re-request it. No new RLS
+policy (announcements_write already covers staff/dev/creator UPDATE).
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 
