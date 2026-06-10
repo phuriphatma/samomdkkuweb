@@ -4,17 +4,23 @@ Last updated: 2026-06-08. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## Migrations through 0051 APPLIED — 0052 PENDING
+## Migrations through 0051 APPLIED — 0052 + 0053 PENDING
 
 All migrations through **0051 are APPLIED** to Supabase (real project
 `fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
 (workflow) + 0051 (prof comment via column-guarded project_documents UPDATE).
 
-**0052 (`signed_file_link`) PENDING — MANDATORY for any signing.** Adds
+**0052 (`signed_file_link`) — MANDATORY for any signing.** Adds
 `project_files.signs_file_id` (links a signed output to the original it
 signs, for the inline-status file UI). `uploadSignedFile` always sends this
 column now, and PostgREST rejects unknown columns — so until 0052 is applied
-BOTH e-sign and reupload signed-file inserts fail. Apply in the SQL editor.
+BOTH e-sign and reupload signed-file inserts fail.
+
+**0053 (`prof_replace_signed_file`) — needed for re-sign/edit.** Widens the
+project_files DELETE policy so a sa_prof caller may delete his OWN signed
+files (is_signed AND uploaded_by = auth.uid()). Without it, re-signing /
+re-uploading a signed file leaves the old one behind (a duplicate). First-time
+signing works without 0053.
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 

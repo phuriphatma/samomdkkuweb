@@ -278,10 +278,18 @@ function lastActivityTime(p) {
 // surfaces; both lists include `file_deleted` so a delete by the other
 // side counts as activity worth re-flashing.
 const INCOMING_ACTIONS = {
-  uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'file_deleted', 'returned', 'comment']),
-  vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment']),
+  // Both internal seats now upload files (sastaff has parity with vpa), so
+  // each must see the OTHER's file ops as incoming. Both also see the
+  // professor's sign decisions (sign_accepted / sign_rejected, appended to
+  // the doc timeline so the inbox highlight + banner pick them up).
+  uni_staff: new Set(['sent', 'file_added', 'file_replaced', 'file_deleted', 'returned', 'comment',
+                       'sign_accepted', 'sign_rejected']),
+  vp_admin:  new Set(['received', 'in_progress', 'completed', 'returned', 'comment',
+                       'file_added', 'file_replaced', 'file_deleted',
+                       'sign_accepted', 'sign_rejected']),
   dev:       new Set(['sent', 'received', 'in_progress', 'completed', 'returned',
-                       'file_added', 'file_replaced', 'file_deleted', 'comment']),
+                       'file_added', 'file_replaced', 'file_deleted', 'comment',
+                       'sign_accepted', 'sign_rejected']),
   // The professor tracks file changes AND comments on a หนังสือ shown to him
   // (he's now part of the comment thread). The sastaff↔vpa status churn
   // (received / in_progress / completed) is still noise to him. A NEW signing
@@ -943,32 +951,6 @@ function actionRequiredOn(doc, role) {
   return false;
 }
 
-// Actions that count as "I've meaningfully engaged with this doc"
-// for the file "ใหม่" pill. Comments deliberately don't — leaving a
-// note on a sent หนังสือ shouldn't make the new file pills disappear.
-// The doc-card อัปเดต pill + the update banner clear on view (seenAt);
-// file pills clear ONLY on status change, so uni_staff still sees
-// "ใหม่" on the attachment after they briefly opened the หนังสือ but
-// haven't yet clicked รับเรื่อง.
-const STATUS_CLEARING_ACTIONS = new Set([
-  'received', 'in_progress', 'completed', 'returned', 'sent',
-]);
-
-/** Timestamp of the current role's most recent status-clearing action
- *  on this doc. 0 = never acted — every attached file lights up as
- *  ใหม่ on first open and STAYS lit until status changes. */
-function myLastActionTime(doc, role) {
-  const tl = doc.timeline || [];
-  for (let i = tl.length - 1; i >= 0; i--) {
-    const e = tl[i];
-    if (e.role === role && STATUS_CLEARING_ACTIONS.has(e.action)) {
-      const t = new Date(e.at).getTime();
-      if (!isNaN(t)) return t;
-    }
-  }
-  return 0;
-}
-
 // Map a timeline action to its display label / icon for the update
 // banner. The banner is a chronological "since you last opened…" list,
 // so we cover every incoming action class. Comments deliberately have
@@ -982,6 +964,8 @@ const ACTION_LABEL = {
   file_added:    'เพิ่มไฟล์',
   file_replaced: 'แทนที่ไฟล์',
   file_deleted:  'ลบไฟล์',
+  sign_accepted: 'อาจารย์ลงนาม/อนุมัติ',
+  sign_rejected: 'อาจารย์ส่งกลับ',
 };
 const ACTION_ICON = {
   sent:          'bi-send',
@@ -992,6 +976,8 @@ const ACTION_ICON = {
   file_added:    'bi-cloud-plus-fill',
   file_replaced: 'bi-arrow-repeat',
   file_deleted:  'bi-x-circle',
+  sign_accepted: 'bi-patch-check',
+  sign_rejected: 'bi-x-octagon',
 };
 
 /**
@@ -1268,6 +1254,15 @@ function markDocSeen(docId) {
   }
 }
 
+/** Mark seen AND drop the frozen pre-expand seenAt, so highlights clear
+ *  immediately on the next render instead of lingering for the reading
+ *  session. Used after the professor acts (sign / accept / reject) — once
+ *  he's engaged a file, its "ใหม่" / "อัปเดต" highlight should be gone. */
+function markDocSeenAndClear(docId) {
+  expandedDocsSeenAt.delete(docId);
+  markDocSeen(docId);
+}
+
 function renderCommentsList(doc, role, seenAtOverride) {
   const comments = (doc.timeline || []).filter((e) => e.action === 'comment');
   if (comments.length === 0) return '';
@@ -1399,6 +1394,9 @@ function actionLabel(a) {
     case 'file_added':   return 'เพิ่มไฟล์';
     case 'file_replaced':return 'แทนที่ไฟล์';
     case 'file_deleted': return 'ลบไฟล์';
+    case 'sign_accepted':return 'อาจารย์ลงนาม / อนุมัติ';
+    case 'sign_rejected':return 'อาจารย์ส่งกลับ';
+    case 'signed_file':  return 'แนบไฟล์ที่ลงนาม';
     case 'draft':        return 'บันทึกร่าง';
     default:             return a || '';
   }
@@ -2181,8 +2179,13 @@ async function loadFilesForDoc(docId) {
     // click รับเรื่อง / ส่งกลับ / ดำเนินการ / completed, the file
     // pill clears too (lastActed bumps past file.uploaded_at).
     const doc = findDocById(docId)?.doc;
-    const lastActed = doc ? myLastActionTime(doc, role) : 0;
     const requests = doc?.sign_requests || [];
+    const myId = getUser()?.id || null;
+    // Freeze the pre-expand seenAt (same pattern as the doc body) so file
+    // "ใหม่" pills persist while the user is reading and clear next open.
+    const seenAtForFiles = expandedDocsSeenAt.has(docId)
+      ? expandedDocsSeenAt.get(docId)
+      : getDocSeenAt(docId);
 
     // UNIFIED file list: each ORIGINAL file carries its own signing status
     // chip + its signed version nested right beneath it, so the reader never
@@ -2208,9 +2211,10 @@ async function loadFilesForDoc(docId) {
     } else {
       wrap.innerHTML = originals.map((f) => renderFileCard(f, {
         canManage,
-        newness: fileNewnessForRole(f, lastActed, role),
         role,
         docId,
+        myId,
+        seenAt: seenAtForFiles,
         request: requestForFile(f.id),
         signedVersions: signedFor(f.id),
       })).join('');
@@ -2225,19 +2229,17 @@ async function loadFilesForDoc(docId) {
 }
 
 /** Returns 'new' | null — whether the viewer should see a "ใหม่" pill on
- *  this file. Compares the file's upload time to the viewer's last
- *  status-clearing action (see myLastActionTime). VPA always sees null
- *  because they uploaded the file themselves. */
-function fileNewnessForRole(file, lastActed, role) {
-  // Customer mirror has no per-user action history, so lastActed is
-  // always 0 and EVERY file would light up "ใหม่". The read-only viewer
-  // has no "new since I last acted" concept — never tag files.
-  if (customerMode) return null;
-  if (role === 'vp_admin') return null;
+ *  this file. A file is "new" to the viewer when SOMEONE ELSE uploaded it
+ *  after the viewer last opened the หนังสือ. Two rules the user asked for:
+ *    - never flag a file I uploaded myself (so sastaff's own upload isn't
+ *      stuck "ใหม่" — only the other side sees it), and
+ *    - clear on VIEW (seenAt), so opening the หนังสือ removes the pill. */
+function fileNewnessForViewer(file, seenAt, myId) {
+  if (customerMode || !myId) return null;       // no identity → no "new" concept
+  if (file.uploaded_by && file.uploaded_by === myId) return null;  // my own upload
   const uploaded = new Date(file.uploaded_at).getTime();
   if (isNaN(uploaded)) return null;
-  if (lastActed > 0 && uploaded <= lastActed) return null;
-  return 'new';
+  return uploaded > (seenAt || 0) ? 'new' : null;
 }
 
 /** Unified attached-file card: the file itself, its inline signing-status
@@ -2245,13 +2247,16 @@ function fileNewnessForRole(file, lastActed, role) {
  *  the actor replace/delete controls, and any signed version(s) nested right
  *  beneath. Merges what used to be two cross-referenced sections (ไฟล์แนบ +
  *  การลงนาม) into one. */
-function renderFileCard(f, { canManage, newness, role, docId, request, signedVersions }) {
+function renderFileCard(f, { canManage, role, docId, myId, seenAt, request, signedVersions }) {
   const ext = (f.file_name || '').split('.').pop()?.toLowerCase();
   const icon = iconForExt(ext);
   const isProf = role === 'sa_prof';
-  const pending = request?.status === 'pending';
+  // The prof can sign AND keep editing the signed file after อนุมัติ — so
+  // sign/reupload stay available while pending OR accepted (not rejected).
+  const canSign = isProf && request && (request.status === 'pending' || request.status === 'accepted');
   const hasSigned = signedVersions.length > 0;
 
+  const newness = fileNewnessForViewer(f, seenAt, myId);
   const newnessCls   = newness ? `is-${newness}` : '';
   const newnessBadge = newness === 'new'
     ? `<span class="projects-file-newness-pill is-new"><i class="bi bi-stars me-1"></i>ใหม่</span>`
@@ -2268,9 +2273,17 @@ function renderFileCard(f, { canManage, newness, role, docId, request, signedVer
     else if (request.status === 'rejected') chip = `<span class="projects-file-sign-chip is-rejected"><i class="bi bi-x-octagon me-1"></i>ตีกลับ</span>`;
   }
 
-  const esignBtn = (isProf && pending && request && isPdfFile(f))
-    ? `<button type="button" class="btn btn-sm btn-teal-soft" data-sign-esign data-sign-req="${escHtml(request.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-pen me-1"></i>ลงนาม</button>`
-    : '';
+  // Prof sign controls, inline on the file. e-sign for PDFs; reupload (a
+  // device-signed file) for anything. Both REPLACE the file's existing signed
+  // version. Label flips to "แก้ไข" once a signed version already exists.
+  const signLabel = hasSigned ? 'ลงนามใหม่' : 'ลงนาม';
+  const reupLabel = hasSigned ? 'เปลี่ยนไฟล์ที่เซ็น' : 'อัปโหลดไฟล์ที่เซ็น';
+  const profBtns = canSign ? `
+      ${isPdfFile(f) ? `<button type="button" class="btn btn-sm btn-teal-soft" data-sign-esign data-sign-req="${escHtml(request.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-pen me-1"></i>${signLabel}</button>` : ''}
+      <label class="btn btn-sm btn-primary-soft mb-0">
+        <i class="bi bi-cloud-upload me-1"></i><span class="d-none d-md-inline">${reupLabel}</span>
+        <input type="file" hidden data-sign-reupload="${escHtml(request.id)}" data-sign-file="${escHtml(f.id)}" data-doc-id="${escHtml(docId)}" />
+      </label>` : '';
 
   const manageBtns = canManage ? `<label class="btn btn-sm btn-ghost">
         <i class="bi bi-arrow-repeat"></i><span class="d-none d-md-inline ms-1">แทนที่</span>
@@ -2284,13 +2297,17 @@ function renderFileCard(f, { canManage, newness, role, docId, request, signedVer
         <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">ลบ</span>
       </button>` : '';
 
-  const signedRows = signedVersions.map((s) => `
+  const signedRows = signedVersions.map((s) => {
+    const sNew = fileNewnessForViewer(s, seenAt, myId);
+    return `
     <div class="projects-file-signed-row">
       <i class="bi bi-patch-check-fill text-success"></i>
       <span class="projects-file-signed-label">ฉบับลงนาม</span>
       <a href="${safeUrl(s.drive_view_url)}" target="_blank" rel="noopener" class="projects-file-signed-name text-truncate">${escHtml(s.file_name)}</a>
+      ${sNew ? `<span class="projects-file-newness-pill is-new"><i class="bi bi-stars me-1"></i>ใหม่</span>` : ''}
       <span class="projects-file-signed-meta">${escHtml(fmtDateTime(s.uploaded_at))}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   return `
     <div class="projects-file-block ${hasSigned ? 'has-signed' : ''}">
@@ -2307,7 +2324,7 @@ function renderFileCard(f, { canManage, newness, role, docId, request, signedVer
             <span>${escHtml(fmtDateTime(f.uploaded_at))}</span>
           </div>
         </div>
-        ${esignBtn}
+        ${profBtns}
         ${manageBtns}
       </div>
       ${signedRows ? `<div class="projects-file-signed">${signedRows}</div>` : ''}
@@ -2385,10 +2402,7 @@ function renderSignSection(docId, files) {
           ? `<div class="projects-sign-reject"><i class="bi bi-exclamation-triangle me-1"></i>เหตุผลที่ส่งกลับ: ${escHtml(r.reject_reason)}</div>` : ''}
         ${(isProf && pending) ? `
           <div class="projects-sign-actions">
-            <label class="btn btn-sm btn-primary-soft">
-              <i class="bi bi-cloud-upload me-1"></i>อัปโหลดไฟล์ที่เซ็นแล้ว
-              <input type="file" hidden multiple data-sign-reupload="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}" />
-            </label>
+            <span class="text-muted small me-1">ลงนามรายไฟล์ด้านบน แล้วกด</span>
             <button type="button" class="btn btn-sm btn-success-soft" data-sign-accept data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-check-circle me-1"></i>ยอมรับ (อนุมัติ)</button>
             <button type="button" class="btn btn-sm btn-danger-soft" data-sign-reject data-sign-req="${escHtml(r.id)}" data-doc-id="${escHtml(docId)}"><i class="bi bi-x-circle me-1"></i>ปฏิเสธ</button>
           </div>` : ''}
@@ -2431,6 +2445,23 @@ async function uploadSignedFile({ doc, project, reqId, fileLike, user, signsFile
   });
 }
 
+/** Delete any existing signed output(s) for one original file — used to give
+ *  e-sign / reupload REPLACE semantics (so re-signing edits rather than piling
+ *  up duplicates). The prof may delete his own signed files (migration 0053). */
+async function removeExistingSignedFor(docId, originalId) {
+  if (!originalId) return;
+  try {
+    const files = await listFiles(docId, { includeSuperseded: false });
+    const existing = files.filter((s) => s.is_signed && String(s.signs_file_id) === String(originalId));
+    for (const s of existing) {
+      await deleteFile(s.id).catch((err) => console.warn('[projects] old signed delete failed:', err?.message || err));
+      if (s.drive_view_url) deleteProjectFile(s.drive_view_url).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[projects] removeExistingSignedFor failed:', err?.message || err);
+  }
+}
+
 async function onSignEsignClick(btn) {
   const reqId = btn.dataset.signReq;
   const fileId = btn.dataset.signFile;
@@ -2456,12 +2487,14 @@ async function onSignEsignClick(btn) {
     const base = (fileRow.file_name || 'document.pdf').replace(/\.pdf$/i, '');
     const signedName = `${base} (ลงนาม).pdf`;
     showFilesBusy(docId, 'กำลังบันทึกไฟล์ที่ลงนาม…');
+    await removeExistingSignedFor(docId, fileRow.id);   // re-sign replaces
     const signedFile = new File([signedBlob], signedName, { type: 'application/pdf' });
     await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user, signsFileId: fileRow.id });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `ลงนามไฟล์ "${fileRow.file_name}" (e-sign)`,
     });
+    markDocSeenAndClear(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'ลงนามไม่สำเร็จ');
@@ -2472,22 +2505,23 @@ async function onSignEsignClick(btn) {
 async function onSignReupload(e) {
   const input = e.target;
   const reqId = input.dataset.signReupload;
+  const fileId = input.dataset.signFile;   // the original this signs
   const docId = input.dataset.docId;
-  const files = Array.from(input.files || []);
-  if (files.length === 0) return;
+  const f = input.files?.[0];
+  if (!f) { input.value = ''; return; }
   const found = findDocById(docId);
   if (!found) { input.value = ''; return; }
   const { doc, project } = found;
   const user = getUser();
   try {
     showFilesBusy(docId, 'กำลังอัปโหลดไฟล์ที่ลงนาม…');
-    for (const f of files) {
-      await uploadSignedFile({ doc, project, reqId, fileLike: f, user });
-    }
+    await removeExistingSignedFor(docId, fileId);   // reupload replaces
+    await uploadSignedFile({ doc, project, reqId, fileLike: f, user, signsFileId: fileId ? Number(fileId) : null });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
-      note: `อัปโหลดไฟล์ที่ลงนาม ${files.length} ไฟล์`,
+      note: `อัปโหลดไฟล์ที่ลงนาม "${f.name}"`,
     });
+    markDocSeenAndClear(docId);
     onChanged();
   } catch (err) {
     alert(err.message || 'อัปโหลดไม่สำเร็จ');
@@ -2526,6 +2560,15 @@ async function onSignAcceptClick(btn) {
       by: user?.id || null, role: 'sa_prof', action: 'accepted',
       note: hasSigned ? 'ยอมรับและลงนามแล้ว' : 'ยอมรับ (อนุมัติ)',
     }, { status: 'accepted', decided_at: new Date().toISOString() });
+    // Also stamp the DOC timeline so sastaff/vpa get the inbox highlight +
+    // banner on the โครงการ / หนังสือ (the request timeline alone isn't part
+    // of the doc-level unseen-activity system). Prof may write doc.timeline
+    // (migration 0051, column-guarded).
+    await appendDocTimeline(docId, {
+      by: user?.id || null, role: 'sa_prof', action: 'sign_accepted',
+      note: hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ยอมรับ (อนุมัติ)',
+    }).catch((err) => console.warn('[projects] sign_accepted doc-timeline failed:', err?.message || err));
+    markDocSeenAndClear(docId);
     onChanged();
     const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
     notifySignDecision({
@@ -2554,6 +2597,11 @@ async function onSignRejectClick(btn) {
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'rejected', note: reason,
     }, { status: 'rejected', reject_reason: reason, decided_at: new Date().toISOString() });
+    await appendDocTimeline(docId, {
+      by: user?.id || null, role: 'sa_prof', action: 'sign_rejected',
+      note: `อาจารย์ส่งกลับเพื่อแก้ไข: ${reason}`,
+    }).catch((err) => console.warn('[projects] sign_rejected doc-timeline failed:', err?.message || err));
+    markDocSeenAndClear(docId);
     onChanged();
     const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
     notifySignDecision({ project, document: doc, accepted: false, body: `อาจารย์ส่งกลับเพื่อแก้ไข — ${docRef}: ${reason}` });
