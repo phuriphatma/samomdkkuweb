@@ -117,7 +117,8 @@
               <!-- รายละเอียดงาน -->
               <h4 class="section-title"><i class="bi bi-card-checklist me-2"></i>รายละเอียดงาน</h4>
               <div class="mb-4">
-                <label class="form-label">ชื่องาน / Content <span class="text-danger">*</span></label>
+                <label class="form-label">ชื่องาน / Content <span class="text-danger">*</span>
+                  <small class="text-muted fw-normal">(รบกวนกรอกงานแยกหากต้องการสั่งหลายงาน)</small></label>
                 <input type="text" name="content" class="form-control" placeholder="ระบุชื่องานที่ต้องการโปรโมท"
                   required />
               </div>
@@ -177,15 +178,15 @@
                   <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat1"
                     value="ประชาสัมพันธ์ของคณะ" onchange="toggleOtherPlatformReason()" />
                   <label class="pill-checkbox-label other shadow-sm" for="otherPlat1"><i
-                      class="bi bi-building me-1"></i> ประชาสัมพันธ์ของคณะ</label>
+                      class="bi bi-building me-1"></i> ประชาสัมพันธ์ของคณะ <small class="opacity-75">เช่น ig: med.kku, facebook คณะแพทยศาสตร์</small></label>
                   <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat2"
                     value="ประชาสัมพันธ์ของมหาลัย" onchange="toggleOtherPlatformReason()" />
                   <label class="pill-checkbox-label other shadow-sm" for="otherPlat2"><i
-                      class="bi bi-mortarboard me-1"></i> ประชาสัมพันธ์ของมหาลัย</label>
+                      class="bi bi-mortarboard me-1"></i> ประชาสัมพันธ์ของมหาลัย <small class="opacity-75">เช่น ig: khonkaenuniversity</small></label>
                   <input type="checkbox" class="btn-check" name="otherPlatform" id="otherPlat3"
                     value="ประชาสัมพันธ์ต่างมหาลัย" onchange="toggleOtherPlatformReason()" />
                   <label class="pill-checkbox-label other shadow-sm" for="otherPlat3"><i class="bi bi-globe me-1"></i>
-                    ประชาสัมพันธ์ต่างมหาลัย</label>
+                    ประชาสัมพันธ์ต่างมหาลัย <small class="opacity-75">เช่น 3U, ผ่านตัวแทน SMST</small></label>
                 </div>
               </div>
 
@@ -303,6 +304,7 @@
                     style="background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>หมายเหตุ PR Review:</strong> ทีม PR
                     จะพิจารณาตามความเหมาะสมและภาระงาน โดยสามารถยอมรับ แก้วัน หรือปฏิเสธได้
+                    <div class="mt-1">แต่ละฝ่ายมี quota 1 ครั้งต่อ 1 เดือนเท่านั้น โดยจะสามารถทำงาน artwork งานด่วนได้เร็วสุดภายใน 3 วัน</div>
                   </div>
                   <label class="form-label">เหตุผลความจำเป็นที่ต้องการงานด่วน <span class="text-danger">*</span></label>
                   <textarea name="rushReason" id="rushReason" class="form-control bg-white" rows="2"
@@ -314,10 +316,12 @@
               <h4 class="section-title"><i class="bi bi-folder2-open me-2"></i>เนื้อหาและไฟล์แนบ</h4>
               <div class="mb-3">
                 <label class="form-label">Brief (บรีฟการออกแบบ)</label>
+                <p class="mb-2" style="font-size: 0.85rem; color: #475569; white-space: pre-line;">รบกวนแจ้งรายละเอียดเนื้อหาภายในโพสต์ให้ครบถ้วน เนื่องจากทีม PR และ ComArt อาจไม่ได้ทราบข้อมูลเชิงลึกของแต่ละฝ่าย
+จึงขอข้อมูลเพิ่มเติมเพื่อให้สามารถจัดทำสื่อได้อย่างถูกต้องและตรงตามวัตถุประสงค์ ทั้งนี้ หากเป็นงานในรูปแบบวิดีโอ รบกวนระบุแนวทางหรือประเด็นที่ต้องการนำเสนอ รวมถึงบทคร่าวฯ ขอบคุณค่ะ</p>
                 <div class="p-3 mb-2 rounded-3" style="background-color: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b; white-space: pre-wrap;"><strong class="text-pink-custom">ตัวอย่างวิธีบรีฟงาน</strong>
 Title: ชื่องาน
 Type: ประเภท
-Size: ขนาดที่ต้องการจะลง (ig post 4:5 1080x1350)
+Size: ขนาดที่ต้องการจะลง (ig post 3:4 1080x1440)
 Color: ถ้าเป็นงานอุปจะเป็นสีของอุป ถ้าเป็นโครงการสามารถกำหนดได้
 Theme: ธีมที่ต้องการ
 Elements: อยากใส่อะไรเป็นพิเศษ เช่น polaroid
@@ -325,7 +329,6 @@ Other/ Notes
 font
 บรีฟอื่นๆเพิ่มเติม
 Reference: ตัวอย่างคร่าวๆ
-(หากเป็นงานที่มีเนื้อหาเยอะ ให้แจ้งว่า)
 รายละเอียดแต่ละหน้า
 หน้าที่ 1: ใส่ข้อมูลอะไร
 หน้าที่ 2: ใส่ข้อมูลอะไร</div>
