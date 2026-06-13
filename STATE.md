@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-10. Slim by design — "what is true right now",
+Last updated: 2026-06-13. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
@@ -21,6 +21,19 @@ queryable via anon PostgREST (`select=pinned` → 200). The loader self-heals if
 the column is ever absent (warns once, disables pin), and `baseSelect` excludes
 `pinned` so the excerpt/display_order fallbacks never re-request it. No new RLS
 policy (announcements_write already covers staff/dev/creator UPDATE).
+
+## Vital Sound PDPA consent gate — client-only, SHIPPED (main + refactor)
+
+Sending a Vital Sound report pops a non-dismissible PDPA consent modal on
+EVERY send (`src/html/modal-vs-consent.html`, included in `index.html`;
+`vs-tab` teal accent; `data-bs-backdrop="static"` + no keyboard/X so the
+visitor must choose ยินยอม / ไม่ยินยอม). Flow: `handleVsFormSubmit` validates
+the form first (account/content), then parks the real send in `pendingSubmit`
+and shows the popup; ยินยอม runs `sendVsReport(form)`, ไม่ยินยอม clears it and
+shows a "การส่งถูกยกเลิก" notice. Nothing is persisted — consent is asked every
+time. Wiring: `initVsConsent` in `src/js/vs-form.js`, called from `main.js`
+after `initVsForm`. No migration — no personal data stored beyond the existing
+problem text. Public bundle only (absent from admin build).
 
 ## Professor (saprof) signing workflow — SHIPPED (main, ab3cb89)
 

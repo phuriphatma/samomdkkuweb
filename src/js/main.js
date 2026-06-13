@@ -21,7 +21,7 @@ import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnoun
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
-import { initVsForm, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
+import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
@@ -89,6 +89,10 @@ vsQuillRef = vsQuill;
 // ==============================================
 
 initVsForm(vsQuill);
+// PDPA consent gate for the Vital Sound report form. Wires the popup's
+// ยินยอม / ไม่ยินยอม buttons; the popup is triggered on every send attempt
+// from inside vs-form.js (handleVsFormSubmit), not on tab view.
+initVsConsent();
 
 // ==============================================
 // ATTACH FUNCTIONS TO WINDOW

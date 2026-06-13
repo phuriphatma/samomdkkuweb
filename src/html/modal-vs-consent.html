@@ -1,0 +1,78 @@
+  <!-- VitalSound PDPA consent gate — shown when a visitor opens the
+       Vital Sound tab. Static backdrop + no keyboard dismiss + no close X
+       so the visitor must explicitly choose ยินยอม / ไม่ยินยอม. Declining
+       blocks the report form (see vs-form.js consent gate); tracking an
+       existing ticket stays available. vs-tab class scopes the teal accent. -->
+  <div class="modal fade vs-tab" id="vsConsentModal" tabindex="-1"
+    data-bs-backdrop="static" data-bs-keyboard="false"
+    aria-labelledby="vsConsentLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header border-0 pb-2">
+          <h5 class="modal-title fw-bold text-pink-custom" id="vsConsentLabel">
+            <i class="bi bi-shield-lock-fill me-2"></i>ข้อกำหนดและเงื่อนไข (PDPA)
+          </h5>
+        </div>
+        <div class="modal-body pt-1">
+          <p class="mb-3">
+            ฝ่าย Student Engagement ตระหนักถึงความสำคัญของการคุ้มครองข้อมูลส่วนบุคคลของท่าน
+            เพื่อให้เป็นไปตาม <strong>พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</strong>
+            จึงขอแจ้งรายละเอียดการเก็บรวบรวม ใช้ หรือเปิดเผยข้อมูลส่วนบุคคล ดังนี้
+          </p>
+
+          <h6 class="fw-bold text-pink-custom">1. ข้อมูลที่มีการเก็บรวบรวม</h6>
+          <p class="mb-3">
+            ทีมงานจะทำการเก็บรวบรวมเฉพาะ <strong>ปัญหา</strong> และ
+            <strong>รายละเอียดของปัญหา</strong> เท่านั้น
+            โดยจะไม่มีการเก็บข้อมูลส่วนบุคคลอื่นใดทั้งสิ้น
+          </p>
+
+          <h6 class="fw-bold text-pink-custom">2. วัตถุประสงค์ของการเก็บรวบรวมข้อมูล</h6>
+          <p class="mb-1">ทีมงานจะนำข้อมูลที่ได้รับไปใช้เพื่อวัตถุประสงค์ดังต่อไปนี้</p>
+          <ul class="mb-3">
+            <li>วิเคราะห์ และทำความเข้าใจปัญหาที่เกิดขึ้น</li>
+            <li>แก้ไขปัญหาที่ท่านร้องเรียน</li>
+            <li>พัฒนาและปรับปรุงการดำเนินงาน และโครงสร้างที่อาจเป็นต้นตอของปัญหา</li>
+          </ul>
+
+          <h6 class="fw-bold text-pink-custom">3. การคุ้มครองข้อมูลส่วนบุคคล</h6>
+          <p class="mb-1">ทีมงานมีมาตรการคุ้มครองข้อมูลของท่าน ดังนี้</p>
+          <ul class="mb-3">
+            <li>ข้อมูลทั้งหมดจะถูกประมวลผลและนำเสนอในรูปแบบ
+              <strong>&ldquo;ไม่ระบุตัวตน&rdquo; (Anonymous)</strong>
+              โดยจะไม่มีการเชื่อมโยงกับชื่อ-นามสกุล
+              หรือข้อมูลอื่นใดที่สามารถระบุตัวตนของท่านได้</li>
+            <li>ทีมงานจะรับทราบเพียง <strong>ปัญหา</strong> และ
+              <strong>รายละเอียดของปัญหา</strong> เท่านั้น</li>
+            <li>บุคคลที่มีสิทธิ์เข้าถึงข้อมูลดังกล่าว ประกอบด้วย ฝ่าย Student Engagement,
+              อุปนายกสโมฯ และฝ่ายอื่น ๆ ที่เกี่ยวข้องภายในคณะ เท่านั้น</li>
+          </ul>
+
+          <div class="alert alert-light border small mb-0">
+            <i class="bi bi-info-circle-fill me-1 text-pink-custom"></i>
+            หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อฝ่าย Student Engagement ได้โดยตรงผ่าน
+            Instagram
+            <a href="https://instagram.com/sod.mdkku" target="_blank" rel="noopener"
+              class="fw-bold text-decoration-none text-pink-custom">@sod.mdkku</a>
+          </div>
+        </div>
+        <div class="modal-footer border-0 flex-column gap-2">
+          <p class="w-100 text-center fw-bold mb-1">
+            ท่านยินยอมให้เก็บรวบรวมข้อมูลตามรายละเอียดข้างต้นหรือไม่?
+          </p>
+          <div class="d-flex w-100 gap-2">
+            <button type="button" class="btn btn-outline-secondary flex-fill" id="vsConsentDecline">
+              <i class="bi bi-x-circle me-1"></i> ไม่ยินยอม
+            </button>
+            <button type="button" class="btn btn-submit flex-fill" id="vsConsentAccept"
+              style="font-size: 1rem; padding: 0.6rem;">
+              <i class="bi bi-check-circle-fill me-1"></i> ยินยอม
+            </button>
+          </div>
+          <p class="w-100 text-center text-muted small mb-0">
+            หากไม่ยินยอม จะไม่สามารถส่งเรื่องร้องเรียนได้
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>

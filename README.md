@@ -18,7 +18,9 @@ Both Cloudflare projects hit the same Supabase backend.
 - **PR submission.** Form-based job intake with file upload, deadline mode,
   multi-platform targets, and idempotent submit (safe to retry on network blip).
 - **Vital Sound tickets.** Confidential intake with dynamic department routing,
-  remarks thread, and cross-department consult/transfer for staff.
+  remarks thread, and cross-department consult/transfer for staff. A PDPA
+  consent popup appears every time a report is sent — only ยินยอม proceeds;
+  declining cancels that submission.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / type, sort, search),

@@ -86,6 +86,43 @@ export function initVsForm(quillInstance) {
   });
 }
 
+// --------------------------------------------------
+// PDPA consent gate
+//
+// EVERY time a visitor sends a Vital Sound report, they must explicitly
+// consent to the PDPA notice first. The submit handler validates the form,
+// then pops the consent popup and parks the actual send in `pendingSubmit`;
+// only ยินยอม runs it. Nothing is persisted — consent is asked on every send.
+// --------------------------------------------------
+
+// Holds the deferred send while a submit is awaiting the consent choice.
+let pendingSubmit = null;
+
+function getConsentModal() {
+  const el = document.getElementById('vsConsentModal');
+  if (!el || !window.bootstrap) return null;
+  return window.bootstrap.Modal.getOrCreateInstance(el);
+}
+
+export function initVsConsent() {
+  document.getElementById('vsConsentAccept')?.addEventListener('click', () => {
+    getConsentModal()?.hide();
+    const run = pendingSubmit;
+    pendingSubmit = null;
+    if (run) run();
+  });
+  document.getElementById('vsConsentDecline')?.addEventListener('click', () => {
+    pendingSubmit = null;
+    getConsentModal()?.hide();
+    const alertBox = document.getElementById('reportAlertBox');
+    if (alertBox) {
+      alertBox.innerHTML = '<i class="bi bi-info-circle me-1"></i> การส่งถูกยกเลิก — ต้องให้ความยินยอมตาม PDPA ก่อนจึงจะส่งเรื่องร้องเรียนได้';
+      alertBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+}
+
 // Persistent success card — replaces the previous native alert() so
 // users on every device (computer / iPad / mobile) can copy the
 // ticket id at their pace instead of memorizing it from a modal.
@@ -210,10 +247,13 @@ export function toggleEmergency() {
 // Form Submission
 // --------------------------------------------------
 
-async function handleVsFormSubmit(e) {
+// Validate the form, then require fresh PDPA consent before sending.
+// Validation runs FIRST so the visitor isn't asked to consent only to hit
+// a "fill in the problem" error afterwards. On valid input we park the real
+// send in `pendingSubmit` and pop the consent popup — it fires on EVERY send.
+function handleVsFormSubmit(e) {
   e.preventDefault();
-  const btn = e.target.querySelector('button[type="submit"]');
-  const ogText = btn.innerHTML;
+  const form = e.target;
   const alertBox = document.getElementById('reportAlertBox');
   alertBox.classList.add('d-none');
 
@@ -223,16 +263,29 @@ async function handleVsFormSubmit(e) {
     alertBox.classList.remove('d-none'); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
   }
 
-  const contentHtml = vsQuill.root.innerHTML;
   const contentText = vsQuill.getText().trim();
   if (contentText.length === 0) {
     alertBox.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> กรุณาระบุรายละเอียดปัญหาในกล่องข้อความ';
     alertBox.classList.remove('d-none'); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
   }
 
+  // Form is valid — gate the actual send behind a fresh PDPA consent.
+  pendingSubmit = () => sendVsReport(form);
+  getConsentModal()?.show();
+}
+
+// The actual send — runs only after the visitor taps ยินยอม in the consent
+// popup (invoked via the parked `pendingSubmit`).
+async function sendVsReport(form) {
+  const btn = form.querySelector('button[type="submit"]');
+  const ogText = btn.innerHTML;
+  const alertBox = document.getElementById('reportAlertBox');
+  alertBox.classList.add('d-none');
+
+  const contentHtml = vsQuill.root.innerHTML;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่งข้อมูล...'; btn.disabled = true;
 
-  const formData = new FormData(e.target);
+  const formData = new FormData(form);
   const submitter = authGetUser();
   const submitterLabel = submitter
     ? (submitter.email || (submitter.username ? `@${submitter.username}` : ''))
@@ -280,7 +333,7 @@ async function handleVsFormSubmit(e) {
     }
 
     showVsSuccessCard(ticketId, !submitter);
-    e.target.reset(); vsQuill.setText('');
+    form.reset(); vsQuill.setText('');
     document.getElementById('vsAccGuest').checked = true;
     toggleVsAccountFields(); toggleEmergency();
   } catch (error) {
