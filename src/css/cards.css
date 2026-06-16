@@ -1029,3 +1029,30 @@
   border-color: #eaeaea;
 }
 
+/* ==============================================
+ * DEPARTMENTS — level-2 detail layout overrides.
+ * Scoped to #deptsDetailTools / #deptsDetailCards so the shared
+ * .launcher-tool (เครื่องมือ tab) and .news-card (ประกาศ) base styles
+ * are untouched elsewhere.
+ * ============================================== */
+
+/* (1) Resource cards: 2 per row at every width (base archive grid is 3-up).
+   Cap the grid width + center it so each card is smaller on web; on mobile
+   the viewport is already narrower than the cap, so it's unaffected. */
+#deptsDetailCards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+/* (2) Tool cards: center them instead of left-hugging with empty tracks on
+   the right. auto-fit collapses empty tracks; justify-content centers the
+   filled ones, each capped so two cards don't stretch full-width. */
+#deptsDetailTools {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+  justify-content: center;
+}
+
+/* Note: the left accent-bar curve fix now lives on the base .launcher-tool
+   in launcher.css (the bug affected every tool card, not just here). */
+

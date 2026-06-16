@@ -292,6 +292,14 @@
   transform: scale(1.025);
 }
 
+/* Video covers (used by dept resource cards) crop to the same 3:4 box. */
+.news-card-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .news-card-body {
   padding: 1rem 1.1rem 1.15rem;
   display: flex;
@@ -311,6 +319,14 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Optional smaller description under the title (dept resource cards). */
+.news-card-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-500);
+  line-height: 1.4;
 }
 
 /* --- SHARED META ELEMENTS --- */
