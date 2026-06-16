@@ -162,6 +162,29 @@
             </ul>
           </div>
       </div>
+
+      <!-- Mobile-only sign-in button. On <lg the desktop auth area above is
+           hidden; this replaces the home auth strip so signed-out visitors
+           can log in straight from the top bar. Signed-in users manage their
+           account via the offcanvas drawer, so this only shows when signed
+           out (main.js toggles d-none). -->
+      <button type="button" id="navAuthSignedOutMobile"
+        class="btn btn-custom nav-signin-mobile ms-auto d-lg-none"
+        data-bs-toggle="modal" data-bs-target="#signinModal"
+        aria-label="เข้าสู่ระบบ">
+        <i class="bi bi-box-arrow-in-right me-1"></i><span class="nav-signin-label">Login</span>
+      </button>
+
+      <!-- Mobile-only sign-out button. Occupies the same top-bar slot as the
+           sign-in button above (main.js toggles d-none opposite it) so a
+           signed-in user can log out without opening the drawer. The offcanvas
+           signout + account management stay as-is. -->
+      <button type="button" id="navAuthSignedInMobile"
+        class="btn btn-custom-grey nav-signin-mobile ms-auto d-lg-none d-none"
+        onclick="samoSignOut()"
+        aria-label="ออกจากระบบ">
+        <i class="bi bi-box-arrow-right me-1"></i><span class="nav-signin-label">Logout</span>
+      </button>
     </div>
   </nav>
 

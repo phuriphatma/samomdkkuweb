@@ -201,6 +201,41 @@
   box-shadow: var(--shadow-focus-ring), 0 4px 12px rgba(16, 89, 34, 0.18);
 }
 
+/* Grey twin of .btn-custom — same pill shape / padding / weight / shadow,
+   neutral colour. Used for the mobile top-bar logout button so it reads as
+   a secondary action while matching the sign-in button's silhouette. */
+.btn-custom-grey {
+  background-color: #6c757d;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  box-shadow: 0 4px 12px rgba(73, 80, 87, 0.18);
+  transition:
+    background-color var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+
+.btn-custom-grey:hover,
+.btn-custom-grey:focus {
+  background-color: #5c636a;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(73, 80, 87, 0.28);
+}
+
+.btn-custom-grey:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px rgba(73, 80, 87, 0.22);
+}
+
+.btn-custom-grey:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring), 0 4px 12px rgba(73, 80, 87, 0.18);
+}
+
 /* Mobile hamburger */
 .navbar-toggler {
   border: 1px solid var(--ink-200) !important;
@@ -233,6 +268,21 @@
 
 .btn-custom {
   white-space: nowrap;
+}
+
+/* Mobile-only sign-in button in the top bar. Sits flush right (ms-auto)
+   opposite the hamburger; the absolutely-centered brand floats between
+   them. Kept small so it never crowds the "MDKKUSAMO" wordmark. */
+.nav-signin-mobile {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2; /* above the absolutely-centered brand if they ever meet */
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.nav-signin-mobile i {
+  font-size: 0.9rem;
 }
 
 .samo-navbar-auth .dropdown-toggle::after {
