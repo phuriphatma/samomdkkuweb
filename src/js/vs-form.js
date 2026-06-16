@@ -230,7 +230,9 @@ export async function verifyAccount() {}
 // --------------------------------------------------
 
 export function toggleEmergency() {
-  const isEmergency = document.getElementById('vsEmergency').checked;
+  const emergencyEl = document.getElementById('vsEmergency');
+  if (!emergencyEl) return; // emergency toggle temporarily hidden on customer view
+  const isEmergency = emergencyEl.checked;
   const deptSelect = document.getElementById('vsDepartment');
   const seOption = deptSelect.querySelector('option[value="SE"]');
   if (isEmergency) {

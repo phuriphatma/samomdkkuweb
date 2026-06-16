@@ -95,13 +95,16 @@
               </div>
 
               <h4 class="section-title"><i class="bi bi-chat-square-text me-2"></i>รายละเอียดปัญหา</h4>
-              <div class="form-check form-switch mb-3 p-3 rounded-3 shadow-sm"
+              <!-- TEMPORARILY HIDDEN on customer view (per request). Restore by
+                   un-commenting. toggleEmergency() in vs-form.js is null-safe so
+                   submit defaults to non-emergency (routes to SE) while hidden. -->
+              <!-- <div class="form-check form-switch mb-3 p-3 rounded-3 shadow-sm"
                 style="background-color: #fff1f2; border: 1.5px solid #fda4af">
                 <input class="form-check-input ms-0 me-3" type="checkbox" id="vsEmergency" name="vsEmergency"
                   value="true" onchange="toggleEmergency()" style="cursor: pointer; transform: scale(1.2)" />
                 <label class="form-check-label fw-bold text-danger mt-1" for="vsEmergency" style="cursor: pointer">🚨
                   กรณีฉุกเฉิน (ส่งเรื่องตรงถึงอุปนายกทันที ข้ามทีม SE)</label>
-              </div>
+              </div> -->
 
               <div class="mb-3">
                 <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
