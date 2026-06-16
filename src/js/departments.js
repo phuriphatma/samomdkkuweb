@@ -37,6 +37,23 @@ const DEPT_DEFS = {
         desc: 'ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว',
         color: 'var(--brand-primary)' },
     ],
+    // Announcement-style resource cards (cover image/video + title) that open
+    // an external link in a new tab. Covers live in /public/dept-admin/.
+    cards: [
+      { href: 'https://canva.link/vjavei9c6thy5wl', eyebrow: 'Guidebook',
+        title: 'Guidebook เหรัญญิก SAMO69',
+        cover: '/dept-admin/treasurer-guidebook.png', cta: 'เปิดใน Canva' },
+      { href: 'https://canva.link/hlmz649y2e7se85', eyebrow: 'Guidebook',
+        title: 'Guidebook ฝ่ายเอกสาร SAMO69',
+        cover: '/dept-admin/document-guidebook.png', cta: 'เปิดใน Canva' },
+      { href: 'https://canva.link/1ej1lt111zjy079', eyebrow: 'Workflow',
+        title: 'Project Workflow SAMO69',
+        video: '/dept-admin/project-workflow.mp4', cta: 'เปิดใน Canva' },
+      { href: 'https://docs.google.com/forms/d/e/1FAIpQLSc2J4O7sUcUYjNpPeFhbRZMreIBaAAVggUS7U0oFMX7KF_fxQ/viewform?pli=1',
+        eyebrow: 'Google Form', title: 'Project 1st Step SAMO69',
+        desc: 'Google form แจ้งการทำโครงการ',
+        cover: '/dept-admin/project-1st-step.png', cta: 'เปิดฟอร์ม' },
+    ]
   },
   digital: {
     eyebrow: 'Department',
@@ -131,6 +148,28 @@ function renderToolCard(tool) {
              data-dept-tool-tab="${escHtml(tool.tabId)}">${inner}</button>`;
 }
 
+// Announcement-style card (cover image OR looping muted video + title) that
+// opens an external link in a new tab. Mirrors renderNewsCard from
+// announcements.js so it reads the same as the ประกาศ listing.
+function renderNewsLinkCard(card) {
+  const media = card.video
+    ? `<video src="${escHtml(card.video)}" muted loop autoplay playsinline preload="metadata" aria-hidden="true"></video>`
+    : `<img src="${escHtml(card.cover)}" alt="" loading="lazy">`;
+  return `
+    <a class="news-card" href="${escHtml(card.href)}" target="_blank" rel="noopener">
+      <div class="news-card-media">${media}</div>
+      <div class="news-card-body">
+        ${card.eyebrow ? `<span class="news-eyebrow">${escHtml(card.eyebrow)}</span>` : ''}
+        <h4 class="news-card-title">${escHtml(card.title)}</h4>
+        ${card.desc ? `<p class="news-card-desc">${escHtml(card.desc)}</p>` : ''}
+        <div class="news-meta">
+          <span class="news-meta-cta">${escHtml(card.cta || 'เปิดลิงก์')} <i class="bi bi-box-arrow-up-right"></i></span>
+        </div>
+      </div>
+    </a>
+  `;
+}
+
 function showDept(deptKey) {
   const def = DEPT_DEFS[deptKey];
   if (!def) return;
@@ -157,6 +196,18 @@ function showDept(deptKey) {
   const toolsRoot = document.getElementById('deptsDetailTools');
   if (toolsRoot) {
     toolsRoot.innerHTML = def.tools.map(renderToolCard).join('');
+  }
+
+  // Announcement-style resource cards (optional, per-dept).
+  const cardsRoot = document.getElementById('deptsDetailCards');
+  if (cardsRoot) {
+    if (def.cards && def.cards.length) {
+      cardsRoot.innerHTML = def.cards.map(renderNewsLinkCard).join('');
+      cardsRoot.classList.remove('d-none');
+    } else {
+      cardsRoot.innerHTML = '';
+      cardsRoot.classList.add('d-none');
+    }
   }
 
   // Hash sync — so refresh + share work.
