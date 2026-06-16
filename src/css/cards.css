@@ -71,6 +71,15 @@
   white-space: nowrap;
 }
 
+/* On mobile the sign-in CTA moves to the top navbar (#navAuthSignedOutMobile),
+   so the home auth strip is hidden to keep the landing view clean. The
+   signed-in welcome strip below stays. */
+@media (max-width: 991.98px) {
+  .home-auth-cta {
+    display: none !important;
+  }
+}
+
 /* Signed-in welcome strip */
 .home-welcome {
   background: var(--surface);

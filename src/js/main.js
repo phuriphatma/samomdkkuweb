@@ -643,6 +643,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // Mobile top-bar sign-in button — only shown signed-out (and only <lg
+    // via its d-lg-none class). Replaces the home auth strip on mobile.
+    document.getElementById('navAuthSignedOutMobile')?.classList.toggle('d-none', !!user);
+    // Mobile top-bar sign-out button — mirror of the sign-in button, shown
+    // only when signed in (and only <lg via its d-lg-none class).
+    document.getElementById('navAuthSignedInMobile')?.classList.toggle('d-none', !user);
+
     // Mobile offcanvas: sign-in CTA (signed-out), user strip + sign-out (signed-in)
     document.getElementById('mobileAuthSignedOut')?.classList.toggle('d-none', !!user);
     document.getElementById('mobileAuthSignedIn')?.classList.toggle('d-none', !user);
