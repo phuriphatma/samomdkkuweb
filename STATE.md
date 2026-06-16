@@ -22,6 +22,15 @@ the column is ever absent (warns once, disables pin), and `baseSelect` excludes
 `pinned` so the excerpt/display_order fallbacks never re-request it. No new RLS
 policy (announcements_write already covers staff/dev/creator UPDATE).
 
+## Vital Sound emergency toggle — TEMPORARILY HIDDEN on customer view (main + refactor, 88de664)
+
+The 🚨 "กรณีฉุกเฉิน (ส่งเรื่องตรงถึงอุปนายกทันที ข้ามทีม SE)" checkbox is
+commented out in `src/html/tab-vitalsound.html` per request (temporary).
+`toggleEmergency()` in `src/js/vs-form.js` is now null-safe (early-returns when
+`#vsEmergency` is absent), so submits default to non-emergency routing (→ SE,
+status "รอ SE รับเรื่อง"). **To restore: un-comment the HTML block** — no other
+change needed; staff-side `is_emergency` rendering is untouched. Live on main.
+
 ## Vital Sound PDPA consent gate — client-only, SHIPPED (main + refactor)
 
 Sending a Vital Sound report pops a non-dismissible PDPA consent modal on
