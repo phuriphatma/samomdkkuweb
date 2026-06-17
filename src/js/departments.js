@@ -60,6 +60,11 @@ const DEPT_DEFS = {
         name: 'SAMO Resource Database (Notion)',
         desc: 'ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ',
         color: 'var(--dept-academic)' },
+      { kind: 'external', href: 'https://mseb.md.kku.ac.th/main',
+        icon: 'bi-card-checklist',
+        name: 'MDKKU Self Exam Bank',
+        desc: 'คลังข้อสอบสำหรับฝึกทำด้วยตนเอง',
+        color: 'var(--dept-academic)' },
     ],
   },
   strategy: {
