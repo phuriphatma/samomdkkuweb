@@ -15,13 +15,16 @@ home featured post). The latest signing-UX round (return/resend persistence +
 batching, comment notify-scope, collapsible sign status, multi-page e-sign) is
 **client-only — no migration**.
 
-`refactor/modular` is **ahead of `main`** by three feature PRs (all
-client-only, no migration): PR #14 (MDKKU Self Exam Bank link on ฝ่ายวิชาการ),
-PR #13 (ฝ่ายบริหารองค์กร announcement-style resource cards + base
-`.launcher-tool` accent-bar curve fix — `overflow:hidden`), PR #12 (mobile
-top-bar login/logout buttons). Before these, main and refactor were in sync at
-the same commit (PR #11 fast-forwarded into both). `announcements.pinned`
-(0054) is live — verified
+`main` and `refactor/modular` are **in sync at the same commit** — refactor
+fast-forwarded into main on 2026-06-17, shipping three client-only feature PRs
+(no migration): PR #14 (MDKKU Self Exam Bank link on ฝ่ายวิชาการ), PR #13
+(ฝ่ายบริหารองค์กร announcement-style resource cards + base `.launcher-tool`
+accent-bar curve fix — `overflow:hidden`), PR #12 (mobile top-bar login/logout
+buttons). FOLLOW-UP (external content, not code): the ฝ่ายบริหารองค์กร
+**treasurer Guidebook** Canva link redirected to a Canva login page in HTTP
+checks — confirm its share setting is "anyone with the link can view" (the
+other dept-card links opened fine; the Project 1st Step Google Form returned
+401, likely KKU-login-gated by design). `announcements.pinned` (0054) is live — verified
 queryable via anon PostgREST (`select=pinned` → 200). The loader self-heals if
 the column is ever absent (warns once, disables pin), and `baseSelect` excludes
 `pinned` so the excerpt/display_order fallbacks never re-request it. No new RLS
