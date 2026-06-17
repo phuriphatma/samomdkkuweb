@@ -15,10 +15,13 @@ home featured post). The latest signing-UX round (return/resend persistence +
 batching, comment notify-scope, collapsible sign status, multi-page e-sign) is
 **client-only — no migration**.
 
-`refactor/modular` is **ahead of `main` by one commit** (PR #14 — MDKKU Self
-Exam Bank link on ฝ่ายวิชาการ; client-only, no migration). Before PR #14 both
-were in sync at the same commit (PR #11 fast-forwarded into both).
-`announcements.pinned` (0054) is live — verified
+`refactor/modular` is **ahead of `main`** by three feature PRs (all
+client-only, no migration): PR #14 (MDKKU Self Exam Bank link on ฝ่ายวิชาการ),
+PR #13 (ฝ่ายบริหารองค์กร announcement-style resource cards + base
+`.launcher-tool` accent-bar curve fix — `overflow:hidden`), PR #12 (mobile
+top-bar login/logout buttons). Before these, main and refactor were in sync at
+the same commit (PR #11 fast-forwarded into both). `announcements.pinned`
+(0054) is live — verified
 queryable via anon PostgREST (`select=pinned` → 200). The loader self-heals if
 the column is ever absent (warns once, disables pin), and `baseSelect` excludes
 `pinned` so the excerpt/display_order fallbacks never re-request it. No new RLS
