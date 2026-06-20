@@ -1,8 +1,21 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-17. Slim by design — "what is true right now",
+Last updated: 2026-06-20. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
+
+## CI green again + shop delete degrades to archive (2026-06-20, refactor ahead of main)
+
+Two fixes on `refactor/modular` (client + CI only, no migration):
+- **CI build was red on every push** (Node 20 + supabase-js `npm test`
+  WebSocket throw). `.github/workflows/build.yml` now runs **Node 22**;
+  README prerequisite bumped to 22+. See mistakes-archive.md entry.
+- **Admin shop ลบสินค้า on an ordered product** failed with raw 23503 FK
+  JSON. `deleteProduct` now detects the `ON DELETE RESTRICT` FK and the
+  handler offers to **archive** (`is_active = false`, already-existing
+  column + read policy) instead. `archiveProduct` added to `shop/api.js`.
+Latent parallel: `project_doc_types` has the same restrict-FK but no
+delete UI — apply the same pattern if one is ever added.
 
 ## Migrations through 0054 APPLIED — none pending
 

@@ -18,7 +18,7 @@ import {
 import {
   listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
   addOrderItem, updateOrderItem, removeOrderItem, recomputeOrderTotals, adminCreateOrder,
-  listProducts, upsertProduct, deleteProduct, applyProductProductionStatus,
+  listProducts, upsertProduct, deleteProduct, archiveProduct, applyProductProductionStatus,
   listAllBatches, upsertBatch, closeBatch,
   getSettings, saveSettings,
   listShopBanners, createShopBanner, updateShopBanner, deleteShopBanner, reorderShopBanners,
@@ -2466,12 +2466,27 @@ function renderProductsTable() {
   });
   tbody.querySelectorAll('[data-product-delete]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm(`ลบสินค้า ${btn.dataset.productDelete}?`)) return;
+      const pid = btn.dataset.productDelete;
+      if (!confirm(`ลบสินค้า ${pid}?`)) return;
       try {
-        await deleteProduct(btn.dataset.productDelete);
+        await deleteProduct(pid);
         showShopToast('ลบสินค้าแล้ว', 'success');
         refreshProducts();
-      } catch (e) { showShopToast(`ลบไม่สำเร็จ: ${e.message || e}`, 'error'); }
+      } catch (e) {
+        // Product has order history → can't hard-delete. Offer to archive
+        // (hide from shop) instead, which keeps the order records intact.
+        if (e.code === 'PRODUCT_HAS_ORDERS') {
+          if (confirm('สินค้านี้มีประวัติการสั่งซื้อ จึงลบถาวรไม่ได้ (เพื่อรักษาบันทึกคำสั่งซื้อเดิม)\n\nต้องการ "ปิดการขาย" แทนไหม? สินค้าจะถูกซ่อนจากหน้าร้าน แต่ยังเห็นและเปิดขายใหม่ได้ในแอดมิน')) {
+            try {
+              await archiveProduct(pid);
+              showShopToast('ปิดการขายแล้ว (ซ่อนจากหน้าร้าน)', 'success');
+              refreshProducts();
+            } catch (e2) { showShopToast(`ปิดการขายไม่สำเร็จ: ${e2.message || e2}`, 'error'); }
+          }
+          return;
+        }
+        showShopToast(`ลบไม่สำเร็จ: ${e.message || e}`, 'error');
+      }
     });
   });
 }

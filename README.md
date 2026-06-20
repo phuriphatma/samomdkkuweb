@@ -91,7 +91,8 @@ For the full architecture map, schema, and deploy plumbing see
 
 ## Quick start
 
-Prerequisites: Node 20+.
+Prerequisites: Node 22+ (Node 20 lacks a global WebSocket, which supabase-js
+now hard-requires at import — `npm test` fails on it; CI runs Node 22).
 
 ```bash
 git clone https://github.com/phuriphatma/samomdkkuweb.git

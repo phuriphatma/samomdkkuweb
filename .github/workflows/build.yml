@@ -29,7 +29,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22 — supabase-js/realtime-js (imported transitively by
+          # src/js/db.js, which the Vitest suite loads) hard-throws
+          # "Node.js 20 detected without native WebSocket support" at import
+          # time on Node 20, which has no global WebSocket. Node 22 ships a
+          # stable global WebSocket, so `npm test` passes. (Build-only steps
+          # never execute db.js, but tests do.)
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       # We don't need real env vars at build time; Vite's import.meta.env

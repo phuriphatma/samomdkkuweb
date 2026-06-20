@@ -111,3 +111,59 @@ where this is added still requires one of the three steps above.
 Pattern to recognise: any "fix shipped, deploy verified, user
 still doesn't see it" report — first thing to check is whether
 the user's HTML cache predates the `_headers` fix.
+
+---
+
+## CI `npm test` fails on Node 20 — supabase-js throws "Node.js 20 detected without native WebSocket support" at import
+
+**Symptom**: Every GitHub Actions `build` run (build.yml) fails in ~18s,
+on `main` AND `refactor/modular`, for many commits in a row. Tests pass
+locally. The CI log's failing step is `npm test`, with
+`Error: Node.js 20 detected without native WebSocket support.` →
+`Process completed with exit code 1`. The build step is never reached.
+**Cause**: `@supabase/supabase-js` (^2.106.1) → realtime-js hard-throws at
+**import time** when `globalThis.WebSocket` is absent. Node 20 has no
+global WebSocket; Node 22 ships a stable one. At least one Vitest file
+transitively imports `src/js/db.js` (which imports `@supabase/supabase-js`),
+so the throw fires the moment Vitest loads that module — before any test
+runs. Tests pass locally only because the dev machine runs Node 22+.
+(`npm run build` is unaffected: Vite *bundles* db.js, it never *executes*
+its module-level code in Node — the WebSocket check only runs at real
+import, i.e. in the browser at runtime and in the Node test process.)
+**Fix**: Bump `node-version` in `.github/workflows/build.yml` from `'20'`
+to `'22'`. Also bumped README "Prerequisites" to Node 22+ so contributors
+don't hit the same wall locally. Do NOT pin CI back to Node 20 while on
+this supabase-js line. If a future need forces Node 20, the alternative is
+to stop the test process importing db.js (isolate the pure-helper tests) or
+polyfill `globalThis.WebSocket` in the Vitest setup — bumping Node is the
+cleaner fix.
+**Where**: `.github/workflows/build.yml` (`node-version: '22'`); `README.md`
+Quick start prerequisites.
+
+---
+
+## Hard-deleting a row referenced by an `ON DELETE RESTRICT` FK fails 23503 — degrade to archive, don't surface the raw error
+
+**Symptom**: Admin SAMO Shop → ลบสินค้า on a product that has been ordered
+→ "ลบไม่สำเร็จ: {"code":"23503", ... "shop_order_items_product_id_fkey" ...}".
+The raw PostgREST error JSON is dumped into the toast.
+**Cause**: `shop_order_items.product_id references shop_products(id) ON DELETE
+RESTRICT` (0003 schema) — deliberately protects order history. Any product
+that appears in even one order can never be hard-deleted; PostgREST returns
+Postgres error 23503 (the FK guard makes the DELETE a clean no-op, so nothing
+is half-deleted). `deleteProduct` rethrew `error.message` raw (which, via
+`dbRest`, is the whole PostgREST JSON body string — that's why the toast
+showed JSON).
+**Fix**: `shop_products` already has `is_active` + a read policy
+`using (is_active OR current_user_is_shop_admin())`, so archiving (set
+`is_active = false`) hides a product from the shop while keeping it visible to
+admin and preserving every order FK. Same write RLS as DELETE
+(`shop_products_write_admin` `for all`), so no auth change and no soft-delete-
+RLS trap. `deleteProduct` now detects 23503 / the FK name and throws a typed
+`PRODUCT_HAS_ORDERS` error; the admin click-handler offers a confirm to
+`archiveProduct()` instead.
+**Where**: `src/js/shop/api.js` (`deleteProduct` typed error +
+`archiveProduct`), `src/js/shop/admin.js` (delete handler fallback). **Latent
+parallel**: `project_documents.type_id references project_doc_types(id) ON
+DELETE RESTRICT` (0005) is the same class — no UI deletes doc types today, but
+if one is added, apply the same detect-23503-then-archive/block pattern.

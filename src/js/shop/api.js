@@ -273,9 +273,40 @@ export async function deleteProduct(id) {
     `/shop_products?id=eq.${idEsc}`,
     { method: 'DELETE', prefer: 'return=representation' },
   );
-  if (error) throw new Error(error.message || 'ลบสินค้าไม่สำเร็จ');
+  if (error) {
+    // shop_order_items.product_id references shop_products(id) ON DELETE
+    // RESTRICT (0003 schema): a product that appears in any order can't be
+    // hard-deleted without destroying order history. PostgREST surfaces this
+    // as Postgres error 23503. Throw a typed error so the caller can offer to
+    // archive (is_active = false) instead — the FK guard makes the failed
+    // DELETE a no-op, so nothing is half-deleted.
+    if (/23503|shop_order_items_product_id_fkey/.test(error.message || '')) {
+      const e = new Error('สินค้านี้มีประวัติการสั่งซื้อ จึงลบถาวรไม่ได้');
+      e.code = 'PRODUCT_HAS_ORDERS';
+      throw e;
+    }
+    throw new Error(error.message || 'ลบสินค้าไม่สำเร็จ');
+  }
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('ลบสินค้าไม่สำเร็จ (RLS หรือไม่มีแถวที่ตรง id)');
+  }
+  return true;
+}
+
+// Archive (hide from the shop) instead of deleting — for products that have
+// order history and so can't be hard-deleted. Sets is_active = false: the
+// product disappears from public reads (shop_products_read = is_active OR
+// admin) while staying visible to admins and keeping every order's FK intact.
+// Same RLS as delete (shop_products_write_admin `for all`), so no auth change.
+export async function archiveProduct(id) {
+  const idEsc = encodeURIComponent(id);
+  const { data, error } = await dbRest(
+    `/shop_products?id=eq.${idEsc}`,
+    { method: 'PATCH', body: { is_active: false }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ปิดการขายไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ปิดการขายไม่สำเร็จ (RLS หรือไม่พบรายการ)');
   }
   return true;
 }
