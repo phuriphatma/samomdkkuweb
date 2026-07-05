@@ -148,8 +148,8 @@ window.onCreatorThumbPicked = async (event) => {
   const dims = await dataUrlToDimensions(dataUrl);
   if (cropHint && dims) {
     let warning = '';
-    if (dims.width < 1200) {
-      warning = ` <span class="text-warning"><i class="bi bi-info-circle"></i> รูปต้นฉบับกว้าง ${dims.width}px (แนะนำ ≥1200px) — ลองภาพใหญ่กว่านี้เพื่อความคมชัด</span>`;
+    if (dims.width < 1536) {
+      warning = ` <span class="text-warning"><i class="bi bi-info-circle"></i> รูปต้นฉบับกว้าง ${dims.width}px (แนะนำ ≥1536px) — ลองภาพใหญ่กว่านี้เพื่อความคมชัด</span>`;
     }
     cropHint.innerHTML = `ลากเพื่อจัดวางส่วนสำคัญของภาพ — กรอบล็อกที่สัดส่วน 3:4 อัตโนมัติ.${warning}`;
   }
