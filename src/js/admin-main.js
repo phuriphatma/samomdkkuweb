@@ -89,10 +89,10 @@ initAnnouncements(creatorQuill);
 // ==============================================
 
 // --------------------------------------------------
-// Cover-image cropper (16:9, Cropper.js)
+// Cover-image cropper (3:4, Cropper.js)
 //
 // Pick a file → open the modal with Cropper.js, lock the crop box to
-// 16:9 → user pans/zooms → "ใช้รูปนี้" → canvas.toBlob → upload.
+// 3:4 → user pans/zooms → "ใช้รูปนี้" → canvas.toBlob → upload.
 // "ยกเลิก" leaves the existing cover untouched.
 // --------------------------------------------------
 
@@ -148,10 +148,10 @@ window.onCreatorThumbPicked = async (event) => {
   const dims = await dataUrlToDimensions(dataUrl);
   if (cropHint && dims) {
     let warning = '';
-    if (dims.width < 1200) {
-      warning = ` <span class="text-warning"><i class="bi bi-info-circle"></i> รูปต้นฉบับกว้าง ${dims.width}px (แนะนำ ≥1200px) — ลองภาพใหญ่กว่านี้เพื่อความคมชัด</span>`;
+    if (dims.width < 1536) {
+      warning = ` <span class="text-warning"><i class="bi bi-info-circle"></i> รูปต้นฉบับกว้าง ${dims.width}px (แนะนำ ≥1536px) — ลองภาพใหญ่กว่านี้เพื่อความคมชัด</span>`;
     }
-    cropHint.innerHTML = `ลากเพื่อจัดวางส่วนสำคัญของภาพ — กรอบล็อกที่สัดส่วน 16:9 อัตโนมัติ.${warning}`;
+    cropHint.innerHTML = `ลากเพื่อจัดวางส่วนสำคัญของภาพ — กรอบล็อกที่สัดส่วน 3:4 อัตโนมัติ.${warning}`;
   }
 
   destroyActiveCropper();
@@ -168,9 +168,9 @@ window.onCreatorThumbPicked = async (event) => {
   modalEl.addEventListener('shown.bs.modal', () => {
     if (!window.Cropper || !cropImg) return;
     _activeCropper = new window.Cropper(cropImg, {
-      aspectRatio: 16 / 9,
+      aspectRatio: 3 / 4,
       viewMode: 1,        // restrict crop box to within the canvas
-      autoCropArea: 1,    // start with the largest 16:9 fit
+      autoCropArea: 1,    // start with the largest 3:4 fit
       background: false,
       movable: true,
       zoomable: true,
@@ -200,11 +200,11 @@ async function confirmCropAndUpload() {
   const confirmBtn = document.getElementById('creatorCropperConfirm');
   const modalEl = document.getElementById('creatorCropperModal');
 
-  // Output a max-2000px-wide canvas (≈4MP) — good print/retina quality
+  // Output a max-1536×2048 canvas (3:4, ≈3MP) — good print/retina quality
   // but keeps the upload size reasonable.
   const canvas = _activeCropper.getCroppedCanvas({
-    maxWidth: 2000,
-    maxHeight: 1125,
+    maxWidth: 1536,
+    maxHeight: 2048,
     imageSmoothingEnabled: true,
     imageSmoothingQuality: 'high',
   });
@@ -228,9 +228,9 @@ async function confirmCropAndUpload() {
     if (urlInput) urlInput.value = url;
     if (preview) preview.innerHTML = `<img src="${url}" alt="thumbnail">`;
     if (clearBtn) clearBtn.classList.remove('d-none');
-    // Hint slot below the preview: confirm it's the cropped 16:9.
+    // Hint slot below the preview: confirm it's the cropped 3:4.
     const hint = document.getElementById('creatorThumbHint');
-    if (hint) hint.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>ตัดกรอบ 16:9 เรียบร้อย (${canvas.width}×${canvas.height})`;
+    if (hint) hint.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>ตัดกรอบ 3:4 เรียบร้อย (${canvas.width}×${canvas.height})`;
 
     if (modalEl && window.bootstrap) {
       window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
