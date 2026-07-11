@@ -11,6 +11,13 @@
 //
 // GAS still owns Drive uploads + the projects email — only Discord moved.
 //
+// Observability: every delivery outcome is also appended (best-effort) to
+// the `notify_log` table (migration 0055) so dropped notifications are
+// diagnosable after the fact — the console logs below are live-tail only
+// and retain nothing. That write needs two extra Pages env vars,
+// SUPABASE_URL + SUPABASE_ANON_KEY (same values as the VITE_ ones); if
+// they're unset the Function skips logging and behaves exactly as before.
+//
 // Contract (mirrors the old GAS createResponse): always HTTP 200 with a
 // `success` boolean for app-level outcomes; 400 only for an unparseable
 // body. The frontend `callGAS` in discord-queue.js already reads this
@@ -20,7 +27,15 @@
 // Actions:  notifyPROnly | notifyVSOnly | notifyVSConsult | notifyProjectDiscord
 // ==============================================
 
-import { resolveTarget, postToDiscord } from './_discord.js';
+import { resolveTarget, postToDiscord, logNotifyOutcome } from './_discord.js';
+
+/** Coarse system tag for the notify_log row (migration 0055). */
+function systemForAction(action) {
+  if (action === 'notifyPROnly') return 'pr';
+  if (action === 'notifyVSOnly' || action === 'notifyVSConsult') return 'vs';
+  if (action === 'notifyProjectDiscord') return 'projects';
+  return null;
+}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -29,7 +44,8 @@ function json(obj, status = 200) {
   });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  const { request, env } = context;
   let data;
   try {
     // The frontend sends Content-Type: text/plain (a CORS "simple
@@ -48,6 +64,26 @@ export async function onRequestPost({ request, env }) {
   }
 
   const res = await postToDiscord(url, payload);
+
+  // Durable outcome log (best-effort — migration 0055). Scheduled via
+  // waitUntil so it adds no latency to this response AND still completes
+  // if the fire-and-forget client has already navigated away by the time
+  // delivery finishes. No-ops when SUPABASE_* env vars are unset.
+  const logPromise = logNotifyOutcome(env, {
+    system: systemForAction(action),
+    action,
+    ticketId: data.ticketId,
+    dept: data.department || data.notifyTo || null,
+    ok: res.ok,
+    status: res.status,
+    firstStatus: res.firstStatus || null,
+    attempts: res.attempts,
+    retried: !!res.retried,
+    error: res.ok ? null : res.body,
+  });
+  if (typeof context.waitUntil === 'function') context.waitUntil(logPromise);
+  else logPromise.catch(() => {});
+
   if (!res.ok) {
     console.warn(`[notify] ${action} → Discord HTTP ${res.status} after ${res.attempts} attempt(s)`, res.body || '');
     return json({

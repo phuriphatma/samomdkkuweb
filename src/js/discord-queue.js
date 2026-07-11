@@ -2,32 +2,43 @@
 // DISCORD QUEUE — one rate-limit-aware notification core for the app
 //
 // Every Discord webhook fan-out in this app (PR form, Vital Sign,
-// หนังสือโครงการ) goes through GAS, and GAS shares its egress IP across
-// all our requests. The rate limit that actually bites is therefore
-// Cloudflare's per-IP filter (HTTP 429, body "error code: 1015",
-// cooldown measured in MINUTES) — NOT Discord's own per-webhook bucket
-// (~5 tokens / 2s). See `.claude/rules/mistakes.md`.
+// หนังสือโครงการ) now POSTs to the `/notify` Cloudflare Pages Function
+// (functions/notify.js), NOT GAS. That move changed the threat model:
 //
-// Because the binding limit is per-IP, the only effective client-side
-// defence is to serialise EVERY Discord-bound POST — regardless of which
-// webhook (PR / VS / projects) it targets — through ONE global chain with
-// a minimum spacing between calls. Two rapid user actions (or actions in
-// two different systems) can no longer fire parallel POSTs that trip 1015.
+//   - The Cloudflare-1015 per-IP block (body "error code: 1015", cooldown
+//     in MINUTES) was a GAS-shared-egress problem. Running on Cloudflare's
+//     own egress, our volume effectively never sees it. It is no longer
+//     the binding limit for this path.
+//   - The limit that remains is Discord's own per-webhook bucket
+//     (~5 tokens / 2s). The Function already handles that server-side:
+//     it retries 429 up to 3× honouring Retry-After. So a burst that
+//     briefly exceeds the bucket recovers WITHOUT client help.
 //
-// This module is the single home for that queue + the logged GAS caller.
+// The client queue therefore no longer needs the old 1015-era 6s spacing.
+// Its remaining job is small: serialise this tab's POSTs so two rapid
+// actions don't fire perfectly parallel and waste the Function's retry
+// budget. A short spacing is enough — and keeping it short matters,
+// because a call PARKED in the spacing delay hasn't been fetched yet, so
+// `keepalive` can't save it if the tab is backgrounded/closed (mobile
+// Safari freezes background tabs → a long park = a dropped notify). The
+// wide 6s was actively widening that drop window. See mistakes.md.
+//
+// This module is the single home for that queue + the logged caller.
 // Domain modules (projects/notify.js, notify.js) build their own payloads
 // and hand them here; they must NOT keep private copies of the queue.
 //
 // Usage:
 //   import { sendDiscord, callGAS, queueDiscord } from './discord-queue.js';
-//   sendDiscord(GAS_API_URL, 'notifyProjectDiscord', { title, fields });
+//   sendDiscord(NOTIFY_FN_URL, 'notifyProjectDiscord', { title, fields });
 // ==============================================
 
-// 6 seconds: wide enough to clear Cloudflare's 1015 cooldown window, not
-// just Discord's ~2s bucket. Field-observed: 2.2s spacing cleared the
-// Discord bucket but the FIRST action's retries still hit 1015; 6s makes
-// the next call far less likely to even SEE the 1015 page.
-let minSpacingMs = 6000;
+// 800ms: enough to break up perfectly-parallel POSTs from one tab (keeps
+// us well under Discord's 5/2s bucket at ~2.5 msg/2s worst case) while
+// keeping the in-queue park window short so a backgrounded/closed tab is
+// far less likely to lose a not-yet-fetched notify. The Function's 429
+// retry is the real rate-limit backstop; this is just parallel-guard.
+// (Was 6s in the GAS/1015 era — see the header note above.)
+let minSpacingMs = 800;
 
 let discordChain = Promise.resolve();
 let lastDiscordEndedAt = 0;
