@@ -72,7 +72,37 @@ schema, two repos stay separate.
   project B — nothing switched yet.
 - **SECURITY**: both projects' DB passwords were pasted in chat during this
   work — ROTATE BOTH (Supabase → Settings → Database → Reset password) once the
-  merge work is done.
+  merge work is done. (Applied via psql from the Mac with libpq/pg_dump.)
+
+### New-domain auth + passport-subpath bugs — DIAGNOSED, fixes pending (2026-07-21)
+
+On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
+1. **Login on samo.md.kku.ac.th → redirects to *.pages.dev** (both samoweb AND
+   passport). ROOT CAUSE: `samo.md.kku.ac.th` is NOT in either Supabase
+   project's Auth → URL Configuration → **Redirect URLs**, so the OAuth
+   `redirectTo` (correctly = current origin) is rejected and GoTrue falls back
+   to the **Site URL** (still pages.dev). FIX (user/dashboard, no code): add
+   `https://samo.md.kku.ac.th/**` to Redirect URLs on BOTH projects
+   (`fheueuowbchsnsvbcgil` + `idwlabpbwiwgaoqwbozz`), and add
+   `https://samo.md.kku.ac.th` to the Google OAuth client's Authorized
+   JavaScript origins. Leave Site URL = pages.dev (keeps pages.dev working).
+2. **"Admin Portal" on /passport → samoweb; passport nav broken at subpath.**
+   ROOT CAUSE: passport's internal nav is all ROOT-ABSOLUTE and Vite does NOT
+   rebase `<a href>` / JS string paths. Confirmed the built VM files still have
+   `/html/admin.html`, `/`, `/html/dashboard.html`. At `/passport/` these hit
+   samoweb. FIX (passport CODE, must verify before push — an unverified push
+   re-breaks pages.dev): (a) `js/routes.js` → `const BASE =
+   import.meta.env.BASE_URL; DASHBOARD: BASE+'html/dashboard.html'` etc. (HOME
+   = BASE). On pages.dev BASE='/' so identical to today. (b) make these
+   hardcoded links base-aware/relative: `index.html:71` Admin Portal
+   `/html/admin.html`; `html/admin.html:25` `/`; `html/partials/profile-menu.html:10`
+   `/` (included in dashboard.html → `../`); `html/scan.html:49,56` onclick
+   `/html/dashboard.html`. Then rebuild on VM: `PASSPORT_BASE=/passport/ npm run
+   build` + republish; verify built links show `/passport/...` AND `curl`
+   pages.dev still shows root `/html/...`.
+- passport `base` is now env-driven (`process.env.PASSPORT_BASE||'/'`); pages.dev
+  builds '/', VM builds '/passport/' (server/deploy.sh sets it). Both verified
+  200 on assets after the base-hardcode incident was fixed.
 
 ## notify_log (0055) shipped + hardened — MIGRATION PENDING, 2 manual steps to enable (2026-07-21, main + refactor in sync)
 
