@@ -45,6 +45,28 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
 
+## Passport→samoweb merge: Phase 0 DONE — `passport` schema live in project A (2026-07-21)
+
+Playbook: `docs/PASSPORT-MERGE.md`. Decided shape: one Supabase project
+(A=`fheueuowbchsnsvbcgil`) for SSO, passport data in an isolated `passport`
+schema, two repos stay separate.
+- **Phase 0 APPLIED to project A**: migration `0056_passport_schema.sql`
+  (faithful `pg_dump` port of live passport project B, re-homed under
+  `passport.*`) — 11 tables + `user_tiers` view + `handle_new_scan` points
+  trigger + RLS. Verified isolated: `public` stayed 23→23 tables, 0 leakage.
+  Reversible via `drop schema passport cascade`. The `auth.users`
+  `handle_new_user` trigger is DELIBERATELY NOT wired (0041 signup-brick risk);
+  profiles come from Phase 1 data copy + a guarded cutover mechanism.
+- passport repo now has `base: '/passport/'` committed (subpath hosting).
+- **NOT done**: (Phase 1) email-re-keyed data copy B→A; two manual steps to
+  actually use it — Supabase → Settings → API → Exposed schemas → add
+  `passport`; and point passport's supabase client at `{ db: { schema:
+  'passport' } }` (a passport code change at cutover). Passport still LIVE on
+  project B — nothing switched yet.
+- **SECURITY**: both projects' DB passwords were pasted in chat during this
+  work — ROTATE BOTH (Supabase → Settings → Database → Reset password) once the
+  merge work is done.
+
 ## notify_log (0055) shipped + hardened — MIGRATION PENDING, 2 manual steps to enable (2026-07-21, main + refactor in sync)
 
 PR #16 (durable Discord-notify logging + 6s→800ms queue spacing) was merged
