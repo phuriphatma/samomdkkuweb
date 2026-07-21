@@ -9,9 +9,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
-# Adjust WorkingDirectory to wherever you `git clone`d the repo on the VM.
+# Runs as `ubuntu` (not www-data) because the repo lives in ubuntu's home
+# (750 perms) and www-data couldn't read it — a classic silent-fail. This
+# service only runs node + makes outbound HTTPS calls; it never touches
+# /var/www, so it doesn't need the web user. setup.sh patches
+# WorkingDirectory to the real repo path.
+User=ubuntu
+Group=ubuntu
 WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb
 ExecStart=/usr/bin/node server/notify-server.mjs
 # Secrets (Discord webhook URLs + optional Supabase keys). chmod 600, root-owned.
