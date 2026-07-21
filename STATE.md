@@ -34,13 +34,20 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   the real PR/PROJECTS webhooks + a 12-key VS map (all VS dropdown targets →
   the one VS channel, since notifyVSConsult has no fallback). Live-test from the
   VM egress: all 3 channels HTTP 204. Notifications work end-to-end.
-- **Still TODO (only the user can — dashboards)**: (1) add `https://samo.md.kku.ac.th`
-  to Supabase Auth → URL Configuration (Site URL + Redirect URLs `/**`) AND the
-  Google Cloud OAuth client's Authorized JavaScript origins (else Google sign-in
-  breaks) — project `fheueuowbchsnsvbcgil`; (2) verify off-VPN public
-  reachability. The VM account password still gates `sudo` (SSH no longer uses
-  it) — rotate at leisure. notify_log (0055) optional — enable via `SUPABASE_*`
-  in the env file after applying the migration.
+- **Still TODO (only the user can — dashboards)**:
+  (1) samoweb Google sign-in on samo.md.kku.ac.th — **DONE**: redirect URLs +
+  Google JS origin added to project `fheueuowbchsnsvbcgil`; login now returns
+  per-origin (samo.md.kku.ac.th→itself, pages.dev→itself). Site URL stays
+  pages.dev (only the fallback).
+  (2) **PASSPORT Google sign-in on /passport STILL redirects to pages.dev** —
+  add `https://samo.md.kku.ac.th/passport/**` (+ exact `/passport/`) to the
+  PASSPORT Supabase project `idwlabpbwiwgaoqwbozz` → Redirect URLs, and
+  `https://samo.md.kku.ac.th` to the passport Google OAuth client's JS origins.
+  Leave passport Site URL = pages.dev. (Full detail in the passport-subpath
+  section below.) This is the ONE open item from the 2026-07-21 session.
+  (3) verify off-VPN public reachability. The VM account password still gates
+  `sudo` (SSH is key-only) — **rotate it** (pasted in chat this session).
+  notify_log (0055) optional — enable via `SUPABASE_*` in the env file.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
@@ -110,7 +117,12 @@ On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
    lockfile churn `git commit -a` swept in was stripped before push (5 files
    only). VM was `git reset --hard origin/main` → VM==origin==c124b5c, clean
    tree, so `deploy.sh git pull --ff-only` stays a clean no-op. pages.dev
-   auto-rebuilds from c124b5c (proven byte-identical behavior at base=/). Also the
+   auto-rebuild from c124b5c **VERIFIED LIVE + healthy** (index 200; admin link
+   now relative `html/admin.html` → resolves to `/html/admin.html` at base=/,
+   same as the old absolute link — the pre-existing CF 308→`/html/admin` is
+   unchanged). **Bug scan clean**: no other subpath-breaking nav (`<a>`, JS
+   location/fetch/window.open all base-aware or relative); built assets are
+   `/passport/assets/*` (Vite-rebased), all 200 at the subpath. Also the
    post-scan OAuth redirectTo (`scanning.js` → origin+ROUTES.DASHBOARD) now
    lands on /passport/... so it must be on the passport Supabase allow-list.
    **STILL TODO (dashboard, user-only): passport OAuth login → pages.dev.**
