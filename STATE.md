@@ -4,6 +4,33 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## IN FLIGHT: migrating hosting Cloudflare Pages → KKU VM (Supabase Cloud stays) (2026-07-21)
+
+Moving frontend hosting + the Discord notify function onto a KKU VM
+(`samo.md.kku.ac.th` → `https://10.101.111.181`, Nginx, behind the KKU
+reverse proxy). **Supabase stays on Supabase Cloud** (`fheueuowbchsnsvbcgil`) —
+no DB migration. Full runbook: `docs/SELF-HOST.md`.
+- The move breaks 3 Cloudflare-only mechanisms unless replicated (they were
+  the gap in the first server setup): `/notify` Pages Function, `public/_headers`
+  cache policy, `public/_redirects` SPA fallback. All three now have VM
+  equivalents in `server/`.
+- `server/notify-server.mjs` — Node http server that reuses `functions/notify.js`
+  UNCHANGED (same code vitest covers); `functions/package.json` (`type:module`)
+  lets `node` import it while the repo root stays CommonJS for Vite. Runs under
+  `server/samo-notify.service` (systemd), secrets in `/etc/samo-notify.env`
+  (Discord webhooks copied from the old Cloudflare Pages env vars), Nginx
+  reverse-proxies `POST /notify` → `127.0.0.1:8787`.
+- `server/nginx-samo.conf` — replicates cache headers + fixes `/admin/*`
+  fallback (Gemini's config sent admin refreshes to the public app) + passport
+  at `/passport/`. `server/deploy.sh` = pull+build+publish+restart.
+- **Still TODO on the VM**: add `https://samo.md.kku.ac.th` to Supabase Auth URL
+  config + Google OAuth origins (else sign-in breaks); rotate the weak VM
+  password + SSH key-only; verify off-VPN public reachability. notify_log (0055)
+  is optional and independent — enable via `SUPABASE_*` in the env file.
+- passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
+  change cannot touch the web DB. Keep it that way after the shared-login merge:
+  one repo → one project ref → one migrations folder; share ONLY auth.
+
 ## notify_log (0055) shipped + hardened — MIGRATION PENDING, 2 manual steps to enable (2026-07-21, main + refactor in sync)
 
 PR #16 (durable Discord-notify logging + 6s→800ms queue spacing) was merged

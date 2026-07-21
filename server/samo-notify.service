@@ -1,0 +1,28 @@
+[Unit]
+# systemd unit for the self-hosted Discord notify service.
+# Install:  sudo cp server/samo-notify.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now samo-notify
+# Logs:     journalctl -u samo-notify -f
+Description=SAMO Discord notify proxy (replaces the Cloudflare /notify Function)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+# Adjust WorkingDirectory to wherever you `git clone`d the repo on the VM.
+WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb
+ExecStart=/usr/bin/node server/notify-server.mjs
+# Secrets (Discord webhook URLs + optional Supabase keys). chmod 600, root-owned.
+EnvironmentFile=/etc/samo-notify.env
+Restart=on-failure
+RestartSec=3
+# Hardening — this only makes outbound HTTPS calls and reads the repo.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

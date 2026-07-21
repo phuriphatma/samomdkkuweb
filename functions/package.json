@@ -1,0 +1,4 @@
+{
+  "type": "module",
+  "//": "Marks functions/*.js as native ESM so the self-hosted Node notify server (server/notify-server.mjs) can import notify.js / _discord.js directly under `node`. The repo root stays CommonJS (vite.config.js uses __dirname). Vitest is unaffected — it transforms these via Vite, not Node's resolver."
+}
