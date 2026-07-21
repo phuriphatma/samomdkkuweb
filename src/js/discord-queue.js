@@ -17,11 +17,13 @@
 // The client queue therefore no longer needs the old 1015-era 6s spacing.
 // Its remaining job is small: serialise this tab's POSTs so two rapid
 // actions don't fire perfectly parallel and waste the Function's retry
-// budget. A short spacing is enough — and keeping it short matters,
-// because a call PARKED in the spacing delay hasn't been fetched yet, so
-// `keepalive` can't save it if the tab is backgrounded/closed (mobile
-// Safari freezes background tabs → a long park = a dropped notify). The
-// wide 6s was actively widening that drop window. See mistakes.md.
+// budget. A short spacing (800ms) is enough. Two guards keep a call from
+// dying in that park window (a parked call hasn't been fetched yet, so
+// `keepalive` can't rescue it if mobile Safari freezes the tab):
+//   1. the spacing is short (800ms, was 6s), and
+//   2. `flushDiscordQueue()` drains the park the instant the page hits
+//      `pagehide`/`visibilitychange=hidden`, so the fetch fires (and its
+//      keepalive takes over) before teardown. See mistakes.md.
 //
 // This module is the single home for that queue + the logged caller.
 // Domain modules (projects/notify.js, notify.js) build their own payloads
@@ -43,6 +45,16 @@ let minSpacingMs = 800;
 let discordChain = Promise.resolve();
 let lastDiscordEndedAt = 0;
 
+// Last-mile drop guard. The spacing park (above) is the one window where a
+// fire-and-forget notify hasn't been fetched yet, so `keepalive` can't
+// rescue it if the tab is closing/freezing (mobile Safari). When the page
+// is about to be hidden/unloaded we DRAIN: skip all remaining spacing so
+// every queued call fires immediately — its `keepalive:true` fetch then
+// survives the teardown. `draining` resets when the page is shown again so
+// normal spacing resumes for a mere tab-switch. See mistakes.md.
+let draining = false;
+let pendingSpacingResolve = null;
+
 /**
  * Serialise `fn` onto the global Discord chain, enforcing a minimum gap
  * between the end of the previous call and the start of this one. The
@@ -54,8 +66,16 @@ let lastDiscordEndedAt = 0;
  */
 export function queueDiscord(fn) {
   const next = discordChain.then(async () => {
-    const wait = Math.max(0, minSpacingMs - (Date.now() - lastDiscordEndedAt));
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const wait = draining ? 0 : Math.max(0, minSpacingMs - (Date.now() - lastDiscordEndedAt));
+    if (wait > 0) {
+      await new Promise((resolve) => {
+        pendingSpacingResolve = resolve;
+        setTimeout(() => {
+          if (pendingSpacingResolve === resolve) pendingSpacingResolve = null;
+          resolve();
+        }, wait);
+      });
+    }
     try {
       return await fn();
     } finally {
@@ -64,6 +84,31 @@ export function queueDiscord(fn) {
   });
   discordChain = next.catch(() => {});
   return next;
+}
+
+/**
+ * Fire everything currently parked in the inter-call spacing RIGHT NOW and
+ * keep spacing at zero until the page is shown again. Called on
+ * `pagehide` / `visibilitychange=hidden` so a not-yet-fetched notify
+ * leaves the tab before it freezes. Idempotent and safe to call anytime.
+ */
+export function flushDiscordQueue() {
+  draining = true;
+  if (pendingSpacingResolve) {
+    const resolve = pendingSpacingResolve;
+    pendingSpacingResolve = null;
+    resolve();
+  }
+}
+
+// Wire the page-lifecycle drain (browser only; no-op under Node/Vitest).
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushDiscordQueue);
+  window.addEventListener('pageshow', () => { draining = false; });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushDiscordQueue();
+    else draining = false;
+  });
 }
 
 /**
@@ -134,4 +179,6 @@ export function getDiscordSpacing() { return minSpacingMs; }
 export function __resetDiscordQueue() {
   discordChain = Promise.resolve();
   lastDiscordEndedAt = 0;
+  draining = false;
+  pendingSpacingResolve = null;
 }

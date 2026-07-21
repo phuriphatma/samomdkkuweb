@@ -1126,12 +1126,27 @@ failure in the logs and there are no logs.
 - **Shrank the spacing** 6s → 800ms in `discord-queue.js` (still under
   Discord's 5/2s bucket at worst; the Function's 429 retry is the real
   backstop). Shorter park window = far fewer background/close drops.
-**Where**: `supabase/migrations/0055_notify_log.sql`;
-`functions/_discord.js` `logNotifyOutcome`; `functions/notify.js`
-(waitUntil wiring); `src/js/discord-queue.js` `minSpacingMs` + header.
-**Open follow-ups (not done, tradeoffs noted in PR)**: (a) flush the
-queue on `pagehide`/`visibilitychange=hidden` to rescue a still-parked
-call — closes the last-mile "request never left the tab" gap; (b) move to
+- **Drain on page teardown (follow-up (a), now DONE).** `flushDiscordQueue()`
+  in `discord-queue.js` fires anything parked in the spacing delay the
+  instant the page hits `pagehide` / `visibilitychange=hidden`, and holds
+  spacing at 0 until `pageshow`/visible. The parked call's `keepalive:true`
+  fetch then leaves the tab before mobile Safari freezes it — closing the
+  "request never left the tab" gap. Resets on show so a mere tab-switch
+  doesn't permanently disable spacing.
+- **Hardened `notify_log` (review follow-up).** The table is publicly
+  INSERTable via the bundled anon key (`with check (true)`), so a direct
+  `POST /rest/v1/notify_log` could otherwise store arbitrary-size rows,
+  unbounded. Added per-column `char_length` CHECKs (caps per-row size for
+  ALL callers, app or attacker) + `prune_notify_log(retain_days=30)`
+  (security-definer, NOT granted to anon/authenticated) for retention.
+  Bounds both row size and row count; the residual (an attacker can still
+  insert many small rows) is the same anon-write exposure as pr_tickets and
+  is bounded by the prune.
+**Where**: `supabase/migrations/0055_notify_log.sql` (CHECKs +
+`prune_notify_log`); `functions/_discord.js` `logNotifyOutcome`;
+`functions/notify.js` (waitUntil wiring; `firstStatus ?? null` keeps a 0);
+`src/js/discord-queue.js` `flushDiscordQueue` + page-lifecycle listeners.
+**Open follow-up (not done, tradeoff noted in PR)**: (b) move to
 `waitUntil`-deliver + immediate `202` so delivery is fully decoupled from
 the client connection (changes the callGAS success-echo contract — the
 notify_log becomes the source of truth for failures, so do it together).

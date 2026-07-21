@@ -38,19 +38,27 @@
 --   deploys keep working unchanged).
 -- ============================================================
 
+-- NOTE: the INSERT policy below is `with check (true)` — this table is
+-- publicly writable via the bundled anon key (same threat model as
+-- pr_tickets/vs_tickets). The per-column length CHECKs here are the
+-- hard cap on how much a single crafted insert can store, so a direct
+-- POST to /rest/v1/notify_log can't stuff megabytes per row. Unbounded
+-- ROW COUNT is bounded instead by retention — see prune_notify_log()
+-- at the bottom of this file. The app already truncates `error` to 500;
+-- the DB CHECK is the backstop for callers that bypass the app.
 create table if not exists public.notify_log (
   id             bigint generated always as identity primary key,
   at             timestamptz not null default now(),
-  system         text,                 -- 'pr' | 'vs' | 'projects'
-  action         text,                 -- notifyPROnly | notifyVSOnly | notifyVSConsult | notifyProjectDiscord
-  ticket_id      text,                 -- PR/VS ticket id (null for projects)
-  dept           text,                 -- department / notifyTo, when relevant
+  system         text check (system    is null or char_length(system)    <= 32),   -- 'pr' | 'vs' | 'projects'
+  action         text check (action    is null or char_length(action)    <= 64),   -- notifyPROnly | notifyVSOnly | notifyVSConsult | notifyProjectDiscord
+  ticket_id      text check (ticket_id is null or char_length(ticket_id) <= 64),    -- PR/VS ticket id (null for projects)
+  dept           text check (dept      is null or char_length(dept)      <= 128),   -- department / notifyTo, when relevant
   ok             boolean not null,     -- did Discord accept the message?
   discord_status integer,              -- final HTTP status from Discord (or 0 on transport throw)
   first_status   integer,              -- status on the FIRST attempt (differs from final iff retried)
   attempts       integer,              -- how many POSTs it took
   retried        boolean,              -- was more than one attempt made?
-  error          text                  -- short body/exception snippet on failure
+  error          text check (error     is null or char_length(error)     <= 1000)  -- short body/exception snippet on failure
 );
 
 comment on table public.notify_log is
@@ -88,3 +96,46 @@ create policy notify_log_select_staff
 
 grant insert on public.notify_log to anon, authenticated;
 grant select on public.notify_log to authenticated;
+
+-- ------------------------------------------------------------
+-- Retention: this is a debug/triage log, not a system of record. The
+-- table is publicly INSERTable, so without pruning its row count grows
+-- unbounded (normal traffic + any anon abuse). prune_notify_log() drops
+-- rows older than `retain_days` (default 30) and returns how many it
+-- removed. NOT granted to anon/authenticated — only the table owner /
+-- service_role / pg_cron / the SQL editor can run it, so it can't be
+-- called (or abused) from the public anon key. Security-definer so it
+-- runs as owner regardless of who the scheduler is.
+-- ------------------------------------------------------------
+create or replace function public.prune_notify_log(retain_days integer default 30)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  removed integer;
+begin
+  delete from public.notify_log
+   where at < now() - make_interval(days => greatest(retain_days, 1));
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$$;
+
+revoke all on function public.prune_notify_log(integer) from public, anon, authenticated;
+
+comment on function public.prune_notify_log(integer) is
+  'Delete notify_log rows older than retain_days (default 30). Run from the SQL editor, or schedule with pg_cron (see migration 0055).';
+
+-- Optional automatic retention. Requires the pg_cron extension
+-- (Supabase → Database → Extensions → enable "pg_cron"). Once enabled,
+-- run ONCE to schedule a nightly 03:00 UTC prune keeping 30 days:
+--
+--   select cron.schedule(
+--     'prune-notify-log', '0 3 * * *',
+--     $$ select public.prune_notify_log(30) $$
+--   );
+--
+-- Until pg_cron is scheduled, run `select public.prune_notify_log(30);`
+-- manually whenever the table needs trimming.

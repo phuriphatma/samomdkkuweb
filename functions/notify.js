@@ -76,7 +76,7 @@ export async function onRequestPost(context) {
     dept: data.department || data.notifyTo || null,
     ok: res.ok,
     status: res.status,
-    firstStatus: res.firstStatus || null,
+    firstStatus: res.firstStatus ?? null,
     attempts: res.attempts,
     retried: !!res.retried,
     error: res.ok ? null : res.body,
@@ -92,7 +92,7 @@ export async function onRequestPost(context) {
       status: res.status,
       body: res.body,
       attempts: res.attempts,
-      firstStatus: res.firstStatus || null,
+      firstStatus: res.firstStatus ?? null,
       retried: !!res.retried,
     });
   }
@@ -104,6 +104,6 @@ export async function onRequestPost(context) {
     status: res.status,
     attempts: res.attempts,
     retried: !!res.retried,
-    firstStatus: res.firstStatus || null,
+    firstStatus: res.firstStatus ?? null,
   });
 }

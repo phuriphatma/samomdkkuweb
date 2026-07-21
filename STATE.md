@@ -1,8 +1,34 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-06-20. Slim by design — "what is true right now",
+Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
+
+## notify_log (0055) shipped + hardened — MIGRATION PENDING, 2 manual steps to enable (2026-07-21, main + refactor in sync)
+
+PR #16 (durable Discord-notify logging + 6s→800ms queue spacing) was merged
+straight into `main`, diverging it from `refactor/modular` (which had PR #15
+creator-crop). **Reconciled**: merged main→refactor, then shipped review
+fixes on top, then ff-deployed main from refactor. Both branches in sync again.
+Review fixes on top of #16:
+- **notify_log hardened** (`0055_notify_log.sql`): per-column `char_length`
+  CHECKs (caps per-row size — table is anon-INSERTable via `with check(true)`)
+  + `prune_notify_log(retain_days=30)` security-definer retention fn (NOT
+  granted to anon/authenticated; run in SQL editor or schedule via pg_cron).
+- **Last-mile drop fix** (`discord-queue.js`): `flushDiscordQueue()` drains
+  the spacing park on `pagehide`/`visibilitychange=hidden` so a not-yet-fetched
+  notify leaves the tab before mobile Safari freezes it. Closes follow-up (a).
+- `notify.js` `firstStatus ?? null` (was `|| null`, dropped a real 0).
+
+**To actually enable logging (NOT done yet — safe no-op until then):**
+1. Apply `supabase/migrations/0055_notify_log.sql` in the Supabase SQL editor
+   (real project `fheueuowbchsnsvbcgil`).
+2. Add `SUPABASE_URL` + `SUPABASE_ANON_KEY` to Cloudflare Pages env (same
+   values as the `VITE_` ones), on BOTH Pages projects.
+Until both are done the Function skips logging entirely. The 800ms spacing +
+flush changes are already LIVE (client-only, no gating). After the next drop:
+`select at, ticket_id, ok, discord_status, attempts from notify_log where not ok order by at desc;`
+(no row for a ticket → it died client-side before reaching /notify).
 
 ## CI green again + shop delete degrades to archive (2026-06-20, main + refactor in sync)
 
@@ -18,10 +44,11 @@ on both. Two fixes (client + CI only, no migration):
 Latent parallel: `project_doc_types` has the same restrict-FK but no
 delete UI — apply the same pattern if one is ever added.
 
-## Migrations through 0054 APPLIED — none pending
+## Migrations through 0054 APPLIED — 0055 PENDING
 
 All migrations through **0054 are APPLIED** to Supabase (real project
-`fheueuowbchsnsvbcgil`). SAMO Team: 0046–0049. Professor signing: 0050
+`fheueuowbchsnsvbcgil`). **0055 (`notify_log`) is NOT applied yet** — see the
+top section for the two enable steps. SAMO Team: 0046–0049. Professor signing: 0050
 (workflow) + 0051 (prof comment via column-guarded project_documents UPDATE)
 + 0052 (`signs_file_id` link for inline signed-file UI) + 0053 (sa_prof may
 delete his own signed files for re-sign). 0054 (`announcements.pinned` flag —

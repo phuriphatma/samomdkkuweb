@@ -3,7 +3,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  queueDiscord, callGAS, sendDiscord,
+  queueDiscord, callGAS, sendDiscord, flushDiscordQueue,
   setDiscordSpacing, getDiscordSpacing, __resetDiscordQueue,
 } from './discord-queue.js';
 import { sendNotify, actionFor } from './notify.js';
@@ -115,6 +115,30 @@ describe('queueDiscord', () => {
     expect(starts).toHaveLength(2);
     // ~40ms gap (allow timer slack on the low side).
     expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(35);
+  });
+
+  it('flushDiscordQueue drains a parked call immediately (last-mile teardown)', async () => {
+    // A wide spacing would park the 2nd call for 10s; flush must fire it now.
+    setDiscordSpacing(10000);
+    const starts = [];
+    const stamp = () => () => { starts.push(Date.now()); return Promise.resolve(); };
+    const p1 = queueDiscord(stamp());
+    const p2 = queueDiscord(stamp());
+    await p1;                 // first fires immediately, arms the 10s park for #2
+    flushDiscordQueue();      // simulate pagehide → skip the remaining spacing
+    await p2;                 // resolves without waiting the full 10s
+    expect(starts).toHaveLength(2);
+    expect(starts[1] - starts[0]).toBeLessThan(500);
+  });
+
+  it('after a drain, spacing is held at 0 for subsequent calls until reset', async () => {
+    setDiscordSpacing(10000);
+    flushDiscordQueue();      // enter draining mode
+    const starts = [];
+    const stamp = () => () => { starts.push(Date.now()); return Promise.resolve(); };
+    await Promise.all([queueDiscord(stamp()), queueDiscord(stamp())]);
+    expect(starts[1] - starts[0]).toBeLessThan(500);
+    __resetDiscordQueue();    // clears draining so later tests get real spacing
   });
 });
 
