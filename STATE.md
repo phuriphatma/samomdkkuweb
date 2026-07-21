@@ -105,10 +105,12 @@ On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
    identical behavior to today's pages.dev; only the /passport/ build changes.
    Live-verified on VM: Admin Portal → /passport/html/admin.html (passport admin,
    base-prefixed assets), passport index still 200.
-   **PENDING**: commit `707977b` is VM-LOCAL only — NOT pushed to the passport
-   GitHub repo (github.com/phuriphatma/samomdkkupassport). Pushing is safe
-   (proven identical on pages.dev) and would keep VM==origin so a future
-   `deploy.sh git pull --ff-only` can't diverge — do it when ready. Also the
+   **PUSHED to passport GitHub 2026-07-21** as `c124b5c` (via git bundle from VM
+   → this machine's gh creds; the VM has no gh creds). The stray npm-version
+   lockfile churn `git commit -a` swept in was stripped before push (5 files
+   only). VM was `git reset --hard origin/main` → VM==origin==c124b5c, clean
+   tree, so `deploy.sh git pull --ff-only` stays a clean no-op. pages.dev
+   auto-rebuilds from c124b5c (proven byte-identical behavior at base=/). Also the
    post-scan OAuth redirectTo (`scanning.js` → origin+ROUTES.DASHBOARD) now
    lands on /passport/... so it must be on the passport Supabase allow-list.
    **STILL TODO (dashboard, user-only): passport OAuth login → pages.dev.**
