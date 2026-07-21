@@ -58,7 +58,14 @@ schema, two repos stay separate.
   `handle_new_user` trigger is DELIBERATELY NOT wired (0041 signup-brick risk);
   profiles come from Phase 1 data copy + a guarded cutover mechanism.
 - passport repo now has `base: '/passport/'` committed (subpath hosting).
-- **NOT done**: (Phase 1) email-re-keyed data copy B→A; two manual steps to
+- **Phase 1 DRY-RUN VALIDATED (2026-07-21)**: copied all 11 tables B→A into
+  throwaway `passport._stg_*` staging (read-only on B, staging-only in A) —
+  lossless: every row count matched, profiles 465/93,646km and scans 535/79,900
+  identical, top-8 leaderboard identical. Staging + PII CSVs then dropped/removed.
+  Proves the copy mechanics; real cutover adds email→uid re-keying. (Observed:
+  a few leaderboard users are @gmail.com, so B's "@kkumail.com only" gate isn't
+  fully enforced — decide the app-level domain gate at cutover.)
+- **NOT done**: (Phase 1 real) email-re-keyed data copy B→A; two manual steps to
   actually use it — Supabase → Settings → API → Exposed schemas → add
   `passport`; and point passport's supabase client at `{ db: { schema:
   'passport' } }` (a passport code change at cutover). Passport still LIVE on
