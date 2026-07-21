@@ -236,3 +236,64 @@ export async function postToDiscord(url, payload, { fetchImpl = fetch, sleep = d
     firstStatus,
   };
 }
+
+// ---- durable outcome logging (best-effort → Supabase notify_log) ----
+
+/**
+ * Append one delivery outcome to `public.notify_log` (migration 0055) so
+ * dropped notifications are diagnosable after the fact — the Function's
+ * console logs are NOT retained (live tail only), so without this a drop
+ * leaves no trace anywhere.
+ *
+ * BEST-EFFORT by contract: this must never throw and never affect notify
+ * delivery. It returns `{ logged: boolean, skipped?, status? }` purely so
+ * the unit tests can assert behaviour.
+ *
+ * Gated on env: if SUPABASE_URL / SUPABASE_ANON_KEY are unset it no-ops
+ * (skipped:true), so the Function keeps working on deploys that haven't
+ * added the env vars yet. The anon key is the same public-but-RLS-gated
+ * key the frontend bundles; the notify_log insert policy is append-only.
+ */
+export async function logNotifyOutcome(env = {}, record = {}, { fetchImpl = fetch } = {}) {
+  const base = env.SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY;
+  if (!base || !key) return { logged: false, skipped: 'no-supabase-env' };
+
+  const row = {
+    system: record.system ?? null,
+    action: record.action ?? null,
+    ticket_id: record.ticketId ?? null,
+    dept: record.dept ?? null,
+    ok: !!record.ok,
+    discord_status: record.status ?? null,
+    first_status: record.firstStatus ?? null,
+    attempts: record.attempts ?? null,
+    retried: !!record.retried,
+    // keep the failure snippet short — the column is for triage, not storage
+    error: record.error ? String(record.error).slice(0, 500) : null,
+  };
+
+  try {
+    const res = await fetchImpl(`${base.replace(/\/+$/, '')}/rest/v1/notify_log`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(row),
+    });
+    const code = res.status;
+    if (!(code >= 200 && code < 300)) {
+      const body = (typeof res.text === 'function' ? await res.text().catch(() => '') : '').slice(0, 200);
+      console.warn(`[notify-log] insert failed HTTP ${code}: ${body}`);
+      return { logged: false, status: code };
+    }
+    return { logged: true, status: code };
+  } catch (e) {
+    // Swallow — logging must never break the notify path.
+    console.warn('[notify-log] insert threw:', e?.message || e);
+    return { logged: false, threw: true };
+  }
+}

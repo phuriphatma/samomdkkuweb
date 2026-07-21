@@ -1085,3 +1085,53 @@ narrow reads; scope in the app off a non-public table instead.**
 
 Every entry above represents hours we already spent. If a symptom looks
 similar to something here, the fix is probably the same or related.
+
+---
+
+## Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
+
+**Symptom**: PR (and occasionally VS/projects) Discord notifications don't
+arrive for *some* submissions. Intermittent, not reproducible on demand,
+and — the real trap — **nothing to look at afterward**. You go to find the
+failure in the logs and there are no logs.
+**Cause (two parts)**:
+- *No durable record.* The `/notify` Cloudflare Pages Function's
+  `console.warn`/`console.info` only surface in a LIVE
+  `wrangler pages deployment tail` (or the dashboard real-time logs) —
+  Pages Functions retain nothing by default (no Logpush configured). The
+  client-side `console.warn` in `discord-queue.js callGAS` lives only in
+  that one browser tab and dies with it. So a drop that happened an hour
+  ago is unrecoverable. You cannot debug what you cannot see.
+- *A widened drop window.* The client queue (`discord-queue.js`) carried a
+  6s inter-call spacing from the GAS era, where the binding limit was
+  Cloudflare's per-IP **1015** (cooldown in minutes). Once notify moved to
+  the `/notify` Pages Function (Cloudflare's own egress), 1015 stopped
+  being the limit — the Function now handles Discord's per-webhook 429
+  itself (3 retries, honours Retry-After). But the 6s spacing stayed, and
+  a fire-and-forget call PARKED in that 6s delay hasn't been fetched yet,
+  so `keepalive` can't save it — mobile Safari freezes a backgrounded tab
+  and the parked `setTimeout` never runs → dropped notify. The wide 6s was
+  a GAS-era artifact actively making drops *more* likely on the new path.
+**Fix**:
+- **Log first, then debug.** Added `notify_log` (migration 0055): the
+  Function appends one row per delivery outcome (ok, discord_status,
+  attempts, retried, ticket_id). Append-only RLS (anon/authenticated
+  INSERT via the public anon key, staff-only SELECT). Best-effort — a
+  failed log write can never affect delivery — and gated on
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY` Pages env vars, so it no-ops if
+  they're unset. Query `select * from notify_log where not ok` to see
+  exactly which notifies failed and why. The write is scheduled via
+  `context.waitUntil` so it adds no response latency and completes even
+  after the client navigates away.
+- **Shrank the spacing** 6s → 800ms in `discord-queue.js` (still under
+  Discord's 5/2s bucket at worst; the Function's 429 retry is the real
+  backstop). Shorter park window = far fewer background/close drops.
+**Where**: `supabase/migrations/0055_notify_log.sql`;
+`functions/_discord.js` `logNotifyOutcome`; `functions/notify.js`
+(waitUntil wiring); `src/js/discord-queue.js` `minSpacingMs` + header.
+**Open follow-ups (not done, tradeoffs noted in PR)**: (a) flush the
+queue on `pagehide`/`visibilitychange=hidden` to rescue a still-parked
+call — closes the last-mile "request never left the tab" gap; (b) move to
+`waitUntil`-deliver + immediate `202` so delivery is fully decoupled from
+the client connection (changes the callGAS success-echo contract — the
+notify_log becomes the source of truth for failures, so do it together).

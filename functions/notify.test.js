@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   htmlToText, buildPrPayload, buildVsPayload, buildVsConsultPayload,
   buildProjectPayload, parseVsWebhooks, resolveTarget, postToDiscord,
+  logNotifyOutcome,
 } from './_discord.js';
 import { onRequestPost } from './notify.js';
 
@@ -251,6 +252,94 @@ describe('onRequestPost (handler)', () => {
     const body = await readJson(res);
     expect(body.success).toBe(false);
     expect(body.status).toBe(404);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('logNotifyOutcome (durable notify_log)', () => {
+  const SB_ENV = { SUPABASE_URL: 'https://ref.supabase.co', SUPABASE_ANON_KEY: 'anon-key' };
+
+  it('skips (no fetch) when Supabase env is absent', async () => {
+    const fetchMock = vi.fn();
+    const out = await logNotifyOutcome({}, { action: 'notifyPROnly', ok: true }, { fetchImpl: fetchMock });
+    expect(out.logged).toBe(false);
+    expect(out.skipped).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('POSTs a row to the notify_log endpoint with the anon key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resp(201));
+    const out = await logNotifyOutcome(
+      SB_ENV,
+      { system: 'pr', action: 'notifyPROnly', ticketId: 'PR-1', dept: 'media',
+        ok: false, status: 429, firstStatus: 429, attempts: 3, retried: true, error: 'rate limited' },
+      { fetchImpl: fetchMock },
+    );
+    expect(out.logged).toBe(true);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://ref.supabase.co/rest/v1/notify_log');
+    expect(opts.method).toBe('POST');
+    expect(opts.headers.apikey).toBe('anon-key');
+    expect(opts.headers.Authorization).toBe('Bearer anon-key');
+    const body = JSON.parse(opts.body);
+    expect(body.ticket_id).toBe('PR-1');
+    expect(body.ok).toBe(false);
+    expect(body.discord_status).toBe(429);
+    expect(body.attempts).toBe(3);
+    expect(body.retried).toBe(true);
+  });
+
+  it('truncates a long error snippet to 500 chars', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resp(201));
+    await logNotifyOutcome(SB_ENV, { ok: false, error: 'x'.repeat(2000) }, { fetchImpl: fetchMock });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.error.length).toBe(500);
+  });
+
+  it('never throws when the insert rejects (returns threw:true)', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('network down'));
+    const out = await logNotifyOutcome(SB_ENV, { ok: true }, { fetchImpl: fetchMock });
+    expect(out.logged).toBe(false);
+    expect(out.threw).toBe(true);
+  });
+
+  it('reports a non-2xx insert (e.g. RLS denied) without throwing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resp(403, 'RLS denied'));
+    const out = await logNotifyOutcome(SB_ENV, { ok: true }, { fetchImpl: fetchMock });
+    expect(out.logged).toBe(false);
+    expect(out.status).toBe(403);
+  });
+});
+
+describe('onRequestPost + notify_log wiring', () => {
+  function req(bodyObj) { return { text: async () => JSON.stringify(bodyObj) }; }
+  async function readJson(response) { return JSON.parse(await response.text()); }
+
+  it('writes a notify_log row after delivery when SUPABASE env is set', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resp(204));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await onRequestPost({
+      request: req({ action: 'notifyPROnly', ticketId: 'PR-9', content: 'x', department: 'media' }),
+      env: { ...ENV, SUPABASE_URL: 'https://ref.supabase.co', SUPABASE_ANON_KEY: 'anon-key' },
+    });
+    expect((await readJson(res)).success).toBe(true);
+    // 1st fetch = Discord webhook, 2nd = notify_log insert.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://discord/pr');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://ref.supabase.co/rest/v1/notify_log');
+    vi.unstubAllGlobals();
+  });
+
+  it('does NOT attempt a log write when SUPABASE env is absent', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resp(204));
+    vi.stubGlobal('fetch', fetchMock);
+    await onRequestPost({
+      request: req({ action: 'notifyPROnly', ticketId: 'PR-10', content: 'x', department: 'media' }),
+      env: ENV, // no SUPABASE_*
+    });
+    // Only the Discord POST — no notify_log insert.
+    expect(fetchMock).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
   });
 });
