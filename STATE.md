@@ -93,19 +93,30 @@ On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
    fallback when `redirect_to` is absent/rejected. One Site URL serves all
    origins.
 2. **"Admin Portal" on /passport → samoweb; passport nav broken at subpath.**
-   ROOT CAUSE: passport's internal nav is all ROOT-ABSOLUTE and Vite does NOT
-   rebase `<a href>` / JS string paths. Confirmed the built VM files still have
-   `/html/admin.html`, `/`, `/html/dashboard.html`. At `/passport/` these hit
-   samoweb. FIX (passport CODE, must verify before push — an unverified push
-   re-breaks pages.dev): (a) `js/routes.js` → `const BASE =
-   import.meta.env.BASE_URL; DASHBOARD: BASE+'html/dashboard.html'` etc. (HOME
-   = BASE). On pages.dev BASE='/' so identical to today. (b) make these
-   hardcoded links base-aware/relative: `index.html:71` Admin Portal
-   `/html/admin.html`; `html/admin.html:25` `/`; `html/partials/profile-menu.html:10`
-   `/` (included in dashboard.html → `../`); `html/scan.html:49,56` onclick
-   `/html/dashboard.html`. Then rebuild on VM: `PASSPORT_BASE=/passport/ npm run
-   build` + republish; verify built links show `/passport/...` AND `curl`
-   pages.dev still shows root `/html/...`.
+   ROOT CAUSE: passport's internal nav was ROOT-ABSOLUTE (`/html/admin.html`,
+   `/`) and Vite does NOT rebase `<a href>` / JS string paths, so at `/passport/`
+   they escaped to samoweb. **FIXED + DEPLOYED to VM 2026-07-21** (passport repo,
+   commit `707977b`): (a) `js/routes.js` derives paths from
+   `import.meta.env.BASE_URL` (= Vite base: `/` on pages.dev, `/passport/` on VM);
+   (b) nav links made relative — `index.html` Admin Portal → `html/admin.html`;
+   `html/admin.html` Back → `../`; `profile-menu.html` Home → `../`;
+   `html/scan.html` CTAs → `dashboard.html`. **Verified pages.dev-safe**: the
+   base=/ build inlines BASE="/" and relative links resolve to root → byte-
+   identical behavior to today's pages.dev; only the /passport/ build changes.
+   Live-verified on VM: Admin Portal → /passport/html/admin.html (passport admin,
+   base-prefixed assets), passport index still 200.
+   **PENDING**: commit `707977b` is VM-LOCAL only — NOT pushed to the passport
+   GitHub repo (github.com/phuriphatma/samomdkkupassport). Pushing is safe
+   (proven identical on pages.dev) and would keep VM==origin so a future
+   `deploy.sh git pull --ff-only` can't diverge — do it when ready. Also the
+   post-scan OAuth redirectTo (`scanning.js` → origin+ROUTES.DASHBOARD) now
+   lands on /passport/... so it must be on the passport Supabase allow-list.
+   **STILL TODO (dashboard, user-only): passport OAuth login → pages.dev.**
+   Passport Supabase project `idwlabpbwiwgaoqwbozz` → Auth → URL Configuration →
+   Redirect URLs: add `https://samo.md.kku.ac.th/passport/**` (+ exact
+   `https://samo.md.kku.ac.th/passport/`). Leave Site URL = pages.dev. Add
+   `https://samo.md.kku.ac.th` to the passport Google OAuth client's Authorized
+   JS origins. Same fix shape as samoweb item 1 above, different project.
 3. **Bare `/passport` (no trailing slash) → served samoweb / "not found".**
    ROOT CAUSE: nginx `location /passport/` only matches URIs starting with
    `/passport/`; bare `/passport` fell through to the catch-all `location /`
