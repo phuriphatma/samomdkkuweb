@@ -30,13 +30,17 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   200; HTML `no-cache`, assets `immutable`. SSH is now **key-only**
   (`PasswordAuthentication no` via `/etc/ssh/sshd_config.d/99-hardening.conf`);
   reach it with `ssh samo-vm` (alias → key `~/.ssh/id_samo_vm`).
-- **Still TODO (only the user can — secrets/dashboards)**: (1) paste real Discord
-  webhook URLs into `/etc/samo-notify.env` (from the old Cloudflare Pages env
-  vars) + `sudo systemctl restart samo-notify` — until then Discord pings fail;
-  (2) add `https://samo.md.kku.ac.th` to Supabase Auth URL config + Google OAuth
-  origins (else sign-in breaks); (3) verify off-VPN public reachability. The VM
-  account password still gates `sudo` (SSH no longer uses it) — rotate at
-  leisure. notify_log (0055) optional — enable via `SUPABASE_*` in the env file.
+- **Discord notify CONFIGURED + TESTED (2026-07-21)**: `/etc/samo-notify.env` holds
+  the real PR/PROJECTS webhooks + a 12-key VS map (all VS dropdown targets →
+  the one VS channel, since notifyVSConsult has no fallback). Live-test from the
+  VM egress: all 3 channels HTTP 204. Notifications work end-to-end.
+- **Still TODO (only the user can — dashboards)**: (1) add `https://samo.md.kku.ac.th`
+  to Supabase Auth → URL Configuration (Site URL + Redirect URLs `/**`) AND the
+  Google Cloud OAuth client's Authorized JavaScript origins (else Google sign-in
+  breaks) — project `fheueuowbchsnsvbcgil`; (2) verify off-VPN public
+  reachability. The VM account password still gates `sudo` (SSH no longer uses
+  it) — rotate at leisure. notify_log (0055) optional — enable via `SUPABASE_*`
+  in the env file after applying the migration.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
