@@ -23,10 +23,20 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
 - `server/nginx-samo.conf` — replicates cache headers + fixes `/admin/*`
   fallback (Gemini's config sent admin refreshes to the public app) + passport
   at `/passport/`. `server/deploy.sh` = pull+build+publish+restart.
-- **Still TODO on the VM**: add `https://samo.md.kku.ac.th` to Supabase Auth URL
-  config + Google OAuth origins (else sign-in breaks); rotate the weak VM
-  password + SSH key-only; verify off-VPN public reachability. notify_log (0055)
-  is optional and independent — enable via `SUPABASE_*` in the env file.
+- **LIVE on the VM (2026-07-21)**: `setup.sh` ran — `samo-notify` service active,
+  Nginx on the correct config (`/notify` proxied to `127.0.0.1:8787`, `/admin/`
+  fallback fixed, cache headers restored), fresh web build published. Smoke
+  tests pass: `/build.json`, `/notify` health, `/`, `/admin/`, `/passport/` all
+  200; HTML `no-cache`, assets `immutable`. SSH is now **key-only**
+  (`PasswordAuthentication no` via `/etc/ssh/sshd_config.d/99-hardening.conf`);
+  reach it with `ssh samo-vm` (alias → key `~/.ssh/id_samo_vm`).
+- **Still TODO (only the user can — secrets/dashboards)**: (1) paste real Discord
+  webhook URLs into `/etc/samo-notify.env` (from the old Cloudflare Pages env
+  vars) + `sudo systemctl restart samo-notify` — until then Discord pings fail;
+  (2) add `https://samo.md.kku.ac.th` to Supabase Auth URL config + Google OAuth
+  origins (else sign-in breaks); (3) verify off-VPN public reachability. The VM
+  account password still gates `sudo` (SSH no longer uses it) — rotate at
+  leisure. notify_log (0055) optional — enable via `SUPABASE_*` in the env file.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
