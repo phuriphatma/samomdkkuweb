@@ -20,11 +20,13 @@ npm run build
 sudo rsync -a --delete dist/ /var/www/samo-web/
 
 if [ -d "$PASS_DIR" ]; then
-  echo "==> samomdkkupassport: pull + build"
+  echo "==> samomdkkupassport: pull + build (subpath base)"
   cd "$PASS_DIR"
   git pull --ff-only
   npm ci
-  npm run build
+  # KKU VM serves passport at the /passport/ subpath — base must be prefixed.
+  # (pages.dev builds without this var → base '/'.)
+  PASSPORT_BASE=/passport/ npm run build
   sudo rsync -a --delete dist/ /var/www/passport/
 fi
 
