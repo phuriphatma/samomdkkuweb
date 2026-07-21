@@ -167,3 +167,30 @@ RLS trap. `deleteProduct` now detects 23503 / the FK name and throws a typed
 parallel**: `project_documents.type_id references project_doc_types(id) ON
 DELETE RESTRICT` (0005) is the same class — no UI deletes doc types today, but
 if one is added, apply the same detect-23503-then-archive/block pattern.
+
+---
+
+## nginx subpath app: bare `/passport` (no trailing slash) silently serves the wrong SPA
+
+**Symptom**: `https://samo.md.kku.ac.th/passport` stopped working — it served
+the samoweb SPA (or "not found") instead of the passport app. `/passport/`
+(with slash) was fine.
+**Cause**: `location /passport/` is a prefix match that only matches URIs
+*beginning with* `/passport/`. A bare `/passport` does NOT match it, so it fell
+through to the catch-all `location /` whose `try_files … /index.html` serves
+samoweb's index from `root /var/www/samo-web`. Nginx's built-in
+trailing-slash auto-redirect (301 `/passport` → `/passport/`) only fires when
+the active root actually contains a `passport` directory — but passport lives
+at `/var/www/passport` (reached via the `root /var/www` override *inside* the
+`/passport/` block), so under the catch-all's `/var/www/samo-web` root there's
+no `passport` dir and the auto-redirect never triggers.
+**Fix**: Add an exact-match redirect for the bare path, above the prefix block:
+`location = /passport { return 301 /passport/; }`. `location =` (exact) always
+wins over prefix matches, so ordering is safe.
+**Where**: `server/nginx-samo.conf`. Apply the same `location = /foo { return
+301 /foo/; }` pattern to ANY subpath-mounted app whose files live outside the
+catch-all root. **`/admin` has the identical latent gap** (bare `/admin` →
+samoweb catch-all) — patch it the same way if a bare `/admin` link ever ships.
+To apply live on the VM: scp the config to the box, `sudo cp` it to
+`/etc/nginx/sites-available/default`, `sudo nginx -t` (validates before
+committing), `sudo systemctl reload nginx`.

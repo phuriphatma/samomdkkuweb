@@ -86,6 +86,12 @@ On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
    (`fheueuowbchsnsvbcgil` + `idwlabpbwiwgaoqwbozz`), and add
    `https://samo.md.kku.ac.th` to the Google OAuth client's Authorized
    JavaScript origins. Leave Site URL = pages.dev (keeps pages.dev working).
+   **RESOLVED 2026-07-21**: redirect URLs + Google JS origin added; login on
+   samo.md.kku.ac.th now returns to samo.md.kku.ac.th, pages.dev to pages.dev.
+   Confirmed the mechanism: the `/callback` sends the browser to the validated
+   `redirect_to`, NOT unconditionally to Site URL — Site URL is only the
+   fallback when `redirect_to` is absent/rejected. One Site URL serves all
+   origins.
 2. **"Admin Portal" on /passport → samoweb; passport nav broken at subpath.**
    ROOT CAUSE: passport's internal nav is all ROOT-ABSOLUTE and Vite does NOT
    rebase `<a href>` / JS string paths. Confirmed the built VM files still have
@@ -100,6 +106,15 @@ On `samo.md.kku.ac.th`, three reported symptoms, TWO root causes:
    `/html/dashboard.html`. Then rebuild on VM: `PASSPORT_BASE=/passport/ npm run
    build` + republish; verify built links show `/passport/...` AND `curl`
    pages.dev still shows root `/html/...`.
+3. **Bare `/passport` (no trailing slash) → served samoweb / "not found".**
+   ROOT CAUSE: nginx `location /passport/` only matches URIs starting with
+   `/passport/`; bare `/passport` fell through to the catch-all `location /`
+   → samoweb index. Nginx's auto-trailing-slash-redirect didn't fire (no
+   `passport` dir under /var/www/samo-web). **FIXED + DEPLOYED 2026-07-21**:
+   added `location = /passport { return 301 /passport/; }` to
+   `server/nginx-samo.conf`; installed to the VM + `nginx -t` + reload.
+   Verified live: /passport → 301 /passport/ → 200 passport app. (`/admin`
+   bare has the same latent gap — not yet patched.)
 - passport `base` is now env-driven (`process.env.PASSPORT_BASE||'/'`); pages.dev
   builds '/', VM builds '/passport/' (server/deploy.sh sets it). Both verified
   200 on assets after the base-hardcode incident was fixed.
