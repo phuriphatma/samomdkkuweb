@@ -208,11 +208,65 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
 
-## Passport→samoweb merge: Phase 0 DONE — `passport` schema live in project A (2026-07-21)
+## Passport→samoweb merge: Phase 1 REAL COPY DONE + verified lossless (2026-07-22)
 
 Playbook: `docs/PASSPORT-MERGE.md`. Decided shape: one Supabase project
 (A=`fheueuowbchsnsvbcgil`) for SSO, passport data in an isolated `passport`
-schema, two repos stay separate.
+schema, two repos stay separate. **Identity model = Option B (email-keyed):**
+copy ALL passport rows into A up front keyed by `email`, drop the two auth FKs
+so passport-only students (no A auth.users row yet) can be carried, back-fill
+the A auth uid lazily on each student's first login. Chosen over pre-provisioning
+~469 auth.users (Option A: pollutes public.users + fires the signup trigger at
+scale near the 0041 blast radius, and can't create a 2nd account for a both-
+systems email → duplicate-identity risk). User approved 2026-07-22.
+
+**Access mechanism (KEY FACT):** the account-wide `SUPABASE_ACCESS_TOKEN` (PAT)
+in `.env.local` reaches BOTH projects via the Management API `database/query`
+endpoint — so B is fully readable/writable without its DB password. (B's DB
+password `PASSPORT_B_DB_PASSWORD` / `PASSPORT_B_DB_URL` now also stored in
+`.env.local` as a psql fallback — pasted in chat, rotate B at end.)
+
+- **0059 APPLIED** (`0059_passport_email_key_merge.sql`): dropped
+  `passport.profiles_id_fkey` + `passport.scans_user_id_fkey` (the two
+  auth.users hard-FKs). PKs, NOT NULLs, intra-passport FKs, and the
+  `on_new_scan` points trigger all preserved. Reversible.
+- **Phase 1 REAL copy done + VERIFIED (2026-07-22):** copied all 11 tables
+  B→`passport.*` (into the REAL tables this time, not `_stg_*`) via
+  `scratchpad/copy.mjs` (jsonb_populate_recordset per table, dependency order,
+  preserving B uuids). Schema pre-checked **byte-identical** B.public vs
+  A.passport (no drift). `on_new_scan` DISABLED during the scans insert so
+  `total_km` (copied directly) wasn't re-incremented, then re-enabled.
+  Identity seqs (continents/departments/sub_departments/scans) advanced past
+  copied ids. **Verified:** profiles 469=469, distinct emails 469, **total_km
+  93,846 = 93,846 (no double-count)**, scans 537=537, 0 orphan scans, top-8
+  leaderboard byte-identical, trigger re-enabled. (Counts grew vs the
+  2026-07-21 staging dry-run — 465→469 profiles, 535→537 scans — because B is
+  still live and taking scans; expected.)
+- **B is NOT yet deletable.** B is still the LIVE passport backend taking new
+  scans, so this copy is a point-in-time snapshot (the validated Phase-1
+  dry-run into real tables). B becomes deletable only after the scheduled
+  cutover: a fresh delta re-copy at a quiet window → flip passport env to A →
+  kill split-brain. Nothing on A is API-exposed yet, so no real students are on
+  A (safe to leave the copied data in place; Phase 3 re-copies fresh).
+
+### Remaining to cut over (coordinated, needs a quiet window + 2 dashboard steps)
+1. **Lazy-link trigger on A** (the 0041-risky piece) — on a student's first A
+   login, match `passport.profiles` by email and re-key their profile.id +
+   scans.user_id from the old B uuid to the new A auth uid. MUST be best-effort
+   (never `raise`, like the existing `handle_new_auth_user`) and isolate-tested
+   via the admin-API create-user repro BEFORE relied on. NOT written/applied yet.
+2. **Expose `passport` schema** in A's API (dashboard: Settings → API → Exposed
+   schemas → add `passport`). User-only.
+3. **Passport repo**: point supabase client env at A + `{ db: { schema:
+   'passport' } }`, move the `@kkumail.com` gate to an app-level check, rebuild,
+   deploy to VM (`/var/www/passport`). Separate repo.
+4. **Kill split-brain**: retire `samomdkkupassport.pages.dev` or repoint its
+   env at A — after cutover NO frontend may write to B.
+5. **Fresh delta re-copy** B→A at the window (truncate `passport.*` user data,
+   re-run `copy.mjs`), flip, verify live (sign in as a student, scan, check km).
+6. Keep B paused as backup weeks, then delete.
+
+### Phase 0 (done 2026-07-21)
 - **Phase 0 APPLIED to project A**: migration `0056_passport_schema.sql`
   (faithful `pg_dump` port of live passport project B, re-homed under
   `passport.*`) — 11 tables + `user_tiers` view + `handle_new_scan` points
@@ -221,21 +275,12 @@ schema, two repos stay separate.
   `handle_new_user` trigger is DELIBERATELY NOT wired (0041 signup-brick risk);
   profiles come from Phase 1 data copy + a guarded cutover mechanism.
 - passport repo now has `base: '/passport/'` committed (subpath hosting).
-- **Phase 1 DRY-RUN VALIDATED (2026-07-21)**: copied all 11 tables B→A into
-  throwaway `passport._stg_*` staging (read-only on B, staging-only in A) —
-  lossless: every row count matched, profiles 465/93,646km and scans 535/79,900
-  identical, top-8 leaderboard identical. Staging + PII CSVs then dropped/removed.
-  Proves the copy mechanics; real cutover adds email→uid re-keying. (Observed:
+- **Phase 1 DRY-RUN (2026-07-21)** superseded by the real copy above — original
+  dry-run used throwaway `passport._stg_*` staging (dropped). Historical note:
   a few leaderboard users are @gmail.com, so B's "@kkumail.com only" gate isn't
-  fully enforced — decide the app-level domain gate at cutover.)
-- **NOT done**: (Phase 1 real) email-re-keyed data copy B→A; two manual steps to
-  actually use it — Supabase → Settings → API → Exposed schemas → add
-  `passport`; and point passport's supabase client at `{ db: { schema:
-  'passport' } }` (a passport code change at cutover). Passport still LIVE on
-  project B — nothing switched yet.
-- **SECURITY**: both projects' DB passwords were pasted in chat during this
-  work — ROTATE BOTH (Supabase → Settings → Database → Reset password) once the
-  merge work is done. (Applied via psql from the Mac with libpq/pg_dump.)
+  fully enforced — decide the app-level domain gate at cutover.
+- **SECURITY**: both projects' DB passwords were pasted in chat — ROTATE BOTH
+  (Supabase → Settings → Database → Reset password) once the merge is done.
 
 ### New-domain auth + passport-subpath bugs — DIAGNOSED, fixes pending (2026-07-21)
 
