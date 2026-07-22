@@ -260,16 +260,36 @@ password `PASSPORT_B_DB_PASSWORD` / `PASSPORT_B_DB_URL` now also stored in
    throwaway users: (a) sameweb-only signup succeeds + passport untouched; (b)
    passport email re-keys profile+scans, total_km preserved exactly, no dup
    scans, old uid gone; real data restored 469/93,846/537 with no leftovers.
-2. **Expose `passport` schema** in A's API (dashboard: Settings → API → Exposed
-   schemas → add `passport`). User-only.
-3. **Passport repo**: point supabase client env at A + `{ db: { schema:
-   'passport' } }`, move the `@kkumail.com` gate to an app-level check, rebuild,
-   deploy to VM (`/var/www/passport`). Separate repo.
-4. **Kill split-brain**: retire `samomdkkupassport.pages.dev` or repoint its
-   env at A — after cutover NO frontend may write to B.
-5. **Fresh delta re-copy** B→A at the window (truncate `passport.*` user data,
-   re-run `copy.mjs`), flip, verify live (sign in as a student, scan, check km).
+2. **Expose `passport` schema** in A's API — DONE (2026-07-22, user). Verified:
+   `GET /rest/v1/profiles` with anon key + `Accept-Profile: passport` → 200,
+   all 469 profiles (leaderboard) readable; sameweb `public` unaffected. A auth
+   `uri_allow_list` already covers `https://samo.md.kku.ac.th/**` (passport
+   login works on the VM), Google enabled, confirm-email off.
+3. **Passport repo — PREPPED, NOT deployed (2026-07-22).** Branch
+   `merge/point-at-project-a` (pushed): `js/app.js` createClient →
+   `{ db: { schema: 'passport' } }` + hardcoded fallbacks repointed A (so a
+   missing build env can't split-brain to B). Build verified: bundle references
+   A only (0 B refs), `schema:"passport"` baked in. No `@kkumail` app gate
+   exists (never enforced — @gmail users already on leaderboard), so nothing to
+   move. Local `.env` (gitignored) also set to A. NOT merged to main / deployed.
+4. **Kill split-brain** — largely already handled: passport pages.dev serves the
+   moved-splash + redirects to the VM (the only live passport frontend), so
+   flipping the VM to A leaves nothing writing to B. Confirm at flip.
+5. **THE FLIP (needs a low-activity window for zero-loss):** at a quiet moment —
+   (a) fresh recopy B→A: `truncate passport.profiles, passport.scans,
+   passport.season_results;` then re-run `scratchpad/copy.mjs` (captures scans
+   since the 2026-07-22 snapshot; trigger-disable already handled), verify counts
+   A==B; (b) merge `merge/point-at-project-a`→main, push; (c) VM: pull + rebuild
+   passport + set VM `~/samo-projects/samomdkkupassport/.env` to A (or confirm
+   the A fallback wins) + rsync to `/var/www/passport`; (d) verify live: load VM
+   passport, leaderboard reads, sign in as a real student → 0060 re-keys → km
+   correct. Reversible: point VM back at B + redeploy.
 6. Keep B paused as backup weeks, then delete.
+
+**Why a window:** B is still live taking scans. Flipping mid-activity risks a
+scan landing in B in the truncate→deploy gap (or a reconciliation overwrite).
+A quiet window (season break / dead hour) makes the delta zero. This is the ONE
+remaining data-safety gate — everything else is done + verified.
 
 ### Phase 0 (done 2026-07-21)
 - **Phase 0 APPLIED to project A**: migration `0056_passport_schema.sql`
