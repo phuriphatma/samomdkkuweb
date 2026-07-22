@@ -86,7 +86,7 @@ const state = {
 // session on the first orders load; the admin can still change the live
 // filter freely afterward without disturbing the saved default.
 // ---------------------------------------------------------------------
-let sourceDefaultApplied = false;
+let sourceDefaultAppliedUid = null;
 function sourceDefaultKey() {
   return `samoshop.admin.orderSourceDefault.${getUser()?.id || 'anon'}`;
 }
@@ -104,12 +104,17 @@ function saveSourceDefault(arr) {
     else localStorage.setItem(sourceDefaultKey(), JSON.stringify(arr));
   } catch { /* private-mode / quota — non-fatal */ }
 }
-/** Apply the saved default into the live filter exactly once per session. */
+/** Apply the signed-in admin's saved default into the live filter — once
+ *  per user id. Defers (stays retryable) until getUser() resolves, and
+ *  RE-applies (resetting the filter to the new account's default) when the
+ *  account changes via the account-switcher without a page reload. A no-op
+ *  on repeat calls for the same user, so manual filter tweaks made during
+ *  the session are preserved. */
 function applySourceDefaultOnce() {
-  if (sourceDefaultApplied) return;
-  sourceDefaultApplied = true;
-  const def = loadSourceDefault();
-  if (def.length) state.ordersSources = new Set(def);
+  const uid = getUser()?.id;
+  if (!uid || uid === sourceDefaultAppliedUid) return;
+  sourceDefaultAppliedUid = uid;
+  state.ordersSources = new Set(loadSourceDefault());
 }
 
 let mounted = false;
@@ -1325,7 +1330,7 @@ function ordersToCsv(orders, productMap) {
       const itemCells = it
         ? [i + 1, items.length,
            it.product_id || '', p?.name || it.product_id || '',
-           typeLabel(p?.type), srcLabel(p?.source),
+           typeLabel(p?.type), srcLabel(it.product_source || p?.source),
            it.size || '', colorLabelFor(p, it.color) || it.color || '', it.fit || '',
            qty, unit, qty * unit,
            itemStatus, (itemStatusMeta?.(itemStatus)?.label) || STAGES_META[itemStatus]?.label || itemStatus,

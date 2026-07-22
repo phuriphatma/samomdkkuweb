@@ -10,13 +10,21 @@ Admin คำสั่งซื้อ page gained a **แหล่งที่ม
 faceted pattern as the other filters (an order shows iff it has ≥1 item of a selected
 source; matching item rows only). Each order row now shows a colored source dot+label.
 Filtering keys off `itemSource(it)` = frozen `product_source` (0058) → live product
-fallback. Each admin can pin their **current source selection as a personal default**
+fallback (in `visibleOrderItems` + `itemPassesExcept`; CSV export aligned to the frozen
+source too). Each admin can pin their **current source selection as a personal default**
 (dropdown footer "ตั้งเป็นค่าเริ่มต้นของฉัน" / clear) — persisted in **localStorage keyed by
-user id** (`samoshop.admin.orderSourceDefault.<uid>`), applied once per session on first
-load. So MDI can default to MDI-only, MD to MD, anyone to all/any combo. Per-device
-(not cross-device) by design — no migration. Code: `src/js/shop/admin.js`
-(`ordersSources` facet + `itemSource`/`itemMatchesSource` + `populateOrdersSourceFacet` +
-`applySourceDefaultOnce`), `src/html/tab-admin.html` (แหล่งที่มา dropdown).
+user id** (`samoshop.admin.orderSourceDefault.<uid>`). Applied **once per user id**
+(`applySourceDefaultOnce` / `sourceDefaultAppliedUid`) — defers until getUser() resolves
+and RE-applies on account-switch (no reload), a no-op on repeat calls for the same user so
+manual tweaks are preserved. So MDI can default to MDI-only, MD to MD, anyone to all/any
+combo. Per-device (not cross-device) by design — no migration. Code: `src/js/shop/admin.js`,
+`src/html/tab-admin.html` (แหล่งที่มา dropdown).
+
+**Deploy status:** committed/pushed to `refactor/modular` (preview) only — NOT yet
+deployed to the prod VM. The 0058 DB migration + the `samomdkkumdi` samoshop grant ARE
+live on the shared Supabase DB; the frontend is additive/back-compatible, so live prod
+(which lacks the filter UI) is unaffected until a deploy. Deploy = FF main + rsync (see
+deploy-to-prod-main memory).
 
 ## SHOP MULTI-DEPARTMENT: migration 0058 APPLIED (2026-07-22)
 
