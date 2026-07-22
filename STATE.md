@@ -267,13 +267,18 @@ fresh profile via `0061`.
 - **Human check still needed:** sign into `samo.md.kku.ac.th/passport/` with a
   real passport Google account and confirm km/leaderboard (only a human can do
   the OAuth round-trip).
-- **Known minor edge (not blocking):** an EXISTING sameweb user (already has an A
-  account, never used passport) who opens passport for the first time won't get a
-  profile auto-created (the trigger only fires on signup, and there's no client
-  INSERT — B never had non-passport users so this case didn't exist). Fix if it
-  becomes real: add a `profiles_insert_own` RLS policy + an app-side
-  ensure-profile upsert on passport login. Existing passport users + new signups
-  are fully covered.
+- **Edge FIXED (2026-07-22):** an EXISTING sameweb user (already has an A account,
+  never used passport → no profile; 104 of 166 portal users) now gets their
+  profile created on demand. `0062` adds a tightly-scoped `profiles_insert_own`
+  RLS policy (`with check auth.uid()=id` — verified end-to-end that a user can
+  insert only their OWN row, forging another id 403s). Passport app: shared
+  `ensureProfile(user)` in `js/auth.js`, called on dashboard load AND before a
+  scan insert (so a direct QR-link scan can't land km-less). Best-effort, never
+  blocks the UI; duplicate/linked rows no-op. Deployed to VM (`f30b20a`). The 104
+  self-heal as each opens passport — no eager mass-create, no leaderboard
+  pollution (scan-driven). Note: staff accounts like `samomdkkuvpa` reach passport
+  via the shared A session (same origin+project = SSO) and will likewise get a
+  0-km profile on their next passport load; harmless.
 - **B teardown:** keep B paused as backup for a few weeks, then delete. ROTATE
   B's DB password (`PASSPORT_B_DB_PASSWORD` in `.env.local`, pasted in chat).
 
