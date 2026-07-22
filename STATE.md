@@ -279,6 +279,24 @@ fresh profile via `0061`.
   pollution (scan-driven). Note: staff accounts like `samomdkkuvpa` reach passport
   via the shared A session (same origin+project = SSO) and will likewise get a
   0-km profile on their next passport load; harmless.
+- **Full audit (2026-07-22) — CLEAN, no data loss / no merge-introduced bug.**
+  Verified B⊆A for all 11 tables: **0 B profiles missing by email** (all 469 +
+  537 scans + 93,846 km present; the "61 missing ids" are just re-keyed users
+  whose id changed B-uuid→A-uuid — email/km intact). 0 dup emails/ids, 0 dup
+  (user_id,activity_id) scans, 0 orphan scans, 0 null user_ids, all triggers
+  enabled. Two PRE-EXISTING B behaviors carried over faithfully (NOT merge bugs —
+  identical in B): (a) `handle_new_scan` trusts client `points_awarded` +
+  `scans_insert with_check=true` ⇒ a crafted request can inflate km (B's existing
+  design; fix later with a server-side points recompute + tighter insert policy
+  if desired); (b) `removeOwnScan` deletes a scan without decrementing `total_km`
+  ⇒ `total_km` can exceed sum(scan points) for 9 users (same 9 in B). The app
+  leaderboard recomputes from scans, so neither affects standings.
+- **Pollution FIXED (0063):** 0061 created a passport profile for EVERY portal
+  signup (undesired — portal-only users became passport rows). Reverted the
+  trigger to RE-KEY ONLY; profile creation is now exclusively on-demand via the
+  app's `ensureProfile` (only when a user actually opens passport). Verified: a
+  new portal signup no longer makes a passport profile; existing-passport re-key
+  still works. Only 1 pre-0063 pollution row exists (`auriung01`, harmless 0-km).
 - **B teardown:** keep B paused as backup for a few weeks, then delete. ROTATE
   B's DB password (`PASSPORT_B_DB_PASSWORD` in `.env.local`, pasted in chat).
 
