@@ -4,6 +4,24 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## PROJECTS: ปีงบประมาณ (Thai fiscal year) filter on หนังสือโครงการ — DEPLOYED (2026-07-22)
+
+The หนังสือโครงการ grid toolbar gained a **ปีงบประมาณ dropdown** (`#projectsFiscalYear`
+in `tab-projects.html`). Thai budget year = 1 ต.ค. – 30 ก.ย., named for the year it ENDS
+in (ปีงบ 2569 = 1 ต.ค. 2568 → 30 ก.ย. 2569), so Oct–Dec roll into the next BE year —
+`fiscalYearBE()` in `inbox.js` encodes exactly that (`getFullYear()+543 + (month>=9?1:0)`,
+viewer-local calendar; audience is ICT). Options are **data-driven** from the fiscal years
+present (newest first) + ทุกปีงบ, so the list self-extends each budget year. FY is the
+**OUTERMOST filter** — both the chip counts and the grid read the same
+`projectsInSelectedFY()` base (keyed on project `created_at`), so a year with 0 "ของฉัน"
+reads as cleared, not empty; a selected year with no projects shows a dedicated empty state.
+Filter is session-only (not persisted). Code: `src/js/projects/inbox.js`,
+`src/html/tab-projects.html`, `src/css/projects.css` (`.projects-fy-filter`).
+
+**Deployed to prod VM (2026-07-22):** `main` ff to `3d43649`, VM build `39e1138aacb8`,
+rsync → `/var/www/samo-web`, nginx reloaded; `/`, `/admin/`, `/notify` all 200. Both
+branches in sync at `3d43649`. Client-only, no migration.
+
 ## SHOP ADMIN: แหล่งที่มา (source) order filter + per-user default (2026-07-22)
 
 Admin คำสั่งซื้อ page gained a **แหล่งที่มา (owning-dept) facet** — item-level, same
