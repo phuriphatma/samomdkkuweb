@@ -26,7 +26,24 @@ a `shop_admin` writes/sees only their own `source`) is an additive RLS change wi
 orders, so the item needs its owner frozen on it. Deliberately did NOT build Model B
 now (YAGNI for 2 trusting teams). Model B, when needed: add `current_user_shop_dept()`
 (security-definer helper, mirror `current_user_dept()` 0016) + scope the write policy
-`AND source = current_user_shop_dept()` with `dev` bypass + admin-UI source filter.
+`AND source = current_user_shop_dept()` with a super-admin bypass + admin-UI source filter.
+
+**Shop admin identity (live, confirmed 2026-07-22):**
+- **Cross-dept SUPER-admins** = `dev` role (`samomdkkudev`, `samomdkkupresident`) +
+  **VPA** (the `vp_admin` account, dept `อุปนายกฝ่ายบริหารองค์กร`; already carries
+  `permissions=['projects','samoshop']`). Under Model A these already see everything.
+- **MD operator** = `samomdkkushop` (`role=shop_admin`, global).
+- **MDI** = `samomdkkumdi` (`vp_admin`, dept `อุปนายกฝ่ายเวชนิทัศน์`) — currently
+  `permissions=[]` → NO shop access. Onboard by granting `'samoshop'` (broadens
+  `current_user_is_shop_admin()` per 0014). NOTE the guard wrinkle: a plain
+  `update users set permissions` trips `users_self_update_guard` (0028/0041) even via
+  the Management API (auth.uid() null → not staff) — grant via select→delete→insert
+  (no INSERT guard) or a security-definer RPC (see mistakes.md service-role-seed entry).
+- **Model B super-admin marker:** don't hardcode the VPA username (it's actually NULL)
+  or dept string (anti-pattern — see mistakes-archive reserved-username-list entry).
+  Add a `'samoshop_super'` permission; super = `role='dev' OR has_permission('samoshop_super')`.
+  Grant VPA `'samoshop_super'` in the same migration (else Model B scopes it down to its
+  own product-less dept). `'samoshop'` becomes the dept-scoped operator grant.
 
 ## SHOP CATALOG CONFIG: migration 0057 APPLIED + DEPLOYED (2026-07-22)
 
