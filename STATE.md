@@ -18,9 +18,11 @@ reads as cleared, not empty; a selected year with no projects shows a dedicated 
 Filter is session-only (not persisted). Code: `src/js/projects/inbox.js`,
 `src/html/tab-projects.html`, `src/css/projects.css` (`.projects-fy-filter`).
 
-**Deployed to prod VM (2026-07-22):** `main` ff to `3d43649`, VM build `39e1138aacb8`,
-rsync → `/var/www/samo-web`, nginx reloaded; `/`, `/admin/`, `/notify` all 200. Both
-branches in sync at `3d43649`. Client-only, no migration.
+**Deployed to prod VM (2026-07-22):** `main` ff to `3a72491`, rsync → `/var/www/samo-web`,
+nginx reloaded; `/admin/` 200. Both branches in sync at `3a72491`. Client-only, no
+migration. Follow-up fix `3a72491`: the ปีงบ `<select>` used `flex:0 1 auto` so on the
+narrower iPad toolbar it shrank below its content width and the label ran under Bootstrap's
+chevron — pinned `flex-shrink:0` + `min-width` (`.projects-fy-filter`).
 
 ## SHOP ADMIN: แหล่งที่มา (source) order filter + per-user default (2026-07-22)
 
