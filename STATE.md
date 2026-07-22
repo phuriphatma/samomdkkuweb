@@ -249,7 +249,35 @@ password `PASSPORT_B_DB_PASSWORD` / `PASSPORT_B_DB_URL` now also stored in
   kill split-brain. Nothing on A is API-exposed yet, so no real students are on
   A (safe to leave the copied data in place; Phase 3 re-copies fresh).
 
-### Remaining to cut over (coordinated, needs a quiet window + 2 dashboard steps)
+### CUTOVER EXECUTED — passport LIVE on project A (2026-07-22)
+**The flip is done and verified lossless.** Passport (`samo.md.kku.ac.th/passport/`)
+now reads/writes the `passport` schema of project A; project B is frozen (no
+frontend writes to it) and kept as a cold backup. Sequence run: took passport
+down (maintenance page) → final recopy B→A (B frozen) → one-time backfill linked
+the **60** passport emails that already had an A account to their existing A uid
+→ merged `merge/point-at-project-a`→passport main (`8044263`) → VM rebuild +
+deploy pointed at A (fixed the VM's `.env.local` which still forced B — Vite
+loads `.env.local` over the app.js fallback) → brought up. **Post-flip reconcile
+CLEAN**: A == B exactly (469 profiles / 537 scans / 93,846 km / max scan id 648),
+0 B-scans missing from A, 0 B-emails missing from A. `0061` extends the signup
+trigger to also CREATE a profile for a brand-new user (mirrors B's
+`handle_new_user`; verified). Login coverage: existing-in-both (60) backfilled;
+passport-only (409) re-key on first A login via `0060`; brand-new signups get a
+fresh profile via `0061`.
+- **Human check still needed:** sign into `samo.md.kku.ac.th/passport/` with a
+  real passport Google account and confirm km/leaderboard (only a human can do
+  the OAuth round-trip).
+- **Known minor edge (not blocking):** an EXISTING sameweb user (already has an A
+  account, never used passport) who opens passport for the first time won't get a
+  profile auto-created (the trigger only fires on signup, and there's no client
+  INSERT — B never had non-passport users so this case didn't exist). Fix if it
+  becomes real: add a `profiles_insert_own` RLS policy + an app-side
+  ensure-profile upsert on passport login. Existing passport users + new signups
+  are fully covered.
+- **B teardown:** keep B paused as backup for a few weeks, then delete. ROTATE
+  B's DB password (`PASSPORT_B_DB_PASSWORD` in `.env.local`, pasted in chat).
+
+### How the cutover was done (historical detail)
 1. **Lazy-link trigger on A — DONE + isolate-tested (2026-07-22).** Migration
    `0060_passport_login_link.sql` APPLIED: `on_auth_user_created_passport_link`
    → `public.passport_link_user_by_email()` (SECURITY DEFINER, best-effort,
