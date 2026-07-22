@@ -4,6 +4,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Deprecated-host guard: the *.pages.dev deployments are retired now that
+       the app is self-hosted at samo.md.kku.ac.th. On any pages.dev host,
+       forward to the "we've moved" splash (preserving the deep link). Fires
+       only on *.pages.dev — never on the VM domain or localhost dev. -->
+  <script>
+    (function () {
+      try {
+        if (/\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
+          location.replace('/moved.html?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <title>SAMO Admin — MDKKU</title>
   <meta name="robots" content="noindex" />
 

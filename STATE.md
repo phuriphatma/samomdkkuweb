@@ -34,20 +34,39 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   the real PR/PROJECTS webhooks + a 12-key VS map (all VS dropdown targets →
   the one VS channel, since notifyVSConsult has no fallback). Live-test from the
   VM egress: all 3 channels HTTP 204. Notifications work end-to-end.
-- **Still TODO (only the user can — dashboards)**:
-  (1) samoweb Google sign-in on samo.md.kku.ac.th — **DONE**: redirect URLs +
-  Google JS origin added to project `fheueuowbchsnsvbcgil`; login now returns
-  per-origin (samo.md.kku.ac.th→itself, pages.dev→itself). Site URL stays
-  pages.dev (only the fallback).
-  (2) **PASSPORT Google sign-in on /passport STILL redirects to pages.dev** —
-  add `https://samo.md.kku.ac.th/passport/**` (+ exact `/passport/`) to the
-  PASSPORT Supabase project `idwlabpbwiwgaoqwbozz` → Redirect URLs, and
-  `https://samo.md.kku.ac.th` to the passport Google OAuth client's JS origins.
-  Leave passport Site URL = pages.dev. (Full detail in the passport-subpath
-  section below.) This is the ONE open item from the 2026-07-21 session.
-  (3) verify off-VPN public reachability. The VM account password still gates
-  `sudo` (SSH is key-only) — **rotate it** (pasted in chat this session).
-  notify_log (0055) optional — enable via `SUPABASE_*` in the env file.
+- **READY TO CUT OVER (2026-07-22)** — all functional blockers cleared:
+  (1) samoweb Google sign-in on samo.md.kku.ac.th — **DONE** (redirect URLs +
+  Google JS origin on `fheueuowbchsnsvbcgil`; login returns per-origin).
+  (2) passport Google sign-in on /passport — **DONE** (user added the passport
+  project `idwlabpbwiwgaoqwbozz` redirect URLs + Google JS origin).
+  (3) off-VPN public reachability — **CONFIRMED** by user.
+  (4) **Email notify — CONFIRMED enabled + host-independent.** Live
+  `project_settings` (id=1): `notify_uni_email=true`, `uni_staff_email=
+  woratho@kku.ac.th`; `notify_prof_email=true`, `prof_email=prakasa@kku.ac.th`.
+  Email goes browser→GAS `/exec` MailApp at an ABSOLUTE URL (`config.js
+  GAS_API_URL`), so it's identical on pages.dev and the VM — the domain switch
+  does not touch it. (Only Discord uses the same-origin `/notify` path, already
+  replicated on the VM.) Deep-links in emails derive from `window.location`, so
+  they self-target the sending host.
+  Remaining = hygiene only: rotate the VM sudo password (pasted in chat);
+  notify_log (0055) optional via `SUPABASE_*` in the env file.
+- **DB is NOT touched by the switch — zero data-loss risk.** This is a HOSTING
+  move only. Web DB stays on Supabase Cloud `fheueuowbchsnsvbcgil`; passport DB
+  stays on `idwlabpbwiwgaoqwbozz` (passport still runs on project B — the
+  Phase-0/1 merge into project A's `passport` schema is NOT activated). The VM
+  frontend points at the same Supabase URLs via the same env vars. Only caveat:
+  sessions don't carry across origins, so users re-sign-in once on the new domain.
+- **pages.dev "we've moved" splash (2026-07-22, this repo).** `public/moved.html`
+  — self-contained animated splash (relocation-arc SVG, brand pine/orange,
+  countdown auto-redirect, deep-link-preserving). A guard `<script>` at the top
+  of `index.html` + `admin/index.html` fires ONLY on `*.pages.dev`
+  (`/\.pages\.dev$/i.test(hostname)`) and `location.replace('/moved.html?next=…')`;
+  never on samo.md.kku.ac.th or localhost. Same repo builds the VM (splash is a
+  dead file there — guard never fires). `/moved.html` is a real static asset so
+  Pages serves it before the `_redirects` SPA catch-all. **Passport splash is a
+  separate repo (phuriphatma/samomdkkupassport) — NOT yet added there;** drop an
+  equivalent `moved.html` (target `https://samo.md.kku.ac.th/passport/`) + the
+  same guard in passport's entry to cover samomdkkupassport.pages.dev.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
