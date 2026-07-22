@@ -250,11 +250,16 @@ password `PASSPORT_B_DB_PASSWORD` / `PASSPORT_B_DB_URL` now also stored in
   A (safe to leave the copied data in place; Phase 3 re-copies fresh).
 
 ### Remaining to cut over (coordinated, needs a quiet window + 2 dashboard steps)
-1. **Lazy-link trigger on A** (the 0041-risky piece) — on a student's first A
-   login, match `passport.profiles` by email and re-key their profile.id +
-   scans.user_id from the old B uuid to the new A auth uid. MUST be best-effort
-   (never `raise`, like the existing `handle_new_auth_user`) and isolate-tested
-   via the admin-API create-user repro BEFORE relied on. NOT written/applied yet.
+1. **Lazy-link trigger on A — DONE + isolate-tested (2026-07-22).** Migration
+   `0060_passport_login_link.sql` APPLIED: `on_auth_user_created_passport_link`
+   → `public.passport_link_user_by_email()` (SECURITY DEFINER, best-effort,
+   whole body wrapped so it can NEVER raise → cannot brick signups; writes only
+   passport.*). On a new auth signup it finds `passport.profiles` by email and
+   re-keys profile.id + scans.user_id + season_results.user_id from the old B
+   uuid to the new A uid; no-op for non-passport emails. Verified via admin-API
+   throwaway users: (a) sameweb-only signup succeeds + passport untouched; (b)
+   passport email re-keys profile+scans, total_km preserved exactly, no dup
+   scans, old uid gone; real data restored 469/93,846/537 with no leftovers.
 2. **Expose `passport` schema** in A's API (dashboard: Settings → API → Exposed
    schemas → add `passport`). User-only.
 3. **Passport repo**: point supabase client env at A + `{ db: { schema:
