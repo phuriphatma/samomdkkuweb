@@ -194,3 +194,30 @@ samoweb catch-all) — patch it the same way if a bare `/admin` link ever ships.
 To apply live on the VM: scp the config to the box, `sudo cp` it to
 `/etc/nginx/sites-available/default`, `sudo nginx -t` (validates before
 committing), `sudo systemctl reload nginx`.
+
+---
+
+## A full-height centered page with `height:100% + overflow:hidden` is unscrollable on mobile when the content is taller than the viewport
+
+**Symptom**: The pages.dev "we've moved" splash (`public/moved.html`) could not be
+scrolled up/down on iPad — the card (and the countdown + CTA below it) were
+clipped, unreachable. Fine on desktop / tall phone viewports; only bit where the
+card exceeds the viewport (iPad landscape, large text / zoom, short screens).
+**Cause**: the splash `body` used `html,body{height:100%}` + `body{display:grid;
+place-items:center; overflow:hidden}`. `height:100%` pins the body to exactly the
+viewport height, and `overflow:hidden` then clips anything taller — so a centered
+card bigger than the viewport has its overflow hidden with no way to scroll to it.
+(Same family as the iOS `100vh` drawer entry above — full-height mobile layouts
+are the recurring trap.)
+**Fix**: drop the fixed `height:100%` (keep `min-height:100dvh` so it still fills
+the screen but can GROW past it), and change `overflow:hidden` → `overflow-x:hidden`
+(kills only horizontal aurora bleed; per CSS the y-axis then computes to `auto`, so
+the page scrolls vertically). Grid `place-items:center` with auto rows keeps the
+card centered when it fits and top-aligned+scrollable when it doesn't. The fixed
+background layers (`.aurora`/`.stars`, `position:fixed`) are unaffected — `body`'s
+overflow never clips fixed descendants (their containing block is the viewport,
+not `body`), so the backdrop stays put while content scrolls.
+**Where**: `public/moved.html` in BOTH this repo and the passport repo. For any
+future full-screen centered page, use `min-height:100dvh` (never `height:100%`)
+and never `overflow:hidden` on the scroll root — reach for `overflow-x:hidden` if
+you only need to tame horizontal bleed.

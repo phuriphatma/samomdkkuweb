@@ -82,6 +82,11 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   Note: pages.dev sessions don't carry to the VM origin — users re-sign-in once.
   Passport local clone (`/Users/xeno/development/samodevmdkku69/passport`) has
   pre-existing untracked `.agents/` + `AGENTS.md` — NOT ours, leave them.
+  Splash tuning (both repos, pushed 2026-07-22): auto-redirect countdown is **30s**
+  (was 9s); fixed an **iPad unscrollable** bug — the splash `body` had
+  `height:100% + overflow:hidden` which clipped the card when taller than the
+  viewport; now `overflow-x:hidden` + no fixed height so it scrolls (see
+  mistakes-archive). Cutover guards confirmed LIVE on both prod pages.dev.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
