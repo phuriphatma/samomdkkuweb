@@ -72,8 +72,16 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   builds clean. **CUTOVER EXECUTED (2026-07-22):** verified live on the refactor
   preview — guard deployed, `/moved.html` 308→`/moved` preserves `?next=`, splash
   renders with the correct VM target; VM 200 off-VPN on `/` + `/passport/`. Web
-  shipped to prod (`main` ff) + passport pushed to prod. Both `*.pages.dev` now
-  redirect to samo.md.kku.ac.th. DB untouched (no migration/db diff).
+  shipped to prod: `main` ff to `6cec725` (both branches in sync). Passport splash
+  rebased onto `c124b5c` (subpath fix intact) + pushed to origin/main `b64f15a`.
+  DB untouched (no migration/db diff — bug-scanned clean). **Cloudflare prod
+  builds were triggered by the pushes; confirm they went live with:**
+  `curl -s https://samomdkkuweb.pages.dev/ | grep -q "encodeURIComponent" && echo LIVE`
+  (same for `samomdkkupassport.pages.dev`). Old pages.dev deep-links + printed QR
+  codes keep working (redirect through the splash to the VM, query preserved).
+  Note: pages.dev sessions don't carry to the VM origin — users re-sign-in once.
+  Passport local clone (`/Users/xeno/development/samodevmdkku69/passport`) has
+  pre-existing untracked `.agents/` + `AGENTS.md` — NOT ours, leave them.
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
