@@ -67,6 +67,13 @@ no DB migration. Full runbook: `docs/SELF-HOST.md`.
   separate repo (phuriphatma/samomdkkupassport) — NOT yet added there;** drop an
   equivalent `moved.html` (target `https://samo.md.kku.ac.th/passport/`) + the
   same guard in passport's entry to cover samomdkkupassport.pages.dev.
+  **PASSPORT SPLASH DONE (2026-07-22):** `public/moved.html` (target
+  `.../passport/`) + guard in all 4 passport entries (index/dashboard/admin/scan);
+  builds clean. **CUTOVER EXECUTED (2026-07-22):** verified live on the refactor
+  preview — guard deployed, `/moved.html` 308→`/moved` preserves `?next=`, splash
+  renders with the correct VM target; VM 200 off-VPN on `/` + `/passport/`. Web
+  shipped to prod (`main` ff) + passport pushed to prod. Both `*.pages.dev` now
+  redirect to samo.md.kku.ac.th. DB untouched (no migration/db diff).
 - passport is a SEPARATE Supabase project (`idwlabpbwiwgaoqwbozz`) → a passport
   change cannot touch the web DB. Keep it that way after the shared-login merge:
   one repo → one project ref → one migrations folder; share ONLY auth.
@@ -371,8 +378,9 @@ documented per-minute/hour throttle; no separate monthly cap.
 
 ## Branches
 
-- `main` HEAD: latest production (`053a01b`). Auto-deploys to
-  `samomdkkuweb.pages.dev`.
+- `main` HEAD: latest production (pages.dev-retirement splash). Auto-deploys to
+  `samomdkkuweb.pages.dev` — which now REDIRECTS to samo.md.kku.ac.th (the VM is
+  the real host; pages.dev serves only the moved-splash).
 - `refactor/modular`: **in sync with main** (preview). Auto-deploys to
   `refactorsamomdkkuweb.pages.dev`. Both branches share an identical base — the
   historical big-bang `MERGE-CHECKLIST.md` risks (creds, dev GAS URLs) are moot;
