@@ -93,7 +93,7 @@ const DEPT_DEFS = {
       { kind: 'tab', tabId: 'pills-vitalsound-tab', icon: 'bi-clipboard2-pulse',
         name: 'VitalSound', desc: 'ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร',
         color: 'var(--vs-accent)' },
-      { kind: 'external', href: 'https://samomdkkupassport.pages.dev/',
+      { kind: 'external', href: '/passport/',
         icon: 'bi-patch-check',
         name: 'SAMO Passport',
         desc: 'เก็บหน่วยกิจกรรมและตรวจสอบสถานะของคุณ',
