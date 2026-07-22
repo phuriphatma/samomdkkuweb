@@ -20,11 +20,12 @@ manual tweaks are preserved. So MDI can default to MDI-only, MD to MD, anyone to
 combo. Per-device (not cross-device) by design — no migration. Code: `src/js/shop/admin.js`,
 `src/html/tab-admin.html` (แหล่งที่มา dropdown).
 
-**Deploy status:** committed/pushed to `refactor/modular` (preview) only — NOT yet
-deployed to the prod VM. The 0058 DB migration + the `samomdkkumdi` samoshop grant ARE
-live on the shared Supabase DB; the frontend is additive/back-compatible, so live prod
-(which lacks the filter UI) is unaffected until a deploy. Deploy = FF main + rsync (see
-deploy-to-prod-main memory).
+**Deploy status:** DEPLOYED TO PROD VM (2026-07-22). `main` fast-forwarded to `38fee93`
+and pushed; VM (`samo.md.kku.ac.th`) pulled → `npm ci && npm run build` → rsync `dist/` →
+`/var/www/samo-web` → nginx reloaded (build `ddba5406e665`). Smoke tests: `/`, `/admin/`,
+`/notify`, `/passport/` all 200; served `build.json` matches. The 0058 DB migration + the
+`samomdkkumdi` samoshop grant were already live on the shared Supabase DB. Both branches
+in sync at `38fee93`.
 
 ## SHOP MULTI-DEPARTMENT: migration 0058 APPLIED (2026-07-22)
 
