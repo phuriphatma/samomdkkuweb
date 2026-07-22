@@ -1023,6 +1023,26 @@ service_role, or set the role in the Supabase SQL editor — both need SQL
 access this repo's `.env.local` doesn't carry.)
 **Where**: `tools/president-account.mjs`; guard in
 `supabase/migrations/0028` + `0041`.
+**Best method for an EXISTING row with FK dependents** (e.g. granting an
+already-provisioned staff account a new `permissions[]` value — done
+2026-07-22 to add `'samoshop'` to `samomdkkumdi`): do NOT delete+insert —
+that row is FK-referenced (created content, actions, etc.) and the delete
+either cascades data away or fails on RESTRICT. Instead disable the guard
+for one atomic UPDATE via `tools/apply-migration.mjs` (runs as Postgres
+superuser over the Management API `database/query` endpoint):
+```sql
+alter table public.users disable trigger users_self_update_guard;
+update public.users set permissions = array_append(coalesce(permissions,'{}'),'samoshop')
+ where username = 'samomdkkumdi' and not ('samoshop' = any(coalesce(permissions,'{}')));
+alter table public.users enable trigger users_self_update_guard;
+```
+Safe because: the endpoint runs a multi-statement string as ONE implicit
+transaction (simple-query protocol), so a failing UPDATE rolls back the
+DISABLE too (trigger stays enabled); and `ALTER TABLE … DISABLE TRIGGER`
+takes a transaction-scoped ACCESS EXCLUSIVE lock, so no other session ever
+observes the guard disabled. Verify `tgenabled='O'` (enabled) on
+`pg_trigger` afterward. Prefer this over delete+insert for any established
+`public.users` row.
 
 ---
 

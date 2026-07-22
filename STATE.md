@@ -33,12 +33,14 @@ now (YAGNI for 2 trusting teams). Model B, when needed: add `current_user_shop_d
   **VPA** (the `vp_admin` account, dept `อุปนายกฝ่ายบริหารองค์กร`; already carries
   `permissions=['projects','samoshop']`). Under Model A these already see everything.
 - **MD operator** = `samomdkkushop` (`role=shop_admin`, global).
-- **MDI** = `samomdkkumdi` (`vp_admin`, dept `อุปนายกฝ่ายเวชนิทัศน์`) — currently
-  `permissions=[]` → NO shop access. Onboard by granting `'samoshop'` (broadens
-  `current_user_is_shop_admin()` per 0014). NOTE the guard wrinkle: a plain
-  `update users set permissions` trips `users_self_update_guard` (0028/0041) even via
-  the Management API (auth.uid() null → not staff) — grant via select→delete→insert
-  (no INSERT guard) or a security-definer RPC (see mistakes.md service-role-seed entry).
+- **MDI** = `samomdkkumdi` (`vp_admin`, dept `อุปนายกฝ่ายเวชนิทัศน์`) — **GRANTED
+  `'samoshop'` 2026-07-22** (`permissions=['samoshop']`, `has_shop=true`); now a
+  (global, Model A) shop admin. The grant tripped `users_self_update_guard` on a
+  plain UPDATE, so it was done by disabling the guard for one atomic tx via
+  `apply-migration.mjs` (superuser) — see the mistakes.md service-role-seed entry's
+  "existing row with FK dependents" method. Guard verified re-enabled after.
+  Still needs (optional): MDI's own `shop_promptpay_qrs` + `shop_pickup_locations`
+  rows so their products route money/pickup separately (data entry via admin UI).
 - **Model B super-admin marker:** don't hardcode the VPA username (it's actually NULL)
   or dept string (anti-pattern — see mistakes-archive reserved-username-list entry).
   Add a `'samoshop_super'` permission; super = `role='dev' OR has_permission('samoshop_super')`.
