@@ -47,6 +47,7 @@ const state = {
   ordersSizes: new Set(),      // size strings, e.g. 'S' (default-key 'F')
   ordersColors: new Set(),     // color ids, e.g. 'black' (default-key 'default')
   ordersItemStatuses: new Set(), // per-item effective progress (rowDisplayStatus)
+  ordersSources: new Set(),    // แหล่งที่มา (owning dept) — item-level; matches on product_source
   ordersSelected: new Set(),   // order ids ticked for bulk delete
   ordersSearch: '',
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
@@ -77,10 +78,45 @@ const state = {
   bannerPlacement: 'launch',
 };
 
+// ---------------------------------------------------------------------
+// Per-user default แหล่งที่มา (source/owning-dept) filter for the orders
+// page. Persisted in localStorage keyed by user id, so each admin — and
+// each account switched-to on a shared device (account-switcher) — keeps
+// its own default. Empty / no key = show all sources. Applied once per
+// session on the first orders load; the admin can still change the live
+// filter freely afterward without disturbing the saved default.
+// ---------------------------------------------------------------------
+let sourceDefaultApplied = false;
+function sourceDefaultKey() {
+  return `samoshop.admin.orderSourceDefault.${getUser()?.id || 'anon'}`;
+}
+function loadSourceDefault() {
+  try {
+    const raw = localStorage.getItem(sourceDefaultKey());
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((s) => typeof s === 'string') : [];
+  } catch { return []; }
+}
+function saveSourceDefault(arr) {
+  try {
+    if (!arr || arr.length === 0) localStorage.removeItem(sourceDefaultKey());
+    else localStorage.setItem(sourceDefaultKey(), JSON.stringify(arr));
+  } catch { /* private-mode / quota — non-fatal */ }
+}
+/** Apply the saved default into the live filter exactly once per session. */
+function applySourceDefaultOnce() {
+  if (sourceDefaultApplied) return;
+  sourceDefaultApplied = true;
+  const def = loadSourceDefault();
+  if (def.length) state.ordersSources = new Set(def);
+}
+
 let mounted = false;
 function ensureMounted() {
   if (mounted) return;
   mounted = true;
+  applySourceDefaultOnce();
 
   // Tab switcher
   document.getElementById('shopAdminTabs')?.addEventListener('click', (e) => {
@@ -91,6 +127,7 @@ function ensureMounted() {
 
   // Multi-select status facet — populated once from STAGES_META.
   populateStatusFacet();
+  populateOrdersSourceFacet();
   // Search box — searches id, buyer name, and buyer email.
   const search = document.getElementById('shopAdminOrdersSearch');
   if (search) {
@@ -115,12 +152,14 @@ function ensureMounted() {
     state.ordersSizes.clear();
     state.ordersColors.clear();
     state.ordersItemStatuses.clear();
+    state.ordersSources.clear();
     state.ordersSearch = '';
     state.ordersPreorder = 'all';
     const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
     document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
       .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
     populateStatusFacet();           // re-render checks
+    populateOrdersSourceFacet();
     populateOrdersProductSelect();   // re-render checks
     populateOrdersSizeFacet();
     populateOrdersColorFacet();
@@ -327,12 +366,16 @@ async function refreshOrders() {
     ]);
     state.orders = orders;
     if (products && products.length) state.products = products;
+    // Apply the admin's saved default แหล่งที่มา filter on first load (getUser
+    // is reliably resolved by the time the shop admin tab is open).
+    applySourceDefaultOnce();
     // Drop selections for orders that no longer exist (e.g. just deleted).
     const liveIds = new Set(orders.map((o) => o.id));
     for (const id of [...state.ordersSelected]) {
       if (!liveIds.has(id)) state.ordersSelected.delete(id);
     }
     populateStatusFacet();         // re-render now that we have order counts
+    populateOrdersSourceFacet();
     populateOrdersProductSelect();
     populateOrdersSizeFacet();
     populateOrdersColorFacet();
@@ -356,6 +399,7 @@ async function refreshOrders() {
  *  order-level สถานะ facet is applied here too (unless excluded). */
 function itemPassesExcept(o, it, exclude) {
   if (exclude !== 'status' && state.ordersStatuses.size > 0 && !state.ordersStatuses.has(o.status)) return false;
+  if (exclude !== 'source'   && !itemMatchesSource(it))     return false;
   if (exclude !== 'product'  && !itemMatchesProductDim(it)) return false;
   if (exclude !== 'size'     && !itemMatchesSize(it))       return false;
   if (exclude !== 'color'    && !itemMatchesColor(it))      return false;
@@ -403,6 +447,7 @@ function facetCountBadge(n) {
  *  preserves checked state from the state Sets and re-runs updateFilterChromes. */
 function repopulateOrderFacets() {
   populateStatusFacet();
+  populateOrdersSourceFacet();
   populateOrdersProductSelect();
   populateOrdersSizeFacet();
   populateOrdersColorFacet();
@@ -446,6 +491,63 @@ function populateStatusFacet() {
       repopulateOrderFacets();
       renderOrdersTable();
     });
+  });
+  updateFilterChromes();
+}
+
+/** แหล่งที่มา (owning-dept) facet — item-level: an order shows when it has
+ *  ≥1 item whose product_source is selected. The menu footer lets the
+ *  admin pin the CURRENT source selection as their personal default (and
+ *  clear it back to "show all"). */
+function populateOrdersSourceFacet() {
+  const menu = document.getElementById('shopAdminOrdersSourceMenu');
+  if (!menu) return;
+  const sources = SHOP_SOURCES.filter((s) => s.id !== 'all');
+  const counts = itemCountBy((it) => itemSource(it), 'source');
+  const rows = sources.map((s) => {
+    const n = counts.get(s.id) || 0;
+    return `
+      <label class="dropdown-item d-flex align-items-center gap-2 py-1 ${n === 0 ? 'opacity-50' : ''}" style="cursor:pointer;">
+        <input type="checkbox" class="form-check-input m-0"
+               data-facet="source" value="${escHtml(s.id)}"
+               ${state.ordersSources.has(s.id) ? 'checked' : ''} />
+        <span style="width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:${escHtml(s.color || 'var(--bs-secondary)')};"></span>
+        <span class="small flex-grow-1">${escHtml(s.label)}</span>
+        ${facetCountBadge(n)}
+      </label>`;
+  }).join('');
+  const hasDefault = loadSourceDefault().length > 0;
+  const footer = `
+    <div class="dropdown-divider my-1"></div>
+    <div class="px-1 pt-1 d-grid gap-1">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-source-action="save">
+        <i class="bi bi-star me-1"></i> ตั้งตัวกรองนี้เป็นค่าเริ่มต้นของฉัน
+      </button>
+      <button type="button" class="btn btn-link btn-sm text-muted p-0 ${hasDefault ? '' : 'd-none'}" data-source-action="clear">
+        ล้างค่าเริ่มต้น (แสดงทั้งหมด)
+      </button>
+    </div>`;
+  menu.innerHTML = rows + footer;
+  menu.querySelectorAll('input[data-facet="source"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.ordersSources.add(cb.value);
+      else state.ordersSources.delete(cb.value);
+      repopulateOrderFacets();
+      renderOrdersTable();
+    });
+  });
+  menu.querySelector('[data-source-action="save"]')?.addEventListener('click', () => {
+    const chosen = [...state.ordersSources];
+    saveSourceDefault(chosen);
+    showShopToast(chosen.length
+      ? `ตั้งค่าเริ่มต้นเป็น ${chosen.map((id) => findSource(id)?.label || id).join(', ')} แล้ว`
+      : 'ตั้งค่าเริ่มต้นเป็น "ทั้งหมด" แล้ว', 'success');
+    populateOrdersSourceFacet();
+  });
+  menu.querySelector('[data-source-action="clear"]')?.addEventListener('click', () => {
+    saveSourceDefault([]);
+    showShopToast('ล้างค่าเริ่มต้นแล้ว — ครั้งต่อไปจะแสดงทั้งหมด', 'success');
+    populateOrdersSourceFacet();
   });
   updateFilterChromes();
 }
@@ -688,6 +790,7 @@ function updateFilterChromes() {
   const zN = state.ordersSizes.size;
   const cN = state.ordersColors.size;
   const iN = state.ordersItemStatuses.size;
+  const srcN = state.ordersSources.size;
   const setBadge = (id, n) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -695,6 +798,7 @@ function updateFilterChromes() {
     el.classList.toggle('d-none', n === 0);
   };
   setBadge('shopAdminOrdersStatusBadge', sN);
+  setBadge('shopAdminOrdersSourceBadge', srcN);
   setBadge('shopAdminOrdersProductBadge', pN);
   setBadge('shopAdminOrdersSizeBadge', zN);
   setBadge('shopAdminOrdersColorBadge', cN);
@@ -702,7 +806,7 @@ function updateFilterChromes() {
   if (clear) {
     const preorderActive = (state.ordersPreorder || 'all') !== 'all';
     clear.classList.toggle('d-none',
-      sN === 0 && pN === 0 && zN === 0 && cN === 0 && iN === 0
+      sN === 0 && pN === 0 && zN === 0 && cN === 0 && iN === 0 && srcN === 0
       && !state.ordersSearch && !preorderActive);
   }
 }
@@ -814,6 +918,12 @@ function renderOrdersTable() {
       const variant = it ? itemVariantLabel(p, it) : '';
       const lineTotal = it ? (Number(it.unit_price) || 0) * (Number(it.qty) || 0) : 0;
       const status = rowDisplayStatus(o, it);
+      const src = it ? findSource(itemSource(it)) : null;
+      const sourceTag = src
+        ? `<div class="small text-muted d-flex align-items-center gap-1" style="margin-top:2px;">
+             <span style="width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:${escHtml(src.color || 'var(--bs-secondary)')};"></span>${escHtml(src.label)}
+           </div>`
+        : '';
       return `
         <tr class="is-clickable ${idx === 0 ? 'order-group-start' : 'order-group-cont'}" data-order-id="${escHtml(o.id)}">
           ${idx === 0 ? selectCell + orderCell : ''}
@@ -823,6 +933,7 @@ function renderOrdersTable() {
               ${it?.is_preorder ? '<span class="preorder-tag ms-1">พรีออเดอร์</span>' : ''}
             </div>
             ${variant ? `<div class="small text-muted">${escHtml(variant)}</div>` : ''}
+            ${sourceTag}
           </td>
           <td><span style="font-weight:700;">${it ? `× ${Number(it.qty) || 0}` : '—'}</span></td>
           <td><span style="font-weight:600;">฿${thb(lineTotal)}</span></td>
@@ -1044,6 +1155,21 @@ function itemMatchesProductDim(it) {
   return products.has(it.product_id) || types.has(productTypeOf(it.product_id));
 }
 
+/** The owning department (แหล่งที่มา) of a line item. Prefers the frozen
+ *  `product_source` snapshot (mig 0058); falls back to the live product's
+ *  source for any pre-0058 item whose column wasn't backfilled. */
+function itemSource(it) {
+  return it.product_source
+      || (state.products || []).find((p) => p.id === it.product_id)?.source
+      || '';
+}
+
+/** แหล่งที่มา facet — within-facet OR; empty matches everything. */
+function itemMatchesSource(it) {
+  const s = state.ordersSources;
+  return s.size === 0 || s.has(itemSource(it));
+}
+
 /** Does this line item match the active preorder facet? */
 function itemMatchesPreorder(it) {
   const pf = state.ordersPreorder || 'all';
@@ -1083,18 +1209,19 @@ function anyItemFacetActive() {
     || state.ordersSizes.size > 0
     || state.ordersColors.size > 0
     || state.ordersItemStatuses.size > 0
+    || state.ordersSources.size > 0
     || (state.ordersPreorder || 'all') !== 'all';
 }
 
 /** The line items of an order that survive the item-level facets
- *  (product / type / size / colour / progress / preorder). Drives both
- *  the table (renders only these rows) and the order-level filterOrders
+ *  (source / product / type / size / colour / progress / preorder). Drives
+ *  both the table (renders only these rows) and the order-level filterOrders
  *  pass (an order shows iff it has ≥1 surviving item). */
 function visibleOrderItems(o) {
   const items = (Array.isArray(o.items) ? o.items : []).filter(Boolean);
   if (!anyItemFacetActive()) return items;
   return items.filter((it) =>
-    itemMatchesProductDim(it) && itemMatchesSize(it)
+    itemMatchesSource(it) && itemMatchesProductDim(it) && itemMatchesSize(it)
     && itemMatchesColor(it) && itemMatchesPreorder(it)
     && itemMatchesProgress(it));
 }

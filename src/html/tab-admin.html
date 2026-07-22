@@ -161,6 +161,16 @@
                 <div class="dropdown">
                   <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
                           type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                          aria-expanded="false" id="shopAdminOrdersSourceBtn">
+                    <i class="bi bi-diagram-3 me-1"></i> แหล่งที่มา
+                    <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersSourceBadge">0</span>
+                  </button>
+                  <div class="dropdown-menu p-2" style="max-height: 340px; overflow:auto; min-width: 260px;"
+                       id="shopAdminOrdersSourceMenu"></div>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
                           aria-expanded="false" id="shopAdminOrdersStatusBtn">
                     <i class="bi bi-flag me-1"></i> สถานะ
                     <span class="badge bg-secondary ms-1 d-none" id="shopAdminOrdersStatusBadge">0</span>

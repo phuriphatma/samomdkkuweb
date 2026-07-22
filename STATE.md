@@ -4,6 +4,20 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## SHOP ADMIN: แหล่งที่มา (source) order filter + per-user default (2026-07-22)
+
+Admin คำสั่งซื้อ page gained a **แหล่งที่มา (owning-dept) facet** — item-level, same
+faceted pattern as the other filters (an order shows iff it has ≥1 item of a selected
+source; matching item rows only). Each order row now shows a colored source dot+label.
+Filtering keys off `itemSource(it)` = frozen `product_source` (0058) → live product
+fallback. Each admin can pin their **current source selection as a personal default**
+(dropdown footer "ตั้งเป็นค่าเริ่มต้นของฉัน" / clear) — persisted in **localStorage keyed by
+user id** (`samoshop.admin.orderSourceDefault.<uid>`), applied once per session on first
+load. So MDI can default to MDI-only, MD to MD, anyone to all/any combo. Per-device
+(not cross-device) by design — no migration. Code: `src/js/shop/admin.js`
+(`ordersSources` facet + `itemSource`/`itemMatchesSource` + `populateOrdersSourceFacet` +
+`applySourceDefaultOnce`), `src/html/tab-admin.html` (แหล่งที่มา dropdown).
+
 ## SHOP MULTI-DEPARTMENT: migration 0058 APPLIED (2026-07-22)
 
 MDI now co-manages the shop alongside MD (more departments possible later).
