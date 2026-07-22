@@ -13,6 +13,11 @@ export const SHOP_SOURCES = [
   { id: 'sittikao', label: 'สมาคมสิทธิ์เก่า',     en: 'Sittikao',      color: 'var(--src-sittikao)' },
 ];
 
+// Built-in fallback. Since migration 0057 the real list lives in
+// shop_product_types and is loaded into `typesCache` at shop init; this
+// array is used only before the fetch resolves (or if the table/migration
+// is missing). The synthetic 'all' entry drives the "ทุกประเภท" filter chip
+// and is never a real product type.
 export const SHOP_TYPES = [
   { id: 'all',             label: 'ทุกประเภท',   icon: 'bi-grid' },
   { id: 'apparel-shirt',   label: 'เสื้อยืด',     icon: 'bi-bag' },
@@ -21,6 +26,60 @@ export const SHOP_TYPES = [
   { id: 'bag',             label: 'กระเป๋า',     icon: 'bi-handbag' },
   { id: 'stationery',      label: 'เครื่องเขียน', icon: 'bi-pencil' },
 ];
+
+// ── Runtime catalog-config caches (migration 0057) ─────────────────────
+// Loaded once at shop init (src/js/shop/index.js) and admin open
+// (admin.js) from the DB, then read synchronously by the renderers.
+let typesCache = null;         // shop_product_types rows (no synthetic 'all')
+let qrsCache = null;           // shop_promptpay_qrs rows
+let pickupCache = null;        // shop_pickup_locations rows
+
+/** Store the loaded product-type rows. Pass [] to mark "loaded but empty". */
+export function setShopTypes(rows) {
+  typesCache = Array.isArray(rows) ? rows : [];
+}
+
+/** The type list for pickers/chips, with the synthetic 'all' chip first.
+ *  Falls back to the built-in SHOP_TYPES until the DB list is loaded. */
+export function getShopTypes() {
+  if (!typesCache || typesCache.length === 0) return SHOP_TYPES;
+  return [{ id: 'all', label: 'ทุกประเภท', icon: 'bi-grid' },
+    ...typesCache.map((t) => ({ id: t.id, label: t.label, icon: t.icon || 'bi-tag' }))];
+}
+
+export function setPromptpayQrs(rows) {
+  qrsCache = Array.isArray(rows) ? rows : [];
+}
+
+/** Loaded PromptPay accounts (empty array until loaded). */
+export function getPromptpayQrs() {
+  return qrsCache || [];
+}
+
+/** The is_default QR row, or null if none/unloaded. */
+export function getDefaultQr() {
+  return (qrsCache || []).find((q) => q.is_default) || null;
+}
+
+/** Look up one QR by id (numeric or string form). */
+export function findQr(id) {
+  if (id == null) return null;
+  return (qrsCache || []).find((q) => String(q.id) === String(id)) || null;
+}
+
+export function setPickupLocations(rows) {
+  pickupCache = Array.isArray(rows) ? rows : [];
+}
+
+export function getPickupLocations() {
+  return pickupCache || [];
+}
+
+/** Look up one pickup location by id. */
+export function findPickupLocation(id) {
+  if (id == null) return null;
+  return (pickupCache || []).find((l) => String(l.id) === String(id)) || null;
+}
 
 export const SHOP_SORT = [
   { id: 'newest',     label: 'ล่าสุด' },
@@ -127,7 +186,12 @@ export const STOCK_STATUS_META = {
 };
 
 export function findSource(id) { return SHOP_SOURCES.find((s) => s.id === id); }
-export function findType(id)   { return SHOP_TYPES.find((t) => t.id === id); }
+/** Look up a type by id — checks the loaded DB list first, then the
+ *  built-in SHOP_TYPES fallback (and the synthetic 'all'). */
+export function findType(id) {
+  return (typesCache || []).find((t) => t.id === id)
+      || SHOP_TYPES.find((t) => t.id === id);
+}
 
 /** Price the BUYER sees right now. Preorder products show preorder_price
  *  (falling back to price when the admin hasn't set a separate one).

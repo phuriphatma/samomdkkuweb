@@ -143,6 +143,7 @@
               <button data-shop-admin-tab="banners"><i class="bi bi-image me-1"></i> แบนเนอร์</button>
               <button data-shop-admin-tab="products"><i class="bi bi-tag me-1"></i> สินค้า</button>
               <button data-shop-admin-tab="stock"><i class="bi bi-box-seam-fill me-1"></i> สต็อก</button>
+              <button data-shop-admin-tab="catalog"><i class="bi bi-sliders me-1"></i> ประเภท/สถานที่</button>
               <button data-shop-admin-tab="qr"><i class="bi bi-qr-code me-1"></i> ตั้งค่า PromptPay</button>
             </div>
 
@@ -404,10 +405,28 @@
               <div id="shopAdminStockHost"></div>
             </div>
 
+            <div data-shop-admin-pane="catalog" class="d-none">
+              <div class="row g-4">
+                <div class="col-lg-6">
+                  <div class="admin-detail-card">
+                    <div id="shopAdminTypesHost"></div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="admin-detail-card">
+                    <div id="shopAdminPickupHost"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div data-shop-admin-pane="qr" class="d-none">
+              <div class="admin-detail-card mb-3" style="max-width:720px;">
+                <div id="shopAdminQrListHost"></div>
+              </div>
               <div class="admin-detail-card" style="max-width:720px;">
-                <h5><i class="bi bi-qr-code me-2 text-accent"></i> ตั้งค่า PromptPay สำหรับการชำระเงิน</h5>
-                <p class="text-muted small">ทุกคำสั่งซื้อจะใช้ QR เดียวกัน ลูกค้าโอนแล้วอัปโหลดสลิปให้ admin ตรวจ</p>
+                <h5><i class="bi bi-chat-left-text me-2 text-accent"></i> ข้อความ & ช่องทางติดต่อรวม</h5>
+                <p class="text-muted small">ใช้กับทุกบัญชีเมื่อบัญชีนั้นไม่ได้ตั้งข้อความเฉพาะ · ช่อง "ชื่อผู้รับเงิน / PromptPay / รูป QR" ด้านล่างคือบัญชีเริ่มต้น (แก้ที่รายการด้านบนได้เช่นกัน)</p>
                 <div class="row g-3 mt-1">
                   <div class="col-md-6">
                     <label class="small text-muted mb-1">ชื่อผู้รับเงิน</label>

@@ -23,10 +23,12 @@ Both Cloudflare projects hit the same Supabase backend.
   declining cancels that submission.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
-- **SAMO Shop.** Product catalogue (filter by source / type, sort, search),
-  cart with localStorage persistence, checkout with required
+- **SAMO Shop.** Product catalogue (filter by source / admin-managed type,
+  sort, search), cart with localStorage persistence, checkout with required
   name+email+phone contact step (phone auto-fills from the signed-in
-  profile), static PromptPay QR + slip upload to Drive, order timeline
+  profile), admin-managed PromptPay accounts assignable per product (a
+  mixed-account cart splits into one order + slip per account) and per-product
+  pickup locations shown at buy-time, slip upload to Drive, order timeline
   (pending → review → paid → produce → ready → done), per-order QR codes
   (customers show, admins scan via the camera viewfinder in the orders
   tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch

@@ -10,7 +10,8 @@
 // ==============================================
 
 import { onAuthChange } from '../auth.js';
-import { listProducts } from './api.js';
+import { listProducts, listProductTypes, listPromptpayQrs, listPickupLocations } from './api.js';
+import { setShopTypes, setPromptpayQrs, setPickupLocations } from './data.js';
 import { mountShopBrowse, reloadShop, setShopNavigators } from './products.js';
 import { mountShopCart, setCartNavigators, setShopCartProducts, showCartFab } from './cart.js';
 import { mountCheckout, renderCheckout, setCheckoutNavigators } from './checkout.js';
@@ -19,6 +20,22 @@ import { openShopAdmin, openShopAdminOrder } from './admin.js';
 
 let view = 'shop'; // 'shop' | 'orders' | 'checkout'
 let initialised = false;
+
+/** Load the admin-managed catalog config (types / PromptPay QRs / pickup
+ *  locations, migration 0057) into the data.js caches so the customer
+ *  renderers can read them synchronously. Best-effort: on a missing table
+ *  the api helpers warn once and return [], and the UI falls back to its
+ *  built-in defaults. Exported so admin.js can reuse it. */
+export async function loadCatalogConfig() {
+  const [types, qrs, pickups] = await Promise.all([
+    listProductTypes({ activeOnly: false }).catch(() => []),
+    listPromptpayQrs({ activeOnly: false }).catch(() => []),
+    listPickupLocations({ activeOnly: false }).catch(() => []),
+  ]);
+  setShopTypes(types);
+  setPromptpayQrs(qrs);
+  setPickupLocations(pickups);
+}
 // Track whether the shop tab itself is the active Bootstrap pane.
 let shopTabActive = false;
 // Track whether the cart offcanvas is open (suppresses the FAB so they don't
@@ -96,6 +113,9 @@ export function initShop() {
       if (grid && grid.childElementCount === 0) {
         grid.innerHTML = '<div class="text-center text-muted py-5 grid-column: 1/-1"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดสินค้า…</div>';
       }
+      // Types/QRs/pickup drive the filter chips + checkout — load them
+      // before the grid renders so the type chips are correct on first paint.
+      await loadCatalogConfig();
       await reloadShop();
       // Hand the freshly-loaded products (including inactive ones, since a
       // cart can hold an item whose product was later deactivated) to the

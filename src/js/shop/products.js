@@ -8,11 +8,12 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import {
-  SHOP_SOURCES, SHOP_TYPES, SHOP_SORT,
+  SHOP_SOURCES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey, totalStock,
   effectivePrice, isUnlimitedBuying,
   availableForVariant, availableTotal,
+  getShopTypes, findPickupLocation,
 } from './data.js';
 import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
 import { addItem } from './state.js';
@@ -50,10 +51,11 @@ export function mountShopBrowse() {
     });
   }
   if (typeHost) {
-    typeHost.innerHTML = SHOP_TYPES.map((t) =>
-      `<button type="button" class="chip ${t.id === filters.type ? 'is-active' : ''}" data-type-id="${t.id}">
-        <i class="bi ${escHtml(t.icon)}"></i> ${escHtml(t.label)}
-      </button>`).join('');
+    // Chips come from the admin-managed type list (migration 0057). This
+    // runs at mount with the built-in fallback, then reloadShop() re-renders
+    // once the DB list is loaded. The delegated click handler survives the
+    // innerHTML replacement (matches on [data-type-id]).
+    renderTypeChips();
     typeHost.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-type-id]');
       if (!btn) return;
@@ -108,6 +110,22 @@ export function mountShopBrowse() {
   wireCarouselArrows(ANNOUNCE_CAROUSEL);
 }
 
+/** (Re)render the ประเภท filter chips from the current type list. If the
+ *  currently-selected type was removed by an admin, fall back to 'all' so
+ *  the grid doesn't filter on a now-gone type. */
+function renderTypeChips() {
+  const typeHost = document.getElementById('shopTypeChips');
+  if (!typeHost) return;
+  const types = getShopTypes();
+  if (filters.type !== 'all' && !types.some((t) => t.id === filters.type)) {
+    filters.type = 'all';
+  }
+  typeHost.innerHTML = types.map((t) =>
+    `<button type="button" class="chip ${t.id === filters.type ? 'is-active' : ''}" data-type-id="${t.id}">
+      <i class="bi ${escHtml(t.icon)}"></i> ${escHtml(t.label)}
+    </button>`).join('');
+}
+
 /** Open a banner slide's link_url (new tab if external). Returns true
  *  when a banner link was handled so callers can stop further handling. */
 function handleBannerLinkClick(e) {
@@ -154,6 +172,9 @@ export async function reloadShop() {
       gmail: settings?.contact_gmail || '',
     };
     cache.loaded = true;
+    // Re-render the type chips now that the admin-managed list is loaded
+    // (index.js loads it just before this call).
+    renderTypeChips();
     renderContactBanner();
     renderAnnounceBanners();
     renderBanner();
@@ -547,6 +568,18 @@ function openProductModal(product) {
   if (preorderBox && preorderNote) {
     preorderBox.classList.toggle('d-none', !product.is_presale);
     preorderNote.textContent = product.presale_note || '';
+  }
+
+  // Pickup location (migration 0057) — shown so the buyer knows where
+  // they'll collect this item. Hidden when the product has none assigned.
+  const pickupBox = document.getElementById('shopProductModalPickup');
+  if (pickupBox) {
+    const loc = findPickupLocation(product.pickup_location_id);
+    pickupBox.classList.toggle('d-none', !loc);
+    if (loc) {
+      pickupBox.innerHTML = `<i class="bi bi-geo-alt me-1"></i>รับสินค้าที่: <b>${escHtml(loc.label)}</b>`
+        + (loc.detail ? `<span class="d-block text-muted mt-1" style="white-space:pre-wrap;">${escHtml(loc.detail)}</span>` : '');
+    }
   }
 
   // Stock status banner (sold out / production closed)

@@ -11,6 +11,8 @@
 | Discord webhook URLs | ❌ NEVER (in frontend code) | embedded in `appscript/*.gs` only |
 | Apps Script `/exec` URLs | ✅ yes (treated as public webhooks) | `src/js/config.js` |
 | Staff passwords (`samo69pr` etc.) | ⚠️ git ok, do NOT post anywhere public | only in this repo; rotate if leaked |
+| Supabase PAT (`SUPABASE_ACCESS_TOKEN=sbp_…`) | ❌ NEVER | `.env.local` only — account-wide Management-API token; used by `tools/apply-migration.mjs` to run DDL. Revoke at dashboard/account/tokens when done |
+| Supabase DB URL (`SUPABASE_DB_URL=postgresql://…`) | ❌ NEVER | `.env.local` only (optional) — direct Postgres conn string incl. password; psql path for `apply-migration.mjs` |
 
 ## Hard rules for the agent
 

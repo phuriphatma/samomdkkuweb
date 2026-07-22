@@ -4,6 +4,31 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## SHOP CATALOG CONFIG: migration 0057 APPLIED (2026-07-22)
+
+`supabase/migrations/0057_shop_catalog_config.sql` — **APPLIED to the live DB**
+(`fheueuowbchsnsvbcgil`) via `tools/apply-migration.mjs` (Supabase Management API +
+a PAT in `.env.local`). Verified: 5 product types seeded, 1 `is_default` QR seeded
+from `shop_settings`, both new `shop_products` columns present, RLS live and readable
+through the anon key. Re-apply the same file with the tool if it's ever needed elsewhere.
+Adds three admin-managed lists that were hardcoded/single-valued:
+- `shop_product_types` (was static `SHOP_TYPES`; seeded with the 5 existing types)
+- `shop_promptpay_qrs` (per-account PromptPay list; seeds one `is_default` row
+  from the current `shop_settings` QR) + `shop_products.promptpay_qr_id`
+- `shop_pickup_locations` + `shop_products.pickup_location_id`
+
+Frontend already ships (build + 115 tests green) and degrades gracefully until
+the migration lands: `api.js` list helpers warn-once + return `[]` on a missing
+table; `upsertProduct` strips the new columns on a 400. Once applied:
+- **Checkout is split-by-account** — a cart spanning multiple PromptPay accounts
+  renders one QR + slip per account and places **one `shop_orders` row per group**
+  (`checkout.js buildGroups`/`resolveQrForProduct`; reuses the single-slip
+  pipeline). Per-product pickup shows on the product modal + checkout review.
+- Admin: new "ประเภท/สถานที่" sub-tab (types + pickup managers) + QR-list manager
+  in the PromptPay tab; product editor gains QR + pickup selects.
+Caches live in `data.js` (`getShopTypes`/`getPromptpayQrs`/`getPickupLocations`),
+loaded by `index.js loadCatalogConfig` (customer) + `admin.js refreshCatalogConfig`.
+
 ## IN FLIGHT: migrating hosting Cloudflare Pages → KKU VM (Supabase Cloud stays) (2026-07-21)
 
 Moving frontend hosting + the Discord notify function onto a KKU VM

@@ -235,6 +235,12 @@ export async function upsertProduct(row) {
     const { preorder_price: _omit, ...rest } = row;
     ({ data, error } = await send(rest));
   }
+  // Pre-0057 fallback: promptpay_qr_id / pickup_location_id not deployed yet.
+  if (error && error.status === 400 && /promptpay_qr_id|pickup_location_id/i.test(error.message || '')) {
+    warnMissing('shop_products.promptpay_qr_id/pickup_location_id', '0057_shop_catalog_config.sql');
+    const { promptpay_qr_id: _q, pickup_location_id: _l, ...rest } = row;
+    ({ data, error } = await send(rest));
+  }
   if (error) throw new Error(error.message || 'บันทึกสินค้าไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('บันทึกสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
@@ -919,4 +925,168 @@ export async function saveSettings(patch) {
     throw new Error('บันทึกการตั้งค่าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
   }
   return data[0];
+}
+
+// ---- Product types (migration 0057) ------------------------------------
+// Was the static SHOP_TYPES array; now admin-managed. `type` on a product
+// stays loose text, so a type row is a picker source, not an FK target.
+
+export async function listProductTypes({ activeOnly = false } = {}) {
+  const filter = activeOnly ? '&is_active=eq.true' : '';
+  const { data, error } = await dbRest(
+    `/shop_product_types?select=*${filter}&order=sort_order.asc,label.asc`,
+  );
+  if (error) {
+    // Pre-0057: table missing. Callers fall back to the built-in SHOP_TYPES.
+    if (error.status === 404 || error.status === 400 || /shop_product_types/i.test(error.message || '')) {
+      warnMissing('shop_product_types', '0057_shop_catalog_config.sql');
+      return [];
+    }
+    throw new Error(error.message || 'โหลดประเภทสินค้าไม่สำเร็จ');
+  }
+  return data || [];
+}
+
+export async function upsertProductType(row) {
+  if (!row || !row.id) throw new Error('type.id required');
+  const { data, error } = await dbRest(
+    '/shop_product_types?on_conflict=id',
+    { method: 'POST', body: row, prefer: 'return=representation,resolution=merge-duplicates' },
+  );
+  if (error) throw new Error(error.message || 'บันทึกประเภทสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกประเภทสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function deleteProductType(id) {
+  const { error } = await dbRest(
+    `/shop_product_types?id=eq.${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
+  if (error) throw new Error(error.message || 'ลบประเภทสินค้าไม่สำเร็จ');
+  return true;
+}
+
+// ---- PromptPay QRs (migration 0057) ------------------------------------
+// A managed list of PromptPay accounts. A product with null promptpay_qr_id
+// falls back to the single is_default row.
+
+export async function listPromptpayQrs({ activeOnly = false } = {}) {
+  const filter = activeOnly ? '&is_active=eq.true' : '';
+  const { data, error } = await dbRest(
+    `/shop_promptpay_qrs?select=*${filter}&order=is_default.desc,sort_order.asc,id.asc`,
+  );
+  if (error) {
+    if (error.status === 404 || error.status === 400 || /shop_promptpay_qrs/i.test(error.message || '')) {
+      warnMissing('shop_promptpay_qrs', '0057_shop_catalog_config.sql');
+      return [];
+    }
+    throw new Error(error.message || 'โหลดบัญชี PromptPay ไม่สำเร็จ');
+  }
+  return data || [];
+}
+
+export async function upsertPromptpayQr(row) {
+  const isUpdate = row.id != null;
+  const body = { ...row };
+  if (!isUpdate) delete body.id;
+  const path = isUpdate
+    ? `/shop_promptpay_qrs?id=eq.${encodeURIComponent(row.id)}`
+    : '/shop_promptpay_qrs';
+  const { data, error } = await dbRest(path, {
+    method: isUpdate ? 'PATCH' : 'POST',
+    body,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกบัญชี PromptPay ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกบัญชี PromptPay ไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function deletePromptpayQr(id) {
+  const { error } = await dbRest(
+    `/shop_promptpay_qrs?id=eq.${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
+  if (error) throw new Error(error.message || 'ลบบัญชี PromptPay ไม่สำเร็จ');
+  return true;
+}
+
+/** Make one QR the default. Clears is_default on all others first (the
+ *  partial unique index allows only one true), then sets this one. */
+export async function setDefaultQr(id) {
+  // Clear any existing default(s).
+  const clear = await dbRest(
+    '/shop_promptpay_qrs?is_default=eq.true',
+    { method: 'PATCH', body: { is_default: false } },
+  );
+  if (clear.error) throw new Error(clear.error.message || 'ตั้งค่าเริ่มต้นไม่สำเร็จ');
+  const { data, error } = await dbRest(
+    `/shop_promptpay_qrs?id=eq.${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: { is_default: true }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'ตั้งค่าเริ่มต้นไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ตั้งค่าเริ่มต้นไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+// ---- Pickup locations (migration 0057) ---------------------------------
+
+export async function listPickupLocations({ activeOnly = false } = {}) {
+  const filter = activeOnly ? '&is_active=eq.true' : '';
+  const { data, error } = await dbRest(
+    `/shop_pickup_locations?select=*${filter}&order=sort_order.asc,label.asc`,
+  );
+  if (error) {
+    if (error.status === 404 || error.status === 400 || /shop_pickup_locations/i.test(error.message || '')) {
+      warnMissing('shop_pickup_locations', '0057_shop_catalog_config.sql');
+      return [];
+    }
+    throw new Error(error.message || 'โหลดสถานที่รับสินค้าไม่สำเร็จ');
+  }
+  return data || [];
+}
+
+export async function upsertPickupLocation(row) {
+  const isUpdate = row.id != null;
+  const body = { ...row };
+  if (!isUpdate) delete body.id;
+  const path = isUpdate
+    ? `/shop_pickup_locations?id=eq.${encodeURIComponent(row.id)}`
+    : '/shop_pickup_locations';
+  const { data, error } = await dbRest(path, {
+    method: isUpdate ? 'PATCH' : 'POST',
+    body,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกสถานที่รับสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกสถานที่รับสินค้าไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function deletePickupLocation(id) {
+  const { error } = await dbRest(
+    `/shop_pickup_locations?id=eq.${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
+  if (error) throw new Error(error.message || 'ลบสถานที่รับสินค้าไม่สำเร็จ');
+  return true;
+}
+
+/** One-time console warning that a catalog-config table is missing (the
+ *  0057 migration hasn't been applied). Keeps the shop working on the old
+ *  hardcoded defaults instead of hard-failing. */
+function warnMissing(table, migration) {
+  const key = `__samoWarned_${table}`;
+  if (window[key]) return;
+  window[key] = true;
+  console.warn(`[shop] ${table} missing — apply migration ${migration} to enable catalog config.`);
 }

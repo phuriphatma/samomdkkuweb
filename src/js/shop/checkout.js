@@ -10,8 +10,8 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb } from './data.js';
-import { getCart, cartSubtotal, clearCart } from './state.js';
+import { thb, getDefaultQr, findQr, findPickupLocation } from './data.js';
+import { getCart, cartSubtotal, clearCart, addItem } from './state.js';
 import { getSettings, placeShopOrder } from './api.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
 import { getProductMap, ensureProductsLoaded } from './cart.js';
@@ -22,14 +22,75 @@ let onBack = () => {};
 let settingsCache = null;
 
 const state = {
-  slipFile: null,
-  slipPreviewUrl: null,
+  // Since migration 0057 a cart can span multiple PromptPay accounts, so
+  // slips are per account group, keyed by the group key (a QR id or
+  // 'default'). One order is placed per group.
+  slipFiles: {},        // key → File
+  slipPreviews: {},     // key → data-URL preview string
   buyerNote: '',
   buyerName: '',
   buyerEmail: '',
   buyerPhone: '',
   agree: false,
 };
+
+// ── Account grouping (split-by-account checkout, migration 0057) ────────
+
+/** The PromptPay account a product routes to. Returns { key, qr } where
+ *  key is a stable group key ('default' or the QR id as a string) and qr
+ *  is the display collector { name, id, qr, instructions }. A product with
+ *  no promptpay_qr_id (or one pointing at a missing QR) falls back to the
+ *  default account (the is_default QR row, or the legacy shop_settings QR
+ *  when no QR list exists yet). */
+function resolveQrForProduct(p) {
+  const assigned = p && p.promptpay_qr_id != null ? findQr(p.promptpay_qr_id) : null;
+  const row = assigned || getDefaultQr();
+  if (row) {
+    return {
+      key: String(row.id),
+      qr: {
+        name: row.promptpay_name || 'ผู้รับเงิน SAMO',
+        id: row.promptpay_id || '—',
+        qr: row.qr_url || '',
+        // Per-QR instructions override; fall back to the global settings text.
+        instructions: row.instructions || settingsCache?.instructions || '',
+      },
+    };
+  }
+  // No QR list at all (pre-0057) → legacy single shop_settings QR.
+  return {
+    key: 'default',
+    qr: {
+      name: settingsCache?.promptpay_name || 'ผู้รับเงิน SAMO',
+      id: settingsCache?.promptpay_id || '—',
+      qr: settingsCache?.promptpay_qr_url || '',
+      instructions: settingsCache?.instructions || '',
+    },
+  };
+}
+
+/** Partition the cart into account groups, preserving cart order.
+ *  Returns [{ key, qr, items, subtotal }]. */
+function buildGroups(cart, products) {
+  const order = [];
+  const byKey = new Map();
+  for (const it of cart) {
+    const { key, qr } = resolveQrForProduct(products[it.productId]);
+    if (!byKey.has(key)) {
+      byKey.set(key, { key, qr, items: [], subtotal: 0 });
+      order.push(key);
+    }
+    const g = byKey.get(key);
+    g.items.push(it);
+    g.subtotal += (Number(it.price) || 0) * (Number(it.qty) || 0);
+  }
+  return order.map((k) => byKey.get(k));
+}
+
+/** Every group has a slip (or dev-skip lets it through). */
+function groupsSatisfied(groups, devSkip) {
+  return groups.every((g) => devSkip || state.slipFiles[g.key]);
+}
 
 export function setCheckoutNavigators({ goShop, afterPlace }) {
   onBack = goShop || onBack;
@@ -75,12 +136,6 @@ function renderHtml() {
   const subtotal = cartSubtotal();
   const itemsTotal = cart.reduce((s, it) => s + (Number(it.qty) || 0), 0);
   const products = getProductMap();
-  const collector = {
-    name: settingsCache?.promptpay_name || 'ผู้รับเงิน SAMO',
-    id:   settingsCache?.promptpay_id   || '—',
-    qr:   settingsCache?.promptpay_qr_url || '',
-    instructions: settingsCache?.instructions || '',
-  };
   // Dev accounts can test the full checkout without a real slip — the
   // upload is optional and the placeOrder path tolerates a null slipUrl.
   const devSkip = getUser()?.role === 'dev';
@@ -94,6 +149,9 @@ function renderHtml() {
         <button class="btn btn-shop mt-3" id="shopCheckoutBackToShop">กลับไปร้าน</button>
       </div>`;
   }
+
+  const groups = buildGroups(cart, products);
+  const split = groups.length > 1;
 
   return `
     <div>
@@ -134,6 +192,7 @@ function renderHtml() {
             ...(colors.length > 1 && colorLabel ? [colorLabel] : []),
             `จำนวน ${it.qty}`,
           ];
+          const pickup = findPickupLocation(p?.pickup_location_id);
           return `
             <div class="d-flex gap-3 align-items-center py-2"
                  style="border-bottom: ${i < cart.length - 1 ? '1px solid var(--shop-ink-100, #ebecee)' : 'none'};">
@@ -142,57 +201,26 @@ function renderHtml() {
               <div class="flex-grow-1">
                 <div style="font-weight:600;">${escHtml(name)}</div>
                 <div class="small text-muted">${escHtml(variantParts.join(' · '))}</div>
+                ${pickup ? `<div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>รับที่: ${escHtml(pickup.label)}</div>` : ''}
               </div>
               <div style="font-weight:700;">฿${thb(it.price * it.qty)}</div>
             </div>`;
         }).join('')}
       </div>
-
-      <div class="checkout-panel">
-        <h4><span class="step-num">3</span> อัปโหลดสลิปการโอน ${devSkip ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: ไม่จำเป็น</span>' : '<span class="req-star" aria-hidden="true">*</span>'}</h4>
-        <div id="shopSlipDrop" class="slip-drop ${state.slipFile ? 'is-filled' : ''}">
-          ${state.slipFile ? `
-            <i class="bi bi-check2-circle"></i>
-            <div class="slip-filename">${escHtml(state.slipFile.name)}</div>
-            <div class="slip-hint">คลิกเพื่อเปลี่ยนไฟล์อื่น</div>
-            ${state.slipPreviewUrl ? `
-              <img src="${state.slipPreviewUrl}" alt="slip preview" class="mt-2 rounded"
-                style="max-height:180px; max-width:100%; object-fit:contain;" />` : ''}` : `
-            <i class="bi bi-cloud-upload"></i>
-            <div class="mt-2" style="font-weight:600; color:var(--shop-ink-900);">
-              ลากสลิปการโอนมาวาง หรือคลิกเพื่อเลือกไฟล์
-            </div>
-            <div class="slip-hint">รองรับไฟล์ภาพ jpg / png · ขนาดไม่เกิน 5 MB</div>`}
-          <input id="shopSlipFile" type="file" accept="image/*" hidden />
-        </div>
-        <div class="form-check mt-3">
-          <input id="shopCheckoutAgree" class="form-check-input" type="checkbox" ${state.agree ? 'checked' : ''} />
-          <label class="form-check-label small" for="shopCheckoutAgree">
-            ข้าพเจ้าได้ตรวจสอบรายการและจำนวนเงินก่อนโอนแล้ว ยอมรับนโยบายการคืน/ยกเลิกของ SAMO Shop <span class="req-star" aria-hidden="true">*</span>
-          </label>
-        </div>
-      </div>
     </div>
 
     <div>
-      <div class="qr-card mb-3">
-        <div class="qr-img">
-          ${collector.qr
-            ? `<img src="${safeUrl(collector.qr)}" alt="PromptPay QR" />`
-            : promptpayPlaceholderSvg(200)}
-        </div>
-        <div class="qr-label">PromptPay</div>
-        <div class="qr-name">${escHtml(collector.name)}</div>
-        <div class="qr-label font-mono">${escHtml(collector.id)}</div>
-        <div class="qr-amount">
-          <span class="baht">฿</span>${thb(subtotal)}
-        </div>
-        <button type="button" class="qr-copy" id="shopCopyAmount">
-          <i class="bi bi-clipboard me-1"></i> คัดลอกจำนวนเงิน
-        </button>
-        ${collector.instructions ? `
-          <hr/>
-          <div class="text-start small text-muted" style="white-space:pre-wrap;">${escHtml(collector.instructions)}</div>` : ''}
+      <div class="checkout-panel mb-3">
+        <h4 style="font-size:1rem; margin-bottom:.5rem;">
+          <span class="step-num">3</span> ชำระเงิน
+          ${devSkip ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-2" style="font-size:.7rem;">DEV: สลิปไม่จำเป็น</span>' : ''}
+        </h4>
+        ${split ? `<div class="alert alert-info small py-2 mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          สินค้าในตะกร้าใช้บัญชีรับเงินต่างกัน — กรุณาโอนแยกตามแต่ละบัญชีด้านล่าง และแนบสลิปของแต่ละบัญชี
+          (จะแยกเป็น ${groups.length} คำสั่งซื้อ)
+        </div>` : ''}
+        ${groups.map((g, gi) => renderGroupCard(g, gi, split, devSkip)).join('')}
       </div>
 
       <div class="checkout-panel">
@@ -201,26 +229,79 @@ function renderHtml() {
           <span>${itemsTotal} ชิ้น</span>
           <span>฿${thb(subtotal)}</span>
         </div>
-        <div class="summary-line">
-          <span>การรับสินค้า</span>
-          <span class="text-muted">รับที่คณะแพทย์</span>
-        </div>
-        <div class="summary-line small text-muted" style="font-size:.78rem; margin-top:-.35rem;">
+        ${split ? groups.map((g) => `
+          <div class="summary-line small">
+            <span class="text-muted">โอนบัญชี ${escHtml(g.qr.name)}</span>
+            <span>฿${thb(g.subtotal)}</span>
+          </div>`).join('') : ''}
+        <div class="summary-line small text-muted" style="font-size:.78rem;">
           <span style="line-height:1.4;">
             <i class="bi bi-info-circle me-1"></i>
             admin จะประกาศวันเวลาสถานที่รับสินค้าและส่งอีเมลแจ้งเตือนอีกครั้ง
           </span>
         </div>
         <div class="summary-line grand">
-          <span>ยอดที่ต้องโอน</span>
+          <span>ยอดที่ต้องโอนรวม</span>
           <span class="amount">฿${thb(subtotal)}</span>
         </div>
+        <div class="form-check mt-3">
+          <input id="shopCheckoutAgree" class="form-check-input" type="checkbox" ${state.agree ? 'checked' : ''} />
+          <label class="form-check-label small" for="shopCheckoutAgree">
+            ข้าพเจ้าได้ตรวจสอบรายการและจำนวนเงินก่อนโอนแล้ว ยอมรับนโยบายการคืน/ยกเลิกของ SAMO Shop <span class="req-star" aria-hidden="true">*</span>
+          </label>
+        </div>
         <button type="button" class="btn btn-shop w-100 mt-3" id="shopPlaceOrderBtn"
-                ${((!devSkip && !state.slipFile) || !state.agree) ? 'disabled' : ''}>
-          <i class="bi bi-send-check me-1"></i> ${devSkip && !state.slipFile ? 'สั่งซื้อ (โหมด dev)' : 'ส่งสลิป & สั่งซื้อ'}
+                ${(!groupsSatisfied(groups, devSkip) || !state.agree) ? 'disabled' : ''}>
+          <i class="bi bi-send-check me-1"></i> ${devSkip && !groupsSatisfied(groups, false) ? 'สั่งซื้อ (โหมด dev)' : 'ส่งสลิป & สั่งซื้อ'}
         </button>
-        <div class="small text-muted mt-2 text-center ${(state.slipFile || devSkip) ? 'd-none' : ''}">
-          <i class="bi bi-info-circle me-1"></i> อัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้
+        <div class="small text-muted mt-2 text-center ${(groupsSatisfied(groups, false) || devSkip) ? 'd-none' : ''}">
+          <i class="bi bi-info-circle me-1"></i> อัปโหลดสลิป${split ? 'ของทุกบัญชี' : ''}ก่อนจึงจะกดสั่งซื้อได้
+        </div>
+      </div>
+    </div>`;
+}
+
+/** One PromptPay account card: QR + amount + per-account slip drop. */
+function renderGroupCard(g, gi, split, devSkip) {
+  const { key, qr, subtotal } = g;
+  const file = state.slipFiles[key];
+  const preview = state.slipPreviews[key];
+  return `
+    <div class="qr-card mb-3" data-qr-group="${escHtml(key)}">
+      ${split ? `<div class="qr-label" style="font-weight:700; color:var(--shop-ink-900);">บัญชีที่ ${gi + 1}</div>` : ''}
+      <div class="qr-img">
+        ${qr.qr
+          ? `<img src="${safeUrl(qr.qr)}" alt="PromptPay QR" />`
+          : promptpayPlaceholderSvg(200)}
+      </div>
+      <div class="qr-label">PromptPay</div>
+      <div class="qr-name">${escHtml(qr.name)}</div>
+      <div class="qr-label font-mono">${escHtml(qr.id)}</div>
+      <div class="qr-amount"><span class="baht">฿</span>${thb(subtotal)}</div>
+      <button type="button" class="qr-copy" data-copy-amount="${subtotal}">
+        <i class="bi bi-clipboard me-1"></i> คัดลอกจำนวนเงิน
+      </button>
+      ${qr.instructions ? `
+        <hr/>
+        <div class="text-start small text-muted" style="white-space:pre-wrap;">${escHtml(qr.instructions)}</div>` : ''}
+      <div class="mt-3 text-start">
+        <div class="small fw-bold mb-1">
+          อัปโหลดสลิปบัญชีนี้ ${devSkip ? '' : '<span class="req-star" aria-hidden="true">*</span>'}
+        </div>
+        <div class="slip-drop ${file ? 'is-filled' : ''}" data-slip-drop="${escHtml(key)}">
+          ${file ? `
+            <i class="bi bi-check2-circle"></i>
+            <div class="slip-filename">${escHtml(file.name)}</div>
+            <div class="slip-hint">คลิกเพื่อเปลี่ยนไฟล์อื่น</div>
+            ${preview ? `
+              <img src="${preview}" alt="slip preview" class="mt-2 rounded"
+                style="max-height:160px; max-width:100%; object-fit:contain;" />` : ''}` : `
+            <i class="bi bi-cloud-upload"></i>
+            <div class="mt-2" style="font-weight:600; color:var(--shop-ink-900);">
+              ลากสลิปมาวาง หรือคลิกเพื่อเลือกไฟล์
+            </div>
+            <div class="slip-hint">รองรับไฟล์ภาพ jpg / png · ไม่เกิน 5 MB</div>`}
+          <input type="file" accept="image/*" hidden data-slip-file="${escHtml(key)}" />
         </div>
       </div>
     </div>`;
@@ -247,21 +328,23 @@ function wireEvents() {
   if (buyerEmail) buyerEmail.addEventListener('input', () => { state.buyerEmail = buyerEmail.value; });
   if (buyerPhone) buyerPhone.addEventListener('input', () => { state.buyerPhone = buyerPhone.value; });
 
-  const drop = document.getElementById('shopSlipDrop');
-  const file = document.getElementById('shopSlipFile');
-  if (drop && file) {
-    drop.addEventListener('click', () => file.click());
+  // Per-account slip drops (one card per PromptPay group). Each drop/input
+  // carries its group key in data-slip-drop / data-slip-file.
+  document.querySelectorAll('[data-slip-drop]').forEach((drop) => {
+    const key = drop.dataset.slipDrop;
+    const input = drop.querySelector('[data-slip-file]');
+    drop.addEventListener('click', () => input?.click());
     drop.addEventListener('dragover', (e) => e.preventDefault());
     drop.addEventListener('drop', (e) => {
       e.preventDefault();
       const f = e.dataTransfer.files?.[0];
-      if (f) onSlipChosen(f);
+      if (f) onSlipChosen(f, key);
     });
-    file.addEventListener('change', () => {
-      const f = file.files?.[0];
-      if (f) onSlipChosen(f);
+    input?.addEventListener('change', () => {
+      const f = input.files?.[0];
+      if (f) onSlipChosen(f, key);
     });
-  }
+  });
 
   const agree = document.getElementById('shopCheckoutAgree');
   if (agree) {
@@ -270,29 +353,32 @@ function wireEvents() {
       // toggle the place button without a full re-render
       const place = document.getElementById('shopPlaceOrderBtn');
       const devSkip = getUser()?.role === 'dev';
-      if (place) place.disabled = (!devSkip && !state.slipFile) || !state.agree;
+      const groups = buildGroups(getCart(), getProductMap());
+      if (place) place.disabled = !groupsSatisfied(groups, devSkip) || !state.agree;
     });
   }
 
-  document.getElementById('shopCopyAmount')?.addEventListener('click', async () => {
-    const subtotal = cartSubtotal();
-    try {
-      await navigator.clipboard.writeText(String(subtotal));
-      showShopToast('คัดลอกจำนวนเงินแล้ว', 'success');
-    } catch { showShopToast('คัดลอกไม่สำเร็จ — ลองทำเอง', 'warn'); }
+  // Per-group "copy amount" buttons.
+  document.querySelectorAll('[data-copy-amount]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(String(btn.dataset.copyAmount));
+        showShopToast('คัดลอกจำนวนเงินแล้ว', 'success');
+      } catch { showShopToast('คัดลอกไม่สำเร็จ — ลองทำเอง', 'warn'); }
+    });
   });
 
   document.getElementById('shopPlaceOrderBtn')?.addEventListener('click', placeOrder);
 }
 
-function onSlipChosen(file) {
+function onSlipChosen(file, key) {
   if (file.size > 5 * 1024 * 1024) {
     showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
     return;
   }
-  state.slipFile = file;
+  state.slipFiles[key] = file;
   const reader = new FileReader();
-  reader.onload = (e) => { state.slipPreviewUrl = e.target.result; renderCheckout(); };
+  reader.onload = (e) => { state.slipPreviews[key] = e.target.result; renderCheckout(); };
   reader.readAsDataURL(file);
 }
 
@@ -315,72 +401,109 @@ async function placeOrder() {
     showShopToast('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง', 'warn');
     document.getElementById('shopBuyerPhone')?.focus(); return;
   }
-  if (!state.slipFile && !devSkip) { showShopToast('อัปโหลดสลิปก่อน', 'warn'); return; }
   if (!state.agree)   { showShopToast('กรุณายอมรับเงื่อนไข', 'warn'); return; }
   const cart = getCart();
   if (cart.length === 0) { showShopToast('ตะกร้าว่าง', 'warn'); return; }
+  const products = getProductMap();
+  const groups = buildGroups(cart, products);
+  if (!groupsSatisfied(groups, devSkip)) {
+    showShopToast(groups.length > 1 ? 'อัปโหลดสลิปของทุกบัญชีก่อน' : 'อัปโหลดสลิปก่อน', 'warn');
+    return;
+  }
 
   const place = document.getElementById('shopPlaceOrderBtn');
   const originalLabel = place?.innerHTML;
   if (place) {
     place.disabled = true;
-    place.innerHTML = state.slipFile
-      ? '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดสลิป…'
-      : '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
+    place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
   }
 
+  // One order per account group. Placed sequentially — each order is
+  // committed independently, so on a mid-way failure the already-placed
+  // orders stand and we drop only their items from the cart so a retry
+  // can't double-charge them.
+  const placedOrders = [];
+  let failure = null;
   try {
-    let slipUrl = null;
-    let slipUploadedAt = null;
-    if (state.slipFile) {
-      const ext = (state.slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
-      const slipName = `${user.id}_${Date.now()}.${ext}`;
-      const folder = slipFolderForNow(new Date());
-      slipUrl = await uploadShopFile(state.slipFile, folder, { fileName: slipName });
-      slipUploadedAt = new Date().toISOString();
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi];
+      if (place) {
+        place.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>`
+          + (groups.length > 1 ? `กำลังบันทึกบัญชี ${gi + 1}/${groups.length}…` : 'กำลังบันทึกคำสั่งซื้อ…');
+      }
+      let slipUrl = null;
+      let slipUploadedAt = null;
+      const slipFile = state.slipFiles[g.key];
+      if (slipFile) {
+        const ext = (slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+        const slipName = `${user.id}_${Date.now()}_${gi}.${ext}`;
+        const folder = slipFolderForNow(new Date());
+        slipUrl = await uploadShopFile(slipFile, folder, { fileName: slipName });
+        slipUploadedAt = new Date().toISOString();
+      }
+      // Order-id prefix from the group's first product (falls back to "SH"
+      // in the RPC when product.code is missing / pre-0023).
+      const firstProduct = products[g.items[0].productId] || null;
+      const order = await placeShopOrder({
+        buyerId: user.id,
+        buyerLabel: buyerName || user.name || user.username || user.email || '',
+        buyerName,
+        buyerEmail,
+        buyerPhone,
+        items: g.items,
+        subtotal: g.subtotal,
+        fee: 0,
+        slipUrl,
+        slipUploadedAt,
+        pickupLocation: null,
+        buyerNote: state.buyerNote,
+        code: firstProduct?.code || '',
+      });
+      placedOrders.push({ order, key: g.key });
     }
+  } catch (e) {
+    console.error('[shop/checkout] placeOrder failed:', e);
+    failure = e;
+  }
 
-    if (place) place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
+  const placedKeys = new Set(placedOrders.map((p) => p.key));
 
-    const subtotal = cartSubtotal();
-    // Pull the order-id prefix from the first cart item's product. If
-    // the shop hasn't applied migration 0023 yet the field is missing
-    // and the RPC falls back to "SH".
-    const firstProduct = cart.length > 0 ? getProductMap()[cart[0].productId] : null;
-    const order = await placeShopOrder({
-      buyerId: user.id,
-      buyerLabel: buyerName || user.name || user.username || user.email || '',
-      buyerName,
-      buyerEmail,
-      buyerPhone,
-      items: cart,
-      subtotal,
-      fee: 0,
-      slipUrl,
-      slipUploadedAt,
-      pickupLocation: null,
-      buyerNote: state.buyerNote,
-      code: firstProduct?.code || '',
-    });
-
+  if (placedOrders.length === groups.length && !failure) {
+    // All groups placed.
     clearCart();
-    state.slipFile = null;
-    state.slipPreviewUrl = null;
+    state.slipFiles = {};
+    state.slipPreviews = {};
     state.buyerNote = '';
     state.buyerName = '';
     state.buyerEmail = '';
     state.buyerPhone = '';
     state.agree = false;
-    showShopToast(`สั่งซื้อ ${order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`, 'success');
-    onAfterPlace(order);
-  } catch (e) {
-    console.error('[shop/checkout] placeOrder failed:', e);
-    showShopToast(`สั่งซื้อไม่สำเร็จ: ${e.message || e}`, 'error');
-    if (place) {
-      place.disabled = false;
-      place.innerHTML = originalLabel || 'ส่งสลิป & สั่งซื้อ';
-    }
+    const msg = placedOrders.length > 1
+      ? `สั่งซื้อสำเร็จ ${placedOrders.length} รายการ — รอ admin ตรวจสอบสลิป`
+      : `สั่งซื้อ ${placedOrders[0].order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`;
+    showShopToast(msg, 'success');
+    onAfterPlace(placedOrders[0].order);
+    return;
   }
+
+  // Partial / total failure. Keep any committed orders, rebuild the cart
+  // from the still-unplaced groups, and clear their spent slips.
+  const remaining = groups.filter((g) => !placedKeys.has(g.key));
+  clearCart();
+  for (const g of remaining) for (const it of g.items) addItem(it);
+  for (const key of placedKeys) { delete state.slipFiles[key]; delete state.slipPreviews[key]; }
+  if (placedOrders.length > 0) {
+    showShopToast(
+      `บันทึกได้ ${placedOrders.length} บัญชีแล้ว แต่บัญชีที่เหลือล้มเหลว: ${failure?.message || failure}. ` +
+      `รายการที่เหลืออยู่ในตะกร้า ลองสั่งใหม่อีกครั้ง`, 'error');
+  } else {
+    showShopToast(`สั่งซื้อไม่สำเร็จ: ${failure?.message || failure}`, 'error');
+  }
+  if (place) {
+    place.disabled = false;
+    place.innerHTML = originalLabel || 'ส่งสลิป & สั่งซื้อ';
+  }
+  renderCheckout();
 }
 
 // Decorative placeholder QR when no admin-uploaded image exists yet.

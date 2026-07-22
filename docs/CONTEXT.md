@@ -144,8 +144,12 @@ shop_products (text id PK, name, sub, description, type, source,
                price, sizes text[], colors jsonb, fits text[],
                hue, image_url, is_new, is_presale, presale_note,
                popularity, is_active, stock_matrix jsonb,
+               promptpay_qr_id FK shop_promptpay_qrs(id) [null=default], -- mig 0057
+               pickup_location_id FK shop_pickup_locations(id) [null], -- mig 0057
                added_at, created_by FK users(id), updated_at)
   ↳ source IN ('project','fund','rt','mdi','merch')
+  ↳ type = loose text; picker source is shop_product_types (NOT an FK, so
+    deleting a type never breaks a product)
 
 shop_orders (text id PK ["<CODE>NNNN"], buyer_id FK users(id) [null=admin-created],
              buyer_label, buyer_name, buyer_email, buyer_phone, status,
@@ -194,6 +198,25 @@ shop_pickup_batches (bigserial id PK, title, product_ids text[],
 shop_settings (id integer PK = 1 [single-row config], promptpay_name,
                promptpay_id, promptpay_qr_url, instructions,
                contact_gmail, contact_instagram, updated_at)
+  ↳ still the GLOBAL fallback for instructions/contacts; the single QR is
+    now the seeded is_default row of shop_promptpay_qrs (see below)
+
+-- Catalog config (migration 0057) — admin-managed lists --------------
+shop_product_types (text id PK, label, icon, sort_order, is_active,
+                    created_at, updated_at)   [seeded from the old SHOP_TYPES]
+
+shop_promptpay_qrs (bigserial id PK, label, promptpay_name, promptpay_id,
+                    qr_url, instructions [''=use shop_settings], is_default,
+                    is_active, sort_order, created_by FK users(id), ts)
+  ↳ unique(is_default) where is_default — exactly one default. A product
+    with null promptpay_qr_id routes to the default row. CHECKOUT SPLITS
+    THE CART BY ACCOUNT: one shop_orders row per distinct QR (each with its
+    own slip). Public SELECT using(true) (like shop_settings); admin write.
+
+shop_pickup_locations (bigserial id PK, label, detail, is_active,
+                       sort_order, created_at, updated_at)
+  ↳ per-product pickup shown to the buyer at checkout / product modal.
+    SELECT using(is_active OR shop-admin); admin write.
 ```
 
 Also: `users.role` check constraint expanded to admit `shop_admin`.
