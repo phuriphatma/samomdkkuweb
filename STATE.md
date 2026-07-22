@@ -297,8 +297,22 @@ fresh profile via `0061`.
   app's `ensureProfile` (only when a user actually opens passport). Verified: a
   new portal signup no longer makes a passport profile; existing-passport re-key
   still works. Only 1 pre-0063 pollution row exists (`auriung01`, harmless 0-km).
+- **Portal links repointed + DEPLOYED (2026-07-22):** the 5 "SAMO Passport" links
+  in the portal (navbar desktop + offcanvas, tools launcher, admin nav,
+  departments card) now use same-origin `/passport/` instead of the retired
+  `samomdkkupassport.pages.dev`. Live on the VM (samoweb build redeployed).
+- **B (project `idwlabpbwiwgaoqwbozz`) is SAFE TO PAUSE (confirmed 2026-07-22).**
+  Nothing live depends on B: the VM passport bundle targets A only (0 B refs),
+  auth is on A, all data is in A, and the portal links go to the VM. pages.dev
+  passport shows the moved-splash (redirects to VM, no B use). Pausing PRESERVES
+  data (it's the intended cold-backup state) and frees a free-tier active slot.
+  Caveat: rollback (point the VM back at B) would need UNPAUSING first (~mins),
+  so keep B paused-not-deleted for a few weeks. Before eventually DELETING B,
+  take a final `pg_dump` for a durable off-Supabase backup.
 - **B teardown:** keep B paused as backup for a few weeks, then delete. ROTATE
   B's DB password (`PASSPORT_B_DB_PASSWORD` in `.env.local`, pasted in chat).
+  Note: while B is paused it can't be read via the Management API (fine — merge
+  is done + audited).
 
 ### How the cutover was done (historical detail)
 1. **Lazy-link trigger on A — DONE + isolate-tested (2026-07-22).** Migration
