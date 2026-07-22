@@ -83,6 +83,7 @@ let expandedDocs = new Set();   // doc ids expanded inside the detail view
 let expandedDocsSeenAt = new Map();   // docId -> ms-since-epoch frozen at expand
 let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
+let filterFY   = 'all';    // 'all' | '<4-digit BE year>' — ปีงบประมาณ (Thai fiscal year)
 // 'grid' = original card grid; 'list' = compact one-row-per-project list.
 // Persisted per browser so the user's preference sticks across sessions.
 let viewMode = (() => {
@@ -150,10 +151,31 @@ function projectBucket(p, role) {
   return 'waiting';
 }
 
+/** Thai fiscal year (ปีงบประมาณ, พ.ศ. — 4 digits) for a timestamp.
+ *  The Thai budget year runs 1 ต.ค. – 30 ก.ย. and is NAMED for the year it
+ *  ends in: ปีงบ 2569 = 1 ต.ค. 2568 → 30 ก.ย. 2569. So Oct–Dec fall into the
+ *  NEXT BE year. Uses the viewer's local calendar (audience is in ICT, where
+ *  local time is the authoritative boundary). Returns null on a bad/absent date. */
+function fiscalYearBE(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  // getMonth() is 0-based; 9 = October → rolls into the next fiscal year.
+  return d.getFullYear() + 543 + (d.getMonth() >= 9 ? 1 : 0);
+}
+
+/** Base project set after the ปีงบประมาณ filter — the OUTERMOST filter, so
+ *  both the chip counts and the grid see the same fiscal-year-scoped set
+ *  (a selected year with 0 "mine" reads as "cleared", not "no year"). */
+function projectsInSelectedFY() {
+  if (filterFY === 'all') return cache.projects;
+  return cache.projects.filter((p) => String(fiscalYearBE(p.created_at)) === filterFY);
+}
+
 /** Counts for the level-1 filter chips, computed once per render(). */
 function projectBucketCounts(role) {
   const c = { mine: 0, notified: 0, waiting: 0, done: 0, all: 0 };
-  for (const p of cache.projects) {
+  for (const p of projectsInSelectedFY()) {
     c.all += 1;
     const b = projectBucket(p, role);
     if (b === 'mine') c.mine += 1;
@@ -366,6 +388,11 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject,
     render();
   });
 
+  document.getElementById('projectsFiscalYear')?.addEventListener('change', (e) => {
+    filterFY = e.target.value || 'all';
+    render();
+  });
+
   document.getElementById('projectsViewToggle')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-projects-view-mode]');
     if (!btn) return;
@@ -446,6 +473,7 @@ function render() {
   if (level === 'grid') {
     gridRoot.classList.remove('d-none');
     detailRoot.classList.add('d-none');
+    renderFiscalYearOptions();
     renderFilterChips();
     renderGrid();
   } else {
@@ -485,6 +513,23 @@ function updateFab() {
 
 // ---------- Level 1: filter chips + project grid ----------
 
+/** Populate the ปีงบประมาณ dropdown from the fiscal years actually present in
+ *  the data (newest first) + an "all" option. Options are data-driven so the
+ *  list grows automatically each new budget year with no code change. */
+function renderFiscalYearOptions() {
+  const sel = document.getElementById('projectsFiscalYear');
+  if (!sel) return;
+  const years = [...new Set(
+    cache.projects.map((p) => fiscalYearBE(p.created_at)).filter((y) => y != null),
+  )].sort((a, b) => b - a);
+  // Drop a now-stale selection (e.g. the year's last project was deleted).
+  if (filterFY !== 'all' && !years.some((y) => String(y) === filterFY)) filterFY = 'all';
+  sel.innerHTML = ['<option value="all">ทุกปีงบ</option>']
+    .concat(years.map((y) => `<option value="${y}">ปีงบ ${y}</option>`))
+    .join('');
+  sel.value = filterFY;
+}
+
 function renderFilterChips() {
   const row = document.getElementById('projectsFilterRow');
   if (!row) return;
@@ -523,7 +568,7 @@ function renderGrid() {
   const empty = document.getElementById('projectsGridEmpty');
   if (!grid) return;
 
-  let rows = cache.projects.slice();
+  let rows = projectsInSelectedFY().slice();
   // Filter by bucket / notification state
   const role = cache.role;
   if (filterKind === 'mine')         rows = rows.filter((p) => projectBucket(p, role) === 'mine');
@@ -578,8 +623,17 @@ function renderGrid() {
         done: { icon: 'bi-archive', title: 'ยังไม่มีโครงการที่เสร็จสิ้น', hint: '' },
         all:  null,
       };
+      // A selected fiscal year with NO projects at all takes priority — the
+      // bucket/search copy ("งานเคลียร์แล้ว") would misread the emptiness.
+      const fyEmpty = filterFY !== 'all' && projectsInSelectedFY().length === 0;
       const m = (searchQ ? null : map[filterKind]);
-      if (m) {
+      if (fyEmpty) {
+        empty.innerHTML = `
+          <i class="bi bi-calendar-x"></i>
+          <h4>ไม่มีโครงการในปีงบ ${escHtml(filterFY)}</h4>
+          <p class="small text-muted mb-0">ลองเลือกปีงบอื่น หรือ "ทุกปีงบ"</p>
+        `;
+      } else if (m) {
         empty.innerHTML = `
           <i class="bi ${m.icon}"></i>
           <h4>${escHtml(m.title)}</h4>

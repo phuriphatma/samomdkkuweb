@@ -82,6 +82,12 @@
   min-width: 0;
 }
 .projects-tab .projects-search .form-control { font-size: 0.92rem; }
+.projects-tab .projects-fy-filter {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 150px;
+  font-size: 0.92rem;
+}
 .projects-tab .projects-filter-row {
   display: flex;
   flex-wrap: wrap;
