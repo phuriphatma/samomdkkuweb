@@ -147,7 +147,10 @@ shop_products (text id PK, name, sub, description, type, source,
                promptpay_qr_id FK shop_promptpay_qrs(id) [null=default], -- mig 0057
                pickup_location_id FK shop_pickup_locations(id) [null], -- mig 0057
                added_at, created_by FK users(id), updated_at)
-  ↳ source IN ('project','fund','rt','mdi','merch')
+  ↳ source IN ('md','rt','mdi','sittikao')  -- mig 0007; = OWNERSHIP KEY:
+    the department that owns/fulfils the product (MD, MDI, …). Multi-department
+    shop is Model A (shared, trust-based): access control is GLOBAL today (any
+    shop_admin sees all). Future Model B scopes writes/reads per source — see STATE.md.
   ↳ type = loose text; picker source is shop_product_types (NOT an FK, so
     deleting a type never breaks a product)
 
@@ -164,7 +167,11 @@ shop_orders (text id PK ["<CODE>NNNN"], buyer_id FK users(id) [null=admin-create
 shop_order_items (bigserial id PK, order_id FK shop_orders(id) CASCADE,
                   product_id FK shop_products(id) RESTRICT,
                   size, color, fit, qty, unit_price,
+                  product_source [frozen owner-dept snapshot @ buy-time, mig 0058],
                   item_status, item_timeline jsonb, is_preorder)
+  ↳ product_source: SECURITY DEFINER before-insert trigger stamps it from
+    shop_products.source and ALWAYS overrides the client value (unspoofable);
+    frozen like unit_price. Enables future per-department order-item filtering.
   ↳ item_status (FULFILMENT phase) IN ('paid','produce','ready','done',
     'exchange','no_show'); is_preorder = frozen is_presale snapshot @ buy-time
 

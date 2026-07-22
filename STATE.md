@@ -4,6 +4,30 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## SHOP MULTI-DEPARTMENT: migration 0058 APPLIED (2026-07-22)
+
+MDI now co-manages the shop alongside MD (more departments possible later).
+Chosen model = **A (shared shop, trust-based)**: `shop_products.source` is the
+OWNERSHIP KEY (department that owns/fulfils a product); `mdi` is already a valid
+`source`; per-product `promptpay_qr_id` + `pickup_location_id` (0057) already route
+money + logistics per department. Access control stays **global** (any `shop_admin`
+sees everything) — fine for a few trusting teams. **Operational onboarding = data
+only, no code**: create MDI's `shop_promptpay_qrs` row + `shop_pickup_locations`
+row, grant the MDI operator `shop_admin`, tag their products `source='mdi'`.
+
+`supabase/migrations/0058_shop_order_item_source.sql` — **APPLIED to live DB**
+(verified: col + trigger present, all 7 existing items backfilled, 0 nulls). Freezes
+`shop_products.source` onto `shop_order_items.product_source` at insert via a
+SECURITY DEFINER `before insert` trigger (`shop_order_item_stamp_source`) that
+ALWAYS overrides the client value (unspoofable) — same freeze pattern as `unit_price`.
+This is the ONLY groundwork needed so a future **Model B** (per-department scoping:
+a `shop_admin` writes/sees only their own `source`) is an additive RLS change with
+**no data backfill** — a mixed-department cart must filter order ITEMS not whole
+orders, so the item needs its owner frozen on it. Deliberately did NOT build Model B
+now (YAGNI for 2 trusting teams). Model B, when needed: add `current_user_shop_dept()`
+(security-definer helper, mirror `current_user_dept()` 0016) + scope the write policy
+`AND source = current_user_shop_dept()` with `dev` bypass + admin-UI source filter.
+
 ## SHOP CATALOG CONFIG: migration 0057 APPLIED + DEPLOYED (2026-07-22)
 
 **Prod (KKU VM) is LIVE at commit `64e0b21`** (build `6642d6445ff5`) — deployed via
