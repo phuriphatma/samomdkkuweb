@@ -4,7 +4,13 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## SHOP CATALOG CONFIG: migration 0057 APPLIED (2026-07-22)
+## SHOP CATALOG CONFIG: migration 0057 APPLIED + DEPLOYED (2026-07-22)
+
+**Prod (KKU VM) is LIVE at commit `64e0b21`** (build `6642d6445ff5`) — deployed via
+ssh (rsync `dist/` → `/var/www/samo-web`, nginx reloaded); `/`, `/admin/`, `/notify`
+all 200. VM sudo password now stored in `.env.local` as `SAMO_VM_SUDO_PASSWORD`
+(gitignored), piped to `sudo -S` for future deploys — no longer need to prompt.
+
 
 `supabase/migrations/0057_shop_catalog_config.sql` — **APPLIED to the live DB**
 (`fheueuowbchsnsvbcgil`) via `tools/apply-migration.mjs` (Supabase Management API +
