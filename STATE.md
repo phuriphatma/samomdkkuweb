@@ -19,6 +19,13 @@ Manage duplicate VS reports WITHOUT changing the SE↔VP routing workflow (purel
 - **0070 search-to-merge**: staff aren't limited to the suggestions — `search_vs_tickets(query,
   exclude,limit)` (staff-only, vp dept-scoped, fail-closed) powers a debounced search box in the
   เรื่องซ้ำ tab to find ANY canonical to merge into. Shared `mergeTargetRow()` renders both lists.
+- **0071 confidentiality (security)**: the GitHub-style "duplicate of A" cross-ref LEAKED — the
+  guest lookup `get_vs_ticket_by_id` (anon, by-id) returned `duplicate_of` + the id-bearing remarks,
+  so a dup's submitter could read the canonical's id and look up another student's complaint. Fixed:
+  dedup remarks tagged `internal:true`; guest RPC now sanitizes (nulls `duplicate_of`, strips
+  internal remarks); auto-close shows a GENERIC message to the submitter; staff read the raw table so
+  they still see the link. Verified guest-vs-staff on throwaway rows. Design answer: cross-refs stay
+  STAFF-INTERNAL in a per-submitter confidential system. New mistakes.md entry.
 - **Bug scan fixed 2**: (1) `ORDER BY sim` shadowed the RETURNS TABLE OUT-param → no sort;
   reordered on the explicit `similarity(...)` expression (new mistakes.md entry). (2) `min-w-0`
   isn't a stock Bootstrap class → inline `min-width:0`.

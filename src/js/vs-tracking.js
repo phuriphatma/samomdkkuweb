@@ -18,7 +18,11 @@ function rowToTicket(r) {
     problem: r.problem,
     dept: r.target_dept,
     status: r.status,
-    remarks: Array.isArray(r.remarks) ? r.remarks : [],
+    // Never surface staff-internal remarks (dedup cross-references that name
+    // another ticket's id) to a submitter. The get_vs_ticket_by_id RPC already
+    // strips these + nulls duplicate_of (0071); this filters the RPC-missing
+    // direct-read fallback too. See mistakes.md (VS duplicate confidentiality).
+    remarks: Array.isArray(r.remarks) ? r.remarks.filter((e) => !e?.internal) : [],
     isOwner: false, // overridden by callers when appropriate
   };
 }

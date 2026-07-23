@@ -1326,3 +1326,32 @@ role that the RLS restricts — the definer bypass means RLS gives you nothing.
 Audit every definer RPC against the base table's SELECT/UPDATE policies. Related:
 the "per-recipient SELECT RLS is DEAD under `using(true)`" and "RLS inline
 subqueries depend on the referenced table's RLS" entries.
+
+---
+
+## GitHub-style "duplicate of #A" cross-references LEAK across a per-submitter visibility boundary — the id itself is a capability when lookup is by-id
+
+**Symptom**: VS duplicate management (0068) linked ticket B → canonical A and
+wrote remarks like "รวมกับ VS-A…" into B's timeline, plus exposed
+`B.duplicate_of = A`. But `get_vs_ticket_by_id` (0021) is a guest lookup granted
+to `anon` that returns any ticket by id — **the id is the only secret**. So B's
+submitter (a student) could read A's id from their own ticket, paste it into the
+tracker, and view A — another student's confidential complaint. Symmetric for
+A's submitter seeing B.
+**Cause**: GitHub's close-as-duplicate + `#A` mention is safe only because a repo
+has UNIFORM visibility. A confidential, per-submitter system does not — tickets
+have different owners/depts and lookup-by-id is a capability. Putting the
+canonical's id anywhere the duplicate's submitter can read (a remark, or the
+`duplicate_of` column returned by the guest RPC) hands them access to it.
+**Fix**: keep the cross-reference STAFF-INTERNAL; give the submitter a GENERIC
+resolution. (1) Tag id-bearing dedup remarks `internal:true`. (2) The guest
+lookup SANITIZES its row — nulls `duplicate_of` and strips `internal` remarks
+(staff read the raw table, so they still see the link). (3) On auto-close the
+submitter gets a generic "ดำเนินการและปิดแล้ว" remark, no id. Migration 0071 +
+a defensive `!e.internal` filter in `vs-tracking.js rowToTicket`.
+**Where**: `supabase/migrations/0071_vs_dedup_confidentiality.sql`,
+`src/js/vs-tracking.js`. **Rule**: before cross-linking two records that belong
+to different principals, check whether the reference (id, link, mention) is
+itself readable by the other principal — if lookup is by-id/capability, the id
+IS the data. Keep cross-refs on the staff side; sanitize any anon/guest-facing
+read.
