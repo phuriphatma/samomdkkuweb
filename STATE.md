@@ -4,6 +4,34 @@ Last updated: 2026-07-21. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## PASSPORT: kkumail-only login gate + 5 gmail→kkumail migrations — DEPLOYED (2026-07-23)
+
+Login was never restricted to @kkumail.com before launch, so some students scanned with a
+personal gmail. Fixed in two parts:
+
+- **Data migration (0064, applied to project A `passport` schema):** new table
+  `passport.account_migrations` (read-all RLS, NO anon write — verified: anon SELECT 200,
+  anon INSERT 401) records each move. 5 students carried gmail→kkumail:
+  wariikung→ingwer.s (250), phuri8980→phurichaya.bo (200), kenkunchai50→kenkunchai.ch (200),
+  sirikanrayamasena→sirikanraya.m (200) are **email re-keys** (login trigger 0063 re-keys the
+  uuid on first kkumail login); kedsaraporn2007→kedsaraporn.t is a **merge** (target already
+  existed at 300 km; the gmail scan was a duplicate → stays 300, no double-count). Verified: 0
+  gmail-of-the-5 profiles remain, scans intact on kkumail ids. Certs are client-side from
+  scans, so they move with the scans. (These 5 had never logged into project A — B-era data.)
+- **App gate (passport repo `dfd7078`, deployed to VM):** `getPassportAccess(user)` in
+  `js/auth.js` → `moved` (data left this account) / `blocked` (non-kkumail) / `ok(+receivedFrom)`.
+  Old gmail login sees a full-screen "ย้ายไป <kkumail>" block; receiving kkumail sees a
+  dismissible "ได้รับจาก <gmail>" banner; both cite Vital Sound. Wired into dashboard init +
+  scan flow. `DEV_ALLOWLIST=['pmphuriphat@gmail.com']` bypasses the domain check for dev
+  testing. Google `hd=kkumail.com` hint added to both signInWithOAuth calls (UX only).
+  **Blast radius:** all other non-kkumail Google accounts are now blocked (only these 5 were
+  migrated); admin terminal is unaffected (static admin/1234, not Google).
+
+Live-verified: `/var/www/passport/assets/auth-CbfxjhCA.js` served, contains the gate.
+**VM deploy gotcha:** `deploy.sh` uses plain `sudo` (needs a tty); priming with `sudo -v` over
+a tty-less ssh does NOT cache a timestamp → "a terminal is required". Ran the publish steps
+manually piping the password to `sudo -S -p ""` per command instead (the sanctioned pattern).
+
 ## PROJECTS: ปีงบประมาณ (Thai fiscal year) filter on หนังสือโครงการ — DEPLOYED (2026-07-22)
 
 The หนังสือโครงการ grid toolbar gained a **ปีงบประมาณ dropdown** (`#projectsFiscalYear`
