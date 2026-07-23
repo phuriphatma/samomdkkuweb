@@ -4,7 +4,15 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build c92c60507b91)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 891b880cf508)
+
+**PR/VS split + completion rings (migration 0066, build 891b880cf508)**: `public_stats()`
++ `analytics_overview()` now return `pr_total`/`pr_completed` + `vs_total`/`vs_completed`
+separately (completed = `status like '%เสร็จสิ้น%'`, `deleted_at is null` filtered).
+Public strip gained a "งานบริการนักศึกษา" section with two animated SVG donut rings
+(PR + VS, requests vs completed); admin KPIs split into คำขอ PR / คำขอ VitalSound with
+completed + %. Live today: PR 111/135 (82%), VS 10/61 (16%). Rings/tiles count-up +
+fill on scroll (IntersectionObserver on `.home-stats-inner`, `.is-in`). Preview artifact updated.
 
 "Prove people use the portal" for the boss. In-house on Supabase (no third party).
 - **Migration `0065_analytics.sql` APPLIED** to web DB: `analytics_events` (cookieless,
