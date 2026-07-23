@@ -1277,3 +1277,27 @@ there is none, the app is single-theme — match it, don't unilaterally introduc
 a half-theme that only your component honors. (Standalone Artifacts are the
 exception — those SHOULD be theme-aware; the deployed app is not.)
 **Where**: `src/css/home-stats.css`, `src/css/analytics.css`.
+
+---
+
+## A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col` — the OUT-param name shadows the query column, so it sorts by the NULL variable
+
+**Symptom**: `find_similar_vs_tickets` (migration 0068) returned the right rows
+but in the wrong order — "most similar" was NOT first. No error; the migration
+applied clean (the bug only executes at call time, which needs a real staff JWT,
+so it never showed during `apply-migration`).
+**Cause**: the function is `returns table (... sim real)` and the body did
+`return query select …, similarity(…) order by sim desc`. In PL/pgSQL every
+`RETURNS TABLE` column is also an OUT **variable**. The final SELECT column is the
+*expression* `similarity(…)` — it has no output name `sim` — so `order by sim`
+does NOT bind to the query column; it binds to the OUT variable `sim`, which is
+unset (NULL) at that point → `order by NULL` → no effective sort. Postgres does
+not raise; it just doesn't sort.
+**Fix**: order by the **explicit expression**, never the OUT-param name:
+`order by …, similarity(regexp_replace(…), v_problem) desc`. (Alternatives:
+rename the OUT column so it can't shadow, or `order by <position>`.)
+**Where**: `supabase/migrations/0068_vs_dedup.sql` `find_similar_vs_tickets`.
+Rule: in any `RETURNS TABLE` PL/pgSQL function, never `ORDER BY`/`WHERE` on an
+OUT-param name that isn't an actual output alias of the query — use the
+expression or a column position. Verify sort-dependent RPCs by executing them
+(not just applying), since the shadowing is silent.

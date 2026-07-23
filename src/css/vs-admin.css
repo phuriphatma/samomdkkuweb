@@ -286,3 +286,13 @@
   border-radius: 999px;
   letter-spacing: 0.02em;
 }
+
+/* ---- Duplicate management (migration 0068) ---- */
+.vs-kanban-card.is-duplicate { opacity: 0.66; }
+.vs-kanban-card-dup {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.62rem; font-weight: 700; color: #64748b;
+  background: #eef2f6; border: 1px solid #dbe2ea; border-radius: 999px;
+  padding: 0.03rem 0.4rem; margin-left: auto;
+}
+.vs-kanban-card-dup.is-canonical { color: #0f766e; background: #e6fffb; border-color: #99f6e4; }

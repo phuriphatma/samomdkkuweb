@@ -296,8 +296,13 @@ function renderKanban() {
           const cacheIdx = staffTicketsCache.indexOf(t);
           const strippedProblem = (t.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 90);
           const deptC = deptColor(t.target_dept);
+          const isDup = !!t.duplicate_of;
+          const nDup = isDup ? 0 : dupCountFor(t.id);
+          const dupTag = isDup
+            ? `<span class="vs-kanban-card-dup" title="เรื่องซ้ำของ ${escHtml(t.duplicate_of)}"><i class="bi bi-diagram-2"></i> ซ้ำ</span>`
+            : (nDup > 0 ? `<span class="vs-kanban-card-dup is-canonical" title="มี ${nDup} เรื่องซ้ำรวมอยู่"><i class="bi bi-diagram-2"></i> ${nDup}</span>` : '');
           return `
-            <div class="vs-kanban-card is-${ageBucket(t)}"
+            <div class="vs-kanban-card is-${ageBucket(t)}${isDup ? ' is-duplicate' : ''}"
               style="--card-accent: ${deptC};"
               onclick="openStaffModalByIndex(${cacheIdx})">
               <div class="vs-kanban-card-head">
@@ -308,6 +313,7 @@ function renderKanban() {
               <div class="vs-kanban-card-foot">
                 <span class="vs-kanban-card-dept" style="background:${deptC};">${escHtml(deptShort(t.target_dept))}</span>
                 ${t.is_emergency ? '<span class="vs-kanban-card-urgent" title="ฉุกเฉิน">ด่วน</span>' : ''}
+                ${dupTag}
               </div>
             </div>
           `;
@@ -394,7 +400,140 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffNotifyTo').value = '';
   document.getElementById('staffSilentNotify').checked = false;
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
+  renderDupBanner();
+  resetSimilarPane();
+  wireSimilarTabOnce();
   new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+}
+
+// ----- Duplicate management (Phase 1, migration 0068) -----
+
+let similarTabWired = false;
+
+/** Count of tickets merged into `id` (from the loaded cache). */
+function dupCountFor(id) {
+  return staffTicketsCache.filter((t) => t.duplicate_of === id && !t.deleted_at).length;
+}
+
+/** Detail-tab banner: is this ticket a duplicate, or a canonical with duplicates? */
+function renderDupBanner() {
+  const el = document.getElementById('staffDupBanner');
+  if (!el) return;
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  if (!t) { el.classList.add('d-none'); el.innerHTML = ''; return; }
+
+  if (t.duplicate_of) {
+    el.className = 'alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mb-3';
+    el.innerHTML =
+      `<i class="bi bi-diagram-2"></i><span class="small flex-grow-1">เรื่องนี้ถูกรวมเป็น<strong>เรื่องซ้ำ</strong>ของ `
+      + `<strong>${escHtml(t.duplicate_of)}</strong> — จะปิดอัตโนมัติเมื่อเรื่องหลักเสร็จสิ้น</span>`
+      + `<button type="button" class="btn btn-sm btn-outline-warning" data-vs-unmerge>แยกออก</button>`;
+    el.querySelector('[data-vs-unmerge]')?.addEventListener('click', onUnmergeClick);
+    return;
+  }
+  const n = dupCountFor(t.id);
+  if (n > 0) {
+    el.className = 'alert alert-info d-flex align-items-center gap-2 py-2 px-3 mb-3';
+    el.innerHTML = `<i class="bi bi-diagram-2"></i><span class="small">เรื่องหลัก — มี <strong>${n}</strong> เรื่องซ้ำรวมอยู่ (จะปิดพร้อมกันเมื่อเสร็จสิ้น)</span>`;
+    el.classList.remove('d-none');
+    return;
+  }
+  el.classList.add('d-none');
+  el.innerHTML = '';
+}
+
+function resetSimilarPane() {
+  const body = document.getElementById('staffSimilarBody');
+  if (body) body.innerHTML = '<div class="text-muted small">เปิดแท็บนี้เพื่อค้นหาเรื่องที่คล้ายกัน…</div>';
+}
+
+/** Lazy-load the similar list the first time the เรื่องซ้ำ tab is shown. */
+function wireSimilarTabOnce() {
+  if (similarTabWired) return;
+  similarTabWired = true;
+  document.getElementById('staff-similar-tab')?.addEventListener('shown.bs.tab', () => {
+    loadSimilarTickets(currentActiveTicketId);
+  });
+}
+
+async function loadSimilarTickets(id) {
+  const body = document.getElementById('staffSimilarBody');
+  if (!body || !id) return;
+  body.innerHTML = '<div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> กำลังค้นหาเรื่องที่คล้ายกัน…</div>';
+  const { data, error } = await dbRest('/rpc/find_similar_vs_tickets',
+    { method: 'POST', body: { p_id: id, p_limit: 6 } });
+  if (error) {
+    body.innerHTML = `<div class="text-danger small">ค้นหาไม่สำเร็จ: ${escHtml(String(error.message || '').slice(0, 120))}</div>`;
+    return;
+  }
+  renderSimilar(Array.isArray(data) ? data : []);
+}
+
+function renderSimilar(list) {
+  const body = document.getElementById('staffSimilarBody');
+  if (!body) return;
+  const current = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  const isDup = !!current?.duplicate_of;
+
+  if (!list.length) {
+    body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน</div>';
+    return;
+  }
+
+  const rows = list.map((s) => {
+    const pct = Math.round(Number(s.sim || 0) * 100);
+    const snippet = escHtml(String(s.problem_snippet || '').trim() || '(ไม่มีรายละเอียด)');
+    const dept = escHtml(deptShort(s.target_dept));
+    const status = escHtml(s.status || '');
+    const dupBadge = Number(s.dup_count) > 0
+      ? `<span class="badge bg-info-subtle text-info-emphasis">มี ${Number(s.dup_count)} ซ้ำ</span>` : '';
+    const action = isDup
+      ? ''
+      : `<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" data-vs-merge="${escHtml(s.id)}">รวมเข้าเรื่องนี้</button>`;
+    return `<div class="border rounded p-2 mb-2 d-flex align-items-start gap-2">
+      <span class="badge bg-primary-subtle text-primary-emphasis flex-shrink-0" title="ความคล้าย">${pct}%</span>
+      <div class="flex-grow-1" style="min-width:0">
+        <div class="small fw-semibold">${escHtml(s.id)} <span class="text-muted">· ${dept} · ${status}</span> ${dupBadge}</div>
+        <div class="small text-muted text-truncate">${snippet}</div>
+      </div>
+      ${action}
+    </div>`;
+  }).join('');
+
+  const hint = isDup
+    ? '<div class="alert alert-warning small py-2 px-3">เรื่องนี้ถูกรวมเป็นเรื่องซ้ำแล้ว — กด “แยกออก” ในแท็บรายละเอียดก่อน หากต้องการรวมกับเรื่องอื่น</div>'
+    : '<div class="text-muted small mb-2">พบเรื่องที่ใกล้เคียง — หากเป็นเรื่องเดียวกัน กด “รวมเข้าเรื่องนี้” เพื่อยุบเป็นเรื่องซ้ำ (เวิร์กโฟลว์ SE↔VP ของเรื่องหลักไม่เปลี่ยน)</div>';
+
+  body.innerHTML = hint + rows;
+  body.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
+}
+
+async function onMergeClick(e) {
+  const canonicalId = e.currentTarget.getAttribute('data-vs-merge');
+  const dupId = currentActiveTicketId;
+  if (!canonicalId || !dupId) return;
+  if (!confirm(`รวม ${dupId} เข้าเป็นเรื่องซ้ำของ ${canonicalId} ?\nเรื่องนี้จะปิดอัตโนมัติเมื่อ ${canonicalId} เสร็จสิ้น`)) return;
+  e.currentTarget.disabled = true;
+  const { error } = await dbRest('/rpc/merge_vs_tickets',
+    { method: 'POST', body: { p_dup: dupId, p_canonical: canonicalId } });
+  if (error) {
+    alert('รวมไม่สำเร็จ: ' + (error.message || 'unknown'));
+    e.currentTarget.disabled = false;
+    return;
+  }
+  bootstrap.Modal.getInstance(document.getElementById('staffManageModal'))?.hide();
+  currentActiveTicketId = null;
+  await fetchStaffTickets();
+}
+
+async function onUnmergeClick() {
+  const id = currentActiveTicketId;
+  if (!id) return;
+  const { error } = await dbRest('/rpc/unmerge_vs_ticket', { method: 'POST', body: { p_id: id } });
+  if (error) { alert('แยกออกไม่สำเร็จ: ' + (error.message || 'unknown')); return; }
+  bootstrap.Modal.getInstance(document.getElementById('staffManageModal'))?.hide();
+  currentActiveTicketId = null;
+  await fetchStaffTickets();
 }
 
 // --------------------------------------------------

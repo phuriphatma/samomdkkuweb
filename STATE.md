@@ -4,6 +4,25 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## VITALSOUND DEDUP — Phase 1 (staff-side merge/similar), migration 0068 (2026-07-23)
+
+Manage duplicate VS reports WITHOUT changing the SE↔VP routing workflow (purely additive).
+- **0068**: `vs_tickets.duplicate_of` self-FK (canonical model, GitHub "duplicate of #X");
+  `find_similar_vs_tickets(p_id,limit)` (pg_trgm on stripped problem, same-dept first, staff-only
+  fail-closed); `merge_vs_tickets` / `unmerge_vs_ticket` (staff-only); `vs_cascade_resolve` trigger
+  → resolving a canonical (เสร็จสิ้น) auto-closes its duplicates with a remark (verified on
+  throwaway rows). pg_trgm installed in `extensions` schema; definer fns using `similarity()` set
+  `search_path = public, extensions`.
+- **UI** (`vs-staff.js` + `modal-vs-staff.html`): new "เรื่องซ้ำ" tab in the staff modal (loads
+  similar on tab-show), "รวมเข้าเรื่องนี้" merge + "แยกออก" unmerge, dup/canonical banner in the
+  detail tab, and a "ซ้ำ"/"N" badge + dim on kanban cards (`.vs-kanban-card-dup`).
+- **Bug scan fixed 2**: (1) `ORDER BY sim` shadowed the RETURNS TABLE OUT-param → no sort;
+  reordered on the explicit `similarity(...)` expression (new mistakes.md entry). (2) `min-w-0`
+  isn't a stock Bootstrap class → inline `min-width:0`.
+- Admin/staff-only; public submit/track + SE↔VP flow untouched. **Phases 2/3 (visibility column +
+  kkumail public board) NOT built** — gated on the two product calls (public-eligible categories;
+  SE-only promote). Design mockup: shared artifact this session.
+
 ## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build ae55a760d5ac)
 
 **Date axis (build ae55a760d5ac)**: admin daily bar charts (`barChart` in analytics-dashboard.js)
