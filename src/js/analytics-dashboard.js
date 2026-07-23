@@ -19,6 +19,35 @@ let lastDays = 30;
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
+const RING_R = 46;
+const RING_C = 2 * Math.PI * RING_R;
+
+/** Completion donut ring (fills when .is-in is set on an ancestor). */
+function ring(name, total, done, color) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const off = (RING_C * (1 - pct / 100)).toFixed(1);
+  return `<div class="an-ring-card">
+    <div class="an-ring">
+      <svg viewBox="0 0 110 110" aria-hidden="true">
+        <circle class="an-ring-track" cx="55" cy="55" r="${RING_R}"></circle>
+        <circle class="an-ring-fill" cx="55" cy="55" r="${RING_R}" style="--c:${RING_C.toFixed(1)};--off:${off};stroke:${color}"></circle>
+      </svg>
+      <span class="an-ring-pct" style="color:${color}">${pct}%</span>
+    </div>
+    <div class="an-ring-meta">
+      <span class="an-ring-name">${escHtml(name)}</span>
+      <span class="an-ring-sub"><b>${fmt(done)}</b> เสร็จสิ้น / ${fmt(total)} คำขอ</span>
+    </div>
+  </div>`;
+}
+
+function projStat(label, value, accent) {
+  return `<div class="an-proj-stat" style="--ps:${accent}">
+    <span class="an-proj-num">${fmt(value)}</span>
+    <span class="an-proj-label">${escHtml(label)}</span>
+  </div>`;
+}
+
 /** Vertical bar chart from a [{d,n}] daily series (CSS bars, responsive). */
 function barChart(series, color) {
   const pts = Array.isArray(series) ? series : [];
@@ -89,6 +118,23 @@ function render(body, d) {
       ${tile(t.vs, 'คำขอ VitalSound', `เสร็จสิ้น ${fmt(t.vs_completed)} · ${pct(t.vs_completed, t.vs)}%`, '#0ea5e9')}
     </div>
 
+    <div class="an-section-label">อัตราการดำเนินงานแต่ละบริการ</div>
+    <div class="an-rings">
+      ${ring('งานประชาสัมพันธ์ (PR)', t.pr, t.pr_completed, 'var(--pink-500,#d6336c)')}
+      ${ring('VitalSound', t.vs, t.vs_completed, '#0ea5e9')}
+      ${ring('หนังสือโครงการ', t.documents, t.doc_completed, 'var(--brand-primary,#105922)')}
+    </div>
+
+    <div class="an-section-label">หนังสือโครงการ</div>
+    <div class="an-proj-grid">
+      ${projStat('โครงการ', t.projects, 'var(--brand-primary,#105922)')}
+      ${projStat('หนังสือ', t.documents, '#6366f1')}
+      ${projStat('สำเร็จ', t.doc_completed, 'var(--vs-accent,#0d9488)')}
+      ${projStat('ลงนามแล้ว', t.doc_signed, '#0ea5e9')}
+      ${projStat('ธุรกรรม', t.doc_transactions, 'var(--brand-orange,#FF6F30)')}
+      ${projStat('การโต้ตอบ', t.doc_interactions, 'var(--pink-500,#d6336c)')}
+    </div>
+
     <div class="an-grid">
       <div class="an-card an-card--wide">
         <div class="an-card-head"><h3>สมาชิกใหม่รายวัน</h3><span>รวม ${fmt(signupsSum)} คน</span></div>
@@ -113,6 +159,8 @@ function render(body, d) {
     </div>
     <p class="an-foot">อัปเดตล่าสุด ${gen} · ข้อมูลผู้เข้าใช้งาน/แท็บเริ่มเก็บหลังเผยแพร่ระบบสถิติ</p>
   `;
+  // Fill the completion rings on the next frame (CSS transition).
+  requestAnimationFrame(() => body.querySelector('.an-rings')?.classList.add('is-in'));
 }
 
 async function load(days) {

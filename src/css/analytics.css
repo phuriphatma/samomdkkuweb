@@ -33,6 +33,53 @@
 .an-kpi-label { font-size: 0.82rem; font-weight: 600; color: #26332b; }
 .an-kpi-sub { font-size: 0.72rem; color: #7a8a80; }
 
+/* ---- Section label ---- */
+.an-section-label {
+  font-family: 'Prompt', system-ui, sans-serif; font-weight: 600;
+  font-size: 0.95rem; color: #33413a; margin: 1.3rem 0 0.75rem;
+}
+
+/* ---- Completion rings (PR / VS / หนังสือ) ---- */
+.an-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; }
+.an-ring-card {
+  display: flex; align-items: center; gap: 1rem;
+  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09); border-radius: 16px;
+  padding: 1rem 1.1rem; box-shadow: 0 8px 22px -20px rgba(16, 40, 24, 0.5);
+}
+.an-ring { position: relative; width: 84px; height: 84px; flex: 0 0 auto; }
+.an-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.an-ring-track { fill: none; stroke: rgba(20, 40, 27, 0.08); stroke-width: 10; }
+.an-ring-fill {
+  fill: none; stroke-width: 10; stroke-linecap: round;
+  stroke-dasharray: var(--c); stroke-dashoffset: var(--c);
+}
+.an-rings.is-in .an-ring-fill {
+  transition: stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1);
+  stroke-dashoffset: var(--off);
+}
+.an-ring-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.an-ring-meta { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.an-ring-name { font-weight: 600; font-size: 0.92rem; color: #1c2a22; }
+.an-ring-sub { font-size: 0.8rem; color: #6b7a70; }
+.an-ring-sub b { color: #26332b; font-weight: 700; }
+
+/* ---- หนังสือโครงการ stat row ---- */
+.an-proj-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.7rem; }
+.an-proj-stat {
+  display: flex; flex-direction: column; gap: 0.15rem; padding: 0.85rem 0.9rem;
+  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  border-left: 3px solid var(--ps, #105922); border-radius: 12px;
+}
+.an-proj-num {
+  font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.4rem;
+  line-height: 1; color: var(--ps, #105922); font-variant-numeric: tabular-nums;
+}
+.an-proj-label { font-size: 0.78rem; color: #566258; }
+
 /* ---- Cards grid ---- */
 .an-grid { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, 1fr); }
 .an-card {
@@ -94,12 +141,15 @@
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
   .an-kpis { grid-template-columns: repeat(3, 1fr); }
+  .an-rings { grid-template-columns: 1fr; }
+  .an-proj-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
   .an-kpis { grid-template-columns: repeat(2, 1fr); }
   .an-grid { grid-template-columns: 1fr; }
   .an-card--wide { grid-column: span 1; }
   .an-rank-row { grid-template-columns: 84px 1fr 38px; }
+  .an-proj-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* Light-only: the rest of the app has no dark theme, so a dark-mode OS

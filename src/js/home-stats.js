@@ -49,6 +49,16 @@ function donut(pct, color) {
     </svg>`;
 }
 
+function docChip(icon, value, label) {
+  return `<div class="home-doc-chip">
+    <span class="home-doc-chip-icon"><i class="bi ${icon}"></i></span>
+    <span class="home-doc-chip-body">
+      <span class="home-doc-chip-num" data-target="${Number(value || 0)}">0</span>
+      <span class="home-doc-chip-label">${label}</span>
+    </span>
+  </div>`;
+}
+
 function serviceCard(name, icon, total, completed, color) {
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   return `<div class="svc-card" style="--svc:${color}">
@@ -87,9 +97,17 @@ function render(container, s) {
 
       <div class="home-stats-services">
         <h3 class="home-services-title">งานบริการนักศึกษา</h3>
-        <div class="home-services-grid">
+        <div class="home-services-grid home-services-grid--3">
           ${serviceCard('งานประชาสัมพันธ์ (PR)', 'bi-megaphone-fill', Number(s.pr_total || 0), Number(s.pr_completed || 0), 'var(--pink-500, #d6336c)')}
           ${serviceCard('VitalSound', 'bi-clipboard2-pulse-fill', Number(s.vs_total || 0), Number(s.vs_completed || 0), 'var(--vs-accent, #0d9488)')}
+          ${serviceCard('หนังสือโครงการ', 'bi-folder-fill', Number(s.documents || 0), Number(s.doc_completed || 0), 'var(--brand-primary, #105922)')}
+        </div>
+
+        <div class="home-doc-chips">
+          ${docChip('bi-arrow-left-right', s.doc_transactions, 'ธุรกรรมทั้งหมด')}
+          ${docChip('bi-chat-dots-fill', s.doc_interactions, 'การโต้ตอบ')}
+          ${docChip('bi-pen-fill', s.doc_signed, 'ลงนามแล้ว')}
+          ${docChip('bi-diagram-3-fill', s.projects, 'โครงการ')}
         </div>
       </div>
     </div>`;
