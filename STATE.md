@@ -4,7 +4,7 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — BUILT, NOT YET DEPLOYED (2026-07-23)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 3034198a9b75)
 
 "Prove people use the portal" for the boss. In-house on Supabase (no third party).
 - **Migration `0065_analytics.sql` APPLIED** to web DB: `analytics_events` (cookieless,
@@ -20,10 +20,16 @@ in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
   = any staff; sidebar btn + `tab-analytics.html` pane), `src/js/analytics-dashboard.js` +
   `src/css/analytics.css`. KPI tiles + CSS bar charts (signups/requests/visitors) + top-tabs/roles.
 - Live numbers today: users **432**, requests **218**, new-7d **283**, projects+docs **40**.
-- `npm run build && npm test` GREEN (115 tests). **NOT deployed to the VM** — public-facing,
-  awaiting user go-ahead. Visitor/top-tab panels stay empty until the tracker collects post-deploy.
-- Preview artifact of the strip (real numbers): shared with user this session.
-- **On deploy**: also add README "Key features" line + a `docs/CONTEXT.md` note (new table/RPCs).
+- `npm run build && npm test` GREEN (115 tests). **DEPLOYED to the VM** (commit 3f77379,
+  build 3034198a9b75); live homepage has `#homeStats`, `/admin/` has the สถิติ pane,
+  https://samo.md.kku.ac.th → 200. README + `docs/CONTEXT.md` updated.
+- Visitor/session/top-tab panels populate as real browser traffic arrives post-deploy
+  (curl smoke-tests don't run JS → no events yet). Engagement numbers show immediately.
+- **Bug scan before deploy found + fixed 2**: (1) stored XSS — `analytics_events.path` is
+  anon-INSERTable so attacker-controlled; escHtml'd in the staff dashboard (new mistakes.md
+  entry). (2) count-up showed "0" on deep-link to non-home tab; added `shown.bs.tab` fallback.
+- Retention: `prune_analytics(90)` / `prune_notify_log(30)` exist but pg_cron is NOT scheduled —
+  run manually or enable pg_cron + `cron.schedule` (see 0065 / 0055 comments) if tables grow.
 
 ## NOTIFY: PR #16 completed (migration applied + VM logging on) + main branch protected (2026-07-23)
 

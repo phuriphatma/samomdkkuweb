@@ -102,19 +102,6 @@
   .an-rank-row { grid-template-columns: 84px 1fr 38px; }
 }
 
-/* ---- Dark theme ---- */
-@media (prefers-color-scheme: dark) {
-  .an-kpi, .an-card { background: #16211c; border-color: rgba(120, 200, 150, 0.12); }
-  .an-kpi-label { color: #d6e4dc; }
-  .an-card-head h3 { color: #e7f2ec; }
-  .an-rank-label { color: #c3d3ca; }
-  .an-rank-n { color: #e7f2ec; }
-  .an-rank-track { background: rgba(200, 230, 212, 0.1); }
-  .analytics-range label, .an-card-head span, .an-kpi-sub { color: #9db3a6; }
-}
-:root[data-theme="dark"] .an-kpi,
-:root[data-theme="dark"] .an-card { background: #16211c; border-color: rgba(120, 200, 150, 0.12); }
-:root[data-theme="dark"] .an-kpi-label { color: #d6e4dc; }
-:root[data-theme="dark"] .an-card-head h3 { color: #e7f2ec; }
-:root[data-theme="dark"] .an-rank-label { color: #c3d3ca; }
-:root[data-theme="dark"] .an-rank-track { background: rgba(200, 230, 212, 0.1); }
+/* Light-only: the rest of the app has no dark theme, so a dark-mode OS
+   was making these cards dark while the white admin shell stayed light.
+   No dark variant here on purpose. */
