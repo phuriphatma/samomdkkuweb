@@ -1251,3 +1251,29 @@ and apply `escHtml` from `utils.js`). **Rule**: before rendering ANY column of
 an anon-INSERTable table (`analytics_events`, `notify_log`, `pr_tickets`,
 `vs_tickets`, …) into innerHTML — even in a staff-only dashboard — treat it as
 untrusted and `escHtml` it. Read-side authorization is not input validation.
+
+---
+
+## Adding `prefers-color-scheme: dark` to ONE component in a light-only app makes just that component go dark on a dark-mode OS
+
+**Symptom**: The new landing-page stat strip rendered **dark green** while the
+rest of the (white) site stayed light. Only happened for users whose OS/browser
+was set to dark mode.
+**Cause**: This app is **light-only** — a repo-wide grep shows ZERO
+`prefers-color-scheme` / `data-theme` rules anywhere except the files just added
+(`home-stats.css`, `analytics.css`). Those new files included
+`@media (prefers-color-scheme: dark)` + `:root[data-theme="dark"]` overrides
+(a good habit for standalone artifacts / theme-aware sites — but wrong here).
+With no app-level theme system, the media query is the ONLY thing reacting to
+the OS preference, so a dark-mode visitor got a dark component island floating
+in the otherwise-white page. The general "design both themes" guidance has an
+explicit carve-out — *"a design that deliberately commits to one visual world
+may stay single-theme"* — and this app has committed to light.
+**Fix**: Remove all `prefers-color-scheme` / `data-theme` blocks from
+`home-stats.css` + `analytics.css`; they now render light unconditionally.
+**Rule**: before adding dark-mode CSS to a NEW component, grep the app for an
+existing theme system (`prefers-color-scheme`, `data-theme`, a theme toggle). If
+there is none, the app is single-theme — match it, don't unilaterally introduce
+a half-theme that only your component honors. (Standalone Artifacts are the
+exception — those SHOULD be theme-aware; the deployed app is not.)
+**Where**: `src/css/home-stats.css`, `src/css/analytics.css`.

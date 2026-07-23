@@ -4,7 +4,7 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 3034198a9b75)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build c92c60507b91)
 
 "Prove people use the portal" for the boss. In-house on Supabase (no third party).
 - **Migration `0065_analytics.sql` APPLIED** to web DB: `analytics_events` (cookieless,
@@ -30,6 +30,10 @@ in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
   entry). (2) count-up showed "0" on deep-link to non-home tab; added `shown.bs.tab` fallback.
 - Retention: `prune_analytics(90)` / `prune_notify_log(30)` exist but pg_cron is NOT scheduled —
   run manually or enable pg_cron + `cron.schedule` (see 0065 / 0055 comments) if tables grow.
+- **Post-deploy fix (build c92c60507b91)**: strip/dashboard were LIGHT-ONLY'd — the
+  `prefers-color-scheme:dark` overrides I'd added made them dark-green on a dark-mode OS while
+  the (light-only) site stayed white. App has NO dark theme anywhere; removed all dark rules.
+  See new mistakes.md entry. If restyling these, keep them light-only.
 
 ## NOTIFY: PR #16 completed (migration applied + VM logging on) + main branch protected (2026-07-23)
 
