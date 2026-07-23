@@ -26,6 +26,8 @@ import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDeta
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initProjectsView } from './projects-view.js';
+import { initAnalytics } from './analytics.js';
+import { initHomeStats } from './home-stats.js';
 import { copyText } from './utils.js';
 
 // ==============================================
@@ -768,6 +770,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   initProfileModal();
   mountAccountSwitch();
+
+  // Cookieless usage tracking + the landing-page "by the numbers" strip.
+  initAnalytics('public');
+  initHomeStats();
 
   // Global "copy to clipboard" delegate: any [data-copy] element copies
   // its data-copy value when clicked. stopPropagation prevents the

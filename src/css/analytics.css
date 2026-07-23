@@ -1,0 +1,120 @@
+/* ==============================================
+   analytics.css — staff usage dashboard (สถิติการใช้งาน).
+   KPI tiles + CSS bar charts + ranked bars. Theme-aware.
+   ============================================== */
+
+.analytics-wrap { padding: 0.25rem 0.1rem 2rem; }
+
+.analytics-toolbar {
+  display: flex; align-items: center; gap: 0.75rem;
+  flex-wrap: wrap; margin-bottom: 1.1rem;
+}
+.analytics-range { display: flex; align-items: center; gap: 0.5rem; }
+.analytics-range label { font-size: 0.85rem; color: #5c6b60; margin: 0; }
+.analytics-range .form-select { width: auto; min-width: 140px; }
+
+/* ---- KPI tiles ---- */
+.an-kpis {
+  display: grid; gap: 0.75rem; margin-bottom: 1.1rem;
+  grid-template-columns: repeat(6, 1fr);
+}
+.an-kpi {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.95rem 1rem; border-radius: 14px;
+  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  border-top: 3px solid var(--kpi, #105922);
+  box-shadow: 0 8px 22px -18px rgba(16, 40, 24, 0.5);
+}
+.an-kpi-num {
+  font-family: 'Prompt', system-ui, sans-serif; font-weight: 700;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.05;
+  color: var(--kpi, #105922); font-variant-numeric: tabular-nums;
+}
+.an-kpi-label { font-size: 0.82rem; font-weight: 600; color: #26332b; }
+.an-kpi-sub { font-size: 0.72rem; color: #7a8a80; }
+
+/* ---- Cards grid ---- */
+.an-grid { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, 1fr); }
+.an-card {
+  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  border-radius: 16px; padding: 1rem 1.1rem 1.15rem;
+  box-shadow: 0 8px 22px -20px rgba(16, 40, 24, 0.5);
+}
+.an-card--wide { grid-column: span 2; }
+.an-card-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.85rem;
+}
+.an-card-head h3 { font-size: 0.98rem; font-weight: 700; margin: 0; color: #1c2a22; }
+.an-card-head span { font-size: 0.8rem; color: #7a8a80; }
+
+/* ---- Vertical bar chart (CSS bars) ---- */
+.an-bars {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 150px; padding-top: 14px;
+}
+.an-bar {
+  flex: 1 1 0; min-width: 2px; height: 100%;
+  display: flex; align-items: flex-end; position: relative;
+}
+.an-bar::after {
+  content: ""; display: block; width: 100%;
+  height: var(--h, 0%); min-height: 2px;
+  background: var(--bar, #105922); border-radius: 4px 4px 2px 2px;
+  transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0.9;
+}
+.an-bar:hover::after { opacity: 1; }
+.an-bar-val {
+  position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+  font-size: 0.62rem; color: #8a9890; white-space: nowrap;
+  opacity: 0; transition: opacity 0.15s;
+}
+.an-bar:hover .an-bar-val { opacity: 1; }
+
+/* ---- Horizontal ranked bars ---- */
+.an-rank { display: flex; flex-direction: column; gap: 0.5rem; }
+.an-rank-row { display: grid; grid-template-columns: 96px 1fr 44px; align-items: center; gap: 0.5rem; }
+.an-rank-label {
+  font-size: 0.82rem; color: #33413a; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.an-rank-track { height: 10px; background: rgba(20, 40, 27, 0.07); border-radius: 6px; overflow: hidden; }
+.an-rank-fill { display: block; height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.an-rank-n { font-size: 0.8rem; font-weight: 600; color: #26332b; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- States ---- */
+.an-loading, .an-error, .an-chart-empty {
+  padding: 1.4rem; text-align: center; color: #7a8a80; font-size: 0.9rem;
+}
+.an-error { color: #b02a37; }
+.an-chart-empty { padding: 2.2rem 1rem; }
+.an-foot { margin-top: 1rem; font-size: 0.76rem; color: #93a199; text-align: center; }
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .an-kpis { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .an-kpis { grid-template-columns: repeat(2, 1fr); }
+  .an-grid { grid-template-columns: 1fr; }
+  .an-card--wide { grid-column: span 1; }
+  .an-rank-row { grid-template-columns: 84px 1fr 38px; }
+}
+
+/* ---- Dark theme ---- */
+@media (prefers-color-scheme: dark) {
+  .an-kpi, .an-card { background: #16211c; border-color: rgba(120, 200, 150, 0.12); }
+  .an-kpi-label { color: #d6e4dc; }
+  .an-card-head h3 { color: #e7f2ec; }
+  .an-rank-label { color: #c3d3ca; }
+  .an-rank-n { color: #e7f2ec; }
+  .an-rank-track { background: rgba(200, 230, 212, 0.1); }
+  .analytics-range label, .an-card-head span, .an-kpi-sub { color: #9db3a6; }
+}
+:root[data-theme="dark"] .an-kpi,
+:root[data-theme="dark"] .an-card { background: #16211c; border-color: rgba(120, 200, 150, 0.12); }
+:root[data-theme="dark"] .an-kpi-label { color: #d6e4dc; }
+:root[data-theme="dark"] .an-card-head h3 { color: #e7f2ec; }
+:root[data-theme="dark"] .an-rank-label { color: #c3d3ca; }
+:root[data-theme="dark"] .an-rank-track { background: rgba(200, 230, 212, 0.1); }

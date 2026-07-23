@@ -1,0 +1,154 @@
+/* ==============================================
+   home-stats.css — "SAMO Portal by the numbers" social-proof strip.
+   Animated count-up tiles on the public landing page (see home-stats.js).
+   Theme-aware, brand-accented per tile, responsive.
+   ============================================== */
+
+.home-stats {
+  margin: 2.6rem 0 0.5rem;
+  padding: 2.2rem 1.25rem 2.4rem;
+  border-radius: 26px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(16, 89, 34, 0.10), transparent 55%),
+    radial-gradient(120% 140% at 90% 15%, rgba(255, 111, 48, 0.12), transparent 55%),
+    linear-gradient(180deg, #ffffff 0%, #f6f9f6 100%);
+  border: 1px solid rgba(16, 89, 34, 0.10);
+  box-shadow: 0 18px 48px -28px rgba(16, 89, 34, 0.35);
+}
+
+.home-stats-inner { max-width: 1000px; margin: 0 auto; }
+
+.home-stats-head { text-align: center; margin-bottom: 1.6rem; }
+
+.home-stats-eyebrow {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-primary, #105922);
+  background: rgba(16, 89, 34, 0.08);
+  border: 1px solid rgba(16, 89, 34, 0.16);
+  padding: 0.28rem 0.8rem; border-radius: 999px;
+}
+.home-stats-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--brand-orange, #FF6F30);
+  box-shadow: 0 0 0 0 rgba(255, 111, 48, 0.55);
+  animation: home-stats-pulse 1.8s ease-out infinite;
+}
+@keyframes home-stats-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 111, 48, 0.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(255, 111, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 111, 48, 0); }
+}
+
+.home-stats-head h2 {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 700; font-size: clamp(1.4rem, 3.4vw, 2rem);
+  margin: 0.7rem 0 0.25rem; color: #16241b;
+}
+.home-stats-head p { margin: 0; color: #5c6b60; font-size: 0.95rem; }
+
+.home-stats-grid {
+  display: grid; gap: 0.95rem;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-stat-tile {
+  position: relative;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1.25rem 1.1rem 1.15rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(20, 40, 27, 0.08);
+  border-radius: 18px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 26px -20px rgba(16, 40, 24, 0.5);
+  /* Entrance: fade + rise, staggered via --stat-delay from JS. */
+  opacity: 0; transform: translateY(14px);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+.home-stats-grid.is-in .home-stat-tile {
+  animation: home-stat-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--stat-delay, 0ms);
+}
+@keyframes home-stat-in { to { opacity: 1; transform: translateY(0); } }
+
+.home-stat-tile::before {
+  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px;
+  width: 4px; border-radius: 4px; background: var(--stat-accent, #105922);
+  opacity: 0.85;
+}
+.home-stat-tile:hover { transform: translateY(-4px); box-shadow: 0 18px 34px -22px rgba(16, 40, 24, 0.6); }
+
+.home-stat-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem;
+  color: var(--stat-accent, #105922);
+  background: color-mix(in srgb, var(--stat-accent, #105922) 12%, transparent);
+}
+.home-stat-num {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 700; line-height: 1;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  color: #16241b;
+  background: linear-gradient(135deg, var(--stat-accent, #105922), color-mix(in srgb, var(--stat-accent, #105922) 55%, #16241b));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.home-stat-label { font-size: 0.86rem; color: #566258; font-weight: 500; }
+
+/* The growth tile: filled accent for emphasis. */
+.home-stat-tile.is-highlight {
+  background: linear-gradient(160deg, color-mix(in srgb, var(--stat-accent) 16%, #fff), rgba(255, 255, 255, 0.7));
+  border-color: color-mix(in srgb, var(--stat-accent) 30%, transparent);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 720px) {
+  .home-stats { padding: 1.8rem 0.9rem 2rem; border-radius: 20px; }
+  .home-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+  .home-stat-tile { padding: 1rem 0.85rem; }
+}
+@media (max-width: 380px) {
+  .home-stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- Dark theme ---- */
+@media (prefers-color-scheme: dark) {
+  .home-stats {
+    background:
+      radial-gradient(120% 140% at 12% 0%, rgba(40, 160, 80, 0.14), transparent 55%),
+      radial-gradient(120% 140% at 90% 15%, rgba(255, 111, 48, 0.16), transparent 55%),
+      linear-gradient(180deg, #10201a 0%, #0c1813 100%);
+    border-color: rgba(120, 200, 150, 0.14);
+  }
+  .home-stats-head h2 { color: #eaf5ee; }
+  .home-stats-head p { color: #9db3a6; }
+  .home-stat-tile { background: rgba(22, 40, 30, 0.6); border-color: rgba(120, 200, 150, 0.12); }
+  .home-stat-num { color: #eaf5ee; }
+  .home-stat-label { color: #9db3a6; }
+  .home-stats-eyebrow { color: #7fe0a3; background: rgba(40, 160, 80, 0.14); border-color: rgba(120, 200, 150, 0.22); }
+}
+:root[data-theme="dark"] .home-stats {
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(40, 160, 80, 0.14), transparent 55%),
+    radial-gradient(120% 140% at 90% 15%, rgba(255, 111, 48, 0.16), transparent 55%),
+    linear-gradient(180deg, #10201a 0%, #0c1813 100%);
+  border-color: rgba(120, 200, 150, 0.14);
+}
+:root[data-theme="dark"] .home-stats-head h2 { color: #eaf5ee; }
+:root[data-theme="dark"] .home-stats-head p { color: #9db3a6; }
+:root[data-theme="dark"] .home-stat-tile { background: rgba(22, 40, 30, 0.6); border-color: rgba(120, 200, 150, 0.12); }
+:root[data-theme="dark"] .home-stat-num { color: #eaf5ee; }
+:root[data-theme="dark"] .home-stat-label { color: #9db3a6; }
+:root[data-theme="light"] .home-stats-head h2 { color: #16241b; }
+
+/* Respect reduced-motion: no count-up shimmer, tiles simply appear. */
+@media (prefers-reduced-motion: reduce) {
+  .home-stat-tile { opacity: 1; transform: none; animation: none; }
+  .home-stats-dot { animation: none; }
+}

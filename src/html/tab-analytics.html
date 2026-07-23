@@ -1,0 +1,21 @@
+<!-- สถิติการใช้งาน — staff usage dashboard. Rendered by
+     analytics-dashboard.js (enterAnalytics fills #analyticsBody from the
+     analytics_overview() RPC, migration 0065). -->
+<div class="analytics-wrap">
+  <div class="analytics-toolbar">
+    <div class="analytics-range">
+      <label for="analyticsRange">ช่วงเวลา</label>
+      <select id="analyticsRange" class="form-select form-select-sm">
+        <option value="7">7 วันล่าสุด</option>
+        <option value="30" selected>30 วันล่าสุด</option>
+        <option value="90">90 วันล่าสุด</option>
+      </select>
+    </div>
+    <button type="button" id="analyticsRefresh" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-clockwise me-1"></i>รีเฟรช
+    </button>
+  </div>
+  <div id="analyticsBody">
+    <div class="an-loading"><span class="spinner-border spinner-border-sm"></span> กำลังโหลดสถิติ…</div>
+  </div>
+</div>

@@ -158,6 +158,11 @@
             <i class="bi bi-diagram-3"></i><span>ทีม SAMO</span>
           </button>
 
+          <div class="workspace-side-section">รายงาน</div>
+          <button type="button" class="workspace-side-item d-none" data-admin-side="analytics">
+            <i class="bi bi-graph-up-arrow"></i><span>สถิติการใช้งาน</span>
+          </button>
+
           <div class="workspace-side-section">เนื้อหา</div>
           <button type="button" class="workspace-side-item d-none" data-admin-side="creator">
             <i class="bi bi-pencil-square"></i><span>เขียนประกาศ</span>
@@ -319,6 +324,10 @@
 
           <section data-admin-pane="team" class="d-none team-tab">
             <include src="./src/html/tab-team.html" />
+          </section>
+
+          <section data-admin-pane="analytics" class="d-none">
+            <include src="./src/html/tab-analytics.html" />
           </section>
 
         </main>

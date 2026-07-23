@@ -391,6 +391,35 @@ export/import of the full tree+people (import is additive — new uuids,
 parents-first) and members CSV (Thai header aliases, `path`-resolved roles with
 optional auto-create). Export CSV ships a UTF-8 BOM so Excel renders Thai.
 
+### Usage analytics (canonical: `0065_analytics.sql`)
+
+```
+analytics_events (id bigint PK, at timestamptz, session_id text [ephemeral,
+                  sessionStorage — NOT a cookie], event text ['pageview'|'tab'],
+                  path text, is_authed bool, user_id uuid nullable, referrer,
+                  app text ['public'|'admin'])
+```
+Cookieless, anonymous. RLS: **anon + authenticated INSERT `with check (true)`;
+staff-only SELECT** (append-only firehose, same threat model as `notify_log` —
+per-column `char_length` CHECKs cap row size, `prune_analytics(days=90)` caps
+row count). **Any renderer of its text columns must `escHtml` — the anon INSERT
+makes `path` attacker-controlled even though a staff-only view reads it (see
+`mistakes.md`).**
+
+Two SECURITY DEFINER RPCs:
+- `public_stats()` — granted to **anon**; returns curated aggregate COUNTS only
+  (users, pr, vs, requests, projects, documents, new_users_7d/30d, departments).
+  Powers the public landing strip (`src/js/home-stats.js`). No rows/PII, so safe
+  to expose.
+- `analytics_overview(days)` — **staff-only** (guard fails CLOSED via `is not
+  true`, and not granted to anon). Returns totals + signups/requests/visitors
+  time-series + DAU/WAU/MAU (by session and by authed user) + top tabs + role
+  split. Powers the admin สถิติการใช้งาน dashboard (`analytics-dashboard.js`).
+
+Tracker: `src/js/analytics.js` (`initAnalytics('public'|'admin')`) sends
+fire-and-forget events on load + tab/section switch; wired in `main.js` and
+`admin-main.js` (the latter also `trackTab()`s from `showAdminSide`).
+
 ## RLS policies (canonical: same migration file)
 
 - **users**: any authenticated user can SELECT all (needed for staff

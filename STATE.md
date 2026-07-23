@@ -1,10 +1,64 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-21. Slim by design — "what is true right now",
+Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — BUILT, NOT YET DEPLOYED (2026-07-23)
+
+"Prove people use the portal" for the boss. In-house on Supabase (no third party).
+- **Migration `0065_analytics.sql` APPLIED** to web DB: `analytics_events` (cookieless,
+  anonymous, anon-INSERT / staff-SELECT — verified anon insert 201 + anon read blocked),
+  `public_stats()` (curated counts, granted anon — powers the public strip),
+  `analytics_overview(days)` (staff-only, fails CLOSED via `is not true`), `prune_analytics()`.
+- **Tracker** `src/js/analytics.js` — cookieless (sessionStorage id), fire-and-forget page/tab
+  events; wired in `main.js` (`initAnalytics('public')`) + `admin-main.js` (`'admin'` + `trackTab`
+  in `showAdminSide`).
+- **Public cool stat strip** — `#homeStats` in `tab-home.html`, `src/js/home-stats.js`
+  (count-up on scroll), `src/css/home-stats.css`. Shows users / requests / works / new-7d.
+- **Staff dashboard** — new admin section `analytics` (SECTION_META + `SIDE_FEATURE.analytics=null`
+  = any staff; sidebar btn + `tab-analytics.html` pane), `src/js/analytics-dashboard.js` +
+  `src/css/analytics.css`. KPI tiles + CSS bar charts (signups/requests/visitors) + top-tabs/roles.
+- Live numbers today: users **432**, requests **218**, new-7d **283**, projects+docs **40**.
+- `npm run build && npm test` GREEN (115 tests). **NOT deployed to the VM** — public-facing,
+  awaiting user go-ahead. Visitor/top-tab panels stay empty until the tracker collects post-deploy.
+- Preview artifact of the strip (real numbers): shared with user this session.
+- **On deploy**: also add README "Key features" line + a `docs/CONTEXT.md` note (new table/RPCs).
+
+## NOTIFY: PR #16 completed (migration applied + VM logging on) + main branch protected (2026-07-23)
+
+PR #16 (`fix/notify-drops-durable-log`, Naphawarit) was self-merged to `main` on
+2026-07-11 but its migration was never applied → the durable `notify_log` was inert.
+Completed this session:
+- **Migration `0055_notify_log.sql` APPLIED** to web DB `fheueuowbchsnsvbcgil` (table +
+  `notify_log_insert_any`/`notify_log_select_staff` policies + `prune_notify_log()` verified).
+- **VM logging ENABLED**: added `SUPABASE_URL` + `SUPABASE_ANON_KEY` (same values as the
+  `VITE_` ones) to `/etc/samo-notify.env`, `systemctl restart samo-notify` (active). The
+  handler only writes a row when a webhook resolves + posts, so the FIRST real notify will
+  create row 1. Check: `select at, system, ticket_id, ok, discord_status from public.notify_log order by at desc;`
+  Failures only: `... where not ok`. (The 6s→800ms client spacing fix shipped with the PR
+  and was already live — that's the part that actually reduces dropped prform notifies.)
+- **`main` BRANCH PROTECTION added**: requires 1 PR approval (no self-merges — the root cause
+  of this incident), `enforce_admins: false` (owner's direct ff-push deploy workflow intact),
+  force-push + deletion blocked. Set via `gh api PUT .../branches/main/protection`.
+
 ## PASSPORT: kkumail-only login gate + 5 gmail→kkumail migrations — DEPLOYED (2026-07-23)
+
+> **STATUS (2026-07-23):** All 5 verification emails **SENT** to the students' gmails
+> (recipients verified against B — each is a real scanning profile, no typo lookalikes).
+> Awaiting their ✅"เห็นครบแล้ว" / ❌correction replies at **mdstuddata.beta@gmail.com**.
+> Data verified SAFE (staged correctly in A, full backup in B, clean re-key on first login).
+> **DECISION DEFERRED (user's call next session — do NOT auto-revert):** whether to revert the
+> pmphuriphat↔phuriphat.ma **TEST that is still live** (revert SQL in the "ACTIVE TEST STATE"
+> block below). Other open: web `appscript/prform.gs` + `STATE.md` + `mistakes.md` are
+> **uncommitted on `main`**.
+>
+> **How to run the tracker / any A or B query next session** (the session scratchpad `qq.mjs`
+> is gone after /clear): POST `{query}` to
+> `https://api.supabase.com/v1/projects/<ref>/database/query` with header
+> `Authorization: Bearer $SUPABASE_ACCESS_TOKEN` (account-wide PAT in `.env.local`; same
+> mechanism as `tools/apply-migration.mjs`, works for reads too). Refs: **A**=`fheueuowbchsnsvbcgil`
+> (live, holds the `passport` schema), **B**=`idwlabpbwiwgaoqwbozz` (old passport, resumed = backup).
 
 Login was never restricted to @kkumail.com before launch, so some students scanned with a
 personal gmail. Fixed in two parts:
@@ -31,6 +85,92 @@ Live-verified: `/var/www/passport/assets/auth-CbfxjhCA.js` served, contains the 
 **VM deploy gotcha:** `deploy.sh` uses plain `sudo` (needs a tty); priming with `sudo -v` over
 a tty-less ssh does NOT cache a timestamp → "a terminal is required". Ran the publish steps
 manually piping the password to `sudo -S -p ""` per command instead (the sanctioned pattern).
+
+### Follow-up: verify the guessed kkumail addresses (email) — BUILT, not yet run (2026-07-23)
+
+The 5 kkumail targets in 0064 were **derived from names, not confirmed**. Data landed on
+them (verified), but if a guess is wrong the gmail student is hard-locked out (moved block,
+no in-app recovery) and their data sits on a kkumail they may not own. To confirm:
+- **`appscript/prform.gs sendMigrationVerifyEmails()`** — one-off, run manually from the GAS
+  editor (owner-auth → MailApp sends + Logger works; do NOT wire into doPost). Emails each
+  student's KNOWN gmail (deliverable) with their kkumail + passport link; ✅ log in & see
+  points = done, ❌ reply with the correct @kkumail.com. `replyTo = samomdkku.ai@gmail.com`.
+  `DRY_RUN=true` default → sends all 5 to REPLY_TO tagged `[DRY]` for preview; flip to false
+  to send for real. `REPLY_TO = mdstuddata.beta@gmail.com` (the GAS owner Gmail — replies land
+  there). Needs the updated prform.gs pasted into the Apps Script editor first.
+- Correction handling: a reply → re-run a corrected 0064 for that one mapping.
+- Dev preview of the notice UI: `passport` repo `preview-migration.html` (`npm run dev` →
+  `/preview-migration.html`) renders the real moved/blocked/received UI with mock data.
+
+### Passport login-flow fixes — DEPLOYED to VM (passport `33ddf07`) (2026-07-23)
+
+Two bugs found while testing with a non-kkumail account (`mdstuddata.beta@gmail.com`),
+fixed + pushed + deployed (live bundle `auth-DkvvtGPR.js`, `hd:kkumail` gone; nginx reloaded):
+- **`hd=kkumail.com` OAuth hint broke login → ERR_ADDRESS_INVALID.** Forcing the Google
+  hosted-domain made Google redirect straight to kkumail.com's third-party SAML IdP
+  (`ssonext-api.kku.ac.th/sso/SingleSignOnService/kkumail.com.m`), a malformed SSO URL.
+  Removed `queryParams.hd` from BOTH OAuth sites (`js/index.js` login btn, `js/scanning.js`
+  change-account). `hd` was only a chooser UX hint — the app-side gate is the real
+  kkumail-only enforcement, so no enforcement lost. **NEEDS verification with a REAL kkumail
+  login: if ERR_ADDRESS_INVALID persists after this, the fault is KKU's SSO federation, not us.**
+- **Landing page had no gate** → a blocked non-kkumail session saw "Welcome back / Board Your
+  Flight", then hit the wall one click later on the dashboard. Added `gateBlockedAccount()` in
+  `js/index.js` (imports `getPassportAccess`/`renderAccessBlock` from auth.js) so a
+  moved/blocked session shows the access block on the landing itself.
+
+**Data verified against the OLD passport DB (project B `idwlabpbwiwgaoqwbozz`, resumed 2026-07-23).**
+All 5 gmail→kkumail transfers reconcile EXACTLY (B source-of-truth vs A `passport` schema):
+wariikung→ingwer.s 250/2✓, phuri8980→phurichaya.bo 200/1✓, kenkunchai50→kenkunchai.ch 200/1✓,
+sirikanrayamasena→sirikanraya.m 200/1✓, kedsaraporn2007→kedsaraporn.t 300/2✓ (merge: the dropped
+gmail scan was a true duplicate of activity `5f9abe6e` รับน้องบ้านเขียว that the kkumail already
+had → no double-count, no loss). A has 0 leftover gmail-of-the-5, 0 orphan scans, 0 dup emails.
+**Open flag (NOT one of the 5):** `mintonaurak@gmail.com` (Mint N) has total_km 2700 / 0 scans and
+is a non-kkumail, non-migrated account → the gate now BLOCKS it. If Mint N is a real student, their
+2700 needs a migration too; if a test/seed account, ignore. (`pmphuriphat@gmail.com` 2800km is the
+DEV_ALLOWLIST dev account — not blocked. `prakasa@kku.ac.th` is @kku.ac.th not @kkumail → blocked,
+but 0km.)
+
+**Verification email: SENT to all 5 students — 2026-07-23.** Sent to each student's KNOWN gmail
+(deliverable) with their own kkumail in the body, via the live `notifyProjectEmail` GAS action
+(`tools`-style loop `scratchpad/send-5.mjs`) — all 5 returned `{"success":true}`. Because that
+deployed action is **no-reply**, the CTA points at **mdstuddata.beta@gmail.com** (compose-new,
+matches the banner) NOT "reply": ✅ → email "เห็นครบแล้ว" to confirm; ❌ → email the correct
+kkumail. Feedback lands in the mdstuddata.beta inbox; cross-check with the tracker query above.
+(`sendMigrationVerifyEmails()` in prform.gs still exists as the reply-to variant if a resend is
+ever needed via the editor; its copy was updated to the same explicit-address CTA.)
+**Data-loss check before send (all clear):** the 5 kkumail totals in A unchanged (250/300/200/
+200/200, untouched by the pmphuriphat test); project B still holds every original scan as a full
+backup; re-key trigger runs before ensureProfile → no stranding. Worst case = wrong guessed
+address (reachability, not DB loss) → the email catches it, B recovers.
+
+**Notice contact text → mdstuddata.beta@gmail.com — DEPLOYED (passport `f4733f8`, bundle
+`auth-Dli0DAlk.js`).** Both the moved block (`renderAccessBlock`) and received banner
+(`renderReceivedBanner`) now say "ติดต่อ mdstuddata.beta@gmail.com" instead of "Vital Sound".
+
+**FEEDBACK TRACKER (objective ✅ signal, no app code):** run this anytime —
+```sql
+select m.to_email, (u.id is not null) logged_in, u.last_sign_in_at,
+       coalesce(p.total_km,0) km_on_kkumail, (p.id = u.id) data_landed
+from passport.account_migrations m
+left join auth.users u on lower(u.email)=lower(m.to_email)
+left join passport.profiles p on lower(p.email)=lower(m.to_email) order by 1;
+```
+`logged_in` flips true on first kkumail sign-in; `data_landed` true once the re-key trigger fires.
+
+**ACTIVE TEST STATE (revert when done):** for the dev end-to-end test on
+`pmphuriphat@gmail.com → phuriphat.ma@kkumail.com`: (1) `account_migrations` row inserted;
+(2) pmphuriphat's scan id 69 (สัมมนาสุดยอดผู้นำ, 200pts) moved to phuriphat.ma so the receiving
+side actually shows an activity/stamp (phuriphat.ma had 0 scans; its total_km column stays 1100,
+a pre-existing dev quirk). While the row exists, pmphuriphat is BLOCKED (moved wins over
+DEV_ALLOWLIST). **Revert both:**
+```sql
+update passport.scans set user_id='5303b3bb-ef49-4352-9e95-4585402623e9' where id=69;
+delete from passport.account_migrations where lower(from_email)='pmphuriphat@gmail.com';
+```
+Verified: the real 5 kkumail have NO pre-existing A auth.users → their first-login re-key trigger
+WILL fire (0064 assumption holds) and they WILL see full points; phuriphat.ma pre-existed, so its
+test needed the manual scan move above. Previews: `email-preview.html` + `preview-migration.html`
+(dev server only — never built into dist, so never on prod).
 
 ## PROJECTS: ปีงบประมาณ (Thai fiscal year) filter on หนังสือโครงการ — DEPLOYED (2026-07-22)
 
@@ -788,6 +928,14 @@ Every meaningful change should:
 | Earlier STATE.md snapshots | `docs/state-archive/*.md` |
 
 ## When STATE.md gets bloated again
+
+> **DUE NOW (2026-07-23): this file is ~900 lines.** Prune deliberately (NOT rushed) — archive
+> the DONE+DEPLOYED sections below the PASSPORT block (SHOP source/0058/0057, hosting migration,
+> Passport→samoweb merge Phase 1 [~226 lines], CI-green, Vital Sound, professor, announcement
+> pinning, migrations-through-0054) to `docs/state-archive/2026-07-23.md`. KEEP: the PASSPORT
+> section (current), Branches, Automation credentials, Open follow-ups, Supabase/GAS config
+> notes, Where to look next. Left undone this session on purpose: a botched 700-line prune right
+> before a `/clear` is worse than the bloat.
 
 If a future session balloons this file past ~200 lines, prune:
 

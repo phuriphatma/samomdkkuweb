@@ -26,3 +26,4 @@
    public news-card system so admin cards match the public page. */
 @import './css/news.css';
 @import './css/announcements-admin.css';
+@import './css/analytics.css';

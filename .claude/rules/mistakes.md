@@ -1170,3 +1170,84 @@ failure in the logs and there are no logs.
 `waitUntil`-deliver + immediate `202` so delivery is fully decoupled from
 the client connection (changes the callGAS success-echo contract — the
 notify_log becomes the source of truth for failures, so do it together).
+
+---
+
+## (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP — a broken IdP URL then hard-fails login with ERR_ADDRESS_INVALID
+
+**Symptom**: SAMO Passport login broke — after clicking "Board Your Flight",
+the browser showed `This site can't be reached` at
+`https://ssonext-api.kku.ac.th/sso/SingleSignOnService/kkumail.com.m`,
+`ERR_ADDRESS_INVALID`. Reproduced when signing in fresh / after logout.
+**Cause**: `signInWithOAuth({ options: { queryParams: { hd: 'kkumail.com' } } })`
+in `js/index.js` + `js/scanning.js` (added as a "pre-filter the Google chooser
+to kkumail" UX hint). But `kkumail.com` is a Google **Workspace domain with
+third-party SAML SSO** (KKU's IdP). Passing `hd` for such a domain makes Google
+skip its normal chooser and redirect **straight to that domain's IdP SSO URL**,
+which for KKU is malformed (`…/kkumail.com.m`) → Chrome can't navigate it →
+`ERR_ADDRESS_INVALID`. `hd` is documented as only a hint, but for an SSO-federated
+Workspace domain it changes the flow, not just the UI.
+**Fix**: Remove `queryParams.hd` from every `signInWithOAuth` call. The normal
+Google chooser routes a kkumail login through Google's own (working) SSO
+handling; the real kkumail-only enforcement is the app-side gate
+(`getPassportAccess` / `renderAccessBlock`), so nothing is weakened. If the
+error persists with a REAL kkumail account after removing `hd`, the fault is
+KKU's SSO endpoint (their infra), not our code.
+**Where**: passport repo `js/index.js`, `js/scanning.js` (commit `33ddf07`).
+Don't reintroduce `hd` for any OAuth call against an SSO-federated Workspace
+domain — enforce the domain app-side instead.
+
+---
+
+## (Passport) An `AFTER INSERT`-on-`auth.users` re-key trigger only fires for accounts that have NEVER logged into the project — pre-existing accounts silently don't get their carried data
+
+**Symptom**: A gmail→kkumail migration test on `pmphuriphat→phuriphat.ma`
+showed the receiving kkumail account with **no points/activities/stamps**,
+even though the migration "moved" the data.
+**Cause**: The merge relies on `passport_link_user_by_email()`, wired as
+`on_auth_user_created_passport_link` **AFTER INSERT on auth.users** (0060/0063).
+It re-keys a carried profile (matched by email) to the new auth uuid — but only
+on the **INSERT** of the auth user, i.e. the account's **first-ever login** to
+the project. `phuriphat.ma` already had an auth user (logged in months earlier),
+so the trigger had already fired (finding nothing then) and will NOT fire again;
+`ensureProfile()` matches by **uuid only** (not email), so it just creates an
+empty profile. Data stranded on the old-uuid profile. **The real 5 are fine** —
+verified none of their kkumail addresses had a pre-existing `auth.users` row, so
+their first kkumail login WILL fire the re-key. The trap is only for a target
+account that already exists.
+**Fix / how to test such a case faithfully**: don't rely on the login trigger
+for an already-existing target — do the re-key manually (move
+`scans.user_id`/`season_results.user_id`/`profiles.id` old→new uuid), which is
+exactly what the trigger would have done. Before any future re-key migration,
+check `auth.users` for a pre-existing target row; if present, the trigger won't
+fire and the profile must be merged/re-keyed explicitly.
+**Where**: trigger in `0060`/`0063`; `ensureProfile` in passport `js/auth.js`;
+verification + tracker queries recorded in STATE.md passport section.
+
+---
+
+## An anon-INSERTable table's text columns are ATTACKER-controlled — escape on render even in a "staff-only" internal dashboard
+
+**Symptom**: The new `analytics_events` table (migration 0065) is publicly
+INSERTable via the bundled anon key (same append-only pattern as `notify_log`
+/ `pr_tickets`). Its `path` column is normally written by the frontend tracker
+from `location`, so it *looks* like trusted first-party data. But the staff
+usage dashboard (`analytics-dashboard.js` `rankBars`) rendered `top_paths[].path`
+into `innerHTML` raw — and an attacker can `POST /rest/v1/analytics_events` with
+`{"path":"<img src=x onerror=…>"}` directly. Result: **stored XSS that fires in
+every staff member's browser** when they open สถิติการใช้งาน (confirmed: the raw
+`<img onerror>` string stores verbatim).
+**Cause**: "internal / staff-only view" gave a false sense that its inputs are
+trusted. Authorization on the *read* (staff-only SELECT / RPC) says nothing
+about who could *write* the row. Any table whose INSERT policy is
+`with check (true)` for anon has every text column attacker-controlled,
+regardless of who reads it back. Same root class as the ticket-renderer XSS
+entry above — just reached through an anon-writable log instead of a form.
+**Fix**: `escHtml()` every such field on render (path AND role, both into the
+text node and the `title=""` attribute). Length CHECKs in the migration cap
+size but do NOT sanitize content — escaping at render is the actual defense.
+**Where**: `src/js/analytics-dashboard.js` (`rankBars` + `barChart` now import
+and apply `escHtml` from `utils.js`). **Rule**: before rendering ANY column of
+an anon-INSERTable table (`analytics_events`, `notify_log`, `pr_tickets`,
+`vs_tickets`, …) into innerHTML — even in a staff-only dashboard — treat it as
+untrusted and `escHtml` it. Read-side authorization is not input validation.

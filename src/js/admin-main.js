@@ -34,6 +34,8 @@ import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
 // SAMO Team (org tree)
 import { initTeam, enterTeamWorkspace } from './team/index.js';
+import { initAnalytics, trackTab } from './analytics.js';
+import { initAnalyticsDashboard, enterAnalytics } from './analytics-dashboard.js';
 
 // ==============================================
 // QUILL — creator only (no VS form in admin)
@@ -373,6 +375,7 @@ const SECTION_META = {
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
   order:    { pane: 'order',    title: 'ลำดับการแสดงประกาศ', sub: 'จัดเรียงลำดับ ปักหมุดโพสต์เด่น และแก้ไขประกาศ' },
   team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
+  analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
 };
 
 function showAdminSide(which) {
@@ -432,6 +435,14 @@ function showAdminSide(which) {
   if (which === 'team') {
     enterTeamWorkspace();
   }
+
+  // Usage analytics: lazy-load the dashboard payload on entry.
+  if (which === 'analytics') {
+    enterAnalytics();
+  }
+
+  // Record the section switch for the "top tabs" usage breakdown.
+  trackTab(`admin:${which}`);
 
   // Mirror in the URL hash so admin sub-pages are bookmarkable. Only
   // rewrite if the existing hash doesn't already point at this section
@@ -596,6 +607,7 @@ const SIDE_FEATURE = {
   creator:  'creator',
   order:    'creator',   // same gate as เขียนประกาศ — announcement management
   team:     'team',
+  analytics: null,       // usage stats — visible to any signed-in staff member
 };
 
 function roleLabel(role) {
@@ -669,6 +681,8 @@ function initSidebarToggle() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initSidebarToggle();
+  initAnalytics('admin');
+  initAnalyticsDashboard();
 
   // Wire the gated sign-in button
   document.getElementById('adminSignInBtn')?.addEventListener('click', () => {

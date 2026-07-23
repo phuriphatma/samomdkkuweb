@@ -78,6 +78,12 @@ Both Cloudflare projects hit the same Supabase backend.
   name, add/verify a real email (Supabase magic-link), and link a Google
   identity to a username/password account so they can sign in with
   either after verifying.
+- **Usage analytics.** Cookieless, anonymous page/tab tracking
+  (`analytics_events`, migration 0065) feeding two views: an animated
+  "SAMO Portal ในตัวเลข" social-proof strip on the public landing page
+  (`public_stats()` RPC) and a staff-only สถิติการใช้งาน dashboard
+  (`analytics_overview()` RPC — signups/requests/visitors over time,
+  DAU/WAU/MAU, top tabs, role split).
 
 ## Tech stack
 
