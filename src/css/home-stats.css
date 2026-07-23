@@ -116,10 +116,6 @@
 .home-services-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.95rem;
 }
-.home-services-grid--3 { grid-template-columns: repeat(3, 1fr); }
-/* Three-up rings stack vertically + center so the narrower card breathes. */
-.home-services-grid--3 .svc-card { flex-direction: column; text-align: center; gap: 0.75rem; }
-.home-services-grid--3 .svc-meta { align-items: center; }
 .svc-card {
   display: flex; align-items: center; gap: 1.1rem;
   padding: 1.15rem 1.2rem; border-radius: 18px;
@@ -158,37 +154,50 @@
 .svc-counts { font-size: 0.84rem; color: #566258; }
 .svc-counts b { color: var(--svc); font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* หนังสือโครงการ activity chips (transactions / interactions / signed / projects) */
-.home-doc-chips {
-  margin-top: 0.95rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem;
+/* ===== หนังสือโครงการ — its own grouped panel (ring + sub-metrics) ===== */
+.home-project-panel {
+  margin-top: 1.5rem; padding: 1.35rem 1.35rem 1.4rem; border-radius: 22px;
+  background: linear-gradient(180deg, rgba(16, 89, 34, 0.06), rgba(255, 255, 255, 0.55));
+  border: 1px solid rgba(16, 89, 34, 0.18);
 }
-.home-doc-chip {
-  display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.75rem 0.85rem; border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(20, 40, 27, 0.08);
-}
-.home-doc-chip-icon {
+.home-project-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; }
+.home-project-icon {
+  width: 46px; height: 46px; flex: 0 0 auto; border-radius: 13px;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; flex: 0 0 auto; border-radius: 10px;
-  color: var(--brand-primary, #105922); background: rgba(16, 89, 34, 0.10); font-size: 0.95rem;
+  font-size: 1.25rem; color: #fff; background: var(--brand-primary, #105922);
 }
-.home-doc-chip-body { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.home-doc-chip-num {
-  font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.2rem;
-  color: #1c2a22; font-variant-numeric: tabular-nums;
+.home-project-titles h3 {
+  margin: 0; font-family: 'Prompt', system-ui, sans-serif; font-weight: 700;
+  font-size: 1.15rem; color: #16241b;
 }
-.home-doc-chip-label { font-size: 0.76rem; color: #6b7a70; }
+.home-project-titles p { margin: 0; font-size: 0.82rem; color: #6b7a70; }
+.home-project-body { display: flex; align-items: center; gap: 1.6rem; }
+.home-project-ring { flex: 0 0 auto; }
+.home-project-stats {
+  flex: 1 1 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem;
+}
+.home-project-stat {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.75rem 0.9rem; border-radius: 13px;
+  background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(20, 40, 27, 0.08);
+}
+.home-project-stat-icon { color: var(--brand-primary, #105922); font-size: 0.9rem; }
+.home-project-stat-num {
+  font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.35rem;
+  line-height: 1.05; color: #16241b; font-variant-numeric: tabular-nums;
+}
+.home-project-stat-label { font-size: 0.78rem; color: #6b7a70; }
 
 /* ---- Responsive ---- */
 @media (max-width: 720px) {
   .home-stats { padding: 1.8rem 0.9rem 2rem; border-radius: 20px; }
   .home-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
   .home-stat-tile { padding: 1rem 0.85rem; }
-  .home-services-grid, .home-services-grid--3 { grid-template-columns: 1fr; }
-  .home-services-grid--3 .svc-card { flex-direction: row; text-align: left; }
-  .home-services-grid--3 .svc-meta { align-items: flex-start; }
-  .home-doc-chips { grid-template-columns: repeat(2, 1fr); }
+  .home-services-grid { grid-template-columns: 1fr; }
   .svc-ring { width: 80px; height: 80px; }
+  .home-project-body { flex-direction: column; align-items: stretch; gap: 1.1rem; }
+  .home-project-ring { align-self: center; }
+  .home-project-stats { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 380px) {
   .home-stats-grid { grid-template-columns: 1fr 1fr; }

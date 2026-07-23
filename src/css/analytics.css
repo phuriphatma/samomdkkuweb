@@ -39,8 +39,9 @@
   font-size: 0.95rem; color: #33413a; margin: 1.3rem 0 0.75rem;
 }
 
-/* ---- Completion rings (PR / VS / หนังสือ) ---- */
+/* ---- Completion rings (PR / VS) ---- */
 .an-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; }
+.an-rings--2 { grid-template-columns: repeat(2, 1fr); }
 .an-ring-card {
   display: flex; align-items: center; gap: 1rem;
   background: #fff; border: 1px solid rgba(20, 40, 27, 0.09); border-radius: 16px;
@@ -53,7 +54,7 @@
   fill: none; stroke-width: 10; stroke-linecap: round;
   stroke-dasharray: var(--c); stroke-dashoffset: var(--c);
 }
-.an-rings.is-in .an-ring-fill {
+.is-in .an-ring-fill {
   transition: stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1);
   stroke-dashoffset: var(--off);
 }
@@ -67,8 +68,25 @@
 .an-ring-sub { font-size: 0.8rem; color: #6b7a70; }
 .an-ring-sub b { color: #26332b; font-weight: 700; }
 
-/* ---- หนังสือโครงการ stat row ---- */
-.an-proj-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.7rem; }
+/* ---- หนังสือโครงการ — grouped panel (ring + its own stats) ---- */
+.an-proj-panel {
+  margin-top: 0.9rem; padding: 1.15rem 1.2rem 1.25rem; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(16, 89, 34, 0.05), #fff);
+  border: 1px solid rgba(16, 89, 34, 0.18);
+}
+.an-proj-panel-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
+.an-proj-badge {
+  width: 40px; height: 40px; flex: 0 0 auto; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; background: var(--brand-primary, #105922); font-size: 1.05rem;
+}
+.an-proj-panel-head h3 { margin: 0; font-size: 1.02rem; font-weight: 700; color: #16241b; }
+.an-proj-panel-head span { font-size: 0.8rem; color: #6b7a70; }
+.an-proj-panel-body { display: flex; align-items: center; gap: 1.3rem; }
+.an-proj-ringwrap { flex: 0 0 auto; }
+/* Flatten the reused ring card inside the panel (no double border). */
+.an-proj-ringwrap .an-ring-card { border: none; box-shadow: none; padding: 0; background: transparent; }
+.an-proj-grid { flex: 1 1 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
 .an-proj-stat {
   display: flex; flex-direction: column; gap: 0.15rem; padding: 0.85rem 0.9rem;
   background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
@@ -141,8 +159,9 @@
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
   .an-kpis { grid-template-columns: repeat(3, 1fr); }
-  .an-rings { grid-template-columns: 1fr; }
-  .an-proj-grid { grid-template-columns: repeat(3, 1fr); }
+  .an-rings, .an-rings--2 { grid-template-columns: 1fr; }
+  .an-proj-panel-body { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .an-proj-ringwrap { align-self: center; }
 }
 @media (max-width: 640px) {
   .an-kpis { grid-template-columns: repeat(2, 1fr); }

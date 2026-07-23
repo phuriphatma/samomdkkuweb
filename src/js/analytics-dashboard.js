@@ -104,7 +104,11 @@ function render(body, d) {
   const t = d.totals || {};
   const a = d.active || {};
   const signupsSum = (d.signups_by_day || []).reduce((s, p) => s + Number(p.n || 0), 0);
-  const reqSum = (d.requests_by_day || []).reduce((s, p) => s + Number(p.n || 0), 0);
+  const reqDays = d.requests_by_day || [];
+  const prSeries = reqDays.map((p) => ({ d: p.d, n: Number(p.pr || 0) }));
+  const vsSeries = reqDays.map((p) => ({ d: p.d, n: Number(p.vs || 0) }));
+  const prSum = prSeries.reduce((s, p) => s + p.n, 0);
+  const vsSum = vsSeries.reduce((s, p) => s + p.n, 0);
   const gen = d.generated_at ? new Date(d.generated_at).toLocaleString('th-TH') : '';
   const pct = (done, total) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
@@ -118,21 +122,28 @@ function render(body, d) {
       ${tile(t.vs, 'คำขอ VitalSound', `เสร็จสิ้น ${fmt(t.vs_completed)} · ${pct(t.vs_completed, t.vs)}%`, '#0ea5e9')}
     </div>
 
-    <div class="an-section-label">อัตราการดำเนินงานแต่ละบริการ</div>
-    <div class="an-rings">
+    <div class="an-section-label">อัตราการดำเนินงานรับเรื่องนักศึกษา</div>
+    <div class="an-rings an-rings--2">
       ${ring('งานประชาสัมพันธ์ (PR)', t.pr, t.pr_completed, 'var(--pink-500,#d6336c)')}
       ${ring('VitalSound', t.vs, t.vs_completed, '#0ea5e9')}
-      ${ring('หนังสือโครงการ', t.documents, t.doc_completed, 'var(--brand-primary,#105922)')}
     </div>
 
-    <div class="an-section-label">หนังสือโครงการ</div>
-    <div class="an-proj-grid">
-      ${projStat('โครงการ', t.projects, 'var(--brand-primary,#105922)')}
-      ${projStat('หนังสือ', t.documents, '#6366f1')}
-      ${projStat('สำเร็จ', t.doc_completed, 'var(--vs-accent,#0d9488)')}
-      ${projStat('ลงนามแล้ว', t.doc_signed, '#0ea5e9')}
-      ${projStat('ธุรกรรม', t.doc_transactions, 'var(--brand-orange,#FF6F30)')}
-      ${projStat('การโต้ตอบ', t.doc_interactions, 'var(--pink-500,#d6336c)')}
+    <div class="an-proj-panel">
+      <div class="an-proj-panel-head">
+        <span class="an-proj-badge"><i class="bi bi-folder-fill"></i></span>
+        <div><h3>หนังสือโครงการ</h3><span>ระบบส่ง–รับ–ลงนามเอกสารโครงการ</span></div>
+      </div>
+      <div class="an-proj-panel-body">
+        <div class="an-proj-ringwrap">${ring('เอกสารที่สำเร็จ', t.documents, t.doc_completed, 'var(--brand-primary,#105922)')}</div>
+        <div class="an-proj-grid">
+          ${projStat('หนังสือทั้งหมด', t.documents, '#6366f1')}
+          ${projStat('สำเร็จ', t.doc_completed, 'var(--vs-accent,#0d9488)')}
+          ${projStat('ลงนามแล้ว', t.doc_signed, '#0ea5e9')}
+          ${projStat('ธุรกรรม', t.doc_transactions, 'var(--brand-orange,#FF6F30)')}
+          ${projStat('การโต้ตอบ', t.doc_interactions, 'var(--pink-500,#d6336c)')}
+          ${projStat('โครงการ', t.projects, 'var(--brand-primary,#105922)')}
+        </div>
+      </div>
     </div>
 
     <div class="an-grid">
@@ -140,9 +151,13 @@ function render(body, d) {
         <div class="an-card-head"><h3>สมาชิกใหม่รายวัน</h3><span>รวม ${fmt(signupsSum)} คน</span></div>
         ${barChart(d.signups_by_day, 'var(--brand-orange,#FF6F30)')}
       </div>
-      <div class="an-card an-card--wide">
-        <div class="an-card-head"><h3>คำขอรายวัน (PR + VS)</h3><span>รวม ${fmt(reqSum)} รายการ</span></div>
-        ${barChart(d.requests_by_day, 'var(--pink-500,#d6336c)')}
+      <div class="an-card">
+        <div class="an-card-head"><h3>คำขอ PR รายวัน</h3><span>รวม ${fmt(prSum)}</span></div>
+        ${barChart(prSeries, 'var(--pink-500,#d6336c)')}
+      </div>
+      <div class="an-card">
+        <div class="an-card-head"><h3>คำขอ VitalSound รายวัน</h3><span>รวม ${fmt(vsSum)}</span></div>
+        ${barChart(vsSeries, '#0ea5e9')}
       </div>
       <div class="an-card an-card--wide">
         <div class="an-card-head"><h3>ผู้เข้าใช้งานรายวัน</h3><span>เซสชันไม่ซ้ำ / วัน</span></div>
@@ -159,8 +174,11 @@ function render(body, d) {
     </div>
     <p class="an-foot">อัปเดตล่าสุด ${gen} · ข้อมูลผู้เข้าใช้งาน/แท็บเริ่มเก็บหลังเผยแพร่ระบบสถิติ</p>
   `;
-  // Fill the completion rings on the next frame (CSS transition).
-  requestAnimationFrame(() => body.querySelector('.an-rings')?.classList.add('is-in'));
+  // Fill the completion rings on the next frame (CSS transition). Covers the
+  // PR/VS ring row AND the หนังสือโครงการ panel ring.
+  requestAnimationFrame(() => {
+    body.querySelectorAll('.an-rings, .an-proj-ringwrap').forEach((el) => el.classList.add('is-in'));
+  });
 }
 
 async function load(days) {

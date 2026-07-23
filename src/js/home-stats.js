@@ -49,13 +49,46 @@ function donut(pct, color) {
     </svg>`;
 }
 
-function docChip(icon, value, label) {
-  return `<div class="home-doc-chip">
-    <span class="home-doc-chip-icon"><i class="bi ${icon}"></i></span>
-    <span class="home-doc-chip-body">
-      <span class="home-doc-chip-num" data-target="${Number(value || 0)}">0</span>
-      <span class="home-doc-chip-label">${label}</span>
-    </span>
+function docStat(icon, label, value) {
+  return `<div class="home-project-stat">
+    <span class="home-project-stat-icon"><i class="bi ${icon}"></i></span>
+    <span class="home-project-stat-num" data-target="${Number(value || 0)}">0</span>
+    <span class="home-project-stat-label">${label}</span>
+  </div>`;
+}
+
+/** หนังสือโครงการ — its own grouped panel: completion ring + all its
+ *  sub-metrics together, so it reads as one domain (not mixed with PR/VS). */
+function projectPanel(s) {
+  const docs = Number(s.documents || 0);
+  const done = Number(s.doc_completed || 0);
+  const pct = docs > 0 ? Math.round((done / docs) * 100) : 0;
+  const green = 'var(--brand-primary, #105922)';
+  return `<div class="home-project-panel">
+    <div class="home-project-head">
+      <span class="home-project-icon"><i class="bi bi-folder-fill"></i></span>
+      <div class="home-project-titles">
+        <h3>หนังสือโครงการ</h3>
+        <p>ระบบส่ง–รับ–ลงนามเอกสารโครงการ</p>
+      </div>
+    </div>
+    <div class="home-project-body">
+      <div class="svc-ring home-project-ring" style="--svc:${green}">
+        ${donut(pct, green)}
+        <div class="svc-ring-center">
+          <span class="svc-pct"><span data-target="${pct}">0</span>%</span>
+          <span class="svc-pct-label">สำเร็จ</span>
+        </div>
+      </div>
+      <div class="home-project-stats">
+        ${docStat('bi-file-earmark-text-fill', 'หนังสือทั้งหมด', docs)}
+        ${docStat('bi-check-circle-fill', 'สำเร็จ', done)}
+        ${docStat('bi-pen-fill', 'ลงนามแล้ว', s.doc_signed)}
+        ${docStat('bi-arrow-left-right', 'ธุรกรรม', s.doc_transactions)}
+        ${docStat('bi-chat-dots-fill', 'การโต้ตอบ', s.doc_interactions)}
+        ${docStat('bi-diagram-3-fill', 'โครงการ', s.projects)}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -96,20 +129,14 @@ function render(container, s) {
       <div class="home-stats-grid">${tiles}</div>
 
       <div class="home-stats-services">
-        <h3 class="home-services-title">งานบริการนักศึกษา</h3>
-        <div class="home-services-grid home-services-grid--3">
+        <h3 class="home-services-title">งานบริการรับเรื่องนักศึกษา</h3>
+        <div class="home-services-grid">
           ${serviceCard('งานประชาสัมพันธ์ (PR)', 'bi-megaphone-fill', Number(s.pr_total || 0), Number(s.pr_completed || 0), 'var(--pink-500, #d6336c)')}
           ${serviceCard('VitalSound', 'bi-clipboard2-pulse-fill', Number(s.vs_total || 0), Number(s.vs_completed || 0), 'var(--vs-accent, #0d9488)')}
-          ${serviceCard('หนังสือโครงการ', 'bi-folder-fill', Number(s.documents || 0), Number(s.doc_completed || 0), 'var(--brand-primary, #105922)')}
-        </div>
-
-        <div class="home-doc-chips">
-          ${docChip('bi-arrow-left-right', s.doc_transactions, 'ธุรกรรมทั้งหมด')}
-          ${docChip('bi-chat-dots-fill', s.doc_interactions, 'การโต้ตอบ')}
-          ${docChip('bi-pen-fill', s.doc_signed, 'ลงนามแล้ว')}
-          ${docChip('bi-diagram-3-fill', s.projects, 'โครงการ')}
         </div>
       </div>
+
+      ${projectPanel(s)}
     </div>`;
 
   const inner = container.querySelector('.home-stats-inner');
