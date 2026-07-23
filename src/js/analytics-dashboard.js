@@ -48,7 +48,16 @@ function projStat(label, value, accent) {
   </div>`;
 }
 
-/** Vertical bar chart from a [{d,n}] daily series (CSS bars, responsive). */
+/** 'YYYY-MM-DD' → Thai short date, e.g. '1 ก.ค.'. */
+function fmtDay(d) {
+  const dt = new Date(`${String(d)}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return String(d);
+  return dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+}
+
+/** Vertical bar chart from a [{d,n}] daily series, with a date axis under
+ *  it (~6 evenly-spaced ticks) so each bar's date is legible without hover.
+ *  CSS bars, responsive; per-bar hover tooltip still shows date + value. */
 function barChart(series, color) {
   const pts = Array.isArray(series) ? series : [];
   const total = pts.reduce((a, p) => a + Number(p.n || 0), 0);
@@ -58,10 +67,24 @@ function barChart(series, color) {
   const max = Math.max(1, ...pts.map((p) => Number(p.n || 0)));
   const bars = pts.map((p) => {
     const h = Math.round((Number(p.n || 0) / max) * 100);
-    const label = escHtml(`${p.d} · ${fmt(p.n)}`);
+    const label = escHtml(`${fmtDay(p.d)} · ${fmt(p.n)}`);
     return `<div class="an-bar" style="--h:${h}%;--bar:${color}" title="${label}"><span class="an-bar-val">${p.n > 0 ? fmt(p.n) : ''}</span></div>`;
   }).join('');
-  return `<div class="an-bars" role="img" aria-label="กราฟรายวัน">${bars}</div>`;
+
+  // Date axis: ~6 evenly-spaced ticks (dedup for very short ranges).
+  const n = pts.length;
+  const ticks = Math.min(n, 6);
+  const seen = new Set();
+  const axis = [];
+  for (let k = 0; k < ticks; k += 1) {
+    const i = Math.round((k * (n - 1)) / Math.max(ticks - 1, 1));
+    if (seen.has(i)) continue;
+    seen.add(i);
+    axis.push(`<span>${escHtml(fmtDay(pts[i].d))}</span>`);
+  }
+
+  return `<div class="an-bars" role="img" aria-label="กราฟรายวัน">${bars}</div>
+    <div class="an-axis">${axis.join('')}</div>`;
 }
 
 /** Horizontal ranked bars from [{label,n}]. */

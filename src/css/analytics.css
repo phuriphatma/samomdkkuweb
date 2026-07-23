@@ -137,6 +137,16 @@
 }
 .an-bar:hover .an-bar-val { opacity: 1; }
 
+/* Date axis under a bar chart — sparse evenly-spaced ticks. */
+.an-axis {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 7px; padding-top: 5px; border-top: 1px solid rgba(20, 40, 27, 0.08);
+}
+.an-axis span {
+  font-size: 0.66rem; color: #8a9890; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Horizontal ranked bars ---- */
 .an-rank { display: flex; flex-direction: column; gap: 0.5rem; }
 .an-rank-row { display: grid; grid-template-columns: 96px 1fr 44px; align-items: center; gap: 0.5rem; }
