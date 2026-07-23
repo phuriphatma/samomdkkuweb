@@ -4,7 +4,17 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 891b880cf508)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 51538de03e97)
+
+**หนังสือโครงการ metrics + completion rings (migration 0067, build 51538de03e97)**:
+`public_stats()` + `analytics_overview()` add `doc_completed` (status='completed'),
+`doc_signed` (sign_requests status='accepted'), `doc_transactions` (SUM of each
+document's `timeline` array length — NOT project_notifications, which fan out per
+recipient and overcount), `doc_interactions` (comment notifs + project_doc_views).
+- Public strip: 3rd donut ring (หนังสือโครงการ 14/23) + activity chip row
+  (ธุรกรรม 139 · การโต้ตอบ 263 · ลงนาม 11 · โครงการ 17).
+- Admin dashboard: PR/VS/หนังสือ completion rings (`.an-rings`, fill on render) +
+  a หนังสือโครงการ stat row. KPI tiles already split คำขอ PR / คำขอ VitalSound.
 
 **PR/VS split + completion rings (migration 0066, build 891b880cf508)**: `public_stats()`
 + `analytics_overview()` now return `pr_total`/`pr_completed` + `vs_total`/`vs_completed`

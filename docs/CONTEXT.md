@@ -407,10 +407,15 @@ makes `path` attacker-controlled even though a staff-only view reads it (see
 `mistakes.md`).**
 
 Two SECURITY DEFINER RPCs:
-- `public_stats()` — granted to **anon**; returns curated aggregate COUNTS only
-  (users, pr, vs, requests, projects, documents, new_users_7d/30d, departments).
-  Powers the public landing strip (`src/js/home-stats.js`). No rows/PII, so safe
-  to expose.
+- `public_stats()` — granted to **anon**; returns curated aggregate COUNTS only.
+  PR + VitalSound are split into `{pr,vs}_total` / `{pr,vs}_completed` (completed =
+  `status like '%เสร็จสิ้น%'`, `deleted_at` filtered, migration 0066).
+  หนังสือโครงการ (0067): `documents`, `doc_completed` (status='completed'),
+  `doc_signed` (sign_requests 'accepted'), `doc_transactions` (SUM of doc
+  `timeline` lengths), `doc_interactions` (comment notifs + doc views). Plus users,
+  projects, new_users_7d/30d, departments. Powers the public landing strip
+  (`src/js/home-stats.js` — count-up tiles + PR/VS/หนังสือ donut rings + activity
+  chips). No rows/PII, so safe to expose.
 - `analytics_overview(days)` — **staff-only** (guard fails CLOSED via `is not
   true`, and not granted to anon). Returns totals + signups/requests/visitors
   time-series + DAU/WAU/MAU (by session and by authed user) + top tabs + role
