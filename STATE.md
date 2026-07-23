@@ -4,7 +4,13 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build 51538de03e97)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build eba72b8a3953)
+
+**UX regroup (build eba72b8a3953)**: หนังสือโครงการ metrics were reading as peers of PR/VS —
+now they live in their OWN labeled panel (ring + all 6 sub-stats grouped): public
+`.home-project-panel` (home-stats.js `projectPanel()`), admin `.an-proj-panel`. PR/VS stay a
+2-ring "งานบริการรับเรื่องนักศึกษา" row. Admin's combined "คำขอรายวัน (PR+VS)" chart is now TWO
+charts (คำขอ PR รายวัน / คำขอ VitalSound รายวัน) off `requests_by_day` {pr,vs} split.
 
 **หนังสือโครงการ metrics + completion rings (migration 0067, build 51538de03e97)**:
 `public_stats()` + `analytics_overview()` add `doc_completed` (status='completed'),
