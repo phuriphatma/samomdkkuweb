@@ -4,7 +4,11 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
-## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build eba72b8a3953)
+## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build ae55a760d5ac)
+
+**Date axis (build ae55a760d5ac)**: admin daily bar charts (`barChart` in analytics-dashboard.js)
+now render a sparse date axis (~6 evenly-spaced Thai short-date ticks, `.an-axis`) below the bars;
+hover tooltip shows the Thai date + value. Fixes "can't tell which date a bar is".
 
 **UX regroup (build eba72b8a3953)**: หนังสือโครงการ metrics were reading as peers of PR/VS —
 now they live in their OWN labeled panel (ring + all 6 sub-stats grouped): public
