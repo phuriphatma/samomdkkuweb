@@ -77,6 +77,7 @@ function render(body, d) {
   const signupsSum = (d.signups_by_day || []).reduce((s, p) => s + Number(p.n || 0), 0);
   const reqSum = (d.requests_by_day || []).reduce((s, p) => s + Number(p.n || 0), 0);
   const gen = d.generated_at ? new Date(d.generated_at).toLocaleString('th-TH') : '';
+  const pct = (done, total) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
   body.innerHTML = `
     <div class="an-kpis">
@@ -84,8 +85,8 @@ function render(body, d) {
       ${tile(signupsSum, `สมาชิกใหม่ (${d.range_days} วัน)`, 'ในช่วงที่เลือก', 'var(--brand-orange,#FF6F30)')}
       ${tile(a.sessions_wau, 'ผู้เข้าใช้ / สัปดาห์', 'เซสชันไม่ซ้ำ (WAU)', 'var(--vs-accent,#0d9488)')}
       ${tile(a.sessions_mau, 'ผู้เข้าใช้ / เดือน', 'เซสชันไม่ซ้ำ (MAU)', '#6366f1')}
-      ${tile(t.requests, 'คำขอทั้งหมด', `PR ${fmt(t.pr)} · VS ${fmt(t.vs)}`, 'var(--pink-500,#d6336c)')}
-      ${tile(reqSum, `คำขอ (${d.range_days} วัน)`, 'PR + VitalSound', '#0ea5e9')}
+      ${tile(t.pr, 'คำขอ PR', `เสร็จสิ้น ${fmt(t.pr_completed)} · ${pct(t.pr_completed, t.pr)}%`, 'var(--pink-500,#d6336c)')}
+      ${tile(t.vs, 'คำขอ VitalSound', `เสร็จสิ้น ${fmt(t.vs_completed)} · ${pct(t.vs_completed, t.vs)}%`, '#0ea5e9')}
     </div>
 
     <div class="an-grid">
