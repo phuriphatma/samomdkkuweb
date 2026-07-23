@@ -1301,3 +1301,28 @@ Rule: in any `RETURNS TABLE` PL/pgSQL function, never `ORDER BY`/`WHERE` on an
 OUT-param name that isn't an actual output alias of the query — use the
 expression or a column position. Verify sort-dependent RPCs by executing them
 (not just applying), since the shadowing is silent.
+
+---
+
+## A SECURITY DEFINER RPC over a ROW-SCOPED table leaks the restricted rows unless it re-applies the scope — the table's RLS does NOT protect a definer function
+
+**Symptom**: `find_similar_vs_tickets` / `merge_vs_tickets` (0068) returned VS
+tickets from ALL departments to a `vp_admin`, who by the `vs_tickets` read RLS
+(0010) may only see their OWN department's tickets. A confidential complaint
+system leaking other-dept problem text to the wrong VP.
+**Cause**: the RPCs are `SECURITY DEFINER` (needed to compute similarity /
+cascade across the table). SECURITY DEFINER runs as the owner and **bypasses
+RLS entirely** — so the `vs_tickets_read` policy that scopes `vp_admin` to
+`target_dept = current_user_dept()` simply does not apply inside the function.
+The function authorized `vp_admin` but then queried the whole table.
+(`vs_staff`/`dev` are fine — their RLS is unrestricted, so "see all" matches.)
+**Fix**: re-implement the SAME scope predicate inside the definer function for
+the restricted role: return only `target_dept = public.current_user_dept()`
+rows for `vp_admin`, and reject cross-dept merges. Migration 0069.
+**Where**: `supabase/migrations/0069_vs_dedup_dept_scope.sql`. **Rule**: whenever
+a SECURITY DEFINER function reads/writes a table whose RLS is row-scoped by role
+(dept, owner, tenant…), you MUST re-apply that scope in the function body for any
+role that the RLS restricts — the definer bypass means RLS gives you nothing.
+Audit every definer RPC against the base table's SELECT/UPDATE policies. Related:
+the "per-recipient SELECT RLS is DEAD under `using(true)`" and "RLS inline
+subqueries depend on the referenced table's RLS" entries.

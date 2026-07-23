@@ -16,12 +16,20 @@ Manage duplicate VS reports WITHOUT changing the SE↔VP routing workflow (purel
 - **UI** (`vs-staff.js` + `modal-vs-staff.html`): new "เรื่องซ้ำ" tab in the staff modal (loads
   similar on tab-show), "รวมเข้าเรื่องนี้" merge + "แยกออก" unmerge, dup/canonical banner in the
   detail tab, and a "ซ้ำ"/"N" badge + dim on kanban cards (`.vs-kanban-card-dup`).
+- **0070 search-to-merge**: staff aren't limited to the suggestions — `search_vs_tickets(query,
+  exclude,limit)` (staff-only, vp dept-scoped, fail-closed) powers a debounced search box in the
+  เรื่องซ้ำ tab to find ANY canonical to merge into. Shared `mergeTargetRow()` renders both lists.
 - **Bug scan fixed 2**: (1) `ORDER BY sim` shadowed the RETURNS TABLE OUT-param → no sort;
   reordered on the explicit `similarity(...)` expression (new mistakes.md entry). (2) `min-w-0`
   isn't a stock Bootstrap class → inline `min-width:0`.
 - Admin/staff-only; public submit/track + SE↔VP flow untouched. **Phases 2/3 (visibility column +
   kkumail public board) NOT built** — gated on the two product calls (public-eligible categories;
   SE-only promote). Design mockup: shared artifact this session.
+- **0069 (security follow-up, DB-only, no redeploy)**: the 0068 definer RPCs bypass the
+  `vs_tickets` read RLS, which scopes `vp_admin` to their own dept — so they leaked other-dept
+  snippets. 0069 re-applies `target_dept = current_user_dept()` inside find_similar/merge/unmerge
+  for `vp_admin` (vs_staff/dev/has-vs still see all). New mistakes.md entry. Deployed build for the
+  UI is 299b2296a298; 0069 is functions-only so no VM rebuild.
 
 ## ANALYTICS: usage tracking + public stat strip + staff dashboard — DEPLOYED (2026-07-23, build ae55a760d5ac)
 

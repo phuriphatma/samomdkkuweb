@@ -402,7 +402,9 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   renderDupBanner();
   resetSimilarPane();
+  resetMergeSearch();
   wireSimilarTabOnce();
+  wireMergeSearchOnce();
   new bootstrap.Modal(document.getElementById('staffManageModal')).show();
 }
 
@@ -469,43 +471,102 @@ async function loadSimilarTickets(id) {
   renderSimilar(Array.isArray(data) ? data : []);
 }
 
+/** True when the ticket being viewed is itself a duplicate (can't be a merge source). */
+function currentIsDuplicate() {
+  const current = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  return !!current?.duplicate_of;
+}
+
+/** One merge-target row (shared by the suggestion list + the search results).
+ *  `pct` is a similarity % (suggestions) or null (search). */
+function mergeTargetRow(s, isDup, pct) {
+  const snippet = escHtml(String(s.problem_snippet || '').trim() || '(ไม่มีรายละเอียด)');
+  const dept = escHtml(deptShort(s.target_dept));
+  const status = escHtml(s.status || '');
+  const dupBadge = Number(s.dup_count) > 0
+    ? `<span class="badge bg-info-subtle text-info-emphasis">มี ${Number(s.dup_count)} ซ้ำ</span>` : '';
+  const pctBadge = (pct != null)
+    ? `<span class="badge bg-primary-subtle text-primary-emphasis flex-shrink-0" title="ความคล้าย">${pct}%</span>` : '';
+  const action = isDup
+    ? ''
+    : `<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" data-vs-merge="${escHtml(s.id)}">รวมเข้าเรื่องนี้</button>`;
+  return `<div class="border rounded p-2 mb-2 d-flex align-items-start gap-2">
+    ${pctBadge}
+    <div class="flex-grow-1" style="min-width:0">
+      <div class="small fw-semibold">${escHtml(s.id)} <span class="text-muted">· ${dept} · ${status}</span> ${dupBadge}</div>
+      <div class="small text-muted text-truncate">${snippet}</div>
+    </div>
+    ${action}
+  </div>`;
+}
+
 function renderSimilar(list) {
   const body = document.getElementById('staffSimilarBody');
   if (!body) return;
-  const current = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
-  const isDup = !!current?.duplicate_of;
+  const isDup = currentIsDuplicate();
 
   if (!list.length) {
-    body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน</div>';
+    body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน — ลองค้นหาด้านล่าง</div>';
     return;
   }
-
-  const rows = list.map((s) => {
-    const pct = Math.round(Number(s.sim || 0) * 100);
-    const snippet = escHtml(String(s.problem_snippet || '').trim() || '(ไม่มีรายละเอียด)');
-    const dept = escHtml(deptShort(s.target_dept));
-    const status = escHtml(s.status || '');
-    const dupBadge = Number(s.dup_count) > 0
-      ? `<span class="badge bg-info-subtle text-info-emphasis">มี ${Number(s.dup_count)} ซ้ำ</span>` : '';
-    const action = isDup
-      ? ''
-      : `<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" data-vs-merge="${escHtml(s.id)}">รวมเข้าเรื่องนี้</button>`;
-    return `<div class="border rounded p-2 mb-2 d-flex align-items-start gap-2">
-      <span class="badge bg-primary-subtle text-primary-emphasis flex-shrink-0" title="ความคล้าย">${pct}%</span>
-      <div class="flex-grow-1" style="min-width:0">
-        <div class="small fw-semibold">${escHtml(s.id)} <span class="text-muted">· ${dept} · ${status}</span> ${dupBadge}</div>
-        <div class="small text-muted text-truncate">${snippet}</div>
-      </div>
-      ${action}
-    </div>`;
-  }).join('');
-
+  const rows = list.map((s) => mergeTargetRow(s, isDup, Math.round(Number(s.sim || 0) * 100))).join('');
   const hint = isDup
     ? '<div class="alert alert-warning small py-2 px-3">เรื่องนี้ถูกรวมเป็นเรื่องซ้ำแล้ว — กด “แยกออก” ในแท็บรายละเอียดก่อน หากต้องการรวมกับเรื่องอื่น</div>'
-    : '<div class="text-muted small mb-2">พบเรื่องที่ใกล้เคียง — หากเป็นเรื่องเดียวกัน กด “รวมเข้าเรื่องนี้” เพื่อยุบเป็นเรื่องซ้ำ (เวิร์กโฟลว์ SE↔VP ของเรื่องหลักไม่เปลี่ยน)</div>';
-
+    : '<div class="text-muted small mb-2">หากเป็นเรื่องเดียวกัน กด “รวมเข้าเรื่องนี้” เพื่อยุบเป็นเรื่องซ้ำ (เวิร์กโฟลว์ SE↔VP ของเรื่องหลักไม่เปลี่ยน)</div>';
   body.innerHTML = hint + rows;
   body.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
+}
+
+// ----- Search for a merge target (0070) -----
+
+let mergeSearchWired = false;
+let mergeSearchTimer = null;
+
+function wireMergeSearchOnce() {
+  if (mergeSearchWired) return;
+  mergeSearchWired = true;
+  const input = document.getElementById('staffMergeSearch');
+  input?.addEventListener('input', () => {
+    clearTimeout(mergeSearchTimer);
+    mergeSearchTimer = setTimeout(runMergeSearch, 300);
+  });
+}
+
+function resetMergeSearch() {
+  const input = document.getElementById('staffMergeSearch');
+  if (input) input.value = '';
+  const res = document.getElementById('staffSearchResults');
+  if (res) res.innerHTML = '<div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div>';
+}
+
+async function runMergeSearch() {
+  const input = document.getElementById('staffMergeSearch');
+  const res = document.getElementById('staffSearchResults');
+  if (!input || !res) return;
+  if (currentIsDuplicate()) {
+    res.innerHTML = '<div class="alert alert-warning small py-2 px-3 mb-0">เรื่องนี้ถูกรวมเป็นเรื่องซ้ำแล้ว — กด “แยกออก” ในแท็บรายละเอียดก่อนจึงจะรวมกับเรื่องอื่นได้</div>';
+    return;
+  }
+  const qStr = input.value.trim();
+  if (qStr.length < 2) {
+    res.innerHTML = '<div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div>';
+    return;
+  }
+  res.innerHTML = '<div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> กำลังค้นหา…</div>';
+  const { data, error } = await dbRest('/rpc/search_vs_tickets',
+    { method: 'POST', body: { p_query: qStr, p_exclude: currentActiveTicketId, p_limit: 8 } });
+  if (error) {
+    res.innerHTML = `<div class="text-danger small">ค้นหาไม่สำเร็จ: ${escHtml(String(error.message || '').slice(0, 120))}</div>`;
+    return;
+  }
+  const list = Array.isArray(data) ? data : [];
+  if (!list.length) {
+    res.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่ตรงกับคำค้น</div>';
+    return;
+  }
+  const isDup = currentIsDuplicate();
+  res.innerHTML = list.map((s) => mergeTargetRow(s, isDup, null)).join('');
+  res.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
 }
 
 async function onMergeClick(e) {

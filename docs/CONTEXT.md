@@ -434,7 +434,17 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   'approved'; all writes restricted to `pr_staff` / `dev`.
 - **pr_tickets**: SELECT for submitter OR staff/dev. INSERT for anyone
   (guest submissions). UPDATE / DELETE for staff/dev only.
-- **vs_tickets**: same shape as pr_tickets (insert-open, mutate-staff).
+- **vs_tickets**: same shape as pr_tickets (insert-open, mutate-staff). READ is
+  dept-scoped: `vs_staff`/`dev` see all; `vp_admin` sees only `target_dept =
+  current_user_dept()`; submitter sees own (0010).
+  **Duplicate management (0068–0070, staff-side, additive — SE↔VP flow unchanged):**
+  `duplicate_of` self-FK marks a ticket as a duplicate of a canonical one.
+  Staff-only SECURITY DEFINER RPCs (fail-closed; `vp_admin` re-scoped to their
+  dept since the definer bypasses RLS — see mistakes.md): `find_similar_vs_tickets`
+  (pg_trgm suggestions), `search_vs_tickets` (free-text merge-target search),
+  `merge_vs_tickets` / `unmerge_vs_ticket`. Trigger `vs_cascade_resolve` closes a
+  canonical's duplicates when it hits `เสร็จสิ้น`. UI: "เรื่องซ้ำ" tab in the VS
+  staff modal (`vs-staff.js`). Public visibility board = future Phase 3 (not built).
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.
