@@ -517,6 +517,90 @@ function sendProjectEmail(data) {
   });
 }
 
+// ============================================================
+// sendMigrationVerifyEmails — one-off: verify the guessed kkumail
+// addresses for the 5 gmail→kkumail passport migrations (migration
+// 0064). Each student scanned SAMO Passport with a personal gmail
+// before the @kkumail.com-only gate; their data was carried to a
+// kkumail address DERIVED from their name (not confirmed). This
+// emails each student's KNOWN gmail (guaranteed deliverable) asking
+// them to confirm the kkumail is theirs.
+//
+// Correction channel = reply to the email (replyTo below). Replies
+// land in the SAMO Gmail; a wrong address → re-run a corrected 0064.
+//
+// HOW TO RUN (do NOT wire this into doPost — it's a manual one-off):
+//   1. Open the GAS editor, select sendMigrationVerifyEmails, Run.
+//      Editor runs are owner-authenticated → MailApp sends AND
+//      Logger output appears (public /exec fetches log nothing —
+//      see skills/deploy-gas.md).
+//   2. DRY_RUN=true (default) sends all 5 to REPLY_TO only, each
+//      prefixed [DRY], so you preview the real per-student body.
+//   3. When the previews look right, set DRY_RUN=false and Run again
+//      to send to the students' gmail for real.
+// ============================================================
+
+function sendMigrationVerifyEmails() {
+  var DRY_RUN   = true;                              // ← flip to false to send for real
+  var REPLY_TO  = 'mdstuddata.beta@gmail.com';       // the GAS owner Gmail; replies + dry-run recipient land here
+  var LINK      = 'https://samo.md.kku.ac.th/passport/';
+
+  // From migration 0064. gmail = where they actually scanned (known-good).
+  // kkumail = derived from name (UNCONFIRMED — the whole point of this email).
+  var MOVES = [
+    { gmail: 'wariikung@gmail.com',         kkumail: 'ingwer.s@kkumail.com' },
+    { gmail: 'phuri8980@gmail.com',         kkumail: 'phurichaya.bo@kkumail.com' },
+    { gmail: 'kenkunchai50@gmail.com',      kkumail: 'kenkunchai.ch@kkumail.com' },
+    { gmail: 'sirikanrayamasena@gmail.com', kkumail: 'sirikanraya.m@kkumail.com' },
+    { gmail: 'kedsaraporn2007@gmail.com',   kkumail: 'kedsaraporn.t@kkumail.com' },
+  ];
+
+  var sent = 0;
+  for (var i = 0; i < MOVES.length; i++) {
+    var m   = MOVES[i];
+    var to  = DRY_RUN ? REPLY_TO : m.gmail;
+    var tag = DRY_RUN ? '[DRY → ' + m.gmail + '] ' : '';
+    MailApp.sendEmail({
+      to: to,
+      replyTo: REPLY_TO,
+      name: 'MDKKU SAMO',
+      subject: tag + '[SAMO Passport] ยืนยันอีเมล @kkumail.com ของคุณ',
+      htmlBody: migrationVerifyHtml_(m.gmail, m.kkumail, LINK),
+    });
+    sent++;
+    Logger.log('sent to ' + to + '  (kkumail=' + m.kkumail + ')');
+  }
+  Logger.log('DONE. DRY_RUN=' + DRY_RUN + '  sent=' + sent);
+  return { dryRun: DRY_RUN, sent: sent };
+}
+
+function migrationVerifyHtml_(gmail, kkumail, link) {
+  return '' +
+    '<div style="font-family:system-ui,-apple-system,\'Noto Sans Thai\',Segoe UI,sans-serif;' +
+    'max-width:520px;margin:0 auto;color:#1b2733;line-height:1.7;font-size:15px">' +
+      '<p>สวัสดีค่ะ/ครับ 🛂</p>' +
+      '<p>ก่อนหน้านี้คุณสแกนสะสมคะแนน <b>SAMO Passport</b> ด้วยบัญชี ' +
+        '<span style="word-break:break-all">' + gmail + '</span></p>' +
+      '<p>ขณะนี้ SAMO Passport รองรับเฉพาะบัญชี <b>@kkumail.com</b> เท่านั้น ' +
+        'เราจึงได้ <b>ย้ายคะแนน กิจกรรม แสตมป์ และเกียรติบัตร</b> ของคุณไปยังบัญชี:</p>' +
+      '<p style="text-align:center;font-size:17px;font-weight:700;background:#eafaf2;' +
+        'border:1px solid #b7e6ce;border-radius:12px;padding:14px;word-break:break-all">' +
+        kkumail + '</p>' +
+      '<p><b>กรุณาช่วยตรวจสอบ:</b> เข้าสู่ระบบที่ลิงก์ด้านล่างด้วยบัญชี kkumail นี้</p>' +
+      '<p style="text-align:center;margin:22px 0">' +
+        '<a href="' + link + '" style="display:inline-block;background:#2f9e78;color:#fff;' +
+        'text-decoration:none;padding:13px 26px;border-radius:12px;font-weight:600">' +
+        'เปิด SAMO Passport</a></p>' +
+      '<p style="background:#f4f7f9;border-radius:10px;padding:14px 16px">' +
+        '✅ <b>ถ้าเข้าสู่ระบบแล้วเห็นคะแนนของคุณครบ</b> — กรุณาส่งอีเมลมาที่ ' +
+        '<b>mdstuddata.beta@gmail.com</b> ว่า <b>&ldquo;เห็นครบแล้ว&rdquo;</b> เพื่อยืนยัน<br><br>' +
+        '❌ <b>ถ้า ' + kkumail + ' ไม่ใช่อีเมล @kkumail.com ของคุณ</b> ' +
+        'หรือเข้าสู่ระบบแล้วคะแนนไม่ครบ — กรุณาส่งอีเมลมาที่ <b>mdstuddata.beta@gmail.com</b> ' +
+        'พร้อมแจ้งอีเมล @kkumail.com ที่ถูกต้องของคุณ แล้วเราจะย้ายข้อมูลให้ใหม่</p>' +
+      '<p style="color:#7a8896;font-size:13px;margin-top:24px">— ทีมงาน SAMO MDKKU</p>' +
+    '</div>';
+}
+
 function createResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
