@@ -88,7 +88,7 @@ A's progress to B's submitter, identity-blind.
   each node clickable to open that ticket, marks "เรื่องนี้", shows dept/status + a สาธารณะ badge if
   is_public. `renderDupTree` in `vs-staff.js`, `#staffDupTree` in `modal-vs-staff.html`, `.vs-duptree*`
   in `vs.css`.
-- **(2) DONE — submitter linked-context (migration 0075, APPLIED; deployed with build below).**
+- **(2) DONE — submitter linked-context (migration 0075, APPLIED + DEPLOYED VM build eeee3e8416cb, commit 4ecac72).**
   `get_vs_linked_context(p_id)` (anon+auth, keyed by ticket-id capability): canonical PUBLIC →
   returns `public_id`+`public_title`+`related_count`, tracking view shows a "ติดตามบนกระดานปัญหา"
   CTA that deep-links to the board (`vsOpenBoardProblem` → board mode + open); canonical
