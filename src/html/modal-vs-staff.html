@@ -67,14 +67,21 @@
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <!-- INTERNAL classification — any category assignable,
-                         including 🔒 confidential (that's its real function:
-                         tag sensitive tickets; the system guarantees a
-                         confidential category can never be published). -->
-                    <label class="form-label" for="staffCategory">หมวดหมู่ (ภายใน)</label>
-                    <select id="staffCategory" class="form-select">
+                    <!-- ONE category, two uses: internal classification for
+                         every ticket + the board category when published.
+                         Any category assignable, 🔒 confidential included
+                         (confidential = internal-only, can never publish). -->
+                    <div class="d-flex align-items-center justify-content-between">
+                      <label class="form-label mb-0" for="staffCategory">หมวดหมู่</label>
+                      <button type="button" id="staffCatManageBtn"
+                        class="btn btn-sm btn-link text-decoration-none p-0 d-none"
+                        onclick="openVsCategoryManager()" title="เพิ่ม/แก้ไข/ซ่อนหมวดหมู่">
+                        <i class="bi bi-tags me-1"></i>จัดการ</button>
+                    </div>
+                    <select id="staffCategory" class="form-select mt-1">
                       <option value="">-- ไม่ระบุ --</option>
                     </select>
+                    <div class="form-text small">ใช้จัดหมวดภายใน และเป็นหมวดบนกระดานปัญหาเมื่อเผยแพร่ — หมวด 🔒 ไม่เผยแพร่</div>
                   </div>
                 </div>
 
@@ -164,21 +171,20 @@
                    Confidential categories are rejected by vs_set_public (0072). -->
               <div id="staffPublishPanel" class="border rounded-3 p-3 d-none vs-modal-section"
                 style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
-                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
-                  <h6 class="fw-bold mb-0"><i class="bi bi-megaphone-fill me-2"></i>เผยแพร่สู่กระดานปัญหา (สาธารณะ)
-                    <span id="staffPubState" class="badge rounded-pill ms-1"></span></h6>
-                  <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 flex-shrink-0"
-                    onclick="openVsCategoryManager()" title="เพิ่ม/แก้ไข/ซ่อนหมวดหมู่">
-                    <i class="bi bi-tags me-1"></i>จัดการหมวดหมู่</button>
-                </div>
+                <h6 class="fw-bold mb-2"><i class="bi bi-megaphone-fill me-2"></i>เผยแพร่สู่กระดานปัญหา (สาธารณะ)
+                  <span id="staffPubState" class="badge rounded-pill ms-1"></span></h6>
                 <p class="text-muted small mb-2">นักศึกษาจะเห็นเฉพาะ “หัวข้อสาธารณะ” ที่คุณเขียน + สถานะ 4 ระยะ — ไม่เห็นข้อความดิบหรือผู้แจ้ง</p>
                 <!-- Submitter consent state (0076) — filled by renderPublishPanel. -->
                 <div id="staffPubConsent" class="small mb-2"></div>
                 <div class="row g-2">
                   <div class="col-md-5">
-                    <label class="form-label small mb-1">หมวดหมู่</label>
-                    <!-- Reflects the internal หมวดหมู่ select above (single
-                         source of truth) — change it there. -->
+                    <label class="form-label small mb-1">หมวดหมู่
+                      <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none align-baseline"
+                        onclick="document.getElementById('staffCategory')?.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('staffCategory')?.focus();"
+                        title="เปลี่ยนที่ช่องหมวดหมู่ด้านบน">เปลี่ยน</button>
+                    </label>
+                    <!-- Reflects the หมวดหมู่ select above (single source of
+                         truth) — the เปลี่ยน link jumps to it. -->
                     <div id="staffPubCategoryShow" class="form-control form-control-sm bg-white"
                       style="min-height: calc(1.5em + 0.5rem + 2px);"></div>
                   </div>

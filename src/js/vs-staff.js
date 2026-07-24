@@ -718,6 +718,9 @@ async function loadVsCategories() {
 async function fillStaffCategorySelect(t) {
   const sel = document.getElementById('staffCategory');
   if (!sel) return;
+  // Manage button lives next to the select (its real home); SE-curated
+  // taxonomy, so only SE publishers see it.
+  document.getElementById('staffCatManageBtn')?.classList.toggle('d-none', !isSEPublisher());
   const cats = await loadVsCategories();
   sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>'
     + cats.map((c) => `<option value="${escHtml(c.id)}">`
