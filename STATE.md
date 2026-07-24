@@ -54,8 +54,8 @@ operates via ONE shared department account; there are no individual members to a
 per-person ownership is meaningless — `target_dept` already encodes it. Do NOT revive this or
 generalize PR's `pr_agents` roster to VS. (See memory: depts-use-shared-accounts.)
 
-**Duplicate = LINKED progress-mirror (migration 0074, APPLIED to live DB; NOT yet deployed
-to the VM) — GitHub-style "follow the real issue" WITHOUT the confidential leak.** Problem the
+**Duplicate = LINKED progress-mirror (migration 0074, APPLIED + DEPLOYED to VM build
+`63b574e5177f`, commit 7b79ba1) — GitHub-style "follow the real issue" WITHOUT the leak.** Problem the
 user raised: closing B as "duplicate" dead-ended B's submitter, because 0071 hides the
 canonical A's id (unlike GitHub's uniform visibility). Fix: a duplicate is a LINK that MIRRORS
 A's progress to B's submitter, identity-blind.
