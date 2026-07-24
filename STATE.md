@@ -123,6 +123,14 @@ A's progress to B's submitter, identity-blind.
   top-level ("ซ้ำ" badge) so it never vanishes. BUGFIX (user report): jumping tickets via the dup
   tree while the modal was open left the page permanently dimmed — `new bootstrap.Modal().show()`
   on an open element stacks a 2nd backdrop; now `getOrCreateInstance`. New mistakes.md entry.
+- **Search + category manager + text bugs (DEPLOYED, VM build 165eca5cf8f9, commit a2a8030):**
+  (1) VS dashboard SEARCH `#vsStaffSearch` (id/problem/status/dept, debounced, PR pattern) —
+  a matching dup whose canonical doesn't match renders top-level, so search never hides tickets.
+  (2) Category manager shipped (see part-4 note above). (3) `utils.stripHtmlToText` — snippets now
+  decode entities (`&nbsp;` was showing literally) + ellipsis truncation (was mid-word hard cut);
+  applied kanban/dup-rows/delete-hint/history (+6 tests, 138 total). (4) Timeline actor: writes use
+  `staffActorLabel()` (never the internal `__all__` filter value); `renderTimeline` maps legacy
+  `__all__` rows to "เจ้าหน้าที่" at render.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
@@ -167,8 +175,10 @@ system, not a separate tab). The VS tab mode toggle is now 3-way, **board is the
 - **SE publish control (part 3)** — `#staffPublishPanel` in `modal-vs-staff.html` detail tab + logic in `vs-staff.js`
   (`renderPublishPanel`/`setTicketPublic`, `isSEPublisher` gate → hidden for vp_admin). Category select (confidential
   disabled), public_title, public_note, เผยแพร่/อัปเดต/ยกเลิก. Updates local cache to stay in sync without refetch.
-- **Category manager (part 4) = DEFERRED** — the 6 `vs_categories` are seeded by the migration, so the board works
-  end-to-end without a CRUD UI; add an admin manager later (mirror shop_product_types 0057) if categories need editing.
+- **Category manager (part 4) = DONE (2026-07-24, commit a2a8030)** — "จัดการหมวดหมู่" button in the
+  publish panel → `modal-vs-categories.html`; SE publishers add/rename/toggle-confidential/hide
+  `vs_categories` rows (CRUD via the 0072 staff-write RLS, no migration; remove = soft `is_active=false`).
+  Logic in `vs-staff.js` (`openVsCategoryManager`/`vsCatAdd`/`vsCatPatch`), CSS `.vs-cat-*` in vs-admin.css.
 - **Bug-scan fixes (commit 8f0dc73, deployed):** (1) SCHEMA — `vs_public_comments.author_user_id` was NOT NULL + ON
   DELETE SET NULL (contradiction → user-delete would fail); now ON DELETE CASCADE (idempotent ALTER, verified
   confdeltype=c). (2) FRONTEND — board lazy-loaded once behind a boolean guard → a transient first-load failure left it
