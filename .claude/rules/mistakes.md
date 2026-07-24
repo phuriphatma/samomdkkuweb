@@ -1462,6 +1462,16 @@ switch those reads to an explicit submitter-safe column allow-list so a future
 sensitive column isn't leaked by `*` default. Same family as the "per-recipient
 SELECT RLS is DEAD under using(true)" and "definer bypasses RLS" entries: read
 authorization is per-path, not per-table.
+**Follow-on instance (0080)**: `get_vs_ticket_by_id` (the anon guest lookup) is
+`returns setof public.vs_tickets` built from `select * into r … return next r` —
+so EVERY column added to `vs_tickets` is auto-exposed to `anon` the moment the
+migration lands, until you blank it in that function. 0079 added
+`vs_tickets.tags` and it silently rode out to guests (opaque tag ids in the wire
+JSON) even though the frontend never rendered it. 0080 blanks `r.tags := '{}'`
+alongside the existing `r.duplicate_of := null`. **Rule**: any time you ALTER
+`vs_tickets` (or any table behind a `returns setof <table>` / `select *` guest
+RPC), open that RPC and decide per-column: sanitize (blank/null) or intentionally
+expose. A new column is exposed BY DEFAULT — the type carries it automatically.
 
 ---
 
