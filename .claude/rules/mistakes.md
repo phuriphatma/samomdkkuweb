@@ -1117,6 +1117,35 @@ similar to something here, the fix is probably the same or related.
 
 ---
 
+## Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block — a role:'user' account with real granted perms gets bounced
+
+**Symptom**: After 0081 made the SAMO Team tree grant real perms, a person
+(`phuriphat.ma@kkumail.com`) whose tree membership gave them `pr` (+more) logged
+into `/admin/` and got stuck at the sign-in gate — even though the DB row was
+correct (`role='user'`, `managed_permissions=['creator','pr','projects','samoshop',
+'team','vs']`, verified live). The PR tab never even rendered.
+**Cause**: The admin ENTRY gate was role-only:
+`const isStaff = STAFF_ROLES.includes(role); if (!isStaff) showAuthGate()`.
+`STAFF_ROLES` is the fixed list of staff roles; a Google login is `role='user'`,
+which isn't in it — so the gate bounced the account before `userCanAccess()` (which
+IS permission-aware) ever ran. The per-section sidebar gating at
+`userCanAccess(feature)` was already correct; the bug was the COARSE "are you allowed
+in the building at all" check one level up, which still asked "is your ROLE staff?"
+not "do you have ANY admin capability?". Same shape lurked in the `authReady.then()`
+settle-check (`!STAFF_ROLES.includes(u.role)`) and the `?scan=` subscriber.
+**Fix**: `canUseAdmin(user) = STAFF_ROLES.includes(role) || ADMIN_FEATURES.some(f =>
+userCanAccess(f, user))` where `ADMIN_FEATURES = ['pr','vs','samoshop','projects',
+'creator','team']`. Gate BOTH the onAuthChange handler and the authReady settle-check
+on `canUseAdmin`, not the role list. Non-staff admin users get a 'ทีม SAMO' sidebar
+label fallback.
+**Where**: `src/js/admin-main.js` (`canUseAdmin`/`ADMIN_FEATURES`, the onAuthChange
+gate, the authReady `.then`). **Rule**: when you introduce a permission channel that
+can grant access to accounts OUTSIDE the existing role set (here: `managed_permissions`
+on `role='user'` kkumail logins), grep for EVERY `ROLE.includes(role)` / `role === 'x'`
+gate — each is a role-only chokepoint that silently ignores the new channel. Route the
+coarse "can this account use the app at all" check through the same
+permission-aware predicate the fine-grained gates use, never a hardcoded role list.
+
 ## Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
 
 **Symptom**: PR (and occasionally VS/projects) Discord notifications don't

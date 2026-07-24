@@ -52,12 +52,19 @@ Previously the tree was cosmetic — nothing linked it to a gate.
   toggle + effective preview; member rows show a shield "N สิทธิ์" tag.
 - **Decisions locked**: auto-grant on any matching kkumail (NO confirm gate); additive
   coexistence with manual perms. Started with `pr`; all PERM_CATALOG keys work the same.
-- **Verified live**: resolver (pr,samoshop), guard (blocks client / allows server via
-  the GUC), and the live-update trigger ([]→[pr] on member insert) all tested against
-  the live DB via self-rolling-back probes. Deployed bundle (VM) carries the sync RPC
-  (shared `analytics-*.js` chunk) + `managedPermissions` (admin bundle).
-- **TODO**: no live BROWSER e2e of a real kkumail login → PR-tab-appears yet (all
-  server + unit paths verified; the browser round-trip is the only unproven link).
+- **Per-person UI**: จัดการสิทธิ์ (perms) mode now lists each node's PEOPLE with
+  effective chips + a shield → focused `teamMemberPermModal` (สิทธิ์รายบุคคล). Per-person
+  perm editing lives ONLY here now (removed from the identity/team-mode member modal, so
+  an identity edit can't wipe grants). `renderMember` has a perms-mode variant.
+- **Admin-gate fix (f97c70e)**: the admin entry gate was role-only and bounced a
+  `role='user'` account that the tree granted perms to. Now `canUseAdmin()` = staff role
+  OR any `ADMIN_FEATURES` grant (via `userCanAccess`, which unions managed perms). See
+  mistakes.md "role-only gate leaves a latent block".
+- **Verified live**: resolver, guard (both directions), live-update trigger, AND the real
+  account `phuriphat.ma@kkumail.com` (role='user', managed=[creator,pr,projects,samoshop,
+  team,vs] from tree inheritance) — DB row confirmed correct; the only bug was the gate.
+- **TODO**: user to re-test the actual browser login now that the gate fix is deployed
+  (all server + unit paths verified; DB row for phuriphat is correct).
 
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 
