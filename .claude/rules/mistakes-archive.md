@@ -197,6 +197,45 @@ committing), `sudo systemctl reload nginx`.
 
 ---
 
+## nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serve as clean URLs — old passport QR scans silently landed on the home page (no points)
+
+**Symptom**: Old **printed** passport QR codes stopped stamping points/activities;
+freshly-generated QR codes (from admin) worked. Scanning an old code showed the
+pages.dev "we've moved" splash, then forwarded — but the user never earned the point.
+Nothing errored.
+**Cause**: Two facts collide.
+- Old QR codes were generated when the app lived on Cloudflare Pages, which serves
+  **clean URLs** — so they encode the **extensionless** path
+  `/passport/html/scan?aid=..&tk=..` (no `.html`). New QRs are built from
+  `ROUTES.SCAN = BASE + 'html/scan.html'` (WITH `.html`).
+- The VM nginx `location /passport/` had `try_files $uri $uri/ /passport/index.html`
+  — **no `$uri.html` step**. For `/passport/html/scan` (extensionless): `$uri` (no
+  file `scan`), `$uri/` (no dir) both miss → nginx falls straight to
+  `/passport/index.html` = the **home page**. The scan module never loads, the
+  `aid`/`tk` params are dropped, no scan row is inserted. New `.html` QRs matched
+  `$uri` directly, which is why only *old* codes failed.
+
+  Confirmed live before/after with two curls comparing `<title>` (home
+  "Samo Passport — Life is a Journey" vs scan "Stamping Passport..."). The token
+  itself was fine — `generateStaticQR` never rotates `static_token`, so old and new
+  codes for the same activity carry the same token; the break was purely path
+  resolution.
+**Fix**: Add the clean-URL fallback BEFORE the index fallback:
+`try_files $uri $uri.html $uri/ /passport/index.html;`. Now
+`/passport/html/scan` → `/passport/html/scan.html`. Edited `server/nginx-samo.conf`
+AND applied live (backup → `sudo nginx -t` → `sudo systemctl reload nginx`; the
+sudo password is piped from `.env.local` `SAMO_VM_SUDO_PASSWORD` over ssh — env vars
+do NOT propagate over ssh, so `read -r PW` from stdin then `echo "$PW" | sudo -S`).
+**Where**: `server/nginx-samo.conf` `location /passport/`. **Rule**: whenever an app
+that ran on a clean-URL host (Cloudflare Pages, Netlify, `_redirects`) is re-hosted
+on nginx, its `try_files` MUST include `$uri.html` or every extensionless deep link
+(and every printed QR / old bookmark that predates the move) silently resolves to the
+SPA index instead of the intended page. The public samoweb SPA is unaffected — it's a
+single-`index.html` hash router with no sibling `.html` pages; the passport app is the
+one with real per-page `.html` files (`dashboard.html`, `admin.html`, `scan.html`).
+
+---
+
 ## A full-height centered page with `height:100% + overflow:hidden` is unscrollable on mobile when the content is taller than the viewport
 
 **Symptom**: The pages.dev "we've moved" splash (`public/moved.html`) could not be

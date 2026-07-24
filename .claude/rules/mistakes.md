@@ -1355,3 +1355,66 @@ to different principals, check whether the reference (id, link, mention) is
 itself readable by the other principal — if lookup is by-id/capability, the id
 IS the data. Keep cross-refs on the staff side; sanitize any anon/guest-facing
 read.
+
+---
+
+## `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
+
+**Symptom**: ประกาศ (announcement covers) and SAMO Shop product/banner images
+"never load" on iPad — but load fine on desktop Chrome, AND the exact same
+image URL opens fine when tapped DIRECTLY in iPad Safari, AND a page refresh on
+the iPad often brings them back. Looks like a broken image / permission / CORS
+bug; it's none of those (the bytes are reachable).
+**Cause**: images were embedded as
+`https://drive.google.com/thumbnail?id=<id>&sz=w2000`. That endpoint **302-
+redirects to `lh3.googleusercontent.com`** on every load. iOS Safari drops the
+redirected subresource load intermittently on a cold cache (extra hop + slower/
+stricter than desktop) → the `<img>` stays blank. A refresh (warm cache) or a
+direct top-level navigation (no redirect-in-`<img>` context) succeeds, which is
+why it looked flaky and device-specific. `sz=w2000` also over-fetches (2000px
+for a ~140–260px card), adding to iOS image-memory pressure.
+**Fix**: emit the **direct CDN** form `https://lh3.googleusercontent.com/d/<id>=w1200`
+— no redirect, correct Content-Type, smaller payload — in `convertDriveUrl`
+(`src/js/uploads.js`). It now ALSO runs at RENDER time (not just on upload), so
+it rewrites the legacy `thumbnail?id=` URLs already stored in the DB → existing
+rows fixed with no data migration. Kept `loading="lazy"` (dropping it would
+decode every image at once and worsen iOS memory). Both forms still need the
+file shared "anyone with the link".
+**Where**: `src/js/uploads.js` `convertDriveUrl` (+ test). Applied at EVERY
+Drive-image render site (the shared bug — grep audit): `announcements.js`
+covers+inline via `pickCover`, `departments.js` card cover, `shop/products.js`
+banner/launch/grid, `shop/admin.js` product+banner lists. **Rule**: never put a
+`drive.google.com/thumbnail` (or `/uc?export=view`, or a `/file/d/…/view`) URL
+straight into an `<img src>` — always run it through `convertDriveUrl` so it
+becomes the redirect-free lh3 URL. Verify image bugs on the REPORTED device
+class (iOS Safari here), not just desktop — the redirect only bites iOS.
+
+---
+
+## A `NOT NULL` column with `ON DELETE SET NULL` is a latent contradiction — the FK cleanup fails at delete time and BLOCKS the parent delete
+
+**Symptom**: A brand-new child table applies clean, all tests + isolation
+checks pass, feature ships. The bug is invisible because nothing in normal
+use / tests ever deletes a referenced PARENT row. Then one day deleting a
+`public.users` row (or whatever the FK points at) errors with a NOT NULL
+violation on a child table you weren't even thinking about — and the parent
+delete is blocked entirely.
+**Cause**: a column declared BOTH `not null` AND `references parent(id) on
+delete set null`. The clauses contradict: when the parent is deleted Postgres
+tries to SET the child FK column to NULL, but the column is NOT NULL → the
+whole DELETE aborts. Seen in 0072: `vs_public_comments.author_user_id uuid
+not null references public.users(id) on delete set null`. `create table if
+not exists` will NOT fix it on a re-apply (the table already exists), so the
+contradiction persists silently.
+**Fix**: make the delete action consistent with the null-ability —
+`on delete cascade` if the child can't exist without its parent (chosen here,
+matches `vs_followers`), OR drop `not null` if you genuinely want
+orphan-but-keep (`set null`). For a table already created by an earlier run,
+re-point it idempotently:
+`alter table X drop constraint if exists X_<col>_fkey;
+ alter table X add constraint X_<col>_fkey foreign key (<col>) references
+ parent(id) on delete cascade;` — then verify `pg_constraint.confdeltype='c'`
+(c=cascade, n=set null, a=no action).
+**Where**: `supabase/migrations/0072_vs_public_board.sql`. **Rule**: grep every
+new migration for a column that is both `not null` and `on delete set null`
+(or `set default` with no default) on the same FK — that pair is always a bug.
