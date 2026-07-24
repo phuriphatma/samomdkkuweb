@@ -178,15 +178,12 @@
                 <div id="staffPubConsent" class="small mb-2"></div>
                 <div class="row g-2">
                   <div class="col-md-5">
-                    <label class="form-label small mb-1">หมวดหมู่
-                      <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none align-baseline"
-                        onclick="document.getElementById('staffCategory')?.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('staffCategory')?.focus();"
-                        title="เปลี่ยนที่ช่องหมวดหมู่ด้านบน">เปลี่ยน</button>
-                    </label>
-                    <!-- Reflects the หมวดหมู่ select above (single source of
-                         truth) — the เปลี่ยน link jumps to it. -->
-                    <div id="staffPubCategoryShow" class="form-control form-control-sm bg-white"
-                      style="min-height: calc(1.5em + 0.5rem + 2px);"></div>
+                    <label class="form-label small mb-1" for="staffPubCategorySel">หมวดหมู่</label>
+                    <!-- SAME field as the หมวดหมู่ select in section 2 — two
+                         synced views of one value (vs-staff.js keeps them in
+                         lockstep). Changing here changes the ticket's category. -->
+                    <select id="staffPubCategorySel" class="form-select form-select-sm"></select>
+                    <div id="staffPubCatHint" class="form-text small mb-0"></div>
                   </div>
                   <div class="col-md-7">
                     <label class="form-label small mb-1">หัวข้อสาธารณะ <span class="text-danger">*</span></label>

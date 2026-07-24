@@ -176,8 +176,9 @@ export async function enterVSStaffDashboard() {
   // Wire the scroll-affordance listener now that admin DOM is alive.
   bindKanbanScrollAffordance();
   staffDashboardEntered = true;
-  // Category labels for the kanban chips — fire-and-forget; re-render when in.
-  loadVsCategories().then(() => renderKanban()).catch(() => {});
+  // Category labels for the kanban chips + the category facet — fire-and-
+  // forget; re-render when in.
+  loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
   await fetchStaffTickets();
 }
 
@@ -269,7 +270,24 @@ function filteredTickets() {
       || (t.status || '').toLowerCase().includes(q)
       || (t.target_dept || '').toLowerCase().includes(q));
   }
+  // Category facet ('' = all, '__none__' = uncategorized).
+  const catFilter = document.getElementById('vsStaffCatFilter')?.value || '';
+  if (catFilter === '__none__') list = list.filter((t) => !t.category);
+  else if (catFilter) list = list.filter((t) => t.category === catFilter);
   return list;
+}
+
+/** Fill the kanban's category facet from the loaded vs_categories (keeps the
+ *  current selection across refills). */
+function populateVsCatFilter() {
+  const sel = document.getElementById('vsStaffCatFilter');
+  if (!sel || !Array.isArray(vsCategoriesCache)) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">ทุกหมวดหมู่</option>'
+    + vsCategoriesCache.map((c) => `<option value="${escHtml(c.id)}">`
+        + `${escHtml(c.label)}${(c.is_confidential || !c.public_eligible) ? ' 🔒' : ''}</option>`).join('')
+    + '<option value="__none__">ไม่ระบุหมวดหมู่</option>';
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
 
 // Debounced re-render for the search box (wired via oninput in tab-admin.html).
@@ -704,11 +722,15 @@ function isSEPublisher() {
 }
 
 async function loadVsCategories() {
-  if (vsCategoriesCache) return vsCategoriesCache;
-  const { data } = await dbRest(
+  // Only cache a SUCCESSFUL non-empty load. Caching [] after one failed
+  // fetch left the category selects empty ("can't change it") for the whole
+  // session — [] is truthy, so the guard never retried.
+  if (Array.isArray(vsCategoriesCache) && vsCategoriesCache.length) return vsCategoriesCache;
+  const { data, error } = await dbRest(
     '/vs_categories?select=id,label,icon,is_confidential,public_eligible&is_active=eq.true&order=sort_order.asc');
-  vsCategoriesCache = Array.isArray(data) ? data : [];
-  return vsCategoriesCache;
+  const list = Array.isArray(data) ? data : [];
+  if (!error && list.length) vsCategoriesCache = list;
+  return list;
 }
 
 /** Fill the INTERNAL หมวดหมู่ select (section 2) — every active category is
@@ -717,23 +739,44 @@ async function loadVsCategories() {
  *  publish panel live. */
 async function fillStaffCategorySelect(t) {
   const sel = document.getElementById('staffCategory');
+  const pubSel = document.getElementById('staffPubCategorySel');
   if (!sel) return;
   // Manage button lives next to the select (its real home); SE-curated
   // taxonomy, so only SE publishers see it.
   document.getElementById('staffCatManageBtn')?.classList.toggle('d-none', !isSEPublisher());
   const cats = await loadVsCategories();
-  sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>'
-    + cats.map((c) => `<option value="${escHtml(c.id)}">`
-        + `${escHtml(c.label)}${(c.is_confidential || !c.public_eligible) ? ' 🔒' : ''}</option>`).join('');
-  // Keep a legacy/hidden category selectable so opening a ticket doesn't
-  // silently blank it.
-  if (t?.category && ![...sel.options].some((o) => o.value === t.category)) {
-    sel.insertAdjacentHTML('beforeend', `<option value="${escHtml(t.category)}">${escHtml(t.category)} (ซ่อนอยู่)</option>`);
-  }
+
+  const optionsHtml = (withLegacy) => {
+    let html = '<option value="">-- ไม่ระบุ --</option>'
+      + cats.map((c) => `<option value="${escHtml(c.id)}">`
+          + `${escHtml(c.label)}${(c.is_confidential || !c.public_eligible) ? ' 🔒' : ''}</option>`).join('');
+    // Keep a legacy/hidden category selectable so opening a ticket doesn't
+    // silently blank it.
+    if (withLegacy && t?.category && !cats.some((c) => c.id === t.category)) {
+      html += `<option value="${escHtml(t.category)}">${escHtml(t.category)} (ซ่อนอยู่)</option>`;
+    }
+    return html;
+  };
+  sel.innerHTML = optionsHtml(true);
   sel.value = t?.category || '';
+  if (pubSel) { pubSel.innerHTML = optionsHtml(true); pubSel.value = t?.category || ''; }
+
+  // TWO synced views of ONE value: section-2 select + publish-panel select.
+  // Programmatic .value writes don't fire 'change', so no loop.
   if (!sel.dataset.wired) {
     sel.dataset.wired = '1';
-    sel.addEventListener('change', () => renderPublishPanel());
+    sel.addEventListener('change', () => {
+      if (pubSel) pubSel.value = sel.value;
+      renderPublishPanel();
+    });
+  }
+  if (pubSel && !pubSel.dataset.wired) {
+    pubSel.dataset.wired = '1';
+    pubSel.addEventListener('change', () => {
+      const s = document.getElementById('staffCategory');
+      if (s) s.value = pubSel.value;
+      renderPublishPanel();
+    });
   }
 }
 
@@ -746,19 +789,22 @@ async function renderPublishPanel() {
   if (!t) { panel.classList.add('d-none'); return; }
   panel.classList.remove('d-none');
 
-  // Category = single source of truth: the internal select in section 2.
+  // Category = ONE value shown in two synced selects (section 2 + here).
   const cats = await loadVsCategories();
   const curCatId = document.getElementById('staffCategory')?.value ?? (t.category || '');
   const curCat = cats.find((c) => c.id === curCatId) || null;
-  const catBlocked = !!curCat && (curCat.is_confidential || !curCat.public_eligible);
-  const show = document.getElementById('staffPubCategoryShow');
-  if (show) {
+  const catBlocked = (!!curCat && (curCat.is_confidential || !curCat.public_eligible))
+    || (!!curCatId && !curCat);   // legacy/hidden id → not board-eligible
+  const pubSel = document.getElementById('staffPubCategorySel');
+  if (pubSel && pubSel.value !== curCatId) pubSel.value = curCatId;
+  const hint = document.getElementById('staffPubCatHint');
+  if (hint) {
     if (!curCatId) {
-      show.innerHTML = '<span class="text-muted">ยังไม่ระบุ — เลือกที่ "หมวดหมู่ (ภายใน)" ด้านบน</span>';
+      hint.innerHTML = '<span class="text-muted">ต้องเลือกหมวดหมู่ก่อนเผยแพร่</span>';
     } else if (catBlocked) {
-      show.innerHTML = `<span class="text-danger"><i class="bi bi-shield-lock-fill me-1"></i>${escHtml(curCat?.label || curCatId)} — ความลับ เผยแพร่ไม่ได้</span>`;
+      hint.innerHTML = '<span class="text-danger"><i class="bi bi-shield-lock-fill me-1"></i>หมวดความลับ/ซ่อนอยู่ — เผยแพร่ไม่ได้</span>';
     } else {
-      show.innerHTML = `<span><i class="bi ${escHtml(curCat?.icon || 'bi-tag')} me-1"></i>${escHtml(curCat?.label || curCatId)}</span>`;
+      hint.innerHTML = '<span class="text-muted">เปลี่ยนที่นี่ = เปลี่ยนหมวดหมู่ของเรื่องนี้</span>';
     }
   }
   const titleEl = document.getElementById('staffPubTitle');
@@ -972,9 +1018,10 @@ async function vsCatPatch(id, patch, okMsg) {
   }
   const i = vsCatManagerRows.findIndex((x) => x.id === id);
   if (i >= 0) vsCatManagerRows[i] = { ...vsCatManagerRows[i], ...data[0] };
-  vsCategoriesCache = null;          // publish-panel select reloads next paint
+  vsCategoriesCache = null;          // selects/facet reload next paint
   renderVsCatManager();
   renderPublishPanel();
+  loadVsCategories().then(populateVsCatFilter).catch(() => {});
   vsCatStatus(okMsg);
 }
 
@@ -1006,6 +1053,7 @@ export async function vsCatAdd() {
   vsCategoriesCache = null;
   renderVsCatManager();
   renderPublishPanel();
+  loadVsCategories().then(populateVsCatFilter).catch(() => {});
   vsCatStatus(`เพิ่ม "${label}" แล้ว`);
 }
 
