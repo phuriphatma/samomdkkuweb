@@ -131,6 +131,14 @@ export async function enterVSStaffDashboard() {
   const select = document.getElementById('staffRole');
   const user = authGetUser();
   const isVP = user?.role === 'vp_admin';
+  // Full-VS (SE / dev / has 'vs') see every dept; a per-ฝ่าย scoped user
+  // (0082 managed_vs_depts, and NOT full-vs) is limited to their dept(s) by
+  // RLS — mirror the VP treatment so the picker/title don't offer or imply
+  // depts they can't see.
+  const isSuper = user?.role === 'vs_staff' || user?.role === 'dev'
+    || (Array.isArray(user?.permissions) && user.permissions.includes('vs'))
+    || (Array.isArray(user?.managedPermissions) && user.managedPermissions.includes('vs'));
+  const scopedDepts = (!isSuper && Array.isArray(user?.managedVsDepts)) ? user.managedVsDepts : [];
 
   if (isVP && user.department) {
     // Lock the dept filter to the VP's own dept (RLS allows them
@@ -145,6 +153,23 @@ export async function enterVSStaffDashboard() {
       }
       select.value = currentStaffRole;
       select.classList.add('d-none');
+    }
+  } else if (scopedDepts.length) {
+    // Per-ฝ่าย scoped (0082): default to their (first) dept. Ensure their
+    // dept(s) exist as options; hide the picker when they have exactly one
+    // (RLS returns nothing for any other dept anyway).
+    const prev = staffDashboardEntered && select && select.value ? select.value : null;
+    currentStaffRole = (prev && scopedDepts.includes(prev)) ? prev : scopedDepts[0];
+    if (select) {
+      scopedDepts.forEach((d) => {
+        if (![...select.options].some((o) => o.value === d)) {
+          const opt = document.createElement('option');
+          opt.value = d; opt.textContent = d;
+          select.appendChild(opt);
+        }
+      });
+      select.value = currentStaffRole;
+      select.classList.toggle('d-none', scopedDepts.length <= 1);
     }
   } else {
     // SE / dev — keep the picker (they can browse any dept). On first

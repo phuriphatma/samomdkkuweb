@@ -59,12 +59,15 @@ export function buildExportJson(nodes, members) {
       id: n.id, parent_id: n.parent_id || null, name: n.name, kind: n.kind,
       position: n.position ?? 0, permissions: n.permissions || [],
       inherit_permissions: n.inherit_permissions !== false,
+      vs_dept: n.vs_dept || null,
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
       prefix: m.prefix || null, full_name: m.full_name, nickname: m.nickname || null,
       student_id: m.student_id || null, year: m.year || null, major: m.major || null,
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
+      permissions: m.permissions || [],
+      inherit_permissions: m.inherit_permissions !== false,
     })),
   };
 }

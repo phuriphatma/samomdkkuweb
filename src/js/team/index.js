@@ -1470,6 +1470,7 @@ async function importJson(data) {
       parent_id: newParent, name: n.name.trim(), kind: n.kind || 'role',
       position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
       inherit_permissions: n.inherit_permissions !== false,
+      vs_dept: n.vs_dept || null,
     });
     idMap.set(n.id, row.id); report.nodes++;
     nodesById.set(row.id, row);
@@ -1507,6 +1508,8 @@ async function importJson(data) {
       full_name: who, nickname: m.nickname || null, student_id: m.student_id || null,
       year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
+      permissions: Array.isArray(m.permissions) ? m.permissions : [],
+      inherit_permissions: m.inherit_permissions !== false,
     });
     report.members++;
     setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);
