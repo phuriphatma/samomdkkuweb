@@ -116,6 +116,13 @@ A's progress to B's submitter, identity-blind.
   เรื่องซ้ำ tab reordered: tree → SEARCH → suggestions (search was below); full-size `type=search`
   input; empty-state hint points up. (c) publish panel now hidden entirely on duplicate tickets
   (was a fully disabled noise panel; the dup banner explains the state).
+- **Kanban nested duplicates + backdrop bugfix (DEPLOYED, VM build 4963dd39f72b, commit 10aa8e8):**
+  duplicates now COLLAPSE under their canonical's kanban card as a "ซ้ำ N เรื่อง" expand/collapse
+  strip with tappable mini-rows (session-scoped `expandedKanbanDups`; `toggleKanbanDups` wired on
+  window in admin-main.js). Dup whose canonical is outside the current dept filter still renders
+  top-level ("ซ้ำ" badge) so it never vanishes. BUGFIX (user report): jumping tickets via the dup
+  tree while the modal was open left the page permanently dimmed — `new bootstrap.Modal().show()`
+  on an open element stacks a 2nd backdrop; now `getOrCreateInstance`. New mistakes.md entry.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
