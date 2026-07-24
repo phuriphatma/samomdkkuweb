@@ -191,6 +191,21 @@ export async function vsBoardOpen(id) {
   renderProblemDetail(data);
 }
 
+/** Switch the VS tab into board mode and open a specific public problem.
+ *  Used by the submitter tracking view (0075) when their duplicate links to a
+ *  PUBLIC canonical — a safe deep-link (the canonical is world-public). */
+export async function openBoardProblem(id) {
+  const boardRadio = document.getElementById('vsModeBoard');
+  if (boardRadio) boardRadio.checked = true;
+  // Mirror toggleVitalSoundMode's section swap (avoid a cross-module import).
+  document.getElementById('vsBoardSection')?.classList.remove('d-none');
+  document.getElementById('vsReportSection')?.classList.add('d-none');
+  document.getElementById('vsTrackSection')?.classList.add('d-none');
+  window.dispatchEvent(new CustomEvent('vs-board-shown'));
+  await vsBoardOpen(id);
+  document.getElementById('vsBoardSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export function vsBoardBack() {
   openProblemId = null;
   document.getElementById('vsProblemDetail').classList.add('d-none');

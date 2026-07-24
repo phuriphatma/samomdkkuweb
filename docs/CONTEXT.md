@@ -456,6 +456,13 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   nulls it; the owner read uses a `SUBMITTER_COLS` allow-list omitting it — closing the
   0071-only-covered-the-guest-path leak, see mistakes.md). "duplicate" is not a manual
   close reason (`MANUAL_VS_RESOLUTIONS`); duplicates go through merge only.
+  **Submitter linked-context (0075):** `get_vs_linked_context(p_id)` (anon+auth, keyed by
+  the ticket id capability) tells a duplicate's submitter, SAFELY: if the canonical is
+  PUBLIC → its `public_id`+`public_title` (safe — already board-exposed) so the tracking
+  view deep-links to the board (`vsOpenBoardProblem` → board mode + `vsBoardOpen`); if
+  CONFIDENTIAL → only `{linked, related_count}`, never the id/title. Confidential-category
+  re-checked in the RPC. Staff-only duplicate-cluster TREE (canonical→[dups], clickable)
+  in the เรื่องซ้ำ tab (`renderDupTree`, `vs-staff.js`).
   **Resolution reason on close (0073, service-desk slice 2):** `vs_tickets` gains
   `resolution` (CHECK `fixed`/`forwarded`/`wont_do`/`duplicate`) + `resolution_note`
   (≤1000 chars). Set by staff when status→เสร็จสิ้น (required; `wont_do` also needs a

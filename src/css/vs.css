@@ -310,3 +310,23 @@
 .vs-duptree-status { font-size: 0.76rem; color: #6b7280; }
 .vs-duptree-badge.is-public { font-size: 0.68rem; font-weight: 700; color: #166534; background: #dcfce7; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
 .vs-duptree-here { font-size: 0.68rem; font-weight: 700; color: var(--pink-700, #be185d); margin-left: auto; }
+
+/* --- linked banner: public variant with follow CTA (0075) --- */
+.vs-linked-banner.is-public {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  border-color: #bfe6cf;
+  background: #f2fbf5;
+  color: #14532d;
+}
+.vs-linked-banner .vs-linked-main { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 auto; min-width: 0; }
+.vs-linked-banner .vs-linked-main i { font-size: 1.05rem; flex-shrink: 0; color: #1a7a45; }
+.vs-linked-cta {
+  flex-shrink: 0;
+  background: #1a7a45;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  white-space: nowrap;
+}
+.vs-linked-cta:hover { background: #146036; color: #fff; }

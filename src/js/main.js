@@ -23,7 +23,7 @@ import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopo
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
 import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
-import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vsBoardBack, vsBoardMeToo, vsPostComment } from './vs-board.js';
+import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vsBoardBack, vsBoardMeToo, vsPostComment, openBoardProblem } from './vs-board.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initProjectsView } from './projects-view.js';
@@ -304,6 +304,7 @@ window.vsBoardSetSort = vsBoardSetSort;
 window.vsBoardCat = vsBoardCat;
 window.vsBoardOpen = vsBoardOpen;
 window.vsBoardBack = vsBoardBack;
+window.vsOpenBoardProblem = openBoardProblem;
 window.vsBoardMeToo = vsBoardMeToo;
 window.vsPostComment = vsPostComment;
 

@@ -88,13 +88,15 @@ A's progress to B's submitter, identity-blind.
   each node clickable to open that ticket, marks "เรื่องนี้", shows dept/status + a สาธารณะ badge if
   is_public. `renderDupTree` in `vs-staff.js`, `#staffDupTree` in `modal-vs-staff.html`, `.vs-duptree*`
   in `vs.css`.
-- **OPEN design decisions the user raised (2026-07-24), NOT yet built — need the user's go:**
-  (2) **If the canonical is PUBLIC**, point the duplicate's submitter to the public board entry
-  (title + follow/me-too/pseudonymous comments) instead of the identity-blind mirror — SAFE because a
-  public canonical's id/title are already world-exposed via the board; when the canonical is
-  confidential, keep the mirror. Needs a server change to hand B's submitter the public canonical's
-  id+title only when public. Do NOT list B as a separate board problem (splits me-too).
-  (3) **"Show all staff discussion on public problems" → NO (recommended).** The board ALREADY has a
+- **(2) DONE — submitter linked-context (migration 0075, APPLIED; deployed with build below).**
+  `get_vs_linked_context(p_id)` (anon+auth, keyed by ticket-id capability): canonical PUBLIC →
+  returns `public_id`+`public_title`+`related_count`, tracking view shows a "ติดตามบนกระดานปัญหา"
+  CTA that deep-links to the board (`vsOpenBoardProblem` → board mode + open); canonical
+  CONFIDENTIAL → returns ONLY `{linked, related_count}` (no id/title), banner shows "รวม N เรื่อง …
+  เก็บเป็นความลับ". Confidential-category re-checked in the RPC. DB-verified 3 cases (public link /
+  private+count / not-linked) on throwaway rows. Code: `src/js/vs-tracking.js` (`enhanceLinkedBanner`),
+  `src/js/vs-board.js` (`openBoardProblem`), `main.js` (`vsOpenBoardProblem`), `vs.css`.
+  (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
   students' ticket ids (republishing = the 0071 breach). Safe transparency = CURATED public updates

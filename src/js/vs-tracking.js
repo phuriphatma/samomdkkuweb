@@ -268,11 +268,14 @@ function renderUserDashboard(ticket) {
   const linkedEl = document.getElementById('dashLinkedBanner');
   if (linkedEl) {
     if (ticket.isDuplicate) {
+      // Instant baseline; enhanceLinkedBanner() upgrades it with server context
+      // (public board link, or "private links exist + count") once fetched.
       const msg = idx === 3
-        ? 'เรื่องของคุณได้รับการดำเนินการร่วมกับเรื่องที่มีผู้อื่นแจ้งไว้ก่อนแล้ว'
-        : 'เรื่องของคุณตรงกับเรื่องที่มีผู้อื่นแจ้งไว้ก่อนแล้ว ทีมงานกำลังดำเนินการร่วมกัน — ความคืบหน้าด้านล่างจะอัปเดตตามเรื่องหลัก';
+        ? 'เรื่องของคุณได้รับการดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง'
+        : 'เรื่องของคุณกำลังดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง — ความคืบหน้าด้านล่างจะอัปเดตตามเรื่องหลัก';
       linkedEl.className = 'vs-linked-banner mb-3';
       linkedEl.innerHTML = `<i class="bi bi-diagram-2 me-2"></i><span>${escHtml(msg)}</span>`;
+      enhanceLinkedBanner(ticket, idx);
     } else {
       linkedEl.className = 'd-none';
       linkedEl.innerHTML = '';
@@ -314,6 +317,45 @@ function renderUserDashboard(ticket) {
   renderTimeline('dashTimeline', ticket.remarks, formattedDate);
   const remarkBox = document.getElementById('userRemarkBox');
   if (canUserReply) remarkBox.classList.remove('d-none'); else remarkBox.classList.add('d-none');
+}
+
+// Upgrade the linked-duplicate banner with SAFE server-computed context
+// (get_vs_linked_context, 0075): a follow-link to the PUBLIC board entry when
+// the canonical is public, otherwise a "private links exist + N related" note.
+// Never receives the confidential canonical's id/title. Fire-and-forget; guards
+// against a stale response after the user navigates to another ticket.
+async function enhanceLinkedBanner(ticket, idx) {
+  const el = document.getElementById('dashLinkedBanner');
+  if (!el) return;
+  let ctx = null;
+  try {
+    const { data } = await dbRest('/rpc/get_vs_linked_context', {
+      method: 'POST', body: { p_id: ticket.id },
+    });
+    ctx = data && typeof data === 'object' ? data : null;
+  } catch { return; }
+  if (ticket.id !== currentActiveTicketId) return;  // navigated away
+  if (!ctx || !ctx.linked) return;
+  const cnt = Number(ctx.related_count) || 0;
+
+  if (ctx.public && ctx.public_id) {
+    const scale = cnt > 1 ? ` · มี ${cnt} เรื่องที่เกี่ยวข้อง` : '';
+    el.className = 'vs-linked-banner is-public mb-3';
+    el.innerHTML =
+      `<div class="vs-linked-main"><i class="bi bi-megaphone-fill"></i>`
+      + `<span>เรื่องของคุณตรงกับปัญหาสาธารณะ: <strong>${escHtml(ctx.public_title || '')}</strong>${escHtml(scale)}</span></div>`
+      + `<button type="button" class="btn btn-sm vs-linked-cta" onclick="vsOpenBoardProblem('${escHtml(ctx.public_id)}')">`
+      + `<i class="bi bi-arrow-up-right-circle me-1"></i>ติดตามบนกระดานปัญหา</button>`;
+  } else {
+    const base = idx === 3
+      ? 'เรื่องของคุณได้รับการดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง'
+      : 'เรื่องของคุณกำลังดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง';
+    const scale = cnt > 1 ? ` (รวม ${cnt} เรื่อง)` : '';
+    el.className = 'vs-linked-banner mb-3';
+    el.innerHTML =
+      `<i class="bi bi-shield-lock me-2"></i>`
+      + `<span>${escHtml(base + scale)} — รายละเอียดของผู้แจ้งรายอื่นถูกเก็บเป็นความลับ</span>`;
+  }
 }
 
 // --------------------------------------------------
