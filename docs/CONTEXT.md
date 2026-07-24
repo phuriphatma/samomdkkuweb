@@ -446,6 +446,13 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   `merge_vs_tickets` / `unmerge_vs_ticket`. Trigger `vs_cascade_resolve` closes a
   canonical's duplicates when it hits `เสร็จสิ้น`. UI: "เรื่องซ้ำ" tab in the VS
   staff modal (`vs-staff.js`).
+  **Resolution reason on close (0073, service-desk slice 2):** `vs_tickets` gains
+  `resolution` (CHECK `fixed`/`forwarded`/`wont_do`/`duplicate`) + `resolution_note`
+  (≤1000 chars). Set by staff when status→เสร็จสิ้น (required; `wont_do` also needs a
+  note). Surfaces with NO RPC change to the owner read and the guest by-id lookup
+  (`get_vs_ticket_by_id` returns the whole row). Submitter sees a friendly outcome card
+  (`#dashResolution`) + a submitter-visible timeline remark. Shared label vocab:
+  `src/js/vs-resolution.js`. No new RLS — the existing write policies gate it like `status`.
   **Public "Problem" board (0072, Phase 2):** `vs_tickets` gains
   `category`/`is_public`/`public_title`/`public_note` (SE-set, canonicals only);
   `vs_categories` (admin ref table, `is_confidential`/`public_eligible` flags, 6

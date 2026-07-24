@@ -5,6 +5,7 @@
 import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
+import { vsResolution } from './vs-resolution.js';
 
 let currentActiveTicketId = null;
 let canUserReply = false;
@@ -80,6 +81,10 @@ function rowToTicket(r) {
     // strips these + nulls duplicate_of (0071); this filters the RPC-missing
     // direct-read fallback too. See mistakes.md (VS duplicate confidentiality).
     remarks: Array.isArray(r.remarks) ? r.remarks.filter((e) => !e?.internal) : [],
+    // Resolution reason on close (0073) — submitter-facing outcome. Present on
+    // both the guest by-id lookup (returns the whole row) and the owner read.
+    resolution: r.resolution || null,
+    resolutionNote: r.resolution_note || null,
     isOwner: false, // overridden by callers when appropriate
   };
 }
@@ -246,6 +251,25 @@ function renderUserDashboard(ticket) {
       renderVsStepper(ticket.status)
       + `<div class="vs-phase-desc">${escHtml(phase.desc)}</div>`
       + `<div class="vs-phase-exact">สถานะโดยละเอียด: ${escHtml(ticket.status)}</div>`;
+  }
+
+  // Resolution outcome card — only when the ticket is done AND a reason was
+  // recorded by staff (0073). Older done tickets with no resolution just show
+  // the stepper's generic "เสร็จสิ้น", so nothing regresses.
+  const resEl = document.getElementById('dashResolution');
+  if (resEl) {
+    const meta = idx === 3 ? vsResolution(ticket.resolution) : null;
+    if (meta) {
+      resEl.className = `vs-resolution-card ${meta.key === 'wont_do' ? 'is-negative' : ''}`;
+      resEl.innerHTML =
+        `<div class="vs-resolution-head"><i class="bi ${meta.icon}"></i> ผลการดำเนินการ</div>`
+        + `<div class="vs-resolution-label">${escHtml(meta.student)}</div>`
+        + (ticket.resolutionNote
+          ? `<div class="vs-resolution-note">${escHtml(ticket.resolutionNote)}</div>` : '');
+    } else {
+      resEl.className = 'd-none';
+      resEl.innerHTML = '';
+    }
   }
 
   const formattedDate = formatThaiDate(ticket.date);

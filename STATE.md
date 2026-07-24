@@ -28,10 +28,26 @@ SE รับเรื่องแล้ว/อุปนายก*/ปฏิเ�
 `src/js/vs-tracking.js` (`VS_PHASES`/`vsPhaseIndex`/`renderVsStepper`/`renderVsStepperByPhase`),
 `src/html/tab-vitalsound.html` (`#dashStepper`), `src/css/vs.css`, `src/main.css`, `src/js/vs-phase.test.js`.
 
-**Next slices (service-desk roadmap, agreed order):** (2) resolution reasons on close
-(fixed / forwarded-to-faculty / won't-do+reason / duplicate — needs a small migration +
-staff-modal change, shown to student); (3) assignee/owner within a dept; (4) transition
-guards drive the status dropdown (valid next-states only). Public board = Phase 2 below.
+**Slice 2 DONE — resolution reason on close (migration 0073, APPLIED to live DB; NOT yet
+deployed to the VM):** when staff set status→เสร็จสิ้น the modal reveals a required
+"เหตุผลการปิดเรื่อง" picker (fixed / forwarded / wont_do+note / duplicate) + optional note;
+the submitter sees a friendly "ผลการดำเนินการ" outcome card on their tracking view + a
+submitter-visible timeline remark. Additive only: two nullable cols
+`vs_tickets.{resolution,resolution_note}` (CHECK-constrained) surface with NO RPC change to
+both the owner read (`select=*`) and the guest by-id lookup (`get_vs_ticket_by_id` returns
+`setof vs_tickets`). Shared vocab `src/js/vs-resolution.js` (single source for staff+student
+labels) + test `vs-resolution.test.js` (11 cases). Code: `src/js/vs-staff.js`
+(`setupResolutionUI`/`syncResolutionVisibility`/validation+write in `submitStaffAction`),
+`src/js/vs-tracking.js` (`rowToTicket` carries fields, `renderUserDashboard` outcome card),
+`src/html/modal-vs-staff.html` (`#staffResolutionBox`), `src/html/tab-vitalsound.html`
+(`#dashResolution`), `src/css/vs.css`. `npm run build && npm test` GREEN (134 tests). Auto-
+close paths (merge/cascade 0071) still set only status+generic remark — leaving `resolution`
+null there is a harmless nicety to add later (set `='duplicate'`). **NEXT: human end-to-end
+click (close a real ticket, confirm the student view) + VM deploy.**
+
+**Next slices (service-desk roadmap, agreed order):** (3) assignee/owner within a dept;
+(4) transition guards drive the status dropdown (valid next-states only). Public board =
+Phase 2 below.
 
 ### VS board Phase 2 (migration 0072) — schema + RLS + RPCs + UI, all DEPLOYED
 

@@ -20,7 +20,9 @@ Both Cloudflare projects hit the same Supabase backend.
 - **Vital Sound tickets.** Confidential intake with dynamic department routing,
   remarks thread, and cross-department consult/transfer for staff. A PDPA
   consent popup appears every time a report is sent — only ยินยอม proceeds;
-  declining cancels that submission.
+  declining cancels that submission. On close, staff record a resolution reason
+  (fixed / forwarded to faculty / can't-do + reason / duplicate) that the
+  submitter sees as a plain-language outcome instead of a bare "completed".
 - **Vital Sound public board.** A curated, student-facing board of ongoing
   "Problems" unified into the VitalSound tab (browse/sort/filter, 4-phase
   status). SE publishes a canonical ticket with a hand-written public title

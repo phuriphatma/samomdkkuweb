@@ -6,6 +6,9 @@ import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
 import { getUser as authGetUser } from './auth.js';
+import { VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
+
+const DONE_STATUS = 'เสร็จสิ้น';
 
 let staffTicketsCache = [];        // ALL tickets visible to this user (RLS-filtered)
 let currentActiveTicketId = null;
@@ -399,6 +402,7 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffActionRemark').value = '';
   document.getElementById('staffNotifyTo').value = '';
   document.getElementById('staffSilentNotify').checked = false;
+  setupResolutionUI(status);
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   renderDupBanner();
   renderPublishPanel();
@@ -408,6 +412,56 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   wireSimilarTabOnce();
   wireMergeSearchOnce();
   new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+}
+
+// ----- Resolution reason on close (migration 0073) -----
+
+let resolutionOptionsFilled = false;
+let resolutionWired = false;
+
+/** Prefill + reveal the resolution picker for the currently-open ticket.
+ *  Options come from the shared VS_RESOLUTIONS vocab (single source of truth).
+ *  The box is only visible when the (chosen) status is เสร็จสิ้น. */
+function setupResolutionUI(status) {
+  const sel = document.getElementById('staffResolution');
+  const note = document.getElementById('staffResolutionNote');
+  if (sel && !resolutionOptionsFilled) {
+    sel.insertAdjacentHTML('beforeend', VS_RESOLUTIONS
+      .map((r) => `<option value="${escHtml(r.key)}">${escHtml(r.staff)}</option>`)
+      .join(''));
+    resolutionOptionsFilled = true;
+  }
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  if (sel) sel.value = t?.resolution || '';
+  if (note) note.value = t?.resolution_note || '';
+
+  // Toggle visibility on any status change; wire once.
+  if (!resolutionWired) {
+    resolutionWired = true;
+    document.getElementById('staffActionStatus')
+      ?.addEventListener('change', syncResolutionVisibility);
+    sel?.addEventListener('change', syncResolutionNoteHint);
+  }
+  syncResolutionVisibility();
+}
+
+function syncResolutionVisibility() {
+  const box = document.getElementById('staffResolutionBox');
+  const statusVal = document.getElementById('staffActionStatus')?.value;
+  if (box) box.classList.toggle('d-none', statusVal !== DONE_STATUS);
+  syncResolutionNoteHint();
+}
+
+/** Show the "note required" hint only for the wont_do reason. */
+function syncResolutionNoteHint() {
+  const meta = vsResolution(document.getElementById('staffResolution')?.value);
+  const hint = document.getElementById('staffResolutionNoteHint');
+  const note = document.getElementById('staffResolutionNote');
+  const required = !!meta?.noteRequired;
+  hint?.classList.toggle('d-none', !required);
+  if (note) note.placeholder = required
+    ? 'ระบุเหตุผลที่ไม่สามารถดำเนินการได้ (นักศึกษาจะเห็นข้อความนี้)'
+    : 'รายละเอียดผลการดำเนินการ (นักศึกษาจะเห็นข้อความนี้)';
 }
 
 // ----- Duplicate management (Phase 1, migration 0068) -----
@@ -759,8 +813,31 @@ export async function submitStaffAction() {
   const statusChanged = newStatus && newStatus !== ticket.status;
   const deptChanged = newDept && newDept !== ticket.target_dept;
 
-  if (!statusChanged && !deptChanged && !remark && !notifyTo) {
+  // Resolution on close (0073). Effective status = the new status if the
+  // dropdown was changed, else the ticket's current status. The picker is
+  // only relevant when that lands on เสร็จสิ้น.
+  const effectiveStatus = newStatus || ticket.status;
+  const isDone = effectiveStatus === DONE_STATUS;
+  const resolution = document.getElementById('staffResolution')?.value || '';
+  const resNote = (document.getElementById('staffResolutionNote')?.value || '').trim();
+  const closingNow = isDone && statusChanged && newStatus === DONE_STATUS;
+  const willWriteResolution = isDone && !!resolution
+    && (resolution !== (ticket.resolution || '')
+        || resNote !== (ticket.resolution_note || '')
+        || closingNow);
+
+  if (!statusChanged && !deptChanged && !remark && !notifyTo && !willWriteResolution) {
     alert('ไม่มีการเปลี่ยนแปลง กรุณาแก้ไขสถานะ โอนย้ายฝ่าย เพิ่ม Remark หรือส่งแจ้งเตือน ก่อนบันทึก');
+    return;
+  }
+
+  // Closing a ticket requires a reason; wont_do additionally requires a note.
+  if (closingNow && !resolution) {
+    alert('กรุณาเลือกเหตุผลการปิดเรื่องก่อนบันทึก');
+    return;
+  }
+  if (isDone && resolution === 'wont_do' && !resNote) {
+    alert('กรุณาระบุเหตุผลที่ไม่สามารถดำเนินการได้');
     return;
   }
 
@@ -808,10 +885,23 @@ export async function submitStaffAction() {
     if (remark) {
       remarks.push({ type: 'remark', by: currentStaffRole, time, text: remark });
     }
+    if (willWriteResolution) {
+      const meta = vsResolution(resolution);
+      // Submitter-visible (NOT internal) — this is the outcome we want the
+      // student to read on their tracking view.
+      remarks.push({
+        type: 'log', by: currentStaffRole, time,
+        text: `สรุปผลการดำเนินการ: ${meta?.student || resolution}${resNote ? ` — ${resNote}` : ''}`,
+      });
+    }
 
     const update = { remarks };
     if (statusChanged) update.status = newStatus;
     if (deptChanged) update.target_dept = newDept;
+    if (willWriteResolution) {
+      update.resolution = resolution;
+      update.resolution_note = resNote || null;
+    }
 
     // dbRest + return=representation so we surface RLS no-ops as errors
     // (see mistakes.md "supabase-js silent-success on RLS-blocked updates").

@@ -108,6 +108,25 @@
                   </select>
                 </div>
 
+                <!-- RESOLUTION on close (0073) — revealed by vs-staff.js only
+                     when สถานะ = เสร็จสิ้น. The <select> options are populated
+                     from the shared VS_RESOLUTIONS vocab so labels never drift. -->
+                <div class="col-12 mt-3 d-none" id="staffResolutionBox">
+                  <div class="border rounded-3 p-3"
+                    style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
+                    <label class="form-label fw-bold mb-1" for="staffResolution"><i
+                        class="bi bi-flag-fill me-1"></i>เหตุผลการปิดเรื่อง <span class="text-danger">*</span></label>
+                    <p class="text-muted small mb-2">สรุปผลนี้จะแสดงให้นักศึกษาเห็นเมื่อเรื่องเสร็จสิ้น</p>
+                    <select id="staffResolution" class="form-select form-select-sm mb-2">
+                      <option value="">-- เลือกเหตุผล --</option>
+                    </select>
+                    <textarea id="staffResolutionNote" class="form-control form-control-sm" rows="2"
+                      placeholder="รายละเอียดผลการดำเนินการ (นักศึกษาจะเห็นข้อความนี้)"></textarea>
+                    <div id="staffResolutionNoteHint" class="form-text text-danger small d-none">
+                      กรุณาระบุเหตุผลที่ไม่สามารถดำเนินการได้</div>
+                  </div>
+                </div>
+
                 <div class="col-md-6 mt-3">
                   <label class="form-label text-pink-custom fw-bold"><i
                       class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
