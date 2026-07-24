@@ -532,7 +532,10 @@ function renderDupTree() {
       ? '<span class="vs-duptree-badge is-public" title="เผยแพร่บนกระดานปัญหา"><i class="bi bi-megaphone-fill"></i> สาธารณะ</span>'
       : '';
     return `<div class="vs-duptree-node ${isCanonical ? 'is-canonical' : 'is-dup'} ${isCurrent ? 'is-current' : ''}"
-        onclick="openStaffModalByIndex(${idx})" role="button" tabindex="0">
+        onclick="openStaffModalByIndex(${idx})"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openStaffModalByIndex(${idx});}"
+        role="button" tabindex="0"
+        aria-label="เปิด ${escHtml(x.id)}">
         <span class="vs-duptree-role">${isCanonical ? 'เรื่องหลัก' : 'ซ้ำ'}</span>
         <span class="vs-duptree-id">${escHtml(x.id)}</span>
         <span class="vs-duptree-dept" style="background:${deptColor(x.target_dept)}">${escHtml(deptShort(x.target_dept))}</span>

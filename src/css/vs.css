@@ -330,3 +330,35 @@
   white-space: nowrap;
 }
 .vs-linked-cta:hover { background: #146036; color: #fff; }
+
+/* ==========================================================================
+   VitalSound — responsive / cross-device polish (mobile + iPad).
+   Desktop layout is unchanged; these rules only tighten narrow viewports so
+   the VS surfaces read clearly on phones and iPads for staff AND students.
+   ========================================================================== */
+
+/* Mode toggle (board / report / track) — keep it one clean row on phones
+   instead of a broken wrapped btn-group. */
+@media (max-width: 575.98px) {
+  .vs-mode-toggle { width: 100%; flex-wrap: nowrap; }
+  .vs-mode-toggle .btn { flex: 1 1 0; padding: 0.5rem 0.3rem; font-size: 0.8rem; line-height: 1.2; }
+  .vs-mode-toggle .btn i { margin-right: 0.25rem !important; }
+}
+
+/* Duplicate-cluster tree — never overflow the modal; status truncates, then
+   drops to its own line on phones. */
+.vs-duptree-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+@media (max-width: 575.98px) {
+  .vs-duptree-node { padding: 0.4rem 0.5rem; gap: 0.3rem 0.4rem; }
+  .vs-duptree-status { flex-basis: 100%; }
+  .vs-duptree-here { margin-left: 0; }
+  .vs-duptree-children { margin-left: 0.35rem; padding-left: 0.55rem; }
+}
+
+/* Public linked banner — stack the follow-CTA full-width under the text on
+   the narrowest screens so it stays tappable and never crowds the title. */
+@media (max-width: 479.98px) {
+  .vs-linked-banner.is-public { flex-direction: column; align-items: stretch; }
+  .vs-linked-banner .vs-linked-main { width: 100%; }
+  .vs-linked-cta { width: 100%; justify-content: center; }
+}
