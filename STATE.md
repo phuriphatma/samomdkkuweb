@@ -109,6 +109,13 @@ A's progress to B's submitter, identity-blind.
   ผลการดำเนินการ (resolution box nested under status) → ส่งต่อ & ปรึกษา (transfer+discord+silent) →
   บันทึกข้อความ → เผยแพร่ (secondary, moved last). All element IDs unchanged (verified 24/24) —
   zero JS edits; p-3 phones / p-4 desktop.
+- **iPad screenshot review fixes (DEPLOYED, VM build 3d10f09670a1, commit b3b04d8):** (a) BUG —
+  `.vs-duptree*`/`.vs-modal-section*` were in `vs.css` (public entry only) so the staff modal shipped
+  UNSTYLED in admin (tree = raw text); moved to `vs-admin.css`, verified in the built+deployed admin
+  bundle. mistakes.md "two shells" entry extended with the CSS flavor. (b) UX (user request) —
+  เรื่องซ้ำ tab reordered: tree → SEARCH → suggestions (search was below); full-size `type=search`
+  input; empty-state hint points up. (c) publish panel now hidden entirely on duplicate tickets
+  (was a fully disabled noise panel; the dup banner explains the state).
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
