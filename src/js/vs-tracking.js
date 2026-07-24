@@ -2,7 +2,7 @@
 // VS TRACKING — User ticket tracking & history
 // ==============================================
 
-import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
+import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText } from './utils.js';
 import { db, dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { vsResolution } from './vs-resolution.js';
@@ -212,7 +212,7 @@ function renderUserHistoryList() {
     // status). Keeps the history list consistent with the detail view.
     const phase = VS_PHASES[vsPhaseIndex(t.status)];
     const badgeColor = phase.badge;
-    let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
+    const strippedProblem = stripHtmlToText(t.problem, 120);
 
     // Escape every user-text field. strippedProblem is post-stripped
     // HTML so it's plain text already, but we escape again for safety

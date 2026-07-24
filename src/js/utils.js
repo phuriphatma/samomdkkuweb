@@ -44,6 +44,10 @@ export function renderTimeline(containerId, remarks, ticketDate) {
   remarks.forEach((rem) => {
     const isUser = rem.by === 'ผู้แจ้งปัญหา' || rem.by === 'User' || rem.by === 'ผู้ส่งงาน';
     const isLog = rem.type === 'log';
+    // Legacy VS remarks stored the staff dashboard's internal "all depts"
+    // filter value as the actor ("__all__"). Render it as a human label;
+    // new writes use a real actor label (vs-staff staffActorLabel).
+    const by = rem.by === '__all__' ? 'เจ้าหน้าที่' : rem.by;
 
     const dotColor = isLog ? '#94a3b8' : isUser ? '#22c55e' : '#3b82f6';
     const boxClass = isLog ? 'tl-log' : isUser ? 'tl-remark-user' : 'tl-remark-staff';
@@ -52,8 +56,8 @@ export function renderTimeline(containerId, remarks, ticketDate) {
     // submitter typing into remark/comment textareas) and end up in
     // innerHTML.
     const label = isLog
-      ? `<span class="badge bg-secondary fw-normal">${escHtml(rem.by)}</span>`
-      : `<span class="fw-bold">${escHtml(rem.by)}</span>`;
+      ? `<span class="badge bg-secondary fw-normal">${escHtml(by)}</span>`
+      : `<span class="fw-bold">${escHtml(by)}</span>`;
 
     container.insertAdjacentHTML('beforeend', `
       <div class="mb-4 position-relative">
@@ -102,6 +106,34 @@ export function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * Convert stored rich-text/HTML into clean plain text for snippets.
+ * Strips tags AND decodes the common entities Quill/paste leaves behind —
+ * a bare tag-strip keeps `&nbsp;` etc. as literal text, which then shows
+ * verbatim after escHtml ("อยากให้หอแพทย์ 4&nbsp;&nbsp;เอาขนม…").
+ * Collapses whitespace. Pass `max` to truncate with a real ellipsis
+ * instead of a mid-word hard cut.
+ */
+export function stripHtmlToText(html, max) {
+  let s = String(html == null ? '' : html)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n);
+      return Number.isFinite(code) && code > 0 && code < 0x110000
+        ? String.fromCodePoint(code) : ' ';
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (max && s.length > max) s = `${s.slice(0, max).trimEnd()}…`;
+  return s;
 }
 
 /**

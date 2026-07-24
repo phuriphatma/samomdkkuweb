@@ -4,7 +4,7 @@
 // browser instead.
 
 import { describe, it, expect } from 'vitest';
-import { escHtml, safeUrl, formatThaiDate, decodeJwtResponse } from './utils.js';
+import { escHtml, safeUrl, formatThaiDate, decodeJwtResponse, stripHtmlToText } from './utils.js';
 
 describe('escHtml', () => {
   it('escapes the five HTML-significant characters', () => {
@@ -116,5 +116,24 @@ describe('decodeJwtResponse', () => {
 
   it('throws on malformed base64 payload', () => {
     expect(() => decodeJwtResponse('header.!!!.sig')).toThrow(/decode failed/);
+  });
+});
+
+describe('stripHtmlToText', () => {
+  it('strips tags and decodes entities Quill leaves behind', () => {
+    expect(stripHtmlToText('<p>อยากให้หอแพทย์ 4&nbsp;&nbsp;เอาขนมมาขาย</p>'))
+      .toBe('อยากให้หอแพทย์ 4 เอาขนมมาขาย');
+    expect(stripHtmlToText('a &amp; b &lt;tag&gt; &quot;q&quot; &#39;s&#39;'))
+      .toBe(`a & b <tag> "q" 's'`);
+    expect(stripHtmlToText('&#3648;&#3626;&#3637;&#3618;')).toBe('เสีย');
+  });
+  it('collapses whitespace and truncates with an ellipsis', () => {
+    expect(stripHtmlToText('<p>a</p>\n<p>b</p>')).toBe('a b');
+    expect(stripHtmlToText('hello world', 5)).toBe('hello…');
+    expect(stripHtmlToText('short', 90)).toBe('short');
+  });
+  it('handles null/empty', () => {
+    expect(stripHtmlToText(null)).toBe('');
+    expect(stripHtmlToText('')).toBe('');
   });
 });

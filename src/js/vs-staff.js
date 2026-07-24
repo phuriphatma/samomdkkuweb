@@ -2,7 +2,7 @@
 // VS STAFF — Staff Dashboard for Vital Sound (Supabase-backed)
 // ==============================================
 
-import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
+import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
 import { getUser as authGetUser } from './auth.js';
@@ -238,12 +238,40 @@ export function toggleKanbanDups(id) {
 // Renderers
 // --------------------------------------------------
 
-/** Tickets visible in the current view, respecting the dropdown filter.
- *  Used by both list and kanban renderers — single source of truth so
- *  changing the dropdown updates both surfaces consistently. */
+/** Actor label for timeline remarks + notifications. NEVER the internal
+ *  "__all__" filter value (it used to leak into timelines as the author).
+ *  Prefer the concrete dept filter, else the signed-in user's dept, else
+ *  their display name/username, else a generic label. */
+function staffActorLabel() {
+  if (currentStaffRole && currentStaffRole !== ALL_DEPTS) return currentStaffRole;
+  const u = authGetUser();
+  return u?.department || u?.name || (u?.username ? `@${u.username}` : '') || 'เจ้าหน้าที่';
+}
+
+/** Tickets visible in the current view, respecting the dropdown filter
+ *  AND the free-text search (id / problem / status / dept — same pattern
+ *  as the PR dashboard's prStaffSearch). Single source of truth for the
+ *  kanban renderer. */
 function filteredTickets() {
-  if (currentStaffRole === ALL_DEPTS) return staffTicketsCache;
-  return staffTicketsCache.filter((t) => t.target_dept === currentStaffRole);
+  let list = currentStaffRole === ALL_DEPTS
+    ? staffTicketsCache
+    : staffTicketsCache.filter((t) => t.target_dept === currentStaffRole);
+  const q = (document.getElementById('vsStaffSearch')?.value || '').trim().toLowerCase();
+  if (q) {
+    list = list.filter((t) =>
+      (t.id || '').toLowerCase().includes(q)
+      || stripHtmlToText(t.problem).toLowerCase().includes(q)
+      || (t.status || '').toLowerCase().includes(q)
+      || (t.target_dept || '').toLowerCase().includes(q));
+  }
+  return list;
+}
+
+// Debounced re-render for the search box (wired via oninput in tab-admin.html).
+let vsSearchTimer = null;
+export function onVsStaffSearch() {
+  clearTimeout(vsSearchTimer);
+  vsSearchTimer = setTimeout(renderKanban, 200);
 }
 
 // --------------------------------------------------
@@ -326,7 +354,7 @@ function renderKanban() {
       ? '<div class="vs-kanban-empty">ไม่มี</div>'
       : items.map((t) => {
           const cacheIdx = staffTicketsCache.indexOf(t);
-          const strippedProblem = (t.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 90);
+          const strippedProblem = stripHtmlToText(t.problem, 90);
           const deptC = deptColor(t.target_dept);
           // Top-level dup = its canonical is outside the current filter; keep
           // the "ซ้ำ" badge so the state stays visible.
@@ -344,7 +372,7 @@ function renderKanban() {
           if (dups.length > 0) {
             const rows = !isOpen ? '' : `<div class="vs-kanban-dup-rows">${dups.map((d) => {
               const dIdx = staffTicketsCache.indexOf(d);
-              const dSnippet = (d.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60);
+              const dSnippet = stripHtmlToText(d.problem, 60);
               return `<div class="vs-kanban-dup-row" role="button" tabindex="0"
                   onclick="event.stopPropagation();openStaffModalByIndex(${dIdx})"
                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();openStaffModalByIndex(${dIdx});}">
@@ -729,6 +757,129 @@ async function setTicketPublic(makePublic) {
   renderPublishPanel();
 }
 
+// ----- Category manager (SE publishers; vs_categories CRUD via RLS 0072) -----
+
+let vsCatManagerRows = [];   // last-loaded full rows (incl. inactive)
+
+function vsCatStatus(msg, isError) {
+  const el = document.getElementById('vsCatStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('d-none', !msg);
+  el.classList.toggle('text-danger', !!isError);
+  el.classList.toggle('text-success', !isError && !!msg);
+}
+
+export async function openVsCategoryManager() {
+  if (!isSEPublisher()) return;
+  vsCatStatus('');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('vsCategoryModal')).show();
+  await loadVsCatManager();
+}
+
+async function loadVsCatManager() {
+  const list = document.getElementById('vsCatList');
+  if (!list) return;
+  list.innerHTML = '<div class="text-muted small">กำลังโหลด…</div>';
+  const { data, error } = await dbRest(
+    '/vs_categories?select=id,label,icon,is_confidential,public_eligible,sort_order,is_active&order=sort_order.asc');
+  if (error) {
+    list.innerHTML = '<div class="text-danger small">โหลดหมวดหมู่ไม่สำเร็จ</div>';
+    return;
+  }
+  vsCatManagerRows = Array.isArray(data) ? data : [];
+  renderVsCatManager();
+}
+
+function renderVsCatManager() {
+  const list = document.getElementById('vsCatList');
+  if (!list) return;
+  if (vsCatManagerRows.length === 0) {
+    list.innerHTML = '<div class="text-muted small">ยังไม่มีหมวดหมู่</div>';
+    return;
+  }
+  list.innerHTML = vsCatManagerRows.map((c) => `
+    <div class="vs-cat-row${c.is_active ? '' : ' is-hidden'}" data-cat-id="${escHtml(c.id)}">
+      <input type="text" class="form-control form-control-sm vs-cat-label" maxlength="60"
+        value="${escHtml(c.label)}" ${c.is_active ? '' : 'disabled'} aria-label="ชื่อหมวดหมู่">
+      <button type="button" class="btn btn-sm vs-cat-conf${c.is_confidential ? ' is-on' : ''}"
+        data-cat-conf title="${c.is_confidential ? 'เป็นความลับ — เผยแพร่ไม่ได้ (กดเพื่อเปลี่ยน)' : 'เผยแพร่ได้ (กดเพื่อทำเป็นความลับ)'}">
+        <i class="bi ${c.is_confidential ? 'bi-shield-lock-fill' : 'bi-unlock'}"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-cat-toggle>
+        ${c.is_active ? '<i class="bi bi-eye-slash"></i> ซ่อน' : '<i class="bi bi-eye"></i> แสดง'}
+      </button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.vs-cat-row').forEach((row) => {
+    const id = row.getAttribute('data-cat-id');
+    row.querySelector('.vs-cat-label')?.addEventListener('change', (e) => {
+      vsCatPatch(id, { label: e.target.value.trim() }, 'บันทึกชื่อแล้ว');
+    });
+    row.querySelector('[data-cat-conf]')?.addEventListener('click', () => {
+      const c = vsCatManagerRows.find((x) => x.id === id);
+      if (!c) return;
+      const makeConf = !c.is_confidential;
+      if (makeConf && !confirm(`ทำ "${c.label}" เป็นความลับ?\nหมวดนี้จะเผยแพร่สู่กระดานสาธารณะไม่ได้ และเรื่องที่เผยแพร่อยู่ในหมวดนี้จะหายจากกระดานทันที`)) return;
+      vsCatPatch(id, { is_confidential: makeConf, public_eligible: !makeConf },
+        makeConf ? 'ตั้งเป็นความลับแล้ว' : 'เปิดให้เผยแพร่ได้แล้ว');
+    });
+    row.querySelector('[data-cat-toggle]')?.addEventListener('click', () => {
+      const c = vsCatManagerRows.find((x) => x.id === id);
+      if (!c) return;
+      vsCatPatch(id, { is_active: !c.is_active }, c.is_active ? 'ซ่อนหมวดหมู่แล้ว' : 'แสดงหมวดหมู่แล้ว');
+    });
+  });
+}
+
+async function vsCatPatch(id, patch, okMsg) {
+  if (patch.label !== undefined && !patch.label) { vsCatStatus('ชื่อหมวดหมู่ห้ามว่าง', true); return; }
+  const { data, error } = await dbRest(`/vs_categories?id=eq.${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: patch, prefer: 'return=representation' });
+  if (error || !Array.isArray(data) || data.length === 0) {
+    vsCatStatus('บันทึกไม่สำเร็จ — คุณอาจไม่มีสิทธิ์แก้ไข', true);
+    return;
+  }
+  const i = vsCatManagerRows.findIndex((x) => x.id === id);
+  if (i >= 0) vsCatManagerRows[i] = { ...vsCatManagerRows[i], ...data[0] };
+  vsCategoriesCache = null;          // publish-panel select reloads next paint
+  renderVsCatManager();
+  renderPublishPanel();
+  vsCatStatus(okMsg);
+}
+
+export async function vsCatAdd() {
+  const labelEl = document.getElementById('vsCatNewLabel');
+  const confEl = document.getElementById('vsCatNewConfidential');
+  const label = (labelEl?.value || '').trim();
+  if (!label) { vsCatStatus('กรุณาระบุชื่อหมวดหมู่', true); return; }
+  const isConf = !!confEl?.checked;
+  const maxSort = vsCatManagerRows.reduce((m, c) => Math.max(m, c.sort_order || 0), 0);
+  const row = {
+    id: `cat_${Date.now().toString(36)}`,
+    label,
+    icon: 'bi-tag',
+    is_confidential: isConf,
+    public_eligible: !isConf,
+    sort_order: maxSort + 10,
+    is_active: true,
+  };
+  const { data, error } = await dbRest('/vs_categories',
+    { method: 'POST', body: row, prefer: 'return=representation' });
+  if (error || !Array.isArray(data) || data.length === 0) {
+    vsCatStatus('เพิ่มไม่สำเร็จ — คุณอาจไม่มีสิทธิ์', true);
+    return;
+  }
+  if (labelEl) labelEl.value = '';
+  if (confEl) confEl.checked = false;
+  vsCatManagerRows.push(data[0]);
+  vsCategoriesCache = null;
+  renderVsCatManager();
+  renderPublishPanel();
+  vsCatStatus(`เพิ่ม "${label}" แล้ว`);
+}
+
 /** Lazy-load the similar list the first time the เรื่องซ้ำ tab is shown. */
 function wireSimilarTabOnce() {
   if (similarTabWired) return;
@@ -886,7 +1037,7 @@ async function onUnmergeClick() {
 export async function deleteCurrentVSTicket() {
   if (!currentActiveTicketId) return;
   const ticket = staffTicketsCache.find((t) => t.id === currentActiveTicketId);
-  const hint = ticket ? `"${(ticket.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60)}"` : '';
+  const hint = ticket ? `"${stripHtmlToText(ticket.problem, 60)}"` : '';
   if (!confirm(`ลบ ticket ${currentActiveTicketId} ${hint} ใช่หรือไม่? ไม่สามารถกู้คืนได้`)) return;
 
   // Soft-delete via the RPC (recoverable by admin — NOT surfaced to staff).
@@ -989,24 +1140,26 @@ export async function submitStaffAction() {
     const time = new Date().toLocaleString('en-GB', {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
     });
+    // Human actor label — never the internal "__all__" filter value.
+    const actor = staffActorLabel();
     if (statusChanged) {
-      remarks.push({ type: 'log', by: currentStaffRole, time, text: `เปลี่ยนสถานะ: "${existing.status}" → "${newStatus}"` });
+      remarks.push({ type: 'log', by: actor, time, text: `เปลี่ยนสถานะ: "${existing.status}" → "${newStatus}"` });
     }
     if (deptChanged) {
-      remarks.push({ type: 'log', by: currentStaffRole, time, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` });
+      remarks.push({ type: 'log', by: actor, time, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` });
     }
     if (notifyTo) {
-      remarks.push({ type: 'log', by: currentStaffRole, time, text: `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "${notifyTo}"` });
+      remarks.push({ type: 'log', by: actor, time, text: `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "${notifyTo}"` });
     }
     if (remark) {
-      remarks.push({ type: 'remark', by: currentStaffRole, time, text: remark });
+      remarks.push({ type: 'remark', by: actor, time, text: remark });
     }
     if (willWriteResolution) {
       const meta = vsResolution(resolution);
       // Submitter-visible (NOT internal) — this is the outcome we want the
       // student to read on their tracking view.
       remarks.push({
-        type: 'log', by: currentStaffRole, time,
+        type: 'log', by: actor, time,
         text: `สรุปผลการดำเนินการ: ${meta?.student || resolution}${resNote ? ` — ${resNote}` : ''}`,
       });
     }
@@ -1037,7 +1190,7 @@ export async function submitStaffAction() {
       sendNotify('vs', {
         mode: 'consult',
         ticketId: currentActiveTicketId,
-        role: currentStaffRole,
+        role: actor,
         notifyTo,
         isSilent,
         remark,

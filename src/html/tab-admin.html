@@ -77,6 +77,12 @@
                   <small class="text-muted">คลิกที่การ์ดเพื่อจัดการสถานะปัญหา</small>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <div class="input-group input-group-sm" style="max-width: 260px;">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input id="vsStaffSearch" type="search" class="form-control border-start-0"
+                      placeholder="ค้นหา Ticket ID / ข้อความ…" autocomplete="off"
+                      oninput="onVsStaffSearch()">
+                  </div>
                   <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
                     <option value="__all__">ทุกฝ่าย (All)</option>
