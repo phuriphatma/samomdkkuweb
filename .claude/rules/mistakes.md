@@ -841,6 +841,15 @@ don't double-fetch. (2) Gate the comment banner + unread highlighting on
 single-flight; `src/js/projects/inbox.js` `renderCommentBanner` /
 `renderCommentsList`. When reusing a module in a second shell, audit every
 `activateTab` / `#bootstrap-id` / role assumption against the host shell.
+**CSS flavor of the same trap (2026-07-24)**: styles for an ADMIN-only surface
+(the VS staff modal's `.vs-duptree*` / `.vs-modal-section*`) were added to
+`src/css/vs.css`, which only the PUBLIC entry imports (`main.css`); the admin
+entry loads `src/admin.css` → the new UI shipped completely unstyled on the
+admin app (looked like raw text on iPad). Before styling any component, check
+WHICH html includes its partial (`grep modal-x admin/index.html index.html`)
+and put the CSS in the entry that actually loads it: public-only → `vs.css`
+(via `main.css`), admin-only → e.g. `vs-admin.css` (via `admin.css`), both →
+a file imported by both.
 
 ---
 

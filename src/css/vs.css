@@ -283,33 +283,10 @@
 }
 .vs-linked-banner i { font-size: 1.05rem; flex-shrink: 0; }
 
-/* --- staff duplicate-cluster tree (0074 follow-up) — staff modal only --- */
-.vs-duptree { border: 1px solid #e5e7eb; border-radius: 0.7rem; padding: 0.75rem 0.9rem; background: #fafafa; }
-.vs-duptree-head { font-size: 0.82rem; font-weight: 700; color: #374151; margin-bottom: 0.55rem; }
-.vs-duptree-children {
-  margin-left: 0.7rem; padding-left: 0.8rem;
-  border-left: 2px dashed #d1d5db;
-  display: flex; flex-direction: column; gap: 0.4rem;
-  margin-top: 0.4rem;
-}
-.vs-duptree-node {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
-  padding: 0.4rem 0.6rem; border: 1px solid #e5e7eb; border-radius: 0.55rem;
-  background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s;
-}
-.vs-duptree-node:hover { border-color: #9ca3af; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-.vs-duptree-node.is-canonical { border-color: #bcdcff; background: #f4f9ff; }
-.vs-duptree-node.is-current { outline: 2px solid var(--pink-400, #f472b6); outline-offset: 1px; }
-.vs-duptree-role {
-  font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
-  color: #6b7280; background: #f3f4f6; border-radius: 0.4rem; padding: 0.05rem 0.4rem;
-}
-.vs-duptree-node.is-canonical .vs-duptree-role { color: #1d4ed8; background: #dbeafe; }
-.vs-duptree-id { font-weight: 700; font-size: 0.82rem; color: #111827; }
-.vs-duptree-dept { color: #fff; font-size: 0.68rem; font-weight: 700; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
-.vs-duptree-status { font-size: 0.76rem; color: #6b7280; }
-.vs-duptree-badge.is-public { font-size: 0.68rem; font-weight: 700; color: #166534; background: #dcfce7; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
-.vs-duptree-here { font-size: 0.68rem; font-weight: 700; color: var(--pink-700, #be185d); margin-left: auto; }
+/* NOTE: staff-modal styles (.vs-duptree*, .vs-modal-section*) live in
+   vs-admin.css — the staff modal is included ONLY in the admin entry, which
+   loads admin.css, not this file. Don't re-add admin-only styles here (see
+   mistakes.md "module shared across two shells"). */
 
 /* --- linked banner: public variant with follow CTA (0075) --- */
 .vs-linked-banner.is-public {
@@ -345,16 +322,6 @@
   .vs-mode-toggle .btn i { margin-right: 0.25rem !important; }
 }
 
-/* Duplicate-cluster tree — never overflow the modal; status truncates, then
-   drops to its own line on phones. */
-.vs-duptree-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-@media (max-width: 575.98px) {
-  .vs-duptree-node { padding: 0.4rem 0.5rem; gap: 0.3rem 0.4rem; }
-  .vs-duptree-status { flex-basis: 100%; }
-  .vs-duptree-here { margin-left: 0; }
-  .vs-duptree-children { margin-left: 0.35rem; padding-left: 0.55rem; }
-}
-
 /* Public linked banner — stack the follow-CTA full-width under the text on
    the narrowest screens so it stays tappable and never crowds the title. */
 @media (max-width: 479.98px) {
@@ -363,14 +330,3 @@
   .vs-linked-cta { width: 100%; justify-content: center; }
 }
 
-/* --- staff modal purpose-sections (read → act → route → note → publish) --- */
-.vs-modal-section { padding: 0 0 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid #eef1f4; }
-.vs-modal-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0.25rem; }
-.vs-modal-section-title {
-  display: flex; align-items: center; gap: 0.5rem;
-  font-weight: 700; font-size: 0.95rem; color: #1f2937;
-  margin-bottom: 0.75rem;
-}
-.vs-modal-section-title i { color: var(--pink-600, #237571); font-size: 1rem; }
-/* Publish panel doubles as a section card — keep its own border, drop the divider. */
-#staffPublishPanel.vs-modal-section { border-bottom: 1px solid var(--pink-200) !important; }

@@ -183,21 +183,25 @@
                 style="border-color: var(--pink-200) !important;"></div>
             </div>
 
-            <!-- Tab 3: เรื่องซ้ำ / คล้ายกัน (populated by vs-staff.js) -->
-            <div class="tab-pane fade p-4" id="staff-similar-content" role="tabpanel">
+            <!-- Tab 3: เรื่องซ้ำ / คล้ายกัน (populated by vs-staff.js).
+                 Order: cluster tree (context) → SEARCH (the deliberate action,
+                 user asked for it on top) → auto-suggestions below. -->
+            <div class="tab-pane fade p-3 p-md-4" id="staff-similar-content" role="tabpanel">
               <!-- Duplicate cluster tree (staff-only; staff see the real links).
                    canonical → [duplicates], clickable. Hidden when the ticket has
                    no cluster. Rendered from cache in openStaffModal. -->
               <div id="staffDupTree" class="d-none mb-3"></div>
+
+              <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-search me-1"></i>ค้นหาเรื่องอื่นเพื่อรวม</h6>
+              <input type="search" id="staffMergeSearch" class="form-control mb-2"
+                placeholder="พิมพ์ข้อความ หรือรหัส VS-… แล้วเลือกเรื่องหลักที่จะรวมเข้า" autocomplete="off">
+              <div id="staffSearchResults"><div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div></div>
+
+              <hr class="my-3">
               <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-magic me-1"></i>ระบบแนะนำว่าคล้ายกัน</h6>
               <div id="staffSimilarBody">
                 <div class="text-muted small">เปิดแท็บนี้เพื่อค้นหา…</div>
               </div>
-              <hr class="my-3">
-              <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-search me-1"></i>ค้นหาเรื่องอื่นเพื่อรวม</h6>
-              <input type="text" id="staffMergeSearch" class="form-control form-control-sm mb-2"
-                placeholder="พิมพ์ข้อความ หรือรหัส VS-… แล้วเลือกเรื่องหลักที่จะรวมเข้า" autocomplete="off">
-              <div id="staffSearchResults"><div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div></div>
             </div>
 
           </div>

@@ -606,10 +606,10 @@ async function renderPublishPanel() {
   const isDup = !!t.duplicate_of;
 
   if (isDup) {
-    stateBadge.className = 'badge rounded-pill ms-1 bg-secondary';
-    stateBadge.textContent = 'เป็นเรื่องซ้ำ';
-    [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = true));
-    unpubBtn?.classList.add('d-none');
+    // A duplicate can't be published (only its canonical can). A fully
+    // disabled panel was pure noise on the screenshot review — hide it; the
+    // dup banner in section 1 already explains the state.
+    panel.classList.add('d-none');
     return;
   }
   [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = false));
@@ -721,7 +721,7 @@ function renderSimilar(list) {
   const isDup = currentIsDuplicate();
 
   if (!list.length) {
-    body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน — ลองค้นหาด้านล่าง</div>';
+    body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน — ลองใช้ช่องค้นหาด้านบน</div>';
     return;
   }
   const rows = list.map((s) => mergeTargetRow(s, isDup, Math.round(Number(s.sim || 0) * 100))).join('');
