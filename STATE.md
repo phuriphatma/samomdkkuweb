@@ -51,8 +51,11 @@ public lane): admin-managed `vs_categories` (6 seeded, `personal`=confidential);
   is_public force-set true, direct table reads = 0 rows for anon, publish gate SE-only (vp_admin+student rejected).
 - Isolation test persisted at `tools/vs0072-isolation.mjs` (re-runnable; seeds throwaway rows, asserts, cleans up).
 
-**Phase 2b UI = BUILT (uncommitted on `main`, build+129 tests GREEN, NOT deployed):** unified INTO the VitalSound tab
-(user wanted one system, not a separate tab). The VS tab mode toggle is now 3-way, **board is the default front door**:
+**Phase 2b UI = DEPLOYED to VM 2026-07-24 (build `d3b1f4acbe32`, commits ec31486→8f0dc73 on `main`, 129 tests GREEN).**
+Live-verified: board renders as the VS default view, 5 non-confidential category chips (personal correctly excluded),
+empty state, report-form Quill still renders after the default-view change, no console errors; anon data path
+(categories + get_public_vs_board + me-too 401) confirmed on prod. Unified INTO the VitalSound tab (user wanted one
+system, not a separate tab). The VS tab mode toggle is now 3-way, **board is the default front door**:
 - **กระดานปัญหา (public board)** — new `#vsBoardSection` in `tab-vitalsound.html`; module `src/js/vs-board.js`
   (lazy-loads on first show via a `vs-board-shown` event from `toggleVitalSoundMode`). Cards: category chip + 4-phase
   pill + curated `public_title` + 👥 me-too button (filled if `following`) + 💬 count. Sort hot/new/active, category
@@ -64,9 +67,15 @@ public lane): admin-managed `vs_categories` (6 seeded, `personal`=confidential);
   disabled), public_title, public_note, เผยแพร่/อัปเดต/ยกเลิก. Updates local cache to stay in sync without refetch.
 - **Category manager (part 4) = DEFERRED** — the 6 `vs_categories` are seeded by the migration, so the board works
   end-to-end without a CRUD UI; add an admin manager later (mirror shop_product_types 0057) if categories need editing.
-- **NEXT:** human check in browser (publish a ticket as SE → see it on the board → me-too/comment as a kkumail student),
-  then commit + deploy to VM (client+DB; 0072 already live). Update README key-features + docs/CONTEXT.md AT deploy.
-  Original UX spec artifact 38ee5426-… still the reference.
+- **Bug-scan fixes (commit 8f0dc73, deployed):** (1) SCHEMA — `vs_public_comments.author_user_id` was NOT NULL + ON
+  DELETE SET NULL (contradiction → user-delete would fail); now ON DELETE CASCADE (idempotent ALTER, verified
+  confdeltype=c). (2) FRONTEND — board lazy-loaded once behind a boolean guard → a transient first-load failure left it
+  permanently empty + stale counts; now categories load once (retried) and the board list reloads on every show.
+  (3) pseudonym hash 3→4 hex chars. Also fixed earlier: raw PostgREST JSON leaking into user-facing alerts (pgMsg parse).
+- README key-features + docs/CONTEXT.md UPDATED (commit b468f37).
+- **NEXT (needs a human):** the board is empty until SE publishes — in `/admin/` open a VS ticket → เผยแพร่สู่กระดานปัญหา
+  panel → category + public title → เผยแพร่; then a @kkumail student can เจอเหมือนกัน + comment. Category-manager CRUD
+  (part 4) DEFERRED (6 seeded suffice). Next roadmap slice = resolution reasons on close. UX spec artifact 38ee5426-… .
 
 ### (prior spec, retained) VS BOARD-FIRST "Problem" model — direction notes
 
