@@ -154,6 +154,14 @@ A's progress to B's submitter, identity-blind.
   vs-board.js; green cards with SE-written public_note + N คนได้รับผล); auto-populated by
   publish+resolve; hidden during search (matches always in grid). This REPLACES the old "dashboard"
   idea — showcase individual wins while completion counts are low.
+- **ONE composer + staff-only comments (0078 APPLIED; DEPLOYED, VM build 8f4f05e8ddf3, commit
+  c98b6a7):** the me-too "หมายเหตุ" box + thread composer merged into ONE composer (prominent, under
+  the me-too button; button = ส่งความคิดเห็น; me-too tap focuses it with contextual placeholder).
+  Composer gains "ส่งถึงเจ้าหน้าที่เท่านั้น" → `vs_public_comments.staff_only`; server-enforced:
+  `get_public_vs_problem` returns staff-only comments ONLY to staff (`current_user_is_staff`) or
+  the author (badge "เฉพาะเจ้าหน้าที่"); board count + active-sort count public comments only. Old
+  2-arg `vs_post_public_comment` DROPPED (overload = PGRST203); 3-arg with default. Anon-verified:
+  staff-only comment not returned, count excludes it. Isolation 23/23.
 - **Category = INTERNAL classification (DEPLOYED, VM build 00925bb21c28, commit 7cb576f):** staff
   modal section 2 gains "หมวดหมู่ (ภายใน)" — ANY category assignable incl. 🔒 confidential (its real
   function: tag sensitive tickets; board RPCs guarantee no publish). Publish panel's own select
