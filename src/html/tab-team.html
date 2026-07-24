@@ -290,6 +290,19 @@
             <div class="col-12">
               <label class="form-label" for="teamMemberEmail">KKU Mail</label>
               <input type="email" class="form-control" id="teamMemberEmail" placeholder="name@kkumail.com" />
+              <div class="form-text">ใช้จับคู่ตอนเข้าสู่ระบบด้วย Google — สิทธิ์ด้านล่างจะมีผลเมื่อบุคคลนี้ล็อกอินด้วยอีเมลนี้</div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label mb-1">สิทธิ์เฉพาะบุคคล (เพิ่มจากสิทธิ์ของตำแหน่ง)</label>
+            <div class="team-perm-grid" id="teamMemberPermGrid"></div>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" id="teamMemberPermInherit" checked />
+              <label class="form-check-label" for="teamMemberPermInherit">รับสิทธิ์จากตำแหน่งด้วย</label>
+            </div>
+            <div class="team-perm-inherited d-none mt-2" id="teamMemberPermEffWrap">
+              <small class="text-muted d-block mb-1">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</small>
+              <span id="teamMemberPermEffList"></span>
             </div>
           </div>
           <div class="form-check form-switch mt-3">

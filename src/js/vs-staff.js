@@ -770,7 +770,8 @@ let publishPanelWired = false;
 function isSEPublisher() {
   const u = authGetUser();
   return !!u && (u.role === 'vs_staff' || u.role === 'dev'
-    || (Array.isArray(u.permissions) && u.permissions.includes('vs')));
+    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
+    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
 }
 
 async function loadVsCategories() {
@@ -898,6 +899,7 @@ async function fillStaffTagEditor(t) {
   const u = authGetUser();
   const canManage = !!u && (u.role === 'vs_staff' || u.role === 'dev'
     || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
+    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs'))
     || (u.role === 'vp_admin' && u.department === dept));
   document.getElementById('staffTagLabel').textContent =
     dept ? `แท็กภายใน (${deptShort(dept)})` : 'แท็กภายใน';
@@ -1245,7 +1247,8 @@ function vsTagStatus(msg, isError) {
 function isTagSuperManager() {
   const u = authGetUser();
   return !!u && (u.role === 'vs_staff' || u.role === 'dev'
-    || (Array.isArray(u.permissions) && u.permissions.includes('vs')));
+    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
+    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
 }
 
 /** Open the tag manager for a given dept. Called from the per-ticket editor's

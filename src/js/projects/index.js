@@ -9,7 +9,7 @@
 //   - exposes openProjectsTab() so other modules / hash routing can jump in
 // ==============================================
 
-import { onAuthChange, getUser } from '../auth.js';
+import { onAuthChange, getUser, userCanAccess } from '../auth.js';
 import { listProjects, listDocTypes, getSettings, listMyDocViews } from './api.js';
 import {
   mountInbox, renderInbox, openProjectDetail, openDocumentDetail,
@@ -39,11 +39,11 @@ let cache = {
  *    other 9 VPs see VS for their dept but not Projects). */
 function isAllowed(user) {
   if (!user) return false;
-  if (user.role === 'dev' || user.role === 'uni_staff' || user.role === 'sa_prof') return true;
-  if (user.role === 'vp_admin'
-      && Array.isArray(user.permissions)
-      && user.permissions.includes('projects')) return true;
-  return false;
+  // Single source of truth: role defaults (uni_staff/sa_prof/dev) OR a
+  // 'projects' grant via manual permissions[] OR the SAMO Team tree
+  // (managedPermissions, migration 0081). Mirrors the admin-tab gate and
+  // the projects-write RLS, so the tab, this module, and the DB agree.
+  return userCanAccess('projects', user);
 }
 
 function setView(next) {

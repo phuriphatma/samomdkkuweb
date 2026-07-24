@@ -356,15 +356,32 @@ team_nodes (uuid id PK, parent_id FK team_nodes(id) CASCADE,
             inherit_permissions bool, timestamps)
   ↳ tree depth is unlimited (defined purely by parent_id); kind is cosmetic.
   ↳ permissions ∈ {pr,vs,samoshop,projects,creator,team}. inherit walks up
-    ancestors while inherit_permissions stays true. v1: ORG METADATA ONLY —
-    NOT wired into userCanAccess()/live login yet.
+    ancestors while inherit_permissions stays true.
 
 team_members (uuid id PK, node_id FK team_nodes(id) CASCADE, position int,
               kkumail, prefix, full_name, nickname, student_id, year, major,
               confirmed bool, user_id FK users(id) SET NULL [optional link],
+              permissions text[] [per-person extras, 0081],
+              inherit_permissions bool [also take the node's perms, 0081],
               timestamps)
   ↳ standalone directory rows — most members are NOT app login users.
 ```
+
+**The tree DRIVES real login permissions (migration 0081).** A member's effective
+app-perms = `member.permissions ∪ (member.inherit_permissions ? node_effective)`,
+where node_effective walks ancestors per `inherit_permissions`. These flow to the
+login gate via `public.users.managed_permissions text[]` — a SECOND, server-managed
+permission channel kept SEPARATE from the manual `users.permissions` so the tree can
+revoke its own grants without wiping manual ones. Both gates read the **union**:
+`current_user_has_permission()` (RLS) `= perm = any(permissions) OR any(managed_permissions)`;
+`userCanAccess()` (UI) checks both arrays. Delivery: `sync_my_team_permissions()`
+(SECURITY DEFINER, granted `authenticated`, keyed off the caller's OWN
+`users.email`=kkumail — no client input) is called in `auth.js buildCurrentUser` at
+every login (auto-provision on first kkumail login); a statement-level trigger on
+`team_nodes`/`team_members` (`*_recompute_perms`) rewrites `managed_permissions` for
+every already-logged-in matching account on any perm/structure edit (live update, no
+re-login). `managed_permissions` is guarded in `users_self_update_guard` (client PATCH
+blocked; the two server writers pass via txn-local GUC `app.team_sync='1'`).
 
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag

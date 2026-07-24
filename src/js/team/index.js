@@ -110,6 +110,22 @@ function inheritedPermsFor(nodeId, inheritOn = null) {
   return out;
 }
 
+/** A node's full effective perms = its own perms ∪ what it inherits. */
+function nodeEffectivePerms(nodeId) {
+  const out = new Set(nodesById.get(nodeId)?.permissions || []);
+  inheritedPermsFor(nodeId).forEach((p) => out.add(p));
+  return out;
+}
+
+/** A member's effective app-permissions = their own extras ∪ (if the
+ *  member inherits) the node's effective perms. Mirrors the SQL
+ *  effective_team_permissions_for_email (migration 0081). */
+function memberEffectivePerms(m) {
+  const out = new Set(m.permissions || []);
+  if (m.inherit_permissions !== false) nodeEffectivePerms(m.node_id).forEach((p) => out.add(p));
+  return out;
+}
+
 function isAncestor(maybeAncestor, nodeId) {
   let cur = nodesById.get(nodeId);
   while (cur) {
@@ -196,6 +212,16 @@ function normalizeNodeRow(n) {
   return { ...n, permissions: Array.isArray(perms) ? perms : [], inherit_permissions: n.inherit_permissions !== false };
 }
 
+/** Same array-literal coercion for a realtime member row (0081 added
+ *  team_members.permissions / inherit_permissions). */
+function normalizeMemberRow(m) {
+  let perms = m.permissions;
+  if (typeof perms === 'string') {
+    perms = perms.replace(/^\{|\}$/g, '').split(',').map((s) => s.replace(/^"|"$/g, '')).filter(Boolean);
+  }
+  return { ...m, permissions: Array.isArray(perms) ? perms : [], inherit_permissions: m.inherit_permissions !== false };
+}
+
 function applyRemoteChange(table, payload) {
   const type = payload.eventType || payload.type;
   if (table === 'team_nodes') {
@@ -213,7 +239,7 @@ function applyRemoteChange(table, payload) {
       removeMemberEverywhere(payload.new.id);
       const nid = payload.new.node_id;
       if (!membersByNode.has(nid)) membersByNode.set(nid, []);
-      membersByNode.get(nid).push(payload.new);
+      membersByNode.get(nid).push(normalizeMemberRow(payload.new));
       rebuildMembersIndex();
     }
   }
@@ -385,6 +411,12 @@ function renderMember(m, filter) {
         ${m.confirmed
           ? '<span class="team-tag team-tag-ok"><i class="bi bi-check-circle-fill"></i> ยืนยัน</span>'
           : '<span class="team-tag team-tag-pending">รอยืนยัน</span>'}
+        ${(() => {
+          const eff = [...memberEffectivePerms(m)];
+          return eff.length
+            ? `<span class="team-tag team-tag-perm" title="${escHtml(eff.map((p) => PERM_LABEL[p] || p).join(', '))}"><i class="bi bi-shield-lock"></i> ${eff.length} สิทธิ์</span>`
+            : '';
+        })()}
       </span>
     </span>
     <span class="team-member-actions">
@@ -1009,6 +1041,15 @@ async function onPermSubmit(e) {
 // ============================================================
 
 function wireMemberModal() {
+  const grid = $('teamMemberPermGrid');
+  if (grid) {
+    grid.innerHTML = PERM_CATALOG.map((p) => `
+      <label class="team-perm-opt">
+        <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
+      </label>`).join('');
+    grid.addEventListener('change', refreshMemberPermEff);
+  }
+  $('teamMemberPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
   $('teamMemberDelete')?.addEventListener('click', () => {
     const id = $('teamMemberId').value;
@@ -1031,6 +1072,28 @@ function setMemberNode(nid) {
     label.textContent = nid ? nodePath(nid) : 'เลือกตำแหน่ง…';
     label.classList.toggle('text-muted', !nid);
   }
+  refreshMemberPermEff();  // node choice changes the inherited perms
+}
+
+/** Effective perms the member modal is about to grant, from live inputs:
+ *  checked extras ∪ (inherit ? the selected node's effective perms). */
+function memberEffectiveFromInputs() {
+  const own = [...($('teamMemberPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
+  const set = new Set(own);
+  const nid = $('teamMemberNodeId').value;
+  if ($('teamMemberPermInherit')?.checked && nid) nodeEffectivePerms(nid).forEach((p) => set.add(p));
+  return set;
+}
+
+function refreshMemberPermEff() {
+  const wrap = $('teamMemberPermEffWrap');
+  const list = $('teamMemberPermEffList');
+  if (!wrap || !list) return;
+  const set = memberEffectiveFromInputs();
+  if (set.size) {
+    list.innerHTML = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
+    wrap.classList.remove('d-none');
+  } else wrap.classList.add('d-none');
 }
 
 function openMemberModal({ member = null, nodeId = null } = {}) {
@@ -1045,6 +1108,10 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   $('teamMemberMajor').value = member?.major || '';
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
+  const own = new Set(member?.permissions || []);
+  $('teamMemberPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
+  $('teamMemberPermInherit').checked = member ? member.inherit_permissions !== false : true;
+  refreshMemberPermEff();
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
@@ -1067,6 +1134,8 @@ async function onMemberSubmit(e) {
     major: $('teamMemberMajor').value.trim() || null,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
+    permissions: [...($('teamMemberPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value),
+    inherit_permissions: $('teamMemberPermInherit').checked,
   };
   modalInstance('teamMemberModal')?.hide();
   try {

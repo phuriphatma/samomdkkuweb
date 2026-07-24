@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-24. Slim by design — "what is true right now". Full
+Last updated: 2026-07-25. Slim by design — "what is true right now". Full
 per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
@@ -26,6 +26,34 @@ post-mortems: `.claude/rules/mistakes.md`.
 - No live staff-login browser e2e run for the tag UI yet (optional; see NEXT).
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
   schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
+
+## SAMO TEAM tree now DRIVES login permissions (migration 0081 APPLIED; frontend NOT yet deployed)
+
+The ทีม SAMO org tree (`team_nodes.permissions`/`inherit_permissions`, +NEW
+per-person `team_members.permissions`/`inherit_permissions`) now grants REAL access.
+Previously the tree was cosmetic — nothing linked it to a gate.
+
+- **Channel**: `public.users.managed_permissions text[]` (tree-derived, server-managed)
+  is kept SEPARATE from `permissions` (manual grants). Both gates read the UNION —
+  `current_user_has_permission()` (RLS) and `userCanAccess()` (UI). Additive: the tree
+  can revoke its own grants without wiping manual ones.
+- **Auto + live**: `sync_my_team_permissions()` (definer, granted authenticated, keyed
+  off `auth.uid()`'s own `users.email` = the person's kkumail for Google logins) is
+  called in `auth.js buildCurrentUser` at every login → provisions on first login.
+  A statement-level trigger on the tree (`{team_nodes,team_members}_recompute_perms`)
+  rewrites managed_perms for every already-logged-in matching account on any perm/
+  structure edit → live update, no re-login.
+- **Resolver**: `effective_team_permissions_for_email(email)` = union over the person's
+  member rows of `member.permissions ∪ (member.inherit ? node_effective_permissions(node))`.
+  Verified live: parent node `pr` + member own `samoshop` → `pr,samoshop`.
+- **Guard**: `managed_permissions` added to `users_self_update_guard`; client PATCH
+  blocked, server writers pass via txn-local GUC `app.team_sync='1'`.
+- **UI**: team member modal now has a per-person permission grid + "รับสิทธิ์จากตำแหน่ง"
+  toggle + effective preview; member rows show a shield "N สิทธิ์" tag.
+- **Decisions locked**: auto-grant on any matching kkumail (NO confirm gate); additive
+  coexistence with manual perms. Started with `pr`; all PERM_CATALOG keys work the same.
+- **TODO**: deploy frontend to the VM (DB is already live; old bundle just ignores the
+  new column). No live browser e2e of a real kkumail login yet.
 
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 

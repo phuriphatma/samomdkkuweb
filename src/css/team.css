@@ -276,6 +276,7 @@
 .team-tag-sid { font-variant-numeric: tabular-nums; }
 .team-tag-ok { background: #dcfce7; color: #15803d; }
 .team-tag-pending { background: #fef3c7; color: #b45309; }
+.team-tag-perm { background: #e0e7ff; color: #4338ca; }
 
 /* search highlight */
 .team-tree mark { background: #fff3b0; color: inherit; padding: 0 0.05em; border-radius: 3px; }

@@ -143,8 +143,17 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password,phone&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /managed_permissions/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthManagedPerms) {
+        window.__samoWarnedAuthManagedPerms = true;
+        console.warn('[auth] managed_permissions column missing — apply migration 0081 to enable SAMO Team permission sync.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,has_password,phone&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /phone/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthPhone) {
         window.__samoWarnedAuthPhone = true;
@@ -174,6 +183,22 @@ async function buildCurrentUser(session) {
     }
     if (Array.isArray(data) && data.length > 0) profile = data[0];
   }
+
+  // SAMO Team permission sync (migration 0081): resolve this account's
+  // kkumail against the org tree and write the tree-derived perms into
+  // public.users.managed_permissions. Keyed off auth.uid() server-side —
+  // no client-trusted input. dbRest (not supabase-js) for the same
+  // reason buildCurrentUser avoids the supabase-js PostgREST client here.
+  // Best-effort: on any failure managed perms fall back to the profile
+  // row value (or [] pre-0081), so login never depends on the sync.
+  try {
+    const { data: synced, error: syncErr } = await dbRest(
+      '/rpc/sync_my_team_permissions', { method: 'POST', body: {} },
+    );
+    if (!syncErr && Array.isArray(synced) && profile) {
+      profile.managed_permissions = synced;
+    }
+  } catch (_) { /* ignore — managed perms fall back to the profile value */ }
 
   // Profile may be null briefly right after signup if the create-on-trigger
   // hasn't fired (or for unusual race conditions). Fall back to auth data.
@@ -213,6 +238,9 @@ async function buildCurrentUser(session) {
     // checkout buyer-phone field. Empty string when unset / pre-migration.
     phone: profile?.phone || '',
     permissions: Array.isArray(profile?.permissions) ? profile.permissions : [],
+    // Tree-derived perms from the SAMO Team org tree (migration 0081).
+    // Stacks with `permissions` at the gate — see userCanAccess().
+    managedPermissions: Array.isArray(profile?.managed_permissions) ? profile.managed_permissions : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
 }
@@ -230,7 +258,9 @@ async function buildCurrentUser(session) {
  *     sa_prof     → 'projects' (professor signing seat; RLS narrows
  *                   his view to only หนังสือ sent to him)
  *     dev         → everything
- * - Plus anything in user.permissions stacks on top.
+ * - Plus anything in user.permissions (manual grants) OR
+ *   user.managedPermissions (SAMO Team tree, migration 0081) stacks on
+ *   top. The DB gate current_user_has_permission() reads the same union.
  *
  * Use this for UI gating; the database RLS is the real boundary.
  */
@@ -247,6 +277,7 @@ export function userCanAccess(feature, user = currentUser) {
   }[user.role] || [];
   if (roleDefaults.includes(feature)) return true;
   if (Array.isArray(user.permissions) && user.permissions.includes(feature)) return true;
+  if (Array.isArray(user.managedPermissions) && user.managedPermissions.includes(feature)) return true;
   return false;
 }
 
