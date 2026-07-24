@@ -38,6 +38,39 @@
               <div id="staffDupBanner" class="d-none mb-3"></div>
               <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
 
+              <!-- PUBLIC BOARD publish panel (SE only; hidden for vp_admin).
+                   Publishes this canonical to the student-facing กระดานปัญหา with
+                   an SE-written headline. Confidential categories are rejected by
+                   vs_set_public (0072). -->
+              <div id="staffPublishPanel" class="border rounded-3 p-3 mb-4 d-none"
+                style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
+                <h6 class="fw-bold mb-2"><i class="bi bi-megaphone-fill me-2"></i>เผยแพร่สู่กระดานปัญหา (สาธารณะ)
+                  <span id="staffPubState" class="badge rounded-pill ms-1"></span></h6>
+                <p class="text-muted small mb-2">นักศึกษาจะเห็นเฉพาะ “หัวข้อสาธารณะ” ที่คุณเขียน + สถานะ 4 ระยะ — ไม่เห็นข้อความดิบหรือผู้แจ้ง</p>
+                <div class="row g-2">
+                  <div class="col-md-5">
+                    <label class="form-label small mb-1">หมวดหมู่</label>
+                    <select id="staffPubCategory" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-md-7">
+                    <label class="form-label small mb-1">หัวข้อสาธารณะ <span class="text-danger">*</span></label>
+                    <input type="text" id="staffPubTitle" class="form-control form-control-sm" maxlength="160"
+                      placeholder="เช่น WiFi ชั้น 4 หลุดบ่อย" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small mb-1">หมายเหตุ/ผลการดำเนินการ (ไม่บังคับ)</label>
+                    <input type="text" id="staffPubNote" class="form-control form-control-sm" maxlength="300"
+                      placeholder="เช่น อยู่ระหว่างประสานงานกับฝ่าย IT" />
+                  </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="button" id="staffPubSaveBtn" class="btn btn-sm btn-submit">
+                    <i class="bi bi-megaphone me-1"></i>เผยแพร่</button>
+                  <button type="button" id="staffPubUnpublishBtn" class="btn btn-sm btn-outline-secondary d-none">
+                    <i class="bi bi-eye-slash me-1"></i>ยกเลิกการเผยแพร่</button>
+                </div>
+              </div>
+
               <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
               <div class="row g-3 mb-2">
                 <div class="col-md-6">

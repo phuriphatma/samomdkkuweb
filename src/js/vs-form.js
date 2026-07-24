@@ -184,10 +184,14 @@ async function copyVsTicket() {
 // --------------------------------------------------
 
 export function toggleVitalSoundMode() {
+  const isBoard = document.getElementById('vsModeBoard')?.checked;
   const isReport = document.getElementById('vsModeReport').checked;
   const isTrack = document.getElementById('vsModeTrack').checked;
+  document.getElementById('vsBoardSection')?.classList.toggle('d-none', !isBoard);
   document.getElementById('vsReportSection').classList.toggle('d-none', !isReport);
   document.getElementById('vsTrackSection').classList.toggle('d-none', !isTrack);
+  // Lazy-load the public board the first time it's shown.
+  if (isBoard) window.dispatchEvent(new CustomEvent('vs-board-shown'));
 }
 
 // --------------------------------------------------

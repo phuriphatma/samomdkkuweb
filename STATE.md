@@ -4,6 +4,155 @@ Last updated: 2026-07-23. Slim by design — "what is true right now",
 not a project diary. Session narratives live in `git log`; architecture
 in `docs/CONTEXT.md`; bug post-mortems in `.claude/rules/mistakes.md`.
 
+## VITALSOUND — submitter-facing status (4-phase stepper), service-desk direction (2026-07-24, NOT deployed)
+
+Product direction locked with user: VS is a **service-desk / case-management** system,
+NOT a GitHub issue tracker. Borrow only two GitHub mechanics (duplicate-linking — already
+shipped 0068–0071; and close-with-reason — future slice). The 9 internal staff statuses
+STAY the source of truth (user explicitly confirmed "I still want the 9"); the staff kanban
+is unchanged.
+
+**Slice 1 DONE (client-only, no migration):** the STUDENT tracking view now shows a friendly
+4-phase progress stepper derived from the 9 statuses — ส่งเรื่อง / รับเรื่อง / ดำเนินการ /
+เสร็จสิ้น. The exact status is still shown as a caption ("สถานะโดยละเอียด: …") so nothing is
+hidden. Mapping (`vsPhaseIndex` in `vs-tracking.js`): เสร็จสิ้น→3; ดำเนินการ/ติดต่อคณะ→2;
+SE รับเรื่องแล้ว/อุปนายก*/ปฏิเสธ(ส่งคืน SE)→1 (bounce = still "under review", not terminal);
+รอ SE รับเรื่อง + unknown/legacy→0. Headline badge + history-list badge now colour by phase
+(text still the exact status). Code: `src/js/vs-tracking.js` (`VS_PHASES`, `vsPhaseIndex`,
+`renderVsStepper`, `renderUserDashboard`, `renderUserHistoryList`), `src/html/tab-vitalsound.html`
+(`#dashStepper`), new `src/css/vs.css` (imported in `main.css`; uses `--pink-*` → teal via
+`.vs-tab`). New test `src/js/vs-phase.test.js` (12 cases). `npm run build && npm test` GREEN
+(129 tests). **UNCOMMITTED in the working tree on `main`; not deployed to VM.** Files touched:
+`src/js/vs-tracking.js`, `src/html/tab-vitalsound.html`, `src/css/vs.css` (new), `src/main.css`
+(import), `src/js/vs-phase.test.js` (new). (Also pre-existing uncommitted: mistakes.md,
+mistakes-archive.md, server/nginx-samo.conf — not from this work.)
+
+**Next slices (service-desk roadmap, agreed order):** (2) resolution reasons on close
+(fixed / forwarded-to-faculty / won't-do+reason / duplicate — needs a small migration +
+staff-modal change, shown to student); (3) assignee/owner within a dept; (4) transition
+guards drive the status dropdown (valid next-states only). Public board = Phase 2 below.
+
+### VS BOARD-FIRST "Problem" model — Phase 2a (schema+RLS+RPCs) BUILT + APPLIED + isolation-proven 2026-07-24; UI = NEXT
+
+**Phase 2a DONE (migration 0072 `0072_vs_public_board.sql`, APPLIED to live DB, NOT yet used by any UI — additive, safe to be live):**
+All THREE product decisions locked to the recommended defaults + comments added (user chose the forum-ish
+public lane): admin-managed `vs_categories` (6 seeded, `personal`=confidential); **SE-only publish / any-staff hide**;
+**me-too = kkumail**; **public comments = non-confidential only, kkumail, pseudonymous-to-peers, staff-moderated**.
+- New: `vs_categories` (ref table, RLS read-all/write-staff), `vs_tickets.{category,is_public,public_title,public_note}`,
+  `vs_followers(canonical_id,user_id)` PK, `vs_public_comments` (char_length CHECK, `hidden` moderation).
+- Public RPCs (anon+auth, curated projection ONLY, confidential re-excluded via `vs_categories` join): `get_public_vs_board`,
+  `search_public_vs` (similarity on **public_title only** — never raw problem), `get_public_vs_problem` (returns jsonb,
+  comments pseudonymised `นศ.<hash>` / `เจ้าหน้าที่`, never user_id). `vs_public_phase()` mirrors client `vsPhaseIndex`.
+- Action RPCs (fail-closed on null role): `vs_add_me_too`/`vs_remove_me_too` (kkumail), `vs_post_public_comment` (kkumail,
+  is_staff server-computed, 5/min anti-flood), `vs_set_public` (SE-only, rejects confidential + requires public_title),
+  `vs_hide_public_comment` (any-staff).
+- **Isolation proof: 23/23 PASS** (`scratchpad/vs0072-isolation.mjs` — anon vs kkumail-student vs SE vs vp_admin on
+  throwaway rows, then cleaned up). Confirmed: no raw-text leak on board/detail, confidential hard-excluded even when
+  is_public force-set true, direct table reads = 0 rows for anon, publish gate SE-only (vp_admin+student rejected).
+- Isolation test persisted at `tools/vs0072-isolation.mjs` (re-runnable; seeds throwaway rows, asserts, cleans up).
+
+**Phase 2b UI = BUILT (uncommitted on `main`, build+129 tests GREEN, NOT deployed):** unified INTO the VitalSound tab
+(user wanted one system, not a separate tab). The VS tab mode toggle is now 3-way, **board is the default front door**:
+- **กระดานปัญหา (public board)** — new `#vsBoardSection` in `tab-vitalsound.html`; module `src/js/vs-board.js`
+  (lazy-loads on first show via a `vs-board-shown` event from `toggleVitalSoundMode`). Cards: category chip + 4-phase
+  pill + curated `public_title` + 👥 me-too button (filled if `following`) + 💬 count. Sort hot/new/active, category
+  chips, debounced search (`search_public_vs`). Click → detail: `renderVsStepperByPhase` (exported from vs-tracking) +
+  me-too + pseudonymous comment thread + composer (kkumail-gated; anon sees a sign-in CTA). All untrusted text escHtml'd.
+  Window fns wired in `main.js` (`vsBoard*`, `vsPostComment`). CSS appended to `src/css/vs.css` (teal via `.vs-tab`, light-only).
+- **SE publish control (part 3)** — `#staffPublishPanel` in `modal-vs-staff.html` detail tab + logic in `vs-staff.js`
+  (`renderPublishPanel`/`setTicketPublic`, `isSEPublisher` gate → hidden for vp_admin). Category select (confidential
+  disabled), public_title, public_note, เผยแพร่/อัปเดต/ยกเลิก. Updates local cache to stay in sync without refetch.
+- **Category manager (part 4) = DEFERRED** — the 6 `vs_categories` are seeded by the migration, so the board works
+  end-to-end without a CRUD UI; add an admin manager later (mirror shop_product_types 0057) if categories need editing.
+- **NEXT:** human check in browser (publish a ticket as SE → see it on the board → me-too/comment as a kkumail student),
+  then commit + deploy to VM (client+DB; 0072 already live). Update README key-features + docs/CONTEXT.md AT deploy.
+  Original UX spec artifact 38ee5426-… still the reference.
+
+### (prior spec, retained) VS BOARD-FIRST "Problem" model — direction notes
+
+The dashboard + public/private + search-similar threads are ONE feature: a **board-first
+"Problem" model** — the recommended best workflow (better than GitHub for this domain).
+Prior-session mockup (READ IT FIRST next session, it's the UX spec):
+**"VitalSound — Board-first Duplicate & Visibility Design"**
+https://claude.ai/code/artifact/38ee5426-2e3e-4349-a11a-f84f75da8fc6 (owned by user; update in
+place, don't mint new). Also: usage-stats preview 7a3b948e-…, passport gate f050294b-… .
+
+**The model:** VitalSound's home becomes a browsable/sortable/filterable board of **Problems**
+(hot / newest / most-affected / by-status), like GitHub Issues + Reddit. A "Problem" IS the
+0068 **canonical** vs_ticket; its duplicates are the individual reports. 100 reports of the
+same thing collapse to ONE Problem with a 👥100 "เจอ" counter, floated to top. Staff work the
+Problem, not 100 tickets. Reuses the slice-1 **4-phase stepper** for the public status display.
+
+**Why better than GitHub:** keeps only 2 GitHub mechanics — duplicate-linking (built, 0068)
++ close-with-reason (public outcome line). Adds 3 things GitHub can't: (1) me-too **aggregation**
+(100→1), (2) a **confidential lane** (sensitive reports never hit the board / never fingerprinted
+— the 0071 rule), (3) **curated publication** (public card shows an SE-written title + status,
+NEVER the student's raw text).
+
+**LOAD-BEARING SECURITY INVARIANTS (public board = new world-readable surface; 0071 history):**
+1. Public = a **curated projection**, never the raw ticket. Public RPC returns ONLY
+   `public_title` (SE-written) + category + status-phase + count. NEVER `problem`, submitter
+   identity, `remarks`, `duplicate_of`, or the individual reports.
+2. **SE writes the public_title**, not the student — raw report never auto-published verbatim.
+3. **Confidential categories are hard-blocked** from `is_public` at the DB layer AND excluded
+   from ALL similarity search (don't fingerprint sensitive reports — 0071).
+
+**Phase 2 data model (schema-first; reuses 0068; next migration ~0072):**
+- `vs_tickets.category` — NEW (board filter + eligibility). Today only `requested_dept` exists.
+- `vs_tickets.is_public` (SE-set, canonicals only), `public_title`, `public_note`.
+- `vs_followers(canonical_id text, user_id uuid)` PK(both) — the "me too +1" (dedup by user,
+  notify on resolve).
+- RPCs (ALL SECURITY DEFINER, fail-closed on null role per 0045): `get_public_vs_board()` /
+  `search_public_vs()` (anon+kkumail, sanitized, `is_public` only) · `vs_add_me_too()` (kkumail,
+  public-only, fails closed on private) · `vs_set_public()` (SE-only, rejects confidential
+  categories). The staff-side `search_vs_tickets`/`find_similar_vs_tickets` (0070/0068) stay
+  ALL-tickets and SEPARATE from the public search. Build schema+RLS first, prove isolation on
+  throwaway rows (guest-vs-staff-vs-anon), THEN UI — same discipline as passport.
+
+**THREE OPEN PRODUCT DECISIONS (asked, user deferred to next session — ASK THESE FIRST):**
+1. **Categories / public-eligibility** — RECOMMENDED: admin-managed `vs_categories` reference
+   table (mirror shop_product_types 0057) with per-category `is_confidential` + `public_eligible`
+   flags; seed the 6 from the mockup (อาคารสถานที่ · สิ่งอำนวยความสะดวก · IT/เครือข่าย · หลักสูตร ·
+   ข้อเสนอแนะ · เรื่องส่วนตัว/ร้องเรียนบุคคล[confidential]). Alt: seeded constant (rots — see
+   reserved-username mistake) / no categories (loses filter + confidential guarantee).
+2. **Publish gate** — RECOMMENDED: **SE-only publish, any-staff hide** (matches mockup). Alt:
+   SE + owning-dept VP (more editorial surface, re-check 0069 dept scope) / dev-only initially.
+3. **Me-too** — RECOMMENDED: **requires @kkumail login** (1 per student, notify-on-resolve,
+   trustworthy count). Alt: anonymous increment (spoofable, no notify — like notify_log anon
+   exposure).
+
+## DRIVE IMAGES → lh3 CDN so ประกาศ/shop covers load on iOS Safari (live VM 2a29b87, 2026-07-24)
+
+ประกาศ + SAMO Shop images intermittently blank on iPad (fine on desktop; the URL
+opened fine when tapped directly; a refresh recovered them). Cause: images embedded
+as `drive.google.com/thumbnail?id=…&sz=w2000`, which 302-redirects to googleusercontent
+— iOS Safari drops the redirected `<img>` subresource on a cold cache. Fix:
+`convertDriveUrl` now emits the redirect-free `lh3.googleusercontent.com/d/<id>=w1200`
+and runs at RENDER time too, so it rewrites legacy `thumbnail?id=` URLs already in the
+DB (no data migration). Applied at every Drive-image render site (announcements,
+departments, shop products/banner/grid, shop-admin). Built + 117 tests pass; deployed to
+samoweb on the VM; live shop verified serving lh3. **Needs iPad confirmation from user
+(may require clearing the old cached HTML/bundle first).** New mistakes.md entry.
+
+Also this session (passport repo, separate): added "← back to SAMO portal" nav across
+passport surfaces (commit 15a4d58, live at /passport/).
+
+## PASSPORT old-QR scans fixed — nginx clean-URL fallback (live VM, 2026-07-23)
+
+Old printed passport QR codes stopped stamping points/activities; freshly-generated
+QRs worked. Root cause: old QRs encode the **extensionless** path
+`/passport/html/scan?aid=..&tk=..` (Cloudflare Pages served clean URLs), but the VM
+nginx `location /passport/` had `try_files $uri $uri/ /passport/index.html` with **no
+`$uri.html` fallback** → nginx skipped `scan.html` and served the home page → scan
+logic never ran. New QRs use `ROUTES.SCAN = .../html/scan.html` (with extension) so
+they resolved. Fix: added `$uri.html` to the passport `try_files`
+(`server/nginx-samo.conf` **and applied live** to `/etc/nginx/sites-available/default`
+— backup at `/tmp/nginx-default.20260723-152609.bak`, `nginx -t` + graceful reload,
+curl-verified). `static_token` is never rotated, so old tokens still match. New
+mistakes.md entry. **Working-tree edit to `server/nginx-samo.conf` is uncommitted.**
+Open UX nit (not done): scans still hit the 30s "we've moved" splash on `pages.dev`
+before forwarding — functional now, but a scan could skip the interstitial.
+
 ## VITALSOUND DEDUP — Phase 1 (staff-side merge/similar), migration 0068 (2026-07-23)
 
 Manage duplicate VS reports WITHOUT changing the SE↔VP routing workflow (purely additive).

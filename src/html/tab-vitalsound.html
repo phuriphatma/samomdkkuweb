@@ -11,10 +11,14 @@
             </p>
           </div>
 
-          <!-- Toggle โหมด VS -->
+          <!-- Toggle โหมด VS — board is the front door (transparency + dedup). -->
           <div class="d-flex justify-content-center mb-4">
             <div class="btn-group shadow-sm flex-wrap" role="group">
-              <input type="radio" class="btn-check" name="vsMode" id="vsModeReport" autocomplete="off" checked
+              <input type="radio" class="btn-check" name="vsMode" id="vsModeBoard" autocomplete="off" checked
+                onchange="toggleVitalSoundMode()" />
+              <label class="btn btn-outline-danger px-3" for="vsModeBoard" style="border-color: var(--pink-500)"><i
+                  class="bi bi-grid-1x2-fill me-1"></i>กระดานปัญหา</label>
+              <input type="radio" class="btn-check" name="vsMode" id="vsModeReport" autocomplete="off"
                 onchange="toggleVitalSoundMode()" />
               <label class="btn btn-outline-danger px-3" for="vsModeReport" style="border-color: var(--pink-500)"><i
                   class="bi bi-megaphone me-1"></i>แจ้งปัญหาใหม่</label>
@@ -25,8 +29,52 @@
             </div>
           </div>
 
+          <!-- SECTION 0: PUBLIC PROBLEM BOARD -->
+          <div id="vsBoardSection">
+            <!-- LIST VIEW -->
+            <div id="vsBoardListView">
+              <p class="text-center text-muted small mb-3">
+                ปัญหาที่ SAMO กำลังดำเนินการอยู่ — กด "เจอเหมือนกัน" เพื่อบอกว่าคุณก็พบปัญหานี้
+                หรือร่วมพูดคุยได้ (ไม่แสดงชื่อจริง)
+              </p>
+              <div class="vs-board-controls mb-3">
+                <div class="input-group input-group-sm mb-2 vs-board-search">
+                  <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                  <input type="text" id="vsBoardSearch" class="form-control" placeholder="ค้นหาปัญหาที่เปิดเผย..."
+                    autocomplete="off" oninput="vsBoardSearch(this.value)" />
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                  <div id="vsBoardCats" class="d-flex flex-wrap gap-1"></div>
+                  <div class="btn-group btn-group-sm vs-board-sort" role="group">
+                    <input type="radio" class="btn-check" name="vsBoardSort" id="vsSortHot" checked
+                      onchange="vsBoardSetSort('hot')" />
+                    <label class="btn btn-outline-secondary" for="vsSortHot"><i class="bi bi-fire me-1"></i>ยอดนิยม</label>
+                    <input type="radio" class="btn-check" name="vsBoardSort" id="vsSortNew"
+                      onchange="vsBoardSetSort('new')" />
+                    <label class="btn btn-outline-secondary" for="vsSortNew">ล่าสุด</label>
+                    <input type="radio" class="btn-check" name="vsBoardSort" id="vsSortActive"
+                      onchange="vsBoardSetSort('active')" />
+                    <label class="btn btn-outline-secondary" for="vsSortActive">คึกคัก</label>
+                  </div>
+                </div>
+              </div>
+              <div id="vsBoardList" class="row g-3"></div>
+              <div id="vsBoardEmpty" class="text-center text-muted py-5 d-none">
+                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                <span id="vsBoardEmptyMsg">ยังไม่มีปัญหาที่เปิดเผยในขณะนี้</span>
+              </div>
+            </div>
+
+            <!-- DETAIL VIEW (one Problem) -->
+            <div id="vsProblemDetail" class="d-none">
+              <button type="button" class="btn btn-link btn-sm text-decoration-none ps-0 mb-2"
+                onclick="vsBoardBack()"><i class="bi bi-arrow-left me-1"></i>กลับกระดานปัญหา</button>
+              <div id="vsProblemBody"></div>
+            </div>
+          </div>
+
           <!-- SECTION 1: REPORT PROBLEM FORM -->
-          <div id="vsReportSection">
+          <div id="vsReportSection" class="d-none">
             <div id="reportAlertBox" class="alert alert-danger d-none shadow-sm fw-bold"></div>
             <form id="vitalSoundForm">
               <h4 class="section-title"><i class="bi bi-person-lines-fill me-2"></i>ข้อมูลผู้แจ้ง (ไม่บังคับ)</h4>
@@ -245,6 +293,9 @@
                 <span id="dashStatusBadge"
                   class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2 shadow-sm">Status</span>
               </div>
+              <!-- Submitter-facing progress: 4 friendly phases derived from the
+                   9 internal staff statuses (staff board unchanged). -->
+              <div id="dashStepper" class="vs-stepper-wrap mb-4"></div>
               <div class="card mb-4 border-0 shadow-sm">
                 <div class="card-body bg-light rounded" style="max-height: 400px; overflow-y: auto">
                   <p class="mb-1 text-muted small"><strong id="dashTicketDate">วันที่แจ้ง:</strong></p>

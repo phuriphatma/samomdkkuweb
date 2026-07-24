@@ -23,6 +23,7 @@ import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopo
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
 import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
+import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vsBoardBack, vsBoardMeToo, vsPostComment } from './vs-board.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initProjectsView } from './projects-view.js';
@@ -95,6 +96,9 @@ initVsForm(vsQuill);
 // ยินยอม / ไม่ยินยอม buttons; the popup is triggered on every send attempt
 // from inside vs-form.js (handleVsFormSubmit), not on tab view.
 initVsConsent();
+// PUBLIC Problem board (lazy-loads on first show; primes now if it's the
+// default-visible mode of the active VitalSound tab).
+initVsBoard();
 
 // ==============================================
 // ATTACH FUNCTIONS TO WINDOW
@@ -293,6 +297,15 @@ window.loginToViewHistory = loginToViewHistory;
 window.submitUserRemark = submitUserRemark;
 window.openTicketDetail = openTicketDetail;
 window.logoutTrack = logoutTrack;
+
+// VS public Problem board (PUBLIC — browse/me-too/comment)
+window.vsBoardSearch = vsBoardSearch;
+window.vsBoardSetSort = vsBoardSetSort;
+window.vsBoardCat = vsBoardCat;
+window.vsBoardOpen = vsBoardOpen;
+window.vsBoardBack = vsBoardBack;
+window.vsBoardMeToo = vsBoardMeToo;
+window.vsPostComment = vsPostComment;
 
 // VS Staff handlers moved to /admin/.
 window.fetchStaffTickets = () => { location.href = '/admin/#vs'; };

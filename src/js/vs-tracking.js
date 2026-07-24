@@ -10,6 +10,63 @@ let currentActiveTicketId = null;
 let canUserReply = false;
 let loggedInUserTickets = [];
 
+// --------------------------------------------------
+// Submitter-facing phase model
+//
+// The 9 internal staff statuses (see vs-staff.js KANBAN_COLUMNS) stay the
+// source of truth — the staff board is unchanged. For the STUDENT tracking
+// view we collapse those 9 into 4 human phases so a submitter sees a clear
+// progress story instead of internal routing jargon. The exact status is
+// still shown as a caption, so nothing is hidden.
+//
+//   0 ส่งเรื่อง   — รอ SE รับเรื่อง (+ any unknown/legacy early status)
+//   1 รับเรื่อง   — SE รับเรื่องแล้ว, รออุปนายก*, อุปนายกรับเรื่องแล้ว,
+//                   ปฏิเสธ (ส่งคืน SE)  ← a re-consideration bounce, not terminal
+//   2 ดำเนินการ  — กำลังดำเนินการ, กำลังติดต่อคณะ
+//   3 เสร็จสิ้น   — เสร็จสิ้น
+// --------------------------------------------------
+
+export const VS_PHASES = [
+  { key: 'submitted', label: 'ส่งเรื่อง',  desc: 'ส่งเรื่องแล้ว รอเจ้าหน้าที่รับเรื่อง',   badge: 'bg-warning text-dark' },
+  { key: 'reviewing', label: 'รับเรื่อง',  desc: 'เจ้าหน้าที่กำลังพิจารณาเรื่องของคุณ',    badge: 'bg-info text-dark' },
+  { key: 'working',   label: 'ดำเนินการ', desc: 'กำลังดำเนินการแก้ไขปัญหาของคุณ',        badge: 'bg-primary' },
+  { key: 'done',      label: 'เสร็จสิ้น',  desc: 'ดำเนินการเสร็จสิ้น',                    badge: 'bg-success' },
+];
+
+// Order of checks matters — most-advanced phase wins. "เสร็จสิ้น" first so a
+// completed ticket never falls into an earlier branch; then the ดำเนินการ
+// band; then anything that reached SE/VP; else the initial ส่งเรื่อง phase.
+export function vsPhaseIndex(status) {
+  const s = status || '';
+  if (s.includes('เสร็จสิ้น')) return 3;
+  if (s.includes('ดำเนินการ') || s.includes('ติดต่อคณะ')) return 2;
+  if (s.includes('SE รับเรื่องแล้ว') || s.includes('อุปนายก') || s.includes('ปฏิเสธ')) return 1;
+  return 0;
+}
+
+// Build the 4-node progress stepper. A node is "done" when its phase has
+// been passed, "active" (pulsing) when it's the current phase, else pending.
+// When the ticket is complete (phase 3) the last node reads done, not active.
+function renderVsStepper(status) {
+  return renderVsStepperByPhase(vsPhaseIndex(status));
+}
+
+// Same stepper, driven by an explicit 0..3 phase index. Used by the public
+// board (get_public_vs_board returns a phase, never the raw status).
+export function renderVsStepperByPhase(idx) {
+  const isComplete = idx === 3;
+  return `<div class="vs-stepper" role="list">` + VS_PHASES.map((p, i) => {
+    let cls = 'vs-step';
+    let inner = String(i + 1);
+    if (i < idx || (i === idx && isComplete)) { cls += ' is-done'; inner = '<i class="bi bi-check-lg"></i>'; }
+    else if (i === idx) { cls += ' is-active'; }
+    return `<div class="${cls}" role="listitem">
+        <span class="vs-step-dot">${inner}</span>
+        <span class="vs-step-label">${escHtml(p.label)}</span>
+      </div>`;
+  }).join('') + `</div>`;
+}
+
 // Map a vs_tickets DB row to the legacy shape rendererers expect.
 function rowToTicket(r) {
   return {
@@ -128,8 +185,10 @@ function renderUserHistoryList() {
   if (loggedInUserTickets.length === 0) { listContainer.innerHTML = '<div class="col-12 text-center text-muted mt-4">คุณยังไม่มีประวัติการแจ้งปัญหาในระบบ</div>'; return; }
 
   loggedInUserTickets.forEach((t) => {
-    let badgeColor = t.status.includes('เสร็จสิ้น') ? 'success' : t.status.includes('รอ') ? 'warning text-dark' : 'primary';
-    if (t.status.includes('ด่วน') || t.status.includes('ปฏิเสธ')) badgeColor = 'danger';
+    // Colour by submitter-facing phase (badge text still shows the exact
+    // status). Keeps the history list consistent with the detail view.
+    const phase = VS_PHASES[vsPhaseIndex(t.status)];
+    const badgeColor = phase.badge;
     let strippedProblem = t.problem.replace(/<[^>]+>/g, ' ');
 
     // Escape every user-text field. strippedProblem is post-stripped
@@ -139,7 +198,7 @@ function renderUserHistoryList() {
       <div class="col-md-6">
         <div class="card shadow-sm border-0 h-100" style="cursor: pointer;" onclick="openTicketDetail('${escHtml(t.id)}')">
           <div class="card-body">
-            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${escHtml(t.id)}</span><span class="badge bg-${badgeColor}">${escHtml(t.status)}</span></div>
+            <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-pink-custom">${escHtml(t.id)}</span><span class="badge ${badgeColor}">${escHtml(t.status)}</span></div>
             <p class="small text-muted mb-1"><i class="bi bi-clock"></i> ${escHtml(t.date)}</p>
             <p class="card-text small text-truncate">${escHtml(strippedProblem)}</p>
           </div>
@@ -172,16 +231,22 @@ export function openTicketDetail(ticketId) {
 
 function renderUserDashboard(ticket) {
   document.getElementById('dashTicketId').innerText = `Ticket #${ticket.id}`;
-  let badgeClass = 'bg-secondary';
-  if (ticket.status.includes('รอ')) badgeClass = 'bg-warning text-dark';
-  if (ticket.status.includes('ด่วน')) badgeClass = 'bg-danger';
-  if (ticket.status.includes('ดำเนินการ') || ticket.status.includes('ติดต่อคณะ')) badgeClass = 'bg-primary';
-  if (ticket.status.includes('เสร็จสิ้น')) badgeClass = 'bg-success';
-  if (ticket.status.includes('ปฏิเสธ')) badgeClass = 'bg-danger';
 
+  // Friendly phase (derived from the exact status) drives the headline badge
+  // and the stepper; the exact 9-status value is still shown as a caption.
+  const idx = vsPhaseIndex(ticket.status);
+  const phase = VS_PHASES[idx];
   const statusBadge = document.getElementById('dashStatusBadge');
-  statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${badgeClass}`;
-  statusBadge.innerText = ticket.status;
+  statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${phase.badge}`;
+  statusBadge.innerText = phase.label;
+
+  const stepperEl = document.getElementById('dashStepper');
+  if (stepperEl) {
+    stepperEl.innerHTML =
+      renderVsStepper(ticket.status)
+      + `<div class="vs-phase-desc">${escHtml(phase.desc)}</div>`
+      + `<div class="vs-phase-exact">สถานะโดยละเอียด: ${escHtml(ticket.status)}</div>`;
+  }
 
   const formattedDate = formatThaiDate(ticket.date);
   const deptNote = ticket.status.includes('รออุปนายก') ? `${ticket.dept} (รอพิจารณา)` : ticket.dept;

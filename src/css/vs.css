@@ -1,0 +1,238 @@
+/* ==========================================================================
+   VitalSound — submitter-facing progress stepper
+   Rendered on the student ticket-tracking view (#dashStepper). Derives 4
+   friendly phases from the 9 internal staff statuses; the staff kanban is
+   unaffected. Colours use the --pink-* scale, which .vs-tab overrides to the
+   VitalSound teal, so the stepper matches the tab accent automatically.
+   ========================================================================== */
+
+.vs-stepper-wrap {
+  padding: 0.25rem 0.25rem 0;
+}
+
+.vs-stepper {
+  display: flex;
+  align-items: flex-start;
+}
+
+.vs-step {
+  flex: 1 1 0;
+  position: relative;
+  text-align: center;
+  min-width: 0;
+}
+
+/* Connector line — sits behind the dots, drawn from each step to the previous
+   one. Coloured when the step has been reached (done/active). */
+.vs-step::before {
+  content: "";
+  position: absolute;
+  top: 0.9rem;
+  right: 50%;
+  width: 100%;
+  height: 3px;
+  background: var(--pink-100, #e5e7eb);
+  z-index: 0;
+}
+.vs-step:first-child::before { display: none; }
+.vs-step.is-done::before,
+.vs-step.is-active::before { background: var(--pink-500, #2C8F8A); }
+
+.vs-step-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  margin: 0 auto 0.35rem;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  background: #fff;
+  color: #94a3b8;
+  border: 2px solid var(--pink-200, #cbd5e1);
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.vs-step.is-done .vs-step-dot {
+  background: var(--pink-500, #2C8F8A);
+  border-color: var(--pink-500, #2C8F8A);
+  color: #fff;
+}
+
+.vs-step.is-active .vs-step-dot {
+  background: #fff;
+  border-color: var(--pink-500, #2C8F8A);
+  color: var(--pink-600, #237571);
+  box-shadow: 0 0 0 4px var(--pink-50, rgba(44, 143, 138, 0.15));
+  animation: vs-step-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes vs-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--pink-50, rgba(44, 143, 138, 0.15)); }
+  50%      { box-shadow: 0 0 0 7px var(--pink-50, rgba(44, 143, 138, 0.10)); }
+}
+
+.vs-step-label {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  color: #94a3b8;
+  padding: 0 0.15rem;
+}
+.vs-step.is-done .vs-step-label,
+.vs-step.is-active .vs-step-label {
+  color: var(--pink-700, #1c5e5b);
+  font-weight: 600;
+}
+
+.vs-phase-desc {
+  margin-top: 0.85rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pink-700, #1c5e5b);
+}
+
+.vs-phase-exact {
+  margin-top: 0.15rem;
+  text-align: center;
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-step.is-active .vs-step-dot { animation: none; }
+}
+
+/* ==========================================================================
+   VitalSound — PUBLIC Problem board (Phase 2b). Cards, category chips, the
+   me-too ("เจอเหมือนกัน") button, and the pseudonymous comment thread. Colours
+   ride the --pink-* scale, which .vs-tab remaps to teal, so the board matches
+   the tab accent. Light-only (the app has no dark theme).
+   ========================================================================== */
+
+/* --- category filter chips + sort --- */
+.vs-cat-chip {
+  border: 1px solid var(--pink-200, #cbd5e1);
+  background: #fff;
+  color: var(--pink-700, #1c5e5b);
+  border-radius: 999px;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.vs-cat-chip:hover { border-color: var(--pink-400, #4bb3ad); }
+.vs-cat-chip.is-active {
+  background: var(--pink-500, #2C8F8A);
+  border-color: var(--pink-500, #2C8F8A);
+  color: #fff;
+}
+.vs-cat-chip-sm {
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: default;
+  background: var(--pink-50, #eefaf9);
+  border-color: var(--pink-100, #d6f0ee);
+}
+.vs-board-search { max-width: 420px; }
+.vs-board-sort .btn { font-size: 0.78rem; }
+
+/* --- problem card --- */
+.vs-board-card {
+  height: 100%;
+  border: 1px solid var(--pink-100, #e5e7eb);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+}
+.vs-board-card:hover {
+  border-color: var(--pink-300, #7fc9c4);
+  box-shadow: 0 6px 18px rgba(44, 143, 138, 0.12);
+  transform: translateY(-1px);
+}
+.vs-board-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.vs-phase-pill { font-size: 0.68rem; font-weight: 600; }
+.vs-board-title {
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.35;
+  font-size: 0.98rem;
+}
+.vs-board-card-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.vs-board-comments { color: #9ca3af; font-size: 0.8rem; white-space: nowrap; }
+
+/* --- me-too button --- */
+.vs-metoo-btn {
+  border: 1px solid var(--pink-200, #cbd5e1);
+  background: #fff;
+  color: var(--pink-700, #1c5e5b);
+  border-radius: 999px;
+  padding: 0.28rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.vs-metoo-btn:hover { border-color: var(--pink-400, #4bb3ad); background: var(--pink-50, #eefaf9); }
+.vs-metoo-btn.is-on {
+  background: var(--pink-500, #2C8F8A);
+  border-color: var(--pink-500, #2C8F8A);
+  color: #fff;
+}
+.vs-metoo-btn .vs-metoo-count { font-weight: 800; }
+.vs-metoo-btn-lg { padding: 0.5rem 1.1rem; font-size: 0.92rem; }
+
+/* --- problem detail --- */
+.vs-problem-title { font-weight: 700; color: #111827; line-height: 1.4; }
+.vs-problem-note {
+  background: var(--pink-50, #eefaf9);
+  border: 1px solid var(--pink-100, #d6f0ee);
+  color: var(--pink-800, #164e4b);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+}
+.vs-problem-actions { display: flex; justify-content: center; }
+
+/* --- comments --- */
+.vs-comment-list { display: flex; flex-direction: column; gap: 0.65rem; }
+.vs-comment {
+  border: 1px solid #eef1f4;
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: #fff;
+}
+.vs-comment.is-staff {
+  background: var(--pink-50, #eefaf9);
+  border-color: var(--pink-100, #d6f0ee);
+}
+.vs-comment-meta { margin-bottom: 0.2rem; }
+.vs-comment-alias { font-size: 0.78rem; font-weight: 700; color: #6b7280; }
+.vs-comment-alias.is-staff { color: var(--pink-700, #1c5e5b); }
+.vs-comment-body { font-size: 0.92rem; color: #374151; white-space: pre-wrap; word-break: break-word; }
+.vs-comment-composer textarea { resize: vertical; }

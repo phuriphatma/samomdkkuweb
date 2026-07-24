@@ -401,6 +401,8 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffSilentNotify').checked = false;
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   renderDupBanner();
+  renderPublishPanel();
+  wirePublishPanelOnce();
   resetSimilarPane();
   resetMergeSearch();
   wireSimilarTabOnce();
@@ -447,6 +449,114 @@ function renderDupBanner() {
 function resetSimilarPane() {
   const body = document.getElementById('staffSimilarBody');
   if (body) body.innerHTML = '<div class="text-muted small">เปิดแท็บนี้เพื่อค้นหาเรื่องที่คล้ายกัน…</div>';
+}
+
+// ----- Public board publish panel (SE only; migration 0072) -----
+
+let vsCategoriesCache = null;   // active vs_categories, loaded once
+let publishPanelWired = false;
+
+function isSEPublisher() {
+  const u = authGetUser();
+  return !!u && (u.role === 'vs_staff' || u.role === 'dev'
+    || (Array.isArray(u.permissions) && u.permissions.includes('vs')));
+}
+
+async function loadVsCategories() {
+  if (vsCategoriesCache) return vsCategoriesCache;
+  const { data } = await dbRest(
+    '/vs_categories?select=id,label,is_confidential,public_eligible&is_active=eq.true&order=sort_order.asc');
+  vsCategoriesCache = Array.isArray(data) ? data : [];
+  return vsCategoriesCache;
+}
+
+async function renderPublishPanel() {
+  const panel = document.getElementById('staffPublishPanel');
+  if (!panel) return;
+  // SE-only surface; vp_admin never sees publish controls (matches vs_set_public).
+  if (!isSEPublisher()) { panel.classList.add('d-none'); return; }
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  if (!t) { panel.classList.add('d-none'); return; }
+  panel.classList.remove('d-none');
+
+  const cats = await loadVsCategories();
+  const sel = document.getElementById('staffPubCategory');
+  if (sel) {
+    sel.innerHTML = '<option value="">-- เลือกหมวดหมู่ --</option>'
+      + cats.map((c) => {
+        const conf = c.is_confidential || !c.public_eligible;
+        return `<option value="${escHtml(c.id)}"${conf ? ' disabled' : ''}>`
+          + `${escHtml(c.label)}${conf ? ' 🔒 (เผยแพร่ไม่ได้)' : ''}</option>`;
+      }).join('');
+    sel.value = t.category || '';
+  }
+  const titleEl = document.getElementById('staffPubTitle');
+  const noteEl = document.getElementById('staffPubNote');
+  if (titleEl) titleEl.value = t.public_title || '';
+  if (noteEl) noteEl.value = t.public_note || '';
+
+  const stateBadge = document.getElementById('staffPubState');
+  const saveBtn = document.getElementById('staffPubSaveBtn');
+  const unpubBtn = document.getElementById('staffPubUnpublishBtn');
+  const isDup = !!t.duplicate_of;
+
+  if (isDup) {
+    stateBadge.className = 'badge rounded-pill ms-1 bg-secondary';
+    stateBadge.textContent = 'เป็นเรื่องซ้ำ';
+    [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = true));
+    unpubBtn?.classList.add('d-none');
+    return;
+  }
+  [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = false));
+
+  if (t.is_public) {
+    stateBadge.className = 'badge rounded-pill ms-1 bg-success';
+    stateBadge.textContent = 'เผยแพร่อยู่';
+    saveBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>อัปเดตหัวข้อ';
+    unpubBtn?.classList.remove('d-none');
+  } else {
+    stateBadge.className = 'badge rounded-pill ms-1 bg-secondary';
+    stateBadge.textContent = 'ยังไม่เผยแพร่';
+    saveBtn.innerHTML = '<i class="bi bi-megaphone me-1"></i>เผยแพร่';
+    unpubBtn?.classList.add('d-none');
+  }
+}
+
+function wirePublishPanelOnce() {
+  if (publishPanelWired) return;
+  publishPanelWired = true;
+  document.getElementById('staffPubSaveBtn')?.addEventListener('click', () => setTicketPublic(true));
+  document.getElementById('staffPubUnpublishBtn')?.addEventListener('click', () => setTicketPublic(false));
+}
+
+async function setTicketPublic(makePublic) {
+  const id = currentActiveTicketId;
+  const t = staffTicketsCache.find((x) => x.id === id);
+  if (!t) return;
+  const category = document.getElementById('staffPubCategory')?.value || null;
+  const title = (document.getElementById('staffPubTitle')?.value || '').trim();
+  const note = (document.getElementById('staffPubNote')?.value || '').trim();
+  if (makePublic) {
+    if (!category) { alert('กรุณาเลือกหมวดหมู่'); return; }
+    if (!title) { alert('กรุณาระบุหัวข้อสาธารณะ'); return; }
+  }
+  const btn = document.getElementById(makePublic ? 'staffPubSaveBtn' : 'staffPubUnpublishBtn');
+  if (btn) { btn.disabled = true; }
+  const { error } = await dbRest('/rpc/vs_set_public', {
+    method: 'POST',
+    body: { p_id: id, p_public: makePublic, p_title: title || null, p_note: note || null, p_category: category },
+  });
+  if (btn) { btn.disabled = false; }
+  if (error) {
+    const m = (() => { const raw = error?.message || ''; try { return JSON.parse(raw)?.message || raw; } catch { return raw; } })();
+    alert(/ความลับ|หัวข้อ|หมวดหมู่|เรื่องหลัก/.test(m) ? m : 'ดำเนินการไม่สำเร็จ');
+    return;
+  }
+  // reflect locally so the panel + kanban stay in sync without a full refetch
+  t.is_public = makePublic;
+  t.category = category || t.category;
+  if (makePublic) { t.public_title = title; t.public_note = note; }
+  renderPublishPanel();
 }
 
 /** Lazy-load the similar list the first time the เรื่องซ้ำ tab is shown. */
