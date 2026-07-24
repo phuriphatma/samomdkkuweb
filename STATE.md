@@ -96,6 +96,16 @@ A's progress to B's submitter, identity-blind.
   เก็บเป็นความลับ". Confidential-category re-checked in the RPC. DB-verified 3 cases (public link /
   private+count / not-linked) on throwaway rows. Code: `src/js/vs-tracking.js` (`enhanceLinkedBanner`),
   `src/js/vs-board.js` (`openBoardProblem`), `main.js` (`vsOpenBoardProblem`), `vs.css`.
+- **Cross-device polish + bug scan (DEPLOYED, VM build 12077757517e, commit bae649b).** Scanned the
+  session's VS work (0073/0074/0075) — logic sound (resolution write, mirror trigger, SUBMITTER_COLS
+  leak-closure, get_vs_linked_context all DB-verified). Fixed: staff dup-tree nodes were role=button
+  with no keyboard handler → added Enter/Space + aria-label. Responsive @media (desktop unchanged):
+  VS mode toggle stays one row on phones (`.vs-mode-toggle`); dup tree never overflows the modal
+  (status truncates→own line); public linked banner stacks its CTA full-width on narrow. NOTE: live
+  mobile-viewport testing via the browser tool wasn't reliable (Chrome clamped the resize; staff modal
+  is login-gated) — responsive done by code + best practice, needs a real device eyeball. Possible
+  further UX (NOT done, offered): the staff VS modal is dense (publish panel + status + transfer +
+  discord + resolution + remark) — could regroup if it feels confusing on device.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
