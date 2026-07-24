@@ -383,6 +383,21 @@ every already-logged-in matching account on any perm/structure edit (live update
 re-login). `managed_permissions` is guarded in `users_self_update_guard` (client PATCH
 blocked; the two server writers pass via txn-local GUC `app.team_sync='1'`).
 
+**Per-ฝ่าย VitalSound scope (migration 0082).** A node can be bound to ONE VS
+department via `team_nodes.vs_dept` (one of the 11 `vs_tickets.target_dept`
+values; picker in the node perm modal). It inherits down the tree on the same
+`inherit_permissions` flag. A person's effective VS depts (from the nodes they
+sit under) sync into `users.managed_vs_depts text[]` (server-managed, guarded,
+carried by the same login RPC + recompute trigger). `sync_my_team_permissions()`
+returns jsonb `{permissions, vs_depts}` now (was text[]). The `vs_tickets`
+READ/UPDATE RLS (previously `vs_staff`/`dev` or `vp_admin` = own
+`current_user_dept()`) gained two additive branches: `current_user_has_permission('vs')`
+(full VS — this was MISSING from read/update before 0082, only delete had it) and
+`target_dept = any(public.current_user_vs_depts())` (per-ฝ่าย scope). UPDATE WITH
+CHECK lets a dept handler keep a ticket in their dept(s) or hand it back to SE —
+never reassign to an unrelated dept. `userCanAccess('vs')` is true when
+`managedVsDepts` is non-empty (opens the tab; RLS dept-filters the rows).
+
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag
 reorder/move are plain PATCHes (parent_id + position); the frontend blocks

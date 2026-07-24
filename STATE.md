@@ -63,8 +63,18 @@ Previously the tree was cosmetic — nothing linked it to a gate.
 - **Verified live**: resolver, guard (both directions), live-update trigger, AND the real
   account `phuriphat.ma@kkumail.com` (role='user', managed=[creator,pr,projects,samoshop,
   team,vs] from tree inheritance) — DB row confirmed correct; the only bug was the gate.
+- **Per-ฝ่าย VitalSound (0082, APPLIED + DEPLOYED, HEAD 2d9d22d)**: bind a team node to a
+  VS department (`team_nodes.vs_dept`, picker in the node perm modal) → people under it
+  get VS access SCOPED to that dept via `users.managed_vs_depts[]` (synced like
+  managed_permissions; server-managed + guarded). `vs_tickets` READ/UPDATE RLS now honor
+  full-vs (`has_permission('vs')` — was MISSING from read/update before, only delete) AND
+  `target_dept = any(current_user_vs_depts())`. `sync_my_team_permissions()` now returns
+  jsonb `{permissions, vs_depts}`. Verified live (rolled-back): scoped user sees 1/1 own +
+  0/64 other-dept, resolver inherits, anon reads 0, 0072 isolation 23/23.
 - **TODO**: user to re-test the actual browser login now that the gate fix is deployed
-  (all server + unit paths verified; DB row for phuriphat is correct).
+  (all server + unit paths verified; DB row for phuriphat is correct). For per-ฝ่าย VS:
+  set a node's VS department in จัดการสิทธิ์, put the person under it, they log in → VS
+  tab shows only that dept's tickets.
 
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 

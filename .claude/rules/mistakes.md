@@ -1117,6 +1117,26 @@ similar to something here, the fix is probably the same or related.
 
 ---
 
+## `create or replace function` CANNOT change the return type — drop it first
+
+**Symptom**: A migration that evolves an existing RPC's return type (e.g. 0082
+changing `sync_my_team_permissions()` from `returns text[]` to `returns jsonb`)
+fails on apply with `42P13: cannot change return type of existing function` /
+`HINT: Use DROP FUNCTION ... first`. The whole file rolls back (Management-API
+runs it as one txn), so nothing lands — safe, but confusing if you expected the
+columns above it to persist.
+**Cause**: `create or replace function` may change the body but NOT the
+signature's return type (nor arg types). Postgres refuses in-place.
+**Fix**: `drop function if exists public.fn(argtypes);` immediately before the
+`create`. Re-`grant` after (the drop takes the grants with it). Watch for
+callers depending on the old return shape during the deploy window — 0082's
+frontend handles BOTH `text[]` (pre) and `{permissions,vs_depts}` (post) so an
+old bundle against the new RPC still works. If other DB objects depend on the
+function, `drop` will fail unless you recreate them too (or the return change is
+what forces a coordinated migration).
+**Where**: `supabase/migrations/0082_team_vs_dept_scope.sql`. Same family as the
+"no create or replace policy" entry — some objects can't be replaced in place.
+
 ## Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block — a role:'user' account with real granted perms gets bounced
 
 **Symptom**: After 0081 made the SAMO Team tree grant real perms, a person
