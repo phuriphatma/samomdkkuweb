@@ -154,6 +154,15 @@ A's progress to B's submitter, identity-blind.
   vs-board.js; green cards with SE-written public_note + N คนได้รับผล); auto-populated by
   publish+resolve; hidden during search (matches always in grid). This REPLACES the old "dashboard"
   idea — showcase individual wins while completion counts are low.
+- **Category = INTERNAL classification (DEPLOYED, VM build 00925bb21c28, commit 7cb576f):** staff
+  modal section 2 gains "หมวดหมู่ (ภายใน)" — ANY category assignable incl. 🔒 confidential (its real
+  function: tag sensitive tickets; board RPCs guarantee no publish). Publish panel's own select
+  REMOVED — reflects the internal value (single source of truth), blocks publish for
+  confidential/none; vs_set_public reads the live value. Internal-only timeline log; confirm when
+  reclassifying a public ticket to confidential (auto-hides from board). Kanban cards show a small
+  category pill. DECIDED (documented in CONTEXT.md): taxonomy stays ONE global SE-curated list, NOT
+  per-department — dept is already a dimension (target_dept); per-dept lists would fragment the
+  board. Internal per-dept tags = future option only if real demand.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
