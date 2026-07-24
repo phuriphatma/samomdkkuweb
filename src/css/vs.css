@@ -331,14 +331,22 @@
 }
 
 
-/* --- me-too optional note box (posts as a pseudonymous comment) --- */
-.vs-metoo-note {
+/* --- unified comment composer (the ONE input: comment + me-too note, 0078) --- */
+.vs-composer-box {
   border: 1px solid var(--pink-200, #bfe3e0);
   background: var(--pink-50, #eefaf9);
   border-radius: 0.7rem;
   padding: 0.75rem 0.9rem;
 }
-.vs-metoo-note textarea { resize: vertical; }
+.vs-composer-box textarea { resize: vertical; }
+
+/* staff-only comment (server sends it to staff + its author only) */
+.vs-comment.is-private { border-style: dashed; background: #fbfbfd; }
+.vs-comment-priv {
+  font-size: 0.68rem; font-weight: 700;
+  color: #6d28d9; background: #ede9fe;
+  border-radius: 999px; padding: 0.08rem 0.5rem;
+}
 
 /* --- resolved-works showcase strip (single row, horizontal swipe) --- */
 .vs-showcase-head {

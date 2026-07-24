@@ -277,12 +277,26 @@ function renderProblemDetail(p) {
   const note = p.public_note
     ? `<div class="vs-problem-note"><i class="bi bi-megaphone-fill me-1"></i>${escHtml(p.public_note)}</div>` : '';
 
+  // ONE composer (the me-too "note box" and the thread composer were the same
+  // thing — merged). Prominent position right under the me-too button, like
+  // the note box was. Includes the staff-only visibility option (0078).
   const composer = signedIn
-    ? `<div class="vs-comment-composer">
+    ? `<div class="vs-comment-composer vs-composer-box">
+         <label class="small fw-bold mb-1" for="vsCommentInput">
+           <i class="bi bi-chat-left-dots me-1"></i>ร่วมแสดงความคิดเห็น
+           <span class="text-muted fw-normal">(ไม่แสดงชื่อจริง)</span>
+         </label>
          <textarea id="vsCommentInput" class="form-control form-control-sm" rows="2" maxlength="2000"
-           placeholder="ร่วมแสดงความคิดเห็น (ไม่แสดงชื่อจริง)..."></textarea>
-         <button type="button" class="btn btn-submit btn-sm mt-2" onclick="vsPostComment('${id}')">
-           <i class="bi bi-send me-1"></i>ส่งความคิดเห็น</button>
+           placeholder="เล่ารายละเอียดที่คุณเจอ หรือแสดงความคิดเห็น..."></textarea>
+         <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+           <button type="button" class="btn btn-submit btn-sm" onclick="vsPostComment('${id}')">
+             <i class="bi bi-send me-1"></i>ส่งความคิดเห็น</button>
+           <div class="form-check mb-0 ms-auto">
+             <input class="form-check-input" type="checkbox" id="vsCommentStaffOnly">
+             <label class="form-check-label small text-muted" for="vsCommentStaffOnly">
+               <i class="bi bi-lock-fill"></i> ส่งถึงเจ้าหน้าที่เท่านั้น</label>
+           </div>
+         </div>
        </div>`
     : `<div class="vs-comment-signin alert alert-light border small mb-0">
          <i class="bi bi-lock me-1"></i>เข้าสู่ระบบด้วย KKU Mail เพื่อร่วมแสดงความคิดเห็น
@@ -304,14 +318,13 @@ function renderProblemDetail(p) {
         <span class="vs-metoo-count">${affected}</span> คนเจอปัญหานี้เหมือนกัน
       </button>
     </div>
-    <div id="vsMeTooNoteSlot"></div>
+    <div class="mt-3">${composer}</div>
     <hr class="my-4">
     <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots me-2"></i>ความคิดเห็น
       <span class="text-muted fw-normal">(${comments.length})</span></h6>
     <div class="vs-comment-list mb-3">
       ${comments.length ? comments.map(commentHtml).join('') : '<p class="text-muted small">ยังไม่มีความคิดเห็น เป็นคนแรกที่ร่วมพูดคุย</p>'}
-    </div>
-    ${composer}`;
+    </div>`;
 }
 
 function commentHtml(c) {
@@ -319,8 +332,12 @@ function commentHtml(c) {
   const alias = staff
     ? `<span class="vs-comment-alias is-staff"><i class="bi bi-patch-check-fill me-1"></i>${escHtml(c.alias || 'เจ้าหน้าที่')}</span>`
     : `<span class="vs-comment-alias">${escHtml(c.alias || 'นศ.')}</span>`;
-  return `<div class="vs-comment${staff ? ' is-staff' : ''}">
-    <div class="vs-comment-meta">${alias}</div>
+  // Staff-only comments (0078) — the server only sends these to staff or the
+  // author; the badge tells them why others can't see it.
+  const privBadge = c.staff_only === true
+    ? '<span class="vs-comment-priv"><i class="bi bi-lock-fill me-1"></i>เฉพาะเจ้าหน้าที่</span>' : '';
+  return `<div class="vs-comment${staff ? ' is-staff' : ''}${c.staff_only ? ' is-private' : ''}">
+    <div class="vs-comment-meta">${alias} ${privBadge}</div>
     <div class="vs-comment-body">${escHtml(c.body || '')}</div>
   </div>`;
 }
@@ -343,50 +360,17 @@ export async function vsBoardMeToo(id, btn) {
   if (icon) icon.className = `bi ${!on ? 'bi-people-fill' : 'bi-people'}`;
   const c = btn.querySelector('.vs-metoo-count');
   if (c && count != null) c.textContent = Number(count);
-  // Detail view only: after turning me-too ON, offer an optional note —
-  // "อะไรเสริมจากหัวข้อ" (location, timing, symptoms). It posts through the
-  // normal pseudonymous comment pipeline (vs_post_public_comment), so it's
-  // moderated + anonymous like any other comment. Turning OFF removes the offer.
-  if (btn.classList.contains('vs-metoo-btn-lg')) {
-    if (!on) showMeTooNoteBox(id);
-    else document.getElementById('vsMeTooNoteSlot')?.replaceChildren();
-  }
-}
-
-function showMeTooNoteBox(id) {
-  const slot = document.getElementById('vsMeTooNoteSlot');
-  if (!slot) return;
-  slot.innerHTML = `
-    <div class="vs-metoo-note mt-3">
-      <label class="small fw-bold mb-1" for="vsMeTooNoteInput">
-        <i class="bi bi-chat-left-dots me-1"></i>มีรายละเอียดเสริมมั้ย? <span class="text-muted fw-normal">(ไม่บังคับ — แสดงแบบไม่ระบุตัวตน)</span>
-      </label>
-      <textarea id="vsMeTooNoteInput" class="form-control form-control-sm" rows="2" maxlength="2000"
-        placeholder="เช่น จุดที่พบ ช่วงเวลา หรืออาการที่เจอ..."></textarea>
-      <div class="d-flex gap-2 mt-2">
-        <button type="button" class="btn btn-submit btn-sm" data-metoo-send>
-          <i class="bi bi-send me-1"></i>ส่งหมายเหตุ</button>
-        <button type="button" class="btn btn-link btn-sm text-muted text-decoration-none" data-metoo-skip>ข้าม</button>
-      </div>
-    </div>`;
-  slot.querySelector('#vsMeTooNoteInput')?.focus();
-  slot.querySelector('[data-metoo-skip]')?.addEventListener('click', () => slot.replaceChildren());
-  slot.querySelector('[data-metoo-send]')?.addEventListener('click', async (e) => {
-    const bodyText = (slot.querySelector('#vsMeTooNoteInput')?.value || '').trim();
-    if (!bodyText) { slot.replaceChildren(); return; }
-    const sendBtn = e.currentTarget;
-    sendBtn.disabled = true;
-    const { error } = await dbRest('/rpc/vs_post_public_comment', {
-      method: 'POST', body: { p_canonical: id, p_body: bodyText },
-    });
-    if (error) {
-      sendBtn.disabled = false;
-      alert('ส่งหมายเหตุไม่สำเร็จ กรุณาลองใหม่');
-      return;
+  // Detail view: after turning me-too ON, guide into the ONE composer —
+  // focus it with a contextual placeholder ("เล่ารายละเอียดเสริม"). No
+  // separate note box; the composer IS the note mechanism.
+  if (btn.classList.contains('vs-metoo-btn-lg') && !on) {
+    const input = document.getElementById('vsCommentInput');
+    if (input) {
+      input.placeholder = 'มีรายละเอียดเสริมมั้ย? เช่น จุดที่พบ ช่วงเวลา หรืออาการที่เจอ… (ไม่บังคับ)';
+      input.focus({ preventScroll: false });
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    slot.replaceChildren();
-    vsBoardOpen(id); // reload so the note appears in the comment thread
-  });
+  }
 }
 
 export async function vsPostComment(id) {
@@ -396,8 +380,9 @@ export async function vsPostComment(id) {
   if (!body) return;
   const btn = document.querySelector('.vs-comment-composer .btn-submit');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+  const staffOnly = document.getElementById('vsCommentStaffOnly')?.checked === true;
   const { error } = await dbRest('/rpc/vs_post_public_comment', {
-    method: 'POST', body: { p_canonical: id, p_body: body },
+    method: 'POST', body: { p_canonical: id, p_body: body, p_staff_only: staffOnly },
   });
   if (error) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>ส่งความคิดเห็น'; }
