@@ -1,22 +1,32 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-24 (end of session, pre-/clear). Slim by design — "what is
-true right now". Full per-deploy narrative of this session:
-`docs/state-archive/2026-07-24-full.md`; chronology: `git log --oneline`;
-architecture/RLS: `docs/CONTEXT.md`; bug post-mortems: `.claude/rules/mistakes.md`.
+Last updated: 2026-07-24. Slim by design — "what is true right now". Full
+per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.md`;
+chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
+post-mortems: `.claude/rules/mistakes.md`.
 
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = latest `main` (every deploy this session was committed+pushed; tree
-  clean). Verify with `/build.json` vs a fresh local `npm run build`.
-- Deploy method: ssh `samo-vm` → pull → `npm ci` → build → sudo rsync `dist/` →
-  `/var/www/samo-web` → `nginx -t` → reload. Sudo pw = `.env.local
-  SAMO_VM_SUDO_PASSWORD` piped to `sudo -S` (env vars don't cross ssh — pipe via stdin).
+- Live web = pushed `main` HEAD `5b082f2`, **deployed to the VM** and verified live
+  (admin bundle carries the 0079 tag code; public app carries the consent copy).
+  Tree is CLEAN. Verify with `/build.json` vs a fresh local `npm run build`.
+- Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
+  `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
+  `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
+  passport with `PASSPORT_BASE=/passport/`). `deploy.sh` uses BARE `sudo`, which
+  needs a tty — run over `ssh -tt`, and prime the cred cache first in the SAME
+  session: `printf '%s\n' "$PW" | ssh -tt samo-vm 'read -rs PW; echo "$PW" | sudo -S
+  -v && ./server/deploy.sh'` (PW = `.env.local` `SAMO_VM_SUDO_PASSWORD`; a lone
+  `sudo -S -v` without `-tt` primes nothing — deploy.sh's next `sudo` still errors
+  "A terminal is required to authenticate"). Bundle content-hashes differ Mac vs VM
+  (dep/Node deltas) — verify a deploy by grepping the served bundle for feature
+  strings, not by hash-matching.
+- No live staff-login browser e2e run for the tag UI yet (optional; see NEXT).
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
   schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
 
-## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0078)
+## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0079)
 
 VS = confidential service desk + curated public "Problem" board. 9 internal statuses
 = source of truth; students see a 4-phase stepper. This session shipped migrations
@@ -41,6 +51,22 @@ VS = confidential service desk + curated public "Problem" board. 9 internal stat
 - **0078 staff-only comments**: board composer "ส่งถึงเจ้าหน้าที่เท่านั้น" →
   `vs_public_comments.staff_only`; served ONLY to staff/author (badge เฉพาะเจ้าหน้าที่);
   board counts exclude them. Old 2-arg `vs_post_public_comment` DROPPED (3-arg default).
+- **0079 internal per-dept tags** (migration APPLIED to live; **frontend committed
+  `5b082f2` + DEPLOYED to the VM**): `vs_tags`
+  (id/dept/label/color/sort_order/is_active) + `vs_tickets.tags text[]` (loose, no FK,
+  GIN idx). SECOND axis, orthogonal to the ONE public category taxonomy — tags are
+  INTERNAL, staff-only, NEVER on the public board / guest RPCs, and OWNED BY A DEPT
+  (each dept classifies its own workload; SE triage ≠ อุปนายก triage). RLS: read =
+  `current_user_is_staff()`; write = vs_staff/dev/perm('vs') any dept, vp_admin OWN
+  dept only. UI (admin entry only): kanban tag FACET beside the category facet (scoped
+  to the acting dept, grouped by dept on the "all" view, hidden when the dept has no
+  tags); per-ticket toggle-chip editor scoped to the ticket's `target_dept` (save
+  MERGES this dept's selection with the ticket's other-dept tags — a save never drops
+  another dept's tags); card chips coloured per owning dept; per-dept จัดการแท็ก
+  manager (`modal-vs-tags.html`; VP locked to own dept, super users get a dept picker;
+  10-colour dot palette `TAG_COLORS`). Written via the same staff `vs_tickets` PATCH
+  path as `category` (staff-only log remark `internal:true`). NOT public-board related
+  — the vs0072 isolation invariants are untouched.
 - **UI now live**: staff modal in 5 purpose-sections; duplicate cluster TREE + nested
   kanban dups ("ซ้ำ N เรื่อง" expand strip; a dup whose canonical is outside the
   current filter renders top-level so it never vanishes); dashboard SEARCH + หมวดหมู่
