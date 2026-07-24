@@ -55,7 +55,8 @@ src/js/
 ├── pr-staff.js          ─ kanban dashboard, modal, agents management
 ├── vs-form.js           ─ VS ticket submit
 ├── vs-tracking.js       ─ VS user history + ticket lookup + reply
-├── vs-staff.js          ─ VS staff dashboard
+├── vs-board.js          ─ VS public "Problem" board (browse/me-too/comments)
+├── vs-staff.js          ─ VS staff dashboard + SE publish-to-board panel
 ├── announcements.js     ─ announcement CRUD via dbRest
 ├── discord-queue.js     ─ shared Discord core: ONE global rate-limit-aware
 │                          queue + logged GAS caller for PR/VS/projects
@@ -444,7 +445,21 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   (pg_trgm suggestions), `search_vs_tickets` (free-text merge-target search),
   `merge_vs_tickets` / `unmerge_vs_ticket`. Trigger `vs_cascade_resolve` closes a
   canonical's duplicates when it hits `เสร็จสิ้น`. UI: "เรื่องซ้ำ" tab in the VS
-  staff modal (`vs-staff.js`). Public visibility board = future Phase 3 (not built).
+  staff modal (`vs-staff.js`).
+  **Public "Problem" board (0072, Phase 2):** `vs_tickets` gains
+  `category`/`is_public`/`public_title`/`public_note` (SE-set, canonicals only);
+  `vs_categories` (admin ref table, `is_confidential`/`public_eligible` flags, 6
+  seeded), `vs_followers` (me-too, PK per user), `vs_public_comments` (moderated,
+  length-capped). `vs_tickets` is NOT world-readable — the public surface is a set
+  of SECURITY DEFINER RPCs returning a CURATED projection only (never raw problem/
+  submitter/duplicate_of): `get_public_vs_board`, `search_public_vs` (similarity on
+  `public_title` only), `get_public_vs_problem` (+ pseudonymous comments) — granted
+  anon+authenticated; `vs_add_me_too`/`vs_remove_me_too`/`vs_post_public_comment`
+  (kkumail, fail-closed on private/confidential); `vs_set_public` (SE-only, rejects
+  confidential), `vs_hide_public_comment` (any-staff). Confidential categories are
+  hard-excluded from every public read. UI: `src/js/vs-board.js` (board + detail,
+  unified into the VitalSound tab as the default view) + SE publish panel in the VS
+  staff modal. Isolation-proven: `tools/vs0072-isolation.mjs` (anon/kkumail/SE/vp).
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.

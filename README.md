@@ -21,6 +21,12 @@ Both Cloudflare projects hit the same Supabase backend.
   remarks thread, and cross-department consult/transfer for staff. A PDPA
   consent popup appears every time a report is sent — only ยินยอม proceeds;
   declining cancels that submission.
+- **Vital Sound public board.** A curated, student-facing board of ongoing
+  "Problems" unified into the VitalSound tab (browse/sort/filter, 4-phase
+  status). SE publishes a canonical ticket with a hand-written public title
+  (the raw report is never shown); signed-in @kkumail students hit "เจอเหมือนกัน"
+  (me-too aggregation) and add pseudonymous comments. Confidential categories
+  never appear on the board.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / admin-managed type,
