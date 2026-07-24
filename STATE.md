@@ -162,6 +162,13 @@ A's progress to B's submitter, identity-blind.
   the author (badge "เฉพาะเจ้าหน้าที่"); board count + active-sort count public comments only. Old
   2-arg `vs_post_public_comment` DROPPED (overload = PGRST203); 3-arg with default. Anon-verified:
   staff-only comment not returned, count excludes it. Isolation 23/23.
+- **Category select-in-panel + cache bug + kanban facet (DEPLOYED, VM build 88cb53752820, commit
+  18804b3):** (1) BUG — loadVsCategories cached [] after one failed fetch ([] truthy) → both selects
+  empty all session ("can't change it"); now only successful non-empty loads cache. (2) publish
+  panel has a REAL category select again — SAME value as section-2, two synced views (no jump link);
+  hint "เปลี่ยนที่นี่ = เปลี่ยนหมวดหมู่ของเรื่องนี้"; legacy/hidden id = blocked for publish.
+  (3) kanban ทุกหมวดหมู่ facet (`#vsStaffCatFilter`, populateVsCatFilter; refreshed after manager
+  edits; combines with dept + search; `__none__` = uncategorized).
 - **Category UX affordances (DEPLOYED, VM build a55a2841f137, commit de04d81):** DECIDED — ONE
   taxonomy (internal = board category; two lists would drift + double SE work). Label now plain
   "หมวดหมู่" + hint (the "(ภายใน)" wording wrongly implied not-the-board-category); จัดการ button
