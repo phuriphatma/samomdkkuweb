@@ -8,10 +8,10 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `5d0e15d`, **deployed to the VM** and verified live
-  (shared chunk carries the 0081 team-permission sync; admin bundle has
-  `managedPermissions`). Migration 0081 applied to the live DB. Tree is CLEAN.
-  Verify by grepping the served shared `analytics-*.js` chunk for feature strings.
+- Live web = pushed `main` HEAD `1855539`, **deployed to the VM** (VM HEAD matches;
+  working tree CLEAN). Migrations 0081 + 0082 applied to the live DB. Verify a deploy
+  by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
+  admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
   `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
   `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
@@ -63,7 +63,12 @@ Previously the tree was cosmetic — nothing linked it to a gate.
 - **Verified live**: resolver, guard (both directions), live-update trigger, AND the real
   account `phuriphat.ma@kkumail.com` (role='user', managed=[creator,pr,projects,samoshop,
   team,vs] from tree inheritance) — DB row confirmed correct; the only bug was the gate.
-- **Per-ฝ่าย VitalSound (0082, APPLIED + DEPLOYED, HEAD 2d9d22d)**: bind a team node to a
+- **Bug-scan follow-ups (1855539, deployed)**: (a) a per-ฝ่าย scoped VS user now defaults
+  to their own dept in the VS kanban + picker hidden when they have one dept (was falling
+  to "ทุกฝ่าย" with the full picker — RLS still limited data, but misleading UX). (b) Team
+  JSON export/import now carries `vs_dept` + member `permissions`/`inherit_permissions`
+  (round-trip was silently dropping them).
+- **Per-ฝ่าย VitalSound (0082, APPLIED + DEPLOYED)**: bind a team node to a
   VS department (`team_nodes.vs_dept`, picker in the node perm modal) → people under it
   get VS access SCOPED to that dept via `users.managed_vs_depts[]` (synced like
   managed_permissions; server-managed + guarded). `vs_tickets` READ/UPDATE RLS now honor
