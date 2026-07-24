@@ -14,6 +14,7 @@
 // ==============================================
 
 import { escHtml } from './utils.js';
+import { convertDriveUrl } from './uploads.js';
 
 // Each tool is either:
 //   { kind: 'tab',      tabId: 'pills-pr-tab', icon, name, desc, color }
@@ -154,7 +155,7 @@ function renderToolCard(tool) {
 function renderNewsLinkCard(card) {
   const media = card.video
     ? `<video src="${escHtml(card.video)}" muted loop autoplay playsinline preload="metadata" aria-hidden="true"></video>`
-    : `<img src="${escHtml(card.cover)}" alt="" loading="lazy">`;
+    : `<img src="${escHtml(convertDriveUrl(card.cover))}" alt="" loading="lazy">`;
   return `
     <a class="news-card" href="${escHtml(card.href)}" target="_blank" rel="noopener">
       <div class="news-card-media">${media}</div>

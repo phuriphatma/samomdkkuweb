@@ -29,6 +29,7 @@ import {
   listPickupLocations, upsertPickupLocation, deletePickupLocation,
 } from './api.js';
 import { uploadShopFile } from './uploads.js';
+import { convertDriveUrl } from '../uploads.js';
 import { showShopToast } from './products.js';
 import { invalidateSettingsCache } from './checkout.js';
 
@@ -2782,7 +2783,7 @@ function renderProductEditor() {
         <div class="col-md-6">
           <label class="small text-muted mb-1">รูปสินค้า</label>
           <div class="d-flex gap-3 align-items-center">
-            ${p.image_url ? `<img src="${safeUrl(p.image_url)}" alt="" style="width:80px; height:100px; object-fit:cover; border-radius:6px; border:1px solid var(--shop-ink-100, #ebecee);" />` : ''}
+            ${p.image_url ? `<img src="${safeUrl(convertDriveUrl(p.image_url))}" alt="" style="width:80px; height:100px; object-fit:cover; border-radius:6px; border:1px solid var(--shop-ink-100, #ebecee);" />` : ''}
             <label class="btn btn-ghost btn-sm mb-0">
               <i class="bi bi-cloud-upload me-1"></i> ${p.image_url ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
               <input id="shopProdImageFile" type="file" accept="image/*" hidden />
@@ -3930,7 +3931,7 @@ function renderBannerList() {
       <span class="banner-handle" style="cursor:grab;" aria-label="ลากเพื่อจัดเรียง">
         <i class="bi bi-grip-vertical fs-5 text-muted"></i>
       </span>
-      <img src="${safeUrl(b.image_url)}" alt=""
+      <img src="${safeUrl(convertDriveUrl(b.image_url))}" alt=""
         style="width:120px; aspect-ratio:21/9; object-fit:cover; border-radius:6px; flex-shrink:0; background:#f5f5f5;">
       <div class="flex-grow-1" style="min-width:200px;">
         <input class="form-control form-control-sm banner-caption mb-1"
