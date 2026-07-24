@@ -23,6 +23,8 @@ Both Cloudflare projects hit the same Supabase backend.
   declining cancels that submission. On close, staff record a resolution reason
   (fixed / forwarded to faculty / can't-do + reason / duplicate) that the
   submitter sees as a plain-language outcome instead of a bare "completed".
+  For triage, each department keeps its own internal, staff-only tags (colour
+  chips, filterable on the kanban) — separate from the shared public category.
 - **Vital Sound public board.** A curated, student-facing board of ongoing
   "Problems" unified into the VitalSound tab (browse/sort/filter, 4-phase
   status). SE publishes a canonical ticket with a hand-written public title

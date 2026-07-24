@@ -491,6 +491,21 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   tickets while the RPC join guarantees they can never reach the board. Taxonomy
   is deliberately ONE global SE-curated list — NOT per-department (dept is its own
   dimension via target_dept; per-dept lists would fragment the public board).
+  **Internal per-department tags (0079):** a SECOND, orthogonal classification axis —
+  INTERNAL and staff-only (the "one global taxonomy, not per-dept" rule above is about
+  the PUBLIC category taxonomy; internal triage labels are a different concern). New
+  `vs_tags` (id, `dept`, label, `color`, sort_order, is_active) + `vs_tickets.tags
+  text[]` (loose refs, no FK — same choice as `category`; GIN-indexed). Tags are OWNED
+  BY A DEPARTMENT so each dept classifies its own workload its own way. NEVER public:
+  no public/guest RPC reads `vs_tags` or `tags`. RLS: read = `current_user_is_staff()`
+  (vp_admin included, 0005); write (`vs_tags_write_scoped`) = vs_staff/dev/perm('vs')
+  any dept, OR vp_admin where `dept = current_user_dept()`. Applied to a ticket via the
+  same staff `vs_tickets` UPDATE path as `category` (no new ticket RLS). UI is
+  admin-entry only (`src/js/vs-staff.js` + `src/html/modal-vs-tags.html`): a kanban tag
+  facet scoped to the acting dept, a per-ticket toggle-chip editor scoped to the
+  ticket's `target_dept` whose save MERGES with the ticket's other-dept tags (never
+  drops them), per-dept-coloured card chips, and a per-dept tag manager (VP locked to
+  own dept; super users get a dept picker).
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.

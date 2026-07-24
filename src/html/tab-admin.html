@@ -89,6 +89,13 @@
                     onchange="onVsStaffSearch()">
                     <option value="">ทุกหมวดหมู่</option>
                   </select>
+                  <!-- Internal per-dept tag facet (0079). Options are scoped to
+                       the acting dept (vs-staff.js populateVsTagFilter); hidden
+                       until that dept has at least one tag. -->
+                  <select id="vsStaffTagFilter" class="form-select form-select-sm d-none" style="max-width: 190px;"
+                    onchange="onVsStaffSearch()">
+                    <option value="">ทุกแท็ก</option>
+                  </select>
                   <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
                     <option value="__all__">ทุกฝ่าย (All)</option>

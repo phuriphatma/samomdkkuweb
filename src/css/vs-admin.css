@@ -402,3 +402,56 @@
   border-radius: 999px; padding: 0.05rem 0.45rem;
   max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* ============================================================
+   Internal per-department tags (0079)
+   `--tag` (an accent hex) is set inline per chip from TAG_COLORS.
+   All variants share the light-tint + coloured-text pattern so a chip is
+   legible on the white card while still reading as its dept colour.
+   ============================================================ */
+
+/* Kanban card tag chip (read-only). */
+.vs-kanban-card-tag {
+  font-size: 0.66rem; font-weight: 600;
+  color: var(--tag, #64748b);
+  background: color-mix(in srgb, var(--tag, #64748b) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--tag, #64748b) 35%, #fff);
+  border-radius: 999px; padding: 0.05rem 0.45rem;
+  max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Per-ticket editor: toggle chips (click to apply/remove). */
+.vs-tag-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.vs-tag-toggle {
+  font-size: 0.8rem; font-weight: 600; line-height: 1.2;
+  color: #6b7280; background: #fff;
+  border: 1px dashed #cbd5e1; border-radius: 999px;
+  padding: 0.25rem 0.7rem; cursor: pointer; transition: all 0.12s ease;
+}
+.vs-tag-toggle:hover { border-color: var(--tag, #94a3b8); color: var(--tag, #475569); }
+.vs-tag-toggle.is-on {
+  color: #fff; background: var(--tag, #64748b);
+  border-style: solid; border-color: var(--tag, #64748b);
+}
+
+/* Tag manager list rows. */
+.vs-tag-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.vs-tag-row { display: flex; align-items: center; gap: 0.5rem; }
+.vs-tag-row .vs-tag-label { flex: 1 1 auto; min-width: 0; }
+.vs-tag-row.is-hidden .vs-tag-label { opacity: 0.5; }
+.vs-tag-swatch {
+  flex-shrink: 0; width: 0.9rem; height: 0.9rem; border-radius: 999px;
+  background: var(--tag, #64748b); border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Colour dot pickers (manager rows + add form). */
+.vs-tag-dots { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; }
+.vs-tag-dot {
+  width: 1.1rem; height: 1.1rem; border-radius: 999px; padding: 0;
+  background: var(--tag, #64748b); border: 2px solid #fff;
+  outline: 1px solid #e5e7eb; cursor: pointer;
+}
+.vs-tag-dot.is-sel { outline: 2px solid var(--tag, #64748b); outline-offset: 1px; }
+
+/* Tag manager stacks ABOVE the staff ticket modal (JS bumps the backdrop). */
+#vsTagModal { z-index: 1080; }

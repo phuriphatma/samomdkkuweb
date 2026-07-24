@@ -24,7 +24,7 @@ import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, 
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
 
 // VS Staff
-import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty, toggleKanbanDups, onVsStaffSearch, openVsCategoryManager, vsCatAdd } from './vs-staff.js';
+import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty, toggleKanbanDups, onVsStaffSearch, openVsCategoryManager, vsCatAdd, openVsTagManager, vsTagAdd, vsToggleStaffTag } from './vs-staff.js';
 
 // Shop admin
 import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
@@ -357,6 +357,9 @@ window.toggleKanbanDups = toggleKanbanDups;
 window.onVsStaffSearch = onVsStaffSearch;
 window.openVsCategoryManager = openVsCategoryManager;
 window.vsCatAdd = vsCatAdd;
+window.openVsTagManager = openVsTagManager;
+window.vsTagAdd = vsTagAdd;
+window.vsToggleStaffTag = vsToggleStaffTag;
 window.onVSAdminRoleChange = async () => { await enterVSStaffDashboard(); };
 // (per-VP summary chips removed; the dropdown filter is the single
 // source of truth now and drives both list + kanban views.)

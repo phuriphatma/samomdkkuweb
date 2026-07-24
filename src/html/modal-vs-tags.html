@@ -1,0 +1,58 @@
+  <!-- VS internal tag manager (0079) — manage a DEPARTMENT's private triage
+       tag vocabulary. Distinct from the category manager: tags are internal,
+       per-dept, never published. CRUD via vs_tags (RLS vs_tags_write_scoped):
+       a vp_admin manages only their own dept; vs_staff/dev/perm('vs') manage
+       any dept (dept picker below). "ซ่อน" is a soft deactivate — tickets keep
+       referencing the id, the editor/filter simply stop offering it. -->
+  <div class="modal fade" id="vsTagModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold"><i class="bi bi-tags me-2"></i>จัดการแท็กภายใน</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="small text-muted">ฝ่าย:</span>
+            <!-- Super users switch dept here; a VP sees a static label. -->
+            <select id="vsTagMgrDept" class="form-select form-select-sm d-none" style="max-width: 260px;">
+              <option value="นายกสโม">นายกสโม</option>
+              <option value="SE">Student Engagement (SE)</option>
+              <optgroup label="อุปนายก">
+                <option value="อุปนายกฝ่ายบริหารองค์กร">บริหารองค์กร</option>
+                <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">ดิจิทัลและสื่อสาร</option>
+                <option value="อุปนายกฝ่ายกิจการภายใน">กิจการภายใน</option>
+                <option value="อุปนายกฝ่ายกิจการภายนอก">กิจการภายนอก</option>
+                <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">กิจการมหาวิทยาลัย</option>
+                <option value="อุปนายกฝ่ายวิชาการ">วิชาการ</option>
+                <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ยุทธศาสตร์</option>
+                <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">คุณภาพชีวิต</option>
+                <option value="อุปนายกฝ่ายเวชนิทัศน์">เวชนิทัศน์</option>
+                <option value="อุปนายกฝ่ายรังสีเทคนิค">รังสีเทคนิค</option>
+              </optgroup>
+            </select>
+            <span id="vsTagMgrDeptLabel" class="badge bg-secondary d-none"></span>
+          </div>
+          <p class="text-muted small mb-3">
+            แท็กเป็นของฝ่ายนี้โดยเฉพาะ ใช้จัดกลุ่มเรื่องภายในเพื่อการทำงาน — ไม่แสดงบนกระดานสาธารณะ
+            การซ่อนแท็กไม่กระทบเรื่องที่ติดแท็กไว้แล้ว
+          </p>
+          <div id="vsTagList" class="vs-tag-list mb-3">
+            <div class="text-muted small">กำลังโหลด…</div>
+          </div>
+          <hr>
+          <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-plus-circle me-1"></i>เพิ่มแท็กใหม่</h6>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="text" id="vsTagNewLabel" class="form-control form-control-sm flex-grow-1"
+              style="min-width: 180px;" maxlength="40" placeholder="ชื่อแท็ก เช่น รอข้อมูลเพิ่ม" autocomplete="off">
+            <div id="vsTagNewColorDots" class="vs-tag-dots"></div>
+            <button type="button" class="btn btn-sm btn-submit" onclick="vsTagAdd()">เพิ่ม</button>
+          </div>
+          <div id="vsTagStatus" class="form-text small mt-2 d-none"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
