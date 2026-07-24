@@ -603,6 +603,17 @@ function showApp()     { BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.cl
 
 const STAFF_ROLES = ['pr_staff', 'vs_staff', 'shop_admin', 'vp_admin', 'uni_staff', 'sa_prof', 'dev'];
 
+// Admin-app feature keys. Holding ANY of these — via a staff role default,
+// manual permissions[], or the SAMO Team tree managed_permissions[] (0081) —
+// is enough to enter the admin app. Without this, a plain role:'user' account
+// that the org tree grants e.g. 'pr' gets bounced to the sign-in gate.
+const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team'];
+function canUseAdmin(user) {
+  if (!user) return false;
+  if (STAFF_ROLES.includes(user.role)) return true;
+  return ADMIN_FEATURES.some((f) => userCanAccess(f, user));
+}
+
 // Features the admin sidebar / landing surfaces. Keyed by data-admin-side.
 // Each value is the permission key passed to userCanAccess().
 const SIDE_FEATURE = {
@@ -725,7 +736,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   onAuthChange((user) => {
     const role = user?.role || null;
-    const isStaff = !!role && STAFF_ROLES.includes(role);
 
     if (!user) {
       // The FIRST onAuthChange fire is synchronous on subscribe — it
@@ -745,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showAuthGate();
       return;
     }
-    if (!isStaff) {
+    if (!canUseAdmin(user)) {
       clearTimeout(bootTimeout);
       initialSectionApplied = false;
       showAuthGate();
@@ -761,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sub  = document.getElementById('adminUserRole');
     if (pic)  pic.src = user.picture || '';
     if (name) name.textContent = user.name || user.username || '';
-    if (sub)  sub.textContent  = roleLabel(role) || user.department || '';
+    if (sub)  sub.textContent  = roleLabel(role) || user.department || 'ทีม SAMO';
 
     // Feature-gate sidebar + landing items: a node is visible if its
     // data-admin-side / data-admin-pane feature is granted to the user
@@ -830,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
   authReady.then(() => {
     authSettled = true;
     const u = authGetUser();
-    if (!u || !STAFF_ROLES.includes(u.role)) {
+    if (!canUseAdmin(u)) {
       clearTimeout(bootTimeout);
       showAuthGate();
     }
