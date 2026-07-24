@@ -28,8 +28,8 @@ SE รับเรื่องแล้ว/อุปนายก*/ปฏิเ�
 `src/js/vs-tracking.js` (`VS_PHASES`/`vsPhaseIndex`/`renderVsStepper`/`renderVsStepperByPhase`),
 `src/html/tab-vitalsound.html` (`#dashStepper`), `src/css/vs.css`, `src/main.css`, `src/js/vs-phase.test.js`.
 
-**Slice 2 DONE — resolution reason on close (migration 0073, APPLIED to live DB; NOT yet
-deployed to the VM):** when staff set status→เสร็จสิ้น the modal reveals a required
+**Slice 2 DONE + DEPLOYED (2026-07-24, VM build `5cebd2a6f5f0`, commit 9b29294; migration
+0073 APPLIED to live DB):** when staff set status→เสร็จสิ้น the modal reveals a required
 "เหตุผลการปิดเรื่อง" picker (fixed / forwarded / wont_do+note / duplicate) + optional note;
 the submitter sees a friendly "ผลการดำเนินการ" outcome card on their tracking view + a
 submitter-visible timeline remark. Additive only: two nullable cols
@@ -42,8 +42,12 @@ labels) + test `vs-resolution.test.js` (11 cases). Code: `src/js/vs-staff.js`
 `src/html/modal-vs-staff.html` (`#staffResolutionBox`), `src/html/tab-vitalsound.html`
 (`#dashResolution`), `src/css/vs.css`. `npm run build && npm test` GREEN (134 tests). Auto-
 close paths (merge/cascade 0071) still set only status+generic remark — leaving `resolution`
-null there is a harmless nicety to add later (set `='duplicate'`). **NEXT: human end-to-end
-click (close a real ticket, confirm the student view) + VM deploy.**
+null there is a harmless nicety to add later (set `='duplicate'`). Live smoke test:
+`/`, `/admin/`, `/build.json`, `/notify` all 200; served build.json = 5cebd2a6f5f0.
+**NEXT (needs a human): end-to-end click** — in `/admin/` open a VS ticket, set status to
+เสร็จสิ้น, pick a เหตุผลการปิดเรื่อง, save; then track that ticket as the submitter and
+confirm the "ผลการดำเนินการ" outcome card shows. (Write path mirrors the tested status-write
+exactly; only the OAuth-gated staff click can't be done from here.)
 
 **Next slices (service-desk roadmap, agreed order):** (3) assignee/owner within a dept;
 (4) transition guards drive the status dropdown (valid next-states only). Public board =
