@@ -778,6 +778,11 @@ async function fillStaffCategorySelect(t) {
       renderPublishPanel();
     });
   }
+  // Re-render the publish panel AFTER the selects hold the ticket's real
+  // value — openStaffModal fires this fill and renderPublishPanel as two
+  // async calls, and the panel could otherwise compute its blocked/hint
+  // state from the previous ticket's (or an empty) select value.
+  renderPublishPanel();
 }
 
 async function renderPublishPanel() {
@@ -1021,7 +1026,7 @@ async function vsCatPatch(id, patch, okMsg) {
   vsCategoriesCache = null;          // selects/facet reload next paint
   renderVsCatManager();
   renderPublishPanel();
-  loadVsCategories().then(populateVsCatFilter).catch(() => {});
+  loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
   vsCatStatus(okMsg);
 }
 
@@ -1053,7 +1058,7 @@ export async function vsCatAdd() {
   vsCategoriesCache = null;
   renderVsCatManager();
   renderPublishPanel();
-  loadVsCategories().then(populateVsCatFilter).catch(() => {});
+  loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
   vsCatStatus(`เพิ่ม "${label}" แล้ว`);
 }
 
