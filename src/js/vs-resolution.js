@@ -13,6 +13,11 @@
 //   icon       — Bootstrap Icons class for the student card
 //   badge      — Bootstrap badge class (student-facing colour)
 //   noteRequired — resolution_note is mandatory in the UI for this reason
+//   manual     — offered in the staff close-reason picker. `duplicate` is NOT
+//                manual: closing as duplicate with no link orphaned the
+//                submitter (0074) — duplicates go through the merge action,
+//                which links + mirrors progress. `duplicate` stays in the vocab
+//                only to render legacy rows closed that way before 0074.
 // ==============================================
 
 export const VS_RESOLUTIONS = [
@@ -23,6 +28,7 @@ export const VS_RESOLUTIONS = [
     icon: 'bi-check-circle-fill',
     badge: 'bg-success',
     noteRequired: false,
+    manual: true,
   },
   {
     key: 'forwarded',
@@ -31,6 +37,7 @@ export const VS_RESOLUTIONS = [
     icon: 'bi-forward-fill',
     badge: 'bg-info text-dark',
     noteRequired: false,
+    manual: true,
   },
   {
     key: 'wont_do',
@@ -39,6 +46,7 @@ export const VS_RESOLUTIONS = [
     icon: 'bi-x-circle-fill',
     badge: 'bg-secondary',
     noteRequired: true,
+    manual: true,
   },
   {
     key: 'duplicate',
@@ -47,8 +55,12 @@ export const VS_RESOLUTIONS = [
     icon: 'bi-diagram-2-fill',
     badge: 'bg-secondary',
     noteRequired: false,
+    manual: false,
   },
 ];
+
+/** Reasons offered in the staff close-reason picker (excludes `duplicate`). */
+export const MANUAL_VS_RESOLUTIONS = VS_RESOLUTIONS.filter((r) => r.manual);
 
 /** Look up one resolution's metadata by key. Returns null for unknown/empty. */
 export function vsResolution(key) {

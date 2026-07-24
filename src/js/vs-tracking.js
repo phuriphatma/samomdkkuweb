@@ -11,6 +11,13 @@ let currentActiveTicketId = null;
 let canUserReply = false;
 let loggedInUserTickets = [];
 
+// Submitter-safe column allow-list for direct vs_tickets reads. Deliberately
+// EXCLUDES `duplicate_of` (leaks the canonical id → another student's ticket)
+// and any staff-only field; includes `is_duplicate` (non-identifying flag,
+// 0074) so the UI can show the linked-issue banner without the id.
+const SUBMITTER_COLS =
+  'id,timestamp,created_at,problem,target_dept,status,remarks,resolution,resolution_note,is_duplicate';
+
 // --------------------------------------------------
 // Submitter-facing phase model
 //
@@ -85,6 +92,11 @@ function rowToTicket(r) {
     // both the guest by-id lookup (returns the whole row) and the owner read.
     resolution: r.resolution || null,
     resolutionNote: r.resolution_note || null,
+    // Linked-duplicate flag (0074) — non-identifying; the canonical id is never
+    // exposed. Drives the "handled together with an earlier report" banner. The
+    // guest RPC returns is_duplicate while nulling duplicate_of; the owner read
+    // selects is_duplicate and omits duplicate_of entirely.
+    isDuplicate: !!r.is_duplicate,
     isOwner: false, // overridden by callers when appropriate
   };
 }
@@ -115,8 +127,9 @@ export async function trackWithTicketId() {
         window.__samoWarnedGuestRpcVs = true;
         console.warn('[vs-tracking] get_vs_ticket_by_id RPC missing — apply migration 0021_guest_ticket_lookup_rpcs.sql for guest lookup. Falling back to direct read.');
       }
+      // Fallback also uses the submitter-safe column list — never duplicate_of.
       const tIdEsc = encodeURIComponent(tId);
-      ({ data, error } = await dbRest(`/vs_tickets?select=*&id=eq.${tIdEsc}&deleted_at=is.null&limit=1`));
+      ({ data, error } = await dbRest(`/vs_tickets?select=${SUBMITTER_COLS}&id=eq.${tIdEsc}&deleted_at=is.null&limit=1`));
     }
     if (error) throw new Error(error.message || 'ค้นหาล้มเหลว');
     const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
@@ -164,8 +177,13 @@ export async function loginToViewHistory() {
     // dbRest instead of supabase-js .from — same bad-state guard as
     // trackWithTicketId above. PostgREST `or=(...)` syntax in the URL.
     const orClause = `or=(submitter_id.eq.${encodeURIComponent(authUser.id)},submitter_label.eq.${encodeURIComponent(submitterLabel)})`;
+    // Explicit column allow-list — NEVER select `duplicate_of`. Returning it to
+    // a submitter would leak the canonical ticket's id (a lookup capability),
+    // re-exposing another student's confidential complaint. The submitter learns
+    // "yours is linked" from the non-identifying `is_duplicate` flag instead
+    // (0074). Same reason the guest RPC nulls duplicate_of (0071).
     const { data, error } = await dbRest(
-      `/vs_tickets?select=*&${orClause}&deleted_at=is.null&order=timestamp.desc`,
+      `/vs_tickets?select=${SUBMITTER_COLS}&${orClause}&deleted_at=is.null&order=timestamp.desc`,
     );
     if (error) throw new Error(error.message || 'โหลดประวัติล้มเหลว');
     loggedInUserTickets = (data || []).map(rowToTicket);
@@ -244,6 +262,22 @@ function renderUserDashboard(ticket) {
   const statusBadge = document.getElementById('dashStatusBadge');
   statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${phase.badge}`;
   statusBadge.innerText = phase.label;
+
+  // Linked-duplicate banner (0074) — the report was merged into an earlier one.
+  // We never reveal the other ticket; the stepper/outcome below mirror it.
+  const linkedEl = document.getElementById('dashLinkedBanner');
+  if (linkedEl) {
+    if (ticket.isDuplicate) {
+      const msg = idx === 3
+        ? 'เรื่องของคุณได้รับการดำเนินการร่วมกับเรื่องที่มีผู้อื่นแจ้งไว้ก่อนแล้ว'
+        : 'เรื่องของคุณตรงกับเรื่องที่มีผู้อื่นแจ้งไว้ก่อนแล้ว ทีมงานกำลังดำเนินการร่วมกัน — ความคืบหน้าด้านล่างจะอัปเดตตามเรื่องหลัก';
+      linkedEl.className = 'vs-linked-banner mb-3';
+      linkedEl.innerHTML = `<i class="bi bi-diagram-2 me-2"></i><span>${escHtml(msg)}</span>`;
+    } else {
+      linkedEl.className = 'd-none';
+      linkedEl.innerHTML = '';
+    }
+  }
 
   const stepperEl = document.getElementById('dashStepper');
   if (stepperEl) {

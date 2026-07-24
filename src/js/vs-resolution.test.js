@@ -6,13 +6,21 @@
 // the staff picker and the student outcome card rely on.
 
 import { describe, it, expect } from 'vitest';
-import { VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
+import { VS_RESOLUTIONS, MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
 
 describe('VS_RESOLUTIONS vocab', () => {
   it('has exactly the four constrained keys', () => {
     expect(VS_RESOLUTIONS.map((r) => r.key)).toEqual([
       'fixed', 'forwarded', 'wont_do', 'duplicate',
     ]);
+  });
+
+  it('the staff close picker offers only manual reasons — duplicate is excluded', () => {
+    // duplicate is handled by the merge action (0074), never a terminal close.
+    expect(MANUAL_VS_RESOLUTIONS.map((r) => r.key)).toEqual([
+      'fixed', 'forwarded', 'wont_do',
+    ]);
+    expect(vsResolution('duplicate').manual).toBe(false);
   });
 
   it('every reason carries staff + student labels, an icon and a badge', () => {

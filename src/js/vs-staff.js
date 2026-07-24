@@ -6,7 +6,7 @@ import { formatThaiDate, renderTimeline, escHtml } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
 import { getUser as authGetUser } from './auth.js';
-import { VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
+import { MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
 
 const DONE_STATUS = 'เสร็จสิ้น';
 
@@ -426,7 +426,8 @@ function setupResolutionUI(status) {
   const sel = document.getElementById('staffResolution');
   const note = document.getElementById('staffResolutionNote');
   if (sel && !resolutionOptionsFilled) {
-    sel.insertAdjacentHTML('beforeend', VS_RESOLUTIONS
+    // Only MANUAL reasons (duplicate is handled by the merge action, not here).
+    sel.insertAdjacentHTML('beforeend', MANUAL_VS_RESOLUTIONS
       .map((r) => `<option value="${escHtml(r.key)}">${escHtml(r.staff)}</option>`)
       .join(''));
     resolutionOptionsFilled = true;

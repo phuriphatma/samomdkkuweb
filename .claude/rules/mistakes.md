@@ -1418,3 +1418,38 @@ re-point it idempotently:
 **Where**: `supabase/migrations/0072_vs_public_board.sql`. **Rule**: grep every
 new migration for a column that is both `not null` and `on delete set null`
 (or `set default` with no default) on the same FK — that pair is always a bug.
+
+---
+
+## Sanitizing ONE read path of a confidential column leaves parallel read paths leaking — the guest RPC was cleaned, the owner `select=*` was not
+
+**Symptom**: 0071 sanitized the VS guest lookup (`get_vs_ticket_by_id` nulls
+`duplicate_of` so a duplicate's submitter can't discover — and then look up —
+the canonical ticket, which is ANOTHER student's confidential complaint). But a
+**logged-in** submitter reading their own tickets went through a *different*
+path — `dbRest('/vs_tickets?select=*&or=(submitter_id...)')` in
+`loginToViewHistory` — which returned the raw `duplicate_of` in the JSON. So the
+exact id 0071 protected was still one DevTools-open away for any signed-in
+submitter. The confidentiality fix looked complete but only covered one of two
+reader paths.
+**Cause**: A table has multiple submitter-facing read paths (a security-definer
+guest RPC AND a direct RLS `select=*`). A sanitization written into ONE (the
+RPC) does nothing for the other. `select=*` in particular is a standing hazard:
+it ships EVERY column, so any newly-sensitive column is exposed by default, and
+a column-level confidentiality rule can't be expressed in RLS (row-level only).
+**Fix**: Treat submitter reads as an explicit allow-list, default-deny. The
+owner read now selects a named `SUBMITTER_COLS` list that OMITS `duplicate_of`
+(and any staff-only field); the guest RPC keeps nulling it. To still show
+"your report is linked to an earlier one" WITHOUT the id, a generated
+`is_duplicate boolean` (from `duplicate_of is not null`, 0074) is exposed
+instead — a non-identifying flag. Verified: guest RPC returns
+`duplicate_of=null, is_duplicate=true`; owner read never includes the column.
+**Where**: `supabase/migrations/0074_vs_duplicate_linked_tracking.sql`
+(`is_duplicate`), `src/js/vs-tracking.js` (`SUBMITTER_COLS`, both the owner read
+and the guest fallback read). **Rule**: when you sanitize a confidential column
+on one reader, grep for EVERY other path that reads that table for a submitter/
+guest (`select=*`, other RPCs, direct `.from()`), and fix them all — or better,
+switch those reads to an explicit submitter-safe column allow-list so a future
+sensitive column isn't leaked by `*` default. Same family as the "per-recipient
+SELECT RLS is DEAD under using(true)" and "definer bypasses RLS" entries: read
+authorization is per-path, not per-table.

@@ -443,9 +443,19 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   Staff-only SECURITY DEFINER RPCs (fail-closed; `vp_admin` re-scoped to their
   dept since the definer bypasses RLS — see mistakes.md): `find_similar_vs_tickets`
   (pg_trgm suggestions), `search_vs_tickets` (free-text merge-target search),
-  `merge_vs_tickets` / `unmerge_vs_ticket`. Trigger `vs_cascade_resolve` closes a
-  canonical's duplicates when it hits `เสร็จสิ้น`. UI: "เรื่องซ้ำ" tab in the VS
+  `merge_vs_tickets` / `unmerge_vs_ticket`. UI: "เรื่องซ้ำ" tab in the VS
   staff modal (`vs-staff.js`).
+  **Duplicate = LINKED progress-mirror (0074), not a dead-end:** a duplicate B is
+  a LINK to canonical A, and B's submitter sees A's progress mirrored, IDENTITY-BLIND.
+  Trigger `vs_cascade_resolve` (fires on status OR resolution change) propagates A's
+  `status` — and on close A's `resolution` (never the `resolution_note`) — onto its
+  open duplicates, so B's stepper advances with A and shows the real outcome.
+  `merge_vs_tickets` starts the mirror + adds a generic submitter-visible note (no id).
+  Generated col `is_duplicate` (= `duplicate_of is not null`) is the ONLY duplicate
+  signal exposed to submitters — `duplicate_of` is never returned to them (guest RPC
+  nulls it; the owner read uses a `SUBMITTER_COLS` allow-list omitting it — closing the
+  0071-only-covered-the-guest-path leak, see mistakes.md). "duplicate" is not a manual
+  close reason (`MANUAL_VS_RESOLUTIONS`); duplicates go through merge only.
   **Resolution reason on close (0073, service-desk slice 2):** `vs_tickets` gains
   `resolution` (CHECK `fixed`/`forwarded`/`wont_do`/`duplicate`) + `resolution_note`
   (≤1000 chars). Set by staff when status→เสร็จสิ้น (required; `wont_do` also needs a

@@ -54,6 +54,36 @@ operates via ONE shared department account; there are no individual members to a
 per-person ownership is meaningless — `target_dept` already encodes it. Do NOT revive this or
 generalize PR's `pr_agents` roster to VS. (See memory: depts-use-shared-accounts.)
 
+**Duplicate = LINKED progress-mirror (migration 0074, APPLIED to live DB; NOT yet deployed
+to the VM) — GitHub-style "follow the real issue" WITHOUT the confidential leak.** Problem the
+user raised: closing B as "duplicate" dead-ended B's submitter, because 0071 hides the
+canonical A's id (unlike GitHub's uniform visibility). Fix: a duplicate is a LINK that MIRRORS
+A's progress to B's submitter, identity-blind.
+- **DB (0074):** `vs_cascade_resolve` trigger generalized — on A's status/resolution change it
+  propagates A's `status` (and, on close, A's `resolution` — never the `resolution_note`) onto
+  its still-open duplicates, so B's stepper advances with A and shows the real outcome. `merge_vs_tickets`
+  starts the mirror at link time + adds a GENERIC submitter-visible "handled together with an
+  earlier report" remark (no id). New generated col `vs_tickets.is_duplicate` (= duplicate_of is
+  not null) — a non-identifying flag for submitter UI.
+- **Security fix folded in:** the logged-in submitter's `select=*` owner read (`loginToViewHistory`)
+  returned raw `duplicate_of` — 0071 only sanitized the GUEST RPC, so the id still leaked to any
+  signed-in submitter via DevTools. Both submitter reads now use an explicit `SUBMITTER_COLS`
+  allow-list that OMITS `duplicate_of`; the UI shows the linked banner off `is_duplicate` instead.
+  New mistakes.md entry (sanitize-one-path-leak-the-other).
+- **"duplicate" removed from the manual close-reason picker** (`MANUAL_VS_RESOLUTIONS` = fixed/
+  forwarded/wont_do). Duplicates go only through the merge (เรื่องซ้ำ) action. The enum value stays
+  in the CHECK + vocab to render legacy rows.
+- **Comments:** B's private staff thread stays OPEN on a linked ticket (reply box not locked); the
+  mirror propagates ONLY status+resolution, never remark text, so A's staff replies never leak into
+  B. Cross-submitter discussion happens only on the pseudonymous public board (0072), if published.
+- **DB-verified** on throwaway rows (scratchpad/test-0074.mjs): is_duplicate flips; B mirrors
+  in-progress + done + resolution; note NOT copied; A's id absent from submitter-visible remarks;
+  guest RPC returns `duplicate_of=null, is_duplicate=true`. `npm run build && npm test` GREEN (135).
+- **Legacy dead-end row:** `VS-260724-1612-5N6` was closed today with resolution='duplicate' + no
+  link (the test that surfaced this). It renders with its label but has no canonical to mirror —
+  reset it (clear resolution, reopen) via merge, or delete if it's a throwaway. **NEXT: VM deploy +
+  human end-to-end (merge two tickets, track the dup as its submitter, watch progress mirror).**
+
 **Next slice (service-desk roadmap):** (4) transition guards drive the status dropdown —
 show only valid next-states from the current status (e.g. can't jump รอ SE รับเรื่อง →
 เสร็จสิ้น), reducing mis-clicks. Client-only is possible (constrain the dropdown); a DB
