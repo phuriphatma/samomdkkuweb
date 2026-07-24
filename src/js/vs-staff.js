@@ -222,6 +222,18 @@ export function setVsKanbanHideEmpty(on) {
   renderKanban();
 }
 
+// Expanded state of the per-canonical "ซ้ำ N เรื่อง" strips. Session-scoped
+// (module Set) so a re-render — refresh, filter change, modal save — keeps
+// whatever the staffer had open.
+const expandedKanbanDups = new Set();
+
+/** Public — expand/collapse a canonical card's nested duplicates. */
+export function toggleKanbanDups(id) {
+  if (expandedKanbanDups.has(id)) expandedKanbanDups.delete(id);
+  else expandedKanbanDups.add(id);
+  renderKanban();
+}
+
 // --------------------------------------------------
 // Renderers
 // --------------------------------------------------
@@ -272,6 +284,23 @@ function renderKanban() {
     syncKanbanScrollAffordance();
     return;
   }
+  // Nest duplicates under their canonical card (expand/collapse strip)
+  // instead of rendering them as free-floating cards — since 0074 mirrors a
+  // duplicate's status, dup + canonical land in the SAME column and double
+  // the noise. A duplicate whose canonical is NOT in the current filtered
+  // set (e.g. dept filter) still renders top-level so it never vanishes.
+  const visibleIds = new Set(base.map((t) => t.id));
+  const nestedDups = new Map(); // canonical id -> [duplicate tickets]
+  const topLevel = [];
+  for (const t of base) {
+    if (t.duplicate_of && visibleIds.has(t.duplicate_of)) {
+      if (!nestedDups.has(t.duplicate_of)) nestedDups.set(t.duplicate_of, []);
+      nestedDups.get(t.duplicate_of).push(t);
+    } else {
+      topLevel.push(t);
+    }
+  }
+
   // Collect every status string the 9 canonical columns claim, so we
   // can build a catch-all "อื่นๆ" column for tickets with legacy /
   // non-canonical status strings (Sheets-migrated rows in particular).
@@ -284,8 +313,8 @@ function renderKanban() {
   ];
   const html = columnsWithFallback.map((col) => {
     const items = col.statuses === null
-      ? base.filter((t) => !knownStatuses.has(t.status))
-      : base.filter((t) => col.statuses.includes(t.status));
+      ? topLevel.filter((t) => !knownStatuses.has(t.status))
+      : topLevel.filter((t) => col.statuses.includes(t.status));
     if (hideEmpty && items.length === 0) return '';
     items.sort((a, b) => ageMs(a) - ageMs(b));   // newest first, every column
 
@@ -299,11 +328,40 @@ function renderKanban() {
           const cacheIdx = staffTicketsCache.indexOf(t);
           const strippedProblem = (t.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 90);
           const deptC = deptColor(t.target_dept);
+          // Top-level dup = its canonical is outside the current filter; keep
+          // the "ซ้ำ" badge so the state stays visible.
           const isDup = !!t.duplicate_of;
-          const nDup = isDup ? 0 : dupCountFor(t.id);
           const dupTag = isDup
             ? `<span class="vs-kanban-card-dup" title="เรื่องซ้ำของ ${escHtml(t.duplicate_of)}"><i class="bi bi-diagram-2"></i> ซ้ำ</span>`
-            : (nDup > 0 ? `<span class="vs-kanban-card-dup is-canonical" title="มี ${nDup} เรื่องซ้ำรวมอยู่"><i class="bi bi-diagram-2"></i> ${nDup}</span>` : '');
+            : '';
+
+          // Nested duplicates: collapsed strip on the canonical card;
+          // expanding reveals tappable mini-rows (stopPropagation so the
+          // strip/rows never trigger the canonical's own onclick).
+          const dups = nestedDups.get(t.id) || [];
+          const isOpen = expandedKanbanDups.has(t.id);
+          let dupBlock = '';
+          if (dups.length > 0) {
+            const rows = !isOpen ? '' : `<div class="vs-kanban-dup-rows">${dups.map((d) => {
+              const dIdx = staffTicketsCache.indexOf(d);
+              const dSnippet = (d.problem || '').replace(/<[^>]+>/g, ' ').slice(0, 60);
+              return `<div class="vs-kanban-dup-row" role="button" tabindex="0"
+                  onclick="event.stopPropagation();openStaffModalByIndex(${dIdx})"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();openStaffModalByIndex(${dIdx});}">
+                  <span class="vs-kanban-dup-row-id">${escHtml(d.id)}</span>
+                  <span class="vs-kanban-dup-row-text">${escHtml(dSnippet)}</span>
+                </div>`;
+            }).join('')}</div>`;
+            dupBlock = `
+              <div class="vs-kanban-dup-strip${isOpen ? ' is-open' : ''}" role="button" tabindex="0"
+                aria-expanded="${isOpen}"
+                onclick="event.stopPropagation();toggleKanbanDups('${escHtml(t.id)}')"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();toggleKanbanDups('${escHtml(t.id)}');}">
+                <i class="bi bi-diagram-2"></i> ซ้ำ ${dups.length} เรื่อง
+                <i class="bi bi-chevron-${isOpen ? 'up' : 'down'} ms-auto"></i>
+              </div>${rows}`;
+          }
+
           return `
             <div class="vs-kanban-card is-${ageBucket(t)}${isDup ? ' is-duplicate' : ''}"
               style="--card-accent: ${deptC};"
@@ -318,6 +376,7 @@ function renderKanban() {
                 ${t.is_emergency ? '<span class="vs-kanban-card-urgent" title="ฉุกเฉิน">ด่วน</span>' : ''}
                 ${dupTag}
               </div>
+              ${dupBlock}
             </div>
           `;
         }).join('');
@@ -412,7 +471,13 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   resetMergeSearch();
   wireSimilarTabOnce();
   wireMergeSearchOnce();
-  new bootstrap.Modal(document.getElementById('staffManageModal')).show();
+  // getOrCreateInstance, NOT `new bootstrap.Modal(...)`: the dup tree /
+  // kanban dup-rows re-open this modal while it is ALREADY shown (jumping
+  // between linked tickets). A fresh Modal instance on an open element
+  // stacks a second backdrop that never gets removed — the page stays
+  // dimmed after close. getOrCreateInstance reuses the live instance, whose
+  // .show() no-ops when open; the content above has already re-rendered.
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('staffManageModal')).show();
 }
 
 // ----- Resolution reason on close (migration 0073) -----

@@ -24,7 +24,7 @@ import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, 
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
 
 // VS Staff
-import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty } from './vs-staff.js';
+import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty, toggleKanbanDups } from './vs-staff.js';
 
 // Shop admin
 import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
@@ -353,6 +353,7 @@ window.openStaffModalByIndex = openStaffModalByIndex;
 window.submitStaffAction = submitStaffAction;
 window.deleteCurrentVSTicket = deleteCurrentVSTicket;
 window.setVsKanbanHideEmpty = setVsKanbanHideEmpty;
+window.toggleKanbanDups = toggleKanbanDups;
 window.onVSAdminRoleChange = async () => { await enterVSStaffDashboard(); };
 // (per-VP summary chips removed; the dropdown filter is the single
 // source of truth now and drives both list + kanban views.)

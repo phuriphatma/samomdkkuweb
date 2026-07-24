@@ -1462,3 +1462,23 @@ switch those reads to an explicit submitter-safe column allow-list so a future
 sensitive column isn't leaked by `*` default. Same family as the "per-recipient
 SELECT RLS is DEAD under using(true)" and "definer bypasses RLS" entries: read
 authorization is per-path, not per-table.
+
+---
+
+## Re-opening an ALREADY-OPEN Bootstrap modal with `new bootstrap.Modal(...).show()` stacks a second backdrop — page stays dimmed after close
+
+**Symptom**: In the VS staff modal, tapping a ticket in the แผนผังเรื่องซ้ำ
+(dup tree) — which re-runs `openStaffModal` to jump to the linked ticket while
+the modal is already open — left the page dimmed ("web dimmer") afterward.
+Closing the modal removed one backdrop but another stayed forever.
+**Cause**: `openStaffModal` ended with `new bootstrap.Modal(el).show()`. When
+the element is ALREADY shown, constructing a fresh Modal instance and calling
+`.show()` adds a SECOND `.modal-backdrop` that the original instance's
+`.hide()` never cleans up. Any "navigate within an open modal" flow (dup tree,
+kanban dup-rows, similar-list jumps) triggers it.
+**Fix**: `bootstrap.Modal.getOrCreateInstance(el).show()` — reuses the live
+instance, whose `.show()` no-ops when `_isShown`; the DOM content re-rendered
+above it just appears. Rule: NEVER `new bootstrap.Modal(...)` in a code path
+that can run while that modal is open; always `getOrCreateInstance`.
+**Where**: `src/js/vs-staff.js` `openStaffModal`. Grep for `new bootstrap.Modal`
+if any other modal ever gains an internal "jump to other record" affordance.

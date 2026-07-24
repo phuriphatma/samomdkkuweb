@@ -349,3 +349,28 @@
   .vs-duptree-here { margin-left: 0; }
   .vs-duptree-children { margin-left: 0.35rem; padding-left: 0.55rem; }
 }
+
+/* --- kanban: nested duplicates under the canonical card --- */
+.vs-kanban-dup-strip {
+  display: flex; align-items: center; gap: 0.35rem;
+  margin-top: 0.5rem; padding: 0.3rem 0.5rem;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 0.72rem; font-weight: 700; color: #6b7280;
+  border-radius: 0 0 0.45rem 0.45rem;
+  cursor: pointer; user-select: none;
+}
+.vs-kanban-dup-strip:hover { background: #f3f4f6; color: #374151; }
+.vs-kanban-dup-strip.is-open { color: #1d4ed8; }
+.vs-kanban-dup-rows { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.35rem; }
+.vs-kanban-dup-row {
+  display: flex; align-items: baseline; gap: 0.4rem;
+  padding: 0.35rem 0.5rem; min-height: 2.2rem;
+  border: 1px dashed #d1d5db; border-radius: 0.45rem;
+  background: #fafafa; cursor: pointer;
+}
+.vs-kanban-dup-row:hover { background: #f3f4f6; border-color: #9ca3af; }
+.vs-kanban-dup-row-id { font-size: 0.7rem; font-weight: 700; color: #374151; flex-shrink: 0; }
+.vs-kanban-dup-row-text {
+  font-size: 0.72rem; color: #6b7280; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
