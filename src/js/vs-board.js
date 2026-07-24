@@ -92,22 +92,72 @@ async function loadBoard() {
     body: { p_category: currentCategory, p_sort: currentSort, p_limit: 60 },
   });
   if (error) { list.innerHTML = errorNote('โหลดกระดานปัญหาไม่สำเร็จ'); return; }
-  renderBoardList(Array.isArray(data) ? data : []);
+  renderBoardList(Array.isArray(data) ? data : [], { showcase: true });
 }
 
-function renderBoardList(rows) {
+/** Render the board. With `showcase: true` (normal browse), RESOLVED problems
+ *  move out of the grid into a horizontal "ผลงานที่แก้ไขสำเร็จ" strip — the
+ *  showcase the user asked for: while completion counts are low, celebrate
+ *  individual wins. Search results keep everything in the grid (a match must
+ *  never be hidden inside the strip) and the strip is hidden. */
+function renderBoardList(rows, { showcase = false } = {}) {
   const list = document.getElementById('vsBoardList');
   const empty = document.getElementById('vsBoardEmpty');
+  const strip = document.getElementById('vsShowcaseStrip');
   if (!list) return;
-  if (!rows.length) {
+
+  let gridRows = rows;
+  if (showcase && strip) {
+    const done = rows.filter((r) => (Number(r.phase) || 0) === 3);
+    gridRows = rows.filter((r) => (Number(r.phase) || 0) !== 3);
+    renderShowcase(done);
+  } else if (strip) {
+    strip.classList.add('d-none');
+    strip.innerHTML = '';
+  }
+
+  if (!gridRows.length) {
     list.innerHTML = '';
     document.getElementById('vsBoardEmptyMsg').textContent =
-      currentQuery ? 'ไม่พบปัญหาที่ตรงกับคำค้นหา' : 'ยังไม่มีปัญหาที่เปิดเผยในขณะนี้';
+      currentQuery ? 'ไม่พบปัญหาที่ตรงกับคำค้นหา'
+        : (showcase && rows.length ? 'ไม่มีปัญหาที่กำลังดำเนินการอยู่ในขณะนี้'
+          : 'ยังไม่มีปัญหาที่เปิดเผยในขณะนี้');
     empty.classList.remove('d-none');
     return;
   }
   empty.classList.add('d-none');
-  list.innerHTML = rows.map(cardHtml).join('');
+  list.innerHTML = gridRows.map(cardHtml).join('');
+}
+
+/** Horizontal, swipe-able strip of resolved problems ("ชูผลงานรายชิ้น").
+ *  Auto-populated: SE publish + resolve = showcased; nothing extra to post. */
+function renderShowcase(done) {
+  const strip = document.getElementById('vsShowcaseStrip');
+  if (!strip) return;
+  if (!done.length) { strip.classList.add('d-none'); strip.innerHTML = ''; return; }
+  strip.classList.remove('d-none');
+  strip.innerHTML = `
+    <div class="vs-showcase-head">
+      <i class="bi bi-patch-check-fill"></i>
+      <span>ผลงานที่แก้ไขสำเร็จ</span>
+      <span class="vs-showcase-count">${done.length}</span>
+    </div>
+    <div class="vs-showcase-row">
+      ${done.map((r) => {
+        const id = escHtml(r.canonical_id);
+        const affected = Number(r.affected) || 1;
+        const note = r.public_note
+          ? `<div class="vs-showcase-note">${escHtml(r.public_note)}</div>` : '';
+        return `<div class="vs-showcase-card" role="button" tabindex="0"
+            onclick="vsBoardOpen('${id}')"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();vsBoardOpen('${id}');}">
+            <div class="vs-showcase-badge"><i class="bi bi-check-circle-fill"></i> แก้ไขแล้ว</div>
+            <div class="vs-showcase-title">${escHtml(r.public_title || '(ไม่มีหัวข้อ)')}</div>
+            ${note}
+            <div class="vs-showcase-foot"><i class="bi bi-people-fill me-1"></i>${affected} คนได้รับผล</div>
+          </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function cardHtml(r) {

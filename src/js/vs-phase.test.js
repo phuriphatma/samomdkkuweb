@@ -19,7 +19,9 @@ describe('vsPhaseIndex — 9 statuses → 4 phases', () => {
     ['กำลังรออุปนายกพิจารณา', 1],
     ['อุปนายกรับเรื่องแล้ว', 1],
     ['ปฏิเสธ (ส่งคืน SE)', 1], // bounce back to SE — not terminal
-    ['กำลังดำเนินการ', 2],
+    ['กำลังดำเนินการ', 2],        // legacy value (renamed by 0077, kept for stale clients)
+    ['สโมกำลังดำเนินการ', 2],     // 0077 split: SAMO working
+    ['คณะกำลังดำเนินการ', 2],     // 0077 split: faculty working
     ['กำลังติดต่อคณะ', 2],
     ['เสร็จสิ้น', 3],
   ];

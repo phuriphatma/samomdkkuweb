@@ -385,3 +385,12 @@
 }
 .vs-cat-conf:hover { border-color: #9ca3af; color: #374151; }
 .vs-cat-conf.is-on { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+
+/* --- kanban head: dual time chips (submitted + last-updated, 0077) --- */
+.vs-kanban-card-chips { display: inline-flex; gap: 0.3rem; flex-shrink: 0; }
+.vs-age-chip.is-updated { background: #eef2ff; color: #4338ca; }
+.vs-age-chip i { font-size: 0.85em; margin-right: 0.15rem; }
+
+/* Category manager opens stacked ABOVE the staff ticket modal (JS bumps the
+   backdrop; this covers the modal itself as a static fallback). */
+#vsCategoryModal { z-index: 1080; }

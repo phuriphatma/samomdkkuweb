@@ -56,7 +56,10 @@ const KANBAN_COLUMNS = [
   { key: 'urgent_vp',      label: 'รออุปนายก (ด่วน)',            statuses: ['กำลังรออุปนายกพิจารณา (ด่วน)'] },
   { key: 'waiting_vp',     label: 'รออุปนายกพิจารณา',            statuses: ['กำลังรออุปนายกพิจารณา'] },
   { key: 'vp_acked',       label: 'อุปนายกรับเรื่องแล้ว',         statuses: ['อุปนายกรับเรื่องแล้ว'] },
-  { key: 'in_progress',    label: 'กำลังดำเนินการ',                statuses: ['กำลังดำเนินการ'] },
+  // 0077 split: SAMO-working vs faculty-working. Legacy 'กำลังดำเนินการ'
+  // stays mapped to the SAMO column so a stale client's write still shows.
+  { key: 'samo_progress',  label: 'สโมกำลังดำเนินการ',             statuses: ['สโมกำลังดำเนินการ', 'กำลังดำเนินการ'] },
+  { key: 'faculty_progress', label: 'คณะกำลังดำเนินการ',           statuses: ['คณะกำลังดำเนินการ'] },
   { key: 'faculty_liaison',label: 'กำลังติดต่อคณะ',                statuses: ['กำลังติดต่อคณะ'] },
   { key: 'rejected',       label: 'ปฏิเสธ (ส่งคืน SE)',           statuses: ['ปฏิเสธ (ส่งคืน SE)'] },
   { key: 'done',           label: 'เสร็จสิ้น',                     statuses: ['เสร็จสิ้น'] },
@@ -281,7 +284,27 @@ export function onVsStaffSearch() {
 function renderAgeChip(ticket) {
   const bucket = ageBucket(ticket);
   const label  = ageLabel(ticket);
-  return `<span class="vs-age-chip is-${bucket}" title="อายุ ticket">${label}</span>`;
+  return `<span class="vs-age-chip is-${bucket}" title="เข้ามาเมื่อ ${label} ที่แล้ว"><i class="bi bi-inbox"></i> ${label}</span>`;
+}
+
+/** Human "time ago" for an arbitrary timestamp (same buckets as ageLabel). */
+function agoLabel(ts) {
+  if (!ts) return null;
+  const ms = Date.now() - new Date(ts).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const days = Math.floor(ms / ONE_DAY_MS);
+  if (days >= 1) return `${days}d`;
+  const hrs = Math.floor(ms / (60 * 60 * 1000));
+  if (hrs >= 1) return `${hrs}h`;
+  return `${Math.max(1, Math.floor(ms / 60_000))}m`;
+}
+
+/** Second chip: time since the last update (0077 updated_at). Neutral colour —
+ *  the age chip keeps the urgency bucket; this one answers "ขยับล่าสุดเมื่อไหร่". */
+function renderUpdatedChip(ticket) {
+  const label = agoLabel(ticket.updated_at);
+  if (!label) return '';
+  return `<span class="vs-age-chip is-updated" title="อัปเดตล่าสุด ${label} ที่แล้ว"><i class="bi bi-arrow-repeat"></i> ${label}</span>`;
 }
 
 function renderKanban() {
@@ -396,7 +419,7 @@ function renderKanban() {
               onclick="openStaffModalByIndex(${cacheIdx})">
               <div class="vs-kanban-card-head">
                 <span class="vs-kanban-card-id">${escHtml(t.id)}</span>
-                ${renderAgeChip(t)}
+                <span class="vs-kanban-card-chips">${renderAgeChip(t)}${renderUpdatedChip(t)}</span>
               </div>
               <div class="vs-kanban-card-body">${escHtml(strippedProblem)}</div>
               <div class="vs-kanban-card-foot">
@@ -480,7 +503,12 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffModalTitle').innerText = id;
   document.getElementById('staffModalCurrentStatus').innerText = `สถานะปัจจุบัน: ${status}`;
   const formattedDate = formatThaiDate(date);
-  document.getElementById('staffModalDate').innerText = `วันที่แจ้ง: ${formattedDate} | ฝ่ายที่รับผิดชอบ: ${dept}`;
+  // Both times (0077): submitted date + how long since the last update.
+  const tRow = staffTicketsCache.find((x) => x.id === id);
+  const updAgo = agoLabel(tRow?.updated_at);
+  document.getElementById('staffModalDate').innerText =
+    `วันที่แจ้ง: ${formattedDate} | ฝ่ายที่รับผิดชอบ: ${dept}`
+    + (updAgo ? ` | อัปเดตล่าสุด: ${updAgo} ที่แล้ว` : '');
   document.getElementById('staffModalProblem').innerHTML = problemHTML;
   renderTimeline('staffModalTimeline', remarks, formattedDate);
 
@@ -791,10 +819,34 @@ function vsCatStatus(msg, isError) {
   el.classList.toggle('text-success', !isError && !!msg);
 }
 
+let vsCatModalWired = false;
+
 export async function openVsCategoryManager() {
   if (!isSEPublisher()) return;
   vsCatStatus('');
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('vsCategoryModal')).show();
+  const el = document.getElementById('vsCategoryModal');
+  if (!el) return;
+  if (!vsCatModalWired) {
+    vsCatModalWired = true;
+    // Stacked-modal plumbing (opened on top of the staff ticket modal):
+    // Bootstrap gives every modal/backdrop the same z-index, so the second
+    // backdrop lands UNDER the first modal — looks like the manager is
+    // tangled with the ticket. Lift this modal + its (latest) backdrop above.
+    el.addEventListener('shown.bs.modal', () => {
+      el.style.zIndex = '1080';
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      const last = backdrops[backdrops.length - 1];
+      if (backdrops.length > 1 && last) last.style.zIndex = '1075';
+    });
+    // Closing the top modal makes Bootstrap drop body.modal-open, which
+    // kills scrolling in the still-open staff modal — restore it.
+    el.addEventListener('hidden.bs.modal', () => {
+      if (document.querySelector('.modal.show')) {
+        document.body.classList.add('modal-open');
+      }
+    });
+  }
+  bootstrap.Modal.getOrCreateInstance(el).show();
   await loadVsCatManager();
 }
 
