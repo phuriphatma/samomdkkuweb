@@ -131,6 +131,18 @@ A's progress to B's submitter, identity-blind.
   applied kanban/dup-rows/delete-hint/history (+6 tests, 138 total). (4) Timeline actor: writes use
   `staffActorLabel()` (never the internal `__all__` filter value); `renderTimeline` maps legacy
   `__all__` rows to "เจ้าหน้าที่" at render.
+- **Publish CONSENT (migration 0076, APPLIED) + me-too NOTE (DEPLOYED, VM build 71aa20f862fd,
+  commit 7a41aa8):** report form asks "ยินยอมให้นำขึ้นกระดานปัญหาแบบไม่ระบุตัวตน" →
+  `vs_tickets.public_consent` (true/false; legacy null = not asked). Publish panel shows the consent
+  state + disables on decline; `vs_set_public` hard-rejects an explicit false SERVER-SIDE (null =
+  SE judgment, pre-0076 tickets unchanged). Board detail: tapping เจอเหมือนกัน offers an optional
+  "มีรายละเอียดเสริมมั้ย?" box that posts via the normal pseudonymous `vs_post_public_comment`
+  (moderated; no new channel/migration). GUARD-RAIL INCIDENT during this work: isolation proof went
+  19/23 because the `personal` category had been flipped publishable by an unconfirmed toggle in the
+  category manager (no real ticket leaked); restored + manager now confirms BOTH toggle directions.
+  Isolation proof re-verified 23/23. New mistakes.md entry (dangerous-direction toggles need the
+  stronger confirm). NOTE: user-created test category `cat_mryxyw97` "หมวดหมู่ลับเอิง" (confidential)
+  exists in live vs_categories — delete/hide via the manager if unwanted.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
