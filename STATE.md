@@ -162,6 +162,11 @@ A's progress to B's submitter, identity-blind.
   the author (badge "เฉพาะเจ้าหน้าที่"); board count + active-sort count public comments only. Old
   2-arg `vs_post_public_comment` DROPPED (overload = PGRST203); 3-arg with default. Anon-verified:
   staff-only comment not returned, count excludes it. Isolation 23/23.
+- **Category UX affordances (DEPLOYED, VM build a55a2841f137, commit de04d81):** DECIDED — ONE
+  taxonomy (internal = board category; two lists would drift + double SE work). Label now plain
+  "หมวดหมู่" + hint (the "(ภายใน)" wording wrongly implied not-the-board-category); จัดการ button
+  moved NEXT TO the select (SE-only, `#staffCatManageBtn`); publish panel's read-only display has a
+  "เปลี่ยน" link that jumps to the select.
 - **Category = INTERNAL classification (DEPLOYED, VM build 00925bb21c28, commit 7cb576f):** staff
   modal section 2 gains "หมวดหมู่ (ภายใน)" — ANY category assignable incl. 🔒 confidential (its real
   function: tag sensitive tickets; board RPCs guarantee no publish). Publish panel's own select
