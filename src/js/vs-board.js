@@ -17,7 +17,7 @@ import { getUser as authGetUser } from './auth.js';
 import { VS_PHASES, renderVsStepperByPhase } from './vs-tracking.js';
 
 // ---- module state ----
-let loaded = false;          // lazy-load guard (board loads on first show)
+let categoriesLoaded = false; // categories fetched once (retried on failure)
 let categories = [];         // non-confidential, board-eligible categories
 let currentSort = 'hot';
 let currentCategory = null;  // null = ทั้งหมด
@@ -32,7 +32,12 @@ const PHASE_BADGE = ['bg-warning text-dark', 'bg-info text-dark', 'bg-primary', 
 // --------------------------------------------------
 export function initVsBoard() {
   if (!document.getElementById('vsBoardSection')) return;
-  const prime = () => { if (!loaded) { loaded = true; loadCategories().then(loadBoard); } };
+  // Categories load once (retried on failure); the board list is reloaded on
+  // EVERY show so me-too / comment counts stay fresh and a transient first-load
+  // failure can't leave the board permanently empty.
+  const prime = () => {
+    (categoriesLoaded ? Promise.resolve() : loadCategories()).then(loadBoard);
+  };
   // Mode-radio switched to board (fired by toggleVitalSoundMode).
   window.addEventListener('vs-board-shown', prime);
   // Navigating INTO the VitalSound tab (board is the default-visible mode) —
@@ -47,15 +52,16 @@ export function initVsBoard() {
 }
 
 // --------------------------------------------------
-// Categories → filter chips
+// Categories → filter chips (loaded once; retried until it succeeds)
 // --------------------------------------------------
 async function loadCategories() {
   const { data, error } = await dbRest(
     '/vs_categories?select=id,label,icon,is_confidential,public_eligible&is_active=eq.true&order=sort_order.asc'
   );
-  if (error || !Array.isArray(data)) { categories = []; return; }
+  if (error || !Array.isArray(data)) { categories = []; return; }  // leave categoriesLoaded=false → retry next show
   // Only categories that can actually appear on the public board.
   categories = data.filter((c) => !c.is_confidential && c.public_eligible);
+  categoriesLoaded = true;
   renderCategoryChips();
 }
 

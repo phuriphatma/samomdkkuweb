@@ -135,7 +135,7 @@ create policy vs_followers_read_staff on public.vs_followers
 create table if not exists public.vs_public_comments (
   id             uuid primary key default gen_random_uuid(),
   canonical_id   text not null references public.vs_tickets(id) on delete cascade,
-  author_user_id uuid not null references public.users(id) on delete set null,
+  author_user_id uuid not null references public.users(id) on delete cascade,
   is_staff       boolean not null default false,
   body           text not null,
   hidden         boolean not null default false,
@@ -144,6 +144,15 @@ create table if not exists public.vs_public_comments (
   created_at     timestamptz not null default now(),
   constraint vs_public_comments_body_len check (char_length(body) between 1 and 2000)
 );
+
+-- Idempotent fix for tables already created by an earlier run of this file:
+-- author_user_id must be ON DELETE CASCADE (a NOT NULL column can't be SET NULL,
+-- so a user delete would otherwise fail). No-op when already cascade.
+alter table public.vs_public_comments
+  drop constraint if exists vs_public_comments_author_user_id_fkey;
+alter table public.vs_public_comments
+  add constraint vs_public_comments_author_user_id_fkey
+  foreign key (author_user_id) references public.users(id) on delete cascade;
 
 create index if not exists vs_public_comments_canon_idx
   on public.vs_public_comments (canonical_id, created_at);
@@ -336,7 +345,7 @@ begin
                'is_staff', m.is_staff,
                -- pseudonymous, stable per (thread,user), unlinkable to identity
                'alias', case when m.is_staff then 'เจ้าหน้าที่'
-                             else 'นศ.' || upper(substr(md5(m.canonical_id || m.author_user_id::text), 1, 3)) end,
+                             else 'นศ.' || upper(substr(md5(m.canonical_id || m.author_user_id::text), 1, 4)) end,
                'body', m.body,
                'created_at', m.created_at
              ) order by m.created_at asc)
