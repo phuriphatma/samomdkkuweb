@@ -8,9 +8,10 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `5b082f2`, **deployed to the VM** and verified live
-  (admin bundle carries the 0079 tag code; public app carries the consent copy).
-  Tree is CLEAN. Verify with `/build.json` vs a fresh local `npm run build`.
+- Live web = pushed `main` HEAD `33dade2`, **deployed to the VM** and verified live
+  (admin bundle carries the 0079 tag code; public app carries the consent copy). The
+  frontend deploy was `5b082f2`; **`33dade2` is a DB-only fix — migration 0080, no
+  redeploy needed.** Tree is CLEAN. Verify with `/build.json` vs a fresh `npm run build`.
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
   `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
   `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
@@ -26,7 +27,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
   schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
 
-## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0079)
+## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 
 VS = confidential service desk + curated public "Problem" board. 9 internal statuses
 = source of truth; students see a 4-phase stepper. This session shipped migrations
@@ -67,6 +68,15 @@ VS = confidential service desk + curated public "Problem" board. 9 internal stat
   10-colour dot palette `TAG_COLORS`). Written via the same staff `vs_tickets` PATCH
   path as `category` (staff-only log remark `internal:true`). NOT public-board related
   — the vs0072 isolation invariants are untouched.
+- **0080 guest-lookup tag leak fix** (DB-only; APPLIED to live, no redeploy): 0079's
+  new `vs_tickets.tags` was auto-exposed to `anon` because `get_vs_ticket_by_id` is
+  `returns setof vs_tickets` via `select *`. 0080 blanks `r.tags := '{}'` (beside the
+  0071 `duplicate_of := null`). Verified anon RPC returns `tags:[]` even with a real
+  tag set; isolation proof 23/23. Lesson in mistakes.md: any ALTER of `vs_tickets`
+  must audit that `select *` guest RPC per-column. **Known residual (low, pre-existing
+  class, NOT fixed):** the owner-update RLS lets a submitter PATCH their OWN
+  `vs_tickets.tags` (same exposure as `category`) — non-confidential opaque ids, a
+  triage-integrity nuisance only, not a data leak. Fix only if it ever matters.
 - **UI now live**: staff modal in 5 purpose-sections; duplicate cluster TREE + nested
   kanban dups ("ซ้ำ N เรื่อง" expand strip; a dup whose canonical is outside the
   current filter renders top-level so it never vanishes); dashboard SEARCH + หมวดหมู่
