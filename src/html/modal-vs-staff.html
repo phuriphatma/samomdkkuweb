@@ -32,17 +32,122 @@
         <div class="modal-body p-0" style="font-family: 'Prompt', sans-serif">
           <div class="tab-content">
 
-            <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต -->
-            <div class="tab-pane fade show active p-4" id="staff-detail-content" role="tabpanel">
-              <p class="mb-1 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
-              <div id="staffDupBanner" class="d-none mb-3"></div>
-              <div class="p-3 bg-white border rounded shadow-sm mb-4" id="staffModalProblem">รายละเอียด</div>
+            <!-- Tab 1: รายละเอียด และ ฟอร์มอัปเดต
+                 Grouped into purpose-sections (read → act → route → note →
+                 publish) so the dense form scans clearly on every device.
+                 All element IDs unchanged — the vs-staff.js wiring is intact. -->
+            <div class="tab-pane fade show active p-3 p-md-4" id="staff-detail-content" role="tabpanel">
 
-              <!-- PUBLIC BOARD publish panel (SE only; hidden for vp_admin).
-                   Publishes this canonical to the student-facing กระดานปัญหา with
-                   an SE-written headline. Confidential categories are rejected by
-                   vs_set_public (0072). -->
-              <div id="staffPublishPanel" class="border rounded-3 p-3 mb-4 d-none"
+              <!-- SECTION 1: the reported problem (read zone) -->
+              <section class="vs-modal-section">
+                <h6 class="vs-modal-section-title"><i class="bi bi-chat-left-text-fill"></i>เรื่องที่แจ้ง</h6>
+                <p class="mb-2 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+                <div id="staffDupBanner" class="d-none mb-3"></div>
+                <div class="p-3 bg-white border rounded shadow-sm" id="staffModalProblem">รายละเอียด</div>
+              </section>
+
+              <!-- SECTION 2: status + resolution (primary action) -->
+              <section class="vs-modal-section">
+                <h6 class="vs-modal-section-title"><i class="bi bi-gear-fill"></i>สถานะ & ผลการดำเนินการ</h6>
+                <label class="form-label" for="staffActionStatus">เปลี่ยนสถานะ</label>
+                <select id="staffActionStatus" class="form-select">
+                  <option value="">-- เลือกสถานะใหม่ --</option>
+                  <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+                  <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+                  <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+                  <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+                  <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+                  <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
+                  <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+                  <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+                  <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+                </select>
+
+                <!-- RESOLUTION on close (0073) — revealed by vs-staff.js only
+                     when สถานะ = เสร็จสิ้น. Options come from VS_RESOLUTIONS. -->
+                <div class="mt-3 d-none" id="staffResolutionBox">
+                  <div class="border rounded-3 p-3"
+                    style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
+                    <label class="form-label fw-bold mb-1" for="staffResolution"><i
+                        class="bi bi-flag-fill me-1"></i>เหตุผลการปิดเรื่อง <span class="text-danger">*</span></label>
+                    <p class="text-muted small mb-2">สรุปผลนี้จะแสดงให้นักศึกษาเห็นเมื่อเรื่องเสร็จสิ้น</p>
+                    <select id="staffResolution" class="form-select form-select-sm mb-2">
+                      <option value="">-- เลือกเหตุผล --</option>
+                    </select>
+                    <textarea id="staffResolutionNote" class="form-control form-control-sm" rows="2"
+                      maxlength="1000"
+                      placeholder="รายละเอียดผลการดำเนินการ (นักศึกษาจะเห็นข้อความนี้)"></textarea>
+                    <div id="staffResolutionNoteHint" class="form-text text-danger small d-none">
+                      กรุณาระบุเหตุผลที่ไม่สามารถดำเนินการได้</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- SECTION 3: transfer + Discord consult (routing) -->
+              <section class="vs-modal-section">
+                <h6 class="vs-modal-section-title"><i class="bi bi-arrow-left-right"></i>ส่งต่อ & ปรึกษา</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="staffActionTransfer">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
+                    <select id="staffActionTransfer" class="form-select">
+                      <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
+                      <option value="SE">โอนคืน SE</option>
+                      <option value="นายกสโม">นายกสโม</option>
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                      <option value="คณะ">ส่งเรื่องถึงคณะ</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-pink-custom fw-bold" for="staffNotifyTo"><i
+                        class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
+                    <select id="staffNotifyTo" class="form-select border-danger">
+                      <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
+                      <option value="SE">ส่งหา SE</option>
+                      <option value="นายกสโม">นายกสโม</option>
+                      <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
+                      <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
+                      <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
+                      <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
+                      <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
+                      <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
+                      <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
+                      <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
+                      <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
+                      <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
+                    </select>
+                    <div class="form-check form-switch mt-2 ps-0 d-flex align-items-center gap-2">
+                      <input class="form-check-input ms-0 shadow-sm" type="checkbox" id="staffSilentNotify"
+                        value="true" style="cursor: pointer" />
+                      <label class="form-check-label small" for="staffSilentNotify"
+                        style="cursor: pointer; color: var(--pink-900)">
+                        <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- SECTION 4: remark -->
+              <section class="vs-modal-section">
+                <h6 class="vs-modal-section-title"><i class="bi bi-pencil-square"></i>บันทึกข้อความ</h6>
+                <textarea id="staffActionRemark" class="form-control" rows="2"
+                  placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
+              </section>
+
+              <!-- SECTION 5 (secondary): PUBLIC BOARD publish panel (SE only;
+                   hidden for vp_admin). Publishes this canonical to the
+                   student-facing กระดานปัญหา with an SE-written headline.
+                   Confidential categories are rejected by vs_set_public (0072). -->
+              <div id="staffPublishPanel" class="border rounded-3 p-3 d-none vs-modal-section"
                 style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
                 <h6 class="fw-bold mb-2"><i class="bi bi-megaphone-fill me-2"></i>เผยแพร่สู่กระดานปัญหา (สาธารณะ)
                   <span id="staffPubState" class="badge rounded-pill ms-1"></span></h6>
@@ -68,101 +173,6 @@
                     <i class="bi bi-megaphone me-1"></i>เผยแพร่</button>
                   <button type="button" id="staffPubUnpublishBtn" class="btn btn-sm btn-outline-secondary d-none">
                     <i class="bi bi-eye-slash me-1"></i>ยกเลิกการเผยแพร่</button>
-                </div>
-              </div>
-
-              <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i>อัปเดตการทำงาน</h6>
-              <div class="row g-3 mb-2">
-                <div class="col-md-6">
-                  <label class="form-label">เปลี่ยนสถานะ</label>
-                  <select id="staffActionStatus" class="form-select">
-                    <option value="">-- เลือกสถานะใหม่ --</option>
-                    <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
-                    <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
-                    <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
-                    <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
-                    <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
-                    <option value="กำลังดำเนินการ">กำลังดำเนินการ (In Progress)</option>
-                    <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
-                    <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
-                    <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">โอนย้ายฝ่ายรับผิดชอบ (Transfer)</label>
-                  <select id="staffActionTransfer" class="form-select">
-                    <option value="">-- ไม่เปลี่ยนฝ่าย --</option>
-                    <option value="SE">โอนคืน SE</option>
-                    <option value="นายกสโม">นายกสโม</option>
-                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                    <option value="คณะ">ส่งเรื่องถึงคณะ</option>
-                  </select>
-                </div>
-
-                <!-- RESOLUTION on close (0073) — revealed by vs-staff.js only
-                     when สถานะ = เสร็จสิ้น. The <select> options are populated
-                     from the shared VS_RESOLUTIONS vocab so labels never drift. -->
-                <div class="col-12 mt-3 d-none" id="staffResolutionBox">
-                  <div class="border rounded-3 p-3"
-                    style="background-color: var(--pink-50); border-color: var(--pink-200) !important;">
-                    <label class="form-label fw-bold mb-1" for="staffResolution"><i
-                        class="bi bi-flag-fill me-1"></i>เหตุผลการปิดเรื่อง <span class="text-danger">*</span></label>
-                    <p class="text-muted small mb-2">สรุปผลนี้จะแสดงให้นักศึกษาเห็นเมื่อเรื่องเสร็จสิ้น</p>
-                    <select id="staffResolution" class="form-select form-select-sm mb-2">
-                      <option value="">-- เลือกเหตุผล --</option>
-                    </select>
-                    <textarea id="staffResolutionNote" class="form-control form-control-sm" rows="2"
-                      maxlength="1000"
-                      placeholder="รายละเอียดผลการดำเนินการ (นักศึกษาจะเห็นข้อความนี้)"></textarea>
-                    <div id="staffResolutionNoteHint" class="form-text text-danger small d-none">
-                      กรุณาระบุเหตุผลที่ไม่สามารถดำเนินการได้</div>
-                  </div>
-                </div>
-
-                <div class="col-md-6 mt-3">
-                  <label class="form-label text-pink-custom fw-bold"><i
-                      class="bi bi-discord me-1"></i>ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord</label>
-                  <select id="staffNotifyTo" class="form-select border-danger">
-                    <option value="">-- ไม่ส่งการแจ้งเตือน --</option>
-                    <option value="SE">ส่งหา SE</option>
-                    <option value="นายกสโม">นายกสโม</option>
-                    <option value="อุปนายกฝ่ายบริหารองค์กร">อุปนายกฝ่ายบริหารองค์กร</option>
-                    <option value="อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร">อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                    <option value="อุปนายกฝ่ายกิจการภายใน">อุปนายกฝ่ายกิจการภายใน</option>
-                    <option value="อุปนายกฝ่ายกิจการภายนอก">อุปนายกฝ่ายกิจการภายนอก</option>
-                    <option value="อุปนายกฝ่ายกิจการมหาวิทยาลัย">อุปนายกฝ่ายกิจการมหาวิทยาลัย</option>
-                    <option value="อุปนายกฝ่ายวิชาการ">อุปนายกฝ่ายวิชาการ</option>
-                    <option value="อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร">อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                    <option value="อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม">อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</option>
-                    <option value="อุปนายกฝ่ายเวชนิทัศน์">อุปนายกฝ่ายเวชนิทัศน์</option>
-                    <option value="อุปนายกฝ่ายรังสีเทคนิค">อุปนายกฝ่ายรังสีเทคนิค</option>
-                  </select>
-                </div>
-                <div class="col-md-6 mt-3 d-flex align-items-end">
-                  <div class="form-check form-switch p-2 rounded-3 w-100"
-                    style="background-color: var(--pink-100); border: 1px solid var(--pink-200)">
-                    <input class="form-check-input ms-0 me-2 shadow-sm" type="checkbox" id="staffSilentNotify"
-                      value="true" style="cursor: pointer" />
-                    <label class="form-check-label text-secondary small mt-1" for="staffSilentNotify"
-                      style="cursor: pointer; color: var(--pink-900) !important">
-                      <i class="bi bi-bell-slash-fill"></i> แจ้งเตือนแบบ Silent (ไม่ดัง)
-                    </label>
-                  </div>
-                </div>
-
-                <div class="col-12 mt-3">
-                  <label class="form-label">เพิ่ม Remark / สื่อสาร</label>
-                  <textarea id="staffActionRemark" class="form-control" rows="2"
-                    placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
                 </div>
               </div>
             </div>

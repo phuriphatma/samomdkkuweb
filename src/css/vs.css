@@ -362,3 +362,15 @@
   .vs-linked-banner .vs-linked-main { width: 100%; }
   .vs-linked-cta { width: 100%; justify-content: center; }
 }
+
+/* --- staff modal purpose-sections (read → act → route → note → publish) --- */
+.vs-modal-section { padding: 0 0 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid #eef1f4; }
+.vs-modal-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0.25rem; }
+.vs-modal-section-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 700; font-size: 0.95rem; color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+.vs-modal-section-title i { color: var(--pink-600, #237571); font-size: 1rem; }
+/* Publish panel doubles as a section card — keep its own border, drop the divider. */
+#staffPublishPanel.vs-modal-section { border-bottom: 1px solid var(--pink-200) !important; }
