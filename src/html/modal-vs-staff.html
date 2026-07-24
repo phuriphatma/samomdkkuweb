@@ -46,23 +46,37 @@
                 <div class="p-3 bg-white border rounded shadow-sm" id="staffModalProblem">รายละเอียด</div>
               </section>
 
-              <!-- SECTION 2: status + resolution (primary action) -->
+              <!-- SECTION 2: status + internal category + resolution -->
               <section class="vs-modal-section">
                 <h6 class="vs-modal-section-title"><i class="bi bi-gear-fill"></i>สถานะ & ผลการดำเนินการ</h6>
-                <label class="form-label" for="staffActionStatus">เปลี่ยนสถานะ</label>
-                <select id="staffActionStatus" class="form-select">
-                  <option value="">-- เลือกสถานะใหม่ --</option>
-                  <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
-                  <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
-                  <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
-                  <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
-                  <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
-                  <option value="สโมกำลังดำเนินการ">สโมกำลังดำเนินการ</option>
-                  <option value="คณะกำลังดำเนินการ">คณะกำลังดำเนินการ</option>
-                  <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
-                  <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
-                  <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
-                </select>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="staffActionStatus">เปลี่ยนสถานะ</label>
+                    <select id="staffActionStatus" class="form-select">
+                      <option value="">-- เลือกสถานะใหม่ --</option>
+                      <option value="รอ SE รับเรื่อง">รอ SE รับเรื่อง</option>
+                      <option value="SE รับเรื่องแล้ว">SE รับเรื่องแล้ว</option>
+                      <option value="กำลังรออุปนายกพิจารณา (ด่วน)">กำลังรออุปนายกพิจารณา (ด่วน)</option>
+                      <option value="กำลังรออุปนายกพิจารณา">ส่งต่อให้อุปนายกพิจารณา</option>
+                      <option value="อุปนายกรับเรื่องแล้ว">อุปนายกรับเรื่องแล้ว</option>
+                      <option value="สโมกำลังดำเนินการ">สโมกำลังดำเนินการ</option>
+                      <option value="คณะกำลังดำเนินการ">คณะกำลังดำเนินการ</option>
+                      <option value="ปฏิเสธ (ส่งคืน SE)">ปฏิเสธ (ส่งคืน SE)</option>
+                      <option value="กำลังติดต่อคณะ">กำลังติดต่อคณะ</option>
+                      <option value="เสร็จสิ้น">เสร็จสิ้น (Completed)</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <!-- INTERNAL classification — any category assignable,
+                         including 🔒 confidential (that's its real function:
+                         tag sensitive tickets; the system guarantees a
+                         confidential category can never be published). -->
+                    <label class="form-label" for="staffCategory">หมวดหมู่ (ภายใน)</label>
+                    <select id="staffCategory" class="form-select">
+                      <option value="">-- ไม่ระบุ --</option>
+                    </select>
+                  </div>
+                </div>
 
                 <!-- RESOLUTION on close (0073) — revealed by vs-staff.js only
                      when สถานะ = เสร็จสิ้น. Options come from VS_RESOLUTIONS. -->
@@ -163,7 +177,10 @@
                 <div class="row g-2">
                   <div class="col-md-5">
                     <label class="form-label small mb-1">หมวดหมู่</label>
-                    <select id="staffPubCategory" class="form-select form-select-sm"></select>
+                    <!-- Reflects the internal หมวดหมู่ select above (single
+                         source of truth) — change it there. -->
+                    <div id="staffPubCategoryShow" class="form-control form-control-sm bg-white"
+                      style="min-height: calc(1.5em + 0.5rem + 2px);"></div>
                   </div>
                   <div class="col-md-7">
                     <label class="form-label small mb-1">หัวข้อสาธารณะ <span class="text-danger">*</span></label>

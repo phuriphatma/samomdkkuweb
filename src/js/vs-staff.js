@@ -176,6 +176,8 @@ export async function enterVSStaffDashboard() {
   // Wire the scroll-affordance listener now that admin DOM is alive.
   bindKanbanScrollAffordance();
   staffDashboardEntered = true;
+  // Category labels for the kanban chips — fire-and-forget; re-render when in.
+  loadVsCategories().then(() => renderKanban()).catch(() => {});
   await fetchStaffTickets();
 }
 
@@ -297,6 +299,17 @@ function agoLabel(ts) {
   const hrs = Math.floor(ms / (60 * 60 * 1000));
   if (hrs >= 1) return `${hrs}h`;
   return `${Math.max(1, Math.floor(ms / 60_000))}m`;
+}
+
+/** Small category pill on a kanban card (internal classification). Empty
+ *  until the vs_categories cache has loaded — cards re-render when it does. */
+function catChipFor(t) {
+  if (!t.category || !Array.isArray(vsCategoriesCache)) return '';
+  const c = vsCategoriesCache.find((x) => x.id === t.category);
+  if (!c) return '';
+  const lock = (c.is_confidential || !c.public_eligible)
+    ? '<i class="bi bi-shield-lock-fill me-1"></i>' : '';
+  return `<span class="vs-kanban-card-cat" title="หมวดหมู่ (ภายใน)">${lock}${escHtml(c.label)}</span>`;
 }
 
 /** Second chip: time since the last update (0077 updated_at). Neutral colour —
@@ -424,6 +437,7 @@ function renderKanban() {
               <div class="vs-kanban-card-body">${escHtml(strippedProblem)}</div>
               <div class="vs-kanban-card-foot">
                 <span class="vs-kanban-card-dept" style="background:${deptC};">${escHtml(deptShort(t.target_dept))}</span>
+                ${catChipFor(t)}
                 ${t.is_emergency ? '<span class="vs-kanban-card-urgent" title="ฉุกเฉิน">ด่วน</span>' : ''}
                 ${dupTag}
               </div>
@@ -518,6 +532,7 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffNotifyTo').value = '';
   document.getElementById('staffSilentNotify').checked = false;
   setupResolutionUI(status);
+  fillStaffCategorySelect(staffTicketsCache.find((x) => x.id === id));
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   renderDupBanner();
   renderDupTree();
@@ -691,9 +706,32 @@ function isSEPublisher() {
 async function loadVsCategories() {
   if (vsCategoriesCache) return vsCategoriesCache;
   const { data } = await dbRest(
-    '/vs_categories?select=id,label,is_confidential,public_eligible&is_active=eq.true&order=sort_order.asc');
+    '/vs_categories?select=id,label,icon,is_confidential,public_eligible&is_active=eq.true&order=sort_order.asc');
   vsCategoriesCache = Array.isArray(data) ? data : [];
   return vsCategoriesCache;
+}
+
+/** Fill the INTERNAL หมวดหมู่ select (section 2) — every active category is
+ *  assignable, confidential included (🔒 marks it; publishing is what's
+ *  blocked, not classification). Called on modal open; change re-syncs the
+ *  publish panel live. */
+async function fillStaffCategorySelect(t) {
+  const sel = document.getElementById('staffCategory');
+  if (!sel) return;
+  const cats = await loadVsCategories();
+  sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>'
+    + cats.map((c) => `<option value="${escHtml(c.id)}">`
+        + `${escHtml(c.label)}${(c.is_confidential || !c.public_eligible) ? ' 🔒' : ''}</option>`).join('');
+  // Keep a legacy/hidden category selectable so opening a ticket doesn't
+  // silently blank it.
+  if (t?.category && ![...sel.options].some((o) => o.value === t.category)) {
+    sel.insertAdjacentHTML('beforeend', `<option value="${escHtml(t.category)}">${escHtml(t.category)} (ซ่อนอยู่)</option>`);
+  }
+  sel.value = t?.category || '';
+  if (!sel.dataset.wired) {
+    sel.dataset.wired = '1';
+    sel.addEventListener('change', () => renderPublishPanel());
+  }
 }
 
 async function renderPublishPanel() {
@@ -705,16 +743,20 @@ async function renderPublishPanel() {
   if (!t) { panel.classList.add('d-none'); return; }
   panel.classList.remove('d-none');
 
+  // Category = single source of truth: the internal select in section 2.
   const cats = await loadVsCategories();
-  const sel = document.getElementById('staffPubCategory');
-  if (sel) {
-    sel.innerHTML = '<option value="">-- เลือกหมวดหมู่ --</option>'
-      + cats.map((c) => {
-        const conf = c.is_confidential || !c.public_eligible;
-        return `<option value="${escHtml(c.id)}"${conf ? ' disabled' : ''}>`
-          + `${escHtml(c.label)}${conf ? ' 🔒 (เผยแพร่ไม่ได้)' : ''}</option>`;
-      }).join('');
-    sel.value = t.category || '';
+  const curCatId = document.getElementById('staffCategory')?.value ?? (t.category || '');
+  const curCat = cats.find((c) => c.id === curCatId) || null;
+  const catBlocked = !!curCat && (curCat.is_confidential || !curCat.public_eligible);
+  const show = document.getElementById('staffPubCategoryShow');
+  if (show) {
+    if (!curCatId) {
+      show.innerHTML = '<span class="text-muted">ยังไม่ระบุ — เลือกที่ "หมวดหมู่ (ภายใน)" ด้านบน</span>';
+    } else if (catBlocked) {
+      show.innerHTML = `<span class="text-danger"><i class="bi bi-shield-lock-fill me-1"></i>${escHtml(curCat?.label || curCatId)} — ความลับ เผยแพร่ไม่ได้</span>`;
+    } else {
+      show.innerHTML = `<span><i class="bi ${escHtml(curCat?.icon || 'bi-tag')} me-1"></i>${escHtml(curCat?.label || curCatId)}</span>`;
+    }
   }
   const titleEl = document.getElementById('staffPubTitle');
   const noteEl = document.getElementById('staffPubNote');
@@ -748,13 +790,16 @@ async function renderPublishPanel() {
     }
   }
   if (declined) {
-    [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = true));
+    [titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = true));
     unpubBtn?.classList.add('d-none');
     stateBadge.className = 'badge rounded-pill ms-1 bg-secondary';
     stateBadge.textContent = 'ไม่ยินยอม';
     return;
   }
-  [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = false));
+  [titleEl, noteEl].forEach((e) => e && (e.disabled = false));
+  // Publish needs a public-eligible category; the badge/unpublish states
+  // below still render so a published-then-reclassified ticket stays honest.
+  if (saveBtn) saveBtn.disabled = catBlocked && !t.is_public;
 
   if (t.is_public) {
     stateBadge.className = 'badge rounded-pill ms-1 bg-success';
@@ -780,7 +825,8 @@ async function setTicketPublic(makePublic) {
   const id = currentActiveTicketId;
   const t = staffTicketsCache.find((x) => x.id === id);
   if (!t) return;
-  const category = document.getElementById('staffPubCategory')?.value || null;
+  // Single source of truth: the internal หมวดหมู่ select (section 2).
+  const category = document.getElementById('staffCategory')?.value || t.category || null;
   const title = (document.getElementById('staffPubTitle')?.value || '').trim();
   const note = (document.getElementById('staffPubNote')?.value || '').trim();
   if (makePublic) {
@@ -1160,6 +1206,18 @@ export async function submitStaffAction() {
   const statusChanged = newStatus && newStatus !== ticket.status;
   const deptChanged = newDept && newDept !== ticket.target_dept;
 
+  // Internal category (single source of truth for classification + publish).
+  const newCategory = document.getElementById('staffCategory')?.value || '';
+  const categoryChanged = newCategory !== (ticket.category || '');
+  if (categoryChanged && ticket.is_public) {
+    const catMeta = (vsCategoriesCache || []).find((c) => c.id === newCategory);
+    if (catMeta && (catMeta.is_confidential || !catMeta.public_eligible)) {
+      if (!confirm(`เรื่องนี้เผยแพร่อยู่บนกระดานปัญหา — การเปลี่ยนเป็นหมวดความลับ "${catMeta.label}" จะซ่อนจากกระดานทันที ดำเนินการต่อ?`)) {
+        return;
+      }
+    }
+  }
+
   // Resolution on close (0073). Effective status = the new status if the
   // dropdown was changed, else the ticket's current status. The picker is
   // only relevant when that lands on เสร็จสิ้น.
@@ -1173,7 +1231,7 @@ export async function submitStaffAction() {
         || resNote !== (ticket.resolution_note || '')
         || closingNow);
 
-  if (!statusChanged && !deptChanged && !remark && !notifyTo && !willWriteResolution) {
+  if (!statusChanged && !deptChanged && !remark && !notifyTo && !willWriteResolution && !categoryChanged) {
     alert('ไม่มีการเปลี่ยนแปลง กรุณาแก้ไขสถานะ โอนย้ายฝ่าย เพิ่ม Remark หรือส่งแจ้งเตือน ก่อนบันทึก');
     return;
   }
@@ -1244,9 +1302,20 @@ export async function submitStaffAction() {
       });
     }
 
+    if (categoryChanged) {
+      const catMeta = (vsCategoriesCache || []).find((c) => c.id === newCategory);
+      // Internal classification — staff-only log (submitters don't need the
+      // internal taxonomy churn in their timeline).
+      remarks.push({
+        type: 'log', by: actor, time, internal: true,
+        text: `เปลี่ยนหมวดหมู่: ${catMeta?.label || newCategory || 'ไม่ระบุ'}`,
+      });
+    }
+
     const update = { remarks };
     if (statusChanged) update.status = newStatus;
     if (deptChanged) update.target_dept = newDept;
+    if (categoryChanged) update.category = newCategory || null;
     if (willWriteResolution) {
       update.resolution = resolution;
       update.resolution_note = resNote || null;

@@ -394,3 +394,11 @@
 /* Category manager opens stacked ABOVE the staff ticket modal (JS bumps the
    backdrop; this covers the modal itself as a static fallback). */
 #vsCategoryModal { z-index: 1080; }
+
+/* --- kanban card: internal category pill --- */
+.vs-kanban-card-cat {
+  font-size: 0.66rem; font-weight: 600; color: #4b5563;
+  background: #f3f4f6; border: 1px solid #e5e7eb;
+  border-radius: 999px; padding: 0.05rem 0.45rem;
+  max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

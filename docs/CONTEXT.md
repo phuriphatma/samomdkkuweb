@@ -484,6 +484,13 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   hard-excluded from every public read. UI: `src/js/vs-board.js` (board + detail,
   unified into the VitalSound tab as the default view) + SE publish panel in the VS
   staff modal. Isolation-proven: `tools/vs0072-isolation.mjs` (anon/kkumail/SE/vp).
+  **Category = internal classification first** (2026-07-24): staff assign ANY
+  category — confidential 🔒 included — via the "หมวดหมู่ (ภายใน)" select in the
+  staff modal (single source of truth; publish panel only reflects it and blocks
+  publish for confidential/none). Confidential categories exist to TAG sensitive
+  tickets while the RPC join guarantees they can never reach the board. Taxonomy
+  is deliberately ONE global SE-curated list — NOT per-department (dept is its own
+  dimension via target_dept; per-dept lists would fragment the public board).
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.
