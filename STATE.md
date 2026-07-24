@@ -143,6 +143,17 @@ A's progress to B's submitter, identity-blind.
   Isolation proof re-verified 23/23. New mistakes.md entry (dangerous-direction toggles need the
   stronger confirm). NOTE: user-created test category `cat_mryxyw97` "หมวดหมู่ลับเอิง" (confidential)
   exists in live vs_categories — delete/hide via the manager if unwanted.
+- **0077 batch (DEPLOYED, VM build afc77a6c1431, commit 5f09040):** (1) stacked-modal fix — category
+  manager now lifts itself + latest backdrop above the ticket modal, restores `body.modal-open` on
+  close. (2) `vs_tickets.updated_at` (0077, APPLIED; backfill=created_at, touch trigger) → kanban
+  cards show DUAL chips 📥เข้ามา + ↻อัปเดตล่าสุด; modal date line too. (3) STATUS SPLIT (0077):
+  "กำลังดำเนินการ" → สโมกำลังดำเนินการ / คณะกำลังดำเนินการ (4 live rows renamed to สโม; kanban has
+  both columns, legacy value maps to สโม; dropdown updated; phase mappings unchanged — substring
+  'ดำเนินการ' → phase 2, +2 tests = 140). (4) SHOWCASE strip — public board moves RESOLVED problems
+  into a horizontal swipe row "ผลงานที่แก้ไขสำเร็จ" (`#vsShowcaseStrip`, `renderShowcase` in
+  vs-board.js; green cards with SE-written public_note + N คนได้รับผล); auto-populated by
+  publish+resolve; hidden during search (matches always in grid). This REPLACES the old "dashboard"
+  idea — showcase individual wins while completion counts are low.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
