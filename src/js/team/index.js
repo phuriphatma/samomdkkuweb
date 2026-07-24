@@ -146,6 +146,7 @@ export function initTeam() {
   wireNodeModal();
   wirePicker();
   wirePermModal();
+  wireMemberPermModal();
   wireMemberModal();
   wireTreeDelegation();
   wireIO();
@@ -270,7 +271,7 @@ function render() {
   const hint = $('teamModeHint');
   if (hint) {
     hint.textContent = mode === 'perms'
-      ? 'แตะที่ตำแหน่งเพื่อกำหนดสิทธิ์การใช้งานระบบ — สีทึบคือสิทธิ์ของตำแหน่งนี้ สีเส้นประคือสิทธิ์ที่รับมาจากตำแหน่งแม่'
+      ? 'แตะที่ตำแหน่งเพื่อกำหนดสิทธิ์ของทั้งตำแหน่ง หรือแตะที่ชื่อบุคคลเพื่อกำหนดสิทธิ์รายบุคคล — สีทึบคือสิทธิ์ที่กำหนดเอง สีเส้นประคือสิทธิ์ที่รับมาจากตำแหน่ง'
       : '';
   }
 
@@ -303,11 +304,14 @@ function renderNode(node, filter) {
   if (filter && !filter.visible.has(node.id)) return null;
   const kids = childrenOf(node.id);
   const mem = membersOf(node.id);
-  const showMembers = mode === 'team';
+  // Both modes list people now. Team mode = identity/structure (add/move/edit
+  // the person); perms mode = per-person permission editor rows under each node.
+  const showMembers = true;
   // In team mode EVERY node is expandable — a role can always hold members, so
   // you must be able to open even an empty one to reveal its drop zone / add
-  // button. In perms mode only nodes with child nodes expand.
-  const expandable = showMembers ? true : kids.length > 0;
+  // button. In perms mode a node expands when it has child nodes OR people to
+  // grant perms to.
+  const expandable = mode === 'team' ? true : (kids.length > 0 || mem.length > 0);
   const isOpen = filter ? true : expanded.has(node.id);
   const count = subtreeMemberCount(node.id);
 
@@ -365,7 +369,7 @@ function renderNode(node, filter) {
     // the (otherwise zero-height) list a droppable area AND tells the user they
     // can drag a person here or add one. Skipped on structural nodes (they have
     // child nodes) to avoid noise — use the + button to add a direct member.
-    if (!mem.length && !kids.length && !filter) {
+    if (mode === 'team' && !mem.length && !kids.length && !filter) {
       const ph = document.createElement('li');
       ph.className = 'team-members-empty';
       ph.dataset.act = 'add-member';
@@ -398,6 +402,30 @@ function renderMember(m, filter) {
   const checkbox = selectionMode
     ? `<input type="checkbox" class="team-check" data-act="select" ${selectedMembers.has(m.id) ? 'checked' : ''} aria-label="เลือกสมาชิก" />`
     : '';
+
+  if (mode === 'perms') {
+    // Per-person permission row: name + effective chips (own solid,
+    // node-inherited dashed) + a shield button opening the person's editor.
+    const own = new Set(m.permissions || []);
+    const inh = m.inherit_permissions !== false ? nodeEffectivePerms(m.node_id) : new Set();
+    let chips = '';
+    [...own].forEach((p) => { chips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
+    [...inh].forEach((p) => { if (!own.has(p)) chips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
+    if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
+    li.innerHTML = `
+      ${checkbox}
+      <span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
+      <span class="team-member-main" data-act="edit-member-perms">
+        <span class="team-member-name">${nameHtml}${nick ? ` <span class="team-member-nick">(${nick})</span>` : ''}</span>
+        ${mailHtml ? `<span class="team-member-mail"><i class="bi bi-envelope"></i> ${mailHtml}</span>` : ''}
+        <span class="team-perms team-member-perms">${chips}</span>
+      </span>
+      <span class="team-member-actions">
+        <button type="button" class="team-act team-act-perm" data-act="edit-member-perms" title="กำหนดสิทธิ์รายบุคคล"><i class="bi bi-shield-lock"></i></button>
+      </span>`;
+    return li;
+  }
+
   li.innerHTML = `
     ${checkbox}
     <span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
@@ -634,6 +662,7 @@ function wireTreeDelegation() {
       case 'delete':      onDeleteNode(nodeId); break;
       case 'edit-perms':  openPermModal(nodeId); break;
       case 'edit-member': openMemberModal({ member: findMember(memberId) }); break;
+      case 'edit-member-perms': openMemberPermModal(memberId); break;
       case 'move-member': openMoveMember(memberId); break;
       case 'delete-member': onDeleteMember(memberId); break;
     }
@@ -1041,15 +1070,6 @@ async function onPermSubmit(e) {
 // ============================================================
 
 function wireMemberModal() {
-  const grid = $('teamMemberPermGrid');
-  if (grid) {
-    grid.innerHTML = PERM_CATALOG.map((p) => `
-      <label class="team-perm-opt">
-        <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
-      </label>`).join('');
-    grid.addEventListener('change', refreshMemberPermEff);
-  }
-  $('teamMemberPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
   $('teamMemberDelete')?.addEventListener('click', () => {
     const id = $('teamMemberId').value;
@@ -1072,28 +1092,67 @@ function setMemberNode(nid) {
     label.textContent = nid ? nodePath(nid) : 'เลือกตำแหน่ง…';
     label.classList.toggle('text-muted', !nid);
   }
-  refreshMemberPermEff();  // node choice changes the inherited perms
 }
 
-/** Effective perms the member modal is about to grant, from live inputs:
- *  checked extras ∪ (inherit ? the selected node's effective perms). */
-function memberEffectiveFromInputs() {
-  const own = [...($('teamMemberPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
-  const set = new Set(own);
-  const nid = $('teamMemberNodeId').value;
-  if ($('teamMemberPermInherit')?.checked && nid) nodeEffectivePerms(nid).forEach((p) => set.add(p));
-  return set;
+// ============================================================
+// MEMBER PERMISSION MODAL (perms mode — สิทธิ์รายบุคคล)
+// ============================================================
+
+function wireMemberPermModal() {
+  const grid = $('teamMPermGrid');
+  if (grid) {
+    grid.innerHTML = PERM_CATALOG.map((p) => `
+      <label class="team-perm-opt">
+        <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
+      </label>`).join('');
+    grid.addEventListener('change', refreshMemberPermEff);
+  }
+  $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
 
+function openMemberPermModal(memberId) {
+  const m = findMember(memberId);
+  if (!m) return;
+  $('teamMPermMemberId').value = m.id;
+  const name = `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`;
+  $('teamMPermName').textContent = name;
+  $('teamMPermNode').textContent = nodePath(m.node_id);
+  const own = new Set(m.permissions || []);
+  $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
+  $('teamMPermInherit').checked = m.inherit_permissions !== false;
+  refreshMemberPermEff();
+  modalInstance('teamMemberPermModal')?.show();
+}
+
+/** Effective perms the member-perm modal is about to grant, from live
+ *  inputs: checked extras ∪ (inherit ? the member's node effective perms). */
 function refreshMemberPermEff() {
-  const wrap = $('teamMemberPermEffWrap');
-  const list = $('teamMemberPermEffList');
+  const wrap = $('teamMPermEffWrap');
+  const list = $('teamMPermEffList');
   if (!wrap || !list) return;
-  const set = memberEffectiveFromInputs();
+  const m = findMember($('teamMPermMemberId').value);
+  const set = new Set([...($('teamMPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value));
+  if (m && $('teamMPermInherit')?.checked) nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
   if (set.size) {
     list.innerHTML = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
     wrap.classList.remove('d-none');
   } else wrap.classList.add('d-none');
+}
+
+async function onMemberPermSubmit(e) {
+  e.preventDefault();
+  const id = $('teamMPermMemberId').value;
+  const m = findMember(id);
+  if (!m) return;
+  const payload = {
+    permissions: [...($('teamMPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value),
+    inherit_permissions: $('teamMPermInherit').checked,
+  };
+  modalInstance('teamMemberPermModal')?.hide();
+  Object.assign(m, payload);
+  render();
+  try { await updateMember(id, payload); } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 
 function openMemberModal({ member = null, nodeId = null } = {}) {
@@ -1108,10 +1167,6 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   $('teamMemberMajor').value = member?.major || '';
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
-  const own = new Set(member?.permissions || []);
-  $('teamMemberPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
-  $('teamMemberPermInherit').checked = member ? member.inherit_permissions !== false : true;
-  refreshMemberPermEff();
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
@@ -1134,8 +1189,6 @@ async function onMemberSubmit(e) {
     major: $('teamMemberMajor').value.trim() || null,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
-    permissions: [...($('teamMemberPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value),
-    inherit_permissions: $('teamMemberPermInherit').checked,
   };
   modalInstance('teamMemberModal')?.hide();
   try {
