@@ -282,3 +282,31 @@
   line-height: 1.45;
 }
 .vs-linked-banner i { font-size: 1.05rem; flex-shrink: 0; }
+
+/* --- staff duplicate-cluster tree (0074 follow-up) — staff modal only --- */
+.vs-duptree { border: 1px solid #e5e7eb; border-radius: 0.7rem; padding: 0.75rem 0.9rem; background: #fafafa; }
+.vs-duptree-head { font-size: 0.82rem; font-weight: 700; color: #374151; margin-bottom: 0.55rem; }
+.vs-duptree-children {
+  margin-left: 0.7rem; padding-left: 0.8rem;
+  border-left: 2px dashed #d1d5db;
+  display: flex; flex-direction: column; gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.vs-duptree-node {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
+  padding: 0.4rem 0.6rem; border: 1px solid #e5e7eb; border-radius: 0.55rem;
+  background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s;
+}
+.vs-duptree-node:hover { border-color: #9ca3af; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.vs-duptree-node.is-canonical { border-color: #bcdcff; background: #f4f9ff; }
+.vs-duptree-node.is-current { outline: 2px solid var(--pink-400, #f472b6); outline-offset: 1px; }
+.vs-duptree-role {
+  font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
+  color: #6b7280; background: #f3f4f6; border-radius: 0.4rem; padding: 0.05rem 0.4rem;
+}
+.vs-duptree-node.is-canonical .vs-duptree-role { color: #1d4ed8; background: #dbeafe; }
+.vs-duptree-id { font-weight: 700; font-size: 0.82rem; color: #111827; }
+.vs-duptree-dept { color: #fff; font-size: 0.68rem; font-weight: 700; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
+.vs-duptree-status { font-size: 0.76rem; color: #6b7280; }
+.vs-duptree-badge.is-public { font-size: 0.68rem; font-weight: 700; color: #166534; background: #dcfce7; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
+.vs-duptree-here { font-size: 0.68rem; font-weight: 700; color: var(--pink-700, #be185d); margin-left: auto; }

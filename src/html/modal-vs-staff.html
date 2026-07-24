@@ -175,6 +175,10 @@
 
             <!-- Tab 3: เรื่องซ้ำ / คล้ายกัน (populated by vs-staff.js) -->
             <div class="tab-pane fade p-4" id="staff-similar-content" role="tabpanel">
+              <!-- Duplicate cluster tree (staff-only; staff see the real links).
+                   canonical → [duplicates], clickable. Hidden when the ticket has
+                   no cluster. Rendered from cache in openStaffModal. -->
+              <div id="staffDupTree" class="d-none mb-3"></div>
               <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-magic me-1"></i>ระบบแนะนำว่าคล้ายกัน</h6>
               <div id="staffSimilarBody">
                 <div class="text-muted small">เปิดแท็บนี้เพื่อค้นหา…</div>

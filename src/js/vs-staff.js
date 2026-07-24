@@ -405,6 +405,7 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   setupResolutionUI(status);
   bootstrap.Tab.getOrCreateInstance(document.getElementById('staff-detail-tab')).show();
   renderDupBanner();
+  renderDupTree();
   renderPublishPanel();
   wirePublishPanelOnce();
   resetSimilarPane();
@@ -504,6 +505,52 @@ function renderDupBanner() {
 function resetSimilarPane() {
   const body = document.getElementById('staffSimilarBody');
   if (body) body.innerHTML = '<div class="text-muted small">เปิดแท็บนี้เพื่อค้นหาเรื่องที่คล้ายกัน…</div>';
+}
+
+/** Staff-only duplicate-cluster tree: canonical → [duplicates], clickable.
+ *  Staff see the real links (0071 keeps cross-refs internal to STAFF; this is
+ *  a staff surface). Chains are collapsed by merge, so it's always one level.
+ *  Rendered from the loaded cache — no fetch. Hidden when there's no cluster. */
+function renderDupTree() {
+  const el = document.getElementById('staffDupTree');
+  if (!el) return;
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  if (!t) { el.classList.add('d-none'); el.innerHTML = ''; return; }
+
+  const canonicalId = t.duplicate_of || t.id;
+  const canonical = staffTicketsCache.find((x) => x.id === canonicalId);
+  const dups = staffTicketsCache
+    .filter((x) => x.duplicate_of === canonicalId && !x.deleted_at)
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  if (dups.length === 0) { el.classList.add('d-none'); el.innerHTML = ''; return; }
+
+  const node = (x, isCanonical) => {
+    if (!x) return '';
+    const idx = staffTicketsCache.indexOf(x);
+    const isCurrent = x.id === currentActiveTicketId;
+    const pub = x.is_public
+      ? '<span class="vs-duptree-badge is-public" title="เผยแพร่บนกระดานปัญหา"><i class="bi bi-megaphone-fill"></i> สาธารณะ</span>'
+      : '';
+    return `<div class="vs-duptree-node ${isCanonical ? 'is-canonical' : 'is-dup'} ${isCurrent ? 'is-current' : ''}"
+        onclick="openStaffModalByIndex(${idx})" role="button" tabindex="0">
+        <span class="vs-duptree-role">${isCanonical ? 'เรื่องหลัก' : 'ซ้ำ'}</span>
+        <span class="vs-duptree-id">${escHtml(x.id)}</span>
+        <span class="vs-duptree-dept" style="background:${deptColor(x.target_dept)}">${escHtml(deptShort(x.target_dept))}</span>
+        <span class="vs-duptree-status">${escHtml(x.status || '')}</span>
+        ${pub}
+        ${isCurrent ? '<span class="vs-duptree-here">เรื่องนี้</span>' : ''}
+      </div>`;
+  };
+
+  el.classList.remove('d-none');
+  el.innerHTML = `
+    <div class="vs-duptree">
+      <div class="vs-duptree-head"><i class="bi bi-diagram-3 me-1"></i>แผนผังเรื่องซ้ำ (${dups.length + 1} เรื่อง)</div>
+      ${node(canonical, true)}
+      <div class="vs-duptree-children">
+        ${dups.map((d) => node(d, false)).join('')}
+      </div>
+    </div>`;
 }
 
 // ----- Public board publish panel (SE only; migration 0072) -----

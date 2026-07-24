@@ -83,6 +83,22 @@ A's progress to B's submitter, identity-blind.
   link (the test that surfaced this). It renders with its label but has no canonical to mirror —
   reset it (clear resolution, reopen) via merge, or delete if it's a throwaway. **NEXT: VM deploy +
   human end-to-end (merge two tickets, track the dup as its submitter, watch progress mirror).**
+- **Staff duplicate-cluster TREE (client-only, no migration) — DEPLOYED.** เรื่องซ้ำ tab now shows a
+  GitHub-style linked tree `canonical → [duplicates]` (staff-only; staff see the real links per 0071),
+  each node clickable to open that ticket, marks "เรื่องนี้", shows dept/status + a สาธารณะ badge if
+  is_public. `renderDupTree` in `vs-staff.js`, `#staffDupTree` in `modal-vs-staff.html`, `.vs-duptree*`
+  in `vs.css`.
+- **OPEN design decisions the user raised (2026-07-24), NOT yet built — need the user's go:**
+  (2) **If the canonical is PUBLIC**, point the duplicate's submitter to the public board entry
+  (title + follow/me-too/pseudonymous comments) instead of the identity-blind mirror — SAFE because a
+  public canonical's id/title are already world-exposed via the board; when the canonical is
+  confidential, keep the mirror. Needs a server change to hand B's submitter the public canonical's
+  id+title only when public. Do NOT list B as a separate board problem (splits me-too).
+  (3) **"Show all staff discussion on public problems" → NO (recommended).** The board ALREADY has a
+  public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
+  must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
+  students' ticket ids (republishing = the 0071 breach). Safe transparency = CURATED public updates
+  (staff post into the public thread / SE `public_note`), never the raw timeline.
 
 **Next slice (service-desk roadmap):** (4) transition guards drive the status dropdown —
 show only valid next-states from the current status (e.g. can't jump รอ SE รับเรื่อง →
