@@ -8,10 +8,10 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `33dade2`, **deployed to the VM** and verified live
-  (admin bundle carries the 0079 tag code; public app carries the consent copy). The
-  frontend deploy was `5b082f2`; **`33dade2` is a DB-only fix — migration 0080, no
-  redeploy needed.** Tree is CLEAN. Verify with `/build.json` vs a fresh `npm run build`.
+- Live web = pushed `main` HEAD `5d0e15d`, **deployed to the VM** and verified live
+  (shared chunk carries the 0081 team-permission sync; admin bundle has
+  `managedPermissions`). Migration 0081 applied to the live DB. Tree is CLEAN.
+  Verify by grepping the served shared `analytics-*.js` chunk for feature strings.
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
   `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
   `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
@@ -27,7 +27,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
   schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
 
-## SAMO TEAM tree now DRIVES login permissions (migration 0081 APPLIED; frontend NOT yet deployed)
+## SAMO TEAM tree now DRIVES login permissions (0081 APPLIED + frontend DEPLOYED to VM)
 
 The ทีม SAMO org tree (`team_nodes.permissions`/`inherit_permissions`, +NEW
 per-person `team_members.permissions`/`inherit_permissions`) now grants REAL access.
@@ -52,8 +52,12 @@ Previously the tree was cosmetic — nothing linked it to a gate.
   toggle + effective preview; member rows show a shield "N สิทธิ์" tag.
 - **Decisions locked**: auto-grant on any matching kkumail (NO confirm gate); additive
   coexistence with manual perms. Started with `pr`; all PERM_CATALOG keys work the same.
-- **TODO**: deploy frontend to the VM (DB is already live; old bundle just ignores the
-  new column). No live browser e2e of a real kkumail login yet.
+- **Verified live**: resolver (pr,samoshop), guard (blocks client / allows server via
+  the GUC), and the live-update trigger ([]→[pr] on member insert) all tested against
+  the live DB via self-rolling-back probes. Deployed bundle (VM) carries the sync RPC
+  (shared `analytics-*.js` chunk) + `managedPermissions` (admin bundle).
+- **TODO**: no live BROWSER e2e of a real kkumail login → PR-tab-appears yet (all
+  server + unit paths verified; the browser round-trip is the only unproven link).
 
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 
