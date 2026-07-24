@@ -49,9 +49,15 @@ null there is a harmless nicety to add later (set `='duplicate'`). Live smoke te
 confirm the "ผลการดำเนินการ" outcome card shows. (Write path mirrors the tested status-write
 exactly; only the OAuth-gated staff click can't be done from here.)
 
-**Next slices (service-desk roadmap, agreed order):** (3) assignee/owner within a dept;
-(4) transition guards drive the status dropdown (valid next-states only). Public board =
-Phase 2 below.
+**Slice 3 (assignee/owner within a dept) — DROPPED (2026-07-24, user call).** Each dept
+operates via ONE shared department account; there are no individual members to assign to, so
+per-person ownership is meaningless — `target_dept` already encodes it. Do NOT revive this or
+generalize PR's `pr_agents` roster to VS. (See memory: depts-use-shared-accounts.)
+
+**Next slice (service-desk roadmap):** (4) transition guards drive the status dropdown —
+show only valid next-states from the current status (e.g. can't jump รอ SE รับเรื่อง →
+เสร็จสิ้น), reducing mis-clicks. Client-only is possible (constrain the dropdown); a DB
+trigger would harden it server-side. Public board = Phase 2 below.
 
 ### VS board Phase 2 (migration 0072) — schema + RLS + RPCs + UI, all DEPLOYED
 
