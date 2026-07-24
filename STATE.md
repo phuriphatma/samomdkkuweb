@@ -104,8 +104,11 @@ A's progress to B's submitter, identity-blind.
   (status truncates→own line); public linked banner stacks its CTA full-width on narrow. NOTE: live
   mobile-viewport testing via the browser tool wasn't reliable (Chrome clamped the resize; staff modal
   is login-gated) — responsive done by code + best practice, needs a real device eyeball. Possible
-  further UX (NOT done, offered): the staff VS modal is dense (publish panel + status + transfer +
-  discord + resolution + remark) — could regroup if it feels confusing on device.
+  further UX: **staff modal REGROUPED (DEPLOYED, VM build ff5b9a644854, commit c791379)** — detail
+  tab is now 5 purpose-sections in workflow order (`.vs-modal-section`): เรื่องที่แจ้ง → สถานะ &
+  ผลการดำเนินการ (resolution box nested under status) → ส่งต่อ & ปรึกษา (transfer+discord+silent) →
+  บันทึกข้อความ → เผยแพร่ (secondary, moved last). All element IDs unchanged (verified 24/24) —
+  zero JS edits; p-3 phones / p-4 desktop.
   (3) **STILL OPEN — "show all staff discussion on public problems" → recommend NO.** The board ALREADY has a
   public thread (`vs_public_comments`, staff reply as "เจ้าหน้าที่"). The INTERNAL `remarks` timeline
   must stay internal — it carries PDPA detail + the `internal:true` dedup cross-refs that name other
