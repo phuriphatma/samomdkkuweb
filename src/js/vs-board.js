@@ -254,6 +254,7 @@ function renderProblemDetail(p) {
         <span class="vs-metoo-count">${affected}</span> คนเจอปัญหานี้เหมือนกัน
       </button>
     </div>
+    <div id="vsMeTooNoteSlot"></div>
     <hr class="my-4">
     <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots me-2"></i>ความคิดเห็น
       <span class="text-muted fw-normal">(${comments.length})</span></h6>
@@ -292,6 +293,50 @@ export async function vsBoardMeToo(id, btn) {
   if (icon) icon.className = `bi ${!on ? 'bi-people-fill' : 'bi-people'}`;
   const c = btn.querySelector('.vs-metoo-count');
   if (c && count != null) c.textContent = Number(count);
+  // Detail view only: after turning me-too ON, offer an optional note —
+  // "อะไรเสริมจากหัวข้อ" (location, timing, symptoms). It posts through the
+  // normal pseudonymous comment pipeline (vs_post_public_comment), so it's
+  // moderated + anonymous like any other comment. Turning OFF removes the offer.
+  if (btn.classList.contains('vs-metoo-btn-lg')) {
+    if (!on) showMeTooNoteBox(id);
+    else document.getElementById('vsMeTooNoteSlot')?.replaceChildren();
+  }
+}
+
+function showMeTooNoteBox(id) {
+  const slot = document.getElementById('vsMeTooNoteSlot');
+  if (!slot) return;
+  slot.innerHTML = `
+    <div class="vs-metoo-note mt-3">
+      <label class="small fw-bold mb-1" for="vsMeTooNoteInput">
+        <i class="bi bi-chat-left-dots me-1"></i>มีรายละเอียดเสริมมั้ย? <span class="text-muted fw-normal">(ไม่บังคับ — แสดงแบบไม่ระบุตัวตน)</span>
+      </label>
+      <textarea id="vsMeTooNoteInput" class="form-control form-control-sm" rows="2" maxlength="2000"
+        placeholder="เช่น จุดที่พบ ช่วงเวลา หรืออาการที่เจอ..."></textarea>
+      <div class="d-flex gap-2 mt-2">
+        <button type="button" class="btn btn-submit btn-sm" data-metoo-send>
+          <i class="bi bi-send me-1"></i>ส่งหมายเหตุ</button>
+        <button type="button" class="btn btn-link btn-sm text-muted text-decoration-none" data-metoo-skip>ข้าม</button>
+      </div>
+    </div>`;
+  slot.querySelector('#vsMeTooNoteInput')?.focus();
+  slot.querySelector('[data-metoo-skip]')?.addEventListener('click', () => slot.replaceChildren());
+  slot.querySelector('[data-metoo-send]')?.addEventListener('click', async (e) => {
+    const bodyText = (slot.querySelector('#vsMeTooNoteInput')?.value || '').trim();
+    if (!bodyText) { slot.replaceChildren(); return; }
+    const sendBtn = e.currentTarget;
+    sendBtn.disabled = true;
+    const { error } = await dbRest('/rpc/vs_post_public_comment', {
+      method: 'POST', body: { p_canonical: id, p_body: bodyText },
+    });
+    if (error) {
+      sendBtn.disabled = false;
+      alert('ส่งหมายเหตุไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
+    slot.replaceChildren();
+    vsBoardOpen(id); // reload so the note appears in the comment thread
+  });
 }
 
 export async function vsPostComment(id) {

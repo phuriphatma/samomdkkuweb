@@ -330,3 +330,12 @@
   .vs-linked-cta { width: 100%; justify-content: center; }
 }
 
+
+/* --- me-too optional note box (posts as a pseudonymous comment) --- */
+.vs-metoo-note {
+  border: 1px solid var(--pink-200, #bfe3e0);
+  background: var(--pink-50, #eefaf9);
+  border-radius: 0.7rem;
+  padding: 0.75rem 0.9rem;
+}
+.vs-metoo-note textarea { resize: vertical; }

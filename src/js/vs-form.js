@@ -316,6 +316,9 @@ async function sendVsReport(form) {
     status: initialStatus,
     is_emergency: isEmergency,
     remarks: [],
+    // Consent to anonymous board publication (0076): explicit true/false —
+    // an unticked box is a decline, and vs_set_public enforces it server-side.
+    public_consent: formData.get('vsPublicConsent') === 'true',
   };
 
   const silentNotify = formData.get('vsSilentNotify') === 'true';

@@ -182,6 +182,24 @@
                 </select>
               </div>
 
+              <!-- Consent to anonymous board publication (0076). Stored as
+                   vs_tickets.public_consent (true/false). SE still curates +
+                   approves; an explicit decline blocks vs_set_public. -->
+              <div class="form-check form-switch mb-4 p-3 rounded-3"
+                style="background-color: var(--pink-50); border: 1px solid var(--pink-200)">
+                <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsPublicConsent"
+                  name="vsPublicConsent" value="true" style="cursor: pointer" />
+                <label class="form-check-label mt-1" for="vsPublicConsent"
+                  style="cursor: pointer; color: var(--pink-900)">
+                  <i class="bi bi-megaphone me-1"></i>
+                  ยินยอมให้นำปัญหานี้ขึ้น "กระดานปัญหา" แบบไม่ระบุตัวตน
+                  <span class="d-block small text-muted mt-1">
+                    ทีมงานจะตรวจสอบและเขียนหัวข้อใหม่ก่อนเผยแพร่ — ไม่แสดงชื่อหรือข้อความดิบของคุณ
+                    หากไม่ติ๊ก เรื่องนี้จะไม่ถูกเผยแพร่สู่สาธารณะ
+                  </span>
+                </label>
+              </div>
+
               <div class="dev-only-feature d-none">
                 <div class="form-check form-switch mb-2 p-3 rounded-3" style="background-color: var(--pink-100)">
                   <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsSilentNotify"

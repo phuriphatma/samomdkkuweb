@@ -705,6 +705,27 @@ async function renderPublishPanel() {
     panel.classList.add('d-none');
     return;
   }
+
+  // Submitter consent (0076): explicit decline blocks publish (also enforced
+  // server-side in vs_set_public); legacy null = SE judgment.
+  const consentEl = document.getElementById('staffPubConsent');
+  const declined = t.public_consent === false && !t.is_public;
+  if (consentEl) {
+    if (t.public_consent === true) {
+      consentEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>ผู้แจ้งยินยอมให้เผยแพร่แบบไม่ระบุตัวตน</span>';
+    } else if (t.public_consent === false) {
+      consentEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>ผู้แจ้งไม่ยินยอมให้เผยแพร่ — เผยแพร่ไม่ได้</span>';
+    } else {
+      consentEl.innerHTML = '<span class="text-muted"><i class="bi bi-question-circle me-1"></i>เรื่องเก่า — ผู้แจ้งไม่ได้ระบุความยินยอม (ใช้ดุลยพินิจ)</span>';
+    }
+  }
+  if (declined) {
+    [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = true));
+    unpubBtn?.classList.add('d-none');
+    stateBadge.className = 'badge rounded-pill ms-1 bg-secondary';
+    stateBadge.textContent = 'ไม่ยินยอม';
+    return;
+  }
   [sel, titleEl, noteEl, saveBtn].forEach((e) => e && (e.disabled = false));
 
   if (t.is_public) {
@@ -821,7 +842,14 @@ function renderVsCatManager() {
       const c = vsCatManagerRows.find((x) => x.id === id);
       if (!c) return;
       const makeConf = !c.is_confidential;
-      if (makeConf && !confirm(`ทำ "${c.label}" เป็นความลับ?\nหมวดนี้จะเผยแพร่สู่กระดานสาธารณะไม่ได้ และเรื่องที่เผยแพร่อยู่ในหมวดนี้จะหายจากกระดานทันที`)) return;
+      // Confirm BOTH directions. Turning confidential OFF is the more
+      // dangerous one — it removes a privacy guard (tickets in the category
+      // become publishable) — and an unconfirmed tap once flipped the seeded
+      // "personal" lane to publishable during testing.
+      const msg = makeConf
+        ? `ทำ "${c.label}" เป็นความลับ?\nหมวดนี้จะเผยแพร่สู่กระดานสาธารณะไม่ได้ และเรื่องที่เผยแพร่อยู่ในหมวดนี้จะหายจากกระดานทันที`
+        : `เอา "${c.label}" ออกจากความลับ?\n\n⚠️ นี่คือการถอดการป้องกันความเป็นส่วนตัว — เรื่องในหมวดนี้จะสามารถถูกเผยแพร่สู่กระดานสาธารณะได้`;
+      if (!confirm(msg)) return;
       vsCatPatch(id, { is_confidential: makeConf, public_eligible: !makeConf },
         makeConf ? 'ตั้งเป็นความลับแล้ว' : 'เปิดให้เผยแพร่ได้แล้ว');
     });

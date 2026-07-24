@@ -1482,3 +1482,25 @@ above it just appears. Rule: NEVER `new bootstrap.Modal(...)` in a code path
 that can run while that modal is open; always `getOrCreateInstance`.
 **Where**: `src/js/vs-staff.js` `openStaffModal`. Grep for `new bootstrap.Modal`
 if any other modal ever gains an internal "jump to other record" affordance.
+
+---
+
+## A destructive-direction toggle without a confirm silently dropped a privacy guard (vs_categories.personal flipped to publishable)
+
+**Symptom**: The 0072 isolation proof went 19/23 — the CONFIDENTIAL test
+ticket appeared on the public board, its detail returned data, SE could
+publish it, students could me-too it. Root cause was DATA, not code: the
+seeded `personal` category had `is_confidential=false, public_eligible=true`.
+**Cause**: The new category manager confirmed the toggle only when turning
+confidential ON. Turning it OFF — the direction that REMOVES a privacy
+guard — was a silent one-tap, and a tap during user testing flipped the
+personal-complaints lane to publishable. No real ticket leaked (none in that
+category was published), but every confidential re-check downstream keys on
+that flag, so the whole hard-exclusion stood on an unguarded toggle.
+**Fix**: (1) restored `personal` to confidential; (2) the manager now
+confirms BOTH directions, with the OFF confirm worded as removing
+protection. **Rule**: when adding a toggle whose one direction weakens a
+security/privacy invariant, that direction needs the STRONGER confirm (or a
+type-to-confirm) — not the safe direction. Also: re-run
+`tools/vs0072-isolation.mjs` after ANY change that touches vs_categories or
+the public-board RPCs; it catches config-level regressions, not just code.
