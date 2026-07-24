@@ -143,8 +143,17 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,has_password,phone&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /managed_vs_depts/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthVsDepts) {
+        window.__samoWarnedAuthVsDepts = true;
+        console.warn('[auth] managed_vs_depts column missing — apply migration 0082 to enable per-ฝ่าย VitalSound scope.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,has_password,phone&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /managed_permissions/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthManagedPerms) {
         window.__samoWarnedAuthManagedPerms = true;
@@ -195,8 +204,15 @@ async function buildCurrentUser(session) {
     const { data: synced, error: syncErr } = await dbRest(
       '/rpc/sync_my_team_permissions', { method: 'POST', body: {} },
     );
-    if (!syncErr && Array.isArray(synced) && profile) {
-      profile.managed_permissions = synced;
+    if (!syncErr && profile && synced) {
+      if (Array.isArray(synced)) {
+        // pre-0082 shape (text[] of permissions only)
+        profile.managed_permissions = synced;
+      } else if (typeof synced === 'object') {
+        // 0082+ shape: { permissions: [...], vs_depts: [...] }
+        if (Array.isArray(synced.permissions)) profile.managed_permissions = synced.permissions;
+        if (Array.isArray(synced.vs_depts)) profile.managed_vs_depts = synced.vs_depts;
+      }
     }
   } catch (_) { /* ignore — managed perms fall back to the profile value */ }
 
@@ -241,6 +257,9 @@ async function buildCurrentUser(session) {
     // Tree-derived perms from the SAMO Team org tree (migration 0081).
     // Stacks with `permissions` at the gate — see userCanAccess().
     managedPermissions: Array.isArray(profile?.managed_permissions) ? profile.managed_permissions : [],
+    // Per-ฝ่าย VitalSound scope from the SAMO Team tree (migration 0082).
+    // Non-empty ⇒ VS access limited to these target_depts (see userCanAccess).
+    managedVsDepts: Array.isArray(profile?.managed_vs_depts) ? profile.managed_vs_depts : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
 }
@@ -278,6 +297,9 @@ export function userCanAccess(feature, user = currentUser) {
   if (roleDefaults.includes(feature)) return true;
   if (Array.isArray(user.permissions) && user.permissions.includes(feature)) return true;
   if (Array.isArray(user.managedPermissions) && user.managedPermissions.includes(feature)) return true;
+  // Per-ฝ่าย VitalSound (0082): a scoped VS-dept grant opens the VS tab —
+  // the ticket rows themselves are then dept-filtered by RLS.
+  if (feature === 'vs' && Array.isArray(user.managedVsDepts) && user.managedVsDepts.length > 0) return true;
   return false;
 }
 

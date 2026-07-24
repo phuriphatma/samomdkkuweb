@@ -35,6 +35,26 @@ const PERM_CATALOG = [
 ];
 const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
 
+// VitalSound departments (vs_tickets.target_dept). Binding a node to one of
+// these (team_nodes.vs_dept) scopes VS access for its people to that dept
+// (migration 0082). Values MUST match the VS dept strings exactly; labels are
+// the short display names (same set as the VS staff dept dropdown).
+const VS_DEPTS = [
+  { value: 'นายกสโม',                                 label: 'นายกสโม' },
+  { value: 'SE',                                       label: 'SE (Student Engagement)' },
+  { value: 'อุปนายกฝ่ายบริหารองค์กร',                  label: 'บริหารองค์กร' },
+  { value: 'อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร',       label: 'ดิจิทัลและสื่อสาร' },
+  { value: 'อุปนายกฝ่ายกิจการภายใน',                   label: 'กิจการภายใน' },
+  { value: 'อุปนายกฝ่ายกิจการภายนอก',                  label: 'กิจการภายนอก' },
+  { value: 'อุปนายกฝ่ายกิจการมหาวิทยาลัย',             label: 'กิจการมหาวิทยาลัย' },
+  { value: 'อุปนายกฝ่ายวิชาการ',                       label: 'วิชาการ' },
+  { value: 'อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร',      label: 'ยุทธศาสตร์' },
+  { value: 'อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม',     label: 'คุณภาพชีวิต' },
+  { value: 'อุปนายกฝ่ายเวชนิทัศน์',                    label: 'เวชนิทัศน์' },
+  { value: 'อุปนายกฝ่ายรังสีเทคนิค',                   label: 'รังสีเทคนิค' },
+];
+const VS_DEPT_LABEL = Object.fromEntries(VS_DEPTS.map((d) => [d.value, d.label]));
+
 const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'bi-person-badge' };
 
 // ---- module state ----
@@ -123,6 +143,32 @@ function nodeEffectivePerms(nodeId) {
 function memberEffectivePerms(m) {
   const out = new Set(m.permissions || []);
   if (m.inherit_permissions !== false) nodeEffectivePerms(m.node_id).forEach((p) => out.add(p));
+  return out;
+}
+
+/** VS depts a node inherits from its ancestors (mirrors inheritedPermsFor).
+ *  `inheritOn` overrides the node's own inherit flag for live modal preview. */
+function inheritedVsDeptsFor(nodeId, inheritOn = null) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (!node) return out;
+  const on = inheritOn === null ? node.inherit_permissions !== false : inheritOn;
+  if (!on) return out;
+  let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
+  while (cur) {
+    if (cur.vs_dept) out.add(cur.vs_dept);
+    if (!cur.inherit_permissions) break;
+    cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
+  }
+  return out;
+}
+
+/** A node's full effective VS depts = its own binding ∪ inherited. */
+function nodeEffectiveVsDepts(nodeId) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (node?.vs_dept) out.add(node.vs_dept);
+  inheritedVsDeptsFor(nodeId).forEach((d) => out.add(d));
   return out;
 }
 
@@ -330,6 +376,10 @@ function renderNode(node, filter) {
     const inh = inheritedPermsFor(node.id);
     [...own].forEach((p) => { permChips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
     [...inh].forEach((p) => { if (!own.has(p)) permChips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
+    // VitalSound per-ฝ่าย binding: own dept solid, inherited dashed (0082).
+    const ownDept = node.vs_dept;
+    if (ownDept) permChips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
+    [...inheritedVsDeptsFor(node.id)].forEach((d) => { if (d !== ownDept) permChips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
     if (!permChips) permChips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
   }
 
@@ -411,6 +461,9 @@ function renderMember(m, filter) {
     let chips = '';
     [...own].forEach((p) => { chips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
     [...inh].forEach((p) => { if (!own.has(p)) chips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
+    // VitalSound per-ฝ่าย scope this person inherits from their node (0082).
+    const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
+    [...vsDepts].forEach((d) => { chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
     if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
     li.innerHTML = `
       ${checkbox}
@@ -1024,6 +1077,11 @@ function wirePermModal() {
         <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
       </label>`).join('');
   }
+  const vsSel = $('teamPermVsDept');
+  if (vsSel) {
+    vsSel.innerHTML = '<option value="">— ไม่กำหนด —</option>'
+      + VS_DEPTS.map((d) => `<option value="${escHtml(d.value)}">${escHtml(d.label)}</option>`).join('');
+  }
   $('teamPermForm')?.addEventListener('submit', onPermSubmit);
   $('teamPermInherit')?.addEventListener('change', refreshPermInherited);
 }
@@ -1036,20 +1094,33 @@ function openPermModal(id) {
   const own = new Set(node.permissions || []);
   $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
   $('teamPermInherit').checked = node.inherit_permissions !== false;
+  if ($('teamPermVsDept')) $('teamPermVsDept').value = node.vs_dept || '';
   refreshPermInherited();
   modalInstance('teamPermModal')?.show();
 }
 
 function refreshPermInherited() {
+  const id = $('teamPermNodeId').value;
+  const inheritOn = $('teamPermInherit').checked;
   const wrap = $('teamPermInheritedWrap');
   const list = $('teamPermInheritedList');
-  const id = $('teamPermNodeId').value;
-  if (!wrap || !list || !id) return;
-  const set = inheritedPermsFor(id, $('teamPermInherit').checked);
-  if (set.size) {
-    list.innerHTML = [...set].map((p) => `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
-    wrap.classList.remove('d-none');
-  } else wrap.classList.add('d-none');
+  if (wrap && list && id) {
+    const set = inheritedPermsFor(id, inheritOn);
+    if (set.size) {
+      list.innerHTML = [...set].map((p) => `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
+      wrap.classList.remove('d-none');
+    } else wrap.classList.add('d-none');
+  }
+  // Inherited VS depts preview
+  const vw = $('teamPermVsInheritedWrap');
+  const vl = $('teamPermVsInheritedList');
+  if (vw && vl && id) {
+    const set = inheritedVsDeptsFor(id, inheritOn);
+    if (set.size) {
+      vl.innerHTML = [...set].map((d) => `<span class="team-perm-chip is-vs is-inherited">${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
+      vw.classList.remove('d-none');
+    } else vw.classList.add('d-none');
+  }
 }
 
 async function onPermSubmit(e) {
@@ -1058,7 +1129,11 @@ async function onPermSubmit(e) {
   const node = nodesById.get(id);
   if (!node) return;
   const perms = [...$('teamPermGrid').querySelectorAll('input:checked')].map((cb) => cb.value);
-  const payload = { permissions: perms, inherit_permissions: $('teamPermInherit').checked };
+  const payload = {
+    permissions: perms,
+    inherit_permissions: $('teamPermInherit').checked,
+    vs_dept: $('teamPermVsDept')?.value || null,
+  };
   modalInstance('teamPermModal')?.hide();
   Object.assign(node, payload);
   render();
