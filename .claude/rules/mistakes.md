@@ -1806,3 +1806,62 @@ asks "who is the X?", not just "may this user write?".
 — the write fires the statement-level recompute trigger, which rebuilds
 managed_permissions from the tree and wipes a grant with no binding behind it.
 Seed the real node+member binding and call `sync_my_team_permissions()`.
+
+## A seat/scope dimension that is UNIONED with what it inherits is not a choice — the widest value wins and the explicit pick is decorative
+
+**Symptom**: "I gave myself หนังสือโครงการ as **คณะ**, but it shows many new
+notifications / many updates — it should look like samomdkkuvpa." The person had
+picked เจ้าหน้าที่คณะ in จัดการสิทธิ์, yet got the VP-Admin inbox (every project,
+nothing seen ⇒ everything badged "อัปเดต"). Looks like an unread-state bug; the
+seen-state code is fine (per-user `project_doc_views` + user-scoped localStorage).
+**Cause**: `effective_team_project_seats_for_email()` UNIONed the person's own
+`project_seat` with every seat inherited from their ตำแหน่ง, and the frontend
+`projectSeatRole()` then resolved the array with `SEAT_ORDER = ['vpa','staff','prof']`
+— *widest first*. Their ตำแหน่ง (หัวหน้าฝ่าย IT) carries `vpa`, so picking `staff`
+yields `{staff,vpa}` → `vp_admin`. Proven live by simulating the pick in a
+rolled-back transaction. **The union is what makes the pick meaningless**: for an
+additive grant (permissions, VS depts) union is right — you can hold PR *and*
+inherit ประกาศ. A seat is a single role in one workflow; two seats is not a wider
+grant, it is an ambiguous one, and any "pick the widest" tiebreak turns the
+narrower explicit choice into a no-op.
+**Fix (0092)**: nearest explicit binding wins. A person's own seat REPLACES
+inheritance; `node_effective_project_seats` returns at the FIRST ancestor naming a
+seat instead of collecting all of them. `SEAT_ORDER` survives only as a tiebreak
+across two genuine postings. The three UI sites that painted "own + inherited"
+chips now show one or the other, or the modal advertises a grant that doesn't
+resolve.
+**Where**: `supabase/migrations/0092_project_seat_parity.sql`;
+`src/js/team/index.js` (`inheritedSeatsFor`, `nodeEffectiveSeats`,
+`refreshMemberPermEff`, both chip renderers); `src/js/projects/index.js`
+(`SEAT_ORDER` comment). Proof: `tools/proj0092-seat-parity.mjs`.
+**Rule**: before making a dimension inheritable, decide whether it is ADDITIVE or
+EXCLUSIVE. If two values cannot both be true of one person, inheritance must
+OVERRIDE, never union — and never resolve the ambiguity with "widest wins", which
+silently upgrades privilege. Same family as the 0083 VS entry ("a narrowing scope
+added alongside an unconditional permission is DEAD") and the 0087 passport-scope
+`permTicked` entry: whenever a grant's storage becomes polymorphic, every reader
+must agree on which representation wins.
+
+**Three more role-only gaps fell out of the same sweep** — the 0089/0090/0091 rule
+("enumerate EVERY table the feature writes AND every audience lookup") had still
+missed a table and a helper:
+- `project_sign_requests` INSERT/UPDATE/DELETE were `role in ('uni_staff','dev')`,
+  so a `staff` seat could act on a document but could not **ส่งให้อาจารย์ลงนาม** —
+  the one thing เจ้าหน้าที่คณะ exists for. Now `current_user_is_project_uni_staff()`
+  (role OR seat). Deliberately NOT `current_user_is_project_actor()`, which also
+  admits `vpa` — the sender does not request signatures.
+- `project_settings` write was `role in ('vp_admin','dev')` → the `vpa` seat opens
+  การตั้งค่า and cannot save.
+- **A regression 0091 shipped**, hitting the REAL `saprof` account in production:
+  `list_project_seat_users()` guards on `current_user_is_project_actor()`, which is
+  deliberately false for a professor (0086 — a prof must not see every project).
+  But `notifySignDecision()` runs AS the professor and asks for the staff + vpa
+  audiences, so both returned **zero rows** and the professor's sign/reject
+  notified nobody. It returns an empty set rather than an error, so the role-only
+  fallback in `api.js listProjectSeatUsers` never fired either. Measured: as
+  saprof `staff=0 vpa=0`; as sastaff `staff=1 vpa=11`. Now a prof may READ an
+  audience (still id + display_name only) — reading "who is the คณะ" is not the
+  same capability as being an actor.
+**Rule**: when you narrow a helper that an audience/notification lookup depends
+on, check every ROLE that calls it, not just the ones it was written for — an
+authorization predicate reused as a *directory* query fails silently and empty.

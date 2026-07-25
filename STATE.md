@@ -8,8 +8,8 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `e9cc2ea`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0091 applied to the live DB. Verify a deploy
+- Live web = pushed `main` HEAD `PENDING_HEAD`, **deployed to the VM** (VM HEAD matches;
+  working tree CLEAN). Migrations 0081–0092 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -60,7 +60,7 @@ transactions, independent of live config — re-run after ANY change to these RL
 paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
-`tools/vs0072-isolation.mjs` 23. All green.
+`tools/proj0092-seat-parity.mjs` 13 · `tools/vs0072-isolation.mjs` 23. All green.
 
 **Role-only gates — fixed twice more (0089, 0090).** `team_nodes`/`team_members`
 were gated on role alone, so a tree-granted `team` holder could not edit the tree
@@ -74,6 +74,24 @@ fan-out resolved every audience by role, so a seat holder got no in-app
 notification at all — now `list_project_seat_users(seat)`. Lessons logged: test
 the OPERATION not the predicate (proj0086 asserted the helper and missed the
 policy), and the enumeration must cover audience LOOKUPS as well as writes.
+
+**Seats: explicit beats inherited, + 3 more role-only gaps (0092, APPLIED).**
+Reported as "granted myself หนังสือโครงการ as **คณะ** but it shows everything /
+many updates". The seat resolver UNIONed a person's own `project_seat` with what
+their ตำแหน่ง passed down, and `projectSeatRole()` picked the WIDEST — so under the
+`vpa` ตำแหน่ง, choosing เจ้าหน้าที่คณะ resolved to `{staff,vpa}` → `vp_admin`, i.e.
+the sender's see-everything inbox. Now the nearest explicit binding wins (own seat
+replaces inheritance; the ancestor walk stops at the first seat); `SEAT_ORDER`
+survives only as a tiebreak across two real postings. Same sweep fixed:
+`project_sign_requests` insert/update/delete were role-only so a `staff` seat could
+NOT ส่งให้อาจารย์ลงนาม; `project_settings` write was role-only so the `vpa` seat
+could not save; and **0091 had regressed the real `saprof` account** —
+`list_project_seat_users()` guards on `current_user_is_project_actor()`, false for a
+professor, so the prof's sign/reject notified NOBODY (measured: saprof staff=0
+vpa=0). Proof `tools/proj0092-seat-parity.mjs` 13/13 (was 8/13 before the fix).
+NOTE the seat is a per-row choice: `phuriphat.ma` still resolves to `vpa` because
+the *member* row names no seat and inherits the ตำแหน่ง's — set the seat on the
+member (or change the ตำแหน่ง) for คณะ to take effect.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer

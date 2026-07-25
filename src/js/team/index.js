@@ -188,9 +188,12 @@ function nodeEffectiveVsDepts(nodeId) {
   return out;
 }
 
-/** Project seats a node inherits from its ancestors (mirrors
- *  inheritedVsDeptsFor). `inheritOn` overrides the node's own flag so the
- *  modal can preview a toggle before it is saved. */
+/** Project seats a node inherits from its ancestors. Unlike permissions and
+ *  VS depts, seats are NOT additive: the NEAREST ancestor that names one is the
+ *  answer, because a seat is a single role in one workflow and holding two is
+ *  ambiguous rather than wider (migration 0092 — mirrors
+ *  node_effective_project_seats). `inheritOn` overrides the node's own flag so
+ *  the modal can preview a toggle before it is saved. */
 function inheritedSeatsFor(nodeId, inheritOn = null) {
   const out = new Set();
   const node = nodesById.get(nodeId);
@@ -199,20 +202,20 @@ function inheritedSeatsFor(nodeId, inheritOn = null) {
   if (!on) return out;
   let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
   while (cur) {
-    if (cur.project_seat) out.add(cur.project_seat);
+    if (cur.project_seat) { out.add(cur.project_seat); break; }   // nearest wins
     if (!cur.inherit_permissions) break;
     cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
   }
   return out;
 }
 
-/** A node's full effective project seats = its own binding ∪ inherited. */
+/** A node's effective project seat. Its OWN binding replaces what it would
+ *  otherwise inherit (0092) — so a ฝ่าย that says "เจ้าหน้าที่คณะ" is not
+ *  widened back to "ผู้ส่งหนังสือ" by its parent. */
 function nodeEffectiveSeats(nodeId) {
-  const out = new Set();
   const node = nodesById.get(nodeId);
-  if (node?.project_seat) out.add(node.project_seat);
-  inheritedSeatsFor(nodeId).forEach((x) => out.add(x));
-  return out;
+  if (node?.project_seat) return new Set([node.project_seat]);
+  return inheritedSeatsFor(nodeId);
 }
 
 function isAncestor(maybeAncestor, nodeId) {
@@ -423,10 +426,14 @@ function renderNode(node, filter) {
     const ownDept = node.vs_dept;
     if (ownDept) permChips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     [...inheritedVsDeptsFor(node.id)].forEach((d) => { if (d !== ownDept) permChips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // หนังสือโครงการ seat (0086): own solid, inherited dashed.
+    // หนังสือโครงการ seat (0086): own solid, inherited dashed — and an own seat
+    // REPLACES the inherited one (0092), so only one chip ever shows.
     const ownSeat = node.project_seat;
-    if (ownSeat) permChips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
-    [...inheritedSeatsFor(node.id)].forEach((x) => { if (x !== ownSeat) permChips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
+    if (ownSeat) {
+      permChips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
+    } else {
+      [...inheritedSeatsFor(node.id)].forEach((x) => { permChips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
+    }
     if (!permChips) permChips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
   }
 
@@ -514,11 +521,15 @@ function renderMember(m, filter) {
     if (ownDept) chips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
     [...vsDepts].forEach((d) => { if (d !== ownDept) chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // หนังสือโครงการ seat: this person's own binding + what the ตำแหน่ง passes down.
+    // หนังสือโครงการ seat: an own binding REPLACES the inherited one (0092), so
+    // show one chip or the other — never both, or the row would advertise a
+    // grant ("ผู้ส่งหนังสือ") the person does not actually resolve to.
     const ownSeat = m.project_seat || null;
-    if (ownSeat) chips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
-    const seats = m.inherit_permissions !== false ? nodeEffectiveSeats(m.node_id) : new Set();
-    [...seats].forEach((x) => { if (x !== ownSeat) chips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
+    if (ownSeat) {
+      chips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
+    } else if (m.inherit_permissions !== false) {
+      [...nodeEffectiveSeats(m.node_id)].forEach((x) => { chips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
+    }
     if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
     li.innerHTML = `
       ${checkbox}
@@ -1506,11 +1517,15 @@ function refreshMemberPermEff() {
     || { permissions: [], vs_dept: null, project_seat: null };
   const set = new Set(permissions);
   const vsSet = new Set(vsDept ? [vsDept] : []);
+  // A seat the person picked REPLACES the one their ตำแหน่ง would give them
+  // (0092) — so the preview must not add the inherited seat on top, or the
+  // admin is shown "เจ้าหน้าที่คณะ ผู้ส่งหนังสือ" for a grant that resolves to
+  // เจ้าหน้าที่คณะ alone.
   const seatSet = new Set(seat ? [seat] : []);
   if (m && $('teamMPermInherit')?.checked) {
     nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
     nodeEffectiveVsDepts(m.node_id).forEach((d) => vsSet.add(d));
-    nodeEffectiveSeats(m.node_id).forEach((x) => seatSet.add(x));
+    if (!seat) nodeEffectiveSeats(m.node_id).forEach((x) => seatSet.add(x));
   }
   let html = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
   // A dept chip only means anything when it isn't already swallowed by full VS.

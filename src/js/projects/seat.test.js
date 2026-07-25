@@ -20,9 +20,19 @@ describe('projectSeatRole', () => {
     expect(projectSeatRole({ role: 'user', managedProjectSeats: ['prof'] })).toBe('sa_prof');
   });
 
-  it('resolves multiple seats by widest-first precedence', () => {
+  // Since migration 0092 the server normally sends exactly ONE seat — an
+  // explicit pick replaces what the ตำแหน่ง would inherit. Widest-first now only
+  // breaks a genuine tie: two team_members rows (two postings) naming different
+  // seats. It must NOT be what decides an ordinary grant, which is the bug that
+  // made "เจ้าหน้าที่คณะ" resolve to vp_admin under a `vpa` ตำแหน่ง.
+  it('resolves genuinely-multiple seats by widest-first precedence', () => {
     expect(projectSeatRole({ role: 'user', managedProjectSeats: ['prof', 'vpa'] })).toBe('vp_admin');
     expect(projectSeatRole({ role: 'user', managedProjectSeats: ['prof', 'staff'] })).toBe('uni_staff');
+  });
+
+  it('takes a single resolved seat at face value (the 0092 shape)', () => {
+    expect(projectSeatRole({ role: 'user', managedProjectSeats: ['staff'] })).toBe('uni_staff');
+    expect(projectSeatRole({ role: 'user', managedProjectSeats: ['prof'] })).toBe('sa_prof');
   });
 
   it('leaves a plain user alone', () => {

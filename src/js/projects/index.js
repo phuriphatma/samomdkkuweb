@@ -68,7 +68,13 @@ function setView(next) {
  *  resolving the seat here — once — is what makes a tree-granted person a
  *  first-class actor instead of landing in a controls-less half-state. */
 const SEAT_TO_ROLE = { vpa: 'vp_admin', staff: 'uni_staff', prof: 'sa_prof' };
-// Precedence when someone somehow holds several seats: the widest first.
+// Precedence when someone holds several seats: the widest first.
+// Since 0092 the resolver normally sends exactly ONE seat — an explicit pick
+// replaces what the ตำแหน่ง would inherit, so this is no longer what decides a
+// person's role. It only breaks a genuine tie: two team_members rows (two
+// postings) naming different seats. Before 0092 an inherited `vpa` silently
+// outranked an explicitly chosen `staff`, which is the bug that made a
+// เจ้าหน้าที่คณะ grant open the sender's see-everything inbox.
 const SEAT_ORDER = ['vpa', 'staff', 'prof'];
 
 export function projectSeatRole(user) {
