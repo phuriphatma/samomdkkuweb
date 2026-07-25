@@ -172,17 +172,31 @@ its own admin table. Still awaiting 4 answers: admin allowlist / bulk-scan path 
 
 ## NEXT (pick up here)
 
-1. **User to browser-test the grants end-to-end.** All server paths are proven by
-   the scripts; no signed-in e2e run has been done for: a scoped VS user, a
-   `staff`/`prof` seat, or a scoped passport admin. `phuriphat.ma@kkumail.com`
-   currently holds `managed_permissions={creator,pr,team,vs}` (blanket `vs` = all
-   depts, from the หัวหน้าฝ่าย IT node) — tree edits from that account work as of
-   0089, no re-grant needed.
-2. **Passport enforcement** — answer the 4 questions above, then apply the
-   hardening plan and wire the passport app to `passport_admin_context()`.
-3. **Org-chart renderer** — contract exists (`get_public_org_chart()`), no UI.
-4. Optional: VS public-board staff-only comments are dept-scoped for handlers
-   (0084) — no further work known.
+1. **Browser-test the new grants — nothing below has had a signed-in e2e run.**
+   Every server path is proven by the 7 scripts, but the UI halves are unverified:
+   the SAMO Shop แหล่งที่มา picker + a scoped admin's product list (0093), the
+   ประกาศ read fix (a `creator` grantee should now see their own drafts), the
+   admin account-switch reload, and the passport Google sign-in round-trip.
+   `phuriphat.ma@kkumail.com` currently resolves to
+   `managed_permissions={creator,pr,projects,samoshop,team,vs}`,
+   `managed_project_seats={staff}`, `managed_passport_scopes={d:1}`,
+   `managed_shop_sources={}` (so: blanket shop, เจ้าหน้าที่คณะ for หนังสือโครงการ,
+   passport scoped to ฝ่ายบริหารองค์กร).
+2. **Retire the passport `admin`/`1234` fallback.** It is one flag —
+   `LEGACY_PASSWORD_LOGIN = false` in passport `js/admin-scope.js` — then delete
+   the marked block, `handleLegacyLogin`, and `#admin-legacy-box`. While it is on,
+   passport department scoping is opt-in, not enforced. Confirm every passport
+   admin has a ทีม SAMO grant first (today: `putita.s` full, `phuriphat.ma` d:1).
+3. **Passport RLS enforcement** — the `passport` schema is still `using(true)` for
+   anon (0056), so the 0087 scope is a UI boundary only. Plan:
+   `passport/SECURITY-HARDENING-PLAN.md`, still awaiting the 4 answers below; its
+   policies must READ `passport_admin_context()`, not build a second admin table.
+4. **When อาจารย์ / VPA migrate to personal kkumail accounts**, run
+   `tools/proj-handover.mjs --from <shared> --to <personal> --apply`. For อาจารย์
+   add `--sign-requests` — a sign request names ONE `prof_id`, so without it the
+   personal account sees an EMPTY หนังสือโครงการ inbox (measured: saprof 11 docs,
+   personal 0). Dry run first; it prints what it would change.
+5. **Org-chart renderer** — contract exists (`get_public_org_chart()`), no UI.
 
 ## PR + VITALSOUND — stable, pruned to the archive
 
