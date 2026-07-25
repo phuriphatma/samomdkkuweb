@@ -1315,17 +1315,28 @@ function wirePermModal() {
   $('teamPermInherit')?.addEventListener('change', refreshPermInherited);
 }
 
+/** Should a permission checkbox be ticked for this row?
+ *  A SCOPED grant deliberately stores no blanket permission key (0083/0087) —
+ *  the binding IS the grant — so the box must be ticked from either signal.
+ *  Miss this and re-opening the modal reads as "no grant", and the next save
+ *  silently wipes the binding. */
+export function permTicked(key, own, row) {
+  if (key === 'vs') return own.has('vs') || !!row?.vs_dept;
+  if (key === 'passport') {
+    return own.has('passport')
+      || row?.passport_dept_id != null || row?.passport_sub_dept_id != null;
+  }
+  return own.has(key);
+}
+
 function openPermModal(id) {
   const node = nodesById.get(id);
   if (!node) return;
   $('teamPermNodeId').value = id;
   $('teamPermNodeName').textContent = nodePath(id);
   const own = new Set(node.permissions || []);
-  // A scoped VS grant stores no `vs` perm — the dept binding IS the grant, so
-  // tick the box from either signal or the modal would read as "no VS".
-  const vsOn = own.has('vs') || !!node.vs_dept;
   $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => {
-    cb.checked = cb.value === 'vs' ? vsOn : own.has(cb.value);
+    cb.checked = permTicked(cb.value, own, node);
   });
   $('teamPermInherit').checked = node.inherit_permissions !== false;
   if ($('teamPermVsDept')) {
@@ -1455,9 +1466,8 @@ function openMemberPermModal(memberId) {
   $('teamMPermName').textContent = name;
   $('teamMPermNode').textContent = nodePath(m.node_id);
   const own = new Set(m.permissions || []);
-  const vsOn = own.has('vs') || !!m.vs_dept;
   $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-    cb.checked = cb.value === 'vs' ? vsOn : own.has(cb.value);
+    cb.checked = permTicked(cb.value, own, m);
   });
   if ($('teamMPermVsDept')) {
     $('teamMPermVsDept').value = m.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');

@@ -1718,3 +1718,38 @@ public SELECT policy to reach a "just the names" view, stop — you are
 publishing the whole row. And put the column allow-list in the function body
 (explicit `jsonb_build_object` keys), never `select *` or `returns setof
 <table>`, so a future `alter table` cannot silently widen it.
+
+---
+
+## When a SCOPED grant deliberately drops its blanket permission key, every reader of that key must learn the second signal — or re-opening the editor wipes the grant
+
+**Symptom** (caught in a bug scan, before it reached a user): a person or node
+granted SAMO Passport **scoped to one department** shows the "SAMO Passport"
+checkbox UNTICKED when the จัดการสิทธิ์ modal is re-opened, with the scope block
+hidden. Nothing looks broken — until the admin saves that modal for any
+unrelated reason (adding `pr`, flipping inherit), at which point
+`passport_dept_id` is written back as `null` and the grant is **silently
+destroyed**. The row still exists, so nothing errors.
+**Cause**: 0083/0087 make scoped and full mutually exclusive — a scoped grant
+stores the binding (`vs_dept` / `passport_dept_id`) and NO blanket key in
+`permissions[]`, because the blanket key is an unconditional OR-branch in RLS
+that would swallow the narrower check. That is correct. But the modal restored
+its checkboxes from `permissions[]` alone, with a hand-written special case for
+exactly one key:
+```js
+cb.checked = cb.value === 'vs' ? vsOn : own.has(cb.value);   // ← 'passport' missing
+```
+The `vs` case had been patched when VS gained its scope; adding a SECOND scoped
+permission re-introduced the same bug for the new key. The read path and the
+write path disagreed about what "granted" means.
+**Fix**: one predicate both modals share — `permTicked(key, own, row)` — that
+knows every key whose grant can be expressed as a binding instead of a
+permission. New scoped permissions extend that function rather than adding
+another ternary. Regression-tested in `src/js/team/perm-ticked.test.js`,
+including `passport_dept_id: 0` (a real id must not read as falsy).
+**Where**: `src/js/team/index.js` `permTicked` + both `open*PermModal`.
+**Rule**: any time you make a grant's storage POLYMORPHIC — "either this key or
+that binding" — grep for every place that answers "is this granted?" and route
+them all through one shared predicate the same commit. A read that knows only
+the old representation does not fail loudly; it reports "not granted", and the
+next write makes that true.
