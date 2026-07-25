@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `b365470`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0088 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081–0090 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -58,8 +58,19 @@ permission, because there the seat picks WHICH of three workflows
 **Verification.** Four self-provisioning proof scripts, each running in rolled-back
 transactions, independent of live config — re-run after ANY change to these RLS
 paths:
-`tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 18 ·
-`tools/pass0087-scope.mjs` 10 · `tools/vs0072-isolation.mjs` 23. All green.
+`tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
+`tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
+`tools/vs0072-isolation.mjs` 23. All green.
+
+**Role-only gates — fixed twice more (0089, 0090).** `team_nodes`/`team_members`
+were gated on role alone, so a tree-granted `team` holder could not edit the tree
+at all (and therefore could not grant anything from that account) — the permission
+that manages the grant engine was the one it did not honour. Same sweep found
+`projects_insert/delete` + `project_documents_insert/delete` role-only, so the
+`vpa` seat could update but not CREATE. Both fixed; 0090 adds the seat ALONGSIDE
+the role list (not via `current_user_is_project_actor()`, which also admits
+uni_staff, who must not create projects). Lesson logged: test the OPERATION, not
+the predicate — proj0086 asserted the helper and missed the policy.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
@@ -79,7 +90,10 @@ its own admin table. Still awaiting 4 answers: admin allowlist / bulk-scan path 
 
 1. **User to browser-test the grants end-to-end.** All server paths are proven by
    the scripts; no signed-in e2e run has been done for: a scoped VS user, a
-   `staff`/`prof` seat, or a scoped passport admin.
+   `staff`/`prof` seat, or a scoped passport admin. `phuriphat.ma@kkumail.com`
+   currently holds `managed_permissions={creator,pr,team,vs}` (blanket `vs` = all
+   depts, from the หัวหน้าฝ่าย IT node) — tree edits from that account work as of
+   0089, no re-grant needed.
 2. **Passport enforcement** — answer the 4 questions above, then apply the
    hardening plan and wire the passport app to `passport_admin_context()`.
 3. **Org-chart renderer** — contract exists (`get_public_org_chart()`), no UI.

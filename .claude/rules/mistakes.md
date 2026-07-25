@@ -1753,3 +1753,48 @@ that binding" — grep for every place that answers "is this granted?" and route
 them all through one shared predicate the same commit. A read that knows only
 the old representation does not fail loudly; it reports "not granted", and the
 next write makes that true.
+
+---
+
+## The permission that manages the grant engine was the one the grant engine didn't honour — and a helper test is not a permission test
+
+**Symptom** (reported live): the ทีม SAMO permission was granted to
+`phuriphat.ma@kkumail.com` through the tree. Signed in as that account, EVERY
+tree edit failed with "บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)" — which also made granting
+เขียนประกาศ to someone fail, so it read as two separate bugs. It was one: the
+account could not write the tree at all, so no grant could be issued from it.
+**Cause**: 0046 gated `team_nodes` / `team_members` on ROLE only —
+`current_user_role() = any(array['vp_admin','dev'])` — with no
+`current_user_has_permission('team')` branch. When 0081 introduced
+`managed_permissions`, every OTHER feature's policy was updated (announcements
+honours `creator`, `pr_agents` and `pr_tickets` honour `pr`,
+`current_user_is_shop_admin()` honours `samoshop`) — the team tables were
+missed. The UI honoured it (`userCanAccess('team')`, `ADMIN_FEATURES`), so the
+section rendered and only writes died. Third instance of the same class this
+cycle.
+**A second one fell out of the same sweep**: `projects_insert` /
+`projects_delete` / `project_documents_insert` / `project_documents_delete`
+never called `current_user_is_project_actor()` and stayed role-only, so the
+0086 `vpa` seat could UPDATE a project but not CREATE one — the single thing
+ผู้ส่งหนังสือ exists to do. `proj0086-seats.mjs` missed it because it asserted
+`current_user_is_project_actor()` returned true rather than performing a real
+INSERT. **A predicate test is not a permission test**: the helper can be right
+while the policy that was supposed to call it never does. The script now does
+the INSERT (allowed for `vpa`, refused for `prof` and for no seat).
+**Fix**: 0089 adds the `team` permission branch to both team-table policies;
+0090 adds the `vpa` seat to the four project write policies — deliberately
+alongside the existing role list rather than switching to the actor helper,
+because that helper also admits `uni_staff`, who must not create projects.
+**Where**: `supabase/migrations/0089_*`, `0090_*`; proofs
+`tools/team0089-manage.mjs` (5) and the extended `tools/proj0086-seats.mjs` (21).
+**Rules**: (1) after adding an access channel, enumerate EVERY table the
+feature writes and check each policy names the channel — a UI gate that honours
+it will hide the gap until someone tries to save. (2) Test the OPERATION, not
+the predicate. (3) Watch for the recursive case: the permission governing the
+permission system is the easiest one to forget, because you are usually holding
+a role that already works.
+**Harness note (cost me 20 minutes)**: seeding a grant by poking
+`users.managed_permissions` directly then writing to `team_nodes` does NOT work
+— the write fires the statement-level recompute trigger, which rebuilds
+managed_permissions from the tree and wipes a grant with no binding behind it.
+Seed the real node+member binding and call `sync_my_team_permissions()`.

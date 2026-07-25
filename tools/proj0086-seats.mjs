@@ -6,7 +6,7 @@
 //   prof        → signing seat ONLY (must NOT be an actor)
 //   none        → neither
 // Org chart:
-//   name/nickname/structure only, is_public subtrees only, никогда an email.
+//   name/nickname/structure only, is_public subtrees only, never an email.
 //
 // Self-provisioning + non-destructive: each check runs in ONE Management-API
 // call (= one transaction) that grants a synthetic seat, asserts, and ROLLs
@@ -86,6 +86,26 @@ async function main() {
   const prof = rowsOf(await asSeat('prof', probe))[0] || {};
   check('seat prof → signing seat', prof.prof === true, JSON.stringify(prof));
   check('seat prof → NOT a project actor', prof.actor === false, JSON.stringify(prof));
+
+  // ---- a predicate test is not a permission test: exercise a real INSERT.
+  //      0090 — projects_insert/delete were role-only, so the vpa seat could
+  //      update but not CREATE, which is what ผู้ส่งหนังสือ exists to do. ----
+  const canCreate = async (seat) => {
+    const r = await asSeat(seat, `
+      set local role authenticated;
+      insert into public.projects (id, name, created_by)
+      values ('PRJ-ZZ0090', 'seat probe', ${lit(UID)});
+      select (select count(*) from public.projects where id='PRJ-ZZ0090') as made;
+      reset role;`);
+    return { ok: r.status < 400, rows: rowsOf(r), body: errText(r) };
+  };
+  const vpaCreate = await canCreate('vpa');
+  check('seat vpa CAN create a project',
+    vpaCreate.ok && Number(vpaCreate.rows.find((x) => 'made' in x)?.made) === 1, vpaCreate.body);
+  const profCreate = await canCreate('prof');
+  check('seat prof CANNOT create a project', !profCreate.ok, profCreate.body);
+  const noneCreate = await canCreate(null);
+  check('no seat CANNOT create a project', !noneCreate.ok, noneCreate.body);
 
   // ---- the seat is what makes them show up as a possible signer ----
   const listed = await asSeat('prof', `
