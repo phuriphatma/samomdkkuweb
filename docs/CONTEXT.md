@@ -398,6 +398,28 @@ CHECK lets a dept handler keep a ticket in their dept(s) or hand it back to SE �
 never reassign to an unrelated dept. `userCanAccess('vs')` is true when
 `managedVsDepts` is non-empty (opens the tab; RLS dept-filters the rows).
 
+**Scope is part of the grant, not a sibling of it (migration 0083).** 0082's two
+dimensions were independent, and a row carrying BOTH the `vs` permission and a
+`vs_dept` was effectively unscoped — `current_user_has_permission('vs')` is an
+unconditional OR-branch, and permissive RLS policies are OR'd. So the model is now
+exclusive: a node/member carries EITHER `vs` (all depts) OR a `vs_dept` (that dept
+only). The perm modal reveals the dept picker only once VitalSound is ticked and
+drops `vs` when a specific dept is picked (`readPermInputs()` in
+`src/js/team/index.js`); 0083 normalised the legacy both-set rows. 0083 also adds
+`team_members.vs_dept` (per-PERSON scope, unioned with the node's, edited in the
+สิทธิ์รายบุคคล modal) and one predicate every VS surface now asks —
+`public.current_user_vs_scope()`: **NULL** = all depts (`vs_staff`/`dev`/perm `vs`),
+**`{}`** = no VS access (fail closed), else the allowed `target_dept`s (a VP's
+`users.department` ∪ `managed_vs_depts`). It backs the dedup RPCs
+(`find_similar_vs_tickets`, `search_vs_tickets`, `merge_vs_tickets`,
+`unmerge_vs_ticket`), `vs_hide_public_comment`, `soft_delete_vs_ticket` (which keeps
+0044's "any ticket" rule for vs_staff/dev/vp_admin and scopes only the new path), and
+the widened `vs_tags` read/write policies. Frontend mirror: `isVsSuper()` /
+`vsScopeDepts()` in `src/js/vs-staff.js`. Proof script: `tools/vs0083-scope.mjs`
+(run it after any change to VS RLS or these RPCs). Known gap: the public board's
+staff-only comment surface (0078) still gates on `current_user_is_staff()`, so a
+tree-scoped handler is not เจ้าหน้าที่ there.
+
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag
 reorder/move are plain PATCHes (parent_id + position); the frontend blocks

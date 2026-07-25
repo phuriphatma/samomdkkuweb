@@ -127,37 +127,39 @@ function isOverdue(ticket) {
 
 const ALL_DEPTS = '__all__';
 
+/** Full-VS: sees and manages every department (SE / dev / the `vs` permission
+ *  from either the manual or the tree-managed channel). Mirrors the SQL
+ *  `current_user_vs_scope() is null` branch (migration 0083). */
+function isVsSuper(u = authGetUser()) {
+  return !!u && (u.role === 'vs_staff' || u.role === 'dev'
+    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
+    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
+}
+
+/** The departments a NON-super user is limited to: a VP's own department
+ *  and/or the SAMO Team tree scope (users.managed_vs_depts, 0082/0083).
+ *  Empty ⇒ either full-VS or no VS access at all — check isVsSuper() first.
+ *  Mirrors the SQL current_user_vs_scope(). */
+function vsScopeDepts(u = authGetUser()) {
+  if (!u || isVsSuper(u)) return [];
+  const out = new Set();
+  if (u.role === 'vp_admin' && u.department) out.add(u.department);
+  (Array.isArray(u.managedVsDepts) ? u.managedVsDepts : []).forEach((d) => { if (d) out.add(d); });
+  return [...out];
+}
+
 export async function enterVSStaffDashboard() {
   const select = document.getElementById('staffRole');
   const user = authGetUser();
-  const isVP = user?.role === 'vp_admin';
-  // Full-VS (SE / dev / has 'vs') see every dept; a per-ฝ่าย scoped user
-  // (0082 managed_vs_depts, and NOT full-vs) is limited to their dept(s) by
-  // RLS — mirror the VP treatment so the picker/title don't offer or imply
-  // depts they can't see.
-  const isSuper = user?.role === 'vs_staff' || user?.role === 'dev'
-    || (Array.isArray(user?.permissions) && user.permissions.includes('vs'))
-    || (Array.isArray(user?.managedPermissions) && user.managedPermissions.includes('vs'));
-  const scopedDepts = (!isSuper && Array.isArray(user?.managedVsDepts)) ? user.managedVsDepts : [];
+  // Full-VS (SE / dev / has 'vs') see every dept. Everyone else is limited to
+  // their scope — a VP's own department and/or the SAMO Team tree binding
+  // (0082/0083) — so the picker/title never offer depts RLS won't return.
+  const scopedDepts = vsScopeDepts(user);
 
-  if (isVP && user.department) {
-    // Lock the dept filter to the VP's own dept (RLS allows them
-    // nothing else anyway). Picker stays hidden.
-    currentStaffRole = user.department;
-    if (select) {
-      if (![...select.options].some((o) => o.value === currentStaffRole)) {
-        const opt = document.createElement('option');
-        opt.value = currentStaffRole;
-        opt.textContent = currentStaffRole;
-        select.appendChild(opt);
-      }
-      select.value = currentStaffRole;
-      select.classList.add('d-none');
-    }
-  } else if (scopedDepts.length) {
-    // Per-ฝ่าย scoped (0082): default to their (first) dept. Ensure their
-    // dept(s) exist as options; hide the picker when they have exactly one
-    // (RLS returns nothing for any other dept anyway).
+  if (scopedDepts.length) {
+    // Scoped: default to their (first) dept, or keep a still-valid previous
+    // pick. Hide the picker when they have exactly one dept (RLS returns
+    // nothing for any other dept anyway).
     const prev = staffDashboardEntered && select && select.value ? select.value : null;
     currentStaffRole = (prev && scopedDepts.includes(prev)) ? prev : scopedDepts[0];
     if (select) {
@@ -793,10 +795,7 @@ let vsCategoriesCache = null;   // active vs_categories, loaded once
 let publishPanelWired = false;
 
 function isSEPublisher() {
-  const u = authGetUser();
-  return !!u && (u.role === 'vs_staff' || u.role === 'dev'
-    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
-    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
+  return isVsSuper();
 }
 
 async function loadVsCategories() {
@@ -919,13 +918,11 @@ async function fillStaffTagEditor(t) {
   const box = document.getElementById('staffTagEditor');
   if (!box) return;
   const dept = t?.target_dept || tagFilterDept();
-  // Manage button is dept-scoped: a VP manages only their own dept; SE/dev can
-  // manage any dept's list (matches vs_tags RLS 0079).
+  // Manage button is dept-scoped: a VP (or a tree-scoped handler, 0083)
+  // manages only their own dept; SE/dev can manage any dept's list
+  // (matches vs_tags RLS 0079 + 0083).
   const u = authGetUser();
-  const canManage = !!u && (u.role === 'vs_staff' || u.role === 'dev'
-    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
-    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs'))
-    || (u.role === 'vp_admin' && u.department === dept));
+  const canManage = !!u && (isVsSuper(u) || vsScopeDepts(u).includes(dept));
   document.getElementById('staffTagLabel').textContent =
     dept ? `แท็กภายใน (${deptShort(dept)})` : 'แท็กภายใน';
   const manageBtn = document.getElementById('staffTagManageBtn');
@@ -1268,12 +1265,10 @@ function vsTagStatus(msg, isError) {
 }
 
 /** True when the signed-in user may manage ANY dept's tags (vs_staff/dev/perm).
- *  A vp_admin is locked to their own dept (enforced by RLS + the dept picker). */
+ *  A vp_admin / tree-scoped handler is locked to their own dept(s) (enforced
+ *  by RLS + the dept picker). */
 function isTagSuperManager() {
-  const u = authGetUser();
-  return !!u && (u.role === 'vs_staff' || u.role === 'dev'
-    || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
-    || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
+  return isVsSuper();
 }
 
 /** Open the tag manager for a given dept. Called from the per-ticket editor's
@@ -1287,8 +1282,9 @@ export async function openVsTagManager(dept) {
     || document.getElementById('staffTagManageBtn')?.dataset.dept
     || tagFilterDept()
     || u?.department || 'SE';
-  // A VP can only ever manage their own dept.
-  if (u?.role === 'vp_admin') vsTagManagerDept = u.department || vsTagManagerDept;
+  // A VP / tree-scoped handler can only ever manage their own dept(s).
+  const scope = vsScopeDepts(u);
+  if (scope.length && !scope.includes(vsTagManagerDept)) vsTagManagerDept = scope[0];
 
   vsTagStatus('');
   const el = document.getElementById('vsTagModal');
@@ -1718,19 +1714,17 @@ export async function submitStaffAction() {
     return;
   }
 
-  // Guard: a VP can only transfer back to SE — not directly to another
-  // VP. RLS (migration 0013's with-check) enforces this server-side; we
-  // catch it here with a friendly Thai message before the request fires
-  // so users don't see the raw RLS error.
+  // Guard: a dept-scoped user (VP, or a SAMO Team tree handler — 0083) can
+  // only keep a ticket inside their own dept(s) or hand it back to SE — never
+  // pass it straight to another อุปนายก. RLS (0013's with-check, widened in
+  // 0082) enforces this server-side; we catch it here with a friendly Thai
+  // message before the request fires so users don't see the raw RLS error.
   if (deptChanged) {
-    const user = authGetUser();
-    if (user?.role === 'vp_admin') {
-      const ownDept = user.department || '';
-      const isVPDest = (newDept || '').startsWith('อุปนายก');
-      if (isVPDest && newDept !== ownDept) {
-        alert('ไม่สามารถส่งต่อให้อุปนายกท่านอื่นโดยตรงได้\n\nกรุณาเลือก "โอนคืน SE" เพื่อให้ SE พิจารณาและส่งต่อให้อุปนายกท่านที่เกี่ยวข้อง');
-        return;
-      }
+    const scope = vsScopeDepts(authGetUser());
+    const isVPDest = (newDept || '').startsWith('อุปนายก');
+    if (scope.length && isVPDest && !scope.includes(newDept)) {
+      alert('ไม่สามารถส่งต่อให้อุปนายกท่านอื่นโดยตรงได้\n\nกรุณาเลือก "โอนคืน SE" เพื่อให้ SE พิจารณาและส่งต่อให้อุปนายกท่านที่เกี่ยวข้อง');
+      return;
     }
   }
 

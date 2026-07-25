@@ -1563,3 +1563,48 @@ security/privacy invariant, that direction needs the STRONGER confirm (or a
 type-to-confirm) — not the safe direction. Also: re-run
 `tools/vs0072-isolation.mjs` after ANY change that touches vs_categories or
 the public-board RPCs; it catches config-level regressions, not just code.
+
+---
+
+## A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD — RLS ORs the branches, so the broad grant always wins
+
+**Symptom**: A person granted VitalSound through the SAMO Team tree with a
+per-ฝ่าย binding (0082 `team_nodes.vs_dept` → `users.managed_vs_depts`) logged
+in with their kkumail and saw + managed EVERY department's tickets — not the
+one dept they were bound to, unlike a real VP account (`samomdkkuvpa`). The
+tree row, the resolver, `managed_vs_depts`, and the new RLS branch were all
+verifiably correct, which is what makes this one hard to see.
+**Cause**: 0082 added the dept scope as an ADDITIVE dimension parallel to the
+`vs` permission, and the perm modal offered the two independently — a checkbox
+grid ("VitalSound") plus an always-visible dept `<select>`. The admin did the
+natural thing: ticked VitalSound (to grant VS at all) AND picked a dept. But
+`vs` means FULL VS — `current_user_has_permission('vs')` is an unconditional
+`true` branch in every VS policy, and permissive RLS policies are OR'd, so it
+swallowed the narrower `target_dept = any(current_user_vs_depts())` branch.
+Live proof: node `หัวหน้าฝ่าย IT` had `permissions={vs}` AND
+`vs_dept='อุปนายกฝ่ายวิชาการ'` → `managed_permissions={pr,vs}` → full access.
+Same family as "a per-recipient SELECT RLS is DEAD when a `using(true)` policy
+already exists" — a broad OR-branch cannot be narrowed by adding a second one.
+**Fix**: make the scope a PROPERTY OF THE GRANT, not a sibling of it. A row now
+carries EITHER `vs` (all depts) OR a `vs_dept` (that dept only), never both:
+the dept picker appears only after VitalSound is ticked (progressive
+disclosure), and choosing a specific dept drops `vs` from `permissions[]` on
+save (`readPermInputs()`). Migration 0083 normalises the rows written under the
+old model (`array_remove(permissions,'vs') where vs_dept is not null`) and adds
+`current_user_vs_scope()` — NULL = all depts, `{}` = no access, else the
+allowed depts — so every VS surface asks ONE fail-closed predicate instead of
+re-deriving `role in (...) or has_permission or vp_admin-dept` five ways.
+**Where**: `supabase/migrations/0083_vs_scope_is_not_full.sql`,
+`src/js/team/index.js` (`readPermInputs` / `syncVsScopeVisibility`),
+`src/js/vs-staff.js` (`isVsSuper` / `vsScopeDepts`),
+`tools/vs0083-scope.mjs` (10-check proof, run it after any VS RLS change).
+**Rules**: (1) before adding a narrowing dimension to an authorization model,
+grep the policies for an existing unconditional branch (`has_permission('x')`,
+`using(true)`, a role list) — if one exists, your new branch is decorative
+until the broad grant is made mutually exclusive with it. (2) A UI that lets an
+admin select both a broad grant and a narrow scope INDEPENDENTLY will be used
+that way; encode the exclusivity in the form, not in a doc comment.
+(3) The second half of this fix is the boring half: a scoped principal needs
+the SAME dept-scoped abilities everywhere the existing narrow role has them
+(tags, dedup search/merge/unmerge, soft-delete, moderation) or every button
+throws "not authorized" — grep for each `= current_user_dept()` site.

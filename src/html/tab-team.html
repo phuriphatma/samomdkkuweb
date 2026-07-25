@@ -164,12 +164,16 @@
             <span class="team-perm-inherited-label">สิทธิ์ที่ได้รับจากแม่:</span>
             <span id="teamPermInheritedList"></span>
           </div>
-          <hr class="my-3" />
-          <label class="form-label mb-1" for="teamPermVsDept">
-            <i class="bi bi-soundwave"></i> VitalSound — แผนกที่ฝ่ายนี้รับผิดชอบ
-          </label>
-          <select class="form-select" id="teamPermVsDept"></select>
-          <div class="form-text">เลือกแผนก VitalSound ที่ฝ่ายนี้ดูแล — คนในฝ่ายนี้ (และฝ่ายย่อย) จะเห็นและจัดการเฉพาะเรื่องของแผนกนั้น</div>
+          <!-- VS scope: appears only when "VitalSound" is ticked above. The
+               scope is part of the VS grant, not a separate switch (0083). -->
+          <div class="d-none" id="teamPermVsWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamPermVsDept">
+              <i class="bi bi-soundwave"></i> VitalSound — แผนกที่ฝ่ายนี้รับผิดชอบ
+            </label>
+            <select class="form-select" id="teamPermVsDept"></select>
+            <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้คนในฝ่ายนี้ (และฝ่ายย่อย) เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
+          </div>
           <div class="team-perm-inherited d-none mt-2" id="teamPermVsInheritedWrap">
             <span class="team-perm-inherited-label">แผนก VitalSound ที่รับมาจากฝ่ายแม่:</span>
             <span id="teamPermVsInheritedList"></span>
@@ -203,6 +207,16 @@
             <label class="form-check-label" for="teamMPermInherit">
               รับสิทธิ์จากตำแหน่งด้วย (inherit)
             </label>
+          </div>
+          <!-- VS scope for THIS person: appears only when "VitalSound" is
+               ticked above. Unions with whatever their ตำแหน่ง grants. -->
+          <div class="d-none" id="teamMPermVsWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermVsDept">
+              <i class="bi bi-soundwave"></i> VitalSound — แผนกที่บุคคลนี้รับผิดชอบ
+            </label>
+            <select class="form-select" id="teamMPermVsDept"></select>
+            <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้บุคคลนี้เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
           </div>
           <div class="team-perm-inherited d-none" id="teamMPermEffWrap">
             <span class="team-perm-inherited-label">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</span>

@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `1855539`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081 + 0082 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081 + 0082 + 0083 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -76,10 +76,24 @@ Previously the tree was cosmetic — nothing linked it to a gate.
   `target_dept = any(current_user_vs_depts())`. `sync_my_team_permissions()` now returns
   jsonb `{permissions, vs_depts}`. Verified live (rolled-back): scoped user sees 1/1 own +
   0/64 other-dept, resolver inherits, anon reads 0, 0072 isolation 23/23.
-- **TODO**: user to re-test the actual browser login now that the gate fix is deployed
-  (all server + unit paths verified; DB row for phuriphat is correct). For per-ฝ่าย VS:
-  set a node's VS department in จัดการสิทธิ์, put the person under it, they log in → VS
-  tab shows only that dept's tickets.
+- **Scoped VS ≠ full VS (0083, APPLIED to live DB)**: the reported bug — a tree-scoped
+  person saw ALL depts — was the `vs` permission and the `vs_dept` binding coexisting on
+  one row: `has_permission('vs')` is an unconditional OR-branch in every VS policy and
+  swallowed the dept check. Now a row carries EITHER `vs` (ทุกแผนก) OR a `vs_dept` (that
+  dept only); the perm modal shows the dept picker ONLY after VitalSound is ticked and
+  drops `vs` when a specific dept is chosen. 0083 also: `team_members.vs_dept`
+  (per-PERSON scope, in the สิทธิ์รายบุคคล modal), normalises legacy both-set rows,
+  adds `current_user_vs_scope()` (NULL=all / `{}`=none / depts), and gives a scoped
+  handler the rest of the dept-scoped workflow (vs_tags read+own-dept write, search /
+  find_similar / merge / unmerge / soft_delete / hide_public_comment). Verified live:
+  `tools/vs0083-scope.mjs` 10/10 on the real account (`phuriphat.ma@kkumail.com` →
+  `managed_permissions={pr}`, `managed_vs_depts={อุปนายกฝ่ายวิชาการ}`).
+  Known gap left open: the public-board **staff-only comment** surface
+  (`get_public_vs_problem` / `vs_post_public_comment`, 0078) still gates on
+  `current_user_is_staff()`, so a tree-scoped handler isn't treated as เจ้าหน้าที่ there.
+- **TODO**: user to re-test the actual browser login. For per-ฝ่าย VS: จัดการสิทธิ์ → tick
+  VitalSound on a node (or on a person) → choose "เฉพาะ <แผนก>" → they log in → VS tab
+  shows only that dept's tickets, with the dept picker hidden.
 
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 

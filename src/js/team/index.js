@@ -35,10 +35,14 @@ const PERM_CATALOG = [
 ];
 const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
 
-// VitalSound departments (vs_tickets.target_dept). Binding a node to one of
-// these (team_nodes.vs_dept) scopes VS access for its people to that dept
-// (migration 0082). Values MUST match the VS dept strings exactly; labels are
-// the short display names (same set as the VS staff dept dropdown).
+// VitalSound departments (vs_tickets.target_dept). Binding a node — or a
+// single person (0083) — to one of these (`vs_dept`) scopes VS access to that
+// dept. The binding IS the VS grant's scope: a row carries EITHER the full
+// `vs` permission (all depts) OR a vs_dept (that dept only), never both —
+// `vs` is an unconditional true branch in every VS policy and would swallow
+// the narrower dept check. See migration 0083.
+// Values MUST match the VS dept strings exactly; labels are the short display
+// names (same set as the VS staff dept dropdown).
 const VS_DEPTS = [
   { value: 'นายกสโม',                                 label: 'นายกสโม' },
   { value: 'SE',                                       label: 'SE (Student Engagement)' },
@@ -461,9 +465,12 @@ function renderMember(m, filter) {
     let chips = '';
     [...own].forEach((p) => { chips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
     [...inh].forEach((p) => { if (!own.has(p)) chips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
-    // VitalSound per-ฝ่าย scope this person inherits from their node (0082).
+    // VitalSound scope: the person's OWN binding (0083, solid) + whatever
+    // their ตำแหน่ง passes down (0082, dashed).
+    const ownDept = m.vs_dept || null;
+    if (ownDept) chips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
-    [...vsDepts].forEach((d) => { chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
+    [...vsDepts].forEach((d) => { if (d !== ownDept) chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
     if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
     li.innerHTML = `
       ${checkbox}
@@ -1069,19 +1076,49 @@ async function bulkDelete() {
 // PERMISSION MODAL (perms mode)
 // ============================================================
 
+/** Paint the perm checkbox grid into a container. */
+function fillPermGrid(grid) {
+  if (!grid) return;
+  grid.innerHTML = PERM_CATALOG.map((p) => `
+    <label class="team-perm-opt">
+      <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
+    </label>`).join('');
+}
+
+/** Paint the VS scope select. "" = ทุกแผนก (the full `vs` grant); a dept
+ *  value = scoped to that dept ONLY (and the `vs` perm is dropped on save). */
+function fillVsScopeSelect(sel) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">ทุกแผนก (ดูแลทั้งระบบ)</option>'
+    + VS_DEPTS.map((d) => `<option value="${escHtml(d.value)}">เฉพาะ ${escHtml(d.label)}</option>`).join('');
+}
+
+/** Show the VS scope block only while "VitalSound" is ticked in `grid`. */
+function syncVsScopeVisibility(grid, wrap) {
+  if (!grid || !wrap) return;
+  const on = !!grid.querySelector('input[value="vs"]')?.checked;
+  wrap.classList.toggle('d-none', !on);
+}
+
+/** Split the modal inputs into the { permissions, vs_dept } the row stores.
+ *  vs unticked        → no `vs`, no dept
+ *  vs + ทุกแผนก        → `vs` (full), no dept
+ *  vs + a dept        → NO `vs`, that dept (scoped — 0083) */
+function readPermInputs(grid, sel) {
+  const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
+  const vsOn = perms.includes('vs');
+  const dept = vsOn ? (sel?.value || '') : '';
+  return {
+    permissions: dept ? perms.filter((p) => p !== 'vs') : perms,
+    vs_dept: dept || null,
+  };
+}
+
 function wirePermModal() {
   const grid = $('teamPermGrid');
-  if (grid) {
-    grid.innerHTML = PERM_CATALOG.map((p) => `
-      <label class="team-perm-opt">
-        <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
-      </label>`).join('');
-  }
-  const vsSel = $('teamPermVsDept');
-  if (vsSel) {
-    vsSel.innerHTML = '<option value="">— ไม่กำหนด —</option>'
-      + VS_DEPTS.map((d) => `<option value="${escHtml(d.value)}">${escHtml(d.label)}</option>`).join('');
-  }
+  fillPermGrid(grid);
+  fillVsScopeSelect($('teamPermVsDept'));
+  grid?.addEventListener('change', () => syncVsScopeVisibility(grid, $('teamPermVsWrap')));
   $('teamPermForm')?.addEventListener('submit', onPermSubmit);
   $('teamPermInherit')?.addEventListener('change', refreshPermInherited);
 }
@@ -1092,9 +1129,15 @@ function openPermModal(id) {
   $('teamPermNodeId').value = id;
   $('teamPermNodeName').textContent = nodePath(id);
   const own = new Set(node.permissions || []);
-  $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
+  // A scoped VS grant stores no `vs` perm — the dept binding IS the grant, so
+  // tick the box from either signal or the modal would read as "no VS".
+  const vsOn = own.has('vs') || !!node.vs_dept;
+  $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => {
+    cb.checked = cb.value === 'vs' ? vsOn : own.has(cb.value);
+  });
   $('teamPermInherit').checked = node.inherit_permissions !== false;
   if ($('teamPermVsDept')) $('teamPermVsDept').value = node.vs_dept || '';
+  syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   refreshPermInherited();
   modalInstance('teamPermModal')?.show();
 }
@@ -1128,11 +1171,9 @@ async function onPermSubmit(e) {
   const id = $('teamPermNodeId').value;
   const node = nodesById.get(id);
   if (!node) return;
-  const perms = [...$('teamPermGrid').querySelectorAll('input:checked')].map((cb) => cb.value);
   const payload = {
-    permissions: perms,
+    ...readPermInputs($('teamPermGrid'), $('teamPermVsDept')),
     inherit_permissions: $('teamPermInherit').checked,
-    vs_dept: $('teamPermVsDept')?.value || null,
   };
   modalInstance('teamPermModal')?.hide();
   Object.assign(node, payload);
@@ -1175,13 +1216,10 @@ function setMemberNode(nid) {
 
 function wireMemberPermModal() {
   const grid = $('teamMPermGrid');
-  if (grid) {
-    grid.innerHTML = PERM_CATALOG.map((p) => `
-      <label class="team-perm-opt">
-        <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
-      </label>`).join('');
-    grid.addEventListener('change', refreshMemberPermEff);
-  }
+  fillPermGrid(grid);
+  fillVsScopeSelect($('teamMPermVsDept'));
+  grid?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
@@ -1194,23 +1232,38 @@ function openMemberPermModal(memberId) {
   $('teamMPermName').textContent = name;
   $('teamMPermNode').textContent = nodePath(m.node_id);
   const own = new Set(m.permissions || []);
-  $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = own.has(cb.value); });
+  const vsOn = own.has('vs') || !!m.vs_dept;
+  $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+    cb.checked = cb.value === 'vs' ? vsOn : own.has(cb.value);
+  });
+  if ($('teamMPermVsDept')) $('teamMPermVsDept').value = m.vs_dept || '';
   $('teamMPermInherit').checked = m.inherit_permissions !== false;
   refreshMemberPermEff();
   modalInstance('teamMemberPermModal')?.show();
 }
 
-/** Effective perms the member-perm modal is about to grant, from live
- *  inputs: checked extras ∪ (inherit ? the member's node effective perms). */
+/** Effective perms + VS scope the member-perm modal is about to grant, from
+ *  live inputs: own picks ∪ (inherit ? the member's node effective grants). */
 function refreshMemberPermEff() {
+  syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
   const wrap = $('teamMPermEffWrap');
   const list = $('teamMPermEffList');
   if (!wrap || !list) return;
   const m = findMember($('teamMPermMemberId').value);
-  const set = new Set([...($('teamMPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value));
-  if (m && $('teamMPermInherit')?.checked) nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
-  if (set.size) {
-    list.innerHTML = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
+  const { permissions, vs_dept: vsDept } = readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'));
+  const set = new Set(permissions);
+  const vsSet = new Set(vsDept ? [vsDept] : []);
+  if (m && $('teamMPermInherit')?.checked) {
+    nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
+    nodeEffectiveVsDepts(m.node_id).forEach((d) => vsSet.add(d));
+  }
+  let html = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
+  // A dept chip only means anything when it isn't already swallowed by full VS.
+  if (!set.has('vs')) {
+    html += ' ' + [...vsSet].map((d) => `<span class="team-perm-chip is-vs"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
+  }
+  if (set.size || (!set.has('vs') && vsSet.size)) {
+    list.innerHTML = html;
     wrap.classList.remove('d-none');
   } else wrap.classList.add('d-none');
 }
@@ -1221,7 +1274,7 @@ async function onMemberPermSubmit(e) {
   const m = findMember(id);
   if (!m) return;
   const payload = {
-    permissions: [...($('teamMPermGrid')?.querySelectorAll('input:checked') || [])].map((cb) => cb.value),
+    ...readPermInputs($('teamMPermGrid'), $('teamMPermVsDept')),
     inherit_permissions: $('teamMPermInherit').checked,
   };
   modalInstance('teamMemberPermModal')?.hide();
@@ -1510,6 +1563,7 @@ async function importJson(data) {
       confirmed: !!m.confirmed,
       permissions: Array.isArray(m.permissions) ? m.permissions : [],
       inherit_permissions: m.inherit_permissions !== false,
+      vs_dept: m.vs_dept || null,
     });
     report.members++;
     setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);

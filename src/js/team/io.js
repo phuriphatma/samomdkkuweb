@@ -68,6 +68,7 @@ export function buildExportJson(nodes, members) {
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
       permissions: m.permissions || [],
       inherit_permissions: m.inherit_permissions !== false,
+      vs_dept: m.vs_dept || null,
     })),
   };
 }

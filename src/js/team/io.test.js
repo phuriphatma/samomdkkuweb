@@ -103,4 +103,15 @@ describe('team/io JSON export', () => {
     expect(out.nodes[0]).toMatchObject({ id: 'n1', permissions: ['pr'], inherit_permissions: false });
     expect(out.members[0]).toMatchObject({ id: 'm1', full_name: 'X', confirmed: true, prefix: null });
   });
+
+  it('carries the VS dept binding on BOTH nodes and members (0082/0083)', () => {
+    const out = buildExportJson(
+      [{ id: 'n1', name: 'ฝ่าย IT', kind: 'role', vs_dept: 'อุปนายกฝ่ายวิชาการ' }],
+      [{ id: 'm1', node_id: 'n1', full_name: 'A', vs_dept: 'SE' },
+       { id: 'm2', node_id: 'n1', full_name: 'B' }],
+    );
+    expect(out.nodes[0].vs_dept).toBe('อุปนายกฝ่ายวิชาการ');
+    expect(out.members[0].vs_dept).toBe('SE');
+    expect(out.members[1].vs_dept).toBe(null);
+  });
 });
