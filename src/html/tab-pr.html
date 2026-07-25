@@ -85,18 +85,11 @@
               <div class="row mb-4 g-3">
                 <div class="col-md-6">
                   <label class="form-label">ฝ่าย (Department) <span class="text-danger">*</span></label>
+                  <!-- Options are filled from src/js/pr-depts.js (PR_DEPARTMENTS)
+                       at init — do not hand-write them here; this list and the
+                       admin dept filter drifted apart when they were duplicated. -->
                   <select name="department" id="department" class="form-select" required>
                     <option value="" disabled selected>เลือกฝ่ายของคุณ</option>
-                    <option value="ฝ่ายบริหารองค์กร">ฝ่ายบริหารองค์กร</option>
-                    <option value="ฝ่ายดิจิทัลและสื่อสารองค์กร">ฝ่ายดิจิทัลและสื่อสารองค์กร</option>
-                    <option value="ฝ่ายกิจการภายใน">ฝ่ายกิจการภายใน</option>
-                    <option value="ฝ่ายกิจการภายนอก">ฝ่ายกิจการภายนอก</option>
-                    <option value="ฝ่ายกิจการมหาวิทยาลัย">ฝ่ายกิจการมหาวิทยาลัย</option>
-                    <option value="ฝ่ายวิชาการ">ฝ่ายวิชาการ</option>
-                    <option value="ฝ่ายยุทธศาสตร์และพัฒนาองค์กร">ฝ่ายยุทธศาสตร์และพัฒนาองค์กร</option>
-                    <option value="ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม">ฝ่ายคุณภาพขีวิตและสิ่งแวดล้อม</option>
-                    <option value="ฝ่ายเวชนิทัศน์">ฝ่ายเวชนิทัศน์</option>
-                    <option value="โครงการอื่นๆ">โครงการอื่นๆ (Projects)</option>
                   </select>
                 </div>
                 <div class="col-md-6">

@@ -106,6 +106,23 @@ Previously the tree was cosmetic — nothing linked it to a gate.
   VitalSound on a node (or on a person) → choose "เฉพาะ <แผนก>" → they log in → VS tab
   shows only that dept's tickets, with the dept picker hidden.
 
+## PR — ฝ่าย list is now one source of truth (`src/js/pr-depts.js`)
+
+- **นายกสโม added** to the PR submit form (ข้อมูลผู้ส่งงาน → ฝ่าย) and the admin staff
+  dept filter. Decision: NO special-casing — it behaves exactly like any other ฝ่าย
+  (all three ช่องทางการโพสต์ options, not project mode). Verified in a real browser
+  against `npm run preview`.
+- **Same pass**: fixed the long-standing typo `ฝ่ายคุณภาพขีวิต…` → `ชีวิต` and added the
+  missing `ฝ่ายรังสีเทคนิค`. 8 live `pr_tickets` rows carry the old spelling; nothing
+  rewrites the DB — `canonicalPrDept()` aliases it at the row → view-model boundary in
+  `pr-staff.js` / `pr-tracking.js`, so those tickets stay findable under the corrected
+  filter option and display the corrected name.
+- **Why the module**: the list was hand-written twice (`tab-pr.html`, `tab-admin.html`)
+  and had drifted — same typo in both, `ฝ่ายรังสีเทคนิค` in neither, `โครงการอื่นๆ` in only
+  the admin one. Both selects are now filled from `PR_DEPARTMENTS` via
+  `fillPrDeptSelect()` (which preserves the current filter across a refill).
+  `docs/CONTEXT.md` "When you add a new department or role" rewritten to match.
+
 ## VITALSOUND — service-desk system (all DEPLOYED + migrations APPLIED through 0080)
 
 VS = confidential service desk + curated public "Problem" board. 9 internal statuses

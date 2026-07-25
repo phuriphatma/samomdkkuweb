@@ -50,6 +50,7 @@ src/js/
 ├── db.js                ─ Supabase client + dbRest() raw-fetch helper
 ├── auth.js              ─ sign in / out, currentUser, onAuthChange subscribers
 ├── pr-auth.js           ─ reflects auth state into PR form's hidden inputs
+├── pr-depts.js          ─ PR ฝ่าย list (single source of truth) + read-side aliases
 ├── pr-form.js           ─ PR ticket submit (raw fetch, idempotent retry)
 ├── pr-tracking.js       ─ user-facing PR history + ticket lookup
 ├── pr-staff.js          ─ kanban dashboard, modal, agents management
@@ -793,9 +794,24 @@ If the symptom is "hangs only after sign-in", check `auth.js` —
 
 - Departments are enumerated in `src/css/base.css` as `--dept-*` variables.
   Add the new key there for color theming.
-- Department keys are referenced as strings in form `<option>` values and
-  in `pr_tickets.department` / `vs_tickets.requested_dept`. There is no
-  enum on the DB side — strings are free-form.
+- Department keys are referenced as strings in `pr_tickets.department` /
+  `vs_tickets.target_dept`. There is no enum on the DB side — strings are
+  free-form, so **the option value IS the stored value**.
+- **PR**: add it to `PR_DEPARTMENTS` in `src/js/pr-depts.js` — that one list
+  fills BOTH the submit form's ฝ่าย select and the admin staff dept filter
+  (`fillPrDeptSelect`), so it cannot go half-applied. Those two `<select>`s
+  used to be hand-written in `tab-pr.html` / `tab-admin.html` and had drifted
+  (shared typo, missing ฝ่ายรังสีเทคนิค, โครงการอื่นๆ in only one of them).
+  Never RENAME an existing entry in place: historical rows keep the old
+  spelling and would drop out of the dept filter. Add the old string to
+  `DEPT_ALIASES` instead — `canonicalPrDept()` is applied at the DB-row →
+  view-model boundary in `pr-staff.js` / `pr-tracking.js`, so display and
+  filtering agree while the stored column is left untouched.
+- **VitalSound** keeps its own parallel list (`อุปนายกฝ่าย…` values, plus
+  `นายกสโม` / `SE`): `VS_DEPTS` in `src/js/team/index.js`, the selects in
+  `tab-vitalsound.html` / `modal-vs-staff.html` / `modal-vs-tags.html`, and
+  `DEPT_META` in `vs-staff.js`. The two lists are deliberately different —
+  PR routes by ฝ่าย, VS routes by the อุปนายก who owns the complaint.
 - Roles are in `users.role` (CHECK constraint). Adding a role requires a
   migration to extend the CHECK constraint AND updating
   `current_user_is_staff()` / RLS policies that reference roles.

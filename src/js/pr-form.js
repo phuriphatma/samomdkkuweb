@@ -11,6 +11,7 @@ import { sendNotify } from './notify.js';
 // Ticket ID generator lives in ./ticket-ids.js so the format contract
 // is shared with vs-form and unit-testable in isolation.
 import { generatePRTicketId } from './ticket-ids.js';
+import { fillPrDeptSelect } from './pr-depts.js';
 
 // ----------------------------------------------------
 // Idempotent PR insert via raw fetch.
@@ -306,6 +307,8 @@ export function applyDateRules() {
 
 export function initPrForm() {
   const departmentSelect = document.getElementById('department');
+  // Single source of truth for the ฝ่าย list (src/js/pr-depts.js).
+  fillPrDeptSelect(departmentSelect, { placeholder: 'เลือกฝ่ายของคุณ' });
   const igPostCheckbox = document.getElementById('plat1');
   const igStoryCheckbox = document.getElementById('plat2');
   const deadlineNormal = document.getElementById('deadlineNormal');

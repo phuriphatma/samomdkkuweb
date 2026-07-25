@@ -5,6 +5,7 @@
 import { renderTimeline, escHtml, safeUrl } from './utils.js';
 import { getUser as authGetUser } from './auth.js';
 import { dbRest } from './db.js';
+import { canonicalPrDept } from './pr-depts.js';
 
 let loggedInUserPrTickets = [];
 
@@ -24,7 +25,8 @@ function rowToTicket(r) {
   return {
     id: r.id,
     date: fmt(submitDate),
-    dept: r.department,
+    // Same read-side alias as the staff board (src/js/pr-depts.js).
+    dept: canonicalPrDept(r.department),
     contact: r.contact || '-',
     contentName: r.content_name,
     jobType: r.job_type || '-',

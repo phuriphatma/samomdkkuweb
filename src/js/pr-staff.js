@@ -4,6 +4,7 @@
 
 import { renderTimeline, escHtml, safeUrl } from './utils.js';
 import { db, dbRest } from './db.js';
+import { canonicalPrDept, fillPrDeptSelect } from './pr-depts.js';
 
 // ----------------------------------------------------
 // DB row → camelCase ticket shape used by the kanban renderer + modal.
@@ -17,7 +18,9 @@ function rowToTicket(r) {
   return {
     id: r.id,
     date: fmt(submitDate),
-    dept: r.department,
+    // Normalize superseded spellings so the dept filter (and the card) agree
+    // with the canonical option values — the stored column is never rewritten.
+    dept: canonicalPrDept(r.department),
     contact: r.contact || '-',
     contentName: r.content_name,
     jobType: r.job_type || '-',
@@ -57,6 +60,9 @@ let currentPrAssignees = [];
  * been verified as pr_staff (or dev) via the global auth modal.
  */
 export async function enterPRStaffDashboard() {
+  // Single source of truth for the ฝ่าย list (src/js/pr-depts.js).
+  fillPrDeptSelect(document.getElementById('prStaffDeptFilter'),
+    { allOption: 'ดูทุกฝ่าย (All Departments)' });
   await loadGlobalAgents();
   await fetchPRStaffTickets();
 }
