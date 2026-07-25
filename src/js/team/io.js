@@ -60,6 +60,8 @@ export function buildExportJson(nodes, members) {
       position: n.position ?? 0, permissions: n.permissions || [],
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,
+      project_seat: n.project_seat || null,
+      is_public: n.is_public !== false,
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
@@ -69,6 +71,7 @@ export function buildExportJson(nodes, members) {
       permissions: m.permissions || [],
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,
+      project_seat: m.project_seat || null,
     })),
   };
 }

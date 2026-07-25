@@ -1641,3 +1641,80 @@ be selected deliberately. Never let "the user didn't touch this control" and
 "the user asked for maximum privilege" be the same input value. Corollary for
 debugging: when live data keeps reverting to a wide setting, suspect the
 form's default before suspecting the write path.
+
+---
+
+## A capability key is not a ROLE — granting flat `projects` produced a tab with no controls, because the app branches on `user.role`, not on the permission
+
+**Symptom**: the obvious way to let a person use หนังสือโครงการ via the SAMO
+Team tree — tick "หนังสือโครงการ" in จัดการสิทธิ์ — opens the tab for them and
+then does nothing useful. No ส่งหนังสือ button, no รับเรื่อง controls, no role
+hint, and every write is refused. Looks like the grant didn't apply; the grant
+is fine.
+**Cause**: `projects` is one permission key but THREE workflows
+(`vp_admin` = ส่งหนังสือ, `uni_staff` = รับเรื่อง/อัปเดต, `sa_prof` = ลงนาม).
+`src/js/projects/index.js` does `currentRole = user.role` and every control,
+hint, scope filter and notification branch keys off that string; a tree
+grantee is `role='user'`, which matches no branch. Server-side the same shape:
+`current_user_is_project_actor()` was the hardcoded list
+`role in ('vp_admin','uni_staff','dev')`. So the permission opened the door to
+a room with no furniture. Two further role-only chokepoints hid behind it:
+`current_user_is_prof()` (`role = 'sa_prof'`) gated every professor policy, and
+`sign.js` addressed the signature request with
+`listUsersByRole('sa_prof')[0]` — a role query that can never see a tree-granted
+อาจารย์ AND silently assumed exactly one professor exists.
+**Fix**: give the grant a SEAT — `team_nodes/team_members.project_seat ∈
+(vpa|staff|prof)` → `users.managed_project_seats[]` →
+`current_user_project_seats()` (0086), mirroring how `vs_dept` scoped
+VitalSound. Widen the two role-only helpers at their single definition each so
+every policy that calls them picks seats up for free, and resolve the seat to a
+role ONCE in the frontend (`projectSeatRole()`) so the ~40 `role === '…'`
+branches keep working untouched. The seat picker is required whenever the perm
+is ticked — a `projects` grant with no seat is refused at save time rather than
+shipped as a dead tab. `prof` is deliberately NOT an actor (a professor who
+became one would see every project instead of only what was sent to them).
+**Where**: `supabase/migrations/0086_team_project_seats.sql`,
+`src/js/projects/index.js` (`projectSeatRole`), `src/js/projects/api.js`
+(`listProjectProfs`), `src/js/projects/sign.js`, `src/js/team/index.js`.
+Proof: `tools/proj0086-seats.mjs` (18 checks incl. the prof-is-not-an-actor
+negative).
+**Rule**: before exposing a feature through a flat permission key, grep the
+module for `user.role` / `role === `. If the UI or RLS branches on role rather
+than on the permission, the permission alone is NOT a working grant — either
+add the missing dimension (a seat/scope) or the grant is decorative. Same
+family as the VS "scope added next to an unconditional permission" entry: a new
+access channel must be threaded through EVERY gate the old channel used, not
+just the one you were looking at.
+
+---
+
+## Publishing a table-backed directory must be a PROJECTION, never a public SELECT policy — `is_public` filters rows, and rows carry every column
+
+**Symptom** (designed out before it shipped, not observed): the SAMO Team tree
+is destined to be rendered publicly as the org chart with people's names. The
+natural implementation — add `using (true)` to `team_members` like migration
+0032 did for the projects tables, and filter on a new `is_public` flag — would
+have published `kkumail`, `student_id`, `year`, `major`, `permissions`,
+`vs_dept`, `project_seat` and `user_id` for **every student in the tree**,
+plus the @kku.ac.th addresses of the อาจารย์ / เจ้าหน้าที่ who hold seats.
+**Cause**: RLS is row-level. A visibility flag controls WHICH ROWS a policy
+returns and says nothing about which COLUMNS travel with them — and once a
+`using (true)` policy exists it can never be narrowed later (policies are OR'd;
+see the "per-recipient SELECT RLS is DEAD" entry). A `returns setof
+public.team_members` RPC has the same defect from the other direction: every
+column added afterwards is exposed automatically, which is exactly how
+`vs_tickets.tags` reached guests in 0079.
+**Fix**: the only sanctioned publisher is `get_public_org_chart()` (0086) — a
+SECURITY DEFINER function returning a hand-built jsonb of
+`{id,parent_id,name,kind,position}` + `{node_id,name,nickname,position}` and
+nothing else, over a recursive CTE so a non-public parent hides its whole
+subtree. `team_nodes.is_public` is defence-in-depth on top of that, not the
+boundary. `team_members` keeps NO public policy at all (asserted:
+anon reads 0 rows). Verified by `tools/proj0086-seats.mjs`, which asserts the
+serialized chart contains no `@`, no `student_id`, no `kkumail`, no seat.
+**Rule**: whenever a table holding personal data gains a public surface, write
+the projection first and give it the only grant. If you find yourself adding a
+public SELECT policy to reach a "just the names" view, stop — you are
+publishing the whole row. And put the column allow-list in the function body
+(explicit `jsonb_build_object` keys), never `select *` or `returns setof
+<table>`, so a future `alter table` cannot silently widen it.

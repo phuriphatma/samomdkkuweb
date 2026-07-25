@@ -101,6 +101,15 @@
             </select>
             <div class="form-text">ประเภทใช้แสดงไอคอนเท่านั้น โครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย</div>
           </div>
+          <!-- Org-chart visibility (0086). Off for อาจารย์ / เจ้าหน้าที่คณะ, who hold
+               system permissions but are not part of the student org chart. -->
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamNodeIsPublic" checked />
+            <label class="form-check-label" for="teamNodeIsPublic">
+              แสดงในผังองค์กรสาธารณะ
+            </label>
+            <div class="form-text">ปิดไว้สำหรับผู้ที่ไม่ใช่นักศึกษาในสโม (เช่น อาจารย์ เจ้าหน้าที่คณะ) — ตำแหน่งย่อยและสมาชิกทั้งสายจะไม่ถูกแสดงด้วย</div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamNodeDelete">
@@ -178,6 +187,21 @@
             <span class="team-perm-inherited-label">แผนก VitalSound ที่รับมาจากฝ่ายแม่:</span>
             <span id="teamPermVsInheritedList"></span>
           </div>
+          <!-- หนังสือโครงการ seat: appears only when the perm is ticked (0086).
+               The seat decides WHICH workflow the person gets, so a grant
+               without one would leave them with no controls at all. -->
+          <div class="d-none" id="teamPermSeatWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamPermSeat">
+              <i class="bi bi-file-earmark-text"></i> หนังสือโครงการ — บทบาทของตำแหน่งนี้
+            </label>
+            <select class="form-select" id="teamPermSeat"></select>
+            <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
+          </div>
+          <div class="team-perm-inherited d-none mt-2" id="teamPermSeatInheritedWrap">
+            <span class="team-perm-inherited-label">บทบาทหนังสือโครงการที่รับมาจากฝ่ายแม่:</span>
+            <span id="teamPermSeatInheritedList"></span>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -217,6 +241,14 @@
             </label>
             <select class="form-select" id="teamMPermVsDept"></select>
             <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้บุคคลนี้เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
+          </div>
+          <div class="d-none" id="teamMPermSeatWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermSeat">
+              <i class="bi bi-file-earmark-text"></i> หนังสือโครงการ — บทบาทของบุคคลนี้
+            </label>
+            <select class="form-select" id="teamMPermSeat"></select>
+            <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
           </div>
           <div class="team-perm-inherited d-none" id="teamMPermEffWrap">
             <span class="team-perm-inherited-label">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</span>

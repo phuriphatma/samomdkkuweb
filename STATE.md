@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `1855539`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0085 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081–0086 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -105,6 +105,38 @@ Previously the tree was cosmetic — nothing linked it to a gate.
 - **TODO**: user to re-test the actual browser login. For per-ฝ่าย VS: จัดการสิทธิ์ → tick
   VitalSound on a node (or on a person) → choose "เฉพาะ <แผนก>" → they log in → VS tab
   shows only that dept's tickets, with the dept picker hidden.
+
+## หนังสือโครงการ seats via ทีม SAMO + public org-chart contract (0086, APPLIED)
+
+- **Seat, not a flat permission**: หนังสือโครงการ is three workflows and the module
+  branches on `users.role`, so ticking only `projects` in จัดการสิทธิ์ opened the tab
+  with NO controls and no write rights. A node/member now carries
+  `project_seat ∈ (vpa|staff|prof)` = ผู้ส่ง / เจ้าหน้าที่คณะ / อาจารย์(ลงนาม) →
+  `users.managed_project_seats[]` → `current_user_project_seats()`. The two role-only
+  helpers were widened at their single definition each, so every existing policy picks
+  seats up: `current_user_is_project_actor()` (+vpa/staff) and `current_user_is_prof()`
+  (+prof). **prof is deliberately NOT an actor** (0050's rule). Frontend resolves the
+  seat to a role once in `projectSeatRole()`, so the module's ~40 `role === '…'`
+  branches are untouched. The UI refuses to save a `projects` grant with no seat.
+- **Signing recipients**: `list_project_profs()` (id + display name only, actor-gated)
+  replaces `listUsersByRole('sa_prof')[0]`, which could never see a tree-granted
+  อาจารย์ and assumed exactly one existed. The sign modal shows a picker when >1.
+- **Public org chart**: `team_nodes.is_public` (default true) — อาจารย์ and
+  เจ้าหน้าที่คณะแพทย์ set to false (they hold seats but aren't in the student org).
+  **The flag is NOT the privacy boundary**: the only sanctioned publisher is
+  `get_public_org_chart()`, a definer projection returning name/nickname/structure
+  over a recursive CTE (hiding a parent hides its subtree). Never add a public SELECT
+  policy to `team_members` — RLS is row-level, so it would publish kkumail (students
+  AND @kku.ac.th staff), student_id, year, major, permissions, seat, user_id. anon
+  currently reads 0 rows from team_members and that must stay true.
+- **@kku.ac.th needs nothing special**: no domain gate on the main app's Google
+  sign-in, and the resolver matches `team_members.kkumail` against `users.email`
+  case-insensitively and domain-agnostically.
+- **Verified**: `tools/proj0086-seats.mjs` 18/18 (seat→capability matrix incl. the
+  prof-is-not-an-actor negative, signer list, chart projection leaks nothing, parent
+  hiding cascades, anon blocked on team_members, rollback leaves nothing) +
+  `src/js/projects/seat.test.js` for the resolver. The chart RENDERER is not built —
+  only its safe contract.
 
 ## PR — ฝ่าย list is now one source of truth (`src/js/pr-depts.js`)
 

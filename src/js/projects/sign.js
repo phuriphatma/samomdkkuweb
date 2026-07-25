@@ -10,7 +10,7 @@
 
 import { escHtml } from '../utils.js';
 import { getUser } from '../auth.js';
-import { listFiles, createSignRequest, listUsersByRole } from './api.js';
+import { listFiles, createSignRequest, listProjectProfs } from './api.js';
 import { fmtBytes } from './data.js';
 import { notifyProf } from './notify.js';
 
@@ -53,6 +53,27 @@ export function mountSignFlow({ onSent: cb } = {}) {
   });
 }
 
+// อาจารย์ seats available to receive this request (0086 — used to be a single
+// hardcoded sa_prof account).
+let profs = [];
+
+/** Fill the recipient select. Hidden when there is exactly one อาจารย์, so the
+ *  common case stays a one-click send exactly as before. */
+function renderProfPicker() {
+  const wrap = document.getElementById('projectSignProfWrap');
+  const sel = document.getElementById('projectSignProf');
+  if (!wrap || !sel) return;
+  if (profs.length > 1) {
+    sel.innerHTML = profs
+      .map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.display_name || 'อาจารย์')}</option>`)
+      .join('');
+    wrap.classList.remove('d-none');
+  } else {
+    sel.innerHTML = '';
+    wrap.classList.add('d-none');
+  }
+}
+
 export async function openSignRequest({ doc, project }) {
   if (!doc || !project) return;
   ctxDoc = doc;
@@ -65,6 +86,8 @@ export async function openSignRequest({ doc, project }) {
   try {
     files = (await listFiles(doc.id, { includeSuperseded: false })).filter((f) => !f.is_signed);
   } catch { files = []; }
+  try { profs = await listProjectProfs(); } catch { profs = []; }
+  renderProfPicker();
   renderPickList();
 }
 
@@ -99,9 +122,15 @@ async function onSubmit(e) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังส่ง…';
   if (status) status.textContent = '';
   try {
-    const profs = await listUsersByRole('sa_prof');
-    const profId = profs?.[0]?.id || null;
-    if (!profId) throw new Error('ยังไม่มีบัญชีอาจารย์ในระบบ (seed saprof ก่อน)');
+    // >1 อาจารย์ ⇒ the picker is showing and its value decides; otherwise the
+    // single seat is implied.
+    const picked = profs.length > 1
+      ? (document.getElementById('projectSignProf')?.value || null)
+      : (profs[0]?.id || null);
+    const profId = picked;
+    if (!profId) {
+      throw new Error('ยังไม่มีผู้รับที่เป็นอาจารย์ — กำหนดบทบาท "อาจารย์ (ลงนาม)" ให้สมาชิกในทีม SAMO หรือ seed บัญชี saprof');
+    }
     await createSignRequest({
       documentId: ctxDoc.id,
       profId,

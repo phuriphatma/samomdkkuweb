@@ -576,6 +576,23 @@ export async function bulkUpsertMyDocViews(rows) {
 
 // ---- Recipient lookup ----
 
+/** Everyone who can be sent a document to sign: role `sa_prof` PLUS anyone
+ *  granted the 'prof' seat through the SAMO Team tree (migration 0086).
+ *  Goes through an RPC rather than a `users?role=eq.sa_prof` read because a
+ *  seat lives in `managed_project_seats` (which that filter can't see) and
+ *  because the RPC returns ONLY id + display name — a professor's email is
+ *  not the sender's to read.
+ *  Falls back to the pre-0086 role-only read if the RPC isn't there yet. */
+export async function listProjectProfs() {
+  const { data, error } = await dbRest('/rpc/list_project_profs', { method: 'POST', body: {} });
+  if (!error && Array.isArray(data)) return data;
+  const legacy = await listUsersByRole('sa_prof');
+  return legacy.map((u) => ({
+    id: u.id,
+    display_name: u.display_name || u.username || 'อาจารย์',
+  }));
+}
+
 /** Find the uni_staff or vp_admin user(s). Used to address notifications. */
 export async function listUsersByRole(role) {
   const { data, error } = await dbRest(

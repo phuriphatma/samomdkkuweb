@@ -434,6 +434,40 @@ IDENTITY-only and must never gate dept-scoped data. 0085 makes it fail closed:
 `public.users` row, and `vs_public_comments.is_staff` is `NOT NULL`, so the NULL
 would have made posting fail with 23502 — latent in 0072/0078 too.
 
+**หนังสือโครงการ seats (migration 0086).** หนังสือโครงการ is not one capability but
+three workflows, and the whole module branches on `users.role`
+(`src/js/projects/index.js` → `currentRole`), so a flat `projects` grant to a
+tree person (`role='user'`) opened the tab with NO controls and no write rights.
+A node or member therefore carries a SEAT — `project_seat ∈ (vpa|staff|prof)`
+(ผู้ส่ง / เจ้าหน้าที่คณะ / อาจารย์ ลงนาม) — resolved into
+`users.managed_project_seats text[]` by the same login RPC + recompute trigger as
+the other managed columns, and read by `current_user_project_seats()`. The two
+role-only helpers are widened at their single definition each, so every policy
+that already calls them inherits seats: `current_user_is_project_actor()` = role
+vp_admin/uni_staff/dev **or** a seat of vpa/staff; `current_user_is_prof()` = role
+sa_prof **or** the prof seat. A `prof` seat is deliberately NOT an actor (0050's
+rule — the professor must not see unrelated projects). Frontend resolves the seat
+to a role exactly once, in `projectSeatRole()`, so the module's ~40 `role === '…'`
+branches are untouched; the UI refuses to save a `projects` grant with no seat.
+Signing recipients come from `list_project_profs()` (id + display name only —
+never an email), replacing `listUsersByRole('sa_prof')[0]`, and the sign modal
+shows a picker when more than one อาจารย์ exists. Proof: `tools/proj0086-seats.mjs`.
+
+**Public org chart — projection only (migration 0086).** `team_nodes.is_public`
+(default true) marks a subtree as hidden from the future public org chart;
+อาจารย์ / เจ้าหน้าที่คณะ hold seats but are not part of the student org, so their
+roots are false. **The flag is not the privacy boundary.** The only sanctioned
+publisher is `public.get_public_org_chart()` — SECURITY DEFINER, granted to anon,
+returning a hand-built jsonb of node `{id,parent_id,name,kind,position}` +
+member `{node_id,name,nickname,position}` over a recursive CTE (so hiding a
+parent hides its subtree). Never add a public SELECT policy to `team_members`
+and never `returns setof public.team_members`: RLS is row-level, so a visibility
+flag filters rows while every column — `kkumail` (students AND @kku.ac.th staff),
+`student_id`, `year`, `major`, `permissions`, `project_seat`, `user_id` — travels
+with them, and a `setof` return auto-exposes each column added later (cf.
+`vs_tickets.tags` in 0079). `team_members` has no public policy today; anon reads
+0 rows from it, and that must stay true.
+
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag
 reorder/move are plain PATCHes (parent_id + position); the frontend blocks

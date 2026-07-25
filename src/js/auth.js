@@ -143,8 +143,17 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,has_password,phone&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /managed_project_seats/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthSeats) {
+        window.__samoWarnedAuthSeats = true;
+        console.warn('[auth] managed_project_seats column missing — apply migration 0086 to enable หนังสือโครงการ seats.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,has_password,phone&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /managed_vs_depts/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthVsDepts) {
         window.__samoWarnedAuthVsDepts = true;
@@ -209,9 +218,10 @@ async function buildCurrentUser(session) {
         // pre-0082 shape (text[] of permissions only)
         profile.managed_permissions = synced;
       } else if (typeof synced === 'object') {
-        // 0082+ shape: { permissions: [...], vs_depts: [...] }
+        // 0082+ shape: { permissions, vs_depts } — 0086 adds project_seats.
         if (Array.isArray(synced.permissions)) profile.managed_permissions = synced.permissions;
         if (Array.isArray(synced.vs_depts)) profile.managed_vs_depts = synced.vs_depts;
+        if (Array.isArray(synced.project_seats)) profile.managed_project_seats = synced.project_seats;
       }
     }
   } catch (_) { /* ignore — managed perms fall back to the profile value */ }
@@ -260,6 +270,11 @@ async function buildCurrentUser(session) {
     // Per-ฝ่าย VitalSound scope from the SAMO Team tree (migration 0082).
     // Non-empty ⇒ VS access limited to these target_depts (see userCanAccess).
     managedVsDepts: Array.isArray(profile?.managed_vs_depts) ? profile.managed_vs_depts : [],
+    // หนังสือโครงการ seats from the SAMO Team tree (migration 0086):
+    // 'vpa' (ผู้ส่ง) | 'staff' (เจ้าหน้าที่คณะ) | 'prof' (อาจารย์ ลงนาม).
+    // Non-empty ⇒ projects access; the seat decides WHICH workflow they get
+    // (see projectSeatRole() in projects/index.js).
+    managedProjectSeats: Array.isArray(profile?.managed_project_seats) ? profile.managed_project_seats : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
 }
@@ -300,6 +315,10 @@ export function userCanAccess(feature, user = currentUser) {
   // Per-ฝ่าย VitalSound (0082): a scoped VS-dept grant opens the VS tab —
   // the ticket rows themselves are then dept-filtered by RLS.
   if (feature === 'vs' && Array.isArray(user.managedVsDepts) && user.managedVsDepts.length > 0) return true;
+  // หนังสือโครงการ seat (0086): any granted seat opens the tab; the seat then
+  // decides which controls render and RLS scopes what they can write.
+  if (feature === 'projects' && Array.isArray(user.managedProjectSeats)
+      && user.managedProjectSeats.length > 0) return true;
   return false;
 }
 

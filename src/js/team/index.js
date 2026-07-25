@@ -59,6 +59,16 @@ const VS_DEPTS = [
 ];
 const VS_DEPT_LABEL = Object.fromEntries(VS_DEPTS.map((d) => [d.value, d.label]));
 
+// หนังสือโครงการ seats (team_nodes/team_members.project_seat, migration 0086).
+// Projects is NOT one capability — it is three workflows keyed off the seat,
+// so a `projects` grant without one leaves the person with no controls.
+const PROJECT_SEATS = [
+  { value: 'vpa',   label: 'ผู้ส่งหนังสือ (SAMO)' },
+  { value: 'staff', label: 'เจ้าหน้าที่คณะ' },
+  { value: 'prof',  label: 'อาจารย์ (ลงนาม)' },
+];
+const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s.value, s.label]));
+
 const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'bi-person-badge' };
 
 // ---- module state ----
@@ -173,6 +183,33 @@ function nodeEffectiveVsDepts(nodeId) {
   const node = nodesById.get(nodeId);
   if (node?.vs_dept) out.add(node.vs_dept);
   inheritedVsDeptsFor(nodeId).forEach((d) => out.add(d));
+  return out;
+}
+
+/** Project seats a node inherits from its ancestors (mirrors
+ *  inheritedVsDeptsFor). `inheritOn` overrides the node's own flag so the
+ *  modal can preview a toggle before it is saved. */
+function inheritedSeatsFor(nodeId, inheritOn = null) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (!node) return out;
+  const on = inheritOn === null ? node.inherit_permissions !== false : inheritOn;
+  if (!on) return out;
+  let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
+  while (cur) {
+    if (cur.project_seat) out.add(cur.project_seat);
+    if (!cur.inherit_permissions) break;
+    cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
+  }
+  return out;
+}
+
+/** A node's full effective project seats = its own binding ∪ inherited. */
+function nodeEffectiveSeats(nodeId) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (node?.project_seat) out.add(node.project_seat);
+  inheritedSeatsFor(nodeId).forEach((x) => out.add(x));
   return out;
 }
 
@@ -384,6 +421,10 @@ function renderNode(node, filter) {
     const ownDept = node.vs_dept;
     if (ownDept) permChips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     [...inheritedVsDeptsFor(node.id)].forEach((d) => { if (d !== ownDept) permChips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
+    // หนังสือโครงการ seat (0086): own solid, inherited dashed.
+    const ownSeat = node.project_seat;
+    if (ownSeat) permChips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
+    [...inheritedSeatsFor(node.id)].forEach((x) => { if (x !== ownSeat) permChips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
     if (!permChips) permChips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
   }
 
@@ -471,6 +512,11 @@ function renderMember(m, filter) {
     if (ownDept) chips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
     [...vsDepts].forEach((d) => { if (d !== ownDept) chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
+    // หนังสือโครงการ seat: this person's own binding + what the ตำแหน่ง passes down.
+    const ownSeat = m.project_seat || null;
+    if (ownSeat) chips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
+    const seats = m.inherit_permissions !== false ? nodeEffectiveSeats(m.node_id) : new Set();
+    [...seats].forEach((x) => { if (x !== ownSeat) chips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
     if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
     li.innerHTML = `
       ${checkbox}
@@ -883,6 +929,8 @@ function openNodeModal({ node = null, parentId = null, kind = null } = {}) {
   $('teamNodeParentId').value = node ? (node.parent_id || '') : (parentId || '');
   $('teamNodeName').value = node?.name || '';
   $('teamNodeKind').value = node?.kind || kind || 'role';
+  // New nodes default to visible; only an explicit false hides the subtree.
+  if ($('teamNodeIsPublic')) $('teamNodeIsPublic').checked = node ? node.is_public !== false : true;
   $('teamNodeModalTitle').textContent = node ? 'แก้ไขตำแหน่ง' : (parentId ? 'เพิ่มตำแหน่งย่อย' : 'เพิ่มฝ่าย');
   $('teamNodeDelete').classList.toggle('d-none', !node);
   modalInstance('teamNodeModal')?.show();
@@ -895,7 +943,11 @@ async function onNodeSubmit(e) {
   const name = $('teamNodeName').value.trim();
   if (!name) { $('teamNodeName').focus(); return; }
   const parentId = $('teamNodeParentId').value || null;
-  const payload = { name, kind: $('teamNodeKind').value };
+  const payload = {
+    name,
+    kind: $('teamNodeKind').value,
+    is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
+  };
   modalInstance('teamNodeModal')?.hide();
   try {
     if (id) {
@@ -1102,10 +1154,25 @@ function fillVsScopeSelect(sel) {
     + VS_DEPTS.map((d) => `<option value="${escHtml(d.value)}">เฉพาะ ${escHtml(d.label)}</option>`).join('');
 }
 
+/** Paint the หนังสือโครงการ seat select. "" = not chosen — blocked on save,
+ *  because a projects grant without a seat has no working workflow. */
+function fillSeatSelect(sel) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— เลือกบทบาท —</option>'
+    + PROJECT_SEATS.map((x) => `<option value="${escHtml(x.value)}">${escHtml(x.label)}</option>`).join('');
+}
+
 /** Show the VS scope block only while "VitalSound" is ticked in `grid`. */
 function syncVsScopeVisibility(grid, wrap) {
   if (!grid || !wrap) return;
   const on = !!grid.querySelector('input[value="vs"]')?.checked;
+  wrap.classList.toggle('d-none', !on);
+}
+
+/** Same, for the หนังสือโครงการ seat block. */
+function syncSeatVisibility(grid, wrap) {
+  if (!grid || !wrap) return;
+  const on = !!grid.querySelector('input[value="projects"]')?.checked;
   wrap.classList.toggle('d-none', !on);
 }
 
@@ -1114,15 +1181,20 @@ function syncVsScopeVisibility(grid, wrap) {
  *  vs + ทุกแผนก          → `vs` (full), no dept
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
-function readPermInputs(grid, sel) {
+function readPermInputs(grid, vsSel, seatSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
   const vsOn = perms.includes('vs');
-  const scope = vsOn ? (sel?.value || '') : '';
+  const scope = vsOn ? (vsSel?.value || '') : '';
   if (vsOn && !scope) return null;
+  // A หนังสือโครงการ grant must name its seat — see PROJECT_SEATS.
+  const projOn = perms.includes('projects');
+  const seat = projOn ? (seatSel?.value || '') : '';
+  if (projOn && !seat) return { missing: 'seat' };
   const dept = scope === VS_SCOPE_ALL ? '' : scope;
   return {
     permissions: dept ? perms.filter((p) => p !== 'vs') : perms,
     vs_dept: dept || null,
+    project_seat: seat || null,
   };
 }
 
@@ -1130,11 +1202,17 @@ function readPermInputs(grid, sel) {
  *  scope, and "ทุกแผนก" (which hands over every department's confidential
  *  tickets) is confirmed because it is the privilege-ESCALATING direction.
  *  Returns null when the save should be aborted. */
-function readPermInputsOrWarn(grid, sel, subject) {
-  const out = readPermInputs(grid, sel);
+function readPermInputsOrWarn(grid, vsSel, seatSel, subject) {
+  const out = readPermInputs(grid, vsSel, seatSel);
   if (!out) {
     alert('กรุณาเลือกขอบเขต VitalSound — "ทุกแผนก" หรือเฉพาะแผนกที่รับผิดชอบ');
-    sel?.focus();
+    vsSel?.focus();
+    return null;
+  }
+  if (out.missing === 'seat') {
+    alert('กรุณาเลือกบทบาทหนังสือโครงการ — ผู้ส่ง, เจ้าหน้าที่คณะ หรือ อาจารย์ (ลงนาม)\n\n'
+      + 'ถ้าไม่เลือก ผู้ใช้จะเปิดแท็บได้แต่ไม่มีปุ่มใช้งานใด ๆ');
+    seatSel?.focus();
     return null;
   }
   if (out.permissions.includes('vs')
@@ -1150,7 +1228,11 @@ function wirePermModal() {
   const grid = $('teamPermGrid');
   fillPermGrid(grid);
   fillVsScopeSelect($('teamPermVsDept'));
-  grid?.addEventListener('change', () => syncVsScopeVisibility(grid, $('teamPermVsWrap')));
+  fillSeatSelect($('teamPermSeat'));
+  grid?.addEventListener('change', () => {
+    syncVsScopeVisibility(grid, $('teamPermVsWrap'));
+    syncSeatVisibility(grid, $('teamPermSeatWrap'));
+  });
   $('teamPermForm')?.addEventListener('submit', onPermSubmit);
   $('teamPermInherit')?.addEventListener('change', refreshPermInherited);
 }
@@ -1171,7 +1253,9 @@ function openPermModal(id) {
   if ($('teamPermVsDept')) {
     $('teamPermVsDept').value = node.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
+  if ($('teamPermSeat')) $('teamPermSeat').value = node.project_seat || '';
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
+  syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   refreshPermInherited();
   modalInstance('teamPermModal')?.show();
 }
@@ -1187,6 +1271,16 @@ function refreshPermInherited() {
       list.innerHTML = [...set].map((p) => `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
       wrap.classList.remove('d-none');
     } else wrap.classList.add('d-none');
+  }
+  // Inherited project-seat preview
+  const sw = $('teamPermSeatInheritedWrap');
+  const sl = $('teamPermSeatInheritedList');
+  if (sw && sl && id) {
+    const set = inheritedSeatsFor(id, inheritOn);
+    if (set.size) {
+      sl.innerHTML = [...set].map((x) => `<span class="team-perm-chip is-seat is-inherited">${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`).join(' ');
+      sw.classList.remove('d-none');
+    } else sw.classList.add('d-none');
   }
   // Inherited VS depts preview
   const vw = $('teamPermVsInheritedWrap');
@@ -1205,7 +1299,8 @@ async function onPermSubmit(e) {
   const id = $('teamPermNodeId').value;
   const node = nodesById.get(id);
   if (!node) return;
-  const grants = readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), `ตำแหน่ง "${node.name}"`);
+  const grants = readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
+    `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
   modalInstance('teamPermModal')?.hide();
@@ -1251,8 +1346,10 @@ function wireMemberPermModal() {
   const grid = $('teamMPermGrid');
   fillPermGrid(grid);
   fillVsScopeSelect($('teamMPermVsDept'));
+  fillSeatSelect($('teamMPermSeat'));
   grid?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermSeat')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
@@ -1272,6 +1369,7 @@ function openMemberPermModal(memberId) {
   if ($('teamMPermVsDept')) {
     $('teamMPermVsDept').value = m.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
+  if ($('teamMPermSeat')) $('teamMPermSeat').value = m.project_seat || '';
   $('teamMPermInherit').checked = m.inherit_permissions !== false;
   refreshMemberPermEff();
   modalInstance('teamMemberPermModal')?.show();
@@ -1281,25 +1379,30 @@ function openMemberPermModal(memberId) {
  *  live inputs: own picks ∪ (inherit ? the member's node effective grants). */
 function refreshMemberPermEff() {
   syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
+  syncSeatVisibility($('teamMPermGrid'), $('teamMPermSeatWrap'));
   const wrap = $('teamMPermEffWrap');
   const list = $('teamMPermEffList');
   if (!wrap || !list) return;
   const m = findMember($('teamMPermMemberId').value);
   // Preview only — a not-yet-chosen scope shows the perms without a VS chip.
-  const { permissions, vs_dept: vsDept } = readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'))
-    || { permissions: [], vs_dept: null };
+  const { permissions, vs_dept: vsDept, project_seat: seat } =
+    readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'))
+    || { permissions: [], vs_dept: null, project_seat: null };
   const set = new Set(permissions);
   const vsSet = new Set(vsDept ? [vsDept] : []);
+  const seatSet = new Set(seat ? [seat] : []);
   if (m && $('teamMPermInherit')?.checked) {
     nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
     nodeEffectiveVsDepts(m.node_id).forEach((d) => vsSet.add(d));
+    nodeEffectiveSeats(m.node_id).forEach((x) => seatSet.add(x));
   }
   let html = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
   // A dept chip only means anything when it isn't already swallowed by full VS.
   if (!set.has('vs')) {
     html += ' ' + [...vsSet].map((d) => `<span class="team-perm-chip is-vs"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
   }
-  if (set.size || (!set.has('vs') && vsSet.size)) {
+  html += ' ' + [...seatSet].map((x) => `<span class="team-perm-chip is-seat"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`).join(' ');
+  if (set.size || (!set.has('vs') && vsSet.size) || seatSet.size) {
     list.innerHTML = html;
     wrap.classList.remove('d-none');
   } else wrap.classList.add('d-none');
@@ -1310,7 +1413,8 @@ async function onMemberPermSubmit(e) {
   const id = $('teamMPermMemberId').value;
   const m = findMember(id);
   if (!m) return;
-  const grants = readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), `"${m.full_name}"`);
+  const grants = readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
+    `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
   modalInstance('teamMemberPermModal')?.hide();
@@ -1560,6 +1664,8 @@ async function importJson(data) {
       position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,
+      project_seat: n.project_seat || null,
+      is_public: n.is_public !== false,
     });
     idMap.set(n.id, row.id); report.nodes++;
     nodesById.set(row.id, row);
@@ -1600,6 +1706,7 @@ async function importJson(data) {
       permissions: Array.isArray(m.permissions) ? m.permissions : [],
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,
+      project_seat: m.project_seat || null,
     });
     report.members++;
     setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);

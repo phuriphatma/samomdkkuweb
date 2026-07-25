@@ -59,9 +59,29 @@ function setView(next) {
   if (next === 'manage') renderManage({ docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
 }
 
+/** SAMO Team seat (users.managed_project_seats, migration 0086) → the role
+ *  string the whole projects UI already branches on. The seat is ADDITIVE:
+ *  a real role always wins, so the shared samomdkkuvpa / sastaff / saprof
+ *  accounts are untouched.
+ *
+ *  Everything in this module (and inbox.js) keys off `currentRole`, so
+ *  resolving the seat here — once — is what makes a tree-granted person a
+ *  first-class actor instead of landing in a controls-less half-state. */
+const SEAT_TO_ROLE = { vpa: 'vp_admin', staff: 'uni_staff', prof: 'sa_prof' };
+// Precedence when someone somehow holds several seats: the widest first.
+const SEAT_ORDER = ['vpa', 'staff', 'prof'];
+
+export function projectSeatRole(user) {
+  const role = user?.role || null;
+  if (role && role !== 'user') return role;
+  const seats = Array.isArray(user?.managedProjectSeats) ? user.managedProjectSeats : [];
+  const seat = SEAT_ORDER.find((s) => seats.includes(s));
+  return seat ? SEAT_TO_ROLE[seat] : role;
+}
+
 function applyRoleVisibility(user) {
   currentUser = user;
-  const role = user?.role || null;
+  const role = projectSeatRole(user);
   currentRole = role;
   const allowed = isAllowed(user);
   document.getElementById('navProjectsItem')?.classList.toggle('d-none', !allowed);

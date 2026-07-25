@@ -25,6 +25,13 @@
           </div>
           <div id="projectSignFileList" class="projects-sign-picklist"></div>
 
+          <!-- Shown only when more than one อาจารย์ seat exists (0086 — a seat
+               can now be granted to several people through ทีม SAMO). -->
+          <div class="mt-3 d-none" id="projectSignProfWrap">
+            <label class="form-label small" for="projectSignProf">ส่งให้อาจารย์</label>
+            <select class="form-select" id="projectSignProf"></select>
+          </div>
+
           <div class="mt-3">
             <label class="form-label small">โน้ตถึงอาจารย์ (ถ้ามี)</label>
             <textarea class="form-control" id="projectSignNote" rows="2" maxlength="500"

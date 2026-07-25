@@ -222,6 +222,12 @@
 .team-perm-chip.is-vs.is-own { background: #0d9488; color: #fff; }
 .team-perm-chip.is-vs.is-inherited { background: transparent; color: #0f766e; border: 1px dashed #5eead4; }
 .team-perm-chip.is-vs .bi { font-size: 0.62rem; }
+/* หนังสือโครงการ seat (0086) — slate, distinct from the green perms and the
+   teal VS dept chips. Admin-only surface, so it lives in team.css which only
+   src/admin.css imports. */
+.team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
+.team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
+.team-perm-chip.is-seat .bi { font-size: 0.62rem; }
 
 .team-row-actions, .team-member-actions {
   display: flex; gap: 0.1rem; flex: 0 0 auto; margin-left: auto;
