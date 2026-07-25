@@ -80,6 +80,25 @@ const state = {
 };
 
 // ---------------------------------------------------------------------
+/** แหล่งที่มา this admin may manage, from the ทีม SAMO tree (migration 0093).
+ *  null = every source (role shop_admin/dev, or the blanket `samoshop` grant).
+ *  A scoped admin gets a hard filter, not a default they can widen: RLS refuses
+ *  their product writes outside these sources, so offering the others would
+ *  just produce a 42501 they can't act on.
+ *  ORDERS ARE NOT SCOPED — one order can hold items from several sources, so
+ *  "MDI's orders" isn't a property of a row. That stays a UI facet (Model A);
+ *  see migration 0093's header for why splitting it is a product decision. */
+function shopScope() {
+  const srcs = getUser()?.managedShopSources;
+  if (!Array.isArray(srcs) || srcs.length === 0) return null;   // full admin
+  return srcs;
+}
+const inShopScope = (id) => { const sc = shopScope(); return !sc || sc.includes(id); };
+/** SHOP_SOURCES minus the synthetic 'all', narrowed to what this admin owns. */
+function scopedSources() {
+  return SHOP_SOURCES.filter((x) => x.id !== 'all' && inShopScope(x.id));
+}
+
 // Per-user default แหล่งที่มา (source/owning-dept) filter for the orders
 // page. Persisted in localStorage keyed by user id, so each admin — and
 // each account switched-to on a shared device (account-switcher) — keeps
@@ -508,7 +527,7 @@ function populateStatusFacet() {
 function populateOrdersSourceFacet() {
   const menu = document.getElementById('shopAdminOrdersSourceMenu');
   if (!menu) return;
-  const sources = SHOP_SOURCES.filter((s) => s.id !== 'all');
+  const sources = scopedSources();
   const counts = itemCountBy((it) => itemSource(it), 'source');
   const rows = sources.map((s) => {
     const n = counts.get(s.id) || 0;
@@ -2582,11 +2601,16 @@ async function refreshProducts() {
 function renderProductsTable() {
   const tbody = document.getElementById('shopAdminProductsTbody');
   if (!tbody) return;
-  if (state.products.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">ยังไม่มีสินค้า</td></tr>`;
+  // A scoped admin manages only their own แหล่งที่มา. Listing the rest would
+  // show rows whose every action fails the RLS check (0093) — worse than
+  // hiding them, because the buttons look available.
+  const rows = state.products.filter((p) => inShopScope(p.source));
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">${
+      shopScope() ? 'ยังไม่มีสินค้าในแหล่งที่มาที่คุณดูแล' : 'ยังไม่มีสินค้า'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = state.products.map((p) => {
+  tbody.innerHTML = rows.map((p) => {
     const stockSum = totalStock(p.stock_matrix);
     return `
     <tr>
@@ -2716,7 +2740,7 @@ function renderProductEditor() {
         <div class="col-md-4">
           <label class="small text-muted mb-1">แหล่งที่มา</label>
           <select id="shopProdSource" class="form-select">
-            ${SHOP_SOURCES.filter((s) => s.id !== 'all').map((s) =>
+            ${scopedSources().map((s) =>
               `<option value="${s.id}" ${p.source === s.id ? 'selected' : ''}>${escHtml(s.label)}</option>`).join('')}
           </select>
         </div>

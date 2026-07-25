@@ -1955,3 +1955,93 @@ account, enumerate every table with a `user_id` / assignee column scoped to it �
 read state, assignments, notifications, drafts — and decide per table whether it
 COPIES (the shared account stays live) or MOVES (it is being retired). A
 permission grant migrates none of them.
+
+## A permission channel has TWO halves — writes AND reads. `current_user_is_staff()` is a role list, so every read gated on it silently excluded tree-granted accounts
+
+**Symptom** (found by a sweep, before most of it was reported): a `creator`
+grantee could WRITE an announcement and then not SEE it. `announcements_write`
+honours `current_user_has_permission('creator')`; `announcements_read` was
+`status = 'approved' OR current_user_is_staff()`. A tree-granted account is
+`role='user'`, so drafts and pending posts vanished from เขียนประกาศ and
+ลำดับการแสดงประกาศ — the writer's own unpublished work, invisible to them.
+Write-only access is the nastiest shape of this bug: the save succeeds, so
+nothing looks broken until you go looking for the row.
+**The sweep that found it** (worth re-running after any RLS change):
+```sql
+select tablename, policyname, cmd, coalesce(qual,'')||' '||coalesce(with_check,'')
+  from pg_policies where schemaname='public';
+```
+then flag every policy matching `current_user_role|current_user_is_staff` that
+does NOT also match `has_permission|managed_|current_user_.*scope|_seats`. That
+turned up 7, of which 3 were real: `announcements_read`, `vs_followers` /
+`vs_public_comments` read (a VS dept-scoped handler could administer a ticket but
+not read its followers or staff comment thread), and `analytics_events`
+(สถิติการใช้งาน is offered to anyone who can use the admin app).
+**The fix that would have been WRONG**: broadening `current_user_is_staff()`
+itself. It is what `users_self_update_guard` (0028/0041) trusts to allow
+privileged-column writes — widening it lets any tree-granted account
+`update users set role='dev'` on itself. Each policy was repointed individually
+instead: announcements → `+ has_permission('creator')`; VS →
+`current_user_is_vs_handler()` (already "staff OR any VS scope");
+analytics → a new `current_user_has_any_grant()`. 0093's proof asserts the
+non-widening explicitly, with a real self-promotion attempt.
+**Where**: `supabase/migrations/0093_shop_scope_and_grant_reads.sql`; proof
+`tools/shop0093-scope.mjs` (18 checks).
+**Rule**: when you add an access channel, the enumeration covers **writes,
+audience lookups (0091), AND reads**. A read gated on a role list is invisible
+until someone with the new channel goes looking for data they just created. And
+never widen a predicate that a security trigger also consumes — check
+`grep -rn "current_user_is_staff" supabase/migrations/` before touching it.
+
+## Deriving "which department is this admin" from a UI filter is not a permission — SAMO Shop had one grant and a localStorage preference
+
+**Symptom / premise to correct**: "samoshop has two workflow permissions, for
+samomdkkuvpa and samomdkkumdi". It did not. There is ONE `samoshop` permission
+and both accounts simply held it; `current_user_is_shop_admin()` was
+`role in ('shop_admin','dev') OR has_permission('samoshop')` and EVERY shop table
+hung off that single predicate. What looked like two workflows was
+`shop_products.source` (md/rt/mdi/sittikao, the 0058 ownership key) driving a
+**localStorage** filter default — a UI preference the admin could clear, not a
+boundary.
+**Fix (0093)**: a real scope — `team_nodes/team_members.shop_source` →
+`users.managed_shop_sources` → `current_user_shop_scope()` (NULL = every source,
+`{}` = none, else the list), shaped like `current_user_vs_scope()` so no caller
+can read "no access" as "all access". Product writes are confined by
+`current_user_owns_shop_source(source)`.
+**What was deliberately NOT scoped, and why it matters**: ORDERS. One order can
+hold items from several sources — that is what a shared cart means — so "MDI's
+orders" is not a property of a row, it is a property of *some of its items*.
+A policy pretending otherwise would either hide orders that contain MDI items or
+expose orders that contain everyone's. Splitting order access per source means
+splitting the ORDER, which is a product decision. Orders stay admin-wide and the
+UI keeps filtering them by `product_source`. **Shipping a policy that LOOKS like
+it isolates departments but doesn't is worse than shipping none** — write down
+the boundary you did not draw.
+**Also**: a scoped admin's product LIST is filtered client-side to their sources.
+Not for secrecy (the catalogue is public) but because rows they cannot write
+would render with live-looking Edit/Delete buttons that every click 42501s on.
+**Where**: `supabase/migrations/0093_*.sql`; `src/js/shop/admin.js`
+(`shopScope`/`inShopScope`/`scopedSources`), `src/js/team/index.js`,
+`src/js/auth.js` (`managedShopSources` + `userCanAccess`).
+
+## Module-scope caches make an in-place account switch show two accounts at once — reload instead of teaching every module to reset
+
+**Symptom**: switching accounts in the admin app leaves the previous account's
+data on screen — a stale projects list, the old shop state, a section the new
+account cannot open.
+**Cause**: the account switcher swaps the Supabase session *in place*
+(`setAuthSession`) and lets the `onAuthChange` subscriber repaint. But every
+feature module holds module-scope caches (`cache.projects` + the seenAt map,
+shop `state`, PR/VS lists, the team tree, `initialSectionApplied`) written for a
+page that serves ONE account for its lifetime. Nothing resets them, and the next
+module added will have the same gap by default.
+**Fix**: `admin-main.js` records `bootUserId` on the first signed-in fire; if
+`onAuthChange` later reports a DIFFERENT non-null id, `location.replace(pathname)`
+— hard reload, hash dropped (a deep link like `#projects/PRJ-XXXX` may be a
+section the new account cannot open) and no back-history entry into a page
+rendered for the previous account. Gated on `bootUserId` being set, so an
+ordinary first sign-in (null → user) does NOT reload, and on the id CHANGING, so
+the 25-minute token refresh — which re-fires with the same id — does not either.
+**Rule**: prefer one reload over N cache-reset call sites when identity changes
+underneath a long-lived page. The reset approach is correct exactly once and then
+rots with every module you add.

@@ -228,6 +228,11 @@
 .team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
 .team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
 .team-perm-chip.is-seat .bi { font-size: 0.62rem; }
+/* SAMO Shop แหล่งที่มา scope (0093) — amber, distinct from the green perms,
+   the teal VS depts and the slate project seats. */
+.team-perm-chip.is-shop.is-own { background: #b45309; color: #fff; }
+.team-perm-chip.is-shop.is-inherited { background: transparent; color: #b45309; border: 1px dashed #fcd34d; }
+.team-perm-chip.is-shop .bi { font-size: 0.62rem; }
 
 .team-row-actions, .team-member-actions {
   display: flex; gap: 0.1rem; flex: 0 0 auto; margin-left: auto;

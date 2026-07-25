@@ -385,6 +385,20 @@ const SECTION_META = {
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
 };
 
+/** Hard-reload after an account switch, dropping the hash on the way out.
+ *  The hash is a deep link into a section (`#projects/PRJ-XXXX`) that the NEW
+ *  account may not be allowed to open, so we land on the admin root and let the
+ *  normal gate decide. location.replace keeps the switch out of the back
+ *  history — going "back" into a page rendered for the previous account is
+ *  exactly the confusion this is fixing. */
+function swapAccountReload() {
+  try {
+    window.location.replace(window.location.pathname + window.location.search);
+  } catch {
+    window.location.reload();
+  }
+}
+
 function showAdminSide(which) {
   const meta = SECTION_META[which] || SECTION_META.landing;
 
@@ -466,6 +480,15 @@ function showAdminSide(which) {
 
 let _orderSortableAttached = false;
 let initialSectionApplied = false;
+// The account this page instance booted with. Every feature module in the admin
+// shell holds module-scope caches (projects cache + seenAt map, shop state,
+// VS/PR lists, team tree, analytics) keyed to nothing — they were written for a
+// page that serves ONE account for its lifetime. The account switcher swaps the
+// session in place, so those caches survive into the next account and the user
+// sees a mix of both. Rather than teach every module to reset (and re-learn it
+// for every module added later), a switch does a hard reload: one line, and
+// impossible to forget. See swapAccountReload() below.
+let bootUserId = null;
 // Flipped true once auth has settled (session restored OR confirmed absent).
 // Until then, a persisted-but-still-loading session keeps the boot spinner
 // up instead of flashing the sign-in gate. See the onAuthChange handler.
@@ -736,6 +759,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   onAuthChange((user) => {
     const role = user?.role || null;
+
+    // A DIFFERENT account is now signed in on the same page instance — reload
+    // so every module boots clean. Only fires when we had a real account
+    // before: null → user is an ordinary first sign-in with nothing stale to
+    // clear, and a token refresh re-fires with the SAME id (which must not
+    // reload, or a refresh would nuke the user's place every 25 minutes).
+    if (user?.id && bootUserId && user.id !== bootUserId) {
+      swapAccountReload();
+      return;
+    }
+    if (user?.id) bootUserId = user.id;
 
     if (!user) {
       // The FIRST onAuthChange fire is synchronous on subscribe — it

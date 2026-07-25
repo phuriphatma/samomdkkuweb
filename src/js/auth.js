@@ -143,8 +143,17 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,has_password,phone&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,managed_shop_sources,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /managed_shop_sources/i.test(error.message || '')) {
+      if (!window.__samoWarnedAuthShop) {
+        window.__samoWarnedAuthShop = true;
+        console.warn('[auth] managed_shop_sources column missing — apply migration 0093 to enable per-แหล่งที่มา SAMO Shop scope.');
+      }
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,has_password,phone&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /managed_project_seats/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthSeats) {
         window.__samoWarnedAuthSeats = true;
@@ -222,6 +231,7 @@ async function buildCurrentUser(session) {
         if (Array.isArray(synced.permissions)) profile.managed_permissions = synced.permissions;
         if (Array.isArray(synced.vs_depts)) profile.managed_vs_depts = synced.vs_depts;
         if (Array.isArray(synced.project_seats)) profile.managed_project_seats = synced.project_seats;
+        if (Array.isArray(synced.shop_sources)) profile.managed_shop_sources = synced.shop_sources;
       }
     }
   } catch (_) { /* ignore — managed perms fall back to the profile value */ }
@@ -275,6 +285,10 @@ async function buildCurrentUser(session) {
     // Non-empty ⇒ projects access; the seat decides WHICH workflow they get
     // (see projectSeatRole() in projects/index.js).
     managedProjectSeats: Array.isArray(profile?.managed_project_seats) ? profile.managed_project_seats : [],
+    // SAMO Shop แหล่งที่มา scope from the SAMO Team tree (migration 0093):
+    // 'md' | 'rt' | 'mdi' | 'sittikao'. Non-empty ⇒ shop access limited to
+    // those sources; the blanket `samoshop` permission means every source.
+    managedShopSources: Array.isArray(profile?.managed_shop_sources) ? profile.managed_shop_sources : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
 }
@@ -319,6 +333,11 @@ export function userCanAccess(feature, user = currentUser) {
   // decides which controls render and RLS scopes what they can write.
   if (feature === 'projects' && Array.isArray(user.managedProjectSeats)
       && user.managedProjectSeats.length > 0) return true;
+  // Per-แหล่งที่มา SAMO Shop (0093): a scoped grant opens the Shop tab; product
+  // writes are then source-filtered by RLS and the admin UI locks its
+  // แหล่งที่มา filter to what the grant covers.
+  if (feature === 'samoshop' && Array.isArray(user.managedShopSources)
+      && user.managedShopSources.length > 0) return true;
   return false;
 }
 

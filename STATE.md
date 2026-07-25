@@ -60,7 +60,8 @@ transactions, independent of live config — re-run after ANY change to these RL
 paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
-`tools/proj0092-seat-parity.mjs` 13 · `tools/vs0072-isolation.mjs` 23. All green.
+`tools/proj0092-seat-parity.mjs` 13 · `tools/shop0093-scope.mjs` 18 ·
+`tools/vs0072-isolation.mjs` 23. All green.
 Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
 signature assignments — to a personal kkumail account during the migration.
@@ -123,6 +124,31 @@ prof account sees an **empty inbox** (measured: saprof 11 docs, personal 0). New
 requests are fine (`list_project_profs()` already returns seat holders). When
 อาจารย์ migrates, run the tool with `--sign-requests` (it MOVES, since a request
 has one professor).
+
+**SAMO Shop per-แหล่งที่มา scope + the read half of the grant channel (0093,
+APPLIED).** Shop had ONE `samoshop` permission — `samomdkkuvpa` and
+`samomdkkumdi` both just held it; the "two workflows" were
+`shop_products.source` driving a **localStorage** UI default, not a boundary.
+Now `team_nodes/team_members.shop_source` → `users.managed_shop_sources` →
+`current_user_shop_scope()` (NULL = all, `{}` = none, else the list) and product
+writes go through `current_user_owns_shop_source()`. **ORDERS ARE DELIBERATELY
+NOT SCOPED** — one order holds items from several sources, so per-source order
+access means splitting the order (a product decision); they stay admin-wide with
+a UI facet. Same sweep fixed three READ policies gated on `current_user_is_staff()`
+(a bare role list): `announcements_read` — a `creator` grantee could WRITE a draft
+and not see it, which is what broke เขียนประกาศ/ลำดับการแสดงประกาศ for tree
+grants; `vs_followers`/`vs_public_comments` → `current_user_is_vs_handler()`;
+`analytics_events` → new `current_user_has_any_grant()`.
+`current_user_is_staff()` itself was NOT widened — `users_self_update_guard`
+trusts it for privileged-column writes, so widening it would let any grantee
+self-promote to `dev` (0093's proof asserts this with a real attempt).
+
+**Admin account switch reloads (0093 cycle).** `admin-main.js` records
+`bootUserId`; a later `onAuthChange` with a different non-null id does
+`location.replace(pathname)`. Module-scope caches (projects + seenAt, shop state,
+team tree, PR/VS lists) were written for a page serving one account for its
+lifetime, so an in-place session swap showed a mix of both. Gated so a first
+sign-in and the 25-min token refresh do not reload.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
