@@ -3,7 +3,9 @@
 Read this BEFORE touching:
 - `src/js/auth.js`
 - `src/js/db.js`
-- Anything that calls supabase-js or `navigator.sendBeacon`
+- Anything that calls supabase-js
+- Any RLS policy or `current_user_*` helper — the grant-channel entries below
+  (0089→0093) are the most-repeated bug class in this repo
 
 Each entry: **Symptom → Cause → Fix → Where it lives now**.
 
@@ -71,19 +73,6 @@ db.auth.onAuthStateChange((_event, session) => {
 ```
 
 Reference: <https://github.com/supabase/auth-js/issues/762>
-
----
-
-## `navigator.sendBeacon` does not follow HTTP redirects
-
-**Symptom**: Discord notifications stopped firing after switching `notify.js`
-to sendBeacon. Apps Script execution log showed nothing — the request never
-arrived.
-**Cause**: Apps Script `/exec` URLs always 302-redirect to
-`script.googleusercontent.com`. sendBeacon doesn't follow redirects.
-**Fix**: Use plain `fetch(url, { keepalive: true, ... })` for GAS endpoints,
-chain `.then(r => r.text())` to drain the body.
-**Where**: `src/js/notify.js`. **Don't go back to sendBeacon for GAS endpoints.**
 
 ---
 
@@ -216,43 +205,6 @@ proof step; that's the design tradeoff. See `STATE.md` "Supabase
 config for the profile email-add flow (0026)" for the longer write-
 up and the future OTP-via-Apps-Script path if real verification is
 ever needed.
-
----
-
-## Bootstrap tab JS keeps the parent dropdown open
-
-**Symptom**: After clicking "PR Form" inside the "เครื่องมือ" dropdown, the
-dropdown stays open and the toggle stays styled active.
-**Cause**: Bootstrap's tab JS directly sets `.show` on the parent
-`.dropdown-menu`, bypassing the Dropdown API — so `.hide()` doesn't help.
-**Fix**: Listen for `shown.bs.tab`. Strip `.show` from any `.dropdown-menu.show`
-inside `.samo-navbar` and reset `aria-expanded="false"` on the toggle.
-**Where**: `src/js/main.js`.
-
----
-
-## Bootstrap mobile offcanvas + `data-bs-toggle="pill"` race
-
-**Symptom**: On mobile, tapping a tool in the offcanvas drawer activates the
-new pane on top of the old one (stacked panes).
-**Cause**: The offcanvas pill buttons aren't part of the navbar's tablist, so
-Bootstrap activates the new pane but never deactivates the previously-active
-one.
-**Fix**: In the offcanvas, drop `data-bs-toggle="pill"` and use
-`onclick="activateTab('pills-X-tab')"` which routes through the canonical
-tab button (in the right tablist). Close offcanvas in a delegated click
-handler.
-**Where**: `src/html/navbar.html` + `src/js/main.js`.
-
----
-
-## `form.reset()` clears the file input but `fileInput.files` still references the old File
-
-Not currently biting us, but worth knowing: after `form.reset()`, the file
-input element's `.files` property may still reference the previously-selected
-file in some browsers. If you trigger an upload in a second submission and
-read `fileInput.files`, you can re-upload the previous file. Re-create the
-input element OR explicitly `fileInput.value = ''` if this becomes a problem.
 
 ---
 
@@ -637,147 +589,6 @@ proactive refresh stays — this is just the safety net.
 write" path elsewhere — the dbRest retry already covers it, and an
 unconditional pre-write refresh would double network round-trips on
 the 99% of requests that don't need it.
-
----
-
-## Fire-and-forget GAS notifications + `muteHttpExceptions:true` = invisible drops
-
-**Symptom**: Discord notifications to VPA arrive for "most" uni_staff
-actions but go missing for some. The in-app bell row always lands
-(consistent across the same actions); only Discord is intermittent.
-No errors in the console, no errors in GAS execution logs.
-**Cause**: A two-layer silent-failure stack.
-- Frontend `fireGAS()` in `src/js/projects/notify.js` started the
-  fetch but returned immediately, with `.catch(() => {})` swallowing
-  every network / 4xx / 5xx outcome. The user-action handler moved
-  on (`onChanged`, re-render, sometimes a navigation) before the
-  request completed. iPad Safari + slow networks could drop the
-  in-flight fetch entirely with no surface.
-- GAS `sendProjectDiscord()` used `muteHttpExceptions: true` AND
-  ignored the response code, so Discord rate limits (429), expired
-  webhook URLs (404), and malformed payloads (400) all silently
-  "succeeded" — `notifyProjectDiscord` returned `{ success: true }`
-  regardless of what Discord actually did.
-**Fix**:
-- `callGAS()` replaces `fireGAS()` — awaitable, 10s timeout, logs every
-  failure mode with status code + body. The hot path that depends on
-  reliability (VPA Discord) AWAITS it; the email path keeps
-  fire-and-forget but logs failures via the same helper.
-- GAS `sendProjectDiscord()` still uses `muteHttpExceptions: true`
-  but inspects `getResponseCode()` and returns `{ ok, status, body }`.
-  The `doPost` handler propagates non-2xx as `success: false` with
-  the Discord status so the frontend can log a meaningful warning.
-**Where**: `src/js/projects/notify.js` `callGAS` / `notifyVpAdmin`;
-`appscript/prform.gs` `sendProjectDiscord` + the `notifyProjectDiscord`
-branch of `doPost`. Don't reintroduce a silent `.catch(() => {})` on
-any user-visible side-channel. If a fire-and-forget is the right
-pattern for a future channel, log the failure inside the helper.
-
----
-
-## GAS Cloud Logs are EMPTY for any browser-fetch call (logs simply not recorded)
-
-**Symptom**: You add `Logger.log` / `console.log` to a GAS `doPost`
-handler, redeploy, hit the `/exec` endpoint from the frontend, see
-the execution land in the GAS "Executions" panel — but the Cloud
-Logs section is permanently empty ("No logs are available for this
-execution"). Refreshing, waiting, redeploying don't help.
-**Cause**: GAS deliberately suppresses `Logger.log` / `console.log`
-output for Web Apps deployed as *Execute as: Me + Who has access:
-Anyone* when called from an unauthenticated client — i.e. our
-frontend `fetch(GAS_API_URL, …)` with no `Authorization: Bearer`
-header. The logs are NOT delayed; they're never recorded. This is
-documented GAS behaviour; see `skills/deploy-gas.md` for the full
-matrix.
-**Fix**: One of three workarounds depending on what you're debugging:
-  1. Run the handler manually from the GAS Editor (Editor runs are
-     owner-authenticated, logs always appear). `testProjectDiscord()`
-     in `prform.gs` is the template for this — write a small test
-     function that calls the real handler.
-  2. Echo the diagnostic data in the HTTP response. The frontend
-     `callGAS` / `dbRest` helpers log the response body on failure,
-     so the data lands in the browser console instead.
-  3. Link the GAS project to GCP (Project Settings → GCP → Change
-     project) — once linked, Stackdriver records every execution
-     regardless of caller. Not currently done; one-time setup if
-     deeper diagnostics are needed.
-**Where**: `skills/deploy-gas.md` "Where the logs DO and DON'T appear"
-section has the full table. Don't redeploy repeatedly hoping logs
-will appear for a public-fetch call.
-
----
-
-## Async click handlers run concurrently → parallel Discord POSTs hit per-webhook rate limit
-
-**Symptom**: User clicks two actions in quick succession (e.g., "เสร็จสิ้น"
-then "คอมเมนต์" within ~1 second). GAS logs both `doPost` executions
-completing — one fast (~1s), one slow (~5-10s). Only ONE Discord
-message lands in the channel. Adding more GAS-side retries doesn't
-help — all 3 retries return 429.
-**Cause**: JS click handlers are async but the event loop INTERLEAVES
-them. When the first handler hits its first `await` (timeline patch,
-profile fetch, etc.), JS yields back to the event loop and the
-SECOND click's handler starts running concurrently. Both eventually
-reach `await callGAS('notifyProjectDiscord', …)` at roughly the same
-moment → two POSTs hit the webhook in parallel → Discord's per-route
-bucket (~5 tokens / 2s) rate-limits one. GAS-side retries don't
-recover because the bucket stays exhausted for the full retry
-window. Bell writes survive because they go through PostgREST, not
-the rate-limited Discord webhook.
-**Fix**: Serialise Discord calls through a module-level promise chain
-with a minimum-spacing delay (>2s, past Discord's bucket refill).
-The first call fires immediately; the second waits its turn. Both
-notifications arrive; the second is delayed by ~2s.
-**Where**: `src/js/projects/notify.js` `queueDiscord` + the
-`notifyVpAdmin` Discord block now wrapped in `queueDiscord(() => …)`.
-Pattern reusable for any other rate-limited side-channel: if the
-callsite is a click handler and the destination has a rate limit,
-the GAS-side retry is insufficient — the queue is required.
-
----
-
-## Cloudflare 1015 (per-IP rate limit) blocks GAS → Discord webhook traffic, NOT Discord's own webhook bucket
-
-**Symptom**: Discord notifications start arriving inconsistently or
-stop entirely. GAS executions complete in ~10s (the 3-retry path);
-HTTP responses are 429 across all attempts. The response BODY is
-literally the string `error code: 1015` (not Discord's standard
-JSON error envelope). Running `testProjectDiscord()` manually from
-the GAS editor — supposedly bypasses all our runtime logic — ALSO
-hits HTTP 429 with body `error code: 1015`.
-**Cause**: Discord's API sits behind Cloudflare. `error code: 1015`
-is Cloudflare's "you are being rate limited" page, not Discord's
-own webhook rate limit. Two important differences:
-
-  - **Per-IP, not per-webhook**: rotating the webhook URL won't help.
-    Every webhook URL on `discord.com` goes through the same
-    Cloudflare edge. The block is on the *source* IP (GAS server's
-    egress IP), not the destination.
-  - **Cooldown is minutes, not seconds**: Discord's webhook bucket
-    refills in ~2s. Cloudflare 1015 cooldowns are typically 30s
-    to several minutes, and *extend* if you keep hammering. So
-    retrying inside the same request window almost never recovers,
-    and aggressive retries make the cooldown worse.
-
-  GAS shares IPs across users — sustained testing volume from one
-  GAS project pushes the *shared* IP into Cloudflare's penalty box.
-**Fix**:
-  - `prform.gs` `sendProjectDiscord` — detect body containing `1015`
-    and bail the retry loop early (no point burning more GAS time).
-    Retry sleep clamp bumped from 5s → 9s for the cases where the
-    cooldown is shorter.
-  - `notify.js` `MIN_DISCORD_SPACING_MS` — bumped from 2.2s → 6s.
-    Wider spacing reduces the chance the next call even sees the
-    1015 page.
-  - **There is NO code-only fix that recovers from an active 1015
-    cooldown** — wait it out (5-60 minutes), reduce ongoing traffic,
-    or move Discord notify off GAS to a dedicated proxy (Cloudflare
-    Worker, Supabase Edge Function, etc.) that uses a different
-    egress IP.
-**Where**: `appscript/prform.gs` `sendProjectDiscord` retry loop;
-`src/js/projects/notify.js` `MIN_DISCORD_SPACING_MS`. If reliability
-becomes important (campaign cycles, demos), seriously consider a
-non-GAS proxy.
 
 ---
 

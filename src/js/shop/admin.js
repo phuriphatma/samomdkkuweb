@@ -115,7 +115,13 @@ function loadSourceDefault() {
     const raw = localStorage.getItem(sourceDefaultKey());
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter((s) => typeof s === 'string') : [];
+    // Intersect with the current scope: a default saved while the admin held a
+    // wider grant (or before 0093) could otherwise pin the filter to a source
+    // they no longer own, and the orders list would render permanently empty
+    // with no visible cause.
+    return Array.isArray(arr)
+      ? arr.filter((x) => typeof x === 'string' && inShopScope(x))
+      : [];
   } catch { return []; }
 }
 function saveSourceDefault(arr) {

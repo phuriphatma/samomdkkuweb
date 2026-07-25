@@ -1493,6 +1493,16 @@ function refreshPermInherited() {
       vw.classList.remove('d-none');
     } else vw.classList.add('d-none');
   }
+  // Inherited SAMO Shop sources preview
+  const hw = $('teamPermShopInheritedWrap');
+  const hl = $('teamPermShopInheritedList');
+  if (hw && hl && id) {
+    const set = inheritedShopSourcesFor(id, inheritOn);
+    if (set.size) {
+      hl.innerHTML = [...set].map((x) => `<span class="team-perm-chip is-shop is-inherited">${escHtml(SHOP_SOURCE_LABEL[x] || x)}</span>`).join(' ');
+      hw.classList.remove('d-none');
+    } else hw.classList.add('d-none');
+  }
 }
 
 async function onPermSubmit(e) {
