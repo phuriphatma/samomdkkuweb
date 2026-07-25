@@ -8,8 +8,8 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `647eb34`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0092 applied to the live DB. Verify a deploy
+- Live web = pushed `main` HEAD `e9ceeaf`, **deployed to the VM** (VM HEAD matches;
+  working tree CLEAN). Migrations 0081–0093 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
