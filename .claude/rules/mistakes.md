@@ -1608,3 +1608,36 @@ that way; encode the exclusivity in the form, not in a doc comment.
 the SAME dept-scoped abilities everywhere the existing narrow role has them
 (tags, dedup search/merge/unmerge, soft-delete, moderation) or every button
 throws "not authorized" — grep for each `= current_user_dept()` site.
+
+---
+
+## The privilege-ESCALATING option must never be a select's default — "ทุกแผนก" at index 0 silently granted full VitalSound on every save
+
+**Symptom**: minutes after the 0083 UI shipped, the same team node kept coming
+back as `permissions={vs}, vs_dept=null` (full VS) even though the admin's
+stated intent was a per-ฝ่าย scope. Looked like the fix had not deployed, or
+like a string-encoding mismatch stopping the `<select>` from preselecting the
+stored dept. It was neither — a byte-compare of all 12 dept values against
+`vs_tickets.target_dept` matched exactly, and the deployed bundle was correct.
+**Cause**: the new scope select was built as
+`<option value="">ทุกแผนก</option>` + one option per dept. The empty value —
+i.e. the browser's default selection for a fresh grant — WAS the widest
+possible grant. So ticking "VitalSound" and pressing บันทึก without ever
+touching the scope picker handed over every department's confidential tickets.
+The one interaction an admin is most likely to perform (tick the box, save)
+produced the most dangerous outcome, silently.
+**Fix**: split "nothing chosen" from "all departments". `""` is now
+`— เลือกขอบเขต —` and saving with it blocks with a Thai message;
+`__all__` (`VS_SCOPE_ALL`) is the explicit full grant and additionally
+requires a `confirm()` naming the consequence. A node/member that already
+carries `vs` preselects `__all__`, so editing an existing full grant is
+unchanged. Same principle as the vs_categories confidential-toggle entry
+above: guard the direction that REMOVES protection, not the safe one.
+**Where**: `src/js/team/index.js` (`VS_SCOPE_ALL`, `fillVsScopeSelect`,
+`readPermInputs` returning null, `readPermInputsOrWarn`).
+**Rule**: in any picker where one option is broader/more destructive than the
+others, index 0 must be a non-choice ("— เลือก… —") and the broad option must
+be selected deliberately. Never let "the user didn't touch this control" and
+"the user asked for maximum privilege" be the same input value. Corollary for
+debugging: when live data keeps reverting to a wide setting, suspect the
+form's default before suspecting the write path.

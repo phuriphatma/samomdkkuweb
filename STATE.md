@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `1855539`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081 + 0082 + 0083 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081–0085 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -88,9 +88,20 @@ Previously the tree was cosmetic — nothing linked it to a gate.
   find_similar / merge / unmerge / soft_delete / hide_public_comment). Verified live:
   `tools/vs0083-scope.mjs` 10/10 on the real account (`phuriphat.ma@kkumail.com` →
   `managed_permissions={pr}`, `managed_vs_depts={อุปนายกฝ่ายวิชาการ}`).
-  Known gap left open: the public-board **staff-only comment** surface
-  (`get_public_vs_problem` / `vs_post_public_comment`, 0078) still gates on
-  `current_user_is_staff()`, so a tree-scoped handler isn't treated as เจ้าหน้าที่ there.
+- **Board parity + the default-option trap (0084 + 0085, APPLIED)**: a tree-scoped
+  handler is now เจ้าหน้าที่ on the public Problem board — their comments stamp
+  `is_staff` (badge instead of the นศ.XXXX pseudonym) and they read students'
+  "ส่งถึงเจ้าหน้าที่เท่านั้น" comments **on their own dept's problems only** (the badge
+  is global, the confidential READ is dept-scoped via `current_user_vs_scope()`, so
+  0083's bug can't recur one layer up). 0085 makes `current_user_is_vs_handler()`
+  fail closed — `current_user_is_staff()` returns NULL (not false) with no
+  `public.users` row, and `vs_public_comments.is_staff` is NOT NULL, so the NULL
+  would have broken posting entirely for such an account (latent since 0072).
+  UI: the scope select's index-0 was "ทุกแผนก" — ticking VitalSound and saving
+  without touching it silently granted FULL VS (this happened twice on the live
+  tree). Index 0 is now `— เลือกขอบเขต —` (blocks the save), and ทุกแผนก needs an
+  explicit confirm. `tools/vs0083-scope.mjs` is now self-provisioning (grants a
+  synthetic scope inside a rolled-back txn) — 16/16, independent of live config.
 - **TODO**: user to re-test the actual browser login. For per-ฝ่าย VS: จัดการสิทธิ์ → tick
   VitalSound on a node (or on a person) → choose "เฉพาะ <แผนก>" → they log in → VS tab
   shows only that dept's tickets, with the dept picker hidden.

@@ -416,9 +416,22 @@ drops `vs` when a specific dept is picked (`readPermInputs()` in
 0044's "any ticket" rule for vs_staff/dev/vp_admin and scopes only the new path), and
 the widened `vs_tags` read/write policies. Frontend mirror: `isVsSuper()` /
 `vsScopeDepts()` in `src/js/vs-staff.js`. Proof script: `tools/vs0083-scope.mjs`
-(run it after any change to VS RLS or these RPCs). Known gap: the public board's
-staff-only comment surface (0078) still gates on `current_user_is_staff()`, so a
-tree-scoped handler is not เจ้าหน้าที่ there.
+(run it after any change to VS RLS or these RPCs; it provisions a synthetic scoped
+handler inside a rolled-back transaction, so it needs no live config).
+
+**Board identity vs. board confidentiality (0084/0085).** A tree-scoped handler acts
+for SAMO on the public Problem board, and the two halves are deliberately asymmetric:
+the **badge** is global (`vs_post_public_comment` stamps
+`is_staff = current_user_is_vs_handler()`, so their comments render as เจ้าหน้าที่
+rather than the `นศ.XXXX` pseudonym — a badge carries no data), while **reading**
+students' `staff_only` comments is dept-scoped (`get_public_vs_problem` ORs
+`t.target_dept = any(current_user_vs_scope())` alongside the existing `v_staff` and
+own-author branches). Reusing the global `current_user_is_staff()` for the read would
+have recreated the 0083 bug one layer up. `current_user_is_vs_handler()` is
+IDENTITY-only and must never gate dept-scoped data. 0085 makes it fail closed:
+`current_user_is_staff()` returns NULL (not false) when the caller has no
+`public.users` row, and `vs_public_comments.is_staff` is `NOT NULL`, so the NULL
+would have made posting fail with 23502 — latent in 0072/0078 too.
 
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag
