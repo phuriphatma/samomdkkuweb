@@ -1831,9 +1831,18 @@ the boundary you did not draw.
 **Also**: a scoped admin's product LIST is filtered client-side to their sources.
 Not for secrecy (the catalogue is public) but because rows they cannot write
 would render with live-looking Edit/Delete buttons that every click 42501s on.
-**Where**: `supabase/migrations/0093_*.sql`; `src/js/shop/admin.js`
-(`shopScope`/`inShopScope`/`scopedSources`), `src/js/team/index.js`,
-`src/js/auth.js` (`managedShopSources` + `userCanAccess`).
+**REVERTED BY 0094 — and the reason is the lesson.** The user's answer was "SAMO
+Shop is one role, I want it full, both": a product-only scope isolates nothing
+anyone cares about, because ORDERS — the thing a department actually works out
+of — cannot be scoped. Building the scopeable half of a boundary and leaving the
+meaningful half shared produces a setting that looks like isolation and isn't.
+**The right question was "what does a department need to NOT see?", not "which
+column can I scope?"** — the answer would have been "orders", and that would have
+surfaced the mixed-source problem before any code was written. All the shop
+scoping is gone (helpers dropped, policy restored, picker removed); the
+`shop_source` / `managed_shop_sources` columns remain inert and unread.
+**Do not re-add a source scope without being asked.**
+**Where**: `supabase/migrations/0093_*.sql` (added) and `0094_*.sql` (reverted).
 
 ## Module-scope caches make an in-place account switch show two accounts at once — reload instead of teaching every module to reset
 
@@ -1856,3 +1865,31 @@ the 25-minute token refresh — which re-fires with the same id — does not eit
 **Rule**: prefer one reload over N cache-reset call sites when identity changes
 underneath a long-lived page. The reset approach is correct exactly once and then
 rots with every module you add.
+
+## A `data-role="x"` element with no matching toggle in the JS is visible to EVERYONE — and a role with no empty-state copy reads as a broken page
+
+**Symptom**: "I assigned myself as อาจารย์ on ทีม SAMO, but when I open
+หนังสือโครงการ I see nothing." Not a permission bug — verified live that 0 sign
+requests named that account (all 11 named `saprof`), so an empty inbox was
+CORRECT. It looked broken because of what the empty state said: nothing.
+**Cause**: `#projectsGridEmpty` carries one `<span data-projects-role="…">` per
+role, and `applyRoleVisibility()` toggled `d-none` on the `vp_admin` and
+`uni_staff` spans only. There was no `sa_prof` span at all, so a professor got
+the heading "ยังไม่มีโครงการในมุมมองนี้" above an EMPTY paragraph — no reason, no
+next step. A role whose normal state is "empty until someone sends you
+something" needs that said out loud, or every professor's first login looks like
+a failure.
+**The trap in the fix**: these spans carry NO `d-none` in the markup — they are
+hidden by the JS toggling it ON. So adding a `data-projects-role="sa_prof"` span
+WITHOUT adding a matching `querySelectorAll` block makes it visible to every
+role instead of only the professor (a vp_admin would read both "กด สร้าง
+โครงการใหม่" and "เมื่อเจ้าหน้าที่คณะส่งหนังสือมาให้ลงนาม"). Default-visible +
+opt-in hiding means an unhandled attribute FAILS OPEN.
+**Where**: `src/html/tab-projects.html` `#projectsGridEmpty`;
+`src/js/projects/index.js` `applyRoleVisibility()` (now toggles all three roles).
+**Rules**: (1) when a role can legitimately see zero rows, write its empty-state
+copy — "nothing here yet" and "you have no access" look identical to a user.
+(2) Any attribute-driven visibility scheme that hides by ADDING a class fails
+open; grep that every value in the markup has a handler
+(`grep -o 'data-projects-role="[a-z_]*"' src/html/*.html | sort -u` vs the
+`querySelectorAll` calls) whenever you add a role.

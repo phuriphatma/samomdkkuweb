@@ -1,11 +1,15 @@
-// 0093 proof: SAMO Shop per-แหล่งที่มา scope from the ทีม SAMO tree, plus the
-// three read policies that only knew about roles.
+// 0093 part B proof: the three read policies that only knew about roles.
+//
+// NOTE: part A (the SAMO Shop per-แหล่งที่มา scope) was REVERTED by 0094 —
+// SAMO Shop is one role, every admin manages every source — so sections A and B
+// of the original script are gone. What is asserted here instead is that the
+// revert held: shop_products is back on the plain admin predicate and the scope
+// helpers no longer exist.
 //
 // Tests the OPERATION, not the predicate (the 0090 lesson) — every write check
 // performs the real INSERT/UPDATE inside a rolled-back transaction.
 //
-//   A  shop scope resolves, and a scoped grant is NOT a full grant
-//   B  product writes are confined to the granted แหล่งที่มา
+//   A  the 0094 revert held — no source scoping, any shop admin writes any product
 //   C  a `creator` grantee can READ the drafts they can write (announcements)
 //   D  a VS-scoped grantee can read followers + staff comments
 //   E  analytics is readable by any grant holder, not just staff roles
@@ -63,52 +67,30 @@ rollback;`);
 async function main() {
   console.log('project', REF, '\n');
 
-  // ---- A. scope resolution ----
-  console.log('A) scope resolves, and scoped is not full');
-  const full = await asGrant(`select public.current_user_shop_scope() as s,
-                                     public.current_user_is_shop_admin() as admin;`,
-    { perms: `array['samoshop']` });
-  check('blanket samoshop → scope NULL (every source) + is admin',
-    val(full, 's') === null && val(full, 'admin') === true, JSON.stringify(rows(full)[0]));
+  // ---- A. the 0094 revert held ----
+  console.log('A) 0094 revert: SAMO Shop has no source scoping');
+  const helpers = await mgmt(`select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and proname in ('current_user_shop_scope','current_user_owns_shop_source');`);
+  check('the scope helpers are gone', rows(helpers).length === 0, JSON.stringify(rows(helpers)));
 
-  const scoped = await asGrant(`select public.current_user_shop_scope() as s,
-                                       public.current_user_is_shop_admin() as admin;`,
-    { shop: `array['mdi']` });
-  check('mdi scope → scope {mdi}, still a shop admin',
-    JSON.stringify(val(scoped, 's')) === '["mdi"]' && val(scoped, 'admin') === true,
-    JSON.stringify(rows(scoped)[0]));
+  const pol = await mgmt(`select coalesce(qual,'')||' '||coalesce(with_check,'') as p from pg_policies
+    where schemaname='public' and tablename='shop_products' and policyname='shop_products_write_admin';`);
+  check('shop_products writes are back on current_user_is_shop_admin()',
+    /current_user_is_shop_admin/.test(String(val(pol, 'p') || ''))
+      && !/shop_scope|owns_shop_source/.test(String(val(pol, 'p') || '')), String(val(pol, 'p')));
 
-  const none = await asGrant(`select public.current_user_shop_scope() as s,
-                                     public.current_user_is_shop_admin() as admin;`);
-  check('no grant → scope {} and NOT a shop admin (fails closed)',
-    JSON.stringify(val(none, 's')) === '[]' && val(none, 'admin') === false,
-    JSON.stringify(rows(none)[0]));
-
-  // ---- B. product writes confined to the granted source ----
-  console.log('\nB) product writes are confined to the granted แหล่งที่มา');
-  // id/name/type/source/price are NOT NULL with no default.
   const ins = (src) => `
     insert into public.shop_products (id, name, type, source, price, is_active)
-    values ('TEST-' || substr(md5(random()::text),1,8), 'scope test', 'apparel-shirt', '${src}', 1, false)
+    values ('TEST-' || substr(md5(random()::text),1,8), 'revert test', 'apparel-shirt', '${src}', 1, false)
     returning id;`;
+  const anySrc = await asGrant(ins('mdi'), { perms: `array['samoshop']` });
+  check('a samoshop admin can write ANY source', anySrc.status === 201 && !denied(anySrc), errText(anySrc));
+  const noGrant = await asGrant(ins('md'));
+  check('someone with no grant still cannot', denied(noGrant), errText(noGrant));
 
-  const mdiOwn = await asGrant(ins('mdi'), { shop: `array['mdi']` });
-  check('mdi grant CAN create an mdi product', mdiOwn.status === 201 && !denied(mdiOwn), errText(mdiOwn));
-
-  const mdiOther = await asGrant(ins('md'), { shop: `array['mdi']` });
-  check('mdi grant CANNOT create an md product', denied(mdiOther), errText(mdiOther));
-
-  const fullAny = await asGrant(ins('md'), { perms: `array['samoshop']` });
-  check('blanket grant CAN create in any source', fullAny.status === 201 && !denied(fullAny), errText(fullAny));
-
-  const noneIns = await asGrant(ins('md'));
-  check('no grant CANNOT create a product', denied(noneIns), errText(noneIns));
-
-  const upd = await asGrant(
-    `update public.shop_products set name = name where source = 'md' returning id;`,
-    { shop: `array['mdi']` });
-  check('mdi grant CANNOT update an md product (0 rows touched)',
-    !rows(upd).some((x) => x.id !== undefined), errText(upd));
+  const noTree = await asGrant(`select public.current_user_is_shop_admin() as a;`, { shop: `array['mdi']` });
+  check('a leftover managed_shop_sources value grants NOTHING now',
+    val(noTree, 'a') === false, JSON.stringify(rows(noTree)[0]));
 
   // ---- C. announcements: write it, then be able to read it ----
   console.log('\nC) a creator grantee can read the drafts they can write');
@@ -142,8 +124,8 @@ async function main() {
   // ---- E. analytics ----
   console.log('\nE) analytics readable by any grant holder');
   const anal = await asGrant(`select public.current_user_has_any_grant() as g;`,
-    { shop: `array['mdi']` });
-  check('a shop-scoped grantee counts as an admin-app user', val(anal, 'g') === true, JSON.stringify(rows(anal)[0]));
+    { perms: `array['creator']` });
+  check('any tree grantee counts as an admin-app user', val(anal, 'g') === true, JSON.stringify(rows(anal)[0]));
   const analNone = await asGrant(`select public.current_user_has_any_grant() as g;`);
   check('a plain user does not', val(analNone, 'g') === false, JSON.stringify(rows(analNone)[0]));
 

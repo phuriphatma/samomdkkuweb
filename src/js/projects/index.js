@@ -115,6 +115,13 @@ function applyRoleVisibility(user) {
     const ok = role === 'uni_staff' || role === 'dev';
     el.classList.toggle('d-none', !ok);
   });
+  // sa_prof must be toggled too, not just the two above: these elements carry no
+  // d-none in the markup, so an UNHANDLED role attribute leaves the element
+  // visible to everyone rather than hiding it.
+  document.querySelectorAll('[data-projects-role="sa_prof"]').forEach((el) => {
+    const ok = role === 'sa_prof' || role === 'dev';
+    el.classList.toggle('d-none', !ok);
+  });
 
   // Page title / hint: differs by role
   const hint = document.getElementById('projectsRoleHint');

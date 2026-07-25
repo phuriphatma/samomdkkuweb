@@ -71,17 +71,6 @@ const PROJECT_SEATS = [
 ];
 const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s.value, s.label]));
 
-// SAMO Shop แหล่งที่มา (team_nodes/team_members.shop_source, migration 0093).
-// Mirrors SHOP_SOURCES in src/js/shop/data.js minus the synthetic 'all'.
-const SHOP_SCOPE_ALL = '__all__';
-const SHOP_SOURCES = [
-  { value: 'md',       label: 'MD' },
-  { value: 'rt',       label: 'RT' },
-  { value: 'mdi',      label: 'MDI' },
-  { value: 'sittikao', label: 'สมาคมสิทธิ์เก่า' },
-];
-const SHOP_SOURCE_LABEL = Object.fromEntries(SHOP_SOURCES.map((x) => [x.value, x.label]));
-
 const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'bi-person-badge' };
 
 // ---- module state ----
@@ -196,32 +185,6 @@ function nodeEffectiveVsDepts(nodeId) {
   const node = nodesById.get(nodeId);
   if (node?.vs_dept) out.add(node.vs_dept);
   inheritedVsDeptsFor(nodeId).forEach((d) => out.add(d));
-  return out;
-}
-
-/** Shop sources a node inherits from its ancestors. Additive like vs_dept —
- *  one person can legitimately run two departments' shops (unlike a project
- *  seat, which is a single role and therefore overrides; see 0092). */
-function inheritedShopSourcesFor(nodeId, inheritOn = null) {
-  const out = new Set();
-  const node = nodesById.get(nodeId);
-  if (!node) return out;
-  const on = inheritOn === null ? node.inherit_permissions !== false : inheritOn;
-  if (!on) return out;
-  let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
-  while (cur) {
-    if (cur.shop_source) out.add(cur.shop_source);
-    if (!cur.inherit_permissions) break;
-    cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
-  }
-  return out;
-}
-
-function nodeEffectiveShopSources(nodeId) {
-  const out = new Set();
-  const node = nodesById.get(nodeId);
-  if (node?.shop_source) out.add(node.shop_source);
-  inheritedShopSourcesFor(nodeId).forEach((x) => out.add(x));
   return out;
 }
 
@@ -463,11 +426,6 @@ function renderNode(node, filter) {
     const ownDept = node.vs_dept;
     if (ownDept) permChips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     [...inheritedVsDeptsFor(node.id)].forEach((d) => { if (d !== ownDept) permChips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // SAMO Shop แหล่งที่มา (0093): own solid, inherited dashed. Additive, so
-    // both can show — unlike the seat, which is exclusive.
-    const ownSrc = node.shop_source;
-    if (ownSrc) permChips += `<span class="team-perm-chip is-shop is-own" title="SAMO Shop: ${escHtml(SHOP_SOURCE_LABEL[ownSrc] || ownSrc)}"><i class="bi bi-bag"></i> ${escHtml(SHOP_SOURCE_LABEL[ownSrc] || ownSrc)}</span>`;
-    [...inheritedShopSourcesFor(node.id)].forEach((x) => { if (x !== ownSrc) permChips += `<span class="team-perm-chip is-shop is-inherited" title="SAMO Shop: ${escHtml(SHOP_SOURCE_LABEL[x] || x)}"><i class="bi bi-bag"></i> ${escHtml(SHOP_SOURCE_LABEL[x] || x)}</span>`; });
     // หนังสือโครงการ seat (0086): own solid, inherited dashed — and an own seat
     // REPLACES the inherited one (0092), so only one chip ever shows.
     const ownSeat = node.project_seat;
@@ -563,11 +521,6 @@ function renderMember(m, filter) {
     if (ownDept) chips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
     const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
     [...vsDepts].forEach((d) => { if (d !== ownDept) chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // SAMO Shop แหล่งที่มา (0093) — additive, like the VS dept above.
-    const ownSrcM = m.shop_source || null;
-    if (ownSrcM) chips += `<span class="team-perm-chip is-shop is-own" title="SAMO Shop: ${escHtml(SHOP_SOURCE_LABEL[ownSrcM] || ownSrcM)}"><i class="bi bi-bag"></i> ${escHtml(SHOP_SOURCE_LABEL[ownSrcM] || ownSrcM)}</span>`;
-    const srcs = m.inherit_permissions !== false ? nodeEffectiveShopSources(m.node_id) : new Set();
-    [...srcs].forEach((x) => { if (x !== ownSrcM) chips += `<span class="team-perm-chip is-shop is-inherited" title="SAMO Shop: ${escHtml(SHOP_SOURCE_LABEL[x] || x)}"><i class="bi bi-bag"></i> ${escHtml(SHOP_SOURCE_LABEL[x] || x)}</span>`; });
     // หนังสือโครงการ seat: an own binding REPLACES the inherited one (0092), so
     // show one chip or the other — never both, or the row would advertise a
     // grant ("ผู้ส่งหนังสือ") the person does not actually resolve to.
@@ -1214,16 +1167,6 @@ function fillVsScopeSelect(sel) {
     + VS_DEPTS.map((d) => `<option value="${escHtml(d.value)}">เฉพาะ ${escHtml(d.label)}</option>`).join('');
 }
 
-/** Paint the SAMO Shop scope select. Index 0 is a NON-choice and the broad
- *  option is explicit — the 0084 rule: never let "didn't touch the control"
- *  and "wants maximum privilege" be the same value. */
-function fillShopScopeSelect(sel) {
-  if (!sel) return;
-  sel.innerHTML = '<option value="">— เลือกขอบเขต —</option>'
-    + `<option value="${SHOP_SCOPE_ALL}">ทุกแหล่งที่มา (ดูแลสินค้าทั้งหมด)</option>`
-    + SHOP_SOURCES.map((x) => `<option value="${escHtml(x.value)}">เฉพาะ ${escHtml(x.label)}</option>`).join('');
-}
-
 /** Paint the หนังสือโครงการ seat select. "" = not chosen — blocked on save,
  *  because a projects grant without a seat has no working workflow. */
 function fillSeatSelect(sel) {
@@ -1288,13 +1231,6 @@ function syncVsScopeVisibility(grid, wrap) {
   wrap.classList.toggle('d-none', !on);
 }
 
-/** Show the shop scope block only while "SAMO Shop" is ticked. */
-function syncShopVisibility(grid, wrap) {
-  if (!grid || !wrap) return;
-  const on = !!grid.querySelector('input[value="samoshop"]')?.checked;
-  wrap.classList.toggle('d-none', !on);
-}
-
 /** Same, for the หนังสือโครงการ seat block. */
 function syncSeatVisibility(grid, wrap) {
   if (!grid || !wrap) return;
@@ -1307,7 +1243,7 @@ function syncSeatVisibility(grid, wrap) {
  *  vs + ทุกแผนก          → `vs` (full), no dept
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
-function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, shopSel) {
+function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
   const vsOn = perms.includes('vs');
   const scope = vsOn ? (vsSel?.value || '') : '';
@@ -1325,23 +1261,15 @@ function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, shopSel) {
   const passDept = scoped ? Number(passScope) : null;
   const passSub = scoped && passSubSel && !passSubSel.classList.contains('d-none')
     ? (Number(passSubSel.value) || null) : null;
-  // SAMO Shop: same rule again — a specific แหล่งที่มา drops the blanket key.
-  const shopOn = perms.includes('samoshop');
-  const shopScope = shopOn ? (shopSel?.value || '') : '';
-  if (shopOn && !shopScope) return { missing: 'shop' };
-  const shopSource = shopScope && shopScope !== SHOP_SCOPE_ALL ? shopScope : null;
-
   const dept = scope === VS_SCOPE_ALL ? '' : scope;
   let out = dept ? perms.filter((p) => p !== 'vs') : perms;
   if (scoped) out = out.filter((p) => p !== 'passport');
-  if (shopSource) out = out.filter((p) => p !== 'samoshop');
   return {
     permissions: out,
     vs_dept: dept || null,
     project_seat: seat || null,
     passport_dept_id: passDept,
     passport_sub_dept_id: passSub,
-    shop_source: shopSource,
   };
 }
 
@@ -1349,8 +1277,8 @@ function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, shopSel) {
  *  scope, and "ทุกแผนก" (which hands over every department's confidential
  *  tickets) is confirmed because it is the privilege-ESCALATING direction.
  *  Returns null when the save should be aborted. */
-function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, shopSel, subject) {
-  const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, shopSel);
+function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject) {
+  const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel);
   if (!out) {
     alert('กรุณาเลือกขอบเขต VitalSound — "ทุกแผนก" หรือเฉพาะแผนกที่รับผิดชอบ');
     vsSel?.focus();
@@ -1359,11 +1287,6 @@ function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, shopSel
   if (out.missing === 'passport') {
     alert('กรุณาเลือกขอบเขต SAMO Passport — "ทุกฝ่าย" หรือฝ่าย/แผนกย่อยที่ดูแล');
     passSel?.focus();
-    return null;
-  }
-  if (out.missing === 'shop') {
-    alert('กรุณาเลือกขอบเขต SAMO Shop — "ทุกแหล่งที่มา" หรือแหล่งที่มาที่ดูแล');
-    shopSel?.focus();
     return null;
   }
   if (out.missing === 'seat') {
@@ -1376,12 +1299,6 @@ function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, shopSel
       && !confirm(`ให้สิทธิ์ SAMO Passport แบบ "ทุกฝ่าย" กับ${subject}\n\n`
         + 'จะเห็นและจัดการกิจกรรมของ "ทุกฝ่าย"\n'
         + 'ถ้าต้องการจำกัดเฉพาะฝ่ายที่ดูแล ให้กดยกเลิกแล้วเลือกฝ่ายนั้น')) {
-    return null;
-  }
-  if (out.permissions.includes('samoshop')
-      && !confirm(`ให้สิทธิ์ SAMO Shop แบบ "ทุกแหล่งที่มา" กับ${subject}\n\n`
-        + 'จะจัดการสินค้าของทุกแหล่งที่มาได้\n'
-        + 'ถ้าต้องการจำกัดเฉพาะแหล่งที่ดูแล ให้กดยกเลิกแล้วเลือกแหล่งนั้น')) {
     return null;
   }
   if (out.permissions.includes('vs')
@@ -1398,11 +1315,9 @@ function wirePermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamPermVsDept'));
   fillSeatSelect($('teamPermSeat'));
-  fillShopScopeSelect($('teamPermShopSource'));
   grid?.addEventListener('change', () => {
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
-    syncShopVisibility(grid, $('teamPermShopWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
   });
   $('teamPermPassDept')?.addEventListener('change', () =>
@@ -1422,7 +1337,6 @@ export function permTicked(key, own, row) {
     return own.has('passport')
       || row?.passport_dept_id != null || row?.passport_sub_dept_id != null;
   }
-  if (key === 'samoshop') return own.has('samoshop') || !!row?.shop_source;
   return own.has(key);
 }
 
@@ -1440,9 +1354,6 @@ function openPermModal(id) {
     $('teamPermVsDept').value = node.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
   if ($('teamPermSeat')) $('teamPermSeat').value = node.project_seat || '';
-  if ($('teamPermShopSource')) {
-    $('teamPermShopSource').value = node.shop_source || (own.has('samoshop') ? SHOP_SCOPE_ALL : '');
-  }
   loadPassportDepts().then(() => {
     fillPassDeptSelect($('teamPermPassDept'));
     const cur = node.passport_dept_id != null ? String(node.passport_dept_id)
@@ -1455,7 +1366,6 @@ function openPermModal(id) {
   });
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
-  syncShopVisibility($('teamPermGrid'), $('teamPermShopWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
   refreshPermInherited();
   modalInstance('teamPermModal')?.show();
@@ -1493,16 +1403,6 @@ function refreshPermInherited() {
       vw.classList.remove('d-none');
     } else vw.classList.add('d-none');
   }
-  // Inherited SAMO Shop sources preview
-  const hw = $('teamPermShopInheritedWrap');
-  const hl = $('teamPermShopInheritedList');
-  if (hw && hl && id) {
-    const set = inheritedShopSourcesFor(id, inheritOn);
-    if (set.size) {
-      hl.innerHTML = [...set].map((x) => `<span class="team-perm-chip is-shop is-inherited">${escHtml(SHOP_SOURCE_LABEL[x] || x)}</span>`).join(' ');
-      hw.classList.remove('d-none');
-    } else hw.classList.add('d-none');
-  }
 }
 
 async function onPermSubmit(e) {
@@ -1511,7 +1411,7 @@ async function onPermSubmit(e) {
   const node = nodesById.get(id);
   if (!node) return;
   const grants = readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
-    $('teamPermPassDept'), $('teamPermPassSub'), $('teamPermShopSource'), `ตำแหน่ง "${node.name}"`);
+    $('teamPermPassDept'), $('teamPermPassSub'), `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
   modalInstance('teamPermModal')?.hide();
@@ -1558,7 +1458,6 @@ function wireMemberPermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamMPermVsDept'));
   fillSeatSelect($('teamMPermSeat'));
-  fillShopScopeSelect($('teamMPermShopSource'));
   grid?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermPassDept')?.addEventListener('change', () => {
     fillPassSubSelect($('teamMPermPassSub'), $('teamMPermPassDept').value);
@@ -1566,7 +1465,6 @@ function wireMemberPermModal() {
   });
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermSeat')?.addEventListener('change', refreshMemberPermEff);
-  $('teamMPermShopSource')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
@@ -1586,9 +1484,6 @@ function openMemberPermModal(memberId) {
     $('teamMPermVsDept').value = m.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
   if ($('teamMPermSeat')) $('teamMPermSeat').value = m.project_seat || '';
-  if ($('teamMPermShopSource')) {
-    $('teamMPermShopSource').value = m.shop_source || (own.has('samoshop') ? SHOP_SCOPE_ALL : '');
-  }
   loadPassportDepts().then(() => {
     fillPassDeptSelect($('teamMPermPassDept'));
     const cur = m.passport_dept_id != null ? String(m.passport_dept_id)
@@ -1610,17 +1505,16 @@ function openMemberPermModal(memberId) {
 function refreshMemberPermEff() {
   syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
   syncSeatVisibility($('teamMPermGrid'), $('teamMPermSeatWrap'));
-  syncShopVisibility($('teamMPermGrid'), $('teamMPermShopWrap'));
   syncPassVisibility($('teamMPermGrid'), $('teamMPermPassWrap'));
   const wrap = $('teamMPermEffWrap');
   const list = $('teamMPermEffList');
   if (!wrap || !list) return;
   const m = findMember($('teamMPermMemberId').value);
   // Preview only — a not-yet-chosen scope shows the perms without a VS chip.
-  const { permissions, vs_dept: vsDept, project_seat: seat, shop_source: shopSrc } =
+  const { permissions, vs_dept: vsDept, project_seat: seat } =
     readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
-      $('teamMPermPassDept'), $('teamMPermPassSub'), $('teamMPermShopSource'))
-    || { permissions: [], vs_dept: null, project_seat: null, shop_source: null };
+      $('teamMPermPassDept'), $('teamMPermPassSub'))
+    || { permissions: [], vs_dept: null, project_seat: null };
   const set = new Set(permissions);
   const vsSet = new Set(vsDept ? [vsDept] : []);
   // A seat the person picked REPLACES the one their ตำแหน่ง would give them
@@ -1628,12 +1522,10 @@ function refreshMemberPermEff() {
   // admin is shown "เจ้าหน้าที่คณะ ผู้ส่งหนังสือ" for a grant that resolves to
   // เจ้าหน้าที่คณะ alone.
   const seatSet = new Set(seat ? [seat] : []);
-  const shopSet = new Set(shopSrc ? [shopSrc] : []);
   if (m && $('teamMPermInherit')?.checked) {
     nodeEffectivePerms(m.node_id).forEach((p) => set.add(p));
     nodeEffectiveVsDepts(m.node_id).forEach((d) => vsSet.add(d));
     if (!seat) nodeEffectiveSeats(m.node_id).forEach((x) => seatSet.add(x));
-    nodeEffectiveShopSources(m.node_id).forEach((x) => shopSet.add(x));
   }
   let html = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
   // A dept chip only means anything when it isn't already swallowed by full VS.
@@ -1641,13 +1533,7 @@ function refreshMemberPermEff() {
     html += ' ' + [...vsSet].map((d) => `<span class="team-perm-chip is-vs"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
   }
   html += ' ' + [...seatSet].map((x) => `<span class="team-perm-chip is-seat"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`).join(' ');
-  // A source chip only means anything when it isn't already swallowed by the
-  // blanket samoshop grant (same rule as the VS dept chip above).
-  if (!set.has('samoshop')) {
-    html += ' ' + [...shopSet].map((x) => `<span class="team-perm-chip is-shop"><i class="bi bi-bag"></i> ${escHtml(SHOP_SOURCE_LABEL[x] || x)}</span>`).join(' ');
-  }
-  if (set.size || (!set.has('vs') && vsSet.size) || seatSet.size
-      || (!set.has('samoshop') && shopSet.size)) {
+  if (set.size || (!set.has('vs') && vsSet.size) || seatSet.size) {
     list.innerHTML = html;
     wrap.classList.remove('d-none');
   } else wrap.classList.add('d-none');
@@ -1659,7 +1545,7 @@ async function onMemberPermSubmit(e) {
   const m = findMember(id);
   if (!m) return;
   const grants = readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
-    $('teamMPermPassDept'), $('teamMPermPassSub'), $('teamMPermShopSource'), `"${m.full_name}"`);
+    $('teamMPermPassDept'), $('teamMPermPassSub'), `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
   modalInstance('teamMemberPermModal')?.hide();
@@ -1910,7 +1796,6 @@ async function importJson(data) {
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,
       project_seat: n.project_seat || null,
-      shop_source: n.shop_source || null,
       is_public: n.is_public !== false,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
@@ -1955,7 +1840,6 @@ async function importJson(data) {
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,
       project_seat: m.project_seat || null,
-      shop_source: m.shop_source || null,
       passport_dept_id: m.passport_dept_id ?? null,
       passport_sub_dept_id: m.passport_sub_dept_id ?? null,
     });

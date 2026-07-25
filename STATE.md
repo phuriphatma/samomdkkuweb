@@ -64,7 +64,7 @@ transactions, independent of live config — re-run after ANY change to these RL
 paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
-`tools/proj0092-seat-parity.mjs` 13 · `tools/shop0093-scope.mjs` 18 ·
+`tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
 `tools/vs0072-isolation.mjs` 23. All green.
 Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
@@ -129,23 +129,26 @@ requests are fine (`list_project_profs()` already returns seat holders). When
 อาจารย์ migrates, run the tool with `--sign-requests` (it MOVES, since a request
 has one professor).
 
-**SAMO Shop per-แหล่งที่มา scope + the read half of the grant channel (0093,
-APPLIED).** Shop had ONE `samoshop` permission — `samomdkkuvpa` and
-`samomdkkumdi` both just held it; the "two workflows" were
-`shop_products.source` driving a **localStorage** UI default, not a boundary.
-Now `team_nodes/team_members.shop_source` → `users.managed_shop_sources` →
-`current_user_shop_scope()` (NULL = all, `{}` = none, else the list) and product
-writes go through `current_user_owns_shop_source()`. **ORDERS ARE DELIBERATELY
-NOT SCOPED** — one order holds items from several sources, so per-source order
-access means splitting the order (a product decision); they stay admin-wide with
-a UI facet. Same sweep fixed three READ policies gated on `current_user_is_staff()`
-(a bare role list): `announcements_read` — a `creator` grantee could WRITE a draft
-and not see it, which is what broke เขียนประกาศ/ลำดับการแสดงประกาศ for tree
-grants; `vs_followers`/`vs_public_comments` → `current_user_is_vs_handler()`;
-`analytics_events` → new `current_user_has_any_grant()`.
-`current_user_is_staff()` itself was NOT widened — `users_self_update_guard`
-trusts it for privileged-column writes, so widening it would let any grantee
-self-promote to `dev` (0093's proof asserts this with a real attempt).
+**SAMO Shop is ONE role — the 0093 scope was REVERTED by 0094.** Every shop admin
+manages every แหล่งที่มา; there is no per-source grant and the picker is gone.
+`current_user_is_shop_admin()` is back to `role in (shop_admin,dev) OR
+has_permission('samoshop')`, and `shop_products` writes are back on it. The
+`shop_source` / `managed_shop_sources` COLUMNS remain but are inert — nothing
+reads them. Drop them whenever (`alter table … drop column …`, listed in 0094's
+header) and strip them from sync/recompute/users_self_update_guard. **Do not
+re-add a source scope without being asked**: the reason it was declined is that
+orders can't be scoped (one order holds items from several sources), so a
+product-only scope isolates nothing anyone cares about.
+
+**The READ half of the grant channel (0093 part B, KEPT).** Three policies gated
+on `current_user_is_staff()` — a bare role list — excluded tree-granted accounts:
+`announcements_read` (a `creator` grantee could WRITE a draft and not see it,
+which is what broke เขียนประกาศ/ลำดับการแสดงประกาศ), `vs_followers` /
+`vs_public_comments` (→ `current_user_is_vs_handler()`), and `analytics_events`
+(→ new `current_user_has_any_grant()`). `current_user_is_staff()` itself was NOT
+widened — `users_self_update_guard` trusts it for privileged-column writes, so
+widening it would let any grantee self-promote to `dev`
+(`tools/grant0093-reads.mjs` asserts this with a real attempt).
 **Three role-only policies REMAIN BY DESIGN — do not "fix" them**:
 `users_update_staff` (broadening it lets a grantee edit other people's rows),
 `notify_log_select_staff` and `reserved_staff_usernames_read_staff` (internal

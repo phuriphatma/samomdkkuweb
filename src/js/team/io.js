@@ -63,7 +63,6 @@ export function buildExportJson(nodes, members) {
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
       passport_dept_id: n.passport_dept_id ?? null,
-      shop_source: n.shop_source ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     })),
     members: members.map((m) => ({
@@ -76,7 +75,6 @@ export function buildExportJson(nodes, members) {
       vs_dept: m.vs_dept || null,
       project_seat: m.project_seat || null,
       passport_dept_id: m.passport_dept_id ?? null,
-      shop_source: m.shop_source ?? null,
       passport_sub_dept_id: m.passport_sub_dept_id ?? null,
     })),
   };
