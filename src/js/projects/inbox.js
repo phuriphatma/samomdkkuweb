@@ -120,10 +120,10 @@ function ownerLabel(role, settings) {
  *  analogue of uni_staff's status='sent' and vp_admin's status='returned'.
  *  Persists until he accepts/rejects (the request leaves 'pending'). */
 function docPendingSignForProf(doc) {
-  const myId = getUser()?.id;
-  if (!myId) return false;
+  // Any pending request counts — อาจารย์ is one shared role, so the desk's
+  // queue is the professor's queue (0095). Matches prof_can_see_document().
   return Array.isArray(doc?.sign_requests)
-    && doc.sign_requests.some((r) => r.prof_id === myId && r.status === 'pending');
+    && doc.sign_requests.some((r) => r.status === 'pending');
 }
 
 function isMine(doc, role) {
@@ -2425,8 +2425,9 @@ async function loadFilesForDoc(docId) {
     // to only the files he was asked to sign (+ his own signed uploads),
     // mirroring the doc-level scoping in index.js scopeProjectsForRole.
     if (role === 'sa_prof') {
-      const myId = getUser()?.id;
-      const reqs = (findDocById(docId)?.doc?.sign_requests || []).filter((r) => r.prof_id === myId);
+      // Every request on this หนังสือ, not just ones naming this uid (0095) —
+      // but still only the REQUESTED + SIGNED files, never the private drafts.
+      const reqs = (findDocById(docId)?.doc?.sign_requests || []);
       const allowed = new Set();
       reqs.forEach((r) => (r.file_ids || []).forEach((id) => allowed.add(String(id))));
       const reqIds = new Set(reqs.map((r) => String(r.id)));

@@ -65,6 +65,7 @@ paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
+`tools/prof0095-seat-parity.mjs` 10 ·
 `tools/vs0072-isolation.mjs` 23. All green.
 Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
@@ -162,6 +163,19 @@ NOT also match `has_permission|managed_|_scope|_seats`; the expected count is 3.
 team tree, PR/VS lists) were written for a page serving one account for its
 lifetime, so an in-place session swap showed a mix of both. Gated so a first
 sign-in and the 25-min token refresh do not reload.
+
+**The อาจารย์ seat grants the อาจารย์ ROLE (0095, APPLIED).** Every prof gate used
+to key on `sign_requests.prof_id = auth.uid()`, so a seat holder got a brand-new
+professor with an EMPTY desk while `saprof` showed 11. อาจารย์ is one shared
+institutional role (like เจ้าหน้าที่คณะ), so `prof_can_see_document/_project/_file`
++ the sign-request read/update policies + `scopeProjectsForRole` /
+`docPendingSignForProf` / the file filter now ask "am I อาจารย์, and was this sent
+for signature?". Verified: seat and saprof both see 11 of 26.
+**Still NOT an actor** — the other 15 หนังสือ stay invisible, private drafts inside
+a requested หนังสือ stay filtered, and a professor still cannot create a project or
+request a signature. **Tradeoff**: every อาจารย์ sees every signature request. Right
+for one shared role; if per-professor privacy is ever wanted, restore the uid check
+PLUS a "which professor" dimension — a plain revert re-empties the seat.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer

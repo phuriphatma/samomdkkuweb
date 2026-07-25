@@ -1893,3 +1893,45 @@ copy — "nothing here yet" and "you have no access" look identical to a user.
 open; grep that every value in the markup has a handler
 (`grep -o 'data-projects-role="[a-z_]*"' src/html/*.html | sort -u` vs the
 `querySelectorAll` calls) whenever you add a role.
+
+## A seat that grants a SHARED role must not be modelled as a new individual — the อาจารย์ seat built a private desk instead of opening the existing one
+
+**Symptom**: "on saprof there are 11 shown in ทั้งหมด, but on my kkumail granted
+อาจารย์ in ทีม SAMO it shows 0." Both accounts resolve to `sa_prof`; the grant,
+the seat resolver and the RLS all check out. Easy to answer "working as designed
+— nothing has been sent to you yet", and that answer is *technically* right and
+*practically* wrong.
+**Cause**: every prof gate keyed on `sign_requests.prof_id = auth.uid()` —
+`prof_can_see_document/_project/_file`, the sign-request read+update policies,
+`scopeProjectsForRole()`, `docPendingSignForProf()`, and the file filter in
+`loadFilesForDoc`. So the seat produced **a brand-new professor with an empty
+desk**, when what the org wanted was **access to the professor's desk**. The
+other two seats already behaved the second way (`staff` sees what sastaff sees,
+`vpa` what samomdkkuvpa sees) because uni_staff and vp_admin are not per-person
+filtered — prof was the only per-uid one, so the inconsistency was invisible
+until someone held the seat.
+**The signal I should have caught earlier**: this org runs SHARED department
+accounts and the repo already records "don't design per-person assignee/roster
+features". A per-uid recipient IS a per-person assignee. When a seat exists to
+let a real person occupy a shared institutional role, "scoped to me" is the
+wrong default — the role is the unit, not the individual.
+**Fix (0095)**: the helpers now ask "am I อาจารย์, and was this sent for
+signature at all?" `current_user_is_prof()` stays INSIDE each helper — the
+policies OR them in, so a helper that ignored the caller would hand every
+signature-requested document to any authenticated user. Frontend filters follow
+the same rule.
+**What deliberately did NOT change**: a professor is still not a project actor.
+They see only หนังสือ carrying a signature request (11 of 26 live), never the
+other 15, and inside a requested หนังสือ still only the requested + signed files,
+never the private drafts. Making prof an actor exposes all 26 — rejected in 0086,
+still rejected. Proof `tools/prof0095-seat-parity.mjs` asserts BOTH halves: same
+desk as saprof, AND still cannot create a project or request a signature.
+**Tradeoff written down**: every อาจารย์ now sees every signature request, so two
+professors would see each other's. Correct for one shared role, wrong the day
+per-professor privacy is wanted — and the fix then is the uid check PLUS a "which
+professor am I" dimension, not a plain revert (which would empty the seat again).
+**Rule**: when adding a seat/grant that lets an individual act as a shared role,
+ask "should this person see what the shared account sees, or start empty?" for
+EACH surface. If the answer is "the same", any `= auth.uid()` predicate on that
+surface is a bug in waiting — and it will look like correct behaviour, because an
+empty inbox is indistinguishable from a working one with nothing in it.

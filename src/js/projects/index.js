@@ -148,13 +148,16 @@ function applyRoleVisibility(user) {
  *  Scope his inbox to those docs/projects at the query layer. (For all other
  *  roles this is a pass-through.) */
 function scopeProjectsForRole(projects) {
-  if (currentRole !== 'sa_prof' || !currentUser?.id) return projects;
-  const myId = currentUser.id;
+  if (currentRole !== 'sa_prof') return projects;
+  // อาจารย์ is ONE shared role (0095): a seat holder sees the professor's desk,
+  // not a private one, so the filter is "was this sent for signature at all?"
+  // rather than "is it addressed to my uid?". Still far narrower than an actor —
+  // หนังสือ never sent to อาจารย์ stay invisible. RLS agrees (prof_can_see_*).
   return (projects || [])
     .map((p) => ({
       ...p,
       documents: (p.documents || []).filter((d) =>
-        Array.isArray(d.sign_requests) && d.sign_requests.some((r) => r.prof_id === myId)),
+        Array.isArray(d.sign_requests) && d.sign_requests.length > 0),
     }))
     .filter((p) => (p.documents || []).length > 0);
 }
