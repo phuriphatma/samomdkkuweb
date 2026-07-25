@@ -1909,3 +1909,49 @@ user who joins TODAY see?". The default — "has seen nothing" — is almost nev
 And before comparing two accounts' views, check whether the difference is
 *authorization* or *accumulated per-user state*; they look identical in a
 screenshot.
+
+## Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind — read state, signature assignments, notifications
+
+**Symptom**: after granting a personal kkumail account the `staff` seat, its
+หนังสือโครงการ inbox showed "1 ใหม่" but NOT the "1 อัปเดต" that `sastaff` shows on
+the same project. Looks like the seat isn't fully equivalent to the role.
+**Cause**: the two badges have completely different sources, which is easy to miss
+because they render side by side:
+- **"N ใหม่"** = `docs.filter(d => d.status === 'sent').length` — pure document
+  STATUS, identical for every uni_staff viewer. It matched immediately.
+- **"N อัปเดต"** = `docHasUnseenBeyondStatusBadge()` → `getDocSeenAt()` — PER USER,
+  from `project_doc_views` keyed by `user_id`.
+So the seat was working perfectly; what differed was accumulated per-user state.
+Worse, the first-run BASELINE (added the same day, see the entry above) had marked
+all 26 documents seen for the new account — correct for a genuinely new person,
+exactly wrong for someone taking over an existing workflow, where the point is to
+inherit the predecessor's pending work.
+**Fix**: `tools/proj-handover.mjs` — a dry-run-by-default transfer of
+`project_doc_views` from the shared account to the personal one. **It REPLACES
+rather than merges**: parity requires that a document the source has never opened
+has NO row on the target either, or its "อัปเดต" stays hidden. sastaff had 22 rows
+for 26 documents; a merge would have left 4 baseline rows masking 4 genuine
+unreads. Verified per-document afterwards: 9 unseen for sastaff, 9 for the target,
+0 mismatches.
+**The same class is WORSE for `sa_prof`** (checked because the same migration is
+planned for อาจารย์): a signature request names ONE `prof_id`. `scopeProjectsForRole()`
+keeps only documents whose `sign_requests` name the viewer, and
+`docPendingSignForProf()` ("N รอลงนาม") matches the same uid — so a migrated
+อาจารย์ account does not merely lose badges, it sees a **completely EMPTY inbox**.
+Measured: saprof 11 documents visible, a personal account 0. NEW requests are fine
+(`list_project_profs()` already returns role `sa_prof` OR `prof`-seat holders, 0086),
+so only the pre-existing ones are stranded — `--sign-requests` repoints them, and
+it MOVES rather than copies because a request has exactly one professor.
+**Where**: `tools/proj-handover.mjs`; badge sources in `src/js/projects/inbox.js`
+(`renderProjectListRow`, `renderProjectCard`, `docPendingSignForProf`);
+prof scoping in `src/js/projects/index.js` (`scopeProjectsForRole`).
+**Residual to know about**: `getDocSeenAt()` falls back to a user-scoped
+localStorage map when the server has no row for a document, so if the target
+account had already opened one of the source's never-opened documents on that
+device, the local cache can still mask it. Clear `projects.docSeenAt.<uid>` (or
+site data) on that device after a handover if a badge looks wrong.
+**Rule**: "granted the permission" ≠ "took over the job". Before migrating a shared
+account, enumerate every table with a `user_id` / assignee column scoped to it —
+read state, assignments, notifications, drafts — and decide per table whether it
+COPIES (the shared account stays live) or MOVES (it is being retired). A
+permission grant migrates none of them.

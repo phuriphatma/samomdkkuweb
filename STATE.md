@@ -61,6 +61,9 @@ paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/vs0072-isolation.mjs` 23. All green.
+Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
+workflow account's uid-bound state — read state, and optionally the bell and
+signature assignments — to a personal kkumail account during the migration.
 
 **Role-only gates — fixed twice more (0089, 0090).** `team_nodes`/`team_members`
 were gated on role alone, so a tree-granted `team` holder could not edit the tree
@@ -105,6 +108,21 @@ set it even when it wrote zero rows — without the bump anyone who had already
 opened the tab would skip the new branch forever. Re-running is safe: the upsert is
 `merge-duplicates` (it OVERWRITES `seen_at`), so a local value is only pushed when
 strictly newer than the server's, or the re-run would roll read state backwards.
+
+**Shared-account → personal-account handover (`tools/proj-handover.mjs`).** The
+baseline is right for a NEW person and wrong for someone TAKING OVER a workflow —
+a migrating account must inherit its predecessor's pending work, not start clean.
+"N ใหม่" is document STATUS (identical for every viewer, matched immediately);
+"N อัปเดต" is per-user `project_doc_views`. The tool REPLACES the target's read
+state with the source's (a doc the source never opened must have NO target row, or
+its อัปเดต stays hidden — sastaff has 22 rows for 26 docs). RUN 2026-07-25:
+sastaff → `phuriphat.ma`, verified 9/9 unseen docs matching, 0 mismatches.
+**อาจารย์ is the worse case and is NOT done**: a sign request names one `prof_id`,
+and `scopeProjectsForRole()` keeps only docs naming the viewer — so a migrated
+prof account sees an **empty inbox** (measured: saprof 11 docs, personal 0). New
+requests are fine (`list_project_profs()` already returns seat holders). When
+อาจารย์ migrates, run the tool with `--sign-requests` (it MOVES, since a request
+has one professor).
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
