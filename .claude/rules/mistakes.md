@@ -1793,6 +1793,14 @@ it will hide the gap until someone tries to save. (2) Test the OPERATION, not
 the predicate. (3) Watch for the recursive case: the permission governing the
 permission system is the easiest one to forget, because you are usually holding
 a role that already works.
+**Third layer, same sweep (0091)**: the notify fan-out resolved every audience
+by role — `listUsersByRole('uni_staff'|'vp_admin'|'sa_prof')` — so a seat holder
+could be sent a หนังสือ, act on it, and never get a single in-app notification.
+This is the quietest failure of the three: the workflow works, the bell is just
+empty, and nobody reports a notification they never knew to expect. Replaced by
+`list_project_seat_users(seat)` (role OR seat, id + display name only). So the
+enumeration rule covers **writes AND audience lookups** — anywhere the feature
+asks "who is the X?", not just "may this user write?".
 **Harness note (cost me 20 minutes)**: seeding a grant by poking
 `users.managed_permissions` directly then writing to `team_nodes` does NOT work
 — the write fires the statement-level recompute trigger, which rebuilds

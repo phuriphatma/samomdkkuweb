@@ -16,6 +16,8 @@ import {
   createNotification,
   getSettings,
   listUsersByRole,
+  listProjectProfs,
+  listProjectSeatUsers,
 } from './api.js';
 
 const PUBLIC_BASE_URL = (() => {
@@ -64,7 +66,7 @@ export function normalizeRecipients(raw) {
  */
 export async function notifyUniStaff({ kind, project, document, body, subject } = {}) {
   const settings = await getSettings().catch(() => null);
-  const recipients = await listUsersByRole('uni_staff').catch(() => []);
+  const recipients = await listProjectSeatUsers('staff').catch(() => []);
 
   // In-app
   if (settings?.notify_uni_in_app !== false) {
@@ -105,7 +107,7 @@ export async function notifyUniStaff({ kind, project, document, body, subject } 
  */
 export async function notifyVpAdmin({ kind, project, document, body, title } = {}) {
   const settings = await getSettings().catch(() => null);
-  const recipients = await listUsersByRole('vp_admin').catch(() => []);
+  const recipients = await listProjectSeatUsers('vpa').catch(() => []);
 
   // In-app
   if (settings?.notify_vp_in_app !== false) {
@@ -148,15 +150,21 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
 }
 
 /**
- * Send a "→ professor (saprof)" event:
- *   - in-app row for each sa_prof user
+ * Send a "→ professor" event:
+ *   - in-app row for every professor seat
  *   - email to settings.prof_email (if enabled)
  * Used when sastaff sends a หนังสือ for signing, and (per the spec) when a
  * file is added/replaced/removed on a หนังสือ that's been shown to the prof.
+ *
+ * Recipients come from listProjectProfs() — role `sa_prof` PLUS anyone holding
+ * the ทีม SAMO `prof` seat (0086). A plain listUsersByRole('sa_prof') here
+ * meant a tree-granted อาจารย์ could be SENT a document (the picker was fixed)
+ * and then never told about it: the sign request landed, the bell stayed
+ * silent. Role-only lookups on the notify path fail exactly this quietly.
  */
 export async function notifyProf({ kind, project, document, body, subject } = {}) {
   const settings = await getSettings().catch(() => null);
-  const recipients = await listUsersByRole('sa_prof').catch(() => []);
+  const recipients = await listProjectSeatUsers('prof').catch(() => []);
 
   // In-app
   if (settings?.notify_prof_in_app !== false) {

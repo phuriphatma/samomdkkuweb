@@ -583,6 +583,18 @@ export async function bulkUpsertMyDocViews(rows) {
  *  because the RPC returns ONLY id + display name — a professor's email is
  *  not the sender's to read.
  *  Falls back to the pre-0086 role-only read if the RPC isn't there yet. */
+/** Everyone occupying a หนังสือโครงการ seat — by role OR by ทีม SAMO grant
+ *  (0091). Used to address notifications, which previously resolved every
+ *  audience by role and so silently skipped seat holders.
+ *  Falls back to the pre-0091 role-only read. */
+export async function listProjectSeatUsers(seat) {
+  const { data, error } = await dbRest('/rpc/list_project_seat_users',
+    { method: 'POST', body: { p_seat: seat } });
+  if (!error && Array.isArray(data)) return data;
+  const role = { vpa: 'vp_admin', staff: 'uni_staff', prof: 'sa_prof' }[seat];
+  return role ? listUsersByRole(role) : [];
+}
+
 export async function listProjectProfs() {
   const { data, error } = await dbRest('/rpc/list_project_profs', { method: 'POST', body: {} });
   if (!error && Array.isArray(data)) return data;

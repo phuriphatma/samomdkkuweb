@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `c6d5159`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0090 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081–0091 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -69,8 +69,11 @@ that manages the grant engine was the one it did not honour. Same sweep found
 `projects_insert/delete` + `project_documents_insert/delete` role-only, so the
 `vpa` seat could update but not CREATE. Both fixed; 0090 adds the seat ALONGSIDE
 the role list (not via `current_user_is_project_actor()`, which also admits
-uni_staff, who must not create projects). Lesson logged: test the OPERATION, not
-the predicate — proj0086 asserted the helper and missed the policy.
+uni_staff, who must not create projects). 0091 completes the sweep: the notify
+fan-out resolved every audience by role, so a seat holder got no in-app
+notification at all — now `list_project_seat_users(seat)`. Lessons logged: test
+the OPERATION not the predicate (proj0086 asserted the helper and missed the
+policy), and the enumeration must cover audience LOOKUPS as well as writes.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
