@@ -9,7 +9,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
 - Live web = pushed `main` HEAD `1855539`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Migrations 0081–0086 applied to the live DB. Verify a deploy
+  working tree CLEAN). Migrations 0081–0087 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -105,6 +105,31 @@ Previously the tree was cosmetic — nothing linked it to a gate.
 - **TODO**: user to re-test the actual browser login. For per-ฝ่าย VS: จัดการสิทธิ์ → tick
   VitalSound on a node (or on a person) → choose "เฉพาะ <แผนก>" → they log in → VS tab
   shows only that dept's tickets, with the dept picker hidden.
+
+## SAMO Passport admin permission in ทีม SAMO (0087, APPLIED — identity only)
+
+- **Grant**: จัดการสิทธิ์ → ☑ SAMO Passport → ขอบเขต = ทุกฝ่าย | ฝ่าย | ฝ่าย+แผนกย่อย, on a
+  node or one person. Passport has 10 departments and 4 sub-departments (only
+  กิจการภายใน → โครงการ/ชุมนุม and กิจการมหาวิทยาลัย → จิตอาสา/7 คณะ have children), and
+  `activities`/`scans` both carry `department_id` + `sub_department_id`, so the scope
+  is two-level — richer than VitalSound's flat dept.
+- **Storage**: `users.managed_passport_scopes text[]` = tokens `d:<id>` / `s:<id>`
+  (a sub binding replaces the dept token). Scoped drops the blanket `passport` perm
+  (the 0083 rule). Guarded + synced by the same login RPC / recompute trigger.
+- **Consumed by**: `public.passport_admin_context()` → `{is_admin, all_departments,
+  departments[], sub_departments[]}`. The passport app should call this instead of
+  building its own admin table (SECURITY-HARDENING-PLAN.md §2 can now drop its
+  `passport.admins` design and read this). Picker data via
+  `public.list_passport_departments()` (passport.departments has RLS on, no policy).
+- **Verified**: `tools/pass0087-scope.mjs` 10/10; PERM_CATALOG + both modals checked
+  in the browser (the dept dropdown fills only for a signed-in user — the RPC is
+  authenticated-only).
+- **⚠️ ENFORCES NOTHING YET.** passport schema RLS is still 0056's `using(true)` for
+  anon. Proven live (rolled back): anon inserts an activity, updates ALL 845 scans to
+  999999 km, reads all 593 profiles (name+email). Passport-side enforcement =
+  `passport/SECURITY-HARDENING-PLAN.md`, still awaiting its 4 answers (admin list /
+  bulk-scan path / profiles.email PII / cutover window). Until then, per-department
+  filtering in the passport UI is cosmetic.
 
 ## หนังสือโครงการ seats via ทีม SAMO + public org-chart contract (0086, APPLIED)
 

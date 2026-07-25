@@ -202,6 +202,16 @@
             <span class="team-perm-inherited-label">บทบาทหนังสือโครงการที่รับมาจากฝ่ายแม่:</span>
             <span id="teamPermSeatInheritedList"></span>
           </div>
+          <!-- SAMO Passport scope: dept, or a single sub-department (0087). -->
+          <div class="d-none" id="teamPermPassWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamPermPassDept">
+              <i class="bi bi-passport"></i> SAMO Passport — ขอบเขตที่ดูแล
+            </label>
+            <select class="form-select" id="teamPermPassDept"></select>
+            <select class="form-select mt-2 d-none" id="teamPermPassSub"></select>
+            <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี) เพื่อให้เห็นและจัดการเฉพาะกิจกรรมของขอบเขตนั้น</div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -241,6 +251,15 @@
             </label>
             <select class="form-select" id="teamMPermVsDept"></select>
             <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้บุคคลนี้เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
+          </div>
+          <div class="d-none" id="teamMPermPassWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermPassDept">
+              <i class="bi bi-passport"></i> SAMO Passport — ขอบเขตที่บุคคลนี้ดูแล
+            </label>
+            <select class="form-select" id="teamMPermPassDept"></select>
+            <select class="form-select mt-2 d-none" id="teamMPermPassSub"></select>
+            <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี)</div>
           </div>
           <div class="d-none" id="teamMPermSeatWrap">
             <hr class="my-3" />

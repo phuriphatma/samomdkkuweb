@@ -62,6 +62,8 @@ export function buildExportJson(nodes, members) {
       vs_dept: n.vs_dept || null,
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
+      passport_dept_id: n.passport_dept_id ?? null,
+      passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
@@ -72,6 +74,8 @@ export function buildExportJson(nodes, members) {
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,
       project_seat: m.project_seat || null,
+      passport_dept_id: m.passport_dept_id ?? null,
+      passport_sub_dept_id: m.passport_sub_dept_id ?? null,
     })),
   };
 }

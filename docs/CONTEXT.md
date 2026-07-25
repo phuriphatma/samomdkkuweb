@@ -453,6 +453,32 @@ Signing recipients come from `list_project_profs()` (id + display name only —
 never an email), replacing `listUsersByRole('sa_prof')[0]`, and the sign modal
 shows a picker when more than one อาจารย์ exists. Proof: `tools/proj0086-seats.mjs`.
 
+**SAMO Passport admin grant (migration 0087).** Passport admin identity is granted
+from the ทีม SAMO tree, not inside passport: tick **SAMO Passport** in จัดการสิทธิ์ and
+pick a scope — ทุกฝ่าย (→ `permissions[] += 'passport'`) or a
+department / sub-department (→ `team_nodes|team_members.passport_dept_id` /
+`passport_sub_dept_id`). Resolved into `users.managed_passport_scopes text[]` as
+tokens `d:<department_id>` / `s:<sub_department_id>` (a sub binding REPLACES the
+dept token — it is strictly narrower). Scoped is not full, same rule as `vs_dept`:
+choosing a specific scope drops the blanket `passport` permission, because
+`current_user_has_permission('passport')` would be an unconditional branch.
+The passport app reads **`public.passport_admin_context()`** — one definer call
+returning `{is_admin, all_departments, departments[], sub_departments[]}` with ids
+already resolved — and must not invent its own admin table. The picker's reference
+list comes from `public.list_passport_departments()` because
+`passport.departments` / `sub_departments` have RLS enabled with **no policy**
+(0056), so a direct client read returns zero rows. Proof: `tools/pass0087-scope.mjs`.
+
+⚠️ **0087 is identity + scope ONLY — it enforces nothing yet.** The `passport`
+schema still carries 0056's `using (true)` / `with check (true)` policies for
+`anon` on activities/scans/seasons/certificates. Verified live (rolled back): the
+bare `anon` role can insert an activity, `update passport.scans set points_awarded
+= 999999` across all 845 rows, and read all 593 profiles (name + email). Until
+`passport/SECURITY-HARDENING-PLAN.md` is applied — close those policies, move
+stamping to a definer RPC, gate admin writes on `passport_admin_context()` — any
+per-department filtering in the passport UI is cosmetic. Do not describe this
+grant as securing passport.
+
 **Public org chart — projection only (migration 0086).** `team_nodes.is_public`
 (default true) marks a subtree as hidden from the future public org chart;
 อาจารย์ / เจ้าหน้าที่คณะ hold seats but are not part of the student org, so their

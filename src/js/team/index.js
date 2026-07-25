@@ -13,6 +13,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
+import { dbRest } from '../db.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
   createMember, updateMember, deleteMember,
@@ -32,6 +33,7 @@ const PERM_CATALOG = [
   { key: 'projects', label: 'หนังสือโครงการ' },
   { key: 'creator',  label: 'เขียนประกาศ' },
   { key: 'team',     label: 'ทีม SAMO' },
+  { key: 'passport', label: 'SAMO Passport' },
 ];
 const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
 
@@ -1162,6 +1164,55 @@ function fillSeatSelect(sel) {
     + PROJECT_SEATS.map((x) => `<option value="${escHtml(x.value)}">${escHtml(x.label)}</option>`).join('');
 }
 
+// SAMO Passport departments + sub-departments, loaded once from
+// list_passport_departments() (they live in the passport schema, whose tables
+// have RLS on with no policy — a direct client read returns nothing).
+let passportDepts = [];
+let passportSubs = [];
+const PASS_SCOPE_ALL = '__all__';
+
+async function loadPassportDepts() {
+  if (passportDepts.length) return;
+  try {
+    const { data, error } = await dbRest('/rpc/list_passport_departments', { method: 'POST', body: {} });
+    if (error || !data) return;
+    passportDepts = Array.isArray(data.departments) ? data.departments : [];
+    passportSubs = Array.isArray(data.sub_departments) ? data.sub_departments : [];
+  } catch { /* picker falls back to "ทุกฝ่าย" only */ }
+}
+
+/** Department select. "" = not chosen (blocked on save); PASS_SCOPE_ALL = the
+ *  full `passport` grant; an id = that department (optionally narrowed by the
+ *  sub-department select below it). */
+function fillPassDeptSelect(sel) {
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— เลือกขอบเขต —</option>'
+    + `<option value="${PASS_SCOPE_ALL}">ทุกฝ่าย (ดูแลทั้งระบบ)</option>`
+    + passportDepts.map((d) => `<option value="${escHtml(String(d.id))}">${escHtml(d.name)}</option>`).join('');
+  if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+}
+
+/** Sub-department select — only rendered for departments that HAVE children
+ *  (2 of 10 today), so the common case stays a single dropdown. */
+function fillPassSubSelect(sel, deptId) {
+  if (!sel) return;
+  const kids = passportSubs.filter((x) => String(x.department_id) === String(deptId));
+  if (!kids.length) { sel.innerHTML = ''; sel.classList.add('d-none'); return; }
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">ทั้งฝ่าย (ทุกแผนกย่อย)</option>'
+    + kids.map((x) => `<option value="${escHtml(String(x.id))}">เฉพาะ ${escHtml(x.name)}</option>`).join('');
+  if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  sel.classList.remove('d-none');
+}
+
+/** Show the passport scope block only while "SAMO Passport" is ticked. */
+function syncPassVisibility(grid, wrap) {
+  if (!grid || !wrap) return;
+  const on = !!grid.querySelector('input[value="passport"]')?.checked;
+  wrap.classList.toggle('d-none', !on);
+}
+
 /** Show the VS scope block only while "VitalSound" is ticked in `grid`. */
 function syncVsScopeVisibility(grid, wrap) {
   if (!grid || !wrap) return;
@@ -1181,7 +1232,7 @@ function syncSeatVisibility(grid, wrap) {
  *  vs + ทุกแผนก          → `vs` (full), no dept
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
-function readPermInputs(grid, vsSel, seatSel) {
+function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
   const vsOn = perms.includes('vs');
   const scope = vsOn ? (vsSel?.value || '') : '';
@@ -1190,11 +1241,24 @@ function readPermInputs(grid, vsSel, seatSel) {
   const projOn = perms.includes('projects');
   const seat = projOn ? (seatSel?.value || '') : '';
   if (projOn && !seat) return { missing: 'seat' };
+  // SAMO Passport: same scoped-is-not-full rule as VitalSound — a specific
+  // department/sub-department drops the blanket `passport` permission.
+  const passOn = perms.includes('passport');
+  const passScope = passOn ? (passSel?.value || '') : '';
+  if (passOn && !passScope) return { missing: 'passport' };
+  const scoped = passScope && passScope !== PASS_SCOPE_ALL;
+  const passDept = scoped ? Number(passScope) : null;
+  const passSub = scoped && passSubSel && !passSubSel.classList.contains('d-none')
+    ? (Number(passSubSel.value) || null) : null;
   const dept = scope === VS_SCOPE_ALL ? '' : scope;
+  let out = dept ? perms.filter((p) => p !== 'vs') : perms;
+  if (scoped) out = out.filter((p) => p !== 'passport');
   return {
-    permissions: dept ? perms.filter((p) => p !== 'vs') : perms,
+    permissions: out,
     vs_dept: dept || null,
     project_seat: seat || null,
+    passport_dept_id: passDept,
+    passport_sub_dept_id: passSub,
   };
 }
 
@@ -1202,17 +1266,28 @@ function readPermInputs(grid, vsSel, seatSel) {
  *  scope, and "ทุกแผนก" (which hands over every department's confidential
  *  tickets) is confirmed because it is the privilege-ESCALATING direction.
  *  Returns null when the save should be aborted. */
-function readPermInputsOrWarn(grid, vsSel, seatSel, subject) {
-  const out = readPermInputs(grid, vsSel, seatSel);
+function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject) {
+  const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel);
   if (!out) {
     alert('กรุณาเลือกขอบเขต VitalSound — "ทุกแผนก" หรือเฉพาะแผนกที่รับผิดชอบ');
     vsSel?.focus();
+    return null;
+  }
+  if (out.missing === 'passport') {
+    alert('กรุณาเลือกขอบเขต SAMO Passport — "ทุกฝ่าย" หรือฝ่าย/แผนกย่อยที่ดูแล');
+    passSel?.focus();
     return null;
   }
   if (out.missing === 'seat') {
     alert('กรุณาเลือกบทบาทหนังสือโครงการ — ผู้ส่ง, เจ้าหน้าที่คณะ หรือ อาจารย์ (ลงนาม)\n\n'
       + 'ถ้าไม่เลือก ผู้ใช้จะเปิดแท็บได้แต่ไม่มีปุ่มใช้งานใด ๆ');
     seatSel?.focus();
+    return null;
+  }
+  if (out.permissions.includes('passport')
+      && !confirm(`ให้สิทธิ์ SAMO Passport แบบ "ทุกฝ่าย" กับ${subject}\n\n`
+        + 'จะเห็นและจัดการกิจกรรมของ "ทุกฝ่าย"\n'
+        + 'ถ้าต้องการจำกัดเฉพาะฝ่ายที่ดูแล ให้กดยกเลิกแล้วเลือกฝ่ายนั้น')) {
     return null;
   }
   if (out.permissions.includes('vs')
@@ -1232,7 +1307,10 @@ function wirePermModal() {
   grid?.addEventListener('change', () => {
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
+    syncPassVisibility(grid, $('teamPermPassWrap'));
   });
+  $('teamPermPassDept')?.addEventListener('change', () =>
+    fillPassSubSelect($('teamPermPassSub'), $('teamPermPassDept').value));
   $('teamPermForm')?.addEventListener('submit', onPermSubmit);
   $('teamPermInherit')?.addEventListener('change', refreshPermInherited);
 }
@@ -1254,8 +1332,19 @@ function openPermModal(id) {
     $('teamPermVsDept').value = node.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
   if ($('teamPermSeat')) $('teamPermSeat').value = node.project_seat || '';
+  loadPassportDepts().then(() => {
+    fillPassDeptSelect($('teamPermPassDept'));
+    const cur = node.passport_dept_id != null ? String(node.passport_dept_id)
+      : (own.has('passport') ? PASS_SCOPE_ALL : '');
+    if ($('teamPermPassDept')) $('teamPermPassDept').value = cur;
+    fillPassSubSelect($('teamPermPassSub'), cur);
+    if ($('teamPermPassSub') && node.passport_sub_dept_id != null) {
+      $('teamPermPassSub').value = String(node.passport_sub_dept_id);
+    }
+  });
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
+  syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
   refreshPermInherited();
   modalInstance('teamPermModal')?.show();
 }
@@ -1300,7 +1389,7 @@ async function onPermSubmit(e) {
   const node = nodesById.get(id);
   if (!node) return;
   const grants = readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
-    `ตำแหน่ง "${node.name}"`);
+    $('teamPermPassDept'), $('teamPermPassSub'), `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
   modalInstance('teamPermModal')?.hide();
@@ -1348,6 +1437,10 @@ function wireMemberPermModal() {
   fillVsScopeSelect($('teamMPermVsDept'));
   fillSeatSelect($('teamMPermSeat'));
   grid?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermPassDept')?.addEventListener('change', () => {
+    fillPassSubSelect($('teamMPermPassSub'), $('teamMPermPassDept').value);
+    refreshMemberPermEff();
+  });
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermSeat')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
@@ -1370,6 +1463,17 @@ function openMemberPermModal(memberId) {
     $('teamMPermVsDept').value = m.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
   if ($('teamMPermSeat')) $('teamMPermSeat').value = m.project_seat || '';
+  loadPassportDepts().then(() => {
+    fillPassDeptSelect($('teamMPermPassDept'));
+    const cur = m.passport_dept_id != null ? String(m.passport_dept_id)
+      : (own.has('passport') ? PASS_SCOPE_ALL : '');
+    if ($('teamMPermPassDept')) $('teamMPermPassDept').value = cur;
+    fillPassSubSelect($('teamMPermPassSub'), cur);
+    if ($('teamMPermPassSub') && m.passport_sub_dept_id != null) {
+      $('teamMPermPassSub').value = String(m.passport_sub_dept_id);
+    }
+    refreshMemberPermEff();
+  });
   $('teamMPermInherit').checked = m.inherit_permissions !== false;
   refreshMemberPermEff();
   modalInstance('teamMemberPermModal')?.show();
@@ -1380,13 +1484,15 @@ function openMemberPermModal(memberId) {
 function refreshMemberPermEff() {
   syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
   syncSeatVisibility($('teamMPermGrid'), $('teamMPermSeatWrap'));
+  syncPassVisibility($('teamMPermGrid'), $('teamMPermPassWrap'));
   const wrap = $('teamMPermEffWrap');
   const list = $('teamMPermEffList');
   if (!wrap || !list) return;
   const m = findMember($('teamMPermMemberId').value);
   // Preview only — a not-yet-chosen scope shows the perms without a VS chip.
   const { permissions, vs_dept: vsDept, project_seat: seat } =
-    readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'))
+    readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
+      $('teamMPermPassDept'), $('teamMPermPassSub'))
     || { permissions: [], vs_dept: null, project_seat: null };
   const set = new Set(permissions);
   const vsSet = new Set(vsDept ? [vsDept] : []);
@@ -1414,7 +1520,7 @@ async function onMemberPermSubmit(e) {
   const m = findMember(id);
   if (!m) return;
   const grants = readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
-    `"${m.full_name}"`);
+    $('teamMPermPassDept'), $('teamMPermPassSub'), `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
   modalInstance('teamMemberPermModal')?.hide();
@@ -1666,6 +1772,8 @@ async function importJson(data) {
       vs_dept: n.vs_dept || null,
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
+      passport_dept_id: n.passport_dept_id ?? null,
+      passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     });
     idMap.set(n.id, row.id); report.nodes++;
     nodesById.set(row.id, row);
@@ -1707,6 +1815,8 @@ async function importJson(data) {
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,
       project_seat: m.project_seat || null,
+      passport_dept_id: m.passport_dept_id ?? null,
+      passport_sub_dept_id: m.passport_sub_dept_id ?? null,
     });
     report.members++;
     setImportStatus(`กำลังเพิ่มสมาชิก… ${report.members}`);
