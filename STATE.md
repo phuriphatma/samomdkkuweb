@@ -89,9 +89,22 @@ could not save; and **0091 had regressed the real `saprof` account** —
 `list_project_seat_users()` guards on `current_user_is_project_actor()`, false for a
 professor, so the prof's sign/reject notified NOBODY (measured: saprof staff=0
 vpa=0). Proof `tools/proj0092-seat-parity.mjs` 13/13 (was 8/13 before the fix).
-NOTE the seat is a per-row choice: `phuriphat.ma` still resolves to `vpa` because
-the *member* row names no seat and inherits the ตำแหน่ง's — set the seat on the
-member (or change the ตำแหน่ง) for คณะ to take effect.
+NOTE the seat is a per-row choice: `phuriphat.ma` resolves to `vpa` because the
+*member* row names no seat and inherits the ตำแหน่ง's — set the seat on the member
+(or change the ตำแหน่ง) if a different seat is wanted.
+
+**A newly-granted reader inherited a backlog of unread (seen-state baseline).**
+Separate from the seat work, and the actual thing reported: seen-state is PER USER
+(`project_doc_views` + a user-scoped localStorage map), so `samomdkkuvpa` shows no
+"อัปเดต" only because it has 26/26 doc-view rows from months of reading, while a
+freshly-granted account had 0 and every card badged. `planSeenAtRows()` (pure,
+tested) now BASELINES a reader with no history anywhere to "caught up as of now",
+and still MIGRATES an existing reader's localStorage. Never baselines someone who
+already has server rows. The sentinel key is bumped to `.v2` because the old code
+set it even when it wrote zero rows — without the bump anyone who had already
+opened the tab would skip the new branch forever. Re-running is safe: the upsert is
+`merge-duplicates` (it OVERWRITES `seen_at`), so a local value is only pushed when
+strictly newer than the server's, or the re-run would roll read state backwards.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer

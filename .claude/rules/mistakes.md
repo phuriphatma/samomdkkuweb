@@ -1865,3 +1865,47 @@ missed a table and a helper:
 **Rule**: when you narrow a helper that an audience/notification lookup depends
 on, check every ROLE that calls it, not just the ones it was written for — an
 authorization predicate reused as a *directory* query fails silently and empty.
+
+## Per-user read-state means a newly-granted account INHERITS the whole backlog as unread — baseline them at first run, and never trust a sentinel that was set on a no-op
+
+**Symptom**: "I want my email to see หนังสือโครงการ like samomdkkuvpa sees it, but
+when I log in with my email it shows many '1 อัปเดต' — as samomdkkuvpa I don't."
+Both accounts have the SAME role/seat and see the same documents, so it reads like
+a permission or scoping bug. It isn't.
+**Cause**: read-state is per user — `project_doc_views` rows keyed by `user_id`,
+plus a user-scoped localStorage map. Measured: `samomdkkuvpa` had 26 rows for 26
+documents (clean because it has been reading them for months); the newly-granted
+account had **0**, so `getDocSeenAt()` returned 0 for every doc and every card
+rendered an "อัปเดต" pill for activity that predates the person's access. Working
+as designed, and wrong as a product: joining an inbox should not mean inheriting a
+year of unread. The existing first-run pass only MIGRATED localStorage → server, so
+a brand-new user (nothing in localStorage either) got nothing.
+**Fix**: `planSeenAtRows()` — pure, unit-tested — splits the two cases. MIGRATE an
+existing reader's local map; BASELINE a reader with no history *anywhere* to "seen
+as of now". Gated on the server map being empty, because baselining someone who
+already has rows would mark their genuinely-unread documents as read.
+**Two traps this hid behind, both worth the entry on their own:**
+1. **A sentinel set on a no-op poisons the next fix.** The old code did
+   `if (rows.length === 0) { setItem(sentinel); return; }` — so every user who had
+   opened the tab once was already flagged "migrated" with zero rows written, and
+   would have skipped the new BASELINE branch forever. The key had to be bumped
+   (`…BulkMigrated` → `…BulkMigrated.v2`). Only set a "done" marker for work you
+   actually did, or version the marker when the rule changes.
+2. **Re-running a `merge-duplicates` upsert can move state BACKWARDS.**
+   `bulkUpsertMyDocViews` posts with `prefer: resolution=merge-duplicates`, which
+   OVERWRITES `seen_at`. Bumping the sentinel makes every established user re-run
+   the pass, and any localStorage entry older than their server row would have
+   re-flagged already-read documents. `planSeenAtRows` now emits a local value only
+   when strictly newer than the server's.
+**Also**: the pass resolves AFTER the first paint, so it returns whether it wrote
+anything and `index.js` repaints — otherwise the new reader still sees one
+screenful of pills until they reload.
+**Where**: `src/js/projects/inbox.js` (`planSeenAtRows`,
+`migrateLocalSeenAtToServer`, `BULK_MIGRATED_SENTINEL_KEY`),
+`src/js/projects/index.js` (repaint on change),
+`src/js/projects/seen-baseline.test.js` (9 cases).
+**Rule**: any per-user read/seen/ack state needs a defined answer to "what does a
+user who joins TODAY see?". The default — "has seen nothing" — is almost never it.
+And before comparing two accounts' views, check whether the difference is
+*authorization* or *accumulated per-user state*; they look identical in a
+screenshot.

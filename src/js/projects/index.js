@@ -194,8 +194,15 @@ async function loadInitialDataInner() {
       for (const p of cache.projects) {
         for (const d of (p.documents || [])) knownIds.push(d.id);
       }
-      migrateLocalSeenAtToServer(currentUser.id, knownIds).catch((err) =>
-        console.warn('[projects] seenAt bulk migration failed:', err?.message || err));
+      migrateLocalSeenAtToServer(currentUser.id, knownIds)
+        .then((changed) => {
+          // It resolves after the first paint, so repaint when it actually
+          // wrote seenAt rows — otherwise a first-time reader stares at a
+          // screen of "อัปเดต" pills that are already marked seen server-side.
+          if (!changed) return;
+          if (view === 'inbox') renderInbox({ projects: cache.projects, docTypes: cache.docTypes, settings: cache.settings, role: currentRole });
+        })
+        .catch((err) => console.warn('[projects] seenAt bulk migration failed:', err?.message || err));
     }
   } catch (e) {
     console.error('[projects] initial data load failed:', e);

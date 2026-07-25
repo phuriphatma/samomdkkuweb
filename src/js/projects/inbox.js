@@ -1287,7 +1287,12 @@ function renderProgressBar(stepIndex, isReturned) {
 // un-keyed key ("projects.commentsSeenAt") is read once on first
 // hydrate and migrated up to the server via legacyLocalStorageMap().
 const LEGACY_DOC_SEEN_KEY = 'projects.commentsSeenAt';
-const BULK_MIGRATED_SENTINEL_KEY = 'projects.docViewsBulkMigrated';
+// Bump the suffix whenever the first-run rule changes: the OLD code set this
+// sentinel even when it wrote zero rows, so anyone who had already opened the
+// tab would skip the new BASELINE branch forever and keep staring at a full
+// screen of "อัปเดต". A new key re-runs the (idempotent, upsert-based) pass
+// exactly once more per device+user.
+const BULK_MIGRATED_SENTINEL_KEY = 'projects.docViewsBulkMigrated.v2';
 
 function userScopedKey(userId) {
   return userId ? `projects.docSeenAt.${userId}` : LEGACY_DOC_SEEN_KEY;
@@ -1320,10 +1325,61 @@ export function setServerDocViews(rows) {
   }
 }
 
-/** First-run-after-upgrade migration: take whatever's in localStorage
- *  (including the legacy un-keyed map) and push it up to the server in
- *  one bulk upsert. Only runs once per (device, user) pair, gated by a
- *  sentinel in localStorage. */
+/** First-run seen-state setup for a (device, user) pair. Two jobs, one
+ *  bulk upsert, gated by a single sentinel in localStorage:
+ *
+ *  1. MIGRATE — an existing user upgrading: take whatever's in
+ *     localStorage (including the legacy un-keyed map) and push it up so
+ *     their other devices stop re-flagging events they already ack'd.
+ *
+ *  2. BASELINE — a user with NO seen history anywhere (no server rows, no
+ *     local map): mark everything currently visible as seen right now, so
+ *     they start caught-up instead of facing a backlog of "อัปเดต" pills
+ *     for activity that predates their access. This is what a newly
+ *     seat-granted person hits: seen-state is per-user, so the shared
+ *     samomdkkuvpa account looks clean only because it has been reading
+ *     these documents for months. Joining an inbox should not mean
+ *     inheriting a year of unread.
+ *
+ *  The distinction matters: baselining someone who ALREADY has server
+ *  rows would mark their genuinely-unread documents as read, so it is
+ *  gated on serverSeenAt being completely empty. */
+/** Decide which project_doc_views rows to write on a user's first run.
+ *  Pure — no storage, no network — so the MIGRATE vs BASELINE rule can be
+ *  tested directly. See migrateLocalSeenAtToServer for the why.
+ *
+ *  The upsert uses `resolution=merge-duplicates`, which OVERWRITES seen_at —
+ *  so a local value older than the server's would roll the user's read state
+ *  BACKWARDS and re-flag documents they had already read. Local entries are
+ *  therefore only emitted when they are strictly newer than the server's.
+ *  That also makes the pass safe to re-run when the sentinel key is bumped.
+ *
+ *  @param {object}  a
+ *  @param {string}  a.userId
+ *  @param {Map<string,string>} a.local    docId → ISO seenAt recovered from localStorage
+ *  @param {string[]} a.knownDocIds        docs currently visible (FK must resolve)
+ *  @param {Map<string,string>} [a.server] docId → ISO seenAt already on the server
+ *  @param {string}  [a.now]               injectable clock
+ *  @returns {{user_id:string, document_id:string, seen_at:string}[]}
+ */
+export function planSeenAtRows({ userId, local, knownDocIds, server = null, now = null }) {
+  if (!userId) return [];
+  const validIds = new Set(knownDocIds || []);
+  const srv = server || new Map();
+  const rows = [];
+  for (const [docId, seenAt] of (local || new Map()).entries()) {
+    if (validIds.size > 0 && !validIds.has(docId)) continue;
+    const known = srv.get(docId);
+    // Never move a seen_at backwards (merge-duplicates would overwrite).
+    if (known && !(Date.parse(seenAt) > Date.parse(known))) continue;
+    rows.push({ user_id: userId, document_id: docId, seen_at: seenAt });
+  }
+  if (rows.length > 0) return rows;                 // MIGRATE
+  if (srv.size > 0) return [];                      // established reader — leave alone
+  const ts = now || new Date().toISOString();       // BASELINE: joined caught-up
+  return [...validIds].map((docId) => ({ user_id: userId, document_id: docId, seen_at: ts }));
+}
+
 export async function migrateLocalSeenAtToServer(userId, knownDocIds) {
   if (!userId) return;
   const sentinelKey = `${BULK_MIGRATED_SENTINEL_KEY}.${userId}`;
@@ -1351,23 +1407,25 @@ export async function migrateLocalSeenAtToServer(userId, knownDocIds) {
     if (!prev || new Date(v) > new Date(prev)) merged.set(k, v);
   }
 
-  // Filter to docs we currently know about, so FK references resolve.
-  const validIds = new Set(knownDocIds || []);
-  const rows = [];
-  for (const [docId, seenAt] of merged.entries()) {
-    if (validIds.size > 0 && !validIds.has(docId)) continue;
-    rows.push({ user_id: userId, document_id: docId, seen_at: seenAt });
-  }
+  const rows = planSeenAtRows({
+    userId,
+    local: merged,
+    knownDocIds,
+    server: serverSeenAt,
+  });
+
   if (rows.length === 0) {
     try { localStorage.setItem(sentinelKey, '1'); } catch {}
-    return;
+    return false;
   }
   const { error } = await bulkUpsertMyDocViews(rows);
-  if (!error) {
-    // Mirror into the in-memory map so the current render sees them
-    for (const r of rows) serverSeenAt.set(r.document_id, r.seen_at);
-    try { localStorage.setItem(sentinelKey, '1'); } catch {}
-  }
+  if (error) return false;
+  // Mirror into the in-memory map so the next render sees them
+  for (const r of rows) serverSeenAt.set(r.document_id, r.seen_at);
+  try { localStorage.setItem(sentinelKey, '1'); } catch {}
+  // Caller re-renders: this runs AFTER the first paint, so without it a new
+  // reader still sees one screenful of "อัปเดต" pills until they reload.
+  return true;
 }
 
 /** Read the per-doc "last seen" timestamp. Server-synced value wins;
