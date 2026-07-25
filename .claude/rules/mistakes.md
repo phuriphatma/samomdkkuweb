@@ -1935,3 +1935,37 @@ ask "should this person see what the shared account sees, or start empty?" for
 EACH surface. If the answer is "the same", any `= auth.uid()` predicate on that
 surface is a bug in waiting — and it will look like correct behaviour, because an
 empty inbox is indistinguishable from a working one with nothing in it.
+
+## Attribute-driven visibility: check that EVERY value in the markup has a handler, and which way an unhandled one fails
+
+**Symptom class** (three instances found in one sweep): an element gated by a
+`data-*` attribute is shown to the wrong people, or to nobody, because the JS
+that toggles it doesn't know that attribute value.
+**The sweep** — cheap, run it whenever a role/permission is added:
+```sh
+grep -rho 'data-projects-role="[^"]*"' src/html/*.html | sort -u   # values in markup
+grep -n  'data-projects-role='          src/js/projects/index.js   # values with a handler
+```
+Repeat for `data-admin-side` (vs `SIDE_FEATURE`), `data-role-only`,
+`data-perm-only`, `data-admin-pane` (vs `SECTION_META`).
+**Which way it fails depends on the markup, and that is the part to check first:**
+- `#projectsGridEmpty` spans carry NO `d-none` → the JS hides by ADDING it → an
+  unhandled value **fails OPEN** (visible to everyone). This bit: a new
+  `data-projects-role="sa_prof"` span with no matching `querySelectorAll` block
+  would have shown professor copy to vp_admin as well.
+- The article edit/delete buttons DO carry `d-none` → **fails CLOSED**. Safer,
+  but it hides the bug: the buttons were gated `data-role-only="pr_staff dev"`,
+  so a ทีม SAMO `creator` grantee (role='user') never got them even though
+  `announcements_write` lets them edit. Replaced with `data-perm-only="creator"`,
+  resolved through `userCanAccess()` so role defaults, `permissions[]` and the
+  tree all count.
+**Also found the same shape in plain JS**, not attributes: the inbox bucket
+empty-copy was `role === 'uni_staff' ? A : B`, so อาจารย์ silently got the
+vp_admin wording ("ไม่มีหนังสือถูกตีกลับให้แก้") for a bucket that for them means
+รอลงนาม. A two-way ternary on a three-role system is the same missing-handler bug
+with no attribute involved.
+**Rules**: (1) prefer `d-none`-in-markup + opt-in showing, so an unhandled value
+fails closed. (2) Gate on a CAPABILITY (`data-perm-only` → `userCanAccess`) not a
+role list, or every ทีม SAMO grant works except at that one control. (3) Any
+`role === 'x' ? … : …` is a missing branch as soon as a third role exists — grep
+for them after adding a role.

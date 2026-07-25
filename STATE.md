@@ -65,8 +65,13 @@ paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
-`tools/prof0095-seat-parity.mjs` 10 ·
-`tools/vs0072-isolation.mjs` 23. All green.
+`tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23.
+**113 checks total, all green.**
+Sweeps worth re-running after any auth change (both in the /clear scan):
+policy role-only sweep (expect exactly 3 deliberate: `users_update_staff`,
+`notify_log`, `reserved_staff_usernames`), and the attribute-handler sweep
+(`data-projects-role` / `data-admin-side` / `data-perm-only` values in the
+markup vs. the JS that toggles them — see mistakes.md for the commands).
 Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
 signature assignments — to a personal kkumail account during the migration.

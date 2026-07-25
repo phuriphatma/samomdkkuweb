@@ -614,11 +614,18 @@ function renderGrid() {
       // not a confusing "no projects exist."
       const role = cache.role;
       const map = {
+        // Per-role copy. A two-way `uni_staff ? … : …` silently gave อาจารย์ the
+        // vp_admin wording ("ไม่มีหนังสือถูกตีกลับให้แก้"), which is meaningless
+        // for them — their "ต้องทำ" bucket is รอลงนาม (isMine → docPendingSignForProf).
         mine: role === 'uni_staff'
           ? { icon: 'bi-check2-circle', title: 'ไม่มีงานค้าง', hint: 'งานทั้งหมดเคลียร์แล้ว' }
+          : role === 'sa_prof'
+          ? { icon: 'bi-check2-circle', title: 'ไม่มีหนังสือรอลงนาม', hint: 'ลงนามครบแล้วในขณะนี้' }
           : { icon: 'bi-check2-circle', title: 'ไม่มีรายการที่ต้องแก้', hint: 'ไม่มีหนังสือถูกตีกลับให้แก้ในขณะนี้' },
         waiting: role === 'uni_staff'
           ? { icon: 'bi-hourglass-split', title: 'ไม่มีรายการรอ SAMO', hint: '' }
+          : role === 'sa_prof'
+          ? { icon: 'bi-hourglass-split', title: 'ไม่มีรายการรอเจ้าหน้าที่คณะ', hint: '' }
           : { icon: 'bi-hourglass-split', title: 'ไม่มีรายการรอเจ้าหน้าที่', hint: '' },
         done: { icon: 'bi-archive', title: 'ยังไม่มีโครงการที่เสร็จสิ้น', hint: '' },
         all:  null,

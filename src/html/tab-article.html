@@ -12,15 +12,19 @@
               <span>กลับไปบอร์ดประกาศ</span>
             </button>
             <div class="article-backbar-actions" id="articleStaffActions">
-              <!-- Edit/delete buttons inserted here for staff only.
-                   data-role-only hides them for everyone else. -->
+              <!-- Edit/delete (they hand off to /admin/). Gated on the
+                   CAPABILITY, not a role list: announcements_write honours the
+                   `creator` permission, so a ทีม SAMO grantee (role='user')
+                   must get these too — data-role-only would have hidden them.
+                   Both keep d-none in the markup so an unhandled attribute
+                   fails CLOSED. -->
               <button type="button" class="article-action d-none"
-                data-role-only="pr_staff dev"
+                data-perm-only="creator"
                 onclick="editCurrentAnnouncement()">
                 <i class="bi bi-pencil"></i><span>แก้ไข</span>
               </button>
               <button type="button" class="article-action article-action--danger d-none"
-                data-role-only="pr_staff dev"
+                data-perm-only="creator"
                 onclick="deleteCurrentAnnouncement()">
                 <i class="bi bi-trash3"></i><span>ลบ</span>
               </button>

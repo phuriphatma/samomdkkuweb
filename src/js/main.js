@@ -692,11 +692,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('navAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
     document.getElementById('mobileAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
 
-    // Generic data-role-only — kept for legacy hooks (used by the article
-    // reader's edit/delete buttons that redirect to /admin/).
+    // Generic data-role-only — legacy hook, ROLE-based. Prefer data-perm-only
+    // below for anything a ทีม SAMO grant can confer, or the grant works
+    // everywhere except here.
     document.querySelectorAll('[data-role-only]').forEach((el) => {
       const allowed = el.getAttribute('data-role-only').split(/\s+/);
       el.classList.toggle('d-none', !role || !allowed.includes(role));
+    });
+
+    // Capability gate — one permission key per element, resolved by
+    // userCanAccess() so role defaults, permissions[] and the ทีม SAMO tree all
+    // count. Elements carry d-none in the markup, so an element whose key is
+    // unknown stays HIDDEN (fails closed).
+    document.querySelectorAll('[data-perm-only]').forEach((el) => {
+      const feature = el.getAttribute('data-perm-only');
+      el.classList.toggle('d-none', !userCanAccess(feature, user));
     });
 
     // Dev-only features
