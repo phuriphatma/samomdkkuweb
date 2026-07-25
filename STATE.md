@@ -8,12 +8,12 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `dfeb2d7`, **deployed to the VM** (VM HEAD matches;
-  working tree CLEAN). Last code-bearing commit is `8b8154e`; anything after it is
+- Live web = pushed `main` HEAD `8636376`, **deployed to the VM** (VM HEAD matches;
+  working tree CLEAN). Last code-bearing commit is `8636376`; anything after it is
   docs-only, so a VM/STATE mismatch of one or two `docs(state):` commits is normal
   and does NOT mean a deploy is pending — check `git diff --name-only <vm>..HEAD`
   for anything outside `STATE.md` / `.claude/` / `docs/` before redeploying.
-  Migrations 0081–0093 applied to the live DB. Verify a deploy
+  Migrations 0081–0094 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
