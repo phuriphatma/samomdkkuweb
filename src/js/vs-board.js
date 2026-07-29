@@ -232,6 +232,9 @@ async function runSearch() {
 // --------------------------------------------------
 export async function vsBoardOpen(id) {
   openProblemId = id;
+  // Put the open problem in the URL so a reload (the natural way to check for
+  // progress) comes back to it instead of the board list — see vs-route.js.
+  if (typeof window.vsSetRoute === 'function') window.vsSetRoute(`problem/${id}`);
   const listView = document.getElementById('vsBoardListView');
   const detail = document.getElementById('vsProblemDetail');
   const body = document.getElementById('vsProblemBody');
@@ -260,8 +263,17 @@ export async function openBoardProblem(id) {
   document.getElementById('vsBoardSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** The problem the detail view is currently showing, or null. See
+ *  currentTrackedTicketId() in vs-tracking.js for why vs-route needs this. */
+export function currentBoardProblemId() {
+  const el = document.getElementById('vsProblemDetail');
+  if (!el || el.classList.contains('d-none')) return null;
+  return openProblemId;
+}
+
 export function vsBoardBack() {
   openProblemId = null;
+  if (typeof window.vsSetRoute === 'function') window.vsSetRoute('');
   document.getElementById('vsProblemDetail').classList.add('d-none');
   document.getElementById('vsBoardListView').classList.remove('d-none');
   // refresh counts that may have changed; keep the user's search context

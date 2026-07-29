@@ -182,8 +182,35 @@ was closed and reopened. `refreshCategoriesAfterMutate()` mirrors what
 and deliberately does NOT auto-select the new category (that would silently
 stage a re-classification).
 
-**NOT verified in a browser** — same caveat as NEXT #1 below. Server side is
-proven by `tools/vs0096-remark-vis.mjs` (31 checks).
+**VS sub-state is in the URL now (`src/js/vs-route.js`).** The public site
+routes by PATH (`/vssound` → the tab); everything below that lived only in DOM
+state, so a reload dropped you back on กระดานปัญหา and you had to press
+โหลดประวัติของฉัน and re-find your ticket. The hash carries it:
+`#report` · `#track` · `#track/VS-XXXX` · `#problem/VS-XXXX`.
+Two things to know before touching it: the path router's `shown.bs.tab` handler
+pushes a BARE pathname, which erases the hash on every tab switch (hence
+`syncRouteFromView`, deferred a tick so it runs after that handler); and the
+`#track/<id>` restore must `await authReady` before asking whether the user is
+signed in, or a cold reload always takes the signed-out path. Writers call
+`window.vsSetRoute` instead of importing, to avoid a cycle.
+
+**The staff ticket modal no longer closes on บันทึกข้อมูล.** It refetches,
+re-renders itself from the fresh row, and reports success inline in the footer
+(the blocking `alert()` is gone). Closing is the ปิด button's job. Safe to
+re-render while shown only because `openStaffModal` uses
+`getOrCreateInstance(...).show()`.
+
+**Browser-verified this time** (public half, Chrome, local dev): mode↔hash both
+directions; a cold load of `#track/VS-XXXX` lands on the ticket with its
+timeline via the guest lookup; `#problem/VS-XXXX` opens the board detail;
+back-links rewrite the hash; leaving the tab and returning preserves both mode
+and ticket; plain `/vssound` still defaults to the board; ความคืบหน้าจากทีมงาน
+renders as a separate block from ความคิดเห็น with its text escaped (checked by
+intercepting the RPC response — no prod write). Zero console errors.
+**Still NOT browser-verified**: everything behind the admin login — the staff
+remark visibility picker, tag/category delete, and the modal-stays-open change
+(no way to authenticate from here). Server side is proven by
+`tools/vs0096-remark-vis.mjs` (31 checks).
 
 ## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
 

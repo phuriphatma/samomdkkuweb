@@ -192,6 +192,12 @@ export function toggleVitalSoundMode() {
   document.getElementById('vsTrackSection').classList.toggle('d-none', !isTrack);
   // Lazy-load the public board the first time it's shown.
   if (isBoard) window.dispatchEvent(new CustomEvent('vs-board-shown'));
+  // Mirror the mode into the URL hash so a reload comes back here (vs-route).
+  // Called through window to avoid an import cycle — vs-route imports the
+  // tracking module, which this file is a sibling of.
+  if (typeof window.vsSetRoute === 'function') {
+    window.vsSetRoute(isReport ? 'report' : isTrack ? 'track' : '');
+  }
 }
 
 // --------------------------------------------------

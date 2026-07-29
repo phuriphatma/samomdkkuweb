@@ -628,6 +628,10 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffActionStatus').value = status;
   document.getElementById('staffActionTransfer').value = dept;
   document.getElementById('staffActionRemark').value = '';
+  // Clear any previous save banner — reopenCurrentTicket() re-enters here
+  // right before setting the fresh one, and a plain open must not inherit
+  // the last ticket's "บันทึกแล้ว".
+  document.getElementById('staffSaveStatus')?.classList.add('d-none');
   setupRemarkVisUI(id);
   document.getElementById('staffNotifyTo').value = '';
   document.getElementById('staffSilentNotify').checked = false;
@@ -2080,13 +2084,54 @@ export async function submitStaffAction() {
       });
     }
 
-    alert('อัปเดตข้อมูลสำเร็จ!');
-    bootstrap.Modal.getInstance(document.getElementById('staffManageModal')).hide();
-    fetchStaffTickets();
+    // STAY IN THE TICKET. This used to alert() then hide the modal and
+    // refetch, so every save — a status bump, a one-line remark — kicked staff
+    // back to the kanban and made them find and reopen the ticket to carry on.
+    // Refetch (which repaints the kanban behind us), then re-render this modal
+    // from the fresh row so the timeline, banners and publish panel show what
+    // was just written. Closing is now the ปิด button's job, i.e. the user's.
+    await fetchStaffTickets();
+    reopenCurrentTicket();
+    staffSaveStatus('บันทึกแล้ว');
   } catch (e) {
-    alert('เกิดข้อผิดพลาดในการบันทึก: ' + (e.message || e));
+    staffSaveStatus('บันทึกไม่สำเร็จ: ' + (e.message || e), true);
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'บันทึกข้อมูล';
   }
+}
+
+/** Inline save feedback in the modal footer. Replaces alert() — a modal dialog
+ *  on top of a modal, for the SUCCESS path, on every single save. Errors keep
+ *  a longer dwell and are not auto-cleared until the next save. */
+let staffSaveStatusTimer = null;
+function staffSaveStatus(msg, isError) {
+  const el = document.getElementById('staffSaveStatus');
+  if (!el) { if (isError) alert(msg); return; }   // fallback if markup drifts
+  clearTimeout(staffSaveStatusTimer);
+  el.innerHTML = isError
+    ? `<i class="bi bi-exclamation-triangle-fill me-1"></i>${escHtml(msg)}`
+    : `<i class="bi bi-check-circle-fill me-1"></i>${escHtml(msg)}`;
+  el.classList.remove('d-none');
+  el.classList.toggle('text-danger', !!isError);
+  el.classList.toggle('text-success', !isError);
+  if (!isError) {
+    staffSaveStatusTimer = setTimeout(() => el.classList.add('d-none'), 4000);
+  }
+}
+
+/** Re-render the open ticket modal from the (just-refetched) cache.
+ *  Safe to call while it is already shown: openStaffModal ends in
+ *  getOrCreateInstance(...).show(), which no-ops on an open modal — the
+ *  content underneath simply repaints (see the stacked-backdrop note there). */
+function reopenCurrentTicket() {
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  if (!t) {
+    // The ticket left this user's view entirely (transferred to another dept
+    // they can't see, or deleted by someone else). Nothing to re-render.
+    bootstrap.Modal.getInstance(document.getElementById('staffManageModal'))?.hide();
+    return;
+  }
+  openStaffModal(t.id, t.status, t.target_dept, t.problem,
+    t.timestamp || t.created_at, t.remarks || []);
 }

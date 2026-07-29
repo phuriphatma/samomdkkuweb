@@ -276,6 +276,10 @@
             onclick="deleteCurrentVSTicket()">
             <i class="bi bi-trash3 me-1"></i>ลบ ticket
           </button>
+          <!-- Inline save result. Replaces the blocking alert('อัปเดตสำเร็จ')
+               that used to fire before the modal was closed — saving now keeps
+               the ticket open so staff can keep working on it. -->
+          <span id="staffSaveStatus" class="small me-2 d-none"></span>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
           <button type="button" class="btn btn-dark" onclick="submitStaffAction()">บันทึกข้อมูล</button>
         </div>

@@ -24,6 +24,7 @@ import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDet
 import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
 import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vsBoardBack, vsBoardMeToo, vsPostComment, openBoardProblem } from './vs-board.js';
+import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initProjectsView } from './projects-view.js';
@@ -99,6 +100,12 @@ initVsConsent();
 // PUBLIC Problem board (lazy-loads on first show; primes now if it's the
 // default-visible mode of the active VitalSound tab).
 initVsBoard();
+// Sub-state routing inside the VS tab (#track/VS-XXXX, #problem/VS-XXXX, …)
+// so a reload comes back to the ticket you were reading. window.vsSetRoute has
+// to exist before any VS view renders — the writers call it through window to
+// avoid an import cycle.
+window.vsSetRoute = vsSetRoute;
+initVsRoute();
 
 // ==============================================
 // ATTACH FUNCTIONS TO WINDOW

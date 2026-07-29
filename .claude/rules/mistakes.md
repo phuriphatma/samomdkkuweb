@@ -2058,6 +2058,74 @@ the newest definition wins and older files are actively misleading. Re-run the
 proof scripts for the FEATURE AREA after any function rewrite, not just for the
 thing you were changing; that is the only thing that caught this.
 
+## A path-only router silently discards sub-state — and its own tab handler is what clears the hash you just wrote
+
+**Symptom** (reported): "when I'm in ติดตามสถานะ inside a ticket and I reload to
+see refreshed progress, it switches to กระดานปัญหา, and when I tap ติดตามสถานะ I
+have to โหลดประวัติของฉัน and tap the ticket again." Reloading is the natural way
+to check for progress on a ticket, so the app threw away the user's place at
+exactly the moment they most wanted it kept.
+**Cause**: the public site routes by PATH (`PATH_ROUTES` in `main.js`:
+`/vssound` → the VS tab). Everything below a tab — which of the three VS modes
+is showing, which ticket/problem is open — lived only in DOM state. Nothing
+persisted it, so a reload rebuilt the default (board) view.
+**Fix**: the hash carries the sub-state (`#track`, `#track/VS-XXXX`,
+`#problem/VS-XXXX`, `#report`) in a small `vs-route.js`. The hash was free —
+nothing else in the public bundle reads or writes it.
+**Three traps that cost real debugging time:**
+1. **The path router clears the hash on every tab activation.** Its
+   `shown.bs.tab` handler does `history.pushState(null, '', tabToPath(target))`
+   — a bare pathname, so the hash is dropped. Leaving the VS tab and returning
+   left the URL saying "board" while the DOM still showed ติดตามสถานะ, and a
+   reload then obeyed the URL. Fixed by re-syncing the URL FROM the live view
+   on re-entry (`syncRouteFromView`) — sync the URL to the view, not the view
+   to the URL; the user's place is the thing worth keeping. It must run in a
+   `setTimeout(…, 0)` because the path router's listener is registered LATER in
+   main.js but fires in the same synchronous `shown.bs.tab` chain.
+2. **Every hash write fires `hashchange`**, which re-enters the router. Guard
+   with a `lastWritten` value compared on the way in, plus an `applying` flag.
+3. **Never decide "is the user signed in" before `authReady`.** On a cold
+   reload `getUser()` is null for a perfectly valid session, so restoring
+   `#track/<id>` immediately would always take the signed-out path. `await
+   authReady` first, then fall back to the by-id guest lookup — which grants
+   nothing new, since the id is already in the user's own URL.
+**Also**: `replaceState`, not `pushState`. The mode radios are a segmented
+control; one history entry per tap makes the back button feel broken.
+**Where**: `src/js/vs-route.js`; writers in `vs-form.js toggleVitalSoundMode`,
+`vs-tracking.js` (`openTicketDetail` / `trackWithTicketId` / `logoutTrack`),
+`vs-board.js` (`vsBoardOpen` / `vsBoardBack`). Writers call `window.vsSetRoute`
+rather than importing, to avoid a cycle (vs-route imports those modules).
+**Rule**: any view a user would REFRESH to update needs its identity in the URL.
+And when adding sub-state under an existing router, check what that router does
+to the URL on navigation — a handler that rewrites the whole path will erase it.
+
+## A modal that closes on save makes every edit a round trip — refresh in place instead
+
+**Symptom** (reported): "when บันทึกข้อมูล on a VitalSound ticket it closes the
+ticket and I have to keep opening it again — I think it's for refresh, but I
+want better UX."
+**Cause**: `submitStaffAction` ended with `alert('อัปเดตข้อมูลสำเร็จ!')` →
+`modal.hide()` → `fetchStaffTickets()`. Closing was doing the work of
+*refreshing*: the only way to see the new timeline entry was to reopen the
+ticket, because the modal's content is rendered once at open time. So every
+status bump and one-line remark bounced the staffer back to the kanban to find
+the ticket again — and the success `alert()` was a blocking dialog on top of a
+modal, for the happy path, on every single save.
+**Fix**: `await fetchStaffTickets()` (which repaints the kanban behind the
+modal), then re-render the modal from the fresh row and report success inline in
+the footer. Closing becomes the ปิด button's job, i.e. the user's choice.
+Re-rendering while shown is safe *only* because `openStaffModal` ends in
+`bootstrap.Modal.getOrCreateInstance(el).show()`, which no-ops on an open modal
+— `new bootstrap.Modal(...)` there would stack a second backdrop (see the
+stacked-backdrop entry). Guard the case where the refetched cache no longer
+contains the ticket (transferred to a dept this user can't see, or deleted
+concurrently): hide the modal rather than rendering stale data.
+**Where**: `src/js/vs-staff.js` `submitStaffAction` / `reopenCurrentTicket` /
+`staffSaveStatus`; `#staffSaveStatus` in `src/html/modal-vs-staff.html`.
+**Rule**: if a dialog closes itself after a write, ask whether it is closing
+because the user is *done* or because the code has no way to refresh in place.
+The second is a bug wearing a feature's clothes.
+
 ## A manager modal opened ON TOP of a form must repaint that form's inputs — the vocabulary it edits was rendered once, at open time
 
 **Symptom** (reported): "after I จัดการหมวดหมู่ → add a หมวดหมู่, I can't select

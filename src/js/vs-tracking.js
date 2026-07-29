@@ -118,8 +118,12 @@ function rowToTicket(r) {
 // Track by Ticket ID (Guest)
 // --------------------------------------------------
 
-export async function trackWithTicketId() {
-  const tId = document.getElementById('trackTicketId').value.trim();
+/** @param {string} [idOverride] Look up this id instead of reading the input.
+ *  Used by the hash router to restore `#track/VS-XXXX` on reload. */
+export async function trackWithTicketId(idOverride) {
+  const tId = (typeof idOverride === 'string' && idOverride)
+    ? idOverride.trim()
+    : document.getElementById('trackTicketId').value.trim();
   const alertBox = document.getElementById('trackAlert');
   const btn = document.getElementById('btnTrackGuest');
   if (!tId) { alertBox.classList.remove('d-none'); alertBox.innerText = 'กรุณากรอก Ticket ID'; return; }
@@ -154,6 +158,7 @@ export async function trackWithTicketId() {
       document.getElementById('vsDashboardBox').classList.remove('d-none');
       // Arrived by ticket-ID lookup → back goes to the search screen.
       setDashBack('กลับหน้าค้นหาสถานะ', logoutTrack);
+      vsRoute(`track/${row.id}`);
     } else {
       alertBox.classList.remove('d-none');
       alertBox.innerText = 'ไม่พบ Ticket นี้ในระบบ';
@@ -243,19 +248,42 @@ function renderUserHistoryList() {
 // Open Individual Ticket Detail
 // --------------------------------------------------
 
+/** @returns {boolean} whether the ticket was found in the loaded history —
+ *  the hash router uses this to decide whether to fall back to the by-id
+ *  guest lookup. */
 export function openTicketDetail(ticketId) {
   const ticket = loggedInUserTickets.find((t) => t.id === ticketId);
-  if (ticket) {
-    currentActiveTicketId = ticket.id; canUserReply = true;
-    renderUserDashboard(ticket);
-    document.getElementById('vsUserHistoryBox').classList.add('d-none');
-    document.getElementById('vsDashboardBox').classList.remove('d-none');
-    // Arrived from the history list → back returns there, not to the search.
-    setDashBack('กลับหน้าประวัติ', () => {
-      document.getElementById('vsDashboardBox').classList.add('d-none');
-      document.getElementById('vsUserHistoryBox').classList.remove('d-none');
-    });
-  }
+  if (!ticket) return false;
+  currentActiveTicketId = ticket.id; canUserReply = true;
+  renderUserDashboard(ticket);
+  document.getElementById('vsUserHistoryBox').classList.add('d-none');
+  document.getElementById('vsDashboardBox').classList.remove('d-none');
+  // Arrived from the history list → back returns there, not to the search.
+  setDashBack('กลับหน้าประวัติ', () => {
+    document.getElementById('vsDashboardBox').classList.add('d-none');
+    document.getElementById('vsUserHistoryBox').classList.remove('d-none');
+    vsRoute('track');
+  });
+  // Reloading is how people check for progress — put the ticket in the URL so
+  // the reload lands back on it instead of on กระดานปัญหา.
+  vsRoute(`track/${ticket.id}`);
+  return true;
+}
+
+/** Write VS sub-state to the URL. Routed through window so this module stays
+ *  importable by vs-route.js without a cycle; a no-op if routing isn't wired. */
+function vsRoute(sub) {
+  if (typeof window.vsSetRoute === 'function') window.vsSetRoute(sub);
+}
+
+/** The ticket the dashboard is currently showing, or null. Read by vs-route
+ *  when it re-syncs the URL after the tab is re-entered (the path router
+ *  clears the hash on any tab switch, so the hash has to be rebuilt from the
+ *  live view or the URL and the screen disagree). */
+export function currentTrackedTicketId() {
+  const box = document.getElementById('vsDashboardBox');
+  if (!box || box.classList.contains('d-none')) return null;
+  return currentActiveTicketId;
 }
 
 /** Point the detail view's top-left back link at wherever the user came from.
@@ -439,4 +467,5 @@ export function logoutTrack() {
   const authId = document.getElementById('trackTicketIdAuth');
   if (authId) authId.value = '';
   document.getElementById('trackAlert')?.classList.add('d-none');
+  vsRoute('track');   // stay in ติดตามสถานะ, drop the ticket from the URL
 }
