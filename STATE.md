@@ -8,7 +8,7 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- Live web = pushed `main` HEAD `20a0cb1`, **deployed to the VM** (VM HEAD matches;
+- Live web = pushed `main` HEAD `6a4a559`, **deployed to the VM** (VM HEAD matches;
   working tree CLEAN). Last code-bearing commit is `20a0cb1`; anything after it is
   docs-only, so a VM/STATE mismatch of one or two `docs(state):` commits is normal
   and does NOT mean a deploy is pending — check `git diff --name-only <vm>..HEAD`
