@@ -377,8 +377,11 @@
 
 /* --- category manager rows (modal-vs-categories) --- */
 .vs-cat-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.vs-cat-row { display: flex; align-items: center; gap: 0.5rem; }
-.vs-cat-row .vs-cat-label { flex: 1 1 auto; min-width: 0; }
+/* wrap + non-shrinking buttons: the row now carries label, ความลับ, ซ่อน and
+   ลบ — without these it crushes on a phone (same fix as .vs-tag-row). */
+.vs-cat-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.vs-cat-row .vs-cat-label { flex: 1 1 9rem; min-width: 0; }
+.vs-cat-row .btn { flex-shrink: 0; }
 .vs-cat-row.is-hidden .vs-cat-label { opacity: 0.5; }
 .vs-cat-conf {
   flex-shrink: 0; border: 1px solid #d1d5db; color: #6b7280; background: #fff;

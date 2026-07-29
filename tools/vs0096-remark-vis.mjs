@@ -214,6 +214,48 @@ begin
   update public.vs_tickets set category = 'it' where id = '${A}';
 
   ------------------------------------------------------------------
+  -- 0098 — deleting a หมวดหมู่ must fail CLOSED on every public reader.
+  -- vs_tickets.category has no FK, so a delete leaves dangling ids; before
+  -- 0098 get_public_vs_problem's coalesce(is_confidential, FALSE) served
+  -- them, which un-hid a confidential ticket left at is_public = true.
+  ------------------------------------------------------------------
+  insert into public.vs_categories (id,label,icon,is_confidential,public_eligible,sort_order)
+    values ('tstcat96','probe ความลับ','bi-shield-lock',true,false,999);
+  insert into public.vs_tickets (id, problem, target_dept, status, category,
+                                 created_at, is_public, public_title)
+    values ('VS-TSTC96','ร้องเรียนบุคคล SECRET-CONF','SE','สโมกำลังดำเนินการ','tstcat96',
+            now(), true, 'ไม่ควรแสดง');
+
+  perform set_config('role','anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
+  insert into out values('conf_before_delete',
+    coalesce(public.get_public_vs_problem('VS-TSTC96')->>'public_title','HIDDEN'));
+  perform set_config('role','postgres', true);
+  perform set_config('request.jwt.claims', null, true);
+
+  delete from public.vs_categories where id = 'tstcat96';
+
+  perform set_config('role','anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
+  insert into out values('conf_after_delete',
+    coalesce(public.get_public_vs_problem('VS-TSTC96')->>'public_title','HIDDEN'));
+  select count(*) into n from public.get_public_vs_board(null,'new',200) b
+    where b.canonical_id = 'VS-TSTC96';
+  insert into out values('conf_after_delete_on_board', n::text);
+  perform set_config('role','postgres', true);
+  perform set_config('request.jwt.claims', null, true);
+
+  -- A NON-confidential public problem with a deleted category is likewise
+  -- unreachable (the id no longer resolves), while an intact one still works.
+  update public.vs_tickets set category = 'it' where id = '${A}';
+  perform set_config('role','anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
+  insert into out values('intact_category_still_served',
+    coalesce(public.get_public_vs_problem('${A}')->>'public_title','HIDDEN'));
+  perform set_config('role','postgres', true);
+  perform set_config('request.jwt.claims', null, true);
+
+  ------------------------------------------------------------------
   -- STAFF is unaffected by the guard (still writes every column)
   ------------------------------------------------------------------
   perform set_config('role','authenticated', true);
@@ -280,6 +322,16 @@ async function main() {
   check('board list exposes update_count', get('board_update_count') === '1', get('board_update_count'));
   check('confidential canonical publishes nothing',
     get('confidential_detail') === 'NULL', get('confidential_detail'));
+
+  console.log('\nCATEGORY DELETE (0098) — a dangling category id fails CLOSED');
+  check('confidential ticket hidden BEFORE its category is deleted',
+    get('conf_before_delete') === 'HIDDEN', get('conf_before_delete'));
+  check('…and STILL hidden after the category is deleted',
+    get('conf_after_delete') === 'HIDDEN', get('conf_after_delete'));
+  check('…and still absent from the board list',
+    get('conf_after_delete_on_board') === '0', get('conf_after_delete_on_board'));
+  check('a problem with an INTACT category is still served',
+    get('intact_category_still_served') !== 'HIDDEN', get('intact_category_still_served'));
 
   console.log('\nCOLUMN GUARD — vs_tickets_update_owner is row-level only');
   check('submitter CANNOT self-publish to the board', get('guard_self_publish') === 'blocked');

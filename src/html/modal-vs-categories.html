@@ -1,8 +1,11 @@
   <!-- VS category manager — SE publishers manage the หมวดหมู่ list used by
        the publish-to-board panel + the public board filter chips.
        CRUD via vs_categories (RLS vs_categories_write_staff, 0072).
-       "ลบ" is a soft deactivate: tickets keep referencing the id, the board
-       and publish select simply stop offering it. -->
+       ซ่อน = soft deactivate (tickets keep referencing the id, the board and
+       publish select simply stop offering it). ลบ = hard delete; safe because
+       vs_tickets.category has no FK and 0098 makes an unresolvable id fail
+       CLOSED on every public reader, but it DOES pull that category's
+       published problems off the board — vsCatDelete spells that out. -->
   <div class="modal fade" id="vsCategoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
@@ -13,8 +16,10 @@
         <div class="modal-body">
           <p class="text-muted small mb-3">
             หมวดหมู่ใช้ในแผงเผยแพร่และตัวกรองบนกระดานปัญหา
-            หมวดที่ติด <i class="bi bi-shield-lock"></i> เป็นความลับ — เผยแพร่สู่สาธารณะไม่ได้
-            การซ่อนหมวดไม่กระทบเรื่องที่บันทึกไว้แล้ว
+            หมวดที่ติด <i class="bi bi-shield-lock"></i> เป็นความลับ — เผยแพร่สู่สาธารณะไม่ได้<br>
+            <i class="bi bi-eye-slash"></i> <strong>ซ่อน</strong> = เลิกใช้งาน แต่เรื่องที่บันทึกไว้แล้วยังคงหมวดเดิม ·
+            <i class="bi bi-trash"></i> <strong>ลบ</strong> = ลบถาวร เรื่องในหมวดนี้จะไม่มีหมวดหมู่
+            และเรื่องที่เผยแพร่อยู่จะหายจากกระดานปัญหา
           </p>
           <div id="vsCatList" class="vs-cat-list mb-3">
             <div class="text-muted small">กำลังโหลด…</div>

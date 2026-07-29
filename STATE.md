@@ -13,7 +13,7 @@ post-mortems: `.claude/rules/mistakes.md`.
   docs-only, so a VM/STATE mismatch of one or two `docs(state):` commits is normal
   and does NOT mean a deploy is pending — check `git diff --name-only <vm>..HEAD`
   for anything outside `STATE.md` / `.claude/` / `docs/` before redeploying.
-  Migrations 0081–0097 applied to the live DB. Verify a deploy
+  Migrations 0081–0098 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -66,8 +66,8 @@ paths:
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
 `tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
-`tools/vs0096-remark-vis.mjs` 27.
-**143 checks total, all green.**
+`tools/vs0096-remark-vis.mjs` 31.
+**147 checks total, all green.**
 Sweeps worth re-running after any auth change (both in the /clear scan):
 policy role-only sweep (expect exactly 3 deliberate: `users_update_staff`,
 `notify_log`, `reserved_staff_usernames`), and the attribute-handler sweep
@@ -105,7 +105,7 @@ PROJECTION (name/nickname/structure only, recursive so hiding a parent hides the
 subtree) and is the ONLY sanctioned publisher. Never add a public SELECT policy to
 `team_members` — anon reads 0 rows from it today and must keep doing so.
 
-## VITALSOUND บันทึกข้อความ VISIBILITY (0096) + project_files seat parity (0097)
+## VITALSOUND บันทึกข้อความ VISIBILITY (0096) · project_files seat parity (0097) · หมวดหมู่ delete (0098)
 
 **The ladder.** A remark entry carries `vis`, one of four ordered rungs, each
 including the audience of the one above: `staff` (เจ้าหน้าที่ only — what
@@ -159,8 +159,31 @@ tags can now be hard-deleted — the confirm names how many tickets carry the ta
 and steers to ซ่อน when it is in use (`vs_tickets.tags` is a loose `text[]`, so
 orphaned ids already render as nothing).
 
+**หมวดหมู่ + แท็ก are both deletable (0098).** `vs_tickets.category` / `.tags`
+are loose text with NO foreign key (0072/0079's choice), so deleting either
+leaves dangling ids and breaks nothing — but a category is load-bearing where a
+tag is not, so the confirm names the usage count, how many published problems
+will drop off the board, and (second confirm) whether it is the ความลับ lane.
+Deleting is SE-publisher-only; a vp_admin / student / anon DELETE is a 0-row
+no-op that the client surfaces via `return=representation`.
+
+**The reason 0098 exists**: a dangling category id made
+`get_public_vs_problem` fail OPEN — `coalesce(is_confidential, FALSE)`, where
+the board list, `vs_post_public_comment`, `vs_add_me_too` and `vs_set_public`
+all coalesce to TRUE. Measured: deleting a confidential category SERVED the
+detail of a confidential ticket left at `is_public = true` (a state the app
+reaches on purpose). Now `coalesce(v_conf, true)` — an unresolvable category is
+treated as confidential, and the detail finally agrees with the list.
+
+**Category manager repaints the open ticket's selects** — it is a stacked modal
+over the ticket, and a newly added หมวดหมู่ used to be unusable until the ticket
+was closed and reopened. `refreshCategoriesAfterMutate()` mirrors what
+`refreshTagsAfterMutate()` already did for tags. It preserves an unsaved pick
+and deliberately does NOT auto-select the new category (that would silently
+stage a re-classification).
+
 **NOT verified in a browser** — same caveat as NEXT #1 below. Server side is
-proven by `tools/vs0096-remark-vis.mjs` (27 checks).
+proven by `tools/vs0096-remark-vis.mjs` (31 checks).
 
 ## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
 
@@ -168,7 +191,7 @@ Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
 ### 1. NOTHING from these sessions has had a signed-in browser run
-Every server path is proven by the 9 scripts (143 checks), but no UI half was
+Every server path is proven by the 9 scripts (147 checks), but no UI half was
 exercised by a real login. Check these first — they are the likeliest place a
 regression hides:
 - **VS บันทึกข้อความ (0096)** — the visibility select in the staff ticket modal;

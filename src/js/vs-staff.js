@@ -1240,6 +1240,10 @@ function renderVsCatManager() {
       <button type="button" class="btn btn-sm btn-outline-secondary" data-cat-toggle>
         ${c.is_active ? '<i class="bi bi-eye-slash"></i> ซ่อน' : '<i class="bi bi-eye"></i> แสดง'}
       </button>
+      <button type="button" class="btn btn-sm btn-outline-danger" data-cat-delete
+        title="ลบหมวดหมู่ถาวร">
+        <i class="bi bi-trash"></i>
+      </button>
     </div>
   `).join('');
 
@@ -1268,7 +1272,109 @@ function renderVsCatManager() {
       if (!c) return;
       vsCatPatch(id, { is_active: !c.is_active }, c.is_active ? 'ซ่อนหมวดหมู่แล้ว' : 'แสดงหมวดหมู่แล้ว');
     });
+    row.querySelector('[data-cat-delete]')?.addEventListener('click', () => vsCatDelete(id));
   });
+}
+
+/** Hard-delete a category from the shared taxonomy.
+ *
+ *  Structurally safe: `vs_tickets.category` is loose text with NO foreign key
+ *  (0072's deliberate choice, same as vs_tickets.tags) so nothing breaks, and
+ *  since 0098 every public reader treats an unresolvable id as confidential —
+ *  the board list drops it (inner join), the detail returns null, and
+ *  commenting / me-too / re-publishing are all refused. Nothing can leak.
+ *
+ *  But it is far more consequential than deleting a TAG, which is only a
+ *  triage label. A category decides board eligibility AND confidentiality, so
+ *  deleting one in use silently pulls its published problems off the public
+ *  board and leaves those tickets unclassified. The confirm therefore names
+ *  what will actually happen — usage count, how many are live on the board,
+ *  and (loudest) whether this is the ความลับ lane, whose deletion means new
+ *  reports can no longer be filed as confidential.
+ *
+ *  Counts come from staffTicketsCache, which is RLS-filtered — a dept-scoped
+ *  handler sees only their own dept — so they are worded "อย่างน้อย". Only SE
+ *  publishers reach this modal at all (openVsCategoryManager gates on
+ *  isSEPublisher), and vs_categories_write_staff enforces the same server-side. */
+async function vsCatDelete(id) {
+  const c = vsCatManagerRows.find((x) => x.id === id);
+  if (!c) return;
+  const used = staffTicketsCache.filter((t) => t.category === id && !t.deleted_at);
+  const live = used.filter((t) => t.is_public).length;
+
+  let msg = `ลบหมวดหมู่ "${c.label}" ถาวร?`;
+  if (used.length) {
+    msg += `\n\nมีอย่างน้อย ${used.length} เรื่องอยู่ในหมวดนี้ — เรื่องเหล่านั้นจะไม่มีหมวดหมู่`;
+    if (live) msg += `\nและ ${live} เรื่องที่เผยแพร่อยู่จะหายจากกระดานปัญหาทันที`;
+    msg += '\n\nหากต้องการเพียงเลิกใช้งาน ให้กด "ซ่อน" แทน — เรื่องเดิมจะยังคงหมวดหมู่ไว้';
+  } else {
+    msg += '\n\nยังไม่มีเรื่องใดอยู่ในหมวดนี้';
+  }
+  if (!confirm(msg)) return;
+
+  // Second gate for the privacy lane. Deleting it is the strongest version of
+  // the "removing a protection" direction that the is_confidential toggle
+  // already guards — without a confidential category, nothing new can be filed
+  // into the confidential lane at all.
+  if (c.is_confidential
+      && !confirm(`⚠️ "${c.label}" เป็นหมวด "ความลับ"\n\n`
+        + 'การลบหมวดนี้ทำให้ไม่สามารถรับเรื่องแบบความลับในหมวดนี้ได้อีก '
+        + '(เรื่องเดิมยังคงถูกซ่อนจากสาธารณะ)\n\nยืนยันการลบ?')) return;
+
+  const { data, error } = await dbRest(
+    `/vs_categories?id=eq.${encodeURIComponent(id)}`,
+    { method: 'DELETE', prefer: 'return=representation' });
+  // return=representation + a length check: an RLS-blocked DELETE is a silent
+  // no-op otherwise (mistakes.md, "silent-success on RLS-blocked deletes").
+  if (error || !Array.isArray(data) || data.length === 0) {
+    vsCatStatus('ลบไม่สำเร็จ — คุณอาจไม่มีสิทธิ์ลบหมวดหมู่', true);
+    return;
+  }
+  vsCatManagerRows = vsCatManagerRows.filter((x) => x.id !== id);
+  renderVsCatManager();
+  refreshCategoriesAfterMutate();
+  vsCatStatus(`ลบ "${c.label}" แล้ว`);
+}
+
+/** After ANY vs_categories mutation: reload the cache, then repaint every
+ *  surface that renders the taxonomy — including the OPEN ticket's two
+ *  category selects.
+ *
+ *  That last part is the bug this exists to fix: the manager is opened ON TOP
+ *  of the ticket modal, and it used to repaint only the kanban facet + the
+ *  publish panel. `#staffCategory` / `#staffPubCategorySel` are filled once by
+ *  fillStaffCategorySelect() at openStaffModal time, so a category added from
+ *  the manager did not appear in the dropdown until the ticket was closed and
+ *  reopened. The tag manager already did this correctly
+ *  (refreshTagsAfterMutate re-fills the open ticket's tag editor) — this is
+ *  the same treatment for categories.
+ *
+ *  The pending select value is preserved across the refill: fillStaffCategory-
+ *  Select resets the selects to the ticket's SAVED category, which would throw
+ *  away an unsaved pick made just before opening the manager. A newly added
+ *  category is deliberately NOT auto-selected — that would silently stage a
+ *  re-classification (category drives confidentiality + board eligibility) on
+ *  a ticket the user only meant to add vocabulary for. */
+function refreshCategoriesAfterMutate() {
+  const sel = document.getElementById('staffCategory');
+  const pending = sel ? sel.value : null;
+  vsCategoriesCache = null;          // force a refetch on the next read
+  loadVsCategories().then(async () => {
+    populateVsCatFilter();
+    const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+    if (t) {
+      await fillStaffCategorySelect(t);   // also re-renders the publish panel
+      // Restore the user's unsaved pick, but only if that option still exists
+      // (it won't if they just deleted the category they had selected).
+      if (pending != null && sel && [...sel.options].some((o) => o.value === pending)) {
+        sel.value = pending;
+        const pubSel = document.getElementById('staffPubCategorySel');
+        if (pubSel) pubSel.value = pending;
+      }
+    }
+    renderPublishPanel();
+    renderKanban();
+  }).catch(() => {});
 }
 
 async function vsCatPatch(id, patch, okMsg) {
@@ -1281,10 +1387,8 @@ async function vsCatPatch(id, patch, okMsg) {
   }
   const i = vsCatManagerRows.findIndex((x) => x.id === id);
   if (i >= 0) vsCatManagerRows[i] = { ...vsCatManagerRows[i], ...data[0] };
-  vsCategoriesCache = null;          // selects/facet reload next paint
   renderVsCatManager();
-  renderPublishPanel();
-  loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
+  refreshCategoriesAfterMutate();
   vsCatStatus(okMsg);
 }
 
@@ -1313,11 +1417,12 @@ export async function vsCatAdd() {
   if (labelEl) labelEl.value = '';
   if (confEl) confEl.checked = false;
   vsCatManagerRows.push(data[0]);
-  vsCategoriesCache = null;
   renderVsCatManager();
-  renderPublishPanel();
-  loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
-  vsCatStatus(`เพิ่ม "${label}" แล้ว`);
+  // Repaints the OPEN ticket's category selects too, so the new หมวดหมู่ is
+  // pickable immediately instead of only after closing and reopening the
+  // ticket. It is not auto-selected — see refreshCategoriesAfterMutate.
+  refreshCategoriesAfterMutate();
+  vsCatStatus(`เพิ่ม "${label}" แล้ว — เลือกได้จากช่องหมวดหมู่แล้ว`);
 }
 
 // ----- Tag manager (per-dept vocabulary; vs_tags CRUD via RLS 0079) --------

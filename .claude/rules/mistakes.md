@@ -1983,6 +1983,49 @@ family as the `public.users` `role` self-promotion entry above — that one was
 found in 2 tables, this is the third; **audit any `for update using (<col> =
 auth.uid())` policy the moment the table gains a column the owner must not set.**
 
+## Adding a DELETE to reference data turns every `coalesce(<flag>, false)` lookup into a live fail-open — the dangling id is the new input nobody wrote for
+
+**Symptom**: none reported — found by asking "what reads this table?" before
+shipping a delete button for หมวดหมู่ (`vs_categories`), the same affordance
+`vs_tags` had just been given.
+**Cause**: `vs_tickets.category` is loose text with NO foreign key — 0072's
+deliberate choice so retiring a category can never break a ticket. Correct, but
+it means deleting a row creates DANGLING references, an input that did not exist
+while the table was append-only. Four readers resolve `is_confidential` from
+that id; three failed closed and one did not:
+```
+get_public_vs_board     inner join vs_categories          → row vanishes  ✔
+vs_post_public_comment  coalesce(c.is_confidential, true) → refused       ✔
+vs_set_public           coalesce(v_conf, true)            → refused       ✔
+get_public_vs_problem   coalesce(v_conf, FALSE)           → GATE PASSES   ✗
+```
+Measured live in a rolled-back transaction, on a confidential ticket left at
+`is_public = true` — a state the app reaches ON PURPOSE (staff may move an
+already-published ticket into a ความลับ category; the modal confirms "จะซ่อนจาก
+กระดานทันที" and relies entirely on the read layer, which is exactly what
+0072's isolation test asserts):
+```
+BEFORE deleting the category   on_board=0  detail=NULL (hidden)   ✔
+AFTER  deleting the category   on_board=0  detail='ไม่ควรแสดง'    ✗ SERVED
+```
+So an ordinary admin action — deleting the confidential category — would have
+un-hidden the curated projection AND the whole public comment thread of every
+ticket in it.
+**Fix**: `coalesce(v_conf, true)` (0098). An id that cannot be resolved is
+treated as confidential. This also makes the DETAIL agree with the LIST for the
+first time; previously a dangling category meant "absent from the board but
+reachable by direct id", a split no caller could have predicted.
+**Where**: `supabase/migrations/0098_vs_unknown_category_fails_closed.sql`;
+proof in `tools/vs0096-remark-vis.mjs` (the CATEGORY DELETE block).
+**Rules**: (1) Before adding DELETE to any reference table, grep every reader of
+the referencing column and check what each does with an id that no longer
+resolves — `coalesce(flag, false)`, `left join`, and `if not found then` are the
+three shapes that fail open. (2) When several readers ask the same question, they
+must agree on the unknown case; a table where three say "closed" and one says
+"open" is not a design, it is a bug that has not been reached yet. (3) A loose
+reference with no FK is fine, but it makes the DEFAULT for a missing row a
+security decision — write it down at every call site.
+
 ## Recreating a function from the migration that FIRST defined it silently reverts every later one
 
 **Symptom**: `tools/vs0083-scope.mjs` went 15/16 immediately after applying an
@@ -2014,6 +2057,37 @@ defined 0080 ✔); only the one with a THIRD definition bit.
 the newest definition wins and older files are actively misleading. Re-run the
 proof scripts for the FEATURE AREA after any function rewrite, not just for the
 thing you were changing; that is the only thing that caught this.
+
+## A manager modal opened ON TOP of a form must repaint that form's inputs — the vocabulary it edits was rendered once, at open time
+
+**Symptom** (reported): "after I จัดการหมวดหมู่ → add a หมวดหมู่, I can't select
+the one I added immediately — I have to close the ticket and open it again."
+**Cause**: `#staffCategory` / `#staffPubCategorySel` are filled ONCE by
+`fillStaffCategorySelect()` inside `openStaffModal()`. The category manager is a
+stacked modal opened over that still-open ticket, and after a write it repainted
+the kanban facet, the publish panel and its own list — but never the two selects
+underneath it. So the new row existed everywhere except the control the user
+opened the manager in order to use. The TAG manager next door had it right
+(`refreshTagsAfterMutate()` re-fills the open ticket's tag editor); the category
+manager was simply never given the equivalent, and the gap is invisible unless
+you use the two features back to back.
+**Fix**: `refreshCategoriesAfterMutate()`, called from add / patch / delete
+alike. Two details that matter more than the repaint itself:
+- **Preserve the pending selection.** `fillStaffCategorySelect()` resets the
+  selects to the ticket's SAVED category, so a naive re-fill throws away an
+  unsaved pick the user made just before opening the manager. Snapshot
+  `sel.value`, re-fill, restore it if that option still exists (it won't if they
+  just deleted it).
+- **Do NOT auto-select the newly added category.** It is what the user
+  "obviously" wants, but category drives confidentiality and board eligibility,
+  so auto-selecting silently stages a re-classification on a ticket they only
+  meant to add vocabulary for. Make it available in one click and say so in the
+  status line instead.
+**Where**: `src/js/vs-staff.js` `refreshCategoriesAfterMutate` (+ `vsCatAdd` /
+`vsCatPatch` / `vsCatDelete`); the pattern to copy is `refreshTagsAfterMutate`.
+**Rule**: whenever a modal edits the VOCABULARY that a form behind it renders as
+options, list every control that consumed that vocabulary and repaint all of
+them — the one you forget is usually the one the user opened the modal to fill.
 
 ## Attribute-driven visibility: check that EVERY value in the markup has a handler, and which way an unhandled one fails
 
