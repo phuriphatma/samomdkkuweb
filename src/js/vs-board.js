@@ -169,6 +169,9 @@ function cardHtml(r) {
     : '';
   const affected = Number(r.affected) || 1;
   const comments = r.comment_count != null ? Number(r.comment_count) : null;
+  // 0096 — staff progress notes marked สาธารณะ. A separate signal from the
+  // comment count: comments are the crowd, updates are the team.
+  const updates = Number(r.update_count) || 0;
   const following = r.following === true;
   const id = escHtml(r.canonical_id);
   return `<div class="col-12 col-md-6">
@@ -184,6 +187,7 @@ function cardHtml(r) {
           <i class="bi ${following ? 'bi-people-fill' : 'bi-people'}"></i>
           <span class="vs-metoo-count">${affected}</span> เจอเหมือนกัน
         </button>
+        ${updates ? `<span class="vs-board-updates" title="ความคืบหน้าจากทีมงาน"><i class="bi bi-broadcast-pin me-1"></i>${updates}</span>` : ''}
         ${comments != null ? `<span class="vs-board-comments"><i class="bi bi-chat-dots me-1"></i>${comments}</span>` : ''}
       </div>
     </div>
@@ -318,6 +322,7 @@ function renderProblemDetail(p) {
         <span class="vs-metoo-count">${affected}</span> คนเจอปัญหานี้เหมือนกัน
       </button>
     </div>
+    ${updatesHtml(p)}
     <div class="mt-3">${composer}</div>
     <hr class="my-4">
     <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots me-2"></i>ความคิดเห็น
@@ -325,6 +330,36 @@ function renderProblemDetail(p) {
     <div class="vs-comment-list mb-3">
       ${comments.length ? comments.map(commentHtml).join('') : '<p class="text-muted small">ยังไม่มีความคิดเห็น เป็นคนแรกที่ร่วมพูดคุย</p>'}
     </div>`;
+}
+
+/** ความคืบหน้าจากทีมงาน — the staff progress stream (0096), DELIBERATELY a
+ *  separate block from the comment thread below it. Comments are the crowd
+ *  talking; this is the team reporting what has actually been done, so it sits
+ *  above the composer and reads as a log rather than a conversation.
+ *
+ *  Source: `updates` from get_public_vs_problem — the 'public'-rung remarks
+ *  across the whole duplicate group. Only staff can produce them (a submitter
+ *  write above 'ticket' is rejected by vs_tickets_self_update_guard), but the
+ *  strings are still hand-typed staff input → escHtml everything. */
+function updatesHtml(p) {
+  const ups = Array.isArray(p.updates) ? p.updates : [];
+  if (!ups.length) return '';
+  return `<div class="vs-updates mt-4">
+    <div class="vs-updates-head">
+      <i class="bi bi-broadcast-pin"></i>
+      <span>ความคืบหน้าจากทีมงาน</span>
+      <span class="vs-updates-count">${ups.length}</span>
+    </div>
+    <ol class="vs-updates-list">
+      ${ups.map((u) => `<li class="vs-update">
+        <div class="vs-update-meta">
+          <span class="vs-update-by"><i class="bi bi-patch-check-fill me-1"></i>${escHtml(u.by || 'ทีมงาน')}</span>
+          ${u.time ? `<span class="vs-update-time">${escHtml(u.time)}</span>` : ''}
+        </div>
+        <div class="vs-update-body">${escHtml(u.text || '')}</div>
+      </li>`).join('')}
+    </ol>
+  </div>`;
 }
 
 function commentHtml(c) {

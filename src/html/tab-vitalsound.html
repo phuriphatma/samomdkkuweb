@@ -304,19 +304,32 @@
             </div>
 
             <div id="vsUserHistoryBox" class="d-none">
-              <div class="d-flex justify-content-between align-items-center mb-3">
+              <!-- Back to the ค้นหา/โหลดประวัติ entry screen. Same top-left
+                   back-link pattern as "กลับกระดานปัญหา" above, so every VS
+                   sub-view is escaped the same way. This used to be a
+                   bottom-right "ออกจากระบบ" button, which was doubly wrong:
+                   it does not sign anyone out (logoutTrack only resets this
+                   view), and it read as the last thing you'd click to get
+                   back to the ticket-ID search. -->
+              <button type="button" class="btn btn-link btn-sm text-decoration-none ps-0 mb-2"
+                onclick="logoutTrack()"><i class="bi bi-arrow-left me-1"></i>กลับหน้าค้นหาสถานะ</button>
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="fw-bold mb-0 text-pink-custom"><i
                     class="bi bi-card-checklist me-2"></i>ประวัติการแจ้งปัญหาของคุณ</h5>
-                <div>
-                  <button class="btn btn-outline-primary btn-sm me-2" onclick="loginToViewHistory()"><i
-                      class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="logoutTrack()">ออกจากระบบ</button>
-                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="loginToViewHistory()"><i
+                    class="bi bi-arrow-clockwise"></i> รีเฟรช</button>
               </div>
               <div class="row g-3" id="userHistoryList"></div>
             </div>
 
             <div id="vsDashboardBox" class="d-none">
+              <!-- Back link at the TOP, matching "กลับกระดานปัญหา". The label
+                   and target are set by vs-tracking.js: "กลับหน้าประวัติ" when
+                   the user came from their history list, "กลับหน้าค้นหาสถานะ"
+                   when they arrived by ticket-ID lookup. -->
+              <button type="button" class="btn btn-link btn-sm text-decoration-none ps-0 mb-2"
+                id="btnBackToHistory" onclick="logoutTrack()"><i
+                  class="bi bi-arrow-left me-1"></i><span id="btnBackToHistoryLabel">กลับหน้าค้นหาสถานะ</span></button>
               <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="fw-bold mb-0" id="dashTicketId">Ticket #</h5>
                 <span id="dashStatusBadge"
@@ -348,8 +361,6 @@
                   placeholder="สอบถามความคืบหน้าเพิ่มเติม..."></textarea>
                 <button class="btn btn-sm btn-outline-danger" onclick="submitUserRemark()">ส่งข้อความ</button>
               </div>
-              <button class="btn btn-outline-secondary w-100 mt-4" id="btnBackToHistory"
-                onclick="logoutTrack()">กลับหน้าแรก</button>
             </div>
           </div>
 

@@ -174,11 +174,26 @@
                 </div>
               </section>
 
-              <!-- SECTION 4: remark -->
+              <!-- SECTION 4: remark + who may read it (visibility ladder, 0096).
+                   The four rungs are ordered — each includes the audience of
+                   the one above. The server is the boundary: a submitter can
+                   never write above 'ผู้แจ้งเรื่องนี้' (vs_tickets_self_update_guard). -->
               <section class="vs-modal-section">
                 <h6 class="vs-modal-section-title"><i class="bi bi-pencil-square"></i>บันทึกข้อความ</h6>
                 <textarea id="staffActionRemark" class="form-control" rows="2"
                   placeholder="อธิบายการแก้ไขปัญหา, เหตุผลที่ปฏิเสธ, หรือข้อความปรึกษาถึงฝ่ายอื่น..."></textarea>
+                <div class="vs-remark-vis mt-2">
+                  <label class="form-label small fw-bold mb-1" for="staffRemarkVis">
+                    <i class="bi bi-eye me-1"></i>ใครเห็นข้อความนี้
+                  </label>
+                  <select id="staffRemarkVis" class="form-select form-select-sm">
+                    <option value="ticket" selected>ผู้แจ้งเรื่องนี้ + เจ้าหน้าที่</option>
+                    <option value="staff">เฉพาะเจ้าหน้าที่</option>
+                    <option value="thread">ทุกคนในกลุ่มเรื่องซ้ำ + เจ้าหน้าที่</option>
+                    <option value="public">สาธารณะ — แสดงบนกระดานปัญหา</option>
+                  </select>
+                  <div id="staffRemarkVisHint" class="form-text small mt-1"></div>
+                </div>
               </section>
 
               <!-- SECTION 5 (secondary): PUBLIC BOARD publish panel (SE only;

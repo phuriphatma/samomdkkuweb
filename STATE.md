@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-25. Slim by design — "what is true right now". Full
+Last updated: 2026-07-29. Slim by design — "what is true right now". Full
 per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
@@ -13,7 +13,7 @@ post-mortems: `.claude/rules/mistakes.md`.
   docs-only, so a VM/STATE mismatch of one or two `docs(state):` commits is normal
   and does NOT mean a deploy is pending — check `git diff --name-only <vm>..HEAD`
   for anything outside `STATE.md` / `.claude/` / `docs/` before redeploying.
-  Migrations 0081–0095 applied to the live DB. Verify a deploy
+  Migrations 0081–0097 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -59,14 +59,15 @@ permission, because there the seat picks WHICH of three workflows
 (`projectSeatRole()` maps it to the role string the module already branches on).
 `prof` is deliberately not a project actor.
 
-**Verification.** Eight self-provisioning proof scripts, each running in rolled-back
+**Verification.** Nine self-provisioning proof scripts, each running in rolled-back
 transactions, independent of live config — re-run after ANY change to these RLS
 paths:
-`tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 21 ·
+`tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 24 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
-`tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23.
-**113 checks total, all green.**
+`tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
+`tools/vs0096-remark-vis.mjs` 27.
+**143 checks total, all green.**
 Sweeps worth re-running after any auth change (both in the /clear scan):
 policy role-only sweep (expect exactly 3 deliberate: `users_update_staff`,
 `notify_log`, `reserved_staff_usernames`), and the attribute-handler sweep
@@ -80,45 +81,23 @@ signature assignments — to a personal kkumail account during the migration.
 see NEXT #4 and NEXT #3. (`tools/proj-handover.mjs` moves read state; since 0095
 an อาจารย์ seat needs NO sign-request handover to see the queue.)
 
-**SAMO Shop is ONE role — the 0093 scope was REVERTED by 0094.** Every shop admin
-manages every แหล่งที่มา; there is no per-source grant and the picker is gone.
-`current_user_is_shop_admin()` is back to `role in (shop_admin,dev) OR
-has_permission('samoshop')`, and `shop_products` writes are back on it. The
-`shop_source` / `managed_shop_sources` COLUMNS remain but are inert — nothing
-reads them. Drop them whenever (`alter table … drop column …`, listed in 0094's
-header) and strip them from sync/recompute/users_self_update_guard. **Do not
-re-add a source scope without being asked**: the reason it was declined is that
-orders can't be scoped (one order holds items from several sources), so a
-product-only scope isolates nothing anyone cares about.
-
-**The READ half of the grant channel (0093 part B, KEPT).** Three policies gated
-on `current_user_is_staff()` — a bare role list — excluded tree-granted accounts:
-`announcements_read` (a `creator` grantee could WRITE a draft and not see it,
-which is what broke เขียนประกาศ/ลำดับการแสดงประกาศ), `vs_followers` /
-`vs_public_comments` (→ `current_user_is_vs_handler()`), and `analytics_events`
-(→ new `current_user_has_any_grant()`). `current_user_is_staff()` itself was NOT
-widened — `users_self_update_guard` trusts it for privileged-column writes, so
-widening it would let any grantee self-promote to `dev`
-(`tools/grant0093-reads.mjs` asserts this with a real attempt).
-**Three role-only policies REMAIN BY DESIGN — do not "fix" them**:
-`users_update_staff` (broadening it lets a grantee edit other people's rows),
-`notify_log_select_staff` and `reserved_staff_usernames_read_staff` (internal
-diagnostics / non-load-bearing reference data). Re-run the sweep after any RLS
-change: flag policies matching `current_user_role|current_user_is_staff` that do
-NOT also match `has_permission|managed_|_scope|_seats`; the expected count is 3.
-
-**The อาจารย์ seat grants the อาจารย์ ROLE (0095, APPLIED).** Every prof gate used
-to key on `sign_requests.prof_id = auth.uid()`, so a seat holder got a brand-new
-professor with an EMPTY desk while `saprof` showed 11. อาจารย์ is one shared
-institutional role (like เจ้าหน้าที่คณะ), so `prof_can_see_document/_project/_file`
-+ the sign-request read/update policies + `scopeProjectsForRole` /
-`docPendingSignForProf` / the file filter now ask "am I อาจารย์, and was this sent
-for signature?". Verified: seat and saprof both see 11 of 26.
-**Still NOT an actor** — the other 15 หนังสือ stay invisible, private drafts inside
-a requested หนังสือ stay filtered, and a professor still cannot create a project or
-request a signature. **Tradeoff**: every อาจารย์ sees every signature request. Right
-for one shared role; if per-professor privacy is ever wanted, restore the uid check
-PLUS a "which professor" dimension — a plain revert re-empties the seat.
+**Settled grant-channel decisions (0093–0095)** — full write-up in
+`docs/state-archive/2026-07-25-grant-channel-detail.md`. The three that a future
+change must not undo:
+- **SAMO Shop is ONE role** — the 0093 per-source scope was REVERTED by 0094
+  (orders can't be scoped, so a product-only scope isolates nothing). The
+  `shop_source` / `managed_shop_sources` columns remain but are inert.
+  **Do not re-add a source scope without being asked.**
+- **Never widen `current_user_is_staff()`** — `users_self_update_guard` trusts it
+  for privileged-column writes, so widening it lets any grantee self-promote to
+  `dev`. 0093 repointed the three affected READ policies individually instead.
+  **Three role-only policies REMAIN BY DESIGN — do not "fix" them**:
+  `users_update_staff`, `notify_log_select_staff`,
+  `reserved_staff_usernames_read_staff`. The sweep's expected count is 3.
+- **The อาจารย์ seat grants the อาจารย์ ROLE (0095)** — prof gates ask "am I
+  อาจารย์, and was this sent for signature?", not `prof_id = auth.uid()`, so a
+  seat holder sees the same 11 of 26 as `saprof`. Still NOT an actor. Tradeoff:
+  every อาจารย์ sees every signature request.
 
 **Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
 false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
@@ -126,15 +105,78 @@ PROJECTION (name/nickname/structure only, recursive so hiding a parent hides the
 subtree) and is the ONLY sanctioned publisher. Never add a public SELECT policy to
 `team_members` — anon reads 0 rows from it today and must keep doing so.
 
+## VITALSOUND บันทึกข้อความ VISIBILITY (0096) + project_files seat parity (0097)
+
+**The ladder.** A remark entry carries `vis`, one of four ordered rungs, each
+including the audience of the one above: `staff` (เจ้าหน้าที่ only — what
+`internal: true` meant) → `ticket` (+ this ticket's submitter, **the default**)
+→ `thread` (+ every submitter in the duplicate group) → `public` (+ the board).
+Normalized by `vs_remark_vis()` server-side and `remarkVis()` in `utils.js` —
+**mirrors; keep them in step**. No backfill: a missing `vis` reads as `ticket`,
+`internal: true` reads as `staff`.
+
+Staff pick the rung in the บันทึกข้อความ section of the ticket modal; the
+widening rungs get a `confirm()` naming the audience, and the hint warns when a
+`public` note is on an unpublished ticket (it is stored, but has nowhere to
+show until เผยแพร่). Cross-ticket notes reach a sibling's submitter via
+`vs_thread_remarks()`, tagged `from_thread` so the timeline labels them.
+
+**The board's ความคืบหน้าจากทีมงาน stream** (`updates` on
+`get_public_vs_problem`, `update_count` on `get_public_vs_board`) is
+deliberately a SEPARATE block from `comments` — comments are the crowd, updates
+are the team — and is styled as a log, not a conversation.
+
+**Three live bugs closed on the way** (all proven against prod in rolled-back
+transactions, all written up in mistakes.md):
+1. **A submitter could self-publish to the public board.** `vs_tickets_update_owner`
+   is row-level with no column guard, so `PATCH {is_public, public_title,
+   category}` routed straight around `vs_set_public()`'s SE-curation gate —
+   0072's invariant #2. Also self-close, reroute, retag, re-link. Closed by
+   `vs_tickets_self_update_guard` (fires only when `auth.uid() = submitter_id`
+   and the caller is not a VS handler, so server contexts are untouched).
+2. **The owner history read shipped internal remarks on the wire** (8 rows
+   live). `select=…,remarks,…` returned the 0071 `internal: true` entries whose
+   TEXT embeds the canonical id ('รวมเป็นเรื่องซ้ำของ VS-…'); `rowToTicket`
+   filtered them client-side, which is cosmetic. 0074 fixed this for the
+   `duplicate_of` COLUMN and missed the same id in remark TEXT. Owner read is
+   now `get_my_vs_tickets()`, submitter replies go through
+   `vs_add_submitter_remark()` — the browser neither reads nor rewrites the raw
+   array any more.
+3. **`logoutTrack()` threw halfway through** — it cleared `#trackUsername` /
+   `#trackPassword`, removed long ago, so the view switched but a stale error
+   banner stayed and an uncaught TypeError fired. It is now the primary back
+   affordance, so this mattered.
+
+**0097** — `project_files_delete` was the last role-only policy on that table
+(found by the standing sweep): a `vpa`/`staff` seat could upload and rename a
+file but not delete it. Repointed at `current_user_is_project_actor()`, which is
+an exact superset of the old role list. The sweep is back to the 3 deliberate.
+
+**UI**: "กลับหน้าประวัติ" / "กลับหน้าค้นหาสถานะ" moved to the TOP of the ticket
+detail, matching "กลับกระดานปัญหา"; the history list gained the same back link
+(it previously had only "ออกจากระบบ", which does not sign anyone out). Internal
+tags can now be hard-deleted — the confirm names how many tickets carry the tag
+and steers to ซ่อน when it is in use (`vs_tickets.tags` is a loose `text[]`, so
+orphaned ids already render as nothing).
+
+**NOT verified in a browser** — same caveat as NEXT #1 below. Server side is
+proven by `tools/vs0096-remark-vis.mjs` (27 checks).
+
 ## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
 
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
-### 1. NOTHING from this session has had a signed-in browser run
-Every server path is proven by the 8 scripts (113 checks), but no UI half was
+### 1. NOTHING from these sessions has had a signed-in browser run
+Every server path is proven by the 9 scripts (143 checks), but no UI half was
 exercised by a real login. Check these first — they are the likeliest place a
 regression hides:
+- **VS บันทึกข้อความ (0096)** — the visibility select in the staff ticket modal;
+  a `thread` note written on a canonical must appear on a duplicate's tracking
+  timeline tagged "จากเรื่องที่เกี่ยวข้อง"; a `public` note must appear in
+  ความคืบหน้าจากทีมงาน on the board (separate from comments).
+- **VS ติดตามสถานะ** — โหลดประวัติของฉัน still lists the same tickets (the read
+  moved to an RPC), submitter reply still posts, and both back links work.
 - **อาจารย์ (0095)** — `phuriphat.ma@kkumail.com` holds the `prof` seat and must
   now see the SAME 11 หนังสือ as `saprof` (26 exist; 11 carry a signature
   request). If it shows 0, the seat resolution broke, not the RLS.

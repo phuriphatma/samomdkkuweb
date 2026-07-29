@@ -1936,6 +1936,85 @@ EACH surface. If the answer is "the same", any `= auth.uid()` predicate on that
 surface is a bug in waiting — and it will look like correct behaviour, because an
 empty inbox is indistinguishable from a working one with nothing in it.
 
+## A row-level UPDATE policy with no column guard let a SUBMITTER self-publish to the public board — the curation gate lived in an RPC the policy routed around
+
+**Symptom**: none reported. Found while adding a "public" rung to the VS remark
+visibility ladder (0096) and asking "who can actually write this field?".
+**Cause**: `vs_tickets_update_owner` (0009) is
+`using/with check (submitter_id = auth.uid())`. RLS is ROW-level — once the row
+check passes, PostgREST writes ANY column in the body. 0072 put the publishing
+gate inside `vs_set_public()` (SE-only, rejects confidential categories,
+requires an SE-written headline) and its invariant #2 says "a student's raw
+report is NEVER published verbatim" — but nothing stopped a student PATCHing
+the columns that function guards. Proven live in a rolled-back transaction as a
+real submitter's uid:
+```
+update vs_tickets set is_public=true, public_title='SELF-PUBLISHED', category='facilities'
+ where id = <their own ticket>;                    → UPDATE ACCEPTED
+get_public_vs_board(...)                           → 1 row
+get_public_vs_problem(id) → 'SELF-PUBLISHED'
+```
+Also self-close (`status`), reroute (`target_dept`), pollute internal triage
+(`tags`), and re-link into another thread (`duplicate_of`).
+**Fix**: `vs_tickets_self_update_guard` (0096), the 0028 pattern with the 0041
+lesson applied — it fires ONLY when `auth.uid() = old.submitter_id` and the
+caller is not a VS handler, so server contexts (null `auth.uid()`: migrations,
+definer RPCs, the cascade trigger, `tools/*.mjs` over the Management API) are
+untouched. Two details worth copying:
+- Compare `to_jsonb(old) - allowed_keys` against `to_jsonb(new) - allowed_keys`
+  instead of a hand-written column list, so a column added by a FUTURE
+  migration is guarded BY DEFAULT (fails closed).
+- Exclude `is_duplicate` from that comparison: it is `GENERATED ALWAYS`, and
+  Postgres computes generated columns AFTER before-row triggers, so
+  `NEW.is_duplicate` is NULL while `OLD` holds the stored value. Comparing them
+  rejects every write. (`updated_at` likewise — the touch trigger fires first,
+  't' < 'v' by name.)
+- Remarks are append-only + capped, and appended entries must be `vis:'ticket'`
+  authored by `'ผู้แจ้งปัญหา'` — otherwise a submitter appends
+  `{"vis":"public","by":"เจ้าหน้าที่"}` and it renders on the board as a staff
+  progress update.
+**Where**: `supabase/migrations/0096_vs_remark_visibility.sql` §6; proof
+`tools/vs0096-remark-vis.mjs` (27 checks).
+**Rule**: whenever a table's write authorization is "call this RPC, it checks
+things", grep for a per-row UPDATE policy on the same table. If one exists, the
+RPC is advisory and the real interface is `PATCH /rest/v1/<table>`. Every column
+that RPC validates needs a column guard, or the validation is decorative. Same
+family as the `public.users` `role` self-promotion entry above — that one was
+found in 2 tables, this is the third; **audit any `for update using (<col> =
+auth.uid())` policy the moment the table gains a column the owner must not set.**
+
+## Recreating a function from the migration that FIRST defined it silently reverts every later one
+
+**Symptom**: `tools/vs0083-scope.mjs` went 15/16 immediately after applying an
+unrelated feature migration — "board: reads staff-only comment on OWN dept"
+failed with `is_handler=true, reads_own=false`. Nothing in the new migration
+mentioned scopes or handlers.
+**Cause**: 0096 needed to add an `updates` key to `get_public_vs_problem`, so it
+was written by copying that function's body out of `0078_vs_staff_only_comments.sql`
+and editing it. But the function had been redefined AGAIN in
+`0084_vs_board_scoped_handler_is_staff.sql`, which added `v_scope
+text[] := current_user_vs_scope()` and two comment-visibility branches. Copying
+0078's body and `create or replace`-ing it dropped 0084's work — a clean apply,
+no error, and the only signal was a proof script from three migrations ago.
+`create or replace function` has no "are you sure you're editing the latest
+version" check; the file you read is not necessarily the definition that is live.
+**Fix**: before re-creating ANY existing function, diff against the LIVE body:
+```sql
+select pg_get_functiondef(p.oid) from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname='public' and p.proname='<fn>';
+```
+and/or `grep -ln "function public.<fn>" supabase/migrations/*.sql` to find every
+file that defines it — the LAST one is the base to edit. 0096 also touched
+`get_public_vs_board` (last defined 0078 ✔) and `get_vs_ticket_by_id` (last
+defined 0080 ✔); only the one with a THIRD definition bit.
+**Where**: `supabase/migrations/0096_vs_remark_visibility.sql` §5 (now carries a
+"BASED ON 0084's BODY" note naming the trap).
+**Rule**: the migrations directory is an append-only log, not a source tree —
+the newest definition wins and older files are actively misleading. Re-run the
+proof scripts for the FEATURE AREA after any function rewrite, not just for the
+thing you were changing; that is the only thing that caught this.
+
 ## Attribute-driven visibility: check that EVERY value in the markup has a handler, and which way an unhandled one fails
 
 **Symptom class** (three instances found in one sweep): an element gated by a

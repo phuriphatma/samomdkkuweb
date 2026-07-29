@@ -394,3 +394,83 @@
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .vs-showcase-foot { margin-top: auto; font-size: 0.75rem; color: #6b7280; }
+
+/* ==========================================================================
+ * ความคืบหน้าจากทีมงาน — the staff progress stream on a public Problem (0096)
+ *
+ * Deliberately does NOT look like .vs-comment: comments are a conversation
+ * (rounded cards, pseudonymous aliases), this is an official log. A left rail
+ * with numbered dots reads as "these are the steps the team has taken", which
+ * is the whole point of separating it from the discussion below.
+ * ========================================================================== */
+.vs-updates {
+  border: 1px solid #d6f0ee;
+  border-radius: 0.75rem;
+  background: linear-gradient(180deg, #f4fcfb 0%, #fff 60%);
+  padding: 0.9rem 1.1rem;
+}
+.vs-updates-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--pink-800, #17504e);
+  font-size: 0.95rem;
+}
+.vs-updates-head i { color: var(--pink-600, #2a807c); }
+.vs-updates-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--pink-700, #1c5e5b);
+  background: var(--pink-100, #d6f0ee);
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+}
+.vs-updates-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0 0 0 1.1rem;
+  border-left: 2px solid var(--pink-100, #d6f0ee);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.vs-update { position: relative; }
+.vs-update::before {
+  content: '';
+  position: absolute;
+  left: calc(-1.1rem - 5px);
+  top: 0.35rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pink-500, #35a09b);
+  box-shadow: 0 0 0 3px #fff;
+}
+/* Newest entry gets the accent — it's the current state of play. */
+.vs-update:last-child::before { background: var(--brand-orange, #ff6f30); }
+.vs-update-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+.vs-update-by { font-size: 0.78rem; font-weight: 700; color: var(--pink-700, #1c5e5b); }
+.vs-update-time { font-size: 0.72rem; color: #9ca3af; }
+.vs-update-body {
+  font-size: 0.92rem;
+  color: #374151;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Board-card counter for the same stream (sits beside the comment counter). */
+.vs-board-updates {
+  color: var(--pink-600, #2a807c);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

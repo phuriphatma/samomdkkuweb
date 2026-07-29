@@ -2,8 +2,8 @@
 // VS TRACKING — User ticket tracking & history
 // ==============================================
 
-import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText } from './utils.js';
-import { db, dbRest } from './db.js';
+import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText, remarkVis } from './utils.js';
+import { dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { vsResolution } from './vs-resolution.js';
 
@@ -11,10 +11,21 @@ let currentActiveTicketId = null;
 let canUserReply = false;
 let loggedInUserTickets = [];
 
-// Submitter-safe column allow-list for direct vs_tickets reads. Deliberately
-// EXCLUDES `duplicate_of` (leaks the canonical id → another student's ticket)
-// and any staff-only field; includes `is_duplicate` (non-identifying flag,
-// 0074) so the UI can show the linked-issue banner without the id.
+// Submitter-safe column allow-list for the LEGACY direct vs_tickets read.
+// Deliberately EXCLUDES `duplicate_of` (leaks the canonical id → another
+// student's ticket) and any staff-only field; includes `is_duplicate`
+// (non-identifying flag, 0074) so the UI can show the linked-issue banner
+// without the id.
+//
+// Only the pre-0021 guest fallback still uses this. The owner history read
+// moved to get_my_vs_tickets() in 0096 — a column allow-list cannot sanitize
+// `remarks`, whose 0071 `internal: true` entries embed the canonical ticket's
+// id in their TEXT ('รวมเป็นเรื่องซ้ำของ VS-…'). RLS lets an owner select
+// their own row, so that id was on the wire for anyone who opened DevTools,
+// and get_vs_ticket_by_id() is granted to anon — one paste away from another
+// student's confidential complaint. Filtering it in rowToTicket() was
+// cosmetic. See mistakes.md, "Sanitizing ONE read path … leaves parallel read
+// paths leaking" — same bug 0074 fixed for the COLUMN and missed for the TEXT.
 const SUBMITTER_COLS =
   'id,timestamp,created_at,problem,target_dept,status,remarks,resolution,resolution_note,is_duplicate';
 
@@ -83,11 +94,13 @@ function rowToTicket(r) {
     problem: r.problem,
     dept: r.target_dept,
     status: r.status,
-    // Never surface staff-internal remarks (dedup cross-references that name
-    // another ticket's id) to a submitter. The get_vs_ticket_by_id RPC already
-    // strips these + nulls duplicate_of (0071); this filters the RPC-missing
-    // direct-read fallback too. See mistakes.md (VS duplicate confidentiality).
-    remarks: Array.isArray(r.remarks) ? r.remarks.filter((e) => !e?.internal) : [],
+    // Both submitter read paths now strip staff-only entries SERVER-side
+    // (get_my_vs_tickets + get_vs_ticket_by_id, 0096) — this filter is
+    // defence-in-depth for the pre-0021 direct-read fallback below, and it
+    // matches the server's ladder: anything at 'staff' never reaches here.
+    // Entries carrying from_thread came from a sibling ticket in the same
+    // duplicate group; renderTimeline labels them.
+    remarks: Array.isArray(r.remarks) ? r.remarks.filter((e) => remarkVis(e) !== 'staff') : [],
     // Resolution reason on close (0073) — submitter-facing outcome. Present on
     // both the guest by-id lookup (returns the whole row) and the owner read.
     resolution: r.resolution || null,
@@ -139,8 +152,8 @@ export async function trackWithTicketId() {
       renderUserDashboard(rowToTicket(row));
       document.getElementById('vsLoginBox').classList.add('d-none');
       document.getElementById('vsDashboardBox').classList.remove('d-none');
-      const btnBack = document.getElementById('btnBackToHistory');
-      btnBack.innerText = 'กลับหน้าค้นหา'; btnBack.onclick = logoutTrack;
+      // Arrived by ticket-ID lookup → back goes to the search screen.
+      setDashBack('กลับหน้าค้นหาสถานะ', logoutTrack);
     } else {
       alertBox.classList.remove('d-none');
       alertBox.innerText = 'ไม่พบ Ticket นี้ในระบบ';
@@ -171,22 +184,17 @@ export async function loginToViewHistory() {
   alertBox.classList.add('d-none');
 
   try {
-    const submitterLabel = authUser.email || (authUser.username ? `@${authUser.username}` : '');
-    // RLS lets you read your own tickets; the OR matches both linked-by-id
-    // (new submissions) and label-matched (migrated legacy rows).
-    // dbRest instead of supabase-js .from — same bad-state guard as
-    // trackWithTicketId above. PostgREST `or=(...)` syntax in the URL.
-    const orClause = `or=(submitter_id.eq.${encodeURIComponent(authUser.id)},submitter_label.eq.${encodeURIComponent(submitterLabel)})`;
-    // Explicit column allow-list — NEVER select `duplicate_of`. Returning it to
-    // a submitter would leak the canonical ticket's id (a lookup capability),
-    // re-exposing another student's confidential complaint. The submitter learns
-    // "yours is linked" from the non-identifying `is_duplicate` flag instead
-    // (0074). Same reason the guest RPC nulls duplicate_of (0071).
-    const { data, error } = await dbRest(
-      `/vs_tickets?select=${SUBMITTER_COLS}&${orClause}&deleted_at=is.null&order=timestamp.desc`,
-    );
+    // get_my_vs_tickets (0096) — a SECURITY DEFINER read that resolves "which
+    // tickets are mine" from auth.uid() server-side (never a client-supplied
+    // label) and returns the submitter-safe projection: no `duplicate_of`, no
+    // internal tags, no staff-only remarks, PLUS any thread-scoped progress
+    // notes shared across this ticket's duplicate group.
+    const { data, error } = await dbRest('/rpc/get_my_vs_tickets', {
+      method: 'POST', body: {},
+    });
     if (error) throw new Error(error.message || 'โหลดประวัติล้มเหลว');
-    loggedInUserTickets = (data || []).map(rowToTicket);
+    // The RPC returns a jsonb array; dbRest hands it back as-is.
+    loggedInUserTickets = (Array.isArray(data) ? data : []).map(rowToTicket);
     renderUserHistoryList();
     document.getElementById('vsLoginBox').classList.add('d-none');
     document.getElementById('vsDashboardBox').classList.add('d-none');
@@ -242,10 +250,23 @@ export function openTicketDetail(ticketId) {
     renderUserDashboard(ticket);
     document.getElementById('vsUserHistoryBox').classList.add('d-none');
     document.getElementById('vsDashboardBox').classList.remove('d-none');
-    const btnBack = document.getElementById('btnBackToHistory');
-    btnBack.innerText = 'กลับหน้าประวัติ';
-    btnBack.onclick = function () { document.getElementById('vsDashboardBox').classList.add('d-none'); document.getElementById('vsUserHistoryBox').classList.remove('d-none'); };
+    // Arrived from the history list → back returns there, not to the search.
+    setDashBack('กลับหน้าประวัติ', () => {
+      document.getElementById('vsDashboardBox').classList.add('d-none');
+      document.getElementById('vsUserHistoryBox').classList.remove('d-none');
+    });
   }
+}
+
+/** Point the detail view's top-left back link at wherever the user came from.
+ *  The markup is `<i class="bi bi-arrow-left"></i><span id="…Label">` — write
+ *  the SPAN, never the button's innerText, or the arrow icon is destroyed. */
+function setDashBack(label, handler) {
+  const btn = document.getElementById('btnBackToHistory');
+  if (!btn) return;
+  const span = document.getElementById('btnBackToHistoryLabel');
+  if (span) span.textContent = label; else btn.textContent = label;
+  btn.onclick = handler;
 }
 
 // --------------------------------------------------
@@ -370,27 +391,20 @@ export async function submitUserRemark() {
   btn.innerHTML = 'กำลังส่ง...'; btn.disabled = true;
 
   try {
-    const { data: existing, error: fetchErr } = await db
-      .from('vs_tickets')
-      .select('remarks')
-      .eq('id', currentActiveTicketId)
-      .maybeSingle();
-    if (fetchErr) throw fetchErr;
-    const remarks = Array.isArray(existing?.remarks) ? [...existing.remarks] : [];
-    const time = new Date().toLocaleString('en-GB', {
-      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    // vs_add_submitter_remark (0096). The old path was read-modify-write from
+    // the browser — select the RAW remarks array (staff-only entries and all,
+    // the leak fixed above), push, PATCH the whole thing back. Two replies in
+    // flight also silently clobbered each other. The RPC appends server-side,
+    // stamps the author + `vis: 'ticket'` itself, and verifies ownership.
+    const { error } = await dbRest('/rpc/vs_add_submitter_remark', {
+      method: 'POST',
+      body: { p_id: currentActiveTicketId, p_text: text },
     });
-    remarks.push({ by: 'ผู้แจ้งปัญหา', time, text });
-    // dbRest + return=representation: supabase-js would silently report
-    // success on an RLS-blocked update (mistakes.md).
-    const idEsc = encodeURIComponent(currentActiveTicketId);
-    const { data: updated, error: updErr } = await dbRest(
-      `/vs_tickets?id=eq.${idEsc}`,
-      { method: 'PATCH', body: { remarks }, prefer: 'return=representation' },
-    );
-    if (updErr) throw new Error(updErr.message || 'update failed');
-    if (!Array.isArray(updated) || updated.length === 0) {
-      throw new Error('ส่งข้อความไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์ตอบกลับ');
+    if (error) {
+      const raw = error.message || '';
+      let msg = 'ไม่พบ ticket หรือคุณไม่มีสิทธิ์ตอบกลับ';
+      try { msg = JSON.parse(raw)?.message || msg; } catch { /* keep the default */ }
+      throw new Error(msg);
     }
     document.getElementById('userRemarkInput').value = '';
     loginToViewHistory();
@@ -399,16 +413,30 @@ export async function submitUserRemark() {
 }
 
 // --------------------------------------------------
-// Logout
+// Back to the ติดตามสถานะ entry screen
+//
+// Despite the name this never signs anyone out — it just returns to the box
+// holding both "โหลดประวัติของฉัน" and the ticket-ID search. It is now the
+// back target for BOTH sub-views (history list and ticket detail), so it has
+// to leave a clean slate.
+//
+// It used to clear #trackUsername / #trackPassword, which no longer exist —
+// the signed-in/signed-out split replaced them with #trackTicketIdAuth and
+// #trackTicketId. getElementById returned null and the function threw
+// mid-way, so the view switched but the stale #trackAlert error stayed on
+// screen and an uncaught TypeError hit the console every time. Every lookup
+// here is optional-chained so a future markup change degrades instead of
+// half-running.
 // --------------------------------------------------
 
 export function logoutTrack() {
   currentActiveTicketId = null; canUserReply = false; loggedInUserTickets = [];
-  document.getElementById('vsDashboardBox').classList.add('d-none');
-  document.getElementById('vsUserHistoryBox').classList.add('d-none');
-  document.getElementById('vsLoginBox').classList.remove('d-none');
-  document.getElementById('trackTicketId').value = '';
-  document.getElementById('trackUsername').value = '';
-  document.getElementById('trackPassword').value = '';
-  document.getElementById('trackAlert').classList.add('d-none');
+  document.getElementById('vsDashboardBox')?.classList.add('d-none');
+  document.getElementById('vsUserHistoryBox')?.classList.add('d-none');
+  document.getElementById('vsLoginBox')?.classList.remove('d-none');
+  const guestId = document.getElementById('trackTicketId');
+  if (guestId) guestId.value = '';
+  const authId = document.getElementById('trackTicketIdAuth');
+  if (authId) authId.value = '';
+  document.getElementById('trackAlert')?.classList.add('d-none');
 }

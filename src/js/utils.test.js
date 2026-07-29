@@ -4,7 +4,62 @@
 // browser instead.
 
 import { describe, it, expect } from 'vitest';
-import { escHtml, safeUrl, formatThaiDate, decodeJwtResponse, stripHtmlToText } from './utils.js';
+import {
+  escHtml, safeUrl, formatThaiDate, decodeJwtResponse, stripHtmlToText,
+  remarkVis, VS_REMARK_VIS,
+} from './utils.js';
+
+// remarkVis mirrors public.vs_remark_vis() (migration 0096). Both sides must
+// agree or the client hides a note the server sent (or worse, shows one it
+// believes is staff-only). The server is the boundary — these cases exist to
+// keep the mirror honest, and to pin the two failure modes that matter:
+// a MISSING vis must read as 'ticket' (never 'public'), and a malformed value
+// must fall back to the narrowest sane rung rather than throwing.
+describe('remarkVis (0096 visibility ladder)', () => {
+  it('reads an explicit rung', () => {
+    for (const v of ['staff', 'ticket', 'thread', 'public']) {
+      expect(remarkVis({ vis: v })).toBe(v);
+    }
+  });
+
+  it('defaults a legacy remark with no vis to ticket', () => {
+    expect(remarkVis({ by: 'SE', text: 'hi' })).toBe('ticket');
+    expect(remarkVis({})).toBe('ticket');
+  });
+
+  it('maps the legacy internal flag to staff', () => {
+    expect(remarkVis({ internal: true })).toBe('staff');
+    expect(remarkVis({ internal: 'true' })).toBe('staff');   // jsonb->>text shape
+    expect(remarkVis({ internal: false })).toBe('ticket');
+  });
+
+  it('lets an explicit vis win over the legacy flag', () => {
+    expect(remarkVis({ vis: 'public', internal: false })).toBe('public');
+    // staff-only entries are written with BOTH during the deploy window
+    expect(remarkVis({ vis: 'staff', internal: true })).toBe('staff');
+  });
+
+  it('never widens on a malformed or hostile value', () => {
+    // The remarks array is client-written, so these are reachable inputs.
+    expect(remarkVis({ vis: 'PUBLIC' })).toBe('ticket');
+    expect(remarkVis({ vis: 'everyone' })).toBe('ticket');
+    expect(remarkVis({ vis: null })).toBe('ticket');
+    expect(remarkVis({ vis: 42 })).toBe('ticket');
+    expect(remarkVis({ internal: 'yes' })).toBe('ticket');
+  });
+
+  it('does not throw on null/undefined entries', () => {
+    expect(remarkVis(null)).toBe('ticket');
+    expect(remarkVis(undefined)).toBe('ticket');
+  });
+
+  it('has display metadata for every rung', () => {
+    for (const v of ['staff', 'ticket', 'thread', 'public']) {
+      expect(VS_REMARK_VIS[v]?.short).toBeTruthy();
+      expect(VS_REMARK_VIS[v]?.icon).toMatch(/^bi-/);
+    }
+  });
+});
 
 describe('escHtml', () => {
   it('escapes the five HTML-significant characters', () => {

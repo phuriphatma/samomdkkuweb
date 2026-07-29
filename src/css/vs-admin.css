@@ -436,8 +436,11 @@
 
 /* Tag manager list rows. */
 .vs-tag-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.vs-tag-row { display: flex; align-items: center; gap: 0.5rem; }
-.vs-tag-row .vs-tag-label { flex: 1 1 auto; min-width: 0; }
+/* wrap + non-shrinking buttons: the row carries swatch, label, 8 colour dots
+   and now BOTH ซ่อน and ลบ — without these it crushes on a phone. */
+.vs-tag-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.vs-tag-row .vs-tag-label { flex: 1 1 8rem; min-width: 0; }
+.vs-tag-row .btn { flex-shrink: 0; }
 .vs-tag-row.is-hidden .vs-tag-label { opacity: 0.5; }
 .vs-tag-swatch {
   flex-shrink: 0; width: 0.9rem; height: 0.9rem; border-radius: 999px;
@@ -455,3 +458,22 @@
 
 /* Tag manager stacks ABOVE the staff ticket modal (JS bumps the backdrop). */
 #vsTagModal { z-index: 1080; }
+
+/* --- บันทึกข้อความ visibility picker (0096) -------------------------------
+ * Sits directly under the remark textarea. The select is narrow on desktop
+ * (it's a qualifier, not the main input) and full-width on mobile where the
+ * Thai option labels would otherwise truncate. Admin-entry only: the partial
+ * that uses it (modal-vs-staff.html) is included by admin/index.html alone —
+ * putting this in vs.css would ship it unstyled (see mistakes.md). */
+.vs-remark-vis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+}
+.vs-remark-vis label { color: #4b5563; white-space: nowrap; }
+.vs-remark-vis select { max-width: 22rem; flex: 1 1 14rem; }
+.vs-remark-vis .form-text { flex: 1 1 100%; margin-top: 0 !important; line-height: 1.45; }
+@media (max-width: 575.98px) {
+  .vs-remark-vis select { max-width: 100%; flex-basis: 100%; }
+}

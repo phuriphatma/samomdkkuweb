@@ -620,11 +620,15 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
     `วันที่แจ้ง: ${formattedDate} | ฝ่ายที่รับผิดชอบ: ${dept}`
     + (updAgo ? ` | อัปเดตล่าสุด: ${updAgo} ที่แล้ว` : '');
   document.getElementById('staffModalProblem').innerHTML = problemHTML;
-  renderTimeline('staffModalTimeline', remarks, formattedDate);
+  // showVis: staff see who each note reaches. The submitter view never gets
+  // this — labelling a note "เฉพาะเจ้าหน้าที่" would advertise notes they
+  // cannot read (and the server never sends them anyway).
+  renderTimeline('staffModalTimeline', remarks, formattedDate, { showVis: true });
 
   document.getElementById('staffActionStatus').value = status;
   document.getElementById('staffActionTransfer').value = dept;
   document.getElementById('staffActionRemark').value = '';
+  setupRemarkVisUI(id);
   document.getElementById('staffNotifyTo').value = '';
   document.getElementById('staffSilentNotify').checked = false;
   setupResolutionUI(status);
@@ -697,6 +701,74 @@ function syncResolutionNoteHint() {
   if (note) note.placeholder = required
     ? 'ระบุเหตุผลที่ไม่สามารถดำเนินการได้ (นักศึกษาจะเห็นข้อความนี้)'
     : 'รายละเอียดผลการดำเนินการ (นักศึกษาจะเห็นข้อความนี้)';
+}
+
+// ----- Remark visibility picker (migration 0096) -----
+
+let remarkVisWired = false;
+
+/** Size of the duplicate group a ticket belongs to (canonical + its dups),
+ *  counted from the loaded cache. Used to word the 'thread' hint concretely —
+ *  "ทุกคนในกลุ่มเรื่องซ้ำ" is meaningless without knowing how many that is. */
+function threadSizeFor(id) {
+  const t = staffTicketsCache.find((x) => x.id === id);
+  if (!t) return 1;
+  const canonicalId = t.duplicate_of || t.id;
+  return 1 + staffTicketsCache.filter((x) => x.duplicate_of === canonicalId && !x.deleted_at).length;
+}
+
+/** Reset the picker to the safe default and describe the selected rung.
+ *  Default is 'ticket' — the audience a plain remark has always had — so a
+ *  staff member who ignores the control gets exactly the old behaviour. The
+ *  privilege-WIDENING rungs are never the default (mistakes.md: "the
+ *  privilege-escalating option must never be a select's default"). */
+function setupRemarkVisUI(id) {
+  const sel = document.getElementById('staffRemarkVis');
+  if (!sel) return;
+  sel.value = 'ticket';
+  if (!remarkVisWired) {
+    remarkVisWired = true;
+    sel.addEventListener('change', () => refreshRemarkVisHint(currentActiveTicketId));
+  }
+  refreshRemarkVisHint(id);
+}
+
+function refreshRemarkVisHint(id) {
+  const sel = document.getElementById('staffRemarkVis');
+  const hint = document.getElementById('staffRemarkVisHint');
+  if (!sel || !hint) return;
+  const t = staffTicketsCache.find((x) => x.id === id);
+  const n = threadSizeFor(id);
+  let msg = '';
+  let warn = false;
+
+  switch (sel.value) {
+    case 'staff':
+      msg = 'ผู้แจ้งจะไม่เห็นข้อความนี้ — ใช้สำหรับบันทึกภายในทีม';
+      break;
+    case 'thread':
+      msg = n > 1
+        ? `ผู้แจ้งทั้ง ${n} เรื่องในกลุ่มนี้จะเห็นข้อความเดียวกัน — อย่าระบุหมายเลข ticket หรือข้อมูลของผู้แจ้งรายอื่น`
+        : 'เรื่องนี้ยังไม่มีเรื่องซ้ำ — ตอนนี้จึงเห็นเฉพาะผู้แจ้งเรื่องนี้ และจะแสดงให้เรื่องซ้ำที่รวมเข้ามาภายหลังด้วย';
+      warn = n > 1;
+      break;
+    case 'public':
+      msg = 'ทุกคนบนกระดานปัญหาเห็น รวมถึงผู้ที่ไม่ได้เข้าสู่ระบบ — อย่าระบุชื่อหรือข้อมูลส่วนบุคคล';
+      warn = true;
+      // A public note on an unpublished ticket is stored but has nowhere to
+      // show. Say so rather than letting staff think the post failed.
+      if (t && !t.is_public) {
+        msg += (t.duplicate_of
+          ? ' • เรื่องนี้เป็นเรื่องซ้ำ — ข้อความจะไปแสดงใต้เรื่องหลักเมื่อเรื่องหลักถูกเผยแพร่'
+          : ' • เรื่องนี้ยังไม่ได้เผยแพร่ — ข้อความจะแสดงเมื่อกด "เผยแพร่สู่กระดานปัญหา"');
+      }
+      break;
+    default:
+      msg = 'ผู้แจ้งเรื่องนี้เห็น — เรื่องซ้ำอื่นในกลุ่มไม่เห็น';
+  }
+  hint.textContent = msg;
+  hint.classList.toggle('text-danger', warn);
+  hint.classList.toggle('text-muted', !warn);
 }
 
 // ----- Duplicate management (Phase 1, migration 0068) -----
@@ -1386,8 +1458,13 @@ function renderVsTagManager() {
       <input type="text" class="form-control form-control-sm vs-tag-label" maxlength="40"
         value="${escHtml(tg.label)}" ${tg.is_active ? '' : 'disabled'} aria-label="ชื่อแท็ก">
       <div class="vs-tag-dots">${colorDotsHtml(tg.id, tg.color)}</div>
-      <button type="button" class="btn btn-sm btn-outline-secondary" data-tag-toggle>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-tag-toggle
+        title="${tg.is_active ? 'ซ่อนแท็ก (เรื่องที่ติดไว้ยังคงอยู่)' : 'แสดงแท็กอีกครั้ง'}">
         ${tg.is_active ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>'}
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-danger" data-tag-delete
+        title="ลบแท็กถาวร">
+        <i class="bi bi-trash"></i>
       </button>
     </div>
   `).join('');
@@ -1407,7 +1484,53 @@ function renderVsTagManager() {
       if (!tg) return;
       vsTagPatch(id, { is_active: !tg.is_active }, tg.is_active ? 'ซ่อนแท็กแล้ว' : 'แสดงแท็กแล้ว');
     });
+    row.querySelector('[data-tag-delete]')?.addEventListener('click', () => vsTagDelete(id));
   });
+}
+
+/** Hard-delete a tag from the dept's vocabulary.
+ *
+ *  Safe to do so BY DESIGN: vs_tickets.tags is a loose text[] with no FK
+ *  (0079 chose this deliberately, matching vs_tickets.category) precisely so
+ *  retiring a tag can never break a ticket. tagChipsFor() already drops an id
+ *  it can't resolve, so orphaned references render as nothing rather than a
+ *  broken chip — which is also why there is no 23503 case to handle here (cf.
+ *  the shop_products ON DELETE RESTRICT entry in mistakes.md).
+ *
+ *  It IS destructive in one visible way: every ticket still carrying the tag
+ *  silently loses that classification, and the ids stay behind as dead weight.
+ *  So the confirm names the count instead of asking an abstract "are you
+ *  sure?", and steers to ซ่อน when the tag is actually in use — hiding keeps
+ *  the history and stops offering the tag, which is what "retire" usually
+ *  means. Counting comes from the loaded staff cache, which is RLS-filtered:
+ *  a dept-scoped handler only sees their own dept's tickets, so the number can
+ *  UNDERSTATE cross-dept usage. Worded as "อย่างน้อย" for that reason. */
+async function vsTagDelete(id) {
+  const tg = vsTagManagerRows.find((x) => x.id === id);
+  if (!tg) return;
+  const inUse = staffTicketsCache.filter(
+    (t) => Array.isArray(t.tags) && t.tags.includes(id) && !t.deleted_at).length;
+
+  const warn = inUse > 0
+    ? `\n\nมีอย่างน้อย ${inUse} เรื่องที่ติดแท็กนี้อยู่ — แท็กจะหายไปจากเรื่องเหล่านั้นและกู้คืนไม่ได้`
+      + '\n\nหากต้องการเพียงเลิกใช้งาน ให้กด "ซ่อน" (รูปตา) แทน — เรื่องเดิมจะยังคงแท็กไว้'
+    : '\n\nยังไม่มีเรื่องใดติดแท็กนี้';
+  if (!confirm(`ลบแท็ก "${tg.label}" ถาวร?${warn}`)) return;
+
+  const { data, error } = await dbRest(
+    `/vs_tags?id=eq.${encodeURIComponent(id)}`,
+    { method: 'DELETE', prefer: 'return=representation' });
+  // return=representation + a length check: an RLS-blocked DELETE is a silent
+  // no-op otherwise (mistakes.md, "silent-success on RLS-blocked deletes").
+  if (error || !Array.isArray(data) || data.length === 0) {
+    vsTagStatus('ลบไม่สำเร็จ — คุณอาจไม่มีสิทธิ์ลบแท็กของฝ่ายนี้', true);
+    return;
+  }
+  vsTagManagerRows = vsTagManagerRows.filter((x) => x.id !== id);
+  vsTagsCache = null;                 // facet / chips / editor reload next paint
+  renderVsTagManager();
+  refreshTagsAfterMutate();
+  vsTagStatus(`ลบ "${tg.label}" แล้ว`);
 }
 
 async function vsTagPatch(id, patch, okMsg) {
@@ -1656,6 +1779,7 @@ export async function submitStaffAction() {
   const newStatus = document.getElementById('staffActionStatus').value;
   const newDept = document.getElementById('staffActionTransfer').value;
   const remark = document.getElementById('staffActionRemark').value.trim();
+  const remarkVis = document.getElementById('staffRemarkVis')?.value || 'ticket';
   const notifyTo = document.getElementById('staffNotifyTo').value;
   const isSilent = document.getElementById('staffSilentNotify').checked;
 
@@ -1704,6 +1828,18 @@ export async function submitStaffAction() {
     return;
   }
 
+  // A remark at a WIDENING rung gets an explicit confirm naming the audience.
+  // The safe rung ('ticket', the default) never asks. Same principle as the
+  // vs_categories confidential toggle: guard the direction that REMOVES
+  // protection, not the one that keeps it (mistakes.md).
+  if (remark && (remarkVis === 'public' || remarkVis === 'thread')) {
+    const n = threadSizeFor(currentActiveTicketId);
+    const who = remarkVis === 'public'
+      ? 'ทุกคนบนกระดานปัญหา (รวมผู้ที่ไม่ได้เข้าสู่ระบบ)'
+      : `ผู้แจ้งทั้ง ${n} เรื่องในกลุ่มเรื่องซ้ำนี้`;
+    if (!confirm(`ข้อความนี้จะแสดงต่อ ${who}\n\n"${remark}"\n\nยืนยันการบันทึก?`)) return;
+  }
+
   // Closing a ticket requires a reason; wont_do additionally requires a note.
   if (closingNow && !resolution) {
     alert('กรุณาเลือกเหตุผลการปิดเรื่องก่อนบันทึก');
@@ -1744,26 +1880,39 @@ export async function submitStaffAction() {
     const time = new Date().toLocaleString('en-GB', {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
     });
+    // 0096 — machine-sortable stamp. `time` above is a display string with no
+    // year, so it cannot order a timeline merged across tickets in a duplicate
+    // group. Every new entry carries `at`; legacy entries (no `at`) sort first.
+    const at = new Date().toISOString();
+    // Staff-only entries keep `internal: true` ALONGSIDE vis:'staff' — a
+    // browser still running the pre-0096 bundle filters on `internal`, and
+    // during the deploy window it must not start showing internal notes.
+    const staffOnly = { vis: 'staff', internal: true };
     // Human actor label — never the internal "__all__" filter value.
     const actor = staffActorLabel();
     if (statusChanged) {
-      remarks.push({ type: 'log', by: actor, time, text: `เปลี่ยนสถานะ: "${existing.status}" → "${newStatus}"` });
+      remarks.push({ type: 'log', by: actor, time, at, text: `เปลี่ยนสถานะ: "${existing.status}" → "${newStatus}"` });
     }
     if (deptChanged) {
-      remarks.push({ type: 'log', by: actor, time, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` });
+      remarks.push({ type: 'log', by: actor, time, at, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` });
     }
     if (notifyTo) {
-      remarks.push({ type: 'log', by: actor, time, text: `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "${notifyTo}"` });
+      remarks.push({ type: 'log', by: actor, time, at, text: `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "${notifyTo}"` });
     }
     if (remark) {
-      remarks.push({ type: 'remark', by: actor, time, text: remark });
+      // The one entry whose audience the staff member chose (0096).
+      remarks.push({
+        type: 'remark', by: actor, time, at, vis: remarkVis,
+        ...(remarkVis === 'staff' ? { internal: true } : {}),
+        text: remark,
+      });
     }
     if (willWriteResolution) {
       const meta = vsResolution(resolution);
       // Submitter-visible (NOT internal) — this is the outcome we want the
       // student to read on their tracking view.
       remarks.push({
-        type: 'log', by: actor, time,
+        type: 'log', by: actor, time, at,
         text: `สรุปผลการดำเนินการ: ${meta?.student || resolution}${resNote ? ` — ${resNote}` : ''}`,
       });
     }
@@ -1773,7 +1922,7 @@ export async function submitStaffAction() {
       // Internal classification — staff-only log (submitters don't need the
       // internal taxonomy churn in their timeline).
       remarks.push({
-        type: 'log', by: actor, time, internal: true,
+        type: 'log', by: actor, time, at, ...staffOnly,
         text: `เปลี่ยนหมวดหมู่: ${catMeta?.label || newCategory || 'ไม่ระบุ'}`,
       });
     }
@@ -1784,7 +1933,7 @@ export async function submitStaffAction() {
       const labelOf = (id) => (vsTagsCache || []).find((x) => x.id === id)?.label || id;
       const shown = newTags.map(labelOf).join(', ');
       remarks.push({
-        type: 'log', by: actor, time, internal: true,
+        type: 'log', by: actor, time, at, ...staffOnly,
         text: `แท็กภายใน: ${shown || '(ไม่มี)'}`,
       });
     }

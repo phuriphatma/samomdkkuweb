@@ -19,13 +19,48 @@ export function formatThaiDate(dateVal) {
   }
 }
 
+// ==============================================
+// VS remark visibility ladder (migration 0096)
+// ==============================================
+// Each remark entry carries a `vis` naming the widest audience that may read
+// it. The rungs are ordered — each includes the one above it:
+//
+//   staff  → เจ้าหน้าที่ only            (what `internal: true` used to mean)
+//   ticket → + this ticket's submitter   ← the default for a plain remark
+//   thread → + every submitter in the duplicate group
+//   public → + the public board (anyone, signed in or not)
+//
+// This is a MIRROR of public.vs_remark_vis() in 0096 — the server is the
+// boundary (a submitter cannot write anything above `ticket`; the
+// vs_tickets_self_update_guard trigger rejects it). Keep the two in step.
+
+export const VS_REMARK_VIS = {
+  staff:  { label: 'เฉพาะเจ้าหน้าที่',       short: 'เจ้าหน้าที่', icon: 'bi-lock-fill' },
+  ticket: { label: 'ผู้แจ้งเรื่องนี้',        short: 'ผู้แจ้ง',     icon: 'bi-person-fill' },
+  thread: { label: 'ทุกคนในกลุ่มเรื่องซ้ำ',   short: 'กลุ่มเรื่องซ้ำ', icon: 'bi-diagram-3-fill' },
+  public: { label: 'สาธารณะ (กระดานปัญหา)',  short: 'สาธารณะ',    icon: 'bi-megaphone-fill' },
+};
+
+/** Normalize any remark entry — legacy or 0096-era — to one ladder rung.
+ *  Legacy `internal: true` reads as 'staff'; a missing `vis` reads as
+ *  'ticket'. Never throws on a malformed value (the array is client-written). */
+export function remarkVis(rem) {
+  const v = rem && rem.vis;
+  if (v === 'staff' || v === 'ticket' || v === 'thread' || v === 'public') return v;
+  const legacy = rem && rem.internal;
+  if (legacy === true || String(legacy).toLowerCase() === 'true') return 'staff';
+  return 'ticket';
+}
+
 /**
  * Render a timeline of remarks/logs into a container element.
  * @param {string} containerId - DOM element ID for the timeline container
- * @param {Array} remarks - Array of remark objects {type, by, time, text}
+ * @param {Array} remarks - Array of remark objects {type, by, time, text, vis?, from_thread?}
  * @param {string} ticketDate - Date string of ticket creation
+ * @param {{showVis?: boolean}} [opts] - showVis: label each entry's audience
+ *        (staff views only — a submitter must not be told a note was withheld).
  */
-export function renderTimeline(containerId, remarks, ticketDate) {
+export function renderTimeline(containerId, remarks, ticketDate, opts = {}) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
 
@@ -59,11 +94,26 @@ export function renderTimeline(containerId, remarks, ticketDate) {
       ? `<span class="badge bg-secondary fw-normal">${escHtml(by)}</span>`
       : `<span class="fw-bold">${escHtml(by)}</span>`;
 
+    // 0096 — provenance + audience chips.
+    // `from_thread` is set by vs_thread_remarks(): the note was written on a
+    // SIBLING ticket in this duplicate group. Say so, or a submitter reads a
+    // note about someone else's report as being about theirs.
+    const vis = remarkVis(rem);
+    const meta = VS_REMARK_VIS[vis];
+    const threadChip = rem.from_thread
+      ? '<span class="tl-chip is-thread"><i class="bi bi-diagram-3 me-1"></i>จากเรื่องที่เกี่ยวข้อง</span>'
+      : '';
+    // Audience chip is staff-only: telling a submitter "this one is
+    // เฉพาะเจ้าหน้าที่" would advertise the existence of notes they can't read.
+    const visChip = opts.showVis && meta
+      ? `<span class="tl-chip is-vis-${vis}"><i class="bi ${meta.icon} me-1"></i>${escHtml(meta.short)}</span>`
+      : '';
+
     container.insertAdjacentHTML('beforeend', `
       <div class="mb-4 position-relative">
         <span class="position-absolute top-0 start-0 translate-middle p-2 border border-light rounded-circle" style="left:-1.5rem!important; background-color:${dotColor}!important;"></span>
         <div class="text-muted small">${escHtml(rem.time)}</div>
-        <div>${label}</div>
+        <div>${label}${threadChip}${visChip}</div>
         <div class="${boxClass} rounded p-2 mt-1 small">${icon} ${escHtml(rem.text)}</div>
       </div>
     `);

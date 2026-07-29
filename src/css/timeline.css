@@ -16,3 +16,29 @@
   background: #f0fdf4;
   border-left: 3px solid #22c55e;
 }
+
+/* --- provenance + audience chips (0096) ---------------------------------
+ * `is-thread`  : this note came from a SIBLING ticket in the duplicate group
+ *                (shown to everyone, including the submitter).
+ * `is-vis-*`   : who may read the note. STAFF VIEWS ONLY — renderTimeline
+ *                only emits these when opts.showVis is set. Loaded by BOTH
+ *                entries (main.css + admin.css), so the submitter timeline
+ *                and the staff modal stay visually consistent. */
+.tl-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 1px solid transparent;
+}
+.tl-chip.is-thread     { background: #eef2ff; color: #4338ca; border-color: #dbe1fb; }
+.tl-chip.is-vis-staff  { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.tl-chip.is-vis-ticket { background: #f0fdf4; color: #15803d; border-color: #dcfce7; }
+.tl-chip.is-vis-thread { background: #eef2ff; color: #4338ca; border-color: #dbe1fb; }
+.tl-chip.is-vis-public { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }

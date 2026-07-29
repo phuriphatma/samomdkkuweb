@@ -178,33 +178,16 @@ window.showAdminLanding = () => { location.href = '/admin/'; };
 window.openAdminSection = (which) => { location.href = '/admin/#' + which; };
 window.openManageAgentsModal = () => { location.href = '/admin/#pr'; };
 
-// VS track: load history using the global auth identity. VS submission/
-// lookup is still on GAS in Phase 1, keyed by (username, password). We
-// pass the same synthesized pair we used at submit time (email/@username
-// + auth user UUID). Phase 3 migrates VS storage to Supabase and the
-// password becomes irrelevant — auth.uid() is the FK.
+// VS track: load the signed-in user's own history.
+//
+// This used to synthesize a (username, password) pair into #trackUsername /
+// #trackPassword for the GAS-era lookup. Both inputs were removed with the
+// signed-in/signed-out split, and since 0096 the read is get_my_vs_tickets(),
+// which resolves "which tickets are mine" from auth.uid() SERVER-side — a
+// client-supplied identity is neither needed nor trusted. So the wrapper is
+// just a signed-in check now; loginToViewHistory() surfaces its own errors.
 window.loadVSHistoryFromAuth = () => {
-  const alertBox = document.getElementById('trackAlert');
-  const user = authGetUser();
-  if (!user) return;
-
-  const synthUser = user.email || (user.username ? `@${user.username}` : '');
-  const synthPass = user.id || '';
-
-  if (!synthUser || !synthPass) {
-    if (alertBox) {
-      alertBox.classList.remove('d-none');
-      alertBox.innerHTML = 'ข้อมูลการเข้าสู่ระบบไม่สมบูรณ์ กรุณา'
-        + '<a href="#" onclick="event.preventDefault(); samoSignOut();" class="alert-link">ออกจากระบบ</a>'
-        + ' แล้วเข้าสู่ระบบใหม่อีกครั้ง';
-    }
-    return;
-  }
-
-  const u = document.getElementById('trackUsername');
-  const p = document.getElementById('trackPassword');
-  if (u) u.value = synthUser;
-  if (p) p.value = synthPass;
+  if (!authGetUser()) return;
   loginToViewHistory();
 };
 

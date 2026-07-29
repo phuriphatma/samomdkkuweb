@@ -107,6 +107,39 @@ async function main() {
   const noneCreate = await canCreate(null);
   check('no seat CANNOT create a project', !noneCreate.ok, noneCreate.body);
 
+  // ---- 0097: project_files DELETE was the last role-only policy on the
+  //      table, so a seat could upload a file and then not delete it. Again
+  //      a real DELETE, not a check of current_user_is_project_actor(). ----
+  const canDeleteFile = async (seat) => {
+    const r = await asSeat(seat, `
+      insert into public.projects (id, name, created_by)
+        values ('PRJ-ZZ0097', 'file seat probe', ${lit(UID)}) on conflict do nothing;
+      insert into public.project_documents (id, project_id, title, type_id, created_by)
+        values ('DOC-ZZ0097', 'PRJ-ZZ0097', 'probe',
+                (select id from public.project_doc_types order by id limit 1), ${lit(UID)})
+        on conflict do nothing;
+      -- id is a bigint identity; let the default assign it and scope the
+      -- DELETE by our throwaway document so a fixed id can never collide
+      -- with (and destroy) a real file row.
+      insert into public.project_files (document_id, file_name, drive_view_url, uploaded_by)
+        values ('DOC-ZZ0097', 'probe.pdf', 'https://example.invalid/probe', ${lit(UID)});
+      set local role authenticated;
+      delete from public.project_files where document_id = 'DOC-ZZ0097';
+      select (select count(*) from public.project_files
+               where document_id = 'DOC-ZZ0097') as left_;
+      reset role;`);
+    return { ok: r.status < 400, rows: rowsOf(r), body: errText(r) };
+  };
+  const vpaDel = await canDeleteFile('vpa');
+  check('seat vpa CAN delete a project file (0097)',
+    vpaDel.ok && Number(vpaDel.rows.find((x) => 'left_' in x)?.left_) === 0, vpaDel.body);
+  const staffDel = await canDeleteFile('staff');
+  check('seat staff CAN delete a project file (0097)',
+    staffDel.ok && Number(staffDel.rows.find((x) => 'left_' in x)?.left_) === 0, staffDel.body);
+  const noneDel = await canDeleteFile(null);
+  check('no seat CANNOT delete a project file',
+    !noneDel.ok || Number(noneDel.rows.find((x) => 'left_' in x)?.left_) === 1, noneDel.body);
+
   // ---- the seat is what makes them show up as a possible signer ----
   const listed = await asSeat('prof', `
     select set_config('app.team_sync','1',true);
