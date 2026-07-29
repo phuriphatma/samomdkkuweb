@@ -256,6 +256,39 @@ begin
   perform set_config('request.jwt.claims', null, true);
 
   ------------------------------------------------------------------
+  -- 0099 — get_vs_linked_context: the canonical's own submitter learns their
+  -- report is on the board; a duplicate of a CONFIDENTIAL canonical must never
+  -- learn its id or title, INCLUDING after that category is deleted (the 0075
+  -- left join defaulted an unknown category to publishable).
+  ------------------------------------------------------------------
+  perform set_config('role','anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
+  insert into out values('ctx_canonical_self', public.get_vs_linked_context('${A}')::text);
+  insert into out values('ctx_duplicate',      public.get_vs_linked_context('${B}')::text);
+  perform set_config('role','postgres', true);
+  perform set_config('request.jwt.claims', null, true);
+
+  -- Same pair, but the canonical is confidential AND its category is deleted.
+  insert into public.vs_categories (id,label,icon,is_confidential,public_eligible,sort_order)
+    values ('tstctx96','probe ความลับ','bi-shield-lock',true,false,997);
+  insert into public.vs_tickets (id, problem, target_dept, status, category,
+                                 created_at, is_public, public_title)
+    values ('VS-TSTX96A','canonical ความลับ','SE','สโมกำลังดำเนินการ','tstctx96',
+            now(), true, 'หัวข้อลับของเรื่องหลัก'),
+           ('VS-TSTX96B','dup report','SE','สโมกำลังดำเนินการ','tstctx96', now(), false, null);
+  update public.vs_tickets set duplicate_of = 'VS-TSTX96A' where id = 'VS-TSTX96B';
+  delete from public.vs_categories where id = 'tstctx96';
+
+  perform set_config('role','anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
+  insert into out values('ctx_conf_dup_after_cat_delete',
+    public.get_vs_linked_context('VS-TSTX96B')::text);
+  insert into out values('ctx_conf_self_after_cat_delete',
+    public.get_vs_linked_context('VS-TSTX96A')::text);
+  perform set_config('role','postgres', true);
+  perform set_config('request.jwt.claims', null, true);
+
+  ------------------------------------------------------------------
   -- STAFF is unaffected by the guard (still writes every column)
   ------------------------------------------------------------------
   perform set_config('role','authenticated', true);
@@ -332,6 +365,24 @@ async function main() {
     get('conf_after_delete_on_board') === '0', get('conf_after_delete_on_board'));
   check('a problem with an INTACT category is still served',
     get('intact_category_still_served') !== 'HIDDEN', get('intact_category_still_served'));
+
+  console.log('\nBOARD CONTEXT (0099) — canonical sees itself; confidential stays hidden');
+  const ctxSelf = get('ctx_canonical_self');
+  const ctxDup = get('ctx_duplicate');
+  check("a published canonical's submitter is told it is on the board",
+    ctxSelf.includes('"self_public": true') && ctxSelf.includes(A), ctxSelf);
+  check('…and gets the public title to link with',
+    ctxSelf.includes('public_title'), ctxSelf);
+  check('a duplicate still gets the canonical link, not self_public',
+    ctxDup.includes('"linked": true') && !ctxDup.includes('self_public'), ctxDup);
+  const cd = get('ctx_conf_dup_after_cat_delete');
+  check('CONFIDENTIAL canonical stays hidden after its category is deleted',
+    cd.includes('"public": false'), cd);
+  check('…and neither its id nor its title leaks',
+    !cd.includes('VS-TSTX96A') && !cd.includes('หัวข้อลับ'), cd);
+  const cs = get('ctx_conf_self_after_cat_delete');
+  check('…nor is the confidential canonical told it is public',
+    !cs.includes('self_public'), cs);
 
   console.log('\nCOLUMN GUARD — vs_tickets_update_owner is row-level only');
   check('submitter CANNOT self-publish to the board', get('guard_self_publish') === 'blocked');

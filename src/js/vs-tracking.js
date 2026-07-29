@@ -312,23 +312,27 @@ function renderUserDashboard(ticket) {
   statusBadge.className = `badge fs-6 rounded-pill px-3 py-2 shadow-sm ${phase.badge}`;
   statusBadge.innerText = phase.label;
 
-  // Linked-duplicate banner (0074) — the report was merged into an earlier one.
-  // We never reveal the other ticket; the stepper/outcome below mirror it.
+  // Board banner. Two cases, both answered by get_vs_linked_context:
+  //   * DUPLICATE (0074/0075) — merged into an earlier report. Show a baseline
+  //     immediately, then upgrade with server context (a public board link, or
+  //     "private links exist + count"). The other ticket is never revealed.
+  //   * CANONICAL on the board (0099) — THIS report is the public problem.
+  //     Nothing to show until the fetch resolves (a submitter has no way to
+  //     know locally whether SE published them), so the banner stays hidden
+  //     and enhanceBoardBanner reveals it.
   const linkedEl = document.getElementById('dashLinkedBanner');
   if (linkedEl) {
     if (ticket.isDuplicate) {
-      // Instant baseline; enhanceLinkedBanner() upgrades it with server context
-      // (public board link, or "private links exist + count") once fetched.
       const msg = idx === 3
         ? 'เรื่องของคุณได้รับการดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง'
         : 'เรื่องของคุณกำลังดำเนินการร่วมกับเรื่องที่เกี่ยวข้อง — ความคืบหน้าด้านล่างจะอัปเดตตามเรื่องหลัก';
       linkedEl.className = 'vs-linked-banner mb-3';
       linkedEl.innerHTML = `<i class="bi bi-diagram-2 me-2"></i><span>${escHtml(msg)}</span>`;
-      enhanceLinkedBanner(ticket, idx);
     } else {
       linkedEl.className = 'd-none';
       linkedEl.innerHTML = '';
     }
+    enhanceBoardBanner(ticket, idx);
   }
 
   const stepperEl = document.getElementById('dashStepper');
@@ -368,12 +372,16 @@ function renderUserDashboard(ticket) {
   if (canUserReply) remarkBox.classList.remove('d-none'); else remarkBox.classList.add('d-none');
 }
 
-// Upgrade the linked-duplicate banner with SAFE server-computed context
-// (get_vs_linked_context, 0075): a follow-link to the PUBLIC board entry when
-// the canonical is public, otherwise a "private links exist + N related" note.
-// Never receives the confidential canonical's id/title. Fire-and-forget; guards
-// against a stale response after the user navigates to another ticket.
-async function enhanceLinkedBanner(ticket, idx) {
+// Fill the board banner from SAFE server-computed context
+// (get_vs_linked_context, 0075 + 0099). Three outcomes:
+//   * self_public — THIS report is the public problem (canonical, published).
+//   * linked + public — a duplicate whose canonical is on the board: a
+//     follow-link to it. The canonical's id/title are already world-public.
+//   * linked + private — a duplicate whose canonical is confidential: the
+//     count only, never the id or title.
+// Fire-and-forget; guards against a stale response after the user navigates
+// to another ticket.
+async function enhanceBoardBanner(ticket, idx) {
   const el = document.getElementById('dashLinkedBanner');
   if (!el) return;
   let ctx = null;
@@ -384,8 +392,25 @@ async function enhanceLinkedBanner(ticket, idx) {
     ctx = data && typeof data === 'object' ? data : null;
   } catch { return; }
   if (ticket.id !== currentActiveTicketId) return;  // navigated away
-  if (!ctx || !ctx.linked) return;
+  if (!ctx) return;
   const cnt = Number(ctx.related_count) || 0;
+
+  // 0099 — the submitter's OWN report was published to กระดานปัญหา. Until now
+  // only duplicates got a board link; the person whose report actually BECAME
+  // the public problem had no way to know, or to follow the discussion on it.
+  if (ctx.self_public && ctx.public_id) {
+    const scale = cnt > 1 ? ` · มี ${cnt} เรื่องที่เกี่ยวข้อง` : '';
+    el.className = 'vs-linked-banner is-public mb-3';
+    el.innerHTML =
+      `<div class="vs-linked-main"><i class="bi bi-megaphone-fill"></i>`
+      + `<span>เรื่องของคุณถูกเผยแพร่บนกระดานปัญหาแล้ว: `
+      + `<strong>${escHtml(ctx.public_title || '')}</strong>${escHtml(scale)}</span></div>`
+      + `<button type="button" class="btn btn-sm vs-linked-cta" onclick="vsOpenBoardProblem('${escHtml(ctx.public_id)}')">`
+      + `<i class="bi bi-arrow-up-right-circle me-1"></i>ดูบนกระดานปัญหา</button>`;
+    return;
+  }
+
+  if (!ctx.linked) return;
 
   if (ctx.public && ctx.public_id) {
     const scale = cnt > 1 ? ` · มี ${cnt} เรื่องที่เกี่ยวข้อง` : '';

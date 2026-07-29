@@ -2026,6 +2026,53 @@ must agree on the unknown case; a table where three say "closed" and one says
 reference with no FK is fine, but it makes the DEFAULT for a missing row a
 security decision — write it down at every call site.
 
+## …and the sweep that entry prescribed found a FIFTH reader — a `left join` fails open the same way a `coalesce(flag,false)` does
+
+**Symptom**: none reported. Found one commit after the entry above, while
+extending `get_vs_linked_context()` for a feature — by re-reading its
+"is the canonical publishable" predicate with the delete button now in mind.
+**Cause**: 0075 computed it over a LEFT JOIN as
+```sql
+(coalesce(c.is_confidential, false) or not coalesce(c.public_eligible, true))
+```
+Both defaults point the wrong way, so a deleted category (c.* all NULL) makes
+`blocked` FALSE. Measured live on a confidential canonical + its duplicate:
+```
+BEFORE deleting the category  {"linked":true,"public":false,"related_count":2}
+AFTER  deleting the category  {"linked":true,"public":true,
+                               "public_id":"VS-TSTCTXA",
+                               "public_title":"หัวข้อลับของเรื่องหลัก",…}
+```
+It hands the duplicate's submitter the CONFIDENTIAL canonical's id and title —
+the exact disclosure 0071/0074/0075 exist to prevent, and the id is a lookup
+capability (`get_vs_ticket_by_id` is granted to `anon`).
+**Why it was missed**: 0098's header said "grep every reader of the referencing
+column", and I grepped the four PUBLIC BOARD readers — the ones I was already
+thinking about. `get_vs_linked_context` reads the same column for a different
+audience (the submitter tracking view), so it never came to mind. The rule was
+right; the search was scoped by feature area instead of by column.
+**The sweep that actually works** — mechanical, no judgement about which
+feature a function belongs to:
+```sql
+with fns as (select oid, proname from pg_proc p
+             join pg_namespace n on n.oid=p.pronamespace
+             where n.nspname='public' and p.prokind='f')   -- prokind: functiondef throws on aggregates
+select proname, pg_get_functiondef(oid) from fns
+ where pg_get_functiondef(oid) ~ 'is_confidential|public_eligible';
+```
+Seven hits; six were closed (four inner joins, two `coalesce(...,true)`), this
+was the seventh. Full audit table is in 0099's header.
+**Fix**: `coalesce(is_confidential, TRUE)` and `coalesce(public_eligible,
+FALSE)` (0099). Note a LEFT JOIN is the same hazard as `coalesce(flag,false)`
+wearing different clothes — it is what MAKES the row NULL-able in the first
+place; an INNER join would have failed closed for free.
+**Where**: `supabase/migrations/0099_vs_self_public_context.sql`; proof in
+`tools/vs0096-remark-vis.mjs` (BOARD CONTEXT block).
+**Rule**: when a fix's own lesson is "audit every reader", run the audit as a
+QUERY over `pg_get_functiondef`, not as a mental list of the callers you happen
+to be holding. And treat `left join <reference table>` as a fail-open marker
+wherever the joined row gates visibility.
+
 ## Recreating a function from the migration that FIRST defined it silently reverts every later one
 
 **Symptom**: `tools/vs0083-scope.mjs` went 15/16 immediately after applying an
