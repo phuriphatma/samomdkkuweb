@@ -13,7 +13,7 @@ post-mortems: `.claude/rules/mistakes.md`.
   docs-only, so a VM/STATE mismatch of one or two `docs(state):` commits is normal
   and does NOT mean a deploy is pending — check `git diff --name-only <vm>..HEAD`
   for anything outside `STATE.md` / `.claude/` / `docs/` before redeploying.
-  Migrations 0081–0099 applied to the live DB. Verify a deploy
+  Migrations 0081–0101 applied to the live DB. Verify a deploy
   by grepping the served shared `analytics-*.js` chunk (auth.js lives there) + the
   admin bundle for feature strings — NOT by hash (Mac vs VM hashes differ).
 - Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
@@ -59,20 +59,22 @@ permission, because there the seat picks WHICH of three workflows
 (`projectSeatRole()` maps it to the role string the module already branches on).
 `prof` is deliberately not a project actor.
 
-**Verification.** Nine self-provisioning proof scripts, each running in rolled-back
+**Verification.** Ten self-provisioning proof scripts, each running in rolled-back
 transactions, independent of live config — re-run after ANY change to these RLS
 paths:
 `tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 24 ·
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
 `tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
-`tools/vs0096-remark-vis.mjs` 37.
-**153 checks total, all green.**
-Sweeps worth re-running after any auth change (both in the /clear scan):
-policy role-only sweep (expect exactly 3 deliberate: `users_update_staff`,
-`notify_log`, `reserved_staff_usernames`), and the attribute-handler sweep
-(`data-projects-role` / `data-admin-side` / `data-perm-only` values in the
-markup vs. the JS that toggles them — see mistakes.md for the commands).
+`tools/vs0096-remark-vis.mjs` 37 · `tools/shop0100-buyer-guard.mjs` 12.
+**165 checks total, all green.**
+**`node tools/security-sweeps.mjs`** — three standing sweeps in one command,
+each encoding a bug class already shipped. Run after ANY policy / RLS / definer
+change. Exits non-zero on a finding; its allow-lists carry the deliberate
+exceptions. Also `node tools/vs-remark-vis-mirror.mjs` (SQL↔JS ladder diff).
+Still manual: the attribute-handler sweep (`data-projects-role` /
+`data-admin-side` / `data-perm-only` values in the markup vs. the JS that
+toggles them — commands in mistakes.md).
 Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
 signature assignments — to a personal kkumail account during the migration.
@@ -147,13 +149,49 @@ Zero console errors.
 visibility picker, tag/category delete, and the modal-stays-open change (no way
 to authenticate from here).
 
+## PRE-/CLEAR SECURITY SCAN (2026-07-29) — 4 real bugs found, all FIXED
+
+A deliberate sweep, not a spot-check. Everything below was proven against the
+live DB in rolled-back transactions before being fixed, and re-proven after.
+
+1. **A buyer could zero their own order's total** (0100). `shop_orders_update_self_early`
+   is row-level with no column guard: `total=0, subtotal=0, fee=0` ACCEPTED,
+   plus `admin_note` and a `timeline` entry forged as `by:"admin"`. They could
+   NOT escape the pending/review window (the USING doubles as the CHECK), which
+   is the only thing that contained it. **Third table with this exact defect**
+   after `users` (0028) and `vs_tickets` (0096).
+2. **`get_pr_ticket_by_id` matched with `ILIKE`** (0101) — so the ticket id was
+   a PATTERN, not a capability. `{"p_id":"%"}` with the public anon key
+   returned a real ticket incl. the submitter's email and brief; pattern-walking
+   enumerates all of them. Now `lower(id) = lower(btrim(p_id))`.
+3. **The ten team resolvers were anon-callable** (0101) — an anonymous oracle:
+   `effective_team_permissions_for_email` returned any address's exact grant
+   set. Revoked; nothing outside SQL called them and their callers are definer.
+4. **The `vis` ladder's SQL and JS implementations disagreed** on 3 of 26
+   inputs (`'t'`, `'1'`, `1` for the legacy `internal` flag). Failed SAFE, but
+   it is the drift "keep them in step" was supposed to prevent.
+   `tools/vs-remark-vis-mirror.mjs` now diffs them mechanically.
+
+**Knowingly ACCEPTED, not missed** — two per-row owner UPDATE policies have no
+column guard: `project_doc_views_update_own` (own read state; `user_id` pinned
+by the check) and `project_notifications_update` (own bell rows — a user can
+reword a notification only they can see). Both are self-defacement with no
+cross-user reach. They are allow-listed in `tools/security-sweeps.mjs`; if that
+sweep ever reports a THIRD, it is new.
+
+**Not done**: no XSS re-audit of the anon-INSERTable tables this round (the
+`escHtml` rule from mistakes.md). The renderers touched this session
+(`updatesHtml`, `renderTimeline` chips, the board banner) do escape — verified
+in-browser with an `<img onerror>` payload — but the older PR/VS renderers were
+not re-checked.
+
 ## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
 
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
 ### 1. Nothing behind the ADMIN LOGIN has had a signed-in browser run
-Every server path is proven by the 9 scripts (153 checks). The PUBLIC half is
+Every server path is proven by the 10 scripts (165 checks). The PUBLIC half is
 now browser-verified (see the VitalSound section); everything requiring a login
 is not, because there is no way to authenticate from the agent session. Check
 these first — they are the likeliest place a regression hides:

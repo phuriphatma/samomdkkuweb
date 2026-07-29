@@ -27,10 +27,19 @@ describe('remarkVis (0096 visibility ladder)', () => {
     expect(remarkVis({})).toBe('ticket');
   });
 
-  it('maps the legacy internal flag to staff', () => {
+  // The truthy set is exactly what public.vs_remark_vis() accepts:
+  // lower(e->>'internal') in ('true','t','1'). jsonb ->> stringifies, so a
+  // numeric 1 arrives as '1'. tools/vs-remark-vis-mirror.mjs diffs the two
+  // implementations against the live DB; it caught 't'/'1'/1 diverging.
+  it('maps the legacy internal flag to staff, matching the SQL truthy set', () => {
     expect(remarkVis({ internal: true })).toBe('staff');
     expect(remarkVis({ internal: 'true' })).toBe('staff');   // jsonb->>text shape
+    expect(remarkVis({ internal: 'TRUE' })).toBe('staff');   // SQL lower()s it
+    expect(remarkVis({ internal: 't' })).toBe('staff');
+    expect(remarkVis({ internal: '1' })).toBe('staff');
+    expect(remarkVis({ internal: 1 })).toBe('staff');
     expect(remarkVis({ internal: false })).toBe('ticket');
+    expect(remarkVis({ internal: 0 })).toBe('ticket');
   });
 
   it('lets an explicit vis win over the legacy flag', () => {

@@ -2026,6 +2026,107 @@ must agree on the unknown case; a table where three say "closed" and one says
 reference with no FK is fine, but it makes the DEFAULT for a missing row a
 security decision — write it down at every call site.
 
+## The row-level-UPDATE-without-a-column-guard class, found on a THIRD table — this time it was money
+
+**Symptom**: none reported. Found by asking, as a sweep rather than a hunch,
+"which tables have a per-row owner UPDATE policy and NO column guard?"
+```sql
+select p.tablename, p.policyname,
+       (select count(*) from pg_trigger t
+         where t.tgrelid=(quote_ident(p.schemaname)||'.'||quote_ident(p.tablename))::regclass
+           and not t.tgisinternal and t.tgname ~ 'guard') as guards
+from pg_policies p where p.schemaname='public' and p.cmd in ('UPDATE','ALL')
+  and coalesce(p.qual,'') ~ 'auth\.uid\(\)';
+```
+**Cause**: `shop_orders_update_self_early` (0003) is
+`using (buyer_id = auth.uid() and status = any(array['pending','review','slip_mismatch']))`
+with **no `with check`** — so Postgres reuses USING as the check, which is the
+only reason a buyer cannot self-approve to `paid`. But inside that window RLS
+grants EVERY column. Proven live on a real buyer's own ฿520 pending order:
+```
+update shop_orders set total=0, subtotal=0, fee=0                    → ACCEPTED
+update shop_orders set admin_note='PAID IN FULL - verified by staff',
+       timeline='[{"by":"admin","text":"ชำระเงินแล้ว"}]'             → ACCEPTED
+update shop_orders set status='paid'                                 → blocked ✔
+```
+So: place an order, zero the total, forge an `admin_note` and a timeline entry
+attributed to "admin", upload any slip — it reaches the verify queue showing ฿0
+due with staff-looking corroboration.
+**Fix**: `shop_orders_self_update_guard` (0100), same construction as
+`users_self_update_guard` (0028/0041) and `vs_tickets_self_update_guard` (0096)
+— deny-by-default via `to_jsonb(row) - allowed_keys`, firing only when
+`auth.uid() = old.buyer_id` and the caller is not a shop admin.
+**The half that mattered more than the guard**: the allow-list came from
+READING THE THREE BUYER CALL SITES in `src/js/shop/api.js` (`enrichNewOrder`,
+`addOrderSlip`, `removeOrderSlip`) — not from guessing — and
+`tools/shop0100-buyer-guard.mjs` replays all three and asserts they still
+succeed. A guard that breaks checkout is worse than the hole it closes.
+**Where**: `supabase/migrations/0100_*.sql`; proof `tools/shop0100-buyer-guard.mjs`
+(12 checks: 5 attacks blocked, 3 buyer flows intact, admin + server unaffected).
+**Rule**: this class has now appeared on `users`, `vs_tickets` and
+`shop_orders`. Treat `for update using (<col> = auth.uid())` as **incomplete by
+construction** — it is a row filter, never a column policy. `tools/security-sweeps.mjs`
+sweep #3 keeps the list honest; two low-severity rows
+(`project_doc_views`, `project_notifications` — self-defacement only, `user_id`
+pinned by the check) are knowingly accepted, not missed.
+
+## Two implementations of one rule drift silently — diff them, don't eyeball them
+
+**Symptom**: none. The 0096 visibility ladder is implemented twice —
+`public.vs_remark_vis()` as the server boundary and `remarkVis()` in `utils.js`
+for rendering — and STATE.md dutifully said "mirrors, keep them in step". That
+sentence is not a mechanism.
+**Cause**: a differential test over 26 input shapes found 3 disagreements. The
+SQL accepts `'t'`, `'1'` and numeric `1` as truthy for the legacy `internal`
+flag (`lower(e->>'internal') in ('true','t','1')`; jsonb `->>` stringifies, so
+`1` arrives as `'1'`); the JS accepted only `true` and `'true'`.
+**Severity**: fails SAFE — the server strips the entry as staff-only and the
+client never sees it. The reverse direction (JS believing an entry is
+staff-only while the server ships it) would have rendered a staff note to a
+submitter. No live row uses those shapes; the app writes `internal: true`.
+**Fix**: JS now matches the SQL truthy set exactly, pinned in
+`utils.test.js`, and the differential test is permanent:
+`tools/vs-remark-vis-mirror.mjs` runs every legal + malformed shape through
+BOTH and diffs.
+**Rule**: when one rule is implemented on both sides of the wire, write the
+differential test the same commit. And when reviewing one, state which
+direction of disagreement is the dangerous one — here "JS stricter than SQL" is
+safe and "SQL stricter than JS" is a leak, and only the test can tell you which
+you have.
+
+## An `ILIKE` lookup makes the id a PATTERN, not a capability
+
+**Symptom**: none reported. Found while sweeping `setof <table>` RPCs for the
+0080 auto-expose trap.
+**Cause**: `get_pr_ticket_by_id` (0021) was
+`select * from pr_tickets where id ilike p_id … limit 1` — ILIKE presumably to
+make a hand-typed id case-insensitive. But ILIKE hands the CALLER pattern
+syntax, and the function is granted to `anon`. With nothing but the bundled
+anon key:
+```
+POST /rest/v1/rpc/get_pr_ticket_by_id {"p_id":"%"}
+  → PR-68TE3N, submitter_label "…@gmail.com", submitter_id, brief, file_url
+```
+`limit 1` bounds one call; an attacker walks `'PR-A%'`, `'PR-B%'`, … to
+enumerate every id and then reads each in full. The entire guest-lookup design
+rests on "the id IS the secret". The VS twin uses `=` and was unaffected —
+verified with the same probe.
+**Fix**: `lower(id) = lower(btrim(p_id))` (0101) — keeps the case-insensitivity
+ILIKE existed for, drops the pattern semantics, still resolves a pasted id with
+whitespace.
+**Also found in the same sweep**: the ten `effective_team_*_for_email` /
+`node_effective_*` resolvers were executable by `anon`/PUBLIC, i.e. an
+anonymous oracle — `{"p_email":"…@kkumail.com"}` returned that person's exact
+grant set. Nothing outside SQL calls them (the frontend only names them in
+comments) and their real callers are SECURITY DEFINER, so they were revoked
+from anon/authenticated/PUBLIC. `sync_my_team_permissions()` KEEPS its
+authenticated grant — `auth.js` calls it every login and it only resolves the
+caller's own identity.
+**Rule**: in any lookup where the id is the authorization, the comparison must
+be `=` (or `lower(x)=lower(y)`) — never `like`/`ilike`/`similar to`/`~`. And
+when granting a helper to `anon`, ask what it answers about someone who is NOT
+the caller.
+
 ## …and the sweep that entry prescribed found a FIFTH reader — a `left join` fails open the same way a `coalesce(flag,false)` does
 
 **Symptom**: none reported. Found one commit after the entry above, while

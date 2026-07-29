@@ -41,6 +41,13 @@ export const VS_REMARK_VIS = {
   public: { label: 'สาธารณะ (กระดานปัญหา)',  short: 'สาธารณะ',    icon: 'bi-megaphone-fill' },
 };
 
+// The truthy set for the legacy `internal` flag. Must match public.vs_remark_vis(),
+// which compares `lower(e ->> 'internal')` against exactly these — jsonb `->>`
+// stringifies, so a numeric 1 arrives as '1'. A differential test over both
+// implementations lives in tools/vs-remark-vis-mirror.mjs; it caught 't' / '1'
+// / 1 being accepted by the SQL and rejected here.
+const LEGACY_INTERNAL_TRUE = ['true', 't', '1'];
+
 /** Normalize any remark entry — legacy or 0096-era — to one ladder rung.
  *  Legacy `internal: true` reads as 'staff'; a missing `vis` reads as
  *  'ticket'. Never throws on a malformed value (the array is client-written). */
@@ -48,7 +55,8 @@ export function remarkVis(rem) {
   const v = rem && rem.vis;
   if (v === 'staff' || v === 'ticket' || v === 'thread' || v === 'public') return v;
   const legacy = rem && rem.internal;
-  if (legacy === true || String(legacy).toLowerCase() === 'true') return 'staff';
+  if (legacy === true) return 'staff';
+  if (legacy != null && LEGACY_INTERNAL_TRUE.includes(String(legacy).toLowerCase())) return 'staff';
   return 'ticket';
 }
 
