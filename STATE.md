@@ -29,6 +29,14 @@ post-mortems: `.claude/rules/mistakes.md`.
   strings, not by hash-matching.
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
   schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
+  **To INVESTIGATE the DB, use `tools/db-query.mjs <file.sql>`, not
+  apply-migration** — the latter truncates its echoed result at 2000 chars
+  without saying so, which turns any introspection query (policy dumps,
+  `pg_get_functiondef` sweeps, column lists) into a confidently wrong answer.
+  Both run as the Postgres SUPERUSER: `auth.uid()` is null and RLS is bypassed,
+  so to see what a REAL user sees you must `set_config('role', …)` +
+  `set_config('request.jwt.claims', …)` inside `begin; … rollback;` — every
+  `tools/*` proof script is built that way and is the template to copy.
 
 ## ทีม SAMO is the grant engine (0081–0088, ALL APPLIED + DEPLOYED)
 
@@ -307,6 +315,17 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
   if tables grow.
 
 ## Housekeeping
+
+- **`.claude/rules/mistakes.md` is now ~2340 lines** and CLAUDE.md tells every
+  agent to read it before touching auth/db code — it is in the hot path and has
+  outgrown it. `.claude/rules/mistakes-archive.md` exists for exactly this.
+  Next session: move the entries that are STABLE and NICHE (the GAS-era ones,
+  the Bootstrap quirks, anything whose code path no longer exists) to the
+  archive, and keep in the hot file the recurring CLASSES — row-level-UPDATE
+  without a column guard, unknown-reference fail-open, scoped-is-not-full,
+  read-path parity, mirrors that drift. Those five account for most of what has
+  actually bitten this repo twice or more. Do NOT delete anything; the archive
+  is checked first when a symptom isn't in the hot file.
 
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
 - CI = Node 22 (supabase-js WebSocket). `npm run build && npm test` before every
