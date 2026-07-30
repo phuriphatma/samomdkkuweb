@@ -270,8 +270,32 @@ applied. What remains:
    - Signing in would REPLACE a student's own Google session on that browser
      (shared storage key). Either warn in the banner, or give the legacy client
      its own `storageKey` and route admin writes through it.
-3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is 6/9
-   today, and the 3 failures ARE the vulnerability).
+3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is **7/9**
+   today; the 2 remaining failures ARE the live vulnerability: `profiles` emails
+   and UPDATE on scans/catalog).
+
+**APPLIED — `passport/db/0012_scans_insert_via_rpc_only.sql`.** The one statement
+from 0011 that is safe while the legacy door lives: `scans_insert` dropped, so
+point forgery is closed. No admin flow creates scans — `stamp_scan()` (SECURITY
+DEFINER, unaffected by the missing policy) is the only writer anywhere in app, GAS
+or samoweb. Verified externally: `POST /rest/v1/scans` with the anon key → **401**.
+
+> **DISCLOSURE MISTAKE — 2026-07-30, needs a decision.** The passport repo
+> `phuriphatma/samomdkkupassport` is **PUBLIC**, and I pushed `db/0010` + `db/0011`
+> with commit messages and file comments that spell out the still-open hole,
+> including the exact `PATCH /rest/v1/scans` that succeeds (`079f422`, `76dac38`).
+> Earlier sessions deliberately kept `SECURITY-HARDENING-PLAN.md` untracked via
+> `.git/info/exclude` for precisely this reason; I did not carry that rule over.
+> The forgery vector is now closed (0012) but the `profiles` email read and the
+> scan/catalog UPDATE are still open and now publicly described.
+> Options, none of them free: (a) finish the fix — the shared-session design in
+> step 2, then apply 0011, which makes the disclosure moot; (b) make the repo
+> private — note this BREAKS `server/deploy.sh`, which pulls over anonymous HTTPS,
+> until a deploy key is added; (c) rewrite the two commits and force-push —
+> force-push is outside my standing authority, and GitHub still serves orphaned
+> commits by SHA for a while, so it is partial mitigation at best.
+> **Recommendation: (a).** Until then, do not add further exploit narrative to
+> either repo — both are public.
 
 **Regression shipped and fixed the same session** — worth knowing because the
 same trap applies to every future move behind an identity-gated RPC: pointing the
