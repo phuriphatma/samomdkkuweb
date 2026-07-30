@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-29. Slim by design — "what is true right now". Full
+Last updated: 2026-07-30. Slim by design — "what is true right now". Full
 per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
@@ -13,11 +13,12 @@ post-mortems: `.claude/rules/mistakes.md`.
   commits is normal and does NOT mean a deploy is pending — check
   `git diff --name-only <vm>..HEAD` for anything outside `STATE.md` / `.claude/` /
   `docs/` / `tools/` before redeploying.
-- **passport** (separate repo): `fa0ab04`, **deployed 2026-07-30**. Served bundles
+- **passport** (separate repo): `405c927`, **deployed 2026-07-30**. Served bundles
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
-  dashboard, `admin_leaderboard` in admin, and no `from('scans').insert` anywhere.
-- Migrations: samoweb `public` 0081–0101; passport `db/0010` + `db/0012` applied,
-  **`db/0011` deliberately NOT applied** (see NEXT #3).
+  dashboard, `admin_leaderboard` + the shared-admin email in admin,
+  `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
+- Migrations: samoweb `public` 0081–0101; passport `db/0010` + `db/0011` + `db/0012`
+  ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
   carries auth.js.
@@ -79,8 +80,10 @@ paths:
 `tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
 `tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
 `tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
-`tools/vs0096-remark-vis.mjs` 37 · `tools/shop0100-buyer-guard.mjs` 12.
-**165 checks total, all green.**
+`tools/vs0096-remark-vis.mjs` 37 · `tools/shop0100-buyer-guard.mjs` 12 ·
+`tools/pass-hardening.mjs` 60 (passport, applies its lockdown in a rolled-back txn).
+**225 checks total, all green.** Plus `tools/pass-anon-probe.mjs` 9 — the only one
+that leaves the database and tests the real anon key over HTTPS.
 **`node tools/security-sweeps.mjs`** — three standing sweeps in one command,
 each encoding a bug class already shipped. Run after ANY policy / RLS / definer
 change. Exits non-zero on a finding; its allow-lists carry the deliberate
@@ -92,9 +95,8 @@ Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
 workflow account's uid-bound state — read state, and optionally the bell and
 signature assignments — to a personal kkumail account during the migration.
 
-**Shared → personal migration** and **passport enforcement** are pending work —
-see NEXT #4 and NEXT #3. (`tools/proj-handover.mjs` moves read state; since 0095
-an อาจารย์ seat needs NO sign-request handover to see the queue.)
+**Passport enforcement is DONE** (NEXT #3). **Shared → personal migration** is
+optional read-state cosmetics only — see NEXT #4.
 
 **Settled grant-channel decisions (0093–0095)** — full write-up in
 `docs/state-archive/2026-07-25-grant-channel-detail.md`. The three that a future
@@ -223,11 +225,23 @@ exactly what `public.passport_admin_context()` implements — `is_admin` = blank
 `managed_passport_scopes` entry; null `auth.uid()` fails closed. Nothing to
 change here.
 
-`admin`/`1234` is a knowingly-temporary alternate entrance to be removed later.
+`admin`/`1234` is a knowingly-temporary alternate entrance, and since 2026-07-30 it
+**signs into a real shared Supabase account** rather than comparing strings —
+`passportadmin@samomdkku.app`, `permissions={passport}`, on its own client with its
+own `storageKey` so it can never disturb an organiser's personal Google session.
+That is what let `db/0011` land while the door keeps full admin. Credentials live
+in `VITE_PASSPORT_ADMIN_EMAIL` / `VITE_PASSPORT_ADMIN_PASSWORD` (this Mac's
+`passport/.env.local` AND the VM's `~/samo-projects/samomdkkupassport/.env.local`)
+— **not in the public repo**, though they do ship in the built bundle because they
+must be usable. So the door is no more secure than '1234' was; what changed is that
+everyone NOT using it now has no write access at all, and its writes carry a uid.
+
 To retire it: `LEGACY_PASSWORD_LOGIN = false` in passport `js/admin-scope.js`,
 redeploy, confirm every admin can sign in with Google, then delete the marked
-block, `handleLegacyLogin` in `admin-page.js`, and `#admin-legacy-box` in
-`html/admin.html`.
+block, `handleLegacyLogin` in `admin-page.js`, `#admin-legacy-box` in
+`html/admin.html`, the two env vars in both places, and finally strip the shared
+account's grant (`array_remove(permissions,'passport')` — needs the
+`users_self_update_guard` disable dance, see mistakes.md) or delete the auth user.
 **Who keeps access when that flag flips** (live, 2026-07-30 — the previous note
 here said 2 people and was STALE):
 - ทุกฝ่าย: `kita.a@kkumail.com`, `putita.s@kkumail.com`, `worapat.c@kkumail.com`
@@ -237,134 +251,66 @@ Re-run the check before flipping — the tree changes:
 `select email, managed_passport_scopes, managed_permissions from users where
 'passport' = any(managed_permissions) or managed_passport_scopes <> '{}';`
 
-### 3. Passport RLS — HALF DONE. Two steps left, in this order, and only #2 is risky
-**Status 2026-07-30**: the primitives are BUILT, APPLIED and PROVEN; the app code
-is written and committed; the lockdown is written, proven, and deliberately NOT
-applied. What remains:
+### 3. Passport authorization — DONE (0010 + 0011 + 0012 applied, app deployed)
+The hole is closed. `node tools/pass-anon-probe.mjs` — the real anon key over
+HTTPS — went **6/9 → 9/9**. Before: `profiles?select=email` returned real
+`@kkumail.com` addresses, `user_tiers` returned the whole roster, and
+`PATCH /scans` was **accepted**. Now all three are refused, while the catalog and
+scan-points reads the app needs pre-login still work.
 
-1. **DONE — the app is deployed** (passport `main` `76dac38`, live on the VM,
-   verified by grepping the served bundles: `stamp_scan` in the scan chunk,
-   `leaderboard_names` in dashboard, `admin_leaderboard` in admin, and no
-   `from('scans').insert` anywhere).
-2. **BLOCKED — `passport/db/0011_passport_rls_lockdown.sql` must NOT be applied
-   yet.** User instruction 2026-07-30: *"don't retire admin/1234 yet, it should
-   work fully admin, many people is using it."*
+**Both admin doors work, and that was the hard part.** `admin`/`1234` had no
+server identity — a password compared in JavaScript produces none — so it could
+never be granted anything the anonymous public wasn't. It now signs into ONE
+shared Supabase account (`passportadmin@samomdkku.app`, `permissions={passport}`)
+on its OWN client with its OWN `storageKey`, so it carries a real JWT and cannot
+disturb anyone's personal Google session. Verified end-to-end over HTTPS with the
+real credentials against the locked-down DB: sign-in 200, `admin_leaderboard` 200,
+`profiles` read 200, admin `PATCH activities` 200.
 
-   **This is a structural conflict, not a scheduling one.** `admin`/`1234` is a
-   client-side string compare — the password never reaches the server in any
-   verifiable form, so those sessions carry NO Supabase JWT, and
-   `passport.is_admin()` cannot distinguish them from any anonymous visitor.
-   Every admin write therefore arrives as plain `anon`. So "the DB rejects anon
-   writes" and "admin/1234 keeps full admin" are the same statement negated:
-   **you cannot have both.** Same for the PII — the admin leaderboard needs
-   student name + email, and a caller with no identity can only be given that by
-   giving it to everyone.
+**Proofs — re-run both after ANY passport authz change:**
+- `node tools/pass-hardening.mjs` — **60/60**. Applies 0011 inside a rolled-back
+  transaction and checks seven principals: anon, a real @kkumail student, a
+  non-kkumail account, a migrated-away account, a blanket-`passport` admin, a
+  one-department admin, and the shared `admin`/`1234` account.
+- `node tools/pass-anon-probe.mjs` — **9/9**. Prod-safe by construction.
 
-   **The way to have both** (not built; ~half a day): make the legacy door
-   produce a REAL session instead of a fake one. Create one shared Supabase
-   account (e.g. `passportadmin@samomdkku.app`), grant it the `passport`
-   permission so `passport_admin_context()` returns `is_admin`, and have
-   `legacyLogin()` in `js/admin-scope.js` call
-   `supabase.auth.signInWithPassword()` with that account instead of comparing
-   strings. The UI stays `admin`/`1234`; behind it there is a JWT, so 0011 can
-   land with the door fully working. Two things to get right:
-   - The shared account's real password would sit in the bundle. That is **no
-     worse than today** (`LEGACY_PASS = '1234'` is already there) but be honest
-     that it does not make the door itself secure — its value is that everyone
-     who does NOT know it loses write access, and writes finally carry a uid.
-   - Signing in would REPLACE a student's own Google session on that browser
-     (shared storage key). Either warn in the banner, or give the legacy client
-     its own `storageKey` and route admin writes through it.
-3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is **7/9**
-   today; the 2 remaining failures ARE the live vulnerability: `profiles` emails
-   and UPDATE on scans/catalog).
+**What each migration did**
+- `0010` (additive): `is_admin()`/`admin_covers_dept()` wrapping
+  `public.passport_admin_context()` (the ทีม SAMO tree stays the only admin
+  channel — deliberately NO `passport.admins` table); `stamp_scan()` taking the QR
+  token, `points_awarded` and `user_id` server-side and enforcing the
+  kkumail/migrated gate that was client-side only; `profiles_guard`
+  (`total_km`/`tier_override` server-managed, exempted by TRIGGER DEPTH because
+  SECURITY DEFINER does not clear `auth.uid()`); `admin_leaderboard()`
+  re-applying the caller's ฝ่าย scope inside the definer; `leaderboard_names()`
+  as an id+full_name projection; `user_tiers security_invoker=on`.
+- `0012`: dropped `scans_insert` — `stamp_scan()` is the only inserter anywhere.
+- `0011`: the lockdown. Writes admin-only; `profiles` + `season_results` reads
+  narrowed to self-or-admin.
 
-**APPLIED — `passport/db/0012_scans_insert_via_rpc_only.sql`.** The one statement
-from 0011 that is safe while the legacy door lives: `scans_insert` dropped, so
-point forgery is closed. No admin flow creates scans — `stamp_scan()` (SECURITY
-DEFINER, unaffected by the missing policy) is the only writer anywhere in app, GAS
-or samoweb. Verified externally: `POST /rest/v1/scans` with the anon key → **401**.
+**Deliberately still `using (true)` — 7 SELECT policies, all non-personal**:
+`activities`, `certificates`, `samo_years`, `samo_seasons`, `seasons`, `scans`,
+`account_migrations`. The scan page must resolve an activity BEFORE sign-in and
+the public ranking needs the points.
 
-> **DISCLOSURE MISTAKE — 2026-07-30, needs a decision.** The passport repo
-> `phuriphatma/samomdkkupassport` is **PUBLIC**, and I pushed `db/0010` + `db/0011`
-> with commit messages and file comments that spell out the still-open hole,
-> including the exact `PATCH /rest/v1/scans` that succeeds (`079f422`, `76dac38`).
-> Earlier sessions deliberately kept `SECURITY-HARDENING-PLAN.md` untracked via
-> `.git/info/exclude` for precisely this reason; I did not carry that rule over.
-> The forgery vector is now closed (0012) but the `profiles` email read and the
-> scan/catalog UPDATE are still open and now publicly described.
-> Options, none of them free: (a) finish the fix — the shared-session design in
-> step 2, then apply 0011, which makes the disclosure moot; (b) make the repo
-> private — note this BREAKS `server/deploy.sh`, which pulls over anonymous HTTPS,
-> until a deploy key is added; (c) rewrite the two commits and force-push —
-> force-push is outside my standing authority, and GitHub still serves orphaned
-> commits by SHA for a while, so it is partial mitigation at best.
-> **Recommendation: (a).** Until then, do not add further exploit narrative to
-> either repo — both are public.
+**Two follow-ups, neither urgent:**
+1. **`activities.static_token` is readable by anon**, because the whole row is.
+   RLS cannot hide a column. Impact is now small — `stamp_scan()` pins the scan to
+   `auth.uid()` and derives the km itself, so a leaked token only lets a
+   signed-in kkumail student stamp an activity they didn't attend. To close it:
+   drop the `isStaticMatch` client pre-check (the server validates the token now),
+   switch `scanning.js` to an explicit column list instead of `select('*')`, then
+   `revoke select (static_token) on passport.activities from anon, authenticated`.
+   Do it in that order or the scan page 400s.
+2. **Per-ฝ่าย WRITE scoping**: the write policies check `is_admin()`, not the
+   department, so a ฝ่าย-scoped admin can still edit another ฝ่าย's activity with
+   DevTools. `admin_covers_dept(dept, sub_dept)` already exists for it. Pointless
+   while the all-departments `admin`/`1234` door is open, so sequence it after
+   retiring that door.
 
-**Regression shipped and fixed the same session** — worth knowing because the
-same trap applies to every future move behind an identity-gated RPC: pointing the
-admin leaderboard at `admin_leaderboard()` broke it outright for `admin`/`1234`,
-because that door has no identity for the RPC's guard to accept. `ensureLbScans`
-now branches on `adminScope.legacy` and keeps the direct `profiles` read for it.
-**That fallback is exactly what 0011 deletes** — deliberately, so the lockdown
-cannot land while pretending the legacy door still works.
-
-**APPLIED — `passport/db/0010_passport_authz_hardening.sql`** (additive, no
-behaviour change):
-- `passport.is_admin()` / `admin_covers_dept()` wrap `public.passport_admin_context()`
-  so the ทีม SAMO tree stays the only admin channel. **No `passport.admins` table** —
-  the plan predated 0087 and proposed one; it was rewritten.
-- `passport.stamp_scan()` takes the QR token check, `points_awarded` and `user_id`
-  onto the server, and enforces the kkumail / migrated-away gate that was
-  client-side only.
-- `profiles_guard` makes `total_km` + `tier_override` server-managed. The exemption
-  is by **trigger depth**, not identity: `on_new_scan` is SECURITY DEFINER, and that
-  does NOT clear `auth.uid()`, so a legitimate stamp is indistinguishable from the
-  attack by identity alone.
-- `admin_leaderboard()` re-applies the caller's ฝ่าย scope INSIDE the definer.
-- `leaderboard_names()` publishes `id + full_name` only, so the public leaderboard
-  survives without a roster read.
-- `user_tiers` gets `security_invoker=on` — **without this the lockdown is
-  cosmetic**; the view was reading `profiles` with its owner's rights.
-
-**Proofs** (re-run after ANY change to passport authz):
-- `node tools/pass-hardening.mjs` — **53 checks**, applies 0011 inside a
-  rolled-back transaction as anon / student / non-kkumail / migrated / full admin /
-  dept-scoped admin. Nothing committed. Currently 53/53.
-- `node tools/pass-anon-probe.mjs` — the external layer (PostgREST, schema
-  exposure, grants) using only the bundled anon key. Safe against prod by
-  construction: bounded reads + ONE write probe that PATCHes a value to itself.
-
-**Decisions taken 2026-07-30 (user said "do the best way")**:
-- **Student email STAYS** in the admin leaderboard + CSV — organizers need to
-  identify students. So the scoping moved server-side instead of dropping the
-  column.
-- **No cutover window needed** for step 1; step 2 needs only the legacy-admin
-  heads-up above. The staging (additive → app → lockdown) is what removes the
-  need for a window.
-
-### 3b. Why this was ever reachable (the original finding, kept for context)
-Distinct from #2, and easy to conflate with it. The grant channel is correct; the
-DATABASE enforces nothing on anyone. The `passport` schema still carries 0056's
-`using (true)` for `anon`, so with the anon key that ships in the bundle, ANY
-visitor — signed in or not, admin or not — can do what was proven live (rolled
-back): insert an activity, update ALL 845 scans, award themselves arbitrary
-points, read all 593 profiles incl. name + email. So the ทีม SAMO dept scope is
-today a **UI** boundary that anyone who opens DevTools steps around. Retiring
-`admin`/`1234` does not help — the hole is below the login.
-
-Measured externally on 2026-07-30 with nothing but the bundled anon key
-(`tools/pass-anon-probe.mjs`): `profiles?select=email` → 200 with real
-`@kkumail.com` addresses; `user_tiers?select=*` → 200, the whole roster;
-`PATCH scans?id=eq.<n>` → **200, write accepted**. Steps 1–2 above close all of it.
-
-`passport/SECURITY-HARDENING-PLAN.md` is now a historical document — 0010/0011
-supersede its §3, and all 4 of its open questions are resolved. It remains
-**local to this Mac only** (excluded via the passport repo's `.git/info/exclude`,
-so it is not in a fresh clone and not on the VM). Deliberate, because it
-describes the hole in detail for a repo that is on GitHub — keep it that way
-until 0011 is applied; hand it over out-of-band if it must be shared.
+**The disclosure concern is resolved by this** — the exploit detail I pushed to
+the public repo now describes a closed hole. Still: **do not commit still-open
+vuln detail to either repo; both are PUBLIC.**
 
 ### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
 **The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the

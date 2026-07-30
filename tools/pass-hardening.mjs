@@ -135,7 +135,8 @@ begin
 
   select id into v_nonkku from auth.users
    where lower(email) not like '%@kkumail.com'
-     and lower(email) <> 'pmphuriphat@gmail.com' limit 1;
+     and lower(email) <> 'pmphuriphat@gmail.com'
+     and lower(email) <> 'passportadmin@samomdkku.app' limit 1;
   select u.id into v_moved from auth.users u
    join passport.account_migrations m on lower(m.from_email) = lower(u.email) limit 1;
 
@@ -157,6 +158,12 @@ begin
   insert into out values('_act_b', v_act_b::text);
   insert into out values('_dept_a', v_dept_a::text);
   insert into out values('_dept_b', v_dept_b::text);
+
+  -- The SHARED account the temporary admin/1234 door signs into. Located by email
+  -- rather than uid so this stays true if it is ever re-provisioned.
+  insert into out
+    select '_shared', coalesce((select id::text from auth.users
+             where lower(email) = 'passportadmin@samomdkku.app' limit 1), '');
 
   -- two throwaway activities, one per department, with known tokens + points
   insert into passport.activities (id, name, base_points_km, static_token, department_id)
@@ -339,6 +346,40 @@ begin
 end $$;
 reset role;
 
+-- ============================ the admin/1234 door (shared account) ===========
+-- The load-bearing claim of the shared-session design: after the lockdown, the
+-- temporary password door must still do everything an admin does. It is the same
+-- principal class as the blanket admin above, checked separately because if this
+-- regresses, many real people lose the panel.
+do $$
+declare v_uid uuid; v_a int; v_rows int; v_rc int;
+begin
+  select nullif(v,'')::uuid into v_uid from out where k='_shared';
+  select v::int into v_a from out where k='_dept_a';
+  if v_uid is null then
+    insert into out values('shared_is_admin','SKIP account not provisioned');
+    return;
+  end if;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role','authenticated')::text, true);
+  perform set_config('role','authenticated', true);
+
+  insert into out values('shared_is_admin', passport.is_admin()::text);
+  insert into out values('shared_all_depts',
+    coalesce(((public.passport_admin_context() -> 'all_departments')::boolean)::text,'false'));
+  select count(*) into v_rows from passport.admin_leaderboard(null,null,v_a,null);
+  insert into out values('shared_lb', v_rows::text);
+  ${TRY('shared_insert_activity', `insert into passport.activities (name, base_points_km)
+      values ('shared admin made this', 7);`)}
+  ${TRYN('shared_update_scan', `update passport.scans set points_awarded = 102
+      where activity_name = 'PROBE A';`)}
+  ${TRYN('shared_update_year', `update passport.samo_years set name = name
+      where ended_at is null;`)}
+  select count(*) into v_rows from passport.profiles;
+  insert into out values('shared_read_profiles', v_rows::text);
+end $$;
+reset role;
+
 select k, v from out where k not like '\\_%' order by k;
 rollback;
 `;
@@ -436,6 +477,19 @@ select
   check('leaderboard returns NOTHING for another dept', m.as_lb_dept_b === '0', m.as_lb_dept_b);
   check('unfiltered call still scoped', Number(m.as_lb_unfiltered) === Number(m.as_lb_dept_a),
     `unfiltered=${m.as_lb_unfiltered} own=${m.as_lb_dept_a}`);
+
+  console.log('\nthe admin/1234 door, now on a shared Supabase account:');
+  if ((m.shared_is_admin || '').startsWith('SKIP')) {
+    check('shared legacy-admin account exists', false, m.shared_is_admin);
+  } else {
+    check('is_admin', m.shared_is_admin === 'true', m.shared_is_admin);
+    check('all departments', m.shared_all_depts === 'true', m.shared_all_depts);
+    check('leaderboard works (no NOT_AUTHORIZED)', Number(m.shared_lb) > 0, m.shared_lb);
+    check('can create an activity', m.shared_insert_activity === 'ALLOWED', m.shared_insert_activity);
+    check('can correct a scan', touched('shared_update_scan') >= 1, m.shared_update_scan);
+    check('can manage the current วาระ', touched('shared_update_year') >= 1, m.shared_update_year);
+    check('can read profiles (leaderboard names)', Number(m.shared_read_profiles) > 1, m.shared_read_profiles);
+  }
 
   const r2 = await mgmt(OUT_OF_TXN);
   const s = Array.isArray(r2.body) ? r2.body[0] : {};
