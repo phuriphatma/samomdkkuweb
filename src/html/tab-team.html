@@ -360,6 +360,26 @@
         <div class="modal-body">
           <input type="hidden" id="teamMemberId" />
           <input type="hidden" id="teamMemberNodeId" />
+          <input type="hidden" id="teamMemberPhotoUrl" />
+          <!-- Portrait. This is the one field on this form that becomes PUBLIC:
+               get_public_org_chart() publishes it on the โครงสร้างองค์กร page for
+               members of a public ตำแหน่ง. The note says so, because nothing else
+               here leaves the admin app. -->
+          <div class="team-photo-field mb-3">
+            <div class="team-photo-preview" id="teamMemberPhotoPreview" aria-hidden="true"></div>
+            <div class="team-photo-controls">
+              <label class="form-label" for="teamMemberPhotoFile">รูปประจำตัว</label>
+              <div class="d-flex gap-2 flex-wrap">
+                <input type="file" class="form-control form-control-sm" id="teamMemberPhotoFile"
+                  accept="image/*" />
+                <button type="button" class="btn btn-sm btn-outline-secondary d-none"
+                  id="teamMemberPhotoClear">นำรูปออก</button>
+              </div>
+              <div class="form-text" id="teamMemberPhotoHint">
+                แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้ — ใช้รูปที่เจ้าตัวยินยอมให้เผยแพร่
+              </div>
+            </div>
+          </div>
           <div class="mb-3">
             <label class="form-label">ตำแหน่ง</label>
             <button type="button" class="form-select text-start team-node-pick" id="teamMemberNodeBtn">

@@ -27,6 +27,7 @@ import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vs
 import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
+import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { initProjectsView } from './projects-view.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
@@ -348,10 +349,15 @@ document.addEventListener('shown.bs.tab', (e) => {
   if (e.target?.id === 'pills-about-tab'
       || e.target?.id === 'pills-tools-tab'
       || e.target?.id === 'pills-departments-tab'
+      || e.target?.id === 'pills-team-public-tab'
       || e.target?.id === 'pills-projects-view-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
+
+  // The org chart is one rpc and ~400 people of DOM; load it the first time the
+  // tab is opened rather than on every page load.
+  if (e.target?.id === 'pills-team-public-tab') enterOrgChart();
 
   // URL sync — whenever a tab activates, mirror the path in the URL
   // so refresh / share / bookmark all work. Article tab keeps its
@@ -407,6 +413,7 @@ const PATH_ROUTES = [
   { path: '/shop',     tab: 'pills-shop-tab' },
   { path: '/tools',    tab: 'pills-tools-tab' },
   { path: '/departments', tab: 'pills-departments-tab' },
+  { path: '/team',     tab: 'pills-team-public-tab' },
   { path: '/projects-view', tab: 'pills-projects-view-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
 ];
@@ -819,6 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Departments tab — grid drill-down to per-ฝ่าย tool list.
   initDepartments();
+  initOrgChart();
 
   // Public read-only mirror of /admin/'s หนังสือโครงการ (customer view).
   // Mounts the projects module in role='customer' mode; lazy-loaded

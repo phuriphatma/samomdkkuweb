@@ -364,6 +364,7 @@ team_members (uuid id PK, node_id FK team_nodes(id) CASCADE, position int,
               confirmed bool, user_id FK users(id) SET NULL [optional link],
               permissions text[] [per-person extras, 0081],
               inherit_permissions bool [also take the node's perms, 0081],
+              photo_url text [PUBLIC portrait, 0103 — see the org chart below],
               timestamps)
   ↳ standalone directory rows — most members are NOT app login users.
 ```
@@ -485,8 +486,10 @@ grant as securing passport.
 roots are false. **The flag is not the privacy boundary.** The only sanctioned
 publisher is `public.get_public_org_chart()` — SECURITY DEFINER, granted to anon,
 returning a hand-built jsonb of node `{id,parent_id,name,kind,position}` +
-member `{node_id,name,nickname,position}` over a recursive CTE (so hiding a
-parent hides its subtree). Never add a public SELECT policy to `team_members`
+member `{node_id,name,nickname,photo_url,position}` over a recursive CTE (so
+hiding a parent hides its subtree). Consumed by the public โครงสร้างองค์กร page
+(`/team` → `src/js/org-chart.js`, added 0103); `photo_url` is therefore PUBLIC by
+design for members of a public ตำแหน่ง — the admin member form says so. Never add a public SELECT policy to `team_members`
 and never `returns setof public.team_members`: RLS is row-level, so a visibility
 flag filters rows while every column — `kkumail` (students AND @kku.ac.th staff),
 `student_id`, `year`, `major`, `permissions`, `project_seat`, `user_id` — travels

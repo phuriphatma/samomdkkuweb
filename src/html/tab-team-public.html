@@ -1,0 +1,40 @@
+      <!-- TAB: โครงสร้างองค์กร — the public org chart. Rendered by
+           src/js/org-chart.js from public.get_public_org_chart(), which is a
+           SECURITY DEFINER PROJECTION (name / nickname / photo / structure and
+           nothing else). team_members itself has NO public SELECT policy, so this
+           page cannot show a field the projection does not name — see migration
+           0103. Nodes with is_public = false, and their whole subtree, never
+           appear. -->
+      <div class="tab-pane fade an-tab" id="pills-team-public" role="tabpanel">
+        <div class="org-page">
+
+          <header class="org-masthead">
+            <p class="org-eyebrow">โครงสร้างองค์กร</p>
+            <h1 class="org-title">
+              ทีม<span class="org-title-mark">SAMO</span>
+            </h1>
+            <p class="org-lead">
+              สโมสรนักศึกษาคณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น
+              จัดโครงสร้างเป็นฝ่ายและตำแหน่งที่รับผิดชอบงานคนละส่วน
+              หน้านี้แสดงว่าใครดูแลอะไรอยู่
+            </p>
+
+            <div class="org-toolbar">
+              <div class="org-search">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" id="orgSearch" class="org-search-input"
+                  placeholder="ค้นหาชื่อ ชื่อเล่น หรือตำแหน่ง" autocomplete="off"
+                  aria-label="ค้นหาชื่อ ชื่อเล่น หรือตำแหน่ง" />
+                <button type="button" id="orgSearchClear" class="org-search-clear d-none"
+                  aria-label="ล้างการค้นหา"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+              </div>
+              <p class="org-count" id="orgCount" aria-live="polite"></p>
+            </div>
+          </header>
+
+          <div class="org-body" id="orgBody">
+            <p class="org-status" id="orgStatus">กำลังโหลดโครงสร้างองค์กร…</p>
+          </div>
+
+        </div>
+      </div>

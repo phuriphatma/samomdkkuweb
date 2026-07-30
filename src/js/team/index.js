@@ -13,6 +13,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
+import { uploadImageToDrive, convertDriveUrl } from '../uploads.js';
 import { dbRest } from '../db.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
@@ -1460,6 +1461,8 @@ async function onPermSubmit(e) {
 
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
+  $('teamMemberPhotoFile')?.addEventListener('change', onMemberPhotoPick);
+  $('teamMemberPhotoClear')?.addEventListener('click', () => setMemberPhoto(''));
   $('teamMemberDelete')?.addEventListener('click', () => {
     const id = $('teamMemberId').value;
     if (id) { modalInstance('teamMemberModal')?.hide(); onDeleteMember(id); }
@@ -1600,10 +1603,52 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   $('teamMemberMajor').value = member?.major || '';
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
+  setMemberPhoto(member?.photo_url || '');
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
   setTimeout(() => $('teamMemberName')?.focus(), 250);
+}
+
+/** Paint the preview from a URL (or the empty state) and sync the hidden input. */
+function setMemberPhoto(url) {
+  const hidden = $('teamMemberPhotoUrl');
+  const prev = $('teamMemberPhotoPreview');
+  const clear = $('teamMemberPhotoClear');
+  if (hidden) hidden.value = url || '';
+  if (clear) clear.classList.toggle('d-none', !url);
+  if (!prev) return;
+  if (url) {
+    // convertDriveUrl at RENDER time as well as on upload, so a legacy
+    // drive.google.com/thumbnail URL already in the column is rewritten to the
+    // redirect-free lh3 form — the thumbnail form intermittently fails to load on
+    // iOS Safari (mistakes.md).
+    prev.innerHTML = `<img src="${escHtml(convertDriveUrl(url, 320))}" alt="" loading="lazy" />`;
+  } else {
+    prev.innerHTML = '<span class="team-photo-empty"><i class="bi bi-person"></i></span>';
+  }
+}
+
+async function onMemberPhotoPick(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const hint = $('teamMemberPhotoHint');
+  const input = e.target;
+  const original = hint?.textContent;
+  input.disabled = true;
+  if (hint) hint.textContent = 'กำลังอัปโหลดรูป…';
+  try {
+    setMemberPhoto(await uploadImageToDrive(file));
+    if (hint) hint.textContent = 'อัปโหลดแล้ว — กดบันทึกเพื่อยืนยัน';
+  } catch (err) {
+    if (hint) hint.textContent = original;
+    alert('อัปโหลดรูปไม่สำเร็จ: ' + (err?.message || err));
+  } finally {
+    input.disabled = false;
+    // Clear the file input, or re-picking the SAME file fires no change event and
+    // the upload silently does not re-run.
+    input.value = '';
+  }
 }
 
 async function onMemberSubmit(e) {
@@ -1622,6 +1667,7 @@ async function onMemberSubmit(e) {
     major: $('teamMemberMajor').value.trim() || null,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
+    photo_url: $('teamMemberPhotoUrl').value.trim() || null,
   };
   modalInstance('teamMemberModal')?.hide();
   try {

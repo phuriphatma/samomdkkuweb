@@ -1,0 +1,349 @@
+/* org-chart.css — the public โครงสร้างองค์กร page (#pills-team-public).
+ *
+ * DIRECTION. The subject is a medical faculty's student council, so the person
+ * card borrows the one artifact everyone in that building wears: the ID badge —
+ * portrait at the left, a coloured edge naming the ฝ่าย, name and ชื่อเล่น set
+ * beside it. The hierarchy runs down a SPINE rather than a classic top-down tree:
+ * a top-down chart of 279 ตำแหน่ง needs horizontal scrolling on a phone, while a
+ * spine reads the same at every width and encodes depth as indentation from it.
+ * The signature is the ฝ่าย "station" — a dot on the spine, the name in Prompt at
+ * display weight, and a live head-count, which is real information rather than
+ * decoration (no 01/02/03 numbering: ฝ่าย order carries no meaning).
+ *
+ * Palette and type are the brand's, not invented: green --brand-primary, orange
+ * --brand-orange, the ten --dept-* identities reused from the ฝ่าย tab, Prompt for
+ * display and Noto Sans Thai for body. Both faces are already loaded.
+ *
+ * LIGHT-ONLY on purpose. This app has no theme system anywhere; adding a
+ * prefers-color-scheme block here would make this one page go dark on a
+ * dark-mode OS while the rest of the site stayed white (see mistakes.md).
+ */
+
+.org-page {
+  --org-spine: var(--ink-200);
+  --org-tint: var(--brand-primary);
+  max-width: 1080px;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3.25rem) clamp(1rem, 4vw, 2rem) 4rem;
+}
+
+/* ── masthead ───────────────────────────────────────────────────────────── */
+
+.org-eyebrow {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--brand-orange);
+  margin: 0 0 0.5rem;
+}
+
+.org-title {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.1rem, 6.5vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--brand-primary);
+  margin: 0 0 0.75rem;
+}
+/* Mirrors the wordmark rule: MDKKU green, SAMO orange. */
+.org-title-mark { color: var(--brand-orange); }
+
+.org-lead {
+  max-width: 46ch;
+  font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+  line-height: 1.75;
+  color: var(--ink-600);
+  margin: 0;
+}
+
+.org-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem;
+  margin-top: clamp(1.25rem, 3vw, 2rem);
+  padding-top: clamp(1.25rem, 3vw, 1.75rem);
+  border-top: 1px solid var(--ink-200);
+}
+
+.org-search {
+  position: relative; flex: 1 1 18rem; max-width: 26rem;
+  display: flex; align-items: center;
+}
+.org-search > .bi-search {
+  position: absolute; left: 0.85rem; color: var(--ink-400); font-size: 0.9rem;
+  pointer-events: none;
+}
+.org-search-input {
+  width: 100%;
+  padding: 0.7rem 2.5rem 0.7rem 2.4rem;
+  font: inherit; font-size: 0.95rem;
+  color: var(--ink-800);
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.org-search-input::placeholder { color: var(--ink-400); }
+.org-search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(16, 89, 34, 0.12);
+}
+/* Safari draws its own clear button on search inputs; ours is the only one. */
+.org-search-input::-webkit-search-decoration,
+.org-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.org-search-clear {
+  position: absolute; right: 0.5rem;
+  border: 0; background: transparent; color: var(--ink-400);
+  width: 1.9rem; height: 1.9rem; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; cursor: pointer;
+}
+.org-search-clear:hover { color: var(--ink-700); background: var(--ink-100); }
+
+.org-count {
+  margin: 0; margin-inline-start: auto;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.8rem; font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-500);
+  white-space: nowrap;
+}
+
+.org-status {
+  margin: 2.5rem 0; text-align: center;
+  color: var(--ink-500); font-size: 0.95rem;
+}
+.org-status.is-error { color: #b42318; }
+
+/* ── the tree ───────────────────────────────────────────────────────────── */
+
+.org-tree, .org-branch, .org-people { list-style: none; margin: 0; padding: 0; }
+
+.org-tree { margin-top: clamp(1.5rem, 4vw, 2.5rem); }
+
+/* Each root ฝ่าย is a section; its tint cascades to everything inside it. */
+.org-tree > .org-node {
+  margin-top: clamp(1.75rem, 4vw, 2.75rem);
+  padding-top: clamp(1.5rem, 3vw, 2rem);
+  border-top: 1px solid var(--ink-200);
+}
+.org-tree > .org-node:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+.org-node[data-tint="admin"]      { --org-tint: var(--dept-admin); }
+.org-node[data-tint="digital"]    { --org-tint: var(--dept-digital); }
+.org-node[data-tint="internal"]   { --org-tint: var(--dept-internal); }
+.org-node[data-tint="external"]   { --org-tint: var(--dept-external); }
+.org-node[data-tint="university"] { --org-tint: var(--dept-university); }
+.org-node[data-tint="academic"]   { --org-tint: var(--dept-academic); }
+.org-node[data-tint="strategy"]   { --org-tint: var(--dept-strategy); }
+.org-node[data-tint="quality"]    { --org-tint: var(--dept-quality); }
+.org-node[data-tint="media"]      { --org-tint: var(--dept-media); }
+.org-node[data-tint="projects"]   { --org-tint: var(--dept-projects); }
+
+/* The spine. A nested list gets a left rule and each child hangs off it with a
+   short horizontal tick — one rule per level, so depth is legible without any
+   per-level colour or icon noise. */
+.org-branch {
+  position: relative;
+  margin-left: 0.55rem;
+  padding-left: clamp(1rem, 3vw, 1.65rem);
+  border-left: 1px solid var(--org-spine);
+}
+.org-branch > .org-node { position: relative; margin-top: 1.35rem; }
+.org-branch > .org-node::before {
+  content: ''; position: absolute;
+  left: calc(clamp(1rem, 3vw, 1.65rem) * -1);
+  top: 0.85rem; width: clamp(0.6rem, 2vw, 1.1rem); height: 1px;
+  background: var(--org-spine);
+}
+
+/* ── station (the ฝ่าย / ตำแหน่ง marker) ─────────────────────────────────── */
+
+.org-station {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.org-station-dot {
+  flex: 0 0 auto;
+  width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  background: var(--org-tint);
+  transform: translateY(-0.15em);
+}
+.org-tree > .org-node > .org-station .org-station-dot {
+  width: 0.8rem; height: 0.8rem;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--org-tint) 16%, transparent);
+}
+
+.org-station-name {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--ink-900);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.org-tree > .org-node > .org-station > .org-station-name {
+  font-size: clamp(1.2rem, 3.4vw, 1.65rem);
+  font-weight: 700;
+  color: var(--org-tint);
+}
+.org-node[data-depth="1"] > .org-station > .org-station-name { font-size: 1.02rem; }
+.org-node[data-depth="2"] > .org-station > .org-station-name { font-size: 0.95rem; }
+.org-node[data-depth="3"] > .org-station > .org-station-name,
+.org-node[data-depth="4"] > .org-station > .org-station-name { font-size: 0.9rem; color: var(--ink-700); }
+
+.org-station-count {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.7rem; font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ── people ─────────────────────────────────────────────────────────────── */
+
+.org-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+/* A one-person ตำแหน่ง reads as a single line: the position, then the holder.
+   This is the common case here, and a one-item grid left a screenful of dead
+   space next to every name. The child branch is forced onto its own row so the
+   spine still descends correctly underneath. */
+/* GRID, not flex-wrap: siblings at the same depth share a container width, so a
+   fixed right-hand column makes every person card in a branch start at the same x.
+   Flexing them to fill left a ragged edge that read as sloppy rather than airy. */
+.org-node.is-solo {
+  display: grid;
+  /* Both columns CAPPED and packed to the start: giving the left column 1fr let it
+     swallow all the slack, opening a canyon between the ตำแหน่ง and its holder.
+     Capping both puts the leftover width at the page edge, which is whitespace,
+     not a gap inside the row. minmax(0, …) still lets both shrink at depth. */
+  grid-template-columns: minmax(0, 20rem) minmax(0, 21rem);
+  justify-content: start;
+  align-items: center;
+  gap: 0.35rem clamp(0.75rem, 2.5vw, 1.5rem);
+}
+.org-node.is-solo > .org-people {
+  margin-top: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.org-node.is-solo > .org-branch { grid-column: 1 / -1; }
+/* The tick connector is positioned against the li's top; on a solo row the row
+   is taller than a bare heading, so nudge it onto the text baseline. */
+.org-branch > .org-node.is-solo::before { top: 1.6rem; }
+
+/* The badge. The tint is a left edge rather than a full border so a grid of them
+   reads as a set of records, not a set of buttons. */
+.org-person {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.55rem 0.8rem 0.55rem 0.65rem;
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-left: 3px solid var(--org-tint);
+  border-radius: var(--radius-sm);
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+@media (hover: hover) {
+  .org-person:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--org-tint) 45%, var(--ink-200));
+    box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.28);
+  }
+}
+
+.org-face {
+  position: relative;               /* the photo is layered over the initials */
+  flex: 0 0 auto;
+  width: 2.75rem; height: 2.75rem;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--org-tint) 14%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 28%, transparent);
+}
+
+/* THE ONE RISK, and the reason for it: member portraits are user-uploaded, so they
+   arrive with wildly different lighting, backgrounds and crops. A light
+   desaturation at rest pulls a whole ฝ่าย into one coherent wall; hover and
+   keyboard focus restore full colour, so the individual is never flattened away.
+   Kept subtle — a full greyscale wall of student faces reads as a memorial, not a
+   club. */
+.org-face-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(0.78) contrast(1.03);
+  transition: filter 0.25s ease;
+}
+.org-person:hover .org-face-img,
+.org-person:focus-within .org-face-img { filter: none; }
+
+.org-face-initials {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.85rem; font-weight: 600;
+  color: color-mix(in srgb, var(--org-tint) 78%, var(--ink-900));
+  line-height: 1;
+}
+
+.org-person-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.org-person-name {
+  font-size: 0.9rem; font-weight: 500; color: var(--ink-800);
+  overflow-wrap: anywhere;
+}
+.org-person-nick {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.75rem; color: var(--ink-500);
+}
+.org-person mark {
+  background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
+  color: inherit; padding: 0 0.1em; border-radius: 2px;
+}
+.org-station-name mark {
+  background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
+  color: inherit; padding: 0 0.1em; border-radius: 2px;
+}
+
+/* ── motion ─────────────────────────────────────────────────────────────── */
+/* One orchestrated entrance for the root sections, nothing per-card: 279 nodes
+   animating individually would be noise (and jank on a phone). */
+.org-tree > .org-node {
+  animation: orgRise 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.org-tree > .org-node:nth-child(1) { animation-delay: 0.02s; }
+.org-tree > .org-node:nth-child(2) { animation-delay: 0.06s; }
+.org-tree > .org-node:nth-child(3) { animation-delay: 0.10s; }
+.org-tree > .org-node:nth-child(4) { animation-delay: 0.14s; }
+.org-tree > .org-node:nth-child(n+5) { animation-delay: 0.18s; }
+
+@keyframes orgRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-tree > .org-node { animation: none; }
+  .org-person, .org-face-img { transition: none; }
+  .org-person:hover { transform: none; }
+}
+
+/* ── narrow screens ─────────────────────────────────────────────────────── */
+
+@media (max-width: 767.98px) {
+  /* Two columns stop paying for themselves once the ตำแหน่ง name has to wrap —
+     stack instead, so neither the name nor the person gets squeezed. */
+  .org-node.is-solo { grid-template-columns: minmax(0, 1fr); }
+  .org-node.is-solo > .org-people { margin-top: 0.4rem; }
+}
+
+@media (max-width: 575.98px) {
+  .org-people { grid-template-columns: 1fr; }
+  .org-count { margin-inline-start: 0; }
+  .org-branch { padding-left: 0.9rem; margin-left: 0.35rem; }
+  .org-branch > .org-node::before { left: -0.9rem; width: 0.5rem; }
+}

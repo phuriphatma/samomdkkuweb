@@ -366,8 +366,23 @@ sources), so a product-only scope isolates nothing.
   from `tools/president-account.mjs` first (see mistakes.md).
 
 ### 7. Not started
-- **Org-chart renderer** — `get_public_org_chart()` exists (a definer PROJECTION,
-  the ONLY sanctioned publisher); no UI consumes it.
+- ~~**Org-chart renderer**~~ **DONE 2026-07-30.** Public page at `/team`
+  (`pills-team-public`, `src/js/org-chart.js` + `src/css/org-chart.css`), fed only
+  by `get_public_org_chart()`. Migration **0103** added `team_members.photo_url`
+  (capped 500 chars) and named it in the projection — a new column on
+  `team_members` is still NOT published until it is named there, which is the whole
+  point of building that jsonb key by key. Verified as anon: 279 ตำแหน่ง /
+  401 members returned, `team_members` itself reads 0 rows, and the serialized
+  chart contains no `@` and none of `student_id|kkumail|permissions|vs_dept|
+  project_seat|user_id|major|confirmed`. `tools/proj0086-seats.mjs` still 24/24.
+  Portraits upload from the ทีม SAMO member form via `uploadImageToDrive`;
+  `convertDriveUrl` runs at RENDER time too, so legacy `thumbnail?id=` URLs are
+  rewritten to the iOS-safe lh3 form. Initials are layered UNDER the photo so a
+  rotted Drive link degrades to initials instead of an empty disc.
+  **Privacy note**: a member's name + photo become public as soon as their
+  ตำแหน่ง is in a public subtree. `team_nodes.is_public` is the control; there is
+  no per-member opt-out today, and photos are opt-in only in the sense that
+  someone has to upload one.
 - **Notify follow-up (b)** from the notify_log entry in mistakes.md:
   `waitUntil`-deliver + immediate 202, so delivery is decoupled from the client
   connection. Changes the callGAS success-echo contract — do it together with
