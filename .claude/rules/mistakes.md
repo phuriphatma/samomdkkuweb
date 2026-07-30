@@ -2040,3 +2040,111 @@ for them after adding a role.
 
 Every entry above represents hours we already spent. If a symptom looks
 similar to something here, the fix is probably the same or related.
+
+---
+
+## A VIEW without `security_invoker` reads its base table with the VIEW OWNER's rights — so closing the table's RLS leaves the view still serving the whole thing
+
+**Symptom**: none yet — caught while writing the passport lockdown, one step before
+it would have shipped as a false sense of security. The plan closed
+`passport.profiles` (`profiles_read_all using (true)` → self-or-admin) to stop anon
+dumping 593 students' names + emails. Verified after the change that
+`GET /rest/v1/profiles` returns 0 rows for anon. Done, apparently.
+**Cause**: `passport.user_tiers` is a plain view over `passport.profiles`, owned by
+`postgres`, with `reloptions = null` — i.e. **no `security_invoker`**. A view
+without it executes with the privileges of its OWNER, so it never evaluates the
+caller's RLS on the underlying table. anon holds SELECT on the view (the schema's
+`ALTER DEFAULT PRIVILEGES` grants it automatically). So
+`GET /rest/v1/user_tiers?select=*` would have kept returning every student's
+`id, full_name, total_km, tier_override, final_tier, has_travel_visa` — plus a
+`has_travel_visa` that sub-queries `scans` — with the "fixed" table sitting right
+underneath it. Measured live pre-fix: profiles 5 rows / user_tiers 5 rows; the
+whole point of the migration undone by an object nobody was looking at.
+**Fix**: `alter view passport.user_tiers set (security_invoker = on)` (PG15+; this
+project is PG17.6). Landed in the ADDITIVE migration rather than the lockdown,
+because while the base policy is still `using (true)` it is a provable no-op — the
+dashboard's own-row read behaves identically — which makes it safe to verify early.
+**Where**: `passport/db/0010_passport_authz_hardening.sql` §5; asserted by
+`tools/pass-hardening.mjs` ("reads 0 user_tiers") and by the external
+`tools/pass-anon-probe.mjs`.
+**Rule**: before narrowing a table's SELECT policy, list every VIEW over it
+(`select c.relname, c.reloptions from pg_class c where c.relkind='v'`) and check
+each for `security_invoker=on`. A view without it is a parallel read path that
+your new policy does not govern — the same family as "sanitizing ONE read path
+leaves the others leaking", except the second path is invisible in `pg_policies`
+because a view has no policies of its own.
+
+---
+
+## `revoke all ... from public` does NOT remove an explicit grant to `anon` — and a Supabase schema's DEFAULT PRIVILEGES hand `anon` EXECUTE on every new function
+
+**Symptom**: a new SECURITY DEFINER RPC is written to be admin-only and grants
+`execute` to `authenticated` only, preceded by the usual
+`revoke all on function … from public;`. It applies clean. `anon` can still call
+it. Nothing in the migration hints at why.
+**Cause**: two separate facts compounding.
+- `PUBLIC` and `anon` are **different grantees**. Revoking from `PUBLIC` removes
+  only the implicit world grant; an explicit `anon=X/postgres` ACL entry survives
+  untouched. `\df+`-style thinking hides this — you have to read `proacl`.
+- The `passport` schema carries `ALTER DEFAULT PRIVILEGES … GRANT EXECUTE ON
+  FUNCTIONS TO anon, authenticated` (and, for tables, full `arwdDxtm` to both).
+  Confirmed in `pg_default_acl`: `defaclobjtype='f'` → `{anon=X/postgres,…}`. So
+  **every function created in that schema is anon-callable the instant it exists**,
+  before any grant of yours runs.
+Measured: after `revoke … from public` + `grant … to authenticated`,
+`proacl` on `stamp_scan` was `{postgres=X,anon=X,authenticated=X}` and
+`has_function_privilege('anon', …, 'execute')` was true.
+**Fix**: `revoke all on function … from anon;` **by name**, per function, and then
+verify from the catalog rather than from the migration text:
+```sql
+select proname, proacl from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+ where n.nspname='<schema>' and proname in (…);
+```
+The two RLS *policy helpers* deliberately KEEP their anon grant: policy expressions
+are evaluated with the querying role's privileges, so if `anon` could not execute
+`passport.is_admin()` every policy calling it would fail with "permission denied
+for function" instead of evaluating to false.
+**Where**: `passport/db/0010_passport_authz_hardening.sql` §0 documents the schema's
+default ACLs; the explicit anon revokes sit with each `grant`.
+`tools/pass-anon-probe.mjs` asserts it over real HTTPS.
+**Corollary that is worse than the function case**: the same default privileges
+give `anon` full DML on every FUTURE TABLE in that schema. So in a schema like
+this, RLS is not defence-in-depth — it is the only defence, and a new table
+created with RLS off (or on with a `:: true` policy) is world-writable the moment
+it exists.
+
+---
+
+## RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted
+
+**Symptom**: the first run of a new authorization proof reported
+`anon cannot update scans -> ALLOWED`, `anon cannot set anyone total_km ->
+ALLOWED`, and `CAN still rename self -> ALLOWED` — the last one a pass, the first
+two apparently catastrophic. The policies were in fact correct; the *test* was
+wrong, in the direction that matters: it would equally have reported ALLOWED for a
+genuinely open policy, so it could not tell a closed system from an open one.
+**Cause**: RLS filters rows; it does not reject statements. For UPDATE and DELETE a
+row the policy hides is simply **not visible**, so the statement succeeds having
+touched nothing and no exception is raised. Wrapping it in
+`begin … exception when others then 'blocked'` therefore records ALLOWED for both
+the permitted case and the fully-denied case. INSERT is the exception that misleads
+you into the pattern: a `WITH CHECK` failure IS a real error (42501), so
+INSERT probes written this way work, and you generalize from them.
+**Fix**: for UPDATE/DELETE assert `ROW_COUNT`, not the absence of an exception:
+```sql
+update … ; get diagnostics v_rc = ROW_COUNT;
+insert into out values('k','rows='||v_rc);
+```
+then treat `blocked:*` OR `rows=0` as denied, and `rows=N>0` as permitted. The
+distinction also makes the assertion honest in the other direction — "the student
+CAN still rename themselves" now means one row actually changed, not merely that
+nothing exploded.
+**Where**: `tools/pass-hardening.mjs` `TRY` (INSERT / RPC probes) vs `TRYN`
+(UPDATE / DELETE probes); the 53 checks split along exactly that line.
+**Rule**: in any RLS proof, classify each probe by statement type first. Only
+INSERT and an explicit `raise` in a definer function fail loudly; SELECT, UPDATE
+and DELETE fail *quietly and by row count*. Two more traps from the same script:
+the Management API returns **201**, not 200, so a `status !== 200` guard discards a
+successful run; and once you `set_config('role', 'anon')` inside a transaction you
+must `reset role` at top level before impersonating the next principal, or every
+later phase silently runs as anon and "passes".

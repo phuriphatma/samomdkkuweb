@@ -232,7 +232,59 @@ Re-run the check before flipping — the tree changes:
 `select email, managed_passport_scopes, managed_permissions from users where
 'passport' = any(managed_permissions) or managed_passport_scopes <> '{}';`
 
-### 3. Passport RLS enforces NOTHING — this is NOT about who is an admin
+### 3. Passport RLS — HALF DONE. Two steps left, in this order, and only #2 is risky
+**Status 2026-07-30**: the primitives are BUILT, APPLIED and PROVEN; the app code
+is written and committed; the lockdown is written, proven, and deliberately NOT
+applied. What remains:
+
+1. **Deploy the passport app** (safe — it behaves identically under today's open
+   RLS, and it is the prerequisite for step 2). Passport `main` is at `079f422`;
+   the VM pulls it via `server/deploy.sh`.
+2. **Apply `passport/db/0011_passport_rls_lockdown.sql`** — the actual closure.
+   **One consequence to accept first: `admin`/`1234` becomes READ-ONLY.** A legacy
+   password session has no Supabase JWT, so `passport.is_admin()` is false for it
+   and every admin WRITE starts failing. That is the forcing function to flip
+   `LEGACY_PASSWORD_LOGIN` (NEXT #2) — but do not apply 0011 mid-event without
+   telling the organizers who are still using the password. Everyone in the
+   ทีม SAMO list in #2 is unaffected (they sign in with Google).
+3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is 6/9 today,
+   and the 3 failures ARE the vulnerability).
+
+**APPLIED — `passport/db/0010_passport_authz_hardening.sql`** (additive, no
+behaviour change):
+- `passport.is_admin()` / `admin_covers_dept()` wrap `public.passport_admin_context()`
+  so the ทีม SAMO tree stays the only admin channel. **No `passport.admins` table** —
+  the plan predated 0087 and proposed one; it was rewritten.
+- `passport.stamp_scan()` takes the QR token check, `points_awarded` and `user_id`
+  onto the server, and enforces the kkumail / migrated-away gate that was
+  client-side only.
+- `profiles_guard` makes `total_km` + `tier_override` server-managed. The exemption
+  is by **trigger depth**, not identity: `on_new_scan` is SECURITY DEFINER, and that
+  does NOT clear `auth.uid()`, so a legitimate stamp is indistinguishable from the
+  attack by identity alone.
+- `admin_leaderboard()` re-applies the caller's ฝ่าย scope INSIDE the definer.
+- `leaderboard_names()` publishes `id + full_name` only, so the public leaderboard
+  survives without a roster read.
+- `user_tiers` gets `security_invoker=on` — **without this the lockdown is
+  cosmetic**; the view was reading `profiles` with its owner's rights.
+
+**Proofs** (re-run after ANY change to passport authz):
+- `node tools/pass-hardening.mjs` — **53 checks**, applies 0011 inside a
+  rolled-back transaction as anon / student / non-kkumail / migrated / full admin /
+  dept-scoped admin. Nothing committed. Currently 53/53.
+- `node tools/pass-anon-probe.mjs` — the external layer (PostgREST, schema
+  exposure, grants) using only the bundled anon key. Safe against prod by
+  construction: bounded reads + ONE write probe that PATCHes a value to itself.
+
+**Decisions taken 2026-07-30 (user said "do the best way")**:
+- **Student email STAYS** in the admin leaderboard + CSV — organizers need to
+  identify students. So the scoping moved server-side instead of dropping the
+  column.
+- **No cutover window needed** for step 1; step 2 needs only the legacy-admin
+  heads-up above. The staging (additive → app → lockdown) is what removes the
+  need for a window.
+
+### 3b. Why this was ever reachable (the original finding, kept for context)
 Distinct from #2, and easy to conflate with it. The grant channel is correct; the
 DATABASE enforces nothing on anyone. The `passport` schema still carries 0056's
 `using (true)` for `anon`, so with the anon key that ships in the bundle, ANY
@@ -242,30 +294,17 @@ points, read all 593 profiles incl. name + email. So the ทีม SAMO dept sco
 today a **UI** boundary that anyone who opens DevTools steps around. Retiring
 `admin`/`1234` does not help — the hole is below the login.
 
-Plan: `passport/SECURITY-HARDENING-PLAN.md` — NOT applied, and **local to this
-Mac only**: it is excluded via the passport repo's `.git/info/exclude`, so it is
-NOT in a fresh clone and not on the VM. Deliberate (it describes a live, unfixed
-hole in a repo that has been pushed to GitHub) — keep it that way; if it must be
-shared, hand it over out-of-band rather than committing it.
-It predates 0087 and proposed a `passport.admins(user_id)` table — **do not build
-that**; `passport.is_admin()` must read `public.passport_admin_context()` so the
-tree stays the single source of truth. §2, §3.1 and §7 were rewritten
-2026-07-30 to say so, and §3.1 now carries the wrapper + a
-`passport.admin_covers_dept(int)` helper for the per-ฝ่าย policies.
+Measured externally on 2026-07-30 with nothing but the bundled anon key
+(`tools/pass-anon-probe.mjs`): `profiles?select=email` → 200 with real
+`@kkumail.com` addresses; `user_tiers?select=*` → 200, the whole roster;
+`PATCH scans?id=eq.<n>` → **200, write accepted**. Steps 1–2 above close all of it.
 
-Of the plan's 4 open questions, **2 are answered**:
-- *Admin list* → the ทีม SAMO grant (above). No second table, no seed list.
-- *Bulk scan-insert path* → **none exists.** The only INSERT into `scans` is the
-  interactive `js/scanning.js:131`; everything else reads. So `scans_insert` can
-  be fully closed behind the `stamp_scan()` definer RPC.
-
-**Still needs a decision (2)**: whether the admin leaderboard keeps showing
-student **email** — it is the ONLY reader of `profiles.email`
-(`admin-page.js ensureLbScans`, rendered at :1730 and CSV-exported at :1741).
-Keeping it means the leaderboard must move to a definer RPC that scope-filters
-server-side (a plain policy cannot express "profiles referenced by in-scope
-scans", since `profiles` has no department); dropping it allows a simple
-self-or-admin policy. Plus: any live event window to avoid for cutover.
+`passport/SECURITY-HARDENING-PLAN.md` is now a historical document — 0010/0011
+supersede its §3, and all 4 of its open questions are resolved. It remains
+**local to this Mac only** (excluded via the passport repo's `.git/info/exclude`,
+so it is not in a fresh clone and not on the VM). Deliberate, because it
+describes the hole in detail for a repo that is on GitHub — keep it that way
+until 0011 is applied; hand it over out-of-band if it must be shared.
 
 ### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
 **The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the
