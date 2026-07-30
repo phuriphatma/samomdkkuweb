@@ -88,8 +88,12 @@ let inFlight = false;
  */
 function pageIsIdle() {
   if (document.querySelector('.modal.show, .offcanvas.show')) return false;
+  // type=search is excluded on purpose: a filter term left in a search box is
+  // not unsaved WORK, but it would otherwise block the self-heal for as long as
+  // it sits there. Same for anything explicitly marked transient.
   const fields = document.querySelectorAll(
-    'input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable="true"]');
+    'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=search]):not([data-transient]),'
+    + ' textarea:not([data-transient]), [contenteditable="true"]');
   for (const el of fields) {
     if (el.offsetParent === null) continue;                 // hidden — ignore
     const v = el.isContentEditable ? el.textContent : el.value;

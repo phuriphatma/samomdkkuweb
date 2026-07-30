@@ -37,7 +37,9 @@ let busy = false;
 let host = null;
 let onTermsChanged = null; // lets index.js keep its currentTermYear in step
 
-export function currentTerm() {
+// Internal only. NOT exported: index.js learns the current year through the
+// onChange callback passed to initTerms(), so it never needs to reach in here.
+function currentTerm() {
   return terms.find((t) => t.is_current) || null;
 }
 
@@ -67,7 +69,9 @@ function termRow(t) {
           ${t.is_current ? '<span class="team-term-badge is-live">ปีปัจจุบัน (ผังสด)</span>' : ''}
           ${published
             ? `<span class="team-term-badge is-pub">เผยแพร่แล้ว · ${escHtml(when)}</span>`
-            : '<span class="team-term-badge is-draft">ยังไม่เผยแพร่ (แสดงผังสด)</span>'}
+            : (t.is_current
+                ? '<span class="team-term-badge is-draft">ยังไม่เผยแพร่ — หน้าสาธารณะแสดงผังสด</span>'
+                : '<span class="team-term-badge is-draft" title="ยังไม่เผยแพร่และไม่ใช่ปีปัจจุบัน จึงไม่ปรากฏบนหน้าสาธารณะ">ยังไม่เผยแพร่ — ไม่แสดงบนหน้าสาธารณะ</span>')}
           ${staleByYear.get(t.year)
             ? '<span class="team-term-badge is-stale" title="ผังสดถูกแก้ไขหลังเผยแพร่ครั้งล่าสุด — หน้าสาธารณะยังแสดงภาพนิ่งเดิม">ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ</span>'
             : ''}
@@ -186,7 +190,10 @@ function archiveMemberRow(m) {
     </li>`;
 }
 
-export function renderTerms() {
+// Internal only. render() in index.js deliberately does NOT call this — it is
+// also the realtime re-render target and would destroy in-progress archive
+// edits (see the isYears branch there). terms.js owns its own repaints.
+function renderTerms() {
   if (!host) return;
   const nextYear = (currentTerm()?.year || new Date().getFullYear() + 543) + 1;
   host.innerHTML = `
@@ -271,7 +278,9 @@ async function doPublish(year) {
     statusLine('กำลังบันทึกภาพนิ่งของผัง…');
     const res = await publishTerm(year);
     await reloadTerms();
-    statusLine(`เผยแพร่ปี ${year} แล้ว — ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน`, 'ok');
+    const kept = Number(res?.photos_kept || 0);
+    statusLine(`เผยแพร่ปี ${year} แล้ว — ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน`
+      + (kept ? ` · คงรูปที่แก้ไว้ในประวัติ ${kept} รูป` : ''), 'ok');
   });
 }
 
