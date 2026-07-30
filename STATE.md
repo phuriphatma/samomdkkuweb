@@ -8,19 +8,22 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `3a01c25`, **deployed 2026-07-30**. Verified in the served bundles:
-  `delayOnTouchOnly` / `touchStartThreshold` / `team-chosen` in
-  `/assets/admin-*.js`, and `.team-handle{…pan-y}` with no `touch-action:none` in
-  `/assets/admin-*.css`. (Admin assets are served from `/assets/`, NOT
-  `/admin/assets/` — a grep against the latter 404s and silently "finds nothing".)
+- **samoweb**: `10bd75a`, **deployed 2026-07-30**. Verified in the served bundles:
+  the org chart (`get_public_org_chart` / `org-station` / `org-face`) in
+  `/assets/public-*.js` + `.css`, and the mobile-drag fix
+  (`delayOnTouchOnly` / `touchStartThreshold` / `.team-handle{…pan-y}`) in
+  `/assets/admin-*.js` + `.css`. (BOTH apps' assets are served from `/assets/`,
+  NOT `/admin/assets/` — a grep against the latter 404s and silently
+  "finds nothing", which reads exactly like a failed deploy.)
   A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
   deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
   `STATE.md` / `.claude/` / `docs/` / `tools/` first.
-- **passport** (separate repo): `405c927`, **deployed 2026-07-30**. Served bundles
+- **passport** (separate repo): code `405c927` **deployed**; HEAD is `b57eb1e`
+  (a `db/`-only idempotency fix — no rebuild needed). Served bundles
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–0102; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–0103; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
@@ -85,8 +88,11 @@ paths:
 `tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
 `tools/vs0096-remark-vis.mjs` 37 · `tools/shop0100-buyer-guard.mjs` 12 ·
 `tools/pass-hardening.mjs` 60 (passport, applies its lockdown in a rolled-back txn).
-**225 checks total, all green.** Plus `tools/pass-anon-probe.mjs` 9 — the only one
-that leaves the database and tests the real anon key over HTTPS.
+Plus `tools/pass-anon-probe.mjs` 9 — the only one that leaves the database and
+tests the real anon key over HTTPS.
+**234 checks total. All 12 re-run and green at 2026-07-30 session end** (the tally
+below is what they printed, not what they printed last month):
+`16 · 24 · 10 · 5 · 13 · 15 · 10 · 23 · 37 · 12 · 60 · 9`.
 **`node tools/security-sweeps.mjs`** — three standing sweeps in one command,
 each encoding a bug class already shipped. Run after ANY policy / RLS / definer
 change. Exits non-zero on a finding; its allow-lists carry the deliberate
@@ -194,10 +200,27 @@ Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
 ### 1. Nothing behind the ADMIN LOGIN has had a signed-in browser run
-Every server path is proven by the 10 scripts (165 checks). The PUBLIC half is
-now browser-verified (see the VitalSound section); everything requiring a login
-is not, because there is no way to authenticate from the agent session. Check
-these first — they are the likeliest place a regression hides:
+Every server path is proven by the 12 scripts (234 checks, all re-run green at
+session end). The PUBLIC half is browser-verified; everything requiring a login is
+not, because the agent session cannot authenticate. Check these first — likeliest
+place a regression hides.
+
+**Added 2026-07-30 — shipped this session, server-proven, NOT clicked:**
+- **ทีม SAMO photo upload** — member form → รูปประจำตัว. Goes through
+  `uploadImageToDrive` (GAS `uploadPRFile`), then `photo_url` saves with บันทึก.
+  The whole GAS upload leg is untested here; if it fails, check the GAS deploy
+  before suspecting the column. Preview + "นำรูปออก" also unclicked.
+- **จัดการสิทธิ์ search** — typing a PERSON's name there now filters (the member
+  scan used to be gated to จัดการทีม). Type a ชื่อเล่น and confirm the person
+  appears with their ตำแหน่ง ancestors.
+- **Mobile drag on ทีม SAMO** — needs a REAL phone. A scroll starting on a drag
+  handle must scroll; a ~220ms hold must start a drag and highlight the row; drag
+  must be absent entirely in จัดการสิทธิ์.
+- **สถิติการใช้งาน** — proven server-side for a tree grantee (0102), but open it
+  as a non-staff grantee once to confirm the dashboard renders rather than erroring.
+- **Public /team org chart** — verified at desktop width only. **Not verified at
+  mobile width**: the browser extension screenshots at a fixed size regardless of
+  window resize, so the sub-768px stacking rests on the media queries alone.
 - **VS บันทึกข้อความ (0096)** — the visibility select in the staff ticket modal;
   a `thread` note written on a canonical must appear on a duplicate's tracking
   timeline tagged "จากเรื่องที่เกี่ยวข้อง"; a `public` note must appear in
@@ -254,66 +277,33 @@ Re-run the check before flipping — the tree changes:
 `select email, managed_passport_scopes, managed_permissions from users where
 'passport' = any(managed_permissions) or managed_passport_scopes <> '{}';`
 
-### 3. Passport authorization — DONE (0010 + 0011 + 0012 applied, app deployed)
-The hole is closed. `node tools/pass-anon-probe.mjs` — the real anon key over
-HTTPS — went **6/9 → 9/9**. Before: `profiles?select=email` returned real
-`@kkumail.com` addresses, `user_tiers` returned the whole roster, and
-`PATCH /scans` was **accepted**. Now all three are refused, while the catalog and
-scan-points reads the app needs pre-login still work.
+### 3. Passport authorization — DONE. Two small follow-ups remain
+Narrative: `docs/state-archive/2026-07-30-passport-authz.md`. `db/0010` + `0011` +
+`0012` applied, app deployed. `tools/pass-anon-probe.mjs` (real anon key over
+HTTPS) went **6/9 → 9/9**: student emails, the roster via `user_tiers`, and
+`PATCH /scans` are all refused now; the catalog and scan-points reads the app needs
+before sign-in still work. `tools/pass-hardening.mjs` = **60 checks** over seven
+principals, applying the lockdown inside a rolled-back transaction.
 
-**Both admin doors work, and that was the hard part.** `admin`/`1234` had no
-server identity — a password compared in JavaScript produces none — so it could
-never be granted anything the anonymous public wasn't. It now signs into ONE
-shared Supabase account (`passportadmin@samomdkku.app`, `permissions={passport}`)
-on its OWN client with its OWN `storageKey`, so it carries a real JWT and cannot
-disturb anyone's personal Google session. Verified end-to-end over HTTPS with the
-real credentials against the locked-down DB: sign-in 200, `admin_leaderboard` 200,
-`profiles` read 200, admin `PATCH activities` 200.
+**`admin`/`1234` still works as a FULL admin** — user's standing requirement, many
+people use it. It now signs into a shared Supabase account so it carries a real
+JWT (see the archive for why nothing else could work). **Do not retire it without
+asking**; checklist in #2.
 
-**Proofs — re-run both after ANY passport authz change:**
-- `node tools/pass-hardening.mjs` — **60/60**. Applies 0011 inside a rolled-back
-  transaction and checks seven principals: anon, a real @kkumail student, a
-  non-kkumail account, a migrated-away account, a blanket-`passport` admin, a
-  one-department admin, and the shared `admin`/`1234` account.
-- `node tools/pass-anon-probe.mjs` — **9/9**. Prod-safe by construction.
-
-**What each migration did**
-- `0010` (additive): `is_admin()`/`admin_covers_dept()` wrapping
-  `public.passport_admin_context()` (the ทีม SAMO tree stays the only admin
-  channel — deliberately NO `passport.admins` table); `stamp_scan()` taking the QR
-  token, `points_awarded` and `user_id` server-side and enforcing the
-  kkumail/migrated gate that was client-side only; `profiles_guard`
-  (`total_km`/`tier_override` server-managed, exempted by TRIGGER DEPTH because
-  SECURITY DEFINER does not clear `auth.uid()`); `admin_leaderboard()`
-  re-applying the caller's ฝ่าย scope inside the definer; `leaderboard_names()`
-  as an id+full_name projection; `user_tiers security_invoker=on`.
-- `0012`: dropped `scans_insert` — `stamp_scan()` is the only inserter anywhere.
-- `0011`: the lockdown. Writes admin-only; `profiles` + `season_results` reads
-  narrowed to self-or-admin.
-
-**Deliberately still `using (true)` — 7 SELECT policies, all non-personal**:
-`activities`, `certificates`, `samo_years`, `samo_seasons`, `seasons`, `scans`,
-`account_migrations`. The scan page must resolve an activity BEFORE sign-in and
-the public ranking needs the points.
-
-**Two follow-ups, neither urgent:**
-1. **`activities.static_token` is readable by anon**, because the whole row is.
-   RLS cannot hide a column. Impact is now small — `stamp_scan()` pins the scan to
-   `auth.uid()` and derives the km itself, so a leaked token only lets a
-   signed-in kkumail student stamp an activity they didn't attend. To close it:
-   drop the `isStaticMatch` client pre-check (the server validates the token now),
-   switch `scanning.js` to an explicit column list instead of `select('*')`, then
+**Follow-ups, neither urgent:**
+1. **`activities.static_token` is anon-readable** because the whole row is — RLS
+   cannot hide a column. Impact is small now (`stamp_scan()` pins the scan to
+   `auth.uid()` and derives the km itself), so a leaked token only lets a signed-in
+   kkumail student stamp something they did not attend. To close: drop the
+   `isStaticMatch` client pre-check, switch `scanning.js` off `select('*')` to an
+   explicit column list, THEN
    `revoke select (static_token) on passport.activities from anon, authenticated`.
-   Do it in that order or the scan page 400s.
-2. **Per-ฝ่าย WRITE scoping**: the write policies check `is_admin()`, not the
-   department, so a ฝ่าย-scoped admin can still edit another ฝ่าย's activity with
-   DevTools. `admin_covers_dept(dept, sub_dept)` already exists for it. Pointless
-   while the all-departments `admin`/`1234` door is open, so sequence it after
-   retiring that door.
-
-**The disclosure concern is resolved by this** — the exploit detail I pushed to
-the public repo now describes a closed hole. Still: **do not commit still-open
-vuln detail to either repo; both are PUBLIC.**
+   That order, or the scan page 400s.
+2. **Per-ฝ่าย WRITE scoping is unenforced** — the write policies check
+   `is_admin()`, not the department, so a scoped admin can still edit another
+   ฝ่าย's activity via DevTools. `passport.admin_covers_dept(dept, sub_dept)`
+   already exists for it. Pointless while the all-departments `1234` door is open,
+   so sequence it after retiring that door.
 
 ### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
 **The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the
@@ -366,23 +356,14 @@ sources), so a product-only scope isolates nothing.
   from `tools/president-account.mjs` first (see mistakes.md).
 
 ### 7. Not started
-- ~~**Org-chart renderer**~~ **DONE 2026-07-30.** Public page at `/team`
-  (`pills-team-public`, `src/js/org-chart.js` + `src/css/org-chart.css`), fed only
-  by `get_public_org_chart()`. Migration **0103** added `team_members.photo_url`
-  (capped 500 chars) and named it in the projection — a new column on
-  `team_members` is still NOT published until it is named there, which is the whole
-  point of building that jsonb key by key. Verified as anon: 279 ตำแหน่ง /
-  401 members returned, `team_members` itself reads 0 rows, and the serialized
-  chart contains no `@` and none of `student_id|kkumail|permissions|vs_dept|
-  project_seat|user_id|major|confirmed`. `tools/proj0086-seats.mjs` still 24/24.
-  Portraits upload from the ทีม SAMO member form via `uploadImageToDrive`;
-  `convertDriveUrl` runs at RENDER time too, so legacy `thumbnail?id=` URLs are
-  rewritten to the iOS-safe lh3 form. Initials are layered UNDER the photo so a
-  rotted Drive link degrades to initials instead of an empty disc.
-  **Privacy note**: a member's name + photo become public as soon as their
-  ตำแหน่ง is in a public subtree. `team_nodes.is_public` is the control; there is
-  no per-member opt-out today, and photos are opt-in only in the sense that
-  someone has to upload one.
+- ~~**Org-chart renderer**~~ **DONE 2026-07-30** — public `/team` page, migration
+  0103. Detail: `docs/state-archive/2026-07-30-passport-authz.md`.
+  **Live privacy constraint**: a member's name + photo go public as soon as their
+  ตำแหน่ง sits in a public subtree. `team_nodes.is_public` is the ONLY control —
+  there is no per-member opt-out. `get_public_org_chart()` remains the only
+  sanctioned publisher; a new `team_members` column is not published until it is
+  named in that function's jsonb.
+
 - **Notify follow-up (b)** from the notify_log entry in mistakes.md:
   `waitUntil`-deliver + immediate 202, so delivery is decoupled from the client
   connection. Changes the callGAS success-echo contract — do it together with
@@ -427,10 +408,12 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
   every kept entry is either one of the five classes or on the auth/db hot path.
   Trimming prose is the next lever if it needs to shrink again.
 
-- **STATE.md is 377 lines against CLAUDE.md's ~200 budget.** It went 336 → 321 by
-  archiving narrative, then back up to 377 because NEXT #2/#3/#4 had to be
-  REWRITTEN (they described work that is already shipped — see `git show d44565b`).
-  That is the right trade: a wrong handoff costs more than a long one. The
+- **STATE.md is ~407 lines against CLAUDE.md's ~200 budget**, and `mistakes.md` is
+  back to ~2240 after four new entries this session. Both grew because the session
+  shipped a lot; both have been pruned once already. The next prune should move
+  COMPLETED NEXT items to `docs/state-archive/` (that is what happened to the
+  passport + org-chart narratives at the end of this session) and leave NEXT as
+  only what is genuinely un-started. The
   2026-07-29 scan narrative moved to
   `docs/state-archive/2026-07-29-pre-clear-scan.md` and the VS browser-verified
   checklist is now a pointer (it was duplicated verbatim in the 07-29 archive).
