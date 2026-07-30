@@ -1,71 +1,127 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-30. Slim by design — "what is true right now". Full
-per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.md`;
+Last updated: 2026-07-30. Slim by design — "what is true right now". Shipped
+detail pruned out of here most recently:
+`docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
+`docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
 
-## IN FLIGHT — ทีม SAMO portraits + ปีการศึกษา (0104, NOT yet deployed)
+## SHIPPED THIS SESSION — ทีม SAMO portraits + ปีการศึกษา (0104) — LIVE
 
-Built on top of `0103` (which added `team_members.photo_url`). Migration **0104 is
-APPLIED to the live DB**; the frontend is committed but **not yet on the VM**.
+Migration **0104 applied**, frontend **deployed to the VM**, Apps Script
+**deployed @47**. Nothing from this work is in flight.
 
-**What shipped**
-- Public ทีม SAMO page is now a docchula-style board: a คณะกรรมการ grid of large
-  3:4 portrait cards (นายกฯ + the 10 อุปนายกฝ่าย, seeded via `team_nodes.is_board`),
-  with the searchable spine tree below using the SAME card at ~130px. Circular
-  avatars are gone.
-- ปีการศึกษา picker. The LIVE tree is always the current term; past terms are a
-  frozen-but-editable snapshot in `team_archive_nodes` / `team_archive_members`,
-  written by `publish_team_term(year)` and read by `get_public_team_chart(year)`.
-  Admin surface = a third mode in ทีม SAMO ("ปีการศึกษา", `src/js/team/terms.js`).
-- Photo pipeline: browser downscales to a **2400px WebP master** before upload
+**What it is**
+- Public ทีม SAMO (`/team`, inside เกี่ยวกับเรา) opens with a docchula-style
+  คณะกรรมการ grid — large 3:4 portrait cards, 4 across, for the ตำแหน่ง flagged
+  `team_nodes.is_board` (seeded to นายกฯ + the 10 อุปนายกฝ่าย = 11). The full
+  searchable spine tree follows, using the SAME card at ~130px. No circular
+  avatars anywhere — one card shape, two sizes.
+- **ปีการศึกษา switcher.** The LIVE tree is always the current term. Past terms
+  are a frozen-but-EDITABLE snapshot in `team_terms` + `team_archive_nodes` +
+  `team_archive_members`, written by `publish_team_term(year)` and read by
+  `get_public_team_chart(year)`. `get_public_org_chart()` is now a one-line
+  delegate to it, so the live projection has exactly ONE body.
+  Admin surface: a third mode in ทีม SAMO ("ปีการศึกษา", `src/js/team/terms.js`).
+- **Photo pipeline.** Browser downscales to a 2400px WebP master
   (`src/js/image-resize.js`), files it in Drive as
-  `SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp`, and delivery uses lh3 option strings
-  `=w<W>-h<H>-c-rw` — server-side 3:4 crop + WebP, with `srcset` per shape.
+  `SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp` (GAS `uploadTeamFile`), and renders
+  via lh3 option strings `=w<W>-h<H>-c-rw` — server-side crop to the card aspect
+  plus WebP. Measured on a live file: 520x693 WebP = **37.6 KB**, vs 77.6 KB for
+  the uncropped source a CSS crop would need. Per-shape `srcset`, so the 130px
+  tree card never fetches the 250px board card's file.
+  `photo_focus` (`top|center|bottom`, CHECK-constrained because it reaches CSS)
+  drops the server crop for the cases where a centre crop would cut the head.
 
-**Why the archive is separate from the live tree** — `team_nodes`/`team_members`
-feed the permission engine (managed_permissions, VS scopes, project seats,
-passport scopes) through a recompute trigger. A `term_year` column on them would
-mean a 2565 row still resolving to a live grant. The archive carries only the
-columns the public projection publishes, so there is nothing on it for a resolver
-to read. Do not "simplify" this by merging them.
+**Why Drive/lh3 and not the VM** (asked and answered with measurements): lh3 is a
+real image CDN — it resizes, crops and serves WebP. Self-hosting buys ~100ms of
+connection setup for an nginx location + a sync tool + a deploy step. Storage at
+2400px is ~600 KB/photo → all 401 members ≈ 240 MB/year, 12 years ≈ 2.9 GB of a
+2 TB quota. The master size costs NOTHING at render — the browser only ever
+fetches the derivative. **Do not "optimise" this by moving to the VM.**
 
-**Apps Script — DONE 2026-07-30.** `uploadTeamFile` is live (script
-`179DfoS1…`, deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged). Verified
-by probing all 9 actions: `uploadTeamFile`/`uploadShopFile`/`uploadProjectFile` →
-"folderPath is required", `delete*File` → "fileUrl required", `notifyProjectEmail`
-→ missing "to", removed actions → "Unknown action". No regressions. Rollback =
-`npx clasp update-deployment AKfycbw1iHE4… -V 46` from `.gas-build/`.
-- GAS deploys are automated: `npm run deploy:gas` (`tools/deploy-gas.mjs`).
-  Requires `npx clasp login` + the Apps Script API toggle + `GAS_SCRIPT_ID` in
-  `.env.local` (already set). Diffs the remote before overwriting, rolls the
-  EXISTING deployment (create-version + update-deployment) so the `/exec` URL
-  never moves — never `clasp deploy`, which mints a new URL and would silently
-  break every upload. The deployment id is derived from `GAS_API_URL`, which
-  matters because this script has THREE deployments.
+**Why the archive is separate from the live tree — do not merge them.**
+`team_nodes`/`team_members` feed the permission engine (managed_permissions, VS
+scopes, project seats, passport scopes) through a statement-level recompute
+trigger. A `term_year` column on them would mean a 2565 row still resolving to a
+live grant for someone who left three years ago. The archive tables carry ONLY
+the columns the public projection publishes, so there is nothing on an archived
+row for any resolver to read.
 
-**Proof**: `node tools/team0104-terms.mjs` → 27/27 (snapshot fidelity incl. 0 orphan
-parents / depth preserved, non-public subtrees excluded, projection allow-list,
-anon reads 0 rows from all three new tables, `team` permission works on writes AND
-reads, RPC fails closed on a null role, anon cannot execute it).
+**The one confusing bit, by design**: publishing the CURRENT year does not change
+the public page — the current year always renders from the live tree. The
+snapshot only becomes reachable once a DIFFERENT year is made current. Both the
+pane and the publish confirm say so.
 
-**Not done**: no photos are uploaded yet (401 members, 0 with `photo_url`), so the
-board currently renders initials. `is_board` is seeded but uncurated beyond the 11.
+**Proofs** (re-run after touching any of this):
+- `node tools/team0104-terms.mjs` → 27/27 — snapshot fidelity (0 orphan parents,
+  depth preserved, board flags carried, re-publish replaces), non-public subtrees
+  excluded, projection allow-list, anon reads 0 rows from all three new tables,
+  `team` permission works on writes AND reads, RPC fails closed on a null role,
+  anon cannot execute it.
+- Regression set, all green: `team0089-manage` 5/5, `proj0086-seats` 24/24,
+  `proj0092-seat-parity` 13/13, `prof0095-seat-parity` 10/10, `vs0083-scope`
+  16/16, `security-sweeps` clean, 195 unit tests.
+
+**Verified live** (anon, against prod): `get_public_team_years` → `[2569
+is_current]`; `get_public_team_chart(null)` → 279 nodes / 401 members / 11 board;
+member keys exactly `name,nickname,node_id,photo_focus,photo_url,position`; no
+`@`, no `student_id`, no `kkumail` anywhere in the payload; anon reads **0 rows**
+from `team_members`, `team_terms`, `team_archive_nodes`, `team_archive_members`.
+Page renders 11 board cards + 401 tree cards, year picker correctly hidden (only
+one year exists so far).
+
+**Open / next for this feature** (none blocking):
+1. **No photos are uploaded yet** — 401 members, 0 with `photo_url`, so every card
+   renders initials. That is the designed fallback, not a bug. Upload via
+   ทีม SAMO → edit a member → รูปประจำตัว.
+2. `is_board` is seeded to the obvious 11 and otherwise uncurated.
+3. The year picker stays hidden until a SECOND year exists (publish 2569, then
+   add + set 2570 current).
+
+## APPS SCRIPT — automated deploys (new)
+
+`npm run deploy:gas` (`tools/deploy-gas.mjs`). Live state: script `179DfoS1…`,
+deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
+
+- Setup already done on this Mac: `npx clasp login` (as
+  `mdstuddata.beta@gmail.com`), Apps Script API enabled, `GAS_SCRIPT_ID` in
+  `.env.local`.
+- **Never runs `clasp deploy`** — that mints a NEW deployment with a NEW `/exec`
+  URL while `GAS_API_URL` stays hard-coded, which presents as "every upload
+  silently fails". It does `create-version` + `update-deployment` on the same id.
+- The deployment id is derived from `GAS_API_URL` in `src/js/config.js` (its path
+  segment IS the id). That matters: this script has **THREE** deployments (one
+  `@HEAD`, the live web app, an old `@25` kept for rollback), so "pick the only
+  non-HEAD one" is ambiguous.
+- Diffs the remote before overwriting and refuses if the remote has lines the
+  repo doesn't (someone edited in the browser); `--force` overrides,
+  `--dry-run` reports only, `--verify` probes the live endpoint.
+- Canary: `POST {action:'uploadTeamFile'}` with no `folderPath` → the handler
+  validates before touching Drive, so it proves the new code is serving while
+  writing nothing. `folderPath is required` = new, `Unknown action` = old.
+- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 46`.
 
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `07b9beb`, **deployed 2026-07-30**. Latest change: merged the
-  "ทีม SAMO" top-level navbar tab into the "เกี่ยวกับเรา" tab — the dynamic org
-  chart now renders inside `#about-team` instead of the removed `#pills-team-public`.
-  `/team` URL still works (redirects to about tab). Verified in the served bundles:
-  the org chart (`get_public_org_chart` / `org-station` / `org-face`) in
-  `/assets/public-*.js` + `.css`, and the mobile-drag fix
-  (`delayOnTouchOnly` / `touchStartThreshold` / `.team-handle{…pan-y}`) in
-  `/assets/admin-*.js` + `.css`. (BOTH apps' assets are served from `/assets/`,
-  NOT `/admin/assets/` — a grep against the latter 404s and silently
-  "finds nothing", which reads exactly like a failed deploy.)
+- **samoweb**: `ed8160b` (+ the docs commit after it), **deployed 2026-07-30**,
+  `buildId 1adbb70b5eed`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
+  archive (0104) — see the section above. Verified in the SERVED bundles:
+  `get_public_team_chart` / `get_public_team_years` / `org-board-card` in
+  `/assets/public-*.js`, `.org-board-grid` in `/assets/public-*.css`,
+  `id="orgYears"` + `id="orgBoard"` in `/index.html`;
+  `data-team-mode="years"` / `teamTermsPane` / `teamNodeIsBoard` /
+  `teamMemberPhotoFocus` in `/admin/index.html` and `publish_team_term` in
+  `/assets/admin-*.js`. `/`, `/admin/`, `/passport/`, `/pr`, `/news` all 200;
+  `/notify` → `{"ok":true,...}`.
+  (BOTH apps' assets are served from `/assets/`, NOT `/admin/assets/` — a grep
+  against the latter 404s and silently "finds nothing", which reads exactly like
+  a failed deploy. **And the admin entry is split across TWO chunks**: `admin-*.js`
+  plus a shared `analytics-*.js` that carries `auth.js`, `uploads.js` and
+  `image-resize.js` — grepping only `admin-*.js` for `SAMO_Team` / `image/webp`
+  reports a false MISSING.)
   A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
   deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
   `STATE.md` / `.claude/` / `docs/` / `tools/` first.
@@ -101,160 +157,19 @@ board currently renders initials. `is_board` is seeded but uncurated beyond the 
   `set_config('request.jwt.claims', …)` inside `begin; … rollback;` — every
   `tools/*` proof script is built that way and is the template to copy.
 
-## ทีม SAMO is the grant engine (0081–0088, ALL APPLIED + DEPLOYED)
+## Shipped earlier, pruned to the archive
 
-The org tree grants REAL access. Full narrative: `docs/state-archive/2026-07-25-team-grants.md`.
+Full text: `docs/state-archive/2026-07-30-pre-clear.md`. All applied + deployed.
 
-**Nav restructure (2026-07-30, `07b9beb`):** the public-facing "ทีม SAMO"
-top-level navbar tab was MERGED into the "เกี่ยวกับเรา" tab. The dynamic org
-chart (from `get_public_org_chart()` RPC) now renders inside `#about-team` in
-`tab-about.html`, replacing the old static placeholder cards. Key details:
-- `tab-team-public.html` is still on disk but no longer included in `index.html`.
-- `pills-team-public-tab` pill removed from desktop + mobile offcanvas in `navbar.html`.
-- `enterOrgChart()` now triggers on `pills-about-tab` activation (`main.js`).
-- `/team` URL route maps to `pills-about-tab` (backward compat for bookmarks).
-- Footer `goToAbout('about-team')` still works — activates about tab + scrolls to org chart.
-- The admin-side ทีม SAMO management tab is UNCHANGED (separate `tab-team.html` in `/admin/`).
-
-**Model.** A node or member carries permissions plus, per feature, a SCOPE binding.
-Everything resolves at login (`sync_my_team_permissions()`, called in `auth.js
-buildCurrentUser`) and live on any tree edit (statement triggers), into
-server-managed, guarded `public.users` columns:
-
-| dimension | tree column(s) | users column | RLS helper |
-|---|---|---|---|
-| app perms | `permissions[]` | `managed_permissions[]` | `current_user_has_permission()` |
-| VitalSound dept | `vs_dept` | `managed_vs_depts[]` | `current_user_vs_scope()` |
-| หนังสือโครงการ seat | `project_seat` (vpa/staff/prof) | `managed_project_seats[]` | `current_user_project_seats()` |
-| SAMO Passport | `passport_dept_id` / `passport_sub_dept_id` | `managed_passport_scopes[]` (`d:<id>`/`s:<id>`) | `passport_admin_context()` |
-
-**The rule that keeps biting — SCOPED IS NOT FULL.** A blanket permission key
-(`vs`, `passport`) is an unconditional OR-branch in RLS and swallows any narrower
-check, so a scoped grant stores the BINDING and drops the key. Consequences already
-paid for (all in mistakes.md): the UI must tick the checkbox from EITHER signal
-(`permTicked()` — a miss silently wipes the grant on the next save); the scope
-picker's index 0 must be a non-choice, never "ทุกฝ่าย"; and a new access channel
-must be threaded through EVERY gate the old one used.
-
-**Seats vs scopes.** `projects` is the exception: the seat does NOT drop the
-permission, because there the seat picks WHICH of three workflows
-(`projectSeatRole()` maps it to the role string the module already branches on).
-`prof` is deliberately not a project actor.
-
-**Verification.** Ten self-provisioning proof scripts, each running in rolled-back
-transactions, independent of live config — re-run after ANY change to these RLS
-paths:
-`tools/vs0083-scope.mjs` 16 · `tools/proj0086-seats.mjs` 24 ·
-`tools/pass0087-scope.mjs` 10 · `tools/team0089-manage.mjs` 5 ·
-`tools/proj0092-seat-parity.mjs` 13 · `tools/grant0093-reads.mjs` 15 ·
-`tools/prof0095-seat-parity.mjs` 10 · `tools/vs0072-isolation.mjs` 23 ·
-`tools/vs0096-remark-vis.mjs` 37 · `tools/shop0100-buyer-guard.mjs` 12 ·
-`tools/pass-hardening.mjs` 60 (passport, applies its lockdown in a rolled-back txn).
-Plus `tools/pass-anon-probe.mjs` 9 — the only one that leaves the database and
-tests the real anon key over HTTPS.
-**234 checks total. All 12 re-run and green at 2026-07-30 session end** (the tally
-below is what they printed, not what they printed last month):
-`16 · 24 · 10 · 5 · 13 · 15 · 10 · 23 · 37 · 12 · 60 · 9`.
-**`node tools/security-sweeps.mjs`** — three standing sweeps in one command,
-each encoding a bug class already shipped. Run after ANY policy / RLS / definer
-change. Exits non-zero on a finding; its allow-lists carry the deliberate
-exceptions. Also `node tools/vs-remark-vis-mirror.mjs` (SQL↔JS ladder diff).
-Still manual: the attribute-handler sweep (`data-projects-role` /
-`data-admin-side` / `data-perm-only` values in the markup vs. the JS that
-toggles them — commands in mistakes.md).
-Not a test: `tools/proj-handover.mjs` (dry-run by default) transfers a SHARED
-workflow account's uid-bound state — read state, and optionally the bell and
-signature assignments — to a personal kkumail account during the migration.
-
-**Passport enforcement is DONE** (NEXT #3). **Shared → personal migration** is
-optional read-state cosmetics only — see NEXT #4.
-
-**Settled grant-channel decisions (0093–0095)** — full write-up in
-`docs/state-archive/2026-07-25-grant-channel-detail.md`. The three that a future
-change must not undo:
-- **SAMO Shop is ONE role** — the 0093 per-source scope was REVERTED by 0094
-  (orders can't be scoped, so a product-only scope isolates nothing). The
-  `shop_source` / `managed_shop_sources` columns remain but are inert.
-  **Do not re-add a source scope without being asked.**
-- **Never widen `current_user_is_staff()`** — `users_self_update_guard` trusts it
-  for privileged-column writes, so widening it lets any grantee self-promote to
-  `dev`. 0093 repointed the three affected READ policies individually instead.
-  **Three role-only policies REMAIN BY DESIGN — do not "fix" them**:
-  `users_update_staff`, `notify_log_select_staff`,
-  `reserved_staff_usernames_read_staff`. The sweep's expected count is 3.
-- **The อาจารย์ seat grants the อาจารย์ ROLE (0095)** — prof gates ask "am I
-  อาจารย์, and was this sent for signature?", not `prof_id = auth.uid()`, so a
-  seat holder sees the same 11 of 26 as `saprof`. Still NOT an actor. Tradeoff:
-  every อาจารย์ sees every signature request.
-
-**Public org chart (0086).** `team_nodes.is_public` (อาจารย์ + เจ้าหน้าที่คณะแพทย์ =
-false). The flag is NOT the privacy boundary: `get_public_org_chart()` is a definer
-PROJECTION (name/nickname/structure only, recursive so hiding a parent hides the
-subtree) and is the ONLY sanctioned publisher. Never add a public SELECT policy to
-`team_members` — anon reads 0 rows from it today and must keep doing so.
-
-## VITALSOUND 0096–0099 · project_files seat parity (0097)
-
-Full write-up: `docs/state-archive/2026-07-29-vs-remark-visibility.md`.
-Shipped + deployed: the บันทึกข้อความ **visibility ladder**, the board's
-**ความคืบหน้าจากทีมงาน** stream, **หมวดหมู่/แท็ก delete**, a **self_public**
-board banner for a canonical's own submitter, VS **sub-state in the URL**, and
-the staff ticket modal **no longer closing on save**.
-
-**The invariants a future change must not break:**
-- **The ladder** is `staff < ticket < thread < public`, normalized by
-  `vs_remark_vis()` (SQL) and `remarkVis()` (`utils.js`) — **mirrors, keep them
-  in step**. A missing `vis` reads as `ticket`, `internal:true` as `staff`.
-  The server is the boundary: a submitter can never write above `ticket`.
-- **`vs_tickets` has a column guard** (`vs_tickets_self_update_guard`, 0096).
-  Without it a submitter PATCHes `is_public`/`public_title` and self-publishes
-  to the board, routing around `vs_set_public()`. It fires ONLY when
-  `auth.uid() = submitter_id` and the caller is not a VS handler, so server
-  contexts are untouched. Column comparison is `to_jsonb(row) - allowed_keys`
-  so a FUTURE column is guarded by default.
-- **Both submitter read paths are sanitized server-side** —
-  `get_my_vs_tickets()` and `get_vs_ticket_by_id()`. Never re-introduce a raw
-  `select=…,remarks,…` owner read: `remarks` carries the canonical id in the
-  TEXT of its 0071 internal entries.
-- **An unresolvable `vs_categories` id fails CLOSED in all SEVEN readers**
-  (0098 + 0099). หมวดหมู่ is deletable, so dangling ids are reachable. Re-run
-  the audit as a QUERY after any change here — see mistakes.md for the exact
-  `pg_get_functiondef` sweep.
-- **`get_vs_linked_context()` is the ONLY sanctioned way** to tell a submitter
-  about the board. Do not add `is_public`/`public_title` to the submitter
-  projection — that is a second path to keep sanitized.
-
-**Browser-verified (public half, Chrome, prod + local)**: mode↔hash both ways,
-cold deep-load, back links, tab round-trip, the self_public banner, and
-ความคืบหน้าจากทีมงาน rendering escaped — the full checklist is in the archive
-write-up. **NOT browser-verified**: everything behind the admin login (see
-NEXT #1).
-
-## PRE-/CLEAR SECURITY SCAN (2026-07-29) — 4 real bugs found, all FIXED
-
-Narrative + proofs: `docs/state-archive/2026-07-29-pre-clear-scan.md`. In short,
-all four proven live in rolled-back transactions, fixed in `0100`/`0101`, and
-each now carries a `mistakes.md` entry: a **buyer could zero their own order's
-total** (third table with an unguarded per-row owner UPDATE, after `users` and
-`vs_tickets`); **`get_pr_ticket_by_id` matched with `ILIKE`**, making the ticket
-id a pattern instead of a capability; **the ten team resolvers were
-anon-callable**, an anonymous grant oracle; and **the `vis` ladder's SQL and JS
-implementations disagreed** on 3 of 26 inputs.
-
-Two conclusions from that scan are still live constraints:
-
-**Knowingly ACCEPTED, not missed** — two per-row owner UPDATE policies have no
-column guard: `project_doc_views_update_own` (own read state; `user_id` pinned
-by the check) and `project_notifications_update` (own bell rows — a user can
-reword a notification only they can see). Both are self-defacement with no
-cross-user reach. They are allow-listed in `tools/security-sweeps.mjs`; if that
-sweep ever reports a THIRD, it is new.
-
-**Not done**: no XSS re-audit of the anon-INSERTable tables this round (the
-`escHtml` rule from mistakes.md). The renderers touched this session
-(`updatesHtml`, `renderTimeline` chips, the board banner) do escape — verified
-in-browser with an `<img onerror>` payload — but the older PR/VS renderers were
-not re-checked.
+- **ทีม SAMO is the grant engine (0081–0088).** The tree issues real permissions
+  via `managed_permissions` / `managed_vs_depts` / `managed_project_seats` /
+  `managed_passport_*`, recomputed by a statement-level trigger. Proofs:
+  `tools/team0089-manage.mjs`, `proj0086-seats.mjs`, `proj0092-seat-parity.mjs`,
+  `prof0095-seat-parity.mjs`, `vs0083-scope.mjs`.
+- **VitalSound 0096–0099** — remark visibility ladder, unknown-category
+  fail-closed, self-public context. Proof: `tools/vs0096-remark-vis.mjs`.
+- **Pre-/clear security scan (2026-07-29)** — 4 real bugs, all fixed. The
+  standing sweep is `tools/security-sweeps.mjs` (run it after any RLS change).
 
 ## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
 

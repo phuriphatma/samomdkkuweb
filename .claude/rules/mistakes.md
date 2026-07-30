@@ -2289,3 +2289,86 @@ two services in this app now treat an unexpected query param as a hard error.
 **Where**: `portraitSrc` / `portraitSrcSet` in `src/js/uploads.js` build option
 strings with no query component — keep it that way, and pin the exact expected
 suffix in `uploads.test.js` so a "harmless" param cannot be added later.
+
+---
+
+## An allow-list feeding a BACKUP has the opposite safe default from one feeding a public projection — the same construct, inverted failure mode
+
+**Symptom**: none observed — found by asking "what else enumerates team columns?"
+after adding two. `buildExportJson` (`src/js/team/io.js`) and the two `create*`
+calls in `importJson` (`src/js/team/index.js`) both list fields explicitly, and
+neither carried `is_board`, `photo_url` or `photo_focus`. So the export →
+restructure → re-import round trip that `io.js` exists FOR would have silently
+wiped every member portrait and emptied the whole คณะกรรมการ grid. `photo_url`
+had been missing since 0103; nothing failed, because nothing had been restored
+yet.
+**Cause**: this repo has trained itself, correctly, that a hand-built column list
+is the safe pattern — `get_public_team_chart()` names keys one by one precisely
+so a new column is NOT published by accident (0086/0103/0104), and
+`returns setof <table>` is banned for exactly the opposite reason (0079/0080).
+But the safe DIRECTION depends on which way the data flows:
+
+| allow-list feeds | a column left out is… | correct default |
+|---|---|---|
+| a public projection | not published | **omit** (fail closed) |
+| a backup / round trip | **destroyed on restore** | **include** (fail loud) |
+
+Reaching for the projection habit on a serializer inverts the guarantee. And it
+cannot be caught by reading either file alone: export and import were internally
+consistent with each other — both simply forgot the same three columns.
+**Fix**: add the fields to both sides, and pin the key sets in
+`src/js/team/io.test.js` (`buildExportJson round-trip fidelity`) so the next
+column added to `team_nodes`/`team_members` fails a test instead of vanishing on
+a restore. Those tests immediately caught an error in my own expectation list
+(`project_seat`), which is the argument for writing them rather than re-reading
+the code. `shop_source` is deliberately still excluded — 0094 reverted shop
+scoping and the column is inert; that exclusion is a comment in the file, not an
+oversight.
+**Rule**: whenever you add a column to a table that has an export/serialize path,
+grep for every function that enumerates that table's fields and classify each by
+data direction. "It's an allow-list, allow-lists are safe" is not the analysis.
+
+---
+
+## A shared `render()` that repaints a pane another module owns will destroy that module's in-progress input
+
+**Symptom**: none reported — found by tracing what fires `render()` in
+`src/js/team/index.js`. It is the target of `scheduleRemoteRender()`, i.e. the
+Supabase Realtime subscription on `team_nodes`/`team_members`. The new
+ปีการศึกษา branch ended in `renderTerms()`, so **another admin editing the live
+tree would `innerHTML`-rebuild the archive editor and throw away whatever the
+first admin was typing** — a name half-corrected, an unsaved ชื่อเล่น.
+**Cause**: `render()` already knew this hazard for drag (`dragging` /
+`pendingRender` exist because a remote event mid-SortableJS-gesture cancels the
+drag — logged above). Adding a third mode that owns its own DOM re-introduced the
+same exposure through a different door: a text input is as destroyable as a drag
+gesture, and there was no equivalent guard. The archive is also *independent of
+the live tree*, so the repaint had no informational value at all.
+**Fix**: the `isYears` branch toggles visibility and returns. `terms.js` owns its
+pane and repaints on its own actions; `enterTerms()` paints a loading line on
+cold entry, since `render()` no longer does it.
+**Rule**: when a shell's `render()` can be invoked by a remote/background event,
+it must not rebuild DOM owned by a sub-module that holds user input. Either the
+sub-module owns its repaint, or the shell needs the same "is the user mid-gesture"
+guard the drag path already has. Before adding a branch to a shared render, list
+every caller of that function — not just the one you are writing for.
+
+---
+
+## A `busy` flag that RETURNS EARLY silently discards the second action — serialise instead of dropping
+
+**Symptom**: none reported. `guard()` in `src/js/team/terms.js` opened with
+`if (busy) return;`. Type a corrected name, Tab to ชื่อเล่น, type, blur — the two
+`change` events land close enough together that the second PATCH is dropped. The
+status line still reads "บันทึกแล้ว" (from the first), so the edit looks saved
+and is not; the value survives on screen until the next repaint, then reverts.
+**Cause**: a re-entrancy guard was reached for where a QUEUE was needed. Dropping
+is only correct when the second call is a duplicate of the first (a double-clicked
+submit). Here every call carries different data, so dropping is data loss —
+and the early `return` gives the caller no way to know it happened.
+**Fix**: `chain = chain.then(...)` — every call queues behind the previous one,
+nothing is discarded, and the status line reports the last real outcome.
+**Rule**: before writing `if (busy) return`, ask what the dropped call CARRIED. If
+it carries user input, serialise it. Reserve the drop for idempotent re-submits,
+and even then prefer disabling the control so the user can see why nothing
+happened.
