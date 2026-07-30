@@ -5,6 +5,47 @@ per-deploy narrative of the prior session: `docs/state-archive/2026-07-24-full.m
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
 
+## IN FLIGHT — ทีม SAMO portraits + ปีการศึกษา (0104, NOT yet deployed)
+
+Built on top of `0103` (which added `team_members.photo_url`). Migration **0104 is
+APPLIED to the live DB**; the frontend is committed but **not yet on the VM**.
+
+**What shipped**
+- Public ทีม SAMO page is now a docchula-style board: a คณะกรรมการ grid of large
+  3:4 portrait cards (นายกฯ + the 10 อุปนายกฝ่าย, seeded via `team_nodes.is_board`),
+  with the searchable spine tree below using the SAME card at ~130px. Circular
+  avatars are gone.
+- ปีการศึกษา picker. The LIVE tree is always the current term; past terms are a
+  frozen-but-editable snapshot in `team_archive_nodes` / `team_archive_members`,
+  written by `publish_team_term(year)` and read by `get_public_team_chart(year)`.
+  Admin surface = a third mode in ทีม SAMO ("ปีการศึกษา", `src/js/team/terms.js`).
+- Photo pipeline: browser downscales to a **2400px WebP master** before upload
+  (`src/js/image-resize.js`), files it in Drive as
+  `SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp`, and delivery uses lh3 option strings
+  `=w<W>-h<H>-c-rw` — server-side 3:4 crop + WebP, with `srcset` per shape.
+
+**Why the archive is separate from the live tree** — `team_nodes`/`team_members`
+feed the permission engine (managed_permissions, VS scopes, project seats,
+passport scopes) through a recompute trigger. A `term_year` column on them would
+mean a 2565 row still resolving to a live grant. The archive carries only the
+columns the public projection publishes, so there is nothing on it for a resolver
+to read. Do not "simplify" this by merging them.
+
+**Blocking follow-up (photo uploads are degraded until it is done)**
+- `appscript/prform.gs` gained a `uploadTeamFile` action (allow-listed to
+  `SAMO_Team/…`). **The GAS project has NOT been redeployed**, so the live `/exec`
+  returns "Unknown action" and the frontend falls back to `uploadPRFile` — the
+  photo still uploads but lands unsorted in `PR_Submissions/`. The upload hint says
+  so out loud rather than failing silently. Redeploy per `skills/deploy-gas.md`.
+
+**Proof**: `node tools/team0104-terms.mjs` → 27/27 (snapshot fidelity incl. 0 orphan
+parents / depth preserved, non-public subtrees excluded, projection allow-list,
+anon reads 0 rows from all three new tables, `team` permission works on writes AND
+reads, RPC fails closed on a null role, anon cannot execute it).
+
+**Not done**: no photos are uploaded yet (401 members, 0 with `photo_url`), so the
+board currently renders initials. `is_board` is seeded but uncurated beyond the 11.
+
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
@@ -26,7 +67,7 @@ post-mortems: `.claude/rules/mistakes.md`.
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–0103; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–0104; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk

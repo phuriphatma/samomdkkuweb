@@ -484,11 +484,14 @@ grant as securing passport.
 (default true) marks a subtree as hidden from the future public org chart;
 อาจารย์ / เจ้าหน้าที่คณะ hold seats but are not part of the student org, so their
 roots are false. **The flag is not the privacy boundary.** The only sanctioned
-publisher is `public.get_public_org_chart()` — SECURITY DEFINER, granted to anon,
-returning a hand-built jsonb of node `{id,parent_id,name,kind,position}` +
-member `{node_id,name,nickname,photo_url,position}` over a recursive CTE (so
-hiding a parent hides its subtree). Consumed by the public โครงสร้างองค์กร page
-(`/team` → `src/js/org-chart.js`, added 0103); `photo_url` is therefore PUBLIC by
+publisher is `public.get_public_team_chart(year)` — SECURITY DEFINER, granted to
+anon, returning a hand-built jsonb of node
+`{id,parent_id,name,kind,position,is_board}` + member
+`{node_id,name,nickname,photo_url,photo_focus,position}` over a recursive CTE (so
+hiding a parent hides its subtree). `get_public_org_chart()` still exists and is
+now a one-line delegate to it, so there is exactly ONE body for the live
+projection. Consumed by the public โครงสร้างองค์กร page (`/team` →
+`src/js/org-chart.js`, 0103/0104); `photo_url` is therefore PUBLIC by
 design for members of a public ตำแหน่ง — the admin member form says so. Never add a public SELECT policy to `team_members`
 and never `returns setof public.team_members`: RLS is row-level, so a visibility
 flag filters rows while every column — `kkumail` (students AND @kku.ac.th staff),
@@ -496,6 +499,44 @@ flag filters rows while every column — `kkumail` (students AND @kku.ac.th staf
 with them, and a `setof` return auto-exposes each column added later (cf.
 `vs_tickets.tags` in 0079). `team_members` has no public policy today; anon reads
 0 rows from it, and that must stay true.
+
+**ปีการศึกษา + the archive (migration 0104).** The live tree is ALWAYS the current
+term and carries no year column — deliberately, because `team_nodes`/`team_members`
+feed the permission engine and a year-scoped row that still resolves is a live
+grant to someone who left. Instead:
+
+```
+team_terms           (year PK, label, is_current, published_at)
+                     partial UNIQUE index -> at most one is_current
+team_archive_nodes   (id PK, year FK team_terms CASCADE, src_id, parent_id
+                      FK self CASCADE, name, kind, position, is_board)
+team_archive_members (id PK, year FK CASCADE, node_id FK archive_nodes CASCADE,
+                      full_name, nickname, photo_url, photo_focus, position)
+```
+
+`publish_team_term(year)` (SECURITY DEFINER, `team` permission or vp_admin/dev,
+guard uses `coalesce(...,false)` so a null role fails CLOSED) snapshots the
+is_public subtree of the live tree, re-keying every node to a fresh uuid inside one
+`AS MATERIALIZED` CTE — **that keyword is load-bearing**: inlined, each reference
+would generate different uuids and every parent link would come back null,
+silently flattening the archive. Re-running replaces the year wholesale. The
+archive tables carry ONLY the columns the projection publishes, so an archived row
+has nothing any resolver reads; they have **no public SELECT policy** (anon reads 0
+rows) and are published solely through `get_public_team_chart(year)`. Past years
+stay EDITABLE via the ทีม SAMO admin's third mode (`src/js/team/terms.js`), which is
+the point of a snapshot rather than a view. `get_public_team_years()` lists only
+terms that are current or published. Proof: `tools/team0104-terms.mjs` (27 checks).
+
+**Portrait delivery.** `team_members.photo_focus` is an ENUM (`top|center|bottom`,
+CHECK-constrained because the value is published and would otherwise reach CSS).
+Uploads are downscaled in the browser to a 2400px WebP master
+(`src/js/image-resize.js`) and filed in Drive under
+`SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp` via the GAS `uploadTeamFile` action.
+Rendering uses lh3 option strings — `=w<W>-h<H>-c-rw` gives a server-side crop to
+the exact card aspect plus WebP (measured on a live file: 520x693 WebP = 37.6 KB,
+vs 77.6 KB for the uncropped source a CSS crop would need). `focus != center` drops
+the `-c` and crops in CSS instead, since lh3 has no focal point. Never append a
+query string to an lh3 URL — it 404s (see mistakes.md).
 
 RLS: **read + write for `vp_admin` + `dev` only**, every operation, via
 `current_user_role() = any(array['vp_admin','dev'])`. No DEFINER RPCs — drag

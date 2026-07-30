@@ -353,3 +353,131 @@
   .team-act { width: 2.4rem; height: 2.4rem; }  /* bigger touch targets */
   .team-perm-grid { grid-template-columns: 1fr; }
 }
+
+/* ── ปีการศึกษา pane (0104) ──────────────────────────────────────────────── */
+/* A registry, not a tree: flat rows, the current year called out, and the
+   archive editor expanding inline underneath the year it belongs to — so it is
+   never ambiguous which year a name/photo edit is landing in. */
+
+.team-terms { padding: 0.25rem 0 1.5rem; }
+
+.team-terms-lead {
+  font-size: 0.88rem; line-height: 1.7; color: var(--ink-600);
+  max-width: 62ch; margin: 0 0 1rem;
+}
+
+.team-terms-add {
+  display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.team-terms-add input { width: 7.5rem; }
+
+.team-terms-status {
+  min-height: 1.35rem;
+  font-size: 0.82rem; color: var(--ink-500);
+  margin-bottom: 0.5rem;
+}
+.team-terms-status.is-ok { color: var(--brand-primary); }
+.team-terms-status.is-error { color: #b42318; }
+
+.team-terms-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+
+.team-term {
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  overflow: hidden;
+}
+.team-term.is-current { border-color: color-mix(in srgb, var(--brand-primary) 45%, var(--ink-200)); }
+
+.team-term-head {
+  display: flex; align-items: center; gap: 0.6rem 0.85rem; flex-wrap: wrap;
+  padding: 0.7rem 0.85rem;
+}
+.team-term-id { display: flex; align-items: baseline; gap: 0.5rem; }
+.team-term-year {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 1.1rem; font-weight: 700; color: var(--ink-900);
+}
+.team-term-label { font-size: 0.85rem; color: var(--ink-500); }
+
+.team-term-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.team-term-badge {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.7rem; font-weight: 500;
+  padding: 0.12rem 0.5rem; border-radius: 999px;
+  border: 1px solid var(--ink-200); color: var(--ink-500);
+  white-space: nowrap;
+}
+.team-term-badge.is-live {
+  color: var(--brand-primary);
+  border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-primary) 8%, #fff);
+}
+.team-term-badge.is-pub { color: var(--ink-600); }
+.team-term-badge.is-draft { color: var(--brand-orange); border-color: color-mix(in srgb, var(--brand-orange) 40%, transparent); }
+
+.team-term-actions {
+  display: flex; gap: 0.35rem; flex-wrap: wrap;
+  margin-inline-start: auto;
+}
+
+.team-term-body {
+  border-top: 1px solid var(--ink-200);
+  background: var(--ink-050, #fafafa);
+  padding: 0.85rem;
+  max-height: 70vh; overflow-y: auto;
+}
+
+.team-terms-loading { font-size: 0.85rem; color: var(--ink-500); padding: 0.5rem 0; }
+
+.team-arc-group { margin-bottom: 1.1rem; }
+.team-arc-head {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+.team-arc-path {
+  margin: 0; font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.82rem; font-weight: 600; color: var(--ink-700);
+}
+.team-arc-board {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.75rem; color: var(--ink-500); cursor: pointer;
+}
+
+.team-arc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+
+.team-arc-row {
+  display: flex; align-items: center; gap: 0.7rem;
+  background: #fff; border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;
+}
+
+/* The file input covers the thumbnail, so the photo itself is the click target —
+   an "เปลี่ยนรูป" button beside 400 rows would double the width of the list. */
+.team-arc-photo {
+  position: relative; flex: 0 0 auto;
+  width: 3rem; aspect-ratio: 3 / 4;
+  border-radius: 4px; overflow: hidden;
+  background: var(--ink-100);
+  display: grid; place-items: center;
+}
+.team-arc-photo img { width: 100%; height: 100%; object-fit: cover; }
+.team-arc-photo-empty { color: var(--ink-400); font-size: 1.1rem; }
+.team-arc-file {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  font-size: 0;   /* Safari still lays out the button text at inset:0 otherwise */
+}
+.team-arc-photo:hover { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+
+.team-arc-fields {
+  display: grid; gap: 0.35rem; flex: 1 1 auto; min-width: 0;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 8rem) auto;
+  align-items: center;
+}
+
+@media (max-width: 767.98px) {
+  .team-term-actions { margin-inline-start: 0; width: 100%; }
+  .team-arc-fields { grid-template-columns: minmax(0, 1fr) auto; }
+  .team-arc-fields > select { grid-column: 1; }
+}

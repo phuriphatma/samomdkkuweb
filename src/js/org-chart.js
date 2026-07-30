@@ -1,25 +1,68 @@
-// org-chart.js — the public ทีม SAMO structure page.
+// org-chart.js — the public ทีม SAMO page.
 //
-// Data comes from ONE rpc: public.get_public_org_chart(). That function is the only
-// sanctioned publisher of team data (migration 0086, extended for photos in 0103) —
-// a SECURITY DEFINER projection whose jsonb keys are an explicit allow-list, over a
-// recursive CTE so a non-public ตำแหน่ง hides its entire subtree. `team_members` has
-// no public SELECT policy at all, so there is no other route to this data and no way
-// for a future column to leak through this page by accident.
+// Two surfaces over one dataset:
+//   • คณะกรรมการ — large 3:4 portrait cards for the ตำแหน่ง flagged is_board
+//     (นายกฯ + the ten อุปนายกฝ่าย), read top-down in tree order.
+//   • โครงสร้างทั้งหมด — the searchable spine tree, every ตำแหน่ง and person.
 //
-// Read-only, anonymous, no writes. Rendered once per page load and filtered in
-// memory afterwards.
+// Data comes from ONE rpc: public.get_public_team_chart(year). That function is
+// the only sanctioned publisher of team data (0086 → 0103 → 0104) — a SECURITY
+// DEFINER projection whose jsonb keys are an explicit allow-list, over a
+// recursive CTE so a non-public ตำแหน่ง hides its entire subtree. Neither
+// team_members nor the archive tables have a public SELECT policy (verified:
+// anon reads 0 rows from all three), so this page cannot show a field the
+// projection does not name.
+//
+// YEARS: the current ปีการศึกษา renders from the live tree; past years render
+// from a frozen archive. Same rpc, same jsonb shape, so nothing below this
+// comment knows which it got.
+//
+// Read-only, anonymous, no writes.
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
-import { convertDriveUrl } from './uploads.js';
+import {
+  portraitSrc, portraitSrcSet, focusToObjectPosition,
+  PORTRAIT_RATIO, AVATAR_RATIO,
+} from './uploads.js';
 
-let chart = null;         // { nodes, members } as returned by the rpc
+// One entry per year, so switching back to a year already viewed is instant and
+// free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
+const charts = new Map();
+
+let years = [];           // [{ year, label, is_current }]
+let activeYear = null;
+let chart = null;         // { year, is_current, nodes, members }
 let byParent = new Map(); // parent_id ('' for root) -> node[]
 let byNode = new Map();   // node_id -> member[]
+let nodeById = new Map();
 let loading = false;
 let query = '';
 
 const $ = (id) => document.getElementById(id);
+
+// The two shapes a face appears in, and the exact widths lh3 is asked for.
+//
+// This split is the whole point of the srcset: the board card renders at up to
+// 250 CSS px and the tree avatar at 44, so handing the avatar the card's file
+// would waste ~35 KB × 400 people. Widths cover 1x through 3x; the browser
+// downloads exactly one per image using the `sizes` hint.
+const BOARD_SHAPE = {
+  cls: 'org-board',
+  ratio: PORTRAIT_RATIO,
+  widths: [260, 400, 520, 780],
+  sizes: '(max-width: 560px) 42vw, (max-width: 1000px) 28vw, 250px',
+  base: 520,
+};
+// Same card, smaller. The tree uses ONE visual language with the board grid —
+// portrait over name over ตำแหน่ง — rather than a separate avatar treatment, so
+// a person looks like the same kind of object wherever they appear.
+const TREE_SHAPE = {
+  cls: 'org-face',
+  ratio: PORTRAIT_RATIO,
+  widths: [130, 200, 260, 390],
+  sizes: '(max-width: 560px) 28vw, 130px',
+  base: 260,
+};
 
 /** The ten ฝ่าย already have colour identities in base.css; reuse them so a
  *  ฝ่าย looks the same here as it does on the ฝ่าย tab. Matched on the ฝ่าย name
@@ -55,15 +98,104 @@ function initials(name) {
 function index() {
   byParent = new Map();
   byNode = new Map();
+  nodeById = new Map();
   for (const n of chart.nodes || []) {
     const k = n.parent_id || '';
     if (!byParent.has(k)) byParent.set(k, []);
     byParent.get(k).push(n);
+    nodeById.set(n.id, n);
   }
   for (const m of chart.members || []) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
   }
+}
+
+// ── the photo element ───────────────────────────────────────────────────────
+//
+// Initials are ALWAYS rendered, with the photo layered over them. A Drive link
+// can rot (file unshared, moved, deleted) and an <img alt=""> that fails to load
+// draws nothing — so without this a broken photo would leave an empty box.
+// Layering means it degrades to the same initials as someone who never uploaded
+// one, with no error handler to wire up.
+//
+// `focus` decides HOW the 3:4 crop happens: 'center' lets lh3 crop server-side
+// (half the bytes), 'top'/'bottom' fetch the uncropped frame and crop in CSS,
+// because lh3 has no focal-point option and a centre crop of a landscape studio
+// shot can slice the head.
+function faceHtml(m, shape) {
+  const { cls, ratio, widths, sizes, base } = shape;
+  const photo = m.photo_url || '';
+  const focus = m.photo_focus || 'center';
+  const inner = `<span class="${cls}-initials" aria-hidden="true">${escHtml(initials(m.name))}</span>`;
+  if (!photo) return inner;
+  const set = portraitSrcSet(photo, widths, focus, ratio);
+  const pos = focusToObjectPosition(focus);
+  return `${inner}<img class="${cls}-img" src="${escHtml(portraitSrc(photo, base, focus, ratio))}"${
+    set ? ` srcset="${escHtml(set)}" sizes="${sizes}"` : ''
+  } alt="" loading="lazy" decoding="async"${
+    focus === 'center' ? '' : ` style="object-position:${pos}"`
+  } />`;
+}
+
+// ── the คณะกรรมการ grid ─────────────────────────────────────────────────────
+//
+// Depth-first over the tree rather than a flat filter, so the cards come out in
+// org order (นายกฯ, then the อุปนายก in their sibling order) without needing a
+// separate sort key that someone would have to maintain.
+function collectBoard() {
+  const out = [];
+  const walk = (parentKey) => {
+    for (const n of byParent.get(parentKey) || []) {
+      if (n.is_board) {
+        for (const m of byNode.get(n.id) || []) out.push({ node: n, member: m });
+      }
+      walk(n.id);
+    }
+  };
+  walk('');
+  return out;
+}
+
+function boardCard({ node, member }) {
+  const tint = tintFor(node.name);
+  return `
+    <li class="org-board-card"${tint ? ` data-tint="${tint}"` : ''}>
+      <span class="org-board-photo">${faceHtml(member, BOARD_SHAPE)}</span>
+      <span class="org-board-name">${escHtml(member.name || '')}</span>
+      ${member.nickname ? `<span class="org-board-nick">${escHtml(member.nickname)}</span>` : ''}
+      <span class="org-board-role">${escHtml(node.name || '')}</span>
+    </li>`;
+}
+
+function renderBoard() {
+  const host = $('orgBoard');
+  if (!host) return;
+  // While a search is running the board is noise — the user asked for specific
+  // people and the tree below is the answer.
+  if (query) { host.innerHTML = ''; host.hidden = true; return; }
+  const board = collectBoard();
+  if (!board.length) { host.innerHTML = ''; host.hidden = true; return; }
+  host.hidden = false;
+  host.innerHTML = `
+    <h2 class="org-board-heading">คณะกรรมการสโมสรนักศึกษา${
+      activeYear ? ` ปีการศึกษา ${escHtml(String(activeYear))}` : ''
+    }</h2>
+    <ul class="org-board-grid">${board.map(boardCard).join('')}</ul>`;
+}
+
+// ── the year picker ─────────────────────────────────────────────────────────
+
+function renderYears() {
+  const host = $('orgYears');
+  if (!host) return;
+  if (years.length < 2) { host.innerHTML = ''; host.hidden = true; return; }
+  host.hidden = false;
+  host.innerHTML = years.map((y) => `
+    <button type="button" class="org-year${y.year === activeYear ? ' is-active' : ''}"
+      data-year="${y.year}"${y.year === activeYear ? ' aria-current="true"' : ''}>${
+        escHtml(y.label || String(y.year))
+      }</button>`).join('');
 }
 
 // ── filtering ───────────────────────────────────────────────────────────────
@@ -117,23 +249,14 @@ function highlight(text, q) {
   return `${escHtml(text.slice(0, i))}<mark>${escHtml(text.slice(i, i + q.length))}</mark>${escHtml(text.slice(i + q.length))}`;
 }
 
-// ── rendering ───────────────────────────────────────────────────────────────
+// ── rendering the tree ──────────────────────────────────────────────────────
 
 function memberCard(m, filter) {
   const name = m.name || '';
   const nick = m.nickname || '';
-  const photo = m.photo_url ? convertDriveUrl(m.photo_url, 400) : '';
-  // Initials are ALWAYS rendered, with the photo layered over them. A Drive link
-  // can rot (file unshared, moved, deleted) and an <img alt=""> that fails to load
-  // draws nothing — so without this the card would show an empty disc. Layering
-  // means a broken photo degrades to the same initials as a member who never
-  // uploaded one, with no error handler to wire up.
-  const face = `
-        <span class="org-face-initials" aria-hidden="true">${escHtml(initials(name))}</span>
-        ${photo ? `<img class="org-face-img" src="${escHtml(photo)}" alt="" loading="lazy" decoding="async" />` : ''}`;
   return `
-    <li class="org-person${photo ? '' : ' is-nophoto'}">
-      <span class="org-face">${face}</span>
+    <li class="org-person${m.photo_url ? '' : ' is-nophoto'}">
+      <span class="org-face">${faceHtml(m, TREE_SHAPE)}</span>
       <span class="org-person-text">
         <span class="org-person-name">${highlight(name, filter?.q)}</span>
         ${nick ? `<span class="org-person-nick">${highlight(nick, filter?.q)}</span>` : ''}
@@ -162,7 +285,7 @@ function nodeBlock(node, depth, filter) {
     <li class="org-node${solo ? ' is-solo' : ''}" data-depth="${depth}"${tint ? ` data-tint="${tint}"` : ''}>
       <div class="org-station">
         <span class="org-station-dot" aria-hidden="true"></span>
-        <h${Math.min(depth + 2, 6)} class="org-station-name">${highlight(node.name || '', filter?.q)}</h${Math.min(depth + 2, 6)}>
+        <h${Math.min(depth + 3, 6)} class="org-station-name">${highlight(node.name || '', filter?.q)}</h${Math.min(depth + 3, 6)}>
         ${count > 1 ? `<span class="org-station-count">${count} คน</span>` : ''}
       </div>
       ${people.length ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>` : ''}
@@ -173,6 +296,9 @@ function nodeBlock(node, depth, filter) {
 function render() {
   const body = $('orgBody');
   if (!body || !chart) return;
+  renderYears();
+  renderBoard();
+
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
   const html = roots.map((n) => nodeBlock(n, 0, filter)).join('');
@@ -193,34 +319,61 @@ function render() {
     }</p>`;
     return;
   }
-  body.innerHTML = `<ul class="org-tree">${html}</ul>`;
+  body.innerHTML = `
+    <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
+    <ul class="org-tree">${html}</ul>`;
 }
 
-// ── boot ────────────────────────────────────────────────────────────────────
+// ── loading ─────────────────────────────────────────────────────────────────
+
+/** NOTE dbRest resolves to { data, error } rather than to the payload; reading
+ *  it as the payload makes `chart.nodes` undefined and renders a convincing
+ *  "ยังไม่มีข้อมูล" empty state instead of an error. */
+async function fetchChart(year) {
+  if (charts.has(year)) return charts.get(year);
+  const { data, error } = await dbRest('/rpc/get_public_team_chart', {
+    method: 'POST',
+    body: { p_year: year },
+  });
+  if (error) throw new Error(error.message || `HTTP ${error.status}`);
+  const safe = (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.nodes))
+    ? data
+    : { nodes: [], members: [] };
+  charts.set(year, safe);
+  return safe;
+}
+
+async function showYear(year) {
+  const body = $('orgBody');
+  if (!charts.has(year) && body) {
+    body.innerHTML = '<p class="org-status">กำลังโหลด…</p>';
+  }
+  try {
+    chart = await fetchChart(year);
+    activeYear = year ?? chart.year ?? null;
+    index();
+    render();
+  } catch (err) {
+    console.warn('org chart load failed:', err);
+    if (body) {
+      body.innerHTML = '<p class="org-status is-error">โหลดโครงสร้างองค์กรไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง</p>';
+    }
+  }
+}
 
 /** Load once. Safe to call on every tab activation — the guard makes repeats free. */
 export async function enterOrgChart() {
   if (chart || loading) { render(); return; }
   loading = true;
   try {
-    // POST because it is an rpc; no arguments. Anonymous is fine — dbRest falls
-    // back to the anon key when there is no session, and the rpc is granted to
-    // anon. NOTE dbRest resolves to { data, error } rather than to the payload;
-    // reading it as the payload makes `chart.nodes` undefined and renders a
-    // convincing "ยังไม่มีข้อมูล" empty state instead of an error.
-    const { data, error } = await dbRest('/rpc/get_public_org_chart', { method: 'POST', body: {} });
-    if (error) throw new Error(error.message || `HTTP ${error.status}`);
-    chart = (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.nodes))
-      ? data
-      : { nodes: [], members: [] };
-    index();
-    render();
-  } catch (err) {
-    console.warn('org chart load failed:', err);
-    const body = $('orgBody');
-    if (body) {
-      body.innerHTML = '<p class="org-status is-error">โหลดโครงสร้างองค์กรไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง</p>';
-    }
+    // Anonymous is fine — dbRest falls back to the anon key when there is no
+    // session, and both rpcs are granted to anon.
+    const { data } = await dbRest('/rpc/get_public_team_years', { method: 'POST', body: {} });
+    years = Array.isArray(data) ? data : [];
+    // Default to the live year; fall back to the newest published one if the
+    // admin has not marked a current term.
+    const current = years.find((y) => y.is_current) || years[years.length - 1];
+    await showYear(current ? current.year : null);
   } finally {
     loading = false;
   }
@@ -243,5 +396,21 @@ export function initOrgChart() {
     clear.classList.add('d-none');
     if (chart) render();
     search.focus();
+  });
+
+  // Delegated: the year buttons are re-rendered on every paint.
+  $('orgYears')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-year]');
+    if (!btn) return;
+    const y = Number(btn.dataset.year);
+    if (!Number.isFinite(y) || y === activeYear) return;
+    // Switching year while a search is active would show a filtered view of a
+    // year the user has not seen yet — confusing. Clear it.
+    if (query) {
+      query = '';
+      if (search) search.value = '';
+      clear?.classList.add('d-none');
+    }
+    showYear(y);
   });
 }

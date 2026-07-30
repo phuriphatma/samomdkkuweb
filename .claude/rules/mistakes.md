@@ -2239,3 +2239,53 @@ whole scrollable surface.
 dedicated non-scrolling surface, or (for a list) long-press + `pan-y`. And when a
 mobile gesture "sometimes" does the wrong thing, check the CSS `touch-action` of
 whatever the finger landed on before tuning the JS library.
+
+---
+
+## A partial left behind by a restructure is a DECOY — edits land in a file nothing includes, and the page simply does not change
+
+**Symptom**: added a year picker and a board grid to `src/html/tab-team-public.html`,
+rebuilt, reloaded — neither element existed in the DOM
+(`document.getElementById('orgBoard')` → null). The rest of that same partial was
+clearly live: `#orgBody`, `#orgSearch` and the whole spine tree rendered fine. So
+the page looked like it was serving a STALE copy of the file I had just edited,
+and the first two theories were both about caching (the HTML-include plugin not
+watching partials; Vite holding a transform). Restarting the dev server changed
+nothing, which is the tell.
+**Cause**: `grep -rn "tab-team-public" index.html` returns NOTHING. Commit
+`07b9beb` ("merge ทีม SAMO org chart into เกี่ยวกับเรา tab") had COPIED that
+markup into `src/html/tab-about.html` and repointed `index.html` at it, leaving
+the original partial on disk, unreferenced. The ids matched because it was a
+copy, so every symptom pointed at the live file while every edit went to the dead
+one. `git grep` for the id would have found two hits in ~5 seconds; I searched for
+the behaviour instead of the file.
+**Fix**: apply the edits to `tab-about.html`, and `git rm` the orphan so there is
+one copy again. **Rule**: before editing any `src/html/*.html` partial, confirm
+something includes it — `grep -rn "<partial-name>" index.html admin/index.html`.
+An unreferenced partial is worse than a deleted one: it absorbs edits silently.
+And when a DOM element you just added is missing while its siblings render,
+suspect TWO FILES before suspecting one stale one — `getElementById` returning
+null for new markup next to working old markup is the signature.
+
+---
+
+## Never append a query string to an `lh3.googleusercontent.com` URL — the image 404s, and it looks like the option string is wrong
+
+**Symptom**: verifying the new ทีม SAMO portrait pipeline in a browser, every card
+was blank with the initials fallback showing through. `curl` on the exact same URL
+returned `200 image/webp`. A narrowing probe reported `=w520` → loads,
+`=w520-h693-c-rw` → ERROR, which read as "lh3 doesn't support crop+webp from a
+browser" and nearly cost the whole server-side-crop design.
+**Cause**: the probe appended `?cb=<random>` to bust the cache between attempts.
+lh3 encodes its options in the PATH (`/d/<id>=w520-h693-c-rw`) and rejects the
+request when an unknown query string rides along. Re-running the identical probe
+with no query string: all eight option combinations load, `=w520-h693-c-rw` →
+520x693 WebP. The failing variable was the test harness, not the URL scheme.
+(`=w520?cb=` happened to survive, which made the result look option-specific and
+sent the diagnosis the wrong way.)
+**Fix**: don't cache-bust these URLs. To force a re-fetch, change a real option
+(`=w521`) or hard-reload. Directly parallel to the PostgREST `?_=…` entry above:
+two services in this app now treat an unexpected query param as a hard error.
+**Where**: `portraitSrc` / `portraitSrcSet` in `src/js/uploads.js` build option
+strings with no query component — keep it that way, and pin the exact expected
+suffix in `uploads.test.js` so a "harmless" param cannot be added later.

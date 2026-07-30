@@ -13,7 +13,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { uploadImageToDrive, convertDriveUrl } from '../uploads.js';
+import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import { dbRest } from '../db.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
@@ -21,6 +21,7 @@ import {
   patchNodePositions, patchMemberPositions,
 } from './api.js';
 import { subscribeTeam } from './realtime.js';
+import { initTerms, enterTerms, renderTerms, primeTerms } from './terms.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
   normalizeYear, isLikelyEmail, validateExportJson,
@@ -78,7 +79,10 @@ const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'b
 let initialized = false;
 let loaded = false;
 let loading = null;            // in-flight load promise (single-flight)
-let mode = 'team';             // 'team' | 'perms'
+let mode = 'team';             // 'team' | 'perms' | 'years'
+// The live term's year — used to file photo uploads into SAMO_Team/<ปี>/… and
+// shown nowhere else. Populated by terms.js, which owns the registry.
+let currentTermYear = null;
 const nodesById = new Map();   // id -> node
 let childrenByParent = new Map(); // parentId|'' -> [nodes]
 const membersByNode = new Map(); // nodeId -> [members]
@@ -243,6 +247,9 @@ export function initTeam() {
   wireMemberModal();
   wireTreeDelegation();
   wireIO();
+  initTerms(document.getElementById('teamTermsPane'), {
+    onChange: (year) => { currentTermYear = year; },
+  });
 }
 
 export function enterTeamWorkspace() {
@@ -260,6 +267,9 @@ async function reload() {
       loaded = true;
       render();
       ensureRealtime();
+      // Fire-and-forget: only needed to name the Drive upload folder, so it must
+      // never delay or fail the tree load.
+      primeTerms();
     } catch (e) {
       console.warn('[team] load failed:', e?.message || e);
       const tree = $('teamTree');
@@ -355,6 +365,24 @@ function render() {
   const tree = $('teamTree');
   if (!tree) return;
   destroySortables();
+
+  // The ปีการศึกษา pane is a different surface, not a different rendering of the
+  // tree — hide the tree and its toolbar rather than trying to express years
+  // inside the node list.
+  const isYears = mode === 'years';
+  tree.classList.toggle('d-none', isYears);
+  $('teamTermsPane')?.classList.toggle('d-none', !isYears);
+  document.querySelector('.team-toolbar')?.classList.toggle('d-none', isYears);
+  if (isYears) {
+    document.querySelectorAll('.team-mode-btn').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.teamMode === mode);
+    });
+    const h = $('teamModeHint');
+    if (h) h.textContent = '';
+    setStatus('');
+    renderTerms();
+    return;
+  }
 
   // toolbar reflects mode
   $('teamAddRoot')?.classList.toggle('d-none', mode !== 'team');
@@ -839,6 +867,7 @@ function wireToolbar() {
       mode = m;
       if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
       render();
+      if (mode === 'years') enterTerms();
     });
   });
 
@@ -979,6 +1008,9 @@ function openNodeModal({ node = null, parentId = null, kind = null } = {}) {
   $('teamNodeKind').value = node?.kind || kind || 'role';
   // New nodes default to visible; only an explicit false hides the subtree.
   if ($('teamNodeIsPublic')) $('teamNodeIsPublic').checked = node ? node.is_public !== false : true;
+  // Board membership is opt-in, so a NEW ตำแหน่ง is never silently promoted into
+  // the public headline grid.
+  if ($('teamNodeIsBoard')) $('teamNodeIsBoard').checked = !!node?.is_board;
   $('teamNodeModalTitle').textContent = node ? 'แก้ไขตำแหน่ง' : (parentId ? 'เพิ่มตำแหน่งย่อย' : 'เพิ่มฝ่าย');
   $('teamNodeDelete').classList.toggle('d-none', !node);
   modalInstance('teamNodeModal')?.show();
@@ -995,6 +1027,7 @@ async function onNodeSubmit(e) {
     name,
     kind: $('teamNodeKind').value,
     is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
+    is_board: $('teamNodeIsBoard') ? $('teamNodeIsBoard').checked : false,
   };
   modalInstance('teamNodeModal')?.hide();
   try {
@@ -1604,6 +1637,7 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
   setMemberPhoto(member?.photo_url || '');
+  if ($('teamMemberPhotoFocus')) $('teamMemberPhotoFocus').value = member?.photo_focus || 'center';
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
@@ -1629,6 +1663,14 @@ function setMemberPhoto(url) {
   }
 }
 
+/** Walk to the root ฝ่าย so the Drive folder groups a person under the division
+ *  a human would look for them in, not their immediate sub-ตำแหน่ง. */
+function rootDeptName(nodeId) {
+  let cur = nodesById.get(nodeId);
+  while (cur && cur.parent_id && nodesById.get(cur.parent_id)) cur = nodesById.get(cur.parent_id);
+  return cur?.name || 'ทั่วไป';
+}
+
 async function onMemberPhotoPick(e) {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -1636,10 +1678,27 @@ async function onMemberPhotoPick(e) {
   const input = e.target;
   const original = hint?.textContent;
   input.disabled = true;
-  if (hint) hint.textContent = 'กำลังอัปโหลดรูป…';
+  // The downscale happens before the network call and is the slow part on a
+  // phone, so say "processing" rather than "uploading" up front.
+  if (hint) hint.textContent = 'กำลังย่อและอัปโหลดรูป…';
   try {
-    setMemberPhoto(await uploadImageToDrive(file));
-    if (hint) hint.textContent = 'อัปโหลดแล้ว — กดบันทึกเพื่อยืนยัน';
+    const nodeId = $('teamMemberNodeId').value;
+    const res = await uploadTeamPhoto(file, {
+      year: currentTermYear || 'unsorted',
+      dept: rootDeptName(nodeId),
+      order: membersOf(nodeId).length,
+      name: $('teamMemberName').value.trim() || 'member',
+    });
+    setMemberPhoto(res.url);
+    // Surface the un-organised fallback instead of hiding it — the file DID
+    // upload, but into PR_Submissions/ with no folder structure, which is the
+    // exact thing uploadTeamPhoto exists to fix. Silence here would mean nobody
+    // notices the GAS project still needs redeploying.
+    if (hint) {
+      hint.textContent = res.organised
+        ? `อัปโหลดแล้ว → ${res.folderPath}/${res.fileName} — กดบันทึกเพื่อยืนยัน`
+        : 'อัปโหลดแล้ว แต่ยังไม่ได้จัดโฟลเดอร์ (ต้อง redeploy Apps Script) — กดบันทึกเพื่อยืนยัน';
+    }
   } catch (err) {
     if (hint) hint.textContent = original;
     alert('อัปโหลดรูปไม่สำเร็จ: ' + (err?.message || err));
@@ -1668,6 +1727,7 @@ async function onMemberSubmit(e) {
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
     photo_url: $('teamMemberPhotoUrl').value.trim() || null,
+    photo_focus: $('teamMemberPhotoFocus')?.value || 'center',
   };
   modalInstance('teamMemberModal')?.hide();
   try {

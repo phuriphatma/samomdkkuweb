@@ -1,14 +1,25 @@
 /* org-chart.css — the public โครงสร้างองค์กร section inside เกี่ยวกับเรา (#pills-about).
  *
- * DIRECTION. The subject is a medical faculty's student council, so the person
- * card borrows the one artifact everyone in that building wears: the ID badge —
- * portrait at the left, a coloured edge naming the ฝ่าย, name and ชื่อเล่น set
- * beside it. The hierarchy runs down a SPINE rather than a classic top-down tree:
- * a top-down chart of 279 ตำแหน่ง needs horizontal scrolling on a phone, while a
+ * DIRECTION. Two surfaces, ONE person-card. The page opens with the คณะกรรมการ
+ * grid — large 3:4 portraits, name, ชื่อเล่น, ตำแหน่ง — and the full structure
+ * follows underneath using the same card at ~130px. (An earlier revision styled
+ * the tree people as circular ID badges; that made a person look like two
+ * different kinds of object depending on where you met them, and the brief was
+ * explicitly the docchula card. One shape, two sizes.)
+ *
+ * The hierarchy runs down a SPINE rather than a classic top-down tree: a
+ * top-down chart of 279 ตำแหน่ง needs horizontal scrolling on a phone, while a
  * spine reads the same at every width and encodes depth as indentation from it.
- * The signature is the ฝ่าย "station" — a dot on the spine, the name in Prompt at
- * display weight, and a live head-count, which is real information rather than
- * decoration (no 01/02/03 numbering: ฝ่าย order carries no meaning).
+ * The ฝ่าย "station" — a dot on the spine, the name in Prompt at display weight,
+ * and a live head-count — is real information rather than decoration (no
+ * 01/02/03 numbering: ฝ่าย order carries no meaning).
+ *
+ * ปีการศึกษา sits above both as a plain row of years, because it is a
+ * navigational index and pill buttons would compete with the masthead.
+ *
+ * The 3:4 in `.org-face` / `.org-board-photo` and PORTRAIT_RATIO in uploads.js
+ * are ONE decision written in two files — lh3 is asked to crop to exactly that
+ * ratio server-side, so if they disagree the image letterboxes or squashes.
  *
  * Palette and type are the brand's, not invented: green --brand-primary, orange
  * --brand-orange, the ten --dept-* identities reused from the ฝ่าย tab, Prompt for
@@ -116,6 +127,136 @@
 }
 .org-status.is-error { color: #b42318; }
 
+/* ── ปีการศึกษา picker ───────────────────────────────────────────────────── */
+/* Deliberately plain — a row of years, the active one underlined. It is a
+   navigational index, not a control panel, and dressing it as pill buttons would
+   compete with the masthead for attention. */
+.org-years {
+  display: flex; flex-wrap: wrap; gap: 0.15rem 0.4rem;
+  margin-top: clamp(1.1rem, 3vw, 1.6rem);
+}
+.org-year {
+  border: 0; background: transparent;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.86rem; font-weight: 500;
+  color: var(--ink-500);
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.org-year:hover { color: var(--brand-primary); background: var(--ink-100); }
+.org-year:focus-visible {
+  outline: 2px solid var(--brand-primary); outline-offset: 1px;
+}
+.org-year.is-active {
+  color: var(--brand-primary);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--brand-orange);
+  border-radius: 0;
+}
+
+/* ── คณะกรรมการ board grid ───────────────────────────────────────────────── */
+
+.org-board { margin-top: clamp(1.75rem, 4vw, 2.75rem); }
+
+.org-board-heading,
+.org-tree-heading {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: clamp(1rem, 2.6vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+  margin: 0 0 clamp(1rem, 2.5vw, 1.5rem);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--ink-200);
+}
+.org-tree-heading { margin-top: clamp(2.25rem, 5vw, 3.25rem); }
+
+.org-board-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  /* Four across on a desktop, matching the reference. The 1080px page caps a
+     card at ~250px, which is exactly the width the srcset in org-chart.js is
+     built for — widen this and the images start upscaling. */
+  grid-template-columns: repeat(auto-fill, minmax(clamp(7.5rem, 16vw, 13rem), 1fr));
+  gap: clamp(1.25rem, 3vw, 2rem) clamp(0.85rem, 2.5vw, 1.5rem);
+}
+
+.org-board-card {
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.org-board-photo {
+  position: relative;
+  display: grid; place-items: center;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--radius-md, 0.75rem);
+  background: color-mix(in srgb, var(--org-tint) 12%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 20%, transparent);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+@media (hover: hover) {
+  .org-board-card:hover .org-board-photo {
+    transform: translateY(-3px);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 42%, transparent),
+                0 16px 30px -16px rgba(15, 23, 42, 0.45);
+  }
+}
+
+.org-board-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+
+.org-board-initials {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 600;
+  color: color-mix(in srgb, var(--org-tint) 55%, var(--ink-900));
+  line-height: 1;
+}
+
+.org-board-name {
+  text-align: center;
+  font-size: clamp(0.85rem, 2vw, 0.95rem);
+  font-weight: 600;
+  color: var(--ink-900);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.org-board-nick {
+  text-align: center;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: var(--ink-500);
+  margin-top: -0.35rem;
+}
+.org-board-role {
+  text-align: center;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: clamp(0.74rem, 1.8vw, 0.82rem);
+  font-weight: 500;
+  color: var(--org-tint);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* Board cards carry their own tint; the tree's rule lives on .org-node. */
+.org-board-card[data-tint="admin"]      { --org-tint: var(--dept-admin); }
+.org-board-card[data-tint="digital"]    { --org-tint: var(--dept-digital); }
+.org-board-card[data-tint="internal"]   { --org-tint: var(--dept-internal); }
+.org-board-card[data-tint="external"]   { --org-tint: var(--dept-external); }
+.org-board-card[data-tint="university"] { --org-tint: var(--dept-university); }
+.org-board-card[data-tint="academic"]   { --org-tint: var(--dept-academic); }
+.org-board-card[data-tint="strategy"]   { --org-tint: var(--dept-strategy); }
+.org-board-card[data-tint="quality"]    { --org-tint: var(--dept-quality); }
+.org-board-card[data-tint="media"]      { --org-tint: var(--dept-media); }
+.org-board-card[data-tint="projects"]   { --org-tint: var(--dept-projects); }
+
 /* ── the tree ───────────────────────────────────────────────────────────── */
 
 .org-tree, .org-branch, .org-people { list-style: none; margin: 0; padding: 0; }
@@ -205,10 +346,15 @@
 
 /* ── people ─────────────────────────────────────────────────────────────── */
 
+/* ONE card shape for a person, everywhere on this page: portrait above the name.
+   The board grid renders it at ~250px and the tree at ~130px, but it is the same
+   object — a face in the tree and a face at the top of the page should not look
+   like two different kinds of thing. (This replaced a circular ID-badge row; the
+   brief was explicitly the docchula card.) */
 .org-people {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 8.5rem));
+  gap: 0.9rem 0.75rem;
   margin-top: 0.85rem;
 }
 
@@ -219,86 +365,67 @@
 /* GRID, not flex-wrap: siblings at the same depth share a container width, so a
    fixed right-hand column makes every person card in a branch start at the same x.
    Flexing them to fill left a ragged edge that read as sloppy rather than airy. */
-.org-node.is-solo {
-  display: grid;
-  /* Both columns CAPPED and packed to the start: giving the left column 1fr let it
-     swallow all the slack, opening a canyon between the ตำแหน่ง and its holder.
-     Capping both puts the leftover width at the page edge, which is whitespace,
-     not a gap inside the row. minmax(0, …) still lets both shrink at depth. */
-  grid-template-columns: minmax(0, 20rem) minmax(0, 21rem);
-  justify-content: start;
-  align-items: center;
-  gap: 0.35rem clamp(0.75rem, 2.5vw, 1.5rem);
-}
-.org-node.is-solo > .org-people {
-  margin-top: 0;
-  grid-template-columns: minmax(0, 1fr);
-}
-.org-node.is-solo > .org-branch { grid-column: 1 / -1; }
-/* The tick connector is positioned against the li's top; on a solo row the row
-   is taller than a bare heading, so nudge it onto the text baseline. */
-.org-branch > .org-node.is-solo::before { top: 1.6rem; }
+/* `is-solo` is still emitted by the renderer (one-person ตำแหน่ง is the dominant
+   shape here — 279 ตำแหน่ง, 401 people) but no longer changes the layout: with a
+   portrait card the row height is set by the card whether the ตำแหน่ง name sits
+   beside it or above it, so the old two-column treatment saved no vertical space
+   and opened a ~380px canyon between the name and the card. Heading-above-card is
+   also the same shape as the คณะกรรมการ grid, which is the point. */
 
-/* The badge. The tint is a left edge rather than a full border so a grid of them
-   reads as a set of records, not a set of buttons. */
 .org-person {
-  display: flex; align-items: center; gap: 0.7rem;
-  padding: 0.55rem 0.8rem 0.55rem 0.65rem;
-  background: #fff;
-  border: 1px solid var(--ink-200);
-  border-left: 3px solid var(--org-tint);
+  display: flex; flex-direction: column; gap: 0.45rem;
+  min-width: 0;
+}
+
+/* The portrait. 3:4 to match the crop lh3 is asked for — if these two ever
+   disagree the image letterboxes or gets squashed, so PORTRAIT_RATIO in
+   uploads.js and this ratio are one decision in two files. */
+.org-face {
+  position: relative;               /* the photo is layered over the initials */
+  display: grid; place-items: center;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
   border-radius: var(--radius-sm);
-  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  background: color-mix(in srgb, var(--org-tint) 12%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 22%, transparent);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 @media (hover: hover) {
-  .org-person:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--org-tint) 45%, var(--ink-200));
-    box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.28);
+  .org-person:hover .org-face {
+    transform: translateY(-2px);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 40%, transparent),
+                0 10px 22px -12px rgba(15, 23, 42, 0.4);
   }
 }
 
-.org-face {
-  position: relative;               /* the photo is layered over the initials */
-  flex: 0 0 auto;
-  width: 2.75rem; height: 2.75rem;
-  border-radius: 50%;
-  overflow: hidden;
-  display: grid; place-items: center;
-  background: color-mix(in srgb, var(--org-tint) 14%, #fff);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 28%, transparent);
-}
-
-/* THE ONE RISK, and the reason for it: member portraits are user-uploaded, so they
-   arrive with wildly different lighting, backgrounds and crops. A light
-   desaturation at rest pulls a whole ฝ่าย into one coherent wall; hover and
-   keyboard focus restore full colour, so the individual is never flattened away.
-   Kept subtle — a full greyscale wall of student faces reads as a memorial, not a
-   club. */
+/* Full colour, no desaturation. These are studio portraits shot against a
+   consistent backdrop, so they already read as a set; filtering them would only
+   make a wall of student faces look like an archive. */
 .org-face-img {
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
-  filter: saturate(0.78) contrast(1.03);
-  transition: filter 0.25s ease;
 }
-.org-person:hover .org-face-img,
-.org-person:focus-within .org-face-img { filter: none; }
 
 .org-face-initials {
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.85rem; font-weight: 600;
-  color: color-mix(in srgb, var(--org-tint) 78%, var(--ink-900));
+  font-size: 1.6rem; font-weight: 600;
+  color: color-mix(in srgb, var(--org-tint) 62%, var(--ink-900));
   line-height: 1;
 }
 
-.org-person-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.org-person-text {
+  display: flex; flex-direction: column; gap: 0.05rem; min-width: 0;
+  text-align: center;
+}
 .org-person-name {
-  font-size: 0.9rem; font-weight: 500; color: var(--ink-800);
+  font-size: 0.82rem; font-weight: 500; color: var(--ink-800);
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 .org-person-nick {
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.75rem; color: var(--ink-500);
+  font-size: 0.72rem; color: var(--ink-500);
 }
 .org-person mark {
   background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
@@ -328,21 +455,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   .org-tree > .org-node { animation: none; }
-  .org-person, .org-face-img { transition: none; }
-  .org-person:hover { transform: none; }
+  .org-face, .org-board-photo { transition: none; }
+  .org-person:hover .org-face,
+  .org-board-card:hover .org-board-photo { transform: none; }
 }
 
 /* ── narrow screens ─────────────────────────────────────────────────────── */
 
 @media (max-width: 767.98px) {
   /* Two columns stop paying for themselves once the ตำแหน่ง name has to wrap —
-     stack instead, so neither the name nor the person gets squeezed. */
-  .org-node.is-solo { grid-template-columns: minmax(0, 1fr); }
-  .org-node.is-solo > .org-people { margin-top: 0.4rem; }
+     stack instead, so neither the name nor the card gets squeezed. */
+  /* nothing solo-specific left to undo here */
 }
 
 @media (max-width: 575.98px) {
-  .org-people { grid-template-columns: 1fr; }
+  /* Cards, so the phone still gets a grid — going to one column would make a
+     279-ตำแหน่ง page unscrollably long. Track sizing switches to fr here because
+     a fixed 8.5rem leaves a dead gutter at 360px. */
+  .org-people { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 0.5rem; }
+  .org-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .org-count { margin-inline-start: 0; }
   .org-branch { padding-left: 0.9rem; margin-left: 0.35rem; }
   .org-branch > .org-node::before { left: -0.9rem; width: 0.5rem; }

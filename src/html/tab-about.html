@@ -29,6 +29,11 @@
                   หน้านี้แสดงว่าใครดูแลอะไรอยู่
                 </p>
 
+                <!-- ปีการศึกษา. Hidden by JS until there is more than one year to
+                     pick from, so the control does not appear before the first
+                     archive is published. -->
+                <nav class="org-years" id="orgYears" aria-label="เลือกปีการศึกษา" hidden></nav>
+
                 <div class="org-toolbar">
                   <div class="org-search">
                     <i class="bi bi-search" aria-hidden="true"></i>
@@ -41,6 +46,10 @@
                   <p class="org-count" id="orgCount" aria-live="polite"></p>
                 </div>
               </header>
+
+              <!-- คณะกรรมการ portrait grid — populated from the ตำแหน่ง flagged
+                   is_board. Hidden while a search is running. -->
+              <section class="org-board" id="orgBoard" hidden></section>
 
               <div class="org-body" id="orgBody">
                 <p class="org-status" id="orgStatus">กำลังโหลดโครงสร้างองค์กร…</p>

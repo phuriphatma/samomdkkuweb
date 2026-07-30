@@ -11,6 +11,9 @@
       <button type="button" class="team-mode-btn" data-team-mode="perms">
         <i class="bi bi-shield-lock"></i> จัดการสิทธิ์
       </button>
+      <button type="button" class="team-mode-btn" data-team-mode="years">
+        <i class="bi bi-calendar3"></i> ปีการศึกษา
+      </button>
     </div>
     <div class="team-io">
       <div class="dropdown">
@@ -58,6 +61,12 @@
   <div class="team-tree" id="teamTree" aria-live="polite">
     <div class="team-empty" id="teamEmpty">กำลังโหลด…</div>
   </div>
+
+  <!-- ปีการศึกษา (0104). A separate surface, not another rendering of the tree:
+       the live tree is always the CURRENT term, and past terms are a frozen —
+       but still editable — snapshot in team_archive_*. Rendered by
+       src/js/team/terms.js. -->
+  <div class="team-terms-pane d-none" id="teamTermsPane"></div>
 
   <!-- Bulk action bar — shown in select mode; sticks to the bottom. -->
   <div class="team-selectbar d-none" id="teamSelectionBar">
@@ -109,6 +118,17 @@
               แสดงในผังองค์กรสาธารณะ
             </label>
             <div class="form-text">ปิดไว้สำหรับผู้ที่ไม่ใช่นักศึกษาในสโม (เช่น อาจารย์ เจ้าหน้าที่คณะ) — ตำแหน่งย่อยและสมาชิกทั้งสายจะไม่ถูกแสดงด้วย</div>
+          </div>
+          <!-- Board grid membership (0104). Explicit rather than derived from
+               depth: the org renames and reshuffles its ฝ่าย, and a "depth <= 2"
+               rule would quietly start pulling เลขานุการ into the headline grid
+               the first time someone reorganises a branch. -->
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamNodeIsBoard" />
+            <label class="form-check-label" for="teamNodeIsBoard">
+              แสดงในกริดคณะกรรมการ (ด้านบนสุดของหน้าสาธารณะ)
+            </label>
+            <div class="form-text">เปิดเฉพาะตำแหน่งบริหาร เช่น นายกฯ และอุปนายกแต่ละฝ่าย — จะแสดงเป็นการ์ดรูปใหญ่เรียงตามลำดับในผัง</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -374,6 +394,19 @@
                   accept="image/*" />
                 <button type="button" class="btn btn-sm btn-outline-secondary d-none"
                   id="teamMemberPhotoClear">นำรูปออก</button>
+              </div>
+              <!-- The card is a 3:4 portrait but the studio shoots 3:2 landscape,
+                   so ~45% of the frame is cropped away. "กลาง" lets Google crop it
+                   server-side (half the bytes); บน/ล่าง fetch the full frame and
+                   crop in CSS, which is the escape hatch when a centre crop would
+                   cut the head. -->
+              <div class="mt-2">
+                <label class="form-label form-label-sm mb-1" for="teamMemberPhotoFocus">จุดโฟกัสของรูป</label>
+                <select class="form-select form-select-sm" id="teamMemberPhotoFocus">
+                  <option value="center" selected>กลาง (แนะนำ)</option>
+                  <option value="top">บน — เมื่อหัวถูกตัด</option>
+                  <option value="bottom">ล่าง</option>
+                </select>
               </div>
               <div class="form-text" id="teamMemberPhotoHint">
                 แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้ — ใช้รูปที่เจ้าตัวยินยอมให้เผยแพร่

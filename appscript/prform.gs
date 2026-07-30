@@ -28,6 +28,7 @@ function doPost(e) {
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
+    if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
@@ -94,6 +95,41 @@ function handleUploadShopFile(data) {
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
     if (path.indexOf('SAMO_Shop') !== 0) {
       return createResponse({ success: false, message: 'folderPath must start with SAMO_Shop' });
+    }
+
+    var folder = getOrCreateFolderPath_(path);
+    var base64Data = data.fileData.split(',')[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// uploadTeamFile — ทีม SAMO member portraits, filed by ปีการศึกษา
+//
+// Same shape as uploadShopFile but allow-listed to 'SAMO_Team/...' so the
+// two features cannot write into each other's tree. The frontend builds
+//   SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ-สกุล>.webp
+// which makes the Drive folder browsable by a human looking for "the 2569
+// อุปนายก photos" without needing the app.
+//
+// The FILENAME is for humans only. The app addresses the photo by Drive
+// file id (the returned URL), so renaming a file in Drive later — fixing a
+// misspelling, say — never breaks the page. Do not build any lookup that
+// depends on the name.
+// ============================================================
+
+function handleUploadTeamFile(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (path.indexOf('SAMO_Team') !== 0) {
+      return createResponse({ success: false, message: 'folderPath must start with SAMO_Team' });
     }
 
     var folder = getOrCreateFolderPath_(path);

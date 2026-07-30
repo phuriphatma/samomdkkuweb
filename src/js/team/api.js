@@ -109,3 +109,108 @@ export async function patchMemberPositions(updates) {
     return updateMember(id, patch);
   }));
 }
+
+// ---- ปีการศึกษา + the archive (0104) ----
+//
+// The live tree is always the CURRENT term and carries no year. Past terms are a
+// frozen snapshot in team_archive_nodes / team_archive_members, holding only the
+// columns the public projection publishes — so an archived row has no column any
+// permission resolver reads and cannot grant anything.
+
+export async function fetchTerms() {
+  const { data, error } = await dbRest('/team_terms?select=*&order=year.desc');
+  if (error) throw new Error(error.message || 'โหลดปีการศึกษาไม่สำเร็จ');
+  return data || [];
+}
+
+export async function createTerm(year, label = null) {
+  const { data, error } = await dbRest('/team_terms', {
+    method: 'POST',
+    body: { year, label },
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มปีการศึกษาไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มปีการศึกษาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+export async function updateTerm(year, patch) {
+  const { data, error } = await dbRest(`/team_terms?year=eq.${year}`, {
+    method: 'PATCH',
+    body: patch,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+export async function deleteTerm(year) {
+  // Cascades to team_archive_nodes → team_archive_members.
+  const { error } = await dbRest(`/team_terms?year=eq.${year}`, { method: 'DELETE' });
+  if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+}
+
+/**
+ * Make `year` the live term.
+ *
+ * Two writes, not one: `team_terms_one_current` is a partial UNIQUE index, so
+ * setting the new current before clearing the old one violates it. Clear first.
+ * (Not atomic — a failure between the two leaves NO current term, which the
+ * public page already handles by falling back to the live tree.)
+ */
+export async function setCurrentTerm(year) {
+  await dbRest('/team_terms?is_current=is.true', {
+    method: 'PATCH',
+    body: { is_current: false },
+  });
+  return updateTerm(year, { is_current: true });
+}
+
+/** Freeze the live tree into `year`'s archive. Re-runnable; replaces wholesale. */
+export async function publishTerm(year) {
+  const { data, error } = await dbRest('/rpc/publish_team_term', {
+    method: 'POST',
+    body: { p_year: year },
+  });
+  if (error) throw new Error(error.message || 'เผยแพร่ไม่สำเร็จ');
+  return data;
+}
+
+/** The editable view of one archived year. */
+export async function fetchArchive(year) {
+  const [nodesRes, membersRes] = await Promise.all([
+    dbRest(`/team_archive_nodes?year=eq.${year}&select=*&order=position.asc,name.asc`),
+    dbRest(`/team_archive_members?year=eq.${year}&select=*&order=position.asc,full_name.asc`),
+  ]);
+  if (nodesRes.error) throw new Error(nodesRes.error.message || 'โหลดผังปีนี้ไม่สำเร็จ');
+  if (membersRes.error) throw new Error(membersRes.error.message || 'โหลดรายชื่อปีนี้ไม่สำเร็จ');
+  return { nodes: nodesRes.data || [], members: membersRes.data || [] };
+}
+
+export async function updateArchiveMember(id, patch) {
+  const { data, error } = await dbRest(`/team_archive_members?id=eq.${id}`, {
+    method: 'PATCH',
+    body: patch,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+export async function deleteArchiveMember(id) {
+  const { error } = await dbRest(`/team_archive_members?id=eq.${id}`, { method: 'DELETE' });
+  if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+}
+
+export async function updateArchiveNode(id, patch) {
+  const { data, error } = await dbRest(`/team_archive_nodes?id=eq.${id}`, {
+    method: 'PATCH',
+    body: patch,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}

@@ -31,12 +31,16 @@ Both Cloudflare projects hit the same Supabase backend.
   (the raw report is never shown); signed-in @kkumail students hit "เจอเหมือนกัน"
   (me-too aggregation) and add pseudonymous comments. Confidential categories
   never appear on the board.
-- **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
-  ฝ่าย, ตำแหน่ง, and who holds each — with portraits and a search that keeps the
-  branch a match sits in. Fed by one SECURITY DEFINER projection
-  (`get_public_org_chart`), so it can only ever show name, nickname and photo:
-  no email, student id, year, major or permissions, and nodes marked non-public
-  hide their whole subtree. Portraits are uploaded per member in ทีม SAMO.
+- **ทีม SAMO org chart.** Public page (`/team`) that opens with the คณะกรรมการ as
+  a grid of large portrait cards, followed by the whole structure — ฝ่าย, ตำแหน่ง,
+  and who holds each — with a search that keeps the branch a match sits in.
+  Switchable by **ปีการศึกษา**: the current year renders from the live tree, past
+  years from a published snapshot that stays editable in the admin. Fed by one
+  SECURITY DEFINER projection (`get_public_team_chart`), so it can only ever show
+  name, nickname and photo: no email, student id, year, major or permissions, and
+  nodes marked non-public hide their whole subtree. Portraits are uploaded per
+  member in ทีม SAMO — downscaled in the browser, filed in Drive by year and ฝ่าย,
+  and served as server-cropped WebP.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / admin-managed type,
