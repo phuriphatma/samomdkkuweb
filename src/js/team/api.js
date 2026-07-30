@@ -214,3 +214,16 @@ export async function updateArchiveNode(id, patch) {
   if (!Array.isArray(data) || !data.length) throw new Error('บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)');
   return data[0];
 }
+
+/**
+ * Which snapshots are behind the live tree (0105).
+ *
+ * Only the CURRENT year can be "stale" — a past year is SUPPOSED to diverge from
+ * the live tree; that is what an archive is. Server-side because it needs
+ * max(updated_at) across both team tables.
+ */
+export async function fetchTermStatus() {
+  const { data, error } = await dbRest('/rpc/team_term_status', { method: 'POST', body: {} });
+  if (error) throw new Error(error.message || 'อ่านสถานะปีการศึกษาไม่สำเร็จ');
+  return data || { terms: [] };
+}

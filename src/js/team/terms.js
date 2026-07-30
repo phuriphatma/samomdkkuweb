@@ -23,12 +23,14 @@ import { escHtml } from '../utils.js';
 import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import {
   fetchTerms, createTerm, updateTerm, deleteTerm, setCurrentTerm, publishTerm,
+  fetchTermStatus,
   fetchArchive, updateArchiveMember, deleteArchiveMember, updateArchiveNode,
 } from './api.js';
 
 const $ = (id) => document.getElementById(id);
 
 let terms = [];
+let staleByYear = new Map();   // year -> true when the live tree moved after publish
 let openYear = null;      // the archived year currently expanded for editing
 let archive = null;       // { nodes, members } for openYear
 let busy = false;
@@ -65,7 +67,10 @@ function termRow(t) {
           ${t.is_current ? '<span class="team-term-badge is-live">ปีปัจจุบัน (ผังสด)</span>' : ''}
           ${published
             ? `<span class="team-term-badge is-pub">เผยแพร่แล้ว · ${escHtml(when)}</span>`
-            : '<span class="team-term-badge is-draft">ยังไม่เผยแพร่</span>'}
+            : '<span class="team-term-badge is-draft">ยังไม่เผยแพร่ (แสดงผังสด)</span>'}
+          ${staleByYear.get(t.year)
+            ? '<span class="team-term-badge is-stale" title="ผังสดถูกแก้ไขหลังเผยแพร่ครั้งล่าสุด — หน้าสาธารณะยังแสดงภาพนิ่งเดิม">ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ</span>'
+            : ''}
         </div>
         <div class="team-term-actions">
           ${t.is_current
@@ -75,9 +80,9 @@ function termRow(t) {
             : `<button type="button" class="btn btn-sm btn-outline-secondary" data-term-current="${t.year}">
                  ตั้งเป็นปีปัจจุบัน
                </button>`}
-          ${published && !t.is_current
+          ${published
             ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-term-edit="${t.year}">
-                 <i class="bi bi-pencil"></i> ${openYear === t.year ? 'ปิด' : 'แก้ไขรายชื่อ'}
+                 <i class="bi bi-pencil"></i> ${openYear === t.year ? 'ปิด' : 'แก้ไขรายชื่อ/รูป'}
                </button>`
             : ''}
           <button type="button" class="btn btn-sm btn-outline-danger" data-term-delete="${t.year}"
@@ -189,13 +194,18 @@ export function renderTerms() {
       <p class="team-terms-lead">
         ผังที่แก้ไขในแท็บ “จัดการทีม” คือ <strong>ปีปัจจุบัน</strong> เสมอ
         กด “เผยแพร่ปีนี้” เพื่อบันทึกภาพนิ่งของผังไว้เป็นประวัติ
-        แล้วปีเก่าจะเลือกดูได้จากหน้าสาธารณะ และยังกลับมาแก้ไขชื่อ/รูปได้ที่นี่
+        ทุกปีที่เผยแพร่แล้วจะเลือกดูได้จากหน้าสาธารณะ และกลับมาแก้ไขชื่อ/รูปได้ที่นี่
       </p>
       <p class="team-terms-note">
         <i class="bi bi-info-circle"></i>
-        หน้าสาธารณะจะแสดง <strong>ผังสด</strong> สำหรับปีปัจจุบันเสมอ
-        ภาพนิ่งของปีปัจจุบันจะถูกใช้แสดงก็ต่อเมื่อขึ้นปีใหม่แล้ว
-        (เช่น เผยแพร่ 2569 → ตั้ง 2570 เป็นปีปัจจุบัน → หน้าสาธารณะจึงเลือกดู 2569 จากภาพนิ่งได้)
+        <span>
+          หน้าสาธารณะแสดง <strong>ภาพนิ่งของปีที่เผยแพร่แล้ว</strong> ทุกปี รวมถึงปีปัจจุบัน
+          — แก้ชื่อ/รูปที่นี่แล้วเห็นผลทันทีโดยไม่กระทบผังสด
+          ปีที่ <em>ยังไม่เผยแพร่</em> จะแสดงผังสดแทน (เฉพาะปีปัจจุบัน)
+          <br />
+          เมื่อแก้ผังสดในแท็บ “จัดการทีม” แล้ว ต้องกด <strong>เผยแพร่ซ้ำ</strong>
+          จึงจะเห็นบนหน้าสาธารณะ — ระบบจะขึ้นป้ายเตือนให้เอง
+        </span>
       </p>
       <div class="team-terms-add">
         <input type="number" class="form-control form-control-sm" id="teamTermNewYear"
@@ -237,6 +247,12 @@ function guard(fn, okMsg) {
 
 async function reloadTerms() {
   terms = await fetchTerms();
+  // Best-effort: a failed status read must not blank the whole pane, it only
+  // costs the "snapshot is behind" hint.
+  try {
+    const st = await fetchTermStatus();
+    staleByYear = new Map((st.terms || []).map((t) => [t.year, !!t.stale]));
+  } catch { staleByYear = new Map(); }
   onTermsChanged?.(currentTerm()?.year || null);
   renderTerms();
 }
@@ -247,9 +263,10 @@ async function doPublish(year) {
   if (!confirm(again
     ? `เผยแพร่ปี ${year} ซ้ำ?\n\n`
       + 'รายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด'
-    : `เผยแพร่ผังปัจจุบันเป็นประวัติปี ${year}?\n\n`
-      + 'หมายเหตุ: ปีนี้ยังเป็นปีปัจจุบัน หน้าสาธารณะจึงยังแสดงผังสดอยู่ '
-      + 'ภาพนิ่งนี้จะถูกนำมาแสดงเมื่อตั้งปีอื่นเป็นปีปัจจุบันแล้ว')) return;
+    : `เผยแพร่ผังปัจจุบันเป็นภาพนิ่งของปี ${year}?\n\n`
+      + 'หลังจากนี้หน้าสาธารณะจะแสดงภาพนิ่งนี้ (ไม่ใช่ผังสด) '
+      + 'แก้ชื่อ/รูปของปีนี้ได้ที่ปุ่ม “แก้ไขรายชื่อ/รูป” และเห็นผลทันที\n'
+      + 'ถ้าแก้ผังสดในภายหลัง ต้องกดเผยแพร่ซ้ำ')) return;
   await guard(async () => {
     statusLine('กำลังบันทึกภาพนิ่งของผัง…');
     const res = await publishTerm(year);

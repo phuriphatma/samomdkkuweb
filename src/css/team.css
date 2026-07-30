@@ -497,3 +497,13 @@
   margin: 0 0 1rem;
 }
 .team-terms-note > .bi { color: var(--brand-orange); margin-top: 0.15rem; }
+
+/* "the live tree moved after you published" — orange, because it means the
+   public page is showing something older than what จัดการทีม now contains. Only
+   ever set on the CURRENT year; a past year diverging is the whole point. */
+.team-term-badge.is-stale {
+  color: #9a3412;
+  border-color: color-mix(in srgb, var(--brand-orange) 55%, transparent);
+  background: color-mix(in srgb, var(--brand-orange) 14%, #fff);
+  font-weight: 600;
+}

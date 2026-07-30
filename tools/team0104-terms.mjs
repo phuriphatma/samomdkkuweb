@@ -274,6 +274,129 @@ async function main() {
        and (coalesce(qual,'') ~ 'true' and coalesce(qual,'') !~ 'current_user')`);
   check('no using(true) policy on any new table', pol.body?.[0]?.n === '0', JSON.stringify(pol.body));
 
+
+  // ── 6. 0105: every year is a snapshot — the CURRENT year included ────────
+  console.log('\n0105 — PUBLISHED SNAPSHOT WINS FOR EVERY YEAR');
+  const cur = await mgmt(`
+    begin;
+    create temp table out(k text, v text);
+    grant all on out to authenticated, anon;
+    select set_config('request.jwt.claims',
+      json_build_object('sub',(select id from public.users where role='dev' limit 1),
+                        'role','authenticated')::text, true);
+    set local role authenticated;
+
+    -- before publishing, the current year must still fall back to the live tree
+    insert into out select 'before_publish_source', public.get_public_team_chart(null)->>'source';
+    select public.publish_team_term((select year from public.team_terms where is_current));
+    insert into out select 'after_publish_source',  public.get_public_team_chart(null)->>'source';
+    reset role;
+
+    -- an edit to the CURRENT year's archive must be publicly visible…
+    update public.team_archive_members set full_name = 'ZZ-0105-EDIT'
+     where id = (select id from public.team_archive_members
+                  where year = (select year from public.team_terms where is_current) limit 1);
+    insert into out select 'archive_edit_public',
+      (public.get_public_team_chart(null)::text like '%ZZ-0105-EDIT%')::text;
+    -- …and must NOT touch the live tree (the permission engine).
+    insert into out select 'live_tree_untouched',
+      (not exists (select 1 from public.team_members where full_name='ZZ-0105-EDIT'))::text;
+
+    -- stale detection: snapshot older than the newest live edit
+    update public.team_terms set published_at = now() - interval '2 days' where is_current;
+    select set_config('request.jwt.claims',
+      json_build_object('sub',(select id from public.users where role='dev' limit 1),
+                        'role','authenticated')::text, true);
+    set local role authenticated;
+    insert into out select 'stale_when_behind', (
+      select e->>'stale' from jsonb_array_elements(public.team_term_status()->'terms') e
+       where (e->>'year')::int = (select year from public.team_terms where is_current));
+    update public.team_terms set published_at = now() + interval '2 days' where is_current;
+    insert into out select 'not_stale_when_ahead', (
+      select e->>'stale' from jsonb_array_elements(public.team_term_status()->'terms') e
+       where (e->>'year')::int = (select year from public.team_terms where is_current));
+    reset role;
+    select * from out;
+    rollback;`);
+  const cv = kv(cur);
+  check('unpublished current year still falls back to the LIVE tree',
+    cv.before_publish_source === 'live', cv.before_publish_source);
+  check('publishing the CURRENT year makes its snapshot the public source',
+    cv.after_publish_source === 'archive', cv.after_publish_source);
+  check('editing the current year\'s archive IS visible publicly',
+    cv.archive_edit_public === 'true');
+  check('…and does NOT touch the live tree (the permission engine)',
+    cv.live_tree_untouched === 'true');
+  check('snapshot older than the live tree flags stale', cv.stale_when_behind === 'true');
+  check('snapshot newer than the live tree does not', cv.not_stale_when_ahead === 'false');
+
+  const st = await mgmt(`
+    select has_function_privilege('anon','public.team_term_status()','execute') as anon_status,
+           has_function_privilege('anon','public.get_public_team_chart(integer)','execute') as anon_chart`);
+  const sv = st.body?.[0] || {};
+  check('anon CANNOT execute team_term_status', sv.anon_status === false);
+  check('anon CAN still execute get_public_team_chart', sv.anon_chart === true);
+
+  const guard = await asTreeGrant(`array['pr']`, `
+    insert into out select 'st', (public.team_term_status() is not null)::text;`);
+  check('team_term_status refuses a caller without `team`',
+    guard.status >= 400 && /not authorized/i.test(JSON.stringify(guard.body)),
+    JSON.stringify(guard.body).slice(0, 160));
+
+
+  // ── 7. 0106: re-publishing must not eat archive-only photos ──────────────
+  console.log('\n0106 — RE-PUBLISH KEEPS ARCHIVE-ONLY PHOTOS');
+  const rp = await mgmt(`
+    begin;
+    create temp table out(k text, v text);
+    grant all on out to authenticated, anon;
+    select set_config('request.jwt.claims',
+      json_build_object('sub',(select id from public.users where role='dev' limit 1),
+                        'role','authenticated')::text, true);
+    set local role authenticated;
+    select public.publish_team_term(${Y});
+    reset role;
+
+    create temp table pick as
+      select am.id arc_id, am.src_member_id from public.team_archive_members am
+        join public.team_members m on m.id = am.src_member_id
+       where am.year=${Y} and m.photo_url is null limit 1;
+    update public.team_archive_members
+       set photo_url='https://lh3.googleusercontent.com/d/ARCONLY=w2000', photo_focus='top'
+     where id=(select arc_id from pick);
+
+    select set_config('request.jwt.claims',
+      json_build_object('sub',(select id from public.users where role='dev' limit 1),
+                        'role','authenticated')::text, true);
+    set local role authenticated;
+    insert into out select 'kept', public.publish_team_term(${Y})->>'photos_kept';
+    reset role;
+    insert into out select 'survived', (exists(select 1 from public.team_archive_members
+      where year=${Y} and src_member_id=(select src_member_id from pick)
+        and photo_url like '%ARCONLY%' and photo_focus='top'))::text;
+    insert into out select 'live_wins', (exists(
+      select 1 from public.team_archive_members am join public.team_members m on m.id=am.src_member_id
+       where am.year=${Y} and m.photo_url is not null and am.photo_url = m.photo_url))::text;
+
+    update public.team_archive_members set full_name='ZZ-OVERWRITE-ME' where id=(select arc_id from pick);
+    select set_config('request.jwt.claims',
+      json_build_object('sub',(select id from public.users where role='dev' limit 1),
+                        'role','authenticated')::text, true);
+    set local role authenticated;
+    select public.publish_team_term(${Y});
+    reset role;
+    insert into out select 'name_overwritten', (not exists(
+      select 1 from public.team_archive_members where year=${Y} and full_name='ZZ-OVERWRITE-ME'))::text;
+    select * from out;
+    rollback;`);
+  const rv = kv(rp);
+  check('a photo that exists ONLY in the archive survives a re-publish',
+    rv.survived === 'true', JSON.stringify(rp.body).slice(0, 200));
+  check('publish reports how many photos it carried forward', rv.kept === '1', rv.kept);
+  check('a LIVE photo still wins over the archived one', rv.live_wins === 'true');
+  check('names ARE overwritten by a re-publish (that is what it means)',
+    rv.name_overwritten === 'true');
+
   console.log(`\n${pass}/${pass + fail} checks passed`);
   process.exit(fail ? 1 : 0);
 }
