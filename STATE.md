@@ -8,16 +8,19 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: last code-bearing commit is still `397ff56`, deployed. Everything
-  since is docs / `tools/` only, so a VM/STATE mismatch of a few `docs(state):`
-  commits is normal and does NOT mean a deploy is pending — check
-  `git diff --name-only <vm>..HEAD` for anything outside `STATE.md` / `.claude/` /
-  `docs/` / `tools/` before redeploying.
+- **samoweb**: `3a01c25`, **deployed 2026-07-30**. Verified in the served bundles:
+  `delayOnTouchOnly` / `touchStartThreshold` / `team-chosen` in
+  `/assets/admin-*.js`, and `.team-handle{…pan-y}` with no `touch-action:none` in
+  `/assets/admin-*.css`. (Admin assets are served from `/assets/`, NOT
+  `/admin/assets/` — a grep against the latter 404s and silently "finds nothing".)
+  A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
+  deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
+  `STATE.md` / `.claude/` / `docs/` / `tools/` first.
 - **passport** (separate repo): `405c927`, **deployed 2026-07-30**. Served bundles
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–0101; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–0102; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk

@@ -1498,6 +1498,16 @@ audience lookups (0091), AND reads**. A read gated on a role list is invisible
 until someone with the new channel goes looking for data they just created. And
 never widen a predicate that a security trigger also consumes — check
 `grep -rn "current_user_is_staff" supabase/migrations/` before touching it.
+**FOURTH surface, found 2026-07-30 (0102)**: a **SECURITY DEFINER RPC's own
+`raise` guard**. 0093 repointed the `analytics_events` TABLE read to
+`current_user_has_any_grant()` but left `analytics_overview()` raising
+`'analytics_overview: staff only'`. สถิติการใช้งาน is offered with NO permission
+requirement (`SIDE_FEATURE.analytics = null`), so every ทีม SAMO grantee saw the
+menu item and got `P0001 staff only` on open. The table and the function
+disagreed about the same question. Fix: the SAME predicate in both, so they
+cannot drift. So the enumeration is: **writes · reads · audience lookups ·
+definer-RPC guards**. Sweep for the last one with
+`select proname from pg_proc where pg_get_functiondef(oid) ~ 'current_user_is_staff'`.
 
 ---
 
@@ -2190,3 +2200,42 @@ that door a real identity (sign it into one shared Supabase account) or retire i
 callers by SESSION STATE (signed-in / anonymous / no-session-by-design), not by
 role. Every caller in the third bucket breaks, and it breaks loudly for users
 while looking correct in every test you wrote as an authenticated principal.
+
+---
+
+## `touch-action: none` on a drag handle makes the page unscrollable THERE — so every scroll that starts on a handle becomes a drag
+
+**Symptom** (reported): "on ทีม SAMO on mobile, sometimes I just scroll the phone,
+and it accidentally swaps / moves the role." Intermittent, never on desktop, and
+it looked like a SortableJS sensitivity problem.
+**Cause**: CSS, not the drag library. `.team-handle` carried
+`touch-action: none`. That property tells the browser to suppress **every**
+default touch gesture on the element — including panning — so a touch that merely
+*began* on a handle could not scroll the page at all. SortableJS (no `delay`
+configured) starts dragging on `touchstart`. Combined: finger lands on a handle
+while flicking down the list → the browser refuses to scroll → the library
+interprets the movement as a drag → a ตำแหน่ง silently moves. `touch-action: none`
+is the right advice for a handle when drags start immediately (it stops the page
+fighting the drag), which is exactly why it gets copied in — but it makes the
+handle a scroll dead-zone, and on a tree view the handles are spread down the
+whole scrollable surface.
+**Fix**: make touch drags require intent, and let the browser keep panning.
+- `touch-action: pan-y` on the handle (vertical scroll still belongs to the
+  browser);
+- `delay: 220` + **`delayOnTouchOnly: true`** so a mouse stays instant and only
+  touch needs a hold;
+- `touchStartThreshold: 8` so any finger travel inside the delay cancels the
+  pending drag — this is what makes "scroll wins, hold wins" unambiguous;
+- `chosenClass` feedback, because a touch drag that starts with no visual signal
+  reads as either broken or accidental;
+- a larger hit box under `@media (pointer: coarse)` — the mouse-sized
+  `padding: 0.15rem` caused BOTH accidental drags and failed deliberate ones;
+- and drag disabled outright in the mode where reordering is not the task
+  (จัดการสิทธิ์), since there it can only ever happen by mistake.
+**Where**: `src/css/team.css` `.team-handle`; `src/js/team/index.js` `TOUCH_DRAG`
++ `attachSortables` + the `mode === 'team'` gate on the attach call.
+**Rule**: never pair `touch-action: none` with a drag that begins on
+`touchstart` inside a scrollable list. Pick one: immediate drag on a small
+dedicated non-scrolling surface, or (for a list) long-press + `pan-y`. And when a
+mobile gesture "sometimes" does the wrong thing, check the CSS `touch-action` of
+whatever the finger landed on before tuning the JS library.
