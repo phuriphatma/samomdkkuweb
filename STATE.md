@@ -237,18 +237,49 @@ Re-run the check before flipping — the tree changes:
 is written and committed; the lockdown is written, proven, and deliberately NOT
 applied. What remains:
 
-1. **Deploy the passport app** (safe — it behaves identically under today's open
-   RLS, and it is the prerequisite for step 2). Passport `main` is at `079f422`;
-   the VM pulls it via `server/deploy.sh`.
-2. **Apply `passport/db/0011_passport_rls_lockdown.sql`** — the actual closure.
-   **One consequence to accept first: `admin`/`1234` becomes READ-ONLY.** A legacy
-   password session has no Supabase JWT, so `passport.is_admin()` is false for it
-   and every admin WRITE starts failing. That is the forcing function to flip
-   `LEGACY_PASSWORD_LOGIN` (NEXT #2) — but do not apply 0011 mid-event without
-   telling the organizers who are still using the password. Everyone in the
-   ทีม SAMO list in #2 is unaffected (they sign in with Google).
-3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is 6/9 today,
-   and the 3 failures ARE the vulnerability).
+1. **DONE — the app is deployed** (passport `main` `76dac38`, live on the VM,
+   verified by grepping the served bundles: `stamp_scan` in the scan chunk,
+   `leaderboard_names` in dashboard, `admin_leaderboard` in admin, and no
+   `from('scans').insert` anywhere).
+2. **BLOCKED — `passport/db/0011_passport_rls_lockdown.sql` must NOT be applied
+   yet.** User instruction 2026-07-30: *"don't retire admin/1234 yet, it should
+   work fully admin, many people is using it."*
+
+   **This is a structural conflict, not a scheduling one.** `admin`/`1234` is a
+   client-side string compare — the password never reaches the server in any
+   verifiable form, so those sessions carry NO Supabase JWT, and
+   `passport.is_admin()` cannot distinguish them from any anonymous visitor.
+   Every admin write therefore arrives as plain `anon`. So "the DB rejects anon
+   writes" and "admin/1234 keeps full admin" are the same statement negated:
+   **you cannot have both.** Same for the PII — the admin leaderboard needs
+   student name + email, and a caller with no identity can only be given that by
+   giving it to everyone.
+
+   **The way to have both** (not built; ~half a day): make the legacy door
+   produce a REAL session instead of a fake one. Create one shared Supabase
+   account (e.g. `passportadmin@samomdkku.app`), grant it the `passport`
+   permission so `passport_admin_context()` returns `is_admin`, and have
+   `legacyLogin()` in `js/admin-scope.js` call
+   `supabase.auth.signInWithPassword()` with that account instead of comparing
+   strings. The UI stays `admin`/`1234`; behind it there is a JWT, so 0011 can
+   land with the door fully working. Two things to get right:
+   - The shared account's real password would sit in the bundle. That is **no
+     worse than today** (`LEGACY_PASS = '1234'` is already there) but be honest
+     that it does not make the door itself secure — its value is that everyone
+     who does NOT know it loses write access, and writes finally carry a uid.
+   - Signing in would REPLACE a student's own Google session on that browser
+     (shared storage key). Either warn in the banner, or give the legacy client
+     its own `storageKey` and route admin writes through it.
+3. Then re-run `node tools/pass-anon-probe.mjs` — it must go 9/9 (it is 6/9
+   today, and the 3 failures ARE the vulnerability).
+
+**Regression shipped and fixed the same session** — worth knowing because the
+same trap applies to every future move behind an identity-gated RPC: pointing the
+admin leaderboard at `admin_leaderboard()` broke it outright for `admin`/`1234`,
+because that door has no identity for the RPC's guard to accept. `ensureLbScans`
+now branches on `adminScope.legacy` and keeps the direct `profiles` read for it.
+**That fallback is exactly what 0011 deletes** — deliberately, so the lockdown
+cannot land while pretending the legacy door still works.
 
 **APPLIED — `passport/db/0010_passport_authz_hardening.sql`** (additive, no
 behaviour change):

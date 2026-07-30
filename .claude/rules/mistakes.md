@@ -2148,3 +2148,45 @@ the Management API returns **201**, not 200, so a `status !== 200` guard discard
 successful run; and once you `set_config('role', 'anon')` inside a transaction you
 must `reset role` at top level before impersonating the next principal, or every
 later phase silently runs as anon and "passes".
+
+---
+
+## Moving a read behind an identity-gated RPC breaks every caller that has NO identity — and a client-side password login is exactly that
+
+**Symptom**: the passport admin leaderboard rendered "Could not load leaderboard:
+NOT_AUTHORIZED" for every admin using the temporary `admin`/`1234` door,
+immediately after a commit that pointed it at
+`passport.admin_leaderboard()` — a SECURITY DEFINER RPC guarding on
+`passport.is_admin()`. Admins signing in with Google were fine, so it looked like
+a permission-data problem. It wasn't: the RPC was correct and the grant was
+correct.
+**Cause**: `admin`/`1234` is a **client-side string compare** — `legacyLogin()`
+compares two literals and sets a localStorage flag. The password never reaches the
+server in any verifiable form, so those sessions carry **no Supabase JWT at all**,
+`auth.uid()` is null, and `is_admin()` cannot tell them from an anonymous visitor.
+The previous code worked only because it read `profiles` directly and
+`profiles_read_all` was `using (true)` — i.e. it worked *because* the table was
+world-readable. Replacing a world-readable read with an authorization-checked one
+is normally the whole point; the trap is that it silently converts "no identity"
+from *fine* into *rejected*, and the caller with no identity is the one nobody
+lists when enumerating roles.
+**This generalises past legacy logins.** Any caller without a session hits the
+same wall: a public/guest page, a pre-login step (the passport scan page resolves
+an activity BEFORE sign-in), a cron or webhook using the anon key, a server-side
+render. Enumerating "which ROLES call this?" misses them all, because their answer
+to "which role?" is *none*.
+**Fix**: branch on the explicit signal, not on catching the error —
+`adminScope.legacy === true` selects the old direct read; a real session uses the
+RPC. Catching NOT_AUTHORIZED would work but hides why two paths exist, and would
+also swallow a genuine permission bug in the RPC path.
+**Where**: `passport/js/admin-page.js` `ensureLbScans` (commit `76dac38`, fixing
+`079f422` the same session); the RPC in `passport/db/0010_passport_authz_hardening.sql`.
+**The structural half, which is the real lesson**: this also means the lockdown
+(`db/0011`) and "keep admin/1234 fully working" are mutually exclusive, and no
+amount of policy writing reconciles them — a door that cannot prove who is behind
+it cannot be granted anything the anonymous public isn't. The only fix is to give
+that door a real identity (sign it into one shared Supabase account) or retire it.
+**Rule**: before putting an existing read behind an identity check, list its
+callers by SESSION STATE (signed-in / anonymous / no-session-by-design), not by
+role. Every caller in the third bucket breaks, and it breaks loudly for users
+while looking correct in every test you wrote as an authenticated principal.
