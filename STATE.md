@@ -49,13 +49,28 @@ live grant for someone who left three years ago. The archive tables carry ONLY
 the columns the public projection publishes, so there is nothing on an archived
 row for any resolver to read.
 
-**The one confusing bit, by design**: publishing the CURRENT year does not change
-the public page — the current year always renders from the live tree. The
-snapshot only becomes reachable once a DIFFERENT year is made current. Both the
-pane and the publish confirm say so.
+**0105/0106 — every year is uniform now** (this replaced 0104's confusing
+special case, where the current year always rendered from the live tree):
+`get_public_team_chart(year)` resolves **published archive → live tree (current
+year only, as bootstrap) → empty**. So a year becomes real the moment it is
+published, the public page shows exactly what the admin edits, and every
+published year — current included — is editable via "แก้ไขรายชื่อ/รูป".
+
+Two consequences to keep in mind:
+- Once the current year is published, live-tree edits need a **re-publish** to
+  appear. `team_term_status()` detects this (live max(updated_at) > published_at,
+  current year only) and the pane shows "ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ".
+  **Do NOT auto-publish on tree edits** — it would overwrite hand-corrected
+  archive rows, which is what the archive exists to preserve.
+- `publish_team_term` rebuilds the archive wholesale, so 0106 makes it carry a
+  photo forward when the live tree has none: **live photo > this year's archived
+  photo > null**, keyed on `team_archive_members.src_member_id`. Without it the
+  re-publish we ourselves prompt for would delete every portrait uploaded through
+  the archive editor. Names/nicknames/positions are still overwritten — that is
+  what re-publish means.
 
 **Proofs** (re-run after touching any of this):
-- `node tools/team0104-terms.mjs` → 27/27 — snapshot fidelity (0 orphan parents,
+- `node tools/team0104-terms.mjs` → 40/40 — snapshot fidelity (0 orphan parents,
   depth preserved, board flags carried, re-publish replaces), non-public subtrees
   excluded, projection allow-list, anon reads 0 rows from all three new tables,
   `team` permission works on writes AND reads, RPC fails closed on a null role,
@@ -77,8 +92,15 @@ one year exists so far).
    renders initials. That is the designed fallback, not a bug. Upload via
    ทีม SAMO → edit a member → รูปประจำตัว.
 2. `is_board` is seeded to the obvious 11 and otherwise uncurated.
-3. The year picker stays hidden until a SECOND year exists (publish 2569, then
-   add + set 2570 current).
+3. The year picker stays hidden until a SECOND year is visible — a year shows
+   publicly only if it is published or is the current term. There is a 2570 term
+   (added during testing, unpublished, not current) which is therefore correctly
+   invisible.
+4. **Deploys no longer break open tabs.** `deploy.sh publish()` adds assets
+   additively and prunes after 7 days, so the previous build's chunks keep
+   serving; verified live (the prior bundle still 200s after a deploy).
+   `build-check.js` also re-checks on tab-foreground, gated by `pageIsIdle()` so
+   it never reloads over an open modal or typed-in field.
 
 ## APPS SCRIPT — automated deploys (new)
 
@@ -106,8 +128,7 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `ed8160b` (+ the docs commit after it), **deployed 2026-07-30**,
-  `buildId 1adbb70b5eed`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
+- **samoweb**: `ebca449`, **deployed 2026-07-30**, `buildId 56c800cd6811`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
   archive (0104) — see the section above. Verified in the SERVED bundles:
   `get_public_team_chart` / `get_public_team_years` / `org-board-card` in
   `/assets/public-*.js`, `.org-board-grid` in `/assets/public-*.css`,
@@ -130,7 +151,7 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–0104; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–0106; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk

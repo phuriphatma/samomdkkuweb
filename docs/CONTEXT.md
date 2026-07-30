@@ -514,6 +514,16 @@ team_archive_members (id PK, year FK CASCADE, node_id FK archive_nodes CASCADE,
                       full_name, nickname, photo_url, photo_focus, position)
 ```
 
+**Resolution order (0105)**: `get_public_team_chart(year)` serves a **published
+archive** for ANY year including the current one; falls back to the **live tree**
+only for the current term when nothing is published yet; otherwise empty. So the
+public page shows exactly what the admin edits, and every published year is
+editable. Once the current year is published, live-tree edits need a re-publish —
+`team_term_status()` (admin-only) flags that as stale. `publish_team_term` carries
+a photo forward when the live tree has none (**live > archived > null**, keyed on
+`team_archive_members.src_member_id`, 0106), so the prompted re-publish cannot
+delete portraits uploaded through the archive editor.
+
 `publish_team_term(year)` (SECURITY DEFINER, `team` permission or vp_admin/dev,
 guard uses `coalesce(...,false)` so a null role fails CLOSED) snapshots the
 is_public subtree of the live tree, re-keying every node to a fresh uuid inside one
