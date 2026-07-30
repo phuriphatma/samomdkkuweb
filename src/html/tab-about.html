@@ -14,95 +14,39 @@
           </section>
 
 
-          <!-- ====== TEAM ====== -->
+          <!-- ====== TEAM (dynamic org chart) ====== -->
           <section id="about-team" class="about-section">
-            <header class="about-section-header">
-              <span class="about-section-eyebrow">Our Team</span>
-              <h2 class="about-section-title">ทีมงาน</h2>
-              <p class="about-section-lead">
-                คณะกรรมการสโมสรนักศึกษาที่ทำงานร่วมกันเพื่อนักศึกษาแพทย์ขอนแก่น
-              </p>
-            </header>
+            <div class="org-page">
 
-            <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-4">
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--brand-primary);">
-                    <i class="bi bi-person-fill"></i>
+              <header class="org-masthead">
+                <p class="org-eyebrow">โครงสร้างองค์กร</p>
+                <h2 class="org-title">
+                  ทีม<span class="org-title-mark">SAMO</span>
+                </h2>
+                <p class="org-lead">
+                  สโมสรนักศึกษาคณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น
+                  จัดโครงสร้างเป็นฝ่ายและตำแหน่งที่รับผิดชอบงานคนละส่วน
+                  หน้านี้แสดงว่าใครดูแลอะไรอยู่
+                </p>
+
+                <div class="org-toolbar">
+                  <div class="org-search">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input type="search" id="orgSearch" class="org-search-input"
+                      placeholder="ค้นหาชื่อ ชื่อเล่น หรือตำแหน่ง" autocomplete="off"
+                      aria-label="ค้นหาชื่อ ชื่อเล่น หรือตำแหน่ง" />
+                    <button type="button" id="orgSearchClear" class="org-search-clear d-none"
+                      aria-label="ล้างการค้นหา"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                   </div>
-                  <h6 class="about-team-name">นายกสโมสรนักศึกษา</h6>
-                  <p class="about-team-role">President</p>
-                </article>
+                  <p class="org-count" id="orgCount" aria-live="polite"></p>
+                </div>
+              </header>
+
+              <div class="org-body" id="orgBody">
+                <p class="org-status" id="orgStatus">กำลังโหลดโครงสร้างองค์กร…</p>
               </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--brand-accent);">
-                    <i class="bi bi-person-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">รองนายกสโมสร</h6>
-                  <p class="about-team-role">Vice President</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--brand-orange);">
-                    <i class="bi bi-person-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">เลขานุการ</h6>
-                  <p class="about-team-role">Secretary</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--dept-quality);">
-                    <i class="bi bi-person-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">เหรัญญิก</h6>
-                  <p class="about-team-role">Treasurer</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--dept-internal);">
-                    <i class="bi bi-people-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">อุปนายกฝ่ายกิจการภายใน</h6>
-                  <p class="about-team-role">Internal Affairs</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--dept-external);">
-                    <i class="bi bi-globe2"></i>
-                  </div>
-                  <h6 class="about-team-name">อุปนายกฝ่ายกิจการภายนอก</h6>
-                  <p class="about-team-role">External Affairs</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--dept-academic);">
-                    <i class="bi bi-book-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">อุปนายกฝ่ายวิชาการ</h6>
-                  <p class="about-team-role">Academic</p>
-                </article>
-              </div>
-              <div class="col">
-                <article class="about-team-card">
-                  <div class="about-team-avatar" style="background: var(--dept-media);">
-                    <i class="bi bi-camera-reels-fill"></i>
-                  </div>
-                  <h6 class="about-team-name">อุปนายกฝ่ายเวชนิทัศน์</h6>
-                  <p class="about-team-role">Media</p>
-                </article>
-              </div>
+
             </div>
-
-            <p class="text-center text-muted small mt-3 mb-0">
-              <i class="bi bi-info-circle me-1"></i>
-              ข้อมูลตัวอย่าง — รายชื่อจริงและรูปภาพจะถูกอัปเดตภายหลัง
-            </p>
           </section>
 
           <!-- ====== VISION ====== -->

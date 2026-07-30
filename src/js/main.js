@@ -349,15 +349,14 @@ document.addEventListener('shown.bs.tab', (e) => {
   if (e.target?.id === 'pills-about-tab'
       || e.target?.id === 'pills-tools-tab'
       || e.target?.id === 'pills-departments-tab'
-      || e.target?.id === 'pills-team-public-tab'
       || e.target?.id === 'pills-projects-view-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   // The org chart is one rpc and ~400 people of DOM; load it the first time the
-  // tab is opened rather than on every page load.
-  if (e.target?.id === 'pills-team-public-tab') enterOrgChart();
+  // about tab is opened (org chart now lives inside เกี่ยวกับเรา).
+  if (e.target?.id === 'pills-about-tab') enterOrgChart();
 
   // URL sync — whenever a tab activates, mirror the path in the URL
   // so refresh / share / bookmark all work. Article tab keeps its
@@ -413,7 +412,7 @@ const PATH_ROUTES = [
   { path: '/shop',     tab: 'pills-shop-tab' },
   { path: '/tools',    tab: 'pills-tools-tab' },
   { path: '/departments', tab: 'pills-departments-tab' },
-  { path: '/team',     tab: 'pills-team-public-tab' },
+  { path: '/team',     tab: 'pills-about-tab' },
   { path: '/projects-view', tab: 'pills-projects-view-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
 ];
