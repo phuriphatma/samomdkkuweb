@@ -2372,3 +2372,75 @@ nothing is discarded, and the status line reports the last real outcome.
 it carries user input, serialise it. Reserve the drop for idempotent re-submits,
 and even then prefer disabling the control so the user can see why nothing
 happened.
+
+---
+
+## `rsync --delete` on deploy yanks the previous build's chunks out from under OPEN tabs — and a load-time-only self-heal cannot rescue them
+
+**Symptom** (reported live 2026-07-30): "I just test upload my picture and now the
+web is down"… then, minutes later, "oh the web comes back now". Reads like the
+upload broke production.
+**It was not the upload.** Evidence, in the order it ruled things out:
+- every endpoint 200, `/notify` healthy → server up;
+- `nginx` active **9 days**, zero error-log lines, **zero restarts** → nginx never
+  fell over;
+- CPU **100% idle**, load average 6.50 decaying on a **2-core** box → the load was
+  the deploy's `npm ci` + two vite builds, already finished;
+- `team_members.updated_at` for the photo = **10:41:30 UTC**, deploy finished
+  **10:29:59** → the upload SUCCEEDED, 11½ minutes after the deploy;
+- the pre-deploy bundle `/assets/public-Cp4_CgAT.js` → **404**, the new one → 200.
+**Cause**: `server/deploy.sh` published with `rsync -a --delete dist/ /var/www/…`,
+which deletes the previous build's content-hashed assets the instant the new ones
+land. A tab open ACROSS the deploy keeps running (its JS is already in memory) —
+which is why the upload worked — but the moment it needs anything new it 404s.
+This app has real lazy chunks: `await import('./esign.js')` in
+`projects/inbox.js`, `./qr.js` in `shop/admin.js`. A reload fixes it, hence "comes
+back now".
+`src/js/build-check.js` exists for exactly this and still could not help: it runs
+**once, at page load**, and the broken tab never loaded again.
+**Fix**, three parts:
+1. `deploy.sh` `publish()` — assets rsync **additively** (hashed names never
+   collide, so keeping the old ones is free), everything else mirrors with
+   `--delete --exclude=assets/`, then `find … -mtime +7 -delete` prunes. Note
+   `--exclude` also protects those files from `--delete` unless you pass
+   `--delete-excluded`.
+2. `build-check.js` re-checks on `visibilitychange`→visible and on a bfcache
+   `pageshow`, not just at load.
+3. …but that re-check must NOT reload over unsaved work. This admin backgrounds
+   constantly and is full of modals holding untyped-but-unsaved text. `pageIsIdle()`
+   (no `.modal.show`/`.offcanvas.show`, no non-empty visible input) gates the
+   foreground path; the page-load path passes `force: true` because nothing can be
+   typed yet. **A self-heal that destroys user input is a worse bug than the one it
+   fixes.**
+**Rule**: never `--delete` content-hashed assets in the same step that publishes
+their replacements — a deploy is not atomic from an open tab's point of view. And
+any "reload to heal" mechanism needs an answer to "what if the user is mid-edit?".
+
+---
+
+## A deploy script that `git pull`s ITSELF and keeps running will execute a garbage fragment — bash reads a script by byte offset
+
+**Symptom**: none yet — spotted while editing `server/deploy.sh`, one commit
+before it would have fired.
+**Cause**: bash does not slurp a script; it reads and executes incrementally,
+tracking a BYTE OFFSET into the file. `deploy.sh` runs `git pull --ff-only` on the
+repo it lives in. Any commit that changes the script's length shifts every byte
+after that point, and bash resumes at its old offset inside the NEW file —
+mid-token, mid-command, as root. It appears to work for years because the file
+rarely changes, then corrupts exactly on the deploy that changes it. The change
+that surfaced this added ~30 lines NEAR THE TOP, shifting everything.
+**Fix**: pull, then re-exec, guarded by an env var so it cannot recurse:
+```bash
+if [ "${SAMO_DEPLOY_REEXEC:-}" != "1" ]; then
+  cd "$WEB_DIR"; git pull --ff-only
+  SAMO_DEPLOY_REEXEC=1 exec bash "$WEB_DIR/server/deploy.sh" "$@"
+fi
+```
+Verified with stubbed `git`/`npm`/`sudo`: unset → pulls and re-execs exactly once;
+set → skips the block entirely.
+**The transition itself is the dangerous run**: the OLD script (no guard) is what
+starts, pulls the new one, and continues at stale offsets. For the first deploy
+after adding this, pull MANUALLY first so bash reads the new file from the top:
+`cd ~/samo-projects/samomdkkuweb && git pull --ff-only && bash server/deploy.sh`.
+**Rule**: any script that updates its own source must re-exec, and self-updating
+scripts should be changed with an out-of-band pull for the transition.
