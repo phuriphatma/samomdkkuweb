@@ -31,19 +31,19 @@ mean a 2565 row still resolving to a live grant. The archive carries only the
 columns the public projection publishes, so there is nothing on it for a resolver
 to read. Do not "simplify" this by merging them.
 
-**Blocking follow-up (photo uploads are degraded until it is done)**
-- `appscript/prform.gs` gained a `uploadTeamFile` action (allow-listed to
-  `SAMO_Team/…`). **The GAS project has NOT been redeployed** — confirmed live:
-  `npm run deploy:gas -- --verify` returns `Unknown action: uploadTeamFile`. Until
-  it is, the frontend falls back to `uploadPRFile` and photos land unsorted in
-  `PR_Submissions/` (the upload hint says so out loud rather than failing
-  silently).
-- GAS deploys are now automated: `npm run deploy:gas` (`tools/deploy-gas.mjs`).
-  Needs a one-time `npx clasp login`, the Apps Script API toggled on at
-  script.google.com/home/usersettings, and `GAS_SCRIPT_ID` in `.env.local`. It
-  diffs the remote before overwriting, and rolls the EXISTING deployment
-  (create-version + update-deployment) so the `/exec` URL never moves — never
-  `clasp deploy`, which would mint a new URL and silently break every upload.
+**Apps Script — DONE 2026-07-30.** `uploadTeamFile` is live (script
+`179DfoS1…`, deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged). Verified
+by probing all 9 actions: `uploadTeamFile`/`uploadShopFile`/`uploadProjectFile` →
+"folderPath is required", `delete*File` → "fileUrl required", `notifyProjectEmail`
+→ missing "to", removed actions → "Unknown action". No regressions. Rollback =
+`npx clasp update-deployment AKfycbw1iHE4… -V 46` from `.gas-build/`.
+- GAS deploys are automated: `npm run deploy:gas` (`tools/deploy-gas.mjs`).
+  Requires `npx clasp login` + the Apps Script API toggle + `GAS_SCRIPT_ID` in
+  `.env.local` (already set). Diffs the remote before overwriting, rolls the
+  EXISTING deployment (create-version + update-deployment) so the `/exec` URL
+  never moves — never `clasp deploy`, which mints a new URL and would silently
+  break every upload. The deployment id is derived from `GAS_API_URL`, which
+  matters because this script has THREE deployments.
 
 **Proof**: `node tools/team0104-terms.mjs` → 27/27 (snapshot fidelity incl. 0 orphan
 parents / depth preserved, non-public subtrees excluded, projection allow-list,

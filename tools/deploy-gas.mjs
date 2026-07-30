@@ -112,11 +112,26 @@ function writeClaspJson(dir, scriptId) {
 // writing nothing.
 //   new code -> {"success":false,"message":"folderPath is required"}
 //   old code -> {"success":false,"message":"Unknown action: uploadTeamFile"}
-async function probeLive() {
+/**
+ * The `/exec` URL the app actually calls, straight out of src/js/config.js.
+ *
+ * Its path segment IS the deployment id — which makes config.js the single
+ * source of truth for BOTH "which endpoint do we verify" and "which deployment
+ * do we roll". This project has three deployments (one @HEAD, the live one, and
+ * an old stable @25 kept for rollback), so "pick the only non-HEAD one" is not
+ * good enough; rolling the wrong one would look like the deploy silently did
+ * nothing, because /exec would still serve the old version.
+ */
+function liveEndpoint() {
   const cfg = readFileSync(join(ROOT, 'src', 'js', 'config.js'), 'utf8');
-  const m = cfg.match(/https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/);
-  if (!m) return { ok: false, reason: 'could not find GAS_API_URL in src/js/config.js' };
-  const url = m[0];
+  const m = cfg.match(/https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]+)\/exec/);
+  return m ? { url: m[0], deploymentId: m[1] } : null;
+}
+
+async function probeLive() {
+  const ep = liveEndpoint();
+  if (!ep) return { ok: false, reason: 'could not find GAS_API_URL in src/js/config.js' };
+  const { url } = ep;
   try {
     const r = await fetch(url, {
       method: 'POST',
@@ -197,17 +212,28 @@ async function main() {
     // Only the remote-only lines matter: local-only lines are what we are about
     // to push, and reporting both drowns the signal.
     const localLines = new Set(norm(localSrc).split('\n'));
+    const remoteLines = new Set(norm(remoteSrc).split('\n'));
     const onlyRemote = norm(remoteSrc).split('\n')
       .filter((l) => l.trim() && !localLines.has(l));
-    console.log(`\n⚠ remote differs from the repo — ${onlyRemote.length} line(s) exist only on the remote:`);
-    onlyRemote.slice(0, 25).forEach((l) => console.log(`    ${l.slice(0, 120)}`));
-    if (onlyRemote.length > 25) console.log(`    … and ${onlyRemote.length - 25} more`);
-    console.log(`\n  A copy of the remote is in .gas-remote/ — diff it properly with:`);
-    console.log(`    diff .gas-remote/${mainName} appscript/prform.gs\n`);
-    if (onlyRemote.length && !FORCE && !DRY) {
-      die('refusing to overwrite remote-only changes',
-        'If those lines are stale, re-run with --force.\n'
-        + 'If they are real, copy them into appscript/prform.gs first.');
+    const onlyLocal = norm(localSrc).split('\n')
+      .filter((l) => l.trim() && !remoteLines.has(l));
+
+    if (!onlyRemote.length) {
+      // The repo is a strict superset — this is the ordinary "we added things"
+      // case and must not be dressed up as a warning, or the real one stops
+      // being noticed.
+      console.log(`→ repo is AHEAD of the remote by ${onlyLocal.length} line(s); nothing on the remote would be lost`);
+    } else {
+      console.log(`\n⚠ the remote has ${onlyRemote.length} line(s) the repo does NOT — someone edited it in the browser:`);
+      onlyRemote.slice(0, 25).forEach((l) => console.log(`    ${l.slice(0, 120)}`));
+      if (onlyRemote.length > 25) console.log(`    … and ${onlyRemote.length - 25} more`);
+      console.log(`\n  A copy of the remote is in .gas-remote/ — diff it properly with:`);
+      console.log(`    diff .gas-remote/${mainName} appscript/prform.gs\n`);
+      if (!FORCE && !DRY) {
+        die('refusing to overwrite remote-only changes',
+          'If those lines are stale, re-run with --force.\n'
+          + 'If they are real, copy them into appscript/prform.gs first.');
+      }
     }
   }
 
@@ -246,20 +272,24 @@ async function main() {
   console.log(`→ version ${version}`);
 
   // ---- 5. roll the EXISTING deployment ------------------------------------
-  let deploymentId = ENV.GAS_DEPLOYMENT_ID;
+  // Derived from GAS_API_URL, not guessed from the deployment list: the id in
+  // that URL is BY DEFINITION the deployment the app talks to. An env override
+  // stays available for the odd case of deploying an endpoint config.js does not
+  // reference.
+  const deploymentId = ENV.GAS_DEPLOYMENT_ID || liveEndpoint()?.deploymentId;
   if (!deploymentId) {
-    const list = clasp(['list-deployments'], STAGE, { quiet: true });
-    // "- <id> @HEAD" is the always-live dev deployment, not the published web
-    // app; rolling it would do nothing for the /exec URL users hit.
-    const ids = [...list.matchAll(/^-?\s*([A-Za-z0-9_-]{20,})\s+@(\d+|HEAD)/gm)]
-      .filter((m) => m[2] !== 'HEAD').map((m) => m[1]);
-    const unique = [...new Set(ids)];
-    if (unique.length !== 1) {
-      die(`could not pick the web-app deployment automatically (found ${unique.length})`,
-        `clasp list-deployments said:\n${list}\n`
-        + 'Set the right one explicitly in .env.local:\n\n  GAS_DEPLOYMENT_ID=AKfycb...\n');
-    }
-    [deploymentId] = unique;
+    die('could not determine which deployment to update',
+      'src/js/config.js has no recognisable GAS_API_URL. Set it explicitly:\n\n'
+      + '  GAS_DEPLOYMENT_ID=AKfycb...    (in .env.local)\n');
+  }
+  // Sanity-check it actually exists on this script, so a config.js/script-id
+  // mismatch fails here with a clear message rather than inside clasp.
+  const list = clasp(['list-deployments'], STAGE, { quiet: true });
+  if (!list.includes(deploymentId)) {
+    die(`deployment ${deploymentId} does not belong to script ${scriptId}`,
+      `GAS_API_URL in src/js/config.js points at a deployment this script does not\n`
+      + `have. Either GAS_SCRIPT_ID is the wrong project, or config.js is stale.\n\n`
+      + `clasp list-deployments said:\n${list}`);
   }
   console.log(`\n→ updating deployment ${deploymentId} → version ${version}`);
   clasp(['update-deployment', deploymentId, '-V', version, '-d', desc], STAGE);

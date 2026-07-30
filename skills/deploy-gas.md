@@ -51,8 +51,13 @@ Flags:
    ```
    GAS_SCRIPT_ID=<Apps Script project → ⚙ Project Settings → IDs → Script ID>
    ```
-   Optional but removes all ambiguity if the project ever has more than one
-   deployment:
+   You do **not** need to set a deployment id: the script derives it from
+   `GAS_API_URL` in `src/js/config.js`, whose path segment IS the deployment id.
+   That matters here — this project has **three** deployments (one `@HEAD`, the
+   live web app, and an old `@25` kept for rollback), so "pick the only non-HEAD
+   one" would be ambiguous and rolling the wrong one looks exactly like the
+   deploy having done nothing. Override only to deploy an endpoint config.js does
+   not reference:
    ```
    GAS_DEPLOYMENT_ID=<Deploy → Manage deployments → the id in the URL>
    ```
@@ -76,7 +81,24 @@ Flags:
   re-authorize; and the remote code file **keeps its existing name**, so pushing
   `prform.gs` into a project whose file is `Code.gs` doesn't delete and recreate
   it on every deploy.
+- **It rolls the deployment named in `config.js`.** Same source of truth as the
+  verification probe, so "what we deployed" and "what we tested" cannot diverge.
+  It also checks that deployment actually belongs to `GAS_SCRIPT_ID`, so a stale
+  config.js or wrong script id fails with a clear message instead of inside clasp.
 - **It verifies over HTTP, not by trusting clasp.** See below.
+
+### Rolling back
+
+Versions are immutable, so a rollback is just pointing the deployment at an older
+one:
+
+```bash
+cd .gas-build && npx clasp list-versions
+npx clasp update-deployment <deploymentId> -V <oldVersion>
+```
+
+Then confirm with `npm run deploy:gas -- --verify` (which will now report OLD code
+— that is the expected result of a deliberate rollback).
 
 ## Verifying the deploy worked
 
