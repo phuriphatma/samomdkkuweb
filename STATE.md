@@ -33,10 +33,17 @@ to read. Do not "simplify" this by merging them.
 
 **Blocking follow-up (photo uploads are degraded until it is done)**
 - `appscript/prform.gs` gained a `uploadTeamFile` action (allow-listed to
-  `SAMO_Team/…`). **The GAS project has NOT been redeployed**, so the live `/exec`
-  returns "Unknown action" and the frontend falls back to `uploadPRFile` — the
-  photo still uploads but lands unsorted in `PR_Submissions/`. The upload hint says
-  so out loud rather than failing silently. Redeploy per `skills/deploy-gas.md`.
+  `SAMO_Team/…`). **The GAS project has NOT been redeployed** — confirmed live:
+  `npm run deploy:gas -- --verify` returns `Unknown action: uploadTeamFile`. Until
+  it is, the frontend falls back to `uploadPRFile` and photos land unsorted in
+  `PR_Submissions/` (the upload hint says so out loud rather than failing
+  silently).
+- GAS deploys are now automated: `npm run deploy:gas` (`tools/deploy-gas.mjs`).
+  Needs a one-time `npx clasp login`, the Apps Script API toggled on at
+  script.google.com/home/usersettings, and `GAS_SCRIPT_ID` in `.env.local`. It
+  diffs the remote before overwriting, and rolls the EXISTING deployment
+  (create-version + update-deployment) so the `/exec` URL never moves — never
+  `clasp deploy`, which would mint a new URL and silently break every upload.
 
 **Proof**: `node tools/team0104-terms.mjs` → 27/27 (snapshot fidelity incl. 0 orphan
 parents / depth preserved, non-public subtrees excluded, projection allow-list,

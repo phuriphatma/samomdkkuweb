@@ -21,8 +21,7 @@
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
 import {
-  portraitSrc, portraitSrcSet, focusToObjectPosition,
-  PORTRAIT_RATIO, AVATAR_RATIO,
+  portraitSrc, portraitSrcSet, focusToObjectPosition, PORTRAIT_RATIO,
 } from './uploads.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
@@ -343,21 +342,35 @@ async function fetchChart(year) {
   return safe;
 }
 
+function showError() {
+  const body = $('orgBody');
+  if (body) {
+    body.innerHTML = '<p class="org-status is-error">โหลดโครงสร้างองค์กรไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง</p>';
+  }
+}
+
+// Tapping two years quickly starts two fetches. Without a token the SLOWER one
+// wins whenever it resolves last, so the highlighted year and the rendered chart
+// disagree — and it is not reproducible on a fast connection, which is the worst
+// kind of bug to be handed. Only the newest request is allowed to paint.
+let showToken = 0;
+
 async function showYear(year) {
   const body = $('orgBody');
+  const mine = ++showToken;
   if (!charts.has(year) && body) {
     body.innerHTML = '<p class="org-status">กำลังโหลด…</p>';
   }
   try {
-    chart = await fetchChart(year);
+    const next = await fetchChart(year);
+    if (mine !== showToken) return;   // a newer click already took over
+    chart = next;
     activeYear = year ?? chart.year ?? null;
     index();
     render();
   } catch (err) {
     console.warn('org chart load failed:', err);
-    if (body) {
-      body.innerHTML = '<p class="org-status is-error">โหลดโครงสร้างองค์กรไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง</p>';
-    }
+    if (mine === showToken) showError();
   }
 }
 
@@ -368,12 +381,28 @@ export async function enterOrgChart() {
   try {
     // Anonymous is fine — dbRest falls back to the anon key when there is no
     // session, and both rpcs are granted to anon.
-    const { data } = await dbRest('/rpc/get_public_team_years', { method: 'POST', body: {} });
-    years = Array.isArray(data) ? data : [];
-    // Default to the live year; fall back to the newest published one if the
-    // admin has not marked a current term.
-    const current = years.find((y) => y.is_current) || years[years.length - 1];
+    //
+    // The year list is OPTIONAL: if it fails we still want the chart, because
+    // get_public_team_chart(null) resolves the current term server-side. Failing
+    // the whole page over a missing picker would be a worse outcome than a page
+    // with no picker.
+    let current = null;
+    try {
+      const { data } = await dbRest('/rpc/get_public_team_years', { method: 'POST', body: {} });
+      years = Array.isArray(data) ? data : [];
+      current = years.find((y) => y.is_current) || years[years.length - 1] || null;
+    } catch (err) {
+      console.warn('org chart: year list failed, falling back to current term:', err);
+      years = [];
+    }
     await showYear(current ? current.year : null);
+  } catch (err) {
+    // showYear handles its own failures; this catches anything above it. Without
+    // it the page sits on "กำลังโหลด…" forever and the only trace is an
+    // unhandled rejection — the pre-0104 code had this catch and it was lost in
+    // the rewrite.
+    console.warn('org chart init failed:', err);
+    showError();
   } finally {
     loading = false;
   }

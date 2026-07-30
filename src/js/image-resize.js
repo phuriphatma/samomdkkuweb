@@ -10,14 +10,14 @@
 // 2x the largest derivative the page ever requests (a =w1200 lightbox), so the
 // stored master is never the thing limiting sharpness on a retina screen. It is
 // NOT what the browser downloads: lh3 resizes on its side, and a portrait card
-// fetches =w520-h694-c-rw at ~38 KB regardless of how big the master is. The
+// fetches =w520-h693-c-rw at ~38 KB regardless of how big the master is. The
 // master size only costs Drive space (~600 KB each; 401 members ≈ 240 MB/year
 // against a 2 TB quota) and upload time.
 //
 // RESAMPLING: a single drawImage() from 4800px to 2400px aliases badly in some
-// browsers — it point-samples rather than averaging. createImageBitmap's
-// resizeQuality:'high' uses a proper filter where supported; the fallback halves
-// the image repeatedly, which averages 2x2 blocks each pass and lands very close.
+// browsers — it point-samples rather than averaging, which turns hair and fabric
+// into noise. drawStepped() halves the image repeatedly instead, averaging 2x2
+// blocks each pass, then does the last partial step exactly.
 // ==============================================
 
 const DEFAULTS = {
@@ -28,20 +28,19 @@ const DEFAULTS = {
   mime: 'image/webp',
 };
 
-/** Decode a File into something drawable, preferring the path that can resample. */
-async function decode(file, targetW, targetH) {
+/**
+ * Decode a File into something drawable.
+ *
+ * NOTE createImageBitmap's `resizeWidth`/`resizeQuality` options are NOT used:
+ * choosing a target needs the source dimensions, which are only known after
+ * decoding, so a resize-on-decode would need a second decode to be worth it.
+ * drawStepped below does the resampling instead — passing `resizeWidth:
+ * undefined` (an earlier version of this file) is a no-op that reads like a
+ * working fast path.
+ */
+async function decode(file) {
   if (typeof createImageBitmap === 'function') {
-    try {
-      // Safari only learned the resize options recently; when it ignores them we
-      // still get a full-size bitmap and fall through to stepped drawing below.
-      return await createImageBitmap(file, {
-        resizeWidth: targetW,
-        resizeHeight: targetH,
-        resizeQuality: 'high',
-      });
-    } catch {
-      try { return await createImageBitmap(file); } catch { /* fall through */ }
-    }
+    try { return await createImageBitmap(file); } catch { /* fall through */ }
   }
   const url = URL.createObjectURL(file);
   try {
@@ -116,7 +115,7 @@ export async function downscaleImage(file, opts = {}) {
 
   let bmp;
   try {
-    bmp = await decode(file, undefined, undefined);
+    bmp = await decode(file);
   } catch {
     return file; // unreadable by canvas — let the upload try the original
   }
@@ -124,7 +123,7 @@ export async function downscaleImage(file, opts = {}) {
   const srcW = bmp.width || bmp.naturalWidth;
   const srcH = bmp.height || bmp.naturalHeight;
   const box = fitWithin(srcW, srcH, maxEdge);
-  if (!box.w) return file;
+  if (!box.w) { bmp.close?.(); return file; }
 
   // Already small AND already an efficient format: nothing to gain.
   if (!box.scaled && (file.type === mime || file.size < 300 * 1024)) {

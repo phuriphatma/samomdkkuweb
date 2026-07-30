@@ -13,6 +13,8 @@
 | Staff passwords (`samo69pr` etc.) | ⚠️ git ok, do NOT post anywhere public | only in this repo; rotate if leaked |
 | Supabase PAT (`SUPABASE_ACCESS_TOKEN=sbp_…`) | ❌ NEVER | `.env.local` only — account-wide Management-API token; used by `tools/apply-migration.mjs` to run DDL. Revoke at dashboard/account/tokens when done |
 | Supabase DB URL (`SUPABASE_DB_URL=postgresql://…`) | ❌ NEVER | `.env.local` only (optional) — direct Postgres conn string incl. password; psql path for `apply-migration.mjs` |
+| clasp OAuth creds (`~/.clasprc.json`) | ❌ NEVER | outside the repo, in `$HOME`. Written by `npx clasp login`; a full Google OAuth credential for the account (Drive + Apps Script). `.gitignore` carries `.clasprc.json` in case one is ever written into the repo root. Revoke at myaccount.google.com/permissions |
+| GAS script / deployment ids (`GAS_SCRIPT_ID`, `GAS_DEPLOYMENT_ID`) | ❌ keep in `.env.local` | not secrets in the crypto sense — the `/exec` URL is already public and treated as a webhook — but they identify the project to write to, so they stay out of git to keep `tools/deploy-gas.mjs` from being pointed at the wrong one |
 | KKU VM sudo password (`SAMO_VM_SUDO_PASSWORD=…`) | ❌ NEVER | `.env.local` only — piped over ssh to `sudo -S` during prod deploys (rsync to `/var/www`, nginx reload). Never write to a git-tracked file, the VM disk, or chat. Rotate if leaked. |
 
 ## Hard rules for the agent

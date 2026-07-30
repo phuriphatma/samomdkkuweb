@@ -110,20 +110,29 @@ function archiveHtml() {
     byParent.get(k).push(n);
   }
   const out = [];
+  // Track what actually got rendered by ID. An earlier version inferred this by
+  // regex-ing the generated HTML for data-am-id, which is both fragile and a
+  // second source of truth for something the loop already knows.
+  const rendered = new Set();
   const walk = (key, trail) => {
     for (const n of byParent.get(key) || []) {
       const path = trail ? `${trail} › ${n.name}` : n.name;
       const people = byNode.get(n.id) || [];
-      if (people.length) out.push(nodeGroup(n, path, people));
+      if (people.length) {
+        out.push(nodeGroup(n, path, people));
+        people.forEach((m) => rendered.add(m.id));
+      }
       walk(n.id, path);
     }
   };
   walk('', '');
-  // Orphans cannot happen (publish maps parents faithfully; verified), but a
-  // hand-edited archive could produce one — show them rather than lose them.
-  const shown = new Set(out.join('').match(/data-am-id="([^"]+)"/g) || []);
-  const missed = members.filter((m) => !byId.has(m.node_id)
-    && !shown.has(`data-am-id="${m.id}"`));
+
+  // Orphans should be impossible — publish_team_term maps every parent
+  // faithfully (asserted at 0 in tools/team0104-terms.mjs) — but a hand-edited
+  // archive or a deleted node could strand a row. Showing them is the only way
+  // they can be fixed or removed; dropping them would make a name invisible in
+  // the editor while it is still absent from the public page.
+  const missed = members.filter((m) => !rendered.has(m.id));
   if (missed.length) {
     out.push(nodeGroup({ id: '', is_board: false }, 'ไม่ทราบตำแหน่ง', missed));
   }

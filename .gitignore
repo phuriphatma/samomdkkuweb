@@ -26,3 +26,9 @@ externaldata/
 # Supabase CLI working dir
 supabase/.temp/
 supabase/.branches/
+
+# Apps Script deploy scratch (tools/deploy-gas.mjs)
+.gas-build/
+.gas-remote/
+appscript/.clasp.json
+.clasprc.json

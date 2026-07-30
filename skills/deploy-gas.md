@@ -21,7 +21,83 @@ Only `prform.gs` remains. Deploy to the PROD "prform" GAS project (the legacy
 Prod `/exec` URL (set as `GAS_API_URL` in `src/js/config.js`):
 - `https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec` (prform)
 
-## Procedure
+## Procedure — automated (preferred)
+
+```bash
+npm run deploy:gas
+```
+
+`tools/deploy-gas.mjs` does: pull the remote → **diff it against the repo** →
+push → `create-version` → `update-deployment` on the EXISTING deployment →
+probe the live `/exec` to prove the new code is serving.
+
+Flags:
+
+| flag | what it does |
+|---|---|
+| `--dry-run` | diff + report only; writes nothing |
+| `--force` | proceed even though the remote has changes the repo does not |
+| `--verify` | only probe the live endpoint (no auth or script id needed) |
+
+### One-time setup (credentials — yours, not the agent's)
+
+1. `npx clasp login` — opens a browser, writes `~/.clasprc.json`. **Never commit
+   that file.** It is a Google OAuth credential for your whole account.
+2. Turn on the Apps Script API for the *same* Google account:
+   <https://script.google.com/home/usersettings> → "Apps Script API: ON".
+   Without it every clasp call fails with *"User has not enabled the Apps Script
+   API"*.
+3. Add the script id to `.env.local` (gitignored):
+   ```
+   GAS_SCRIPT_ID=<Apps Script project → ⚙ Project Settings → IDs → Script ID>
+   ```
+   Optional but removes all ambiguity if the project ever has more than one
+   deployment:
+   ```
+   GAS_DEPLOYMENT_ID=<Deploy → Manage deployments → the id in the URL>
+   ```
+
+### Why it works the way it does
+
+- **It never runs `clasp deploy`.** That command (`create-deployment`) mints a
+  NEW deployment with a NEW `/exec` URL. `GAS_API_URL` in `src/js/config.js` is
+  hard-coded to the existing one, so a new deployment presents as "every upload
+  silently fails". The script always does `create-version` +
+  `update-deployment <same id>`, which is exactly the manual "Version: New
+  version" step, so the URL never moves.
+- **It diffs the remote first.** Anyone can edit the script in the browser.
+  Pushing is a silent overwrite with no undo, so remote-only lines stop the
+  deploy and print themselves; a full copy lands in `.gas-remote/` for
+  `diff .gas-remote/<file> appscript/prform.gs`. `--force` proceeds.
+- **It pushes from a staging dir (`.gas-build/`), not `appscript/`.** Two
+  reasons: the manifest (`appsscript.json` — oauth scopes, web-app access,
+  timezone) is round-tripped from the remote instead of being authored blind, so
+  a deploy can't quietly change *who has access* or force every user to
+  re-authorize; and the remote code file **keeps its existing name**, so pushing
+  `prform.gs` into a project whose file is `Code.gs` doesn't delete and recreate
+  it on every deploy.
+- **It verifies over HTTP, not by trusting clasp.** See below.
+
+## Verifying the deploy worked
+
+`npm run deploy:gas` does this automatically (retrying for ~15s, because GAS
+takes a moment to swap the served version). To check by hand at any time:
+
+```bash
+npm run deploy:gas -- --verify
+```
+
+The canary is `uploadTeamFile` **with no `folderPath`** — the handler validates
+its argument before touching Drive, so it proves the action exists while writing
+nothing:
+
+- `{"success":false,"message":"folderPath is required"}` → **NEW code is live**
+- `{"success":false,"message":"Unknown action: uploadTeamFile"}` → **OLD code**;
+  the version step didn't take
+
+## Procedure — manual fallback
+
+If clasp is unavailable (no auth, API toggle off, someone else's machine):
 
 1. Open the "prform" Apps Script project at <https://script.google.com>
 2. Open the main code file (usually `Code.gs` or similar)
@@ -32,11 +108,16 @@ Prod `/exec` URL (set as `GAS_API_URL` in `src/js/config.js`):
 7. **Deploy → Manage deployments → click pencil icon next to existing
    "API executable" / "Web app" deployment → Version: New version →
    Description (optional) → Deploy**
-8. The "Deployment URL" remains the same.
+8. The "Deployment URL" remains the same. Verify with `--verify` above — step 7
+   is the one people skip, and skipping it leaves the editor showing new code
+   while `/exec` runs the old.
 
 ## What `prform.gs` exposes
 
 - `uploadPRFile`    action — base64-uploads an image to Drive `PR_Submissions/`
+- `uploadTeamFile`  action — base64-uploads to `SAMO_Team/<nested path>`
+  (allow-listed; lazily creates folders). ทีม SAMO member portraits, filed
+  `SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp`. Doubles as the deploy canary.
 - `uploadShopFile`  action — base64-uploads to `SAMO_Shop/<nested path>`
   (allow-listed; lazily creates folders). Used by the SAMO Shop module
   for slips, product photos, and the PromptPay QR.

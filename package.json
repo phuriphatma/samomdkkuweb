@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy:gas": "node tools/deploy-gas.mjs"
   },
   "devDependencies": {
+    "@google/clasp": "^3.3.0",
     "vite": "^6.3.5",
     "vitest": "^4.1.7"
   },
