@@ -210,41 +210,89 @@ these first — they are the likeliest place a regression hides:
 - **Passport** — the Google sign-in round-trip and the dept-scoped admin view.
   This is the one I could not test at all (no way to drive OAuth from here).
 
-### 2. Passport `admin`/`1234` is STILL ENABLED — the scope is opt-in until it goes
-While it works, ANY person with the password gets ทุกฝ่าย and the department
-scope enforces nothing. To retire: set `LEGACY_PASSWORD_LOGIN = false` in
-passport `js/admin-scope.js`, redeploy, confirm every admin can sign in with
-Google, then delete the marked block, `handleLegacyLogin` in `admin-page.js`, and
-`#admin-legacy-box` in `html/admin.html`.
-**Passport admins today**: `putita.s@kkumail.com` (ทุกฝ่าย) and
-`phuriphat.ma@kkumail.com` (ฝ่ายบริหารองค์กร only). Anyone else is locked out the
-moment the flag flips — check with them first.
+### 2. Passport `admin`/`1234` — a deliberate TEMPORARY second door, not a bug
+**The intended model, confirmed by the user 2026-07-30**: whoever holds the
+`passport` permission (or a dept scope) in ทีม SAMO is a passport admin. That is
+exactly what `public.passport_admin_context()` implements — `is_admin` = blanket
+`passport` perm or `role='dev'` (→ `all_departments: true`) OR any
+`managed_passport_scopes` entry; null `auth.uid()` fails closed. Nothing to
+change here.
 
-### 3. Passport RLS enforces NOTHING (the big one)
-0087 gave passport an identity + scope; the `passport` schema still has 0056's
-`using(true)` for anon. Proven live (rolled back): anon inserts an activity,
-updates ALL 845 scans, reads all 593 profiles (name+email). So today's passport
-admin scoping is a UI boundary a determined user steps around with DevTools.
-Plan: `passport/SECURITY-HARDENING-PLAN.md` (separate repo, NOT applied). Its
-policies must READ `public.passport_admin_context()` — do not let it invent a
-second admin table. Still blocked on 4 answers: admin allowlist / bulk-scan path
-/ `profiles.email` PII / cutover window.
+`admin`/`1234` is a knowingly-temporary alternate entrance to be removed later.
+To retire it: `LEGACY_PASSWORD_LOGIN = false` in passport `js/admin-scope.js`,
+redeploy, confirm every admin can sign in with Google, then delete the marked
+block, `handleLegacyLogin` in `admin-page.js`, and `#admin-legacy-box` in
+`html/admin.html`.
+**Who keeps access when that flag flips** (live, 2026-07-30 — the previous note
+here said 2 people and was STALE):
+- ทุกฝ่าย: `kita.a@kkumail.com`, `putita.s@kkumail.com`, `worapat.c@kkumail.com`
+- dept-scoped `d:1`: `jinjutha.t@kkumail.com`, `phuriphat.ma@kkumail.com`
 
-### 4. Shared → personal account migration (partially done)
-`tools/proj-handover.mjs` (dry-run by default) moves the uid-bound state a
-permission grant does not.
-- **DONE**: `sastaff → phuriphat.ma` read state (22 doc-view rows; verified 9/9
-  unseen docs matching, 0 mismatches).
-- **NOT done**: `samomdkkuvpa` (26 doc-view rows) and `saprof` (11).
-- **CORRECTION to earlier guidance**: `--sign-requests` is NO LONGER needed for
-  an อาจารย์ to SEE the queue — 0095 made the prof seat see every signature
-  request regardless of `prof_id`. Only run it if you are retiring `saprof` and
-  want the historical requests attributed to a real person. Read state
-  (`project_doc_views`) is still worth handing over either way, or the new
-  account's "อัปเดต" badges will not match the shared account's.
-- Residual: `getDocSeenAt()` falls back to a localStorage map when the server has
-  no row, so if the target account already browsed on that device a badge can
-  still look wrong — clear site data there.
+Re-run the check before flipping — the tree changes:
+`select email, managed_passport_scopes, managed_permissions from users where
+'passport' = any(managed_permissions) or managed_passport_scopes <> '{}';`
+
+### 3. Passport RLS enforces NOTHING — this is NOT about who is an admin
+Distinct from #2, and easy to conflate with it. The grant channel is correct; the
+DATABASE enforces nothing on anyone. The `passport` schema still carries 0056's
+`using (true)` for `anon`, so with the anon key that ships in the bundle, ANY
+visitor — signed in or not, admin or not — can do what was proven live (rolled
+back): insert an activity, update ALL 845 scans, award themselves arbitrary
+points, read all 593 profiles incl. name + email. So the ทีม SAMO dept scope is
+today a **UI** boundary that anyone who opens DevTools steps around. Retiring
+`admin`/`1234` does not help — the hole is below the login.
+
+Plan: `passport/SECURITY-HARDENING-PLAN.md` — NOT applied, and **local to this
+Mac only**: it is excluded via the passport repo's `.git/info/exclude`, so it is
+NOT in a fresh clone and not on the VM. Deliberate (it describes a live, unfixed
+hole in a repo that has been pushed to GitHub) — keep it that way; if it must be
+shared, hand it over out-of-band rather than committing it.
+It predates 0087 and proposed a `passport.admins(user_id)` table — **do not build
+that**; `passport.is_admin()` must read `public.passport_admin_context()` so the
+tree stays the single source of truth. §2, §3.1 and §7 were rewritten
+2026-07-30 to say so, and §3.1 now carries the wrapper + a
+`passport.admin_covers_dept(int)` helper for the per-ฝ่าย policies.
+
+Of the plan's 4 open questions, **2 are answered**:
+- *Admin list* → the ทีม SAMO grant (above). No second table, no seed list.
+- *Bulk scan-insert path* → **none exists.** The only INSERT into `scans` is the
+  interactive `js/scanning.js:131`; everything else reads. So `scans_insert` can
+  be fully closed behind the `stamp_scan()` definer RPC.
+
+**Still needs a decision (2)**: whether the admin leaderboard keeps showing
+student **email** — it is the ONLY reader of `profiles.email`
+(`admin-page.js ensureLbScans`, rendered at :1730 and CSV-exported at :1741).
+Keeping it means the leaderboard must move to a definer RPC that scope-filters
+server-side (a plain policy cannot express "profiles referenced by in-scope
+scans", since `profiles` has no department); dropping it allows a simple
+self-or-admin policy. Plus: any live event window to avoid for cutover.
+
+### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
+**The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the
+shared account's role. `เจ้าหน้าที่คณะ` ≡ `sastaff`, `อาจารย์` ≡ `saprof`,
+`ผู้ส่งหนังสือ` ≡ `samomdkkuvpa`. **That is what ships** — `projectSeatRole()`
+maps the seat to the role string the module branches on, `current_user_project_seats()`
+carries it into RLS, and 0095 made the อาจารย์ seat see the same signature queue
+as `saprof` rather than a per-uid subset. A seat holder needs NO migration to do
+the job. Earlier notes framed this as a pending "migration", which overstated it.
+
+The ONE thing a grant cannot carry is per-user state, and neither piece affects
+access:
+- `project_doc_views` — which documents *you personally* have opened, i.e. the
+  "อัปเดต" badge. Live: `samomdkkuvpa` 28/28 docs, `sastaff` 25, `saprof` 11,
+  `phuriphat.ma` 22 (from the one handover already run).
+- `project_notifications` — historical bell rows addressed to the shared
+  account's uid. NEW notifications already reach seat holders (0091
+  `list_project_seat_users`).
+
+So `tools/proj-handover.mjs` is **optional badge parity**, worth running only
+when RETIRING a shared account and you want day-one badges to match it. Skip it
+and the first-run BASELINE marks everything seen — the sane default for someone
+joining today. `--sign-requests` is NOT needed for an อาจารย์ to see the queue
+(0095); run it only to re-attribute history away from `saprof`.
+Residual if you do run it: `getDocSeenAt()` falls back to a localStorage map when
+the server has no row, so a badge can look wrong on a device the target already
+browsed on — clear site data there.
 
 ### 5. Inert columns from the reverted shop scope
 `team_nodes.shop_source`, `team_members.shop_source`,
