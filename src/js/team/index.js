@@ -362,9 +362,14 @@ function render() {
   });
   const hint = $('teamModeHint');
   if (hint) {
+    // On touch, say that reordering needs a deliberate hold. Without this the
+    // new long-press requirement just reads as "dragging is broken now".
+    const touchHint = coarsePointer() && !searchQ && !selectionMode
+      ? 'จัดลำดับ: กดค้างที่ปุ่มลาก แล้วลาก — ปัดเพื่อเลื่อนหน้าได้ตามปกติ'
+      : '';
     hint.textContent = mode === 'perms'
       ? 'แตะที่ตำแหน่งเพื่อกำหนดสิทธิ์ของทั้งตำแหน่ง หรือแตะที่ชื่อบุคคลเพื่อกำหนดสิทธิ์รายบุคคล — สีทึบคือสิทธิ์ที่กำหนดเอง สีเส้นประคือสิทธิ์ที่รับมาจากตำแหน่ง'
-      : '';
+      : touchHint;
   }
 
   const roots = childrenOf(null);
@@ -383,9 +388,11 @@ function render() {
   tree.innerHTML = '';
   tree.appendChild(ul);
 
-  // Drag is for fine reordering; disabled while filtering or selecting. The
-  // "ย้าย" picker / bulk-move bar handle cross-level + multi moves.
-  if (!searchQ && !selectionMode) attachSortables(tree);
+  // Drag is for fine reordering, so it belongs to จัดการทีม only — dragging in
+  // จัดการสิทธิ์ could only ever reorder the tree by accident while the user is
+  // there to edit permissions. Also off while filtering or selecting. The "ย้าย"
+  // picker / bulk-move bar handle cross-level + multi moves.
+  if (mode === 'team' && !searchQ && !selectionMode) attachSortables(tree);
 
   tree.classList.toggle('is-selectmode', selectionMode);
   $('teamSelectMode')?.classList.toggle('is-active', selectionMode);
@@ -581,6 +588,12 @@ function highlight(text, q) {
   return escHtml(t.slice(0, i)) + '<mark>' + escHtml(t.slice(i, i + q.length)) + '</mark>' + escHtml(t.slice(i + q.length));
 }
 
+/** Touch-primary device? Used only to phrase hints; never to gate behaviour. */
+function coarsePointer() {
+  try { return window.matchMedia?.('(pointer: coarse)')?.matches === true; }
+  catch { return false; }
+}
+
 function computeFilter(qRaw) {
   const q = qRaw.trim().toLowerCase();
   const memberIds = new Set();
@@ -590,12 +603,16 @@ function computeFilter(qRaw) {
     while (cur) { visible.add(cur.id); cur = cur.parent_id ? nodesById.get(cur.parent_id) : null; }
   };
   for (const n of nodesById.values()) if (n.name.toLowerCase().includes(q)) markUp(n.id);
-  if (mode === 'team') {
-    for (const arr of membersByNode.values()) {
-      for (const m of arr) {
-        const hay = `${m.prefix || ''} ${m.full_name} ${m.nickname || ''} ${m.student_id || ''} ${m.major || ''} ${m.kkumail || ''}`.toLowerCase();
-        if (hay.includes(q)) { memberIds.add(m.id); markUp(m.node_id); }
-      }
+  // Search PEOPLE in both modes. This used to be gated on `mode === 'team'`,
+  // which dated from when จัดการสิทธิ์ listed ตำแหน่ง only. It now renders a
+  // per-person row (สิทธิ์รายบุคคล), and renderMember drops any member missing
+  // from `memberIds` — so with the gate in place, typing a name in จัดการสิทธิ์
+  // matched nobody and hid every person, i.e. search looked broken in the one
+  // mode where you most need to find a specific individual.
+  for (const arr of membersByNode.values()) {
+    for (const m of arr) {
+      const hay = `${m.prefix || ''} ${m.full_name} ${m.nickname || ''} ${m.student_id || ''} ${m.major || ''} ${m.kkumail || ''}`.toLowerCase();
+      if (hay.includes(q)) { memberIds.add(m.id); markUp(m.node_id); }
     }
   }
   return { visible, memberIds, q: qRaw.trim() };
@@ -619,6 +636,21 @@ function inCollapsedBody(ul, tree) {
   return false;
 }
 
+// Touch drags open on a LONG PRESS, mouse drags stay instant.
+//
+// Before this, a finger that happened to land on a drag handle while scrolling
+// started a reorder — the handle also carried `touch-action: none`, so the page
+// could not scroll out from under it. `delayOnTouchOnly` keeps the desktop feel
+// (no delay with a mouse) while requiring a deliberate hold on touch, and
+// `touchStartThreshold` cancels the pending drag the moment the finger travels,
+// so a scroll gesture that begins on a handle scrolls instead of dragging.
+const TOUCH_DRAG = {
+  delay: 220,
+  delayOnTouchOnly: true,
+  touchStartThreshold: 8,
+  chosenClass: 'team-chosen',
+};
+
 function attachSortables(tree) {
   if (!window.Sortable) return;
   tree.querySelectorAll('ul.team-children').forEach((ul) => {
@@ -626,6 +658,7 @@ function attachSortables(tree) {
     sortables.push(window.Sortable.create(ul, {
       group: 'team-nodes', handle: '.team-handle:not(.team-handle-sm)',
       draggable: '.team-node', animation: 150, fallbackOnBody: true, ghostClass: 'team-ghost',
+      ...TOUCH_DRAG,
       onStart: () => { dragging = true; },
       onMove: (evt) => {
         const draggedId = evt.dragged?.dataset?.nodeId;
@@ -642,6 +675,7 @@ function attachSortables(tree) {
       sortables.push(window.Sortable.create(ul, {
         group: 'team-members', handle: '.team-handle-sm',
         draggable: '.team-member', animation: 150, fallbackOnBody: true, ghostClass: 'team-ghost',
+        ...TOUCH_DRAG,
         onStart: () => { dragging = true; },
         onEnd: onMemberDrop,
       }));

@@ -648,7 +648,8 @@ const SIDE_FEATURE = {
   creator:  'creator',
   order:    'creator',   // same gate as เขียนประกาศ — announcement management
   team:     'team',
-  analytics: null,       // usage stats — visible to any signed-in staff member
+  analytics: null,       // usage stats — any admin-dashboard user (0102 widened
+                         // analytics_overview to current_user_has_any_grant() to match)
 };
 
 function roleLabel(role) {
