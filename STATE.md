@@ -87,10 +87,22 @@ from `team_members`, `team_terms`, `team_archive_nodes`, `team_archive_members`.
 Page renders 11 board cards + 401 tree cards, year picker correctly hidden (only
 one year exists so far).
 
+**Live state right now** (verified anonymously against prod after the last
+deploy): `get_public_team_years` → `[2569 is_current]`; `get_public_team_chart`
+→ `source=live`, 279 nodes / 401 members / 11 board / **1 photo**; no `@`,
+`student_id` or `kkumail` in the payload; anon on `team_term_status` → 401.
+`team_terms` holds 2569 (current, unpublished) and 2570 (added during testing,
+unpublished, not current → correctly invisible publicly). Archive tables hold
+**0 rows** — nothing has been published yet, so the live-tree fallback is what is
+serving.
+
 **Open / next for this feature** (none blocking):
-1. **No photos are uploaded yet** — 401 members, 0 with `photo_url`, so every card
-   renders initials. That is the designed fallback, not a bug. Upload via
-   ทีม SAMO → edit a member → รูปประจำตัว.
+1. **Only 1 of 401 members has a photo**, so nearly every card renders initials.
+   That is the designed fallback, not a bug. Upload via ทีม SAMO → edit a member
+   → รูปประจำตัว (downscales + files into Drive automatically).
+   **To roll the year over**: publish 2569, then set 2570 current. The public
+   year picker only appears once ≥2 years are visible (a year is visible if it is
+   published OR is the current term).
 2. `is_board` is seeded to the obvious 11 and otherwise uncurated.
 3. The year picker stays hidden until a SECOND year is visible — a year shows
    publicly only if it is published or is the current term. There is a 2570 term
@@ -128,7 +140,7 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `ebca449`, **deployed 2026-07-30**, `buildId 56c800cd6811`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
+- **samoweb**: `be8a23e`, **deployed 2026-07-30**, `buildId a8029ba79919`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
   archive (0104) — see the section above. Verified in the SERVED bundles:
   `get_public_team_chart` / `get_public_team_years` / `org-board-card` in
   `/assets/public-*.js`, `.org-board-grid` in `/assets/public-*.css`,
