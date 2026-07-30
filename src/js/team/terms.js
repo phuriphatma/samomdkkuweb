@@ -191,6 +191,12 @@ export function renderTerms() {
         กด “เผยแพร่ปีนี้” เพื่อบันทึกภาพนิ่งของผังไว้เป็นประวัติ
         แล้วปีเก่าจะเลือกดูได้จากหน้าสาธารณะ และยังกลับมาแก้ไขชื่อ/รูปได้ที่นี่
       </p>
+      <p class="team-terms-note">
+        <i class="bi bi-info-circle"></i>
+        หน้าสาธารณะจะแสดง <strong>ผังสด</strong> สำหรับปีปัจจุบันเสมอ
+        ภาพนิ่งของปีปัจจุบันจะถูกใช้แสดงก็ต่อเมื่อขึ้นปีใหม่แล้ว
+        (เช่น เผยแพร่ 2569 → ตั้ง 2570 เป็นปีปัจจุบัน → หน้าสาธารณะจึงเลือกดู 2569 จากภาพนิ่งได้)
+      </p>
       <div class="team-terms-add">
         <input type="number" class="form-control form-control-sm" id="teamTermNewYear"
           value="${nextYear}" min="2500" max="2700" aria-label="ปีการศึกษาใหม่" />
@@ -205,17 +211,28 @@ export function renderTerms() {
 
 // ── actions ─────────────────────────────────────────────────────────────────
 
-async function guard(fn, okMsg) {
-  if (busy) return;
-  busy = true;
-  try {
-    await fn();
-    if (okMsg) statusLine(okMsg, 'ok');
-  } catch (err) {
-    statusLine(err?.message || 'ทำรายการไม่สำเร็จ', 'error');
-  } finally {
-    busy = false;
-  }
+// SERIALISED, never dropped. The first version was `if (busy) return;`, which
+// silently discarded the second action — type a name, tab to ชื่อเล่น, blur
+// quickly, and the ชื่อเล่น PATCH disappeared while the first one reported
+// "บันทึกแล้ว", so the edit looked saved and was not. Every call now queues
+// behind the previous one; concurrent PATCHes to different rows are independent
+// anyway, and serialising them keeps the status line honest about the last
+// outcome.
+let chain = Promise.resolve();
+
+function guard(fn, okMsg) {
+  chain = chain.then(async () => {
+    busy = true;
+    try {
+      await fn();
+      if (okMsg) statusLine(okMsg, 'ok');
+    } catch (err) {
+      statusLine(err?.message || 'ทำรายการไม่สำเร็จ', 'error');
+    } finally {
+      busy = false;
+    }
+  });
+  return chain;
 }
 
 async function reloadTerms() {
@@ -228,8 +245,11 @@ async function doPublish(year) {
   const t = terms.find((x) => x.year === year);
   const again = !!t?.published_at;
   if (!confirm(again
-    ? `เผยแพร่ปี ${year} ซ้ำ?\n\nรายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด`
-    : `เผยแพร่ผังปัจจุบันเป็นประวัติปี ${year}?`)) return;
+    ? `เผยแพร่ปี ${year} ซ้ำ?\n\n`
+      + 'รายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด'
+    : `เผยแพร่ผังปัจจุบันเป็นประวัติปี ${year}?\n\n`
+      + 'หมายเหตุ: ปีนี้ยังเป็นปีปัจจุบัน หน้าสาธารณะจึงยังแสดงผังสดอยู่ '
+      + 'ภาพนิ่งนี้จะถูกนำมาแสดงเมื่อตั้งปีอื่นเป็นปีปัจจุบันแล้ว')) return;
   await guard(async () => {
     statusLine('กำลังบันทึกภาพนิ่งของผัง…');
     const res = await publishTerm(year);
@@ -365,8 +385,13 @@ export function initTerms(hostEl, { onChange } = {}) {
   });
 }
 
-/** Called when the pane becomes visible. */
+/** Called when the pane becomes visible. render() deliberately does not paint
+ *  this pane (see index.js), so on a cold first entry it is empty until the
+ *  fetch lands — say so rather than showing a blank panel. */
 export async function enterTerms() {
+  if (host && !host.querySelector('.team-terms')) {
+    host.innerHTML = '<div class="team-terms"><div class="team-terms-loading">กำลังโหลดปีการศึกษา…</div></div>';
+  }
   statusLine('');
   await guard(reloadTerms);
 }

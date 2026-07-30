@@ -115,3 +115,71 @@ describe('team/io JSON export', () => {
     expect(out.members[1].vs_dept).toBe(null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Round-trip fidelity.
+//
+// buildExportJson is an allow-list feeding a BACKUP, so a column left out is not
+// "not exported" — it is DESTROYED the next time someone exports, restructures
+// and re-imports. is_board / photo_url / photo_focus were all missing when first
+// written, which would have wiped every portrait and the whole คณะกรรมการ grid
+// on any restore.
+//
+// These pin the key sets so adding a column to team_nodes / team_members is a
+// conscious decision here rather than a silent omission. If one of these fails,
+// the fix is to add the field to buildExportJson AND to the two create calls in
+// index.js importJson — not to update the expectation alone.
+// ---------------------------------------------------------------------------
+describe('buildExportJson round-trip fidelity', () => {
+  const NODE = {
+    id: 'n1', parent_id: null, name: 'ฝ่ายทดสอบ', kind: 'division', position: 3,
+    permissions: ['pr'], inherit_permissions: false, vs_dept: 'SE',
+    project_seat: 'vpa', is_public: true, is_board: true,
+    passport_dept_id: 0, passport_sub_dept_id: 7,
+  };
+  const MEMBER = {
+    id: 'm1', node_id: 'n1', position: 2, prefix: 'นาย', full_name: 'ทดสอบ ระบบ',
+    nickname: 'เทส', student_id: '123', year: '5', major: 'MD',
+    kkumail: 'a@kkumail.com', confirmed: true,
+    photo_url: 'https://lh3.googleusercontent.com/d/ABC=w2000',
+    photo_focus: 'top',
+    permissions: [], inherit_permissions: true, vs_dept: null,
+    project_seat: null, passport_dept_id: null, passport_sub_dept_id: null,
+  };
+
+  it('exports every persisted node field', () => {
+    const [n] = buildExportJson([NODE], []).nodes;
+    expect(Object.keys(n).sort()).toEqual([
+      'id', 'inherit_permissions', 'is_board', 'is_public', 'kind', 'name',
+      'parent_id', 'passport_dept_id', 'passport_sub_dept_id', 'permissions',
+      'position', 'project_seat', 'vs_dept',
+    ]);
+  });
+
+  it('exports every persisted member field', () => {
+    const [m] = buildExportJson([], [MEMBER]).members;
+    expect(Object.keys(m).sort()).toEqual([
+      'confirmed', 'full_name', 'id', 'inherit_permissions', 'kkumail', 'major',
+      'nickname', 'node_id', 'passport_dept_id', 'passport_sub_dept_id',
+      'permissions', 'photo_focus', 'photo_url', 'position', 'prefix',
+      'project_seat', 'student_id', 'vs_dept', 'year',
+    ]);
+  });
+
+  it('preserves the portrait and the board flag by VALUE, not just by key', () => {
+    const out = buildExportJson([NODE], [MEMBER]);
+    expect(out.nodes[0].is_board).toBe(true);
+    expect(out.members[0].photo_url).toBe(MEMBER.photo_url);
+    expect(out.members[0].photo_focus).toBe('top');
+  });
+
+  it('does not turn a false/absent board flag into true', () => {
+    const [n] = buildExportJson([{ ...NODE, is_board: undefined }], []).nodes;
+    expect(n.is_board).toBe(false);
+  });
+
+  it('keeps passport_dept_id 0 (a real id) rather than nulling it as falsy', () => {
+    const [n] = buildExportJson([NODE], []).nodes;
+    expect(n.passport_dept_id).toBe(0);
+  });
+});

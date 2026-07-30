@@ -51,6 +51,23 @@ export function splitPath(path) {
 
 // ---- JSON ----
 
+/**
+ * Full-fidelity dump for backup / restructure-and-reimport.
+ *
+ * ⚠ THIS IS AN ALLOW-LIST AND IT IS A BACKUP, so the safe default is the
+ * OPPOSITE of the public projection's. get_public_team_chart() names columns so
+ * a new one is NOT published by accident; here, a column left out is silently
+ * DESTROYED on the next export→import round trip. `is_board`, `photo_url` and
+ * `photo_focus` were all missing at first and would have wiped every portrait
+ * and the whole คณะกรรมการ grid on any restore.
+ *
+ * Adding a column to team_nodes / team_members? Add it here, add it to the two
+ * create calls in index.js `importJson`, and extend the key list in
+ * io.test.js — that test exists to make this a conscious decision.
+ *
+ * (`shop_source` is deliberately absent: 0094 reverted shop scoping and the
+ * column is inert and unread. If it is ever wired up again, add it.)
+ */
 export function buildExportJson(nodes, members) {
   return {
     version: 1,
@@ -62,6 +79,7 @@ export function buildExportJson(nodes, members) {
       vs_dept: n.vs_dept || null,
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
+      is_board: !!n.is_board,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     })),
@@ -70,6 +88,8 @@ export function buildExportJson(nodes, members) {
       prefix: m.prefix || null, full_name: m.full_name, nickname: m.nickname || null,
       student_id: m.student_id || null, year: m.year || null, major: m.major || null,
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
+      photo_url: m.photo_url || null,
+      photo_focus: m.photo_focus || null,
       permissions: m.permissions || [],
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,

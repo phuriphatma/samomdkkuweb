@@ -21,7 +21,7 @@ import {
   patchNodePositions, patchMemberPositions,
 } from './api.js';
 import { subscribeTeam } from './realtime.js';
-import { initTerms, enterTerms, renderTerms, primeTerms } from './terms.js';
+import { initTerms, enterTerms, primeTerms } from './terms.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
   normalizeYear, isLikelyEmail, validateExportJson,
@@ -380,7 +380,12 @@ function render() {
     const h = $('teamModeHint');
     if (h) h.textContent = '';
     setStatus('');
-    renderTerms();
+    // Deliberately does NOT repaint the terms pane. render() is also the target
+    // of scheduleRemoteRender(), so another admin editing the live tree would
+    // innerHTML-rebuild this pane and destroy whatever the user is typing in the
+    // archive editor — the same class of bug the `dragging` guard exists for.
+    // terms.js owns its own pane and repaints on its own actions; the archive is
+    // independent of the live tree, so a tree change is not news to it.
     return;
   }
 
@@ -1937,6 +1942,7 @@ async function importJson(data) {
       vs_dept: n.vs_dept || null,
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
+      is_board: !!n.is_board,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     });
@@ -1976,6 +1982,10 @@ async function importJson(data) {
       full_name: who, nickname: m.nickname || null, student_id: m.student_id || null,
       year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
+      // Restore the portrait too. Omitting these is not a no-op — it is data
+      // loss on every export→import round trip (see buildExportJson's header).
+      photo_url: m.photo_url || null,
+      photo_focus: m.photo_focus || null,
       permissions: Array.isArray(m.permissions) ? m.permissions : [],
       inherit_permissions: m.inherit_permissions !== false,
       vs_dept: m.vs_dept || null,

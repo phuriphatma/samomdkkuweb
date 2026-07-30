@@ -481,3 +481,19 @@
   .team-arc-fields { grid-template-columns: minmax(0, 1fr) auto; }
   .team-arc-fields > select { grid-column: 1; }
 }
+
+/* The "published ≠ visible yet" note. The publish button is the natural thing to
+   press, but a snapshot of the CURRENT year is not what the public page renders
+   (it renders the live tree) until a different year becomes current — so this
+   states it where the decision is made, not only in the confirm dialog. */
+.team-terms-note {
+  display: flex; gap: 0.45rem; align-items: flex-start;
+  font-size: 0.8rem; line-height: 1.65; color: var(--ink-600);
+  background: color-mix(in srgb, var(--brand-orange) 7%, #fff);
+  border: 1px solid color-mix(in srgb, var(--brand-orange) 28%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  max-width: 62ch;
+  margin: 0 0 1rem;
+}
+.team-terms-note > .bi { color: var(--brand-orange); margin-top: 0.15rem; }
