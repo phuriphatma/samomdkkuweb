@@ -364,8 +364,11 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
   every kept entry is either one of the five classes or on the auth/db hot path.
   Trimming prose is the next lever if it needs to shrink again.
 
-- **STATE.md is 321 lines against CLAUDE.md's ~200 budget**, down from 336 —
-  the 2026-07-29 scan narrative moved to
+- **STATE.md is 377 lines against CLAUDE.md's ~200 budget.** It went 336 → 321 by
+  archiving narrative, then back up to 377 because NEXT #2/#3/#4 had to be
+  REWRITTEN (they described work that is already shipped — see `git show d44565b`).
+  That is the right trade: a wrong handoff costs more than a long one. The
+  2026-07-29 scan narrative moved to
   `docs/state-archive/2026-07-29-pre-clear-scan.md` and the VS browser-verified
   checklist is now a pointer (it was duplicated verbatim in the 07-29 archive).
   It does not get much shorter without gutting `NEXT`, which is 140 of those
