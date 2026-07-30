@@ -8,7 +8,10 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `10bd75a`, **deployed 2026-07-30**. Verified in the served bundles:
+- **samoweb**: `07b9beb`, **deployed 2026-07-30**. Latest change: merged the
+  "ทีม SAMO" top-level navbar tab into the "เกี่ยวกับเรา" tab — the dynamic org
+  chart now renders inside `#about-team` instead of the removed `#pills-team-public`.
+  `/team` URL still works (redirects to about tab). Verified in the served bundles:
   the org chart (`get_public_org_chart` / `org-station` / `org-face`) in
   `/assets/public-*.js` + `.css`, and the mobile-drag fix
   (`delayOnTouchOnly` / `touchStartThreshold` / `.team-handle{…pan-y}`) in
@@ -18,8 +21,8 @@ post-mortems: `.claude/rules/mistakes.md`.
   A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
   deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
   `STATE.md` / `.claude/` / `docs/` / `tools/` first.
-- **passport** (separate repo): code `405c927` **deployed**; HEAD is `b57eb1e`
-  (a `db/`-only idempotency fix — no rebuild needed). Served bundles
+- **passport** (separate repo): code `b57eb1e` **deployed 2026-07-30** (pulled
+  + built by `deploy.sh` alongside samoweb). Served bundles
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
@@ -53,6 +56,17 @@ post-mortems: `.claude/rules/mistakes.md`.
 ## ทีม SAMO is the grant engine (0081–0088, ALL APPLIED + DEPLOYED)
 
 The org tree grants REAL access. Full narrative: `docs/state-archive/2026-07-25-team-grants.md`.
+
+**Nav restructure (2026-07-30, `07b9beb`):** the public-facing "ทีม SAMO"
+top-level navbar tab was MERGED into the "เกี่ยวกับเรา" tab. The dynamic org
+chart (from `get_public_org_chart()` RPC) now renders inside `#about-team` in
+`tab-about.html`, replacing the old static placeholder cards. Key details:
+- `tab-team-public.html` is still on disk but no longer included in `index.html`.
+- `pills-team-public-tab` pill removed from desktop + mobile offcanvas in `navbar.html`.
+- `enterOrgChart()` now triggers on `pills-about-tab` activation (`main.js`).
+- `/team` URL route maps to `pills-about-tab` (backward compat for bookmarks).
+- Footer `goToAbout('about-team')` still works — activates about tab + scrolls to org chart.
+- The admin-side ทีม SAMO management tab is UNCHANGED (separate `tab-team.html` in `/admin/`).
 
 **Model.** A node or member carries permissions plus, per feature, a SCOPE binding.
 Everything resolves at login (`sync_my_team_permissions()`, called in `auth.js
