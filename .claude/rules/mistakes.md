@@ -9,9 +9,52 @@ Read this BEFORE touching:
 
 Each entry: **Symptom → Cause → Fix → Where it lives now**.
 
+**Five classes account for most of what has bitten this repo twice or more.** If
+you are short on time, read these and skip the rest:
+1. **A per-row UPDATE policy is not a column policy** — `for update using (<col>
+   = auth.uid())` grants every column in the row. Found on `users` (0028),
+   `vs_tickets` (0096), `shop_orders` (0100).
+2. **An unresolvable reference fails OPEN** — `coalesce(flag, false)`, a
+   `left join`, `if not found then`, and `null in (...)` all say "allowed" for
+   an id that no longer resolves.
+3. **Scoped is not full** — a narrower RLS branch added beside an unconditional
+   one (`has_permission('x')`, `using (true)`, a role list) is decorative,
+   because permissive policies are OR'd.
+4. **Read authorization is per-PATH, not per-table** — sanitizing one reader
+   (a definer RPC) leaves `select=*`, the other RPC, and the audience lookup
+   leaking. A new access channel must be threaded through writes, reads AND
+   directory lookups.
+5. **Two implementations of one rule drift** — SQL↔JS mirrors, a read path and a
+   write path, a guard and its call sites. Write the differential test in the
+   same commit.
+
 > Stable, niche fixes that no longer need to live in the hot path have been
 > moved to `.claude/rules/mistakes-archive.md` (kept to hold this file under
-> the context-budget limit). Check the archive if a symptom isn't found here.
+> the context-budget limit). **Check the archive if a symptom isn't found here** —
+> what's over there, by area:
+>
+> - *auth / signup config* — synthetic email TLD must be public · "Confirm email"
+>   must stay OFF · `unlinkIdentity` needs ≥2 identities ·
+>   `updateUser({password})` creates no `email` identity · hardcoded
+>   reserved-username lists rot · account-switcher token-capture race
+> - *forms & Bootstrap UI* — `form.reset()` clears hidden inputs (and still
+>   holds the old `File`) · HTML5 `required` on a hidden field blocks submit
+>   silently · iOS `100vh` drawer · full-height centered page unscrollable ·
+>   tab-JS keeps the dropdown open · offcanvas + `data-bs-toggle="pill"` race ·
+>   a `data-role` element with no toggle · a dark-mode island in a light-only app
+> - *refactors* — pane-scoped `#id`-rooted selectors break when the shell that
+>   provided the id is rewritten
+> - *SQL one-offs* — drop a CHECK before UPDATEing to a new enum value ·
+>   `RETURNS TABLE` OUT-param shadows `ORDER BY`
+> - *notify (GAS era + config)* — `notify_*_in_app` flags silently off ·
+>   awaiting the Discord queue blocks the re-render · `sendBeacon` won't follow
+>   redirects · GAS logs empty for browser-fetch calls · Cloudflare 1015 ·
+>   concurrent click handlers hit the per-webhook limit
+> - *hosting / assets* — nginx bare-subpath and `$uri.html` fallbacks ·
+>   Drive `thumbnail?id=` blanks on iOS · localStorage vs the HTTP cache ·
+>   CI Node 20 + supabase-js WebSocket · FK `ON DELETE RESTRICT` → archive
+> - *passport repo* — OAuth `hd=` hits the SAML IdP · the re-key trigger only
+>   fires on an account's first-ever login
 
 ---
 
@@ -145,28 +188,6 @@ If a new write site appears, use `dbRest()` and verify `data.length > 0`.
 
 ---
 
-## Synthetic email domain must be a real public TLD
-
-**Symptom**: Registration fails with `Email address "x@samomdkku.local" is invalid`.
-**Cause**: Supabase Auth rejects RFC 6762 reserved TLDs (`.local`, `.localhost`).
-**Fix**: Use `samomdkku.app` (real public TLD; we don't actually own it but
-the format passes validation; no mail delivers).
-**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN` and
-`supabase/migrations/0002_seed_staff_accounts.sql`. Do not switch back.
-
----
-
-## `form.reset()` clears hidden inputs
-
-**Symptom**: First PR submit succeeds; second submit goes through with
-`submitter = 'Guest'` even though user is signed in.
-**Cause**: After success, we call `form.reset()` to clear visible fields.
-This also resets hidden inputs `prGoogleUserEmail` / `prGoogleUserName`.
-**Fix**: Re-populate hidden inputs from `authGetUser()` immediately after reset.
-**Where**: `src/js/pr-form.js` success path inside `handlePrFormSubmit`.
-
----
-
 ## supabase-js gets into a bad state — bypass with `dbRest()`
 
 **Symptom**: After one supabase-js call succeeds, the next one hangs. Even
@@ -178,73 +199,6 @@ in place, still hangs.
 same auth headers supabase-js would send.
 **Where**: Use `dbRest('/table?...', { method, body, prefer })` everywhere
 that previously hung. PR tracking and announcements use it now.
-
----
-
-## Email confirmation must be OFF in Supabase for synthetic emails
-
-**Symptom**: Registration hits `Email rate limit exceeded` after 3 attempts.
-**Cause**: Supabase tries to send a confirmation email to `@samomdkku.app`
-which doesn't deliver. Each attempt counts toward the rate limit (3/hour
-on free tier built-in SMTP).
-**Fix**: Supabase Dashboard → Authentication → Providers → Email →
-toggle off "Confirm email". Synthetic emails don't need confirmation; Google
-users come in via OAuth which is already verified.
-
-**This applies to the profile email-add flow too — DO NOT flip "Confirm
-email" ON to "make magic-link verification work".** The toggle is
-project-wide, not per-call. Turning it ON would re-break signup at the
-same rate limit because every new `samomdkkuvpa@samomdkku.app`-style
-account sends a bounced confirmation. With it OFF,
-`db.auth.updateUser({email})` updates the email *immediately* without
-a verification step — that's accepted in this app because the
-ownership proof is the subsequent `linkIdentity` Google OAuth round-
-trip (Supabase will only link a Google identity whose email matches
-the user's auth email). Users who only want a contact email skip the
-proof step; that's the design tradeoff. See `STATE.md` "Supabase
-config for the profile email-add flow (0026)" for the longer write-
-up and the future OTP-via-Apps-Script path if real verification is
-ever needed.
-
----
-
-## HTML5 `required` on a hidden field silently blocks form submit
-
-**Symptom**: User fills in every visible field of the project send-document
-modal, clicks "ส่ง" — nothing happens. No error, no spinner, no Discord
-ping, no row. DevTools console quietly says
-`An invalid form control with name='' is not focusable.`
-**Cause**: The same `<form>` does double duty for "create project + first
-doc" and "add doc to existing project". Depending on mode, half its fields
-are hidden via `d-none`. But HTML5 form validation **still runs on hidden
-required fields** — and because the browser can't focus a hidden field to
-show the validation tooltip, it just refuses to submit, silently.
-**Fix**: Add `novalidate` to the `<form>` AND remove all `required`
-attributes from inputs that may be hidden by mode. Do validation in JS
-(`onSubmit` throws clear Thai errors that surface via `alert`). HTML5
-required + dynamic hide/show is a footgun in any multi-mode form here.
-**Where**: `src/html/modal-project-send.html` `#projectSendForm`. If you
-add a new dual-mode modal, do the same.
-
----
-
-## Check constraint must be dropped BEFORE updating to a new enum value
-
-**Symptom**: Running a migration that renames enum values fails with
-`ERROR: new row for relation "X" violates check constraint "X_col_check"`
-on the `UPDATE` statement itself — even though that UPDATE's whole job
-is to move the values to the new set.
-**Cause**: PostgreSQL evaluates check constraints on every row mutation.
-If the migration UPDATEs to a value that's outside the OLD check, the
-update fails before the new ALTER … ADD CHECK runs.
-**Fix**: Always `ALTER TABLE … DROP CONSTRAINT IF EXISTS X_check` **before**
-`UPDATE … SET col = new_value`, then `ALTER TABLE … ADD CONSTRAINT X_check
-CHECK (col IN (new_set))` afterwards. Also broaden the UPDATE to
-`WHERE col NOT IN (new_set)` so a re-run / unexpected legacy value
-doesn't get left in an invalid state.
-**Where**: `supabase/migrations/0007_shop_refactor.sql` for the shop
-`source` enum (md/rt/mdi/sittikao). Apply this pattern to any future
-enum-rename migration.
 
 ---
 
@@ -316,85 +270,6 @@ plus `current_user_is_staff()` (broadened to all staff roles in
 0005) used inside the trigger to let admin tools through. **Don't
 ship a new `for update using (... = auth.uid())` policy without an
 accompanying column guard if any sensitive column lives on the row.**
-
----
-
-## Supabase `unlinkIdentity` requires ≥2 identities — `hasPassword` is NOT the check
-
-**Symptom**: A Google-only user adds a password via the profile modal
-(`setUsernameAndPassword` → `db.auth.updateUser({password})`), then taps
-"ยกเลิกการเชื่อม Google". Server responds with
-`single_identity_not_deletable`. The UI had let them click because
-we trusted `hasPassword=true` as the green light.
-**Cause**: Supabase's docs and source are explicit: "The user must have
-at least 2 identities in order to unlink an identity"
-(`@supabase/auth-js` GoTrueClient.js, error code
-`single_identity_not_deletable`). `db.auth.updateUser({password})`
-sets `auth.users.encrypted_password` but does NOT reliably create an
-`email`-provider identity row. So a Google-only-then-password user
-can have `hasPassword=true` while `auth.identities = [google]` — one
-row. Unlinking that row is refused.
-**Fix**: Gate unlink UI on both (a) `hasPassword` for the UX rule
-("they still have a way in"), AND (b) `identities.length >= 2` for the
-Supabase rule. Surface a specific Thai message on the server error
-code so the user knows it's not a bug in their click.
-**Where**: `src/js/auth.js unlinkGoogleIdentity` + `src/js/profile.js`
-repaint of `#profileUnlinkGoogleBtn`. Don't ship a new "unlink"
-flow without checking the post-unlink identity count.
-
----
-
-## supabase-js `updateUser({password})` doesn't create an `email` identity
-
-**Symptom**: A Google-only user opens the profile modal, sets a
-username + password, hits Save, success. They close + reopen the
-modal — the "Set password" form is still there. They try again,
-same result. Confused.
-**Cause**: `db.auth.updateUser({password})` writes
-`auth.users.encrypted_password` but does NOT add an `email`-provider
-identity row in `auth.identities`. So the
-"check `authUser.identities` for `provider === 'email'`" heuristic
-keeps returning `false` forever even though signInWithPassword
-would now work for them.
-**Fix**: Don't read "has password" off the identities array. Mirror
-`auth.users.encrypted_password is not null` into
-`public.users.has_password` via an AFTER-UPDATE trigger
-(migration 0027), then read that column on the normal profile fetch.
-The identity-array heuristic stays as a pre-0027 fallback.
-**Where**: `supabase/migrations/0027_username_case_and_has_password.sql`
-+ `src/js/auth.js buildCurrentUser`. The same `has_password` column
-also lets the privilege-escalation guard (0028) treat
-`has_password` as server-only.
-
----
-
-## Notification `notify_*_in_app` flags gate the in-app fanout — schema default `true`, but a user-toggle silently disables EVERYTHING
-
-**Symptom**: uni_staff signs in, no bell badge, the offcanvas shows
-"ยังไม่มีการแจ้งเตือน" even though VP-Admin has been actively sending
-documents. Discord and email channels also stop firing.
-**Cause**: `public.project_settings` has four channel flags
-(`notify_uni_in_app`, `notify_uni_email`, `notify_vp_in_app`,
-`notify_vp_discord`) defaulting to `true` in schema 0005. The notify
-fanout in `src/js/projects/notify.js` checks each one with the
-shape `if (settings?.notify_uni_in_app !== false) { create row }` —
-so a row flipped to `false` (user save of the manage form, or any
-PATCH) silently disables the entire channel. Bell empty looks like a
-broken query but is really a config-off state.
-**Fix**: Restore via SQL (or the manage UI now that the pane is
-reachable):
-```sql
-update public.project_settings
-   set notify_uni_in_app = true, notify_vp_in_app  = true,
-       notify_uni_email  = true, notify_vp_discord = true
- where id = 1;
-```
-Past missed sends do NOT backfill — only new actions get rows.
-**Where**: settings row in Supabase; flag checks in
-`src/js/projects/notify.js` (`notifyUniStaff` / `notifyVpAdmin`).
-Future thought: if "no notifications" feels broken often, change
-the offcanvas empty-state to surface a "การแจ้งเตือนในแอปถูกปิดอยู่"
-hint when `settings.notify_*_in_app === false`.
 
 ---
 
@@ -664,57 +539,6 @@ a file imported by both.
 
 ---
 
-## Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
-
-**Symptom**: sastaff (uni_staff) clicks "รับเรื่อง" / "เสร็จสิ้น" /
-"คอมเมนต์" and the card takes a noticeable beat to update.
-**Cause**: The doc action handlers `await notifyVpAdmin(...)` BEFORE
-calling `onChanged()` (the re-render). `notifyVpAdmin` awaits
-`queueDiscord(...)`, which enforces `MIN_DISCORD_SPACING_MS` (6s) between
-calls plus up to ~20s of GAS retry budget — so the UI sat waiting on an
-out-of-band side-channel that the user doesn't need to see complete.
-**Fix**: Re-render FIRST (`markDocSeen` + `onChanged()`), then fire the
-notify fire-and-forget (`.catch(() => {})`). Discord is best-effort and
-already serialised + logged inside `notify.js`; nothing depends on the
-await. Applied to `onDocStatusClick`, `onDocReturnClick`,
-`onDocResendClick`, `onDocCommentClick`, `onCommentEditClick`.
-**Where**: `src/js/projects/inbox.js`. Never `await` a serialised /
-rate-limited side-channel on a click handler's render path — fire it
-after the render.
-
----
-
-## Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back forces a password re-login
-
-**Symptom**: Signed in as VPA, switch to dev (works), then tap back to
-VPA → forced to re-enter VPA username/password. Every *subsequent*
-switch (dev↔vpa, to other accounts) then works. Only the FIRST
-switch-back to a given account fails.
-**Cause**: `pickAccount()` snapshotted the outgoing account with
-`rememberAccount(getUser())` (whose token capture is a fire-and-forget
-`getCurrentSessionTokens().then(write)`), then `await sleep(80)`, then
-`setAuthSession(targetTokens)`. The 80ms was a *hope* that the capture
-flushed first. When it didn't, `getSession()` resolved AFTER the session
-was already swapped to the target — so the **target's** tokens got
-written onto the **outgoing** account's saved entry. Worse, those target
-tokens were the pre-swap refresh_token, which `setAuthSession` had just
-**rotated** (supabase refresh tokens are single-use) — so they were
-already dead. Switching back replayed that dead token → `setAuthSession`
-returns null → `clearSavedTokens` → password path. The re-login then
-saved fresh, correct tokens, so every later switch worked.
-**Fix**: Capture the outgoing tokens *synchronously awaited* while the
-live session is still that account, BEFORE the swap. Split
-`rememberAccount` into `writeAccountEntry()` (sync identity row) +
-`stitchCurrentTokens(key)` (awaitable token capture); add
-`rememberAccountAwait()` and call `await rememberAccountAwait(getUser())`
-in `pickAccount` (dropping the 80ms sleep). The normal sign-in subscriber
-path keeps the fire-and-forget `rememberAccount` (no swap racing it).
-**Where**: `src/js/account-switch.js`. Never capture a session's tokens
-fire-and-forget when the very next step replaces that session — the read
-will race the write and snapshot the wrong (and already-rotated) tokens.
-
----
-
 ## A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
 
 **Symptom**: Brand-new Google sign-in fails. The Supabase OAuth callback
@@ -890,6 +714,8 @@ custom domain — see STATE.md GAS section for why CF Workers lose here).
 `src/html/tab-projects.html`. Any future "notification X doesn't arrive": curl
 the channel end-to-end before touching its code, and check the on/off config.
 
+---
+
 ## A per-recipient SELECT RLS policy is DEAD when a `using(true)` public-read policy already exists on the same table (policies are OR'd)
 
 **Symptom**: You add a narrow "this user sees only their rows" SELECT policy
@@ -921,13 +747,6 @@ narrow reads; scope in the app off a non-public table instead.**
 
 ---
 
-## When in doubt: check `mistakes.md` before re-implementing
-
-Every entry above represents hours we already spent. If a symptom looks
-similar to something here, the fix is probably the same or related.
-
----
-
 ## `create or replace function` CANNOT change the return type — drop it first
 
 **Symptom**: A migration that evolves an existing RPC's return type (e.g. 0082
@@ -947,6 +766,8 @@ function, `drop` will fail unless you recreate them too (or the return change is
 what forces a coordinated migration).
 **Where**: `supabase/migrations/0082_team_vs_dept_scope.sql`. Same family as the
 "no create or replace policy" entry — some objects can't be replaced in place.
+
+---
 
 ## Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block — a role:'user' account with real granted perms gets bounced
 
@@ -976,6 +797,8 @@ on `role='user'` kkumail logins), grep for EVERY `ROLE.includes(role)` / `role =
 gate — each is a role-only chokepoint that silently ignores the new channel. Route the
 coarse "can this account use the app at all" check through the same
 permission-aware predicate the fine-grained gates use, never a hardcoded role list.
+
+---
 
 ## Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
 
@@ -1042,59 +865,6 @@ notify_log becomes the source of truth for failures, so do it together).
 
 ---
 
-## (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP — a broken IdP URL then hard-fails login with ERR_ADDRESS_INVALID
-
-**Symptom**: SAMO Passport login broke — after clicking "Board Your Flight",
-the browser showed `This site can't be reached` at
-`https://ssonext-api.kku.ac.th/sso/SingleSignOnService/kkumail.com.m`,
-`ERR_ADDRESS_INVALID`. Reproduced when signing in fresh / after logout.
-**Cause**: `signInWithOAuth({ options: { queryParams: { hd: 'kkumail.com' } } })`
-in `js/index.js` + `js/scanning.js` (added as a "pre-filter the Google chooser
-to kkumail" UX hint). But `kkumail.com` is a Google **Workspace domain with
-third-party SAML SSO** (KKU's IdP). Passing `hd` for such a domain makes Google
-skip its normal chooser and redirect **straight to that domain's IdP SSO URL**,
-which for KKU is malformed (`…/kkumail.com.m`) → Chrome can't navigate it →
-`ERR_ADDRESS_INVALID`. `hd` is documented as only a hint, but for an SSO-federated
-Workspace domain it changes the flow, not just the UI.
-**Fix**: Remove `queryParams.hd` from every `signInWithOAuth` call. The normal
-Google chooser routes a kkumail login through Google's own (working) SSO
-handling; the real kkumail-only enforcement is the app-side gate
-(`getPassportAccess` / `renderAccessBlock`), so nothing is weakened. If the
-error persists with a REAL kkumail account after removing `hd`, the fault is
-KKU's SSO endpoint (their infra), not our code.
-**Where**: passport repo `js/index.js`, `js/scanning.js` (commit `33ddf07`).
-Don't reintroduce `hd` for any OAuth call against an SSO-federated Workspace
-domain — enforce the domain app-side instead.
-
----
-
-## (Passport) An `AFTER INSERT`-on-`auth.users` re-key trigger only fires for accounts that have NEVER logged into the project — pre-existing accounts silently don't get their carried data
-
-**Symptom**: A gmail→kkumail migration test on `pmphuriphat→phuriphat.ma`
-showed the receiving kkumail account with **no points/activities/stamps**,
-even though the migration "moved" the data.
-**Cause**: The merge relies on `passport_link_user_by_email()`, wired as
-`on_auth_user_created_passport_link` **AFTER INSERT on auth.users** (0060/0063).
-It re-keys a carried profile (matched by email) to the new auth uuid — but only
-on the **INSERT** of the auth user, i.e. the account's **first-ever login** to
-the project. `phuriphat.ma` already had an auth user (logged in months earlier),
-so the trigger had already fired (finding nothing then) and will NOT fire again;
-`ensureProfile()` matches by **uuid only** (not email), so it just creates an
-empty profile. Data stranded on the old-uuid profile. **The real 5 are fine** —
-verified none of their kkumail addresses had a pre-existing `auth.users` row, so
-their first kkumail login WILL fire the re-key. The trap is only for a target
-account that already exists.
-**Fix / how to test such a case faithfully**: don't rely on the login trigger
-for an already-existing target — do the re-key manually (move
-`scans.user_id`/`season_results.user_id`/`profiles.id` old→new uuid), which is
-exactly what the trigger would have done. Before any future re-key migration,
-check `auth.users` for a pre-existing target row; if present, the trigger won't
-fire and the profile must be merged/re-keyed explicitly.
-**Where**: trigger in `0060`/`0063`; `ensureProfile` in passport `js/auth.js`;
-verification + tracker queries recorded in STATE.md passport section.
-
----
-
 ## An anon-INSERTable table's text columns are ATTACKER-controlled — escape on render even in a "staff-only" internal dashboard
 
 **Symptom**: The new `analytics_events` table (migration 0065) is publicly
@@ -1120,56 +890,6 @@ and apply `escHtml` from `utils.js`). **Rule**: before rendering ANY column of
 an anon-INSERTable table (`analytics_events`, `notify_log`, `pr_tickets`,
 `vs_tickets`, …) into innerHTML — even in a staff-only dashboard — treat it as
 untrusted and `escHtml` it. Read-side authorization is not input validation.
-
----
-
-## Adding `prefers-color-scheme: dark` to ONE component in a light-only app makes just that component go dark on a dark-mode OS
-
-**Symptom**: The new landing-page stat strip rendered **dark green** while the
-rest of the (white) site stayed light. Only happened for users whose OS/browser
-was set to dark mode.
-**Cause**: This app is **light-only** — a repo-wide grep shows ZERO
-`prefers-color-scheme` / `data-theme` rules anywhere except the files just added
-(`home-stats.css`, `analytics.css`). Those new files included
-`@media (prefers-color-scheme: dark)` + `:root[data-theme="dark"]` overrides
-(a good habit for standalone artifacts / theme-aware sites — but wrong here).
-With no app-level theme system, the media query is the ONLY thing reacting to
-the OS preference, so a dark-mode visitor got a dark component island floating
-in the otherwise-white page. The general "design both themes" guidance has an
-explicit carve-out — *"a design that deliberately commits to one visual world
-may stay single-theme"* — and this app has committed to light.
-**Fix**: Remove all `prefers-color-scheme` / `data-theme` blocks from
-`home-stats.css` + `analytics.css`; they now render light unconditionally.
-**Rule**: before adding dark-mode CSS to a NEW component, grep the app for an
-existing theme system (`prefers-color-scheme`, `data-theme`, a theme toggle). If
-there is none, the app is single-theme — match it, don't unilaterally introduce
-a half-theme that only your component honors. (Standalone Artifacts are the
-exception — those SHOULD be theme-aware; the deployed app is not.)
-**Where**: `src/css/home-stats.css`, `src/css/analytics.css`.
-
----
-
-## A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col` — the OUT-param name shadows the query column, so it sorts by the NULL variable
-
-**Symptom**: `find_similar_vs_tickets` (migration 0068) returned the right rows
-but in the wrong order — "most similar" was NOT first. No error; the migration
-applied clean (the bug only executes at call time, which needs a real staff JWT,
-so it never showed during `apply-migration`).
-**Cause**: the function is `returns table (... sim real)` and the body did
-`return query select …, similarity(…) order by sim desc`. In PL/pgSQL every
-`RETURNS TABLE` column is also an OUT **variable**. The final SELECT column is the
-*expression* `similarity(…)` — it has no output name `sim` — so `order by sim`
-does NOT bind to the query column; it binds to the OUT variable `sim`, which is
-unset (NULL) at that point → `order by NULL` → no effective sort. Postgres does
-not raise; it just doesn't sort.
-**Fix**: order by the **explicit expression**, never the OUT-param name:
-`order by …, similarity(regexp_replace(…), v_problem) desc`. (Alternatives:
-rename the OUT column so it can't shadow, or `order by <position>`.)
-**Where**: `supabase/migrations/0068_vs_dedup.sql` `find_similar_vs_tickets`.
-Rule: in any `RETURNS TABLE` PL/pgSQL function, never `ORDER BY`/`WHERE` on an
-OUT-param name that isn't an actual output alias of the query — use the
-expression or a column position. Verify sort-dependent RPCs by executing them
-(not just applying), since the shadowing is silent.
 
 ---
 
@@ -1224,39 +944,6 @@ to different principals, check whether the reference (id, link, mention) is
 itself readable by the other principal — if lookup is by-id/capability, the id
 IS the data. Keep cross-refs on the staff side; sanitize any anon/guest-facing
 read.
-
----
-
-## `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
-
-**Symptom**: ประกาศ (announcement covers) and SAMO Shop product/banner images
-"never load" on iPad — but load fine on desktop Chrome, AND the exact same
-image URL opens fine when tapped DIRECTLY in iPad Safari, AND a page refresh on
-the iPad often brings them back. Looks like a broken image / permission / CORS
-bug; it's none of those (the bytes are reachable).
-**Cause**: images were embedded as
-`https://drive.google.com/thumbnail?id=<id>&sz=w2000`. That endpoint **302-
-redirects to `lh3.googleusercontent.com`** on every load. iOS Safari drops the
-redirected subresource load intermittently on a cold cache (extra hop + slower/
-stricter than desktop) → the `<img>` stays blank. A refresh (warm cache) or a
-direct top-level navigation (no redirect-in-`<img>` context) succeeds, which is
-why it looked flaky and device-specific. `sz=w2000` also over-fetches (2000px
-for a ~140–260px card), adding to iOS image-memory pressure.
-**Fix**: emit the **direct CDN** form `https://lh3.googleusercontent.com/d/<id>=w1200`
-— no redirect, correct Content-Type, smaller payload — in `convertDriveUrl`
-(`src/js/uploads.js`). It now ALSO runs at RENDER time (not just on upload), so
-it rewrites the legacy `thumbnail?id=` URLs already stored in the DB → existing
-rows fixed with no data migration. Kept `loading="lazy"` (dropping it would
-decode every image at once and worsen iOS memory). Both forms still need the
-file shared "anyone with the link".
-**Where**: `src/js/uploads.js` `convertDriveUrl` (+ test). Applied at EVERY
-Drive-image render site (the shared bug — grep audit): `announcements.js`
-covers+inline via `pickCover`, `departments.js` card cover, `shop/products.js`
-banner/launch/grid, `shop/admin.js` product+banner lists. **Rule**: never put a
-`drive.google.com/thumbnail` (or `/uc?export=view`, or a `/file/d/…/view`) URL
-straight into an `<img src>` — always run it through `convertDriveUrl` so it
-becomes the redirect-free lh3 URL. Verify image bugs on the REPORTED device
-class (iOS Safari here), not just desktop — the redirect only bites iOS.
 
 ---
 
@@ -1618,6 +1305,8 @@ asks "who is the X?", not just "may this user write?".
 managed_permissions from the tree and wipes a grant with no binding behind it.
 Seed the real node+member binding and call `sync_my_team_permissions()`.
 
+---
+
 ## A seat/scope dimension that is UNIONED with what it inherits is not a choice — the widest value wins and the explicit pick is decorative
 
 **Symptom**: "I gave myself หนังสือโครงการ as **คณะ**, but it shows many new
@@ -1677,6 +1366,8 @@ missed a table and a helper:
 on, check every ROLE that calls it, not just the ones it was written for — an
 authorization predicate reused as a *directory* query fails silently and empty.
 
+---
+
 ## Per-user read-state means a newly-granted account INHERITS the whole backlog as unread — baseline them at first run, and never trust a sentinel that was set on a no-op
 
 **Symptom**: "I want my email to see หนังสือโครงการ like samomdkkuvpa sees it, but
@@ -1720,6 +1411,8 @@ user who joins TODAY see?". The default — "has seen nothing" — is almost nev
 And before comparing two accounts' views, check whether the difference is
 *authorization* or *accumulated per-user state*; they look identical in a
 screenshot.
+
+---
 
 ## Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind — read state, signature assignments, notifications
 
@@ -1767,6 +1460,8 @@ read state, assignments, notifications, drafts — and decide per table whether 
 COPIES (the shared account stays live) or MOVES (it is being retired). A
 permission grant migrates none of them.
 
+---
+
 ## A permission channel has TWO halves — writes AND reads. `current_user_is_staff()` is a role list, so every read gated on it silently excluded tree-granted accounts
 
 **Symptom** (found by a sweep, before most of it was reported): a `creator`
@@ -1803,6 +1498,8 @@ audience lookups (0091), AND reads**. A read gated on a role list is invisible
 until someone with the new channel goes looking for data they just created. And
 never widen a predicate that a security trigger also consumes — check
 `grep -rn "current_user_is_staff" supabase/migrations/` before touching it.
+
+---
 
 ## Deriving "which department is this admin" from a UI filter is not a permission — SAMO Shop had one grant and a localStorage preference
 
@@ -1844,6 +1541,8 @@ scoping is gone (helpers dropped, policy restored, picker removed); the
 **Do not re-add a source scope without being asked.**
 **Where**: `supabase/migrations/0093_*.sql` (added) and `0094_*.sql` (reverted).
 
+---
+
 ## Module-scope caches make an in-place account switch show two accounts at once — reload instead of teaching every module to reset
 
 **Symptom**: switching accounts in the admin app leaves the previous account's
@@ -1866,33 +1565,7 @@ the 25-minute token refresh — which re-fires with the same id — does not eit
 underneath a long-lived page. The reset approach is correct exactly once and then
 rots with every module you add.
 
-## A `data-role="x"` element with no matching toggle in the JS is visible to EVERYONE — and a role with no empty-state copy reads as a broken page
-
-**Symptom**: "I assigned myself as อาจารย์ on ทีม SAMO, but when I open
-หนังสือโครงการ I see nothing." Not a permission bug — verified live that 0 sign
-requests named that account (all 11 named `saprof`), so an empty inbox was
-CORRECT. It looked broken because of what the empty state said: nothing.
-**Cause**: `#projectsGridEmpty` carries one `<span data-projects-role="…">` per
-role, and `applyRoleVisibility()` toggled `d-none` on the `vp_admin` and
-`uni_staff` spans only. There was no `sa_prof` span at all, so a professor got
-the heading "ยังไม่มีโครงการในมุมมองนี้" above an EMPTY paragraph — no reason, no
-next step. A role whose normal state is "empty until someone sends you
-something" needs that said out loud, or every professor's first login looks like
-a failure.
-**The trap in the fix**: these spans carry NO `d-none` in the markup — they are
-hidden by the JS toggling it ON. So adding a `data-projects-role="sa_prof"` span
-WITHOUT adding a matching `querySelectorAll` block makes it visible to every
-role instead of only the professor (a vp_admin would read both "กด สร้าง
-โครงการใหม่" and "เมื่อเจ้าหน้าที่คณะส่งหนังสือมาให้ลงนาม"). Default-visible +
-opt-in hiding means an unhandled attribute FAILS OPEN.
-**Where**: `src/html/tab-projects.html` `#projectsGridEmpty`;
-`src/js/projects/index.js` `applyRoleVisibility()` (now toggles all three roles).
-**Rules**: (1) when a role can legitimately see zero rows, write its empty-state
-copy — "nothing here yet" and "you have no access" look identical to a user.
-(2) Any attribute-driven visibility scheme that hides by ADDING a class fails
-open; grep that every value in the markup has a handler
-(`grep -o 'data-projects-role="[a-z_]*"' src/html/*.html | sort -u` vs the
-`querySelectorAll` calls) whenever you add a role.
+---
 
 ## A seat that grants a SHARED role must not be modelled as a new individual — the อาจารย์ seat built a private desk instead of opening the existing one
 
@@ -1935,6 +1608,8 @@ ask "should this person see what the shared account sees, or start empty?" for
 EACH surface. If the answer is "the same", any `= auth.uid()` predicate on that
 surface is a bug in waiting — and it will look like correct behaviour, because an
 empty inbox is indistinguishable from a working one with nothing in it.
+
+---
 
 ## A row-level UPDATE policy with no column guard let a SUBMITTER self-publish to the public board — the curation gate lived in an RPC the policy routed around
 
@@ -1983,6 +1658,8 @@ family as the `public.users` `role` self-promotion entry above — that one was
 found in 2 tables, this is the third; **audit any `for update using (<col> =
 auth.uid())` policy the moment the table gains a column the owner must not set.**
 
+---
+
 ## Adding a DELETE to reference data turns every `coalesce(<flag>, false)` lookup into a live fail-open — the dangling id is the new input nobody wrote for
 
 **Symptom**: none reported — found by asking "what reads this table?" before
@@ -2025,6 +1702,8 @@ must agree on the unknown case; a table where three say "closed" and one says
 "open" is not a design, it is a bug that has not been reached yet. (3) A loose
 reference with no FK is fine, but it makes the DEFAULT for a missing row a
 security decision — write it down at every call site.
+
+---
 
 ## The row-level-UPDATE-without-a-column-guard class, found on a THIRD table — this time it was money
 
@@ -2070,6 +1749,8 @@ sweep #3 keeps the list honest; two low-severity rows
 (`project_doc_views`, `project_notifications` — self-defacement only, `user_id`
 pinned by the check) are knowingly accepted, not missed.
 
+---
+
 ## Two implementations of one rule drift silently — diff them, don't eyeball them
 
 **Symptom**: none. The 0096 visibility ladder is implemented twice —
@@ -2093,6 +1774,8 @@ differential test the same commit. And when reviewing one, state which
 direction of disagreement is the dangerous one — here "JS stricter than SQL" is
 safe and "SQL stricter than JS" is a leak, and only the test can tell you which
 you have.
+
+---
 
 ## An `ILIKE` lookup makes the id a PATTERN, not a capability
 
@@ -2126,6 +1809,8 @@ caller's own identity.
 be `=` (or `lower(x)=lower(y)`) — never `like`/`ilike`/`similar to`/`~`. And
 when granting a helper to `anon`, ask what it answers about someone who is NOT
 the caller.
+
+---
 
 ## …and the sweep that entry prescribed found a FIFTH reader — a `left join` fails open the same way a `coalesce(flag,false)` does
 
@@ -2174,6 +1859,8 @@ QUERY over `pg_get_functiondef`, not as a mental list of the callers you happen
 to be holding. And treat `left join <reference table>` as a fail-open marker
 wherever the joined row gates visibility.
 
+---
+
 ## Recreating a function from the migration that FIRST defined it silently reverts every later one
 
 **Symptom**: `tools/vs0083-scope.mjs` went 15/16 immediately after applying an
@@ -2205,6 +1892,8 @@ defined 0080 ✔); only the one with a THIRD definition bit.
 the newest definition wins and older files are actively misleading. Re-run the
 proof scripts for the FEATURE AREA after any function rewrite, not just for the
 thing you were changing; that is the only thing that caught this.
+
+---
 
 ## A path-only router silently discards sub-state — and its own tab handler is what clears the hash you just wrote
 
@@ -2247,6 +1936,8 @@ rather than importing, to avoid a cycle (vs-route imports those modules).
 And when adding sub-state under an existing router, check what that router does
 to the URL on navigation — a handler that rewrites the whole path will erase it.
 
+---
+
 ## A modal that closes on save makes every edit a round trip — refresh in place instead
 
 **Symptom** (reported): "when บันทึกข้อมูล on a VitalSound ticket it closes the
@@ -2273,6 +1964,8 @@ concurrently): hide the modal rather than rendering stale data.
 **Rule**: if a dialog closes itself after a write, ask whether it is closing
 because the user is *done* or because the code has no way to refresh in place.
 The second is a bug wearing a feature's clothes.
+
+---
 
 ## A manager modal opened ON TOP of a form must repaint that form's inputs — the vocabulary it edits was rendered once, at open time
 
@@ -2304,6 +1997,8 @@ alike. Two details that matter more than the repaint itself:
 **Rule**: whenever a modal edits the VOCABULARY that a form behind it renders as
 options, list every control that consumed that vocabulary and repaint all of
 them — the one you forget is usually the one the user opened the modal to fill.
+
+---
 
 ## Attribute-driven visibility: check that EVERY value in the markup has a handler, and which way an unhandled one fails
 
@@ -2338,3 +2033,10 @@ fails closed. (2) Gate on a CAPABILITY (`data-perm-only` → `userCanAccess`) no
 role list, or every ทีม SAMO grant works except at that one control. (3) Any
 `role === 'x' ? … : …` is a missing branch as soon as a third role exists — grep
 for them after adding a role.
+
+---
+
+## When in doubt: check `mistakes.md` before re-implementing
+
+Every entry above represents hours we already spent. If a symptom looks
+similar to something here, the fix is probably the same or related.

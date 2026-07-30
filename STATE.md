@@ -146,39 +146,24 @@ the staff ticket modal **no longer closing on save**.
   about the board. Do not add `is_public`/`public_title` to the submitter
   projection — that is a second path to keep sanitized.
 
-**Browser-verified (public half, Chrome, prod + local)**: mode↔hash both ways;
-cold load of `#track/VS-XXXX` lands on the ticket; `#problem/VS-XXXX` opens the
-board detail; back links rewrite the hash; tab round-trip preserves mode AND
-ticket; plain `/vssound` still defaults to the board; the self_public banner
-renders with a working CTA and stays hidden on an unpublished ticket;
-ความคืบหน้าจากทีมงาน renders separately from ความคิดเห็น with text escaped.
-Zero console errors.
-**NOT browser-verified**: everything behind the admin login — the remark
-visibility picker, tag/category delete, and the modal-stays-open change (no way
-to authenticate from here).
+**Browser-verified (public half, Chrome, prod + local)**: mode↔hash both ways,
+cold deep-load, back links, tab round-trip, the self_public banner, and
+ความคืบหน้าจากทีมงาน rendering escaped — the full checklist is in the archive
+write-up. **NOT browser-verified**: everything behind the admin login (see
+NEXT #1).
 
 ## PRE-/CLEAR SECURITY SCAN (2026-07-29) — 4 real bugs found, all FIXED
 
-A deliberate sweep, not a spot-check. Everything below was proven against the
-live DB in rolled-back transactions before being fixed, and re-proven after.
+Narrative + proofs: `docs/state-archive/2026-07-29-pre-clear-scan.md`. In short,
+all four proven live in rolled-back transactions, fixed in `0100`/`0101`, and
+each now carries a `mistakes.md` entry: a **buyer could zero their own order's
+total** (third table with an unguarded per-row owner UPDATE, after `users` and
+`vs_tickets`); **`get_pr_ticket_by_id` matched with `ILIKE`**, making the ticket
+id a pattern instead of a capability; **the ten team resolvers were
+anon-callable**, an anonymous grant oracle; and **the `vis` ladder's SQL and JS
+implementations disagreed** on 3 of 26 inputs.
 
-1. **A buyer could zero their own order's total** (0100). `shop_orders_update_self_early`
-   is row-level with no column guard: `total=0, subtotal=0, fee=0` ACCEPTED,
-   plus `admin_note` and a `timeline` entry forged as `by:"admin"`. They could
-   NOT escape the pending/review window (the USING doubles as the CHECK), which
-   is the only thing that contained it. **Third table with this exact defect**
-   after `users` (0028) and `vs_tickets` (0096).
-2. **`get_pr_ticket_by_id` matched with `ILIKE`** (0101) — so the ticket id was
-   a PATTERN, not a capability. `{"p_id":"%"}` with the public anon key
-   returned a real ticket incl. the submitter's email and brief; pattern-walking
-   enumerates all of them. Now `lower(id) = lower(btrim(p_id))`.
-3. **The ten team resolvers were anon-callable** (0101) — an anonymous oracle:
-   `effective_team_permissions_for_email` returned any address's exact grant
-   set. Revoked; nothing outside SQL called them and their callers are definer.
-4. **The `vis` ladder's SQL and JS implementations disagreed** on 3 of 26
-   inputs (`'t'`, `'1'`, `1` for the legacy `internal` flag). Failed SAFE, but
-   it is the drift "keep them in step" was supposed to prevent.
-   `tools/vs-remark-vis-mirror.mjs` now diffs them mechanically.
+Two conclusions from that scan are still live constraints:
 
 **Knowingly ACCEPTED, not missed** — two per-row owner UPDATE policies have no
 column guard: `project_doc_views_update_own` (own read state; `user_id` pinned
@@ -316,16 +301,28 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
 
 ## Housekeeping
 
-- **`.claude/rules/mistakes.md` is now ~2340 lines** and CLAUDE.md tells every
-  agent to read it before touching auth/db code — it is in the hot path and has
-  outgrown it. `.claude/rules/mistakes-archive.md` exists for exactly this.
-  Next session: move the entries that are STABLE and NICHE (the GAS-era ones,
-  the Bootstrap quirks, anything whose code path no longer exists) to the
-  archive, and keep in the hot file the recurring CLASSES — row-level-UPDATE
-  without a column guard, unknown-reference fail-open, scoped-is-not-full,
-  read-path parity, mirrors that drift. Those five account for most of what has
-  actually bitten this repo twice or more. Do NOT delete anything; the archive
-  is checked first when a symptom isn't in the hot file.
+- **`.claude/rules/mistakes.md` pruned (2026-07-30): 2340 → ~2040 lines, 74 → 58
+  entries.** 16 STABLE + NICHE entries moved to `.claude/rules/mistakes-archive.md`
+  (17 → 33 entries) — settled auth/signup config facts, one-off SQL gotchas, and
+  UI quirks whose code path no longer changes. Nothing deleted. Two additions
+  make the split safe to rely on:
+  - the hot file's header now names the **five recurring classes** (per-row
+    UPDATE ≠ column policy · unknown-reference fails open · scoped-is-not-full ·
+    read authorization is per-path · mirrors drift) as a read-these-first list;
+  - it carries a **by-area index of what is in the archive**, so a symptom whose
+    entry moved is still greppable from the hot file. Keep that index in step
+    when you move the next entry.
+  Still ~2040 lines: the remaining bulk is entry VERBOSITY, not entry count, and
+  every kept entry is either one of the five classes or on the auth/db hot path.
+  Trimming prose is the next lever if it needs to shrink again.
+
+- **STATE.md is 321 lines against CLAUDE.md's ~200 budget**, down from 336 —
+  the 2026-07-29 scan narrative moved to
+  `docs/state-archive/2026-07-29-pre-clear-scan.md` and the VS browser-verified
+  checklist is now a pointer (it was duplicated verbatim in the 07-29 archive).
+  It does not get much shorter without gutting `NEXT`, which is 140 of those
+  lines and is the actual handover. Prune `NEXT` items as they are COMPLETED,
+  not to hit the number.
 
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
 - CI = Node 22 (supabase-js WebSocket). `npm run build && npm test` before every

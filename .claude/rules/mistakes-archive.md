@@ -463,3 +463,395 @@ becomes important (campaign cycles, demos), seriously consider a
 non-GAS proxy.
 
 ---
+
+# Moved out 2026-07-30 — stable auth/signup config facts, one-off SQL gotchas, retired-path UI quirks
+
+None of these describe a recurring CLASS; each is a single fact whose code path
+is settled. The hot file keeps the classes that have bitten this repo twice or
+more (row-level UPDATE without a column guard, unknown-reference fail-open,
+scoped-is-not-full, read-path parity, mirrors that drift).
+
+---
+
+## Synthetic email domain must be a real public TLD
+
+**Symptom**: Registration fails with `Email address "x@samomdkku.local" is invalid`.
+**Cause**: Supabase Auth rejects RFC 6762 reserved TLDs (`.local`, `.localhost`).
+**Fix**: Use `samomdkku.app` (real public TLD; we don't actually own it but
+the format passes validation; no mail delivers).
+**Where**: `src/js/auth.js` `PASSWORD_EMAIL_DOMAIN` and
+`supabase/migrations/0002_seed_staff_accounts.sql`. Do not switch back.
+
+---
+
+## `form.reset()` clears hidden inputs
+
+**Symptom**: First PR submit succeeds; second submit goes through with
+`submitter = 'Guest'` even though user is signed in.
+**Cause**: After success, we call `form.reset()` to clear visible fields.
+This also resets hidden inputs `prGoogleUserEmail` / `prGoogleUserName`.
+**Fix**: Re-populate hidden inputs from `authGetUser()` immediately after reset.
+**Where**: `src/js/pr-form.js` success path inside `handlePrFormSubmit`.
+
+---
+
+## Email confirmation must be OFF in Supabase for synthetic emails
+
+**Symptom**: Registration hits `Email rate limit exceeded` after 3 attempts.
+**Cause**: Supabase tries to send a confirmation email to `@samomdkku.app`
+which doesn't deliver. Each attempt counts toward the rate limit (3/hour
+on free tier built-in SMTP).
+**Fix**: Supabase Dashboard → Authentication → Providers → Email →
+toggle off "Confirm email". Synthetic emails don't need confirmation; Google
+users come in via OAuth which is already verified.
+
+**This applies to the profile email-add flow too — DO NOT flip "Confirm
+email" ON to "make magic-link verification work".** The toggle is
+project-wide, not per-call. Turning it ON would re-break signup at the
+same rate limit because every new `samomdkkuvpa@samomdkku.app`-style
+account sends a bounced confirmation. With it OFF,
+`db.auth.updateUser({email})` updates the email *immediately* without
+a verification step — that's accepted in this app because the
+ownership proof is the subsequent `linkIdentity` Google OAuth round-
+trip (Supabase will only link a Google identity whose email matches
+the user's auth email). Users who only want a contact email skip the
+proof step; that's the design tradeoff. See `STATE.md` "Supabase
+config for the profile email-add flow (0026)" for the longer write-
+up and the future OTP-via-Apps-Script path if real verification is
+ever needed.
+
+---
+
+## HTML5 `required` on a hidden field silently blocks form submit
+
+**Symptom**: User fills in every visible field of the project send-document
+modal, clicks "ส่ง" — nothing happens. No error, no spinner, no Discord
+ping, no row. DevTools console quietly says
+`An invalid form control with name='' is not focusable.`
+**Cause**: The same `<form>` does double duty for "create project + first
+doc" and "add doc to existing project". Depending on mode, half its fields
+are hidden via `d-none`. But HTML5 form validation **still runs on hidden
+required fields** — and because the browser can't focus a hidden field to
+show the validation tooltip, it just refuses to submit, silently.
+**Fix**: Add `novalidate` to the `<form>` AND remove all `required`
+attributes from inputs that may be hidden by mode. Do validation in JS
+(`onSubmit` throws clear Thai errors that surface via `alert`). HTML5
+required + dynamic hide/show is a footgun in any multi-mode form here.
+**Where**: `src/html/modal-project-send.html` `#projectSendForm`. If you
+add a new dual-mode modal, do the same.
+
+---
+
+## Check constraint must be dropped BEFORE updating to a new enum value
+
+**Symptom**: Running a migration that renames enum values fails with
+`ERROR: new row for relation "X" violates check constraint "X_col_check"`
+on the `UPDATE` statement itself — even though that UPDATE's whole job
+is to move the values to the new set.
+**Cause**: PostgreSQL evaluates check constraints on every row mutation.
+If the migration UPDATEs to a value that's outside the OLD check, the
+update fails before the new ALTER … ADD CHECK runs.
+**Fix**: Always `ALTER TABLE … DROP CONSTRAINT IF EXISTS X_check` **before**
+`UPDATE … SET col = new_value`, then `ALTER TABLE … ADD CONSTRAINT X_check
+CHECK (col IN (new_set))` afterwards. Also broaden the UPDATE to
+`WHERE col NOT IN (new_set)` so a re-run / unexpected legacy value
+doesn't get left in an invalid state.
+**Where**: `supabase/migrations/0007_shop_refactor.sql` for the shop
+`source` enum (md/rt/mdi/sittikao). Apply this pattern to any future
+enum-rename migration.
+
+---
+
+## Supabase `unlinkIdentity` requires ≥2 identities — `hasPassword` is NOT the check
+
+**Symptom**: A Google-only user adds a password via the profile modal
+(`setUsernameAndPassword` → `db.auth.updateUser({password})`), then taps
+"ยกเลิกการเชื่อม Google". Server responds with
+`single_identity_not_deletable`. The UI had let them click because
+we trusted `hasPassword=true` as the green light.
+**Cause**: Supabase's docs and source are explicit: "The user must have
+at least 2 identities in order to unlink an identity"
+(`@supabase/auth-js` GoTrueClient.js, error code
+`single_identity_not_deletable`). `db.auth.updateUser({password})`
+sets `auth.users.encrypted_password` but does NOT reliably create an
+`email`-provider identity row. So a Google-only-then-password user
+can have `hasPassword=true` while `auth.identities = [google]` — one
+row. Unlinking that row is refused.
+**Fix**: Gate unlink UI on both (a) `hasPassword` for the UX rule
+("they still have a way in"), AND (b) `identities.length >= 2` for the
+Supabase rule. Surface a specific Thai message on the server error
+code so the user knows it's not a bug in their click.
+**Where**: `src/js/auth.js unlinkGoogleIdentity` + `src/js/profile.js`
+repaint of `#profileUnlinkGoogleBtn`. Don't ship a new "unlink"
+flow without checking the post-unlink identity count.
+
+---
+
+## supabase-js `updateUser({password})` doesn't create an `email` identity
+
+**Symptom**: A Google-only user opens the profile modal, sets a
+username + password, hits Save, success. They close + reopen the
+modal — the "Set password" form is still there. They try again,
+same result. Confused.
+**Cause**: `db.auth.updateUser({password})` writes
+`auth.users.encrypted_password` but does NOT add an `email`-provider
+identity row in `auth.identities`. So the
+"check `authUser.identities` for `provider === 'email'`" heuristic
+keeps returning `false` forever even though signInWithPassword
+would now work for them.
+**Fix**: Don't read "has password" off the identities array. Mirror
+`auth.users.encrypted_password is not null` into
+`public.users.has_password` via an AFTER-UPDATE trigger
+(migration 0027), then read that column on the normal profile fetch.
+The identity-array heuristic stays as a pre-0027 fallback.
+**Where**: `supabase/migrations/0027_username_case_and_has_password.sql`
++ `src/js/auth.js buildCurrentUser`. The same `has_password` column
+also lets the privilege-escalation guard (0028) treat
+`has_password` as server-only.
+
+---
+
+## Notification `notify_*_in_app` flags gate the in-app fanout — schema default `true`, but a user-toggle silently disables EVERYTHING
+
+**Symptom**: uni_staff signs in, no bell badge, the offcanvas shows
+"ยังไม่มีการแจ้งเตือน" even though VP-Admin has been actively sending
+documents. Discord and email channels also stop firing.
+**Cause**: `public.project_settings` has four channel flags
+(`notify_uni_in_app`, `notify_uni_email`, `notify_vp_in_app`,
+`notify_vp_discord`) defaulting to `true` in schema 0005. The notify
+fanout in `src/js/projects/notify.js` checks each one with the
+shape `if (settings?.notify_uni_in_app !== false) { create row }` —
+so a row flipped to `false` (user save of the manage form, or any
+PATCH) silently disables the entire channel. Bell empty looks like a
+broken query but is really a config-off state.
+**Fix**: Restore via SQL (or the manage UI now that the pane is
+reachable):
+```sql
+update public.project_settings
+   set notify_uni_in_app = true, notify_vp_in_app  = true,
+       notify_uni_email  = true, notify_vp_discord = true
+ where id = 1;
+```
+Past missed sends do NOT backfill — only new actions get rows.
+**Where**: settings row in Supabase; flag checks in
+`src/js/projects/notify.js` (`notifyUniStaff` / `notifyVpAdmin`).
+Future thought: if "no notifications" feels broken often, change
+the offcanvas empty-state to surface a "การแจ้งเตือนในแอปถูกปิดอยู่"
+hint when `settings.notify_*_in_app === false`.
+
+---
+
+## Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
+
+**Symptom**: sastaff (uni_staff) clicks "รับเรื่อง" / "เสร็จสิ้น" /
+"คอมเมนต์" and the card takes a noticeable beat to update.
+**Cause**: The doc action handlers `await notifyVpAdmin(...)` BEFORE
+calling `onChanged()` (the re-render). `notifyVpAdmin` awaits
+`queueDiscord(...)`, which enforces `MIN_DISCORD_SPACING_MS` (6s) between
+calls plus up to ~20s of GAS retry budget — so the UI sat waiting on an
+out-of-band side-channel that the user doesn't need to see complete.
+**Fix**: Re-render FIRST (`markDocSeen` + `onChanged()`), then fire the
+notify fire-and-forget (`.catch(() => {})`). Discord is best-effort and
+already serialised + logged inside `notify.js`; nothing depends on the
+await. Applied to `onDocStatusClick`, `onDocReturnClick`,
+`onDocResendClick`, `onDocCommentClick`, `onCommentEditClick`.
+**Where**: `src/js/projects/inbox.js`. Never `await` a serialised /
+rate-limited side-channel on a click handler's render path — fire it
+after the render.
+
+---
+
+## Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back forces a password re-login
+
+**Symptom**: Signed in as VPA, switch to dev (works), then tap back to
+VPA → forced to re-enter VPA username/password. Every *subsequent*
+switch (dev↔vpa, to other accounts) then works. Only the FIRST
+switch-back to a given account fails.
+**Cause**: `pickAccount()` snapshotted the outgoing account with
+`rememberAccount(getUser())` (whose token capture is a fire-and-forget
+`getCurrentSessionTokens().then(write)`), then `await sleep(80)`, then
+`setAuthSession(targetTokens)`. The 80ms was a *hope* that the capture
+flushed first. When it didn't, `getSession()` resolved AFTER the session
+was already swapped to the target — so the **target's** tokens got
+written onto the **outgoing** account's saved entry. Worse, those target
+tokens were the pre-swap refresh_token, which `setAuthSession` had just
+**rotated** (supabase refresh tokens are single-use) — so they were
+already dead. Switching back replayed that dead token → `setAuthSession`
+returns null → `clearSavedTokens` → password path. The re-login then
+saved fresh, correct tokens, so every later switch worked.
+**Fix**: Capture the outgoing tokens *synchronously awaited* while the
+live session is still that account, BEFORE the swap. Split
+`rememberAccount` into `writeAccountEntry()` (sync identity row) +
+`stitchCurrentTokens(key)` (awaitable token capture); add
+`rememberAccountAwait()` and call `await rememberAccountAwait(getUser())`
+in `pickAccount` (dropping the 80ms sleep). The normal sign-in subscriber
+path keeps the fire-and-forget `rememberAccount` (no swap racing it).
+**Where**: `src/js/account-switch.js`. Never capture a session's tokens
+fire-and-forget when the very next step replaces that session — the read
+will race the write and snapshot the wrong (and already-rotated) tokens.
+
+---
+
+## (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP — a broken IdP URL then hard-fails login with ERR_ADDRESS_INVALID
+
+**Symptom**: SAMO Passport login broke — after clicking "Board Your Flight",
+the browser showed `This site can't be reached` at
+`https://ssonext-api.kku.ac.th/sso/SingleSignOnService/kkumail.com.m`,
+`ERR_ADDRESS_INVALID`. Reproduced when signing in fresh / after logout.
+**Cause**: `signInWithOAuth({ options: { queryParams: { hd: 'kkumail.com' } } })`
+in `js/index.js` + `js/scanning.js` (added as a "pre-filter the Google chooser
+to kkumail" UX hint). But `kkumail.com` is a Google **Workspace domain with
+third-party SAML SSO** (KKU's IdP). Passing `hd` for such a domain makes Google
+skip its normal chooser and redirect **straight to that domain's IdP SSO URL**,
+which for KKU is malformed (`…/kkumail.com.m`) → Chrome can't navigate it →
+`ERR_ADDRESS_INVALID`. `hd` is documented as only a hint, but for an SSO-federated
+Workspace domain it changes the flow, not just the UI.
+**Fix**: Remove `queryParams.hd` from every `signInWithOAuth` call. The normal
+Google chooser routes a kkumail login through Google's own (working) SSO
+handling; the real kkumail-only enforcement is the app-side gate
+(`getPassportAccess` / `renderAccessBlock`), so nothing is weakened. If the
+error persists with a REAL kkumail account after removing `hd`, the fault is
+KKU's SSO endpoint (their infra), not our code.
+**Where**: passport repo `js/index.js`, `js/scanning.js` (commit `33ddf07`).
+Don't reintroduce `hd` for any OAuth call against an SSO-federated Workspace
+domain — enforce the domain app-side instead.
+
+---
+
+## (Passport) An `AFTER INSERT`-on-`auth.users` re-key trigger only fires for accounts that have NEVER logged into the project — pre-existing accounts silently don't get their carried data
+
+**Symptom**: A gmail→kkumail migration test on `pmphuriphat→phuriphat.ma`
+showed the receiving kkumail account with **no points/activities/stamps**,
+even though the migration "moved" the data.
+**Cause**: The merge relies on `passport_link_user_by_email()`, wired as
+`on_auth_user_created_passport_link` **AFTER INSERT on auth.users** (0060/0063).
+It re-keys a carried profile (matched by email) to the new auth uuid — but only
+on the **INSERT** of the auth user, i.e. the account's **first-ever login** to
+the project. `phuriphat.ma` already had an auth user (logged in months earlier),
+so the trigger had already fired (finding nothing then) and will NOT fire again;
+`ensureProfile()` matches by **uuid only** (not email), so it just creates an
+empty profile. Data stranded on the old-uuid profile. **The real 5 are fine** —
+verified none of their kkumail addresses had a pre-existing `auth.users` row, so
+their first kkumail login WILL fire the re-key. The trap is only for a target
+account that already exists.
+**Fix / how to test such a case faithfully**: don't rely on the login trigger
+for an already-existing target — do the re-key manually (move
+`scans.user_id`/`season_results.user_id`/`profiles.id` old→new uuid), which is
+exactly what the trigger would have done. Before any future re-key migration,
+check `auth.users` for a pre-existing target row; if present, the trigger won't
+fire and the profile must be merged/re-keyed explicitly.
+**Where**: trigger in `0060`/`0063`; `ensureProfile` in passport `js/auth.js`;
+verification + tracker queries recorded in STATE.md passport section.
+
+---
+
+## Adding `prefers-color-scheme: dark` to ONE component in a light-only app makes just that component go dark on a dark-mode OS
+
+**Symptom**: The new landing-page stat strip rendered **dark green** while the
+rest of the (white) site stayed light. Only happened for users whose OS/browser
+was set to dark mode.
+**Cause**: This app is **light-only** — a repo-wide grep shows ZERO
+`prefers-color-scheme` / `data-theme` rules anywhere except the files just added
+(`home-stats.css`, `analytics.css`). Those new files included
+`@media (prefers-color-scheme: dark)` + `:root[data-theme="dark"]` overrides
+(a good habit for standalone artifacts / theme-aware sites — but wrong here).
+With no app-level theme system, the media query is the ONLY thing reacting to
+the OS preference, so a dark-mode visitor got a dark component island floating
+in the otherwise-white page. The general "design both themes" guidance has an
+explicit carve-out — *"a design that deliberately commits to one visual world
+may stay single-theme"* — and this app has committed to light.
+**Fix**: Remove all `prefers-color-scheme` / `data-theme` blocks from
+`home-stats.css` + `analytics.css`; they now render light unconditionally.
+**Rule**: before adding dark-mode CSS to a NEW component, grep the app for an
+existing theme system (`prefers-color-scheme`, `data-theme`, a theme toggle). If
+there is none, the app is single-theme — match it, don't unilaterally introduce
+a half-theme that only your component honors. (Standalone Artifacts are the
+exception — those SHOULD be theme-aware; the deployed app is not.)
+**Where**: `src/css/home-stats.css`, `src/css/analytics.css`.
+
+---
+
+## A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col` — the OUT-param name shadows the query column, so it sorts by the NULL variable
+
+**Symptom**: `find_similar_vs_tickets` (migration 0068) returned the right rows
+but in the wrong order — "most similar" was NOT first. No error; the migration
+applied clean (the bug only executes at call time, which needs a real staff JWT,
+so it never showed during `apply-migration`).
+**Cause**: the function is `returns table (... sim real)` and the body did
+`return query select …, similarity(…) order by sim desc`. In PL/pgSQL every
+`RETURNS TABLE` column is also an OUT **variable**. The final SELECT column is the
+*expression* `similarity(…)` — it has no output name `sim` — so `order by sim`
+does NOT bind to the query column; it binds to the OUT variable `sim`, which is
+unset (NULL) at that point → `order by NULL` → no effective sort. Postgres does
+not raise; it just doesn't sort.
+**Fix**: order by the **explicit expression**, never the OUT-param name:
+`order by …, similarity(regexp_replace(…), v_problem) desc`. (Alternatives:
+rename the OUT column so it can't shadow, or `order by <position>`.)
+**Where**: `supabase/migrations/0068_vs_dedup.sql` `find_similar_vs_tickets`.
+Rule: in any `RETURNS TABLE` PL/pgSQL function, never `ORDER BY`/`WHERE` on an
+OUT-param name that isn't an actual output alias of the query — use the
+expression or a column position. Verify sort-dependent RPCs by executing them
+(not just applying), since the shadowing is silent.
+
+---
+
+## `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
+
+**Symptom**: ประกาศ (announcement covers) and SAMO Shop product/banner images
+"never load" on iPad — but load fine on desktop Chrome, AND the exact same
+image URL opens fine when tapped DIRECTLY in iPad Safari, AND a page refresh on
+the iPad often brings them back. Looks like a broken image / permission / CORS
+bug; it's none of those (the bytes are reachable).
+**Cause**: images were embedded as
+`https://drive.google.com/thumbnail?id=<id>&sz=w2000`. That endpoint **302-
+redirects to `lh3.googleusercontent.com`** on every load. iOS Safari drops the
+redirected subresource load intermittently on a cold cache (extra hop + slower/
+stricter than desktop) → the `<img>` stays blank. A refresh (warm cache) or a
+direct top-level navigation (no redirect-in-`<img>` context) succeeds, which is
+why it looked flaky and device-specific. `sz=w2000` also over-fetches (2000px
+for a ~140–260px card), adding to iOS image-memory pressure.
+**Fix**: emit the **direct CDN** form `https://lh3.googleusercontent.com/d/<id>=w1200`
+— no redirect, correct Content-Type, smaller payload — in `convertDriveUrl`
+(`src/js/uploads.js`). It now ALSO runs at RENDER time (not just on upload), so
+it rewrites the legacy `thumbnail?id=` URLs already stored in the DB → existing
+rows fixed with no data migration. Kept `loading="lazy"` (dropping it would
+decode every image at once and worsen iOS memory). Both forms still need the
+file shared "anyone with the link".
+**Where**: `src/js/uploads.js` `convertDriveUrl` (+ test). Applied at EVERY
+Drive-image render site (the shared bug — grep audit): `announcements.js`
+covers+inline via `pickCover`, `departments.js` card cover, `shop/products.js`
+banner/launch/grid, `shop/admin.js` product+banner lists. **Rule**: never put a
+`drive.google.com/thumbnail` (or `/uc?export=view`, or a `/file/d/…/view`) URL
+straight into an `<img src>` — always run it through `convertDriveUrl` so it
+becomes the redirect-free lh3 URL. Verify image bugs on the REPORTED device
+class (iOS Safari here), not just desktop — the redirect only bites iOS.
+
+---
+
+## A `data-role="x"` element with no matching toggle in the JS is visible to EVERYONE — and a role with no empty-state copy reads as a broken page
+
+**Symptom**: "I assigned myself as อาจารย์ on ทีม SAMO, but when I open
+หนังสือโครงการ I see nothing." Not a permission bug — verified live that 0 sign
+requests named that account (all 11 named `saprof`), so an empty inbox was
+CORRECT. It looked broken because of what the empty state said: nothing.
+**Cause**: `#projectsGridEmpty` carries one `<span data-projects-role="…">` per
+role, and `applyRoleVisibility()` toggled `d-none` on the `vp_admin` and
+`uni_staff` spans only. There was no `sa_prof` span at all, so a professor got
+the heading "ยังไม่มีโครงการในมุมมองนี้" above an EMPTY paragraph — no reason, no
+next step. A role whose normal state is "empty until someone sends you
+something" needs that said out loud, or every professor's first login looks like
+a failure.
+**The trap in the fix**: these spans carry NO `d-none` in the markup — they are
+hidden by the JS toggling it ON. So adding a `data-projects-role="sa_prof"` span
+WITHOUT adding a matching `querySelectorAll` block makes it visible to every
+role instead of only the professor (a vp_admin would read both "กด สร้าง
+โครงการใหม่" and "เมื่อเจ้าหน้าที่คณะส่งหนังสือมาให้ลงนาม"). Default-visible +
+opt-in hiding means an unhandled attribute FAILS OPEN.
+**Where**: `src/html/tab-projects.html` `#projectsGridEmpty`;
+`src/js/projects/index.js` `applyRoleVisibility()` (now toggles all three roles).
+**Rules**: (1) when a role can legitimately see zero rows, write its empty-state
+copy — "nothing here yet" and "you have no access" look identical to a user.
+(2) Any attribute-driven visibility scheme that hides by ADDING a class fails
+open; grep that every value in the markup has a handler
+(`grep -o 'data-projects-role="[a-z_]*"' src/html/*.html | sort -u` vs the
+`querySelectorAll` calls) whenever you add a role.
