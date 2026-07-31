@@ -251,15 +251,50 @@
                    no cluster. Rendered from cache in openStaffModal. -->
               <div id="staffDupTree" class="d-none mb-3"></div>
 
-              <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-search me-1"></i>ค้นหาเรื่องอื่นเพื่อรวม</h6>
+              <!-- DIRECTION PICKER. The old UI had exactly one direction and
+                   expressed it only in a button label on the OTHER ticket's row
+                   ("รวมเข้าเรื่องนี้") — where "นี้" reads as the open ticket,
+                   i.e. the exact opposite of what it did. Direction is now a
+                   mode the user picks, restated as a full sentence naming both
+                   ids, and every button says which ticket it acts on. -->
+              <div class="vs-merge-dir mb-3">
+                <div class="btn-group w-100" role="group" aria-label="ทิศทางการรวมเรื่อง">
+                  <input type="radio" class="btn-check" name="vsMergeDir" id="vsMergeDirPush" value="push" checked>
+                  <label class="btn btn-outline-secondary btn-sm text-start" for="vsMergeDirPush">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                    <strong>เรื่องนี้ซ้ำกับเรื่องอื่น</strong>
+                    <span class="d-block small opacity-75">เรื่องที่เปิดอยู่จะกลายเป็นเรื่องซ้ำ</span>
+                  </label>
+                  <input type="radio" class="btn-check" name="vsMergeDir" id="vsMergeDirPull" value="pull">
+                  <label class="btn btn-outline-secondary btn-sm text-start" for="vsMergeDirPull">
+                    <i class="bi bi-collection me-1"></i>
+                    <strong>ดึงเรื่องอื่นมารวมที่นี่</strong>
+                    <span class="d-block small opacity-75">เรื่องที่เปิดอยู่เป็นเรื่องหลัก · เลือกได้หลายเรื่อง</span>
+                  </label>
+                </div>
+                <!-- Filled by renderMergeDirection(): one sentence naming the
+                     open ticket and what happens to it. -->
+                <div id="vsMergeDirNote" class="alert alert-info small py-2 px-3 mt-2 mb-0"></div>
+              </div>
+
+              <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-search me-1"></i>ค้นหาเรื่องอื่น</h6>
               <input type="search" id="staffMergeSearch" class="form-control mb-2"
-                placeholder="พิมพ์ข้อความ หรือรหัส VS-… แล้วเลือกเรื่องหลักที่จะรวมเข้า" autocomplete="off">
+                placeholder="พิมพ์ข้อความ หรือรหัส VS-…" autocomplete="off">
               <div id="staffSearchResults"><div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div></div>
 
               <hr class="my-3">
               <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-magic me-1"></i>ระบบแนะนำว่าคล้ายกัน</h6>
               <div id="staffSimilarBody">
                 <div class="text-muted small">เปิดแท็บนี้เพื่อค้นหา…</div>
+              </div>
+
+              <!-- Pull-mode action bar. Sticky so a long result list never
+                   leaves the confirm button off-screen. -->
+              <div id="vsMergePullBar" class="vs-merge-pullbar d-none">
+                <div class="small" id="vsMergePullCount"></div>
+                <button type="button" class="btn btn-primary btn-sm" id="vsMergePullBtn">
+                  <i class="bi bi-diagram-3 me-1"></i>ยุบเข้าเรื่องนี้
+                </button>
               </div>
             </div>
 

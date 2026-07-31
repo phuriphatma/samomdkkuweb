@@ -480,3 +480,49 @@
 @media (max-width: 575.98px) {
   .vs-remark-vis select { max-width: 100%; flex-basis: 100%; }
 }
+
+/* --- merge direction picker + bulk bar (เรื่องซ้ำ tab) ---------------------
+ * Admin-entry only, same reason as .vs-remark-vis above: modal-vs-staff.html
+ * is included by admin/index.html alone, so these rules live here and NOT in
+ * vs.css (which only the public entry imports).
+ *
+ * The two mode buttons carry a bold title + a small explainer line, so they
+ * need to stack vertically and wrap — Bootstrap's .btn centres and nowraps by
+ * default, which would truncate the Thai explainer on a phone. */
+.vs-merge-dir .btn-group { flex-wrap: wrap; }
+.vs-merge-dir .btn {
+  white-space: normal;
+  line-height: 1.35;
+  padding-block: 0.5rem;
+  flex: 1 1 12rem;
+}
+.vs-merge-dir .btn-check:checked + .btn {
+  background-color: var(--pink-600, #0d6efd);
+  border-color: var(--pink-600, #0d6efd);
+  color: #fff;
+}
+.vs-merge-dir .btn-check:checked + .btn .opacity-75 { opacity: 0.9 !important; }
+
+/* Sticky so a long result list never pushes the confirm button off-screen —
+ * the whole point of pull mode is picking many rows before acting. */
+.vs-merge-pullbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: #fff;
+  border: 1px solid var(--pink-200, #dee2e6);
+  border-radius: 0.5rem;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.08);
+}
+.vs-merge-pullbar .btn { flex-shrink: 0; }
+
+/* Bigger tap target for the pull checkboxes — they are the primary control in
+ * pull mode and the default 1em box is a poor touch target on a phone. */
+[data-vs-pull] { width: 1.15rem; height: 1.15rem; cursor: pointer; }

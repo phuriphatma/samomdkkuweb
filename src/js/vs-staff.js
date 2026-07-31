@@ -644,7 +644,8 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   renderPublishPanel();
   wirePublishPanelOnce();
   resetSimilarPane();
-  resetMergeSearch();
+  wireMergeDirectionOnce();
+  resetMergeSearch();   // resets the direction too — must run after the wiring
   wireSimilarTabOnce();
   wireMergeSearchOnce();
   // getOrCreateInstance, NOT `new bootstrap.Modal(...)`: the dup tree /
@@ -1725,44 +1726,158 @@ function currentIsDuplicate() {
   return !!current?.duplicate_of;
 }
 
-/** One merge-target row (shared by the suggestion list + the search results).
- *  `pct` is a similarity % (suggestions) or null (search). */
+// ----- Merge direction (which ticket becomes the duplicate) -----
+//
+// The old panel had ONE direction and stated it only in a button label sitting
+// on the other ticket's row: "รวมเข้าเรื่องนี้". Read on that row, "นี้" points
+// at the row; read by someone who just opened a ticket, it points at the open
+// one — and it did the opposite of that second reading. Users reported exactly
+// that: they opened the main ticket, saw the list, and expected the listed
+// ticket to become the subticket.
+//
+// Direction is now explicit and BOTH directions exist:
+//   push — the OPEN ticket becomes a duplicate of the one you pick (triaging a
+//          fresh report against an existing thread). One target, so a button.
+//   pull — the tickets you pick become duplicates of the OPEN one (curating a
+//          known main). Many targets, so checkboxes + one bulk action — the
+//          10-into-1 case no longer means reopening 10 tickets and re-searching
+//          for the main each time.
+// Both call the same merge_vs_tickets(p_dup, p_canonical); only the argument
+// order differs.
+let mergeDir = 'push';
+/** Ids ticked in pull mode. Cleared on mode switch and after a merge. */
+const pullSelection = new Set();
+
+const isPull = () => mergeDir === 'pull';
+
+/** One merge row. `pct` is a similarity % (suggestions) or null (search). */
 function mergeTargetRow(s, isDup, pct) {
   const snippet = escHtml(String(s.problem_snippet || '').trim() || '(ไม่มีรายละเอียด)');
   const dept = escHtml(deptShort(s.target_dept));
   const status = escHtml(s.status || '');
-  const dupBadge = Number(s.dup_count) > 0
-    ? `<span class="badge bg-info-subtle text-info-emphasis">มี ${Number(s.dup_count)} ซ้ำ</span>` : '';
+  const kids = Number(s.dup_count) || 0;
+  const dupBadge = kids > 0
+    ? `<span class="badge bg-info-subtle text-info-emphasis">มี ${kids} ซ้ำ</span>` : '';
   const pctBadge = (pct != null)
     ? `<span class="badge bg-primary-subtle text-primary-emphasis flex-shrink-0" title="ความคล้าย">${pct}%</span>` : '';
-  const action = isDup
-    ? ''
-    : `<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" data-vs-merge="${escHtml(s.id)}">รวมเข้าเรื่องนี้</button>`;
+
+  let action = '';
+  let note = '';
+  if (isDup) {
+    action = '';
+  } else if (isPull()) {
+    // merge_vs_tickets refuses a source that already has its own duplicates
+    // (it would orphan them). Say so on the row instead of letting the click
+    // fail — the ticket is a legitimate main in its own right.
+    if (kids > 0) {
+      action = '<i class="bi bi-lock-fill text-muted flex-shrink-0" title="เป็นเรื่องหลักของกลุ่มอื่นอยู่"></i>';
+      note = '<div class="small text-warning-emphasis">เป็นเรื่องหลักของกลุ่มอื่นอยู่ — ต้องแยกกลุ่มนั้นออกก่อนจึงจะยุบเข้ามาได้</div>';
+    } else {
+      action = `<input type="checkbox" class="form-check-input flex-shrink-0 mt-1" data-vs-pull="${escHtml(s.id)}"
+        ${pullSelection.has(s.id) ? 'checked' : ''} aria-label="เลือก ${escHtml(s.id)}">`;
+    }
+  } else {
+    action = `<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0"
+      data-vs-merge="${escHtml(s.id)}">เลือกเป็นเรื่องหลัก</button>`;
+  }
+
   return `<div class="border rounded p-2 mb-2 d-flex align-items-start gap-2">
-    ${pctBadge}
+    ${isPull() ? action : pctBadge}
     <div class="flex-grow-1" style="min-width:0">
-      <div class="small fw-semibold">${escHtml(s.id)} <span class="text-muted">· ${dept} · ${status}</span> ${dupBadge}</div>
+      <div class="small fw-semibold">${escHtml(s.id)} <span class="text-muted">· ${dept} · ${status}</span> ${dupBadge} ${isPull() ? pctBadge : ''}</div>
       <div class="small text-muted text-truncate">${snippet}</div>
+      ${note}
     </div>
-    ${action}
+    ${isPull() ? '' : action}
   </div>`;
 }
 
+/** Wire the two mode buttons + the bulk action. Once per session. */
+let mergeDirWired = false;
+function wireMergeDirectionOnce() {
+  if (mergeDirWired) return;
+  mergeDirWired = true;
+  document.querySelectorAll('input[name="vsMergeDir"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      mergeDir = r.value === 'pull' ? 'pull' : 'push';
+      pullSelection.clear();
+      renderMergeDirection();
+      // Re-render both lists in the new direction from the data already
+      // fetched — switching mode must not cost a round trip. Guard the
+      // suggestions pane on having actually loaded: re-rendering an empty
+      // cache would replace its "เปิดแท็บนี้เพื่อค้นหา…" idle text with
+      // "ไม่พบเรื่องที่คล้ายกัน", which is a different (and untrue) claim.
+      if (similarLoaded) renderSimilar(lastSimilar);
+      renderSearchResults(lastSearch);
+    });
+  });
+  document.getElementById('vsMergePullBtn')?.addEventListener('click', onPullMergeClick);
+}
+
+/** Restate the direction as a sentence naming the open ticket, and show/hide
+ *  the bulk bar. Called on open, on mode switch and after every selection. */
+function renderMergeDirection() {
+  const note = document.getElementById('vsMergeDirNote');
+  const bar = document.getElementById('vsMergePullBar');
+  const count = document.getElementById('vsMergePullCount');
+  const id = escHtml(currentActiveTicketId || '');
+  if (note) {
+    note.innerHTML = isPull()
+      ? `<i class="bi bi-info-circle me-1"></i>เรื่องที่คุณติ๊กเลือก <strong>จะกลายเป็นเรื่องซ้ำ</strong> ของ <strong>${id}</strong> (เรื่องที่เปิดอยู่ = เรื่องหลัก)`
+      : `<i class="bi bi-info-circle me-1"></i><strong>${id}</strong> (เรื่องที่เปิดอยู่) <strong>จะกลายเป็นเรื่องซ้ำ</strong> ของเรื่องที่คุณเลือกด้านล่าง`;
+  }
+  const n = pullSelection.size;
+  bar?.classList.toggle('d-none', !isPull() || n === 0);
+  if (count) count.innerHTML = `เลือกไว้ <strong>${n}</strong> เรื่อง → ยุบเข้า <strong>${id}</strong>`;
+}
+
+/** Checkbox delegate for pull mode. */
+function onPullToggle(e) {
+  const id = e.currentTarget.getAttribute('data-vs-pull');
+  if (!id) return;
+  if (e.currentTarget.checked) pullSelection.add(id); else pullSelection.delete(id);
+  renderMergeDirection();
+}
+
+/** Bind the per-row controls of a freshly-rendered list. */
+function wireMergeRows(root) {
+  root.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
+  root.querySelectorAll('[data-vs-pull]').forEach((c) => c.addEventListener('change', onPullToggle));
+}
+
+/** Last payload from each RPC, so a direction switch re-renders without a
+ *  round trip (the rows are identical data — only the affordance differs). */
+let lastSimilar = [];
+let lastSearch = [];
+/** False until the suggestions RPC has actually answered for this ticket, so a
+ *  mode switch can tell "nothing similar" from "not fetched yet". */
+let similarLoaded = false;
+
 function renderSimilar(list) {
+  lastSimilar = Array.isArray(list) ? list : [];
+  similarLoaded = true;
   const body = document.getElementById('staffSimilarBody');
   if (!body) return;
   const isDup = currentIsDuplicate();
 
-  if (!list.length) {
+  if (!lastSimilar.length) {
     body.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่คล้ายกัน — ลองใช้ช่องค้นหาด้านบน</div>';
     return;
   }
-  const rows = list.map((s) => mergeTargetRow(s, isDup, Math.round(Number(s.sim || 0) * 100))).join('');
-  const hint = isDup
-    ? '<div class="alert alert-warning small py-2 px-3">เรื่องนี้ถูกรวมเป็นเรื่องซ้ำแล้ว — กด “แยกออก” ในแท็บรายละเอียดก่อน หากต้องการรวมกับเรื่องอื่น</div>'
-    : '<div class="text-muted small mb-2">หากเป็นเรื่องเดียวกัน กด “รวมเข้าเรื่องนี้” เพื่อยุบเป็นเรื่องซ้ำ (เวิร์กโฟลว์ SE↔VP ของเรื่องหลักไม่เปลี่ยน)</div>';
-  body.innerHTML = hint + rows;
-  body.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
+  const rows = lastSimilar
+    .map((s) => mergeTargetRow(s, isDup, Math.round(Number(s.sim || 0) * 100))).join('');
+  body.innerHTML = mergeHint(isDup) + rows;
+  wireMergeRows(body);
+}
+
+/** The one-line instruction above a result list, in the active direction. */
+function mergeHint(isDup) {
+  if (isDup) {
+    return '<div class="alert alert-warning small py-2 px-3">เรื่องนี้ถูกรวมเป็นเรื่องซ้ำแล้ว — กด “แยกออก” ในแท็บรายละเอียดก่อน จึงจะรวมเรื่องอื่นได้</div>';
+  }
+  return isPull()
+    ? '<div class="text-muted small mb-2">ติ๊กเลือกเรื่องที่เป็นเรื่องเดียวกัน (เลือกได้หลายเรื่อง) แล้วกดปุ่มยุบด้านล่าง</div>'
+    : '<div class="text-muted small mb-2">กด “เลือกเป็นเรื่องหลัก” บนเรื่องที่จะเป็นตัวหลัก — เรื่องที่เปิดอยู่จะกลายเป็นเรื่องซ้ำของมัน</div>';
 }
 
 // ----- Search for a merge target (0070) -----
@@ -1785,6 +1900,16 @@ function resetMergeSearch() {
   if (input) input.value = '';
   const res = document.getElementById('staffSearchResults');
   if (res) res.innerHTML = '<div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div>';
+  // A selection belongs to the ticket it was made in — carrying it into the
+  // next ticket would silently merge the wrong things on the next click.
+  lastSimilar = [];
+  lastSearch = [];
+  similarLoaded = false;
+  pullSelection.clear();
+  mergeDir = 'push';
+  const push = document.getElementById('vsMergeDirPush');
+  if (push) push.checked = true;
+  renderMergeDirection();
 }
 
 async function runMergeSearch() {
@@ -1807,21 +1932,73 @@ async function runMergeSearch() {
     res.innerHTML = `<div class="text-danger small">ค้นหาไม่สำเร็จ: ${escHtml(String(error.message || '').slice(0, 120))}</div>`;
     return;
   }
-  const list = Array.isArray(data) ? data : [];
-  if (!list.length) {
-    res.innerHTML = '<div class="text-muted small py-2">ไม่พบเรื่องที่ตรงกับคำค้น</div>';
+  renderSearchResults(Array.isArray(data) ? data : []);
+}
+
+function renderSearchResults(list) {
+  lastSearch = Array.isArray(list) ? list : [];
+  const res = document.getElementById('staffSearchResults');
+  if (!res) return;
+  if (!lastSearch.length) {
+    // Keep the idle prompt when there is simply nothing searched yet — only
+    // report "no match" once a query has actually run.
+    const q = (document.getElementById('staffMergeSearch')?.value || '').trim();
+    res.innerHTML = q.length < 2
+      ? '<div class="text-muted small">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา…</div>'
+      : '<div class="text-muted small py-2">ไม่พบเรื่องที่ตรงกับคำค้น</div>';
     return;
   }
   const isDup = currentIsDuplicate();
-  res.innerHTML = list.map((s) => mergeTargetRow(s, isDup, null)).join('');
-  res.querySelectorAll('[data-vs-merge]').forEach((b) => b.addEventListener('click', onMergeClick));
+  res.innerHTML = lastSearch.map((s) => mergeTargetRow(s, isDup, null)).join('');
+  wireMergeRows(res);
+}
+
+/**
+ * PULL: every ticked ticket becomes a duplicate of the OPEN one.
+ *
+ * Runs merge_vs_tickets once per selected ticket, sequentially — deliberately
+ * NOT a bulk RPC. Each merge is independently meaningful, so a partial result
+ * is a correct outcome, not a broken transaction: if 8 of 10 land and 2 are
+ * refused (a dept outside the caller's scope, or a ticket that grew its own
+ * duplicates since the search), keeping the 8 is what the user wants. What
+ * they must not get is a silent partial — hence the per-ticket report.
+ * Sequential rather than Promise.all so a failure never races the others and
+ * the ordering in the report matches the list.
+ */
+async function onPullMergeClick() {
+  const canonicalId = currentActiveTicketId;
+  const ids = [...pullSelection];
+  if (!canonicalId || !ids.length) return;
+  if (!confirm(`ยุบ ${ids.length} เรื่องเข้าเป็นเรื่องซ้ำของ ${canonicalId} ?\n\n${ids.join(', ')}\n\nเรื่องเหล่านี้จะติดตามสถานะของ ${canonicalId} และปิดอัตโนมัติเมื่อ ${canonicalId} เสร็จสิ้น`)) return;
+
+  const btn = document.getElementById('vsMergePullBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'กำลังยุบ...'; }
+  const failed = [];
+  for (const dupId of ids) {
+    const { error } = await dbRest('/rpc/merge_vs_tickets',
+      { method: 'POST', body: { p_dup: dupId, p_canonical: canonicalId } });
+    if (error) failed.push(`${dupId}: ${String(error.message || 'unknown').slice(0, 80)}`);
+  }
+  const ok = ids.length - failed.length;
+  pullSelection.clear();
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-diagram-3 me-1"></i>ยุบเข้าเรื่องนี้'; }
+
+  // Unlike push, the open ticket is still the one being worked on — stay in
+  // it, refresh, and let the dup tree show the cluster that was just built.
+  await fetchStaffTickets();
+  reopenCurrentTicket();
+  if (failed.length) {
+    alert(`ยุบสำเร็จ ${ok} จาก ${ids.length} เรื่อง\n\nไม่สำเร็จ:\n${failed.join('\n')}`);
+  } else {
+    staffSaveStatus(`ยุบ ${ok} เรื่องเข้า ${canonicalId} แล้ว`);
+  }
 }
 
 async function onMergeClick(e) {
   const canonicalId = e.currentTarget.getAttribute('data-vs-merge');
   const dupId = currentActiveTicketId;
   if (!canonicalId || !dupId) return;
-  if (!confirm(`รวม ${dupId} เข้าเป็นเรื่องซ้ำของ ${canonicalId} ?\nเรื่องนี้จะปิดอัตโนมัติเมื่อ ${canonicalId} เสร็จสิ้น`)) return;
+  if (!confirm(`รวม ${dupId} (เรื่องที่เปิดอยู่) เข้าเป็นเรื่องซ้ำของ ${canonicalId} ?\n\n${canonicalId} จะเป็นเรื่องหลัก — ${dupId} จะติดตามสถานะของมันและปิดอัตโนมัติเมื่อ ${canonicalId} เสร็จสิ้น`)) return;
   e.currentTarget.disabled = true;
   const { error } = await dbRest('/rpc/merge_vs_tickets',
     { method: 'POST', body: { p_dup: dupId, p_canonical: canonicalId } });
