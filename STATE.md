@@ -48,7 +48,7 @@ the measurements are in the archive.
 ## APPS SCRIPT — automated deploys (new)
 
 `npm run deploy:gas` (`tools/deploy-gas.mjs`). Live state: script `179DfoS1…`,
-deployment `AKfycbw1iHE4…` **@50**, `/exec` URL unchanged.
+deployment `AKfycbw1iHE4…` **@51**, `/exec` URL unchanged.
 
 - Setup already done on this Mac: `npx clasp login` (as
   `mdstuddata.beta@gmail.com`), Apps Script API enabled, `GAS_SCRIPT_ID` in
@@ -66,7 +66,7 @@ deployment `AKfycbw1iHE4…` **@50**, `/exec` URL unchanged.
 - Canary: `POST {action:'uploadTeamFile'}` with no `folderPath` → the handler
   validates before touching Drive, so it proves the new code is serving while
   writing nothing. `folderPath is required` = new, `Unknown action` = old.
-- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 49`.
+- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 50`.
 
 ### Drive layout: `My Drive / IT Database` + canonical names (@49, DONE)
 
@@ -100,13 +100,12 @@ only moves/renames, so no stored URL changed and nothing was backfilled.
   `samopassport` Apps Script project, re-deploy the existing deployment, then
   Run ▸ `migrateDriveLayout` there. Until then `badges`/`certificates` stay at
   My Drive root.
-- **PENDING (one click)**: `tidyScriptFiles()` ships in @50 — Run it once from
-  the editor to move `prformweb` + `samopassport` into `IT Database/_Scripts/`
-  and trash the orphan. It verifies each id still carries its expected NAME and
-  refuses otherwise, is idempotent, and trashes rather than purges. Delete the
-  function afterwards. (An agent can't do this directly: the clasp token holds
-  only `drive.file` + read-only metadata, and Drive 403s on files it didn't
-  create.)
+- **DONE**: the Apps Script projects are Drive files too, and now live in
+  `IT Database/_Scripts/` — `prformweb` (the Sheet this script is bound to) and
+  `samopassport`. `Uploadbadgesamopassport` (dead prototype) is trashed,
+  recoverable ~30 days. Done by a run-once `tidyScriptFiles()` in @50, removed
+  again in @51. **Moving the container Sheet did NOT disturb the deployment** —
+  proven by the @51 deploy + live probe afterwards.
 - **PENDING (setup, yours)**: `clasp run` — see `skills/deploy-gas.md`. Needs a
   standard GCP project attached to the script, a Desktop OAuth client, and an
   **API Executable** deployment. That extra deployment does NOT touch the web
