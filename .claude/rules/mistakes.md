@@ -2046,6 +2046,106 @@ for them after adding a role.
 
 ---
 
+## An UPDATE that moves a row OUT of your own SELECT policy fails with the WITH-CHECK error — the read policy is re-applied to the NEW row, so a handoff is un-PATCHable
+
+**Symptom** (reported): a dept-scoped VitalSound handler picks "โอนคืน SE" and
+gets `บันทึกไม่สำเร็จ: {"code":"42501", …"new row violates row-level security
+policy for table \"vs_tickets\""}`. Every other save on the same ticket works.
+**The trap is the error message.** It names the WITH CHECK failure mode, so you
+go read the UPDATE policy — and `vs_tickets_update_staff`'s WITH CHECK (0082)
+*explicitly* permits SE:
+`... or (current_user_role() = 'vp_admin' and target_dept = any(array[current_user_dept(),'SE']))`.
+It is not lying. Three separate proofs that the UPDATE policy passes:
+evaluating the expression pulled straight from `pg_policy` returned **true**; a
+probe wired in as `(<orig>) or _dbg_raise(…)` **never fired** for `'SE'` while
+firing correctly for a genuinely-forbidden other-dept value; and rewriting it to
+`with check (true)` **with every user trigger disabled** produced the same 42501.
+That last one is the experiment to reach for early — it costs one query and
+rules the whole policy out.
+**Cause**: Postgres re-applies the **SELECT** policy to the NEW row on UPDATE and
+reports the failure with WITH-CHECK wording. `vs_tickets_read` scopes a handler
+to their own dept (`target_dept = current_user_dept()` /
+`= any(current_user_vs_depts())`), so the instant `target_dept` becomes `'SE'`
+the row leaves the writer's visibility. Confirmed by widening ONLY
+`vs_tickets_read` to `using (true)`, both UPDATE policies untouched: the very
+same statement returns `rows=1`. This is the UPDATE flavour of the
+`INSERT … RETURNING` entry above — and it does **not** need `RETURNING`; a bare
+plpgsql `update` reproduces it.
+**The general shape**: any UPDATE whose *whole purpose* is to move a row out of
+your scope cannot satisfy a SELECT policy keyed on that scope. Handoffs,
+reassignment, transfer-of-ownership, "release back to the pool" — all
+structurally un-PATCHable. And the read policy is CORRECT (you handed the ticket
+off; you should not keep reading it), so widening it is the wrong fix.
+**Fix**: route the move through a SECURITY DEFINER RPC that re-applies the same
+predicate the UPDATE policy encodes — the pattern already used for soft-delete
+(0043/0045), publish (0072) and merge (0083). `vs_transfer_dept(p_id, p_dept,
+p_remarks)` (0107). RLS is unchanged; nothing gains a new read. Two details
+worth copying: it takes the timeline array so the move + its log land in ONE
+statement, and the client withholds the "โอนย้ายฝ่าย: X → Y" entry from the
+preceding PATCH so a refused transfer can never leave a timeline claiming a
+handoff that did not happen. `p_dept` is null/blank-checked BEFORE the
+`any(scope)` tests — `null = any(...)` is NULL and `if not (NULL) then` does not
+take the branch, so a null destination would otherwise have blanked the column
+(the recurring fail-open, again).
+**The sweep for the rest of the class** — run it whenever a SELECT policy starts
+keying on a mutable column:
+```sql
+select s.tablename, s.qual from pg_policies s
+ where s.schemaname='public' and s.cmd='SELECT' and s.qual !~ '^\(?true\)?$'
+   and exists (select 1 from pg_policies u where u.schemaname='public'
+                and u.tablename=s.tablename and u.cmd in ('UPDATE','ALL'));
+```
+then ask of each: *does the qual reference a column this writer can change?*
+Done 2026-07-31 — 22 tables, `vs_tickets.target_dept` was the only live
+instance. Every other narrow SELECT qual keys on the writer's own
+role/permission (`announcements`, `pr_tickets`, `shop_*`, `project_*`) or on a
+column the write policy pins (`user_id`, `buyer_id`), so the new row is always
+still visible to whoever wrote it.
+**Where**: `supabase/migrations/0107_vs_transfer_dept_rpc.sql`;
+`src/js/vs-staff.js` `submitStaffAction`; proof `tools/vs0107-transfer.mjs`
+(26 checks, both principal shapes — the shared vp_admin account AND a ทีม SAMO
+grantee with `managed_vs_depts`).
+**Two follow-ons this exposed, both worth the habit:**
+1. *A client pre-guard that only half-mirrors the server is a worse error
+   message, not a guard.* The warning fired only for `อุปนายก*` destinations, so
+   `คณะ` / `นายกสโม` skipped the friendly Thai text and hit the raw RLS error.
+   If you write a "catch it before the request" check, mirror the server
+   predicate exactly.
+2. *A modal that closes itself on success reads as a failure.* After a handoff
+   the ticket leaves the user's view, `reopenCurrentTicket()` hides the modal,
+   and the inline footer confirmation was being written into something the user
+   could no longer see. Say what happened out loud whenever the thing the user
+   was looking at disappears as a RESULT of what they did.
+
+---
+
+## Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
+
+**Symptom**: while reproducing the RLS bug above, a probe that did
+`update vs_tickets set target_dept='SE' where id = (select id … limit 1)` under
+a widened policy reported `rows=1` — and moved a **real production ticket** into
+SE. Caught only by diffing `select target_dept, count(*)` against a snapshot
+taken before the session.
+**Cause**: `db-query.mjs` posts to the Management API `database/query` endpoint,
+which runs the string as ONE implicit transaction and **commits**. Its header
+says "READ-ONLY" as a statement of intent, not an enforced mode. A plpgsql
+`begin … exception when others` block only rolls back the failing *sub*
+transaction; every probe that SUCCEEDED persisted.
+**Fix / how to probe safely**:
+- Every proof script in `tools/` ends its Management-API call with `rollback;`
+  for exactly this reason. Do the same for ad-hoc investigation — it is one word.
+- Snapshot the shape you are about to disturb (`select <col>, count(*) … group
+  by 1`) BEFORE the first write probe, and diff it after. That snapshot is what
+  turned "everything looks restored" into "one ticket is in the wrong dept".
+- `where id = (… limit 1)` with no `ORDER BY` picks a DIFFERENT row per call, so
+  verifying "the ticket I touched" by id proves nothing about the one an earlier
+  probe touched.
+**Restoring**: the ticket's own timeline said which dept it belonged to. Reverted
+with `touch_vs_tickets_updated_at` disabled so the restore did not stamp a third
+bogus `updated_at`, and set `updated_at` back to the last genuine event.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

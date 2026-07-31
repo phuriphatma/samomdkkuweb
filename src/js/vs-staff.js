@@ -1966,9 +1966,13 @@ export async function submitStaffAction() {
   // message before the request fires so users don't see the raw RLS error.
   if (deptChanged) {
     const scope = vsScopeDepts(authGetUser());
-    const isVPDest = (newDept || '').startsWith('อุปนายก');
-    if (scope.length && isVPDest && !scope.includes(newDept)) {
-      alert('ไม่สามารถส่งต่อให้อุปนายกท่านอื่นโดยตรงได้\n\nกรุณาเลือก "โอนคืน SE" เพื่อให้ SE พิจารณาและส่งต่อให้อุปนายกท่านที่เกี่ยวข้อง');
+    // Mirror the server rule EXACTLY (0082's WITH CHECK, re-applied by
+    // vs_transfer_dept in 0107): a scoped handler may keep a ticket in one of
+    // their own depts or hand it back to SE — nothing else. Checking only
+    // อุปนายก destinations used to let 'คณะ' / 'นายกสโม' through the client and
+    // die on the server with a raw error instead of this message.
+    if (scope.length && newDept !== 'SE' && !scope.includes(newDept)) {
+      alert('ไม่สามารถส่งต่อให้ฝ่ายอื่นโดยตรงได้\n\nกรุณาเลือก "โอนคืน SE" เพื่อให้ SE พิจารณาและส่งต่อให้ฝ่ายที่เกี่ยวข้อง');
       return;
     }
   }
@@ -2002,8 +2006,14 @@ export async function submitStaffAction() {
     if (statusChanged) {
       remarks.push({ type: 'log', by: actor, time, at, text: `เปลี่ยนสถานะ: "${existing.status}" → "${newStatus}"` });
     }
+    // The transfer log is held aside: the move itself cannot go out with this
+    // PATCH (see the vs_transfer_dept call below), so the entry must not be
+    // written by it either — a refused transfer would otherwise leave a
+    // timeline claiming a handoff that never happened.
+    let transferEntry = null;
     if (deptChanged) {
-      remarks.push({ type: 'log', by: actor, time, at, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` });
+      transferEntry = { type: 'log', by: actor, time, at, text: `โอนย้ายฝ่าย: "${existing.target_dept}" → "${newDept}"` };
+      remarks.push(transferEntry);
     }
     if (notifyTo) {
       remarks.push({ type: 'log', by: actor, time, at, text: `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "${notifyTo}"` });
@@ -2047,9 +2057,10 @@ export async function submitStaffAction() {
       });
     }
 
-    const update = { remarks };
+    // The PATCH carries everything EXCEPT the dept move, and its remarks omit
+    // the transfer log — see the vs_transfer_dept call below for why.
+    const update = { remarks: remarks.filter((e) => e !== transferEntry) };
     if (statusChanged) update.status = newStatus;
-    if (deptChanged) update.target_dept = newDept;
     if (categoryChanged) update.category = newCategory || null;
     if (tagsChanged) update.tags = newTags;
     if (willWriteResolution) {
@@ -2067,6 +2078,28 @@ export async function submitStaffAction() {
     if (updErr) throw new Error(updErr.message || 'update failed');
     if (!Array.isArray(updated) || updated.length === 0) {
       throw new Error('อัปเดตไม่สำเร็จ — ไม่พบ ticket หรือคุณไม่มีสิทธิ์แก้ไข');
+    }
+
+    // The dept move goes through a SECURITY DEFINER RPC (0107) — it CANNOT
+    // ride the PATCH above. vs_tickets_read scopes a handler to their own
+    // target_dept, and Postgres re-applies the SELECT policy to the NEW row on
+    // UPDATE, so a handoff (โอนคืน SE) always 42501s with
+    // "new row violates row-level security policy" even though
+    // vs_tickets_update_staff's WITH CHECK explicitly permits it. The RPC
+    // re-applies that same predicate server-side and writes the transfer log
+    // in the same statement as the move. It runs LAST because after it lands
+    // the ticket may be out of this user's scope entirely — any further write
+    // would be refused.
+    if (deptChanged) {
+      const { error: mvErr } = await dbRest('/rpc/vs_transfer_dept', {
+        method: 'POST',
+        body: { p_id: currentActiveTicketId, p_dept: newDept, p_remarks: remarks },
+      });
+      if (mvErr) {
+        throw new Error(/authoriz|scope|42501/i.test(mvErr.message || '')
+          ? 'โอนย้ายฝ่ายไม่สำเร็จ — คุณไม่มีสิทธิ์โอนเรื่องนี้ไปยังฝ่ายที่เลือก (การแก้ไขอื่นถูกบันทึกแล้ว)'
+          : `โอนย้ายฝ่ายไม่สำเร็จ: ${mvErr.message || 'unknown'} (การแก้ไขอื่นถูกบันทึกแล้ว)`);
+      }
     }
 
     // Fire-and-forget Discord notification via the unified helper
@@ -2091,8 +2124,17 @@ export async function submitStaffAction() {
     // from the fresh row so the timeline, banners and publish panel show what
     // was just written. Closing is now the ปิด button's job, i.e. the user's.
     await fetchStaffTickets();
-    reopenCurrentTicket();
-    staffSaveStatus('บันทึกแล้ว');
+    // A handoff moves the ticket out of a scoped handler's own view, so
+    // reopenCurrentTicket() closes the modal — and the inline footer message
+    // would then be written into something the user can no longer see. Say it
+    // out loud instead: a modal that simply disappears reads as a failure.
+    if (reopenCurrentTicket()) {
+      staffSaveStatus('บันทึกแล้ว');
+    } else if (deptChanged) {
+      alert(`บันทึกแล้ว — โอนเรื่องไปยัง "${newDept}" เรียบร้อย\n\nเรื่องนี้ไม่อยู่ในความรับผิดชอบของฝ่ายคุณแล้ว จึงไม่แสดงในหน้าจอนี้อีก`);
+    } else {
+      alert('บันทึกแล้ว — เรื่องนี้ไม่อยู่ในมุมมองของคุณแล้ว');
+    }
   } catch (e) {
     staffSaveStatus('บันทึกไม่สำเร็จ: ' + (e.message || e), true);
   } finally {
@@ -2129,9 +2171,11 @@ function reopenCurrentTicket() {
   if (!t) {
     // The ticket left this user's view entirely (transferred to another dept
     // they can't see, or deleted by someone else). Nothing to re-render.
+    // Returning false lets the caller explain WHY the modal just closed.
     bootstrap.Modal.getInstance(document.getElementById('staffManageModal'))?.hide();
-    return;
+    return false;
   }
   openStaffModal(t.id, t.status, t.target_dept, t.problem,
     t.timestamp || t.created_at, t.remarks || []);
+  return true;
 }

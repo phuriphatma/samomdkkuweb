@@ -160,6 +160,19 @@
 
               <div class="mb-3">
                 <label class="form-label">ปัญหาที่ต้องการแจ้ง <span class="text-danger">*</span></label>
+                <!-- One ticket = one problem. A report bundling several issues
+                     can only carry ONE status / ฝ่าย / close reason, so the
+                     submitter loses track of whichever part isn't the one being
+                     worked on. Said here, next to the editor, rather than in the
+                     intro text nobody re-reads before typing. -->
+                <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-2 small" role="note">
+                  <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                  <span>
+                    <strong>กรุณาร้องเรียนทีละปัญหา</strong> เพื่อให้ง่ายในการติดตามปัญหา
+                    <span class="d-block text-muted mt-1">หากมีหลายเรื่อง กรุณาแยกส่งเป็นคนละรายการ
+                      เพื่อให้แต่ละเรื่องมีสถานะและผู้รับผิดชอบของตนเอง</span>
+                  </span>
+                </div>
                 <div class="caption-editor-shell shadow-sm">
                   <div id="vsQuillEditor"></div>
                 </div>
@@ -188,11 +201,19 @@
 
               <!-- Consent to anonymous board publication (0076). Stored as
                    vs_tickets.public_consent (true/false). SE still curates +
-                   approves; an explicit decline blocks vs_set_public. -->
+                   approves; an explicit decline blocks vs_set_public.
+                   OPT-OUT: `checked` by default — consenting is the common
+                   case and the board only works if reports reach it. Safe as a
+                   default because consent alone publishes NOTHING: SE must
+                   still curate and rewrite a headline (vs_set_public), the
+                   submitter is never named, and confidential categories are
+                   excluded outright. Unticking is one tap, right here.
+                   `checked` is an ATTRIBUTE, so form.reset() after a send
+                   restores the ticked state rather than clearing it. -->
               <div class="form-check form-switch mb-4 p-3 rounded-3"
                 style="background-color: var(--pink-50); border: 1px solid var(--pink-200)">
                 <input class="form-check-input ms-0 me-3 shadow-sm" type="checkbox" id="vsPublicConsent"
-                  name="vsPublicConsent" value="true" style="cursor: pointer" />
+                  name="vsPublicConsent" value="true" checked style="cursor: pointer" />
                 <label class="form-check-label mt-1" for="vsPublicConsent"
                   style="cursor: pointer; color: var(--pink-900)">
                   <i class="bi bi-megaphone me-1"></i>
@@ -206,7 +227,7 @@
                   <span class="d-block small text-muted mt-2">
                     <i class="bi bi-shield-check me-1"></i>
                     ทีมงานจะตรวจสอบและเขียนหัวข้อใหม่ก่อนเผยแพร่ — ไม่แสดงชื่อหรือข้อความดิบของคุณ
-                    หากไม่ติ๊ก เรื่องนี้จะไม่ถูกเผยแพร่สู่สาธารณะ
+                    หากไม่ต้องการ สามารถติ๊กออกได้ แล้วเรื่องนี้จะไม่ถูกเผยแพร่สู่สาธารณะ
                   </span>
                 </label>
               </div>

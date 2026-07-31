@@ -37,7 +37,13 @@ export const VS_RESOLUTIONS = [
     icon: 'bi-forward-fill',
     badge: 'bg-info text-dark',
     noteRequired: false,
-    manual: true,
+    // Retired from the close picker: "ส่งต่อให้คณะ" is a ROUTING step, not an
+    // outcome — โอนย้ายฝ่าย → คณะ is how a ticket gets forwarded, and closing
+    // it as done at the same time ends the submitter's tracking on a handoff
+    // nobody has finished yet. Kept in the vocab (and in the DB CHECK) so the
+    // rows already closed this way still render — same precedent as
+    // `duplicate` below.
+    manual: false,
   },
   {
     key: 'wont_do',

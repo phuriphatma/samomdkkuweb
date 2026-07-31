@@ -1,13 +1,46 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-30. Slim by design — "what is true right now". Shipped
+Last updated: 2026-07-31. Slim by design — "what is true right now". Shipped
 detail pruned out of here most recently:
 `docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
 `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
 
-## SHIPPED THIS SESSION — ทีม SAMO portraits + ปีการศึกษา (0104) — LIVE
+## SHIPPED — VitalSound: โอนย้ายฝ่าย unblocked (0107) + 3 form/copy changes
+
+Migration **0107 applied**. Proof `tools/vs0107-transfer.mjs` — **26/26**.
+
+- **โอนคืน SE was impossible for any dept-scoped handler** (a vp_admin, and the
+  ทีม SAMO grantees carrying `managed_vs_depts`): the save died with
+  `42501 new row violates row-level security policy for table "vs_tickets"`.
+  NOT the UPDATE policy — `vs_tickets_update_staff`'s WITH CHECK permits SE and
+  evaluates true (proved by probing the policy itself; `with check (true)` +
+  every trigger disabled still failed). The failing check is
+  **`vs_tickets_read`**: Postgres re-applies the SELECT policy to the NEW row on
+  UPDATE and reports it with WITH-CHECK wording. Since the read policy scopes a
+  handler to their own `target_dept`, a handoff is un-PATCHable by construction.
+  Fix: `vs_transfer_dept(p_id, p_dept, p_remarks)` — SECURITY DEFINER, re-applies
+  the same predicate, writes the move + timeline entry in one statement.
+  `vs-staff.js` PATCHes everything else first (with the transfer log withheld,
+  so a refused move can't leave a timeline claiming it happened), then calls the
+  RPC last. RLS on `vs_tickets` is UNCHANGED — nothing gained a new read.
+- **Swept for the same class**: every `public` table with a narrow SELECT policy
+  + an UPDATE policy. `vs_tickets.target_dept` is the ONLY live instance — every
+  other narrow SELECT qual keys on the writer's role/permission (announcements,
+  pr_tickets, shop_*, project_*), or on a column the write policy pins
+  (`user_id`, `buyer_id`), so the new row always stays visible to its writer.
+- **Client guard now mirrors the server exactly** — it only warned about
+  อุปนายก destinations, so `คณะ` / `นายกสโม` fell through to a raw server error.
+- **กระดานปัญหา consent is now opt-OUT** (`checked` by default on
+  `#vsPublicConsent`). Safe because consent publishes nothing on its own: SE
+  still curates + rewrites the headline, confidential categories are excluded.
+- **"กรุณาร้องเรียนทีละปัญหา"** notice sits directly above the problem editor.
+- **"ส่งต่อให้คณะ" retired from the เสร็จสิ้น reasons** (`forwarded.manual =
+  false`) — it is a ROUTING step, not an outcome. Kept in the vocab + the DB
+  CHECK so legacy rows render; 0 live rows use it.
+
+## SHIPPED EARLIER — ทีม SAMO portraits + ปีการศึกษา (0104) — LIVE
 
 Migration **0104 applied**, frontend **deployed to the VM**, Apps Script
 **deployed @47**. Nothing from this work is in flight.

@@ -15,12 +15,13 @@ describe('VS_RESOLUTIONS vocab', () => {
     ]);
   });
 
-  it('the staff close picker offers only manual reasons — duplicate is excluded', () => {
+  it('the staff close picker offers only manual reasons', () => {
     // duplicate is handled by the merge action (0074), never a terminal close.
-    expect(MANUAL_VS_RESOLUTIONS.map((r) => r.key)).toEqual([
-      'fixed', 'forwarded', 'wont_do',
-    ]);
+    // forwarded is a ROUTING step (โอนย้ายฝ่าย → คณะ), not an outcome — both
+    // stay in the vocab so legacy rows closed that way still render.
+    expect(MANUAL_VS_RESOLUTIONS.map((r) => r.key)).toEqual(['fixed', 'wont_do']);
     expect(vsResolution('duplicate').manual).toBe(false);
+    expect(vsResolution('forwarded').manual).toBe(false);
   });
 
   it('every reason carries staff + student labels, an icon and a badge', () => {
