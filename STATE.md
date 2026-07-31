@@ -164,6 +164,34 @@ My Drive/IT Database/
 Nothing of ours is left in My Drive root. Every folder kept its original id
 through the move+rename, so no stored URL changed and nothing was backfilled.
 
+### GAS security review 2026-07-31 — two live holes closed, one accepted
+
+Prompted by "scan for every bug thoroughly". Both were years old and neither
+was introduced by the Drive move; both are in `.claude/rules/mistakes.md`.
+
+- **CLOSED — passport `handleDelete_` trashed ANY fileId.** Anonymous endpoint,
+  `/exec` URL public in the shipped admin bundle ⇒ unauthenticated "trash any
+  file this account owns". Now requires the file to live under the app's own
+  folder, matched by folder **ID** so a rename can't widen or break it.
+  Verified both ways: a real file outside `Passport/` survives the attack, and
+  upload+delete of a badge still works (count back to 15).
+- **CLOSED — samoweb `notifyProjectEmail` was an OPEN RELAY.** Arbitrary
+  recipient/subject/body from the SAMO account as "MDKKU SAMO". Now a domain
+  allow-list (`kku.ac.th`, `kkumail.com`), overridable via the
+  `EMAIL_DOMAIN_ALLOWLIST` script property. EVERY recipient checked, exact
+  match. Verified: gmail / `kku.ac.th.evil.com` / `notkku.ac.th` / a smuggled
+  second recipient all rejected; a real `kku.ac.th` still sends. Live recipient
+  `woratho@kku.ac.th` unaffected.
+- **ACCEPTED, NOT FIXED — the remaining deletes are still unauthenticated.**
+  `deleteShopFile` / `deleteProjectFile` / `deleteProjectFolder` are scoped to
+  our own trees (bounded blast radius, 30-day Drive trash), but anyone with the
+  URL can destroy shop slips or a project folder. Closing it needs real auth
+  (verify the caller's Supabase JWT in GAS) across every delete call site — a
+  design change, not a patch. **Decide before the next campaign cycle.**
+- **PERF**: `warnIfSplit_` was 3 Drive round-trips on every upload (~half of
+  folder-resolution time). Clean results cached 6h, dirty never cached.
+  Resolution ~2.7s cold → ~0.7s warm.
+
 ### The three Apps Script projects (they are NOT one)
 
 | project | type | serves | live |

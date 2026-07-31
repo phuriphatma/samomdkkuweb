@@ -2650,3 +2650,55 @@ handler and find where YOUR input stops — a probe is only inert up to its firs
 guard, and every argument you make valid pushes execution further in. If a
 handler must be probeable, give it an explicit dry-run/validate-only branch
 rather than relying on an argument being absent.
+
+---
+
+## A public Apps Script web app is an UNAUTHENTICATED API — every handler must be scoped by what it may touch, because there is no caller to trust
+
+**Symptom**: none reported; found by asking of each `doPost` action "who can call
+this, and what can they reach?" Two live holes, both years old, both in code
+nobody thought of as an API surface:
+1. **Passport `handleDelete_`** — `DriveApp.getFileById(fileId).setTrashed(true)`
+   with NO ancestry check. Deployed `ANYONE_ANONYMOUS`, and its `/exec` URL ships
+   inside the public admin bundle (confirmed in `/passport/assets/admin-*.js`),
+   so it was an unauthenticated *trash any file this account owns* primitive. The
+   SAMO Drive holds `Academic Database`, exam keys, and the whole `IT Database`
+   tree; Drive ids of shared files are discoverable.
+2. **samoweb `notifyProjectEmail`** — `to`, `subject` and `htmlBody` taken
+   straight from the request into `MailApp.sendEmail({name:'MDKKU SAMO'})`. An
+   open relay: arbitrary mail to arbitrary recipients, from the institution's own
+   account, under a display name the recipients trust. Also a free way to burn
+   the ~100/day MailApp quota, which silently stops the real notifications.
+**Cause**: the mental model was "this is our upload helper", not "this is a
+public endpoint". Web-app handlers get written like internal functions —
+parameters treated as trusted because *our* frontend is the only thing that
+calls them. But `Execute as: Me` + `Who has access: Anyone` means every handler
+runs with the OWNER's full Drive/Gmail authority for any caller on the internet,
+and the URL is not a secret: `VITE_*` / `config.js` values are inlined into the
+bundle at build time.
+**Fix**: scope each handler by what it may REACH, since there is no identity to
+check. Deletes walk the parent chain and require the file to live under the
+app's own folder — comparing folder **IDs**, not names, so a rename can neither
+widen nor break the check. Email allow-lists recipient *domains* (overridable
+via a Script Property, so no redeploy to add one), validates EVERY recipient
+rather than the first, and uses exact matching — a suffix test would admit
+`kku.ac.th.evil.com`. Both reject loudly so a blocked call cannot read as a
+silent success.
+**Where**: `passport/gas/Upload.gs` `fileLivesUnderAppFolder_` + `handleDelete_`;
+`appscript/prform.gs` `sendProjectEmail` + `allowedEmailDomains_`. samoweb's
+other deletes already had the ancestry pattern — which is why the passport one
+stood out as the odd handler once the question was asked uniformly.
+**Rules**: (1) enumerate every `doPost` action and write down, per action, what
+an anonymous caller can reach with it — the ones that take an *id* or an
+*address* are the dangerous shape, because the caller chooses the target. (2)
+Never treat the `/exec` URL as a secret. (3) Test a guard from BOTH sides: a real
+target outside the allowed tree must survive, and the legitimate flow must still
+work — I verified the delete guard by attacking a real file (it survived) and
+then round-tripping a real upload+delete (count returned to its original 15).
+**Known residual, deliberately not fixed here**: the remaining destructive
+actions (`deleteShopFile`, `deleteProjectFile`, `deleteProjectFolder`) are still
+unauthenticated — scoped to our own trees, so blast radius is bounded and Drive
+keeps a 30-day trash window, but anyone who knows the URL can destroy shop slips
+or a project's folder. Closing that needs real authentication (verify the
+caller's Supabase JWT inside GAS), which is a design change across every delete
+call site, not a patch.
