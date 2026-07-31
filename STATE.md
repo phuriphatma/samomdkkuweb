@@ -73,6 +73,25 @@ the switch keep working. Deploying one cannot affect another.
   upload on a stale tab; Drive trash is recoverable 30 days.
 
 
+## READ THIS FIRST AFTER A /clear (2026-07-31 end of session)
+
+Everything below is DONE and verified live unless it says otherwise. Two things
+need a human, both small, neither breaking anything today:
+
+1. **Delete `prformweb_backup_candelete`** (the retired Sheet + its deployment
+   `AKfycbw1iHE4…`) whenever you like. It now runs the SAME patched code as the
+   live script, so it is no longer a liability — it exists only so tabs opened
+   before today's deploy keep working. HTML is `no-cache`, so that window is
+   open tabs only.
+2. **Re-enable the delete session gate** — OWNER RE-CONSENTS FIRST, then restore
+   the gate and redeploy. Doing it the other way round breaks every delete (it
+   already did once today). Detail in the "GAS security review" section and in
+   `.claude/rules/mistakes.md`.
+
+The VM may sit a few commits behind HEAD — that is normal and does NOT mean a
+deploy is pending. Check `git diff --name-only <vm>..HEAD` for anything under
+`src/` or `public/` first; docs/tools/appscript-only commits need no VM deploy.
+
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
