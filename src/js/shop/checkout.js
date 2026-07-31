@@ -1,7 +1,7 @@
 // ==============================================
 // SHOP CHECKOUT — Order summary + PromptPay QR + slip upload
 //
-// Slip uploads land in Drive at `SAMO_Shop/Slips/<YYYY-MM>/<orderId>_*`.
+// Slip uploads land in Drive at `Shop/Slips/<YYYY-MM>/<orderId>_*`.
 // The order id only exists after `createOrder` succeeds, so the rename
 // flow is: upload with a temporary filename → create order → done. The
 // stored filename includes the buyer id + timestamp so it stays unique

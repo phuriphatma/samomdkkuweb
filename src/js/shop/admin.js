@@ -2978,7 +2978,7 @@ async function saveProductForm() {
     if (e._imageFile) {
       const ext = (e._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
       const fileName = `${slugify(name)}_${Date.now()}.${ext}`;
-      payload.image_url = await uploadShopFile(e._imageFile, `SAMO_Shop/Products/${payload.id}`, { fileName });
+      payload.image_url = await uploadShopFile(e._imageFile, `Shop/Products/${payload.id}`, { fileName });
     }
     await upsertProduct(payload);
 
@@ -3443,7 +3443,7 @@ async function onQRFileChosen(e) {
   const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'png').toLowerCase();
   const fileName = `promptpay_${Date.now()}.${ext}`;
   try {
-    const url = await uploadShopFile(file, 'SAMO_Shop/QR', { fileName });
+    const url = await uploadShopFile(file, 'Shop/QR', { fileName });
     const patch = { promptpay_qr_url: url };
     await saveSettings(patch);
     invalidateSettingsCache();
@@ -3836,7 +3836,7 @@ async function onQrEditorFileChosen(e) {
   if (file.size > 5 * 1024 * 1024) { showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn'); return; }
   const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'png').toLowerCase();
   try {
-    const url = await uploadShopFile(file, 'SAMO_Shop/QR', { fileName: `promptpay_${Date.now()}.${ext}` });
+    const url = await uploadShopFile(file, 'Shop/QR', { fileName: `promptpay_${Date.now()}.${ext}` });
     if (state.qrEditor) state.qrEditor.qr_url = url;
     const prev = document.getElementById('shopQrPreview');
     if (prev) prev.innerHTML = `<img src="${safeUrl(url)}" alt="" style="width:100%;height:100%;object-fit:cover;" />`;
@@ -4022,7 +4022,7 @@ async function onBannerFilePicked(e) {
   try {
     const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
     const fileName = `banner_${Date.now()}.${ext}`;
-    const imageUrl = await uploadShopFile(file, 'SAMO_Shop/Banners', { fileName });
+    const imageUrl = await uploadShopFile(file, 'Shop/Banners', { fileName });
     const placement = state.bannerPlacement || 'launch';
     // display_order is per-placement — only count banners in this set.
     const maxOrder = (state.banners || [])

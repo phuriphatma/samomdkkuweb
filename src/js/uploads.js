@@ -63,7 +63,7 @@ function safeFileName(s, fallback) {
 
 /**
  * Upload a ทีม SAMO member portrait, filed under
- *   SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ-สกุล>.webp
+ *   Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ-สกุล>.webp
  *
  * Two things happen before the bytes leave the browser:
  *   1. downscaleImage() caps the long edge at 2400px and re-encodes to WebP.
@@ -75,7 +75,7 @@ function safeFileName(s, fallback) {
  * FALLBACK: `uploadTeamFile` is a new GAS action. Until the Apps Script project
  * is redeployed the live /exec returns "Unknown action", and we fall back to the
  * old uploadPRFile so the admin is never blocked — but we report it, because the
- * fallback silently drops the file into PR_Submissions/ with no folder
+ * fallback silently drops the file into PR/ with no folder
  * structure, which is the exact thing this function exists to fix.
  */
 export async function uploadTeamPhoto(file, { year, dept, order, name } = {}) {
@@ -85,7 +85,7 @@ export async function uploadTeamPhoto(file, { year, dept, order, name } = {}) {
   const seq = String(order ?? 0).padStart(2, '0');
   const fileName = `${seq}-${safeFileName(name, 'member')}.${ext}`;
   const folderPath = [
-    'SAMO_Team',
+    'Team',
     safeFileName(year, 'unsorted'),
     safeFileName(dept, 'ทั่วไป'),
   ].join('/');

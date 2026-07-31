@@ -2,10 +2,10 @@
 // prform.gs — Drive file upload + projects email only
 //
 // Post-Supabase-migration, GAS serves these actions:
-//   - uploadPRFile         : upload an image to Drive `PR_Submissions/`
+//   - uploadPRFile         : upload an image to Drive `PR/`
 //                            (chosen over Supabase Storage for the 2 TB quota)
 //   - uploadShopFile       : upload a file to a nested Drive folder path
-//                            (e.g. 'SAMO_Shop/Slips/2026-05'). Used by the
+//                            (e.g. 'Shop/Slips/2026-05'). Used by the
 //                            shop module for slips, product photos, QR images.
 //                            Folders are created lazily as needed.
 //   - uploadProjectFile    : same shape as uploadShopFile but allow-listed to
@@ -21,28 +21,77 @@
 // handled directly by Supabase from the frontend.
 //
 // EVERY folder this script touches lives under `My Drive / IT Database`
-// (see APP_ROOT_FOLDER_NAME below) — the frontend still passes root-relative
-// logical paths like `SAMO_Shop/Slips/2026-05`, and the resolution happens
-// here so no client needs to know where the tree is mounted.
+// (see APP_ROOT_FOLDER_NAME below) — the frontend passes root-relative logical
+// paths like `Shop/Slips/2026-05`, and the resolution happens here so no
+// client needs to know where the tree is mounted. Legacy spellings
+// (`SAMO_Shop`, `SAMO_Team`, `PR_Submissions`) are still accepted; see
+// TOP_FOLDER_CANON.
 // ============================================================
 
 // ============================================================
 // App root — `My Drive / IT Database`
 //
-// Historically every top-level folder (PR_Submissions, Projects, SAMO_Shop,
-// SAMO_Team) was created directly in My Drive root, which made the SAMO
-// Drive unbrowsable. They now live under a single container folder.
+// Historically every top-level folder was created directly in My Drive root,
+// which made the SAMO Drive unbrowsable. They now live under one container.
 //
-// getOrCreateTopFolder_ MIGRATES lazily: if the folder is already under
-// IT Database it is reused; if it is still sitting at My Drive root (the
-// pre-migration state) it is MOVED in. A Drive move preserves the folder id
-// and every file id inside it, so all URLs already stored in Postgres keep
-// resolving — nothing to backfill. Creating a fresh empty folder instead
-// would orphan every existing file (the same trap the by-code project
-// folder walker below exists to avoid).
+// Two migrations are folded into a single resolver, both lazy + self-healing:
+//   1. LOCATION — a folder still at My Drive root is MOVED in.
+//   2. NAME     — the `SAMO_` prefixes existed only to namespace folders that
+//                 sat loose in root. `IT Database` does that now, so they are
+//                 redundant, and the casing was inconsistent
+//                 (PR_Submissions / SAMO_Shop / Projects). A folder found
+//                 under a legacy name is RENAMED in place.
+//
+// Both operations preserve the folder id and every file id inside it, so all
+// URLs already stored in Postgres keep resolving — nothing to backfill.
+// Creating a fresh folder instead would orphan every existing file (the same
+// trap the by-code project folder walker below exists to avoid), which is why
+// this resolver only ever moves/renames and only creates as a last resort.
 // ============================================================
 
 var APP_ROOT_FOLDER_NAME = 'IT Database';
+
+/**
+ * Legacy logical name -> canonical physical folder name.
+ *
+ * This is BOTH the rename map and the transition allow-list: callers may pass
+ * either spelling, so an old frontend bundle held in a browser tab keeps
+ * uploading successfully after the rename ships. Entries mapping a name to
+ * itself are what make the new spelling legal. Do not delete a legacy key
+ * until no deployed bundle can still send it.
+ */
+var TOP_FOLDER_CANON = {
+  'PR_Submissions': 'PR',
+  'PR':             'PR',
+  'Projects':       'Projects',
+  'SAMO_Shop':      'Shop',
+  'Shop':           'Shop',
+  'SAMO_Team':      'Team',
+  'Team':           'Team'
+};
+
+/** The canonical top-level folders this script owns. */
+var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team'];
+
+/** Canonical physical name for a logical folder name (identity if unmapped). */
+function canonTopFolder_(name) {
+  return TOP_FOLDER_CANON[name] || name;
+}
+
+/** Legacy spellings of a canonical name, excluding the canonical itself. */
+function legacyAliases_(canonical) {
+  var out = [];
+  for (var k in TOP_FOLDER_CANON) {
+    if (TOP_FOLDER_CANON[k] === canonical && k !== canonical) out.push(k);
+  }
+  return out;
+}
+
+/** First path segment of a logical folder path. */
+function firstSegment_(path) {
+  var parts = String(path || '').split('/').filter(function (p) { return p && p.length; });
+  return parts.length ? parts[0] : '';
+}
 
 /** Get-or-create `My Drive / IT Database`. */
 function getAppRoot_() {
@@ -51,49 +100,106 @@ function getAppRoot_() {
   return iter.hasNext() ? iter.next() : myDrive.createFolder(APP_ROOT_FOLDER_NAME);
 }
 
-/** Resolve a top-level app folder (PR_Submissions / Projects / SAMO_Shop /
- *  SAMO_Team) under the app root, creating it if absent and adopting a
- *  legacy My-Drive-root folder of the same name by moving it in. */
+/**
+ * Resolve a top-level app folder from EITHER spelling, adopting whatever
+ * pre-migration state it is in. Search order — most-migrated first, and the
+ * first hit wins so a later step can never shadow an earlier one:
+ *
+ *   1. app root, canonical name  → done
+ *   2. app root, legacy name     → rename
+ *   3. My Drive root, canonical  → move in
+ *   4. My Drive root, legacy     → move in + rename
+ *   5. nothing found             → create (only here)
+ */
 function getOrCreateTopFolder_(name) {
+  var canonical = canonTopFolder_(name);
+  var aliases = legacyAliases_(canonical);
   var root = getAppRoot_();
-  var here = root.getFoldersByName(name);
-  if (here.hasNext()) {
-    var found = here.next();
-    // SPLIT check: a same-named folder still at My Drive root means older
-    // files live somewhere no future upload will look. Never merge or move
-    // automatically on a user's upload path — just make the state loud, and
-    // let `inspectDriveLayout` / `migrateDriveLayout` handle it deliberately.
-    if (DriveApp.getRootFolder().getFoldersByName(name).hasNext()) {
-      console.warn('Drive layout SPLIT: "' + name + '" exists in both ' +
-                   APP_ROOT_FOLDER_NAME + ' and My Drive root. Run inspectDriveLayout().');
-    }
+  var myDrive = DriveApp.getRootFolder();
+  var i, iter;
+
+  // 1 — already where it belongs.
+  iter = root.getFoldersByName(canonical);
+  if (iter.hasNext()) {
+    var found = iter.next();
+    warnIfSplit_(canonical, aliases, root, myDrive, found);
     return found;
   }
 
-  var legacy = DriveApp.getRootFolder().getFoldersByName(name);
-  if (legacy.hasNext()) {
-    var f = legacy.next();
-    f.moveTo(root);   // id preserved → stored file URLs unaffected
-    return f;
+  // 2 — right place, old name.
+  for (i = 0; i < aliases.length; i++) {
+    iter = root.getFoldersByName(aliases[i]);
+    if (iter.hasNext()) {
+      var renamed = iter.next();
+      renamed.setName(canonical);   // id preserved → stored URLs unaffected
+      return renamed;
+    }
   }
-  return root.createFolder(name);
+
+  // 3 / 4 — still at My Drive root, under either spelling.
+  var names = [canonical].concat(aliases);
+  for (i = 0; i < names.length; i++) {
+    iter = myDrive.getFoldersByName(names[i]);
+    if (iter.hasNext()) {
+      var moved = iter.next();
+      moved.moveTo(root);           // id preserved
+      if (moved.getName() !== canonical) moved.setName(canonical);
+      return moved;
+    }
+  }
+
+  // 5 — genuinely new.
+  return root.createFolder(canonical);
+}
+
+/**
+ * SPLIT check: another folder for the same logical name exists elsewhere,
+ * so older files live where no future upload will look. NEVER merge on a
+ * user's upload path — just make the state loud and let inspectDriveLayout /
+ * migrateDriveLayout resolve it deliberately.
+ */
+function warnIfSplit_(canonical, aliases, root, myDrive, keeping) {
+  var others = [];
+  var i, it;
+  for (i = 0; i < aliases.length; i++) {
+    it = root.getFoldersByName(aliases[i]);
+    if (it.hasNext()) others.push(APP_ROOT_FOLDER_NAME + '/' + aliases[i]);
+  }
+  var names = [canonical].concat(aliases);
+  for (i = 0; i < names.length; i++) {
+    it = myDrive.getFoldersByName(names[i]);
+    if (it.hasNext()) others.push('My Drive/' + names[i]);
+  }
+  if (others.length) {
+    console.warn('Drive layout SPLIT: using ' + APP_ROOT_FOLDER_NAME + '/' + canonical +
+                 ' (' + keeping.getId() + ') but these also exist: ' + others.join(', ') +
+                 '. Run inspectDriveLayout().');
+  }
 }
 
 /** Non-creating twin of getOrCreateTopFolder_, for delete paths — never
- *  materialise a folder just to find out it isn't there. Returns null. */
+ *  materialise a folder just to find out it isn't there. Same search order,
+ *  minus the move/rename/create. Returns null when nothing matches. */
 function findTopFolder_(name) {
+  var canonical = canonTopFolder_(name);
+  var names = [canonical].concat(legacyAliases_(canonical));
   var myDrive = DriveApp.getRootFolder();
+  var i, iter;
+
   var rootIter = myDrive.getFoldersByName(APP_ROOT_FOLDER_NAME);
   if (rootIter.hasNext()) {
-    var here = rootIter.next().getFoldersByName(name);
-    if (here.hasNext()) return here.next();
+    var root = rootIter.next();
+    for (i = 0; i < names.length; i++) {
+      iter = root.getFoldersByName(names[i]);
+      if (iter.hasNext()) return iter.next();
+    }
   }
-  var legacy = myDrive.getFoldersByName(name);
-  return legacy.hasNext() ? legacy.next() : null;
+  for (i = 0; i < names.length; i++) {
+    iter = myDrive.getFoldersByName(names[i]);
+    if (iter.hasNext()) return iter.next();
+  }
+  return null;
 }
-
-/** The top-level folders this script owns. */
-var APP_TOP_FOLDERS = ['PR_Submissions', 'Projects', 'SAMO_Shop', 'SAMO_Team'];
 
 /** Immediate child counts — cheap fingerprint used to prove a move changed
  *  nothing but the parent. Not recursive: `Projects/` has one subfolder per
@@ -105,11 +211,30 @@ function folderFingerprint_(folder) {
   return { id: folder.getId(), files: files, folders: folders };
 }
 
+/** Every place a top-level folder could be, newest layout first. Returns
+ *  [{where, name, folder}] for each candidate that actually exists. */
+function locateTopFolder_(canonical, appRoot, myDrive) {
+  var names = [canonical].concat(legacyAliases_(canonical));
+  var hits = [], i, it;
+  if (appRoot) {
+    for (i = 0; i < names.length; i++) {
+      it = appRoot.getFoldersByName(names[i]);
+      if (it.hasNext()) hits.push({ where: APP_ROOT_FOLDER_NAME, name: names[i], folder: it.next() });
+    }
+  }
+  for (i = 0; i < names.length; i++) {
+    it = myDrive.getFoldersByName(names[i]);
+    if (it.hasNext()) hits.push({ where: 'My Drive', name: names[i], folder: it.next() });
+  }
+  return hits;
+}
+
 /**
  * READ-ONLY inventory. Run this FIRST from the Apps Script editor
  * (Run ▸ inspectDriveLayout) — it touches nothing and tells you exactly what
- * migrateDriveLayout would do, including any SPLIT (same name existing in
- * both places), which is the one case that needs a human decision.
+ * migrateDriveLayout would do, including any SPLIT (the same logical folder
+ * existing in more than one place/spelling), which is the one case that needs
+ * a human decision.
  */
 function inspectDriveLayout() {
   var myDrive = DriveApp.getRootFolder();
@@ -118,24 +243,33 @@ function inspectDriveLayout() {
   var lines = [APP_ROOT_FOLDER_NAME + ': ' + (appRoot ? 'exists (' + appRoot.getId() + ')' : 'does not exist yet')];
 
   for (var i = 0; i < APP_TOP_FOLDERS.length; i++) {
-    var name = APP_TOP_FOLDERS[i];
-    var inPlace = appRoot ? appRoot.getFoldersByName(name) : null;
-    var here = (inPlace && inPlace.hasNext()) ? inPlace.next() : null;
-    var legacyIter = myDrive.getFoldersByName(name);
-    var legacy = legacyIter.hasNext() ? legacyIter.next() : null;
+    var canonical = APP_TOP_FOLDERS[i];
+    var hits = locateTopFolder_(canonical, appRoot, myDrive);
 
-    if (here && legacy) {
-      lines.push('!! ' + name + ': SPLIT — exists in BOTH ' + APP_ROOT_FOLDER_NAME +
-                 ' (' + JSON.stringify(folderFingerprint_(here)) + ') and My Drive root (' +
-                 JSON.stringify(folderFingerprint_(legacy)) + '). migrateDriveLayout will REFUSE. ' +
-                 'Merge them by hand in Drive, then re-run.');
-    } else if (here) {
-      lines.push('   ' + name + ': already in place ' + JSON.stringify(folderFingerprint_(here)));
-    } else if (legacy) {
-      lines.push('-> ' + name + ': at My Drive root ' + JSON.stringify(folderFingerprint_(legacy)) +
-                 ' — will be MOVED (same id, same contents)');
+    if (hits.length === 0) {
+      lines.push('   ' + canonical + ': not found anywhere — nothing to do (will NOT be created)');
+      continue;
+    }
+    if (hits.length > 1) {
+      var desc = hits.map(function (h) {
+        return h.where + '/' + h.name + ' ' + JSON.stringify(folderFingerprint_(h.folder));
+      });
+      lines.push('!! ' + canonical + ': SPLIT across ' + hits.length + ' folders — ' + desc.join('  |  ') +
+                 '. migrateDriveLayout will REFUSE. Merge them by hand in Drive, then re-run.');
+      continue;
+    }
+    var hit = hits[0];
+    var fp = JSON.stringify(folderFingerprint_(hit.folder));
+    var needsMove = hit.where !== APP_ROOT_FOLDER_NAME;
+    var needsRename = hit.name !== canonical;
+    if (!needsMove && !needsRename) {
+      lines.push('   ' + canonical + ': already in place ' + fp);
     } else {
-      lines.push('   ' + name + ': not found anywhere — nothing to do (will NOT be created)');
+      var todo = [];
+      if (needsMove)   todo.push('MOVED into ' + APP_ROOT_FOLDER_NAME);
+      if (needsRename) todo.push('RENAMED ' + hit.name + ' -> ' + canonical);
+      lines.push('-> ' + canonical + ': at ' + hit.where + '/' + hit.name + ' ' + fp +
+                 ' — will be ' + todo.join(' + ') + ' (same id, same contents)');
     }
   }
   var out = lines.join('\n');
@@ -144,23 +278,23 @@ function inspectDriveLayout() {
 }
 
 /**
- * ONE-SHOT tidy-up: move every legacy top-level folder into `IT Database`
- * right now, instead of waiting for each one's next upload to adopt it.
+ * ONE-SHOT tidy-up: put every top-level folder in its final place and name
+ * now, instead of waiting for each one's next upload to adopt it.
  *
  * Run it by hand from the Apps Script editor (Run ▸ migrateDriveLayout)
  * after `inspectDriveLayout`. Not reachable over HTTP — doPost has no route
  * to it.
  *
  * CANNOT LOSE DATA, by construction:
- *   - It only ever calls Folder.moveTo(). Nothing is created, copied,
- *     renamed, trashed or deleted — a Drive move re-parents ONE folder and
- *     preserves its id and every file id inside it, so URLs already stored
- *     in Postgres keep resolving with no backfill.
- *   - It verifies the child counts are identical before and after the move
- *     and reports a mismatch rather than reporting success.
- *   - A folder that exists in BOTH places is a SPLIT: it refuses and asks
- *     for a manual merge, because silently picking one would strand the
- *     other's files where no future upload would look.
+ *   - It only ever calls Folder.moveTo() and Folder.setName(). Nothing is
+ *     created, copied, trashed or deleted — both operations preserve the
+ *     folder id and every file id inside it, so URLs already stored in
+ *     Postgres keep resolving with no backfill.
+ *   - It verifies the child counts are identical before and after and
+ *     reports a mismatch rather than reporting success.
+ *   - A logical folder found in MORE THAN ONE place/spelling is a SPLIT: it
+ *     refuses and asks for a manual merge, because silently picking one would
+ *     strand the other's files where no future upload would look.
  *   - A folder that exists nowhere is skipped, not created.
  * Idempotent: re-running after a successful pass reports "already in place".
  */
@@ -170,25 +304,30 @@ function migrateDriveLayout() {
   var report = [];
 
   for (var i = 0; i < APP_TOP_FOLDERS.length; i++) {
-    var name = APP_TOP_FOLDERS[i];
-    var hereIter = root.getFoldersByName(name);
-    var here = hereIter.hasNext() ? hereIter.next() : null;
-    var legacyIter = myDrive.getFoldersByName(name);
-    var legacy = legacyIter.hasNext() ? legacyIter.next() : null;
+    var canonical = APP_TOP_FOLDERS[i];
+    var hits = locateTopFolder_(canonical, root, myDrive);
 
-    if (here && legacy) {
-      report.push('!! ' + name + ': REFUSED — exists in both places. Merge by hand, then re-run.');
+    if (hits.length === 0) { report.push('   ' + canonical + ': not found (nothing to do)'); continue; }
+    if (hits.length > 1) {
+      report.push('!! ' + canonical + ': REFUSED — exists in ' + hits.length +
+                  ' places (' + hits.map(function (h) { return h.where + '/' + h.name; }).join(', ') +
+                  '). Merge by hand, then re-run.');
       continue;
     }
-    if (here)    { report.push('   ' + name + ': already in place'); continue; }
-    if (!legacy) { report.push('   ' + name + ': not found (nothing to move)'); continue; }
 
-    var before = folderFingerprint_(legacy);
-    legacy.moveTo(root);
-    var after = folderFingerprint_(legacy);
+    var hit = hits[0];
+    var needsMove = hit.where !== APP_ROOT_FOLDER_NAME;
+    var needsRename = hit.name !== canonical;
+    if (!needsMove && !needsRename) { report.push('   ' + canonical + ': already in place'); continue; }
+
+    var before = folderFingerprint_(hit.folder);
+    var did = [];
+    if (needsMove)   { hit.folder.moveTo(root);        did.push('MOVED into ' + APP_ROOT_FOLDER_NAME); }
+    if (needsRename) { hit.folder.setName(canonical);  did.push('RENAMED ' + hit.name + ' -> ' + canonical); }
+    var after = folderFingerprint_(hit.folder);
     var intact = before.id === after.id && before.files === after.files && before.folders === after.folders;
-    report.push((intact ? '-> ' : '!! ') + name + ': MOVED into ' + APP_ROOT_FOLDER_NAME +
-                ' — ' + (intact ? 'verified intact ' : 'COUNT MISMATCH ') +
+    report.push((intact ? '-> ' : '!! ') + canonical + ': ' + did.join(' + ') + ' — ' +
+                (intact ? 'verified intact ' : 'COUNT MISMATCH ') +
                 JSON.stringify(before) + ' -> ' + JSON.stringify(after));
   }
   var out = report.join('\n');
@@ -238,7 +377,7 @@ function doPost(e) {
 
 function handleUploadPRFile(data) {
   try {
-    const folder = getOrCreateTopFolder_('PR_Submissions');
+    const folder = getOrCreateTopFolder_('PR');
     const base64Data = data.fileData.split(',')[1];
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     const file = folder.createFile(blob);
@@ -252,14 +391,14 @@ function handleUploadPRFile(data) {
 // ============================================================
 // uploadShopFile — accept a base64-encoded file + a nested folder path
 //
-// The frontend passes a logical path like `SAMO_Shop/Slips/2026-05`. We
+// The frontend passes a logical path like `Shop/Slips/2026-05`. We
 // walk that path under My Drive, creating any missing folders as we go,
 // then drop the file in the leaf. This keeps the 2 TB Drive tidy enough
 // to browse manually (one folder per month for slips, one per product,
 // etc.) and well below Drive's per-folder file cap.
 //
 // Allow-list the top-level prefix so a misuse can't write to arbitrary
-// places. Currently only 'SAMO_Shop/...' is permitted.
+// places. Currently only 'Shop/...' (or its legacy 'SAMO_Shop/...') is permitted.
 // ============================================================
 
 function handleUploadShopFile(data) {
@@ -267,8 +406,8 @@ function handleUploadShopFile(data) {
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
-    if (path.indexOf('SAMO_Shop') !== 0) {
-      return createResponse({ success: false, message: 'folderPath must start with SAMO_Shop' });
+    if (canonTopFolder_(firstSegment_(path)) !== 'Shop') {
+      return createResponse({ success: false, message: 'folderPath must start with Shop (or the legacy SAMO_Shop)' });
     }
 
     var folder = getOrCreateFolderPath_(path);
@@ -285,9 +424,9 @@ function handleUploadShopFile(data) {
 // ============================================================
 // uploadTeamFile — ทีม SAMO member portraits, filed by ปีการศึกษา
 //
-// Same shape as uploadShopFile but allow-listed to 'SAMO_Team/...' so the
+// Same shape as uploadShopFile but allow-listed to 'Team/...' so the
 // two features cannot write into each other's tree. The frontend builds
-//   SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ-สกุล>.webp
+//   Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ-สกุล>.webp
 // which makes the Drive folder browsable by a human looking for "the 2569
 // อุปนายก photos" without needing the app.
 //
@@ -302,8 +441,8 @@ function handleUploadTeamFile(data) {
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
-    if (path.indexOf('SAMO_Team') !== 0) {
-      return createResponse({ success: false, message: 'folderPath must start with SAMO_Team' });
+    if (canonTopFolder_(firstSegment_(path)) !== 'Team') {
+      return createResponse({ success: false, message: 'folderPath must start with Team (or the legacy SAMO_Team)' });
     }
 
     var folder = getOrCreateFolderPath_(path);
@@ -319,7 +458,8 @@ function handleUploadTeamFile(data) {
 
 /**
  * Trash a Drive file by URL. Safety-gated to files that live somewhere
- * under "SAMO_Shop" so a stray call can't nuke unrelated Drive content.
+ * under "Shop" (formerly "SAMO_Shop") so a stray call can't nuke unrelated
+ * Drive content.
  * Used when admin deletes a shop order — the attached slip image should
  * not orphan in Drive after the row is gone.
  *
@@ -338,7 +478,7 @@ function handleDeleteShopFile(data) {
       return createResponse({ success: true, alreadyGone: true });
     }
     if (!fileLivesUnderSamoShop_(file)) {
-      return createResponse({ success: false, message: 'file is not inside SAMO_Shop' });
+      return createResponse({ success: false, message: 'file is not inside Shop' });
     }
     file.setTrashed(true);
     return createResponse({ success: true });
@@ -359,10 +499,18 @@ function extractDriveId_(url) {
   return null;
 }
 
-/** Walk parent chain looking for a folder named SAMO_Shop. Drive files
- *  can have multiple parents (shortcuts); we only need ONE ancestry
- *  path that contains SAMO_Shop. */
-function fileLivesUnderSamoShop_(file) {
+/**
+ * Walk the parent chain looking for the app folder whose canonical name is
+ * `canonical`. Drive files can have multiple parents (shortcuts); we only
+ * need ONE ancestry path that contains it.
+ *
+ * Ancestor names are canonicalised, so this keeps matching across the rename
+ * — a slip under the folder formerly called SAMO_Shop is still recognised
+ * once it is called Shop, and vice versa during the transition. These guards
+ * gate DELETION: if one silently stopped matching, every slip/file delete
+ * would start refusing with "file is not inside ...".
+ */
+function fileLivesUnderTop_(file, canonical) {
   var stack = [];
   var parents = file.getParents();
   while (parents.hasNext()) stack.push(parents.next());
@@ -372,11 +520,15 @@ function fileLivesUnderSamoShop_(file) {
     var fid = f.getId();
     if (seen[fid]) continue;
     seen[fid] = true;
-    if (f.getName() === 'SAMO_Shop') return true;
+    if (canonTopFolder_(f.getName()) === canonical) return true;
     var ups = f.getParents();
     while (ups.hasNext()) stack.push(ups.next());
   }
   return false;
+}
+
+function fileLivesUnderSamoShop_(file) {
+  return fileLivesUnderTop_(file, 'Shop');
 }
 
 /**
@@ -464,7 +616,7 @@ function getOrCreateProjectSubfolderByCode_(parent, desiredName, code) {
  *  DOC-code. Self-renames stale folders to the current desired name. */
 function walkProjectsPathByCode_(path) {
   var parts = path.split('/').filter(function (p) { return p && p.length; });
-  if (parts.length === 0 || parts[0] !== 'Projects') {
+  if (parts.length === 0 || canonTopFolder_(parts[0]) !== 'Projects') {
     throw new Error('walkProjectsPathByCode_ requires a Projects/... path');
   }
   // Top-level "Projects" folder: exact-name match (no code), under the
@@ -492,7 +644,7 @@ function handleUploadProjectFile(data) {
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
-    if (path.indexOf('Projects') !== 0) {
+    if (canonTopFolder_(firstSegment_(path)) !== 'Projects') {
       return createResponse({ success: false, message: 'folderPath must start with Projects' });
     }
 
@@ -576,20 +728,7 @@ function handleGetProjectFileData(data) {
 }
 
 function fileLivesUnderProjects_(file) {
-  var stack = [];
-  var parents = file.getParents();
-  while (parents.hasNext()) stack.push(parents.next());
-  var seen = {};
-  while (stack.length) {
-    var f = stack.pop();
-    var fid = f.getId();
-    if (seen[fid]) continue;
-    seen[fid] = true;
-    if (f.getName() === 'Projects') return true;
-    var ups = f.getParents();
-    while (ups.hasNext()) stack.push(ups.next());
-  }
-  return false;
+  return fileLivesUnderTop_(file, 'Projects');
 }
 
 // ============================================================
@@ -676,7 +815,7 @@ function handleDeleteProjectFolder(data) {
     // name. If a segment can't be found AND can't be created (e.g.,
     // a non-existent code), bail with alreadyGone:true (idempotent).
     var parts = path.split('/').filter(function (p) { return p && p.length; });
-    if (parts.length === 0 || parts[0] !== 'Projects') {
+    if (parts.length === 0 || canonTopFolder_(parts[0]) !== 'Projects') {
       return createResponse({ success: false, message: 'folderPath must start with Projects' });
     }
     // Non-creating lookup: a delete must never materialise the tree it is

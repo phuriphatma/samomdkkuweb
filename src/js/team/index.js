@@ -80,7 +80,7 @@ let initialized = false;
 let loaded = false;
 let loading = null;            // in-flight load promise (single-flight)
 let mode = 'team';             // 'team' | 'perms' | 'years'
-// The live term's year — used to file photo uploads into SAMO_Team/<ปี>/… and
+// The live term's year — used to file photo uploads into Team/<ปี>/… and
 // shown nowhere else. Populated by terms.js, which owns the registry.
 let currentTermYear = null;
 const nodesById = new Map();   // id -> node
@@ -1696,7 +1696,7 @@ async function onMemberPhotoPick(e) {
     });
     setMemberPhoto(res.url);
     // Surface the un-organised fallback instead of hiding it — the file DID
-    // upload, but into PR_Submissions/ with no folder structure, which is the
+    // upload, but into PR/ with no folder structure, which is the
     // exact thing uploadTeamPhoto exists to fix. Silence here would mean nobody
     // notices the GAS project still needs redeploying.
     if (hint) {
