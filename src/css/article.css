@@ -178,10 +178,13 @@
   margin: 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--ink-100);
   display: flex;
   justify-content: center;
-  /* NO fixed aspect-ratio here, deliberately.
+  /* No background: now that the frame follows the image instead of cropping
+     it to a fixed ratio, a portrait cover is narrower than the column — and a
+     placeholder colour behind it renders as grey letterbox bars down both
+     sides. A tinted box only looks intentional when something always fills it.
+     NO fixed aspect-ratio here, deliberately.
      This used to be `aspect-ratio: 16/9` + object-fit: cover, which
      center-cropped every cover to a uniform band. That is right for the
      BOARD CARDS (.news-card-media, 3:4) where a grid of mismatched shapes
