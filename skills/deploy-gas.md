@@ -110,8 +110,15 @@ npm run deploy:gas -- --verify
 ```
 
 The canary is `uploadTeamFile` **with no `folderPath`** — the handler validates
-its argument before touching Drive, so it proves the action exists while writing
+that argument before touching Drive, so it proves the action exists while writing
 nothing:
+
+> **Only this exact input is inert.** The handler resolves (and CREATES) the
+> folder before it reads `fileData`, so a probe that passes a *valid*
+> `folderPath` will really create/move/rename folders in Drive — it just fails
+> later, with a `fileData`-shaped error that looks identical. Don't reuse the
+> canary shape with different arguments and assume it stayed harmless.
+
 
 - `{"success":false,"message":"folderPath is required"}` → **NEW code is live**
 - `{"success":false,"message":"Unknown action: uploadTeamFile"}` → **OLD code**;
@@ -143,13 +150,13 @@ created straight in My Drive root and made the SAMO Drive unbrowsable:
 ```
 My Drive/
   IT Database/
-    PR_Submissions/
+    PR/
     Projects/<slug>_PRJ-XXXX/<slug>_DOC-XXXXX/
-    SAMO_Shop/{Slips,Products,Banners,QR}/
-    SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/
+    Shop/{Slips,Products,Banners,QR}/
+    Team/<ปีการศึกษา>/<ฝ่าย>/
 ```
 
-The frontend still passes root-relative logical paths (`SAMO_Shop/Slips/2026-05`);
+The frontend passes root-relative logical paths (`Shop/Slips/2026-05`);
 the mount point is resolved server-side by `getOrCreateTopFolder_`, so no client
 knows about `IT Database` and no stored URL changed.
 
@@ -171,11 +178,11 @@ constant to relocate them.
 
 ## What `prform.gs` exposes
 
-- `uploadPRFile`    action — base64-uploads an image to Drive `PR_Submissions/`
-- `uploadTeamFile`  action — base64-uploads to `SAMO_Team/<nested path>`
+- `uploadPRFile`    action — base64-uploads an image to Drive `PR/`
+- `uploadTeamFile`  action — base64-uploads to `Team/<nested path>`
   (allow-listed; lazily creates folders). ทีม SAMO member portraits, filed
-  `SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp`. Doubles as the deploy canary.
-- `uploadShopFile`  action — base64-uploads to `SAMO_Shop/<nested path>`
+  `Team/<ปีการศึกษา>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp`. Doubles as the deploy canary.
+- `uploadShopFile`  action — base64-uploads to `Shop/<nested path>`
   (allow-listed; lazily creates folders). Used by the SAMO Shop module
   for slips, product photos, and the PromptPay QR.
 - `uploadProjectFile` / `deleteProjectFile` / `deleteProjectFolder` /

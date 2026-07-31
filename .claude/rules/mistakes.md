@@ -2589,3 +2589,64 @@ after adding this, pull MANUALLY first so bash reads the new file from the top:
 `cd ~/samo-projects/samomdkkuweb && git pull --ff-only && bash server/deploy.sh`.
 **Rule**: any script that updates its own source must re-exec, and self-updating
 scripts should be changed with an out-of-band pull for the transition.
+
+---
+
+## Renaming a folder breaks every guard that matches it BY NAME — and the one that gates DELETION fails in the safe-looking direction, so nothing reports it
+
+**Symptom** (caught in review, before deploying): renaming the Drive folders
+(`SAMO_Shop` → `Shop`, `PR_Submissions` → `PR`) would have silently made every
+shop-slip and project-file delete refuse with *"file is not inside SAMO_Shop"*.
+Uploads would keep working perfectly, so the break would surface days later as
+"deleting an order doesn't remove its slip" — with nothing in the logs tying it
+to a rename.
+**Cause**: `fileLivesUnderSamoShop_` / `fileLivesUnderProjects_` walk a file's
+parent chain looking for `f.getName() === 'SAMO_Shop'` and gate `setTrashed`.
+They are the *safety* half of the feature — deliberately allow-listing which
+files a stray call may trash — so they are written as string comparisons and
+never touched. Renaming the folder they name turns them permanently false.
+The failure is fail-CLOSED (nothing is wrongly deleted), which is why no error
+surfaces and why it is easy to ship: the loud half (uploads) keeps working
+because uploads go through the resolver that knows about the rename.
+**Fix**: one `TOP_FOLDER_CANON` map that is BOTH the rename map and the
+transition allow-list, and everything that compares a folder name goes through
+`canonTopFolder_()` — the upload allow-lists, the non-creating delete lookup
+(`findTopFolder_`), and the ancestry walk (`fileLivesUnderTop_`). Legacy keys
+stay in the map so an old bundle in an open tab still uploads.
+**Where**: `appscript/prform.gs`. **Rules**: (1) before renaming anything that
+appears as a string literal in a security/allow-list check, grep for every
+comparison against that literal — the checks that gate DESTRUCTION fail quietly
+and are the ones you will not notice. (2) A rename across a client/server
+boundary needs expand-then-contract, server first: teach the server both
+spellings, deploy, then switch the client. Shipping the client first fails every
+request on the allow-list. (3) Prefer one canonicalising predicate over N
+literal comparisons, so the next rename is a one-line map edit.
+
+---
+
+## A "validates before touching anything" probe is only side-effect-free on the path that fails FIRST — pass a *valid* argument and you execute the real work
+
+**Symptom**: `skills/deploy-gas.md` documents the deploy canary as
+`uploadTeamFile` with **no `folderPath`** — "the handler validates its argument
+before touching Drive, so it proves the action exists while writing nothing".
+True. I then reused that shape to verify the rename accepted both spellings, by
+POSTing a valid `folderPath` and no `fileData`, expecting the same harmless
+validation error. It did error — but only *after* creating `IT Database`,
+moving four folders into it and renaming them. The migration I had planned as a
+deliberate, human-reviewed step happened as a side effect of a test.
+**Cause**: the handler is
+`var folder = getOrCreateFolderPath_(path); var b64 = data.fileData.split(...)`.
+The guarantee was never "this handler is inert"; it was "*this specific input*
+fails at the first guard". Supplying a valid `folderPath` moves the failure
+point past the Drive work. The outcome here was benign — it is exactly what
+`migrateDriveLayout` would have done, and I verified afterwards that all four
+folders kept their original ids and child counts — but it was luck, not design:
+the same shape against `uploadProjectFile` with `Projects/x` would have created
+a junk `x/` folder (avoided by passing bare `Projects`).
+**Where**: `appscript/prform.gs` `handleUploadShopFile` / `handleUploadTeamFile`
+/ `handleUploadPRFile`; canary doc in `skills/deploy-gas.md`.
+**Rule**: when reusing a "safe probe" with different arguments, re-read the
+handler and find where YOUR input stops — a probe is only inert up to its first
+guard, and every argument you make valid pushes execution further in. If a
+handler must be probeable, give it an explicit dry-run/validate-only branch
+rather than relying on an argument being absent.

@@ -24,8 +24,8 @@ Browser (Cloudflare Pages-hosted SPA)
   │     ↳ Google OAuth + email/password (synthetic emails)
   │
   ├─→ GAS /exec (prform — Drive + email only)  ── narrow & specific
-  │     ↳ uploadPRFile        → writes to Google Drive (PR_Submissions/)
-  │     ↳ uploadShopFile      → writes to Drive at SAMO_Shop/<nested path>
+  │     ↳ uploadPRFile        → writes to Google Drive (PR/)
+  │     ↳ uploadShopFile      → writes to Drive at Shop/<nested path>
   │     ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
   │     ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
   │
@@ -541,7 +541,7 @@ terms that are current or published. Proof: `tools/team0104-terms.mjs` (27 check
 CHECK-constrained because the value is published and would otherwise reach CSS).
 Uploads are downscaled in the browser to a 2400px WebP master
 (`src/js/image-resize.js`) and filed in Drive under
-`SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp` via the GAS `uploadTeamFile` action.
+`Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp` via the GAS `uploadTeamFile` action.
 Rendering uses lh3 option strings — `=w<W>-h<H>-c-rw` gives a server-side crop to
 the exact card aspect plus WebP (measured on a live file: 520x693 WebP = 37.6 KB,
 vs 77.6 KB for the uncropped source a CSS crop would need). `focus != center` drops
@@ -747,8 +747,8 @@ Build config on both:
 
 ### Apps Script projects (2)
 
-- `prform` — owns the `PR_Submissions` Drive folder + the SAMO Shop Drive
-  tree (`SAMO_Shop/Slips/...`, `SAMO_Shop/Products/...`, `SAMO_Shop/QR/`) +
+- `prform` — owns the `PR` Drive folder + the SAMO Shop Drive
+  tree (`Shop/Slips/...`, `Shop/Products/...`, `Shop/QR/`) +
   the projects email (MailApp). Add a new file-upload destination by passing
   a new `folderPath` prefix to `uploadShopFile`. (Its Discord actions are now
   dead code — Discord moved to the `/notify` Cloudflare Function.)
@@ -765,10 +765,10 @@ My Drive/
 └── IT Database/                   ← APP_ROOT_FOLDER_NAME: everything GAS
     │                                 touches is mounted here, so the SAMO
     │                                 Drive root stays browsable
-    ├── PR_Submissions/            ← PR ticket attachments (uploadPRFile)
+    ├── PR/                        ← PR ticket attachments (uploadPRFile)
     ├── Projects/                  ← หนังสือโครงการ (uploadProjectFile)
-    ├── SAMO_Team/                 ← member portraits (uploadTeamFile)
-    └── SAMO_Shop/                 ← Shop assets (uploadShopFile)
+    ├── Team/                      ← member portraits (uploadTeamFile)
+    └── Shop/                      ← Shop assets (uploadShopFile)
         ├── Slips/
         │   └── YYYY-MM/           ← monthly partition: keeps any one folder
         │                             well under Drive's per-folder cap
@@ -780,18 +780,33 @@ My Drive/
             └── promptpay_<ts>.png ← admin-uploaded PromptPay scan
 ```
 
-`uploadShopFile` is allow-listed: it only writes under `SAMO_Shop/...` and
-rejects `..` segments. Folders are created lazily on first write.
+`badges/` + `certificates/` under `Passport/` are written by the **passport**
+repo's own Apps Script (`gas/Upload.gs`) — a separate project pointed at the
+same container by name, not by a shared folder id.
 
-**The mount point is server-side only.** The frontend still passes
-root-relative logical paths (`SAMO_Shop/Slips/2026-05`); `getOrCreateTopFolder_`
-in `prform.gs` resolves the first segment under `IT Database`, so no client
-knows about the container and no stored URL changed when it was introduced.
-A top-level folder still at My Drive root (pre-migration) is **moved** in on
-next touch, never recreated — a Drive move preserves the folder id and every
-file id inside it. `migrateDriveLayout` (editor-only, not routed through
-`doPost`) does all four at once. Any new top-level folder must resolve through
-`getOrCreateTopFolder_`, never `DriveApp.getRootFolder()`.
+`uploadShopFile` is allow-listed: it only writes under `Shop/...` and rejects
+`..` segments. Folders are created lazily on first write.
+
+**The mount point and the folder names are server-side only.** The frontend
+passes root-relative logical paths (`Shop/Slips/2026-05`) and
+`getOrCreateTopFolder_` in `prform.gs` resolves the first segment, so no client
+knows about the container. `TOP_FOLDER_CANON` maps every legacy spelling
+(`PR_Submissions`, `SAMO_Shop`, `SAMO_Team`) to its canonical name — it is both
+the rename map and the transition allow-list, so an old bundle in an open tab
+still uploads. **Don't drop a legacy key while any deployed bundle can send it.**
+
+The resolver folds LOCATION and NAME migration into one search — app
+root/canonical, app root/legacy (rename), My Drive root/canonical (move), My
+Drive root/legacy (move + rename), create — first hit wins, create is last
+resort. Move and rename both preserve the folder id and every file id inside,
+so no stored URL ever changed. `migrateDriveLayout` / `inspectDriveLayout`
+(editor-only, no `doPost` route) do it deliberately for all four.
+
+Two things that must track any future rename: `fileLivesUnderTop_` walks the
+ancestry BY NAME and gates every file delete, and `findTopFolder_` is the
+non-creating lookup used by delete paths. Both canonicalise through the same
+map. Any new top-level folder must resolve through `getOrCreateTopFolder_`,
+never `DriveApp.getRootFolder()`.
 
 ### Supabase project
 
@@ -886,7 +901,7 @@ change.
     deployment, OR
   - Point the Apps Script `DISCORD_WEBHOOK_URL` Script Property at a private
     test channel and redeploy.
-- **Drive uploads**: same project as prod. Files go into `PR_Submissions/`
+- **Drive uploads**: same project as prod. Files go into `PR/`
   in the GAS owner's Drive. Test files accumulate there — clean up
   periodically.
 

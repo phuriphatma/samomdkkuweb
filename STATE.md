@@ -48,7 +48,7 @@ the measurements are in the archive.
 ## APPS SCRIPT — automated deploys (new)
 
 `npm run deploy:gas` (`tools/deploy-gas.mjs`). Live state: script `179DfoS1…`,
-deployment `AKfycbw1iHE4…` **@48**, `/exec` URL unchanged.
+deployment `AKfycbw1iHE4…` **@49**, `/exec` URL unchanged.
 
 - Setup already done on this Mac: `npx clasp login` (as
   `mdstuddata.beta@gmail.com`), Apps Script API enabled, `GAS_SCRIPT_ID` in
@@ -66,29 +66,63 @@ deployment `AKfycbw1iHE4…` **@48**, `/exec` URL unchanged.
 - Canary: `POST {action:'uploadTeamFile'}` with no `folderPath` → the handler
   validates before touching Drive, so it proves the new code is serving while
   writing nothing. `folderPath is required` = new, `Unknown action` = old.
-- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 47`.
+- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 48`.
 
-### Drive layout moved under `My Drive / IT Database` (@48, deployed)
+### Drive layout: `My Drive / IT Database` + canonical names (@49, DONE)
 
-Every folder GAS owns (`PR_Submissions`, `Projects`, `SAMO_Shop`, `SAMO_Team`)
-now resolves under one container instead of littering the SAMO Drive root.
-Client-side paths are unchanged — the mount point is resolved server-side by
-`getOrCreateTopFolder_`, so no stored URL moved and no backfill was needed.
+```
+My Drive/IT Database/
+├── PR/        (was PR_Submissions, id 19eMp-bjx7…, 200 children)
+├── Projects/  (id 1_Gm-XvN…, 22 children)
+├── Shop/      (was SAMO_Shop)
+├── Team/      (was SAMO_Team)
+└── Passport/  ← badges/ + certificates/, written by the PASSPORT script
+```
 
-- **Migration is a MOVE, never a re-create** — a Drive move preserves the folder
-  id and every file id inside it. Lazy (on next touch) plus a one-shot
-  `migrateDriveLayout` / read-only `inspectDriveLayout`, both editor-only (no
-  `doPost` route). They create nothing, delete nothing, verify child counts
-  before/after, and REFUSE a split (same name in both places) rather than
-  picking one and stranding the other's files.
-- **PENDING (needs a human at the Apps Script editor)**: run
-  `inspectDriveLayout` then `migrateDriveLayout` in the prform project. Until
-  then folders relocate one at a time on their next upload.
-- **PENDING (passport repo, manual copy-paste deploy)**: `gas/Upload.gs` got the
-  same treatment for `badges` / `certificates`; `FOLDER_ID` is now an override
-  rather than the mechanism. Not yet pasted into its Apps Script project.
-- New top-level folders must go through `getOrCreateTopFolder_` —
-  `DriveApp.getRootFolder()` appears only inside those three helpers now.
+The `SAMO_` prefixes existed to namespace folders sitting loose in My Drive
+root; the container does that now, so they were dropped and the casing made
+uniform. **Verified live: every folder kept its original id** — the resolver
+only moves/renames, so no stored URL changed and nothing was backfilled.
+
+- **Shipped expand-then-contract, GAS first.** @49 teaches `TOP_FOLDER_CANON`
+  (both the rename map AND the transition allow-list — either spelling
+  resolves), then the frontend switched to the canonical names. The reverse
+  order would have failed every upload on the allow-list. Legacy keys stay
+  until no deployed bundle can send them.
+- **`fileLivesUnderTop_` is the trap to remember**: the ancestry guards match
+  BY NAME and gate DELETION, so a rename would have silently made every
+  slip/file delete refuse. They canonicalise through the same map now.
+- `migrateDriveLayout` / `inspectDriveLayout` are editor-only (no `doPost`
+  route); they only move/rename, verify child counts before+after, REFUSE a
+  split, and never create a folder that doesn't exist.
+- **PENDING (passport repo, manual copy-paste — it has no clasp tooling)**:
+  `gas/Upload.gs` now files under `IT Database/Passport/`. Paste it into the
+  `samopassport` Apps Script project, re-deploy the existing deployment, then
+  Run ▸ `migrateDriveLayout` there. Until then `badges`/`certificates` stay at
+  My Drive root.
+- **PENDING (manual, needs Drive UI)**: move the three Apps Script files into
+  `IT Database/_Scripts/` and trash the orphan. The clasp token only has
+  `drive.file` + read-only metadata, so an agent cannot do this.
+
+### The three Apps Script projects (they are NOT one)
+
+| project | type | serves | live |
+|---|---|---|---|
+| `prformweb` | **bound to a Google Sheet** in root | samoweb Drive + email | `AKfycbw1iHE4…` @49 |
+| `samopassport` | standalone | passport badges/certs (`gas/Upload.gs`) | `AKfycbwJgkPTcr9G…` @v3 |
+| `Uploadbadgesamopassport` | standalone | **nothing — dead prototype** | orphan, to trash |
+
+`prform.gs` has ZERO `SpreadsheetApp` references — the Sheet binding is
+vestigial, from when the PR form wrote rows. It **cannot be unbound**:
+converting to standalone mints a new project and a new `/exec` URL, and
+`GAS_API_URL` is hard-coded, so it would present as "every upload silently
+fails". Move the Sheet, don't try to detach it.
+
+**Deliberately NOT merged** with the passport script: one URL would have to
+change (in the repo with no GAS tooling), the blast radius would couple, and
+prform's `MailApp` scope would extend to passport uploads. Quotas are per
+ACCOUNT, not per script, so there is no quota argument either. If it is ever
+merged, fold passport INTO prform — prform has the good pipeline.
 
 ## CURRENT DEPLOY
 
@@ -104,7 +138,7 @@ Client-side paths are unchanged — the mount point is resolved server-side by
   against the latter 404s and silently "finds nothing", which reads exactly like
   a failed deploy. **And the admin entry is split across TWO chunks**: `admin-*.js`
   plus a shared `analytics-*.js` that carries `auth.js`, `uploads.js` and
-  `image-resize.js` — grepping only `admin-*.js` for `SAMO_Team` / `image/webp`
+  `image-resize.js` — grepping only `admin-*.js` for `Team` / `image/webp`
   reports a false MISSING.)
   A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
   deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
