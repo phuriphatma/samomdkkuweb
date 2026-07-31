@@ -758,6 +758,32 @@ Build config on both:
 
 Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 
+### GAS is a PUBLIC, mostly-unauthenticated API — treat it as one
+
+Both Apps Script web apps are deployed **`Execute as: Me` + `Who has access:
+Anyone`**, and their `/exec` URLs are inlined into the shipped bundle at build
+time (`GAS_API_URL` in `config.js`; `VITE_GAS_UPLOAD_URL` for passport). So the
+URL is **not a secret**, and every handler runs with the OWNER's full Drive and
+Gmail authority for any caller on the internet.
+
+These files read like internal helpers, which is why parameters kept getting
+treated as trusted. **The dangerous shape is any handler taking an id or an
+address** — the caller chooses the target. Current model:
+
+| action group | authorization |
+|---|---|
+| uploads (`uploadPRFile`/`Shop`/`Team`/`Project`) | **open by design** — guests submit PR tickets without an account; bounded by per-action folder allow-lists |
+| deletes (`deleteShopFile`/`ProjectFile`/`ProjectFolder`) | folder-scoped **AND** `requireSupabaseUser_` — a live Supabase session, verified against `/auth/v1/user` |
+| `notifyProjectEmail` | recipient **domain** allow-list (`EMAIL_DOMAIN_ALLOWLIST` script property); every recipient checked, exact match |
+| passport `delete` | must live under `IT Database/Passport`, matched by folder **ID** |
+
+Rules when touching these: verify a token server-side, never by decoding the JWT
+locally (decoding needs the signing secret, and parsing the payload accepts any
+forgery); fail **closed** on network errors; and when adding a newly-required
+field, **ship the frontend first** — an old script ignores an extra JSON field,
+so it is a no-op until GAS follows, whereas the reverse order breaks every
+served bundle.
+
 ### Drive folder layout (lazily created by GAS on first upload)
 
 ```
