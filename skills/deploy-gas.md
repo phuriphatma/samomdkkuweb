@@ -223,9 +223,11 @@ Delete paths use `findTopFolder_` (non-creating) so trashing never materialises 
 tree first. If you add a new top-level folder, resolve it through
 `getOrCreateTopFolder_` — never `DriveApp.getRootFolder()` directly.
 
-`badges/` and `certificates/` at My Drive root come from the **passport** repo
-(`gas/Upload.gs`), not this one; that script already supports a `FOLDER_ID`
-constant to relocate them.
+`Passport/{badges,certificates}` is written by the **passport** repo's own Apps
+Script (`samopassport`) — a different project. That repo now has its own
+`npm run deploy:gas` (a port of this one, reading `VITE_GAS_UPLOAD_URL` instead
+of a committed config.js, with an inert `{action:'ping'}` canary). Deploying one
+cannot affect the other.
 
 ## What `prform.gs` exposes
 

@@ -95,11 +95,13 @@ only moves/renames, so no stored URL changed and nothing was backfilled.
 - `migrateDriveLayout` / `inspectDriveLayout` are editor-only (no `doPost`
   route); they only move/rename, verify child counts before+after, REFUSE a
   split, and never create a folder that doesn't exist.
-- **PENDING (passport repo, manual copy-paste — it has no clasp tooling)**:
-  `gas/Upload.gs` now files under `IT Database/Passport/`. Paste it into the
-  `samopassport` Apps Script project, re-deploy the existing deployment, then
-  Run ▸ `migrateDriveLayout` there. Until then `badges`/`certificates` stay at
-  My Drive root.
+- **DONE — passport now has clasp tooling too.** `passport/tools/deploy-gas.mjs`
+  (port of this repo's; reads `VITE_GAS_UPLOAD_URL`, inert `{action:'ping'}`
+  canary, needs `GAS_SCRIPT_ID` in that repo's `.env.local`). `gas/Upload.gs`
+  deployed as **v5**, live-verified `{"ok":true,"layout":"IT Database/Passport"}`.
+- **PENDING (one click, no urgency)**: `badges`/`certificates` are still at My
+  Drive root. Run ▸ `migrateDriveLayout` in the `samopassport` editor to move
+  them now, or leave it — the next real badge upload adopts them automatically.
 - **DONE**: the Apps Script projects are Drive files too, and now live in
   `IT Database/_Scripts/` — `prformweb` (the Sheet this script is bound to) and
   `samopassport`. `Uploadbadgesamopassport` (dead prototype) is trashed,
