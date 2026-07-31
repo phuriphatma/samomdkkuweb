@@ -2,172 +2,48 @@
 
 Last updated: 2026-07-31. Slim by design — "what is true right now". Shipped
 detail pruned out of here most recently:
+`docs/state-archive/2026-07-31-team-0104-detail.md` and
 `docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
 `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
 
-## SHIPPED — VitalSound เรื่องซ้ำ: merge is now two-directional — LIVE
+## SHIPPED 2026-07-31 — VitalSound: transfer fixed + merge made two-directional
 
-No migration; `merge_vs_tickets(p_dup, p_canonical)` unchanged, called both ways.
+Migration **0107 applied**; the merge change needed none. Both LIVE.
+Full post-mortems (the interesting part) are the two newest entries in
+`.claude/rules/mistakes.md`; commit messages carry the rest.
 
-- **The direction was never stated** — it lived only in a button label on the
-  OTHER ticket's row (`รวมเข้าเรื่องนี้`), where `นี้` has no fixed referent.
-  Users opened the main ticket and expected the LISTED one to become the
-  subticket; it did the opposite. Direction is now an explicit mode + a sentence
-  naming the open ticket's id, and the row button says what the ROW becomes
-  (`เลือกเป็นเรื่องหลัก`).
-- **pull mode added.** Ticking N tickets makes them duplicates of the OPEN one.
-  10-into-1 used to mean opening 10 tickets and re-searching for the main each
-  time; now it is one search, ten checkboxes, one button. Selection survives
-  across searches (assemble a cluster from several queries) and the confirm
-  enumerates every id. Bulk is sequential + per-ticket-reported, deliberately
-  NOT atomic — each merge stands alone, so a partial is a correct outcome.
-- Rows whose ticket already owns duplicates are locked in pull mode with the
-  reason shown (the RPC would refuse: it'd orphan that ticket's children).
-- Verified live in a rolled-back txn: pull merges, P0001 on a source with a
-  child, 42501 cross-dept, and both lookup RPCs already exclude tickets that
-  are themselves duplicates — so the same rows are valid in either direction.
+- **`vs_transfer_dept(p_id, p_dept, p_remarks)`** (0107) — โอนคืน SE used to
+  42501 for EVERY dept-scoped handler. Not the UPDATE policy: Postgres
+  re-applies the SELECT policy to the NEW row on UPDATE, and `vs_tickets_read`
+  scopes a handler to their own `target_dept`, so a handoff is un-PATCHable by
+  construction. The RPC re-applies the same predicate server-side. **RLS on
+  `vs_tickets` is unchanged.** `vs-staff.js` PATCHes everything else first with
+  the transfer log withheld, then calls the RPC last.
+  Proof `tools/vs0107-transfer.mjs` — 26/26. Swept the whole class:
+  `vs_tickets.target_dept` is the only live instance.
+- **เรื่องซ้ำ is two-directional.** push (open ticket becomes the duplicate) and
+  pull (ticked tickets become duplicates of the open one, multi-select + one
+  bulk action). Direction is an explicit mode restated as a sentence; the row
+  button names what the ROW becomes. Bulk is sequential + per-ticket-reported,
+  deliberately NOT atomic.
+- **Form/copy**: กระดานปัญหา consent is opt-OUT (`checked`); a
+  "กรุณาร้องเรียนทีละปัญหา" notice sits above the problem editor; "ส่งต่อให้คณะ"
+  is retired from the เสร็จสิ้น reasons (`forwarded.manual = false`, kept in the
+  vocab + DB CHECK for legacy rows — 0 live rows use it).
 
-## SHIPPED — VitalSound: โอนย้ายฝ่าย unblocked (0107) + 3 form/copy changes
 
-Migration **0107 applied**. Proof `tools/vs0107-transfer.mjs` — **26/26**.
+## SHIPPED EARLIER — ทีม SAMO portraits + ปีการศึกษา (0104–0106) — LIVE
 
-- **โอนคืน SE was impossible for any dept-scoped handler** (a vp_admin, and the
-  ทีม SAMO grantees carrying `managed_vs_depts`): the save died with
-  `42501 new row violates row-level security policy for table "vs_tickets"`.
-  NOT the UPDATE policy — `vs_tickets_update_staff`'s WITH CHECK permits SE and
-  evaluates true (proved by probing the policy itself; `with check (true)` +
-  every trigger disabled still failed). The failing check is
-  **`vs_tickets_read`**: Postgres re-applies the SELECT policy to the NEW row on
-  UPDATE and reports it with WITH-CHECK wording. Since the read policy scopes a
-  handler to their own `target_dept`, a handoff is un-PATCHable by construction.
-  Fix: `vs_transfer_dept(p_id, p_dept, p_remarks)` — SECURITY DEFINER, re-applies
-  the same predicate, writes the move + timeline entry in one statement.
-  `vs-staff.js` PATCHes everything else first (with the transfer log withheld,
-  so a refused move can't leave a timeline claiming it happened), then calls the
-  RPC last. RLS on `vs_tickets` is UNCHANGED — nothing gained a new read.
-- **Swept for the same class**: every `public` table with a narrow SELECT policy
-  + an UPDATE policy. `vs_tickets.target_dept` is the ONLY live instance — every
-  other narrow SELECT qual keys on the writer's role/permission (announcements,
-  pr_tickets, shop_*, project_*), or on a column the write policy pins
-  (`user_id`, `buyer_id`), so the new row always stays visible to its writer.
-- **Client guard now mirrors the server exactly** — it only warned about
-  อุปนายก destinations, so `คณะ` / `นายกสโม` fell through to a raw server error.
-- **กระดานปัญหา consent is now opt-OUT** (`checked` by default on
-  `#vsPublicConsent`). Safe because consent publishes nothing on its own: SE
-  still curates + rewrites the headline, confidential categories are excluded.
-- **"กรุณาร้องเรียนทีละปัญหา"** notice sits directly above the problem editor.
-- **"ส่งต่อให้คณะ" retired from the เสร็จสิ้น reasons** (`forwarded.manual =
-  false`) — it is a ROUTING step, not an outcome. Kept in the vocab + the DB
-  CHECK so legacy rows render; 0 live rows use it.
+Full text: `docs/state-archive/2026-07-31-team-0104-detail.md`. Applied + deployed.
+Public ทีม SAMO opens with a docchula-style คณะกรรมการ portrait grid; every
+ปีการศึกษา is a first-class editable snapshot (`team_terms` +
+`team_archive_*`, written by `publish_team_term`, read by
+`get_public_team_chart(year)`). Photos go to Drive and render through lh3
+option strings (`=w<W>-h<H>-c-rw`) — **do not "optimise" this onto the VM**,
+the measurements are in the archive.
 
-## SHIPPED EARLIER — ทีม SAMO portraits + ปีการศึกษา (0104) — LIVE
-
-Migration **0104 applied**, frontend **deployed to the VM**, Apps Script
-**deployed @47**. Nothing from this work is in flight.
-
-**What it is**
-- Public ทีม SAMO (`/team`, inside เกี่ยวกับเรา) opens with a docchula-style
-  คณะกรรมการ grid — large 3:4 portrait cards, 4 across, for the ตำแหน่ง flagged
-  `team_nodes.is_board` (seeded to นายกฯ + the 10 อุปนายกฝ่าย = 11). The full
-  searchable spine tree follows, using the SAME card at ~130px. No circular
-  avatars anywhere — one card shape, two sizes.
-- **ปีการศึกษา switcher.** The LIVE tree is always the current term. Past terms
-  are a frozen-but-EDITABLE snapshot in `team_terms` + `team_archive_nodes` +
-  `team_archive_members`, written by `publish_team_term(year)` and read by
-  `get_public_team_chart(year)`. `get_public_org_chart()` is now a one-line
-  delegate to it, so the live projection has exactly ONE body.
-  Admin surface: a third mode in ทีม SAMO ("ปีการศึกษา", `src/js/team/terms.js`).
-- **Photo pipeline.** Browser downscales to a 2400px WebP master
-  (`src/js/image-resize.js`), files it in Drive as
-  `SAMO_Team/<ปี>/<ฝ่าย>/<ลำดับ>-<ชื่อ>.webp` (GAS `uploadTeamFile`), and renders
-  via lh3 option strings `=w<W>-h<H>-c-rw` — server-side crop to the card aspect
-  plus WebP. Measured on a live file: 520x693 WebP = **37.6 KB**, vs 77.6 KB for
-  the uncropped source a CSS crop would need. Per-shape `srcset`, so the 130px
-  tree card never fetches the 250px board card's file.
-  `photo_focus` (`top|center|bottom`, CHECK-constrained because it reaches CSS)
-  drops the server crop for the cases where a centre crop would cut the head.
-
-**Why Drive/lh3 and not the VM** (asked and answered with measurements): lh3 is a
-real image CDN — it resizes, crops and serves WebP. Self-hosting buys ~100ms of
-connection setup for an nginx location + a sync tool + a deploy step. Storage at
-2400px is ~600 KB/photo → all 401 members ≈ 240 MB/year, 12 years ≈ 2.9 GB of a
-2 TB quota. The master size costs NOTHING at render — the browser only ever
-fetches the derivative. **Do not "optimise" this by moving to the VM.**
-
-**Why the archive is separate from the live tree — do not merge them.**
-`team_nodes`/`team_members` feed the permission engine (managed_permissions, VS
-scopes, project seats, passport scopes) through a statement-level recompute
-trigger. A `term_year` column on them would mean a 2565 row still resolving to a
-live grant for someone who left three years ago. The archive tables carry ONLY
-the columns the public projection publishes, so there is nothing on an archived
-row for any resolver to read.
-
-**0105/0106 — every year is uniform now** (this replaced 0104's confusing
-special case, where the current year always rendered from the live tree):
-`get_public_team_chart(year)` resolves **published archive → live tree (current
-year only, as bootstrap) → empty**. So a year becomes real the moment it is
-published, the public page shows exactly what the admin edits, and every
-published year — current included — is editable via "แก้ไขรายชื่อ/รูป".
-
-Two consequences to keep in mind:
-- Once the current year is published, live-tree edits need a **re-publish** to
-  appear. `team_term_status()` detects this (live max(updated_at) > published_at,
-  current year only) and the pane shows "ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ".
-  **Do NOT auto-publish on tree edits** — it would overwrite hand-corrected
-  archive rows, which is what the archive exists to preserve.
-- `publish_team_term` rebuilds the archive wholesale, so 0106 makes it carry a
-  photo forward when the live tree has none: **live photo > this year's archived
-  photo > null**, keyed on `team_archive_members.src_member_id`. Without it the
-  re-publish we ourselves prompt for would delete every portrait uploaded through
-  the archive editor. Names/nicknames/positions are still overwritten — that is
-  what re-publish means.
-
-**Proofs** (re-run after touching any of this):
-- `node tools/team0104-terms.mjs` → 40/40 — snapshot fidelity (0 orphan parents,
-  depth preserved, board flags carried, re-publish replaces), non-public subtrees
-  excluded, projection allow-list, anon reads 0 rows from all three new tables,
-  `team` permission works on writes AND reads, RPC fails closed on a null role,
-  anon cannot execute it.
-- Regression set, all green: `team0089-manage` 5/5, `proj0086-seats` 24/24,
-  `proj0092-seat-parity` 13/13, `prof0095-seat-parity` 10/10, `vs0083-scope`
-  16/16, `security-sweeps` clean, 195 unit tests.
-
-**Verified live** (anon, against prod): `get_public_team_years` → `[2569
-is_current]`; `get_public_team_chart(null)` → 279 nodes / 401 members / 11 board;
-member keys exactly `name,nickname,node_id,photo_focus,photo_url,position`; no
-`@`, no `student_id`, no `kkumail` anywhere in the payload; anon reads **0 rows**
-from `team_members`, `team_terms`, `team_archive_nodes`, `team_archive_members`.
-Page renders 11 board cards + 401 tree cards, year picker correctly hidden (only
-one year exists so far).
-
-**Live state right now** (verified anonymously against prod after the last
-deploy): `get_public_team_years` → `[2569 is_current]`; `get_public_team_chart`
-→ `source=live`, 279 nodes / 401 members / 11 board / **1 photo**; no `@`,
-`student_id` or `kkumail` in the payload; anon on `team_term_status` → 401.
-`team_terms` holds 2569 (current, unpublished) and 2570 (added during testing,
-unpublished, not current → correctly invisible publicly). Archive tables hold
-**0 rows** — nothing has been published yet, so the live-tree fallback is what is
-serving.
-
-**Open / next for this feature** (none blocking):
-1. **Only 1 of 401 members has a photo**, so nearly every card renders initials.
-   That is the designed fallback, not a bug. Upload via ทีม SAMO → edit a member
-   → รูปประจำตัว (downscales + files into Drive automatically).
-   **To roll the year over**: publish 2569, then set 2570 current. The public
-   year picker only appears once ≥2 years are visible (a year is visible if it is
-   published OR is the current term).
-2. `is_board` is seeded to the obvious 11 and otherwise uncurated.
-3. The year picker stays hidden until a SECOND year is visible — a year shows
-   publicly only if it is published or is the current term. There is a 2570 term
-   (added during testing, unpublished, not current) which is therefore correctly
-   invisible.
-4. **Deploys no longer break open tabs.** `deploy.sh publish()` adds assets
-   additively and prunes after 7 days, so the previous build's chunks keep
-   serving; verified live (the prior bundle still 200s after a deploy).
-   `build-check.js` also re-checks on tab-foreground, gated by `pageIsIdle()` so
-   it never reloads over an open modal or typed-in field.
 
 ## APPS SCRIPT — automated deploys (new)
 
@@ -195,15 +71,13 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `be8a23e`, **deployed 2026-07-30**, `buildId a8029ba79919`. Latest change: the ทีม SAMO portrait board + ปีการศึกษา
-  archive (0104) — see the section above. Verified in the SERVED bundles:
-  `get_public_team_chart` / `get_public_team_years` / `org-board-card` in
-  `/assets/public-*.js`, `.org-board-grid` in `/assets/public-*.css`,
-  `id="orgYears"` + `id="orgBoard"` in `/index.html`;
-  `data-team-mode="years"` / `teamTermsPane` / `teamNodeIsBoard` /
-  `teamMemberPhotoFocus` in `/admin/index.html` and `publish_team_term` in
-  `/assets/admin-*.js`. `/`, `/admin/`, `/passport/`, `/pr`, `/news` all 200;
-  `/notify` → `{"ok":true,...}`.
+- **samoweb**: `3e9b7ef`, **deployed 2026-07-31**, `buildId 4c6ed5f5d4b9`. Latest
+  change: the VitalSound work in the two sections above (0107 + the
+  two-directional merge). Verified in the SERVED bundles: `vs_transfer_dept` and
+  `เลือกเป็นเรื่องหลัก` in `/assets/admin-*.js`, `vsMergeDirPull` in
+  `/admin/index.html`, `.vs-merge-pullbar` in `/assets/admin-*.css`,
+  `กรุณาร้องเรียนทีละปัญหา` + `id="vsPublicConsent" … checked` in `/index.html`.
+  `/`, `/admin/` 200; `/notify` → `{"ok":true,...}`. VM HEAD == local HEAD.
   (BOTH apps' assets are served from `/assets/`, NOT `/admin/assets/` — a grep
   against the latter 404s and silently "finds nothing", which reads exactly like
   a failed deploy. **And the admin entry is split across TWO chunks**: `admin-*.js`
@@ -218,7 +92,7 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–0106; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–**0107**; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
@@ -227,11 +101,22 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
   `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
   `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
   passport with `PASSPORT_BASE=/passport/`). `deploy.sh` uses BARE `sudo`, which
-  needs a tty — run over `ssh -tt`, and prime the cred cache first in the SAME
-  session: `printf '%s\n' "$PW" | ssh -tt samo-vm 'read -rs PW; echo "$PW" | sudo -S
-  -v && ./server/deploy.sh'` (PW = `.env.local` `SAMO_VM_SUDO_PASSWORD`; a lone
-  `sudo -S -v` without `-tt` primes nothing — deploy.sh's next `sudo` still errors
-  "A terminal is required to authenticate"). Bundle content-hashes differ Mac vs VM
+  needs a tty. **The `ssh -tt` + `sudo -S -v` priming recipe previously recorded
+  here does NOT work** — the cred cache does not carry into deploy.sh's own sudo
+  calls and it still dies "A terminal is required to authenticate", AFTER both
+  vite builds have run. Use an askpass helper instead (no tty needed, verified
+  2026-07-31, PW = `.env.local` `SAMO_VM_SUDO_PASSWORD`):
+  ```sh
+  PW=$(grep '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | tr -d '"'"'"'"')
+  printf '%s\n' "$PW" | ssh samo-vm 'read -r PW;
+    printf "#!/bin/sh\nprintf %%s \"\$SAMO_PW\"\n" > /tmp/askpass.sh; chmod +x /tmp/askpass.sh
+    cd ~/samo-projects/samomdkkuweb && git pull --ff-only &&
+    SAMO_PW="$PW" SUDO_ASKPASS=/tmp/askpass.sh bash -c "
+      sudo() { command sudo -A \"\$@\"; }; export -f sudo; bash server/deploy.sh"
+    rm -f /tmp/askpass.sh'
+  ```
+  Pull manually first (as above) — deploy.sh re-execs itself after its own pull,
+  and the manual pull keeps that transition honest. Bundle content-hashes differ Mac vs VM
   (dep/Node deltas) — verify a deploy by grepping the served bundle for feature
   strings, not by hash-matching.
 - One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
@@ -240,6 +125,14 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
   apply-migration** — the latter truncates its echoed result at 2000 chars
   without saying so, which turns any introspection query (policy dumps,
   `pg_get_functiondef` sweeps, column lists) into a confidently wrong answer.
+  **`db-query.mjs` COMMITS** — "READ-ONLY" in its header is intent, not an
+  enforced mode. Any write probe you run through it lands in production, and a
+  plpgsql `exception when others` block only rolls back the FAILING sub
+  transaction, so the probes that SUCCEED persist. End every investigative file
+  with `rollback;`, and snapshot what you are about to disturb
+  (`select <col>, count(*) … group by 1`) before the first write probe — that
+  diff is what caught a real ticket being moved on 2026-07-31. Details in
+  `.claude/rules/mistakes.md`.
   Both run as the Postgres SUPERUSER: `auth.uid()` is null and RLS is bypassed,
   so to see what a REAL user sees you must `set_config('role', …)` +
   `set_config('request.jwt.claims', …)` inside `begin; … rollback;` — every
