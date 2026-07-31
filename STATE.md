@@ -115,6 +115,41 @@ only moves/renames, so no stored URL changed and nothing was backfilled.
   `list-deployments` show four. Bounded by discipline, not technically: the
   `scripts.run` token carries the script's Drive scope.
 
+### IN FLIGHT — prformweb → standalone `samoweb` (BLOCKED on one click)
+
+Why: a container-bound script is stored INSIDE its container, so trashing the
+unused `prformweb` spreadsheet would take the script AND every deployment with
+it — killing PR/shop/projects/team uploads and the projects email at once, with
+no obvious cause. That is a single point of failure behind a file that looks
+like junk, not a cosmetic issue.
+
+Done so far (nothing existing was touched):
+- New STANDALONE script `samoweb` = `1lENmMdToG_PTrIo1ytJbalhN5EviIiVuAU8o3yiOQlgvGJN6tcFDCVVp`
+- Code pushed and verified **byte-identical** to `appscript/prform.gs`; manifest
+  copied verbatim from the old project (so `executeAs`/`access` cannot drift)
+- Web-app deployment `AKfycbwomKiiUUNx4eYKEJM376MCg3Z-ykxLXFArLNSLdHwjnkYxZnFP0YykdlbClvQ4P0Hl7w` @1
+- New endpoint currently **403** — expected: a web app that runs as the owner
+  needs the owner to authorize the derived scopes ONCE.
+- **`src/js/config.js` is deliberately UNCHANGED.** The old endpoint is still
+  live (@51, verified) and is what production uses. Nothing is broken.
+
+Remaining, in this order — repointing before verifying would break uploads:
+1. **YOU**: open <https://script.google.com/d/1lENmMdToG_PTrIo1ytJbalhN5EviIiVuAU8o3yiOQlgvGJN6tcFDCVVp/edit>
+   → Run ▸ `inspectDriveLayout` (read-only, already-reviewed code) → approve the
+   consent screen. That authorizes every derived scope, not just that function.
+2. Verify the new `/exec` returns `folderPath is required`.
+3. Repoint `GAS_API_URL` in `src/js/config.js`; rebuild; deploy to the VM.
+4. **YOU**: `.env.local` → `GAS_SCRIPT_ID=1lENmMdT…` so `npm run deploy:gas`
+   targets the new project. (The tool refuses if config.js's deployment doesn't
+   belong to GAS_SCRIPT_ID — that guard is what catches a half-done migration.)
+5. Leave the OLD script + deployment live for ~2 weeks so cached bundles drain.
+   Both write to the SAME Drive folders under the same account, so behaviour is
+   identical during the overlap and NO data moves.
+6. Only then retire `prformweb` and its Sheet.
+
+Rollback at any point before step 3: do nothing. Production still uses the old
+endpoint. After step 3: revert config.js and redeploy.
+
 ### The three Apps Script projects (they are NOT one)
 
 | project | type | serves | live |
