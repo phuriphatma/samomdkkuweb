@@ -1835,7 +1835,15 @@ function renderMergeDirection() {
 function onPullToggle(e) {
   const id = e.currentTarget.getAttribute('data-vs-pull');
   if (!id) return;
-  if (e.currentTarget.checked) pullSelection.add(id); else pullSelection.delete(id);
+  const on = e.currentTarget.checked;
+  if (on) pullSelection.add(id); else pullSelection.delete(id);
+  // The SAME ticket can be listed twice — once under ระบบแนะนำ and once in the
+  // search results. They are separate DOM nodes, so ticking one would leave
+  // the other showing the opposite of the selection it shares. Sync every
+  // checkbox bound to this id.
+  document.querySelectorAll(`[data-vs-pull="${CSS.escape(id)}"]`).forEach((c) => {
+    if (c !== e.currentTarget) c.checked = on;
+  });
   renderMergeDirection();
 }
 
@@ -2236,7 +2244,9 @@ export async function submitStaffAction() {
 
     // The PATCH carries everything EXCEPT the dept move, and its remarks omit
     // the transfer log — see the vs_transfer_dept call below for why.
-    const update = { remarks: remarks.filter((e) => e !== transferEntry) };
+    const update = {
+      remarks: transferEntry ? remarks.filter((e) => e !== transferEntry) : remarks,
+    };
     if (statusChanged) update.status = newStatus;
     if (categoryChanged) update.category = newCategory || null;
     if (tagsChanged) update.tags = newTags;
