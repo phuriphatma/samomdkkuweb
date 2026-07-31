@@ -169,7 +169,12 @@
 /* --- HERO IMAGE — wide, not full-bleed (keeps page comfortable on huge displays) --- */
 
 .article-hero {
-  max-width: 1100px;
+  /* Same 720px column as .article-body, on purpose. This was 1100px — a
+     deliberate cinematic breakout, which is right for a 16:9 landscape banner.
+     But covers here are portrait document pages whose later pages continue as
+     body images, and a cover rendering wider than the pages beneath it reads
+     as a mistake. One width for every image on the page. */
+  max-width: 720px;
   margin: 0 auto 2.5rem;
   padding: 0 1.25rem;
 }
@@ -178,30 +183,28 @@
   margin: 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  /* No background: now that the frame follows the image instead of cropping
-     it to a fixed ratio, a portrait cover is narrower than the column — and a
-     placeholder colour behind it renders as grey letterbox bars down both
-     sides. A tinted box only looks intentional when something always fills it.
-     NO fixed aspect-ratio here, deliberately.
-     This used to be `aspect-ratio: 16/9` + object-fit: cover, which
-     center-cropped every cover to a uniform band. That is right for the
-     BOARD CARDS (.news-card-media, 3:4) where a grid of mismatched shapes
-     looks broken — but wrong here: covers are often portrait newsletter
-     pages, and the detail view is exactly where the reader expects to see
-     the whole thing. A grid needs uniformity; a detail page needs fidelity.
-     Any fixed ratio would still crop something taller than it, so the frame
-     follows the image instead, capped so a very tall page cannot push the
-     article text off-screen. */
+  /* No aspect-ratio, no background, no height cap — each was tried and each
+     caused a visible defect, so they are documented here as things NOT to
+     reintroduce:
+       - `aspect-ratio: 16/9` + object-fit: cover center-cropped every cover.
+         Right for the BOARD CARDS (.news-card-media keeps its 3:4 crop —
+         a grid of mismatched shapes looks broken) but wrong on the detail
+         page, which is exactly where a reader expects the whole image.
+         Covers here are often portrait newsletter pages.
+       - a background colour showed as grey letterbox bars beside a portrait
+         cover; a tinted box only reads as intentional when something fills it.
+       - a vh-based max-height made the cover NARROWER than the body pages
+         once the viewport shrank or the user zoomed, because the height
+         clamped and the width followed.
+     The cover and the pages below it must be the same width at every zoom
+     level, so the frame simply follows the image inside the same 720px
+     column as .article-body. */
 }
 
 .article-hero img {
-  width: auto;
-  max-width: 100%;
+  /* Deliberately identical to .article-body img. */
+  width: 100%;
   height: auto;
-  max-height: min(85vh, 1000px);
-  object-fit: contain;   /* belt-and-braces: never distort if the cap bites */
   display: block;
 }
 
@@ -337,12 +340,6 @@
    the image lines up exactly with the paragraphs instead of bleeding past
    them. The wide editorial hero is kept only on genuinely large (≥1400px)
    displays. */
-@media (max-width: 1399.98px) {
-  .article-hero {
-    max-width: 720px;
-  }
-}
-
 @media (max-width: 575.98px) {
   .article-backbar {
     top: 72px;
