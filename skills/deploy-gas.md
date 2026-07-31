@@ -141,6 +141,57 @@ If clasp is unavailable (no auth, API toggle off, someone else's machine):
    is the one people skip, and skipping it leaves the editor showing new code
    while `/exec` runs the old.
 
+## Running a function remotely (`clasp run`)
+
+Lets an agent invoke a NAMED function in the deployed script instead of you
+clicking Run in the editor — used for the one-off Drive maintenance helpers
+(`inspectDriveLayout`, `migrateDriveLayout`, `tidyScriptFiles`). The capability
+is bounded by what functions exist in `prform.gs`, i.e. reviewed code in git.
+
+**Be honest about the bound**: `scripts.run` mints a token carrying the
+SCRIPT's OAuth scopes, and this script uses `DriveApp`, so that token can reach
+the whole Drive. The limit is procedural (an agent calls named functions), not
+technical. If you want a real boundary, put `IT Database` in a Shared Drive and
+give automation an identity scoped to only that drive.
+
+### Setup (one-time, yours — needs the Google Cloud console)
+
+1. **Create or pick a standard GCP project** and configure its OAuth consent
+   screen (Internal is fine). Note the **project number**.
+2. **Attach it to the script**: Apps Script editor → ⚙ Project Settings →
+   Google Cloud Platform (GCP) Project → *Change project* → paste the number.
+   The default hidden project cannot be used for `clasp run`.
+3. **Enable the Apps Script API** in that GCP project (APIs & Services →
+   Library → "Apps Script API").
+4. **Create a Desktop OAuth client** (APIs & Services → Credentials → Create
+   credentials → OAuth client ID → Desktop app) and download the JSON.
+5. `npx clasp login --creds <that.json>` — re-authorises with the script's own
+   scopes. **The creds JSON and the resulting `~/.clasprc.json` are secrets**;
+   see `.claude/rules/security.md`.
+6. **Add an API Executable deployment**: Deploy → New deployment → type
+   *API Executable* → Who has access: Only myself.
+
+> **Step 6 is the one that looks like it violates the "never mint a new
+> deployment" rule — it does not.** That rule is about the WEB APP deployment,
+> whose id is baked into `GAS_API_URL`. An API Executable is a different entry
+> point type; adding one leaves the web app deployment and its `/exec` URL
+> untouched. It does mean `clasp list-deployments` now shows FOUR entries, so
+> don't let that read as "someone re-deployed".
+
+Then: `cd .gas-build && npx clasp run tidyScriptFiles`
+
+### Gotchas
+
+- **`clasp run` executes the deployed version, not your working copy.** Deploy
+  first (`npm run deploy:gas`), then run — otherwise you are invoking old code
+  and it looks like your change did nothing.
+- **Adding a new Google service to `prform.gs` changes the auto-derived OAuth
+  scopes.** The manifest has no explicit `oauthScopes`, so GAS derives them
+  from the code. Adding `GmailApp`/`CalendarApp`/etc. would widen them and
+  force a re-authorization — and this web app is `ANYONE_ANONYMOUS` +
+  `USER_DEPLOYING`, so an unauthorised deployment means every upload fails.
+  Staying within `DriveApp` + `MailApp` (already used) adds nothing.
+
 ## Where the folders live: `My Drive / IT Database`
 
 Every folder the script touches is mounted under a single container folder,

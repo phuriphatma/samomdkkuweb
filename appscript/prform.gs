@@ -335,6 +335,92 @@ function migrateDriveLayout() {
   return out;
 }
 
+// ============================================================
+// tidyScriptFiles — ONE-OFF: file the Apps Script projects themselves
+//
+// An Apps Script project IS a Drive file, so the three of them were sitting
+// loose in My Drive root alongside the data folders. This moves the live ones
+// under `IT Database/_Scripts/` and trashes a dead prototype.
+//
+// `prformweb` is a SPREADSHEET: this script is container-bound to it (verified
+// via the Apps Script API — projects.get returns parentId = that Sheet). The
+// code lives inside the Sheet, so moving the Sheet moves the script. The
+// binding is vestigial — prform.gs has zero SpreadsheetApp references — but it
+// CANNOT be removed: unbinding means a new project, hence a new /exec URL,
+// while GAS_API_URL is hard-coded. So the Sheet gets moved, not detached.
+//
+// `Uploadbadgesamopassport` is a dead prototype (hardcoded folder id, the
+// `?export=view` URL form that blanks on iOS, referenced by no repo). Verified
+// via the Apps Script API that the LIVE passport upload deployment
+// (AKfycbwJgkPTcr9G…) belongs to `samopassport`, NOT to this one.
+//
+// Run once from the editor (Run ▸ tidyScriptFiles), then this can be deleted.
+// Not routed through doPost. Adds no OAuth scope — DriveApp already resolves
+// to full drive here, so the anonymous web app is not forced to re-authorize.
+// ============================================================
+
+var SCRIPT_FILES_FOLDER = '_Scripts';
+
+/** id + the name that id MUST still have. The name check is the guard: if an
+ *  id has been reused or my record is stale, the name won't match and we
+ *  refuse rather than move/trash whatever now sits there. */
+var SCRIPT_FILES_TO_FILE = [
+  { id: '1kJB-UKdkkGZ7aXaIdPtvdQrAaaVFtYmAJdrtLdqu_ZI',                       name: 'prformweb' },
+  { id: '1Bt9hpiwIPUOYJBYHo6Ky46gzgtw4KdfUPERfacx9nV8t99Uz6B4nzfsO',          name: 'samopassport' }
+];
+var ORPHAN_SCRIPT_FILE =
+  { id: '1LTi_4-pnEvf_gLBvUefK3MpV7C1_EF8HpnxCFR2qDX9Bay4ZuWDyScOw',          name: 'Uploadbadgesamopassport' };
+
+/** True when `file` already sits directly inside `folder`. */
+function fileIsIn_(file, folder) {
+  var ps = file.getParents();
+  while (ps.hasNext()) if (ps.next().getId() === folder.getId()) return true;
+  return false;
+}
+
+function tidyScriptFiles() {
+  var root = getAppRoot_();
+  var it = root.getFoldersByName(SCRIPT_FILES_FOLDER);
+  var dest = it.hasNext() ? it.next() : root.createFolder(SCRIPT_FILES_FOLDER);
+  var report = [APP_ROOT_FOLDER_NAME + '/' + SCRIPT_FILES_FOLDER + ': ' + dest.getId()];
+
+  for (var i = 0; i < SCRIPT_FILES_TO_FILE.length; i++) {
+    var want = SCRIPT_FILES_TO_FILE[i];
+    var f;
+    try { f = DriveApp.getFileById(want.id); }
+    catch (e) { report.push('   ' + want.name + ': not found by id — skipped'); continue; }
+
+    var actual = f.getName();
+    if (actual !== want.name) {
+      report.push('!! ' + want.name + ': REFUSED — id ' + want.id + ' is now named "' +
+                  actual + '". Not touching it; re-check the id.');
+      continue;
+    }
+    if (fileIsIn_(f, dest)) { report.push('   ' + want.name + ': already in place'); continue; }
+    f.moveTo(dest);
+    report.push('-> ' + want.name + ': MOVED into ' + SCRIPT_FILES_FOLDER +
+                ' (' + f.getMimeType() + ')');
+  }
+
+  var o;
+  try { o = DriveApp.getFileById(ORPHAN_SCRIPT_FILE.id); }
+  catch (e) { return finishTidy_(report, ORPHAN_SCRIPT_FILE.name + ': not found — already gone'); }
+  if (o.getName() !== ORPHAN_SCRIPT_FILE.name) {
+    return finishTidy_(report, '!! ' + ORPHAN_SCRIPT_FILE.name + ': REFUSED — id is now named "' +
+                               o.getName() + '". Not trashing it.');
+  }
+  if (o.isTrashed()) return finishTidy_(report, '   ' + ORPHAN_SCRIPT_FILE.name + ': already trashed');
+  o.setTrashed(true);   // trash, not purge — 30-day recovery window
+  return finishTidy_(report, '-> ' + ORPHAN_SCRIPT_FILE.name + ': TRASHED (recoverable 30 days)');
+}
+
+function finishTidy_(report, lastLine) {
+  report.push(lastLine);
+  var out = report.join('\n');
+  console.log(out);
+  return out;
+}
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);

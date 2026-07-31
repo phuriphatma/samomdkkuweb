@@ -48,7 +48,7 @@ the measurements are in the archive.
 ## APPS SCRIPT — automated deploys (new)
 
 `npm run deploy:gas` (`tools/deploy-gas.mjs`). Live state: script `179DfoS1…`,
-deployment `AKfycbw1iHE4…` **@49**, `/exec` URL unchanged.
+deployment `AKfycbw1iHE4…` **@50**, `/exec` URL unchanged.
 
 - Setup already done on this Mac: `npx clasp login` (as
   `mdstuddata.beta@gmail.com`), Apps Script API enabled, `GAS_SCRIPT_ID` in
@@ -66,7 +66,7 @@ deployment `AKfycbw1iHE4…` **@49**, `/exec` URL unchanged.
 - Canary: `POST {action:'uploadTeamFile'}` with no `folderPath` → the handler
   validates before touching Drive, so it proves the new code is serving while
   writing nothing. `folderPath is required` = new, `Unknown action` = old.
-- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 48`.
+- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 49`.
 
 ### Drive layout: `My Drive / IT Database` + canonical names (@49, DONE)
 
@@ -100,9 +100,19 @@ only moves/renames, so no stored URL changed and nothing was backfilled.
   `samopassport` Apps Script project, re-deploy the existing deployment, then
   Run ▸ `migrateDriveLayout` there. Until then `badges`/`certificates` stay at
   My Drive root.
-- **PENDING (manual, needs Drive UI)**: move the three Apps Script files into
-  `IT Database/_Scripts/` and trash the orphan. The clasp token only has
-  `drive.file` + read-only metadata, so an agent cannot do this.
+- **PENDING (one click)**: `tidyScriptFiles()` ships in @50 — Run it once from
+  the editor to move `prformweb` + `samopassport` into `IT Database/_Scripts/`
+  and trash the orphan. It verifies each id still carries its expected NAME and
+  refuses otherwise, is idempotent, and trashes rather than purges. Delete the
+  function afterwards. (An agent can't do this directly: the clasp token holds
+  only `drive.file` + read-only metadata, and Drive 403s on files it didn't
+  create.)
+- **PENDING (setup, yours)**: `clasp run` — see `skills/deploy-gas.md`. Needs a
+  standard GCP project attached to the script, a Desktop OAuth client, and an
+  **API Executable** deployment. That extra deployment does NOT touch the web
+  app `/exec` URL (different entry-point type) but does make
+  `list-deployments` show four. Bounded by discipline, not technically: the
+  `scripts.run` token carries the script's Drive scope.
 
 ### The three Apps Script projects (they are NOT one)
 
