@@ -7,6 +7,28 @@ detail pruned out of here most recently:
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
 
+## SHIPPED — VitalSound เรื่องซ้ำ: merge is now two-directional — LIVE
+
+No migration; `merge_vs_tickets(p_dup, p_canonical)` unchanged, called both ways.
+
+- **The direction was never stated** — it lived only in a button label on the
+  OTHER ticket's row (`รวมเข้าเรื่องนี้`), where `นี้` has no fixed referent.
+  Users opened the main ticket and expected the LISTED one to become the
+  subticket; it did the opposite. Direction is now an explicit mode + a sentence
+  naming the open ticket's id, and the row button says what the ROW becomes
+  (`เลือกเป็นเรื่องหลัก`).
+- **pull mode added.** Ticking N tickets makes them duplicates of the OPEN one.
+  10-into-1 used to mean opening 10 tickets and re-searching for the main each
+  time; now it is one search, ten checkboxes, one button. Selection survives
+  across searches (assemble a cluster from several queries) and the confirm
+  enumerates every id. Bulk is sequential + per-ticket-reported, deliberately
+  NOT atomic — each merge stands alone, so a partial is a correct outcome.
+- Rows whose ticket already owns duplicates are locked in pull mode with the
+  reason shown (the RPC would refuse: it'd orphan that ticket's children).
+- Verified live in a rolled-back txn: pull merges, P0001 on a source with a
+  child, 42501 cross-dept, and both lookup RPCs already exclude tickets that
+  are themselves duplicates — so the same rows are valid in either direction.
+
 ## SHIPPED — VitalSound: โอนย้ายฝ่าย unblocked (0107) + 3 form/copy changes
 
 Migration **0107 applied**. Proof `tools/vs0107-transfer.mjs` — **26/26**.

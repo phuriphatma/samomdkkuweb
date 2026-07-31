@@ -2119,6 +2119,51 @@ grantee with `managed_vs_depts`).
 
 ---
 
+## A directional action whose direction lives ONLY in a label on the other party's row gets read backwards — and offering just one direction turns an N-item job into N searches
+
+**Symptom** (reported): "when I want a ticket to be a subticket, `รวมเข้าเรื่องนี้`
+— the user is confused, they think the current ticket is the master and the
+listed one becomes the subticket." Exactly inverted from what it did.
+**Cause**: the merge panel had ONE direction, stated nowhere except a button
+label sitting on the OTHER ticket's row. "รวมเข้าเรื่องนี้" = "merge into THIS
+one" — and `นี้` has no fixed referent: read on the row it means the row, read
+by someone who just opened a ticket it means the open ticket. The action took
+the second reading and did the opposite of it. A demonstrative pronoun in a
+button label is ambiguous BY CONSTRUCTION whenever the button sits on one of
+the two things it could refer to.
+**The second half, which the user found by using it**: with only the
+duplicate→canonical direction, merging 10 tickets into one main meant opening
+each of the 10 and re-searching for the main every time. The workflow existed
+only from the side that happens to be *one* ticket, so the bulk case — which is
+the common one when curating a known main — was N× the work.
+**Fix**: (1) direction is an explicit MODE, restated as a sentence naming the
+open ticket's id and what happens to it; (2) every button names what the ROW
+becomes (`เลือกเป็นเรื่องหลัก`), never what "this" does; (3) BOTH directions
+ship — push (the open ticket becomes a duplicate; one target ⇒ a button) and
+pull (ticked tickets become duplicates of the open one; many targets ⇒
+checkboxes + one bulk action). Same `merge_vs_tickets(p_dup, p_canonical)`,
+only the argument order differs — no migration.
+**Where**: `src/js/vs-staff.js` (`mergeDir` / `mergeTargetRow` /
+`renderMergeDirection` / `onPullMergeClick`), `src/html/modal-vs-staff.html`,
+`src/css/vs-admin.css`.
+**Three details worth reusing for any bulk action:**
+- *Pre-empt the refusals the server will make.* `merge_vs_tickets` rejects a
+  source that already owns duplicates. In pull mode that row is locked with the
+  reason ON the row, rather than letting the user tick it and collect an error.
+- *Bulk ≠ atomic.* Each merge is independently meaningful, so 8-of-10 is a
+  correct outcome, not a broken transaction — sequential calls, per-ticket
+  failure report. What is NOT acceptable is a silent partial.
+- *A selection is scoped to the thing it was made in.* It is cleared when the
+  modal opens another ticket; otherwise it silently follows the user into a
+  different cluster and the next click merges the wrong things.
+**Rule**: whenever an action relates two records asymmetrically (merge, link,
+parent, supersede, assign), the UI must name BOTH sides and which one changes —
+never rely on "this"/"นี้"/"here". And ask which side the user will be looking
+at when they start the task: if it can be either, both directions need to
+exist, and the many-to-one side needs multi-select or it is N separate jobs.
+
+---
+
 ## Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
 
 **Symptom**: while reproducing the RLS bug above, a probe that did
