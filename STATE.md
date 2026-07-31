@@ -59,10 +59,14 @@ the switch keep working. Deploying one cannot affect another.
   `DriveApp.getRootFolder()`.
 - **Security review — three holes found and CLOSED**, all years old, none caused
   by the migration: an unguarded delete-any-file, an open email relay, and an
-  unconstrained upload folder. Destructive actions now require a verified
-  Supabase session (`requireSupabaseUser_`); uploads stay open because guests
-  submit PR tickets without an account. Proofs and the reasoning are in
-  `.claude/rules/mistakes.md`.
+  unconstrained upload folder. Uploads stay open because guests submit PR
+  tickets without an account. **A session gate on the deletes was built,
+  deployed and REVERTED** — it needed `UrlFetchApp`, which widened the derived
+  OAuth scopes, and a web app running as its owner throws until that owner
+  re-consents; it broke every delete for ~1h. Deletes are folder-scoped only,
+  as before. Re-enable ONLY in this order: owner re-consents first, then
+  restore the gate (the frontend already sends `accessToken`). Proofs and the
+  full post-mortem are in `.claude/rules/mistakes.md`.
 - **ONLY REMAINING**: delete `prformweb_backup_candelete` + its old deployment
   once the old endpoint is quiet. HTML is `no-cache`, so the drain window is
   open tabs only — hours, not weeks. Deleting early costs at most one failed

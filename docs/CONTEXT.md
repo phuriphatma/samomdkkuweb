@@ -773,16 +773,26 @@ address** — the caller chooses the target. Current model:
 | action group | authorization |
 |---|---|
 | uploads (`uploadPRFile`/`Shop`/`Team`/`Project`) | **open by design** — guests submit PR tickets without an account; bounded by per-action folder allow-lists |
-| deletes (`deleteShopFile`/`ProjectFile`/`ProjectFolder`) | folder-scoped **AND** `requireSupabaseUser_` — a live Supabase session, verified against `/auth/v1/user` |
+| deletes (`deleteShopFile`/`ProjectFile`/`ProjectFolder`) | **folder-scoped only.** A Supabase-session gate was built and reverted — see below |
 | `notifyProjectEmail` | recipient **domain** allow-list (`EMAIL_DOMAIN_ALLOWLIST` script property); every recipient checked, exact match |
 | passport `delete` | must live under `IT Database/Passport`, matched by folder **ID** |
 
+**The session gate is staged, not active.** Verifying a token requires an
+outbound HTTP call, and adding one changed the script's auto-derived OAuth
+scopes (`script.external_request`). A web app runs as its OWNER, so until the
+owner re-consents every execution throws an authorization error — which broke
+all three deletes in production until it was reverted. Re-enable in this order:
+(1) the owner opens the script, runs any function and accepts the new consent
+screen; (2) then restore the gate and redeploy. The frontend already sends
+`accessToken`, so step 2 is the only code change.
+
 Rules when touching these: verify a token server-side, never by decoding the JWT
 locally (decoding needs the signing secret, and parsing the payload accepts any
-forgery); fail **closed** on network errors; and when adding a newly-required
-field, **ship the frontend first** — an old script ignores an extra JSON field,
-so it is a no-op until GAS follows, whereas the reverse order breaks every
-served bundle.
+forgery); fail **closed** on errors; when adding a newly-required field **ship
+the frontend first** (an old script ignores an extra JSON field, so it is a
+no-op until GAS follows, whereas the reverse breaks every served bundle); and
+before adding ANY new Google service to a script, check whether it widens the
+derived scopes — if it does, the owner must re-consent BEFORE the deploy.
 
 ### Drive folder layout (lazily created by GAS on first upload)
 

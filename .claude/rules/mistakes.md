@@ -2695,6 +2695,50 @@ Never treat the `/exec` URL as a secret. (3) Test a guard from BOTH sides: a rea
 target outside the allowed tree must survive, and the legitimate flow must still
 work — I verified the delete guard by attacking a real file (it survived) and
 then round-tripping a real upload+delete (count returned to its original 15).
-**Follow-on**: the same review flagged the destructive actions as needing a
-real caller identity rather than scope alone. Closed the same day — see the
-`requireSupabaseUser_` entry below.
+**Follow-on**: the same review flagged the destructive actions as needing a real
+caller identity rather than scope alone. That gate was built, deployed — and
+reverted within the hour, because it needed a new OAuth scope. See the next
+entry; it is the more important lesson of the two.
+
+
+---
+
+## Adding a Google service to an Apps Script web app widens its auto-derived OAuth scopes — and a web app running AS ITS OWNER dies until that owner re-consents
+
+**Symptom**: every `deleteShopFile` / `deleteProjectFile` / `deleteProjectFolder`
+call started returning `unauthorized: could not verify session`, for ~an hour, in
+production. It looked like the new session-verification gate rejecting tokens —
+including tokens that were perfectly valid. Uploads and email were unaffected,
+which made it look like a bug in the gate's logic rather than in its permissions.
+**Cause**: the gate called `UrlFetchApp.fetch` to verify the caller's token
+against Supabase. The manifest declares no explicit `oauthScopes`, so GAS derives
+them from the code — and `UrlFetchApp` adds
+`https://www.googleapis.com/auth/script.external_request`, which the owner had
+never granted. The deployment is `Execute as: Me`, so the script cannot run a
+service the owner has not consented to: `UrlFetchApp.fetch` THROWS before any
+logic runs. The gate's catch turned that into a generic "could not verify
+session", which is fail-closed (correct) but hid the real cause.
+**How it was found**: not by the probes — those all reported "denied", which is
+what a working gate looks like. It surfaced only when asking *which branch* was
+denying: the message was the CATCH branch, and a 403 from Supabase with
+`muteHttpExceptions: true` does not throw. Echoing `String(e)` gave the real
+error verbatim (in Thai): *"คุณไม่ได้รับอนุญาตให้เรียกใช้ UrlFetchApp.fetch
+สิทธิ์ที่จำเป็นคือ …/script.external_request"*.
+**Fix**: reverted the gate, removing the external call entirely; deletes work
+again (verified with a real upload→delete round trip, plus the folder guard still
+refusing a file outside the tree). Re-enabling is now documented as a strict
+two-step: the owner re-consents FIRST, then the gate is restored. The frontend
+already sends `accessToken`, so only the GAS side changes.
+**The bitter part**: `skills/deploy-gas.md` had carried this exact warning since
+that morning — *"adding a new Google service changes the auto-derived OAuth
+scopes and forces a re-authorization; this web app is ANYONE_ANONYMOUS +
+USER_DEPLOYING, so an unauthorised deployment means every call fails"* — written
+while checking that a DIFFERENT change was safe. Writing a hazard down does not
+make you check it; the check has to be part of the deploy, not part of the docs.
+**Rules**: (1) before adding ANY new Google service (`UrlFetchApp`, `GmailApp`,
+`CalendarApp`, `SpreadsheetApp`…) to a script, ask whether it widens the derived
+scopes — if it does, the owner must re-consent BEFORE the code that uses it goes
+live. (2) A probe that only ever asserts "denied" cannot distinguish a working
+guard from a broken service; always test the ALLOW path too, with a real
+credential. (3) When a guard's catch-all fires, echo the underlying exception —
+a generic failure message hid this for an hour.
