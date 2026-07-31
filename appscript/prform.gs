@@ -350,6 +350,59 @@ function migrateDriveLayout() {
   return out;
 }
 
+// ============================================================
+// Caller identity for destructive actions
+//
+// This web app is `Execute as: Me` + `Who has access: Anyone`, and its /exec
+// URL is inlined into the public bundle at build time — so scope alone is not
+// authorization. A handler that names WHICH TREE it may touch still lets any
+// caller on the internet act on that tree; for the delete actions that means
+// destroying real work (Drive's 30-day trash is a recovery path, not a
+// control).
+//
+// So the destructive actions additionally require a live Supabase session:
+// the caller passes its access token and we verify it against Supabase's own
+// /auth/v1/user. Both constants below are PUBLIC by design (the anon key is
+// bundled and gated by RLS — see .claude/rules/security.md), so embedding them
+// here leaks nothing.
+//
+// Uploads deliberately stay open: guests submit PR tickets without an account,
+// and requiring a session there would break the public form. They remain
+// bounded by the per-action folder allow-lists.
+// ============================================================
+
+var SUPABASE_URL = 'https://fheueuowbchsnsvbcgil.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoZXVldW93YmNoc25zdmJjZ2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjU4MjMsImV4cCI6MjA5NTAwMTgyM30.m_xNPmSX4W_UuI4K_pIqixK61CGmoIpmBjnFNHktb0w';
+
+/**
+ * Verify the caller holds a live Supabase session. Returns the user object.
+ * Throws otherwise — callers surface that as success:false.
+ *
+ * Verified against Supabase rather than by decoding the JWT locally: decoding
+ * would require the signing secret (which must never live here) and a naive
+ * "parse the payload" check accepts any forged token.
+ */
+function requireSupabaseUser_(data) {
+  var token = String((data && data.accessToken) || '').trim();
+  if (!token) throw new Error('unauthorized: sign in required');
+  var res;
+  try {
+    res = UrlFetchApp.fetch(SUPABASE_URL + '/auth/v1/user', {
+      method: 'get',
+      headers: { Authorization: 'Bearer ' + token, apikey: SUPABASE_ANON_KEY },
+      muteHttpExceptions: true,
+    });
+  } catch (e) {
+    // Network failure must FAIL CLOSED — never fall through to "allowed".
+    throw new Error('unauthorized: could not verify session');
+  }
+  if (res.getResponseCode() !== 200) throw new Error('unauthorized: invalid or expired session');
+  var user;
+  try { user = JSON.parse(res.getContentText()); } catch (e) { user = null; }
+  if (!user || !user.id) throw new Error('unauthorized: no user on session');
+  return user;
+}
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -358,10 +411,10 @@ function doPost(e) {
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
-    if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
+    if (data.action === 'deleteShopFile')    { requireSupabaseUser_(data); return handleDeleteShopFile(data); }
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
-    if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
-    if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
+    if (data.action === 'deleteProjectFile')   { requireSupabaseUser_(data); return handleDeleteProjectFile(data); }
+    if (data.action === 'deleteProjectFolder') { requireSupabaseUser_(data); return handleDeleteProjectFolder(data); }
     if (data.action === 'getProjectFolderInfo') return handleGetProjectFolderInfo(data);
     if (data.action === 'getProjectFileData')   return handleGetProjectFileData(data);
 

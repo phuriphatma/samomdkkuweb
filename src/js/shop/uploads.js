@@ -13,6 +13,7 @@
 // ==============================================
 
 import { GAS_API_URL } from '../config.js';
+import { currentAccessToken } from '../db.js';
 import { convertDriveUrl } from '../uploads.js';
 
 function readAsDataURL(file) {
@@ -70,7 +71,7 @@ export async function deleteShopFile(fileUrl) {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteShopFile', fileUrl }),
+      body: JSON.stringify({ action: 'deleteShopFile', fileUrl, accessToken: currentAccessToken() }),
     });
     const result = await res.json();
     if (!result.success) {

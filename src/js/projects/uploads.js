@@ -7,6 +7,7 @@
 // ==============================================
 
 import { GAS_API_URL } from '../config.js';
+import { currentAccessToken } from '../db.js';
 
 function readAsDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -102,7 +103,7 @@ export async function deleteProjectFile(fileUrl) {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteProjectFile', fileUrl }),
+      body: JSON.stringify({ action: 'deleteProjectFile', fileUrl, accessToken: currentAccessToken() }),
     });
     const result = await res.json();
     if (!result.success) {
@@ -178,7 +179,7 @@ export async function deleteProjectFolder(folderPath) {
   const res = await fetch(GAS_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'deleteProjectFolder', folderPath }),
+    body: JSON.stringify({ action: 'deleteProjectFolder', folderPath, accessToken: currentAccessToken() }),
   });
   const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
   if (!result.success) throw new Error(result.message || 'ลบโฟลเดอร์ใน Drive ไม่สำเร็จ');
