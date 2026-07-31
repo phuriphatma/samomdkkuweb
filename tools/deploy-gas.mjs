@@ -76,6 +76,14 @@ function env() {
       }));
 }
 const ENV = env();
+// A real environment wins over .env.local — lets a one-off
+// `GAS_SCRIPT_ID=… GAS_DEPLOYMENT_ID=… npm run deploy:gas` target a DIFFERENT
+// project (e.g. patching the retired one during a migration overlap) without
+// editing the dotfile. Allow-listed rather than spread, so unrelated shell vars
+// cannot leak in. The passport port of this tool has the same block.
+for (const k of ['GAS_SCRIPT_ID', 'GAS_DEPLOYMENT_ID']) {
+  if (process.env[k]) ENV[k] = process.env[k];
+}
 
 function die(msg, hint) {
   console.error(`\n✗ ${msg}`);
@@ -123,6 +131,15 @@ function writeClaspJson(dir, scriptId) {
  * nothing, because /exec would still serve the old version.
  */
 function liveEndpoint() {
+  // An explicit override means we are deploying an endpoint config.js does not
+  // reference; verify THAT one, or the probe silently green-lights a different
+  // deployment than the one just rolled.
+  if (ENV.GAS_DEPLOYMENT_ID) {
+    return {
+      url: `https://script.google.com/macros/s/${ENV.GAS_DEPLOYMENT_ID}/exec`,
+      deploymentId: ENV.GAS_DEPLOYMENT_ID,
+    };
+  }
   const cfg = readFileSync(join(ROOT, 'src', 'js', 'config.js'), 'utf8');
   const m = cfg.match(/https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]+)\/exec/);
   return m ? { url: m[0], deploymentId: m[1] } : null;
