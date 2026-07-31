@@ -774,7 +774,7 @@ address** — the caller chooses the target. Current model:
 |---|---|
 | uploads (`uploadPRFile`/`Shop`/`Team`/`Project`) | **open by design** — guests submit PR tickets without an account; bounded by per-action folder allow-lists |
 | deletes (`deleteShopFile`/`ProjectFile`/`ProjectFolder`) | **folder-scoped only.** A Supabase-session gate was built and reverted — see below |
-| `notifyProjectEmail` | recipient **domain** allow-list (`EMAIL_DOMAIN_ALLOWLIST` script property); every recipient checked, exact match |
+| `notifyProjectEmail` | recipient allow-list (`EMAIL_DOMAIN_ALLOWLIST` script property): an entry with `@` is a whole address, without one it is a domain. Every recipient checked, both matched exactly |
 | passport `delete` | must live under `IT Database/Passport`, matched by folder **ID** |
 
 **The session gate is staged, not active.** Verifying a token requires an

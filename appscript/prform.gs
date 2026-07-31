@@ -897,13 +897,14 @@ function handleDeleteProjectFolder(data) {
 // ============================================================
 
 /**
- * Domains `notifyProjectEmail` may send to.
+ * Who `notifyProjectEmail` may send to. An entry with '@' is a whole address;
+ * without one it is a domain. Both are matched exactly.
  *
  * Overridable WITHOUT a redeploy via Script Properties (⚙ Project Settings →
  * Script Properties) key `EMAIL_DOMAIN_ALLOWLIST`, comma-separated — so adding
  * a recipient domain never needs a code change.
  */
-var EMAIL_DOMAIN_ALLOWLIST_DEFAULT = 'kku.ac.th,kkumail.com';
+var EMAIL_DOMAIN_ALLOWLIST_DEFAULT = 'kku.ac.th,kkumail.com,mdstuddata.beta@gmail.com';
 var EMAIL_SUBJECT_MAX = 300;
 var EMAIL_BODY_MAX = 40000;
 
@@ -955,12 +956,18 @@ function sendProjectEmail(data) {
   var allowed = allowedEmailDomains_();
   for (var i = 0; i < recipients.length; i++) {
     var addr = recipients[i];
-    var at = addr.lastIndexOf('@');
-    var domain = at === -1 ? '' : addr.slice(at + 1).toLowerCase();
-    // Exact domain match only — a suffix test would let `notkku.ac.th` and
-    // `kku.ac.th.evil.com` through.
-    if (!domain || allowed.indexOf(domain) === -1) {
-      throw new Error('notifyProjectEmail: recipient domain not allowed: ' + (domain || addr)
+    var lower = addr.toLowerCase();
+    var at = lower.lastIndexOf('@');
+    var domain = at === -1 ? '' : lower.slice(at + 1);
+    // An entry containing '@' is a WHOLE ADDRESS, otherwise it is a domain.
+    // That way a single personal mailbox on a public provider can be allowed
+    // without opening the relay to every address at that provider — adding
+    // `gmail.com` to reach one gmail account would let anyone mail any gmail
+    // user from this account.
+    // Both comparisons are EXACT: a suffix test would admit `notkku.ac.th`
+    // and `kku.ac.th.evil.com`.
+    if (!domain || (allowed.indexOf(domain) === -1 && allowed.indexOf(lower) === -1)) {
+      throw new Error('notifyProjectEmail: recipient not allowed: ' + addr
         + ' (allowed: ' + allowed.join(', ') + ')');
     }
   }
