@@ -182,12 +182,9 @@ was introduced by the Drive move; both are in `.claude/rules/mistakes.md`.
   match. Verified: gmail / `kku.ac.th.evil.com` / `notkku.ac.th` / a smuggled
   second recipient all rejected; a real `kku.ac.th` still sends. Live recipient
   `woratho@kku.ac.th` unaffected.
-- **ACCEPTED, NOT FIXED — the remaining deletes are still unauthenticated.**
-  `deleteShopFile` / `deleteProjectFile` / `deleteProjectFolder` are scoped to
-  our own trees (bounded blast radius, 30-day Drive trash), but anyone with the
-  URL can destroy shop slips or a project folder. Closing it needs real auth
-  (verify the caller's Supabase JWT in GAS) across every delete call site — a
-  design change, not a patch. **Decide before the next campaign cycle.**
+- **IN PROGRESS — caller identity on the destructive actions.** Scope alone is
+  not authorization; being closed the same day (see below). **This repo is
+  PUBLIC: never write still-open vulnerability detail into it.**
 - **PERF**: `warnIfSplit_` was 3 Drive round-trips on every upload (~half of
   folder-resolution time). Clean results cached 6h, dirty never cached.
   Resolution ~2.7s cold → ~0.7s warm.

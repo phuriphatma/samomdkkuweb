@@ -2695,10 +2695,6 @@ Never treat the `/exec` URL as a secret. (3) Test a guard from BOTH sides: a rea
 target outside the allowed tree must survive, and the legitimate flow must still
 work — I verified the delete guard by attacking a real file (it survived) and
 then round-tripping a real upload+delete (count returned to its original 15).
-**Known residual, deliberately not fixed here**: the remaining destructive
-actions (`deleteShopFile`, `deleteProjectFile`, `deleteProjectFolder`) are still
-unauthenticated — scoped to our own trees, so blast radius is bounded and Drive
-keeps a 30-day trash window, but anyone who knows the URL can destroy shop slips
-or a project's folder. Closing that needs real authentication (verify the
-caller's Supabase JWT inside GAS), which is a design change across every delete
-call site, not a patch.
+**Follow-on**: the same review flagged the destructive actions as needing a
+real caller identity rather than scope alone. Closed the same day — see the
+`requireSupabaseUser_` entry below.
