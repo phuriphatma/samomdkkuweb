@@ -15,6 +15,22 @@ portraits + ปีการศึกษา (0104–0106). All applied, deployed,
 `docs/state-archive/2026-07-31-vs-and-team.md`. Post-mortems are the newest
 entries in `.claude/rules/mistakes.md`.
 
+## ประกาศ article cover — no longer cropped (2026-07-31)
+
+`.article-hero` used to be a fixed 16:9 box with `object-fit: cover`, which
+center-cropped every cover. Covers are often PORTRAIT newsletter pages, so most
+of the page was cut away. The hero image is now rule-for-rule identical to
+`.article-body img` (`width:100%; height:auto`) inside the same 720px column.
+
+Three things were tried and removed; `src/css/article.css` records each with the
+defect it caused, and none should be reintroduced:
+`aspect-ratio` (crops), a `background` colour (grey letterbox bars beside a
+portrait cover), and a vh-based `max-height` (made the cover NARROWER than the
+body pages once zoomed, because the height clamped and the width followed).
+
+**The board cards keep their 3:4 crop** (`.news-card-media`) — a grid needs
+uniform tiles; a detail page needs the real image. Don't "unify" those.
+
 ## APPS SCRIPT + DRIVE — all DONE 2026-07-31 (full detail in the archive)
 
 Detail: `docs/state-archive/2026-07-31-gas-drive-migration.md`. Durable facts are
@@ -56,7 +72,7 @@ the switch keep working. Deploying one cannot affect another.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `f49a3e8`, **deployed 2026-07-31**, `buildId bef6f9ac240a`. Latest
+- **samoweb**: `3f5f6b2`, **deployed 2026-07-31**, `buildId 6316d8ec7a95`. Latest
   change: the VitalSound work in the two sections above (0107 + the
   two-directional merge). Verified in the SERVED bundles: `vs_transfer_dept` and
   `เลือกเป็นเรื่องหลัก` in `/assets/admin-*.js`, `vsMergeDirPull` in
