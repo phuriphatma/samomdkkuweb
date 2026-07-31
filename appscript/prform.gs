@@ -19,7 +19,182 @@
 // the Cloudflare Pages Function `/notify` (functions/notify.js). Everything
 // else (PR submit, tracking, staff dashboard, announcements, agents) is
 // handled directly by Supabase from the frontend.
+//
+// EVERY folder this script touches lives under `My Drive / IT Database`
+// (see APP_ROOT_FOLDER_NAME below) — the frontend still passes root-relative
+// logical paths like `SAMO_Shop/Slips/2026-05`, and the resolution happens
+// here so no client needs to know where the tree is mounted.
 // ============================================================
+
+// ============================================================
+// App root — `My Drive / IT Database`
+//
+// Historically every top-level folder (PR_Submissions, Projects, SAMO_Shop,
+// SAMO_Team) was created directly in My Drive root, which made the SAMO
+// Drive unbrowsable. They now live under a single container folder.
+//
+// getOrCreateTopFolder_ MIGRATES lazily: if the folder is already under
+// IT Database it is reused; if it is still sitting at My Drive root (the
+// pre-migration state) it is MOVED in. A Drive move preserves the folder id
+// and every file id inside it, so all URLs already stored in Postgres keep
+// resolving — nothing to backfill. Creating a fresh empty folder instead
+// would orphan every existing file (the same trap the by-code project
+// folder walker below exists to avoid).
+// ============================================================
+
+var APP_ROOT_FOLDER_NAME = 'IT Database';
+
+/** Get-or-create `My Drive / IT Database`. */
+function getAppRoot_() {
+  var myDrive = DriveApp.getRootFolder();
+  var iter = myDrive.getFoldersByName(APP_ROOT_FOLDER_NAME);
+  return iter.hasNext() ? iter.next() : myDrive.createFolder(APP_ROOT_FOLDER_NAME);
+}
+
+/** Resolve a top-level app folder (PR_Submissions / Projects / SAMO_Shop /
+ *  SAMO_Team) under the app root, creating it if absent and adopting a
+ *  legacy My-Drive-root folder of the same name by moving it in. */
+function getOrCreateTopFolder_(name) {
+  var root = getAppRoot_();
+  var here = root.getFoldersByName(name);
+  if (here.hasNext()) {
+    var found = here.next();
+    // SPLIT check: a same-named folder still at My Drive root means older
+    // files live somewhere no future upload will look. Never merge or move
+    // automatically on a user's upload path — just make the state loud, and
+    // let `inspectDriveLayout` / `migrateDriveLayout` handle it deliberately.
+    if (DriveApp.getRootFolder().getFoldersByName(name).hasNext()) {
+      console.warn('Drive layout SPLIT: "' + name + '" exists in both ' +
+                   APP_ROOT_FOLDER_NAME + ' and My Drive root. Run inspectDriveLayout().');
+    }
+    return found;
+  }
+
+  var legacy = DriveApp.getRootFolder().getFoldersByName(name);
+  if (legacy.hasNext()) {
+    var f = legacy.next();
+    f.moveTo(root);   // id preserved → stored file URLs unaffected
+    return f;
+  }
+  return root.createFolder(name);
+}
+
+/** Non-creating twin of getOrCreateTopFolder_, for delete paths — never
+ *  materialise a folder just to find out it isn't there. Returns null. */
+function findTopFolder_(name) {
+  var myDrive = DriveApp.getRootFolder();
+  var rootIter = myDrive.getFoldersByName(APP_ROOT_FOLDER_NAME);
+  if (rootIter.hasNext()) {
+    var here = rootIter.next().getFoldersByName(name);
+    if (here.hasNext()) return here.next();
+  }
+  var legacy = myDrive.getFoldersByName(name);
+  return legacy.hasNext() ? legacy.next() : null;
+}
+
+/** The top-level folders this script owns. */
+var APP_TOP_FOLDERS = ['PR_Submissions', 'Projects', 'SAMO_Shop', 'SAMO_Team'];
+
+/** Immediate child counts — cheap fingerprint used to prove a move changed
+ *  nothing but the parent. Not recursive: `Projects/` has one subfolder per
+ *  โครงการ, and a deep walk would blow the 6-minute execution cap. */
+function folderFingerprint_(folder) {
+  var files = 0, folders = 0;
+  var fi = folder.getFiles();    while (fi.hasNext())  { fi.next();  files++; }
+  var fo = folder.getFolders();  while (fo.hasNext())  { fo.next();  folders++; }
+  return { id: folder.getId(), files: files, folders: folders };
+}
+
+/**
+ * READ-ONLY inventory. Run this FIRST from the Apps Script editor
+ * (Run ▸ inspectDriveLayout) — it touches nothing and tells you exactly what
+ * migrateDriveLayout would do, including any SPLIT (same name existing in
+ * both places), which is the one case that needs a human decision.
+ */
+function inspectDriveLayout() {
+  var myDrive = DriveApp.getRootFolder();
+  var rootIter = myDrive.getFoldersByName(APP_ROOT_FOLDER_NAME);
+  var appRoot = rootIter.hasNext() ? rootIter.next() : null;
+  var lines = [APP_ROOT_FOLDER_NAME + ': ' + (appRoot ? 'exists (' + appRoot.getId() + ')' : 'does not exist yet')];
+
+  for (var i = 0; i < APP_TOP_FOLDERS.length; i++) {
+    var name = APP_TOP_FOLDERS[i];
+    var inPlace = appRoot ? appRoot.getFoldersByName(name) : null;
+    var here = (inPlace && inPlace.hasNext()) ? inPlace.next() : null;
+    var legacyIter = myDrive.getFoldersByName(name);
+    var legacy = legacyIter.hasNext() ? legacyIter.next() : null;
+
+    if (here && legacy) {
+      lines.push('!! ' + name + ': SPLIT — exists in BOTH ' + APP_ROOT_FOLDER_NAME +
+                 ' (' + JSON.stringify(folderFingerprint_(here)) + ') and My Drive root (' +
+                 JSON.stringify(folderFingerprint_(legacy)) + '). migrateDriveLayout will REFUSE. ' +
+                 'Merge them by hand in Drive, then re-run.');
+    } else if (here) {
+      lines.push('   ' + name + ': already in place ' + JSON.stringify(folderFingerprint_(here)));
+    } else if (legacy) {
+      lines.push('-> ' + name + ': at My Drive root ' + JSON.stringify(folderFingerprint_(legacy)) +
+                 ' — will be MOVED (same id, same contents)');
+    } else {
+      lines.push('   ' + name + ': not found anywhere — nothing to do (will NOT be created)');
+    }
+  }
+  var out = lines.join('\n');
+  console.log(out);
+  return out;
+}
+
+/**
+ * ONE-SHOT tidy-up: move every legacy top-level folder into `IT Database`
+ * right now, instead of waiting for each one's next upload to adopt it.
+ *
+ * Run it by hand from the Apps Script editor (Run ▸ migrateDriveLayout)
+ * after `inspectDriveLayout`. Not reachable over HTTP — doPost has no route
+ * to it.
+ *
+ * CANNOT LOSE DATA, by construction:
+ *   - It only ever calls Folder.moveTo(). Nothing is created, copied,
+ *     renamed, trashed or deleted — a Drive move re-parents ONE folder and
+ *     preserves its id and every file id inside it, so URLs already stored
+ *     in Postgres keep resolving with no backfill.
+ *   - It verifies the child counts are identical before and after the move
+ *     and reports a mismatch rather than reporting success.
+ *   - A folder that exists in BOTH places is a SPLIT: it refuses and asks
+ *     for a manual merge, because silently picking one would strand the
+ *     other's files where no future upload would look.
+ *   - A folder that exists nowhere is skipped, not created.
+ * Idempotent: re-running after a successful pass reports "already in place".
+ */
+function migrateDriveLayout() {
+  var myDrive = DriveApp.getRootFolder();
+  var root = getAppRoot_();
+  var report = [];
+
+  for (var i = 0; i < APP_TOP_FOLDERS.length; i++) {
+    var name = APP_TOP_FOLDERS[i];
+    var hereIter = root.getFoldersByName(name);
+    var here = hereIter.hasNext() ? hereIter.next() : null;
+    var legacyIter = myDrive.getFoldersByName(name);
+    var legacy = legacyIter.hasNext() ? legacyIter.next() : null;
+
+    if (here && legacy) {
+      report.push('!! ' + name + ': REFUSED — exists in both places. Merge by hand, then re-run.');
+      continue;
+    }
+    if (here)    { report.push('   ' + name + ': already in place'); continue; }
+    if (!legacy) { report.push('   ' + name + ': not found (nothing to move)'); continue; }
+
+    var before = folderFingerprint_(legacy);
+    legacy.moveTo(root);
+    var after = folderFingerprint_(legacy);
+    var intact = before.id === after.id && before.files === after.files && before.folders === after.folders;
+    report.push((intact ? '-> ' : '!! ') + name + ': MOVED into ' + APP_ROOT_FOLDER_NAME +
+                ' — ' + (intact ? 'verified intact ' : 'COUNT MISMATCH ') +
+                JSON.stringify(before) + ' -> ' + JSON.stringify(after));
+  }
+  var out = report.join('\n');
+  console.log(out);
+  return out;
+}
 
 function doPost(e) {
   try {
@@ -63,8 +238,7 @@ function doPost(e) {
 
 function handleUploadPRFile(data) {
   try {
-    const folders = DriveApp.getFoldersByName('PR_Submissions');
-    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('PR_Submissions');
+    const folder = getOrCreateTopFolder_('PR_Submissions');
     const base64Data = data.fileData.split(',')[1];
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     const file = folder.createFile(blob);
@@ -206,13 +380,18 @@ function fileLivesUnderSamoShop_(file) {
 }
 
 /**
- * Walk a slash-separated folder path under My Drive root, creating any
- * missing folders as we go. Returns the leaf folder.
+ * Walk a slash-separated folder path under the app root (`IT Database`),
+ * creating any missing folders as we go. Returns the leaf folder.
+ *
+ * The FIRST segment is resolved with getOrCreateTopFolder_ so a legacy
+ * My-Drive-root folder is adopted rather than duplicated; deeper segments
+ * are plain get-or-create under their parent.
  */
 function getOrCreateFolderPath_(path) {
   var parts = path.split('/').filter(function (p) { return p && p.length; });
-  var parent = DriveApp.getRootFolder();
-  for (var i = 0; i < parts.length; i++) {
+  if (!parts.length) return getAppRoot_();
+  var parent = getOrCreateTopFolder_(parts[0]);
+  for (var i = 1; i < parts.length; i++) {
     var name = parts[i];
     var iter = parent.getFoldersByName(name);
     parent = iter.hasNext() ? iter.next() : parent.createFolder(name);
@@ -288,10 +467,9 @@ function walkProjectsPathByCode_(path) {
   if (parts.length === 0 || parts[0] !== 'Projects') {
     throw new Error('walkProjectsPathByCode_ requires a Projects/... path');
   }
-  var parent = DriveApp.getRootFolder();
-  // Top-level "Projects" folder: exact-name match (no code).
-  var pIter = parent.getFoldersByName('Projects');
-  parent = pIter.hasNext() ? pIter.next() : parent.createFolder('Projects');
+  // Top-level "Projects" folder: exact-name match (no code), under the
+  // app root, adopting a legacy My-Drive-root folder if that's where it is.
+  var parent = getOrCreateTopFolder_('Projects');
   // Walk each remaining segment with by-code matching.
   for (var i = 1; i < parts.length; i++) {
     var name = parts[i];
@@ -501,12 +679,12 @@ function handleDeleteProjectFolder(data) {
     if (parts.length === 0 || parts[0] !== 'Projects') {
       return createResponse({ success: false, message: 'folderPath must start with Projects' });
     }
-    var parent = DriveApp.getRootFolder();
-    var projectsIter = parent.getFoldersByName('Projects');
-    if (!projectsIter.hasNext()) {
+    // Non-creating lookup: a delete must never materialise the tree it is
+    // about to trash. Checks IT Database first, then the legacy root spot.
+    var parent = findTopFolder_('Projects');
+    if (!parent) {
       return createResponse({ success: true, alreadyGone: true });
     }
-    parent = projectsIter.next();
     for (var i = 1; i < parts.length; i++) {
       var name = parts[i];
       var code = extractProjectCode_(name);

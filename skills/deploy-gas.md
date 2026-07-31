@@ -134,6 +134,41 @@ If clasp is unavailable (no auth, API toggle off, someone else's machine):
    is the one people skip, and skipping it leaves the editor showing new code
    while `/exec` runs the old.
 
+## Where the folders live: `My Drive / IT Database`
+
+Every folder the script touches is mounted under a single container folder,
+`IT Database` (`APP_ROOT_FOLDER_NAME` in `prform.gs`) — previously they were
+created straight in My Drive root and made the SAMO Drive unbrowsable:
+
+```
+My Drive/
+  IT Database/
+    PR_Submissions/
+    Projects/<slug>_PRJ-XXXX/<slug>_DOC-XXXXX/
+    SAMO_Shop/{Slips,Products,Banners,QR}/
+    SAMO_Team/<ปีการศึกษา>/<ฝ่าย>/
+```
+
+The frontend still passes root-relative logical paths (`SAMO_Shop/Slips/2026-05`);
+the mount point is resolved server-side by `getOrCreateTopFolder_`, so no client
+knows about `IT Database` and no stored URL changed.
+
+**Migration is lazy + self-healing.** A top-level folder still sitting at My Drive
+root is *moved* in on next touch, never recreated — a Drive move preserves the
+folder id and every file id inside it, so URLs already in Postgres keep resolving.
+To do all four at once instead of waiting for the next upload, run
+`migrateDriveLayout` by hand from the Apps Script editor (Run ▸ migrateDriveLayout);
+it is idempotent, is not routed through `doPost`, and creates nothing that doesn't
+already exist.
+
+Delete paths use `findTopFolder_` (non-creating) so trashing never materialises a
+tree first. If you add a new top-level folder, resolve it through
+`getOrCreateTopFolder_` — never `DriveApp.getRootFolder()` directly.
+
+`badges/` and `certificates/` at My Drive root come from the **passport** repo
+(`gas/Upload.gs`), not this one; that script already supports a `FOLDER_ID`
+constant to relocate them.
+
 ## What `prform.gs` exposes
 
 - `uploadPRFile`    action — base64-uploads an image to Drive `PR_Submissions/`

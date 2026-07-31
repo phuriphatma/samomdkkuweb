@@ -336,7 +336,7 @@ identity-keyed state.
 Drive layout (lazily created by GAS on first upload):
 
 ```
-My Drive/Projects/
+My Drive/IT Database/Projects/
 └── PRJ-2605-0001_<safe-name>/
     └── DOC-260526-1430-XXXX_<type>/
         └── <file>.pdf
@@ -762,21 +762,36 @@ Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 
 ```
 My Drive/
-├── PR_Submissions/                ← PR ticket attachments (uploadPRFile)
-└── SAMO_Shop/                     ← Shop assets (uploadShopFile)
-    ├── Slips/
-    │   └── YYYY-MM/               ← monthly partition: keeps any one folder
-    │                                  well under Drive's per-folder cap
-    │       └── <buyerId>_<ts>.jpg
-    ├── Products/
-    │   └── <productId>/
-    │       └── <name>_<ts>.jpg
-    └── QR/
-        └── promptpay_<ts>.png     ← admin-uploaded PromptPay scan
+└── IT Database/                   ← APP_ROOT_FOLDER_NAME: everything GAS
+    │                                 touches is mounted here, so the SAMO
+    │                                 Drive root stays browsable
+    ├── PR_Submissions/            ← PR ticket attachments (uploadPRFile)
+    ├── Projects/                  ← หนังสือโครงการ (uploadProjectFile)
+    ├── SAMO_Team/                 ← member portraits (uploadTeamFile)
+    └── SAMO_Shop/                 ← Shop assets (uploadShopFile)
+        ├── Slips/
+        │   └── YYYY-MM/           ← monthly partition: keeps any one folder
+        │                             well under Drive's per-folder cap
+        │       └── <buyerId>_<ts>.jpg
+        ├── Products/
+        │   └── <productId>/
+        │       └── <name>_<ts>.jpg
+        └── QR/
+            └── promptpay_<ts>.png ← admin-uploaded PromptPay scan
 ```
 
 `uploadShopFile` is allow-listed: it only writes under `SAMO_Shop/...` and
 rejects `..` segments. Folders are created lazily on first write.
+
+**The mount point is server-side only.** The frontend still passes
+root-relative logical paths (`SAMO_Shop/Slips/2026-05`); `getOrCreateTopFolder_`
+in `prform.gs` resolves the first segment under `IT Database`, so no client
+knows about the container and no stored URL changed when it was introduced.
+A top-level folder still at My Drive root (pre-migration) is **moved** in on
+next touch, never recreated — a Drive move preserves the folder id and every
+file id inside it. `migrateDriveLayout` (editor-only, not routed through
+`doPost`) does all four at once. Any new top-level folder must resolve through
+`getOrCreateTopFolder_`, never `DriveApp.getRootFolder()`.
 
 ### Supabase project
 

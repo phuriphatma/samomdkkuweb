@@ -48,7 +48,7 @@ the measurements are in the archive.
 ## APPS SCRIPT — automated deploys (new)
 
 `npm run deploy:gas` (`tools/deploy-gas.mjs`). Live state: script `179DfoS1…`,
-deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
+deployment `AKfycbw1iHE4…` **@48**, `/exec` URL unchanged.
 
 - Setup already done on this Mac: `npx clasp login` (as
   `mdstuddata.beta@gmail.com`), Apps Script API enabled, `GAS_SCRIPT_ID` in
@@ -66,7 +66,29 @@ deployment `AKfycbw1iHE4…` **@47**, `/exec` URL unchanged.
 - Canary: `POST {action:'uploadTeamFile'}` with no `folderPath` → the handler
   validates before touching Drive, so it proves the new code is serving while
   writing nothing. `folderPath is required` = new, `Unknown action` = old.
-- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 46`.
+- Rollback: `cd .gas-build && npx clasp update-deployment AKfycbw1iHE4… -V 47`.
+
+### Drive layout moved under `My Drive / IT Database` (@48, deployed)
+
+Every folder GAS owns (`PR_Submissions`, `Projects`, `SAMO_Shop`, `SAMO_Team`)
+now resolves under one container instead of littering the SAMO Drive root.
+Client-side paths are unchanged — the mount point is resolved server-side by
+`getOrCreateTopFolder_`, so no stored URL moved and no backfill was needed.
+
+- **Migration is a MOVE, never a re-create** — a Drive move preserves the folder
+  id and every file id inside it. Lazy (on next touch) plus a one-shot
+  `migrateDriveLayout` / read-only `inspectDriveLayout`, both editor-only (no
+  `doPost` route). They create nothing, delete nothing, verify child counts
+  before/after, and REFUSE a split (same name in both places) rather than
+  picking one and stranding the other's files.
+- **PENDING (needs a human at the Apps Script editor)**: run
+  `inspectDriveLayout` then `migrateDriveLayout` in the prform project. Until
+  then folders relocate one at a time on their next upload.
+- **PENDING (passport repo, manual copy-paste deploy)**: `gas/Upload.gs` got the
+  same treatment for `badges` / `certificates`; `FOLDER_ID` is now an override
+  rather than the mechanism. Not yet pasted into its Apps Script project.
+- New top-level folders must go through `getOrCreateTopFolder_` —
+  `DriveApp.getRootFolder()` appears only inside those three helpers now.
 
 ## CURRENT DEPLOY
 
