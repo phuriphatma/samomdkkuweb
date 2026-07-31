@@ -133,15 +133,18 @@ looks like junk.
   account and resolve the SAME Drive folders, so the overlap is behaviourally
   indistinguishable and NO data moves.
 
-Remaining:
-1. **YOU — deploy to the VM** (`./server/deploy.sh`; bare sudo needs a tty).
-   Until then production still calls the old endpoint, which is fine.
-2. **YOU — `.env.local`**: `GAS_SCRIPT_ID=1lENmMdToG_PTrIo1ytJbalhN5EviIiVuAU8o3yiOQlgvGJN6tcFDCVVp`
-   so `npm run deploy:gas` targets the new project. Until then it will refuse
-   with "deployment … does not belong to script …" — that guard is exactly what
-   catches a half-done migration, so the error is the tool working.
-3. **In ~2 weeks**, once the old endpoint sees no traffic: delete the old
-   deployment, then `prformweb` and its Sheet.
+- **DEPLOYED** to the VM 2026-07-31. Verified in the SERVED bundle:
+  `/assets/analytics-BpK2gflv.js` carries the NEW deployment id and **zero**
+  occurrences of the old one, from both `/` and `/admin/`.
+- `.env.local` `GAS_SCRIPT_ID` repointed, so `npm run deploy:gas` now targets
+  `samoweb`; a `--dry-run` confirms remote == repo.
+- Old vs new endpoints proven behaviourally identical: **6/6** probes match
+  (validation, unknown action, legacy folder name, wrong-tree rejection,
+  root-ref rejection, path traversal).
+
+**ONLY REMAINING — in ~2 weeks**, once the old endpoint sees no traffic: delete
+deployment `AKfycbw1iHE4…`, then `prformweb` and its Sheet. Nothing depends on
+them; they exist purely so bundles cached before this deploy keep working.
 
 Rollback: revert the one line in `config.js` and redeploy. The old endpoint has
 not been touched.
@@ -184,7 +187,7 @@ merged, fold passport INTO prform — prform has the good pipeline.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `3e9b7ef`, **deployed 2026-07-31**, `buildId 4c6ed5f5d4b9`. Latest
+- **samoweb**: `63fd0d1`, **deployed 2026-07-31**, `buildId 76d49d599540`. Latest
   change: the VitalSound work in the two sections above (0107 + the
   two-directional merge). Verified in the SERVED bundles: `vs_transfer_dept` and
   `เลือกเป็นเรื่องหลัก` in `/assets/admin-*.js`, `vsMergeDirPull` in
