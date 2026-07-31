@@ -159,6 +159,17 @@ function getOrCreateTopFolder_(name) {
  * migrateDriveLayout resolve it deliberately.
  */
 function warnIfSplit_(canonical, aliases, root, myDrive, keeping) {
+  // This runs on the UPLOAD PATH, and each getFoldersByName is a Drive
+  // round-trip (~200ms). Measured: the three probes below were half the total
+  // folder-resolution time of an upload. The migration is done, so a split is
+  // now a rare manual event — cache a clean result and re-check every 6h
+  // instead of paying for it on every single upload. inspectDriveLayout /
+  // migrateDriveLayout remain the definitive, uncached check.
+  var cache = null;
+  var key = 'splitclean:' + canonical;
+  try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  if (cache && cache.get(key)) return;
+
   var others = [];
   var i, it;
   for (i = 0; i < aliases.length; i++) {
@@ -174,6 +185,10 @@ function warnIfSplit_(canonical, aliases, root, myDrive, keeping) {
     console.warn('Drive layout SPLIT: using ' + APP_ROOT_FOLDER_NAME + '/' + canonical +
                  ' (' + keeping.getId() + ') but these also exist: ' + others.join(', ') +
                  '. Run inspectDriveLayout().');
+    return;   // never cache a DIRTY result — keep warning until it is fixed
+  }
+  if (cache) {
+    try { cache.put(key, '1', 21600); } catch (e) { /* cache is best-effort */ }
   }
 }
 
@@ -858,13 +873,79 @@ function handleDeleteProjectFolder(data) {
 // editable without a redeploy).
 // ============================================================
 
+/**
+ * Domains `notifyProjectEmail` may send to.
+ *
+ * Overridable WITHOUT a redeploy via Script Properties (⚙ Project Settings →
+ * Script Properties) key `EMAIL_DOMAIN_ALLOWLIST`, comma-separated — so adding
+ * a recipient domain never needs a code change.
+ */
+var EMAIL_DOMAIN_ALLOWLIST_DEFAULT = 'kku.ac.th,kkumail.com';
+var EMAIL_SUBJECT_MAX = 300;
+var EMAIL_BODY_MAX = 40000;
+
+function allowedEmailDomains_() {
+  var raw;
+  try {
+    raw = PropertiesService.getScriptProperties().getProperty('EMAIL_DOMAIN_ALLOWLIST');
+  } catch (e) {
+    raw = null;   // property service unavailable → fall back to the default
+  }
+  var list = String(raw || EMAIL_DOMAIN_ALLOWLIST_DEFAULT)
+    .split(',').map(function (d) { return d.trim().toLowerCase(); })
+    .filter(function (d) { return d.length; });
+  // Never end up with an EMPTY allow-list: that would read as "allow nothing"
+  // here, but a mis-set property should not silently kill notifications.
+  return list.length ? list : [EMAIL_DOMAIN_ALLOWLIST_DEFAULT];
+}
+
+/** Split a `to` field (comma/semicolon separated) into trimmed addresses. */
+function parseRecipients_(to) {
+  return String(to || '').split(/[,;]/)
+    .map(function (a) { return a.trim(); })
+    .filter(function (a) { return a.length; });
+}
+
+/**
+ * Send the หนังสือโครงการ notification.
+ *
+ * RECIPIENTS ARE ALLOW-LISTED ON PURPOSE. This web app is deployed
+ * ANYONE_ANONYMOUS and its /exec URL ships in the public bundle, so without
+ * this check the handler was an open relay: any caller could send arbitrary
+ * subject/body to arbitrary addresses, from the SAMO account, under the
+ * display name "MDKKU SAMO" — a ready-made phishing channel aimed at the very
+ * students and staff who trust that sender. It also let anyone burn the
+ * MailApp daily quota, which would silently stop the real notifications.
+ *
+ * The legitimate recipient is curated in `project_settings.uni_staff_email`
+ * (an @kku.ac.th address today) and is still editable without a redeploy; only
+ * its DOMAIN is constrained, and that list is itself a Script Property.
+ *
+ * Rejection throws, so `doPost` returns success:false with the reason and the
+ * manage UI's "ทดสอบ" button shows it — a blocked address must never look like
+ * a silent success.
+ */
 function sendProjectEmail(data) {
-  var to = String(data.to || '').trim();
-  if (!to) throw new Error('notifyProjectEmail: missing "to"');
+  var recipients = parseRecipients_(data.to);
+  if (!recipients.length) throw new Error('notifyProjectEmail: missing "to"');
+
+  var allowed = allowedEmailDomains_();
+  for (var i = 0; i < recipients.length; i++) {
+    var addr = recipients[i];
+    var at = addr.lastIndexOf('@');
+    var domain = at === -1 ? '' : addr.slice(at + 1).toLowerCase();
+    // Exact domain match only — a suffix test would let `notkku.ac.th` and
+    // `kku.ac.th.evil.com` through.
+    if (!domain || allowed.indexOf(domain) === -1) {
+      throw new Error('notifyProjectEmail: recipient domain not allowed: ' + (domain || addr)
+        + ' (allowed: ' + allowed.join(', ') + ')');
+    }
+  }
+
   MailApp.sendEmail({
-    to: to,
-    subject: String(data.subject || 'MDKKU SAMO: แจ้งเตือนหนังสือโครงการ'),
-    htmlBody: String(data.htmlBody || data.body || ''),
+    to: recipients.join(','),
+    subject: String(data.subject || 'MDKKU SAMO: แจ้งเตือนหนังสือโครงการ').slice(0, EMAIL_SUBJECT_MAX),
+    htmlBody: String(data.htmlBody || data.body || '').slice(0, EMAIL_BODY_MAX),
     name: 'MDKKU SAMO',
     noReply: true,
   });
