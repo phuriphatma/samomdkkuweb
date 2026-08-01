@@ -43,6 +43,44 @@ Frontend only; no migration, no deploy. `npm run build` + `npm test` (203) green
   so createImageBitmap agrees with the `<img>` fallback on EXIF-rotated phone
   photos.
 
+## 0108 APPLIED — team_people (store each person once). EXPAND STEP.
+
+**Applied to the live DB 2026-08-01.** `tools/team0108-people.mjs` is the proof:
+it runs the real migration file against the real data inside a transaction that
+ROLLS BACK, then asserts. 12/12 both before and after applying — the second run
+is also the idempotency check, since re-running the whole migration produces the
+same 303 people rather than a second set. `team0089-manage` 5/5,
+`team0104-terms` 40/40, `proj0086-seats` 24/24, `vs0083-scope` 16/16,
+`security-sweeps` clean afterwards.
+
+**403 team_members rows → 303 people.** Higher than the ~285 humans actually in
+the roster, and that is the rule refusing to guess: ambiguous rows stay split
+until someone resolves them in ตรวจสอบข้อมูล.
+
+**Nothing reads `team_people` yet.** Ten resolvers (`effective_team_*_for_email`,
+`node_effective_*`, `sync_my_team_permissions`) still join on
+`team_members.kkumail`, every policy is unchanged, and the proof asserts zero
+accounts whose `managed_permissions` would resolve differently. The contract
+step — switching writes to the person, then dropping the duplicated columns — is
+a later migration. **Do not repoint a resolver without moving all ten.**
+
+Three things in it worth not undoing:
+- **The mirror is ONE-directional (person → its placements).** A two-way mirror
+  between a table and its own denormalised copy is the "two implementations of
+  one rule drift" entry wearing a trigger. While the UI still writes to
+  `team_members` a person row simply goes stale, which is harmless because
+  nothing reads it. The proof asserts the upward direction does NOT happen.
+- **The backfill disables `touch_team_members_updated_at`.** Stamping
+  `person_id` is bookkeeping, but `team_term_status` (0105) derives
+  "ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ" from `max(updated_at)` — leaving it on
+  flagged every published ปีการศึกษา as stale for a change no human made. The
+  proof caught this: it snapshots the columns BEFORE the migration and diffs,
+  rather than inferring from `updated_at`, which is itself one of the things
+  that must not move.
+- **`revoke all … from anon` is explicit**, not left to "RLS returns no rows
+  anyway". Supabase's default privileges hand `anon` a SELECT grant on new
+  public tables.
+
 ## NEXT — self-service member profile (design DECIDED 2026-08-01, nothing built)
 
 **The model**: kkumail is AUTHENTICATION (any KKU student has one), a
