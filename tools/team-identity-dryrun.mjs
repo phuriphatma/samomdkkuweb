@@ -142,6 +142,35 @@ select json_build_object(
                    from grp where n_nick > 1 or n_prefix > 1 or n_year > 1 or n_name > 1)
   ),
 
+  -- How many ROWS the จัดการทีม flag will appear on. Different from the finding
+  -- count: one drifting person flags all of their placements.
+  'flagged_rows', (
+    select count(*) from keyed k join grp g on g.person_key = k.person_key
+     where (k.raw_mail is not null and k.em is null)
+        or g.n_nick > 1 or g.n_prefix > 1 or g.n_year > 1
+        or g.n_major > 1 or g.n_photo > 1 or g.n_name > 1
+        or (not g.has_email and not g.has_sid)
+        or g.n_sid > 1
+        or exists (select 1 from sid_across sa where sa.sid = k.sid)),
+  'flagged_root_divisions', (
+    select coalesce(json_agg(json_build_object('name', x.rn, 'flagged', x.c) order by x.c desc), '[]'::json)
+      from (
+        select coalesce(r.name, '(ไม่ทราบ)') rn, count(*) c
+          from keyed k join grp g on g.person_key = k.person_key
+          left join lateral (
+            with recursive up as (
+              select n.id, n.parent_id, n.name from public.team_nodes n where n.id = k.node_id
+              union all
+              select p.id, p.parent_id, p.name from public.team_nodes p join up on up.parent_id = p.id)
+            select name from up where parent_id is null limit 1) r on true
+         where (k.raw_mail is not null and k.em is null)
+            or g.n_nick > 1 or g.n_prefix > 1 or g.n_year > 1
+            or g.n_major > 1 or g.n_photo > 1 or g.n_name > 1
+            or (not g.has_email and not g.has_sid)
+            or g.n_sid > 1
+            or exists (select 1 from sid_across sa where sa.sid = k.sid)
+         group by 1) x),
+
   'merges', (select coalesce(json_agg(json_build_object(
                 'name', a_name, 'placements', placements, 'nodes', nodes)
                 order by placements desc), '[]'::json)
@@ -168,6 +197,7 @@ console.log(`${n(rep.rows)}  team_members rows today`);
 console.log(`${n(rep.people_after)}  people after resolution`);
 console.log(`${n(rep.rows_absorbed)}  rows folded into an existing person`);
 console.log(`${n(rep.groups_merging)}  people holding more than one ตำแหน่ง`);
+console.log(`${n(rep.flagged_rows)}  rows the จัดการทีม ต้องตรวจสอบ flag lands on`);
 console.log(`      · ${rep.merged_on_email} matched by kkumail, ${rep.merged_on_sid} by รหัสนักศึกษา only\n`);
 
 const d = rep.field_drift;
@@ -203,6 +233,9 @@ if (e.name_in_two_groups.length) {
   console.log(`  ${e.name_in_two_groups.length} names appearing in two separate people (NOT merged — names are never a key)`);
   for (const x of e.name_in_two_groups) console.log(`   • ${x.name} (${x.groups} groups)`);
 }
+
+console.log('\n--- flagged rows per ฝ่ายหลัก (the rolled-up count on each root row) ---');
+for (const x of rep.flagged_root_divisions) console.log(`   ${String(x.flagged).padStart(4)}  ${x.name}`);
 
 if (process.argv.includes('--merges')) {
   console.log('\n--- every merge ---');

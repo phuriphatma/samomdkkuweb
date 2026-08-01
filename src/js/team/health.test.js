@@ -278,3 +278,63 @@ describe('tab-team.html has a CSS rule for every team-* class it uses', () => {
     expect(missing, `no CSS rule for: ${missing.join(', ')}`).toEqual([]);
   });
 });
+
+// ── who, not just how many ──────────────────────────────────────────────────
+//
+// The mode-button badge says HOW MANY need ตรวจสอบ; issuesByMember says WHO, so
+// จัดการทีม can flag the actual rows. Every finding shape has to contribute, and
+// they carry member ids three different ways.
+import { issuesByMember } from './health.js';
+
+const flags = (rows) => issuesByMember(rows, () => 'ฝ่ายทดสอบ');
+
+describe('issuesByMember', () => {
+  it('picks up a single-row finding (memberId)', () => {
+    const { map, total } = flags([m({ id: 'a', name: 'ก', mail: '-', sid: '1-1' })]);
+    expect(total).toBe(1);
+    expect([...map.get('a')]).toEqual(['อีเมลไม่ถูกต้อง']);
+  });
+
+  it('flags EVERY placement of a person who drifts, not just one', () => {
+    const { map } = flags([
+      m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', nick: 'เอ' }),
+      m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', nick: 'บี' }),
+    ]);
+    expect(map.has('a')).toBe(true);
+    expect(map.has('b')).toBe(true);
+  });
+
+  it('flags BOTH people in a รหัสนักศึกษา clash (nested people[].memberIds)', () => {
+    const { map } = flags([
+      m({ id: 'a', name: 'จิรายุทธ', mail: 'jirayut.y@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'b', name: 'โรจนศักดิ์', mail: 'rodjanasak.b@kkumail.com', sid: '673070332-6' }),
+    ]);
+    expect([...map.get('a')]).toContain('รหัสนักศึกษาซ้ำกับคนอื่น');
+    expect([...map.get('b')]).toContain('รหัสนักศึกษาซ้ำกับคนอื่น');
+  });
+
+  it('collects several reasons onto one row without duplicating them', () => {
+    const { map } = flags([
+      m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', sid: '1-1', nick: 'เอ' }),
+      m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', sid: '2-2', nick: 'บี' }),
+    ]);
+    const reasons = [...map.get('a')];
+    expect(reasons).toContain('ข้อมูลไม่ตรงกันระหว่างตำแหน่ง');
+    expect(reasons).toContain('รหัสนักศึกษาไม่ตรงกัน');
+    expect(new Set(reasons).size).toBe(reasons.length);
+  });
+
+  it('flags nobody when the roster is clean', () => {
+    const { map, total } = flags([
+      m({ id: 'a', name: 'ก', mail: 'a@kkumail.com', sid: '1-1' }),
+      m({ id: 'b', name: 'ข', mail: 'b@kkumail.com', sid: '2-2' }),
+    ]);
+    expect(total).toBe(0);
+    expect(map.size).toBe(0);
+  });
+
+  it('flag count and badge count agree with findIssues', () => {
+    const rows = Object.values(FIXTURES).flat();
+    expect(flags(rows).total).toBe(run(rows).issues.length);
+  });
+});

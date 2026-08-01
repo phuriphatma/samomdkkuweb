@@ -23,7 +23,7 @@ import {
 } from './api.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
-import { initHealth, enterHealth, issueCount } from './health.js';
+import { initHealth, enterHealth, issuesByMember } from './health.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
   normalizeYear, isLikelyEmail, validateExportJson,
@@ -99,6 +99,13 @@ let rtStarted = false;         // realtime subscription established once
 let dragging = false;          // a drag is in progress — defer remote re-renders
 let pendingRender = false;     // a remote change arrived mid-drag
 let renderTimer = null;        // debounce coalescing bursts of remote events
+// memberId -> Set of reasons that row needs ตรวจสอบ, recomputed once per render
+// and read by both renderMember() and the mode-button badge. Cheap: ~400 rows
+// over 6 fields, no query — findIssues() is pure and the data is already here.
+let healthFlags = new Map();
+// nodeId -> how many flagged members sit anywhere BELOW it, so a collapsed
+// branch still says there is something inside worth opening.
+let healthNodeCounts = new Map();
 // photo_focus of the member currently open in the editor. No longer a form
 // control (the crop dialog replaced it) — carried so saving an unrelated field
 // preserves a legacy row's 'top'/'bottom', and reset to 'center' on re-upload.
@@ -271,12 +278,32 @@ export function initTeam() {
 
 /** Surface the outstanding count on the mode button. Cheap — it runs over the
  *  members already in memory, no query. */
-function refreshHealthBadge() {
+function refreshHealthFlags() {
+  if (!loaded) { healthFlags = new Map(); healthNodeCounts = new Map(); return 0; }
+  const { map, total } = issuesByMember(allMembersFlat(), (id) => nodesById.get(id)?.name || '');
+  healthFlags = map;
+
+  // Roll each flagged member up its ancestor chain. `seen` guards against a
+  // cycle in parent_id — the tree should not contain one, but an infinite loop
+  // inside render() would hang the whole tab rather than show a wrong number.
+  healthNodeCounts = new Map();
+  const nodeOf = new Map();
+  for (const [nodeId, arr] of membersByNode) for (const mm of arr) nodeOf.set(mm.id, nodeId);
+  for (const memberId of map.keys()) {
+    let cur = nodeOf.get(memberId);
+    const seen = new Set();
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      healthNodeCounts.set(cur, (healthNodeCounts.get(cur) || 0) + 1);
+      cur = nodesById.get(cur)?.parent_id || null;
+    }
+  }
   const badge = $('teamHealthBadge');
-  if (!badge || !loaded) return;
-  const n = issueCount(allMembersFlat(), (id) => nodesById.get(id)?.name || '');
-  badge.textContent = n ? String(n) : '';
-  badge.classList.toggle('d-none', !n);
+  if (badge) {
+    badge.textContent = total ? String(total) : '';
+    badge.classList.toggle('d-none', !total);
+  }
+  return total;
 }
 
 export function enterTeamWorkspace() {
@@ -403,7 +430,8 @@ function render() {
   $('teamTermsPane')?.classList.toggle('d-none', !isYears);
   $('teamHealthPane')?.classList.toggle('d-none', !isHealth);
   document.querySelector('.team-toolbar')?.classList.toggle('d-none', isPane);
-  refreshHealthBadge();
+  // BEFORE the tree paints — renderMember reads healthFlags.
+  refreshHealthFlags();
   if (isPane) {
     document.querySelectorAll('.team-mode-btn').forEach((b) => {
       b.classList.toggle('is-active', b.dataset.teamMode === mode);
@@ -532,6 +560,12 @@ function renderNode(node, filter) {
       <i class="bi ${KIND_ICON[node.kind] || KIND_ICON.role} team-node-icon"></i>
       <span class="team-node-name" data-act="primary">${nameHtml}</span>
       ${count ? `<span class="team-count" title="สมาชิกในสายนี้">${count}</span>` : ''}
+      ${healthNodeCounts.get(node.id)
+        ? `<button type="button" class="team-count team-count-warn" data-act="check-member"
+             title="มี ${healthNodeCounts.get(node.id)} รายชื่อในสายนี้ที่ต้องตรวจสอบข้อมูล"
+             aria-label="ต้องตรวจสอบ ${healthNodeCounts.get(node.id)} รายการ"
+           ><i class="bi bi-exclamation-triangle-fill"></i> ${healthNodeCounts.get(node.id)}</button>`
+        : ''}
       <span class="team-perms">${permChips}</span>
       <span class="team-row-actions">${actions}</span>
     </div>`;
@@ -616,6 +650,11 @@ function renderMember(m, filter) {
         <span class="team-perms team-member-perms">${chips}</span>
       </span>
       <span class="team-member-actions">
+        ${healthFlags.has(m.id)
+          ? `<button type="button" class="team-act team-act-warn" data-act="check-member"
+               title="ต้องตรวจสอบ: ${escHtml([...healthFlags.get(m.id)].join(' · '))}"
+               aria-label="ต้องตรวจสอบข้อมูล"><i class="bi bi-exclamation-triangle-fill"></i></button>`
+          : ''}
         <button type="button" class="team-act team-act-perm" data-act="edit-member-perms" title="กำหนดสิทธิ์รายบุคคล"><i class="bi bi-shield-lock"></i></button>
       </span>`;
     return li;
@@ -643,6 +682,11 @@ function renderMember(m, filter) {
       </span>
     </span>
     <span class="team-member-actions">
+      ${healthFlags.has(m.id)
+        ? `<button type="button" class="team-act team-act-warn" data-act="check-member"
+             title="ต้องตรวจสอบ: ${escHtml([...healthFlags.get(m.id)].join(' · '))}"
+             aria-label="ต้องตรวจสอบข้อมูล"><i class="bi bi-exclamation-triangle-fill"></i></button>`
+        : ''}
       <button type="button" class="team-act" data-act="move-member" title="ย้ายตำแหน่ง"><i class="bi bi-arrows-move"></i></button>
       <button type="button" class="team-act" data-act="edit-member" title="แก้ไข"><i class="bi bi-pencil"></i></button>
       <button type="button" class="team-act team-act-danger" data-act="delete-member" title="ลบ"><i class="bi bi-trash"></i></button>
@@ -887,6 +931,9 @@ function wireTreeDelegation() {
       case 'edit-member-perms': openMemberPermModal(memberId); break;
       case 'move-member': openMoveMember(memberId); break;
       case 'delete-member': onDeleteMember(memberId); break;
+      // The flag is the shortcut, not just an indicator: seeing the problem and
+      // being able to fix it should not be two separate navigations.
+      case 'check-member': switchMode('health'); break;
     }
   });
 }
@@ -895,21 +942,25 @@ function wireTreeDelegation() {
 // TOOLBAR + MODE
 // ============================================================
 
+/** The single path into a mode. Used by the mode buttons AND by the ต้องตรวจสอบ
+ *  flag on a member row, so the two can never drift about what switching
+ *  entails (clearing a half-made selection, painting the pane, cold entry). */
+function switchMode(m) {
+  if (!m || m === mode) return;
+  mode = m;
+  if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
+  render();
+  if (mode === 'years') enterTerms();
+  if (mode === 'health') enterHealth();
+}
+
 function wireToolbar() {
   $('teamAddRoot')?.addEventListener('click', () => openNodeModal({ parentId: null, kind: 'division' }));
   $('teamExpandAll')?.addEventListener('click', () => { for (const id of nodesById.keys()) expanded.add(id); render(); });
   $('teamCollapseAll')?.addEventListener('click', () => { expanded.clear(); render(); });
 
   document.querySelectorAll('.team-mode-btn').forEach((b) => {
-    b.addEventListener('click', () => {
-      const m = b.dataset.teamMode;
-      if (m === mode) return;
-      mode = m;
-      if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
-      render();
-      if (mode === 'years') enterTerms();
-      if (mode === 'health') enterHealth();
-    });
+    b.addEventListener('click', () => switchMode(b.dataset.teamMode));
   });
 
   // Multi-select: toggle checkboxes + the bulk action bar.

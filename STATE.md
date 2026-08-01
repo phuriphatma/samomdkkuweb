@@ -35,7 +35,13 @@ whether the ตำแหน่ง picker now sits ABOVE the member editor rather
   `publish_team_term` copies `photo_url` into `team_archive_members`, so a live
   portrait and an archived year's card are the same Drive file.
 - **ตรวจสอบข้อมูล** — a fourth ทีม SAMO mode listing every identity ambiguity,
-  computed live from members already in memory. 24 findings today.
+  computed live from members already in memory. 24 findings today. **จัดการทีม
+  flags WHO**: an amber triangle on each affected member row (tooltip names the
+  reasons) plus a rolled-up count on every ancestor ตำแหน่ง — without the rollup
+  the per-row flag would be invisible, since only the 14 root ฝ่าย are expanded
+  on load. Both go through `issuesByMember()`, computed once per render, and
+  clicking either jumps to the pane. Currently 38 of 404 rows, max 11 under any
+  one ฝ่ายหลัก.
 - **0108 `team_people`** — each person stored once. EXPAND ONLY: nothing reads it
   yet, all ten resolvers still join `team_members.kkumail`, and the proof asserts
   zero accounts whose `managed_permissions` would change. 403 rows → 303 people.
@@ -50,11 +56,17 @@ silently overwritten; two keys that disagree REFUSE rather than guess.
 ### NEXT, in order
 1. **Look at the UI** (above). Nothing else should start before this.
 2. **Contract step for 0108** — switch writes to the person, then drop the
-   duplicated columns. Do NOT repoint one resolver without moving all ten. Also:
-   `createMember` and the CSV import currently write `person_id = null`, and
-   `buildExportJson` does not carry it, so the contract step needs either an
-   INSERT trigger that resolves/creates the person or a re-run of the 0108
-   backfill (idempotent — it only considers unlinked rows).
+   duplicated columns. Do NOT repoint one resolver without moving all ten.
+   **First thing it must do: close the INSERT gap.** `createMember` and the CSV
+   import write `person_id = null` and `buildExportJson` does not carry it —
+   OBSERVED, not theoretical: a member added by hand minutes after 0108 applied
+   is already unlinked (`select count(*) from team_members where person_id is
+   null`). Nothing degrades today because nothing reads the column, and such a
+   row is still fully visible and fixable in ตรวจสอบข้อมูล, which keys on
+   `team_members`. Fix with a BEFORE INSERT trigger resolving/creating the person
+   by the same rule (it cannot loop with the mirror: that is AFTER UPDATE on
+   `team_people`), or simply re-run the 0108 backfill — it is idempotent and only
+   considers unlinked rows.
 3. **Member profile page** (design DECIDED, nothing built). kkumail is
    authentication, a `team_members` row is authorization, the tree stays
    admin-only. Decisions the user made and that should not be re-litigated:

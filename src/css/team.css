@@ -626,3 +626,20 @@
   font-size: 0.68rem; font-weight: 700; padding: 0.02rem 0.3rem;
   margin-inline-start: 0.3rem; line-height: 1.5;
 }
+
+/* The ต้องตรวจสอบ flag on a member row (src/js/team/health.js issuesByMember).
+   Amber, not red: the row is not broken, it is incomplete or ambiguous — red is
+   reserved for the destructive action sitting two buttons along. */
+.team-act-warn { color: #b45309; }
+.team-act-warn:hover, .team-act-warn:focus-visible { background: #fef3c7; color: #92400e; }
+
+/* Rolled-up ต้องตรวจสอบ count on a ตำแหน่ง row. Only the root ฝ่าย are expanded
+   on load, so without this the per-member flag would be invisible until someone
+   happened to open the right branch. */
+.team-count-warn {
+  border: 0; background: #fef3c7; color: #92400e;
+  font-size: 0.7rem; font-weight: 700; line-height: 1.5;
+  border-radius: var(--radius-pill); padding: 0.02rem 0.45rem;
+  display: inline-flex; align-items: center; gap: 0.2rem;
+}
+.team-count-warn:hover, .team-count-warn:focus-visible { background: #fde68a; }

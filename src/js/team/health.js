@@ -521,6 +521,47 @@ export function enterHealth() {
   renderHealth();
 }
 
+/** Short Thai label per finding kind, for the flag on a tree row. Deliberately
+ *  states the PROBLEM, not the kind — "ตรวจสอบข้อมูล" on a row tells nobody
+ *  what is wrong with it. */
+const KIND_LABEL = {
+  invalid_email: 'อีเมลไม่ถูกต้อง',
+  drift: 'ข้อมูลไม่ตรงกันระหว่างตำแหน่ง',
+  sid_drift: 'รหัสนักศึกษาไม่ตรงกัน',
+  sid_clash: 'รหัสนักศึกษาซ้ำกับคนอื่น',
+  no_key: 'ไม่มีอีเมลและรหัสนักศึกษา',
+};
+
+/**
+ * memberId → the reasons that row needs attention.
+ *
+ * The count on the mode button says HOW MANY; this is what says WHO, so the
+ * flag can sit on the person in จัดการทีม instead of only in a separate pane an
+ * admin has to think to open. Every finding shape contributes: `memberId` for
+ * the single-row kinds, `memberIds` for the per-person ones, and the nested
+ * `people[].memberIds` for a รหัสนักศึกษา clash, which spans two people.
+ *
+ * Returns a Map so the caller can render without a second pass, and so the same
+ * computation feeds both the flags and the count.
+ */
+export function issuesByMember(members, nodeName) {
+  const { issues } = findIssues(members, nodeName);
+  const map = new Map();
+  const add = (id, kind) => {
+    if (!id) return;
+    if (!map.has(id)) map.set(id, new Set());
+    map.get(id).add(KIND_LABEL[kind] || kind);
+  };
+  for (const is of issues) {
+    if (is.memberId) add(is.memberId, is.kind);
+    if (Array.isArray(is.memberIds)) is.memberIds.forEach((id) => add(id, is.kind));
+    if (Array.isArray(is.people)) {
+      is.people.forEach((p) => (p.memberIds || []).forEach((id) => add(id, is.kind)));
+    }
+  }
+  return { map, total: issues.length };
+}
+
 /** For the badge on the mode button, so an admin sees there is something to do
  *  without having to open the pane and look. */
 export function issueCount(members, nodeName) {
