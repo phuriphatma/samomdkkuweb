@@ -10,18 +10,24 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 ## READ THIS FIRST AFTER A /clear (2026-08-01 end of session)
 
-**Everything from this session is SHIPPED AND LIVE.** `main` is at `48d4f92`,
-pushed; the KKU VM was deployed and smoke-tested; Apps Script is on v10;
-migration 0108 is applied. Nothing is in flight. Full reasoning:
-`docs/state-archive/2026-08-01-team-identity.md`.
+**Everything from this session is SHIPPED AND LIVE.** `main` is at `28c757c`,
+pushed; the KKU VM was deployed and verified against the SERVED bundles
+(`buildId e74de393eebd`); Apps Script is on v10; migration 0108 is applied.
+Nothing is in flight, nothing is half-done. Full reasoning:
+`docs/state-archive/2026-08-01-team-identity.md`; the identity rule is also a
+memory (`team-identity-is-kkumail`).
 
 **The one thing left undone, and it needs a human:** none of the new UI has ever
 been rendered. The Chrome extension was not connected, so the crop dialog and the
 ตรวจสอบข้อมูล pane were built, unit tested and reasoned about but never LOOKED at.
-Open `/admin/` → ทีม SAMO: the mode row should have a fourth button badged **24**,
-and picking a photo in the member editor should open a pan/zoom 3:4 frame. Two
-things unit tests cannot see: the crop frame's proportions at phone width, and
-whether the ตำแหน่ง picker now sits ABOVE the member editor rather than behind it.
+Open `/admin/` → ทีม SAMO and check four things unit tests cannot see:
+1. the mode row has a fourth button, **ตรวจสอบข้อมูล**, badged **24**;
+2. amber triangles on flagged member rows and amber counts on their ฝ่าย —
+   ~38 rows of 404, most under ฝ่ายกิจการภายนอก (11);
+3. clicking one opens the pane filtered, with a "แสดงเฉพาะ …" banner;
+4. picking a photo in the member editor opens a pan/zoom 3:4 frame — check its
+   proportions at PHONE width, and that the ตำแหน่ง picker now sits ABOVE the
+   member editor rather than behind it.
 
 ### What shipped
 - **Crop replaces จุดโฟกัสของรูป** (`src/js/image-crop.js`). Uploads are already
@@ -172,10 +178,12 @@ wording, and a signed-in caller.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `48d4f92`, **deployed 2026-08-01**, `buildId 336de24839c7`. Latest
+- **samoweb**: `28c757c`, **deployed 2026-08-01**, `buildId e74de393eebd`. Latest
   change: the ทีม SAMO crop / modal-stacking / photo-lifecycle / ตรวจสอบข้อมูล
-  work + 0108. Verified in the SERVED bundles: `imgcrop-stage` and
-  `team-health-item` in `/assets/admin-*.js`, all four `data-team-mode` values
+  work + 0108. Verified in the SERVED bundles: `imgcrop-stage`,
+  `team-health-item`, `team-act-warn`, `team-count-warn`, `แสดงเฉพาะ` and
+  `ดูทั้งหมด` in `/assets/admin-*.js`; `team-health-focus` + `team-count-warn`
+  in `/assets/admin-*.css`; all four `data-team-mode` values
   (`team|perms|years|health`) in `/admin/index.html`. `/`, `/admin/` 200;
   `/notify` → `{"ok":true,...}`; `/passport/` 200, bare `/passport` 301, and the
   extensionless `/passport/html/scan` deep link 200. GAS probe 7/7.

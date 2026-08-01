@@ -41,7 +41,10 @@ you are short on time, read these and skip the rest:
 >   holds the old `File`) · HTML5 `required` on a hidden field blocks submit
 >   silently · iOS `100vh` drawer · full-height centered page unscrollable ·
 >   tab-JS keeps the dropdown open · offcanvas + `data-bs-toggle="pill"` race ·
->   a `data-role` element with no toggle · a dark-mode island in a light-only app
+>   a `data-role` element with no toggle · a dark-mode island in a light-only app ·
+>   **stacked modals all share z-index 1055 so DOM order decides what paints on
+>   top** · **a class in the markup with no CSS rule anywhere** · **an indicator
+>   that links to a list without carrying WHICH row**
 > - *refactors* — pane-scoped `#id`-rooted selectors break when the shell that
 >   provided the id is rewritten
 > - *SQL one-offs* — drop a CHECK before UPDATEing to a new enum value ·
@@ -2191,36 +2194,6 @@ bogus `updated_at`, and set `updated_at` back to the last genuine event.
 
 ---
 
-## Bootstrap gives EVERY modal the same z-index — so a stacked modal declared earlier in the HTML paints BEHIND the one that opened it
-
-**Symptom** (reported): in จัดการทีม → a person → the ตำแหน่ง selector, "it
-doesn't show the popup, it shows เลือกตำแหน่ง behind it". The picker opens, the
-backdrop dims, focus moves into it — and it is invisible, underneath the member
-editor. Reads like a broken `.show()` call or a missing `d-none` toggle.
-**Cause**: Bootstrap's docs say "multiple open modals are not supported" and the
-CSS means it — every `.modal` is z-index 1055 and every `.modal-backdrop` 1050,
-with no per-instance adjustment. Equal z-index means **DOM order decides the
-painting order**, so the modal declared LATER in the HTML wins. `#teamPickerModal`
-sits at line ~149 of `tab-team.html` and `#teamMemberModal` at ~372, so opening
-the picker from the member editor put it behind. Nothing about the JS is wrong,
-and the same code works perfectly when the picker is opened from the tree (no
-other modal up), which is what makes it look intermittent.
-**Fix**: `src/js/modal-stack.js` — ONE delegated `show.bs.modal` listener,
-wired in both entries. It counts `.modal.show` (the event fires before Bootstrap
-adds `.show` to this element and before it appends this modal's backdrop, so the
-count is exactly the modals already up), and lifts this modal to
-`1055 + depth*20` with its backdrop 10 below. `hidden.bs.modal` clears the
-inline z-index and re-asserts `modal-open` on `<body>`, which Bootstrap strips
-on ANY hide even when an outer modal is still shown.
-**Where**: `src/js/modal-stack.js`; `initModalStack()` in `main.js` +
-`admin-main.js`. **Rules**: (1) opening a modal from inside another modal needs
-this — do not "fix" it by reordering the HTML, which only moves the problem to
-the next pair. (2) It composes with the existing stacked-backdrop entry above:
-use `getOrCreateInstance(el).show()` (never `new bootstrap.Modal`) AND let the
-stacker place it.
-
----
-
 ## `convertDriveUrl(url, size)` silently ignores `size` for an already-lh3 URL — so every "small thumbnail" call site is asking for nothing and getting the stored size
 
 **Symptom** (from a screenshot): the ทีม SAMO member editor's portrait preview
@@ -2290,38 +2263,6 @@ copies that reference — a snapshot/archive/audit table usually copies the id
 without copying the resource. If one exists, the delete is a refcount, not a
 delete. And measuring the current data proves nothing when the sharing is created
 by a code path that has not run yet.
-
----
-
-## A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value — assert the coverage
-
-**Symptom** (reported with a screenshot): the ทีม SAMO member editor's portrait
-preview rendered at full size and burst out of the modal, over the form. The
-call site looked right. The markup looked right.
-**Cause**: `.team-photo-field` / `-preview` / `-controls` / `-empty` were written
-into `src/html/tab-team.html` and **the stylesheet rules were never added** —
-`grep -rn "team-photo" src/css/` returned nothing. With no box to fit, an `<img>`
-renders at its natural size (Bootstrap 5's Reboot does NOT set a global
-`img{max-width:100%}` — that is `.img-fluid`, opt-in). Nothing errors, nothing
-logs, and the diff that introduced it reads as complete.
-**Fix**: the rules, plus a TEST that makes the class impossible to forget —
-`src/js/team/health.test.js` extracts every `team-*` class from the partial and
-every `team-health-*` / `imgcrop-*` class from the JS, and asserts each has a
-rule in the stylesheets those entries load. Run on the existing code it
-immediately found four more: two deliberate layout hooks (allow-listed by name,
-so the list itself stays meaningful), one **dead class** (`team-picker-dialog` —
-no rule, no JS selector, removed), and one genuinely missing rule
-(`team-perm-inherited-label`).
-**Where**: `src/css/team.css`; the coverage tests at the bottom of
-`src/js/team/health.test.js`. Two things that make the test not-annoying: the
-allow-list is explicit and named (a growing allow-list is a smell, not a
-solution), and the regex uses `(?<!-)` so a CSS CUSTOM PROPERTY set from JS
-(`--imgcrop-ratio`) is not mistaken for a class.
-**Rule**: when a layout bug appears in NEW markup, `grep` one of its class names
-against `src/css/` before debugging the JS. And for any module that owns its own
-class namespace, assert the coverage — it costs six lines and catches the whole
-class. Related: the entry above on `convertDriveUrl`'s ignored size argument;
-both bugs were in that one screenshot, and either alone was survivable.
 
 ---
 

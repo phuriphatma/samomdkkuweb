@@ -855,3 +855,108 @@ copy — "nothing here yet" and "you have no access" look identical to a user.
 open; grep that every value in the markup has a handler
 (`grep -o 'data-projects-role="[a-z_]*"' src/html/*.html | sort -u` vs the
 `querySelectorAll` calls) whenever you add a role.
+
+---
+
+# Moved out 2026-08-01 — UI-shaped entries from the ทีม SAMO session
+
+Real, still applicable; moved because they are UI/UX classes rather than the
+data-safety ones the hot file keeps.
+
+## Bootstrap gives EVERY modal the same z-index — so a stacked modal declared earlier in the HTML paints BEHIND the one that opened it
+
+**Symptom** (reported): in จัดการทีม → a person → the ตำแหน่ง selector, "it
+doesn't show the popup, it shows เลือกตำแหน่ง behind it". The picker opens, the
+backdrop dims, focus moves into it — and it is invisible, underneath the member
+editor. Reads like a broken `.show()` call or a missing `d-none` toggle.
+**Cause**: Bootstrap's docs say "multiple open modals are not supported" and the
+CSS means it — every `.modal` is z-index 1055 and every `.modal-backdrop` 1050,
+with no per-instance adjustment. Equal z-index means **DOM order decides the
+painting order**, so the modal declared LATER in the HTML wins. `#teamPickerModal`
+sits at line ~149 of `tab-team.html` and `#teamMemberModal` at ~372, so opening
+the picker from the member editor put it behind. Nothing about the JS is wrong,
+and the same code works perfectly when the picker is opened from the tree (no
+other modal up), which is what makes it look intermittent.
+**Fix**: `src/js/modal-stack.js` — ONE delegated `show.bs.modal` listener,
+wired in both entries. It counts `.modal.show` (the event fires before Bootstrap
+adds `.show` to this element and before it appends this modal's backdrop, so the
+count is exactly the modals already up), and lifts this modal to
+`1055 + depth*20` with its backdrop 10 below. `hidden.bs.modal` clears the
+inline z-index and re-asserts `modal-open` on `<body>`, which Bootstrap strips
+on ANY hide even when an outer modal is still shown.
+**Where**: `src/js/modal-stack.js`; `initModalStack()` in `main.js` +
+`admin-main.js`. **Rules**: (1) opening a modal from inside another modal needs
+this — do not "fix" it by reordering the HTML, which only moves the problem to
+the next pair. (2) It composes with the existing stacked-backdrop entry above:
+use `getOrCreateInstance(el).show()` (never `new bootstrap.Modal`) AND let the
+stacker place it.
+
+---
+
+## A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value — assert the coverage
+
+**Symptom** (reported with a screenshot): the ทีม SAMO member editor's portrait
+preview rendered at full size and burst out of the modal, over the form. The
+call site looked right. The markup looked right.
+**Cause**: `.team-photo-field` / `-preview` / `-controls` / `-empty` were written
+into `src/html/tab-team.html` and **the stylesheet rules were never added** —
+`grep -rn "team-photo" src/css/` returned nothing. With no box to fit, an `<img>`
+renders at its natural size (Bootstrap 5's Reboot does NOT set a global
+`img{max-width:100%}` — that is `.img-fluid`, opt-in). Nothing errors, nothing
+logs, and the diff that introduced it reads as complete.
+**Fix**: the rules, plus a TEST that makes the class impossible to forget —
+`src/js/team/health.test.js` extracts every `team-*` class from the partial and
+every `team-health-*` / `imgcrop-*` class from the JS, and asserts each has a
+rule in the stylesheets those entries load. Run on the existing code it
+immediately found four more: two deliberate layout hooks (allow-listed by name,
+so the list itself stays meaningful), one **dead class** (`team-picker-dialog` —
+no rule, no JS selector, removed), and one genuinely missing rule
+(`team-perm-inherited-label`).
+**Where**: `src/css/team.css`; the coverage tests at the bottom of
+`src/js/team/health.test.js`. Two things that make the test not-annoying: the
+allow-list is explicit and named (a growing allow-list is a smell, not a
+solution), and the regex uses `(?<!-)` so a CSS CUSTOM PROPERTY set from JS
+(`--imgcrop-ratio`) is not mistaken for a class.
+**Rule**: when a layout bug appears in NEW markup, `grep` one of its class names
+against `src/css/` before debugging the JS. And for any module that owns its own
+class namespace, assert the coverage — it costs six lines and catches the whole
+class. Related: the entry above on `convertDriveUrl`'s ignored size argument;
+both bugs were in that one screenshot, and either alone was survivable.
+
+---
+
+## An indicator that links to a LIST moves the work instead of removing it — the click already said WHICH one, so carry it
+
+**Symptom** (reported): "when I click the flag on a person in จัดการทีม it goes
+to ตรวจสอบข้อมูล, but I don't know where to look — the admin shouldn't have to
+remember the person they just clicked." Exactly right, and the feature had
+looked finished: the flag was on the correct rows, the tooltip named the real
+reasons, the navigation worked.
+**Cause**: the flag answered "does this person need attention?" and then handed
+over to a screen answering "who needs attention?" — a strictly *less* specific
+question than the one just asked. With 24 findings the admin re-scans a list to
+re-find someone they had already pointed at. The information was thrown away at
+the exact moment it was most precise.
+**Fix**: the navigation carries the subject. A member-row flag opens the pane
+filtered to that person; a rolled-up count on a ตำแหน่ง filters to that whole
+branch (clicking "11" is asking about those 11). Three details that make a
+filter safe rather than confusing:
+- **The filter is stated and reversible on screen** — a "แสดงเฉพาะ … · N
+  รายการ" banner with a "ดูทั้งหมด (24)" button. A silent filter is worse than
+  none.
+- **Arriving by the ordinary tab CLEARS it.** A screen that quietly keeps
+  showing a subset reads as "everything else is fixed".
+- **The empty state must know it is filtered.** "ข้อมูลครบถ้วน" under a filter
+  is a lie about the other 23; it says "…สำหรับ <คนนี้> แล้ว" instead.
+**The bug this shape hides**: the filter and the indicator must agree about
+which records a finding concerns. If the filter's id extraction missed one of
+the shapes the indicator uses, clicking a flag would open a pane declaring that
+person has NOTHING wrong — indistinguishable from a resolved problem, so nobody
+reports it. `idsOf()` is therefore exported and unit-tested directly against the
+flag map ("every flagged member is reachable from at least one finding").
+**Where**: `src/js/team/health.js` (`idsOf`, `focusIds`, `enterHealth(focus)`),
+`src/js/team/index.js` (`openHealthFor`, `memberIdsUnder`).
+**Rule**: whenever a per-row indicator navigates to an aggregate view, pass the
+row through. And when two code paths derive "which records does this concern?",
+test them against each other — the failure mode is a screen confidently saying
+"nothing here", which reads as success.
