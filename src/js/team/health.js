@@ -233,7 +233,6 @@ const GROUPS = [
 let host = null;
 let getData = null;
 let onChanged = null;
-let busy = false;
 let chain = Promise.resolve();
 
 function status(msg, kind = '') {
@@ -251,16 +250,17 @@ function status(msg, kind = '') {
  */
 function run(fn, okMsg) {
   chain = chain.then(async () => {
-    busy = true;
     try {
       await fn();
-      if (okMsg) status(okMsg, 'ok');
       await onChanged?.();
+      // AFTER the repaint, not before: renderHealth() replaces host.innerHTML,
+      // which recreates #teamHealthStatus empty. Setting it first meant every
+      // SUCCESS was silently wiped while every FAILURE showed — the exact
+      // inverse of what the user needs.
       renderHealth();
+      if (okMsg) status(okMsg, 'ok');
     } catch (e) {
       status(e?.message || 'บันทึกไม่สำเร็จ', 'error');
-    } finally {
-      busy = false;
     }
   });
   return chain;
@@ -390,7 +390,14 @@ export function issueCard(is) {
 
 export function renderHealth() {
   if (!host) return;
-  const { members, nodeName } = getData?.() || { members: [], nodeName: () => '' };
+  const { members, nodeName, loaded } = getData?.() || { members: [], nodeName: () => '' };
+  // "ข้อมูลครบถ้วน" over an empty array is a LIE, not an empty state: before the
+  // tree has loaded there are zero members and therefore zero findings. Say so.
+  if (!loaded) {
+    host.innerHTML = '<div class="team-health"><div class="team-health-clear">'
+      + '<p>กำลังโหลดข้อมูล…</p></div></div>';
+    return;
+  }
   const { people, issues } = findIssues(members, nodeName);
 
   const groups = GROUPS
@@ -441,7 +448,12 @@ export function initHealth(hostEl, opts = {}) {
 
   host.addEventListener('click', (e) => {
     const t = e.target.closest?.('button');
-    if (!t || busy) return;
+    // No `busy` guard. run() already serialises through a promise chain, and
+    // every handler below reads its input values SYNCHRONOUSLY here, so a click
+    // that lands mid-write carries the right data and simply queues. Dropping it
+    // would be the antipattern the run() comment exists to warn against — which
+    // an earlier version of this very function committed.
+    if (!t) return;
 
     if (t.dataset.hpick !== undefined) {
       const ids = t.dataset.hids.split(',').filter(Boolean);

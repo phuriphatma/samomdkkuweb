@@ -143,11 +143,15 @@ function zoomAt(next, px = 0, py = 0) {
  *  is visible — a display:none stage measures 0. */
 function layout() {
   const r = els.stage.getBoundingClientRect();
+  const prevCover = coverW;
   frameW = r.width;
   frameH = r.height;
   const k = Math.max(frameW / srcW, frameH / srcH);
   coverW = srcW * k;
   coverH = srcH * k;
+  // tx/ty are screen pixels, so a rotate or window resize would otherwise
+  // teleport the framing. Scale them with the image instead.
+  if (prevCover) { const s = coverW / prevCover; tx *= s; ty *= s; }
   els.img.style.width = `${coverW}px`;
   els.img.style.height = `${coverH}px`;
   paint();
@@ -238,7 +242,16 @@ function wire() {
   root.addEventListener('shown.bs.modal', layout);
   // Dismiss by ✕ / ยกเลิก / backdrop / Esc all land here. `finish` is a no-op
   // once already settled, so the confirm path above is unaffected.
-  root.addEventListener('hidden.bs.modal', () => finish(null));
+  root.addEventListener('hidden.bs.modal', () => {
+    finish(null);
+    // Released here rather than in finish(): the confirm path calls finish()
+    // BEFORE hide(), and revoking there would blank the image mid-fade.
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+      els.img.removeAttribute('src');
+    }
+  });
   window.addEventListener('resize', () => { if (root.classList.contains('show')) layout(); });
 }
 

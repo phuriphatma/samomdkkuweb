@@ -13,7 +13,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
+import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
 import {
@@ -261,6 +261,7 @@ export function initTeam() {
   // changed — without index.js having to push updates at it.
   initHealth(document.getElementById('teamHealthPane'), {
     getData: () => ({
+      loaded,
       members: allMembersFlat(),
       nodeName: (id) => nodesById.get(id)?.name || '',
     }),
@@ -1704,8 +1705,12 @@ function setMemberPhoto(url) {
     // from the file id, so the thumbnail is a thumbnail. It also rewrites the
     // legacy drive.google.com/thumbnail form, which intermittently fails to load
     // on iOS Safari (mistakes.md).
+    // A legacy row may still carry top/bottom; the preview must show the same
+    // framing the card will, or it is quietly lying about what will publish.
+    const pos = focusToObjectPosition(memberPhotoFocus);
     prev.innerHTML = `<img src="${escHtml(portraitSrc(url, 168, memberPhotoFocus))}"`
-      + ` alt="" loading="lazy" />`;
+      + ` alt="" loading="lazy"`
+      + `${memberPhotoFocus === 'center' ? '' : ` style="object-position:${pos}"`} />`;
   } else {
     prev.innerHTML = '<span class="team-photo-empty"><i class="bi bi-person"></i></span>';
   }

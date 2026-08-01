@@ -179,9 +179,21 @@ Design points that are load-bearing, not decoration:
   actually branches on (a dead control fails closed and silently), and every
   class the module uses must have a CSS rule.
 
+**Three bugs found in a later self-scan of this same file, all fixed:**
+(1) `status(okMsg)` ran BEFORE `renderHealth()`, which replaces `innerHTML` and
+recreates `#teamHealthStatus` empty — so every SUCCESS was silently wiped while
+every FAILURE showed, the exact inverse of what is useful. (2) The click handler
+opened with `if (!t || busy) return`, dropping any click that landed mid-write —
+the precise antipattern the `run()` comment above it warns against. The promise
+chain already serialises and every handler reads its inputs synchronously, so
+the guard is gone. (3) `renderHealth()` over an unloaded tree rendered
+"ข้อมูลครบถ้วน" — an empty array is not an empty state; it now shows a loading
+line, gated on `loaded` passed through `getData()`.
+
 **NOT VISUALLY VERIFIED.** The Chrome extension was not connected this session,
 so the crop dialog and this pane have never been rendered — only built, unit
-tested and reasoned about. Look at both before trusting the layout.
+tested and reasoned about. Look at both before trusting the layout. Everything
+below the surface WAS verified live (see the scan list at the end of this file).
 
 **The durable answer is still the member's own profile page** — an admin cannot
 know whether the ชื่อเล่น is ปรายฟ้า or ปลายฟ้า, and วรวลัญช์ can answer in one
@@ -276,6 +288,48 @@ the switch keep working. Deploying one cannot affect another.
   open tabs only — hours, not weeks. Deleting early costs at most one failed
   upload on a stale tab; Drive trash is recoverable 30 days.
 
+
+## SCAN LOG — what was verified LIVE on 2026-08-01, and what was not
+
+Kept because a cold-start agent will otherwise re-do it. Each line is a check
+that was actually executed, not reasoned about.
+
+**Verified live, clean:**
+- `deleteTeamPhotoIfUnused`'s refcount filter really matches. This fails in the
+  DANGEROUS direction — "0 rows" means "trash the file" — so it was tested over
+  real HTTPS against the one live photo: `photo_url=eq.<encodeURIComponent(url)>`
+  returns the row (the `=w1200` inside the value survives encoding), an absent
+  URL returns `[]`, and the archive table is queried the same way.
+- 0108 did NOT widen the public projection. `get_public_team_chart` /
+  `get_public_org_chart` are hand-built `jsonb_build_object` (no `select *`, no
+  `returns setof`), and the live serialised chart carries exactly
+  `name · nickname · node_id · photo_focus · photo_url · position` — no
+  `person_id`, no kkumail, no รหัสนักศึกษา.
+- Bundle boundaries: the crop dialog and health pane are in the ADMIN JS only
+  (0 hits in `dist/assets/public-*.js`). `image-crop.css` is in both entries on
+  purpose — the future member-facing profile page needs it.
+- CSS custom properties resolve for the crop dialog even though it appends
+  itself to `<body>` outside `.team-tab`: `--ink-*` / `--radius-*` are on
+  `:root` in base.css.
+- `team_members.year` is `text`, so the health pane writing a string is right.
+- No circular import from `uploads.js → db.js` (added for `currentAccessToken`).
+- Proof suites after 0108: `team0089-manage` 5/5, `team0104-terms` 40/40,
+  `proj0086-seats` 24/24, `vs0083-scope` 16/16, `security-sweeps` clean,
+  `team0108-people` 12/12.
+
+**Known gaps, deliberately left (do NOT treat as bugs to be surprised by):**
+- `createMember` and the CSV import write `team_members` rows with
+  `person_id = null`, and `buildExportJson` does not carry `person_id`. Harmless
+  today because nothing reads it; the CONTRACT step must either add an INSERT
+  trigger that resolves/creates the person, or re-run the 0108 backfill (it is
+  idempotent — it only considers unlinked rows).
+- The crop dialog leaks nothing now, but re-opening it while it is already open
+  would load the new image into the live dialog. Not reachable: the file input
+  that triggers it sits behind a Bootstrap modal.
+- Team photo upload still happens on PICK, so abandoning the member editor after
+  a successful upload orphans one Drive file. Much narrower than before (the
+  crop step is cancelled before any upload), and `deleteTeamPhotoIfUnused` does
+  not cover it because no row ever referenced the file.
 
 ## READ THIS FIRST AFTER A /clear (2026-07-31 end of session)
 

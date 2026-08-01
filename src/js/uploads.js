@@ -13,6 +13,7 @@
 
 import { GAS_API_URL } from './config.js';
 import { downscaleImage } from './image-resize.js';
+import { currentAccessToken } from './db.js';
 
 function readAsDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -141,7 +142,11 @@ export async function deleteTeamFile(fileUrl) {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteTeamFile', fileUrl }),
+      // Parity with deleteShopFile / deleteProjectFile. The GAS session gate is
+      // currently REVERTED (it needed an OAuth scope the owner had not granted —
+      // mistakes.md), so this is ignored server-side today; sending it means
+      // Team is not the one endpoint that breaks if the gate is restored.
+      body: JSON.stringify({ action: 'deleteTeamFile', fileUrl, accessToken: currentAccessToken() }),
     });
     const result = await res.json();
     if (!result.success) {
