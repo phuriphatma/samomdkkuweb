@@ -10,6 +10,9 @@
 // module evaluates. Eliminates the dev-mode FOUC.
 import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
+
+import { initModalStack } from './modal-stack.js';
+initModalStack();  // stacked modals (crop over member editor, picker over member editor)
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 

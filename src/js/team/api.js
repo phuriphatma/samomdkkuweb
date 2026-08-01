@@ -10,6 +10,55 @@
 // ==============================================
 
 import { dbRest } from '../db.js';
+import { deleteTeamFile } from '../uploads.js';
+
+// ---- Photo lifecycle ----
+
+/**
+ * Trash a portrait in Drive, but ONLY once nothing points at it any more.
+ *
+ * The reference check is not defensive padding — `publish_team_term` copies
+ * `photo_url` straight into `team_archive_members`, so the instant a
+ * ปีการศึกษา is published every live portrait is referenced twice by the SAME
+ * Drive file id. Deleting a member's photo without checking would blank their
+ * card in an archived year, silently, months later. (The live data does not
+ * show this yet only because nothing has been published with photos — the
+ * mechanism is already there and will produce it on the next publish.)
+ *
+ * The same holds within the live table once one person can hold several
+ * ตำแหน่ง sharing one photo.
+ *
+ * CALL THIS AFTER THE ROW IS ALREADY GONE OR ALREADY REPOINTED, never from a
+ * form action — otherwise cancelling the editor would have destroyed a photo
+ * the database still uses. With the write committed first, the count is simply
+ * the truth.
+ *
+ * Best-effort and never throws: the DB write it follows has already succeeded.
+ * Worst case a file lingers, which is exactly the status quo.
+ */
+export async function deleteTeamPhotoIfUnused(photoUrl) {
+  const url = String(photoUrl || '').trim();
+  if (!url) return false;
+  try {
+    const q = `photo_url=eq.${encodeURIComponent(url)}&select=id&limit=1`;
+    const [live, archived] = await Promise.all([
+      dbRest(`/team_members?${q}`),
+      dbRest(`/team_archive_members?${q}`),
+    ]);
+    // A failed count must NOT be read as "no references" — that is the
+    // fail-open shape this repo keeps getting bitten by. Skip the delete.
+    if (live.error || archived.error) {
+      console.warn('[team/api] photo ref-count failed, keeping the file');
+      return false;
+    }
+    const refs = (live.data?.length || 0) + (archived.data?.length || 0);
+    if (refs > 0) return false;
+    return await deleteTeamFile(url);
+  } catch (e) {
+    console.warn('[team/api] deleteTeamPhotoIfUnused failed:', e);
+    return false;
+  }
+}
 
 // ---- Reads ----
 

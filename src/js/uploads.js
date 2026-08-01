@@ -123,6 +123,41 @@ export async function uploadTeamPhoto(file, { year, dept, order, name } = {}) {
 }
 
 /**
+ * Best-effort trash of a ทีม SAMO portrait in Drive.
+ *
+ * Mirrors `deleteShopFile` / `deleteProjectFile`; Team simply never had one, so
+ * every replaced, cleared or deleted portrait stayed in Drive — publicly shared
+ * — forever. Returns false rather than throwing: a Drive blip must never block
+ * the database write that already succeeded.
+ *
+ * DO NOT call this directly on a photo the DB might still reference. Use
+ * `deleteTeamPhotoIfUnused()` in `team/api.js`, which counts references first —
+ * `publish_team_term` copies `photo_url` into `team_archive_members`, so a live
+ * portrait and an archived year's card are the SAME Drive file.
+ */
+export async function deleteTeamFile(fileUrl) {
+  if (!fileUrl) return true;
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteTeamFile', fileUrl }),
+    });
+    const result = await res.json();
+    if (!result.success) {
+      // Includes the "Unknown action" case while the Apps Script project is
+      // still on the previous version — say so instead of failing silently.
+      console.warn('[uploads] deleteTeamFile failed:', result.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[uploads] deleteTeamFile failed:', e);
+    return false;
+  }
+}
+
+/**
  * Drive's default share URL is the viewer page (`/file/d/<id>/view`),
  * which doesn't embed in <img>. Rewrite to a directly-embeddable URL.
  *

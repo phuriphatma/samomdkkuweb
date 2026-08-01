@@ -38,8 +38,13 @@ const DEFAULTS = {
  * undefined` (an earlier version of this file) is a no-op that reads like a
  * working fast path.
  */
-async function decode(file) {
+export async function decode(file) {
   if (typeof createImageBitmap === 'function') {
+    // `imageOrientation: 'from-image'` is NOT optional. The <img> fallback below
+    // honours EXIF automatically, so without this the two paths disagree and a
+    // phone photo (iOS writes orientation 6 for a portrait hold) comes out
+    // sideways on browsers whose createImageBitmap default is still 'none'.
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { /* fall through */ }
     try { return await createImageBitmap(file); } catch { /* fall through */ }
   }
   const url = URL.createObjectURL(file);
@@ -59,7 +64,7 @@ async function decode(file) {
 /** Halve repeatedly until one more halving would overshoot, then do the last
  *  step exactly. Each pass averages 2x2 pixels, which is what keeps hair and
  *  fabric from turning into noise on a 2x downscale. */
-function drawStepped(src, srcW, srcH, outW, outH) {
+export function drawStepped(src, srcW, srcH, outW, outH) {
   let curW = srcW;
   let curH = srcH;
   let cur = src;

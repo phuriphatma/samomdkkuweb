@@ -1,0 +1,84 @@
+/* ==============================================
+ * IMAGE-CROP — the pan/zoom framing dialog (src/js/image-crop.js).
+ *
+ * Light-only, like the rest of the app (mistakes.md: never add a
+ * prefers-color-scheme island to a single-theme app). The stage is the one dark
+ * surface, and that is deliberate — a neutral dark surround is what lets you
+ * judge a portrait's framing without the page's white competing with it.
+ * ============================================== */
+
+.imgcrop-modal .modal-dialog {
+  max-width: 27rem;
+}
+
+.imgcrop-stage {
+  /* w/h — set from JS so the same dialog can frame a different ratio later. */
+  --imgcrop-max-h: min(56vh, 30rem);
+  aspect-ratio: var(--imgcrop-ratio, 0.75);
+  /* Constrain the WIDTH, not the height. A block element with `aspect-ratio`
+     still stretches to its container and derives height from that, so a bare
+     `max-height` would leave a too-wide box with the height clamped — i.e. not
+     the ratio at all. Capping width at (max height x ratio) makes the height
+     fall out below the cap on its own. */
+  max-width: min(100%, calc(var(--imgcrop-max-h) * var(--imgcrop-ratio, 0.75)));
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background:
+    repeating-conic-gradient(#2c2f33 0% 25%, #26292d 0% 50%) 50% / 18px 18px;
+  touch-action: none;          /* the gesture is ours — see the pointer handlers */
+  cursor: grab;
+  user-select: none;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.imgcrop-stage.is-dragging { cursor: grabbing; }
+
+.imgcrop-stage img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  will-change: transform;
+  max-width: none;             /* Bootstrap's img{max-width:100%} would fight the transform */
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Rule-of-thirds guides. Non-interactive, low contrast — an aid, not a grid the
+   eye has to fight. */
+.imgcrop-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.22) 1px, transparent 1px);
+  background-size: 33.333% 33.333%;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35);
+  border-radius: inherit;
+}
+
+.imgcrop-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.imgcrop-tools .form-range { flex: 1; }
+.imgcrop-tools .bi { color: var(--ink-400, #8a8f98); font-size: 0.95rem; }
+
+.imgcrop-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-500, #6b7280);
+  text-align: center;
+}
+
+@media (max-width: 575.98px) {
+  .imgcrop-stage { --imgcrop-max-h: 48vh; }
+  /* The hover-only half of the hint is noise on touch. */
+  .imgcrop-hint { font-size: 0.74rem; }
+}

@@ -382,6 +382,7 @@ function doPost(e) {
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
+    if (data.action === 'deleteTeamFile')    return handleDeleteTeamFile(data);
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
@@ -518,6 +519,51 @@ function handleDeleteShopFile(data) {
     if (!fileLivesUnderSamoShop_(file)) {
       return createResponse({ success: false, message: 'file is not inside Shop' });
     }
+    file.setTrashed(true);
+    return createResponse({ success: true });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/**
+ * deleteTeamFile — trash one ทีม SAMO member portrait (by any Drive url form).
+ *
+ * WHY IT EXISTS: Shop and Projects have had a delete path on both sides for a
+ * long time; Team never did. So replacing a photo, clearing one with นำรูปออก,
+ * deleting a member, or abandoning the editor after an upload each left a file
+ * in Drive shared "anyone with the link", forever. That is unbounded, and it is
+ * a privacy problem more than a storage one — someone who removes their portrait
+ * expects it to be gone.
+ *
+ * Scoped the same way as the Shop and Projects deletes: this endpoint is
+ * UNAUTHENTICATED (Execute as: Me + Anyone, and the /exec url ships inside the
+ * public bundle), so the only thing standing between a caller and the owner's
+ * whole Drive is the ancestry check. A file that is not under `Team` is refused,
+ * loudly — never silently reported as deleted.
+ *
+ * Adds no new Google service (DriveApp is used throughout this file already), so
+ * it does NOT widen the auto-derived OAuth scopes and needs no re-consent — the
+ * trap that took the delete gate down for an hour on 2026-07-31.
+ */
+function handleDeleteTeamFile(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      // Already gone (or never existed) — report success so a caller retrying a
+      // cleanup does not loop forever on a file that is already absent.
+      return createResponse({ success: true, alreadyGone: true });
+    }
+    if (!fileLivesUnderTop_(file, 'Team')) {
+      return createResponse({ success: false, message: 'file is not inside Team' });
+    }
+    // Trash, not purge: Drive keeps a 30-day undo window, which is the right
+    // trade for an irreversible action driven by an anonymous endpoint.
     file.setTrashed(true);
     return createResponse({ success: true });
   } catch (e) {

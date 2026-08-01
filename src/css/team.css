@@ -111,6 +111,35 @@
 .team-picker-item.is-current:not(.is-selected) { background: var(--ink-50); }
 .team-picker-empty { padding: 1.5rem; text-align: center; color: var(--ink-400); }
 
+/* ---- member modal: portrait field ----
+   These classes shipped in tab-team.html with no rules behind them, so the
+   preview <img> rendered at its natural size and burst out of the modal. The
+   preview is the same 3:4 the card uses, so what the admin sees here is what
+   the โครงสร้างองค์กร page will show. */
+.team-photo-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.team-photo-preview {
+  flex: 0 0 auto;
+  width: 5.25rem;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--ink-100);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ink-200);
+}
+
+.team-photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.team-photo-empty { color: var(--ink-400); font-size: 1.6rem; }
+
+.team-photo-controls { flex: 1 1 auto; min-width: 0; }
+.team-photo-controls .form-text { margin-top: 0.4rem; }
+
 /* member modal: node selector styled like a select but opens the picker */
 .team-node-pick { cursor: pointer; overflow: hidden; }
 .team-node-pick span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -338,6 +367,10 @@
   margin-top: 0.6rem; font-size: 0.78rem; color: var(--ink-500);
   display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap;
 }
+/* The label before the chip list. The container sets size + colour; this only
+   separates "what these are" from the values themselves. */
+.team-perm-inherited-label { font-weight: 600; }
+
 .team-perm-node, .team-move-what {
   font-size: 0.9rem; color: var(--brand-primary); font-weight: 600;
   margin-bottom: 0.8rem; word-break: break-word;
@@ -472,14 +505,13 @@
 
 .team-arc-fields {
   display: grid; gap: 0.35rem; flex: 1 1 auto; min-width: 0;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 8rem) auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
   align-items: center;
 }
 
 @media (max-width: 767.98px) {
   .team-term-actions { margin-inline-start: 0; width: 100%; }
   .team-arc-fields { grid-template-columns: minmax(0, 1fr) auto; }
-  .team-arc-fields > select { grid-column: 1; }
 }
 
 /* The "published ≠ visible yet" note. The publish button is the natural thing to
@@ -506,4 +538,91 @@
   border-color: color-mix(in srgb, var(--brand-orange) 55%, transparent);
   background: color-mix(in srgb, var(--brand-orange) 14%, #fff);
   font-weight: 600;
+}
+
+/* ==============================================
+ * ตรวจสอบข้อมูล (mode 'health') — src/js/team/health.js
+ *
+ * Deliberately reads as a WORKLIST, not a dashboard: every row states the
+ * problem in one line and carries the buttons that resolve it, so there is
+ * never a "now go find that person in the tree" step. Groups are ordered
+ * mechanical-first, so the items needing no knowledge clear out before the
+ * judgement calls.
+ * ============================================== */
+
+.team-health { padding: 0.25rem 0 1rem; }
+
+.team-health-head { display: flex; align-items: flex-start; gap: 1rem; }
+.team-health-title { margin: 0; font-weight: 700; }
+.team-health-sum { margin: 0.15rem 0 0; font-size: 0.85rem; color: var(--ink-500); }
+
+.team-health-status:empty { display: none; }
+.team-health-status {
+  margin: 0.6rem 0; padding: 0.4rem 0.7rem; border-radius: var(--radius-sm);
+  font-size: 0.85rem; background: var(--ink-100);
+}
+.team-health-status.is-ok    { background: #e8f5ec; color: #14532d; }
+.team-health-status.is-error { background: #fdecec; color: #7f1d1d; }
+
+.team-health-group { margin-top: 1.1rem; }
+.team-health-group > header > h6 {
+  margin: 0; font-size: 0.95rem; font-weight: 700;
+  display: flex; align-items: center; gap: 0.45rem;
+}
+.team-health-group > header > p {
+  margin: 0.2rem 0 0.6rem; font-size: 0.8rem; color: var(--ink-500); max-width: 62ch;
+}
+.team-health-count {
+  background: var(--brand-primary); color: #fff; border-radius: 999px;
+  font-size: 0.72rem; padding: 0.05rem 0.45rem; font-weight: 600;
+}
+
+.team-health-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+
+.team-health-item {
+  background: #fff; border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm); padding: 0.6rem 0.75rem;
+}
+.team-health-sub {
+  margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--ink-200);
+}
+
+.team-health-who {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+.team-health-detail { font-size: 0.8rem; color: var(--ink-500); margin-top: 0.25rem; }
+.team-health-warn { color: #92400e; }
+
+.team-health-chip {
+  background: var(--ink-100); color: var(--ink-600);
+  border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.74rem;
+}
+.team-health-chip.is-field { background: #eef2ff; color: #3730a3; }
+.team-health-chip.is-warn  { background: #fef3c7; color: #92400e; }
+
+/* The action row wraps rather than scrolls — on a phone the buttons stack, and
+   a horizontal scroller here would hide the option the admin needs. */
+.team-health-acts {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.team-health-acts .form-control { max-width: 15rem; }
+
+.team-health-clear {
+  text-align: center; padding: 2rem 1rem; color: var(--ink-500);
+}
+.team-health-clear .bi { font-size: 1.8rem; color: var(--brand-primary); }
+.team-health-clear p { margin: 0.4rem 0 0; font-size: 0.9rem; }
+
+.team-health-foot {
+  margin: 1.2rem 0 0; font-size: 0.76rem; color: var(--ink-400); max-width: 70ch;
+}
+
+/* Count on the mode button, so the pane advertises itself. */
+.team-mode-badge {
+  display: inline-block; min-width: 1.15rem; text-align: center;
+  background: var(--brand-orange); color: #fff; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; padding: 0.02rem 0.3rem;
+  margin-inline-start: 0.3rem; line-height: 1.5;
 }

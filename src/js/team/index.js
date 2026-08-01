@@ -13,15 +13,17 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
+import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
+import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
   createMember, updateMember, deleteMember,
-  patchNodePositions, patchMemberPositions,
+  patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
 } from './api.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
+import { initHealth, enterHealth, issueCount } from './health.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
   normalizeYear, isLikelyEmail, validateExportJson,
@@ -97,6 +99,10 @@ let rtStarted = false;         // realtime subscription established once
 let dragging = false;          // a drag is in progress — defer remote re-renders
 let pendingRender = false;     // a remote change arrived mid-drag
 let renderTimer = null;        // debounce coalescing bursts of remote events
+// photo_focus of the member currently open in the editor. No longer a form
+// control (the crop dialog replaced it) — carried so saving an unrelated field
+// preserves a legacy row's 'top'/'bottom', and reset to 'center' on re-upload.
+let memberPhotoFocus = 'center';
 
 const $ = (id) => document.getElementById(id);
 
@@ -250,6 +256,26 @@ export function initTeam() {
   initTerms(document.getElementById('teamTermsPane'), {
     onChange: (year) => { currentTermYear = year; },
   });
+  // health.js reads through getData rather than being handed a snapshot, so it
+  // always sees the live in-memory tree — including rows another pane just
+  // changed — without index.js having to push updates at it.
+  initHealth(document.getElementById('teamHealthPane'), {
+    getData: () => ({
+      members: allMembersFlat(),
+      nodeName: (id) => nodesById.get(id)?.name || '',
+    }),
+    onChanged: () => reload(),
+  });
+}
+
+/** Surface the outstanding count on the mode button. Cheap — it runs over the
+ *  members already in memory, no query. */
+function refreshHealthBadge() {
+  const badge = $('teamHealthBadge');
+  if (!badge || !loaded) return;
+  const n = issueCount(allMembersFlat(), (id) => nodesById.get(id)?.name || '');
+  badge.textContent = n ? String(n) : '';
+  badge.classList.toggle('d-none', !n);
 }
 
 export function enterTeamWorkspace() {
@@ -370,10 +396,14 @@ function render() {
   // tree — hide the tree and its toolbar rather than trying to express years
   // inside the node list.
   const isYears = mode === 'years';
-  tree.classList.toggle('d-none', isYears);
+  const isHealth = mode === 'health';
+  const isPane = isYears || isHealth;
+  tree.classList.toggle('d-none', isPane);
   $('teamTermsPane')?.classList.toggle('d-none', !isYears);
-  document.querySelector('.team-toolbar')?.classList.toggle('d-none', isYears);
-  if (isYears) {
+  $('teamHealthPane')?.classList.toggle('d-none', !isHealth);
+  document.querySelector('.team-toolbar')?.classList.toggle('d-none', isPane);
+  refreshHealthBadge();
+  if (isPane) {
     document.querySelectorAll('.team-mode-btn').forEach((b) => {
       b.classList.toggle('is-active', b.dataset.teamMode === mode);
     });
@@ -386,6 +416,10 @@ function render() {
     // archive editor — the same class of bug the `dragging` guard exists for.
     // terms.js owns its own pane and repaints on its own actions; the archive is
     // independent of the live tree, so a tree change is not news to it.
+    //
+    // Same for ตรวจสอบข้อมูล: health.js holds half-typed emails and รหัสนักศึกษา
+    // in its inputs, and a remote tree edit rebuilding that pane would throw
+    // them away. It repaints after its own writes.
     return;
   }
 
@@ -873,6 +907,7 @@ function wireToolbar() {
       if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
       render();
       if (mode === 'years') enterTerms();
+      if (mode === 'health') enterHealth();
     });
   });
 
@@ -1641,8 +1676,12 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   $('teamMemberMajor').value = member?.major || '';
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
+  // Carried, not edited. A photo uploaded through the crop dialog is already 3:4
+  // so its focus is 'center'; an older row keeps whatever it had until someone
+  // re-uploads, and editing an unrelated field must not silently re-frame it.
+  // Set BEFORE setMemberPhoto — the preview reads it.
+  memberPhotoFocus = member?.photo_focus || 'center';
   setMemberPhoto(member?.photo_url || '');
-  if ($('teamMemberPhotoFocus')) $('teamMemberPhotoFocus').value = member?.photo_focus || 'center';
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
   modalInstance('teamMemberModal')?.show();
@@ -1658,11 +1697,15 @@ function setMemberPhoto(url) {
   if (clear) clear.classList.toggle('d-none', !url);
   if (!prev) return;
   if (url) {
-    // convertDriveUrl at RENDER time as well as on upload, so a legacy
-    // drive.google.com/thumbnail URL already in the column is rewritten to the
-    // redirect-free lh3 form — the thumbnail form intermittently fails to load on
-    // iOS Safari (mistakes.md).
-    prev.innerHTML = `<img src="${escHtml(convertDriveUrl(url, 320))}" alt="" loading="lazy" />`;
+    // portraitSrc, NOT convertDriveUrl(url, 320): convertDriveUrl returns an
+    // ALREADY-lh3 URL untouched, so its `size` argument is silently ignored for
+    // exactly the rows this app writes — the preview was asking for 320px and
+    // being handed the stored =w1200. portraitSrc rebuilds the option string
+    // from the file id, so the thumbnail is a thumbnail. It also rewrites the
+    // legacy drive.google.com/thumbnail form, which intermittently fails to load
+    // on iOS Safari (mistakes.md).
+    prev.innerHTML = `<img src="${escHtml(portraitSrc(url, 168, memberPhotoFocus))}"`
+      + ` alt="" loading="lazy" />`;
   } else {
     prev.innerHTML = '<span class="team-photo-empty"><i class="bi bi-person"></i></span>';
   }
@@ -1677,24 +1720,48 @@ function rootDeptName(nodeId) {
 }
 
 async function onMemberPhotoPick(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const picked = e.target.files?.[0];
+  if (!picked) return;
   const hint = $('teamMemberPhotoHint');
   const input = e.target;
   const original = hint?.textContent;
+  // Frame it BEFORE anything is uploaded — cancelling here must leave the member
+  // exactly as it was, with nothing written to Drive.
+  let file;
+  try {
+    file = await cropImage(picked, {
+      title: 'ปรับกรอบรูปประจำตัว',
+      hint: 'กรอบนี้คือสิ่งที่แสดงบนหน้าโครงสร้างองค์กร — ลากให้ใบหน้าอยู่กลางกรอบ',
+    });
+  } catch (err) {
+    alert('เปิดรูปไม่สำเร็จ: ' + (err?.message || err));
+  }
+  // Clear the file input either way, or re-picking the SAME file fires no change
+  // event and the upload silently does not re-run.
+  input.value = '';
+  if (!file) return;
   input.disabled = true;
   // The downscale happens before the network call and is the slow part on a
   // phone, so say "processing" rather than "uploading" up front.
   if (hint) hint.textContent = 'กำลังย่อและอัปโหลดรูป…';
   try {
     const nodeId = $('teamMemberNodeId').value;
+    // `order` is only the numeric prefix on the Drive filename, so a person can
+    // be found by browsing the folder. For an EXISTING member that is their own
+    // position — `membersOf().length` would file the first of five people as
+    // "05-", which is exactly backwards. A new member really is going on the end.
+    const editingId = $('teamMemberId').value;
+    const editing = editingId ? findMember(editingId) : null;
     const res = await uploadTeamPhoto(file, {
       year: currentTermYear || 'unsorted',
       dept: rootDeptName(nodeId),
-      order: membersOf(nodeId).length,
+      order: editing ? (editing.position ?? 0) : membersOf(nodeId).length,
       name: $('teamMemberName').value.trim() || 'member',
     });
     setMemberPhoto(res.url);
+    // The uploaded frame IS 3:4, so lh3's server-side centre crop is now exact:
+    // no head is cut and the card fetches ~38 KB instead of ~78 KB.
+    memberPhotoFocus = 'center';
     // Surface the un-organised fallback instead of hiding it — the file DID
     // upload, but into PR/ with no folder structure, which is the
     // exact thing uploadTeamPhoto exists to fix. Silence here would mean nobody
@@ -1709,9 +1776,6 @@ async function onMemberPhotoPick(e) {
     alert('อัปโหลดรูปไม่สำเร็จ: ' + (err?.message || err));
   } finally {
     input.disabled = false;
-    // Clear the file input, or re-picking the SAME file fires no change event and
-    // the upload silently does not re-run.
-    input.value = '';
   }
 }
 
@@ -1732,9 +1796,14 @@ async function onMemberSubmit(e) {
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
     photo_url: $('teamMemberPhotoUrl').value.trim() || null,
-    photo_focus: $('teamMemberPhotoFocus')?.value || 'center',
+    photo_focus: memberPhotoFocus || 'center',
   };
   modalInstance('teamMemberModal')?.hide();
+  // Snapshot the photo BEFORE Object.assign overwrites it. Cleared or replaced
+  // portraits are trashed AFTER the write lands, never on the นำรูปออก click —
+  // deleting there would destroy a photo the DB still points at if the admin
+  // then cancels.
+  const prevPhoto = id ? (findMember(id)?.photo_url || '') : '';
   try {
     if (id) {
       const m = findMember(id);
@@ -1752,6 +1821,9 @@ async function onMemberSubmit(e) {
       expanded.add(nodeId);
       render();
     }
+    if (prevPhoto && prevPhoto !== (payload.photo_url || '')) {
+      deleteTeamPhotoIfUnused(prevPhoto);
+    }
   } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 
@@ -1759,10 +1831,15 @@ async function onDeleteMember(id) {
   const m = findMember(id);
   if (!m) return;
   if (!confirm(`ลบสมาชิก “${m.full_name}” ?`)) return;
+  const photo = m.photo_url || '';
   const arr = membersByNode.get(m.node_id);
   if (arr) membersByNode.set(m.node_id, arr.filter((x) => x.id !== id));
   render();
-  try { await deleteMember(id); } catch (e) { alert(e?.message || 'ลบไม่สำเร็จ'); reload(); }
+  try {
+    await deleteMember(id);
+    // Only now is the row actually gone, so the ref-count can tell the truth.
+    if (photo) deleteTeamPhotoIfUnused(photo);
+  } catch (e) { alert(e?.message || 'ลบไม่สำเร็จ'); reload(); }
 }
 
 // ============================================================

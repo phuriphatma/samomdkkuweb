@@ -14,6 +14,12 @@
       <button type="button" class="team-mode-btn" data-team-mode="years">
         <i class="bi bi-calendar3"></i> ปีการศึกษา
       </button>
+      <!-- The badge is the point: an admin should learn there is something to
+           resolve without opening the pane to look. Filled by team/index.js. -->
+      <button type="button" class="team-mode-btn" data-team-mode="health">
+        <i class="bi bi-clipboard2-check"></i> ตรวจสอบข้อมูล
+        <span class="team-mode-badge d-none" id="teamHealthBadge"></span>
+      </button>
     </div>
     <div class="team-io">
       <div class="dropdown">
@@ -67,6 +73,11 @@
        but still editable — snapshot in team_archive_*. Rendered by
        src/js/team/terms.js. -->
   <div class="team-terms-pane d-none" id="teamTermsPane"></div>
+
+  <!-- ตรวจสอบข้อมูล. Computed live from the members already in memory, so a
+       later CSV import that reintroduces an inconsistency shows up here with no
+       script to remember to run. Rendered by src/js/team/health.js. -->
+  <div class="team-health-pane d-none" id="teamHealthPane"></div>
 
   <!-- Bulk action bar — shown in select mode; sticks to the bottom. -->
   <div class="team-selectbar d-none" id="teamSelectionBar">
@@ -147,7 +158,7 @@
      choosing/reassigning a member's role. Type to filter; tap a row to select;
      confirm. Far easier than a 200-option <select>, and works well on touch. -->
 <div class="modal fade" id="teamPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down team-picker-dialog">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="teamPickerTitle">ย้ายไปที่…</h5>
@@ -396,18 +407,11 @@
                   id="teamMemberPhotoClear">นำรูปออก</button>
               </div>
               <!-- The card is a 3:4 portrait but the studio shoots 3:2 landscape,
-                   so ~45% of the frame is cropped away. "กลาง" lets Google crop it
-                   server-side (half the bytes); บน/ล่าง fetch the full frame and
-                   crop in CSS, which is the escape hatch when a centre crop would
-                   cut the head. -->
-              <div class="mt-2">
-                <label class="form-label form-label-sm mb-1" for="teamMemberPhotoFocus">จุดโฟกัสของรูป</label>
-                <select class="form-select form-select-sm" id="teamMemberPhotoFocus">
-                  <option value="center" selected>กลาง (แนะนำ)</option>
-                  <option value="top">บน — เมื่อหัวถูกตัด</option>
-                  <option value="bottom">ล่าง</option>
-                </select>
-              </div>
+                   so ~45% of the frame has to go. Picking a file opens the crop
+                   dialog (src/js/image-crop.js) and what is uploaded is already
+                   3:4 — which is why there is no "จุดโฟกัสของรูป" select any
+                   more. photo_focus still exists in the DB for rows uploaded
+                   before this and for archived years. -->
               <div class="form-text" id="teamMemberPhotoHint">
                 แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้ — ใช้รูปที่เจ้าตัวยินยอมให้เผยแพร่
               </div>

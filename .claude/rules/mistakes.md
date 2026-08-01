@@ -2191,6 +2191,140 @@ bogus `updated_at`, and set `updated_at` back to the last genuine event.
 
 ---
 
+## Bootstrap gives EVERY modal the same z-index — so a stacked modal declared earlier in the HTML paints BEHIND the one that opened it
+
+**Symptom** (reported): in จัดการทีม → a person → the ตำแหน่ง selector, "it
+doesn't show the popup, it shows เลือกตำแหน่ง behind it". The picker opens, the
+backdrop dims, focus moves into it — and it is invisible, underneath the member
+editor. Reads like a broken `.show()` call or a missing `d-none` toggle.
+**Cause**: Bootstrap's docs say "multiple open modals are not supported" and the
+CSS means it — every `.modal` is z-index 1055 and every `.modal-backdrop` 1050,
+with no per-instance adjustment. Equal z-index means **DOM order decides the
+painting order**, so the modal declared LATER in the HTML wins. `#teamPickerModal`
+sits at line ~149 of `tab-team.html` and `#teamMemberModal` at ~372, so opening
+the picker from the member editor put it behind. Nothing about the JS is wrong,
+and the same code works perfectly when the picker is opened from the tree (no
+other modal up), which is what makes it look intermittent.
+**Fix**: `src/js/modal-stack.js` — ONE delegated `show.bs.modal` listener,
+wired in both entries. It counts `.modal.show` (the event fires before Bootstrap
+adds `.show` to this element and before it appends this modal's backdrop, so the
+count is exactly the modals already up), and lifts this modal to
+`1055 + depth*20` with its backdrop 10 below. `hidden.bs.modal` clears the
+inline z-index and re-asserts `modal-open` on `<body>`, which Bootstrap strips
+on ANY hide even when an outer modal is still shown.
+**Where**: `src/js/modal-stack.js`; `initModalStack()` in `main.js` +
+`admin-main.js`. **Rules**: (1) opening a modal from inside another modal needs
+this — do not "fix" it by reordering the HTML, which only moves the problem to
+the next pair. (2) It composes with the existing stacked-backdrop entry above:
+use `getOrCreateInstance(el).show()` (never `new bootstrap.Modal`) AND let the
+stacker place it.
+
+---
+
+## `convertDriveUrl(url, size)` silently ignores `size` for an already-lh3 URL — so every "small thumbnail" call site is asking for nothing and getting the stored size
+
+**Symptom** (from a screenshot): the ทีม SAMO member editor's portrait preview
+rendered at full size and burst out of the modal, over the fields. The call site
+looked right — `convertDriveUrl(url, 320)`.
+**Cause, two independent bugs stacked:**
+1. `convertDriveUrl` returns EARLY and UNCHANGED for anything already matching
+   `googleusercontent.com/d/` — which is exactly what `uploadTeamPhoto` stores
+   (it ran the URL through `convertDriveUrl(fileUrl)` at upload time, default
+   size 1200). So the `size` parameter is a no-op for every row this app writes;
+   it only ever applies to a legacy `drive.google.com/thumbnail` URL. The preview
+   asked for `=w320` and was handed the stored `=w1200`.
+2. `.team-photo-field` / `-preview` / `-controls` / `-empty` were in
+   `tab-team.html` with **no CSS rule anywhere in the repo** — the markup shipped
+   without its stylesheet. With no box to fit, a 1200px `<img>` renders at 1200px
+   (Bootstrap 5 Reboot does NOT set a global `img{max-width:100%}` — that is
+   `.img-fluid`). Either bug alone is survivable; together the image was both
+   huge and unconstrained.
+**Fix**: use `portraitSrc(url, w, focus)` for any sized derivative — it extracts
+the file id and REBUILDS the option string, so it works on lh3, `/file/d/` and
+`?id=` forms alike. `convertDriveUrl` is for NORMALISING a URL's form, not for
+sizing. Added the missing `.team-photo-*` rules.
+**Where**: `src/js/uploads.js` (`convertDriveUrl` vs `portraitSrc`), call sites
+in `src/js/team/index.js` `setMemberPhoto` and `src/js/team/terms.js`
+`archiveMemberRow`; CSS in `src/css/team.css`.
+**Rules**: (1) a function that returns its input unchanged on a fast path must
+not also take a parameter that only applies off that path — grep every
+`convertDriveUrl(x, n)` with an explicit size, it is almost certainly a no-op.
+(2) When new markup ships, grep one class name against `src/css/` before
+assuming a layout bug is in the JS; a class with zero rules is invisible in
+review and looks exactly like a broken value.
+
+---
+
+## A snapshot table that COPIES a foreign resource id makes the original's delete path destroy history — count references, and count them AFTER the write
+
+**Symptom** (designed out, not observed): adding the long-missing `deleteTeamFile`
+so a replaced/removed ทีม SAMO portrait stops orphaning in Drive. The obvious
+implementation — trash the file whenever the member's `photo_url` changes —
+would silently blank that person's card in a PUBLISHED ปีการศึกษา, months later.
+**Cause**: `publish_team_term` copies `m.photo_url` **verbatim** into
+`team_archive_members`. The archive is a snapshot of the ROW, but the photo is
+not copied — both rows point at the SAME Drive file id. So the live table does
+not own that file; it shares it. Deleting through one reference breaks the other,
+and the archive is exactly the thing that can never be regenerated. The live data
+hid this completely: at the time of writing there is 1 live photo and 0 archived,
+so `shared_live_and_archive` measured **0** — the mechanism is in place and
+produces the sharing on the next publish, which is the worst kind of latent bug
+(a query says you are fine, the code says you are not).
+**Fix**: `deleteTeamPhotoIfUnused()` in `src/js/team/api.js` counts references in
+`team_members` AND `team_archive_members` and only then calls the GAS delete. Two
+details that are the whole point:
+- **A failed count must not read as "no references."** `live.error ||
+  archived.error` skips the delete — the recurring fail-open shape in this repo.
+- **Call it AFTER the row is gone or repointed, never from the form action.**
+  Deleting on the นำรูปออก click would destroy a photo the DB still uses if the
+  admin then cancels the editor. With the write committed first, the ref-count is
+  simply the truth and needs no special-casing for "the row I am editing".
+**Where**: `src/js/team/api.js` `deleteTeamPhotoIfUnused`; `appscript/prform.gs`
+`handleDeleteTeamFile` (guarded by the existing `fileLivesUnderTop_(file,
+'Team')`, and adding no new Google service so the OAuth scopes are unchanged —
+see the re-consent entry above); call sites in `team/index.js` `onMemberSubmit` /
+`onDeleteMember` and `team/terms.js` `onArchivePhoto` / the archive delete.
+**Rule**: before adding a delete path for a row that references an EXTERNAL
+resource (a Drive file, an uploaded blob, an S3 key), grep for every table that
+copies that reference — a snapshot/archive/audit table usually copies the id
+without copying the resource. If one exists, the delete is a refcount, not a
+delete. And measuring the current data proves nothing when the sharing is created
+by a code path that has not run yet.
+
+---
+
+## A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value — assert the coverage
+
+**Symptom** (reported with a screenshot): the ทีม SAMO member editor's portrait
+preview rendered at full size and burst out of the modal, over the form. The
+call site looked right. The markup looked right.
+**Cause**: `.team-photo-field` / `-preview` / `-controls` / `-empty` were written
+into `src/html/tab-team.html` and **the stylesheet rules were never added** —
+`grep -rn "team-photo" src/css/` returned nothing. With no box to fit, an `<img>`
+renders at its natural size (Bootstrap 5's Reboot does NOT set a global
+`img{max-width:100%}` — that is `.img-fluid`, opt-in). Nothing errors, nothing
+logs, and the diff that introduced it reads as complete.
+**Fix**: the rules, plus a TEST that makes the class impossible to forget —
+`src/js/team/health.test.js` extracts every `team-*` class from the partial and
+every `team-health-*` / `imgcrop-*` class from the JS, and asserts each has a
+rule in the stylesheets those entries load. Run on the existing code it
+immediately found four more: two deliberate layout hooks (allow-listed by name,
+so the list itself stays meaningful), one **dead class** (`team-picker-dialog` —
+no rule, no JS selector, removed), and one genuinely missing rule
+(`team-perm-inherited-label`).
+**Where**: `src/css/team.css`; the coverage tests at the bottom of
+`src/js/team/health.test.js`. Two things that make the test not-annoying: the
+allow-list is explicit and named (a growing allow-list is a smell, not a
+solution), and the regex uses `(?<!-)` so a CSS CUSTOM PROPERTY set from JS
+(`--imgcrop-ratio`) is not mistaken for a class.
+**Rule**: when a layout bug appears in NEW markup, `grep` one of its class names
+against `src/css/` before debugging the JS. And for any module that owns its own
+class namespace, assert the coverage — it costs six lines and catches the whole
+class. Related: the entry above on `convertDriveUrl`'s ignored size argument;
+both bugs were in that one screenshot, and either alone was survivable.
+
+---
+
 ## When in doubt: check `mistakes.md` before re-implementing
 
 Every entry above represents hours we already spent. If a symptom looks

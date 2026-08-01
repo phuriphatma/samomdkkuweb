@@ -1,0 +1,280 @@
+import { describe, it, expect } from 'vitest';
+import { findIssues } from './health.js';
+
+// The pane and tools/team-identity-dryrun.mjs implement the SAME resolution
+// rule on opposite sides of the wire. These cases are written from the LIVE
+// data the tool reported, so if the two ever drift apart, this fails.
+const m = (o) => ({
+  id: o.id, node_id: o.node || 'n1', full_name: o.name || null, prefix: o.prefix || null,
+  nickname: o.nick || null, year: o.year || null, major: o.major || null,
+  photo_url: o.photo || null, student_id: o.sid || null, kkumail: o.mail || null,
+});
+const run = (rows) => findIssues(rows, () => 'ฝ่ายทดสอบ');
+const kinds = (rows) => run(rows).issues.map((i) => i.kind).sort();
+
+describe('findIssues — grouping', () => {
+  it('two rows with the same kkumail are ONE person', () => {
+    const { people } = run([
+      m({ id: 'a', name: 'ภูริพัฒน์', mail: 'p.ma@kkumail.com', sid: '653070317-0' }),
+      m({ id: 'b', name: 'ภูริพัฒน์', mail: 'P.MA@kkumail.com', sid: '653070317-0' }),
+    ]);
+    expect(people).toHaveLength(1);
+    expect(people[0].rows).toHaveLength(2);
+  });
+
+  it('two rows sharing only a รหัสนักศึกษา are one person', () => {
+    const { people } = run([
+      m({ id: 'a', name: 'ก', sid: '111-1' }),
+      m({ id: 'b', name: 'ก', sid: '111-1' }),
+    ]);
+    expect(people).toHaveLength(1);
+  });
+
+  it('NEVER merges on name alone', () => {
+    const { people } = run([
+      m({ id: 'a', name: 'สมชาย ใจดี' }),
+      m({ id: 'b', name: 'สมชาย ใจดี' }),
+    ]);
+    expect(people).toHaveLength(2);
+  });
+
+  // The live 673070332-6 case: one mistyped id, two humans, correct emails.
+  it('does NOT fuse two different emails because a รหัสนักศึกษา matches', () => {
+    const rows = [
+      m({ id: 'a', name: 'จิรายุทธ โยชน์เมืองไพร', mail: 'jirayut.y@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'b', name: 'โรจนศักดิ์ เบี้ยไธสง', mail: 'rodjanasak.b@kkumail.com', sid: '673070332-6' }),
+    ];
+    expect(run(rows).people).toHaveLength(2);
+    expect(kinds(rows)).toContain('sid_clash');
+  });
+});
+
+describe('findIssues — invalid email', () => {
+  // The live ชญาภา case: kkumail is literally '-'.
+  it('a value with no @ is not an email, and splits the person', () => {
+    const rows = [
+      m({ id: 'a', name: 'ชญาภา', mail: '-', sid: '663070019-9' }),
+      m({ id: 'b', name: 'ชญาภา', mail: 'chayapa.l@kkumail.com', sid: '663070019-9' }),
+    ];
+    const { issues, people } = run(rows);
+    expect(people).toHaveLength(2);            // '-' cannot group them
+    expect(issues.some((i) => i.kind === 'invalid_email' && i.value === '-')).toBe(true);
+  });
+
+  it('an empty kkumail is not reported as invalid', () => {
+    expect(kinds([m({ id: 'a', name: 'ก', mail: '   ', sid: '1' })])).not.toContain('invalid_email');
+  });
+});
+
+describe('findIssues — drift', () => {
+  it('reports each disagreeing field once, with every value', () => {
+    const { issues } = run([
+      m({ id: 'a', name: 'วรวลัญช์ สุขเอนก', mail: 'w@kkumail.com', nick: 'ปรายฟ้า' }),
+      m({ id: 'b', name: 'วรวลัญช์ สุขเอนก', mail: 'w@kkumail.com', nick: 'ปลายฟ้า' }),
+    ]);
+    const drift = issues.filter((i) => i.kind === 'drift');
+    expect(drift).toHaveLength(1);
+    expect(drift[0].field).toBe('nickname');
+    expect(drift[0].values.map((v) => v.value).sort()).toEqual(['ปรายฟ้า', 'ปลายฟ้า'].sort());
+    expect(drift[0].memberIds.sort()).toEqual(['a', 'b']);
+  });
+
+  it('a value present on one row and absent on the other is NOT drift', () => {
+    // Absent is not a competing answer — filling it in is the normal case and
+    // must not be dressed up as a conflict needing a decision.
+    expect(kinds([
+      m({ id: 'a', mail: 'x@kkumail.com', name: 'ก', nick: 'เอ' }),
+      m({ id: 'b', mail: 'x@kkumail.com', name: 'ก' }),
+    ])).not.toContain('drift');
+  });
+
+  it('catches a differing photo between one person\'s rows', () => {
+    const { issues } = run([
+      m({ id: 'a', mail: 'x@kkumail.com', name: 'ก', photo: 'https://lh3/d/AAA=w1200' }),
+      m({ id: 'b', mail: 'x@kkumail.com', name: 'ก', photo: 'https://lh3/d/BBB=w1200' }),
+    ]);
+    expect(issues.filter((i) => i.kind === 'drift' && i.field === 'photo_url')).toHaveLength(1);
+  });
+
+  it('a person with one row can never drift', () => {
+    expect(kinds([m({ id: 'a', mail: 'x@kkumail.com', name: 'ก', nick: 'เอ' })])).toEqual([]);
+  });
+
+  it('two different รหัสนักศึกษา on one person is its own finding', () => {
+    const rows = [
+      m({ id: 'a', mail: 'x@kkumail.com', name: 'ก', sid: '111-1' }),
+      m({ id: 'b', mail: 'x@kkumail.com', name: 'ก', sid: '222-2' }),
+    ];
+    const is = run(rows).issues.find((i) => i.kind === 'sid_drift');
+    expect(is.values.sort()).toEqual(['111-1', '222-2']);
+  });
+});
+
+describe('findIssues — rows with no key', () => {
+  it('flags a row with neither email nor รหัสนักศึกษา', () => {
+    const is = run([m({ id: 'a', name: 'ปังหวาน ผลพิรุฬห์' })]).issues;
+    expect(is).toHaveLength(1);
+    expect(is[0].kind).toBe('no_key');
+    expect(is[0].suggestions).toEqual([]);
+  });
+
+  it('offers a same-name keyed person as a SUGGESTION, without merging', () => {
+    const rows = [
+      m({ id: 'a', name: 'ปวีณ์ธิดา สัชญูกร' }),                                  // keyless
+      m({ id: 'b', name: 'ปวีณ์ธิดา สัชญูกร', mail: 'pav@kkumail.com', sid: '9-9' }),
+    ];
+    const { people, issues } = run(rows);
+    expect(people).toHaveLength(2);                       // still NOT merged
+    const nk = issues.find((i) => i.kind === 'no_key');
+    expect(nk.suggestions).toHaveLength(1);
+    expect(nk.suggestions[0].email).toBe('pav@kkumail.com');
+    expect(nk.suggestions[0].sid).toBe('9-9');
+  });
+
+  it('does not suggest another keyless row (there is nothing to copy)', () => {
+    const nk = run([
+      m({ id: 'a', name: 'ก' }),
+      m({ id: 'b', name: 'ก' }),
+    ]).issues.filter((i) => i.kind === 'no_key');
+    expect(nk).toHaveLength(2);
+    expect(nk.every((i) => i.suggestions.length === 0)).toBe(true);
+  });
+});
+
+describe('findIssues — clean data', () => {
+  it('reports nothing when every row is keyed and consistent', () => {
+    expect(run([
+      m({ id: 'a', name: 'ก', mail: 'a@kkumail.com', sid: '1-1', nick: 'เอ' }),
+      m({ id: 'b', name: 'ก', mail: 'a@kkumail.com', sid: '1-1', nick: 'เอ' }),
+      m({ id: 'c', name: 'ข', mail: 'b@kkumail.com', sid: '2-2' }),
+    ]).issues).toEqual([]);
+  });
+
+  it('handles an empty roster', () => {
+    expect(run([])).toEqual({ people: [], issues: [] });
+  });
+});
+
+// ── markup ─────────────────────────────────────────────────────────────────
+//
+// No DOM in this test environment, but issueCard is a pure string function, so
+// the two things that actually break silently CAN be checked: a button whose
+// data-attribute no handler reads (a dead control), and an unescaped field.
+
+import { readFileSync } from 'node:fs';
+import { issueCard } from './health.js';
+
+const card = (rows, kind) => {
+  const is = run(rows).issues.find((i) => i.kind === kind);
+  expect(is, `no ${kind} finding produced`).toBeTruthy();
+  return issueCard(is);
+};
+
+const FIXTURES = {
+  invalid_email: [m({ id: 'a', name: 'ก', mail: '-', sid: '1-1' })],
+  drift: [
+    m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', nick: 'เอ' }),
+    m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', nick: 'บี' }),
+  ],
+  sid_drift: [
+    m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', sid: '1-1' }),
+    m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', sid: '2-2' }),
+  ],
+  sid_clash: [
+    m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', sid: '1-1' }),
+    m({ id: 'b', name: 'ข', mail: 'y@kkumail.com', sid: '1-1' }),
+  ],
+  no_key: [
+    m({ id: 'a', name: 'ก' }),
+    m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', sid: '1-1' }),
+  ],
+};
+
+describe('issueCard markup', () => {
+  it.each(Object.keys(FIXTURES))('renders a card for %s', (kind) => {
+    expect(card(FIXTURES[kind], kind)).toContain('team-health-item');
+  });
+
+  // The bug this repo keeps hitting: an attribute-driven control whose value the
+  // JS never handles. Here it fails CLOSED (a dead button), which is quiet.
+  it('emits no action attribute the click handler does not read', () => {
+    const src = readFileSync(new URL('./health.js', import.meta.url), 'utf8');
+    const handled = new Set(
+      // `t.dataset.hpick`, `t.dataset.hsavemail`, …
+      [...src.matchAll(/t\.dataset\.(h[a-z]+) !== undefined/g)].map((x) => x[1]),
+    );
+    expect(handled.size).toBeGreaterThan(3);
+    const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    for (const kind of Object.keys(FIXTURES)) {
+      const html = card(FIXTURES[kind], kind);
+      // Attributes on a <button> are actions; the ones on <input> are just
+      // value carriers the handler reads by selector, so only buttons count.
+      for (const btn of html.match(/<button[^>]*>/g) || []) {
+        const acts = [...btn.matchAll(/data-(h[a-z-]+)=/g)].map((x) => camel(x[1]));
+        // every button must carry at least one attribute the handler branches on
+        const hit = acts.filter((a) => handled.has(a));
+        expect(hit.length, `${kind}: button with no handled action — ${btn}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('escapes user text — a roster row is not trusted markup', () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    const html = issueCard(run([
+      m({ id: 'a', name: evil, mail: '-', sid: '1-1' }),
+    ]).issues.find((i) => i.kind === 'invalid_email'));
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img');
+  });
+});
+
+// ── CSS coverage ───────────────────────────────────────────────────────────
+//
+// The exact failure reported on 2026-08-01: `.team-photo-field/-preview/
+// -controls/-empty` shipped in tab-team.html with no rule anywhere, so the
+// portrait rendered at natural size and burst out of the modal. A class with
+// zero rules is invisible in review and looks like a broken value.
+
+describe('every class these modules use has a CSS rule', () => {
+  const css = ['team.css', 'image-crop.css', 'base.css']
+    .map((f) => readFileSync(new URL(`../../css/${f}`, import.meta.url), 'utf8'))
+    .join('\n');
+
+  // The lookbehind skips CSS custom properties — `--imgcrop-ratio` is a
+  // variable set from JS, not a class, and has no `.imgcrop-ratio` rule.
+  it.each([
+    ['team/health.js', '../team/health.js', /(?<!-)\b(?:team-health-[a-z-]+|team-mode-badge)/g],
+    ['image-crop.js', '../image-crop.js', /(?<!-)\bimgcrop-[a-z-]+/g],
+  ])('%s', (_label, rel, re) => {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+    const used = new Set(src.match(re) || []);
+    expect(used.size).toBeGreaterThan(3);
+    const missing = [...used].filter((c) => !css.includes(`.${c}`));
+    expect(missing, `classes with no CSS rule: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+// The reported bug in its original form: the classes were in the HTML PARTIAL,
+// not in JS. `.team-photo-field/-preview/-controls/-empty` had no rule anywhere,
+// so the portrait rendered at its natural size and burst out of the modal.
+describe('tab-team.html has a CSS rule for every team-* class it uses', () => {
+  it('no unstyled class in the partial', () => {
+    const html = readFileSync(new URL('../../html/tab-team.html', import.meta.url), 'utf8');
+    const css = ['team.css', 'image-crop.css', 'base.css', 'forms.css', 'modals.css', 'cards.css']
+      .map((f) => readFileSync(new URL(`../../css/${f}`, import.meta.url), 'utf8'))
+      .join('\n');
+    const used = new Set(
+      [...html.matchAll(/class="([^"]+)"/g)]
+        .flatMap((mm) => mm[1].split(/\s+/))
+        .filter((c) => c.startsWith('team-')),
+    );
+    // Deliberate exceptions: layout containers that JS only toggles `d-none` on.
+    // They carry no styling BY DESIGN, and listing them here is what makes the
+    // rest of the assertion mean something — a new class that just forgot its
+    // stylesheet now fails instead of hiding in a growing allow-list.
+    const HOOKS_ONLY = new Set(['team-terms-pane', 'team-health-pane']);
+    expect(used.size).toBeGreaterThan(10);
+    const missing = [...used].filter((c) => !HOOKS_ONLY.has(c) && !css.includes(`.${c}`));
+    expect(missing, `no CSS rule for: ${missing.join(', ')}`).toEqual([]);
+  });
+});

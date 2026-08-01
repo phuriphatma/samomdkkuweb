@@ -20,11 +20,13 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
+import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
+import { cropImage } from '../image-crop.js';
 import {
   fetchTerms, createTerm, updateTerm, deleteTerm, setCurrentTerm, publishTerm,
   fetchTermStatus,
   fetchArchive, updateArchiveMember, deleteArchiveMember, updateArchiveNode,
+  deleteTeamPhotoIfUnused,
 } from './api.js';
 
 const $ = (id) => document.getElementById(id);
@@ -164,12 +166,11 @@ function nodeGroup(node, path, people) {
 }
 
 function archiveMemberRow(m) {
-  const focus = m.photo_focus || 'center';
   return `
     <li class="team-arc-row" data-am-id="${m.id}">
       <div class="team-arc-photo">
         ${m.photo_url
-          ? `<img src="${escHtml(convertDriveUrl(m.photo_url, 200))}" alt="" loading="lazy" />`
+          ? `<img src="${escHtml(portraitSrc(m.photo_url, 96, m.photo_focus || 'center'))}" alt="" loading="lazy" />`
           : '<span class="team-arc-photo-empty"><i class="bi bi-person"></i></span>'}
         <input type="file" accept="image/*" data-am-photo="${m.id}" class="team-arc-file"
           aria-label="เปลี่ยนรูป ${escHtml(m.full_name || '')}" />
@@ -179,11 +180,6 @@ function archiveMemberRow(m) {
           value="${escHtml(m.full_name || '')}" placeholder="ชื่อ-สกุล" />
         <input type="text" class="form-control form-control-sm" data-am-nick="${m.id}"
           value="${escHtml(m.nickname || '')}" placeholder="ชื่อเล่น" />
-        <select class="form-select form-select-sm" data-am-focus="${m.id}">
-          <option value="center"${focus === 'center' ? ' selected' : ''}>โฟกัสกลาง</option>
-          <option value="top"${focus === 'top' ? ' selected' : ''}>โฟกัสบน</option>
-          <option value="bottom"${focus === 'bottom' ? ' selected' : ''}>โฟกัสล่าง</option>
-        </select>
         <button type="button" class="btn btn-sm btn-outline-danger" data-am-delete="${m.id}"
           aria-label="ลบ ${escHtml(m.full_name || '')}"><i class="bi bi-trash"></i></button>
       </div>
@@ -327,17 +323,30 @@ async function patchMember(id, patch) {
 async function onArchivePhoto(id, file) {
   const m = archive?.members.find((x) => x.id === id);
   if (!m) return;
+  // Frame first — cancelling must upload nothing. The crop lands exactly on the
+  // 3:4 the card renders, so photo_focus goes back to 'center' with it (an
+  // archived row may still be carrying a legacy 'top'/'bottom').
+  const cropped = await cropImage(file, {
+    title: `ปรับกรอบรูป — ${m.full_name || ''}`.trim(),
+    hint: 'ลากให้ใบหน้าอยู่กลางกรอบ',
+  }).catch((err) => { statusLine('เปิดรูปไม่สำเร็จ: ' + (err?.message || err), 'error'); return null; });
+  if (!cropped) return;
   await guard(async () => {
     statusLine('กำลังย่อและอัปโหลดรูป…');
-    const res = await uploadTeamPhoto(file, {
+    const res = await uploadTeamPhoto(cropped, {
       year: openYear,
       dept: 'archive',
       order: m.position,
       name: m.full_name,
     });
-    const row = await updateArchiveMember(id, { photo_url: res.url });
+    const prevPhoto = m.photo_url || '';
+    const row = await updateArchiveMember(id, { photo_url: res.url, photo_focus: 'center' });
     const i = archive.members.findIndex((x) => x.id === id);
     if (i >= 0) archive.members[i] = { ...archive.members[i], ...row };
+    // After the repoint, so the ref-count sees the new truth. It will decline to
+    // delete if the LIVE member still carries the same file — a published year
+    // shares the Drive id with the live tree.
+    if (prevPhoto && prevPhoto !== res.url) deleteTeamPhotoIfUnused(prevPhoto);
     renderTerms();
     statusLine(res.organised ? 'อัปเดตรูปแล้ว' : 'อัปเดตรูปแล้ว (ยังไม่ได้จัดโฟลเดอร์ — ต้อง redeploy Apps Script)', 'ok');
   });
@@ -370,10 +379,13 @@ export function initTerms(hostEl, { onChange } = {}) {
       const id = amDel.dataset.amDelete;
       const m = archive?.members.find((x) => x.id === id);
       if (!confirm(`ลบ ${m?.full_name || 'รายการนี้'} ออกจากประวัติปี ${openYear}?`)) return;
+      const photo = m?.photo_url || '';
       return void guard(async () => {
         await deleteArchiveMember(id);
         archive.members = archive.members.filter((x) => x.id !== id);
         renderTerms();
+        // Declines if the live tree (or another year) still shows this portrait.
+        if (photo) deleteTeamPhotoIfUnused(photo);
       }, 'ลบแล้ว');
     }
   });
@@ -388,9 +400,6 @@ export function initTerms(hostEl, { onChange } = {}) {
     }
     if (t.dataset?.amNick !== undefined) {
       return void patchMember(t.dataset.amNick, { nickname: t.value.trim() || null });
-    }
-    if (t.dataset?.amFocus !== undefined) {
-      return void patchMember(t.dataset.amFocus, { photo_focus: t.value });
     }
     if (t.dataset?.anBoard !== undefined) {
       const id = t.dataset.anBoard;
