@@ -198,6 +198,18 @@ export function findIssues(members, nodeName = () => '') {
   return { people: [...people.values()], issues };
 }
 
+/** Every id a finding concerns — the same three shapes issuesByMember walks.
+ *  Exported because the focus filter and the flag map must agree: if this
+ *  missed a shape, clicking a flag would open a pane saying that person has
+ *  nothing wrong with them. */
+export function idsOf(is) {
+  const out = [];
+  if (is.memberId) out.push(is.memberId);
+  if (Array.isArray(is.memberIds)) out.push(...is.memberIds);
+  if (Array.isArray(is.people)) is.people.forEach((p) => out.push(...(p.memberIds || [])));
+  return out;
+}
+
 /** Order the pane renders in: cheapest and most certain first, so the admin
  *  clears the mechanical ones before reaching the judgement calls. */
 const GROUPS = [
@@ -231,6 +243,12 @@ const GROUPS = [
 // ── pane ────────────────────────────────────────────────────────────────────
 
 let host = null;
+// Arriving from a flag in จัดการทีม, this is the set of member ids the admin
+// just clicked on and the label to name them by. Without it the pane opens at
+// the top of 24 findings and the person has to be found again — the click
+// already said who; the pane should not make them remember.
+let focusIds = null;
+let focusLabel = '';
 let getData = null;
 let onChanged = null;
 let chain = Promise.resolve();
@@ -398,7 +416,11 @@ export function renderHealth() {
       + '<p>กำลังโหลดข้อมูล…</p></div></div>';
     return;
   }
-  const { people, issues } = findIssues(members, nodeName);
+  const { people, issues: all } = findIssues(members, nodeName);
+
+  const issues = focusIds
+    ? all.filter((i) => idsOf(i).some((id) => focusIds.has(id)))
+    : all;
 
   const groups = GROUPS
     .map((g) => ({ ...g, items: issues.filter((i) => i.kind === g.kind) }))
@@ -415,6 +437,15 @@ export function renderHealth() {
           </p>
         </div>
       </div>
+      ${focusIds ? `
+        <div class="team-health-focus">
+          <span><i class="bi bi-funnel-fill"></i>
+            แสดงเฉพาะ <strong>${escHtml(focusLabel)}</strong>
+            ${issues.length ? `· ${issues.length} รายการ` : '· แก้ครบแล้ว'}</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-hshowall="1">
+            ดูทั้งหมด (${all.length})
+          </button>
+        </div>` : ''}
       <div class="team-health-status" id="teamHealthStatus"></div>
       ${groups.length ? groups.map((g) => `
         <section class="team-health-group">
@@ -426,7 +457,9 @@ export function renderHealth() {
         </section>`).join('') : `
         <div class="team-health-clear">
           <i class="bi bi-check2-circle"></i>
-          <p>ข้อมูลครบถ้วน ไม่มีรายการที่ต้องตรวจสอบ</p>
+          <p>${focusIds
+            ? `ไม่มีรายการที่ต้องตรวจสอบสำหรับ ${escHtml(focusLabel)} แล้ว`
+            : 'ข้อมูลครบถ้วน ไม่มีรายการที่ต้องตรวจสอบ'}</p>
         </div>`}
       <p class="team-health-foot">
         รายการนี้คำนวณสดจากข้อมูลจริงทุกครั้งที่เปิด — การนำเข้าครั้งต่อไปที่ทำให้ข้อมูลไม่ตรงกัน จะขึ้นที่นี่เอง
@@ -454,6 +487,11 @@ export function initHealth(hostEl, opts = {}) {
     // would be the antipattern the run() comment exists to warn against — which
     // an earlier version of this very function committed.
     if (!t) return;
+
+    if (t.dataset.hshowall !== undefined) {
+      focusIds = null; focusLabel = '';
+      return void renderHealth();
+    }
 
     if (t.dataset.hpick !== undefined) {
       const ids = t.dataset.hids.split(',').filter(Boolean);
@@ -515,8 +553,17 @@ export function initHealth(hostEl, opts = {}) {
   });
 }
 
-/** Cold entry — render immediately from what index.js already has in memory. */
-export function enterHealth() {
+/**
+ * Cold entry — render immediately from what index.js already has in memory.
+ *
+ * `focus` is `{ ids, label }` when the admin arrived by clicking a ต้องตรวจสอบ
+ * flag, and null when they used the mode button. Passing null CLEARS a previous
+ * focus: coming back via the tab must not silently keep showing one person's
+ * subset, which would read as "everything else is fixed".
+ */
+export function enterHealth(focus = null) {
+  focusIds = focus?.ids?.length ? new Set(focus.ids) : null;
+  focusLabel = focus?.label || '';
   status('');
   renderHealth();
 }

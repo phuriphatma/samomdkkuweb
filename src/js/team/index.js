@@ -932,8 +932,10 @@ function wireTreeDelegation() {
       case 'move-member': openMoveMember(memberId); break;
       case 'delete-member': onDeleteMember(memberId); break;
       // The flag is the shortcut, not just an indicator: seeing the problem and
-      // being able to fix it should not be two separate navigations.
-      case 'check-member': switchMode('health'); break;
+      // being able to fix it should not be two separate navigations. And it
+      // carries WHO — landing at the top of 24 findings and having to remember
+      // the person you just clicked is the same work, moved.
+      case 'check-member': openHealthFor({ memberId, nodeId }); break;
     }
   });
 }
@@ -952,6 +954,32 @@ function switchMode(m) {
   render();
   if (mode === 'years') enterTerms();
   if (mode === 'health') enterHealth();
+}
+
+/** Every member id at or below a ตำแหน่ง. Used so the rolled-up count on a
+ *  branch focuses that whole branch, not just one person. */
+function memberIdsUnder(nodeId, out = []) {
+  for (const m of membersOf(nodeId)) out.push(m.id);
+  for (const child of childrenOf(nodeId)) memberIdsUnder(child.id, out);
+  return out;
+}
+
+/** Open ตรวจสอบข้อมูล already filtered to what the admin clicked. A member row
+ *  focuses that person; a ตำแหน่ง's rolled-up count focuses its whole branch. */
+function openHealthFor({ memberId, nodeId }) {
+  let focus = null;
+  if (memberId) {
+    const m = findMember(memberId);
+    if (m) focus = { ids: [memberId], label: m.full_name || '(ไม่มีชื่อ)' };
+  } else if (nodeId) {
+    const ids = memberIdsUnder(nodeId);
+    if (ids.length) focus = { ids, label: nodesById.get(nodeId)?.name || 'ตำแหน่งนี้' };
+  }
+  if (mode === 'health') { enterHealth(focus); return; }
+  mode = 'health';
+  if (selectionMode) { selectionMode = false; clearSelection(); }
+  render();
+  enterHealth(focus);
 }
 
 function wireToolbar() {

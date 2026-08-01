@@ -338,3 +338,45 @@ describe('issuesByMember', () => {
     expect(flags(rows).total).toBe(run(rows).issues.length);
   });
 });
+
+// ── the flag must lead somewhere ────────────────────────────────────────────
+//
+// Clicking a ต้องตรวจสอบ flag filters the pane to that person. If idsOf missed a
+// finding shape the pane would open and say the person is fine — the worst
+// possible answer, because it looks like a resolved problem rather than a bug.
+import { idsOf } from './health.js';
+
+describe('idsOf — the focus filter agrees with the flag', () => {
+  it('every flagged member is reachable from at least one finding', () => {
+    const rows = Object.values(FIXTURES).flat();
+    const { map } = flags(rows);
+    const reachable = new Set(run(rows).issues.flatMap(idsOf));
+    for (const id of map.keys()) {
+      expect(reachable.has(id), `member ${id} is flagged but no finding names it`).toBe(true);
+    }
+    expect(map.size).toBeGreaterThan(0);
+  });
+
+  it('filtering to one member keeps only findings that concern them', () => {
+    const rows = [
+      m({ id: 'a', name: 'ก', mail: 'x@kkumail.com', nick: 'เอ' }),
+      m({ id: 'b', name: 'ก', mail: 'x@kkumail.com', nick: 'บี' }),
+      m({ id: 'c', name: 'ข', mail: '-', sid: '9-9' }),
+    ];
+    const mine = run(rows).issues.filter((i) => idsOf(i).includes('a'));
+    expect(mine).toHaveLength(1);
+    expect(mine[0].kind).toBe('drift');
+    // …and the unrelated row's finding is excluded.
+    expect(run(rows).issues.filter((i) => idsOf(i).includes('c'))
+      .every((i) => i.kind === 'invalid_email')).toBe(true);
+  });
+
+  it('focusing one side of a รหัส clash still shows the clash (it spans two people)', () => {
+    const rows = [
+      m({ id: 'a', name: 'จิรายุทธ', mail: 'j@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'b', name: 'โรจนศักดิ์', mail: 'r@kkumail.com', sid: '673070332-6' }),
+    ];
+    expect(run(rows).issues.filter((i) => idsOf(i).includes('a')).map((i) => i.kind))
+      .toEqual(['sid_clash']);
+  });
+});

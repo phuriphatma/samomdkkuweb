@@ -39,8 +39,13 @@ whether the ตำแหน่ง picker now sits ABOVE the member editor rather
   flags WHO**: an amber triangle on each affected member row (tooltip names the
   reasons) plus a rolled-up count on every ancestor ตำแหน่ง — without the rollup
   the per-row flag would be invisible, since only the 14 root ฝ่าย are expanded
-  on load. Both go through `issuesByMember()`, computed once per render, and
-  clicking either jumps to the pane. Currently 38 of 404 rows, max 11 under any
+  on load. Both go through `issuesByMember()`, computed once per render, and clicking
+  either opens the pane ALREADY FILTERED to what was clicked — a member row
+  focuses that person, a ตำแหน่ง's count focuses its whole branch, with a
+  "แสดงเฉพาะ …" banner and a "ดูทั้งหมด" escape. Landing at the top of 24
+  findings and having to remember who you just clicked is the same work, moved.
+  Using the mode BUTTON clears any focus, so the tab never silently shows a
+  subset (which would read as "everything else is fixed"). Currently 38 of 404 rows, max 11 under any
   one ฝ่ายหลัก.
 - **0108 `team_people`** — each person stored once. EXPAND ONLY: nothing reads it
   yet, all ten resolvers still join `team_members.kkumail`, and the proof asserts
