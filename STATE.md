@@ -10,8 +10,15 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 ## Release notes + versioning + the IT panel (2026-08-04 — SHIPPED to prod)
 
-`npm run build` + 265 tests green. Deployed to the KKU VM; see the deploy note
-at the end of this section.
+**LIVE.** `main` at `141d67b`, pushed; tag `v4.4.0` pushed; KKU VM deployed and
+verified against the SERVED bundle (`buildId 4f5bde67b666`, `/build.json` now
+reports `{"buildId":…,"version":"4.4.0"}`, `/updates` → 200). 265 tests green.
+
+**STILL NEVER RENDERED IN A BROWSER BY AN AGENT** — the Chrome extension was not
+connected for this whole session, so every layout/animation decision was
+reasoned about and unit-tested, never seen. The user reviewed it by screenshot
+and caught one thing tests cannot (the sticky bar reading as a cut-off
+rectangle). If anything looks wrong on `/` or `/updates`, that is why.
 
 - **`/updates`** — the public changelog. Content is `src/data/changelog.js`
   (22 curated releases, 2026-04-30 → 2026-08-01, condensed before July because
