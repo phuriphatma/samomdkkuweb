@@ -73,6 +73,12 @@ export const MAJOR_STORY = {
  * discredited even inside engineering (more code is a cost, not an
  * accomplishment) and to a SAMO member they read as either noise or grinding.
  *
+ * ICONS: check a new one exists in the PINNED bootstrap-icons version
+ * (1.10.5, see index.html) with `npm run check:icons`. A name added in a later
+ * release renders as an empty box — silently, because a missing glyph is not an
+ * error. Passport's own icon was exactly that; the plane also matches the
+ * product's "Life is a Journey" identity, so it is not a consolation prize.
+ *
  * DATES ARE LAUNCH DATES, not "when it joined this codebase". SAMO Passport
  * lives in its own repo (phuriphatma/samomdkkupassport, first commit
  * 2026-05-12) and was dated 2026-07-22 here at first — which is when its
@@ -90,7 +96,7 @@ export const SYSTEMS = [
   { key: 'pr', label: 'ฟอร์มงาน PR', date: '2026-04-30', icon: 'bi-megaphone-fill', note: 'ฝากงาน PR ไม่ต้องทักแชท' },
   { key: 'news', label: 'ระบบประกาศ', date: '2026-05-02', icon: 'bi-newspaper', note: 'ทีมงานลงข่าวเองได้' },
   { key: 'vs', label: 'VitalSound', date: '2026-05-03', icon: 'bi-clipboard2-pulse-fill', note: 'ร้องเรียนแล้วตามเรื่องได้' },
-  { key: 'passport', label: 'SAMO Passport', date: '2026-05-12', icon: 'bi-passport-fill', note: 'สแกน QR สะสมกิจกรรมและแต้ม' },
+  { key: 'passport', label: 'SAMO Passport', date: '2026-05-12', icon: 'bi-airplane-fill', note: 'สแกน QR สะสมกิจกรรมและแต้ม' },
   { key: 'shop', label: 'ร้านค้า SAMO', date: '2026-05-26', icon: 'bi-bag-heart-fill', note: 'สั่งของและจ่ายเงินออนไลน์' },
   { key: 'projects', label: 'หนังสือโครงการ', date: '2026-05-26', icon: 'bi-file-earmark-text-fill', note: 'ส่งเอกสารและลงนามในระบบ' },
   { key: 'team', label: 'ทีม SAMO', date: '2026-06-06', icon: 'bi-diagram-3-fill', note: 'ผังทีมที่คุมสิทธิ์เข้าระบบ' },
@@ -114,7 +120,7 @@ export const AREAS = {
   shop: { label: 'ร้านค้า SAMO', icon: 'bi-bag' },
   projects: { label: 'หนังสือโครงการ', icon: 'bi-file-earmark-text' },
   team: { label: 'ทีม SAMO', icon: 'bi-diagram-3' },
-  passport: { label: 'SAMO Passport', icon: 'bi-passport' },
+  passport: { label: 'SAMO Passport', icon: 'bi-airplane' },
   account: { label: 'บัญชีผู้ใช้', icon: 'bi-person-badge' },
   platform: { label: 'ระบบพื้นฐาน', icon: 'bi-hdd-network' },
 };

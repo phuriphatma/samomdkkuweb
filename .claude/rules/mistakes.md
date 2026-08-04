@@ -2817,3 +2817,34 @@ live. (2) A probe that only ever asserts "denied" cannot distinguish a working
 guard from a broken service; always test the ALLOW path too, with a real
 credential. (3) When a guard's catch-all fires, echo the underlying exception —
 a generic failure message hid this for an hour.
+
+---
+
+## A Bootstrap icon name from a LATER release renders as nothing — no error, no failed request, just an empty box
+
+**Symptom**: none reported for months. `SAMO Passport` showed a blank gap where
+its icon should be, in the ทีม SAMO permission modal and (newly) on the landing
+timeline; the profile modal's "รอยืนยัน" email badge had the same hole.
+**Cause**: `bi-passport`, `bi-passport-fill` and `bi-envelope-arrow-up` were all
+added in **bootstrap-icons 1.11**. Both entries pin **1.10.5** via CDN
+(`index.html` and `admin/index.html`). A Bootstrap icon is a `::before`
+codepoint in an icon font, so a name that does not exist is not a 404 and not a
+console error — the font loaded fine, the class simply matches no rule and the
+glyph is absent. It fails **silently and invisibly**, which is why it survived:
+you only catch it by looking at that exact pixel, and a missing icon looks like
+deliberate whitespace.
+**Fix**: `npm run check:icons` (`tools/check-icons.mjs`) — reads the pinned
+version out of `index.html`, fetches that stylesheet, extracts all ~1950 real
+names, and fails on any `bi-*` class in the repo that is not among them. It
+strips comments first, or it flags its own documentation: `projects/data.js`
+already carried a comment naming `bi-send-arrow-up-fill` as missing, which is
+evidence this had been hit before and fixed one-off without a guard.
+**Deliberately NOT in `npm test`** — it fetches over the network, and a unit
+suite that needs the internet is a suite that fails on a plane.
+**Where**: `tools/check-icons.mjs`; fixes in `src/data/changelog.js`,
+`src/html/tab-team.html`, `src/js/profile.js`.
+**Rule**: before using a Bootstrap icon you have not used before, run
+`npm run check:icons`. Do not trust the icon browser on the Bootstrap website —
+it shows the LATEST release, not the version you pin. The same trap applies to
+any icon font (Material Symbols, Font Awesome): a name is not a URL, so a wrong
+one cannot 404.

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "deploy:gas": "node tools/deploy-gas.mjs",
     "gen:activity": "node tools/gen-dev-activity.mjs",
-    "release": "node tools/release.mjs"
+    "release": "node tools/release.mjs",
+    "check:icons": "node tools/check-icons.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

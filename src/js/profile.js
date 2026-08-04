@@ -166,7 +166,7 @@ function repaint() {
     }
     if (u.pendingEmail) {
       badges.push(`<span class="badge bg-info-subtle text-info border border-info-subtle">
-        <i class="bi bi-envelope-arrow-up me-1"></i>รอยืนยัน: ${escHtml(u.pendingEmail)}</span>`);
+        <i class="bi bi-envelope-exclamation me-1"></i>รอยืนยัน: ${escHtml(u.pendingEmail)}</span>`);
     }
     if (!u.email && !u.pendingEmail) {
       badges.push(`<span class="badge bg-secondary-subtle text-secondary border">
