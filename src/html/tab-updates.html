@@ -1,0 +1,49 @@
+      <!-- TAB: UPDATES — public release notes. Reached at /updates, from the
+           footer, and from the version chip in the footer bar. Not in the
+           navbar tablist on purpose: a changelog is a destination people go to
+           deliberately, not a daily tab, and the nav is already full.
+           Rendered by src/js/changelog.js from src/data/changelog.js. -->
+      <div class="tab-pane fade an-tab" id="pills-updates" role="tabpanel">
+
+        <!-- HERO — full-bleed, so the page announces itself before the list
+             starts. The aurora layer is decorative and motion-gated. -->
+        <header class="cl-hero">
+          <div class="cl-hero-aurora" aria-hidden="true">
+            <span class="cl-blob cl-blob-1"></span>
+            <span class="cl-blob cl-blob-2"></span>
+            <span class="cl-blob cl-blob-3"></span>
+          </div>
+          <div class="cl-hero-inner">
+            <p class="cl-eyebrow">Release notes</p>
+            <h1 class="cl-title">
+              <span class="cl-title-line">อัปเดต</span><span class="cl-title-line cl-title-mark">ระบบ</span>
+            </h1>
+            <p class="cl-lead">
+              ทุกอย่างที่เพิ่มเข้ามาและแก้ไขไปในเว็บนี้ รวมไว้ที่นี่
+              เรียงจากเวอร์ชันใหม่สุดลงไปหาเวอร์ชันแรก
+            </p>
+            <dl class="cl-herostats" id="clHeroStats"></dl>
+          </div>
+        </header>
+
+        <div class="container cl-container">
+
+          <div class="cl-toolbar">
+            <div class="cl-filters" role="group" aria-label="กรองตามกลุ่มผู้ใช้">
+              <span class="cl-filter-pill" id="clFilterPill" aria-hidden="true"></span>
+              <button type="button" class="cl-filter is-active" data-cl-filter="all">ทั้งหมด</button>
+              <button type="button" class="cl-filter" data-cl-filter="public">สำหรับนักศึกษา</button>
+              <button type="button" class="cl-filter" data-cl-filter="staff">สำหรับทีมงาน</button>
+            </div>
+            <p class="cl-count" id="clCount" aria-live="polite"></p>
+          </div>
+
+          <ol class="cl-list" id="clList"></ol>
+
+          <p class="cl-foot">
+            ช่วงก่อนกรกฎาคม 2569 มีการแก้ย่อยวันละหลายสิบครั้ง
+            เลยรวมไว้เป็นเวอร์ชันเดียวตามของที่ปล่อยจริง
+          </p>
+
+        </div>
+      </div>

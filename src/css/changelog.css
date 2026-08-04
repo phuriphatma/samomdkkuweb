@@ -1,0 +1,599 @@
+/* ==============================================
+ * CHANGELOG — the public release-notes page (/updates).
+ *
+ * Editorial, not dashboard: a full-bleed hero, then a reading column with a
+ * timeline spine down the left that draws itself as you scroll.
+ *
+ * COLOUR BUDGET. Two things earn colour and nothing else does:
+ *   1. the change TYPE (ใหม่ / ปรับปรุง / แก้ไข)
+ *   2. the release LEVEL (major gets the brand green; minor stays neutral)
+ * Area tags are deliberately monochrome — ten tinted chips is a rainbow, and it
+ * would drown the two distinctions that actually carry meaning.
+ *
+ * MOTION. Entrances are class-driven (see changelog.js) and every one of them
+ * collapses under prefers-reduced-motion at the bottom of this file. Nothing
+ * here animates on a scroll listener.
+ *
+ * Light-only, like the rest of this app (see .claude/rules/mistakes.md).
+ * ============================================== */
+
+/* ---- hero ---- */
+
+.cl-hero {
+  position: relative;
+  overflow: hidden;
+  margin: -0.5rem -1.5rem 0;      /* bleed past .container-fluid px-4 */
+  padding: 3.25rem 1.5rem 2.75rem;
+  background: linear-gradient(180deg, #f7fbf8 0%, #fff 100%);
+  border-bottom: 1px solid var(--ink-100, #f1f5f9);
+}
+
+.cl-hero-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: blur(46px);
+  opacity: 0.55;
+}
+
+.cl-blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.cl-blob-1 {
+  width: 320px; height: 320px;
+  top: -140px; left: 4%;
+  background: rgb(26 155 67 / 0.34);
+  animation: cl-drift-a 19s ease-in-out infinite;
+}
+
+.cl-blob-2 {
+  width: 260px; height: 260px;
+  top: -80px; right: 8%;
+  background: rgb(255 111 48 / 0.22);
+  animation: cl-drift-b 23s ease-in-out infinite;
+}
+
+.cl-blob-3 {
+  width: 240px; height: 240px;
+  bottom: -150px; left: 42%;
+  background: rgb(253 197 90 / 0.24);
+  animation: cl-drift-a 27s ease-in-out infinite reverse;
+}
+
+@keyframes cl-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(40px, 26px, 0) scale(1.12); }
+}
+
+@keyframes cl-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-34px, 20px, 0) scale(0.9); }
+}
+
+.cl-hero-inner {
+  position: relative;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.cl-eyebrow {
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brand-orange);
+  margin: 0 0 0.5rem;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.cl-title {
+  font-family: 'Prompt', sans-serif;
+  font-size: clamp(2.1rem, 7vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--brand-primary);
+  margin: 0 0 0.65rem;
+}
+
+.cl-title-line {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cl-title-mark {
+  color: var(--brand-orange);
+  transition-delay: 90ms;
+}
+
+.cl-lead {
+  color: var(--ink-600, #475569);
+  font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+  line-height: 1.8;
+  max-width: 52ch;
+  margin: 0 0 1.6rem;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease 0.16s, transform 0.5s ease 0.16s;
+}
+
+.cl-hero.is-in .cl-eyebrow,
+.cl-hero.is-in .cl-title-line,
+.cl-hero.is-in .cl-lead { opacity: 1; transform: none; }
+
+.cl-herostats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 2.5rem;
+  margin: 0;
+}
+
+.cl-herostat { display: flex; flex-direction: column; }
+
+.cl-herostat-num {
+  font-family: 'Prompt', sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--brand-primary);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.cl-herostat-label {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--ink-500, #64748b);
+}
+
+/* ---- toolbar ---- */
+
+.cl-container {
+  max-width: 900px;
+  padding-bottom: 3.5rem;
+}
+
+.cl-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  position: sticky;
+  /* NOT top:0 — .samo-navbar is itself sticky at top:12px with ~64px of height,
+     so a 0 would park this underneath it. 84px is the app's existing convention
+     for a second sticky layer (see article.css / cards.css); z-index likewise
+     sits above page content but far below the navbar's 1000. */
+  top: 84px;
+  z-index: 40;
+
+  /* A FLOATING ROUNDED BAR, matching .samo-navbar — not a full-width slab.
+     A rectangular white background inside a 900px column reads as a rectangle
+     that got cut off, because that is exactly what it is: its hard edges stop
+     mid-page against the body gradient. The app already answers this for the
+     navbar (rounded + margin + shadow), so the sticky bar borrows the same
+     treatment and reads as a deliberate floating element.
+     Full-bleed was the other option and was rejected: it needs `overflow-x:
+     clip` on the container to contain the extra width, which older iOS Safari
+     does not support and would degrade to a horizontal scrollbar. */
+  margin: 0 0 1.25rem;
+  padding: 0.6rem 0.9rem;
+  background: #fff;
+  border: 1px solid var(--ink-100, #f1f5f9);
+  border-radius: var(--radius-xl, 18px);
+  box-shadow: var(--shadow-md, 0 6px 20px -12px rgb(15 23 42 / 0.35));
+}
+
+.cl-filters {
+  position: relative;
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.22rem;
+  border-radius: 999px;
+  background: var(--ink-50, #f8fafc);
+  border: 1px solid var(--ink-100, #f1f5f9);
+}
+
+/* The sliding indicator sits BEHIND the buttons and is moved by JS.
+   `left` is measured from the padding box but offsetLeft includes the border,
+   so the 1px border has to come back out or the pill sits a pixel right of the
+   button it is tracking. */
+.cl-filter-pill {
+  position: absolute;
+  top: 0.22rem;
+  left: -1px;
+  height: calc(100% - 0.44rem);
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--ink-100, #f1f5f9);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.07);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cl-filter {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink-600, #475569);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.cl-filter:hover { color: var(--brand-primary); }
+.cl-filter.is-active { color: var(--brand-primary); font-weight: 600; }
+
+.cl-count {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-500, #64748b);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the timeline ---- */
+
+.cl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.cl-monthmark {
+  position: relative;
+  padding: 1.75rem 0 0.5rem 3.25rem;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink-400, #94a3b8);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.cl-monthmark.is-in { opacity: 1; transform: none; }
+
+.cl-release {
+  position: relative;
+  display: grid;
+  grid-template-columns: 9.5rem 1fr;
+  gap: 1.75rem;
+  padding: 0 0 2.25rem 3.25rem;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i, 0) * 55ms);
+}
+
+.cl-release.is-in { opacity: 1; transform: none; }
+
+/* The spine — one segment per release, so it can never overshoot the last
+   card, and it draws itself as each release comes into view. */
+.cl-release::before {
+  content: '';
+  position: absolute;
+  left: calc(0.75rem - 1px);
+  top: 0.85rem;
+  bottom: -0.6rem;
+  width: 2px;
+  background: linear-gradient(var(--green-200, #b6dcbf), var(--green-100, #dceede));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.7s ease 0.15s;
+}
+
+.cl-release.is-in::before { transform: scaleY(1); }
+.cl-release:last-child::before { display: none; }
+
+.cl-node {
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--ink-200, #e2e8f0);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s,
+              border-color 0.3s ease, box-shadow 0.3s ease;
+  transform: scale(0.4);
+  z-index: 1;
+}
+
+.cl-release.is-in .cl-node { transform: scale(1); }
+
+.cl-node::after {
+  content: '';
+  position: absolute;
+  inset: 0.32rem;
+  border-radius: 50%;
+  background: var(--ink-300, #cbd5e1);
+}
+
+/* A major release is the only thing on this page that gets the brand green as
+   an identity — that is what makes it readable at a glance in a long list. */
+.cl-release--major .cl-node {
+  border-color: var(--brand-accent, #1A9B43);
+  box-shadow: 0 0 0 5px rgb(26 155 67 / 0.1);
+}
+
+.cl-release--major .cl-node::after { background: var(--brand-primary); }
+
+.cl-release--major.is-in .cl-node { animation: cl-pop 0.5s ease 0.35s both; }
+
+@keyframes cl-pop {
+  0%   { box-shadow: 0 0 0 5px rgb(26 155 67 / 0.1); }
+  45%  { box-shadow: 0 0 0 11px rgb(26 155 67 / 0.16); }
+  100% { box-shadow: 0 0 0 5px rgb(26 155 67 / 0.1); }
+}
+
+/* ---- rail ---- */
+
+.cl-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding-top: 0.35rem;
+}
+
+.cl-date {
+  font-size: 0.78rem;
+  color: var(--ink-500, #64748b);
+}
+
+.cl-version {
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--ink-100, #f1f5f9);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.cl-version:hover {
+  color: var(--brand-primary);
+  border-color: var(--green-200, #b6dcbf);
+  background: var(--green-50, #f1f8f2);
+}
+
+.cl-level {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 5px;
+  color: var(--ink-500, #64748b);
+  background: var(--ink-50, #f8fafc);
+  border: 1px solid var(--ink-100, #f1f5f9);
+}
+
+.cl-release--major .cl-level {
+  color: #0f5c2b;
+  background: #e4f4e9;
+  border-color: #c6e7d1;
+}
+
+/* The one-line claim a MAJOR is making — why the number moved. */
+.cl-story {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f5c2b;
+  background: #e4f4e9;
+  border: 1px solid #c6e7d1;
+  border-radius: 9px;
+  padding: 0.4rem 0.65rem;
+  line-height: 1.5;
+}
+
+.cl-story .bi { font-size: 0.72rem; margin-top: 0.28em; flex: 0 0 auto; }
+
+/* ---- body ---- */
+
+.cl-body {
+  border-radius: 14px;
+  transition: transform 0.2s ease;
+}
+
+.cl-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.cl-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-600, #475569);
+  background: var(--ink-50, #f8fafc);
+  border: 1px solid var(--ink-100, #f1f5f9);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.cl-area .bi { font-size: 0.75rem; opacity: 0.7; }
+
+.cl-release-title {
+  font-family: 'Prompt', sans-serif;
+  font-size: clamp(1.1rem, 2.6vw, 1.3rem);
+  font-weight: 600;
+  color: var(--ink-900, #0f172a);
+  margin: 0 0 0.4rem;
+  line-height: 1.45;
+}
+
+.cl-release--major .cl-release-title { color: var(--brand-primary); }
+
+.cl-summary {
+  color: var(--ink-600, #475569);
+  font-size: 0.94rem;
+  line-height: 1.8;
+  margin: 0 0 1.1rem;
+  max-width: 62ch;
+}
+
+/* ---- change groups ---- */
+
+.cl-group { margin-bottom: 1rem; }
+.cl-group:last-child { margin-bottom: 0; }
+
+.cl-group-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  margin: 0 0 0.5rem;
+}
+
+.cl-group-n {
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-group--new .cl-group-head { color: #0f5c2b; background: #e4f4e9; }
+.cl-group--improved .cl-group-head { color: #1e40af; background: #e6edfd; }
+.cl-group--fixed .cl-group-head { color: #92400e; background: #fdf0dc; }
+
+.cl-changes { list-style: none; margin: 0; padding: 0; }
+
+.cl-changes li {
+  position: relative;
+  padding-left: 1.15rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.93rem;
+  line-height: 1.75;
+  color: var(--ink-700, #334155);
+}
+
+.cl-changes li::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.75em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-300, #cbd5e1);
+  transition: transform 0.3s ease;
+  transition-delay: calc(var(--j, 0) * 40ms + 250ms);
+  transform: scale(0);
+}
+
+.cl-release.is-in .cl-changes li::before { transform: scale(1); }
+.cl-group--new .cl-changes li::before { background: var(--brand-accent, #1A9B43); }
+
+.cl-foot {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--ink-100, #f1f5f9);
+  font-size: 0.82rem;
+  color: var(--ink-500, #64748b);
+  line-height: 1.75;
+}
+
+/* ---- the version chip in the footer bar (present on every page) ---- */
+
+.samo-footer-version {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.samo-footer-version:hover {
+  opacity: 1;
+  color: inherit;
+  border-color: rgb(255 255 255 / 0.55);
+}
+
+/* ---- anchor links land below BOTH sticky layers (navbar + toolbar) ---- */
+
+.cl-release { scroll-margin-top: 9.5rem; }
+
+/* ---- mobile ---- */
+
+@media (max-width: 700px) {
+  .cl-hero { margin-inline: -1.5rem; padding: 2.5rem 1.5rem 2rem; }
+
+  .cl-release {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    padding-left: 2.4rem;
+    padding-bottom: 1.9rem;
+  }
+
+  .cl-monthmark { padding-left: 2.4rem; }
+  .cl-release::before { left: calc(0.575rem - 1px); }
+
+  .cl-node { width: 1.15rem; height: 1.15rem; top: 0.42rem; }
+  .cl-node::after { inset: 0.25rem; }
+
+  .cl-rail {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem;
+    padding-top: 0.15rem;
+    flex-wrap: wrap;
+  }
+
+  .cl-date { font-size: 0.75rem; }
+  .cl-herostats { gap: 0.75rem 1.75rem; }
+  .cl-filter { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+  .cl-toolbar { justify-content: flex-start; }
+}
+
+/* ---- motion off ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-blob { animation: none; }
+  .cl-eyebrow,
+  .cl-title-line,
+  .cl-lead,
+  .cl-release,
+  .cl-monthmark { opacity: 1; transform: none; transition: none; }
+  .cl-node { transform: scale(1); transition: none; animation: none !important; }
+  .cl-release::before { transform: scaleY(1); transition: none; }
+  .cl-changes li::before { transform: scale(1); transition: none; }
+  .cl-filter-pill { transition: none; }
+}

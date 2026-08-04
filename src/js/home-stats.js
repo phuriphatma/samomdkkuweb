@@ -17,8 +17,8 @@ let started = false;
 
 // Community count-up tiles (top row).
 const TILES = [
-  { value: (s) => s.users,                         label: 'สมาชิกที่ลงทะเบียน', icon: 'bi-people-fill',      accent: 'var(--brand-primary, #105922)' },
-  { value: (s) => s.new_users_7d,                  label: 'สมาชิกใหม่ใน 7 วัน',  icon: 'bi-graph-up-arrow',   accent: 'var(--brand-orange, #FF6F30)', highlight: true },
+  { value: (s) => s.users,                         label: 'ผู้ใช้ที่ลงทะเบียน', icon: 'bi-people-fill',      accent: 'var(--brand-primary, #105922)' },
+  { value: (s) => s.new_users_7d,                  label: 'ลงทะเบียนใหม่ใน 7 วัน',  icon: 'bi-graph-up-arrow',   accent: 'var(--brand-orange, #FF6F30)', highlight: true },
   { value: (s) => (s.projects || 0) + (s.documents || 0), label: 'โครงการและเอกสาร', icon: 'bi-folder-fill', accent: '#6366f1' },
   { value: (s) => s.departments,                   label: 'ฝ่ายที่ใช้งาน',       icon: 'bi-grid-3x3-gap-fill', accent: '#0ea5e9' },
 ];
@@ -69,7 +69,7 @@ function projectPanel(s) {
       <span class="home-project-icon"><i class="bi bi-folder-fill"></i></span>
       <div class="home-project-titles">
         <h3>หนังสือโครงการ</h3>
-        <p>ระบบส่ง–รับ–ลงนามเอกสารโครงการ</p>
+        <p>ส่ง รับเรื่อง และลงนามเอกสารโครงการ</p>
       </div>
     </div>
     <div class="home-project-body">
@@ -121,15 +121,15 @@ function render(container, s) {
   container.innerHTML = `
     <div class="home-stats-inner">
       <header class="home-stats-head">
-        <span class="home-stats-eyebrow"><span class="home-stats-dot"></span> สถิติการใช้งานจริง</span>
-        <h2>SAMO Portal ในตัวเลข</h2>
-        <p>ชุมชนนักศึกษาแพทย์ มข. ที่กำลังเติบโตและให้บริการทุกวัน</p>
+        <span class="home-stats-eyebrow"><span class="home-stats-dot"></span> ข้อมูลจริงจากระบบ</span>
+        <h2>ภาพรวมการใช้งาน</h2>
+        <p>ตัวเลขทั้งหมดนับจากการใช้งานจริง อัปเดตอัตโนมัติ</p>
       </header>
 
       <div class="home-stats-grid">${tiles}</div>
 
       <div class="home-stats-services">
-        <h3 class="home-services-title">งานบริการรับเรื่องนักศึกษา</h3>
+        <h3 class="home-services-title">งานบริการที่รับเรื่องจากนักศึกษา</h3>
         <div class="home-services-grid">
           ${serviceCard('งานประชาสัมพันธ์ (PR)', 'bi-megaphone-fill', Number(s.pr_total || 0), Number(s.pr_completed || 0), 'var(--pink-500, #d6336c)')}
           ${serviceCard('VitalSound', 'bi-clipboard2-pulse-fill', Number(s.vs_total || 0), Number(s.vs_completed || 0), 'var(--vs-accent, #0d9488)')}

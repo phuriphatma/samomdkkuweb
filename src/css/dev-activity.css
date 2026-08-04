@@ -1,0 +1,305 @@
+/* ==============================================
+ * DEV ACTIVITY — the "เบื้องหลังการพัฒนา" panel on the landing page.
+ *
+ * Outcome, not effort: four stat tiles a non-developer can weigh, then a
+ * timeline of when each system opened. (The commit heatmap that used to live
+ * here was removed on purpose — see the header of src/js/dev-activity.js.)
+ *
+ * The timeline is ONE list rendered two ways: a vertical spine on mobile, a
+ * horizontal track from 768px up. Same DOM, so there is no second markup path
+ * to keep in step.
+ *
+ * Light-only, like the rest of this app (see .claude/rules/mistakes.md).
+ * ============================================== */
+
+.devact {
+  position: relative;
+  margin-top: 2.5rem;
+  border: 1px solid var(--ink-100, #f1f5f9);
+  border-radius: 20px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.devact-inner { position: relative; padding: 1.75rem 1.25rem 1.35rem; }
+
+/* A single soft brand wash behind the header. One gradient, no animation —
+   this panel sits under the news and should not compete with it. */
+.devact-glow {
+  position: absolute;
+  inset: -40% 40% auto -10%;
+  height: 320px;
+  background: radial-gradient(closest-side, rgb(26 155 67 / 0.13), transparent 70%);
+  pointer-events: none;
+}
+
+/* ---- header ---- */
+
+.devact-head { position: relative; margin-bottom: 1.5rem; }
+
+.devact-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-orange);
+  margin-bottom: 0.45rem;
+}
+
+.devact-head h2 {
+  font-family: 'Prompt', sans-serif;
+  font-size: clamp(1.2rem, 3.6vw, 1.6rem);
+  font-weight: 700;
+  color: var(--brand-primary);
+  margin: 0 0 0.4rem;
+  line-height: 1.4;
+}
+
+.devact-head p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--ink-600, #475569);
+  max-width: 60ch;
+}
+
+/* ---- stat tiles ---- */
+
+.devact-tiles {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.75rem;
+}
+
+.devact-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.95rem 0.95rem 0.85rem;
+  border-radius: 14px;
+  background: var(--green-50, #f1f8f2);
+  border: 1px solid var(--green-100, #dceede);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.devact-inner.is-in .devact-tile { opacity: 1; transform: none; }
+.devact-inner.is-in .devact-tile:nth-child(2) { transition-delay: 80ms; }
+.devact-inner.is-in .devact-tile:nth-child(3) { transition-delay: 160ms; }
+.devact-inner.is-in .devact-tile:nth-child(4) { transition-delay: 240ms; }
+
+.devact-tile-icon { color: var(--brand-accent, #1A9B43); font-size: 1.05rem; line-height: 1.3; }
+
+.devact-tile-num {
+  font-family: 'Prompt', sans-serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--brand-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.devact-tile-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-800, #1e293b);
+  line-height: 1.45;
+}
+
+.devact-tile-sub { font-size: 0.72rem; color: var(--ink-500, #64748b); line-height: 1.5; }
+
+/* ---- launch timeline ---- */
+
+.devact-timeline { position: relative; margin-bottom: 1.35rem; }
+
+.devact-timeline-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-700, #334155);
+  margin: 0 0 1rem;
+}
+
+.devact-timeline-title .bi { color: var(--brand-orange); }
+
+.devact-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: grid;
+  gap: 1.1rem;
+}
+
+.devact-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.1rem 1fr;
+  align-items: start;
+  gap: 0.75rem;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition-delay: calc(var(--i) * 90ms + 200ms);
+}
+
+.devact-inner.is-in .devact-step { opacity: 1; transform: none; }
+
+/* The spine, drawn per step so it can never be longer than the steps it
+   connects (a single absolutely-positioned line overshoots the last node
+   whenever a label wraps to two lines). */
+.devact-step::before {
+  content: '';
+  position: absolute;
+  left: calc(1.05rem - 1px);
+  top: 2.1rem;
+  bottom: -1.1rem;
+  width: 2px;
+  background: linear-gradient(var(--green-200, #b6dcbf), var(--green-100, #dceede));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.5s ease;
+  transition-delay: calc(var(--i) * 90ms + 320ms);
+}
+
+.devact-inner.is-in .devact-step::before { transform: scaleY(1); }
+.devact-step:last-child::before { display: none; }
+
+.devact-step-node {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--green-200, #b6dcbf);
+  color: var(--brand-primary);
+  font-size: 0.9rem;
+  z-index: 1;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.devact-step:hover .devact-step-node {
+  transform: scale(1.1);
+  border-color: var(--brand-accent, #1A9B43);
+  box-shadow: 0 0 0 5px rgb(26 155 67 / 0.1);
+}
+
+.devact-step-body { display: flex; flex-direction: column; gap: 0.1rem; padding-top: 0.1rem; }
+
+.devact-step-date {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--brand-orange);
+  letter-spacing: 0.02em;
+}
+
+.devact-step-name {
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-900, #0f172a);
+  line-height: 1.4;
+}
+
+.devact-step-note { font-size: 0.78rem; color: var(--ink-500, #64748b); line-height: 1.55; }
+
+/* ---- footer ---- */
+
+.devact-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ink-100, #f1f5f9);
+}
+
+.devact-credit {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-500, #64748b);
+  line-height: 1.6;
+}
+
+.devact-credit .bi { margin-right: 0.3rem; color: var(--brand-accent, #1A9B43); }
+
+.devact-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.devact-cta:hover { color: var(--brand-accent, #1A9B43); }
+.devact-cta:hover .bi { transform: translateX(2px); }
+.devact-cta .bi { transition: transform 0.15s ease; }
+
+/* ---- desktop ---- */
+
+@media (min-width: 768px) {
+  .devact-inner { padding: 2.25rem 2rem 1.6rem; }
+}
+
+/* The timeline turns horizontal only from 992px.
+   Not 768: seven equal columns inside the 1180px container leaves ~98px per
+   step at tablet width, which wraps "หนังสือโครงการ" mid-word and stretches
+   each note to four or five lines. The vertical spine reads better all the way
+   up to a real desktop. */
+@media (min-width: 992px) {
+  .devact-track {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0;
+  }
+
+  .devact-step {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding: 0 0.4rem;
+    text-align: center;
+    justify-items: center;
+  }
+
+  /* Spine runs sideways, from this node to the next. */
+  .devact-step::before {
+    left: 50%;
+    right: auto;
+    top: calc(1.05rem - 1px);
+    bottom: auto;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--green-200, #b6dcbf), var(--green-100, #dceede));
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  .devact-inner.is-in .devact-step::before { transform: scaleX(1); }
+
+  .devact-step-body { align-items: center; text-align: center; }
+  .devact-step-name { font-size: 0.88rem; }
+  .devact-step-note { font-size: 0.72rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .devact-tile,
+  .devact-step { opacity: 1; transform: none; transition: none; }
+  .devact-step::before { transform: none; transition: none; }
+  .devact-step:hover .devact-step-node { transform: none; }
+  .devact-cta:hover .bi { transform: none; }
+}

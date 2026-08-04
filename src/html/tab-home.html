@@ -35,10 +35,6 @@
             </button>
           </section>
 
-          <!-- USAGE STATS — animated social-proof strip. Hidden until
-               home-stats.js fills it from the public_stats() RPC (0065). -->
-          <section id="homeStats" class="home-stats d-none" aria-label="สถิติการใช้งาน SAMO Portal"></section>
-
           <!-- NEWS — featured story + grid of recent posts.
                Populated by announcements.js renderHomeAnnouncements(). -->
           <section class="home-news mt-4">
@@ -58,6 +54,16 @@
               <p>กำลังโหลดประกาศ...</p>
             </div>
           </section>
+
+          <!-- BEHIND THE BUILD — what the portal has shipped and when.
+               Deliberately ordered: announcements first (that is what a visitor
+               came for), then how the portal is progressing, then how much it is
+               being used. Filled by src/js/dev-activity.js. -->
+          <section id="devActivity" class="devact d-none" aria-labelledby="devactHeading"></section>
+
+          <!-- USAGE STATS — animated social-proof strip. Hidden until
+               home-stats.js fills it from the public_stats() RPC (0065). -->
+          <section id="homeStats" class="home-stats d-none" aria-label="สถิติการใช้งาน SAMO Portal"></section>
 
           <!-- QUICK ACTIONS — single restrained strip, not a card grid.
                3 most-used tasks; the full launcher lives in #pills-tools. -->

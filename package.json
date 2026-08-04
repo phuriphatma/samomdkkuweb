@@ -1,6 +1,6 @@
 {
   "name": "samomdkkuweb",
-  "version": "1.0.0",
+  "version": "4.4.0",
   "description": "MDKKU SAMO Student Council Portal",
   "private": true,
   "scripts": {
@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "deploy:gas": "node tools/deploy-gas.mjs"
+    "deploy:gas": "node tools/deploy-gas.mjs",
+    "gen:activity": "node tools/gen-dev-activity.mjs",
+    "release": "node tools/release.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

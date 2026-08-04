@@ -65,6 +65,8 @@ npm run preview      # serve dist locally on :4173
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/SUPABASE-MIGRATION.md` — phase tracker
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
+- `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
+  version or adding a release note; `npm run release` does the mechanical half.
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
 - `.claude/rules/mistakes.md` — hard-learned anti-patterns (READ before touching auth/network code)

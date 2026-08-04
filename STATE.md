@@ -1,12 +1,89 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-07-31. Slim by design — "what is true right now". Shipped
+Last updated: 2026-08-04. Slim by design — "what is true right now". Shipped
 detail pruned out of here most recently:
 `docs/state-archive/2026-07-31-team-0104-detail.md` and
 `docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
 `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
+
+## Release notes + versioning + the IT panel (2026-08-04 — SHIPPED to prod)
+
+`npm run build` + 265 tests green. Deployed to the KKU VM; see the deploy note
+at the end of this section.
+
+- **`/updates`** — the public changelog. Content is `src/data/changelog.js`
+  (22 curated releases, 2026-04-30 → 2026-08-01, condensed before July because
+  that stretch ran ~13 commits/day). Reached from the footer's เกี่ยวกับเรา
+  column and from the version chip in the footer bar; off-tablist tab like
+  `pills-article-tab`, path route `/updates` in `PATH_ROUTES`.
+- **A real version system — `docs/VERSIONING.md` is the policy, read it first.**
+  `MAJOR.MINOR.PATCH` with MAJOR redefined as "the portal's SCOPE changed"
+  (SemVer's "breaking API change" can never fire on a website, so it would pin
+  us at 1.x forever). 4 majors / 18 minors → **current v4.4.0**, assigned
+  retroactively. `npm run release` derives the bump from Conventional Commits,
+  drafts the changelog stub, and optionally tags; it never pushes.
+  `v4.4.0` is tagged LOCALLY and **not pushed** — push it when you next push.
+  `package.json` is the single source of truth; `/build.json` now carries
+  `{buildId, version}` and `__APP_VERSION__` is defined at build time.
+  Tests enforce that each bump matches its tier and that package.json agrees.
+- **"เบื้องหลังการพัฒนา"** on the landing page (`#devActivity`) — THREE tiles
+  (7 ระบบ · 22 เวอร์ชัน · 14 สัปดาห์) over a timeline of when each system opened
+  (`SYSTEMS` in `src/data/changelog.js`). A fourth tile ("91 รายการที่อัปเดต")
+  was removed: the user twice said it communicated nothing, and they were right
+  — a count of changelog bullet points is a number only we can judge. The
+  version and last-update date moved into the lead sentence instead.
+  **Home order is deliberate and was set by the user**: banner → sign-in →
+  ประกาศ → เบื้องหลังการพัฒนา → สถิติการใช้งาน → quick actions.
+- **Two claims are BANNED from the panel and both have guard tests.** (1) No
+  "100% built in-house / ไม่ได้จ้าง" — this project is built with AI assistance
+  and the claim overstated it; the user asked for it gone. (2) No cadence
+  promise ("ทุกสัปดาห์") — real gaps run to weeks. Credit line reads
+  **"ดูแลโดย IT SAMO'69"**, not individual names.
+- **Thai copy — four rules the user gave, learned the slow way over ~5 rounds.**
+  (1) No literal translations of English idiom: "SAMO Portal ในตัวเลข" (from "by
+  the numbers") and "ชุมชน…ที่กำลังเติบโตและให้บริการทุกวัน" both read as AI
+  output. (2) **Professional register, not casual** — "เว็บนี้ยังพัฒนาต่อเรื่อย ๆ"
+  was rejected; think professional web agency. (3) **Do not mix languages inside
+  one group** — a row reading "22 เวอร์ชันทั้งหมด / 4 Major release" is the
+  complaint; the changelog hero is now all-English (Releases · Major releases ·
+  Changes · Weeks) because its eyebrow already says "Release notes", while the
+  landing panel stays all-Thai. (4) `LEVELS` labels stay English
+  (Major/Minor/Patch) — "รุ่นใหญ่/รุ่นย่อย" is a translation nobody says.
+  **I cannot reliably judge natural Thai — get the user to read new copy.**
+  Every string I own is listed in the git log for this session's final commit.
+- **The sticky filter bar on `/updates` is a FLOATING ROUNDED bar**, matching
+  `.samo-navbar`. A plain white rectangle inside the 900px column reads as "a
+  rectangle that got cut off" (the user's words) because its hard edges stop
+  mid-page against the body gradient. Full-bleed was the other fix and was
+  REJECTED: it needs `overflow-x: clip` to contain the width, which older iOS
+  Safari does not support and would degrade to a horizontal scrollbar. It is
+  also opaque, not frosted — blur over the green spine went muddy.
+- **`npm run gen:activity`** regenerates `src/data/dev-activity.json` from git.
+  Not wired into `build` on purpose. `--check` fails when stale. It publishes
+  **no email addresses** (repo is public, JSON is bundled) — a test asserts it.
+
+**The first version of the panel was wrong and was rebuilt — do not put it
+back.** It showed commits (549), active days, lines added/deleted, longest
+streak and a GitHub-style commit heatmap. The user's objection was correct and
+is the general rule: those measure EFFORT, not outcome; lines-of-code and commit
+counts are discredited even inside engineering; and to a SAMO member a dense
+heatmap of nights and weekends reads as grinding, not competence. The panel now
+measures what exists that did not exist before. `changelog.test.js` has a guard
+test ("publishes no effort metrics") that fails if any of it creeps back.
+The heatmap data is still generated (a few KB, the honest record) and the
+validated 5-step green ramp is preserved in git history if it is ever wanted for
+an internal-only page.
+
+**Still needs a human, same reason as the item below:** the Chrome extension was
+not connected, so none of this has been rendered. Check on `/` and `/updates`:
+the launch timeline flips from a vertical spine to a horizontal track at 768px
+and the connecting line lands on the nodes in both; the changelog hero aurora
+does not bleed sideways (it is margin-negative to full-bleed past
+`.container-fluid px-4`); the sticky filter bar's sliding pill sits under the
+active button after a resize; and the per-release spine segments join up rather
+than leaving gaps.
 
 ## READ THIS FIRST AFTER A /clear (2026-08-01 end of session)
 
@@ -78,7 +155,14 @@ silently overwritten; two keys that disagree REFUSE rather than guess.
    by the same rule (it cannot loop with the mirror: that is AFTER UPDATE on
    `team_people`), or simply re-run the 0108 backfill — it is idempotent and only
    considers unlinked rows.
-3. **Member profile page** (design DECIDED, nothing built). kkumail is
+3. **Roles/permissions + photos — full design written 2026-08-04, nothing built:**
+   `docs/TEAM-ROLES-AND-PHOTOS.md`. Measured on the live DB: **11 of 11
+   คณะกรรมการ slots have no portrait** (1 photo exists org-wide) and **15 of 27
+   admin users can grant permissions** (`{team}` on `อุปนายกฯ` inherits down the
+   branch). Also flagged there: `หัวหน้าฝ่าย IT` carries `project_seat='prof'`,
+   which almost certainly is not intended. Build order + the five decisions the
+   user must make are in §4/§5 of that doc. It subsumes and extends item 4 below.
+4. **Member profile page** (design DECIDED, nothing built). kkumail is
    authentication, a `team_members` row is authorization, the tree stays
    admin-only. Decisions the user made and that should not be re-litigated:
    a request form into an approval queue for people not on the roster (they

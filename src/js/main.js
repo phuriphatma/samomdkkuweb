@@ -34,6 +34,8 @@ import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { initProjectsView } from './projects-view.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
+import { initDevActivity } from './dev-activity.js';
+import { initChangelog } from './changelog.js';
 import { copyText } from './utils.js';
 
 // ==============================================
@@ -418,7 +420,15 @@ const PATH_ROUTES = [
   { path: '/team',     tab: 'pills-about-tab' },
   { path: '/projects-view', tab: 'pills-projects-view-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
+  { path: '/updates',  tab: 'pills-updates-tab' },
 ];
+
+/** Open the release-notes page. Bound to window so the footer link and the
+ *  version chip (both rendered outside any tab) can reach it. */
+window.openUpdates = () => {
+  if (window.navigateTo) window.navigateTo('/updates');
+  else window.activateTab('pills-updates-tab');
+};
 
 function pathToTab(pathname) {
   const exact = PATH_ROUTES.find((r) => r.path === pathname);
@@ -797,6 +807,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Cookieless usage tracking + the landing-page "by the numbers" strip.
   initAnalytics('public');
   initHomeStats();
+  // Both read bundled static data, so neither can fail on the network and
+  // neither needs to wait for auth.
+  initDevActivity();
+  initChangelog();
 
   // Global "copy to clipboard" delegate: any [data-copy] element copies
   // its data-copy value when clicked. stopPropagation prevents the

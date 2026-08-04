@@ -26,17 +26,26 @@ function htmlPartials() {
 // user on an old bundle. See src/js/build-check.js.
 function buildIdPlugin() {
   const buildId = crypto.randomBytes(6).toString('hex');
+  // The release version travels WITH the build id. The id answers "is this tab
+  // running the newest bundle"; the version answers "which release is deployed",
+  // which is the question you actually ask when a user reports a bug. Read from
+  // package.json so there is exactly one source of truth — see docs/VERSIONING.md.
+  const version = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'),
+  ).version;
+  const payload = JSON.stringify({ buildId, version });
   return {
     name: 'build-id',
     config() {
-      return { define: { __BUILD_ID__: JSON.stringify(buildId) } };
+      return {
+        define: {
+          __BUILD_ID__: JSON.stringify(buildId),
+          __APP_VERSION__: JSON.stringify(version),
+        },
+      };
     },
     generateBundle() {
-      this.emitFile({
-        type: 'asset',
-        fileName: 'build.json',
-        source: JSON.stringify({ buildId }),
-      });
+      this.emitFile({ type: 'asset', fileName: 'build.json', source: payload });
     },
     // In dev, expose the same id through /build.json so build-check
     // never thinks dev is "stale" (it'd reload-loop otherwise).
@@ -45,7 +54,7 @@ function buildIdPlugin() {
         if (req.url === '/build.json') {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'no-store');
-          res.end(JSON.stringify({ buildId }));
+          res.end(payload);
           return;
         }
         next();

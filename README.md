@@ -41,6 +41,28 @@ Both Cloudflare projects hit the same Supabase backend.
   nodes marked non-public hide their whole subtree. Portraits are uploaded per
   member in ทีม SAMO — downscaled in the browser, filed in Drive by year and ฝ่าย,
   and served as server-cropped WebP.
+- **Release notes.** A public changelog at `/updates`, reached from the footer
+  and from the version chip in the footer bar. Curated entries (not a git-log
+  dump) grouped ใหม่ / ปรับปรุง / แก้ไข, tagged by product area, filterable by
+  audience (นักศึกษา / ทีมงาน), laid out on a timeline that draws itself as you
+  scroll, and anchored per release so a version can be linked directly.
+  Versioned `MAJOR.MINOR.PATCH` with MAJOR redefined for a product with no API
+  consumers — see **`docs/VERSIONING.md`** for the policy, the
+  Conventional-Commit mapping and the release workflow. Cut one with
+  `npm run release`. Content lives in `src/data/changelog.js`; `npm test`
+  enforces that each bump matches its tier, that `package.json` agrees, and
+  that no entry leaks a table name or migration number into user-facing copy.
+- **"เบื้องหลังการพัฒนา" panel.** On the landing page: systems opened, versions
+  released, changes shipped and weeks elapsed, over a timeline of when each
+  system opened. It deliberately shows **no commit counts, lines of
+  code, streaks or contribution heatmap**: those measure effort rather than
+  result, are discredited even inside engineering, and read to a non-developer
+  as either noise or grinding. A test enforces their absence. The raw history is
+  still frozen into `src/data/dev-activity.json` by `npm run gen:activity` (no
+  GitHub API call at render time, and no committer emails in the bundle); the
+  page reads only the date range from it. It also makes no "built entirely
+  in-house" claim and promises no release cadence — both are asserted by tests,
+  because both would be overstatements.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Product catalogue (filter by source / admin-managed type,
@@ -153,6 +175,9 @@ Authorized JavaScript origins.
 | `npm run dev` | Vite dev server on :5174 with HMR |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
+| `npm test` | Vitest suite (run this and `build` before every commit) |
+| `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
+| `npm run gen:activity` | Refresh `src/data/dev-activity.json` from git history. Deliberately NOT part of `build` — a build should not rewrite a tracked source file. Run it when you want the landing-page numbers to move; `--check` fails if the file is stale. |
 
 ## Project layout
 
