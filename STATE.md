@@ -64,6 +64,14 @@ rectangle). If anything looks wrong on `/` or `/updates`, that is why.
   (Major/Minor/Patch) — "รุ่นใหญ่/รุ่นย่อย" is a translation nobody says.
   **I cannot reliably judge natural Thai — get the user to read new copy.**
   Every string I own is listed in the git log for this session's final commit.
+- **`SYSTEMS` dates are LAUNCH dates.** SAMO Passport was first dated 2026-07-22
+  — the day its DATABASE merged into this project, which no student experienced.
+  Its real launch is 2026-05-12, in its own repo
+  (`phuriphatma/samomdkkupassport`, cloned at `~/development/samodevmdkku69/passport`).
+  Every other entry was verified with `git log --diff-filter=A` on the module or
+  migration that introduced it. **Known gap:** Passport's launch has no release
+  entry in `changelog.js` — adding one means renumbering every version after it,
+  so it was left for a deliberate pass.
 - **The sticky filter bar on `/updates` is a FLOATING ROUNDED bar**, matching
   `.samo-navbar`. A plain white rectangle inside the 900px column reads as "a
   rectangle that got cut off" (the user's words) because its hard edges stop

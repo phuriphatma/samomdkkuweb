@@ -73,6 +73,14 @@ export const MAJOR_STORY = {
  * discredited even inside engineering (more code is a cost, not an
  * accomplishment) and to a SAMO member they read as either noise or grinding.
  *
+ * DATES ARE LAUNCH DATES, not "when it joined this codebase". SAMO Passport
+ * lives in its own repo (phuriphatma/samomdkkupassport, first commit
+ * 2026-05-12) and was dated 2026-07-22 here at first — which is when its
+ * DATABASE was merged into this project, an event no student experienced. If a
+ * system's launch is not in this repo's git log, go and find it in the right
+ * one; every other entry was verified against `git log --diff-filter=A` on the
+ * module or migration that introduced it.
+ *
  * Note what this does NOT claim. An earlier draft led with "100% built in-house,
  * no outside developers". That was dropped deliberately: this project is built
  * with AI assistance, and the claim overstated it. Saying what shipped and when
@@ -82,10 +90,10 @@ export const SYSTEMS = [
   { key: 'pr', label: 'ฟอร์มงาน PR', date: '2026-04-30', icon: 'bi-megaphone-fill', note: 'ฝากงาน PR ไม่ต้องทักแชท' },
   { key: 'news', label: 'ระบบประกาศ', date: '2026-05-02', icon: 'bi-newspaper', note: 'ทีมงานลงข่าวเองได้' },
   { key: 'vs', label: 'VitalSound', date: '2026-05-03', icon: 'bi-clipboard2-pulse-fill', note: 'ร้องเรียนแล้วตามเรื่องได้' },
+  { key: 'passport', label: 'SAMO Passport', date: '2026-05-12', icon: 'bi-passport-fill', note: 'สแกน QR สะสมกิจกรรมและแต้ม' },
   { key: 'shop', label: 'ร้านค้า SAMO', date: '2026-05-26', icon: 'bi-bag-heart-fill', note: 'สั่งของและจ่ายเงินออนไลน์' },
   { key: 'projects', label: 'หนังสือโครงการ', date: '2026-05-26', icon: 'bi-file-earmark-text-fill', note: 'ส่งเอกสารและลงนามในระบบ' },
   { key: 'team', label: 'ทีม SAMO', date: '2026-06-06', icon: 'bi-diagram-3-fill', note: 'ผังทีมที่คุมสิทธิ์เข้าระบบ' },
-  { key: 'passport', label: 'SAMO Passport', date: '2026-07-22', icon: 'bi-passport-fill', note: 'สะสมกิจกรรม ใช้บัญชีเดียวกัน' },
 ];
 
 /** Change kinds. Order here is the order they render inside a release. */
