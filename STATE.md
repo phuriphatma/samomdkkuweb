@@ -1,7 +1,11 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-08-04. Slim by design — "what is true right now". Shipped
+Last updated: 2026-08-04. **577 → 272 lines this session** — past-session
+sections pruned to `docs/state-archive/2026-08-04-shipped.md`, the un-started
+backlog moved to `docs/NEXT.md`. Keep it under ~200; it is read on every cold start. Slim by design — "what is true right now". Shipped
 detail pruned out of here most recently:
+`docs/state-archive/2026-08-04-shipped.md` (the GAS/Drive migration, the
+article-cover fix and the earlier shipped list),
 `docs/state-archive/2026-07-31-team-0104-detail.md` and
 `docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
 `docs/state-archive/2026-07-24-full.md`;
@@ -92,152 +96,21 @@ does not bleed sideways (it is margin-negative to full-bleed past
 active button after a resize; and the per-release spine segments join up rather
 than leaving gaps.
 
-## READ THIS FIRST AFTER A /clear (2026-08-01 end of session)
+## ทีม SAMO — shipped 2026-08-01, still true
 
-**Everything from this session is SHIPPED AND LIVE.** `main` is at `28c757c`,
-pushed; the KKU VM was deployed and verified against the SERVED bundles
-(`buildId e74de393eebd`); Apps Script is on v10; migration 0108 is applied.
-Nothing is in flight, nothing is half-done. Full reasoning:
-`docs/state-archive/2026-08-01-team-identity.md`; the identity rule is also a
-memory (`team-identity-is-kkumail`).
+Crop-on-upload, stacked modals, real Drive photo deletes (a REFCOUNT — an
+archived year shares the live photo's file id), and the ตรวจสอบข้อมูล pane
+(24 findings, flags WHO on each member row and rolls counts up the tree).
+Migration **0108 `team_people`** is applied but EXPAND-ONLY: nothing reads it,
+all ten resolvers still join `team_members.kkumail`.
 
-**The one thing left undone, and it needs a human:** none of the new UI has ever
-been rendered. The Chrome extension was not connected, so the crop dialog and the
-ตรวจสอบข้อมูล pane were built, unit tested and reasoned about but never LOOKED at.
-Open `/admin/` → ทีม SAMO and check four things unit tests cannot see:
-1. the mode row has a fourth button, **ตรวจสอบข้อมูล**, badged **24**;
-2. amber triangles on flagged member rows and amber counts on their ฝ่าย —
-   ~38 rows of 404, most under ฝ่ายกิจการภายนอก (11);
-3. clicking one opens the pane filtered, with a "แสดงเฉพาะ …" banner;
-4. picking a photo in the member editor opens a pan/zoom 3:4 frame — check its
-   proportions at PHONE width, and that the ตำแหน่ง picker now sits ABOVE the
-   member editor rather than behind it.
+**The rule that governs it: kkumail is the identity, รหัสนักศึกษา is a field.**
+Never merge on name — `673070332-6` is one mistyped รหัส shared by two humans.
 
-### What shipped
-- **Crop replaces จุดโฟกัสของรูป** (`src/js/image-crop.js`). Uploads are already
-  3:4, so every card takes lh3's server-side crop (~38 KB instead of ~78 KB).
-  `photo_focus` stays in the DB — archived and legacy rows still carry top/bottom.
-- **Stacked modals** (`src/js/modal-stack.js`, both entries). Bootstrap gives
-  every `.modal` z-index 1055 and does not support stacking, so DOM order decided
-  the painting order and the ตำแหน่ง picker rendered behind the member editor.
-- **Team photos are deleted from Drive at last** — GAS `deleteTeamFile` (v10,
-  proved both ways by `tools/gas-team-delete-probe.mjs`). It is a REFCOUNT:
-  `publish_team_term` copies `photo_url` into `team_archive_members`, so a live
-  portrait and an archived year's card are the same Drive file.
-- **ตรวจสอบข้อมูล** — a fourth ทีม SAMO mode listing every identity ambiguity,
-  computed live from members already in memory. 24 findings today. **จัดการทีม
-  flags WHO**: an amber triangle on each affected member row (tooltip names the
-  reasons) plus a rolled-up count on every ancestor ตำแหน่ง — without the rollup
-  the per-row flag would be invisible, since only the 14 root ฝ่าย are expanded
-  on load. Both go through `issuesByMember()`, computed once per render, and clicking
-  either opens the pane ALREADY FILTERED to what was clicked — a member row
-  focuses that person, a ตำแหน่ง's count focuses its whole branch, with a
-  "แสดงเฉพาะ …" banner and a "ดูทั้งหมด" escape. Landing at the top of 24
-  findings and having to remember who you just clicked is the same work, moved.
-  Using the mode BUTTON clears any focus, so the tab never silently shows a
-  subset (which would read as "everything else is fixed"). Currently 38 of 404 rows, max 11 under any
-  one ฝ่ายหลัก.
-- **0108 `team_people`** — each person stored once. EXPAND ONLY: nothing reads it
-  yet, all ten resolvers still join `team_members.kkumail`, and the proof asserts
-  zero accounts whose `managed_permissions` would change. 403 rows → 303 people.
-
-### The rule that governs all of it
-**kkumail is the identity; รหัสนักศึกษา is a field.** It is the only key the user
-PROVES (Google login) rather than types, it is already what the permission engine
-resolves by, and `673070332-6` is one mistyped รหัส shared by two humans whose
-emails are correct and distinct. **Never merge on name.** Nothing non-empty is
-silently overwritten; two keys that disagree REFUSE rather than guess.
-
-### NEXT, in order
-1. **Look at the UI** (above). Nothing else should start before this.
-2. **Contract step for 0108** — switch writes to the person, then drop the
-   duplicated columns. Do NOT repoint one resolver without moving all ten.
-   **First thing it must do: close the INSERT gap.** `createMember` and the CSV
-   import write `person_id = null` and `buildExportJson` does not carry it —
-   OBSERVED, not theoretical: a member added by hand minutes after 0108 applied
-   is already unlinked (`select count(*) from team_members where person_id is
-   null`). Nothing degrades today because nothing reads the column, and such a
-   row is still fully visible and fixable in ตรวจสอบข้อมูล, which keys on
-   `team_members`. Fix with a BEFORE INSERT trigger resolving/creating the person
-   by the same rule (it cannot loop with the mirror: that is AFTER UPDATE on
-   `team_people`), or simply re-run the 0108 backfill — it is idempotent and only
-   considers unlinked rows.
-3. **Roles/permissions + photos — full design written 2026-08-04, nothing built:**
-   `docs/TEAM-ROLES-AND-PHOTOS.md`. Measured on the live DB: **11 of 11
-   คณะกรรมการ slots have no portrait** (1 photo exists org-wide) and **15 of 27
-   admin users can grant permissions** (`{team}` on `อุปนายกฯ` inherits down the
-   branch). Also flagged there: `หัวหน้าฝ่าย IT` carries `project_seat='prof'`,
-   which almost certainly is not intended. Build order + the five decisions the
-   user must make are in §4/§5 of that doc. It subsumes and extends item 4 below.
-4. **Member profile page** (design DECIDED, nothing built). kkumail is
-   authentication, a `team_members` row is authorization, the tree stays
-   admin-only. Decisions the user made and that should not be re-litigated:
-   a request form into an approval queue for people not on the roster (they
-   explicitly rejected letting any kkumail self-add); self-uploaded photos go
-   live with no moderation; a signed-in member MAY see other members' details.
-   Self-edit must go through a SECURITY DEFINER RPC with a column allow-list —
-   never `for update using (user_id = auth.uid())`, the class that has already
-   bitten `users` (0028), `vs_tickets` (0096) and `shop_orders` (0100).
-   The durable fix for the 24 findings is this page: an admin cannot know whether
-   วรวลัญช์'s ชื่อเล่น is ปรายฟ้า or ปลายฟ้า, but she can answer in one click.
-
-## ประกาศ article cover — no longer cropped (2026-07-31)
-
-`.article-hero` used to be a fixed 16:9 box with `object-fit: cover`, which
-center-cropped every cover. Covers are often PORTRAIT newsletter pages, so most
-of the page was cut away. The hero image is now rule-for-rule identical to
-`.article-body img` (`width:100%; height:auto`) inside the same 720px column.
-
-Three things were tried and removed; `src/css/article.css` records each with the
-defect it caused, and none should be reintroduced:
-`aspect-ratio` (crops), a `background` colour (grey letterbox bars beside a
-portrait cover), and a vh-based `max-height` (made the cover NARROWER than the
-body pages once zoomed, because the height clamped and the width followed).
-
-**The board cards keep their 3:4 crop** (`.news-card-media`) — a grid needs
-uniform tiles; a detail page needs the real image. Don't "unify" those.
-
-## APPS SCRIPT + DRIVE — all DONE 2026-07-31 (full detail in the archive)
-
-Detail: `docs/state-archive/2026-07-31-gas-drive-migration.md`. Durable facts are
-also in the memory dir (`gas-apps-script-topology`, `gas-is-an-unauthenticated-api`).
-
-**THREE separate Apps Script projects — the names mislead.** `samoweb`
-(standalone, `1lENmMdT…`, deployment `AKfycbwomKii…`) serves samoweb;
-`samopassport` serves passport badges/certs; `prformweb_backup_candelete` is the
-retired Sheet-bound predecessor, still deployed only so bundles cached before
-the switch keep working. Deploying one cannot affect another.
-
-- **Both repos have `npm run deploy:gas`.** Diffs the remote, then
-  create-version + update-deployment on the SAME id, then verifies over HTTP.
-  **Never `clasp deploy`** — new URL, reads as "uploads silently stopped".
-  samoweb reads the endpoint from `src/js/config.js`, passport from
-  `VITE_GAS_UPLOAD_URL`; each repo needs its own `GAS_SCRIPT_ID` in `.env.local`.
-- **Why samoweb was migrated**: a bound script lives INSIDE its container, so
-  trashing the unused `prformweb` Sheet would have taken the script and every
-  deployment with it. The replacement is standalone.
-- **Drive is now `My Drive/IT Database/`** — `_Scripts/`, `PR/` (was
-  PR_Submissions), `Projects/`, `Shop/` (was SAMO_Shop), `Team/` (was SAMO_Team),
-  `Passport/{badges,certificates}`. Every folder kept its original id through
-  move+rename, so no stored URL changed. `TOP_FOLDER_CANON` accepts legacy
-  spellings; don't drop a legacy key while any deployed bundle can send it.
-  New top-level folders go through `getOrCreateTopFolder_`, never
-  `DriveApp.getRootFolder()`.
-- **Security review — three holes found and CLOSED**, all years old, none caused
-  by the migration: an unguarded delete-any-file, an open email relay, and an
-  unconstrained upload folder. Uploads stay open because guests submit PR
-  tickets without an account. **A session gate on the deletes was built,
-  deployed and REVERTED** — it needed `UrlFetchApp`, which widened the derived
-  OAuth scopes, and a web app running as its owner throws until that owner
-  re-consents; it broke every delete for ~1h. Deletes are folder-scoped only,
-  as before. Re-enable ONLY in this order: owner re-consents first, then
-  restore the gate (the frontend already sends `accessToken`). Proofs and the
-  full post-mortem are in `.claude/rules/mistakes.md`.
-- **ONLY REMAINING**: delete `prformweb_backup_candelete` + its old deployment
-  once the old endpoint is quiet. HTML is `no-cache`, so the drain window is
-  open tabs only — hours, not weeks. Deleting early costs at most one failed
-  upload on a stale tab; Drive trash is recoverable 30 days.
-
+**0108's contract step is still owed, and its first job is the INSERT gap:**
+`createMember` and the CSV import write `person_id = null`, so rows added since
+0108 are already unlinked. Fix with a BEFORE INSERT trigger or re-run the
+(idempotent) backfill. Full reasoning: `docs/state-archive/2026-08-01-team-identity.md`.
 
 ## NEXT — hardening `notifyProjectEmail` beyond the allow-list
 
@@ -338,195 +211,12 @@ wording, and a signed-in caller.
   `set_config('request.jwt.claims', …)` inside `begin; … rollback;` — every
   `tools/*` proof script is built that way and is the template to copy.
 
-## Shipped earlier, pruned to the archive
+## NEXT — un-started work → `docs/NEXT.md`
 
-Full text: `docs/state-archive/2026-07-30-pre-clear.md`. All applied + deployed.
-
-- **ทีม SAMO is the grant engine (0081–0088).** The tree issues real permissions
-  via `managed_permissions` / `managed_vs_depts` / `managed_project_seats` /
-  `managed_passport_*`, recomputed by a statement-level trigger. Proofs:
-  `tools/team0089-manage.mjs`, `proj0086-seats.mjs`, `proj0092-seat-parity.mjs`,
-  `prof0095-seat-parity.mjs`, `vs0083-scope.mjs`.
-- **VitalSound 0096–0099** — remark visibility ladder, unknown-category
-  fail-closed, self-public context. Proof: `tools/vs0096-remark-vis.mjs`.
-- **Pre-/clear security scan (2026-07-29)** — 4 real bugs, all fixed. The
-  standing sweep is `tools/security-sweeps.mjs` (run it after any RLS change).
-
-## NEXT — HANDOVER (nothing below is in flight; all of it is un-started)
-
-Ordered by what will bite first. Everything named here is verified true as of
-HEAD; the proof scripts and migrations referenced all exist and pass.
-
-### 1. Nothing behind the ADMIN LOGIN has had a signed-in browser run
-Every server path is proven by the 12 scripts (234 checks, all re-run green at
-session end). The PUBLIC half is browser-verified; everything requiring a login is
-not, because the agent session cannot authenticate. Check these first — likeliest
-place a regression hides.
-
-**Added 2026-07-30 — shipped this session, server-proven, NOT clicked:**
-- **ทีม SAMO photo upload** — member form → รูปประจำตัว. Goes through
-  `uploadImageToDrive` (GAS `uploadPRFile`), then `photo_url` saves with บันทึก.
-  The whole GAS upload leg is untested here; if it fails, check the GAS deploy
-  before suspecting the column. Preview + "นำรูปออก" also unclicked.
-- **จัดการสิทธิ์ search** — typing a PERSON's name there now filters (the member
-  scan used to be gated to จัดการทีม). Type a ชื่อเล่น and confirm the person
-  appears with their ตำแหน่ง ancestors.
-- **Mobile drag on ทีม SAMO** — needs a REAL phone. A scroll starting on a drag
-  handle must scroll; a ~220ms hold must start a drag and highlight the row; drag
-  must be absent entirely in จัดการสิทธิ์.
-- **สถิติการใช้งาน** — proven server-side for a tree grantee (0102), but open it
-  as a non-staff grantee once to confirm the dashboard renders rather than erroring.
-- **Public /team org chart** — verified at desktop width only. **Not verified at
-  mobile width**: the browser extension screenshots at a fixed size regardless of
-  window resize, so the sub-768px stacking rests on the media queries alone.
-- **VS บันทึกข้อความ (0096)** — the visibility select in the staff ticket modal;
-  a `thread` note written on a canonical must appear on a duplicate's tracking
-  timeline tagged "จากเรื่องที่เกี่ยวข้อง"; a `public` note must appear in
-  ความคืบหน้าจากทีมงาน on the board (separate from comments).
-- **VS staff modal (0099 UX)** — บันทึกข้อมูล must now KEEP the ticket open,
-  repaint its timeline, and show "บันทึกแล้ว" inline in the footer.
-- **VS จัดการหมวดหมู่ / จัดการแท็กภายใน** — ลบ works, its confirm names the
-  usage count, and a newly ADDED หมวดหมู่ is immediately selectable in the open
-  ticket without closing it.
-- **อาจารย์ (0095)** — `phuriphat.ma@kkumail.com` holds the `prof` seat and must
-  now see the SAME 11 หนังสือ as `saprof` (26 exist; 11 carry a signature
-  request). If it shows 0, the seat resolution broke, not the RLS.
-- **SAMO Shop (0094)** — unscoped again for everyone; the ทีม SAMO picker should
-  have NO แหล่งที่มา field.
-- **ประกาศ (0093B)** — a `creator` grantee must see their own drafts/pending in
-  เขียนประกาศ + ลำดับการแสดงประกาศ (before 0093 they could write and not read).
-- **Admin account switch** — switching accounts must hard-reload `/admin/`.
-- **Public article แก้ไข/ลบ** — now `data-perm-only="creator"`; a tree-granted
-  creator should see them, a plain user should not.
-- **Passport** — the Google sign-in round-trip and the dept-scoped admin view.
-  This is the one I could not test at all (no way to drive OAuth from here).
-
-### 2. Passport `admin`/`1234` — a deliberate TEMPORARY second door, not a bug
-**The intended model, confirmed by the user 2026-07-30**: whoever holds the
-`passport` permission (or a dept scope) in ทีม SAMO is a passport admin. That is
-exactly what `public.passport_admin_context()` implements — `is_admin` = blanket
-`passport` perm or `role='dev'` (→ `all_departments: true`) OR any
-`managed_passport_scopes` entry; null `auth.uid()` fails closed. Nothing to
-change here.
-
-`admin`/`1234` is a knowingly-temporary alternate entrance, and since 2026-07-30 it
-**signs into a real shared Supabase account** rather than comparing strings —
-`passportadmin@samomdkku.app`, `permissions={passport}`, on its own client with its
-own `storageKey` so it can never disturb an organiser's personal Google session.
-That is what let `db/0011` land while the door keeps full admin. Credentials live
-in `VITE_PASSPORT_ADMIN_EMAIL` / `VITE_PASSPORT_ADMIN_PASSWORD` (this Mac's
-`passport/.env.local` AND the VM's `~/samo-projects/samomdkkupassport/.env.local`)
-— **not in the public repo**, though they do ship in the built bundle because they
-must be usable. So the door is no more secure than '1234' was; what changed is that
-everyone NOT using it now has no write access at all, and its writes carry a uid.
-
-To retire it: `LEGACY_PASSWORD_LOGIN = false` in passport `js/admin-scope.js`,
-redeploy, confirm every admin can sign in with Google, then delete the marked
-block, `handleLegacyLogin` in `admin-page.js`, `#admin-legacy-box` in
-`html/admin.html`, the two env vars in both places, and finally strip the shared
-account's grant (`array_remove(permissions,'passport')` — needs the
-`users_self_update_guard` disable dance, see mistakes.md) or delete the auth user.
-**Who keeps access when that flag flips** (live, 2026-07-30 — the previous note
-here said 2 people and was STALE):
-- ทุกฝ่าย: `kita.a@kkumail.com`, `putita.s@kkumail.com`, `worapat.c@kkumail.com`
-- dept-scoped `d:1`: `jinjutha.t@kkumail.com`, `phuriphat.ma@kkumail.com`
-
-Re-run the check before flipping — the tree changes:
-`select email, managed_passport_scopes, managed_permissions from users where
-'passport' = any(managed_permissions) or managed_passport_scopes <> '{}';`
-
-### 3. Passport authorization — DONE. Two small follow-ups remain
-Narrative: `docs/state-archive/2026-07-30-passport-authz.md`. `db/0010` + `0011` +
-`0012` applied, app deployed. `tools/pass-anon-probe.mjs` (real anon key over
-HTTPS) went **6/9 → 9/9**: student emails, the roster via `user_tiers`, and
-`PATCH /scans` are all refused now; the catalog and scan-points reads the app needs
-before sign-in still work. `tools/pass-hardening.mjs` = **60 checks** over seven
-principals, applying the lockdown inside a rolled-back transaction.
-
-**`admin`/`1234` still works as a FULL admin** — user's standing requirement, many
-people use it. It now signs into a shared Supabase account so it carries a real
-JWT (see the archive for why nothing else could work). **Do not retire it without
-asking**; checklist in #2.
-
-**Follow-ups, neither urgent:**
-1. **`activities.static_token` is anon-readable** because the whole row is — RLS
-   cannot hide a column. Impact is small now (`stamp_scan()` pins the scan to
-   `auth.uid()` and derives the km itself), so a leaked token only lets a signed-in
-   kkumail student stamp something they did not attend. To close: drop the
-   `isStaticMatch` client pre-check, switch `scanning.js` off `select('*')` to an
-   explicit column list, THEN
-   `revoke select (static_token) on passport.activities from anon, authenticated`.
-   That order, or the scan page 400s.
-2. **Per-ฝ่าย WRITE scoping is unenforced** — the write policies check
-   `is_admin()`, not the department, so a scoped admin can still edit another
-   ฝ่าย's activity via DevTools. `passport.admin_covers_dept(dept, sub_dept)`
-   already exists for it. Pointless while the all-departments `1234` door is open,
-   so sequence it after retiring that door.
-
-### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
-**The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the
-shared account's role. `เจ้าหน้าที่คณะ` ≡ `sastaff`, `อาจารย์` ≡ `saprof`,
-`ผู้ส่งหนังสือ` ≡ `samomdkkuvpa`. **That is what ships** — `projectSeatRole()`
-maps the seat to the role string the module branches on, `current_user_project_seats()`
-carries it into RLS, and 0095 made the อาจารย์ seat see the same signature queue
-as `saprof` rather than a per-uid subset. A seat holder needs NO migration to do
-the job. Earlier notes framed this as a pending "migration", which overstated it.
-
-The ONE thing a grant cannot carry is per-user state, and neither piece affects
-access:
-- `project_doc_views` — which documents *you personally* have opened, i.e. the
-  "อัปเดต" badge. Live: `samomdkkuvpa` 28/28 docs, `sastaff` 25, `saprof` 11,
-  `phuriphat.ma` 22 (from the one handover already run).
-- `project_notifications` — historical bell rows addressed to the shared
-  account's uid. NEW notifications already reach seat holders (0091
-  `list_project_seat_users`).
-
-So `tools/proj-handover.mjs` is **optional badge parity**, worth running only
-when RETIRING a shared account and you want day-one badges to match it. Skip it
-and the first-run BASELINE marks everything seen — the sane default for someone
-joining today. `--sign-requests` is NOT needed for an อาจารย์ to see the queue
-(0095); run it only to re-attribute history away from `saprof`.
-Residual if you do run it: `getDocSeenAt()` falls back to a localStorage map when
-the server has no row, so a badge can look wrong on a device the target already
-browsed on — clear site data there.
-
-### 5. Inert columns from the reverted shop scope
-`team_nodes.shop_source`, `team_members.shop_source`,
-`users.managed_shop_sources` exist and NOTHING reads them (0094 reverted the
-feature). Drop statements are in 0094's header; after dropping, also strip them
-from `sync_my_team_permissions`, `recompute_team_managed_permissions`,
-`users_self_update_guard` and `current_user_has_any_grant`, which still name
-them. Left in place because dropping columns is destructive and was not asked
-for. **Do not re-add a SAMO Shop source scope without being asked** — it was
-declined because orders cannot be scoped (one order holds items from several
-sources), so a product-only scope isolates nothing.
-
-### 6. Watch-outs a future change must not break
-- **0095 tradeoff**: every อาจารย์ now sees every signature request. Correct for
-  one shared role; the day per-professor privacy is wanted the fix is the uid
-  check PLUS a "which professor am I" dimension — a plain revert re-empties the
-  seat.
-- **Never widen `current_user_is_staff()`** — `users_self_update_guard` trusts it
-  for privileged-column writes, so widening it lets any grantee self-promote to
-  `dev`. `tools/grant0093-reads.mjs` asserts this with a real attempt.
-- **`tools/vp-accounts.mjs`** still does a plain `.update({role})` and will hit
-  `users_self_update_guard` if re-run — port the select→delete→insert fallback
-  from `tools/president-account.mjs` first (see mistakes.md).
-
-### 7. Not started
-- ~~**Org-chart renderer**~~ **DONE 2026-07-30** — public `/team` page, migration
-  0103. Detail: `docs/state-archive/2026-07-30-passport-authz.md`.
-  **Live privacy constraint**: a member's name + photo go public as soon as their
-  ตำแหน่ง sits in a public subtree. `team_nodes.is_public` is the ONLY control —
-  there is no per-member opt-out. `get_public_org_chart()` remains the only
-  sanctioned publisher; a new `team_members` column is not published until it is
-  named in that function's jsonb.
-
-- **Notify follow-up (b)** from the notify_log entry in mistakes.md:
-  `waitUntil`-deliver + immediate 202, so delivery is decoupled from the client
-  connection. Changes the callGAS success-echo contract — do it together with
-  making `notify_log` the source of truth for failures.
-- Passport repo has untracked `AGENTS.md` + `.agents/` (not mine, left alone).
+Nothing is in flight. The backlog (with the reasoning behind each item) lives in
+**`docs/NEXT.md`**; the roles/permissions + member-photo design is a separate,
+fuller document at **`docs/TEAM-ROLES-AND-PHOTOS.md`** (written 2026-08-04,
+nothing built, and it ends with five decisions the user has to make).
 
 ## PR + VITALSOUND — stable, pruned to the archive
 
