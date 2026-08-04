@@ -142,24 +142,14 @@ wording, and a signed-in caller.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `28c757c`, **deployed 2026-08-01**, `buildId e74de393eebd`. Latest
-  change: the ทีม SAMO crop / modal-stacking / photo-lifecycle / ตรวจสอบข้อมูล
-  work + 0108. Verified in the SERVED bundles: `imgcrop-stage`,
-  `team-health-item`, `team-act-warn`, `team-count-warn`, `แสดงเฉพาะ` and
-  `ดูทั้งหมด` in `/assets/admin-*.js`; `team-health-focus` + `team-count-warn`
-  in `/assets/admin-*.css`; all four `data-team-mode` values
-  (`team|perms|years|health`) in `/admin/index.html`. `/`, `/admin/` 200;
-  `/notify` → `{"ok":true,...}`; `/passport/` 200, bare `/passport` 301, and the
-  extensionless `/passport/html/scan` deep link 200. GAS probe 7/7.
-  (BOTH apps' assets are served from `/assets/`, NOT `/admin/assets/` — a grep
-  against the latter 404s and silently "finds nothing", which reads exactly like
-  a failed deploy. **And the admin entry is split across TWO chunks**: `admin-*.js`
-  plus a shared `analytics-*.js` that carries `auth.js`, `uploads.js` and
-  `image-resize.js` — grepping only `admin-*.js` for `Team` / `image/webp`
-  reports a false MISSING.)
-  A VM/STATE mismatch of a few `docs(state):` commits is normal and does NOT mean a
-  deploy is pending — check `git diff --name-only <vm>..HEAD` for anything outside
-  `STATE.md` / `.claude/` / `docs/` / `tools/` first.
+- **samoweb**: `11302c4`, **deployed 2026-08-04**, `buildId 4f5bde67b666`.
+  Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
+  version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
+  the landing page. Verified against the SERVED artifacts: `/build.json` returns
+  `{"buildId":"4f5bde67b666","version":"4.4.0"}`, `/updates` → 200 carrying
+  `id="clList"` / `id="devActivity"` / `cl-hero-aurora`, and `IT SAMO` appears
+  twice in `/assets/public-*.js`. The 2026-08-01 ทีม SAMO deploy (`28c757c`,
+  `buildId e74de393eebd`) is included in this one.
 - **passport** (separate repo): code `b57eb1e` **deployed 2026-07-30** (pulled
   + built by `deploy.sh` alongside samoweb). Served bundles
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
