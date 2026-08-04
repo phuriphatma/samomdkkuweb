@@ -14,8 +14,8 @@ post-mortems: `.claude/rules/mistakes.md`.
 
 ## Release notes + versioning + the IT panel (2026-08-04 — SHIPPED to prod)
 
-**LIVE.** `main` at `141d67b`, pushed; tag `v4.4.0` pushed; KKU VM deployed and
-verified against the SERVED bundle (`buildId 4f5bde67b666`, `/build.json` now
+**LIVE.** `main` at `28fa020`, pushed; tag `v4.4.0` pushed; KKU VM deployed and
+verified against the SERVED bundle (`buildId 9f65ec53b172`, `/build.json` now
 reports `{"buildId":…,"version":"4.4.0"}`, `/updates` → 200). 265 tests green.
 
 **STILL NEVER RENDERED IN A BROWSER BY AN AGENT** — the Chrome extension was not
@@ -64,6 +64,13 @@ rectangle). If anything looks wrong on `/` or `/updates`, that is why.
   (Major/Minor/Patch) — "รุ่นใหญ่/รุ่นย่อย" is a translation nobody says.
   **I cannot reliably judge natural Thai — get the user to read new copy.**
   Every string I own is listed in the git log for this session's final commit.
+- **`npm run check:icons` is new — run it before using a Bootstrap icon.**
+  `bi-passport` / `bi-passport-fill` / `bi-envelope-arrow-up` were all added in
+  bootstrap-icons **1.11** and both entries pin **1.10.5**, so they rendered as
+  empty boxes — silently, for months, in the ทีม SAMO permission modal and the
+  profile "รอยืนยัน" badge. A missing glyph is not a 404 and not a console
+  error. Full write-up in `.claude/rules/mistakes.md`. Passport now uses a
+  plane, which is both correct and on-theme ("Life is a Journey").
 - **`SYSTEMS` dates are LAUNCH dates.** SAMO Passport was first dated 2026-07-22
   — the day its DATABASE merged into this project, which no student experienced.
   Its real launch is 2026-05-12, in its own repo
@@ -150,11 +157,11 @@ wording, and a signed-in caller.
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `11302c4`, **deployed 2026-08-04**, `buildId 4f5bde67b666`.
+- **samoweb**: `28fa020`, **deployed 2026-08-04**, `buildId 9f65ec53b172`.
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
   the landing page. Verified against the SERVED artifacts: `/build.json` returns
-  `{"buildId":"4f5bde67b666","version":"4.4.0"}`, `/updates` → 200 carrying
+  `{"buildId":"9f65ec53b172","version":"4.4.0"}`, `/updates` → 200 carrying
   `id="clList"` / `id="devActivity"` / `cl-hero-aurora`, and `IT SAMO` appears
   twice in `/assets/public-*.js`. The 2026-08-01 ทีม SAMO deploy (`28c757c`,
   `buildId e74de393eebd`) is included in this one.
