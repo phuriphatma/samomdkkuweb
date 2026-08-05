@@ -149,7 +149,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A self-update column guard must exempt the definer FUNCTION that writes on login
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(27 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(28 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -178,6 +178,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Bootstrap gives EVERY modal the same z-index
 - A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value
 - An indicator that links to a LIST moves the work instead of removing it — the click already said WHICH one, so carry it
+- State parked on a REUSED DOM element outlives the record it describes — a modal is filled again, the element is not
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(7 entries)*

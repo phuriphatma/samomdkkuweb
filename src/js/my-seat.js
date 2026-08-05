@@ -155,7 +155,10 @@ export const DETAIL_FIELDS = [
   { key: 'student_id', label: 'รหัสนักศึกษา', editable: true },
   { key: 'year', label: 'ชั้นปี', editable: true },
   { key: 'major', label: 'สาขา', editable: true },
-  { key: 'kkumail', label: 'KKU Mail', editable: false },
+  // `wide` puts a field on its own row. KKU Mail is ~3x the length of the
+  // others, so sharing a row with them squeezed it into a quarter of the card
+  // and it wrapped MID-ADDRESS ("phuriphat.ma@kkuma / il.com").
+  { key: 'kkumail', label: 'KKU Mail', editable: false, wide: true },
 ];
 
 /**
@@ -251,7 +254,7 @@ function postingHtml(p) {
 function detailsHtml(p) {
   const rows = DETAIL_FIELDS.map((f) => {
     const v = String(p[f.key] ?? '').trim();
-    return `<div class="myseat-detail${v ? '' : ' is-empty'}">
+    return `<div class="myseat-detail${v ? '' : ' is-empty'}${f.wide ? ' is-wide' : ''}">
       <dt>${escHtml(f.label)}</dt>
       <dd>${v ? escHtml(v) : '<span class="myseat-missing">ยังไม่ได้กรอก</span>'}</dd>
     </div>`;
@@ -274,9 +277,7 @@ function issuesHtml(issues, canFix) {
     <div class="myseat-block myseat-issues">
       <span class="myseat-label">ข้อมูลที่ควรแก้</span>
       <ul class="myseat-issue-list">${items}</ul>
-      ${canFix
-        ? '<button type="button" class="myseat-fix" data-myseat-edit>แก้ไขข้อมูลของฉัน</button>'
-        : '<p class="myseat-issue-hint">ติดต่อหัวหน้าฝ่ายหรือฝ่าย IT เพื่อแก้ไขข้อมูลนี้</p>'}
+      ${canFix ? '' : '<p class="myseat-issue-hint">ติดต่อหัวหน้าฝ่ายหรือฝ่าย IT เพื่อแก้ไขข้อมูลนี้</p>'}
     </div>`;
 }
 
@@ -351,6 +352,10 @@ export function renderMySeat(host, seat, opts = {}) {
       </div>
 
       ${detailsHtml(me)}
+      ${me.member_id ? `
+        <button type="button" class="myseat-fix myseat-fix--quiet" data-myseat-edit>
+          <i class="bi bi-pencil" aria-hidden="true"></i> แก้ไขข้อมูลของฉัน
+        </button>` : ''}
       ${editFormHtml(me)}
       ${issuesHtml(issues, !!me.member_id)}
 
@@ -367,9 +372,6 @@ export function renderMySeat(host, seat, opts = {}) {
           <dl class="myseat-scopes">${rows.map(([k, v]) => `
             <div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join('')}</dl>
         </div>` : ''}
-
-      ${!issues.length && me.member_id ? `
-        <button type="button" class="myseat-fix myseat-fix--quiet" data-myseat-edit>แก้ไขข้อมูลของฉัน</button>` : ''}
 
       ${cta ? `
         <a class="myseat-cta" href="${cta.href}">

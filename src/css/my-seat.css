@@ -180,12 +180,19 @@
 
 .myseat-details {
   margin: 0 0 0.5rem;
-  display: grid; gap: 0.3rem 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  /* Flex-wrap, NOT an auto-fit grid: equal 1fr columns spread four short
+   * fields across the full card width on a desktop, stranding "สาขา MD" at the
+   * far right away from everything it belongs with. Flex packs them left and
+   * wraps naturally. */
+  display: flex; flex-wrap: wrap;
+  gap: 0.35rem 1.75rem;
 }
 .myseat-detail { display: flex; gap: 0.4rem; font-size: 0.86rem; min-width: 0; }
+/* KKU Mail on its own row — it is roughly three times the length of the other
+ * values, and sharing a row squeezed it until it broke MID-ADDRESS. */
+.myseat-detail.is-wide { flex: 1 1 100%; }
 .myseat-detail dt { margin: 0; font-weight: 600; color: var(--ink-700); white-space: nowrap; }
-.myseat-detail dd { margin: 0; color: var(--ink-600); overflow-wrap: anywhere; }
+.myseat-detail dd { margin: 0; color: var(--ink-600); overflow-wrap: break-word; }
 .myseat-missing { color: var(--ink-400, #adb5bd); font-style: italic; }
 
 /* Findings. Amber rather than red: this is "please tidy this up", not an
@@ -205,7 +212,9 @@
 .myseat-issue-hint { margin: 0.5rem 0 0; font-size: 0.8rem; color: #7a5b00; }
 
 .myseat-fix {
-  margin-top: 0.55rem;
+  margin-top: 0.15rem;
+  margin-bottom: 0.6rem;
+  display: inline-flex; align-items: center; gap: 0.35rem;
   border: 1px solid var(--brand-primary);
   background: var(--brand-primary); color: #fff;
   border-radius: 999px;
@@ -226,6 +235,8 @@
 .myseat-fields {
   display: grid; gap: 0.5rem;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  /* Inputs stretched to ~1900px on a wide desktop read as a broken form. */
+  max-width: 46rem;
 }
 .myseat-field { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .myseat-field > span { font-size: 0.78rem; font-weight: 600; color: var(--ink-700); }
@@ -237,7 +248,7 @@
   min-width: 0;
 }
 .myseat-field input:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
-.myseat-field--locked { margin-top: 0.5rem; }
+.myseat-field--locked { margin-top: 0.5rem; max-width: 46rem; }
 .myseat-field--locked input { background: var(--ink-100, #f1f3f5); color: var(--ink-500); }
 
 .myseat-edit-actions {

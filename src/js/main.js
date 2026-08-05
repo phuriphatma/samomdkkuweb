@@ -383,6 +383,11 @@ document.addEventListener('shown.bs.tab', (e) => {
       // landed on v4.1.0). Only on a real path CHANGE: re-activating the tab
       // you are already on must not yank the reader back to the top, and the
       // article tab is excluded above because it manages its own deep links.
+      // BACK/FORWARD is unaffected and must stay that way — popstate updates
+      // location.pathname BEFORE applyPathRoute() activates the tab, so `want`
+      // already equals it and this whole block is skipped, leaving the
+      // browser's own scroll restoration to put the reader back where they
+      // were. Moving the scroll outside this guard would break that.
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
   }

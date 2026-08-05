@@ -767,3 +767,38 @@ flag map ("every flagged member is reachable from at least one finding").
 row through. And when two code paths derive "which records does this concern?",
 test them against each other — the failure mode is a screen confidently saying
 "nothing here", which reads as success.
+
+---
+
+## State parked on a REUSED DOM element outlives the record it describes — a modal is filled again, the element is not
+
+**Symptom** (found by a bug scan, but it had already SHIPPED): open a ตำแหน่ง
+holding the `master` grant in จัดการสิทธิ์, close it, then open an ordinary
+person. Their permission grid shows the FIRST row's permissions. The grid is
+what gets saved, so pressing บันทึก writes the second person a set of
+permissions they never had.
+**Cause**: `syncMasterVisibility()` needs to know whether master was on a moment
+ago, so that turning it OFF can restore the grant it overwrote when it force-
+ticked everything. It kept that memory on the grid element — an `is-master`
+class plus a `preMaster` dataset snapshot. That is fine WITHIN one row and
+wrong across rows: the modal is re-filled from the same DOM every time it opens,
+so the element outlives the record. On the second open the function read
+"master was on, now it is off" — a transition that never happened — and restored
+the first row's snapshot over the second row's real values.
+**The tell**: the value being remembered describes a ROW, but the place it is
+stored is scoped to the SCREEN. Any `dataset.*` / class flag used as memory has
+this hazard the moment its host is reused, and a modal, a table row template
+and a re-rendered list are all reused hosts.
+**Fix**: `resetMasterState(grid)` at the top of each fill path
+(`fillNodePermPane` / `fillMemberPermPane`), before the row's values are
+applied — so the grid can never carry one record's state into another. It must
+be in the FILL, not in the sync: the sync also runs on every `change` event,
+where the memory is exactly what is needed.
+**Where**: `src/js/team/index.js` `resetMasterState` / `syncMasterVisibility`.
+**Rules**: (1) when a DOM element stores state ABOUT a record, clear it where
+the element is re-pointed at a new record, not where the state is read.
+(2) Prefer deriving "what was it before?" from the record you are editing over
+remembering it in the DOM. (3) Reproduce this class by opening TWO different
+records in sequence — one open never shows it, and neither does a unit test that
+renders once. This one was caught by driving a real browser through
+open-A-then-open-B.

@@ -1465,6 +1465,23 @@ function syncMasterVisibility(grid) {
   grid.classList.toggle('is-master', on);
 }
 
+/**
+ * Forget everything the grid remembers about master, before painting a new row.
+ *
+ * `is-master` and `preMaster` live on the GRID ELEMENT, which outlives the row
+ * being edited — the modal is filled and re-filled from the same DOM. Without
+ * this, opening a master ตำแหน่ง and then an ordinary person made
+ * syncMasterVisibility see "master was on, now it is off" and RESTORE THE
+ * PREVIOUS ROW'S snapshot onto the new row. The grid is what gets saved, so
+ * that is not a display glitch: it would write permissions the second person
+ * never had. Reproduced in a headless browser before fixing.
+ */
+function resetMasterState(grid) {
+  if (!grid) return;
+  grid.classList.remove('is-master');
+  delete grid.dataset.preMaster;
+}
+
 /** Ask before handing over everything. Returns false if the admin backs out,
  *  in which case the checkbox is put back. */
 function confirmMaster(cb) {
@@ -1688,6 +1705,7 @@ function fillNodePermPane(id) {
   $('teamPermNodeId').value = id;
   $('teamPermNodeName').textContent = nodePath(id);
   const own = new Set(node.permissions || []);
+  resetMasterState($('teamPermGrid'));
   $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = permTicked(cb.value, own, node);
   });
@@ -1833,6 +1851,7 @@ function fillMemberPermPane(memberId) {
   $('teamMPermName').textContent = name;
   $('teamMPermNode').textContent = nodePath(m.node_id);
   const own = new Set(m.permissions || []);
+  resetMasterState($('teamMPermGrid'));
   $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = permTicked(cb.value, own, m);
   });

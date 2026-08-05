@@ -707,3 +707,42 @@
 }
 .team-perm-opt.is-implied { opacity: 0.55; }
 .team-perm-grid.is-master .team-perm-opt.is-implied { cursor: not-allowed; }
+
+/* Scroll chain for the TABBED entity modals (0110).
+ *
+ * `modal-dialog-scrollable` works by making .modal-body the flex child that
+ * gets the leftover height inside a fixed-height .modal-content. Bootstrap
+ * assumes .modal-body is a DIRECT child. Ours is three levels down
+ * (.tab-content > .tab-pane > form > .modal-body), so the chain broke: the body
+ * never received a constrained height, `overflow-y:auto` had nothing to scroll,
+ * and .modal-content's `overflow:hidden` simply CLIPPED the rest of the form —
+ * reported as "after i click on each person, i can't scroll down".
+ *
+ * Re-linking the chain: every element between the content and the body must be
+ * a flex container that is allowed to shrink. `min-height: 0` is the
+ * load-bearing part — a flex item defaults to `min-height:auto`, which refuses
+ * to shrink below its content and silently defeats the whole arrangement. */
+.modal-dialog-scrollable .modal-content > .tab-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.modal-dialog-scrollable .modal-content > .tab-content > .tab-pane.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modal-dialog-scrollable .modal-content > .tab-content > .tab-pane > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modal-dialog-scrollable .modal-content > .tab-content > .tab-pane > form > .modal-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
