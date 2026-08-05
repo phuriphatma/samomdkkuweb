@@ -10,7 +10,9 @@ article-cover fix and the earlier shipped list),
 `docs/state-archive/2026-07-30-pre-clear.md`; earlier narrative:
 `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
-post-mortems: `.claude/rules/mistakes.md`.
+post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
+— see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
+2026-08-05 and the archive file is gone).
 
 ## Org chart collapse + "ตำแหน่งของฉัน" (2026-08-05 — SHIPPED to prod)
 
@@ -303,35 +305,46 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
 - Retention jobs NOT scheduled (`prune_analytics`, `prune_notify_log`) — run manually
   if tables grow.
 
-## Housekeeping
+## Housekeeping — the memory system (2026-08-05, RESTRUCTURED)
 
-- **`.claude/rules/mistakes.md` pruned (2026-07-30): 2340 → ~2040 lines, 74 → 58
-  entries.** 16 STABLE + NICHE entries moved to `.claude/rules/mistakes-archive.md`
-  (17 → 33 entries) — settled auth/signup config facts, one-off SQL gotchas, and
-  UI quirks whose code path no longer changes. Nothing deleted. Two additions
-  make the split safe to rely on:
-  - the hot file's header now names the **five recurring classes** (per-row
-    UPDATE ≠ column policy · unknown-reference fails open · scoped-is-not-full ·
-    read authorization is per-path · mirrors drift) as a read-these-first list;
-  - it carries a **by-area index of what is in the archive**, so a symptom whose
-    entry moved is still greppable from the hot file. Keep that index in step
-    when you move the next entry.
-  Still ~2040 lines: the remaining bulk is entry VERBOSITY, not entry count, and
-  every kept entry is either one of the five classes or on the auth/db hot path.
-  Trimming prose is the next lever if it needs to shrink again.
+**The old prune-and-archive loop is retired. Do not re-create
+`.claude/rules/mistakes-archive.md`.**
 
-- **STATE.md is ~407 lines against CLAUDE.md's ~200 budget**, and `mistakes.md` is
-  back to ~2240 after four new entries this session. Both grew because the session
-  shipped a lot; both have been pruned once already. The next prune should move
-  COMPLETED NEXT items to `docs/state-archive/` (that is what happened to the
-  passport + org-chart narratives at the end of this session) and leave NEXT as
-  only what is genuinely un-started. The
-  2026-07-29 scan narrative moved to
-  `docs/state-archive/2026-07-29-pre-clear-scan.md` and the VS browser-verified
-  checklist is now a pointer (it was duplicated verbatim in the 07-29 archive).
-  It does not get much shorter without gutting `NEXT`, which is 140 of those
-  lines and is the actual handover. Prune `NEXT` items as they are COMPLETED,
-  not to hit the number.
+Everything in `.claude/rules/` plus `CLAUDE.md` is injected into EVERY agent
+session. That had reached **251k chars ≈ 63k tokens — a quarter of the context
+window, spent before the user types anything** — because 118 full write-ups
+lived there. The archive file did not help: it is in the same auto-loaded
+directory, so it loaded too. It had been split along a *budget* axis
+("stable/niche") rather than a *topic* axis, which also made it useless for
+retrieval.
+
+Now **26k chars ≈ 6.5k tokens** (a 90% cut), split by what each layer is for:
+
+| | where | loaded |
+|---|---|---|
+| recurring **classes** (now seven) + a 1-line index of all 117 entries | `.claude/rules/mistakes.md` | every session |
+| the 117 **write-ups**, nine files by area | `docs/mistakes/*.md` | on demand |
+
+- **The index is GENERATED** — `npm run mistakes:index` rebuilds it from the
+  `## ` headings in `docs/mistakes/`. Never hand-edit it; if a line reads badly,
+  fix the heading. The previous hand-written "what's in the archive" blurb had
+  already rotted, which is why this one is mechanical.
+- **The budget is ENFORCED** — `npm run check:context` fails when an
+  auto-loaded file exceeds its cap or a new undeclared `.md` appears in
+  `.claude/rules/`. `npm test` runs it (`tools/memory-system.test.js`, 10
+  tests: budget, index freshness, no duplicate entry across the nine files, no
+  write-up shape back in the hot file). All three guards were verified to FAIL
+  when deliberately broken, per class 7.
+- **When a file breaches its budget, move detail into `docs/`. Never raise the
+  cap.** That is the lever the old loop reached for and it is what got us here.
+- `AGENTS.md` was a stale copy of `CLAUDE.md` naming a `.Codex/rules/`
+  directory that has never existed (and pages.dev as prod). Collapsed to a
+  pointer — one router, no mirror.
+
+- **STATE.md is ~350 lines against CLAUDE.md's ~200 budget.** Prune by moving
+  COMPLETED items to `docs/state-archive/`, and leave `NEXT` as only what is
+  genuinely un-started. `NEXT` is the actual handover — prune it as items are
+  completed, not to hit the number.
 
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
 - CI = Node 22 (supabase-js WebSocket). `npm run build && npm test` before every

@@ -71,11 +71,11 @@ Ping Phuri / open a PR with `@phuriphatma` review request before merging:
 
 | Zone | Why |
 |---|---|
-| `src/js/auth.js` | Supabase auth has known sharp edges — see `.claude/rules/mistakes.md` |
+| `src/js/auth.js` | Supabase auth has known sharp edges — see `docs/mistakes/supabase-client.md` |
 | `src/js/db.js` | Client config + `dbRest` helper, load-bearing |
 | `src/js/notify.js` | Discord proxy — wrong here = silent prod outage |
 | `src/js/uploads.js` | Drive upload contract with GAS |
-| Any new `db.from().update/delete/insert(...)` | Use `dbRest()` with `prefer:'return=representation'` instead — see `mistakes.md` |
+| Any new `db.from().update/delete/insert(...)` | Use `dbRest()` with `prefer:'return=representation'` instead — see `docs/mistakes/supabase-client.md` |
 | Any new `innerHTML` with user-supplied text | Run it through `escHtml()` from `utils.js` first (XSS risk) |
 | `supabase/migrations/*.sql` | Schema = source of truth for the live DB |
 | `appscript/*.gs` | Discord webhook URLs live here; redeploys affect prod immediately |
@@ -98,8 +98,9 @@ test data sitting in the kanban.
 
 ## Hard "don'ts"
 
-These all come from real bugs already paid for. Read `.claude/rules/mistakes.md`
-for the full list and the *why*. Highlights:
+These all come from real bugs already paid for. The write-ups are in
+`docs/mistakes/*.md` (`grep -rin "<symptom>" docs/mistakes/`); the index and the
+recurring classes are in `.claude/rules/mistakes.md`. Highlights:
 
 1. **Don't put async supabase calls inside `db.auth.onAuthStateChange`** —
    it deadlocks every subsequent supabase call. Wrap the body in
@@ -144,7 +145,9 @@ for the value) — visual review on the preview deploy covers that.
 - **`docs/CONTEXT.md`** — architecture, schema, RLS policies, deploy plumbing
 - **`docs/MERGE-CHECKLIST.md`** — steps to follow when merging `refactor/modular` → `main`
 - **`docs/PROJECT-ARCHITECTURE.md`** — proposed (deferred) multi-project engine design
-- **`.claude/rules/mistakes.md`** — every bug we've already fixed, with the *why*
+- **`docs/mistakes/*.md`** — every bug we've already fixed, with the *why*.
+  Nine files by area; `.claude/rules/mistakes.md` indexes them and states the
+  recurring classes
 
 ## Need help?
 

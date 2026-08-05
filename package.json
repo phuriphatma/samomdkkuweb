@@ -11,7 +11,9 @@
     "deploy:gas": "node tools/deploy-gas.mjs",
     "gen:activity": "node tools/gen-dev-activity.mjs",
     "release": "node tools/release.mjs",
-    "check:icons": "node tools/check-icons.mjs"
+    "check:icons": "node tools/check-icons.mjs",
+    "check:context": "node tools/check-context-budget.mjs",
+    "mistakes:index": "node tools/mistakes-index.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

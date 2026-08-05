@@ -912,7 +912,7 @@ There is no state framework. Pattern:
   check, otherwise the kanban will reset on every token refresh.
 - **Form state** lives in the DOM (`<input>` `.value`). Hidden inputs are
   re-populated from `authGetUser()` after every `form.reset()` because
-  reset clears them too (see mistakes-archive.md).
+  reset clears them too (see `docs/mistakes/frontend-ui.md`).
 - **Tab state** is Bootstrap's. We listen for `shown.bs.tab` to close
   parent dropdowns that Bootstrap left open.
 - **Server state** is fetched on-demand per panel. No client cache. The

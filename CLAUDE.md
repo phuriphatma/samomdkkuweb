@@ -57,8 +57,22 @@ npm run preview      # serve dist locally on :4173
 - **Density**: tight spacing on mobile, generous on desktop. Use Bootstrap utility classes.
 - **No emojis in UI text** unless the user explicitly asks.
 
-## Read these on demand (not auto-loaded)
+## Memory layout — what loads, what you fetch
 
+**Auto-loaded into every session** (`CLAUDE.md` + everything in
+`.claude/rules/`): this file, `.claude/rules/mistakes.md` (recurring bug
+CLASSES + a one-line index of all 117 write-ups), `.claude/rules/security.md`
+(key hygiene). Budget ~26k chars total, enforced by `npm run check:context`,
+which `npm test` runs. **Never put a bug write-up, a session narrative, or
+anything long in `.claude/rules/` — it is charged to every future session.**
+
+**Read on demand** — everything below. Fetch the one you need; don't preload.
+
+- `docs/mistakes/*.md` — the 117 bug write-ups, nine files by area. The index
+  in `.claude/rules/mistakes.md` says which file; `grep -rin "<symptom>"
+  docs/mistakes/` is usually faster. **Read the matching file BEFORE touching
+  `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
+  SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
 - `STATE.md` — current task / open issues / latest deploy
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
 - `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
@@ -69,19 +83,20 @@ npm run preview      # serve dist locally on :4173
   version or adding a release note; `npm run release` does the mechanical half.
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
-- `.claude/rules/mistakes.md` — hard-learned anti-patterns (READ before touching auth/network code)
-- `.claude/rules/security.md` — API key hygiene
 - `skills/*.md` — playbooks for the non-obvious workflows
-
-When working in `src/js/auth.js` or `src/js/db.js` — ALWAYS read
-`.claude/rules/mistakes.md` first. Those modules carry sharp edges.
 
 ## End-of-turn loop (MANDATORY)
 
 Before sending the final response on any task that modified files:
 
 1. **Update `STATE.md`** — only if real state changed (branch HEAD, pending migrations, in-flight work, blocking issues). Do NOT append a session narrative — `git log` is the archive. Keep STATE.md under ~200 lines; if it bloats, prune past-session sections to `docs/state-archive/YYYY-MM-DD.md` and trust `git log --oneline` for the chronology.
-2. **If a new bug class was discovered**: append to `.claude/rules/mistakes.md`.
+2. **If a bug was found and fixed**: write it up in the matching
+   `docs/mistakes/*.md` (**Symptom → Cause → Fix → Where it lives now**, ending
+   with the general rule; lead with the symptom AS REPORTED — that is what the
+   next reader greps for), then run `npm run mistakes:index`. If it is a new
+   instance of one of the seven classes, add the site to that class's list in
+   `.claude/rules/mistakes.md`. Prefer a guard test over a paragraph: this repo
+   has learned that writing a hazard down does not make anyone check it.
 3. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
 4. **Documentation (conditional — only if any of these are true):**
    - User-visible feature added or removed → update the "Key features" list in `README.md`.

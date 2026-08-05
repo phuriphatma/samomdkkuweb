@@ -212,7 +212,7 @@ Short version:
 3. Functions wired into HTML attributes (e.g. `onclick="..."`) must be
    exposed on `window` from `src/js/main.js`.
 4. Before touching `src/js/auth.js` or `src/js/db.js`, read
-   `.claude/rules/mistakes.md` first — those modules carry hard-won
+   `docs/mistakes/supabase-client.md` first — those modules carry hard-won
    workarounds.
 
 ## Where to look next
@@ -223,7 +223,8 @@ Short version:
 - **Architecture + schema + deploy:** `docs/CONTEXT.md`
 - **Migration history & open phases:** `docs/SUPABASE-MIGRATION.md`
 - **Merge protocol (refactor → main):** `docs/MERGE-CHECKLIST.md`
-- **Anti-patterns (READ before touching auth/network):** `.claude/rules/mistakes.md`
+- **Anti-patterns (READ before touching auth/network/RLS):** `docs/mistakes/*.md`
+  — 117 write-ups in nine files by area; the index is `.claude/rules/mistakes.md`
 - **Procedure playbooks:** `skills/*.md`
 
 ## License
