@@ -3,24 +3,36 @@
 //
 // Kept side-effect-free so they're unit-testable; index.js orchestrates the
 // actual create calls + dedupe against the live model. Tolerant on input:
-// trims/collapses whitespace, normalizes ชั้นปี to a bare number, and accepts
-// loose `confirmed` spellings (true/TRU/yes/ใช่/เข้าแล้ว…) — flagging only
-// genuinely unrecognized values so the caller can warn.
+// trims/collapses whitespace, canonicalises รหัสนักศึกษา / ชั้นปี / สาขา through
+// ./fields.js, and accepts loose `confirmed` spellings
+// (true/TRU/yes/ใช่/เข้าแล้ว…) — flagging only genuinely unrecognized values so
+// the caller can warn.
+//
+// `prefix` (คำนำหน้า) was a column here until migration 0113 dropped it. A CSV
+// that still carries the header simply has it ignored, like any other unknown
+// column — an old export must not fail to import.
 // ==============================================
+import {
+  normalizeStudentId, normalizeMajor, normalizeYear as normalizeYearField,
+} from './fields.js';
 
 export const CSV_COLUMNS = [
-  'path', 'prefix', 'full_name', 'nickname', 'student_id', 'year', 'major', 'kkumail', 'confirmed',
+  'path', 'full_name', 'nickname', 'student_id', 'year', 'major', 'kkumail', 'confirmed',
 ];
 
 export const PATH_SEP = ' / ';
 
 // ---- normalization ----
 
-/** ชั้นปี → bare number string. "ปี 5" → "5", "5" → "5", "ปีที่ 3" → "3". */
+/** ชั้นปี → bare number string. "ปี 5" → "5", "5" → "5", "ปีที่ 3" → "3".
+ *  Delegates to ./fields.js — this used to be its own `match(/\d+/)`, i.e. the
+ *  same rule implemented twice, which is the class this repo pays for most
+ *  often. The wrapper keeps io.js's simpler "value or null" signature for its
+ *  existing callers. */
 export function normalizeYear(v) {
-  const m = String(v ?? '').match(/\d+/);
-  return m ? m[0] : null;
+  return normalizeYearField(v).value;
 }
+export { normalizeStudentId, normalizeMajor };
 
 /** Loose truthiness for the confirm column. Returns { value, recognized } so
  *  callers can warn on genuinely ambiguous input (e.g. "maybe"). */
@@ -85,7 +97,7 @@ export function buildExportJson(nodes, members) {
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
-      prefix: m.prefix || null, full_name: m.full_name, nickname: m.nickname || null,
+      full_name: m.full_name, nickname: m.nickname || null,
       student_id: m.student_id || null, year: m.year || null, major: m.major || null,
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
       photo_url: m.photo_url || null,
@@ -125,7 +137,7 @@ function csvCell(v) {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** rows: [{ path, prefix, full_name, ... }] */
+/** rows: [{ path, full_name, ... }] */
 export function buildMembersCsv(rows) {
   const lines = [CSV_COLUMNS.join(',')];
   for (const r of rows) {
@@ -161,7 +173,7 @@ export function parseCsv(text) {
  *  Tolerates Thai header aliases, column reordering, stray whitespace. Each
  *  row carries `confirmedRecognized` so the caller can warn on ambiguous
  *  confirm values. Rows without a full_name are dropped. */
-export function parseMembersCsv(text) {
+export function parseMembersCsv(text, knownMajors = []) {
   const rows = parseCsv(text);
   if (!rows.length) return [];
   const header = rows[0].map((h) => normHeader(h));
@@ -172,13 +184,22 @@ export function parseMembersCsv(text) {
     o.confirmed = c.value;
     o.confirmedRecognized = c.recognized;
     o.year = normalizeYear(o.year);
+    // Canonicalise the two free-text identity fields on the way in, so an
+    // import cannot be the thing that reintroduces `md` next to `MD`. Unreadable
+    // values are KEPT (never blanked) and reported, so a spreadsheet full of
+    // `ปี5` lands clean while a genuine oddity stays visible.
+    const sid = normalizeStudentId(o.student_id);
+    o.student_id = sid.value;
+    o.studentIdRecognized = sid.ok;
+    const mj = normalizeMajor(o.major, knownMajors);
+    o.major = mj.value;
+    o.majorRecognized = mj.ok;
     return o;
   }).filter((o) => o.full_name);
 }
 
 const HEADER_ALIASES = {
   path: ['path', 'ตำแหน่ง', 'สังกัด', 'ฝ่าย', 'role', 'สายงาน'],
-  prefix: ['prefix', 'คำนำหน้า'],
   full_name: ['full_name', 'fullname', 'name', 'ชื่อ-สกุล', 'ชื่อสกุล', 'ชื่อ'],
   nickname: ['nickname', 'ชื่อเล่น'],
   student_id: ['student_id', 'studentid', 'รหัสนักศึกษา', 'รหัส'],

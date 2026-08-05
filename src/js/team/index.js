@@ -14,7 +14,7 @@
 
 import {
   PERM_CATALOG, PERM_LABEL, VS_DEPTS, VS_DEPT_LABEL,
-  PROJECT_SEATS, PROJECT_SEAT_LABEL,
+  PROJECT_SEATS, PROJECT_SEAT_LABEL, IMPLICIT_PERMS,
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
@@ -24,8 +24,18 @@ import {
   fetchTree, createNode, updateNode, deleteNode,
   createMember, updateMember, deleteMember,
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
+  fetchMajors, createMajor, updateMajor, deleteMajor,
+  countMembersWithMajor, renameMajorOnMembers,
 } from './api.js';
-import { userCanAccess } from '../auth.js';
+// The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
+// shared with the CSV importer and the public ตำแหน่งของฉัน card.
+import {
+  normalizeIdentityFields, majorKey, YEARS, SID_HINT,
+} from './fields.js';
+import { userCanAccess, getUser } from '../auth.js';
+// The ONE ตำแหน่งของฉัน card. /admin/ shows the same component the public home
+// page does — see enterMySeatPane().
+import { loadMySeat, renderMySeat } from '../my-seat.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
@@ -74,8 +84,17 @@ let healthNodeCounts = new Map();
 // control (the crop dialog replaced it) — carried so saving an unrelated field
 // preserves a legacy row's 'top'/'bottom', and reset to 'center' on re-upload.
 let memberPhotoFocus = 'center';
+// The สาขา vocabulary (migration 0113). Loaded once per session, kept here so
+// every chooser and every normalise call reads the SAME list — a select filled
+// from a stale copy would offer a code the validator then rejects.
+let majors = [];
 
 const $ = (id) => document.getElementById(id);
+
+/** The vocabulary as plain codes, for fields.js normalisation. */
+function majorCodes() {
+  return majors.map((m) => m.code);
+}
 
 // ============================================================
 // DATA / INDEXES
@@ -225,6 +244,7 @@ export function initTeam() {
   wireModalSave();
   wireTreeDelegation();
   wireIO();
+  wireMajors();
   initTerms(document.getElementById('teamTermsPane'), {
     onChange: (year) => { currentTermYear = year; },
   });
@@ -403,10 +423,12 @@ function render() {
   // inside the node list.
   const isYears = mode === 'years';
   const isHealth = mode === 'health';
-  const isPane = isYears || isHealth;
+  const isMe = mode === 'me';
+  const isPane = isYears || isHealth || isMe;
   tree.classList.toggle('d-none', isPane);
   $('teamTermsPane')?.classList.toggle('d-none', !isYears);
   $('teamHealthPane')?.classList.toggle('d-none', !isHealth);
+  $('teamMePane')?.classList.toggle('d-none', !isMe);
   document.querySelector('.team-toolbar')?.classList.toggle('d-none', isPane);
   // BEFORE the tree paints — renderMember reads healthFlags.
   refreshHealthFlags();
@@ -427,6 +449,9 @@ function render() {
     // Same for ตรวจสอบข้อมูล: health.js holds half-typed emails and รหัสนักศึกษา
     // in its inputs, and a remote tree edit rebuilding that pane would throw
     // them away. It repaints after its own writes.
+    //
+    // And the same, most sharply, for ข้อมูลของฉัน: its form is the person's own
+    // half-typed record. showMySeat() runs from switchMode/enterTeam only.
     return;
   }
 
@@ -587,7 +612,7 @@ function renderMember(m, filter) {
   li.className = 'team-member' + (selectionMode && selectedMembers.has(m.id) ? ' is-selected' : '');
   li.dataset.memberId = m.id;
   li.dataset.nodeId = m.node_id;
-  const name = `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`;
+  const name = m.full_name || '';
   const nameHtml = filter ? highlight(name, filter.q) : escHtml(name);
   const nick = m.nickname ? (filter ? highlight(m.nickname, filter.q) : escHtml(m.nickname)) : '';
   const mailHtml = m.kkumail ? (filter ? highlight(m.kkumail, filter.q) : escHtml(m.kkumail)) : '';
@@ -703,7 +728,7 @@ function computeFilter(qRaw) {
   // mode where you most need to find a specific individual.
   for (const arr of membersByNode.values()) {
     for (const m of arr) {
-      const hay = `${m.prefix || ''} ${m.full_name} ${m.nickname || ''} ${m.student_id || ''} ${m.major || ''} ${m.kkumail || ''}`.toLowerCase();
+      const hay = `${m.full_name} ${m.nickname || ''} ${m.student_id || ''} ${m.major || ''} ${m.kkumail || ''}`.toLowerCase();
       if (hay.includes(q)) { memberIds.add(m.id); markUp(m.node_id); }
     }
   }
@@ -979,6 +1004,26 @@ function switchMode(m) {
   render();
   if (mode === 'years') enterTerms();
   if (mode === 'health') enterHealth();
+  if (mode === 'me') enterMySeatPane();
+}
+
+/**
+ * Paint the shared ตำแหน่งของฉัน card into the admin pane.
+ *
+ * Deliberately thin: everything about the card — its markup, the findings, the
+ * self-edit round trip, the photo upload — lives in ../my-seat.js and is the
+ * same code the public home page runs. A second implementation here is exactly
+ * what this repo means by "two implementations of one rule drift"; the only
+ * thing this function decides is where it goes.
+ */
+async function enterMySeatPane() {
+  const host = $('teamMySeat');
+  const empty = $('teamMeEmpty');
+  if (!host) return;
+  const uid = getUser()?.id || null;
+  const seat = uid ? await loadMySeat(uid) : null;
+  empty?.classList.toggle('d-none', !!seat);
+  renderMySeat(host, seat, { compact: true });
 }
 
 /** Every member id at or below a ตำแหน่ง. Used so the rolled-up count on a
@@ -1300,7 +1345,7 @@ function openMoveMember(id) {
   if (!m) return;
   openPicker({
     title: 'ย้ายสมาชิกไปตำแหน่ง',
-    what: `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`,
+    what: m.full_name || '',
     currentId: m.node_id,
     onPick: (target) => { if (target) moveMemberTo(id, target); },
   });
@@ -1412,13 +1457,27 @@ async function bulkDelete() {
 // PERMISSION MODAL (perms mode)
 // ============================================================
 
-/** Paint the perm checkbox grid into a container. */
+/** Paint the perm checkbox grid into a container.
+ *
+ *  An `implicit` key (today only `team` — ทีม SAMO ดู) renders ticked, disabled
+ *  and with a padlock: the server grants it to everyone in the tree, so a live
+ *  checkbox there would be a control that silently does nothing. The reason is
+ *  in the hint AND on the row, because a disabled tick with no explanation reads
+ *  as a bug. `readPermInputs` drops these keys on the way out. */
 function fillPermGrid(grid) {
   if (!grid) return;
-  grid.innerHTML = PERM_CATALOG.map((p) => `
-    <label class="team-perm-opt${p.danger ? ' is-danger' : ''}"${p.hint ? ` title="${escHtml(p.hint)}"` : ''}>
-      <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
-    </label>`).join('');
+  grid.innerHTML = PERM_CATALOG.map((p) => {
+    const cls = ['team-perm-opt'];
+    if (p.danger) cls.push('is-danger');
+    if (p.implicit) cls.push('is-auto');
+    return `
+    <label class="${cls.join(' ')}"${p.hint ? ` title="${escHtml(p.hint)}"` : ''}>
+      <input type="checkbox" value="${p.key}"${p.implicit ? ' checked disabled' : ''} />
+      <span>${escHtml(p.label)}</span>
+      ${p.implicit ? '<i class="bi bi-lock-fill team-perm-lock" aria-hidden="true"></i>'
+    + '<span class="team-perm-auto-note">อัตโนมัติ</span>' : ''}
+    </label>`;
+  }).join('');
 }
 
 /**
@@ -1589,7 +1648,14 @@ function syncSeatVisibility(grid, wrap) {
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
 function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
-  const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
+  const perms = [...(grid?.querySelectorAll('input:checked') || [])]
+    .map((cb) => cb.value)
+    // Never store an implicit key. `input:checked` matches a DISABLED box too,
+    // so the locked ทีม SAMO (ดู) tick would otherwise be written onto every row
+    // the modal saves — making an implicit grant look like an explicit one that
+    // someone could later untick, which is the 0083 "scope stored beside the
+    // blanket key" trap. The resolver adds it; the row must not claim it.
+    .filter((k) => !IMPLICIT_PERMS.includes(k));
   // `master` subsumes everything, so store it ALONE. Writing the implied keys
   // alongside it would make them look like independent grants that could be
   // unticked — the same trap as storing `vs` next to a vs_dept (0083) — and
@@ -1689,6 +1755,11 @@ function wirePermModal() {
  *  Miss this and re-opening the modal reads as "no grant", and the next save
  *  silently wipes the binding. */
 export function permTicked(key, own, row) {
+  // An implicit key is always on — the server grants it regardless of what the
+  // row stores, and the box is disabled. Without this, re-filling the modal from
+  // a row that (correctly) does not store `team` would UNTICK the locked box and
+  // the pane would claim the person has no view access.
+  if (IMPLICIT_PERMS.includes(key)) return true;
   if (key === 'vs') return own.has('vs') || !!row?.vs_dept;
   if (key === 'passport') {
     return own.has('passport')
@@ -1788,13 +1859,200 @@ async function onPermSubmit(e) {
 }
 
 // ============================================================
+// สาขา VOCABULARY (migration 0113)
+//
+// Free-text สาขา produced `MD`, `md` and `M.D.` for one answer, which the
+// ตรวจสอบข้อมูล pane then reported as a `drift` finding about nothing. The
+// choosers below are filled from `team_majors`, and this is the CRUD the user
+// asked for ("add, edit, remove สาขา names").
+//
+// THE ONE THING TO KNOW BEFORE EDITING: the list is a VOCABULARY, not a foreign
+// key — `team_members.major` is still plain text. So REMOVE only shrinks the
+// picker (every person keeps the value they had, and the pane will report it as
+// off-list), while RENAME is a real data edit and backfills the people who carry
+// the old code. Both say how many rows they touch before doing it.
+// ============================================================
+
+async function loadMajors(force = false) {
+  if (majors.length && !force) return majors;
+  try {
+    majors = await fetchMajors();
+  } catch (e) {
+    console.warn('[team] majors load failed:', e?.message || e);
+  }
+  return majors;
+}
+
+/** Fill a สาขา select. `current` is kept as an extra option when it is not in
+ *  the vocabulary — the alternative is a select that silently REWRITES an
+ *  off-list value the moment someone saves an unrelated field on that row. */
+function fillMajorSelect(sel, current) {
+  if (!sel) return;
+  const cur = String(current ?? '').trim();
+  const known = majors.some((m) => majorKey(m.code) === majorKey(cur));
+  sel.innerHTML = '<option value="">— ไม่ระบุ —</option>'
+    + majors.map((m) => `<option value="${escHtml(m.code)}">${escHtml(m.code)}${
+      m.label ? ` — ${escHtml(m.label)}` : ''}</option>`).join('')
+    + (cur && !known
+      ? `<option value="${escHtml(cur)}">${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
+  sel.value = cur;
+}
+
+/** Fill a ชั้นปี select the same way, from fields.js YEARS. */
+function fillYearSelect(sel, current) {
+  if (!sel) return;
+  const cur = String(current ?? '').trim();
+  const known = YEARS.includes(cur);
+  sel.innerHTML = '<option value="">— ไม่ระบุ —</option>'
+    + YEARS.map((y) => `<option value="${y}">ปี ${y}</option>`).join('')
+    + (cur && !known
+      ? `<option value="${escHtml(cur)}">${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
+  sel.value = cur;
+}
+
+function wireMajors() {
+  $('teamMemberMajorsManage')?.addEventListener('click', openMajorsModal);
+  $('teamMajorsAdd')?.addEventListener('submit', onMajorAdd);
+  $('teamMajorsList')?.addEventListener('click', onMajorsListClick);
+}
+
+async function openMajorsModal() {
+  await loadMajors(true);
+  await renderMajorsList();
+  // Stacks ON TOP of the member editor (same as the picker and the crop dialog),
+  // so getOrCreateInstance — a fresh bootstrap.Modal on an already-open modal
+  // leaves a backdrop nothing clears (mistakes log).
+  modalInstance('teamMajorsModal')?.show();
+}
+
+/** The list, with a live count of how many people carry each code — that count
+ *  is the whole reason this pane is safe to use: it turns "remove RT" from a
+ *  guess into "remove RT, which 19 people still have". */
+async function renderMajorsList() {
+  const host = $('teamMajorsList');
+  if (!host) return;
+  host.innerHTML = '<div class="text-muted small">กำลังนับจำนวนสมาชิก…</div>';
+  const counts = new Map();
+  await Promise.all(majors.map(async (m) => {
+    try { counts.set(m.id, await countMembersWithMajor(m.code)); } catch { counts.set(m.id, null); }
+  }));
+  if (!majors.length) {
+    host.innerHTML = '<div class="text-muted small">ยังไม่มีสาขาในรายการ</div>';
+    return;
+  }
+  host.innerHTML = majors.map((m) => {
+    const n = counts.get(m.id);
+    return `
+    <div class="team-major-row" data-major-id="${escHtml(m.id)}">
+      <div class="team-major-main">
+        <span class="team-major-code">${escHtml(m.code)}</span>
+        ${m.label ? `<span class="team-major-label">${escHtml(m.label)}</span>` : ''}
+      </div>
+      <span class="team-major-count">${n == null ? '—' : `${n} คน`}</span>
+      <button type="button" class="team-act" data-major-act="rename" title="เปลี่ยนชื่อ">
+        <i class="bi bi-pencil"></i></button>
+      <button type="button" class="team-act team-act-danger" data-major-act="delete" title="ลบออกจากรายการ">
+        <i class="bi bi-trash"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function onMajorAdd(e) {
+  e.preventDefault();
+  const codeEl = $('teamMajorsNewCode');
+  const labelEl = $('teamMajorsNewLabel');
+  const code = codeEl.value.trim();
+  if (!code) { codeEl.focus(); return; }
+  if (majors.some((m) => majorKey(m.code) === majorKey(code))) {
+    alert(`“${code}” อยู่ในรายการแล้ว`);
+    return;
+  }
+  try {
+    await createMajor({
+      code, label: labelEl.value.trim() || null,
+      position: (majors[majors.length - 1]?.position ?? 0) + 1,
+    });
+    codeEl.value = '';
+    labelEl.value = '';
+    await loadMajors(true);
+    await renderMajorsList();
+    refreshMajorPickers();
+  } catch (err) { alert(err?.message || 'เพิ่มสาขาไม่สำเร็จ'); }
+}
+
+async function onMajorsListClick(e) {
+  const btn = e.target.closest('[data-major-act]');
+  if (!btn) return;
+  const id = btn.closest('[data-major-id]')?.dataset.majorId;
+  const m = majors.find((x) => x.id === id);
+  if (!m) return;
+  if (btn.dataset.majorAct === 'rename') await renameMajor(m);
+  else await removeMajor(m);
+}
+
+async function renameMajor(m) {
+  const next = prompt(`เปลี่ยนชื่อสาขา “${m.code}” เป็น`, m.code);
+  if (next == null) return;
+  const code = next.trim();
+  if (!code || code === m.code) return;
+  if (majors.some((x) => x.id !== m.id && majorKey(x.code) === majorKey(code))) {
+    alert(`“${code}” อยู่ในรายการแล้ว`);
+    return;
+  }
+  let n = 0;
+  try { n = await countMembersWithMajor(m.code); } catch { /* shown as unknown below */ }
+  if (!confirm(`เปลี่ยน “${m.code}” เป็น “${code}”\n\n`
+    + `จะแก้ข้อมูลสาขาของสมาชิก ${n} คนด้วย`)) return;
+  try {
+    // The PEOPLE first. If the vocabulary row were renamed first and this failed,
+    // the list would say `code` while 348 rows still said `m.code` — i.e. every
+    // one of them would read as "off-list" until someone noticed.
+    await renameMajorOnMembers(m.code, code);
+    await updateMajor(m.id, { code });
+    await loadMajors(true);
+    await renderMajorsList();
+    refreshMajorPickers();
+    reload();
+  } catch (err) { alert(err?.message || 'เปลี่ยนชื่อไม่สำเร็จ'); }
+}
+
+async function removeMajor(m) {
+  let n = 0;
+  try { n = await countMembersWithMajor(m.code); } catch { /* shown as unknown below */ }
+  const warn = n
+    ? `\n\nสมาชิก ${n} คนยังมีสาขา “${m.code}” อยู่ — ข้อมูลของพวกเขาจะไม่เปลี่ยน `
+      + 'แต่จะขึ้นว่า “ไม่อยู่ในรายการ” จนกว่าจะแก้ให้เป็นสาขาอื่น'
+    : '';
+  if (!confirm(`ลบ “${m.code}” ออกจากรายการสาขา?${warn}`)) return;
+  try {
+    await deleteMajor(m.id);
+    await loadMajors(true);
+    await renderMajorsList();
+    refreshMajorPickers();
+  } catch (err) { alert(err?.message || 'ลบไม่สำเร็จ'); }
+}
+
+/** Repaint any สาขา chooser that is currently on screen, keeping its value. */
+function refreshMajorPickers() {
+  const sel = $('teamMemberMajor');
+  if (sel) fillMajorSelect(sel, sel.value);
+}
+
+// ============================================================
 // MEMBER MODAL
 // ============================================================
 
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
   $('teamMemberPhotoFile')?.addEventListener('change', onMemberPhotoPick);
-  $('teamMemberPhotoClear')?.addEventListener('click', () => setMemberPhoto(''));
+  $('teamMemberPhotoClear')?.addEventListener('click', () => {
+    // Dropping a PENDING pick must also drop the pick, not just the stored URL —
+    // otherwise นำรูปออก appears to work and the save uploads the picked file.
+    clearPendingPhoto();
+    setMemberPhoto('');
+    const hint = $('teamMemberPhotoHint');
+    if (hint) hint.textContent = PHOTO_HINT_DEFAULT;
+  });
   $('teamMemberDelete')?.addEventListener('click', () => {
     const id = $('teamMemberId').value;
     if (id) { modalInstance('teamMemberModal')?.hide(); onDeleteMember(id); }
@@ -1847,8 +2105,7 @@ function fillMemberPermPane(memberId) {
   const m = findMember(memberId);
   if (!m) return;
   $('teamMPermMemberId').value = m.id;
-  const name = `${m.prefix ? m.prefix + ' ' : ''}${m.full_name}`;
-  $('teamMPermName').textContent = name;
+  $('teamMPermName').textContent = m.full_name || '';
   $('teamMPermNode').textContent = nodePath(m.node_id);
   const own = new Set(m.permissions || []);
   resetMasterState($('teamMPermGrid'));
@@ -1940,14 +2197,25 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
   setMemberNode(nid);
-  $('teamMemberPrefix').value = member?.prefix || '';
   $('teamMemberName').value = member?.full_name || '';
   $('teamMemberNickname').value = member?.nickname || '';
   $('teamMemberStudentId').value = member?.student_id || '';
-  $('teamMemberYear').value = member?.year || '';
-  $('teamMemberMajor').value = member?.major || '';
+  const sidHint = $('teamMemberStudentIdHint');
+  if (sidHint) sidHint.textContent = SID_HINT;
+  fillYearSelect($('teamMemberYear'), member?.year || '');
+  // The vocabulary may not be loaded yet on the very first open; paint what we
+  // have, then repaint when it arrives. Painting nothing would show an empty
+  // chooser next to a person who HAS a สาขา, which reads as data loss.
+  fillMajorSelect($('teamMemberMajor'), member?.major || '');
+  loadMajors().then(() => fillMajorSelect($('teamMemberMajor'), member?.major || ''));
   $('teamMemberEmail').value = member?.kkumail || '';
   $('teamMemberConfirmed').checked = !!member?.confirmed;
+  // A pick left pending by a previous open must not follow the next person into
+  // the editor — the modal is one DOM element reused for every row, which is
+  // exactly how the permission grid leaked state across rows in 0110.
+  clearPendingPhoto();
+  const photoHint = $('teamMemberPhotoHint');
+  if (photoHint) photoHint.textContent = PHOTO_HINT_DEFAULT;
   // Carried, not edited. A photo uploaded through the crop dialog is already 3:4
   // so its focus is 'center'; an older row keeps whatever it had until someone
   // re-uploads, and editing an unrelated field must not silently re-frame it.
@@ -1963,14 +2231,47 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   if (tab !== 'perm') setTimeout(() => $('teamMemberName')?.focus(), 250);
 }
 
+/**
+ * The framed-but-not-yet-uploaded portrait, or null.
+ *
+ * THE BUG THIS FIXES (reported: "when there's already a picture of me uploaded
+ * on teamsamo and i press upload files, and upload it without pressing the
+ * นำรูปออก, the drive now store both files"). The old flow uploaded on PICK.
+ * Every intermediate choice therefore became a real Drive file, and only the
+ * last one ended up in the row — so picking twice, or picking once and then
+ * closing the editor, left files nothing would ever reference. The delete side
+ * could not clean them up either: it trashes the photo the DB was POINTING AT,
+ * which is exactly the file that is NOT the orphan.
+ *
+ * Now nothing leaves the browser until บันทึก. Cancel costs nothing, re-picking
+ * costs nothing, and there is exactly one upload per saved change — so the only
+ * file in Drive that no row references is one whose save failed mid-flight.
+ */
+let memberPhotoPending = null;   // { file, previewUrl }
+
+/** Drop a pending pick and release its blob URL. Called when the editor opens,
+ *  when the pick is replaced, and after a successful save — a revoked-late blob
+ *  is a leak the browser keeps for the life of the document. */
+function clearPendingPhoto() {
+  if (memberPhotoPending?.previewUrl) URL.revokeObjectURL(memberPhotoPending.previewUrl);
+  memberPhotoPending = null;
+}
+
 /** Paint the preview from a URL (or the empty state) and sync the hidden input. */
 function setMemberPhoto(url) {
   const hidden = $('teamMemberPhotoUrl');
   const prev = $('teamMemberPhotoPreview');
   const clear = $('teamMemberPhotoClear');
   if (hidden) hidden.value = url || '';
-  if (clear) clear.classList.toggle('d-none', !url);
+  if (clear) clear.classList.toggle('d-none', !url && !memberPhotoPending);
   if (!prev) return;
+  // A pending pick wins the preview: it is what บันทึก is about to publish, and
+  // showing the OLD portrait next to "รูปใหม่ (ยังไม่บันทึก)" is the kind of
+  // half-truth that makes someone press upload a second time.
+  if (memberPhotoPending) {
+    prev.innerHTML = `<img src="${escHtml(memberPhotoPending.previewUrl)}" alt="" />`;
+    return;
+  }
   if (url) {
     // portraitSrc, NOT convertDriveUrl(url, 320): convertDriveUrl returns an
     // ALREADY-lh3 URL untouched, so its `size` argument is silently ignored for
@@ -1998,14 +2299,15 @@ function rootDeptName(nodeId) {
   return cur?.name || 'ทั่วไป';
 }
 
+const PHOTO_HINT_DEFAULT =
+  'แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้ — ใช้รูปที่เจ้าตัวยินยอมให้เผยแพร่';
+
+/** Pick + frame a portrait. Nothing is uploaded here — see memberPhotoPending. */
 async function onMemberPhotoPick(e) {
   const picked = e.target.files?.[0];
   if (!picked) return;
   const hint = $('teamMemberPhotoHint');
   const input = e.target;
-  const original = hint?.textContent;
-  // Frame it BEFORE anything is uploaded — cancelling here must leave the member
-  // exactly as it was, with nothing written to Drive.
   let file;
   try {
     file = await cropImage(picked, {
@@ -2016,46 +2318,47 @@ async function onMemberPhotoPick(e) {
     alert('เปิดรูปไม่สำเร็จ: ' + (err?.message || err));
   }
   // Clear the file input either way, or re-picking the SAME file fires no change
-  // event and the upload silently does not re-run.
+  // event and the crop dialog silently does not re-open.
   input.value = '';
   if (!file) return;
-  input.disabled = true;
+  clearPendingPhoto();
+  memberPhotoPending = { file, previewUrl: URL.createObjectURL(file) };
+  // The uploaded frame IS 3:4, so lh3's server-side centre crop is exact: no
+  // head is cut and the card fetches ~38 KB instead of ~78 KB.
+  memberPhotoFocus = 'center';
+  setMemberPhoto($('teamMemberPhotoUrl').value);
+  if (hint) hint.textContent = 'รูปใหม่ยังไม่ถูกบันทึก — กดบันทึกเพื่ออัปโหลด หรือปิดหน้าต่างเพื่อยกเลิก';
+}
+
+/** Upload the pending pick, if there is one, and return the URL to store.
+ *  Runs from the submit handler — BEFORE the modal closes — so a failure can
+ *  still be reported into the form the person is looking at. */
+async function uploadPendingPhoto(nodeId) {
+  if (!memberPhotoPending) return { url: $('teamMemberPhotoUrl').value.trim() || null };
+  const hint = $('teamMemberPhotoHint');
   // The downscale happens before the network call and is the slow part on a
   // phone, so say "processing" rather than "uploading" up front.
   if (hint) hint.textContent = 'กำลังย่อและอัปโหลดรูป…';
-  try {
-    const nodeId = $('teamMemberNodeId').value;
-    // `order` is only the numeric prefix on the Drive filename, so a person can
-    // be found by browsing the folder. For an EXISTING member that is their own
-    // position — `membersOf().length` would file the first of five people as
-    // "05-", which is exactly backwards. A new member really is going on the end.
-    const editingId = $('teamMemberId').value;
-    const editing = editingId ? findMember(editingId) : null;
-    const res = await uploadTeamPhoto(file, {
-      year: currentTermYear || 'unsorted',
-      dept: rootDeptName(nodeId),
-      order: editing ? (editing.position ?? 0) : membersOf(nodeId).length,
-      name: $('teamMemberName').value.trim() || 'member',
-    });
-    setMemberPhoto(res.url);
-    // The uploaded frame IS 3:4, so lh3's server-side centre crop is now exact:
-    // no head is cut and the card fetches ~38 KB instead of ~78 KB.
-    memberPhotoFocus = 'center';
-    // Surface the un-organised fallback instead of hiding it — the file DID
-    // upload, but into PR/ with no folder structure, which is the
-    // exact thing uploadTeamPhoto exists to fix. Silence here would mean nobody
-    // notices the GAS project still needs redeploying.
-    if (hint) {
-      hint.textContent = res.organised
-        ? `อัปโหลดแล้ว → ${res.folderPath}/${res.fileName} — กดบันทึกเพื่อยืนยัน`
-        : 'อัปโหลดแล้ว แต่ยังไม่ได้จัดโฟลเดอร์ (ต้อง redeploy Apps Script) — กดบันทึกเพื่อยืนยัน';
-    }
-  } catch (err) {
-    if (hint) hint.textContent = original;
-    alert('อัปโหลดรูปไม่สำเร็จ: ' + (err?.message || err));
-  } finally {
-    input.disabled = false;
+  // `order` is only the numeric prefix on the Drive filename, so a person can
+  // be found by browsing the folder. For an EXISTING member that is their own
+  // position — `membersOf().length` would file the first of five people as
+  // "05-", which is exactly backwards. A new member really is going on the end.
+  const editingId = $('teamMemberId').value;
+  const editing = editingId ? findMember(editingId) : null;
+  const res = await uploadTeamPhoto(memberPhotoPending.file, {
+    year: currentTermYear || 'unsorted',
+    dept: rootDeptName(nodeId),
+    order: editing ? (editing.position ?? 0) : membersOf(nodeId).length,
+    name: $('teamMemberName').value.trim() || 'member',
+  });
+  // Surface the un-organised fallback instead of hiding it — the file DID
+  // upload, but into PR/ with no folder structure, which is the exact thing
+  // uploadTeamPhoto exists to fix. Silence here would mean nobody notices the
+  // GAS project still needs redeploying.
+  if (!res.organised) {
+    alert('อัปโหลดรูปแล้ว แต่ยังไม่ได้จัดโฟลเดอร์ (ต้อง redeploy Apps Script)');
   }
+  return res;
 }
 
 async function onMemberSubmit(e) {
@@ -2065,18 +2368,60 @@ async function onMemberSubmit(e) {
   const name = $('teamMemberName').value.trim();
   if (!name) { $('teamMemberName').focus(); return; }
   if (!nodeId) { alert('กรุณาเลือกตำแหน่ง'); return; }
+
+  // Canonicalise รหัสนักศึกษา / ชั้นปี / สาขา through the one rule module. A
+  // รหัส that cannot be read is REFUSED — but only when this save changed it,
+  // because two live rows carry an unfixable legacy id and holding an unrelated
+  // nickname edit hostage to somebody else's typo just teaches people to avoid
+  // the form.
+  const stored = id ? findMember(id) : null;
+  const typedSid = $('teamMemberStudentId').value;
+  const fields = normalizeIdentityFields({
+    student_id: typedSid,
+    year: $('teamMemberYear').value,
+    major: $('teamMemberMajor').value,
+  }, majorCodes());
+  const sidProblem = fields.problemFor('student_id');
+  if (sidProblem && String(stored?.student_id ?? '') !== String(typedSid ?? '').trim()) {
+    alert(sidProblem.message);
+    $('teamMemberStudentId').focus();
+    return;
+  }
+
   const payload = {
-    prefix: $('teamMemberPrefix').value.trim() || null,
     full_name: name,
     nickname: $('teamMemberNickname').value.trim() || null,
-    student_id: $('teamMemberStudentId').value.trim() || null,
-    year: normalizeYear($('teamMemberYear').value),
-    major: $('teamMemberMajor').value.trim() || null,
+    student_id: fields.student_id,
+    year: fields.year,
+    major: fields.major,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
     photo_url: $('teamMemberPhotoUrl').value.trim() || null,
     photo_focus: memberPhotoFocus || 'center',
   };
+
+  // THE PHOTO UPLOAD HAPPENS HERE, not on pick (see memberPhotoPending). The
+  // modal therefore stays open — and the submit button stays busy — until the
+  // bytes are in Drive, because closing first would leave a failure with nowhere
+  // to be reported and an orphan file with nothing pointing at it.
+  const submitBtn = $('teamMemberModalSave');
+  if (memberPhotoPending) {
+    const label = submitBtn?.textContent;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'กำลังอัปโหลดรูป…'; }
+    try {
+      const res = await uploadPendingPhoto(nodeId);
+      payload.photo_url = res.url || null;
+      clearPendingPhoto();
+    } catch (err) {
+      alert('อัปโหลดรูปไม่สำเร็จ: ' + (err?.message || err));
+      const hint = $('teamMemberPhotoHint');
+      if (hint) hint.textContent = 'อัปโหลดไม่สำเร็จ — ลองกดบันทึกอีกครั้ง หรือเลือกรูปใหม่';
+      return;   // nothing saved, nothing uploaded, the pick is still pending
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = label; }
+    }
+  }
+
   modalInstance('teamMemberModal')?.hide();
   // Snapshot the photo BEFORE Object.assign overwrites it. Cleared or replaced
   // portraits are trashed AFTER the write lands, never on the นำรูปออก click —
@@ -2145,7 +2490,7 @@ function wireIO() {
   $('teamExportCsv')?.addEventListener('click', () => {
     const rows = allMembersFlat().map((m) => ({
       path: nodePath(m.node_id).split(' / ').join(PATH_SEP),
-      prefix: m.prefix, full_name: m.full_name, nickname: m.nickname,
+      full_name: m.full_name, nickname: m.nickname,
       student_id: m.student_id, year: m.year, major: m.major,
       kkumail: m.kkumail, confirmed: m.confirmed,
     }));
@@ -2334,7 +2679,7 @@ async function importJson(data) {
     seen.add(key);
     if (m.kkumail && !isLikelyEmail(m.kkumail)) report.warnings.push(`${who}: อีเมลอาจไม่ถูกต้อง (${m.kkumail})`);
     await createMember({
-      node_id: newNode, position: m.position ?? 0, prefix: m.prefix || null,
+      node_id: newNode, position: m.position ?? 0,
       full_name: who, nickname: m.nickname || null, student_id: m.student_id || null,
       year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
@@ -2356,14 +2701,14 @@ async function importJson(data) {
 }
 
 const DIFF_FIELDS = [
-  ['prefix', 'คำนำหน้า'], ['full_name', 'ชื่อ-สกุล'], ['nickname', 'ชื่อเล่น'],
+  ['full_name', 'ชื่อ-สกุล'], ['nickname', 'ชื่อเล่น'],
   ['student_id', 'รหัส'], ['year', 'ชั้นปี'], ['major', 'สาขา'],
   ['kkumail', 'KKU Mail'], ['confirmed', 'ยืนยัน'],
 ];
 
 function rowFields(r) {
   return {
-    prefix: r.prefix || null, full_name: r.full_name, nickname: r.nickname || null,
+    full_name: r.full_name, nickname: r.nickname || null,
     student_id: r.student_id || null, year: r.year || null, major: r.major || null,
     kkumail: r.kkumail || null, confirmed: !!r.confirmed,
   };

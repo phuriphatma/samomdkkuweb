@@ -276,3 +276,78 @@ export async function fetchTermStatus() {
   if (error) throw new Error(error.message || 'อ่านสถานะปีการศึกษาไม่สำเร็จ');
   return data || { terms: [] };
 }
+
+// ---- สาขา vocabulary (migration 0113) ----
+//
+// A PICKER LIST, not a foreign key. `team_members.major` is plain text and this
+// table only decides what the choosers offer, which is why `deleteMajor` below
+// can be a one-liner with no cascade to reason about: removing a สาขา from the
+// list leaves every person who has it exactly as they were. The migration
+// header explains why an FK was rejected (removing reference data is what turns
+// a resolver into a fail-open — the class logged in docs/mistakes/authz-rls.md).
+
+export async function fetchMajors() {
+  const { data, error } = await dbRest('/team_majors?select=*&order=position.asc,code.asc');
+  if (error) throw new Error(error.message || 'โหลดรายการสาขาไม่สำเร็จ');
+  return data || [];
+}
+
+export async function createMajor(row) {
+  const { data, error } = await dbRest('/team_majors', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มสาขาไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มสาขาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+export async function updateMajor(id, patch) {
+  const { data, error } = await dbRest(`/team_majors?id=eq.${id}`, {
+    method: 'PATCH', body: patch, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'บันทึกสาขาไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('บันทึกสาขาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+export async function deleteMajor(id) {
+  const { error } = await dbRest(`/team_majors?id=eq.${id}`, { method: 'DELETE' });
+  if (error) throw new Error(error.message || 'ลบสาขาไม่สำเร็จ');
+}
+
+/**
+ * How many member rows carry a given สาขา code — asked BEFORE a rename or a
+ * remove, so the confirm can say "this touches 348 people" instead of leaving
+ * the admin to guess.
+ *
+ * `eq`, NOT `ilike`. An ilike filter makes the value a PATTERN (the class logged
+ * in docs/mistakes/authz-rls.md as "an ILIKE lookup makes the id a pattern, not
+ * a capability"): a สาขา code containing `_` or `%` would silently match — and
+ * on the rename below, silently REWRITE — other people's rows. Exact match is
+ * correct because migration 0113 canonicalised every stored value to the
+ * vocabulary's own spelling, and both writers normalise through fields.js.
+ */
+export async function countMembersWithMajor(code) {
+  const c = String(code || '').trim();
+  if (!c) return 0;
+  const { data, error } = await dbRest(
+    `/team_members?select=id&major=eq.${encodeURIComponent(c)}`,
+  );
+  if (error) throw new Error(error.message || 'นับจำนวนสมาชิกไม่สำเร็จ');
+  return (data || []).length;
+}
+
+/** Rename a สาขา ON THE PEOPLE — the vocabulary row is renamed separately.
+ *  Two writes, deliberately: the member rows are the data, the vocabulary row is
+ *  only the picker, and doing them in one place makes the order explicit. */
+export async function renameMajorOnMembers(fromCode, toCode) {
+  const from = String(fromCode || '').trim();
+  const to = String(toCode || '').trim();
+  if (!from || !to || from === to) return 0;
+  const { data, error } = await dbRest(
+    `/team_members?major=eq.${encodeURIComponent(from)}`,
+    { method: 'PATCH', body: { major: to }, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'เปลี่ยนชื่อสาขาไม่สำเร็จ');
+  return (data || []).length;
+}

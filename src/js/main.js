@@ -32,6 +32,9 @@ import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache } from './my-seat.js';
+// The one list of "which grants open /admin/". Shared with admin-main.js
+// canUseAdmin() so the navbar link and the door it opens cannot drift.
+import { ADMIN_FEATURES } from './team-vocab.js';
 import { initProjectsView } from './projects-view.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
@@ -460,10 +463,25 @@ function tabToPath(tabBtnId) {
  *  Useful for in-app links that want the new URL semantic
  *  without a full page reload. */
 window.navigateTo = (pathname) => {
-  if (location.pathname !== pathname) {
+  const moved = location.pathname !== pathname;
+  if (moved) {
     history.pushState(null, '', pathname);
   }
   applyPathRoute();
+  // Start the new page at the TOP — and it has to be said HERE as well as in
+  // the shown.bs.tab handler above, which is the bug this line fixes.
+  //
+  // That handler only scrolls when `location.pathname !== want`. This function
+  // pushes the new path BEFORE activating the tab, so by the time the handler
+  // runs the two are already equal and its guard is false. Result: every link
+  // that went through navigateTo() — "ดูอัปเดตทั้งหมด" at the bottom of the home
+  // page, the ฝ่าย tool links — kept the previous page's scroll offset and
+  // dropped the reader into the middle of /updates. The tab-click path was fixed
+  // and looked fixed; this path was never exercised. One rule, two code paths.
+  //
+  // Back/forward is unaffected: popstate calls applyPathRoute() directly, not
+  // this function, so the browser's own scroll restoration still wins.
+  if (moved) window.scrollTo({ top: 0, behavior: 'auto' });
 };
 
 function applyPathRoute() {
@@ -702,16 +720,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mDept) mDept.textContent = user.department || roleLabel(role) || (user.email || `@${user.username || ''}`);
     }
 
-    // Surface the "ไปยัง Admin" link whenever the user has access to ANY
-    // admin feature — covers both role defaults and per-account
-    // permissions[] (so a VP with samoshop access still sees the link).
-    const canAccessAdmin = user && (
-      userCanAccess('pr', user)
-      || userCanAccess('vs', user)
-      || userCanAccess('samoshop', user)
-      || userCanAccess('projects', user)
-      || userCanAccess('creator', user)
-    );
+    // Surface the "ไปยัง Admin Dashboard" link whenever the user has access to
+    // ANY admin feature — role defaults, per-account permissions[] and ทีม SAMO
+    // tree grants all count, because userCanAccess() reads all three.
+    //
+    // ADMIN_FEATURES, not a list spelled out here. The hand-written list this
+    // replaced named five keys and predated the ทีม SAMO rungs, so a member
+    // whose only grant was `team` (ดู) — which since 0110 is EVERY person with a
+    // posting in the tree — could open /admin/ by typing the URL but was never
+    // shown the door. That is the "a new access channel must be threaded through
+    // every gate the old one used" class, and the fix is to stop having a second
+    // list: admin-main.js canUseAdmin() imports the same array, so the door and
+    // the doorman can no longer disagree. Guarded by a test in team-vocab.test.js.
+    const canAccessAdmin = !!user && ADMIN_FEATURES.some((f) => userCanAccess(f, user));
     document.getElementById('navAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
     document.getElementById('mobileAdminLink')?.classList.toggle('d-none', !canAccessAdmin);
 

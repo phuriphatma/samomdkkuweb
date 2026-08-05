@@ -31,8 +31,17 @@
 // cannot fix alone, so its absence costs nothing.
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
-import { portraitSrc, portraitSrcSet, focusToObjectPosition } from './uploads.js';
+import {
+  portraitSrc, portraitSrcSet, focusToObjectPosition, uploadTeamPhoto,
+} from './uploads.js';
+import { cropImage } from './image-crop.js';
 import { findIssues, idsOf, KIND_LABEL } from './team/identity.js';
+// The same รหัสนักศึกษา / ชั้นปี / สาขา rules the admin form and the CSV importer
+// use. A person fixing their own row is a THIRD writer to these columns, and it
+// must not be the one that reintroduces `md` beside `MD`.
+import {
+  normalizeIdentityFields, YEARS, SID_HINT, SID_PLACEHOLDER, majorKey,
+} from './team/fields.js';
 import {
   PERM_LABEL, VS_DEPT_LABEL, PROJECT_SEAT_LABEL, ADMIN_FEATURES,
 } from './team-vocab.js';
@@ -151,10 +160,18 @@ function scopeRows(seat) {
  *  whose rows disagree gets a `drift` finding below saying exactly that, so
  *  picking one here is safe: the card never silently hides the disagreement. */
 export const DETAIL_FIELDS = [
+  // ชื่อ-สกุล is editable and was missing until now, which made the card's own
+  // promise false: the admin guard (0110) has always allowed a person to fix
+  // their own name, the header shows it, and the form quietly did not offer it —
+  // so "แก้ไขข้อมูลของฉัน" could not fix the single most visible field.
+  { key: 'full_name', label: 'ชื่อ-สกุล', editable: true, wide: true },
   { key: 'nickname', label: 'ชื่อเล่น', editable: true },
-  { key: 'student_id', label: 'รหัสนักศึกษา', editable: true },
-  { key: 'year', label: 'ชั้นปี', editable: true },
-  { key: 'major', label: 'สาขา', editable: true },
+  { key: 'student_id', label: 'รหัสนักศึกษา', editable: true, hint: SID_HINT },
+  // Choosers, for the same reason the admin form has them: ปี5 / 5 / "5 " and
+  // md / MD / M.D. are one answer spelled four ways, and the difference shows up
+  // as a ตรวจสอบข้อมูล finding on the person who typed the second spelling.
+  { key: 'year', label: 'ชั้นปี', editable: true, control: 'year' },
+  { key: 'major', label: 'สาขา', editable: true, control: 'major' },
   // `wide` puts a field on its own row. KKU Mail is ~3x the length of the
   // others, so sharing a row with them squeezed it into a quarter of the card
   // and it wrapped MID-ADDRESS ("phuriphat.ma@kkuma / il.com").
@@ -182,7 +199,6 @@ export function ownIssues(seat) {
       id: p.member_id,
       node_id: p.node_id,
       full_name: p.full_name,
-      prefix: p.prefix,
       nickname: p.nickname,
       year: p.year,
       major: p.major,
@@ -222,8 +238,12 @@ export function ownIssues(seat) {
     out.push({
       kind: 'sid_clash',
       label: KIND_LABEL.sid_clash,
+      // Names WHO to tell. "ผู้ดูแลทีม SAMO" is not a person anybody can find —
+      // the people who can actually fix another person's row are the ฝ่าย's
+      // อุปนายก and whoever holds ทีม SAMO (แก้ไข).
       detail: `${String(first.student_id ?? '').trim()} — มีอีก ${seat.student_id_shared_with} คนใช้รหัสนี้ `
-        + 'ตรวจสอบว่ารหัสของคุณถูกต้อง หากถูกต้องแล้วให้แจ้งผู้ดูแลทีม SAMO',
+        + 'ตรวจสอบว่ารหัสของคุณถูกต้อง หากถูกต้องแล้วให้แจ้งอุปนายกฝ่ายของท่าน '
+        + 'หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO',
     });
   }
 
@@ -255,14 +275,30 @@ function portraitHtml(p, size = 96) {
     style="object-position:${escHtml(focusToObjectPosition(p.photo_focus))}" />`;
 }
 
+/**
+ * One posting, as ONE breadcrumb that ends at the ตำแหน่ง.
+ *
+ * Reported: "หัวหน้าฝ่าย IT / ฝ่ายดิจิทัลและสื่อสารองค์กร ฝ่าย IT — it should show
+ * until the role like ฝ่ายดิจิทัลและสื่อสารองค์กร > ฝ่าย IT > หัวหน้าฝ่าย IT".
+ * It used to print the ตำแหน่ง on one line and its ANCESTORS on another, so the
+ * person's own ตำแหน่ง appeared first and then again by implication at the end of
+ * a trail that stopped one level short of it. `team_node_path()` returns
+ * ancestors only (root first, excluding the node), so the node name is appended
+ * here — as the last, emphasised crumb, which is the one the reader is looking
+ * for.
+ */
 function postingHtml(p) {
   const path = Array.isArray(p.path) ? p.path : [];
+  const sep = ' <i class="bi bi-chevron-right" aria-hidden="true"></i> ';
+  const crumbs = [
+    ...path.map((seg) => `<span class="myseat-crumb">${escHtml(seg)}</span>`),
+    `<span class="myseat-crumb is-self">${
+      p.is_board ? '<i class="bi bi-award-fill myseat-board" aria-hidden="true"></i> ' : ''
+    }${escHtml(p.node || '')}</span>`,
+  ];
   return `
     <li class="myseat-posting">
-      <span class="myseat-posting-role">
-        ${p.is_board ? '<i class="bi bi-award-fill myseat-board" aria-hidden="true"></i> ' : ''}${escHtml(p.node || '')}
-      </span>
-      ${path.length ? `<span class="myseat-posting-path">${path.map(escHtml).join(' <i class="bi bi-chevron-right" aria-hidden="true"></i> ')}</span>` : ''}
+      <span class="myseat-posting-path">${crumbs.join(sep)}</span>
     </li>`;
 }
 
@@ -292,30 +328,102 @@ function issuesHtml(issues, canFix) {
     <div class="myseat-block myseat-issues">
       <span class="myseat-label">ข้อมูลที่ควรแก้</span>
       <ul class="myseat-issue-list">${items}</ul>
-      ${canFix ? '' : '<p class="myseat-issue-hint">ติดต่อหัวหน้าฝ่ายหรือฝ่าย IT เพื่อแก้ไขข้อมูลนี้</p>'}
+      ${canFix ? '' : '<p class="myseat-issue-hint">แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO เพื่อแก้ไขข้อมูลนี้</p>'}
     </div>`;
 }
 
-/** The inline self-edit form. Only the columns migration 0110 lets a member
- *  write — kkumail is shown read-only because it is the identity every
- *  resolver keys on, and changing it would move the row out of the caller's
- *  own SELECT policy (an un-PATCHable UPDATE, logged in the mistakes log). */
+/**
+ * The สาขา vocabulary (migration 0113), for the chooser.
+ *
+ * Module-scope and fetched once. It is three rows of non-confidential codes, so
+ * a failed fetch is not fatal: the chooser then offers only what the person
+ * already has, which is still better than a free-text box that lets them invent
+ * a fourth spelling of MD.
+ */
+let majorOptions = null;
+async function loadMajorOptions() {
+  if (majorOptions) return majorOptions;
+  try {
+    const { data, error } = await dbRest('/team_majors?select=code,label&order=position.asc,code.asc');
+    if (error) throw new Error(error.message);
+    majorOptions = Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn('my-seat: majors lookup failed:', err);
+    majorOptions = [];
+  }
+  return majorOptions;
+}
+
+/** `<option>`s for a chooser, keeping an off-list stored value as its own option
+ *  — a select that silently drops what the row holds would REWRITE that value on
+ *  the next save of an unrelated field. */
+function optionsHtml(values, current, labelOf = (v) => v) {
+  const cur = String(current ?? '').trim();
+  const known = values.some((v) => majorKey(v) === majorKey(cur));
+  return `<option value="">— ไม่ระบุ —</option>`
+    + values.map((v) => `<option value="${escHtml(v)}"${
+      majorKey(v) === majorKey(cur) ? ' selected' : ''}>${escHtml(labelOf(v))}</option>`).join('')
+    + (cur && !known
+      ? `<option value="${escHtml(cur)}" selected>${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
+}
+
+/**
+ * The inline self-edit form. Only the columns migration 0110 lets a member
+ * write — kkumail is shown read-only because it is the identity every resolver
+ * keys on, and changing it would move the row out of the caller's own SELECT
+ * policy (an un-PATCHable UPDATE, logged in the mistakes log).
+ *
+ * The photo is part of it (the ยังไม่มีรูป finding used to point at an admin the
+ * person then had to go and find), and it follows the same rule as the admin
+ * form: NOTHING is uploaded until บันทึก. Uploading on pick is what left orphan
+ * files in Drive.
+ */
 function editFormHtml(p) {
-  const field = (f) => `
-    <label class="myseat-field">
+  const majors = (majorOptions || []).map((m) => m.code);
+  const majorLabel = (code) => {
+    const hit = (majorOptions || []).find((m) => m.code === code);
+    return hit?.label ? `${code} — ${hit.label}` : code;
+  };
+  const field = (f) => {
+    const val = String(p[f.key] ?? '');
+    const inner = f.control === 'year'
+      ? `<select name="year">${optionsHtml(YEARS, val, (y) => `ปี ${y}`)}</select>`
+      : f.control === 'major'
+        ? `<select name="major">${optionsHtml(majors, val, majorLabel)}</select>`
+        : `<input type="text" name="${escHtml(f.key)}" value="${escHtml(val)}"${
+          f.key === 'student_id' ? ` inputmode="numeric" placeholder="${SID_PLACEHOLDER}"` : ''} />`;
+    return `
+    <label class="myseat-field${f.wide ? ' is-wide' : ''}">
       <span>${escHtml(f.label)}</span>
-      <input type="text" name="${escHtml(f.key)}" value="${escHtml(String(p[f.key] ?? ''))}"
-        ${f.key === 'year' ? 'inputmode="numeric"' : ''} />
+      ${inner}
+      ${f.hint ? `<em class="myseat-field-hint">${escHtml(f.hint)}</em>` : ''}
     </label>`;
+  };
   return `
     <form class="myseat-edit" data-myseat-form hidden>
-      <p class="myseat-edit-intro">แก้ไขข้อมูลส่วนตัวของคุณได้ที่นี่ ส่วนตำแหน่งและสิทธิ์ ผู้ดูแลทีม SAMO เป็นผู้กำหนด</p>
+      <p class="myseat-edit-intro">แก้ไขข้อมูลส่วนตัวของคุณได้ที่นี่ ส่วนตำแหน่งและสิทธิ์ อุปนายกฝ่ายหรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO เป็นผู้กำหนด</p>
+
+      <div class="myseat-photo-edit">
+        <div class="myseat-photo-frame" data-myseat-photo>${portraitHtml(p, 96)}</div>
+        <div class="myseat-photo-actions">
+          <label class="myseat-photo-btn">
+            <input type="file" accept="image/*" data-myseat-photo-file hidden />
+            <i class="bi bi-camera" aria-hidden="true"></i>
+            ${p.photo_url ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}
+          </label>
+          <button type="button" class="myseat-photo-remove${p.photo_url ? '' : ' is-hidden'}"
+            data-myseat-photo-remove>นำรูปออก</button>
+          <em class="myseat-photo-note" data-myseat-photo-note>รูปนี้แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้</em>
+        </div>
+      </div>
+
       <div class="myseat-fields">
         ${DETAIL_FIELDS.filter((f) => f.editable).map(field).join('')}
       </div>
-      <label class="myseat-field myseat-field--locked">
+      <label class="myseat-field myseat-field--locked is-wide">
         <span>KKU Mail</span>
         <input type="text" value="${escHtml(String(p.kkumail ?? ''))}" readonly />
+        <em class="myseat-field-hint">เปลี่ยนไม่ได้ — เป็นอีเมลที่ใช้จับคู่ตำแหน่งของคุณ</em>
       </label>
       <div class="myseat-edit-actions">
         <button type="submit" class="myseat-save">บันทึก</button>
@@ -346,7 +454,8 @@ export function renderMySeat(host, seat, opts = {}) {
   const me = postings[0] || {};
   // The person's name, said ONCE. It used to appear twice — in the header and
   // again beside the portrait — which read as a rendering bug on the home card.
-  const who = [me.prefix, seat.name, seat.nickname ? `(${seat.nickname})` : '']
+  // คำนำหน้า used to lead this line; migration 0113 dropped the column.
+  const who = [seat.name, seat.nickname ? `(${seat.nickname})` : '']
     .filter(Boolean).join(' ');
   const issues = ownIssues(seat);
 
@@ -379,7 +488,7 @@ export function renderMySeat(host, seat, opts = {}) {
           <span class="myseat-label">สิทธิ์ที่ได้รับ</span>
           <div class="myseat-chips">${chips(perms)}</div>
         </div>` : `
-        <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด — หากคิดว่าไม่ถูกต้อง ติดต่อฝ่าย IT</p>`}
+        <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด — หากคิดว่าไม่ถูกต้อง แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO</p>`}
 
       ${rows.length ? `
         <div class="myseat-block">
@@ -397,8 +506,8 @@ export function renderMySeat(host, seat, opts = {}) {
   wireSelfEdit(host, seat);
 }
 
-/** The self-edit round trip. Writes ONLY the four safe columns; the server
- *  guard (team_members_self_update_guard, 0110) is the real boundary and
+/** The self-edit round trip. Writes ONLY the columns migration 0110 allows; the
+ *  server guard (team_members_self_update_guard) is the real boundary and
  *  refuses anything else, so this list is a UI convenience, not the security. */
 function wireSelfEdit(host, seat) {
   // renderMySeat's contract is "anything with .innerHTML and .hidden" — the
@@ -415,24 +524,136 @@ function wireSelfEdit(host, seat) {
     host.querySelectorAll('[data-myseat-edit]').forEach((b) => { b.hidden = on; });
   };
 
-  host.querySelectorAll('[data-myseat-edit]').forEach((b) => b.addEventListener('click', () => show(true)));
+  host.querySelectorAll('[data-myseat-edit]').forEach((b) => b.addEventListener('click', () => {
+    show(true);
+    // Fill the สาขา chooser the first time the form is actually opened, not on
+    // every card paint: the list is only needed by someone editing, and the card
+    // renders for every signed-in member on the home page.
+    loadMajorOptions().then(() => {
+      const sel = form.querySelector('[name="major"]');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = optionsHtml(
+        (majorOptions || []).map((m) => m.code), cur,
+        (code) => {
+          const hit = (majorOptions || []).find((m) => m.code === code);
+          return hit?.label ? `${code} — ${hit.label}` : code;
+        },
+      );
+    });
+  }));
   form.querySelector('[data-myseat-cancel]')?.addEventListener('click', () => show(false));
+
+  // ── the photo. Framed here, uploaded on บันทึก (see the admin form's
+  // memberPhotoPending for the bug that rule exists to prevent: an upload on
+  // PICK leaves a file in Drive that nothing will ever reference).
+  const me = (seat.postings || [])[0] || {};
+  let pendingPhoto = null;       // { file, previewUrl }
+  let removePhoto = false;
+  const frame = form.querySelector('[data-myseat-photo]');
+  const note = form.querySelector('[data-myseat-photo-note]');
+  const removeBtn = form.querySelector('[data-myseat-photo-remove]');
+  const dropPending = () => {
+    if (pendingPhoto?.previewUrl) URL.revokeObjectURL(pendingPhoto.previewUrl);
+    pendingPhoto = null;
+  };
+
+  form.querySelector('[data-myseat-photo-file]')?.addEventListener('change', async (ev) => {
+    const picked = ev.target.files?.[0];
+    ev.target.value = '';               // re-picking the same file must re-fire
+    if (!picked) return;
+    let file;
+    try {
+      file = await cropImage(picked, {
+        title: 'ปรับกรอบรูปของฉัน',
+        hint: 'กรอบนี้คือสิ่งที่แสดงบนหน้าโครงสร้างองค์กร — ลากให้ใบหน้าอยู่กลางกรอบ',
+      });
+    } catch (err) {
+      if (note) note.textContent = `เปิดรูปไม่สำเร็จ: ${err?.message || err}`;
+      return;
+    }
+    if (!file) return;
+    dropPending();
+    removePhoto = false;
+    pendingPhoto = { file, previewUrl: URL.createObjectURL(file) };
+    if (frame) frame.innerHTML = `<img class="myseat-photo" src="${escHtml(pendingPhoto.previewUrl)}" alt="" />`;
+    if (removeBtn) removeBtn.classList.remove('is-hidden');
+    if (note) note.textContent = 'รูปใหม่ยังไม่ถูกบันทึก — กดบันทึกเพื่ออัปโหลด';
+  });
+
+  removeBtn?.addEventListener('click', () => {
+    dropPending();
+    removePhoto = true;
+    if (frame) frame.innerHTML = portraitHtml({ full_name: me.full_name }, 96);
+    removeBtn.classList.add('is-hidden');
+    if (note) note.textContent = 'จะนำรูปออกเมื่อกดบันทึก';
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const memberId = (seat.postings || [])[0]?.member_id;
+    const memberId = me.member_id;
     if (!memberId) return;
-    const body = {};
+
+    // Canonicalise through the shared rules, and refuse a รหัสนักศึกษา that was
+    // CHANGED into something unreadable. Unchanged legacy values pass: a person
+    // whose stored รหัส is already malformed must still be able to fix their
+    // ชื่อเล่น (and the ตรวจสอบข้อมูล list right below the form is what tells them
+    // the รหัส itself needs attention).
+    const raw = {};
     for (const f of DETAIL_FIELDS.filter((x) => x.editable)) {
       const el = form.querySelector(`[name="${f.key}"]`);
-      if (el) body[f.key] = el.value.trim() || null;
+      if (el) raw[f.key] = el.value.trim();
     }
+    const fields = normalizeIdentityFields(raw, (majorOptions || []).map((m) => m.code));
+    const sidProblem = fields.problemFor('student_id');
+    if (sidProblem && String(me.student_id ?? '') !== String(raw.student_id ?? '')) {
+      if (status) status.textContent = sidProblem.message;
+      form.querySelector('[name="student_id"]')?.focus();
+      return;
+    }
+
+    const body = {
+      full_name: raw.full_name || null,
+      nickname: raw.nickname || null,
+      student_id: fields.student_id,
+      year: fields.year,
+      major: fields.major,
+    };
+    // ชื่อ-สกุล is NOT NULL on the table; an empty box would 23502 with a message
+    // nobody can read, so say it in Thai instead.
+    if (!body.full_name) {
+      if (status) status.textContent = 'กรุณากรอกชื่อ-สกุล';
+      form.querySelector('[name="full_name"]')?.focus();
+      return;
+    }
+
     const btn = form.querySelector('.myseat-save');
     if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
     if (status) status.textContent = '';
     try {
+      if (pendingPhoto) {
+        if (btn) btn.textContent = 'กำลังอัปโหลดรูป…';
+        // Filed under Team/<ปีการศึกษา>/<ฝ่าย>/ exactly as the admin upload is —
+        // term_year comes from the payload (0113) and the ฝ่าย is the ROOT of this
+        // person's path, so one human's portraits stay in one folder whichever
+        // surface uploaded them.
+        const res = await uploadTeamPhoto(pendingPhoto.file, {
+          year: seat.term_year || 'unsorted',
+          dept: (Array.isArray(me.path) && me.path[0]) || me.node || 'ทั่วไป',
+          order: 0,
+          name: body.full_name,
+        });
+        body.photo_url = res.url;
+        // The framed file IS 3:4, so the stored crop anchor must go back to
+        // centre — leaving a legacy 'top' would re-crop the new photo.
+        body.photo_focus = 'center';
+      } else if (removePhoto) {
+        body.photo_url = null;
+      }
       // A person with TWO postings has two rows to keep in step — writing only
       // the first would CREATE the `drift` finding this card exists to clear.
+      // This is also what makes the admin ทีม SAMO pane show what the person
+      // typed: every row carrying their kkumail is the same edit.
       const ids = (seat.postings || []).map((p) => p.member_id).filter(Boolean);
       const { data, error } = await dbRest(
         `/team_members?id=in.(${ids.join(',')})`,
@@ -442,6 +663,7 @@ function wireSelfEdit(host, seat) {
       // error — the silent-success trap. A zero-length result IS the failure.
       if (error) throw new Error(error.message || `HTTP ${error.status}`);
       if (!Array.isArray(data) || !data.length) throw new Error('ไม่มีสิทธิ์แก้ไขข้อมูลนี้');
+      dropPending();
       clearMySeatCache();
       const fresh = await loadMySeat(seat.__uid);
       renderMySeat(host, fresh || seat, seat.__opts || {});

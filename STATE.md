@@ -20,6 +20,122 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## THIS SESSION (2026-08-05, late) — 13 requests, 12 done, 1 NOT verified in a browser
+
+**Everything below is COMMITTED and migration 0113 is APPLIED to the live DB
+(proof `tools/team0113-fields.mjs` → 26/26).** Read the "OWED" block at the end
+of this section first — it is the whole handover.
+
+The user asked for 13 numbered things in one sitting (items arrived mid-turn, so
+they are numbered as they were asked, not by area):
+
+1. **ทีม SAMO (ดู) now shows the admin link.** `main.js` had its OWN hand-written
+   list of five permission keys for "ไปยัง Admin Dashboard", written before ทีม
+   SAMO had rungs — so every one of the ~285 people who hold `team` implicitly
+   could reach `/admin/` by typing the URL but were never shown the door. Now
+   `ADMIN_FEATURES.some(userCanAccess)`, the same array `admin-main.js
+   canUseAdmin()` uses. Guard test in `team-vocab.test.js`.
+2. **Master no longer looks pre-selected.** `.is-danger` painted the same tinted
+   background + coloured border that `:has(input:checked)` uses for ON. Now OFF
+   is a white row with an orange label; ON is the filled panel. Write-up in
+   `docs/mistakes/frontend-ui.md`.
+3. **The card's breadcrumb runs all the way in** — `ฝ่ายดิจิทัลฯ › ฝ่าย IT ›
+   หัวหน้าฝ่าย IT` as ONE trail (`team_node_path()` returns ancestors only, so
+   the renderer appends the node). Guard test asserts the node is INSIDE the path
+   element and after the last ancestor.
+4. **Self-edit now covers every synced field.** `full_name` was missing (the
+   server guard always allowed it — the form just did not offer it), plus a photo
+   field. The PATCH writes every row carrying the person's kkumail, which is what
+   makes the admin pane show what they typed.
+5. **คำนำหน้า is GONE** — `alter table drop column` on `team_members` AND
+   `team_people` (380 values deleted; the user was shown the count and chose it),
+   plus the three functions that named it, the CSV columns/aliases, the drift
+   rule, the modal field and the card.
+6. **รหัสนักศึกษา canonical form = `653070317-0`** (380/405 live rows already
+   dashed). Bare 10 digits, Thai numerals, stray punctuation and a stray Thai
+   vowel mark are all normalised; anything else is REFUSED at the form, but only
+   when the value CHANGED (two live rows carry unfixable ids and an unrelated
+   nickname edit must not be held hostage).
+7. **ทีม SAMO (ดู) is now a locked, ticked, non-writable checkbox.** Since 0110
+   the resolver grants it to everyone in the tree, so the control could not turn
+   it off — it was a lie. Left visible (the grid is also how an admin READS a
+   grant) with the reason on the row. **Best-practice answer to the question the
+   user asked**: there is no revoke case to design for — "this person should not
+   see the roster" means they are not on the team, and the fix is to remove their
+   posting. If a posting-without-visibility is ever genuinely needed it is a new
+   column on the row (an observer flag), not this key.
+8. **Bug scan / docs / notes / deploy** — see below.
+9. **`ดูอัปเดตทั้งหมด` lands at the top.** This had already been "fixed" once and
+   shipped: the fix lived in the `shown.bs.tab` handler behind
+   `location.pathname !== want`, and `navigateTo()` pushes the path BEFORE
+   activating the tab, so the guard was false for every programmatic link.
+   Write-up in `docs/mistakes/app-state.md`.
+10. **Where self-edit lives — decided: ONE editor, THREE entry points.** The card
+    component is the only editor; it is reachable from the home page, the
+    โปรไฟล์ modal (account dropdown — it was already there), and NOW from a new
+    **ข้อมูลของฉัน** mode inside admin ทีม SAMO, because the read-only note used
+    to tell an admin to go to the public home page to fix their own row. No second
+    implementation: `team/index.js` `enterMySeatPane()` is 8 lines calling
+    `renderMySeat`.
+11. **Escalation copy names a real person** — "แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มี
+    สิทธิ์แก้ไขทีม SAMO" replaces "ผู้ดูแลทีม SAMO" / "หัวหน้าฝ่ายหรือฝ่าย IT".
+12. **ชั้นปี and สาขา are choosers, and สาขา has CRUD.** New `team_majors`
+    vocabulary (seeded MD/MDI/RT from live data) with add / rename-with-backfill /
+    remove, each showing how many PEOPLE it touches first. **`team_members.major`
+    stays free TEXT with NO foreign key** — the user asked for a DELETE on
+    reference data, which is exactly the fail-open class, so removing a สาขา only
+    shrinks the picker and every person keeps their value. An off-list value is
+    kept as its own `<option>` so a save of an unrelated field cannot rewrite it.
+13. **Replacing a member photo no longer leaves both files in Drive.** The upload
+    happened on PICK, so every intermediate choice became a real Drive file and
+    only the last reached the row; the delete path could never help because it
+    trashes the file the DB POINTS AT. Now nothing leaves the browser until
+    บันทึก, on both the admin form and the card. (The GAS delete action itself was
+    probed live and works — `{success:true, alreadyGone:true}` for a well-formed
+    non-existent id, `Unknown action` for a junk action, so the probe could tell
+    the two apart.)
+
+### New/changed files worth knowing about
+
+- **`src/js/team/fields.js` + `fields.test.js` (20 tests)** — THE one definition
+  of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like. Three writers now share
+  it: the admin form, the CSV importer, and the person's own card. `io.js`'s
+  duplicate `normalizeYear` now delegates to it.
+- **`supabase/migrations/0113_drop_prefix_and_field_vocabulary.sql`** — APPLIED.
+  Drops `prefix` (2 tables, 3 functions, 1 trigger recreated by hand because a
+  `drop column` would have cascade-dropped it silently), creates `team_majors`
+  (+RLS: read = any authenticated, write = `team_edit` only), and canonicalises
+  the live data (382 dashed รหัส now; `66666666-2` deliberately left — 9 digits,
+  unknowable, and both panes report it).
+- **`tools/team0113-fields.mjs`** — 26/26, both directions on every guard.
+- `get_my_team_seat()` now also returns **`term_year`**, so the card can file a
+  self-uploaded portrait into `Team/<ปี>/<ฝ่าย>/` like the admin does.
+
+### ⚠️ OWED — start the next session here
+
+1. **NOTHING IN THIS SESSION WAS SEEN IN A REAL BROWSER.** `npm run build` and
+   349 tests pass, and the DB half is proven, but the *rendering* is unverified:
+   the new ชั้นปี/สาขา choosers in the admin สมาชิก form, the จัดการรายการ modal
+   (it stacks on top of the member editor — check the backdrop and the scroll
+   chain, which is exactly what broke in 0110), the ข้อมูลของฉัน pane in admin
+   ทีม SAMO, and the card's new photo field. **Drive it with headless Chrome
+   (see the memory note `headless-chrome-cdp-driver`) or ask the user to look.**
+2. **The photo upload-on-save path has NOT been exercised end to end.** It calls
+   the same `uploadTeamPhoto()` the admin form always used, but the ordering is
+   new (upload → then the DB write) and the failure branch returns early with the
+   pick still pending. Worth one real upload from each surface.
+3. **`ฝ่ายเอิงtest` test data is still live** on the public org chart and inside
+   real people's cards (a posting called `hi` under `ฝ่ายเอิงtest › เอิงnew ›
+   เอิงsubtest`). Still not deleted — it is a data change and needs the user's
+   word.
+4. **No human has reviewed the Thai copy** in any of this — the new field hints,
+   the จัดการรายการ modal, the reworded escalation lines, or the 14 staged
+   release notes.
+5. `team_person_mirror_down()` still writes guarded columns without setting
+   `app.team_sync`. Unreachable by a non-editor today (0113 rewrote the function
+   but kept that property); give it the flag if `team_people` ever gets a
+   self-service surface.
+
 ## ทีม SAMO view/edit + master + the full ตำแหน่งของฉัน card — LIVE
 
 **SHIPPED 2026-08-05.** KKU VM deployed, **`buildId bb074fa12f41`**;

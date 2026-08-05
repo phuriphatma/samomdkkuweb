@@ -35,7 +35,10 @@ has not been written yet.
    mutually exclusive, in the form as well as the schema.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
    `select=*`, the other RPC, the view without `security_invoker`, and the
-   audience lookup still leaking. Enumerate the paths.
+   audience lookup still leaking. Enumerate the paths. Non-security twin: a fix
+   in an EVENT handler guarded on state the CALLER sets misses every other entry
+   point — the /updates scroll fix worked for nav pills and not for
+   `navigateTo()`.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -44,8 +47,15 @@ has not been written yet.
 6. **Two implementations of one rule drift.** SQL↔JS mirrors, a read path and a
    write path, an export and its import, a guard and its call sites. Write the
    differential test in the same commit — a comment saying "keep these in step"
-   is not a mechanism.
-7. **Verify from the authority, and test BOTH directions.** Read the ACL from
+   is not a mechanism. Also the shape where one list is spelled out by hand
+   beside a shared constant: main.js's own five-key admin-link list vs
+   `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
+   `team/fields.js`.
+7. **Verify from the authority, and test BOTH directions.** A sweep returning
+   NOTHING is not evidence of nothing — make it find something you know is there
+   first (`pg_get_functiondef` needs `prokind='f'`; policy bodies render
+   `'team'::text`, so the recipe in 0110's comments matched zero of twelve).
+    Read the ACL from
    `pg_proc.proacl`, not from the `revoke` you just wrote; grep the SERVED
    bundle, not the local file; read the LIVE function body, not the migration
    that first defined it. And a probe that can only report "denied" cannot
@@ -149,7 +159,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A self-update column guard must exempt the definer FUNCTION that writes on login
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(28 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(30 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -179,9 +189,11 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value
 - An indicator that links to a LIST moves the work instead of removing it — the click already said WHICH one, so carry it
 - State parked on a REUSED DOM element outlives the record it describes — a modal is filled again, the element is not
+- Uploading a replacement photo on PICK leaves the previous file in Drive forever
+- A filled "danger" style made an UNCHECKED checkbox look ticked
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(7 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(8 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -190,6 +202,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A path-only router silently discards sub-state — and its own tab handler is what clears the hash you just wrote
 - A snapshot table that COPIES a foreign resource id makes the original's delete path destroy history
 - An allow-list feeding a BACKUP has the opposite safe default from one feeding a public projection
+- A scroll-to-top fix applied in the tab handler misses every link that navigates programmatically
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(16 entries)*
@@ -222,11 +235,12 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(4 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(5 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
 - RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted
 - A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
+- `pg_get_functiondef` over every function 42809s on aggregates
 
 <!-- END GENERATED INDEX -->

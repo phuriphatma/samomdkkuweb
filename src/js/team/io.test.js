@@ -7,10 +7,10 @@ import {
 describe('team/io CSV', () => {
   it('round-trips members through CSV (quoting commas + Thai)', () => {
     const rows = [
-      { path: 'ฝ่ายบริหารองค์กร / ฝ่ายเอกสาร / หัวหน้าฝ่ายเอกสาร', prefix: 'นางสาว',
+      { path: 'ฝ่ายบริหารองค์กร / ฝ่ายเอกสาร / หัวหน้าฝ่ายเอกสาร',
         full_name: 'ณญาดา รัตนวิศิษฏ์กุล', nickname: 'ปูปู้', student_id: '653070301-5',
         year: 'ปี 5', major: 'MD', kkumail: 'nayada.r@kkumail.com', confirmed: true },
-      { path: 'A, Inc / B', prefix: '', full_name: 'มี, จุลภาค', nickname: '', student_id: '',
+      { path: 'A, Inc / B', full_name: 'มี, จุลภาค', nickname: '', student_id: '',
         year: '', major: '', kkumail: '', confirmed: false },
     ];
     const csv = buildMembersCsv(rows);
@@ -101,7 +101,9 @@ describe('team/io JSON export', () => {
     );
     expect(out.version).toBe(1);
     expect(out.nodes[0]).toMatchObject({ id: 'n1', permissions: ['pr'], inherit_permissions: false });
-    expect(out.members[0]).toMatchObject({ id: 'm1', full_name: 'X', confirmed: true, prefix: null });
+    expect(out.members[0]).toMatchObject({ id: 'm1', full_name: 'X', confirmed: true });
+    // คำนำหน้า is gone from the schema (0113) — an export must not resurrect it.
+    expect('prefix' in out.members[0]).toBe(false);
   });
 
   it('carries the VS dept binding on BOTH nodes and members (0082/0083)', () => {
@@ -138,7 +140,7 @@ describe('buildExportJson round-trip fidelity', () => {
     passport_dept_id: 0, passport_sub_dept_id: 7,
   };
   const MEMBER = {
-    id: 'm1', node_id: 'n1', position: 2, prefix: 'นาย', full_name: 'ทดสอบ ระบบ',
+    id: 'm1', node_id: 'n1', position: 2, full_name: 'ทดสอบ ระบบ',
     nickname: 'เทส', student_id: '123', year: '5', major: 'MD',
     kkumail: 'a@kkumail.com', confirmed: true,
     photo_url: 'https://lh3.googleusercontent.com/d/ABC=w2000',
@@ -161,7 +163,7 @@ describe('buildExportJson round-trip fidelity', () => {
     expect(Object.keys(m).sort()).toEqual([
       'confirmed', 'full_name', 'id', 'inherit_permissions', 'kkumail', 'major',
       'nickname', 'node_id', 'passport_dept_id', 'passport_sub_dept_id',
-      'permissions', 'photo_focus', 'photo_url', 'position', 'prefix',
+      'permissions', 'photo_focus', 'photo_url', 'position',
       'project_seat', 'student_id', 'vs_dept', 'year',
     ]);
   });

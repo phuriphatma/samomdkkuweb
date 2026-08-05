@@ -40,7 +40,9 @@ const email = (v) => {
  *  one human showing different portraits is the same bug, just more visible. */
 export const IDENTITY_FIELDS = [
   { key: 'full_name', label: 'ชื่อ-สกุล' },
-  { key: 'prefix', label: 'คำนำหน้า' },
+  // คำนำหน้า was here until 0113 dropped the column. It was also the field that
+  // produced the least actionable `drift` findings — two rows reading นาย and
+  // นางสาว for one human is a typo nobody had to resolve to use the app.
   { key: 'nickname', label: 'ชื่อเล่น' },
   { key: 'year', label: 'ชั้นปี' },
   { key: 'major', label: 'สาขา' },
@@ -59,7 +61,6 @@ export function findIssues(members, nodeName = () => '') {
     node_id: m.node_id,
     node: nodeName(m.node_id),
     full_name: clean(m.full_name),
-    prefix: clean(m.prefix),
     nickname: clean(m.nickname),
     year: clean(m.year),
     major: clean(m.major),

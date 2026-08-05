@@ -21,8 +21,10 @@ export const PERM_CATALOG = [
   { key: 'samoshop',  label: 'SAMO Shop' },
   { key: 'projects',  label: 'หนังสือโครงการ' },
   { key: 'creator',   label: 'เขียนประกาศ' },
-  { key: 'team',      label: 'ทีม SAMO (ดู)',
-    hint: 'ทุกคนที่มีอีเมลอยู่ในทีม SAMO ได้สิทธิ์นี้อัตโนมัติ' },
+  // `implicit` = the server grants this to every person in the tree, so the
+  // checkbox cannot turn it off. See IMPLICIT_PERMS below.
+  { key: 'team',      label: 'ทีม SAMO (ดู)', implicit: true,
+    hint: 'ทุกคนที่มีอีเมลอยู่ในผังทีมได้สิทธิ์นี้อัตโนมัติ — ปิดไม่ได้' },
   { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)',
     hint: 'แก้ไขโครงสร้าง สมาชิก และสิทธิ์ของทุกคน' },
   { key: 'passport',  label: 'SAMO Passport' },
@@ -40,6 +42,29 @@ export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.l
 // permission" trap). `readPermInputs` drops `team` when `team_edit` is set.
 export const TEAM_VIEW = 'team';
 export const TEAM_EDIT = 'team_edit';
+
+/**
+ * Permissions the SERVER hands out on its own, which no form may claim to set.
+ *
+ * `team` is the only one: since 0110 `effective_team_permissions_for_email()`
+ * appends it for anybody with a posting in the tree, so an admin who unticked
+ * the box saved an array without it and the resolver put it straight back. The
+ * control looked like a decision and was not one — the shape this repo calls
+ * "a class in the markup with no rule behind it", except here the rule exists
+ * and simply overrules the UI.
+ *
+ * Why LOCKED-AND-TICKED rather than removed from the grid: the grid is also how
+ * an admin READS what somebody holds. Dropping the row would make ทีม SAMO (ดู)
+ * invisible and leave the reader unsure whether view access exists at all.
+ * Shown, ticked, disabled, with the reason in the hint.
+ *
+ * And there is no revoke case to design for: "this person should not see the
+ * roster" means they are not on the team, and the fix is to remove their
+ * posting — not to leave them in the tree with a box unticked. If a real
+ * need for a posting-without-visibility ever appears it is a new column on the
+ * row (a hidden/observer flag), not a permission the resolver already grants.
+ */
+export const IMPLICIT_PERMS = PERM_CATALOG.filter((p) => p.implicit).map((p) => p.key);
 
 /**
  * The one grant that answers YES to every permission question (migration 0111).

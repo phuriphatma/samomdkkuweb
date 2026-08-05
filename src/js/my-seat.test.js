@@ -54,6 +54,29 @@ describe('renderMySeat', () => {
     expect(el.innerHTML).toContain('ฝ่ายดิจิทัล');
   });
 
+  it('runs the breadcrumb ALL THE WAY IN, ending at the ตำแหน่ง', () => {
+    // Reported: the trail read "ฝ่ายดิจิทัลและสื่อสารองค์กร > ฝ่าย IT" and stopped
+    // one level short, with the ตำแหน่ง printed separately ABOVE it.
+    // team_node_path() returns ancestors only, so the node name has to be
+    // appended by the renderer — assert it is INSIDE the path element, after the
+    // last ancestor, or this silently regresses to two disconnected lines.
+    renderMySeat(el, seatWith({
+      postings: [{
+        node_id: 'n1', node: 'หัวหน้าฝ่าย IT',
+        path: ['ฝ่ายดิจิทัลและสื่อสารองค์กร', 'ฝ่าย IT'],
+        is_board: false, permissions: [], confirmed: true,
+      }],
+    }));
+    const path = el.innerHTML.match(/<span class="myseat-posting-path">([\s\S]*?)<\/span>\s*<\/li>/);
+    expect(path).not.toBeNull();
+    const inside = path[1];
+    expect(inside).toContain('ฝ่ายดิจิทัลและสื่อสารองค์กร');
+    expect(inside).toContain('ฝ่าย IT');
+    expect(inside.indexOf('หัวหน้าฝ่าย IT')).toBeGreaterThan(inside.indexOf('ฝ่ายดิจิทัลและสื่อสารองค์กร'));
+    // and the ตำแหน่ง is the emphasised last crumb, not a plain one
+    expect(inside).toContain('myseat-crumb is-self');
+  });
+
   it('renders every posting, not just the first', () => {
     renderMySeat(el, seatWith({
       postings: [

@@ -802,3 +802,62 @@ remembering it in the DOM. (3) Reproduce this class by opening TWO different
 records in sequence — one open never shows it, and neither does a unit test that
 renders once. This one was caught by driving a real browser through
 open-A-then-open-B.
+
+---
+
+## Uploading a replacement photo on PICK leaves the previous file in Drive forever
+
+**Symptom** (reported): "when there's already a picture of me uploaded on
+teamsamo and i press upload files, and upload it without pressing the นำรูปออก,
+the drive now store both files."
+**What it was NOT**: the delete plumbing. `deleteTeamPhotoIfUnused()` ref-counts
+`team_members` + `team_archive_members` and only then calls the GAS
+`deleteTeamFile` action — and that action is live and working. Probed it before
+touching anything, with a well-formed but non-existent Drive id, which returns
+`{success:true, alreadyGone:true}`; the same probe with a junk action name
+returns `Unknown action`, so the probe could tell "works" from "not deployed"
+(both directions — class 7). The archive theory was wrong too: the live DB had
+exactly ONE row with a photo and zero archive rows.
+**Cause**: the admin member form uploaded the framed file the instant it was
+PICKED, and only wrote the resulting URL into a hidden input. So every
+intermediate choice became a real Drive file while only the last one ever
+reached the row. Pick twice → the first upload is an orphan. Pick once and close
+the editor → the upload is an orphan. And the delete path could never clean them
+up, because it trashes the photo the DB was POINTING AT — precisely the file that
+is not the orphan.
+**Fix**: nothing leaves the browser until บันทึก. The crop dialog's output is
+held in `memberPhotoPending` with an `URL.createObjectURL` preview; the submit
+handler uploads it (with the modal still open and the button showing
+`กำลังอัปโหลดรูป…`, so a failure has somewhere to be reported), then the existing
+"trash the previous file if unreferenced" step runs as before. `นำรูปออก` drops
+the pending pick as well as the stored URL, and `openMemberModal` clears it — the
+modal is one reused DOM element, the same hazard as the permission grid above.
+**Where**: `src/js/team/index.js` (`memberPhotoPending`, `clearPendingPhoto`,
+`onMemberPhotoPick`, `uploadPendingPhoto`, `onMemberSubmit`); the same rule in
+`src/js/my-seat.js` `wireSelfEdit`, which grew a photo field in the same commit.
+**Rule**: an upload is a WRITE to an external store, so it belongs on the save
+path, not on the pick. If a file can be uploaded before the record that will
+reference it is committed, the difference between the two is a leak nobody can
+find later — and the cleanup routine you already have cannot help, because it
+only knows about files the database still names.
+
+---
+
+## A filled "danger" style made an UNCHECKED checkbox look ticked
+
+**Symptom** (reported): "don't highlight the ทุกระบบ (Master) in the แก้ไขสิทธิ์
+it makes people confusing if it's being selected or not."
+**Cause**: the grid says "this option is ON" with
+`.team-perm-opt:has(input:checked) { border-color: green; background: tinted }`.
+The Master row then styled itself with `.is-danger { border-color: orange;
+background: #fff6f0 }` — the same two properties, unconditionally. So the one
+row in the form where being wrong about the state hands out every permission in
+the app looked identical whether or not it was ticked.
+**Fix**: OFF is a plain white row whose LABEL is orange (marking it out without
+claiming a state); ON gets the filled panel plus an inset orange bar, and
+`accent-color` makes the tick itself orange. Same information, but the
+"selected" channel is used only for selected.
+**Where**: `src/css/team.css` `.team-perm-opt.is-danger`.
+**Rule**: a component's severity/kind styling must not borrow the same visual
+channel the component already uses for STATE. If "checked" is a tinted
+background, a variant must not have a tinted background at rest.

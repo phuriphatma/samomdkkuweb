@@ -20,6 +20,15 @@
         <i class="bi bi-clipboard2-check"></i> ตรวจสอบข้อมูล
         <span class="team-mode-badge d-none" id="teamHealthBadge"></span>
       </button>
+      <!-- The SAME ตำแหน่งของฉัน card the home page renders (src/js/my-seat.js),
+           not a second editor. Reported: someone in /admin/ who spots their own
+           row is wrong had to leave for the public home page to fix it — and the
+           read-only note below still said exactly that. One editor, three
+           entry points: home, the โปรไฟล์ modal in the account dropdown, and
+           here. -->
+      <button type="button" class="team-mode-btn" data-team-mode="me">
+        <i class="bi bi-person-vcard"></i> ข้อมูลของฉัน
+      </button>
     </div>
     <div class="team-io">
       <div class="dropdown">
@@ -85,6 +94,16 @@
        later CSV import that reintroduces an inconsistency shows up here with no
        script to remember to run. Rendered by src/js/team/health.js. -->
   <div class="team-health-pane d-none" id="teamHealthPane"></div>
+
+  <!-- ข้อมูลของฉัน. Host for the shared ตำแหน่งของฉัน card — team/index.js calls
+       showMySeat() into it, so the markup, the rules and the self-edit round trip
+       are the public site's, unchanged. Nothing team-specific belongs here. -->
+  <div class="team-me-pane d-none" id="teamMePane">
+    <div class="myseat myseat--pane" id="teamMySeat"></div>
+    <p class="team-me-empty d-none" id="teamMeEmpty">
+      บัญชีนี้ไม่มีตำแหน่งในผังทีม SAMO — ข้อมูลส่วนตัวจึงไม่มีให้แก้ที่นี่
+    </p>
+  </div>
 
   <!-- Bulk action bar — shown in select mode; sticks to the bottom. -->
   <div class="team-selectbar d-none" id="teamSelectionBar">
@@ -345,6 +364,53 @@
   </div>
 </div>
 
+<!-- สาขา vocabulary manager (migration 0113).
+     Stacks on top of the member editor, which is where it is opened from —
+     "จัดการรายการ" beside the สาขา chooser, because that is the moment someone
+     discovers their สาขา is missing from the list.
+
+     Every row carries how many PEOPLE hold that code. That number is what makes
+     the two destructive-ish actions safe to offer: rename backfills those rows,
+     remove leaves them alone and only shrinks the picker (team_members.major is
+     free text, NOT a foreign key — see the migration header). -->
+<div class="modal fade" id="teamMajorsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">จัดการรายการสาขา</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body">
+        <form id="teamMajorsAdd" class="team-majors-add" novalidate>
+          <div class="row g-2 align-items-end">
+            <div class="col-4">
+              <label class="form-label" for="teamMajorsNewCode">รหัสสาขา</label>
+              <input type="text" class="form-control" id="teamMajorsNewCode" placeholder="MD" />
+            </div>
+            <div class="col-5">
+              <label class="form-label" for="teamMajorsNewLabel">ชื่อเต็ม (ไม่บังคับ)</label>
+              <input type="text" class="form-control" id="teamMajorsNewLabel" placeholder="แพทยศาสตร์" />
+            </div>
+            <div class="col-3">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-plus-lg"></i> เพิ่ม
+              </button>
+            </div>
+          </div>
+        </form>
+        <div id="teamMajorsList" class="team-majors-list mt-3"></div>
+        <div class="form-text mt-2">
+          ลบออกจากรายการ = เอาออกจากตัวเลือกเท่านั้น ข้อมูลสาขาของสมาชิกที่มีอยู่จะไม่เปลี่ยน ·
+          เปลี่ยนชื่อ = แก้ข้อมูลของสมาชิกทุกคนที่ใช้สาขานั้นด้วย
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Member editor modal -->
 <!-- TABBED ENTITY EDITOR (0110).
      Reported: "when I click a person / ตำแหน่ง I can only see แก้ไขสมาชิก, and to
@@ -420,15 +486,11 @@
               <span id="teamMemberNodeLabel" class="text-muted">เลือกตำแหน่ง…</span>
             </button>
           </div>
+          <!-- คำนำหน้า was the first field here until migration 0113 dropped the
+               column: it was never used for anything the app renders, and it
+               produced ตรวจสอบข้อมูล "drift" findings nobody had to resolve. -->
           <div class="row g-2">
-            <div class="col-4">
-              <label class="form-label" for="teamMemberPrefix">คำนำหน้า</label>
-              <input type="text" class="form-control" id="teamMemberPrefix" placeholder="นางสาว" list="teamPrefixList" />
-              <datalist id="teamPrefixList">
-                <option value="นาย"></option><option value="นางสาว"></option><option value="นาง"></option>
-              </datalist>
-            </div>
-            <div class="col-8">
+            <div class="col-12">
               <label class="form-label" for="teamMemberName">ชื่อ-สกุล</label>
               <input type="text" class="form-control" id="teamMemberName" required />
             </div>
@@ -438,18 +500,26 @@
             </div>
             <div class="col-6">
               <label class="form-label" for="teamMemberStudentId">รหัสนักศึกษา</label>
-              <input type="text" class="form-control" id="teamMemberStudentId" />
+              <input type="text" class="form-control" id="teamMemberStudentId"
+                inputmode="numeric" placeholder="653070317-0" />
+              <div class="form-text" id="teamMemberStudentIdHint"></div>
             </div>
+            <!-- ชั้นปี and สาขา are CHOOSERS, not text boxes. Free text produced
+                 ปี5 / 5 / "5 " for one answer and md / MD / M.D. for another,
+                 which turns into a per-person "drift" finding about nothing.
+                 Options are filled by src/js/team/index.js: ชั้นปี from
+                 fields.js YEARS, สาขา from the team_majors vocabulary (0113). -->
             <div class="col-6">
               <label class="form-label" for="teamMemberYear">ชั้นปี</label>
-              <input type="text" class="form-control" id="teamMemberYear" inputmode="numeric" placeholder="5" />
+              <select class="form-select" id="teamMemberYear"></select>
             </div>
             <div class="col-6">
-              <label class="form-label" for="teamMemberMajor">สาขา</label>
-              <input type="text" class="form-control" id="teamMemberMajor" placeholder="MD / RT / MDI" list="teamMajorList" />
-              <datalist id="teamMajorList">
-                <option value="MD"></option><option value="RT"></option><option value="MDI"></option>
-              </datalist>
+              <label class="form-label d-flex align-items-center gap-2" for="teamMemberMajor">
+                <span>สาขา</span>
+                <button type="button" class="btn btn-link btn-sm p-0 team-majors-open"
+                  id="teamMemberMajorsManage">จัดการรายการ</button>
+              </label>
+              <select class="form-select" id="teamMemberMajor"></select>
             </div>
             <div class="col-12">
               <label class="form-label" for="teamMemberEmail">KKU Mail</label>
@@ -518,7 +588,8 @@
           <i class="bi bi-trash"></i> ลบ
         </button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" data-team-modal-save="teamMemberModal">บันทึก</button>
+        <button type="button" class="btn btn-primary" id="teamMemberModalSave"
+          data-team-modal-save="teamMemberModal">บันทึก</button>
       </div>
     </div>
   </div>

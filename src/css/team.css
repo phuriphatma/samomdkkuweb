@@ -697,16 +697,74 @@
 }
 .team-readonly-note .bi { color: var(--brand-primary); }
 
-/* `master` in the permission grid (0111). It is the strongest grant the tree
- * can issue, so it does not look like the other eight checkboxes; and while it
- * is on, the rest are shown ticked-and-locked because it already implies them. */
+/* `master` in the permission grid (0111). It is the strongest grant the tree can
+ * issue, so it does not look like the other checkboxes.
+ *
+ * REPORTED: "don't highlight the ทุกระบบ (Master) in the แก้ไขสิทธิ์ it makes
+ * people confusing if it's being selected or not". It used to paint a filled
+ * orange panel UNCONDITIONALLY — which is the same visual language as
+ * `.team-perm-opt:has(input:checked)` above (tinted background + coloured
+ * border). So an unticked Master looked exactly like a ticked permission, on the
+ * one row in the grid where being wrong about that matters most.
+ *
+ * Now the two states are told apart the way every other option is: OFF is a
+ * plain white row, and only the LABEL is orange to mark it out. ON gets the
+ * filled panel. The accent-color makes the tick itself orange, so the strongest
+ * grant still never looks like an ordinary one. */
 .team-perm-opt.is-danger {
-  border-color: var(--brand-orange, #FF6F30);
-  background: #fff6f0;
+  border-color: var(--ink-200);
+  background: #fff;
+  color: var(--brand-orange, #FF6F30);
   font-weight: 600;
+}
+.team-perm-opt.is-danger input { accent-color: var(--brand-orange, #FF6F30); }
+.team-perm-opt.is-danger:has(input:checked) {
+  border-color: var(--brand-orange, #FF6F30);
+  background: #fff2e8;
+  box-shadow: inset 3px 0 0 var(--brand-orange, #FF6F30);
 }
 .team-perm-opt.is-implied { opacity: 0.55; }
 .team-perm-grid.is-master .team-perm-opt.is-implied { cursor: not-allowed; }
+
+/* An IMPLICIT permission — ทีม SAMO (ดู), which every person in the tree gets
+ * automatically (0110). Ticked and disabled, so it must LOOK locked rather than
+ * look like an ordinary tick somebody could clear. The green "checked" fill from
+ * .team-perm-opt:has(input:checked) is deliberately overridden: this is not a
+ * choice anyone made on this row. */
+.team-perm-opt.is-auto,
+.team-perm-opt.is-auto:has(input:checked) {
+  border-color: var(--ink-200);
+  border-style: dashed;
+  background: var(--ink-100, #f1f3f5);
+  color: var(--ink-600);
+  cursor: default;
+}
+.team-perm-lock { font-size: 0.72em; color: var(--ink-500); margin-left: auto; }
+.team-perm-auto-note {
+  font-size: 0.68rem; color: var(--ink-500);
+  border: 1px solid var(--ink-200); border-radius: 999px;
+  padding: 0 0.35rem; white-space: nowrap;
+}
+
+/* ── สาขา vocabulary manager (0113) ─────────────────────────────────────────
+   The per-row count is the point of this pane, not decoration: it is what turns
+   "remove RT" into "remove RT, which 19 people still carry". */
+.team-majors-add { padding-bottom: 0.25rem; }
+.team-majors-list { display: grid; gap: 0.35rem; }
+.team-major-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  border: 1px solid var(--ink-200); border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+}
+.team-major-main { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; flex: 1; }
+.team-major-code { font-weight: 700; color: var(--ink-900); }
+.team-major-label { font-size: 0.82rem; color: var(--ink-600); overflow-wrap: anywhere; }
+.team-major-count {
+  font-size: 0.75rem; color: var(--ink-500); white-space: nowrap;
+}
+/* Opens the manager from beside the chooser — a link, not a button, because it
+   sits inside a field label and must not read as a form action. */
+.team-majors-open { font-size: 0.78rem; text-decoration: none; }
 
 /* Scroll chain for the TABBED entity modals (0110).
  *
@@ -746,3 +804,14 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* ── ข้อมูลของฉัน pane (admin ทีม SAMO) ─────────────────────────────────────
+   Hosts the shared ตำแหน่งของฉัน card so someone who spots their own row is
+   wrong while they are in /admin/ can fix it there, instead of being sent to
+   the public home page (which is what the read-only note used to tell them to
+   do). `--pane` only removes the card's outer chrome — it is already inside a
+   panel here. */
+.team-me-pane { padding: 0.25rem 0 1rem; }
+.myseat--pane { margin-top: 0; }
+.myseat--pane .myseat-card { border: 0; padding: 0; box-shadow: none; background: transparent; }
+.team-me-empty { color: var(--ink-500); font-size: 0.9rem; margin: 0.5rem 0 0; }

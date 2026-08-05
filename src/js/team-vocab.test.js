@@ -6,7 +6,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   PERM_CATALOG, PERM_LABEL, ADMIN_FEATURES, TEAM_VIEW, TEAM_EDIT, MASTER, canEditTeam,
+  IMPLICIT_PERMS,
 } from './team-vocab.js';
+import { permTicked } from './team/index.js';
 import { readFileSync } from 'node:fs';
 
 const keys = PERM_CATALOG.map((p) => p.key);
@@ -99,5 +101,65 @@ describe('master (migration 0111)', () => {
 
   it('does NOT appear in ADMIN_FEATURES — it is a grant, not a feature tab', () => {
     expect(ADMIN_FEATURES).not.toContain('master');
+  });
+});
+
+describe('the "ไปยัง Admin Dashboard" link is gated by ADMIN_FEATURES', () => {
+  // REPORTED: "when i got permission ทีม SAMO (ดู), it should show admin
+  // dashboard drop down from the topright of my account".
+  //
+  // main.js had its own hand-written list of five permission keys, written before
+  // ทีม SAMO had rungs. So a member whose only grant was `team` — which, since
+  // 0110, is EVERY person with a posting in the tree — could reach /admin/ by
+  // typing the URL but was never shown the link. The fix is not "add two more
+  // keys to that list", it is to stop having a second list: the door and the
+  // doorman (admin-main.js canUseAdmin) now read the same array.
+  const main = readFileSync(new URL('./main.js', import.meta.url), 'utf8');
+
+  it('main.js derives it from ADMIN_FEATURES rather than naming keys', () => {
+    const block = main.slice(main.indexOf('const canAccessAdmin'),
+      main.indexOf('const canAccessAdmin') + 300);
+    expect(block).toContain('ADMIN_FEATURES.some');
+  });
+
+  it('and therefore covers the ทีม SAMO rungs', () => {
+    expect(ADMIN_FEATURES).toContain('team');
+    expect(ADMIN_FEATURES).toContain('team_edit');
+  });
+
+  it('admin-main.js still gates the door on the SAME array', () => {
+    const admin = readFileSync(new URL('./admin-main.js', import.meta.url), 'utf8');
+    expect(admin).toContain('ADMIN_FEATURES.some');
+  });
+});
+
+describe('IMPLICIT_PERMS — grants the server hands out, which no form may claim', () => {
+  it('is exactly ทีม SAMO (ดู)', () => {
+    // 0110 appends `team` in effective_team_permissions_for_email() for anyone
+    // with a posting. Anything else added here must have the same property, or
+    // the grid will show a locked tick for a permission nobody actually holds.
+    expect(IMPLICIT_PERMS).toEqual([TEAM_VIEW]);
+  });
+
+  it('team_edit is NOT implicit — it is the write rung and must be granted', () => {
+    expect(IMPLICIT_PERMS).not.toContain(TEAM_EDIT);
+    expect(IMPLICIT_PERMS).not.toContain(MASTER);
+  });
+
+  it('permTicked reports an implicit key as ON even though no row stores it', () => {
+    // The row correctly does not store `team`; the box is still ticked, because
+    // the person does hold it. Miss this and the pane says a member cannot view
+    // ทีม SAMO while they are looking at ทีม SAMO.
+    expect(permTicked(TEAM_VIEW, new Set(), { permissions: [] })).toBe(true);
+  });
+
+  it('readPermInputs filters implicit keys out of what gets SAVED', () => {
+    // `input:checked` matches a DISABLED checkbox too, so the locked tick would
+    // otherwise be written onto every row the modal saves — turning an implicit
+    // grant into an explicit one that someone can later untick.
+    const src = readFileSync(new URL('./team/index.js', import.meta.url), 'utf8');
+    const block = src.slice(src.indexOf('function readPermInputs('),
+      src.indexOf('function readPermInputs(') + 900);
+    expect(block).toContain('IMPLICIT_PERMS.includes');
   });
 });

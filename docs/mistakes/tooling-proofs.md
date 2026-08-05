@@ -122,3 +122,28 @@ beyond X") over incidental counts ("zero rows"), because a count encodes a
 snapshot of the data and the data moves. A probe whose candidate set can contain
 placeholder / single-character values needs a shape filter, or it cries wolf.
 
+
+## `pg_get_functiondef` over every function 42809s on aggregates — and the whole introspection query fails, reporting nothing
+
+**Symptom**: the enumeration recipe recorded in migration 0110's own comments —
+`select proname from pg_proc p join pg_namespace n … where pg_get_functiondef(p.oid) ~ 'has_permission\(''team''\)'` —
+returns `ERROR: 42809: "array_agg" is an aggregate function` through the
+Management API. Run casually (or with the error swallowed) it looks like a clean
+sweep: no function names, nothing to fix.
+**Cause**: two independent traps in one query. (1) `pg_get_functiondef` RAISES on
+an aggregate or window function, and `pg_proc` contains those, so the predicate
+blows up on a row that has nothing to do with the search — fix with
+`p.prokind = 'f'`. (2) The pattern itself never matches: `pg_policies.qual` and
+function bodies render the literal as `current_user_has_permission('team'::text)`,
+so `has_permission\('team'\)` finds zero of the twelve live hits. The policy
+version of the same recipe therefore reported "no policy uses the view key" while
+every read policy did.
+**Fix**: `prokind='f'`, and match `'team'::text` (or just `has_permission\(''team'`
+as a prefix). Verified by re-running: the corrected query found exactly the three
+functions that named `prefix` before 0113 dropped it, and 12 policies naming the
+team keys.
+**Rule**: an introspection query that returns NOTHING is not evidence of nothing.
+Before trusting a sweep, make it find something you already know is there — the
+allow-direction of class 7, applied to your own tooling. And never write a
+verification recipe into a comment without running it first; a wrong one is worse
+than none, because the next person reads it as already checked.

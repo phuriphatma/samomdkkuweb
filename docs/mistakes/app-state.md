@@ -291,3 +291,28 @@ grep for every function that enumerates that table's fields and classify each by
 data direction. "It's an allow-list, allow-lists are safe" is not the analysis.
 
 ---
+
+## A scroll-to-top fix applied in the tab handler misses every link that navigates programmatically
+
+**Symptom** (reported twice — the second time AFTER it had been "fixed" and
+shipped): "when i press ดูอัปเดตทั้งหมด in the เบื้องหลังการพัฒนา it jump to
+here it should jump to the top." The reader lands mid-timeline on `/updates`,
+several releases down.
+**Cause**: the fix lived in the `shown.bs.tab` handler and was guarded by
+`if (location.pathname !== want)` — "only scroll on a real page change", which is
+correct, and which is also false for half the callers. `window.navigateTo()`
+pushes the new path BEFORE activating the tab, so by the time the handler runs
+`location.pathname` already EQUALS `want` and the whole block is skipped. Clicking
+a nav pill goes through the handler's own pushState and scrolls; every link that
+calls `navigateTo()` — the ดูอัปเดตทั้งหมด CTA, the ฝ่าย tool links — does not.
+One rule, two code paths, and the path that was tested was the one that worked.
+**Fix**: `navigateTo()` scrolls to top itself when it actually moved. Back/forward
+is unaffected, because `popstate` calls `applyPathRoute()` directly rather than
+`navigateTo()`, leaving the browser's own scroll restoration in charge.
+**Where**: `src/js/main.js` `window.navigateTo` + the `shown.bs.tab` handler
+above it (which keeps its own copy, for the pill-click path).
+**Rule**: when a behaviour is attached to an EVENT but the state it tests is set
+by the CALLER, enumerate the callers. A guard reading `location.*` inside a
+handler is really asking "how did I get here?", and the answer differs per entry
+point — which is the routing-flavoured version of "authorization is per-PATH, not
+per-table".

@@ -93,8 +93,14 @@ describe('ownIssues', () => {
     // policy, which Postgres reports as a WITH CHECK violation (0107).
     const mail = DETAIL_FIELDS.find((f) => f.key === 'kkumail');
     expect(mail.editable).toBe(false);
+    // The editable set must match what team_members_self_update_guard allows
+    // (0110, rewritten in 0113): name, nickname, รหัส, ชั้นปี, สาขา and the photo.
+    // `full_name` was missing here until 0113 — the guard allowed it, the card
+    // showed it, and the form did not offer it.
     expect(DETAIL_FIELDS.filter((f) => f.editable).map((f) => f.key))
-      .toEqual(['nickname', 'student_id', 'year', 'major']);
+      .toEqual(['full_name', 'nickname', 'student_id', 'year', 'major']);
+    // คำนำหน้า is gone from the schema entirely (0113).
+    expect(DETAIL_FIELDS.some((f) => f.key === 'prefix')).toBe(false);
   });
 });
 
