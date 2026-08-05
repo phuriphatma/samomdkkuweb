@@ -93,8 +93,15 @@ async function main() {
   const m0 = find(mig, 'nodes_team');
   check('no `team` (view) grant is left stored in the tree',
     Number(m0.nodes_team) === 0 && Number(m0.members_team) === 0, JSON.stringify(m0));
-  check('the 4 nodes + 2 members that held `team` now hold `team_edit`',
-    Number(m0.nodes_edit) === 4 && Number(m0.members_edit) === 2, JSON.stringify(m0));
+  // NOT a count. This asserted "4 nodes + 2 members" — a snapshot of live data
+  // that admins legitimately change, and it went red the first time someone
+  // edited a ตำแหน่ง's permissions in the UI. The invariant that actually
+  // matters is that the migration left SOMEBODY able to manage the tree:
+  // if every `team` grant had been dropped rather than converted, and no
+  // vp_admin/dev existed, ทีม SAMO would be unadministrable and only this
+  // script would have known.
+  check('somebody still holds `team_edit` — the tree is still manageable',
+    Number(m0.nodes_edit) + Number(m0.members_edit) > 0, JSON.stringify(m0));
 
   // ---------- pick a plain user ----------
   const who = (await mgmt(`select id, email from public.users

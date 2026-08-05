@@ -22,8 +22,8 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 
 ## ทีม SAMO view/edit + master + the full ตำแหน่งของฉัน card — LIVE
 
-**SHIPPED 2026-08-05.** `main` at `a85ec9f`; KKU VM deployed,
-**`buildId f401da0ea2f2`**; migrations **0110 + 0111 applied**. Verified against
+**SHIPPED 2026-08-05.** KKU VM deployed, **`buildId bb074fa12f41`**;
+migrations **0110 + 0111 + 0112 applied**. Verified against
 the SERVED bundle, not the local build.
 
 What landed: `team` (ดู) / `team_edit` (แก้ไข) split with view granted implicitly
@@ -49,6 +49,21 @@ Write-ups: `docs/mistakes/frontend-ui.md`.
 `public-*.js`. Grepping only `public-*.js` reported every marker MISSING on a
 perfectly good deploy. Fetch every `/assets/*.js` the entry links.
 
+**A design call that was reversed, worth knowing about:** `sid_clash` shipped as
+a documented "the card cannot compute this" gap — a clash is a fact about TWO
+people and the payload carries one. The user pushed back: it is the person's OWN
+รหัส and they should see it when they log in. Migration **0112** returns one
+extra fact (`student_id_shared_with`, a COUNT, never a name) and the card now
+reports it. The rule engine was NOT re-implemented in SQL. If another finding
+turns out to be uncomputable client-side, copy that shape.
+
+**A proof script went red for a CORRECT reason and was re-pointed:**
+`team0110-view-edit.mjs` asserted "4 nodes + 2 members hold `team_edit`" — a
+snapshot of live data. Someone edited a ตำแหน่ง's permissions in the admin UI
+and it failed. It now asserts the invariant that matters ("somebody still holds
+`team_edit`, so the tree is still manageable"). **This repo keeps re-learning
+this**: never assert a count of live rows; assert the property.
+
 **Known, NOT fixed — needs your call:**
 - **`ฝ่ายเอิงtest` test data is live**, on the public org chart AND now inside
   real people's ตำแหน่งของฉัน card (it renders a second posting called `hi`
@@ -57,8 +72,6 @@ perfectly good deploy. Fetch every `/assets/*.js` the entry links.
 - **No human has reviewed the Thai copy** on the card, the Master confirm
   dialog, the read-only notice, or the eight staged release notes. I cannot
   judge natural Thai.
-- `sid_clash` is the one ตรวจสอบข้อมูล finding the card cannot show (it needs
-  other people's rows, which the payload deliberately does not carry).
 - `team_person_mirror_down()` (0108) writes guarded columns without setting the
   `app.team_sync` flag. Unreachable by a non-editor today; give it the flag if
   `team_people` ever gets a self-service surface.
@@ -163,12 +176,12 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `a85ec9f`, **deployed 2026-08-05**, `buildId f401da0ea2f2`.
+- **samoweb**: `main` head, **deployed 2026-08-05**, `buildId bb074fa12f41`.
   Latest: ทีม SAMO view/edit split + `master` (migrations 0110/0111), the full
   ตำแหน่งของฉัน card with self-edit, the tabbed member/ตำแหน่ง editor, and the
   post-deploy fixes above. **Grep the `analytics-*.js` chunk, not just
   `public-*.js`** — the card lives there.
-  Superseded: `c380fc060101` (same day), `9f65ec53b172` (2026-08-04).
+  Superseded: `f401da0ea2f2`, `c380fc060101` (same day), `9f65ec53b172` (08-04).
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
   the landing page. Verified against the SERVED artifacts: `/build.json` returns
@@ -181,7 +194,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–**0108**; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–**0112**; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
