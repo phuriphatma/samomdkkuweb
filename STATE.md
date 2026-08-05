@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-08-04. **577 → 272 lines this session** — past-session
+Last updated: 2026-08-05. **577 → 272 lines this session** — past-session
 sections pruned to `docs/state-archive/2026-08-04-shipped.md`, the un-started
 backlog moved to `docs/NEXT.md`. Keep it under ~200; it is read on every cold start. Slim by design — "what is true right now". Shipped
 detail pruned out of here most recently:
@@ -11,6 +11,65 @@ article-cover fix and the earlier shipped list),
 `docs/state-archive/2026-07-24-full.md`;
 chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: `.claude/rules/mistakes.md`.
+
+## Org chart collapse + "ตำแหน่งของฉัน" (2026-08-05 — SHIPPED to prod)
+
+**LIVE.** `main` at `12f93e3` (+ a follow-up commit for the proof scripts),
+pushed; KKU VM deployed and verified **against the SERVED bundle**
+(`buildId ff617f917f9b`). Behaviour re-run against `https://samo.md.kku.ac.th/team`
+in headless Chrome — identical to local. 279 tests green; every proof script in
+`tools/` green.
+
+**Rendered and driven in a real browser this time** (the previous session could
+not). No Chrome extension — the extension was not connected — so it was done
+with headless Chrome + CDP over a raw WebSocket:
+`/private/tmp/.../scratchpad/cdp.mjs` in that session. Node 22 has a global
+`WebSocket`, so a ~40-line driver gets navigate / evaluate / screenshot with no
+dependency. Worth rebuilding if you need to SEE a change; `--dump-dom` alone
+cannot click.
+
+- **โครงสร้างองค์กร is now an accordion.** It rendered all 279 ตำแหน่ง / 402
+  people at once — **63,912px** measured; collapsed it lands at ~3,000px. Each
+  root ฝ่าย is a card showing its subtree counts ("65 ตำแหน่ง · 81 คน").
+  ARIA accordion pattern (heading wraps button). Toggling mutates the DOM, it
+  does not re-render — a repaint would drop the scroll position.
+  **Collapsed bodies use `hidden`, deliberately NOT a `0fr` height animation:**
+  that is what stops 400 lazy portraits being fetched for branches nobody opened.
+  A ตำแหน่ง with ≤3 people and no children stays inline (106 hold exactly one).
+  Search results are always fully expanded with no toggles. Station rows are a
+  named CSS **grid** — flex-wrap stranded the count pill and the chevron on
+  their own lines at 390px.
+- **ตำแหน่งของฉันในทีม SAMO** — new card under the home greeting and in the
+  โปรไฟล์ modal. A ทีม SAMO grant used to be invisible to the person holding it.
+  Fed by `public.get_my_team_seat()` (migration **0109**, applied): definer,
+  **takes NO argument** so identity comes from `auth.uid()` and it cannot be
+  aimed at anyone else; hand-built jsonb allow-list, never `returns setof`.
+  Proof: `tools/seat0109-my-seat.mjs` (17 checks, incl. anon refused over real
+  HTTPS and "the payload carries no other person's kkumail / รหัส").
+  The CTA respects the door it opens: a `passport`-only grantee is sent to
+  `/passport/`, not `/admin/`, which would bounce them (`ADMIN_FEATURES`).
+- **`src/js/team-vocab.js` is new** — PERM_CATALOG / VS_DEPTS / PROJECT_SEATS /
+  ADMIN_FEATURES moved out of the admin-only `team/index.js` + `admin-main.js`
+  so the public card names things the same way. Behaviour unchanged on both
+  sides; the user asked for **no changes to the admin ทีม SAMO UI** and there are
+  none.
+
+**Two bugs found by the scan, both now in `.claude/rules/mistakes.md`:**
+1. `revoke ... from public` did NOT strip the `authenticated` grant that this
+   database's DEFAULT PRIVILEGES hand every new function — **in the `public`
+   schema, not just `passport`**. `team_node_path` shipped world-callable on the
+   first apply. Verify ACLs from `pg_proc.proacl`, never from the migration text.
+2. Two proof scripts were failing/mis-reporting for CORRECT reasons
+   (`prof0095` assumed the probe account is never a named `prof_id`; `seat0109`
+   substring-matched a placeholder `kkumail = '-'` against uuids). Both fixed.
+
+**Known, NOT fixed — needs the user's call:**
+- **`ฝ่ายเอิงtest` is live on the public org chart** (root ฝ่าย, 7 ตำแหน่ง,
+  5 people, one ตำแหน่ง literally named `hi`). It is test data visible to the
+  world at `/team`. Deleting it is a data change in ทีม SAMO, so it was left
+  alone — ask before removing.
+- One `team_members` row carries `kkumail = '-'` (ชญาภา เลาหะตานนท์). Harmless
+  today; ตรวจสอบข้อมูล should be showing it.
 
 ## Release notes + versioning + the IT panel (2026-08-04 — SHIPPED to prod)
 

@@ -2848,3 +2848,60 @@ suite that needs the internet is a suite that fails on a plane.
 it shows the LATEST release, not the version you pin. The same trap applies to
 any icon font (Material Symbols, Font Awesome): a name is not a URL, so a wrong
 one cannot 404.
+
+---
+
+## `revoke ... from public` leaves the grant that the schema's DEFAULT PRIVILEGES gave `authenticated` — in the `public` schema too, not just `passport`
+
+**Symptom**: a new private helper (`public.team_node_path(uuid)`, 0109) is
+written to be callable only from the definer RPC above it, with an explicit
+`revoke all ... from public;` and no `grant`. It applies clean. `pg_proc.proacl`
+then reads `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}`
+— every signed-in user can call it and walk the private branches of the ทีม SAMO
+tree by uuid.
+**Cause**: the same fact already logged for the `passport` schema, which I had
+assumed was passport-specific: `PUBLIC` and `authenticated` are DIFFERENT
+grantees, and this project's `ALTER DEFAULT PRIVILEGES` grants EXECUTE on every
+new function to `anon` AND `authenticated`. `revoke ... from public` strips only
+the implicit world grant; the explicit role entries survive. It applies to the
+**`public` schema as well** — so in this database *every function is callable by
+anon and authenticated the instant it exists*, before any grant of yours runs.
+The migration's own comment said "not granted to authenticated", which was true
+of the SQL and false of the outcome.
+**Fix**: revoke each role BY NAME —
+`revoke all on function f(args) from public, anon, authenticated;` — and then
+**verify from the catalog**, never from the migration text:
+```sql
+select proname, coalesce(proacl::text,'(default)') from pg_proc p
+  join pg_namespace n on n.oid=p.pronamespace
+ where n.nspname='public' and proname in ('…');
+```
+`(default)` in that column means "whatever the default ACL says", i.e. open.
+**Where**: `supabase/migrations/0109_my_team_seat.sql`; asserted by
+`tools/seat0109-my-seat.mjs` check 1.
+**Rule**: a `revoke` is not a fact about the database, it is a request. For any
+function that must not be publicly callable, assert the ACL in a proof script —
+this one shipped wrong on the first apply and only the catalog query caught it.
+
+---
+
+## A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
+
+**Two instances in one bug-scan pass, both in tools/:**
+1. `prof0095-seat-parity.mjs` asserted "an account with no seat reads **no**
+   sign requests". `project_sign_requests_read` has a deliberate
+   `prof_id = auth.uid()` branch — a named recipient reads their own request,
+   seat or not — and since the script was written, two real requests were
+   addressed to the probe account. The policy is right; the assertion aged out.
+   Now: `where prof_id is distinct from auth.uid()`, i.e. assert what the policy
+   actually promises — *nothing beyond your own name*.
+2. `seat0109-my-seat.mjs` asserted "the payload contains no other person's
+   kkumail" with a bare `position(kkumail in blob)`. One live `team_members` row
+   carries the placeholder `kkumail = '-'`, and a hyphen appears in every uuid
+   in the payload → a reported leak that did not exist. Now the candidate must
+   look like an address (`like '%@%.%'`, length ≥ 6).
+**Rule**: when a proof fails, find out WHICH branch produced the number before
+touching any policy — and prefer assertions worded as the invariant ("nothing
+beyond X") over incidental counts ("zero rows"), because a count encodes a
+snapshot of the data and the data moves. A probe whose candidate set can contain
+placeholder / single-character values needs a shape filter, or it cries wolf.

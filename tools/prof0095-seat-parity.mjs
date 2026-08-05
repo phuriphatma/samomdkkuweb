@@ -103,8 +103,17 @@ async function main() {
     denied(req), errText(req));
 
   console.log('\nC) non-professors are unaffected');
-  const plain = await as(SEAT, `select count(*)::int as n from public.project_sign_requests;`, `'{}'::text[]`);
-  check('an account with no seat reads no sign requests',
+  // EXCLUDE rows addressed to this account. `project_sign_requests_read` has a
+  // deliberate `prof_id = auth.uid()` branch — a named recipient reads their own
+  // request whether or not they hold a seat — and since this script was written,
+  // two real requests were addressed to the probe account, so the original
+  // "reads 0 rows" assertion started failing for an entirely correct reason.
+  // A proof that cries wolf gets ignored, and then it protects nothing; assert
+  // what the policy actually promises: nothing beyond your own name.
+  const plain = await as(SEAT, `
+    select count(*)::int as n from public.project_sign_requests
+     where prof_id is distinct from auth.uid();`, `'{}'::text[]`);
+  check('an account with no seat reads no sign requests beyond those addressed to it',
     Number(val(plain, 'n')) === 0, errText(plain));
   const plainDoc = await as(SEAT, `select prof_can_see_document(
       (select document_id from public.project_sign_requests limit 1)) as v;`, `'{}'::text[]`);
