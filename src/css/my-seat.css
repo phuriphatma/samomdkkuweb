@@ -1,0 +1,137 @@
+/* my-seat.css — "ตำแหน่งของฉันในทีม SAMO".
+ *
+ * Rendered in two places from one markup shape (src/js/my-seat.js): under the
+ * home-page greeting, and inside the โปรไฟล์ modal. The modal variant
+ * (.myseat--modal) drops the card chrome, because it is already inside one.
+ *
+ * DIRECTION. This is a STATEMENT, not a control — it tells a person what they
+ * are and stops. So it reads as a quiet document: a tinted rule down the left in
+ * brand green, the ตำแหน่ง set in Prompt at the weight of a name, the ฝ่าย path
+ * under it in the muted breadcrumb this app already uses, and the abilities as
+ * chips. The single interactive thing is the link to /admin/, styled as a link
+ * rather than a button so it does not compete with the page's real CTAs.
+ *
+ * LIGHT-ONLY, like the rest of this app — no prefers-color-scheme block here
+ * (see mistakes.md: a lone dark-aware component becomes a dark island).
+ */
+
+.myseat { margin-top: 1.25rem; }
+
+.myseat-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-inline-start: 3px solid var(--brand-primary);
+  border-radius: var(--radius-md, 0.75rem);
+  padding: clamp(0.95rem, 3vw, 1.35rem);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+/* Inside the profile modal the surrounding dialog already provides the box. */
+.myseat--modal { margin-top: 0; }
+.myseat--modal .myseat-card {
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  box-shadow: none;
+  background: var(--ink-100, #f8f9fa);
+}
+
+.myseat-head {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.myseat-eyebrow {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--brand-primary);
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.myseat-who {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+}
+
+/* ── the postings ───────────────────────────────────────────────────────── */
+/* A person can hold more than one ตำแหน่ง (81 of ~285 do), so this is a list
+   even when it usually has one item — a single-item list and a two-item list
+   should not look like different components. */
+.myseat-postings { list-style: none; margin: 0 0 0.9rem; padding: 0; display: grid; gap: 0.6rem; }
+
+.myseat-posting { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.myseat-posting-role {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: clamp(1rem, 2.8vw, 1.15rem);
+  font-weight: 600;
+  color: var(--ink-900);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.myseat-board { color: var(--brand-orange); font-size: 0.9em; }
+
+.myseat-posting-path {
+  font-size: 0.78rem;
+  color: var(--ink-500);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.myseat-posting-path .bi { font-size: 0.62em; opacity: 0.7; margin: 0 0.1rem; }
+
+/* ── grants ─────────────────────────────────────────────────────────────── */
+
+.myseat-block { margin-top: 0.75rem; }
+
+.myseat-label {
+  display: block;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+  margin-bottom: 0.35rem;
+}
+
+.myseat-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.myseat-chip {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.74rem; font-weight: 500;
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  white-space: nowrap;
+}
+
+/* Scope is the part that surprises people ("I have VitalSound but see nothing"),
+   so it gets a label/value pair rather than another chip in the same pile. */
+.myseat-scopes { margin: 0; display: grid; gap: 0.3rem; }
+.myseat-scopes > div {
+  display: flex; flex-wrap: wrap; gap: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+}
+.myseat-scopes dt { font-weight: 600; color: var(--ink-700); margin: 0; }
+.myseat-scopes dd { margin: 0; color: var(--ink-600); }
+
+.myseat-none {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-500);
+}
+
+.myseat-cta {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  margin-top: 0.9rem;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.82rem; font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: none;
+}
+.myseat-cta:hover { color: var(--brand-orange); }
+.myseat-cta .bi { transition: transform 0.15s ease; }
+.myseat-cta:hover .bi { transform: translateX(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .myseat-cta .bi { transition: none; }
+  .myseat-cta:hover .bi { transform: none; }
+}

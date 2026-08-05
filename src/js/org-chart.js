@@ -34,8 +34,23 @@ let chart = null;         // { year, is_current, nodes, members }
 let byParent = new Map(); // parent_id ('' for root) -> node[]
 let byNode = new Map();   // node_id -> member[]
 let nodeById = new Map();
+let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
+let collapsibleIds = new Set();
 let loading = false;
 let query = '';
+
+// Which ตำแหน่ง are open. Collapsed is the DEFAULT: 279 ตำแหน่ง / 402 people is
+// several screens of continuous scroll, and the twelve ฝ่าย with their subtree
+// counts read as an index you can actually navigate. Expanding is one tap, and
+// "ขยายทั้งหมด" restores the old all-at-once view for anyone who wants it.
+// Keyed by node id, reset per ปีการศึกษา (ids differ between the live tree and
+// each frozen archive).
+let expanded = new Set();
+
+// A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
+// a disclosure — 106 of them hold exactly one person, and making those a click
+// each would be worse than the scroll it saves.
+const PEOPLE_INLINE_MAX = 3;
 
 const $ = (id) => document.getElementById(id);
 
@@ -108,6 +123,36 @@ function index() {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
   }
+  indexStats();
+}
+
+/** Subtree totals, so a collapsed ฝ่าย still says how much is inside it — a
+ *  disclosure with nothing but a name gives no reason to open it. Walked once
+ *  per year rather than per paint; `seen` guards against a cycle turning a
+ *  render into an infinite loop (the projection is a tree, but this is the only
+ *  walk whose cost is unbounded if that ever stops being true). */
+function indexStats() {
+  subStats = new Map();
+  collapsibleIds = new Set();
+  const seen = new Set();
+  const walk = (id) => {
+    if (seen.has(id)) return { nodes: 0, people: 0 };
+    seen.add(id);
+    const kids = byParent.get(id) || [];
+    const own = (byNode.get(id) || []).length;
+    let people = own;
+    let nodes = 0;
+    for (const c of kids) {
+      const s = walk(c.id);
+      people += s.people;
+      nodes += s.nodes + 1;
+    }
+    const stat = { nodes, people };
+    subStats.set(id, stat);
+    if (kids.length || own > PEOPLE_INLINE_MAX) collapsibleIds.add(id);
+    return stat;
+  };
+  for (const r of byParent.get('') || []) walk(r.id);
 }
 
 // ── the photo element ───────────────────────────────────────────────────────
@@ -263,6 +308,17 @@ function memberCard(m, filter) {
     </li>`;
 }
 
+/** "12 ตำแหน่ง · 48 คน" — the reason to open a collapsed branch. Suppressed
+ *  while a search is running: those totals describe the WHOLE subtree, and next
+ *  to a filtered view they would contradict what is on screen. */
+function stationMeta(node) {
+  const s = subStats.get(node.id) || { nodes: 0, people: 0 };
+  const bits = [];
+  if (s.nodes > 0) bits.push(`${s.nodes} ตำแหน่ง`);
+  if (s.people > 1 || (s.people === 1 && s.nodes > 0)) bits.push(`${s.people} คน`);
+  return bits.join(' · ');
+}
+
 function nodeBlock(node, depth, filter) {
   if (filter && !filter.keepNodes.has(node.id)) return '';
   const kids = byParent.get(node.id) || [];
@@ -274,22 +330,53 @@ function nodeBlock(node, depth, filter) {
   if (filter && !people.length && !childHtml) return '';
 
   const tint = tintFor(node.name);
-  const count = people.length;
-  // The dominant shape of this org is ONE person per ตำแหน่ง (279 ตำแหน่ง, 401
-  // people), so that case gets a one-line treatment — position, then the person —
-  // instead of a one-item grid with a screenful of empty space beside it. A
-  // ตำแหน่ง with a real team still gets the face grid below its name.
-  const solo = people.length === 1;
-  return `
-    <li class="org-node${solo ? ' is-solo' : ''}" data-depth="${depth}"${tint ? ` data-tint="${tint}"` : ''}>
-      <div class="org-station">
+  const peopleHtml = people.length
+    ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>`
+    : '';
+  const branchHtml = childHtml ? `<ul class="org-branch">${childHtml}</ul>` : '';
+  const inner = `${peopleHtml}${branchHtml}`;
+
+  // A search result is always fully open — a disclosure the user has to expand
+  // to find what they just searched for is the same as no result.
+  const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
+  const open = !collapsible || expanded.has(node.id);
+  const bodyId = `org-n-${node.id}`;
+  const meta = filter ? '' : stationMeta(node);
+  const hTag = `h${Math.min(depth + 3, 6)}`;
+
+  const stationInner = `
         <span class="org-station-dot" aria-hidden="true"></span>
-        <h${Math.min(depth + 3, 6)} class="org-station-name">${highlight(node.name || '', filter?.q)}</h${Math.min(depth + 3, 6)}>
-        ${count > 1 ? `<span class="org-station-count">${count} คน</span>` : ''}
-      </div>
-      ${people.length ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>` : ''}
-      ${childHtml ? `<ul class="org-branch">${childHtml}</ul>` : ''}
+        <span class="org-station-name">${highlight(node.name || '', filter?.q)}</span>
+        ${meta ? `<span class="org-station-meta">${meta}</span>` : ''}
+        ${collapsible ? '<i class="bi bi-chevron-right org-station-chev" aria-hidden="true"></i>' : ''}`;
+
+  // ARIA accordion pattern: the heading WRAPS the button, so the outline still
+  // reads as a hierarchy and the control is the whole row.
+  const station = collapsible
+    ? `<button type="button" class="org-station-btn" aria-expanded="${open}" aria-controls="${escHtml(bodyId)}">${stationInner}</button>`
+    : `<span class="org-station-btn is-static">${stationInner}</span>`;
+
+  return `
+    <li class="org-node${collapsible ? ' is-collapsible' : ''}" data-depth="${depth}"${
+      tint ? ` data-tint="${tint}"` : ''}>
+      <${hTag} class="org-station">${station}</${hTag}>
+      ${inner ? `<div class="org-node-body" id="${escHtml(bodyId)}"${open ? '' : ' hidden'}>${inner}</div>` : ''}
     </li>`;
+}
+
+/** The ขยาย/ย่อทั้งหมด control. Hidden while searching (results are already
+ *  fully open, so it would do nothing) and when nothing on the page collapses. */
+function renderExpandAll(searching) {
+  const btn = $('orgExpandAll');
+  if (!btn) return;
+  if (searching || !collapsibleIds.size) { btn.hidden = true; return; }
+  btn.hidden = false;
+  const allOpen = expanded.size >= collapsibleIds.size;
+  btn.setAttribute('aria-expanded', String(allOpen));
+  const icon = btn.querySelector('i');
+  if (icon) icon.className = `bi ${allOpen ? 'bi-chevron-contract' : 'bi-chevron-expand'}`;
+  const label = btn.querySelector('.org-expand-all-label');
+  if (label) label.textContent = allOpen ? 'ย่อทั้งหมด' : 'ขยายทั้งหมด';
 }
 
 function render() {
@@ -301,6 +388,7 @@ function render() {
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
   const html = roots.map((n) => nodeBlock(n, 0, filter)).join('');
+  renderExpandAll(!!filter);
 
   const shownMembers = filter
     ? filter.keepMembers.size
@@ -366,6 +454,9 @@ async function showYear(year) {
     if (mine !== showToken) return;   // a newer click already took over
     chart = next;
     activeYear = year ?? chart.year ?? null;
+    // Node ids are per-tree (the live tree and each frozen archive are different
+    // rows), so a stale expanded set would silently open nothing.
+    expanded = new Set();
     index();
     render();
   } catch (err) {
@@ -408,6 +499,21 @@ export async function enterOrgChart() {
   }
 }
 
+/** Toggle in the DOM rather than re-rendering. A full repaint of 279 ตำแหน่ง
+ *  would drop the scroll position — and the row you clicked would jump out from
+ *  under the pointer, which is exactly the wrong feel for a disclosure. */
+function toggleNode(btn) {
+  const li = btn.closest('.org-node');
+  const panel = li && li.querySelector(':scope > .org-node-body');
+  if (!li || !panel) return;
+  const willOpen = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', String(willOpen));
+  panel.hidden = !willOpen;
+  const id = panel.id.replace(/^org-n-/, '');
+  if (willOpen) expanded.add(id); else expanded.delete(id);
+  renderExpandAll(false);
+}
+
 export function initOrgChart() {
   const search = $('orgSearch');
   const clear = $('orgSearchClear');
@@ -425,6 +531,19 @@ export function initOrgChart() {
     clear.classList.add('d-none');
     if (chart) render();
     search.focus();
+  });
+
+  // Delegated: every station is re-rendered on each paint, and #orgBody itself
+  // is the one element that survives.
+  $('orgBody')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.org-station-btn');
+    if (btn && btn.tagName === 'BUTTON') toggleNode(btn);
+  });
+
+  $('orgExpandAll')?.addEventListener('click', () => {
+    const allOpen = expanded.size >= collapsibleIds.size;
+    expanded = allOpen ? new Set() : new Set(collapsibleIds);
+    if (chart) render();
   });
 
   // Delegated: the year buttons are re-rendered on every paint.

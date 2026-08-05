@@ -149,6 +149,16 @@
             <div id="profileGoogleAlert" class="alert small py-2 mt-2 d-none"></div>
           </section>
 
+          <!-- ============== ตำแหน่งในทีม SAMO (read-only) ==============
+               Painted by my-seat.js from public.get_my_team_seat(). Stays
+               hidden for an account with no posting, which is most of them.
+               Read-only on purpose: a grant is issued in ทีม SAMO by an admin,
+               so an editable control here would be a lie. -->
+          <section class="mt-4" id="profileSeatSection" hidden>
+            <label class="form-label small fw-bold mb-1">ตำแหน่งในทีม SAMO</label>
+            <div class="myseat myseat--modal" id="profileMySeat"></div>
+          </section>
+
         </div>
       </div>
     </div>

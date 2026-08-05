@@ -6,6 +6,7 @@
 // persists in localStorage on the same origin).
 // ==============================================
 
+import { ADMIN_FEATURES } from './team-vocab.js';
 import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
 
@@ -633,7 +634,6 @@ const STAFF_ROLES = ['pr_staff', 'vs_staff', 'shop_admin', 'vp_admin', 'uni_staf
 // manual permissions[], or the SAMO Team tree managed_permissions[] (0081) —
 // is enough to enter the admin app. Without this, a plain role:'user' account
 // that the org tree grants e.g. 'pr' gets bounced to the sign-in gate.
-const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team'];
 function canUseAdmin(user) {
   if (!user) return false;
   if (STAFF_ROLES.includes(user.role)) return true;

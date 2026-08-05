@@ -112,6 +112,31 @@
 }
 .org-search-clear:hover { color: var(--ink-700); background: var(--ink-100); }
 
+/* ขยาย/ย่อทั้งหมด — a ghost pill next to the search field. Deliberately quiet:
+   the per-ฝ่าย disclosures are the primary control and this is the escape
+   hatch for "just show me everything". */
+.org-expand-all {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  flex: 0 0 auto;
+  padding: 0.55rem 0.95rem;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.82rem; font-weight: 500;
+  color: var(--ink-600);
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.org-expand-all:hover {
+  color: var(--brand-primary);
+  border-color: color-mix(in srgb, var(--brand-primary) 40%, var(--ink-200));
+  background: color-mix(in srgb, var(--brand-primary) 5%, #fff);
+}
+.org-expand-all:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.org-expand-all > i { font-size: 0.85rem; }
+
 .org-count {
   margin: 0; margin-inline-start: auto;
   font-family: 'Prompt', system-ui, sans-serif;
@@ -263,13 +288,31 @@
 
 .org-tree { margin-top: clamp(1.5rem, 4vw, 2.5rem); }
 
-/* Each root ฝ่าย is a section; its tint cascades to everything inside it. */
+/* Each root ฝ่าย is a CARD, and — since the whole tree now opens collapsed — the
+   card IS the row you tap. Twelve of them stack into a scannable index instead
+   of the six screens of continuous scroll this page used to be. Its tint
+   cascades to everything inside it. */
 .org-tree > .org-node {
-  margin-top: clamp(1.75rem, 4vw, 2.75rem);
-  padding-top: clamp(1.5rem, 3vw, 2rem);
-  border-top: 1px solid var(--ink-200);
+  margin-top: 0.7rem;
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md, 0.75rem);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.org-tree > .org-node:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.org-tree > .org-node:first-child { margin-top: 0; }
+@media (hover: hover) {
+  .org-tree > .org-node:hover {
+    border-color: color-mix(in srgb, var(--org-tint) 32%, var(--ink-200));
+    box-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.35);
+  }
+}
+/* The open body sits under a hairline rather than inside a second box — one
+   card, two regions. */
+.org-tree > .org-node > .org-node-body {
+  border-top: 1px solid var(--ink-100);
+  padding: clamp(0.9rem, 2.5vw, 1.35rem) clamp(0.9rem, 2.5vw, 1.35rem) clamp(1.1rem, 3vw, 1.6rem);
+}
 
 .org-node[data-tint="admin"]      { --org-tint: var(--dept-admin); }
 .org-node[data-tint="digital"]    { --org-tint: var(--dept-digital); }
@@ -291,26 +334,71 @@
   padding-left: clamp(1rem, 3vw, 1.65rem);
   border-left: 1px solid var(--org-spine);
 }
-.org-branch > .org-node { position: relative; margin-top: 1.35rem; }
+.org-branch > .org-node { position: relative; margin-top: 0.85rem; }
+/* The tick meets the spine at the dot's centre line. That centre moved when the
+   station became a padded button row, so this offset and .org-station-btn's
+   padding are one decision in two rules. */
 .org-branch > .org-node::before {
   content: ''; position: absolute;
   left: calc(clamp(1rem, 3vw, 1.65rem) * -1);
-  top: 0.85rem; width: clamp(0.6rem, 2vw, 1.1rem); height: 1px;
+  top: 1.2rem; width: clamp(0.6rem, 2vw, 1.1rem); height: 1px;
   background: var(--org-spine);
 }
 
 /* ── station (the ฝ่าย / ตำแหน่ง marker) ─────────────────────────────────── */
 
-.org-station {
-  display: flex; align-items: baseline; gap: 0.6rem;
-  flex-wrap: wrap;
+/* The station is an <h3>–<h6> WRAPPING a <button> (the ARIA accordion pattern),
+   so the document outline still reads as a hierarchy while the whole row is the
+   control. Non-collapsible ตำแหน่ง render the same row as a <span>, so a leaf and
+   a branch line up on the same grid — only the chevron tells them apart. */
+.org-station { margin: 0; font: inherit; }
+
+/* GRID, not flex-wrap. A ตำแหน่ง name here can be "ฝ่ายจัดการโครงการ (Project
+   management)"; flex-wrapped, the meta pill and the chevron each fell onto
+   their own line and the chevron ended up floating alone under the name. Named
+   areas let the row reflow to two lines on a phone with the chevron still
+   pinned to the right edge. */
+.org-station-btn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "dot name meta chev";
+  align-items: center;
+  column-gap: 0.6rem;
+  width: 100%;
+  text-align: start;
+  font: inherit; color: inherit;
+  background: transparent; border: 0;
+  padding: 0.4rem 0.5rem;
+  margin-left: -0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
+.org-station-btn.is-static { cursor: default; }
+.org-station-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+@media (hover: hover) {
+  button.org-station-btn:hover { background: color-mix(in srgb, var(--org-tint) 7%, transparent); }
+}
+
+/* The root row is the card header: bigger padding, no negative offset, and its
+   corners follow the card so a hover tint cannot square them off. */
+.org-tree > .org-node > .org-station > .org-station-btn {
+  padding: clamp(0.85rem, 2.4vw, 1.15rem) clamp(0.9rem, 2.5vw, 1.35rem);
+  margin-left: 0;
+  border-radius: calc(var(--radius-md, 0.75rem) - 1px);
+}
+
 .org-station-dot {
   flex: 0 0 auto;
   width: 0.55rem; height: 0.55rem; border-radius: 50%;
   background: var(--org-tint);
-  transform: translateY(-0.15em);
+  grid-area: dot;
 }
+/* Inside a branch the dot has to sit on the FIRST line of the name, not in the
+   middle of a wrapped one — it has to meet the spine tick, whose offset is a
+   fixed 1.2rem. Root cards have no tick, so their dot stays centred. */
+.org-branch .org-station-dot { align-self: start; margin-top: 0.5rem; }
+
 .org-tree > .org-node > .org-station .org-station-dot {
   width: 0.8rem; height: 0.8rem;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--org-tint) 16%, transparent);
@@ -322,26 +410,55 @@
   color: var(--ink-900);
   margin: 0;
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  grid-area: name;
 }
-.org-tree > .org-node > .org-station > .org-station-name {
-  font-size: clamp(1.2rem, 3.4vw, 1.65rem);
+.org-tree > .org-node > .org-station .org-station-name {
+  font-size: clamp(1.05rem, 3.1vw, 1.45rem);
   font-weight: 700;
   color: var(--org-tint);
 }
-.org-node[data-depth="1"] > .org-station > .org-station-name { font-size: 1.02rem; }
-.org-node[data-depth="2"] > .org-station > .org-station-name { font-size: 0.95rem; }
-.org-node[data-depth="3"] > .org-station > .org-station-name,
-.org-node[data-depth="4"] > .org-station > .org-station-name { font-size: 0.9rem; color: var(--ink-700); }
+.org-node[data-depth="1"] > .org-station .org-station-name { font-size: 1.02rem; }
+.org-node[data-depth="2"] > .org-station .org-station-name { font-size: 0.95rem; }
+.org-node[data-depth="3"] > .org-station .org-station-name,
+.org-node[data-depth="4"] > .org-station .org-station-name { font-size: 0.9rem; color: var(--ink-700); }
 
-.org-station-count {
+/* "12 ตำแหน่ง · 48 คน" — the reason to open a collapsed branch. */
+.org-station-meta {
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.7rem; font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--ink-500);
   padding: 0.1rem 0.5rem;
   border: 1px solid var(--ink-200);
   border-radius: 999px;
   white-space: nowrap;
+  grid-area: meta;
+  justify-self: start;
+}
+
+/* The chevron is pushed to the far end so every disclosure on the page lines up
+   down one edge, regardless of how long the ตำแหน่ง name is. */
+.org-station-chev {
+  grid-area: chev;
+  justify-self: end;
+  font-size: 0.75rem;
+  color: var(--ink-400);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+.org-station-btn[aria-expanded="true"] .org-station-chev {
+  transform: rotate(90deg);
+  color: var(--org-tint);
+}
+.org-tree > .org-node > .org-station .org-station-chev { font-size: 0.9rem; }
+
+/* Revealed content fades in over ~1 frame of travel. No height animation: the
+   body is `hidden` when closed, which is what keeps 400 lazy portraits from
+   being fetched for branches nobody opened. */
+.org-node-body { animation: orgReveal 0.22s ease both; }
+@keyframes orgReveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* ── people ─────────────────────────────────────────────────────────────── */
@@ -356,6 +473,10 @@
   grid-template-columns: repeat(auto-fill, minmax(7.5rem, 8.5rem));
   gap: 0.9rem 0.75rem;
   margin-top: 0.85rem;
+  /* Line the first card up under the ตำแหน่ง NAME rather than under its dot —
+     dot width + the station's gap. Without it the faces hang half a character
+     to the left of the heading they belong to. */
+  margin-left: 1.15rem;
 }
 
 /* A one-person ตำแหน่ง reads as a single line: the position, then the holder.
@@ -455,7 +576,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .org-tree > .org-node { animation: none; }
-  .org-face, .org-board-photo { transition: none; }
+  .org-node-body { animation: none; }
+  .org-face, .org-board-photo, .org-station-chev { transition: none; }
   .org-person:hover .org-face,
   .org-board-card:hover .org-board-photo { transform: none; }
 }
@@ -472,9 +594,21 @@
   /* Cards, so the phone still gets a grid — going to one column would make a
      279-ตำแหน่ง page unscrollably long. Track sizing switches to fr here because
      a fixed 8.5rem leaves a dead gutter at 360px. */
-  .org-people { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 0.5rem; }
+  .org-people { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 0.5rem; margin-left: 0; }
   .org-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .org-count { margin-inline-start: 0; }
+  /* Two lines: name on top, the count pill under it, chevron pinned right
+     across both. A ตำแหน่ง name and "65 ตำแหน่ง · 81 คน" do not fit on one
+     390px line, and letting them wrap freely stranded the chevron on a line
+     of its own. */
+  .org-station-btn {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "dot name chev"
+      ".   meta chev";
+    row-gap: 0.3rem;
+  }
+  .org-station-chev { align-self: center; }
   .org-branch { padding-left: 0.9rem; margin-left: 0.35rem; }
   .org-branch > .org-node::before { left: -0.9rem; width: 0.5rem; }
 }

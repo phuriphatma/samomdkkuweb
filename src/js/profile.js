@@ -24,6 +24,7 @@ import {
   setUsernameAndPassword, changePassword,
 } from './auth.js';
 import { escHtml } from './utils.js';
+import { loadMySeat, renderMySeat } from './my-seat.js';
 
 let modalEl = null;
 let bsModal = null;
@@ -94,6 +95,22 @@ export function openProfileModal() {
 function repaint() {
   const u = getUser();
   if (!u) return;
+
+  // -------- ตำแหน่งในทีม SAMO (read-only) --------
+  // Async, and the section reveals itself only if there IS a posting — so an
+  // ordinary student opening โปรไฟล์ sees no empty "no position" block. Cached
+  // in my-seat.js, so re-opening the modal does not re-fetch.
+  const seatSection = document.getElementById('profileSeatSection');
+  const seatHost = document.getElementById('profileMySeat');
+  if (seatSection && seatHost) {
+    loadMySeat(u.id).then((seat) => {
+      // The user may have closed the modal — or switched account — while this
+      // was in flight; re-read the identity before painting.
+      if (getUser()?.id !== u.id) return;
+      seatSection.hidden = !seat;
+      renderMySeat(seatHost, seat, { compact: true });
+    });
+  }
 
   // -------- Display name --------
   const nameInput = document.getElementById('profileName');

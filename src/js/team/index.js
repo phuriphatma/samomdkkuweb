@@ -12,6 +12,10 @@
 // then persist; on a write failure we reload from the server and toast.
 // ==============================================
 
+import {
+  PERM_CATALOG, PERM_LABEL, VS_DEPTS, VS_DEPT_LABEL,
+  PROJECT_SEATS, PROJECT_SEAT_LABEL,
+} from '../team-vocab.js';
 import { escHtml } from '../utils.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
@@ -30,50 +34,9 @@ import {
 } from './io.js';
 
 // App permissions that can be attached to a node (keys match userCanAccess).
-const PERM_CATALOG = [
-  { key: 'pr',       label: 'PR' },
-  { key: 'vs',       label: 'VitalSound' },
-  { key: 'samoshop', label: 'SAMO Shop' },
-  { key: 'projects', label: 'หนังสือโครงการ' },
-  { key: 'creator',  label: 'เขียนประกาศ' },
-  { key: 'team',     label: 'ทีม SAMO' },
-  { key: 'passport', label: 'SAMO Passport' },
-];
-const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
-
-// VitalSound departments (vs_tickets.target_dept). Binding a node — or a
-// single person (0083) — to one of these (`vs_dept`) scopes VS access to that
-// dept. The binding IS the VS grant's scope: a row carries EITHER the full
-// `vs` permission (all depts) OR a vs_dept (that dept only), never both —
-// `vs` is an unconditional true branch in every VS policy and would swallow
-// the narrower dept check. See migration 0083.
-// Values MUST match the VS dept strings exactly; labels are the short display
-// names (same set as the VS staff dept dropdown).
-const VS_DEPTS = [
-  { value: 'นายกสโม',                                 label: 'นายกสโม' },
-  { value: 'SE',                                       label: 'SE (Student Engagement)' },
-  { value: 'อุปนายกฝ่ายบริหารองค์กร',                  label: 'บริหารองค์กร' },
-  { value: 'อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร',       label: 'ดิจิทัลและสื่อสาร' },
-  { value: 'อุปนายกฝ่ายกิจการภายใน',                   label: 'กิจการภายใน' },
-  { value: 'อุปนายกฝ่ายกิจการภายนอก',                  label: 'กิจการภายนอก' },
-  { value: 'อุปนายกฝ่ายกิจการมหาวิทยาลัย',             label: 'กิจการมหาวิทยาลัย' },
-  { value: 'อุปนายกฝ่ายวิชาการ',                       label: 'วิชาการ' },
-  { value: 'อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร',      label: 'ยุทธศาสตร์' },
-  { value: 'อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม',     label: 'คุณภาพชีวิต' },
-  { value: 'อุปนายกฝ่ายเวชนิทัศน์',                    label: 'เวชนิทัศน์' },
-  { value: 'อุปนายกฝ่ายรังสีเทคนิค',                   label: 'รังสีเทคนิค' },
-];
-const VS_DEPT_LABEL = Object.fromEntries(VS_DEPTS.map((d) => [d.value, d.label]));
-
-// หนังสือโครงการ seats (team_nodes/team_members.project_seat, migration 0086).
-// Projects is NOT one capability — it is three workflows keyed off the seat,
-// so a `projects` grant without one leaves the person with no controls.
-const PROJECT_SEATS = [
-  { value: 'vpa',   label: 'ผู้ส่งหนังสือ (SAMO)' },
-  { value: 'staff', label: 'เจ้าหน้าที่คณะ' },
-  { value: 'prof',  label: 'อาจารย์ (ลงนาม)' },
-];
-const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s.value, s.label]));
+// The grant vocabulary (permission keys, VS depts, project seats) lives in
+// src/js/team-vocab.js so the PUBLIC "ตำแหน่งของฉัน" card names them the same
+// way this admin UI does. Behaviour here is unchanged — same lists, one home.
 
 const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'bi-person-badge' };
 

@@ -31,6 +31,7 @@ import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
+import { showMySeat, renderMySeat, clearMySeatCache } from './my-seat.js';
 import { initProjectsView } from './projects-view.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
@@ -735,6 +736,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (homeName) homeName.textContent = user.name || user.username || '';
         if (homeDept) homeDept.textContent = user.department || roleLabel(role) || 'ยังไม่ได้ระบุฝ่าย';
       }
+    }
+
+    // ตำแหน่งของฉันในทีม SAMO — under the greeting, so the answer to "what am I"
+    // sits where the app already says hello. Async and best-effort: it paints
+    // itself in when the lookup resolves and stays hidden for the (many) people
+    // with no posting. Signing out clears the cache so the next account cannot
+    // inherit the previous person's card.
+    const seatHost = document.getElementById('homeMySeat');
+    if (user) {
+      showMySeat(seatHost, user.id);
+    } else {
+      clearMySeatCache();
+      renderMySeat(seatHost, null);
     }
 
     // PR form auth wrapper: hide whenever the user is signed in (the global
