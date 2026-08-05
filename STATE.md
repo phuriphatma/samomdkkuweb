@@ -22,22 +22,48 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 
 ## ทีม SAMO view/edit + master + the full ตำแหน่งของฉัน card — LIVE
 
-**SHIPPED 2026-08-05.** `main` at `e3c111b`, pushed; KKU VM deployed;
-migrations 0110 + 0111 applied. Verified against the SERVED bundle:
-`buildId c380fc060101`, and the card's markers (`myseat-details`,
-`myseat-photo`, `data-myseat-form`, `/admin/#team`, `team_edit`) all present.
+**SHIPPED 2026-08-05.** `main` at `a85ec9f`; KKU VM deployed,
+**`buildId f401da0ea2f2`**; migrations **0110 + 0111 applied**. Verified against
+the SERVED bundle, not the local build.
 
-**Verification gotcha, cost me a wrong conclusion:** the ตำแหน่งของฉัน card is
-code-split into the shared **`analytics-*.js`** chunk, NOT `public-*.js`.
-Grepping only `public-*.js` reported the deploy as MISSING when it was fine.
-Fetch every `/assets/*.js` the entry links, or grep the chunk that owns the
-module. (CURRENT DEPLOY below already said this; read it before concluding a
-deploy failed.)
+What landed: `team` (ดู) / `team_edit` (แก้ไข) split with view granted implicitly
+to everyone holding a posting · `master`, one grant carrying every permission ·
+the ตำแหน่งของฉัน card showing the whole record with an inline self-edit · one
+tabbed แก้ไข…/แก้ไขสิทธิ์ editor reachable from both ทีม modes · a read-only tree
+for view-only members.
 
-**Still not seen by a human with real data** — every check was a string grep
-against the bundle plus headless runs. Worth one pass on `/` and `/admin/#team`.
+**Four bugs were found AFTER the first deploy and are fixed in this one** —
+worth knowing because three of them only appear on the second interaction, which
+is exactly what a single manual pass misses:
+1. the permission grid carried the PREVIOUS row's state into the next one (would
+   have SAVED wrong permissions — data corruption, not cosmetic);
+2. the แก้ไขสมาชิก modal could not scroll (the tab refactor broke Bootstrap's
+   `modal-dialog-scrollable` flex chain);
+3. KKU Mail broke mid-address on the card;
+4. the card jumped when opening the edit form (trigger at the bottom, form in
+   the middle).
+Write-ups: `docs/mistakes/frontend-ui.md`.
 
-### `master` grant + greeting fix (0111)
+**Verification gotcha — read before concluding a deploy failed:** the
+ตำแหน่งของฉัน card is code-split into the shared **`analytics-*.js`** chunk, NOT
+`public-*.js`. Grepping only `public-*.js` reported every marker MISSING on a
+perfectly good deploy. Fetch every `/assets/*.js` the entry links.
+
+**Known, NOT fixed — needs your call:**
+- **`ฝ่ายเอิงtest` test data is live**, on the public org chart AND now inside
+  real people's ตำแหน่งของฉัน card (it renders a second posting called `hi`
+  under `ฝ่ายเอิงtest › เอิงnew › เอิงsubtest`). Deleting it is a data change,
+  so it has been left alone — but it is now visible to the person it belongs to.
+- **No human has reviewed the Thai copy** on the card, the Master confirm
+  dialog, the read-only notice, or the eight staged release notes. I cannot
+  judge natural Thai.
+- `sid_clash` is the one ตรวจสอบข้อมูล finding the card cannot show (it needs
+  other people's rows, which the payload deliberately does not carry).
+- `team_person_mirror_down()` (0108) writes guarded columns without setting the
+  `app.team_sync` flag. Unreachable by a non-editor today; give it the flag if
+  `team_people` ever gets a self-service surface.
+
+## `master` grant + greeting fix (0111)
 
 Migration **0111 applied**. Proof `tools/master0111-grant.mjs` → **30/30**.
 
@@ -137,11 +163,12 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `e3c111b`, **deployed 2026-08-05**, `buildId c380fc060101`.
+- **samoweb**: `a85ec9f`, **deployed 2026-08-05**, `buildId f401da0ea2f2`.
   Latest: ทีม SAMO view/edit split + `master` (migrations 0110/0111), the full
-  ตำแหน่งของฉัน card with self-edit, the tabbed member/ตำแหน่ง editor, and two
-  live fixes (scroll-to-top on tab change; the seat CTA opens `/admin/#team`).
-  Previous entry, superseded: `28fa020`, deployed 2026-08-04, `buildId 9f65ec53b172`.
+  ตำแหน่งของฉัน card with self-edit, the tabbed member/ตำแหน่ง editor, and the
+  post-deploy fixes above. **Grep the `analytics-*.js` chunk, not just
+  `public-*.js`** — the card lives there.
+  Superseded: `c380fc060101` (same day), `9f65ec53b172` (2026-08-04).
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
   the landing page. Verified against the SERVED artifacts: `/build.json` returns
