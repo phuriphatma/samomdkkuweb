@@ -212,6 +212,21 @@ export function ownIssues(seat) {
   // Missing fields. Reported once per field even across several postings —
   // "กรอกชั้นปี" twice is noise, and fixing it once fixes the person.
   const first = postings[0];
+
+  // รหัสนักศึกษา shared with someone else. This is the ONE finding the rule
+  // engine cannot reach from here: a clash is a fact about TWO people, and this
+  // payload carries only one. The server counts the others (migration 0112) —
+  // a count, never a name — and the wording matches the admin pane's, so the
+  // person and the admin are talking about the same thing.
+  if (Number(seat.student_id_shared_with) > 0) {
+    out.push({
+      kind: 'sid_clash',
+      label: KIND_LABEL.sid_clash,
+      detail: `${String(first.student_id ?? '').trim()} — มีอีก ${seat.student_id_shared_with} คนใช้รหัสนี้ `
+        + 'ตรวจสอบว่ารหัสของคุณถูกต้อง หากถูกต้องแล้วให้แจ้งผู้ดูแลทีม SAMO',
+    });
+  }
+
   const missing = DETAIL_FIELDS
     .filter((f) => !String(first[f.key] ?? '').trim())
     .map((f) => f.label);

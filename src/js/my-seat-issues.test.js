@@ -97,3 +97,28 @@ describe('ownIssues', () => {
       .toEqual(['nickname', 'student_id', 'year', 'major']);
   });
 });
+
+describe('sid_clash — the finding the client cannot compute', () => {
+  it('is surfaced from the server count, in the admin pane\'s words', () => {
+    const s = { postings: [posting()], student_id_shared_with: 1 };
+    const clash = ownIssues(s).find((i) => i.kind === 'sid_clash');
+    expect(clash).toBeTruthy();
+    expect(clash.label).toBe('รหัสนักศึกษาซ้ำกับคนอื่น');   // same wording as ตรวจสอบข้อมูล
+    expect(clash.detail).toContain('653070001-1');            // their own รหัส
+    expect(clash.detail).toContain('1');                      // how many others
+  });
+
+  it('names nobody — the payload carries a COUNT, not people', () => {
+    const s = { postings: [posting()], student_id_shared_with: 2 };
+    const clash = ownIssues(s).find((i) => i.kind === 'sid_clash');
+    expect(clash.detail).not.toContain('@');
+  });
+
+  it('stays quiet when the รหัส is unique', () => {
+    expect(ownIssues({ postings: [posting()], student_id_shared_with: 0 })
+      .some((i) => i.kind === 'sid_clash')).toBe(false);
+    // and when an older payload has no such key at all
+    expect(ownIssues({ postings: [posting()] })
+      .some((i) => i.kind === 'sid_clash')).toBe(false);
+  });
+});
