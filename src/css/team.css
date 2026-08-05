@@ -696,3 +696,14 @@
   margin-bottom: 0.75rem;
 }
 .team-readonly-note .bi { color: var(--brand-primary); }
+
+/* `master` in the permission grid (0111). It is the strongest grant the tree
+ * can issue, so it does not look like the other eight checkboxes; and while it
+ * is on, the rest are shown ticked-and-locked because it already implies them. */
+.team-perm-opt.is-danger {
+  border-color: var(--brand-orange, #FF6F30);
+  background: #fff6f0;
+  font-weight: 600;
+}
+.team-perm-opt.is-implied { opacity: 0.55; }
+.team-perm-grid.is-master .team-perm-opt.is-implied { cursor: not-allowed; }

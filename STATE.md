@@ -14,6 +14,33 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## `master` grant + greeting fix (2026-08-05 — APPLIED, NOT YET DEPLOYED)
+
+Migration **0111 applied**. Proof `tools/master0111-grant.mjs` → **30/30**.
+
+- **`master`** is a ทีม SAMO permission that answers YES to every permission
+  question. Built by teaching `current_user_has_permission()` — the one
+  predicate every gate already calls — rather than OR-ing a new helper into ~40
+  policies. `current_user_project_seats()` was the only helper needing separate
+  treatment (it reads `managed_project_seats` directly); it returns all three
+  seats for a master.
+- **It is NOT `role='dev'`, on purpose.** `current_user_is_staff()` is
+  untouched, because `users_self_update_guard` trusts it — widening it would let
+  a master self-promote to `role='dev'`, a permanent escalation the tree could
+  no longer revoke. Asserted in the proof. Three role-only surfaces stay closed
+  and this is correct: `users_update_staff` (role assignment),
+  `notify_log_select_staff`, `reserved_staff_usernames_read_staff`. **If you
+  want one of those, grant a real staff role — do not widen
+  `current_user_is_staff()`.**
+- UI: last in the grid, `danger: true`, a `confirm()` on the way in, the other
+  keys shown ticked-and-locked while it is on, and stored as `['master']` alone.
+- **Home greeting no longer says "ยังไม่ได้ระบุฝ่าย".** For a ทีม SAMO member it
+  was simply wrong — their ฝ่าย lives in the org tree, not `users.department` —
+  and for everyone else it nagged about a field they cannot set there. The line
+  is hidden when empty; the ตำแหน่งของฉัน card carries the real answer. The card
+  also said the person's name TWICE (header + beside the portrait); it now says
+  it once, with the prefix and ชื่อเล่น.
+
 ## ทีม SAMO view/edit split + the full ตำแหน่งของฉัน card (2026-08-05 — APPLIED, NOT YET DEPLOYED)
 
 **Migration 0110 is APPLIED to the live database. The frontend is NOT deployed

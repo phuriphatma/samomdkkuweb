@@ -734,7 +734,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const homeName = document.getElementById('homeUserName');
         const homeDept = document.getElementById('homeUserDept');
         if (homeName) homeName.textContent = user.name || user.username || '';
-        if (homeDept) homeDept.textContent = user.department || roleLabel(role) || 'ยังไม่ได้ระบุฝ่าย';
+        // No "ยังไม่ได้ระบุฝ่าย" fallback: for a ทีม SAMO member it was simply
+        // WRONG (their ฝ่าย is in the org tree, not in users.department), and for
+        // everyone else it is a nag about a field they cannot set from here. An
+        // empty line is hidden outright; the ตำแหน่งของฉัน card below carries the
+        // real answer for anyone who has one.
+        const deptText = user.department || roleLabel(role) || '';
+        if (homeDept) { homeDept.textContent = deptText; homeDept.hidden = !deptText; }
       }
     }
 

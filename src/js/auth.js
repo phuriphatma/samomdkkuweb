@@ -301,6 +301,14 @@ async function buildCurrentUser(session) {
 export function userCanAccess(feature, user = currentUser) {
   if (!user) return false;
   if (user.role === 'dev') return true;
+  // `master` (migration 0111) answers yes to every permission, from either
+  // channel. This mirrors the SQL side EXACTLY — current_user_has_permission()
+  // does the same test — and it is the only place JS knows about the key, so
+  // the two cannot drift feature by feature.
+  if ((Array.isArray(user.permissions) && user.permissions.includes('master'))
+      || (Array.isArray(user.managedPermissions) && user.managedPermissions.includes('master'))) {
+    return true;
+  }
   const roleDefaults = {
     pr_staff:   ['pr'],
     vs_staff:   ['vs'],

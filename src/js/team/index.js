@@ -1399,9 +1399,45 @@ async function bulkDelete() {
 function fillPermGrid(grid) {
   if (!grid) return;
   grid.innerHTML = PERM_CATALOG.map((p) => `
-    <label class="team-perm-opt">
+    <label class="team-perm-opt${p.danger ? ' is-danger' : ''}"${p.hint ? ` title="${escHtml(p.hint)}"` : ''}>
       <input type="checkbox" value="${p.key}" /> <span>${escHtml(p.label)}</span>
     </label>`).join('');
+}
+
+/**
+ * `master` implies every other permission (migration 0111), so the rest of the
+ * grid is shown ticked-and-locked while it is on — otherwise the form would
+ * invite an admin to untick `pr` from someone who still, in fact, has pr.
+ *
+ * The CONFIRM is on the way IN only. The lesson this repo keeps relearning is
+ * that the direction which WIDENS privilege needs the friction (the vs_categories
+ * confidential toggle, the "ทุกแผนก" default at index 0); making it hard to
+ * REMOVE power is the wrong way round.
+ */
+function syncMasterVisibility(grid) {
+  if (!grid) return;
+  const master = grid.querySelector('input[value="master"]');
+  const on = !!master?.checked;
+  grid.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+    if (cb.value === 'master') return;
+    cb.disabled = on;
+    if (on) cb.checked = true;
+    cb.closest('.team-perm-opt')?.classList.toggle('is-implied', on);
+  });
+  grid.classList.toggle('is-master', on);
+}
+
+/** Ask before handing over everything. Returns false if the admin backs out,
+ *  in which case the checkbox is put back. */
+function confirmMaster(cb) {
+  if (!cb.checked) return true;
+  const ok = window.confirm(
+    'ให้สิทธิ์ “ทุกระบบ (Master)” ใช่หรือไม่?\n\n'
+    + 'ผู้ที่ได้รับจะเข้าถึงได้ทุกระบบ รวมถึงแก้ไขโครงสร้างทีม SAMO '
+    + 'และกำหนดสิทธิ์ของทุกคน (รวมถึงให้สิทธิ์ Master กับคนอื่น)',
+  );
+  if (!ok) cb.checked = false;
+  return ok;
 }
 
 // Sentinel for the "all departments" VS grant. It is NOT the empty string:
@@ -1499,6 +1535,16 @@ function syncSeatVisibility(grid, wrap) {
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
 function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])].map((cb) => cb.value);
+  // `master` subsumes everything, so store it ALONE. Writing the implied keys
+  // alongside it would make them look like independent grants that could be
+  // unticked — the same trap as storing `vs` next to a vs_dept (0083) — and
+  // would silently rot the day a new permission key is added.
+  if (perms.includes('master')) {
+    return {
+      permissions: ['master'], vs_dept: null, project_seat: null,
+      passport_dept_id: null, passport_sub_dept_id: null,
+    };
+  }
   const vsOn = perms.includes('vs');
   const scope = vsOn ? (vsSel?.value || '') : '';
   if (vsOn && !scope) return null;
@@ -1569,7 +1615,9 @@ function wirePermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamPermVsDept'));
   fillSeatSelect($('teamPermSeat'));
-  grid?.addEventListener('change', () => {
+  grid?.addEventListener('change', (e) => {
+    if (e.target?.value === 'master') confirmMaster(e.target);
+    syncMasterVisibility(grid);
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
@@ -1620,6 +1668,7 @@ function fillNodePermPane(id) {
       $('teamPermPassSub').value = String(node.passport_sub_dept_id);
     }
   });
+  syncMasterVisibility($('teamPermGrid'));
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
@@ -1722,7 +1771,11 @@ function wireMemberPermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamMPermVsDept'));
   fillSeatSelect($('teamMPermSeat'));
-  grid?.addEventListener('change', refreshMemberPermEff);
+  grid?.addEventListener('change', (e) => {
+    if (e.target?.value === 'master') confirmMaster(e.target);
+    syncMasterVisibility(grid);
+    refreshMemberPermEff();
+  });
   $('teamMPermPassDept')?.addEventListener('change', () => {
     fillPassSubSelect($('teamMPermPassSub'), $('teamMPermPassDept').value);
     refreshMemberPermEff();
@@ -1773,6 +1826,7 @@ function openMemberPermModal(memberId) {
 /** Effective perms + VS scope the member-perm modal is about to grant, from
  *  live inputs: own picks ∪ (inherit ? the member's node effective grants). */
 function refreshMemberPermEff() {
+  syncMasterVisibility($('teamMPermGrid'));
   syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
   syncSeatVisibility($('teamMPermGrid'), $('teamMPermSeatWrap'));
   syncPassVisibility($('teamMPermGrid'), $('teamMPermPassWrap'));

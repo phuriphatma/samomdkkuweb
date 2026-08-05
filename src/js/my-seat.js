@@ -300,7 +300,10 @@ export function renderMySeat(host, seat, opts = {}) {
   const cta = ctaFor(perms);
   const postings = seat.postings || [];
   const me = postings[0] || {};
-  const who = [seat.name, seat.nickname ? `(${seat.nickname})` : ''].filter(Boolean).join(' ');
+  // The person's name, said ONCE. It used to appear twice — in the header and
+  // again beside the portrait — which read as a rendering bug on the home card.
+  const who = [me.prefix, seat.name, seat.nickname ? `(${seat.nickname})` : '']
+    .filter(Boolean).join(' ');
   const issues = ownIssues(seat);
 
   host.hidden = false;
@@ -308,13 +311,12 @@ export function renderMySeat(host, seat, opts = {}) {
     <div class="myseat-card">
       <div class="myseat-head">
         <span class="myseat-eyebrow"><i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ตำแหน่งของฉันในทีม SAMO</span>
-        ${!opts.compact && who ? `<span class="myseat-who">${escHtml(who)}</span>` : ''}
       </div>
 
       <div class="myseat-person">
         ${portraitHtml(me)}
         <div class="myseat-person-body">
-          ${who ? `<p class="myseat-name">${escHtml([me.prefix, me.full_name].filter(Boolean).join(''))}</p>` : ''}
+          ${who ? `<p class="myseat-name">${escHtml(who)}</p>` : ''}
           <ul class="myseat-postings">${postings.map(postingHtml).join('')}</ul>
         </div>
       </div>

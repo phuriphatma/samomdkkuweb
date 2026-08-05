@@ -26,6 +26,9 @@ export const PERM_CATALOG = [
   { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)',
     hint: 'แก้ไขโครงสร้าง สมาชิก และสิทธิ์ของทุกคน' },
   { key: 'passport',  label: 'SAMO Passport' },
+  { key: 'master',    label: 'ทุกระบบ (Master)',
+    hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
+    danger: true },
 ];
 export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
 
@@ -38,10 +41,25 @@ export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.l
 export const TEAM_VIEW = 'team';
 export const TEAM_EDIT = 'team_edit';
 
+/**
+ * The one grant that answers YES to every permission question (migration 0111).
+ *
+ * Mirrored from SQL: `current_user_has_permission()` returns true for ANY key
+ * when the caller holds this one. The mirror is the risk — a rule implemented
+ * on both sides of the wire drifts — so `userCanAccess()` in auth.js is the
+ * ONLY JS reader, and `team-vocab.test.js` pins the two together.
+ *
+ * It is a permission, NOT a role: it never satisfies `current_user_is_staff()`,
+ * so a master still cannot promote themselves to `role='dev'` or write
+ * `users.permissions`. That boundary is what keeps a tree grant revocable.
+ */
+export const MASTER = 'master';
+
 /** Does this permission set allow WRITING the ทีม SAMO tree? Single predicate so
  *  the admin UI, the card and any future caller cannot drift on the answer. */
 export function canEditTeam(perms = [], role = '') {
-  return role === 'vp_admin' || role === 'dev' || perms.includes(TEAM_EDIT);
+  return role === 'vp_admin' || role === 'dev'
+    || (perms || []).includes(TEAM_EDIT) || (perms || []).includes(MASTER);
 }
 
 // VitalSound departments (vs_tickets.target_dept). Binding a node — or a

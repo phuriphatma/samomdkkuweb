@@ -412,6 +412,28 @@ checks). UI: `canEdit()` in `team/index.js` renders no write affordance for a
 viewer, and `get_my_team_seat()` returns the caller's own full record so the
 public ตำแหน่งของฉัน card can show and fix it.
 
+**`master` — one grant, every permission (migration 0111).** Taught to
+`current_user_has_permission()`, the single predicate every permission gate
+already calls, so all of them honour it with no new plumbing (the alternative —
+OR-ing a `current_user_is_master()` helper into ~40 policies — is the class this
+repo has paid for five times). `current_user_project_seats()` is the one helper
+that reads a `managed_*` column directly and so needed teaching separately; it
+returns all three seats for a master. VS scope, passport scope, shop admin and
+`current_user_has_any_grant()` all already route through `has_permission`.
+
+**It is a permission, NOT a role.** `current_user_is_staff()` is deliberately
+unchanged — it is what `users_self_update_guard` trusts, so widening it would
+let a master set `role='dev'` on themselves, a permanent escalation the tree
+could no longer revoke. Three role-only surfaces therefore stay closed to a
+master and this is correct: `users_update_staff` (editing other people's user
+rows / role assignment), `notify_log_select_staff`, and
+`reserved_staff_usernames_read_staff`. Proof: `tools/master0111-grant.mjs`
+(30 checks — every gate open, the escalation refused, no spillover onto a
+non-master). UI: `PERM_CATALOG` marks it `danger: true`, the grid confirms on
+the way IN and shows the other keys ticked-and-locked while it is on, and
+`readPermInputs` stores `['master']` alone so the implied keys can never be
+unticked individually.
+
 **Per-ฝ่าย VitalSound scope (migration 0082).** A node can be bound to ONE VS
 department via `team_nodes.vs_dept` (one of the 11 `vs_tickets.target_dept`
 values; picker in the node perm modal). It inherits down the tree on the same
