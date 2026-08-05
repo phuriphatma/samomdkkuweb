@@ -20,7 +20,7 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## THIS SESSION (2026-08-05, late) — 13 requests, 12 done, 1 NOT verified in a browser
+## THIS SESSION (2026-08-05, late) — all 13 requests DONE, none browser-verified
 
 **Everything below is COMMITTED and migration 0113 is APPLIED to the live DB
 (proof `tools/team0113-fields.mjs` → 26/26).** Read the "OWED" block at the end
@@ -292,12 +292,21 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `main` head, **deployed 2026-08-05**, `buildId bb074fa12f41`.
-  Latest: ทีม SAMO view/edit split + `master` (migrations 0110/0111), the full
-  ตำแหน่งของฉัน card with self-edit, the tabbed member/ตำแหน่ง editor, and the
-  post-deploy fixes above. **Grep the `analytics-*.js` chunk, not just
-  `public-*.js`** — the card lives there.
-  Superseded: `f401da0ea2f2`, `c380fc060101` (same day), `9f65ec53b172` (08-04).
+- **samoweb**: `main` head (`d50be37`), **deployed 2026-08-05 22:42**,
+  `buildId 4198ffa0e667`. Latest: migration **0113** — คำนำหน้า dropped, the
+  `team_majors` vocabulary + CRUD, ชั้นปี/สาขา choosers, the canonical
+  รหัสนักศึกษา form, photo upload moved to the SAVE path, the ADMIN_FEATURES
+  link gate, the ข้อมูลของฉัน pane, and the navigateTo() scroll fix. See
+  "THIS SESSION" at the top for all 13 items and what is still owed.
+  **Grep the `analytics-*.js` chunk, not just `public-*.js`** — the ตำแหน่งของฉัน
+  card lives there. Verified on the SERVED artifacts at deploy time:
+  `/build.json` → `{"buildId":"4198ffa0e667","version":"4.4.0"}`;
+  `analytics-*.js` carries `myseat-crumb`, `653070317-0`, `team_majors`,
+  `myseat-photo-btn`, `term_year` and `แจ้งอุปนายกฝ่ายของท่าน`; `/admin/` carries
+  `teamMajorsModal`, `data-team-mode="me"`, `จัดการรายการสาขา` and NO
+  `teamMemberPrefix`.
+  Superseded: `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
+  `9f65ec53b172` (08-04).
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
   the landing page. Verified against the SERVED artifacts: `/build.json` returns
@@ -310,7 +319,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
   dashboard, `admin_leaderboard` + the shared-admin email in admin,
   `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–**0112**; passport `db/0010` + `db/0011` + `db/0012`
+- Migrations: samoweb `public` 0081–**0113**; passport `db/0010` + `db/0011` + `db/0012`
   ALL applied — passport authorization is now enforced server-side (NEXT #3).
 - Verify any deploy by grepping the served bundle for feature strings — NOT by
   hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
