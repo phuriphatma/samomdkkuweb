@@ -292,8 +292,8 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `main` head (`d50be37`), **deployed 2026-08-05 22:42**,
-  `buildId 4198ffa0e667`. Latest: migration **0113** — คำนำหน้า dropped, the
+- **samoweb**: `main` head (`212b8e9`), **deployed 2026-08-05 22:52**,
+  `buildId 61f2f6281e25`. Latest: migration **0113** — คำนำหน้า dropped, the
   `team_majors` vocabulary + CRUD, ชั้นปี/สาขา choosers, the canonical
   รหัสนักศึกษา form, photo upload moved to the SAVE path, the ADMIN_FEATURES
   link gate, the ข้อมูลของฉัน pane, and the navigateTo() scroll fix. See
@@ -305,7 +305,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   `myseat-photo-btn`, `term_year` and `แจ้งอุปนายกฝ่ายของท่าน`; `/admin/` carries
   `teamMajorsModal`, `data-team-mode="me"`, `จัดการรายการสาขา` and NO
   `teamMemberPrefix`.
-  Superseded: `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
+  Superseded: `4198ffa0e667`, `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
   `9f65ec53b172` (08-04).
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
@@ -449,7 +449,7 @@ Now **26k chars ≈ 6.5k tokens** (a 90% cut), split by what each layer is for:
 
 > Read STATE.md first — the section "THIS SESSION (2026-08-05, late)" and its
 > ⚠️ OWED list. Everything in it is committed, deployed to
-> `samo.md.kku.ac.th` (buildId `4198ffa0e667`) and migration 0113 is applied.
+> `samo.md.kku.ac.th` (buildId `61f2f6281e25`) and migration 0113 is applied.
 > The ONLY thing outstanding is that none of it has been seen rendering in a
 > real browser.
 >
