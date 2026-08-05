@@ -5,7 +5,7 @@ RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
 
-**Start here:** the ⚠ IN FLIGHT section immediately below, then CURRENT DEPLOY.
+**Start here:** the section immediately below (what just shipped), then CURRENT DEPLOY.
 
 Shipped detail pruned out of here most recently:
 `docs/state-archive/2026-08-05-shipped.md` (the org-chart accordion, the first
@@ -20,14 +20,22 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## ⚠ IN FLIGHT — migrations 0110 + 0111 APPLIED, frontend NOT DEPLOYED
+## ทีม SAMO view/edit + master + the full ตำแหน่งของฉัน card — LIVE
 
-**The single most important fact for a cold start.** The live database is ahead
-of the live site. That combination is safe — the old bundle only ever asks for
-`team`, which every member now holds, and every write still needs `team_edit` —
-but the halves should be brought together. To deploy, see CURRENT DEPLOY below.
+**SHIPPED 2026-08-05.** `main` at `e3c111b`, pushed; KKU VM deployed;
+migrations 0110 + 0111 applied. Verified against the SERVED bundle:
+`buildId c380fc060101`, and the card's markers (`myseat-details`,
+`myseat-photo`, `data-myseat-form`, `/admin/#team`, `team_edit`) all present.
 
-Everything below in this section is committed on `main` and pushed.
+**Verification gotcha, cost me a wrong conclusion:** the ตำแหน่งของฉัน card is
+code-split into the shared **`analytics-*.js`** chunk, NOT `public-*.js`.
+Grepping only `public-*.js` reported the deploy as MISSING when it was fine.
+Fetch every `/assets/*.js` the entry links, or grep the chunk that owns the
+module. (CURRENT DEPLOY below already said this; read it before concluding a
+deploy failed.)
+
+**Still not seen by a human with real data** — every check was a string grep
+against the bundle plus headless runs. Worth one pass on `/` and `/admin/#team`.
 
 ### `master` grant + greeting fix (0111)
 
@@ -129,7 +137,11 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `28fa020`, **deployed 2026-08-04**, `buildId 9f65ec53b172`.
+- **samoweb**: `e3c111b`, **deployed 2026-08-05**, `buildId c380fc060101`.
+  Latest: ทีม SAMO view/edit split + `master` (migrations 0110/0111), the full
+  ตำแหน่งของฉัน card with self-edit, the tabbed member/ตำแหน่ง editor, and two
+  live fixes (scroll-to-top on tab change; the seat CTA opens `/admin/#team`).
+  Previous entry, superseded: `28fa020`, deployed 2026-08-04, `buildId 9f65ec53b172`.
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
   the landing page. Verified against the SERVED artifacts: `/build.json` returns
