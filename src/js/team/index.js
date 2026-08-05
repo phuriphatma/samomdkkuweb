@@ -2503,6 +2503,10 @@ function wireIO() {
     $('teamImportFile').value = '';
     setImportStatus('');
     resetImportView();
+    // Prime the สาขา vocabulary before anyone pastes a CSV — planMembersCsv()
+    // canonicalises through it, and an empty list would silently degrade every
+    // สาขา in the file to "keep as typed".
+    loadMajors();
     modalInstance('teamImportModal')?.show();
   });
   $('teamImportFile')?.addEventListener('change', async (e) => {
@@ -2743,7 +2747,11 @@ function fmtVal(field, v) {
 /** Read-only pass: classify each CSV row as create / conflict / skip without
  *  mutating the model. Path creation (for new roles) is deferred to applyPlan. */
 function planMembersCsv(raw) {
-  const rows = parseMembersCsv(raw);
+  // The vocabulary is passed in so an import canonicalises สาขา the same way the
+  // two forms do (`md` → `MD`). Without it every value reads as off-list and is
+  // kept verbatim — not data loss, but it is how `md` gets back in beside `MD`.
+  // `majors` is primed by openImport(); an empty list degrades to "keep as typed".
+  const rows = parseMembersCsv(raw, majorCodes());
   if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ ชื่อ-สกุล / full_name)');
   const plan = { creates: [], conflicts: [], identical: 0, skipped: [], warnings: [] };
   const seen = new Set();

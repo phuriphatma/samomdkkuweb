@@ -12,7 +12,6 @@ const posting = (over = {}) => ({
   node_id: 'n1',
   node: 'หัวหน้าฝ่าย IT',
   path: ['ฝ่ายดิจิทัล'],
-  prefix: 'นาย',
   full_name: 'สมชาย ใจดี',
   nickname: 'ชาย',
   student_id: '653070001-1',

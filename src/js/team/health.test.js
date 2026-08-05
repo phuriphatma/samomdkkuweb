@@ -5,7 +5,7 @@ import { findIssues } from './health.js';
 // rule on opposite sides of the wire. These cases are written from the LIVE
 // data the tool reported, so if the two ever drift apart, this fails.
 const m = (o) => ({
-  id: o.id, node_id: o.node || 'n1', full_name: o.name || null, prefix: o.prefix || null,
+  id: o.id, node_id: o.node || 'n1', full_name: o.name || null,
   nickname: o.nick || null, year: o.year || null, major: o.major || null,
   photo_url: o.photo || null, student_id: o.sid || null, kkumail: o.mail || null,
 });
