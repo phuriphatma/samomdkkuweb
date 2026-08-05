@@ -385,6 +385,10 @@ function render() {
   // because onAuthChange can hand us a different account mid-session (the
   // account switcher swaps the session in place) and a stale ADD button would
   // be a live-looking control that always 42501s.
+  // The write controls ship HIDDEN in the markup and are revealed here. That
+  // direction matters: a scheme that hides by ADDING a class shows everything
+  // to everyone if this code never runs (the logged data-projects-role trap),
+  // and "everything" here means the buttons a viewer must not be offered.
   const writable = canEdit();
   document.querySelectorAll('[data-team-write]').forEach((el) => el.classList.toggle('d-none', !writable));
   document.getElementById('teamReadOnlyNote')?.classList.toggle('d-none', writable);
@@ -1191,10 +1195,23 @@ function showTeamModal(modalId, tab = 'info', permEnabled = true) {
   // to show them the stored values, and an empty modal would read as a bug.
   const modal = document.getElementById(modalId);
   const writable = canEdit();
-  modal?.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((el) => {
-    if (el.closest('.modal-header')) return;          // the close button stays live
-    el.disabled = !writable;
+  // Only ever touch controls THIS pass disabled. A blanket `el.disabled =
+  // !writable` also re-enabled everything the panes had deliberately locked —
+  // the fill runs before this, so a master grant's implied checkboxes came back
+  // editable and the modal contradicted what it would actually save.
+  modal?.querySelectorAll('[data-readonly-locked]').forEach((el) => {
+    el.disabled = false;
+    delete el.dataset.readonlyLocked;
   });
+  if (!writable) {
+    modal?.querySelectorAll('input, select, textarea, button:not([data-bs-dismiss])')
+      .forEach((el) => {
+        if (el.closest('.modal-header')) return;      // close + the tab buttons stay live
+        if (el.disabled) return;                      // already locked for another reason
+        el.disabled = true;
+        el.dataset.readonlyLocked = '1';
+      });
+  }
   if (!writable) {
     modal?.querySelector('#teamNodeDelete')?.classList.add('d-none');
     modal?.querySelector('#teamMemberDelete')?.classList.add('d-none');
@@ -1418,10 +1435,31 @@ function syncMasterVisibility(grid) {
   if (!grid) return;
   const master = grid.querySelector('input[value="master"]');
   const on = !!master?.checked;
+  const was = grid.classList.contains('is-master');
+
+  // Turning master ON force-ticks the rest (it implies them). Turning it OFF
+  // must therefore put them BACK — otherwise unticking the strongest grant
+  // leaves all eight ticked and the next save hands out every permission
+  // individually. The admin's action said "take this away"; the result would
+  // have been "keep everything, just spelled out". Snapshot before the force,
+  // restore after it.
+  if (on && !was) {
+    grid.dataset.preMaster = JSON.stringify(
+      [...grid.querySelectorAll('input[type=checkbox]')]
+        .filter((cb) => cb.value !== 'master' && cb.checked).map((cb) => cb.value),
+    );
+  }
+  let restore = null;
+  if (!on && was) {
+    try { restore = new Set(JSON.parse(grid.dataset.preMaster || '[]')); } catch { restore = new Set(); }
+    delete grid.dataset.preMaster;
+  }
+
   grid.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     if (cb.value === 'master') return;
     cb.disabled = on;
     if (on) cb.checked = true;
+    else if (restore) cb.checked = restore.has(cb.value);
     cb.closest('.team-perm-opt')?.classList.toggle('is-implied', on);
   });
   grid.classList.toggle('is-master', on);

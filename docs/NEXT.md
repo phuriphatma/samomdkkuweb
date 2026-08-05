@@ -177,3 +177,32 @@ sources), so a product-only scope isolates nothing.
   connection. Changes the callGAS success-echo contract — do it together with
   making `notify_log` the source of truth for failures.
 - Passport repo has untracked `AGENTS.md` + `.agents/` (not mine, left alone).
+
+---
+
+## Hardening `notifyProjectEmail` beyond the allow-list
+
+The recipient allow-list closes the broad case. What it does NOT constrain is
+the **content**: `subject` and `htmlBody` still come from the caller, so the
+endpoint can still be made to send an arbitrary-looking message to an allowed
+address, and repeated calls still consume the MailApp daily quota that the real
+notifications depend on. Ranked options, best first:
+
+1. **Template the content server-side** (recommended, cheapest). Stop accepting
+   `subject`/`htmlBody`; accept structured fields (doc id, action, actor) and
+   render them into a fixed template in `prform.gs`, escaping the values. The
+   caller then chooses only *what the notification is about*, never its wording.
+   No new OAuth scope, no re-consent, no infrastructure. Touches
+   `src/js/projects/notify.js` and the GAS handler together.
+2. **Move email off GAS entirely**, to the `samo-notify` service on the VM —
+   the same move already made for Discord, and for the same reasons. A Node
+   service can hold a real secret and verify a Supabase JWT cheaply, which GAS
+   cannot do without widening its scopes. Leaves GAS doing only Drive.
+3. **Add the caller-identity gate** (`requireSupabaseUser_`, already written and
+   reverted — see the GAS section). Requires the owner to re-consent FIRST.
+4. **Rate-limit per hour** via `CacheService` in GAS. Protects the quota only;
+   does nothing about content. Cheap, but do not add it untested at the end of a
+   session — a wrong threshold silently drops real notifications.
+
+1 + 3 together would leave very little: a fixed recipient set, templated
+wording, and a signed-in caller.

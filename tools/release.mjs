@@ -120,6 +120,25 @@ if (!level) {
   process.exit(0);
 }
 
+// Notes staged by PENDING as the work shipped. These are already written for a
+// reader — that is the whole point of writing them in the commit that ships the
+// change — so they go in VERBATIM, above the TODO lines derived from commit
+// subjects. Parsed out of the source rather than imported: this script runs in
+// plain node, and changelog.js is an ES module the bundler owns.
+function readPending() {
+  const src = readFileSync(CHANGELOG, 'utf8');
+  const m = src.match(/export const PENDING = \[([\s\S]*?)\n\];/);
+  if (!m) return { entries: [], areas: [], audiences: [] };
+  const entries = [...m[1].matchAll(/\{[^}]*\}/g)].map((e) => e[0]);
+  const areas = [...new Set([...m[1].matchAll(/area:\s*'([^']+)'/g)].map((x) => x[1]))];
+  const audiences = [...new Set([...m[1].matchAll(/audience:\s*'([^']+)'/g)].map((x) => x[1]))];
+  return { entries, areas, audiences };
+}
+const pending = readPending();
+if (pending.entries.length) {
+  console.log(`\n  ${pending.entries.length} staged note(s) from PENDING will be folded in.`);
+}
+
 const next = bump(pkg.version, level);
 const today = new Date().toISOString().slice(0, 10);
 console.log(`\n  → ${level.toUpperCase()}  v${pkg.version} → v${next}\n`);
@@ -130,12 +149,18 @@ const stub = `  {
     date: '${today}',
     title: 'TODO — what a student would call this',
     summary: 'TODO — one or two sentences, or delete this line',
-    areas: ['portal'],
-    audience: 'public',
+    areas: ${JSON.stringify(pending.areas.length ? pending.areas : ['portal']).replace(/"/g, "'")},
+    audience: '${pending.audiences.length === 1 ? pending.audiences[0] : 'public'}',
     changes: [
+${pending.entries
+    .map((e) => `      ${e
+      .replace(/,?\s*area:\s*'[^']*'/, '')
+      .replace(/,?\s*audience:\s*'[^']*'/, '')
+      .replace(/\s*\n\s*/g, ' ')},`)
+    .join('\n')}
 ${[...buckets.feat.map((s) => ['new', s]), ...buckets.fix.map((s) => ['fixed', s])]
     .map(([t, s]) => `      { type: '${t}', text: 'TODO — ${s.replace(/'/g, "\\'")}' },`)
-    .join('\n') || "      { type: 'new', text: 'TODO' },"}
+    .join('\n') || (pending.entries.length ? '' : "      { type: 'new', text: 'TODO' },")}
     ],
   },`;
 
@@ -158,10 +183,15 @@ if (!cl.includes(anchor)) {
   console.error('  ! could not find the RELEASES array — add the stub by hand.');
   process.exit(1);
 }
-writeFileSync(CHANGELOG, cl.replace(anchor, anchor + stub + '\n'));
+let out = cl.replace(anchor, anchor + stub + '\n');
+// Clear the staging area in the same write — leaving it would republish every
+// staged note in the NEXT release too.
+out = out.replace(/export const PENDING = \[[\s\S]*?\n\];/, 'export const PENDING = [\n];');
+writeFileSync(CHANGELOG, out);
 
 console.log(`\n  ✓ package.json → ${next}`);
 console.log('  ✓ changelog stub inserted at the top of RELEASES');
+if (pending.entries.length) console.log(`  ✓ ${pending.entries.length} staged note(s) folded in; PENDING cleared`);
 console.log('    now: rewrite the TODOs, then `npm test && npm run build`');
 
 if (has('--tag')) {

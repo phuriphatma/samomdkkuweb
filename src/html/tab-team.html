@@ -28,7 +28,7 @@
           <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">นำเข้า/ส่งออก</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li><button type="button" class="dropdown-item" id="teamImportOpen" data-team-write><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</button></li>
+          <li><button type="button" id="teamImportOpen" data-team-write class="dropdown-item d-none"><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</button></li>
           <li><hr class="dropdown-divider" /></li>
           <li><button type="button" class="dropdown-item" id="teamExportJson"><i class="bi bi-filetype-json me-2"></i>ส่งออกทั้งหมด (JSON)</button></li>
           <li><button type="button" class="dropdown-item" id="teamExportCsv"><i class="bi bi-filetype-csv me-2"></i>ส่งออกสมาชิก (CSV)</button></li>
@@ -59,10 +59,10 @@
       <button type="button" class="btn btn-sm btn-outline-secondary" id="teamCollapseAll">
         <i class="bi bi-arrows-collapse"></i><span class="d-none d-md-inline ms-1">ย่อทั้งหมด</span>
       </button>
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamSelectMode" data-team-write>
+      <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="teamSelectMode" data-team-write>
         <i class="bi bi-check2-square"></i><span class="d-none d-md-inline ms-1">เลือกหลายรายการ</span>
       </button>
-      <button type="button" class="btn btn-sm btn-primary" id="teamAddRoot" data-team-write>
+      <button type="button" class="btn btn-sm btn-primary d-none" id="teamAddRoot" data-team-write>
         <i class="bi bi-plus-lg"></i><span class="ms-1">เพิ่มฝ่าย</span>
       </button>
     </div>

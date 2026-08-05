@@ -97,13 +97,24 @@ Before sending the final response on any task that modified files:
    instance of one of the seven classes, add the site to that class's list in
    `.claude/rules/mistakes.md`. Prefer a guard test over a paragraph: this repo
    has learned that writing a hazard down does not make anyone check it.
-3. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
-4. **Documentation (conditional — only if any of these are true):**
+3. **If a person would NOTICE the change** (อัปเดตระบบ / the public release
+   notes at `/updates`): append an entry to `PENDING` in
+   `src/data/changelog.js`, in the same commit that ships it. Plain Thai a
+   student could read — no table names, no migration numbers, no permission
+   keys; `changelog.test.js` enforces that. Write it NOW, not at release time:
+   the details that make a good note (what was annoying before, what you no
+   longer have to do) are exactly what is forgotten weeks later when someone is
+   reconstructing it from `git log`. `npm run release` folds `PENDING` into the
+   new version and clears it. A refactor, a test, or a migration nobody
+   experiences gets NO entry; a one-line fix that unblocked a real workflow
+   does.
+4. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
+5. **Documentation (conditional — only if any of these are true):**
    - User-visible feature added or removed → update the "Key features" list in `README.md`.
    - Architecture, schema, RLS, deploy plumbing, or auth flow changed → update `docs/CONTEXT.md`.
    - Build / install / env setup changed → update `README.md` (Quick start, Commands, Environment).
    - **If the change is internal-only (refactor, bugfix, test, comment) — skip this step.** Doc edits should be a side-effect of meaningful change, not a tax on every commit.
-5. State in the user-facing response: "Updated STATE.md / mistakes.md / skills/* / docs as needed."
+6. State in the user-facing response: "Updated STATE.md / docs/mistakes / changelog / skills/* as needed."
 
 This loop keeps cold-start agents from re-walking the bugs we already paid for, AND keeps human-facing docs from going stale — without taxing routine commits.
 

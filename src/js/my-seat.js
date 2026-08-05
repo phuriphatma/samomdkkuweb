@@ -288,8 +288,11 @@ function editFormHtml(p) {
  * Paint the card into `host`.
  * @param {HTMLElement|null} host
  * @param {object|null} seat  payload from loadMySeat(), or null
- * @param {{ compact?: boolean }} [opts] compact drops the intro line (the
- *        profile modal already has a section heading above it).
+ * @param {{ compact?: boolean }} [opts] compact drops the eyebrow — the
+ *        profile modal already has a "ตำแหน่งในทีม SAMO" heading above it, and
+ *        saying it twice reads as a rendering bug. (This stopped being wired
+ *        up when the duplicated name was removed; re-pointed at the eyebrow
+ *        rather than deleted, because the modal genuinely needs the difference.)
  */
 export function renderMySeat(host, seat, opts = {}) {
   if (!host) return;
@@ -309,9 +312,10 @@ export function renderMySeat(host, seat, opts = {}) {
   host.hidden = false;
   host.innerHTML = `
     <div class="myseat-card">
+      ${opts.compact ? '' : `
       <div class="myseat-head">
         <span class="myseat-eyebrow"><i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ตำแหน่งของฉันในทีม SAMO</span>
-      </div>
+      </div>`}
 
       <div class="myseat-person">
         ${portraitHtml(me)}

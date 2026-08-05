@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  RELEASES, AREAS, CHANGE_TYPES, LEVELS, LATEST, SYSTEMS, MAJOR_STORY, changeCounts,
+  RELEASES, AREAS, CHANGE_TYPES, LEVELS, LATEST, SYSTEMS, MAJOR_STORY, changeCounts, PENDING
 } from '../data/changelog.js';
+import { readFileSync } from 'node:fs';
 import pkg from '../../package.json';
 import { thaiDate, thaiMonth, visibleReleases, spanWeeks } from './changelog.js';
 import activity from '../data/dev-activity.json';
@@ -315,5 +316,41 @@ describe('outcome maths', () => {
       expect(s.date >= activity.range.first).toBe(true);
       expect(s.date <= activity.range.last).toBe(true);
     }
+  });
+});
+
+describe('PENDING — notes staged as the work ships', () => {
+  // The whole point of writing a note in the same commit as the change is that
+  // it is written while the reason is fresh. That only pays off if the staged
+  // note is held to the SAME standard as a released one — otherwise `npm run
+  // release` folds engineering jargon straight into the public page.
+  it('uses the same shape as a released change', () => {
+    for (const c of PENDING) {
+      expect(Object.keys(c).sort()).toEqual(['area', 'audience', 'text', 'type']);
+      expect(CHANGE_TYPES[c.type], `unknown type ${c.type}`).toBeTruthy();
+      expect(AREAS[c.area], `unknown area ${c.area}`).toBeTruthy();
+      expect(['public', 'staff']).toContain(c.audience);
+      expect(c.text.trim().length).toBeGreaterThan(15);
+    }
+  });
+
+  it('leaks no engineering identifiers — the same ban list as RELEASES', () => {
+    const banned = [
+      /\bmigration\b/i, /\b\d{4}_[a-z_]+\b/, /_[a-z]+_[a-z]+\b/,
+      /\bRLS\b/, /\bSELECT\b/, /\bsupabase\b/i, /\bdbRest\b/,
+      /\bteam_(nodes|members|people)\b/, /\bvs_tickets\b/,
+    ];
+    for (const c of PENDING) {
+      for (const re of banned) {
+        expect(c.text, `staged note matched ${re}`).not.toMatch(re);
+      }
+    }
+  });
+
+  it('is not rendered on /updates — unreleased notes are a promise', () => {
+    // The landing panel and the changelog page read RELEASES. If PENDING ever
+    // gains a reader, that is a product decision, not a refactor.
+    const src = readFileSync(new URL('./changelog.js', import.meta.url), 'utf8');
+    expect(src).not.toContain('PENDING');
   });
 });

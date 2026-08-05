@@ -73,7 +73,19 @@ for (const r of await q(`
            where t.tgrelid=(quote_ident(p.schemaname)||'.'||quote_ident(p.tablename))::regclass
              and not t.tgisinternal and t.tgname ~ 'guard') as guards
   from pg_policies p where p.schemaname='public' and p.cmd in ('UPDATE','ALL')
-    and coalesce(p.qual,'') ~ 'auth\\.uid\\(\\)' order by p.tablename`)) {
+    -- Match a per-row OWNER policy however it identifies the caller. It used to
+    -- test for auth.uid() only, which made it BLIND to 0110's
+    -- team_members_update_self — that keys on current_user_email(), a definer
+    -- helper, precisely because an inline lookup on public.users would depend on
+    -- that table's own RLS. A sweep that cannot see the newest shape of the bug
+    -- it exists to catch is worse than no sweep, because it reports "clean".
+    -- auth.uid() and current_user_email() identify a ROW'S OWNER. Deliberately
+    -- NOT current_user_dept(): a dept is a SCOPE, not ownership — vs_tags is
+    -- editable by any handler of that dept by design, every column of it, and
+    -- its WITH CHECK already stops a row being moved to a dept you do not hold.
+    -- Adding it produced exactly one hit and it was a false positive.
+    and coalesce(p.qual,'') ~ 'auth\\.uid\\(\\)|current_user_email\\(\\)'
+  order by p.tablename`)) {
   const ok = Number(r.guards) > 0 || NO_GUARD_OK.includes(r.policyname);
   line(ok, `${r.tablename}.${r.policyname}${Number(r.guards) ? ' (guarded)' : ' (accepted: low severity)'}`);
 }

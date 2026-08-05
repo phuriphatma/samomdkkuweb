@@ -125,6 +125,43 @@ export const AREAS = {
   platform: { label: 'ระบบพื้นฐาน', icon: 'bi-hdd-network' },
 };
 
+/**
+ * PENDING — release notes staged as the work ships, before a version is cut.
+ *
+ * WHY THIS EXISTS. Release notes were written at release time, from `git log`,
+ * weeks after the fact. That is the worst possible moment: the person writing
+ * them has to reconstruct what a change MEANT to a student from a commit
+ * message written for engineers, and the details that make a good note — what
+ * was annoying before, what you no longer have to do — are exactly what has
+ * been forgotten by then. So a user-visible change gets its note in the SAME
+ * commit that ships it, while the reason is still obvious.
+ *
+ * Entries use the same shape as `changes` inside a release, and are held to the
+ * same rules by changelog.test.js: plain Thai a student could read, no table
+ * names, no migration numbers, no permission keys.
+ *
+ * NOT RENDERED. `/updates` shows released versions only — an unreleased list on
+ * a public page is a promise, and this project has a standing rule against
+ * promising cadence. `npm run release` folds these into the new version's stub
+ * and empties the array.
+ *
+ * Add one when the change is something a person would NOTICE. A refactor, a
+ * test, a migration nobody experiences: nothing. A fix that unblocked a real
+ * workflow: yes, even if it was one line.
+ */
+export const PENDING = [
+  { type: 'new', area: 'team', audience: 'staff',
+    text: 'ทุกคนที่มีอีเมลอยู่ในทีม SAMO เปิดดูโครงสร้างทีมและสิทธิ์ของทุกคนได้แล้ว โดยยังแก้ไขไม่ได้ถ้าไม่ได้รับสิทธิ์แก้ไข' },
+  { type: 'new', area: 'team', audience: 'public',
+    text: 'การ์ด “ตำแหน่งของฉันในทีม SAMO” หน้าแรก แสดงรูป ชื่อเล่น รหัสนักศึกษา ชั้นปี และสาขา พร้อมบอกว่าข้อมูลส่วนไหนยังไม่ครบ' },
+  { type: 'new', area: 'team', audience: 'public',
+    text: 'แก้ไขข้อมูลของตัวเองได้จากหน้าแรก ไม่ต้องรอผู้ดูแลทีมแก้ให้' },
+  { type: 'improved', area: 'team', audience: 'staff',
+    text: 'กดที่ชื่อคนหรือตำแหน่งแล้วแก้ได้ทั้งข้อมูลและสิทธิ์ในหน้าต่างเดียว ไม่ต้องย้อนกลับไปค้นหาคนเดิมอีกรอบ' },
+  { type: 'fixed', area: 'account', audience: 'public',
+    text: 'หน้าแรกไม่ขึ้น “ยังไม่ได้ระบุฝ่าย” กับคนที่มีตำแหน่งในทีม SAMO อยู่แล้ว' },
+];
+
 export const RELEASES = [
   {
     version: '4.4.0',
