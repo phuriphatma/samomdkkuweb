@@ -8,12 +8,13 @@
 //      grant is the single most surprising fact about the grant and must show.
 // Plus the escaping, since every field here is user-typed and lands in innerHTML.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 // db.js creates a supabase client and a setInterval at import time; the card
 // renderer never touches it, so stub the whole module rather than booting it.
 vi.mock('./db.js', () => ({ dbRest: vi.fn() }));
 
-const { renderMySeat } = await import('./my-seat.js');
+const { renderMySeat, PERM_SECTION } = await import('./my-seat.js');
 
 /** Minimal element stand-in: renderMySeat only ever sets .hidden / .innerHTML. */
 function host() {
@@ -66,9 +67,32 @@ describe('renderMySeat', () => {
 
   // ---- the CTA target ----
 
-  it('sends an admin-feature grantee to /admin/', () => {
+  it('every permission maps to a REAL admin section', () => {
+    // The keys differ (`samoshop` the permission vs `shop` the section), so a
+    // naive `/admin/#${perm}` link lands on a hash SECTION_META does not know
+    // and quietly falls back to ภาพรวม.
+    const admin = readFileSync(new URL('./admin-main.js', import.meta.url), 'utf8');
+    const meta = admin.slice(admin.indexOf('const SECTION_META = {'));
+    for (const [perm, section] of Object.entries(PERM_SECTION)) {
+      expect(meta, `${perm} -> #${section} is not a section`).toMatch(new RegExp(`\\n\\s*${section}\\s*:`));
+    }
+  });
+
+  it('sends a single-grant holder STRAIGHT to their section, not the dashboard', () => {
+    // Landing on ภาพรวม when there is exactly one thing you can do makes the
+    // reader navigate again to reach the place the button implied.
     renderMySeat(el, seatWith({ permissions: ['pr'] }));
+    expect(el.innerHTML).toContain('href="/admin/#pr"');
+  });
+
+  it('sends a multi-grant holder to the dashboard, since there IS a choice', () => {
+    renderMySeat(el, seatWith({ permissions: ['pr', 'samoshop'] }));
     expect(el.innerHTML).toContain('href="/admin/"');
+  });
+
+  it('uses the SECTION key, not the permission key, for SAMO Shop', () => {
+    renderMySeat(el, seatWith({ permissions: ['samoshop'] }));
+    expect(el.innerHTML).toContain('href="/admin/#shop"');
   });
 
   it('sends a passport-ONLY grantee to /passport/, never /admin/', () => {
@@ -77,10 +101,17 @@ describe('renderMySeat', () => {
     expect(el.innerHTML).not.toContain('href="/admin/"');
   });
 
-  it('prefers /admin/ when the person holds both', () => {
+  it('prefers /admin/ over /passport/ when the person holds both', () => {
     renderMySeat(el, seatWith({ permissions: ['passport', 'team'] }));
-    expect(el.innerHTML).toContain('href="/admin/"');
     expect(el.innerHTML).not.toContain('href="/passport/"');
+  });
+
+  it('opens ทีม SAMO — the card\'s own subject — whenever they hold a team rung', () => {
+    // Reported: "when i click เปิดหน้าจัดการ, it should show page teamsamo in
+    // admin, not the admin dashboard". The card is about ทีม SAMO, so its
+    // button goes there even for someone who could open several sections.
+    renderMySeat(el, seatWith({ permissions: ['pr', 'samoshop', 'team'] }));
+    expect(el.innerHTML).toContain('href="/admin/#team"');
   });
 
   it('offers no CTA at all for a posting with no permissions', () => {

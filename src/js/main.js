@@ -376,6 +376,14 @@ document.addEventListener('shown.bs.tab', (e) => {
     const want = tabToPath(target);
     if (want && location.pathname !== want) {
       history.pushState(null, '', want);
+      // Start the new page at the TOP. Switching a Bootstrap pill only swaps
+      // the pane; the window keeps whatever scroll offset the previous page
+      // had — so "ดูอัปเดตทั้งหมด", which sits far down the home page, opened
+      // /updates already scrolled into the middle of the release list (it
+      // landed on v4.1.0). Only on a real path CHANGE: re-activating the tab
+      // you are already on must not yank the reader back to the top, and the
+      // article tab is excluded above because it manages its own deep links.
+      window.scrollTo({ top: 0, behavior: 'auto' });
     }
   }
 });

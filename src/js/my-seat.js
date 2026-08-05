@@ -79,14 +79,39 @@ const chips = (keys) => (keys || [])
   .map((k) => `<span class="myseat-chip">${escHtml(PERM_LABEL[k] || k)}</span>`)
   .join('');
 
+/**
+ * Permission key → the admin section it opens (`SECTION_META` in admin-main.js).
+ *
+ * They are NOT the same strings and that is the trap: the SAMO Shop permission
+ * is `samoshop` while its section is `shop`, so linking `/admin/#${perm}` would
+ * have produced a dead hash that silently falls back to ภาพรวม — the exact
+ * "button implies a destination it does not reach" problem this map exists to
+ * fix. `my-seat.test.js` pins every value against SECTION_META.
+ */
+export const PERM_SECTION = {
+  pr: 'pr', vs: 'vs', samoshop: 'shop', projects: 'projects',
+  creator: 'creator', team: 'team', team_edit: 'team',
+};
+
 /** Where — if anywhere — this person's grants actually let them go.
  *  `passport` does NOT open /admin/ (admin-main.js canUseAdmin gates on
  *  ADMIN_FEATURES, which excludes it), so linking a passport-only member there
  *  would hand them a door that bounces them. SAMO Passport is its own app. */
 function ctaFor(perms) {
-  if (ADMIN_FEATURES.some((f) => perms.includes(f))) {
-    return { href: '/admin/', label: 'เปิดหน้าจัดการ' };
+  // Land on the section this CARD is about, not the admin landing page. The
+  // card's whole subject is ทีม SAMO, so "เปิดหน้าจัดการ" dropping the reader on
+  // ภาพรวม made them navigate again to get where the button implied they were
+  // going. `#team` is read by showAdminSide() in admin-main.js, which routes on
+  // the first hash segment.
+  if (perms.includes('team') || perms.includes('team_edit')) {
+    return { href: '/admin/#team', label: 'เปิดหน้าทีม SAMO' };
   }
+  // No ทีม SAMO rung but some other admin grant: if it is the ONLY one they
+  // hold, go straight there rather than making them pick from a menu of one.
+  const mine = ADMIN_FEATURES.filter((f) => perms.includes(f));
+  const section = mine.length === 1 ? PERM_SECTION[mine[0]] : null;
+  if (section) return { href: `/admin/#${section}`, label: 'เปิดหน้าจัดการ' };
+  if (mine.length) return { href: '/admin/', label: 'เปิดหน้าจัดการ' };
   if (perms.includes('passport')) {
     return { href: '/passport/', label: 'เปิด SAMO Passport' };
   }
