@@ -653,3 +653,46 @@
   border-radius: var(--radius-sm); font-size: 0.85rem;
 }
 .team-health-focus strong { font-weight: 700; }
+
+/* Two-tab entity editor (0110) — แก้ไขสมาชิก / แก้ไขสิทธิ์ in one modal.
+ * The tabs sit in the header so the body can scroll independently of them;
+ * `modal-dialog-scrollable` puts the scrollbar on .modal-body, and each pane
+ * carries its own, so switching tabs does not inherit the other's position. */
+.team-modal-tabs { border-bottom: 0; gap: 0.15rem; flex-wrap: nowrap; }
+.team-modal-tabs .nav-link {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-600, #6c757d);
+  white-space: nowrap;
+}
+.team-modal-tabs .nav-link:hover:not(.disabled) { color: var(--brand-primary); }
+.team-modal-tabs .nav-link.active {
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
+  background: transparent;
+}
+/* An unsaved record has no row for a grant to attach to. Shown-but-disabled
+ * rather than hidden, so the tab does not appear and disappear between
+ * "เพิ่มสมาชิก" and "แก้ไขสมาชิก" — the affordance should be predictable. */
+.team-modal-tabs .nav-link.disabled {
+  color: var(--ink-400, #adb5bd);
+  pointer-events: none;
+  opacity: 0.65;
+}
+.team-modal-tabs .nav-link i { font-size: 0.9em; margin-inline-end: 0.2rem; }
+
+/* Read-only notice for a view-only ทีม SAMO member (0110). Deliberately quiet:
+ * this is the normal state for most of the ~285 people in the tree, not a
+ * warning about something being wrong. */
+.team-readonly-note {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--ink-600, #6c757d);
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.75rem;
+}
+.team-readonly-note .bi { color: var(--brand-primary); }

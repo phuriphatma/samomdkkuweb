@@ -119,13 +119,32 @@ async function main() {
          and position(lower(btrim(kkumail)) in lower(${lit(blob)})) > 0;`));
     check('the payload contains no other person\'s kkumail', others[0]?.n === 0,
       `leaked=${others[0]?.n}`);
+    // UPDATED FOR 0110. The card now shows the caller their OWN record —
+    // portrait, รหัสนักศึกษา, ชั้นปี, สาขา — so "the payload contains no
+    // รหัสนักศึกษา at all" stopped being the invariant. The invariant that
+    // actually matters is unchanged and is what is asserted instead: nothing
+    // about ANYONE ELSE. (A proof that keeps failing for a correct reason gets
+    // ignored, and then it protects nothing.)
     const sids = rowsOf(await mgmt(`
       select count(*)::int as n from public.team_members
        where student_id is not null and length(btrim(student_id)) > 3
+         and lower(coalesce(kkumail,'')) <> lower(${lit(holder.email)})
+         and student_id not in (
+           select student_id from public.team_members
+            where lower(coalesce(kkumail,'')) = lower(${lit(holder.email)})
+              and student_id is not null)
          and position(student_id in ${lit(blob)}) > 0;`));
-    check('…and no รหัสนักศึกษา at all', sids[0]?.n === 0, `leaked=${sids[0]?.n}`);
-    check('…and no user_id / photo of anyone',
-      !blob.includes('photo_url') && !blob.includes('user_id'));
+    check('the payload carries no OTHER person\'s รหัสนักศึกษา', sids[0]?.n === 0,
+      `leaked=${sids[0]?.n}`);
+    // user_id is still never exposed: it is auth plumbing, not something the
+    // person needs, and 0110 did not add it.
+    check('…and never a user_id', !blob.includes('user_id'));
+    const photos = rowsOf(await mgmt(`
+      select count(*)::int as n from public.team_members
+       where photo_url is not null and length(btrim(photo_url)) > 10
+         and lower(coalesce(kkumail,'')) <> lower(${lit(holder.email)})
+         and position(photo_url in ${lit(blob)}) > 0;`));
+    check('…and no OTHER person\'s photo', photos[0]?.n === 0, `leaked=${photos[0]?.n}`);
   }
 
   // ── 3. an account with no posting gets an empty envelope, not an error ───

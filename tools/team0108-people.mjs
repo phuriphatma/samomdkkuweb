@@ -162,9 +162,30 @@ insert into out
 select 'team_people RLS enabled',
        case when relrowsecurity then 'yes' else 'NO' end
   from pg_class where oid = 'public.team_people'::regclass;
+-- UPDATED FOR 0110: this was a count(*) = 1 assertion, which broke the moment
+-- the single FOR ALL policy became a read/write pair — and a raw count would
+-- have broken again on the next legitimate change while saying nothing about
+-- safety. Assert the two properties that actually matter instead.
 insert into out
-select 'team_people policies', count(*)::text
-  from pg_policies where schemaname = 'public' and tablename = 'team_people';
+select 'team_people write needs team_edit',
+       case when exists (
+         select 1 from pg_policies
+          where schemaname='public' and tablename='team_people'
+            and cmd in ('ALL','INSERT','UPDATE','DELETE')
+            and coalesce(qual,'')||coalesce(with_check,'') like '%team_edit%')
+         and not exists (
+         select 1 from pg_policies
+          where schemaname='public' and tablename='team_people'
+            and cmd in ('ALL','INSERT','UPDATE','DELETE')
+            and coalesce(qual,'')||coalesce(with_check,'') ~ 'has_permission\(''team''\)')
+       then 'yes' else 'NO' end;
+insert into out
+select 'team_people has no anon policy',
+       case when not exists (
+         select 1 from pg_policies
+          where schemaname='public' and tablename='team_people'
+            and 'anon' = any(roles))
+       then 'yes' else 'NO' end;
 insert into out
 select 'anon can read team_people',
        case when has_table_privilege('anon', 'public.team_people', 'select')
@@ -211,7 +232,8 @@ const MUST = {
   'accounts whose managed_permissions would change': '0',
   'placement edit did NOT mirror up': 'yes',
   'team_people RLS enabled': 'yes',
-  'team_people policies': '1',
+  'team_people write needs team_edit': 'yes',
+  'team_people has no anon policy': 'yes',
 };
 
 let pass = 0; let fail = 0;

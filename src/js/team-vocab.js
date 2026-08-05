@@ -16,15 +16,33 @@
 // Labels are display-only and safe to reword.
 
 export const PERM_CATALOG = [
-  { key: 'pr',       label: 'PR' },
-  { key: 'vs',       label: 'VitalSound' },
-  { key: 'samoshop', label: 'SAMO Shop' },
-  { key: 'projects', label: 'หนังสือโครงการ' },
-  { key: 'creator',  label: 'เขียนประกาศ' },
-  { key: 'team',     label: 'ทีม SAMO' },
-  { key: 'passport', label: 'SAMO Passport' },
+  { key: 'pr',        label: 'PR' },
+  { key: 'vs',        label: 'VitalSound' },
+  { key: 'samoshop',  label: 'SAMO Shop' },
+  { key: 'projects',  label: 'หนังสือโครงการ' },
+  { key: 'creator',   label: 'เขียนประกาศ' },
+  { key: 'team',      label: 'ทีม SAMO (ดู)',
+    hint: 'ทุกคนที่มีอีเมลอยู่ในทีม SAMO ได้สิทธิ์นี้อัตโนมัติ' },
+  { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)',
+    hint: 'แก้ไขโครงสร้าง สมาชิก และสิทธิ์ของทุกคน' },
+  { key: 'passport',  label: 'SAMO Passport' },
 ];
 export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
+
+// ทีม SAMO is the one capability with two rungs (migration 0110). They are NOT
+// independent: `team_edit` is strictly stronger and every read policy accepts
+// either, so storing both on one row would be redundant — and worse, it would
+// make them LOOK independent, which is how someone ends up unticking the one
+// that was actually load-bearing (the 0083 "scope beside an unconditional
+// permission" trap). `readPermInputs` drops `team` when `team_edit` is set.
+export const TEAM_VIEW = 'team';
+export const TEAM_EDIT = 'team_edit';
+
+/** Does this permission set allow WRITING the ทีม SAMO tree? Single predicate so
+ *  the admin UI, the card and any future caller cannot drift on the answer. */
+export function canEditTeam(perms = [], role = '') {
+  return role === 'vp_admin' || role === 'dev' || perms.includes(TEAM_EDIT);
+}
 
 // VitalSound departments (vs_tickets.target_dept). Binding a node — or a
 // single person (0083) — to one of these (`vs_dept`) scopes VS access to that
@@ -66,4 +84,9 @@ export const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s
 // legitimate grantee at the door or send a passport-only member to a page that
 // bounces them. `passport` is deliberately absent: SAMO Passport is a separate
 // app at /passport/, so a passport-only grant is not admin access.
-export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team'];
+// `team` alone is enough to open /admin/ — it is the VIEW rung, and since 0110
+// every person with a posting in the tree holds it implicitly, which is the
+// whole point: they can open ทีม SAMO and look. `team_edit` is listed too so a
+// hypothetical editor who somehow lacks the view rung is not locked out; the
+// list is OR-ed, so naming both costs nothing and cannot fail closed.
+export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit'];

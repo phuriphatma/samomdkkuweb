@@ -214,20 +214,41 @@ async function main() {
   check('an UNpublished year publishes nothing', d.draft_nodes === '0', d.draft_nodes);
   check('an UNpublished year is not offered in the year picker', d.draft_in_picker === 'false');
 
-  // ── 4. Grant channel: the `team` permission, on the NEW tables ───────────
+  // ── 4. Grant channel, on the NEW tables ─────────────────────────────────
+  // UPDATED FOR 0110: `team` was split into `team` (view) and `team_edit`
+  // (write), so the key that manages ปีการศึกษา is now `team_edit`. The
+  // invariant is unchanged — the tree's grant channel must reach these
+  // tables — and the VIEW half is asserted separately below.
   console.log('\nGRANTS');
-  const withTeam = await asTreeGrant(`array['team']`, `
+  const withTeam = await asTreeGrant(`array['team_edit']`, `
     insert into public.team_terms (year, label) values (${Y}, 'ZZ');
     insert into out select 'wrote_term', count(*)::text from public.team_terms where year=${Y};
     insert into out select 'published', (public.publish_team_term(${Y}) is not null)::text;
     insert into out select 'reads_archive', (count(*) > 0)::text
       from public.team_archive_members where year=${Y};`);
   const wt = kv(withTeam);
-  check('`team` grantee can create a ปีการศึกษา', wt.wrote_term === '1', JSON.stringify(withTeam.body).slice(0, 200));
-  check('`team` grantee can publish a snapshot', wt.published === 'true');
+  check('`team_edit` grantee can create a ปีการศึกษา', wt.wrote_term === '1', JSON.stringify(withTeam.body).slice(0, 200));
+  check('`team_edit` grantee can publish a snapshot', wt.published === 'true');
   // 0093's lesson: a channel has two halves. A writer who cannot read back what
   // they wrote has write-only access, which looks like data loss.
-  check('`team` grantee can READ the archive back', wt.reads_archive === 'true');
+  check('`team_edit` grantee can READ the archive back', wt.reads_archive === 'true');
+
+  // 0110's view rung: a plain member (no granted permission at all — the tree
+  // posting alone gives them `team`) must SEE the archive and change nothing.
+  const viewOnlyRead = await asTreeGrant(`array[]::text[]`, `
+    insert into out select 'has_team', public.current_user_has_permission('team')::text;
+    insert into out select 'has_edit', public.current_user_has_permission('team_edit')::text;
+    insert into out select 'reads_terms', (count(*) >= 0)::text from public.team_terms;`);
+  const vo = kv(viewOnlyRead);
+  check('a plain member resolves `team` but not `team_edit`',
+    vo.has_team === 'true' && vo.has_edit === 'false', JSON.stringify(vo));
+  check('…and can READ ปีการศึกษา', vo.reads_terms === 'true', JSON.stringify(vo));
+
+  const viewOnlyWrite = await asTreeGrant(`array[]::text[]`, `
+    insert into public.team_terms (year, label) values (${Y}, 'ZZ-VIEWONLY');`);
+  check('…but CANNOT create one (the whole point of the split)',
+    viewOnlyWrite.status >= 400 && /policy|denied/i.test(JSON.stringify(viewOnlyWrite.body)),
+    JSON.stringify(viewOnlyWrite.body).slice(0, 160));
 
   const withoutTeam = await asTreeGrant(`array['pr','creator']`, `
     insert into public.team_terms (year) values (${Y});`);
@@ -237,7 +258,7 @@ async function main() {
 
   const rpcNoGrant = await asTreeGrant(`array['pr']`, `
     insert into out select 'published', (public.publish_team_term(${Y}) is not null)::text;`);
-  check('publish_team_term refuses a caller without `team`',
+  check('publish_team_term refuses a caller without `team_edit`',
     rpcNoGrant.status >= 400 && /not authorized/i.test(JSON.stringify(rpcNoGrant.body)),
     JSON.stringify(rpcNoGrant.body).slice(0, 200));
 
@@ -339,7 +360,7 @@ async function main() {
 
   const guard = await asTreeGrant(`array['pr']`, `
     insert into out select 'st', (public.team_term_status() is not null)::text;`);
-  check('team_term_status refuses a caller without `team`',
+  check('team_term_status refuses a caller without `team_edit`',
     guard.status >= 400 && /not authorized/i.test(JSON.stringify(guard.body)),
     JSON.stringify(guard.body).slice(0, 160));
 

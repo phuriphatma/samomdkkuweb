@@ -14,6 +14,58 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## ทีม SAMO view/edit split + the full ตำแหน่งของฉัน card (2026-08-05 — APPLIED, NOT YET DEPLOYED)
+
+**Migration 0110 is APPLIED to the live database. The frontend is NOT deployed
+yet** — so prod is currently running the old bundle against the new schema.
+That combination is safe (the old UI only ever asks for `team`, which every
+member now holds, and writes still require `team_edit`, which the 4 nodes +
+2 members that held `team` were migrated to) but **deploy soon** so the two
+halves match. Proof `tools/team0110-view-edit.mjs` → **34/34**. 306 unit tests
+green; the tabbed modals were driven in headless Chrome (9/9).
+
+- **`team` = ดู, `team_edit` = แก้ไข.** Everyone with a posting in the tree gets
+  `team` implicitly — injected once in `effective_team_permissions_for_email()`
+  rather than as a new access channel, so RLS, `userCanAccess()` and
+  `ADMIN_FEATURES` all honour it with no new plumbing. Today's 4 nodes + 2
+  members that held `team` were rewritten to `team_edit`.
+  **⚠️ Privacy, explicitly chosen by the user when shown the consequence:** all
+  ~285 people in the tree can now read all ~404 member rows, including other
+  people's รหัสนักศึกษา and kkumail. The PUBLIC org chart is unchanged (still the
+  `get_public_team_chart()` projection; `team_members` still has no anon policy —
+  asserted over real HTTPS in the proof).
+- **A member can fix their own row** — `team_members_update_self` + a
+  deny-by-default column guard. Only name/nickname/รหัส/ชั้นปี/สาขา/photo;
+  `permissions`, `vs_dept`, `project_seat`, `node_id` and `kkumail` are all
+  refused (9 escalation probes).
+- **ตำแหน่งของฉัน now shows the whole record** — portrait, ชื่อเล่น, รหัส, ชั้นปี,
+  สาขา, kkumail — plus that person's own ตรวจสอบข้อมูล findings and an inline fix.
+  The findings come from the SAME engine as the admin pane: the pure rules moved
+  out of `team/health.js` into **`src/js/team/identity.js`** (health.js re-exports
+  them, so every existing importer is untouched). `sid_clash` is the one finding
+  the card cannot compute — it needs other people's rows, which the payload
+  deliberately does not carry — and it is also the one a person cannot fix alone.
+- **One editor, two tabs.** `teamPermModal` / `teamMemberPermModal` are gone;
+  `teamNodeModal` and `teamMemberModal` now each carry แก้ไข… / แก้ไขสิทธิ์ tabs,
+  reachable from BOTH จัดการทีม and จัดการสิทธิ์ — the mode only picks which tab
+  leads. Both `<form>`s and their submit handlers are unchanged; the single
+  footer button `requestSubmit()`s whichever pane is active.
+- **View-only members see a read-only tree** — `canEdit()` gates every write
+  affordance at RENDER time (no drag handles, no add/edit/delete buttons, no
+  bulk select, modal inputs disabled), so nobody gets a live-looking button that
+  42501s.
+
+**Known gaps / next:**
+- **Not rendered in a browser as a signed-in member.** The tab mechanism was
+  driven headless against a harness; the read-only tree, the enriched card and
+  the self-edit round trip have NOT been seen with real data. Worth one pass.
+- `sid_clash` is invisible on the card (see above) — deliberate, but if members
+  start asking "why does ตรวจสอบข้อมูล say I have a problem I can't see", that is
+  why.
+- `team_person_mirror_down()` (0108) writes guarded columns without setting the
+  `app.team_sync` flag. Unreachable by a non-editor today; if `team_people` ever
+  gets a self-service surface, give it the flag.
+
 ## Org chart collapse + "ตำแหน่งของฉัน" (2026-08-05 — SHIPPED to prod)
 
 **LIVE.** `main` at `12f93e3` (+ a follow-up commit for the proof scripts),

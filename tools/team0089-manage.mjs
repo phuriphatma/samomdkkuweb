@@ -29,7 +29,7 @@ async function mgmt(sql) {
 }
 const rowsOf = (r) => (Array.isArray(r.body) ? r.body.flat().filter((x) => x && typeof x === 'object') : []);
 
-let UID; let EMAIL;
+let UID; let EMAIL; let PERMS_BEFORE = '';
 
 const asTreeGrant = (perms, sql) => mgmt(`
   select set_config('request.jwt.claims',
@@ -53,29 +53,44 @@ async function main() {
   UID = who?.id; EMAIL = who?.email;
   if (!UID || !EMAIL) { console.log('no plain user with an email'); process.exit(1); }
   console.log('grantee:', EMAIL);
+  // Snapshot BEFORE any probe, so "left nothing behind" is a diff rather than
+  // an assumption about what this account should hold.
+  PERMS_BEFORE = (await mgmt(`select coalesce(managed_permissions::text,'') as p
+     from public.users where id = ${lit(UID)}`)).body?.[0]?.p ?? '';
 
   const write = `
     insert into public.team_nodes (name, kind) values ('ZZ-0089-NEW','role');
     select (select count(*) from public.team_nodes where name='ZZ-0089-NEW') as wrote,
-           public.current_user_has_permission('team') as has_team;`;
+           public.current_user_has_permission('team')      as has_team,
+           public.current_user_has_permission('team_edit') as has_edit;`;
 
-  const withTeam = await asTreeGrant(`array['team']`, write);
+  // UPDATED FOR 0110. `team` was split into `team` (view) and `team_edit`
+  // (write), so the permission that grants management is now `team_edit`. The
+  // ORIGINAL invariant — "the tree's permission channel is honoured by the team
+  // tables themselves, which 0046 forgot" — is unchanged; only the key moved.
+  const withTeam = await asTreeGrant(`array['team_edit']`, write);
   const w = rowsOf(withTeam).find((x) => 'wrote' in x) || {};
-  check('role=user granted `team` via the tree CAN create a team node',
-    Number(w.wrote) === 1 && w.has_team === true, JSON.stringify(withTeam.body));
+  check('role=user granted `team_edit` via the tree CAN create a team node',
+    Number(w.wrote) === 1 && w.has_edit === true, JSON.stringify(withTeam.body));
+
+  // …and the other half of the 0110 split: the VIEW rung must NOT write.
+  const viewOnly = await asTreeGrant(`array[]::text[]`, write);
+  check('a posting with no grant CANNOT write the tree (view rung only)',
+    viewOnly.status >= 400 && /policy|denied/i.test(JSON.stringify(viewOnly.body)),
+    JSON.stringify(viewOnly.body));
 
   const without = await asTreeGrant(`array['pr','creator']`, write);
   check('other permissions alone CANNOT write the tree',
     without.status >= 400 && /policy|denied/i.test(JSON.stringify(without.body)),
     JSON.stringify(without.body));
 
-  const members = await asTreeGrant(`array['team']`, `
+  const members = await asTreeGrant(`array['team_edit']`, `
     insert into public.team_members (node_id, full_name)
     values ((select id from public.team_nodes order by id limit 1), 'ZZ-0089-PERSON');
     select (select count(*) from public.team_members where full_name='ZZ-0089-PERSON') as wrote,
            public.current_user_has_permission('team') as has_team;`);
   const m = rowsOf(members).find((x) => 'wrote' in x) || {};
-  check('`team` also covers team_members', Number(m.wrote) === 1, JSON.stringify(members.body));
+  check('`team_edit` also covers team_members', Number(m.wrote) === 1, JSON.stringify(members.body));
 
   const anon = await mgmt(`
     set local role anon;
@@ -84,12 +99,17 @@ async function main() {
     reset role; rollback;`);
   check('anon still cannot write the tree', anon.status >= 400, JSON.stringify(anon.body));
 
+  // "managed_permissions is empty" stopped being the right test in 0110: every
+  // person with a posting now legitimately resolves `team`, and the probe
+  // account may be one of them. Compare against the snapshot taken before any
+  // probe ran — that is the actual invariant ("we changed nothing").
   const clean = (await mgmt(`select
     (select count(*) from public.team_nodes where name like 'ZZ-0089%') a,
     (select count(*) from public.team_members where full_name like 'ZZ-0089%') b,
-    (select count(*) from public.users where id = ${lit(UID)} and managed_permissions <> '{}') c`)).body?.[0];
+    (select coalesce(managed_permissions::text,'') from public.users where id = ${lit(UID)}) c`)).body?.[0];
   check('rollback left nothing behind',
-    Number(clean?.a) === 0 && Number(clean?.b) === 0 && Number(clean?.c) === 0, JSON.stringify(clean));
+    Number(clean?.a) === 0 && Number(clean?.b) === 0 && String(clean?.c) === String(PERMS_BEFORE),
+    `${JSON.stringify(clean)} before=${PERMS_BEFORE}`);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

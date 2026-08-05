@@ -119,7 +119,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `revoke ... from public` leaves the grant that the schema's DEFAULT PRIVILEGES gave `authenticated`
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
-*Open when:* adding an access channel, a scope, or a seat. *(10 entries)*
+*Open when:* adding an access channel, a scope, or a seat. *(11 entries)*
 
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
 - A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD
@@ -131,9 +131,10 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A permission channel has TWO halves — writes AND reads. `current_user_is_staff()` is a role list, so every read gated o…
 - Deriving "which department is this admin" from a UI filter is not a permission
 - A seat that grants a SHARED role must not be modelled as a new individual
+- WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
 ### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(10 entries)*
+*Open when:* writing a migration. *(11 entries)*
 
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
@@ -145,6 +146,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Check constraint must be dropped BEFORE updating to a new enum value
 - (Passport) An `AFTER INSERT`-on-`auth.users` re-key trigger only fires for accounts that have NEVER logged into the pro…
 - A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col`
+- A self-update column guard must exempt the definer FUNCTION that writes on login
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
 *Open when:* markup, modals, layout, touch, icons. *(27 entries)*

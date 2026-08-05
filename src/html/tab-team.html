@@ -28,7 +28,7 @@
           <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">นำเข้า/ส่งออก</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li><button type="button" class="dropdown-item" id="teamImportOpen"><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</button></li>
+          <li><button type="button" class="dropdown-item" id="teamImportOpen" data-team-write><i class="bi bi-box-arrow-in-down me-2"></i>นำเข้าข้อมูล</button></li>
           <li><hr class="dropdown-divider" /></li>
           <li><button type="button" class="dropdown-item" id="teamExportJson"><i class="bi bi-filetype-json me-2"></i>ส่งออกทั้งหมด (JSON)</button></li>
           <li><button type="button" class="dropdown-item" id="teamExportCsv"><i class="bi bi-filetype-csv me-2"></i>ส่งออกสมาชิก (CSV)</button></li>
@@ -37,7 +37,14 @@
     </div>
   </div>
 
-  <div class="team-toolbar">
+  <!-- Shown to a member who can VIEW ทีม SAMO but not edit it (0110). Everyone
+     with a posting in the tree can now open this section; only `team_edit` may
+     change it, and the write affordances are not rendered for anyone else. -->
+<div class="alert alert-light border team-readonly-note d-none" id="teamReadOnlyNote" role="note">
+  <i class="bi bi-eye"></i>
+  คุณกำลังดูข้อมูลทีม SAMO แบบอ่านอย่างเดียว — แก้ไขข้อมูลของตัวเองได้ที่หน้าแรก หัวข้อ “ตำแหน่งของฉันในทีม SAMO”
+</div>
+<div class="team-toolbar">
     <div class="team-toolbar-search">
       <i class="bi bi-search"></i>
       <input type="text" id="teamSearch" class="form-control"
@@ -52,10 +59,10 @@
       <button type="button" class="btn btn-sm btn-outline-secondary" id="teamCollapseAll">
         <i class="bi bi-arrows-collapse"></i><span class="d-none d-md-inline ms-1">ย่อทั้งหมด</span>
       </button>
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamSelectMode">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="teamSelectMode" data-team-write>
         <i class="bi bi-check2-square"></i><span class="d-none d-md-inline ms-1">เลือกหลายรายการ</span>
       </button>
-      <button type="button" class="btn btn-sm btn-primary" id="teamAddRoot">
+      <button type="button" class="btn btn-sm btn-primary" id="teamAddRoot" data-team-write>
         <i class="bi bi-plus-lg"></i><span class="ms-1">เพิ่มฝ่าย</span>
       </button>
     </div>
@@ -96,15 +103,46 @@
 
 <!-- Node editor modal (add / edit a division / department / role) — name + kind
      only; permissions live in the separate "จัดการสิทธิ์" mode. -->
+<!-- TABBED ENTITY EDITOR (0110).
+     Reported: "when I click a person / ตำแหน่ง I can only see แก้ไขสมาชิก, and to
+     manage that person I have to go back to จัดการสิทธิ์ and search for them
+     again." The click already said WHICH record — the same shape as the
+     ตรวจสอบข้อมูล flag that used to navigate to an unfiltered list — so the two
+     editors are now one modal with two tabs, reachable from BOTH จัดการทีม and
+     จัดการสิทธิ์. The mode only decides which tab opens first.
+
+     The two <form>s are kept intact and separate, each as a tab-pane, so their
+     existing submit handlers are untouched; the single footer button forwards
+     to whichever pane is showing (teamModalSave in team/index.js). -->
 <div class="modal fade" id="teamNodeModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
-      <form id="teamNodeForm" novalidate>
-        <div class="modal-header">
-          <h5 class="modal-title" id="teamNodeModalTitle">ตำแหน่ง</h5>
+      <div class="modal-header pb-0 border-0 flex-column align-items-stretch">
+        <div class="d-flex align-items-start w-100">
+          <h5 class="modal-title flex-grow-1" id="teamNodeModalTitle">ตำแหน่ง</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
-        <div class="modal-body">
+        <ul class="nav nav-tabs team-modal-tabs mt-2" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="teamNodeModalPane1Tab" data-bs-toggle="tab"
+              data-bs-target="#teamNodeModalPane1" type="button" role="tab"
+              aria-controls="teamNodeModalPane1" aria-selected="true">
+              <i class="bi bi-diagram-3"></i> แก้ไขตำแหน่ง
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="teamNodeModalPane2Tab" data-bs-toggle="tab"
+              data-bs-target="#teamNodeModalPane2" type="button" role="tab"
+              aria-controls="teamNodeModalPane2" aria-selected="false">
+              <i class="bi bi-shield-lock"></i> แก้ไขสิทธิ์
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="teamNodeModalPane1" role="tabpanel" aria-labelledby="teamNodeModalPane1Tab">
+          <form id="teamNodeForm" novalidate>
+            <div class="modal-body">
           <input type="hidden" id="teamNodeId" />
           <input type="hidden" id="teamNodeParentId" />
           <div class="mb-3">
@@ -142,55 +180,11 @@
             <div class="form-text">เปิดเฉพาะตำแหน่งบริหาร เช่น นายกฯ และอุปนายกแต่ละฝ่าย — จะแสดงเป็นการ์ดรูปใหญ่เรียงตามลำดับในผัง</div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamNodeDelete">
-            <i class="bi bi-trash"></i> ลบ
-          </button>
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">บันทึก</button>
+          </form>
         </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- Destination picker — searchable list used for "ย้าย" (move a node) and for
-     choosing/reassigning a member's role. Type to filter; tap a row to select;
-     confirm. Far easier than a 200-option <select>, and works well on touch. -->
-<div class="modal fade" id="teamPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="teamPickerTitle">ย้ายไปที่…</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-      </div>
-      <div class="modal-body team-picker-body">
-        <div class="team-picker-what" id="teamPickerWhat"></div>
-        <div class="team-picker-search">
-          <i class="bi bi-search"></i>
-          <input type="text" class="form-control" id="teamPickerSearch"
-            placeholder="พิมพ์เพื่อค้นหาตำแหน่ง" autocomplete="off" />
-        </div>
-        <div class="team-picker-list" id="teamPickerList"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" id="teamPickerConfirm" disabled>เลือก</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Permission editor modal — opened from "จัดการสิทธิ์" mode. -->
-<div class="modal fade" id="teamPermModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form id="teamPermForm" novalidate>
-        <div class="modal-header">
-          <h5 class="modal-title">สิทธิ์การใช้งานระบบ</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-        </div>
-        <div class="modal-body">
+        <div class="tab-pane fade" id="teamNodeModalPane2" role="tabpanel" aria-labelledby="teamNodeModalPane2Tab">
+          <form id="teamPermForm" novalidate>
+            <div class="modal-body">
           <input type="hidden" id="teamPermNodeId" />
           <div class="team-perm-node" id="teamPermNodeName"></div>
           <div class="team-perm-grid" id="teamPermGrid"></div>
@@ -244,76 +238,48 @@
             <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี) เพื่อให้เห็นและจัดการเฉพาะกิจกรรมของขอบเขตนั้น</div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">บันทึก</button>
+          </form>
         </div>
-      </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamNodeDelete">
+          <i class="bi bi-trash"></i> ลบ
+        </button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" data-team-modal-save="teamNodeModal">บันทึก</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Per-person permission editor — opened from "จัดการสิทธิ์" mode (สิทธิ์รายบุคคล). -->
-<div class="modal fade" id="teamMemberPermModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+<!-- Destination picker — searchable list used for "ย้าย" (move a node) and for
+     choosing/reassigning a member's role. Type to filter; tap a row to select;
+     confirm. Far easier than a 200-option <select>, and works well on touch. -->
+<div class="modal fade" id="teamPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
     <div class="modal-content">
-      <form id="teamMPermForm" novalidate>
-        <div class="modal-header">
-          <h5 class="modal-title">สิทธิ์รายบุคคล</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      <div class="modal-header">
+        <h5 class="modal-title" id="teamPickerTitle">ย้ายไปที่…</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body team-picker-body">
+        <div class="team-picker-what" id="teamPickerWhat"></div>
+        <div class="team-picker-search">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-control" id="teamPickerSearch"
+            placeholder="พิมพ์เพื่อค้นหาตำแหน่ง" autocomplete="off" />
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="teamMPermMemberId" />
-          <div class="team-perm-node"><i class="bi bi-person-badge"></i> <span id="teamMPermName"></span></div>
-          <div class="form-text mb-2"><i class="bi bi-diagram-3"></i> <span id="teamMPermNode"></span></div>
-          <div class="team-perm-grid" id="teamMPermGrid"></div>
-          <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" id="teamMPermInherit" checked />
-            <label class="form-check-label" for="teamMPermInherit">
-              รับสิทธิ์จากตำแหน่งด้วย (inherit)
-            </label>
-          </div>
-          <!-- VS scope for THIS person: appears only when "VitalSound" is
-               ticked above. Unions with whatever their ตำแหน่ง grants. -->
-          <div class="d-none" id="teamMPermVsWrap">
-            <hr class="my-3" />
-            <label class="form-label mb-1" for="teamMPermVsDept">
-              <i class="bi bi-soundwave"></i> VitalSound — แผนกที่บุคคลนี้รับผิดชอบ
-            </label>
-            <select class="form-select" id="teamMPermVsDept"></select>
-            <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้บุคคลนี้เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
-          </div>
-          <div class="d-none" id="teamMPermPassWrap">
-            <hr class="my-3" />
-            <label class="form-label mb-1" for="teamMPermPassDept">
-              <i class="bi bi-airplane"></i> SAMO Passport — ขอบเขตที่บุคคลนี้ดูแล
-            </label>
-            <select class="form-select" id="teamMPermPassDept"></select>
-            <select class="form-select mt-2 d-none" id="teamMPermPassSub"></select>
-            <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี)</div>
-          </div>
-          <div class="d-none" id="teamMPermSeatWrap">
-            <hr class="my-3" />
-            <label class="form-label mb-1" for="teamMPermSeat">
-              <i class="bi bi-file-earmark-text"></i> หนังสือโครงการ — บทบาทของบุคคลนี้
-            </label>
-            <select class="form-select" id="teamMPermSeat"></select>
-            <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
-          </div>
-          <div class="team-perm-inherited d-none" id="teamMPermEffWrap">
-            <span class="team-perm-inherited-label">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</span>
-            <span id="teamMPermEffList"></span>
-          </div>
-          <div class="form-text mt-2">สิทธิ์จะมีผลเมื่อบุคคลนี้เข้าสู่ระบบด้วย Google ตามอีเมลที่บันทึกไว้</div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">บันทึก</button>
-        </div>
-      </form>
+        <div class="team-picker-list" id="teamPickerList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="teamPickerConfirm" disabled>เลือก</button>
+      </div>
     </div>
   </div>
 </div>
+
+<!-- Permission editor modal — opened from "จัดการสิทธิ์" mode. -->
 
 <!-- Import modal -->
 <div class="modal fade" id="teamImportModal" tabindex="-1" aria-hidden="true">
@@ -380,15 +346,46 @@
 </div>
 
 <!-- Member editor modal -->
+<!-- TABBED ENTITY EDITOR (0110).
+     Reported: "when I click a person / ตำแหน่ง I can only see แก้ไขสมาชิก, and to
+     manage that person I have to go back to จัดการสิทธิ์ and search for them
+     again." The click already said WHICH record — the same shape as the
+     ตรวจสอบข้อมูล flag that used to navigate to an unfiltered list — so the two
+     editors are now one modal with two tabs, reachable from BOTH จัดการทีม and
+     จัดการสิทธิ์. The mode only decides which tab opens first.
+
+     The two <form>s are kept intact and separate, each as a tab-pane, so their
+     existing submit handlers are untouched; the single footer button forwards
+     to whichever pane is showing (teamModalSave in team/index.js). -->
 <div class="modal fade" id="teamMemberModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
     <div class="modal-content">
-      <form id="teamMemberForm" novalidate>
-        <div class="modal-header">
-          <h5 class="modal-title" id="teamMemberModalTitle">สมาชิก</h5>
+      <div class="modal-header pb-0 border-0 flex-column align-items-stretch">
+        <div class="d-flex align-items-start w-100">
+          <h5 class="modal-title flex-grow-1" id="teamMemberModalTitle">สมาชิก</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
-        <div class="modal-body">
+        <ul class="nav nav-tabs team-modal-tabs mt-2" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="teamMemberModalPane1Tab" data-bs-toggle="tab"
+              data-bs-target="#teamMemberModalPane1" type="button" role="tab"
+              aria-controls="teamMemberModalPane1" aria-selected="true">
+              <i class="bi bi-person"></i> แก้ไขสมาชิก
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="teamMemberModalPane2Tab" data-bs-toggle="tab"
+              data-bs-target="#teamMemberModalPane2" type="button" role="tab"
+              aria-controls="teamMemberModalPane2" aria-selected="false">
+              <i class="bi bi-shield-lock"></i> แก้ไขสิทธิ์
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="teamMemberModalPane1" role="tabpanel" aria-labelledby="teamMemberModalPane1Tab">
+          <form id="teamMemberForm" novalidate>
+            <div class="modal-body">
           <input type="hidden" id="teamMemberId" />
           <input type="hidden" id="teamMemberNodeId" />
           <input type="hidden" id="teamMemberPhotoUrl" />
@@ -465,14 +462,64 @@
             <label class="form-check-label" for="teamMemberConfirmed">ยืนยันตำแหน่งแล้ว</label>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamMemberDelete">
-            <i class="bi bi-trash"></i> ลบ
-          </button>
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">บันทึก</button>
+          </form>
         </div>
-      </form>
+        <div class="tab-pane fade" id="teamMemberModalPane2" role="tabpanel" aria-labelledby="teamMemberModalPane2Tab">
+          <form id="teamMPermForm" novalidate>
+            <div class="modal-body">
+          <input type="hidden" id="teamMPermMemberId" />
+          <div class="team-perm-node"><i class="bi bi-person-badge"></i> <span id="teamMPermName"></span></div>
+          <div class="form-text mb-2"><i class="bi bi-diagram-3"></i> <span id="teamMPermNode"></span></div>
+          <div class="team-perm-grid" id="teamMPermGrid"></div>
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamMPermInherit" checked />
+            <label class="form-check-label" for="teamMPermInherit">
+              รับสิทธิ์จากตำแหน่งด้วย (inherit)
+            </label>
+          </div>
+          <!-- VS scope for THIS person: appears only when "VitalSound" is
+               ticked above. Unions with whatever their ตำแหน่ง grants. -->
+          <div class="d-none" id="teamMPermVsWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermVsDept">
+              <i class="bi bi-soundwave"></i> VitalSound — แผนกที่บุคคลนี้รับผิดชอบ
+            </label>
+            <select class="form-select" id="teamMPermVsDept"></select>
+            <div class="form-text">เลือก “เฉพาะแผนก” เพื่อให้บุคคลนี้เห็นและจัดการเฉพาะเรื่องของแผนกนั้น — เลือก “ทุกแผนก” ให้สิทธิ์ดูแลทั้งระบบแบบ SE</div>
+          </div>
+          <div class="d-none" id="teamMPermPassWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermPassDept">
+              <i class="bi bi-airplane"></i> SAMO Passport — ขอบเขตที่บุคคลนี้ดูแล
+            </label>
+            <select class="form-select" id="teamMPermPassDept"></select>
+            <select class="form-select mt-2 d-none" id="teamMPermPassSub"></select>
+            <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี)</div>
+          </div>
+          <div class="d-none" id="teamMPermSeatWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermSeat">
+              <i class="bi bi-file-earmark-text"></i> หนังสือโครงการ — บทบาทของบุคคลนี้
+            </label>
+            <select class="form-select" id="teamMPermSeat"></select>
+            <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
+          </div>
+          <div class="team-perm-inherited d-none" id="teamMPermEffWrap">
+            <span class="team-perm-inherited-label">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</span>
+            <span id="teamMPermEffList"></span>
+          </div>
+          <div class="form-text mt-2">สิทธิ์จะมีผลเมื่อบุคคลนี้เข้าสู่ระบบด้วย Google ตามอีเมลที่บันทึกไว้</div>
+        </div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger me-auto d-none" id="teamMemberDelete">
+          <i class="bi bi-trash"></i> ลบ
+        </button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" data-team-modal-save="teamMemberModal">บันทึก</button>
+      </div>
     </div>
   </div>
 </div>

@@ -460,3 +460,58 @@ surface is a bug in waiting — and it will look like correct behaviour, because
 empty inbox is indistinguishable from a working one with nothing in it.
 
 ---
+
+---
+
+## WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
+
+**Symptom**: 0110 split ทีม SAMO's `team` permission into `team` (view) and
+`team_edit` (write), and granted `team` implicitly to all ~285 people with a
+posting in the tree. `tools/team0110-view-edit.mjs` went 34/34. Then
+`tools/team0104-terms.mjs` — a proof from a different feature, run only because
+this repo's rule is to re-run the whole `tools/` suite after any RLS change —
+went 37/40:
+```
+FAIL other permissions alone cannot write team_terms
+FAIL publish_team_term refuses a caller without `team`
+FAIL team_term_status refuses a caller without `team`
+```
+Every one of the 285 members could create/edit ปีการศึกษา, write the
+`team_people` register, edit the published archive snapshots, and publish or
+close an academic year.
+**Cause**: the well-logged class here is *"a new access channel must be threaded
+through EVERY gate the old one used"* (0089 → 0090 → 0091 → 0093 → 0102). This
+is its mirror image, and it is easier to miss because nothing is being ADDED:
+the key `team` kept its name and its spelling, so nothing looked like it needed
+revisiting — but its MEANING moved from "may manage ทีม SAMO" to "may look at
+it", while four tables (`team_terms`, `team_people`, `team_archive_nodes`,
+`team_archive_members`) and two SECURITY DEFINER RPCs (`publish_team_term`,
+`team_term_status`) still read it as write authority. Demoting a key promotes
+every gate that still consumes it, in one step, silently.
+**Fix**: 0110 §8 gives those four tables the same read/write pair as
+`team_nodes`/`team_members` and repoints both RPC guards at `team_edit`. The
+enumeration is mechanical, never from memory — and note it must cover **policies
+AND definer-RPC guards**, the same four surfaces as the additive case:
+```sql
+select tablename, policyname from pg_policies
+ where schemaname='public'
+   and (coalesce(qual,'')||coalesce(with_check,'')) ~ 'has_permission\(''<key>''\)';
+select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+ where n.nspname='public' and pg_get_functiondef(p.oid) ~ 'has_permission\(''<key>''\)';
+```
+Run it again after the fix and read what remains: here `get_my_team_seat()` still
+names `team` and is CORRECT, because it is asking "may this person view?" — the
+sweep tells you where to look, it does not tell you the answer.
+**Where**: `supabase/migrations/0110_team_view_edit_split.sql` §8; proofs
+`tools/team0110-view-edit.mjs` (now asserts read-yes/write-no on all four
+tables) and `tools/team0104-terms.mjs`.
+**Rules**: (1) changing what an existing permission key MEANS is the same size
+of change as adding one — run the same enumeration, in both directions.
+(2) Prefer a NEW key for the stronger meaning and leave the old key weak
+(`team` stayed view, `team_edit` is new), so any gate you miss fails CLOSED for
+the strong operation instead of open. Had it been done the other way round —
+`team` keeps write, a new `team_view` is added — a missed gate would have been a
+lockout, which someone reports in minutes; the way round it was actually done,
+a missed gate is a silent privilege grant nobody notices. **This is why the
+whole `tools/` suite gets re-run, not just the proof for the migration you
+wrote**: 0110's own proof was 34/34 green while this was live.

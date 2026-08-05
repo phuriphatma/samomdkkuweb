@@ -135,3 +135,129 @@
   .myseat-cta .bi { transition: none; }
   .myseat-cta:hover .bi { transform: none; }
 }
+
+/* ── the person's own record (0110) ─────────────────────────────────────────
+ *
+ * The card grew from "what am I allowed to do" to "here is my record, and here
+ * is what is wrong with it". The portrait leads because it is the fastest way
+ * to confirm the row really is you — several people share a ชื่อ-สกุล and the
+ * ตรวจสอบข้อมูล pane exists because rows drift apart.
+ *
+ * Still light-only and still a document, not a dashboard: the edit affordance
+ * is a quiet text button until there is actually something wrong, at which
+ * point the findings block raises it to something you cannot miss.
+ */
+
+.myseat-person {
+  display: flex; align-items: flex-start; gap: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+.myseat-person-body { min-width: 0; flex: 1; }
+.myseat-person .myseat-postings { margin-bottom: 0; }
+
+.myseat-photo {
+  flex: 0 0 auto;
+  width: 68px; height: 91px;             /* the 4:3-portrait ratio used in ทีม SAMO */
+  border-radius: var(--radius-sm, 0.5rem);
+  object-fit: cover;
+  background: var(--ink-100, #f1f3f5);
+  border: 1px solid var(--ink-200);
+}
+.myseat-photo--empty {
+  display: grid; place-items: center;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 600; font-size: 1.35rem;
+  color: var(--ink-500, #868e96);
+  letter-spacing: 0.02em;
+}
+.myseat-name {
+  margin: 0 0 0.35rem;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 600; font-size: 1.02rem;
+  color: var(--ink-900, #212529);
+  line-height: 1.25;
+}
+
+.myseat-details {
+  margin: 0 0 0.5rem;
+  display: grid; gap: 0.3rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+.myseat-detail { display: flex; gap: 0.4rem; font-size: 0.86rem; min-width: 0; }
+.myseat-detail dt { margin: 0; font-weight: 600; color: var(--ink-700); white-space: nowrap; }
+.myseat-detail dd { margin: 0; color: var(--ink-600); overflow-wrap: anywhere; }
+.myseat-missing { color: var(--ink-400, #adb5bd); font-style: italic; }
+
+/* Findings. Amber rather than red: this is "please tidy this up", not an
+ * error the person caused, and red on a greeting card reads as alarm. */
+.myseat-issues {
+  background: #fff8e6;
+  border: 1px solid #ffe08a;
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.65rem 0.75rem;
+}
+.myseat-issue-list { list-style: none; margin: 0.15rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+.myseat-issue {
+  display: flex; gap: 0.45rem; align-items: flex-start;
+  font-size: 0.85rem; color: #7a5b00; line-height: 1.4;
+}
+.myseat-issue .bi { color: #d99400; font-size: 0.9em; margin-top: 0.15em; flex: 0 0 auto; }
+.myseat-issue-hint { margin: 0.5rem 0 0; font-size: 0.8rem; color: #7a5b00; }
+
+.myseat-fix {
+  margin-top: 0.55rem;
+  border: 1px solid var(--brand-primary);
+  background: var(--brand-primary); color: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer;
+}
+.myseat-fix:hover { filter: brightness(1.08); }
+/* Nothing is wrong — the affordance should be available, not advertised. */
+.myseat-fix--quiet {
+  background: transparent; color: var(--brand-primary);
+  border-color: var(--ink-200);
+}
+.myseat-fix--quiet:hover { border-color: var(--brand-primary); filter: none; }
+
+.myseat-edit { margin: 0 0 0.6rem; }
+.myseat-edit-intro { margin: 0 0 0.5rem; font-size: 0.8rem; color: var(--ink-600); }
+.myseat-fields {
+  display: grid; gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+}
+.myseat-field { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.myseat-field > span { font-size: 0.78rem; font-weight: 600; color: var(--ink-700); }
+.myseat-field input {
+  border: 1px solid var(--ink-300, #dee2e6);
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+.myseat-field input:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+.myseat-field--locked { margin-top: 0.5rem; }
+.myseat-field--locked input { background: var(--ink-100, #f1f3f5); color: var(--ink-500); }
+
+.myseat-edit-actions {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.5rem; margin-top: 0.65rem;
+}
+.myseat-save {
+  border: 0; background: var(--brand-primary); color: #fff;
+  border-radius: 999px; padding: 0.32rem 1rem;
+  font-size: 0.84rem; font-weight: 600; cursor: pointer;
+}
+.myseat-save:disabled { opacity: 0.65; cursor: progress; }
+.myseat-cancel {
+  border: 1px solid var(--ink-200); background: #fff; color: var(--ink-700);
+  border-radius: 999px; padding: 0.32rem 0.85rem;
+  font-size: 0.84rem; cursor: pointer;
+}
+.myseat-edit-status { font-size: 0.8rem; color: #b02a37; }
+
+@media (max-width: 420px) {
+  .myseat-photo { width: 56px; height: 75px; }
+  .myseat-person { gap: 0.65rem; }
+}

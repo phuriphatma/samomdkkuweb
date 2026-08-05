@@ -25,6 +25,7 @@ import {
   createMember, updateMember, deleteMember,
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
 } from './api.js';
+import { userCanAccess } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
@@ -221,6 +222,7 @@ export function initTeam() {
   wirePermModal();
   wireMemberPermModal();
   wireMemberModal();
+  wireModalSave();
   wireTreeDelegation();
   wireIO();
   initTerms(document.getElementById('teamTermsPane'), {
@@ -379,6 +381,15 @@ function destroySortables() {
 function setStatus(msg) { const el = $('teamStatus'); if (el) el.textContent = msg || ''; }
 
 function render() {
+  // Read-only chrome (0110). Toggled on every render rather than once at boot,
+  // because onAuthChange can hand us a different account mid-session (the
+  // account switcher swaps the session in place) and a stale ADD button would
+  // be a live-looking control that always 42501s.
+  const writable = canEdit();
+  document.querySelectorAll('[data-team-write]').forEach((el) => el.classList.toggle('d-none', !writable));
+  document.getElementById('teamReadOnlyNote')?.classList.toggle('d-none', writable);
+  document.querySelectorAll('[data-team-modal-save]').forEach((el) => el.classList.toggle('d-none', !writable));
+
   const tree = $('teamTree');
   if (!tree) return;
   destroySortables();
@@ -452,7 +463,7 @@ function render() {
   // จัดการสิทธิ์ could only ever reorder the tree by accident while the user is
   // there to edit permissions. Also off while filtering or selecting. The "ย้าย"
   // picker / bulk-move bar handle cross-level + multi moves.
-  if (mode === 'team' && !searchQ && !selectionMode) attachSortables(tree);
+  if (mode === 'team' && canEdit() && !searchQ && !selectionMode) attachSortables(tree);
 
   tree.classList.toggle('is-selectmode', selectionMode);
   $('teamSelectMode')?.classList.toggle('is-active', selectionMode);
@@ -505,7 +516,7 @@ function renderNode(node, filter) {
   }
 
   const nameHtml = filter ? highlight(node.name, filter.q) : escHtml(node.name);
-  const actions = mode === 'team' ? `
+  const actions = !canEdit() ? '' : mode === 'team' ? `
         <button type="button" class="team-act" data-act="add-member" title="เพิ่มสมาชิก"><i class="bi bi-person-plus"></i></button>
         <button type="button" class="team-act" data-act="add-child" title="เพิ่มตำแหน่งย่อย"><i class="bi bi-plus-square"></i></button>
         <button type="button" class="team-act" data-act="move" title="ย้าย"><i class="bi bi-arrows-move"></i></button>
@@ -517,7 +528,7 @@ function renderNode(node, filter) {
   li.innerHTML = `
     <div class="team-row" data-node-id="${node.id}">
       ${checkbox}
-      <span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
+      ${canEdit() ? '<span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>' : ''}
       <button type="button" class="team-caret ${expandable ? '' : 'is-leaf'}" data-act="toggle"
         aria-label="ขยาย/ย่อ">${expandable ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
       <i class="bi ${KIND_ICON[node.kind] || KIND_ICON.role} team-node-icon"></i>
@@ -546,7 +557,7 @@ function renderNode(node, filter) {
     // the (otherwise zero-height) list a droppable area AND tells the user they
     // can drag a person here or add one. Skipped on structural nodes (they have
     // child nodes) to avoid noise — use the + button to add a direct member.
-    if (mode === 'team' && !mem.length && !kids.length && !filter) {
+    if (mode === 'team' && canEdit() && !mem.length && !kids.length && !filter) {
       const ph = document.createElement('li');
       ph.className = 'team-members-empty';
       ph.dataset.act = 'add-member';
@@ -606,7 +617,7 @@ function renderMember(m, filter) {
     if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
     li.innerHTML = `
       ${checkbox}
-      <span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>
+      ${canEdit() ? '<span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>' : ''}
       <span class="team-member-main" data-act="edit-member-perms">
         <span class="team-member-name">${nameHtml}${nick ? ` <span class="team-member-nick">(${nick})</span>` : ''}</span>
         ${mailHtml ? `<span class="team-member-mail"><i class="bi bi-envelope"></i> ${mailHtml}</span>` : ''}
@@ -618,7 +629,7 @@ function renderMember(m, filter) {
                title="ต้องตรวจสอบ: ${escHtml([...healthFlags.get(m.id)].join(' · '))}"
                aria-label="ต้องตรวจสอบข้อมูล"><i class="bi bi-exclamation-triangle-fill"></i></button>`
           : ''}
-        <button type="button" class="team-act team-act-perm" data-act="edit-member-perms" title="กำหนดสิทธิ์รายบุคคล"><i class="bi bi-shield-lock"></i></button>
+        ${canEdit() ? '<button type="button" class="team-act team-act-perm" data-act="edit-member-perms" title="กำหนดสิทธิ์รายบุคคล"><i class="bi bi-shield-lock"></i></button>' : ''}
       </span>`;
     return li;
   }
@@ -650,9 +661,10 @@ function renderMember(m, filter) {
              title="ต้องตรวจสอบ: ${escHtml([...healthFlags.get(m.id)].join(' · '))}"
              aria-label="ต้องตรวจสอบข้อมูล"><i class="bi bi-exclamation-triangle-fill"></i></button>`
         : ''}
+      ${canEdit() ? `
       <button type="button" class="team-act" data-act="move-member" title="ย้ายตำแหน่ง"><i class="bi bi-arrows-move"></i></button>
       <button type="button" class="team-act" data-act="edit-member" title="แก้ไข"><i class="bi bi-pencil"></i></button>
-      <button type="button" class="team-act team-act-danger" data-act="delete-member" title="ลบ"><i class="bi bi-trash"></i></button>
+      <button type="button" class="team-act team-act-danger" data-act="delete-member" title="ลบ"><i class="bi bi-trash"></i></button>` : ''}
     </span>`;
   return li;
 }
@@ -879,18 +891,22 @@ function wireTreeDelegation() {
     }
     if (act === 'primary') {
       if (!nodeId) return;
-      if (mode === 'perms') openPermModal(nodeId); else openNodeModal({ node: nodesById.get(nodeId) });
+      // ONE editor, opened on the tab that matches the mode you are in (0110).
+      // Before this, จัดการทีม could only reach แก้ไขตำแหน่ง and จัดการสิทธิ์ only
+      // reached สิทธิ์, so managing a record you had just clicked meant going
+      // back and finding it again in the other mode.
+      openNodeModal({ node: nodesById.get(nodeId), tab: modeTab() });
       return;
     }
     if (!nodeId && !memberId) return;
     switch (act) {
-      case 'edit':        openNodeModal({ node: nodesById.get(nodeId) }); break;
+      case 'edit':        openNodeModal({ node: nodesById.get(nodeId), tab: modeTab() }); break;
       case 'add-child':   openNodeModal({ parentId: nodeId }); break;
       case 'add-member':  openMemberModal({ nodeId }); break;
       case 'move':        openMoveNode(nodeId); break;
       case 'delete':      onDeleteNode(nodeId); break;
       case 'edit-perms':  openPermModal(nodeId); break;
-      case 'edit-member': openMemberModal({ member: findMember(memberId) }); break;
+      case 'edit-member': openMemberModal({ member: findMember(memberId), tab: modeTab() }); break;
       case 'edit-member-perms': openMemberPermModal(memberId); break;
       case 'move-member': openMoveMember(memberId); break;
       case 'delete-member': onDeleteMember(memberId); break;
@@ -900,6 +916,48 @@ function wireTreeDelegation() {
       // the person you just clicked is the same work, moved.
       case 'check-member': openHealthFor({ memberId, nodeId }); break;
     }
+  });
+}
+
+/** Which tab the entity editor should lead with, given the mode the click came
+ *  from. Both tabs are always PRESENT — this only decides which one is on top. */
+function modeTab() { return mode === 'perms' ? 'perm' : 'info'; }
+
+/**
+ * May this account WRITE the tree? (migration 0110)
+ *
+ * Since 0110 everyone with a posting holds `team` and can open this section to
+ * look; only `team_edit` (or role vp_admin/dev) may change anything. Everything
+ * below asks THIS function rather than re-deriving the answer, so the UI and
+ * the RLS write policy cannot drift.
+ *
+ * Read-only is enforced by NOT RENDERING the affordance, not by disabling it
+ * after a click: a live-looking ลบ button that 42501s is worse than no button,
+ * and this repo has shipped that shape before (the scoped shop admin whose
+ * product rows rendered Edit buttons that always failed).
+ */
+function canEdit() { return userCanAccess('team_edit'); }
+
+/**
+ * The shared footer button of a two-tab entity modal submits whichever pane is
+ * showing.
+ *
+ * A modal cannot have two footers, and the two panes hold two independent
+ * <form>s with two independent submit handlers — which is deliberate: merging
+ * them into one form would have meant rewriting onNodeSubmit / the perm save
+ * path, the two most authorization-sensitive writes in this module, for a
+ * layout change. So the button is `type="button"` and forwards instead.
+ *
+ * `requestSubmit()`, never `submit()`: the latter bypasses the submit event
+ * entirely, so every handler in this file would silently stop running.
+ */
+function wireModalSave() {
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-team-modal-save]');
+    if (!btn) return;
+    const modal = document.getElementById(btn.getAttribute('data-team-modal-save'));
+    const form = modal?.querySelector('.tab-pane.active form');
+    if (form) form.requestSubmit();
   });
 }
 
@@ -1084,7 +1142,7 @@ function wireNodeModal() {
   });
 }
 
-function openNodeModal({ node = null, parentId = null, kind = null } = {}) {
+function openNodeModal({ node = null, parentId = null, kind = null, tab = 'info' } = {}) {
   $('teamNodeId').value = node?.id || '';
   $('teamNodeParentId').value = node ? (node.parent_id || '') : (parentId || '');
   $('teamNodeName').value = node?.name || '';
@@ -1096,8 +1154,53 @@ function openNodeModal({ node = null, parentId = null, kind = null } = {}) {
   if ($('teamNodeIsBoard')) $('teamNodeIsBoard').checked = !!node?.is_board;
   $('teamNodeModalTitle').textContent = node ? 'แก้ไขตำแหน่ง' : (parentId ? 'เพิ่มตำแหน่งย่อย' : 'เพิ่มฝ่าย');
   $('teamNodeDelete').classList.toggle('d-none', !node);
-  modalInstance('teamNodeModal')?.show();
-  setTimeout(() => $('teamNodeName')?.focus(), 250);
+  // Both editors live in one modal now (0110). An UNSAVED node has no row for a
+  // grant to attach to, so its สิทธิ์ tab is disabled rather than shown empty.
+  if (node) fillNodePermPane(node.id);
+  showTeamModal('teamNodeModal', node ? tab : 'info', !!node);
+  if (tab !== 'perm') setTimeout(() => $('teamNodeName')?.focus(), 250);
+}
+
+/**
+ * Show a two-tab entity modal with one tab active.
+ *
+ * Bootstrap's Tab API is used rather than hand-toggling `.active`, so the
+ * `aria-selected` / `tabindex` bookkeeping stays correct — and it is called
+ * BEFORE `.show()` because switching panes on a visible modal is a visible
+ * flicker. `getOrCreateInstance` throughout: constructing a fresh
+ * `bootstrap.Modal` on an already-open modal stacks a second backdrop that the
+ * first instance's hide() never clears (logged in the mistakes log), and these
+ * modals genuinely can be re-opened while open — clicking another person in
+ * the tree behind a stacked picker does exactly that.
+ */
+function showTeamModal(modalId, tab = 'info', permEnabled = true) {
+  const permTab = document.getElementById(`${modalId}Pane2Tab`);
+  const infoTab = document.getElementById(`${modalId}Pane1Tab`);
+  if (permTab) {
+    permTab.classList.toggle('disabled', !permEnabled);
+    permTab.setAttribute('aria-disabled', String(!permEnabled));
+    permTab.tabIndex = permEnabled ? 0 : -1;
+  }
+  const target = tab === 'perm' && permEnabled ? permTab : infoTab;
+  if (target && window.bootstrap?.Tab) {
+    window.bootstrap.Tab.getOrCreateInstance(target).show();
+  }
+
+  // A view-only member may OPEN the editor — that is how they read a record —
+  // but every control in it is inert. Disabled rather than hidden: the point is
+  // to show them the stored values, and an empty modal would read as a bug.
+  const modal = document.getElementById(modalId);
+  const writable = canEdit();
+  modal?.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((el) => {
+    if (el.closest('.modal-header')) return;          // the close button stays live
+    el.disabled = !writable;
+  });
+  if (!writable) {
+    modal?.querySelector('#teamNodeDelete')?.classList.add('d-none');
+    modal?.querySelector('#teamMemberDelete')?.classList.add('d-none');
+  }
+
+  modalInstance(modalId)?.show();
 }
 
 async function onNodeSubmit(e) {
@@ -1491,7 +1594,9 @@ export function permTicked(key, own, row) {
   return own.has(key);
 }
 
-function openPermModal(id) {
+/** Fill the สิทธิ์ pane of the ตำแหน่ง modal. Does NOT show anything — the modal
+ *  is opened by openNodeModal, which decides which tab leads. */
+function fillNodePermPane(id) {
   const node = nodesById.get(id);
   if (!node) return;
   $('teamPermNodeId').value = id;
@@ -1519,7 +1624,12 @@ function openPermModal(id) {
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
   refreshPermInherited();
-  modalInstance('teamPermModal')?.show();
+}
+
+/** Open the ตำแหน่ง editor straight on its สิทธิ์ tab. */
+function openPermModal(id) {
+  const node = nodesById.get(id);
+  if (node) openNodeModal({ node, tab: 'perm' });
 }
 
 function refreshPermInherited() {
@@ -1565,7 +1675,8 @@ async function onPermSubmit(e) {
     $('teamPermPassDept'), $('teamPermPassSub'), `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
-  modalInstance('teamPermModal')?.hide();
+  // The สิทธิ์ pane lives inside the ตำแหน่ง modal since 0110.
+  modalInstance('teamNodeModal')?.hide();
   Object.assign(node, payload);
   render();
   try { await updateNode(id, payload); } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
@@ -1622,7 +1733,8 @@ function wireMemberPermModal() {
   $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
 
-function openMemberPermModal(memberId) {
+/** Fill the สิทธิ์ pane of the สมาชิก modal. Does NOT show anything. */
+function fillMemberPermPane(memberId) {
   const m = findMember(memberId);
   if (!m) return;
   $('teamMPermMemberId').value = m.id;
@@ -1650,7 +1762,12 @@ function openMemberPermModal(memberId) {
   });
   $('teamMPermInherit').checked = m.inherit_permissions !== false;
   refreshMemberPermEff();
-  modalInstance('teamMemberPermModal')?.show();
+}
+
+/** Open the สมาชิก editor straight on its สิทธิ์ tab. */
+function openMemberPermModal(memberId) {
+  const m = findMember(memberId);
+  if (m) openMemberModal({ member: m, tab: 'perm' });
 }
 
 /** Effective perms + VS scope the member-perm modal is about to grant, from
@@ -1701,13 +1818,14 @@ async function onMemberPermSubmit(e) {
     $('teamMPermPassDept'), $('teamMPermPassSub'), `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
-  modalInstance('teamMemberPermModal')?.hide();
+  // The สิทธิ์ pane lives inside the สมาชิก modal since 0110.
+  modalInstance('teamMemberModal')?.hide();
   Object.assign(m, payload);
   render();
   try { await updateMember(id, payload); } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 
-function openMemberModal({ member = null, nodeId = null } = {}) {
+function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
   setMemberNode(nid);
@@ -1727,8 +1845,11 @@ function openMemberModal({ member = null, nodeId = null } = {}) {
   setMemberPhoto(member?.photo_url || '');
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete').classList.toggle('d-none', !member);
-  modalInstance('teamMemberModal')?.show();
-  setTimeout(() => $('teamMemberName')?.focus(), 250);
+  // One modal, two tabs (0110). A member who has not been saved yet has no row
+  // for a grant to hang on, so the สิทธิ์ tab is disabled until they exist.
+  if (member) fillMemberPermPane(member.id);
+  showTeamModal('teamMemberModal', member ? tab : 'info', !!member);
+  if (tab !== 'perm') setTimeout(() => $('teamMemberName')?.focus(), 250);
 }
 
 /** Paint the preview from a URL (or the empty state) and sync the hidden input. */

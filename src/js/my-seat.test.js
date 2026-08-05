@@ -100,7 +100,12 @@ describe('renderMySeat', () => {
 
   it('stays quiet about VS scope when the grant is already full `vs`', () => {
     renderMySeat(el, seatWith({ permissions: ['vs'], vs_depts: ['อุปนายกฝ่ายวิชาการ'] }));
-    expect(el.innerHTML).not.toContain('เฉพาะ');
+    // Asserted against the SCOPE BLOCK, not the whole card: a bare
+    // `not.toContain('เฉพาะ')` also matched ordinary copy elsewhere on the card
+    // and failed the moment the self-edit form was added, which said nothing
+    // about VS scope at all.
+    const scopes = el.innerHTML.match(/<dl class="myseat-scopes">[\s\S]*?<\/dl>/)?.[0] || '';
+    expect(scopes).not.toContain('วิชาการ');
   });
 
   it('names the หนังสือโครงการ seat, since the permission alone is not the job', () => {

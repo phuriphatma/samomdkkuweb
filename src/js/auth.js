@@ -305,7 +305,11 @@ export function userCanAccess(feature, user = currentUser) {
     pr_staff:   ['pr'],
     vs_staff:   ['vs'],
     shop_admin: ['samoshop'],
-    vp_admin:   ['vs', 'team'],
+    // `team_edit` as well as `team` (0110): the RLS write policy admits
+    // vp_admin by ROLE, so a UI that only granted them the view rung would
+    // render the tree read-only for someone the database lets write — the
+    // same UI/DB mismatch that made the `team` permission look broken in 0089.
+    vp_admin:   ['vs', 'team', 'team_edit'],
     uni_staff:  ['projects'],
     sa_prof:    ['projects'],
   }[user.role] || [];

@@ -330,3 +330,60 @@ expression or a column position. Verify sort-dependent RPCs by executing them
 (not just applying), since the shadowing is silent.
 
 ---
+
+---
+
+## A self-update column guard must exempt the definer FUNCTION that writes on login — `auth.uid() is null` only catches the TRIGGER shape
+
+**Symptom**: 0110 added `team_members_self_update_guard` so a member may correct
+their own ชื่อเล่น / รหัส / ชั้นปี / สาขา but never their own `permissions`. It
+applied cleanly. The proof script then reported nine "PASS"es for the escalation
+probes and nine EMPTY results everywhere else — and the empty results were the
+real signal. The actual error:
+```
+P0001: team_members_self_update_guard: you may only edit your own name, …
+CONTEXT: SQL statement "update public.team_members set user_id = v_uid
+                         where lower(kkumail) = lower(v_email) …"
+         PL/pgSQL function sync_my_team_permissions() line 27
+```
+`sync_my_team_permissions()` runs on EVERY login. The guard would have locked
+every member without `team_edit` out of the app — precisely the people the
+feature exists for.
+**Cause**: this is the 0041 class ("a self-update column guard bricks signup when
+it blocks a column another trigger legitimately writes") wearing a second shape,
+and the test 0041 taught does not catch it. 0041's offending writer was a
+TRIGGER firing during signup, where `auth.uid()` is null — so `if auth.uid() is
+null then return new` exempted it. Here the writer is a SECURITY DEFINER
+**function**, called BY the member, so `auth.uid()` is their own real uid and the
+guard sees an ordinary self-update of a guarded column (`user_id`). Enumerating
+"which triggers write this column?" — which I did — misses it completely; the
+question is "which SERVER CODE writes this column, under whose identity?".
+**Fix**: exempt on the signal the server writer sets about ITSELF, which 0081 had
+already established for the recompute trigger:
+```sql
+if coalesce(current_setting('app.team_sync', true), '') = '1' then return new; end if;
+if auth.uid() is null then return new; end if;   -- migrations, tools/*.mjs
+```
+A client cannot forge it: PostgREST exposes no `set_config`, and the setting is
+transaction-local. Find every writer mechanically rather than from memory:
+```sql
+select proname, prosecdef,
+       (pg_get_functiondef(oid) ~* 'set_config\(''app\.team_sync') as sets_flag
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname='public' and p.prokind='f'
+   and pg_get_functiondef(oid) ~* '(update|insert into|delete from)\s+public\.<table>';
+```
+That turned up two here — `sync_my_team_permissions` (fixed) and
+`team_person_mirror_down` (0108, unreachable by a non-editor today; noted in the
+migration rather than silently ignored).
+**Where**: `supabase/migrations/0110_team_view_edit_split.sql` §4; regression
+check `tools/team0110-view-edit.mjs` "LOGIN PATH", which runs FIRST because the
+harness itself calls sync — if it fails, nothing below it means anything.
+**Rules**: (1) before adding a `raise`-on-change column guard, run the query
+above and read every hit, asking under WHOSE identity it executes — "server
+context" is not the same as "null `auth.uid()`". (2) A definer function called
+by an ordinary user is indistinguishable from that user unless it says so;
+prefer an explicit transaction-local flag over inferring intent from `auth.uid()`.
+(3) The nine false PASSes are the other lesson: probes that only assert "denied"
+scored a completely broken transaction as a working guard. Always include one
+probe that must SUCCEED — the login-path check is what exposed this.

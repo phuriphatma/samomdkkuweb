@@ -385,6 +385,33 @@ every already-logged-in matching account on any perm/structure edit (live update
 re-login). `managed_permissions` is guarded in `users_self_update_guard` (client PATCH
 blocked; the two server writers pass via txn-local GUC `app.team_sync='1'`).
 
+**ทีม SAMO view vs edit (migration 0110).** `team` is now the VIEW rung and
+`team_edit` the WRITE rung; the 0089 `team_*_all_vp_dev` FOR ALL policy is
+replaced by a `*_write` (role vp_admin/dev OR `team_edit`) and a `*_read` (those,
+OR `team`) pair per table. **Membership grants VIEW implicitly**:
+`effective_team_permissions_for_email()` appends `team` whenever the email
+matches any `team_members` row, so it arrives through the one channel RLS,
+`userCanAccess()` and `ADMIN_FEATURES` already read — no new access channel to
+thread through five gates. Consequence, explicitly requested: all ~285 people in
+the tree can read all ~404 member rows, including other people's `student_id`
+and `kkumail`. The PUBLIC chart is unaffected — still the
+`get_public_team_chart()` projection, and `team_members` still has no `anon`
+policy.
+
+A member may also correct their OWN row: `team_members_update_self` (own row by
+`current_user_email()`, a definer helper so the policy does not depend on
+`users`'s RLS) plus `team_members_self_update_guard`, a deny-by-default column
+guard diffing `to_jsonb(row) - allowed_keys`, so only
+`prefix/full_name/nickname/student_id/year/major/photo_url/photo_focus` are
+self-writable and a column added by a future migration is guarded automatically.
+The guard exempts the `app.team_sync` GUC — `sync_my_team_permissions()` writes
+`user_id` on every login with a REAL `auth.uid()`, and without the exemption the
+guard locks every non-editor out at login (see
+`docs/mistakes/postgres-schema.md`). Proof: `tools/team0110-view-edit.mjs` (34
+checks). UI: `canEdit()` in `team/index.js` renders no write affordance for a
+viewer, and `get_my_team_seat()` returns the caller's own full record so the
+public ตำแหน่งของฉัน card can show and fix it.
+
 **Per-ฝ่าย VitalSound scope (migration 0082).** A node can be bound to ONE VS
 department via `team_nodes.vs_dept` (one of the 11 `vs_tickets.target_dept`
 values; picker in the node perm modal). It inherits down the tree on the same
