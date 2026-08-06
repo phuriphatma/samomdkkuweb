@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: 2026-08-05. Read on every cold start, so it is "what is true
+Last updated: 2026-08-06. Read on every cold start, so it is "what is true
 RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
@@ -326,8 +326,10 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `main` head (`b8d12ad`), **deployed 2026-08-06 07:4x**,
-  `buildId eac07e594ba9`. Latest: the implicit-permission lock fix. **Verified
+- **samoweb**: `main` head (`fef92aa`), **deployed 2026-08-06**,
+  `buildId 2bbb88ae7a3a`, **v4.5.0** (tag `v4.5.0` pushed). `/updates` on prod
+  leads with v4.5.0 · Minor · 6 ส.ค. 2569 and `PENDING` is empty again.
+  Previous build `eac07e594ba9` carried the implicit-permission lock fix. **Verified
   by DRIVING the served bundle**, not by grep — signed into
   `https://samo.md.kku.ac.th/admin/#team` in headless Chrome and exercised the
   แก้ไขสิทธิ์ grid: ทีม SAMO (ดู) stays `{checked:true, disabled:true}` on open,
@@ -485,41 +487,24 @@ Now **26k chars ≈ 6.5k tokens** (a 90% cut), split by what each layer is for:
 - CI = Node 22 (supabase-js WebSocket). `npm run build && npm test` before every
   commit — 140 tests green at session end; isolation proof 23/23.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-05 22:45)
+## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-06)
 
-> Read STATE.md first — the section "THIS SESSION (2026-08-05, late)" and its
-> ⚠️ OWED list. Everything in it is committed, deployed to
-> `samo.md.kku.ac.th` (buildId `61f2f6281e25`) and migration 0113 is applied.
-> The ONLY thing outstanding is that none of it has been seen rendering in a
-> real browser.
+> Read STATE.md first — the "✅ BROWSER PASS DONE" block and the ⚠️ OWED list
+> under it. **v4.5.0 is cut, tagged and deployed** (`samo.md.kku.ac.th`,
+> buildId `2bbb88ae7a3a`); `PENDING` is empty; migrations are applied through
+> 0113. There is no unfinished work in flight.
 >
-> Do this, in order:
-> 1. Sign in as a ทีม SAMO member and open `/admin/#team`. Check: the new
->    **ข้อมูลของฉัน** mode paints the ตำแหน่งของฉัน card; the สมาชิก editor's
->    ชั้นปี and สาขา are dropdowns showing the person's current value; the
->    **จัดการรายการ** link beside สาขา opens the จัดการรายการสาขา modal ON TOP of
->    the editor without breaking the backdrop or the scroll chain (that exact
->    chain broke in 0110 — see docs/mistakes/frontend-ui.md); คำนำหน้า is gone
->    from the form; **ทุกระบบ (Master)** in แก้ไขสิทธิ์ does NOT look ticked when
->    it is not; **ทีม SAMO (ดู)** shows as a locked/dashed "อัตโนมัติ" row.
-> 2. Replace a member photo: pick a file, crop, then pick a DIFFERENT file, then
->    save. Exactly ONE new file should appear in
->    Drive `IT Database/Team/<ปี>/<ฝ่าย>/`, and the previous portrait should be
->    trashed. Then repeat but CLOSE the modal without saving — Drive must gain
->    nothing.
-> 3. On the home page as that member: the ตำแหน่งของฉัน card's breadcrumb should
->    read `ฝ่าย… › ฝ่าย… › ตำแหน่ง` in one line; **แก้ไขข้อมูลของฉัน** should
->    offer ชื่อ-สกุล, ชื่อเล่น, รหัสนักศึกษา (with the format hint), ชั้นปี and
->    สาขา as dropdowns, and a เปลี่ยนรูป button. Save, then confirm the same
->    values appear in admin ทีม SAMO for every ตำแหน่ง that person holds.
-> 4. Confirm the account menu (top right) shows **ไปยัง Admin Dashboard** for a
->    member whose only grant is ทีม SAMO (ดู).
-> 5. Fix whatever that turns up, write up anything that was a real bug in
->    `docs/mistakes/*.md` + `npm run mistakes:index`, stage a PENDING note if a
->    person would notice, then `npm run build && npm test`, commit, push and
->    redeploy with the askpass recipe in CURRENT DEPLOY.
+> Three things are open, and NONE of them is blocking:
+> 1. **The photo SAVE path is still unverified.** The user is checking it by
+>    hand — one upload from the admin สมาชิก form, one from the ตำแหน่งของฉัน
+>    card. If they report anything odd, the shape to look for is: บันทึก must
+>    upload exactly ONE file into `Team/<ปี>/<ฝ่าย>/` and trash the previous
+>    portrait; the pick itself is proven to upload nothing.
+> 2. **`ฝ่ายเอิงtest` test data stays live — the user chose to leave it** (asked
+>    and answered 2026-08-06). Do not offer to delete it again unless they
+>    raise it.
+> 3. **No human has reviewed the Thai copy** anywhere in the 0110–0113 work or
+>    in the v4.5.0 notes now public at `/updates`.
 >
-> Then ask me about the two decisions still open: deleting the `ฝ่ายเอิงtest`
-> test data (it is visible on the public org chart AND inside real people's
-> cards), and whether to cut a release — 14 notes are staged in `PENDING` and
-> `npm run release` is the mechanical half.
+> Otherwise the backlog is `docs/NEXT.md`, and the roles/photos design with its
+> five open decisions is `docs/TEAM-ROLES-AND-PHOTOS.md`.
