@@ -150,22 +150,32 @@ view access. Fixed by skipping `IMPLICIT_PERMS` there; guard test in
 `team-vocab.test.js`, verified red with the line removed. Write-up in
 `docs/mistakes/frontend-ui.md` (new class-6 site).
 
+### Data fixed 2026-08-06 — one stale grant stripped
+
+`หัวหน้าฝ่าย IT` stored `permissions = ['team']`, written on 2026-08-05 12:03
+through the UI in the window before the box was locked. Since 0110 `team` is
+IMPLICIT (appended by `effective_team_permissions_for_email()`), so a stored
+copy is meaningless — and `tools/team0110-view-edit.mjs` asserts none exists
+precisely so it doubles as a **detector for a write path that forgets to filter
+implicit keys**. Set to `'{}'` after snapshotting; effective permissions for both
+rows on that node are `['master','team']` before AND after, and
+`users.managed_permissions` agrees. Proof back to **41/41**.
+
+The rule: if that assertion goes red again, do NOT just clear the data — first
+find which write path stored the key, because the form cannot.
+
 ### ⚠️ OWED — start the next session here
 
 1. **The photo SAVE path still has not been exercised end to end.** Everything
    up to the upload is proven (above), but "บันทึก uploads exactly one file into
    `Team/<ปี>/<ฝ่าย>/` and trashes the previous portrait" writes to production
-   Drive against a real member's row, so it was left for the user to say yes to.
-   The failure branch (upload throws → return early, pick still pending) is also
-   unexercised.
-2. **`ฝ่ายเอิงtest` test data is still live** on the public org chart and inside
-   real people's cards (a posting called `hi` under `ฝ่ายเอิงtest › เอิงnew ›
-   เอิงsubtest`). Still not deleted — it is a data change and needs the user's
-   word.
-3. **No human has reviewed the Thai copy** in any of this — the new field hints,
-   the จัดการรายการ modal, the reworded escalation lines, or the 15 staged
-   release notes.
-4. `team_person_mirror_down()` still writes guarded columns without setting
+   Drive against a real member's row. **The user is checking this by hand** —
+   one upload from the admin form, one from the card. The failure branch (upload
+   throws → return early, pick still pending) is also unexercised.
+2. **No human has reviewed the Thai copy** in any of this — the new field hints,
+   the จัดการรายการ modal, the reworded escalation lines, or the v4.5.0 notes
+   now public at `/updates`.
+3. `team_person_mirror_down()` still writes guarded columns without setting
    `app.team_sync`. Unreachable by a non-editor today (0113 rewrote the function
    but kept that property); give it the flag if `team_people` ever gets a
    self-service surface.
@@ -500,11 +510,19 @@ Now **26k chars ≈ 6.5k tokens** (a 90% cut), split by what each layer is for:
 >    card. If they report anything odd, the shape to look for is: บันทึก must
 >    upload exactly ONE file into `Team/<ปี>/<ฝ่าย>/` and trash the previous
 >    portrait; the pick itself is proven to upload nothing.
-> 2. **`ฝ่ายเอิงtest` test data stays live — the user chose to leave it** (asked
->    and answered 2026-08-06). Do not offer to delete it again unless they
->    raise it.
-> 3. **No human has reviewed the Thai copy** anywhere in the 0110–0113 work or
+> 2. **No human has reviewed the Thai copy** anywhere in the 0110–0113 work or
 >    in the v4.5.0 notes now public at `/updates`.
+> 3. `team_person_mirror_down()` wants the `app.team_sync` flag if
+>    `team_people` ever gets a self-service surface. Not reachable today.
+>
+> **Decided on 2026-08-06 — do not re-raise these:**
+> - **`ฝ่ายเอิงtest` test data stays live.** Asked and answered; the user chose
+>   to leave it, knowing it shows on the public org chart and inside real
+>   people's cards.
+> - **The second `ภู` row on `หัวหน้าฝ่าย IT` stays.** It duplicates the user's
+>   own posting on the public chart, but it is their test row and they want it.
+>   It is the only duplicate kkumail-on-one-node pair in the tree, so a
+>   duplicate check that fires on it is finding the known one, not a new one.
 >
 > Otherwise the backlog is `docs/NEXT.md`, and the roles/photos design with its
 > five open decisions is `docs/TEAM-ROLES-AND-PHOTOS.md`.
