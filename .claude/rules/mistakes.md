@@ -50,7 +50,9 @@ has not been written yet.
    is not a mechanism. Also the shape where one list is spelled out by hand
    beside a shared constant: main.js's own five-key admin-link list vs
    `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
-   `team/fields.js`.
+   `team/fields.js`. Also TWO PASSES assigning one DOM property: the perm grid's
+   markup locked ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket
+   `cb.disabled = on` unlocked it. Only touch what THIS pass locked.
 7. **Verify from the authority, and test BOTH directions.** A sweep returning
    NOTHING is not evidence of nothing — make it find something you know is there
    first (`pg_get_functiondef` needs `prokind='f'`; policy bodies render
@@ -159,7 +161,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A self-update column guard must exempt the definer FUNCTION that writes on login
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(30 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(31 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -191,6 +193,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - State parked on a REUSED DOM element outlives the record it describes — a modal is filled again, the element is not
 - Uploading a replacement photo on PICK leaves the previous file in Drive forever
 - A filled "danger" style made an UNCHECKED checkbox look ticked
+- A second pass over the same controls silently UNLOCKED the checkbox the first pass had locked
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(8 entries)*

@@ -1516,6 +1516,12 @@ function syncMasterVisibility(grid) {
 
   grid.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     if (cb.value === 'master') return;
+    // An IMPLICIT key is ticked-and-locked by fillPermGrid and must STAY that
+    // way in both directions: `cb.disabled = on` below would clear the lock the
+    // markup set whenever master is off — which is the normal case — turning
+    // ทีม SAMO (ดู) back into a live checkbox that readPermInputs then ignores.
+    // Unticking it made the pane claim the person has no view access.
+    if (IMPLICIT_PERMS.includes(cb.value)) return;
     cb.disabled = on;
     if (on) cb.checked = true;
     else if (restore) cb.checked = restore.has(cb.value);

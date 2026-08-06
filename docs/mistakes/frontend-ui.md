@@ -861,3 +861,38 @@ claiming a state); ON gets the filled panel plus an inset orange bar, and
 **Rule**: a component's severity/kind styling must not borrow the same visual
 channel the component already uses for STATE. If "checked" is a tinted
 background, a variant must not have a tinted background at rest.
+
+---
+
+## A second pass over the same controls silently UNLOCKED the checkbox the first pass had locked
+
+**Symptom** (found by driving the modal, not reported): ทีม SAMO (ดู) in
+แก้ไขสิทธิ์ was supposed to be ticked-and-locked — the server grants it to
+everyone with a posting, so a live checkbox there is a control that does
+nothing. It rendered with the padlock and the dashed "อัตโนมัติ" chip, but the
+box was fully clickable: `disabled` was `false` on every open. Unticking it
+made the pane claim the person has no view access; reopening the modal put the
+tick back.
+
+**Cause**: two passes decide `disabled` on the same nodes, and the second one is
+unconditional. `fillPermGrid()` writes `checked disabled` into the markup for an
+implicit key. `syncMasterVisibility()` runs immediately after and does
+`cb.disabled = on` over every non-master checkbox — where `on` is "is master
+ticked". In the normal case master is OFF, so that line assigns `false` and
+clears the lock the markup had just set. The bug is invisible in either function
+read alone: each is correct about the rule it owns.
+
+**Fix**: skip `IMPLICIT_PERMS` in the master loop entirely — the implicit row's
+state is not master's to decide, in either direction. Guard test in
+`team-vocab.test.js` asserts the skip exists AND precedes the assignment;
+verified to go red with the line removed.
+
+**Where**: `src/js/team/index.js` `syncMasterVisibility()`.
+
+**Rule**: **only ever touch the controls THIS pass locked.** A pass that assigns
+`el.disabled = <its own condition>` across a shared set will overwrite locks put
+there for unrelated reasons. The read-only pass in this very file already
+carries that lesson in a comment (`[data-readonly-locked]` exists precisely so
+it can un-disable only what it disabled) — the master pass was written without
+it. When one bug has already been paid for in a file, grep the file for the
+other passes over the same nodes before assuming it was the only one.

@@ -111,27 +111,61 @@ they are numbered as they were asked, not by area):
 - `get_my_team_seat()` now also returns **`term_year`**, so the card can file a
   self-uploaded portrait into `Team/<ปี>/<ฝ่าย>/` like the admin does.
 
+### ✅ BROWSER PASS DONE (2026-08-06) — one bug found and fixed
+
+Driven in headless Chrome against `npm run dev`, signed in as `samomdkkudev`
+(the CDP recipe is in the memory note `headless-chrome-cdp-driver`; screenshots
+were read, not just asserted on). **Verified rendering:**
+
+- admin ทีม SAMO paints; all five modes present incl. **ข้อมูลของฉัน**, whose
+  empty state for a posting-less account reads
+  "บัญชีนี้ไม่มีตำแหน่งในผังทีม SAMO…" and whose card paints when a real seat
+  payload is injected.
+- สมาชิก editor: **no คำนำหน้า**, ชั้นปี = `<select>` showing the stored value
+  ("ปี 5"), สาขา = `<select>` (MD/MDI/RT) showing "MD — แพทยศาสตร์", รหัส hint
+  present.
+- **จัดการรายการสาขา stacks correctly** — 2 backdrops at z 1050/1065 under
+  modals at 1055/1075, per-row people counts (348/31/19); closing it leaves ONE
+  backdrop, the editor still scrolls (`scrollTop` moves) and its inputs and
+  บันทึก are still the top hit-test target. The 0110 scroll-chain break did NOT
+  recur. NOTE when driving this: measure backdrop counts ≥1.5 s after `hide()`,
+  or you count the one still fading out and report a leak that is not there.
+- **ทุกระบบ (Master)** is a white row with an orange label when off — does not
+  read as ticked.
+- The ตำแหน่งของฉัน card renders both postings with the full trail ending at the
+  node; **แก้ไขข้อมูลของฉัน** offers ชื่อ-สกุล / ชื่อเล่น / รหัส (with hint) /
+  ชั้นปี + สาขา as dropdowns / เพิ่มรูป, and a read-only KKU Mail.
+- `ADMIN_FEATURES.some(userCanAccess)` in the live bundle: `team`-only → **true**
+  (so the ไปยัง Admin Dashboard link shows), `passport`-only and `[]` → false.
+- **Photo: nothing leaves the browser on PICK.** Set a real file on the input via
+  CDP, cropped, confirmed: **zero** network calls, hint reads
+  "รูปใหม่ยังไม่ถูกบันทึก — กดบันทึกเพื่ออัปโหลด", and closing the modal without
+  saving fired none either.
+
+**The bug**: ทีม SAMO (ดู) rendered locked but `disabled` was false on every
+open — `syncMasterVisibility()` does `cb.disabled = on` over every non-master
+box, so with master OFF (the normal case) it cleared the lock `fillPermGrid()`
+had just set in the markup. Unticking it made the pane claim the person had no
+view access. Fixed by skipping `IMPLICIT_PERMS` there; guard test in
+`team-vocab.test.js`, verified red with the line removed. Write-up in
+`docs/mistakes/frontend-ui.md` (new class-6 site).
+
 ### ⚠️ OWED — start the next session here
 
-1. **NOTHING IN THIS SESSION WAS SEEN IN A REAL BROWSER.** `npm run build` and
-   349 tests pass, and the DB half is proven, but the *rendering* is unverified:
-   the new ชั้นปี/สาขา choosers in the admin สมาชิก form, the จัดการรายการ modal
-   (it stacks on top of the member editor — check the backdrop and the scroll
-   chain, which is exactly what broke in 0110), the ข้อมูลของฉัน pane in admin
-   ทีม SAMO, and the card's new photo field. **Drive it with headless Chrome
-   (see the memory note `headless-chrome-cdp-driver`) or ask the user to look.**
-2. **The photo upload-on-save path has NOT been exercised end to end.** It calls
-   the same `uploadTeamPhoto()` the admin form always used, but the ordering is
-   new (upload → then the DB write) and the failure branch returns early with the
-   pick still pending. Worth one real upload from each surface.
-3. **`ฝ่ายเอิงtest` test data is still live** on the public org chart and inside
+1. **The photo SAVE path still has not been exercised end to end.** Everything
+   up to the upload is proven (above), but "บันทึก uploads exactly one file into
+   `Team/<ปี>/<ฝ่าย>/` and trashes the previous portrait" writes to production
+   Drive against a real member's row, so it was left for the user to say yes to.
+   The failure branch (upload throws → return early, pick still pending) is also
+   unexercised.
+2. **`ฝ่ายเอิงtest` test data is still live** on the public org chart and inside
    real people's cards (a posting called `hi` under `ฝ่ายเอิงtest › เอิงnew ›
    เอิงsubtest`). Still not deleted — it is a data change and needs the user's
    word.
-4. **No human has reviewed the Thai copy** in any of this — the new field hints,
-   the จัดการรายการ modal, the reworded escalation lines, or the 14 staged
+3. **No human has reviewed the Thai copy** in any of this — the new field hints,
+   the จัดการรายการ modal, the reworded escalation lines, or the 15 staged
    release notes.
-5. `team_person_mirror_down()` still writes guarded columns without setting
+4. `team_person_mirror_down()` still writes guarded columns without setting
    `app.team_sync`. Unreachable by a non-editor today (0113 rewrote the function
    but kept that property); give it the flag if `team_people` ever gets a
    self-service surface.

@@ -153,6 +153,25 @@ describe('IMPLICIT_PERMS — grants the server hands out, which no form may clai
     expect(permTicked(TEAM_VIEW, new Set(), { permissions: [] })).toBe(true);
   });
 
+  it('syncMasterVisibility leaves an implicit key LOCKED — in both directions', () => {
+    // REPORTED by driving the modal: ทีม SAMO (ดู) rendered `checked disabled`
+    // from fillPermGrid, but syncMasterVisibility runs straight after and did
+    // `cb.disabled = on` over every non-master box — so in the normal case
+    // (master OFF) it CLEARED the lock the markup had just set. The row went
+    // back to being a live checkbox that readPermInputs then ignores: unticking
+    // it made the pane claim the person has no view access, and the tick came
+    // back on reopen. Class 6 — two places decide one rule and drifted.
+    const src = readFileSync(new URL('./team/index.js', import.meta.url), 'utf8');
+    const block = src.slice(src.indexOf('function syncMasterVisibility('),
+      src.indexOf('grid.classList.toggle(\'is-master\''));
+    expect(block).toContain('IMPLICIT_PERMS.includes(cb.value)');
+    // and the skip must come BEFORE the statement that would unlock it.
+    // Matched WITH the semicolon: the comment above it quotes `cb.disabled = on`
+    // in prose, and a looser needle finds the prose and passes for free.
+    expect(block.indexOf('IMPLICIT_PERMS.includes(cb.value)'))
+      .toBeLessThan(block.indexOf('cb.disabled = on;'));
+  });
+
   it('readPermInputs filters implicit keys out of what gets SAVED', () => {
     // `input:checked` matches a DISABLED checkbox too, so the locked tick would
     // otherwise be written onto every row the modal saves — turning an implicit
