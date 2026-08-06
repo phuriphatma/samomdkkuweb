@@ -326,8 +326,14 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `main` head (`212b8e9`), **deployed 2026-08-05 22:52**,
-  `buildId 61f2f6281e25`. Latest: migration **0113** — คำนำหน้า dropped, the
+- **samoweb**: `main` head (`b8d12ad`), **deployed 2026-08-06 07:4x**,
+  `buildId eac07e594ba9`. Latest: the implicit-permission lock fix. **Verified
+  by DRIVING the served bundle**, not by grep — signed into
+  `https://samo.md.kku.ac.th/admin/#team` in headless Chrome and exercised the
+  แก้ไขสิทธิ์ grid: ทีม SAMO (ดู) stays `{checked:true, disabled:true}` on open,
+  after a click, and across master ON→OFF, while `pr` still locks with master
+  and comes back unchecked; จัดการรายการสาขา opens on prod with its live counts.
+  Before that: migration **0113** — คำนำหน้า dropped, the
   `team_majors` vocabulary + CRUD, ชั้นปี/สาขา choosers, the canonical
   รหัสนักศึกษา form, photo upload moved to the SAVE path, the ADMIN_FEATURES
   link gate, the ข้อมูลของฉัน pane, and the navigateTo() scroll fix. See
@@ -339,7 +345,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   `myseat-photo-btn`, `term_year` and `แจ้งอุปนายกฝ่ายของท่าน`; `/admin/` carries
   `teamMajorsModal`, `data-team-mode="me"`, `จัดการรายการสาขา` and NO
   `teamMemberPrefix`.
-  Superseded: `4198ffa0e667`, `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
+  Superseded: `61f2f6281e25`, `4198ffa0e667`, `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
   `9f65ec53b172` (08-04).
   Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
   version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
