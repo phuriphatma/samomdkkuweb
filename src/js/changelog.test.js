@@ -136,7 +136,17 @@ describe('changelog rendering helpers', () => {
   });
 
   it('spans the whole project in weeks', () => {
-    expect(spanWeeks(RELEASES)).toBe(13);
+    // Asserted as a PROPERTY, not as the number it happens to be today. This
+    // was `toBe(13)` and went red the moment a release was cut — a snapshot of
+    // live data dressed as a test, which this repo has now paid for three
+    // times (tools/team0110-view-edit.mjs was the last one). What must hold is
+    // that it measures first→last, rounded to whole weeks, and never 0.
+    const dates = RELEASES.map((r) => Date.parse(`${r.date}T00:00:00Z`));
+    const weeks = Math.round((Math.max(...dates) - Math.min(...dates)) / (7 * 86400000));
+    expect(spanWeeks(RELEASES)).toBe(Math.max(1, weeks));
+    expect(spanWeeks(RELEASES)).toBeGreaterThan(0);
+    // a single release still spans "1 week", never 0
+    expect(spanWeeks([RELEASES[0]])).toBe(1);
     expect(spanWeeks([])).toBe(0);
   });
 
