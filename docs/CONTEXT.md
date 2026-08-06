@@ -356,18 +356,50 @@ team_nodes (uuid id PK, parent_id FK team_nodes(id) CASCADE,
             position int [sibling order], permissions text[] [app perm keys],
             inherit_permissions bool, timestamps)
   ↳ tree depth is unlimited (defined purely by parent_id); kind is cosmetic.
-  ↳ permissions ∈ {pr,vs,samoshop,projects,creator,team}. inherit walks up
-    ancestors while inherit_permissions stays true.
+  ↳ permissions ∈ {pr,vs,samoshop,projects,creator,team,team_edit,passport,
+    master} (the live list is `PERM_CATALOG` in `src/js/team-vocab.js` — RLS
+    matches these strings, so a typo is a dead grant, not a crash). inherit
+    walks up ancestors while inherit_permissions stays true.
+  ↳ `team` is IMPLICIT since 0110 — `effective_team_permissions_for_email()`
+    appends it for anyone with a posting, so it should never be STORED here.
+    The form cannot write it (ticked+disabled in the grid, and `readPermInputs`
+    filters `IMPLICIT_PERMS` on the way out); `tools/team0110-view-edit.mjs`
+    asserts none is left stored, which doubles as a detector for a write path
+    that forgets the filter.
 
 team_members (uuid id PK, node_id FK team_nodes(id) CASCADE, position int,
-              kkumail, prefix, full_name, nickname, student_id, year, major,
+              kkumail, full_name, nickname, student_id, year, major,
               confirmed bool, user_id FK users(id) SET NULL [optional link],
               permissions text[] [per-person extras, 0081],
               inherit_permissions bool [also take the node's perms, 0081],
               photo_url text [PUBLIC portrait, 0103 — see the org chart below],
               timestamps)
   ↳ standalone directory rows — most members are NOT app login users.
+
+team_majors (code PK [MD/MDI/RT], label, position int, timestamps)   -- 0113
+  ↳ the vocabulary behind the สาขา picker, with add / rename-with-backfill /
+    remove in the admin (each showing the PERSON count it touches first).
+  ↳ RLS: read = any authenticated, write = `team_edit` only.
+  ↳ **`team_members.major` is free TEXT with NO foreign key, deliberately.**
+    Reference data with a DELETE is the fail-open class (see
+    `.claude/rules/mistakes.md` class 2), so removing a สาขา only shrinks the
+    picker — every person keeps their stored value, and an off-list value is
+    re-added as its own `<option>` so saving an unrelated field cannot rewrite
+    it.
 ```
+
+**`prefix` (คำนำหน้า) was DROPPED from `team_members` AND `team_people` in 0113**
+along with the three functions that named it and the CSV columns/aliases. It was
+displayed nowhere and only ever produced spurious ตรวจสอบข้อมูล findings.
+
+**One field vocabulary — `src/js/team/fields.js`.** รหัสนักศึกษา canonicalises to
+`653070317-0` (bare 10 digits, Thai numerals and stray punctuation are all
+normalised; anything else is REFUSED at the form, but only when the value
+CHANGED, so an unrelated nickname edit is not held hostage by an unfixable id).
+ชั้นปี and สาขา are choosers. Three writers share the module — the admin form,
+the CSV importer and the person's own card — because `io.js` previously carried
+its own `normalizeYear` and the two drifted. Proof: `tools/team0113-fields.mjs`
+(26 checks, both directions).
 
 **The tree DRIVES real login permissions (migration 0081).** A member's effective
 app-perms = `member.permissions ∪ (member.inherit_permissions ? node_effective)`,
@@ -402,7 +434,7 @@ A member may also correct their OWN row: `team_members_update_self` (own row by
 `current_user_email()`, a definer helper so the policy does not depend on
 `users`'s RLS) plus `team_members_self_update_guard`, a deny-by-default column
 guard diffing `to_jsonb(row) - allowed_keys`, so only
-`prefix/full_name/nickname/student_id/year/major/photo_url/photo_focus` are
+`full_name/nickname/student_id/year/major/photo_url/photo_focus` are
 self-writable and a column added by a future migration is guarded automatically.
 The guard exempts the `app.team_sync` GUC — `sync_my_team_permissions()` writes
 `user_id` on every login with a REAL `auth.uid()`, and without the exemption the
