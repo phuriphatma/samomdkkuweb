@@ -10,7 +10,7 @@
 //     The house is its LAST DIGIT. Nothing here ever derives a สายรหัส from a
 //     รหัสนักศึกษา: it is the university's own อาจารย์ที่ปรึกษา assignment, handed
 //     out at random, and inventing one would put a real student in a wrong house.
-//   • รหัสนักศึกษา — '653070317-0', same rule as ทีม SAMO. Re-exported from
+//   • รหัสนักศึกษา — '659999999-9', same rule as ทีม SAMO. Re-exported from
 //     team/fields.js rather than reimplemented, because two implementations of
 //     one rule is the bug class this repo pays for most.
 //   • สาขา — 'MD' / 'MDI' / 'RT', matched case- and punctuation-insensitively.

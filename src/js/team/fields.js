@@ -4,7 +4,7 @@
 // รหัสนักศึกษา / ชั้นปี / สาขา are typed by hand in three places (the admin
 // สมาชิก form, the CSV import, and — since the ตำแหน่งของฉัน card grew a
 // self-edit — by the person themselves), and the same field arrives spelled
-// four ways: `653070317-0`, `6530703170`, `ปี5`, `5 `, `md`, `M.D.`.
+// four ways: `659999999-9`, `6599999999`, `ปี5`, `5 `, `md`, `M.D.`.
 //
 // Free text is why ตรวจสอบข้อมูล has findings nobody can act on: two rows for
 // one human reading `MD` and `md` are a `drift` finding about nothing. So the
@@ -14,7 +14,7 @@
 // class this repo has paid for most often.
 //
 // WHAT CANONICAL MEANS FOR EACH FIELD (decided from the live data, 405 rows):
-//   • รหัสนักศึกษา — `653070317-0`. 380 of 383 non-empty rows already carry the
+//   • รหัสนักศึกษา — `659999999-9`. 380 of 383 non-empty rows already carry the
 //     dashed form; it is what is printed on the KKU student card and what a
 //     student writes on paper. The bare 10-digit form is accepted and converted,
 //     never stored.
@@ -29,7 +29,7 @@
 
 /** The canonical รหัสนักศึกษา shape, and the example shown to a human. */
 export const SID_RE = /^\d{9}-\d$/;
-export const SID_PLACEHOLDER = '653070317-0';
+export const SID_PLACEHOLDER = '659999999-9';
 export const SID_HINT = `รูปแบบ ${SID_PLACEHOLDER} (พิมพ์ติดกัน 10 หลักก็ได้ ระบบจะเติมขีดให้)`;
 
 /** ชั้นปี options. Six because the MD programme is six years — the live tree
@@ -49,7 +49,7 @@ function arabicDigits(s) {
  * Canonicalise a รหัสนักศึกษา.
  *
  * @returns {{ value: string|null, ok: boolean }}
- *   `value` is the canonical `653070317-0` when it could be read, otherwise the
+ *   `value` is the canonical `659999999-9` when it could be read, otherwise the
  *   input trimmed (never null-for-nonempty — losing what someone typed is worse
  *   than storing it unparsed), and null for genuinely empty.
  *   `ok` is false when the digits could not be made to fit, which is what the

@@ -516,7 +516,6 @@ function openStudentModal(id) {
   $('hsMail').value = s?.kkumail || '';
   $('hsMajor').value = s?.major || '';
   $('hsSai').value = s?.sai_code || '';
-  $('hsStatus').value = s?.status || 'active';
   $('hsSaiLocked').checked = !!s?.sai_locked;
   $('hsDelete').classList.toggle('d-none', !s);
   updateHouseHint();
@@ -547,7 +546,6 @@ async function onStudentSubmit(e) {
     kkumail: $('hsMail').value.trim().toLowerCase(),
     major: $('hsMajor').value.trim() || null,
     sai_code: sai.value,
-    status: $('hsStatus').value,
     sai_locked: $('hsSaiLocked').checked,
   };
   // An admin editing the row by hand is writing the person's REAL nickname, so

@@ -226,7 +226,7 @@ const csvCell = (v) => {
 export const EXPORT_COLUMNS = [
   'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'nickname',
   'nickname_imported', 'nickname_self', 'major', 'sai_code', 'house',
-  'cohort_year', 'year_override', 'status', 'is_listed', 'sai_locked',
+  'cohort_year', 'year_override', 'is_listed', 'sai_locked',
   'verified_at',
 ];
 

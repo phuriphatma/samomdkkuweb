@@ -421,7 +421,7 @@ along with the three functions that named it and the CSV columns/aliases. It was
 displayed nowhere and only ever produced spurious ตรวจสอบข้อมูล findings.
 
 **One field vocabulary — `src/js/team/fields.js`.** รหัสนักศึกษา canonicalises to
-`653070317-0` (bare 10 digits, Thai numerals and stray punctuation are all
+`659999999-9` (bare 10 digits, Thai numerals and stray punctuation are all
 normalised; anything else is REFUSED at the form, but only when the value
 CHANGED, so an unrelated nickname edit is not held hostage by an unfixable id).
 ชั้นปี and สาขา are choosers. Three writers share the module — the admin form,

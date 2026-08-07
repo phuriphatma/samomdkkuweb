@@ -15,8 +15,8 @@ const kinds = (rows) => run(rows).issues.map((i) => i.kind).sort();
 describe('findIssues — grouping', () => {
   it('two rows with the same kkumail are ONE person', () => {
     const { people } = run([
-      m({ id: 'a', name: 'ภูริพัฒน์', mail: 'p.ma@kkumail.com', sid: '653070317-0' }),
-      m({ id: 'b', name: 'ภูริพัฒน์', mail: 'P.MA@kkumail.com', sid: '653070317-0' }),
+      m({ id: 'a', name: 'มานี', mail: 'm.ja@kkumail.com', sid: '659999999-9' }),
+      m({ id: 'b', name: 'มานี', mail: 'M.JA@kkumail.com', sid: '659999999-9' }),
     ]);
     expect(people).toHaveLength(1);
     expect(people[0].rows).toHaveLength(2);

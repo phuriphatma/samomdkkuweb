@@ -28,13 +28,13 @@
 -- ============================================================
 begin;
 insert into public.students (kkumail, first_name_th, last_name_th, student_id, major, sai_code)
-values ('phuriphat.ma@kkumail.com','ภูริพัฒน์','มาตรา','653070317-0','MD','017'),
-       ('someone.else@kkumail.com','สมชาย','ใจดี','663070019-9','MD','007');
+values ('manee.j@kkumail.com','มานี','ใจดี','659999999-9','MD','017'),
+       ('someone.else@kkumail.com','สมชาย','ใจดี','669999998-8','MD','007');
 
 do $$
 declare v_owner uuid; v_plain uuid;
 begin
-  select id into v_owner from public.users where email='phuriphat.ma@kkumail.com';
+  select id into v_owner from public.users where email='manee.j@kkumail.com';
   select id into v_plain from public.users where email='samomdkku.ai@gmail.com';
 
   -- (1) anon. A hard 42501 is a STRONGER result than "zero rows": the grant is
@@ -84,7 +84,7 @@ select jsonb_pretty(jsonb_build_object(
   '5_roster_leaks_pii',    ((current_setting('probe.roster')::jsonb->0) ? 'kkumail')
                            or ((current_setting('probe.roster')::jsonb->0) ? 'student_id'),
   '6_nickname_applied',    (current_setting('probe.selfedit')::jsonb)->>'nickname',
-  '6_status_still',        (select status from public.students where kkumail='phuriphat.ma@kkumail.com'),
-  '6_sai_locked_still',    (select sai_locked from public.students where kkumail='phuriphat.ma@kkumail.com')
+  '6_status_still',        (select status from public.students where kkumail='manee.j@kkumail.com'),
+  '6_sai_locked_still',    (select sai_locked from public.students where kkumail='manee.j@kkumail.com')
 )) as result;
 rollback;

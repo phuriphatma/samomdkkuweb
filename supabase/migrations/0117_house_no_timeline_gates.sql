@@ -59,7 +59,7 @@ comment on column public.house_settings.sai_self_edit_open is
 -- ------------------------------------------------------------
 -- §2 — ปีที่เข้าเรียน, derived from รหัสนักศึกษา.
 --
--- '653070317-0' → '65' → 2565. IMMUTABLE for real (it reads nothing), so it is
+-- '659999999-9' → '65' → 2565. IMMUTABLE for real (it reads nothing), so it is
 -- safe in an index or a generated column later if that is ever wanted.
 --
 -- Fails CLOSED to null rather than guessing: a รหัส whose first two characters

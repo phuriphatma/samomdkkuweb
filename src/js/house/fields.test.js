@@ -124,7 +124,7 @@ describe('cleanCell / blankish — "-" must never become a nickname', () => {
   });
 
   it('strips the invisible spaces that arrive from Word/web copy-paste', () => {
-    expect(cleanSpace('ภูริพัฒน์ มาตรา')).toBe('ภูริพัฒน์ มาตรา');
+    expect(cleanSpace('มานี ใจดี')).toBe('มานี ใจดี');
     expect(cleanSpace('ก​ข')).toBe('ก ข');
     expect(cleanSpace('  a   b  ')).toBe('a b');
   });
@@ -132,11 +132,11 @@ describe('cleanCell / blankish — "-" must never become a nickname', () => {
 
 describe('normalizeKkumail', () => {
   it('lowercases and trims', () => {
-    expect(normalizeKkumail('  Phuriphat.MA@KKUmail.com ').value)
-      .toBe('phuriphat.ma@kkumail.com');
+    expect(normalizeKkumail('  Manee.J@KKUmail.com ').value)
+      .toBe('manee.j@kkumail.com');
   });
   it('rejects a value that is not an address — this key is the login match', () => {
-    expect(normalizeKkumail('phuriphat.ma').ok).toBe(false);
+    expect(normalizeKkumail('manee.j').ok).toBe(false);
     expect(normalizeKkumail('-').ok).toBe(false);
     expect(normalizeKkumail('').ok).toBe(false);
   });
@@ -144,13 +144,13 @@ describe('normalizeKkumail', () => {
 
 describe('joinName', () => {
   it('joins the two columns the spec asks for', () => {
-    expect(joinName('ภูริพัฒน์', 'มาตรา')).toBe('ภูริพัฒน์ มาตรา');
+    expect(joinName('มานี', 'ใจดี')).toBe('มานี ใจดี');
   });
   it('keeps a multi-word surname whole', () => {
-    expect(joinName('ปรียานุช', 'ณ อยุธยา')).toBe('ปรียานุช ณ อยุธยา');
+    expect(joinName('สุดา', 'ณ ลำปาง')).toBe('สุดา ณ ลำปาง');
   });
   it('survives a missing half', () => {
-    expect(joinName('ภูริพัฒน์', '')).toBe('ภูริพัฒน์');
+    expect(joinName('มานี', '')).toBe('มานี');
   });
 });
 
@@ -170,9 +170,9 @@ describe('houseLabel — a house with no name yet is not an error', () => {
 // silently between deploys.
 describe('cohortFromStudentId — mirrors SQL cohort_from_student_id', () => {
   it('reads ปีที่เข้า from the first two digits', () => {
-    expect(cohortFromStudentId('653070317-0')).toBe(2565);
-    expect(cohortFromStudentId('6530703170')).toBe(2565);
-    expect(cohortFromStudentId('683070001-4')).toBe(2568);
+    expect(cohortFromStudentId('659999999-9')).toBe(2565);
+    expect(cohortFromStudentId('6599999999')).toBe(2565);
+    expect(cohortFromStudentId('689999996-6')).toBe(2568);
   });
 
   it('FAILS CLOSED outside 2540–2580 — the 0118 fix', () => {
@@ -198,12 +198,12 @@ describe('studentYear — mirrors SQL student_year', () => {
   });
 
   it('falls back to รหัสนักศึกษา when no cohort is stored', () => {
-    expect(studentYear({ student_id: '653070317-0' }, AY)).toBe(5);
+    expect(studentYear({ student_id: '659999999-9' }, AY)).toBe(5);
   });
 
   it('lets a self-declared override win — the ลาพัก / จบช้า escape hatch', () => {
     expect(studentYear({ cohort_year: 2565, year_override: 6 }, AY)).toBe(6);
-    expect(studentYear({ student_id: '653070317-0', year_override: 3 }, AY)).toBe(3);
+    expect(studentYear({ student_id: '659999999-9', year_override: 3 }, AY)).toBe(3);
   });
 
   it('never returns a year below 1, however old the cohort', () => {

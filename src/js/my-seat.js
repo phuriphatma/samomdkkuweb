@@ -175,7 +175,7 @@ export const DETAIL_FIELDS = [
   { key: 'major', label: 'สาขา', editable: true, control: 'major' },
   // `wide` puts a field on its own row. KKU Mail is ~3x the length of the
   // others, so sharing a row with them squeezed it into a quarter of the card
-  // and it wrapped MID-ADDRESS ("phuriphat.ma@kkuma / il.com").
+  // and it wrapped MID-ADDRESS ("somebody.ex@kkuma / il.com").
   { key: 'kkumail', label: 'KKU Mail', editable: false, wide: true },
 ];
 

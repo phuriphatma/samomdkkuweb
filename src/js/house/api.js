@@ -130,7 +130,7 @@ export async function setAdvisorSais(advisorId, saiCodes) {
 const STUDENT_COLS = [
   'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',
   'nickname', 'nickname_imported', 'nickname_self', 'major', 'sai_code',
-  'cohort_year', 'status', 'photo_url', 'bio', 'year_override', 'is_listed',
+  'cohort_year', 'photo_url', 'bio', 'year_override', 'is_listed',
   'verified_at', 'sai_locked', 'sai_self_edits', 'missing_since', 'updated_at',
 ].join(',');
 

@@ -6,17 +6,17 @@ import {
 
 describe('normalizeStudentId', () => {
   it('keeps the canonical dashed form', () => {
-    expect(normalizeStudentId('653070317-0')).toEqual({ value: '653070317-0', ok: true });
+    expect(normalizeStudentId('659999999-9')).toEqual({ value: '659999999-9', ok: true });
   });
 
   it('adds the dash to a bare 10-digit id', () => {
-    expect(normalizeStudentId('6530703170')).toEqual({ value: '653070317-0', ok: true });
+    expect(normalizeStudentId('6599999999')).toEqual({ value: '659999999-9', ok: true });
   });
 
   it('survives spaces, stray dashes and Thai numerals', () => {
-    expect(normalizeStudentId('  653070317 - 0 ').value).toBe('653070317-0');
-    expect(normalizeStudentId('653-070-317-0').value).toBe('653070317-0');
-    expect(normalizeStudentId('๖๕๓๐๗๐๓๑๗๐').value).toBe('653070317-0');
+    expect(normalizeStudentId('  659999999 - 9 ').value).toBe('659999999-9');
+    expect(normalizeStudentId('659-999-999-9').value).toBe('659999999-9');
+    expect(normalizeStudentId('๖๕๙๙๙๙๙๙๙๙').value).toBe('659999999-9');
   });
 
   it('strips a stray Thai vowel mark — a real live row reads "ุ693070229-1"', () => {
@@ -27,7 +27,7 @@ describe('normalizeStudentId', () => {
     // The other live bad row. 9 digits could be a missing digit anywhere.
     expect(normalizeStudentId('66666666-2')).toEqual({ value: '66666666-2', ok: false });
     expect(normalizeStudentId('12345').ok).toBe(false);
-    expect(normalizeStudentId('65307031700').ok).toBe(false);
+    expect(normalizeStudentId('65999999990').ok).toBe(false);
   });
 
   it('keeps what the human typed when it cannot be read', () => {
@@ -43,7 +43,7 @@ describe('normalizeStudentId', () => {
   });
 
   it('every ok result matches the canonical shape', () => {
-    for (const raw of ['6530703170', '653070317-0', '๖๕๓๐๗๐๓๑๗๐', 'ุ693070229-1']) {
+    for (const raw of ['6599999999', '659999999-9', '๖๕๙๙๙๙๙๙๙๙', 'ุ693070229-1']) {
       expect(SID_RE.test(normalizeStudentId(raw).value)).toBe(true);
     }
   });
@@ -112,9 +112,9 @@ describe('normalizeIdentityFields', () => {
 
   it('normalises all three and reports nothing when they are readable', () => {
     const out = normalizeIdentityFields(
-      { student_id: '6530703170', year: 'ปี 5', major: 'md' }, known,
+      { student_id: '6599999999', year: 'ปี 5', major: 'md' }, known,
     );
-    expect(out.student_id).toBe('653070317-0');
+    expect(out.student_id).toBe('659999999-9');
     expect(out.year).toBe('5');
     expect(out.major).toBe('MD');
     expect(out.problems).toEqual([]);

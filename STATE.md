@@ -84,6 +84,20 @@ copy of the ชั้นปี rule in admin JS (now one impl in `house/fields.j
 the SQL cases by tests); and `fetchStudents` 416'd when the row count was an
 exact multiple of the page size.
 
+**0120 — dropped `students.status`** (never requested from Data Analytics, so it
+could only ever hold its default; the roster no longer filters on it) and
+**scrubbed the example data**: `653070317-0` is the repo owner's real
+รหัสนักศึกษา and had spread into the CSV template, the handover spec, migration
+comments, tests and two form placeholders rendered on the live site — in a
+PUBLIC repo. Now `659999999-9` (faculty code 9999 cannot exist) with Thai
+textbook names (มานี / ปิติ / ชูใจ).
+
+⚠️ **Still outstanding, NOT fixed here**: `supabase/migrations/0047_seed_team_data.sql`
+seeds ~285 REAL team members (names, kkumail, รหัสนักศึกษา) and several
+`docs/mistakes/*.md` write-ups quote real students by name and รหัส. Both are
+committed to a public repo. Not rewritten because 0047 is applied history and
+the write-ups describe real incidents — needs a decision from the user.
+
 **Open**: waiting on the ~1,800-row file from Data Analytics (20-row sample
 first). อาจารย์-per-สาย file comes later; that CRUD is already built.
 
