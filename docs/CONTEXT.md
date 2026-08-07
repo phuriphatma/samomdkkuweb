@@ -813,6 +813,67 @@ Helper SQL functions: `current_user_role()`, `current_user_is_staff()`
 (both `security definer set search_path = public`); plus
 `current_user_is_shop_admin()` added in 0003.
 
+## ระบบบ้าน (House) + student directory — migrations 0116–0118
+
+Full design: `docs/HOUSE-SYSTEM.md`. Handover spec for the data:
+`docs/house-data-spec-th.md`. Proof:
+`node tools/db-query.mjs tools/house0116-authz.sql`.
+
+**The rule:** `house = the last digit of สายรหัส`. สายรหัส is 3 digits
+`001`–`100` (100 สาย → exactly 10 houses of 10). It is the UNIVERSITY's
+อาจารย์ที่ปรึกษา assignment, random, and **not derivable from รหัสนักศึกษา** —
+nothing may compute or repair one.
+
+| Table | Notes |
+|---|---|
+| `houses` | Exactly 10, seeded 0–9. **UPDATE-only** — INSERT/DELETE revoked from `authenticated`, because the set is fixed by the rule. |
+| `sais` | 100 seeded, `code` 3 digits. `house_id` is a **GENERATED STORED** column `(right(code,1))::smallint` — the single implementation of the house rule. Never write it. |
+| `advisors` / `sai_advisors` | อาจารย์ as a person + a many-to-many link, so one advisor across several สาย de-duplicates in "อาจารย์ทั้งหมดในบ้าน". |
+| `students` | ~1,800. Import-owned columns and self-owned columns are disjoint; `nickname` is a generated `coalesce(nickname_self, nickname_imported)`. |
+| `student_change_requests` | The correction queue. Partial unique index allows one OPEN request per field per student. |
+| `student_import_batches` | Audit of each import. |
+| `house_settings` | One row: `academic_year`, `sai_self_edit_open`, `roster_visible`. |
+
+**RLS** — every table: `for all to authenticated using (role in (vp_admin,dev)
+or current_user_has_permission('house'))`, plus an explicit
+`revoke all ... from anon` (verified: anon gets 42501, not merely zero rows).
+`master` (0111) satisfies the permission automatically.
+
+**There is deliberately NO self-UPDATE policy on `students`.** A per-row UPDATE
+policy is a row filter, never a column policy — the class this repo paid for on
+`users` (0028), `vs_tickets` (0096) and `shop_orders` (0100). Self-writes go
+through `update_my_student_record(jsonb)`, a definer RPC with a hard column
+allow-list spelled out one field at a time.
+
+**RPCs** (all SECURITY DEFINER, all revoked from `anon`):
+- `get_my_student_record()` — takes **no argument**; identity from `auth.uid()`,
+  so it cannot be used to probe another address. Hand-built jsonb allow-list,
+  never `returns setof students`.
+- `update_my_student_record(jsonb)` — the self-edit allow-list. สายรหัส has its
+  own gate: `sai_self_edit_open` (admin switch) AND `not sai_locked` AND
+  `sai_self_edits < 1`.
+- `request_my_change(field, requested, reason)` — files a correction for the
+  caller only.
+- `get_house_roster(smallint)` — a **projection**, not a policy: returns
+  `name, nickname, year, major, sai, photo_url` and nothing else. Never kkumail,
+  never รหัสนักศึกษา. Respects `is_listed` and `status`.
+- `get_house_summary()` — the ten houses with member counts.
+- `cohort_from_student_id(text)` / `student_year(cohort, override, sid)` — ปีที่เข้า
+  is derived from the first two digits of รหัสนักศึกษา (so the CSV never asks
+  for it), bounded to 2540–2580 so a malformed id yields NO ชั้นปี rather than a
+  plausible-looking wrong one.
+
+**No date gates anywhere.** No reveal flag — an unnamed house *is* the
+un-revealed state and renders as "บ้าน N". The whole feature works with zero
+rows in `students`.
+
+**Frontend**: `src/js/house/` — `fields.js` (pure rules incl. the file-level
+`auditSaiWidths` leading-zero check), `io.js` (CSV parse/diff/export),
+`api.js`, `index.js` (admin workspace, section `house`), `my-house.js` (the
+student's own card on the home page). Permission key `house` is threaded through
+`PERM_CATALOG`, `ADMIN_FEATURES`, `PERM_SECTION`, `SECTION_META`, `SIDE_FEATURE`
+and the sidebar.
+
 ## Auth model details
 
 - **Google OAuth**: routed through Supabase's `signInWithOAuth({ provider:
