@@ -98,7 +98,8 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: `main` head (`97c5e3b`), **deployed 2026-08-07**,
+- **samoweb**: deployed commit `97c5e3b`, **2026-08-07** (anything after it
+  on `main` is docs-only — no bundle change),
   `buildId c9e7bc8f3fb7`, still **v4.5.0** (no version cut — `PENDING` now holds
   the two หนังสือโครงการ publish-control notes for the next release). Verified on
   the SERVED artifacts: `/var/www/samo-web/assets` carries
