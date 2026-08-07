@@ -126,6 +126,41 @@ export function auditSaiWidths(rawValues) {
   };
 }
 
+/**
+ * ชั้นปี from ปีที่เข้า — the ONE JavaScript implementation.
+ *
+ * ⚠️ MIRRORS SQL. `public.student_year(cohort, override, sid)` (migrations
+ * 0116/0117) is the authority and is what every RPC returns; this exists only
+ * because the admin table renders 1,800 rows client-side and cannot call it per
+ * row. Two implementations of one rule is the class this repo pays for most, so
+ * it is spelled once here, imported everywhere, and pinned by fields.test.js
+ * against the same cases the SQL probe (tools/house0116-authz.sql) verifies.
+ *
+ * Order matters: a self-declared override wins (ลาพัก / เรียนซ้ำ / จบช้า), then
+ * the stored cohort, then the one derived from รหัสนักศึกษา.
+ */
+export function studentYear({ cohort_year: cohort, year_override: override, student_id: sid },
+  academicYear) {
+  if (override) return Number(override);
+  const c = cohort || cohortFromStudentId(sid);
+  if (!c || !academicYear) return null;
+  return Math.max(1, academicYear - c + 1);
+}
+
+/**
+ * ปีที่เข้า (พ.ศ.) from the first two digits of รหัสนักศึกษา.
+ * Mirrors `public.cohort_from_student_id`, INCLUDING its 2540–2580 window —
+ * 0118 tightened that because 2500+99 was inside the original bound, so a
+ * malformed id produced a confident "ปี 1". Out of range returns null, which
+ * renders as no ชั้นปี rather than a plausible wrong one.
+ */
+export function cohortFromStudentId(sid) {
+  const digits = arabicDigits(sid).replace(/\D/g, '');
+  if (digits.length < 2) return null;
+  const year = 2500 + Number(digits.slice(0, 2));
+  return year >= 2540 && year <= 2580 ? year : null;
+}
+
 /** Snap a สาขา onto the managed vocabulary. Unknown values are KEPT, not
  *  dropped — silently blanking a field on import is worse than flagging it. */
 export function normalizeMajor(raw, known = []) {

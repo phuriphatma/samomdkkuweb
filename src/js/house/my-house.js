@@ -192,62 +192,67 @@ function editPanelHtml(rec) {
 function wireCard(host, rec) {
   const panel = (name) => host.querySelector(`[data-house-panel="${name}"]`);
 
-  host.querySelectorAll('[data-house-act]').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const act = btn.dataset.houseAct;
-      if (act === 'request') e.preventDefault();
+  // ONE delegated listener on the host, not a listener per button.
+  // `editPanelHtml()` is injected AFTER this runs, so its own controls
+  // (ยกเลิก and the "แจ้งว่าข้อมูลไม่ถูกต้อง" link) existed in the markup but had
+  // no handler — two dead controls, silent, exactly the shape that made the
+  // ทีม SAMO delete button look broken. Delegation covers anything added later.
+  host.addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-house-act]');
+    if (!el || !host.contains(el)) return;
+    const act = el.dataset.houseAct;
+    if (act === 'request') e.preventDefault();
 
-      if (act === 'edit') {
-        const p = panel('edit');
-        p.classList.toggle('d-none');
-        if (!p.classList.contains('d-none')) {
-          p.innerHTML = editPanelHtml(rec);
-          wireEditForm(host, rec, p);
-        }
-      } else if (act === 'cancel') {
-        panel('edit').classList.add('d-none');
-      } else if (act === 'verify') {
-        try {
-          const updated = await saveMyStudentRecord({ verify: true });
-          renderMyHouse(host, updated);
-        } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
-      } else if (act === 'roster') {
-        const p = panel('roster');
-        p.classList.toggle('d-none');
-        if (!p.classList.contains('d-none')) {
-          p.innerHTML = '<div class="text-muted small">กำลังโหลด…</div>';
-          try {
-            const list = await fetchHouseRoster(rec.house_id);
-            p.innerHTML = list.length ? `
-              <div class="small text-uppercase text-muted mb-1">
-                เพื่อนร่วม${escHtml(houseLabel(rec.house_id, rec.house_name))} (${list.length} คน)
-              </div>
-              <div class="row g-1 small">
-                ${list.map((m) => `
-                  <div class="col-6 col-md-4 col-lg-3">
-                    ${escHtml(m.name || '')}
-                    ${m.nickname ? `<span class="text-muted">(${escHtml(m.nickname)})</span>` : ''}
-                    <span class="text-muted">· สาย ${escHtml(m.sai || '')}</span>
-                  </div>`).join('')}
-              </div>`
-              : '<div class="text-muted small">ยังไม่มีรายชื่อ</div>';
-          } catch (err) {
-            p.innerHTML = `<div class="text-danger small">${escHtml(err?.message || 'โหลดไม่สำเร็จ')}</div>`;
-          }
-        }
-      } else if (act === 'request') {
-        const want = prompt('สายรหัสที่ถูกต้องของคุณคือ? (3 หลัก เช่น 017)');
-        if (!want) return;
-        const n = normalizeSai(want);
-        if (!n.ok || !n.value) { alert('สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก'); return; }
-        const why = prompt('อธิบายสั้นๆ ว่าทำไมถึงคิดว่าข้อมูลเดิมไม่ถูกต้อง') || '';
-        try {
-          await requestMyChange('sai_code', n.value, why);
-          alert(`ส่งคำขอแล้ว — ขอเปลี่ยนเป็นสาย ${n.value} (${houseLabel(houseOf(n.value), null)})\n`
-            + 'ผู้ดูแลจะตรวจสอบและแจ้งผลให้ทราบ');
-        } catch (err) { alert(err?.message || 'ส่งคำขอไม่สำเร็จ'); }
+    if (act === 'edit') {
+      const p = panel('edit');
+      p.classList.toggle('d-none');
+      if (!p.classList.contains('d-none')) {
+        p.innerHTML = editPanelHtml(rec);
+        wireEditForm(host, rec, p);
       }
-    });
+    } else if (act === 'cancel') {
+      panel('edit').classList.add('d-none');
+    } else if (act === 'verify') {
+      try {
+        const updated = await saveMyStudentRecord({ verify: true });
+        clearMyHouseCache();
+        renderMyHouse(host, updated);
+      } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
+    } else if (act === 'roster') {
+      const p = panel('roster');
+      p.classList.toggle('d-none');
+      if (p.classList.contains('d-none')) return;
+      p.innerHTML = '<div class="text-muted small">กำลังโหลด…</div>';
+      try {
+        const list = await fetchHouseRoster(rec.house_id);
+        p.innerHTML = list.length ? `
+          <div class="small text-uppercase text-muted mb-1">
+            เพื่อนร่วม${escHtml(houseLabel(rec.house_id, rec.house_name))} (${list.length} คน)
+          </div>
+          <div class="row g-1 small">
+            ${list.map((m) => `
+              <div class="col-6 col-md-4 col-lg-3">
+                ${escHtml(m.name || '')}
+                ${m.nickname ? `<span class="text-muted">(${escHtml(m.nickname)})</span>` : ''}
+                <span class="text-muted">· สาย ${escHtml(m.sai || '')}</span>
+              </div>`).join('')}
+          </div>`
+          : '<div class="text-muted small">ยังไม่มีรายชื่อ</div>';
+      } catch (err) {
+        p.innerHTML = `<div class="text-danger small">${escHtml(err?.message || 'โหลดไม่สำเร็จ')}</div>`;
+      }
+    } else if (act === 'request') {
+      const want = prompt('สายรหัสที่ถูกต้องของคุณคือ? (3 หลัก เช่น 017)');
+      if (!want) return;
+      const n = normalizeSai(want);
+      if (!n.ok || !n.value) { alert('สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก'); return; }
+      const why = prompt('อธิบายสั้นๆ ว่าทำไมถึงคิดว่าข้อมูลเดิมไม่ถูกต้อง') || '';
+      try {
+        await requestMyChange('sai_code', n.value, why);
+        alert(`ส่งคำขอแล้ว — ขอเปลี่ยนเป็นสาย ${n.value} (${houseLabel(houseOf(n.value), null)})\n`
+          + 'ผู้ดูแลจะตรวจสอบและแจ้งผลให้ทราบ');
+      } catch (err) { alert(err?.message || 'ส่งคำขอไม่สำเร็จ'); }
+    }
   });
 }
 

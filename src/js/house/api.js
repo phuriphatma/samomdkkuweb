@@ -144,6 +144,11 @@ export async function fetchStudents() {
     const { data, error } = await dbRest(
       `/students?select=${STUDENT_COLS}&order=sai_code.asc,full_name.asc`,
       { headers: { Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
+    // 416 means the range starts past the last row, which happens whenever the
+    // total is an exact multiple of `page` — the loop below would otherwise
+    // break only on a SHORT page and ask for one range too many. Treat it as
+    // "no more rows", not as a failed load.
+    if (error && error.status === 416) break;
     if (error) fail(error, 'โหลดรายชื่อนักศึกษาไม่สำเร็จ');
     const rows = data || [];
     out.push(...rows);
@@ -201,6 +206,25 @@ export async function upsertStudents(rows) {
   });
   if (error) fail(error, 'นำเข้าข้อมูลไม่สำเร็จ');
   return data || [];
+}
+
+/**
+ * Mark the students that the newest import file did NOT mention.
+ *
+ * The importer never deletes — a blind sync would wipe self-edits and anyone the
+ * source happened to omit. It stamps `missing_since` instead so the gap is
+ * visible and reversible. Chunked because the `in.()` filter goes in the URL and
+ * a few hundred uuids would blow past the practical URL length.
+ */
+export async function markMissing(ids, when = new Date().toISOString()) {
+  const CHUNK = 100;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const list = ids.slice(i, i + CHUNK).map((x) => `"${x}"`).join(',');
+    const { error } = await dbRest(`/students?id=in.(${encodeURIComponent(list)})`, {
+      method: 'PATCH', body: { missing_since: when }, prefer: 'return=minimal',
+    });
+    if (error) fail(error, 'บันทึกสถานะ “ไม่พบในไฟล์ล่าสุด” ไม่สำเร็จ');
+  }
 }
 
 export async function createImportBatch(row) {

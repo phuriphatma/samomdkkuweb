@@ -23,12 +23,15 @@ import {
   fetchSettings, updateSettings, fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
-  createImportBatch, fetchRequests, decideRequest,
+  createImportBatch, fetchRequests, decideRequest, markMissing,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
 } from './io.js';
-import { normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT } from './fields.js';
+import {
+  normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
+  studentYear as studentYearOf,
+} from './fields.js';
 
 const $ = (id) => document.getElementById(id);
 const modalInstance = (id) => {
@@ -191,12 +194,10 @@ function renderOverview() {
 }
 
 // ---------- นักศึกษา ----------
-function studentYear(s) {
-  if (s.year_override) return s.year_override;
-  const cohort = s.cohort_year;
-  if (!cohort || !settings?.academic_year) return null;
-  return Math.max(1, settings.academic_year - cohort + 1);
-}
+// The ชั้นปี rule lives in ./fields.js (which mirrors SQL's student_year); this
+// used to re-derive `academic_year - cohort + 1` inline, i.e. a THIRD copy of a
+// rule that already existed in two places.
+const studentYear = (s) => studentYearOf(s, settings?.academic_year);
 
 function filteredStudents() {
   const q = ($('houseSearch')?.value || '').trim().toLowerCase();
@@ -483,6 +484,14 @@ async function runImport() {
     for (let i = 0; i < rows.length; i += CHUNK) {
       await upsertStudents(rows.slice(i, i + CHUNK));
       if (btn) btn.textContent = `กำลังนำเข้า… ${Math.min(i + CHUNK, rows.length)}/${rows.length}`;
+    }
+    // Rows already in the database that this file does not mention. The preview
+    // promises they are flagged rather than deleted — before this, it said so
+    // and then did nothing, which is worse than not offering the guarantee.
+    const missingIds = diff.missing.map((m) => m.id).filter(Boolean);
+    if (missingIds.length) {
+      if (btn) btn.textContent = 'กำลังทำเครื่องหมายรายการที่ไม่อยู่ในไฟล์…';
+      await markMissing(missingIds);
     }
     pendingImport = null;
     $('houseCsvFile').value = '';

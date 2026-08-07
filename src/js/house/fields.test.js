@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeSai, houseOf, houseLabel, auditSaiWidths, cleanCell, cleanSpace,
   normalizeKkumail, joinName, blankish, SAI_RE, HOUSE_COUNT,
+  studentYear, cohortFromStudentId,
 } from './fields.js';
 
 describe('normalizeSai — three digits, zero-padded', () => {
@@ -160,5 +161,58 @@ describe('houseLabel — a house with no name yet is not an error', () => {
   });
   it('uses the name once there is one', () => {
     expect(houseLabel(3, 'กัลปพฤกษ์')).toBe('กัลปพฤกษ์');
+  });
+});
+
+// These cases are the SAME ones tools/house0116-authz.sql asserts against the
+// live database (สาย 017 → house 7, รหัส 65…, academic year 2569 → ปี 5). The
+// SQL is the authority; this pins the JS mirror to it so the two cannot drift
+// silently between deploys.
+describe('cohortFromStudentId — mirrors SQL cohort_from_student_id', () => {
+  it('reads ปีที่เข้า from the first two digits', () => {
+    expect(cohortFromStudentId('653070317-0')).toBe(2565);
+    expect(cohortFromStudentId('6530703170')).toBe(2565);
+    expect(cohortFromStudentId('683070001-4')).toBe(2568);
+  });
+
+  it('FAILS CLOSED outside 2540–2580 — the 0118 fix', () => {
+    // 2500+99 = 2599 was inside the original bound, so a malformed id produced
+    // a confident "ปี 1" after the clamp. It must be null.
+    expect(cohortFromStudentId('993070001-4')).toBeNull();
+    expect(cohortFromStudentId('103070001-4')).toBeNull();
+  });
+
+  it('returns null rather than guessing on junk', () => {
+    expect(cohortFromStudentId('abc')).toBeNull();
+    expect(cohortFromStudentId('')).toBeNull();
+    expect(cohortFromStudentId(null)).toBeNull();
+  });
+});
+
+describe('studentYear — mirrors SQL student_year', () => {
+  const AY = 2569;
+
+  it('derives ชั้นปี from the stored cohort', () => {
+    expect(studentYear({ cohort_year: 2565 }, AY)).toBe(5);
+    expect(studentYear({ cohort_year: 2569 }, AY)).toBe(1);
+  });
+
+  it('falls back to รหัสนักศึกษา when no cohort is stored', () => {
+    expect(studentYear({ student_id: '653070317-0' }, AY)).toBe(5);
+  });
+
+  it('lets a self-declared override win — the ลาพัก / จบช้า escape hatch', () => {
+    expect(studentYear({ cohort_year: 2565, year_override: 6 }, AY)).toBe(6);
+    expect(studentYear({ student_id: '653070317-0', year_override: 3 }, AY)).toBe(3);
+  });
+
+  it('never returns a year below 1, however old the cohort', () => {
+    expect(studentYear({ cohort_year: 2500 }, AY)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('returns null — not a guess — when there is nothing to derive from', () => {
+    expect(studentYear({}, AY)).toBeNull();
+    expect(studentYear({ cohort_year: 2565 }, null)).toBeNull();
+    expect(studentYear({ student_id: '993070001-4' }, AY)).toBeNull();
   });
 });

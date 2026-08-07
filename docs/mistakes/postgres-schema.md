@@ -387,3 +387,53 @@ prefer an explicit transaction-local flag over inferring intent from `auth.uid()
 (3) The nine false PASSes are the other lesson: probes that only assert "denied"
 scored a completely broken transaction as a working guard. Always include one
 probe that must SUCCEED — the login-path check is what exposed this.
+
+---
+
+## A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)` — the upsert 42P10s, so the whole import is dead on arrival
+
+**Symptom**: Found by scanning before any data existed, so it was never
+reported: every chunk of the ระบบบ้าน student import would have failed with
+`42P10 there is no unique or exclusion constraint matching the ON CONFLICT
+specification`. The feature was complete, tested, deployed — and could not
+import a single row.
+
+**Cause**: The uniqueness rule was written as an expression index, because
+`A@kku` and `a@kku` are one person:
+
+```sql
+create unique index students_kkumail_uniq on students (lower(btrim(kkumail)));
+```
+
+The write path expressed the SAME rule differently: the importer upserts through
+PostgREST with `?on_conflict=kkumail`, which renders `ON CONFLICT (kkumail)`.
+That can only bind to a unique index on the BARE column — an expression index
+does not match, and Postgres refuses the statement outright rather than falling
+back.
+
+Both halves were individually reasonable, which is what made it invisible: the
+index is the right rule, and `on_conflict=kkumail` is the obvious way to spell
+an upsert. It is the "two implementations of one rule drift" class where the two
+implementations are *a constraint and the statement that depends on it*.
+
+**Fix**: Normalise at the boundary instead of matching at every reader. A
+`BEFORE INSERT OR UPDATE` trigger lowercases and trims `kkumail`, which makes a
+plain `unique (kkumail)` exactly equivalent to the expression index — and gives
+`ON CONFLICT (kkumail)` something to bind to. Verified live: `Scan@KKUmail.COM`
+and `scan@kkumail.com` collapse to one row, stored lowercased, and the second
+insert UPDATES rather than duplicating. Same treatment applied to
+`advisors.email`, which had the identical shape and no upsert yet.
+
+**Where it lives now**: `supabase/migrations/0119_students_kkumail_upsertable.sql`
+(`normalize_kkumail()` + `students_kkumail_key`; `normalize_advisor_email()` +
+`advisors_email_key`). `src/js/house/api.js` `upsertStudents()`.
+
+**Rules**: (1) If anything upserts a table, the conflict target must be a plain
+unique constraint on the named columns — check `?on_conflict=` against
+`pg_constraint`, not against "there is a unique index somewhere". (2) Prefer
+normalising a key on WRITE over case-folding it in every index, policy and
+comparison; `get_my_student_record()` and every RLS helper compare
+`lower(btrim(...))` precisely because the stored value could not be trusted.
+(3) A feature that is built, tested and deployed can still be 100% non-functional
+on its first real use — exercise the actual write path against the real schema
+before calling it done.

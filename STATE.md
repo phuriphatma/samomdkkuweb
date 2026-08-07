@@ -73,6 +73,17 @@ dept: `docs/house-data-spec-th.md` + `docs/templates/house-import-template.csv`.
   rows absent from the file; stamps `missing_since`.
 - Runs with **zero data**: admin ภาพรวม says so, students get no card.
 
+**0119 — the import was dead on arrival, found by scanning.** `?on_conflict=kkumail`
+42P10'd because the unique index was on `lower(btrim(kkumail))` (an EXPRESSION
+index) which `ON CONFLICT (kkumail)` cannot bind to. Fixed by normalising
+kkumail on write (trigger) + a plain unique constraint; same for advisors.email.
+Also fixed in the same pass: the "แจ้งข้อมูลไม่ถูกต้อง" and ยกเลิก controls in the
+student card were never wired (injected after the listener ran → delegation);
+`missing_since` was promised by the import preview and never written; a third
+copy of the ชั้นปี rule in admin JS (now one impl in `house/fields.js`, pinned to
+the SQL cases by tests); and `fetchStudents` 416'd when the row count was an
+exact multiple of the page size.
+
 **Open**: waiting on the ~1,800-row file from Data Analytics (20-row sample
 first). อาจารย์-per-สาย file comes later; that CRUD is already built.
 
