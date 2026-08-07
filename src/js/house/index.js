@@ -23,7 +23,7 @@ import {
   fetchSettings, updateSettings, fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
-  createImportBatch, fetchRequests, decideRequest, markMissing,
+  createImportBatch, fetchRequests, decideRequest, markMissing, ensureSais,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -288,6 +288,12 @@ function renderSais() {
     memberCount.set(s.sai_code, (memberCount.get(s.sai_code) || 0) + 1);
   }
 
+  if (!sais.length) {
+    wrap.innerHTML = '<div class="text-muted text-center py-4">'
+      + 'ยังไม่มีสายรหัสในระบบ — สายรหัสจะถูกสร้างอัตโนมัติเมื่อนำเข้าข้อมูลนักศึกษา'
+      + '</div>';
+    return;
+  }
   wrap.innerHTML = [...byHouse.entries()].sort((a, b) => a[0] - b[0]).map(([hid, list]) => `
     <div class="mb-3">
       <h6 class="small text-uppercase text-muted">${escHtml(houseName(hid))}</h6>
@@ -476,6 +482,13 @@ async function runImport() {
       unchanged_count: diff.same,
       problem_count: result.problems.length,
     });
+    // สาย FIRST. students.sai_code is a foreign key and สาย are not seeded —
+    // the range runs as high as the largest year's headcount, so the set comes
+    // from the file. Without this every student on a สาย we have not seen
+    // before fails with a 23503 partway through the import.
+    if (btn) btn.textContent = 'กำลังสร้างสายรหัส…';
+    await ensureSais(result.rows.map((r) => r.sai_code).filter(Boolean));
+
     // Chunked: 1,800 rows in one POST is a large body and an all-or-nothing
     // failure. 200 at a time keeps each request small and makes a partial
     // failure legible ("stopped at chunk 4") instead of silent.

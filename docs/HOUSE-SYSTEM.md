@@ -22,15 +22,26 @@ their อาจารย์, and their house.
 
 > house = **the last digit of สายรหัส**
 
-สายรหัส is **3 digits**, `001`–`100` → 100 สาย → 10 houses × 10 สาย × ~18
-people ≈ 1,800. House 0 gets สาย `010,020,…,100`; house 1 gets `001,011,…,091`.
+สายรหัส is **3 digits — any value from `001` to `999`.** There is no smaller
+ceiling and none is assumed anywhere: a สาย is the running number within a
+cohort, so how high they go is simply how many students a year has, and that
+moves. `sais` is **DERIVED from the import** — the importer creates every
+distinct code it sees before writing students.
+
+0116 seeded exactly `001`–`100`, and because `students.sai_code` is a foreign
+key, that would have rejected every student on a higher สาย on the first real
+import. Fixed in 0121: nothing is seeded and no maximum is written down.
+
+The last-digit rule stays balanced at any size — the ten houses can differ by at
+most one สาย, whatever the highest number is (pinned by a test over 100, 287,
+300, 320, 450 and 999).
 
 **สายรหัส is NOT derived from รหัสนักศึกษา.** It is the university's own
 อาจารย์ที่ปรึกษา assignment, handed out at random, and the university's list is
 the only authority for it. Nothing in this system may compute, infer or "repair"
 a สายรหัส — it is imported data, and a row without one is blank, never guessed.
 
-The house rule has one useful property: **it does not depend on the digit
+The rule has a second useful property: **it does not depend on the digit
 count.** If the source turns out to be 2- or 4-digit, the last digit is still
 the last digit. What must be consistent is the *width* — `1`, `01` and `001` in
 one file become three different สาย, which is why the spec spends most of its
@@ -38,8 +49,8 @@ one file become three different สาย, which is why the spec spends most of 
 
 ### Two things to confirm before building
 
-1. **Confirm the width is really 3** (`001`–`100`) and get the full list of
-   distinct values, so we can tell a missing สาย from a typo.
+1. **Confirm the width is really 3.** The RANGE does not need confirming — the
+   system derives it from the file and never assumes a maximum.
 2. **Should students see who else is in their house?** Assumed **yes** below,
    as a name-only projection with an opt-out. It changes the privacy design.
 
@@ -59,7 +70,7 @@ never typed).
 
 ```
 houses          10 fixed rows, id 0–9
-sais            100 rows, code '001'–'100', house_id GENERATED from code
+sais            derived from the import, code '001'..'999', house_id GENERATED
 advisors        อาจารย์ (a person)
 sai_advisors    which อาจารย์ advises which สาย (many-to-many)
 students        the ~1,800

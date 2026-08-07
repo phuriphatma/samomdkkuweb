@@ -151,7 +151,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
 ### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(12 entries)*
+*Open when:* writing a migration. *(13 entries)*
 
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
@@ -165,6 +165,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col`
 - A self-update column guard must exempt the definer FUNCTION that writes on login
 - A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)` — the upsert 42P10s, so the whole import is dead on arrival
+- Seeding an OBSERVED range as if it were reference data — the FK then rejects every real row outside the guess
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
 *Open when:* markup, modals, layout, touch, icons. *(32 entries)*

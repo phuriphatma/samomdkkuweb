@@ -63,6 +63,24 @@ export async function fetchSais() {
   return data || [];
 }
 
+/**
+ * Create any สายรหัส in `codes` that does not exist yet.
+ *
+ * MUST run before students are upserted: `students.sai_code` has a foreign key
+ * to `sais`, and สาย are NOT a seeded range — they run to roughly the size of
+ * the largest year (~287 and moving with enrolment), so the set is derived from
+ * whatever the import file contains. Idempotent, so it is safe per chunk.
+ */
+export async function ensureSais(codes) {
+  const list = [...new Set((codes || []).filter(Boolean))];
+  if (!list.length) return 0;
+  const { data, error } = await dbRest('/rpc/ensure_sais', {
+    method: 'POST', body: { p_codes: list },
+  });
+  if (error) fail(error, 'สร้างสายรหัสไม่สำเร็จ');
+  return data || 0;
+}
+
 // ---- advisors ----
 export async function fetchAdvisors() {
   const { data, error } = await dbRest(

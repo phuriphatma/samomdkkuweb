@@ -819,15 +819,17 @@ Full design: `docs/HOUSE-SYSTEM.md`. Handover spec for the data:
 `docs/house-data-spec-th.md`. Proof:
 `node tools/db-query.mjs tools/house0116-authz.sql`.
 
-**The rule:** `house = the last digit of สายรหัส`. สายรหัส is 3 digits
-`001`–`100` (100 สาย → exactly 10 houses of 10). It is the UNIVERSITY's
+**The rule:** `house = the last digit of สายรหัส`. สายรหัส is 3 digits, **any
+value `001`–`999`** — no ceiling is assumed and none is hardcoded. `sais` is
+derived from the import (0121). The ten houses differ by at most one สาย at any
+range. It is the UNIVERSITY's
 อาจารย์ที่ปรึกษา assignment, random, and **not derivable from รหัสนักศึกษา** —
 nothing may compute or repair one.
 
 | Table | Notes |
 |---|---|
 | `houses` | Exactly 10, seeded 0–9. **UPDATE-only** — INSERT/DELETE revoked from `authenticated`, because the set is fixed by the rule. |
-| `sais` | 100 seeded, `code` 3 digits. `house_id` is a **GENERATED STORED** column `(right(code,1))::smallint` — the single implementation of the house rule. Never write it. |
+| `sais` | DERIVED from the import (0121), never seeded; `code` 3 digits. `house_id` is a **GENERATED STORED** column `(right(code,1))::smallint` — the single implementation of the house rule. Never write it. |
 | `advisors` / `sai_advisors` | อาจารย์ as a person + a many-to-many link, so one advisor across several สาย de-duplicates in "อาจารย์ทั้งหมดในบ้าน". |
 | `students` | ~1,800. Import-owned columns and self-owned columns are disjoint; `nickname` is a generated `coalesce(nickname_self, nickname_imported)`. |
 | `student_change_requests` | The correction queue. Partial unique index allows one OPEN request per field per student. |

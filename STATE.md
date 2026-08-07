@@ -52,13 +52,17 @@ no-grant 0 rows · master 2 rows · roster leaks no PII · self-edit allow-list
 holds). Design: `docs/HOUSE-SYSTEM.md`. Handover spec for the Data Analytics
 dept: `docs/house-data-spec-th.md` + `docs/templates/house-import-template.csv`.
 
-- **house = last digit of สายรหัส.** สายรหัส is **3 digits `001`–`100`**,
+- **house = last digit of สายรหัส.** สายรหัส is **3 digits, any value
+  `001`–`999`** — no ceiling assumed or hardcoded. `sais` is derived from the
+  import (0121); 0116 wrongly seeded 001–100 and the sai_code FK would have
+  rejected every student on a higher สาย. The ten houses differ by at most one
+  สาย at any range. สายรหัส is
   assigned at random by the university's mentor system and **NOT derivable from
   รหัสนักศึกษา** — nothing may compute or "repair" one. `sais.house_id` is a
   GENERATED STORED column so the rule has exactly one implementation; JS reads
   it and only recomputes it for the import preview.
 - Tables: `houses` (10 seeded, UPDATE-only — INSERT/DELETE revoked), `sais`
-  (100 seeded), `advisors` + `sai_advisors`, `students`, `student_change_requests`,
+  (derived from the import), `advisors` + `sai_advisors`, `students`, `student_change_requests`,
   `student_import_batches`, `house_settings`.
 - New permission key **`house`**, threaded through PERM_CATALOG, ADMIN_FEATURES,
   PERM_SECTION, SECTION_META, SIDE_FEATURE, the sidebar and RLS on all 8 tables.

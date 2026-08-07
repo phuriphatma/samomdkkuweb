@@ -60,20 +60,36 @@ describe('houseOf — the last digit, and nothing else', () => {
     expect(houseOf('abc')).toBeNull();
   });
 
-  // This is the assertion migration 0116 makes in SQL. Pinning it here too is
-  // deliberate: it is the ONE rule the whole feature hangs off, and the JS copy
-  // exists for the import preview. If these ever disagree, the DB column wins —
-  // but they must not disagree.
-  it('partitions สาย 001..100 into exactly 10 houses of 10', () => {
-    const buckets = new Map();
-    for (let n = 1; n <= 100; n += 1) {
-      const code = String(n).padStart(3, '0');
-      const h = houseOf(code);
-      expect(h).not.toBeNull();
-      buckets.set(h, (buckets.get(h) || 0) + 1);
-    }
-    expect(buckets.size).toBe(HOUSE_COUNT);
-    for (const [, count] of buckets) expect(count).toBe(10);
+  // สาย are NOT a fixed range: any value 001–999 is legal. How high they go is
+  // just how many students a year has, and that moves. 0116 wrongly seeded
+  // exactly 001–100 and the sai_code foreign key would have rejected every
+  // student on a higher สาย (0121).
+  //
+  // So the property to hold is not "exactly ten each", which is only true when
+  // the maximum happens to be a multiple of ten. It is that the houses stay
+  // BALANCED at any realistic size.
+  it.each([100, 287, 300, 320, 450, 999])(
+    'splits สาย 001..%i across all 10 houses, within one สาย of even',
+    (max) => {
+      const buckets = new Map();
+      for (let n = 1; n <= max; n += 1) {
+        const h = houseOf(String(n).padStart(3, '0'));
+        expect(h).not.toBeNull();
+        buckets.set(h, (buckets.get(h) || 0) + 1);
+      }
+      expect(buckets.size).toBe(HOUSE_COUNT);
+      const counts = [...buckets.values()];
+      // A spread of at most 1 is the best any last-digit split can do.
+      expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+      expect(counts.reduce((a, b) => a + b, 0)).toBe(max);
+    },
+  );
+
+  it('handles สาย above 100, which the first seed made impossible', () => {
+    expect(houseOf('101')).toBe(1);
+    expect(houseOf('204')).toBe(4);
+    expect(houseOf('287')).toBe(7);
+    expect(houseOf('999')).toBe(9);
   });
 
   it('puts 100 with 010..090, not in a house of its own', () => {

@@ -437,3 +437,46 @@ comparison; `get_my_student_record()` and every RLS helper compare
 (3) A feature that is built, tested and deployed can still be 100% non-functional
 on its first real use — exercise the actual write path against the real schema
 before calling it done.
+
+---
+
+## Seeding an OBSERVED range as if it were reference data — the FK then rejects every real row outside the guess
+
+**Symptom**: Caught before the first import, so nobody hit it: `students.sai_code`
+references `sais(code)`, and the migration seeded exactly 100 rows, `'001'`–`'100'`,
+on the belief that there were 100 สายรหัส. The real range is any 3-digit value —
+สาย are the running number within a year cohort, so how high they go is simply how
+many students a year has. Every student on a สาย above 100 would have failed the
+foreign key with 23503, killing the import partway through.
+
+**Cause**: The seed encoded a *guess about the world* as a *constraint on the
+data*. `sais` looked like reference data (a fixed vocabulary we own, like
+`team_majors`), but it is not — it is an OBSERVATION of what the university
+assigned, and the only authority for it is the file being imported. Reference
+data can be seeded; observations cannot, because the seed is a prediction and
+predictions about enrolment go stale silently.
+
+The tell was there in the migration: it shipped with a `DO $$ … raise exception
+if the mapping is not 10×10 $$` block. An assertion that the data has exactly the
+shape you assumed is not a safety check — it is the assumption restated, and it
+passed precisely because the seed had produced it.
+
+**Fix**: `sais` became derived. `ensure_sais(text[])` — SECURITY DEFINER, but
+re-checking the `house` permission because it writes — upserts every distinct
+code the file contains, and the importer calls it *before* writing students. The
+arbitrary seed was deleted, but only rows nothing referenced. No maximum is
+written down anywhere now; the column check is just `^[0-9]{3}$`.
+
+**Where it lives now**: `supabase/migrations/0121_sais_are_not_a_fixed_range.sql`,
+`src/js/house/api.js` `ensureSais()`, `src/js/house/index.js` `runImport()`.
+`fields.test.js` asserts the house split stays within one สาย of even over 100,
+287, 300, 320, 450 and 999 — a property that holds at any size, rather than the
+old test's "exactly ten each", which was only true for the seeded range.
+
+**Rules**: (1) Before seeding a lookup table, ask whether you OWN the set or are
+OBSERVING it. Owned sets (roles, permission keys, houses-per-digit) can be
+seeded; observed ones (คน, สาย, anything the outside world assigns) must be
+derived from the data. (2) A foreign key onto a seeded observation converts every
+unforeseen real value into a hard failure — prefer creating the parent on
+demand. (3) An assertion that reproduces your own seeding step proves nothing;
+make the test range-independent so it can fail.
