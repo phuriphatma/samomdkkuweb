@@ -480,3 +480,40 @@ derived from the data. (2) A foreign key onto a seeded observation converts ever
 unforeseen real value into a hard failure — prefer creating the parent on
 demand. (3) An assertion that reproduces your own seeding step proves nothing;
 make the test range-independent so it can fail.
+
+---
+
+## Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
+
+**Symptom** (reported): setting a student's สาย to `200` in the admin form failed
+with `23503 … violates foreign key constraint "students_sai_code_fkey" — Key is
+not present in table "sais"`.
+
+**Cause**: 0121 had already made `sais` a derived set and its write-up ended with
+the rule *"prefer creating the parent on demand"*. That rule was then applied in
+exactly one place — the CSV importer, which calls `ensure_sais()` before writing
+students. Three other paths write `students.sai_code` and none of them did: the
+admin สมาชิก form, สายรหัส change-request approval, and any future writer.
+
+Same geometry as class 4/5 (per-PATH, not per-table), except the thing enforced
+at one call site is an invariant rather than an authorization check. Writing the
+rule down in the migration that discovered it did not make the next writer obey
+it — which is the whole reason this repo prefers a mechanism over a note.
+
+**Fix**: a `BEFORE INSERT OR UPDATE OF sai_code` trigger on `students` that
+creates the `sais` row if absent. The FK stays, so integrity is still enforced,
+but it can no longer reject a *valid* สาย. Every path is covered including hand
+SQL. The importer's bulk `ensure_sais()` call is kept as an optimisation (one
+statement vs ~1,800 trigger firings), not as the mechanism.
+
+Verified live, four directions: admin creating on unseen สาย 200 → OK (house 0);
+admin moving to unseen 753 → OK (house 3); malformed `20` → REFUSED by the
+trigger; and a STUDENT self-editing to a non-existent 888 → still REFUSED, since
+`update_my_student_record()` validates before the UPDATE and a student guessing a
+สาย is a typo, not a discovery.
+
+**Where it lives now**: `supabase/migrations/0122_students_create_sai_on_demand.sql`.
+
+**Rule**: when a fix is "materialise X on demand", put it on the TABLE (trigger /
+default / generated column), not in the one caller you happened to be looking at.
+Count the writers first — `grep` the column name.

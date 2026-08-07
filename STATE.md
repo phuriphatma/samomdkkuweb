@@ -24,13 +24,14 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 
 ## SHIPPED 2026-08-07 — ระบบบ้าน (House) + the DELETE guard
 
-Migrations **0116–0121 APPLIED**. Full reasoning, the five scan-found bugs and
+Migrations **0116–0122 APPLIED**. Full reasoning, the five scan-found bugs and
 every live proof: **`docs/state-archive/2026-08-07-house-system.md`**. Headlines:
 
 - **ระบบบ้าน is live and works with zero data.** `house = last digit of สายรหัส`;
   สายรหัส is 3 digits, **any `001`–`999`**, random, NOT derived from
   รหัสนักศึกษา. `sais.house_id` is GENERATED (one implementation of the rule);
-  `sais` itself is DERIVED from the import, never seeded. Nothing is gated on a
+  `sais` itself is DERIVED — a BEFORE trigger on `students` creates the สาย row
+  on demand (0122), so no writer can 23503 on a valid สาย. Nothing is gated on a
   date and there is no reveal flag — an unnamed house renders as "บ้าน N".
   New permission key **`house`**.
 - **Every DELETE now reports an RLS block** (5 in `team/api.js`, 3 in
@@ -89,7 +90,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   (not the local files). Still **v4.5.0** — no version cut; `PENDING` in
   `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
   ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0121.** Live proofs, both directions:
+- **Migrations applied through 0122.** Live proofs, both directions:
   `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
@@ -153,7 +154,7 @@ archiving into it saved nothing.
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
 > **Everything is shipped and live.** `main` = `d62a374` on
-> `samo.md.kku.ac.th`, migrations applied through **0121**, 470 tests green.
+> `samo.md.kku.ac.th`, migrations applied through **0122**, 470 tests green.
 > Nothing is in flight.
 >
 > What landed last: **ระบบบ้าน (House)** — every student in the faculty gets a
