@@ -34,6 +34,12 @@ every live proof: **`docs/state-archive/2026-08-07-house-system.md`**. Headlines
   on demand (0122), so no writer can 23503 on a valid สาย. Nothing is gated on a
   date and there is no reveal flag — an unnamed house renders as "บ้าน N".
   New permission key **`house`**.
+- **สายรหัส is created on demand by a trigger on `students` (0122).** The FK can
+  no longer reject a valid สาย, whichever path writes it. Reported as "สาย 200
+  → 23503": 0121 had made `sais` derived and said "create the parent on demand",
+  but that was applied at ONE call site (the importer) while three other writers
+  — the admin form, change-request approval, future SQL — still failed. Fixed on
+  the TABLE, not in the callers.
 - **Every DELETE now reports an RLS block** (5 in `team/api.js`, 3 in
   `shop/api.js`), swept by `src/js/delete-guard.test.js`.
 - **Example data no longer uses a real student's identity** — `659999999-9` and
@@ -171,6 +177,15 @@ archiving into it saved nothing.
 > confirmed. Until then every pane renders an honest empty state — that is
 > designed, not broken.
 >
+> Last thing fixed (0122): setting a student's สาย to a code nobody had used yet
+> 23503'd on the `sai_code` foreign key. `sais` is a DERIVED set, so a BEFORE
+> trigger on `students` now creates the สาย row on demand — **do not "fix" this
+> again in a caller.** The lesson generalises and is the one to carry: when a fix
+> is "materialise X on demand", put it on the TABLE (trigger / default /
+> generated column), never in the one caller you happened to be looking at.
+> `grep` the column name and count the writers first. This repo has now paid for
+> that shape three times in one session (0119, 0121, 0122).
+>
 > Open, none blocking:
 > 1. **The ทีม SAMO delete diagnosis is UNCONFIRMED.** "Nothing happens" on the
 >    trash button is almost certainly Chrome's "Prevent this page from creating
@@ -185,7 +200,11 @@ archiving into it saved nothing.
 >    not remove them from git history, which is already public. Needs the user's
 >    decision: accept, rewrite history, or make the repo private.
 > 3. **Rotate the VM sudo password** (see CURRENT DEPLOY).
-> 4. Older, still true: **0108's contract step is owed** (`createMember` and the
+> 4. **`students` is not empty.** At least one row exists for the owner's kkumail
+>    from manual testing — created before any import. Tidy it in ระบบบ้าน →
+>    นักศึกษา before the real import, or let the import update it (it upserts on
+>    kkumail, so it will merge rather than duplicate).
+> 5. Older, still true: **0108's contract step is owed** (`createMember` and the
 >    CSV import still write `person_id = null`); the team photo SAVE path is
 >    unverified by hand.
 >
@@ -193,6 +212,8 @@ archiving into it saved nothing.
 > - **สายรหัส is NOT derived from รหัสนักศึกษา.** It is the university's random
 >   mentor assignment; nothing may compute, infer or "repair" one. Any `001`–`999`
 >   is legal and **no maximum may be hardcoded** — that bug has been made twice.
+> - **`sais` is DERIVED, never seeded**, and the trigger on `students` (0122) is
+>   what guarantees a สาย exists. No maximum, no seeded range, no per-caller check.
 > - **house = last digit of สายรหัส**, and `sais.house_id` (GENERATED) is the only
 >   implementation. JS reads it; `houseOf()` exists solely for the import preview.
 > - **ชื่อ and นามสกุล stay separate** in `students` (joined by a generated
