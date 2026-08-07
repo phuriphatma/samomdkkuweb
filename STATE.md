@@ -22,6 +22,40 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-07 — every DELETE now reports a block (no migration)
+
+Reported as "can't delete j@kkumail.com in ทีม SAMO". **Not an RLS problem** —
+simulating the DELETE as the signed-in account (`phuriphat.ma@kkumail.com`,
+holds `master`) inside `begin; … rollback;` returned `deleted_rows: 1`. Cause is
+client-side and threefold, all silent: `onDeleteMember`'s `if (!m) return`, a
+native `confirm()` the browser can permanently suppress ("Prevent this page from
+creating additional dialogs" → every later `confirm()` returns false with no
+UI), and `deleteMember()` checking only `error` when PostgREST answers a blocked
+DELETE with 204 + zero rows.
+
+- Guards added to all 5 deletes in `team/api.js` + 3 in `shop/api.js`
+  (`prefer: 'return=representation'` + `data.length` check), matching what
+  projects/vs/announcements already did.
+- Both silent early-returns in `team/index.js` now alert + `reload()`.
+- `src/js/delete-guard.test.js` sweeps every `method: 'DELETE'` in `src/js` and
+  asserts both halves. Verified to FAIL when a guard is removed.
+- **OPEN**: the suppressed-`confirm()` diagnosis is the leading cause of the
+  reported symptom but is UNCONFIRMED — user to hard-reload and retry. If
+  confirmed, replace the 8 native `confirm()` calls in `team/index.js` with an
+  app-owned Bootstrap modal. Write-up in `docs/mistakes/frontend-ui.md`.
+
+## IN FLIGHT 2026-08-07 — ระบบบ้าน (House) + student directory, design only
+
+No code, no migration yet. `docs/house-data-spec-th.md` is the handover spec for
+the Data Analytics dept (~1,800 students; CSV columns, formatting rules, the
+"send 20 rows first" gate, a self-check list, and a do-NOT-send PII list).
+Design doc for the system itself is the next artifact. Key decided points:
+house = **last digit of สายรหัส** (00–99 → 10 houses, 10 สาย each), house names
+and logos stay hidden until the จับฉลาก on **21–22 พ.ย.**, and สายรหัส is not
+user-editable after a freeze date. Confirm with user: whether สายรหัส is 2- or
+3-digit in the source, and whether it is derivable from รหัสนักศึกษา (if so, it
+should be computed, not imported).
+
 ## SHIPPED 2026-08-07 — หนังสือโครงการ publish control (0114) + settings leak closed (0115)
 
 Migrations **0114 and 0115 are APPLIED to the live DB** (proof

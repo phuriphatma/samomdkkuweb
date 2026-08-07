@@ -896,3 +896,59 @@ carries that lesson in a comment (`[data-readonly-locked]` exists precisely so
 it can un-disable only what it disabled) — the master pass was written without
 it. When one bug has already been paid for in a file, grep the file for the
 other passes over the same nodes before assuming it was the only one.
+
+---
+
+## "ลบสมาชิกไม่ได้" — the delete button did nothing at all, and BOTH ways it can do nothing were silent
+
+**Symptom**: In /admin/ → ทีม SAMO, clicking the trash icon on a member row
+(`j@kkumail.com`, under หัวหน้าฝ่าย IT) did **nothing** — no confirm dialog, no
+error, no change. Reported as "i can't delete this".
+
+**Cause**: The database was never the problem, and proving that first is what
+made the rest tractable. Simulating the exact DELETE as the signed-in account
+(`phuriphat.ma@kkumail.com`, which holds `master`) inside `begin; … rollback;`
+returned `deleted_rows: 1` — RLS allows it, there is no FK referencing
+`team_members`, and the only triggers are `AFTER UPDATE` / statement-level.
+
+So the failure was entirely client-side, and `onDeleteMember()` had **two**
+silent exits before it ever reached the network:
+
+1. `const m = findMember(id); if (!m) return;` — a DOM row that outlived the
+   model it was rendered from produces a dead button with no trace.
+2. `if (!confirm(...)) return;` — and a native `confirm()` **cannot tell you it
+   was suppressed**. Chrome's "Prevent this page from creating additional
+   dialogs" checkbox, once ticked, makes every later `confirm()` return `false`
+   instantly with no UI for the lifetime of that page. The team module calls
+   `confirm()` in 8 places, so an admin session reaches that checkbox easily.
+   This is why only DELETE broke while แก้ไข / ย้าย kept working — those open
+   Bootstrap modals, not dialogs.
+
+And had the click reached the network, it would *still* have been silent:
+`deleteMember()` checked only `error`, and PostgREST answers an RLS-blocked
+DELETE with `204` and zero rows, not an error (the entry above,
+"silent-success on RLS-blocked updates / deletes"). Three independent silent
+paths stacked on one button.
+
+**Fix**: Both early exits now say something and resync (`alert` + `reload()`)
+instead of returning. All five deletes in `src/js/team/api.js` and three in
+`src/js/shop/api.js` now send `prefer: 'return=representation'` and throw on an
+empty array — matching what `projects/api.js`, `vs-staff.js` and
+`announcements.js` already did. `src/js/delete-guard.test.js` sweeps every
+`method: 'DELETE'` in `src/js` and asserts both halves; it was verified to FAIL
+when a guard is removed, not merely to pass.
+
+**Where it lives now**: `src/js/team/api.js` (deleteNode / deleteMember /
+deleteTerm / deleteArchiveMember / deleteMajor), `src/js/shop/api.js`
+(deleteProductType / deletePromptpayQr / deletePickupLocation),
+`src/js/team/index.js` (onDeleteNode / onDeleteMember),
+`src/js/delete-guard.test.js`.
+
+**Rules**: (1) A handler that can `return` without doing anything must say why —
+"nothing happened" is the hardest symptom to debug because it names no
+component. (2) Native `confirm()` / `alert()` are not reliable control flow in a
+long-lived SPA: the browser can disable them permanently and silently, and
+`false` then means "suppressed", not "cancelled". Destructive confirmations
+belong in an app-owned modal. (3) When a UI action fails, prove which SIDE it
+fails on before reading either — simulating the write as the real user, rolled
+back, cost one query and eliminated RLS, FKs, triggers and realtime in one shot.

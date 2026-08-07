@@ -103,9 +103,22 @@ export async function updateNode(id, patch) {
   return data[0];
 }
 
+// An RLS-blocked DELETE is NOT an error — PostgREST returns 204 with zero rows
+// deleted, so `if (error)` alone scores "you have no permission" as success and
+// the row silently returns on the next reload (mistakes.md, "supabase-js
+// silent-success on RLS-blocked updates / deletes"). Every delete below asks for
+// the deleted rows back and refuses to report success on an empty set — the same
+// shape createMember/updateMember above already use, and the one
+// projects/api.js, vs-staff.js and announcements.js already use for DELETE.
 export async function deleteNode(id) {
-  const { error } = await dbRest(`/team_nodes?id=eq.${id}`, { method: 'DELETE' });
+  const { data, error } = await dbRest(`/team_nodes?id=eq.${id}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
   if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไม่สำเร็จ — ไม่พบตำแหน่งนี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
 }
 
 // ---- Members ----
@@ -139,8 +152,14 @@ export async function updateMember(id, patch) {
 }
 
 export async function deleteMember(id) {
-  const { error } = await dbRest(`/team_members?id=eq.${id}`, { method: 'DELETE' });
+  const { data, error } = await dbRest(`/team_members?id=eq.${id}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
   if (error) throw new Error(error.message || 'ลบสมาชิกไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสมาชิกไม่สำเร็จ — ไม่พบสมาชิกนี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
 }
 
 /** Persist a batch of {id, position[, parent_id|node_id]} updates after a
@@ -196,8 +215,14 @@ export async function updateTerm(year, patch) {
 
 export async function deleteTerm(year) {
   // Cascades to team_archive_nodes → team_archive_members.
-  const { error } = await dbRest(`/team_terms?year=eq.${year}`, { method: 'DELETE' });
+  const { data, error } = await dbRest(`/team_terms?year=eq.${year}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
   if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไม่สำเร็จ — ไม่พบปีการศึกษานี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
 }
 
 /**
@@ -249,8 +274,14 @@ export async function updateArchiveMember(id, patch) {
 }
 
 export async function deleteArchiveMember(id) {
-  const { error } = await dbRest(`/team_archive_members?id=eq.${id}`, { method: 'DELETE' });
+  const { data, error } = await dbRest(`/team_archive_members?id=eq.${id}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
   if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไม่สำเร็จ — ไม่พบสมาชิกนี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
 }
 
 export async function updateArchiveNode(id, patch) {
@@ -311,8 +342,14 @@ export async function updateMajor(id, patch) {
 }
 
 export async function deleteMajor(id) {
-  const { error } = await dbRest(`/team_majors?id=eq.${id}`, { method: 'DELETE' });
+  const { data, error } = await dbRest(`/team_majors?id=eq.${id}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
   if (error) throw new Error(error.message || 'ลบสาขาไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสาขาไม่สำเร็จ — ไม่พบสาขานี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
 }
 
 /**

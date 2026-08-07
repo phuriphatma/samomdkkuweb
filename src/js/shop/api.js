@@ -960,12 +960,19 @@ export async function upsertProductType(row) {
   return data[0];
 }
 
+// `return=representation` + a length check on every DELETE: an RLS-blocked
+// DELETE returns 204 with zero rows and no error, so `if (error)` alone reports
+// success and the row reappears on reload (mistakes.md, "silent-success on
+// RLS-blocked deletes"). deleteProduct/deleteBanner above already do this.
 export async function deleteProductType(id) {
-  const { error } = await dbRest(
+  const { data, error } = await dbRest(
     `/shop_product_types?id=eq.${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
+    { method: 'DELETE', prefer: 'return=representation' },
   );
   if (error) throw new Error(error.message || 'ลบประเภทสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบประเภทสินค้าไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
   return true;
 }
 
@@ -1008,11 +1015,14 @@ export async function upsertPromptpayQr(row) {
 }
 
 export async function deletePromptpayQr(id) {
-  const { error } = await dbRest(
+  const { data, error } = await dbRest(
     `/shop_promptpay_qrs?id=eq.${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
+    { method: 'DELETE', prefer: 'return=representation' },
   );
   if (error) throw new Error(error.message || 'ลบบัญชี PromptPay ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบบัญชี PromptPay ไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
   return true;
 }
 
@@ -1073,11 +1083,14 @@ export async function upsertPickupLocation(row) {
 }
 
 export async function deletePickupLocation(id) {
-  const { error } = await dbRest(
+  const { data, error } = await dbRest(
     `/shop_pickup_locations?id=eq.${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
+    { method: 'DELETE', prefer: 'return=representation' },
   );
   if (error) throw new Error(error.message || 'ลบสถานที่รับสินค้าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบสถานที่รับสินค้าไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
   return true;
 }
 

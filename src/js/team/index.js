@@ -1297,7 +1297,12 @@ async function onNodeSubmit(e) {
 
 async function onDeleteNode(id) {
   const node = nodesById.get(id);
-  if (!node) return;
+  // Same silent-dead-button shape as onDeleteMember below.
+  if (!node) {
+    alert('ไม่พบตำแหน่งนี้ในหน้าจอปัจจุบัน — กำลังโหลดผังใหม่ แล้วลองอีกครั้ง');
+    reload();
+    return;
+  }
   const count = subtreeMemberCount(id);
   const kids = childrenOf(id).length;
   const warn = (kids || count) ? `\n\nจะลบตำแหน่งย่อย ${kids} รายการ และสมาชิก ${count} คนในสายนี้ด้วย` : '';
@@ -1450,7 +1455,15 @@ async function bulkDelete() {
   render();
   try {
     await Promise.all([...topNodes.map((id) => deleteNode(id)), ...memToDelete.map((id) => deleteMember(id))]);
-  } catch (e) { console.warn('[team] bulk delete failed:', e?.message || e); reload(); }
+  } catch (e) {
+    // Now that a blocked delete THROWS rather than resolving, this catch is
+    // reachable for a real reason (no สิทธิ์, or someone else got there first).
+    // console.warn alone would leave the user watching rows reappear after the
+    // reload with no explanation — the same silence this whole change removes.
+    console.warn('[team] bulk delete failed:', e?.message || e);
+    alert(`ลบบางรายการไม่สำเร็จ: ${e?.message || 'ไม่ทราบสาเหตุ'}\n\nกำลังโหลดผังใหม่เพื่อแสดงสถานะจริง`);
+    reload();
+  }
 }
 
 // ============================================================
@@ -2459,7 +2472,15 @@ async function onMemberSubmit(e) {
 
 async function onDeleteMember(id) {
   const m = findMember(id);
-  if (!m) return;
+  // A miss here means the DOM row outlived the model it was rendered from — the
+  // click is real, so returning in silence looks exactly like a dead button (it
+  // is one of the two ways this handler can do nothing at all; the other is a
+  // `confirm()` the browser has suppressed). Say so and resync.
+  if (!m) {
+    alert('ไม่พบข้อมูลสมาชิกนี้ในหน้าจอปัจจุบัน — กำลังโหลดผังใหม่ แล้วลองอีกครั้ง');
+    reload();
+    return;
+  }
   if (!confirm(`ลบสมาชิก “${m.full_name}” ?`)) return;
   const photo = m.photo_url || '';
   const arr = membersByNode.get(m.node_id);
