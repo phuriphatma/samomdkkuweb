@@ -22,129 +22,32 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## SHIPPED 2026-08-07 — every DELETE now reports a block (no migration)
+## SHIPPED 2026-08-07 — ระบบบ้าน (House) + the DELETE guard
 
-Reported as "can't delete j@kkumail.com in ทีม SAMO". **Not an RLS problem** —
-simulating the DELETE as the signed-in account (`phuriphat.ma@kkumail.com`,
-holds `master`) inside `begin; … rollback;` returned `deleted_rows: 1`. Cause is
-client-side and threefold, all silent: `onDeleteMember`'s `if (!m) return`, a
-native `confirm()` the browser can permanently suppress ("Prevent this page from
-creating additional dialogs" → every later `confirm()` returns false with no
-UI), and `deleteMember()` checking only `error` when PostgREST answers a blocked
-DELETE with 204 + zero rows.
+Migrations **0116–0121 APPLIED**. Full reasoning, the five scan-found bugs and
+every live proof: **`docs/state-archive/2026-08-07-house-system.md`**. Headlines:
 
-- Guards added to all 5 deletes in `team/api.js` + 3 in `shop/api.js`
-  (`prefer: 'return=representation'` + `data.length` check), matching what
-  projects/vs/announcements already did.
-- Both silent early-returns in `team/index.js` now alert + `reload()`.
-- `src/js/delete-guard.test.js` sweeps every `method: 'DELETE'` in `src/js` and
-  asserts both halves. Verified to FAIL when a guard is removed.
-- **OPEN**: the suppressed-`confirm()` diagnosis is the leading cause of the
-  reported symptom but is UNCONFIRMED — user to hard-reload and retry. If
-  confirmed, replace the 8 native `confirm()` calls in `team/index.js` with an
-  app-owned Bootstrap modal. Write-up in `docs/mistakes/frontend-ui.md`.
+- **ระบบบ้าน is live and works with zero data.** `house = last digit of สายรหัส`;
+  สายรหัส is 3 digits, **any `001`–`999`**, random, NOT derived from
+  รหัสนักศึกษา. `sais.house_id` is GENERATED (one implementation of the rule);
+  `sais` itself is DERIVED from the import, never seeded. Nothing is gated on a
+  date and there is no reveal flag — an unnamed house renders as "บ้าน N".
+  New permission key **`house`**.
+- **Every DELETE now reports an RLS block** (5 in `team/api.js`, 3 in
+  `shop/api.js`), swept by `src/js/delete-guard.test.js`.
+- **Example data no longer uses a real student's identity** — `659999999-9` and
+  Thai textbook names replace the owner's real รหัส/name/email, which had reached
+  two live form placeholders in a PUBLIC repo.
 
-## SHIPPED 2026-08-07 — ระบบบ้าน (House) + student directory (0116–0118)
+## SHIPPED 2026-08-07 — หนังสือโครงการ publish control (0114 + 0115)
 
-**Migrations 0116, 0117, 0118 are APPLIED to the live DB.** Proof:
-`node tools/db-query.mjs tools/house0116-authz.sql` (anon DENIED 42501 ·
-no-grant 0 rows · master 2 rows · roster leaks no PII · self-edit allow-list
-holds). Design: `docs/HOUSE-SYSTEM.md`. Handover spec for the Data Analytics
-dept: `docs/house-data-spec-th.md` + `docs/templates/house-import-template.csv`.
-
-- **house = last digit of สายรหัส.** สายรหัส is **3 digits, any value
-  `001`–`999`** — no ceiling assumed or hardcoded. `sais` is derived from the
-  import (0121); 0116 wrongly seeded 001–100 and the sai_code FK would have
-  rejected every student on a higher สาย. The ten houses differ by at most one
-  สาย at any range. สายรหัส is
-  assigned at random by the university's mentor system and **NOT derivable from
-  รหัสนักศึกษา** — nothing may compute or "repair" one. `sais.house_id` is a
-  GENERATED STORED column so the rule has exactly one implementation; JS reads
-  it and only recomputes it for the import preview.
-- Tables: `houses` (10 seeded, UPDATE-only — INSERT/DELETE revoked), `sais`
-  (derived from the import), `advisors` + `sai_advisors`, `students`, `student_change_requests`,
-  `student_import_batches`, `house_settings`.
-- New permission key **`house`**, threaded through PERM_CATALOG, ADMIN_FEATURES,
-  PERM_SECTION, SECTION_META, SIDE_FEATURE, the sidebar and RLS on all 8 tables.
-- **NOTHING is gated on a date.** สายรหัส self-edit is an admin switch
-  (`sai_self_edit_open`, default ON, one change per student, `sai_locked`
-  overrides). No reveal flag either — an unnamed house IS the un-revealed state
-  and renders as "บ้าน N".
-- ปีที่เข้า is derived from รหัสนักศึกษา (`cohort_from_student_id`), so the CSV
-  asks for **7 columns only** — no ชั้นปี, no ปีที่เข้า, no สถานะ.
-- Import refuses (does not warn) on mixed สาย widths — the Excel leading-zero
-  failure that would put ~180 students in wrong houses invisibly. Never deletes
-  rows absent from the file; stamps `missing_since`.
-- Runs with **zero data**: admin ภาพรวม says so, students get no card.
-
-**0119 — the import was dead on arrival, found by scanning.** `?on_conflict=kkumail`
-42P10'd because the unique index was on `lower(btrim(kkumail))` (an EXPRESSION
-index) which `ON CONFLICT (kkumail)` cannot bind to. Fixed by normalising
-kkumail on write (trigger) + a plain unique constraint; same for advisors.email.
-Also fixed in the same pass: the "แจ้งข้อมูลไม่ถูกต้อง" and ยกเลิก controls in the
-student card were never wired (injected after the listener ran → delegation);
-`missing_since` was promised by the import preview and never written; a third
-copy of the ชั้นปี rule in admin JS (now one impl in `house/fields.js`, pinned to
-the SQL cases by tests); and `fetchStudents` 416'd when the row count was an
-exact multiple of the page size.
-
-**0120 — dropped `students.status`** (never requested from Data Analytics, so it
-could only ever hold its default; the roster no longer filters on it) and
-**scrubbed the example data**: `653070317-0` is the repo owner's real
-รหัสนักศึกษา and had spread into the CSV template, the handover spec, migration
-comments, tests and two form placeholders rendered on the live site — in a
-PUBLIC repo. Now `659999999-9` (faculty code 9999 cannot exist) with Thai
-textbook names (มานี / ปิติ / ชูใจ).
-
-⚠️ **Still outstanding, NOT fixed here**: `supabase/migrations/0047_seed_team_data.sql`
-seeds ~285 REAL team members (names, kkumail, รหัสนักศึกษา) and several
-`docs/mistakes/*.md` write-ups quote real students by name and รหัส. Both are
-committed to a public repo. Not rewritten because 0047 is applied history and
-the write-ups describe real incidents — needs a decision from the user.
-
-**Open**: waiting on the ~1,800-row file from Data Analytics (20-row sample
-first). อาจารย์-per-สาย file comes later; that CRUD is already built.
-
-## SHIPPED 2026-08-07 — หนังสือโครงการ publish control (0114) + settings leak closed (0115)
-
-Migrations **0114 and 0115 are APPLIED to the live DB** (proof
-`node tools/proj0114-visibility.mjs` → 29/29).
-
-- `projects.is_public` + `project_documents.is_public`, `not null default true`
-  (chosen with the user: the mirror was already total, so opt-out).
-- The three `*_read_public` policies now read the flags; hiding a โครงการ
-  cascades to every หนังสือ + file under it. Actors, and the prof on his own
-  documents, are unaffected. Full shape in `docs/CONTEXT.md`.
-- Only the sender side may flip it — new
-  `current_user_can_publish_project()` (now also the single authority behind
-  projects/documents insert + delete), enforced per-COLUMN by the
-  `project_public_flag_guard` triggers, because a row-level UPDATE policy
-  grants every column (mistakes class 1). `is_public` also added to
-  `project_documents_prof_guard`'s immutable list.
-- UI: ซ่อน/แสดง buttons on the project header and in each หนังสือ's action row,
-  ซ่อน pills on the grid/list/doc rows, and a note on a hidden project's header.
-  A หนังสือ whose own flag says "show" inside a hidden โครงการ says
-  "ไม่แสดง (ทั้งโครงการถูกซ่อน)" rather than looking live.
-- Tests: `src/js/projects/public-visibility.test.js` binds the JS reading of a
-  missing flag to the SQL default, and asserts the policies + fail-closed
-  helpers + the prof guard entry are actually in the migration.
-- `PENDING` in `src/data/changelog.js` carries two notes for the next release.
-
-**0115 — found by the bug scan, not reported.** Sweeping every anon-reachable
-read path of หนังสือโครงการ turned up `project_settings_read_public` (0032)
-serving the receiving officer's real `@kku.ac.th` address to any visitor. It
-had been opened for two display labels that nothing consumed: the only reader,
-`ownerLabel()`, had zero call sites and read `uni_label`/`vp_label`, which are
-not columns on that row. 0115 drops the anon policy (actors + prof keep
-`project_settings_read`), `mountCustomerProjects()` stops fetching the row, and
-the dead `ownerLabel()` is deleted. Verified both directions: anon reads 0
-settings rows while still reading 24 published projects; vp_admin and sa_prof
-read 1 each. Write-up in `docs/mistakes/authz-rls.md`.
-
-Also swept and clean: no VIEW over the project tables; the only anon-executable
-SECURITY DEFINER functions touching them are `prof_can_see_*` (booleans, prof-
-gated), the two new `project_*_is_public` helpers (booleans) and `public_stats()`
-(counts only — it deliberately still counts hidden projects).
+Applied and live. `projects.is_public` + `project_documents.is_public` (opt-out,
+default shown); only the sender side may flip it, enforced per-COLUMN by trigger
+because a row-level UPDATE policy grants every column. 0115 closed an
+anon-readable `project_settings` row that was serving a staff member's real
+email. Proof `node tools/proj0114-visibility.mjs` → 29/29. Detail:
+`docs/state-archive/2026-08-07-house-system.md` is the HOUSE archive; this one's
+detail is in `git log` + `docs/CONTEXT.md`.
 
 ## Earlier sessions — pruned
 
@@ -181,95 +84,17 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
-- **samoweb**: deployed commit `97c5e3b`, **2026-08-07** (anything after it
-  on `main` is docs-only — no bundle change),
-  `buildId c9e7bc8f3fb7`, still **v4.5.0** (no version cut — `PENDING` now holds
-  the two หนังสือโครงการ publish-control notes for the next release). Verified on
-  the SERVED artifacts: `/var/www/samo-web/assets` carries
-  `data-projects-toggle-public`, `projects-hidden-pill`, `ซ่อนจากเว็บสาธารณะ` and
-  `ไม่แสดง (ทั้งโครงการถูกซ่อน)`, and NO `ownerLabel`; and against the LIVE
-  PostgREST with the real anon key, `project_settings` returns `[]` (0115) while
-  `projects` returns 24 rows, all `is_public` true. Hiding was proven
-  transactionally against real role identities (`tools/proj0114-visibility.mjs`
-  29/29) rather than by flipping a live project.
-- Previous: `2bbb88ae7a3a` (v4.5.0, 08-06, tag pushed) and `eac07e594ba9`
-  (implicit-permission lock fix). **Verified
-  by DRIVING the served bundle**, not by grep — signed into
-  `https://samo.md.kku.ac.th/admin/#team` in headless Chrome and exercised the
-  แก้ไขสิทธิ์ grid: ทีม SAMO (ดู) stays `{checked:true, disabled:true}` on open,
-  after a click, and across master ON→OFF, while `pr` still locks with master
-  and comes back unchecked; จัดการรายการสาขา opens on prod with its live counts.
-  Before that: migration **0113** — คำนำหน้า dropped, the
-  `team_majors` vocabulary + CRUD, ชั้นปี/สาขา choosers, the canonical
-  รหัสนักศึกษา form, photo upload moved to the SAVE path, the ADMIN_FEATURES
-  link gate, the ข้อมูลของฉัน pane, and the navigateTo() scroll fix. See
-  "THIS SESSION" at the top for all 13 items and what is still owed.
-  **Grep the `analytics-*.js` chunk, not just `public-*.js`** — the ตำแหน่งของฉัน
-  card lives there. Verified on the SERVED artifacts at deploy time:
-  `/build.json` → `{"buildId":"4198ffa0e667","version":"4.4.0"}`;
-  `analytics-*.js` carries `myseat-crumb`, `653070317-0`, `team_majors`,
-  `myseat-photo-btn`, `term_year` and `แจ้งอุปนายกฝ่ายของท่าน`; `/admin/` carries
-  `teamMajorsModal`, `data-team-mode="me"`, `จัดการรายการสาขา` and NO
-  `teamMemberPrefix`.
-  Superseded: `61f2f6281e25`, `4198ffa0e667`, `bb074fa12f41`, `f401da0ea2f2`, `c380fc060101` (08-05),
-  `9f65ec53b172` (08-04).
-  Latest change: public release notes at `/updates`, the `MAJOR.MINOR.PATCH`
-  version system (**v4.4.0**, tag pushed), and the เบื้องหลังการพัฒนา panel on
-  the landing page. Verified against the SERVED artifacts: `/build.json` returns
-  `{"buildId":"9f65ec53b172","version":"4.4.0"}`, `/updates` → 200 carrying
-  `id="clList"` / `id="devActivity"` / `cl-hero-aurora`, and `IT SAMO` appears
-  twice in `/assets/public-*.js`. The 2026-08-01 ทีม SAMO deploy (`28c757c`,
-  `buildId e74de393eebd`) is included in this one.
-- **passport** (separate repo): code `b57eb1e` **deployed 2026-07-30** (pulled
-  + built by `deploy.sh` alongside samoweb). Served bundles
-  verified by grep: `stamp_scan` in the scan chunk, `leaderboard_names` in
-  dashboard, `admin_leaderboard` + the shared-admin email in admin,
-  `sb-passport-legacy-admin` in the shared chunk, and no `from('scans').insert`.
-- Migrations: samoweb `public` 0081–**0113**; passport `db/0010` + `db/0011` + `db/0012`
-  ALL applied — passport authorization is now enforced server-side (NEXT #3).
-- Verify any deploy by grepping the served bundle for feature strings — NOT by
-  hash (Mac vs VM hashes differ). For samoweb the shared `analytics-*.js` chunk
-  carries auth.js.
-- Deploy method: `ssh samo-vm` → `cd ~/samo-projects/samomdkkuweb` →
-  `./server/deploy.sh` (pull → `npm ci` → build → `sudo rsync dist/` →
-  `/var/www/samo-web` → chown → restart notify → `nginx -t` + reload; also builds
-  passport with `PASSPORT_BASE=/passport/`). `deploy.sh` uses BARE `sudo`, which
-  needs a tty. **The `ssh -tt` + `sudo -S -v` priming recipe previously recorded
-  here does NOT work** — the cred cache does not carry into deploy.sh's own sudo
-  calls and it still dies "A terminal is required to authenticate", AFTER both
-  vite builds have run. Use an askpass helper instead (no tty needed, verified
-  2026-07-31, PW = `.env.local` `SAMO_VM_SUDO_PASSWORD`):
-  ```sh
-  PW=$(grep '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | tr -d '"'"'"'"')
-  printf '%s\n' "$PW" | ssh samo-vm 'read -r PW;
-    printf "#!/bin/sh\nprintf %%s \"\$SAMO_PW\"\n" > /tmp/askpass.sh; chmod +x /tmp/askpass.sh
-    cd ~/samo-projects/samomdkkuweb && git pull --ff-only &&
-    SAMO_PW="$PW" SUDO_ASKPASS=/tmp/askpass.sh bash -c "
-      sudo() { command sudo -A \"\$@\"; }; export -f sudo; bash server/deploy.sh"
-    rm -f /tmp/askpass.sh'
-  ```
-  Pull manually first (as above) — deploy.sh re-execs itself after its own pull,
-  and the manual pull keeps that transition honest. Bundle content-hashes differ Mac vs VM
-  (dep/Node deltas) — verify a deploy by grepping the served bundle for feature
-  strings, not by hash-matching.
-- One Supabase project `fheueuowbchsnsvbcgil` (web `public` + passport in `passport`
-  schema). Migrations applied through `tools/apply-migration.mjs` (Management-API PAT).
-  **To INVESTIGATE the DB, use `tools/db-query.mjs <file.sql>`, not
-  apply-migration** — the latter truncates its echoed result at 2000 chars
-  without saying so, which turns any introspection query (policy dumps,
-  `pg_get_functiondef` sweeps, column lists) into a confidently wrong answer.
-  **`db-query.mjs` COMMITS** — "READ-ONLY" in its header is intent, not an
-  enforced mode. Any write probe you run through it lands in production, and a
-  plpgsql `exception when others` block only rolls back the FAILING sub
-  transaction, so the probes that SUCCEED persist. End every investigative file
-  with `rollback;`, and snapshot what you are about to disturb
-  (`select <col>, count(*) … group by 1`) before the first write probe — that
-  diff is what caught a real ticket being moved on 2026-07-31. Details in
-  `.claude/rules/mistakes.md`.
-  Both run as the Postgres SUPERUSER: `auth.uid()` is null and RLS is bypassed,
-  so to see what a REAL user sees you must `set_config('role', …)` +
-  `set_config('request.jwt.claims', …)` inside `begin; … rollback;` — every
-  `tools/*` proof script is built that way and is the template to copy.
+  Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
+- **samoweb**: `main` = `d62a374`, deployed and verified on the SERVED artifacts
+  (not the local files). Still **v4.5.0** — no version cut; `PENDING` in
+  `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
+  ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
+- **Migrations applied through 0121.** Live proofs, both directions:
+  `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
+  `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
+- ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
+  session transcript on 2026-08-07. Change it on the VM and update
+  `SAMO_VM_SUDO_PASSWORD` in `.env.local`.
 
 ## NEXT — un-started work → `docs/NEXT.md`
 
@@ -299,97 +124,84 @@ VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
 - Retention jobs NOT scheduled (`prune_analytics`, `prune_notify_log`) — run manually
   if tables grow.
 
-## Housekeeping — the memory system (2026-08-05, RESTRUCTURED)
+## Housekeeping — the memory system
 
-**The old prune-and-archive loop is retired. Do not re-create
-`.claude/rules/mistakes-archive.md`.**
-
-Everything in `.claude/rules/` plus `CLAUDE.md` is injected into EVERY agent
-session. That had reached **251k chars ≈ 63k tokens — a quarter of the context
-window, spent before the user types anything** — because 118 full write-ups
-lived there. The archive file did not help: it is in the same auto-loaded
-directory, so it loaded too. It had been split along a *budget* axis
-("stable/niche") rather than a *topic* axis, which also made it useless for
-retrieval.
-
-Now **26k chars ≈ 6.5k tokens** (a 90% cut), split by what each layer is for:
+Restructured 2026-08-05 and stable since. **Do not re-create
+`.claude/rules/mistakes-archive.md`** — it lived in the auto-loaded directory, so
+archiving into it saved nothing.
 
 | | where | loaded |
 |---|---|---|
-| recurring **classes** (now seven) + a 1-line index of all 117 entries | `.claude/rules/mistakes.md` | every session |
-| the 117 **write-ups**, nine files by area | `docs/mistakes/*.md` | on demand |
+| recurring **classes** + a 1-line index of every entry | `.claude/rules/mistakes.md` | every session |
+| the **write-ups**, nine files by area | `docs/mistakes/*.md` | on demand |
 
-- **The index is GENERATED** — `npm run mistakes:index` rebuilds it from the
-  `## ` headings in `docs/mistakes/`. Never hand-edit it; if a line reads badly,
-  fix the heading. The previous hand-written "what's in the archive" blurb had
-  already rotted, which is why this one is mechanical.
-- **The budget is ENFORCED** — `npm run check:context` fails when an
-  auto-loaded file exceeds its cap or a new undeclared `.md` appears in
-  `.claude/rules/`. `npm test` runs it (`tools/memory-system.test.js`, 10
-  tests: budget, index freshness, no duplicate entry across the nine files, no
-  write-up shape back in the hot file). All three guards were verified to FAIL
-  when deliberately broken, per class 7.
-- **When a file breaches its budget, move detail into `docs/`. Never raise the
-  cap.** That is the lever the old loop reached for and it is what got us here.
-- `AGENTS.md` was a stale copy of `CLAUDE.md` naming a `.Codex/rules/`
-  directory that has never existed (and pages.dev as prod). Collapsed to a
-  pointer — one router, no mirror.
-- **Release notes are now staged as the work ships.** `PENDING` in
-  `src/data/changelog.js` collects user-visible changes in the commit that
-  ships them (end-of-turn loop step 3); `npm run release` folds it into the new
-  version and clears it. It is NOT rendered on `/updates` — an unreleased list
-  on a public page is a promise, and this project has a standing rule against
-  promising cadence. `changelog.test.js` holds staged notes to the same
-  no-identifiers standard as released ones (it caught a bad `area` immediately).
-
-- **STATE.md is ~350 lines against CLAUDE.md's ~200 budget.** Prune by moving
-  COMPLETED items to `docs/state-archive/`, and leave `NEXT` as only what is
-  genuinely un-started. `NEXT` is the actual handover — prune it as items are
-  completed, not to hit the number.
-
+- **The index is GENERATED** — `npm run mistakes:index`. Never hand-edit it; if a
+  line reads badly, fix the heading it came from.
+- **The budget is ENFORCED** — `npm run check:context` (run by `npm test`) fails
+  when an auto-loaded file exceeds its cap. **When it breaches, move detail into
+  `docs/`. Never raise the cap** — reaching for the cap is what caused the 63k-token
+  problem this replaced.
+- **Release notes are staged as the work ships** — `PENDING` in
+  `src/data/changelog.js`, folded in by `npm run release`. Not rendered on
+  `/updates`: an unreleased list on a public page is a promise.
+- **STATE.md**: keep COMPLETED work in `docs/state-archive/`; leave only what is
+  true right now. `git log --oneline` is the chronology.
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
-- CI = Node 22 (supabase-js WebSocket). `npm run build && npm test` before every
-  commit — 140 tests green at session end; isolation proof 23/23.
+- CI = Node 22. `npm run build && npm test` before every commit.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-07)
 
-> Read STATE.md first — the "SHIPPED 2026-08-07" block at the top, then CURRENT
-> DEPLOY. **Everything is shipped and live**: `main` = `97c5e3b`, prod buildId
-> `c9e7bc8f3fb7` on `samo.md.kku.ac.th`, migrations applied through **0115**.
-> Nothing is in flight and nothing is owed from the last session.
+> Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
+> **Everything is shipped and live.** `main` = `d62a374` on
+> `samo.md.kku.ac.th`, migrations applied through **0121**, 470 tests green.
+> Nothing is in flight.
 >
-> What landed last: หนังสือโครงการ can now be published or hidden from the public
-> mirror per โครงการ and per หนังสือ (0114), and `project_settings` stopped being
-> anon-readable (0115 — it was serving the officer's real email). Version was NOT
-> cut; `PENDING` in `src/data/changelog.js` holds two notes, so the next release
-> should be a **minor** bump (`npm run release`).
+> What landed last: **ระบบบ้าน (House)** — every student in the faculty gets a
+> record they see by signing in with kkumail, plus a house derived from their
+> สายรหัส. Design `docs/HOUSE-SYSTEM.md`; the session's full reasoning and every
+> live proof is `docs/state-archive/2026-08-07-house-system.md`. Also: every
+> DELETE in the app now reports an RLS block instead of silently succeeding.
 >
-> Three things are open, none blocking:
-> 1. **Nobody has hidden a real โครงการ yet.** The enforcement is proven
->    transactionally (`node tools/proj0114-visibility.mjs` → 29/29) and the UI was
->    driven in headless Chrome against fake data, but no live row has been flipped.
->    If the user reports the button "not working", check the RLS denial message
->    first — only vp_admin/dev or the `vpa` seat may flip `is_public`.
-> 2. **No human has reviewed the Thai copy** in the ซ่อน/แสดง buttons, the confirm
->    dialog, or the two `PENDING` release notes.
-> 3. The older ones still stand: **0108's contract step is owed** (`createMember`
->    and the CSV import still write `person_id = null`, so rows added since 0108
->    are unlinked — fix with a BEFORE INSERT trigger or re-run the idempotent
->    backfill); the team photo SAVE path is unverified by hand; and
->    `team_person_mirror_down()` wants the `app.team_sync` flag if `team_people`
->    ever gets a self-service surface (not reachable today).
+> **The one thing actually waiting: the student data has not arrived.** The
+> handover spec to send the Data Analytics dept is `docs/house-data-spec-th.md`
+> (forward it as-is; template `docs/templates/house-import-template.csv`). They
+> send **20 rows first**, then the full ~1,800. Import at
+> `/admin/` → ระบบบ้าน → นำเข้าข้อมูล: it previews, and writes nothing until
+> confirmed. Until then every pane renders an honest empty state — that is
+> designed, not broken.
+>
+> Open, none blocking:
+> 1. **The ทีม SAMO delete diagnosis is UNCONFIRMED.** "Nothing happens" on the
+>    trash button is almost certainly Chrome's "Prevent this page from creating
+>    additional dialogs" making `confirm()` return false silently. A hard reload
+>    settles it. If confirmed, replace the 8 native `confirm()` calls in
+>    `team/index.js` with an app-owned Bootstrap modal.
+> 2. **Real student identities are in the public repo.**
+>    `supabase/migrations/0047_seed_team_data.sql` seeds ~285 real members
+>    (names, kkumail, รหัส) and several `docs/mistakes/*.md` write-ups quote real
+>    students. Deliberately NOT rewritten — 0047 is applied history and the
+>    write-ups describe real incidents. Removing them from the working tree does
+>    not remove them from git history, which is already public. Needs the user's
+>    decision: accept, rewrite history, or make the repo private.
+> 3. **Rotate the VM sudo password** (see CURRENT DEPLOY).
+> 4. Older, still true: **0108's contract step is owed** (`createMember` and the
+>    CSV import still write `person_id = null`); the team photo SAVE path is
+>    unverified by hand.
 >
 > **Decided — do not re-raise:**
-> - **Public visibility defaults to SHOWN** (opt-out). Asked and answered: the
->   mirror was already total, so defaulting to hidden would have emptied the
->   public page on deploy day. This is deliberately the opposite of the safe
->   default for a NEW public projection.
-> - **`public_stats()` still counts hidden โครงการ / หนังสือ** in its anon-visible
->   totals. Counts only, never a title, and the work really happened.
-> - **`ฝ่ายเอิงtest` test data stays live**, and **the second `ภู` row on
->   `หัวหน้าฝ่าย IT` stays** — both are the user's own test rows, knowingly kept.
->   The `ภู` pair is the only duplicate kkumail-on-one-node in the tree, so a
->   duplicate check that fires on it is finding the known one.
+> - **สายรหัส is NOT derived from รหัสนักศึกษา.** It is the university's random
+>   mentor assignment; nothing may compute, infer or "repair" one. Any `001`–`999`
+>   is legal and **no maximum may be hardcoded** — that bug has been made twice.
+> - **house = last digit of สายรหัส**, and `sais.house_id` (GENERATED) is the only
+>   implementation. JS reads it; `houseOf()` exists solely for the import preview.
+> - **ชื่อ and นามสกุล stay separate** in `students` (joined by a generated
+>   `full_name`). Separate→combined is lossless; combined→separate is a guess that
+>   breaks on `ณ อยุธยา`. ทีม SAMO keeps its single field — do not migrate it.
+> - **Nothing is gated on a date**, and there is **no reveal flag** — an unnamed
+>   house is the un-revealed state.
+> - **Public visibility of หนังสือโครงการ defaults to SHOWN** (opt-out).
+> - **`ฝ่ายเอิงtest` and the second `ภู` row on `หัวหน้าฝ่าย IT` stay** — the
+>   user's own test rows, knowingly kept.
 >
-> Otherwise the backlog is `docs/NEXT.md`, and the roles/photos design with its
-> five open decisions is `docs/TEAM-ROLES-AND-PHOTOS.md`.
+> Backlog: `docs/NEXT.md`. Roles/photos design with five open decisions:
+> `docs/TEAM-ROLES-AND-PHOTOS.md`.

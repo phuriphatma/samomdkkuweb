@@ -13,6 +13,14 @@ Both Cloudflare projects hit the same Supabase backend.
 
 ## Key features
 
+- **ระบบบ้าน (House).** Every student in the faculty gets a record they can see
+  by signing in with their kkumail — their สายรหัส, their อาจารย์ที่ปรึกษา, and
+  their house. There are ten houses and a student's house is the last digit of
+  their สายรหัส, so the split is even and needs no manual assignment. Students
+  can fix their own ชื่อเล่น and ชั้นปี, see who else is in their house, and flag
+  a wrong สายรหัส for an admin to approve. Admins import the roster from a CSV
+  (previewed before anything is written, and re-runnable without destroying what
+  students typed), name and illustrate each house, and assign อาจารย์ per สาย.
 - **Announcements board.** Public read; staff post via a Quill-based rich-text
   editor. Per-department thumbnails and theming.
 - **PR submission.** Form-based job intake with file upload, deadline mode,

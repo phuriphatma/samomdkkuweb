@@ -253,6 +253,25 @@ export async function createImportBatch(row) {
   return (data && data[0]) || null;
 }
 
+/**
+ * Stamp what the import ACTUALLY did.
+ *
+ * The batch row has to exist before the students are written (they carry
+ * `last_import_batch`), so it is created with zeroed counts. Writing the
+ * PLANNED counts at creation time would leave an audit row claiming a
+ * successful import of N people after a run that died on chunk 3 — an audit
+ * trail that lies is worse than none.
+ */
+export async function finishImportBatch(id, counts) {
+  if (!id) return;
+  const { error } = await dbRest(`/student_import_batches?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: counts, prefer: 'return=minimal',
+  });
+  // Non-fatal: the students are already in. A failed bookkeeping write must not
+  // report the import itself as failed.
+  if (error) console.warn('[house] could not stamp import batch:', error.message);
+}
+
 // ---- change requests ----
 export async function fetchRequests() {
   const { data, error } = await dbRest(

@@ -23,7 +23,8 @@ import {
   fetchSettings, updateSettings, fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
-  createImportBatch, fetchRequests, decideRequest, markMissing, ensureSais,
+  createImportBatch, finishImportBatch, fetchRequests, decideRequest,
+  markMissing, ensureSais,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -473,13 +474,14 @@ async function runImport() {
   const btn = $('houseImportConfirm');
   if (btn) { btn.disabled = true; btn.textContent = 'กำลังนำเข้า…'; }
   try {
+    // Counts are stamped AFTER the write (finishImportBatch below), not here:
+    // the row must exist first because students carry last_import_batch, but a
+    // row created with the planned counts would claim a successful import of N
+    // people even if the run died on chunk 3.
     const batch = await createImportBatch({
       file_name: fileName,
       uploaded_by: getUser()?.id || null,
       row_count: result.rows.length,
-      inserted_count: diff.insert,
-      updated_count: diff.update,
-      unchanged_count: diff.same,
       problem_count: result.problems.length,
     });
     // สาย FIRST. students.sai_code is a foreign key and สาย are not seeded —
@@ -506,6 +508,11 @@ async function runImport() {
       if (btn) btn.textContent = 'กำลังทำเครื่องหมายรายการที่ไม่อยู่ในไฟล์…';
       await markMissing(missingIds);
     }
+    await finishImportBatch(batch?.id, {
+      inserted_count: diff.insert,
+      updated_count: diff.update,
+      unchanged_count: diff.same,
+    });
     pendingImport = null;
     $('houseCsvFile').value = '';
     $('housePreview').innerHTML = '<div class="alert alert-success">นำเข้าเรียบร้อยแล้ว</div>';
