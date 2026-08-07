@@ -1,0 +1,346 @@
+<!-- ระบบบ้าน (House) — admin workspace. Bare content: the tab-pane wrapper is
+     supplied by admin/index.html, same as tab-team / tab-projects. -->
+<div class="house-workspace">
+
+  <!-- Sub-nav -->
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <div class="btn-group btn-group-sm" role="group" aria-label="ส่วนของระบบบ้าน">
+      <button type="button" class="btn btn-outline-secondary active" data-house-mode="overview">
+        <i class="bi bi-grid-1x2"></i> ภาพรวม
+      </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="students">
+        <i class="bi bi-people"></i> นักศึกษา
+      </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="sais">
+        <i class="bi bi-signpost-split"></i> สายรหัส
+      </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="advisors">
+        <i class="bi bi-person-badge"></i> อาจารย์
+      </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="requests">
+        <i class="bi bi-inbox"></i> คำขอแก้ไข
+        <span class="badge bg-danger d-none" id="houseReqBadge">0</span>
+      </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="import">
+        <i class="bi bi-upload"></i> นำเข้าข้อมูล
+      </button>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="houseExportCsv">
+        <i class="bi bi-download"></i> ส่งออก CSV
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="houseReload">
+        <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+      </button>
+    </div>
+  </div>
+
+  <div id="houseStatus" class="small text-muted mb-2" role="status" aria-live="polite"></div>
+
+  <!-- ---------- ภาพรวม ---------- -->
+  <section data-house-pane="overview">
+    <div class="alert alert-info d-none" id="houseEmptyNote">
+      <strong>ยังไม่มีข้อมูลนักศึกษาในระบบ</strong><br />
+      ระบบพร้อมใช้งานแล้ว รอเพียงไฟล์รายชื่อจากฝ่าย Data Analytics
+      — ไปที่แท็บ <em>นำเข้าข้อมูล</em> เมื่อได้ไฟล์มา
+      (รูปแบบไฟล์ที่ต้องขอ อยู่ใน <code>docs/house-data-spec-th.md</code>)
+    </div>
+
+    <div class="row g-3 mb-3" id="houseStats"></div>
+
+    <h6 class="text-muted small text-uppercase mb-2">บ้านทั้ง 10</h6>
+    <div class="row g-3 mb-4" id="houseCards"></div>
+
+    <h6 class="text-muted small text-uppercase mb-2">ตั้งค่าระบบ</h6>
+    <div class="card">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small" for="hsetYear">ปีการศึกษาปัจจุบัน (พ.ศ.)</label>
+            <input type="number" class="form-control form-control-sm" id="hsetYear" min="2500" max="2600" />
+            <div class="form-text">ใช้คำนวณชั้นปีจากรหัสนักศึกษา</div>
+          </div>
+          <div class="col-sm-9">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="hsetSaiEdit" />
+              <label class="form-check-label small" for="hsetSaiEdit">
+                ให้นักศึกษาแก้สายรหัสของตัวเองได้ (คนละ 1 ครั้ง)
+              </label>
+              <div class="form-text">
+                เปิดไว้ช่วงแรกเพื่อให้คนที่ข้อมูลผิดแก้เองได้ — ปิดเมื่อใกล้จับฉลาก
+                หลังปิดแล้วนักศึกษาจะส่ง “คำขอแก้ไข” เข้ามาแทน
+              </div>
+            </div>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" id="hsetRoster" />
+              <label class="form-check-label small" for="hsetRoster">
+                ให้นักศึกษาเห็นรายชื่อเพื่อนร่วมบ้าน
+              </label>
+              <div class="form-text">แสดงเฉพาะชื่อ ชื่อเล่น ชั้นปี และสาย — ไม่แสดงอีเมลหรือรหัสนักศึกษา</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- นักศึกษา ---------- -->
+  <section data-house-pane="students" class="d-none">
+    <div class="row g-2 mb-3">
+      <div class="col-sm-4">
+        <input type="search" class="form-control form-control-sm" id="houseSearch"
+               placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / อีเมล / สาย" />
+      </div>
+      <div class="col-sm-2">
+        <select class="form-select form-select-sm" id="houseFilterHouse">
+          <option value="">ทุกบ้าน</option>
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <select class="form-select form-select-sm" id="houseFilterYear">
+          <option value="">ทุกชั้นปี</option>
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <select class="form-select form-select-sm" id="houseFilterMajor">
+          <option value="">ทุกสาขา</option>
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <button type="button" class="btn btn-sm btn-primary w-100" id="houseAddStudent">
+          <i class="bi bi-person-plus"></i> เพิ่ม
+        </button>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle house-table">
+        <thead>
+          <tr>
+            <th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
+            <th>kkumail</th><th>สาขา</th><th>ชั้นปี</th><th>สาย</th><th>บ้าน</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="houseStudentRows"></tbody>
+      </table>
+    </div>
+    <div class="small text-muted" id="houseStudentCount"></div>
+  </section>
+
+  <!-- ---------- สายรหัส ---------- -->
+  <section data-house-pane="sais" class="d-none">
+    <p class="small text-muted">
+      สายรหัสทั้ง 100 สาย ถูกสร้างไว้แล้ว บ้านคำนวณจากเลขหลักสุดท้ายโดยอัตโนมัติ
+      และแก้ไขด้วยมือไม่ได้ — กดที่สายเพื่อกำหนดอาจารย์ที่ปรึกษา
+    </p>
+    <div id="houseSaiGroups"></div>
+  </section>
+
+  <!-- ---------- อาจารย์ ---------- -->
+  <section data-house-pane="advisors" class="d-none">
+    <div class="d-flex gap-2 mb-3">
+      <input type="search" class="form-control form-control-sm" id="houseAdvisorSearch"
+             placeholder="ค้นหาอาจารย์" style="max-width:320px" />
+      <button type="button" class="btn btn-sm btn-primary" id="houseAddAdvisor">
+        <i class="bi bi-plus-lg"></i> เพิ่มอาจารย์
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead>
+          <tr><th>ชื่อ</th><th>อีเมล</th><th>ภาควิชา</th><th>สายที่ดูแล</th><th></th></tr>
+        </thead>
+        <tbody id="houseAdvisorRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---------- คำขอแก้ไข ---------- -->
+  <section data-house-pane="requests" class="d-none">
+    <p class="small text-muted">
+      คำขอแก้ไขข้อมูลจากนักศึกษา — อนุมัติแล้วระบบจะแก้ให้ทันที
+      (ถ้าเป็นสายรหัส บ้านจะย้ายตามโดยอัตโนมัติ)
+    </p>
+    <div id="houseRequestRows"></div>
+  </section>
+
+  <!-- ---------- นำเข้าข้อมูล ---------- -->
+  <section data-house-pane="import" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h6 class="card-title">นำเข้ารายชื่อนักศึกษา (CSV)</h6>
+        <p class="small text-muted mb-2">
+          ต้องมีหัวตาราง 7 ช่อง:
+          <code>student_id, first_name_th, last_name_th, nickname_th, kkumail, major, sai</code>
+          <br />ระบบจะ <strong>ตรวจก่อน แล้วให้ยืนยัน</strong> ยังไม่บันทึกอะไรจนกว่าจะกดยืนยัน
+          และ <strong>ไม่ลบ</strong> คนที่ไม่อยู่ในไฟล์
+        </p>
+        <input type="file" class="form-control form-control-sm" id="houseCsvFile"
+               accept=".csv,text/csv" />
+      </div>
+    </div>
+    <div id="housePreview"></div>
+  </section>
+</div>
+
+<!-- ---------- Student editor modal ---------- -->
+<div class="modal fade" id="houseStudentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">ข้อมูลนักศึกษา</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <form id="houseStudentForm">
+        <div class="modal-body">
+          <input type="hidden" id="hsId" />
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small" for="hsFirst">ชื่อจริง</label>
+              <input class="form-control form-control-sm" id="hsFirst" required />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsLast">นามสกุล</label>
+              <input class="form-control form-control-sm" id="hsLast" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsNick">ชื่อเล่น</label>
+              <input class="form-control form-control-sm" id="hsNick" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsSid">รหัสนักศึกษา</label>
+              <input class="form-control form-control-sm" id="hsSid" placeholder="653070317-0" />
+            </div>
+            <div class="col-12">
+              <label class="form-label small" for="hsMail">kkumail</label>
+              <input type="email" class="form-control form-control-sm" id="hsMail" required />
+              <div class="form-text">ใช้จับคู่ตอนนักศึกษาเข้าสู่ระบบ — ผิดแล้วเขาจะไม่เห็นข้อมูลตัวเอง</div>
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsMajor">สาขา</label>
+              <input class="form-control form-control-sm" id="hsMajor" placeholder="MD" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsSai">สายรหัส</label>
+              <input class="form-control form-control-sm" id="hsSai" placeholder="017" />
+              <div class="form-text" id="hsHouseHint">&nbsp;</div>
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="hsStatus">สถานภาพ</label>
+              <select class="form-select form-select-sm" id="hsStatus">
+                <option value="active">กำลังศึกษา</option>
+                <option value="leave">ลาพัก</option>
+                <option value="withdrawn">พ้นสภาพ</option>
+                <option value="graduated">สำเร็จการศึกษา</option>
+              </select>
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="hsSaiLocked" />
+                <label class="form-check-label small" for="hsSaiLocked">ล็อกสายรหัส</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger btn-sm me-auto d-none" id="hsDelete">ลบ</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- House editor modal ---------- -->
+<div class="modal fade" id="houseEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="heTitle">แก้ไขบ้าน</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <form id="houseEditForm">
+        <div class="modal-body">
+          <input type="hidden" id="heId" />
+          <div class="mb-2">
+            <label class="form-label small" for="heName">ชื่อบ้าน</label>
+            <input class="form-control form-control-sm" id="heName"
+                   placeholder="ยังไม่ตั้งชื่อ — จะแสดงเป็น “บ้าน N”" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="heSlogan">คำขวัญ</label>
+            <input class="form-control form-control-sm" id="heSlogan" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="heColor">สีประจำบ้าน</label>
+            <input type="color" class="form-control form-control-color form-control-sm" id="heColor" value="#105922" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="heIconFile">โลโก้บ้าน</label>
+            <input type="file" class="form-control form-control-sm" id="heIconFile" accept="image/*" />
+            <div class="mt-2 d-flex align-items-center gap-2">
+              <img id="heIconPreview" alt="" class="d-none"
+                   style="width:64px;height:64px;object-fit:cover;border-radius:12px" />
+              <button type="button" class="btn btn-sm btn-outline-danger d-none" id="heIconClear">ลบโลโก้</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm me-auto" id="heReset">ล้างชื่อ/โลโก้</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Advisor editor modal ---------- -->
+<div class="modal fade" id="houseAdvisorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">อาจารย์ที่ปรึกษา</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <form id="houseAdvisorForm">
+        <div class="modal-body">
+          <input type="hidden" id="haId" />
+          <div class="row g-2">
+            <div class="col-4">
+              <label class="form-label small" for="haTitle">คำนำหน้า</label>
+              <input class="form-control form-control-sm" id="haTitle" placeholder="ผศ." />
+            </div>
+            <div class="col-4">
+              <label class="form-label small" for="haFirst">ชื่อจริง</label>
+              <input class="form-control form-control-sm" id="haFirst" required />
+            </div>
+            <div class="col-4">
+              <label class="form-label small" for="haLast">นามสกุล</label>
+              <input class="form-control form-control-sm" id="haLast" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="haEmail">อีเมล</label>
+              <input type="email" class="form-control form-control-sm" id="haEmail" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small" for="haDept">ภาควิชา</label>
+              <input class="form-control form-control-sm" id="haDept" />
+            </div>
+            <div class="col-12">
+              <label class="form-label small" for="haSais">สายที่ดูแล</label>
+              <input class="form-control form-control-sm" id="haSais"
+                     placeholder="017, 027, 100 — คั่นด้วยจุลภาค" />
+              <div class="form-text">ใส่สายรหัส 3 หลัก คั่นด้วยจุลภาค</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger btn-sm me-auto d-none" id="haDelete">ลบ</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

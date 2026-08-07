@@ -7,6 +7,7 @@
 // ==============================================
 
 import { ADMIN_FEATURES } from './team-vocab.js';
+import { enterHouseWorkspace } from './house/index.js';
 import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
 
@@ -386,6 +387,7 @@ const SECTION_META = {
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
   order:    { pane: 'order',    title: 'ลำดับการแสดงประกาศ', sub: 'จัดเรียงลำดับ ปักหมุดโพสต์เด่น และแก้ไขประกาศ' },
   team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
+  house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
 };
 
@@ -459,6 +461,11 @@ function showAdminSide(which) {
   // SAMO Team: lazy-load the org tree on first entry; idempotent thereafter.
   if (which === 'team') {
     enterTeamWorkspace();
+  }
+
+  // ระบบบ้าน: same lazy-on-entry shape as ทีม SAMO.
+  if (which === 'house') {
+    enterHouseWorkspace();
   }
 
   // Usage analytics: lazy-load the dashboard payload on entry.
@@ -651,6 +658,7 @@ const SIDE_FEATURE = {
   creator:  'creator',
   order:    'creator',   // same gate as เขียนประกาศ — announcement management
   team:     'team',
+  house:    'house',
   analytics: null,       // usage stats — any admin-dashboard user (0102 widened
                          // analytics_overview to current_user_has_any_grant() to match)
 };

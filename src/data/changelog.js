@@ -120,6 +120,7 @@ export const AREAS = {
   shop: { label: 'ร้านค้า SAMO', icon: 'bi-bag' },
   projects: { label: 'หนังสือโครงการ', icon: 'bi-file-earmark-text' },
   team: { label: 'ทีม SAMO', icon: 'bi-diagram-3' },
+  house: { label: 'ระบบบ้าน', icon: 'bi-house-heart' },
   passport: { label: 'SAMO Passport', icon: 'bi-airplane' },
   account: { label: 'บัญชีผู้ใช้', icon: 'bi-person-badge' },
   platform: { label: 'ระบบพื้นฐาน', icon: 'bi-hdd-network' },
@@ -150,6 +151,14 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  {
+    type: 'new',
+    area: 'house',
+    audience: 'public',
+    text: 'เพิ่มระบบบ้าน — เข้าสู่ระบบด้วย kkumail แล้วดูได้เลยว่าตัวเองอยู่สายรหัสไหน '
+      + 'บ้านไหน และใครเป็นอาจารย์ที่ปรึกษาของสาย ดูรายชื่อเพื่อนร่วมบ้านได้ '
+      + 'แก้ชื่อเล่นกับชั้นปีของตัวเองได้ และถ้าสายรหัสไม่ถูกต้องก็แจ้งแก้ไขได้จากหน้าเดียวกัน',
+  },
   {
     type: 'fixed',
     area: 'team',

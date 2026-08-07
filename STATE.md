@@ -44,17 +44,37 @@ DELETE with 204 + zero rows.
   confirmed, replace the 8 native `confirm()` calls in `team/index.js` with an
   app-owned Bootstrap modal. Write-up in `docs/mistakes/frontend-ui.md`.
 
-## IN FLIGHT 2026-08-07 — ระบบบ้าน (House) + student directory, design only
+## SHIPPED 2026-08-07 — ระบบบ้าน (House) + student directory (0116–0118)
 
-No code, no migration yet. `docs/house-data-spec-th.md` is the handover spec for
-the Data Analytics dept (~1,800 students; CSV columns, formatting rules, the
-"send 20 rows first" gate, a self-check list, and a do-NOT-send PII list).
-Design doc for the system itself is the next artifact. Key decided points:
-house = **last digit of สายรหัส** (00–99 → 10 houses, 10 สาย each), house names
-and logos stay hidden until the จับฉลาก on **21–22 พ.ย.**, and สายรหัส is not
-user-editable after a freeze date. Confirm with user: whether สายรหัส is 2- or
-3-digit in the source, and whether it is derivable from รหัสนักศึกษา (if so, it
-should be computed, not imported).
+**Migrations 0116, 0117, 0118 are APPLIED to the live DB.** Proof:
+`node tools/db-query.mjs tools/house0116-authz.sql` (anon DENIED 42501 ·
+no-grant 0 rows · master 2 rows · roster leaks no PII · self-edit allow-list
+holds). Design: `docs/HOUSE-SYSTEM.md`. Handover spec for the Data Analytics
+dept: `docs/house-data-spec-th.md` + `docs/templates/house-import-template.csv`.
+
+- **house = last digit of สายรหัส.** สายรหัส is **3 digits `001`–`100`**,
+  assigned at random by the university's mentor system and **NOT derivable from
+  รหัสนักศึกษา** — nothing may compute or "repair" one. `sais.house_id` is a
+  GENERATED STORED column so the rule has exactly one implementation; JS reads
+  it and only recomputes it for the import preview.
+- Tables: `houses` (10 seeded, UPDATE-only — INSERT/DELETE revoked), `sais`
+  (100 seeded), `advisors` + `sai_advisors`, `students`, `student_change_requests`,
+  `student_import_batches`, `house_settings`.
+- New permission key **`house`**, threaded through PERM_CATALOG, ADMIN_FEATURES,
+  PERM_SECTION, SECTION_META, SIDE_FEATURE, the sidebar and RLS on all 8 tables.
+- **NOTHING is gated on a date.** สายรหัส self-edit is an admin switch
+  (`sai_self_edit_open`, default ON, one change per student, `sai_locked`
+  overrides). No reveal flag either — an unnamed house IS the un-revealed state
+  and renders as "บ้าน N".
+- ปีที่เข้า is derived from รหัสนักศึกษา (`cohort_from_student_id`), so the CSV
+  asks for **7 columns only** — no ชั้นปี, no ปีที่เข้า, no สถานะ.
+- Import refuses (does not warn) on mixed สาย widths — the Excel leading-zero
+  failure that would put ~180 students in wrong houses invisibly. Never deletes
+  rows absent from the file; stamps `missing_since`.
+- Runs with **zero data**: admin ภาพรวม says so, students get no card.
+
+**Open**: waiting on the ~1,800-row file from Data Analytics (20-row sample
+first). อาจารย์-per-สาย file comes later; that CRUD is already built.
 
 ## SHIPPED 2026-08-07 — หนังสือโครงการ publish control (0114) + settings leak closed (0115)
 

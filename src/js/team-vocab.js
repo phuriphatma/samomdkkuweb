@@ -28,6 +28,11 @@ export const PERM_CATALOG = [
   { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)',
     hint: 'แก้ไขโครงสร้าง สมาชิก และสิทธิ์ของทุกคน' },
   { key: 'passport',  label: 'SAMO Passport' },
+  // Migration 0116. ONE rung on purpose — there is no house_edit yet. The
+  // obvious second audience (an อาจารย์ seeing only their own สาย) is a SCOPE,
+  // not a rung, and อาจารย์ have no login today.
+  { key: 'house',     label: 'ระบบบ้าน',
+    hint: 'จัดการบ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษาทั้งคณะ' },
   { key: 'master',    label: 'ทุกระบบ (Master)',
     hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
     danger: true },
@@ -132,4 +137,4 @@ export const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s
 // whole point: they can open ทีม SAMO and look. `team_edit` is listed too so a
 // hypothetical editor who somehow lacks the view rung is not locked out; the
 // list is OR-ed, so naming both costs nothing and cannot fail closed.
-export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit'];
+export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house'];

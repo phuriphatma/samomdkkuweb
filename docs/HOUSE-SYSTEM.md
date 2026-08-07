@@ -1,7 +1,13 @@
 # ระบบบ้าน (House) + student directory — design
 
-**Status: DESIGN ONLY.** No schema, no code, no migration yet.
+**Status: SHIPPED** (migrations 0116–0118 applied; admin + student UI live).
 Handover spec for the Data Analytics dept: `docs/house-data-spec-th.md`.
+Authorization proof: `node tools/db-query.mjs tools/house0116-authz.sql`.
+
+Runs with **zero data**: until the ~1,800-row import lands, the admin ภาพรวม
+says so plainly and no student gets a card. Nothing is gated on a date — the
+สายรหัส self-edit is an admin switch (default ON), and a house with no name
+simply renders as "บ้าน N".
 
 ---
 

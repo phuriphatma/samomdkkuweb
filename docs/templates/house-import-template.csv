@@ -1,6 +1,6 @@
-student_id,first_name_th,last_name_th,nickname_th,kkumail,major,sai,cohort_year,status
-653070317-0,ภูริพัฒน์,มาตรา,โอ๊ต,phuriphat.ma@kkumail.com,MD,017,2565,กำลังศึกษา
-663070019-9,ชญาภา,ลิ้มสุวรรณ,ใบเตย,chayapa.l@kkumail.com,MD,019,2566,กำลังศึกษา
-673070332-6,จิรายุทธ,โยชน์เมืองไพร,ตูน,jirayut.y@kkumail.com,MD,032,2567,กำลังศึกษา
-683070001-4,ณัฐวุฒิ,ศรีสมบัติ,,natthawut.s@kkumail.com,MD,001,2568,กำลังศึกษา
-653070100-2,ปรียานุช,ณ อยุธยา,มายด์,preeyanut.n@kkumail.com,MDI,100,2565,ลาพัก
+student_id,first_name_th,last_name_th,nickname_th,kkumail,major,sai
+653070317-0,ภูริพัฒน์,มาตรา,โอ๊ต,phuriphat.ma@kkumail.com,MD,017
+663070019-9,ชญาภา,ลิ้มสุวรรณ,ใบเตย,chayapa.l@kkumail.com,MD,003
+673070332-6,จิรายุทธ,โยชน์เมืองไพร,ตูน,jirayut.y@kkumail.com,MD,032
+683070001-4,ณัฐวุฒิ,ศรีสมบัติ,,natthawut.s@kkumail.com,MD,001
+653070100-2,ปรียานุช,ณ อยุธยา,มายด์,preeyanut.n@kkumail.com,MDI,100

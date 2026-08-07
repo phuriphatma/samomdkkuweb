@@ -32,6 +32,7 @@ import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache } from './my-seat.js';
+import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
 // The one list of "which grants open /admin/". Shared with admin-main.js
 // canUseAdmin() so the navbar link and the door it opens cannot drift.
 import { ADMIN_FEATURES } from './team-vocab.js';
@@ -789,6 +790,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       clearMySeatCache();
       renderMySeat(seatHost, null);
+    }
+
+    // บ้านของฉัน — same shape and same lifecycle as the ตำแหน่งของฉัน card above.
+    // A student who is not in the students table yet simply has no card, which
+    // is every account until the ~1,800-row import lands.
+    const houseHost = document.getElementById('homeMyHouse');
+    if (user) {
+      showMyHouse(houseHost, user.id);
+    } else {
+      clearMyHouseCache();
+      renderMyHouse(houseHost, null);
     }
 
     // PR form auth wrapper: hide whenever the user is signed in (the global

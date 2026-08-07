@@ -100,6 +100,7 @@ const chips = (keys) => (keys || [])
 export const PERM_SECTION = {
   pr: 'pr', vs: 'vs', samoshop: 'shop', projects: 'projects',
   creator: 'creator', team: 'team', team_edit: 'team',
+  house: 'house',
 };
 
 /** Where — if anywhere — this person's grants actually let them go.

@@ -53,15 +53,38 @@ function deleteSites() {
         if (/^export\s/.test(lines[j])) break;
         after.push(lines[j]);
       }
+      // Look BACK to the top of the enclosing function, for the same reason:
+      // `prefer` sometimes precedes `method`, and an exemption marker is written
+      // as a comment above the call. Bounded by the preceding top-level `export`
+      // so the PREVIOUS function's guard can never satisfy this one.
+      const before = [];
+      for (let j = i; j >= 0 && i - j < 20; j -= 1) {
+        before.unshift(lines[j]);
+        if (/^export\s/.test(lines[j])) break;
+      }
       sites.push({
         file: file.slice(SRC.length),
         line: i + 1,
-        // Look BACK a little too: `prefer` sometimes precedes `method`.
-        window: [...lines.slice(Math.max(0, i - 4), i + 1), ...after].join('\n'),
+        window: [...before, ...after].join('\n'),
       });
     });
   }
   return sites;
+}
+
+/**
+ * The only two ways a DELETE may skip the guard, both requiring a written reason
+ * at the call site:
+ *   • `.catch(() => {})` — a best-effort rollback (shop_orders api.js:448/452),
+ *     deliberately fire-and-forget so a failed rollback cannot mask the real
+ *     error being thrown.
+ *   • an explicit `delete-guard:allow-empty` marker — a delete for which zero
+ *     rows is a legitimate outcome (clearing links that may not exist yet).
+ * Anything else must guard.
+ */
+function exempt(site) {
+  return /\.catch\(\(\) => \{\}\)/.test(site.window)
+    || /delete-guard:allow-empty/.test(site.window);
 }
 
 describe('every DELETE can distinguish an RLS block from a real delete', () => {
@@ -76,11 +99,7 @@ describe('every DELETE can distinguish an RLS block from a real delete', () => {
   it.each(sites.map((s) => [`${s.file}:${s.line}`, s]))(
     '%s asks for the deleted rows back',
     (_label, site) => {
-      // The two shop_orders deletes at api.js:448/452 are a best-effort rollback
-      // of an order header whose items failed to insert — deliberately
-      // fire-and-forget (`.catch(() => {})`) so a failed rollback cannot mask the
-      // real error being thrown. They are the ONE documented exception.
-      if (/\.catch\(\(\) => \{\}\)/.test(site.window)) return;
+      if (exempt(site)) return;
       expect(site.window).toContain("prefer: 'return=representation'");
     },
   );
@@ -88,7 +107,7 @@ describe('every DELETE can distinguish an RLS block from a real delete', () => {
   it.each(sites.map((s) => [`${s.file}:${s.line}`, s]))(
     '%s treats zero deleted rows as a failure',
     (_label, site) => {
-      if (/\.catch\(\(\) => \{\}\)/.test(site.window)) return;
+      if (exempt(site)) return;
       // Either shape is fine: `data.length === 0` / `!data.length`, thrown or
       // surfaced to the user. What must NOT exist is a delete that only looks
       // at `error`.

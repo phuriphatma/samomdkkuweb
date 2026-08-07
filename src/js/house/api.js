@@ -1,0 +1,270 @@
+// ==============================================
+// HOUSE API — every read/write for ระบบบ้าน, on dbRest.
+//
+// Two rules this file exists to hold:
+//
+// 1. EVERY DELETE asks for the deleted rows back and refuses to report success
+//    on an empty array. PostgREST answers an RLS-blocked DELETE with 204 and
+//    zero rows, NOT an error — the bug that made "ลบสมาชิกไม่ได้" invisible in
+//    ทีม SAMO. `src/js/delete-guard.test.js` sweeps this file too.
+//
+// 2. `sais.house_id` is NEVER written and never computed here. It is a GENERATED
+//    STORED column (migration 0116) and the database is the sole authority for
+//    the house rule. houseOf() in ./fields.js exists only for the import preview.
+// ==============================================
+import { dbRest } from '../db.js';
+
+const fail = (error, msg) => { throw new Error(error?.message || msg); };
+
+// ---- settings ----
+export async function fetchSettings() {
+  const { data, error } = await dbRest('/house_settings?select=*&limit=1');
+  if (error) fail(error, 'โหลดการตั้งค่าไม่สำเร็จ');
+  return (data && data[0]) || null;
+}
+
+export async function updateSettings(patch) {
+  const { data, error } = await dbRest('/house_settings?id=eq.true', {
+    method: 'PATCH', body: patch, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'บันทึกการตั้งค่าไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกการตั้งค่าไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+// ---- houses ----
+export async function fetchHouses() {
+  const { data, error } = await dbRest('/houses?select=*&order=id.asc');
+  if (error) fail(error, 'โหลดข้อมูลบ้านไม่สำเร็จ');
+  return data || [];
+}
+
+/** Houses are UPDATE-only by design — the ten rows are seeded and the set is
+ *  fixed by the rule (one house per digit). There is no createHouse and no
+ *  deleteHouse, and the migration revokes INSERT/DELETE so a stray call fails
+ *  at the database rather than half-working. */
+export async function updateHouse(id, patch) {
+  const { data, error } = await dbRest(`/houses?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: patch, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'บันทึกบ้านไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกบ้านไม่สำเร็จ — ไม่พบบ้านนี้ หรือคุณไม่มีสิทธิ์แก้ไข');
+  }
+  return data[0];
+}
+
+// ---- สายรหัส ----
+export async function fetchSais() {
+  const { data, error } = await dbRest('/sais?select=code,house_id,label,note&order=code.asc');
+  if (error) fail(error, 'โหลดสายรหัสไม่สำเร็จ');
+  return data || [];
+}
+
+// ---- advisors ----
+export async function fetchAdvisors() {
+  const { data, error } = await dbRest(
+    '/advisors?select=*,sai_advisors(sai_code,role,position)&order=full_name.asc');
+  if (error) fail(error, 'โหลดรายชื่ออาจารย์ไม่สำเร็จ');
+  return data || [];
+}
+
+export async function createAdvisor(row) {
+  const { data, error } = await dbRest('/advisors', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'เพิ่มอาจารย์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เพิ่มอาจารย์ไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function updateAdvisor(id, patch) {
+  const { data, error } = await dbRest(`/advisors?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: patch, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'บันทึกอาจารย์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกอาจารย์ไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function deleteAdvisor(id) {
+  const { data, error } = await dbRest(`/advisors?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE', prefer: 'return=representation',
+  });
+  if (error) fail(error, 'ลบอาจารย์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบอาจารย์ไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
+}
+
+/** Replace an advisor's สาย assignments wholesale. Delete-then-insert rather
+ *  than a diff: the set is at most a handful of rows, and a diff would be more
+ *  code with more ways to leave a stale link behind. */
+export async function setAdvisorSais(advisorId, saiCodes) {
+  const id = encodeURIComponent(advisorId);
+  // delete-guard:allow-empty — clearing the links of an advisor who has none
+  // yet legitimately deletes zero rows, so this delete must NOT throw on an
+  // empty result. Every OTHER delete in this file must. The marker is what
+  // exempts it in delete-guard.test.js; do not add it without a reason like
+  // this one.
+  const { error: delErr } = await dbRest(`/sai_advisors?advisor_id=eq.${id}`, {
+    method: 'DELETE', prefer: 'return=representation',
+  });
+  if (delErr) fail(delErr, 'อัปเดตสายของอาจารย์ไม่สำเร็จ');
+  if (!saiCodes.length) return;
+  const { error } = await dbRest('/sai_advisors', {
+    method: 'POST',
+    body: saiCodes.map((code, i) => ({ sai_code: code, advisor_id: advisorId, position: i })),
+    prefer: 'return=representation',
+  });
+  if (error) fail(error, 'อัปเดตสายของอาจารย์ไม่สำเร็จ');
+}
+
+// ---- students ----
+const STUDENT_COLS = [
+  'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',
+  'nickname', 'nickname_imported', 'nickname_self', 'major', 'sai_code',
+  'cohort_year', 'status', 'photo_url', 'bio', 'year_override', 'is_listed',
+  'verified_at', 'sai_locked', 'sai_self_edits', 'missing_since', 'updated_at',
+].join(',');
+
+export async function fetchStudents() {
+  // Paged: PostgREST caps a response and ~1,800 rows is comfortably over the
+  // default limit on some deployments. Asking explicitly is cheaper than
+  // discovering a silently truncated roster.
+  const out = [];
+  const page = 1000;
+  for (let from = 0; ; from += page) {
+    const { data, error } = await dbRest(
+      `/students?select=${STUDENT_COLS}&order=sai_code.asc,full_name.asc`,
+      { headers: { Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
+    if (error) fail(error, 'โหลดรายชื่อนักศึกษาไม่สำเร็จ');
+    const rows = data || [];
+    out.push(...rows);
+    if (rows.length < page) break;
+  }
+  return out;
+}
+
+export async function createStudent(row) {
+  const { data, error } = await dbRest('/students', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'เพิ่มนักศึกษาไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เพิ่มนักศึกษาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function updateStudent(id, patch) {
+  const { data, error } = await dbRest(`/students?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: patch, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'บันทึกนักศึกษาไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกนักศึกษาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function deleteStudent(id) {
+  const { data, error } = await dbRest(`/students?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE', prefer: 'return=representation',
+  });
+  if (error) fail(error, 'ลบนักศึกษาไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบนักศึกษาไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
+}
+
+/**
+ * Upsert a chunk of imported rows on kkumail.
+ *
+ * `merge-duplicates` + the kkumail unique index means a re-import UPDATES rather
+ * than duplicating. The body must only ever carry IMPORT-OWNED columns — never
+ * nickname_self / photo_url / bio / year_override / is_listed, which belong to
+ * the student. Enforced by the caller building the payload, and by
+ * `house-import.test.js` asserting the key set.
+ */
+export async function upsertStudents(rows) {
+  const { data, error } = await dbRest('/students?on_conflict=kkumail', {
+    method: 'POST',
+    body: rows,
+    prefer: 'resolution=merge-duplicates,return=representation',
+  });
+  if (error) fail(error, 'นำเข้าข้อมูลไม่สำเร็จ');
+  return data || [];
+}
+
+export async function createImportBatch(row) {
+  const { data, error } = await dbRest('/student_import_batches', {
+    method: 'POST', body: row, prefer: 'return=representation',
+  });
+  if (error) fail(error, 'บันทึกประวัติการนำเข้าไม่สำเร็จ');
+  return (data && data[0]) || null;
+}
+
+// ---- change requests ----
+export async function fetchRequests() {
+  const { data, error } = await dbRest(
+    '/student_change_requests?select=*,students(full_name,kkumail,sai_code)'
+    + '&order=status.asc,created_at.desc');
+  if (error) fail(error, 'โหลดคำขอแก้ไขไม่สำเร็จ');
+  return data || [];
+}
+
+export async function decideRequest(id, status, note, userId) {
+  const { data, error } = await dbRest(
+    `/student_change_requests?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { status, decision_note: note || null, decided_by: userId || null, decided_at: new Date().toISOString() },
+      prefer: 'return=representation',
+    });
+  if (error) fail(error, 'บันทึกผลคำขอไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกผลคำขอไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+// ---- the signed-in student's own record (public side) ----
+export async function fetchMyStudentRecord() {
+  const { data, error } = await dbRest('/rpc/get_my_student_record', { method: 'POST', body: {} });
+  if (error) throw new Error(error.message || 'โหลดข้อมูลไม่สำเร็จ');
+  return data || null;
+}
+
+export async function saveMyStudentRecord(patch) {
+  const { data, error } = await dbRest('/rpc/update_my_student_record', {
+    method: 'POST', body: { p_patch: patch },
+  });
+  if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
+  return data || null;
+}
+
+/** File a correction request for the CALLER's own record. The RPC resolves the
+ *  student from auth.uid(), so there is no id to pass and no way to file one on
+ *  someone else's behalf. */
+export async function requestMyChange(field, requested, reason) {
+  const { data, error } = await dbRest('/rpc/request_my_change', {
+    method: 'POST',
+    body: { p_field: field, p_requested: requested, p_reason: reason || null },
+  });
+  if (error) throw new Error(error.message || 'ส่งคำขอไม่สำเร็จ');
+  return data || null;
+}
+
+export async function fetchHouseRoster(houseId) {
+  const { data, error } = await dbRest('/rpc/get_house_roster', {
+    method: 'POST', body: { p_house: houseId },
+  });
+  if (error) throw new Error(error.message || 'โหลดรายชื่อบ้านไม่สำเร็จ');
+  return data || [];
+}
