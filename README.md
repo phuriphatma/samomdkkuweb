@@ -91,7 +91,11 @@ Both Cloudflare projects hit the same Supabase backend.
   shared in one tap. **Customer mirror** at `/projects-view` exposes the
   same surface read-only to anonymous visitors (gated by migration 0032);
   reuses the admin renderers via `role='customer'` so admin UI changes
-  flow through without drift. **Professor signing (migration 0050).** The
+  flow through without drift. The sender picks what that mirror shows:
+  a ซ่อน/แสดง toggle per โครงการ and per หนังสือ, enforced in RLS
+  (migration 0114), defaulting to shown. Hiding a โครงการ hides every
+  หนังสือ and file under it; signed-in staff keep seeing everything.
+  **Professor signing (migration 0050).** The
   university officer can send a chosen subset of a หนังสือ's files to a
   professor (`saprof` seat) who signs them — either in-browser (draw a
   signature and place it on the PDF) or by uploading an externally-signed

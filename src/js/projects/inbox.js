@@ -99,6 +99,19 @@ let scrollDocId = null;
 
 // ---------- helpers: next-actor / "is mine" ----------
 
+/** Is this โครงการ / หนังสือ published to the public mirror? (0114)
+ *
+ *  Single reader of the flag so the SQL default (`true`) has exactly one
+ *  mirror in JS: a row that predates the column, or a payload that didn't
+ *  select it, reads as SHOWN — the behaviour the public site had before
+ *  the flag existed. Note this is a LABEL, not a gate: what the public can
+ *  actually read is decided by RLS (projects_read_public /
+ *  project_documents_read_public / project_files_read_public), so a hidden
+ *  row never reaches the customer bundle at all. */
+export function isShownPublicly(row) {
+  return row?.is_public !== false;
+}
+
 function nextOwner(doc) {
   switch (doc.status) {
     case 'sent':        return 'uni_staff';
@@ -107,12 +120,6 @@ function nextOwner(doc) {
     case 'returned':    return 'vp_admin';
     default:            return null;
   }
-}
-
-function ownerLabel(role, settings) {
-  if (role === 'uni_staff') return settings?.uni_label || 'เจ้าหน้าที่';
-  if (role === 'vp_admin')  return settings?.vp_label  || 'SAMO';
-  return '—';
 }
 
 /** Does this หนังสือ carry a PENDING signing request addressed to the
@@ -699,6 +706,9 @@ function renderProjectListRow(p) {
   if (unseenDocs > 0) {
     badges.push(`<span class="projects-list-badge is-comment" title="มีอัปเดตที่ยังไม่ได้เปิดดู">${unseenDocs} อัปเดต</span>`);
   }
+  if (!isShownPublicly(p)) {
+    badges.push(`<span class="projects-list-badge is-hidden" title="ไม่แสดงบนเว็บสาธารณะ"><i class="bi bi-eye-slash-fill me-1"></i>ซ่อน</span>`);
+  }
   const badge = badges.join(' ');
 
   return `
@@ -755,6 +765,11 @@ function renderProjectCard(p) {
       <i class="bi bi-bell"></i> ${unseenDocs} อัปเดต
     </span>`);
   }
+  if (!isShownPublicly(p)) {
+    parts.push(`<span class="projects-card-attn-badge is-hidden" title="ไม่แสดงบนเว็บสาธารณะ">
+      <i class="bi bi-eye-slash-fill"></i> ซ่อน
+    </span>`);
+  }
   const badge = parts.join(' ');
 
   return `
@@ -790,6 +805,11 @@ function renderDetail() {
     .sort((a, b) => new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
   const role = cache.role;
   const canManage = role === 'vp_admin' || role === 'dev';
+  // Public-mirror visibility (0114). `is_public` defaults to true, so a row
+  // written before the column existed reads as shown — matching what the
+  // public site did before this feature.
+  const projShown = isShownPublicly(project);
+  const hiddenDocs = docs.filter((d) => !isShownPublicly(d)).length;
 
   root.innerHTML = `
     <header class="projects-detail-head">
@@ -806,10 +826,27 @@ function renderDetail() {
       ${project.description ? `<p class="projects-detail-desc">${escHtml(project.description)}</p>` : ''}
       <div class="projects-detail-meta">
         <span class="text-muted small">หนังสือทั้งหมด ${docs.length} ฉบับ</span>
+        ${!projShown
+          ? `<span class="projects-hidden-pill" title="โครงการนี้ไม่แสดงบนเว็บสาธารณะ"><i class="bi bi-eye-slash-fill me-1"></i>ซ่อนจากเว็บสาธารณะ</span>`
+          : ''}
+        ${projShown && hiddenDocs > 0
+          ? `<span class="projects-hidden-pill is-partial" title="หนังสือบางฉบับถูกซ่อนจากเว็บสาธารณะ"><i class="bi bi-eye-slash me-1"></i>ซ่อน ${hiddenDocs} ฉบับ</span>`
+          : ''}
       </div>
+      ${!projShown ? `
+        <div class="projects-hidden-note">
+          <i class="bi bi-info-circle me-1"></i>
+          ขณะนี้ทั้งโครงการและหนังสือทุกฉบับในนี้ไม่ปรากฏบนเว็บสาธารณะ —
+          เจ้าหน้าที่ที่ล็อกอินยังเห็นตามปกติ
+        </div>` : ''}
       <div class="projects-detail-actions">
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
           <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
+        </button>` : ''}
+        ${canManage ? `<button type="button" class="btn btn-sm ${projShown ? 'btn-ghost' : 'btn-warning-soft'}"
+          data-projects-toggle-public="${escHtml(project.id)}" data-next="${projShown ? '0' : '1'}"
+          title="${projShown ? 'ซ่อนโครงการนี้จากเว็บสาธารณะ' : 'แสดงโครงการนี้บนเว็บสาธารณะ'}">
+          <i class="bi bi-${projShown ? 'eye-slash' : 'eye'} me-1"></i> ${projShown ? 'ซ่อนจากเว็บ' : 'แสดงบนเว็บ'}
         </button>` : ''}
         ${canManage ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-edit-project="${escHtml(project.id)}" title="แก้ไขชื่อ / รายละเอียดโครงการ">
           <i class="bi bi-pencil me-1"></i> แก้ไขโครงการ
@@ -890,6 +927,13 @@ function renderDocCard(doc, project) {
           <div class="projects-doc-card-sub">
             <span class="projects-type-pill">${escHtml(type?.label_th || doc.type_id)}</span>
             <span class="projects-cell-mono d-none d-md-inline">${escHtml(doc.id)}</span>
+            ${!isShownPublicly(doc)
+              ? `<span class="projects-hidden-pill" title="หนังสือฉบับนี้ไม่แสดงบนเว็บสาธารณะ"><i class="bi bi-eye-slash-fill me-1"></i>ซ่อน</span>`
+              : !isShownPublicly(project)
+              // Its own flag says "show", but the โครงการ above it is hidden —
+              // say so on the row, or the list reads as if this one is live.
+              ? `<span class="projects-hidden-pill is-partial" title="โครงการนี้ถูกซ่อน หนังสือฉบับนี้จึงไม่แสดงบนเว็บสาธารณะ"><i class="bi bi-eye-slash me-1"></i>ไม่แสดง (ทั้งโครงการถูกซ่อน)</span>`
+              : ''}
           </div>
         </div>
         ${updateBadge}
@@ -994,6 +1038,21 @@ function renderDocExpand(doc, project) {
       ${(isVp || isUni || isProf) ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-comment data-doc-id="${escHtml(doc.id)}"><i class="bi bi-chat-left-text me-1"></i>คอมเมนต์</button>` : ''}
       ${isUni ? `<button type="button" class="btn btn-sm btn-teal-soft" data-projects-send-sign data-doc-id="${escHtml(doc.id)}"><i class="bi bi-pen me-1"></i>ส่งให้อาจารย์ลงนาม</button>` : ''}
       ${revertMenu}
+      ${isVp ? (() => {
+        // Public-mirror visibility for this ONE หนังสือ (0114). While the
+        // parent โครงการ is hidden nothing here is public whatever this says,
+        // so the button explains that instead of pretending to publish.
+        const docShown  = isShownPublicly(doc);
+        const projShown = isShownPublicly(project);
+        const title = !projShown
+          ? 'โครงการนี้ถูกซ่อนอยู่ — หนังสือทุกฉบับจึงไม่แสดงบนเว็บสาธารณะ'
+          : (docShown ? 'ซ่อนหนังสือฉบับนี้จากเว็บสาธารณะ' : 'แสดงหนังสือฉบับนี้บนเว็บสาธารณะ');
+        return `<button type="button" class="btn btn-sm ${docShown ? 'btn-ghost' : 'btn-warning-soft'}"
+          data-projects-doc-public data-doc-id="${escHtml(doc.id)}" data-next="${docShown ? '0' : '1'}"
+          title="${escHtml(title)}">
+          <i class="bi bi-${docShown ? 'eye-slash' : 'eye'} me-1"></i>${docShown ? 'ซ่อนจากเว็บ' : 'แสดงบนเว็บ'}
+        </button>`;
+      })() : ''}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-doc-edit data-doc-id="${escHtml(doc.id)}" title="แก้ไขชื่อ / โน้ตหนังสือ"><i class="bi bi-pencil me-1"></i>แก้ไข</button>` : ''}
       ${isVp ? `<button type="button" class="btn btn-sm btn-ghost text-danger ms-auto" data-projects-doc-delete data-doc-id="${escHtml(doc.id)}"><i class="bi bi-trash me-1"></i>ลบ</button>` : ''}
     </div>
@@ -1694,6 +1753,11 @@ function onInboxClick(e) {
     onEditProject(editProj.dataset.projectsEditProject);
     return;
   }
+  const pubProj = e.target.closest('[data-projects-toggle-public]');
+  if (pubProj) {
+    onToggleProjectPublic(pubProj);
+    return;
+  }
 
   // Doc actions
   const statusBtn = e.target.closest('[data-projects-doc-status]');
@@ -1708,6 +1772,8 @@ function onInboxClick(e) {
   if (delBtn) { onDocDeleteClick(delBtn); return; }
   const editDocBtn = e.target.closest('[data-projects-doc-edit]');
   if (editDocBtn) { onDocEditClick(editDocBtn); return; }
+  const pubDocBtn = e.target.closest('[data-projects-doc-public]');
+  if (pubDocBtn) { onDocTogglePublicClick(pubDocBtn); return; }
   const delFileBtn = e.target.closest('[data-projects-delete-file]');
   if (delFileBtn) {
     const docId = delFileBtn.closest('[data-projects-files-for]')?.dataset.projectsFilesFor;
@@ -1789,6 +1855,53 @@ async function onEditProject(projectId) {
     }
   } catch (e) {
     alert(e.message || 'แก้ไขโครงการไม่สำเร็จ');
+  }
+}
+
+/** Show / hide one โครงการ on the public /projects-view mirror (0114).
+ *  Hiding takes every หนังสือ and file under it off the public site too, so
+ *  it asks first; showing is the reversal and does not. */
+async function onToggleProjectPublic(btn) {
+  const projectId = btn.dataset.projectsTogglePublic;
+  const next = btn.dataset.next === '1';
+  const p = cache.projects.find((x) => x.id === projectId);
+  if (!p) return;
+  if (!next) {
+    const docCount = (p.documents || []).length;
+    const ok = await openProjectConfirm({
+      title: 'ซ่อนโครงการนี้จากเว็บสาธารณะ?',
+      body: `"${p.name}" และหนังสือทั้งหมด ${docCount} ฉบับในโครงการนี้จะไม่ปรากฏบนเว็บสาธารณะ `
+          + 'เจ้าหน้าที่ที่ล็อกอินยังเห็นและทำงานได้ตามปกติ — เปิดกลับได้ทุกเมื่อ',
+      okLabel: 'ซ่อนจากเว็บ',
+    });
+    if (!ok) return;
+  }
+  btn.disabled = true;
+  try {
+    await updateProject(projectId, { is_public: next });
+    onChanged();
+  } catch (e) {
+    alert(e.message || 'เปลี่ยนการแสดงผลไม่สำเร็จ');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/** Show / hide ONE หนังสือ. No confirm — it is one row, instantly reversible,
+ *  and the button label already says which direction it goes. */
+async function onDocTogglePublicClick(btn) {
+  const docId = btn.dataset.docId;
+  const next  = btn.dataset.next === '1';
+  const found = findDocById(docId);
+  if (!found) return;
+  btn.disabled = true;
+  try {
+    await updateDocument(docId, { is_public: next });
+    onChanged();
+  } catch (e) {
+    alert(e.message || 'เปลี่ยนการแสดงผลไม่สำเร็จ');
+  } finally {
+    btn.disabled = false;
   }
 }
 

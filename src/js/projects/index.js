@@ -440,14 +440,17 @@ export async function mountCustomerProjects() {
 
   // Initial data load — same path as the admin entry, just with
   // currentRole hardcoded to 'customer'. listMyDocViews is skipped
-  // because there's no user.id.
+  // because there's no user.id, and project_settings is NOT fetched:
+  // since 0115 it is staff-only (it carries the officer's real email).
+  // Nothing on this path consumed it — the only reader was inbox.js's
+  // ownerLabel(), which had zero call sites AND read `uni_label` /
+  // `vp_label`, keys that do not exist on that row. Both are gone now.
   try {
-    const [projects, docTypes, settings] = await Promise.all([
+    const [projects, docTypes] = await Promise.all([
       listProjects().catch(() => []),
       listDocTypes({ activeOnly: false }).catch(() => []),
-      getSettings().catch(() => null),
     ]);
-    cache = { projects: projects || [], docTypes: docTypes || [], settings };
+    cache = { projects: projects || [], docTypes: docTypes || [], settings: null };
     renderInbox({
       projects: cache.projects, docTypes: cache.docTypes,
       settings: cache.settings, role: currentRole,

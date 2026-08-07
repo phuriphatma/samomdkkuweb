@@ -107,7 +107,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
 ### `docs/mistakes/authz-rls.md` — RLS policies, SECURITY DEFINER & read paths
-*Open when:* any policy, `current_user_*` helper, or definer RPC. *(20 entries)*
+*Open when:* any policy, `current_user_*` helper, or definer RPC. *(21 entries)*
 
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
@@ -129,6 +129,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `revoke all ... from public` does NOT remove an explicit grant to `anon`
 - Moving a read behind an identity-gated RPC breaks every caller that has NO identity
 - `revoke ... from public` leaves the grant that the schema's DEFAULT PRIVILEGES gave `authenticated`
+- An anon-readable settings table published a staff member's real email
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
 *Open when:* adding an access channel, a scope, or a seat. *(11 entries)*

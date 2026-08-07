@@ -317,6 +317,9 @@
 .projects-tab .projects-list-badge.is-new    { background: var(--p-warn); color: #fff; }
 .projects-tab .projects-list-badge.is-return { background: var(--p-danger); color: #fff; }
 .projects-tab .projects-list-badge.is-comment { background: #3b82f6; color: #fff; }
+/* "ซ่อนจากเว็บสาธารณะ" (0114). Deliberately neutral, not an alarm colour —
+   hiding a โครงการ is a normal editorial choice, not a problem to fix. */
+.projects-tab .projects-list-badge.is-hidden { background: #64748b; color: #fff; }
 .projects-tab .projects-list-count {
   color: var(--p-muted);
   font-size: 0.82rem;
@@ -416,6 +419,45 @@
   background: #3b82f6;
   color: #fff;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.28);
+}
+.projects-tab .projects-card-attn-badge.is-hidden {
+  background: #64748b;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
+}
+
+/* ---- Public-mirror visibility (0114) ----
+   Shown only to staff: the customer bundle never receives a hidden row,
+   so these never render on the public site. */
+.projects-tab .projects-hidden-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #e2e8f0;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+.projects-tab .projects-hidden-pill.is-partial {
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+}
+.projects-tab .projects-hidden-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 @keyframes projects-pulse-warn {
   0%, 100% { transform: scale(1); }

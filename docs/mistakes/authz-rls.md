@@ -789,3 +789,36 @@ function that must not be publicly callable, assert the ACL in a proof script �
 this one shipped wrong on the first apply and only the catalog query caught it.
 
 ---
+
+## An anon-readable settings table published a staff member's real email — the row was opened for two display labels the renderer never read
+
+**Symptom** (found by sweeping, not reported): probing every anon-reachable read
+path of หนังสือโครงการ while building 0114 returned the receiving officer's real
+`@kku.ac.th` address from `project_settings` — one `select` away for any visitor,
+on the same API the public mirror uses.
+**Cause**: 0032 gave the table `for select to anon, authenticated using (true)`
+so the customer view could show "เจ้าหน้าที่"/"SAMO" name pills, and left a
+comment saying a column-select policy or a public view should follow if the
+email turned out to be sensitive. The follow-up never came — and the labels were
+never actually consumed: the only reader, `ownerLabel()` in `inbox.js`, had ZERO
+call sites — and read `settings.uni_label` / `settings.vp_label`, which are not
+columns on that row (they are `uni_staff_label` / `vp_admin_label`). So even if
+it had been called it would have shown its hardcoded defaults. A whole row of
+config was published to buy nothing. The mismatch was invisible because `?.` +
+`||` makes a wrong key look exactly like an unset value.
+**Fix**: 0115 drops `project_settings_read_public`; the actor+prof policy
+`project_settings_read` is what every staff caller already used.
+`mountCustomerProjects()` no longer fetches the row at all (it renders with
+`settings: null`, which the renderer already handled). Verified both
+directions in one transaction: anon reads 0 settings rows while still reading
+24 published projects (the control that proves the probe works), vp_admin and
+sa_prof read 1 each.
+**Where it lives now**: `supabase/migrations/0115_project_settings_not_public.sql`,
+`src/js/projects/index.js` mountCustomerProjects; dead `ownerLabel()` deleted.
+**Rule**: a public SELECT policy publishes the ROW, so the justification has to
+be worth the whole row — and check that the justification is even real. When a
+consumer reads config through optional chaining with a fallback, a typo'd key is
+indistinguishable from "not configured", so the exposure can outlive the reason
+for it by a year. Grep the consumer for the exact column names before you widen
+a policy for it. Second instance of "publishing a table-backed directory must be
+a PROJECTION, never a public SELECT policy", above.

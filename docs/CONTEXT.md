@@ -320,18 +320,46 @@ needs two-way writes); only vp_admin/dev can INSERT projects/documents
 or DELETE. Notifications are scoped to `user_id = auth.uid()` for
 read/update. `project_settings` write is vp_admin/dev only.
 
-**Customer-mirror addendum (migration 0032).** Five tables —
-`projects`, `project_documents`, `project_files`,
-`project_doc_types`, `project_settings` — additionally carry a
+**Customer-mirror addendum (migration 0032, narrowed by 0114 + 0115).**
+Four tables — `projects`, `project_documents`, `project_files`,
+`project_doc_types` — additionally carry a
 `*_read_public` policy `for select to anon, authenticated using (true)`
 so the public `/projects-view` read-only mirror works for anonymous
 visitors. Policies OR-combine so the actor-gated `*_read` policies
 keep working for signed-in staff. Writes are untouched — still
 gated to vp_admin / uni_staff. `project_notifications` and
 `project_doc_views` are intentionally NOT publicised (they're per-
-user state). Customer mode in the JS module skips notification
+user state), and **`project_settings` is no longer public either
+(0115)** — its row carries the officer's real `uni_staff_email`, and
+the labels it was opened for were read by a function with no call
+sites and the wrong column names. `mountCustomerProjects()` does not
+fetch it. Customer mode in the JS module skips notification
 mounts and no-ops `markDocSeen` so anonymous viewers never need
 identity-keyed state.
+
+**Per-row publish control (migration 0114).** `projects.is_public` and
+`project_documents.is_public` (both `not null default true`) decide what
+the mirror shows. The three public policies now read them:
+`projects_read_public using (is_public)`, `project_documents_read_public
+using (is_public and project_is_public(project_id))`, and
+`project_files_read_public using (project_doc_is_public(document_id))`.
+Both helpers are SECURITY DEFINER (an RLS inline subquery would be
+evaluated under the caller's own policies) and `coalesce(…, false)` — an
+id that does not resolve is NOT public. Hiding a โครงการ therefore hides
+every หนังสือ and file under it whatever their own flag says. The default
+is `true` because the mirror was already total; that is the opposite of
+the safe default for a NEW public projection. Actors are unaffected —
+`projects_read` / `project_documents_read` / `project_files_read` OR in
+and ignore the flag, so a hidden row stays fully workable for staff and
+for the prof it was sent to. Flipping the flag is sender-only
+(`current_user_can_publish_project()` = role vp_admin/dev or the `vpa`
+seat, now also the single authority behind the four insert/delete
+policies); the BEFORE UPDATE trigger `project_public_flag_guard` on both
+tables supplies the column guard that the row-level UPDATE policy cannot,
+and `is_public` was added to `project_documents_prof_guard`'s immutable
+list. UI: `isShownPublicly()` + the ซ่อน/แสดง buttons in
+`projects/inbox.js`. Proof: `node tools/proj0114-visibility.mjs` (29
+checks, allow + deny + cascade + actors + column guard).
 
 Drive layout (lazily created by GAS on first upload):
 

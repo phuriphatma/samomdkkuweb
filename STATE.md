@@ -20,6 +20,47 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-07 — หนังสือโครงการ publish control (0114) + settings leak closed (0115)
+
+Migrations **0114 and 0115 are APPLIED to the live DB** (proof
+`node tools/proj0114-visibility.mjs` → 29/29).
+
+- `projects.is_public` + `project_documents.is_public`, `not null default true`
+  (chosen with the user: the mirror was already total, so opt-out).
+- The three `*_read_public` policies now read the flags; hiding a โครงการ
+  cascades to every หนังสือ + file under it. Actors, and the prof on his own
+  documents, are unaffected. Full shape in `docs/CONTEXT.md`.
+- Only the sender side may flip it — new
+  `current_user_can_publish_project()` (now also the single authority behind
+  projects/documents insert + delete), enforced per-COLUMN by the
+  `project_public_flag_guard` triggers, because a row-level UPDATE policy
+  grants every column (mistakes class 1). `is_public` also added to
+  `project_documents_prof_guard`'s immutable list.
+- UI: ซ่อน/แสดง buttons on the project header and in each หนังสือ's action row,
+  ซ่อน pills on the grid/list/doc rows, and a note on a hidden project's header.
+  A หนังสือ whose own flag says "show" inside a hidden โครงการ says
+  "ไม่แสดง (ทั้งโครงการถูกซ่อน)" rather than looking live.
+- Tests: `src/js/projects/public-visibility.test.js` binds the JS reading of a
+  missing flag to the SQL default, and asserts the policies + fail-closed
+  helpers + the prof guard entry are actually in the migration.
+- `PENDING` in `src/data/changelog.js` carries two notes for the next release.
+
+**0115 — found by the bug scan, not reported.** Sweeping every anon-reachable
+read path of หนังสือโครงการ turned up `project_settings_read_public` (0032)
+serving the receiving officer's real `@kku.ac.th` address to any visitor. It
+had been opened for two display labels that nothing consumed: the only reader,
+`ownerLabel()`, had zero call sites and read `uni_label`/`vp_label`, which are
+not columns on that row. 0115 drops the anon policy (actors + prof keep
+`project_settings_read`), `mountCustomerProjects()` stops fetching the row, and
+the dead `ownerLabel()` is deleted. Verified both directions: anon reads 0
+settings rows while still reading 24 published projects; vp_admin and sa_prof
+read 1 each. Write-up in `docs/mistakes/authz-rls.md`.
+
+Also swept and clean: no VIEW over the project tables; the only anon-executable
+SECURITY DEFINER functions touching them are `prof_can_see_*` (booleans, prof-
+gated), the two new `project_*_is_public` helpers (booleans) and `public_stats()`
+(counts only — it deliberately still counts hidden projects).
+
 ## THIS SESSION (2026-08-05, late) — all 13 requests DONE, none browser-verified
 
 **Everything below is COMMITTED and migration 0113 is APPLIED to the live DB
