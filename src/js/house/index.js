@@ -429,18 +429,66 @@ function paintSaiModal(code) {
     </div>`).join('')
     : '<div class="small text-warning">ยังไม่มีอาจารย์ที่ปรึกษาของสายนี้</div>';
 
-  const taken = new Set(assigned.map((a) => a.id));
-  const options = advisors.filter((a) => !taken.has(a.id));
-  $('hxPick').innerHTML = options.length
-    ? options.map((a) => `<option value="${escHtml(a.id)}">${
-  escHtml([a.full_name, a.dept ? `(${a.dept})` : ''].filter(Boolean).join(' '))}</option>`).join('')
-    : '<option value="">— ไม่มีอาจารย์ให้เลือก —</option>';
-  $('hxPick').disabled = !options.length;
-  $('hxAdd').disabled = !options.length;
+  paintSaiPickList(code);
   // The ภาควิชา already in use, so the new-advisor form can offer them rather
   // than collecting a fourth spelling of "ภาควิชาอายุรศาสตร์".
   fillDatalist('houseDeptList',
     [...new Set(advisors.map((a) => a.dept).filter(Boolean))].sort());
+}
+
+/**
+ * The searchable "add an อาจารย์ who already exists" list.
+ *
+ * REPORTED: "เพิ่มอาจารย์ที่มีอยู่แล้ว should can type to search". It was a
+ * `<select>` of every อาจารย์ — fine at two, a scroll at three hundred, which is
+ * the size this list is heading for once the faculty's real advisor roster
+ * lands.
+ *
+ * A search box over a result list rather than an `<input list>` datalist,
+ * because a datalist's value is its LABEL and the thing we need is an id: two
+ * อาจารย์ with the same name would silently resolve to whichever matched first.
+ * Here each row carries its own id and adds on click, which also removes the
+ * separate confirm button — picking and confirming were two actions for one
+ * intention.
+ *
+ * Already-assigned อาจารย์ are excluded, so the list only ever offers something
+ * that would actually change.
+ */
+function paintSaiPickList(code) {
+  const box = $('hxPickList');
+  if (!box) return;
+  const assigned = advisorsBySai().get(code) || [];
+  const taken = new Set(assigned.map((a) => a.id));
+  const q = ($('hxPick')?.value || '').trim().toLowerCase();
+  const pool = advisors.filter((a) => !taken.has(a.id));
+  const hits = pool.filter((a) => !q
+    || [a.full_name, a.email, a.dept].some((v) => String(v || '').toLowerCase().includes(q)));
+
+  if (!pool.length) {
+    box.innerHTML = '<div class="house-picklist-empty">'
+      + (advisors.length ? 'อาจารย์ทุกท่านอยู่ในสายนี้แล้ว' : 'ยังไม่มีรายชื่ออาจารย์ในระบบ')
+      + ' — เพิ่มอาจารย์ใหม่ได้ด้านล่าง</div>';
+    return;
+  }
+  if (!hits.length) {
+    box.innerHTML = `<div class="house-picklist-empty">ไม่พบอาจารย์ที่ตรงกับ “${escHtml(q)}”`
+      + ' — เพิ่มอาจารย์ใหม่ได้ด้านล่าง</div>';
+    return;
+  }
+  // Capped at 8. The box scrolls, but a search that returns everything is a
+  // search that has not narrowed anything — the count says to keep typing.
+  box.innerHTML = hits.slice(0, 8).map((a) => `
+    <button type="button" class="house-pickrow" role="option" data-pick-advisor="${escHtml(a.id)}">
+      <span class="house-pickrow-main">
+        <span class="fw-semibold">${escHtml(a.full_name)}</span>
+        ${a.dept ? `<span class="text-muted"> · ${escHtml(a.dept)}</span>` : ''}
+        ${a.email ? `<span class="house-pickrow-mail">${escHtml(a.email)}</span>` : ''}
+      </span>
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+    </button>`).join('')
+    + (hits.length > 8
+      ? `<div class="house-picklist-empty">อีก ${hits.length - 8} ท่าน — พิมพ์เพิ่มเพื่อกรองให้แคบลง</div>`
+      : '');
 }
 
 /**
@@ -515,6 +563,10 @@ async function refreshAdvisors() {
 
 function openSaiModal(code) {
   $('hxCode').value = code;
+  // Same reason as the new-advisor form below: the search box is a reused DOM
+  // node, and last สาย's query filtering this สาย's list is state outliving the
+  // record it described.
+  if ($('hxPick')) $('hxPick').value = '';
   // Collapsed and empty on every open. The form is a REUSED DOM node, so
   // whatever the last สาย left in it would otherwise be sitting in the boxes of
   // this one — the "state parked on a reused element outlives the record it
@@ -524,21 +576,22 @@ function openSaiModal(code) {
   modalInstance('houseSaiModal')?.show();
 }
 
-async function onSaiAddAdvisor() {
+async function onSaiAddAdvisor(advisorId, row) {
   const code = $('hxCode').value;
-  const advisorId = $('hxPick').value;
   if (!code || !advisorId) return;
-  const btn = $('hxAdd');
-  btn.disabled = true;
+  if (row) row.disabled = true;
   try {
     const assigned = advisorsBySai().get(code) || [];
     await addSaiAdvisor(code, advisorId, assigned.length);
     await refreshAdvisors();
+    // The search text is deliberately CLEARED: the row just added is gone from
+    // the list (it is assigned now), and leaving a query that matches nothing
+    // reads as "the search broke".
+    if ($('hxPick')) $('hxPick').value = '';
     paintSaiModal(code);
   } catch (err) {
     setStatus(err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
-  } finally {
-    btn.disabled = false;
+    if (row) row.disabled = false;
   }
 }
 
@@ -1385,7 +1438,13 @@ function wire() {
     const card = e.target.closest('[data-sai]');
     if (card) openSaiModal(card.dataset.sai);
   });
-  $('hxAdd')?.addEventListener('click', onSaiAddAdvisor);
+  // Type-to-search repaints only the RESULT LIST, never the whole modal — a
+  // full repaint would replace the input the admin is typing in.
+  $('hxPick')?.addEventListener('input', () => paintSaiPickList($('hxCode').value));
+  $('hxPickList')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-pick-advisor]');
+    if (row) onSaiAddAdvisor(row.dataset.pickAdvisor, row);
+  });
   $('hxAdvisors')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-sai-remove]');
     if (btn) onSaiRemoveAdvisor(btn.dataset.saiRemove);

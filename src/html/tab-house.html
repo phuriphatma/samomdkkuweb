@@ -373,11 +373,16 @@
         <h6 class="small text-uppercase text-muted mb-1">อาจารย์ที่ปรึกษาของสายนี้</h6>
         <div id="hxAdvisors" class="mb-3"></div>
 
+        <!-- A search box over a RESULT LIST, not a <select>. With a few hundred
+             อาจารย์ a dropdown is a scroll, and picking then confirming is two
+             actions for one intention — each row here adds on click. The list
+             is the only control, so there is no "I typed a name and then had to
+             find it again in the menu". -->
         <label class="form-label small" for="hxPick">เพิ่มอาจารย์ที่มีอยู่แล้ว</label>
-        <div class="d-flex gap-2">
-          <select class="form-select form-select-sm" id="hxPick"></select>
-          <button type="button" class="btn btn-sm btn-primary text-nowrap" id="hxAdd">เพิ่ม</button>
-        </div>
+        <input type="search" class="form-control form-control-sm" id="hxPick"
+               placeholder="พิมพ์ชื่อ อีเมล หรือภาควิชา เพื่อค้นหา" autocomplete="off"
+               aria-label="ค้นหาอาจารย์เพื่อเพิ่มเข้าสายนี้" aria-controls="hxPickList" />
+        <div id="hxPickList" class="house-picklist mt-1" role="listbox"></div>
 
         <!-- "ไม่มีชื่อที่ต้องการ? เพิ่มอาจารย์ใหม่ได้ที่แท็บ อาจารย์" used to live
              here. Sending someone to another tab to type three fields, then

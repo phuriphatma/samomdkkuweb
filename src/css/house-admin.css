@@ -31,3 +31,52 @@
    every cell on a laptop. */
 .house-table { font-size: 0.875rem; }
 .house-table td, .house-table th { vertical-align: middle; }
+
+/* ── the searchable "add an อาจารย์ who already exists" list ────────────────
+   A result list, not a dropdown: rows add on click, so each one has to read as
+   pressable. Scrolls at ~4 rows so the new-advisor form below it stays on
+   screen — the two are alternatives to each other and hiding one behind a
+   scroll makes it invisible. */
+.house-picklist {
+  max-height: 13rem;
+  overflow-y: auto;
+  border: 1px solid var(--ink-200, #e9ecef);
+  border-radius: var(--radius-sm, 0.5rem);
+}
+.house-picklist:empty { display: none; }
+
+.house-pickrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--ink-100, #f1f3f5);
+  background: #fff;
+  text-align: left;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.house-pickrow:last-child { border-bottom: 0; }
+.house-pickrow:hover,
+.house-pickrow:focus-visible {
+  background: color-mix(in srgb, var(--brand-primary) 7%, #fff);
+}
+.house-pickrow:disabled { opacity: 0.55; cursor: progress; }
+.house-pickrow .bi { color: var(--brand-primary); flex: 0 0 auto; }
+.house-pickrow-main { flex: 1 1 auto; min-width: 0; }
+.house-pickrow-mail {
+  display: block;
+  font-size: 0.92em;
+  color: var(--ink-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.house-picklist-empty {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--ink-500);
+}
