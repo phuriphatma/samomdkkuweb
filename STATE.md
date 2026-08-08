@@ -60,6 +60,16 @@ Applied and proved live. Full detail + every proof:
   renames everybody whose surname has a space. Also fixed: a self-edited
   duplicate รหัสนักศึกษา hit `students_sid_uniq` and surfaced a raw 23505 — now a
   Thai sentence, pre-checked AND caught in an exception handler for the race.
+- **KKU SSO probed live (UAT) — it CAN supply the identity.** One real student
+  login: `user.profile` returns `studentId` + **`studentCode` (`653070317-0`,
+  already our canonical form)**, `type: STUDENT`, Thai + English names and
+  `facultyName` — **none of `studentId`/`studentCode` is in the vendor manual**,
+  which also documents an `immutableId` the API does not return and calls `mail`
+  `email`. It cannot supply **สาขา** (`levelName` is the degree level) or
+  ชื่อเล่น. UAT is backed by the REAL directory, so this transfers to prod.
+  Blocking: our registration is **UAT-only** (prod login answers "Cannot find the
+  CREDENTIAL"), so a production app must be requested; and `citizenId` comes back
+  on both calls and must never be stored. Probe: `node tools/sso-probe.mjs`.
 - **KKU SSO assessed, not built** — `docs/KKU-SSO.md`. It is a login
   improvement, NOT a data source: no roster endpoint, no สายรหัส, no สาขา, and it
   returns `citizenId` we must never store. **The CSV is still required.**
@@ -217,6 +227,8 @@ archiving into it saved nothing.
 >    decision: accept, rewrite history, or make the repo private.
 > 3. **Rotate the VM sudo password** (see CURRENT DEPLOY), and **rotate the KKU
 >    SSO client secret** — it was pasted into a chat transcript on 2026-08-08.
+> 4. **Request a PRODUCTION KKU SSO app** if SSO login is wanted — the one we
+>    hold is UAT. Redirect URLs `https://samo.md.kku.ac.th/login` and `/logout`.
 > 4. **`students` is not empty.** At least one row exists for the owner's kkumail
 >    from manual testing — created before any import. Tidy it in ระบบบ้าน →
 >    นักศึกษา before the real import, or let the import update it (it upserts on

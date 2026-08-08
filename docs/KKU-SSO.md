@@ -73,10 +73,66 @@ login redirect. So "get the names from SSO" is not a data-import option that can
 be chosen instead of building SSO; it is a thing that becomes possible once SSO
 login exists. Cost is the section at the bottom of this file.
 
-### 2. It hinges on ONE unknown, and one login settles it
+### 2. ANSWERED 2026-08-08 — yes, the รหัสนักศึกษา is there
 
-Does the response carry the **รหัสนักศึกษา**? The manual documents three
-identifier-shaped fields and names none of them `studentId`:
+One real student login through UAT (`tools/sso-probe.mjs`). The live
+`user.profile` response carries **two fields the manual does not document**:
+
+```
+studentId     6530703170          ← undocumented
+studentCode   653070317-0         ← undocumented, and ALREADY in our canonical shape
+type          STUDENT
+userId        6530703170
+mail          …@kkumail.com       ← manual calls this `email`
+title/firstname/lastname          ← Thai
+titleEng/firstnameEng/lastnameEng ← English
+facultyName   คณะแพทยศาสตร์
+levelName     ปริญญาตรี ภาคปกติ
+citizenId     <13 digits>         ← never store this
+```
+
+`auth.token` separately returns `email`, `firstName`, `lastName`, `citizenId`
+and an **empty** `employeeId` (as suspected: it is the staff id) — and does NOT
+return the `immutableId` the manual lists.
+
+So SSO can supply, at first login: **ชื่อ · นามสกุล (Thai and English) ·
+รหัสนักศึกษา · รุ่น (derived) · a STUDENT/staff flag · the faculty.**
+`studentCode` arrives as `653070317-0`, exactly the form `normalizeStudentId`
+produces, so nothing has to be parsed or guessed.
+
+It still cannot supply **สาขา** — `levelName` is the degree level
+(ปริญญาตรี ภาคปกติ), not MD / MDI / RT — or **ชื่อเล่น**.
+
+**⚠️ The manual's field list is not the contract.** It documents a field the
+response omits (`immutableId`), omits two the response has (`studentId`,
+`studentCode`), and renames one (`email` → `mail` in `user.profile`). Anything
+built against this must read defensively and must never assume a field is
+present because the PDF says so.
+
+**The UAT directory holds real people, not fixtures** — the probe returned the
+tester's own genuine record, matching the row already in `students`. So this
+result transfers to production.
+
+### 3. What that makes possible, and what still blocks it
+
+With SSO login built, the file from Data Analytics could be **two columns**
+(`kkumail, sai`) plus `major` if we want สาขา without asking 1,800 students to
+pick it — so three. Until then it must stay four: **`kkumail, student_id, sai,
+major`**, because รุ่น is derived from the รหัส and a student with no รหัส has no
+รุ่น until the day they happen to log in.
+
+Blocking, in order:
+
+1. **The registration we hold is UAT.** A production app must be requested, with
+   `https://samo.md.kku.ac.th/login` and `/logout` as its redirect URLs.
+2. The SSO login build itself (see the cost section below).
+3. `citizenId` comes back on **both** calls. It must be dropped on receipt and
+   never written to a column.
+
+### 4. The original unknown, for the record
+
+Before the probe: does the response carry the **รหัสนักศึกษา**? The manual
+documented three identifier-shaped fields and named none of them `studentId`:
 
 | field | from | what it probably is |
 |---|---|---|
@@ -84,28 +140,39 @@ identifier-shaped fields and names none of them `studentId`:
 | `employeeId` | `auth.token` | staff id — may be blank or may be the รหัส for a student |
 | `userId` | `user.profile` | undocumented |
 
-- **If one of them is the รหัส** → the file can be **two columns**
-  (`kkumail, sai`) and ชื่อ · นามสกุล · รหัส all arrive at first login.
-- **If none is** → รหัสนักศึกษา must stay in the file, because รุ่น (MD50) is
-  derived from it and a student with no รหัส has no รุ่น. SSO then saves only
-  the two names.
+Answer: **none of the three**, and it did not matter — the response carries an
+undocumented `studentId`/`studentCode` pair instead. Which is the lesson: the
+question could not have been answered by reading harder.
 
 `tools/sso-probe.mjs` answers this in two minutes without building anything:
 it prints the login URL, you sign in **with a student account**, paste the
 `?code=` back, and it dumps the field names (values redacted for `citizenId` /
-`phoneNumber` / the token). Verified 2026-08-08 that the production endpoint is
-live and this registration's credentials are accepted — a bogus code comes back
-`ok:false` complaining about the *session*, not about the client.
+`phoneNumber` / the token).
+
+**The registration we hold is UAT, not production** (`sso-uat-web.kku.ac.th` /
+`sso-uat-api.kku.ac.th`). The production login endpoint answers
+`Cannot find the CREDENTIAL <AppID>`. A production app has to be requested
+separately before any of this can go live; the probe defaults to UAT and takes
+`KKU_SSO_ENV=prod` when there is one.
+
+⚠️ **`auth.token` is not a credential check, and an earlier note here said it
+was.** Posting a bogus code returns `ok:false — Cannot find the session …`
+identically on both hosts *and* with a deliberately wrong `clientSecret`: it
+resolves the session before it looks at the client, so its error says nothing
+about whether the registration is valid. Only the LOGIN endpoint validates the
+App ID. (Logged as an instance of "verify from the authority, and test BOTH
+directions" — a probe that returns the same answer for every input is not
+evidence of anything.)
 
 ### 3. สาขา can never come from SSO
 
 `facultyName` is the faculty (คณะแพทยศาสตร์), not the หลักสูตร. MD / MDI / RT
 either stays in the file or the student picks it (they can, since 0125).
 
-### Recommendation
+### Recommendation (unchanged by the result)
 
 **Send the four-column file now; treat SSO as a later login upgrade that happens
-to auto-fill names.** Waiting for an integration that has not started, to avoid
+to auto-fill ชื่อ · นามสกุล · รหัสนักศึกษา.** Waiting for an integration that has not started, to avoid
 a column Data Analytics can produce today, trades a certain week for an
 uncertain month — and the short file already achieves the thing that actually
 mattered, which is that the names never leave their department.

@@ -573,3 +573,44 @@ becomes the redirect-free lh3 URL. Verify image bugs on the REPORTED device
 class (iOS Safari here), not just desktop — the redirect only bites iOS.
 
 ---
+
+---
+
+## A vendor manual's field list is not the contract — the live response had two fields it does not document, and lacked one it does
+
+**Symptom**: the KKU SSO manual was about to be used to decide a data-import
+design. Read literally, `user.profile` had no รหัสนักศึกษา, which would have
+meant asking Data Analytics for a column we did not need — or worse, building
+the integration and discovering the gap afterwards.
+
+**Cause**: the manual was treated as the API's definition. One real login
+(`tools/sso-probe.mjs`) showed it is a description, and an out-of-date one:
+
+| the manual says | the API actually does |
+|---|---|
+| `auth.token` returns `immutableId` | it does not |
+| `user.profile` returns `email` | the key is `mail` (`auth.token` does use `email`) |
+| — | `user.profile` also returns `studentId` **and** `studentCode`, neither documented |
+| `employeeId` (unexplained) | empty for a student — it is the staff id |
+
+The undocumented `studentCode` was the field that answered the question, and it
+arrived already in this app's canonical `653070317-0` form. **No amount of
+re-reading the PDF could have produced it.**
+
+**Fix**: a throwaway probe that performs the real handshake and prints the field
+NAMES, run before any design depended on the answer. It cost one login. Values
+are printed only for the identifier-shaped fields; `citizenId`, `phoneNumber`
+and the access token are redacted to a shape, because receiving personal data is
+not a reason to put it in a terminal transcript.
+
+**Where it lives now**: `tools/sso-probe.mjs`, `docs/KKU-SSO.md`.
+
+**Rules**: (1) **Probe the endpoint before designing against its documentation**
+— especially when the answer decides what you ask another department for.
+(2) Read defensively afterwards: a response that has two undocumented fields and
+is missing a documented one will change again, so never assume a key is present
+because the manual says it is. (3) A related trap found in the same session: the
+`auth.token` endpoint answers a bad code with the SAME error whether the client
+secret is right or wrong, so it looked like a credential check and was not — a
+probe that returns one answer for every input is evidence of nothing (the
+"test BOTH directions" class).

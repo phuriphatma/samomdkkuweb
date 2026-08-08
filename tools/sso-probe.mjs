@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // ============================================================
-// sso-probe.mjs — settle ONE question about KKU SSO without building anything:
+// sso-probe.mjs — see what KKU SSO actually returns, without building anything.
 //
-//   does the profile contain the รหัสนักศึกษา, or does it not?
-//
-// Everything else about the "let SSO fill in the identity at login" design is
-// decided (see docs/KKU-SSO.md); this is the single fact the manual does not
-// state. `auth.token` returns `immutableId` / `employeeId` and `user.profile`
-// returns `userId` — three undocumented identifiers, none of them named
-// `studentId`, and only a real login can say which (if any) is the รหัส.
+// ANSWERED 2026-08-08 (kept because the manual is not the contract and the next
+// person will need to re-check): `user.profile` carries `studentId` and
+// `studentCode` — NEITHER of which the manual documents — plus `type: STUDENT`,
+// Thai and English names, and `facultyName`. It does NOT carry สาขา
+// (`levelName` is the degree level). `auth.token` returns an empty `employeeId`
+// for a student and omits the `immutableId` the manual lists. Full result and
+// what it means: docs/KKU-SSO.md.
 //
 // WHY A THROWAWAY SCRIPT AND NOT A FEATURE. Answering this by building the SSO
 // login first would be doing the expensive thing to learn whether the expensive
@@ -47,7 +47,19 @@ const APP_ID = env.KKU_SSO_APP_ID;
 const CLIENT_ID = env.KKU_SSO_CLIENT_ID;
 const CLIENT_SECRET = env.KKU_SSO_CLIENT_SECRET;
 const REDIRECT = env.KKU_SSO_REDIRECT_LOGIN;
-const API = 'https://ssonext-api.kku.ac.th';
+
+// UAT by default — the registration we hold is a UAT one (confirmed 2026-08-08:
+// the production login endpoint answers "Cannot find the CREDENTIAL <AppID>").
+// `KKU_SSO_ENV=prod` switches hosts for when a production app is issued.
+//
+// NOTE THAT `auth.token` CANNOT TELL YOU WHICH IS RIGHT. It answers a bogus code
+// with "Cannot find the session …" on both hosts AND with a deliberately wrong
+// clientSecret — it validates the session before the credential, so its error
+// says nothing about whether your registration is valid. The LOGIN endpoint is
+// the only one that checks the App ID.
+const PROD = String(env.KKU_SSO_ENV || '').toLowerCase() === 'prod';
+const API = PROD ? 'https://ssonext-api.kku.ac.th' : 'https://sso-uat-api.kku.ac.th';
+const WEB = PROD ? 'https://ssonext.kku.ac.th' : 'https://sso-uat-web.kku.ac.th';
 
 if (!APP_ID || !CLIENT_SECRET) {
   console.error('Missing KKU_SSO_* in .env.local');
@@ -69,7 +81,9 @@ if (!code) {
 Open this, sign in with a STUDENT kkumail account, then copy the ?code= value
 out of the address bar you land on and run this script again with it:
 
-  ${`https://ssonext.kku.ac.th/login?app=${APP_ID}`}
+  ${`${WEB}/login?app=${APP_ID}`}
+
+(environment: ${PROD ? 'PRODUCTION' : 'UAT'} — set KKU_SSO_ENV=prod in .env.local to switch)
 
   node tools/sso-probe.mjs <code>
 `);

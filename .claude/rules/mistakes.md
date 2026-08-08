@@ -224,7 +224,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An export that carries a GENERATED column re-imports as the real one
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
-*Open when:* notify, GAS handlers, Drive URLs. *(16 entries)*
+*Open when:* notify, GAS handlers, Drive URLs. *(17 entries)*
 
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
 - Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
@@ -242,6 +242,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Notification `notify_*_in_app` flags gate the in-app fanout
 - Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
 - `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
+- A vendor manual's field list is not the contract
 
 ### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
 *Open when:* deploy.sh, nginx, cache headers. *(6 entries)*
