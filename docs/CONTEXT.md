@@ -819,6 +819,46 @@ Full design: `docs/HOUSE-SYSTEM.md`. Handover spec for the data:
 `docs/house-data-spec-th.md`. Proof:
 `node tools/db-query.mjs tools/house0116-authz.sql`.
 
+### The person registry — `public.people` (0132–0134)
+
+**One row per human, keyed on kkumail. This is the account system.** Identity —
+name, ชื่อเล่น, รหัสนักศึกษา, สาขา, cohort, photo — lives here. PLACEMENTS point at
+it and are NOT merged, because one person can hold several at once:
+
+| Table | Is | Points at |
+|---|---|---|
+| `people` | the human | — |
+| `students` | their HOUSE placement (`sai_code`, self_edited, import bookkeeping) | `person_id` |
+| `team_members` | their ORG posting (node, term, permissions, confirmed) | `person_id` |
+
+Promoted from `team_people` (0108), which was already populated and which
+nothing in `src/` read.
+
+**Three editors, one registry.** The person's own card writes
+`update_my_identity()`; each admin pane writes its placement table and a mirror
+UP carries it to `people`; `person_mirror_down` then carries it to the other
+placement.
+
+⚠️ **Both mirrors are guarded by `is distinct from`, and that guard is the
+TERMINATION CONDITION** — without it the up/down pair recurses forever. It
+converges in two hops. The guard compares the value a READER sees (for ชื่อเล่น
+that is the GENERATED `students.nickname`, while the write targets
+`nickname_self` — 0134).
+
+⚠️ **`sai_code` and `node_id` are NEVER mirrored.** They are placement facts; a
+mirror copying `sai_code` would move a student between houses from the ทีม SAMO
+editor, silently.
+
+**EXPAND-only.** Both placement tables still carry every identity column. The
+CONTRACT step (retire them, one reader at a time) is planned in
+`docs/PERSON-REGISTRY.md` and is NOT started. Views over `people` were
+considered and rejected — they would need INSTEAD OF triggers plus
+`security_invoker` on each. Proof: `node tools/house0132-registry.mjs` (19/19).
+
+**ชั้นปี is DERIVED, never stored** (0131): `students.year_offset` holds the
+DIFFERENCE from the cohort, ปีการศึกษา comes from the clock, and the arithmetic
+lives only in `src/js/house/fields.js` — there is deliberately no SQL twin.
+
 **The rule:** `house = the last digit of สายรหัส`. สายรหัส is 3 digits, **any
 value `001`–`999`** — no ceiling is assumed and none is hardcoded. `sais` is
 derived from the import (0121). The ten houses differ by at most one สาย at any

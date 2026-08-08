@@ -312,6 +312,19 @@ archiving into it saved nothing.
 >   `tools/team0108-people.mjs` still fails on `column "prefix" does not exist`
 >   — pre-existing since 0113, verified identical on the parent commit.
 >
+> **Design answers given verbally last session — recorded so they survive the
+> /clear, because the owner asked and may act on them:**
+> - **Name shape (best practice):** store the PARTS, generate the whole —
+>   `first_name_th` + `last_name_th`, `full_name` derived, `nickname` its own
+>   field, no คำนำหน้า column anywhere (dropped 0113 for ทีม SAMO, 0128 for
+>   อาจารย์). NEVER split an existing combined name.
+> - **รุ่น vs ชั้นปี:** they are DIFFERENT facts and ลาพัก separates them —
+>   that person is still MD50 and is now studying ปี 4. Store รุ่น (via
+>   `cohort_year`), DERIVE ชั้นปี, store only the OFFSET.
+> - **Discord bot (not built):** make the ROLE รุ่น (assigned once, correct
+>   forever) and the DISPLAY NAME ปี (derived, re-synced each August). A ปี role
+>   would have to be reassigned for every member every year.
+>
 > **Where the new things live:** `people` + mirrors → migrations 0132/0133/0134
 > · the one card → `src/js/my-seat.js` (shell + slot) and
 > `src/js/house/my-house.js` (section mode) · composition → `src/js/main.js`
