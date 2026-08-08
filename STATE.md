@@ -115,8 +115,8 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `d62a374` is what is DEPLOYED; the บ้านของฉัน rework +
-  0123–0124 are committed but NOT yet on the VM (needs VPN → `skills/deploy-vm.md`).
+- **samoweb**: `main` = `36ab384`, DEPLOYED and verified on the served artifacts
+  (the สาขา chooser opens on the stored value; no loading placeholder).
   Still **v4.5.0** — no version cut; `PENDING` in
   `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
   ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
