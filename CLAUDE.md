@@ -9,10 +9,17 @@ Supabase (auth + Postgres + RLS). Apps Script (`appscript/`) survives as a
 thin proxy for Discord webhooks and Drive file uploads only.
 
 Live URLs:
-- Production: `https://samomdkkuweb.pages.dev` (main branch)
-- Preview:    `https://refactorsamomdkkuweb.pages.dev` (refactor/modular branch)
+- **Production: `https://samo.md.kku.ac.th` — the KKU VM, `main` branch.**
+- `samomdkkuweb.pages.dev` / `refactorsamomdkkuweb.pages.dev` are **RETIRED**.
+  They still resolve and splash-redirect to the VM, so a check against them can
+  look healthy while the real host is stale. Never verify a deploy there.
 
-Supabase project: `fheueuowbchsnsvbcgil`. Both Cloudflare projects hit it.
+**Pushing `main` does NOT deploy.** `server/deploy.sh` runs ON the VM and is
+triggered over ssh — `skills/deploy-vm.md`, needs VPN. Verify from the SERVED
+artifact on `samo.md.kku.ac.th` (the VM builds its own asset hashes, so find the
+bundle name in the served HTML).
+
+Supabase project: `fheueuowbchsnsvbcgil`.
 
 ## Tech stack (quick)
 
@@ -20,9 +27,11 @@ Supabase project: `fheueuowbchsnsvbcgil`. Both Cloudflare projects hit it.
 - **Auth + DB**: Supabase Auth (Google + username/password), Postgres with RLS
 - **Files**: Google Drive via GAS `uploadPRFile` (chosen for 2 TB quota)
 - **Discord**: GAS proxy actions `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`
-- **Hosting**: Cloudflare Pages (2 projects, both auto-build on push)
-- **Env vars**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` set in
-  Cloudflare dashboard. `SUPABASE_SERVICE_ROLE_KEY` only in local `.env.local`.
+- **Hosting**: KKU VM (nginx), deployed by `server/deploy.sh` over ssh.
+  Cloudflare Pages is retired.
+- **Env vars**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` baked in at build
+  time on the VM. `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ACCESS_TOKEN` /
+  `SAMO_VM_SUDO_PASSWORD` only in local `.env.local`.
 
 ## Commands
 
