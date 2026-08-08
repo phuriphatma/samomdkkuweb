@@ -238,8 +238,10 @@ archiving into it saved nothing.
 > the headless-Chrome CDP approach before adding more admin UI.
 >
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> **Everything is shipped, deployed and verified from the SERVED bundle.**
-> Migrations applied through **0134**, 552 tests green, nothing in flight.
+> Everything is shipped and deployed; migrations applied through **0134**, 552
+> tests green, nothing in flight. **"Verified from the served bundle" means the
+> right BYTES are on the server — it does not mean the feature was used.** Read
+> it together with the second warning above, not instead of it.
 >
 > **The one thing to understand before touching anything: `public.people` is
 > the person registry.** One row per human, keyed on kkumail. Identity lives
