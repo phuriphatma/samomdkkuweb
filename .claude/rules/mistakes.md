@@ -55,6 +55,14 @@ has not been written yet.
    beside a shared constant: main.js's own five-key admin-link list vs
    `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
    `team/fields.js`. Also a CONVENTION applied in some modules and not others:
+   Also TWO WRITABLE TABLES holding one fact: `students` and `team_members` both
+   carried a person's identity, and each editor wrote only its own copy — fixed
+   by `public.people` plus mirrors (0132–0134). **A bidirectional mirror needs
+   `is distinct from` on BOTH sides: that guard is the TERMINATION CONDITION,
+   not an optimisation**, and it must compare the value a READER sees — for a
+   GENERATED target, compare the generated column while writing the source it
+   derives from (ชื่อเล่น, 0134). A generated column is never a reason to skip a
+   field in a sync.
    Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
    the รุ่น and every reader's `coalesce(copy, source)` preferred the stale one
