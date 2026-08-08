@@ -44,16 +44,36 @@ describe('parseStudentsCsv — the happy file', () => {
 });
 
 describe('parseStudentsCsv — REFUSES the files that corrupt silently', () => {
-  it('refuses a file with mixed สาย widths (Excel ate the leading zeros)', () => {
-    const bad = [
+  it('RECOVERS a mixed-width สาย file, loudly — the house is the last digit', () => {
+    // Excel strips LEADING zeros only, so left-padding is information-preserving
+    // and the house (last digit) is invariant under it. This was fatal once; it
+    // refused real files to protect against a corruption that padding undoes.
+    const mixed = [
       HEAD,
       '659999999-9,ก,ข,,a@kkumail.com,MD,17',    // was 017
       '669999998-8,ค,ง,,b@kkumail.com,MD,003',
     ].join('\n');
-    const r = parseStudentsCsv(bad, ['MD']);
-    expect(r.fatal).toBeTruthy();
-    expect(r.fatal).toMatch(/ความยาวไม่เท่ากัน/);
-    expect(r.rows).toHaveLength(0);   // nothing is offered for import
+    const r = parseStudentsCsv(mixed, ['MD']);
+    expect(r.fatal).toBeNull();
+    expect(r.rows.map((x) => x.sai_code)).toEqual(['017', '003']);
+    expect(r.rows.map((x) => x._house)).toEqual([7, 3]);
+    // …but it still says the file went through a spreadsheet.
+    expect(r.problems.some((p) => p.level === 'warn' && /ยาวไม่เท่ากัน/.test(p.message))).toBe(true);
+  });
+
+  it('refuses a file that is not UTF-8 — the Thai names are already gone', () => {
+    const mojibake = [HEAD, '659999999-9,\uFFFD\uFFFD,\uFFFD,,a@kkumail.com,MD,001'].join('\n');
+    const r = parseStudentsCsv(mojibake, ['MD']);
+    expect(r.fatal).toMatch(/UTF-8/);
+    expect(r.rows).toHaveLength(0);
+  });
+
+  it('refuses a file whose name is ONE combined column — a split renames people', () => {
+    const combined = ['full_name,kkumail,major,sai',
+      'สมชาย ณ อยุธยา,a@kkumail.com,MD,001'].join('\n');
+    const r = parseStudentsCsv(combined, ['MD']);
+    expect(r.fatal).toMatch(/รวมชื่อกับนามสกุล/);
+    expect(r.rows).toHaveLength(0);
   });
 
   it('ACCEPTS a consistently 2-digit file — the width just has to be uniform', () => {
@@ -192,9 +212,64 @@ describe('export is a BACKUP allow-list', () => {
     expect(csv).toContain('"ก,ข"');
   });
 
-  it('the documented 7 request columns are what the parser expects', () => {
+  it('names its columns the way the TABLE does, so an export re-imports', () => {
+    // One vocabulary — the schema's. The spec's friendlier spellings (`sai`,
+    // `nickname_th`, ชื่อ, อีเมล) are aliases resolved at the door.
     expect(CSV_COLUMNS).toEqual([
-      'student_id', 'first_name_th', 'last_name_th', 'nickname_th',
-      'kkumail', 'major', 'sai']);
+      'student_id', 'first_name_th', 'last_name_th', 'nickname_imported',
+      'kkumail', 'major', 'sai_code']);
+    // Every import-owned column of a row IS an export column, so a backup taken
+    // from this app can be handed straight back to it.
+    for (const c of CSV_COLUMNS) expect(EXPORT_COLUMNS).toContain(c);
+  });
+
+  it('exports no generated column that the importer would READ BACK', () => {
+    // `nickname` is coalesce(nickname_self, nickname_imported) in the database,
+    // and the importer resolves a `nickname` header to nickname_imported — so
+    // exporting it made an export→import round trip overwrite the university's
+    // value with the student's own, irreversibly. `house` is derived too but has
+    // no alias, so it round-trips as an ignored column and stays for humans.
+    expect(EXPORT_COLUMNS).not.toContain('nickname');
+    expect(EXPORT_COLUMNS).not.toContain('full_name');
+    expect(EXPORT_COLUMNS).toContain('house');
+  });
+});
+
+describe('an import never destroys a column the file did not carry', () => {
+  // The bug this pins: toUpsertRow used to emit EVERY import-owned column, so a
+  // corrected name-list that omitted `sai` wrote null over ~1,800 สายรหัส — and
+  // every house placement with them — while the preview said "แก้ไข 1,800".
+  const NO_SAI = ['kkumail,first_name_th,last_name_th',
+    'a@kkumail.com,ก,ข'].join('\n');
+
+  it('omits the missing column from the upsert payload entirely', () => {
+    const r = parseStudentsCsv(NO_SAI, ['MD']);
+    expect(r.fatal).toBeNull();
+    expect(r.presentColumns).not.toContain('sai_code');
+    const row = toUpsertRow(r.rows[0], 'batch-1', r.presentColumns);
+    // Absent, NOT null: PostgREST builds ON CONFLICT DO UPDATE SET from the keys
+    // present, so an absent key keeps the stored value while null overwrites it.
+    expect('sai_code' in row).toBe(false);
+    expect('major' in row).toBe(false);
+    expect(row.kkumail).toBe('a@kkumail.com');
+    expect(row.first_name_th).toBe('ก');
+  });
+
+  it('still writes null for a column that IS in the file but empty', () => {
+    const withBlank = ['kkumail,first_name_th,nickname_th',
+      'a@kkumail.com,ก,'].join('\n');
+    const r = parseStudentsCsv(withBlank, ['MD']);
+    const row = toUpsertRow(r.rows[0], 'b', r.presentColumns);
+    expect('nickname_imported' in row).toBe(true);
+    expect(row.nickname_imported).toBeNull();
+  });
+
+  it('does not report a change in a column the import will not touch', () => {
+    const r = parseStudentsCsv(NO_SAI, ['MD']);
+    const existing = [{ id: 'x', kkumail: 'a@kkumail.com', first_name_th: 'ก',
+      last_name_th: 'ข', sai_code: '017', major: 'MD' }];
+    const d = diffAgainstExisting(r.rows, existing, r.presentColumns);
+    expect(d.same).toBe(1);
+    expect(d.update).toBe(0);
   });
 });

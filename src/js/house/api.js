@@ -144,6 +144,41 @@ export async function setAdvisorSais(advisorId, saiCodes) {
   if (error) fail(error, 'อัปเดตสายของอาจารย์ไม่สำเร็จ');
 }
 
+/**
+ * The สาย-first half of the same link table.
+ *
+ * `setAdvisorSais` above answers "which สาย does this อาจารย์ look after"; these
+ * two answer "which อาจารย์ look after this สาย". Both write `sai_advisors`, and
+ * they must stay consistent: one link row, whichever direction created it. That
+ * is why this pair adds and removes ONE row instead of replacing a set — a
+ * สาย-side "replace everything for this สาย" would silently drop links the
+ * advisor-side editor had just made.
+ */
+export async function addSaiAdvisor(saiCode, advisorId, position = 0) {
+  const { data, error } = await dbRest('/sai_advisors', {
+    method: 'POST',
+    body: { sai_code: saiCode, advisor_id: advisorId, position },
+    prefer: 'return=representation',
+  });
+  if (error) fail(error, 'เพิ่มอาจารย์ให้สายนี้ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('เพิ่มอาจารย์ให้สายนี้ไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}
+
+export async function removeSaiAdvisor(saiCode, advisorId) {
+  const { data, error } = await dbRest(
+    `/sai_advisors?sai_code=eq.${encodeURIComponent(saiCode)}`
+    + `&advisor_id=eq.${encodeURIComponent(advisorId)}`, {
+      method: 'DELETE', prefer: 'return=representation',
+    });
+  if (error) fail(error, 'นำอาจารย์ออกจากสายนี้ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('นำอาจารย์ออกจากสายนี้ไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
+}
+
 // ---- students ----
 const STUDENT_COLS = [
   'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',

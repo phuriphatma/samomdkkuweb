@@ -127,7 +127,27 @@
     <p class="small text-muted">
       สายรหัสถูกสร้างอัตโนมัติจากไฟล์ที่นำเข้า (เป็นเลข 001–999 ตัวไหนก็ได้)
       บ้านคำนวณจากเลขหลักสุดท้ายโดยอัตโนมัติ และแก้ไขด้วยมือไม่ได้
+      <br /><strong>กดที่สายเพื่อจัดการอาจารย์ที่ปรึกษาของสายนั้น</strong>
     </p>
+    <div class="row g-2 mb-3">
+      <div class="col-sm-5">
+        <input type="search" class="form-control form-control-sm" id="houseSaiSearch"
+               placeholder="ค้นหาสายรหัส หรือชื่ออาจารย์" />
+      </div>
+      <div class="col-sm-3">
+        <select class="form-select form-select-sm" id="houseSaiFilterHouse">
+          <option value="">ทุกบ้าน</option>
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <div class="form-check form-switch mt-1">
+          <input class="form-check-input" type="checkbox" id="houseSaiOnlyEmpty" />
+          <label class="form-check-label small" for="houseSaiOnlyEmpty">
+            เฉพาะสายที่ยังไม่มีอาจารย์
+          </label>
+        </div>
+      </div>
+    </div>
     <div id="houseSaiGroups"></div>
   </section>
 
@@ -224,6 +244,11 @@
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="hsSaiLocked" />
                 <label class="form-check-label small" for="hsSaiLocked">ล็อกสายรหัส</label>
+                <div class="form-text">
+                  ห้ามคนนี้แก้สายรหัสของตัวเอง แม้สวิตช์รวมจะเปิดอยู่ —
+                  ใช้เมื่อยืนยันสายที่ถูกต้องแล้ว หรือมีคนแก้ไปมาเพื่อย้ายบ้าน
+                  เขายังส่ง “คำขอแก้ไข” ได้ตามปกติ
+                </div>
               </div>
             </div>
           </div>
@@ -278,6 +303,41 @@
           <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- สาย editor modal (สาย-first อาจารย์ management) ---------- -->
+<!-- The advisor modal below edits ONE อาจารย์'s list of สาย. This one edits ONE
+     สาย's list of อาจารย์ — the same link table from the other side, because
+     "who looks after สาย 017" is the question an admin actually starts from.
+     It does NOT close on save: each add/remove repaints the list in place. -->
+<div class="modal fade" id="houseSaiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="hxTitle">สายรหัส</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="hxCode" />
+        <div class="small text-muted mb-2" id="hxMeta"></div>
+
+        <h6 class="small text-uppercase text-muted mb-1">อาจารย์ที่ปรึกษาของสายนี้</h6>
+        <div id="hxAdvisors" class="mb-3"></div>
+
+        <label class="form-label small" for="hxPick">เพิ่มอาจารย์</label>
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" id="hxPick"></select>
+          <button type="button" class="btn btn-sm btn-primary text-nowrap" id="hxAdd">เพิ่ม</button>
+        </div>
+        <div class="form-text" id="hxHint">
+          ไม่มีชื่อที่ต้องการ? เพิ่มอาจารย์ใหม่ได้ที่แท็บ “อาจารย์”
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+      </div>
     </div>
   </div>
 </div>

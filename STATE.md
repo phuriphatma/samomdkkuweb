@@ -8,6 +8,8 @@ under ~200 lines; when it bloats, move SHIPPED narratives to
 **Start here:** the section immediately below (what just shipped), then CURRENT DEPLOY.
 
 Shipped detail pruned out of here most recently:
+`docs/state-archive/2026-08-08-house-polish.md` (0123 + 0124, the บ้านของฉัน card
+and the CSV round-trip work),
 `docs/state-archive/2026-08-05-late-13-requests.md` (the 13-request session,
 ทีม SAMO view/edit + master, 0110–0113),
 `docs/state-archive/2026-08-05-shipped.md` (the org-chart accordion, the first
@@ -22,53 +24,37 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## SHIPPED 2026-08-08 — บ้านของฉัน: the card, รุ่น instead of ชั้นปี (0123–0124)
+## SHIPPED 2026-08-08 — ระบบบ้าน polish (0123 + 0124)
 
-- **"ต้องกดหลายครั้งถึงจะขึ้น" is fixed.** `renderMyHouse()` added a delegated
-  listener to `#homeMyHouse` — a node that survives every re-paint — and the
-  handler `toggle`d `d-none`. Every auth event added one more listener, so the
-  panel opened only on odd-numbered paints. Listeners now go on the nodes each
-  paint creates, and panel state is ONE variable. Write-up +
-  `src/js/house/my-house.test.js` pin both shapes.
-- **The card now reads like ตำแหน่งของฉันในทีม SAMO** — same shell, same
-  label→value list (ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · รุ่น · สาขา · สายรหัส ·
-  บ้าน · KKU Mail). It REUSES `my-seat.css` on purpose; `my-house.css` holds only
-  the crest, accent, advisors and roster. แจ้งข้อมูลไม่ถูกต้อง is an in-card form
-  now, not two `prompt()`s (which Chrome can suppress silently).
-- **ชั้นปี is gone from ระบบบ้าน; รุ่น (MD50) replaces it.** `cohort − 2515`, off
-  the รหัสนักศึกษา. No clock, no `year_override`, no `academic_year` setting.
-  `student_year()` dropped in SQL *and* its JS mirror, same commit.
-- **ยืนยันข้อมูล removed** — a timestamp nothing branched on.
-- **เพื่อนร่วมบ้าน removed, อาจารย์ในบ้าน added (0124).** Students do not need a
-  list of classmates; they need to know who the อาจารย์ are. The card now shows
-  their own สาย's อาจารย์ and then every other อาจารย์ in the house tagged with
-  their สาย (from `house_advisors`, already in the payload). `get_house_roster()`
-  is **DROPPED**, not just unlinked — a read path that publishes 1,800 students
-  to any signed-in caller is removed at the database, not in the one button that
-  called it. **ระบบบ้าน names no student to any other student.**
-- **0123 APPLIED.** Live proofs, both directions: payload keys carry
-  `cohort_year` and no `year`/`verified_at`; a patch sending
-  `{"year_override":3,"verify":true,"nickname_self":"…"}` wrote the nickname and
-  ignored the other two (probe rolled back via `raise`).
-- `students.year_override`, `students.verified_at`, `students.is_listed`,
-  `house_settings.academic_year`, `house_settings.roster_visible`
-  are **vestigial, not dropped** — nothing reads or writes them, and they carry
-  `comment on column` saying so. Drop when the real data has landed if still empty.
+Applied and proved live. Full detail + every proof:
+**`docs/state-archive/2026-08-08-house-polish.md`**. Headlines:
+
+- **บ้านของฉัน reads like ตำแหน่งของฉัน** — one label→value list, same stylesheet.
+  The "must click many times" bug was one delegated listener added to the
+  surviving host per re-render, plus a `toggle` that read its own class.
+- **รุ่น (MD50 = cohort − 2515), never ชั้นปี.** No clock, no override; SQL's
+  `student_year()` and its JS mirror both deleted. **No ยืนยันข้อมูล.**
+- **ระบบบ้าน publishes อาจารย์, never students.** `get_house_roster()` DROPPED;
+  the card lists the อาจารย์ of every สาย in the house instead.
+- **An import now writes only the columns its file carried.** Sending every
+  column would have cleared ~1,800 สายรหัส from a file that merely omitted them.
+- **One CSV vocabulary (the table's), spreadsheet spellings as aliases.**
+  Leading-zero สาย is recoverable, so it warns instead of refusing; non-UTF-8 and
+  a combined "ชื่อ-สกุล" column are the new fatals.
+- **Admin: click a สาย to manage its อาจารย์**; `sai_locked` now explains itself.
 
 ## SHIPPED 2026-08-07 — ระบบบ้าน + the DELETE guard + หนังสือโครงการ visibility
 
-Migrations **0114–0122 APPLIED**, all live. Full reasoning, the five scan-found
-bugs and every proof: **`docs/state-archive/2026-08-07-house-system.md`**. The
-four facts worth carrying without opening it:
+Migrations **0114–0122**, all live. Reasoning + proofs:
+**`docs/state-archive/2026-08-07-house-system.md`**. Carry these four:
 
 - `house = last digit of สายรหัส`; สายรหัส is any `001`–`999`, random, NOT derived
   from รหัสนักศึกษา. `sais.house_id` is GENERATED; `sais` rows are created **on
   demand by a trigger on `students`** (0122) — never seeded, never per-caller.
-- Every DELETE in the app reports an RLS block instead of silently succeeding
-  (`src/js/delete-guard.test.js` sweeps it).
+- Every DELETE reports an RLS block (`src/js/delete-guard.test.js` sweeps it).
 - `projects.is_public` / `project_documents.is_public` — opt-out, sender-side
-  only, enforced per-COLUMN by trigger. Proof: `node tools/proj0114-visibility.mjs`.
-- Example data no longer carries a real student's identity (`659999999-9`).
+  only, per-COLUMN trigger. Proof: `node tools/proj0114-visibility.mjs`.
+- Example data carries no real student's identity (`659999999-9`).
 
 ## Earlier sessions — archived, nothing owed
 
@@ -165,7 +151,7 @@ archiving into it saved nothing.
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-07)
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> Migrations are applied through **0124**, 485 tests green, nothing in flight —
+> Migrations are applied through **0124**, 493 tests green, nothing in flight —
 > but the latest commits are **not on the VM yet**: `main` = `d62a374` is what
 > `samo.md.kku.ac.th` is serving. Deploying needs VPN (`skills/deploy-vm.md`).
 >

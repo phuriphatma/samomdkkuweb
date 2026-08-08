@@ -316,3 +316,74 @@ by the CALLER, enumerate the callers. A guard reading `location.*` inside a
 handler is really asking "how did I get here?", and the answer differs per entry
 point — which is the routing-flavoured version of "authorization is per-PATH, not
 per-table".
+
+---
+
+## An upsert that sends EVERY column wipes the ones the file did not have
+
+**Symptom** (found by inspection, before it ran on real data): re-importing a
+corrected name-list that happens to omit the `sai` column would clear
+`sai_code` for every student in the file — and with it their house — while the
+preview said, truthfully by its own arithmetic, "แก้ไข 1,800".
+
+**Cause**: `toUpsertRow()` emitted the full `IMPORT_OWNED_COLUMNS` list with
+`row[c] ?? null`, so a column the CSV never contained arrived as an explicit
+`null`. PostgREST's `resolution=merge-duplicates` builds its
+`ON CONFLICT DO UPDATE SET` from the keys present in the body, so an explicit
+null is a write and an absent key is a no-op — the difference between
+"this person has no ชื่อเล่น any more" and "this file does not talk about
+ชื่อเล่น". The parser knew which columns were in the header and threw that away.
+
+The preview could not have caught it either: `diffAgainstExisting()` compared
+the same full column list, so the columns about to be destroyed were counted as
+ordinary changes. **Both halves used the same wrong set, so they agreed.**
+
+**Fix**: `parseStudentsCsv()` now returns `presentColumns` (the import-owned
+columns actually in the header); `toUpsertRow(row, batch, present)` emits only
+those plus `kkumail` (the conflict target), and `diffAgainstExisting(rows,
+existing, present)` compares only those. A column IN the file but empty on a row
+still writes null — that is a real clear, not a gap. Pinned by three tests in
+`house/io.test.js`, including the "does not report a change it will not make"
+one, because a preview that over-reports is how the destructive version looked
+correct.
+
+**Where it lives now**: `src/js/house/io.js` (`parseStudentsCsv`, `toUpsertRow`,
+`diffAgainstExisting`), `src/js/house/index.js` (`runImport`, `onCsvPicked`),
+`src/js/house/io.test.js`.
+
+**Rules**: (1) **In an upsert, absent and null are different words.** Send a
+column only when the source actually said something about it. (2) A PREVIEW and
+the WRITE it previews must be computed from the same scope — and when they are
+both wrong in the same way they will still agree, so the test has to check the
+preview against the world, not against the writer.
+
+---
+
+## An export that carries a GENERATED column re-imports as the real one
+
+**Symptom**: the students CSV export included `nickname`, which is
+`coalesce(nickname_self, nickname_imported)` in Postgres. The importer resolves a
+`nickname` header to `nickname_imported`. So export → re-import promoted every
+student's SELF-chosen ชื่อเล่น into the university's column, permanently — the
+one thing `nickname_imported` / `nickname_self` were split apart to prevent.
+
+**Cause**: two vocabularies for one file. The export wrote the TABLE's column
+names; the import canonicalised to its own spellings (`sai`, `nickname_th`), so
+nobody could see by reading either list that `nickname` meant different things
+at the two ends.
+
+**Fix**: one vocabulary — the schema's. `CSV_COLUMNS` now canonicalises to
+`nickname_imported` / `sai_code`, and every friendly spelling the world sends
+(`sai`, `nickname_th`, `ชื่อเล่น`, `อีเมล`) is an ALIAS resolved at the door. The
+generated `nickname` left the export. `house` is generated too and stays,
+because the importer has no alias for it, so it round-trips as an ignored
+column — which is the actual test: not "is it derived" but "would the importer
+read it back as something else".
+
+**Where it lives now**: `src/js/house/io.js` (`CSV_COLUMNS`, `HEADER_ALIAS`,
+`EXPORT_COLUMNS`), `src/js/house/io.test.js`.
+
+**Rules**: (1) An export meant as a backup must be re-importable by the importer
+that exists, and that is a TEST, not an intention. (2) Accept the world's
+spellings as aliases; keep exactly one of your own. Two canonical vocabularies
+for one field is the drift class this repo pays for most (class 6).

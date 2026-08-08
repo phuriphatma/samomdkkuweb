@@ -1,0 +1,33 @@
+/* house-admin.css — the ระบบบ้าน admin pane.
+ *
+ * Small on purpose: the pane is Bootstrap tables, cards and modals, and this
+ * file holds only what Bootstrap has no utility for. It exists at all because
+ * `house-sai-card` and `house-table` were named in the markup with no rule
+ * anywhere — a class with no stylesheet is invisible in review and looks exactly
+ * like a broken value (mistakes.md).
+ *
+ * LIGHT-ONLY, like the rest of this app.
+ */
+
+/* Each สาย is a button into "manage this สาย's อาจารย์", so it has to look
+   pressable — a bare bordered box reads as a static tile and nobody clicks it. */
+.house-sai-card {
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.house-sai-card:hover {
+  border-color: var(--brand-primary) !important;
+  box-shadow: 0 2px 6px rgba(16, 89, 34, 0.12);
+  transform: translateY(-1px);
+}
+.house-sai-card:active { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .house-sai-card { transition: none; }
+  .house-sai-card:hover { transform: none; }
+}
+
+/* The student table is wide (8 columns incl. kkumail); keep it from wrapping
+   every cell on a laptop. */
+.house-table { font-size: 0.875rem; }
+.house-table td, .house-table th { vertical-align: middle; }

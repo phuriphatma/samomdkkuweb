@@ -13,10 +13,49 @@ import {
   auditSaiWidths, cleanCell, cleanSpace, houseOf,
 } from './fields.js';
 
-/** The seven columns the handover spec asks for. */
+/**
+ * The seven columns the handover spec asks for, in the DATABASE's vocabulary.
+ *
+ * ONE VOCABULARY, MANY SPELLINGS. The canonical name of every field is its
+ * column name in `students` — which is what the CSV EXPORT writes, so an export
+ * can be handed straight back to this importer. The friendly spellings a
+ * spreadsheet actually arrives with (`sai`, `nickname_th`, `ชื่อ`, `อีเมล`) are
+ * ALIASES resolved at the door. Two vocabularies for one field is the drift
+ * class this repo pays for most; aliases are how you accept the world's
+ * spelling without keeping a second one of your own.
+ */
 export const CSV_COLUMNS = [
-  'student_id', 'first_name_th', 'last_name_th', 'nickname_th', 'kkumail', 'major', 'sai',
+  'student_id', 'first_name_th', 'last_name_th', 'nickname_imported', 'kkumail', 'major', 'sai_code',
 ];
+
+/** What to CALL each column when talking to a human — the spec's spelling. */
+export const CSV_COLUMN_LABEL = {
+  student_id: 'student_id (รหัสนักศึกษา)',
+  first_name_th: 'first_name_th (ชื่อ)',
+  last_name_th: 'last_name_th (นามสกุล)',
+  nickname_imported: 'nickname_th (ชื่อเล่น)',
+  kkumail: 'kkumail (อีเมล)',
+  major: 'major (สาขา)',
+  sai_code: 'sai (สายรหัส)',
+};
+
+/** คำนำหน้า that arrive glued to a name. Stripped, never stored: this app
+ *  dropped the คำนำหน้า column outright (0113) and "นายสมชาย" is a first name
+ *  nobody has. Longest first, so 'นางสาว' is not eaten by 'นาง'. */
+const TITLE_PREFIXES = ['นางสาว', 'น.ส.', 'นาง', 'นาย', 'ด.ช.', 'ด.ญ.', 'เด็กชาย', 'เด็กหญิง'];
+
+export function stripTitle(raw) {
+  const v = cleanSpace(raw);
+  for (const t of TITLE_PREFIXES) {
+    if (v.startsWith(t)) {
+      const rest = cleanSpace(v.slice(t.length));
+      // Only strip when something is LEFT — "นาย" alone is a name we cannot fix,
+      // and blanking it would skip the row for a reason nobody could see.
+      if (rest) return { value: rest, stripped: t };
+    }
+  }
+  return { value: v, stripped: null };
+}
 
 /** Header aliases, so a file that spells a column slightly differently still
  *  lands rather than silently importing blanks. */
@@ -27,11 +66,19 @@ const HEADER_ALIAS = {
   first_name: 'first_name_th', ชื่อ: 'first_name_th', ชื่อจริง: 'first_name_th',
   last_name_th: 'last_name_th', lastname: 'last_name_th',
   last_name: 'last_name_th', นามสกุล: 'last_name_th', สกุล: 'last_name_th',
-  nickname_th: 'nickname_th', nickname: 'nickname_th',
-  nick: 'nickname_th', ชื่อเล่น: 'nickname_th',
+  nickname_th: 'nickname_imported', nickname: 'nickname_imported',
+  nick: 'nickname_imported', ชื่อเล่น: 'nickname_imported',
+  nickname_imported: 'nickname_imported',
   kkumail: 'kkumail', email: 'kkumail', mail: 'kkumail', อีเมล: 'kkumail',
   major: 'major', สาขา: 'major',
-  sai: 'sai', sai_code: 'sai', สายรหัส: 'sai', สาย: 'sai',
+  sai: 'sai_code', sai_code: 'sai_code', สายรหัส: 'sai_code', สาย: 'sai_code',
+  // Recognised ONLY so the file can be refused with the right sentence. A single
+  // "ชื่อ-สกุล" column cannot be split: "สมชาย ณ อยุธยา" and "สมชาย ใจดี ดีมาก"
+  // both have three tokens and different answers, and guessing renames a real
+  // person. See '_combined_name' handling in parseStudentsCsv.
+  full_name: '_combined_name', fullname: '_combined_name',
+  name: '_combined_name', 'ชื่อ-สกุล': '_combined_name', 'ชื่อ-นามสกุล': '_combined_name',
+  ชื่อสกุล: '_combined_name', ชื่อนามสกุล: '_combined_name',
 };
 
 function normHeader(h) {
@@ -49,44 +96,96 @@ function normHeader(h) {
  * }}
  *
  * `fatal` non-null means DO NOT IMPORT — the UI refuses rather than warning.
- * Only two things are fatal, and both are silent-corruption shapes:
- *   • a missing kkumail column (nothing can be matched to a login), and
- *   • mixed สาย widths (Excel ate the leading zeros off some rows).
+ * Something is fatal only when proceeding would produce a WRONG result that no
+ * later reader could detect:
+ *   • the file is not UTF-8 (every Thai name is already destroyed),
+ *   • no kkumail column (nothing can be matched to a login),
+ *   • no ชื่อ column, or only a COMBINED "ชื่อ-สกุล" one (splitting a Thai name
+ *     on whitespace renames people: "สมชาย ณ อยุธยา").
  * Everything else is a per-row problem the human can look at and still proceed.
+ *
+ * NOTE ON LEADING ZEROS — this used to be fatal and no longer is. Excel strips
+ * LEADING zeros only ("017" → 17, "007" → 7); it never touches trailing ones,
+ * so left-padding back to three digits is information-preserving, and the house
+ * — the LAST digit — is invariant under it. A mixed-width file is therefore
+ * recoverable, and refusing it cost a real import for no safety. It is now a
+ * prominent warning that says exactly what was padded, because it still means
+ * the file went through a spreadsheet and the other columns deserve a look.
  */
 export function parseStudentsCsv(text, knownMajors = []) {
-  const raw = parseCsv(text);
-  if (!raw.length) {
-    return { rows: [], problems: [], widthAudit: null, missingColumns: CSV_COLUMNS, fatal: 'ไฟล์ว่าง' };
+  const empty = {
+    rows: [], problems: [], widthAudit: null,
+    missingColumns: CSV_COLUMNS, presentColumns: [],
+  };
+
+  // U+FFFD is what a non-UTF-8 file looks like after FileReader has decoded it
+  // as UTF-8. A TIS-620 / Windows-874 export of Thai names arrives ENTIRELY as
+  // replacement characters, and every name is already unrecoverable at this
+  // point — importing it would write 1,800 rows of "????" that look like data.
+  const text0 = String(text || '');
+  if (text0.includes('\uFFFD')) {
+    // An .xlsx is a ZIP: it starts with the bytes "PK". Reading one as text
+    // produces the same replacement characters as a TIS-620 CSV, and the two
+    // need completely different advice — so say which one this is.
+    return { ...empty,
+      fatal: text0.startsWith('PK')
+        ? 'ไฟล์นี้เป็น Excel (.xlsx) ไม่ใช่ CSV — เปิดใน Excel แล้วเลือก '
+          + '“Save As → CSV UTF-8 (Comma delimited)” ก่อน แล้วค่อยนำเข้าไฟล์ .csv นั้น'
+        : 'ไฟล์นี้ไม่ได้บันทึกเป็น UTF-8 ตัวอักษรไทยเสียหายไปแล้วตั้งแต่ในไฟล์ '
+          + '— กรุณาขอไฟล์ใหม่ โดยบันทึกจาก Excel เป็น “CSV UTF-8 (Comma delimited)” '
+          + 'หรือทำใน Google Sheets แล้วดาวน์โหลดเป็น CSV' };
   }
+
+  const raw = parseCsv(text);
+  if (!raw.length) return { ...empty, fatal: 'ไฟล์ว่าง' };
 
   const header = raw[0].map(normHeader);
   const missingColumns = CSV_COLUMNS.filter((c) => !header.includes(c));
 
   if (!header.includes('kkumail')) {
-    return {
-      rows: [], problems: [], widthAudit: null, missingColumns,
-      fatal: 'ไม่พบคอลัมน์ kkumail — คอลัมน์นี้คือกุญแจที่ใช้จับคู่ตอนนักศึกษาเข้าสู่ระบบ นำเข้าไม่ได้',
-    };
+    return { ...empty, missingColumns,
+      fatal: 'ไม่พบคอลัมน์ kkumail — คอลัมน์นี้คือกุญแจที่ใช้จับคู่ตอนนักศึกษาเข้าสู่ระบบ นำเข้าไม่ได้' };
+  }
+
+  // A single "ชื่อ-สกุล" column is refused, not split. Thai surnames contain
+  // spaces ("ณ อยุธยา") and Thai first names sometimes do too, so whitespace
+  // does not mark the boundary — a split would rename real people, silently and
+  // irreversibly, and nothing downstream could ever tell.
+  if (!header.includes('first_name_th')) {
+    return { ...empty, missingColumns,
+      fatal: header.includes('_combined_name')
+        ? 'ไฟล์นี้รวมชื่อกับนามสกุลไว้คอลัมน์เดียว — ระบบแยกให้ไม่ได้ '
+          + '(นามสกุลไทยมีเว้นวรรคได้ เช่น “ณ อยุธยา” ถ้าเดาจะได้ชื่อผิดตัว) '
+          + 'กรุณาขอไฟล์ที่แยกเป็น first_name_th (ชื่อ) และ last_name_th (นามสกุล)'
+        : 'ไม่พบคอลัมน์ชื่อ (first_name_th / ชื่อ) — นำเข้าไม่ได้' };
   }
 
   // Raw สาย values BEFORE normalisation — the audit is only meaningful on these.
-  const saiIdx = header.indexOf('sai');
+  const saiIdx = header.indexOf('sai_code');
   const rawSais = saiIdx >= 0 ? raw.slice(1).map((cells) => cells[saiIdx] ?? '') : [];
   const widthAudit = auditSaiWidths(rawSais);
 
-  if (saiIdx >= 0 && !widthAudit.consistent) {
-    const shape = widthAudit.widths.map((w) => `${w.width} หลัก ${w.count} แถว`).join(' · ');
-    return {
-      rows: [], problems: [], widthAudit, missingColumns,
-      fatal: `สายรหัสในไฟล์มีความยาวไม่เท่ากัน (${shape}) — `
-        + 'แปลว่าโปรแกรมตารางตัดเลข 0 ข้างหน้าออกไปบางแถวแล้ว '
-        + '(เช่น 001 กลายเป็น 1) ถ้านำเข้าตอนนี้จะมีนักศึกษาถูกจัดเข้าบ้านผิด '
-        + 'กรุณาขอไฟล์ใหม่โดยตั้งรูปแบบคอลัมน์สายรหัสเป็น "ข้อความ" ก่อนกรอกข้อมูล',
-    };
+  const problems = [];
+
+  // Columns we did not recognise. Silently ignoring them is how an export gets
+  // re-imported and someone believes a self-edited ชื่อเล่น came back with it.
+  const unknown = raw[0]
+    .filter((h, i) => cleanSpace(h) && !header[i])
+    .map((h) => cleanSpace(h));
+  if (unknown.length) {
+    problems.push({ line: 1, level: 'info', field: '_header',
+      message: `คอลัมน์ที่ระบบไม่ได้ใช้ (ข้ามไป): ${unknown.join(', ')}`, value: '' });
   }
 
-  const problems = [];
+  if (saiIdx >= 0 && !widthAudit.consistent) {
+    const shape = widthAudit.widths.map((w) => `${w.width} หลัก ${w.count} แถว`).join(' · ');
+    problems.push({ line: 1, level: 'warn', field: 'sai_code',
+      message: `สายรหัสในไฟล์ยาวไม่เท่ากัน (${shape}) — โปรแกรมตารางตัดเลข 0 ข้างหน้าออก `
+        + '(เช่น 007 กลายเป็น 7) ระบบเติมศูนย์คืนให้แล้ว และบ้านไม่เปลี่ยน '
+        + 'เพราะบ้านคิดจากหลักสุดท้าย แต่แปลว่าไฟล์นี้ผ่านโปรแกรมตารางมา '
+        + 'ควรตรวจคอลัมน์อื่นด้วย', value: '' });
+  }
+
   const seenMail = new Map();
   const seenSid = new Map();
   const rows = [];
@@ -97,8 +196,14 @@ export function parseStudentsCsv(text, knownMajors = []) {
     header.forEach((key, i) => { if (key) o[key] = cells[i] ?? ''; });
 
     const mail = normalizeKkumail(o.kkumail);
-    const first = cleanCell(o.first_name_th);
+    const firstRaw = stripTitle(cleanCell(o.first_name_th) || '');
+    const first = firstRaw.value || null;
     const last = cleanCell(o.last_name_th);
+    if (firstRaw.stripped) {
+      problems.push({ line: lineNo, level: 'info', field: 'first_name_th',
+        message: `บรรทัด ${lineNo}: ตัดคำนำหน้า “${firstRaw.stripped}” ออกจากชื่อ`,
+        value: firstRaw.stripped });
+    }
 
     // A row with no address cannot be matched to a login and cannot be upserted
     // (kkumail is NOT NULL + the unique key). Skip it, loudly.
@@ -119,6 +224,15 @@ export function parseStudentsCsv(text, knownMajors = []) {
         value: mail.value });
       return;
     }
+    // A valid address at the WRONG domain imports fine and then never matches a
+    // login — students sign in with kkumail, and get_my_student_record() joins
+    // on it. Warn rather than skip: the row is still worth having, and only a
+    // human knows whether the address is a typo or a genuine exception.
+    if (!mail.value.endsWith('@kkumail.com')) {
+      problems.push({ line: lineNo, level: 'warn', field: 'kkumail',
+        message: `บรรทัด ${lineNo}: ${mail.value} ไม่ใช่ @kkumail.com — `
+          + 'นักศึกษาจะเข้าสู่ระบบแล้วไม่เจอข้อมูลตัวเอง', value: mail.value });
+    }
     seenMail.set(mail.value, lineNo);
 
     const sid = normalizeStudentId(o.student_id);
@@ -133,9 +247,9 @@ export function parseStudentsCsv(text, knownMajors = []) {
         value: sid.value });
     } else if (sid.value) seenSid.set(sid.value, lineNo);
 
-    const sai = normalizeSai(o.sai);
+    const sai = normalizeSai(o.sai_code);
     if (!sai.ok) {
-      problems.push({ line: lineNo, level: 'warn', field: 'sai',
+      problems.push({ line: lineNo, level: 'warn', field: 'sai_code',
         message: `บรรทัด ${lineNo}: สายรหัส “${sai.raw}” อ่านไม่ออก — จะเว้นว่างไว้`,
         value: sai.raw });
     }
@@ -154,14 +268,18 @@ export function parseStudentsCsv(text, knownMajors = []) {
       last_name_th: last,
       // NOTE: nickname_IMPORTED, never nickname_self. The student owns the other
       // column and an import must not be able to overwrite what they typed.
-      nickname_imported: cleanCell(o.nickname_th),
+      nickname_imported: cleanCell(o.nickname_imported),
       major: major.value,
       sai_code: sai.ok ? sai.value : null,
       _house: sai.ok ? houseOf(sai.value) : null,
     });
   });
 
-  return { rows, problems, widthAudit, missingColumns, fatal: null };
+  // Which import-owned columns this file actually carried. Everything
+  // downstream (the diff, the upsert payload) is scoped to it.
+  const presentColumns = IMPORT_OWNED_COLUMNS.filter((c) => header.includes(c));
+
+  return { rows, problems, widthAudit, missingColumns, presentColumns, fatal: null };
 }
 
 /** The columns an upsert is allowed to write. Everything a STUDENT owns is
@@ -172,10 +290,30 @@ export const IMPORT_OWNED_COLUMNS = [
   'nickname_imported', 'major', 'sai_code',
 ];
 
-/** Strip a parsed row down to exactly the import-owned columns. */
-export function toUpsertRow(row, batchId) {
+/**
+ * Strip a parsed row down to the import-owned columns THIS FILE ACTUALLY HAD.
+ *
+ * `present` is why this takes a third argument. The upsert writes every key in
+ * the payload, so including a column the file did not contain wrote NULL over
+ * it for everyone in the file: a corrected name-list that happened to omit the
+ * `sai` column would have silently cleared ~1,800 สายรหัส — and with them every
+ * house placement — while the preview cheerfully said "แก้ไข 1,800". An import
+ * must never destroy a field it was not given.
+ *
+ * Omitting the key is enough: PostgREST's `merge-duplicates` builds its
+ * `ON CONFLICT DO UPDATE SET` from the keys present in the body, so an absent
+ * column keeps whatever the row already has. All rows in one import share the
+ * same key set (`present` is file-level), which PostgREST also requires.
+ *
+ * A column that IS in the file but empty on a row still writes NULL — that is a
+ * real "this person has no ชื่อเล่น any more", not a gap in the file.
+ */
+export function toUpsertRow(row, batchId, present = IMPORT_OWNED_COLUMNS) {
   const out = {};
-  for (const c of IMPORT_OWNED_COLUMNS) out[c] = row[c] ?? null;
+  for (const c of IMPORT_OWNED_COLUMNS) {
+    // kkumail is the conflict target and must always be sent.
+    if (c === 'kkumail' || present.includes(c)) out[c] = row[c] ?? null;
+  }
   out.last_import_batch = batchId || null;
   out.missing_since = null;      // present in this file ⇒ not missing
   return out;
@@ -186,14 +324,18 @@ export function toUpsertRow(row, batchId) {
  * Returns counts + the per-row verdict, so the preview can say
  * "จะเพิ่ม N · แก้ไข M · ไม่เปลี่ยน K" BEFORE anything is written.
  */
-export function diffAgainstExisting(rows, existing) {
+export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUMNS) {
   const byMail = new Map(
     (existing || []).map((s) => [String(s.kkumail || '').toLowerCase(), s]));
   let insert = 0, update = 0, same = 0;
+  // Only the columns the file carries — the same set toUpsertRow will write.
+  // Diffing a column the import will not touch reports a change that will not
+  // happen, which is how a preview stops being evidence.
+  const compared = IMPORT_OWNED_COLUMNS.filter((c) => present.includes(c));
   const verdicts = rows.map((r) => {
     const cur = byMail.get(r.kkumail);
     if (!cur) { insert += 1; return { ...r, _verdict: 'insert' }; }
-    const changed = IMPORT_OWNED_COLUMNS.filter((c) => {
+    const changed = compared.filter((c) => {
       const a = r[c] ?? null;
       const b = cur[c] ?? null;
       return String(a ?? '') !== String(b ?? '');
@@ -217,14 +359,26 @@ const csvCell = (v) => {
 /**
  * Admin export.
  *
- * ⚠️ THIS IS A BACKUP, so its safe default is the OPPOSITE of the roster
+ * ⚠️ THIS IS A BACKUP, so its safe default is the OPPOSITE of a public
  * projection's: a column left OUT here is silently destroyed on the next
- * export→re-import round trip, whereas a column left out of the roster is
+ * export→re-import round trip, whereas a column left out of a projection is
  * merely not published. Adding a column to `students`? Add it here too.
  * (`io.test.js` in team/ carries the same warning for the same reason.)
+ *
+ * HEADERS ARE THE TABLE'S COLUMN NAMES, which is also what `CSV_COLUMNS` above
+ * canonicalises to — so a file exported here can be handed straight back to the
+ * importer without renaming anything.
+ *
+ * `house` is DERIVED (the last digit of สาย) and is here anyway: the importer
+ * has no alias for it, so it round-trips as an ignored column, and a human
+ * reading the backup can see the house without doing arithmetic. A generated
+ * column that COLLIDES with an import-owned one is the opposite case and must
+ * NOT be exported — `nickname` is `coalesce(nickname_self, nickname_imported)`,
+ * and the importer reads a `nickname` header as the IMPORTED one, so exporting
+ * it made a round trip overwrite the import value with the student's own.
  */
 export const EXPORT_COLUMNS = [
-  'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'nickname',
+  'kkumail', 'student_id', 'first_name_th', 'last_name_th',
   'nickname_imported', 'nickname_self', 'major', 'sai_code', 'house',
   'cohort_year', 'year_override', 'is_listed', 'sai_locked',
   'verified_at',

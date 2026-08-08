@@ -22,12 +22,14 @@ import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import {
   fetchSettings, updateSettings, fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
+  addSaiAdvisor, removeSaiAdvisor,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
+  CSV_COLUMN_LABEL,
 } from './io.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
@@ -265,21 +267,36 @@ function renderStudents() {
 }
 
 // ---------- สายรหัส ----------
+/** อาจารย์ per สาย, built once per render from the advisor rows we already have.
+ *  The link table is loaded nested under `advisors`, so this is the ONE place
+ *  that inverts it — every สาย-side reader uses this map rather than re-walking
+ *  `sai_advisors` and drifting from it. */
+function advisorsBySai() {
+  const m = new Map();
+  for (const a of advisors) {
+    for (const link of a.sai_advisors || []) {
+      if (!m.has(link.sai_code)) m.set(link.sai_code, []);
+      m.get(link.sai_code).push(a);
+    }
+  }
+  for (const list of m.values()) {
+    list.sort((x, y) => String(x.full_name || '').localeCompare(String(y.full_name || ''), 'th'));
+  }
+  return m;
+}
+
 function renderSais() {
   const wrap = $('houseSaiGroups');
   if (!wrap) return;
-  const byHouse = new Map();
-  for (const s of sais) {
-    if (!byHouse.has(s.house_id)) byHouse.set(s.house_id, []);
-    byHouse.get(s.house_id).push(s);
-  }
-  const advBySai = new Map();
-  for (const a of advisors) {
-    for (const link of a.sai_advisors || []) {
-      if (!advBySai.has(link.sai_code)) advBySai.set(link.sai_code, []);
-      advBySai.get(link.sai_code).push(a);
+
+  const hSel = $('houseSaiFilterHouse');
+  if (hSel && hSel.options.length <= 1) {
+    for (let i = 0; i < HOUSE_COUNT; i += 1) {
+      hSel.insertAdjacentHTML('beforeend', `<option value="${i}">${escHtml(houseName(i))}</option>`);
     }
   }
+
+  const advBySai = advisorsBySai();
   const memberCount = new Map();
   for (const s of students) {
     if (!s.sai_code) continue;
@@ -292,15 +309,42 @@ function renderSais() {
       + '</div>';
     return;
   }
+
+  // Search matches the สาย code OR an อาจารย์ name, because "which สาย does
+  // อ.สมชาย have" is the same question asked from the other end.
+  const q = ($('houseSaiSearch')?.value || '').trim().toLowerCase();
+  const fh = $('houseSaiFilterHouse')?.value || '';
+  const onlyEmpty = !!$('houseSaiOnlyEmpty')?.checked;
+  const visible = sais.filter((s) => {
+    const adv = advBySai.get(s.code) || [];
+    if (fh !== '' && String(s.house_id) !== fh) return false;
+    if (onlyEmpty && adv.length) return false;
+    if (!q) return true;
+    return s.code.includes(q)
+      || adv.some((a) => String(a.full_name || '').toLowerCase().includes(q));
+  });
+
+  if (!visible.length) {
+    wrap.innerHTML = '<div class="text-muted text-center py-4">ไม่พบสายที่ตรงกับตัวกรอง</div>';
+    return;
+  }
+
+  const byHouse = new Map();
+  for (const s of visible) {
+    if (!byHouse.has(s.house_id)) byHouse.set(s.house_id, []);
+    byHouse.get(s.house_id).push(s);
+  }
+
   wrap.innerHTML = [...byHouse.entries()].sort((a, b) => a[0] - b[0]).map(([hid, list]) => `
     <div class="mb-3">
-      <h6 class="small text-uppercase text-muted">${escHtml(houseName(hid))}</h6>
+      <h6 class="small text-uppercase text-muted">${escHtml(houseName(hid))} · ${list.length} สาย</h6>
       <div class="row g-2">
         ${list.map((s) => {
     const adv = advBySai.get(s.code) || [];
     return `
           <div class="col-6 col-md-3 col-lg-2">
-            <div class="border rounded p-2 h-100">
+            <div class="border rounded p-2 h-100 house-sai-card" data-sai="${escHtml(s.code)}" role="button"
+                 title="กดเพื่อจัดการอาจารย์ของสาย ${escHtml(s.code)}">
               <div class="fw-semibold">สาย ${escHtml(s.code)}</div>
               <div class="small text-muted">${(memberCount.get(s.code) || 0)} คน</div>
               <div class="small ${adv.length ? '' : 'text-warning'}">
@@ -311,6 +355,85 @@ function renderSais() {
   }).join('')}
       </div>
     </div>`).join('');
+}
+
+// ---------- สาย modal: อาจารย์ of ONE สาย ----------
+/**
+ * Repaint the modal body from module state.
+ *
+ * Called on open and after every add/remove — the modal does NOT close on save,
+ * because assigning three อาจารย์ to a สาย would otherwise be three round trips
+ * through a card grid (the "modal that closes on save" entry in mistakes.md).
+ */
+function paintSaiModal(code) {
+  const sai = sais.find((s) => s.code === code);
+  // The modal markup lives in tab-house.html; bail rather than throw if either
+  // it or the สาย has gone (a reload can drop a สาย whose last student moved).
+  if (!sai || !$('hxTitle') || !$('hxAdvisors') || !$('hxPick')) return;
+  const assigned = advisorsBySai().get(code) || [];
+  const members = students.filter((s) => s.sai_code === code).length;
+
+  $('hxTitle').textContent = `สายรหัส ${code}`;
+  $('hxMeta').innerHTML = `${escHtml(houseName(sai.house_id))} · ${members} คน`
+    + ' · <span class="text-muted">บ้านคำนวณจากเลขหลักสุดท้าย แก้ด้วยมือไม่ได้</span>';
+
+  $('hxAdvisors').innerHTML = assigned.length ? assigned.map((a) => `
+    <div class="d-flex align-items-center gap-2 border rounded px-2 py-1 mb-1">
+      <div class="flex-grow-1 small">
+        <span class="fw-semibold">${escHtml([a.title, a.full_name].filter(Boolean).join(' '))}</span>
+        ${a.dept ? `<span class="text-muted"> · ${escHtml(a.dept)}</span>` : ''}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+              data-sai-remove="${escHtml(a.id)}" title="นำออกจากสายนี้">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>`).join('')
+    : '<div class="small text-warning">ยังไม่มีอาจารย์ที่ปรึกษาของสายนี้</div>';
+
+  const taken = new Set(assigned.map((a) => a.id));
+  const options = advisors.filter((a) => !taken.has(a.id));
+  $('hxPick').innerHTML = options.length
+    ? options.map((a) => `<option value="${escHtml(a.id)}">${
+  escHtml([a.title, a.full_name, a.dept ? `(${a.dept})` : ''].filter(Boolean).join(' '))}</option>`).join('')
+    : '<option value="">— ไม่มีอาจารย์ให้เลือก —</option>';
+  $('hxPick').disabled = !options.length;
+  $('hxAdd').disabled = !options.length;
+}
+
+function openSaiModal(code) {
+  $('hxCode').value = code;
+  paintSaiModal(code);
+  modalInstance('houseSaiModal')?.show();
+}
+
+async function onSaiAddAdvisor() {
+  const code = $('hxCode').value;
+  const advisorId = $('hxPick').value;
+  if (!code || !advisorId) return;
+  const btn = $('hxAdd');
+  btn.disabled = true;
+  try {
+    const assigned = advisorsBySai().get(code) || [];
+    await addSaiAdvisor(code, advisorId, assigned.length);
+    await reload();
+    paintSaiModal(code);
+  } catch (err) {
+    setStatus(err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function onSaiRemoveAdvisor(advisorId) {
+  const code = $('hxCode').value;
+  if (!code || !advisorId) return;
+  try {
+    await removeSaiAdvisor(code, advisorId);
+    await reload();
+    paintSaiModal(code);
+  } catch (err) {
+    setStatus(err?.message || 'นำอาจารย์ออกไม่สำเร็จ', true);
+  }
 }
 
 // ---------- อาจารย์ ----------
@@ -398,8 +521,16 @@ function renderImportPreview(result, diff) {
     return;
   }
 
-  const skips = result.problems.filter((p) => p.level === 'skip');
-  const warns = result.problems.filter((p) => p.level === 'warn');
+  // FILE-level findings (the สาย padding notice, unrecognised columns) are shown
+  // ABOVE the fold, not inside the collapsed list: they describe the file as a
+  // whole, and "we padded 412 สาย for you" is the one thing the person confirming
+  // this import must read before clicking. Per-row problems stay collapsed —
+  // there can be hundreds.
+  const fileLevel = result.problems.filter((p) => p.line === 1);
+  const perRow = result.problems.filter((p) => p.line !== 1);
+  const skips = perRow.filter((p) => p.level === 'skip');
+  const warns = perRow.filter((p) => p.level === 'warn');
+  const infos = perRow.filter((p) => p.level === 'info');
   const houseCounts = new Map();
   for (const r of result.rows) {
     if (r._house === null) continue;
@@ -415,6 +546,21 @@ function renderImportPreview(result, diff) {
         <div class="col"><div class="fs-4 fw-semibold text-warning">${skips.length}</div><div class="small">ข้าม</div></div>
       </div>
     </div>
+
+    ${result.missingColumns.length ? `
+      <div class="alert alert-warning py-2 small">
+        <strong>ไฟล์นี้ไม่มีคอลัมน์:</strong>
+        ${escHtml(result.missingColumns.map((c) => CSV_COLUMN_LABEL[c] || c).join(' · '))}
+        <br />นำเข้าได้ — ช่องที่ขาดจะ<strong>ไม่ถูกแตะต้อง</strong>
+        ของเดิมในระบบยังอยู่ครบ
+        ${result.missingColumns.includes('sai_code')
+    ? '<br />(ไฟล์นี้ไม่มีสายรหัส จึงไม่มีการย้ายบ้านใครทั้งสิ้น)' : ''}
+      </div>` : ''}
+
+    ${fileLevel.map((p) => `
+      <div class="alert ${p.level === 'warn' ? 'alert-warning' : 'alert-info'} py-2 small">
+        ${escHtml(p.message)}
+      </div>`).join('')}
 
     ${diff.missing.length ? `
       <div class="alert alert-warning py-2 small">
@@ -432,14 +578,17 @@ function renderImportPreview(result, diff) {
       </div>
     </div>
 
-    ${skips.length || warns.length ? `
+    ${perRow.length ? `
       <details class="mb-3">
-        <summary class="small">ปัญหาที่พบ ${skips.length + warns.length} รายการ</summary>
+        <summary class="small">ปัญหาที่พบ ${perRow.length} รายการ</summary>
         <ul class="small mt-2 mb-0">
-          ${[...skips, ...warns].slice(0, 100).map((p) => `
-            <li class="${p.level === 'skip' ? 'text-danger' : 'text-warning-emphasis'}">
+          ${[...skips, ...warns, ...infos].slice(0, 100).map((p) => `
+            <li class="${p.level === 'skip' ? 'text-danger'
+    : p.level === 'warn' ? 'text-warning-emphasis' : 'text-muted'}">
               ${escHtml(p.message)}</li>`).join('')}
         </ul>
+        ${perRow.length > 100 ? `<div class="small text-muted mt-1">
+          (แสดง 100 รายการแรกจาก ${perRow.length})</div>` : ''}
       </details>` : ''}
 
     <button type="button" class="btn btn-primary" id="houseImportConfirm"
@@ -457,7 +606,7 @@ async function onCsvPicked(e) {
     const text = await file.text();
     const knownMajors = [...new Set(students.map((s) => s.major).filter(Boolean))];
     const result = parseStudentsCsv(text, knownMajors.length ? knownMajors : ['MD', 'MDI', 'RT']);
-    const diff = diffAgainstExisting(result.rows, students);
+    const diff = diffAgainstExisting(result.rows, students, result.presentColumns);
     pendingImport = { result, diff, fileName: file.name };
     renderImportPreview(result, diff);
   } catch (err) {
@@ -491,7 +640,9 @@ async function runImport() {
     // Chunked: 1,800 rows in one POST is a large body and an all-or-nothing
     // failure. 200 at a time keeps each request small and makes a partial
     // failure legible ("stopped at chunk 4") instead of silent.
-    const rows = result.rows.map((r) => toUpsertRow(r, batch?.id));
+    // Scoped to the columns the FILE carried: a column the file did not have
+    // must not be written, or an import would clear it for everyone in the file.
+    const rows = result.rows.map((r) => toUpsertRow(r, batch?.id, result.presentColumns));
     const CHUNK = 200;
     for (let i = 0; i < rows.length; i += CHUNK) {
       await upsertStudents(rows.slice(i, i + CHUNK));
@@ -780,6 +931,20 @@ function wire() {
   $('heIconClear')?.addEventListener('click', () => { houseIconUrl = null; paintHouseIcon(); });
   $('heReset')?.addEventListener('click', () => {
     $('heName').value = ''; $('heSlogan').value = ''; houseIconUrl = null; paintHouseIcon();
+  });
+
+  // สายรหัส pane — filters, and the สาย-first อาจารย์ modal.
+  $('houseSaiSearch')?.addEventListener('input', renderSais);
+  $('houseSaiFilterHouse')?.addEventListener('change', renderSais);
+  $('houseSaiOnlyEmpty')?.addEventListener('change', renderSais);
+  $('houseSaiGroups')?.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-sai]');
+    if (card) openSaiModal(card.dataset.sai);
+  });
+  $('hxAdd')?.addEventListener('click', onSaiAddAdvisor);
+  $('hxAdvisors')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sai-remove]');
+    if (btn) onSaiRemoveAdvisor(btn.dataset.saiRemove);
   });
 
   $('houseAdvisorSearch')?.addEventListener('input', renderAdvisors);

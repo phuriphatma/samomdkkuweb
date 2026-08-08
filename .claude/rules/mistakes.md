@@ -210,7 +210,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(8 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(10 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -220,6 +220,8 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A snapshot table that COPIES a foreign resource id makes the original's delete path destroy history
 - An allow-list feeding a BACKUP has the opposite safe default from one feeding a public projection
 - A scroll-to-top fix applied in the tab handler misses every link that navigates programmatically
+- An upsert that sends EVERY column wipes the ones the file did not have
+- An export that carries a GENERATED column re-imports as the real one
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(16 entries)*

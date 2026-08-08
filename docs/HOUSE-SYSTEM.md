@@ -238,11 +238,23 @@ rung, and อาจารย์ have no login today. Adding it later is a policy
 3. **บ้าน** — edit name/slogan/colour, upload logo (reuse `image-crop.js` +
    `uploadTeamFile` under a `Team/_House/` folder, so **no GAS redeploy and no
    new OAuth scope**), and the reveal switch.
-4. **สายรหัส** — 100 rows grouped by house; house column is read-only (generated).
-   Assign/remove อาจารย์ per สาย. Shows which สาย still have none.
+4. **สายรหัส** — every สาย the import created, grouped by house; the house is
+   read-only (generated). **Click a สาย to add/remove its อาจารย์** — the same
+   `sai_advisors` rows the อาจารย์ pane edits from the other side, because
+   "who looks after สาย 017" is where an admin actually starts. Search by สาย or
+   by อาจารย์ name, and filter to the สาย that still have none.
 5. **นักศึกษา** — searchable, filter by house/สาย/รุ่น/สาขา, edit a row,
    **export CSV**.
 6. **คำขอแก้ไข** — the queue from §7.
+
+**Import/export share ONE vocabulary — the table's column names.** The export
+writes them, the importer canonicalises to them, and the friendlier spellings a
+spreadsheet arrives with (`sai`, `nickname_th`, `ชื่อ`, `อีเมล`) are aliases
+resolved at the door. An export can therefore be handed straight back to the
+importer. Two consequences worth knowing: a GENERATED column is exported only if
+the importer has no alias for it (`house` yes, `nickname` no — see
+`docs/mistakes/app-state.md`), and **an import only writes the columns its file
+actually contained**, so a partial file cannot clear what it does not mention.
 
 **Export is a backup, so its column list is an allow-list with the opposite safe
 default from a public projection**: a column left out of a backup is silently
