@@ -42,6 +42,7 @@ npm run preview      # serve dist locally on :4173
 | Window-bound function (for `onclick=""`) | Wire in `src/js/main.js` |
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |
+| Any schema change | New numbered migration + a both-directional proof — **see `skills/ship-a-migration.md`** (ADD then deploy; DROP only AFTER the new bundle is SERVED) |
 
 ## UI/UX guidelines
 

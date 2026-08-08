@@ -16,11 +16,19 @@ Both Cloudflare projects hit the same Supabase backend.
 - **ระบบบ้าน (House).** Every student in the faculty gets a record they can see
   by signing in with their kkumail — their สายรหัส, their อาจารย์ที่ปรึกษา, and
   their house. There are ten houses and a student's house is the last digit of
-  their สายรหัส, so the split is even and needs no manual assignment. Students
-  can fix their own ชื่อเล่น and ชั้นปี, see who else is in their house, and flag
-  a wrong สายรหัส for an admin to approve. Admins import the roster from a CSV
+  their สายรหัส, so the split is even and needs no manual assignment. **It
+  publishes อาจารย์, never students** — a student sees the อาจารย์ที่ปรึกษา of
+  their own สาย and of every สาย in their house, and no other student's name
+  anywhere. Students can fix their own ชื่อ, ชื่อเล่น, รหัสนักศึกษา, สาขา and
+  ชั้นปี, and flag a wrong สายรหัส for an admin to approve — the admin's decision
+  and reason come back to them on the same card. Admins import the roster from a CSV
   (previewed before anything is written, and re-runnable without destroying what
   students typed), name and illustrate each house, and assign อาจารย์ per สาย.
+- **One account across the portal.** A person is one record
+  (`public.people`): fixing your name or ชื่อเล่น anywhere — your own card, the
+  ทีม SAMO admin pane, the ระบบบ้าน admin pane — updates everywhere. Signed-in
+  users see a single **ข้อมูลของฉัน** card with their identity once, then a
+  ทีม SAMO section and a ระบบบ้าน section.
 - **Announcements board.** Public read; staff post via a Quill-based rich-text
   editor. Per-department thumbnails and theming.
 - **PR submission.** Form-based job intake with file upload, deadline mode,
