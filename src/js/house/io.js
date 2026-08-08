@@ -10,7 +10,7 @@
 import { parseCsv } from '../team/io.js';
 import {
   normalizeSai, normalizeStudentId, normalizeMajor, normalizeKkumail,
-  auditSaiWidths, cleanCell, cleanSpace, houseOf,
+  auditSaiWidths, cleanCell, cleanSpace, houseOf, cohortLabel,
 } from './fields.js';
 
 /**
@@ -120,7 +120,7 @@ function normHeader(h) {
  */
 export function parseStudentsCsv(text, knownMajors = []) {
   const empty = {
-    rows: [], problems: [], widthAudit: null,
+    rows: [], skipped: [], problems: [], widthAudit: null,
     missingColumns: CSV_COLUMNS, presentColumns: [],
   };
 
@@ -212,6 +212,28 @@ export function parseStudentsCsv(text, knownMajors = []) {
   const seenMail = new Map();
   const seenSid = new Map();
   const rows = [];
+  // Lines that will NOT be imported, kept with enough of their content to be
+  // shown. The preview used to report skips only as a count and a sentence in a
+  // collapsed list, so "3 ข้าม" out of 1,800 was a number with no way to find
+  // out WHO — and a skipped row is the one case where a human definitely has to
+  // look, because that person simply will not exist in the system afterwards.
+  const skipped = [];
+  const skip = (lineNo, cells, reason) => {
+    const o = {};
+    header.forEach((key, i) => { if (key) o[key] = cells[i] ?? ''; });
+    skipped.push({
+      _line: lineNo,
+      _skip: reason,
+      kkumail: cleanSpace(o.kkumail),
+      student_id: cleanSpace(o.student_id),
+      first_name_th: cleanCell(o.first_name_th),
+      last_name_th: cleanCell(o.last_name_th),
+      nickname_imported: cleanCell(o.nickname_imported),
+      major: cleanCell(o.major),
+      sai_code: cleanSpace(o.sai_code),
+      _house: null,
+    });
+  };
 
   raw.slice(1).forEach((cells, idx) => {
     const lineNo = idx + 2;                     // 1-based, including the header
@@ -235,6 +257,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
     if (!mail.ok) {
       problems.push({ line: lineNo, level: 'skip', field: 'kkumail',
         message: `บรรทัด ${lineNo}: ${mail.reason} — ข้ามแถวนี้`, value: cleanSpace(o.kkumail) });
+      skip(lineNo, cells, mail.reason);
       return;
     }
     // A blank name no longer skips the row. `first_name_th` is nullable (0126)
@@ -250,6 +273,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
       problems.push({ line: lineNo, level: 'skip', field: 'kkumail',
         message: `บรรทัด ${lineNo}: อีเมล ${mail.value} ซ้ำกับบรรทัด ${seenMail.get(mail.value)} — ข้ามแถวนี้`,
         value: mail.value });
+      skip(lineNo, cells, `อีเมลซ้ำกับบรรทัด ${seenMail.get(mail.value)}`);
       return;
     }
     // A valid address at the WRONG domain imports fine and then never matches a
@@ -314,7 +338,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
   // downstream (the diff, the upsert payload) is scoped to it.
   const presentColumns = IMPORT_OWNED_COLUMNS.filter((c) => header.includes(c));
 
-  return { rows, problems, widthAudit, missingColumns, presentColumns, fatal: null };
+  return { rows, skipped, problems, widthAudit, missingColumns, presentColumns, fatal: null };
 }
 
 /** The columns an upsert is allowed to write. Everything a STUDENT owns is
@@ -375,9 +399,15 @@ export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUM
       const b = cur[c] ?? null;
       return String(a ?? '') !== String(b ?? '');
     });
-    if (!changed.length) { same += 1; return { ...r, _verdict: 'same' }; }
+    if (!changed.length) { same += 1; return { ...r, _verdict: 'same', _id: cur.id }; }
     update += 1;
-    return { ...r, _verdict: 'update', _changed: changed };
+    // The stored values of exactly the columns that will change. The preview
+    // said "จะแก้ไข 412" and stopped there, which is a number you can only
+    // either trust or not — showing ของเดิม → ของใหม่ per row is what makes it
+    // checkable before anything is written.
+    const before = {};
+    for (const c of changed) before[c] = cur[c] ?? null;
+    return { ...r, _verdict: 'update', _changed: changed, _before: before, _id: cur.id };
   });
   // Rows in the DB that this file does NOT mention. Reported, never deleted.
   const fileMails = new Set(rows.map((r) => r.kkumail));
@@ -386,44 +416,125 @@ export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUM
   return { verdicts, insert, update, same, missing };
 }
 
+/**
+ * Every line of the file, in file order, with its verdict and its problems.
+ *
+ * REQUESTED: "when import csv, it should show preview of what information it'll
+ * be import like i can scroll through what it'll be import. and show who that is
+ * duplicate, error prone, detect edge case etc".
+ *
+ * The preview it replaces was four counters and a collapsed list of sentences.
+ * Both halves of that were unusable for the actual job: the counters say 412
+ * rows will change without saying which, and the problem list is ordered by
+ * SEVERITY, so "บรรทัด 1408" in it cannot be matched up with the person on line
+ * 1408 without counting. This puts the finding on the row it is about.
+ *
+ * SKIPPED LINES ARE INCLUDED, and that is the point of `result.skipped`. A row
+ * dropped for a bad or duplicate address is the one row a human must look at —
+ * that person will simply not be in the system afterwards — and it was the only
+ * row the old preview could not show at all.
+ *
+ * Pure: takes what parse + diff already produced, returns rows. No DOM.
+ */
+export function buildPreviewRows(result, diff) {
+  const byLine = new Map();
+  for (const p of result.problems || []) {
+    if (p.line === 1) continue;                // file-level; shown above the fold
+    if (!byLine.has(p.line)) byLine.set(p.line, []);
+    byLine.get(p.line).push(p);
+  }
+  const all = [
+    ...(diff?.verdicts || result.rows || []),
+    ...(result.skipped || []).map((r) => ({ ...r, _verdict: 'skip' })),
+  ];
+  return all
+    .map((r) => ({ ...r, _problems: byLine.get(r._line) || [] }))
+    .sort((a, b) => a._line - b._line);
+}
+
+/** The columns the preview table shows, in the order it shows them. Import-owned
+ *  only — a preview that displayed a column the import cannot write would be
+ *  promising something it does not do. */
+export const PREVIEW_COLUMNS = [
+  'kkumail', 'student_id', 'first_name_th', 'last_name_th',
+  'nickname_imported', 'major', 'sai_code',
+];
+
+export const PREVIEW_COLUMN_LABEL = {
+  kkumail: 'kkumail',
+  student_id: 'รหัสนักศึกษา',
+  first_name_th: 'ชื่อ',
+  last_name_th: 'นามสกุล',
+  nickname_imported: 'ชื่อเล่น',
+  major: 'สาขา',
+  sai_code: 'สาย',
+};
+
 const csvCell = (v) => {
   const s = String(v ?? '');
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 /**
- * Admin export.
+ * Admin export — WHAT THE SYSTEM HOLDS, as the person reading the file sees it.
  *
- * ⚠️ THIS IS A BACKUP, so its safe default is the OPPOSITE of a public
- * projection's: a column left OUT here is silently destroyed on the next
- * export→re-import round trip, whereas a column left out of a projection is
- * merely not published. Adding a column to `students`? Add it here too.
- * (`io.test.js` in team/ carries the same warning for the same reason.)
+ * REPORTED: "i don't understand why when i export csv, there's
+ * nickname_imported nickname_self, it should show the information that the
+ * current system holds, what the user see. i don't know why there're
+ * cohort_year, year_override, shouldn't that not exist because we change to use
+ * รุ่น like MD50, and why are there is_listed, why are there sai_locked,
+ * verified_at shouldn't that be gone".
  *
- * HEADERS ARE THE TABLE'S COLUMN NAMES, which is also what `CSV_COLUMNS` above
- * canonicalises to — so a file exported here can be handed straight back to the
- * importer without renaming anything.
+ * All of it correct. Five of those columns were dead — the leftovers of ชั้นปี,
+ * the roster, the สายรหัส self-edit and ยืนยันข้อมูล — and migration 0129 has
+ * now dropped them from the table. The other two were an implementation detail
+ * of ONE field leaking into a file meant for a human.
  *
- * `house` is DERIVED (the last digit of สาย) and is here anyway: the importer
- * has no alias for it, so it round-trips as an ignored column, and a human
- * reading the backup can see the house without doing arithmetic. A generated
- * column that COLLIDES with an import-owned one is the opposite case and must
- * NOT be exported — `nickname` is `coalesce(nickname_self, nickname_imported)`,
- * and the importer reads a `nickname` header as the IMPORTED one, so exporting
- * it made a round trip overwrite the import value with the student's own.
+ * ⚠️ THIS IS STILL A BACKUP, and the old warning stands: a column left OUT here
+ * is silently destroyed on the next export→re-import round trip, whereas a
+ * column left out of a public projection is merely unpublished. Adding a real
+ * column to `students`? Add it here too. What changed is that the list is now
+ * the columns that EXIST and MEAN something, which is a much easier list to
+ * keep true than "everything, in case".
+ *
+ * THE NICKNAME, and a reversal. `nickname` is generated as
+ * `coalesce(nickname_self, nickname_imported)`, and the importer reads a
+ * `nickname` header as the IMPORTED one — so exporting the effective value and
+ * re-importing writes it into the import slot. That was previously the reason
+ * to export BOTH columns instead. It is the wrong trade: the round trip changes
+ * nothing anyone can see (nickname_self still wins wherever it is set, so the
+ * displayed nickname is identical before and after), and the price of avoiding
+ * it was two columns on every row of a file whose whole purpose is to be read
+ * by a person. What is lost is the original imported string on a row where the
+ * student has overridden it — a value no screen in this app displays.
+ *
+ * TWO DERIVED COLUMNS, deliberately. `house` (the last digit of สาย) and
+ * `cohort` (MD50, from the รหัส) are computed, not stored, and the importer has
+ * no alias for either — so they round-trip as ignored columns and cost nothing,
+ * while sparing a human the arithmetic. `cohort` is the answer to "why is
+ * cohort_year in here": ปีที่เข้า 2565 is not what anybody calls it.
  */
 export const EXPORT_COLUMNS = [
   'kkumail', 'student_id', 'first_name_th', 'last_name_th',
-  'nickname_imported', 'nickname_self', 'major', 'sai_code', 'house',
-  'cohort_year', 'year_override', 'is_listed', 'sai_locked',
-  'verified_at',
+  'nickname', 'major', 'sai_code', 'house', 'cohort',
 ];
+
+/** Values the export computes rather than reads. Kept beside the column list
+ *  so the two cannot disagree about which names are derived. */
+const EXPORT_DERIVED = {
+  house: (r) => houseOf(r.sai_code) ?? '',
+  cohort: (r) => cohortLabel(r) ?? '',
+  // The effective nickname, in case the caller passed rows that carry only the
+  // two source columns (the generated one is normally present).
+  nickname: (r) => r.nickname
+    ?? (String(r.nickname_self ?? '').trim() || r.nickname_imported || ''),
+};
 
 export function buildStudentsCsv(rows) {
   const lines = [EXPORT_COLUMNS.join(',')];
   for (const r of rows) {
     lines.push(EXPORT_COLUMNS.map((c) => csvCell(
-      c === 'house' ? (houseOf(r.sai_code) ?? '') : r[c],
+      EXPORT_DERIVED[c] ? EXPORT_DERIVED[c](r) : r[c],
     )).join(','));
   }
   return lines.join('\r\n');

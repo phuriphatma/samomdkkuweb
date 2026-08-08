@@ -521,10 +521,23 @@
               </label>
               <select class="form-select" id="teamMemberMajor"></select>
             </div>
+            <!-- kkumail is the identity (0108), so it is also the key ระบบบ้าน
+                 is filed by — which makes it the one field worth typing first.
+                 “ดึงจากระบบบ้าน” resolves it and fills the boxes above rather
+                 than making someone retype what the university already sent.
+                 Retyping is where the two copies diverge. -->
             <div class="col-12">
               <label class="form-label" for="teamMemberEmail">KKU Mail</label>
-              <input type="email" class="form-control" id="teamMemberEmail" placeholder="name@kkumail.com" />
+              <div class="input-group">
+                <input type="email" class="form-control" id="teamMemberEmail"
+                       placeholder="name@kkumail.com" />
+                <button type="button" class="btn btn-outline-secondary text-nowrap"
+                        id="teamMemberFillFromHouse">
+                  <i class="bi bi-house-down"></i> ดึงจากระบบบ้าน
+                </button>
+              </div>
               <div class="form-text">ใช้จับคู่ตอนเข้าสู่ระบบด้วย Google — กำหนดสิทธิ์ได้ในแท็บ “จัดการสิทธิ์”</div>
+              <div class="form-text" id="teamMemberHouseFillHint" role="status" aria-live="polite"></div>
             </div>
           </div>
           <div class="form-check form-switch mt-3">

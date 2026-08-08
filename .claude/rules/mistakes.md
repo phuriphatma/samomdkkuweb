@@ -35,7 +35,11 @@ has not been written yet.
    mutually exclusive, in the form as well as the schema.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
    `select=*`, the other RPC, the view without `security_invoker`, and the
-   audience lookup still leaking. Enumerate the paths. Non-security twin: a fix
+   audience lookup still leaking. Enumerate the paths. Mirror image: a correct
+   restriction mistaken for a complete design — an admin typed a decision note
+   into `student_change_requests`, which is admin-only, and the student it was
+   addressed to had no read path at all (0128). A form that collects a message
+   for a named person is a promise that person can read it. Non-security twin: a fix
    in an EVENT handler guarded on state the CALLER sets misses every other entry
    point — the /updates scroll fix worked for nav pills and not for
    `navigateTo()`.
@@ -51,6 +55,10 @@ has not been written yet.
    beside a shared constant: main.js's own five-key admin-link list vs
    `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
    `team/fields.js`. Also a CONVENTION applied in some modules and not others:
+   Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
+   was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
+   the รุ่น and every reader's `coalesce(copy, source)` preferred the stale one
+   (0128). Fill-once means never-correct.
    `prefer: 'return=representation'` + a `data.length` check on every DELETE
    (projects/vs/announcements had it; all 5 in `team/api.js` and 3 in
    `shop/api.js` did not) — now swept by `delete-guard.test.js`.
@@ -70,7 +78,11 @@ has not been written yet.
    bundle, not the local file; read the LIVE function body, not the migration
    that first defined it. And a probe that can only report "denied" cannot
    distinguish a working guard from a broken service — always exercise the
-   allow path too.
+   allow path too. **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
+   reads the UNION of `permissions` AND `managed_permissions` (0081), so an
+   account picked by `permissions = '{}'` may hold `master` through the ทีม SAMO
+   tree — it looks exactly like a fail-open policy and is the grant engine
+   working. Filter on both columns.
 
 ---
 
@@ -115,7 +127,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
 ### `docs/mistakes/authz-rls.md` — RLS policies, SECURITY DEFINER & read paths
-*Open when:* any policy, `current_user_*` helper, or definer RPC. *(21 entries)*
+*Open when:* any policy, `current_user_*` helper, or definer RPC. *(22 entries)*
 
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
@@ -138,6 +150,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Moving a read behind an identity-gated RPC breaks every caller that has NO identity
 - `revoke ... from public` leaves the grant that the schema's DEFAULT PRIVILEGES gave `authenticated`
 - An anon-readable settings table published a staff member's real email
+- An admin's decision was written to a column no student had any read path to
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
 *Open when:* adding an access channel, a scope, or a seat. *(11 entries)*
@@ -155,7 +168,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
 ### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(14 entries)*
+*Open when:* writing a migration. *(15 entries)*
 
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
@@ -171,6 +184,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)` — the upsert 42P10s, so the whole import is dead on arrival
 - Seeding an OBSERVED range as if it were reference data — the FK then rejects every real row outside the guess
 - Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
+- "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once and never re-derived
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
 *Open when:* markup, modals, layout, touch, icons. *(35 entries)*

@@ -175,11 +175,15 @@ export async function removeSaiAdvisor(saiCode, advisorId) {
 }
 
 // ---- students ----
+// Named, never `select=*` — a future ALTER TABLE must not auto-publish a column
+// to the admin table by accident. Five columns left this list in 0129
+// (year_override, is_listed, verified_at, sai_locked, sai_self_edits): each was
+// the leftover of a feature removed in 0123–0125, and asking PostgREST for a
+// column that no longer exists is a 400 on the whole query.
 const STUDENT_COLS = [
   'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',
   'nickname', 'nickname_imported', 'nickname_self', 'major', 'sai_code',
-  'cohort_year', 'photo_url', 'bio', 'year_override', 'is_listed',
-  'verified_at', 'sai_locked', 'sai_self_edits', 'missing_since', 'updated_at',
+  'cohort_year', 'photo_url', 'bio', 'missing_since', 'updated_at',
 ].join(',');
 
 export async function fetchStudents() {
@@ -242,9 +246,8 @@ export async function deleteStudent(id) {
  *
  * `merge-duplicates` + the kkumail unique index means a re-import UPDATES rather
  * than duplicating. The body must only ever carry IMPORT-OWNED columns — never
- * nickname_self / photo_url / bio / year_override / is_listed, which belong to
- * the student. Enforced by the caller building the payload, and by
- * `house-import.test.js` asserting the key set.
+ * nickname_self / photo_url / bio, which belong to the student. Enforced by the
+ * caller building the payload, and by `io.test.js` asserting the key set.
  */
 export async function upsertStudents(rows) {
   const { data, error } = await dbRest('/students?on_conflict=kkumail', {
@@ -311,11 +314,26 @@ export async function fetchRequests() {
   return data || [];
 }
 
-export async function decideRequest(id, status, note, userId) {
+/**
+ * Record the outcome of one คำขอแก้ไข.
+ *
+ * `applied` is what the admin ACTUALLY saved, and it is written only when it
+ * differs from what the student asked for (0128). The student's card reads all
+ * of status / decision_note / applied_value back through
+ * `get_my_student_record()` — before 0128 an admin could type a reason into a
+ * column that no student had any way to read.
+ */
+export async function decideRequest(id, status, note, userId, applied = null) {
   const { data, error } = await dbRest(
     `/student_change_requests?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      body: { status, decision_note: note || null, decided_by: userId || null, decided_at: new Date().toISOString() },
+      body: {
+        status,
+        decision_note: note || null,
+        applied_value: applied || null,
+        decided_by: userId || null,
+        decided_at: new Date().toISOString(),
+      },
       prefer: 'return=representation',
     });
   if (error) fail(error, 'บันทึกผลคำขอไม่สำเร็จ');

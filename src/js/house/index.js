@@ -34,6 +34,7 @@ import {
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
+  buildPreviewRows, PREVIEW_COLUMNS, PREVIEW_COLUMN_LABEL,
   CSV_COLUMN_LABEL,
 } from './io.js';
 import {
@@ -200,45 +201,78 @@ function renderOverview() {
 // see cohortLabel() there for why ชั้นปี was dropped from ระบบบ้าน entirely.
 const cohortOf = (s) => cohortLabel(s);
 
+/**
+ * The five filters, and why สายรหัส is one of them.
+ *
+ * REPORTED: "when type number สาย it also shows the รหัสนักศึกษา that has that
+ * number". One free-text box searched every column at once, so `17` matched
+ * สาย 017 and รหัสนักศึกษา 6530701712 and any kkumail containing 17 — a number
+ * means a different thing in each column, and a single box cannot know which
+ * one you meant. So the columns where a number is a WHOLE identity get their
+ * own box, and the free-text box no longer looks at สายรหัส at all.
+ *
+ * The three combobox filters match as a SUBSTRING, not an exact value: they are
+ * `<input list>` rather than `<select>` because there are ~300 สาย and รุ่น has
+ * no upper bound, and a typed prefix is the only reason to type at all — "MD5"
+ * has to mean MD50–MD59 or the box is just a select with extra steps.
+ */
+function readFilters() {
+  return {
+    q: ($('houseSearch')?.value || '').trim().toLowerCase(),
+    house: $('houseFilterHouse')?.value || '',
+    cohort: ($('houseFilterYear')?.value || '').trim().toLowerCase(),
+    major: ($('houseFilterMajor')?.value || '').trim().toLowerCase(),
+    sai: ($('houseFilterSai')?.value || '').trim(),
+  };
+}
+
+const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai);
+
 function filteredStudents() {
-  const q = ($('houseSearch')?.value || '').trim().toLowerCase();
-  const fh = $('houseFilterHouse')?.value || '';
-  const fy = $('houseFilterYear')?.value || '';
-  const fm = $('houseFilterMajor')?.value || '';
+  const f = readFilters();
   return students.filter((s) => {
-    if (fh !== '' && String(saiHouse(s.sai_code)) !== fh) return false;
-    if (fy !== '' && (cohortOf(s) || '') !== fy) return false;
-    if (fm !== '' && (s.major || '') !== fm) return false;
-    if (!q) return true;
-    return [s.full_name, s.nickname, s.student_id, s.kkumail, s.sai_code]
-      .some((v) => String(v || '').toLowerCase().includes(q));
+    if (f.house !== '' && String(saiHouse(s.sai_code)) !== f.house) return false;
+    if (f.cohort && !String(cohortOf(s) || '').toLowerCase().includes(f.cohort)) return false;
+    if (f.major && !String(s.major || '').toLowerCase().includes(f.major)) return false;
+    // Digits only, so a stray space or a pasted "สาย 017" still lands.
+    if (f.sai) {
+      const want = f.sai.replace(/\D/g, '');
+      if (want && !String(s.sai_code || '').includes(want)) return false;
+    }
+    if (!f.q) return true;
+    // NOTE: sai_code is deliberately absent — it has its own box above.
+    return [s.full_name, s.nickname, s.student_id, s.kkumail]
+      .some((v) => String(v || '').toLowerCase().includes(f.q));
   });
 }
 
+/** Fill a `<datalist>` from the values actually present. Rewritten on every
+ *  render rather than filled once: a new สาย or a new รุ่น arrives with an
+ *  import, and a list built on first paint would never mention it. */
+function fillDatalist(id, values) {
+  const el = $(id);
+  if (!el) return;
+  const html = values.map((v) => `<option value="${escHtml(v)}"></option>`).join('');
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
 function renderStudents() {
-  // Filter choosers, built from the data actually present.
+  // บ้าน stays a `<select>`: exactly ten, fixed by the rule, and every one of
+  // them is worth showing at once.
   const hSel = $('houseFilterHouse');
   if (hSel && hSel.options.length <= 1) {
     for (let i = 0; i < HOUSE_COUNT; i += 1) {
       hSel.insertAdjacentHTML('beforeend', `<option value="${i}">${escHtml(houseName(i))}</option>`);
     }
   }
-  // Built from the รุ่น actually present, like the สาขา chooser below — a fixed
-  // 1–6 list was only ever right for ชั้นปี, and รุ่น has no upper bound.
-  const ySel = $('houseFilterYear');
-  if (ySel && ySel.options.length <= 1) {
-    [...new Set(students.map(cohortOf).filter(Boolean))].sort().reverse().forEach((c) => {
-      ySel.insertAdjacentHTML('beforeend', `<option value="${escHtml(c)}">${escHtml(c)}</option>`);
-    });
-  }
-  const mSel = $('houseFilterMajor');
-  if (mSel && mSel.options.length <= 1) {
-    [...new Set(students.map((s) => s.major).filter(Boolean))].sort().forEach((m) => {
-      mSel.insertAdjacentHTML('beforeend', `<option value="${escHtml(m)}">${escHtml(m)}</option>`);
-    });
-  }
+  fillDatalist('houseYearList',
+    [...new Set(students.map(cohortOf).filter(Boolean))].sort().reverse());
+  fillDatalist('houseMajorList',
+    [...new Set(students.map((s) => s.major).filter(Boolean))].sort());
+  fillDatalist('houseSaiList', sais.map((s) => s.code));
 
   const rows = filteredStudents();
+  $('houseClearFilters')?.classList.toggle('d-none', !anyFilterSet(readFilters()));
   const body = $('houseStudentRows');
   if (body) {
     body.innerHTML = rows.length ? rows.slice(0, 500).map((s) => {
@@ -383,9 +417,10 @@ function paintSaiModal(code) {
 
   $('hxAdvisors').innerHTML = assigned.length ? assigned.map((a) => `
     <div class="d-flex align-items-center gap-2 border rounded px-2 py-1 mb-1">
-      <div class="flex-grow-1 small">
-        <span class="fw-semibold">${escHtml([a.title, a.full_name].filter(Boolean).join(' '))}</span>
+      <div class="flex-grow-1 small min-w-0">
+        <span class="fw-semibold">${escHtml(a.full_name)}</span>
         ${a.dept ? `<span class="text-muted"> · ${escHtml(a.dept)}</span>` : ''}
+        ${a.email ? `<div class="text-muted text-truncate">${escHtml(a.email)}</div>` : ''}
       </div>
       <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
               data-sai-remove="${escHtml(a.id)}" title="นำออกจากสายนี้">
@@ -398,10 +433,76 @@ function paintSaiModal(code) {
   const options = advisors.filter((a) => !taken.has(a.id));
   $('hxPick').innerHTML = options.length
     ? options.map((a) => `<option value="${escHtml(a.id)}">${
-  escHtml([a.title, a.full_name, a.dept ? `(${a.dept})` : ''].filter(Boolean).join(' '))}</option>`).join('')
+  escHtml([a.full_name, a.dept ? `(${a.dept})` : ''].filter(Boolean).join(' '))}</option>`).join('')
     : '<option value="">— ไม่มีอาจารย์ให้เลือก —</option>';
   $('hxPick').disabled = !options.length;
   $('hxAdd').disabled = !options.length;
+  // The ภาควิชา already in use, so the new-advisor form can offer them rather
+  // than collecting a fourth spelling of "ภาควิชาอายุรศาสตร์".
+  fillDatalist('houseDeptList',
+    [...new Set(advisors.map((a) => a.dept).filter(Boolean))].sort());
+}
+
+/**
+ * Create an อาจารย์ and attach them to THIS สาย, without leaving the modal.
+ *
+ * REPORTED: "after click สาย… and wanting to add new อาจารย์, i have to
+ * เพิ่มอาจารย์ใหม่ได้ที่แท็บ อาจารย์ — it is tiresome". It was: four navigations
+ * (leave the สาย, switch tab, fill a form, come back, find the สาย again) for
+ * one intention, and the สาย you were standing in was lost on the way.
+ *
+ * Two writes, in an order that cannot leave a mess: the advisor is created
+ * first and the link second, so a failure at step two leaves a real อาจารย์ who
+ * is simply not attached yet — visible in the picker directly above, one click
+ * from being attached. The other order is not expressible (a link needs an id).
+ *
+ * The form stays OPEN and CLEARED on success, because "add three อาจารย์ to
+ * this สาย" is the actual task and closing after each one makes it three trips.
+ */
+async function onSaiCreateAdvisor(e) {
+  e.preventDefault();
+  const code = $('hxCode').value;
+  const status = $('hxNewStatus');
+  const first = $('hxNewFirst').value.trim();
+  const setStat = (msg, bad = false) => {
+    if (!status) return;
+    status.textContent = msg || '';
+    status.className = `small ${bad ? 'text-danger' : 'text-success'}`;
+  };
+  if (!code || !first) { $('hxNewFirst').focus(); return; }
+  const btn = $('hxNewForm').querySelector('[type="submit"]');
+  if (btn) btn.disabled = true;
+  setStat('กำลังบันทึก…');
+  try {
+    const row = await createAdvisor({
+      first_name_th: first,
+      last_name_th: $('hxNewLast').value.trim() || null,
+      email: $('hxNewEmail').value.trim().toLowerCase() || null,
+      dept: $('hxNewDept').value.trim() || null,
+    });
+    const assigned = advisorsBySai().get(code) || [];
+    await addSaiAdvisor(code, row.id, assigned.length);
+    await refreshAdvisors();
+    paintSaiModal(code);
+    $('hxNewForm').reset();
+    $('hxNewFirst').focus();
+    setStat(`เพิ่ม ${row.full_name || first} เข้าสาย ${code} แล้ว`);
+  } catch (err) {
+    setStat(err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function toggleSaiNewAdvisor(show) {
+  const form = $('hxNewForm');
+  const btn = $('hxNewToggle');
+  if (!form) return;
+  const open = show === undefined ? form.classList.contains('d-none') : show;
+  form.classList.toggle('d-none', !open);
+  btn?.setAttribute('aria-expanded', String(open));
+  if (open) $('hxNewFirst')?.focus();
+  else { form.reset(); if ($('hxNewStatus')) $('hxNewStatus').textContent = ''; }
 }
 
 /** Only the advisor rows changed, so only they are refetched. `reload()` here
@@ -414,6 +515,11 @@ async function refreshAdvisors() {
 
 function openSaiModal(code) {
   $('hxCode').value = code;
+  // Collapsed and empty on every open. The form is a REUSED DOM node, so
+  // whatever the last สาย left in it would otherwise be sitting in the boxes of
+  // this one — the "state parked on a reused element outlives the record it
+  // describes" entry, which here would mean creating a duplicate อาจารย์.
+  toggleSaiNewAdvisor(false);
   paintSaiModal(code);
   modalInstance('houseSaiModal')?.show();
 }
@@ -450,6 +556,8 @@ async function onSaiRemoveAdvisor(advisorId) {
 
 // ---------- อาจารย์ ----------
 function renderAdvisors() {
+  fillDatalist('houseDeptList',
+    [...new Set(advisors.map((a) => a.dept).filter(Boolean))].sort());
   const q = ($('houseAdvisorSearch')?.value || '').trim().toLowerCase();
   const rows = advisors.filter((a) => !q
     || [a.full_name, a.email, a.dept].some((v) => String(v || '').toLowerCase().includes(q)));
@@ -457,9 +565,11 @@ function renderAdvisors() {
   if (!body) return;
   body.innerHTML = rows.length ? rows.map((a) => `
     <tr data-advisor="${escHtml(a.id)}" role="button">
-      <td>${escHtml([a.title, a.full_name].filter(Boolean).join(' '))}</td>
-      <td class="small">${escHtml(a.email || '')}</td>
-      <td class="small">${escHtml(a.dept || '')}</td>
+      <td>${escHtml(a.full_name)}</td>
+      <td class="small">${a.email ? escHtml(a.email)
+    : '<span class="text-muted fst-italic">ยังไม่มีอีเมล</span>'}</td>
+      <td class="small">${a.dept ? escHtml(a.dept)
+    : '<span class="text-muted fst-italic">ยังไม่ระบุ</span>'}</td>
       <td class="small">${escHtml((a.sai_advisors || []).map((l) => l.sai_code).sort().join(', ') || '—')}</td>
       <td class="text-end"><i class="bi bi-pencil text-muted"></i></td>
     </tr>`).join('')
@@ -474,51 +584,151 @@ const FIELD_LABEL = {
   cohort_year: 'ปีที่เข้า',
 };
 
+/** Which slice of the queue is on screen: 'pending' | 'done' | 'all'.
+ *  Module state, not read off a class in the DOM — a filter whose value is
+ *  computed from its own markup is the shape that made บ้านของฉัน's panel open
+ *  on odd-numbered clicks only. */
+let reqStatus = 'pending';
+
+const thaiDateTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('th-TH', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+};
+
+function filteredRequests() {
+  const q = ($('houseReqSearch')?.value || '').trim().toLowerCase();
+  return requests.filter((r) => {
+    if (reqStatus === 'pending' && r.status !== 'pending') return false;
+    if (reqStatus === 'done' && r.status === 'pending') return false;
+    if (!q) return true;
+    const s = r.students || {};
+    // Everything a person would plausibly search this queue by, INCLUDING what
+    // an admin typed back — "what did we tell that student in March" is the
+    // question a queue with no search cannot answer at all.
+    return [s.full_name, s.kkumail, s.sai_code, r.current_value, r.requested_value,
+      r.applied_value, r.reason, r.decision_note, FIELD_LABEL[r.field] || r.field]
+      .some((v) => String(v || '').toLowerCase().includes(q));
+  });
+}
+
+/**
+ * One request card.
+ *
+ * THE PENDING CARD IS A FORM, not a pair of verdict buttons. REPORTED: "the
+ * admin should be able to input สายรหัส, not just accept / not accept" — a
+ * student who knows their สาย is wrong does not necessarily know what the right
+ * one is, and forcing the admin to either accept a guess or reject and wait for
+ * a better guess is a round trip for something the admin can see. The value box
+ * is pre-filled with what was asked, so accepting as-asked is still one click.
+ *
+ * THE DONE CARD SHOWS THE ANSWER, both halves: the verdict, what was actually
+ * saved when it differs from what was asked (`applied_value`, added in 0128),
+ * and the note the admin typed. The same three now reach the student on their
+ * own card — before 0128 the note went into a column with no read path back to
+ * the person who had asked.
+ */
+function requestCard(r) {
+  const s = r.students || {};
+  const isSai = r.field === 'sai_code';
+  const pending = r.status === 'pending';
+  const newHouse = isSai ? houseOf(String(r.requested_value || '')) : null;
+  const label = FIELD_LABEL[r.field] || r.field;
+  return `
+    <div class="card mb-2"><div class="card-body py-2">
+      <div class="d-flex flex-wrap gap-3 align-items-start">
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-semibold">${escHtml(s.full_name || '(ไม่ทราบชื่อ)')}
+            <span class="small text-muted">${escHtml(s.kkumail || '')}</span></div>
+          <div class="small">
+            ขอแก้ <strong>${escHtml(label)}</strong>
+            จาก <code>${escHtml(r.current_value || '—')}</code>
+            เป็น <code>${escHtml(r.requested_value || '—')}</code>
+            ${isSai && newHouse !== null
+    ? `<span class="badge bg-warning text-dark">ย้ายไป ${escHtml(houseName(newHouse))}</span>` : ''}
+          </div>
+          ${r.reason ? `<div class="small text-muted">เหตุผล: ${escHtml(r.reason)}</div>` : ''}
+          <div class="small text-muted">ส่งเมื่อ ${escHtml(thaiDateTime(r.created_at))}</div>
+          ${!pending && r.applied_value && r.applied_value !== r.requested_value
+    ? `<div class="small text-primary">บันทึกจริงเป็น <code>${escHtml(r.applied_value)}</code>
+         (ต่างจากที่ขอมา)</div>` : ''}
+          ${!pending && r.decision_note
+    ? `<div class="small">ข้อความถึงนักศึกษา: <em>${escHtml(r.decision_note)}</em></div>` : ''}
+          ${!pending && r.decided_at
+    ? `<div class="small text-muted">ดำเนินการเมื่อ ${escHtml(thaiDateTime(r.decided_at))}</div>` : ''}
+        </div>
+        ${pending ? `
+          <div class="d-flex flex-column gap-1" style="min-width:17rem">
+            <label class="form-label small mb-0" for="hqv-${escHtml(r.id)}">
+              ค่าที่จะบันทึก (แก้ได้)
+            </label>
+            <input type="text" class="form-control form-control-sm" id="hqv-${escHtml(r.id)}"
+                   data-req-value="${escHtml(r.id)}"
+                   value="${escHtml(r.requested_value || '')}"
+                   ${isSai ? 'inputmode="numeric" placeholder="017"' : ''} />
+            ${isSai ? `<div class="form-text mt-0" data-req-house="${escHtml(r.id)}"></div>` : ''}
+            <input type="text" class="form-control form-control-sm"
+                   data-req-note="${escHtml(r.id)}"
+                   placeholder="ข้อความถึงนักศึกษา (ไม่บังคับ)" />
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-success" data-req-approve="${escHtml(r.id)}">อนุมัติ</button>
+              <button class="btn btn-sm btn-outline-danger" data-req-reject="${escHtml(r.id)}">ปฏิเสธ</button>
+            </div>
+          </div>`
+    : `<span class="badge ${r.status === 'approved' ? 'bg-success' : 'bg-secondary'}">
+           ${r.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว'}</span>`}
+      </div>
+    </div></div>`;
+}
+
+/** The บ้าน a typed สายรหัส would land in, under the box it is typed in.
+ *  Same job as hsHouseHint in the student modal: an approval that moves someone
+ *  between houses should say so before it happens, not after. */
+function paintRequestHouseHint(id) {
+  const input = document.querySelector(`[data-req-value="${CSS.escape(id)}"]`);
+  const hint = document.querySelector(`[data-req-house="${CSS.escape(id)}"]`);
+  if (!input || !hint) return;
+  const n = normalizeSai(input.value);
+  if (!input.value.trim()) { hint.textContent = ' '; hint.className = 'form-text mt-0'; return; }
+  if (!n.ok) {
+    hint.className = 'form-text mt-0 text-danger';
+    hint.textContent = saiProblem(input.value) || 'สายรหัสไม่ถูกต้อง';
+    return;
+  }
+  hint.className = 'form-text mt-0';
+  hint.textContent = `สาย ${n.value} → ${houseName(houseOf(n.value))}`;
+}
+
 function renderRequests() {
   const wrap = $('houseRequestRows');
   if (!wrap) return;
-  const open = requests.filter((r) => r.status === 'pending');
-  const done = requests.filter((r) => r.status !== 'pending').slice(0, 30);
+
+  document.querySelectorAll('[data-req-status]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.reqStatus === reqStatus);
+  });
+  const openCount = requests.filter((r) => r.status === 'pending').length;
+  const openBadge = $('houseReqOpenCount');
+  if (openBadge) {
+    openBadge.textContent = String(openCount);
+    openBadge.classList.toggle('d-none', openCount === 0);
+  }
+
   if (!requests.length) {
     wrap.innerHTML = '<div class="text-muted text-center py-4">ยังไม่มีคำขอแก้ไข</div>';
     return;
   }
-  const card = (r) => {
-    const s = r.students || {};
-    const isSai = r.field === 'sai_code';
-    const newHouse = isSai ? houseOf(String(r.requested_value || '')) : null;
-    return `
-      <div class="card mb-2"><div class="card-body py-2">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-          <div class="flex-grow-1">
-            <div class="fw-semibold">${escHtml(s.full_name || '(ไม่ทราบชื่อ)')}
-              <span class="small text-muted">${escHtml(s.kkumail || '')}</span></div>
-            <div class="small">
-              ขอแก้ <strong>${escHtml(FIELD_LABEL[r.field] || r.field)}</strong>
-              จาก <code>${escHtml(r.current_value || '—')}</code>
-              เป็น <code>${escHtml(r.requested_value || '—')}</code>
-              ${isSai && newHouse !== null
-    ? `<span class="badge bg-warning text-dark">ย้ายไป ${escHtml(houseName(newHouse))}</span>` : ''}
-            </div>
-            ${r.reason ? `<div class="small text-muted">เหตุผล: ${escHtml(r.reason)}</div>` : ''}
-          </div>
-          ${r.status === 'pending' ? `
-            <div class="d-flex flex-column gap-1" style="min-width:16rem">
-              <input type="text" class="form-control form-control-sm"
-                     data-req-note="${escHtml(r.id)}"
-                     placeholder="เหตุผล (ไม่บังคับ — นักศึกษาจะเห็นข้อความนี้)" />
-              <div class="d-flex gap-1">
-                <button class="btn btn-sm btn-success" data-req-approve="${escHtml(r.id)}">อนุมัติ</button>
-                <button class="btn btn-sm btn-outline-danger" data-req-reject="${escHtml(r.id)}">ปฏิเสธ</button>
-              </div>
-            </div>`
-    : `<span class="badge ${r.status === 'approved' ? 'bg-success' : 'bg-secondary'}">
-                 ${r.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว'}</span>`}
-        </div>
-      </div></div>`;
-  };
-  wrap.innerHTML = (open.length ? `<h6 class="small text-uppercase text-muted">รอดำเนินการ</h6>${open.map(card).join('')}` : '')
-    + (done.length ? `<h6 class="small text-uppercase text-muted mt-3">ดำเนินการแล้ว</h6>${done.map(card).join('')}` : '');
+  const rows = filteredRequests();
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="text-muted text-center py-4">${
+      reqStatus === 'pending' ? 'ไม่มีคำขอที่รอดำเนินการ' : 'ไม่พบคำขอที่ตรงกับที่ค้นหา'}</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="small text-muted mb-2">${rows.length.toLocaleString('th-TH')} รายการ</div>`
+    + rows.map(requestCard).join('');
+  rows.filter((r) => r.status === 'pending' && r.field === 'sai_code')
+    .forEach((r) => paintRequestHouseHint(r.id));
 }
 
 // ============================================================
@@ -597,7 +807,7 @@ function renderImportPreview(result, diff) {
 
     ${perRow.length ? `
       <details class="mb-3">
-        <summary class="small">ปัญหาที่พบ ${perRow.length} รายการ</summary>
+        <summary class="small">ปัญหาที่พบทั้งหมด ${perRow.length} รายการ (เรียงตามความร้ายแรง)</summary>
         <ul class="small mt-2 mb-0">
           ${[...skips, ...warns, ...infos].slice(0, 100).map((p) => `
             <li class="${p.level === 'skip' ? 'text-danger'
@@ -608,12 +818,142 @@ function renderImportPreview(result, diff) {
           (แสดง 100 รายการแรกจาก ${perRow.length})</div>` : ''}
       </details>` : ''}
 
-    <button type="button" class="btn btn-primary" id="houseImportConfirm"
+    <h6 class="small text-uppercase text-muted mb-1">ข้อมูลที่จะนำเข้า — ทีละแถว</h6>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <div class="btn-group btn-group-sm" role="group" aria-label="กรองแถว" id="housePreviewNav">
+        <button type="button" class="btn btn-outline-secondary active" data-prev-filter="all">ทั้งหมด</button>
+        <button type="button" class="btn btn-outline-secondary" data-prev-filter="insert">เพิ่มใหม่</button>
+        <button type="button" class="btn btn-outline-secondary" data-prev-filter="update">จะแก้ไข</button>
+        <button type="button" class="btn btn-outline-secondary" data-prev-filter="problem">ต้องดู</button>
+      </div>
+      <input type="search" class="form-control form-control-sm" id="housePreviewSearch"
+             style="max-width:18rem" placeholder="ค้นหาในไฟล์นี้"
+             aria-label="ค้นหาแถวในไฟล์" />
+      <span class="small text-muted" id="housePreviewCount"></span>
+    </div>
+    <div id="housePreviewTable"></div>
+
+    <button type="button" class="btn btn-primary mt-3" id="houseImportConfirm"
       ${result.rows.length ? '' : 'disabled'}>
       ยืนยันนำเข้า ${result.rows.length.toLocaleString('th-TH')} รายการ
     </button>`;
 
+  previewRows = buildPreviewRows(result, diff);
+  previewFilter = 'all';
+  renderPreviewTable();
+  $('housePreviewSearch')?.addEventListener('input', renderPreviewTable);
+  $('housePreviewNav')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-prev-filter]');
+    if (!btn) return;
+    previewFilter = btn.dataset.prevFilter;
+    renderPreviewTable();
+  });
   $('houseImportConfirm')?.addEventListener('click', runImport);
+}
+
+// ---------- the per-row preview ----------
+let previewRows = [];
+let previewFilter = 'all';
+
+const VERDICT = {
+  insert: { label: 'เพิ่มใหม่', cls: 'text-success' },
+  update: { label: 'จะแก้ไข', cls: 'text-primary' },
+  same: { label: 'ไม่เปลี่ยน', cls: 'text-muted' },
+  skip: { label: 'ข้าม', cls: 'text-danger fw-semibold' },
+};
+
+const worstLevel = (problems) => (problems.some((p) => p.level === 'skip') ? 'skip'
+  : problems.some((p) => p.level === 'warn') ? 'warn'
+    : problems.length ? 'info' : null);
+
+/**
+ * The file, one row per line, scrollable.
+ *
+ * CAPPED AT 300 RENDERED ROWS, but the CAP MOVES WITH THE FILTER — "ต้องดู"
+ * shows every flagged row even in a 1,800-line file, because that is the subset
+ * a person is actually here to read. An uncapped table of 1,800 rows × 8 cells
+ * is 14,000 DOM nodes built synchronously while someone waits to click a button.
+ */
+function renderPreviewTable() {
+  const wrap = $('housePreviewTable');
+  if (!wrap) return;
+  const q = ($('housePreviewSearch')?.value || '').trim().toLowerCase();
+  const rows = previewRows.filter((r) => {
+    if (previewFilter === 'problem' && !r._problems.length && r._verdict !== 'skip') return false;
+    if (previewFilter === 'insert' && r._verdict !== 'insert') return false;
+    if (previewFilter === 'update' && r._verdict !== 'update') return false;
+    if (!q) return true;
+    return PREVIEW_COLUMNS.some((c) => String(r[c] || '').toLowerCase().includes(q))
+      || r._problems.some((p) => String(p.message).toLowerCase().includes(q));
+  });
+
+  const count = $('housePreviewCount');
+  if (count) {
+    count.textContent = rows.length
+      ? `แสดง ${Math.min(rows.length, 300).toLocaleString('th-TH')} จาก ${rows.length.toLocaleString('th-TH')} แถว`
+      : 'ไม่มีแถวที่ตรงกับตัวกรอง';
+  }
+
+  const cell = (r, c) => {
+    const v = r[c] ?? '';
+    // ของเดิม → ของใหม่, on the columns this import will actually change. The
+    // counter said "จะแก้ไข N" and left the human to trust it.
+    if (r._verdict === 'update' && r._changed?.includes(c)) {
+      const was = r._before?.[c] ?? '';
+      return `<span class="text-decoration-line-through text-muted">${escHtml(was || '—')}</span>
+              <i class="bi bi-arrow-right small text-muted"></i>
+              <span class="text-primary fw-semibold">${escHtml(v || '—')}</span>`;
+    }
+    return v === '' || v === null ? '<span class="text-muted">—</span>' : escHtml(v);
+  };
+
+  wrap.innerHTML = `
+    <div class="table-responsive border rounded" style="max-height:26rem;overflow:auto">
+      <table class="table table-sm table-hover mb-0 house-preview-table" style="font-size:.82rem">
+        <thead class="table-light" style="position:sticky;top:0;z-index:1">
+          <tr>
+            <th style="width:3.5rem">บรรทัด</th>
+            <th style="width:5.5rem">ผล</th>
+            ${PREVIEW_COLUMNS.map((c) => `<th>${escHtml(PREVIEW_COLUMN_LABEL[c] || c)}</th>`).join('')}
+            <th style="width:4.5rem">บ้าน</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length ? rows.slice(0, 300).map((r) => {
+    const v = VERDICT[r._verdict] || VERDICT.same;
+    const lvl = r._verdict === 'skip' ? 'skip' : worstLevel(r._problems);
+    const rowCls = lvl === 'skip' ? 'table-danger' : lvl === 'warn' ? 'table-warning' : '';
+    const house = r._house === null || r._house === undefined ? '' : houseName(r._house);
+    return `
+            <tr class="${rowCls}">
+              <td class="text-muted">${r._line}</td>
+              <td class="${v.cls}">${escHtml(v.label)}</td>
+              ${PREVIEW_COLUMNS.map((c) => `<td>${cell(r, c)}</td>`).join('')}
+              <td>${house ? escHtml(house) : '<span class="text-muted">—</span>'}</td>
+            </tr>
+            ${r._verdict === 'skip' || r._problems.length ? `
+            <tr class="${rowCls}">
+              <td></td>
+              <td colspan="${PREVIEW_COLUMNS.length + 2}" class="pt-0 small">
+                ${r._verdict === 'skip'
+    ? `<div class="text-danger"><i class="bi bi-x-octagon"></i>
+                     ไม่นำเข้าแถวนี้ — ${escHtml(r._skip || 'ข้อมูลไม่ครบ')}</div>` : ''}
+                ${r._problems.map((p) => `<div class="${
+  p.level === 'skip' ? 'text-danger' : p.level === 'warn' ? 'text-warning-emphasis' : 'text-muted'
+}"><i class="bi bi-exclamation-triangle"></i> ${escHtml(
+  // The "บรรทัด N: " prefix is redundant here — the row IS line N.
+  String(p.message).replace(/^บรรทัด \d+:\s*/, ''),
+)}</div>`).join('')}
+              </td>
+            </tr>` : ''}`;
+  }).join('') : `
+            <tr><td colspan="${PREVIEW_COLUMNS.length + 3}" class="text-center text-muted py-3">
+              ไม่มีแถวที่ตรงกับตัวกรอง</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    ${rows.length > 300 ? `<div class="small text-muted mt-1">
+      แสดง 300 แถวแรก — ใช้ช่องค้นหาหรือปุ่ม “ต้องดู” เพื่อดูแถวที่เหลือ</div>` : ''}`;
 }
 
 async function onCsvPicked(e) {
@@ -716,7 +1056,34 @@ function openStudentModal(id) {
 
   $('hsDelete').classList.toggle('d-none', !s);
   updateHouseHint();
+  updateCohortHint();
   modalInstance('houseStudentModal')?.show();
+}
+
+/**
+ * รุ่น, as the รหัสนักศึกษา is typed.
+ *
+ * REPORTED: "when i change student id to 59xxxxxxxx or 64xxxxxxxx it doesn't
+ * change the รุ่น". The real fault was in the database — `students_fill_cohort`
+ * filled `cohort_year` only while it was null, so a corrected รหัส was outvoted
+ * by the รุ่น of the previous one forever (fixed in 0128, proven by
+ * tools/house0128-cohort.mjs). This hint is the other half: the รุ่น is derived
+ * from a box two rows up, and showing it where it is derived is what makes a
+ * wrong one visible BEFORE saving rather than after.
+ */
+function updateCohortHint() {
+  const hint = $('hsCohortHint');
+  if (!hint) return;
+  const raw = ($('hsSid')?.value || '').trim();
+  if (!raw) { hint.textContent = ' '; hint.className = 'form-text'; return; }
+  const label = cohortLabel({ student_id: raw });
+  if (label) {
+    hint.className = 'form-text';
+    hint.textContent = `รุ่น ${label} (คำนวณจากสองหลักแรก)`;
+  } else {
+    hint.className = 'form-text text-warning';
+    hint.textContent = 'อ่านรุ่นจากรหัสนี้ไม่ได้ — จะไม่มีรุ่นแสดง';
+  }
 }
 
 function updateHouseHint() {
@@ -838,7 +1205,6 @@ async function onHouseSubmit(e) {
 function openAdvisorModal(id) {
   const a = id ? advisors.find((x) => x.id === id) : null;
   $('haId').value = a?.id || '';
-  $('haTitle').value = a?.title || '';
   $('haFirst').value = a?.first_name_th || '';
   $('haLast').value = a?.last_name_th || '';
   $('haEmail').value = a?.email || '';
@@ -859,7 +1225,6 @@ async function onAdvisorSubmit(e) {
     if (!codes.includes(n.value)) codes.push(n.value);
   }
   const payload = {
-    title: $('haTitle').value.trim() || null,
     first_name_th: $('haFirst').value.trim(),
     last_name_th: $('haLast').value.trim() || null,
     email: $('haEmail').value.trim().toLowerCase() || null,
@@ -907,14 +1272,22 @@ async function onDecide(id, approve) {
   const r = requests.find((x) => x.id === id);
   if (!r) { setStatus('ไม่พบคำขอนี้แล้ว — กำลังโหลดใหม่', true); reload(); return; }
   const note = document.querySelector(`[data-req-note="${CSS.escape(id)}"]`)?.value.trim() || null;
+  // What the admin will actually save. The box is pre-filled with what the
+  // student asked for, so the common case is unchanged — but an admin who knows
+  // the correct สาย no longer has to reject a nearly-right request and wait for
+  // the student to file a better one. Falls back to requested_value if the box
+  // is missing, so this cannot become a way to approve a blank.
+  const typed = document.querySelector(`[data-req-value="${CSS.escape(id)}"]`)?.value;
+  const chosen = (typed === undefined || typed === null ? r.requested_value : typed);
   try {
     if (approve) {
       // Apply the change first; only mark it approved if the write landed. The
       // other order would leave a request stamped "approved" whose edit never
       // happened, which is worse than a request that has to be redone.
       const patch = {};
-      if (r.field === 'cohort_year') patch[r.field] = Number(r.requested_value) || null;
-      else patch[r.field] = r.requested_value || null;
+      let applied = String(chosen ?? '').trim() || null;
+      if (r.field === 'cohort_year') patch[r.field] = Number(applied) || null;
+      else patch[r.field] = applied;
       if (r.field === 'sai_code') {
         // Only the SHAPE is checked here. Whether a `sais` row exists is not our
         // business: 0122 put "create the สาย on demand" on the students table as
@@ -922,16 +1295,24 @@ async function onDecide(id, approve) {
         // here was a per-caller rule contradicting the table's own — the exact
         // shape 0122 exists to stop — and it dead-ended the admin with
         // "แก้ไขไม่ได้" and no way forward.
-        const n = normalizeSai(r.requested_value);
+        const n = normalizeSai(applied);
         if (!n.ok || !n.value) {
-          alert(`สายรหัส “${r.requested_value}”: ${saiProblem(r.requested_value) || 'ไม่ถูกต้อง'}`);
+          alert(`สายรหัส “${applied ?? ''}”: ${saiProblem(applied) || 'ไม่ถูกต้อง'}`);
           return;
         }
         patch.sai_code = n.value;
+        applied = n.value;
       }
       await updateStudent(r.student_ref, patch);
+      // Recorded ONLY when it differs from what was asked. A row that says
+      // "approved" while the card shows a different สาย is a request whose
+      // answer is a lie by omission; a row that repeats the requested value
+      // back is noise.
+      await decideRequest(id, 'approved', note, getUser()?.id,
+        applied !== (r.requested_value || null) ? applied : null);
+    } else {
+      await decideRequest(id, 'rejected', note, getUser()?.id, null);
     }
-    await decideRequest(id, approve ? 'approved' : 'rejected', note, getUser()?.id);
     await reload();
   } catch (err) { alert(err?.message || 'ดำเนินการไม่สำเร็จ'); }
 }
@@ -963,9 +1344,17 @@ function wire() {
   $('houseReload')?.addEventListener('click', () => reload());
   $('houseExportCsv')?.addEventListener('click', exportCsv);
 
-  $('houseSearch')?.addEventListener('input', renderStudents);
-  ['houseFilterHouse', 'houseFilterYear', 'houseFilterMajor'].forEach((id) => {
-    $(id)?.addEventListener('change', renderStudents);
+  // `input` on all of them, not `change`: the three combobox filters are text
+  // boxes, and `change` on a text box fires on BLUR — so a typed filter would
+  // do nothing until you clicked somewhere else.
+  ['houseSearch', 'houseFilterYear', 'houseFilterMajor', 'houseFilterSai'].forEach((id) => {
+    $(id)?.addEventListener('input', renderStudents);
+  });
+  $('houseFilterHouse')?.addEventListener('change', renderStudents);
+  $('houseClearFilters')?.addEventListener('click', () => {
+    ['houseSearch', 'houseFilterHouse', 'houseFilterYear', 'houseFilterMajor', 'houseFilterSai']
+      .forEach((id) => { const el = $(id); if (el) el.value = ''; });
+    renderStudents();
   });
   $('houseAddStudent')?.addEventListener('click', () => openStudentModal(null));
   $('houseStudentRows')?.addEventListener('click', (e) => {
@@ -975,6 +1364,7 @@ function wire() {
   $('houseStudentForm')?.addEventListener('submit', onStudentSubmit);
   $('hsDelete')?.addEventListener('click', onStudentDelete);
   $('hsSai')?.addEventListener('input', updateHouseHint);
+  $('hsSid')?.addEventListener('input', updateCohortHint);
 
   $('houseCards')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-house-edit]');
@@ -1000,6 +1390,9 @@ function wire() {
     const btn = e.target.closest('[data-sai-remove]');
     if (btn) onSaiRemoveAdvisor(btn.dataset.saiRemove);
   });
+  $('hxNewToggle')?.addEventListener('click', () => toggleSaiNewAdvisor());
+  $('hxNewCancel')?.addEventListener('click', () => toggleSaiNewAdvisor(false));
+  $('hxNewForm')?.addEventListener('submit', onSaiCreateAdvisor);
 
   $('houseAdvisorSearch')?.addEventListener('input', renderAdvisors);
   $('houseAddAdvisor')?.addEventListener('click', () => openAdvisorModal(null));
@@ -1015,6 +1408,21 @@ function wire() {
     const no = e.target.closest('[data-req-reject]');
     if (ok) onDecide(ok.dataset.reqApprove, true);
     else if (no) onDecide(no.dataset.reqReject, false);
+  });
+  // Delegated, because the value boxes are recreated on every renderRequests().
+  // The hint must not repaint the whole pane — that would destroy the box the
+  // admin is typing in ("a shared render() that repaints a pane another module
+  // owns", in miniature).
+  $('houseRequestRows')?.addEventListener('input', (e) => {
+    const box = e.target.closest('[data-req-value]');
+    if (box) paintRequestHouseHint(box.dataset.reqValue);
+  });
+  $('houseReqSearch')?.addEventListener('input', renderRequests);
+  $('houseReqStatusNav')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-req-status]');
+    if (!btn) return;
+    reqStatus = btn.dataset.reqStatus;
+    renderRequests();
   });
 
   $('houseCsvFile')?.addEventListener('change', onCsvPicked);

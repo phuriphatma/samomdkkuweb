@@ -388,3 +388,28 @@ export async function renameMajorOnMembers(fromCode, toCode) {
   if (error) throw new Error(error.message || 'เปลี่ยนชื่อสาขาไม่สำเร็จ');
   return (data || []).length;
 }
+
+/**
+ * Resolve ONE exact kkumail against ระบบบ้าน's student registry.
+ *
+ * The interim bridge between the two person tables (migration 0130): ทีม SAMO
+ * and ระบบบ้าน hold the same fields for the same humans, keyed on the same
+ * kkumail, and the ทีม SAMO form used to make an admin retype what the
+ * university had already sent — which is where the two copies diverge.
+ *
+ * Exact match, one row or null, and a hand-built column list on the server
+ * side. It is NOT a directory: there is no listing, no prefix search and no
+ * count, so it can only confirm an address the caller already has. The full
+ * merge is docs/PERSON-REGISTRY.md.
+ *
+ * @returns {Promise<object|null>} null when the address is not in ระบบบ้าน.
+ */
+export async function lookupStudentByKkumail(kkumail) {
+  const v = String(kkumail || '').trim();
+  if (!v) return null;
+  const { data, error } = await dbRest('/rpc/lookup_student_by_kkumail', {
+    method: 'POST', body: { p_kkumail: v },
+  });
+  if (error) throw new Error(error.message || 'ค้นข้อมูลจากระบบบ้านไม่สำเร็จ');
+  return data || null;
+}

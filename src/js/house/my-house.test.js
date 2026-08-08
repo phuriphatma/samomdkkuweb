@@ -41,10 +41,14 @@ const recWith = (over = {}) => ({
   house_id: 7,
   house_name: 'บ้านทดสอบ',
   house_color: '#105922',
-  advisors: [{ title: 'ผศ.นพ.', name: 'ก ข', dept: 'ภาควิชาอายุรศาสตร์' }],
+  // No `title` key since 0128 — คำนำหน้า is part of the name, exactly as it is
+  // for ทีม SAMO since 0113, and the RPC no longer returns the field.
+  advisors: [{
+    name: 'ผศ.นพ. ก ข', dept: 'ภาควิชาอายุรศาสตร์', email: 'kor@kku.ac.th',
+  }],
   house_advisors: [
-    { title: 'ผศ.นพ.', name: 'ก ข', dept: 'ภาควิชาอายุรศาสตร์', sai: '017' },
-    { title: 'พญ.', name: 'ค ง', dept: 'ภาควิชากุมารเวชศาสตร์', sai: '027' },
+    { name: 'ผศ.นพ. ก ข', dept: 'ภาควิชาอายุรศาสตร์', email: 'kor@kku.ac.th', sai: '017' },
+    { name: 'พญ. ค ง', dept: 'ภาควิชากุมารเวชศาสตร์', email: 'kor2@kku.ac.th', sai: '027' },
   ],
   ...over,
 });
@@ -147,8 +151,16 @@ describe('renderMyHouse', () => {
     renderMyHouse(el, recWith());
     expect(el.innerHTML).toContain('readonly');
     expect(el.innerHTML).not.toContain('name="sai"');
-    expect(CODE).not.toMatch(/sai_code:/);        // never sent in a save patch
     expect(CODE).not.toMatch(/sai_editable/);     // no "sometimes" about it
+    // Scoped to the SAVE PATCH rather than to the whole file. The bare grep for
+    // `sai_code:` used to stand in for this, and it started failing on a
+    // field-LABEL map (`{ sai_code: 'สายรหัส' }`) that sends nothing anywhere —
+    // a guard that fires on the word instead of the thing eventually gets
+    // deleted by whoever is trying to ship. What must never happen is
+    // `sai_code` appearing in the object handed to saveMyStudentRecord.
+    const patch = CODE.match(/const patch = \{[\s\S]*?\n\s*\};/);
+    expect(patch).not.toBeNull();
+    expect(patch[0]).not.toMatch(/sai/);
   });
 
   it('offers the five fields a person can fix about themselves', () => {
@@ -174,6 +186,95 @@ describe('renderMyHouse', () => {
     expect(select).not.toBeNull();
     expect(select[1]).toMatch(/value="MDI" selected/);
     expect(select[1]).not.toContain('กำลังโหลด');
+  });
+
+  it('shows the อาจารย์ address and ภาควิชา, not just a name', () => {
+    // A card that names the person you need and withholds how to reach them
+    // moves the work rather than doing it.
+    const el = host();
+    renderMyHouse(el, recWith());
+    expect(el.innerHTML).toContain('mailto:kor@kku.ac.th');
+    expect(el.innerHTML).toContain('ภาควิชาอายุรศาสตร์');
+  });
+
+  it('renders nothing extra for an อาจารย์ with no address on file', () => {
+    const el = host();
+    renderMyHouse(el, recWith({
+      advisors: [{ name: 'ก ข' }], house_advisors: [],
+    }));
+    expect(el.innerHTML).not.toContain('mailto:');
+    expect(el.innerHTML).toContain('ก ข');
+  });
+
+  describe('คำขอแก้ไขของฉัน — the answer has to come back', () => {
+    // REPORTED: "the reason admin type doesn't get shown for the user, also the
+    // status that admin reject or accept doesn't get shown to the user". There
+    // was no read path at all: student_change_requests is admin-only under RLS,
+    // so the admin was typing into a column nobody on the other side could see.
+    it('is absent entirely when the student has never filed one', () => {
+      const el = host();
+      renderMyHouse(el, recWith());
+      expect(el.innerHTML).not.toContain('คำขอแก้ไขของฉัน');
+    });
+
+    it('shows a pending request as waiting, with no verdict implied', () => {
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [{ field: 'sai_code', requested_value: '027', status: 'pending' }],
+      }));
+      expect(el.innerHTML).toContain('คำขอแก้ไขของฉัน');
+      expect(el.innerHTML).toContain('กำลังรอผู้ดูแลตรวจสอบ');
+      expect(el.innerHTML).toContain('027');
+    });
+
+    it('shows the admin\'s note on both an approval and a rejection', () => {
+      for (const status of ['approved', 'rejected']) {
+        const el = host();
+        renderMyHouse(el, recWith({
+          my_requests: [{
+            field: 'sai_code', requested_value: '027', status,
+            decision_note: 'ตรวจกับทะเบียนแล้ว',
+          }],
+        }));
+        expect(el.innerHTML).toContain('ตรวจกับทะเบียนแล้ว');
+      }
+    });
+
+    it('says so when the admin saved something OTHER than what was asked', () => {
+      // An admin may correct the value on approval (0128). "อนุมัติแล้ว" beside
+      // a card showing a third สาย is the confusion this line exists to stop.
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [{
+          field: 'sai_code', requested_value: '027', applied_value: '037',
+          status: 'approved',
+        }],
+      }));
+      expect(el.innerHTML).toContain('037');
+      expect(el.innerHTML).toContain('ผู้ดูแลบันทึกให้เป็น');
+    });
+
+    it('does not repeat the value back when it was approved as asked', () => {
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [{
+          field: 'sai_code', requested_value: '027', applied_value: '027',
+          status: 'approved',
+        }],
+      }));
+      expect(el.innerHTML).not.toContain('ผู้ดูแลบันทึกให้เป็น');
+    });
+
+    it('escapes the admin\'s note — it is free text typed into an admin form', () => {
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [{
+          field: 'sai_code', requested_value: '027', status: 'rejected',
+          decision_note: '<img src=x onerror=alert(1)>',
+        }],
+      }));
+      expect(el.innerHTML).not.toContain('<img src=x');
+    });
   });
 
   it('escapes every user-typed field — it all lands in innerHTML', () => {

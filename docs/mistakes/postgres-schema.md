@@ -517,3 +517,59 @@ trigger; and a STUDENT self-editing to a non-existent 888 → still REFUSED, sin
 **Rule**: when a fix is "materialise X on demand", put it on the TABLE (trigger /
 default / generated column), not in the one caller you happened to be looking at.
 Count the writers first — `grep` the column name.
+
+---
+
+## "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once and never re-derived
+
+**Symptom**: in ระบบบ้าน, editing a student's รหัสนักศึกษา from `65…` to `59…`
+saved fine, and the รุ่น stayed **MD50**. It stayed wrong on every screen, on the
+admin table, on the student's own card, and in the CSV export — consistently, so
+nothing looked broken. 1 of the 3 rows then in `students` was in this state.
+
+**Cause**: `students.cohort_year` is a stored copy of a value derived from
+`student_id`, and the trigger that fills it (`students_fill_cohort`, 0117) was
+written as:
+
+```sql
+if new.cohort_year is null and new.student_id is not null then
+  new.cohort_year := public.cohort_from_student_id(new.student_id);
+end if;
+```
+
+`is null` is true exactly once in a row's life. After the first fill the trigger
+declines to touch the column forever, so a corrected รหัส has no effect on it.
+And every reader — the RPC, the JS `cohortLabel`, the export — resolves the รุ่น
+as `coalesce(cohort_year, cohort_from_student_id(student_id))`, i.e. the stale
+copy always outvotes the live value it was derived from.
+
+This is **class 6 (two implementations of one rule drift)** in its quietest
+form: the two implementations are a derived column and the expression it came
+from, and the drift is undetectable because the copy is what every reader
+prefers. 0116 had already refused to denormalise the HOUSE onto `students` for
+exactly this reason — *"a denormalised house column is the drift class waiting
+to happen"* — and then `cohort_year` was added anyway, because filling a column
+reads as a convenience rather than as a second copy.
+
+**Fix**: recompute whenever `student_id` CHANGES, not only when the copy is
+null. An explicit `cohort_year` in the same statement still wins (the transfer
+student whose รหัส does not encode their intake), so the escape hatch survives.
+Plus a backfill for rows already drifted, restricted to rows whose รหัส actually
+yields a รุ่น — blanking the rest would destroy the one case the column is for.
+
+The admin form also grew a live `รุ่น MD50` hint under the รหัส box. The bug was
+in SQL, but the reason nobody noticed for weeks is that the derivation was
+invisible at the moment of typing.
+
+**Where it lives now**:
+`supabase/migrations/0128_cohort_follows_the_sid_and_requests_answer_back.sql`
+§1, proven by `tools/house0128-cohort.mjs` — which walks the whole life of a row
+(insert → รหัส change → unreadable รหัส → explicit override → unrelated edit),
+because a probe that only INSERTS scores this bug as a pass.
+
+**Rule**: a stored copy of a derived value needs a rule for **every** write of
+its source, not just the first. `if <copy> is null` is not that rule — it is
+"fill once", and it silently means "never correct". Either make the column
+GENERATED, or make the trigger fire on change; and when a reader `coalesce`s the
+copy ahead of the source, the copy is now the authority whether you meant it or
+not.

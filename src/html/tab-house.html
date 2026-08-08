@@ -80,28 +80,45 @@
 
   <!-- ---------- นักศึกษา ---------- -->
   <section data-house-pane="students" class="d-none">
-    <div class="row g-2 mb-3">
-      <div class="col-sm-4">
+    <!-- FIVE separate filters, and สายรหัส is one of them on purpose.
+         Typing "17" in the free-text box used to match รหัสนักศึกษา 6530701712
+         as happily as สาย 017, because one box searched every column. A number
+         means a different thing in each column, so each gets its own box.
+
+         รุ่น / สาขา / สายรหัส are `<input list>` comboboxes, NOT selects: there
+         are ~300 สาย and รุ่น has no upper bound, so a dropdown is a scroll.
+         Typing filters as a SUBSTRING (see filteredStudents), so "MD5" narrows
+         to MD50–MD59 and "01" to every สาย containing it — an exact value is
+         just the narrowest case of the same rule, and nothing is rejected. -->
+    <div class="row g-2 mb-2">
+      <div class="col-12 col-md">
         <input type="search" class="form-control form-control-sm" id="houseSearch"
-               placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / อีเมล / สาย" />
+               placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัสนักศึกษา / อีเมล"
+               aria-label="ค้นหานักศึกษา" />
       </div>
-      <div class="col-sm-2">
-        <select class="form-select form-select-sm" id="houseFilterHouse">
+      <div class="col-6 col-md-2">
+        <select class="form-select form-select-sm" id="houseFilterHouse" aria-label="กรองตามบ้าน">
           <option value="">ทุกบ้าน</option>
         </select>
       </div>
-      <div class="col-sm-2">
-        <select class="form-select form-select-sm" id="houseFilterYear">
-          <option value="">ทุกรุ่น</option>
-        </select>
+      <div class="col-6 col-md-2">
+        <input class="form-control form-control-sm" id="houseFilterYear" list="houseYearList"
+               placeholder="ทุกรุ่น" aria-label="กรองตามรุ่น" autocomplete="off" />
+        <datalist id="houseYearList"></datalist>
       </div>
-      <div class="col-sm-2">
-        <select class="form-select form-select-sm" id="houseFilterMajor">
-          <option value="">ทุกสาขา</option>
-        </select>
+      <div class="col-6 col-md-2">
+        <input class="form-control form-control-sm" id="houseFilterMajor" list="houseMajorList"
+               placeholder="ทุกสาขา" aria-label="กรองตามสาขา" autocomplete="off" />
+        <datalist id="houseMajorList"></datalist>
       </div>
-      <div class="col-sm-2">
-        <button type="button" class="btn btn-sm btn-primary w-100" id="houseAddStudent">
+      <div class="col-6 col-md-2">
+        <input class="form-control form-control-sm" id="houseFilterSai" list="houseSaiList"
+               placeholder="ทุกสายรหัส" aria-label="กรองตามสายรหัส" inputmode="numeric"
+               autocomplete="off" />
+        <datalist id="houseSaiList"></datalist>
+      </div>
+      <div class="col-auto">
+        <button type="button" class="btn btn-sm btn-primary w-100 text-nowrap" id="houseAddStudent">
           <i class="bi bi-person-plus"></i> เพิ่ม
         </button>
       </div>
@@ -117,7 +134,12 @@
         <tbody id="houseStudentRows"></tbody>
       </table>
     </div>
-    <div class="small text-muted" id="houseStudentCount"></div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="small text-muted" id="houseStudentCount"></div>
+      <button type="button" class="btn btn-sm btn-link p-0 d-none" id="houseClearFilters">
+        ล้างตัวกรอง
+      </button>
+    </div>
   </section>
 
   <!-- ---------- สายรหัส ---------- -->
@@ -171,9 +193,33 @@
   <!-- ---------- คำขอแก้ไข ---------- -->
   <section data-house-pane="requests" class="d-none">
     <p class="small text-muted">
-      คำขอแก้ไขข้อมูลจากนักศึกษา — อนุมัติแล้วระบบจะแก้ให้ทันที
+      คำขอแก้ไขข้อมูลจากนักศึกษา — <strong>แก้ค่าที่จะบันทึกได้ก่อนกดอนุมัติ</strong>
+      ไม่จำเป็นต้องรับค่าที่นักศึกษากรอกมาตรงๆ
       (ถ้าเป็นสายรหัส บ้านจะย้ายตามโดยอัตโนมัติ)
+      <br />สิ่งที่พิมพ์ในช่อง “ข้อความถึงนักศึกษา” จะไปแสดงบนการ์ด
+      <em>บ้านของฉัน</em> ของเจ้าตัว พร้อมกับผลว่าอนุมัติหรือปฏิเสธ
     </p>
+    <div class="row g-2 mb-3">
+      <div class="col-12 col-md-6">
+        <input type="search" class="form-control form-control-sm" id="houseReqSearch"
+               placeholder="ค้นหา ชื่อ / kkumail / สายรหัส / เหตุผล / ข้อความที่ตอบไป"
+               aria-label="ค้นหาคำขอแก้ไข" />
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="btn-group btn-group-sm w-100" role="group" aria-label="สถานะคำขอ"
+             id="houseReqStatusNav">
+          <button type="button" class="btn btn-outline-secondary active" data-req-status="pending">
+            รอดำเนินการ <span class="badge bg-danger d-none" id="houseReqOpenCount">0</span>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" data-req-status="done">
+            ดำเนินการแล้ว
+          </button>
+          <button type="button" class="btn btn-outline-secondary" data-req-status="all">
+            ทั้งหมด
+          </button>
+        </div>
+      </div>
+    </div>
     <div id="houseRequestRows"></div>
   </section>
 
@@ -224,6 +270,12 @@
             <div class="col-6">
               <label class="form-label small" for="hsSid">รหัสนักศึกษา</label>
               <input class="form-control form-control-sm" id="hsSid" placeholder="659999999-9" />
+              <!-- รุ่น is DERIVED from this box (first two digits + 2500 − 2515),
+                   so it is shown here as it is typed rather than as a separate
+                   field. Editing the รหัส now re-derives the รุ่น on the row too
+                   — before 0128 the stored copy was filled once and never
+                   again, so a corrected รหัส left the old รุ่น behind. -->
+              <div class="form-text" id="hsCohortHint">&nbsp;</div>
             </div>
             <div class="col-12">
               <label class="form-label small" for="hsMail">kkumail</label>
@@ -321,13 +373,55 @@
         <h6 class="small text-uppercase text-muted mb-1">อาจารย์ที่ปรึกษาของสายนี้</h6>
         <div id="hxAdvisors" class="mb-3"></div>
 
-        <label class="form-label small" for="hxPick">เพิ่มอาจารย์</label>
+        <label class="form-label small" for="hxPick">เพิ่มอาจารย์ที่มีอยู่แล้ว</label>
         <div class="d-flex gap-2">
           <select class="form-select form-select-sm" id="hxPick"></select>
           <button type="button" class="btn btn-sm btn-primary text-nowrap" id="hxAdd">เพิ่ม</button>
         </div>
-        <div class="form-text" id="hxHint">
-          ไม่มีชื่อที่ต้องการ? เพิ่มอาจารย์ใหม่ได้ที่แท็บ “อาจารย์”
+
+        <!-- "ไม่มีชื่อที่ต้องการ? เพิ่มอาจารย์ใหม่ได้ที่แท็บ อาจารย์" used to live
+             here. Sending someone to another tab to type three fields, then
+             back to this สาย to attach them, is four navigations for one
+             intention — and it loses the สาย you were standing in. The same
+             three fields are here now, and saving creates the อาจารย์ AND
+             attaches them to this สาย in one action. -->
+        <div class="mt-3 pt-2 border-top">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="hxNewToggle"
+                  aria-expanded="false" aria-controls="hxNewForm">
+            <i class="bi bi-person-plus"></i> ไม่มีชื่อที่ต้องการ? เพิ่มอาจารย์ใหม่
+          </button>
+          <form id="hxNewForm" class="border rounded p-2 mt-2 bg-light d-none">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small mb-1" for="hxNewFirst">ชื่อจริง</label>
+                <input class="form-control form-control-sm" id="hxNewFirst" required
+                       placeholder="ผศ.นพ. สมชาย" />
+                <div class="form-text">ใส่คำนำหน้ารวมมากับชื่อได้เลย</div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small mb-1" for="hxNewLast">นามสกุล</label>
+                <input class="form-control form-control-sm" id="hxNewLast" />
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label small mb-1" for="hxNewEmail">อีเมล</label>
+                <input type="email" class="form-control form-control-sm" id="hxNewEmail" />
+                <div class="form-text">นักศึกษาในบ้านนี้จะเห็นอีเมลนี้</div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label small mb-1" for="hxNewDept">ภาควิชา</label>
+                <input class="form-control form-control-sm" id="hxNewDept"
+                       list="houseDeptList" autocomplete="off" />
+                <datalist id="houseDeptList"></datalist>
+              </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center mt-2">
+              <button type="submit" class="btn btn-sm btn-primary">
+                เพิ่มและใส่ในสายนี้
+              </button>
+              <button type="button" class="btn btn-sm btn-link" id="hxNewCancel">ยกเลิก</button>
+              <span class="small" id="hxNewStatus" role="status" aria-live="polite"></span>
+            </div>
+          </form>
         </div>
       </div>
       <div class="modal-footer">
@@ -348,26 +442,31 @@
       <form id="houseAdvisorForm">
         <div class="modal-body">
           <input type="hidden" id="haId" />
+          <!-- No คำนำหน้า field (0128). It was one more box to type, nothing
+               ever read it as anything but a prefix on the name, and every
+               writer spelled it differently — the same three reasons ทีม SAMO
+               dropped it in 0113. Existing titles were folded into ชื่อจริง. -->
           <div class="row g-2">
-            <div class="col-4">
-              <label class="form-label small" for="haTitle">คำนำหน้า</label>
-              <input class="form-control form-control-sm" id="haTitle" placeholder="ผศ." />
-            </div>
-            <div class="col-4">
+            <div class="col-6">
               <label class="form-label small" for="haFirst">ชื่อจริง</label>
-              <input class="form-control form-control-sm" id="haFirst" required />
+              <input class="form-control form-control-sm" id="haFirst" required
+                     placeholder="ผศ.นพ. สมชาย" />
+              <div class="form-text">ใส่คำนำหน้ารวมมากับชื่อได้เลย</div>
             </div>
-            <div class="col-4">
+            <div class="col-6">
               <label class="form-label small" for="haLast">นามสกุล</label>
               <input class="form-control form-control-sm" id="haLast" />
             </div>
             <div class="col-6">
               <label class="form-label small" for="haEmail">อีเมล</label>
               <input type="email" class="form-control form-control-sm" id="haEmail" />
+              <div class="form-text">นักศึกษาในบ้านที่อาจารย์ดูแลจะเห็นอีเมลนี้</div>
             </div>
             <div class="col-6">
               <label class="form-label small" for="haDept">ภาควิชา</label>
-              <input class="form-control form-control-sm" id="haDept" />
+              <input class="form-control form-control-sm" id="haDept"
+                     list="houseDeptList" autocomplete="off" />
+              <div class="form-text">แสดงให้นักศึกษาในบ้านเห็นเช่นกัน</div>
             </div>
             <div class="col-12">
               <label class="form-label small" for="haSais">สายที่ดูแล</label>

@@ -55,11 +55,19 @@
   color: var(--ink-600);
   line-height: 1.5;
 }
+/* คำขวัญประจำบ้าน. NOT painted with --house-accent, deliberately.
+   REPORTED: "คำขวัญประจำบ้าน shouldn't be colored by สีประจำบ้าน because light
+   color make it hard to see" — and it is worse than a preference. The colour is
+   an `<input type="color">` an admin picks for a CREST, where any hue works
+   because it sits behind white text; using the same value as a TEXT colour on
+   white means a house that chose yellow or pale blue has an unreadable motto and
+   nothing in the picker warned them. The accent stays on the crest and the left
+   rule, where it cannot fail a contrast check. */
 .myhouse-slogan {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
   font-style: italic;
-  color: var(--house-accent, var(--brand-primary));
+  color: var(--ink-700);
 }
 
 /* ── the action row ─────────────────────────────────────────────────────── */
@@ -97,6 +105,59 @@
   font-size: 0.92em;
 }
 .myhouse-advisors em::before { content: ' · '; }
+/* The address on its own line: it is the longest thing on the row and the only
+   one that must stay selectable and tappable on a phone. */
+.myhouse-advisors .myhouse-advisor-mail {
+  display: block;
+  font-size: 0.92em;
+  color: var(--brand-primary);
+  text-decoration: none;
+  word-break: break-all;
+}
+.myhouse-advisors .myhouse-advisor-mail:hover,
+.myhouse-advisors .myhouse-advisor-mail:focus-visible { text-decoration: underline; }
+
+/* ── คำขอแก้ไขของฉัน ─────────────────────────────────────────────────────── */
+/* The answer to a request the student filed. Colour carries the verdict, but
+   never alone — every state also has its own icon and its own words, because a
+   colour is the one channel a reader can be missing. */
+.myhouse-requests {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 0.4rem;
+}
+.myhouse-requests li {
+  border: 1px solid var(--ink-200);
+  border-inline-start: 3px solid var(--ink-300);
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.4rem 0.6rem;
+  background: #fff;
+}
+.myhouse-requests li.is-pending { border-inline-start-color: #f0ad4e; }
+.myhouse-requests li.is-approved { border-inline-start-color: var(--brand-primary); }
+.myhouse-requests li.is-rejected { border-inline-start-color: #b02a37; }
+
+.myhouse-request-head {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.myhouse-requests .is-pending .myhouse-request-head { color: #a1650a; }
+.myhouse-requests .is-approved .myhouse-request-head { color: var(--brand-primary); }
+.myhouse-requests .is-rejected .myhouse-request-head { color: #b02a37; }
+.myhouse-request-when {
+  margin-inline-start: auto;
+  font-size: 0.78rem; color: var(--ink-500); font-weight: 400;
+}
+.myhouse-request-body {
+  margin-top: 0.15rem;
+  font-size: 0.82rem; color: var(--ink-700); line-height: 1.6;
+}
+.myhouse-request-body code {
+  background: var(--ink-100, #f1f3f5);
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+  color: inherit;
+}
+.myhouse-request-note { color: var(--ink-600); }
 
 /* ── form bits my-seat has no equivalent of ─────────────────────────────── */
 .myhouse-reason { margin-top: 0.6rem; max-width: 46rem; }

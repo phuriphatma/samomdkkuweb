@@ -131,14 +131,96 @@ function crestHtml(rec) {
   return `<div class="myhouse-crest myhouse-crest--plain" aria-hidden="true">${rec.house_id}</div>`;
 }
 
-/** One อาจารย์ line. `tag` carries their สาย when the list spans several. */
+/**
+ * One อาจารย์ line. `tag` carries their สาย when the list spans several.
+ *
+ * NAME, then ภาควิชา and สาย as quiet tags, then the address on its own line as
+ * a real `mailto:` link. The address is the point of the list: a student who
+ * needs to reach their อาจารย์ที่ปรึกษา was previously shown a name and left to
+ * find the rest themselves. No คำนำหน้า field any more (0128) — a title that
+ * belongs to the person is inside `name`.
+ */
 function advisorLi(a, tag) {
+  const email = String(a.email || '').trim();
   return `<li>
       <i class="bi bi-person-badge" aria-hidden="true"></i>
-      <span>${escHtml([a.title, a.name].filter(Boolean).join(' '))}${
+      <span>${escHtml(a.name || '')}${
   tag ? `<em>${escHtml(tag)}</em>` : ''}${
-  a.dept ? `<em>${escHtml(a.dept)}</em>` : ''}</span>
+  a.dept ? `<em>${escHtml(a.dept)}</em>` : ''}${
+  email ? `<a class="myhouse-advisor-mail" href="mailto:${escHtml(email)}">${escHtml(email)}</a>` : ''}</span>
     </li>`;
+}
+
+// ── what happened to the คำขอ I filed ──────────────────────────────────────
+const REQUEST_FIELD_LABEL = {
+  sai_code: 'สายรหัส', student_id: 'รหัสนักศึกษา', kkumail: 'kkumail',
+  first_name_th: 'ชื่อจริง', last_name_th: 'นามสกุล', major: 'สาขา',
+  cohort_year: 'ปีที่เข้า',
+};
+
+const REQUEST_STATUS = {
+  pending: { label: 'กำลังรอผู้ดูแลตรวจสอบ', cls: 'is-pending', icon: 'bi-hourglass-split' },
+  approved: { label: 'อนุมัติแล้ว', cls: 'is-approved', icon: 'bi-check2-circle' },
+  rejected: { label: 'ไม่อนุมัติ', cls: 'is-rejected', icon: 'bi-x-circle' },
+};
+
+function requestDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? ''
+    : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * The status of the caller's own คำขอแก้ไข.
+ *
+ * REPORTED: "the reason admin type doesn't get shown for the user, also the
+ * status that admin reject or accept doesn't get shown to the user". It didn't,
+ * and there was no way it could: `student_change_requests` is admin-only under
+ * RLS and nothing published it back. The admin was typing into a box with no
+ * reader — the worst kind of broken, because it looks like it works from the
+ * only side anyone was checking.
+ *
+ * `my_requests` now travels inside `get_my_student_record()` (0128), which is
+ * already the caller's own record and resolves the student from auth.uid(), so
+ * this needed no new policy and no new address to probe.
+ *
+ * `applied_value` is shown ONLY when it differs from what was asked. An admin
+ * may approve a สายรหัส request with a corrected value, and "อนุมัติแล้ว" next
+ * to a card showing a third สาย is the confusing case this exists to prevent.
+ */
+function requestsHtml(rec) {
+  const list = rec.my_requests || [];
+  if (!list.length) return '';
+  return `<div class="myseat-block">
+    <span class="myseat-label">คำขอแก้ไขของฉัน</span>
+    <ul class="myhouse-requests">${list.map((r) => {
+    const st = REQUEST_STATUS[r.status] || REQUEST_STATUS.pending;
+    const label = REQUEST_FIELD_LABEL[r.field] || r.field;
+    const changed = r.status === 'approved' && r.applied_value
+      && r.applied_value !== r.requested_value;
+    return `<li class="${st.cls}">
+        <div class="myhouse-request-head">
+          <i class="bi ${st.icon}" aria-hidden="true"></i>
+          <strong>${escHtml(st.label)}</strong>
+          <span class="myhouse-request-when">${escHtml(requestDate(r.created_at))}</span>
+        </div>
+        <div class="myhouse-request-body">
+          ขอแก้ <strong>${escHtml(label)}</strong>
+          เป็น <code>${escHtml(r.requested_value || '—')}</code>
+          ${changed
+    ? `<br />ผู้ดูแลบันทึกให้เป็น <code>${escHtml(r.applied_value)}</code> แทน`
+    : ''}
+          ${r.decision_note
+    ? `<br /><span class="myhouse-request-note">ข้อความจากผู้ดูแล: ${escHtml(r.decision_note)}</span>`
+    : ''}
+          ${r.status === 'rejected' && !r.decision_note
+    ? '<br /><span class="myhouse-request-note">ผู้ดูแลไม่ได้ระบุเหตุผล — สอบถามได้ที่ SAMO</span>'
+    : ''}
+        </div>
+      </li>`;
+  }).join('')}</ul>
+  </div>`;
 }
 
 /**
@@ -357,6 +439,7 @@ export function renderMyHouse(host, rec) {
       ${editFormHtml(rec)}
       ${reportFormHtml(rec)}
 
+      ${requestsHtml(rec)}
       ${advisorsHtml(rec)}
     </div>`;
 
@@ -491,6 +574,14 @@ function wireCard(host, rec) {
     if (btn) btn.disabled = true;
     try {
       await requestMyChange(field, requested, reportForm.querySelector('[name="reason"]').value.trim());
+      // Repaint from the server rather than printing "ส่งคำขอแล้ว" into the
+      // form. The card now has a คำขอแก้ไขของฉัน list, and the request showing
+      // up in it — with its status, and later with the admin's answer — is a
+      // better confirmation than a sentence, because it is the same place the
+      // person will come back to look.
+      clearMyHouseCache();
+      const fresh = await fetchMyStudentRecord().catch(() => null);
+      if (fresh && fresh.kkumail) { renderMyHouse(host, fresh); return; }
       reportForm.innerHTML = '<p class="myhouse-sent">'
         + '<i class="bi bi-check2-circle" aria-hidden="true"></i> '
         + 'ส่งคำขอแล้ว ผู้ดูแลจะตรวจสอบและแก้ไขให้</p>';

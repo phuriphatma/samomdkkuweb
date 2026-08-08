@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
+  buildPreviewRows, PREVIEW_COLUMNS,
   IMPORT_OWNED_COLUMNS, EXPORT_COLUMNS, CSV_COLUMNS,
 } from './io.js';
 
@@ -197,12 +198,11 @@ describe('diffAgainstExisting — the preview must be right before anything writ
 });
 
 describe('export is a BACKUP allow-list', () => {
-  it('round-trips the import columns, so an export→import cannot lose them', () => {
-    for (const c of IMPORT_OWNED_COLUMNS) {
-      // nickname_imported is exported under its own name; the rest map 1:1.
-      expect(EXPORT_COLUMNS).toContain(c === 'nickname_imported' ? 'nickname_imported' : c);
-    }
-  });
+  // The name-for-name version of the round-trip guard lived here. It has been
+  // replaced by "loses no import-owned column on an export → import round trip"
+  // below, which asks the PARSER which columns a header reaches instead of
+  // asserting the two lists are spelled the same — the version that could only
+  // ever be right while every column happened to share one name.
 
   it('includes the derived house so a human reading the file can see it', () => {
     const csv = buildStudentsCsv([{ kkumail: 'a@kkumail.com', sai_code: '017' }]);
@@ -222,20 +222,57 @@ describe('export is a BACKUP allow-list', () => {
     expect(CSV_COLUMNS).toEqual([
       'student_id', 'first_name_th', 'last_name_th', 'nickname_imported',
       'kkumail', 'major', 'sai_code']);
-    // Every import-owned column of a row IS an export column, so a backup taken
-    // from this app can be handed straight back to it.
-    for (const c of CSV_COLUMNS) expect(EXPORT_COLUMNS).toContain(c);
   });
 
-  it('exports no generated column that the importer would READ BACK', () => {
-    // `nickname` is coalesce(nickname_self, nickname_imported) in the database,
-    // and the importer resolves a `nickname` header to nickname_imported — so
-    // exporting it made an export→import round trip overwrite the university's
-    // value with the student's own, irreversibly. `house` is derived too but has
-    // no alias, so it round-trips as an ignored column and stays for humans.
-    expect(EXPORT_COLUMNS).not.toContain('nickname');
-    expect(EXPORT_COLUMNS).not.toContain('full_name');
-    expect(EXPORT_COLUMNS).toContain('house');
+  it('loses no import-owned column on an export → import round trip', () => {
+    // THE REAL INVARIANT, and it is not "the two lists are equal". The export is
+    // a BACKUP: a column it omits is destroyed the next time the file is handed
+    // back. What matters is that every import-owned column is REACHABLE from the
+    // exported header — by its own name, or through an alias the importer
+    // resolves. `nickname` is the case that forced this to be checked properly
+    // rather than by eye: the export writes the effective nickname, and the
+    // importer resolves that header to `nickname_imported`.
+    //
+    // Asked of the IMPORTER, not of a hand-written list of aliases — two
+    // implementations of one rule drift, and the parser is the authority.
+    const parsed = parseStudentsCsv(`${EXPORT_COLUMNS.join(',')}\n`, ['MD']);
+    const reachable = new Set(parsed.presentColumns);
+    for (const c of IMPORT_OWNED_COLUMNS) expect([...reachable]).toContain(c);
+  });
+
+  it('exports the nickname a person actually has, not the two it is built from', () => {
+    // REPORTED: "i don't understand why when i export csv, there's
+    // nickname_imported nickname_self, it should show the information that the
+    // current system holds, what the user see." The pair is how the database
+    // keeps an import from overwriting what a student typed; it is not
+    // information about the student, and it does not belong in a file a human
+    // reads. nickname_self still wins on every screen, so the round trip that
+    // folds it into the import slot changes nothing anybody can see.
+    expect(EXPORT_COLUMNS).toContain('nickname');
+    expect(EXPORT_COLUMNS).not.toContain('nickname_self');
+    expect(EXPORT_COLUMNS).not.toContain('nickname_imported');
+    const csv = buildStudentsCsv([{
+      kkumail: 'a@kkumail.com', nickname_imported: 'ต้อม', nickname_self: 'ตั้ม',
+    }]);
+    expect(csv.split('\r\n')[1]).toContain('ตั้ม');
+    expect(csv).not.toContain('ต้อม');
+  });
+
+  it('carries รุ่น and บ้าน as words a person can read, and nothing dead', () => {
+    // The five columns the report asked about — year_override, is_listed,
+    // sai_locked, verified_at and the raw cohort_year — were each the leftover
+    // of a removed feature and are gone from the TABLE too (0129). What replaces
+    // cohort_year is the label: ปีที่เข้า 2565 is not what anyone calls it.
+    for (const dead of ['cohort_year', 'year_override', 'is_listed',
+      'sai_locked', 'sai_self_edits', 'verified_at', 'status', 'full_name']) {
+      expect(EXPORT_COLUMNS).not.toContain(dead);
+    }
+    const csv = buildStudentsCsv([{
+      kkumail: 'a@kkumail.com', student_id: '659999999-9', sai_code: '017',
+    }]);
+    const cells = csv.split('\r\n')[1].split(',');
+    expect(cells[EXPORT_COLUMNS.indexOf('cohort')]).toBe('MD50');
+    expect(cells[EXPORT_COLUMNS.indexOf('house')]).toBe('7');
   });
 });
 
@@ -369,5 +406,75 @@ describe('kkumail case is flattened, and that is load-bearing', () => {
       major: 'MD', sai_code: '017' }], r.presentColumns);
     expect(d.insert).toBe(0);   // one person, not two
     expect(d.same).toBe(1);
+  });
+});
+
+describe('buildPreviewRows — the file, one row per line', () => {
+  // REQUESTED: "when import csv, it should show preview of what information
+  // it'll be import like i can scroll through what it'll be import. and show
+  // who that is duplicate, error prone, detect edge case etc". The preview was
+  // four counters and a list of sentences ordered by severity — so "412 จะแก้ไข"
+  // named nobody, and "บรรทัด 1408" could not be matched to a person without
+  // counting lines by hand.
+  const MESSY = [
+    HEAD,
+    '659999999-9,มานี,ใจดี,นก,manee.j@kkumail.com,MD,017',
+    '669999998-8,ปิติ,รักเรียน,ต้น,manee.j@kkumail.com,MD,003',  // duplicate mail
+    '689999996-6,วีระ,ตั้งใจ,,not-an-email,MD,001',               // bad mail
+    '679999997-7,นายก,ดีงาม,กก,somchai@kkumail.com,MD,7',         // padded สาย + คำนำหน้า
+  ].join('\n');
+
+  it('keeps every line of the file, in file order', () => {
+    const r = parseStudentsCsv(MESSY, ['MD']);
+    const rows = buildPreviewRows(r, diffAgainstExisting(r.rows, [], r.presentColumns));
+    expect(rows.map((x) => x._line)).toEqual([2, 3, 4, 5]);
+  });
+
+  it('INCLUDES the rows that will be skipped — they are the ones to look at', () => {
+    // The old preview could not show these at all: a skipped row never reaches
+    // `rows`, so a person dropped for a duplicate address was a number in a
+    // counter and nothing else. That person will simply not exist afterwards.
+    const r = parseStudentsCsv(MESSY, ['MD']);
+    const rows = buildPreviewRows(r, diffAgainstExisting(r.rows, [], r.presentColumns));
+    const skipped = rows.filter((x) => x._verdict === 'skip');
+    expect(skipped.map((x) => x._line)).toEqual([3, 4]);
+    expect(skipped[0]._skip).toMatch(/ซ้ำ/);
+    // …and with enough content to identify WHO, not just that a line was lost.
+    expect(skipped[0].first_name_th).toBe('ปิติ');
+    expect(skipped[1].kkumail).toBe('not-an-email');
+  });
+
+  it('attaches each problem to the row it is about', () => {
+    const r = parseStudentsCsv(MESSY, ['MD']);
+    const rows = buildPreviewRows(r, diffAgainstExisting(r.rows, [], r.presentColumns));
+    const titled = rows.find((x) => x._line === 5);
+    expect(titled._problems.some((p) => p.field === 'first_name_th')).toBe(true);
+  });
+
+  it('leaves FILE-level findings off the rows — they belong above the fold', () => {
+    // line 1 is the header, and its "problems" describe the whole file (the สาย
+    // padding notice, unrecognised columns). Hanging them on a row would put a
+    // statement about 1,800 people next to one of them.
+    const r = parseStudentsCsv(MESSY, ['MD']);
+    const rows = buildPreviewRows(r, diffAgainstExisting(r.rows, [], r.presentColumns));
+    expect(rows.every((x) => x._problems.every((p) => p.line !== 1))).toBe(true);
+  });
+
+  it('carries ของเดิม for exactly the columns an update will change', () => {
+    const r = parseStudentsCsv(good, ['MD']);
+    const existing = [{ id: 'x', kkumail: 'manee.j@kkumail.com', first_name_th: 'มานี',
+      last_name_th: 'ใจดี', nickname_imported: 'นก', student_id: '659999999-9',
+      major: 'MD', sai_code: '099' }];
+    const d = diffAgainstExisting(r.rows, existing, r.presentColumns);
+    const rows = buildPreviewRows(r, d);
+    const changed = rows.find((x) => x._verdict === 'update');
+    expect(changed._changed).toEqual(['sai_code']);
+    expect(changed._before).toEqual({ sai_code: '099' });
+  });
+
+  it('shows only columns the import can actually write', () => {
+    // A preview column the import cannot write would promise something the
+    // confirm button does not do.
+    for (const c of PREVIEW_COLUMNS) expect(IMPORT_OWNED_COLUMNS).toContain(c);
   });
 });

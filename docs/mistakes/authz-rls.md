@@ -822,3 +822,53 @@ indistinguishable from "not configured", so the exposure can outlive the reason
 for it by a year. Grep the consumer for the exact column names before you widen
 a policy for it. Second instance of "publishing a table-backed directory must be
 a PROJECTION, never a public SELECT policy", above.
+
+---
+
+## An admin's decision was written to a column no student had any read path to
+
+**Symptom**: reported as *"the reason admin type doesn't get shown for the user,
+also the status that admin reject or accept doesn't get shown to the user"*. An
+admin approving or rejecting a สายรหัส correction typed a reason into the card,
+saw it save, and the student saw nothing at all — not the verdict, not the note,
+not even that the request had been looked at.
+
+**Cause**: `student_change_requests` is admin-only under RLS (0116 §9: one
+`for all to authenticated using (role in (vp_admin,dev) or has_permission
+('house'))` policy per table). The student's own card reads exactly one thing,
+`get_my_student_record()`, and that RPC did not mention the table. So the write
+path existed, the storage existed, and the read path had simply never been
+built — the feature was complete on the only side anyone was testing from.
+
+Class 4 (**authorization is per-PATH**) read from the other end: the usual
+failure is sanitising one reader and leaving three leaking; this is the mirror
+image, where the correct restriction on a table was mistaken for a complete
+design and nobody asked whether the intended audience could reach it. A UI that
+collects a message is a promise that someone receives it.
+
+**Fix**: the outcome travels inside `get_my_student_record()` — already the
+caller's own record, already resolving the student from `auth.uid()`, so no new
+policy, no new grant and no new address to probe with. Capped at the 10 newest.
+A new `applied_value` column carries what the admin ACTUALLY saved when they
+correct the value on approval, because "อนุมัติแล้ว" next to a card showing a
+third สายรหัส is a lie by omission.
+
+**Where it lives now**:
+`supabase/migrations/0128_cohort_follows_the_sid_and_requests_answer_back.sql`
+§2, `src/js/house/my-house.js` `requestsHtml()`. Proof:
+`tools/house0128-requests.mjs`, which checks BOTH directions — the student sees
+their own request, and an account with neither `team` nor `house` reads zero
+rows from `students` / `student_change_requests` / `advisors`.
+
+**Rule**: when a form collects a message for a named person, find that person's
+read path before shipping it. "The table is admin-only" answers who may WRITE;
+it does not answer whether the intended reader can read.
+
+⚠️ **And a debugging note that cost twenty minutes here.** While probing this,
+an account with `role: 'user'` and `permissions: []` appeared to read every row
+of three admin-only tables, which reads exactly like a fail-open policy. It was
+not: `current_user_has_permission()` reads the UNION of `permissions` **and**
+`managed_permissions` (0081), and that account held `master` through the
+ทีม SAMO org tree. A probe subject chosen by `permissions = '{}'` alone is not
+an unprivileged subject in this schema — filter on both columns, or you will
+report a vulnerability that is the grant engine working.

@@ -25,7 +25,7 @@ import {
   createMember, updateMember, deleteMember,
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
   fetchMajors, createMajor, updateMajor, deleteMajor,
-  countMembersWithMajor, renameMajorOnMembers,
+  countMembersWithMajor, renameMajorOnMembers, lookupStudentByKkumail,
 } from './api.js';
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
@@ -2061,8 +2061,71 @@ function refreshMajorPickers() {
 // MEMBER MODAL
 // ============================================================
 
+/**
+ * Fill the member form from ระบบบ้าน, by kkumail.
+ *
+ * ASKED FOR: "when adding people in teamsamo … they should can use the data
+ * from house system". The two tables hold the same fields for the same humans
+ * and both key on kkumail (0108), so retyping is not just tedious — it is where
+ * the two copies start disagreeing, and ตรวจสอบข้อมูล then reports a `drift`
+ * finding about a difference a human introduced by hand.
+ *
+ * ONLY FILLS WHAT IS EMPTY. Overwriting a box someone has already typed in
+ * would make this button destructive, and an admin correcting a name that
+ * ระบบบ้าน has wrong is a legitimate thing to be doing. What it does say is
+ * which fields it left alone, so "it didn't work" and "it deliberately kept
+ * yours" are distinguishable.
+ *
+ * ชั้นปี is NOT filled. ระบบบ้าน has no ชั้นปี — it has รุ่น, which needs no clock
+ * (see house/fields.js cohortLabel) — and deriving one here would put this
+ * app's third implementation of that rule in a click handler.
+ */
+async function onFillFromHouse() {
+  const hint = $('teamMemberHouseFillHint');
+  const btn = $('teamMemberFillFromHouse');
+  const say = (msg, cls = '') => { if (hint) { hint.textContent = msg; hint.className = `form-text ${cls}`; } };
+  const mail = $('teamMemberEmail').value.trim();
+  if (!mail) { say('พิมพ์ kkumail ก่อน แล้วกดปุ่มนี้อีกครั้ง', 'text-warning'); $('teamMemberEmail').focus(); return; }
+  if (btn) btn.disabled = true;
+  say('กำลังค้นจากระบบบ้าน…');
+  try {
+    const rec = await lookupStudentByKkumail(mail);
+    if (!rec) { say(`ไม่พบ ${mail} ในระบบบ้าน — กรอกเองได้ตามปกติ`, 'text-warning'); return; }
+    const filled = [];
+    const kept = [];
+    const put = (id, value, label) => {
+      const el = $(id);
+      if (!el || !value) return;
+      if (String(el.value || '').trim()) { kept.push(label); return; }
+      el.value = value;
+      filled.push(label);
+    };
+    put('teamMemberName', rec.full_name, 'ชื่อ-สกุล');
+    put('teamMemberNickname', rec.nickname, 'ชื่อเล่น');
+    put('teamMemberStudentId', rec.student_id, 'รหัสนักศึกษา');
+    // สาขา is a chooser, so it is set through the same filler the modal uses —
+    // an off-list value is kept as its own option rather than silently dropped.
+    const majorSel = $('teamMemberMajor');
+    if (majorSel && rec.major && !String(majorSel.value || '').trim()) {
+      await loadMajors();
+      fillMajorSelect(majorSel, rec.major);
+      filled.push('สาขา');
+    } else if (rec.major && majorSel?.value) kept.push('สาขา');
+
+    say([
+      filled.length ? `เติมให้แล้ว: ${filled.join(' · ')}` : 'ไม่มีช่องว่างให้เติม',
+      kept.length ? `คงของเดิมไว้: ${kept.join(' · ')}` : '',
+    ].filter(Boolean).join(' — '), filled.length ? 'text-success' : '');
+  } catch (err) {
+    say(err?.message || 'ค้นจากระบบบ้านไม่สำเร็จ', 'text-danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
+  $('teamMemberFillFromHouse')?.addEventListener('click', onFillFromHouse);
   $('teamMemberPhotoFile')?.addEventListener('change', onMemberPhotoPick);
   $('teamMemberPhotoClear')?.addEventListener('click', () => {
     // Dropping a PENDING pick must also drop the pick, not just the stored URL —
@@ -2228,6 +2291,8 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   fillMajorSelect($('teamMemberMajor'), member?.major || '');
   loadMajors().then(() => fillMajorSelect($('teamMemberMajor'), member?.major || ''));
   $('teamMemberEmail').value = member?.kkumail || '';
+  const fillHint = $('teamMemberHouseFillHint');
+  if (fillHint) { fillHint.textContent = ''; fillHint.className = 'form-text'; }
   $('teamMemberConfirmed').checked = !!member?.confirmed;
   // A pick left pending by a previous open must not follow the next person into
   // the editor — the modal is one DOM element reused for every row, which is
