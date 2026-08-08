@@ -24,56 +24,26 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## SHIPPED 2026-08-08 — ระบบบ้าน polish (0123 + 0124)
+## SHIPPED 2026-08-08 — ระบบบ้าน, end to end (0123–0127)
 
-Applied and proved live. Full detail + every proof:
-**`docs/state-archive/2026-08-08-house-polish.md`**. Headlines:
+All applied, deployed and verified on the served artifacts. Full detail and
+every live proof: **`docs/state-archive/2026-08-08-house-polish.md`**.
 
-- **บ้านของฉัน reads like ตำแหน่งของฉัน** — one label→value list, same stylesheet.
-  The "must click many times" bug was one delegated listener added to the
-  surviving host per re-render, plus a `toggle` that read its own class.
-- **รุ่น (MD50 = cohort − 2515), never ชั้นปี.** No clock, no override; SQL's
-  `student_year()` and its JS mirror both deleted. **No ยืนยันข้อมูล.**
-- **ระบบบ้าน publishes อาจารย์, never students.** `get_house_roster()` DROPPED;
+- **บ้านของฉัน** reads like ตำแหน่งของฉัน — one label→value list, shared
+  stylesheet. Shows **รุ่น (MD50)**, never ชั้นปี. No ยืนยันข้อมูล.
+- **ระบบบ้าน publishes อาจารย์, never students.** `get_house_roster()` dropped;
   the card lists the อาจารย์ of every สาย in the house instead.
-- **An import now writes only the columns its file carried.** Sending every
-  column would have cleared ~1,800 สายรหัส from a file that merely omitted them.
-- **One CSV vocabulary (the table's), spreadsheet spellings as aliases.**
-  Leading-zero สาย is recoverable, so it warns instead of refusing; non-UTF-8 and
-  a combined "ชื่อ-สกุล" column are the new fatals.
-- **Admin: click a สาย to manage its อาจารย์.**
-- **0125 — a student owns their identity, and not their สาย.** They self-edit
-  ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา (a chooser over `team_majors`,
-  refused server-side if off-list). สายรหัส is NOT self-editable at any level —
-  it decides the house, so the route is a request an admin approves. Four of
-  those are import-owned columns, so `students.self_edited text[]` + a BEFORE
-  UPDATE trigger preserve them on any write stamping a new `last_import_batch`:
-  **admin > student > import**, enforced on the TABLE. Proved live both ways
-  (self-edit sticks through a simulated import; `cohort_year` still updates;
-  an off-list สาขา raises). `sai_self_edit_open` / `sai_locked` /
-  `sai_self_edits` are now vestigial — ระบบบ้าน has **no admin settings left**.
-- **0126 — a student row can arrive with NO NAME.** `first_name_th` is nullable
-  and `full_name` is NULL (not `''`) when empty, so the ask to Data Analytics is
-  now **4 columns: `kkumail, student_id, sai, major`** — 1,800 names never leave
-  their department. The student types their own (0125). A COMBINED "ชื่อ-สกุล"
-  column is still refused: no name column names nobody, one combined column
-  renames everybody whose surname has a space. Also fixed: a self-edited
-  duplicate รหัสนักศึกษา hit `students_sid_uniq` and surfaced a raw 23505 — now a
-  Thai sentence, pre-checked AND caught in an exception handler for the race.
-- **KKU SSO probed live (UAT) — it CAN supply the identity.** One real student
-  login: `user.profile` returns `studentId` + **`studentCode` (`653070317-0`,
-  already our canonical form)**, `type: STUDENT`, Thai + English names and
-  `facultyName` — **none of `studentId`/`studentCode` is in the vendor manual**,
-  which also documents an `immutableId` the API does not return and calls `mail`
-  `email`. It cannot supply **สาขา** (`levelName` is the degree level) or
-  ชื่อเล่น. UAT is backed by the REAL directory, so this transfers to prod.
-  Blocking: our registration is **UAT-only** (prod login answers "Cannot find the
-  CREDENTIAL"), so a production app must be requested; and `citizenId` comes back
-  on both calls and must never be stored. Probe: `node tools/sso-probe.mjs`.
-- **KKU SSO assessed, not built** — `docs/KKU-SSO.md`. It is a login
-  improvement, NOT a data source: no roster endpoint, no สายรหัส, no สาขา, and it
-  returns `citizenId` we must never store. **The CSV is still required.**
-  Credentials in `.env.local` (`KKU_SSO_*`); manual `docs/KKU-SSO-MANUAL.md`.
+- **A student self-edits ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา, and never
+  their สายรหัส.** `students.self_edited` + a BEFORE UPDATE trigger keep a
+  re-import from reverting them: **admin > student > import**, on the TABLE.
+- **The import writes only the columns its file carried**, a row may have no
+  name, `000` is refused, short สาย (`7` → `007`) are fine, and import/export
+  share one vocabulary. Handover spec + minimal template ready to send.
+- **Admin: click a สาย to manage its อาจารย์.** ระบบบ้าน now has no settings.
+- **Five bugs fixed after the fact** — the multi-click panel, the สาขา chooser
+  that submitted empty, a คำนำหน้า being stripped off real names, `000` from a
+  blank cell, and ปฏิเสธ doing nothing. The last four were found by scanning,
+  the first and last by the owner.
 
 ## SHIPPED 2026-08-07 — ระบบบ้าน + the DELETE guard + หนังสือโครงการ visibility
 
