@@ -31,7 +31,7 @@ import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
-import { showMySeat, renderMySeat, clearMySeatCache } from './my-seat.js';
+import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
 // The one list of "which grants open /admin/". Shared with admin-main.js
 // canUseAdmin() so the navbar link and the door it opens cannot drift.
@@ -785,20 +785,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // with no posting. Signing out clears the cache so the next account cannot
     // inherit the previous person's card.
     const seatHost = document.getElementById('homeMySeat');
+    const houseHost = document.getElementById('homeMyHouse');
     if (user) {
+      // ONE decision, taken once: does this person hold a ทีม SAMO posting?
+      // REPORTED: the two cards "show similar information two times". They both
+      // rendered ชื่อ, ชื่อเล่น, รหัสนักศึกษา, ชั้นปี and สาขา, each with its own
+      // edit form writing its own table. 0132 made those one row in the
+      // database; this makes them one block on the screen — the seat card keeps
+      // the identity, and บ้านของฉัน shows only รุ่น / สายรหัส / บ้าน beneath it.
+      //
+      // FOUR CASES, all reachable:
+      //   both      → seat card with identity, house card house-only
+      //   team only → seat card only (a shared department account)
+      //   house only→ house card only, carrying the identity (most students)
+      //   neither   → nothing at all (an ordinary visitor)
       showMySeat(seatHost, user.id);
+      loadMySeat(user.id)
+        .then((seat) => showMyHouse(houseHost, user.id, {
+          identityShownAbove: (seat?.postings || []).length > 0,
+        }))
+        // A failed seat lookup must not cost the student their house card; the
+        // worst case is the identity showing twice, which is where we started.
+        .catch(() => showMyHouse(houseHost, user.id));
     } else {
       clearMySeatCache();
       renderMySeat(seatHost, null);
-    }
-
-    // บ้านของฉัน — same shape and same lifecycle as the ตำแหน่งของฉัน card above.
-    // A student who is not in the students table yet simply has no card, which
-    // is every account until the ~1,800-row import lands.
-    const houseHost = document.getElementById('homeMyHouse');
-    if (user) {
-      showMyHouse(houseHost, user.id);
-    } else {
       clearMyHouseCache();
       renderMyHouse(houseHost, null);
     }

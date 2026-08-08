@@ -187,3 +187,14 @@
 @media (max-width: 420px) {
   .myhouse-crest { width: 56px; height: 56px; }
 }
+
+/* The card is paired with ตำแหน่งของฉัน above it: identity lives up there, and
+   this says so once instead of repeating the fields. Quiet on purpose — it is
+   a signpost, not a warning. */
+.myhouse-paired-note {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--ink-500);
+  line-height: 1.5;
+}
+.myhouse-paired-note .bi { color: var(--ink-400); }

@@ -1,0 +1,163 @@
+#!/usr/bin/env node
+// ============================================================
+// house0132-registry.mjs — one registry, one writer, and nothing drifts.
+//
+// 0132 is the migration with the most ways to be quietly wrong, because it
+// leaves BOTH old identity columns in place and relies on a mirror to keep them
+// honest. A backfill that merely "looks right" the day it runs is worth
+// nothing; what has to be true is that a WRITE propagates, and that it stops at
+// identity.
+//
+// ALLOW — the sync actually syncs:
+//   A1  a registry edit reaches team_members
+//   A2  the same edit reaches students
+//   A3  update_my_identity() writes all three from one call
+//   A4  get_my_profile() returns one merged identity
+//   A5  a person in BOTH systems is ONE registry row, not two
+//
+// DENY — it stops where identity stops:
+//   D1  the mirror never writes sai_code (the house is not the person's)
+//   D2  the mirror never touches a posting's node_id
+//   D3  no duplicate humans by address
+//   D4  get_my_profile() is null for someone in neither system
+//
+// The deny half matters more than usual here: a mirror that copied too much
+// would move a student between houses from the ทีม SAMO editor, silently.
+//
+// Runs inside a transaction it ROLLS BACK.
+// ============================================================
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const SQL = `
+begin;
+
+create temporary table probe(step text, expected text, got text);
+
+-- A person who exists in BOTH systems — the interesting case.
+create temporary table subj as
+select p.id as pid, p.kkumail,
+       (select s.id from public.students s where s.person_id = p.id limit 1)     as sid,
+       (select m.id from public.team_members m where m.person_id = p.id limit 1) as mid,
+       (select s.sai_code from public.students s where s.person_id = p.id limit 1) as sai0,
+       (select m.node_id  from public.team_members m where m.person_id = p.id limit 1) as node0
+  from public.people p
+ where exists (select 1 from public.students s where s.person_id = p.id)
+   and exists (select 1 from public.team_members m where m.person_id = p.id)
+ limit 1;
+
+insert into probe values ('A5. in both systems = ONE registry row', '1',
+  (select count(*)::text from subj));
+
+-- ---- the mirror ----
+update public.people
+   set first_name_th = 'ทดสอบ0132', last_name_th = 'ซิงค์'
+ where id = (select pid from subj);
+
+insert into probe
+select 'A1. reaches team_members', 'ทดสอบ0132 ซิงค์',
+       coalesce((select m.full_name from public.team_members m
+                  where m.id = (select mid from subj)), '(none)');
+
+insert into probe
+select 'A2. reaches students', 'ทดสอบ0132',
+       coalesce((select s.first_name_th from public.students s
+                  where s.id = (select sid from subj)), '(none)');
+
+-- ---- the mirror STOPS at identity ----
+insert into probe
+select 'D1. sai_code untouched', coalesce((select sai0 from subj), '(null)'),
+       coalesce((select s.sai_code from public.students s
+                  where s.id = (select sid from subj)), '(null)');
+
+insert into probe
+select 'D2. node_id untouched', coalesce((select node0::text from subj), '(null)'),
+       coalesce((select m.node_id::text from public.team_members m
+                  where m.id = (select mid from subj)), '(null)');
+
+-- ---- one writer, three tables ----
+-- Impersonate a real person who has a students row AND an auth account.
+create temporary table who as
+select s.kkumail, u.id as uid, s.person_id
+  from public.students s
+  join public.users u on lower(btrim(u.email)) = lower(btrim(s.kkumail))
+ limit 1;
+grant select on who to authenticated;
+grant insert, select on probe to authenticated;
+
+select set_config('role','authenticated',true),
+       set_config('request.jwt.claims',
+         json_build_object('sub',(select uid::text from who),'role','authenticated')::text, true);
+set local role authenticated;
+
+insert into probe
+select 'A3. one call writes the registry', 'เขียนครั้งเดียว',
+       coalesce((select x->>'nickname' from (
+         select public.update_my_identity('{"nickname_self":"เขียนครั้งเดียว"}'::jsonb)->'identity' as x
+       ) q), '(none)');
+
+insert into probe
+select 'A4. profile merges both halves', 'yes',
+       case when public.get_my_profile()->'identity' ? 'in_house'
+             and public.get_my_profile()->'identity' ? 'in_team'
+            then 'yes' else 'no' end;
+
+reset role;
+
+-- …and the ทีม SAMO copy moved with it, if this person holds a posting.
+insert into probe
+select 'A3b. and every ทีม SAMO posting', 'ok',
+       case when not exists (select 1 from public.team_members m
+                              where lower(btrim(m.kkumail)) = lower(btrim((select kkumail from who))))
+              then 'ok'   -- no posting to check; not a failure
+            when exists (select 1 from public.team_members m
+                          where lower(btrim(m.kkumail)) = lower(btrim((select kkumail from who)))
+                            and coalesce(m.nickname,'') <> 'เขียนครั้งเดียว')
+              then 'DRIFTED' else 'ok' end;
+
+-- ---- global invariants ----
+insert into probe values ('D3. no duplicate humans by address', '0',
+  (select count(*)::text from (
+     select lower(btrim(kkumail)) from public.people
+      where kkumail is not null and btrim(kkumail) <> ''
+      group by 1 having count(*) > 1) d));
+
+insert into probe values ('D3b. every placement is linked', '0',
+  ((select count(*) from public.students where person_id is null)
+   + (select count(*) from public.team_members where person_id is null))::text);
+
+-- Somebody in neither system gets nothing at all.
+select set_config('request.jwt.claims',
+  json_build_object('sub', gen_random_uuid()::text, 'role','authenticated')::text, true);
+set local role authenticated;
+insert into probe values ('D4. stranger gets no profile', 'null',
+  coalesce(public.get_my_profile()::text, 'null'));
+reset role;
+
+select step, expected, got,
+       case when expected = got then 'PASS' else 'FAIL' end as verdict
+  from probe order by step;
+
+rollback;
+`;
+
+const file = join(tmpdir(), `house0132-${process.pid}.sql`);
+writeFileSync(file, SQL);
+let out;
+try {
+  out = execFileSync('node', [new URL('./db-query.mjs', import.meta.url).pathname, file],
+    { encoding: 'utf8' });
+} finally {
+  unlinkSync(file);
+}
+
+const rows = JSON.parse(out.trim().split('\n').filter(Boolean).pop());
+let failed = 0;
+for (const r of rows) {
+  if (r.verdict !== 'PASS') failed += 1;
+  console.log(`${r.verdict === 'PASS' ? '✓' : '✗'} ${r.step}: expected ${r.expected}, got ${r.got}`);
+}
+console.log(failed ? `\n${failed} FAILED` : '\nall pass');
+process.exit(failed ? 1 : 0);

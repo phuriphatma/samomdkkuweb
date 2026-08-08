@@ -352,3 +352,57 @@ describe('the field lists', () => {
     for (const f of REQUESTABLE_FIELDS) expect(allowed.has(f.field)).toBe(true);
   });
 });
+
+describe('one identity, one place — the paired card', () => {
+  // REPORTED: "ตำแหน่งของฉันในทีม SAMO and บ้านของฉัน show similar information
+  // two times". Both cards rendered ชื่อ, ชื่อเล่น, รหัสนักศึกษา, ชั้นปี and สาขา,
+  // each with its own edit form writing its own table. 0132 made those one row
+  // in the database; this is the screen half.
+  it('drops the identity rows when the seat card above already shows them', () => {
+    const el = host();
+    renderMyHouse(el, recWith(), { identityShownAbove: true });
+    // Asserted on the DETAIL ROWS (`<dt>x</dt>`), not on the whole card: the
+    // signpost note deliberately NAMES these fields to say where they went, so
+    // a bare "does not contain ชื่อเล่น" would fail on the very sentence that
+    // makes the removal navigable.
+    for (const gone of ['ชื่อ-สกุล', 'ชื่อเล่น', 'รหัสนักศึกษา', 'สาขา', 'KKU Mail']) {
+      expect(el.innerHTML).not.toContain(`<dt>${gone}</dt>`);
+    }
+    // …and keeps what is genuinely house-specific.
+    for (const kept of ['รุ่น', 'สายรหัส', 'บ้าน']) {
+      expect(el.innerHTML).toContain(`<dt>${kept}</dt>`);
+    }
+  });
+
+  it('offers ONE edit form, not two — the seat card owns identity', () => {
+    const el = host();
+    renderMyHouse(el, recWith(), { identityShownAbove: true });
+    expect(el.innerHTML).not.toContain('data-house-act="edit"');
+    // …and says where the edit went, so it is not a dead end.
+    expect(el.innerHTML).toContain('ตำแหน่งของฉันในทีม SAMO');
+  });
+
+  it('still offers แจ้งสายรหัสไม่ถูกต้อง — that is house-only and has no twin', () => {
+    const el = host();
+    renderMyHouse(el, recWith(), { identityShownAbove: true });
+    expect(el.innerHTML).toContain('data-house-act="report"');
+  });
+
+  it('carries EVERYTHING when there is no seat card — the common student case', () => {
+    // ~1,800 students hold no ทีม SAMO posting. For them this card is the only
+    // one on screen and must not have been hollowed out.
+    const el = host();
+    renderMyHouse(el, recWith());
+    for (const kept of ['ชื่อ-สกุล', 'ชื่อเล่น', 'รหัสนักศึกษา', 'สาขา', 'KKU Mail']) {
+      expect(el.innerHTML).toContain(`<dt>${kept}</dt>`);
+    }
+    expect(el.innerHTML).toContain('data-house-act="edit"');
+  });
+
+  it('renders nothing for a person in neither system', () => {
+    const el = host();
+    renderMyHouse(el, null, { identityShownAbove: true });
+    expect(el.hidden).toBe(true);
+    expect(el.innerHTML).toBe('');
+  });
+});

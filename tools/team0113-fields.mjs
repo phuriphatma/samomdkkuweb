@@ -76,13 +76,13 @@ async function main() {
       (select count(*) from information_schema.columns
         where table_schema='public' and table_name='team_members' and column_name='prefix') as tm,
       (select count(*) from information_schema.columns
-        where table_schema='public' and table_name='team_people' and column_name='prefix') as tp,
+        where table_schema='public' and table_name='people' and column_name='prefix') as tp,
       (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
         where n.nspname='public' and p.prokind='f'
           and pg_get_functiondef(p.oid) ~ '\\mprefix\\M') as funcs;`);
   const c0 = find(cols, 'tm');
   check('team_members.prefix is dropped', Number(c0.tm) === 0, JSON.stringify(c0));
-  check('team_people.prefix is dropped', Number(c0.tp) === 0, JSON.stringify(c0));
+  check('people.prefix is dropped', Number(c0.tp) === 0, JSON.stringify(c0));
   check('no function body still names prefix', Number(c0.funcs) === 0, JSON.stringify(c0));
 
   // The mirror trigger names its columns in `after update of …`; a drop column
@@ -92,17 +92,17 @@ async function main() {
     select t.tgname, pg_get_triggerdef(t.oid) as def
       from pg_trigger t
      where not t.tgisinternal
-       and t.tgname in ('team_people_mirror_down','team_members_self_update_guard')
+       and t.tgname in ('people_mirror_down','team_members_self_update_guard')
      order by 1;`);
   const defOf = (n) => (rows(trg).find((x) => x.tgname === n) || {}).def || '';
-  check('team_people_mirror_down still exists after the drop',
-    defOf('team_people_mirror_down').length > 0);
+  check('people_mirror_down still exists after the drop',
+    defOf('people_mirror_down').length > 0);
   check('…and no longer lists prefix in its column list',
-    !/\bprefix\b/.test(defOf('team_people_mirror_down')), defOf('team_people_mirror_down'));
+    !/\bprefix\b/.test(defOf('people_mirror_down')), defOf('people_mirror_down'));
   check('…and still fires on the nine columns it does mirror',
-    /full_name/.test(defOf('team_people_mirror_down'))
-    && /kkumail/.test(defOf('team_people_mirror_down'))
-    && /photo_focus/.test(defOf('team_people_mirror_down')), defOf('team_people_mirror_down'));
+    /full_name/.test(defOf('people_mirror_down'))
+    && /kkumail/.test(defOf('people_mirror_down'))
+    && /photo_focus/.test(defOf('people_mirror_down')), defOf('people_mirror_down'));
   check('team_members_self_update_guard trigger survives',
     defOf('team_members_self_update_guard').length > 0);
 

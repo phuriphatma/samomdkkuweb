@@ -119,8 +119,30 @@ export const REQUESTABLE_FIELDS = [
   { field: 'sai_code', label: 'สายรหัส' },
 ];
 
-function detailsHtml(rec) {
-  const rows = HOUSE_DETAIL_FIELDS.map((f) => {
+/**
+ * Which detail rows this card is responsible for.
+ *
+ * REPORTED: "ตำแหน่งของฉันในทีม SAMO and บ้านของฉัน show similar information two
+ * times". They did — ชื่อ-สกุล, ชื่อเล่น, รหัสนักศึกษา, ชั้นปี and สาขา appeared on
+ * both cards, to the same person, on the same screen, with two separate edit
+ * forms writing two different tables. That is the duplication 0132 removed from
+ * the DATABASE; this removes it from the screen.
+ *
+ * When the person also holds a ทีม SAMO posting, the card above already shows
+ * their identity, so this one shows only what is genuinely house-specific:
+ * รุ่น (the cohort the สาย and บ้าน hang off), สายรหัส and บ้าน. Identity edits
+ * happen once, up there, and reach both systems through update_my_identity.
+ *
+ * When they do NOT hold a posting — the common case for a student — this card
+ * is the only one on screen and carries everything.
+ */
+const HOUSE_ONLY_KEYS = new Set(['cohort', 'sai', 'house']);
+
+function detailsHtml(rec, opts = {}) {
+  const fields = opts.identityShownAbove
+    ? HOUSE_DETAIL_FIELDS.filter((f) => HOUSE_ONLY_KEYS.has(f.key))
+    : HOUSE_DETAIL_FIELDS;
+  const rows = fields.map((f) => {
     const v = String((f.value ? f.value(rec) : rec[f.key]) ?? '').trim();
     return `<div class="myseat-detail${v ? '' : ' is-empty'}${f.wide ? ' is-wide' : ''}">
       <dt>${escHtml(f.label)}</dt>
@@ -454,10 +476,14 @@ function reportFormHtml(rec) {
     </form>`;
 }
 
-export function renderMyHouse(host, rec) {
+export function renderMyHouse(host, rec, opts = {}) {
   if (!host) return;
   if (!rec) { host.hidden = true; host.innerHTML = ''; return; }
   host.hidden = false;
+  // Set when the person also holds a ทีม SAMO posting, i.e. the card above is
+  // already showing their identity. This card then carries only what is
+  // house-specific, and the identity edit lives in exactly one place.
+  const paired = !!opts.identityShownAbove;
 
   const named = houseLabel(rec.house_id, rec.house_name);
   const hasHouse = rec.house_id !== null && rec.house_id !== undefined;
@@ -482,25 +508,28 @@ export function renderMyHouse(host, rec) {
         </div>
       </div>
 
-      ${detailsHtml(rec)}
+      ${detailsHtml(rec, { identityShownAbove: paired })}
 
       <div class="myhouse-actions">
-        <button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="edit">
+        ${paired ? '' : `<button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="edit">
           <i class="bi bi-pencil" aria-hidden="true"></i> แก้ไขข้อมูล
-        </button>
+        </button>`}
         <button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="report">
           <i class="bi bi-flag" aria-hidden="true"></i> แจ้งสายรหัสไม่ถูกต้อง
         </button>
       </div>
 
-      ${editFormHtml(rec)}
+      ${paired ? `<p class="myhouse-paired-note">
+        <i class="bi bi-arrow-up-short" aria-hidden="true"></i>
+        ชื่อ ชื่อเล่น รหัสนักศึกษา ชั้นปี และสาขา แก้ได้ที่การ์ด “ตำแหน่งของฉันในทีม SAMO” ด้านบน
+        — แก้ที่เดียว ใช้ร่วมกันทั้งสองระบบ</p>` : editFormHtml(rec)}
       ${reportFormHtml(rec)}
 
       ${requestsHtml(rec)}
       ${advisorsHtml(rec)}
     </div>`;
 
-  wireCard(host, rec);
+  wireCard(host, rec, opts);
 }
 
 // ── behaviour ──────────────────────────────────────────────────────────────
@@ -515,7 +544,7 @@ export function renderMyHouse(host, rec) {
  * three times, and the panel opened only on odd-numbered paints. That is the
  * "click many times and sometimes it will appear" bug.
  */
-function wireCard(host, rec) {
+function wireCard(host, rec, opts = {}) {
   // renderMyHouse's contract is "anything with .innerHTML and .hidden" — the
   // unit tests assert the MARKUP against a plain object with no DOM at all.
   if (typeof host.querySelector !== 'function') return;
@@ -605,7 +634,7 @@ function wireCard(host, rec) {
     try {
       const updated = await saveMyStudentRecord(patch);
       clearMyHouseCache();
-      renderMyHouse(host, updated);
+      renderMyHouse(host, updated, opts);
     } catch (err) {
       if (status) {
         status.textContent = err?.message || 'บันทึกไม่สำเร็จ';
@@ -651,7 +680,7 @@ function wireCard(host, rec) {
       // person will come back to look.
       clearMyHouseCache();
       const fresh = await fetchMyStudentRecord().catch(() => null);
-      if (fresh && fresh.kkumail) { renderMyHouse(host, fresh); return; }
+      if (fresh && fresh.kkumail) { renderMyHouse(host, fresh, opts); return; }
       reportForm.innerHTML = '<p class="myhouse-sent">'
         + '<i class="bi bi-check2-circle" aria-hidden="true"></i> '
         + 'ส่งคำขอแล้ว ผู้ดูแลจะตรวจสอบและแก้ไขให้</p>';
@@ -667,8 +696,8 @@ function wireCard(host, rec) {
 
 /** Load + paint. Best-effort: a student who is not in the table simply has no
  *  card, which is the normal state until the import lands. */
-export async function showMyHouse(host, uid) {
+export async function showMyHouse(host, uid, opts = {}) {
   if (!host) return;
   const rec = await loadMyHouse(uid);
-  renderMyHouse(host, rec);
+  renderMyHouse(host, rec, opts);
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-// team0108-people.mjs — proof for 0108 (team_people expand step).
+// team0108-people.mjs — proof for 0108 (people expand step).
 //
 // Runs the REAL migration file against the REAL data inside a transaction that
 // ROLLS BACK, then asserts the outcome. Nothing is written. Run it before
@@ -54,7 +54,7 @@ create temp table out (k text, v text) on commit drop;
 insert into out
 select 'rows', count(*)::text from public.team_members;
 insert into out
-select 'people', count(*)::text from public.team_people;
+select 'people', count(*)::text from public.people;
 insert into out
 select 'members linked', count(*)::text from public.team_members where person_id is not null;
 insert into out
@@ -65,7 +65,7 @@ select 'members UNLINKED', count(*)::text from public.team_members where person_
 insert into out
 select 'people with >1 kkumail among their placements',
        count(*)::text from (
-  select p.id from public.team_people p
+  select p.id from public.people p
     join public.team_members m on m.person_id = p.id
    where coalesce(btrim(m.kkumail), '') <> '' and position('@' in m.kkumail) > 0
    group by p.id having count(distinct lower(btrim(m.kkumail))) > 1) x;
@@ -73,7 +73,7 @@ select 'people with >1 kkumail among their placements',
 -- The unique index must actually be doing something.
 insert into out
 select 'duplicate kkumail across people', count(*)::text from (
-  select lower(btrim(kkumail)) from public.team_people
+  select lower(btrim(kkumail)) from public.people
    where coalesce(btrim(kkumail), '') <> ''
    group by 1 having count(*) > 1) x;
 
@@ -134,7 +134,7 @@ select 'accounts whose managed_permissions would change', count(*)::text
 do $$
 declare v_pid uuid; v_before text; v_after text; v_n int;
 begin
-  select p.id into v_pid from public.team_people p
+  select p.id into v_pid from public.people p
     join public.team_members m on m.person_id = p.id
    group by p.id having count(*) > 1 limit 1;
   if v_pid is null then
@@ -143,7 +143,7 @@ begin
   end if;
   select count(*) into v_n from public.team_members where person_id = v_pid;
 
-  update public.team_people set nickname = 'ทดสอบมิเรอร์' where id = v_pid;
+  update public.people set nickname = 'ทดสอบมิเรอร์' where id = v_pid;
   select count(*)::text into v_after from public.team_members
    where person_id = v_pid and nickname = 'ทดสอบมิเรอร์';
   insert into out values ('mirror wrote to all placements', v_after || '/' || v_n);
@@ -152,43 +152,43 @@ begin
   -- tables would fight each other on every write.
   update public.team_members set nickname = 'เฉพาะแถวนี้'
    where person_id = v_pid and id = (select min(id::text)::uuid from public.team_members where person_id = v_pid);
-  select nickname into v_before from public.team_people where id = v_pid;
+  select nickname into v_before from public.people where id = v_pid;
   insert into out values ('placement edit did NOT mirror up',
     case when v_before = 'ทดสอบมิเรอร์' then 'yes' else 'NO — ' || coalesce(v_before,'null') end);
 end $$;
 
 -- ── RLS ────────────────────────────────────────────────────────────────────
 insert into out
-select 'team_people RLS enabled',
+select 'people RLS enabled',
        case when relrowsecurity then 'yes' else 'NO' end
-  from pg_class where oid = 'public.team_people'::regclass;
+  from pg_class where oid = 'public.people'::regclass;
 -- UPDATED FOR 0110: this was a count(*) = 1 assertion, which broke the moment
 -- the single FOR ALL policy became a read/write pair — and a raw count would
 -- have broken again on the next legitimate change while saying nothing about
 -- safety. Assert the two properties that actually matter instead.
 insert into out
-select 'team_people write needs team_edit',
+select 'people write needs team_edit',
        case when exists (
          select 1 from pg_policies
-          where schemaname='public' and tablename='team_people'
+          where schemaname='public' and tablename='people'
             and cmd in ('ALL','INSERT','UPDATE','DELETE')
             and coalesce(qual,'')||coalesce(with_check,'') like '%team_edit%')
          and not exists (
          select 1 from pg_policies
-          where schemaname='public' and tablename='team_people'
+          where schemaname='public' and tablename='people'
             and cmd in ('ALL','INSERT','UPDATE','DELETE')
             and coalesce(qual,'')||coalesce(with_check,'') ~ 'has_permission\(''team''\)')
        then 'yes' else 'NO' end;
 insert into out
-select 'team_people has no anon policy',
+select 'people has no anon policy',
        case when not exists (
          select 1 from pg_policies
-          where schemaname='public' and tablename='team_people'
+          where schemaname='public' and tablename='people'
             and 'anon' = any(roles))
        then 'yes' else 'NO' end;
 insert into out
-select 'anon can read team_people',
-       case when has_table_privilege('anon', 'public.team_people', 'select')
+select 'anon can read people',
+       case when has_table_privilege('anon', 'public.people', 'select')
             then 'has SELECT grant (RLS still gates rows)' else 'no' end;
 
 -- ── the FK cannot block a delete ───────────────────────────────────────────
@@ -231,9 +231,9 @@ const MUST = {
   'touch trigger re-enabled': 'yes',
   'accounts whose managed_permissions would change': '0',
   'placement edit did NOT mirror up': 'yes',
-  'team_people RLS enabled': 'yes',
-  'team_people write needs team_edit': 'yes',
-  'team_people has no anon policy': 'yes',
+  'people RLS enabled': 'yes',
+  'people write needs team_edit': 'yes',
+  'people has no anon policy': 'yes',
 };
 
 let pass = 0; let fail = 0;
@@ -244,7 +244,7 @@ for (const [k, want] of Object.entries(MUST)) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${k} = ${got[k]}${ok ? '' : `  (expected ${want})`}`);
   ok ? pass++ : fail++;
 }
-for (const k of ['mirror wrote to all placements', 'anon can read team_people',
+for (const k of ['mirror wrote to all placements', 'anon can read people',
   'person_id FK on delete action', 'members linked']) {
   if (got[k] !== undefined) console.log(`  ..    ${k} = ${got[k]}`);
 }

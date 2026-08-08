@@ -1,7 +1,11 @@
 # One person registry — ระบบบ้าน + ทีม SAMO
 
-Status: **proposal**. Migration 0130 shipped the interim bridge (an exact
-kkumail lookup); nothing below has been built.
+Status: **EXPAND step shipped (0132).** `people` is live — 304 rows, every
+`students` and `team_members` row linked, no duplicate humans by address, and
+one writer keeping the copies in step. What remains is the CONTRACT step:
+retire the duplicated identity columns, one reader at a time.
+
+Proof: `node tools/house0132-registry.mjs` (11/11, both directions).
 
 ## The ask
 
@@ -62,22 +66,40 @@ Membership is not identity, and this is the line the whole design rests on.
 So the shape is **one `people` table, many membership tables** — not one table
 with a `kind` column.
 
-## Proposed target
+## What 0132 actually built
 
 ```
-people                     ← the registry. One row per human, keyed on kkumail.
-  kkumail (unique), first_name_th, last_name_th, full_name (generated),
-  nickname_*, student_id, major, cohort_year, photo_url, photo_focus, user_id
+people            ← THE registry (renamed from team_people, which 0108 had
+                    already built and populated but nothing read).
+                    kkumail (unique where present), first_name_th, last_name_th,
+                    full_name, nickname, student_id, major, cohort_year,
+                    year_offset, bio, photo_url, photo_focus, user_id
 
-house_placements           ← was students' house half
-  person_id → people, sai_code → sais, self_edited[], missing_since, …
-
-team_members               ← unchanged, repointed from team_people to people
+students          ← house placement. person_id → people. sai_code, self_edited,
+                    import bookkeeping. KEEPS its identity columns for now.
+team_members      ← org posting. person_id → people (already true since 0108).
+                    KEEPS its identity columns for now.
 ```
 
-`students` and `team_people` become views over `people` (+ its placement table)
-so every existing reader keeps working while call sites are migrated one at a
-time. That is the only way to do this without a flag day.
+**Not views.** The earlier plan proposed turning `students` and `team_people`
+into views over `people`; that was rejected on contact with the code. Views
+would need INSTEAD OF triggers for every write path and `security_invoker` on
+every one of them — and "a VIEW without security_invoker reads its base table
+with the VIEW OWNER's rights" is already an entry in `docs/mistakes/authz-rls.md`.
+Keeping real tables and adding a mirror is less clever and much harder to get
+silently wrong.
+
+**The name shape resolved.** `people.full_name` is DERIVED from
+`first_name_th` + `last_name_th` when those are present, and stands alone for
+the 303 rows inherited from ทีม SAMO. Those were not split: "สมชาย ณ อยุธยา"
+and "สมชาย ใจดี ดีมาก" both have three tokens and different answers, and the CSV
+importer already refuses a combined column for that reason — a migration doing
+what the importer refuses would be indefensible. Rows acquire the split when a
+human supplies it.
+
+**One writer.** `update_my_identity()` writes the house placement, every
+ทีม SAMO posting, and the registry row from one call. That is what makes the
+remaining duplicate columns safe: they are downstream of a single write.
 
 ## Migration path
 
@@ -86,17 +108,21 @@ Each step is independently shippable and independently revertible.
 1. **DONE (0130)** — `lookup_student_by_kkumail(text)`: the ทีม SAMO member form
    fills itself from ระบบบ้าน instead of asking someone to retype. Removes the
    retyping, which is where the two copies diverge. No schema change.
-2. **A differential report.** For every kkumail in both tables, list the fields
-   that disagree. This is the same job `ตรวจสอบข้อมูล` already does within
-   ทีม SAMO, pointed at the pair. **Do this before any merge** — a merge decides
-   a winner for every conflict, and you want to have read the conflicts first.
-   Expect the bulk to be ชื่อเล่น and สาขา spelling.
-3. **Create `people`, backfill from both, keep both tables as views.** The
-   backfill needs one rule per conflicting field. Proposed: ระบบบ้าน wins on
-   ชื่อ / นามสกุล / รหัสนักศึกษา (it comes from the university), ทีม SAMO wins on
-   photo (it has the crop pipeline), newest write wins on ชื่อเล่น and สาขา.
-4. **Repoint writers**, one module at a time. Readers keep using the views.
-5. **Drop the views** when nothing references them.
+1b. **DONE (0132)** — the EXPAND step, described above. Taken when `students`
+   held THREE rows and exactly TWO humans existed in both tables; every day it
+   waited, the backfill would have got harder and the duplicate count would have
+   grown from two toward hundreds.
+2. **NEXT — the CONTRACT step, one reader at a time.** Repoint each reader of a
+   duplicated identity column at `people`, verify, then drop that column. Order
+   by blast radius, smallest first: the CSV export, then the admin tables, then
+   the ten `effective_team_*_for_email` resolvers (which still join
+   `team_members.kkumail`), then the archives. **Do not batch them.**
+3. **Repoint `team_members.year` at the derived ชั้นปี** (0131). 381 of 399 rows
+   have a รหัส that yields a cohort and only 11 disagree with the computed year,
+   so those 11 become `year_offset` values and the column goes. It waited for
+   `people` precisely so it would not need a second offset column.
+4. **Then `students` and `team_members` hold placements only** — sai_code,
+   node_id, term, permissions, confirmed — and the registry holds the human.
 
 ## The three traps this repo has already paid for
 

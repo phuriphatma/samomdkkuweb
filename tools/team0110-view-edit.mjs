@@ -241,7 +241,7 @@ async function main() {
   // member the moment `team` was demoted to a view rung. Asserted here so the
   // enumeration is a test, not a memory.
   console.log('\nTHE OTHER TEAM TABLES (archive / people / terms)');
-  for (const t of ['team_terms', 'team_people', 'team_archive_nodes', 'team_archive_members']) {
+  for (const t of ['team_terms', 'people', 'team_archive_nodes', 'team_archive_members']) {
     const r = await asMember(`array[]::text[]`, `
       create temp table out(k text, v text) on commit drop;
       do $$ declare rc int; begin
@@ -254,8 +254,8 @@ async function main() {
     insert into public.team_terms (year, label) values (2999, 'ZZ-0110');`);
   check('view-only CANNOT write team_terms', blocked(wTerms), JSON.stringify(wTerms.body).slice(0, 160));
   const wPeople = await asMember(`array[]::text[]`, `
-    insert into public.team_people (full_name) values ('ZZ-0110-PERSON');`);
-  check('view-only CANNOT write team_people', blocked(wPeople), JSON.stringify(wPeople.body).slice(0, 160));
+    insert into public.people (full_name) values ('ZZ-0110-PERSON');`);
+  check('view-only CANNOT write people', blocked(wPeople), JSON.stringify(wPeople.body).slice(0, 160));
   const pub = await asMember(`array[]::text[]`, `select public.publish_team_term(2999);`);
   check('view-only CANNOT publish an academic year', blocked(pub), JSON.stringify(pub.body).slice(0, 160));
 

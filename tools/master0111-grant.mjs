@@ -98,7 +98,7 @@ async function main() {
     // 23502 rather than 42501, i.e. the policy had already let the write
     // through; the assertion is still worth making against a VALID row.
     ['create a ปีการศึกษา', `insert into public.team_terms (year, label) values (2699,'ZZ-0111');`],
-    ['write the person register', `insert into public.team_people (full_name) values ('ZZ-0111-P');`],
+    ['write the person register', `insert into public.people (full_name) values ('ZZ-0111-P');`],
     ['create a project', `insert into public.projects (id, name) values ('ZZ-0111-PRJ','ZZ-0111');`],
     ['write a VS tag', `insert into public.vs_tags (id, label, dept) values ('zz-0111-tag','ZZ-0111','SE');`],
   ];

@@ -664,6 +664,37 @@ function wireSelfEdit(host, seat) {
       // error — the silent-success trap. A zero-length result IS the failure.
       if (error) throw new Error(error.message || `HTTP ${error.status}`);
       if (!Array.isArray(data) || !data.length) throw new Error('ไม่มีสิทธิ์แก้ไขข้อมูลนี้');
+
+      // …and the SAME edit into ระบบบ้าน, for a person who is in both (0132).
+      // This is the second half of "one account": the seat card is where the
+      // identity is edited, so its save has to reach the other placement or the
+      // two say different things about one human until an admin notices.
+      //
+      // Best-effort and deliberately AFTER the write above: a student who has
+      // no ระบบบ้าน record — every shared department account — gets a no-op, and
+      // a failure here must not report the ทีม SAMO save (which landed) as
+      // failed. `update_my_identity` resolves the caller from auth.uid() and is
+      // a no-op when there is no students row.
+      try {
+        const [first, ...rest] = String(body.full_name || '').trim().split(/\s+/);
+        await dbRest('/rpc/update_my_identity', {
+          method: 'POST',
+          body: {
+            p_patch: {
+              // Only what ระบบบ้าน also holds. `full_name` is split here ONLY
+              // because ทีม SAMO stores one column and the RPC needs two; the
+              // server prefers the students row's own split when it has one, so
+              // this guess never overwrites a real ชื่อ/นามสกุล pair.
+              nickname_self: body.nickname ?? '',
+              student_id: body.student_id ?? '',
+              major: body.major ?? '',
+              ...(rest.length ? { first_name_th: first, last_name_th: rest.join(' ') } : {}),
+            },
+          },
+        });
+      } catch (syncErr) {
+        console.warn('my-seat: ระบบบ้าน sync skipped:', syncErr);
+      }
       dropPending();
       clearMySeatCache();
       const fresh = await loadMySeat(seat.__uid);
