@@ -217,6 +217,13 @@ archiving into it saved nothing.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-09)
 
+> ⚠️ **FIRST: the owner has a BACKLOG OF UNREPORTED BUGS AND QUESTIONS.** The
+> previous session ended with them saying "there are many bugs and many
+> question i want to ask, but for now very properly hand off". So expect the
+> opening message to be a list, not a task. Do NOT start the planned work below
+> until they have said what they found — the planned items are cheap to defer
+> and a live bug is not.
+>
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
 > **Everything is shipped, deployed and verified from the SERVED bundle.**
 > Migrations applied through **0134**, 552 tests green, nothing in flight.
@@ -287,5 +294,18 @@ archiving into it saved nothing.
 >    record. The import upserts on kkumail so it will merge.
 > 7. Older: real student identities are in this PUBLIC repo's git history (0047
 >    seed) and that needs the owner's decision.
+>
+> **How to work on this repo, learned the hard way over the last two sessions:**
+> - **A fix applied on ONE path is not a fix.** Nearly every bug found this
+>   session was that shape: `cohort_year` filled once, the decision note with no
+>   read path, the sync that covered one of three editors, ชื่อเล่น missing from
+>   one mirror. Before declaring anything done, enumerate the paths — grep the
+>   column, grep the RPC, list the editors.
+> - **Prove it live, both directions.** Every `tools/house*.mjs` here exercises
+>   an ALLOW and a DENY, because a probe that can only print "denied" cannot
+>   tell a working guard from a broken connection.
+> - **Verify from the SERVED artifact.** The local file is not what users run.
+> - **Deploy is ~90 s on the VM.** Batch commits before deploying; the previous
+>   session ran four separate deploys and wasted real time.
 >
 > Backlog: `docs/NEXT.md`. Registry plan: `docs/PERSON-REGISTRY.md`.
