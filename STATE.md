@@ -26,53 +26,74 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-09 — ONE ACCOUNT SYSTEM (0132 + 0133)
+
+**`public.people` is the person registry.** 304 rows, one per human, keyed on
+kkumail. Identity lives there; PLACEMENTS point at it — `students.person_id`
+(house) and `team_members.person_id` (org posting). A person can hold two
+postings and a house placement at once, which is why placements did NOT merge.
+
+Promoted from `team_people`, which 0108 had already built and populated and
+which nothing in `src/` ever read. Renamed because a student who has never been
+in ทีม SAMO now has a row in it. Taken when `students` held THREE rows and
+exactly TWO humans were in both tables — after the 1,800-row import it would
+have been hundreds of duplicate identities to reconcile by hand.
+
+**All three editors reach the registry** (0133):
+- the person's own card → `update_my_identity()` → house + every posting + registry
+- the ทีม SAMO admin pane → `team_member_mirror_up` → registry → down to ระบบบ้าน
+- the ระบบบ้าน admin pane → `student_mirror_up` → registry → down to ทีม SAMO
+
+Both mirrors are guarded by `is distinct from`. **That guard is load-bearing** —
+without it the up/down pair is an infinite recursion. It converges in two hops.
+
+**EXPAND ONLY.** Nothing dropped. Both placement tables keep every identity
+column and the mirrors keep them equal. Views over `people` were considered and
+REJECTED (INSTEAD OF triggers on every write path + `security_invoker` on each;
+see `docs/mistakes/authz-rls.md`). The CONTRACT step is one reader at a time.
+
+Also closed 0108's long-owed contract step: a BEFORE INSERT trigger links every
+new placement to a person by kkumail, so `createMember` and the CSV import can
+no longer create orphans.
+
+⚠️ **ONE KNOWN GAP, measured and deliberate.** A COMBINED name edited in the
+ทีม SAMO pane does not overwrite a SPLIT name in ระบบบ้าน — splitting
+"สมชาย ณ อยุธยา" renames a real person. **Next step: give the ทีม SAMO member
+form the same ชื่อ/นามสกุล split**, then the mirror carries it. Full plan:
+**`docs/PERSON-REGISTRY.md`**.
+
+**UI: ONE CARD.** `ข้อมูลของฉัน` shows the identity once, then a ทีม SAMO
+section and a ระบบบ้าน section under one heading. my-house.js has
+`mode: 'section'`; my-seat.js leaves a slot and calls `opts.afterRender`.
+⚠️ **That hook is required** — the seat card re-renders on every save and would
+otherwise wipe the house section (mistakes.md: "a shared render() that repaints
+a pane another module owns").
+
+Proof: `node tools/house0132-registry.mjs` — **17/17**, all three doors, both
+mirrors, link-at-birth, and the deny half (sai_code and node_id never touched,
+no duplicate humans, a stranger gets null).
+
 ## SHIPPED 2026-08-08 (late) — 0128–0131
 
-Live on the VM (`main` = `a5c28fd`), verified from the served bundles.
+Detail: **`docs/state-archive/2026-08-08-late-0128-0131.md`**. Four to carry:
 
-**0131 — ชั้นปี is a stored DIFFERENCE, not a number.** รุ่น and ชั้นปี are
-different facts and ลาพัก is what separates them: that person is still MD50 and
-is now studying ปี 4. So `students.year_offset` holds the GAP (`-1` = one year
-behind their รุ่น, correct forever), the year is COMPUTED on every render, and
-both choosers show real years 1–6 while saving `picked − computed`. ปีการศึกษา
-comes from the clock (สิงหาคม rollover), one constant, NOT a setting. There is
-deliberately **no SQL twin** of the derivation — nothing server-side gates on
-ชั้นปี. Unbounded on purpose (owner's call). Proof:
-`node tools/house0131-year-offset.mjs` (9/9) + 11 unit tests across two
-academic years.
-
-⚠️ **`team_members.year` is still a typed 1–6 column, 399 rows, and NOTHING in
-this repo has ever bumped it** (verified: no `year + 1` anywhere, and publishing
-a term snapshots without recomputing). So every August all 399 silently become
-last year's answer. 381/399 have a รหัส that yields a cohort and only 11
-disagree with the computed year — i.e. the repoint is cheap and the 11 become
-offsets. It is NOT done here on purpose: doing it now means a second offset
-column the person-registry merge would immediately have to reconcile. See
-`docs/PERSON-REGISTRY.md`.
-
-## The 0128–0130 pass — fifteen reports, all live
-
-Full detail and every proof: **`docs/state-archive/2026-08-08-late-0128-0131.md`**.
-Carry these four:
-
-- **0128** — `cohort_year` re-derives on every รหัส change (it was `if is null`,
-  i.e. fill-once); a คำขอแก้ไข's verdict + note + `applied_value` now reach the
-  student through `get_my_student_record()`; `advisors.title` dropped and
-  `email` published to the house.
-- **0129** — five vestigial columns off `students`. ⚠️ **This caused a ~20-min
+- **0128** — `cohort_year` re-derives on every รหัส change (it was fill-once, so
+  a corrected รหัส kept the old รุ่น forever); a คำขอแก้ไข's verdict + note +
+  `applied_value` now reach the student; `advisors.title` dropped.
+- **0129** — five vestigial columns off `students`. ⚠️ **Caused a ~20-min
   outage**: the SERVED bundle still named them and PostgREST 400s on an unknown
-  column. **Deploy first, drop second** — now in `docs/mistakes/deploy-hosting.md`.
-- **0130** — `lookup_student_by_kkumail()`, exact match only, no anon grant. A
-  deliberate widening: `team` alone can now resolve one address against
-  `students`. Full merge designed in **`docs/PERSON-REGISTRY.md`**, NOT built.
-- **Admin landing** carries a card for every `SIDE_FEATURE` key, and
-  ข้อมูลของฉัน moved there out of the ทีม SAMO tab. Pinned by
-  `src/js/admin-landing.test.js` (verified to fail when a card is removed).
+  column. **Deploy first, drop second** (`docs/mistakes/deploy-hosting.md`).
+- **0130** — `lookup_student_by_kkumail()`, exact match only, no anon grant.
+- **0131** — **ชั้นปี is a stored DIFFERENCE** (`students.year_offset`), never a
+  number. ปีการศึกษา comes from the clock (สิงหาคม), one constant, NOT a setting.
+  No SQL twin of the derivation — JS owns it. `team_members.year` is still a
+  typed column nothing ever bumps; repointing it waits on the registry.
 
-**Debugging note, now in mistakes.md class 7:** `current_user_has_permission()`
-reads the UNION of `permissions` AND `managed_permissions` (0081). A probe
-subject picked by `permissions = '{}'` alone may hold `master` through the
-ทีม SAMO tree and reads exactly like a fail-open RLS policy. Filter on BOTH.
+**Debug note (mistakes.md class 7):** `current_user_has_permission()` reads the
+UNION of `permissions` AND `managed_permissions` (0081). A probe subject picked
+by `permissions = '{}'` alone may hold `master` through the ทีม SAMO tree and
+reads exactly like a fail-open RLS policy. Filter on BOTH.
+
 ## SHIPPED 2026-08-08 — ระบบบ้าน, end to end (0123–0127)
 
 All applied, deployed, verified on the served artifacts. Detail + every live
@@ -129,9 +150,10 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 - **samoweb**: `main` = `a5c28fd`, DEPLOYED and verified from the served
   artifact. Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
   holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0131.** Live proofs, all both-directional:
+- **Migrations applied through 0133.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
-  (9/9) · `node tools/house0131-year-offset.mjs` (9/9) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
+  (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
+  `node tools/house0132-registry.mjs` (17/17) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update
@@ -184,86 +206,77 @@ archiving into it saved nothing.
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-08)
+## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-09)
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> **Everything is shipped, deployed and verified on the served artifacts.**
-> `main` = the commit named in CURRENT DEPLOY, migrations applied through
-> **0126**, 499 tests green. Nothing is in flight.
+> **Everything is shipped, deployed and verified from the SERVED bundle.**
+> Migrations applied through **0133**, 552 tests green, nothing in flight.
 >
-> This session was all **ระบบบ้าน**. What it now is, in one paragraph: a student
-> signs in with kkumail and sees ONE card — their record as a label→value list
-> (ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · **รุ่น MD50** · สาขา · สายรหัส · บ้าน ·
-> KKU Mail), the อาจารย์ที่ปรึกษา of their own สาย, and the อาจารย์ of every
-> other สาย in their house. They can edit five of those fields; they can never
-> edit their สายรหัส. Admins manage อาจารย์ by clicking a สาย.
+> **The one thing to understand before touching anything: `public.people` is
+> the person registry.** One row per human, keyed on kkumail. Identity lives
+> there; PLACEMENTS point at it — `students.person_id` (house) and
+> `team_members.person_id` (org posting). Three editors all reach it: the
+> person's own card through `update_my_identity()`, and each admin pane through
+> a mirror UP on its placement table. 0132's mirror DOWN then carries the change
+> to the other side.
 >
-> **The one thing actually waiting: the student data has not arrived.** Send
-> `docs/house-data-spec-th.md` to Data Analytics as-is. It now leads with a
-> **4-column ask — `kkumail, student_id, sai, major`, no names at all**
-> (`docs/templates/house-import-minimal-template.csv`); the 7-column form is
-> still there for when a named list is wanted. 20 rows first, then ~1,800.
-> Import at `/admin/` → ระบบบ้าน → นำเข้าข้อมูล: it previews and writes nothing
-> until confirmed. Until then every pane renders an honest empty state.
+> **Both mirrors are guarded by `is distinct from`, and that guard is
+> load-bearing** — remove it and the up/down pair recurses forever. It converges
+> in two hops. `sai_code` and `node_id` are NEVER mirrored: they are placement
+> facts, and a mirror that copied `sai_code` would move a student between houses
+> from the ทีม SAMO editor, silently.
 >
-> **Decided this session — do not re-raise:**
-> - **ระบบบ้าน has no ชั้นปี.** รุ่น (`MD{cohort−2515}`, from the รหัสนักศึกษา) is
->   the only cohort vocabulary. No academic-year setting, no per-student
->   override, and `student_year()` is dropped in BOTH SQL and JS.
-> - **No ยืนยันข้อมูล**, and **no student roster** — ระบบบ้าน publishes อาจารย์,
->   never one student to another. `get_house_roster()` is dropped; do not re-add.
-> - **A student can NEVER self-edit สายรหัส.** It decides the house. The route is
->   `request_my_change('sai_code', …)` → an admin approves.
-> - **A student CAN self-edit ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา**, and
->   `students.self_edited` + a BEFORE UPDATE trigger stop the next import
->   reverting it. Order is **admin > student > import**, enforced on the TABLE.
-> - **สาขา is a chooser over `team_majors`** — one faculty-wide vocabulary, CRUD
->   at ทีม SAMO → สาขา, and the RPC refuses anything off the list.
-> - **An import writes ONLY the columns its file carried**, and a row may have no
->   name at all. A COMBINED "ชื่อ-สกุล" column is still refused.
-> - **Never normalise a NAME.** A leading `นาย`/`นางสาว` is REPORTED, never
->   stripped — `นายก` is a real name. Case/whitespace/digits have canonical
->   forms; names do not. (`kkumail` is the deliberate exception: lowercasing is
->   required by a plain UNIQUE index + `lower()=lower()` lookups, and enforced by
->   a table trigger since 0119.)
-> - **KKU SSO is a login improvement, not a data source** — `docs/KKU-SSO.md`.
->   It CAN supply ชื่อ/นามสกุล/รหัสนักศึกษา at login (probed live: `studentCode`
->   arrives as `653070317-0`), but not สาขา, there is no roster endpoint, and our
->   registration is **UAT-only**. Decision recorded: import the CSV instead.
-> - **สายรหัส is NOT derived from รหัสนักศึกษา**, any `001`–`999` is legal, no
->   maximum may be hardcoded, and `sais` rows are created on demand by a trigger.
->   A short สาย (`7`, `17`) is PADDED and accepted — padding only ever restores a
->   leading zero and the house is the last digit, so it is lossless. **`000` is
->   refused** in JS and by a check constraint (0127): it is what a spreadsheet
->   puts in an empty numeric cell, not a สาย.
-> - **house = last digit of สายรหัส**; `sais.house_id` (GENERATED) is the only
->   implementation.
+> **EXPAND ONLY.** Both placement tables still carry every identity column; the
+> mirrors keep them equal. The CONTRACT step (retire them, one reader at a time)
+> is planned in `docs/PERSON-REGISTRY.md` and is NOT started.
+>
+> Before changing any of this, run `node tools/house0132-registry.mjs` (17/17).
+> It covers all three doors, both mirrors, link-at-birth, and the deny half.
+>
+> **Next, in order:**
+> 1. **Split the ทีม SAMO name field.** `team_members.full_name` is one column;
+>    the registry and ระบบบ้าน use `first_name_th` + `last_name_th`. This is the
+>    one known sync gap: a combined name edited in ทีม SAMO cannot overwrite a
+>    split name, because splitting "สมชาย ณ อยุธยา" renames a real person.
+>    Add the split to the form and the table; backfill NOTHING — a row acquires
+>    the split when a human types it.
+> 2. **Repoint `team_members.year` at the derived ชั้นปี** (0131). 381/399 rows
+>    have a รหัส that yields a cohort; only 11 disagree, and those 11 become
+>    `year_offset`. Nothing in this repo has EVER bumped that column, so all 399
+>    silently go stale every August.
+> 3. **The CONTRACT step**, smallest blast radius first: the CSV export, then the
+>    admin tables, then the ten `effective_team_*_for_email` resolvers (they
+>    still join `team_members.kkumail`), then the archives. Do not batch them.
+>
+> **Standing hazards, all paid for at least once:**
+> - **Deploy first, drop second.** 0129 dropped columns the SERVED bundle still
+>   named and took ระบบบ้าน's admin tab down for 20 minutes. PostgREST 400s the
+>   whole query on an unknown column.
+> - **Grep the SERVED bundle, not the local file** — for removals as well as fixes.
+> - **A probe subject with `permissions = '{}'` may still be a full admin** via
+>   `managed_permissions` (0081). Filter on BOTH columns or you will report a
+>   vulnerability that is the grant engine working.
+> - **A write and the check that reads it back must be SEPARATE statements**, or
+>   the subquery reads a pre-write snapshot and the proof lies.
+> - **`renderMySeat` owns a slot my-house.js paints into.** It calls
+>   `opts.afterRender`; without it ระบบบ้าน vanishes on the first save.
 >
 > Open, none blocking:
 > 1. **Rotate the VM sudo password** and **the KKU SSO client secret** (both were
 >    exposed in chat transcripts on 2026-08-07 / 08-08).
-> 2. **`team/index.js` still has 9 native `confirm()` calls.** `src/js/confirm-modal.js`
->    (`askConfirm` / `askDelete`) exists now and ระบบบ้าน uses it — converting
->    ทีม SAMO is mechanical and is the next thing to do. This is not theoretical:
->    the same class shipped a live bug in ระบบบ้าน's ปฏิเสธ button on 2026-08-08
->    AFTER being listed as an open item, which is why it is worth doing now.
+> 2. **`team/index.js` still has 9 native `confirm()` calls.**
+>    `src/js/confirm-modal.js` exists and ระบบบ้าน uses it; converting ทีม SAMO is
+>    mechanical. This class shipped a live bug in ระบบบ้าน's ปฏิเสธ button AFTER
+>    being listed as an open item.
 > 3. **`students.self_edited` is invisible to admins** — not in `STUDENT_COLS`,
->    not in the CSV export. An admin cannot see which fields a student owns, and
->    a backup/restore loses it. Harmless today (admin edits win regardless).
-> 5. **`students` is not empty** — a few rows from manual testing, incl. the
->    owner's real record. The import upserts on kkumail so it will merge.
-> 6. Older, still true: **0108's contract step is owed** (`createMember` and the
->    ทีม SAMO CSV import still write `person_id = null`); the team photo SAVE
->    path is unverified by hand; real student identities are in this PUBLIC
->    repo's git history (0047 seed) and that needs the owner's decision.
+>    not in the CSV export.
+> 4. **`house_settings` is entirely vestigial.** No reader, no writer. Dropping a
+>    TABLE needs the owner's word.
+> 5. **`tools/team0108-people.mjs` fails** on `column "prefix" does not exist` —
+>    pre-existing since 0113 (it replays the 0108 migration). Not a regression.
+> 6. **`students` is not empty** — a few manual-test rows incl. the owner's real
+>    record. The import upserts on kkumail so it will merge.
+> 7. Older: real student identities are in this PUBLIC repo's git history (0047
+>    seed) and that needs the owner's decision.
 >
-> **Vestigial columns.** The five on `students` are GONE (0129:
-> `year_override`, `verified_at`, `is_listed`, `sai_locked`, `sai_self_edits`) —
-> and dropping them while the served bundle still named them is what caused the
-> 20-minute outage, so **deploy first, drop second**. Still there and still
-> dead: the whole of `house_settings` (`academic_year`, `roster_visible`,
-> `sai_self_edit_open`, `sai_edit_until`). Nothing reads or writes that row. It
-> is a TABLE, so dropping it needs the owner's word.
->
-> Backlog: `docs/NEXT.md`. Roles/photos design with five open decisions:
-> `docs/TEAM-ROLES-AND-PHOTOS.md`.
+> Backlog: `docs/NEXT.md`. Registry plan: `docs/PERSON-REGISTRY.md`.

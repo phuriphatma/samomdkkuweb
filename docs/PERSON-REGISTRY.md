@@ -1,11 +1,24 @@
 # One person registry — ระบบบ้าน + ทีม SAMO
 
-Status: **EXPAND step shipped (0132).** `people` is live — 304 rows, every
+Status: **EXPAND + bidirectional sync shipped (0132, 0133).** `people` is live — 304 rows, every
 `students` and `team_members` row linked, no duplicate humans by address, and
 one writer keeping the copies in step. What remains is the CONTRACT step:
 retire the duplicated identity columns, one reader at a time.
 
-Proof: `node tools/house0132-registry.mjs` (11/11, both directions).
+Proof: `node tools/house0132-registry.mjs` (17/17 — all three editors, both
+mirrors, link-at-birth, and the deny half).
+
+**All three doors reach the registry** (0133): the person's own card via
+`update_my_identity()`, and both admin panes via a mirror UP on each placement
+table. Both mirrors are guarded by `is distinct from`, which is what makes them
+converge in two hops rather than recurse — that guard is load-bearing.
+
+⚠️ **ONE KNOWN GAP.** A COMBINED name edited in the ทีม SAMO admin pane does not
+overwrite a SPLIT name in ระบบบ้าน. It must not — splitting "สมชาย ณ อยุธยา"
+renames a real person. The registry takes the edit and the split is left intact
+rather than mangled. **Closing it = give the ทีม SAMO member form the same
+ชื่อ/นามสกุล split ระบบบ้าน uses**, then the mirror carries it. That is the next
+step, and it is a UI change plus a `team_members` column, not a schema merge.
 
 ## The ask
 
@@ -112,7 +125,12 @@ Each step is independently shippable and independently revertible.
    held THREE rows and exactly TWO humans existed in both tables; every day it
    waited, the backfill would have got harder and the duplicate count would have
    grown from two toward hundreds.
-2. **NEXT — the CONTRACT step, one reader at a time.** Repoint each reader of a
+2. **NEXT (a) — split the ทีม SAMO name field.** `team_members.full_name` is one
+   column; `people`/`students` carry `first_name_th` + `last_name_th`. Add the
+   split to the member form and to `team_members`, backfill NOTHING (never guess
+   a boundary — a row acquires the split when a human types it), and the known
+   gap above closes itself.
+2. **NEXT (b) — the CONTRACT step, one reader at a time.** Repoint each reader of a
    duplicated identity column at `people`, verify, then drop that column. Order
    by blast radius, smallest first: the CSV export, then the admin tables, then
    the ten `effective_team_*_for_email` resolvers (which still join

@@ -573,3 +573,47 @@ its source, not just the first. `if <copy> is null` is not that rule — it is
 GENERATED, or make the trigger fire on change; and when a reader `coalesce`s the
 copy ahead of the source, the copy is now the authority whether you meant it or
 not.
+
+---
+
+## A bidirectional mirror without an `is distinct from` guard is an infinite recursion
+
+**Symptom** (avoided by design, not survived): merging ทีม SAMO and ระบบบ้าน onto
+one `people` registry needs a mirror DOWN (registry → both placements) and a
+mirror UP (each placement → registry), because all three surfaces have their own
+editor. Written naively, an edit to `team_members` fires the up-mirror, which
+writes `people`, which fires the down-mirror, which writes `team_members`, which
+fires the up-mirror… until Postgres gives up on stack depth.
+
+**Cause**: a trigger pair with no fixed point. Nothing in the cycle asks "has
+this value already arrived?", so every hop is a genuine write and every write is
+a new event.
+
+**Fix**: every mirror writes only when the target actually differs —
+
+```sql
+update public.people p set full_name = new.full_name, …
+ where p.id = new.person_id
+   and (p.full_name, p.nickname, …) is distinct from (new.full_name, new.nickname, …);
+```
+
+The cycle then converges in two hops: the first write propagates, the second
+finds the values already equal, writes zero rows, and fires nothing. **The guard
+is not an optimisation — it is the termination condition**, and deleting it as
+"redundant" restores the recursion.
+
+Two things that make this easy to get wrong later:
+- The guard has to be on **both** directions. One guarded side still terminates,
+  but only by luck of ordering, and it stops terminating the moment a third
+  mirror is added.
+- `is distinct from`, never `<>`. A column going NULL → 'x' is a real change and
+  `<>` answers NULL for it, so the write is skipped and the copies stay apart —
+  the opposite failure, silent instead of loud.
+
+**Where it lives now**: `supabase/migrations/0133_sync_both_ways.sql`
+(`team_member_mirror_up`, `student_mirror_up`) and 0132's `person_mirror_down`.
+Proof: `node tools/house0132-registry.mjs` (17/17).
+
+**Rule**: when two tables must agree and both are writable, the sync needs a
+fixed point, and equality IS the fixed point. Write the guard in the same commit
+as the trigger — a mirror pair is one mechanism, and half of it is a hang.
