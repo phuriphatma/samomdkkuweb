@@ -483,25 +483,38 @@ export function renderMyHouse(host, rec, opts = {}) {
   // Set when the person also holds a ทีม SAMO posting, i.e. the card above is
   // already showing their identity. This card then carries only what is
   // house-specific, and the identity edit lives in exactly one place.
-  const paired = !!opts.identityShownAbove;
+  const paired = !!opts.identityShownAbove || opts.mode === 'section';
 
   const named = houseLabel(rec.house_id, rec.house_name);
   const hasHouse = rec.house_id !== null && rec.house_id !== undefined;
   const who = [rec.full_name, rec.nickname ? `(${rec.nickname})` : ''].filter(Boolean).join(' ');
 
-  host.innerHTML = `
-    <div class="myseat-card myhouse-card"${
-  safeColor(rec.house_color) ? ` style="--house-accent:${safeColor(rec.house_color)}"` : ''}>
+  // SECTION MODE: this card is being painted INSIDE the ข้อมูลของฉัน card, so it
+  // drops its own shell, eyebrow and person-header — the card above already
+  // named the person, and repeating the frame is what made two cards read as a
+  // rendering bug. It keeps the crest, because the crest is the house.
+  const section = opts.mode === 'section';
+  const shellOpen = section
+    ? `<section class="myprofile-section myhouse-section"${
+      safeColor(rec.house_color) ? ` style="--house-accent:${safeColor(rec.house_color)}"` : ''}>
+      <h3 class="myprofile-section-title">
+        <i class="bi bi-house-heart-fill" aria-hidden="true"></i> ระบบบ้าน
+      </h3>`
+    : `<div class="myseat-card myhouse-card"${
+      safeColor(rec.house_color) ? ` style="--house-accent:${safeColor(rec.house_color)}"` : ''}>
       <div class="myseat-head">
         <span class="myseat-eyebrow"><i class="bi bi-house-heart-fill" aria-hidden="true"></i> บ้านของฉัน</span>
-      </div>
+      </div>`;
+  const shellClose = section ? '</section>' : '</div>';
 
-      <div class="myseat-person">
+  host.innerHTML = `
+    ${shellOpen}
+      <div class="myseat-person myhouse-person">
         ${crestHtml(rec)}
         <div class="myseat-person-body">
           <p class="myseat-name">${escHtml(hasHouse ? named : 'ยังไม่ได้กำหนดสายรหัส')}</p>
           <p class="myhouse-sub">${escHtml(hasHouse
-    ? [who, rec.sai ? `สายรหัส ${rec.sai}` : ''].filter(Boolean).join(' · ')
+    ? [section ? '' : who, rec.sai ? `สายรหัส ${rec.sai}` : ''].filter(Boolean).join(' · ')
     : 'เมื่อมีสายรหัสแล้ว ระบบจะจัดบ้านให้อัตโนมัติจากเลขหลักสุดท้าย')}</p>
           ${hasHouse && rec.house_slogan
     ? `<p class="myhouse-slogan">${escHtml(rec.house_slogan)}</p>` : ''}
@@ -519,15 +532,12 @@ export function renderMyHouse(host, rec, opts = {}) {
         </button>
       </div>
 
-      ${paired ? `<p class="myhouse-paired-note">
-        <i class="bi bi-arrow-up-short" aria-hidden="true"></i>
-        ชื่อ ชื่อเล่น รหัสนักศึกษา ชั้นปี และสาขา แก้ได้ที่การ์ด “ตำแหน่งของฉันในทีม SAMO” ด้านบน
-        — แก้ที่เดียว ใช้ร่วมกันทั้งสองระบบ</p>` : editFormHtml(rec)}
+      ${paired ? '' : editFormHtml(rec)}
       ${reportFormHtml(rec)}
 
       ${requestsHtml(rec)}
       ${advisorsHtml(rec)}
-    </div>`;
+    ${shellClose}`;
 
   wireCard(host, rec, opts);
 }

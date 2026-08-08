@@ -378,8 +378,24 @@ describe('one identity, one place — the paired card', () => {
     const el = host();
     renderMyHouse(el, recWith(), { identityShownAbove: true });
     expect(el.innerHTML).not.toContain('data-house-act="edit"');
-    // …and says where the edit went, so it is not a dead end.
-    expect(el.innerHTML).toContain('ตำแหน่งของฉันในทีม SAMO');
+    // The "where did the edit go" note is gone with it: in section mode the
+    // edit button is a few rows up in the SAME card, so a signpost pointing at
+    // it would be pointing at itself.
+    expect(el.innerHTML).not.toContain('data-house-form="edit"');
+  });
+
+  it('drops its own card shell in section mode — one card, not two', () => {
+    // Reported: "it look worse, i thought it would be like one card". Two
+    // sibling cards meant two eyebrows, two portraits and two identity blocks
+    // for one person.
+    const el = host();
+    renderMyHouse(el, recWith(), { mode: 'section' });
+    expect(el.innerHTML).not.toContain('myseat-card');
+    expect(el.innerHTML).not.toContain('myseat-eyebrow');
+    expect(el.innerHTML).toContain('myprofile-section');
+    // …and still shows the house itself.
+    expect(el.innerHTML).toContain('บ้านทดสอบ');
+    expect(el.innerHTML).toContain('myhouse-crest');
   });
 
   it('still offers แจ้งสายรหัสไม่ถูกต้อง — that is house-only and has no twin', () => {

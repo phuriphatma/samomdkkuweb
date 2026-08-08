@@ -1,4 +1,17 @@
-// my-seat.js — "ตำแหน่งของฉันในทีม SAMO".
+// my-seat.js — the "ข้อมูลของฉัน" card.
+//
+// ONE CARD PER PERSON. It renders the shared identity once, then a ทีม SAMO
+// section, then leaves a SLOT that my-house.js paints ระบบบ้าน into. It used to
+// be one of two sibling cards that each repeated ชื่อ, ชื่อเล่น, รหัสนักศึกษา,
+// ชั้นปี and สาขา, with two edit forms writing two tables — reported as "it look
+// worse, i thought it would be like one card". A person is one entity; their
+// memberships are sections about them.
+//
+// ⚠️ THIS CARD OWNS A SLOT ANOTHER MODULE PAINTS INTO. Every re-render wipes it
+// (a save does exactly that), so renderMySeat calls `opts.afterRender` and the
+// home page uses it to put the house section back. Removing that hook makes
+// ระบบบ้าน vanish the first time somebody edits their name — the "shared
+// render() repaints a pane another module owns" entry in mistakes.md.
 //
 // THE PROBLEM. A ทีม SAMO grant is invisible to the person holding it. Someone
 // whose kkumail sits in the org tree signs in and the app quietly changes shape
@@ -465,7 +478,7 @@ export function renderMySeat(host, seat, opts = {}) {
     <div class="myseat-card">
       ${opts.compact ? '' : `
       <div class="myseat-head">
-        <span class="myseat-eyebrow"><i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ตำแหน่งของฉันในทีม SAMO</span>
+        <span class="myseat-eyebrow"><i class="bi bi-person-vcard-fill" aria-hidden="true"></i> ข้อมูลของฉัน</span>
       </div>`}
 
       <div class="myseat-person">
@@ -484,27 +497,49 @@ export function renderMySeat(host, seat, opts = {}) {
       ${editFormHtml(me)}
       ${issuesHtml(issues, !!me.member_id)}
 
-      ${perms.length ? `
-        <div class="myseat-block">
-          <span class="myseat-label">สิทธิ์ที่ได้รับ</span>
-          <div class="myseat-chips">${chips(perms)}</div>
-        </div>` : `
-        <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด — หากคิดว่าไม่ถูกต้อง แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO</p>`}
+      <!-- ONE CARD, SECTIONS INSIDE IT. Reported: two sibling cards "look
+           worse ... i thought it would be like one card". They did — two
+           eyebrows, two portraits, two identity blocks and a note pointing up
+           at a card already scrolled past. A person is ONE thing; ทีม SAMO and
+           ระบบบ้าน are facts ABOUT them, so they are sections under one heading
+           rather than cards competing with it. -->
+      <section class="myprofile-section">
+        <h3 class="myprofile-section-title">
+          <i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ทีม SAMO
+        </h3>
 
-      ${rows.length ? `
-        <div class="myseat-block">
-          <span class="myseat-label">ขอบเขต</span>
-          <dl class="myseat-scopes">${rows.map(([k, v]) => `
-            <div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join('')}</dl>
-        </div>` : ''}
+        ${perms.length ? `
+          <div class="myseat-block">
+            <span class="myseat-label">สิทธิ์ที่ได้รับ</span>
+            <div class="myseat-chips">${chips(perms)}</div>
+          </div>` : `
+          <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด — หากคิดว่าไม่ถูกต้อง แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO</p>`}
 
-      ${cta ? `
-        <a class="myseat-cta" href="${cta.href}">
-          ${escHtml(cta.label)} <i class="bi bi-arrow-right" aria-hidden="true"></i>
-        </a>` : ''}
+        ${rows.length ? `
+          <div class="myseat-block">
+            <span class="myseat-label">ขอบเขต</span>
+            <dl class="myseat-scopes">${rows.map(([k, v]) => `
+              <div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join('')}</dl>
+          </div>` : ''}
+
+        ${cta ? `
+          <a class="myseat-cta" href="${cta.href}">
+            ${escHtml(cta.label)} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+          </a>` : ''}
+      </section>
+
+      <!-- ระบบบ้าน paints itself in here (my-house.js, section mode). Empty for
+           anyone with no house record, and the :empty rule hides it, so this
+           costs nothing for the people it does not apply to. -->
+      <div class="myprofile-slot" data-profile-slot="house"></div>
     </div>`;
 
   wireSelfEdit(host, seat);
+  // This render just replaced the ระบบบ้าน slot's contents along with everything
+  // else — "a shared render() that repaints a pane another module owns" is an
+  // entry in mistakes.md, and a save on this card would otherwise make the house
+  // section silently vanish. The owner of that pane is invited to repaint it.
+  if (typeof opts.afterRender === 'function') opts.afterRender(host);
 }
 
 /** The self-edit round trip. Writes ONLY the columns migration 0110 allows; the

@@ -799,13 +799,36 @@ document.addEventListener('DOMContentLoaded', () => {
       //   team only → seat card only (a shared department account)
       //   house only→ house card only, carrying the identity (most students)
       //   neither   → nothing at all (an ordinary visitor)
-      showMySeat(seatHost, user.id);
+      // ONE CARD when the person is in both. ระบบบ้าน paints itself into the
+      // slot the seat card leaves for it, so there is one heading, one portrait
+      // and one identity block — reported as "i thought it would be like one
+      // card, isn't that better". It is: a person is one entity, and two
+      // sibling cards make the reader do the joining.
+      //
+      // `afterRender` is not optional politeness. The seat card re-renders
+      // itself on every save and that wipes the slot — "a shared render() that
+      // repaints a pane another module owns", straight out of mistakes.md. The
+      // hook is how the house section gets put back.
+      const paintHouseInto = (seatEl) => {
+        const slot = seatEl?.querySelector?.('[data-profile-slot="house"]');
+        if (slot) {
+          houseHost.hidden = true;
+          houseHost.innerHTML = '';
+          showMyHouse(slot, user.id, { mode: 'section' });
+        } else {
+          // No seat (or no slot): the house card stands on its own, carrying
+          // the identity itself. This is the ~1,800-student common case.
+          showMyHouse(houseHost, user.id);
+        }
+      };
+      showMySeat(seatHost, user.id, { afterRender: paintHouseInto });
+      // showMySeat renders NOTHING when there is no posting, so afterRender
+      // never fires for a house-only person — paint them here.
       loadMySeat(user.id)
-        .then((seat) => showMyHouse(houseHost, user.id, {
-          identityShownAbove: (seat?.postings || []).length > 0,
-        }))
-        // A failed seat lookup must not cost the student their house card; the
-        // worst case is the identity showing twice, which is where we started.
+        .then((seat) => {
+          if (!(seat?.postings || []).length) showMyHouse(houseHost, user.id);
+        })
+        // A failed seat lookup must not cost the student their house card.
         .catch(() => showMyHouse(houseHost, user.id));
     } else {
       clearMySeatCache();

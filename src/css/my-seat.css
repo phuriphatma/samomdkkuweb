@@ -311,3 +311,29 @@
   .myseat-photo { width: 56px; height: 75px; }
   .myseat-person { gap: 0.65rem; }
 }
+
+/* ── ONE CARD, SECTIONS INSIDE ─────────────────────────────────────────────
+   `ข้อมูลของฉัน` is the card; ทีม SAMO and ระบบบ้าน are sections in it. The rule
+   above each section is what tells a reader "this is a different subject about
+   the same person" — which is the job two sibling cards were doing badly, by
+   repeating the person instead. */
+.myprofile-section {
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ink-200, #e9ecef);
+}
+.myprofile-section-title {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.myprofile-section-title .bi { color: var(--ink-400); font-size: 1.05em; }
+
+/* Empty for anyone the section does not apply to, and an empty slot must take
+   no space and draw no rule. */
+.myprofile-slot:empty { display: none; }
+.myprofile-slot > :first-child { margin-top: 0; }

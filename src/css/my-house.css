@@ -198,3 +198,21 @@
   line-height: 1.5;
 }
 .myhouse-paired-note .bi { color: var(--ink-400); }
+
+/* ── ระบบบ้าน as a SECTION inside the ข้อมูลของฉัน card ────────────────────
+   Reported: two sibling cards "look worse ... i thought it would be like one
+   card". They were — two eyebrows, two portraits, two identity blocks, and a
+   note pointing up at a card already scrolled past. A person is ONE entity;
+   ทีม SAMO and ระบบบ้าน are facts about them, so they became sections under one
+   heading. This strips the shell my-seat.css gives `.myseat-card`. */
+.myhouse-section {
+  border: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+/* Tighter than the standalone card: the section already sits inside one, and
+   the crest no longer has to carry a whole header. */
+.myhouse-section .myseat-person { margin-bottom: 0.5rem; }
+.myhouse-section .myhouse-crest { width: 44px; height: 44px; font-size: 1.15rem; }
+.myhouse-section .myseat-name { font-size: 0.95rem; }
