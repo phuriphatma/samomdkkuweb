@@ -120,6 +120,16 @@ function detailsHtml(rec) {
   return `<dl class="myseat-details">${rows}</dl>`;
 }
 
+/** A colour that is safe to interpolate into a `style` attribute.
+ *  escHtml stops the attribute being broken out of, but not `#fff;background:…`
+ *  — and `houses.color` is written through the API, not only by the
+ *  `<input type="color">` that normally sets it. Anything not a plain hex
+ *  colour falls back to the brand default. */
+function safeColor(c) {
+  const v = String(c ?? '').trim();
+  return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
+}
+
 function crestHtml(rec) {
   if (rec.house_id === null || rec.house_id === undefined) {
     return '<div class="myhouse-crest myhouse-crest--none" aria-hidden="true"><i class="bi bi-question-lg"></i></div>';
@@ -187,6 +197,15 @@ function advisorsHtml(rec) {
  * สายรหัส is shown READ-ONLY with the route out. It is the only field here that
  * cannot be self-edited, and saying so next to it — rather than omitting it —
  * is what stops "mine is wrong" from being a dead end.
+ *
+ * THE สาขา CHOOSER IS RENDERED WITH THE CURRENT VALUE ALREADY SELECTED, and
+ * refilled with the full list once it loads. It must NOT open as a bare
+ * `<option value="">` placeholder: the form is submittable the instant it
+ * appears, so a submit during that fetch would send `major: ""`, which the RPC
+ * writes as NULL — and `self_edited` then makes the loss permanent against every
+ * future import. my-seat.js's chooser was already built this way (it passes the
+ * stored value to optionsHtml, which keeps an off-list value as its own option);
+ * this one had drifted from it.
  */
 function editFormHtml(rec) {
   return `
@@ -198,7 +217,7 @@ function editFormHtml(rec) {
       <div class="myseat-fields">
         <label class="myseat-field">
           <span>ชื่อ</span>
-          <input type="text" name="first_name_th" value="${escHtml(rec.first_name || '')}" required />
+          <input type="text" name="first_name_th" value="${escHtml(rec.first_name || '')}" />
         </label>
         <label class="myseat-field">
           <span>นามสกุล</span>
@@ -216,9 +235,7 @@ function editFormHtml(rec) {
         </label>
         <label class="myseat-field">
           <span>สาขา</span>
-          <select name="major" data-house-majors>
-            <option value="">— กำลังโหลด —</option>
-          </select>
+          <select name="major" data-house-majors>${majorOptionsHtml(rec.major)}</select>
         </label>
         <label class="myseat-field myseat-field--locked is-wide">
           <span>สายรหัส</span>
@@ -319,7 +336,7 @@ export function renderMyHouse(host, rec) {
 
   host.innerHTML = `
     <div class="myseat-card myhouse-card"${
-  rec.house_color ? ` style="--house-accent:${escHtml(rec.house_color)}"` : ''}>
+  safeColor(rec.house_color) ? ` style="--house-accent:${safeColor(rec.house_color)}"` : ''}>
       <div class="myseat-head">
         <span class="myseat-eyebrow"><i class="bi bi-house-heart-fill" aria-hidden="true"></i> บ้านของฉัน</span>
       </div>
@@ -410,8 +427,12 @@ function wireCard(host, rec) {
     const btn = editForm.querySelector('.myseat-save');
     const val = (name) => editForm.querySelector(`[name="${name}"]`).value.trim();
 
+    // Mirrors the server rule (0126): a row may legitimately have NO name — the
+    // import file need not carry one — so an empty box is only refused when it
+    // would ERASE a name that exists. Blocking it outright would stop a student
+    // imported without a name from saving just their ชื่อเล่น.
     const first = val('first_name_th');
-    if (!first) {
+    if (!first && rec.first_name) {
       if (status) { status.textContent = 'กรุณากรอกชื่อ'; status.classList.add('is-error'); }
       editForm.querySelector('[name="first_name_th"]').focus();
       return;

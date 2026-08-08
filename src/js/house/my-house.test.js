@@ -162,6 +162,20 @@ describe('renderMyHouse', () => {
     expect(el.innerHTML).toMatch(/<select name="major"/);
   });
 
+  it('opens the สาขา chooser on the CURRENT value, not on an empty placeholder', () => {
+    // The form is submittable the instant it appears. If the select started as
+    // a bare <option value=""> while the vocabulary loaded, a fast submit would
+    // send major:"" — written as NULL, and self_edited then makes that loss
+    // permanent against every future import. The list arriving later only
+    // REPLACES options; it must never be what stops the value being right.
+    const el = host();
+    renderMyHouse(el, recWith({ major: 'MDI' }));
+    const select = el.innerHTML.match(/<select name="major"[^>]*>([\s\S]*?)<\/select>/);
+    expect(select).not.toBeNull();
+    expect(select[1]).toMatch(/value="MDI" selected/);
+    expect(select[1]).not.toContain('กำลังโหลด');
+  });
+
   it('escapes every user-typed field — it all lands in innerHTML', () => {
     const el = host();
     renderMyHouse(el, recWith({

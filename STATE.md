@@ -134,26 +134,20 @@ The backlog (with the reasoning behind each item, including the
 fuller document at **`docs/TEAM-ROLES-AND-PHOTOS.md`** (written 2026-08-04,
 nothing built, and it ends with five decisions the user has to make).
 
-## PR + VITALSOUND — stable, pruned to the archive
+## OTHER SYSTEMS — stable, nothing owed
 
-Both shipped and deployed (PR ฝ่าย single-source-of-truth `src/js/pr-depts.js`;
-VS service desk + public board, migrations through 0080). Full write-up incl. the
-VS confidentiality invariants: `docs/state-archive/2026-07-25-pr-vs.md`.
+PR · VitalSound · News · Shop · หนังสือโครงการ · ทีม SAMO · Analytics: unchanged
+this session. Write-ups in `docs/state-archive/` (VS confidentiality invariants:
+`2026-07-25-pr-vs.md`); architecture in `docs/CONTEXT.md`.
 
-## OTHER SYSTEMS (stable; details in archive + CONTEXT.md)
-
-- **PR / News / Shop / Projects / Analytics**: unchanged this session. Shop = Model A
-  shared admin (0057/0058); projects ปีงบ filter; analytics strip + staff dashboard live.
-- **Passport** (separate repo `phuriphatma/samomdkkupassport`, same Supabase project,
-  `passport` schema): kkumail-only gate live; 5 gmail→kkumail migrations verified;
-  awaiting students' replies at mdstuddata.beta@gmail.com. Dev test still ACTIVE
-  (pmphuriphat→phuriphat.ma) — revert SQL in `docs/state-archive/2026-07-24-full.md`
-  ("ACTIVE TEST STATE"). Old project B `idwlabpbwiwgaoqwbozz` paused as cold backup —
-  rotate its DB password (in `.env.local`) before deleting.
+- **Passport** (repo `phuriphatma/samomdkkupassport`, same Supabase project,
+  `passport` schema): kkumail-only gate live. Dev test still ACTIVE
+  (pmphuriphat→phuriphat.ma) — revert SQL in
+  `docs/state-archive/2026-07-24-full.md` ("ACTIVE TEST STATE"). Old project B
+  `idwlabpbwiwgaoqwbozz` is a cold backup — rotate its DB password before deleting.
 - **notify**: `/notify` Node service on the VM; `notify_log` (0055) recording;
-  `main` branch protected (1 approval; owner ff-push exempt).
-- Retention jobs NOT scheduled (`prune_analytics`, `prune_notify_log`) — run manually
-  if tables grow.
+  `main` protected (1 approval; owner ff-push exempt).
+- Retention jobs NOT scheduled (`prune_analytics`, `prune_notify_log`).
 
 ## Housekeeping — the memory system
 
@@ -180,85 +174,76 @@ archiving into it saved nothing.
 - `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-07)
+## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-08)
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> Migrations are applied through **0126**, 498 tests green, nothing in flight —
-> but the latest commits are **not on the VM yet**: `main` = `d62a374` is what
-> `samo.md.kku.ac.th` is serving. Deploying needs VPN (`skills/deploy-vm.md`).
+> **Everything is shipped, deployed and verified on the served artifacts.**
+> `main` = the commit named in CURRENT DEPLOY, migrations applied through
+> **0126**, 499 tests green. Nothing is in flight.
 >
-> What landed last: **ระบบบ้าน (House)** — every student in the faculty gets a
-> record they see by signing in with kkumail, plus a house derived from their
-> สายรหัส. Design `docs/HOUSE-SYSTEM.md`; the session's full reasoning and every
-> live proof is `docs/state-archive/2026-08-07-house-system.md`. Also: every
-> DELETE in the app now reports an RLS block instead of silently succeeding.
+> This session was all **ระบบบ้าน**. What it now is, in one paragraph: a student
+> signs in with kkumail and sees ONE card — their record as a label→value list
+> (ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · **รุ่น MD50** · สาขา · สายรหัส · บ้าน ·
+> KKU Mail), the อาจารย์ที่ปรึกษา of their own สาย, and the อาจารย์ of every
+> other สาย in their house. They can edit five of those fields; they can never
+> edit their สายรหัส. Admins manage อาจารย์ by clicking a สาย.
 >
-> **The one thing actually waiting: the student data has not arrived.** The
-> handover spec to send the Data Analytics dept is `docs/house-data-spec-th.md`
-> (forward it as-is). It now offers a **4-column short file** —
-> `kkumail, student_id, sai, major`, no names at all — as the recommended ask
+> **The one thing actually waiting: the student data has not arrived.** Send
+> `docs/house-data-spec-th.md` to Data Analytics as-is. It now leads with a
+> **4-column ask — `kkumail, student_id, sai, major`, no names at all**
 > (`docs/templates/house-import-minimal-template.csv`); the 7-column form is
-> still there. They send **20 rows first**, then the full ~1,800. Import at
-> `/admin/` → ระบบบ้าน → นำเข้าข้อมูล: it previews, and writes nothing until
-> confirmed. Until then every pane renders an honest empty state — that is
-> designed, not broken.
+> still there for when a named list is wanted. 20 rows first, then ~1,800.
+> Import at `/admin/` → ระบบบ้าน → นำเข้าข้อมูล: it previews and writes nothing
+> until confirmed. Until then every pane renders an honest empty state.
 >
-> Last thing fixed (0122): setting a student's สาย to a code nobody had used yet
-> 23503'd on the `sai_code` foreign key. `sais` is a DERIVED set, so a BEFORE
-> trigger on `students` now creates the สาย row on demand — **do not "fix" this
-> again in a caller.** The lesson generalises and is the one to carry: when a fix
-> is "materialise X on demand", put it on the TABLE (trigger / default /
-> generated column), never in the one caller you happened to be looking at.
-> `grep` the column name and count the writers first. This repo has now paid for
-> that shape three times in one session (0119, 0121, 0122).
->
-> Open, none blocking:
-> 1. **The ทีม SAMO delete diagnosis is UNCONFIRMED.** "Nothing happens" on the
->    trash button is almost certainly Chrome's "Prevent this page from creating
->    additional dialogs" making `confirm()` return false silently. A hard reload
->    settles it. If confirmed, replace the 8 native `confirm()` calls in
->    `team/index.js` with an app-owned Bootstrap modal.
-> 2. **Real student identities are in the public repo.**
->    `supabase/migrations/0047_seed_team_data.sql` seeds ~285 real members
->    (names, kkumail, รหัส) and several `docs/mistakes/*.md` write-ups quote real
->    students. Deliberately NOT rewritten — 0047 is applied history and the
->    write-ups describe real incidents. Removing them from the working tree does
->    not remove them from git history, which is already public. Needs the user's
->    decision: accept, rewrite history, or make the repo private.
-> 3. **Rotate the VM sudo password** (see CURRENT DEPLOY), and **rotate the KKU
->    SSO client secret** — it was pasted into a chat transcript on 2026-08-08.
-> 4. **Request a PRODUCTION KKU SSO app** if SSO login is wanted — the one we
->    hold is UAT. Redirect URLs `https://samo.md.kku.ac.th/login` and `/logout`.
-> 4. **`students` is not empty.** At least one row exists for the owner's kkumail
->    from manual testing — created before any import. Tidy it in ระบบบ้าน →
->    นักศึกษา before the real import, or let the import update it (it upserts on
->    kkumail, so it will merge rather than duplicate).
-> 5. Older, still true: **0108's contract step is owed** (`createMember` and the
->    CSV import still write `person_id = null`); the team photo SAVE path is
->    unverified by hand.
->
-> **Decided — do not re-raise:**
+> **Decided this session — do not re-raise:**
 > - **ระบบบ้าน has no ชั้นปี.** รุ่น (`MD{cohort−2515}`, from the รหัสนักศึกษา) is
 >   the only cohort vocabulary. No academic-year setting, no per-student
->   override, no `student_year()` in either language.
-> - **No ยืนยันข้อมูล.** We do not ask students to confirm their record.
-> - **No student roster.** ระบบบ้าน publishes อาจารย์ only — never one student to
->   another. `get_house_roster()` is dropped; do not re-add it.
-> - **สายรหัส is NOT derived from รหัสนักศึกษา.** It is the university's random
->   mentor assignment; nothing may compute, infer or "repair" one. Any `001`–`999`
->   is legal and **no maximum may be hardcoded** — that bug has been made twice.
-> - **`sais` is DERIVED, never seeded**, and the trigger on `students` (0122) is
->   what guarantees a สาย exists. No maximum, no seeded range, no per-caller check.
-> - **house = last digit of สายรหัส**, and `sais.house_id` (GENERATED) is the only
->   implementation. JS reads it; `houseOf()` exists solely for the import preview.
-> - **ชื่อ and นามสกุล stay separate** in `students` (joined by a generated
->   `full_name`). Separate→combined is lossless; combined→separate is a guess that
->   breaks on `ณ อยุธยา`. ทีม SAMO keeps its single field — do not migrate it.
-> - **Nothing is gated on a date**, and there is **no reveal flag** — an unnamed
->   house is the un-revealed state.
-> - **Public visibility of หนังสือโครงการ defaults to SHOWN** (opt-out).
-> - **`ฝ่ายเอิงtest` and the second `ภู` row on `หัวหน้าฝ่าย IT` stay** — the
->   user's own test rows, knowingly kept.
+>   override, and `student_year()` is dropped in BOTH SQL and JS.
+> - **No ยืนยันข้อมูล**, and **no student roster** — ระบบบ้าน publishes อาจารย์,
+>   never one student to another. `get_house_roster()` is dropped; do not re-add.
+> - **A student can NEVER self-edit สายรหัส.** It decides the house. The route is
+>   `request_my_change('sai_code', …)` → an admin approves.
+> - **A student CAN self-edit ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา**, and
+>   `students.self_edited` + a BEFORE UPDATE trigger stop the next import
+>   reverting it. Order is **admin > student > import**, enforced on the TABLE.
+> - **สาขา is a chooser over `team_majors`** — one faculty-wide vocabulary, CRUD
+>   at ทีม SAMO → สาขา, and the RPC refuses anything off the list.
+> - **An import writes ONLY the columns its file carried**, and a row may have no
+>   name at all. A COMBINED "ชื่อ-สกุล" column is still refused.
+> - **KKU SSO is a login improvement, not a data source** — `docs/KKU-SSO.md`.
+>   It CAN supply ชื่อ/นามสกุล/รหัสนักศึกษา at login (probed live: `studentCode`
+>   arrives as `653070317-0`), but not สาขา, there is no roster endpoint, and our
+>   registration is **UAT-only**. Decision recorded: import the CSV instead.
+> - **สายรหัส is NOT derived from รหัสนักศึกษา**, any `001`–`999` is legal, no
+>   maximum may be hardcoded, and `sais` rows are created on demand by a trigger.
+> - **house = last digit of สายรหัส**; `sais.house_id` (GENERATED) is the only
+>   implementation.
+>
+> Open, none blocking:
+> 1. **Rotate the VM sudo password** and **the KKU SSO client secret** (both were
+>    exposed in chat transcripts on 2026-08-07 / 08-08).
+> 2. **The house ADMIN pane still uses 4 native `confirm()`/`prompt()` calls**
+>    (`index.js`: delete student, delete advisor, reject-reason, สาย validation).
+>    Same suppressible-dialog class that made the ทีม SAMO delete button look
+>    dead; `team/index.js` has 8 more. One app-owned modal fixes both.
+> 3. **`students.self_edited` is invisible to admins** — not in `STUDENT_COLS`,
+>    not in the CSV export. An admin cannot see which fields a student owns, and
+>    a backup/restore loses it. Harmless today (admin edits win regardless).
+> 4. **Filter dropdowns are built once** (บ้าน/รุ่น/สาขา in the นักศึกษา pane,
+>    บ้าน in สายรหัส) so they go stale after an import until a reload.
+> 5. **`students` is not empty** — a few rows from manual testing, incl. the
+>    owner's real record. The import upserts on kkumail so it will merge.
+> 6. Older, still true: **0108's contract step is owed** (`createMember` and the
+>    ทีม SAMO CSV import still write `person_id = null`); the team photo SAVE
+>    path is unverified by hand; real student identities are in this PUBLIC
+>    repo's git history (0047 seed) and that needs the owner's decision.
+>
+> **Vestigial columns, kept deliberately** (nothing reads or writes them; each
+> carries a `comment on column`): `students.year_override`, `.verified_at`,
+> `.is_listed`, `.sai_locked`, `.sai_self_edits`, `house_settings.academic_year`,
+> `.roster_visible`, `.sai_self_edit_open`. Drop them once the real data has
+> landed and they are confirmed empty.
 >
 > Backlog: `docs/NEXT.md`. Roles/photos design with five open decisions:
 > `docs/TEAM-ROLES-AND-PHOTOS.md`.

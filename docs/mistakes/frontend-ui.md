@@ -1001,3 +1001,42 @@ same geometry as the perm-grid checkbox that a second pass silently unlocked
 (class 6) — one property, two sources of truth. (3) An **intermittent** UI bug
 that gets better when you click more is almost always a handler-count problem,
 not a race.
+
+---
+
+## A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
+
+**Symptom** (found by tracing, before it reached anyone): opening บ้านของฉัน →
+แก้ไขข้อมูล and pressing บันทึก quickly would silently clear the student's สาขา.
+
+**Cause**: the form was rendered with `<select name="major"><option value="">—
+กำลังโหลด —</option></select>` and the real list was fetched when the panel
+opened. The form is submittable the instant it appears, so a submit inside that
+window read `value === ''`. The RPC treats a present-but-empty key as an
+intentional clear (`nullif(btrim(''),'') → NULL`), so the สาขา was erased — and
+because the same call records the field in `students.self_edited`, the
+0125 trigger then protects the *erased* value from every future import. A
+half-second race produced a permanent loss.
+
+Two things made it invisible: the window is short, and the sibling component
+had already solved it. `my-seat.js` renders its สาขา chooser as
+`optionsHtml(majors, val)` — which, with `majors` still `[]`, keeps the stored
+value as its own selected option — so the pre-load markup there is already
+correct. The house card was written later and drifted from it.
+
+**Fix**: render the select from `majorOptionsHtml(rec.major)` at paint time; the
+async load only ever REPLACES options with a longer list. `my-house.test.js`
+asserts the initial markup carries `value="<current>" selected` and no loading
+placeholder, and the guard was verified to FAIL when the placeholder is put back.
+
+**Where it lives now**: `src/js/house/my-house.js` (`editFormHtml`,
+`majorOptionsHtml`), `src/js/house/my-house.test.js`.
+
+**Rules**: (1) **A control that is visible is submittable.** Anything rendered
+before its data arrives must render with the CURRENT value already correct —
+"loading" is a state for the options, never for the value. (2) When a sibling
+component already does the same job, read it before writing the second one; the
+older one here was right and the new one regressed against it (class 6).
+(3) Watch for a fix that makes a loss PERMANENT: `self_edited` is exactly right
+for a deliberate edit and exactly wrong for an accidental one, so the accidental
+path has to be closed at the source.

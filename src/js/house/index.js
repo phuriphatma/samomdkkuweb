@@ -399,6 +399,14 @@ function paintSaiModal(code) {
   $('hxAdd').disabled = !options.length;
 }
 
+/** Only the advisor rows changed, so only they are refetched. `reload()` here
+ *  meant six queries — including all ~1,800 students — for every single
+ *  add/remove click, and assigning four อาจารย์ to one สาย is four of them. */
+async function refreshAdvisors() {
+  advisors = await fetchAdvisors();
+  render();
+}
+
 function openSaiModal(code) {
   $('hxCode').value = code;
   paintSaiModal(code);
@@ -414,7 +422,7 @@ async function onSaiAddAdvisor() {
   try {
     const assigned = advisorsBySai().get(code) || [];
     await addSaiAdvisor(code, advisorId, assigned.length);
-    await reload();
+    await refreshAdvisors();
     paintSaiModal(code);
   } catch (err) {
     setStatus(err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
@@ -428,7 +436,7 @@ async function onSaiRemoveAdvisor(advisorId) {
   if (!code || !advisorId) return;
   try {
     await removeSaiAdvisor(code, advisorId);
-    await reload();
+    await refreshAdvisors();
     paintSaiModal(code);
   } catch (err) {
     setStatus(err?.message || 'นำอาจารย์ออกไม่สำเร็จ', true);
