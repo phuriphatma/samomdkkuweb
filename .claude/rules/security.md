@@ -4,7 +4,7 @@
 
 | Token / value | Bundle / git? | Where it lives |
 |---|---|---|
-| `VITE_SUPABASE_URL` | ✅ yes | bundled at build time, public |
+| `VITE_SUPABASE_URL` | ✅ yes | bundled at build time ON THE VM, public |
 | `VITE_SUPABASE_ANON_KEY` | ✅ yes | bundled at build time, public (RLS gates) |
 | Supabase `service_role` key | ❌ NEVER | not currently used — keep out of repo / browser if ever re-introduced |
 | Google OAuth client secret | ❌ NEVER | Supabase dashboard only |
@@ -45,7 +45,9 @@
    pattern is safe — public but gated by RLS.
 2. If backend-only, store in:
    - Apps Script project (Properties → Script properties) for `appscript/*.gs`
-   - Cloudflare Pages env vars (NOT exposed to browser via `VITE_*` prefix)
+   - the KKU VM's build environment (`server/deploy.sh`). **Cloudflare Pages is
+     RETIRED** — its dashboard env vars reach nothing, so a secret added there
+     is not "stored", it is lost.
    - (If we ever bring Edge Functions back: `supabase secrets set NAME=value`.)
 3. Add a row to the table above.
 

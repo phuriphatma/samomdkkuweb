@@ -71,7 +71,7 @@ npm run preview      # serve dist locally on :4173
 
 **Auto-loaded into every session** (`CLAUDE.md` + everything in
 `.claude/rules/`): this file, `.claude/rules/mistakes.md` (recurring bug
-CLASSES + a one-line index of all 117 write-ups), `.claude/rules/security.md`
+CLASSES + a one-line index of all 142 write-ups), `.claude/rules/security.md`
 (key hygiene). Budget ~26k chars total, enforced by `npm run check:context`,
 which `npm test` runs. **Never put a bug write-up, a session narrative, or
 anything long in `.claude/rules/` — it is charged to every future session.**
@@ -84,7 +84,7 @@ session re-derives or re-breaks work that was finished yesterday.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
-- `docs/mistakes/*.md` — the 117 bug write-ups, nine files by area. The index
+- `docs/mistakes/*.md` — the 142 bug write-ups, nine files by area. The index
   in `.claude/rules/mistakes.md` says which file; `grep -rin "<symptom>"
   docs/mistakes/` is usually faster. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
