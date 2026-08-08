@@ -137,9 +137,21 @@ This loop keeps cold-start agents from re-walking the bugs we already paid for, 
 
 ## Authority model
 
-- Default behavior: ask before destructive ops (force push, schema deletes, prod GAS redeploys).
-- The user has authorized: commit + push on feature branches without prompting, except force push.
-- The user has NOT authorized: amending pushed commits, dropping tables, mass-deleting rows.
+- Default behavior: ask before destructive ops (force push, dropping a TABLE,
+  mass-deleting rows, prod GAS redeploys).
+- **The user has authorized, and this is the normal flow — do not ask each
+  time:** commit and **push `main`**, apply migrations to the live Supabase
+  project (`tools/apply-migration.mjs`), and **deploy to production**
+  (`skills/deploy-vm.md`). This session did all three roughly ten times; the
+  expectation is that work ships, not that it waits. Batch commits before
+  deploying — each deploy is ~90 s of VM build.
+- **Dropping a COLUMN is allowed when the owner has asked for it** (0129 dropped
+  five on their "shouldn't that be gone"), but it is ordered: **deploy the code
+  that stopped reading it FIRST**, confirm that bundle is being SERVED, then
+  drop. Reversing that took prod down for ~20 min. See
+  `skills/ship-a-migration.md`.
+- The user has NOT authorized: force push, amending pushed commits, dropping
+  tables, mass-deleting rows.
 
 ## Notes that change frequently
 
