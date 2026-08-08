@@ -53,7 +53,64 @@ Three POST endpoints, all keyed to ONE person who has just logged in:
    receipt and never written to a column — receiving it is not a reason to store
    it.
 
-## The follow-up: "then ask for only สายรหัส and get the names from SSO"
+## The design being proposed: LAZY FILL
+
+> Data Analytics send only `kkumail, sai`. When that person logs in through SSO,
+> the app reads their profile and fills in ชื่อ / นามสกุล / รหัสนักศึกษา.
+
+**The shape is sound** — it is the same "the row completes itself on first
+visit" pattern the app already uses for `nickname_self`, and
+`students.self_edited` (0125) already guarantees the auto-fill can never
+overwrite something the person deliberately corrected. Treat an SSO fill exactly
+like an import write: fill what is empty, never what is owned.
+
+Three things decide whether it is worth doing.
+
+### 1. It IS the SSO login project — there is no cheaper door
+
+A profile can only be read with an access token, and a token only comes from a
+login redirect. So "get the names from SSO" is not a data-import option that can
+be chosen instead of building SSO; it is a thing that becomes possible once SSO
+login exists. Cost is the section at the bottom of this file.
+
+### 2. It hinges on ONE unknown, and one login settles it
+
+Does the response carry the **รหัสนักศึกษา**? The manual documents three
+identifier-shaped fields and names none of them `studentId`:
+
+| field | from | what it probably is |
+|---|---|---|
+| `immutableId` | `auth.token` | the SSO's own stable id |
+| `employeeId` | `auth.token` | staff id — may be blank or may be the รหัส for a student |
+| `userId` | `user.profile` | undocumented |
+
+- **If one of them is the รหัส** → the file can be **two columns**
+  (`kkumail, sai`) and ชื่อ · นามสกุล · รหัส all arrive at first login.
+- **If none is** → รหัสนักศึกษา must stay in the file, because รุ่น (MD50) is
+  derived from it and a student with no รหัส has no รุ่น. SSO then saves only
+  the two names.
+
+`tools/sso-probe.mjs` answers this in two minutes without building anything:
+it prints the login URL, you sign in **with a student account**, paste the
+`?code=` back, and it dumps the field names (values redacted for `citizenId` /
+`phoneNumber` / the token). Verified 2026-08-08 that the production endpoint is
+live and this registration's credentials are accepted — a bogus code comes back
+`ok:false` complaining about the *session*, not about the client.
+
+### 3. สาขา can never come from SSO
+
+`facultyName` is the faculty (คณะแพทยศาสตร์), not the หลักสูตร. MD / MDI / RT
+either stays in the file or the student picks it (they can, since 0125).
+
+### Recommendation
+
+**Send the four-column file now; treat SSO as a later login upgrade that happens
+to auto-fill names.** Waiting for an integration that has not started, to avoid
+a column Data Analytics can produce today, trades a certain week for an
+uncertain month — and the short file already achieves the thing that actually
+mattered, which is that the names never leave their department.
+
+## The earlier version of the question: "ask for only สายรหัส, fill the rest in"
 
 Half right, and the good half has nothing to do with SSO.
 
