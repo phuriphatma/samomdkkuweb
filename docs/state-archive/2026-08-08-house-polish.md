@@ -74,6 +74,26 @@ their สาย even while the global switch is open; they can still file a requ
   there (the positive control that proves the sweep can find things).
 - `house_advisors` returns one row per (อาจารย์, สาย) for the caller's house.
 
+## 0125–0126 — the self-edit boundary, and the nameless row
+
+- **0125**: a student owns ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา, and
+  their สายรหัส not at all. Four of those are import-owned columns, so
+  `students.self_edited text[]` + a BEFORE UPDATE trigger preserve them on any
+  write stamping a new `last_import_batch` (admin > student > import). สาขา is
+  validated against `team_majors`, whose write gate widened to `house`.
+  Consequence: `sai_self_edit_open` / `sai_locked` / `sai_self_edits` are
+  vestigial and ระบบบ้าน has **no admin settings at all** any more.
+- **0126**: `first_name_th` nullable, `full_name` NULL rather than `''` when
+  empty — the import file may deliberately carry no names. Recommended ask is
+  now `kkumail, student_id, sai, major`. Also: a self-edited duplicate
+  รหัสนักศึกษา used to surface a raw 23505 from `students_sid_uniq`; now a Thai
+  message, pre-checked and caught in an exception handler for the race.
+
+Live proofs (all rolled back via a terminal `raise`): a self-edit survives a
+simulated import while `cohort_year` still updates; an off-list สาขา raises; a
+patch carrying `sai_code` changes nothing; a nameless row inserts and reads back
+`full_name = NULL`; a duplicate รหัส and a blanked name both raise in Thai.
+
 ## Vestigial columns left in place
 
 `students.year_override`, `students.verified_at`, `students.is_listed`,

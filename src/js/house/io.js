@@ -141,6 +141,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
 
   const header = raw[0].map(normHeader);
   const missingColumns = CSV_COLUMNS.filter((c) => !header.includes(c));
+  const problems = [];
 
   if (!header.includes('kkumail')) {
     return { ...empty, missingColumns,
@@ -151,21 +152,31 @@ export function parseStudentsCsv(text, knownMajors = []) {
   // spaces ("ณ อยุธยา") and Thai first names sometimes do too, so whitespace
   // does not mark the boundary — a split would rename real people, silently and
   // irreversibly, and nothing downstream could ever tell.
-  if (!header.includes('first_name_th')) {
+  //
+  // NO name column at all is a DIFFERENT thing and is allowed (0126): the
+  // minimum useful file is `kkumail, student_id, sai`, and asking Data Analytics
+  // for that instead means 1,800 people's names never leave their department.
+  // The student fills their own name in — it is the one field they certainly
+  // know. Refusing a combined column while accepting no column looks
+  // inconsistent and is not: one would rename people, the other names nobody.
+  if (header.includes('_combined_name') && !header.includes('first_name_th')) {
     return { ...empty, missingColumns,
-      fatal: header.includes('_combined_name')
-        ? 'ไฟล์นี้รวมชื่อกับนามสกุลไว้คอลัมน์เดียว — ระบบแยกให้ไม่ได้ '
-          + '(นามสกุลไทยมีเว้นวรรคได้ เช่น “ณ อยุธยา” ถ้าเดาจะได้ชื่อผิดตัว) '
-          + 'กรุณาขอไฟล์ที่แยกเป็น first_name_th (ชื่อ) และ last_name_th (นามสกุล)'
-        : 'ไม่พบคอลัมน์ชื่อ (first_name_th / ชื่อ) — นำเข้าไม่ได้' };
+      fatal: 'ไฟล์นี้รวมชื่อกับนามสกุลไว้คอลัมน์เดียว — ระบบแยกให้ไม่ได้ '
+        + '(นามสกุลไทยมีเว้นวรรคได้ เช่น “ณ อยุธยา” ถ้าเดาจะได้ชื่อผิดตัว) '
+        + 'กรุณาขอไฟล์ที่แยกเป็น first_name_th (ชื่อ) และ last_name_th (นามสกุล) '
+        + 'หรือถ้าไม่อยากส่งชื่อเลย ตัดคอลัมน์ชื่อออกทั้งหมดก็ได้ '
+        + 'ระบบรับไฟล์ที่มีแค่ kkumail กับสายรหัส' };
+  }
+  if (!header.includes('first_name_th')) {
+    problems.push({ line: 1, level: 'info', field: 'first_name_th',
+      message: 'ไฟล์นี้ไม่มีคอลัมน์ชื่อ — นำเข้าได้ ระบบจะเก็บเฉพาะช่องที่มีในไฟล์ '
+        + 'และให้นักศึกษากรอกชื่อของตัวเองเมื่อเข้าสู่ระบบ', value: '' });
   }
 
   // Raw สาย values BEFORE normalisation — the audit is only meaningful on these.
   const saiIdx = header.indexOf('sai_code');
   const rawSais = saiIdx >= 0 ? raw.slice(1).map((cells) => cells[saiIdx] ?? '') : [];
   const widthAudit = auditSaiWidths(rawSais);
-
-  const problems = [];
 
   // Columns we did not recognise. Silently ignoring them is how an export gets
   // re-imported and someone believes a self-edited ชื่อเล่น came back with it.
@@ -212,10 +223,13 @@ export function parseStudentsCsv(text, knownMajors = []) {
         message: `บรรทัด ${lineNo}: ${mail.reason} — ข้ามแถวนี้`, value: cleanSpace(o.kkumail) });
       return;
     }
-    if (!first) {
-      problems.push({ line: lineNo, level: 'skip', field: 'first_name_th',
-        message: `บรรทัด ${lineNo}: ไม่มีชื่อจริง — ข้ามแถวนี้`, value: '' });
-      return;
+    // A blank name no longer skips the row. `first_name_th` is nullable (0126)
+    // and kkumail is what the row is FOR — dropping somebody entirely because
+    // one cell is empty loses their สายรหัส and their house too. Only worth
+    // saying when the file HAS the column and this row is the exception.
+    if (!first && header.includes('first_name_th')) {
+      problems.push({ line: lineNo, level: 'warn', field: 'first_name_th',
+        message: `บรรทัด ${lineNo}: ไม่มีชื่อจริง — นำเข้าให้ แต่ชื่อจะว่างไว้`, value: '' });
     }
 
     if (seenMail.has(mail.value)) {

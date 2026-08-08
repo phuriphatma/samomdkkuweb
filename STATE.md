@@ -52,6 +52,14 @@ Applied and proved live. Full detail + every proof:
   (self-edit sticks through a simulated import; `cohort_year` still updates;
   an off-list สาขา raises). `sai_self_edit_open` / `sai_locked` /
   `sai_self_edits` are now vestigial — ระบบบ้าน has **no admin settings left**.
+- **0126 — a student row can arrive with NO NAME.** `first_name_th` is nullable
+  and `full_name` is NULL (not `''`) when empty, so the ask to Data Analytics is
+  now **4 columns: `kkumail, student_id, sai, major`** — 1,800 names never leave
+  their department. The student types their own (0125). A COMBINED "ชื่อ-สกุล"
+  column is still refused: no name column names nobody, one combined column
+  renames everybody whose surname has a space. Also fixed: a self-edited
+  duplicate รหัสนักศึกษา hit `students_sid_uniq` and surfaced a raw 23505 — now a
+  Thai sentence, pre-checked AND caught in an exception handler for the race.
 - **KKU SSO assessed, not built** — `docs/KKU-SSO.md`. It is a login
   improvement, NOT a data source: no roster endpoint, no สายรหัส, no สาขา, and it
   returns `citizenId` we must never store. **The CSV is still required.**
@@ -102,7 +110,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   Still **v4.5.0** — no version cut; `PENDING` in
   `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
   ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0125.** Live proofs, both directions:
+- **Migrations applied through 0126.** Live proofs, both directions:
   `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
@@ -165,7 +173,7 @@ archiving into it saved nothing.
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-07)
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> Migrations are applied through **0125**, 494 tests green, nothing in flight —
+> Migrations are applied through **0126**, 498 tests green, nothing in flight —
 > but the latest commits are **not on the VM yet**: `main` = `d62a374` is what
 > `samo.md.kku.ac.th` is serving. Deploying needs VPN (`skills/deploy-vm.md`).
 >
@@ -177,8 +185,10 @@ archiving into it saved nothing.
 >
 > **The one thing actually waiting: the student data has not arrived.** The
 > handover spec to send the Data Analytics dept is `docs/house-data-spec-th.md`
-> (forward it as-is; template `docs/templates/house-import-template.csv`). They
-> send **20 rows first**, then the full ~1,800. Import at
+> (forward it as-is). It now offers a **4-column short file** —
+> `kkumail, student_id, sai, major`, no names at all — as the recommended ask
+> (`docs/templates/house-import-minimal-template.csv`); the 7-column form is
+> still there. They send **20 rows first**, then the full ~1,800. Import at
 > `/admin/` → ระบบบ้าน → นำเข้าข้อมูล: it previews, and writes nothing until
 > confirmed. Until then every pane renders an honest empty state — that is
 > designed, not broken.

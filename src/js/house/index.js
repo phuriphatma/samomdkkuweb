@@ -240,7 +240,8 @@ function renderStudents() {
       const h = saiHouse(s.sai_code);
       return `
         <tr data-student="${escHtml(s.id)}" role="button">
-          <td>${escHtml(s.full_name || '')}</td>
+          <td>${s.full_name ? escHtml(s.full_name)
+    : '<span class="text-muted fst-italic">ยังไม่มีชื่อ</span>'}</td>
           <td>${escHtml(s.nickname || '')}</td>
           <td class="text-nowrap">${escHtml(s.student_id || '')}</td>
           <td class="small">${escHtml(s.kkumail || '')}</td>
@@ -718,7 +719,8 @@ async function onStudentSubmit(e) {
   if (!sai.ok) { alert('สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก'); return; }
   const sid = normalizeStudentId($('hsSid').value);
   const payload = {
-    first_name_th: $('hsFirst').value.trim(),
+    // Nullable since 0126 — an imported row may legitimately have no name yet.
+    first_name_th: $('hsFirst').value.trim() || null,
     last_name_th: $('hsLast').value.trim() || null,
     student_id: sid.value,
     kkumail: $('hsMail').value.trim().toLowerCase(),

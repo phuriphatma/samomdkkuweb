@@ -273,3 +273,48 @@ describe('an import never destroys a column the file did not carry', () => {
     expect(d.update).toBe(0);
   });
 });
+
+describe('the MINIMUM useful file — kkumail + สาย, no names at all (0126)', () => {
+  // Asking Data Analytics for three columns instead of seven means 1,800
+  // people's names never leave their department. The two things ระบบบ้าน cannot
+  // derive are the สายรหัส and the address that identifies the person; a name is
+  // not one of them, because the student can type their own.
+  const MINIMAL = ['kkumail,student_id,sai',
+    'a@kkumail.com,659999999-9,017',
+    'b@kkumail.com,649999998-8,003'].join('\n');
+
+  it('imports a file with no name column', () => {
+    const r = parseStudentsCsv(MINIMAL, ['MD']);
+    expect(r.fatal).toBeNull();
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows[0].sai_code).toBe('017');
+    expect(r.rows[0].first_name_th).toBeNull();
+    // …and says so once, at file level, rather than 1,800 times per row.
+    const notes = r.problems.filter((p) => p.field === 'first_name_th');
+    expect(notes).toHaveLength(1);
+    expect(notes[0].level).toBe('info');
+  });
+
+  it('writes only those three columns, so names already stored survive', () => {
+    const r = parseStudentsCsv(MINIMAL, ['MD']);
+    const row = toUpsertRow(r.rows[0], 'b', r.presentColumns);
+    expect('first_name_th' in row).toBe(false);
+    expect('nickname_imported' in row).toBe(false);
+    expect(row.sai_code).toBe('017');
+    expect(row.student_id).toBe('659999999-9');
+  });
+
+  it('still refuses a COMBINED name column — that one renames people', () => {
+    // No name column names nobody; one combined column would rename everybody
+    // whose surname has a space. The distinction is the whole point.
+    const combined = ['full_name,kkumail,sai', 'สมชาย ณ อยุธยา,a@kkumail.com,017'].join('\n');
+    expect(parseStudentsCsv(combined, ['MD']).fatal).toMatch(/รวมชื่อกับนามสกุล/);
+  });
+
+  it('keeps a row whose name cell is blank in a file that HAS the column', () => {
+    const gap = [HEAD, '659999999-9,,,,a@kkumail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(gap, ['MD']);
+    expect(r.rows).toHaveLength(1);          // was: skipped entirely, losing the สาย
+    expect(r.problems.some((p) => p.level === 'warn' && p.field === 'first_name_th')).toBe(true);
+  });
+});

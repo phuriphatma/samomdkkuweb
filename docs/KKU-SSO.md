@@ -53,6 +53,31 @@ Three POST endpoints, all keyed to ONE person who has just logged in:
    receipt and never written to a column — receiving it is not a reason to store
    it.
 
+## The follow-up: "then ask for only สายรหัส and get the names from SSO"
+
+Half right, and the good half has nothing to do with SSO.
+
+**Ask for less — yes, do this.** The two things ระบบบ้าน genuinely cannot derive
+are the **สายรหัส** and the **address that identifies the person**. A name is not
+one of them. So the ask to Data Analytics is now four columns —
+`kkumail, student_id, sai, major` — and 1,800 people's names never leave their
+department. `student_id` only because รุ่น is derived from it, `major` only
+because nothing can guess it. `students.first_name_th` became nullable in 0126
+to make that a legal row rather than a rejected one.
+
+**Get the names from SSO — not today.** SSO can only tell us about someone who
+has already logged in, and the integration does not exist yet (see the cost
+below). What DOES exist, since 0125, is the student editing their own name —
+which is the same "fills in on first visit" shape, needs no integration, and is
+the one field the person certainly knows. If SSO is built later it becomes an
+auto-fill for exactly this, and `students.self_edited` already guarantees it
+cannot overwrite a name someone deliberately corrected.
+
+**What you give up** by sending the short file: until a student signs in, the
+admin pane shows them as an address and a สาย with no name. That is fine for
+assigning houses and wrong for printing an event roster — so if a named list is
+needed for the onsite event, ask for the full file for that purpose.
+
 ## What it IS good for (two real wins, neither urgent)
 
 1. **A login button that proves the person is that kkumail.** Today identity

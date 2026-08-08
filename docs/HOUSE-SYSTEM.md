@@ -247,6 +247,15 @@ rung, and อาจารย์ have no login today. Adding it later is a policy
    **export CSV**.
 6. **คำขอแก้ไข** — the queue from §7.
 
+**The minimum useful row is `kkumail + สายรหัส`** (0126). `first_name_th` is
+nullable: the import file may deliberately carry no names, because the two things
+this system cannot derive are the สาย and the address, and the student types their
+own name (0125). The recommended ask is four columns —
+`kkumail, student_id, sai, major` — which keeps รุ่น and สาขา while no name leaves
+Data Analytics. A file with ONE combined "ชื่อ-สกุล" column is still refused: no
+name column names nobody, one combined column would rename everybody whose
+surname has a space.
+
 **Import/export share ONE vocabulary — the table's column names.** The export
 writes them, the importer canonicalises to them, and the friendlier spellings a
 spreadsheet arrives with (`sai`, `nickname_th`, `ชื่อ`, `อีเมล`) are aliases
