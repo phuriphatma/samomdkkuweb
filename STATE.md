@@ -226,6 +226,17 @@ archiving into it saved nothing.
 > until they have said what they found — the planned items are cheap to defer
 > and a live bug is not.
 >
+> ⚠️ **SECOND: none of the ADMIN UI shipped on 2026-08-08/09 has ever been seen
+> in a signed-in browser.** The request queue, the นักศึกษา filters, the import
+> preview table, the สาย/อาจารย์ modal, the admin landing cards and the
+> ชั้นปี choosers were verified by unit tests, live DB proofs and greps of the
+> SERVED bundle — never by a human or a driven browser behind the admin login.
+> `docs/NEXT.md` §1 has said this since 2026-08-04 and it is still true. Two of
+> this session's bugs (ปฏิเสธ doing nothing, ชื่อเล่น not syncing) were found by
+> the OWNER using the app, not by any check here. **Treat the owner's incoming
+> bug list as the missing test pass**, and consider driving the admin panes with
+> the headless-Chrome CDP approach before adding more admin UI.
+>
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
 > **Everything is shipped, deployed and verified from the SERVED bundle.**
 > Migrations applied through **0134**, 552 tests green, nothing in flight.
