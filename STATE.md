@@ -5,7 +5,12 @@ RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
 
-**Start here:** the section immediately below (what just shipped), then CURRENT DEPLOY.
+**Start here: the `## NEXT-SESSION PROMPT` at the BOTTOM of this file.** It
+carries the two things that change what you do first — the owner's pending bug
+list, and the fact that none of the admin UI has been browser-verified — plus
+the registry model, the signatures that changed, and the next work in order.
+Then come back for the section immediately below (what just shipped) and
+CURRENT DEPLOY.
 
 Shipped detail pruned out of here most recently:
 `docs/state-archive/2026-08-08-late-0128-0131.md` (0128–0131 — the cohort fix,
