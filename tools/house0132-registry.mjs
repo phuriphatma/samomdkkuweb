@@ -144,6 +144,46 @@ select 'A6. house-side save reaches ทีม SAMO', 'ok',
               then 'DRIFTED' else 'ok' end;
 reset role;
 
+-- ---- 0133: the OTHER two doors ----
+-- An admin editing in either workspace writes the placement table directly and
+-- never touches the registry. Without a mirror UP, ทีม SAMO and ระบบบ้าน drift
+-- apart the moment an admin fixes a name.
+update public.team_members set full_name = 'แก้จากทีม SAMO'
+ where id = (select mid from subj);
+insert into probe
+select 'A7. ทีม SAMO admin edit reaches the registry', 'แก้จากทีม SAMO',
+       coalesce((select p.full_name from public.people p
+                  where p.id = (select pid from subj)), '(none)');
+-- ⚠️ A COMBINED name edited in ทีม SAMO does NOT overwrite a SPLIT name in
+-- ระบบบ้าน, and must not: splitting "สมชาย ณ อยุธยา" renames a real person, which
+-- is why the CSV importer refuses a combined column and why 0132 did not split
+-- the 303 inherited names. So the guarantee here is the narrower one — the
+-- registry took the edit (A7) and ระบบบ้าน's split was left INTACT rather than
+-- mangled. Closing this properly means giving the ทีม SAMO member form the same
+-- ชื่อ/นามสกุล split, which is the next step in docs/PERSON-REGISTRY.md.
+insert into probe
+select 'A8. ระบบบ้าน split name left intact, never guessed', 'ทดสอบ0132',
+       coalesce((select s.first_name_th from public.students s
+                  where s.id = (select sid from subj)), '(none)');
+
+update public.students set major = 'MDI' where id = (select sid from subj);
+insert into probe
+select 'A9. ระบบบ้าน admin edit reaches the registry', 'MDI',
+       coalesce((select p.major from public.people p
+                  where p.id = (select pid from subj)), '(none)');
+insert into probe
+select 'B1. …and lands in ทีม SAMO', 'MDI',
+       coalesce((select m.major from public.team_members m
+                  where m.id = (select mid from subj)), '(none)');
+
+-- A brand-new placement must be linked at birth (0108's owed contract step).
+insert into public.team_members (node_id, full_name, kkumail)
+values ((select node0 from subj), 'คนใหม่ ทดสอบ', 'brandnew0133@kkumail.com');
+insert into probe values ('B2. a NEW member is linked at birth', 'linked',
+  case when exists (select 1 from public.team_members
+                     where kkumail = 'brandnew0133@kkumail.com' and person_id is not null)
+       then 'linked' else 'ORPHAN' end);
+
 insert into probe values ('D3. no duplicate humans by address', '0',
   (select count(*)::text from (
      select lower(btrim(kkumail)) from public.people
