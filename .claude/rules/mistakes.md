@@ -173,7 +173,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(34 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(35 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -209,6 +209,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "ลบสมาชิกไม่ได้" — the delete button did nothing at all, and BOTH ways it can do nothing were silent
 - "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
+- "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(11 entries)*

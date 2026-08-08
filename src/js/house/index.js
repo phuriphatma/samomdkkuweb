@@ -18,6 +18,11 @@
 // ==============================================
 import { escHtml } from '../utils.js';
 import { getUser } from '../auth.js';
+// An app-owned confirm. `window.confirm` cannot be trusted here: once Chrome's
+// "Prevent this page from creating additional dialogs" is ticked it returns
+// false forever with no UI, which is how ทีม SAMO's delete button and this
+// pane's ปฏิเสธ both came to "do nothing at all".
+import { askDelete } from '../confirm-modal.js';
 import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import {
   fetchHouses, updateHouse, fetchSais,
@@ -33,7 +38,7 @@ import {
 } from './io.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
-  cohortLabel,
+  cohortLabel, saiProblem, safeColor,
 } from './fields.js';
 
 const $ = (id) => document.getElementById(id);
@@ -170,7 +175,7 @@ function renderOverview() {
       ? `<img src="${escHtml(convertDriveUrl(h.icon_url, 200))}" alt=""
              style="width:48px;height:48px;object-fit:cover;border-radius:12px" />`
       : `<div class="d-flex align-items-center justify-content-center fw-bold"
-              style="width:48px;height:48px;border-radius:12px;background:${escHtml(h.color || '#e9ecef')};color:#fff">
+              style="width:48px;height:48px;border-radius:12px;background:${safeColor(h.color, '#e9ecef')};color:#fff">
            ${h.id}
          </div>`;
     return `
@@ -498,9 +503,14 @@ function renderRequests() {
             ${r.reason ? `<div class="small text-muted">เหตุผล: ${escHtml(r.reason)}</div>` : ''}
           </div>
           ${r.status === 'pending' ? `
-            <div class="d-flex gap-1">
-              <button class="btn btn-sm btn-success" data-req-approve="${escHtml(r.id)}">อนุมัติ</button>
-              <button class="btn btn-sm btn-outline-danger" data-req-reject="${escHtml(r.id)}">ปฏิเสธ</button>
+            <div class="d-flex flex-column gap-1" style="min-width:16rem">
+              <input type="text" class="form-control form-control-sm"
+                     data-req-note="${escHtml(r.id)}"
+                     placeholder="เหตุผล (ไม่บังคับ — นักศึกษาจะเห็นข้อความนี้)" />
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-success" data-req-approve="${escHtml(r.id)}">อนุมัติ</button>
+                <button class="btn btn-sm btn-outline-danger" data-req-reject="${escHtml(r.id)}">ปฏิเสธ</button>
+              </div>
             </div>`
     : `<span class="badge ${r.status === 'approved' ? 'bg-success' : 'bg-secondary'}">
                  ${r.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว'}</span>`}
@@ -724,7 +734,7 @@ async function onStudentSubmit(e) {
   e.preventDefault();
   const id = $('hsId').value;
   const sai = normalizeSai($('hsSai').value);
-  if (!sai.ok) { alert('สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก'); return; }
+  if (!sai.ok) { alert(saiProblem($('hsSai').value) || 'สายรหัสไม่ถูกต้อง'); return; }
   const sid = normalizeStudentId($('hsSid').value);
   const payload = {
     // Nullable since 0126 — an imported row may legitimately have no name yet.
@@ -751,7 +761,8 @@ async function onStudentDelete() {
   const id = $('hsId').value;
   const s = students.find((x) => x.id === id);
   if (!s) return;
-  if (!confirm(`ลบ “${s.full_name}” ออกจากระบบ?`)) return;
+  if (!await askDelete(s.full_name || s.kkumail,
+    'ข้อมูลบ้าน สายรหัส และสิ่งที่นักศึกษาคนนี้กรอกเองจะหายไปทั้งหมด')) return;
   try {
     await deleteStudent(id);
     modalInstance('houseStudentModal')?.hide();
@@ -843,7 +854,7 @@ async function onAdvisorSubmit(e) {
   const codes = [];
   for (const part of $('haSais').value.split(/[,\s]+/).filter(Boolean)) {
     const n = normalizeSai(part);
-    if (!n.ok || !n.value) { alert(`สายรหัส “${part}” ไม่ถูกต้อง`); return; }
+    if (!n.ok || !n.value) { alert(`สายรหัส “${part}”: ${saiProblem(part) || 'ไม่ถูกต้อง'}`); return; }
     if (!sais.some((s) => s.code === n.value)) { alert(`ไม่พบสาย ${n.value} ในระบบ`); return; }
     if (!codes.includes(n.value)) codes.push(n.value);
   }
@@ -865,7 +876,8 @@ async function onAdvisorSubmit(e) {
 async function onAdvisorDelete() {
   const id = $('haId').value;
   const a = advisors.find((x) => x.id === id);
-  if (!a || !confirm(`ลบอาจารย์ “${a.full_name}” ?`)) return;
+  if (!a) return;
+  if (!await askDelete(a.full_name, 'อาจารย์ท่านนี้จะถูกนำออกจากทุกสายที่ดูแลอยู่')) return;
   try {
     await deleteAdvisor(id);
     modalInstance('houseAdvisorModal')?.hide();
@@ -874,11 +886,27 @@ async function onAdvisorDelete() {
 }
 
 // ---------- requests ----------
+/**
+ * Approve or reject one คำขอแก้ไข.
+ *
+ * REPORTED: "ปฏิเสธ doesn't work, อนุมัติ works." It didn't, and it had TWO
+ * silent ways not to — the same pair that made the ทีม SAMO delete button look
+ * dead. The reason was collected with `prompt()`, and then:
+ *   • Chrome's "Prevent this page from creating additional dialogs" makes every
+ *     later prompt() return null instantly, with no UI, for the life of the
+ *     page — and the handler read null as "cancelled" and returned; and
+ *   • pressing OK on an EMPTY box gives '', which `|| null` turned into null
+ *     too, so an admin who had no particular reason also got nothing, and
+ *     nobody had been told a reason was mandatory.
+ * อนุมัติ worked because it never opened a dialog.
+ *
+ * The reason is now an ordinary input in the card: always visible, genuinely
+ * optional, and impossible for the browser to suppress.
+ */
 async function onDecide(id, approve) {
   const r = requests.find((x) => x.id === id);
-  if (!r) return;
-  const note = approve ? null : (prompt('เหตุผลที่ปฏิเสธ (จะแสดงให้นักศึกษาเห็น)') || null);
-  if (!approve && note === null) return;   // cancelled the prompt
+  if (!r) { setStatus('ไม่พบคำขอนี้แล้ว — กำลังโหลดใหม่', true); reload(); return; }
+  const note = document.querySelector(`[data-req-note="${CSS.escape(id)}"]`)?.value.trim() || null;
   try {
     if (approve) {
       // Apply the change first; only mark it approved if the write landed. The
@@ -888,9 +916,16 @@ async function onDecide(id, approve) {
       if (r.field === 'cohort_year') patch[r.field] = Number(r.requested_value) || null;
       else patch[r.field] = r.requested_value || null;
       if (r.field === 'sai_code') {
+        // Only the SHAPE is checked here. Whether a `sais` row exists is not our
+        // business: 0122 put "create the สาย on demand" on the students table as
+        // a trigger, so any valid 001–999 code lands. Refusing an unseen code
+        // here was a per-caller rule contradicting the table's own — the exact
+        // shape 0122 exists to stop — and it dead-ended the admin with
+        // "แก้ไขไม่ได้" and no way forward.
         const n = normalizeSai(r.requested_value);
-        if (!n.ok || !sais.some((s) => s.code === n.value)) {
-          alert(`สายรหัส “${r.requested_value}” ไม่ถูกต้อง — แก้ไขไม่ได้`); return;
+        if (!n.ok || !n.value) {
+          alert(`สายรหัส “${r.requested_value}”: ${saiProblem(r.requested_value) || 'ไม่ถูกต้อง'}`);
+          return;
         }
         patch.sai_code = n.value;
       }

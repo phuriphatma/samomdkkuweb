@@ -1040,3 +1040,55 @@ older one here was right and the new one regressed against it (class 6).
 (3) Watch for a fix that makes a loss PERMANENT: `self_edited` is exactly right
 for a deliberate edit and exactly wrong for an accidental one, so the accidental
 path has to be closed at the source.
+
+---
+
+## "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
+
+**Symptom** (as reported): *"ขอแก้ สายรหัส จาก 100 เป็น 200 … when i hit ปฏิเสธ it
+doesn't work, when i hit อนุมัติ it works"* — the house คำขอแก้ไข queue.
+
+**Cause**: the reject path collected a reason with `prompt()`:
+
+```js
+const note = approve ? null : (prompt('เหตุผลที่ปฏิเสธ …') || null);
+if (!approve && note === null) return;      // "cancelled"
+```
+
+**Two** silent exits, and the reporter could have hit either:
+1. Chrome's "Prevent this page from creating additional dialogs", once ticked,
+   makes every later `prompt()` return `null` instantly with no UI for the life
+   of the page — read here as "cancelled".
+2. Pressing OK on an EMPTY box returns `''`, which `|| null` also turns into
+   `null`. So an admin with no particular reason got the same nothing, and
+   nobody had ever been told a reason was mandatory.
+
+อนุมัติ worked for exactly one reason: it never opened a dialog.
+
+**This was already known and written down.** The identical cause is logged two
+entries above for ทีม SAMO's delete button, `my-house.js` had already replaced
+its two `prompt()`s for this reason and says so in a comment, and a scan earlier
+the same day listed "the house admin pane still uses 4 native
+`confirm()`/`prompt()` calls" as an open item — and shipped. **A hazard written
+down three times still shipped a live bug**, which is the actual lesson.
+
+**Fix**: the reason is an ordinary `<input>` in the request card — always
+visible, genuinely optional, impossible for the browser to suppress. The two
+remaining `confirm()` calls (delete student, delete advisor) now use
+`src/js/confirm-modal.js`, an app-owned dialog that always resolves and treats
+ESC / backdrop / ยกเลิก as false. It reuses `vs-staff.js`'s stacked-modal
+plumbing verbatim — both deletes open from inside an already-open modal, and
+Bootstrap gives every modal the same z-index and drops `body.modal-open` when the
+top one closes.
+
+**Where it lives now**: `src/js/confirm-modal.js`, `src/js/house/index.js`
+(`onDecide`, `onStudentDelete`, `onAdvisorDelete`).
+
+**Rules**: (1) **A native dialog is not control flow.** `confirm()` → false and
+`prompt()` → null are indistinguishable from "the browser turned them off".
+(2) When a fix is applied to one module, grep the SIBLING modules in the same
+commit — `my-house.js` was fixed and `index.js`, twenty lines away in the same
+feature, was not. (3) An open item in a scan report is not a fix; if it is a live
+silent failure on a destructive control, it is the thing to do first, not the
+thing to write down. `team/index.js` still has 9 `confirm()` calls — same fix,
+same helper.

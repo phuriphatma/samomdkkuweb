@@ -22,22 +22,12 @@ export { fetchMajors } from '../team/api.js';
 const fail = (error, msg) => { throw new Error(error?.message || msg); };
 
 // ---- settings ----
-export async function fetchSettings() {
-  const { data, error } = await dbRest('/house_settings?select=*&limit=1');
-  if (error) fail(error, 'โหลดการตั้งค่าไม่สำเร็จ');
-  return (data && data[0]) || null;
-}
-
-export async function updateSettings(patch) {
-  const { data, error } = await dbRest('/house_settings?id=eq.true', {
-    method: 'PATCH', body: patch, prefer: 'return=representation',
-  });
-  if (error) fail(error, 'บันทึกการตั้งค่าไม่สำเร็จ');
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('บันทึกการตั้งค่าไม่สำเร็จ (สิทธิ์ไม่พอ)');
-  }
-  return data[0];
-}
+// REMOVED. ระบบบ้าน has no settings left: ปีการศึกษา fed ชั้นปี (gone, 0123),
+// the roster switch gated a roster that no longer exists (0124), and the
+// สายรหัส self-edit switch bounded an edit students can no longer make (0125).
+// The `house_settings` row survives with its columns commented as vestigial;
+// nothing in the app reads or writes it. Do not re-add a reader "just in case" —
+// a settings object nobody uses is how a dead switch gets a UI again.
 
 // ---- houses ----
 export async function fetchHouses() {

@@ -196,10 +196,16 @@ export function parseStudentsCsv(text, knownMajors = []) {
 
   if (saiIdx >= 0 && !widthAudit.consistent) {
     const shape = widthAudit.widths.map((w) => `${w.width} หลัก ${w.count} แถว`).join(' · ');
-    problems.push({ line: 1, level: 'warn', field: 'sai_code',
-      message: `สายรหัสในไฟล์ยาวไม่เท่ากัน (${shape}) — โปรแกรมตารางตัดเลข 0 ข้างหน้าออก `
-        + '(เช่น 007 กลายเป็น 7) ระบบเติมศูนย์คืนให้แล้ว และบ้านไม่เปลี่ยน '
-        + 'เพราะบ้านคิดจากหลักสุดท้าย แต่แปลว่าไฟล์นี้ผ่านโปรแกรมตารางมา '
+    // NOT an alarm. Short สาย are explicitly allowed by the spec we send out
+    // ("007 ใส่เป็น 7 เฉยๆ ได้"), so the common cause of a mixed-width file is now
+    // a sender following instructions — not damage. The message says what was
+    // done and why it is safe, and mentions the spreadsheet only as the OTHER
+    // possible cause, because that one is worth a second look at the file.
+    problems.push({ line: 1, level: 'info', field: 'sai_code',
+      message: `สายรหัสในไฟล์ยาวไม่เท่ากัน (${shape}) — ระบบเติมศูนย์ข้างหน้าให้ครบ 3 หลักแล้ว `
+        + '(เช่น 7 → 007) บ้านไม่เปลี่ยน เพราะบ้านคิดจากหลักสุดท้าย '
+        + 'ถ้าตั้งใจส่งมาแบบสั้น ถือว่าถูกต้อง ไม่ต้องแก้อะไร — '
+        + 'แต่ถ้าตั้งใจส่งมาครบ 3 หลัก แปลว่าไฟล์ผ่านโปรแกรมตารางแล้วโดนตัดเลข 0 '
         + 'ควรตรวจคอลัมน์อื่นด้วย', value: '' });
   }
 

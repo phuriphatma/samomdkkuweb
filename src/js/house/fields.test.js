@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeSai, houseOf, houseLabel, auditSaiWidths, cleanCell, cleanSpace,
   normalizeKkumail, joinName, blankish, SAI_RE, HOUSE_COUNT,
-  cohortLabel, cohortFromStudentId,
+  cohortLabel, cohortFromStudentId, saiProblem, safeColor,
 } from './fields.js';
 
 describe('normalizeSai — three digits, zero-padded', () => {
@@ -249,5 +249,36 @@ describe('000 is not a สายรหัส — it is a blank cell a spreadshee
       expect(n.value).toBe(want);
       expect(houseOf(n.value)).toBe(0);
     }
+  });
+});
+
+describe('saiProblem — the message a person can act on', () => {
+  it('names the blank-cell-filled-with-zero case specifically', () => {
+    expect(saiProblem('0')).toMatch(/000 ไม่มีอยู่จริง/);
+    expect(saiProblem('000')).toMatch(/โปรแกรมตาราง/);
+  });
+  it('distinguishes too-long from unreadable', () => {
+    expect(saiProblem('1234')).toMatch(/ยาวเกิน 3 หลัก/);
+    expect(saiProblem('abc')).toMatch(/1–3 หลัก/);
+  });
+  it('says nothing about a สาย that is fine', () => {
+    expect(saiProblem('7')).toBeNull();
+    expect(saiProblem('017')).toBeNull();
+    expect(saiProblem('')).toBeNull();
+  });
+});
+
+describe('safeColor — houses.color lands in a style attribute', () => {
+  it('passes a hex colour through', () => {
+    expect(safeColor('#105922')).toBe('#105922');
+    expect(safeColor('#FFF')).toBe('#FFF');
+  });
+  it('refuses anything that could carry a second declaration', () => {
+    // escHtml stops the ATTRIBUTE being broken out of; it does not stop
+    // `#fff;background:url(...)` from being valid CSS inside it.
+    expect(safeColor('#fff;background:url(x)')).toBeNull();
+    expect(safeColor('red')).toBeNull();
+    expect(safeColor('')).toBeNull();
+    expect(safeColor(null, '#e9ecef')).toBe('#e9ecef');
   });
 });

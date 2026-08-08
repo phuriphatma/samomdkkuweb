@@ -39,7 +39,7 @@ import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
 } from './api.js';
 import {
-  houseLabel, normalizeSai, cohortLabel, normalizeStudentId,
+  houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
 } from './fields.js';
 
 // Cached per signed-in uid, so an in-place account switch cannot show the
@@ -118,16 +118,6 @@ function detailsHtml(rec) {
     </div>`;
   }).join('');
   return `<dl class="myseat-details">${rows}</dl>`;
-}
-
-/** A colour that is safe to interpolate into a `style` attribute.
- *  escHtml stops the attribute being broken out of, but not `#fff;background:…`
- *  — and `houses.color` is written through the API, not only by the
- *  `<input type="color">` that normally sets it. Anything not a plain hex
- *  colour falls back to the brand default. */
-function safeColor(c) {
-  const v = String(c ?? '').trim();
-  return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
 }
 
 function crestHtml(rec) {
@@ -488,7 +478,10 @@ function wireCard(host, rec) {
     if (field === 'sai_code') {
       const n = normalizeSai(requested);
       if (!n.ok || !n.value) {
-        if (status) { status.textContent = 'สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก'; status.classList.add('is-error'); }
+        if (status) {
+          status.textContent = saiProblem(requested) || 'สายรหัสไม่ถูกต้อง';
+          status.classList.add('is-error');
+        }
         requestedEl.focus();
         return;
       }

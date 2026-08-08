@@ -99,6 +99,36 @@ export function houseOf(saiCode) {
   return Number(s[s.length - 1]);
 }
 
+/**
+ * Why a สายรหัส was refused, in words a person can act on.
+ *
+ * `normalizeSai` returns a boolean; every caller that shows a message was
+ * spelling its own, and they had drifted — an all-zero value produced
+ * "ต้องเป็นตัวเลขไม่เกิน 3 หลัก", which is both wrong (it IS three digits) and
+ * unhelpful (the real cause is an empty cell a spreadsheet filled in).
+ */
+export function saiProblem(raw) {
+  const n = normalizeSai(raw);
+  if (n.ok) return null;
+  const digits = arabicDigits(String(raw ?? '').trim()).replace(/\D/g, '');
+  if (digits && /^0+$/.test(digits)) {
+    return 'สายรหัส 000 ไม่มีอยู่จริง — สายเริ่มที่ 001 '
+      + '(ค่านี้มักเกิดจากช่องว่างที่โปรแกรมตารางเติมเลข 0 ให้)';
+  }
+  if (digits.length > 3) return 'สายรหัสยาวเกิน 3 หลัก';
+  return 'สายรหัสต้องเป็นตัวเลข 1–3 หลัก เช่น 7 หรือ 007';
+}
+
+/** A colour safe to interpolate into a `style` attribute. escHtml stops the
+ *  attribute being broken out of, but not `#fff;background:url(…)` — and
+ *  `houses.color` is written through the API, not only by the `<input
+ *  type="color">` that normally sets it. Anything that is not a plain hex colour
+ *  falls back to the caller's default. */
+export function safeColor(c, fallback = null) {
+  const v = String(c ?? '').trim();
+  return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : fallback;
+}
+
 /** Display name for a house that may not have been named yet. */
 export function houseLabel(id, name) {
   const n = String(name ?? '').trim();

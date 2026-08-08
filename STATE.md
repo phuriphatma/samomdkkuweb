@@ -232,10 +232,11 @@ archiving into it saved nothing.
 > Open, none blocking:
 > 1. **Rotate the VM sudo password** and **the KKU SSO client secret** (both were
 >    exposed in chat transcripts on 2026-08-07 / 08-08).
-> 2. **The house ADMIN pane still uses 4 native `confirm()`/`prompt()` calls**
->    (`index.js`: delete student, delete advisor, reject-reason, สาย validation).
->    Same suppressible-dialog class that made the ทีม SAMO delete button look
->    dead; `team/index.js` has 8 more. One app-owned modal fixes both.
+> 2. **`team/index.js` still has 9 native `confirm()` calls.** `src/js/confirm-modal.js`
+>    (`askConfirm` / `askDelete`) exists now and ระบบบ้าน uses it — converting
+>    ทีม SAMO is mechanical and is the next thing to do. This is not theoretical:
+>    the same class shipped a live bug in ระบบบ้าน's ปฏิเสธ button on 2026-08-08
+>    AFTER being listed as an open item, which is why it is worth doing now.
 > 3. **`students.self_edited` is invisible to admins** — not in `STUDENT_COLS`,
 >    not in the CSV export. An admin cannot see which fields a student owns, and
 >    a backup/restore loses it. Harmless today (admin edits win regardless).

@@ -57,8 +57,12 @@ describe('parseStudentsCsv — REFUSES the files that corrupt silently', () => {
     expect(r.fatal).toBeNull();
     expect(r.rows.map((x) => x.sai_code)).toEqual(['017', '003']);
     expect(r.rows.map((x) => x._house)).toEqual([7, 3]);
-    // …but it still says the file went through a spreadsheet.
-    expect(r.problems.some((p) => p.level === 'warn' && /ยาวไม่เท่ากัน/.test(p.message))).toBe(true);
+    // …and still says what it did, as INFO not a warning: short สาย are
+    // explicitly allowed by the spec we send out, so the common cause of a
+    // mixed-width file is a sender following instructions, not damage.
+    const note = r.problems.find((p) => /ยาวไม่เท่ากัน/.test(p.message));
+    expect(note.level).toBe('info');
+    expect(note.message).toMatch(/ถ้าตั้งใจส่งมาแบบสั้น ถือว่าถูกต้อง/);
   });
 
   it('refuses a file that is not UTF-8 — the Thai names are already gone', () => {
