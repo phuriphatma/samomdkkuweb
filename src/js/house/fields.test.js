@@ -3,6 +3,7 @@ import {
   normalizeSai, houseOf, houseLabel, auditSaiWidths, cleanCell, cleanSpace,
   normalizeKkumail, joinName, blankish, SAI_RE, HOUSE_COUNT,
   cohortLabel, cohortFromStudentId, saiProblem, safeColor,
+  academicYear, studyYear, studyYearLabel, offsetForPickedYear,
 } from './fields.js';
 
 describe('normalizeSai — three digits, zero-padded', () => {
@@ -280,5 +281,84 @@ describe('safeColor — houses.color lands in a style attribute', () => {
     expect(safeColor('red')).toBeNull();
     expect(safeColor('')).toBeNull();
     expect(safeColor(null, '#e9ecef')).toBe('#e9ecef');
+  });
+});
+
+describe('ชั้นปี — a DIFFERENCE is stored, the year is derived', () => {
+  // ASKED FOR: persist both รุ่น and ปี. The answer is to persist รุ่น and the
+  // GAP, because a stored ชั้นปี is right for one August and silently wrong
+  // every August after — the same fill-once failure 0128 fixed on cohort_year
+  // and 0129 dropped from year_override.
+  const AUG_2026 = new Date('2026-08-15T00:00:00Z');   // ปีการศึกษา 2569
+  const JUN_2026 = new Date('2026-06-15T00:00:00Z');   // still 2568
+  const AUG_2027 = new Date('2027-08-15T00:00:00Z');   // 2570
+
+  it('rolls the ปีการศึกษา over in สิงหาคม, not in January', () => {
+    expect(academicYear(AUG_2026)).toBe(2569);
+    expect(academicYear(JUN_2026)).toBe(2568);
+    expect(academicYear(new Date('2026-07-31T00:00:00Z'))).toBe(2568);
+    expect(academicYear(new Date('2026-08-01T00:00:00Z'))).toBe(2569);
+  });
+
+  it('counts a normal student from their ปีที่เข้า', () => {
+    // MD50 entered 2565 → ปี 5 in 2569.
+    expect(studyYearLabel({ cohort_year: 2565 }, AUG_2026)).toBe('ปี 5');
+    expect(studyYearLabel({ student_id: '659999999-9' }, AUG_2026)).toBe('ปี 5');
+  });
+
+  it('advances everyone by one the next August, with nothing stored changing', () => {
+    // THE POINT. Same row, no write, correct answer a year later.
+    const rec = { cohort_year: 2565 };
+    expect(studyYearLabel(rec, AUG_2026)).toBe('ปี 5');
+    expect(studyYearLabel(rec, AUG_2027)).toBe('ปี 6');
+  });
+
+  it('keeps a ลาพัก student correct in EVERY later year — the whole reason for an offset', () => {
+    // A stored `year = 4` would be right in 2569 and wrong in 2570. The offset
+    // is right in both, forever, with no maintenance.
+    const rec = { cohort_year: 2565, year_offset: -1 };
+    expect(studyYearLabel(rec, AUG_2026)).toBe('ปี 4');
+    expect(studyYearLabel(rec, AUG_2027)).toBe('ปี 5');
+  });
+
+  it('is not bounded — two years behind, or ahead, both work', () => {
+    expect(studyYearLabel({ cohort_year: 2565, year_offset: -2 }, AUG_2026)).toBe('ปี 3');
+    expect(studyYearLabel({ cohort_year: 2565, year_offset: -4 }, AUG_2026)).toBe('ปี 1');
+    expect(studyYearLabel({ cohort_year: 2565, year_offset: 1 }, AUG_2026)).toBe('ปี 6');
+  });
+
+  it('says จบแล้ว past ปี 6 instead of inventing a ปี 7', () => {
+    // A graduation signal out of the arithmetic — no `status` column to keep
+    // current (0120 dropped that one for the same reason).
+    expect(studyYearLabel({ cohort_year: 2563 }, AUG_2026)).toBe('จบแล้ว');
+    expect(studyYearLabel({ cohort_year: 2565, year_offset: 3 }, AUG_2026)).toBe('จบแล้ว');
+  });
+
+  it('has NO ชั้นปี for someone with no ปีที่เข้า — never a guess', () => {
+    // A shared department account, or a member whose รหัส has not been filled
+    // in. The honest answer is nothing; the tempting one is "ปี 1".
+    expect(studyYearLabel({}, AUG_2026)).toBeNull();
+    expect(studyYearLabel({ student_id: 'not-a-รหัส' }, AUG_2026)).toBeNull();
+    expect(studyYear({}, AUG_2026)).toBeNull();
+  });
+
+  it('turns a PICKED year into the gap, and an unchanged pick into null', () => {
+    const rec = { cohort_year: 2565 };                 // computes to ปี 5
+    expect(offsetForPickedYear(rec, 5, AUG_2026)).toBeNull();   // no adjustment
+    expect(offsetForPickedYear(rec, 4, AUG_2026)).toBe(-1);
+    expect(offsetForPickedYear(rec, 2, AUG_2026)).toBe(-3);
+    expect(offsetForPickedYear(rec, 6, AUG_2026)).toBe(1);
+  });
+
+  it('computes the gap against the UNADJUSTED year, so re-picking is stable', () => {
+    // The trap: computing the offset from the already-offset value would make
+    // every save compound the previous one — pick ปี 4 twice and land on ปี 3.
+    const rec = { cohort_year: 2565, year_offset: -1 };  // shows ปี 4
+    expect(offsetForPickedYear(rec, 4, AUG_2026)).toBe(-1);     // unchanged
+    expect(offsetForPickedYear(rec, 5, AUG_2026)).toBeNull();   // back to normal
+  });
+
+  it('cannot produce an offset for a row with no ปีที่เข้า', () => {
+    expect(offsetForPickedYear({}, 4, AUG_2026)).toBeNull();
   });
 });

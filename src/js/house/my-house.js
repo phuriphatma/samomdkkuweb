@@ -26,12 +26,16 @@
 //     it will appear". Listeners now go on the nodes THIS paint created, which
 //     the next `innerHTML =` throws away with them.
 //
-// NO ชั้นปี, AND NO ยืนยันข้อมูล. Both were data we do not need: ชั้นปี needs a
-// clock and is wrong for anyone who ลาพัก / เรียนซ้ำ / จบช้า, so the card shows
-// รุ่น (MD50) — a fact fixed at admission and readable off the รหัสนักศึกษา (see
-// cohortLabel in ./fields.js). "ข้อมูลถูกต้อง" collected a timestamp nobody was
-// ever going to act on. Migration 0123 removed both from the RPCs so no caller
-// can put them back by accident.
+// รุ่น AND ชั้นปี, and neither is stored as a display value. รุ่น (MD50) is fixed
+// at admission and read off the รหัสนักศึกษา; ชั้นปี is COMPUTED from it every
+// time it is rendered (0131). What the student may store is `year_offset` — the
+// GAP, for ลาพัก / เรียนซ้ำ / จบช้า — which stays correct in every later year
+// with no maintenance. A stored ชั้นปี would be right for one August and
+// silently wrong every August after, which is why 0123 removed it and 0129
+// dropped the column; this is the same conclusion with the durable shape.
+//
+// NO ยืนยันข้อมูล, still: it collected a timestamp nobody was ever going to act
+// on, and 0123 removed it from the RPCs so no caller can put it back.
 // ==============================================
 import { escHtml } from '../utils.js';
 import { convertDriveUrl } from '../uploads.js';
@@ -40,6 +44,7 @@ import {
 } from './api.js';
 import {
   houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
+  studyYear, studyYearLabel, offsetForPickedYear,
 } from './fields.js';
 
 // Cached per signed-in uid, so an in-place account switch cannot show the
@@ -88,6 +93,11 @@ export const HOUSE_DETAIL_FIELDS = [
   { key: 'nickname', label: 'ชื่อเล่น', self: true },
   { key: 'student_id', label: 'รหัสนักศึกษา', self: true },
   { key: 'cohort', label: 'รุ่น', value: (r) => cohortLabel(r) },
+  // ชั้นปี is DERIVED from the รหัส above plus `year_offset`, never stored as a
+  // number (0131) — a stored ชั้นปี is right for one August and silently wrong
+  // every August after. `self` because ลาพัก / เรียนซ้ำ is the person's own fact
+  // and only they know it; what the chooser saves is the GAP, not the year.
+  { key: 'study_year', label: 'ชั้นปี', value: (r) => studyYearLabel(r), self: true },
   { key: 'major', label: 'สาขา', self: true },
   { key: 'sai', label: 'สายรหัส' },
   { key: 'house', label: 'บ้าน', value: (r) => (r.house_id === null || r.house_id === undefined
@@ -309,6 +319,7 @@ function editFormHtml(rec) {
           <span>สาขา</span>
           <select name="major" data-house-majors>${majorOptionsHtml(rec.major)}</select>
         </label>
+        ${studyYearFieldHtml(rec)}
         <label class="myseat-field myseat-field--locked is-wide">
           <span>สายรหัส</span>
           <input type="text" value="${escHtml(rec.sai || '')}" readonly />
@@ -324,6 +335,52 @@ function editFormHtml(rec) {
         <span class="myseat-edit-status" data-house-status role="status"></span>
       </div>
     </form>`;
+}
+
+/**
+ * The ชั้นปี chooser — shows years, saves the GAP.
+ *
+ * The person picks "ปี 4" like any other form. What is written is
+ * `year_offset = picked − computed`, so a ลาพัก student sets it once and is
+ * still right in 2570 and 2575 — where a stored `year = 4` would be right for
+ * one August and quietly wrong every August after. That is the same fill-once
+ * failure 0128 fixed on `cohort_year` and 0129 dropped from `year_override`;
+ * the difference here is that the UI does not expose it, so nobody has to
+ * understand an offset to use the box.
+ *
+ * The FIRST option is "ตามที่ระบบคำนวณ", and it stores null rather than 0 —
+ * "no adjustment" and "an adjustment of nothing" are the same to a reader, and
+ * only the first leaves `self_edited` honest.
+ *
+ * NO ปีที่เข้า, NO CHOOSER. There is nothing to count from, so the box is
+ * disabled and says which field to fill in instead — a chooser that silently
+ * writes an absolute year for these rows is exactly the column 0129 removed.
+ */
+function studyYearFieldHtml(rec) {
+  const computed = studyYear({ ...rec, year_offset: 0 });
+  if (computed === null) {
+    return `
+      <label class="myseat-field myseat-field--locked">
+        <span>ชั้นปี</span>
+        <input type="text" value="—" readonly />
+        <em class="myseat-field-hint">กรอกรหัสนักศึกษาก่อน ระบบจะคำนวณชั้นปีให้เอง</em>
+      </label>`;
+  }
+  const current = studyYear(rec);
+  const opts = [1, 2, 3, 4, 5, 6].map((y) => `<option value="${y}"${
+    y === current ? ' selected' : ''}>ปี ${y}</option>`).join('');
+  return `
+    <label class="myseat-field">
+      <span>ชั้นปี</span>
+      <select name="study_year">
+        <option value=""${rec.year_offset ? '' : ' selected'}>ตามที่ระบบคำนวณ (ปี ${computed})</option>
+        ${opts}
+      </select>
+      <em class="myseat-field-hint">
+        ปกติไม่ต้องแก้ — ระบบเลื่อนชั้นปีให้เองทุกปีจากรหัสนักศึกษา
+        เลือกเองเฉพาะกรณีลาพัก เรียนซ้ำ หรือจบช้า แล้วระบบจะจำส่วนต่างไว้ให้ตลอด
+      </em>
+    </label>`;
 }
 
 /**
@@ -530,6 +587,19 @@ function wireCard(host, rec) {
       student_id: sid.value || '',
       major: val('major'),
     };
+    // ชั้นปี → the GAP. Computed against the รหัส IN THE FORM, not the stored
+    // one: the same submit may be changing the รหัส, and the database re-derives
+    // `cohort_year` from the new value (0128) — so measuring the gap against the
+    // old cohort would store an offset that is wrong the instant it lands.
+    const yearSel = editForm.querySelector('[name="study_year"]');
+    if (yearSel) {
+      const basis = sid.value && sid.value !== rec.student_id
+        ? { student_id: sid.value }          // cohort_year deliberately absent
+        : rec;
+      patch.year_offset = yearSel.value
+        ? String(offsetForPickedYear(basis, yearSel.value) ?? '')
+        : '';
+    }
     if (status) { status.textContent = 'กำลังบันทึก…'; status.classList.remove('is-error'); }
     if (btn) btn.disabled = true;
     try {

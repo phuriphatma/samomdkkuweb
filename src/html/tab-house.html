@@ -54,19 +54,22 @@
     <h6 class="text-muted small text-uppercase mb-2">นักศึกษาแก้อะไรเองได้บ้าง</h6>
     <div class="card">
       <div class="card-body">
-        <!-- No "ปีการศึกษาปัจจุบัน" here any more: its ONLY job was computing
-             ชั้นปี, and ระบบบ้าน now shows รุ่น (MD50), which is fixed at
-             admission and needs no clock. A setting that changes nothing is
-             worse than no setting. -->
+        <!-- Still NO "ปีการศึกษาปัจจุบัน" setting, even though ชั้นปี is back
+             (0131). ปีการศึกษา comes from the clock, rolling over in สิงหาคม —
+             a setting somebody has to change every August is a setting that is
+             forgotten every August. -->
         <div class="row g-3 align-items-end">
           <div class="col-12">
             <div class="small text-muted">
               <i class="bi bi-info-circle"></i>
-              นักศึกษาแก้ได้เองเฉพาะ <strong>ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา</strong>
+              นักศึกษาแก้ได้เองเฉพาะ <strong>ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา · ชั้นปี</strong>
               (สาขาเลือกจากรายการเท่านั้น) — <strong>สายรหัสแก้เองไม่ได้</strong>
               ถ้าของใครผิด เขาจะกด “แจ้งข้อมูลไม่ถูกต้อง” แล้วคำขอจะมาโผล่ที่แท็บ
               <strong>คำขอแก้ไข</strong> ให้อนุมัติ
               <br />การนำเข้าไฟล์รอบถัดไปจะ<strong>ไม่ทับ</strong>ช่องที่เจ้าตัวแก้เองไว้แล้ว
+              <br /><strong>ชั้นปีเลื่อนให้เองทุกเดือนสิงหาคม</strong> โดยคำนวณจากรหัสนักศึกษา
+              ไม่ต้องมาไล่แก้รายคน — ใครลาพักหรือเรียนซ้ำ เลือกชั้นปีที่ถูกไว้ครั้งเดียว
+              ระบบจะจำ<strong>ส่วนต่าง</strong>ไว้ แล้วเลื่อนให้ถูกต้องในปีถัดๆ ไปเอง
             </div>
             <!-- The "ให้นักศึกษาเห็นรายชื่อเพื่อนร่วมบ้าน" switch is gone (0124).
                  ระบบบ้าน no longer publishes any student to any other student:
@@ -128,7 +131,7 @@
         <thead>
           <tr>
             <th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
-            <th>kkumail</th><th>สาขา</th><th>รุ่น</th><th>สาย</th><th>บ้าน</th><th></th>
+            <th>kkumail</th><th>สาขา</th><th>รุ่น</th><th>ชั้นปี</th><th>สาย</th><th>บ้าน</th><th></th>
           </tr>
         </thead>
         <tbody id="houseStudentRows"></tbody>
@@ -293,6 +296,16 @@
               <label class="form-label small" for="hsSai">สายรหัส</label>
               <input class="form-control form-control-sm" id="hsSai" placeholder="017" />
               <div class="form-text" id="hsHouseHint">&nbsp;</div>
+            </div>
+            <!-- ชั้นปี is DERIVED and this chooser saves the DIFFERENCE (0131).
+                 It is not a stored year: `year_override` was, 0129 dropped it,
+                 and the reason is that a stored ชั้นปี is right for one August
+                 and silently wrong every August after — for exactly the people
+                 whose situation is unusual enough that nobody re-checks. -->
+            <div class="col-6">
+              <label class="form-label small" for="hsYear">ชั้นปี</label>
+              <select class="form-select form-select-sm" id="hsYear"></select>
+              <div class="form-text" id="hsYearHint">&nbsp;</div>
             </div>
             <!-- No "ล็อกสายรหัส" checkbox any more (0125): a student cannot edit
                  their own สายรหัส at all, so there is nothing left to lock. The

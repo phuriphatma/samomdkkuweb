@@ -10,7 +10,7 @@
 import { parseCsv } from '../team/io.js';
 import {
   normalizeSai, normalizeStudentId, normalizeMajor, normalizeKkumail,
-  auditSaiWidths, cleanCell, cleanSpace, houseOf, cohortLabel,
+  auditSaiWidths, cleanCell, cleanSpace, houseOf, cohortLabel, studyYearLabel,
 } from './fields.js';
 
 /**
@@ -516,7 +516,8 @@ const csvCell = (v) => {
  */
 export const EXPORT_COLUMNS = [
   'kkumail', 'student_id', 'first_name_th', 'last_name_th',
-  'nickname', 'major', 'sai_code', 'house', 'cohort',
+  'nickname', 'major', 'sai_code', 'house', 'cohort', 'study_year',
+  'year_offset',
 ];
 
 /** Values the export computes rather than reads. Kept beside the column list
@@ -524,6 +525,12 @@ export const EXPORT_COLUMNS = [
 const EXPORT_DERIVED = {
   house: (r) => houseOf(r.sai_code) ?? '',
   cohort: (r) => cohortLabel(r) ?? '',
+  // ชั้นปี as of the moment the file is written — a snapshot, like `house`.
+  // `year_offset` travels beside it as the DURABLE half: the label is what a
+  // human reads, the offset is what would have to be restored. The importer has
+  // no alias for either, so both round-trip as ignored columns and a re-import
+  // cannot clear the offset it did not carry.
+  study_year: (r) => studyYearLabel(r) ?? '',
   // The effective nickname, in case the caller passed rows that carry only the
   // two source columns (the generated one is normally present).
   nickname: (r) => r.nickname

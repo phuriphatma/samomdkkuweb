@@ -183,7 +183,7 @@ export async function removeSaiAdvisor(saiCode, advisorId) {
 const STUDENT_COLS = [
   'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',
   'nickname', 'nickname_imported', 'nickname_self', 'major', 'sai_code',
-  'cohort_year', 'photo_url', 'bio', 'missing_since', 'updated_at',
+  'cohort_year', 'year_offset', 'photo_url', 'bio', 'missing_since', 'updated_at',
 ].join(',');
 
 export async function fetchStudents() {

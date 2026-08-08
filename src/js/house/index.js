@@ -40,6 +40,7 @@ import {
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
+  studyYear, studyYearLabel, offsetForPickedYear,
 } from './fields.js';
 
 const $ = (id) => document.getElementById(id);
@@ -286,6 +287,9 @@ function renderStudents() {
           <td class="small">${escHtml(s.kkumail || '')}</td>
           <td>${escHtml(s.major || '')}</td>
           <td>${escHtml(cohortOf(s) || '—')}</td>
+          <td>${escHtml(studyYearLabel(s) || '—')}${
+  s.year_offset ? ' <i class="bi bi-pencil-fill text-muted small"' 
+    + ' title="ปรับชั้นปีไว้เอง (ลาพัก/เรียนซ้ำ)"></i>' : ''}</td>
           <td>${escHtml(s.sai_code || '—')}</td>
           <td>${h === null || h === undefined ? '—' : escHtml(houseName(h))}</td>
           <td class="text-end"><i class="bi bi-pencil text-muted"></i></td>
@@ -1110,7 +1114,51 @@ function openStudentModal(id) {
   $('hsDelete').classList.toggle('d-none', !s);
   updateHouseHint();
   updateCohortHint();
+  paintYearChooser(s);
   modalInstance('houseStudentModal')?.show();
+}
+
+/**
+ * The ชั้นปี chooser — shows years, saves the DIFFERENCE.
+ *
+ * Same rule and same wording as the student's own card: the admin picks "ปี 4",
+ * the app stores `picked − computed`, and the row stays right in every later
+ * August with nobody editing it. A stored ชั้นปี (`year_override`, dropped in
+ * 0129) is right once and wrong thereafter.
+ *
+ * Repainted whenever the รหัสนักศึกษา changes, because the รหัส IS the base —
+ * leaving a stale "ตามที่ระบบคำนวณ (ปี 5)" next to a รหัส that now computes to
+ * ปี 2 would make the admin store a −3 they never intended.
+ */
+function paintYearChooser(s) {
+  const sel = $('hsYear');
+  const hint = $('hsYearHint');
+  if (!sel) return;
+  // The รหัส as it stands IN THE FORM, not as stored: the same save may be
+  // changing it, and 0128 re-derives cohort_year from the new value.
+  const typed = ($('hsSid')?.value || '').trim();
+  const basis = { student_id: typed };
+  const computed = studyYear({ ...basis, year_offset: 0 });
+  if (computed === null) {
+    sel.innerHTML = '<option value="">— ไม่มีรหัสนักศึกษา —</option>';
+    sel.disabled = true;
+    if (hint) { hint.className = 'form-text'; hint.textContent = 'ใส่รหัสนักศึกษาแล้วระบบจะคำนวณชั้นปีให้'; }
+    return;
+  }
+  sel.disabled = false;
+  // The offset only carries over while the รหัส is unchanged — a different
+  // person's รหัส makes the stored gap meaningless.
+  const off = typed === (s?.student_id || '') ? (s?.year_offset ?? null) : null;
+  const current = studyYear({ ...basis, year_offset: off });
+  sel.innerHTML = `<option value=""${off ? '' : ' selected'}>ตามที่ระบบคำนวณ (ปี ${computed})</option>`
+    + [1, 2, 3, 4, 5, 6].map((y) => `<option value="${y}"${
+      y === current ? ' selected' : ''}>ปี ${y}</option>`).join('');
+  if (hint) {
+    hint.className = 'form-text';
+    hint.textContent = off
+      ? 'ปรับไว้เอง — ระบบจะเลื่อนชั้นปีให้ตามส่วนต่างนี้ทุกปี'
+      : 'เลื่อนให้อัตโนมัติทุกสิงหาคม เลือกเองเฉพาะกรณีลาพัก/เรียนซ้ำ';
+  }
 }
 
 /**
@@ -1169,6 +1217,13 @@ async function onStudentSubmit(e) {
   // it goes to the imported slot (the student's own nickname_self still wins if
   // they ever set one — that precedence is the whole point of the pair).
   payload.nickname_imported = $('hsNick').value.trim() || null;
+  // ชั้นปี → the GAP, measured against the รหัส being SAVED (0131). Sending a
+  // year here instead would put a second implementation of the derivation on
+  // the server and rot the row every August.
+  const picked = $('hsYear')?.value;
+  payload.year_offset = picked
+    ? offsetForPickedYear({ student_id: sid.value }, picked)
+    : null;
   try {
     if (id) await updateStudent(id, payload);
     else await createStudent(payload);
@@ -1417,7 +1472,13 @@ function wire() {
   $('houseStudentForm')?.addEventListener('submit', onStudentSubmit);
   $('hsDelete')?.addEventListener('click', onStudentDelete);
   $('hsSai')?.addEventListener('input', updateHouseHint);
-  $('hsSid')?.addEventListener('input', updateCohortHint);
+  $('hsSid')?.addEventListener('input', () => {
+    updateCohortHint();
+    // The รหัส is the base the offset is measured from, so the chooser has to
+    // follow it — a stale "ตามที่ระบบคำนวณ (ปี 5)" beside a รหัส that now says
+    // ปี 2 would store a −3 nobody chose.
+    paintYearChooser(students.find((x) => x.id === $('hsId').value) || null);
+  });
 
   $('houseCards')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-house-edit]');

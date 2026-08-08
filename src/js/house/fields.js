@@ -197,6 +197,92 @@ export function cohortLabel({ cohort_year: cohort, student_id: sid } = {}) {
 }
 
 /**
+ * ชั้นปี — DERIVED, every time, from facts that do not rot.
+ *
+ * `ชั้นปี = ปีการศึกษา − ปีที่เข้า + 1 + year_offset`
+ *
+ * WHY IT IS NOT STORED. A stored ชั้นปี is correct for one academic year and
+ * silently wrong forever after — and wrong for exactly the people whose
+ * situation is unusual enough that nobody re-checks it. `students.year_override`
+ * was that column; 0129 dropped it, and `team_members.year` is still that column
+ * (399 rows, and nothing anywhere in this repo has ever bumped it — verified by
+ * grep, so every August all 399 quietly become last year's answer).
+ *
+ * WHAT IS STORED INSTEAD is `year_offset`, a DIFFERENCE (0131). `-1` means
+ * "permanently one year behind their รุ่น" — ลาพัก, เรียนซ้ำ — and it stays
+ * correct in 2570 and 2575 with no maintenance. That is the entire argument for
+ * the shape: the offset is a property of the person, the year is a property of
+ * the person AND the calendar, and only the first is safe to write down.
+ *
+ * THIS IS THE ONLY IMPLEMENTATION. There is deliberately no SQL twin: nothing
+ * server-side gates on ชั้นปี, so SQL stores the ingredients and this does the
+ * arithmetic. Two implementations of one rule is the class this repo pays for
+ * most, and the cheapest way to not have it is to not write the second one.
+ */
+
+/** ปีการศึกษา rolls over in สิงหาคม. A CONSTANT, not a settings row: a setting
+ *  somebody must change every August is a setting that is forgotten every
+ *  August, and an override that pins the value is the same fill-once failure
+ *  0128 and 0129 both exist to undo. If the faculty's calendar ever disagrees,
+ *  this line changes once — in review, not in a form. */
+export const ACADEMIC_YEAR_ROLLOVER_MONTH = 8;
+
+/** The current ปีการศึกษา in พ.ศ. `now` is injectable so the tests can stand at
+ *  a date instead of asserting against whenever they happen to run. */
+export function academicYear(now = new Date()) {
+  const be = now.getFullYear() + 543;
+  return now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? be : be - 1;
+}
+
+/**
+ * The raw ชั้นปี number. May be > 6 or < 1 — the caller decides how to read
+ * that; see studyYearLabel.
+ *
+ * @returns {number|null} null when there is no ปีที่เข้า to count from, which is
+ *   the honest answer for a shared department account or a row whose
+ *   รหัสนักศึกษา has not been filled in yet.
+ */
+export function studyYear({ cohort_year: cohort, student_id: sid, year_offset: off } = {},
+  now = new Date()) {
+  const c = cohort || cohortFromStudentId(sid);
+  if (!c) return null;
+  return academicYear(now) - Number(c) + 1 + (Number(off) || 0);
+}
+
+/**
+ * ชั้นปี as a person reads it.
+ *
+ * Out-of-range is rendered, not clamped: `year_offset` is deliberately
+ * unbounded (0131), so the guard against an absurd value belongs here, at the
+ * one place that turns a number into words. Above ปี 6 the honest word is
+ * "จบแล้ว" — which also makes a graduation signal fall out of the arithmetic
+ * with no `status` column to keep current (0120 dropped that one).
+ */
+export function studyYearLabel(rec, now = new Date()) {
+  const n = studyYear(rec, now);
+  if (n === null || n < 1) return null;
+  return n > 6 ? 'จบแล้ว' : `ปี ${n}`;
+}
+
+/**
+ * Turn a ชั้นปี a HUMAN PICKED into the offset to store.
+ *
+ * The chooser shows real years (1–6) because that is what people think in; what
+ * it saves is the gap between the pick and the computation. Picking exactly the
+ * computed year stores null — "no adjustment" — rather than 0, so `self_edited`
+ * never claims an edit that no reader could see.
+ *
+ * @returns {number|null} the offset, or null for "exactly as computed".
+ */
+export function offsetForPickedYear(rec, picked, now = new Date()) {
+  const base = studyYear({ ...rec, year_offset: 0 }, now);
+  const want = Number(picked);
+  if (base === null || !Number.isFinite(want)) return null;
+  const diff = want - base;
+  return diff === 0 ? null : diff;
+}
+
+/**
  * ปีที่เข้า (พ.ศ.) from the first two digits of รหัสนักศึกษา.
  * Mirrors `public.cohort_from_student_id`, INCLUDING its 2540–2580 window —
  * 0118 tightened that because 2500+99 was inside the original bound, so a

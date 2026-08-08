@@ -95,12 +95,45 @@ describe('renderMyHouse', () => {
     expect(el.innerHTML).toContain('somebody@kkumail.com');
   });
 
-  it('labels the cohort as รุ่น MD50, never as a ชั้นปี', () => {
+  it('shows รุ่น and ชั้นปี as SEPARATE facts, never one relabelled as the other', () => {
+    // This test used to assert ชั้นปี was absent entirely (0123 removed it
+    // because a STORED ชั้นปี rots). 0131 brings it back as a DERIVED value, at
+    // the owner's request — "it's easier to visualized by like ปี 4 than MDxx".
+    // The two are different facts and the ลาพัก case is what separates them:
+    // someone who paused a year is still MD50 and is now studying ปี 4.
     const el = host();
     renderMyHouse(el, recWith());
-    expect(el.innerHTML).toContain('MD50');
-    expect(el.innerHTML).not.toContain('ชั้นปี');
-    expect(el.innerHTML).not.toMatch(/ปี\s*[1-6]/);
+    expect(el.innerHTML).toContain('MD50');       // รุ่น — cohort identity
+    expect(el.innerHTML).toContain('ชั้นปี');      // ชั้นปี — derived, this year
+  });
+
+  it('never puts a ชั้นปี NUMBER in the save patch — only the difference', () => {
+    // The invariant the old "no ชั้นปี" test was really protecting. A stored
+    // ชั้นปี is right for one August and silently wrong every August after; what
+    // travels is `year_offset`, the gap, which needs no yearly maintenance.
+    const patch = CODE.match(/const patch = \{[\s\S]*?\n\s*\};/);
+    expect(patch[0]).not.toMatch(/year:/);
+    expect(patch[0]).not.toMatch(/study_year:/);
+    expect(CODE).toMatch(/patch\.year_offset\s*=/);
+    // …and the gap is measured with the shared rule, not re-derived inline.
+    expect(CODE).toMatch(/offsetForPickedYear\(/);
+  });
+
+  it('disables the ชั้นปี chooser when there is no ปีที่เข้า to count from', () => {
+    // A shared department account or a row whose รหัส is not filled in yet.
+    // Letting them pick an absolute year here would recreate `year_override`,
+    // the exact column 0129 deleted.
+    const el = host();
+    renderMyHouse(el, recWith({ student_id: null, cohort_year: null }));
+    expect(el.innerHTML).not.toContain('name="study_year"');
+    expect(el.innerHTML).toContain('กรอกรหัสนักศึกษาก่อน');
+  });
+
+  it('offers the ชั้นปี chooser, defaulting to "ตามที่ระบบคำนวณ"', () => {
+    const el = host();
+    renderMyHouse(el, recWith());
+    expect(el.innerHTML).toContain('name="study_year"');
+    expect(el.innerHTML).toMatch(/<option value=""\s+selected>ตามที่ระบบคำนวณ/);
   });
 
   it('offers NO ยืนยันข้อมูล — it is not data we collect', () => {
@@ -308,7 +341,7 @@ describe('the field lists', () => {
     }
     // …and the five self-editable ones are exactly what the form offers.
     expect(HOUSE_DETAIL_FIELDS.filter((f) => f.self).map((f) => f.key))
-      .toEqual(['full_name', 'nickname', 'student_id', 'major']);
+      .toEqual(['full_name', 'nickname', 'student_id', 'study_year', 'major']);
   });
 
   it('asks for nothing request_my_change would reject', () => {
