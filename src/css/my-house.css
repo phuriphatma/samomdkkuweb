@@ -1,0 +1,128 @@
+/* my-house.css — "บ้านของฉัน", on the home page under ตำแหน่งของฉันในทีม SAMO.
+ *
+ * DELIBERATELY THIN. The card reuses my-seat.css wholesale — same shell, same
+ * label→value list, same edit form — because the two cards answer the same
+ * question ("here is my record") to the same person on the same screen, and a
+ * second full stylesheet would drift away from the first one field at a time.
+ * Everything here is what my-seat genuinely does not have: the house crest, the
+ * per-house accent colour and the อาจารย์ lists.
+ *
+ * THE ACCENT. Each house owns a colour (houses.color). It arrives as an inline
+ * `--house-accent` on the card and is used ONLY for the rule down the left edge
+ * and the crest, so an unnamed, uncoloured house degrades to brand green rather
+ * than to something broken-looking.
+ *
+ * LIGHT-ONLY, like the rest of this app — no prefers-color-scheme block (see
+ * mistakes.md: a lone dark-aware component becomes a dark island).
+ */
+
+.myhouse { margin-top: 1rem; }
+
+.myhouse-card {
+  border-inline-start-color: var(--house-accent, var(--brand-primary));
+}
+
+/* ── crest ──────────────────────────────────────────────────────────────── */
+/* Square, not the 3:4 portrait my-seat uses: this is an emblem, not a person. */
+.myhouse-crest {
+  flex: 0 0 auto;
+  width: 68px; height: 68px;
+  border-radius: var(--radius-sm, 0.5rem);
+  object-fit: cover;
+  background: var(--ink-100, #f1f3f5);
+  border: 1px solid var(--ink-200);
+}
+.myhouse-crest--plain,
+.myhouse-crest--none {
+  display: grid; place-items: center;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 700; font-size: 1.6rem;
+  color: #fff;
+  background: var(--house-accent, var(--brand-primary));
+  border-color: transparent;
+}
+/* No สายรหัส yet — the emblem must not imply a house they have not got. */
+.myhouse-crest--none {
+  background: var(--ink-100, #f1f3f5);
+  color: var(--ink-400, #adb5bd);
+  border-color: var(--ink-200);
+  font-size: 1.4rem;
+}
+
+.myhouse-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-600);
+  line-height: 1.5;
+}
+.myhouse-slogan {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--house-accent, var(--brand-primary));
+}
+
+/* ── the action row ─────────────────────────────────────────────────────── */
+.myhouse-actions {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  margin: 0.15rem 0 0.7rem;
+}
+.myhouse-actions .myseat-fix { margin: 0; }
+/* Which panel is open, said on the button that opened it — the panels sit below
+   the fold on a phone, so without this the row gives no feedback at all. */
+.myhouse-actions .myseat-fix.is-open {
+  border-color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 8%, #fff);
+}
+
+.myhouse-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-500);
+}
+.myhouse-warn { color: #b02a37; }
+
+/* ── advisors ───────────────────────────────────────────────────────────── */
+.myhouse-advisors {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 0.25rem;
+}
+.myhouse-advisors li {
+  display: flex; gap: 0.45rem; align-items: baseline;
+  font-size: 0.85rem; color: var(--ink-700);
+}
+.myhouse-advisors .bi { color: var(--ink-400); font-size: 0.9em; }
+.myhouse-advisors em {
+  font-style: normal; color: var(--ink-500);
+  font-size: 0.92em;
+}
+.myhouse-advisors em::before { content: ' · '; }
+
+/* ── form bits my-seat has no equivalent of ─────────────────────────────── */
+.myhouse-reason { margin-top: 0.6rem; max-width: 46rem; }
+.myhouse-reason textarea {
+  border: 1px solid var(--ink-300, #dee2e6);
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+  min-width: 0;
+}
+.myhouse-reason textarea:focus-visible {
+  outline: 2px solid var(--brand-primary); outline-offset: 1px;
+}
+
+/* my-seat's status line is error-only, so it is red unconditionally. This card
+   also says "กำลังบันทึก…" through it, and a red "saving" reads as a failure. */
+.myhouse-card .myseat-edit-status { color: var(--ink-500); }
+.myhouse-card .myseat-edit-status.is-error { color: #b02a37; }
+.myhouse-sent {
+  margin: 0;
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem; color: var(--brand-primary);
+}
+
+@media (max-width: 420px) {
+  .myhouse-crest { width: 56px; height: 56px; }
+}

@@ -322,10 +322,7 @@ export async function requestMyChange(field, requested, reason) {
   return data || null;
 }
 
-export async function fetchHouseRoster(houseId) {
-  const { data, error } = await dbRest('/rpc/get_house_roster', {
-    method: 'POST', body: { p_house: houseId },
-  });
-  if (error) throw new Error(error.message || 'โหลดรายชื่อบ้านไม่สำเร็จ');
-  return data || [];
-}
+// There is deliberately NO house-roster reader here. ระบบบ้าน publishes อาจารย์,
+// never students: `get_house_roster()` was dropped in migration 0124 along with
+// the setting that gated it. A student's card lists their own record and the
+// อาจารย์ที่ปรึกษา of every สาย in their house — nobody else's name.

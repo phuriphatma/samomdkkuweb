@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeSai, houseOf, houseLabel, auditSaiWidths, cleanCell, cleanSpace,
   normalizeKkumail, joinName, blankish, SAI_RE, HOUSE_COUNT,
-  studentYear, cohortFromStudentId,
+  cohortLabel, cohortFromStudentId,
 } from './fields.js';
 
 describe('normalizeSai — three digits, zero-padded', () => {
@@ -205,30 +205,30 @@ describe('cohortFromStudentId — mirrors SQL cohort_from_student_id', () => {
   });
 });
 
-describe('studentYear — mirrors SQL student_year', () => {
-  const AY = 2569;
-
-  it('derives ชั้นปี from the stored cohort', () => {
-    expect(studentYear({ cohort_year: 2565 }, AY)).toBe(5);
-    expect(studentYear({ cohort_year: 2569 }, AY)).toBe(1);
+describe('cohortLabel — รุ่น, the only cohort vocabulary ระบบบ้าน has', () => {
+  it('names the รุ่น from the stored ปีที่เข้า', () => {
+    expect(cohortLabel({ cohort_year: 2565 })).toBe('MD50');
+    expect(cohortLabel({ cohort_year: 2564 })).toBe('MD49');
   });
 
-  it('falls back to รหัสนักศึกษา when no cohort is stored', () => {
-    expect(studentYear({ student_id: '659999999-9' }, AY)).toBe(5);
+  it('falls back to รหัสนักศึกษา when no ปีที่เข้า is stored', () => {
+    expect(cohortLabel({ student_id: '659999999-9' })).toBe('MD50');
   });
 
-  it('lets a self-declared override win — the ลาพัก / จบช้า escape hatch', () => {
-    expect(studentYear({ cohort_year: 2565, year_override: 6 }, AY)).toBe(6);
-    expect(studentYear({ student_id: '659999999-9', year_override: 3 }, AY)).toBe(3);
+  it('needs NO clock — the same record reads the same forever', () => {
+    // The whole point of replacing ชั้นปี. There is no academic-year argument
+    // to pass, so there is nothing to forget to move in August.
+    expect(cohortLabel.length).toBeLessThanOrEqual(1);
   });
 
-  it('never returns a year below 1, however old the cohort', () => {
-    expect(studentYear({ cohort_year: 2500 }, AY)).toBeGreaterThanOrEqual(1);
+  it('IGNORES year_override — ชั้นปี is not a thing here any more', () => {
+    expect(cohortLabel({ cohort_year: 2565, year_override: 3 })).toBe('MD50');
   });
 
   it('returns null — not a guess — when there is nothing to derive from', () => {
-    expect(studentYear({}, AY)).toBeNull();
-    expect(studentYear({ cohort_year: 2565 }, null)).toBeNull();
-    expect(studentYear({ student_id: '993070001-4' }, AY)).toBeNull();
+    expect(cohortLabel({})).toBeNull();
+    expect(cohortLabel()).toBeNull();
+    // Outside cohortFromStudentId's 2540–2580 window: no รุ่น beats a wrong one.
+    expect(cohortLabel({ student_id: '993070001-4' })).toBeNull();
   });
 });

@@ -56,7 +56,11 @@ has not been written yet.
    `shop/api.js` did not) — now swept by `delete-guard.test.js`.
    Also TWO PASSES assigning one DOM property: the perm grid's
    markup locked ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket
-   `cb.disabled = on` unlocked it. Only touch what THIS pass locked.
+   `cb.disabled = on` unlocked it. Only touch what THIS pass locked. Same
+   geometry, N passes: a delegated listener re-attached to the SURVIVING host on
+   every render, whose handler `toggle`d `d-none` — the panel then opened only
+   on odd-numbered paints (`my-house.js`). State in a variable, listeners on the
+   nodes this paint made.
 7. **Verify from the authority, and test BOTH directions.** A sweep returning
    NOTHING is not evidence of nothing — make it find something you know is there
    first (`pg_get_functiondef` needs `prokind='f'`; policy bodies render
@@ -169,7 +173,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(32 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(33 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -203,6 +207,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A filled "danger" style made an UNCHECKED checkbox look ticked
 - A second pass over the same controls silently UNLOCKED the checkbox the first pass had locked
 - "ลบสมาชิกไม่ได้" — the delete button did nothing at all, and BOTH ways it can do nothing were silent
+- "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(8 entries)*

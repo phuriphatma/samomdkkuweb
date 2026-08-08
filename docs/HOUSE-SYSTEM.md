@@ -121,7 +121,7 @@ nickname_self       written by the student, only
 nickname            generated: coalesce(nullif(nickname_self,''), nickname_imported)
 ```
 
-`photo_url`, `bio`, `year_override`, `is_listed` are **self-only** — the import
+`photo_url`, `bio` are **self-only** — the import
 has no source for them and must never write them. Identity columns
 (`kkumail`, `student_id`, names, `major`, `sai_code`, `cohort_year`) are
 **import-only**.
@@ -131,15 +131,27 @@ destroy a student's own edits. That property is worth more than it sounds — it
 is what lets you accept a corrected file from Data Analytics in October without
 auditing what 1,800 people changed in September.
 
-### ชั้นปี is derived, never stored
+### รุ่น, not ชั้นปี (0123)
 
-Stored: `cohort_year` (ปีที่เข้า, พ.ศ.). Displayed:
-`coalesce(year_override, house_settings.academic_year - cohort_year + 1)`.
+Stored: `cohort_year` (ปีที่เข้า, พ.ศ.), itself derived from the first two digits
+of the รหัสนักศึกษา when the file does not carry it. Displayed: **`MD{cohort −
+2515}`** — 65… is MD50, 64… is MD49 (`cohortLabel` in `src/js/house/fields.js`).
 
-This is why the spec asks Data Analytics **not** to send ชั้นปี. A stored ชั้นปี
-is wrong for everyone the moment the academic year rolls over, and wrong
-immediately for anyone who ลาพัก or เรียนซ้ำ. `year_override` is the student's own
-escape hatch — which answers the "ถ้าจบช้า?" question without an admin in the loop.
+ชั้นปี used to be shown instead, as `coalesce(year_override, academic_year −
+cohort_year + 1)`. It is gone, and so are `student_year()` in SQL and its JS
+mirror. Three structural reasons, all of which รุ่น does not have:
+
+- it needs a **clock** — `house_settings.academic_year`, a setting somebody has
+  to move every August, and until they do every record reads wrong;
+- it is wrong for anyone who ลาพัก / เรียนซ้ำ / จบช้า, which is what
+  `year_override` existed to patch — a per-student manual correction of a
+  derived value;
+- it is **ambiguous across time**: "ปี 1" in a row written last year and "ปี 1"
+  in a row written today are different humans, so old and new records cannot sit
+  in one list.
+
+รุ่น is fixed at admission and needs no maintenance. The spec still asks Data
+Analytics not to send ชั้นปี — now because nothing consumes it at all.
 
 ---
 
@@ -154,7 +166,6 @@ Four read paths, no more:
 | Path | Who | Returns |
 |---|---|---|
 | `get_my_student_record()` | the signed-in student | their own row + สาย + house + their อาจารย์ |
-| `get_house_roster(house)` | any signed-in student | **name, ชื่อเล่น, ชั้นปี, สาย only** — never kkumail, never รหัส |
 | RLS `select` on the tables | holders of the `house` permission | everything |
 | CSV export | same, via the admin read path | everything |
 
@@ -170,8 +181,12 @@ RLS policy at all**. A per-row UPDATE policy is not a column policy — this rep
 has now been bitten by that on `users` (0028), `vs_tickets` (0096) and
 `shop_orders` (0100). Not having the policy is stronger than guarding it.
 
-The roster respects `is_listed` (student opt-out) and `status` (someone who
-พ้นสภาพ is not published).
+**No student is published to another student.** There was a `get_house_roster()`
+projection behind a "เพื่อนร่วมบ้าน" button; 0124 dropped both. What the card
+shows instead is the อาจารย์ที่ปรึกษา of every สาย in the house (`house_advisors`,
+already in `get_my_student_record`) — the thing people actually came to find
+out, and staff rather than classmates. `students.is_listed` and
+`house_settings.roster_visible` are vestigial from that removal.
 
 ---
 
@@ -213,7 +228,7 @@ rung, and อาจารย์ have no login today. Adding it later is a policy
 ### Admin section "ระบบบ้าน", six panes
 
 1. **ภาพรวม** — 10 house cards (logo, name, member/สาย/อาจารย์ counts) + coverage
-   stats: how many have kkumail, how many have verified their record.
+   stats: how many have a สายรหัส, how many do not.
 2. **นำเข้าข้อมูล** — pick file → **preview diff** (`จะเพิ่ม N · แก้ไข M ·
    ไม่เปลี่ยน K · มีปัญหา P`) → confirm → chunked upsert on kkumail. Batch
    history with counts and who ran it.
@@ -225,12 +240,12 @@ rung, and อาจารย์ have no login today. Adding it later is a policy
    new OAuth scope**), and the reveal switch.
 4. **สายรหัส** — 100 rows grouped by house; house column is read-only (generated).
    Assign/remove อาจารย์ per สาย. Shows which สาย still have none.
-5. **นักศึกษา** — searchable, filter by house/สาย/ชั้นปี/สาขา, edit a row,
+5. **นักศึกษา** — searchable, filter by house/สาย/รุ่น/สาขา, edit a row,
    **export CSV**.
 6. **คำขอแก้ไข** — the queue from §7.
 
 **Export is a backup, so its column list is an allow-list with the opposite safe
-default from the roster projection**: a column left out of a backup is silently
+default from a public projection**: a column left out of a backup is silently
 destroyed on the next export→import round trip. `io.js` already carries this
 lesson in a comment; the house export must carry it too, with a test.
 
@@ -241,8 +256,8 @@ lesson in a comment; the house export must carry it too, with a test.
 | When | Ship |
 |---|---|
 | now → data arrives | schema + import + admin read/export. Nothing student-facing. |
-| before mid-Sept promo | student self-view: "คุณอยู่บ้านหมายเลข ?" (number only) + self-edit ชื่อเล่น + **verification window opens** |
-| Oct (onsite talk) | อาจารย์ per สาย visible, house roster, badge |
+| before mid-Sept promo | student self-view: "คุณอยู่บ้านหมายเลข ?" (number only) + self-edit ชื่อเล่น |
+| Oct (onsite talk) | อาจารย์ per สาย + อาจารย์ทั้งบ้าน visible, badge |
 | early Nov | สายรหัส self-edit **freezes**; names/logos loaded but hidden |
 | 21–22 Nov | flip `revealed_at`. Names + logos appear. Export "รายชื่อตามบ้าน" for the event. |
 | later | house points / กีฬาสี |
@@ -282,9 +297,10 @@ the student card). Admin approves/rejects in one click; the reason goes back to
 the student. Approve applies the change and moves the house automatically, with
 an audit row.
 
-Plus a "ยืนยันข้อมูลของฉัน" button stamping `verified_at`, so you can *see*
-coverage and chase the gap instead of waiting for complaints — and a per-student
-`sai_locked` flag for the rare abuser.
+There is **no "ยืนยันข้อมูลของฉัน"** button (removed in 0123). It stamped
+`verified_at`, nothing branched on it, and it asked ~1,800 people for a click
+that bought a number on an admin card. A per-student `sai_locked` flag remains,
+for the rare abuser.
 
 Net effect: the queue only ever carries exceptions, and it carries them as a
 triaged list with a decision button rather than as chat messages.

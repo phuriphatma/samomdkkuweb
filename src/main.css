@@ -23,6 +23,9 @@
 /* ตำแหน่งของฉันในทีม SAMO — the home card AND the โปรไฟล์ modal section.
    modal-profile.html is included by BOTH entries, so both must load this. */
 @import './css/my-seat.css';
+/* บ้านของฉัน — the home card only, and it REUSES my-seat.css above (same shell,
+   same label→value list), so it must be imported after it. */
+@import './css/my-house.css';
 @import './css/image-crop.css';
 @import './css/dev-activity.css';
 @import './css/changelog.css';

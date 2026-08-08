@@ -952,3 +952,52 @@ long-lived SPA: the browser can disable them permanently and silently, and
 belong in an app-owned modal. (3) When a UI action fails, prove which SIDE it
 fails on before reading either — simulating the write as the real user, rolled
 back, cost one query and eliminated RLS, FKs, triggers and realtime in one shot.
+
+---
+
+## "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
+
+**Symptom** (as reported): *"the แก้ไขข้อมูล of ระบบบ้าน on samoweb main page, i
+need to click many times and sometime it will appear, also the เพื่อนร่วมบ้าน"*.
+Intermittent, unreproducible on a fresh load, and it "healed" if you kept
+clicking — the profile of a bug nobody can pin down.
+
+**Cause**: two ordinary decisions that are harmless apart and fatal together.
+
+1. `renderMyHouse()` painted the card with `host.innerHTML = …` and then called
+   `wireCard(host)`, which attached a **delegated** `click` listener **to `host`
+   itself**. `host` is `#homeMyHouse` — a node in `index.html` that survives
+   every re-paint. The card re-renders on every auth event (`onAuthChange` fires
+   on load, on each token refresh, after every save), so the listener count grew
+   by one each time: 1, 2, 3…
+2. The handler opened the panel with `p.classList.toggle('d-none')` — visibility
+   derived from the element's *own current class*.
+
+N listeners × a self-referential toggle = the panel flips N times per click, so
+it opens on an **odd** number of paints and does nothing on an even one. First
+load: one listener, works. After the session settles or after one save: two,
+dead. Click twice: opens.
+
+**Fix**: listeners go on the nodes **this paint created** (`host.querySelector(...)`
+inside the freshly written markup), so the next `innerHTML =` throws them away
+with the nodes. Panel visibility is one variable — `open = 'edit' | 'report' |
+'roster' | null` — and every panel's `hidden` is assigned from it explicitly;
+nothing asks the DOM what state it is in. `src/js/house/my-house.test.js` pins
+both shapes at the source (no `host.addEventListener`, no
+`classList.toggle('d-none')`), the way `delete-guard.test.js` pins the DELETE
+convention.
+
+**Where it lives now**: `src/js/house/my-house.js` (`wireCard`),
+`src/js/house/my-house.test.js`.
+
+**Rules**: (1) **A listener attached to a node that outlives the render is a
+leak with behaviour.** If a function both writes `innerHTML` and adds a
+listener, the listener must go on something inside that `innerHTML` — otherwise
+call it exactly once, from a place that cannot run twice. (2) **Never derive UI
+state from the DOM you are about to change.** `classList.toggle` answers "what
+is it now?", which is only correct if the handler runs exactly once; hold the
+state in a variable and assign every dependent property from it. This is the
+same geometry as the perm-grid checkbox that a second pass silently unlocked
+(class 6) — one property, two sources of truth. (3) An **intermittent** UI bug
+that gets better when you click more is almost always a handler-count problem,
+not a race.

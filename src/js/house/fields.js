@@ -127,24 +127,31 @@ export function auditSaiWidths(rawValues) {
 }
 
 /**
- * ชั้นปี from ปีที่เข้า — the ONE JavaScript implementation.
+ * รุ่น (MD50) from ปีที่เข้า — the ONE implementation, and the ONLY cohort
+ * vocabulary ระบบบ้าน has.
  *
- * ⚠️ MIRRORS SQL. `public.student_year(cohort, override, sid)` (migrations
- * 0116/0117) is the authority and is what every RPC returns; this exists only
- * because the admin table renders 1,800 rows client-side and cannot call it per
- * row. Two implementations of one rule is the class this repo pays for most, so
- * it is spelled once here, imported everywhere, and pinned by fields.test.js
- * against the same cases the SQL probe (tools/house0116-authz.sql) verifies.
+ * WHY NOT ชั้นปี. ชั้นปี is a moving target: it needs a "current academic year"
+ * to subtract from, it is wrong for anyone who ลาพัก / เรียนซ้ำ / จบช้า, and it
+ * silently rots — a record entered today reads "ปี 5", and the same record read
+ * next August reads "ปี 5" too unless somebody remembers to move a setting.
+ * รุ่น is a FACT about the person, fixed at admission and readable straight off
+ * the รหัสนักศึกษา, so it needs no clock, no override and no maintenance. That is
+ * why the ชั้นปี override (`students.year_override`) is no longer offered
+ * anywhere: there is nothing left for it to correct.
  *
- * Order matters: a self-declared override wins (ลาพัก / เรียนซ้ำ / จบช้า), then
- * the stored cohort, then the one derived from รหัสนักศึกษา.
+ * THE NUMBER. It is the faculty's intake count, not a year: ปีที่เข้า 2565 is
+ * MD50, 2564 is MD49 — i.e. `cohort - 2515`. One epoch constant, one prefix,
+ * spelled once here. MDI and RT students entering the same year carry the same
+ * intake label; if that ever needs to differ, it differs HERE and nowhere else.
  */
-export function studentYear({ cohort_year: cohort, year_override: override, student_id: sid },
-  academicYear) {
-  if (override) return Number(override);
+export const COHORT_EPOCH = 2515;
+export const COHORT_PREFIX = 'MD';
+
+export function cohortLabel({ cohort_year: cohort, student_id: sid } = {}) {
   const c = cohort || cohortFromStudentId(sid);
-  if (!c || !academicYear) return null;
-  return Math.max(1, academicYear - c + 1);
+  if (!c) return null;
+  const n = Number(c) - COHORT_EPOCH;
+  return n >= 1 ? `${COHORT_PREFIX}${n}` : null;
 }
 
 /**
@@ -152,7 +159,7 @@ export function studentYear({ cohort_year: cohort, year_override: override, stud
  * Mirrors `public.cohort_from_student_id`, INCLUDING its 2540–2580 window —
  * 0118 tightened that because 2500+99 was inside the original bound, so a
  * malformed id produced a confident "ปี 1". Out of range returns null, which
- * renders as no ชั้นปี rather than a plausible wrong one.
+ * renders as no รุ่น rather than a plausible wrong one.
  */
 export function cohortFromStudentId(sid) {
   const digits = arabicDigits(sid).replace(/\D/g, '');

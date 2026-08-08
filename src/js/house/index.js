@@ -31,7 +31,7 @@ import {
 } from './io.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
-  studentYear as studentYearOf,
+  cohortLabel,
 } from './fields.js';
 
 const $ = (id) => document.getElementById(id);
@@ -131,13 +131,11 @@ function renderOverview() {
   $('houseEmptyNote')?.classList.toggle('d-none', students.length > 0);
 
   const withSai = students.filter((s) => s.sai_code).length;
-  const verified = students.filter((s) => s.verified_at).length;
   const noSai = students.length - withSai;
   const stats = [
     ['นักศึกษาทั้งหมด', students.length, 'bi-people'],
     ['มีสายรหัสแล้ว', withSai, 'bi-signpost-split'],
     ['ยังไม่มีสายรหัส', noSai, noSai ? 'bi-exclamation-triangle text-warning' : 'bi-check2'],
-    ['ยืนยันข้อมูลแล้ว', verified, 'bi-patch-check'],
     ['อาจารย์ที่ปรึกษา', advisors.length, 'bi-person-badge'],
   ];
   const wrap = $('houseStats');
@@ -161,9 +159,7 @@ function renderOverview() {
   // Settings. Painted from the loaded row every render so a failed save cannot
   // leave the switch showing a state the database does not have.
   if (settings) {
-    const y = $('hsetYear'); if (y) y.value = settings.academic_year ?? '';
     const se = $('hsetSaiEdit'); if (se) se.checked = !!settings.sai_self_edit_open;
-    const rv = $('hsetRoster'); if (rv) rv.checked = !!settings.roster_visible;
   }
 
   const cards = $('houseCards');
@@ -195,10 +191,9 @@ function renderOverview() {
 }
 
 // ---------- นักศึกษา ----------
-// The ชั้นปี rule lives in ./fields.js (which mirrors SQL's student_year); this
-// used to re-derive `academic_year - cohort + 1` inline, i.e. a THIRD copy of a
-// rule that already existed in two places.
-const studentYear = (s) => studentYearOf(s, settings?.academic_year);
+// รุ่น (MD50), never ชั้นปี. The rule lives in ./fields.js and takes no clock —
+// see cohortLabel() there for why ชั้นปี was dropped from ระบบบ้าน entirely.
+const cohortOf = (s) => cohortLabel(s);
 
 function filteredStudents() {
   const q = ($('houseSearch')?.value || '').trim().toLowerCase();
@@ -207,7 +202,7 @@ function filteredStudents() {
   const fm = $('houseFilterMajor')?.value || '';
   return students.filter((s) => {
     if (fh !== '' && String(saiHouse(s.sai_code)) !== fh) return false;
-    if (fy !== '' && String(studentYear(s) ?? '') !== fy) return false;
+    if (fy !== '' && (cohortOf(s) || '') !== fy) return false;
     if (fm !== '' && (s.major || '') !== fm) return false;
     if (!q) return true;
     return [s.full_name, s.nickname, s.student_id, s.kkumail, s.sai_code]
@@ -223,11 +218,13 @@ function renderStudents() {
       hSel.insertAdjacentHTML('beforeend', `<option value="${i}">${escHtml(houseName(i))}</option>`);
     }
   }
+  // Built from the รุ่น actually present, like the สาขา chooser below — a fixed
+  // 1–6 list was only ever right for ชั้นปี, and รุ่น has no upper bound.
   const ySel = $('houseFilterYear');
   if (ySel && ySel.options.length <= 1) {
-    for (let y = 1; y <= 6; y += 1) {
-      ySel.insertAdjacentHTML('beforeend', `<option value="${y}">ปี ${y}</option>`);
-    }
+    [...new Set(students.map(cohortOf).filter(Boolean))].sort().reverse().forEach((c) => {
+      ySel.insertAdjacentHTML('beforeend', `<option value="${escHtml(c)}">${escHtml(c)}</option>`);
+    });
   }
   const mSel = $('houseFilterMajor');
   if (mSel && mSel.options.length <= 1) {
@@ -248,7 +245,7 @@ function renderStudents() {
           <td class="text-nowrap">${escHtml(s.student_id || '')}</td>
           <td class="small">${escHtml(s.kkumail || '')}</td>
           <td>${escHtml(s.major || '')}</td>
-          <td>${studentYear(s) ?? '—'}</td>
+          <td>${escHtml(cohortOf(s) || '—')}</td>
           <td>${escHtml(s.sai_code || '—')}</td>
           <td>${h === null || h === undefined ? '—' : escHtml(houseName(h))}</td>
           <td class="text-end"><i class="bi bi-pencil text-muted"></i></td>
@@ -803,14 +800,8 @@ function wire() {
 
   $('houseCsvFile')?.addEventListener('change', onCsvPicked);
 
-  $('hsetYear')?.addEventListener('change', () => saveSetting({
-    academic_year: Number($('hsetYear').value) || null,
-  }));
   $('hsetSaiEdit')?.addEventListener('change', () => saveSetting({
     sai_self_edit_open: $('hsetSaiEdit').checked,
-  }));
-  $('hsetRoster')?.addEventListener('change', () => saveSetting({
-    roster_visible: $('hsetRoster').checked,
   }));
 }
 

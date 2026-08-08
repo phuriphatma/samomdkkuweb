@@ -54,13 +54,12 @@
     <h6 class="text-muted small text-uppercase mb-2">ตั้งค่าระบบ</h6>
     <div class="card">
       <div class="card-body">
+        <!-- No "ปีการศึกษาปัจจุบัน" here any more: its ONLY job was computing
+             ชั้นปี, and ระบบบ้าน now shows รุ่น (MD50), which is fixed at
+             admission and needs no clock. A setting that changes nothing is
+             worse than no setting. -->
         <div class="row g-3 align-items-end">
-          <div class="col-sm-3">
-            <label class="form-label small" for="hsetYear">ปีการศึกษาปัจจุบัน (พ.ศ.)</label>
-            <input type="number" class="form-control form-control-sm" id="hsetYear" min="2500" max="2600" />
-            <div class="form-text">ใช้คำนวณชั้นปีจากรหัสนักศึกษา</div>
-          </div>
-          <div class="col-sm-9">
+          <div class="col-12">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="hsetSaiEdit" />
               <label class="form-check-label small" for="hsetSaiEdit">
@@ -71,13 +70,10 @@
                 หลังปิดแล้วนักศึกษาจะส่ง “คำขอแก้ไข” เข้ามาแทน
               </div>
             </div>
-            <div class="form-check form-switch mt-2">
-              <input class="form-check-input" type="checkbox" id="hsetRoster" />
-              <label class="form-check-label small" for="hsetRoster">
-                ให้นักศึกษาเห็นรายชื่อเพื่อนร่วมบ้าน
-              </label>
-              <div class="form-text">แสดงเฉพาะชื่อ ชื่อเล่น ชั้นปี และสาย — ไม่แสดงอีเมลหรือรหัสนักศึกษา</div>
-            </div>
+            <!-- The "ให้นักศึกษาเห็นรายชื่อเพื่อนร่วมบ้าน" switch is gone (0124).
+                 ระบบบ้าน no longer publishes any student to any other student:
+                 the card lists the อาจารย์ที่ปรึกษา of every สาย in the house
+                 instead, which is what people actually came to find out. -->
           </div>
         </div>
       </div>
@@ -98,7 +94,7 @@
       </div>
       <div class="col-sm-2">
         <select class="form-select form-select-sm" id="houseFilterYear">
-          <option value="">ทุกชั้นปี</option>
+          <option value="">ทุกรุ่น</option>
         </select>
       </div>
       <div class="col-sm-2">
@@ -117,7 +113,7 @@
         <thead>
           <tr>
             <th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
-            <th>kkumail</th><th>สาขา</th><th>ชั้นปี</th><th>สาย</th><th>บ้าน</th><th></th>
+            <th>kkumail</th><th>สาขา</th><th>รุ่น</th><th>สาย</th><th>บ้าน</th><th></th>
           </tr>
         </thead>
         <tbody id="houseStudentRows"></tbody>

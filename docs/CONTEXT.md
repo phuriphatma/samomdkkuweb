@@ -834,7 +834,7 @@ nothing may compute or repair one.
 | `students` | ~1,800. Import-owned columns and self-owned columns are disjoint; `nickname` is a generated `coalesce(nickname_self, nickname_imported)`. |
 | `student_change_requests` | The correction queue. Partial unique index allows one OPEN request per field per student. |
 | `student_import_batches` | Audit of each import. |
-| `house_settings` | One row: `academic_year`, `sai_self_edit_open`, `roster_visible`. |
+| `house_settings` | One row: `sai_self_edit_open`. (`academic_year` vestigial since 0123 — it only fed ชั้นปี; `roster_visible` vestigial since 0124 — it gated a roster that no longer exists.) |
 
 **RLS** — every table: `for all to authenticated using (role in (vp_admin,dev)
 or current_user_has_permission('house'))`, plus an explicit
@@ -856,14 +856,20 @@ allow-list spelled out one field at a time.
   `sai_self_edits < 1`.
 - `request_my_change(field, requested, reason)` — files a correction for the
   caller only.
-- `get_house_roster(smallint)` — a **projection**, not a policy: returns
-  `name, nickname, year, major, sai, photo_url` and nothing else. Never kkumail,
-  never รหัสนักศึกษา. Respects `is_listed` and `status`.
+- **There is no house-roster reader.** `get_house_roster()` published every
+  student in a house to any signed-in caller; 0124 DROPPED it. ระบบบ้าน names
+  อาจารย์ (in their staff capacity, via `house_advisors` inside
+  `get_my_student_record`) and never one student to another.
 - `get_house_summary()` — the ten houses with member counts.
-- `cohort_from_student_id(text)` / `student_year(cohort, override, sid)` — ปีที่เข้า
-  is derived from the first two digits of รหัสนักศึกษา (so the CSV never asks
-  for it), bounded to 2540–2580 so a malformed id yields NO ชั้นปี rather than a
-  plausible-looking wrong one.
+- `cohort_from_student_id(text)` — ปีที่เข้า from the first two digits of
+  รหัสนักศึกษา (so the CSV never asks for it), bounded to 2540–2580 so a
+  malformed id yields NO รุ่น rather than a plausible-looking wrong one. The UI
+  labels it **รุ่น `MD{cohort−2515}`** (`cohortLabel`, src/js/house/fields.js).
+  **ชั้นปี no longer exists in ระบบบ้าน**: `student_year()` was dropped in 0123
+  along with its JS mirror, because it needed a clock and a per-student override
+  and was ambiguous across years. `students.year_override`,
+  `students.verified_at` and `house_settings.academic_year` survive as vestigial
+  columns that nothing reads or writes.
 
 **No date gates anywhere.** No reveal flag — an unnamed house *is* the
 un-revealed state and renders as "บ้าน N". The whole feature works with zero
