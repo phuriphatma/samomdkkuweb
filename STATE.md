@@ -120,7 +120,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   Still **v4.5.0** — no version cut; `PENDING` in
   `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
   ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0126.** Live proofs, both directions:
+- **Migrations applied through 0127.** Live proofs, both directions:
   `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
@@ -222,6 +222,10 @@ archiving into it saved nothing.
 >   registration is **UAT-only**. Decision recorded: import the CSV instead.
 > - **สายรหัส is NOT derived from รหัสนักศึกษา**, any `001`–`999` is legal, no
 >   maximum may be hardcoded, and `sais` rows are created on demand by a trigger.
+>   A short สาย (`7`, `17`) is PADDED and accepted — padding only ever restores a
+>   leading zero and the house is the last digit, so it is lossless. **`000` is
+>   refused** in JS and by a check constraint (0127): it is what a spreadsheet
+>   puts in an empty numeric cell, not a สาย.
 > - **house = last digit of สายรหัส**; `sais.house_id` (GENERATED) is the only
 >   implementation.
 >

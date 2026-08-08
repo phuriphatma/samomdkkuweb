@@ -20,9 +20,11 @@
 // so '001' arrives as '1' and '017' as '17'. Read one row at a time that is
 // invisible — '1' is a perfectly valid-looking สาย. It is only visible ACROSS
 // the file: a healthy file has every สาย the same width. `auditSaiWidths()`
-// below is therefore a FILE-level check, and the importer refuses on it rather
-// than warning, because the damage (≈180 students in the wrong house, silently)
-// is not something a human reviewer would spot afterwards.
+// below is therefore a FILE-level check. It WARNS rather than refuses: stripping
+// only ever removes LEADING zeros, so left-padding restores the value exactly and
+// the house — the last digit — is invariant under it. What is NOT recoverable is
+// a zero that was ADDED: a blank numeric cell comes back as `0`, and `000` is
+// refused outright by normalizeSai for that reason.
 // ==============================================
 
 import { normalizeStudentId, majorKey } from '../team/fields.js';
@@ -63,8 +65,16 @@ export function normalizeSai(raw) {
   if (!digits || digits.length > 3) {
     return { value: rawStr, ok: false, padded: false, raw: rawStr };
   }
+  const value = digits.padStart(3, '0');
+  // `000` is not a สายรหัส — the range is 001–999 — and it is exactly what a
+  // spreadsheet puts in an EMPTY numeric cell. Accepting it would file a student
+  // into บ้าน 0 under a สาย the university does not have, silently, from a blank.
+  // This is the same Excel-mangles-the-สาย-column failure `auditSaiWidths` exists
+  // for, arriving from the other direction: not a zero stripped off, a zero
+  // added. บ้าน 0 loses nothing — it is fed by 010, 020, … 100.
+  if (value === '000') return { value: rawStr, ok: false, padded: false, raw: rawStr };
   return {
-    value: digits.padStart(3, '0'),
+    value,
     ok: true,
     padded: digits.length < 3,
     raw: rawStr,
@@ -101,8 +111,10 @@ export function houseLabel(id, name) {
  *
  * Returns the distinct widths of the RAW (un-padded) สาย values. A healthy file
  * has exactly one width. More than one means Excel ate the zeros off some rows
- * and not others, and the file must be rejected — after padding, '1' and '001'
- * are indistinguishable, so this is the last moment the damage is detectable.
+ * and not others — which left-padding undoes exactly, so this reports rather than
+ * refuses. It is still worth saying out loud: a file that went through a
+ * spreadsheet may have been damaged in columns where the damage is NOT
+ * reversible.
  *
  * @param {string[]} rawValues the สาย column exactly as it came out of the file
  */

@@ -232,3 +232,22 @@ describe('cohortLabel — รุ่น, the only cohort vocabulary ระบบ�
     expect(cohortLabel({ student_id: '993070001-4' })).toBeNull();
   });
 });
+
+describe('000 is not a สายรหัส — it is a blank cell a spreadsheet filled in', () => {
+  it('refuses every all-zero spelling', () => {
+    for (const raw of ['0', '00', '000', '๐']) {
+      const n = normalizeSai(raw);
+      expect(n.ok).toBe(false);
+      expect(n.value).toBe(raw);      // kept verbatim so the warning can quote it
+    }
+  });
+
+  it('still accepts every สาย that ends in 0 — บ้าน 0 is unaffected', () => {
+    for (const [raw, want] of [['10', '010'], ['20', '020'], ['100', '100'], ['990', '990']]) {
+      const n = normalizeSai(raw);
+      expect(n.ok).toBe(true);
+      expect(n.value).toBe(want);
+      expect(houseOf(n.value)).toBe(0);
+    }
+  });
+});

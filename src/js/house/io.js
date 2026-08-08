@@ -271,8 +271,15 @@ export function parseStudentsCsv(text, knownMajors = []) {
 
     const sai = normalizeSai(o.sai_code);
     if (!sai.ok) {
+      // An all-zero value is its own diagnosis: the cell was blank and a
+      // spreadsheet filled it in. Saying that is worth more than "อ่านไม่ออก",
+      // because the fix is at the source and nobody would guess it.
+      const allZero = /^0+$/.test(String(sai.raw ?? '').trim());
       problems.push({ line: lineNo, level: 'warn', field: 'sai_code',
-        message: `บรรทัด ${lineNo}: สายรหัส “${sai.raw}” อ่านไม่ออก — จะเว้นว่างไว้`,
+        message: allZero
+          ? `บรรทัด ${lineNo}: สายรหัส “${sai.raw}” ไม่ใช่สายที่มีอยู่จริง (สายเริ่มที่ 001) `
+            + '— น่าจะเป็นช่องว่างที่โปรแกรมตารางเติมเลข 0 ให้ จะเว้นว่างไว้'
+          : `บรรทัด ${lineNo}: สายรหัส “${sai.raw}” อ่านไม่ออก — จะเว้นว่างไว้`,
         value: sai.raw });
     }
     const major = normalizeMajor(o.major, knownMajors);
