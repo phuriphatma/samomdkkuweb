@@ -387,3 +387,41 @@ read it back as something else".
 that exists, and that is a TEST, not an intention. (2) Accept the world's
 spellings as aliases; keep exactly one of your own. Two canonical vocabularies
 for one field is the drift class this repo pays for most (class 6).
+
+---
+
+## Stripping a คำนำหน้า off a name renames the people whose name STARTS with one
+
+**Symptom** (reported by the owner reading the spec, before any file was
+imported): *"you shouldn't strip `นาย` / `นางสาว` — some people have นาย in their
+names."* Correct: `นายก` would have been stored as `ก`, `นางาม` as `าม`.
+
+**Cause**: the importer treated a leading `นาย` / `นาง` / `น.ส.` as a title and
+cut it, on the theory that this app dropped its คำนำหน้า column (0113) and
+"นายสมชาย" is not a first name. The theory is right about the common case and
+silently wrong about the rest — `นาย` and `นาง` are the openings of real Thai
+names, and a whitespace-free prefix carries no signal that separates the two.
+Nothing downstream could ever detect the rename: the row looks like an ordinary
+name that happens to be short.
+
+This is the SAME class the same file already refuses elsewhere. `parseStudentsCsv`
+rejects a combined "ชื่อ-สกุล" column rather than splitting it on whitespace,
+with the reasoning written out — and then stripped a prefix two functions later.
+A rule was applied in one place and its opposite in another, in one file.
+
+**Fix**: `looksTitled()` replaces `stripTitle()` — it REPORTS the match as a
+per-row warning and changes nothing. A file where every row is titled is a file
+to send back, and one line per row is how a human notices that. The spec now
+says plainly that we will not fix it, and why.
+
+**Where it lives now**: `src/js/house/io.js` (`looksTitled`),
+`src/js/house/io.test.js`, `docs/house-data-spec-th.md`.
+
+**Rules**: (1) **Never normalise a person's NAME by guessing.** Case, whitespace
+and digits have canonical forms; names do not. Report and keep. (2) When you
+have already written "we refuse to guess here, because guessing renames people",
+grep the same file for the other places it guesses — the reasoning generalises
+even when the code did not. (3) `kkumail` is the counter-example that proves the
+line: lowercasing it is not a preference but a requirement (a plain UNIQUE index
+plus `lower()=lower()` lookups, enforced by a table trigger since 0119), and it
+misidentifies nobody because the comparison was already case-insensitive.

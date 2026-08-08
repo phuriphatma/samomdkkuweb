@@ -318,3 +318,52 @@ describe('the MINIMUM useful file — kkumail + สาย, no names at all (0126
     expect(r.problems.some((p) => p.level === 'warn' && p.field === 'first_name_th')).toBe(true);
   });
 });
+
+describe('a คำนำหน้า is REPORTED, never stripped', () => {
+  // Reported by the owner: "some people has นาย in their names". They are right
+  // — นาย and นาง open real Thai names, so cutting them off renames a person
+  // irreversibly and nothing downstream can tell. Same class as splitting a
+  // combined "ชื่อ-สกุล", which this importer already refuses to do.
+  it('keeps "นายก" intact — it is a NAME, not a title plus a name', () => {
+    const t = [HEAD, '659999999-9,นายก,ใจดี,,a@kkumail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(t, ['MD']);
+    expect(r.rows[0].first_name_th).toBe('นายก');
+  });
+
+  it('keeps "นายสมชาย" intact too, and says so', () => {
+    const t = [HEAD, '659999999-9,นายสมชาย,ใจดี,,a@kkumail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(t, ['MD']);
+    expect(r.rows[0].first_name_th).toBe('นายสมชาย');   // NOT 'สมชาย'
+    const warn = r.problems.find((p) => p.field === 'first_name_th');
+    expect(warn.level).toBe('warn');
+    expect(warn.message).toMatch(/คำนำหน้า/);
+  });
+
+  it('does not flag an ordinary name', () => {
+    const t = [HEAD, '659999999-9,สมชาย,ใจดี,,a@kkumail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(t, ['MD']);
+    expect(r.problems.some((p) => p.field === 'first_name_th')).toBe(false);
+  });
+});
+
+describe('kkumail case is flattened, and that is load-bearing', () => {
+  it('lowercases the address the file sent', () => {
+    // Not a style rule: students_kkumail_key is a plain UNIQUE index and every
+    // identity lookup compares lower(kkumail) = lower(email), so two spellings
+    // of one address would be two rows for one human. The database enforces it
+    // as well (normalize_kkumail, migration 0119).
+    const t = [HEAD, '659999999-9,ก,ข,,Somchai.J@KKUmail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(t, ['MD']);
+    expect(r.rows[0].kkumail).toBe('somchai.j@kkumail.com');
+  });
+
+  it('still matches an existing row that differs only in case', () => {
+    const t = [HEAD, '659999999-9,ก,ข,,Somchai.J@kkumail.com,MD,017'].join('\n');
+    const r = parseStudentsCsv(t, ['MD']);
+    const d = diffAgainstExisting(r.rows, [{ id: 'x', kkumail: 'somchai.j@kkumail.com',
+      first_name_th: 'ก', last_name_th: 'ข', student_id: '659999999-9',
+      major: 'MD', sai_code: '017' }], r.presentColumns);
+    expect(d.insert).toBe(0);   // one person, not two
+    expect(d.same).toBe(1);
+  });
+});

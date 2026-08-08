@@ -39,22 +39,28 @@ export const CSV_COLUMN_LABEL = {
   sai_code: 'sai (สายรหัส)',
 };
 
-/** คำนำหน้า that arrive glued to a name. Stripped, never stored: this app
- *  dropped the คำนำหน้า column outright (0113) and "นายสมชาย" is a first name
- *  nobody has. Longest first, so 'นางสาว' is not eaten by 'นาง'. */
+/**
+ * Does this name LOOK like it has a คำนำหน้า glued to the front?
+ *
+ * REPORTS, NEVER STRIPS — and that reversal is the whole point. An earlier
+ * version cut the prefix off, which turns "นายก" into "ก" and "นางาม" into "าม":
+ * `นาย` and `นาง` are the openings of real Thai names, not just titles, and
+ * nothing downstream could ever tell that the row had been renamed. It is the
+ * same mistake as splitting a combined "ชื่อ-สกุล" on the first space, which this
+ * importer already refuses to do — a guess about a person's name is not
+ * recoverable, so the only safe answer is to keep what was sent and say so.
+ *
+ * A file where every row starts with นาย is a file to send back, and one line
+ * per row is exactly how a human notices that.
+ */
 const TITLE_PREFIXES = ['นางสาว', 'น.ส.', 'นาง', 'นาย', 'ด.ช.', 'ด.ญ.', 'เด็กชาย', 'เด็กหญิง'];
 
-export function stripTitle(raw) {
+export function looksTitled(raw) {
   const v = cleanSpace(raw);
-  for (const t of TITLE_PREFIXES) {
-    if (v.startsWith(t)) {
-      const rest = cleanSpace(v.slice(t.length));
-      // Only strip when something is LEFT — "นาย" alone is a name we cannot fix,
-      // and blanking it would skip the row for a reason nobody could see.
-      if (rest) return { value: rest, stripped: t };
-    }
-  }
-  return { value: v, stripped: null };
+  // A SPACE after the prefix is the only halfway-reliable signal ("นาย สมชาย"),
+  // but plenty of files write "นายสมชาย" with none — so both are reported, and
+  // neither is acted on.
+  return TITLE_PREFIXES.find((t) => v.startsWith(t) && cleanSpace(v.slice(t.length))) || null;
 }
 
 /** Header aliases, so a file that spells a column slightly differently still
@@ -207,13 +213,15 @@ export function parseStudentsCsv(text, knownMajors = []) {
     header.forEach((key, i) => { if (key) o[key] = cells[i] ?? ''; });
 
     const mail = normalizeKkumail(o.kkumail);
-    const firstRaw = stripTitle(cleanCell(o.first_name_th) || '');
-    const first = firstRaw.value || null;
+    const first = cleanCell(o.first_name_th);
     const last = cleanCell(o.last_name_th);
-    if (firstRaw.stripped) {
-      problems.push({ line: lineNo, level: 'info', field: 'first_name_th',
-        message: `บรรทัด ${lineNo}: ตัดคำนำหน้า “${firstRaw.stripped}” ออกจากชื่อ`,
-        value: firstRaw.stripped });
+    const titled = first ? looksTitled(first) : null;
+    if (titled) {
+      problems.push({ line: lineNo, level: 'warn', field: 'first_name_th',
+        message: `บรรทัด ${lineNo}: ชื่อ “${first}” ดูเหมือนมีคำนำหน้า “${titled}” ติดมา `
+          + '— เก็บไว้ตามเดิม ไม่ได้ตัดออกให้ (บางคนมีคำนี้อยู่ในชื่อจริง) '
+          + 'ถ้าทั้งไฟล์เป็นแบบนี้ ควรขอไฟล์ใหม่ที่ไม่มีคำนำหน้า',
+        value: first });
     }
 
     // A row with no address cannot be matched to a login and cannot be upserted

@@ -211,6 +211,11 @@ archiving into it saved nothing.
 >   at ทีม SAMO → สาขา, and the RPC refuses anything off the list.
 > - **An import writes ONLY the columns its file carried**, and a row may have no
 >   name at all. A COMBINED "ชื่อ-สกุล" column is still refused.
+> - **Never normalise a NAME.** A leading `นาย`/`นางสาว` is REPORTED, never
+>   stripped — `นายก` is a real name. Case/whitespace/digits have canonical
+>   forms; names do not. (`kkumail` is the deliberate exception: lowercasing is
+>   required by a plain UNIQUE index + `lower()=lower()` lookups, and enforced by
+>   a table trigger since 0119.)
 > - **KKU SSO is a login improvement, not a data source** — `docs/KKU-SSO.md`.
 >   It CAN supply ชื่อ/นามสกุล/รหัสนักศึกษา at login (probed live: `studentCode`
 >   arrives as `653070317-0`), but not สาขา, there is no roster endpoint, and our

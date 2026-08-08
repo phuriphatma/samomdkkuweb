@@ -211,7 +211,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(10 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(11 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -223,6 +223,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A scroll-to-top fix applied in the tab handler misses every link that navigates programmatically
 - An upsert that sends EVERY column wipes the ones the file did not have
 - An export that carries a GENERATED column re-imports as the real one
+- Stripping a คำนำหน้า off a name renames the people whose name STARTS with one
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(17 entries)*
