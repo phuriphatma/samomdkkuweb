@@ -166,6 +166,21 @@ select 'A8. ระบบบ้าน split name left intact, never guessed', '�
        coalesce((select s.first_name_th from public.students s
                   where s.id = (select sid from subj)), '(none)');
 
+-- ชื่อเล่น, reported live: "when i change ชื่อเล่น in teamsamo, it doesn't change
+-- in ระบบบ้าน". The up-mirror carried it to the registry; the DOWN-mirror had no
+-- nickname branch at all, because students.nickname is GENERATED and the fix
+-- had to write the column it is generated FROM (0134). A generated column is
+-- not a reason to skip a field.
+update public.team_members set nickname = 'ชื่อเล่นใหม่' where id = (select mid from subj);
+insert into probe
+select 'A8b. ชื่อเล่น reaches the registry', 'ชื่อเล่นใหม่',
+       coalesce((select p.nickname from public.people p
+                  where p.id = (select pid from subj)), '(none)');
+insert into probe
+select 'A8c. …and the EFFECTIVE ชื่อเล่น in ระบบบ้าน', 'ชื่อเล่นใหม่',
+       coalesce((select s.nickname from public.students s
+                  where s.id = (select sid from subj)), '(none)');
+
 update public.students set major = 'MDI' where id = (select sid from subj);
 insert into probe
 select 'A9. ระบบบ้าน admin edit reaches the registry', 'MDI',

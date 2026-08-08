@@ -47,6 +47,15 @@ have been hundreds of duplicate identities to reconcile by hand.
 Both mirrors are guarded by `is distinct from`. **That guard is load-bearing** —
 without it the up/down pair is an infinite recursion. It converges in two hops.
 
+⚠️ **0134 — a GENERATED column is not a reason to skip a field.** `ชื่อเล่น` did
+not sync (reported live): `person_mirror_down` had no nickname branch because
+`students.nickname` is generated and writing it would 428C9. The fix is to write
+the column it is generated FROM — `nickname_self`, because it outranks
+`nickname_imported` and the registry value always came from an authoritative
+editor. **The guard compares the GENERATED value**, not the source column: that
+is what a reader sees, and comparing the source would fire forever for a row
+whose value comes from the other slot.
+
 **EXPAND ONLY.** Nothing dropped. Both placement tables keep every identity
 column and the mirrors keep them equal. Views over `people` were considered and
 REJECTED (INSTEAD OF triggers on every write path + `security_invoker` on each;
@@ -150,10 +159,10 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 - **samoweb**: `main` = `a5c28fd`, DEPLOYED and verified from the served
   artifact. Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
   holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0133.** Live proofs, all both-directional:
+- **Migrations applied through 0134.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
-  `node tools/house0132-registry.mjs` (17/17) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
+  `node tools/house0132-registry.mjs` (19/19) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update
@@ -210,7 +219,7 @@ archiving into it saved nothing.
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
 > **Everything is shipped, deployed and verified from the SERVED bundle.**
-> Migrations applied through **0133**, 552 tests green, nothing in flight.
+> Migrations applied through **0134**, 552 tests green, nothing in flight.
 >
 > **The one thing to understand before touching anything: `public.people` is
 > the person registry.** One row per human, keyed on kkumail. Identity lives
@@ -230,7 +239,7 @@ archiving into it saved nothing.
 > mirrors keep them equal. The CONTRACT step (retire them, one reader at a time)
 > is planned in `docs/PERSON-REGISTRY.md` and is NOT started.
 >
-> Before changing any of this, run `node tools/house0132-registry.mjs` (17/17).
+> Before changing any of this, run `node tools/house0132-registry.mjs` (19/19).
 > It covers all three doors, both mirrors, link-at-birth, and the deny half.
 >
 > **Next, in order:**

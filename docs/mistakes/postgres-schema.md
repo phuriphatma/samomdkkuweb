@@ -617,3 +617,41 @@ Proof: `node tools/house0132-registry.mjs` (17/17).
 **Rule**: when two tables must agree and both are writable, the sync needs a
 fixed point, and equality IS the fixed point. Write the guard in the same commit
 as the trigger — a mirror pair is one mechanism, and half of it is a hang.
+
+---
+
+## "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
+
+**Symptom**: an admin changed ชื่อเล่น in the ทีม SAMO pane. `team_members` and
+`people` both took it; ระบบบ้าน kept showing the old one. Every other field —
+name, รหัสนักศึกษา, สาขา — synced correctly, which is what made it look like a
+one-field oddity rather than a structural miss.
+
+**Cause**: the registry's mirror-down wrote eight columns to `students` and
+`nickname` was not one of them. It had been excluded deliberately, with a
+correct-sounding reason: `students.nickname` is
+`generated always as (coalesce(nullif(nickname_self,''), nickname_imported))`,
+and writing a generated column raises 428C9. True — and then nothing wrote the
+columns it is generated FROM, so a real exclusion silently became "this field
+never syncs".
+
+**Fix**: write the source column. `nickname_self`, because it outranks
+`nickname_imported` and the registry's value always arrived from an
+authoritative editor (the person's own card, or an admin) — writing the import
+slot instead would leave the visible value unchanged for anyone who had ever set
+their own nickname, which was exactly the person in the report.
+
+**The subtle half**: the mirror's `is distinct from` guard must compare the
+**GENERATED** value, not the source it writes. Comparing `nickname_self` would
+re-fire forever for a row whose effective nickname comes from
+`nickname_imported` — the two are never equal, so the guard never terminates.
+Compare what a reader sees, because "already in sync" is a statement about the
+reader.
+
+**Where it lives now**: `supabase/migrations/0134_nickname_syncs_too.sql`.
+Guarded by `tools/house0132-registry.mjs` steps A8b/A8c.
+
+**Rule**: a generated column is never a reason to skip a field in a sync — it is
+a reason to write the field it derives from. And when the guard for that sync
+compares values, compare the DERIVED one; comparing the source you just wrote
+either never terminates or terminates on the wrong condition.

@@ -5,10 +5,10 @@ Status: **EXPAND + bidirectional sync shipped (0132, 0133).** `people` is live �
 one writer keeping the copies in step. What remains is the CONTRACT step:
 retire the duplicated identity columns, one reader at a time.
 
-Proof: `node tools/house0132-registry.mjs` (17/17 — all three editors, both
-mirrors, link-at-birth, and the deny half).
+Proof: `node tools/house0132-registry.mjs` (19/19 — all three editors, both
+mirrors, ชื่อเล่น through a generated column, link-at-birth, and the deny half).
 
-**All three doors reach the registry** (0133): the person's own card via
+**All three doors reach the registry** (0133, 0134): the person's own card via
 `update_my_identity()`, and both admin panes via a mirror UP on each placement
 table. Both mirrors are guarded by `is distinct from`, which is what makes them
 converge in two hops rather than recurse — that guard is load-bearing.
