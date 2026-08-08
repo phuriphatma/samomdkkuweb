@@ -247,6 +247,22 @@ function filteredStudents() {
   });
 }
 
+/** Repaint a บ้าน `<select>`, preserving the current choice. Rebuilt on every
+ *  render rather than filled once: the ten ids are fixed by the rule but their
+ *  names are editable, and a chooser that caches a name is showing the answer to
+ *  a question somebody has since changed. */
+function fillHouseSelect(el, allLabel) {
+  if (!el) return;
+  const keep = el.value;
+  const html = `<option value="">${escHtml(allLabel)}</option>`
+    + Array.from({ length: HOUSE_COUNT },
+      (_, i) => `<option value="${i}">${escHtml(houseName(i))}</option>`).join('');
+  if (el.innerHTML !== html) {
+    el.innerHTML = html;
+    el.value = keep;
+  }
+}
+
 /** Fill a `<datalist>` from the values actually present. Rewritten on every
  *  render rather than filled once: a new สาย or a new รุ่น arrives with an
  *  import, and a list built on first paint would never mention it. */
@@ -259,13 +275,10 @@ function fillDatalist(id, values) {
 
 function renderStudents() {
   // บ้าน stays a `<select>`: exactly ten, fixed by the rule, and every one of
-  // them is worth showing at once.
-  const hSel = $('houseFilterHouse');
-  if (hSel && hSel.options.length <= 1) {
-    for (let i = 0; i < HOUSE_COUNT; i += 1) {
-      hSel.insertAdjacentHTML('beforeend', `<option value="${i}">${escHtml(houseName(i))}</option>`);
-    }
-  }
+  // them is worth showing at once. REBUILT each render, not filled once — the
+  // ten ids are fixed but their NAMES are not, so a house renamed in ภาพรวม
+  // left this list showing "บ้าน 3" until a full page reload.
+  fillHouseSelect($('houseFilterHouse'), 'ทุกบ้าน');
   fillDatalist('houseYearList',
     [...new Set(students.map(cohortOf).filter(Boolean))].sort().reverse());
   fillDatalist('houseMajorList',
@@ -331,12 +344,7 @@ function renderSais() {
   const wrap = $('houseSaiGroups');
   if (!wrap) return;
 
-  const hSel = $('houseSaiFilterHouse');
-  if (hSel && hSel.options.length <= 1) {
-    for (let i = 0; i < HOUSE_COUNT; i += 1) {
-      hSel.insertAdjacentHTML('beforeend', `<option value="${i}">${escHtml(houseName(i))}</option>`);
-    }
-  }
+  fillHouseSelect($('houseSaiFilterHouse'), 'ทุกบ้าน');
 
   const advBySai = advisorsBySai();
   const memberCount = new Map();

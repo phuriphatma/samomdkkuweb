@@ -8,6 +8,8 @@ under ~200 lines; when it bloats, move SHIPPED narratives to
 **Start here:** the section immediately below (what just shipped), then CURRENT DEPLOY.
 
 Shipped detail pruned out of here most recently:
+`docs/state-archive/2026-08-08-late-0128-0131.md` (0128–0131 — the cohort fix,
+the request answer path, the vestigial-column drop and the ชั้นปี offset),
 `docs/state-archive/2026-08-08-house-polish.md` (0123 + 0124, the บ้านของฉัน card
 and the CSV round-trip work),
 `docs/state-archive/2026-08-05-late-13-requests.md` (the 13-request session,
@@ -24,61 +26,53 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## SHIPPED 2026-08-08 (late) — 0128–0130, fourteen reports in one pass
+## SHIPPED 2026-08-08 (late) — 0128–0131
 
-Applied, committed, pushed, **DEPLOYED and verified from the served bundle**
-(`main` = `be85864` on the VM; `year_override` absent from the live admin JS,
-`house-pickrow` / `adminMySeat` / `houseFilterSai` present).
+Live on the VM (`main` = `a5c28fd`), verified from the served bundles.
 
-⚠️ **The lesson of this deploy, and it was live for ~20 minutes:** 0129 dropped
-five columns while the SERVED bundle still named them in `select=`, and
-PostgREST 400s on an unknown column — so ระบบบ้าน's admin tab died with
-`42703 column students.year_override does not exist` the moment the migration
-applied. **A column drop is only safe AFTER the bundle that stopped reading it
-is the one being served.** Drop-then-deploy is a window; deploy-then-drop is
-not.
+**0131 — ชั้นปี is a stored DIFFERENCE, not a number.** รุ่น and ชั้นปี are
+different facts and ลาพัก is what separates them: that person is still MD50 and
+is now studying ปี 4. So `students.year_offset` holds the GAP (`-1` = one year
+behind their รุ่น, correct forever), the year is COMPUTED on every render, and
+both choosers show real years 1–6 while saving `picked − computed`. ปีการศึกษา
+comes from the clock (สิงหาคม rollover), one constant, NOT a setting. There is
+deliberately **no SQL twin** of the derivation — nothing server-side gates on
+ชั้นปี. Unbounded on purpose (owner's call). Proof:
+`node tools/house0131-year-offset.mjs` (9/9) + 11 unit tests across two
+academic years.
 
-- **0128 §1 — a DERIVED column that was filled once and never re-derived.**
-  `students_fill_cohort` used `if cohort_year is null`, true exactly once per
-  row, so a corrected รหัสนักศึกษา left the old รุ่น behind and every reader's
-  `coalesce(copy, source)` preferred the stale copy. 1 of 3 live rows was wrong.
-  Now re-derives on every รหัส change; an explicit `cohort_year` in the same
-  statement still wins. Proof: `node tools/house0128-cohort.mjs` (5 steps
-  across a row's whole life — an insert-only probe scores the bug as a pass).
-- **0128 §2 — the admin's decision reaches the student.** `decision_note` went
-  into an admin-only table with no read path back to the person it addressed.
-  It now travels inside `get_my_student_record()`; new `applied_value` records
-  what was actually saved when an admin corrects the value on approval. Proof:
-  `node tools/house0128-requests.mjs` — allow AND deny.
-- **0128 §3 — `advisors.title` dropped** (folded into `first_name_th`, as 0113
-  did for ทีม SAMO); `email` now published to the students of that อาจารย์'s house.
-- **0129 — five vestigial columns off `students`**: `year_override`,
-  `is_listed`, `sai_locked`, `sai_self_edits`, `verified_at`. Each was the
-  leftover of a feature removed in 0123–0125, and the CSV export was handing all
-  five to a human as data. Verified first: no function body, no trigger, no
-  non-default value. `house_settings` is the same shape and is NOT dropped — it
-  is a table, and that needs asking.
-- **0130 — `lookup_student_by_kkumail()`**: the ทีม SAMO member form fills
-  itself from ระบบบ้าน. Exact match only, one row, named columns, no anon grant.
-  ⚠️ A deliberate widening: `team` alone can now resolve one address against
-  `students`. The full merge is designed in **`docs/PERSON-REGISTRY.md`** and is
-  NOT built.
-- **Admin landing** now carries a card for every `SIDE_FEATURE` key — `team`,
-  `house`, `order`, `analytics` were sidebar-only, so an admin holding just one
-  of those landed on an empty page. Pinned by `src/js/admin-landing.test.js`
-  (verified to FAIL when a card is removed). **ข้อมูลของฉัน moved** out of the
-  ทีม SAMO tab onto that landing — behind the `team` grant it was unreachable
-  for an admin whose grants are e.g. `pr` + `samoshop`.
-- Import preview is now the file row-by-row (skipped rows included — they were
-  the only ones the old preview could not show); export carries one `nickname`,
-  plus `house` and `cohort` as words.
+⚠️ **`team_members.year` is still a typed 1–6 column, 399 rows, and NOTHING in
+this repo has ever bumped it** (verified: no `year + 1` anywhere, and publishing
+a term snapshots without recomputing). So every August all 399 silently become
+last year's answer. 381/399 have a รหัส that yields a cohort and only 11
+disagree with the computed year — i.e. the repoint is cheap and the 11 become
+offsets. It is NOT done here on purpose: doing it now means a second offset
+column the person-registry merge would immediately have to reconcile. See
+`docs/PERSON-REGISTRY.md`.
 
-**Debugging note that cost twenty minutes here, now in mistakes.md class 7:**
-`current_user_has_permission()` reads the UNION of `permissions` AND
-`managed_permissions` (0081). A probe subject picked by `permissions = '{}'`
-alone may hold `master` through the ทีม SAMO tree, and reads exactly like a
-fail-open RLS policy. Filter on BOTH columns.
+## The 0128–0130 pass — fifteen reports, all live
 
+Full detail and every proof: **`docs/state-archive/2026-08-08-late-0128-0131.md`**.
+Carry these four:
+
+- **0128** — `cohort_year` re-derives on every รหัส change (it was `if is null`,
+  i.e. fill-once); a คำขอแก้ไข's verdict + note + `applied_value` now reach the
+  student through `get_my_student_record()`; `advisors.title` dropped and
+  `email` published to the house.
+- **0129** — five vestigial columns off `students`. ⚠️ **This caused a ~20-min
+  outage**: the SERVED bundle still named them and PostgREST 400s on an unknown
+  column. **Deploy first, drop second** — now in `docs/mistakes/deploy-hosting.md`.
+- **0130** — `lookup_student_by_kkumail()`, exact match only, no anon grant. A
+  deliberate widening: `team` alone can now resolve one address against
+  `students`. Full merge designed in **`docs/PERSON-REGISTRY.md`**, NOT built.
+- **Admin landing** carries a card for every `SIDE_FEATURE` key, and
+  ข้อมูลของฉัน moved there out of the ทีม SAMO tab. Pinned by
+  `src/js/admin-landing.test.js` (verified to fail when a card is removed).
+
+**Debugging note, now in mistakes.md class 7:** `current_user_has_permission()`
+reads the UNION of `permissions` AND `managed_permissions` (0081). A probe
+subject picked by `permissions = '{}'` alone may hold `master` through the
+ทีม SAMO tree and reads exactly like a fail-open RLS policy. Filter on BOTH.
 ## SHIPPED 2026-08-08 — ระบบบ้าน, end to end (0123–0127)
 
 All applied, deployed, verified on the served artifacts. Detail + every live
@@ -96,7 +90,7 @@ worth carrying:
 ## SHIPPED 2026-08-07 — ระบบบ้าน + the DELETE guard + หนังสือโครงการ visibility
 
 Migrations **0114–0122**, all live. Reasoning + proofs:
-**`docs/state-archive/2026-08-07-house-system.md`**. Carry these four:
+**`docs/state-archive/2026-08-07-house-system.md`**. Carry these three:
 
 - `house = last digit of สายรหัส`; สายรหัส is any `001`–`999`, random, NOT derived
   from รหัสนักศึกษา. `sais.house_id` is GENERATED; `sais` rows are created **on
@@ -104,7 +98,6 @@ Migrations **0114–0122**, all live. Reasoning + proofs:
 - Every DELETE reports an RLS block (`src/js/delete-guard.test.js` sweeps it).
 - `projects.is_public` / `project_documents.is_public` — opt-out, sender-side
   only, per-COLUMN trigger. Proof: `node tools/proj0114-visibility.mjs`.
-- Example data carries no real student's identity (`659999999-9`).
 
 ## Earlier sessions — archived, nothing owed
 
@@ -133,12 +126,12 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `be85864`, DEPLOYED and verified from the served
+- **samoweb**: `main` = `a5c28fd`, DEPLOYED and verified from the served
   artifact. Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
   holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0130.** Live proofs, all both-directional:
+- **Migrations applied through 0131.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
-  (9/9) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
+  (9/9) · `node tools/house0131-year-offset.mjs` (9/9) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update
@@ -257,8 +250,6 @@ archiving into it saved nothing.
 > 3. **`students.self_edited` is invisible to admins** — not in `STUDENT_COLS`,
 >    not in the CSV export. An admin cannot see which fields a student owns, and
 >    a backup/restore loses it. Harmless today (admin edits win regardless).
-> 4. **Filter dropdowns are built once** (บ้าน/รุ่น/สาขา in the นักศึกษา pane,
->    บ้าน in สายรหัส) so they go stale after an import until a reload.
 > 5. **`students` is not empty** — a few rows from manual testing, incl. the
 >    owner's real record. The import upserts on kkumail so it will merge.
 > 6. Older, still true: **0108's contract step is owed** (`createMember` and the
@@ -266,11 +257,13 @@ archiving into it saved nothing.
 >    path is unverified by hand; real student identities are in this PUBLIC
 >    repo's git history (0047 seed) and that needs the owner's decision.
 >
-> **Vestigial columns, kept deliberately** (nothing reads or writes them; each
-> carries a `comment on column`): `students.year_override`, `.verified_at`,
-> `.is_listed`, `.sai_locked`, `.sai_self_edits`, `house_settings.academic_year`,
-> `.roster_visible`, `.sai_self_edit_open`. Drop them once the real data has
-> landed and they are confirmed empty.
+> **Vestigial columns.** The five on `students` are GONE (0129:
+> `year_override`, `verified_at`, `is_listed`, `sai_locked`, `sai_self_edits`) —
+> and dropping them while the served bundle still named them is what caused the
+> 20-minute outage, so **deploy first, drop second**. Still there and still
+> dead: the whole of `house_settings` (`academic_year`, `roster_visible`,
+> `sai_self_edit_open`, `sai_edit_until`). Nothing reads or writes that row. It
+> is a TABLE, so dropping it needs the owner's word.
 >
 > Backlog: `docs/NEXT.md`. Roles/photos design with five open decisions:
 > `docs/TEAM-ROLES-AND-PHOTOS.md`.
