@@ -141,24 +141,26 @@ accordion, the first ตำแหน่งของฉัน card, `/updates` + 
 Crop-on-upload, stacked modals, real Drive photo deletes (a REFCOUNT — an
 archived year shares the live photo's file id), and the ตรวจสอบข้อมูล pane
 (24 findings, flags WHO on each member row and rolls counts up the tree).
-Migration **0108 `team_people`** is applied but EXPAND-ONLY: nothing reads it,
-all ten resolvers still join `team_members.kkumail`.
-
 **The rule that governs it: kkumail is the identity, รหัสนักศึกษา is a field.**
 Never merge on name — `673070332-6` is one mistyped รหัส shared by two humans.
 
-**0108's contract step is still owed, and its first job is the INSERT gap:**
-`createMember` and the CSV import write `person_id = null`, so rows added since
-0108 are already unlinked. Fix with a BEFORE INSERT trigger or re-run the
-(idempotent) backfill. Full reasoning: `docs/state-archive/2026-08-01-team-identity.md`.
+**0108's table is now `public.people` and its INSERT gap is CLOSED** (0133): a
+BEFORE INSERT trigger links every new placement by kkumail, so `createMember`
+and the CSV import can no longer create orphans. The ten
+`effective_team_*_for_email` resolvers still join `team_members.kkumail` — that
+is contract-step work, not a bug. Background:
+`docs/state-archive/2026-08-01-team-identity.md`.
 
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `a5c28fd`, DEPLOYED and verified from the served
-  artifact. Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
-  holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
+- **samoweb**: `main` = `1051042` on the VM (later commits are docs-only),
+  verified from the served artifact. Still **v4.5.0**, and
+  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 20 entries** — two
+  sessions of user-visible work with no version cut. **A `npm run release`
+  minor bump is OWED** and `/updates` is showing none of it. Read
+  `docs/VERSIONING.md` first; the bump is a **minor**.
 - **Migrations applied through 0134.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
@@ -294,6 +296,27 @@ archiving into it saved nothing.
 >    record. The import upserts on kkumail so it will merge.
 > 7. Older: real student identities are in this PUBLIC repo's git history (0047
 >    seed) and that needs the owner's decision.
+>
+> **Signatures that CHANGED this session** — a call site written from memory
+> will be wrong:
+> - `saveMyStudentRecord(patch)` now posts to **`update_my_identity`** (not
+>   `update_my_student_record`) and returns `data.house`, so the shape callers
+>   see is unchanged. That indirection IS the sync; do not "simplify" it back.
+> - `decideRequest(id, status, note, userId, applied)` — 5th arg is
+>   `applied_value`, written only when it differs from what was requested.
+> - `renderMyHouse(host, rec, opts)` — `opts.mode === 'section'` drops the card
+>   shell; `opts.identityShownAbove` drops the duplicated identity rows.
+> - `renderMySeat(host, seat, opts)` / `showMySeat(host, uid, opts)` —
+>   `opts.afterRender(hostEl)` fires after every paint. **Required**, see above.
+> - **`team_people` is now `public.people`.** Four `tools/*.mjs` were repointed.
+>   `tools/team0108-people.mjs` still fails on `column "prefix" does not exist`
+>   — pre-existing since 0113, verified identical on the parent commit.
+>
+> **Where the new things live:** `people` + mirrors → migrations 0132/0133/0134
+> · the one card → `src/js/my-seat.js` (shell + slot) and
+> `src/js/house/my-house.js` (section mode) · composition → `src/js/main.js`
+> around `paintHouseInto` · ชั้นปี derivation → `src/js/house/fields.js`
+> (`studyYear` / `offsetForPickedYear`, JS only, no SQL twin).
 >
 > **How to work on this repo, learned the hard way over the last two sessions:**
 > - **A fix applied on ONE path is not a fix.** Nearly every bug found this
