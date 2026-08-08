@@ -20,15 +20,13 @@
         <i class="bi bi-clipboard2-check"></i> ตรวจสอบข้อมูล
         <span class="team-mode-badge d-none" id="teamHealthBadge"></span>
       </button>
-      <!-- The SAME ตำแหน่งของฉัน card the home page renders (src/js/my-seat.js),
-           not a second editor. Reported: someone in /admin/ who spots their own
-           row is wrong had to leave for the public home page to fix it — and the
-           read-only note below still said exactly that. One editor, three
-           entry points: home, the โปรไฟล์ modal in the account dropdown, and
-           here. -->
-      <button type="button" class="team-mode-btn" data-team-mode="me">
-        <i class="bi bi-person-vcard"></i> ข้อมูลของฉัน
-      </button>
+      <!-- ข้อมูลของฉัน used to be a sixth mode here. It moved to the ADMIN
+           LANDING: the card is the person's own record, not org-tree
+           management, and putting it behind the `team` grant meant an admin
+           whose grants are `pr` and `samoshop` could not reach their own row
+           from /admin/ at all. Still one editor, now with four entry points:
+           the public home page, the โปรไฟล์ modal, the admin landing, and the
+           ต้องตรวจสอบ flag on a member row. -->
     </div>
     <div class="team-io">
       <div class="dropdown">
@@ -51,7 +49,8 @@
      change it, and the write affordances are not rendered for anyone else. -->
 <div class="alert alert-light border team-readonly-note d-none" id="teamReadOnlyNote" role="note">
   <i class="bi bi-eye"></i>
-  คุณกำลังดูข้อมูลทีม SAMO แบบอ่านอย่างเดียว — แก้ไขข้อมูลของตัวเองได้ที่แท็บ “ข้อมูลของฉัน” ด้านบน
+  คุณกำลังดูข้อมูลทีม SAMO แบบอ่านอย่างเดียว — แก้ไขข้อมูลของตัวเองได้ที่การ์ด “ข้อมูลของฉัน”
+  บนหน้าแรกของหน้าจัดการ
 </div>
 <div class="team-toolbar">
     <div class="team-toolbar-search">
@@ -94,16 +93,6 @@
        later CSV import that reintroduces an inconsistency shows up here with no
        script to remember to run. Rendered by src/js/team/health.js. -->
   <div class="team-health-pane d-none" id="teamHealthPane"></div>
-
-  <!-- ข้อมูลของฉัน. Host for the shared ตำแหน่งของฉัน card — team/index.js calls
-       showMySeat() into it, so the markup, the rules and the self-edit round trip
-       are the public site's, unchanged. Nothing team-specific belongs here. -->
-  <div class="team-me-pane d-none" id="teamMePane">
-    <div class="myseat myseat--pane" id="teamMySeat"></div>
-    <p class="team-me-empty d-none" id="teamMeEmpty">
-      บัญชีนี้ไม่มีตำแหน่งในผังทีม SAMO — ข้อมูลส่วนตัวจึงไม่มีให้แก้ที่นี่
-    </p>
-  </div>
 
   <!-- Bulk action bar — shown in select mode; sticks to the bottom. -->
   <div class="team-selectbar d-none" id="teamSelectionBar">

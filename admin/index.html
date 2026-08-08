@@ -245,9 +245,30 @@
 
           <!-- LANDING -->
           <section data-admin-pane="landing">
+            <!-- ข้อมูลของฉัน — the SAME ตำแหน่งของฉัน card the public home page
+                 renders (src/js/my-seat.js), not a second editor. It used to be
+                 a sixth mode inside the ทีม SAMO tab, which is the wrong home
+                 for it twice over: it is not org-tree management, and it was
+                 reachable only by someone who had the `team` grant AND thought
+                 to look under it. The landing is the first thing every admin
+                 sees, and "is my own row right" is a question you answer once,
+                 on the way in. Hidden entirely when the account has no posting
+                 in the tree. -->
+            <div class="admin-me d-none" id="adminMeBlock">
+              <div class="myseat myseat--pane" id="adminMySeat"></div>
+            </div>
+
             <!-- Each col carries data-admin-side so admin-main.js gates
                  visibility via userCanAccess() — granting access from
-                 either the role default OR the user's permissions[] array. -->
+                 either the role default OR the user's permissions[] array.
+
+                 EVERY key in SIDE_FEATURE (admin-main.js) must have a card
+                 here. It did not: team / house / order / analytics were in the
+                 sidebar and missing from the landing, so an admin whose only
+                 grant was one of those four landed on an empty page. Pinned by
+                 admin-landing.test.js — this is the "one list spelled out by
+                 hand beside a shared constant" class, and it has already been
+                 paid for once in main.js (0113). -->
             <div class="row g-3" id="adminLandingCards">
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="pr">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
@@ -300,6 +321,50 @@
                   <div class="admin-card-body">
                     <h5>เขียนประกาศ</h5>
                     <p>สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="order">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
+                  onclick="openAdminSection('order')">
+                  <span class="admin-card-icon"><i class="bi bi-sort-down"></i></span>
+                  <div class="admin-card-body">
+                    <h5>จัดลำดับประกาศ</h5>
+                    <p>เรียงลำดับและปักหมุดประกาศบนบอร์ดสาธารณะ</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="team">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
+                  onclick="openAdminSection('team')">
+                  <span class="admin-card-icon"><i class="bi bi-diagram-3"></i></span>
+                  <div class="admin-card-body">
+                    <h5>ทีม SAMO</h5>
+                    <p>ผังตำแหน่ง สมาชิก สิทธิ์การใช้งาน และปีการศึกษา</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="house">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-academic);"
+                  onclick="openAdminSection('house')">
+                  <span class="admin-card-icon"><i class="bi bi-house-heart"></i></span>
+                  <div class="admin-card-body">
+                    <h5>ระบบบ้าน</h5>
+                    <p>นักศึกษา สายรหัส อาจารย์ที่ปรึกษา คำขอแก้ไข และนำเข้าข้อมูล</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="analytics">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
+                  onclick="openAdminSection('analytics')">
+                  <span class="admin-card-icon"><i class="bi bi-graph-up"></i></span>
+                  <div class="admin-card-body">
+                    <h5>สถิติการใช้งาน</h5>
+                    <p>คนเข้าใช้ระบบ หน้าที่เปิดบ่อย และแนวโน้มย้อนหลัง</p>
                   </div>
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>

@@ -24,26 +24,64 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-08 (late) — 0128–0130, thirteen reports in one pass
+
+Applied to the live DB and committed. **NOT yet deployed to the VM.**
+
+- **0128 §1 — a DERIVED column that was filled once and never re-derived.**
+  `students_fill_cohort` used `if cohort_year is null`, true exactly once per
+  row, so a corrected รหัสนักศึกษา left the old รุ่น behind and every reader's
+  `coalesce(copy, source)` preferred the stale copy. 1 of 3 live rows was wrong.
+  Now re-derives on every รหัส change; an explicit `cohort_year` in the same
+  statement still wins. Proof: `node tools/house0128-cohort.mjs` (5 steps
+  across a row's whole life — an insert-only probe scores the bug as a pass).
+- **0128 §2 — the admin's decision reaches the student.** `decision_note` went
+  into an admin-only table with no read path back to the person it addressed.
+  It now travels inside `get_my_student_record()`; new `applied_value` records
+  what was actually saved when an admin corrects the value on approval. Proof:
+  `node tools/house0128-requests.mjs` — allow AND deny.
+- **0128 §3 — `advisors.title` dropped** (folded into `first_name_th`, as 0113
+  did for ทีม SAMO); `email` now published to the students of that อาจารย์'s house.
+- **0129 — five vestigial columns off `students`**: `year_override`,
+  `is_listed`, `sai_locked`, `sai_self_edits`, `verified_at`. Each was the
+  leftover of a feature removed in 0123–0125, and the CSV export was handing all
+  five to a human as data. Verified first: no function body, no trigger, no
+  non-default value. `house_settings` is the same shape and is NOT dropped — it
+  is a table, and that needs asking.
+- **0130 — `lookup_student_by_kkumail()`**: the ทีม SAMO member form fills
+  itself from ระบบบ้าน. Exact match only, one row, named columns, no anon grant.
+  ⚠️ A deliberate widening: `team` alone can now resolve one address against
+  `students`. The full merge is designed in **`docs/PERSON-REGISTRY.md`** and is
+  NOT built.
+- **Admin landing** now carries a card for every `SIDE_FEATURE` key — `team`,
+  `house`, `order`, `analytics` were sidebar-only, so an admin holding just one
+  of those landed on an empty page. Pinned by `src/js/admin-landing.test.js`
+  (verified to FAIL when a card is removed). **ข้อมูลของฉัน moved** out of the
+  ทีม SAMO tab onto that landing — behind the `team` grant it was unreachable
+  for an admin whose grants are e.g. `pr` + `samoshop`.
+- Import preview is now the file row-by-row (skipped rows included — they were
+  the only ones the old preview could not show); export carries one `nickname`,
+  plus `house` and `cohort` as words.
+
+**Debugging note that cost twenty minutes here, now in mistakes.md class 7:**
+`current_user_has_permission()` reads the UNION of `permissions` AND
+`managed_permissions` (0081). A probe subject picked by `permissions = '{}'`
+alone may hold `master` through the ทีม SAMO tree, and reads exactly like a
+fail-open RLS policy. Filter on BOTH columns.
+
 ## SHIPPED 2026-08-08 — ระบบบ้าน, end to end (0123–0127)
 
-All applied, deployed and verified on the served artifacts. Full detail and
-every live proof: **`docs/state-archive/2026-08-08-house-polish.md`**.
+All applied, deployed, verified on the served artifacts. Detail + every live
+proof: **`docs/state-archive/2026-08-08-house-polish.md`**. The four invariants
+worth carrying:
 
-- **บ้านของฉัน** reads like ตำแหน่งของฉัน — one label→value list, shared
-  stylesheet. Shows **รุ่น (MD50)**, never ชั้นปี. No ยืนยันข้อมูล.
-- **ระบบบ้าน publishes อาจารย์, never students.** `get_house_roster()` dropped;
-  the card lists the อาจารย์ of every สาย in the house instead.
-- **A student self-edits ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา, and never
-  their สายรหัส.** `students.self_edited` + a BEFORE UPDATE trigger keep a
-  re-import from reverting them: **admin > student > import**, on the TABLE.
-- **The import writes only the columns its file carried**, a row may have no
-  name, `000` is refused, short สาย (`7` → `007`) are fine, and import/export
-  share one vocabulary. Handover spec + minimal template ready to send.
-- **Admin: click a สาย to manage its อาจารย์.** ระบบบ้าน now has no settings.
-- **Five bugs fixed after the fact** — the multi-click panel, the สาขา chooser
-  that submitted empty, a คำนำหน้า being stripped off real names, `000` from a
-  blank cell, and ปฏิเสธ doing nothing. The last four were found by scanning,
-  the first and last by the owner.
+- **บ้านของฉัน shows รุ่น (MD50), never ชั้นปี** — a fact fixed at admission, so
+  it needs no clock, no override and no maintenance.
+- **ระบบบ้าน publishes อาจารย์, never students.** `get_house_roster()` dropped.
+- **admin > student > import, enforced on the TABLE** — `students.self_edited`
+  plus a BEFORE UPDATE trigger, so a re-import cannot revert a self-edit.
+- **The import writes only the columns its file carried.** A row may have no
+  name; `000` is refused; short สาย (`7` → `007`) are fine.
 
 ## SHIPPED 2026-08-07 — ระบบบ้าน + the DELETE guard + หนังสือโครงการ visibility
 
@@ -85,13 +123,15 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `1c18ad5`, DEPLOYED and verified on the served artifacts
-  (the สาขา chooser opens on the stored value; no loading placeholder).
-  Still **v4.5.0** — no version cut; `PENDING` in
-  `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
-  ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0127.** Live proofs, both directions:
-  `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
+- **samoweb**: `main` = `1b9f63c` + the admin-landing commit. **The DB is at
+  0130 but the VM is still serving `1c18ad5` — deploy is OWED.** Nothing is
+  broken by the gap (0128–0130 are additive; 0129's dropped columns had no
+  reader), but the served bundle does not yet have the fixes.
+  Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
+  holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
+- **Migrations applied through 0130.** Live proofs, all both-directional:
+  `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
+  (9/9) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update

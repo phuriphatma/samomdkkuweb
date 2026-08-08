@@ -39,6 +39,8 @@ import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
 // SAMO Team (org tree)
 import { initTeam, enterTeamWorkspace } from './team/index.js';
+// The ONE ตำแหน่งของฉัน card — same component the public home page renders.
+import { loadMySeat, renderMySeat } from './my-seat.js';
 import { initAnalytics, trackTab } from './analytics.js';
 import { initAnalyticsDashboard, enterAnalytics } from './analytics-dashboard.js';
 
@@ -405,6 +407,36 @@ function swapAccountReload() {
   }
 }
 
+/**
+ * ข้อมูลของฉัน on the admin landing.
+ *
+ * MOVED HERE from a sixth mode inside the ทีม SAMO tab. Two things were wrong
+ * with that home: the card is not org-tree management, and it was reachable
+ * only by an account that both HELD the `team` grant and thought to look under
+ * it — so an admin whose grants are `pr` and `samoshop` could not see or fix
+ * their own row at all from /admin/.
+ *
+ * Deliberately thin, exactly as the ทีม SAMO version was: the markup, the
+ * findings, the self-edit round trip and the photo upload all live in
+ * ../my-seat.js and are the same code the public home page runs. A second
+ * implementation is what this repo means by "two implementations of one rule
+ * drift"; the only thing this function decides is where it goes.
+ *
+ * An account with no posting in the tree gets NO block — not an empty card and
+ * not an explanation. That is the common case for a shared department account,
+ * and a permanent "you have no ตำแหน่ง" notice on the first screen of the admin
+ * app is noise for the people it is true of.
+ */
+async function paintAdminMySeat() {
+  const block = document.getElementById('adminMeBlock');
+  const host = document.getElementById('adminMySeat');
+  if (!block || !host) return;
+  const uid = authGetUser()?.id || null;
+  const seat = uid ? await loadMySeat(uid) : null;
+  block.classList.toggle('d-none', !seat);
+  renderMySeat(host, seat, { compact: true });
+}
+
 function showAdminSide(which) {
   const meta = SECTION_META[which] || SECTION_META.landing;
 
@@ -471,6 +503,11 @@ function showAdminSide(which) {
   // Usage analytics: lazy-load the dashboard payload on entry.
   if (which === 'analytics') {
     enterAnalytics();
+  }
+
+  // ข้อมูลของฉัน, on the landing.
+  if (which === 'landing') {
+    paintAdminMySeat();
   }
 
   // Record the section switch for the "top tabs" usage breakdown.

@@ -215,6 +215,21 @@
   color: #0d4a1d;
 }
 
+/* ข้อมูลของฉัน, above the tool cards on the admin landing. A panel rather than
+   a card: it is the one block on this screen you READ instead of clicking, and
+   giving it the same affordance as the tools would invite a click that does
+   nothing. Hidden entirely for an account with no ตำแหน่ง. */
+.admin-me {
+  background: #fff;
+  border: 1px solid var(--ink-200, #e9ecef);
+  border-radius: var(--radius-md, 0.75rem);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 575.98px) {
+  .admin-me { padding: 0.75rem 0.85rem; }
+}
+
 .admin-card {
   display: flex;
   align-items: center;

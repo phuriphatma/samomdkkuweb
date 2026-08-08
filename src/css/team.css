@@ -805,13 +805,11 @@
   min-height: 0;
 }
 
-/* ── ข้อมูลของฉัน pane (admin ทีม SAMO) ─────────────────────────────────────
-   Hosts the shared ตำแหน่งของฉัน card so someone who spots their own row is
-   wrong while they are in /admin/ can fix it there, instead of being sent to
-   the public home page (which is what the read-only note used to tell them to
-   do). `--pane` only removes the card's outer chrome — it is already inside a
-   panel here. */
-.team-me-pane { padding: 0.25rem 0 1rem; }
+/* ── ข้อมูลของฉัน, hosted inside a panel ────────────────────────────────────
+   `--pane` only removes the card's outer chrome — it is already inside one.
+   The host moved from the ทีม SAMO tab to the admin landing (#adminMeBlock);
+   this modifier stayed here because it belongs to the CARD, not to either
+   host, and my-seat.css is shared with the public page where the card carries
+   its own chrome. */
 .myseat--pane { margin-top: 0; }
 .myseat--pane .myseat-card { border: 0; padding: 0; box-shadow: none; background: transparent; }
-.team-me-empty { color: var(--ink-500); font-size: 0.9rem; margin: 0.5rem 0 0; }

@@ -33,9 +33,6 @@ import {
   normalizeIdentityFields, majorKey, YEARS, SID_HINT,
 } from './fields.js';
 import { userCanAccess, getUser } from '../auth.js';
-// The ONE ตำแหน่งของฉัน card. /admin/ shows the same component the public home
-// page does — see enterMySeatPane().
-import { loadMySeat, renderMySeat } from '../my-seat.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
@@ -423,12 +420,10 @@ function render() {
   // inside the node list.
   const isYears = mode === 'years';
   const isHealth = mode === 'health';
-  const isMe = mode === 'me';
-  const isPane = isYears || isHealth || isMe;
+  const isPane = isYears || isHealth;
   tree.classList.toggle('d-none', isPane);
   $('teamTermsPane')?.classList.toggle('d-none', !isYears);
   $('teamHealthPane')?.classList.toggle('d-none', !isHealth);
-  $('teamMePane')?.classList.toggle('d-none', !isMe);
   document.querySelector('.team-toolbar')?.classList.toggle('d-none', isPane);
   // BEFORE the tree paints — renderMember reads healthFlags.
   refreshHealthFlags();
@@ -1004,27 +999,12 @@ function switchMode(m) {
   render();
   if (mode === 'years') enterTerms();
   if (mode === 'health') enterHealth();
-  if (mode === 'me') enterMySeatPane();
 }
 
-/**
- * Paint the shared ตำแหน่งของฉัน card into the admin pane.
- *
- * Deliberately thin: everything about the card — its markup, the findings, the
- * self-edit round trip, the photo upload — lives in ../my-seat.js and is the
- * same code the public home page runs. A second implementation here is exactly
- * what this repo means by "two implementations of one rule drift"; the only
- * thing this function decides is where it goes.
- */
-async function enterMySeatPane() {
-  const host = $('teamMySeat');
-  const empty = $('teamMeEmpty');
-  if (!host) return;
-  const uid = getUser()?.id || null;
-  const seat = uid ? await loadMySeat(uid) : null;
-  empty?.classList.toggle('d-none', !!seat);
-  renderMySeat(host, seat, { compact: true });
-}
+// ข้อมูลของฉัน is no longer a mode here. The shared ตำแหน่งของฉัน card moved to
+// the ADMIN LANDING (admin-main.js paintAdminMySeat) — it is the person's own
+// record rather than org-tree management, and behind the `team` grant it was
+// unreachable for an admin whose grants are e.g. `pr` and `samoshop`.
 
 /** Every member id at or below a ตำแหน่ง. Used so the rolled-up count on a
  *  branch focuses that whole branch, not just one person. */
