@@ -67,6 +67,12 @@ CLASSES + a one-line index of all 117 write-ups), `.claude/rules/security.md`
 which `npm test` runs. **Never put a bug write-up, a session narrative, or
 anything long in `.claude/rules/` — it is charged to every future session.**
 
+**READ FIRST, EVERY SESSION — `STATE.md`.** Not on demand: it is the handoff.
+Its `## NEXT-SESSION PROMPT` carries what is in flight, what is deployed, the
+open bugs, and the things that change what you do first. Everything else below
+is genuinely fetch-when-needed; this one is not, and skipping it is how a
+session re-derives or re-breaks work that was finished yesterday.
+
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
 - `docs/mistakes/*.md` — the 117 bug write-ups, nine files by area. The index
@@ -74,7 +80,6 @@ anything long in `.claude/rules/` — it is charged to every future session.**
   docs/mistakes/` is usually faster. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
   SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
-- `STATE.md` — current task / open issues / latest deploy
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
 - `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
