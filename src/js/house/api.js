@@ -350,12 +350,28 @@ export async function fetchMyStudentRecord() {
   return data || null;
 }
 
+/**
+ * Save the caller's own identity — through the ONE writer (0132).
+ *
+ * It used to call `update_my_student_record` directly, which writes ระบบบ้าน and
+ * nothing else. So a student who was also in ทีม SAMO could fix their ชื่อเล่น
+ * here and their ทีม SAMO row would still say the old one — the exact "changing
+ * user data on the web should sync with the teamsamo data and sync with the
+ * ระบบบ้าน data" gap. `update_my_identity` writes the house placement, every
+ * ทีม SAMO posting AND the registry row, and it still runs
+ * update_my_student_record inside itself, so every validation rule (the รหัส
+ * format, the uniqueness race, the สาขา vocabulary, "you may not erase a name
+ * that exists") is unchanged and still raises before anything is written.
+ *
+ * It returns the whole profile; this unwraps the `house` half so every existing
+ * caller keeps the shape it already expects.
+ */
 export async function saveMyStudentRecord(patch) {
-  const { data, error } = await dbRest('/rpc/update_my_student_record', {
+  const { data, error } = await dbRest('/rpc/update_my_identity', {
     method: 'POST', body: { p_patch: patch },
   });
   if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
-  return data || null;
+  return data?.house || null;
 }
 
 /** File a correction request for the CALLER's own record. The RPC resolves the

@@ -318,8 +318,8 @@
    the same person" — which is the job two sibling cards were doing badly, by
    repeating the person instead. */
 .myprofile-section {
-  margin-top: 0.9rem;
-  padding-top: 0.85rem;
+  margin-top: 1.15rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--ink-200, #e9ecef);
 }
 .myprofile-section-title {
@@ -334,6 +334,12 @@
 .myprofile-section-title .bi { color: var(--ink-400); font-size: 1.05em; }
 
 /* Empty for anyone the section does not apply to, and an empty slot must take
-   no space and draw no rule. */
+   no space and draw no rule. The slot is a pass-through: it must NOT reset the
+   margin of the section inside it, which is what collapsed ระบบบ้าน onto the end
+   of the ทีม SAMO section. */
 .myprofile-slot:empty { display: none; }
-.myprofile-slot > :first-child { margin-top: 0; }
+
+/* The ทีม SAMO section ends on its CTA link, which is inline and carries no
+   bottom margin of its own — without this the next section's rule sits right on
+   top of it. */
+.myprofile-section .myseat-cta { margin-bottom: 0.15rem; }

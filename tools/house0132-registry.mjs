@@ -118,6 +118,32 @@ select 'A3b. and every ทีม SAMO posting', 'ok',
               then 'DRIFTED' else 'ok' end;
 
 -- ---- global invariants ----
+-- The gap the UI had: บ้านของฉัน saved through update_my_student_record, which
+-- writes ระบบบ้าน and NOTHING else, so a ชื่อเล่น fixed there left ทีม SAMO saying
+-- the old one. The card now goes through update_my_identity; this proves the
+-- house entry point reaches the ทีม SAMO copy.
+select set_config('role','authenticated',true),
+       set_config('request.jwt.claims',
+         json_build_object('sub',(select uid::text from who),'role','authenticated')::text, true);
+set local role authenticated;
+-- The write gets its OWN statement. Folding it into the CASE that then reads
+-- team_members made the EXISTS run against the statement's snapshot, which
+-- predates the write the same statement had just performed — the probe reported
+-- DRIFTED for a row that was in fact correct. A proof that fails for the wrong
+-- reason is worse than no proof: it gets explained away.
+select public.update_my_identity('{"nickname_self":"สองทาง"}'::jsonb);
+
+insert into probe
+select 'A6. house-side save reaches ทีม SAMO', 'ok',
+       case when not exists (select 1 from public.team_members m
+                              where lower(btrim(m.kkumail)) = lower(btrim((select kkumail from who))))
+              then 'ok'
+            when exists (select 1 from public.team_members m
+                          where lower(btrim(m.kkumail)) = lower(btrim((select kkumail from who)))
+                            and coalesce(m.nickname,'') <> 'สองทาง')
+              then 'DRIFTED' else 'ok' end;
+reset role;
+
 insert into probe values ('D3. no duplicate humans by address', '0',
   (select count(*)::text from (
      select lower(btrim(kkumail)) from public.people

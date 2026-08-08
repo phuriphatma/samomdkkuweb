@@ -205,11 +205,19 @@
    note pointing up at a card already scrolled past. A person is ONE entity;
    ทีม SAMO and ระบบบ้าน are facts about them, so they became sections under one
    heading. This strips the shell my-seat.css gives `.myseat-card`. */
+/* Strip only what makes it a CARD — never `border: 0`, which also removed the
+   section's own top rule and left ระบบบ้าน crammed against the ทีม SAMO CTA with
+   no separator at all (reported: "seperate section between teamsamo and
+   ระบบบ้าน"). The border-top and padding-top come from .myprofile-section and
+   must survive. */
 .myhouse-section {
-  border: 0;
-  padding: 0;
   background: none;
   box-shadow: none;
+  border-inline-start: 0;
+  border-inline-end: 0;
+  border-bottom: 0;
+  padding-inline: 0;
+  padding-bottom: 0;
 }
 /* Tighter than the standalone card: the section already sits inside one, and
    the crest no longer has to carry a whole header. */
