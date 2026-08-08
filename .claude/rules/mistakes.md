@@ -262,7 +262,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A vendor manual's field list is not the contract
 
 ### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
-*Open when:* deploy.sh, nginx, cache headers. *(6 entries)*
+*Open when:* deploy.sh, nginx, cache headers. *(7 entries)*
 
 - `rsync --delete` on deploy yanks the previous build's chunks out from under OPEN tabs
 - A deploy script that `git pull`s ITSELF and keeps running will execute a garbage fragment
@@ -270,6 +270,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - CI `npm test` fails on Node 20 — supabase-js throws "Node.js 20 detected without native WebSocket support" at import
 - nginx subpath app: bare `/passport` (no trailing slash) silently serves the wrong SPA
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
+- Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
 *Open when:* writing or trusting a `tools/*.mjs` proof. *(5 entries)*

@@ -220,3 +220,41 @@ single-`index.html` hash router with no sibling `.html` pages; the passport app 
 one with real per-page `.html` files (`dashboard.html`, `admin.html`, `scan.html`).
 
 ---
+
+---
+
+## Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
+
+**Symptom**: minutes after applying a migration, ระบบบ้าน's admin tab in
+production showed `{"code":"42703","message":"column students.year_override does
+not exist"}` and loaded nothing. Reported by the owner while the session that
+caused it was still running.
+
+**Cause**: migration 0129 dropped five vestigial columns from `students`. The
+LOCAL code had already stopped asking for them — `STUDENT_COLS` in
+`src/js/house/api.js` was edited in the same commit — but that commit had not
+been deployed. The bundle actually being served was the previous build, and it
+still sent `select=…,year_override,is_listed,…`. PostgREST answers an unknown
+column with **400 / 42703 on the whole query**, not by ignoring it, so
+`fetchStudents()` threw and the entire workspace `reload()` failed.
+
+Everything about the drop was checked first — no function body referenced the
+columns, no trigger fired `of <column>`, every stored value was the default. The
+one reader nobody checked was the artifact on the server, which is precisely the
+reader `docs/mistakes/tooling-proofs.md` already says to check: *"grep the SERVED
+bundle, not the local file."* That rule was written for verifying a fix. It
+applies just as hard to verifying a **removal**.
+
+**Fix**: deploy, then verify from the served bundle
+(`curl <host>/assets/admin-*.js | grep -c year_override` → 0). ~20 minutes of
+downtime on one admin tab.
+
+**Where it lives now**: `supabase/migrations/0129_students_lose_the_vestigial_columns.sql`.
+
+**Rule**: a schema REMOVAL and a code deploy are ordered, and the order is
+**deploy first, drop second**. Adding a column is safe in either order because
+old code simply does not ask for it; dropping one is not, because old code is
+still asking. If the drop must go first, it is not a drop — it is a two-step:
+ship the code that stops reading the column, confirm it is the version being
+SERVED, then drop. The window between them is measured in whatever your deploy
+takes, and during it the feature is down.

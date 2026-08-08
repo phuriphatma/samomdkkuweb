@@ -24,9 +24,19 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## SHIPPED 2026-08-08 (late) — 0128–0130, thirteen reports in one pass
+## SHIPPED 2026-08-08 (late) — 0128–0130, fourteen reports in one pass
 
-Applied to the live DB and committed. **NOT yet deployed to the VM.**
+Applied, committed, pushed, **DEPLOYED and verified from the served bundle**
+(`main` = `be85864` on the VM; `year_override` absent from the live admin JS,
+`house-pickrow` / `adminMySeat` / `houseFilterSai` present).
+
+⚠️ **The lesson of this deploy, and it was live for ~20 minutes:** 0129 dropped
+five columns while the SERVED bundle still named them in `select=`, and
+PostgREST 400s on an unknown column — so ระบบบ้าน's admin tab died with
+`42703 column students.year_override does not exist` the moment the migration
+applied. **A column drop is only safe AFTER the bundle that stopped reading it
+is the one being served.** Drop-then-deploy is a window; deploy-then-drop is
+not.
 
 - **0128 §1 — a DERIVED column that was filled once and never re-derived.**
   `students_fill_cohort` used `if cohort_year is null`, true exactly once per
@@ -123,11 +133,8 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `1b9f63c` + the admin-landing commit. **The DB is at
-  0130 but the VM is still serving `1c18ad5` — deploy is OWED.** Nothing is
-  broken by the gap (0128–0130 are additive; 0129's dropped columns had no
-  reader), but the served bundle does not yet have the fixes.
-  Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
+- **samoweb**: `main` = `be85864`, DEPLOYED and verified from the served
+  artifact. Still **v4.5.0** — no version cut; `PENDING` in `src/data/changelog.js` now
   holds ~15 notes, so the next release is a **minor** bump (`npm run release`).
 - **Migrations applied through 0130.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
