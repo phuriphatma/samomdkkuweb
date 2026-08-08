@@ -847,6 +847,16 @@ policy is a row filter, never a column policy — the class this repo paid for o
 through `update_my_student_record(jsonb)`, a definer RPC with a hard column
 allow-list spelled out one field at a time.
 
+**Self-edit boundary (0125)** — a student owns their ชื่อ · นามสกุล · ชื่อเล่น ·
+รหัสนักศึกษา · สาขา, and **not** their สายรหัส (it decides the house; the route is
+`request_my_change('sai_code', …)` and an admin approves). Because four of those
+are import-owned columns, `students.self_edited text[]` records which ones the
+person has taken over and a BEFORE UPDATE trigger (`students_keep_self_edits`)
+preserves them on any write that stamps a new `last_import_batch` — so a
+re-import cannot revert a correction, whichever code path runs it. Order is
+**admin > student > import**. สาขา is validated against `team_majors`, the
+faculty-wide picker vocabulary (write gate widened to `house` in 0125).
+
 **RPCs** (all SECURITY DEFINER, all revoked from `anon`):
 - `get_my_student_record()` — takes **no argument**; identity from `auth.uid()`,
   so it cannot be used to probe another address. Hand-built jsonb allow-list,

@@ -139,14 +139,27 @@ describe('renderMyHouse', () => {
     expect(el.innerHTML.match(/ผศ\.นพ\. ก ข/g)).toHaveLength(1);
   });
 
-  it('offers สายรหัส as an input ONLY when the server says it is editable', () => {
-    const locked = host();
-    renderMyHouse(locked, recWith({ sai_editable: false }));
-    expect(locked.innerHTML).toContain('readonly');
+  it('NEVER offers สายรหัส as an editable field — it decides the house', () => {
+    // The one field with an incentive to abuse: editing it moves you between
+    // houses. Read-only here, refused by update_my_student_record (0125), and
+    // the only route is a request an admin approves.
+    const el = host();
+    renderMyHouse(el, recWith());
+    expect(el.innerHTML).toContain('readonly');
+    expect(el.innerHTML).not.toContain('name="sai"');
+    expect(CODE).not.toMatch(/sai_code:/);        // never sent in a save patch
+    expect(CODE).not.toMatch(/sai_editable/);     // no "sometimes" about it
+  });
 
-    const open = host();
-    renderMyHouse(open, recWith({ sai_editable: true }));
-    expect(open.innerHTML).toContain('name="sai"');
+  it('offers the five fields a person can fix about themselves', () => {
+    const el = host();
+    renderMyHouse(el, recWith());
+    for (const name of ['first_name_th', 'last_name_th', 'nickname',
+      'student_id', 'major']) {
+      expect(el.innerHTML).toContain(`name="${name}"`);
+    }
+    // สาขา is a CHOOSER, never free text — free text is what produced MD/md/M.D.
+    expect(el.innerHTML).toMatch(/<select name="major"/);
   });
 
   it('escapes every user-typed field — it all lands in innerHTML', () => {
@@ -163,23 +176,24 @@ describe('renderMyHouse', () => {
 });
 
 describe('the field lists', () => {
-  it('offers a correction route for every field the student cannot edit', () => {
-    // The card shows fields it will not let anyone change here. Every one of
-    // them must be reachable through แจ้งข้อมูลไม่ถูกต้อง, or the answer to
-    // "mine is wrong" is a dead end.
+  it('leaves no field without a route — self-edit, derived, or a request', () => {
+    // Every field the card SHOWS must be fixable somehow, or "mine is wrong" is
+    // a dead end. Since 0125 the student edits five of them directly; the rest
+    // are either derived from one of those, or go through a request.
     const requestable = new Set(REQUESTABLE_FIELDS.map((f) => f.field));
-    const covered = {
-      full_name: ['first_name_th', 'last_name_th'],
-      student_id: ['student_id'],
-      cohort: ['cohort_year'],
-      major: ['major'],
-      sai: ['sai_code'],
-      house: ['sai_code'],          // the house IS the last digit of the สาย
-      kkumail: [],                  // identity — changing it is an admin/auth job
+    const route = {
+      cohort: 'derived',      // from student_id, which IS self-editable
+      sai: 'request',
+      house: 'request',       // the house IS the last digit of the สาย
+      kkumail: 'identity',    // changing it is an admin/auth job, not a request
     };
     for (const f of HOUSE_DETAIL_FIELDS.filter((x) => !x.self)) {
-      for (const req of covered[f.key]) expect(requestable.has(req)).toBe(true);
+      expect(route[f.key]).toBeDefined();
+      if (route[f.key] === 'request') expect(requestable.has('sai_code')).toBe(true);
     }
+    // …and the five self-editable ones are exactly what the form offers.
+    expect(HOUSE_DETAIL_FIELDS.filter((f) => f.self).map((f) => f.key))
+      .toEqual(['full_name', 'nickname', 'student_id', 'major']);
   });
 
   it('asks for nothing request_my_change would reject', () => {

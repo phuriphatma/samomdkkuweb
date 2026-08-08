@@ -51,7 +51,7 @@
     <h6 class="text-muted small text-uppercase mb-2">บ้านทั้ง 10</h6>
     <div class="row g-3 mb-4" id="houseCards"></div>
 
-    <h6 class="text-muted small text-uppercase mb-2">ตั้งค่าระบบ</h6>
+    <h6 class="text-muted small text-uppercase mb-2">นักศึกษาแก้อะไรเองได้บ้าง</h6>
     <div class="card">
       <div class="card-body">
         <!-- No "ปีการศึกษาปัจจุบัน" here any more: its ONLY job was computing
@@ -60,15 +60,13 @@
              worse than no setting. -->
         <div class="row g-3 align-items-end">
           <div class="col-12">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="hsetSaiEdit" />
-              <label class="form-check-label small" for="hsetSaiEdit">
-                ให้นักศึกษาแก้สายรหัสของตัวเองได้ (คนละ 1 ครั้ง)
-              </label>
-              <div class="form-text">
-                เปิดไว้ช่วงแรกเพื่อให้คนที่ข้อมูลผิดแก้เองได้ — ปิดเมื่อใกล้จับฉลาก
-                หลังปิดแล้วนักศึกษาจะส่ง “คำขอแก้ไข” เข้ามาแทน
-              </div>
+            <div class="small text-muted">
+              <i class="bi bi-info-circle"></i>
+              นักศึกษาแก้ได้เองเฉพาะ <strong>ชื่อ-สกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา</strong>
+              (สาขาเลือกจากรายการเท่านั้น) — <strong>สายรหัสแก้เองไม่ได้</strong>
+              ถ้าของใครผิด เขาจะกด “แจ้งข้อมูลไม่ถูกต้อง” แล้วคำขอจะมาโผล่ที่แท็บ
+              <strong>คำขอแก้ไข</strong> ให้อนุมัติ
+              <br />การนำเข้าไฟล์รอบถัดไปจะ<strong>ไม่ทับ</strong>ช่องที่เจ้าตัวแก้เองไว้แล้ว
             </div>
             <!-- The "ให้นักศึกษาเห็นรายชื่อเพื่อนร่วมบ้าน" switch is gone (0124).
                  ระบบบ้าน no longer publishes any student to any other student:
@@ -233,24 +231,20 @@
             </div>
             <div class="col-6">
               <label class="form-label small" for="hsMajor">สาขา</label>
-              <input class="form-control form-control-sm" id="hsMajor" placeholder="MD" />
+              <select class="form-select form-select-sm" id="hsMajor"></select>
+              <div class="form-text">
+                แก้รายการสาขาได้ที่หน้า “ทีม SAMO → สาขา” — ใช้รายการเดียวกันทั้งระบบ
+              </div>
             </div>
             <div class="col-6">
               <label class="form-label small" for="hsSai">สายรหัส</label>
               <input class="form-control form-control-sm" id="hsSai" placeholder="017" />
               <div class="form-text" id="hsHouseHint">&nbsp;</div>
             </div>
-            <div class="col-6 d-flex align-items-end">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="hsSaiLocked" />
-                <label class="form-check-label small" for="hsSaiLocked">ล็อกสายรหัส</label>
-                <div class="form-text">
-                  ห้ามคนนี้แก้สายรหัสของตัวเอง แม้สวิตช์รวมจะเปิดอยู่ —
-                  ใช้เมื่อยืนยันสายที่ถูกต้องแล้ว หรือมีคนแก้ไปมาเพื่อย้ายบ้าน
-                  เขายังส่ง “คำขอแก้ไข” ได้ตามปกติ
-                </div>
-              </div>
-            </div>
+            <!-- No "ล็อกสายรหัส" checkbox any more (0125): a student cannot edit
+                 their own สายรหัส at all, so there is nothing left to lock. The
+                 route for a wrong สาย is แจ้งข้อมูลไม่ถูกต้อง → this pane's
+                 คำขอแก้ไข queue. -->
           </div>
         </div>
         <div class="modal-footer">

@@ -13,6 +13,11 @@
 //    the house rule. houseOf() in ./fields.js exists only for the import preview.
 // ==============================================
 import { dbRest } from '../db.js';
+// The สาขา vocabulary is faculty-wide (`team_majors`, migration 0113, widened to
+// the `house` permission in 0125) and ทีม SAMO already owns the CRUD for it.
+// Re-exported rather than re-queried: this app has three spellings of `MD` in
+// its history from the last time one rule had two implementations.
+export { fetchMajors } from '../team/api.js';
 
 const fail = (error, msg) => { throw new Error(error?.message || msg); };
 

@@ -41,7 +41,21 @@ Applied and proved live. Full detail + every proof:
 - **One CSV vocabulary (the table's), spreadsheet spellings as aliases.**
   Leading-zero สาย is recoverable, so it warns instead of refusing; non-UTF-8 and
   a combined "ชื่อ-สกุล" column are the new fatals.
-- **Admin: click a สาย to manage its อาจารย์**; `sai_locked` now explains itself.
+- **Admin: click a สาย to manage its อาจารย์.**
+- **0125 — a student owns their identity, and not their สาย.** They self-edit
+  ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา (a chooser over `team_majors`,
+  refused server-side if off-list). สายรหัส is NOT self-editable at any level —
+  it decides the house, so the route is a request an admin approves. Four of
+  those are import-owned columns, so `students.self_edited text[]` + a BEFORE
+  UPDATE trigger preserve them on any write stamping a new `last_import_batch`:
+  **admin > student > import**, enforced on the TABLE. Proved live both ways
+  (self-edit sticks through a simulated import; `cohort_year` still updates;
+  an off-list สาขา raises). `sai_self_edit_open` / `sai_locked` /
+  `sai_self_edits` are now vestigial — ระบบบ้าน has **no admin settings left**.
+- **KKU SSO assessed, not built** — `docs/KKU-SSO.md`. It is a login
+  improvement, NOT a data source: no roster endpoint, no สายรหัส, no สาขา, and it
+  returns `citizenId` we must never store. **The CSV is still required.**
+  Credentials in `.env.local` (`KKU_SSO_*`); manual `docs/KKU-SSO-MANUAL.md`.
 
 ## SHIPPED 2026-08-07 — ระบบบ้าน + the DELETE guard + หนังสือโครงการ visibility
 
@@ -88,7 +102,7 @@ Never merge on name — `673070332-6` is one mistyped รหัส shared by two
   Still **v4.5.0** — no version cut; `PENDING` in
   `src/data/changelog.js` holds notes for หนังสือโครงการ, the DELETE fix and
   ระบบบ้าน, so the next release is a **minor** bump (`npm run release`).
-- **Migrations applied through 0124.** Live proofs, both directions:
+- **Migrations applied through 0125.** Live proofs, both directions:
   `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) and
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
@@ -151,7 +165,7 @@ archiving into it saved nothing.
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-07)
 
 > Read STATE.md first: the SHIPPED block at the top, then CURRENT DEPLOY.
-> Migrations are applied through **0124**, 493 tests green, nothing in flight —
+> Migrations are applied through **0125**, 494 tests green, nothing in flight —
 > but the latest commits are **not on the VM yet**: `main` = `d62a374` is what
 > `samo.md.kku.ac.th` is serving. Deploying needs VPN (`skills/deploy-vm.md`).
 >
@@ -191,7 +205,8 @@ archiving into it saved nothing.
 >    write-ups describe real incidents. Removing them from the working tree does
 >    not remove them from git history, which is already public. Needs the user's
 >    decision: accept, rewrite history, or make the repo private.
-> 3. **Rotate the VM sudo password** (see CURRENT DEPLOY).
+> 3. **Rotate the VM sudo password** (see CURRENT DEPLOY), and **rotate the KKU
+>    SSO client secret** — it was pasted into a chat transcript on 2026-08-08.
 > 4. **`students` is not empty.** At least one row exists for the owner's kkumail
 >    from manual testing — created before any import. Tidy it in ระบบบ้าน →
 >    นักศึกษา before the real import, or let the import update it (it upserts on

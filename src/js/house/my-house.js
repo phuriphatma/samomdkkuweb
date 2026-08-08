@@ -36,9 +36,11 @@
 import { escHtml } from '../utils.js';
 import { convertDriveUrl } from '../uploads.js';
 import {
-  fetchMyStudentRecord, saveMyStudentRecord, requestMyChange,
+  fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
 } from './api.js';
-import { houseLabel, normalizeSai, cohortLabel } from './fields.js';
+import {
+  houseLabel, normalizeSai, cohortLabel, normalizeStudentId,
+} from './fields.js';
 
 // Cached per signed-in uid, so an in-place account switch cannot show the
 // previous person's house (the module-scope-cache trap in mistakes.md).
@@ -68,30 +70,42 @@ export function loadMyHouse(uid) {
 //
 // The same "ชื่อ … รหัสนักศึกษา …" list ตำแหน่งของฉันในทีม SAMO uses, because a
 // person reading two cards about themselves should not have to learn two
-// layouts. `self` marks what the student may change here; everything else comes
-// from the university's file and is corrected by แจ้งข้อมูลไม่ถูกต้อง, which is
-// why the card can show it read-only without becoming a dead end.
+// layouts. `self` marks what the student may change here.
+//
+// WHAT IS NOT `self`, AND WHY IT IS EXACTLY TWO THINGS.
+//   • รุ่น is DERIVED from the รหัสนักศึกษา above it — editing it separately would
+//     be editing a calculation.
+//   • สายรหัส is the university's own advisor assignment, and it decides the
+//     house. It is the one field with an incentive to abuse, so nobody edits
+//     their own: แจ้งข้อมูลไม่ถูกต้อง files a request and an admin approves.
+//     Enforced in `update_my_student_record` (0125), not just hidden here.
+//
+// A re-import will NOT overwrite what the student edited — `students.self_edited`
+// plus a trigger on the table guarantee that (0125), which is what makes
+// offering these fields safe in the first place.
 export const HOUSE_DETAIL_FIELDS = [
-  { key: 'full_name', label: 'ชื่อ-สกุล', wide: true },
+  { key: 'full_name', label: 'ชื่อ-สกุล', wide: true, self: true },
   { key: 'nickname', label: 'ชื่อเล่น', self: true },
-  { key: 'student_id', label: 'รหัสนักศึกษา' },
+  { key: 'student_id', label: 'รหัสนักศึกษา', self: true },
   { key: 'cohort', label: 'รุ่น', value: (r) => cohortLabel(r) },
-  { key: 'major', label: 'สาขา' },
+  { key: 'major', label: 'สาขา', self: true },
   { key: 'sai', label: 'สายรหัส' },
   { key: 'house', label: 'บ้าน', value: (r) => (r.house_id === null || r.house_id === undefined
     ? '' : houseLabel(r.house_id, r.house_name)) },
   { key: 'kkumail', label: 'KKU Mail', wide: true },
 ];
 
-/** Fields a student may ask an admin to correct. The SET is the allow-list in
- *  `public.request_my_change` (migration 0116) — anything not on it is rejected
- *  by the RPC, so offering it here would be a button that always fails. */
+/**
+ * What a student can ASK an admin to change — exactly one thing.
+ *
+ * `request_my_change`'s server-side allow-list is wider (six fields, migration
+ * 0116) and stays that way; this is the UI's subset. Since 0125 a student edits
+ * their own ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา directly, and รุ่น is
+ * derived from the รหัส they just edited — so offering those as REQUESTS too
+ * would route work to an admin that the person could have finished themselves.
+ * สายรหัส is the only field left that they may not touch.
+ */
 export const REQUESTABLE_FIELDS = [
-  { field: 'first_name_th', label: 'ชื่อ' },
-  { field: 'last_name_th', label: 'นามสกุล' },
-  { field: 'student_id', label: 'รหัสนักศึกษา' },
-  { field: 'major', label: 'สาขา' },
-  { field: 'cohort_year', label: 'ปีที่เข้า (รุ่น)' },
   { field: 'sai_code', label: 'สายรหัส' },
 ];
 
@@ -164,36 +178,56 @@ function advisorsHtml(rec) {
 /**
  * The self-edit form.
  *
- * Only two things are the student's: ชื่อเล่น, and — while the admin switch is
- * on and they have not used their one change — สายรหัส. Everything else on this
- * card belongs to the university's file, so it is not offered here at all;
- * แจ้งข้อมูลไม่ถูกต้อง is its route.
+ * ชื่อ · นามสกุล · ชื่อเล่น · รหัสนักศึกษา · สาขา — the five things a person can
+ * see are wrong about themselves and fix without asking anyone. สาขา is a
+ * CHOOSER filled from the managed vocabulary, never a text box: free text is
+ * what produced `MD`, `md` and `M.D.` for one answer, and the server refuses
+ * anything off the list anyway (0125), so a text box would only produce errors.
+ *
+ * สายรหัส is shown READ-ONLY with the route out. It is the only field here that
+ * cannot be self-edited, and saying so next to it — rather than omitting it —
+ * is what stops "mine is wrong" from being a dead end.
  */
 function editFormHtml(rec) {
-  const sai = rec.sai_editable
-    ? `<label class="myseat-field">
-         <span>สายรหัส</span>
-         <input type="text" name="sai" inputmode="numeric" value="${escHtml(rec.sai || '')}" />
-         <em class="myseat-field-hint myhouse-warn">แก้ได้ครั้งเดียว และบ้านของคุณจะเปลี่ยนตามเลขหลักสุดท้าย</em>
-       </label>`
-    : `<label class="myseat-field myseat-field--locked">
-         <span>สายรหัส</span>
-         <input type="text" value="${escHtml(rec.sai || '')}" readonly />
-         <em class="myseat-field-hint">แก้เองไม่ได้ — ใช้ปุ่ม “แจ้งข้อมูลไม่ถูกต้อง” ด้านล่าง</em>
-       </label>`;
-
   return `
     <form class="myseat-edit" data-house-form="edit" hidden>
       <p class="myseat-edit-intro">
-        ชื่อ-สกุล รหัสนักศึกษา สาขา และรุ่น มาจากข้อมูลของคณะ แก้ที่นี่ไม่ได้ —
-        ถ้าไม่ถูกต้องให้แจ้งไว้ ผู้ดูแลจะแก้ให้
+        แก้ข้อมูลของตัวเองได้ที่นี่ ระบบจะจำไว้ว่าช่องไหนคุณแก้เอง
+        และการนำเข้าข้อมูลรอบถัดไปจะไม่ทับของคุณ
       </p>
       <div class="myseat-fields">
+        <label class="myseat-field">
+          <span>ชื่อ</span>
+          <input type="text" name="first_name_th" value="${escHtml(rec.first_name || '')}" required />
+        </label>
+        <label class="myseat-field">
+          <span>นามสกุล</span>
+          <input type="text" name="last_name_th" value="${escHtml(rec.last_name || '')}" />
+        </label>
         <label class="myseat-field">
           <span>ชื่อเล่น</span>
           <input type="text" name="nickname" value="${escHtml(rec.nickname_self || rec.nickname || '')}" />
         </label>
-        ${sai}
+        <label class="myseat-field">
+          <span>รหัสนักศึกษา</span>
+          <input type="text" name="student_id" inputmode="numeric"
+                 value="${escHtml(rec.student_id || '')}" placeholder="659999999-9" />
+          <em class="myseat-field-hint">10 หลัก มีขีดก่อนหลักสุดท้าย — รุ่นคำนวณจากเลขนี้</em>
+        </label>
+        <label class="myseat-field">
+          <span>สาขา</span>
+          <select name="major" data-house-majors>
+            <option value="">— กำลังโหลด —</option>
+          </select>
+        </label>
+        <label class="myseat-field myseat-field--locked is-wide">
+          <span>สายรหัส</span>
+          <input type="text" value="${escHtml(rec.sai || '')}" readonly />
+          <em class="myseat-field-hint">
+            แก้เองไม่ได้ — เป็นสายที่มหาวิทยาลัยกำหนด และเป็นตัวตัดสินบ้าน
+            ถ้าไม่ถูกต้องให้ใช้ปุ่ม “แจ้งข้อมูลไม่ถูกต้อง”
+          </em>
+        </label>
       </div>
       <div class="myseat-edit-actions">
         <button type="submit" class="myseat-save">บันทึก</button>
@@ -201,6 +235,37 @@ function editFormHtml(rec) {
         <span class="myseat-edit-status" data-house-status role="status"></span>
       </div>
     </form>`;
+}
+
+/**
+ * The สาขา chooser's options, fetched once and only when someone opens the form.
+ *
+ * An off-list value already stored is kept as its own option — a select that
+ * silently drops what the row holds would REWRITE it on the next save of an
+ * unrelated field. (The server would then refuse it, which is a confusing way to
+ * discover your own data was about to be changed.)
+ */
+let majorOptions = null;
+async function loadMajorOptions() {
+  if (majorOptions) return majorOptions;
+  try {
+    majorOptions = await fetchMajors();
+  } catch (err) {
+    console.warn('my-house: majors lookup failed:', err);
+    majorOptions = [];
+  }
+  return majorOptions;
+}
+
+function majorOptionsHtml(current) {
+  const cur = String(current ?? '').trim();
+  const list = majorOptions || [];
+  const known = list.some((m) => m.code === cur);
+  return '<option value="">— ไม่ระบุ —</option>'
+    + list.map((m) => `<option value="${escHtml(m.code)}"${m.code === cur ? ' selected' : ''}>${
+  escHtml(m.label ? `${m.code} — ${m.label}` : m.code)}</option>`).join('')
+    + (cur && !known
+      ? `<option value="${escHtml(cur)}" selected>${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
 }
 
 /**
@@ -215,26 +280,26 @@ function reportFormHtml(rec) {
   return `
     <form class="myseat-edit" data-house-form="report" hidden>
       <p class="myseat-edit-intro">
-        บอกว่าช่องไหนผิดและค่าที่ถูกต้องคืออะไร ผู้ดูแลจะตรวจสอบแล้วแก้ให้ —
-        ระบบจะไม่เปลี่ยนข้อมูลจนกว่าจะได้รับการอนุมัติ
+        สายรหัสมาจากระบบอาจารย์ที่ปรึกษาของมหาวิทยาลัย และเป็นตัวกำหนดบ้าน
+        จึงแก้เองไม่ได้ — กรอกสายที่ถูกต้องไว้ ผู้ดูแลจะตรวจสอบแล้วแก้ให้
+        ระบบจะยังไม่เปลี่ยนอะไรจนกว่าจะได้รับการอนุมัติ
       </p>
       <div class="myseat-fields">
-        <label class="myseat-field">
-          <span>ช่องที่ไม่ถูกต้อง</span>
-          <select name="field">
-            ${REQUESTABLE_FIELDS.map((f) => `
-              <option value="${escHtml(f.field)}">${escHtml(f.label)}</option>`).join('')}
-          </select>
+        <label class="myseat-field myseat-field--locked">
+          <span>สายรหัสตอนนี้</span>
+          <input type="text" value="${escHtml(rec.sai || '—')}" readonly />
         </label>
         <label class="myseat-field">
-          <span>ค่าที่ถูกต้อง</span>
-          <input type="text" name="requested" placeholder="เช่น 017" />
+          <span>สายรหัสที่ถูกต้อง</span>
+          <input type="text" name="requested" inputmode="numeric" placeholder="017" />
+          <em class="myseat-field-hint">3 หลัก เช่น 001 017 100</em>
         </label>
       </div>
       <label class="myseat-field is-wide myhouse-reason">
         <span>เหตุผล (ไม่บังคับ)</span>
         <textarea name="reason" rows="2" placeholder="เช่น ย้ายสายตั้งแต่ปีที่แล้ว"></textarea>
       </label>
+      <input type="hidden" name="field" value="${escHtml(REQUESTABLE_FIELDS[0].field)}" />
       <div class="myseat-edit-actions">
         <button type="submit" class="myseat-save">ส่งคำขอ</button>
         <button type="button" class="myseat-cancel" data-house-act="cancel-report">ยกเลิก</button>
@@ -278,7 +343,7 @@ export function renderMyHouse(host, rec) {
           <i class="bi bi-pencil" aria-hidden="true"></i> แก้ไขข้อมูล
         </button>
         <button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="report">
-          <i class="bi bi-flag" aria-hidden="true"></i> แจ้งข้อมูลไม่ถูกต้อง
+          <i class="bi bi-flag" aria-hidden="true"></i> แจ้งสายรหัสไม่ถูกต้อง
         </button>
       </div>
 
@@ -323,6 +388,13 @@ function wireCard(host, rec) {
     card?.querySelectorAll('[data-house-act]').forEach((b) => {
       b.classList.toggle('is-open', b.dataset.houseAct === open);
     });
+    // Filled when the form is actually opened, not on every card paint: the
+    // card renders for every signed-in student on the home page, and only the
+    // few who edit need the list.
+    if (open === 'edit') {
+      const sel = editForm?.querySelector('[data-house-majors]');
+      if (sel) loadMajorOptions().then(() => { sel.innerHTML = majorOptionsHtml(rec.major); });
+    }
   };
   const toggle = (which) => setOpen(open === which ? null : which);
 
@@ -336,24 +408,34 @@ function wireCard(host, rec) {
     e.preventDefault();
     const status = editForm.querySelector('[data-house-status]');
     const btn = editForm.querySelector('.myseat-save');
-    const patch = {
-      nickname_self: editForm.querySelector('[name="nickname"]').value.trim(),
-    };
-    // Only the EDITABLE variant carries a name; the locked one is a read-only
-    // display input with none, so this cannot pick it up.
-    const saiInput = editForm.querySelector('[name="sai"]');
-    if (saiInput) {
-      const n = normalizeSai(saiInput.value);
-      if (!n.ok) {
-        if (status) status.textContent = 'สายรหัสต้องเป็นตัวเลขไม่เกิน 3 หลัก';
-        saiInput.focus();
-        return;
-      }
-      // Only send it when it actually CHANGED — the RPC counts a change against
-      // the student's one allowance, and re-saving an unrelated field must not
-      // burn it.
-      if (n.value !== rec.sai) patch.sai_code = n.value;
+    const val = (name) => editForm.querySelector(`[name="${name}"]`).value.trim();
+
+    const first = val('first_name_th');
+    if (!first) {
+      if (status) { status.textContent = 'กรุณากรอกชื่อ'; status.classList.add('is-error'); }
+      editForm.querySelector('[name="first_name_th"]').focus();
+      return;
     }
+    // Canonicalise through the SAME rule the importer and the admin form use.
+    // A รหัส typed as 10 bare digits is correct and gets its dash here rather
+    // than being refused by the server for a formatting reason.
+    const sid = normalizeStudentId(val('student_id'));
+    if (!sid.ok && sid.value) {
+      if (status) {
+        status.textContent = 'รหัสนักศึกษาต้องเป็น 10 หลัก เช่น 659999999-9';
+        status.classList.add('is-error');
+      }
+      editForm.querySelector('[name="student_id"]').focus();
+      return;
+    }
+
+    const patch = {
+      first_name_th: first,
+      last_name_th: val('last_name_th'),
+      nickname_self: val('nickname'),
+      student_id: sid.value || '',
+      major: val('major'),
+    };
     if (status) { status.textContent = 'กำลังบันทึก…'; status.classList.remove('is-error'); }
     if (btn) btn.disabled = true;
     try {

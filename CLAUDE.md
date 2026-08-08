@@ -82,6 +82,8 @@ anything long in `.claude/rules/` — it is charged to every future session.**
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
   version or adding a release note; `npm run release` does the mechanical half.
 - `docs/AUTH-MODEL.md` — unified user model proposal (future)
+- `docs/KKU-SSO.md` — KKU SSO assessment: a login improvement, NOT a data source
+  (no roster endpoint, no สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
 - `skills/*.md` — playbooks for the non-obvious workflows
 

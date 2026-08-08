@@ -20,12 +20,12 @@ import { escHtml } from '../utils.js';
 import { getUser } from '../auth.js';
 import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import {
-  fetchSettings, updateSettings, fetchHouses, updateHouse, fetchSais,
+  fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
   addSaiAdvisor, removeSaiAdvisor,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
-  markMissing, ensureSais,
+  markMissing, ensureSais, fetchMajors,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -46,12 +46,16 @@ const modalInstance = (id) => {
 let initialized = false;
 let loading = null;
 let mode = 'overview';
-let settings = null;
+// No `settings` state any more: ระบบบ้าน has no switches left. The two it had
+// (ปีการศึกษา, สายรหัสแก้เองได้, เห็นรายชื่อเพื่อนร่วมบ้าน) each belonged to a
+// feature that was removed outright in 0123–0125, and a stored setting nothing
+// reads is a control that lies.
 let houses = [];
 let sais = [];
 let students = [];
 let advisors = [];
 let requests = [];
+let majors = [];            // team_majors — the ONE สาขา vocabulary
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
 
 function setStatus(msg, isError = false) {
@@ -88,9 +92,9 @@ async function reload() {
   setStatus('กำลังโหลด…');
   loading = (async () => {
     try {
-      [settings, houses, sais, students, advisors, requests] = await Promise.all([
-        fetchSettings(), fetchHouses(), fetchSais(),
-        fetchStudents(), fetchAdvisors(), fetchRequests(),
+      [houses, sais, students, advisors, requests, majors] = await Promise.all([
+        fetchHouses(), fetchSais(),
+        fetchStudents(), fetchAdvisors(), fetchRequests(), fetchMajors(),
       ]);
       setStatus('');
       render();
@@ -156,12 +160,6 @@ function renderOverview() {
     const h = saiHouse(s.sai_code);
     if (h === null || h === undefined) continue;
     counts.set(h, (counts.get(h) || 0) + 1);
-  }
-
-  // Settings. Painted from the loaded row every render so a failed save cannot
-  // leave the switch showing a state the database does not have.
-  if (settings) {
-    const se = $('hsetSaiEdit'); if (se) se.checked = !!settings.sai_self_edit_open;
   }
 
   const cards = $('houseCards');
@@ -604,8 +602,12 @@ async function onCsvPicked(e) {
   if (!file) return;
   try {
     const text = await file.text();
-    const knownMajors = [...new Set(students.map((s) => s.major).filter(Boolean))];
-    const result = parseStudentsCsv(text, knownMajors.length ? knownMajors : ['MD', 'MDI', 'RT']);
+    // The MANAGED vocabulary (team_majors), never "whatever is already in the
+    // table" and never a hardcoded fallback. Deriving the known list from the
+    // existing rows made it self-ratifying: one bad import taught the next one
+    // that `md` was a real สาขา, and the hardcoded ['MD','MDI','RT'] was a second
+    // copy of a list an admin can edit.
+    const result = parseStudentsCsv(text, majors.map((m) => m.code));
     const diff = diffAgainstExisting(result.rows, students, result.presentColumns);
     pendingImport = { result, diff, fileName: file.name };
     renderImportPreview(result, diff);
@@ -682,9 +684,17 @@ function openStudentModal(id) {
   $('hsNick').value = s?.nickname_self || s?.nickname_imported || '';
   $('hsSid').value = s?.student_id || '';
   $('hsMail').value = s?.kkumail || '';
-  $('hsMajor').value = s?.major || '';
+  // Chooser, not free text — the same three codes ทีม SAMO manages. An off-list
+  // value already stored is kept as its own option so saving an unrelated field
+  // cannot silently rewrite it.
+  const cur = s?.major || '';
+  const known = majors.some((m) => m.code === cur);
+  $('hsMajor').innerHTML = '<option value="">— ไม่ระบุ —</option>'
+    + majors.map((m) => `<option value="${escHtml(m.code)}"${m.code === cur ? ' selected' : ''}>${
+  escHtml(m.label ? `${m.code} — ${m.label}` : m.code)}</option>`).join('')
+    + (cur && !known ? `<option value="${escHtml(cur)}" selected>${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
   $('hsSai').value = s?.sai_code || '';
-  $('hsSaiLocked').checked = !!s?.sai_locked;
+
   $('hsDelete').classList.toggle('d-none', !s);
   updateHouseHint();
   modalInstance('houseStudentModal')?.show();
@@ -714,7 +724,6 @@ async function onStudentSubmit(e) {
     kkumail: $('hsMail').value.trim().toLowerCase(),
     major: $('hsMajor').value.trim() || null,
     sai_code: sai.value,
-    sai_locked: $('hsSaiLocked').checked,
   };
   // An admin editing the row by hand is writing the person's REAL nickname, so
   // it goes to the imported slot (the student's own nickname_self still wins if
@@ -965,18 +974,5 @@ function wire() {
 
   $('houseCsvFile')?.addEventListener('change', onCsvPicked);
 
-  $('hsetSaiEdit')?.addEventListener('change', () => saveSetting({
-    sai_self_edit_open: $('hsetSaiEdit').checked,
-  }));
 }
 
-async function saveSetting(patch) {
-  try {
-    settings = await updateSettings(patch);
-    setStatus('บันทึกการตั้งค่าแล้ว');
-    setTimeout(() => setStatus(''), 2000);
-  } catch (err) {
-    setStatus(err?.message || 'บันทึกการตั้งค่าไม่สำเร็จ', true);
-    render();   // repaint the switch back to what the database actually holds
-  }
-}
