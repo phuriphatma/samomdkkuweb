@@ -92,14 +92,17 @@ is served, its ancestry guard refuses a file from the Team tree, junk urls are
 rejected, and the CONTROL case (an unknown action still answers "Unknown
 action") proves the probe can fail.
 
-⚠️ **PASSPORT GAS IS NOT DEPLOYED.** The code is committed and pushed
-(`1aa53df` in `phuriphatma/samomdkkupassport`) but that repo's `.env.local` has
-**no `GAS_SCRIPT_ID`**, so `npm run deploy:gas` stops before doing anything.
-To finish: Apps Script project "samopassport" → ⚙ Project Settings → IDs →
-Script ID → add `GAS_SCRIPT_ID=…` to
-`/Users/xeno/development/samodevmdkku69/passport/.env.local`, then
-`npm run deploy:gas`. Until then a deleted passport badge stays publicly
-readable exactly as before.
+**passport GAS: DEPLOYED (version 10) and proved live** — 4/4, including the
+interesting refusal (a file from the samoweb Team tree comes back
+`file is not inside Passport`). Code is `1aa53df` in
+`phuriphatma/samomdkkupassport`.
+
+⚠️ **A MISSING `GAS_SCRIPT_ID` MAKES `npm run deploy:gas` SILENTLY DO NOTHING.**
+That is what left the passport fix committed-but-undeployed for an hour: the
+tool stops with "GAS_SCRIPT_ID is not set" and the deploy simply does not
+happen. Both ids are now in their repo's `.env.local` (gitignored) AND named as
+an empty key in `passport/.env.example`, so a recreated env file cannot lose the
+knowledge that the key exists.
 
 ⚠️ **`curl -L` CANNOT PROBE A GAS `/exec`.** It 302s to
 script.googleusercontent.com and curl turns POST into GET on a 302 unless
