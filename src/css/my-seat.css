@@ -121,6 +121,33 @@
   color: var(--ink-500);
 }
 
+/* "Who to ask when this is wrong." Quiet — it is standing advice, not an alert,
+   and it is on screen for every member on every visit. `align-items: baseline`
+   keeps the icon on the first line of a sentence that wraps to three on a
+   phone, instead of centring it against the whole block. */
+/* NOT a flex container. It was, and every inline element inside — the
+   VitalSound link, the Discord channel in <strong> — became a flex ITEM with
+   its own column, so on a phone the sentence rendered as three ragged columns
+   instead of a paragraph. A block with an inline icon is what a sentence
+   wants; flex is for laying out boxes, and these are words. */
+.myseat-help {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ink-500);
+}
+.myseat-help i { margin-right: 0.3rem; }
+.myseat-help a { color: var(--brand-primary); text-decoration: underline; }
+.myseat-help strong { color: var(--ink-700); font-weight: 600; }
+
+/* The bug-report line closes the card, so it gets a rule above it rather than
+   sitting flush against ระบบบ้าน. */
+.myseat-help--report {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ink-150, var(--ink-200));
+}
+
 .myseat-cta {
   display: inline-flex; align-items: center; gap: 0.35rem;
   margin-top: 0.9rem;

@@ -370,6 +370,36 @@
                 </button>
               </div>
             </div>
+
+            <!-- STANDING HELP, on the first screen of the admin app.
+                 The ข้อมูลของฉัน card above carries the same two routes, but it
+                 renders ONLY for an account that holds a ตำแหน่ง in the tree —
+                 and every shared department account (samomdkkupr, the ten VP
+                 accounts …) has none, so exactly the operators most likely to
+                 hit a wrong-permission problem were the ones shown no way to
+                 report it. This block does not depend on a posting. -->
+            <div class="admin-help">
+              <p class="admin-help-line">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                ถ้าสิทธิ์ที่ได้รับ หรือตำแหน่งที่ได้รับไม่ถูกต้อง
+                กรุณาติดต่ออุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO
+              </p>
+              <!-- d-none in the markup + data-admin-side="team" means this
+                   fails CLOSED: admin-main.js only reveals it for an account
+                   userCanAccess('team') admits, so it can never advertise a
+                   page that would bounce the reader back to the landing. -->
+              <p class="admin-help-line d-none" data-admin-side="team">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                ดูได้ว่าใครมีสิทธิ์อะไรในองค์กรที่หน้า
+                <a href="#team" onclick="openAdminSection('team')">ทีม SAMO</a>
+              </p>
+              <p class="admin-help-line">
+                <i class="bi bi-bug" aria-hidden="true"></i>
+                หากมีปัญหาอื่น ๆ เว็บมีปัญหา หรือพบบัค แจ้งได้ที่แท็บ
+                <a href="/vssound">แจ้งปัญหา (VitalSound)</a>
+                หรือพิมพ์ใน Discord ช่อง <strong>#report-ปัญหาเว็บสโม</strong>
+              </p>
+            </div>
           </section>
 
           <!-- PR / VS / Shop content moved here via included partials.

@@ -1080,3 +1080,29 @@
 /* Note: the left accent-bar curve fix now lives on the base .launcher-tool
    in launcher.css (the bug affected every tool card, not just here). */
 
+
+/* Standing help at the bottom of the admin landing — who to ask when a
+   permission is wrong, and where to report a broken page.
+   Quiet by design: it is on screen every time an operator opens /admin/, so it
+   has to read as a footnote rather than compete with the section cards above
+   it. `align-items: baseline` keeps each icon on the FIRST line of a sentence
+   that wraps to three on a phone. */
+.admin-help {
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ink-200);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+/* NOT flex — see the note on .myseat-help. Inline links and <strong> inside a
+   flex container each become their own column and the sentence shatters. */
+.admin-help-line {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.65;
+  color: var(--ink-500);
+}
+.admin-help-line i { margin-right: 0.3rem; }
+.admin-help-line a { color: var(--brand-primary); text-decoration: underline; }
+.admin-help-line strong { color: var(--ink-700); font-weight: 600; }

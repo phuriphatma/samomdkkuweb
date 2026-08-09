@@ -558,7 +558,21 @@ export function renderMySeat(host, seat, opts = {}) {
             <span class="myseat-label">สิทธิ์ที่ได้รับ</span>
             <div class="myseat-chips">${chips(perms)}</div>
           </div>` : `
-          <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด — หากคิดว่าไม่ถูกต้อง แจ้งอุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO</p>`}
+          <p class="myseat-none">ตำแหน่งนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบใด</p>`}
+
+        <!-- WHO TO ASK, SAID ALWAYS. This used to appear only when the person
+             had NO permissions at all — but "I have the wrong ตำแหน่ง" and "I
+             can see a system I should not" are just as common as "I have
+             nothing", and those people were shown no route at all. The card is
+             the one place in the app that tells someone what they are, so it is
+             the place they will be standing when they notice it is wrong. -->
+        <p class="myseat-help">
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          ถ้าสิทธิ์ที่ได้รับ หรือตำแหน่งที่ได้รับไม่ถูกต้อง
+          กรุณาติดต่ออุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO
+          — ดูได้ว่าใครมีสิทธิ์อะไรในองค์กรที่หน้า
+          <a href="/admin/#team">ทีม SAMO (Admin)</a>
+        </p>
 
         ${rows.length ? `
           <div class="myseat-block">
@@ -577,6 +591,16 @@ export function renderMySeat(host, seat, opts = {}) {
            anyone with no house record, and the :empty rule hides it, so this
            costs nothing for the people it does not apply to. -->
       <div class="myprofile-slot" data-profile-slot="house"></div>
+
+      <!-- LAST LINE OF THE CARD, deliberately. Everything above answers "what
+           am I"; this answers "what if the answer is broken". Points at the two
+           channels that already exist rather than inventing a third. -->
+      <p class="myseat-help myseat-help--report">
+        <i class="bi bi-bug" aria-hidden="true"></i>
+        หากมีปัญหาอื่น ๆ เว็บมีปัญหา หรือพบบัค แจ้งได้ที่แท็บ
+        <a href="/vssound">แจ้งปัญหา (VitalSound)</a>
+        หรือพิมพ์ใน Discord ช่อง <strong>#report-ปัญหาเว็บสโม</strong>
+      </p>
     </div>`;
 
   wireSelfEdit(host, seat);

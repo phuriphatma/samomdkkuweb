@@ -92,6 +92,18 @@
   color: var(--brand-primary);
 }
 
+/* A plain line in the list — not a link, because a Discord channel NAME is not
+   something you can click through to from here. Smaller and quieter than the
+   links above it so it reads as a footnote to the report link, not a sixth
+   destination. */
+.samo-footer-note {
+  color: var(--ink-500);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin-top: -0.2rem;
+}
+.samo-footer-note strong { color: var(--ink-700); font-weight: 600; }
+
 .samo-footer-bar {
   padding-top: 1.25rem;
   display: flex;
