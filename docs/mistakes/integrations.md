@@ -732,3 +732,100 @@ not implemented. Enumerate the writers — and when the rule is "what happens to
 the thing this replaces", make it one function they all call, because the
 difference between three correct copies and two is invisible until someone
 opens Drive.
+
+---
+
+## "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still served publicly
+
+**Symptom**: the owner deleted their portrait's file in Google Drive and the app
+went on showing it. Reported twice, in two different shapes, before the cause
+was pinned: first as "it uses the old photo I removed long ago", then as "I've
+deleted what I uploaded in the Drive and it still shows my picture".
+
+**Cause**: `lh3.googleusercontent.com/d/<id>` — the URL form this app stores and
+renders — **keeps serving a file after it is trashed**. Verified live, twice, on
+files that were sitting in the trash at the time:
+
+```
+curl -sL "https://lh3.googleusercontent.com/d/<trashed-id>=w200"
+→ HTTP 200, image/jpeg, 12327 bytes
+```
+
+Two consequences, and the second is the serious one:
+
+1. **Deleting in Drive is not how you remove a photo from the app.** Nothing
+   tells the database, so the row still points at the URL — and the URL still
+   works. The only removal that works is the app's own นำรูปออก, which nulls the
+   column *and* trashes the file.
+2. **Our own delete was not a removal either.** Every GAS handler ended in
+   `file.setTrashed(true)`, and the file stayed shared "anyone with the link".
+   So for the whole 30-day undo window — forever, if the trash is never emptied
+   — a portrait somebody had deliberately removed was still readable by anyone
+   who had ever seen its URL. For a portrait that is a privacy failure, and the
+   comment above the line said "trash, not purge: Drive keeps a 30-day undo
+   window, which is the right trade", which is true about RECOVERY and says
+   nothing about VISIBILITY.
+
+**Fix**: revoke the share *before* trashing —
+`file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE)` then
+`setTrashed(true)`. Access dies immediately, the 30-day undo survives. Applied
+to all four samoweb handlers via `revokeAndTrash_()`, to `deleteProjectFolder`
+(whose children keep serving exactly as a trashed file does, so the files inside
+are revoked before the folder is trashed), and to the passport's `handleDelete_`
+in the other repo — the same line, the same gap.
+
+**Where it lives now**: `appscript/prform.gs` (`revokeAndTrash_`) ·
+`samomdkkupassport gas/Upload.gs` (`handleDelete_`).
+
+**Rule**: for a publicly-shared file, "deleted" means UNREACHABLE, not "moved to
+Trash". Revoke access first; the bin is about recovery, not about who can see
+it. And when a user says "I deleted it and it still shows", check whether the
+CDN honours the deletion before looking for a cache or a stale row.
+
+---
+
+## `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
+
+**Symptom**: found by audit, and confirmed by the shape of the Drive folder.
+Announcement covers are re-cropped on any edit and each crop is a new upload, so
+an article edited five times left five covers — four of them orphaned and all
+five publicly readable.
+
+**Cause**: `uploadPRFile` is the oldest upload path in this project and the only
+one that never got a delete action. Shop, Team and Projects each grew one; PR
+did not, so `announcements.js`, the Quill image handler and `pr-form.js` all had
+nowhere to send a cleanup even if they had wanted to.
+
+**Fix**: `deletePRFile` in `appscript/prform.gs`, scoped by the same ancestry
+check as the other three (`fileLivesUnderTop_(file, 'PR')`) because this
+endpoint is unauthenticated and the check is the only thing between a caller and
+the owner's whole Drive. It adds no new Google service, so it does not widen the
+auto-derived OAuth scopes — the trap that took the delete gate down for an hour
+on 2026-07-31.
+
+Then `filesToRetire(before, after, others)` in `announcements.js`: an article
+body is rich text, so "which files does this article use" is a question about
+its HTML, not about a column. **It diffs Drive FILE IDS, never URL strings** —
+one file appears as `=w1200`, `=w600` and a bare `/view` depending on when it
+was inserted, and comparing URLs would call two spellings of one file two
+different files and delete a picture the body still renders. `others` is the
+whole live list, because duplicating an article for next year gives two rows one
+cover.
+
+Two upload sites were left uncleaned ON PURPOSE, and the reasons are recorded in
+`src/js/upload-cleanup.test.js` rather than in someone's memory: PR request
+attachments (written once, never replaced, and the staff delete is a RECOVERABLE
+soft delete — trashing there would destroy a restorable ticket's evidence), and
+Quill images in the VS form (written once, no edit path; what does leak is an
+image pasted by someone who then abandons the form, which needs the
+upload-on-SAVE change portraits already got).
+
+**Where it lives now**: `appscript/prform.gs` (`handleDeletePRFile`) ·
+`src/js/uploads.js` (`deletePRFile`, `driveIdsInHtml`) ·
+`src/js/announcements.js` (`filesToRetire`) ·
+`src/js/announcement-files.test.js` (23 cases, both directions).
+
+**Rule**: when a subsystem has an upload and no delete, that is not "not needed
+yet" — it is a leak with an age. And a cleanup that compares URLs instead of
+resource IDS will eventually delete something still in use, because one resource
+has as many URLs as the app has ever had rendering sizes.

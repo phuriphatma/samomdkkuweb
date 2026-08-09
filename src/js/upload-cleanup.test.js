@@ -98,24 +98,32 @@ const AUDIT = [
   },
   {
     file: 'main.js',
-    what: 'Quill inline images in the VitalSound form',
+    what: 'Quill inline images in the VitalSound report form',
     cleanup: null,
-    why: 'uploadPRFile has no delete counterpart in appscript/prform.gs — '
-       + 'closing this needs a GAS action + redeploy, not a frontend change',
+    why: 'a VS report body is written ONCE at submit and has no edit path, so '
+       + 'nothing is ever replaced. What does leak: an image pasted into the '
+       + 'editor by someone who then abandons the form — Quill uploads on '
+       + 'insert, so the file exists before any row does and nothing can ever '
+       + 'reference it. Closing that needs the draft to hold the pending file '
+       + 'until submit, the same upload-on-SAVE change made for portraits.',
   },
   {
     file: 'admin-main.js',
-    what: 'Quill inline images + the announcement cover cropper',
-    cleanup: null,
-    why: 'same uploadPRFile gap; the cover cropper replaces a cover on every '
-       + 'edit, so this one leaks a file per re-crop',
+    what: 'announcement cover cropper + Quill inline images',
+    // announcements.js owns the diff: on an edit it retires the cover and any
+    // body image the new version no longer points at; on a delete it retires
+    // everything the article used. See filesToRetire().
+    cleanup: /deletePRFile/, where: 'announcements.js',
   },
   {
     file: 'pr-form.js',
-    what: 'PR submission attachments',
+    what: 'PR request attachments',
     cleanup: null,
-    why: 'same uploadPRFile gap; a submission attachment is arguably a record '
-       + 'to keep, so this is the least urgent of the three',
+    why: 'DELIBERATE, not debt. file_url is written once by the requester and '
+       + 'staff never replace it, so there is no orphan-on-replace. And the '
+       + 'staff delete is soft_delete_pr_ticket — RECOVERABLE — so trashing '
+       + 'the attachments there would destroy the evidence of a ticket an '
+       + 'admin can still restore. Revisit only if a hard delete is added.',
   },
 ];
 
@@ -164,7 +172,7 @@ describe('every Drive upload site is accounted for', () => {
       // A module that gained a cleanup must be promoted out of the debt list.
       const code = codeOf(row.file) || '';
       expect(
-        /deleteTeamPhotoIfUnused|deleteShopFile|deleteProjectFile/.test(code),
+        /deleteTeamPhotoIfUnused|deleteShopFile|deleteProjectFile|deletePRFile/.test(code),
         `${row.file} now has a cleanup call — give its AUDIT row a cleanup regex`,
       ).toBe(false);
     }

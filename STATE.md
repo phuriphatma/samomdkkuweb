@@ -62,6 +62,72 @@ The allow-list holds six real globals (`bootstrap`, `Quill`,
 Also removed `teamMemberHouseFillHint` (markup + JS), the dead status line of
 the button 0141 took out. Write-up: `docs/mistakes/frontend-ui.md`.
 
+## ✅ CLOSED 2026-08-09 — a TRASHED Drive file is still served publicly
+
+**This is the answer to both photo reports, and it is not a cache.**
+`lh3.googleusercontent.com/d/<id>` — the URL form this app stores and renders —
+**keeps serving a file after it is trashed.** Verified live, twice, with curl on
+files that were in the trash at the time: HTTP 200, real JPEG.
+
+Two consequences:
+1. **Deleting a file in Drive does not remove it from the app.** Nothing tells
+   the database, so the row still points at a URL that still works. The only
+   removal that works is the app's own นำรูปออก.
+2. **Our own delete was not a removal either.** Every GAS handler ended in
+   `setTrashed(true)` with the file still shared "anyone with the link", so for
+   the whole 30-day undo window — forever if the trash is never emptied — a
+   portrait somebody deliberately removed stayed readable by anyone with the
+   URL. The comment above the line defended the 30-day window, which is true
+   about RECOVERY and says nothing about VISIBILITY.
+
+**Fix**: revoke the share BEFORE trashing (`setSharing(PRIVATE, NONE)` then
+`setTrashed(true)`). Access dies at once, the undo window survives. Applied to
+all four samoweb handlers via `revokeAndTrash_()`, to `deleteProjectFolder`
+(children keep serving exactly as a trashed file does, so they are revoked
+first), and to the **passport repo's** `handleDelete_` — same line, same gap.
+
+⚠️ **BOTH GAS PROJECTS NEED A REDEPLOY** for this to take effect. Nothing about
+it works from the frontend.
+
+## ✅ CLOSED 2026-08-09 — `uploadPRFile` finally has a counterpart
+
+Announcement covers are re-cropped on every edit and each crop is a new upload,
+so an article edited five times left five covers, four orphaned and all five
+publicly readable. `uploadPRFile` is the oldest upload path here and the only
+one that never got a delete action.
+
+- **`deletePRFile`** in `appscript/prform.gs`, scoped by the same ancestry check
+  as the other three (`fileLivesUnderTop_(file, 'PR')`) — the endpoint is
+  unauthenticated, so that check is the only thing between a caller and the
+  owner's whole Drive. Adds no new Google service, so **no OAuth re-consent**.
+- **`filesToRetire(before, after, others)`** in `announcements.js`. An article
+  body is rich text, so "which files does this use" is a question about its HTML.
+  ⚠️ **It diffs Drive FILE IDS, never URL strings** — one file appears as
+  `=w1200`, `=w600` and a bare `/view`, and comparing URLs would treat two
+  spellings of one file as two files and delete a picture the body still shows.
+  `others` is the whole live list, because duplicating an article for next year
+  gives two rows one cover.
+  Wired on edit (retire what the new version dropped) and on delete (retire
+  everything, minus what a surviving article uses).
+- Guard: `src/js/announcement-files.test.js` — 23 cases, both directions, half
+  of them holding the URL-spelling line.
+
+**Two sites left uncleaned ON PURPOSE**, reasons recorded in
+`src/js/upload-cleanup.test.js` so they are facts and not folklore:
+- **PR attachments** — written once, never replaced, and the staff delete is
+  `soft_delete_pr_ticket`, i.e. RECOVERABLE. Trashing there would destroy a
+  restorable ticket's evidence.
+- **Quill images in the VS form** — written once, no edit path. What does leak
+  is an image pasted by someone who then abandons the form; closing that needs
+  the upload-on-SAVE change portraits already got.
+
+**Passport audit (separate repo, `/Users/xeno/development/samodevmdkku69/passport`)**:
+its CALLERS are the most complete of any app here — activity delete drops the
+badge (`admin-page.js:865`), a replaced image drops the previous one (`:1339`),
+uncommitted uploads are beaconed away on unload (`:85`), and bulk delete sweeps
+(`:1594`). Only the trash-still-serves gap applied, and it is fixed. **Its GAS
+needs its own redeploy and its own commit — that repo is not pushed yet.**
+
 ## ✅ CLOSED 2026-08-09 — the portrait bug was TWO bugs
 
 **1. "it still uses the old photo I removed long ago."**

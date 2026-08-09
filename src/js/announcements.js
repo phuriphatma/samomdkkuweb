@@ -5,6 +5,7 @@
 // ==============================================
 
 import { dbRest } from './db.js';
+import { deletePRFile, driveIdsInHtml } from './uploads.js';
 import { convertDriveUrl } from './uploads.js';
 import { escHtml } from './utils.js';
 
@@ -174,6 +175,59 @@ function fillCreatorFormForEdit(post) {
 // Publish (Create / Update) Announcement
 // --------------------------------------------------
 
+
+// --------------------------------------------------
+// DRIVE CLEANUP — the cover and the images inside the body
+//
+// `uploadPRFile` had no delete counterpart until now, so every re-crop of a
+// cover and every image dropped from an article body stayed in Drive, shared
+// "anyone with the link", forever. An article edited five times left five
+// covers, four of them reachable by anyone who ever saw the URL.
+//
+// A body is rich text, so "which files does this article use" is a question
+// about its HTML rather than about a column — hence the id-set diff below.
+// --------------------------------------------------
+
+/**
+ * Which Drive files this edit orphaned.
+ *
+ * @param {{thumbnail?:string, content?:string}|null} before the article as it was
+ * @param {{thumbnail?:string, content?:string}|null} after  as it now is (null = deleted)
+ * @param {Array} others every OTHER article still live
+ * @returns {string[]} Drive file ids nothing points at any more
+ *
+ * IDS, NEVER URLS. One file appears as `=w1200`, `=w600` and a bare `/view`
+ * depending on when it was inserted, so comparing URL strings would call two
+ * spellings of one file two different files — and then delete a picture the
+ * article still shows.
+ *
+ * `others` is not paranoia: an editor who duplicates an article to make next
+ * year's version has two rows pointing at ONE cover, and deleting the first
+ * would blank the second. Announcements are publicly readable, so this list is
+ * complete for every caller — unlike a client-side count over an RLS-gated
+ * table, which answers "unreferenced" for exactly the person doing the delete.
+ */
+export function filesToRetire(before, after, others = []) {
+  const idsOf = (o) => new Set([
+    ...driveIdsInHtml(o?.content),
+    ...driveIdsInHtml(o?.thumbnail || o?.thumbnail_url),
+  ]);
+  const old = idsOf(before);
+  if (!old.size) return [];
+  const keep = idsOf(after);
+  for (const o of others || []) for (const id of idsOf(o)) keep.add(id);
+  return [...old].filter((id) => !keep.has(id));
+}
+
+/** Trash them, best-effort. Always AFTER the row is written or gone. */
+function retireDriveFiles(ids) {
+  for (const id of ids || []) {
+    // The viewer form is what extractDriveId_ on the GAS side parses most
+    // directly; any of the three shapes would work.
+    deletePRFile(`https://drive.google.com/file/d/${id}/view`).catch(() => {});
+  }
+}
+
 export async function publishAnnouncement() {
   const title = document.getElementById('creatorTitle').value.trim();
   const dept = document.getElementById('creatorDepartment').value;
@@ -205,6 +259,15 @@ export async function publishAnnouncement() {
     '<span class="spinner-border spinner-border-sm me-2"></span>กำลังประมวลผล...';
 
   const isEditing = editingAnnouncementId !== null;
+  // The article as it stands BEFORE this save — the cover and body images it is
+  // about to stop using. Captured here because the write and the reload below
+  // both overwrite the cached row.
+  const beforeRow = isEditing
+    ? globalAnnouncements.find((p) => String(p.id) === String(editingAnnouncementId)) || null
+    : null;
+  const beforeSnapshot = beforeRow
+    ? { thumbnail: beforeRow.thumbnail || beforeRow.thumbnail_url || '', content: beforeRow.content || '' }
+    : null;
   const row = {
     title,
     department: dept,
@@ -281,6 +344,13 @@ export async function publishAnnouncement() {
     setTimeout(async () => {
       alertBox.classList.add('d-none');
       await loadAnnouncements();
+      // AFTER the reload, so `others` is the live list — a cover shared with a
+      // duplicated article must not be trashed on this one's behalf. Only runs
+      // for an EDIT: a brand-new article replaced nothing.
+      if (beforeSnapshot) {
+        const others = globalAnnouncements.filter((p) => String(p.id) !== String(publishedId));
+        retireDriveFiles(filesToRetire(beforeSnapshot, { thumbnail, content: contentHtml }, others));
+      }
       // Let the admin shell react (close the editor popup, refresh the
       // manage cards). No-op on the public site (no listener bound there).
       document.dispatchEvent(new CustomEvent('announcement:changed'));
@@ -346,9 +416,17 @@ export async function deleteAnnouncement(targetId) {
   if (String(editingAnnouncementId) === String(wanted)) {
     cancelEdit();
   }
+  // The row as the SERVER had it (return=representation), not as the client
+  // cached it — the cache can be a page-load old, and a cover swapped in
+  // between would otherwise survive the delete.
+  const deletedRow = data[0] || post || null;
+
   // Reload list — safe on both public and admin (loadAnnouncements is
   // DOM-resilient).
   await loadAnnouncements();
+  // The article is gone, so everything it used is orphaned — except anything a
+  // surviving article also points at. `after` is null: nothing keeps these.
+  retireDriveFiles(filesToRetire(deletedRow, null, globalAnnouncements));
   // Admin shell hook: close the editor popup (if open) + refresh manage cards.
   document.dispatchEvent(new CustomEvent('announcement:changed'));
   return true;

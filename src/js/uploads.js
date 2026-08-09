@@ -163,6 +163,82 @@ export async function deleteTeamFile(fileUrl) {
 }
 
 /**
+ * Best-effort trash of a file under `PR` in Drive.
+ *
+ * `uploadPRFile` is the OLDEST upload path here and was the only one with no
+ * counterpart, so every announcement cover, every image pasted into an article
+ * body and every replaced PR attachment stayed in Drive — shared "anyone with
+ * the link" — forever. A cover swapped because the first one was wrong was
+ * still publicly readable.
+ *
+ * Returns false rather than throwing: this always runs AFTER the database write
+ * it follows, and a Drive blip must never turn a save that landed into an error
+ * the user sees.
+ *
+ * ⚠️ Only ever call this on a URL nothing points at any more. There is no
+ * server-side reference count for the PR tree (unlike portraits, which have
+ * `photo_reference_count`), so the CALLER owns that check — see
+ * `retirePrFiles()` in announcements.js for the pattern: diff the old set
+ * against the new one and only trash what is in neither.
+ */
+export async function deletePRFile(fileUrl) {
+  if (!fileUrl) return true;
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deletePRFile', fileUrl, accessToken: currentAccessToken() }),
+    });
+    const result = await res.json();
+    if (!result.success) {
+      // Includes the "Unknown action" case while the Apps Script project is
+      // still on the previous version — say so instead of failing silently.
+      console.warn('[uploads] deletePRFile failed:', result.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[uploads] deletePRFile failed:', e);
+    return false;
+  }
+}
+
+/**
+ * Every Drive file URL an HTML fragment points at.
+ *
+ * An announcement body is rich text with images pasted into it, so "which files
+ * does this article use" is a question about its HTML, not about a column. Both
+ * URL shapes the app ever stores are matched: the `lh3.googleusercontent.com/d/<id>`
+ * CDN form this app writes, and the `drive.google.com/.../<id>` viewer form that
+ * older bodies and hand-pasted links still carry.
+ *
+ * Returns a Set of Drive FILE IDS, not URLs — the same file appears as
+ * `=w1200`, `=w600` and a bare `/view` depending on when and how it was
+ * inserted, and comparing URL strings would call two spellings of one file two
+ * different files. That mistake deletes a picture the article still shows.
+ */
+export function driveIdsInHtml(html) {
+  const out = new Set();
+  const s = String(html || '');
+  const patterns = [
+    /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/g,
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/g,
+    /drive\.google\.com\/[^"'\s]*[?&]id=([a-zA-Z0-9_-]+)/g,
+  ];
+  for (const re of patterns) {
+    let m = re.exec(s);
+    while (m) { out.add(m[1]); m = re.exec(s); }
+  }
+  return out;
+}
+
+/** The Drive file id inside a single URL, or null. Same shapes as above. */
+export function driveIdOf(url) {
+  const ids = driveIdsInHtml(url);
+  return ids.size === 1 ? [...ids][0] : (ids.size ? [...ids][0] : null);
+}
+
+/**
  * Drive's default share URL is the viewer page (`/file/d/<id>/view`),
  * which doesn't embed in <img>. Rewrite to a directly-embeddable URL.
  *

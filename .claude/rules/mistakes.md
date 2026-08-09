@@ -266,7 +266,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An INSERT is a write path too — the import guard covered UPDATE only
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
-*Open when:* notify, GAS handlers, Drive URLs. *(19 entries)*
+*Open when:* notify, GAS handlers, Drive URLs. *(21 entries)*
 
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
 - Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
@@ -287,6 +287,8 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A vendor manual's field list is not the contract
 - A refcount is only as true as its list of referrers — and a client-side one cannot see past RLS
 - "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed, on one of the two writers
+- "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still served publicly
+- `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
 
 ### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
 *Open when:* deploy.sh, nginx, cache headers. *(7 entries)*

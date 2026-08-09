@@ -379,6 +379,7 @@ function doPost(e) {
     console.log('doPost: action=' + (data && data.action ? data.action : '(unknown)'));
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
+    if (data.action === 'deletePRFile')      return handleDeletePRFile(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
@@ -422,6 +423,58 @@ function handleUploadPRFile(data) {
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/**
+ * deletePRFile — trash one file under `PR` (by any Drive url form).
+ *
+ * WHY IT EXISTS: `uploadPRFile` is the OLDEST upload path in this project and
+ * the only one that never had a counterpart, so every file it ever wrote is
+ * still in Drive. Three surfaces feed it and all three replace:
+ *
+ *   • an announcement cover — re-cropped on any edit, so one file per re-crop;
+ *   • images pasted into a Quill body — replaced or deleted with the article;
+ *   • PR request attachments — replaced or removed by staff on the ticket.
+ *
+ * Each of those files is shared "anyone with the link", which makes an
+ * uncleaned replacement a privacy problem before a storage one: a cover that
+ * was swapped because the first one was wrong is still publicly readable.
+ *
+ * Scoped exactly like the Shop / Team / Projects deletes: this endpoint is
+ * UNAUTHENTICATED (Execute as: Me + Anyone, and the /exec url ships inside the
+ * public bundle), so the ancestry check is the ONLY thing between a caller and
+ * the owner's whole Drive. A file that is not under `PR` is refused loudly and
+ * never reported as deleted.
+ *
+ * Adds no new Google service — DriveApp is already used throughout this file —
+ * so it does NOT widen the auto-derived OAuth scopes and needs no re-consent.
+ * That is the trap that took the delete gate down for an hour on 2026-07-31,
+ * and it is the reason this handler is a copy of handleDeleteTeamFile rather
+ * than anything cleverer.
+ */
+function handleDeletePRFile(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      // Already gone (or never existed) — success, so a caller retrying a
+      // cleanup does not loop forever on a file that is already absent.
+      return createResponse({ success: true, alreadyGone: true });
+    }
+    if (!fileLivesUnderTop_(file, 'PR')) {
+      return createResponse({ success: false, message: 'file is not inside PR' });
+    }
+    // Trash, not purge: Drive keeps a 30-day undo window, which is the right
+    // trade for an irreversible action driven by an anonymous endpoint.
+    revokeAndTrash_(file);
+    return createResponse({ success: true });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }
@@ -519,7 +572,7 @@ function handleDeleteShopFile(data) {
     if (!fileLivesUnderSamoShop_(file)) {
       return createResponse({ success: false, message: 'file is not inside Shop' });
     }
-    file.setTrashed(true);
+    revokeAndTrash_(file);
     return createResponse({ success: true });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
@@ -564,11 +617,40 @@ function handleDeleteTeamFile(data) {
     }
     // Trash, not purge: Drive keeps a 30-day undo window, which is the right
     // trade for an irreversible action driven by an anonymous endpoint.
-    file.setTrashed(true);
+    revokeAndTrash_(file);
     return createResponse({ success: true });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
   }
+}
+
+/**
+ * Take a file out of circulation, then trash it.
+ *
+ * `setTrashed(true)` ALONE IS NOT A REMOVAL. Proven live on 2026-08-09: a
+ * portrait that had been trashed in Drive still returned HTTP 200 and the real
+ * JPEG from `lh3.googleusercontent.com/d/<id>` — which is the URL this app
+ * stores and renders. So "I deleted it and it still shows my picture" is not a
+ * cache and not a stale row: a trashed file that is shared "anyone with the
+ * link" is still served to anyone who has the link, for the whole 30-day undo
+ * window, and forever if the trash is never emptied.
+ *
+ * Revoking the share FIRST closes that immediately while keeping the undo
+ * window — the right trade for an irreversible action driven by an anonymous
+ * endpoint. Someone who removes their portrait means "nobody can see this any
+ * more", not "it is filed under Trash".
+ *
+ * Best-effort on the revoke: a file whose sharing cannot be changed (an
+ * inherited permission, a shared-drive policy) must still be trashed rather
+ * than left both visible AND present.
+ */
+function revokeAndTrash_(file) {
+  try {
+    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  } catch (e) {
+    console.warn('revokeAndTrash_: could not revoke sharing: ' + e);
+  }
+  file.setTrashed(true);
 }
 
 /** Pull a Drive file id out of a viewer/thumbnail/uc url. */
@@ -775,7 +857,7 @@ function handleDeleteProjectFile(data) {
     if (!fileLivesUnderProjects_(file)) {
       return createResponse({ success: false, message: 'file is not inside Projects' });
     }
-    file.setTrashed(true);
+    revokeAndTrash_(file);
     return createResponse({ success: true });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
@@ -925,6 +1007,17 @@ function handleDeleteProjectFolder(data) {
       if (!found) return createResponse({ success: true, alreadyGone: true });
       parent = found;
     }
+    // Revoke the FILES inside before trashing the folder: a trashed folder's
+    // children keep serving on `lh3` exactly as a trashed file does (see
+    // revokeAndTrash_), so trashing the folder alone leaves every document in
+    // it publicly readable for the whole undo window.
+    try {
+      var kids = parent.getFiles();
+      while (kids.hasNext()) {
+        try { kids.next().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); }
+        catch (e2) { console.warn('deleteProjectFolder: could not revoke a child: ' + e2); }
+      }
+    } catch (e1) { console.warn('deleteProjectFolder: could not list children: ' + e1); }
     parent.setTrashed(true);
     return createResponse({ success: true });
   } catch (e) {
