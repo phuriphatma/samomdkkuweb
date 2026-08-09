@@ -306,8 +306,12 @@ is contract-step work, not a bug. Background:
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `1051042` on the VM (later commits are docs-only),
-  verified from the served artifact. Still **v4.5.0**, and
+- **samoweb**: `main` = `ec42f93` on the VM, verified from the served artifact
+  (`assets/admin-BbCDLy9w.js` carries `team-person-hit` / `อยู่ในทีมแล้ว` /
+  `team-person-meta`, and `teamMemberHouseFillHint` is gone from both the bundle
+  and `admin/index.html`). ⚠️ **Minified builds rename module-scope `let`s** —
+  grep the served bundle for a STRING LITERAL or a CSS class, never for a
+  variable name. Still **v4.5.0**, and
   ⚠️ **`PENDING` in `src/data/changelog.js` now holds ~36 entries** — two
   sessions of user-visible work with no version cut. **A `npm run release`
   minor bump is OWED** and `/updates` is showing none of it. Read
