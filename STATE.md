@@ -31,6 +31,46 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-09 (evening) — the owner's bug list (0139–0142)
+
+All applied, deployed, verified. **Read this before touching identity.**
+
+- **0139 — an INSERT is a write path too.** 0125/0138 guard the import on
+  UPDATE. For the ~380 ทีม SAMO members not yet in ระบบบ้าน the import *INSERTs*
+  their placement, and that path was unguarded: the file's spelling won and the
+  registry silently disagreed with the row pointing at it. Reconciliation now
+  lives INSIDE `students_link_person` (one trigger, so trigger-name ordering
+  cannot break it). A human-created row mirrors UP, which an INSERT never did.
+  Also **refcounts orphan `people`** when their last placement goes.
+- **0140 — "เป็นคนเดียวกับ …" is a MERGE.** It 23505'd. Giving a placement an
+  address another person holds now RE-POINTS it at that person and fills the
+  row's empty columns FROM them (a sparse row must not blank a rich one).
+  ⚠️ Two traps recorded: a kkumail-ONLY write never fired the mirror at all
+  (the `is distinct from` guard excludes kkumail), and **`after update of <col>`
+  fires on the STATEMENT's column list, not on what a BEFORE trigger changed**.
+- **0141 — ปีการศึกษา is ADMIN-SET.** Reverses half of 0131 and keeps the half
+  that matters: ชั้นปี stays derived, only the OFFSET is stored. The BASE moved
+  from the clock to `house_settings.academic_year`, moved by a button, with a
+  "ถึงกำหนดเลื่อน" reminder. It reminds; it never acts. Seeded from the clock so
+  nothing on screen changed. `set_academic_year` takes the TARGET year, not +1.
+- **0142 — who-has-checked is about PEOPLE.** The count read `people` (301) and
+  the per-row filter read `students` (3). One `checked` definition now
+  (confirmed OR self-edited), used by both, and `list_identity_check()` lists
+  every ทีม SAMO member by name — so the check week is chaseable TODAY.
+
+**The populate question, answered:** ทีม SAMO people do NOT get fabricated
+`students` rows. A `students` row is a house placement and there is no สายรหัส to
+give it. They are already shared via `people`; when the file lands they acquire
+a placement by kkumail (0139) carrying the identity they already have.
+
+Also fixed: the ตรวจสอบข้อมูล false "รหัสซ้ำ" for one human with a no-email
+posting (identity.js rule 2 was a single-pass key — see app-state.md), the blank
+ชื่อ/นามสกุล boxes in แก้ไขสมาชิก (`suggestNameSplit` + one confirm), the ghost
+suggestions from a deleted ฝ่าย, and "have to refresh to see รุ่น change"
+(`profile-cache.js` — one card, two module caches).
+
+⚠️ **`ดึงจากระบบบ้าน` is GONE** (0141). There is no second copy to pull from.
+
 ## SHIPPED 2026-08-09 (later) — ONE ACCOUNT, ALL THE WAY (0135–0138)
 
 **0135 — ชื่อ/นามสกุล is split everywhere, and nothing guesses a boundary.**
@@ -220,17 +260,19 @@ is contract-step work, not a bug. Background:
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
 - **samoweb**: `main` = `1051042` on the VM (later commits are docs-only),
   verified from the served artifact. Still **v4.5.0**, and
-  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 25 entries** — two
+  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 32 entries** — two
   sessions of user-visible work with no version cut. **A `npm run release`
   minor bump is OWED** and `/updates` is showing none of it. Read
   `docs/VERSIONING.md` first; the bump is a **minor**.
-- **Migrations applied through 0138.** Live proofs, all both-directional:
+- **Migrations applied through 0142.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
   `node tools/house0132-registry.mjs` (19/19) ·
   `node tools/team0135-name-split.mjs` (16/16) ·
   `node tools/team0137-search.mjs` (14/14) ·
-  `node tools/house0138-conflicts.mjs` (21/21) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
+  `node tools/house0138-conflicts.mjs` (21/21) ·
+  `node tools/house0139-insert-path.mjs` (10/10) ·
+  `node tools/team0140-merge.mjs` (7/7) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update
