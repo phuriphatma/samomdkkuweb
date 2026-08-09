@@ -86,8 +86,26 @@ all four samoweb handlers via `revokeAndTrash_()`, to `deleteProjectFolder`
 (children keep serving exactly as a trashed file does, so they are revoked
 first), and to the **passport repo's** `handleDelete_` — same line, same gap.
 
-⚠️ **BOTH GAS PROJECTS NEED A REDEPLOY** for this to take effect. Nothing about
-it works from the frontend.
+**samoweb GAS: DEPLOYED (version 11) and proved live** —
+`node tools/gas-delete-actions.mjs` → **6/6**, both directions: `deletePRFile`
+is served, its ancestry guard refuses a file from the Team tree, junk urls are
+rejected, and the CONTROL case (an unknown action still answers "Unknown
+action") proves the probe can fail.
+
+⚠️ **PASSPORT GAS IS NOT DEPLOYED.** The code is committed and pushed
+(`1aa53df` in `phuriphatma/samomdkkupassport`) but that repo's `.env.local` has
+**no `GAS_SCRIPT_ID`**, so `npm run deploy:gas` stops before doing anything.
+To finish: Apps Script project "samopassport" → ⚙ Project Settings → IDs →
+Script ID → add `GAS_SCRIPT_ID=…` to
+`/Users/xeno/development/samodevmdkku69/passport/.env.local`, then
+`npm run deploy:gas`. Until then a deleted passport badge stays publicly
+readable exactly as before.
+
+⚠️ **`curl -L` CANNOT PROBE A GAS `/exec`.** It 302s to
+script.googleusercontent.com and curl turns POST into GET on a 302 unless
+`--post302` is given, so the body is dropped and every probe returns Drive's
+"ไม่พบเพจ" HTML — indistinguishable from a broken deployment. Use Node's fetch
+(`tools/gas-delete-actions.mjs` does).
 
 ## ✅ CLOSED 2026-08-09 — `uploadPRFile` finally has a counterpart
 
