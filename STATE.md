@@ -62,44 +62,51 @@ The allow-list holds six real globals (`bootstrap`, `Quill`,
 Also removed `teamMemberHouseFillHint` (markup + JS), the dead status line of
 the button 0141 took out. Write-up: `docs/mistakes/frontend-ui.md`.
 
-## 🔴 OPEN — portraits reach Drive but the URL never reaches the row
+## ✅ CLOSED 2026-08-09 — the portrait bug was TWO bugs
 
-**REPORTED**: "I uploaded a new picture but it still uses the old photo I
-removed long ago — and there are two pics of me and two of พู่กัน in Drive."
+**1. "it still uses the old photo I removed long ago."**
+`lh3.googleusercontent.com` **keeps serving a Drive file after it is trashed.**
+The row pointed at a file the owner had deleted months earlier and Drive served
+it happily, so it read as "the app is stuck on an old photo" when it was stuck on
+a *deleted* one. Emptying the trash is part of removing a photo.
+Ruled out along the way, each from the live DB: no archive rows exist (so not a
+stale published snapshot); no bulk write cluster in `updated_at` (so nothing was
+wiped); `team_members_self_update_guard` DOES allow `photo_url` and raises rather
+than reverting; both mirrors assign `photo_url = new.photo_url` with no coalesce.
+The 4 rows pointing at the trashed file were snapshotted and cleared.
 
-**Established from the live DB (not inferred):**
-- **The whole database holds exactly TWO rows with a `photo_url`** — both of
-  ภูริพัฒณ์'s two postings, same URL, written 2026-08-09 09:20:28.
-  `people` 1 / 400 `team_members` 2 / `students` 1 / `team_archive_members` 0.
-  Every other portrait ever uploaded is an ORPHAN file in Drive.
-- **No bulk wipe.** `team_members.updated_at` by hour shows no mass write (max
-  33 rows in any hour) — the roster never had photos, they were not cleared.
-- **Not the archive.** There are ZERO `team_archive_members` rows, so the
-  "published snapshot is stale" theory is dead.
-- **Not the self-update guard.** The LIVE
-  `team_members_self_update_guard` allow-list DOES include `photo_url` /
-  `photo_focus`, and it RAISES rather than silently reverting.
-- **Not the mirrors.** `team_member_mirror_up` and `person_mirror_down` both
-  assign `photo_url = new.photo_url` with no coalesce, so a stored photo
-  propagates. (`student_mirror_up` DOES `coalesce(new.photo_url, p.photo_url)`,
-  so a นำรูปออก done in ระบบบ้าน cannot clear the registry — a separate, smaller
-  asymmetry worth fixing.)
-- The one stored URL is Drive id `1aiLE4JRdSPdV6oavBcIglxxoL4BwSydG` and it
-  resolves to a **3:2 LANDSCAPE** image — not a 3:4 crop, so it did not come
-  from the current crop-on-upload path.
+**2. "เปลี่ยนรูป changes the picture but the old one is still in the drive."**
+`my-seat.js` — the self-service card every ordinary member uses — uploaded,
+repointed the row, and never called `deleteTeamPhotoIfUnused`. The admin editor
+and `terms.js` had done so since 0143, so the rule LOOKED implemented: it was, on
+two of three writers, and the missing one had the most users. The leftover file
+stays shared "anyone with the link", so this is privacy before storage.
 
-**Leading hypothesis, NOT yet confirmed**: both save paths upload to Drive
-first and then write the row (`onMemberSubmit` in `team/index.js`,
-`wireSelfEdit` in `my-seat.js`). If that write fails, the file is already in
-Drive and the failure is reported with **`alert()`** — which this same session
-proved is suppressed for the whole life of the page once Chrome's "prevent
-additional dialogs" box is ticked. Symptom would be exactly this: an orphan
-file per attempt, the old photo still on screen, and no message.
+Swept every other upload surface and found two more of the same shape:
+- **`house/index.js` uploaded the crest ON PICK** — every intermediate choice
+  became a Drive file no row ever pointed at, which a reference count can never
+  distinguish from a live photo, so nothing could ever clean them up. Moved into
+  `onHouseSubmit` + cleanup of the replaced crest. **Verified in a browser: a
+  pick now sends ZERO requests to GAS and previews from a local `blob:` URL.**
+- **`shop/admin.js`** left the previous product image behind on every replace.
 
-**What is needed to close it** (cannot be determined offline): which surface the
-upload was done from, on which device, and whether anything appeared after
-บันทึก. Open `https://drive.google.com/file/d/1aiLE4JRdSPdV6oavBcIglxxoL4BwSydG/view`
-to see which file the app is actually pointing at and where it lives.
+**One rule now, three writers:** `photoToRetire(prevUrl, payload, key)` in
+`team/api.js`. ⚠️ **Its key-PRESENCE test is load-bearing** — นำรูปออก sets the
+column to `null`, and any `??`/`||` fallback reads that null as "unchanged" and
+skips the cleanup on the one action whose whole point is that the file is gone.
+`src/js/photo-retire.test.js` covers both directions (11 cases).
+
+**The guard is an AUDIT, not a pattern match**: `src/js/upload-cleanup.test.js`
+holds one row per uploading module naming what cleans up after it, and fails when
+a new upload site appears without one. Two simpler rules were tried and both were
+wrong — "the uploader must also delete" (shop/checkout.js uploads a slip that
+shop/api.js correctly deletes) and "never upload in a change handler" (QR, banner
+and slip pickers upload and PERSIST in the same handler, orphaning nothing).
+
+⚠️ **KNOWN DEBT, now written down**: the whole `uploadPRFile` family —
+announcement covers, Quill inline images, PR attachments — has **no delete
+action in `appscript/prform.gs` at all**. The cover cropper leaks a file per
+re-crop. Closing it needs a GAS action + redeploy, not a frontend change.
 
 ## SHIPPED 2026-08-09 (scrutiny pass) — the dialog class, closed with a ratchet
 

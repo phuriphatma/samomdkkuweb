@@ -50,6 +50,12 @@ import {
 } from './uploads.js';
 import { cropImage } from './image-crop.js';
 import { findIssues, idsOf, KIND_LABEL } from './team/identity.js';
+// The SAME cleanup the admin editor uses — a server-side reference count across
+// every table that holds a photo_url, then a trash only on a definite zero.
+// Importing it (rather than writing a second one here) is the point: two
+// implementations of "is this portrait still in use" is how the admin path got
+// it right and this one silently did not.
+import { deleteTeamPhotoIfUnused, photoToRetire } from './team/api.js';
 // The same รหัสนักศึกษา / ชั้นปี / สาขา rules the admin form and the CSV importer
 // use. A person fixing their own row is a THIRD writer to these columns, and it
 // must not be the one that reintroduces `md` beside `MD`.
@@ -732,6 +738,9 @@ function wireSelfEdit(host, seat) {
     const btn = form.querySelector('.myseat-save');
     if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
     if (status) status.textContent = '';
+    // Snapshot BEFORE the upload can overwrite body.photo_url — this is the file
+    // the row is about to stop pointing at.
+    const prevPhoto = String(me.photo_url || '').trim();
     try {
       if (pendingPhoto) {
         if (btn) btn.textContent = 'กำลังอัปโหลดรูป…';
@@ -801,6 +810,24 @@ function wireSelfEdit(host, seat) {
       } catch (syncErr) {
         console.warn('my-seat: ระบบบ้าน sync skipped:', syncErr);
       }
+      // THE PREVIOUS PORTRAIT, now that the row points somewhere else.
+      //
+      // REPORTED: "when i เปลี่ยนรูป it changes the picture but the old picture
+      // of me is still in the drive". It was: this card uploaded and repointed
+      // the row and then walked away, so every เปลี่ยนรูป and every นำรูปออก left
+      // its file in Drive, shared "anyone with the link", forever. The admin
+      // editor has cleaned up since 0143 — this surface, which is the one every
+      // ordinary member uses, never did. One rule, two writers, and only one of
+      // them knew about it.
+      //
+      // AFTER the write, never on the pick or the นำรูปออก click: the count is
+      // only the truth once the row has already been repointed, and deleting
+      // earlier would destroy a photo the database still uses if the person
+      // then cancels. deleteTeamPhotoIfUnused counts across all five tables
+      // server-side and keeps the file on any answer that is not a definite
+      // zero, so a person with two postings sharing one portrait is safe.
+      const retire = photoToRetire(prevPhoto, body);
+      if (retire) deleteTeamPhotoIfUnused(retire);
       dropPending();
       // BOTH caches. The house section repaints from its OWN cache through
       // opts.afterRender, so clearing only this one showed the new รหัสนักศึกษา

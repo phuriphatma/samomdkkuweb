@@ -24,6 +24,10 @@ import { getUser } from '../auth.js';
 // pane's ปฏิเสธ both came to "do nothing at all".
 import { askDelete, askConfirm } from '../confirm-modal.js';
 import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
+// The same server-side reference count the ทีม SAMO editor uses. A crest is a
+// Drive file like any other: replacing one must not leave the old one shared
+// "anyone with the link" forever.
+import { deleteTeamPhotoIfUnused, photoToRetire } from '../team/api.js';
 import {
   fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
@@ -1504,6 +1508,8 @@ async function onStudentDelete() {
 
 // ---------- house editor ----------
 let houseIconUrl = null;
+// A picked-but-not-yet-uploaded crest: { file, previewUrl }. Upload on SAVE.
+let housePendingIcon = null;
 function openHouseModal(id) {
   const h = houseById(id);
   if (!h) return;
@@ -1513,6 +1519,7 @@ function openHouseModal(id) {
   $('heSlogan').value = h.slogan || '';
   $('heColor').value = h.color || '#105922';
   houseIconUrl = h.icon_url || null;
+  clearHousePendingIcon();     // a pick left over from the previous house
   paintHouseIcon();
   $('heIconFile').value = '';
   modalInstance('houseEditModal')?.show();
@@ -1522,8 +1529,12 @@ function paintHouseIcon() {
   const img = $('heIconPreview');
   const clear = $('heIconClear');
   if (!img) return;
-  if (houseIconUrl) {
-    img.src = convertDriveUrl(houseIconUrl, 200);
+  // A framed-but-unsent pick wins over the stored crest — it is what บันทึก is
+  // about to upload, so it is what the admin must be looking at.
+  if (housePendingIcon || houseIconUrl) {
+    img.src = housePendingIcon
+      ? housePendingIcon.previewUrl
+      : convertDriveUrl(houseIconUrl, 200);
     img.classList.remove('d-none');
     clear?.classList.remove('d-none');
   } else {
@@ -1532,38 +1543,69 @@ function paintHouseIcon() {
   }
 }
 
-async function onHouseIconPicked(e) {
+/**
+ * Frame the crest. NOTHING IS UPLOADED HERE.
+ *
+ * This used to POST on the pick, which is the pattern this repo banned after it
+ * left orphan portraits in Drive: every intermediate choice became a real file,
+ * and picking twice — or picking once and then closing the editor — left files
+ * nothing would ever reference and no cleanup could reach (the row never pointed
+ * at them, so a reference count cannot tell them from a live photo).
+ *
+ * The bytes now leave in onHouseSubmit, next to the write that will point at
+ * them.
+ */
+function onHouseIconPicked(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  setStatus('กำลังอัปโหลดโลโก้…');
-  try {
-    // Filed under the existing Team tree so this needs NO Apps Script change and
-    // no new OAuth scope — `uploadTeamFile` only requires the path to start with
-    // "Team". A dedicated House folder would have meant a GAS redeploy.
-    const { url } = await uploadTeamPhoto(file, {
-      year: '_House', dept: 'icons', order: $('heId').value, name: `house-${$('heId').value}`,
-    });
-    houseIconUrl = url;
-    paintHouseIcon();
-    setStatus('');
-  } catch (err) {
-    setStatus(err?.message || 'อัปโหลดไม่สำเร็จ', true);
-  }
+  if (housePendingIcon?.previewUrl) URL.revokeObjectURL(housePendingIcon.previewUrl);
+  housePendingIcon = { file, previewUrl: URL.createObjectURL(file) };
+  paintHouseIcon();
+  setStatus('');
+}
+
+/** Drop a framed-but-unsent pick and free its object URL. */
+function clearHousePendingIcon() {
+  if (housePendingIcon?.previewUrl) URL.revokeObjectURL(housePendingIcon.previewUrl);
+  housePendingIcon = null;
 }
 
 async function onHouseSubmit(e) {
   e.preventDefault();
   const id = Number($('heId').value);
+  // The file the row is about to stop pointing at, captured before the upload.
+  const prevIcon = String(houseById(id)?.icon_url || '').trim();
   try {
+    if (housePendingIcon) {
+      setStatus('กำลังอัปโหลดโลโก้…');
+      // Filed under the existing Team tree so this needs NO Apps Script change
+      // and no new OAuth scope — `uploadTeamFile` only requires the path to
+      // start with "Team". A dedicated House folder would have meant a GAS
+      // redeploy.
+      const { url } = await uploadTeamPhoto(housePendingIcon.file, {
+        year: '_House', dept: 'icons', order: id, name: `house-${id}`,
+      });
+      houseIconUrl = url;
+      clearHousePendingIcon();
+    }
     await updateHouse(id, {
       name: $('heName').value.trim() || null,
       slogan: $('heSlogan').value.trim() || null,
       color: $('heColor').value || null,
       icon_url: houseIconUrl,
     });
+    setStatus('');
     modalInstance('houseEditModal')?.hide();
+    // AFTER the write — the count is only the truth once the row has been
+    // repointed. Replacing or clearing a crest used to leave the old file in
+    // Drive forever, the same gap the ข้อมูลของฉัน card had.
+    const retire = photoToRetire(prevIcon, { icon_url: houseIconUrl }, 'icon_url');
+    if (retire) deleteTeamPhotoIfUnused(retire);
     await reload();
-  } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
+  } catch (err) {
+    setStatus('');
+    alert(err?.message || 'บันทึกไม่สำเร็จ');
+  }
 }
 
 // ---------- advisor editor ----------
@@ -1743,9 +1785,12 @@ function wire() {
   });
   $('houseEditForm')?.addEventListener('submit', onHouseSubmit);
   $('heIconFile')?.addEventListener('change', onHouseIconPicked);
-  $('heIconClear')?.addEventListener('click', () => { houseIconUrl = null; paintHouseIcon(); });
+  $('heIconClear')?.addEventListener('click', () => {
+    clearHousePendingIcon(); houseIconUrl = null; paintHouseIcon();
+  });
   $('heReset')?.addEventListener('click', () => {
-    $('heName').value = ''; $('heSlogan').value = ''; houseIconUrl = null; paintHouseIcon();
+    $('heName').value = ''; $('heSlogan').value = '';
+    clearHousePendingIcon(); houseIconUrl = null; paintHouseIcon();
   });
 
   // สายรหัส pane — filters, and the สาย-first อาจารย์ modal.

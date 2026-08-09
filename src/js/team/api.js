@@ -36,6 +36,34 @@ import { deleteTeamFile } from '../uploads.js';
  * Best-effort and never throws: the DB write it follows has already succeeded.
  * Worst case a file lingers, which is exactly the status quo.
  */
+/**
+ * Which file, if any, this save has just stopped pointing at.
+ *
+ * ONE RULE, THREE WRITERS. The admin editor, the ข้อมูลของฉัน card and the
+ * ระบบบ้าน crest editor all have to answer the same question, and they used to
+ * answer it with three inline conditions — of which one (my-seat.js) did not
+ * exist at all, which is how "เปลี่ยนรูป leaves the old picture in the drive"
+ * shipped.
+ *
+ * THE KEY-PRESENCE TEST IS LOAD-BEARING. นำรูปออก sets the column to null, and
+ * any `??` / `||` fallback reads that null as "the photo was not touched" and
+ * skips the cleanup on the one action whose entire point is that the file
+ * should be gone. So: absent key ⇒ untouched ⇒ keep; present-and-different ⇒
+ * retire, whether the new value is a URL or null.
+ *
+ * @param {string} prevUrl the URL the row held BEFORE this save
+ * @param {object} payload the patch about to be (or just) written
+ * @param {string} [key] the column holding the file URL
+ * @returns {string|null} the URL to hand to deleteTeamPhotoIfUnused, or null
+ */
+export function photoToRetire(prevUrl, payload, key = 'photo_url') {
+  const prev = String(prevUrl || '').trim();
+  if (!prev) return null;
+  if (!payload || typeof payload !== 'object' || !(key in payload)) return null;
+  const next = String(payload[key] ?? '').trim();
+  return next === prev ? null : prev;
+}
+
 export async function deleteTeamPhotoIfUnused(photoUrl) {
   const url = String(photoUrl || '').trim();
   if (!url) return false;

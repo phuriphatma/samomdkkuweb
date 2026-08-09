@@ -23,7 +23,7 @@ import { dbRest } from '../db.js';
 import {
   fetchTree, createNode, updateNode, deleteNode,
   createMember, updateMember, deleteMember,
-  patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
+  patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused, photoToRetire,
   fetchMajors, createMajor, updateMajor, deleteMajor,
   countMembersWithMajor, renameMajorOnMembers, searchPeople,
 } from './api.js';
@@ -2903,9 +2903,8 @@ async function runMemberSubmit() {
       expanded.add(nodeId);
       render();
     }
-    if (prevPhoto && prevPhoto !== (payload.photo_url || '')) {
-      deleteTeamPhotoIfUnused(prevPhoto);
-    }
+    const retire = photoToRetire(prevPhoto, payload);
+    if (retire) deleteTeamPhotoIfUnused(retire);
   } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 

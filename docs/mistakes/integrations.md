@@ -671,3 +671,64 @@ holds a foreign id means auditing every count of it. (2) **Never do a refcount
 in the client when RLS can hide a referrer** — a blocked read is zero rows, not
 an error, and the resulting undercount deletes data. (3) Pin every ambiguous
 answer to the direction that keeps the file.
+
+---
+
+## "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed, on one of the two writers
+
+**Symptom** (reported after the owner tested a fix for a different photo bug):
+replacing a portrait from **ข้อมูลของฉัน** changed the picture everywhere in the
+app, but the previous file stayed in Drive. Two files per person, sometimes
+under two different names because a rename had happened in between.
+
+**Cause**: `my-seat.js` — the self-service card EVERY ordinary member uses —
+uploaded the new portrait, repointed the row, and stopped. It never called
+`deleteTeamPhotoIfUnused`. The ทีม SAMO admin editor had cleaned up since 0143
+and `team/terms.js` since the archive shipped, so the rule looked implemented;
+it was implemented on two of three writers, and the missing one was the one with
+the most users.
+
+The file left behind is shared "anyone with the link", so this is a **privacy**
+defect before it is a storage one: someone who replaces or removes their
+portrait reasonably believes the old one is gone.
+
+Two more of the same shape found while sweeping the other upload surfaces:
+- **`house/index.js` uploaded the crest ON PICK.** Every intermediate choice
+  became a real Drive file that no row ever pointed at — and a reference count
+  cannot distinguish those from a live photo, so *nothing could ever clean them
+  up*. Moved into `onHouseSubmit`, plus a cleanup for the replaced crest.
+- **`shop/admin.js`** left the previous product image behind on every replace.
+
+**A related discovery that explains the ORIGINAL report** ("it still uses the old
+photo that I removed long ago"): `lh3.googleusercontent.com` **keeps serving a
+Drive file after it is trashed**. A removed portrait therefore goes on rendering
+as if nothing happened, which reads as "the app is pointing at an old photo"
+when it is really pointing at a deleted one. Emptying the trash is part of
+removing a photo, not an afterthought.
+
+**Fix**: one rule, `photoToRetire(prevUrl, payload, key)` in `team/api.js`, used
+by all three writers. Its key-presence test is load-bearing — **นำรูปออก sets the
+column to `null`, and any `??` / `||` fallback reads that null as "unchanged"**
+and skips the cleanup on the one action whose entire point is that the file
+should be gone. `src/js/photo-retire.test.js` covers both directions (too eager
+breaks a live portrait; too shy is this bug).
+
+The audit is the guard: `src/js/upload-cleanup.test.js` holds one row per
+uploading module naming what cleans up after it, and fails when a new upload
+site appears without one. Two obvious rules were tried first and both were
+wrong — "the uploading module must also delete" (shop/checkout.js uploads a slip
+that shop/api.js correctly deletes) and "never upload in a change handler" (the
+QR, banner and slip pickers upload and PERSIST in the same handler, orphaning
+nothing). Written down, the debt is visible: the whole `uploadPRFile` family
+(announcement covers, Quill inline images, PR attachments) has **no delete
+action in `appscript/prform.gs` at all**, so those need a GAS change first.
+
+**Where it lives now**: `src/js/team/api.js` (`photoToRetire`) ·
+`src/js/my-seat.js` · `src/js/house/index.js` · `src/js/shop/admin.js` ·
+`src/js/photo-retire.test.js` · `src/js/upload-cleanup.test.js`.
+
+**Rule**: a feature implemented on the writers you happened to be looking at is
+not implemented. Enumerate the writers — and when the rule is "what happens to
+the thing this replaces", make it one function they all call, because the
+difference between three correct copies and two is invisible until someone
+opens Drive.

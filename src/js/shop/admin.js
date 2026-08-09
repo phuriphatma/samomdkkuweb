@@ -28,7 +28,7 @@ import {
   listPromptpayQrs, upsertPromptpayQr, deletePromptpayQr, setDefaultQr,
   listPickupLocations, upsertPickupLocation, deletePickupLocation,
 } from './api.js';
-import { uploadShopFile } from './uploads.js';
+import { uploadShopFile, deleteShopFile } from './uploads.js';
 import { convertDriveUrl } from '../uploads.js';
 import { showShopToast } from './products.js';
 import { invalidateSettingsCache } from './checkout.js';
@@ -2974,6 +2974,9 @@ async function saveProductForm() {
   const original = btn?.innerHTML;
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…'; }
 
+  // The image the row is about to stop pointing at. Captured before the upload
+  // overwrites payload.image_url.
+  const prevImage = String(e.image_url || '').trim();
   try {
     if (e._imageFile) {
       const ext = (e._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
@@ -2981,6 +2984,15 @@ async function saveProductForm() {
       payload.image_url = await uploadShopFile(e._imageFile, `Shop/Products/${payload.id}`, { fileName });
     }
     await upsertProduct(payload);
+    // Trash the replaced image, AFTER the write — the row now points elsewhere,
+    // so this cannot destroy a picture the catalogue is still using. Skipped
+    // when any OTHER product shares the URL: a shop admin can read every
+    // product row, so this list is complete for this caller (unlike the
+    // RLS-blocked client-side count that made the ทีม SAMO refcount fail open).
+    if (prevImage && prevImage !== (payload.image_url || '')
+        && !(state.products || []).some((p) => p.id !== payload.id && p.image_url === prevImage)) {
+      deleteShopFile(prevImage).catch(() => {});
+    }
 
     // Production status cascade — only when the dropdown changed from
     // the original. The RPC owns the field + the order cascade so this
