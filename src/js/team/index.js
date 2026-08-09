@@ -2248,7 +2248,39 @@ function studyYearForMember(member) {
   return n !== null && n >= 1 && n <= 6 ? String(n) : '';
 }
 
+/**
+ * Open the member editor. THE MODAL OPENS NO MATTER WHAT.
+ *
+ * REPORTED (iPad): "when i press add people button in admin teamsamo, it
+ * doesn't work, it doesn't show anything". A silent nothing is the signature of
+ * an exception thrown while PREPARING the dialog — every prefill step ran
+ * before `showTeamModal`, so one bad step meant no modal at all and no message,
+ * on a device with no console to look at.
+ *
+ * The root cause was not reproduced on desktop and is not confirmed. What IS
+ * certain is the SHAPE: preparation and presentation were in one straight line,
+ * so anything in the former could silently cancel the latter. Splitting them
+ * makes the worst case a modal with an unfilled field — visibly wrong, and
+ * recoverable — instead of a dead button.
+ *
+ * Every `$('...')` write inside `fillMemberModal` is also optional-chained now,
+ * so a markup change that drops one field cannot take the whole editor down.
+ */
 function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
+  try {
+    fillMemberModal(member, nodeId, tab);
+  } catch (err) {
+    // Deliberately not rethrown and not an alert: the dialog still opens, and a
+    // half-filled form the admin can see beats a button that does nothing.
+    console.error('[team] member modal prefill failed, opening anyway:', err);
+  }
+  showTeamModal('teamMemberModal', member ? tab : 'info', !!member);
+  // iOS ignores programmatic focus outside a user gesture; harmless there, and
+  // it is the reason this is last rather than something the open depends on.
+  if (tab !== 'perm') setTimeout(() => $('teamMemberFirstName')?.focus(), 250);
+}
+
+function fillMemberModal(member, nodeId, tab) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
   setMemberNode(nid);
@@ -2340,12 +2372,10 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   memberPhotoFocus = member?.photo_focus || 'center';
   setMemberPhoto(member?.photo_url || '');
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
-  $('teamMemberDelete').classList.toggle('d-none', !member);
+  $('teamMemberDelete')?.classList.toggle('d-none', !member);
   // One modal, two tabs (0110). A member who has not been saved yet has no row
   // for a grant to hang on, so the สิทธิ์ tab is disabled until they exist.
   if (member) fillMemberPermPane(member.id);
-  showTeamModal('teamMemberModal', member ? tab : 'info', !!member);
-  if (tab !== 'perm') setTimeout(() => $('teamMemberFirstName')?.focus(), 250);
 }
 
 /**
