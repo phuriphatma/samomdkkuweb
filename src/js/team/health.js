@@ -38,6 +38,8 @@ import {
   IDENTITY_FIELDS, findIssues, idsOf, KIND_LABEL, issuesByMember, issueCount,
 } from './identity.js';
 export { IDENTITY_FIELDS, findIssues, idsOf, issuesByMember, issueCount };
+import { askConfirm } from '../confirm-modal.js';
+
 const $ = (id) => document.getElementById(id);
 
 // ── pure: find everything worth a human's attention ─────────────────────────
@@ -416,14 +418,27 @@ export function initHealth(hostEl, opts = {}) {
       // it is driven by a name match. Say what it does before doing it. Linking
       // an email also hands over whatever สิทธิ์ that person's ตำแหน่ง carry,
       // which is why this is never automatic.
-      if (!confirm(`ยืนยันว่าแถวนี้คือ “${who}” คนเดียวกัน?\n\n`
-        + `จะตั้งอีเมล/รหัสนักศึกษาให้ตรงกัน และแถวนี้จะถูกนับรวมเป็นคนเดียวกัน\n`
-        + `หากเป็นคนละคน ให้กดยกเลิกแล้วกรอกข้อมูลเองด้านล่าง`)) return;
+      // askConfirm, NOT window.confirm. Chrome's "prevent this page from
+      // creating additional dialogs" makes every later native confirm return
+      // false instantly and for the rest of the page's life, so the button
+      // silently does nothing — shipped twice here already, and an admin
+      // session reaches that checkbox faster than anyone else's.
       const patch = {};
       if (mail) patch.kkumail = mail;
       if (sid) patch.student_id = sid;
       if (!Object.keys(patch).length) return void status('คนที่เลือกไม่มีอีเมลหรือรหัสให้ใช้', 'error');
-      return void run(() => updateMember(id, patch), `รวมกับ ${who} แล้ว`);
+      return void (async () => {
+        const ok = await askConfirm({
+          title: `ยืนยันว่าแถวนี้คือ “${who}” คนเดียวกัน?`,
+          body: 'ตำแหน่งนี้จะถูกย้ายไปอยู่กับคนคนนั้น และจะใช้ชื่อ ชื่อเล่น รหัสนักศึกษา '
+            + 'และรูปเดียวกัน — รวมถึงสิทธิ์ที่ตำแหน่งนั้นมีด้วย '
+            + 'หากเป็นคนละคน ให้กดยกเลิกแล้วกรอกข้อมูลเองด้านล่าง',
+          yes: 'ใช่ คนเดียวกัน',
+          danger: false,
+        });
+        if (!ok) return;
+        run(() => updateMember(id, patch), `รวมกับ ${who} แล้ว`);
+      })();
     }
   });
 }
