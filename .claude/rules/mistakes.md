@@ -39,7 +39,11 @@ has not been written yet.
    restriction mistaken for a complete design — an admin typed a decision note
    into `student_change_requests`, which is admin-only, and the student it was
    addressed to had no read path at all (0128). A form that collects a message
-   for a named person is a promise that person can read it. Non-security twin: a fix
+   for a named person is a promise that person can read it. A gate on the WIDGET is not a gate on the ROUTE: the admin sidebar hid
+   sections an account could not use and the click delegate skipped them, but
+   the HASH was unchecked, so `/admin/#vs` opened VitalSound for someone with no
+   VS grant (fixed by `canOpenSection`). Enumerate every way in — click, hash,
+   query string, deep link. Non-security twin: a fix
    in an EVENT handler guarded on state the CALLER sets misses every other entry
    point — the /updates scroll fix worked for nav pills and not for
    `navigateTo()`.
@@ -67,6 +71,13 @@ has not been written yet.
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
    the รุ่น and every reader's `coalesce(copy, source)` preferred the stale one
    (0128). Fill-once means never-correct.
+   Also a rule implemented on the writers you HAPPENED to be looking at:
+   the replaced-portrait cleanup existed on the ทีม SAMO admin editor and the
+   archive editor but NOT on `my-seat.js`, the card every ordinary member uses —
+   so "เปลี่ยนรูป leaves the old picture in Drive" was a rule that looked
+   implemented. Now one `photoToRetire()` all three call. When a second copy is
+   unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
+   guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    `prefer: 'return=representation'` + a `data.length` check on every DELETE
    (projects/vs/announcements had it; all 5 in `team/api.js` and 3 in
    `shop/api.js` did not) — now swept by `delete-guard.test.js`.
@@ -87,7 +98,12 @@ has not been written yet.
     Read the ACL from
    `pg_proc.proacl`, not from the `revoke` you just wrote; grep the SERVED
    bundle, not the local file; read the LIVE function body, not the migration
-   that first defined it. And a probe that can only report "denied" cannot
+   that first defined it. **And check that your INSTRUMENT can see the thing**:
+   a minified bundle renames module-scope `let`s (grep a STRING LITERAL or a CSS
+   class), code often lands in a shared CHUNK rather than the entry, `curl -L`
+   turns a GAS `/exec` POST into a GET so every probe returns Drive's error page,
+   and `lh3.googleusercontent.com` still serves a Drive file that is IN THE
+   TRASH — so "I deleted it and it still shows" is the CDN, not a stale row. And a probe that can only report "denied" cannot
    distinguish a working guard from a broken service — always exercise the
    allow path too. **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
    reads the UNION of `permissions` AND `managed_permissions` (0081), so an

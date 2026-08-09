@@ -7,6 +7,29 @@ un-started; STATE.md carries a one-line pointer to this file.
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
+### 0. `photo_reference_count()` cannot see `houses.icon_url` (2026-08-09)
+
+The house-crest cleanup in `src/js/house/index.js` (`onHouseSubmit` →
+`deleteTeamPhotoIfUnused(prevIcon)`) decides on `photo_reference_count()`, which
+counts five tables and every one of them on `photo_url`. A crest lives in
+`houses.icon_url`, so the count answers **0 for every crest** and the delete
+always proceeds.
+
+Safe today only by coincidence — the row is repointed before the count runs, so
+nothing else legitimately references it. It stops being safe the moment two
+houses share a crest URL: replacing one trashes the file the other displays, and
+because GAS deletes now REVOKE SHARING before trashing (2026-08-09), the victim
+breaks *immediately* rather than lingering through the trash window.
+
+⚠️ `src/js/photo-refcount.test.js` is the guard for exactly this class and it
+reports GREEN here, because it scans the migration DDL for tables given a
+`photo_url` — `icon_url` is invisible to it. That false assurance is why the
+crest cleanup was written this way in the first place.
+
+**Fix**: a new migration adding `houses` to `photo_reference_count()`, and widen
+the guard test to any `*_url` column a delete path can reach. Verify with
+`node tools/team0143-photo-refcount.mjs` (5/5 today) plus a crest case.
+
 ### 1. Nothing behind the ADMIN LOGIN has had a signed-in browser run
 Every server path is proven by the 12 scripts (234 checks, all re-run green at
 session end). The PUBLIC half is browser-verified; everything requiring a login is
