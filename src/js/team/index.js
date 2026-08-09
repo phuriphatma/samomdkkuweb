@@ -236,16 +236,24 @@ function isAncestor(maybeAncestor, nodeId) {
 export function initTeam() {
   if (initialized) return;
   initialized = true;
-  wireToolbar();
-  wireNodeModal();
-  wirePicker();
-  wirePermModal();
-  wireMemberPermModal();
-  wireMemberModal();
-  wireModalSave();
-  wireTreeDelegation();
-  wireIO();
-  wireMajors();
+  // EACH WIRE-UP IS INDEPENDENT. They used to be ten bare calls in a row, so a
+  // throw in any one of them silently skipped every later one — and
+  // wireTreeDelegation() is in that list, which means one bad line in an
+  // unrelated modal takes out every button in the tree. That is the shape
+  // behind "the add-people button doesn't work, it doesn't show anything":
+  // a dead tree looks identical to a missing handler, with nothing logged
+  // where anyone would look.
+  //
+  // Now one failure costs its own feature and says so, instead of costing the
+  // page.
+  for (const [name, fn] of [
+    ['toolbar', wireToolbar], ['nodeModal', wireNodeModal], ['picker', wirePicker],
+    ['permModal', wirePermModal], ['memberPermModal', wireMemberPermModal],
+    ['memberModal', wireMemberModal], ['modalSave', wireModalSave],
+    ['treeDelegation', wireTreeDelegation], ['io', wireIO], ['majors', wireMajors],
+  ]) {
+    try { fn(); } catch (err) { console.error(`[team] wire ${name} failed:`, err); }
+  }
   initTerms(document.getElementById('teamTermsPane'), {
     onChange: (year) => { currentTermYear = year; },
   });
