@@ -113,16 +113,12 @@
           <option value="">ทุกบ้าน</option>
         </select>
       </div>
-      <!-- WHO has not checked their data. The counts strip above says HOW MANY;
-           this is the per-row answer, and it is the thing that makes asking
-           people to ยืนยัน worth anything (0141). -->
-      <div class="col-6 col-md-2">
-        <select class="form-select form-select-sm" id="houseFilterCheck" aria-label="กรองตามการตรวจสอบข้อมูล">
-          <option value="">ตรวจแล้ว/ยังไม่ตรวจ</option>
-          <option value="unchecked">ยังไม่ได้ตรวจ</option>
-          <option value="checked">ตรวจแล้ว</option>
-        </select>
-      </div>
+      <!-- The "ยังไม่ได้ตรวจ" filter used to live here, on the นักศึกษา list.
+           WRONG POPULATION: this list is `students` (house placements), and
+           who-has-checked is a question about PEOPLE — every ทีม SAMO member has
+           a registry row and most have no house placement yet, so the count
+           said 300 and this list showed 3. It moved to its own pane above,
+           which reads the same table the count does (0142). -->
       <div class="col-6 col-md-2">
         <input class="form-control form-control-sm" id="houseFilterYear" list="houseYearList"
                placeholder="ทุกรุ่น" aria-label="กรองตามรุ่น" autocomplete="off" />

@@ -472,3 +472,27 @@ export async function fetchIdentityCheckSummary() {
   if (error) fail(error, 'อ่านสถานะการตรวจสอบข้อมูลไม่สำเร็จ');
   return data || null;
 }
+
+
+/**
+ * WHO has checked their record and who has not — over `people`, the same
+ * population `identity_check_summary()` counts.
+ *
+ * ⚠️ NOT over `students`. That was the bug: the count read the registry (~300
+ * humans, every ทีม SAMO member among them) and the list read house placements
+ * (3 rows), so the screen showed a number in the hundreds beside a list of
+ * three. Who-has-checked is a question about a person, not about where they
+ * live.
+ */
+export async function fetchIdentityCheckList({
+  status = 'all', q = '', limit = 100, offset = 0,
+} = {}) {
+  const { data, error } = await dbRest('/rpc/list_identity_check', {
+    method: 'POST',
+    body: {
+      p_status: status, p_q: q, p_limit: limit, p_offset: offset,
+    },
+  });
+  if (error) fail(error, 'โหลดรายชื่อการตรวจสอบข้อมูลไม่สำเร็จ');
+  return data || { rows: [], total: 0 };
+}

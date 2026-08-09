@@ -32,7 +32,7 @@ import {
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear,
-  fetchIdentityCheckSummary,
+  fetchIdentityCheckSummary, fetchIdentityCheckList,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -228,24 +228,10 @@ function readFilters() {
     cohort: ($('houseFilterYear')?.value || '').trim().toLowerCase(),
     major: ($('houseFilterMajor')?.value || '').trim().toLowerCase(),
     sai: ($('houseFilterSai')?.value || '').trim(),
-    check: $('houseFilterCheck')?.value || '',
   };
 }
 
-const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai || f.check);
-
-/**
- * Has this person actually looked at their record?
- *
- * TWO signals, not one, and the second is why this is a function. Pressing
- * ยืนยันข้อมูล stamps `identity_confirmed_at`; but somebody who CORRECTED a
- * field has plainly looked, and making them also press a button would turn the
- * count into a measure of button-pressing. `self_edited` is that second signal.
- */
-function hasChecked(s) {
-  if (s?.people?.identity_confirmed_at) return true;
-  return Array.isArray(s?.self_edited) && s.self_edited.length > 0;
-}
+const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai);
 
 function filteredStudents() {
   const f = readFilters();
@@ -258,8 +244,6 @@ function filteredStudents() {
       const want = f.sai.replace(/\D/g, '');
       if (want && !String(s.sai_code || '').includes(want)) return false;
     }
-    if (f.check === 'unchecked' && hasChecked(s)) return false;
-    if (f.check === 'checked' && !hasChecked(s)) return false;
     if (!f.q) return true;
     // NOTE: sai_code is deliberately absent — it has its own box above.
     return [s.full_name, s.nickname, s.student_id, s.kkumail]
@@ -946,6 +930,79 @@ function renderImportPreview(result, diff) {
   $('houseImportConfirm')?.addEventListener('click', runImport);
 }
 
+// Which slice of the check list is showing, and what is typed in its search.
+// Module scope so a repaint (a filter click, a year bump) does not lose them.
+let checkFilter = 'unchecked';
+let checkQuery = '';
+let checkTimer = null;
+let checkToken = 0;
+
+/**
+ * WHO has checked, one row per person.
+ *
+ * REPORTED: "if you want to show how much people has ยืนยัน, admin should also
+ * see who has ยืนยัน and who is still left not ยืนยัน, like each person" — and
+ * then, decisively: "i only see 3 test data people in ระบบบ้าน". Both are the
+ * same mistake of mine: the COUNT read `people` and the per-row filter read
+ * `students`, so the screen showed hundreds beside three.
+ *
+ * This reads the registry, which is where `identity_confirmed_at` lives and
+ * where every ทีม SAMO member already has a row — so the week of checking can
+ * be run and chased NOW, before the faculty file exists.
+ */
+async function renderCheckList() {
+  const host = $('houseCheckList');
+  if (!host) return;
+  const token = ++checkToken;
+  try {
+    const res = await fetchIdentityCheckList({
+      status: checkFilter, q: checkQuery.trim(), limit: 200,
+    });
+    if (token !== checkToken) return;
+    const rows = Array.isArray(res.rows) ? res.rows : [];
+    const total = Number(res.total || 0);
+    const count = $('houseCheckCount');
+    if (count) {
+      count.textContent = total
+        ? `แสดง ${Math.min(rows.length, total).toLocaleString('th-TH')} จาก ${total.toLocaleString('th-TH')} คน`
+        : 'ไม่มีใครในกลุ่มนี้';
+    }
+    if (!rows.length) { host.innerHTML = ''; return; }
+    host.innerHTML = `
+      <div class="table-responsive border rounded" style="max-height:22rem;overflow:auto">
+        <table class="table table-sm table-hover mb-0" style="font-size:.85rem">
+          <thead class="table-light" style="position:sticky;top:0;z-index:1">
+            <tr>
+              <th>ชื่อ</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
+              <th>KKU Mail</th><th>ตำแหน่งในทีม SAMO</th><th>สถานะ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => `
+              <tr>
+                <td>${escHtml(r.full_name
+                  || [r.first_name_th, r.last_name_th].filter(Boolean).join(' ')
+                  || '(ไม่มีชื่อ)')}</td>
+                <td>${escHtml(r.nickname || '—')}</td>
+                <td>${escHtml(r.student_id || '—')}</td>
+                <td class="text-break">${escHtml(r.kkumail || '—')}</td>
+                <td>${escHtml(r.team_nodes || (r.in_house ? 'ระบบบ้าน' : '—'))}</td>
+                <td>${Number(r.open_conflicts) > 0
+                  ? '<span class="badge bg-warning-subtle text-warning-emphasis border">ข้อมูลไม่ตรงกับไฟล์</span>'
+                  : r.checked
+                    ? `<span class="badge bg-success-subtle text-success-emphasis border">ตรวจแล้ว${
+                      r.identity_confirmed_at ? '' : ' (แก้ข้อมูลเอง)'}</span>`
+                    : '<span class="badge bg-light text-dark border">ยังไม่ได้ตรวจ</span>'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    if (token !== checkToken) return;
+    host.innerHTML = `<p class="small text-danger mb-0">${escHtml(err?.message || 'โหลดรายชื่อไม่สำเร็จ')}</p>`;
+  }
+}
+
 /**
  * สถานะการตรวจสอบข้อมูล + ปีการศึกษา.
  *
@@ -980,11 +1037,14 @@ async function renderCheckStatus() {
   if (!sum && !ay) { host.innerHTML = ''; return; }
 
   const people = Number(sum?.people || 0);
+  // CHECKED, not `confirmed`: somebody who corrected their own สาขา has plainly
+  // looked at their record, and counting only button presses would chase people
+  // who have already done the thing being asked of them.
+  const checked = Number(sum?.checked || 0);
   const confirmed = Number(sum?.confirmed || 0);
-  const edited = Number(sum?.self_edited || 0);
   const open = Number(sum?.open_conflicts || 0);
-  const left = Math.max(people - confirmed, 0);
-  const pct = people ? Math.round((confirmed / people) * 100) : 0;
+  const left = Number(sum?.unchecked ?? Math.max(people - checked, 0));
+  const pct = people ? Math.round((checked / people) * 100) : 0;
 
   const year = Number(ay?.academic_year || 0);
   const behind = Number(ay?.behind || 0);
@@ -1003,16 +1063,32 @@ async function renderCheckStatus() {
              aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar bg-success" style="width:${pct}%"></div>
         </div>
-        <div class="d-flex flex-wrap gap-2 mb-1">
-          <span class="badge bg-success-subtle text-success-emphasis border">ยืนยันแล้ว ${confirmed.toLocaleString('th-TH')}</span>
-          <span class="badge bg-light text-dark border">ยังไม่ได้ตรวจ ${left.toLocaleString('th-TH')}</span>
-          <span class="badge bg-light text-dark border">แก้ข้อมูลเอง ${edited.toLocaleString('th-TH')}</span>
-          ${open ? `<span class="badge bg-warning-subtle text-warning-emphasis border">ข้อมูลไม่ตรงกับไฟล์ ${open.toLocaleString('th-TH')}</span>` : ''}
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-check-filter="checked">
+            ตรวจแล้ว ${checked.toLocaleString('th-TH')}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-check-filter="unchecked">
+            ยังไม่ได้ตรวจ ${left.toLocaleString('th-TH')}
+          </button>
+          ${open ? `<button type="button" class="btn btn-sm btn-outline-warning" data-check-filter="conflict">
+            ข้อมูลไม่ตรงกับไฟล์ ${open.toLocaleString('th-TH')}</button>` : ''}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-check-filter="all">
+            ทั้งหมด ${people.toLocaleString('th-TH')}
+          </button>
         </div>
-        <p class="small text-muted mb-0">
-          “ยังไม่ได้ตรวจ” คือคนที่ยังไม่เคยกดยืนยันและยังไม่เคยแก้ข้อมูลของตัวเอง —
-          ดูรายชื่อได้จากตัวกรอง “ยังไม่ได้ตรวจ” ในรายชื่อนักศึกษาด้านล่าง
+        <p class="small text-muted mb-2">
+          “ตรวจแล้ว” นับทั้งคนที่กดยืนยัน (${confirmed.toLocaleString('th-TH')} คน)
+          และคนที่แก้ข้อมูลของตัวเอง — ทั้งสองอย่างแปลว่าเขาเปิดดูแล้ว
+          รายชื่อนี้รวม<strong>ทุกคนที่ระบบรู้จัก</strong> ทั้งสมาชิกทีม SAMO
+          และนักศึกษาที่นำเข้ามาแล้ว ไม่ใช่เฉพาะคนที่มีสายรหัส
         </p>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+          <input type="search" class="form-control form-control-sm" id="houseCheckSearch"
+                 style="max-width:16rem" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / อีเมล"
+                 aria-label="ค้นหาในรายชื่อการตรวจสอบข้อมูล" />
+          <span class="small text-muted" id="houseCheckCount"></span>
+        </div>
+        <div id="houseCheckList"></div>
 
         <hr class="my-3" />
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -1030,6 +1106,27 @@ async function renderCheckStatus() {
         </p>
       </div>
     </div>`;
+
+  host.querySelectorAll('[data-check-filter]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.checkFilter === checkFilter);
+    b.addEventListener('click', () => {
+      checkFilter = b.dataset.checkFilter;
+      renderCheckStatus();
+    });
+  });
+  const searchBox = $('houseCheckSearch');
+  if (searchBox) {
+    searchBox.value = checkQuery;
+    searchBox.addEventListener('input', () => {
+      checkQuery = searchBox.value;
+      clearTimeout(checkTimer);
+      // Debounced and token-guarded: a 2-character query is slower than the
+      // 5-character one typed after it, and the stale reply would repaint the
+      // list under the person's cursor.
+      checkTimer = setTimeout(renderCheckList, 250);
+    });
+  }
+  renderCheckList();
 
   $('houseYearBump')?.addEventListener('click', async () => {
     const btn = $('houseYearBump');
@@ -1619,10 +1716,8 @@ function wire() {
     $(id)?.addEventListener('input', renderStudents);
   });
   $('houseFilterHouse')?.addEventListener('change', renderStudents);
-  $('houseFilterCheck')?.addEventListener('change', renderStudents);
   $('houseClearFilters')?.addEventListener('click', () => {
-    ['houseSearch', 'houseFilterHouse', 'houseFilterCheck', 'houseFilterYear',
-      'houseFilterMajor', 'houseFilterSai']
+    ['houseSearch', 'houseFilterHouse', 'houseFilterYear', 'houseFilterMajor', 'houseFilterSai']
       .forEach((id) => { const el = $(id); if (el) el.value = ''; });
     renderStudents();
   });
