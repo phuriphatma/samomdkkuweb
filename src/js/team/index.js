@@ -25,7 +25,7 @@ import {
   createMember, updateMember, deleteMember,
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
   fetchMajors, createMajor, updateMajor, deleteMajor,
-  countMembersWithMajor, renameMajorOnMembers, lookupStudentByKkumail,
+  countMembersWithMajor, renameMajorOnMembers, lookupStudentByKkumail, searchPeople,
 } from './api.js';
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
@@ -2114,9 +2114,140 @@ async function onFillFromHouse() {
   }
 }
 
+// ---- the person picker (0137) ---------------------------------------------
+
+/**
+ * Type anything you know about a person; pick them; the form fills itself.
+ *
+ * WHY THIS EXISTS. 0130's "ดึงจากระบบบ้าน" needs an exact kkumail, which is the
+ * one field an admin adding somebody does not have — so in practice the six
+ * boxes below were retyped, and retyping is where one human becomes two
+ * slightly different records. `public.people` already holds all six for every
+ * person the faculty knows, so the form can ask for the person instead.
+ *
+ * The state is ONE module-scope token, not a flag on the input. Two things make
+ * that necessary: results arrive out of order (a 2-character query is slower
+ * than the 5-character one typed after it, and the stale reply would overwrite
+ * the fresh list), and the modal is one DOM element reused for every row, so
+ * anything parked on it outlives the person it describes — the exact shape that
+ * leaked a permission grid across rows in 0110.
+ */
+let personSearchToken = 0;
+let personSearchTimer = null;
+let personSearchHits = [];
+
+function renderPersonResults(hits, q) {
+  const box = $('teamMemberSearchResults');
+  if (!box) return;
+  personSearchHits = hits;
+  if (!hits.length) {
+    box.classList.add('d-none');
+    box.innerHTML = '';
+    const hint = $('teamMemberSearchHint');
+    if (hint && q.length >= 2) {
+      hint.textContent = `ไม่พบใครที่ตรงกับ “${q}” — กรอกข้อมูลเองด้านล่างได้เลย`;
+    }
+    return;
+  }
+  box.classList.remove('d-none');
+  box.innerHTML = hits.map((p, i) => {
+    const name = p.full_name || [p.first_name_th, p.last_name_th].filter(Boolean).join(' ') || '(ไม่มีชื่อ)';
+    // WHERE they already are, not just THAT they are. "อยู่แล้ว" alone makes an
+    // admin close the dialog and go looking; naming the ฝ่าย answers the
+    // question that would have sent them looking. A person legitimately holds
+    // two postings, so this informs rather than blocks.
+    const badge = p.in_team
+      ? `<span class="team-person-badge">อยู่ในทีมแล้ว${p.team_nodes ? ` — ${escHtml(p.team_nodes)}` : ''}</span>`
+      : '';
+    const meta = [
+      p.nickname ? `(${p.nickname})` : '',
+      p.student_id || '',
+      p.major || '',
+      p.kkumail || '',
+    ].filter(Boolean).join(' · ');
+    return `<li><button type="button" class="team-person-hit" data-person-idx="${i}">
+      <span class="team-person-name">${escHtml(name)}</span>
+      ${badge}
+      <span class="team-person-meta">${escHtml(meta)}</span>
+    </button></li>`;
+  }).join('');
+}
+
+/**
+ * Fill the form from a picked person.
+ *
+ * OVERWRITES, unlike "ดึงจากระบบบ้าน" which only fills blanks. The difference is
+ * intent: that button augments a form someone is already filling in, while this
+ * one IS the answer to "who is this" — leaving a half-typed guess sitting next
+ * to the record it was a guess at is how the two disagree. What it will not do
+ * is invent a name split; a registry row with only a combined name leaves the
+ * two boxes empty and says so (0135).
+ */
+async function pickPerson(p) {
+  if (!p) return;
+  $('teamMemberFirstName').value = p.first_name_th || '';
+  $('teamMemberLastName').value = p.last_name_th || '';
+  $('teamMemberNickname').value = p.nickname || '';
+  $('teamMemberStudentId').value = p.student_id || '';
+  $('teamMemberEmail').value = p.kkumail || '';
+  const legacyName = $('teamMemberNameLegacy');
+  if (legacyName) {
+    legacyName.textContent = (!p.first_name_th && !p.last_name_th && p.full_name)
+      ? `ชื่อในระบบตอนนี้: ${p.full_name} — ยังไม่ได้แยกช่อง กรอกแยกด้านบนได้เลย `
+        + '(ระบบไม่แยกให้เอง เพราะเดาแล้วอาจได้ชื่อผิดตัว)'
+      : '';
+  }
+  if (p.major) {
+    await loadMajors();
+    fillMajorSelect($('teamMemberMajor'), p.major);
+  }
+  const box = $('teamMemberSearchResults');
+  if (box) { box.classList.add('d-none'); box.innerHTML = ''; }
+  const hint = $('teamMemberSearchHint');
+  if (hint) {
+    hint.textContent = `เติมข้อมูลของ ${p.full_name || p.kkumail || 'คนนี้'} แล้ว `
+      + '— ตรวจดูอีกครั้งก่อนบันทึก แก้ตรงนี้จะเปลี่ยนในระบบบ้านด้วย';
+  }
+  $('teamMemberFirstName')?.focus();
+}
+
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
   $('teamMemberFillFromHouse')?.addEventListener('click', onFillFromHouse);
+
+  const search = $('teamMemberSearch');
+  search?.addEventListener('input', () => {
+    const q = search.value.trim();
+    clearTimeout(personSearchTimer);
+    const token = ++personSearchToken;
+    if (q.length < 2) { renderPersonResults([], q); return; }
+    // Debounced, because one request per keystroke over 1,800 rows is a lot of
+    // requests to throw away. 200 ms is below the point where typing feels
+    // laggy and above the point where every letter is its own query.
+    personSearchTimer = setTimeout(async () => {
+      try {
+        const hits = await searchPeople(q);
+        // A LATER query has already been sent; this reply is stale and painting
+        // it would show results for a prefix of what is now in the box.
+        if (token !== personSearchToken) return;
+        renderPersonResults(hits, q);
+      } catch (err) {
+        if (token !== personSearchToken) return;
+        const hint = $('teamMemberSearchHint');
+        if (hint) hint.textContent = err?.message || 'ค้นหาไม่สำเร็จ';
+      }
+    }, 200);
+  });
+
+  // Delegated, and attached ONCE to a host that outlives every repaint. A
+  // listener re-attached per render onto a surviving node fires N times on the
+  // Nth paint — the ระบบบ้าน panel that opened only on odd-numbered clicks.
+  $('teamMemberSearchResults')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-person-idx]');
+    if (!btn) return;
+    pickPerson(personSearchHits[Number(btn.dataset.personIdx)]);
+  });
+
   $('teamMemberPhotoFile')?.addEventListener('change', onMemberPhotoPick);
   $('teamMemberPhotoClear')?.addEventListener('click', () => {
     // Dropping a PENDING pick must also drop the pick, not just the stored URL —
@@ -2297,6 +2428,23 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   $('teamMemberEmail').value = member?.kkumail || '';
   const fillHint = $('teamMemberHouseFillHint');
   if (fillHint) { fillHint.textContent = ''; fillHint.className = 'form-text'; }
+  // The picker is reset on EVERY open, and its in-flight token is bumped so a
+  // reply for the previous person cannot land in this one's form. One modal
+  // element is reused for every row; state left on it outlives the record it
+  // describes (0110's permission grid, and the same shape again here).
+  personSearchToken += 1;
+  clearTimeout(personSearchTimer);
+  personSearchHits = [];
+  const searchBox = $('teamMemberSearch');
+  if (searchBox) searchBox.value = '';
+  const searchResults = $('teamMemberSearchResults');
+  if (searchResults) { searchResults.classList.add('d-none'); searchResults.innerHTML = ''; }
+  const searchHint = $('teamMemberSearchHint');
+  if (searchHint) {
+    searchHint.textContent = member
+      ? 'ค้นหาเพื่อเติมข้อมูลจากระบบทับของเดิม — หรือแก้ในช่องด้านล่างได้เลย'
+      : 'พิมพ์อย่างน้อย 2 ตัวอักษร แล้วเลือกจากรายการเพื่อเติมข้อมูลให้อัตโนมัติ';
+  }
   $('teamMemberConfirmed').checked = !!member?.confirmed;
   // A pick left pending by a previous open must not follow the next person into
   // the editor — the modal is one DOM element reused for every row, which is

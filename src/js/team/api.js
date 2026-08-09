@@ -419,3 +419,33 @@ export async function lookupStudentByKkumail(kkumail) {
   if (error) throw new Error(error.message || 'ค้นข้อมูลจากระบบบ้านไม่สำเร็จ');
   return data || null;
 }
+
+/**
+ * Find a person in the registry by anything a human actually knows about them.
+ *
+ * The counterpart to `lookupStudentByKkumail`, and the reason that one was not
+ * enough: an exact kkumail lookup answers "confirm this address", but nobody
+ * adding a member to ฝ่าย IT has the address — they have a name, a ชื่อเล่น or a
+ * รหัสนักศึกษา. Asking for the one field the admin does not have is what made
+ * them retype the other five, which is where two copies of one person diverge.
+ *
+ * Searches ชื่อ, นามสกุล, ชื่อเล่น, รหัสนักศึกษา (with or without its dash), สาขา
+ * and kkumail across `public.people` (migration 0137). The server escapes the
+ * wildcards, requires two characters, caps the result at 50 and publishes NO
+ * placement facts — no สายรหัส and no บ้าน.
+ *
+ * Each hit carries `in_team` / `team_nodes` so the picker can say "already in
+ * ฝ่าย X" instead of letting someone create the duplicate posting the registry
+ * exists to prevent.
+ *
+ * @returns {Promise<object[]>} [] for a query too short to mean anything.
+ */
+export async function searchPeople(q, limit = 20) {
+  const v = String(q || '').trim();
+  if (v.length < 2) return [];
+  const { data, error } = await dbRest('/rpc/search_people', {
+    method: 'POST', body: { p_q: v, p_limit: limit },
+  });
+  if (error) throw new Error(error.message || 'ค้นหาบุคคลไม่สำเร็จ');
+  return Array.isArray(data) ? data : [];
+}

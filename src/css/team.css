@@ -813,3 +813,50 @@
    its own chrome. */
 .myseat--pane { margin-top: 0; }
 .myseat--pane .myseat-card { border: 0; padding: 0; box-shadow: none; background: transparent; }
+
+/* ── the person picker in the member modal (0137) ───────────────────────────
+   A results list inside a Bootstrap modal, not a floating autocomplete. A
+   dropdown positioned over the form would sit under the modal's own stacking
+   context on some browsers and be invisible exactly when it matters — every
+   modal in this app has the same z-index (mistakes.md), so the reliable answer
+   is to occupy real space instead of overlaying. The list caps its height and
+   scrolls; 50 hits is the server's ceiling. */
+.team-person-search { position: relative; }
+.team-person-results {
+  list-style: none;
+  margin: .5rem 0 0;
+  padding: 0;
+  max-height: 15rem;
+  overflow-y: auto;
+  border: 1px solid var(--ink-200, #dee2e6);
+  border-radius: .5rem;
+  background: #fff;
+}
+.team-person-results li + li { border-top: 1px solid var(--ink-100, #f1f3f5); }
+.team-person-hit {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: .5rem .75rem;
+  line-height: 1.35;
+}
+.team-person-hit:hover,
+.team-person-hit:focus-visible { background: var(--ink-050, #f8f9fa); }
+.team-person-name { font-weight: 600; }
+.team-person-meta {
+  display: block;
+  font-size: .8125rem;
+  color: var(--ink-500, #6c757d);
+  word-break: break-word;
+}
+.team-person-badge {
+  display: inline-block;
+  margin-inline-start: .4rem;
+  padding: .05rem .4rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  background: var(--brand-orange-050, #fff1e8);
+  color: var(--brand-orange, #ff6f30);
+}

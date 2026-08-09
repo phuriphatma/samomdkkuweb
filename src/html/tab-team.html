@@ -478,6 +478,21 @@
           <!-- คำนำหน้า was the first field here until migration 0113 dropped the
                column: it was never used for anything the app renders, and it
                produced ตรวจสอบข้อมูล "drift" findings nobody had to resolve. -->
+          <!-- SEARCH FIRST, TYPE SECOND (0137). The registry already holds every
+               field below for ~1,800 people; making an admin retype them is
+               both the slow path and the one that creates a second, slightly
+               different copy of one human. Searches ชื่อ, นามสกุล, ชื่อเล่น,
+               รหัสนักศึกษา, สาขา and kkumail. -->
+          <div class="mb-3 team-person-search">
+            <label class="form-label" for="teamMemberSearch">ค้นหาคนจากระบบ</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="teamMemberSearch" autocomplete="off"
+                     placeholder="ชื่อ นามสกุล ชื่อเล่น รหัสนักศึกษา สาขา หรือ kkumail" />
+            </div>
+            <div class="form-text" id="teamMemberSearchHint">พิมพ์อย่างน้อย 2 ตัวอักษร แล้วเลือกจากรายการเพื่อเติมข้อมูลให้อัตโนมัติ</div>
+            <ul class="team-person-results d-none" id="teamMemberSearchResults" role="listbox"></ul>
+          </div>
           <div class="row g-2">
             <!-- ชื่อ and นามสกุล are TWO boxes since 0135, matching ระบบบ้าน and the
                  registry. One box was not a display choice — it was the reason a
