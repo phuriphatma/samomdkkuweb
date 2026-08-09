@@ -48,6 +48,15 @@
 
     <div class="row g-3 mb-3" id="houseStats"></div>
 
+    <!-- สถานะการตรวจสอบข้อมูล + ปีการศึกษา (0141).
+         REPORTED: "why would you let people ยืนยันข้อมูล, what will it be use
+         for, if it's useful then show who already ยืนยัน or who's left, or else
+         not need people to ยืนยัน". Exactly right — a confirm button whose
+         answer nobody can see is a button that does nothing, and the reason to
+         collect it is precisely to know who is left after the week. This strip
+         is that answer, and the นักศึกษา list below has a matching filter. -->
+    <div id="houseCheckStatus" class="mb-4"></div>
+
     <h6 class="text-muted small text-uppercase mb-2">บ้านทั้ง 10</h6>
     <div class="row g-3 mb-4" id="houseCards"></div>
 
@@ -102,6 +111,16 @@
       <div class="col-6 col-md-2">
         <select class="form-select form-select-sm" id="houseFilterHouse" aria-label="กรองตามบ้าน">
           <option value="">ทุกบ้าน</option>
+        </select>
+      </div>
+      <!-- WHO has not checked their data. The counts strip above says HOW MANY;
+           this is the per-row answer, and it is the thing that makes asking
+           people to ยืนยัน worth anything (0141). -->
+      <div class="col-6 col-md-2">
+        <select class="form-select form-select-sm" id="houseFilterCheck" aria-label="กรองตามการตรวจสอบข้อมูล">
+          <option value="">ตรวจแล้ว/ยังไม่ตรวจ</option>
+          <option value="unchecked">ยังไม่ได้ตรวจ</option>
+          <option value="checked">ตรวจแล้ว</option>
         </select>
       </div>
       <div class="col-6 col-md-2">

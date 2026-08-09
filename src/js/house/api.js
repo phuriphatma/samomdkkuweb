@@ -1,3 +1,4 @@
+import { setAcademicYear } from './fields.js';
 // ==============================================
 // HOUSE API — every read/write for ระบบบ้าน, on dbRest.
 //
@@ -191,16 +192,40 @@ const STUDENT_COLS = [
   'self_edited',
 ].join(',');
 
-export async function fetchStudents() {
+/**
+ * The registry's confirmation stamp, EMBEDDED rather than duplicated.
+ *
+ * `identity_confirmed_at` is a fact about the PERSON (0138), not about this
+ * placement, and copying it onto `students` would be a second home for one
+ * value — the class the whole registry exists to end.
+ *
+ * ⚠️ SEPARATE from STUDENT_COLS, and `fetchStudents` falls back to the plain
+ * list if it fails. An embed depends on a foreign key AND on the caller being
+ * able to read the embedded table, and PostgREST answers a bad `select` by
+ * failing the WHOLE query — so a mistake here does not lose one column, it
+ * loses the นักศึกษา tab. That is not hypothetical: 0129 took this exact tab
+ * down for ~20 minutes by naming a column PostgREST did not recognise.
+ */
+const STUDENT_EMBED = ',people(identity_confirmed_at)';
+
+export async function fetchStudents({ withCheck = true } = {}) {
   // Paged: PostgREST caps a response and ~1,800 rows is comfortably over the
   // default limit on some deployments. Asking explicitly is cheaper than
   // discovering a silently truncated roster.
   const out = [];
   const page = 1000;
+  const cols = STUDENT_COLS + (withCheck ? STUDENT_EMBED : '');
   for (let from = 0; ; from += page) {
     const { data, error } = await dbRest(
-      `/students?select=${STUDENT_COLS}&order=sai_code.asc,full_name.asc`,
+      `/students?select=${cols}&order=sai_code.asc,full_name.asc`,
       { headers: { Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
+    // The embed is the only part of this select that can fail for a reason
+    // outside this file (an FK, a policy on `people`). Losing the ยังไม่ได้ตรวจ
+    // filter is a small thing; losing the roster is not.
+    if (error && withCheck && from === 0) {
+      console.warn('house: identity-check embed failed, loading without it:', error);
+      return fetchStudents({ withCheck: false });
+    }
     // 416 means the range starts past the last row, which happens whenever the
     // total is an exact multiple of `page` — the loop below would otherwise
     // break only on a SHORT page and ask for one range too many. Treat it as
@@ -395,3 +420,55 @@ export async function requestMyChange(field, requested, reason) {
 // never students: `get_house_roster()` was dropped in migration 0124 along with
 // the setting that gated it. A student's card lists their own record and the
 // อาจารย์ที่ปรึกษา of every สาย in their house — nobody else's name.
+
+
+/**
+ * The ปีการศึกษา every ชั้นปี is derived from (0141), primed into fields.js.
+ *
+ * Called once per page. A failure is not fatal and deliberately quiet: the
+ * fallback is the clock, which is exactly what the app did before 0141, so a
+ * bad network gives a possibly-stale ชั้นปี rather than none at all.
+ */
+export async function primeAcademicYear() {
+  try {
+    const { data, error } = await dbRest('/rpc/get_academic_year', { method: 'POST', body: {} });
+    if (error) throw new Error(error.message || `HTTP ${error.status}`);
+    setAcademicYear(data);
+    return data;
+  } catch (err) {
+    console.warn('house: ปีการศึกษา lookup failed, falling back to the clock:', err);
+    return null;
+  }
+}
+
+/** Stored value + what the clock would have said + whether a move is due. */
+export async function fetchAcademicYearStatus() {
+  const { data, error } = await dbRest('/rpc/academic_year_status', { method: 'POST', body: {} });
+  if (error) fail(error, 'อ่านปีการศึกษาไม่สำเร็จ');
+  return data || null;
+}
+
+export async function saveAcademicYear(year) {
+  const { data, error } = await dbRest('/rpc/set_academic_year', {
+    method: 'POST', body: { p_year: Number(year) },
+  });
+  if (error) fail(error, 'เปลี่ยนปีการศึกษาไม่สำเร็จ');
+  return data || null;
+}
+
+
+/**
+ * How the data check is going — counts only.
+ *
+ * A LIST of who has not checked would be a roster projection, and publishing
+ * one of those by accident is its own entry (0086/0103/0108). WHO is answered
+ * per-row by the นักศึกษา table, which is already gated; this answers HOW MANY,
+ * which is the question a week before an event.
+ */
+export async function fetchIdentityCheckSummary() {
+  const { data, error } = await dbRest('/rpc/identity_check_summary', {
+    method: 'POST', body: {},
+  });
+  if (error) fail(error, 'อ่านสถานะการตรวจสอบข้อมูลไม่สำเร็จ');
+  return data || null;
+}

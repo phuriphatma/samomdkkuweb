@@ -22,7 +22,7 @@ import { getUser } from '../auth.js';
 // "Prevent this page from creating additional dialogs" is ticked it returns
 // false forever with no UI, which is how ทีม SAMO's delete button and this
 // pane's ปฏิเสธ both came to "do nothing at all".
-import { askDelete } from '../confirm-modal.js';
+import { askDelete, askConfirm } from '../confirm-modal.js';
 import { uploadTeamPhoto, convertDriveUrl } from '../uploads.js';
 import {
   fetchHouses, updateHouse, fetchSais,
@@ -31,6 +31,8 @@ import {
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors,
+  fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear,
+  fetchIdentityCheckSummary,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -162,6 +164,8 @@ function renderOverview() {
       </div>`).join('');
   }
 
+  renderCheckStatus();
+
   const counts = new Map();
   for (const s of students) {
     const h = saiHouse(s.sai_code);
@@ -224,10 +228,24 @@ function readFilters() {
     cohort: ($('houseFilterYear')?.value || '').trim().toLowerCase(),
     major: ($('houseFilterMajor')?.value || '').trim().toLowerCase(),
     sai: ($('houseFilterSai')?.value || '').trim(),
+    check: $('houseFilterCheck')?.value || '',
   };
 }
 
-const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai);
+const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai || f.check);
+
+/**
+ * Has this person actually looked at their record?
+ *
+ * TWO signals, not one, and the second is why this is a function. Pressing
+ * ยืนยันข้อมูล stamps `identity_confirmed_at`; but somebody who CORRECTED a
+ * field has plainly looked, and making them also press a button would turn the
+ * count into a measure of button-pressing. `self_edited` is that second signal.
+ */
+function hasChecked(s) {
+  if (s?.people?.identity_confirmed_at) return true;
+  return Array.isArray(s?.self_edited) && s.self_edited.length > 0;
+}
 
 function filteredStudents() {
   const f = readFilters();
@@ -240,6 +258,8 @@ function filteredStudents() {
       const want = f.sai.replace(/\D/g, '');
       if (want && !String(s.sai_code || '').includes(want)) return false;
     }
+    if (f.check === 'unchecked' && hasChecked(s)) return false;
+    if (f.check === 'checked' && !hasChecked(s)) return false;
     if (!f.q) return true;
     // NOTE: sai_code is deliberately absent — it has its own box above.
     return [s.full_name, s.nickname, s.student_id, s.kkumail]
@@ -926,6 +946,117 @@ function renderImportPreview(result, diff) {
   $('houseImportConfirm')?.addEventListener('click', runImport);
 }
 
+/**
+ * สถานะการตรวจสอบข้อมูล + ปีการศึกษา.
+ *
+ * REPORTED: "why would you let people ยืนยันข้อมูล, what will it be use for, if
+ * it's useful then show who already ยืนยัน or who's left, or else not need
+ * people to ยืนยัน". The objection was correct as shipped: 0138 collected
+ * `identity_confirmed_at` and put it nowhere, and a signal nobody can read is a
+ * button that wastes the reader's time. The point of collecting it is the week
+ * the owner described — letting people check their own data and then knowing
+ * who is LEFT — so this is the screen that makes it worth asking for.
+ *
+ * Counts, never names. `identity_check_summary()` returns numbers because a
+ * list of 1,800 students is a roster projection, and publishing one of those by
+ * accident already has its own entry. WHO is answered by the นักศึกษา list's
+ * "ยังไม่ได้ตรวจ" filter, which is per-row and already gated.
+ *
+ * ปีการศึกษา sits here rather than in a settings pane because the two facts are
+ * read together: "everyone has checked their data" and "the year they checked it
+ * against" are the same question a week before an event.
+ */
+async function renderCheckStatus() {
+  const host = $('houseCheckStatus');
+  if (!host) return;
+  let sum = null;
+  let ay = null;
+  try {
+    [sum, ay] = await Promise.all([
+      fetchIdentityCheckSummary().catch(() => null),
+      fetchAcademicYearStatus().catch(() => null),
+    ]);
+  } catch { /* a status strip must never take the page down with it */ }
+  if (!sum && !ay) { host.innerHTML = ''; return; }
+
+  const people = Number(sum?.people || 0);
+  const confirmed = Number(sum?.confirmed || 0);
+  const edited = Number(sum?.self_edited || 0);
+  const open = Number(sum?.open_conflicts || 0);
+  const left = Math.max(people - confirmed, 0);
+  const pct = people ? Math.round((confirmed / people) * 100) : 0;
+
+  const year = Number(ay?.academic_year || 0);
+  const behind = Number(ay?.behind || 0);
+
+  host.innerHTML = `
+    <div class="card">
+      <div class="card-body py-3">
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+          <h6 class="mb-0">การตรวจสอบข้อมูลของนักศึกษา</h6>
+          <span class="small text-muted">
+            ยืนยันแล้ว ${confirmed.toLocaleString('th-TH')} จาก ${people.toLocaleString('th-TH')} คน (${pct}%)
+          </span>
+        </div>
+        <div class="progress mb-3" style="height:.5rem" role="progressbar"
+             aria-label="สัดส่วนผู้ที่ยืนยันข้อมูลแล้ว" aria-valuenow="${pct}"
+             aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar bg-success" style="width:${pct}%"></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-1">
+          <span class="badge bg-success-subtle text-success-emphasis border">ยืนยันแล้ว ${confirmed.toLocaleString('th-TH')}</span>
+          <span class="badge bg-light text-dark border">ยังไม่ได้ตรวจ ${left.toLocaleString('th-TH')}</span>
+          <span class="badge bg-light text-dark border">แก้ข้อมูลเอง ${edited.toLocaleString('th-TH')}</span>
+          ${open ? `<span class="badge bg-warning-subtle text-warning-emphasis border">ข้อมูลไม่ตรงกับไฟล์ ${open.toLocaleString('th-TH')}</span>` : ''}
+        </div>
+        <p class="small text-muted mb-0">
+          “ยังไม่ได้ตรวจ” คือคนที่ยังไม่เคยกดยืนยันและยังไม่เคยแก้ข้อมูลของตัวเอง —
+          ดูรายชื่อได้จากตัวกรอง “ยังไม่ได้ตรวจ” ในรายชื่อนักศึกษาด้านล่าง
+        </p>
+
+        <hr class="my-3" />
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span class="small text-muted">ปีการศึกษาที่ใช้คำนวณชั้นปี</span>
+          <strong>${year ? year.toLocaleString('th-TH') : '—'}</strong>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="houseYearBump"
+            ${year ? '' : 'disabled'}>เลื่อนเป็น ${year ? (year + 1).toLocaleString('th-TH') : ''}</button>
+          ${behind ? `<span class="badge bg-warning-subtle text-warning-emphasis border">
+            ถึงกำหนดเลื่อนแล้ว (ปฏิทินอยู่ที่ ${Number(ay.clock_year).toLocaleString('th-TH')})</span>` : ''}
+        </div>
+        <p class="small text-muted mb-0 mt-1">
+          ระบบ<strong>ไม่เลื่อนชั้นปีให้เอง</strong> — กดปุ่มนี้ปีละครั้งเมื่อขึ้นปีการศึกษาใหม่
+          แล้วทุกคนจะเลื่อนพร้อมกัน ใครที่ลาพักหรือเรียนซ้ำและเคยเลือกชั้นปีที่ถูกไว้แล้ว
+          ระบบจำส่วนต่างไว้ให้ ไม่ต้องไล่แก้รายคน
+        </p>
+      </div>
+    </div>`;
+
+  $('houseYearBump')?.addEventListener('click', async () => {
+    const btn = $('houseYearBump');
+    // The RPC takes the TARGET year, not "+1", so a double click is idempotent
+    // rather than advancing 1,800 people twice (0141 §4).
+    const ok = await askConfirm({
+      title: `เลื่อนปีการศึกษาเป็น ${year + 1}?`,
+      body: 'ชั้นปีของนักศึกษาทุกคนจะเลื่อนขึ้น 1 ปีพร้อมกัน '
+        + 'คนที่เคยเลือกชั้นปีเองไว้จะเลื่อนตามส่วนต่างที่บันทึกไว้ '
+        + 'ถ้ากดผิด กดกลับเป็นปีเดิมได้',
+      yes: 'เลื่อนเลย',
+      danger: false,
+    });
+    if (!ok) return;
+    if (btn) btn.disabled = true;
+    try {
+      await saveAcademicYear(year + 1);
+      await primeAcademicYear();
+      renderCheckStatus();
+      render();
+    } catch (err) {
+      alert(err?.message || 'เปลี่ยนปีการศึกษาไม่สำเร็จ');
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
 // ---------- the per-row preview ----------
 let previewRows = [];
 let previewFilter = 'all';
@@ -1488,8 +1619,10 @@ function wire() {
     $(id)?.addEventListener('input', renderStudents);
   });
   $('houseFilterHouse')?.addEventListener('change', renderStudents);
+  $('houseFilterCheck')?.addEventListener('change', renderStudents);
   $('houseClearFilters')?.addEventListener('click', () => {
-    ['houseSearch', 'houseFilterHouse', 'houseFilterYear', 'houseFilterMajor', 'houseFilterSai']
+    ['houseSearch', 'houseFilterHouse', 'houseFilterCheck', 'houseFilterYear',
+      'houseFilterMajor', 'houseFilterSai']
       .forEach((id) => { const el = $(id); if (el) el.value = ''; });
     renderStudents();
   });

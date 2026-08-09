@@ -44,6 +44,7 @@
 // cannot fix alone, so its absence costs nothing.
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
+import { registerProfileCache, clearProfileCaches } from './profile-cache.js';
 import {
   portraitSrc, portraitSrcSet, focusToObjectPosition, uploadTeamPhoto,
 } from './uploads.js';
@@ -65,6 +66,8 @@ import {
 // "already fetched" flag would survive that swap.
 let cacheUid = null;
 let cachePromise = null;
+
+registerProfileCache(() => { cacheUid = null; cachePromise = null; });
 
 export function clearMySeatCache() {
   cacheUid = null;
@@ -799,7 +802,10 @@ function wireSelfEdit(host, seat) {
         console.warn('my-seat: ระบบบ้าน sync skipped:', syncErr);
       }
       dropPending();
-      clearMySeatCache();
+      // BOTH caches. The house section repaints from its OWN cache through
+      // opts.afterRender, so clearing only this one showed the new รหัสนักศึกษา
+      // beside the รุ่น derived from the old one until a page refresh.
+      clearProfileCaches();
       const fresh = await loadMySeat(seat.__uid);
       renderMySeat(host, fresh || seat, seat.__opts || {});
     } catch (err) {

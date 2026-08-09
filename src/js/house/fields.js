@@ -220,16 +220,43 @@ export function cohortLabel({ cohort_year: cohort, student_id: sid } = {}) {
  * most, and the cheapest way to not have it is to not write the second one.
  */
 
-/** ปีการศึกษา rolls over in สิงหาคม. A CONSTANT, not a settings row: a setting
- *  somebody must change every August is a setting that is forgotten every
- *  August, and an override that pins the value is the same fill-once failure
- *  0128 and 0129 both exist to undo. If the faculty's calendar ever disagrees,
- *  this line changes once — in review, not in a form. */
+/** Where the clock WOULD put the rollover. Still used as the fallback below and
+ *  as the reference the admin page compares the stored value against. */
 export const ACADEMIC_YEAR_ROLLOVER_MONTH = 8;
 
-/** The current ปีการศึกษา in พ.ศ. `now` is injectable so the tests can stand at
- *  a date instead of asserting against whenever they happen to run. */
+/**
+ * ปีการศึกษา is now an ADMIN-SET value (migration 0141), primed once at boot.
+ *
+ * 0131 made it a constant derived from the clock, arguing that "a setting
+ * somebody must change every August is a setting that is forgotten every
+ * August". The owner overruled it, and the counter-argument is stronger: the
+ * promotion is not a calendar event. It does not happen at midnight on 1
+ * สิงหาคม, the date varies, and a system that advances 1,800 people on a date
+ * the faculty did not pick is confidently wrong for the weeks in between while
+ * looking exactly like it is working. A stale answer is visible to whoever has
+ * to fix it; a wrong one is not.
+ *
+ * The forgotten-setting risk is answered rather than traded away: the ระบบบ้าน
+ * admin page shows the value beside what the clock would have said, and says
+ * when they differ (`academic_year_status()`). It reminds; it never acts.
+ *
+ * NULL until `setAcademicYear` has been called, and the clock is the fallback —
+ * so a failed fetch degrades to exactly the pre-0141 behaviour rather than to a
+ * blank ชั้นปี on every card.
+ */
+let currentAcademicYear = null;
+
+/** Prime from `get_academic_year()`. Idempotent; ignores a non-numeric value. */
+export function setAcademicYear(year) {
+  const n = Number(year);
+  if (Number.isFinite(n) && n > 2400) currentAcademicYear = n;
+}
+
+/** The ปีการศึกษา in พ.ศ. `now` is still injectable so the tests can stand at a
+ *  date rather than asserting against whenever they happen to run — and so the
+ *  fallback path stays testable. */
 export function academicYear(now = new Date()) {
+  if (currentAcademicYear !== null) return currentAcademicYear;
   const be = now.getFullYear() + 543;
   return now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? be : be - 1;
 }

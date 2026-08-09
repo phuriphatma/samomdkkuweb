@@ -539,21 +539,20 @@
               </label>
               <select class="form-select" id="teamMemberMajor"></select>
             </div>
-            <!-- kkumail is the identity (0108), so it is also the key ระบบบ้าน
-                 is filed by — which makes it the one field worth typing first.
-                 “ดึงจากระบบบ้าน” resolves it and fills the boxes above rather
-                 than making someone retype what the university already sent.
-                 Retyping is where the two copies diverge. -->
+            <!-- kkumail is the identity (0108) and the key everything is filed
+                 by. "ดึงจากระบบบ้าน" used to sit here: an exact-address lookup
+                 that copied a person's fields over from ระบบบ้าน. It is GONE
+                 (0141), and the reason is the whole point of the registry —
+                 there is no longer a second copy to pull from. ทีม SAMO and
+                 ระบบบ้าน read one `people` row and every edit mirrors both ways,
+                 so "fetch from the other system" describes a world that stopped
+                 existing at 0132. The search box at the top of this form finds
+                 the person by ANY field and fills everything, which is what that
+                 button was reaching for. -->
             <div class="col-12">
               <label class="form-label" for="teamMemberEmail">KKU Mail</label>
-              <div class="input-group">
-                <input type="email" class="form-control" id="teamMemberEmail"
-                       placeholder="name@kkumail.com" />
-                <button type="button" class="btn btn-outline-secondary text-nowrap"
-                        id="teamMemberFillFromHouse">
-                  <i class="bi bi-house-down"></i> ดึงจากระบบบ้าน
-                </button>
-              </div>
+              <input type="email" class="form-control" id="teamMemberEmail"
+                     placeholder="name@kkumail.com" />
               <div class="form-text">ใช้จับคู่ตอนเข้าสู่ระบบด้วย Google — กำหนดสิทธิ์ได้ในแท็บ “จัดการสิทธิ์”</div>
               <div class="form-text" id="teamMemberHouseFillHint" role="status" aria-live="polite"></div>
             </div>

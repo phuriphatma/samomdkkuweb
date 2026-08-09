@@ -33,6 +33,9 @@ import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
+// ปีการศึกษา is an admin-set value (0141); every ชั้นปี on the page derives from
+// it, so it is fetched once before anything that renders one.
+import { primeAcademicYear } from './house/api.js';
 import {
   showIdentityCheck, renderIdentityCheck, clearIdentityCheckCache,
 } from './identity-check.js';
@@ -829,6 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // — 0132's mirrors carry it to ระบบบ้าน and to ทีม SAMO, and a block that
       // updated itself while the identity below it still said the old name
       // would read as the save having failed.
+      primeAcademicYear();
       clearIdentityCheckCache();
       showIdentityCheck(document.getElementById('homeIdentityCheck'), {
         afterResolve: () => {

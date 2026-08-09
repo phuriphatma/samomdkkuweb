@@ -25,7 +25,7 @@ import {
   createMember, updateMember, deleteMember,
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused,
   fetchMajors, createMajor, updateMajor, deleteMajor,
-  countMembersWithMajor, renameMajorOnMembers, lookupStudentByKkumail, searchPeople,
+  countMembersWithMajor, renameMajorOnMembers, searchPeople,
 } from './api.js';
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
@@ -33,6 +33,8 @@ import {
   normalizeIdentityFields, majorKey, YEARS, SID_HINT, suggestNameSplit,
 } from './fields.js';
 import { askConfirm } from '../confirm-modal.js';
+// ONE ชั้นปี rule for the whole app — see house/fields.js's header.
+import { studyYear } from '../house/fields.js';
 import { userCanAccess, getUser } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
@@ -2044,177 +2046,15 @@ function refreshMajorPickers() {
 // MEMBER MODAL
 // ============================================================
 
-/**
- * Fill the member form from ระบบบ้าน, by kkumail.
- *
- * ASKED FOR: "when adding people in teamsamo … they should can use the data
- * from house system". The two tables hold the same fields for the same humans
- * and both key on kkumail (0108), so retyping is not just tedious — it is where
- * the two copies start disagreeing, and ตรวจสอบข้อมูล then reports a `drift`
- * finding about a difference a human introduced by hand.
- *
- * ONLY FILLS WHAT IS EMPTY. Overwriting a box someone has already typed in
- * would make this button destructive, and an admin correcting a name that
- * ระบบบ้าน has wrong is a legitimate thing to be doing. What it does say is
- * which fields it left alone, so "it didn't work" and "it deliberately kept
- * yours" are distinguishable.
- *
- * ชั้นปี is NOT filled. ระบบบ้าน has no ชั้นปี — it has รุ่น, which needs no clock
- * (see house/fields.js cohortLabel) — and deriving one here would put this
- * app's third implementation of that rule in a click handler.
- */
-async function onFillFromHouse() {
-  const hint = $('teamMemberHouseFillHint');
-  const btn = $('teamMemberFillFromHouse');
-  const say = (msg, cls = '') => { if (hint) { hint.textContent = msg; hint.className = `form-text ${cls}`; } };
-  const mail = $('teamMemberEmail').value.trim();
-  if (!mail) { say('พิมพ์ kkumail ก่อน แล้วกดปุ่มนี้อีกครั้ง', 'text-warning'); $('teamMemberEmail').focus(); return; }
-  if (btn) btn.disabled = true;
-  say('กำลังค้นจากระบบบ้าน…');
-  try {
-    const rec = await lookupStudentByKkumail(mail);
-    if (!rec) { say(`ไม่พบ ${mail} ในระบบบ้าน — กรอกเองได้ตามปกติ`, 'text-warning'); return; }
-    const filled = [];
-    const kept = [];
-    const put = (id, value, label) => {
-      const el = $(id);
-      if (!el || !value) return;
-      if (String(el.value || '').trim()) { kept.push(label); return; }
-      el.value = value;
-      filled.push(label);
-    };
-    // The SPLIT, which is what ระบบบ้าน actually holds — filling one combined
-    // box from it and letting the DB re-split was the whole 0135 bug. When the
-    // house record itself has only a combined name (it can: 0126 allows a row
-    // with no name, and the registry inherited 303 combined ones), nothing is
-    // filled and the hint below says so rather than guessing a boundary.
-    put('teamMemberFirstName', rec.first_name, 'ชื่อ');
-    put('teamMemberLastName', rec.last_name, 'นามสกุล');
-    if (!rec.first_name && !rec.last_name && rec.full_name) {
-      kept.push(`ชื่อในระบบบ้านยังไม่ได้แยกช่อง (${rec.full_name}) — กรอกเอง`);
-    }
-    put('teamMemberNickname', rec.nickname, 'ชื่อเล่น');
-    put('teamMemberStudentId', rec.student_id, 'รหัสนักศึกษา');
-    // สาขา is a chooser, so it is set through the same filler the modal uses —
-    // an off-list value is kept as its own option rather than silently dropped.
-    const majorSel = $('teamMemberMajor');
-    if (majorSel && rec.major && !String(majorSel.value || '').trim()) {
-      await loadMajors();
-      fillMajorSelect(majorSel, rec.major);
-      filled.push('สาขา');
-    } else if (rec.major && majorSel?.value) kept.push('สาขา');
-
-    say([
-      filled.length ? `เติมให้แล้ว: ${filled.join(' · ')}` : 'ไม่มีช่องว่างให้เติม',
-      kept.length ? `คงของเดิมไว้: ${kept.join(' · ')}` : '',
-    ].filter(Boolean).join(' — '), filled.length ? 'text-success' : '');
-  } catch (err) {
-    say(err?.message || 'ค้นจากระบบบ้านไม่สำเร็จ', 'text-danger');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-// ---- the person picker (0137) ---------------------------------------------
-
-/**
- * Type anything you know about a person; pick them; the form fills itself.
- *
- * WHY THIS EXISTS. 0130's "ดึงจากระบบบ้าน" needs an exact kkumail, which is the
- * one field an admin adding somebody does not have — so in practice the six
- * boxes below were retyped, and retyping is where one human becomes two
- * slightly different records. `public.people` already holds all six for every
- * person the faculty knows, so the form can ask for the person instead.
- *
- * The state is ONE module-scope token, not a flag on the input. Two things make
- * that necessary: results arrive out of order (a 2-character query is slower
- * than the 5-character one typed after it, and the stale reply would overwrite
- * the fresh list), and the modal is one DOM element reused for every row, so
- * anything parked on it outlives the person it describes — the exact shape that
- * leaked a permission grid across rows in 0110.
- */
-let personSearchToken = 0;
-let personSearchTimer = null;
-let personSearchHits = [];
-
-function renderPersonResults(hits, q) {
-  const box = $('teamMemberSearchResults');
-  if (!box) return;
-  personSearchHits = hits;
-  if (!hits.length) {
-    box.classList.add('d-none');
-    box.innerHTML = '';
-    const hint = $('teamMemberSearchHint');
-    if (hint && q.length >= 2) {
-      hint.textContent = `ไม่พบใครที่ตรงกับ “${q}” — กรอกข้อมูลเองด้านล่างได้เลย`;
-    }
-    return;
-  }
-  box.classList.remove('d-none');
-  box.innerHTML = hits.map((p, i) => {
-    const name = p.full_name || [p.first_name_th, p.last_name_th].filter(Boolean).join(' ') || '(ไม่มีชื่อ)';
-    // WHERE they already are, not just THAT they are. "อยู่แล้ว" alone makes an
-    // admin close the dialog and go looking; naming the ฝ่าย answers the
-    // question that would have sent them looking. A person legitimately holds
-    // two postings, so this informs rather than blocks.
-    const badge = p.in_team
-      ? `<span class="team-person-badge">อยู่ในทีมแล้ว${p.team_nodes ? ` — ${escHtml(p.team_nodes)}` : ''}</span>`
-      : '';
-    const meta = [
-      p.nickname ? `(${p.nickname})` : '',
-      p.student_id || '',
-      p.major || '',
-      p.kkumail || '',
-    ].filter(Boolean).join(' · ');
-    return `<li><button type="button" class="team-person-hit" data-person-idx="${i}">
-      <span class="team-person-name">${escHtml(name)}</span>
-      ${badge}
-      <span class="team-person-meta">${escHtml(meta)}</span>
-    </button></li>`;
-  }).join('');
-}
-
-/**
- * Fill the form from a picked person.
- *
- * OVERWRITES, unlike "ดึงจากระบบบ้าน" which only fills blanks. The difference is
- * intent: that button augments a form someone is already filling in, while this
- * one IS the answer to "who is this" — leaving a half-typed guess sitting next
- * to the record it was a guess at is how the two disagree. What it will not do
- * is invent a name split; a registry row with only a combined name leaves the
- * two boxes empty and says so (0135).
- */
-async function pickPerson(p) {
-  if (!p) return;
-  $('teamMemberFirstName').value = p.first_name_th || '';
-  $('teamMemberLastName').value = p.last_name_th || '';
-  $('teamMemberNickname').value = p.nickname || '';
-  $('teamMemberStudentId').value = p.student_id || '';
-  $('teamMemberEmail').value = p.kkumail || '';
-  const legacyName = $('teamMemberNameLegacy');
-  if (legacyName) {
-    legacyName.textContent = (!p.first_name_th && !p.last_name_th && p.full_name)
-      ? `ชื่อในระบบตอนนี้: ${p.full_name} — ยังไม่ได้แยกช่อง กรอกแยกด้านบนได้เลย `
-        + '(ระบบไม่แยกให้เอง เพราะเดาแล้วอาจได้ชื่อผิดตัว)'
-      : '';
-  }
-  if (p.major) {
-    await loadMajors();
-    fillMajorSelect($('teamMemberMajor'), p.major);
-  }
-  const box = $('teamMemberSearchResults');
-  if (box) { box.classList.add('d-none'); box.innerHTML = ''; }
-  const hint = $('teamMemberSearchHint');
-  if (hint) {
-    hint.textContent = `เติมข้อมูลของ ${p.full_name || p.kkumail || 'คนนี้'} แล้ว `
-      + '— ตรวจดูอีกครั้งก่อนบันทึก แก้ตรงนี้จะเปลี่ยนในระบบบ้านด้วย';
-  }
-  $('teamMemberFirstName')?.focus();
-}
-
+// `onFillFromHouse` and its "ดึงจากระบบบ้าน" button lived here until 0141.
+// REPORTED: "why are there still ดึงจากระบบบ้าน, isn't teamsamo and house system
+// sync, or what is it for". Correct — it was 0130's interim bridge between two
+// copies of one person, and since 0132 there is only one `people` row with
+// mirrors in both directions, so there is nothing to pull FROM. The search box
+// at the top of the form (0137) does what the button was reaching for, by any
+// field rather than by an exact address nobody has to hand.
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
-  $('teamMemberFillFromHouse')?.addEventListener('click', onFillFromHouse);
 
   const search = $('teamMemberSearch');
   search?.addEventListener('input', () => {
@@ -2398,6 +2238,16 @@ async function onMemberPermSubmit(e) {
   try { await updateMember(id, payload); } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 
+/** The ชั้นปี a member's รหัสนักศึกษา implies, as a bare '1'–'6' the chooser can
+ *  preselect — or '' when there is no รหัส to count from, or when the answer is
+ *  outside the programme (a graduate, someone whose รหัส is malformed). ONE
+ *  implementation, imported from house/fields.js: this app has paid for a second
+ *  copy of a ชั้นปี rule before. */
+function studyYearForMember(member) {
+  const n = studyYear({ student_id: member?.student_id });
+  return n !== null && n >= 1 && n <= 6 ? String(n) : '';
+}
+
 function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
@@ -2440,7 +2290,17 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   $('teamMemberStudentId').value = member?.student_id || '';
   const sidHint = $('teamMemberStudentIdHint');
   if (sidHint) sidHint.textContent = SID_HINT;
-  fillYearSelect($('teamMemberYear'), member?.year || '');
+  // ชั้นปี PREFILLED FROM รหัสนักศึกษา when the row has none (reported: "someone
+  // doesn't have ชั้นปี autopopulate, when they have student id"). Derived, never
+  // stored behind the person's back: it is only a preselection in the chooser,
+  // and it is skipped when the row already has an answer so an admin's earlier
+  // correction is never quietly replaced by the computed one.
+  //
+  // The base is ปีการศึกษา, which an ADMIN moves (0141) — so this does not drift
+  // on its own every August, which is the behaviour that was objected to.
+  fillYearSelect($('teamMemberYear'),
+    member?.year || (member ? '' : '')
+    || studyYearForMember(member) || '');
   // The vocabulary may not be loaded yet on the very first open; paint what we
   // have, then repaint when it arrives. Painting nothing would show an empty
   // chooser next to a person who HAS a สาขา, which reads as data loss.

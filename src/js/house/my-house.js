@@ -39,6 +39,7 @@
 // ==============================================
 import { escHtml } from '../utils.js';
 import { convertDriveUrl } from '../uploads.js';
+import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
 } from './api.js';
@@ -51,6 +52,8 @@ import {
 // previous person's house (the module-scope-cache trap in mistakes.md).
 let cacheUid = null;
 let cachePromise = null;
+
+registerProfileCache(() => { cacheUid = null; cachePromise = null; });
 
 export function clearMyHouseCache() {
   cacheUid = null;
@@ -643,7 +646,9 @@ function wireCard(host, rec, opts = {}) {
     if (btn) btn.disabled = true;
     try {
       const updated = await saveMyStudentRecord(patch);
-      clearMyHouseCache();
+      // BOTH caches — the ทีม SAMO rows above this section show the same
+      // ชื่อ / ชื่อเล่น / รหัส and are painted from a different cache.
+      clearProfileCaches();
       renderMyHouse(host, updated, opts);
     } catch (err) {
       if (status) {
@@ -688,7 +693,7 @@ function wireCard(host, rec, opts = {}) {
       // up in it — with its status, and later with the admin's answer — is a
       // better confirmation than a sentence, because it is the same place the
       // person will come back to look.
-      clearMyHouseCache();
+      clearProfileCaches();
       const fresh = await fetchMyStudentRecord().catch(() => null);
       if (fresh && fresh.kkumail) { renderMyHouse(host, fresh, opts); return; }
       reportForm.innerHTML = '<p class="myhouse-sent">'
