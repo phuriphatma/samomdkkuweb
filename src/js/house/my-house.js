@@ -540,6 +540,23 @@ export function renderMyHouse(host, rec, opts = {}) {
 
       ${requestsHtml(rec)}
       ${advisorsHtml(rec)}
+
+      <!-- WHERE TO REPORT A BROKEN WEBSITE, for the ~1,800 students who are NOT
+           in ทีม SAMO. This card is their "my data" screen, so it is where they
+           are standing when something looks wrong.
+           ⚠️ VitalSound ONLY — no Discord. The SAMO Discord is reachable by
+           ทีม SAMO members, and naming a channel this reader cannot open would
+           send them somewhere they get stuck.
+           Skipped when paired: the card is then a SECTION inside ข้อมูลของฉัน,
+           (no backticks in here — an HTML comment inside a template literal is
+           still JS string content, and one backtick ends the string)
+           which already ends with the same line (with Discord, correctly, since
+           that reader does hold a posting). -->
+      ${paired ? '' : `<p class="myseat-help myseat-help--report">
+        <i class="bi bi-bug" aria-hidden="true"></i>
+        หากมีปัญหาอื่น ๆ เว็บมีปัญหา หรือพบบัค แจ้งได้ที่แท็บ
+        <a href="/vssound">แจ้งปัญหา (VitalSound)</a>
+      </p>`}
     ${shellClose}`;
 
   wireCard(host, rec, opts);
