@@ -1221,3 +1221,108 @@ tell you that a name resolves to nothing, make the build tell you — this repo
 has now paid twice in one week for a removal that took an unrelated neighbour
 with it (`485478f` deleted Drive files it thought were unused; this one deleted
 code it thought was part of what it was removing).
+
+---
+
+## The ลบ button on a สาขา row rendered OUTSIDE the modal on a phone — an `auto` grid track sized from min-content
+
+**Symptom**: found by driving the admin app at 390 px, not by a report. In
+จัดการรายการสาขา (ทีม SAMO → member editor → จัดการรายการสาขา), each row was
+**426 px wide inside a 374 px dialog**. The trash button sat entirely off the
+right edge and the pencil was half-clipped, so on an iPhone or an Android phone
+**a สาขา could not be deleted at all**. The page reported no horizontal overflow
+(`documentElement.scrollWidth === innerWidth`) because the modal body clipped
+it — the usual overflow check said everything was fine.
+
+**Cause**: `.team-majors-list` was `display: grid` with no `grid-template-columns`.
+The implicit track is `auto`, and an `auto` track is floored at its content's
+**min-content** width. The row's min-content is not negotiable: a `white-space:
+nowrap` count plus two 32 px buttons plus the gaps. So the track grew past its
+container instead of the row shrinking, and `.team-major-main { flex: 1;
+min-width: 0 }` — which looks like it handles exactly this — never got the
+chance, because the row it lives in was never the constrained thing.
+
+It looked correct on every desktop it had ever been opened on.
+
+**Fix**: `grid-template-columns: minmax(0, 1fr)` so the track cannot exceed the
+container, `flex-wrap: wrap` on the row so the actions drop to a second line
+rather than off the edge, `margin-left: auto` on the count so count + both
+buttons travel as one right-aligned cluster, and a `<576px` rule giving the name
+the whole first line. Verified at 390 / 412 / 768 / 1440 px in headless Chrome.
+
+**Where it lives now**: `src/css/team.css` (`.team-majors-list`,
+`.team-major-row`, `.team-major-main`, `.team-major-count`).
+
+**Rule**: `overflow-x` on `<html>` is not a mobile test. A clipped ancestor
+hides the overflow from every page-level check, so the thing to measure is
+whether each control's `getBoundingClientRect().right` is inside the container
+that clips it. And a CSS grid's default `auto` track does not shrink below
+min-content — inside a fixed-width parent, spell the track `minmax(0, 1fr)`.
+
+---
+
+## `confirm()` on a SAVE path, not just a delete — permissions silently refused to save
+
+**Symptom**: found by audit while sweeping this class. In ทีม SAMO → จัดการสิทธิ์,
+pressing บันทึก on a grant that includes full `vs` ("ทุกแผนก") or full `passport`
+("ทุกฝ่าย") could do nothing at all — no save, no error, no dialog.
+
+**Cause**: the same suppressed-dialog mechanism that killed ลบสมาชิก and ระบบบ้าน's
+ปฏิเสธ, but on a *write* path. `readPermInputsOrWarn()` guarded those two
+escalating grants with `confirm()` and returned `null` on a false. Once Chrome's
+"Prevent this page from creating additional dialogs" box is ticked — and the
+admin session that hands out permissions is exactly the session that ticks it —
+`confirm()` returns false instantly with no UI, so the guard read "the admin
+backed out" and the submit handler returned. Forever, for that page.
+
+The two earlier instances of this class were both DELETES, which is how it kept
+being filed as "the delete button is broken" rather than as what it is: a
+dialog is not a value you can read.
+
+**Fix**: every native dialog in `team/index.js` and `team/terms.js` now goes
+through `askConfirm` / `askDelete` (`src/js/confirm-modal.js`), which this app
+draws and which always resolves. `readPermInputsOrWarn` and `confirmMaster`
+became async and are awaited at all four call sites. `renameMajor`'s `prompt()`
+became an input in the row it renames — there is deliberately no `askPrompt`,
+because a value the user types belongs in the form it affects.
+
+The guard is `src/js/native-dialog.test.js`: a RATCHET listing the modules that
+still use native dialogs, which may only shrink, plus an explicit
+must-stay-clean list for the ทีม SAMO / ระบบบ้าน / self-service surfaces.
+
+**Where it lives now**: `src/js/team/index.js` · `src/js/team/terms.js` ·
+`src/js/native-dialog.test.js`.
+
+**Rule**: when a hazard has already been paid for twice, the third fix is a
+test, not a third patch. And look for the class on the WRITE paths too — a
+guard that fails closed on a delete is annoying; on a save it is invisible.
+
+---
+
+## `/admin/#vs` opened the VitalSound workspace for an admin with no VitalSound grant
+
+**Symptom**: found by tracing the admin router. The sidebar hides sections the
+account cannot use, and the click delegate skips a hidden button — but the HASH
+was never checked. Typing (or bookmarking, or following an old link to)
+`/admin/#vs`, `#shop`, `#house` ran that section's `enter*()` loader and painted
+its workspace, with no sidebar entry to leave by.
+
+**Cause**: `showAdminSide(which)` trusted its argument. Two more doors shared
+the gap: `tryCreatorDeepLink()` opened the announcement editor for `#creator/<id>`
+without checking `creator`, and the `?scan=<order>` subscriber routed to the shop.
+
+Not a data leak — RLS returns no rows, so the panes come up empty — which is
+precisely what makes it worth fixing: a workspace that renders and then can do
+nothing is the "live-looking ลบ button that 42501s" shape, one layer up.
+
+**Fix**: `canOpenSection(which)` resolves the section's key through the existing
+`SIDE_FEATURE` map and `userCanAccess()`, and `showAdminSide` falls back to the
+landing pane. An UNKNOWN section stays allowed — `showAdminSide` already lands
+those on the landing pane, and failing closed here would be a second copy of the
+section list to keep in step.
+
+**Where it lives now**: `src/js/admin-main.js` (`canOpenSection`).
+
+**Rule**: a gate on the widget is not a gate on the route. Enumerate every way
+in — click, hash, query string, deep link — because the URL bar is one of them
+and it is the one nobody renders.

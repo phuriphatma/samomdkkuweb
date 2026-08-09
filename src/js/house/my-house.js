@@ -562,7 +562,10 @@ function wireCard(host, rec, opts = {}) {
   // unit tests assert the MARKUP against a plain object with no DOM at all.
   if (typeof host.querySelector !== 'function') return;
 
-  const card = host.querySelector('.myhouse-card');
+  // Section mode renders `<section class="myhouse-section">`, not `.myhouse-card`
+  // — asking for the card alone left `card` null there, so the แจ้งสายรหัสไม่ถูกต้อง
+  // button never got its `is-open` state while its form was showing.
+  const card = host.querySelector('.myhouse-card, .myhouse-section');
   const editForm = host.querySelector('[data-house-form="edit"]');
   const reportForm = host.querySelector('[data-house-form="report"]');
 

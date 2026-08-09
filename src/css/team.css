@@ -750,18 +750,48 @@
    The per-row count is the point of this pane, not decoration: it is what turns
    "remove RT" into "remove RT, which 19 people still carry". */
 .team-majors-add { padding-bottom: 0.25rem; }
-.team-majors-list { display: grid; gap: 0.35rem; }
+/* `minmax(0, 1fr)`, not the implicit `auto` track. An auto track is sized from
+   its content's MIN-content width, and this row's minimum is the nowrap count
+   plus two 32px buttons — so on a 390px phone the track came out 426px wide and
+   the ลบ button rendered OUTSIDE the dialog, unreachable. The pane looked fine
+   on every desktop it was ever opened on. */
+.team-majors-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
 .team-major-row {
   display: flex; align-items: center; gap: 0.5rem;
+  /* Wrap rather than overflow: on a narrow screen the actions drop to their own
+     line, which is reachable. Off the edge is not. */
+  flex-wrap: wrap;
   border: 1px solid var(--ink-200); border-radius: var(--radius-sm);
   padding: 0.35rem 0.5rem;
 }
-.team-major-main { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; flex: 1; }
+/* `flex-basis: 60%` keeps code+label on their own line as soon as the row is
+   tight, instead of being crushed to one character per line beside the buttons. */
+.team-major-main {
+  display: flex; align-items: baseline; gap: 0.4rem;
+  min-width: 0; flex: 1 1 60%;
+}
 .team-major-code { font-weight: 700; color: var(--ink-900); }
 .team-major-label { font-size: 0.82rem; color: var(--ink-600); overflow-wrap: anywhere; }
 .team-major-count {
   font-size: 0.75rem; color: var(--ink-500); white-space: nowrap;
+  /* Pushes the count + the two action buttons into one right-aligned cluster,
+     so when the row wraps they travel to the next line TOGETHER instead of the
+     ลบ button falling off on its own. */
+  margin-left: auto;
 }
+/* Phones: give the name the whole first line and let count + actions share the
+   second. At 390px the three of them cannot fit beside a สาขา name, and the
+   alternative is one character per line. */
+@media (max-width: 575.98px) {
+  .team-major-main,
+  .team-major-rename { flex-basis: 100%; }
+}
+/* The in-row rename box (it replaced a native prompt()). `min-width: 0` on the
+   input is what keeps a long สาขา name from pushing the ✓/✕ buttons off the
+   right edge on a phone — a flex item's default `min-width: auto` refuses to
+   shrink below its content. */
+.team-major-rename { display: flex; align-items: center; gap: 0.35rem; flex: 1 1 60%; min-width: 0; }
+.team-major-rename input { min-width: 0; flex: 1; }
 /* Opens the manager from beside the chooser — a link, not a button, because it
    sits inside a field label and must not read as a form action. */
 .team-majors-open { font-size: 0.78rem; text-decoration: none; }

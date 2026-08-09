@@ -20,6 +20,11 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
+// App-drawn confirmations. `window.confirm` returns false forever once Chrome's
+// "prevent additional dialogs" box is ticked, which turns เผยแพร่ / ตั้งเป็นปี
+// ปัจจุบัน / ลบ into buttons that do nothing at all — the failure this tab has
+// already shipped twice on other controls.
+import { askConfirm } from '../confirm-modal.js';
 import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import {
@@ -263,13 +268,16 @@ async function reloadTerms() {
 async function doPublish(year) {
   const t = terms.find((x) => x.year === year);
   const again = !!t?.published_at;
-  if (!confirm(again
-    ? `เผยแพร่ปี ${year} ซ้ำ?\n\n`
-      + 'รายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด'
-    : `เผยแพร่ผังปัจจุบันเป็นภาพนิ่งของปี ${year}?\n\n`
-      + 'หลังจากนี้หน้าสาธารณะจะแสดงภาพนิ่งนี้ (ไม่ใช่ผังสด) '
-      + 'แก้ชื่อ/รูปของปีนี้ได้ที่ปุ่ม “แก้ไขรายชื่อ/รูป” และเห็นผลทันที\n'
-      + 'ถ้าแก้ผังสดในภายหลัง ต้องกดเผยแพร่ซ้ำ')) return;
+  if (!await askConfirm({
+    title: again ? `เผยแพร่ปี ${year} ซ้ำ?` : `เผยแพร่ผังปัจจุบันเป็นภาพนิ่งของปี ${year}?`,
+    body: again
+      ? 'รายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด'
+      : 'หลังจากนี้หน้าสาธารณะจะแสดงภาพนิ่งนี้ (ไม่ใช่ผังสด) '
+        + 'แก้ชื่อ/รูปของปีนี้ได้ที่ปุ่ม “แก้ไขรายชื่อ/รูป” และเห็นผลทันที '
+        + 'ถ้าแก้ผังสดในภายหลัง ต้องกดเผยแพร่ซ้ำ',
+    yes: 'เผยแพร่',
+    danger: again,
+  })) return;
   await guard(async () => {
     statusLine('กำลังบันทึกภาพนิ่งของผัง…');
     const res = await publishTerm(year);
@@ -281,17 +289,23 @@ async function doPublish(year) {
 }
 
 async function doSetCurrent(year) {
-  if (!confirm(
-    `ตั้งปี ${year} เป็นปีปัจจุบัน?\n\n`
-    + 'ผังสด (แท็บ “จัดการทีม”) จะกลายเป็นผังของปีนี้ '
-    + 'และหน้าสาธารณะจะแสดงปีนี้เป็นค่าเริ่มต้น\n\n'
-    + 'สิทธิ์การใช้งานทั้งหมดยังผูกกับผังสดเหมือนเดิม ไม่มีการเปลี่ยนแปลง'
-  )) return;
+  if (!await askConfirm({
+    title: `ตั้งปี ${year} เป็นปีปัจจุบัน?`,
+    body: 'ผังสด (แท็บ “จัดการทีม”) จะกลายเป็นผังของปีนี้ '
+      + 'และหน้าสาธารณะจะแสดงปีนี้เป็นค่าเริ่มต้น — '
+      + 'สิทธิ์การใช้งานทั้งหมดยังผูกกับผังสดเหมือนเดิม ไม่มีการเปลี่ยนแปลง',
+    yes: 'ตั้งเป็นปีปัจจุบัน',
+    danger: false,
+  })) return;
   await guard(async () => { await setCurrentTerm(year); await reloadTerms(); }, `ตั้งปี ${year} เป็นปีปัจจุบันแล้ว`);
 }
 
 async function doDeleteTerm(year) {
-  if (!confirm(`ลบปี ${year} และรายชื่อ/รูปที่เก็บไว้ทั้งหมด?\n\nลบแล้วกู้คืนไม่ได้ (ผังสดไม่ได้รับผลกระทบ)`)) return;
+  if (!await askConfirm({
+    title: `ลบปี ${year} และรายชื่อ/รูปที่เก็บไว้ทั้งหมด?`,
+    body: 'ลบแล้วกู้คืนไม่ได้ (ผังสดไม่ได้รับผลกระทบ)',
+    yes: 'ลบ',
+  })) return;
   await guard(async () => {
     await deleteTerm(year);
     if (openYear === year) { openYear = null; archive = null; }
@@ -354,6 +368,26 @@ async function onArchivePhoto(id, file) {
 
 // ── wiring ──────────────────────────────────────────────────────────────────
 
+/** Drop one person from a published year's snapshot. Extracted from the click
+ *  delegate because the confirmation is now awaited — a `void`-ed async branch
+ *  inside a sync handler is how a dialog answer gets dropped on the floor. */
+async function doDeleteArchiveMember(id) {
+  const m = archive?.members.find((x) => x.id === id);
+  if (!await askConfirm({
+    title: `ลบ ${m?.full_name || 'รายการนี้'} ออกจากประวัติปี ${openYear}?`,
+    body: 'ผังสดไม่ได้รับผลกระทบ',
+    yes: 'ลบ',
+  })) return;
+  const photo = m?.photo_url || '';
+  await guard(async () => {
+    await deleteArchiveMember(id);
+    archive.members = archive.members.filter((x) => x.id !== id);
+    renderTerms();
+    // Declines if the live tree (or another year) still shows this portrait.
+    if (photo) deleteTeamPhotoIfUnused(photo);
+  }, 'ลบแล้ว');
+}
+
 export function initTerms(hostEl, { onChange } = {}) {
   host = hostEl;
   onTermsChanged = onChange;
@@ -375,19 +409,7 @@ export function initTerms(hostEl, { onChange } = {}) {
       return void guard(async () => { await createTerm(y); await reloadTerms(); }, `เพิ่มปี ${y} แล้ว`);
     }
     const amDel = t.closest?.('[data-am-delete]');
-    if (amDel) {
-      const id = amDel.dataset.amDelete;
-      const m = archive?.members.find((x) => x.id === id);
-      if (!confirm(`ลบ ${m?.full_name || 'รายการนี้'} ออกจากประวัติปี ${openYear}?`)) return;
-      const photo = m?.photo_url || '';
-      return void guard(async () => {
-        await deleteArchiveMember(id);
-        archive.members = archive.members.filter((x) => x.id !== id);
-        renderTerms();
-        // Declines if the live tree (or another year) still shows this portrait.
-        if (photo) deleteTeamPhotoIfUnused(photo);
-      }, 'ลบแล้ว');
-    }
+    if (amDel) return void doDeleteArchiveMember(amDel.dataset.amDelete);
   });
 
   // `change` rather than `input`: one write per finished edit, not per keystroke.

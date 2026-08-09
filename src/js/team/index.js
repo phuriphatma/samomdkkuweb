@@ -32,7 +32,13 @@ import {
 import {
   normalizeIdentityFields, majorKey, YEARS, SID_HINT, suggestNameSplit,
 } from './fields.js';
-import { askConfirm } from '../confirm-modal.js';
+// An app-owned "are you sure?". `window.confirm` is not reliable control flow
+// here: once Chrome's "Prevent this page from creating additional dialogs" box
+// is ticked — and an admin session that deletes things is the session that
+// reaches it first — every later confirm() returns FALSE instantly with no UI,
+// so a delete, a bulk delete and a permission SAVE all become buttons that do
+// nothing at all. This tab has already shipped that bug twice.
+import { askConfirm, askDelete } from '../confirm-modal.js';
 // ONE ชั้นปี rule for the whole app — see house/fields.js's header.
 import { studyYear } from '../house/fields.js';
 import { userCanAccess, getUser } from '../auth.js';
@@ -1298,8 +1304,9 @@ async function onDeleteNode(id) {
   }
   const count = subtreeMemberCount(id);
   const kids = childrenOf(id).length;
-  const warn = (kids || count) ? `\n\nจะลบตำแหน่งย่อย ${kids} รายการ และสมาชิก ${count} คนในสายนี้ด้วย` : '';
-  if (!confirm(`ลบ “${node.name}” ?${warn}`)) return;
+  const warn = (kids || count)
+    ? `จะลบตำแหน่งย่อย ${kids} รายการ และสมาชิก ${count} คนในสายนี้ด้วย` : '';
+  if (!await askDelete(node.name, warn)) return;
   const toDrop = [];
   const collect = (nid) => { toDrop.push(nid); childrenOf(nid).forEach((c) => collect(c.id)); };
   collect(id);
@@ -1428,7 +1435,11 @@ async function bulkDelete() {
   const topNodes = [...selectedNodes];
   const memberIds = [...selectedMembers];
   if (!topNodes.length && !memberIds.length) return;
-  if (!confirm(`ลบ ${topNodes.length} ตำแหน่ง และ ${memberIds.length} สมาชิกที่เลือก?\n(ตำแหน่งจะลบรายการย่อยและสมาชิกในสายด้วย)`)) return;
+  if (!await askConfirm({
+    title: `ลบ ${topNodes.length} ตำแหน่ง และ ${memberIds.length} สมาชิกที่เลือก?`,
+    body: 'ตำแหน่งจะลบรายการย่อยและสมาชิกในสายด้วย — ย้อนกลับไม่ได้',
+    yes: 'ลบ',
+  })) return;
 
   // Collect the full subtree of selected nodes (members under them cascade).
   const delNodeIds = new Set();
@@ -1553,15 +1564,22 @@ function resetMasterState(grid) {
   delete grid.dataset.preMaster;
 }
 
-/** Ask before handing over everything. Returns false if the admin backs out,
- *  in which case the checkbox is put back. */
-function confirmMaster(cb) {
+/** Ask before handing over everything. Resolves false if the admin backs out,
+ *  in which case the checkbox is put back.
+ *
+ *  Async because the dialog is app-drawn (see the askConfirm import). The box
+ *  therefore stays ticked for the length of the dialog and is un-ticked on a
+ *  "no" — which is why every caller re-runs syncMasterVisibility AFTER awaiting,
+ *  not before: the grid must be repainted from the answer, not from the
+ *  optimistic tick. */
+async function confirmMaster(cb) {
   if (!cb.checked) return true;
-  const ok = window.confirm(
-    'ให้สิทธิ์ “ทุกระบบ (Master)” ใช่หรือไม่?\n\n'
-    + 'ผู้ที่ได้รับจะเข้าถึงได้ทุกระบบ รวมถึงแก้ไขโครงสร้างทีม SAMO '
-    + 'และกำหนดสิทธิ์ของทุกคน (รวมถึงให้สิทธิ์ Master กับคนอื่น)',
-  );
+  const ok = await askConfirm({
+    title: 'ให้สิทธิ์ “ทุกระบบ (Master)” ใช่หรือไม่?',
+    body: 'ผู้ที่ได้รับจะเข้าถึงได้ทุกระบบ รวมถึงแก้ไขโครงสร้างทีม SAMO '
+      + 'และกำหนดสิทธิ์ของทุกคน (รวมถึงให้สิทธิ์ Master กับคนอื่น)',
+    yes: 'ให้สิทธิ์',
+  });
   if (!ok) cb.checked = false;
   return ok;
 }
@@ -1709,8 +1727,13 @@ function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
 /** readPermInputs + the two user-facing guards: a VS grant must state its
  *  scope, and "ทุกแผนก" (which hands over every department's confidential
  *  tickets) is confirmed because it is the privilege-ESCALATING direction.
- *  Returns null when the save should be aborted. */
-function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject) {
+ *  Resolves null when the save should be aborted.
+ *
+ *  ASYNC, and it must stay awaited. These two confirmations sit on the SAVE
+ *  path, not a delete path — with `window.confirm` suppressed they both
+ *  answered "no" instantly and บันทึก did nothing at all, with no message, for
+ *  the whole life of the page. */
+async function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject) {
   const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel);
   if (!out) {
     alert('กรุณาเลือกขอบเขต VitalSound — "ทุกแผนก" หรือเฉพาะแผนกที่รับผิดชอบ');
@@ -1729,15 +1752,21 @@ function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject
     return null;
   }
   if (out.permissions.includes('passport')
-      && !confirm(`ให้สิทธิ์ SAMO Passport แบบ "ทุกฝ่าย" กับ${subject}\n\n`
-        + 'จะเห็นและจัดการกิจกรรมของ "ทุกฝ่าย"\n'
-        + 'ถ้าต้องการจำกัดเฉพาะฝ่ายที่ดูแล ให้กดยกเลิกแล้วเลือกฝ่ายนั้น')) {
+      && !await askConfirm({
+        title: `ให้สิทธิ์ SAMO Passport แบบ "ทุกฝ่าย" กับ${subject}`,
+        body: 'จะเห็นและจัดการกิจกรรมของ "ทุกฝ่าย" — '
+          + 'ถ้าต้องการจำกัดเฉพาะฝ่ายที่ดูแล ให้กดยกเลิกแล้วเลือกฝ่ายนั้น',
+        yes: 'ให้ทุกฝ่าย',
+      })) {
     return null;
   }
   if (out.permissions.includes('vs')
-      && !confirm(`ให้สิทธิ์ VitalSound แบบ "ทุกแผนก" กับ${subject}\n\n`
-        + 'จะเห็นและจัดการเรื่องร้องเรียนของ "ทุกแผนก" (เทียบเท่า SE)\n'
-        + 'ถ้าต้องการจำกัดเฉพาะแผนกที่รับผิดชอบ ให้กดยกเลิกแล้วเลือกแผนกนั้น')) {
+      && !await askConfirm({
+        title: `ให้สิทธิ์ VitalSound แบบ "ทุกแผนก" กับ${subject}`,
+        body: 'จะเห็นและจัดการเรื่องร้องเรียนของ "ทุกแผนก" (เทียบเท่า SE) — '
+          + 'ถ้าต้องการจำกัดเฉพาะแผนกที่รับผิดชอบ ให้กดยกเลิกแล้วเลือกแผนกนั้น',
+        yes: 'ให้ทุกแผนก',
+      })) {
     return null;
   }
   return out;
@@ -1748,12 +1777,20 @@ function wirePermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamPermVsDept'));
   fillSeatSelect($('teamPermSeat'));
-  grid?.addEventListener('change', (e) => {
-    if (e.target?.value === 'master') confirmMaster(e.target);
+  const syncPermGrid = () => {
     syncMasterVisibility(grid);
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
+  };
+  grid?.addEventListener('change', async (e) => {
+    // Repaint FIRST so the grid never sits mid-dialog showing neither state,
+    // then again with the answer — confirmMaster may have put the box back.
+    syncPermGrid();
+    if (e.target?.value === 'master') {
+      await confirmMaster(e.target);
+      syncPermGrid();
+    }
   });
   $('teamPermPassDept')?.addEventListener('change', () =>
     fillPassSubSelect($('teamPermPassSub'), $('teamPermPassDept').value));
@@ -1859,7 +1896,7 @@ async function onPermSubmit(e) {
   const id = $('teamPermNodeId').value;
   const node = nodesById.get(id);
   if (!node) return;
-  const grants = readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
+  const grants = await readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
     $('teamPermPassDept'), $('teamPermPassSub'), `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
@@ -1926,6 +1963,7 @@ function wireMajors() {
   $('teamMemberMajorsManage')?.addEventListener('click', openMajorsModal);
   $('teamMajorsAdd')?.addEventListener('submit', onMajorAdd);
   $('teamMajorsList')?.addEventListener('click', onMajorsListClick);
+  $('teamMajorsList')?.addEventListener('submit', onMajorsListSubmit);
 }
 
 async function openMajorsModal() {
@@ -1956,10 +1994,23 @@ async function renderMajorsList() {
     const n = counts.get(m.id);
     return `
     <div class="team-major-row" data-major-id="${escHtml(m.id)}">
-      <div class="team-major-main">
+      <div class="team-major-main" data-major-view>
         <span class="team-major-code">${escHtml(m.code)}</span>
         ${m.label ? `<span class="team-major-label">${escHtml(m.label)}</span>` : ''}
       </div>
+      <!-- The new name is typed HERE, in the row it renames, rather than into a
+           native prompt(). Once Chrome suppresses dialogs, prompt() returns null
+           instantly and the pencil became a button that did nothing — the same
+           failure this tab's deletes had. A value the user types also belongs
+           where they can see what it applies to. -->
+      <form class="team-major-rename" data-major-rename hidden>
+        <input type="text" class="form-control form-control-sm" value="${escHtml(m.code)}"
+               aria-label="ชื่อสาขาใหม่ของ ${escHtml(m.code)}" />
+        <button type="submit" class="team-act" title="บันทึกชื่อใหม่">
+          <i class="bi bi-check-lg"></i></button>
+        <button type="button" class="team-act" data-major-act="rename-cancel" title="ยกเลิก">
+          <i class="bi bi-x-lg"></i></button>
+      </form>
       <span class="team-major-count">${n == null ? '—' : `${n} คน`}</span>
       <button type="button" class="team-act" data-major-act="rename" title="เปลี่ยนชื่อ">
         <i class="bi bi-pencil"></i></button>
@@ -1995,17 +2046,50 @@ async function onMajorAdd(e) {
 async function onMajorsListClick(e) {
   const btn = e.target.closest('[data-major-act]');
   if (!btn) return;
-  const id = btn.closest('[data-major-id]')?.dataset.majorId;
-  const m = majors.find((x) => x.id === id);
+  const row = btn.closest('[data-major-id]');
+  const act = btn.dataset.majorAct;
+  // Opening/closing the rename box is pure DOM — it must NOT depend on finding
+  // the row in the in-memory list first, or a stale model turns the pencil into
+  // a button that does nothing (this file spent a session on that exact shape).
+  // The lookup happens on SUBMIT, where a miss has something to say.
+  if (act === 'rename') { showMajorRename(row, true); return; }
+  if (act === 'rename-cancel') { showMajorRename(row, false); return; }
+  const m = majors.find((x) => x.id === row?.dataset.majorId);
   if (!m) return;
-  if (btn.dataset.majorAct === 'rename') await renameMajor(m);
-  else await removeMajor(m);
+  await removeMajor(m);
 }
 
-async function renameMajor(m) {
-  const next = prompt(`เปลี่ยนชื่อสาขา “${m.code}” เป็น`, m.code);
-  if (next == null) return;
-  const code = next.trim();
+/** Swap one row between its label and its rename box. */
+function showMajorRename(row, on) {
+  if (!row) return;
+  const view = row.querySelector('[data-major-view]');
+  const form = row.querySelector('[data-major-rename]');
+  if (view) view.hidden = on;
+  if (form) {
+    form.hidden = !on;
+    // Focus inside the click that opened it — iOS only raises the keyboard for a
+    // focus() that happens during a user gesture, and this is one.
+    if (on) { const i = form.querySelector('input'); i?.focus(); i?.select(); }
+  }
+  // The row's own pencil + trash would otherwise sit beside the ✓/✕ of the box
+  // they opened — four buttons for one row, on a phone.
+  row.querySelectorAll('[data-major-act="rename"], [data-major-act="delete"]')
+    .forEach((b) => { b.hidden = on; });
+}
+
+/** Submit of a row's rename box. `submit` bubbles, so ONE listener on the list
+ *  host covers every row and survives every re-render of its children. */
+async function onMajorsListSubmit(e) {
+  const form = e.target.closest('[data-major-rename]');
+  if (!form) return;
+  e.preventDefault();
+  const row = form.closest('[data-major-id]');
+  const m = majors.find((x) => x.id === row?.dataset.majorId);
+  if (m) await renameMajor(m, form.querySelector('input')?.value ?? '');
+}
+
+async function renameMajor(m, raw) {
+  const code = String(raw || '').trim();
   if (!code || code === m.code) return;
   if (majors.some((x) => x.id !== m.id && majorKey(x.code) === majorKey(code))) {
     alert(`“${code}” อยู่ในรายการแล้ว`);
@@ -2013,8 +2097,12 @@ async function renameMajor(m) {
   }
   let n = 0;
   try { n = await countMembersWithMajor(m.code); } catch { /* shown as unknown below */ }
-  if (!confirm(`เปลี่ยน “${m.code}” เป็น “${code}”\n\n`
-    + `จะแก้ข้อมูลสาขาของสมาชิก ${n} คนด้วย`)) return;
+  if (!await askConfirm({
+    title: `เปลี่ยน “${m.code}” เป็น “${code}” ?`,
+    body: `จะแก้ข้อมูลสาขาของสมาชิก ${n} คนด้วย`,
+    yes: 'เปลี่ยนชื่อ',
+    danger: false,
+  })) return;
   try {
     // The PEOPLE first. If the vocabulary row were renamed first and this failed,
     // the list would say `code` while 348 rows still said `m.code` — i.e. every
@@ -2035,7 +2123,11 @@ async function removeMajor(m) {
     ? `\n\nสมาชิก ${n} คนยังมีสาขา “${m.code}” อยู่ — ข้อมูลของพวกเขาจะไม่เปลี่ยน `
       + 'แต่จะขึ้นว่า “ไม่อยู่ในรายการ” จนกว่าจะแก้ให้เป็นสาขาอื่น'
     : '';
-  if (!confirm(`ลบ “${m.code}” ออกจากรายการสาขา?${warn}`)) return;
+  if (!await askConfirm({
+    title: `ลบ “${m.code}” ออกจากรายการสาขา?`,
+    body: warn || 'ไม่มีสมาชิกคนใดใช้สาขานี้อยู่',
+    yes: 'ลบ',
+  })) return;
   try {
     await deleteMajor(m.id);
     await loadMajors(true);
@@ -2241,10 +2333,14 @@ function wireMemberPermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamMPermVsDept'));
   fillSeatSelect($('teamMPermSeat'));
-  grid?.addEventListener('change', (e) => {
-    if (e.target?.value === 'master') confirmMaster(e.target);
+  grid?.addEventListener('change', async (e) => {
     syncMasterVisibility(grid);
     refreshMemberPermEff();
+    if (e.target?.value === 'master') {
+      await confirmMaster(e.target);
+      syncMasterVisibility(grid);
+      refreshMemberPermEff();
+    }
   });
   $('teamMPermPassDept')?.addEventListener('change', () => {
     fillPassSubSelect($('teamMPermPassSub'), $('teamMPermPassDept').value);
@@ -2338,7 +2434,7 @@ async function onMemberPermSubmit(e) {
   const id = $('teamMPermMemberId').value;
   const m = findMember(id);
   if (!m) return;
-  const grants = readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
+  const grants = await readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
     $('teamMPermPassDept'), $('teamMPermPassSub'), `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
@@ -2816,15 +2912,16 @@ async function runMemberSubmit() {
 async function onDeleteMember(id) {
   const m = findMember(id);
   // A miss here means the DOM row outlived the model it was rendered from — the
-  // click is real, so returning in silence looks exactly like a dead button (it
-  // is one of the two ways this handler can do nothing at all; the other is a
-  // `confirm()` the browser has suppressed). Say so and resync.
+  // click is real, so returning in silence looks exactly like a dead button.
+  // (The other way it used to do nothing — a `confirm()` the browser had
+  // suppressed — is gone: the question below is drawn by this app.) Say so and
+  // resync.
   if (!m) {
     alert('ไม่พบข้อมูลสมาชิกนี้ในหน้าจอปัจจุบัน — กำลังโหลดผังใหม่ แล้วลองอีกครั้ง');
     reload();
     return;
   }
-  if (!confirm(`ลบสมาชิก “${m.full_name}” ?`)) return;
+  if (!await askDelete(m.full_name || 'สมาชิกคนนี้', 'สมาชิกจะถูกนำออกจากผังทีม SAMO')) return;
   const photo = m.photo_url || '';
   const arr = membersByNode.get(m.node_id);
   if (arr) membersByNode.set(m.node_id, arr.filter((x) => x.id !== id));

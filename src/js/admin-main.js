@@ -437,7 +437,29 @@ async function paintAdminMySeat() {
   renderMySeat(host, seat, { compact: true });
 }
 
+/**
+ * May the signed-in account open this section?
+ *
+ * The sidebar hides what you cannot use, and the click delegate skips a hidden
+ * button — but the HASH was never checked. `/admin/#vs` typed (or bookmarked, or
+ * followed from an old link) by an admin whose only grant is `team` ran
+ * `enterVSStaffDashboard()` and painted the VitalSound workspace with no sidebar
+ * entry to leave by. RLS keeps the ROWS empty, so this was never a data leak —
+ * it is a pane that lies about what the account can do, which is the same shape
+ * as "a live-looking ลบ button that 42501s" in the mistakes log.
+ *
+ * Defined so an UNKNOWN section is allowed: `showAdminSide` already falls back
+ * to the landing pane for those, and failing closed here would be a second,
+ * silent place to maintain the section list.
+ */
+function canOpenSection(which) {
+  const feature = SIDE_FEATURE[which];
+  if (feature == null) return true;
+  return userCanAccess(feature, authGetUser());
+}
+
 function showAdminSide(which) {
+  if (!canOpenSection(which)) which = 'landing';
   const meta = SECTION_META[which] || SECTION_META.landing;
 
   // Drop any editor popup state — a section switch always lands on a real
@@ -642,6 +664,10 @@ window.togglePinAnnouncement = async (id) => {
 async function tryCreatorDeepLink(hash) {
   const m = /^creator\/([^/]+)$/.exec(hash);
   if (!m) return false;
+  // Same gate the hash router applies (canOpenSection): report "not routed" so
+  // the caller lands on the section fallback rather than opening the editor for
+  // an account that may not publish.
+  if (!canOpenSection('creator')) return false;
   const id = decodeURIComponent(m[1]);
   showAdminSide('creator');
   try {
@@ -955,6 +981,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let done = false;
     onAuthChange((u) => {
       if (done || !u) return;
+      // An account with no samoshop grant gets nothing here rather than the
+      // orders workspace with an empty modal on top of it. `done` stays false so
+      // a later fire (the account switcher, a permission sync) can still route.
+      if (!userCanAccess('samoshop', u)) return;
       done = true;
       showAdminSide('shop');
       openShopAdminOrder(scanId);

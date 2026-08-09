@@ -62,6 +62,50 @@ The allow-list holds six real globals (`bootstrap`, `Quill`,
 Also removed `teamMemberHouseFillHint` (markup + JS), the dead status line of
 the button 0141 took out. Write-up: `docs/mistakes/frontend-ui.md`.
 
+## SHIPPED 2026-08-09 (scrutiny pass) — the dialog class, closed with a ratchet
+
+An end-to-end review (public entry → admin → ทีม SAMO → ระบบบ้าน → accounts),
+driven in headless Chrome at **390 / 412 / 768 / 1440 px**. Four real defects,
+all fixed:
+
+- **`confirm()` was still control flow in ทีม SAMO** — 13 calls across
+  `team/index.js` + `team/terms.js`, the last modules holding out. The new one
+  this found: **`readPermInputsOrWarn` guards the SAVE path**, so with dialogs
+  suppressed บันทึก on a full `vs` / `passport` grant did nothing at all, no
+  message. The two earlier instances of this class were both deletes, which is
+  why it kept being filed as "the delete button is broken". All now go through
+  `askConfirm`/`askDelete`; `confirmMaster` and `readPermInputsOrWarn` are async
+  and awaited at four call sites. `renameMajor`'s `prompt()` became an input in
+  the row it renames (there is deliberately no `askPrompt`).
+  **Guard: `src/js/native-dialog.test.js` — a RATCHET.** `STILL_NATIVE` lists
+  the five modules that have not been converted (shop/vs/pr/announcements/
+  profile) and the list may only SHRINK; a separate assertion pins the ทีม SAMO
+  / ระบบบ้าน / self-service modules clean.
+- **จัดการรายการสาขา was unusable on a phone** — the rows were 426 px wide inside
+  a 374 px dialog, so the ลบ button rendered OUTSIDE the modal and a สาขา could
+  not be deleted at all on iPhone/Android. Cause: a CSS grid's implicit `auto`
+  track is floored at min-content, so the row grew past its container instead of
+  shrinking. `grid-template-columns: minmax(0, 1fr)` + `flex-wrap`. ⚠️ **The
+  page-level overflow check said everything was fine** — the modal body clipped
+  it. Measure each control against the container that clips it.
+- **`/admin/#vs` opened the VitalSound workspace for an account with no VS
+  grant.** The sidebar hides it and the click delegate skips a hidden button —
+  the HASH was never checked. Same gap on `#creator/<id>` and `?scan=`. RLS kept
+  the rows empty, so this was a pane that lies, not a leak. Now
+  `canOpenSection()` in admin-main.js.
+- `my-house.js` section mode queried `.myhouse-card`, which section mode does not
+  render, so the แจ้งสายรหัสไม่ถูกต้อง button never showed its open state.
+
+Checked and found clean: no page-level horizontal overflow on either entry at
+any of the four widths; `teamMemberModal` / `teamNodeModal` / `teamPickerModal` /
+`houseStudentModal` all fit their content box with no control outside it.
+
+**Not fixed, deliberate design, noted for the owner:** the account switcher
+keeps `refresh_token`s for up to 6 accounts in `localStorage` so a fast switch
+needs no password. `ออกจากระบบ` revokes globally (the stored copy dies with it),
+but "+ เพิ่มบัญชี" signs out with `scope:'local'` on purpose. On a shared
+machine those tokens are replayable until they expire.
+
 ## SHIPPED 2026-08-09 (audit) — 0143 + two containment fixes
 
 - **0143 — the portrait refcount could destroy a file in use.** It counted
@@ -458,10 +502,11 @@ archiving into it saved nothing.
 > Open, none blocking:
 > 1. **Rotate the VM sudo password** and **the KKU SSO client secret** (both were
 >    exposed in chat transcripts on 2026-08-07 / 08-08).
-> 2. **`team/index.js` still has 9 native `confirm()` calls.**
->    `src/js/confirm-modal.js` exists and ระบบบ้าน uses it; converting ทีม SAMO is
->    mechanical. This class shipped a live bug in ระบบบ้าน's ปฏิเสธ button AFTER
->    being listed as an open item.
+>    ~~2. `team/index.js` still has 9 native `confirm()` calls.~~ **DONE** — all
+>    13 (index.js + terms.js) converted, and `src/js/native-dialog.test.js` is
+>    now a ratchet over the whole tree. Five modules remain on the list
+>    (shop/admin.js, vs-staff.js, pr-staff.js, announcements.js, profile.js) and
+>    the test fails if that list grows.
 > 3. **`students.self_edited` is invisible to admins** — not in `STUDENT_COLS`,
 >    not in the CSV export.
 > 4. **`house_settings` is entirely vestigial.** No reader, no writer. Dropping a
