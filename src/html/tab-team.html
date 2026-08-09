@@ -479,9 +479,23 @@
                column: it was never used for anything the app renders, and it
                produced ตรวจสอบข้อมูล "drift" findings nobody had to resolve. -->
           <div class="row g-2">
+            <!-- ชื่อ and นามสกุล are TWO boxes since 0135, matching ระบบบ้าน and the
+                 registry. One box was not a display choice — it was the reason a
+                 name edited here could not reach ระบบบ้าน, because the only way
+                 to turn "สมชาย ณ อยุธยา" into two columns is to guess, and a
+                 guess renames a real person. Nothing splits a stored combined
+                 name: a legacy row shows it in teamMemberNameLegacy below and
+                 acquires the split when a human types one. -->
+            <div class="col-6">
+              <label class="form-label" for="teamMemberFirstName">ชื่อ</label>
+              <input type="text" class="form-control" id="teamMemberFirstName" />
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="teamMemberLastName">นามสกุล</label>
+              <input type="text" class="form-control" id="teamMemberLastName" />
+            </div>
             <div class="col-12">
-              <label class="form-label" for="teamMemberName">ชื่อ-สกุล</label>
-              <input type="text" class="form-control" id="teamMemberName" required />
+              <div class="form-text" id="teamMemberNameLegacy"></div>
             </div>
             <div class="col-6">
               <label class="form-label" for="teamMemberNickname">ชื่อเล่น</label>

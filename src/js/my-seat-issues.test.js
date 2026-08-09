@@ -93,11 +93,15 @@ describe('ownIssues', () => {
     const mail = DETAIL_FIELDS.find((f) => f.key === 'kkumail');
     expect(mail.editable).toBe(false);
     // The editable set must match what team_members_self_update_guard allows
-    // (0110, rewritten in 0113): name, nickname, รหัส, ชั้นปี, สาขา and the photo.
-    // `full_name` was missing here until 0113 — the guard allowed it, the card
-    // showed it, and the form did not offer it.
+    // (0110, rewritten in 0113, extended in 0135): name, nickname, รหัส, ชั้นปี,
+    // สาขา and the photo. `full_name` was missing here until 0113 — the guard
+    // allowed it, the card showed it, and the form did not offer it.
+    //
+    // ชื่อ and นามสกุล replaced the single ชื่อ-สกุล box in 0135. The card no
+    // longer offers `full_name` at all: it is DERIVED from these two, and the
+    // only way to edit it as one string would be to split it again.
     expect(DETAIL_FIELDS.filter((f) => f.editable).map((f) => f.key))
-      .toEqual(['full_name', 'nickname', 'student_id', 'year', 'major']);
+      .toEqual(['first_name_th', 'last_name_th', 'nickname', 'student_id', 'year', 'major']);
     // คำนำหน้า is gone from the schema entirely (0113).
     expect(DETAIL_FIELDS.some((f) => f.key === 'prefix')).toBe(false);
   });

@@ -16,8 +16,20 @@ import {
   normalizeStudentId, normalizeMajor, normalizeYear as normalizeYearField,
 } from './fields.js';
 
+/**
+ * `first_name_th` / `last_name_th` joined `full_name` in 0135, and all three are
+ * exported deliberately.
+ *
+ * `full_name` is DERIVED from the parts wherever they exist, so on a split row
+ * it is redundant — but it is the only name a pre-0135 row has, and an export
+ * that dropped it would round-trip those people into nothing. Both are here and
+ * the importer resolves the precedence in one place (parseMembersCsv): parts
+ * win, `full_name` fills in for the rows that have none, and NOTHING is ever
+ * split on whitespace to manufacture the parts.
+ */
 export const CSV_COLUMNS = [
-  'path', 'full_name', 'nickname', 'student_id', 'year', 'major', 'kkumail', 'confirmed',
+  'path', 'first_name_th', 'last_name_th', 'full_name', 'nickname',
+  'student_id', 'year', 'major', 'kkumail', 'confirmed',
 ];
 
 export const PATH_SEP = ' / ';
@@ -97,7 +109,9 @@ export function buildExportJson(nodes, members) {
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
-      full_name: m.full_name, nickname: m.nickname || null,
+      full_name: m.full_name,
+      first_name_th: m.first_name_th || null, last_name_th: m.last_name_th || null,
+      nickname: m.nickname || null,
       student_id: m.student_id || null, year: m.year || null, major: m.major || null,
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
       photo_url: m.photo_url || null,
@@ -194,13 +208,29 @@ export function parseMembersCsv(text, knownMajors = []) {
     const mj = normalizeMajor(o.major, knownMajors);
     o.major = mj.value;
     o.majorRecognized = mj.ok;
+    // THE NAME, and the one rule that governs every name in this repo: the
+    // PARTS are authoritative and the whole is derived from them; a stored
+    // whole is never cut up to manufacture parts. So a file carrying ชื่อ and
+    // นามสกุล rebuilds full_name here, and a file carrying only ชื่อ-สกุล lands
+    // as a combined name with the parts left empty — exactly the shape a
+    // pre-0135 row already has.
+    if (o.first_name_th || o.last_name_th) {
+      o.full_name = [o.first_name_th, o.last_name_th].filter(Boolean).join(' ');
+    }
     return o;
   }).filter((o) => o.full_name);
 }
 
 const HEADER_ALIASES = {
   path: ['path', 'ตำแหน่ง', 'สังกัด', 'ฝ่าย', 'role', 'สายงาน'],
-  full_name: ['full_name', 'fullname', 'name', 'ชื่อ-สกุล', 'ชื่อสกุล', 'ชื่อ'],
+  // NOTE — `ชื่อ` moved from full_name to first_name_th in 0135, so this module
+  // and house/io.js now read the same Thai header the same way. Before that,
+  // one importer took `ชื่อ` to mean the whole name and the other took it to
+  // mean the given name: one word, two meanings, which is exactly how a file
+  // lands in the wrong column and nobody can tell afterwards.
+  full_name: ['full_name', 'fullname', 'name', 'ชื่อ-สกุล', 'ชื่อสกุล', 'ชื่อ-นามสกุล'],
+  first_name_th: ['first_name_th', 'first_name', 'firstname', 'ชื่อ', 'ชื่อจริง'],
+  last_name_th: ['last_name_th', 'last_name', 'lastname', 'นามสกุล', 'สกุล'],
   nickname: ['nickname', 'ชื่อเล่น'],
   student_id: ['student_id', 'studentid', 'รหัสนักศึกษา', 'รหัส'],
   year: ['year', 'ชั้นปี', 'ปี'],

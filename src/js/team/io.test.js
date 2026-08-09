@@ -161,7 +161,11 @@ describe('buildExportJson round-trip fidelity', () => {
   it('exports every persisted member field', () => {
     const [m] = buildExportJson([], [MEMBER]).members;
     expect(Object.keys(m).sort()).toEqual([
-      'confirmed', 'full_name', 'id', 'inherit_permissions', 'kkumail', 'major',
+      // first_name_th / last_name_th joined in 0135. They are exported BESIDE
+      // full_name, not instead of it: a pre-0135 row has only the combined
+      // name and dropping it would round-trip those people into nothing.
+      'confirmed', 'first_name_th', 'full_name', 'id', 'inherit_permissions',
+      'kkumail', 'last_name_th', 'major',
       'nickname', 'node_id', 'passport_dept_id', 'passport_sub_dept_id',
       'permissions', 'photo_focus', 'photo_url', 'position',
       'project_seat', 'student_id', 'vs_dept', 'year',

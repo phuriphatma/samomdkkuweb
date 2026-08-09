@@ -108,7 +108,8 @@ function rebuildIndexes(nodes, members) {
     membersByNode.get(m.node_id).push(m);
   });
   for (const arr of membersByNode.values()) {
-    arr.sort((a, b) => (a.position - b.position) || a.full_name.localeCompare(b.full_name, 'th'));
+    arr.sort((a, b) => (a.position - b.position)
+      || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'th'));
   }
 }
 
@@ -863,7 +864,8 @@ function rebuildMembersIndex() {
     membersByNode.get(m.node_id).push(m);
   });
   for (const arr of membersByNode.values()) {
-    arr.sort((a, b) => (a.position - b.position) || a.full_name.localeCompare(b.full_name, 'th'));
+    arr.sort((a, b) => (a.position - b.position)
+      || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'th'));
   }
 }
 
@@ -2080,7 +2082,16 @@ async function onFillFromHouse() {
       el.value = value;
       filled.push(label);
     };
-    put('teamMemberName', rec.full_name, 'ชื่อ-สกุล');
+    // The SPLIT, which is what ระบบบ้าน actually holds — filling one combined
+    // box from it and letting the DB re-split was the whole 0135 bug. When the
+    // house record itself has only a combined name (it can: 0126 allows a row
+    // with no name, and the registry inherited 303 combined ones), nothing is
+    // filled and the hint below says so rather than guessing a boundary.
+    put('teamMemberFirstName', rec.first_name, 'ชื่อ');
+    put('teamMemberLastName', rec.last_name, 'นามสกุล');
+    if (!rec.first_name && !rec.last_name && rec.full_name) {
+      kept.push(`ชื่อในระบบบ้านยังไม่ได้แยกช่อง (${rec.full_name}) — กรอกเอง`);
+    }
     put('teamMemberNickname', rec.nickname, 'ชื่อเล่น');
     put('teamMemberStudentId', rec.student_id, 'รหัสนักศึกษา');
     // สาขา is a chooser, so it is set through the same filler the modal uses —
@@ -2259,7 +2270,20 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
   setMemberNode(nid);
-  $('teamMemberName').value = member?.full_name || '';
+  // ชื่อ / นามสกุล, never a split of full_name (0135). A row that predates the
+  // split has empty boxes and its combined name shown beneath them — leaving
+  // them empty keeps that name exactly as it is, and typing a pair replaces it.
+  $('teamMemberFirstName').value = member?.first_name_th || '';
+  $('teamMemberLastName').value = member?.last_name_th || '';
+  const legacyName = $('teamMemberNameLegacy');
+  if (legacyName) {
+    const combined = String(member?.full_name || '').trim();
+    const split = !!(member?.first_name_th || member?.last_name_th);
+    legacyName.textContent = (combined && !split)
+      ? `ชื่อในระบบตอนนี้: ${combined} — กรอกแยกช่องด้านบนเพื่อแก้ไข `
+        + '(ปล่อยว่างไว้ = คงชื่อเดิม ระบบไม่แยกให้เอง เพราะเดาแล้วอาจได้ชื่อผิดตัว)'
+      : '';
+  }
   $('teamMemberNickname').value = member?.nickname || '';
   $('teamMemberStudentId').value = member?.student_id || '';
   const sidHint = $('teamMemberStudentIdHint');
@@ -2292,7 +2316,7 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   // for a grant to hang on, so the สิทธิ์ tab is disabled until they exist.
   if (member) fillMemberPermPane(member.id);
   showTeamModal('teamMemberModal', member ? tab : 'info', !!member);
-  if (tab !== 'perm') setTimeout(() => $('teamMemberName')?.focus(), 250);
+  if (tab !== 'perm') setTimeout(() => $('teamMemberFirstName')?.focus(), 250);
 }
 
 /**
@@ -2413,7 +2437,13 @@ async function uploadPendingPhoto(nodeId) {
     year: currentTermYear || 'unsorted',
     dept: rootDeptName(nodeId),
     order: editing ? (editing.position ?? 0) : membersOf(nodeId).length,
-    name: $('teamMemberName').value.trim() || 'member',
+    // The Drive filename, so a human browsing the folder finds the person.
+    // Composed from the boxes when they are filled; otherwise whatever combined
+    // name the row already carries (a pre-0135 row being edited).
+    name: [$('teamMemberFirstName').value.trim(), $('teamMemberLastName').value.trim()]
+      .filter(Boolean).join(' ')
+      || String(editing?.full_name || '').trim()
+      || 'member',
   });
   // Surface the un-organised fallback instead of hiding it — the file DID
   // upload, but into PR/ with no folder structure, which is the exact thing
@@ -2425,12 +2455,39 @@ async function uploadPendingPhoto(nodeId) {
   return res;
 }
 
+/**
+ * What the two name boxes say, and what that means for the row.
+ *
+ * Three outcomes, and the third is the one worth being careful about:
+ *  • both filled  → the split is authoritative, full_name is derived from it
+ *    (by the DB trigger, 0135 — this returns the same string so the on-screen
+ *    row updates without a refetch);
+ *  • both empty   → leave the name alone entirely. An existing combined name
+ *    survives, which is what makes editing a pre-0135 row's ชั้นปี safe;
+ *  • one filled   → refused. Half a split written over a whole name is how a
+ *    person ends up with no surname, and there is no way to tell later that it
+ *    happened.
+ */
+function readMemberName(existing) {
+  const first = $('teamMemberFirstName').value.trim();
+  const last = $('teamMemberLastName').value.trim();
+  if (!first && !last) {
+    if (String(existing?.full_name || '').trim()) return { keep: true };
+    return { error: 'กรุณากรอกชื่อและนามสกุล', focus: 'teamMemberFirstName' };
+  }
+  if (!first) return { error: 'กรุณากรอกชื่อ', focus: 'teamMemberFirstName' };
+  if (!last) return { error: 'กรุณากรอกนามสกุล', focus: 'teamMemberLastName' };
+  return { first, last, full: `${first} ${last}` };
+}
+
 async function onMemberSubmit(e) {
   e.preventDefault();
   const id = $('teamMemberId').value;
   const nodeId = $('teamMemberNodeId').value;
-  const name = $('teamMemberName').value.trim();
-  if (!name) { $('teamMemberName').focus(); return; }
+  const stored0 = id ? findMember(id) : null;
+  const nm = readMemberName(stored0);
+  if (nm.error) { alert(nm.error); $(nm.focus)?.focus(); return; }
+  const name = nm.keep ? String(stored0?.full_name || '').trim() : nm.full;
   if (!nodeId) { alert('กรุณาเลือกตำแหน่ง'); return; }
 
   // Canonicalise รหัสนักศึกษา / ชั้นปี / สาขา through the one rule module. A
@@ -2438,7 +2495,7 @@ async function onMemberSubmit(e) {
   // because two live rows carry an unfixable legacy id and holding an unrelated
   // nickname edit hostage to somebody else's typo just teaches people to avoid
   // the form.
-  const stored = id ? findMember(id) : null;
+  const stored = stored0;
   const typedSid = $('teamMemberStudentId').value;
   const fields = normalizeIdentityFields({
     student_id: typedSid,
@@ -2453,7 +2510,12 @@ async function onMemberSubmit(e) {
   }
 
   const payload = {
-    full_name: name,
+    // `keep` sends NOTHING about the name — not even full_name — so a legacy
+    // combined row edited for its ชั้นปี is not rewritten with a value this
+    // form composed. The DB derives full_name from the parts when they are
+    // sent (0135); it is sent here too so the on-screen row updates without a
+    // refetch, and the two can only agree because both are `first + ' ' + last`.
+    ...(nm.keep ? {} : { first_name_th: nm.first, last_name_th: nm.last, full_name: name }),
     nickname: $('teamMemberNickname').value.trim() || null,
     student_id: fields.student_id,
     year: fields.year,
@@ -2756,7 +2818,11 @@ async function importJson(data) {
     if (m.kkumail && !isLikelyEmail(m.kkumail)) report.warnings.push(`${who}: อีเมลอาจไม่ถูกต้อง (${m.kkumail})`);
     await createMember({
       node_id: newNode, position: m.position ?? 0,
-      full_name: who, nickname: m.nickname || null, student_id: m.student_id || null,
+      full_name: who,
+      // Carried through the round trip, never reconstructed. A row exported
+      // without the split comes back without it (0135).
+      first_name_th: m.first_name_th || null, last_name_th: m.last_name_th || null,
+      nickname: m.nickname || null, student_id: m.student_id || null,
       year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
       // Restore the portrait too. Omitting these is not a no-op — it is data
@@ -2777,17 +2843,27 @@ async function importJson(data) {
 }
 
 const DIFF_FIELDS = [
-  ['full_name', 'ชื่อ-สกุล'], ['nickname', 'ชื่อเล่น'],
+  ['full_name', 'ชื่อ-สกุล'], ['first_name_th', 'ชื่อ'], ['last_name_th', 'นามสกุล'],
+  ['nickname', 'ชื่อเล่น'],
   ['student_id', 'รหัส'], ['year', 'ชั้นปี'], ['major', 'สาขา'],
   ['kkumail', 'KKU Mail'], ['confirmed', 'ยืนยัน'],
 ];
 
 function rowFields(r) {
-  return {
+  const out = {
     full_name: r.full_name, nickname: r.nickname || null,
     student_id: r.student_id || null, year: r.year || null, major: r.major || null,
     kkumail: r.kkumail || null, confirmed: !!r.confirmed,
   };
+  // ONLY when the file carried them. Sending `first_name_th: null` for a file
+  // that has no ชื่อ column would clear the split on every row it touches —
+  // "an upsert that sends EVERY column wipes the ones the file did not have",
+  // which this repo has already paid for once on the house import.
+  if (r.first_name_th || r.last_name_th) {
+    out.first_name_th = r.first_name_th || null;
+    out.last_name_th = r.last_name_th || null;
+  }
+  return out;
 }
 
 /** Resolve a name path to an existing node WITHOUT creating anything. */
@@ -2804,6 +2880,11 @@ function resolvePathReadOnly(segs) {
 function memberDiff(existing, fields) {
   const out = [];
   for (const [k, label] of DIFF_FIELDS) {
+    // A field the file did not carry is not a change to nothing — it is a
+    // field this import will not write (see rowFields). Diffing it would show
+    // "ชื่อ: สมชาย → —" for a file that simply has no ชื่อ column, which is a
+    // preview promising a deletion that will not happen.
+    if (!(k in fields)) continue;
     const a = k === 'confirmed' ? !!existing[k] : (existing[k] || '');
     const b = k === 'confirmed' ? !!fields[k] : (fields[k] || '');
     if (String(a) !== String(b)) out.push({ field: k, label, old: a, new: b });

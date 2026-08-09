@@ -174,11 +174,15 @@ function scopeRows(seat) {
  *  whose rows disagree gets a `drift` finding below saying exactly that, so
  *  picking one here is safe: the card never silently hides the disagreement. */
 export const DETAIL_FIELDS = [
-  // ชื่อ-สกุล is editable and was missing until now, which made the card's own
-  // promise false: the admin guard (0110) has always allowed a person to fix
-  // their own name, the header shows it, and the form quietly did not offer it —
-  // so "แก้ไขข้อมูลของฉัน" could not fix the single most visible field.
-  { key: 'full_name', label: 'ชื่อ-สกุล', editable: true, wide: true },
+  // ชื่อ and นามสกุล are TWO fields since 0135, and that is a correctness fix,
+  // not a layout one. This card used to offer one ชื่อ-สกุล box and then split
+  // its value on whitespace on the way to ระบบบ้าน — so a person whose record
+  // correctly read first="สมชาย ใจดี" last="ดีมาก" had it rewritten to
+  // first="สมชาย" last="ใจดี ดีมาก" the first time they saved anything at all,
+  // with `self_edited` then claiming they had chosen it. It is the same guess
+  // the CSV importer refuses a whole file for making.
+  { key: 'first_name_th', label: 'ชื่อ', editable: true },
+  { key: 'last_name_th', label: 'นามสกุล', editable: true },
   { key: 'nickname', label: 'ชื่อเล่น', editable: true },
   { key: 'student_id', label: 'รหัสนักศึกษา', editable: true, hint: SID_HINT },
   // Choosers, for the same reason the admin form has them: ปี5 / 5 / "5 " and
@@ -261,7 +265,12 @@ export function ownIssues(seat) {
     });
   }
 
-  const missing = DETAIL_FIELDS
+  // NOTE the `displayFields` call: for a posting that has only a combined name,
+  // ชื่อ and นามสกุล are not "ยังไม่ได้กรอก" — they are a shape this app has not
+  // asked that person for yet, and 399 members acquired their name before the
+  // split existed. Nagging all of them for a field they cannot see would make
+  // the findings list useless for the things it is actually for.
+  const missing = displayFields(first)
     .filter((f) => !String(first[f.key] ?? '').trim())
     .map((f) => f.label);
   if (missing.length) {
@@ -316,8 +325,27 @@ function postingHtml(p) {
     </li>`;
 }
 
+/**
+ * The fields to DISPLAY for this person — which is not quite the list to EDIT.
+ *
+ * A posting created before 0135 has only a combined `full_name`, and showing it
+ * against two empty ชื่อ / นามสกุล rows would report "ยังไม่ได้กรอก" directly
+ * underneath a header printing the person's name. So the read view shows the
+ * shape the row actually has: the split where there is one, the combined name
+ * where that is all there is. The EDIT form always offers the two boxes —
+ * that is how a row acquires the split, and the only way it ever should.
+ */
+export function displayFields(p) {
+  const hasSplit = !!(String(p?.first_name_th ?? '').trim() || String(p?.last_name_th ?? '').trim());
+  if (hasSplit || !String(p?.full_name ?? '').trim()) return DETAIL_FIELDS;
+  return [
+    { key: 'full_name', label: 'ชื่อ-สกุล', wide: true },
+    ...DETAIL_FIELDS.filter((f) => f.key !== 'first_name_th' && f.key !== 'last_name_th'),
+  ];
+}
+
 function detailsHtml(p) {
-  const rows = DETAIL_FIELDS.map((f) => {
+  const rows = displayFields(p).map((f) => {
     const v = String(p[f.key] ?? '').trim();
     return `<div class="myseat-detail${v ? '' : ' is-empty'}${f.wide ? ' is-wide' : ''}">
       <dt>${escHtml(f.label)}</dt>
@@ -434,6 +462,14 @@ function editFormHtml(p) {
       <div class="myseat-fields">
         ${DETAIL_FIELDS.filter((f) => f.editable).map(field).join('')}
       </div>
+      ${(!String(p.first_name_th ?? '').trim() && !String(p.last_name_th ?? '').trim()
+        && String(p.full_name ?? '').trim())
+        ? `<p class="myseat-field-hint myseat-name-legacy">ชื่อในระบบตอนนี้:
+             <strong>${escHtml(String(p.full_name).trim())}</strong> —
+             ระบบไม่แยกชื่อกับนามสกุลให้เอง เพราะนามสกุลไทยมีเว้นวรรคได้
+             (เช่น “ณ อยุธยา”) ถ้าเดาอาจได้ชื่อผิด
+             กรอกแยกช่องด้านบนได้เลย หรือปล่อยว่างไว้เพื่อใช้ชื่อเดิม</p>`
+        : ''}
       <label class="myseat-field myseat-field--locked is-wide">
         <span>KKU Mail</span>
         <input type="text" value="${escHtml(String(p.kkumail ?? ''))}" readonly />
@@ -648,19 +684,46 @@ function wireSelfEdit(host, seat) {
       return;
     }
 
+    // THE NAME, as two fields (0135). Three cases, and the third is the one the
+    // old single-box version got wrong:
+    //  • both filled → the split is what gets written, everywhere;
+    //  • both empty  → the row keeps whatever name it has. A pre-0135 posting
+    //    carries only a combined `full_name` and nothing here may cut it up, so
+    //    a person editing their ชื่อเล่น must not be forced to invent a boundary;
+    //  • one filled  → refused, because half a split written over a whole name
+    //    leaves someone with no surname and no trace of how.
+    const firstName = raw.first_name_th || '';
+    const lastName = raw.last_name_th || '';
+    const hadName = !!String(me.full_name ?? '').trim();
+    if (firstName && !lastName) {
+      if (status) status.textContent = 'กรุณากรอกนามสกุล';
+      form.querySelector('[name="last_name_th"]')?.focus();
+      return;
+    }
+    if (lastName && !firstName) {
+      if (status) status.textContent = 'กรุณากรอกชื่อ';
+      form.querySelector('[name="first_name_th"]')?.focus();
+      return;
+    }
+    if (!firstName && !lastName && !hadName) {
+      if (status) status.textContent = 'กรุณากรอกชื่อและนามสกุล';
+      form.querySelector('[name="first_name_th"]')?.focus();
+      return;
+    }
+
     const body = {
-      full_name: raw.full_name || null,
       nickname: raw.nickname || null,
       student_id: fields.student_id,
       year: fields.year,
       major: fields.major,
     };
-    // ชื่อ-สกุล is NOT NULL on the table; an empty box would 23502 with a message
-    // nobody can read, so say it in Thai instead.
-    if (!body.full_name) {
-      if (status) status.textContent = 'กรุณากรอกชื่อ-สกุล';
-      form.querySelector('[name="full_name"]')?.focus();
-      return;
+    if (firstName || lastName) {
+      body.first_name_th = firstName || null;
+      body.last_name_th = lastName || null;
+      // Sent so the on-screen row updates without a refetch. The DB derives the
+      // same string from the same two parts (team_members_sync_full_name), so
+      // these cannot disagree — it is a join, not a second rule.
+      body.full_name = `${firstName} ${lastName}`.trim();
     }
 
     const btn = form.querySelector('.myseat-save');
@@ -711,19 +774,24 @@ function wireSelfEdit(host, seat) {
       // failed. `update_my_identity` resolves the caller from auth.uid() and is
       // a no-op when there is no students row.
       try {
-        const [first, ...rest] = String(body.full_name || '').trim().split(/\s+/);
         await dbRest('/rpc/update_my_identity', {
           method: 'POST',
           body: {
             p_patch: {
-              // Only what ระบบบ้าน also holds. `full_name` is split here ONLY
-              // because ทีม SAMO stores one column and the RPC needs two; the
-              // server prefers the students row's own split when it has one, so
-              // this guess never overwrites a real ชื่อ/นามสกุล pair.
+              // Only what ระบบบ้าน also holds — and the NAME travels as the two
+              // parts the person typed. It used to be reconstructed here by
+              // splitting `full_name` on whitespace, which rewrote the ชื่อ /
+              // นามสกุล of anyone whose real name did not have exactly one
+              // space in it (0135). Nothing splits a name any more; a person
+              // who has not supplied a split simply does not send one, and the
+              // keys are absent rather than empty so the RPC leaves the stored
+              // pair alone (an absent key means "keep", 0126).
               nickname_self: body.nickname ?? '',
               student_id: body.student_id ?? '',
               major: body.major ?? '',
-              ...(rest.length ? { first_name_th: first, last_name_th: rest.join(' ') } : {}),
+              ...(body.first_name_th
+                ? { first_name_th: body.first_name_th, last_name_th: body.last_name_th }
+                : {}),
             },
           },
         });

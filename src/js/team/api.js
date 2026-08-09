@@ -125,7 +125,13 @@ export async function deleteNode(id) {
 
 export async function createMember(row) {
   if (!row?.node_id) throw new Error('ต้องระบุตำแหน่งของสมาชิก');
-  if (!row?.full_name?.trim()) throw new Error('ต้องระบุชื่อ-สกุล');
+  // 0135 dropped `full_name`'s NOT NULL so the mirrors can carry a nameless
+  // registry row without raising a 23502 from inside a trigger. The refusal
+  // moved HERE, where it can say something a human can read — a new member
+  // still needs a name, and the form asks for it as ชื่อ + นามสกุล.
+  if (!row?.full_name?.trim() && !row?.first_name_th?.trim()) {
+    throw new Error('ต้องระบุชื่อ-สกุล');
+  }
   const { data, error } = await dbRest('/team_members', {
     method: 'POST',
     body: row,
