@@ -203,7 +203,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(37 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(38 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -242,6 +242,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
 - "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
 - Adding an `await` before the modal closes re-opened a double-submit window
+- "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block sitting next to it
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*

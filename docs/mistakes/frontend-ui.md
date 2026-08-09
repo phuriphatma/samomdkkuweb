@@ -1162,3 +1162,62 @@ answer to "save this form again while it is saving" is nothing.
 explicitly. "There is no await before the close" is a precondition, not a
 design — the next person to add a confirmation will not know they are removing
 it.
+
+---
+
+## "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block sitting next to it
+
+**Symptom**: two reports, one session, on iPad AND desktop. (1) In `/admin/`
+ทีม SAMO, the **เพิ่มสมาชิก** button did nothing at all — no modal, no message,
+no alert. (2) The **ค้นหาคนจากระบบ** box in the member editor never showed a
+suggestion. Nothing in the build or the 552 tests was red.
+
+**Cause**: migration 0141's commit removed the "ดึงจากระบบบ้าน" button, whose
+handler `onFillFromHouse` lived in `team/index.js`. The deletion ran past the
+end of that function and took the **next 95 lines** with it — the 0137 person
+picker: `personSearchToken` / `personSearchTimer` / `personSearchHits` and the
+two renderers `renderPersonResults()` / `pickPerson()`. Every CALL site stayed.
+
+Five free identifiers, two symptoms:
+
+- `fillMemberModal` resets the picker on open (`personSearchToken += 1`). That
+  line is a `ReferenceError`, thrown while **preparing** the dialog — so the
+  modal never got shown, on every path into it. A silent nothing.
+- the search input's handler touches `personSearchTimer` on the first keystroke
+  and dies before it ever queries.
+
+Nothing in this repo could see it. Vite/Rollup do not resolve free identifiers
+— an unknown name is assumed to be a global — and there is no linter. The
+symptom only exists at runtime, in a signed-in admin pane that no test drives.
+
+Two containment fixes shipped first and neither was the cure, which is itself
+worth recording: splitting `openMemberModal` into open-then-fill, and wrapping
+each of `initTeam`'s ten `wire*()` calls in its own try/catch. Both were right
+(the modal now opens half-filled instead of not at all, and one broken wire-up
+no longer kills the tree delegation eight lines later) — but they turned a dead
+button into a degraded one. **Containment that makes a failure visible is not a
+diagnosis; the console line it adds is.**
+
+**Fix**: restore the deleted block verbatim. Then the mechanism, because the
+comment version of this rule ("check what you are deleting next to") is exactly
+the kind nobody reads: `src/js/undefined-refs.test.js` parses every module with
+`rollup/parseAst` and fails the build on any identifier that is read but bound
+nowhere in its file and is not a global. The binding scan is whole-file and
+over-approximate on purpose — shadowing and hoisting become non-issues, and a
+guard that never cries wolf is one that survives. It found the five names and
+six real vendor/browser globals (`bootstrap`, `Quill`, `createImageBitmap`),
+which are now an explicit allow-list.
+
+Also removed: `teamMemberHouseFillHint`, the removed button's status line, left
+behind in both the markup and `fillMemberModal` — the same partial-deletion
+class, in the harmless direction.
+
+**Where it lives now**: `src/js/team/index.js` (the restored
+`// ---- the person picker (0137)` block) · `src/js/undefined-refs.test.js` ·
+`src/html/tab-team.html`.
+
+**Rule**: a delete is an edit to its NEIGHBOURS. And when a language will not
+tell you that a name resolves to nothing, make the build tell you — this repo
+has now paid twice in one week for a removal that took an unrelated neighbour
+with it (`485478f` deleted Drive files it thought were unused; this one deleted
+code it thought was part of what it was removing).

@@ -5,9 +5,7 @@ RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
 
-**🔴 START WITH `## OPEN BUG — START HERE`, immediately below.** A live admin
-button is broken and the diagnosis is one console line away. Then the
-`## NEXT-SESSION PROMPT` at the BOTTOM of this file.** It
+**Start with the `## NEXT-SESSION PROMPT` at the BOTTOM of this file.** It
 carries the two things that change what you do first — the owner's pending bug
 list, and the fact that none of the admin UI has been browser-verified — plus
 the registry model, the signatures that changed, and the next work in order.
@@ -33,40 +31,36 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
-## 🔴 OPEN BUG — START HERE (2026-08-09, end of session)
+## ✅ CLOSED 2026-08-09 (late) — the เพิ่มสมาชิก bug: one deletion, two symptoms
 
-**REPORTED, NOT ROOT-CAUSED:** in `/admin/` ทีม SAMO, the **เพิ่มสมาชิก button
-(`data-act="add-member"`, the `bi-person-plus` icon) does nothing** — no modal,
-no message — on **iPad AND desktop**. Same session: **ค้นหาคนจากระบบ shows no
-suggestions.**
+**Root cause found and fixed.** The 0141 commit (`e443fbe`) removed
+"ดึงจากระบบบ้าน" and its deletion ran 95 lines past the end of
+`onFillFromHouse`, taking the **0137 person picker** with it —
+`personSearchToken` / `personSearchTimer` / `personSearchHits` and the two
+renderers `renderPersonResults()` / `pickPerson()`. Every CALL site stayed.
 
-**Two containment fixes are DEPLOYED. Neither is the cure:**
-- `54d2c5f` — `openMemberModal` splits into `openMemberModal` (opens the modal
-  unconditionally) + `fillMemberModal` (wrapped in try/catch). Worst case is now
-  a half-filled form, not a dead button.
-- `dbd8312` — `init()`'s ten `wire*()` calls each run in their own try/catch.
-  **This is the most likely explanation of BOTH symptoms**: they were ten bare
-  statements, and `wireTreeDelegation()` — the ONE click handler behind every
-  button in the tree — is eighth. A throw in any earlier wire-up killed it and
-  everything after, silently. A dead tree is indistinguishable from a missing
-  handler.
+Five free identifiers, both reported symptoms:
+- `fillMemberModal` resets the picker on open (`personSearchToken += 1`) → a
+  `ReferenceError` thrown while PREPARING the dialog → **เพิ่มสมาชิก opened
+  nothing and said nothing**, on every device and every path into the modal.
+- the search input handler touches `personSearchTimer` on the first keystroke →
+  **ค้นหาคนจากระบบ never showed a suggestion.**
 
-**HOW TO FINISH IT (do this first, it should be quick now):**
-1. Open `/admin/#team` with the console up. The wire-up loop now logs
-   `[team] wire <name> failed:` — **that name is the bug.** The modal prefill
-   logs `[team] member modal prefill failed:`.
-2. Ruled out already: the served markup DOES carry `teamMemberFirstName` /
-   `teamMemberLastName` / `teamMemberSearch`; `cohortFromStudentId(undefined)`,
-   `studyYear({student_id: undefined})` and `suggestNameSplit('')` all return
-   `null` cleanly; the tree's click delegation has no `dragging` guard; Sortable
-   is handle-scoped.
-3. Suspects not yet checked: `searchPeople` failing at runtime (the hint text
-   would say so — LOOK AT IT), and anything in `wireMemberPermModal` /
-   `wirePermModal` (they run BEFORE `wireTreeDelegation`).
+The two containment fixes (`54d2c5f`, `dbd8312`) were both right and neither was
+the cure — they turned a dead button into a degraded one. **The block is
+restored verbatim.**
 
-**If it turns out the search RPC is the problem**, `search_people` is gated on
-`team`/`team_edit`/`house`/vp_admin/dev and was proved 14/14 by
-`node tools/team0137-search.mjs` — so check the CLIENT call, not the RPC.
+**The mechanism that would have caught it, and now does:**
+`src/js/undefined-refs.test.js` parses every module with `rollup/parseAst` and
+fails the build on any identifier read but bound nowhere in its file. Proven
+both directions — it names all five on the pre-fix tree and is clean after.
+Vite/Rollup treat an unknown name as a global and this repo has no linter, so
+this was previously **invisible to `npm run build` and to all 552 tests**.
+The allow-list holds six real globals (`bootstrap`, `Quill`,
+`createImageBitmap`, …); add to it only for a genuine global.
+
+Also removed `teamMemberHouseFillHint` (markup + JS), the dead status line of
+the button 0141 took out. Write-up: `docs/mistakes/frontend-ui.md`.
 
 ## SHIPPED 2026-08-09 (audit) — 0143 + two containment fixes
 
@@ -381,18 +375,16 @@ archiving into it saved nothing.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-09)
 
-> ⚠️ **FIRST: read `## OPEN BUG — START HERE` at the TOP of this file.** The
-> เพิ่มสมาชิก button in ทีม SAMO admin does nothing, on every device. Two
-> containment fixes are deployed and the wire-up loop now NAMES the failing
-> piece in the console — open `/admin/#team`, read the log, fix that. Nothing
-> else matters until it is closed.
+> ✅ The เพิ่มสมาชิก / ค้นหาคนจากระบบ bug is **CLOSED** — see the top of this
+> file. One deletion took its neighbour with it; `src/js/undefined-refs.test.js`
+> now fails the build on any identifier that resolves to nothing.
 >
-> ⚠️ **SECOND: the owner tests live and reports in bursts.** Nine bugs came in
+> ⚠️ **FIRST: the owner tests live and reports in bursts.** Nine bugs came in
 > this way on 2026-08-09, several in code shipped hours earlier. Expect the
 > opening message to be a list, not a task, and treat their report as the test
 > pass this repo does not have.
 >
-> ⚠️ **SECOND: none of the ADMIN UI shipped on 2026-08-08/09 has ever been seen
+> ⚠️ **SECOND: almost none of the ADMIN UI shipped on 2026-08-08/09 has been seen
 > in a signed-in browser.** The request queue, the นักศึกษา filters, the import
 > preview table, the สาย/อาจารย์ modal, the admin landing cards and the
 > ชั้นปี choosers were verified by unit tests, live DB proofs and greps of the
