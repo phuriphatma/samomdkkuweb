@@ -1126,3 +1126,39 @@ applying one somewhere new, ask which of its preconditions actually hold here.
 and the right one depends on whether a human is present to review. (3) An
 editor that opens with an empty field the user can see filled elsewhere will be
 reported as data loss, correctly.
+
+---
+
+## Adding an `await` before the modal closes re-opened a double-submit window
+
+**Symptom**: found by audit, same session it was introduced. Pressing บันทึก
+twice on a NEW ทีม SAMO member could create the person twice.
+
+**Cause**: `onMemberSubmit` disabled the submit button only inside its
+`if (memberPhotoPending)` branch. That was safe for a reason nobody had written
+down — with no photo there was no `await` between the submit event and
+`modalInstance(...).hide()`, so there was no window to click in. Adding the
+ชื่อ/นามสกุล confirmation put an `await askConfirm(...)` **before** the hide,
+with the modal open and the button live. Two presses, two dialogs, two
+`createMember` calls.
+
+The precondition was invisible: the safety came from the absence of an await,
+which is not something a reader thinks to preserve.
+
+**Fix**: a wrapper that disables the button and drops re-entrant submits, with a
+`finally` that restores it. The photo branch's inner `finally` now restores only
+the LABEL — re-enabling `disabled` there would have re-opened the window for the
+rest of the save.
+
+Dropping the second press is right here and is NOT the "a busy flag that returns
+early silently discards the second action" trap in this file: that is about two
+DIFFERENT actions being collapsed. This is the same submit twice, and the honest
+answer to "save this form again while it is saving" is nothing.
+
+**Where it lives now**: `src/js/team/index.js` (`onMemberSubmit` /
+`runMemberSubmit`).
+
+**Rule**: any handler that ends in a mutation must own its busy state
+explicitly. "There is no await before the close" is a precondition, not a
+design — the next person to add a confirmation will not know they are removing
+it.

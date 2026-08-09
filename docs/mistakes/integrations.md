@@ -614,3 +614,60 @@ because the manual says it is. (3) A related trap found in the same session: the
 secret is right or wrong, so it looked like a credential check and was not — a
 probe that returns one answer for every input is evidence of nothing (the
 "test BOTH directions" class).
+
+---
+
+## A refcount is only as true as its list of referrers — and a client-side one cannot see past RLS
+
+**Symptom**: none reported. Found by auditing the photo path after the person
+registry shipped. Measured on a rollback transaction: delete a ทีม SAMO member
+whose portrait had mirrored to the registry, and
+
+```
+count the app checks (team_members + team_archive_members) : 0
+people   still points at the file                          : 1
+students still points at the file                          : 1
+```
+
+so `deleteTeamPhotoIfUnused` trashed the Drive file and left the person's own
+card and ระบบบ้าน showing a broken image, permanently, from a cleanup that
+believed nothing referenced it.
+
+**Cause, part one**: the list was complete when it was written. `team_members` +
+`team_archive_members` covered every holder of a `photo_url` until 0132 gave
+`people` one and its mirror copied the same URL down to `students`. Adding a new
+holder of a value silently makes every existing count wrong, and nothing about
+the counting code looks stale.
+
+**Cause, part two, and the reason the obvious fix is worse than nothing**:
+querying the extra tables from the browser does not work.
+
+```
+students_admin_all  →  house / vp_admin / dev
+advisors_admin_all  →  house / vp_admin / dev
+people_read         →  team / team_edit / house / vp_admin / dev
+```
+
+The admin who deletes ทีม SAMO members holds `team_edit`, not `house`. **RLS does
+not raise — it returns zero rows.** So for exactly the caller who triggers this
+cleanup, the added queries answer "no references", which is indistinguishable
+from the truth, and the file is deleted anyway. This is the read-side twin of
+"RLS does not RAISE on UPDATE/DELETE" in `tooling-proofs.md`.
+
+**Fix**: `photo_reference_count(url)` — SECURITY DEFINER, counts all five tables
+with the owner's rights, returns an integer. It leaks nothing: the caller
+already holds the URL and is asking whether they may delete the file. Every
+ambiguous input is pinned to the safe direction — a blank URL answers **1**, and
+the client deletes only on a definite numeric zero (`!Number.isFinite(refs) ||
+refs !== 0` keeps the file).
+
+**Where it lives now**: `supabase/migrations/0143_a_refcount_the_caller_cannot_undercount.sql`,
+`src/js/team/api.js`, `src/js/photo-refcount.test.js` (scans the migration DDL
+for every table given a `photo_url` and fails if the count omits one),
+`tools/team0143-photo-refcount.mjs` (5/5).
+
+**Rules**: (1) A refcount must name every referrer, and adding a column that
+holds a foreign id means auditing every count of it. (2) **Never do a refcount
+in the client when RLS can hide a referrer** — a blocked read is zero rows, not
+an error, and the resulting undercount deletes data. (3) Pin every ambiguous
+answer to the direction that keeps the file.

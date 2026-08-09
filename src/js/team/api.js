@@ -40,19 +40,38 @@ export async function deleteTeamPhotoIfUnused(photoUrl) {
   const url = String(photoUrl || '').trim();
   if (!url) return false;
   try {
-    const q = `photo_url=eq.${encodeURIComponent(url)}&select=id&limit=1`;
-    const [live, archived] = await Promise.all([
-      dbRest(`/team_members?${q}`),
-      dbRest(`/team_archive_members?${q}`),
-    ]);
+    // ONE SERVER-SIDE COUNT, across all five tables that hold a photo_url
+    // (migration 0143). It used to be two REST queries from here, and both
+    // halves of that were wrong:
+    //
+    //  • the LIST was stale. `team_members` + `team_archive_members` was
+    //    complete until 0132 gave `people` a photo_url and its mirror copied
+    //    the same URL to `students`. Measured: deleting a member whose portrait
+    //    had mirrored counted 0 while two other tables still pointed at the
+    //    file, so it was trashed and both cards showed a broken image.
+    //
+    //  • and querying the extra tables from HERE cannot fix it. `students` and
+    //    `advisors` are readable only with `house`; the admin who deletes
+    //    ทีม SAMO members holds `team_edit`. RLS does not raise — it returns
+    //    ZERO ROWS — so for exactly the caller who triggers this cleanup the
+    //    extra queries would have answered "no references" and deleted the file
+    //    anyway. A fail-open that looks identical to the truth.
+    //
+    // The definer counts what the caller cannot see and returns an integer,
+    // which leaks nothing: they already hold the URL.
+    const { data, error } = await dbRest('/rpc/photo_reference_count', {
+      method: 'POST', body: { p_url: url },
+    });
     // A failed count must NOT be read as "no references" — that is the
-    // fail-open shape this repo keeps getting bitten by. Skip the delete.
-    if (live.error || archived.error) {
+    // fail-open shape this repo keeps getting bitten by. Keep the file.
+    if (error) {
       console.warn('[team/api] photo ref-count failed, keeping the file');
       return false;
     }
-    const refs = (live.data?.length || 0) + (archived.data?.length || 0);
-    if (refs > 0) return false;
+    const refs = Number(data);
+    // NOT `refs > 0`. A non-numeric answer (null, undefined, a shape change on
+    // the server) must also keep the file — only a definite zero may delete.
+    if (!Number.isFinite(refs) || refs !== 0) return false;
     return await deleteTeamFile(url);
   } catch (e) {
     console.warn('[team/api] deleteTeamPhotoIfUnused failed:', e);

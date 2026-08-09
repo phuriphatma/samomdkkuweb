@@ -2516,8 +2516,40 @@ function readMemberName(existing) {
   return { first, last, full: `${first} ${last}` };
 }
 
+/**
+ * ONE submit at a time.
+ *
+ * THE BUG THIS CLOSES, which I opened today. `onMemberSubmit` disabled the
+ * button only inside the `if (memberPhotoPending)` branch, and everything else
+ * ran straight through to `modalInstance(...).hide()` with no await in between —
+ * so there was no window to click twice in. Then the ชื่อ/นามสกุล confirmation
+ * (0141) put an `await askConfirm(...)` BEFORE the hide, with the modal still
+ * open and บันทึก still live. Two presses → two dialogs → for a NEW member, two
+ * `createMember` calls and two rows for one person.
+ *
+ * DROPPING the second press is correct here, and is not the "a busy flag that
+ * returns early silently discards the second action" trap in mistakes.md: that
+ * entry is about two DIFFERENT actions being collapsed. This is the same submit
+ * twice, and the honest answer to "save this form again while it is saving" is
+ * nothing.
+ */
+let memberSubmitting = false;
+
 async function onMemberSubmit(e) {
   e.preventDefault();
+  if (memberSubmitting) return;
+  memberSubmitting = true;
+  const busyBtn = $('teamMemberModalSave');
+  if (busyBtn) busyBtn.disabled = true;
+  try {
+    await runMemberSubmit();
+  } finally {
+    memberSubmitting = false;
+    if (busyBtn) busyBtn.disabled = false;
+  }
+}
+
+async function runMemberSubmit() {
   const id = $('teamMemberId').value;
   const nodeId = $('teamMemberNodeId').value;
   const stored0 = id ? findMember(id) : null;
@@ -2607,7 +2639,9 @@ async function onMemberSubmit(e) {
       if (hint) hint.textContent = 'อัปโหลดไม่สำเร็จ — ลองกดบันทึกอีกครั้ง หรือเลือกรูปใหม่';
       return;   // nothing saved, nothing uploaded, the pick is still pending
     } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = label; }
+      // Label only — the wrapper owns `disabled` now, and re-enabling here
+      // would re-open the double-submit window for the rest of the save.
+      if (submitBtn) submitBtn.textContent = label;
     }
   }
 

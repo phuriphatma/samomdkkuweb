@@ -203,7 +203,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(36 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(37 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -241,6 +241,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
 - "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
+- Adding an `await` before the modal closes re-opened a double-submit window
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*
@@ -261,7 +262,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An INSERT is a write path too — the import guard covered UPDATE only
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
-*Open when:* notify, GAS handlers, Drive URLs. *(17 entries)*
+*Open when:* notify, GAS handlers, Drive URLs. *(18 entries)*
 
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
 - Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
@@ -280,6 +281,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
 - `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
 - A vendor manual's field list is not the contract
+- A refcount is only as true as its list of referrers — and a client-side one cannot see past RLS
 
 ### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
 *Open when:* deploy.sh, nginx, cache headers. *(7 entries)*

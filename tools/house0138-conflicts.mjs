@@ -226,8 +226,13 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub',(select uid::text from hadmin),'role','authenticated')::text, true);
   set local role authenticated;
+  -- KEYS CHANGED IN 0142. 'self_edited' was a separate tally that could exceed
+  -- the number of humans; there is now ONE definition of 'checked' (confirmed
+  -- OR self-edited) shared by the summary and the per-person list, so the count
+  -- and the list can no longer describe different populations.
   select case when public.identity_check_summary()
-                   ?& array['people','confirmed','self_edited','open_conflicts','resolved']
+                   ?& array['people','checked','confirmed','unchecked',
+                            'open_conflicts','resolved']
               then 'yes' else 'no' end into v;
   -- The ALLOW half of the table's RLS. Without it D3 ('a stranger sees 0')
   -- passes just as happily against a table nobody can read at all.
