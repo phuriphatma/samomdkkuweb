@@ -37,6 +37,43 @@ export const SID_HINT = `รูปแบบ ${SID_PLACEHOLDER} (พิมพ์�
  *  the next intake straight back to free text. */
 export const YEARS = ['1', '2', '3', '4', '5', '6'];
 
+/**
+ * A SUGGESTED ชื่อ / นามสกุล split for a row that has only a combined name.
+ *
+ * ⚠️ READ THIS BEFORE USING IT. This repo's standing rule is that nothing splits
+ * a stored name — `house/io.js` refuses an entire CSV rather than guess, and
+ * `name-split.test.js` fails the build on any module that reconstructs a split
+ * from a combined string. This function is the ONE exception, and it is an
+ * exception to the MECHANISM, not to the rule:
+ *
+ *   the rule is "no unreviewed guess is ever written".
+ *
+ * A CSV import has no human in the loop for 1,800 rows, so there the only safe
+ * answer is to refuse. A member form has exactly one admin looking at exactly
+ * one person, with the stored name printed beside the boxes — so there the safe
+ * answer is to OFFER the split and let them correct it. Leaving the boxes blank
+ * (the first attempt) was neither: it read as data loss on 399 rows and made
+ * the split something nobody would ever fill in.
+ *
+ * Splits at the FIRST run of whitespace, which is right whenever the given name
+ * is one word — including "สมชาย ณ อยุธยา", where the surname is the part with
+ * the space. It is wrong when the GIVEN name has a space, and that is exactly
+ * the case an admin can see and fix in the box.
+ *
+ * NEVER call this to build a patch. Call it to fill a form.
+ *
+ * @returns {{first: string, last: string}|null} null when there is nothing to
+ *          suggest (no name, or a single word with no surname to separate).
+ */
+export function suggestNameSplit(fullName) {
+  const s = String(fullName ?? '').trim().replace(/\s+/g, ' ');
+  if (!s) return null;
+  const i = s.indexOf(' ');
+  if (i < 0) return null;      // one word — there is no boundary to propose
+  return { first: s.slice(0, i), last: s.slice(i + 1) };
+}
+
+
 const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
 
 /** Thai numerals → Arabic. Someone WILL paste `๕`, and a silent reject there

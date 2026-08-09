@@ -1092,3 +1092,37 @@ feature, was not. (3) An open item in a scan report is not a fix; if it is a liv
 silent failure on a destructive control, it is the thing to do first, not the
 thing to write down. `team/index.js` still has 9 `confirm()` calls — same fix,
 same helper.
+
+---
+
+## "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
+
+**Symptom**: after the ชื่อ/นามสกุล split shipped (0135), opening แก้ไขสมาชิก on
+any of the 399 pre-split members showed both name boxes EMPTY, with the stored
+name printed underneath as a hint. Reported within minutes.
+
+**Cause**: the rule "never split a stored name on whitespace" was applied
+literally instead of by its purpose. The purpose is *no unreviewed guess is ever
+written* — which is why `house/io.js` refuses a whole CSV: there is no human in
+the loop for 1,800 rows. A member modal is the opposite situation: one admin,
+one person, the stored name on screen. Refusing to suggest there bought no
+safety and cost two things — an editor whose most visible field opens empty
+reads as data loss, and a split nobody would ever fill in for 399 people
+one blank pair at a time.
+
+**Fix**: `suggestNameSplit()` (`team/fields.js`) fills the boxes from the first
+run of whitespace, the stored name is shown beside them, and the save path asks
+once — through `askConfirm`, never `window.confirm` — when the values are still
+the untouched suggestion. The guess becomes a decision, and only on the first
+edit of each legacy row.
+
+**Where it lives now**: `src/js/team/fields.js` (`suggestNameSplit`, with the
+"never call this to build a patch" warning), `src/js/team/index.js`
+(`openMemberModal`, `onMemberSubmit`).
+
+**Rules**: (1) A safety rule states an OUTCOME, not a mechanism — before
+applying one somewhere new, ask which of its preconditions actually hold here.
+(2) "Refuse" and "suggest, then confirm" are different answers to the same risk,
+and the right one depends on whether a human is present to review. (3) An
+editor that opens with an empty field the user can see filled elsewhere will be
+reported as data loss, correctly.

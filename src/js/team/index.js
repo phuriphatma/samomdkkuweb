@@ -30,8 +30,9 @@ import {
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
 import {
-  normalizeIdentityFields, majorKey, YEARS, SID_HINT,
+  normalizeIdentityFields, majorKey, YEARS, SID_HINT, suggestNameSplit,
 } from './fields.js';
+import { askConfirm } from '../confirm-modal.js';
 import { userCanAccess, getUser } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
@@ -2401,19 +2402,39 @@ function openMemberModal({ member = null, nodeId = null, tab = 'info' } = {}) {
   const nid = member?.node_id || nodeId || '';
   $('teamMemberId').value = member?.id || '';
   setMemberNode(nid);
-  // ชื่อ / นามสกุล, never a split of full_name (0135). A row that predates the
-  // split has empty boxes and its combined name shown beneath them — leaving
-  // them empty keeps that name exactly as it is, and typing a pair replaces it.
-  $('teamMemberFirstName').value = member?.first_name_th || '';
-  $('teamMemberLastName').value = member?.last_name_th || '';
+  // ชื่อ / นามสกุล. A row that predates 0135 has no split, and the first cut of
+  // this form left both boxes EMPTY — which reported as "แก้ไขสมาชิก shows
+  // ชื่อ นามสกุล as blank, that isn't good". Correct: an editor that opens with
+  // the most visible field empty reads as data loss, and it made the split
+  // something nobody would ever fill in for 399 people.
+  //
+  // So the boxes are PREFILLED with a suggestion and the admin reviews it. That
+  // is not a relaxation of "never split a stored name" — the rule is that no
+  // UNREVIEWED guess is written, and here there is one human looking at one
+  // person with the stored name printed beneath. `nameWasSuggested` remembers
+  // that these values came from the machine, so the save path can ask once
+  // before committing them (see onMemberSubmit).
+  const storedFull = String(member?.full_name || '').trim();
+  const hasSplit = !!(member?.first_name_th || member?.last_name_th);
+  const guess = hasSplit ? null : suggestNameSplit(storedFull);
+  nameWasSuggested = !!guess;
+  $('teamMemberFirstName').value = member?.first_name_th || guess?.first || '';
+  $('teamMemberLastName').value = member?.last_name_th || guess?.last || '';
   const legacyName = $('teamMemberNameLegacy');
   if (legacyName) {
-    const combined = String(member?.full_name || '').trim();
-    const split = !!(member?.first_name_th || member?.last_name_th);
-    legacyName.textContent = (combined && !split)
-      ? `ชื่อในระบบตอนนี้: ${combined} — กรอกแยกช่องด้านบนเพื่อแก้ไข `
-        + '(ปล่อยว่างไว้ = คงชื่อเดิม ระบบไม่แยกให้เอง เพราะเดาแล้วอาจได้ชื่อผิดตัว)'
-      : '';
+    legacyName.className = 'form-text';
+    if (guess) {
+      legacyName.className = 'form-text text-warning-emphasis';
+      legacyName.textContent = `ชื่อเดิมในระบบ: “${storedFull}” — ยังไม่เคยแยกช่อง `
+        + 'ระบบเดาให้แล้วจากช่องว่างแรก กรุณาตรวจว่าถูกต้อง '
+        + '(นามสกุลไทยมีเว้นวรรคได้ เช่น “ณ อยุธยา” ถ้าชื่อจริงมีเว้นวรรคด้วย ระบบจะเดาผิด)';
+    } else if (storedFull && !hasSplit) {
+      // One word, nothing to propose a boundary in.
+      legacyName.textContent = `ชื่อเดิมในระบบ: “${storedFull}” — มีคำเดียว กรุณากรอกแยกช่องเอง`;
+      $('teamMemberFirstName').value = storedFull;
+    } else {
+      legacyName.textContent = '';
+    }
   }
   $('teamMemberNickname').value = member?.nickname || '';
   $('teamMemberStudentId').value = member?.student_id || '';
@@ -2616,6 +2637,13 @@ async function uploadPendingPhoto(nodeId) {
  *    person ends up with no surname, and there is no way to tell later that it
  *    happened.
  */
+/** True when the two name boxes were filled by `suggestNameSplit` on open and
+ *  the admin has not been asked about them yet. Module-scope because the modal
+ *  is ONE element reused for every row — a flag parked on the DOM outlives the
+ *  record it describes, which is how a permission grid leaked across rows in
+ *  0110. Reset on every open. */
+let nameWasSuggested = false;
+
 function readMemberName(existing) {
   const first = $('teamMemberFirstName').value.trim();
   const last = $('teamMemberLastName').value.trim();
@@ -2637,6 +2665,33 @@ async function onMemberSubmit(e) {
   if (nm.error) { alert(nm.error); $(nm.focus)?.focus(); return; }
   const name = nm.keep ? String(stored0?.full_name || '').trim() : nm.full;
   if (!nodeId) { alert('กรุณาเลือกตำแหน่ง'); return; }
+
+  // THE REVIEW STEP. The boxes were filled by the machine and the admin has not
+  // touched them, so pressing บันทึก would write a guessed boundary — which is
+  // the thing this repo refuses a whole CSV over. Asking once turns the guess
+  // into a decision, and it only ever happens on the FIRST edit of a pre-0135
+  // row: afterwards the row has a real split and there is nothing to confirm.
+  //
+  // askConfirm, never window.confirm — Chrome's "prevent additional dialogs"
+  // checkbox makes every later native confirm return false instantly, which has
+  // already shipped as "the button does nothing" twice here.
+  if (nameWasSuggested && !nm.keep
+      && stored0 && !stored0.first_name_th && !stored0.last_name_th) {
+    const suggestion = suggestNameSplit(String(stored0.full_name || ''));
+    if (suggestion && suggestion.first === nm.first && suggestion.last === nm.last) {
+      // NOT escaped: askConfirm writes `body` with textContent, so escaping
+      // here would print &quot; to the user.
+      const ok = await askConfirm({
+        title: 'ยืนยันการแยกชื่อ',
+        body: `ชื่อเดิม “${String(stored0.full_name || '').trim()}” ยังไม่เคยแยกช่อง — `
+          + `ระบบเดาให้เป็น ชื่อ “${nm.first}” นามสกุล “${nm.last}” `
+          + 'ถูกต้องไหม? ถ้าไม่ถูก กดยกเลิกแล้วแก้ในช่องได้เลย',
+        yes: 'ถูกต้อง บันทึกเลย',
+        danger: false,
+      });
+      if (!ok) { $('teamMemberFirstName')?.focus(); return; }
+    }
+  }
 
   // Canonicalise รหัสนักศึกษา / ชั้นปี / สาขา through the one rule module. A
   // รหัส that cannot be read is REFUSED — but only when this save changed it,

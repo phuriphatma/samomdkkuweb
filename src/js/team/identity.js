@@ -18,11 +18,33 @@
 // twice. One definition, imported by both.
 //
 // THE RESOLUTION RULE:
-//   1. rows sharing a valid kkumail        → one person
-//   2. rows with NO kkumail sharing a รหัส → one person
-//   3. anything else                        → its own person
+//   1. rows sharing a valid kkumail                 → one person
+//   2. a row with NO kkumail joins the email-person holding its รหัส, when
+//      EXACTLY ONE such person exists                → one person
+//   3. rows with NO kkumail sharing a รหัส          → one person
+//   4. anything else                                 → its own person
 // Keep it in step with tools/team-identity-dryrun.mjs; if they disagree, the
 // tool is the reference because it sees every row with no client in between.
+//
+// ⚠️ RULE 2 IS A SECOND PASS, and it has to be. It was written as part of a
+// single-pass key (`em ? 'e:'+em : sid ? 's:'+sid : 'r:'+id`), which quietly
+// made it apply only to no-email rows joining EACH OTHER — a no-email row could
+// never reach the email-keyed person holding the same รหัส. Reported live:
+//
+//   "รหัส 663070019-9 2 คน … ชญาภา เลาหะตานนท์ chayapa.l@kkumail.com …
+//    ชญาภา เลาหะตานนท์ ไม่มีอีเมล … this person is the same person but it
+//    detects wrong because no email"
+//
+// Exactly right, and it is the fail-open shape (mistakes class 2): a row with
+// no address has no ASSERTED identity, and treating "unknown" as "a different
+// human" is the unsafe reading. The safe one is that it resolves to the one
+// person who claims that รหัส, or to nobody.
+//
+// AND IT STILL CANNOT MERGE TWO REAL PEOPLE. 0108's case — `673070332-6`, one
+// mistyped รหัส worn by two humans — has an email on BOTH rows, so both are
+// email-keyed and rule 2 never looks at them. Where a no-email row's รหัส is
+// claimed by TWO email-people, the row stays separate: that ambiguity is the
+// finding, not something to guess through.
 // ==============================================
 
 const clean = (v) => {
@@ -70,9 +92,30 @@ export function findIssues(members, nodeName = () => '') {
     rawMail: clean(m.kkumail),
   }));
 
-  // Rule 1 → 2 → 3. The prefixes keep the key spaces disjoint so a
+  // PASS 1 — which รหัส does each EMAIL-person claim. Built before any grouping
+  // so rule 2 can ask "who claims this รหัส" without depending on iteration
+  // order, and so a รหัส claimed by two email-people is visible as such.
+  const sidToEmails = new Map();
+  for (const r of rows) {
+    if (!r.em || !r.sid) continue;
+    if (!sidToEmails.has(r.sid)) sidToEmails.set(r.sid, new Set());
+    sidToEmails.get(r.sid).add(r.em);
+  }
+
+  // PASS 2 — the key. The prefixes keep the key spaces disjoint so a
   // รหัสนักศึกษา can never collide with an email.
-  const keyOf = (r) => (r.em ? `e:${r.em}` : r.sid ? `s:${r.sid}` : `r:${r.id}`);
+  const keyOf = (r) => {
+    if (r.em) return `e:${r.em}`;
+    if (r.sid) {
+      // Rule 2. Exactly one claimant, or nothing — two claimants is a real
+      // ambiguity and guessing between them would put a posting on the wrong
+      // human, which is worse than the finding it would have silenced.
+      const claimants = sidToEmails.get(r.sid);
+      if (claimants && claimants.size === 1) return `e:${[...claimants][0]}`;
+      return `s:${r.sid}`;
+    }
+    return `r:${r.id}`;
+  };
   const people = new Map();
   for (const r of rows) {
     const k = keyOf(r);
@@ -151,6 +194,32 @@ export function findIssues(members, nodeName = () => '') {
     }
   }
 
+  // 3b. A posting with NO kkumail belonging to a person who HAS one.
+  //
+  // Rule 2 now resolves these to the right human, so they stopped being a
+  // (wrong) sid_clash — and would otherwise have become silence, which is not
+  // an improvement. The row is still broken in a way that matters: every
+  // resolver in this app joins `team_members.kkumail`, so this posting is
+  // invisible to the person's own ตำแหน่งของฉัน card and to every permission
+  // lookup. Unlike most findings here it has ONE obviously correct answer —
+  // the address the person's other rows already carry — so it is the rare
+  // mechanical fix.
+  for (const p of people.values()) {
+    if (!p.email) continue;
+    for (const r of p.rows) {
+      if (r.em) continue;
+      // A row holding a NON-address (the live '-') already has its own
+      // invalid_email finding, with a box to fix it. Reporting both puts two
+      // items about one cell in front of the admin, and the second one says
+      // nothing the first did not.
+      if (r.rawMail) continue;
+      issues.push({
+        kind: 'mail_gap', id: `mailgap:${r.id}`, memberId: r.id,
+        name: r.full_name || p.name, node: r.node, value: p.email,
+      });
+    }
+  }
+
   // 4. One รหัสนักศึกษา under two people. NOT a merge candidate — it is a typo
   // on one of them, and the two are correctly separate.
   const sidOwners = new Map();
@@ -207,6 +276,7 @@ export const KIND_LABEL = {
   sid_drift: 'รหัสนักศึกษาไม่ตรงกัน',
   sid_clash: 'รหัสนักศึกษาซ้ำกับคนอื่น',
   no_key: 'ไม่มีอีเมลและรหัสนักศึกษา',
+  mail_gap: 'ตำแหน่งนี้ยังไม่มีอีเมล',
 };
 
 /**

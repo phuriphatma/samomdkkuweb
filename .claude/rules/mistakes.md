@@ -203,7 +203,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(35 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(36 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -240,9 +240,10 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
+- "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(12 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(14 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -256,6 +257,8 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An export that carries a GENERATED column re-imports as the real one
 - Stripping a คำนำหน้า off a name renames the people whose name STARTS with one
 - "แก้ชื่อในหน้าตัวเอง แล้วชื่อ-นามสกุลในระบบบ้านสลับกัน"
+- "this person is the same person but it detects wrong because no email"
+- An INSERT is a write path too — the import guard covered UPDATE only
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(17 entries)*

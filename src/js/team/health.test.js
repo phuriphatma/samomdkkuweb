@@ -49,16 +49,94 @@ describe('findIssues — grouping', () => {
   });
 });
 
+describe('findIssues — rule 2: a row with no address is UNKNOWN, not different', () => {
+  it('a no-email row joins the one person claiming its รหัส', () => {
+    // The reported case, exactly: two postings for ชญาภา, one carrying the
+    // address and one carrying nothing.
+    const rows = [
+      m({ id: 'a', name: 'ชญาภา เลาหะตานนท์', mail: 'chayapa.l@kkumail.com', sid: '663070019-9' }),
+      m({ id: 'b', name: 'ชญาภา เลาหะตานนท์', mail: null, sid: '663070019-9' }),
+    ];
+    const { people, issues } = run(rows);
+    expect(people).toHaveLength(1);
+    expect(issues.some((i) => i.kind === 'sid_clash')).toBe(false);
+  });
+
+  it('…and says the empty posting still needs its address', () => {
+    // Resolving it must not turn the finding into silence: every resolver in
+    // this app joins team_members.kkumail, so that posting is invisible to the
+    // person's own card and to every permission lookup until it is filled.
+    const rows = [
+      m({ id: 'a', name: 'ชญาภา', mail: 'chayapa.l@kkumail.com', sid: '663070019-9' }),
+      m({ id: 'b', name: 'ชญาภา', mail: null, sid: '663070019-9' }),
+    ];
+    const gap = run(rows).issues.find((i) => i.kind === 'mail_gap');
+    expect(gap).toBeTruthy();
+    expect(gap.memberId).toBe('b');
+    expect(gap.value).toBe('chayapa.l@kkumail.com');   // the answer, not a guess
+  });
+
+  it('NEVER merges two people who both have an address (0108)', () => {
+    // 673070332-6 is one mistyped รหัส worn by two humans. Both rows carry an
+    // address, so rule 2 does not look at them and the clash is still real.
+    const rows = [
+      m({ id: 'a', name: 'ก', mail: 'a@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'b', name: 'ข', mail: 'b@kkumail.com', sid: '673070332-6' }),
+    ];
+    expect(run(rows).people).toHaveLength(2);
+    expect(kinds(rows)).toContain('sid_clash');
+  });
+
+  it('leaves a no-email row SEPARATE when two people claim its รหัส', () => {
+    // Guessing between them would put a posting on the wrong human, which is
+    // worse than the finding it would silence.
+    const rows = [
+      m({ id: 'a', name: 'ก', mail: 'a@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'b', name: 'ข', mail: 'b@kkumail.com', sid: '673070332-6' }),
+      m({ id: 'c', name: 'ค', mail: null, sid: '673070332-6' }),
+    ];
+    expect(run(rows).people).toHaveLength(3);
+  });
+
+  it('a no-email row whose รหัส nobody claims stays on its own', () => {
+    const rows = [
+      m({ id: 'a', name: 'ก', mail: 'a@kkumail.com', sid: '111111111-1' }),
+      m({ id: 'b', name: 'ข', mail: null, sid: '222222222-2' }),
+    ];
+    expect(run(rows).people).toHaveLength(2);
+  });
+
+  it('two no-email rows sharing a รหัส are still one person (rule 3)', () => {
+    const rows = [
+      m({ id: 'a', name: 'ก', mail: null, sid: '333333333-3' }),
+      m({ id: 'b', name: 'ก', mail: null, sid: '333333333-3' }),
+    ];
+    expect(run(rows).people).toHaveLength(1);
+    // No mail_gap: there is no address anywhere to offer, so it is a no_key.
+    expect(kinds(rows)).not.toContain('mail_gap');
+  });
+});
+
 describe('findIssues — invalid email', () => {
   // The live ชญาภา case: kkumail is literally '-'.
-  it('a value with no @ is not an email, and splits the person', () => {
+  it('a value with no @ is reported, and does NOT split the person', () => {
     const rows = [
       m({ id: 'a', name: 'ชญาภา', mail: '-', sid: '663070019-9' }),
       m({ id: 'b', name: 'ชญาภา', mail: 'chayapa.l@kkumail.com', sid: '663070019-9' }),
     ];
     const { issues, people } = run(rows);
-    expect(people).toHaveLength(2);            // '-' cannot group them
+    // REVERSED deliberately. This used to assert 2 people — "'-' cannot group
+    // them" — and that was the fail-open reading: a cell holding a placeholder
+    // is an ABSENT identity, not a claim to be a different human. Treating it
+    // as a second person produced a รหัสซ้ำ finding about one person, which is
+    // exactly what was reported live ("this person is the same person but it
+    // detects wrong because no email").
+    expect(people).toHaveLength(1);
+    // …and the real problem is still reported, with the cell to fix.
     expect(issues.some((i) => i.kind === 'invalid_email' && i.value === '-')).toBe(true);
+    expect(issues.some((i) => i.kind === 'sid_clash')).toBe(false);
+    // Not ALSO a mail_gap: one cell, one finding.
+    expect(issues.some((i) => i.kind === 'mail_gap')).toBe(false);
   });
 
   it('an empty kkumail is not reported as invalid', () => {

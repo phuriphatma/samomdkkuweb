@@ -480,3 +480,92 @@ default outcome, not the unlucky one — when a module refuses to guess, grep fo
 every other module that consumes the same field. (3) A guess that writes to a
 column tracked as "the user's own choice" is worse than a guess: it launders
 itself into consent.
+
+---
+
+## "this person is the same person but it detects wrong because no email" — a single-pass identity key made "unknown" mean "different"
+
+**Symptom**: ตรวจสอบข้อมูล reported `รหัส 663070019-9 2 คน` for ชญาภา
+เลาหะตานนท์ — one posting carrying `chayapa.l@kkumail.com`, the other carrying
+no address at all. One human, reported as a รหัสนักศึกษา clash between two.
+
+**Cause**: `identity.js` documents its rule as "rows with NO kkumail sharing a
+รหัส → one person", and implemented it as a single-pass key:
+
+```js
+const keyOf = (r) => (r.em ? `e:${r.em}` : r.sid ? `s:${r.sid}` : `r:${r.id}`);
+```
+
+The row WITH the address is keyed by the address, so a no-address row can never
+reach it — rule 2 only ever grouped no-address rows with each other. The
+documented rule and the code disagreed, and the comment was believed.
+
+Underneath that: treating an ABSENT identity as a DISTINCT one. A cell holding
+nothing (or the live `-`) is not a claim to be a different human; it is the
+absence of a claim. Counting it as a second person is the fail-open direction
+(class 2).
+
+**Fix**: two passes. Build `sid → {emails that claim it}` first, then a
+no-address row joins that person **iff exactly one** email-person claims its
+รหัส. Two claimants leaves it separate — that ambiguity is the finding.
+
+The safety property is preserved and now tested: 0108's `673070332-6`, one
+mistyped รหัส worn by two humans, has an address on BOTH rows, so rule 2 never
+looks at them and the clash is still reported.
+
+Resolving them also had to not become silence. A posting with no kkumail is
+still broken — every resolver in this app joins `team_members.kkumail`, so it is
+invisible to the person's own card and to every permission lookup — so it now
+raises `mail_gap`, the rare finding with one obviously correct answer and a
+one-click apply.
+
+**Where it lives now**: `src/js/team/identity.js` (rule 2 as a second pass,
+`mail_gap`), `src/js/team/health.js` (the card + `data-hfillmail` handler),
+`src/js/team/health.test.js` (six cases, including both directions of the
+ambiguity).
+
+**Rules**: (1) When a comment states a rule the code cannot implement in one
+pass, the comment is a plan, not a description — check it against an example.
+(2) Absent ≠ different. An unresolvable identity must not be counted as a
+distinct one. (3) When a merge silences a finding, check that the thing being
+merged is not itself broken — resolving it correctly must not turn a wrong
+finding into no finding.
+
+---
+
+## An INSERT is a write path too — the import guard covered UPDATE only
+
+**Symptom**: none yet, because the roster file has not landed. Found by asking
+"will there be an issue when data from dataanalytic come, or people edit their
+names". Measured on a rollback transaction:
+
+```
+people   : ชื่อที่เจ้าตัวกรอก นามสกุลจริง   ← what the person typed
+students : ชื่อจากไฟล์ นามสกุลจากไฟล์        ← what the file said
+linked   : yes            conflicts: 0
+```
+
+**Cause**: 0125's `students_keep_self_edits` and both of 0138's hooks are
+`before update`. For the ~380 ทีม SAMO members who are not yet in ระบบบ้าน, the
+import does not UPDATE their placement — it **INSERTs** it. On that path
+`self_edited` is empty (the row is new), so nothing was protected, the file's
+spelling won, and the registry silently disagreed with the placement pointing at
+it. The person's own card reads `students`, so their edit was simply gone.
+
+Class 4, fourth instance: a fix applied to one PATH is not a fix.
+
+**Fix**: the reconciliation moved into `students_link_person` — one BEFORE
+INSERT trigger that resolves the person and then reconciles against them, in
+that order. Folded into the existing function rather than added beside it,
+because two triggers on one event fire in NAME order and a rule that depends on
+nobody renaming a trigger is not a rule. An import keeps the registry's value
+and records a conflict; a human-created row wins and now mirrors UP, which an
+INSERT never did either.
+
+**Where it lives now**: `supabase/migrations/0139_an_insert_is_a_write_path_too.sql`,
+`tools/house0139-insert-path.mjs` (10/10).
+
+**Rules**: (1) Enumerate INSERT, UPDATE and DELETE separately for every
+invariant — "the write path is guarded" is only ever true of the one you looked
+at. (2) A trigger whose correctness depends on firing after another trigger
+should be the same trigger.

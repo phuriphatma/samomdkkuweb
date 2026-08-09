@@ -148,11 +148,26 @@ reset role;
 -- An admin editing in either workspace writes the placement table directly and
 -- never touches the registry. Without a mirror UP, ทีม SAMO and ระบบบ้าน drift
 -- apart the moment an admin fixes a name.
-update public.team_members set full_name = 'แก้จากทีม SAMO'
+-- ⚠️ CONTRACT CHANGED IN 0135, and this step changed with it. It used to write
+-- a COMBINED full_name and assert the registry took it. Since 0135 the registry
+-- keeps a SPLIT it already holds rather than let a combined string overwrite it
+-- — converting one to the other requires guessing where the surname starts, and
+-- the member form now offers two boxes so an admin never has to. The ทีม SAMO
+-- door still reaches the registry; it reaches it with the split.
+update public.team_members
+   set first_name_th = 'แก้จาก', last_name_th = 'ทีม SAMO'
  where id = (select mid from subj);
 insert into probe
-select 'A7. ทีม SAMO admin edit reaches the registry', 'แก้จากทีม SAMO',
+select 'A7. ทีม SAMO admin edit reaches the registry', 'แก้จาก ทีม SAMO',
        coalesce((select p.full_name from public.people p
+                  where p.id = (select pid from subj)), '(none)');
+
+-- …and a COMBINED edit still cannot clobber that split (0135 D1).
+update public.team_members set full_name = 'ชื่อรวมช่องเดียว'
+ where id = (select mid from subj);
+insert into probe
+select 'A7b. a combined edit does NOT overwrite the split', 'แก้จาก',
+       coalesce((select p.first_name_th from public.people p
                   where p.id = (select pid from subj)), '(none)');
 -- ⚠️ A COMBINED name edited in ทีม SAMO does NOT overwrite a SPLIT name in
 -- ระบบบ้าน, and must not: splitting "สมชาย ณ อยุธยา" renames a real person, which
@@ -162,7 +177,7 @@ select 'A7. ทีม SAMO admin edit reaches the registry', 'แก้จาก
 -- mangled. Closing this properly means giving the ทีม SAMO member form the same
 -- ชื่อ/นามสกุล split, which is the next step in docs/PERSON-REGISTRY.md.
 insert into probe
-select 'A8. ระบบบ้าน split name left intact, never guessed', 'ทดสอบ0132',
+select 'A8. ระบบบ้าน took the split, never a guess', 'แก้จาก',
        coalesce((select s.first_name_th from public.students s
                   where s.id = (select sid from subj)), '(none)');
 

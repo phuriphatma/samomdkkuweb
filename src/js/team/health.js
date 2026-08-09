@@ -67,6 +67,13 @@ const GROUPS = [
     blurb: 'คนคนนี้อยู่หลายตำแหน่ง และแต่ละแถวเก็บข้อมูลคนละค่า เลือกค่าที่ถูกต้อง แล้วระบบจะเขียนให้ทุกแถว',
   },
   {
+    kind: 'mail_gap',
+    title: 'ตำแหน่งนี้ยังไม่มีอีเมล',
+    blurb: 'คนคนนี้มีอีเมลอยู่แล้วในตำแหน่งอื่น แต่แถวนี้ยังว่าง — ทุกการจับคู่สิทธิ์และการ์ด '
+      + '“ตำแหน่งของฉัน” ใช้อีเมลเป็นตัวจับ แถวนี้จึงยังมองไม่เห็นจากฝั่งเจ้าตัว '
+      + 'อันนี้แก้ได้ทันทีเพราะรู้คำตอบอยู่แล้ว',
+  },
+  {
     kind: 'no_key',
     title: 'ไม่มีอีเมลและรหัสนักศึกษา',
     blurb: 'แถวนี้ไม่มีอะไรให้จับคู่กับบัญชีผู้ใช้ เจ้าตัวจึงยืนยันตัวตนเองไม่ได้',
@@ -207,20 +214,48 @@ export function issueCard(is) {
       </li>`;
   }
 
-  // no_key
+  if (is.kind === 'mail_gap') {
+    // The one finding here with an OBVIOUSLY correct answer, so it gets a
+    // one-click apply rather than an input box. The address is not guessed: it
+    // is the one this person's other postings already carry, which is what made
+    // them one person in the first place (identity.js rule 2).
+    return `
+      <li class="team-health-item" data-hi="${escHtml(is.id)}">
+        <div class="team-health-who">
+          <strong>${escHtml(is.name || '(ไม่มีชื่อ)')}</strong>
+          ${is.node ? chip(is.node) : ''}
+          ${chip('ไม่มีอีเมล', 'is-warn')}
+        </div>
+        <div class="team-health-detail">
+          ตำแหน่งอื่นของคนนี้ใช้ <code>${escHtml(is.value)}</code>
+        </div>
+        <div class="team-health-acts">
+          <button type="button" class="btn btn-sm btn-primary"
+            data-hfillmail="${escHtml(is.memberId)}" data-hfillvalue="${escHtml(is.value)}">
+            ใช้อีเมลนี้กับตำแหน่งนี้
+          </button>
+        </div>
+      </li>`;
+  }
+
+  // no_key. ⚠️ This is also the FALLBACK for an unrecognised kind, so it must
+  // not assume a shape only no_key has — `is.suggestions.length` on a finding
+  // without the field is a crash inside a render, i.e. a blank pane. A new kind
+  // added above without a branch here lands on this one.
+  const suggestions = Array.isArray(is.suggestions) ? is.suggestions : [];
   return `
     <li class="team-health-item" data-hi="${escHtml(is.id)}">
       <div class="team-health-who">
         <strong>${escHtml(is.name || '(ไม่มีชื่อ)')}</strong>
         ${is.node ? chip(is.node) : ''}
       </div>
-      ${is.suggestions.length ? `
+      ${suggestions.length ? `
         <div class="team-health-detail">
           มีคนชื่อเดียวกันที่มีอีเมลอยู่แล้ว — ถ้าเป็นคนเดียวกัน กดเพื่อใช้ข้อมูลเดียวกัน
           <span class="team-health-warn">ชื่อไม่ใช่หลักฐาน ระบบจะไม่รวมให้เอง</span>
         </div>
         <div class="team-health-acts">
-          ${is.suggestions.map((s) => `
+          ${suggestions.map((s) => `
             <button type="button" class="btn btn-sm btn-outline-primary"
               data-hlink="${escHtml(is.memberId)}"
               data-hlinkmail="${escHtml(s.email || '')}"
@@ -331,6 +366,13 @@ export function initHealth(hostEl, opts = {}) {
       const field = t.dataset.hfield;
       const value = t.dataset.hvalue;
       return void run(() => setOnAll(ids, field, value), `ตั้งเป็น “${value}” ให้ทุกตำแหน่งแล้ว`);
+    }
+
+    if (t.dataset.hfillmail !== undefined) {
+      const id = t.dataset.hfillmail;
+      const v = t.dataset.hfillvalue;
+      if (!v || !v.includes('@')) return void status('ไม่พบอีเมลที่จะใช้', 'error');
+      return void run(() => updateMember(id, { kkumail: v }), 'ใส่อีเมลให้ตำแหน่งนี้แล้ว');
     }
 
     if (t.dataset.hclearmail !== undefined) {
