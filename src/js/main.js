@@ -33,6 +33,9 @@ import { initDepartments } from './departments.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
+import {
+  showIdentityCheck, renderIdentityCheck, clearIdentityCheckCache,
+} from './identity-check.js';
 // The one list of "which grants open /admin/". Shared with admin-main.js
 // canUseAdmin() so the navbar link and the door it opens cannot drift.
 import { ADMIN_FEATURES } from './team-vocab.js';
@@ -821,6 +824,19 @@ document.addEventListener('DOMContentLoaded', () => {
           showMyHouse(houseHost, user.id);
         }
       };
+      // ตรวจสอบข้อมูล, above both cards. `afterResolve` repaints them because
+      // taking the faculty's spelling REWRITES the record the cards are showing
+      // — 0132's mirrors carry it to ระบบบ้าน and to ทีม SAMO, and a block that
+      // updated itself while the identity below it still said the old name
+      // would read as the save having failed.
+      clearIdentityCheckCache();
+      showIdentityCheck(document.getElementById('homeIdentityCheck'), {
+        afterResolve: () => {
+          clearMySeatCache();
+          clearMyHouseCache();
+          showMySeat(seatHost, user.id, { afterRender: paintHouseInto });
+        },
+      });
       showMySeat(seatHost, user.id, { afterRender: paintHouseInto });
       // showMySeat renders NOTHING when there is no posting, so afterRender
       // never fires for a house-only person — paint them here.
@@ -835,6 +851,11 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMySeat(seatHost, null);
       clearMyHouseCache();
       renderMyHouse(houseHost, null);
+      // Signed out. The block asks a question about a specific person, so
+      // leaving it painted would show the previous account's name to the next
+      // one — the module-scope-cache-across-an-account-switch shape.
+      clearIdentityCheckCache();
+      renderIdentityCheck(document.getElementById('homeIdentityCheck'), null);
     }
 
     // PR form auth wrapper: hide whenever the user is signed in (the global

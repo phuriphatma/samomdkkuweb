@@ -184,6 +184,11 @@ const STUDENT_COLS = [
   'id', 'kkumail', 'student_id', 'first_name_th', 'last_name_th', 'full_name',
   'nickname', 'nickname_imported', 'nickname_self', 'major', 'sai_code',
   'cohort_year', 'year_offset', 'photo_url', 'bio', 'missing_since', 'updated_at',
+  // Which columns this person has taken over (0125). Fetched because the import
+  // PREVIEW has to say "this row will not be overwritten" BEFORE the write —
+  // the table enforces it either way, but a preview that promises a change the
+  // trigger will refuse is a preview nobody can trust.
+  'self_edited',
 ].join(',');
 
 export async function fetchStudents() {

@@ -31,6 +31,67 @@ post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
 
+## SHIPPED 2026-08-09 (later) — ONE ACCOUNT, ALL THE WAY (0135–0138)
+
+**0135 — ชื่อ/นามสกุล is split everywhere, and nothing guesses a boundary.**
+`team_members` gained `first_name_th` / `last_name_th`; `full_name` is now
+DERIVED from them (trigger, same shape as `people`'s since 0132) and dropped its
+NOT NULL. Both mirrors carry the split, so **the one documented sync gap is
+closed**. **Nothing was backfilled** and nothing ever will be — a row acquires
+the split when a human types one, and a row holding only a combined name never
+overwrites a person who has the split.
+
+⚠️ It also fixed a LIVE, UNREPORTED bug: `my-seat.js` split the person's own
+ชื่อ-สกุล on whitespace on the way to ระบบบ้าน, so `first='สมชาย ใจดี'`
+`last='ดีมาก'` became `first='สมชาย'` `last='ใจดี ดีมาก'` on their first save —
+and `self_edited` then claimed the person had chosen it. `house/io.js` refuses a
+whole CSV for that guess. **`src/js/name-split.test.js` now fails the build on
+any module that reconstructs a split from a combined string**, and pins the
+card's editable list against the SQL allow-list.
+
+**0136 — a fail-open found BY THE PROOF, not by a report.**
+`recompute_team_managed_permissions` and `sync_my_team_permissions` set
+`app.team_sync='1'` and never restored it. `set_config(...,true)` is
+TRANSACTION-scoped, so **one `update public.students` turned
+`team_members_self_update_guard`'s column allow-list off for the rest of that
+transaction.** Not reachable through PostgREST today (one statement per request,
+and the BEFORE ROW guard beats the AFTER STATEMENT recompute) — but that is an
+accident, not a design. Both now save and restore the previous value.
+
+**0137 — `search_people()`.** Add a ทีม SAMO member by searching ชื่อ, นามสกุล,
+ชื่อเล่น, รหัสนักศึกษา (dash optional), สาขา or kkumail. 0130's exact-kkumail
+lookup asked for the one field an admin does not have, so all six boxes were
+retyped — which is how one human becomes two records. It is an ILIKE and it is
+BOUNDED: wildcards escaped, min 2 chars, limit clamped to 50 server-side,
+hand-built column list, **no placement facts** (no สายรหัส, no บ้าน), no anon
+grant. Hits carry `in_team` / `team_nodes` so the picker names the ฝ่าย someone
+is already in.
+
+**0138 — the roster reconciliation. Read `docs/PERSON-REGISTRY.md` for the
+reasoning; the rule is three lines:**
+- **Authority is per FIELD, not per actor.**
+- **Silence is not agreement** — a person who never looked has claimed nothing,
+  so the file just writes. That is most of the 1,800 rows.
+- **A disagreement is a THING**, not a dropped write. `students_keep_self_edits`
+  used to discard the file's value silently; it now records an
+  `identity_conflicts` row and the person is asked on the home page.
+
+`people.identity_confirmed_at` separates "checked, it's right" from "never
+opened the page". `identity_check_summary()` counts both. The import preview
+reports how many rows carry a value it will NOT be allowed to write, with its
+own filter.
+
+⚠️ **Two bugs 0138's proof caught in 0138 itself**, both worth knowing:
+`identity_conflicts` had RLS policies and **no GRANT**, so every policy was dead
+and every DENY step passed vacuously; and the own-read policy's inline subquery
+read `people`, whose own RLS denies ordinary students — the FIRST entry in
+`docs/mistakes/authz-rls.md`, met again in a policy written for exactly that
+caller. Fixed with `my_person_id()` (definer).
+
+Proofs, all both-directional: `node tools/team0135-name-split.mjs` (16/16) ·
+`node tools/team0137-search.mjs` (14/14) · `node tools/house0138-conflicts.mjs`
+(21/21).
+
 ## SHIPPED 2026-08-09 — ONE ACCOUNT SYSTEM (0132 + 0133)
 
 **`public.people` is the person registry.** 304 rows, one per human, keyed on
@@ -70,11 +131,8 @@ Also closed 0108's long-owed contract step: a BEFORE INSERT trigger links every
 new placement to a person by kkumail, so `createMember` and the CSV import can
 no longer create orphans.
 
-⚠️ **ONE KNOWN GAP, measured and deliberate.** A COMBINED name edited in the
-ทีม SAMO pane does not overwrite a SPLIT name in ระบบบ้าน — splitting
-"สมชาย ณ อยุธยา" renames a real person. **Next step: give the ทีม SAMO member
-form the same ชื่อ/นามสกุล split**, then the mirror carries it. Full plan:
-**`docs/PERSON-REGISTRY.md`**.
+✅ **The gap this block used to record is CLOSED by 0135** (see above). Full
+plan and the reconciliation rules: **`docs/PERSON-REGISTRY.md`**.
 
 **UI: ONE CARD.** `ข้อมูลของฉัน` shows the identity once, then a ทีม SAMO
 section and a ระบบบ้าน section under one heading. my-house.js has
@@ -162,14 +220,17 @@ is contract-step work, not a bug. Background:
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
 - **samoweb**: `main` = `1051042` on the VM (later commits are docs-only),
   verified from the served artifact. Still **v4.5.0**, and
-  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 20 entries** — two
+  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 25 entries** — two
   sessions of user-visible work with no version cut. **A `npm run release`
   minor bump is OWED** and `/updates` is showing none of it. Read
   `docs/VERSIONING.md` first; the bump is a **minor**.
-- **Migrations applied through 0134.** Live proofs, all both-directional:
+- **Migrations applied through 0138.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
-  `node tools/house0132-registry.mjs` (19/19) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
+  `node tools/house0132-registry.mjs` (19/19) ·
+  `node tools/team0135-name-split.mjs` (16/16) ·
+  `node tools/team0137-search.mjs` (14/14) ·
+  `node tools/house0138-conflicts.mjs` (21/21) · `node tools/db-query.mjs tools/house0116-authz.sql` (house authz) ·
   `node tools/proj0114-visibility.mjs` (29/29, projects visibility).
 - ⚠️ **Rotate the VM sudo password.** A malformed ssh call echoed it into a
   session transcript on 2026-08-07. Change it on the VM and update
@@ -270,16 +331,17 @@ archiving into it saved nothing.
 > It covers all three doors, both mirrors, link-at-birth, and the deny half.
 >
 > **Next, in order:**
-> 1. **Split the ทีม SAMO name field.** `team_members.full_name` is one column;
->    the registry and ระบบบ้าน use `first_name_th` + `last_name_th`. This is the
->    one known sync gap: a combined name edited in ทีม SAMO cannot overwrite a
->    split name, because splitting "สมชาย ณ อยุธยา" renames a real person.
->    Add the split to the form and the table; backfill NOTHING — a row acquires
->    the split when a human types it.
+> 1. ~~Split the ทีม SAMO name field.~~ **DONE — 0135.** Both columns exist,
+>    `full_name` is derived, both mirrors carry it, nothing backfilled. The
+>    build now fails if any module reconstructs a split from a combined string
+>    (`src/js/name-split.test.js`).
 > 2. **Repoint `team_members.year` at the derived ชั้นปี** (0131). 381/399 rows
 >    have a รหัส that yields a cohort; only 11 disagree, and those 11 become
 >    `year_offset`. Nothing in this repo has EVER bumped that column, so all 399
 >    silently go stale every August.
+>    ⚠️ `team_members.full_name` is now DERIVED when the split is present, so
+>    the CSV export carries all three columns and the importer resolves the
+>    precedence in ONE place (`team/io.js parseMembersCsv`). Keep it that way.
 > 3. **The CONTRACT step**, smallest blast radius first: the CSV export, then the
 >    admin tables, then the ten `effective_team_*_for_email` resolvers (they
 >    still join `team_members.kkumail`), then the archives. Do not batch them.

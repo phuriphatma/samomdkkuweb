@@ -383,6 +383,12 @@ export function toUpsertRow(row, batchId, present = IMPORT_OWNED_COLUMNS) {
  * Returns counts + the per-row verdict, so the preview can say
  * "จะเพิ่ม N · แก้ไข M · ไม่เปลี่ยน K" BEFORE anything is written.
  */
+const pick = (row, cols) => {
+  const out = {};
+  for (const c of cols) out[c] = row[c] ?? null;
+  return out;
+};
+
 export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUMNS) {
   const byMail = new Map(
     (existing || []).map((s) => [String(s.kkumail || '').toLowerCase(), s]));
@@ -394,12 +400,30 @@ export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUM
   const verdicts = rows.map((r) => {
     const cur = byMail.get(r.kkumail);
     if (!cur) { insert += 1; return { ...r, _verdict: 'insert' }; }
-    const changed = compared.filter((c) => {
+    const differs = compared.filter((c) => {
       const a = r[c] ?? null;
       const b = cur[c] ?? null;
       return String(a ?? '') !== String(b ?? '');
     });
-    if (!changed.length) { same += 1; return { ...r, _verdict: 'same', _id: cur.id }; }
+    // COLUMNS THIS PERSON HAS TAKEN OVER (0125). The table refuses to let an
+    // import overwrite them and records the disagreement instead (0138), so a
+    // preview that counted them as "จะแก้ไข" would be promising a change that
+    // will not happen — and the row might then show as unchanged afterwards,
+    // which reads as the import having failed. They are reported as their own
+    // thing: kept, and about to become a question for the person.
+    const owned = new Set(Array.isArray(cur.self_edited) ? cur.self_edited : []);
+    const kept = differs.filter((c) => owned.has(c));
+    const changed = differs.filter((c) => !owned.has(c));
+    if (!changed.length && !kept.length) {
+      same += 1;
+      return { ...r, _verdict: 'same', _id: cur.id };
+    }
+    if (!changed.length) {
+      // Everything this file would have changed is owned by the student. The
+      // row is not an update; it is a conflict waiting to be asked.
+      same += 1;
+      return { ...r, _verdict: 'same', _id: cur.id, _kept: kept, _keptBefore: pick(cur, kept) };
+    }
     update += 1;
     // The stored values of exactly the columns that will change. The preview
     // said "จะแก้ไข 412" and stopped there, which is a number you can only
@@ -407,13 +431,22 @@ export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUM
     // checkable before anything is written.
     const before = {};
     for (const c of changed) before[c] = cur[c] ?? null;
-    return { ...r, _verdict: 'update', _changed: changed, _before: before, _id: cur.id };
+    return {
+      ...r, _verdict: 'update', _changed: changed, _before: before, _id: cur.id,
+      ...(kept.length ? { _kept: kept, _keptBefore: pick(cur, kept) } : {}),
+    };
   });
   // Rows in the DB that this file does NOT mention. Reported, never deleted.
   const fileMails = new Set(rows.map((r) => r.kkumail));
   const missing = (existing || []).filter(
     (s) => !fileMails.has(String(s.kkumail || '').toLowerCase()));
-  return { verdicts, insert, update, same, missing };
+  // How many rows carry a value the import will NOT be allowed to write. This
+  // is the number the person running the import actually needs before pressing
+  // the button: it is how many people are about to be asked a question, and if
+  // it is unexpectedly large the file is probably wrong rather than 400 students
+  // being wrong.
+  const kept = verdicts.filter((v) => (v._kept || []).length).length;
+  return { verdicts, insert, update, same, missing, kept };
 }
 
 /**

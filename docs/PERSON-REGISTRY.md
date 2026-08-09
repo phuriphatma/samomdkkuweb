@@ -13,12 +13,19 @@ mirrors, ชื่อเล่น through a generated column, link-at-birth, and
 table. Both mirrors are guarded by `is distinct from`, which is what makes them
 converge in two hops rather than recurse — that guard is load-bearing.
 
-⚠️ **ONE KNOWN GAP.** A COMBINED name edited in the ทีม SAMO admin pane does not
-overwrite a SPLIT name in ระบบบ้าน. It must not — splitting "สมชาย ณ อยุธยา"
-renames a real person. The registry takes the edit and the split is left intact
-rather than mangled. **Closing it = give the ทีม SAMO member form the same
-ชื่อ/นามสกุล split ระบบบ้าน uses**, then the mirror carries it. That is the next
-step, and it is a UI change plus a `team_members` column, not a schema merge.
+✅ **THE KNOWN GAP IS CLOSED (0135).** `team_members` now carries
+`first_name_th` / `last_name_th` and derives `full_name` from them, so a name
+edited in the ทีม SAMO pane reaches ระบบบ้าน as two columns. **Nothing was
+backfilled**: a row acquires the split when a human types one, and a row that
+still holds only a combined name never overwrites a person who has the split —
+that would require guessing where the surname starts.
+
+0135 also removed the reverse of the same bug, which was live and unreported:
+`my-seat.js` split the person's own ชื่อ-สกุล on whitespace on the way to
+ระบบบ้าน. `src/js/name-split.test.js` now fails the build on any module that
+reconstructs a split from a combined string.
+
+Proof: `node tools/team0135-name-split.mjs` (16/16).
 
 ## The ask
 
@@ -125,11 +132,16 @@ Each step is independently shippable and independently revertible.
    held THREE rows and exactly TWO humans existed in both tables; every day it
    waited, the backfill would have got harder and the duplicate count would have
    grown from two toward hundreds.
-2. **NEXT (a) — split the ทีม SAMO name field.** `team_members.full_name` is one
-   column; `people`/`students` carry `first_name_th` + `last_name_th`. Add the
-   split to the member form and to `team_members`, backfill NOTHING (never guess
-   a boundary — a row acquires the split when a human types it), and the known
-   gap above closes itself.
+2. **DONE (0135) — split the ทีม SAMO name field.** Both columns added,
+   `full_name` derived, both mirrors carry the split, nothing backfilled.
+
+2a. **DONE (0137) — `search_people()`.** The member form finds a person by ชื่อ,
+   นามสกุล, ชื่อเล่น, รหัสนักศึกษา, สาขา or kkumail instead of demanding the one
+   field an admin does not have. Bounded: wildcards escaped, minimum 2
+   characters, limit clamped to 50, identity-only projection, no anon grant.
+   Proof: `tools/team0137-search.mjs` (14/14).
+
+2b. **DONE (0138) — the roster import reconciliation.** See below.
 2. **NEXT (b) — the CONTRACT step, one reader at a time.** Repoint each reader of a
    duplicated identity column at `people`, verify, then drop that column. Order
    by blast radius, smallest first: the CSV export, then the admin tables, then
@@ -153,6 +165,56 @@ Each step is independently shippable and independently revertible.
 - **Two implementations of one rule drift.** During steps 3–5 there are two
   writers for one fact by construction. The differential test from step 2 must
   keep running for the whole migration, in CI, not as a one-off.
+
+## When the faculty file disagrees with a person (0138)
+
+Three rules, and the third is what makes the other two work.
+
+1. **Authority is per FIELD, not per actor.** สายรหัส is the university's own
+   assignment and a student cannot know it better (0125 already removed their
+   ability to write it). A person's ชื่อเล่น is not something a roster export can
+   be right about. Between them sit รหัสนักศึกษา, ชื่อ, นามสกุล and สาขา, where
+   either side can hold the typo.
+2. **Silence is not agreement.** Somebody who never opened the page has claimed
+   nothing, so the file simply writes — that is the great majority of the 1,800
+   rows. Somebody who TYPED something has made a claim, and an import must not
+   delete it quietly. `students.self_edited` (0125) already records the
+   difference; 0138 only makes it visible.
+3. **A disagreement is a thing, not a dropped write.** `students_keep_self_edits`
+   discarded the file's value silently, which is the right outcome and an
+   invisible one. It now records an `identity_conflicts` row instead.
+
+**Who resolves it: the person.** 1,800 possible conflicts against one admin is
+not a workflow; 1,800 people each answering one question about their own name
+is, and each of them is the only one who knows the answer. The block on the home
+page asks; the admin list is for whoever never comes. Both write through
+`resolve_identity_conflict()`, which — when the file's value is chosen — also
+releases the column from `self_edited`, because the person's claim has been
+withdrawn and a future import should own that field again.
+
+**`people.identity_confirmed_at`** is the operational half. It is the only thing
+separating "looked at it, it is right" from "never opened the page", and those
+need different follow-up. `identity_check_summary()` counts both, plus open and
+resolved conflicts. Counts only — a list of names would be a roster projection.
+
+The import preview says how many rows carry a value it will not be allowed to
+write, with its own filter button. If that number is large the file is probably
+wrong: several hundred people do not mistype their own names in the same week.
+
+Proof: `node tools/house0138-conflicts.mjs` (21/21).
+
+## Should ทีม SAMO's people be imported into ระบบบ้าน?
+
+No, and the question dissolves once `people` exists. A `students` row is a HOUSE
+PLACEMENT — it exists to carry `sai_code`, which decides the house — and ทีม SAMO
+has no สายรหัส to give it. Creating ~380 placement rows with an empty สาย would
+put those people in a house-less limbo the roster import would then have to
+reconcile against, for no gain.
+
+They are ALREADY shared: every ทีม SAMO member has a `people` row (0132/0133 link
+at birth), which is where identity lives. When the faculty file lands, each of
+them acquires a house placement by kkumail automatically, carrying the identity
+they already have.
 
 ## The authorization question, stated
 

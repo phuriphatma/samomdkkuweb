@@ -425,3 +425,58 @@ even when the code did not. (3) `kkumail` is the counter-example that proves the
 line: lowercasing it is not a preference but a requirement (a plain UNIQUE index
 plus `lower()=lower()` lookups, enforced by a table trigger since 0119), and it
 misidentifies nobody because the comparison was already case-insensitive.
+
+---
+
+## "แก้ชื่อในหน้าตัวเอง แล้วชื่อ-นามสกุลในระบบบ้านสลับกัน" — one module split a name on whitespace while another refused a whole file for it
+
+**Symptom**: nobody reported it, which is the worst part. A person whose ระบบบ้าน
+record correctly held `first_name_th = 'สมชาย ใจดี'`, `last_name_th = 'ดีมาก'`
+found it silently rewritten to `first_name_th = 'สมชาย'`,
+`last_name_th = 'ใจดี ดีมาก'` — the first time they saved ANYTHING on their own
+card, including an unrelated ชื่อเล่น edit. `students.self_edited` then recorded
+`first_name_th` as a value the person had chosen, so the next import preserved
+the corruption on their behalf.
+
+**Cause**: `src/js/my-seat.js` offered one combined ชื่อ-สกุล box, because
+`team_members.full_name` was one column. On the way to ระบบบ้าน — which stores
+the split — it did this:
+
+```js
+const [first, ...rest] = String(body.full_name || '').trim().split(/\s+/);
+...(rest.length ? { first_name_th: first, last_name_th: rest.join(' ') } : {})
+```
+
+and `update_my_identity` passed the patch into `update_my_student_record`, which
+writes both columns unconditionally. A comment above it claimed "the server
+prefers the students row's own split when it has one" — true of the ทีม SAMO
+direction it was written about, and false of the direction it was on.
+
+`src/js/house/io.js` REFUSES an entire CSV for making exactly this guess, with
+the reasoning spelled out (`_combined_name`: "สมชาย ณ อยุธยา" and
+"สมชาย ใจดี ดีมาก" both have three tokens and different answers). Two
+implementations of one rule, and one of them was the negation of the other.
+
+**Fix**: migration 0135 gives `team_members` the same `first_name_th` /
+`last_name_th` split and derives `full_name` from it, so no caller has anything
+to reconstruct. The card has two boxes; a row that has only a combined name
+keeps it and shows it beneath the empty boxes. **Nothing is backfilled** — a row
+acquires the split when a human types one.
+
+The paragraph was not the fix. `src/js/name-split.test.js` walks every module
+under `src/js` and fails the build on a `.split(` within three lines of
+`first_name_th` / `last_name_th`, and pins the card's editable field list
+against `team_members_self_update_guard`'s SQL allow-list so the two lists
+cannot drift.
+
+**Where it lives now**: `supabase/migrations/0135_team_names_split_too.sql`,
+`src/js/my-seat.js` (`DETAIL_FIELDS`, `displayFields`), `src/js/team/index.js`
+(`readMemberName`), `src/js/name-split.test.js`,
+`tools/team0135-name-split.mjs`.
+
+**Rules**: (1) **Store the PARTS, derive the WHOLE, never split an existing
+whole.** (2) A rule enforced at one boundary and violated at another is the
+default outcome, not the unlucky one — when a module refuses to guess, grep for
+every other module that consumes the same field. (3) A guess that writes to a
+column tracked as "the user's own choice" is worse than a guess: it launders
+itself into consent.

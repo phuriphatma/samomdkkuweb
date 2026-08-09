@@ -1,0 +1,109 @@
+/* ============================================================
+   ตรวจสอบข้อมูลของฉัน (0138)
+
+   Two states with deliberately different weight. The CONFIRM prompt is a quiet
+   request and uses the neutral surface every other card on the home page uses.
+   The CONFLICT card is the orange accent, because it is the one thing on this
+   page that is genuinely waiting on the reader — and it is the only place in
+   the app that uses it at card scale, so it cannot be confused with a heading.
+
+   Light-only, like the rest of the app: no prefers-color-scheme block. Adding
+   one to a single component in a light-only app makes just that component go
+   dark on a dark-mode phone (docs/mistakes/frontend-ui.md).
+   ============================================================ */
+
+.identity-card {
+  border: 1px solid var(--ink-200, #dee2e6);
+  border-radius: .75rem;
+  background: #fff;
+  padding: 1rem 1.1rem;
+  margin-bottom: .75rem;
+}
+.identity-card--conflict {
+  border-color: var(--brand-orange, #ff6f30);
+  border-inline-start-width: 4px;
+}
+.identity-card-title {
+  margin: 0 0 .35rem;
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.identity-card--conflict .identity-card-title { color: var(--brand-orange, #ff6f30); }
+.identity-card-body {
+  margin: 0 0 .75rem;
+  color: var(--ink-600, #495057);
+  font-size: .925rem;
+  line-height: 1.55;
+}
+.identity-card-actions {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.identity-confirm {
+  border: 1px solid var(--brand-primary, #105922);
+  background: var(--brand-primary, #105922);
+  color: #fff;
+  border-radius: .5rem;
+  padding: .4rem .9rem;
+  font-weight: 600;
+}
+.identity-confirm:disabled { opacity: .6; }
+.identity-status {
+  font-size: .875rem;
+  color: var(--ink-500, #6c757d);
+}
+
+.identity-conflict-list { list-style: none; margin: 0; padding: 0; }
+.identity-conflict + .identity-conflict {
+  margin-top: .9rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--ink-100, #f1f3f5);
+}
+.identity-conflict-field {
+  margin: 0 0 .4rem;
+  font-weight: 600;
+  font-size: .9rem;
+}
+/* Two choices side by side on a wide screen and STACKED on a phone. They are
+   the same question asked twice, so squeezing them into two narrow columns is
+   how a name gets truncated in exactly the place the reader is comparing. */
+.identity-conflict-values {
+  display: grid;
+  gap: .5rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 30rem) {
+  .identity-conflict-values { grid-template-columns: 1fr 1fr; }
+}
+.identity-choice {
+  display: block;
+  width: 100%;
+  text-align: start;
+  border: 1px solid var(--ink-200, #dee2e6);
+  border-radius: .5rem;
+  background: #fff;
+  padding: .5rem .7rem;
+}
+.identity-choice:hover:not(:disabled),
+.identity-choice:focus-visible {
+  border-color: var(--brand-primary, #105922);
+  background: var(--ink-050, #f8f9fa);
+}
+.identity-choice:disabled { opacity: .55; }
+.identity-choice-who {
+  display: block;
+  font-size: .75rem;
+  color: var(--ink-500, #6c757d);
+}
+.identity-choice-value {
+  display: block;
+  font-weight: 600;
+  word-break: break-word;
+}
+.identity-conflict-hint {
+  margin: .4rem 0 0;
+  font-size: .8125rem;
+  color: var(--ink-500, #6c757d);
+}

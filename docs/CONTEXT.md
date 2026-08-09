@@ -925,6 +925,48 @@ faculty-wide picker vocabulary (write gate widened to `house` in 0125).
 un-revealed state and renders as "บ้าน N". The whole feature works with zero
 rows in `students`.
 
+### The person registry and the roster import — 0132–0138
+
+`public.people` is THE account table (0132): one row per human, keyed on
+kkumail. `students.person_id` (house placement) and `team_members.person_id`
+(org posting) point at it. Identity lives in the registry; PLACEMENT facts —
+`sai_code`, `node_id`, term, permissions — never leave their own table and are
+never mirrored. Three editors reach the registry: `update_my_identity()` (the
+person's own card) and a mirror UP on each placement table (0133). All mirrors
+are guarded by `is distinct from`; **that guard is the termination condition**,
+not an optimisation.
+
+**Names are stored as PARTS and the whole is DERIVED.** `first_name_th` +
+`last_name_th` on `people`, `students` and — since 0135 — `team_members`, whose
+`full_name` is filled by `team_members_sync_full_name()` whenever a part is
+present. Nothing anywhere splits a combined name on whitespace: Thai surnames
+contain spaces, and `src/js/name-split.test.js` fails the build on any module
+that tries. Rows predating the split keep their combined name until a human
+types a pair.
+
+**`search_people(q, limit)`** (0137) backs the ทีม SAMO member picker — ชื่อ,
+นามสกุล, ชื่อเล่น, รหัสนักศึกษา, สาขา, kkumail. Wildcards escaped, min 2 chars,
+limit clamped to 50, identity-only projection, gated on
+`team`/`team_edit`/`house`/vp_admin/dev, never `anon`.
+
+**Import reconciliation** (0138). `students.self_edited` (0125) already recorded
+which columns a person had taken over, and `students_keep_self_edits` preserved
+them on an import; 0138 makes the discarded value visible instead of dropping
+it. The rule: authority is per FIELD; silence is not agreement (a person who
+never looked has claimed nothing, so the file writes); a disagreement becomes an
+`identity_conflicts` row. `people.identity_confirmed_at` distinguishes "checked"
+from "never opened the page". RPCs: `get_my_identity_status()`,
+`resolve_identity_conflict(id, 'mine'|'theirs')` (choosing the file's value also
+releases the column from `self_edited`), `confirm_my_identity()`,
+`identity_check_summary()` (counts only — a list of names would be a roster
+projection). `my_person_id()` is a definer helper used INSIDE the own-read RLS
+policy, because an inline subquery over `people` inherits `people_read` and
+would deny every ordinary student their own record.
+
+⚠️ `identity_conflicts` needs its table GRANT as well as its policies — RLS
+narrows a privilege that must exist first, and a policy set with no GRANT denies
+everyone while looking exactly like the policies working.
+
 **Frontend**: `src/js/house/` — `fields.js` (pure rules incl. the file-level
 `auditSaiWidths` leading-zero check), `io.js` (CSV parse/diff/export),
 `api.js`, `index.js` (admin workspace, section `house`), `my-house.js` (the

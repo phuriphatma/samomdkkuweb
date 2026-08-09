@@ -38,6 +38,12 @@
           <!-- ตำแหน่งของฉันในทีม SAMO. Rendered by my-seat.js ONLY for a signed-in
                account whose kkumail holds a posting in the org tree; everyone
                else (every ordinary student login) never sees it. -->
+          <!-- ตรวจสอบข้อมูล — the import's disagreements with THIS person, and the
+               ยืนยัน button (0138). ABOVE both cards and outside either of them
+               on purpose: it applies to a house-only student and to a ทีม SAMO
+               shared account alike, and putting it inside my-seat.js would have
+               hidden it from the ~1,800 people who have no posting. -->
+          <section id="homeIdentityCheck" class="identity-check" aria-label="ตรวจสอบข้อมูลของฉัน" hidden></section>
           <section id="homeMySeat" class="myseat" aria-label="ข้อมูลของฉัน" hidden></section>
           <section id="homeMyHouse" class="myhouse mt-3" aria-label="บ้านของฉัน" hidden></section>
 

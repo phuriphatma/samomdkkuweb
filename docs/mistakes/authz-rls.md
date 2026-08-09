@@ -872,3 +872,103 @@ not: `current_user_has_permission()` reads the UNION of `permissions` **and**
 ทีม SAMO org tree. A probe subject chosen by `permissions = '{}'` alone is not
 an unprivileged subject in this schema — filter on both columns, or you will
 report a vulnerability that is the grant engine working.
+
+---
+
+## An RLS policy with no table GRANT denies everyone, and looks exactly like the policy working
+
+**Symptom**: a new `identity_conflicts` table had two SELECT policies — an admin
+one and a "this is your own record" one — and both returned zero rows for
+everybody. The DENY probe passed. So did the second DENY probe. The only reason
+it was caught is that an ALLOW step sitting between them (a SECURITY DEFINER RPC
+reading the same rows) returned 1 while the direct read returned 0.
+
+**Cause**: the migration created the table, enabled RLS, wrote the policies and
+`revoke all ... from anon` — and never granted anything to `authenticated`. RLS
+NARROWS a privilege; it does not confer one. With no GRANT there is nothing to
+narrow, so every policy is unreachable and every read is denied. A definer RPC
+runs as the owner and is unaffected, which is what made the two halves disagree.
+
+**Fix**: `grant select, insert, update, delete on public.identity_conflicts to
+authenticated;` beside the `enable row level security`, and an ALLOW assertion in
+the proof (`an admin can READ the conflicts`) so a future revoke cannot make
+every DENY step pass vacuously again.
+
+**Where it lives now**: `supabase/migrations/0138_the_import_disagrees_out_loud.sql`
+§2, `tools/house0138-conflicts.mjs` (A9b).
+
+**Rules**: (1) Every new RLS table needs a GRANT in the same migration; the
+policies are the second half of the sentence. (2) A DENY-only proof cannot
+distinguish a working guard from a table nobody can reach — pair every deny with
+an allow over the same rows (class 7).
+
+---
+
+## An RLS policy's inline subquery is subject to the referenced table's RLS — found again, on a policy written FOR ordinary students
+
+**Symptom**: a student could not read their own `identity_conflicts` row. The
+admin policy worked, the definer RPC worked, the own-read policy matched nothing.
+
+**Cause**: the policy was the obvious spelling —
+
+```sql
+using (exists (select 1 from public.people p
+                 join public.users u on lower(btrim(u.email)) = lower(btrim(p.kkumail))
+                where p.id = identity_conflicts.person_id and u.id = auth.uid()))
+```
+
+— and `people` has its own RLS (`people_read`, which requires
+`team` / `team_edit` / `house`). An ordinary student cannot select from `people`,
+so the subquery found nothing and the policy denied them their own record. This
+is the FIRST entry in this file, met again five years of migrations later, in a
+policy whose entire purpose was the unprivileged case.
+
+**Fix**: `public.my_person_id()`, a SECURITY DEFINER `stable` function returning
+the caller's registry row, and `using (person_id = public.my_person_id())`.
+
+**Where it lives now**: `supabase/migrations/0138_the_import_disagrees_out_loud.sql` §2.
+
+**Rule**: any table an RLS policy reads must be one the POLICY'S SUBJECT can
+read, or the lookup goes through a definer. The failure is silent and always
+denies the least privileged caller — i.e. exactly the one the policy exists for.
+
+---
+
+## A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
+
+**Symptom**: the 0135 proof asked whether an ordinary member could edit an
+admin-owned column on their own `team_members` row. The answer came back
+**ALLOWED**, from a guard that had been in place since 0110 and was correct when
+read.
+
+**Cause**: `app.team_sync` is the documented server-writer exemption —
+`team_members_self_update_guard` returns early when it is `'1'`, so a definer
+function can write a guarded column while running with the member's own
+`auth.uid()`. Two functions set it and never put it back:
+`recompute_team_managed_permissions()` (an AFTER STATEMENT trigger on
+`team_members`) and `sync_my_team_permissions()`. `set_config(name, value,
+is_local => true)` is transaction-scoped, and a `SET search_path` clause on the
+function does not save it back. Measured: `app.team_sync` was unset at the start
+of a transaction and `'1'` after a single `update public.students`, because the
+0132/0133 mirrors write `team_members.kkumail` and that fires the recompute.
+
+Not reachable through PostgREST as things stand — one request is one transaction
+and one PATCH is one statement, and within a statement the BEFORE ROW guard
+fires before the AFTER STATEMENT recompute. The protection rested on that
+accident, and `update_my_identity` is already an example of the shape that
+breaks it: a definer RPC touching `students` and then `team_members`.
+
+**Fix**: migration 0136 — both functions read the previous value into a local,
+set `'1'`, and restore. The previous VALUE rather than `''`, because a nested
+caller may legitimately already be inside the exemption.
+
+**Where it lives now**: `supabase/migrations/0136_team_sync_flag_does_not_leak.sql`,
+`tools/team0135-name-split.mjs` (D5 + D5y, which asserts the probe subject really
+is unprivileged AND that `app.team_sync` is not set).
+
+**Rules**: (1) A bypass flag must be restored by whoever set it, in the same
+function, to its previous value. (2) Fail-open again (class 2): the guard
+answered "allowed" for a condition it could no longer evaluate honestly.
+(3) A proof step that asserts the CONTEXT it is testing in — "this caller really
+has no grant, and the bypass really is off" — is what turned this from a
+mysterious FAIL into a one-line diagnosis.

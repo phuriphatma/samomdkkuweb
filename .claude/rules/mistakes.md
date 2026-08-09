@@ -81,6 +81,9 @@ has not been written yet.
    NOTHING is not evidence of nothing — make it find something you know is there
    first (`pg_get_functiondef` needs `prokind='f'`; policy bodies render
    `'team'::text`, so the recipe in 0110's comments matched zero of twelve).
+   And a table with RLS policies but NO GRANT denies everyone, which reads
+   exactly like the policies working — pair every deny with an allow over the
+   same rows (0138).
     Read the ACL from
    `pg_proc.proacl`, not from the `revoke` you just wrote; grep the SERVED
    bundle, not the local file; read the LIVE function body, not the migration
@@ -135,7 +138,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
 ### `docs/mistakes/authz-rls.md` — RLS policies, SECURITY DEFINER & read paths
-*Open when:* any policy, `current_user_*` helper, or definer RPC. *(22 entries)*
+*Open when:* any policy, `current_user_*` helper, or definer RPC. *(25 entries)*
 
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
@@ -159,6 +162,9 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `revoke ... from public` leaves the grant that the schema's DEFAULT PRIVILEGES gave `authenticated`
 - An anon-readable settings table published a staff member's real email
 - An admin's decision was written to a column no student had any read path to
+- An RLS policy with no table GRANT denies everyone, and looks exactly like the policy working
+- An RLS policy's inline subquery is subject to the referenced table's RLS
+- A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
 *Open when:* adding an access channel, a scope, or a seat. *(11 entries)*
@@ -236,7 +242,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(11 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(12 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -249,6 +255,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An upsert that sends EVERY column wipes the ones the file did not have
 - An export that carries a GENERATED column re-imports as the real one
 - Stripping a คำนำหน้า off a name renames the people whose name STARTS with one
+- "แก้ชื่อในหน้าตัวเอง แล้วชื่อ-นามสกุลในระบบบ้านสลับกัน"
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(17 entries)*

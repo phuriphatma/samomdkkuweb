@@ -860,6 +860,15 @@ function renderImportPreview(result, diff) {
         <strong>ระบบจะไม่ลบให้</strong> และจะทำเครื่องหมายไว้ว่าไม่พบในไฟล์ล่าสุด
       </div>` : ''}
 
+    ${diff.kept ? `
+      <div class="alert alert-info py-2 small">
+        มี ${diff.kept} คนที่แก้ข้อมูลของตัวเองไว้ และไฟล์นี้บอกไม่ตรงกัน —
+        <strong>ระบบจะเก็บของเจ้าตัวไว้ ไม่ทับ</strong>
+        แล้วขึ้นถามเจ้าตัวในหน้าแรกว่าอันไหนถูก
+        ดูได้ในตารางด้านล่าง (ปุ่ม “เจ้าตัวแก้เอง”)
+        <br>ถ้าตัวเลขนี้สูงผิดปกติ ให้สงสัยไฟล์ก่อน — คนจำนวนมากไม่ได้พิมพ์ชื่อตัวเองผิดพร้อมกัน
+      </div>` : ''}
+
     <div class="mb-3">
       <h6 class="small text-uppercase text-muted">จำนวนคนที่จะเข้าแต่ละบ้าน</h6>
       <div class="d-flex flex-wrap gap-2">
@@ -889,6 +898,7 @@ function renderImportPreview(result, diff) {
         <button type="button" class="btn btn-outline-secondary active" data-prev-filter="all">ทั้งหมด</button>
         <button type="button" class="btn btn-outline-secondary" data-prev-filter="insert">เพิ่มใหม่</button>
         <button type="button" class="btn btn-outline-secondary" data-prev-filter="update">จะแก้ไข</button>
+        <button type="button" class="btn btn-outline-secondary" data-prev-filter="kept">เจ้าตัวแก้เอง</button>
         <button type="button" class="btn btn-outline-secondary" data-prev-filter="problem">ต้องดู</button>
       </div>
       <input type="search" class="form-control form-control-sm" id="housePreviewSearch"
@@ -947,6 +957,7 @@ function renderPreviewTable() {
     if (previewFilter === 'problem' && !r._problems.length && r._verdict !== 'skip') return false;
     if (previewFilter === 'insert' && r._verdict !== 'insert') return false;
     if (previewFilter === 'update' && r._verdict !== 'update') return false;
+    if (previewFilter === 'kept' && !(r._kept || []).length) return false;
     if (!q) return true;
     return PREVIEW_COLUMNS.some((c) => String(r[c] || '').toLowerCase().includes(q))
       || r._problems.some((p) => String(p.message).toLowerCase().includes(q));
@@ -968,6 +979,16 @@ function renderPreviewTable() {
       return `<span class="text-decoration-line-through text-muted">${escHtml(was || '—')}</span>
               <i class="bi bi-arrow-right small text-muted"></i>
               <span class="text-primary fw-semibold">${escHtml(v || '—')}</span>`;
+    }
+    // A column the STUDENT has taken over (0125/0138). The file says something
+    // different and the table will refuse to write it, so the arrow points the
+    // OTHER WAY: what stays is what the person typed, and the file's value is
+    // the one being set aside. Drawing it like an ordinary change would promise
+    // a write that is about to be declined.
+    if (r._kept?.includes(c)) {
+      const mine = r._keptBefore?.[c] ?? '';
+      return `<span class="fw-semibold">${escHtml(mine || '—')}</span>
+              <span class="text-muted small d-block">ไฟล์ว่า ${escHtml(v || '—')} — เจ้าตัวแก้เอง จะถามเจ้าตัว</span>`;
     }
     return v === '' || v === null ? '<span class="text-muted">—</span>' : escHtml(v);
   };
