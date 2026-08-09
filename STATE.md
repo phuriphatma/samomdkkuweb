@@ -5,7 +5,9 @@ RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
 
-**Start here: the `## NEXT-SESSION PROMPT` at the BOTTOM of this file.** It
+**🔴 START WITH `## OPEN BUG — START HERE`, immediately below.** A live admin
+button is broken and the diagnosis is one console line away. Then the
+`## NEXT-SESSION PROMPT` at the BOTTOM of this file.** It
 carries the two things that change what you do first — the owner's pending bug
 list, and the fact that none of the admin UI has been browser-verified — plus
 the registry model, the signatures that changed, and the next work in order.
@@ -30,6 +32,58 @@ chronology: `git log --oneline`; architecture/RLS: `docs/CONTEXT.md`; bug
 post-mortems: **`docs/mistakes/*.md`** (indexed by `.claude/rules/mistakes.md`
 — see Housekeeping at the bottom; the corpus moved out of `.claude/rules/` on
 2026-08-05 and the archive file is gone).
+
+## 🔴 OPEN BUG — START HERE (2026-08-09, end of session)
+
+**REPORTED, NOT ROOT-CAUSED:** in `/admin/` ทีม SAMO, the **เพิ่มสมาชิก button
+(`data-act="add-member"`, the `bi-person-plus` icon) does nothing** — no modal,
+no message — on **iPad AND desktop**. Same session: **ค้นหาคนจากระบบ shows no
+suggestions.**
+
+**Two containment fixes are DEPLOYED. Neither is the cure:**
+- `54d2c5f` — `openMemberModal` splits into `openMemberModal` (opens the modal
+  unconditionally) + `fillMemberModal` (wrapped in try/catch). Worst case is now
+  a half-filled form, not a dead button.
+- `dbd8312` — `init()`'s ten `wire*()` calls each run in their own try/catch.
+  **This is the most likely explanation of BOTH symptoms**: they were ten bare
+  statements, and `wireTreeDelegation()` — the ONE click handler behind every
+  button in the tree — is eighth. A throw in any earlier wire-up killed it and
+  everything after, silently. A dead tree is indistinguishable from a missing
+  handler.
+
+**HOW TO FINISH IT (do this first, it should be quick now):**
+1. Open `/admin/#team` with the console up. The wire-up loop now logs
+   `[team] wire <name> failed:` — **that name is the bug.** The modal prefill
+   logs `[team] member modal prefill failed:`.
+2. Ruled out already: the served markup DOES carry `teamMemberFirstName` /
+   `teamMemberLastName` / `teamMemberSearch`; `cohortFromStudentId(undefined)`,
+   `studyYear({student_id: undefined})` and `suggestNameSplit('')` all return
+   `null` cleanly; the tree's click delegation has no `dragging` guard; Sortable
+   is handle-scoped.
+3. Suspects not yet checked: `searchPeople` failing at runtime (the hint text
+   would say so — LOOK AT IT), and anything in `wireMemberPermModal` /
+   `wirePermModal` (they run BEFORE `wireTreeDelegation`).
+
+**If it turns out the search RPC is the problem**, `search_people` is gated on
+`team`/`team_edit`/`house`/vp_admin/dev and was proved 14/14 by
+`node tools/team0137-search.mjs` — so check the CLIENT call, not the RPC.
+
+## SHIPPED 2026-08-09 (audit) — 0143 + two containment fixes
+
+- **0143 — the portrait refcount could destroy a file in use.** It counted
+  `team_members` + `team_archive_members`; since 0132 `people` and `students`
+  hold the same URL. Worse, a client-side fix is impossible: `students` and
+  `advisors` need `house`, the admin who deletes members holds `team_edit`, and
+  **RLS returns zero rows, not an error** — so the extra queries would answer
+  "unreferenced" for exactly that caller. Count moved to a SECURITY DEFINER
+  `photo_reference_count()`. Blank URL answers 1; the client deletes only on a
+  definite numeric zero. Proof: `node tools/team0143-photo-refcount.mjs` (5/5).
+  Guard: `src/js/photo-refcount.test.js` scans the migration DDL for every table
+  given a `photo_url` and fails if the count omits one.
+- **Double-submit**: `onMemberSubmit` disabled its button only inside the photo
+  branch — safe only because nothing awaited before `hide()`. The 0141 name
+  confirmation added an `await` there, so two presses created two members. Now
+  an explicit busy guard (`runMemberSubmit`).
 
 ## SHIPPED 2026-08-09 (evening) — the owner's bug list (0139–0142)
 
@@ -260,11 +314,11 @@ is contract-step work, not a bug. Background:
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
 - **samoweb**: `main` = `1051042` on the VM (later commits are docs-only),
   verified from the served artifact. Still **v4.5.0**, and
-  ⚠️ **`PENDING` in `src/data/changelog.js` now holds 32 entries** — two
+  ⚠️ **`PENDING` in `src/data/changelog.js` now holds ~36 entries** — two
   sessions of user-visible work with no version cut. **A `npm run release`
   minor bump is OWED** and `/updates` is showing none of it. Read
   `docs/VERSIONING.md` first; the bump is a **minor**.
-- **Migrations applied through 0142.** Live proofs, all both-directional:
+- **Migrations applied through 0143.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
   `node tools/house0132-registry.mjs` (19/19) ·
@@ -327,12 +381,16 @@ archiving into it saved nothing.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-09)
 
-> ⚠️ **FIRST: the owner has a BACKLOG OF UNREPORTED BUGS AND QUESTIONS.** The
-> previous session ended with them saying "there are many bugs and many
-> question i want to ask, but for now very properly hand off". So expect the
-> opening message to be a list, not a task. Do NOT start the planned work below
-> until they have said what they found — the planned items are cheap to defer
-> and a live bug is not.
+> ⚠️ **FIRST: read `## OPEN BUG — START HERE` at the TOP of this file.** The
+> เพิ่มสมาชิก button in ทีม SAMO admin does nothing, on every device. Two
+> containment fixes are deployed and the wire-up loop now NAMES the failing
+> piece in the console — open `/admin/#team`, read the log, fix that. Nothing
+> else matters until it is closed.
+>
+> ⚠️ **SECOND: the owner tests live and reports in bursts.** Nine bugs came in
+> this way on 2026-08-09, several in code shipped hours earlier. Expect the
+> opening message to be a list, not a task, and treat their report as the test
+> pass this repo does not have.
 >
 > ⚠️ **SECOND: none of the ADMIN UI shipped on 2026-08-08/09 has ever been seen
 > in a signed-in browser.** The request queue, the นักศึกษา filters, the import
