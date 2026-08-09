@@ -62,6 +62,45 @@ The allow-list holds six real globals (`bootstrap`, `Quill`,
 Also removed `teamMemberHouseFillHint` (markup + JS), the dead status line of
 the button 0141 took out. Write-up: `docs/mistakes/frontend-ui.md`.
 
+## SHIPPED 2026-08-09 — 0144: the delete dialog says WHICH delete this is
+
+**Answering "if I delete a นักศึกษา, is their ทีม SAMO data gone too?" — no**, and
+the dialog now says so. Proved against real rolled-back deletes
+(`node tools/db-query.mjs tools/house0144-delete-impact.sql`, **18/18**):
+
+- **Person also holds a ทีม SAMO posting** → only the house PLACEMENT goes.
+  `people` survives, every posting survives with its name. `team_members.person_id`
+  is `ON DELETE SET NULL`, and `prune_orphan_person` only removes a registry row
+  when NO placement of any kind remains.
+- **House-only, never signed in, never confirmed** → `prune_orphan_person`
+  deletes their `public.people` row too; the person is gone entirely. After the
+  1,800-row import that is nearly everyone.
+- **Signed in OR identity-confirmed** → protected, registry row survives.
+- `student_change_requests.student_ref` is `ON DELETE CASCADE`, so the student's
+  questions AND the admin's decision notes go with the row.
+
+**`student_delete_impact()` (0144)** answers this SERVER-SIDE, gated on the same
+test as the delete (`students_admin_all`). ⚠️ **It cannot be a client query**:
+the deleting admin holds `house` while `team_members` needs `team`, and RLS
+returns ZERO ROWS rather than raising — so a client check would answer "no
+posting" for exactly that caller and the dialog would promise total erasure for
+someone whose ตำแหน่ง is about to survive. Same fail-open as 0143.
+
+⚠️ **The RPC RESTATES `prune_orphan_person`'s conditions**, which is this repo's
+most-repeated bug class. `tools/house0144-delete-impact.sql` is a DIFFERENTIAL
+test: it asks the function what it predicts, then does the delete and compares.
+If you edit `prune_orphan_person`, that proof is what tells you this went stale.
+
+Wording rule is pure and pinned by `src/js/house/delete-warning.test.js` (10
+cases), including "never claims BOTH survival and erasure" and the fallback to
+the cautious sentence when the lookup fails.
+
+⚠️ **A proof-writing trap, paid for again here**: `pg_temp` impersonation used
+`set_config(..., true)`, which is TRANSACTION-scoped — `reset role` does not
+clear it, so the deny case ran with the admin's claims still in place and came
+back ALLOWED, looking exactly like a broken guard. Clear the claims before a
+deny case.
+
 ## ✅ CLOSED 2026-08-09 — a TRASHED Drive file is still served publicly
 
 **This is the answer to both photo reports, and it is not a cache.**
@@ -493,7 +532,7 @@ is contract-step work, not a bug. Background:
   sessions of user-visible work with no version cut. **A `npm run release`
   minor bump is OWED** and `/updates` is showing none of it. Read
   `docs/VERSIONING.md` first; the bump is a **minor**.
-- **Migrations applied through 0143.** Live proofs, all both-directional:
+- **Migrations applied through 0144.** Live proofs, all both-directional:
   `node tools/house0128-cohort.mjs` (8/8) · `node tools/house0128-requests.mjs`
   (9/9) · `node tools/house0131-year-offset.mjs` (9/9) ·
   `node tools/house0132-registry.mjs` (19/19) ·

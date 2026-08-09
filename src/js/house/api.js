@@ -261,6 +261,30 @@ export async function updateStudent(id, patch) {
   return data[0];
 }
 
+/**
+ * What deleting this ระบบบ้าน row will ACTUALLY remove (migration 0144).
+ *
+ * Asked SERVER-SIDE and not computed here on purpose: the admin who deletes a
+ * student holds `house`, while `team_members` needs `team` — and RLS answers a
+ * caller without it with ZERO ROWS rather than an error. A client-side "does
+ * this person have a ตำแหน่ง?" check would therefore answer "no" for exactly the
+ * person doing the delete, and the dialog would promise total erasure for
+ * someone whose posting is about to survive (the 0143 fail-open, again).
+ *
+ * Best-effort: on any failure the caller falls back to the cautious wording.
+ * The confirmation must never be BLOCKED by this lookup — it is there to make
+ * the sentence more accurate, not to become a new way for ลบ to do nothing.
+ */
+export async function fetchDeleteImpact(id) {
+  try {
+    const { data, error } = await dbRest('/rpc/student_delete_impact', {
+      method: 'POST', body: { p_student_id: id },
+    });
+    if (error || !data || data.found === false) return null;
+    return data;
+  } catch { return null; }
+}
+
 export async function deleteStudent(id) {
   const { data, error } = await dbRest(`/students?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE', prefer: 'return=representation',

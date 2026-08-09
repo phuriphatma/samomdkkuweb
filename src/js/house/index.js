@@ -35,7 +35,7 @@ import {
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors,
-  fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear,
+  fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList,
 } from './api.js';
 import {
@@ -1493,12 +1493,56 @@ async function onStudentSubmit(e) {
   } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
 }
 
+/**
+ * Say which of the TWO deletes this is.
+ *
+ * Deleting a นักศึกษา does one of two very different things and the dialog used
+ * to say the same sentence for both:
+ *
+ *   • the person also holds a ทีม SAMO ตำแหน่ง → only the house placement goes.
+ *     Their name, รหัส, รูป, ตำแหน่ง and สิทธิ์ are untouched, because
+ *     team_members.person_id is ON DELETE SET NULL and the registry row is only
+ *     pruned when NO placement of any kind is left.
+ *   • house-only, never signed in, never confirmed → their public.people row is
+ *     pruned too and the person is gone from the system entirely. After the
+ *     1,800-row import that is nearly everyone.
+ *
+ * The คำขอแก้ไข count is named because those CASCADE — the student's questions
+ * and the admin's answers go with the row, and that is not obvious from "ลบ".
+ */
+export function deleteWarningFor(impact) {
+  const base = 'ข้อมูลบ้าน สายรหัส และสิ่งที่นักศึกษาคนนี้กรอกเองจะหายไปทั้งหมด';
+  // No answer from the server: keep the old, cautious wording rather than
+  // guessing. A wrong reassurance is worse than a vague one.
+  if (!impact) return base;
+
+  const bits = [base];
+  const reqs = Number(impact.pending_requests) || 0;
+  if (reqs) bits.push(`รวมถึงคำขอแก้ไข ${reqs} รายการ และคำตอบของผู้ดูแล`);
+
+  if (Number(impact.team_postings) > 0) {
+    bits.push(impact.team_nodes
+      ? `ยังอยู่ในทีม SAMO (${impact.team_nodes}) — ตำแหน่ง ชื่อ และรูปในทีม SAMO จะไม่ถูกลบ`
+      : 'ยังอยู่ในทีม SAMO — ตำแหน่ง ชื่อ และรูปในทีม SAMO จะไม่ถูกลบ');
+  } else if (impact.person_will_be_pruned) {
+    bits.push('คนนี้ไม่ได้อยู่ในทีม SAMO และยังไม่เคยเข้าสู่ระบบ '
+      + 'ข้อมูลตัวตนจะถูกลบออกจากระบบทั้งหมด กู้คืนไม่ได้');
+  } else if (impact.signed_in || impact.identity_confirmed) {
+    bits.push('คนนี้เคยเข้าสู่ระบบแล้ว ข้อมูลตัวตนจะยังอยู่ '
+      + 'แต่จะไม่มีข้อมูลบ้านอีกต่อไป');
+  }
+  return bits.join(' · ');
+}
+
 async function onStudentDelete() {
   const id = $('hsId').value;
   const s = students.find((x) => x.id === id);
   if (!s) return;
-  if (!await askDelete(s.full_name || s.kkumail,
-    'ข้อมูลบ้าน สายรหัส และสิ่งที่นักศึกษาคนนี้กรอกเองจะหายไปทั้งหมด')) return;
+  // Asked BEFORE the dialog so the sentence is right the first time. Awaiting a
+  // lookup here is safe: askDelete is app-drawn, so a slow reply delays the
+  // dialog rather than losing it the way a suppressed native confirm would.
+  const impact = await fetchDeleteImpact(id);
+  if (!await askDelete(s.full_name || s.kkumail, deleteWarningFor(impact))) return;
   try {
     await deleteStudent(id);
     modalInstance('houseStudentModal')?.hide();
