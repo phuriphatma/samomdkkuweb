@@ -96,40 +96,40 @@ has not been written yet.
    every render, whose handler `toggle`d `d-none` — the panel then opened only
    on odd-numbered paints (`my-house.js`). State in a variable, listeners on the
    nodes this paint made.
-7. **Verify from the authority, and test BOTH directions.** A sweep returning
-   NOTHING is not evidence of nothing — make it find something you know is there
-   first (`pg_get_functiondef` needs `prokind='f'`; policy bodies render
-   `'team'::text`, so the recipe in 0110's comments matched zero of twelve).
-   And a table with RLS policies but NO GRANT denies everyone, which reads
-   exactly like the policies working — pair every deny with an allow over the
-   same rows (0138).
-    Read the ACL from
-   `pg_proc.proacl`, not from the `revoke` you just wrote; grep the SERVED
-   bundle, not the local file; read the LIVE function body, not the migration
-   that first defined it. **And check that your INSTRUMENT can see the thing**:
-   a minified bundle renames module-scope `let`s (grep a STRING LITERAL or a CSS
-   class), code often lands in a shared CHUNK rather than the entry (0145's
-   `studyYearLabel` landed in `analytics-*.js`, which BOTH entries import), `curl -L`
-   turns a GAS `/exec` POST into a GET so every probe returns Drive's error page,
-   and `lh3.googleusercontent.com` still serves a Drive file that is IN THE
-   TRASH — so "I deleted it and it still shows" is the CDN, not a stale row. And a probe that can only report "denied" cannot
-   distinguish a working guard from a broken service — always exercise the
-   allow path too. **A guard TEST has the same failure**: `photo-refcount.test.js`
-   was asked to find columns named `photo_url` and found every one, faithfully,
-   while the hazard sat in `houses.icon_url` one column along — green for three
-   days over a count that returned 0 for every crest (0146). Scan by SHAPE and
-   force a decision on each hit, never by one name. **A CONTROL that also
-   returns nothing is not a control**: 0147's first sweep printed "0 policies
-   reference `users`" beside "0 policies reference anything" and both were the
-   instrument failing, not a clean result. Print the count your control found.
-   **And re-read a policy's stated JUSTIFICATION, not just its predicate** —
-   `users_read_all` carried "needed for staff dashboards" in a comment, that
-   need ended years earlier, and the policy outlived its reason in silence
-   (0147). **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
+7. **Verify from the authority, and test BOTH directions.** Read the ACL from
+   `pg_proc.proacl`, not the `revoke` you just wrote; grep the SERVED bundle,
+   not the local file; read the LIVE function body, not the migration that first
+   defined it.
+
+   **Guards fail GREEN, which is why they get their own playbook —
+   `skills/write-a-guard.md`. Read it before writing any test, proof or sweep.**
+   The five ways, each paid for here: it cannot SEE the hazard
+   (`photo-refcount.test.js` scanned for `photo_url`, hazard sat in
+   `houses.icon_url`, 0146) · its CONTROL also finds nothing (0147's first sweep
+   printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
+   (`confirm-modal.test.js` matched `[data-confirm-no]` inside a *comment* and
+   passed with the bug present) · its SUBJECT is a hardcoded name that rotted
+   (`proj0092` named a member the org chart moved; `house0116` named an email
+   that never existed, so its ALLOW half was always vacuous) · it ERRORS rather
+   than fails, and an aborted script is silence, not a red line (`house0116`
+   called a function 0124 dropped and ran ZERO assertions for 23 migrations —
+   when a migration drops a function or column, grep `tools/` in the same
+   commit). **The ritual that catches all five: reintroduce the bug, watch it
+   fail on the assertion you expect, restore.**
+
+   Pair every DENY with an ALLOW over the same rows — a table with policies but
+   no GRANT denies everyone and reads exactly like the policy working (0138),
+   and a probe that can only print "denied" cannot tell a working guard from a
+   broken service. **Check the PROBE SUBJECT**: `current_user_has_permission()`
    reads the UNION of `permissions` AND `managed_permissions` (0081), so an
-   account picked by `permissions = '{}'` may hold `master` through the ทีม SAMO
-   tree — it looks exactly like a fail-open policy and is the grant engine
-   working. Filter on both columns.
+   account picked by `permissions='{}'` may hold `master` through the tree.
+   **Check the INSTRUMENT can see it**: minified builds rename module-scope
+   `let`s (grep a STRING LITERAL or CSS class), code often lands in a SHARED
+   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a
+   GET, and `lh3` still serves a TRASHED Drive file. **Re-read a rule's stated
+   JUSTIFICATION, not just its predicate** — `users_read_all` carried "needed
+   for staff dashboards" in a comment, that need had ended years earlier, and
+   the policy outlived its reason in silence (0147).
 
 ---
 
