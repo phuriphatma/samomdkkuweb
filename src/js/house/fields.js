@@ -28,8 +28,25 @@
 // ==============================================
 
 import { normalizeStudentId, majorKey } from '../team/fields.js';
+import { arabicDigits } from '../utils.js';
+// ชั้นปี / รุ่น MOVED OUT (0145). It used to be defined here, and ทีม SAMO stored
+// its own answer in `team_members.year` rather than importing a rule that lived
+// under `house/` — so the two drifted, exactly as the comment that used to sit
+// at line 208 of this file predicted. It is now `src/js/study-year.js`, one
+// level up, where a rule two systems need belongs. Re-exported so no caller had
+// to change; new code should import from study-year.js directly.
+import {
+  COHORT_EPOCH, COHORT_PREFIX, ACADEMIC_YEAR_ROLLOVER_MONTH,
+  setAcademicYear, academicYear, cohortFromStudentId, cohortLabel,
+  studyYear, studyYearLabel, offsetForPickedYear,
+} from '../study-year.js';
 
 export { normalizeStudentId, majorKey };
+export {
+  COHORT_EPOCH, COHORT_PREFIX, ACADEMIC_YEAR_ROLLOVER_MONTH,
+  setAcademicYear, academicYear, cohortFromStudentId, cohortLabel,
+  studyYear, studyYearLabel, offsetForPickedYear,
+};
 
 /** Canonical สายรหัส shape and the example shown to a human. */
 export const SAI_RE = /^\d{3}$/;
@@ -39,12 +56,6 @@ export const SAI_HINT = 'สายรหัส 3 หลัก เช่น 001 0
 /** How many houses there are. Fixed by the rule (one per digit), not a setting. */
 export const HOUSE_COUNT = 10;
 
-const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
-
-/** Thai numerals → Arabic. Someone will paste ๐๑๗. */
-function arabicDigits(s) {
-  return String(s ?? '').replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
-}
 
 /**
  * Canonicalise a สายรหัส to three digits.
@@ -168,160 +179,6 @@ export function auditSaiWidths(rawValues) {
   };
 }
 
-/**
- * รุ่น (MD50) from ปีที่เข้า — the ONE implementation, and the ONLY cohort
- * vocabulary ระบบบ้าน has.
- *
- * WHY NOT ชั้นปี. ชั้นปี is a moving target: it needs a "current academic year"
- * to subtract from, it is wrong for anyone who ลาพัก / เรียนซ้ำ / จบช้า, and it
- * silently rots — a record entered today reads "ปี 5", and the same record read
- * next August reads "ปี 5" too unless somebody remembers to move a setting.
- * รุ่น is a FACT about the person, fixed at admission and readable straight off
- * the รหัสนักศึกษา, so it needs no clock, no override and no maintenance. That is
- * why the ชั้นปี override (`students.year_override`) is no longer offered
- * anywhere: there is nothing left for it to correct.
- *
- * THE NUMBER. It is the faculty's intake count, not a year: ปีที่เข้า 2565 is
- * MD50, 2564 is MD49 — i.e. `cohort - 2515`. One epoch constant, one prefix,
- * spelled once here. MDI and RT students entering the same year carry the same
- * intake label; if that ever needs to differ, it differs HERE and nowhere else.
- */
-export const COHORT_EPOCH = 2515;
-export const COHORT_PREFIX = 'MD';
-
-export function cohortLabel({ cohort_year: cohort, student_id: sid } = {}) {
-  const c = cohort || cohortFromStudentId(sid);
-  if (!c) return null;
-  const n = Number(c) - COHORT_EPOCH;
-  return n >= 1 ? `${COHORT_PREFIX}${n}` : null;
-}
-
-/**
- * ชั้นปี — DERIVED, every time, from facts that do not rot.
- *
- * `ชั้นปี = ปีการศึกษา − ปีที่เข้า + 1 + year_offset`
- *
- * WHY IT IS NOT STORED. A stored ชั้นปี is correct for one academic year and
- * silently wrong forever after — and wrong for exactly the people whose
- * situation is unusual enough that nobody re-checks it. `students.year_override`
- * was that column; 0129 dropped it, and `team_members.year` is still that column
- * (399 rows, and nothing anywhere in this repo has ever bumped it — verified by
- * grep, so every August all 399 quietly become last year's answer).
- *
- * WHAT IS STORED INSTEAD is `year_offset`, a DIFFERENCE (0131). `-1` means
- * "permanently one year behind their รุ่น" — ลาพัก, เรียนซ้ำ — and it stays
- * correct in 2570 and 2575 with no maintenance. That is the entire argument for
- * the shape: the offset is a property of the person, the year is a property of
- * the person AND the calendar, and only the first is safe to write down.
- *
- * THIS IS THE ONLY IMPLEMENTATION. There is deliberately no SQL twin: nothing
- * server-side gates on ชั้นปี, so SQL stores the ingredients and this does the
- * arithmetic. Two implementations of one rule is the class this repo pays for
- * most, and the cheapest way to not have it is to not write the second one.
- */
-
-/** Where the clock WOULD put the rollover. Still used as the fallback below and
- *  as the reference the admin page compares the stored value against. */
-export const ACADEMIC_YEAR_ROLLOVER_MONTH = 8;
-
-/**
- * ปีการศึกษา is now an ADMIN-SET value (migration 0141), primed once at boot.
- *
- * 0131 made it a constant derived from the clock, arguing that "a setting
- * somebody must change every August is a setting that is forgotten every
- * August". The owner overruled it, and the counter-argument is stronger: the
- * promotion is not a calendar event. It does not happen at midnight on 1
- * สิงหาคม, the date varies, and a system that advances 1,800 people on a date
- * the faculty did not pick is confidently wrong for the weeks in between while
- * looking exactly like it is working. A stale answer is visible to whoever has
- * to fix it; a wrong one is not.
- *
- * The forgotten-setting risk is answered rather than traded away: the ระบบบ้าน
- * admin page shows the value beside what the clock would have said, and says
- * when they differ (`academic_year_status()`). It reminds; it never acts.
- *
- * NULL until `setAcademicYear` has been called, and the clock is the fallback —
- * so a failed fetch degrades to exactly the pre-0141 behaviour rather than to a
- * blank ชั้นปี on every card.
- */
-let currentAcademicYear = null;
-
-/** Prime from `get_academic_year()`. Idempotent; ignores a non-numeric value. */
-export function setAcademicYear(year) {
-  const n = Number(year);
-  if (Number.isFinite(n) && n > 2400) currentAcademicYear = n;
-}
-
-/** The ปีการศึกษา in พ.ศ. `now` is still injectable so the tests can stand at a
- *  date rather than asserting against whenever they happen to run — and so the
- *  fallback path stays testable. */
-export function academicYear(now = new Date()) {
-  if (currentAcademicYear !== null) return currentAcademicYear;
-  const be = now.getFullYear() + 543;
-  return now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? be : be - 1;
-}
-
-/**
- * The raw ชั้นปี number. May be > 6 or < 1 — the caller decides how to read
- * that; see studyYearLabel.
- *
- * @returns {number|null} null when there is no ปีที่เข้า to count from, which is
- *   the honest answer for a shared department account or a row whose
- *   รหัสนักศึกษา has not been filled in yet.
- */
-export function studyYear({ cohort_year: cohort, student_id: sid, year_offset: off } = {},
-  now = new Date()) {
-  const c = cohort || cohortFromStudentId(sid);
-  if (!c) return null;
-  return academicYear(now) - Number(c) + 1 + (Number(off) || 0);
-}
-
-/**
- * ชั้นปี as a person reads it.
- *
- * Out-of-range is rendered, not clamped: `year_offset` is deliberately
- * unbounded (0131), so the guard against an absurd value belongs here, at the
- * one place that turns a number into words. Above ปี 6 the honest word is
- * "จบแล้ว" — which also makes a graduation signal fall out of the arithmetic
- * with no `status` column to keep current (0120 dropped that one).
- */
-export function studyYearLabel(rec, now = new Date()) {
-  const n = studyYear(rec, now);
-  if (n === null || n < 1) return null;
-  return n > 6 ? 'จบแล้ว' : `ปี ${n}`;
-}
-
-/**
- * Turn a ชั้นปี a HUMAN PICKED into the offset to store.
- *
- * The chooser shows real years (1–6) because that is what people think in; what
- * it saves is the gap between the pick and the computation. Picking exactly the
- * computed year stores null — "no adjustment" — rather than 0, so `self_edited`
- * never claims an edit that no reader could see.
- *
- * @returns {number|null} the offset, or null for "exactly as computed".
- */
-export function offsetForPickedYear(rec, picked, now = new Date()) {
-  const base = studyYear({ ...rec, year_offset: 0 }, now);
-  const want = Number(picked);
-  if (base === null || !Number.isFinite(want)) return null;
-  const diff = want - base;
-  return diff === 0 ? null : diff;
-}
-
-/**
- * ปีที่เข้า (พ.ศ.) from the first two digits of รหัสนักศึกษา.
- * Mirrors `public.cohort_from_student_id`, INCLUDING its 2540–2580 window —
- * 0118 tightened that because 2500+99 was inside the original bound, so a
- * malformed id produced a confident "ปี 1". Out of range returns null, which
- * renders as no รุ่น rather than a plausible wrong one.
- */
-export function cohortFromStudentId(sid) {
-  const digits = arabicDigits(sid).replace(/\D/g, '');
-  if (digits.length < 2) return null;
-  const year = 2500 + Number(digits.slice(0, 2));
-  return year >= 2540 && year <= 2580 ? year : null;
-}
 
 /** Snap a สาขา onto the managed vocabulary. Unknown values are KEPT, not
  *  dropped — silently blanking a field on import is worse than flagging it. */

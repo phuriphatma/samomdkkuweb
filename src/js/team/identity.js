@@ -66,7 +66,13 @@ export const IDENTITY_FIELDS = [
   // produced the least actionable `drift` findings — two rows reading นาย and
   // นางสาว for one human is a typo nobody had to resolve to use the app.
   { key: 'nickname', label: 'ชื่อเล่น' },
-  { key: 'year', label: 'ชั้นปี' },
+  // ชั้นปี was here until 0145 made it DERIVED. Two postings for one human can
+  // no longer disagree about it — they compute it from the same registry
+  // ingredients — so the check could only ever fire on the dead
+  // `team_members.year` column, i.e. report a drift that no longer affects
+  // anything a reader sees. A drift check on a value nothing reads is worse than
+  // no check: it costs an admin a decision. The รหัสนักศึกษา it derives FROM is
+  // still checked, by rule 2 and by `sid_drift`.
   { key: 'major', label: 'สาขา' },
   { key: 'photo_url', label: 'รูป' },
 ];
@@ -84,7 +90,6 @@ export function findIssues(members, nodeName = () => '') {
     node: nodeName(m.node_id),
     full_name: clean(m.full_name),
     nickname: clean(m.nickname),
-    year: clean(m.year),
     major: clean(m.major),
     photo_url: clean(m.photo_url),
     sid: clean(m.student_id),

@@ -34,12 +34,21 @@ describe('ownIssues', () => {
   });
 
   it('names every empty field in ONE finding, not one finding per field', () => {
-    const out = ownIssues(seat([posting({ nickname: '', year: null, major: '   ' })]));
+    const out = ownIssues(seat([posting({ nickname: '', major: '   ' })]));
     const missing = out.filter((i) => i.kind === 'missing');
     expect(missing).toHaveLength(1);
     expect(missing[0].detail).toContain('ชื่อเล่น');
-    expect(missing[0].detail).toContain('ชั้นปี');
     expect(missing[0].detail).toContain('สาขา');
+  });
+
+  it('never asks for ชั้นปี — it asks for the รหัส it is computed from', () => {
+    // "กรอกชั้นปี" is an instruction nobody can follow: the only way to fill it
+    // is the รหัสนักศึกษา that is already on the same list. A derived field is
+    // never "ยังไม่ได้กรอก" (0145).
+    const out = ownIssues(seat([posting({ student_id: null })]));
+    const missing = out.find((i) => i.kind === 'missing');
+    expect(missing.detail).toContain('รหัสนักศึกษา');
+    expect(missing.detail).not.toContain('ชั้นปี');
   });
 
   it('reports a missing portrait separately — it is fixed elsewhere', () => {
@@ -100,8 +109,12 @@ describe('ownIssues', () => {
     // ชื่อ and นามสกุล replaced the single ชื่อ-สกุล box in 0135. The card no
     // longer offers `full_name` at all: it is DERIVED from these two, and the
     // only way to edit it as one string would be to split it again.
+    // `study_year` replaced `year` in 0145: same box, same position, but it
+    // reads a calculation and saves the GAP (ลาพัก / เรียนซ้ำ) on the registry
+    // instead of an absolute ชั้นปี on the posting.
     expect(DETAIL_FIELDS.filter((f) => f.editable).map((f) => f.key))
-      .toEqual(['first_name_th', 'last_name_th', 'nickname', 'student_id', 'year', 'major']);
+      .toEqual(['first_name_th', 'last_name_th', 'nickname', 'student_id', 'study_year', 'major']);
+    expect(DETAIL_FIELDS.some((f) => f.key === 'year')).toBe(false);
     // คำนำหน้า is gone from the schema entirely (0113).
     expect(DETAIL_FIELDS.some((f) => f.key === 'prefix')).toBe(false);
   });

@@ -102,15 +102,32 @@ describe('what the card edits is what the database allows', () => {
     // Not in the form and not the person's to set: `updated_at` is a trigger's
     // column, and the photo has its own control rather than a text box.
     for (const k of ['updated_at', 'photo_url', 'photo_focus']) allowed.delete(k);
+    // `year` is DEAD (0145). The guard still lists it — the column exists until
+    // the bundle that stopped reading it is confirmed served, and 0129 proved
+    // what dropping first costs — but the card must NOT offer it. ชั้นปี is
+    // computed now, and its chooser writes `year_offset` through
+    // update_my_identity, which is a different table and a different guard.
+    // When the column is dropped, `year` leaves v_allowed and this line goes
+    // with it; until then it is the one asymmetry, and it is asymmetric in the
+    // safe direction (the server permits more than the form offers).
+    expect(allowed.has('year'), 'the guard still lists the dead `year` column').toBe(true);
+    allowed.delete('year');
     // `full_name` is DERIVED from the split (0135). The guard must still permit
     // it — every write of the parts writes it too — but the card must not offer
     // it, or we are back to one box and a guess.
     expect(allowed.has('full_name')).toBe(true);
     allowed.delete('full_name');
 
-    const editable = DETAIL_FIELDS.filter((f) => f.editable).map((f) => f.key);
+    // DERIVED fields are not team_members columns and never appear in the
+    // guard. `study_year` is the ชั้นปี chooser: it reads a calculation and
+    // writes `year_offset` on the REGISTRY, so the guard has nothing to say
+    // about it. Comparing it against v_allowed would be comparing two different
+    // tables' rules and calling the difference a bug.
+    const editable = DETAIL_FIELDS
+      .filter((f) => f.editable && !f.value).map((f) => f.key);
     expect([...allowed].sort()).toEqual([...editable].sort());
     expect(editable).not.toContain('full_name');
+    expect(DETAIL_FIELDS.find((f) => f.key === 'study_year').value).toBeTypeOf('function');
   });
 });
 

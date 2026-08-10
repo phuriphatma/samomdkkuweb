@@ -67,13 +67,19 @@ describe('team/io CSV', () => {
     expect(parseConfirmed('maybe')).toEqual({ value: false, recognized: false });
   });
 
-  it('parseMembersCsv normalizes year + carries confirm recognition', () => {
+  it('parseMembersCsv READS the ชั้นปี column but never writes it (0145)', () => {
     const csv = 'path,full_name,year,confirmed\nA/B,สมชาย,ปี 4,เข้าแล้ว\nA/B,สมหญิง,2,หืม';
     const rows = parseMembersCsv(csv);
-    expect(rows[0].year).toBe('4');
+    // Read, so the import preview can WARN that the column is being ignored —
+    // silently dropping a column somebody spent an afternoon filling in is how
+    // an import "does nothing" for no visible reason.
+    expect(rows[0].yearInFile).toBe('4');
+    expect(rows[1].yearInFile).toBe('2');
+    // …and never handed to a writer. ชั้นปี is computed from รหัสนักศึกษา.
+    expect(rows[0].year).toBeUndefined();
+    expect(rows[1].year).toBeUndefined();
     expect(rows[0].confirmed).toBe(true);
     expect(rows[0].confirmedRecognized).toBe(true);
-    expect(rows[1].year).toBe('2');
     expect(rows[1].confirmedRecognized).toBe(false);  // "หืม" ⇒ warn
   });
 
@@ -167,8 +173,12 @@ describe('buildExportJson round-trip fidelity', () => {
       'confirmed', 'first_name_th', 'full_name', 'id', 'inherit_permissions',
       'kkumail', 'last_name_th', 'major',
       'nickname', 'node_id', 'passport_dept_id', 'passport_sub_dept_id',
+      // NO `year` since 0145 — ชั้นปี is derived, and the ingredients it is
+      // derived from (cohort_year / year_offset) belong to the person registry,
+      // which mirrors them down. Restoring them from a backup would be undone
+      // on the next write, so the backup carries the รหัสนักศึกษา instead.
       'permissions', 'photo_focus', 'photo_url', 'position',
-      'project_seat', 'student_id', 'vs_dept', 'year',
+      'project_seat', 'student_id', 'vs_dept',
     ]);
   });
 

@@ -15,6 +15,9 @@
 import {
   normalizeStudentId, normalizeMajor, normalizeYear as normalizeYearField,
 } from './fields.js';
+// ชั้นปี is COMPUTED for the export column and IGNORED on import (0145) — see
+// src/js/study-year.js for why storing it is what made three screens disagree.
+import { studyYearLabel } from '../study-year.js';
 
 /**
  * `first_name_th` / `last_name_th` joined `full_name` in 0135, and all three are
@@ -112,7 +115,11 @@ export function buildExportJson(nodes, members) {
       full_name: m.full_name,
       first_name_th: m.first_name_th || null, last_name_th: m.last_name_th || null,
       nickname: m.nickname || null,
-      student_id: m.student_id || null, year: m.year || null, major: m.major || null,
+      // NO `year` (0145). ชั้นปี is derived from student_id + the registry's
+      // cohort_year/year_offset, and those are MIRROR columns the registry owns —
+      // restoring them from a backup would be undone on the next write. The
+      // รหัสนักศึกษา is what round-trips; the ชั้นปี follows from it.
+      student_id: m.student_id || null, major: m.major || null,
       kkumail: m.kkumail || null, confirmed: !!m.confirmed,
       photo_url: m.photo_url || null,
       photo_focus: m.photo_focus || null,
@@ -156,7 +163,13 @@ export function buildMembersCsv(rows) {
   const lines = [CSV_COLUMNS.join(',')];
   for (const r of rows) {
     lines.push(CSV_COLUMNS.map((c) => csvCell(
-      c === 'confirmed' ? (r.confirmed ? 'true' : 'false') : r[c],
+      // ชั้นปี is COMPUTED (0145), so the file carries the answer a human would
+      // read on the screen rather than a stored column that no longer exists.
+      // It is EXPORT-ONLY: parseMembersCsv ignores the column on the way back
+      // in, because writing a ชั้นปี is what let two systems disagree.
+      // eslint-disable-next-line no-nested-ternary
+      c === 'year' ? (studyYearLabel(r) || '')
+        : c === 'confirmed' ? (r.confirmed ? 'true' : 'false') : r[c],
     )).join(','));
   }
   return lines.join('\r\n');
@@ -197,7 +210,10 @@ export function parseMembersCsv(text, knownMajors = []) {
     const c = parseConfirmed(o.confirmed);
     o.confirmed = c.value;
     o.confirmedRecognized = c.recognized;
-    o.year = normalizeYear(o.year);
+    // ชั้นปี is READ so the preview can say what it will ignore, and NEVER
+    // written (0145). `yearIgnored` is what the import preview warns on.
+    o.yearInFile = normalizeYear(o.year);
+    o.year = undefined;
     // Canonicalise the two free-text identity fields on the way in, so an
     // import cannot be the thing that reintroduces `md` next to `MD`. Unreadable
     // values are KEPT (never blanked) and reported, so a spreadsheet full of

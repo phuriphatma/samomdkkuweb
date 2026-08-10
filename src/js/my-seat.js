@@ -60,8 +60,17 @@ import { deleteTeamPhotoIfUnused, photoToRetire } from './team/api.js';
 // use. A person fixing their own row is a THIRD writer to these columns, and it
 // must not be the one that reintroduces `md` beside `MD`.
 import {
-  normalizeIdentityFields, YEARS, SID_HINT, SID_PLACEHOLDER, majorKey,
+  normalizeIdentityFields, SID_HINT, SID_PLACEHOLDER, majorKey,
 } from './team/fields.js';
+// ชั้นปี IS NOT A FIELD ON THIS CARD ANY MORE (0145) — it is computed, from the
+// รหัสนักศึกษา above it plus the ปีการศึกษา the payload carries. It used to be
+// `team_members.year`, a stored number nothing ever bumped, and the owner found
+// all three of its failure modes in one sitting: an edit that silently reverted,
+// a corrected รหัส that moved the รุ่น but not the ปี, and one person reading
+// ปี 5 / จบแล้ว / ปี 5 on three screens. See src/js/study-year.js.
+import {
+  studyYear, studyYearLabel, offsetForPickedYear, setAcademicYear,
+} from './study-year.js';
 import {
   PERM_LABEL, VS_DEPT_LABEL, PROJECT_SEAT_LABEL, ADMIN_FEATURES,
 } from './team-vocab.js';
@@ -93,6 +102,11 @@ export function loadMySeat(uid) {
       // the overwhelmingly common case (every ordinary student login), so it
       // must be silent rather than logged as a failure.
       if (!data || !Array.isArray(data.postings) || !data.postings.length) return null;
+      // The ปีการศึกษา every ชั้นปี on this card is computed against (0141),
+      // primed from the SAME payload rather than a second racing fetch — a card
+      // that painted against the clock fallback and then never repainted is how
+      // a derived value acquires its own staleness bug.
+      setAcademicYear(data.academic_year);
       // Stamped here, not at the call site, so BOTH surfaces (home card and the
       // profile modal, which calls loadMySeat directly) can refetch and repaint
       // after a self-edit without each having to remember to pass it.
@@ -194,10 +208,22 @@ export const DETAIL_FIELDS = [
   { key: 'last_name_th', label: 'นามสกุล', editable: true },
   { key: 'nickname', label: 'ชื่อเล่น', editable: true },
   { key: 'student_id', label: 'รหัสนักศึกษา', editable: true, hint: SID_HINT },
-  // Choosers, for the same reason the admin form has them: ปี5 / 5 / "5 " and
-  // md / MD / M.D. are one answer spelled four ways, and the difference shows up
-  // as a ตรวจสอบข้อมูล finding on the person who typed the second spelling.
-  { key: 'year', label: 'ชั้นปี', editable: true, control: 'year' },
+  // ชั้นปี — DERIVED, never read off a column (0145). `value` makes it a
+  // calculation on the way to the screen, and `control: 'study_year'` makes the
+  // edit box save the GAP (ลาพัก / เรียนซ้ำ) instead of the year, so it stays
+  // right in 2570 without anyone touching it. Reported as "when i change ชั้นปี
+  // in the main web, nothing happens" — it did nothing because the value it
+  // wrote was mirrored back over from the registry a moment later.
+  {
+    key: 'study_year',
+    label: 'ชั้นปี',
+    editable: true,
+    control: 'study_year',
+    value: (p) => studyYearLabel(p) || '',
+  },
+  // A chooser for the same reason the admin form has one: md / MD / M.D. are
+  // one answer spelled three ways, and the difference shows up as a
+  // ตรวจสอบข้อมูล finding on the person who typed the second spelling.
   { key: 'major', label: 'สาขา', editable: true, control: 'major' },
   // `wide` puts a field on its own row. KKU Mail is ~3x the length of the
   // others, so sharing a row with them squeezed it into a quarter of the card
@@ -227,7 +253,6 @@ export function ownIssues(seat) {
       node_id: p.node_id,
       full_name: p.full_name,
       nickname: p.nickname,
-      year: p.year,
       major: p.major,
       photo_url: p.photo_url,
       student_id: p.student_id,
@@ -279,8 +304,14 @@ export function ownIssues(seat) {
   // asked that person for yet, and 399 members acquired their name before the
   // split existed. Nagging all of them for a field they cannot see would make
   // the findings list useless for the things it is actually for.
+  // DERIVED FIELDS ARE NEVER "ยังไม่ได้กรอก". Reading ชั้นปี off
+  // `first.study_year` — a column that does not exist — would report all 400
+  // members as missing it; and even done correctly, "กรอกชั้นปี" is an
+  // instruction nobody can follow, because the only way to fill it is the
+  // รหัสนักศึกษา that is already on this list one line above. Ask for the
+  // INGREDIENT, never for the calculation.
   const missing = displayFields(first)
-    .filter((f) => !String(first[f.key] ?? '').trim())
+    .filter((f) => !f.value && !fieldValue(f, first))
     .map((f) => f.label);
   if (missing.length) {
     out.push({ kind: 'missing', label: 'ข้อมูลยังไม่ครบ', detail: missing.join(' · ') });
@@ -353,9 +384,17 @@ export function displayFields(p) {
   ];
 }
 
+/** What this field READS as, for one posting. A field with a `value` function is
+ *  a calculation (ชั้นปี), not a column — the read view, the "ยังไม่ได้กรอก"
+ *  pass and the tests all have to go through here or they disagree about
+ *  whether a derived field is filled in. */
+export function fieldValue(f, p) {
+  return String((f.value ? f.value(p) : p?.[f.key]) ?? '').trim();
+}
+
 function detailsHtml(p) {
   const rows = displayFields(p).map((f) => {
-    const v = String(p[f.key] ?? '').trim();
+    const v = fieldValue(f, p);
     return `<div class="myseat-detail${v ? '' : ' is-empty'}${f.wide ? ' is-wide' : ''}">
       <dt>${escHtml(f.label)}</dt>
       <dd>${v ? escHtml(v) : '<span class="myseat-missing">ยังไม่ได้กรอก</span>'}</dd>
@@ -419,6 +458,56 @@ function optionsHtml(values, current, labelOf = (v) => v) {
 }
 
 /**
+ * The ชั้นปี chooser — shows YEARS, saves the GAP.
+ *
+ * ⚠️ THIS IS THE SAME CONTROL ระบบบ้าน HAS, ON PURPOSE, AND IT IS NOW THE ONLY
+ * ONE. It is a copy of `studyYearFieldHtml` in `house/my-house.js` because the
+ * two cards do not share a template — but they share the RULE, through
+ * `study-year.js`, and `study-year.test.js` pins that both forms write an offset
+ * and neither writes a year. The wording is deliberately identical: a person who
+ * holds a ทีม SAMO posting sees this card, a person who does not sees the house
+ * one, and they must not learn two explanations of the same box.
+ *
+ * WHAT IT WRITES, AND WHY THAT IS THE FIX. It used to be a plain `<select
+ * name="year">` writing `team_members.year`. Two things were wrong with that,
+ * and the owner hit both: the value was mirrored straight back over from the
+ * registry a moment later ("nothing happens"), and even when it stuck it was an
+ * ABSOLUTE year that nothing would ever bump — right for one August and silently
+ * wrong every August after. What is stored now is `picked − computed`, so a
+ * ลาพัก student sets it once and is still right in 2575.
+ *
+ * NO รหัสนักศึกษา, NO CHOOSER. There is nothing to count from, so the box is
+ * disabled and names the field to fill in instead. Offering an absolute year for
+ * these rows is exactly the column 0129 removed.
+ */
+function studyYearFieldHtml(p) {
+  const computed = studyYear({ ...p, year_offset: 0 });
+  if (computed === null) {
+    return `
+      <label class="myseat-field myseat-field--locked">
+        <span>ชั้นปี</span>
+        <input type="text" value="—" readonly />
+        <em class="myseat-field-hint">กรอกรหัสนักศึกษาก่อน ระบบจะคำนวณชั้นปีให้เอง</em>
+      </label>`;
+  }
+  const current = studyYear(p);
+  const opts = [1, 2, 3, 4, 5, 6].map((y) => `<option value="${y}"${
+    y === current ? ' selected' : ''}>ปี ${y}</option>`).join('');
+  return `
+    <label class="myseat-field">
+      <span>ชั้นปี</span>
+      <select name="study_year">
+        <option value=""${p.year_offset ? '' : ' selected'}>ตามที่ระบบคำนวณ (ปี ${computed})</option>
+        ${opts}
+      </select>
+      <em class="myseat-field-hint">
+        ปกติไม่ต้องแก้ — ระบบเลื่อนชั้นปีให้เองทุกปีจากรหัสนักศึกษา
+        เลือกเองเฉพาะกรณีลาพัก เรียนซ้ำ หรือจบช้า แล้วระบบจะจำส่วนต่างไว้ให้ตลอด
+      </em>
+    </label>`;
+}
+
+/**
  * The inline self-edit form. Only the columns migration 0110 lets a member
  * write — kkumail is shown read-only because it is the identity every resolver
  * keys on, and changing it would move the row out of the caller's own SELECT
@@ -436,13 +525,12 @@ function editFormHtml(p) {
     return hit?.label ? `${code} — ${hit.label}` : code;
   };
   const field = (f) => {
+    if (f.control === 'study_year') return studyYearFieldHtml(p);
     const val = String(p[f.key] ?? '');
-    const inner = f.control === 'year'
-      ? `<select name="year">${optionsHtml(YEARS, val, (y) => `ปี ${y}`)}</select>`
-      : f.control === 'major'
-        ? `<select name="major">${optionsHtml(majors, val, majorLabel)}</select>`
-        : `<input type="text" name="${escHtml(f.key)}" value="${escHtml(val)}"${
-          f.key === 'student_id' ? ` inputmode="numeric" placeholder="${SID_PLACEHOLDER}"` : ''} />`;
+    const inner = f.control === 'major'
+      ? `<select name="major">${optionsHtml(majors, val, majorLabel)}</select>`
+      : `<input type="text" name="${escHtml(f.key)}" value="${escHtml(val)}"${
+        f.key === 'student_id' ? ` inputmode="numeric" placeholder="${SID_PLACEHOLDER}"` : ''} />`;
     return `
     <label class="myseat-field${f.wide ? ' is-wide' : ''}">
       <span>${escHtml(f.label)}</span>
@@ -705,7 +793,7 @@ function wireSelfEdit(host, seat) {
     // ชื่อเล่น (and the ตรวจสอบข้อมูล list right below the form is what tells them
     // the รหัส itself needs attention).
     const raw = {};
-    for (const f of DETAIL_FIELDS.filter((x) => x.editable)) {
+    for (const f of DETAIL_FIELDS.filter((x) => x.editable && x.control !== 'study_year')) {
       const el = form.querySelector(`[name="${f.key}"]`);
       if (el) raw[f.key] = el.value.trim();
     }
@@ -744,10 +832,20 @@ function wireSelfEdit(host, seat) {
       return;
     }
 
+    // ชั้นปี → the GAP, measured against the รหัสนักศึกษา BEING SAVED, not the one
+    // on screen when the form opened. Someone who fixes a mistyped รหัส in the
+    // same save has just moved the base the offset is relative to, and measuring
+    // against the old one would store a difference that means something else the
+    // moment the row lands.
+    const yearSel = form.querySelector('[name="study_year"]');
+    const pickedYear = yearSel ? yearSel.value.trim() : '';
+    const yearOffset = pickedYear
+      ? offsetForPickedYear({ ...me, student_id: fields.student_id, year_offset: 0 }, pickedYear)
+      : null;
+
     const body = {
       nickname: raw.nickname || null,
       student_id: fields.student_id,
-      year: fields.year,
       major: fields.major,
     };
     if (firstName || lastName) {
@@ -825,6 +923,13 @@ function wireSelfEdit(host, seat) {
               nickname_self: body.nickname ?? '',
               student_id: body.student_id ?? '',
               major: body.major ?? '',
+              // ชั้นปี, as the GAP (0131/0145). It goes ONLY here, never in the
+              // team_members PATCH above: `year_offset` is a registry column
+              // mirrored down onto the posting, so a direct PATCH would be
+              // undone by person_mirror_down on the very next write — which is
+              // precisely the revert that made the old ชั้นปี box appear dead.
+              // Empty string means "ตามที่ระบบคำนวณ" and the RPC stores null.
+              year_offset: yearOffset === null ? '' : String(yearOffset),
               ...(body.first_name_th
                 ? { first_name_th: body.first_name_th, last_name_th: body.last_name_th }
                 : {}),

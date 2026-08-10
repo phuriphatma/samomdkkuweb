@@ -2,6 +2,21 @@
 // UTILS — Shared Helper Functions
 // ==============================================
 
+const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
+
+/**
+ * Thai numerals → Arabic. Someone WILL paste `๕` or `๐๑๗`, and a silent reject
+ * there looks like the field refusing a perfectly good answer.
+ *
+ * Lives here because it had grown three copies — team/fields.js (รหัสนักศึกษา,
+ * ชั้นปี), house/fields.js (สายรหัส) and study-year.js — for one four-line rule.
+ * Three copies of a rule is how this repo's most expensive bug class starts;
+ * a fourth was the moment to stop.
+ */
+export function arabicDigits(s) {
+  return String(s ?? '').replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
+}
+
 /**
  * Format a date value to Thai-style dd/MM/yyyy HH:mm:ss
  * Returns the input as-is if it's already formatted or unparseable.

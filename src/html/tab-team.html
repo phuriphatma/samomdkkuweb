@@ -522,14 +522,21 @@
                 inputmode="numeric" placeholder="659999999-9" />
               <div class="form-text" id="teamMemberStudentIdHint"></div>
             </div>
-            <!-- ชั้นปี and สาขา are CHOOSERS, not text boxes. Free text produced
-                 ปี5 / 5 / "5 " for one answer and md / MD / M.D. for another,
-                 which turns into a per-person "drift" finding about nothing.
-                 Options are filled by src/js/team/index.js: ชั้นปี from
-                 fields.js YEARS, สาขา from the team_majors vocabulary (0113). -->
+            <!-- ชั้นปี IS NOT AN INPUT (0145). It is computed from the
+                 รหัสนักศึกษา above plus ปีการศึกษา, and shown here read-only so an
+                 admin can SEE it without being able to store a second answer.
+                 It used to be a chooser writing team_members.year, and nothing
+                 in the app ever bumped that column — so nine members were
+                 quietly showing last year's ชั้นปี, and one person saw ปี 5 in
+                 ทีม SAMO and จบแล้ว in ระบบบ้าน on the same afternoon.
+                 ลาพัก / เรียนซ้ำ is set by the PERSON, on their own card, and is
+                 stored as a difference so it never needs maintaining.
+                 สาขา stays a chooser: free text produced md / MD / M.D. for one
+                 answer, which turns into a "drift" finding about nothing. -->
             <div class="col-6">
               <label class="form-label" for="teamMemberYear">ชั้นปี</label>
-              <select class="form-select" id="teamMemberYear"></select>
+              <input type="text" class="form-control" id="teamMemberYear" readonly />
+              <div class="form-text" id="teamMemberYearHint"></div>
             </div>
             <div class="col-6">
               <label class="form-label d-flex align-items-center gap-2" for="teamMemberMajor">

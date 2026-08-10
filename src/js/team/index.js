@@ -30,7 +30,7 @@ import {
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
 import {
-  normalizeIdentityFields, majorKey, YEARS, SID_HINT, suggestNameSplit,
+  normalizeIdentityFields, majorKey, SID_HINT, suggestNameSplit,
 } from './fields.js';
 // An app-owned "are you sure?". `window.confirm` is not reliable control flow
 // here: once Chrome's "Prevent this page from creating additional dialogs" box
@@ -39,15 +39,19 @@ import {
 // so a delete, a bulk delete and a permission SAVE all become buttons that do
 // nothing at all. This tab has already shipped that bug twice.
 import { askConfirm, askDelete } from '../confirm-modal.js';
-// ONE ชั้นปี rule for the whole app — see house/fields.js's header.
-import { studyYear } from '../house/fields.js';
+// ONE ชั้นปี rule for the whole app — see src/js/study-year.js. ทีม SAMO used to
+// STORE its answer in `team_members.year` instead, and 0145 is what that cost:
+// nine members reading a ชั้นปี exactly one year behind the truth, an edit box
+// that silently reverted, and one person seeing ปี 5 / จบแล้ว / ปี 5 on three
+// screens. This pane now computes, and offers no box that writes a year.
+import { studyYearLabel } from '../study-year.js';
 import { userCanAccess, getUser } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
-  normalizeYear, isLikelyEmail, validateExportJson,
+  isLikelyEmail, validateExportJson,
 } from './io.js';
 
 // App permissions that can be attached to a node (keys match userCanAccess).
@@ -684,7 +688,7 @@ function renderMember(m, filter) {
       ${mailHtml ? `<span class="team-member-mail"><i class="bi bi-envelope"></i> ${mailHtml}</span>` : ''}
       <span class="team-member-meta">
         ${m.major ? `<span class="team-tag team-tag-major">${escHtml(m.major)}</span>` : ''}
-        ${m.year ? `<span class="team-tag">ปี ${escHtml(m.year)}</span>` : ''}
+        ${studyYearLabel(m) ? `<span class="team-tag">${escHtml(studyYearLabel(m))}</span>` : ''}
         ${m.student_id ? `<span class="team-tag team-tag-sid">${escHtml(m.student_id)}</span>` : ''}
         ${m.confirmed
           ? '<span class="team-tag team-tag-ok"><i class="bi bi-check-circle-fill"></i> ยืนยัน</span>'
@@ -1947,16 +1951,34 @@ function fillMajorSelect(sel, current) {
   sel.value = cur;
 }
 
-/** Fill a ชั้นปี select the same way, from fields.js YEARS. */
-function fillYearSelect(sel, current) {
-  if (!sel) return;
-  const cur = String(current ?? '').trim();
-  const known = YEARS.includes(cur);
-  sel.innerHTML = '<option value="">— ไม่ระบุ —</option>'
-    + YEARS.map((y) => `<option value="${y}">ปี ${y}</option>`).join('')
-    + (cur && !known
-      ? `<option value="${escHtml(cur)}">${escHtml(cur)} (ไม่อยู่ในรายการ)</option>` : '');
-  sel.value = cur;
+/**
+ * Paint the COMPUTED ชั้นปี into the read-only box, live as the รหัส is typed.
+ *
+ * There is nothing to fill and nothing to save: `member.cohort_year` and
+ * `member.year_offset` are mirrored down from the person registry, and the
+ * answer is `ปีการศึกษา − ปีที่เข้า + 1 + offset`. Repainting on `input` is the
+ * point — an admin correcting a mistyped รหัส sees the ชั้นปี move with it, which
+ * is the behaviour that was previously impossible to get and is the whole reason
+ * the two systems disagreed.
+ */
+function paintDerivedYear(member) {
+  const box = $('teamMemberYear');
+  if (!box) return;
+  const sid = $('teamMemberStudentId')?.value || member?.student_id || '';
+  const rec = { ...member, student_id: sid };
+  const label = studyYearLabel(rec);
+  box.value = label || '—';
+  const hint = $('teamMemberYearHint');
+  if (!hint) return;
+  if (!label) {
+    hint.textContent = 'คำนวณจากรหัสนักศึกษา — ยังไม่มีรหัส จึงยังคำนวณไม่ได้';
+  } else if (member?.year_offset) {
+    hint.textContent = `คำนวณจากรหัสนักศึกษา และปรับ ${
+      member.year_offset > 0 ? '+' : ''}${member.year_offset} ปี ที่เจ้าตัวตั้งไว้ (ลาพัก/เรียนซ้ำ)`;
+  } else {
+    hint.textContent = 'คำนวณจากรหัสนักศึกษาโดยอัตโนมัติ — แก้ที่รหัสนักศึกษา '
+      + 'ส่วนกรณีลาพัก/เรียนซ้ำ เจ้าตัวตั้งเองได้ที่การ์ด “ข้อมูลของฉัน”';
+  }
 }
 
 function wireMajors() {
@@ -2235,6 +2257,10 @@ async function pickPerson(p) {
   $('teamMemberNickname').value = p.nickname || '';
   $('teamMemberStudentId').value = p.student_id || '';
   $('teamMemberEmail').value = p.kkumail || '';
+  // The picked person brings their own รหัส — and their own ลาพัก offset, which
+  // is a registry fact, not this posting's. Repaint from THEIR ingredients, or
+  // the box keeps showing the ชั้นปี of whoever the form was opened on.
+  paintDerivedYear(p);
   const legacyName = $('teamMemberNameLegacy');
   if (legacyName) {
     legacyName.textContent = (!p.first_name_th && !p.last_name_th && p.full_name)
@@ -2445,16 +2471,6 @@ async function onMemberPermSubmit(e) {
   try { await updateMember(id, payload); } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
 }
 
-/** The ชั้นปี a member's รหัสนักศึกษา implies, as a bare '1'–'6' the chooser can
- *  preselect — or '' when there is no รหัส to count from, or when the answer is
- *  outside the programme (a graduate, someone whose รหัส is malformed). ONE
- *  implementation, imported from house/fields.js: this app has paid for a second
- *  copy of a ชั้นปี rule before. */
-function studyYearForMember(member) {
-  const n = studyYear({ student_id: member?.student_id });
-  return n !== null && n >= 1 && n <= 6 ? String(n) : '';
-}
-
 /**
  * Open the member editor. THE MODAL OPENS NO MATTER WHAT.
  *
@@ -2529,17 +2545,17 @@ function fillMemberModal(member, nodeId, tab) {
   $('teamMemberStudentId').value = member?.student_id || '';
   const sidHint = $('teamMemberStudentIdHint');
   if (sidHint) sidHint.textContent = SID_HINT;
-  // ชั้นปี PREFILLED FROM รหัสนักศึกษา when the row has none (reported: "someone
-  // doesn't have ชั้นปี autopopulate, when they have student id"). Derived, never
-  // stored behind the person's back: it is only a preselection in the chooser,
-  // and it is skipped when the row already has an answer so an admin's earlier
-  // correction is never quietly replaced by the computed one.
+  // ชั้นปี, COMPUTED — never prefilled-then-stored. The old form preselected the
+  // derived value in a chooser that then SAVED it, which is how a computed answer
+  // became a frozen copy of itself.
   //
-  // The base is ปีการศึกษา, which an ADMIN moves (0141) — so this does not drift
-  // on its own every August, which is the behaviour that was objected to.
-  fillYearSelect($('teamMemberYear'),
-    member?.year || (member ? '' : '')
-    || studyYearForMember(member) || '');
+  // The listener goes on the node THIS open is using, and is replaced (not added
+  // to) each time via `oninput` rather than addEventListener — one listener per
+  // re-render, accumulating on a modal element that is reused for every row, is a
+  // bug this tab has shipped before (my-house.js's "ต้องกดหลายครั้งถึงจะขึ้น").
+  paintDerivedYear(member);
+  const sidBox = $('teamMemberStudentId');
+  if (sidBox) sidBox.oninput = () => paintDerivedYear(member);
   // The vocabulary may not be loaded yet on the very first open; paint what we
   // have, then repaint when it arrives. Painting nothing would show an empty
   // chooser next to a person who HAS a สาขา, which reads as data loss.
@@ -2827,9 +2843,9 @@ async function runMemberSubmit() {
   // the form.
   const stored = stored0;
   const typedSid = $('teamMemberStudentId').value;
+  // No `year` key: ชั้นปี is not a field this form owns any more (0145).
   const fields = normalizeIdentityFields({
     student_id: typedSid,
-    year: $('teamMemberYear').value,
     major: $('teamMemberMajor').value,
   }, majorCodes());
   const sidProblem = fields.problemFor('student_id');
@@ -2848,7 +2864,6 @@ async function runMemberSubmit() {
     ...(nm.keep ? {} : { first_name_th: nm.first, last_name_th: nm.last, full_name: name }),
     nickname: $('teamMemberNickname').value.trim() || null,
     student_id: fields.student_id,
-    year: fields.year,
     major: fields.major,
     kkumail: $('teamMemberEmail').value.trim() || null,
     confirmed: $('teamMemberConfirmed').checked,
@@ -2957,7 +2972,12 @@ function wireIO() {
     const rows = allMembersFlat().map((m) => ({
       path: nodePath(m.node_id).split(' / ').join(PATH_SEP),
       full_name: m.full_name, nickname: m.nickname,
-      student_id: m.student_id, year: m.year, major: m.major,
+      student_id: m.student_id, major: m.major,
+      // The two ingredients, so buildMembersCsv can COMPUTE the ชั้นปี column
+      // rather than copy a dead one (0145). first/last are carried for the
+      // round trip; the export used to lose them.
+      cohort_year: m.cohort_year, year_offset: m.year_offset,
+      first_name_th: m.first_name_th, last_name_th: m.last_name_th,
       kkumail: m.kkumail, confirmed: m.confirmed,
     }));
     // ﻿ BOM so Excel opens Thai UTF-8 correctly.
@@ -3155,7 +3175,9 @@ async function importJson(data) {
       // without the split comes back without it (0135).
       first_name_th: m.first_name_th || null, last_name_th: m.last_name_th || null,
       nickname: m.nickname || null, student_id: m.student_id || null,
-      year: normalizeYear(m.year), major: m.major || null, kkumail: m.kkumail || null,
+      // NO `year` (0145) — ชั้นปี is derived, and its ingredients belong to the
+      // person registry, which mirrors them down on its own.
+      major: m.major || null, kkumail: m.kkumail || null,
       confirmed: !!m.confirmed,
       // Restore the portrait too. Omitting these is not a no-op — it is data
       // loss on every export→import round trip (see buildExportJson's header).
@@ -3177,14 +3199,15 @@ async function importJson(data) {
 const DIFF_FIELDS = [
   ['full_name', 'ชื่อ-สกุล'], ['first_name_th', 'ชื่อ'], ['last_name_th', 'นามสกุล'],
   ['nickname', 'ชื่อเล่น'],
-  ['student_id', 'รหัส'], ['year', 'ชั้นปี'], ['major', 'สาขา'],
+  ['student_id', 'รหัส'], ['major', 'สาขา'],
   ['kkumail', 'KKU Mail'], ['confirmed', 'ยืนยัน'],
 ];
 
 function rowFields(r) {
   const out = {
     full_name: r.full_name, nickname: r.nickname || null,
-    student_id: r.student_id || null, year: r.year || null, major: r.major || null,
+    // NO `year`: the CSV's ชั้นปี column is export-only (0145).
+    student_id: r.student_id || null, major: r.major || null,
     kkumail: r.kkumail || null, confirmed: !!r.confirmed,
   };
   // ONLY when the file carried them. Sending `first_name_th: null` for a file
@@ -3239,6 +3262,15 @@ function planMembersCsv(raw) {
   const rows = parseMembersCsv(raw, majorCodes());
   if (!rows.length) throw new Error('ไม่พบสมาชิกใน CSV (ต้องมีคอลัมน์ ชื่อ-สกุล / full_name)');
   const plan = { creates: [], conflicts: [], identical: 0, skipped: [], warnings: [] };
+  // SAY WHAT WILL BE IGNORED, ONCE. A file with a ชั้นปี column will not have it
+  // imported (0145) — the value is computed from รหัสนักศึกษา now. Ignoring a
+  // column the file clearly meant to set, silently, is how somebody spends an
+  // afternoon fixing 400 ชั้นปี cells and then cannot work out why nothing moved.
+  if (rows.some((r) => r.yearInFile)) {
+    plan.warnings.push('คอลัมน์ “ชั้นปี” ในไฟล์จะไม่ถูกนำเข้า — '
+      + 'ระบบคำนวณชั้นปีจากรหัสนักศึกษาให้เองทุกปี '
+      + '(กรณีลาพัก/เรียนซ้ำ เจ้าตัวตั้งเองได้ที่การ์ด “ข้อมูลของฉัน”)');
+  }
   const seen = new Set();
   for (const r of rows) {
     const who = r.full_name;

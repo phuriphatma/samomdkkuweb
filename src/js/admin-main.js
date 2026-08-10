@@ -8,6 +8,8 @@
 
 import { ADMIN_FEATURES } from './team-vocab.js';
 import { enterHouseWorkspace } from './house/index.js';
+// ปีการศึกษา — every ชั้นปี in the admin app is computed against it (0141/0145).
+import { primeAcademicYear } from './house/api.js';
 import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
 
@@ -799,6 +801,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebarToggle();
   initAnalytics('admin');
   initAnalyticsDashboard();
+
+  // ปีการศึกษา, once, for the WHOLE admin app (0141/0145). It used to be primed
+  // only when the ระบบบ้าน section opened, which was fine while ระบบบ้าน was the
+  // only pane that computed a ชั้นปี. ทีม SAMO computes one now, so an admin who
+  // opens /admin/#team without ever touching ระบบบ้าน would have been reading
+  // every ชั้นปี off the CLOCK fallback instead of the value the faculty set —
+  // agreeing with it by luck today, and silently wrong for the weeks around the
+  // promotion, which is the exact failure 0141 chose an admin-set value to avoid.
+  primeAcademicYear();
 
   // Wire the gated sign-in button
   document.getElementById('adminSignInBtn')?.addEventListener('click', () => {

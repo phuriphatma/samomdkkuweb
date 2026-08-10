@@ -27,6 +27,10 @@
 //     an import can never blank a field, and ตรวจสอบข้อมูล can show it.
 // ==============================================
 
+// Thai numerals → Arabic. Lives in utils.js because this four-line rule had
+// grown three copies; this file held one of them.
+import { arabicDigits } from '../utils.js';
+
 /** The canonical รหัสนักศึกษา shape, and the example shown to a human. */
 export const SID_RE = /^\d{9}-\d$/;
 export const SID_PLACEHOLDER = '659999999-9';
@@ -74,13 +78,6 @@ export function suggestNameSplit(fullName) {
 }
 
 
-const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
-
-/** Thai numerals → Arabic. Someone WILL paste `๕`, and a silent reject there
- *  looks like the field refusing a perfectly good answer. */
-function arabicDigits(s) {
-  return String(s).replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
-}
 
 /**
  * Canonicalise a รหัสนักศึกษา.
@@ -191,8 +188,15 @@ export function normalizeIdentityFields({ student_id: sid, year, major }, knownM
       message: `สาขา “${m.value}” ไม่อยู่ในรายการ — เลือกจากรายการ หรือเพิ่มสาขานี้ก่อน`,
     });
   }
+  // NOTE there is no `year` in the result (0145). ชั้นปี is DERIVED — from the
+  // รหัสนักศึกษา on the line above plus the registry's `year_offset` — so
+  // returning one here would hand every caller a value to store, which is the
+  // whole bug: `team_members.year` was a stored ชั้นปี nothing ever bumped, and
+  // by August nine members were reading a year behind. `y` is still computed,
+  // because a file or a form CARRYING an unreadable ชั้นปี is still worth saying
+  // out loud — it is reported and then dropped, never written.
   return {
-    student_id: s.value, year: y.value, major: m.value, problems,
+    student_id: s.value, major: m.value, problems,
     problemFor: (field) => problems.find((p) => p.field === field) || null,
   };
 }

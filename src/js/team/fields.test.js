@@ -115,8 +115,10 @@ describe('normalizeIdentityFields', () => {
       { student_id: '6599999999', year: 'ปี 5', major: 'md' }, known,
     );
     expect(out.student_id).toBe('659999999-9');
-    expect(out.year).toBe('5');
     expect(out.major).toBe('MD');
+    // NO `year` in the result (0145): ชั้นปี is derived from the รหัส above, so
+    // handing a caller one to store is the bug this removed.
+    expect('year' in out).toBe(false);
     expect(out.problems).toEqual([]);
     expect(out.problemFor('student_id')).toBeNull();
   });
@@ -129,13 +131,15 @@ describe('normalizeIdentityFields', () => {
       .toEqual(['major', 'student_id', 'year']);
     expect(out.problemFor('student_id').message).toContain('66666666-2');
     expect(out.problemFor('major').message).toContain('PT');
-    // The refused ชั้นปี is quoted from `raw`, because `value` is deliberately null.
-    expect(out.year).toBeNull();
+    // An unreadable ชั้นปี is still REPORTED — a file or a form carrying `ปี 9`
+    // is worth saying out loud — it is simply never returned as a value to
+    // write. Report and drop, not report and store.
     expect(out.problemFor('year').message).toContain('9');
+    expect('year' in out).toBe(false);
   });
 
   it('an all-empty record is not a problem — most rows are incomplete', () => {
     const out = normalizeIdentityFields({}, known);
-    expect(out).toMatchObject({ student_id: null, year: null, major: null, problems: [] });
+    expect(out).toMatchObject({ student_id: null, major: null, problems: [] });
   });
 });
