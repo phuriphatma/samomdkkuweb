@@ -612,3 +612,311 @@
   .org-branch { padding-left: 0.9rem; margin-left: 0.35rem; }
   .org-branch > .org-node::before { left: -0.9rem; width: 0.5rem; }
 }
+
+@media (max-width: 1023.98px) {
+/* ============================================================
+   CONNECTOR RAILS — making the hierarchy visible instead of implied
+   ============================================================
+   REPORTED: "the head of like each ฝ่าย got drowned inside many people in their
+   own ฝ่าย", and on the fix: "the layout importancy already hierarchy based on
+   importance" · "making everyone card big equally" · "if getting hierarchy top
+   to bottom, everyone card equal, the head still not getting drowned".
+
+   All correct, and the structure was already right: a หัวหน้า is never INSIDE
+   the members list. Every ฝ่าย orders its children by `position`, position 0 is
+   the head, and the สมาชิก node is a SIBLING that follows. So the head sits
+   alone under its own ตำแหน่ง heading, above a node holding 7 or 21 people.
+
+   What was missing is that none of that was VISIBLE. `.org-branch` drew a bare
+   vertical line and every ตำแหน่ง heading rendered at the same weight, so a
+   heading with one card under it looked exactly like a heading with twenty-one,
+   and the head read as one more card in a long scroll.
+
+   Nothing here changes card size — that was the owner's call and it is the right
+   one. A bigger card for the head would have been a SECOND ranking system
+   fighting the tree, and it needed a list of Thai title prefixes to decide who
+   qualified, which drifts the moment a ตำแหน่ง is renamed. Rank belongs to the
+   layout. These rules just draw it. */
+
+.org-branch > .org-node { position: relative; }
+
+/* The elbow from the branch spine to each ตำแหน่ง. Positioned off the padding
+   `.org-branch` already reserves, so the two stay in step at every width — the
+   spine, the gap and this tick are all driven by the same clamp(). */
+.org-branch > .org-node::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * clamp(1rem, 3vw, 1.65rem));
+  top: 1.15rem;
+  width: clamp(0.55rem, 1.9vw, 1.05rem);
+  height: 1px;
+  background: var(--org-spine);
+}
+
+/* DEPTH IS THE RANK, so depth drives the weight. A ฝ่าย heading reads as a
+   heading; a ตำแหน่ง four levels down reads as a label. This is the whole
+   "hierarchy top to bottom" the owner asked for, done with type instead of with
+   a special case for particular job titles. */
+.org-node[data-depth="0"] > .org-station .org-station-name { font-size: 1.08rem; }
+.org-node[data-depth="1"] > .org-station .org-station-name { font-size: 1rem; }
+.org-node[data-depth="2"] > .org-station .org-station-name { font-size: 0.94rem; }
+.org-node[data-depth="0"] > .org-station .org-station-dot,
+.org-node[data-depth="1"] > .org-station .org-station-dot {
+  width: 0.7rem; height: 0.7rem;
+}
+
+/* A ตำแหน่ง holding exactly ONE person — which is what a head is — gets its
+   heading tied to its card by a short rail, so the pair reads as one unit
+   rather than as a label that happens to precede a grid. Applied by COUNT, not
+   by title: any solo ตำแหน่ง is a role, whoever holds it. */
+.org-people:has(> :only-child) {
+  position: relative;
+  padding-left: 0.85rem;
+  margin-left: 0.55rem;
+}
+.org-people:has(> :only-child)::before {
+  content: '';
+  position: absolute;
+  left: 0; top: -0.5rem; bottom: 0.9rem;
+  width: 1px;
+  background: var(--org-spine);
+}
+}
+
+/* ============================================================
+   HORIZONTAL ORG CHART (>= 1024px)
+   ============================================================
+   REQUESTED: "like currently it's vertically, what about making it horizontally
+   like the picture i suggested" — the Apple / Saudi Aramco shape: a box per
+   ตำแหน่ง, children in a row underneath, elbow connectors coming down from the
+   parent, read top to bottom.
+
+   WHY IT IS A WIDTH BREAKPOINT AND NOT A REPLACEMENT. Those reference charts
+   hold about fifteen people. This one holds 400 across 276 ตำแหน่ง, so laid out
+   horizontally it is far wider than any screen — fine on a desktop that can
+   scroll sideways, unusable at 390px where most students are. Under 1024px the
+   page keeps the vertical tree, which says the same thing in a column. Same
+   markup, same DOM, one renderer: only the layout changes.
+
+   The connector geometry is the classic pure-CSS org chart — each `li` draws the
+   half-bar to its left and the half-bar plus drop-line to its right, first/last
+   children trim their outer half, and an only-child drops the bar entirely. It
+   needs `li > box + ul` adjacency, which is why nodeBlock wraps the station in
+   `.org-box` and why the collapsible body goes `display: contents` here. */
+.org-tree-wrap[data-view="chart"] {
+  /* Sideways room. The tree is wider than the viewport by design; without this
+     the boxes would compress into unreadable slivers instead of scrolling. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1rem;
+}
+
+/* Rows: the root and every children list become horizontal. */
+.org-tree-wrap[data-view="chart"] .org-tree,
+.org-tree-wrap[data-view="chart"] .org-branch {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-left: 0;                 /* the list-view spine */
+  list-style: none;
+  width: max-content;
+  min-width: 100%;
+}
+.org-tree-wrap[data-view="chart"] .org-branch {
+  padding-top: 1.4rem;
+  position: relative;
+  width: auto;
+  min-width: 0;
+}
+
+/* The drop from a parent box down into its children's bar. */
+.org-tree-wrap[data-view="chart"] .org-branch::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 1.4rem;
+  background: var(--org-spine);
+}
+
+.org-tree-wrap[data-view="chart"] .org-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.4rem 0.6rem 0;
+  margin: 0;
+}
+
+/* Half-bar left, half-bar + drop right. Across a row of siblings these join
+   into one continuous bar with a tick above each child. */
+.org-tree-wrap[data-view="chart"] .org-node::before,
+.org-tree-wrap[data-view="chart"] .org-node::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 1.4rem;
+  border-top: 1px solid var(--org-spine);
+  background: none;
+  left: auto;
+}
+.org-tree-wrap[data-view="chart"] .org-node::before { right: 50%; }
+.org-tree-wrap[data-view="chart"] .org-node::after {
+  left: 50%;
+  border-left: 1px solid var(--org-spine);
+}
+
+/* The root row hangs from nothing; a lone child needs no bar, only the drop
+   that .org-branch::before already draws. */
+.org-tree-wrap[data-view="chart"] > .org-tree > .org-node::before,
+.org-tree-wrap[data-view="chart"] > .org-tree > .org-node::after,
+.org-tree-wrap[data-view="chart"] .org-node:only-child::before,
+.org-tree-wrap[data-view="chart"] .org-node:only-child::after { display: none; }
+
+/* Trim the outer halves so the bar begins and ends at real children. */
+.org-tree-wrap[data-view="chart"] .org-node:first-child::before,
+.org-tree-wrap[data-view="chart"] .org-node:last-child::after { border-top: 0; }
+
+/* The body stops being a layout box, so .org-people and .org-branch become
+   direct children of the node. [hidden] still wins, so collapse is intact. */
+.org-tree-wrap[data-view="chart"] .org-node-body { display: contents; }
+
+/* The card. */
+.org-tree-wrap[data-view="chart"] .org-box {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-top: 3px solid var(--org-tint, var(--ink-300));
+  border-radius: var(--radius-sm, 0.5rem);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  min-width: 11rem;
+  max-width: 16rem;
+}
+.org-tree-wrap[data-view="chart"] .org-station-btn {
+  margin-left: 0;
+  padding: 0.5rem 0.7rem;
+}
+
+/* A node's own people sit directly under its box, centred — still ONE size for
+   everyone, because rank is where you are in the chart, not how big your card
+   is. */
+.org-tree-wrap[data-view="chart"] .org-people {
+  justify-content: center;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-width: 20rem;
+}
+
+/* ── the รายการ ⇄ แผนผัง switch ──────────────────────────────────────────── */
+.org-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.org-view-switch {
+  display: inline-flex;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  padding: 0.15rem;
+  background: #fff;
+}
+.org-view-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-600);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.org-view-btn.is-on {
+  background: var(--brand-primary);
+  color: #fff;
+}
+
+/* The synthetic organisation root. Its dot has no ฝ่าย tint to inherit, and in
+   chart view it is the box the whole diagram descends from, so it gets the
+   brand green rather than the neutral fallback. */
+.org-node.is-org-root > .org-box { border-top-color: var(--brand-primary); }
+.org-node.is-org-root > .org-box .org-station-dot { background: var(--brand-primary); }
+.org-node.is-org-root > .org-box .org-station-name { font-size: 1.05rem; }
+/* In list view it is a page-level heading, not an indented row. */
+.org-tree-wrap[data-view="list"] > .org-tree > .org-node.is-org-root { padding-left: 0; }
+
+/* ── people, compact, in chart view ──────────────────────────────────────────
+   Fully expanded with 3:4 portrait cards the chart measured 57,000px wide —
+   technically correct and completely unusable. The portraits are right for
+   รายการ, where you scroll down a column and one ตำแหน่ง fills the screen; in
+   แผนผัง the job is the SHAPE of the organisation, and 400 full-size faces bury
+   it in horizontal scrolling.
+   So here a person is an avatar and a name. Still one size for everyone — the
+   equality the owner asked for is about rank, and nobody's card is bigger than
+   anybody else's. */
+.org-tree-wrap[data-view="chart"] .org-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  max-width: 15rem;
+  margin: 0.45rem 0 0;
+}
+.org-tree-wrap[data-view="chart"] .org-person {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  max-width: 100%;
+}
+.org-tree-wrap[data-view="chart"] .org-face {
+  width: 1.6rem;
+  height: 1.6rem;
+  min-width: 1.6rem;
+  border-radius: 50%;
+  overflow: hidden;
+  aspect-ratio: 1;
+}
+.org-tree-wrap[data-view="chart"] .org-face-img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.org-tree-wrap[data-view="chart"] .org-face-initials { font-size: 0.6rem; }
+.org-tree-wrap[data-view="chart"] .org-person-text { min-width: 0; }
+.org-tree-wrap[data-view="chart"] .org-person-name {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 6.5rem;
+  display: block;
+}
+.org-tree-wrap[data-view="chart"] .org-person-nick { display: none; }
+.org-tree-wrap[data-view="chart"] .org-box { min-width: 9rem; max-width: 13rem; }
+
+/* The station row is a 4-column grid in list view (dot / name / meta / chevron),
+   which inside a 9rem chart box squeezed the name column to about one character
+   and wrapped "สโมสรนักศึกษาคณะแพทยศาสตร์" vertically, one glyph per line.
+   In a box, stack it instead. */
+.org-tree-wrap[data-view="chart"] .org-station-btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  margin-left: 0;
+  padding: 0.5rem 0.6rem;
+}
+.org-tree-wrap[data-view="chart"] .org-station-name {
+  flex: 1 1 100%;
+  overflow-wrap: break-word;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.org-tree-wrap[data-view="chart"] .org-station-dot { order: -1; }
+.org-tree-wrap[data-view="chart"] .org-station-meta { font-size: 0.68rem; }

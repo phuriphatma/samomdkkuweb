@@ -1,9 +1,9 @@
 // org-chart.js — the public ทีม SAMO page.
 //
 // Two surfaces over one dataset:
-//   • คณะกรรมการ — large 3:4 portrait cards for the ตำแหน่ง flagged is_board
-//     (นายกฯ + the ten อุปนายกฝ่าย), read top-down in tree order.
-//   • โครงสร้างทั้งหมด — the searchable spine tree, every ตำแหน่ง and person.
+//   • โครงสร้างทั้งหมด — every ตำแหน่ง and person, searchable, in two
+//     interchangeable layouts: รายการ (indented tree) and แผนผัง (a horizontal
+//     org chart). One renderer, one markup; only the CSS differs.
 //
 // Data comes from ONE rpc: public.get_public_team_chart(year). That function is
 // the only sanctioned publisher of team data (0086 → 0103 → 0104) — a SECURITY
@@ -36,6 +36,7 @@ let byNode = new Map();   // node_id -> member[]
 let nodeById = new Map();
 let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
 let collapsibleIds = new Set();
+let nodeDepth = new Map();   // node_id -> depth, for the chart's opening view
 let loading = false;
 let query = '';
 
@@ -47,10 +48,21 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
+// รายการ (the indented tree) or แผนผัง (the horizontal org chart). Both render
+// from the SAME markup — only the CSS differs — so this is a class on a wrapper,
+// not a second renderer to keep in step. Kept in localStorage because a reader
+// who prefers one has that preference on every visit, and the choice costs
+// nothing to honour.
+let view = 'list';
+try { view = localStorage.getItem('samo.org.view') === 'chart' ? 'chart' : 'list'; } catch { /* private mode */ }
+
 // A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
 // a disclosure — 106 of them hold exactly one person, and making those a click
 // each would be worse than the scroll it saves.
 const PEOPLE_INLINE_MAX = 3;
+
+/** How many levels แผนผัง unrolls on open. 2 = the ฝ่าย and their ตำแหน่ง. */
+const CHART_OPEN_DEPTH = 2;
 
 const $ = (id) => document.getElementById(id);
 
@@ -60,13 +72,6 @@ const $ = (id) => document.getElementById(id);
 // 250 CSS px and the tree avatar at 44, so handing the avatar the card's file
 // would waste ~35 KB × 400 people. Widths cover 1x through 3x; the browser
 // downloads exactly one per image using the `sizes` hint.
-const BOARD_SHAPE = {
-  cls: 'org-board',
-  ratio: PORTRAIT_RATIO,
-  widths: [260, 400, 520, 780],
-  sizes: '(max-width: 560px) 42vw, (max-width: 1000px) 28vw, 250px',
-  base: 520,
-};
 // Same card, smaller. The tree uses ONE visual language with the board grid —
 // portrait over name over ตำแหน่ง — rather than a separate avatar treatment, so
 // a person looks like the same kind of object wherever they appear.
@@ -134,8 +139,10 @@ function index() {
 function indexStats() {
   subStats = new Map();
   collapsibleIds = new Set();
+  nodeDepth = new Map();
   const seen = new Set();
-  const walk = (id) => {
+  const walk = (id, depth = 0) => {
+    nodeDepth.set(id, depth);
     if (seen.has(id)) return { nodes: 0, people: 0 };
     seen.add(id);
     const kids = byParent.get(id) || [];
@@ -143,7 +150,7 @@ function indexStats() {
     let people = own;
     let nodes = 0;
     for (const c of kids) {
-      const s = walk(c.id);
+      const s = walk(c.id, depth + 1);
       people += s.people;
       nodes += s.nodes + 1;
     }
@@ -182,51 +189,19 @@ function faceHtml(m, shape) {
   } />`;
 }
 
-// ── the คณะกรรมการ grid ─────────────────────────────────────────────────────
+// THE คณะกรรมการ GRID IS GONE, and deliberately.
 //
-// Depth-first over the tree rather than a flat filter, so the cards come out in
-// org order (นายกฯ, then the อุปนายก in their sibling order) without needing a
-// separate sort key that someone would have to maintain.
-function collectBoard() {
-  const out = [];
-  const walk = (parentKey) => {
-    for (const n of byParent.get(parentKey) || []) {
-      if (n.is_board) {
-        for (const m of byNode.get(n.id) || []) out.push({ node: n, member: m });
-      }
-      walk(n.id);
-    }
-  };
-  walk('');
-  return out;
-}
-
-function boardCard({ node, member }) {
-  const tint = tintFor(node.name);
-  return `
-    <li class="org-board-card"${tint ? ` data-tint="${tint}"` : ''}>
-      <span class="org-board-photo">${faceHtml(member, BOARD_SHAPE)}</span>
-      <span class="org-board-name">${escHtml(member.name || '')}</span>
-      ${member.nickname ? `<span class="org-board-nick">${escHtml(member.nickname)}</span>` : ''}
-      <span class="org-board-role">${escHtml(node.name || '')}</span>
-    </li>`;
-}
-
-function renderBoard() {
-  const host = $('orgBoard');
-  if (!host) return;
-  // While a search is running the board is noise — the user asked for specific
-  // people and the tree below is the answer.
-  if (query) { host.innerHTML = ''; host.hidden = true; return; }
-  const board = collectBoard();
-  if (!board.length) { host.innerHTML = ''; host.hidden = true; return; }
-  host.hidden = false;
-  host.innerHTML = `
-    <h2 class="org-board-heading">คณะกรรมการสโมสรนักศึกษา${
-      activeYear ? ` ปีการศึกษา ${escHtml(String(activeYear))}` : ''
-    }</h2>
-    <ul class="org-board-grid">${board.map(boardCard).join('')}</ul>`;
-}
+// It rendered นายกฯ and the อุปนายก a second time, above the tree, at roughly
+// twice the size of everyone else. The owner's call: "don't leave the อุปนายก up
+// there, make them also be in the horizontal chart as everyone, don't make them
+// too bigger than anyone."
+//
+// That is the same principle as the equal-sized cards below it. The chart states
+// rank by POSITION — นายกฯ is the box at the top of the tree — so a second,
+// larger rendering of the same people was both a duplicate and a competing
+// ranking system. `is_board` still exists on the node (the admin sets it, the
+// archive keeps it, my-seat.js draws a small award icon with it); this page just
+// no longer builds a separate grid from it.
 
 // ── the year picker ─────────────────────────────────────────────────────────
 
@@ -295,6 +270,28 @@ function highlight(text, q) {
 
 // ── rendering the tree ──────────────────────────────────────────────────────
 
+// ── why every card is the SAME SIZE ─────────────────────────────────────────
+//
+// REPORTED: "the head of like each ฝ่าย got drowned inside many people in their
+// own ฝ่าย" — and then, on how to fix it: "i thought like from top to bottom,
+// the layout importancy already hierarchy based on importance" and "i thought
+// like making everyone card big equally".
+//
+// A first attempt gave หัวหน้า a BIGGER card, detected from a list of Thai name
+// prefixes (หัวหน้า…, อุปนายก…, ประธาน…). That was the wrong instrument, for the
+// reason the owner gave: the tree ALREADY ranks people. Every ฝ่าย orders its
+// children by `position`, and position 0 is the head — verified across the
+// whole ฝ่ายดิจิทัล subtree, where หัวหน้าฝ่าย PR / IT / ComArt / Media
+// management are each pos 0 and every สมาชิก node follows at 1, 2, 4… So a
+// prefix list would have been a SECOND source of truth for a fact the structure
+// already carries, and it would drift the first time somebody renamed a
+// ตำแหน่ง or invented a title the list had never heard of.
+//
+// So: one card, one size, for everyone. What makes the head stand out is where
+// they SIT — first in their ฝ่าย, alone under their own ตำแหน่ง heading, with a
+// connector rail tying them to the parent — not how big their photo is.
+// Hierarchy belongs to the layout; the card is just a person.
+
 function memberCard(m, filter) {
   const name = m.name || '';
   const nick = m.nickname || '';
@@ -356,10 +353,26 @@ function nodeBlock(node, depth, filter) {
     ? `<button type="button" class="org-station-btn" aria-expanded="${open}" aria-controls="${escHtml(bodyId)}">${stationInner}</button>`
     : `<span class="org-station-btn is-static">${stationInner}</span>`;
 
+  // MARKUP SHAPE, and why the box is its own element.
+  //
+  // The horizontal chart layout (>=1024px) needs a node's BOX — its ตำแหน่ง and
+  // the people holding it — to be a layout sibling of the row of its children,
+  // because that is the only arrangement the classic CSS connector technique can
+  // draw: `li > .box + ul`, with the elbows hung off the box and the row.
+  // Everything used to live inside one collapsible `.org-node-body`, which put a
+  // wrapper between the `li` and the child `ul` and made that impossible.
+  //
+  // So: `.org-box` holds the station, and the body still wraps what collapses.
+  // In chart mode the body becomes `display: contents` so it stops being a box
+  // of its own while `hidden` keeps working (`[hidden]`'s display:none wins over
+  // display:contents), and `.org-people` / `.org-branch` become direct children
+  // of the node. One markup, two layouts, no second renderer to keep in step.
   return `
     <li class="org-node${collapsible ? ' is-collapsible' : ''}" data-depth="${depth}"${
       tint ? ` data-tint="${tint}"` : ''}>
-      <${hTag} class="org-station">${station}</${hTag}>
+      <div class="org-box">
+        <${hTag} class="org-station">${station}</${hTag}>
+      </div>
       ${inner ? `<div class="org-node-body" id="${escHtml(bodyId)}"${open ? '' : ' hidden'}>${inner}</div>` : ''}
     </li>`;
 }
@@ -379,11 +392,63 @@ function renderExpandAll(searching) {
   if (label) label.textContent = allOpen ? 'ย่อทั้งหมด' : 'ขยายทั้งหมด';
 }
 
+/**
+ * The organisation itself, as the ONE box everything hangs from.
+ *
+ * REQUESTED: "everyone of like สำนักนายกฯ … ฝ่ายบริหารองค์กร … ฝ่ายกิจการภายใน,
+ * etc should be line link under สโมสรนักศึกษาแพทย์".
+ *
+ * Without it the twelve ฝ่าย are twelve ROOTS — siblings with no parent — so the
+ * chart had nothing to draw a connector from and they floated as twelve
+ * unrelated columns. Every reference org chart descends from a single box for
+ * exactly this reason; the bar across the top only means something if it comes
+ * from somewhere.
+ *
+ * Synthetic on purpose: there is no such row in `team_nodes`, and adding one
+ * would put a fake ตำแหน่ง into the admin tree, the archive, the export and the
+ * seat resolver to serve a drawing. It is not collapsible either — collapsing
+ * the organisation would just blank the page.
+ */
+function rootBlock(childHtml, filter) {
+  if (!childHtml) return '';
+  const n = (chart.nodes || []).length;
+  const p = (chart.members || []).length;
+  const meta = filter ? '' : `${n} ตำแหน่ง · ${p} คน`;
+  return `
+    <li class="org-node is-org-root" data-depth="-1">
+      <div class="org-box">
+        <h2 class="org-station">
+          <span class="org-station-btn is-static">
+            <span class="org-station-dot" aria-hidden="true"></span>
+            <span class="org-station-name">สโมสรนักศึกษาคณะแพทยศาสตร์</span>
+            ${meta ? `<span class="org-station-meta">${meta}</span>` : ''}
+          </span>
+        </h2>
+      </div>
+      <div class="org-node-body"><ul class="org-branch">${childHtml}</ul></div>
+    </li>`;
+}
+
 function render() {
   const body = $('orgBody');
   if (!body || !chart) return;
   renderYears();
-  renderBoard();
+
+  // แผนผัง OPENS THE SHAPE, NOT EVERYTHING — and the number is why.
+  //
+  // "it should be expand automatically" was right, and the first attempt opened
+  // every ตำแหน่ง. Measured: 44,386px wide. That is not a chart anyone can read,
+  // on any device — and it cannot be zoomed out of either, since fitting it to a
+  // 1016px viewport is a 0.02x scale. 400 people laid out horizontally simply do
+  // not fit, which is exactly why the reference charts show fifteen.
+  //
+  // So it opens องค์กร → ฝ่าย → ตำแหน่ง: enough to see the whole shape of the
+  // organisation at a glance, which is what the layout is FOR, and every box
+  // below that is one click away. Nobody is hidden; the depth is just not all
+  // unrolled at once.
+  if (view === 'chart') {
+    expanded = new Set([...collapsibleIds].filter((id) => (nodeDepth.get(id) ?? 9) < CHART_OPEN_DEPTH));
+  }
 
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
@@ -407,8 +472,24 @@ function render() {
     return;
   }
   body.innerHTML = `
-    <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
-    <ul class="org-tree">${html}</ul>`;
+    <div class="org-tree-head">
+      <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
+      <div class="org-view-switch" role="group" aria-label="รูปแบบการแสดงผล">
+        <button type="button" class="org-view-btn${view === 'list' ? ' is-on' : ''}"
+          data-org-view="list" aria-pressed="${view === 'list'}">
+          <i class="bi bi-list-nested" aria-hidden="true"></i> รายการ
+        </button>
+        <button type="button" class="org-view-btn${view === 'chart' ? ' is-on' : ''}"
+          data-org-view="chart" aria-pressed="${view === 'chart'}">
+          <i class="bi bi-diagram-3" aria-hidden="true"></i> แผนผัง
+        </button>
+      </div>
+    </div>
+    <div class="org-tree-wrap" data-view="${view}">
+      <ul class="org-tree">
+        ${rootBlock(html, filter)}
+      </ul>
+    </div>`;
 }
 
 // ── loading ─────────────────────────────────────────────────────────────────
@@ -537,7 +618,21 @@ export function initOrgChart() {
   // is the one element that survives.
   $('orgBody')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.org-station-btn');
-    if (btn && btn.tagName === 'BUTTON') toggleNode(btn);
+    if (btn && btn.tagName === 'BUTTON') { toggleNode(btn); return; }
+
+    // รายการ ⇄ แผนผัง. Flipping the wrapper's data-view is the whole switch —
+    // no re-render, so every open/closed ตำแหน่ง and the scroll position survive
+    // the change, which is what makes the two actually comparable.
+    const vb = e.target.closest('[data-org-view]');
+    if (!vb) return;
+    const next = vb.dataset.orgView === 'chart' ? 'chart' : 'list';
+    if (next === view) return;
+    view = next;
+    try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
+    // A full re-render, because entering แผนผัง expands everything and leaving
+    // it must not strand the reader in a 400-person wall of open ตำแหน่ง.
+    if (view === 'list') expanded = new Set();
+    render();
   });
 
   $('orgExpandAll')?.addEventListener('click', () => {
