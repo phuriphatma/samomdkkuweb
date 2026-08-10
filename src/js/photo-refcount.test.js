@@ -36,25 +36,96 @@ const API = new URL('./team/api.js', import.meta.url);
  */
 const RENAMED = { team_people: 'people' };
 
-/** Tables the migration tree gives a `photo_url` column, by reading the DDL. */
-function tablesWithPhotoUrl() {
-  const found = new Set();
+/**
+ * EVERY `*_url` COLUMN IN THE SCHEMA, and a decision about each one.
+ *
+ * ⚠️ THE SCAN USED TO LOOK FOR THE LITERAL NAME `photo_url`, AND THAT IS WHY IT
+ * PASSED OVER A REAL HOLE FOR THREE DAYS. `houses.icon_url` — the house crest:
+ * same uploader, same `photoToRetire` rule, same `deleteTeamPhotoIfUnused` — was
+ * invisible to it. The refcount did not count it, so the count answered 0 for
+ * every crest, and 0 is the answer that authorises an irreversible delete. A
+ * guard that cannot SEE the hazard reports the hazard as absent (mistakes class
+ * 7, on the instrument rather than on the query). Fixed in 0146.
+ *
+ * So the scan is now exhaustive and the test FORCES A DECISION: every `*_url`
+ * column in the migration tree must either be COUNTED by
+ * `photo_reference_count`, or appear in `NOT_A_PORTRAIT` with a reason. Adding a
+ * new one to the schema fails the build until somebody chooses — which is the
+ * only mechanism that survives a column being added in eighteen months by
+ * somebody who has never read this file.
+ */
+const NOT_A_PORTRAIT = new Map([
+  // A FOLDER, not a file. Nothing trashes it, and it can never be the argument.
+  ['projects.drive_folder_url', 'a Drive folder, not a file'],
+  // An arbitrary destination somebody typed — not an upload this app owns.
+  ['shop_banners.link_url', 'an external link, not an uploaded file'],
+  // ── Drive files, but a DIFFERENT cleanup and a different URL vocabulary ────
+  // These are real Drive files, and they are deliberately NOT counted here.
+  // `photo_reference_count` compares URL STRINGS, and one Drive file has many
+  // spellings (`=w1200`, `=w600`, `/view`, lh3 vs drive.google.com). Portraits
+  // are all written by one uploader in one spelling, so string equality is
+  // sound for them; announcement covers are not, which is exactly why
+  // `filesToRetire` in announcements.js diffs FILE IDS instead. Counting these
+  // by string would return 0 for a file that IS referenced under another
+  // spelling — a fail-open that destroys the file. Widening the refcount to the
+  // whole schema means normalising to file ids first; tracked in docs/NEXT.md.
+  ['announcements.thumbnail_url', 'covers are cleaned by filesToRetire (file IDS, not URL strings)'],
+  ['pr_tickets.file_url', 'PR attachments are cleaned by deletePRFile'],
+  ['project_files.drive_view_url', 'project files are cleaned by the projects flow'],
+  ['shop_products.image_url', 'shop images have no cleanup path and no shared-file case'],
+  ['shop_banners.image_url', 'as shop_products.image_url'],
+  ['shop_orders.slip_url', 'a payment slip — never passed to this function'],
+  ['shop_promptpay_qrs.qr_url', 'a QR image — never passed to this function'],
+  ['shop_settings.promptpay_qr_url', 'as shop_promptpay_qrs.qr_url'],
+]);
+
+/** Every `table.column` in the migration tree whose name ends in `_url`. */
+function urlColumns() {
+  const found = new Map();          // table.col -> table
   for (const name of readdirSync(MIGRATIONS).filter((n) => n.endsWith('.sql'))) {
     const sql = readFileSync(new URL(name, MIGRATIONS), 'utf8');
 
-    // `alter table <t> ... add column [if not exists] photo_url`
+    // `alter table <t> ... add column [if not exists] <x>_url`
     for (const m of sql.matchAll(
       /alter\s+table\s+(?:if\s+exists\s+)?(?:public\.)?(\w+)([\s\S]*?);/gi)) {
-      if (/add\s+column\s+(?:if\s+not\s+exists\s+)?photo_url/i.test(m[2])) found.add(m[1]);
+      for (const add of m[2].matchAll(
+        /add\s+column\s+(?:if\s+not\s+exists\s+)?(\w*_url)\b/gi)) {
+        const table = RENAMED[m[1]] || m[1];
+        found.set(`${table}.${add[1]}`, table);
+      }
     }
 
-    // `create table <t> ( ... photo_url ... )`
+    // `create table <t> ( ... <x>_url ... )`
     for (const m of sql.matchAll(
       /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?(\w+)\s*\(([\s\S]*?)\n\);/gi)) {
-      if (/^\s*photo_url\s/im.test(m[2])) found.add(m[1]);
+      for (const col of m[2].matchAll(/^\s*(\w*_url)\s/gim)) {
+        const table = RENAMED[m[1]] || m[1];
+        found.set(`${table}.${col[1]}`, table);
+      }
     }
   }
-  return new Set([...found].map((t) => RENAMED[t] || t));
+  // Columns a later migration DROPPED are not in the live schema and must not
+  // be demanded of the count.
+  for (const name of readdirSync(MIGRATIONS).filter((n) => n.endsWith('.sql'))) {
+    const sql = readFileSync(new URL(name, MIGRATIONS), 'utf8');
+    for (const m of sql.matchAll(
+      /alter\s+table\s+(?:if\s+exists\s+)?(?:public\.)?(\w+)([\s\S]*?);/gi)) {
+      for (const drop of m[2].matchAll(
+        /drop\s+column\s+(?:if\s+exists\s+)?(\w*_url)\b/gi)) {
+        found.delete(`${RENAMED[m[1]] || m[1]}.${drop[1]}`);
+      }
+    }
+  }
+  return found;
+}
+
+/** The tables the refcount is expected to count. */
+function tablesWithPhotoUrl() {
+  const out = new Set();
+  for (const [key, table] of urlColumns()) {
+    if (!NOT_A_PORTRAIT.has(key)) out.add(table);
+  }
+  return out;
 }
 
 /** The LIVE body of photo_reference_count — from the latest migration that
@@ -83,9 +154,16 @@ describe('the portrait refcount knows every table that references a portrait', (
     const tables = tablesWithPhotoUrl();
     // Sanity FIRST: a sweep that finds nothing would pass this test forever.
     // "Make it find something you know is there" — mistakes class 7.
-    expect(tables.size, 'the DDL scan found no photo_url columns at all')
+    expect(tables.size, 'the DDL scan found no Drive-URL columns at all')
       .toBeGreaterThan(1);
     expect(tables.has('team_members')).toBe(true);
+    // THE CONTROL THAT MUST FIND SOMETHING. `houses.icon_url` is the column this
+    // scan was blind to for three days, and the whole reason the test was
+    // widened. If the scan stops finding it, the widening has been undone and
+    // every crest is one drag-and-drop away from destroying another house's.
+    expect(tables.has('houses'),
+      'the scan lost sight of houses.icon_url — see 0146; a guard that cannot '
+      + 'see the hazard reports the hazard as absent').toBe(true);
 
     const missing = [...tables].filter((t) => !counted.includes(`public.${t}`));
     expect(missing,
