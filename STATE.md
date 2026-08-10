@@ -32,6 +32,13 @@ history.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
+- 🔴 **UNDEPLOYED — `599a767` is pushed but NOT on the VM (VPN was down).**
+  It carries the ทีม SAMO identity-swap guard, the "พบคนนี้ในระบบแล้ว" panel and
+  the portrait-filename fixes. **Until it deploys, picking a person in
+  แก้ไขสมาชิก still silently rewrites that person across ทีม SAMO + ระบบบ้าน.**
+  Migration 0148 IS already applied and is safe ahead of the bundle — it only
+  ADDS `photo_url`/`photo_focus` keys to `search_people`, which the served
+  bundle ignores. Connect VPN and run `skills/deploy-vm.md`.
 - **samoweb**: **deployed = `237a82d`** (v4.6.0 + the 0147 client change),
   verified from the SERVED artifacts: both entries load the shared chunk
   `analytics-kwxw5HXu.js`, which carries the two new `console.error` literals,

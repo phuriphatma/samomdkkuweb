@@ -1384,3 +1384,59 @@ only the index is the guarantee. And every error translator needs a control that
 NON-matching errors pass through untranslated — one that swallows a permissions
 failure as "ข้อมูลซ้ำ" costs an admin an afternoon hunting a duplicate that does
 not exist.
+
+---
+
+## "แก้ไขสมาชิก … ค้นหาคนจากระบบ … พู่กัน picture become myself" — a picker built for ADD, reused in EDIT, wired to a mirror
+
+**Symptom**: as reported — open แก้ไขสมาชิก on your OWN row, use ค้นหาคนจากระบบ,
+click a different person, and the form fills with them. Then the other person's
+portrait becomes yours. Measured on prod afterwards: **five rows across
+`people`, `students` and `team_members` had collapsed onto a single photo.**
+
+**Cause**: `pickPerson()` (`team/index.js`) overwrites the identity fields with
+the picked person's. That is correct for **เพิ่มสมาชิก**, where "who is this"
+has no previous answer. In **แก้ไขสมาชิก** the identical click means something
+else — it REASSIGNS an existing posting to a different human — and the function
+could not tell the two apart, because it never looked at `teamMemberId`.
+
+The blast radius is the part worth remembering. The picker only edits a form;
+the damage is done by three correct mechanisms downstream:
+
+1. save writes the picked `kkumail` onto the edited posting;
+2. `team_members_link_person` repoints that row's `person_id` at the picked
+   person's `public.people` row (the registry matches on kkumail);
+3. `team_member_mirror_up` UPDATEs that registry row from the posting —
+   including `photo_url` and `photo_focus`;
+4. `person_mirror_down` fans the result to every OTHER posting that person holds
+   and to their `students` row.
+
+Nothing raised. Every one of those steps is doing exactly its job. **A form that
+can change WHICH ENTITY a row refers to is a different kind of control from one
+that edits the row's fields, and the mirrors turn it into a multi-system write.**
+
+The portrait was a second, independent bug underneath it: `search_people`
+returned no photo, so `pickPerson` left the *previous* row's face in the form
+while changing who the row was. Clearing it instead would have been no safer —
+`team_member_mirror_up` assigns unconditionally, so `photo_url = null` does not
+mean "leave it alone", it means "wipe this person's portrait everywhere".
+
+**Fix**: (a) `pickPerson` asks first — `askConfirm`, danger, default cancel —
+but ONLY when it is genuinely a swap: editing, with an existing kkumail, picking
+a different one. A posting with no kkumail yet (15 live) is the case this picker
+legitimately serves during an edit and stays one click. (b) migration **0148**
+adds `photo_url`/`photo_focus` to `search_people`, so the portrait travels with
+the person and step 3 writes their own face back onto them — a no-op. (c) the
+damaged data was repaired through the registry, letting the same mirror fan the
+correct portrait back down.
+
+**Where it lives now**: `src/js/team/index.js` (`pickPerson`),
+`supabase/migrations/0148_search_people_carries_the_portrait.sql`.
+
+**Rules**: (1) **A control that reassigns identity is not an edit control** —
+when the same widget serves ADD and EDIT, ask what the click MEANS in each, not
+whether it fills the same boxes. (2) A mirror makes every local write a
+distributed one: before allowing a form to change a foreign key, ask what
+follows it. (3) When a projection feeds a form, it must carry EVERY column the
+save will write, or the form composes one entity out of two. (4) Fixing this in
+the client alone was not possible — the missing column was the bug.
