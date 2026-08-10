@@ -44,7 +44,7 @@ import { askConfirm, askDelete } from '../confirm-modal.js';
 // nine members reading a ชั้นปี exactly one year behind the truth, an edit box
 // that silently reverted, and one person seeing ปี 5 / จบแล้ว / ปี 5 on three
 // screens. This pane now computes, and offers no box that writes a year.
-import { studyYearLabel } from '../study-year.js';
+import { studyYearLabel, yearBasis } from '../study-year.js';
 import { userCanAccess, getUser } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
@@ -1965,8 +1965,11 @@ function paintDerivedYear(member) {
   const box = $('teamMemberYear');
   if (!box) return;
   const sid = $('teamMemberStudentId')?.value || member?.student_id || '';
-  const rec = { ...member, student_id: sid };
-  const label = studyYearLabel(rec);
+  // yearBasis, NEVER `{ ...member, student_id: sid }` — studyYear prefers a
+  // stored cohort_year over the รหัส, so spreading the member keeps the OLD
+  // ปีที่เข้า and the box refuses to move as the รหัส is corrected. That is 0128
+  // put back on the screen.
+  const label = studyYearLabel(yearBasis(member, sid));
   box.value = label || '—';
   const hint = $('teamMemberYearHint');
   if (!hint) return;

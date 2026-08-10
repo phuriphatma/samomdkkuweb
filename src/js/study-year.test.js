@@ -24,7 +24,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
   setAcademicYear, academicYear, cohortFromStudentId, cohortLabel,
-  studyYear, studyYearLabel, offsetForPickedYear,
+  studyYear, studyYearLabel, offsetForPickedYear, yearBasis,
   COHORT_EPOCH, ACADEMIC_YEAR_ROLLOVER_MONTH,
 } from './study-year.js';
 
@@ -104,6 +104,35 @@ describe('the ชั้นปี rule', () => {
     // that means something else the moment the row lands.
     const typed = { student_id: '603070316-0' };        // computes to 10
     expect(offsetForPickedYear(typed, 6)).toBe(-4);
+  });
+
+  it('DROPS a stored ปีที่เข้า once the รหัส it came from is edited', () => {
+    // 0128 wearing a client-side costume. studyYear reads
+    // `cohort_year || cohortFromStudentId(sid)` — the stored cohort WINS — so a
+    // form that spreads the row and overwrites only student_id keeps showing the
+    // OLD ชั้นปี while the รหัส is being corrected, and an offset saved in that
+    // state is measured against a base that no longer exists.
+    const stored = { student_id: '653070149-5', cohort_year: 2565, year_offset: -1 };
+    expect(studyYear(stored)).toBe(4);                                  // 5 − 1
+    // Spreading is the WRONG thing, and this pins that it is wrong:
+    expect(studyYear({ ...stored, student_id: '603070316-0' })).toBe(4);
+    // yearBasis is the right thing:
+    expect(studyYear(yearBasis(stored, '603070316-0'))).toBe(9);        // 10 − 1
+  });
+
+  it('KEEPS the stored ปีที่เข้า while the รหัส is unchanged', () => {
+    // Load-bearing: 0145's backfill converted a stored ชั้นปี into a ปีที่เข้า for
+    // the 13 members who have no รหัส at all. Dropping it unconditionally would
+    // blank exactly those people's ชั้นปี.
+    const noSid = { student_id: null, cohort_year: 2565 };
+    expect(studyYear(yearBasis(noSid, ''))).toBe(5);
+    expect(studyYear(yearBasis(noSid, null))).toBe(5);
+  });
+
+  it('carries the OFFSET across a รหัส correction, because it is a difference', () => {
+    const stored = { student_id: '653070149-5', cohort_year: 2565, year_offset: -2 };
+    expect(yearBasis(stored, '663070014-9').year_offset).toBe(-2);
+    expect(yearBasis(stored, '663070014-9').cohort_year).toBeUndefined();
   });
 
   it('turns ปีที่เข้า into a รุ่น, and needs no clock to do it', () => {

@@ -69,7 +69,7 @@ import {
 // a corrected รหัส that moved the รุ่น but not the ปี, and one person reading
 // ปี 5 / จบแล้ว / ปี 5 on three screens. See src/js/study-year.js.
 import {
-  studyYear, studyYearLabel, offsetForPickedYear, setAcademicYear,
+  studyYear, studyYearLabel, offsetForPickedYear, setAcademicYear, yearBasis,
 } from './study-year.js';
 import {
   PERM_LABEL, VS_DEPT_LABEL, PROJECT_SEAT_LABEL, ADMIN_FEATURES,
@@ -484,7 +484,7 @@ function studyYearFieldHtml(p) {
   const computed = studyYear({ ...p, year_offset: 0 });
   if (computed === null) {
     return `
-      <label class="myseat-field myseat-field--locked">
+      <label class="myseat-field myseat-field--locked" data-myseat-year>
         <span>ชั้นปี</span>
         <input type="text" value="—" readonly />
         <em class="myseat-field-hint">กรอกรหัสนักศึกษาก่อน ระบบจะคำนวณชั้นปีให้เอง</em>
@@ -494,7 +494,7 @@ function studyYearFieldHtml(p) {
   const opts = [1, 2, 3, 4, 5, 6].map((y) => `<option value="${y}"${
     y === current ? ' selected' : ''}>ปี ${y}</option>`).join('');
   return `
-    <label class="myseat-field">
+    <label class="myseat-field" data-myseat-year>
       <span>ชั้นปี</span>
       <select name="study_year">
         <option value=""${p.year_offset ? '' : ' selected'}>ตามที่ระบบคำนวณ (ปี ${computed})</option>
@@ -717,6 +717,29 @@ function wireSelfEdit(host, seat) {
     host.querySelectorAll('[data-myseat-edit]').forEach((b) => { b.hidden = on; });
   };
 
+  // ── the ชั้นปี chooser follows the รหัส, live ─────────────────────────────
+  //
+  // The รหัสนักศึกษา IS the base the offset is measured from, so a chooser that
+  // does not move while the รหัส is being corrected shows the OLD computation
+  // ("ตามที่ระบบคำนวณ (ปี 5)") beside a รหัส that now says ปี 10 — and picking
+  // from it stores a difference against a base that no longer exists. The other
+  // two forms that carry this control (ระบบบ้าน admin, ทีม SAMO admin) already
+  // repaint; this one is the third writer, and "a fix on ONE path is not a fix".
+  const me0 = (seat.postings || [])[0] || {};
+  const repaintYear = () => {
+    // `[data-myseat-year]`, not `.myseat-field--locked` — the no-รหัส branch of
+    // studyYearFieldHtml renders as a LOCKED field, and so does the KKU Mail
+    // box, so a class-based lookup would swap the address for a year chooser.
+    const slot = form.querySelector('[data-myseat-year]');
+    const sidBox = form.querySelector('[name="student_id"]');
+    if (!slot || !sidBox) return;
+    const next = document.createElement('div');
+    next.innerHTML = studyYearFieldHtml(yearBasis(me0, sidBox.value));
+    const fresh = next.firstElementChild;
+    if (fresh) slot.replaceWith(fresh);
+  };
+  form.querySelector('[name="student_id"]')?.addEventListener('change', repaintYear);
+
   host.querySelectorAll('[data-myseat-edit]').forEach((b) => b.addEventListener('click', () => {
     show(true);
     // Fill the สาขา chooser the first time the form is actually opened, not on
@@ -840,7 +863,7 @@ function wireSelfEdit(host, seat) {
     const yearSel = form.querySelector('[name="study_year"]');
     const pickedYear = yearSel ? yearSel.value.trim() : '';
     const yearOffset = pickedYear
-      ? offsetForPickedYear({ ...me, student_id: fields.student_id, year_offset: 0 }, pickedYear)
+      ? offsetForPickedYear({ ...yearBasis(me, fields.student_id), year_offset: 0 }, pickedYear)
       : null;
 
     const body = {

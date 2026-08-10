@@ -157,6 +157,44 @@ export function studyYearLabel(rec, now = new Date()) {
 }
 
 /**
+ * The record to COMPUTE FROM while a รหัสนักศึกษา is being edited.
+ *
+ * ⚠️ THIS IS 0128 WEARING A CLIENT-SIDE COSTUME, AND EVERY FORM THAT SHOWS A
+ * ชั้นปี BESIDE AN EDITABLE รหัส NEEDS IT. `studyYear` reads
+ * `cohort_year || cohortFromStudentId(student_id)` — the stored cohort WINS. So
+ * feeding it a record whose `cohort_year` came from the OLD รหัส makes the
+ * corrected one invisible: the box does not move as you type, and worse, an
+ * offset saved in that state is measured against the wrong base and quietly
+ * means something else.
+ *
+ * That is exactly the failure the owner reported on the server side — "เปลี่ยน
+ * รหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — where `cohort_year` was
+ * filled once and never re-derived (0128, and 0145 for the registry). The
+ * database re-derives now; a form that keeps handing it the stale copy puts the
+ * bug back on the screen.
+ *
+ * THE RULE: the stored cohort is only trustworthy while the รหัส it was derived
+ * FROM is unchanged. Once the box differs, the typed รหัส is the only input.
+ * (Keeping the stored cohort for an UNCHANGED รหัส matters: a member with no
+ * รหัส at all may still have a ปีที่เข้า, converted from their old stored ชั้นปี
+ * by 0145's backfill, and dropping it would blank their ชั้นปี.)
+ *
+ * @param {object} stored    the row as the server last returned it
+ * @param {string} typedSid  the รหัสนักศึกษา currently in the box
+ */
+export function yearBasis(stored, typedSid) {
+  const typed = String(typedSid ?? '').trim();
+  const was = String(stored?.student_id ?? '').trim();
+  if (typed === was) return { ...stored };
+  return {
+    student_id: typed,
+    // The offset travels: it is a difference, and "one year behind my รุ่น" means
+    // the same thing against either base. The COHORT does not.
+    year_offset: stored?.year_offset ?? null,
+  };
+}
+
+/**
  * Turn a ชั้นปี a HUMAN PICKED into the offset to store.
  *
  * The chooser shows real years (1–6) because that is what people think in; what
