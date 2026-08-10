@@ -22,7 +22,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- **samoweb deployed = `c33d5cf`**, verified from the SERVED artifacts.
+- **samoweb deployed = `6dc20a8`**, verified from the SERVED artifacts.
   **Migrations applied through 0148.** **678 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
@@ -97,6 +97,19 @@ because two copies of one rule is the class this repo pays for most.
 >   avatars but never has (`portraitSrc` is only used in the modal preview).
 >   Portraits are `loading="lazy"` behind initials placeholders, so a slow link
 >   shows initials first. **Ask WHICH SCREEN before investigating further.**
+> - **ทีม SAMO restructure — DO NOT reparent ฝ่าย without reading this.** The
+>   owner wants นายกฯ → อุปนายก → ฝ่าย and asked whether it affects สิทธิ์. It
+>   does, severely. `node_effective_permissions()` climbs the parent chain while
+>   `inherit_permissions` is true, and eleven nodes carry grants —
+>   `นายกฯ {master}`, `อุปนายกฝ่ายดิจิทัล {master}`, `อุปนายกฯ {team_edit,house}`,
+>   `อุปนายกฝ่ายบริหารองค์กร {samoshop,projects}` + a `vpa` seat, … Today those
+>   อุปนายก nodes are LEAVES, so one person inherits each. **Simulated in a
+>   rolled-back transaction: moving ฝ่าย PR/ComArt/IT under
+>   อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20** — 17 students
+>   silently become full admins. Before any reparenting: move the grants onto
+>   `team_members.permissions`, or set `inherit_permissions = false` on the ฝ่าย
+>   being moved. Then re-run that simulation as a differential guard; it must
+>   show BEFORE == AFTER.
 > - `docs/NEXT.md` §0b — three small things seen while driving: `/admin/#team` is
 >   not honoured on a COLD load; a stale "ไม่พบใคร" hint sits above live search
 >   results; ตรวจสอบข้อมูล has 8 unexamined findings.
