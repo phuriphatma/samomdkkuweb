@@ -896,8 +896,23 @@ function wireSelfEdit(host, seat) {
         const res = await uploadTeamPhoto(pendingPhoto.file, {
           year: seat.term_year || 'unsorted',
           dept: (Array.isArray(me.path) && me.path[0]) || me.node || 'ทั่วไป',
-          order: 0,
-          name: body.full_name,
+          // The person's OWN position, so the Drive folder sorts the way the
+          // ตำแหน่ง list does. This was a hardcoded 0, which is why every
+          // portrait uploaded from this card — the one ordinary members use —
+          // landed as "00-…" and the numeric prefix stopped meaning anything.
+          order: me.position ?? 0,
+          // SAME FALLBACK CHAIN AS THE ADMIN EDITOR. `body.full_name` is only
+          // assigned when at least one name box is non-empty, so a legacy
+          // combined-name row (pre-0135, both boxes blank) passed `undefined`
+          // here and every such upload was filed as "00-member.jpg" — which is
+          // the reported symptom. uploadPendingPhoto() in team/index.js already
+          // falls back to the row's stored full_name; this writer did not, the
+          // same "implemented on the writers you happened to be looking at"
+          // shape as the portrait cleanup that skipped this very file.
+          name: body.full_name
+            || String(me.full_name || '').trim()
+            || String(me.nickname || '').trim()
+            || 'member',
         });
         body.photo_url = res.url;
         // The framed file IS 3:4, so the stored crop anchor must go back to

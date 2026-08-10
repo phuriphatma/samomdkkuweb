@@ -28,6 +28,7 @@
 @import './css/my-house.css';
 /* ตรวจสอบข้อมูลของฉัน — the import's disagreements with this person (0138).
    Public entry only: the admin side reads the same rows through its own pane. */
+@import './css/person-match.css';
 @import './css/identity-check.css';
 @import './css/image-crop.css';
 @import './css/dev-activity.css';

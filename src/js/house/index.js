@@ -1414,19 +1414,19 @@ function paintPersonMatch() {
   const box = $('hsPersonMatch');
   if (!box) return;
   const p = personMatch;
-  if (!p) { box.className = 'house-person-match d-none'; box.innerHTML = ''; return; }
+  if (!p) { box.className = 'person-match d-none'; box.innerHTML = ''; return; }
 
   const who = escHtml(p.full_name || p.first_name_th || '(ไม่มีชื่อ)');
-  const where = p.team_nodes ? `<span class="house-person-where">ทีม SAMO: ${escHtml(p.team_nodes)}</span>` : '';
+  const where = p.team_nodes ? `<span class="person-match-where">ทีม SAMO: ${escHtml(p.team_nodes)}</span>` : '';
 
   // 1 — already placed. Nothing to create.
   if (p.in_house) {
     const row = houseRowForPerson(p);
-    box.className = 'house-person-match is-block';
+    box.className = 'person-match is-block';
     box.innerHTML = `
-      <div class="house-person-head"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+      <div class="person-match-head"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
         <strong>อีเมลนี้มีนักศึกษาอยู่แล้ว</strong></div>
-      <p class="house-person-body">${who}${
+      <p class="person-match-body">${who}${
   row ? ` — สาย ${escHtml(row.sai_code || '—')} · ${escHtml(houseName(houseOf(row.sai_code)))}` : ''}
         ${row ? '' : '<br />แถวนี้ไม่อยู่ในรายการที่คุณเห็น — ติดต่อผู้ดูแลระบบ'}</p>
       ${where}
@@ -1445,15 +1445,15 @@ function paintPersonMatch() {
     })
     .map(([key, label]) => `${label}: <code>${escHtml(String(p[key]))}</code>`);
 
-  box.className = 'house-person-match is-known';
+  box.className = 'person-match is-known';
   box.innerHTML = `
-    <div class="house-person-head"><i class="bi bi-person-check-fill" aria-hidden="true"></i>
+    <div class="person-match-head"><i class="bi bi-person-check-fill" aria-hidden="true"></i>
       <strong>พบคนนี้ในระบบแล้ว</strong></div>
-    <p class="house-person-body">${who}${p.student_id ? ` · ${escHtml(p.student_id)}` : ''}
+    <p class="person-match-body">${who}${p.student_id ? ` · ${escHtml(p.student_id)}` : ''}
       — ยังไม่มีข้อมูลในระบบบ้าน บันทึกได้เลย ระบบจะผูกให้เป็นคนเดียวกันเอง</p>
     ${where}
     ${differs.length
-    ? `<p class="house-person-diff"><i class="bi bi-info-circle" aria-hidden="true"></i>
+    ? `<p class="person-match-diff"><i class="bi bi-info-circle" aria-hidden="true"></i>
          ข้อมูลในระบบต่างจากที่กรอก — ${differs.join(' · ')}</p>` : ''}
     <button type="button" class="btn btn-sm btn-outline-secondary"
       data-house-act="use-person">ใช้ข้อมูลจากระบบ</button>`;

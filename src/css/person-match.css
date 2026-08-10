@@ -1,0 +1,78 @@
+/* ============================================================
+   .person-match — "this person is already in the system", drawn the same way
+   wherever a form can create a SECOND record for a human who already exists.
+
+   IT LIVES HERE, NOT IN house-admin.css, BECAUSE TWO SYSTEMS ASK THE QUESTION.
+   ระบบบ้าน asked it first (the `students_kkumail_key` violation used to answer
+   badly and too late). ทีม SAMO needed the identical answer, and copying the
+   rules would have been the "two implementations of one rule" class this repo
+   pays for most — so the block moved up and both import it.
+
+   THE TWO SYSTEMS MEAN DIFFERENT THINGS BY IT, which is why `is-block` and
+   `is-known` are separate states rather than one "warning" look:
+
+     is-block  — the save CANNOT succeed. `students.kkumail` is UNIQUE, so a
+                 second ระบบบ้าน row for one address is refused by the database.
+                 Red, because the only way forward is to go edit the other row.
+     is-known  — the save CAN succeed and is often correct. `team_members` has
+                 NO unique key on kkumail on purpose: 82 people hold 2–4
+                 ตำแหน่ง. Green, because a second posting is a normal thing to
+                 want; the panel is telling you WHO you matched, not stopping you.
+
+   Colour is never the only signal — each state carries its own icon and its own
+   opening words, because colour is the one channel a reader can be missing.
+   ============================================================ */
+.person-match {
+  border: 1px solid var(--ink-200);
+  border-inline-start: 3px solid var(--ink-300);
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+/* Already placed — there is nothing to create here. */
+.person-match.is-block {
+  border-inline-start-color: #b02a37;
+  background: #fdf5f5;
+}
+.person-match.is-block .person-match-head { color: #b02a37; }
+/* Known person, new placement — this is a normal save, not a warning. */
+.person-match.is-known {
+  border-inline-start-color: var(--brand-primary);
+  background: #f5faf6;
+}
+.person-match.is-known .person-match-head { color: var(--brand-primary); }
+
+.person-match-head {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.person-match-body { margin: 0.25rem 0 0.4rem; color: var(--ink-700); }
+.person-match-where {
+  display: block;
+  font-size: 0.78rem; color: var(--ink-500);
+  margin-bottom: 0.4rem;
+}
+/* The postings this person already holds, as a list rather than a run-on line:
+   the ทีม SAMO case routinely has two or three and "Ungrole · หัวหน้าฝ่าย IT ·
+   กรรมการ" reads as one long ตำแหน่ง name at a glance. */
+.person-match-posts {
+  margin: 0 0 0.4rem;
+  padding-inline-start: 1.1rem;
+  font-size: 0.8rem; color: var(--ink-600);
+}
+.person-match-posts li { margin: 0; }
+/* The disagreement between what is stored and what was typed. Shown, never
+   resolved automatically: choosing between two spellings of a real person's
+   name is a decision, not a merge. */
+.person-match-diff {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem; color: var(--ink-600);
+}
+.person-match-diff code {
+  background: var(--ink-100, #eceef0);
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+  color: inherit;
+}

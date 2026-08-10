@@ -2255,6 +2255,53 @@ function renderPersonResults(hits, q) {
  */
 async function pickPerson(p) {
   if (!p) return;
+
+  // ── THE IDENTITY SWAP GUARD ────────────────────────────────────────────────
+  //
+  // Reported: "when i press at myself แก้ไขสมาชิก then i ค้นหาคนจากระบบ พู่กัน
+  // then click … it fills this information, and พู่กัน picture become myself."
+  //
+  // This picker was written for เพิ่มสมาชิก, where "who is this" has no previous
+  // answer and overwriting is the whole point. In แก้ไขสมาชิก the same click
+  // means something entirely different: it REASSIGNS an existing posting to a
+  // different human. And it does not stop at this form. On save,
+  // `team_members_link_person` repoints the row's `person_id` at the picked
+  // person's registry row, `team_member_mirror_up` writes THIS FORM's fields up
+  // into it, and `person_mirror_down` fans that out to every other posting that
+  // person holds and to their ระบบบ้าน record. One misclick rewrites a second
+  // person's identity in three systems, with no error anywhere.
+  //
+  // So: ask, but only when it is genuinely a swap. A posting with no kkumail yet
+  // (15 of them live) is the case this picker legitimately serves during an
+  // edit — attaching a real person to a row that never had one — and it must
+  // stay one click.
+  const editingId = $('teamMemberId').value;
+  const stored = editingId ? findMember(editingId) : null;
+  const storedMail = String(stored?.kkumail || '').trim().toLowerCase();
+  const pickedMail = String(p.kkumail || '').trim().toLowerCase();
+  if (stored && storedMail && pickedMail && storedMail !== pickedMail) {
+    const storedWho = String(stored.full_name || '').trim() || storedMail;
+    const pickedWho = String(p.full_name || '').trim() || pickedMail;
+    // askConfirm, never window.confirm — a suppressed native dialog returns
+    // false instantly and has already shipped here twice as "the button does
+    // nothing". Default is cancel, and the wording says what it costs.
+    const ok = await askConfirm({
+      title: 'เปลี่ยนเจ้าของตำแหน่งนี้?',
+      body: `ตำแหน่งนี้เป็นของ ${storedWho} (${storedMail}) อยู่ตอนนี้ `
+        + `ถ้าเลือก ${pickedWho} (${pickedMail}) ตำแหน่งนี้จะกลายเป็นของ ${pickedWho} `
+        + `และเมื่อกดบันทึก ข้อมูลของ ${pickedWho} ในระบบ — ทั้งชื่อ ชื่อเล่น รหัสนักศึกษา `
+        + 'สาขา และรูป — จะถูกเขียนทับด้วยสิ่งที่อยู่ในฟอร์มนี้ ทั้งในทีม SAMO และระบบบ้าน '
+        + `ถ้าเพียงต้องการแก้ข้อมูลของ ${storedWho} ให้กดยกเลิก แล้วพิมพ์แก้ในช่องได้เลย`,
+      yes: 'ใช่ เปลี่ยนเป็นคนนี้',
+      danger: true,
+    });
+    if (!ok) {
+      const box0 = $('teamMemberSearchResults');
+      if (box0) { box0.classList.add('d-none'); box0.innerHTML = ''; }
+      return;
+    }
+  }
+
   $('teamMemberFirstName').value = p.first_name_th || '';
   $('teamMemberLastName').value = p.last_name_th || '';
   $('teamMemberNickname').value = p.nickname || '';
@@ -2275,6 +2322,27 @@ async function pickPerson(p) {
     await loadMajors();
     fillMajorSelect($('teamMemberMajor'), p.major);
   }
+
+  // THE PORTRAIT TRAVELS WITH THE PERSON (0148). Without this the form describes
+  // the picked person while still holding the previous row's face, and
+  // `team_member_mirror_up` then writes that face onto them across ทีม SAMO, the
+  // registry and ระบบบ้าน. That is the reported bug, and it is not cosmetic:
+  // the mirror assigns photo_url unconditionally, so leaving the wrong one is a
+  // silent overwrite of a real person's picture.
+  //
+  // Clearing instead would be no safer — `photo_url = null` is not "leave it
+  // alone" to that same mirror; it wipes the portrait everywhere. The picker
+  // either knows the real portrait or it corrupts one, which is why 0148 added
+  // it to `search_people` rather than fixing this in the client alone.
+  //
+  // A PENDING UPLOAD WINS. It is a file this admin chose for this posting
+  // moments ago, and it is about to be published for the person now named here;
+  // discarding it would throw away the more deliberate of the two signals.
+  if (!memberPhotoPending) {
+    memberPhotoFocus = p.photo_focus || 'center';
+    setMemberPhoto(p.photo_url || '');
+  }
+
   const box = $('teamMemberSearchResults');
   if (box) { box.classList.add('d-none'); box.innerHTML = ''; }
   const hint = $('teamMemberSearchHint');
@@ -2285,8 +2353,146 @@ async function pickPerson(p) {
   $('teamMemberFirstName')?.focus();
 }
 
+// ── "พบคนนี้ในระบบแล้ว" — the passive half of the picker ────────────────────
+//
+// The search box above is OPT-IN: it only fires if the admin thinks to use it.
+// Typing the person's details straight into the fields — the natural thing when
+// you already have them — used to produce no signal at all, and ทีม SAMO cannot
+// fall back on the database the way ระบบบ้าน does: `students.kkumail` is UNIQUE,
+// so a duplicate there is REFUSED, while `team_members` has no unique key on
+// purpose (82 people hold 2–4 ตำแหน่ง). A second posting is legal, so nothing
+// stops it and nothing mentions it.
+//
+// Hence a panel rather than a block. It answers "who is this" before บันทึก,
+// names the ตำแหน่ง this person already holds so a real duplicate is obvious,
+// and says which typed fields disagree with the registry. Saving still works.
+let teamPersonMatch = null;
+let teamPersonMatchToken = 0;
+let teamPersonMatchTimer = null;
+
+/** Registry field → label → the input that holds the typed value. */
+const TEAM_FILL_FIELDS = [
+  ['first_name_th', 'ชื่อจริง', 'teamMemberFirstName'],
+  ['last_name_th', 'นามสกุล', 'teamMemberLastName'],
+  ['nickname', 'ชื่อเล่น', 'teamMemberNickname'],
+  ['student_id', 'รหัสนักศึกษา', 'teamMemberStudentId'],
+  ['major', 'สาขา', 'teamMemberMajor'],
+];
+
+function paintTeamPersonMatch() {
+  const box = $('teamMemberPersonMatch');
+  if (!box) return;
+  const p = teamPersonMatch;
+  if (!p) { box.className = 'person-match d-none'; box.innerHTML = ''; return; }
+
+  const who = escHtml(p.full_name || p.first_name_th || '(ไม่มีชื่อ)');
+  const posts = String(p.team_nodes || '').split(' · ').map((s) => s.trim()).filter(Boolean);
+
+  const differs = TEAM_FILL_FIELDS
+    .filter(([key, , el]) => {
+      const typed = String($(el)?.value || '').trim();
+      const known = String(p[key] || '').trim();
+      return typed && known && typed !== known;
+    })
+    .map(([key, label]) => `${label}: <code>${escHtml(String(p[key]))}</code>`);
+
+  // Never `is-block`: unlike ระบบบ้าน there is nothing here the database will
+  // refuse, so a red "you cannot do this" would be a lie.
+  box.className = 'person-match is-known';
+  box.innerHTML = `
+    <div class="person-match-head"><i class="bi bi-person-check-fill" aria-hidden="true"></i>
+      <strong>พบคนนี้ในระบบแล้ว</strong></div>
+    <p class="person-match-body">${who}${p.student_id ? ` · ${escHtml(p.student_id)}` : ''}${
+  p.in_house ? ' · อยู่ในระบบบ้าน' : ''}</p>
+    ${posts.length
+    ? `<p class="person-match-body">มีตำแหน่งอยู่แล้ว:</p>
+       <ul class="person-match-posts">${posts.map((n) => `<li>${escHtml(n)}</li>`).join('')}</ul>
+       <p class="person-match-body">ถ้าต้องการเพิ่มอีกตำแหน่งให้คนเดิม บันทึกได้เลย</p>`
+    : '<p class="person-match-body">ยังไม่มีตำแหน่งในทีม SAMO — บันทึกได้เลย ระบบจะผูกให้เป็นคนเดียวกันเอง</p>'}
+    ${differs.length
+    ? `<p class="person-match-diff"><i class="bi bi-info-circle" aria-hidden="true"></i>
+         ข้อมูลในระบบต่างจากที่กรอก — ${differs.join(' · ')}</p>` : ''}
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+      data-team-act="use-person">ใช้ข้อมูลจากระบบ</button>`;
+}
+
+/** Fill only the EMPTY boxes. Never overwrites what is typed — the diff line
+ *  says what disagrees, and choosing between two spellings of a real person's
+ *  name is a decision, not a merge. (`pickPerson` DOES overwrite, because there
+ *  the admin explicitly said "this is who it is".) */
+function useTeamPersonData() {
+  const p = teamPersonMatch;
+  if (!p) return;
+  for (const [key, , el] of TEAM_FILL_FIELDS) {
+    const node = $(el);
+    const known = String(p[key] || '').trim();
+    if (!node || !known || String(node.value || '').trim()) continue;
+    node.value = known;
+  }
+  paintDerivedYear({ student_id: $('teamMemberStudentId')?.value || '', year_offset: p.year_offset });
+  paintTeamPersonMatch();
+}
+
+/**
+ * Look up whatever identifies a person, debounced.
+ *
+ * Triggered by KKU Mail *and* รหัสนักศึกษา, because either one alone identifies
+ * somebody and an admin filling this form often has only one of them —
+ * `search_people` ranks an exact match on either as rank 0. The token is bumped
+ * per call so a slow reply for a half-typed value cannot land after a faster one
+ * for the finished value; this modal is a single DOM element reused for every
+ * row, and state outliving the record it described is a bug this repo has
+ * shipped more than once.
+ */
+function lookupTeamPerson() {
+  const mail = String($('teamMemberEmail')?.value || '').trim().toLowerCase();
+  const sid = String($('teamMemberStudentId')?.value || '').trim();
+  const q = mail.includes('@') && mail.length >= 4 ? mail
+    : (sid.replace(/\D/g, '').length >= 9 ? sid : '');
+  const token = ++teamPersonMatchToken;
+  clearTimeout(teamPersonMatchTimer);
+  if (!q) { teamPersonMatch = null; paintTeamPersonMatch(); return; }
+
+  // Editing an existing posting: a match on the row's OWN person is not news,
+  // and "พบคนนี้ในระบบแล้ว" pointed at itself would be nonsense.
+  const editingId = $('teamMemberId')?.value || '';
+  const selfMail = editingId
+    ? String(findMember(editingId)?.kkumail || '').trim().toLowerCase() : '';
+
+  teamPersonMatchTimer = setTimeout(() => {
+    searchPeople(q, 5)
+      .then((hits) => {
+        if (token !== teamPersonMatchToken) return;
+        const exact = (hits || []).find((h) => {
+          const hm = String(h.kkumail || '').trim().toLowerCase();
+          if (mail && hm === mail) return true;
+          const hd = String(h.student_id || '').replace(/\D/g, '');
+          return !mail && hd && hd === sid.replace(/\D/g, '');
+        }) || null;
+        const isSelf = exact && selfMail
+          && String(exact.kkumail || '').trim().toLowerCase() === selfMail;
+        teamPersonMatch = isSelf ? null : exact;
+        paintTeamPersonMatch();
+      })
+      .catch((err) => {
+        // A failed lookup must NOT block the save. This panel is a courtesy —
+        // and unlike ระบบบ้าน there is no unique index behind it, so a courtesy
+        // that turned into a wall on a network hiccup would be pure loss.
+        console.warn('team: person lookup failed:', err);
+        if (token === teamPersonMatchToken) { teamPersonMatch = null; paintTeamPersonMatch(); }
+      });
+  }, 250);
+}
+
 function wireMemberModal() {
   $('teamMemberForm')?.addEventListener('submit', onMemberSubmit);
+  $('teamMemberEmail')?.addEventListener('input', lookupTeamPerson);
+  $('teamMemberStudentId')?.addEventListener('input', lookupTeamPerson);
+  // Delegated onto the panel's own host, which outlives every repaint of its
+  // innerHTML — a listener re-attached per paint fires N times on the Nth paint.
+  $('teamMemberPersonMatch')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-team-act="use-person"]')) useTeamPersonData();
+  });
 
   const search = $('teamMemberSearch');
   search?.addEventListener('input', () => {
@@ -2583,6 +2789,13 @@ function fillMemberModal(member, nodeId, tab) {
       : 'พิมพ์อย่างน้อย 2 ตัวอักษร แล้วเลือกจากรายการเพื่อเติมข้อมูลให้อัตโนมัติ';
   }
   $('teamMemberConfirmed').checked = !!member?.confirmed;
+  // Same reuse hazard as the pending photo below: a match painted for the LAST
+  // row must not still be on screen for this one. Cancel the in-flight lookup
+  // too — bumping the token is what stops its reply repainting this modal.
+  teamPersonMatch = null;
+  teamPersonMatchToken++;
+  clearTimeout(teamPersonMatchTimer);
+  paintTeamPersonMatch();
   // A pick left pending by a previous open must not follow the next person into
   // the editor — the modal is one DOM element reused for every row, which is
   // exactly how the permission grid leaked state across rows in 0110.

@@ -351,7 +351,14 @@ async function onArchivePhoto(id, file) {
       year: openYear,
       dept: 'archive',
       order: m.position,
-      name: m.full_name,
+      // Guarded, like the other three writers. An archived row from before the
+      // 0135 name split can carry a blank full_name, and an empty `name` here is
+      // not an error — uploadTeamPhoto files it as the literal "member" and the
+      // person becomes unfindable in the Drive folder. Found by
+      // portrait-filename.test.js the moment that ratchet existed.
+      name: String(m.full_name || '').trim()
+        || String(m.nickname || '').trim()
+        || 'member',
     });
     const prevPhoto = m.photo_url || '';
     const row = await updateArchiveMember(id, { photo_url: res.url, photo_focus: 'center' });

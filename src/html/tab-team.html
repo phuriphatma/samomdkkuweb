@@ -562,6 +562,19 @@
                      placeholder="name@kkumail.com" />
               <div class="form-text">ใช้จับคู่ตอนเข้าสู่ระบบด้วย Google — กำหนดสิทธิ์ได้ในแท็บ “จัดการสิทธิ์”</div>
             </div>
+            <!-- "พบคนนี้ในระบบแล้ว". Sits directly under the two fields that
+                 trigger it (KKU Mail and รหัสนักศึกษา) rather than at the top of
+                 the form, because the panel has to be where the eye already is —
+                 a notice above the fold about something you typed below it is a
+                 notice nobody reads.
+
+                 UNLIKE ระบบบ้าน, THIS IS NOT A BLOCK. `team_members` has no
+                 unique key on kkumail on purpose — 82 people hold 2–4 ตำแหน่ง —
+                 so a second posting is legal and often the intent. The panel
+                 says who was matched and what disagrees; บันทึก still works. -->
+            <div class="col-12">
+              <div id="teamMemberPersonMatch" class="person-match d-none" role="status"></div>
+            </div>
           </div>
           <div class="form-check form-switch mt-3">
             <input class="form-check-input" type="checkbox" id="teamMemberConfirmed" />
