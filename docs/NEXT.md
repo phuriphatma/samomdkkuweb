@@ -30,6 +30,27 @@ crest cleanup was written this way in the first place.
 the guard test to any `*_url` column a delete path can reach. Verify with
 `node tools/team0143-photo-refcount.mjs` (5/5 today) plus a crest case.
 
+### 0b. Three small things seen while driving the admin UI (2026-08-10)
+
+Found during the first signed-in browser pass. None is urgent; all are cheap.
+
+1. **`/admin/#team` on a COLD load lands on ภาพรวม.** Navigating to the hash
+   from a fresh page load did not open ทีม SAMO — clicking the sidebar did. The
+   hash router is gated by `canOpenSection` (0144-era) and honours in-session
+   hash changes; what looks unhandled is the FIRST paint, where the section is
+   decided before the router reads `location.hash`. Deep links people paste to
+   each other are exactly the cold-load case. Confirm before fixing: it may be a
+   race with the permission fetch rather than a missing call.
+
+2. **The ค้นหาคนจากระบบ hint goes stale.** Typing a second query leaves
+   `ไม่พบใครที่ตรงกับ "<old query>"` on screen while the NEW results are listed
+   directly beneath it — the hint is written on the empty path and never cleared
+   when a later reply paints rows. One line in `renderPersonResults`.
+
+3. **ตรวจสอบข้อมูล shows 8 findings** on the live tree and nobody has looked at
+   them. They are data issues (`team/health.js`), not code, but 8 is small
+   enough to actually resolve rather than carry.
+
 ### 1. Nothing behind the ADMIN LOGIN has had a signed-in browser run
 Every server path is proven by the 12 scripts (234 checks, all re-run green at
 session end). The PUBLIC half is browser-verified; everything requiring a login is

@@ -32,32 +32,30 @@ history.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: **deployed = `32edf61`** (v4.6.0 + 0147 + the ทีม SAMO
-  identity-swap guard, the "พบคนนี้ในระบบแล้ว" panel and the portrait-filename
-  fixes), verified from the served `admin-7Rsp-5hG.js`: the confirm title, both
-  panels and `person-match-posts` grep 1/2/1, and the pre-0148 class
-  `house-person-` greps 0. **Migrations applied through 0148.**
-  Older note, still true of the v4.6.0 half:
-  verified from the SERVED artifacts: both entries load the shared chunk
-  `analytics-kwxw5HXu.js`, which carries the two new `console.error` literals,
-  while the deleted raw users read
-  (`select=id,email,username,display_name,role`) greps 0 there — with a control
-  string proving the grep works. Commits AFTER `237a82d` are `tools/` + `docs/`
-  only and change no bundle, so `main` being ahead is expected and NOT undeployed
-  UI.
-  ⚠️ `studyYearLabel` landed in the SHARED chunk `analytics-*.js`, which BOTH
-  entries import — grepping only `public-*.js` / `admin-*.js` returns 0 on a
-  perfectly good deploy.
-  `PENDING` in `src/data/changelog.js` is **empty**; its 46 staged notes are now
-  v4.6.0 on `/updates`. Stage the next note in the commit that ships it.
-- **Migrations applied through 0147.** 0147 closed the last open security item:
-  `public.users` SELECT is **self-only** now. Proof
+- **samoweb**: **deployed = `c33d5cf`**, verified from the SERVED artifacts.
+  Admin chunk carries the advisor/สาขา duplicate messages and `data-confirm-no`;
+  the public chunk carries the ระบบบ้าน empty state; the pre-0148 class
+  `house-person-` greps 0.
+  ⚠️ **`askConfirm` is ADMIN-ONLY by import graph** — `confirm-modal.js` is
+  reached only from `house/index.js`, `team/index.js`, `team/health.js`,
+  `team/terms.js`, so its strings are absent from the PUBLIC bundle BY DESIGN.
+  Do not read that as a failed deploy.
+  ⚠️ Code often lands in the SHARED chunk `analytics-*.js`, which BOTH entries
+  import — grepping only `public-*.js` / `admin-*.js` returns 0 on a perfectly
+  good deploy. Find which chunk the served HTML actually loads first.
+  `PENDING` in `src/data/changelog.js` holds the notes for the next release.
+- **Migrations applied through 0148.**
+  **0147** made `public.users` SELECT **self-only** — proof
   `node tools/db-query.mjs tools/authz-sweep-identity.sql` = **23/23**, and its
-  ALLOW half (S7, "a student can still read their OWN row") is the one that
-  distinguishes fixed from "every login is broken". ⚠️ Nothing may re-add a role
-  branch to that policy — `role` and `permissions` share the row, so a full read
-  is also a map of who holds `master`. Cross-user lookups go through
-  `list_project_profs()` / `list_project_seat_users()` / `search_people()`.
+  ALLOW half (S7, "a student can still read their OWN row") is what separates
+  fixed from "every login is broken". ⚠️ Nothing may re-add a role branch to that
+  policy: `role` and `permissions` share the row, so a full read is also a map of
+  who holds `master`. Cross-user lookups go through `list_project_profs()` /
+  `list_project_seat_users()` / `search_people()`.
+  **0148** added `photo_url`/`photo_focus` to `search_people()` so a picked
+  person brings their OWN portrait — without it the ทีม SAMO member form
+  described one human while holding another's face, and the mirrors wrote that
+  face across ทีม SAMO, the registry and ระบบบ้าน.
 - **Apps Script: BOTH projects redeployed** — samoweb **v11**, passport **v10**.
   Script ids live in each repo's `.env.local`, and the key is named (empty) in
   `passport/.env.example`. ⚠️ **A missing `GAS_SCRIPT_ID` makes
@@ -74,7 +72,7 @@ history.
   `house0145-duplicate-person.sql` (5/5) · `house0144-delete-impact.sql` (18/18,
   differential) · `node tools/house0132-registry.mjs` (19/19 — run before
   touching ANY mirror). The rest are named after the migration they guard.
-- **665 tests green.** `npm run build && npm test` before every commit.
+- **678 tests green.** `npm run build && npm test` before every commit.
 - ⚠️ **Rotate the VM sudo password** and the **KKU SSO client secret** — both
   were exposed in chat transcripts (2026-08-07 / 08-08).
 
@@ -128,16 +126,20 @@ NOT in CLAUDE.md remains:
 > `public.users` read-restriction: **DONE** (0147, 23/23). The crest refcount:
 > **DONE** (0146), along with the guard test that had been green over it.
 >
-> **STILL OWED: the signed-in browser pass.** `docs/NEXT.md` §1 lists ~14 admin
-> features that have never had a real logged-in browser run — every server path
-> is proven by the `tools/` scripts, but nothing behind the login has been
-> CLICKED. On 2026-08-10 the owner signed into Chrome for exactly this and the
-> **Claude browser extension would not connect** (`tabs_context_mcp` returned
-> "extension is not connected" three times; Chrome was running, no CDP port, and
-> Chrome 136+ refuses `--remote-debugging-port` on the default profile, so the
-> headless-CDP fallback costs a fresh login and does NOT inherit the session).
-> Ask the owner to reconnect the extension before planning anything that depends
-> on driving the UI.
+> **The signed-in browser pass STARTED on 2026-08-10 and found real bugs.**
+> Driving the admin UI as master is what turned up the dead ยกเลิก button —
+> which no test, no proof script and no code read had caught, because ESC worked
+> and nobody clicks ESC. **Keep doing this.** What has been clicked so far: the
+> ทีม SAMO member modal (identity-swap guard + cancel), the sign-in modal at 390
+> / 768 via headless CDP. `docs/NEXT.md` §1 still lists the rest — VS staff
+> modal, ประกาศ drafts, อาจารย์ signature queue, Shop, mobile drag.
+> Three small findings are logged in `docs/NEXT.md` §0b.
+>
+> ⚠️ The extension screenshots at a FIXED size regardless of `resize_window`, so
+> real mobile widths need headless Chrome over CDP (a driver script pattern is
+> in the 2026-08-10 scratchpad; `--headless=new --remote-debugging-port=9333`
+> plus `Emulation.setDeviceMetricsOverride`). It works for anything that does
+> not need a session — the sign-in modal, the public pages.
 >
 > Two follow-ups with full reasoning in `docs/NEXT.md`:
 > **(a) drop `team_members.year` and `people.year`** — dead since 0145, left in
