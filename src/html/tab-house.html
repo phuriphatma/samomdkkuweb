@@ -271,6 +271,16 @@
       <form id="houseStudentForm">
         <div class="modal-body">
           <input type="hidden" id="hsId" />
+          <!-- WHO THIS ADDRESS ALREADY BELONGS TO.
+               Reported: adding a นักศึกษา who already exists in ทีม SAMO threw
+               a raw `{"code":"23505", … "students_kkumail_key"}` at the admin.
+               A unique index is the right BACKSTOP and the wrong first line of
+               defence: by the time it fires the admin has typed a whole form,
+               and the message names an index rather than a person.
+               This banner answers the question while the address is still being
+               typed — three outcomes, three different next actions. Painted by
+               paintPersonMatch() in src/js/house/index.js. -->
+          <div id="hsPersonMatch" class="house-person-match d-none" role="status"></div>
           <div class="row g-2">
             <div class="col-6">
               <label class="form-label small" for="hsFirst">ชื่อจริง</label>

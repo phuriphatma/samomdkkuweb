@@ -36,7 +36,7 @@ import {
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
-  fetchIdentityCheckSummary, fetchIdentityCheckList,
+  fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
@@ -1353,6 +1353,165 @@ async function runImport() {
 // ============================================================
 // EDITORS
 // ============================================================
+// ── "this person already exists" ───────────────────────────────────────────
+//
+// REPORTED: "what if i add student data in ระบบบ้าน that already exist in
+// teamsamo, it shows {"code":"23505", … "students_kkumail_key"}. what if the
+// data isn't the same, or some field left blank, etc."
+//
+// THE DIAGNOSIS. A unique index is the correct BACKSTOP and a terrible first
+// line of defence. By the time `students_kkumail_key` fires the admin has filled
+// in a whole form, and what comes back is an index name — it does not say who
+// the address belongs to, whether they are already in a บ้าน, or what to do
+// next. The admin's only move is to guess.
+//
+// THE THREE ANSWERS, because "already exists" is three different situations
+// wanting three different next actions:
+//
+//   1. ALREADY A นักศึกษา — they have a house placement. There is nothing to
+//      create; the right action is to OPEN the row they already have. The save
+//      is blocked, and the banner names their สาย and บ้าน so the admin can see
+//      whether they were even looking at the right person.
+//   2. IN THE REGISTRY, NOT IN ระบบบ้าน — a ทีม SAMO member being given a house
+//      placement for the first time. This is a legitimate create, and the
+//      registry already knows their ชื่อ, รหัส, สาขา. Offer to fill the blanks
+//      from it, and where the admin typed something DIFFERENT, show both and let
+//      them choose — never overwrite silently in either direction.
+//   3. NOBODY — an ordinary new row. No banner.
+//
+// WHY THE LOOKUP IS AN RPC AND NOT A SCAN OF `students`. This pane holds the
+// students array already, so checking it locally is tempting and wrong: RLS
+// returns ZERO ROWS rather than an error, so a local scan answers "no such
+// person" for precisely the rows the caller cannot see. That is a fail-open, and
+// it is the shape behind three bugs in this repo. `search_people` is SECURITY
+// DEFINER (0137) and already granted to `house`.
+//
+// EXACT MATCH ONLY. The banner acts on a row whose kkumail EQUALS what was
+// typed — never on a substring hit. "An ILIKE lookup makes the id a PATTERN, not
+// a capability": search_people is a search, and treating its best guess as an
+// identity would let a half-typed address claim a stranger's record.
+
+let personMatchToken = 0;      // bumped per open + per keystroke; see below
+let personMatch = null;        // the exact-kkumail hit, or null
+
+/** The `students` row for a registry person, when this admin can see it. */
+function houseRowForPerson(p) {
+  const mail = String(p?.kkumail || '').trim().toLowerCase();
+  if (!mail) return null;
+  return students.find((s) => String(s.kkumail || '').trim().toLowerCase() === mail) || null;
+}
+
+/** The fields the registry can fill in, and what each is called to a human. */
+const PERSON_FILL_FIELDS = [
+  ['first_name_th', 'ชื่อจริง', 'hsFirst'],
+  ['last_name_th', 'นามสกุล', 'hsLast'],
+  ['nickname', 'ชื่อเล่น', 'hsNick'],
+  ['student_id', 'รหัสนักศึกษา', 'hsSid'],
+  ['major', 'สาขา', 'hsMajor'],
+];
+
+function paintPersonMatch() {
+  const box = $('hsPersonMatch');
+  if (!box) return;
+  const p = personMatch;
+  if (!p) { box.className = 'house-person-match d-none'; box.innerHTML = ''; return; }
+
+  const who = escHtml(p.full_name || p.first_name_th || '(ไม่มีชื่อ)');
+  const where = p.team_nodes ? `<span class="house-person-where">ทีม SAMO: ${escHtml(p.team_nodes)}</span>` : '';
+
+  // 1 — already placed. Nothing to create.
+  if (p.in_house) {
+    const row = houseRowForPerson(p);
+    box.className = 'house-person-match is-block';
+    box.innerHTML = `
+      <div class="house-person-head"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+        <strong>อีเมลนี้มีนักศึกษาอยู่แล้ว</strong></div>
+      <p class="house-person-body">${who}${
+  row ? ` — สาย ${escHtml(row.sai_code || '—')} · ${escHtml(houseName(houseOf(row.sai_code)))}` : ''}
+        ${row ? '' : '<br />แถวนี้ไม่อยู่ในรายการที่คุณเห็น — ติดต่อผู้ดูแลระบบ'}</p>
+      ${where}
+      ${row ? `<button type="button" class="btn btn-sm btn-outline-primary"
+        data-house-act="open-existing" data-id="${escHtml(row.id)}">เปิดข้อมูลคนนี้</button>` : ''}`;
+    return;
+  }
+
+  // 2 — known person, new house placement. Offer what the registry holds, and
+  // name every field where it DISAGREES with what is already typed.
+  const differs = PERSON_FILL_FIELDS
+    .filter(([key, , el]) => {
+      const typed = String($(el)?.value || '').trim();
+      const known = String(p[key] || '').trim();
+      return typed && known && typed !== known;
+    })
+    .map(([key, label]) => `${label}: <code>${escHtml(String(p[key]))}</code>`);
+
+  box.className = 'house-person-match is-known';
+  box.innerHTML = `
+    <div class="house-person-head"><i class="bi bi-person-check-fill" aria-hidden="true"></i>
+      <strong>พบคนนี้ในระบบแล้ว</strong></div>
+    <p class="house-person-body">${who}${p.student_id ? ` · ${escHtml(p.student_id)}` : ''}
+      — ยังไม่มีข้อมูลในระบบบ้าน บันทึกได้เลย ระบบจะผูกให้เป็นคนเดียวกันเอง</p>
+    ${where}
+    ${differs.length
+    ? `<p class="house-person-diff"><i class="bi bi-info-circle" aria-hidden="true"></i>
+         ข้อมูลในระบบต่างจากที่กรอก — ${differs.join(' · ')}</p>` : ''}
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+      data-house-act="use-person">ใช้ข้อมูลจากระบบ</button>`;
+}
+
+/**
+ * Look the typed address up, debounced.
+ *
+ * The token is bumped on every call, so a slow reply for a half-typed address
+ * cannot land after a faster one for the finished address — the modal element is
+ * reused for every row, and state left on it outliving the record it describes is
+ * a bug this codebase has shipped more than once.
+ */
+function lookupPerson() {
+  const mail = String($('hsMail')?.value || '').trim().toLowerCase();
+  const token = ++personMatchToken;
+  // Editing an EXISTING row: the address is expected to match that very row, and
+  // "อีเมลนี้มีนักศึกษาอยู่แล้ว" pointed at itself would be nonsense.
+  const editingId = $('hsId')?.value || '';
+  if (!mail.includes('@') || mail.length < 4) {
+    personMatch = null; paintPersonMatch(); return;
+  }
+  searchPeople(mail, 5)
+    .then((hits) => {
+      if (token !== personMatchToken) return;                 // a later keystroke won
+      const exact = (hits || []).find(
+        (h) => String(h.kkumail || '').trim().toLowerCase() === mail,
+      ) || null;
+      const own = exact && editingId && houseRowForPerson(exact)?.id === editingId;
+      personMatch = own ? null : exact;
+      paintPersonMatch();
+    })
+    .catch((err) => {
+      // A failed lookup must NOT block the save. The unique index is still the
+      // guarantee; this banner is the courtesy, and a courtesy that turns into a
+      // wall when the network hiccups is worse than no courtesy.
+      console.warn('house: person lookup failed:', err);
+      if (token === personMatchToken) { personMatch = null; paintPersonMatch(); }
+    });
+}
+
+/** Fill the EMPTY boxes from the registry. Never overwrites what is typed —
+ *  the diff line above says what disagrees, and choosing between two spellings
+ *  of a real person's name is a decision, not a merge. */
+function usePersonData() {
+  const p = personMatch;
+  if (!p) return;
+  for (const [key, , el] of PERSON_FILL_FIELDS) {
+    const node = $(el);
+    const known = String(p[key] || '').trim();
+    if (!node || !known || String(node.value || '').trim()) continue;
+    node.value = known;
+  }
+  updateCohortHint();
+  paintYearChooser(null);
+  paintPersonMatch();
+}
+
 function openStudentModal(id) {
   const s = id ? students.find((x) => x.id === id) : null;
   $('hsId').value = s?.id || '';
@@ -1376,6 +1535,15 @@ function openStudentModal(id) {
   updateHouseHint();
   updateCohortHint();
   paintYearChooser(s);
+  // RESET the banner on every open, and bump the token with it. One modal
+  // element serves every row; a match left over from the previous person would
+  // otherwise sit there claiming this address belongs to somebody else.
+  personMatchToken += 1;
+  personMatch = null;
+  paintPersonMatch();
+  // …then look up immediately for an EDIT too. It is how a row whose kkumail was
+  // typed wrong, and therefore never linked to the registry, becomes visible.
+  if (s?.kkumail) lookupPerson();
   modalInstance('houseStudentModal')?.show();
 }
 
@@ -1485,12 +1653,54 @@ async function onStudentSubmit(e) {
   payload.year_offset = picked
     ? offsetForPickedYear({ student_id: sid.value }, picked)
     : null;
+  // THE PRE-CHECK. Refuse a create onto an address that already has a house
+  // placement, in words that name the person rather than an index. It is a
+  // courtesy, not the guarantee — see the catch below.
+  if (!id && personMatch?.in_house) {
+    const row = houseRowForPerson(personMatch);
+    alert(`อีเมล ${payload.kkumail} เป็นของ ${personMatch.full_name || 'นักศึกษาคนหนึ่ง'} ซึ่งมีข้อมูลในระบบบ้านอยู่แล้ว`
+      + (row ? ` (สาย ${row.sai_code || '—'})` : '')
+      + '\n\nถ้าต้องการแก้ไขข้อมูลของคนนี้ ให้กด “เปิดข้อมูลคนนี้” ในกล่องด้านบน '
+      + 'ถ้าเป็นคนละคน กรุณาตรวจสอบอีเมลอีกครั้ง');
+    $('hsMail')?.focus();
+    return;
+  }
   try {
     if (id) await updateStudent(id, payload);
     else await createStudent(payload);
     modalInstance('houseStudentModal')?.hide();
     await reload();
-  } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
+  } catch (err) { alert(duplicateMessage(err, payload) || err?.message || 'บันทึกไม่สำเร็จ'); }
+}
+
+/**
+ * Turn a unique-constraint violation into a sentence about a person.
+ *
+ * ⚠️ THIS IS NOT REDUNDANT WITH THE PRE-CHECK ABOVE, AND IT MUST NOT BE REMOVED
+ * AS SUCH. Three ways past that check, all real:
+ *   • the lookup was still in flight, or failed, when บันทึก was pressed;
+ *   • two admins added the same person in the same instant — only the index can
+ *     actually decide that one;
+ *   • the clash is on รหัสนักศึกษา, which the banner does not check because a
+ *     shared รหัส is a genuinely ambiguous fact about TWO people (0108: one
+ *     mistyped id worn by two humans) rather than a duplicate to merge.
+ * `update_my_student_record` (0125) is built the same way — the pre-check gives
+ * the good message in the ordinary case, the handler is what makes it TRUE.
+ */
+export function duplicateMessage(err, payload = {}) {
+  const text = `${err?.message || ''} ${err?.details || ''} ${JSON.stringify(err || {})}`;
+  if (!text.includes('23505') && !/duplicate key/i.test(text)) return null;
+  if (text.includes('students_kkumail_key') || text.includes('kkumail')) {
+    return `อีเมล ${payload.kkumail || 'นี้'} มีนักศึกษาใช้อยู่แล้ว\n\n`
+      + 'คน ๆ หนึ่งมีข้อมูลในระบบบ้านได้แถวเดียว — ถ้าเป็นคนเดียวกัน '
+      + 'ให้ค้นหาชื่อในรายการแล้วกดแก้ไขแถวเดิม ถ้าเป็นคนละคน ตรวจสอบอีเมลอีกครั้ง';
+  }
+  if (text.includes('students_sid_uniq') || text.includes('student_id')) {
+    return `รหัสนักศึกษา ${payload.student_id || 'นี้'} มีคนใช้อยู่แล้ว\n\n`
+      + 'ตรวจสอบว่าพิมพ์ถูกต้อง — ถ้าถูกต้องแล้วแปลว่ามีสองแถวถือรหัสเดียวกัน '
+      + 'ซึ่งต้องแก้ที่แถวเดิม ไม่ใช่เพิ่มแถวใหม่';
+  }
+  return 'ข้อมูลนี้ซ้ำกับที่มีอยู่แล้วในระบบ — ตรวจสอบอีเมลและรหัสนักศึกษาอีกครั้ง';
 }
 
 /**
@@ -1821,6 +2031,36 @@ function wire() {
     // follow it — a stale "ตามที่ระบบคำนวณ (ปี 5)" beside a รหัส that now says
     // ปี 2 would store a −3 nobody chose.
     paintYearChooser(students.find((x) => x.id === $('hsId').value) || null);
+  });
+
+  // ── "this person already exists" ────────────────────────────────────────
+  // Debounced on `input`, and immediate on `change` (blur / paste / autofill),
+  // because the address is usually pasted whole and waiting 400 ms after a paste
+  // reads as the banner not working. Wired ONCE here, on elements the modal
+  // markup owns for the life of the page — not per open, which is how a
+  // delegated listener re-attached on every render ends up firing N times.
+  let mailTimer = null;
+  $('hsMail')?.addEventListener('input', () => {
+    clearTimeout(mailTimer);
+    mailTimer = setTimeout(lookupPerson, 400);
+  });
+  $('hsMail')?.addEventListener('change', () => {
+    clearTimeout(mailTimer);
+    lookupPerson();
+  });
+  // The diff line compares the registry against what is TYPED, so it has to be
+  // repainted when the typing changes — otherwise it keeps reporting a
+  // disagreement the admin has just resolved.
+  ['hsFirst', 'hsLast', 'hsNick', 'hsSid', 'hsMajor'].forEach((el) => {
+    $(el)?.addEventListener('change', paintPersonMatch);
+  });
+  $('hsPersonMatch')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-house-act]');
+    if (!btn) return;
+    if (btn.dataset.houseAct === 'use-person') usePersonData();
+    // Switch the modal to the row that already exists. Re-opening rather than
+    // navigating keeps one code path for "show me this นักศึกษา".
+    if (btn.dataset.houseAct === 'open-existing') openStudentModal(btn.dataset.id);
   });
 
   $('houseCards')?.addEventListener('click', (e) => {

@@ -80,3 +80,55 @@
   font-size: 0.82rem;
   color: var(--ink-500);
 }
+
+/* ── "this person already exists" ────────────────────────────────────────── */
+/* Answers, at the top of the นักศึกษา form, the question a raw
+   `students_kkumail_key` violation used to answer badly and too late. Three
+   states, and the colour is never the only signal — each has its own icon and
+   its own opening words, because colour is the one channel a reader can be
+   missing. */
+.house-person-match {
+  border: 1px solid var(--ink-200);
+  border-inline-start: 3px solid var(--ink-300);
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+/* Already placed — there is nothing to create here. */
+.house-person-match.is-block {
+  border-inline-start-color: #b02a37;
+  background: #fdf5f5;
+}
+.house-person-match.is-block .house-person-head { color: #b02a37; }
+/* Known person, new placement — this is a normal save, not a warning. */
+.house-person-match.is-known {
+  border-inline-start-color: var(--brand-primary);
+  background: #f5faf6;
+}
+.house-person-match.is-known .house-person-head { color: var(--brand-primary); }
+
+.house-person-head {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.house-person-body { margin: 0.25rem 0 0.4rem; color: var(--ink-700); }
+.house-person-where {
+  display: block;
+  font-size: 0.78rem; color: var(--ink-500);
+  margin-bottom: 0.4rem;
+}
+/* The disagreement between what is stored and what was typed. Shown, never
+   resolved automatically: choosing between two spellings of a real person's
+   name is a decision, not a merge. */
+.house-person-diff {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem; color: var(--ink-600);
+}
+.house-person-diff code {
+  background: var(--ink-100, #eceef0);
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+  color: inherit;
+}

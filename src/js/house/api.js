@@ -19,6 +19,13 @@ import { dbRest } from '../db.js';
 // Re-exported rather than re-queried: this app has three spellings of `MD` in
 // its history from the last time one rule had two implementations.
 export { fetchMajors } from '../team/api.js';
+// The PERSON REGISTRY lookup (0137/0139), re-exported rather than re-queried for
+// exactly the same reason as fetchMajors. `search_people` is SECURITY DEFINER and
+// already granted to the `house` permission, and it is the only honest way to ask
+// "is this person already in the system": a client-side scan of the `students`
+// array this pane happens to hold answers "no" for every row RLS filtered out,
+// which is a FAIL-OPEN — the shape that has produced three bugs here already.
+export { searchPeople } from '../team/api.js';
 
 const fail = (error, msg) => { throw new Error(error?.message || msg); };
 
