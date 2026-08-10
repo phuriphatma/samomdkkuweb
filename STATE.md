@@ -42,7 +42,14 @@ to re-derive them from `git log`.
   perfectly good deploy.
   `PENDING` in `src/data/changelog.js` is **empty**; its 46 staged notes are now
   v4.6.0 on `/updates`. Stage the next note in the commit that ships it.
-- **Migrations applied through 0146.**
+- **Migrations applied through 0147.** 0147 closed the last open security item:
+  `public.users` SELECT is **self-only** now. Proof
+  `node tools/db-query.mjs tools/authz-sweep-identity.sql` = **23/23**, and its
+  ALLOW half (S7, "a student can still read their OWN row") is the one that
+  distinguishes fixed from "every login is broken". ⚠️ Nothing may re-add a role
+  branch to that policy — `role` and `permissions` share the row, so a full read
+  is also a map of who holds `master`. Cross-user lookups go through
+  `list_project_profs()` / `list_project_seat_users()` / `search_people()`.
 - **Apps Script: BOTH projects redeployed** — samoweb **v11**, passport **v10**.
   Script ids live in each repo's `.env.local`, and the key is named (empty) in
   `passport/.env.example`. ⚠️ **A missing `GAS_SCRIPT_ID` makes
@@ -51,6 +58,9 @@ to re-derive them from `git log`.
 - **Live proofs — `tools/*.mjs` and `tools/*.sql`, ALL both-directional.** Run
   the one covering what you touch (`node tools/db-query.mjs tools/<x>.sql` for
   the SQL ones). Newest first, plus the two that catch the most:
+  `authz-sweep-identity.sql` (23/23 — the identity boundary for anon AND an
+  ungranted student; run it after ANY policy change on `users`/`people`/
+  `students`/`team_members`) ·
   `team0145-one-chan-pi.sql` (16/16) · `team0145-save-as-the-member.sql` (12/12,
   impersonated) · `house0146-crest-refcount.sql` (5/5) ·
   `house0145-duplicate-person.sql` (5/5) · `house0144-delete-impact.sql` (18/18,
@@ -100,22 +110,15 @@ NOT in CLAUDE.md remains:
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-10)
 
-> **Read this file first. Then read your agent memory — it holds one item that
-> is NOT in this repo and must not be.** This repo is PUBLIC, so an open security
-> finding lives in memory only (`open-security-users-read-all`). It is the
-> highest-priority work. Do not write its detail into any tracked file until it
-> is FIXED.
+> **Read this file first.** The security item that used to be parked in agent
+> memory (because this repo is PUBLIC and the finding was open) is **CLOSED** —
+> 0147, asked-and-approved on 2026-08-10. Its full write-up is now in the repo
+> where it belongs: `docs/mistakes/authz-rls.md` and the migration header.
 >
-> ### 1. One thing is open
+> ### 1. Nothing is open
 >
-> **The security item in memory.** Verified live, minimal fix scoped, and the one
-> thing that would make the fix dangerous was checked and is clear. The owner has
-> now been asked TWICE (2026-08-09 and 2026-08-10) and has not answered either
-> time. It is one migration with a written proof. Ask again; if the answer is
-> "decide", ship it.
->
-> The crest refcount that sat here is **DONE** (0146) — along with the guard test
-> that had been reporting green over it.
+> `public.users` read-restriction: **DONE** (0147, 23/23). The crest refcount:
+> **DONE** (0146), along with the guard test that had been green over it.
 >
 > Two follow-ups with full reasoning in `docs/NEXT.md`:
 > **(a) drop `team_members.year` and `people.year`** — dead since 0145, left in

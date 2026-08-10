@@ -60,21 +60,44 @@ async function main() {
   console.log('project', REF, '\n');
 
   // ---- A. explicit seat beats inherited ----
+  //
+  // The INHERITING member is resolved from the tree, never hardcoded. It used to
+  // be TREE_USER, and when the org chart was reorganised that person ended up
+  // under two ตำแหน่ง that carry no project_seat — so this section failed with
+  // `[]` for an entirely CORRECT reason. A proof that cries wolf gets ignored,
+  // and then it guards nothing (mistakes.md, tooling-proofs). Sections B–D still
+  // use TREE_USER because they STAGE an explicit seat and so do not depend on
+  // where anybody sits.
   console.log('A) explicit member seat overrides the inherited ตำแหน่ง seat');
-  const inherited = await mgmt(
-    `select public.effective_team_project_seats_for_email('${TREE_USER}') as s;`);
-  check('baseline: the member inherits a seat from their ตำแหน่ง',
-    Array.isArray(val(inherited, 's')) && val(inherited, 's').length > 0, JSON.stringify(val(inherited, 's')));
+  const pick = await mgmt(`
+    select lower(tm.kkumail) as email
+      from public.team_members tm
+      join public.team_nodes tn on tn.id = tm.node_id
+     where tn.project_seat is not null
+       and tm.project_seat is null
+       and nullif(btrim(coalesce(tm.kkumail, '')), '') is not null
+     order by 1 limit 1;`);
+  const heir = val(pick, 'email');
+  check('baseline: SOMEBODY in the tree inherits a seat from their ตำแหน่ง',
+    !!heir, heir || 'no ตำแหน่ง with a project_seat has an un-overridden member');
 
-  const picked = await mgmt(`
+  if (heir) {
+    const inherited = await mgmt(
+      `select public.effective_team_project_seats_for_email('${heir}') as s;`);
+    check(`baseline: ${heir} inherits a non-empty seat set`,
+      Array.isArray(val(inherited, 's')) && val(inherited, 's').length > 0,
+      JSON.stringify(val(inherited, 's')));
+
+    const picked = await mgmt(`
 begin;
 select set_config('app.team_sync','1',true);
-update public.team_members set project_seat = 'staff' where lower(kkumail) = '${TREE_USER}';
-select public.effective_team_project_seats_for_email('${TREE_USER}') as s;
+update public.team_members set project_seat = 'staff' where lower(kkumail) = '${heir}';
+select public.effective_team_project_seats_for_email('${heir}') as s;
 rollback;`);
-  const got = val(picked, 's') || [];
-  check('picking "เจ้าหน้าที่คณะ" resolves to exactly {staff} — not {staff,vpa}',
-    JSON.stringify(got) === '["staff"]', JSON.stringify(got));
+    const got = val(picked, 's') || [];
+    check('picking "เจ้าหน้าที่คณะ" resolves to exactly {staff} — not {staff,vpa}',
+      JSON.stringify(got) === '["staff"]', JSON.stringify(got));
+  }
 
   // ---- B. staff seat parity with sastaff ----
   console.log('\nB) the `staff` seat can run the signature workflow (sastaff parity)');

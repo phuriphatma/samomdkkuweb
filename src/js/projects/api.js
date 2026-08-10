@@ -587,29 +587,24 @@ export async function bulkUpsertMyDocViews(rows) {
  *  (0091). Used to address notifications, which previously resolved every
  *  audience by role and so silently skipped seat holders.
  *  Falls back to the pre-0091 role-only read. */
+/** Both of these used to fall back to a raw `/users?role=eq.<role>` read when
+ *  the RPC was missing. That fallback is GONE (0147): `public.users` is
+ *  self-read-only now, so the query it made would return an empty array anyway —
+ *  but a "fallback" that reads the table we closed is the hole with a longer
+ *  name, and it also could never see a tree-granted seat holder, which is the
+ *  whole reason these RPCs were written. An RPC failure is now an empty
+ *  audience, which is the honest answer. */
 export async function listProjectSeatUsers(seat) {
   const { data, error } = await dbRest('/rpc/list_project_seat_users',
     { method: 'POST', body: { p_seat: seat } });
   if (!error && Array.isArray(data)) return data;
-  const role = { vpa: 'vp_admin', staff: 'uni_staff', prof: 'sa_prof' }[seat];
-  return role ? listUsersByRole(role) : [];
+  console.error('[projects] list_project_seat_users failed:', error?.message || error);
+  return [];
 }
 
 export async function listProjectProfs() {
   const { data, error } = await dbRest('/rpc/list_project_profs', { method: 'POST', body: {} });
   if (!error && Array.isArray(data)) return data;
-  const legacy = await listUsersByRole('sa_prof');
-  return legacy.map((u) => ({
-    id: u.id,
-    display_name: u.display_name || u.username || 'อาจารย์',
-  }));
-}
-
-/** Find the uni_staff or vp_admin user(s). Used to address notifications. */
-export async function listUsersByRole(role) {
-  const { data, error } = await dbRest(
-    `/users?select=id,email,username,display_name,role&role=eq.${encodeURIComponent(role)}`,
-  );
-  if (error) return [];
-  return data || [];
+  console.error('[projects] list_project_profs failed:', error?.message || error);
+  return [];
 }

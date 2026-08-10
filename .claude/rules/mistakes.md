@@ -118,7 +118,14 @@ has not been written yet.
    was asked to find columns named `photo_url` and found every one, faithfully,
    while the hazard sat in `houses.icon_url` one column along — green for three
    days over a count that returned 0 for every crest (0146). Scan by SHAPE and
-   force a decision on each hit, never by one name. **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
+   force a decision on each hit, never by one name. **A CONTROL that also
+   returns nothing is not a control**: 0147's first sweep printed "0 policies
+   reference `users`" beside "0 policies reference anything" and both were the
+   instrument failing, not a clean result. Print the count your control found.
+   **And re-read a policy's stated JUSTIFICATION, not just its predicate** —
+   `users_read_all` carried "needed for staff dashboards" in a comment, that
+   need ended years earlier, and the policy outlived its reason in silence
+   (0147). **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
    reads the UNION of `permissions` AND `managed_permissions` (0081), so an
    account picked by `permissions = '{}'` may hold `master` through the ทีม SAMO
    tree — it looks exactly like a fail-open policy and is the grant engine
@@ -167,7 +174,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
 ### `docs/mistakes/authz-rls.md` — RLS policies, SECURITY DEFINER & read paths
-*Open when:* any policy, `current_user_*` helper, or definer RPC. *(25 entries)*
+*Open when:* any policy, `current_user_*` helper, or definer RPC. *(26 entries)*
 
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
@@ -194,6 +201,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An RLS policy with no table GRANT denies everyone, and looks exactly like the policy working
 - An RLS policy's inline subquery is subject to the referenced table's RLS
 - A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
+- Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
 *Open when:* adding an access channel, a scope, or a seat. *(11 entries)*
@@ -334,12 +342,13 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(5 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(6 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
 - RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted
 - A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
 - `pg_get_functiondef` over every function 42809s on aggregates
+- A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
 
 <!-- END GENERATED INDEX -->

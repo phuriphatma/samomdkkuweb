@@ -147,3 +147,44 @@ Before trusting a sweep, make it find something you already know is there — th
 allow-direction of class 7, applied to your own tooling. And never write a
 verification recipe into a comment without running it first; a wrong one is worse
 than none, because the next person reads it as already checked.
+
+---
+
+## A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
+
+**Symptom**: `tools/proj0092-seat-parity.mjs` printed
+`FAIL baseline: the member inherits a seat from their ตำแหน่ง []` while every
+other check in the file passed, including the one immediately after it that
+exercises the SAME function. Discovered incidentally while verifying that
+migration 0147 had not broken seat resolution — i.e. it had been failing for an
+unknown length of time and nobody had looked.
+
+**Cause**: the script hardcoded `TREE_USER = 'phuriphat.ma@kkumail.com'` as the
+person who inherits a `project_seat` from their ตำแหน่ง. The org chart was
+reorganised since; that account now sits under *Ungrole* and *หัวหน้าฝ่าย IT*,
+and neither node carries a `project_seat` (only *อุปนายกฝ่ายบริหารองค์กร* does).
+So `effective_team_project_seats_for_email()` correctly returned `{}` and the
+proof correctly reported that its own FIXTURE was gone. Nothing was broken except
+the assumption.
+
+This is the failure mode that matters: a proof that cries wolf gets ignored, and
+an ignored proof guards nothing. A permanently-red check is worse than no check,
+because it also trains you to skim past the greens next to it.
+
+**Fix**: resolve the subject FROM THE TREE instead of naming them —
+`select tm.kkumail from team_members tm join team_nodes tn on tn.id = tm.node_id
+where tn.project_seat is not null and tm.project_seat is null limit 1` — and
+assert first that such a person exists, so a genuinely empty tree still fails
+loudly and for the right reason. Sections B–D keep the hardcoded account because
+they STAGE an explicit seat and so do not depend on where anyone sits. 13 → 14
+checks, 14/14.
+
+**Where it lives now**: `tools/proj0092-seat-parity.mjs` section A.
+
+**Rules**: (1) A proof's SUBJECT should be derived from the property under test,
+not named. Anything named is a fixture, and fixtures rot at the speed of the
+data. (2) When a proof fails, decide "stale fixture" vs "real regression" BEFORE
+touching anything else — and if it is the fixture, fix the proof rather than
+noting it, because the note is what the next person will not read. (3) The tell
+here was a FAIL sitting next to a PASS that used the same function: when one
+assertion about a function fails and another succeeds, suspect the data.

@@ -972,3 +972,80 @@ answered "allowed" for a condition it could no longer evaluate honestly.
 (3) A proof step that asserts the CONTEXT it is testing in — "this caller really
 has no grant, and the bypass really is off" — is what turned this from a
 mysterious FAIL into a one-line diagnosis.
+
+---
+
+## Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
+
+**Symptom**: nobody reported it. There was no visible bug, no error, no slow
+page — which is the point. A live authorization sweep asked what an ORDINARY
+account can reach, and the answer for `public.users` was: all of it. Measured
+while impersonating a real student picked on BOTH grant columns (`permissions`
+AND `managed_permissions` empty, `role = 'user'`), inside a rolled-back
+transaction:
+
+    rows_visible 531 · with_email 531 · with_phone 7 · distinct roles 8
+    accounts carrying permissions 4 · other accounts' emails readable 530
+
+**Cause**: 0001 shipped
+
+```sql
+create policy "users_read_all" on public.users
+  for select using (auth.role() = 'authenticated');
+```
+
+with the comment *"needed for staff dashboards to show submitter info"*. That
+justification had been false for a long time and nobody re-read the policy. A
+PR/VS ticket DENORMALISES its submitter onto its own row at submit time
+(`vs-form.js` writes the label from `authGetUser()` — the caller's OWN identity),
+so no dashboard joins `users` at all. The policy was load-bearing for a design
+that no longer existed.
+
+The second harm is worse than the first and is what makes this different from an
+ordinary email leak: `role` and `permissions` live in the SAME ROW. A full read
+is therefore also a reconnaissance map naming which accounts hold `master`,
+`dev`, `vp_admin`. An attacker choosing a target no longer has to guess.
+
+**Fix**: migration 0147 — `users_read_all` → `users_read_self`,
+`using (id = auth.uid())`. No staff branch was added: an `or
+current_user_is_staff()` arm would have restored the full-table read for eight
+roles to serve ZERO call sites, which is class 3 in reverse. Client side, exactly
+one path read across users — `listUsersByRole()` in `projects/api.js` — and it
+was already a legacy FALLBACK behind two definer projections that superseded it
+(`list_project_profs` 0086, `list_project_seat_users` 0092, both id +
+display_name, no email). It is deleted: a fallback that reads the table you just
+closed is not a fallback, it is the hole with a longer name.
+
+**What was checked FIRST, and is the actually transferable part.** Narrowing a
+SELECT policy is dangerous not because of the table but because of 0138's shape —
+some OTHER policy inline-subqueries it, that subquery runs with the CALLER's
+rights, and tightening here silently empties it. 0110's own comment had predicted
+exactly this in writing ("anyone tightening that policy later would silently
+empty this one"). So, against the live catalog, **with a control proving the
+instrument could find things at all**: 109 policies exist in `public`, 5 contain
+an inline subquery and the probe PRINTED all five (project_files,
+shop_order_items ×2, shop_pickup_records, vs_tickets) — ZERO name `users`. Zero
+SECURITY INVOKER functions read it; the 23 that do are all DEFINER (count printed
+as its own control). Zero views exist in `public` at all.
+
+The first version of that sweep returned zero rows for BOTH the hazard and the
+control, and zero-with-a-dead-control is worth nothing — that is class 7, and it
+is why the counts are in the migration header.
+
+**Where it lives now**:
+`supabase/migrations/0147_an_account_directory_is_a_projection_not_a_read.sql`
+(the reasoning, the measurements and the "no staff branch" argument),
+`tools/authz-sweep-identity.sql` (23/23 — the regression guard, written while the
+hole was open and deliberately withheld from this PUBLIC repo until it closed),
+and a `comment on table public.users` saying self-only and why.
+
+**Rules**: (1) A table-backed directory must be published as a PROJECTION, never
+a SELECT policy — this repo already had that rule written down and the oldest
+table predated it. (2) **Re-read the JUSTIFICATION, not just the policy.** This
+one carried its own reason in a comment, the reason expired, and the policy
+outlived it silently. Grep your policies for comments asserting a need, then go
+check whether that need still exists. (3) A permissive read is worse when `role`
+and `permissions` share the row: enumerate what a dump COMPOSES, not just what
+each column is. (4) Prove BOTH directions — the ALLOW half here (`S7. student CAN
+still read their OWN row`) is what distinguishes "fixed" from "login is now
+broken for everyone".

@@ -15,8 +15,6 @@ import { queueDiscord, callGAS } from '../discord-queue.js';
 import {
   createNotification,
   getSettings,
-  listUsersByRole,
-  listProjectProfs,
   listProjectSeatUsers,
 } from './api.js';
 
@@ -156,11 +154,12 @@ export async function notifyVpAdmin({ kind, project, document, body, title } = {
  * Used when sastaff sends a หนังสือ for signing, and (per the spec) when a
  * file is added/replaced/removed on a หนังสือ that's been shown to the prof.
  *
- * Recipients come from listProjectProfs() — role `sa_prof` PLUS anyone holding
- * the ทีม SAMO `prof` seat (0086). A plain listUsersByRole('sa_prof') here
- * meant a tree-granted อาจารย์ could be SENT a document (the picker was fixed)
- * and then never told about it: the sign request landed, the bell stayed
- * silent. Role-only lookups on the notify path fail exactly this quietly.
+ * Recipients come from listProjectSeatUsers('prof') — role `sa_prof` PLUS anyone
+ * holding the ทีม SAMO `prof` seat (0086/0092). The role-only `users` read this
+ * replaced meant a tree-granted อาจารย์ could be SENT a document (the picker was
+ * fixed) and then never told about it: the sign request landed, the bell stayed
+ * silent. Role-only lookups on the notify path fail exactly this quietly, and
+ * since 0147 there is no table read to fall back to at all.
  */
 export async function notifyProf({ kind, project, document, body, subject } = {}) {
   const settings = await getSettings().catch(() => null);
