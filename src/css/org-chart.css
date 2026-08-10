@@ -1031,3 +1031,25 @@
 .org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::before {
   left: -0.75rem; top: 1rem; width: 0.5rem;
 }
+
+/* ── `safe center`, or the overflow is unreachable ───────────────────────────
+   REPORTED: "สมาชิกฝ่าย Production it department got cutoff".
+   `justify-content: center` on a flex row that OVERFLOWS its scroll container
+   pushes the excess out past BOTH edges, and the start-side overflow cannot be
+   scrolled back to — the browser clips it and there is no scroll position that
+   reveals it. Any ฝ่าย wider than the viewport lost content off the left.
+   `safe` falls back to `start` exactly when overflow would occur, so a section
+   that fits stays centred and one that does not becomes fully scrollable. */
+.org-tree-wrap[data-view="chart"] .org-tree,
+.org-tree-wrap[data-view="chart"] .org-branch {
+  justify-content: safe center;
+}
+/* Trailing breathing room so the last column is never flush against the edge. */
+.org-tree-wrap[data-view="chart"] .org-tree::after {
+  content: '';
+  flex: 0 0 clamp(0.75rem, 3vw, 2rem);
+}
+
+/* "ยังไม่มีสมาชิก" is a phrase, not a count — keep it on one line so it does not
+   wrap mid-word inside a narrow chart box. */
+.org-station-meta { white-space: nowrap; }
