@@ -22,8 +22,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- **samoweb deployed = `<see git log; last verified 44fadf1 + the final pass>`**,
-  verified from the SERVED artifacts each time.
+- 🔴 **DEPLOYED = `44fadf1`. `main` is at `86cc524` and is NOT deployed** — the
+  VPN dropped at the end of 2026-08-10. Connect VPN and run
+  `skills/deploy-vm.md`; nothing else is needed, the commit is already pushed.
+  What is undeployed is USER-VISIBLE: the รายการ view's connector rails and
+  depth-scaled headings on desktop (both were silently disabled), plus a CSS
+  consolidation and dead-code removal that are provably no-ops. No migration is
+  pending; 0148 is the last and it is applied.
   **Migrations applied through 0148.** **678 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
