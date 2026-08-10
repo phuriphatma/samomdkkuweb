@@ -853,52 +853,53 @@
 /* In list view it is a page-level heading, not an indented row. */
 .org-tree-wrap[data-view="list"] > .org-tree > .org-node.is-org-root { padding-left: 0; }
 
-/* ── people, compact, in chart view ──────────────────────────────────────────
-   Fully expanded with 3:4 portrait cards the chart measured 57,000px wide —
-   technically correct and completely unusable. The portraits are right for
-   รายการ, where you scroll down a column and one ตำแหน่ง fills the screen; in
-   แผนผัง the job is the SHAPE of the organisation, and 400 full-size faces bury
-   it in horizontal scrolling.
-   So here a person is an avatar and a name. Still one size for everyone — the
-   equality the owner asked for is about rank, and nobody's card is bigger than
-   anybody else's. */
+/* ── people in chart view: the FACE stays ────────────────────────────────────
+   "imagine img8102 with can see everyone card picture" — the poster's structure,
+   but nobody reduced to a name. So a person here is a real portrait card, just
+   sized for a chart rather than for a column: a 3:4 face with the name under it,
+   laid out as a horizontal wrapping row inside the ตำแหน่ง it belongs to.
+   Same size for everyone — rank is position in the chart, not card size. */
 .org-tree-wrap[data-view="chart"] .org-people {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem 0.5rem;
-  max-width: 15rem;
-  margin: 0.45rem 0 0;
+  justify-content: center;
+  gap: 0.55rem 0.45rem;
+  max-width: 17rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
 }
 .org-tree-wrap[data-view="chart"] .org-person {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  width: auto;
-  max-width: 100%;
+  width: 4.1rem;
+  gap: 0.2rem;
 }
 .org-tree-wrap[data-view="chart"] .org-face {
-  width: 1.6rem;
-  height: 1.6rem;
-  min-width: 1.6rem;
-  border-radius: 50%;
+  width: 4.1rem;
+  height: 5.45rem;                 /* 3:4 */
+  border-radius: var(--radius-sm, 0.4rem);
   overflow: hidden;
-  aspect-ratio: 1;
 }
 .org-tree-wrap[data-view="chart"] .org-face-img {
   width: 100%; height: 100%; object-fit: cover;
 }
-.org-tree-wrap[data-view="chart"] .org-face-initials { font-size: 0.6rem; }
-.org-tree-wrap[data-view="chart"] .org-person-text { min-width: 0; }
-.org-tree-wrap[data-view="chart"] .org-person-name {
-  font-size: 0.72rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 6.5rem;
-  display: block;
+.org-tree-wrap[data-view="chart"] .org-face-initials { font-size: 1rem; }
+.org-tree-wrap[data-view="chart"] .org-person-text {
+  min-width: 0; width: 100%; text-align: center;
 }
-.org-tree-wrap[data-view="chart"] .org-person-nick { display: none; }
-.org-tree-wrap[data-view="chart"] .org-box { min-width: 9rem; max-width: 13rem; }
+.org-tree-wrap[data-view="chart"] .org-person-name {
+  display: block;
+  font-size: 0.66rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.org-tree-wrap[data-view="chart"] .org-person-nick {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--ink-500);
+}
+.org-tree-wrap[data-view="chart"] .org-box { min-width: 10rem; max-width: 15rem; }
 
 /* The station row is a 4-column grid in list view (dot / name / meta / chevron),
    which inside a 9rem chart box squeezed the name column to about one character

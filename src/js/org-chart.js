@@ -393,7 +393,24 @@ function renderExpandAll(searching) {
 }
 
 /**
- * The organisation itself, as the ONE box everything hangs from.
+ * ONE SECTION PER ฝ่าย, STACKED — why แผนผัง is not a single chart.
+ *
+ * Rendered as one tree the fully-expanded chart measured 44,386px wide (~30
+ * screens), because the twelve ฝ่าย sit SIDE BY SIDE and the total width is
+ * their sum. The owner's fix, from SAMO's own recruitment poster:
+ * "vstack{ {hstack ฝ่ายบริหาร} then the next {hstack ฝ่ายดิจิทัล} etc }".
+ *
+ * So each root ฝ่าย gets its own chart and its own horizontal scroller, stacked
+ * down the page. Width is now the WIDEST SINGLE ฝ่าย instead of the sum of all
+ * of them, which is the whole difference between usable and not — and it reads
+ * the way the poster does, one ฝ่าย at a time.
+ *
+ * รายการ keeps the single tree with the synthetic root below, because there the
+ * axis is vertical and one spine down the page is exactly right.
+ */
+
+/**
+ * The organisation itself, as the ONE box everything hangs from — LIST VIEW.
  *
  * REQUESTED: "everyone of like สำนักนายกฯ … ฝ่ายบริหารองค์กร … ฝ่ายกิจการภายใน,
  * etc should be line link under สโมสรนักศึกษาแพทย์".
@@ -446,9 +463,7 @@ function render() {
   // organisation at a glance, which is what the layout is FOR, and every box
   // below that is one click away. Nobody is hidden; the depth is just not all
   // unrolled at once.
-  if (view === 'chart') {
-    expanded = new Set([...collapsibleIds].filter((id) => (nodeDepth.get(id) ?? 9) < CHART_OPEN_DEPTH));
-  }
+  if (view === 'chart') expanded = new Set(collapsibleIds);
 
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
@@ -485,11 +500,18 @@ function render() {
         </button>
       </div>
     </div>
-    <div class="org-tree-wrap" data-view="${view}">
-      <ul class="org-tree">
-        ${rootBlock(html, filter)}
-      </ul>
-    </div>`;
+    ${view === 'chart'
+    ? roots.map((n) => {
+      const one = nodeBlock(n, 0, filter);
+      return one
+        ? `<div class="org-tree-wrap" data-view="chart">
+             <ul class="org-tree">${one}</ul>
+           </div>`
+        : '';
+    }).join('')
+    : `<div class="org-tree-wrap" data-view="list">
+         <ul class="org-tree">${rootBlock(html, filter)}</ul>
+       </div>`}`;
 }
 
 // ── loading ─────────────────────────────────────────────────────────────────
