@@ -239,6 +239,45 @@ describe('renderMyHouse', () => {
     expect(el.innerHTML).toContain('ก ข');
   });
 
+  describe('อาจารย์ — one list open, one folded', () => {
+    // "อาจารย์ในบ้านเดียวกัน should collapsable". It is ~18 people the student
+    // is not looking for today, and open it is the longest thing on the card.
+    it('leaves the student\'s OWN สาย expanded — that is the question they came with', () => {
+      const el = host();
+      renderMyHouse(el, recWith());
+      const [beforeFold] = el.innerHTML.split('<details');
+      expect(beforeFold).toContain('อาจารย์ที่ปรึกษาสายของฉัน');
+      expect(beforeFold).toContain('kor@kku.ac.th');
+    });
+
+    it('folds the house-wide list and keeps the count on the summary', () => {
+      const el = host();
+      // NOTE the student's OWN สาย (017) is filtered out of the house-wide list
+      // so nobody is named twice on one card — the count is 2, not 3.
+      renderMyHouse(el, recWith({
+        house_advisors: [
+          { name: 'ผศ.นพ. ก ข', email: 'kor@kku.ac.th', sai: '017' },
+          { name: 'พญ. ค ง', email: 'kor2@kku.ac.th', sai: '027' },
+          { name: 'อ. จ ฉ', email: 'kor3@kku.ac.th', sai: '037' },
+        ],
+      }));
+      expect(el.innerHTML).toContain('อาจารย์ในบ้านเดียวกัน');
+      expect(el.innerHTML).toContain('2 ท่าน');
+      // A <details> with no `open` attribute — a fold that renders expanded is
+      // not a fold, and this card has shipped a toggle that only worked on
+      // odd-numbered paints, so the collapsed state is asserted, not assumed.
+      const fold = el.innerHTML.slice(el.innerHTML.indexOf('อาจารย์ในบ้านเดียวกัน') - 400);
+      expect(fold).not.toMatch(/<details[^>]*\sopen/);
+    });
+
+    it('shows no fold when the house has no other อาจารย์', () => {
+      const el = host();
+      renderMyHouse(el, recWith({ house_advisors: [] }));
+      expect(el.innerHTML).toContain('อาจารย์ที่ปรึกษาสายของฉัน');
+      expect(el.innerHTML).not.toContain('อาจารย์ในบ้านเดียวกัน');
+    });
+  });
+
   describe('คำขอแก้ไขของฉัน — the answer has to come back', () => {
     // REPORTED: "the reason admin type doesn't get shown for the user, also the
     // status that admin reject or accept doesn't get shown to the user". There
@@ -285,6 +324,58 @@ describe('renderMyHouse', () => {
       }));
       expect(el.innerHTML).toContain('037');
       expect(el.innerHTML).toContain('ผู้ดูแลบันทึกให้เป็น');
+    });
+
+    // ── folding, reported as "it took space" ────────────────────────────
+    //
+    // "i think คำขอแก้ไขของฉัน shows many on main web, it took space, i think
+    // it should be collapsable, or like show the recent one and history".
+    // The rule: an OPEN loop is never folded, a decided one always is except
+    // the newest, and the count stays visible on the summary.
+    const req = (over) => ({
+      field: 'sai_code', requested_value: '027', status: 'approved',
+      created_at: '2026-01-01T00:00:00Z', ...over,
+    });
+
+    it('never folds a PENDING request, however much history there is', () => {
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [
+          req({ status: 'pending', requested_value: '099', created_at: '2026-05-01T00:00:00Z' }),
+          req({ requested_value: '011', created_at: '2026-02-01T00:00:00Z' }),
+          req({ requested_value: '012', created_at: '2026-03-01T00:00:00Z' }),
+        ],
+      }));
+      // The open one is outside the fold…
+      const [beforeFold] = el.innerHTML.split('<details');
+      expect(beforeFold).toContain('099');
+      expect(beforeFold).toContain('กำลังรอผู้ดูแลตรวจสอบ');
+      // …and BOTH decided ones are inside it, counted on the summary.
+      expect(el.innerHTML).toContain('คำขอก่อนหน้านี้');
+      expect(el.innerHTML).toContain('>2</span>');
+    });
+
+    it('keeps the NEWEST decision visible when nothing is pending', () => {
+      // An answer arriving is itself news. Folding it would mean the reply to
+      // the student's question appeared with no visible change on the card.
+      const el = host();
+      renderMyHouse(el, recWith({
+        my_requests: [
+          req({ requested_value: '011', created_at: '2026-02-01T00:00:00Z' }),
+          req({ requested_value: '077', created_at: '2026-09-01T00:00:00Z' }),
+        ],
+      }));
+      const [beforeFold] = el.innerHTML.split('<details');
+      expect(beforeFold).toContain('077');
+      expect(beforeFold).not.toContain('011');
+      expect(el.innerHTML).toContain('คำขอก่อนหน้านี้');
+    });
+
+    it('grows no fold at all for a single request', () => {
+      const el = host();
+      renderMyHouse(el, recWith({ my_requests: [req({})] }));
+      expect(el.innerHTML).toContain('คำขอแก้ไขของฉัน');
+      expect(el.innerHTML).not.toContain('คำขอก่อนหน้านี้');
     });
 
     it('does not repeat the value back when it was approved as asked', () => {

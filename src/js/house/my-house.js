@@ -224,39 +224,101 @@ function requestDate(iso) {
  * may approve a สายรหัส request with a corrected value, and "อนุมัติแล้ว" next
  * to a card showing a third สาย is the confusing case this exists to prevent.
  */
+/**
+ * A collapsed section: a label that is also the toggle, and a count.
+ *
+ * ⚠️ `<details>`, NOT A BUTTON AND A CLASS. This exact card already shipped the
+ * bug that hand-rolling it produces: a delegated listener re-attached to the
+ * surviving host on every render, whose handler `toggle`d `d-none`, so the panel
+ * opened only on odd-numbered paints — reported as "แก้ไขข้อมูล ของระบบบ้าน —
+ * ต้องกดหลายครั้งถึงจะขึ้น". `<details>` has no listener to duplicate, no state
+ * for a re-render to desynchronise, keyboard and screen-reader behaviour for
+ * free, and it still works if the JS that would have wired it never ran.
+ *
+ * @param {boolean} open  whether it starts expanded
+ */
+function disclosure(label, count, bodyHtml, open = false) {
+  return `<details class="myhouse-fold myseat-block"${open ? ' open' : ''}>
+    <summary class="myseat-label myhouse-fold-summary">
+      <i class="bi bi-chevron-right myhouse-fold-caret" aria-hidden="true"></i>
+      <span>${escHtml(label)}</span>
+      ${count ? `<span class="myhouse-fold-count">${escHtml(String(count))}</span>` : ''}
+    </summary>
+    <div class="myhouse-fold-body">${bodyHtml}</div>
+  </details>`;
+}
+
+function requestHtml(r) {
+  const st = REQUEST_STATUS[r.status] || REQUEST_STATUS.pending;
+  const label = REQUEST_FIELD_LABEL[r.field] || r.field;
+  const changed = r.status === 'approved' && r.applied_value
+    && r.applied_value !== r.requested_value;
+  return `<li class="${st.cls}">
+      <div class="myhouse-request-head">
+        <i class="bi ${st.icon}" aria-hidden="true"></i>
+        <strong>${escHtml(st.label)}</strong>
+        <span class="myhouse-request-when">${escHtml(requestDate(r.created_at))}</span>
+      </div>
+      <div class="myhouse-request-body">
+        ขอแก้ <strong>${escHtml(label)}</strong>
+        เป็น <code>${escHtml(r.requested_value || '—')}</code>
+        ${changed
+    ? `<br />ผู้ดูแลบันทึกให้เป็น <code>${escHtml(r.applied_value)}</code> แทน`
+    : ''}
+        ${r.decision_note
+    ? `<br /><span class="myhouse-request-note">ข้อความจากผู้ดูแล: ${escHtml(r.decision_note)}</span>`
+    : ''}
+        ${r.status === 'rejected' && !r.decision_note
+    ? '<br /><span class="myhouse-request-note">ผู้ดูแลไม่ได้ระบุเหตุผล — สอบถามได้ที่ SAMO</span>'
+    : ''}
+      </div>
+    </li>`;
+}
+
+/**
+ * OPEN QUESTIONS ON TOP, ANSWERED ONES FOLDED AWAY.
+ *
+ * Reported: "คำขอแก้ไขของฉัน shows many on main web, it took space, i think it
+ * should be collapsable, or like show the recent one and history".
+ *
+ * The two halves are not the same thing and must not be collapsed the same way:
+ *
+ *   • A PENDING request is an open loop. The student filed it and is waiting;
+ *     hiding it behind a click is hiding the one line that answers "did my
+ *     report go through". Those stay expanded, always, however many there are —
+ *     and in practice there is almost never more than one, because there is
+ *     exactly one requestable field (สายรหัส).
+ *   • A DECIDED request is a receipt. It matters once, on the day it is
+ *     answered, and after that it is history the card should not be spending a
+ *     screenful on. Those fold, newest first, with the count on the summary so
+ *     the student can see there IS a history without opening it.
+ *
+ * The most recent decision is shown OUTSIDE the fold when there is no pending
+ * request, because "อนุมัติแล้ว" arriving is itself news — folding it would mean
+ * the answer to the student's question appeared with no visible change at all.
+ */
 function requestsHtml(rec) {
   const list = rec.my_requests || [];
   if (!list.length) return '';
+  const byNewest = [...list].sort(
+    (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')),
+  );
+  const pending = byNewest.filter((r) => r.status === 'pending');
+  const decided = byNewest.filter((r) => r.status !== 'pending');
+  // No open loop? The newest answer is the news; the rest is history.
+  const shown = pending.length ? pending : decided.slice(0, 1);
+  const folded = decided.filter((r) => !shown.includes(r));
+
   return `<div class="myseat-block">
     <span class="myseat-label">คำขอแก้ไขของฉัน</span>
-    <ul class="myhouse-requests">${list.map((r) => {
-    const st = REQUEST_STATUS[r.status] || REQUEST_STATUS.pending;
-    const label = REQUEST_FIELD_LABEL[r.field] || r.field;
-    const changed = r.status === 'approved' && r.applied_value
-      && r.applied_value !== r.requested_value;
-    return `<li class="${st.cls}">
-        <div class="myhouse-request-head">
-          <i class="bi ${st.icon}" aria-hidden="true"></i>
-          <strong>${escHtml(st.label)}</strong>
-          <span class="myhouse-request-when">${escHtml(requestDate(r.created_at))}</span>
-        </div>
-        <div class="myhouse-request-body">
-          ขอแก้ <strong>${escHtml(label)}</strong>
-          เป็น <code>${escHtml(r.requested_value || '—')}</code>
-          ${changed
-    ? `<br />ผู้ดูแลบันทึกให้เป็น <code>${escHtml(r.applied_value)}</code> แทน`
+    <ul class="myhouse-requests">${shown.map(requestHtml).join('')}</ul>
+    ${folded.length
+    ? disclosure('คำขอก่อนหน้านี้', folded.length,
+      `<ul class="myhouse-requests">${folded.map(requestHtml).join('')}</ul>`)
     : ''}
-          ${r.decision_note
-    ? `<br /><span class="myhouse-request-note">ข้อความจากผู้ดูแล: ${escHtml(r.decision_note)}</span>`
-    : ''}
-          ${r.status === 'rejected' && !r.decision_note
-    ? '<br /><span class="myhouse-request-note">ผู้ดูแลไม่ได้ระบุเหตุผล — สอบถามได้ที่ SAMO</span>'
-    : ''}
-        </div>
-      </li>`;
-  }).join('')}</ul>
   </div>`;
 }
+
 
 /**
  * Two lists: the student's OWN สาย, then everyone else's in the same house.
@@ -284,12 +346,18 @@ function advisorsHtml(rec) {
 
   if (!house.length) return ownBlock;
 
+  // FOLDED, and the two lists are folded differently ON PURPOSE.
+  //
+  // "อาจารย์ที่ปรึกษาสายของฉัน" is the question a student actually arrives with,
+  // and it is one or two people — it stays open. "อาจารย์ในบ้านเดียวกัน" is
+  // ~18 people the student is not looking for today; open, it is the longest
+  // thing on the card by a wide margin and it pushes everything the student came
+  // for off the screen. Folded, the count is still on the summary, so it says
+  // "there are 18 of them" without spending 18 rows saying it.
   return `${ownBlock}
-    <div class="myseat-block">
-      <span class="myseat-label">อาจารย์ในบ้านเดียวกัน (${house.length} ท่าน)</span>
-      <ul class="myhouse-advisors">${house
-    .map((a) => advisorLi(a, a.sai ? `สาย ${a.sai}` : null)).join('')}</ul>
-    </div>`;
+    ${disclosure('อาจารย์ในบ้านเดียวกัน', `${house.length} ท่าน`,
+    `<ul class="myhouse-advisors">${house
+      .map((a) => advisorLi(a, a.sai ? `สาย ${a.sai}` : null)).join('')}</ul>`)}`;
 }
 
 /**

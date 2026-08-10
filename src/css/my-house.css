@@ -224,3 +224,53 @@
 .myhouse-section .myseat-person { margin-bottom: 0.5rem; }
 .myhouse-section .myhouse-crest { width: 44px; height: 44px; font-size: 1.15rem; }
 .myhouse-section .myseat-name { font-size: 0.95rem; }
+
+/* ── folded sections ─────────────────────────────────────────────────────── */
+/* Native <details>, deliberately — this card already shipped the hand-rolled
+   version of this control and it opened only on odd-numbered paints ("ต้องกด
+   หลายครั้งถึงจะขึ้น"). A disclosure with no listener cannot desynchronise from
+   a re-render, and it keeps keyboard + screen-reader behaviour for free.
+   Summary styling is `.myseat-label` plus the caret and the count below. */
+.myhouse-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  /* The whole strip is the hit target on a phone, not just the eight-pixel
+     caret. Negative margin keeps the text optically aligned with the labels
+     above it, which are not padded. */
+  padding: 0.3rem 0.4rem;
+  margin: 0 -0.4rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  list-style: none;                 /* Firefox */
+  user-select: none;
+}
+.myhouse-fold > summary::-webkit-details-marker { display: none; }
+.myhouse-fold > summary:hover { background: var(--ink-050, #f6f7f8); }
+.myhouse-fold > summary:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 1px;
+}
+.myhouse-fold-caret {
+  font-size: 0.8em;
+  color: var(--ink-400);
+  transition: transform 0.15s ease;
+}
+.myhouse-fold[open] > summary .myhouse-fold-caret { transform: rotate(90deg); }
+/* The count carries the information the collapsed state would otherwise hide:
+   how much is in there. Without it, folding a list is just hiding it. */
+.myhouse-fold-count {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-500);
+  background: var(--ink-100, #eceef0);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
+.myhouse-fold-body { padding-top: 0.4rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .myhouse-fold-caret { transition: none; }
+}
