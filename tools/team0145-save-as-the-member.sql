@@ -32,10 +32,28 @@ create temp table r(n int, name text, got text, want text);
 -- The reported account, as itself. Impersonation is the only way to exercise the
 -- SAME path the card takes: a definer RPC resolving the person from auth.uid(),
 -- with team_members_self_update_guard armed.
+-- THE SUBJECT IS RESOLVED, NOT NAMED, and it must hold BOTH placements.
+--
+-- This was hardcoded to the reporting account. When that person's ระบบบ้าน row
+-- was later removed, `students.year_offset` came back NULL and two checks failed
+-- reporting `None` vs `-2` — which reads as "the mirror is broken" and is
+-- actually "the fixture moved". A named subject is a bet that the data will not
+-- change; it always changes.
+--
+-- The precondition is asserted separately (row 0b) so that if NOBODY holds both
+-- placements the proof says THAT, instead of blaming the mirror it exists to
+-- test.
 create temp table me as
-select u.id uid, u.email from public.users u where u.email = 'phuriphat.ma@kkumail.com';
+select u.id uid, u.email from public.users u
+ where exists (select 1 from public.students s    where lower(s.kkumail) = lower(u.email))
+   and exists (select 1 from public.team_members m where lower(m.kkumail) = lower(u.email))
+ order by u.id limit 1;
 
-insert into r select 0, 'found the reported account', (select count(*)::text from me), '1';
+insert into r select 0, 'found an account holding BOTH a ระบบบ้าน row and a ตำแหน่ง',
+  (select count(*)::text from me), '1';
+insert into r select 0, 'CONTROL — that account really has a students row',
+  (select count(*)::text from public.students s
+    where lower(s.kkumail) = (select lower(email) from me)), '1';
 
 -- ⚠️ `set local role authenticated` cannot read a temp table the SUPERUSER
 -- created. Without these grants the probe dies with 42501 on its own scratch

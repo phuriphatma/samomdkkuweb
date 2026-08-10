@@ -38,9 +38,20 @@ insert into r select 4, 'a blank URL answers 1, never 0',
 -- answer is 3, not 1 — and 'greater than zero' would be a control that cannot
 -- fail. (The first draft of this line asserted 0 and failed: a probe that
 -- expects the wrong number is how a working function gets 'fixed'.)
-insert into r select 5, 'CONTROL — portraits are still counted, on all three mirrors',
-  public.photo_reference_count((select photo_url from public.team_members
-                                 where photo_url is not null limit 1))::text, '3';
+-- The subject is DETERMINISTIC and the expectation is COMPUTED, not guessed.
+-- Both halves were wrong before: `limit 1` with no ORDER BY picked an arbitrary
+-- portrait, and the answer was hardcoded to 3 (people + team_members +
+-- students). A person with TWO ตำแหน่ง legitimately counts 4, so the day one of
+-- those rows was reachable the control failed over correct behaviour — the
+-- "fails for a right reason, so nobody reads it again" shape.
+insert into r
+select 5, 'CONTROL — a portrait is counted once per row that references it',
+       public.photo_reference_count(u)::text,
+       ((select count(*) from public.team_members where photo_url = u)
+      + (select count(*) from public.people       where photo_url = u)
+      + (select count(*) from public.students     where photo_url = u))::text
+  from (select photo_url u from public.team_members
+         where photo_url is not null order by photo_url limit 1) x;
 select n, case when got is not distinct from want then 'PASS' else 'FAIL' end status, name, got, want from r
 union all select 99,
   case when count(*) filter (where got is not distinct from want)=count(*) then 'ALL PASS' else 'FAILURES' end,

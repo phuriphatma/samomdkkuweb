@@ -96,13 +96,74 @@ Every one is the same failure: the instrument could not see, or was satisfied by
 prose. The ritual that catches all of them is *reintroduce the bug and watch it
 fail.*
 
-## Not reproduced
+## The portraits that "did not show" — CLOSED, and the diagnosis was mine to get wrong
 
-Owner reported not seeing several portraits "on the web". Checked and could not
-reproduce: all 5 files return HTTP 200 for every CDN variant the app requests;
-`get_public_org_chart()` publishes all 6 photo-carrying postings; images render
-on the public org chart, the public home card, the admin dashboard and the
-member modal. The admin ทีม SAMO **tree** shows no avatars — but it never has,
-`portraitSrc` is only used in the modal preview. Portraits are `loading="lazy"`
-behind initials placeholders, so a slow link shows initials first. Left open
-pending the owner naming the screen.
+Owner reported not seeing several portraits. Every check passed: all 5 files
+return HTTP 200 for every CDN variant the app requests, `get_public_org_chart()`
+publishes all 6 photo-carrying postings, and images render on the public org
+chart, the home card, the admin dashboard and the member modal.
+
+Then the owner refreshed and saw their card — so it was transient. The cause is
+almost certainly `loading="lazy"`: every portrait sits behind an initials
+placeholder until it scrolls into view, and a slow link (or a burst of my own
+repeated fetches) shows initials for a while. **I twice reported an image as
+"failing" on the strength of `complete === true && naturalWidth === 0`, which is
+also what a lazy image that has not started loading looks like.** The honest
+instrument is to force `loading='eager'`, scroll it into view, wait, and only
+then read `naturalWidth`.
+
+Worth keeping: the admin ทีม SAMO **tree** genuinely shows no avatars, and never
+has — `portraitSrc` is only used in the member modal's preview. That is a
+feature request, not a regression, if it ever comes up again.
+
+---
+
+## The public org chart — the second half of 2026-08-10
+
+Driven entirely by live feedback, in this order, which is why the commit history
+zig-zags: the owner sent reference images (Apple, Saudi Aramco, and then SAMO's
+own recruitment poster), and each round measured the result before the next.
+
+**What was asked, and what it turned into**
+
+1. *"the head of like each ฝ่าย got drowned inside many people"* → first attempt
+   gave หัวหน้า a bigger card, detected from a list of Thai title prefixes.
+   **Withdrawn on the owner's argument**, which was better than mine: the tree
+   already ranks people — position 0 under a ฝ่าย IS the head, verified across
+   the whole ฝ่ายดิจิทัล subtree. A prefix list is a second source of truth that
+   drifts on the first rename. Card size is now the same for everyone.
+2. *"making it horizontally like the picture"* → the horizontal chart. `nodeBlock`
+   wraps each station in `.org-box` so the box is a layout SIBLING of the
+   children row, the only shape the pure-CSS connector technique can draw.
+3. *"don't leave the อุปนายก up there"* → the คณะกรรมการ grid deleted.
+4. *"should be line link under สโมสรนักศึกษาแพทย์"* → a synthetic organisation
+   root, list view only.
+5. *"i have to pan left right"* → the width fight, below.
+6. *"สมาชิกฝ่าย Production got cutoff"* → `safe center`.
+
+**The width fight, measured at every step** — this is the part worth keeping:
+
+| change | widest section |
+|---|---|
+| one chart, fully expanded | 44,386px (~30 screens) |
+| depth-limited auto-expand | 32,402px |
+| one section per ฝ่าย | 10,911px |
+| branch sideways once, then vertical | 2,498px |
+| full-width breakout | (wider viewport) |
+| tightened spacing | 2,170px |
+| spreading row wraps, bounded | **~13px over, every section, at 390/820/1024** |
+
+Two dead ends are more instructive than the fixes. `flex-wrap: wrap` produced
+**byte-identical** measurements because `.org-tree` is `width: max-content` — a
+wrapping row must be BOUNDED, permission is not enough. And a "more than four
+children" threshold rescued ฝ่ายเวชนิทัศน์ (twelve sub-ฝ่าย) while leaving
+ฝ่ายกิจการภายใน panning, so the bound went on every spreading row instead.
+
+**The final scrutinize pass found four more bugs**, all invisible:
+a view scoped to `@media` after it became user-selectable (list view lost its
+rails on desktop); five `> .org-station` selectors unhooked by the `.org-box`
+wrapper; `justify-content: center` making overflow unreachable; and dead
+`CHART_OPEN_DEPTH` / `nodeDepth` left behind by the iteration. The CSS was also
+consolidated 421 → 328 lines (20 selectors had been defined 2–4 times), proved
+a visual no-op by diffing 55 computed-style rows and all 12 section geometries
+before and after — 0 differences.

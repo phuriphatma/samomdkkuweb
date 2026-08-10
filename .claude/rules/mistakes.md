@@ -86,6 +86,15 @@ has not been written yet.
    implemented. Now one `photoToRetire()` all three call. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
+   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY — no
+   undefined-reference error, no console warning — so a rule that stops matching
+   looks exactly like a feature nobody built. Wrapping a station in `.org-box`
+   unhooked five `> .org-station` rules; scoping a layout to
+   `@media (max-width: 1023.98px)` and later making the view USER-SELECTABLE
+   disabled it on desktop (a view is not a breakpoint). When you insert a
+   wrapper, grep `> .<child>`; when a layout becomes a choice, grep the `@media`
+   that used to make it. The only instrument that can see this is the COMPUTED
+   style, never the stylesheet.
    `prefer: 'return=representation'` + a `data.length` check on every DELETE
    (projects/vs/announcements had it; all 5 in `team/api.js` and 3 in
    `shop/api.js` did not) — now swept by `delete-guard.test.js`.
@@ -241,7 +250,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(44 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(48 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -287,6 +296,10 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `{"code":"23505" … "students_kkumail_key"}` in an alert() — a unique index used as a first line of defence
 - "แก้ไขสมาชิก … ค้นหาคนจากระบบ … พู่กัน picture become myself"
 - The ยกเลิก button in `askConfirm` did nothing — in the module written because buttons did nothing
+- A VIEW is not a BREAKPOINT — scoping a layout to `@media` and then making it user-selectable
+- A markup refactor silently unhooked every `> .org-station` selector
+- `justify-content: center` makes the overflow of a scroll container UNREACHABLE
+- `flex-wrap` does nothing inside `width: max-content`
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*

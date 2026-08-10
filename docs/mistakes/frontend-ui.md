@@ -1505,3 +1505,120 @@ actually aims at; ESC working is not the button working. (3) Verify a new guard
 BOTH ways — reintroduce the bug and watch it fail — or you have written a test
 that asserts your own comment. (4) The module that fixes a bug class is not
 exempt from that class.
+
+---
+
+## A VIEW is not a BREAKPOINT — scoping a layout to `@media` and then making it user-selectable
+
+**Symptom**: none visible, which is why it survived. The public org chart's
+รายการ view lost its connector rails and its depth-scaled headings on any screen
+≥1024px. Nothing looked broken; the tree simply rendered flat, exactly as it had
+before those rules were written.
+
+**Cause**: the layout started out chosen by SCREEN SIZE — indented list under
+1024px, horizontal chart above — so the list rules lived in
+`@media (max-width: 1023.98px)`. Correct at the time. Then the owner asked for a
+toggle, and the views became a `data-view` attribute the reader controls. The
+media query was never revisited, so on a desktop the reader could select รายการ
+and get a version of it that had been silently disabled.
+
+**Fix**: scope on `[data-view="list"]` / `[data-view="chart"]`. The rule is the
+generalisation: **a media query answers "how big is the screen", a view answers
+"what did the reader ask for", and the moment the second exists the first is the
+wrong question.** Nothing about 1024px was ever what those rails depended on.
+
+**Where it lives now**: `src/css/org-chart.css`, the "THE TWO VIEWS" block, whose
+header says this in three lines so the next person does not re-derive it.
+
+**Rules**: (1) When a layout becomes user-selectable, grep every `@media` that
+was standing in for the choice. (2) A rule that stops applying is invisible —
+CSS has no undefined-reference error. The only way to catch it is to ask the
+browser for the computed value.
+
+---
+
+## A markup refactor silently unhooked every `> .org-station` selector
+
+**Symptom**: also invisible. The depth-scaled ตำแหน่ง headings (a ฝ่าย larger
+than a ตำแหน่ง four levels down) simply never applied — every heading rendered at
+the base size, which looks like a design that was never added rather than one
+that stopped working.
+
+**Cause**: the horizontal chart needed each node's box to be a layout SIBLING of
+its children row, so `nodeBlock` began wrapping the station in `.org-box`:
+
+```
+li.org-node > h3.org-station              →  li.org-node > div.org-box > h3.org-station
+```
+
+Five selectors written as `.org-node[data-depth="N"] > .org-station …` kept
+parsing, kept being served, and matched nothing.
+
+**Fix**: `> .org-box > .org-station`. Found by asking the page for
+`getComputedStyle(...).fontSize` and getting `none` for an element the selector
+claimed to style — then confirming with
+`document.querySelector(sel)` returning `null` for the old path and an element
+for the new one, which distinguishes "the rule is wrong" from "the element is
+absent".
+
+**Where it lives now**: `src/css/org-chart.css`, with a comment on the hop.
+
+**Rules**: (1) **A child combinator is a contract with the markup.** Changing the
+DOM shape breaks every `>` selector that crossed the changed boundary, silently,
+with no build error and no console warning. When you insert a wrapper, grep for
+`> .<child>` on the element you wrapped. (2) The instrument for "is this rule
+applying" is the computed style, never the stylesheet.
+
+---
+
+## `justify-content: center` makes the overflow of a scroll container UNREACHABLE
+
+**Symptom**: reported as "สมาชิกฝ่าย Production it department got cutoff". Boxes
+at the start of a horizontally-scrolling org chart were clipped, and no amount
+of scrolling revealed them.
+
+**Cause**: a flex row centred with `justify-content: center` distributes its
+overflow to BOTH sides. The end-side overflow is scrollable; the start-side
+overflow sits at a negative offset that the scroll range does not cover, so the
+browser clips it and there is no scroll position that shows it. Any ฝ่าย wider
+than the viewport lost content off the left.
+
+**Fix**: `justify-content: safe center` — the `safe` keyword falls back to
+`start` exactly when the alignment would cause overflow. A section that fits
+stays centred; one that does not becomes fully reachable.
+
+Verified by measuring, not by looking: for every box, compute
+`rect.left - wrapper.left + wrapper.scrollLeft` and assert none is negative.
+0 boxes after, several before.
+
+**Where it lives now**: `src/css/org-chart.css`.
+
+**Rules**: (1) Any centred flex/grid that can overflow its scroll container needs
+`safe`. (2) "It looks cut off" has a mechanical test — a negative scroll-space
+offset — that is far more reliable than scrolling around looking for it.
+
+---
+
+## `flex-wrap` does nothing inside `width: max-content`
+
+**Symptom**: added `flex-wrap: wrap` to make a twelve-column org-chart row wrap
+on an iPad, rebuilt, re-measured — and the numbers came back **byte-identical**.
+Not "a bit better": exactly the same, to the pixel.
+
+**Cause**: the flex container's ancestor chain carried `width: max-content`, so
+the container is always as wide as its content wants to be. A wrap point is a
+width the content is not allowed to exceed, and `max-content` guarantees there
+is no such width. Wrapping was correctly enabled and could never trigger.
+
+**Fix**: bound the wrapping row — `max-width: calc(100vw - <gutter>)`. Wrapping
+then happens at the screen edge, and costs nothing when the row already fits
+because it is a no-op there.
+
+**Where it lives now**: `src/css/org-chart.css`, noted in the block header
+because the failed attempt is more instructive than the fix.
+
+**Rules**: (1) `flex-wrap` needs a CONSTRAINT, not just permission. If nothing
+bounds the container, nothing wraps. (2) **Identical measurements after a change
+mean the change did not apply** — that is a stronger signal than a small
+improvement, and it is worth re-measuring precisely so the difference between
+"no effect" and "small effect" is visible.

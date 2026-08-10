@@ -22,7 +22,8 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- **samoweb deployed = `6dc20a8`**, verified from the SERVED artifacts.
+- **samoweb deployed = `<see git log; last verified 44fadf1 + the final pass>`**,
+  verified from the SERVED artifacts each time.
   **Migrations applied through 0148.** **678 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
@@ -44,10 +45,21 @@ All both-directional. `node tools/db-query.mjs tools/<x>.sql` for the SQL ones.
   ungranted student. Run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
 - `house0116-authz.sql` (8/8) · `house0144-delete-impact.sql` (18/18,
-  differential) · `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql`
-- `team0145-one-chan-pi.sql` (16/16) · `team0145-save-as-the-member.sql` (12/12)
-- `node tools/house0132-registry.mjs` (19/19) — before touching ANY mirror.
-- `node tools/proj0092-seat-parity.mjs` (14/14)
+  differential) · `house0145-duplicate-person.sql` (6/6) ·
+  `house0146-crest-refcount.sql` (6/6)
+- `team0145-one-chan-pi.sql` (17/17) · `team0145-save-as-the-member.sql` (14/14)
+- `node tools/house0132-registry.mjs` · `proj0092-seat-parity.mjs` (14/14) ·
+  `team0135-name-split.mjs` (16/16) · `team0137-search.mjs` (14/14) ·
+  `grant0093-reads.mjs` (15/15) · `team0143-photo-refcount.mjs` (5/5)
+- **ALL of the above were re-run green at the end of 2026-08-10.** Two had to be
+  repaired first, both for stale fixtures rather than regressions, which is the
+  documented way a proof stops being read:
+  `house0146` picked its control subject with `limit 1` and NO `ORDER BY`, then
+  hardcoded the answer to 3 — a person with two ตำแหน่ง legitimately counts 4.
+  `team0145-save-as-the-member` named the reporting account, whose ระบบบ้าน row
+  has since been removed, so it reported `None` vs `-2` and read as a broken
+  mirror. Both resolve their subjects from the data now and assert the
+  precondition separately.
 
 ## OTHER SYSTEMS — stable, nothing owed
 
@@ -89,14 +101,6 @@ because two copies of one rule is the class this repo pays for most.
 >   dialog, the sign-in modal (390/768 via headless CDP), the public org chart.
 >   Still unclicked: VS staff modal, ประกาศ drafts, อาจารย์ signature queue,
 >   Shop, mobile drag — `docs/NEXT.md` §1.
-> - **One UNREPRODUCED report**: the owner does not see some portraits "on the
->   web". Every check passed — all 5 files HTTP 200 on every CDN variant the app
->   requests, all 6 photo-carrying postings published by
->   `get_public_org_chart()`, images render on the org chart, the home card, the
->   admin dashboard and the member modal. The admin ทีม SAMO **tree** shows no
->   avatars but never has (`portraitSrc` is only used in the modal preview).
->   Portraits are `loading="lazy"` behind initials placeholders, so a slow link
->   shows initials first. **Ask WHICH SCREEN before investigating further.**
 > - **ทีม SAMO restructure — DO NOT reparent ฝ่าย without reading this.** The
 >   owner wants นายกฯ → อุปนายก → ฝ่าย and asked whether it affects สิทธิ์. It
 >   does, severely. `node_effective_permissions()` climbs the parent chain while
@@ -110,15 +114,37 @@ because two copies of one rule is the class this repo pays for most.
 >   `team_members.permissions`, or set `inherit_permissions = false` on the ฝ่าย
 >   being moved. Then re-run that simulation as a differential guard; it must
 >   show BEFORE == AFTER.
-> - `docs/NEXT.md` §0b — three small things seen while driving: `/admin/#team` is
->   not honoured on a COLD load; a stale "ไม่พบใคร" hint sits above live search
->   results; ตรวจสอบข้อมูล has 8 unexamined findings.
-> - `docs/NEXT.md` also carries: **drop the dead `team_members.year` /
->   `people.year`** (safe now — v4.6.0 has been served since 2026-08-10; the
->   columns, `'year'` in `team_members_self_update_guard`'s `v_allowed`, the
->   exception in `name-split.test.js` and the `'year', m.year` key in
->   `get_my_team_seat()` all go together), and **`photo_reference_count` compares
->   URL STRINGS** so it cannot widen past portraits until Drive IDs are normalised.
+> - `docs/NEXT.md` carries the rest: §0b three small UI things seen while
+>   driving (`/admin/#team` on a COLD load, a stale "ไม่พบใคร" hint, 8 unexamined
+>   ตรวจสอบข้อมูล findings), dropping the dead `team_members.year` / `people.year`,
+>   and why `photo_reference_count` cannot widen past portraits yet.
+>
+> ### 1b. The public org chart (`/team`) — how it is built
+>
+> Two views over ONE renderer and ONE markup; only CSS differs. The wrapper
+> carries `data-view`, and the toggle flips it WITHOUT re-rendering so open
+> ตำแหน่ง and scroll position survive. **Scope every rule on `[data-view=…]`,
+> never on a width** — the list rules were once inside a media query and
+> silently stopped applying when the view became a user choice.
+>
+> แผนผัง fits 400 people through three measured decisions, all in the CSS block
+> header: ONE SECTION PER ฝ่าย (as one chart it was 44,386px ≈ 30 screens,
+> because the twelve ฝ่าย widths ADD); BRANCH SIDEWAYS ONCE, then reuse the
+> vertical spine (branching at every level let the LEAF row set the width); and
+> THE SPREADING ROW WRAPS, bounded to the viewport. ⚠️ `flex-wrap` alone did
+> NOTHING — `.org-tree` is `width: max-content`, so the container always grows
+> and the wrap point is never reached. A wrapping row must be BOUNDED.
+> `justify-content` is `safe center`: plain `center` on an overflowing scroll
+> container makes the start-side overflow unreachable.
+> Result at 390 / 820 / 1024px: every section within ~13px of the viewport.
+>
+> The คณะกรรมการ grid is GONE on purpose — it rendered นายกฯ and the อุปนายก a
+> second time at twice everyone's size, a duplicate AND a competing ranking.
+> `is_board` still exists for the admin and my-seat's award icon. Card size is
+> the same for everyone: **rank is position in the chart, not card size** — do
+> not reintroduce a bigger card for heads, and do not detect heads from Thai
+> title prefixes (the tree already orders them; position 0 under a ฝ่าย is the
+> head).
 >
 > ### 2. Invariants that will bite you
 >

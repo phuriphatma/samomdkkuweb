@@ -36,7 +36,6 @@ let byNode = new Map();   // node_id -> member[]
 let nodeById = new Map();
 let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
 let collapsibleIds = new Set();
-let nodeDepth = new Map();   // node_id -> depth, for the chart's opening view
 let loading = false;
 let query = '';
 
@@ -60,9 +59,6 @@ try { view = localStorage.getItem('samo.org.view') === 'chart' ? 'chart' : 'list
 // a disclosure — 106 of them hold exactly one person, and making those a click
 // each would be worse than the scroll it saves.
 const PEOPLE_INLINE_MAX = 3;
-
-/** How many levels แผนผัง unrolls on open. 2 = the ฝ่าย and their ตำแหน่ง. */
-const CHART_OPEN_DEPTH = 2;
 
 const $ = (id) => document.getElementById(id);
 
@@ -139,10 +135,8 @@ function index() {
 function indexStats() {
   subStats = new Map();
   collapsibleIds = new Set();
-  nodeDepth = new Map();
   const seen = new Set();
-  const walk = (id, depth = 0) => {
-    nodeDepth.set(id, depth);
+  const walk = (id) => {
     if (seen.has(id)) return { nodes: 0, people: 0 };
     seen.add(id);
     const kids = byParent.get(id) || [];
@@ -150,7 +144,7 @@ function indexStats() {
     let people = own;
     let nodes = 0;
     for (const c of kids) {
-      const s = walk(c.id, depth + 1);
+      const s = walk(c.id);
       people += s.people;
       nodes += s.nodes + 1;
     }
