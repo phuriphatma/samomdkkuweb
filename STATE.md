@@ -5,38 +5,41 @@ true RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
 
-**Go straight to the `## NEXT-SESSION PROMPT` at the BOTTOM.** It carries the
-two open items, the invariants that will bite you, and the signatures that
-changed. **It also tells you to read your agent memory, which holds one item
-this PUBLIC repo must not contain.** Then come back for CURRENT DEPLOY.
+**Go straight to the `## NEXT-SESSION PROMPT` at the BOTTOM.** It carries what is
+open, the invariants that will bite you, and the signatures that changed. Then
+come back for CURRENT DEPLOY.
 
-Archived narratives: `2026-08-10-chan-pi.md` (0145–0146, v4.6.0) ·
-`2026-08-09-session.md` (0132–0144 — the person registry, the identity mirrors,
-the Drive-cleanup work and both GAS redeploys) · `2026-08-08-late-0128-0131.md` ·
+Archived narratives, all under `docs/state-archive/`:
+`2026-08-10-chan-pi.md` (0145–0146, v4.6.0) · `2026-08-09-session.md`
+(0132–0144 — the person registry, the identity mirrors, the Drive-cleanup work
+and both GAS redeploys) · `2026-08-08-late-0128-0131.md` ·
 `2026-08-08-house-polish.md` · `2026-08-05-late-13-requests.md` ·
 `2026-08-05-shipped.md` · `2026-08-04-shipped.md` ·
 `2026-07-31-team-0104-detail.md` · `2026-07-30-pre-clear.md` ·
-`2026-07-24-full.md`. All under `docs/state-archive/`.
+`2026-07-24-full.md`.
 Architecture/RLS: `docs/CONTEXT.md`. Bug corpus: **`docs/mistakes/*.md`**,
 indexed by `.claude/rules/mistakes.md`.
 
 ## What shipped recently
 
-**2026-08-10** — migrations 0145–0146, and **v4.6.0 cut and deployed**, the
-release three sessions owed. **2026-08-09** — 0132–0144, the person registry,
-both GAS projects redeployed.
-
-The archives carry the reasoning. Everything that CHANGES WHAT YOU DO FIRST is
-in the NEXT-SESSION PROMPT at the bottom — invariants, not history. Do not try
-to re-derive them from `git log`.
+**2026-08-10** — 0145–0147 and **v4.6.0 cut and deployed**; 0147 closed the last
+open security item. **2026-08-09** — 0132–0144, the person registry, both GAS
+projects redeployed. The archives carry the reasoning; everything that CHANGES
+WHAT YOU DO FIRST is in the NEXT-SESSION PROMPT, as invariants rather than
+history.
 
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `7d6e9fe`, **v4.6.0**, deployed and verified from the
-  SERVED artifacts (`/build.json` → 4.6.0; six new Thai string literals grep in
-  the served bundles; a control string that must be absent returns 0).
+- **samoweb**: **deployed = `237a82d`** (v4.6.0 + the 0147 client change),
+  verified from the SERVED artifacts: both entries load the shared chunk
+  `analytics-kwxw5HXu.js`, which carries the two new `console.error` literals,
+  while the deleted raw users read
+  (`select=id,email,username,display_name,role`) greps 0 there — with a control
+  string proving the grep works. Commits AFTER `237a82d` are `tools/` + `docs/`
+  only and change no bundle, so `main` being ahead is expected and NOT undeployed
+  UI.
   ⚠️ `studyYearLabel` landed in the SHARED chunk `analytics-*.js`, which BOTH
   entries import — grepping only `public-*.js` / `admin-*.js` returns 0 on a
   perfectly good deploy.
@@ -115,10 +118,21 @@ NOT in CLAUDE.md remains:
 > 0147, asked-and-approved on 2026-08-10. Its full write-up is now in the repo
 > where it belongs: `docs/mistakes/authz-rls.md` and the migration header.
 >
-> ### 1. Nothing is open
+> ### 1. One thing is owed, and it needs the OWNER
 >
 > `public.users` read-restriction: **DONE** (0147, 23/23). The crest refcount:
 > **DONE** (0146), along with the guard test that had been green over it.
+>
+> **STILL OWED: the signed-in browser pass.** `docs/NEXT.md` §1 lists ~14 admin
+> features that have never had a real logged-in browser run — every server path
+> is proven by the `tools/` scripts, but nothing behind the login has been
+> CLICKED. On 2026-08-10 the owner signed into Chrome for exactly this and the
+> **Claude browser extension would not connect** (`tabs_context_mcp` returned
+> "extension is not connected" three times; Chrome was running, no CDP port, and
+> Chrome 136+ refuses `--remote-debugging-port` on the default profile, so the
+> headless-CDP fallback costs a fresh login and does NOT inherit the session).
+> Ask the owner to reconnect the extension before planning anything that depends
+> on driving the UI.
 >
 > Two follow-ups with full reasoning in `docs/NEXT.md`:
 > **(a) drop `team_members.year` and `people.year`** — dead since 0145, left in
@@ -182,6 +196,13 @@ NOT in CLAUDE.md remains:
 >   asked to find `photo_url` columns and found every one, faithfully, while the
 >   hazard sat in `houses.icon_url` one column along. Scan by SHAPE and force a
 >   decision on each hit, never by one name.
+> - **A proof that ERRORS is ABSENT, not failing** — and it still looks like
+>   coverage in this file. `house0116-authz.sql` called a function 0124 dropped,
+>   so its `DO` block aborted and NONE of its assertions ran, for 23 migrations.
+>   **When a migration drops a function or a column, grep `tools/` in the same
+>   commit.** Related: a hardcoded fixture is a bet the data will not move —
+>   `proj0092` named a member the org chart had since moved, and `house0116`
+>   named an email that never existed. Both resolve their subjects now.
 > - **Grep the SERVED artifact for a STRING LITERAL or a CSS class.** Minified
 >   builds rename module-scope `let`s, so grepping a variable name returns 0 on a
 >   perfectly good deploy. Code also often lands in a SHARED chunk rather than the
@@ -197,39 +218,27 @@ NOT in CLAUDE.md remains:
 >
 > - **The owner tests live and reports in bursts**, often against code shipped
 >   hours earlier. Treat their message as the test pass this repo does not have.
-> - **A fix on ONE path is not a fix.** Nearly every bug here is that shape.
->   Enumerate the writers — grep the column, grep the RPC, list the editors.
->   `เปลี่ยนรูป` leaked Drive files because the cleanup existed on two of three.
-> - **Prove it live, both directions.** A probe that can only print "denied"
->   cannot distinguish a working guard from a broken connection. Every proof here
->   has an allow half and a control that must fail.
-> - **When a hazard has been paid for twice, the third fix is a TEST.** Four
->   ratchets exist and every one of them found something:
->   `undefined-refs.test.js` (identifiers bound nowhere — it caught the
->   เพิ่มสมาชิก outage), `native-dialog.test.js` (suppressible dialogs; a
->   shrink-only list), `upload-cleanup.test.js` (an AUDIT registry: every upload
->   site names what cleans up after it), `photo-retire.test.js`.
+> - **A fix on ONE path is not a fix**, and **prove it live in BOTH directions** —
+>   both are classes 4 and 7 in `.claude/rules/mistakes.md`, which is auto-loaded;
+>   not restated here, because two copies of one rule is this repo's most
+>   expensive habit.
+> - **When a hazard has been paid for twice, the third fix is a TEST.** Five
+>   ratchets exist and every one found something: `undefined-refs.test.js`
+>   (it caught the เพิ่มสมาชิก outage), `native-dialog.test.js`,
+>   `upload-cleanup.test.js` (an AUDIT registry — every upload site names what
+>   cleans up after it), `photo-retire.test.js`, `delete-guard.test.js`.
 > - **Drive the UI before believing it.** Headless Chrome over CDP at 390 / 412 /
 >   768 / 1440 (see the `headless-chrome-cdp-driver` memory). It found a ลบ button
 >   rendering OUTSIDE its modal on phones, which no test and no code read caught.
-> - **Batch commits before deploying** — each VM deploy is ~90 s.
+> - **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
+>   `docs/`-only commit needs no deploy at all.
 >
-> ### 4. Signatures that changed on 2026-08-09
+> ### 4. Signatures that changed on 2026-08-10
 >
-> - `photoToRetire(prevUrl, payload, key)` — `team/api.js`. The ONE rule for
->   "which file did this save stop pointing at", used by all three portrait
->   writers. Its **key-presence** test is load-bearing: นำรูปออก sends `null`, and
->   any `??`/`||` fallback reads that as "unchanged" and skips the cleanup.
-> - `filesToRetire(before, after, others)` — `announcements.js`. Diffs Drive
->   **FILE IDS**, never URL strings; one file has many spellings (`=w1200`,
->   `=w600`, `/view`).
-> - `deletePRFile(url)` / `driveIdsInHtml(html)` — `uploads.js`.
-> - `fetchDeleteImpact(id)` — `house/api.js`; `deleteWarningFor(impact)` —
->   `house/index.js` (exported for its test).
-> - `canOpenSection(which)` — `admin-main.js`. The hash router is gated now, so
->   `/admin/#vs` no longer opens VitalSound for an account without the grant.
+> (2026-08-09's list — `photoToRetire`, `filesToRetire`, `deletePRFile` /
+> `driveIdsInHtml`, `fetchDeleteImpact` / `deleteWarningFor`, `canOpenSection` —
+> moved to `docs/state-archive/2026-08-09-session.md`. All stable.)
 >
-> ### 5. Signatures that changed on 2026-08-10
 >
 > - **`src/js/study-year.js` is NEW** and owns ชั้นปี / รุ่น / ปีการศึกษา for the
 >   whole app: `studyYear` · `studyYearLabel` · `cohortLabel` ·
@@ -247,6 +256,9 @@ NOT in CLAUDE.md remains:
 > - `admin-main.js` calls `primeAcademicYear()` at boot. It used to be primed
 >   only when ระบบบ้าน opened, which was fine while ระบบบ้าน was the only pane
 >   computing a ชั้นปี.
+> - **`listUsersByRole()` is GONE** (`projects/api.js`, 0147). It was the only
+>   cross-user table read left. `listProjectProfs()` / `listProjectSeatUsers()`
+>   now return `[]` and log on RPC failure instead of falling back to it.
 >
 > Backlog: `docs/NEXT.md` · Registry plan: `docs/PERSON-REGISTRY.md` ·
 > Bug corpus: `docs/mistakes/*.md`, indexed by `.claude/rules/mistakes.md`.
