@@ -921,3 +921,113 @@
 }
 .org-tree-wrap[data-view="chart"] .org-station-dot { order: -1; }
 .org-tree-wrap[data-view="chart"] .org-station-meta { font-size: 0.68rem; }
+
+/* ── branch horizontally ONCE, then go vertical ──────────────────────────────
+   REPORTED: "it's good but i have to pan left right".
+   True, and the screenshots show why. Every level was branching sideways, so
+   the width of a ฝ่าย was set by its LEAF row — all the สมาชิกฝ่าย boxes and
+   their photo grids lined up — even though the real branching factor is only
+   two or three. ฝ่ายดิจิทัล came out 3,657px with maybe a thousand of it used.
+
+   IMG_8102 — SAMO's own poster — already answers it: PR | ComArt | IT sit side
+   by side, and everything under them stacks DOWNWARD with a bracket. One
+   horizontal split, then vertical. So the width becomes (number of sub-ฝ่าย ×
+   one column) instead of (number of leaf ตำแหน่ง × one column).
+
+   Depth 0 is the ฝ่าย heading the section, so its children — the sub-ฝ่าย — are
+   the one row that spreads. Everything deeper reuses the list view's spine. */
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch {
+  display: block;
+  width: auto;
+  min-width: 0;
+  padding: 0.35rem 0 0 0.9rem;
+  margin-left: 0.55rem;
+  border-left: 1px solid var(--org-spine);
+}
+/* That row is vertical now, so it needs no centred drop-line of its own... */
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch::before {
+  display: none;
+}
+/* ...and its children stop drawing the horizontal half-bars, taking a short
+   elbow off the spine instead — the same shape รายการ uses. */
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node {
+  display: block;
+  align-items: stretch;
+  padding: 0.45rem 0 0;
+}
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::before {
+  content: '';
+  position: absolute;
+  left: -0.9rem;
+  top: 1.4rem;
+  width: 0.6rem;
+  height: 1px;
+  right: auto;
+  border-top: 1px solid var(--org-spine);
+}
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::after {
+  display: none;
+}
+/* Left-aligned once the axis is vertical — centring a stack just reintroduces
+   the empty gutters this change exists to remove. */
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch .org-people {
+  justify-content: flex-start;
+  margin-left: 0.2rem;
+}
+
+/* ── the chart takes the FULL page width ─────────────────────────────────────
+   "maybe also make it take the long length full". The page body is a centred
+   column with generous margins, which is right for reading prose and wrong for
+   a diagram: it threw away ~370px of usable width on an iPad and turned
+   sections that would have fitted into ones you had to pan.
+   So each chart section breaks out to the viewport edge. Only in แผนผัง —
+   รายการ stays inside the column where it belongs. */
+.org-tree-wrap[data-view="chart"] {
+  width: 100vw;
+  max-width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  padding-inline: clamp(0.75rem, 3vw, 2rem);
+  /* The breakout must not create a horizontal scrollbar on the PAGE — the
+     scrolling belongs to this element, not the document. */
+  scrollbar-gutter: stable;
+}
+
+/* ── tighten แผนผัง ──────────────────────────────────────────────────────────
+   "maybe remove white space, like space box taking". The spacing was inherited
+   from รายการ, where a card is a reading target with room around it. In a
+   diagram the same padding reads as holes: the connector gutters, the box
+   padding and the photo-grid gaps compounded at every level, and because the
+   columns in a row are different heights the slack showed up as empty panels.
+   Everything below is the same layout with the air taken out. */
+.org-tree-wrap[data-view="chart"] .org-node { padding: 0.95rem 0.35rem 0; }
+.org-tree-wrap[data-view="chart"] .org-node::before,
+.org-tree-wrap[data-view="chart"] .org-node::after { height: 0.95rem; }
+.org-tree-wrap[data-view="chart"] .org-branch { padding-top: 0.95rem; }
+.org-tree-wrap[data-view="chart"] .org-branch::before { height: 0.95rem; }
+
+.org-tree-wrap[data-view="chart"] .org-station-btn { padding: 0.4rem 0.55rem; }
+.org-tree-wrap[data-view="chart"] .org-station-name { font-size: 0.8rem; line-height: 1.3; }
+.org-tree-wrap[data-view="chart"] .org-box { min-width: 8.5rem; max-width: 13rem; }
+
+.org-tree-wrap[data-view="chart"] .org-people {
+  gap: 0.35rem 0.3rem;
+  margin-top: 0.35rem;
+  max-width: 14rem;
+}
+.org-tree-wrap[data-view="chart"] .org-person { width: 3.5rem; gap: 0.12rem; }
+.org-tree-wrap[data-view="chart"] .org-face { width: 3.5rem; height: 4.65rem; }
+.org-tree-wrap[data-view="chart"] .org-person-name { font-size: 0.6rem; line-height: 1.2; }
+.org-tree-wrap[data-view="chart"] .org-person-nick { font-size: 0.56rem; }
+
+/* The vertical levels: the elbow now hangs off a shorter drop, so the rows sit
+   closer without the bracket losing its shape. */
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch {
+  padding: 0.2rem 0 0 0.75rem;
+  margin-left: 0.45rem;
+}
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node {
+  padding: 0.3rem 0 0;
+}
+.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::before {
+  left: -0.75rem; top: 1rem; width: 0.5rem;
+}
