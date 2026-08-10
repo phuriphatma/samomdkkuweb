@@ -87,3 +87,55 @@ describe('duplicateMessage', () => {
     expect(out).toContain('ซ้ำ');
   });
 });
+
+// ==============================================
+// THE OTHER WRITE PATHS — added when duplicateMessage moved to
+// src/js/duplicate-message.js. It had been fixed for ระบบบ้าน's นักศึกษา form
+// and ONLY there, while เพิ่มอาจารย์ (two separate forms) and เพิ่มสาขา still
+// alerted the raw constraint name this function exists to replace.
+// ==============================================
+const dup = (constraint) => ({
+  code: '23505',
+  message: `duplicate key value violates unique constraint "${constraint}"`,
+});
+
+describe('duplicateMessage — every table that can 23505', () => {
+  it('names the อาจารย์ clash and points at the existing-advisor picker', () => {
+    const out = duplicateMessage(dup('advisors_email_key'), { email: 'prof@kku.ac.th' });
+    expect(out).toContain('prof@kku.ac.th');
+    expect(out).toContain('เพิ่มอาจารย์ที่มีอยู่แล้ว');
+    expect(out).not.toContain('advisors_email_key');
+    expect(out).not.toContain('23505');
+  });
+
+  it('names the สาขา clash and says to edit rather than add', () => {
+    const out = duplicateMessage(dup('team_majors_code_uniq'), { code: 'MD' });
+    expect(out).toContain('MD');
+    expect(out).toContain('แก้ไข');
+    expect(out).not.toContain('team_majors_code_uniq');
+  });
+
+  it('tells people_kkumail_uniq apart from students_kkumail_key', () => {
+    // Different tables, different remedies. The pre-move implementation fell
+    // through to `text.includes('kkumail')`, which is true of BOTH, so the
+    // registry clash was answered with ระบบบ้าน's advice about a row the admin
+    // was not looking at.
+    const person = duplicateMessage(dup('people_kkumail_uniq'), { kkumail: 'a@kkumail.com' });
+    const student = duplicateMessage(dup('students_kkumail_key'), { kkumail: 'a@kkumail.com' });
+    expect(person).not.toEqual(student);
+    expect(person).toContain('ข้อมูลคนหนึ่งคนไว้ชุดเดียว');
+  });
+
+  it('still returns null for an error that is NOT a duplicate', () => {
+    // The control. A translator that swallowed unrelated failures would hide the
+    // next real bug behind a friendly sentence about duplicates.
+    expect(duplicateMessage({ code: '42501', message: 'permission denied' }, {})).toBeNull();
+    expect(duplicateMessage(null, {})).toBeNull();
+  });
+
+  it('falls back to a generic sentence for a constraint it has not been taught', () => {
+    const out = duplicateMessage(dup('some_future_table_uniq'), {});
+    expect(out).toBeTruthy();
+    expect(out).not.toContain('some_future_table_uniq');
+  });
+});

@@ -556,7 +556,11 @@ async function onSaiCreateAdvisor(e) {
     $('hxNewFirst').focus();
     setStat(`เพิ่ม ${row.full_name || first} เข้าสาย ${code} แล้ว`);
   } catch (err) {
-    setStat(err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
+    // The SECOND advisor writer. `advisors_email_key` fires here just as it
+    // does in the full modal, and this one reports inline rather than by alert.
+    setStat(duplicateMessage(err, {
+      email: $('hxNewEmail').value.trim().toLowerCase(),
+    }) || err?.message || 'เพิ่มอาจารย์ไม่สำเร็จ', true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -1673,35 +1677,17 @@ async function onStudentSubmit(e) {
   } catch (err) { alert(duplicateMessage(err, payload) || err?.message || 'บันทึกไม่สำเร็จ'); }
 }
 
-/**
- * Turn a unique-constraint violation into a sentence about a person.
- *
- * ⚠️ THIS IS NOT REDUNDANT WITH THE PRE-CHECK ABOVE, AND IT MUST NOT BE REMOVED
- * AS SUCH. Three ways past that check, all real:
- *   • the lookup was still in flight, or failed, when บันทึก was pressed;
- *   • two admins added the same person in the same instant — only the index can
- *     actually decide that one;
- *   • the clash is on รหัสนักศึกษา, which the banner does not check because a
- *     shared รหัส is a genuinely ambiguous fact about TWO people (0108: one
- *     mistyped id worn by two humans) rather than a duplicate to merge.
- * `update_my_student_record` (0125) is built the same way — the pre-check gives
- * the good message in the ordinary case, the handler is what makes it TRUE.
- */
-export function duplicateMessage(err, payload = {}) {
-  const text = `${err?.message || ''} ${err?.details || ''} ${JSON.stringify(err || {})}`;
-  if (!text.includes('23505') && !/duplicate key/i.test(text)) return null;
-  if (text.includes('students_kkumail_key') || text.includes('kkumail')) {
-    return `อีเมล ${payload.kkumail || 'นี้'} มีนักศึกษาใช้อยู่แล้ว\n\n`
-      + 'คน ๆ หนึ่งมีข้อมูลในระบบบ้านได้แถวเดียว — ถ้าเป็นคนเดียวกัน '
-      + 'ให้ค้นหาชื่อในรายการแล้วกดแก้ไขแถวเดิม ถ้าเป็นคนละคน ตรวจสอบอีเมลอีกครั้ง';
-  }
-  if (text.includes('students_sid_uniq') || text.includes('student_id')) {
-    return `รหัสนักศึกษา ${payload.student_id || 'นี้'} มีคนใช้อยู่แล้ว\n\n`
-      + 'ตรวจสอบว่าพิมพ์ถูกต้อง — ถ้าถูกต้องแล้วแปลว่ามีสองแถวถือรหัสเดียวกัน '
-      + 'ซึ่งต้องแก้ที่แถวเดิม ไม่ใช่เพิ่มแถวใหม่';
-  }
-  return 'ข้อมูลนี้ซ้ำกับที่มีอยู่แล้วในระบบ — ตรวจสอบอีเมลและรหัสนักศึกษาอีกครั้ง';
-}
+// duplicateMessage moved to ../duplicate-message.js — three OTHER write paths
+// (เพิ่มอาจารย์ twice, เพิ่มสาขา) were still alerting the raw 23505 this was
+// written to replace, and a translator that only one caller can reach is the
+// "fix on one path" shape. Re-exported so house/duplicate-message.test.js and
+// every existing importer keep working unchanged.
+// Imported AND re-exported: a bare `export { x } from` does not bind the name
+// in this module's scope, and two call sites below use it.
+import { duplicateMessage } from '../duplicate-message.js';
+
+export { duplicateMessage };
+
 
 /**
  * Say which of the TWO deletes this is.
@@ -1896,7 +1882,9 @@ async function onAdvisorSubmit(e) {
     await setAdvisorSais(row.id, codes);
     modalInstance('houseAdvisorModal')?.hide();
     await reload();
-  } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); }
+  } catch (err) {
+    alert(duplicateMessage(err, payload) || err?.message || 'บันทึกไม่สำเร็จ');
+  }
 }
 
 async function onAdvisorDelete() {

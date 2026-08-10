@@ -39,6 +39,11 @@ import {
 // so a delete, a bulk delete and a permission SAVE all become buttons that do
 // nothing at all. This tab has already shipped that bug twice.
 import { askConfirm, askDelete } from '../confirm-modal.js';
+// The same 23505 translator ระบบบ้าน uses. เพิ่มสาขา has a client-side pre-check
+// for an exact-match code, but `team_majors_code_uniq` can still fire on a race
+// or a case/whitespace difference the pre-check normalised away — and when it
+// does, the raw constraint name is what the admin would otherwise read.
+import { duplicateMessage } from '../duplicate-message.js';
 // ONE ชั้นปี rule for the whole app — see src/js/study-year.js. ทีม SAMO used to
 // STORE its answer in `team_members.year` instead, and 0145 is what that cost:
 // nine members reading a ชั้นปี exactly one year behind the truth, an edit box
@@ -2065,7 +2070,9 @@ async function onMajorAdd(e) {
     await loadMajors(true);
     await renderMajorsList();
     refreshMajorPickers();
-  } catch (err) { alert(err?.message || 'เพิ่มสาขาไม่สำเร็จ'); }
+  } catch (err) {
+    alert(duplicateMessage(err, { code }) || err?.message || 'เพิ่มสาขาไม่สำเร็จ');
+  }
 }
 
 async function onMajorsListClick(e) {

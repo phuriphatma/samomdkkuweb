@@ -151,6 +151,11 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'improved', area: 'house', audience: 'public',
+    text: 'เพิ่มอาจารย์ที่มีอยู่แล้ว หรือเพิ่มสาขาที่ซ้ำกับของเดิม '
+    + 'เมื่อก่อนขึ้นข้อความผิดพลาดภาษาอังกฤษยาว ๆ ที่อ่านไม่รู้เรื่อง '
+    + 'ตอนนี้บอกเป็นภาษาไทยว่าซ้ำกับใคร และควรทำอย่างไรแทน '
+    + 'เหมือนที่หน้าเพิ่มนักศึกษาทำอยู่แล้ว', },
   { type: 'improved', area: 'account', audience: 'public',
     text: 'หน้าเข้าสู่ระบบจัดใหม่ — ปุ่มเข้าสู่ระบบด้วย Google ขึ้นมาอยู่บนสุด '
     + 'พร้อมบอกให้เลือกบัญชีที่ลงท้ายด้วย @kkumail.com หรือ @kku.ac.th '
