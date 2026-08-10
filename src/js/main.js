@@ -846,10 +846,15 @@ document.addEventListener('DOMContentLoaded', () => {
       // never fires for a house-only person — paint them here.
       loadMySeat(user.id)
         .then((seat) => {
-          if (!(seat?.postings || []).length) showMyHouse(houseHost, user.id);
+          // `account` lets renderMyHouse tell "signed out" from "signed in but
+          // ระบบบ้าน has nothing for you" — the second used to render NOTHING,
+          // which is how a gmail sign-in silently lost the whole feature.
+          if (!(seat?.postings || []).length) {
+            showMyHouse(houseHost, user.id, { signedIn: true, account: user.email });
+          }
         })
         // A failed seat lookup must not cost the student their house card.
-        .catch(() => showMyHouse(houseHost, user.id));
+        .catch(() => showMyHouse(houseHost, user.id, { signedIn: true, account: user.email }));
     } else {
       clearMySeatCache();
       renderMySeat(seatHost, null);

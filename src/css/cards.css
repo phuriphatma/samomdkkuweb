@@ -925,6 +925,35 @@
   background: #e2e8f0;
 }
 
+/* The kkumail steer under the Google button. Deliberately a reassurance in the
+   brand green rather than a warning in amber: picking the right account is the
+   happy path, not a hazard, and an alarm colour on the FIRST thing a signed-out
+   student sees would read as "something is wrong" before they have done
+   anything. It earns its space because a non-kkumail sign-in silently costs
+   them ระบบบ้าน entirely — see the comment in modal-signin.html. */
+.signin-kku-hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-600, #475569);
+}
+.signin-kku-hint .bi {
+  color: var(--brand-primary);
+  margin-inline-end: 0.25rem;
+}
+.signin-kku-hint strong { color: var(--brand-primary); font-weight: 700; }
+
+/* The way back to username/password. A link, not a button: it must be reachable
+   without competing with Google for the eye — the whole point of the reorder. */
+.signin-alt-toggle {
+  font-size: 0.85rem;
+  color: var(--ink-500, #64748b);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.signin-alt-toggle:hover,
+.signin-alt-toggle:focus { color: var(--brand-primary); }
+
 /* Tool cards */
 .tool-card {
   display: flex;

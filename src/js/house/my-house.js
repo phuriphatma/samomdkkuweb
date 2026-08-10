@@ -547,9 +547,63 @@ function reportFormHtml(rec) {
     </form>`;
 }
 
+/**
+ * The card a signed-in person sees when ระบบบ้าน has nothing for them.
+ *
+ * WHY THIS EXISTS. `fetchMyStudentRecord()` matches `users.email` against
+ * `students.kkumail`, so an account signed in with a GMAIL address can never
+ * match — and the card simply did not render. No message, no hint, nothing to
+ * click: the whole feature was invisible and the reason was invisible with it.
+ * Someone in that state has no way to discover that the ACCOUNT is the problem,
+ * and the sign-in modal used to steer people towards exactly that state by
+ * putting username/password first.
+ *
+ * TWO DIFFERENT EMPTY STATES, because they need different actions. A non-kkumail
+ * account has to sign in again with the right one; a kkumail account that is
+ * simply not in the table yet just has to wait for (or ask about) the import.
+ * Saying "ask an admin" to the first group would send them to a human who cannot
+ * help, and telling the second to switch accounts would send them in a circle.
+ */
+function emptyHouseHtml(account) {
+  const mail = String(account || '').trim();
+  const isKku = /@kkumail\.com$/i.test(mail) || /@kku\.ac\.th$/i.test(mail);
+  return `
+    <div class="myseat-card myhouse-card">
+      <div class="myseat-head">
+        <span class="myseat-eyebrow"><i class="bi bi-house-heart-fill" aria-hidden="true"></i> บ้านของฉัน</span>
+      </div>
+      ${isKku ? `
+        <p class="myhouse-empty">ยังไม่มีข้อมูลของคุณในระบบบ้าน — ปกติแปลว่ายังไม่ได้นำเข้าข้อมูลรุ่นของคุณ
+          ถ้าเพื่อนร่วมรุ่นเห็นข้อมูลของตัวเองแล้วแต่คุณยังไม่เห็น
+          แจ้งได้ที่ <a href="/vssound">แจ้งปัญหา (VitalSound)</a></p>`
+    : `
+        <p class="myhouse-empty">ระบบบ้านใช้บัญชี <strong>kkumail</strong> ในการจับคู่ข้อมูลนักศึกษา
+          ตอนนี้คุณเข้าสู่ระบบด้วย${mail
+    ? ` <strong>${escHtml(mail)}</strong>`
+    : 'ชื่อผู้ใช้และรหัสผ่าน ซึ่งไม่ได้ผูกกับ kkumail'}
+          จึงยังไม่เห็นสายรหัส บ้าน และอาจารย์ที่ปรึกษาของตัวเอง</p>
+        <p class="myhouse-empty">ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วย Google
+          โดยเลือกบัญชี <strong>@kkumail.com</strong> ของคุณ แล้วข้อมูลจะขึ้นเองอัตโนมัติ</p>`}
+    </div>`;
+}
+
 export function renderMyHouse(host, rec, opts = {}) {
   if (!host) return;
-  if (!rec) { host.hidden = true; host.innerHTML = ''; return; }
+  if (!rec) {
+    // Signed OUT (main.js paints this explicitly on the logged-out branch) —
+    // stay hidden. There is no question to answer for someone who has not said
+    // who they are yet.
+    //
+    // The flag is `signedIn`, NOT a truthy `account`: auth.js stores '' as the
+    // email of a username/password account (the synthetic address is hidden on
+    // purpose), so keying off the address alone would leave exactly those users
+    // with a blank card again — the bug this branch exists to fix, reintroduced
+    // for the group most likely to hit it.
+    if (!opts.signedIn) { host.hidden = true; host.innerHTML = ''; return; }
+    host.hidden = false;
+    host.innerHTML = emptyHouseHtml(opts.account);
+    return;
+  }
   host.hidden = false;
   // Set when the person also holds a ทีม SAMO posting, i.e. the card above is
   // already showing their identity. This card then carries only what is
