@@ -396,7 +396,10 @@ team_nodes (uuid id PK, parent_id FK team_nodes(id) CASCADE,
     that forgets the filter.
 
 team_members (uuid id PK, node_id FK team_nodes(id) CASCADE, position int,
-              kkumail, full_name, nickname, student_id, year, major,
+              kkumail, full_name, nickname, student_id, major,
+              cohort_year smallint, year_offset smallint  -- 0145, MIRRORED DOWN
+              year text  -- DEAD since 0145; dropped once the bundle that
+                         -- stopped reading it has been served for a while
               confirmed bool, user_id FK users(id) SET NULL [optional link],
               permissions text[] [per-person extras, 0081],
               inherit_permissions bool [also take the node's perms, 0081],
@@ -424,10 +427,43 @@ displayed nowhere and only ever produced spurious ตรวจสอบข้อ
 `659999999-9` (bare 10 digits, Thai numerals and stray punctuation are all
 normalised; anything else is REFUSED at the form, but only when the value
 CHANGED, so an unrelated nickname edit is not held hostage by an unfixable id).
-ชั้นปี and สาขา are choosers. Three writers share the module — the admin form,
-the CSV importer and the person's own card — because `io.js` previously carried
-its own `normalizeYear` and the two drifted. Proof: `tools/team0113-fields.mjs`
+สาขา is a chooser. Three writers share the module — the admin form, the CSV
+importer and the person's own card — because `io.js` previously carried its own
+`normalizeYear` and the two drifted. Proof: `tools/team0113-fields.mjs`
 (26 checks, both directions).
+
+**ชั้นปี IS NOT STORED ANYWHERE (0145) — `src/js/study-year.js` computes it.**
+
+```
+ชั้นปี = ปีการศึกษา − ปีที่เข้า + 1 + year_offset
+```
+
+ปีที่เข้า is read off the รหัสนักศึกษา and re-derived whenever the รหัส moves
+(`students_fill_cohort` 0128, `people_fill_cohort` 0145). ปีการศึกษา is
+admin-set (`get_academic_year()`, 0141). `year_offset` is a DIFFERENCE — ลาพัก /
+เรียนซ้ำ / จบช้า — which stays correct in every later year with no maintenance,
+and survives a corrected รหัส unchanged because it is relative.
+
+`cohort_year` and `year_offset` live on `public.people` and are MIRRORED DOWN
+onto both placements (`students`, `team_members`) by `person_mirror_down`. They
+are read-only on the placement: `team_members_self_update_guard` does not list
+them, so a member cannot PATCH them, and a direct write is undone by the registry
+on the next touch. The one writer is the person's own card, through
+`update_my_identity` → `year_offset`.
+
+**Nothing writes a ชั้นปี.** `team_members.year` was that column and it is dead:
+nothing bumped it, so by August 2026 nine members were showing a ชั้นปี exactly
+one year behind, and one person read ปี 5 / จบแล้ว / ปี 5 on three screens. The
+CSV's `ชั้นปี` column is EXPORT-only and the import preview says so. Three
+surfaces carry a ชั้นปี chooser (seat card, ระบบบ้าน admin, and the person's own
+house card) and all three save the OFFSET; the ทีม SAMO admin form shows a
+read-only computed box that repaints as the รหัส is typed.
+
+Ratchet: `src/js/study-year.test.js` fails the build on any `year:` key in a
+write payload, any second implementation of the arithmetic, and any ชั้นปี
+rendered outside `studyYearLabel()`. Proofs:
+`tools/team0145-one-chan-pi.sql` (16/16) and
+`tools/team0145-save-as-the-member.sql` (12/12, impersonated).
 
 **The tree DRIVES real login permissions (migration 0081).** A member's effective
 app-perms = `member.permissions ∪ (member.inherit_permissions ? node_effective)`,

@@ -1326,3 +1326,61 @@ section list to keep in step.
 **Rule**: a gate on the widget is not a gate on the route. Enumerate every way
 in — click, hash, query string, deep link — because the URL bar is one of them
 and it is the one nobody renders.
+
+---
+
+## `{"code":"23505" … "students_kkumail_key"}` in an alert() — a unique index used as a first line of defence
+
+**Symptom**: reported verbatim — *"what if i add student data in ระบบบ้าน that
+already exist in teamsamo, it shows `{"code":"23505","details":null,"hint":null,
+"message":"duplicate key value violates unique constraint \"students_kkumail_key\""}`.
+what if the data isn't the same, or some field left blank, etc."*
+
+**Cause**: the create path had no duplicate handling at all, so the raw PostgREST
+envelope reached `alert()`. A unique index is the correct BACKSTOP and a terrible
+first line of defence: by the time it fires the admin has filled in a whole form,
+and what comes back names an index rather than a person — it does not say who the
+address belongs to, whether they are already in a บ้าน, or what to do next. The
+admin's only remaining move is to guess.
+
+**Fix**: "already exists" is THREE situations wanting three different next
+actions, so the form grew three states rather than one error message.
+
+1. **Already a นักศึกษา** — nothing to create. Name them, name their สาย and
+   บ้าน, and offer a button that switches the modal to the row that exists.
+2. **In the registry, not in ระบบบ้าน** — a ทีม SAMO member getting a house
+   placement for the first time. A legitimate save; the DB links them to the same
+   `public.people` row. "ใช้ข้อมูลจากระบบ" fills the BLANK boxes only, and every
+   field where the registry DISAGREES is listed with both values — choosing
+   between two spellings of a real person's name is a decision, not a merge.
+3. **Nobody** — no banner.
+
+**Two things that would have made it wrong**:
+
+- The lookup is `search_people` (SECURITY DEFINER), **not** a scan of the
+  `students` array the pane already holds. RLS returns zero rows rather than an
+  error, so a local scan answers "no such person" for exactly the rows the caller
+  cannot see — a fail-open, and the shape behind three bugs here already.
+- **Exact kkumail equality only.** `search_people` is a SEARCH; treating its best
+  guess as an identity would let a half-typed address claim a stranger's record
+  ("an ILIKE lookup makes the id a PATTERN, not a capability").
+
+`duplicateMessage()` stays as the second line and is **not** redundant: the
+lookup can be in flight or failed, two admins can pass the check in the same
+instant, and the รหัสนักศึกษา clash is deliberately not pre-checked at all (a
+shared รหัส is an ambiguous fact about two humans — 0108 — not a duplicate to
+merge). Same shape as `update_my_student_record` (0125), whose own comment says
+it: *the pre-check gives the good message in the ordinary case; the exception
+handler is what makes it true.*
+
+**Where it lives now**: `src/js/house/index.js` (`paintPersonMatch`,
+`duplicateMessage`) · `src/js/house/duplicate-message.test.js` · proof
+`tools/house0145-duplicate-person.sql` (5/5).
+
+**Rule**: a constraint violation is a fact about a PERSON, and the UI owes the
+reader that sentence — but say it while the field is still being typed, not after
+a form has been filled in. Keep the handler anyway: a pre-check is a courtesy and
+only the index is the guarantee. And every error translator needs a control that
+NON-matching errors pass through untranslated — one that swallows a permissions
+failure as "ข้อมูลซ้ำ" costs an admin an afternoon hunting a duplicate that does
+not exist.

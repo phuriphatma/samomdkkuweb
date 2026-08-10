@@ -655,3 +655,92 @@ Guarded by `tools/house0132-registry.mjs` steps A8b/A8c.
 a reason to write the field it derives from. And when the guard for that sync
 compares values, compare the DERIVED one; comparing the source you just wrote
 either never terminates or terminates on the wrong condition.
+
+---
+
+## "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
+
+**Symptom**: three reports in one message. Changing ชั้นปี on the home card did
+nothing at all — the save reported success and the old value came straight back.
+Changing รหัสนักศึกษา moved the รุ่น but not the ปี. And one person, after
+setting their รหัส to `603070316-0`, read **ชั้นปี 5 on the main web, จบแล้ว
+(ปี 10) in ระบบบ้าน, and ปี 5 in ทีม SAMO** — "the data become not syncing".
+
+**Cause, part 1 — the revert.** `person_mirror_down()` pushed `people.year` into
+`team_members.year`. `team_member_mirror_up()` never carried it back. The mirror
+was bidirectional on eight columns and **one-way on the ninth**, so the my-seat
+save did this:
+
+```
+A. before                        tm=5  people=5
+B. after PATCH year=3            tm=3  people=5     ← the edit landed
+C. after update_my_identity tail tm=5  people=5     ← the trigger undid it
+```
+
+Step C is `update_my_identity`'s own last statement — an unrelated `update
+public.people`. Any touch of the registry reverted the edit.
+
+The `is distinct from` guard cannot catch this. **The guard is a TERMINATION
+condition, not a completeness check**: a column that is only ever written
+downhill looks perfectly settled to it.
+
+**Cause, part 2 — two implementations.** ระบบบ้าน DERIVES ชั้นปี
+(`ปีการศึกษา − ปีที่เข้า + 1 + year_offset`, 0131) and re-derives ปีที่เข้า when the
+รหัส moves (0128). ทีม SAMO STORED it, and nothing has ever bumped that column.
+`src/js/house/fields.js` carried a comment predicting this precise failure since
+0131 — *"every August all 399 quietly become last year's answer"*. It was that
+August: 9 of 400 members were showing a ชั้นปี exactly one year behind, and the
+only screen where the two answers appear side by side is one person's own card.
+
+**Fix**: 0145. `people_fill_cohort` (0128's rule, on the registry);
+`team_members` gains `cohort_year` + `year_offset`, mirrored DOWN;
+`person_mirror_down` carries the INGREDIENTS and no longer carries the answer.
+The rule moved out of `house/` into `src/js/study-year.js` — a rule two systems
+need does not belong inside one of them, and living under `house/` is what made
+"ทีม SAMO should use this too" read as a layering violation instead of the
+obvious thing.
+
+**Three details that were each nearly wrong**:
+
+- **Order.** The backfill UPDATEs `people`, which fires the trigger. Run against
+  the OLD trigger body it would have blanked the ชั้นปี of the 109 postings whose
+  registry row never received a `year` — *for the bundle still being served*.
+  Redefine the trigger first, then backfill.
+- **Convert, don't discard.** 13 members have a ชั้นปี and no รหัส. Deriving only
+  from the รหัส blanks exactly them. The backfill reads the stored ชั้นปี once,
+  at the last moment we still know what it meant, as
+  `ปีที่เข้า = ปีการศึกษา − ชั้นปี + 1`.
+- **`app.team_sync` must be SAVED AND RESTORED, not blanked.** `person_mirror_down`
+  now writes columns outside the self-update guard's allow-list, so it needs the
+  server-writer exemption. `set_config(…, true)` is TRANSACTION-scoped and this
+  AFTER trigger fires *between* the BEFORE guard's per-row invocations — blanking
+  the flag lets row 1's mirror disarm the exemption for row 2, and the save fails
+  only for members with more than one ตำแหน่ง.
+
+**Answering the owner's question** ("should changing รหัสนักศึกษา change ชั้นปี?
+i think it shouldn't"): it must — the รหัส is where ปีที่เข้า comes from, so a
+corrected รหัส with a frozen ชั้นปี asserts that someone who entered in 2560 is
+in their fifth year in 2569. What must *not* be recomputed is the part that is
+about the person, and that is `year_offset`, a DIFFERENCE, which survives the
+correction unchanged. The instinct is right; the offset is what satisfies it.
+
+**And the same bug, client-side.** Found while scrutinising the fix:
+`studyYear` reads `cohort_year || cohortFromStudentId(sid)` — the STORED cohort
+wins — so both new call sites spread the row and overwrote only `student_id`,
+keeping the old ปีที่เข้า. The admin's computed box refused to move while the รหัส
+was being corrected, and an offset saved in that state is measured against a base
+that no longer exists. `yearBasis()` is the one rule: the stored cohort is
+trustworthy only while the รหัส it came from is unchanged.
+
+**Where it lives now**: `supabase/migrations/0145_one_chan_pi_derived_everywhere.sql`
+· `src/js/study-year.js` · proofs `tools/team0145-one-chan-pi.sql` (16/16) and
+`tools/team0145-save-as-the-member.sql` (12/12, impersonated) · ratchet
+`src/js/study-year.test.js`.
+
+**Rule**: a bidirectional mirror is only bidirectional on the columns BOTH
+directions name — enumerate them, because the `is distinct from` guard reports a
+one-way column as settled. And when a comment predicts a failure, it will not
+prevent it: this one was written down, correctly, eight months early, and the
+bug shipped anyway. **The third fix is a test.** `study-year.test.js` now fails
+the build on any `year:` key in a write payload, any second implementation of the
+arithmetic, and any ชั้นปี rendered outside `studyYearLabel()`.

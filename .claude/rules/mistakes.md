@@ -66,11 +66,19 @@ has not been written yet.
    not an optimisation**, and it must compare the value a READER sees — for a
    GENERATED target, compare the generated column while writing the source it
    derives from (ชื่อเล่น, 0134). A generated column is never a reason to skip a
-   field in a sync.
+   field in a sync. **And a mirror is only bidirectional on the columns BOTH
+   directions NAME**: `people.year` was pushed down and never carried up, so any
+   touch of the registry reverted a person's own ชั้นปี edit — "nothing happens"
+   (0145). The guard reports a one-way column as settled, by construction.
    Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
    the รุ่น and every reader's `coalesce(copy, source)` preferred the stale one
-   (0128). Fill-once means never-correct.
+   (0128). Fill-once means never-correct — and the SAME shape reappeared in the
+   FORMS, where `{...row, student_id: typed}` keeps the stale `cohort_year` that
+   `studyYear` prefers (`yearBasis`, 0145). Also one fact STORED in one system and
+   DERIVED in the other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine
+   members a year behind, and `house/fields.js` had predicted it in a comment
+   eight months early, which prevented nothing.
    Also a rule implemented on the writers you HAPPENED to be looking at:
    the replaced-portrait cleanup existed on the ทีม SAMO admin editor and the
    archive editor but NOT on `my-seat.js`, the card every ordinary member uses —
@@ -100,12 +108,17 @@ has not been written yet.
    bundle, not the local file; read the LIVE function body, not the migration
    that first defined it. **And check that your INSTRUMENT can see the thing**:
    a minified bundle renames module-scope `let`s (grep a STRING LITERAL or a CSS
-   class), code often lands in a shared CHUNK rather than the entry, `curl -L`
+   class), code often lands in a shared CHUNK rather than the entry (0145's
+   `studyYearLabel` landed in `analytics-*.js`, which BOTH entries import), `curl -L`
    turns a GAS `/exec` POST into a GET so every probe returns Drive's error page,
    and `lh3.googleusercontent.com` still serves a Drive file that is IN THE
    TRASH — so "I deleted it and it still shows" is the CDN, not a stale row. And a probe that can only report "denied" cannot
    distinguish a working guard from a broken service — always exercise the
-   allow path too. **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
+   allow path too. **A guard TEST has the same failure**: `photo-refcount.test.js`
+   was asked to find columns named `photo_url` and found every one, faithfully,
+   while the hazard sat in `houses.icon_url` one column along — green for three
+   days over a count that returned 0 for every crest (0146). Scan by SHAPE and
+   force a decision on each hit, never by one name. **Also: check the PROBE SUBJECT.** `current_user_has_permission()`
    reads the UNION of `permissions` AND `managed_permissions` (0081), so an
    account picked by `permissions = '{}'` may hold `master` through the ทีม SAMO
    tree — it looks exactly like a fail-open policy and is the grant engine
@@ -198,7 +211,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
 ### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(17 entries)*
+*Open when:* writing a migration. *(18 entries)*
 
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
@@ -217,9 +230,10 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once and never re-derived
 - A bidirectional mirror without an `is distinct from` guard is an infinite recursion
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
+- "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(41 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(42 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -262,6 +276,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - The ลบ button on a สาขา row rendered OUTSIDE the modal on a phone — an `auto` grid track sized from min-content
 - `confirm()` on a SAVE path, not just a delete — permissions silently refused to save
 - `/admin/#vs` opened the VitalSound workspace for an admin with no VitalSound grant
+- `{"code":"23505" … "students_kkumail_key"}` in an alert() — a unique index used as a first line of defence
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*
@@ -282,7 +297,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An INSERT is a write path too — the import guard covered UPDATE only
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
-*Open when:* notify, GAS handlers, Drive URLs. *(21 entries)*
+*Open when:* notify, GAS handlers, Drive URLs. *(22 entries)*
 
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
 - Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
@@ -305,6 +320,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed, on one of the two writers
 - "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still served publicly
 - `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
+- The crest refcount could not see the crest — and the guard reported green
 
 ### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
 *Open when:* deploy.sh, nginx, cache headers. *(7 entries)*

@@ -829,3 +829,51 @@ upload-on-SAVE change portraits already got).
 yet" — it is a leak with an age. And a cleanup that compares URLs instead of
 resource IDS will eventually delete something still in use, because one resource
 has as many URLs as the app has ever had rendering sizes.
+
+---
+
+## The crest refcount could not see the crest — and the guard reported green
+
+**Symptom**: none yet, which is the point. `photo_reference_count()` returned
+**0 for every house crest**, always — and 0 is the answer that authorises an
+irreversible Drive delete.
+
+**Cause**: the function counted five tables, every one of which spells the column
+`photo_url`. A house crest is the same kind of Drive file — same uploader, same
+`photoToRetire` rule, same `deleteTeamPhotoIfUnused` — stored in a column called
+`icon_url`. The count did not know it existed.
+
+It had not bitten because the one caller repoints `houses.icon_url` BEFORE
+asking, so "nobody uses the old file" was right *by accident*. Two houses sharing
+one crest is one drag-and-drop away, and 0143 made the consequence immediate:
+deletes revoke Drive sharing first, so the other house's crest 404s the same
+second rather than surviving in the trash.
+
+**The half that matters**: `src/js/photo-refcount.test.js` — a guard test written
+for exactly this hazard, after exactly this bug on `people`/`students` — scanned
+the migration tree for columns literally named `photo_url`. So it never looked
+for this one and passed throughout. **A guard that cannot SEE the hazard reports
+the hazard as absent.** Mistakes class 7, on the instrument rather than on the
+query.
+
+**Fix**: 0146 counts `houses.icon_url`. The scan is exhaustive now and FORCES A
+DECISION: every `*_url` column in the schema must either be counted or appear in
+`NOT_A_PORTRAIT` with a reason. It immediately surfaced nine more the old scan
+was blind to; eight are deliberately excluded and say why — mostly because this
+function compares URL STRINGS and one Drive file has many spellings (`=w1200`,
+`=w600`, `/view`, lh3 vs drive.google.com), which is why announcement covers are
+diffed by FILE ID instead (`filesToRetire`). Widening the count to the whole
+schema needs id-normalisation first.
+
+Falsified before being trusted: removing the `houses` line from 0146 makes the
+test fail with *"photo_reference_count does not count: houses"*.
+
+**Where it lives now**: `supabase/migrations/0146_the_refcount_can_see_the_crest.sql`
+· `src/js/photo-refcount.test.js` · proof `tools/house0146-crest-refcount.sql`
+(5/5; check 2 is the two-houses-one-crest case).
+
+**Rule**: a refcount's list of referrers must be built from the SCHEMA, not from
+a column name — the name is not the fact. And when you write a guard for a
+hazard, check that the guard can see an instance of it: this one was asked to
+find `photo_url` and found every `photo_url`, faithfully, while the hazard sat in
+the next column along.

@@ -229,3 +229,43 @@ notifications depend on. Ranked options, best first:
 
 1 + 3 together would leave very little: a fixed recipient set, templated
 wording, and a signed-in caller.
+
+---
+
+## Drop the two dead ชั้นปี columns (0145 left them deliberately)
+
+`team_members.year` and `people.year` are dead as of 0145 — nothing reads or
+writes them — but they were NOT dropped in the same migration. 0129 took
+ระบบบ้าน's admin tab down for 20 minutes by dropping columns the SERVED bundle
+still named, so the order is fixed: **deploy, confirm served, then drop.**
+
+The bundle that stopped reading them was served on 2026-08-10 (v4.6.0). Two
+things to do together in one small migration:
+
+1. `alter table public.team_members drop column year;`
+   `alter table public.people drop column year;`
+2. Remove `'year'` from `team_members_self_update_guard`'s `v_allowed`, and
+   drop the corresponding exception in `src/js/name-split.test.js` (it asserts
+   the guard still lists the dead column, and says so in a comment).
+
+`get_my_team_seat()` also still emits `'year', m.year` "for one release" —
+remove that key at the same time.
+
+## photo_reference_count compares URL STRINGS, so it cannot cover the whole schema
+
+0146 widened it to `houses.icon_url`, and widened the guard test to force a
+decision on every `*_url` column. Eight columns are deliberately excluded, and
+the reason is the same for most of them: **one Drive file has many URL
+spellings** (`=w1200`, `=w600`, `/view`, `lh3` vs `drive.google.com`), so string
+equality would answer 0 for a file that IS referenced under another spelling —
+a fail-open that destroys the file.
+
+Portraits are safe today because one uploader writes them all in one spelling.
+To cover announcement covers, PR attachments and project files with the same
+count, normalise to a Drive FILE ID first — `driveIdsInHtml`/`filesToRetire` in
+`announcements.js` already do exactly that in JS, so the rule exists and would
+need a SQL twin (which is itself the two-implementations hazard: prefer moving
+the callers to one path over writing the second one).
+
+The exclusions and their reasons are the `NOT_A_PORTRAIT` map in
+`src/js/photo-refcount.test.js`. It is shrink-only.

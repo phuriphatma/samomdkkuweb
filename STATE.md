@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-09 (late)**. Read on every cold start: this is "what is
+Last updated: **2026-08-10**. Read on every cold start: this is "what is
 true RIGHT NOW" and nothing else — `git log --oneline` is the chronology. Keep it
 under ~200 lines; when it bloats, move SHIPPED narratives to
 `docs/state-archive/YYYY-MM-DD.md` and leave a two-line pointer.
@@ -10,49 +10,53 @@ two open items, the invariants that will bite you, and the signatures that
 changed. **It also tells you to read your agent memory, which holds one item
 this PUBLIC repo must not contain.** Then come back for CURRENT DEPLOY.
 
-Archived narratives: `docs/state-archive/2026-08-09-session.md` (0132–0144 — the
-person registry, the identity mirrors, the Drive-cleanup work and both GAS
-redeploys) · `2026-08-08-late-0128-0131.md` · `2026-08-08-house-polish.md` ·
-`2026-08-05-late-13-requests.md` · `2026-08-05-shipped.md` ·
-`2026-08-04-shipped.md` · `2026-07-31-team-0104-detail.md` ·
-`2026-07-30-pre-clear.md` · `2026-07-24-full.md`.
+Archived narratives: `2026-08-10-chan-pi.md` (0145–0146, v4.6.0) ·
+`2026-08-09-session.md` (0132–0144 — the person registry, the identity mirrors,
+the Drive-cleanup work and both GAS redeploys) · `2026-08-08-late-0128-0131.md` ·
+`2026-08-08-house-polish.md` · `2026-08-05-late-13-requests.md` ·
+`2026-08-05-shipped.md` · `2026-08-04-shipped.md` ·
+`2026-07-31-team-0104-detail.md` · `2026-07-30-pre-clear.md` ·
+`2026-07-24-full.md`. All under `docs/state-archive/`.
 Architecture/RLS: `docs/CONTEXT.md`. Bug corpus: **`docs/mistakes/*.md`**,
 indexed by `.claude/rules/mistakes.md`.
 
-## What shipped 2026-08-09 → `docs/state-archive/2026-08-09-session.md`
+## What shipped recently
 
-A long session: migrations **0132–0144**, both GAS projects redeployed, ~12 VM
-deploys. The archive carries the reasoning; the things that CHANGE WHAT YOU DO
-FIRST are in the NEXT-SESSION PROMPT at the bottom of this file. They are
-invariants, not history — do not try to re-derive them from `git log`.
+**2026-08-10** — migrations 0145–0146, and **v4.6.0 cut and deployed**, the
+release three sessions owed. **2026-08-09** — 0132–0144, the person registry,
+both GAS projects redeployed.
+
+The archives carry the reasoning. Everything that CHANGES WHAT YOU DO FIRST is
+in the NEXT-SESSION PROMPT at the bottom — invariants, not history. Do not try
+to re-derive them from `git log`.
 
 ## CURRENT DEPLOY
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- **samoweb**: `main` = `79df3eb`, deployed and verified from the served
-  artifacts. Still **v4.5.0**.
-  ⚠️ **`PENDING` in `src/data/changelog.js` holds ~42 entries** — three sessions
-  of user-visible work with no version cut. **A `npm run release` minor bump is
-  OWED** and `/updates` shows none of it. Read `docs/VERSIONING.md` first; the
-  bump is a **minor**. This is the largest piece of finished-but-invisible work.
-- **Migrations applied through 0144.**
+- **samoweb**: `main` = `7d6e9fe`, **v4.6.0**, deployed and verified from the
+  SERVED artifacts (`/build.json` → 4.6.0; six new Thai string literals grep in
+  the served bundles; a control string that must be absent returns 0).
+  ⚠️ `studyYearLabel` landed in the SHARED chunk `analytics-*.js`, which BOTH
+  entries import — grepping only `public-*.js` / `admin-*.js` returns 0 on a
+  perfectly good deploy.
+  `PENDING` in `src/data/changelog.js` is **empty**; its 46 staged notes are now
+  v4.6.0 on `/updates`. Stage the next note in the commit that ships it.
+- **Migrations applied through 0146.**
 - **Apps Script: BOTH projects redeployed** — samoweb **v11**, passport **v10**.
   Script ids live in each repo's `.env.local`, and the key is named (empty) in
   `passport/.env.example`. ⚠️ **A missing `GAS_SCRIPT_ID` makes
   `npm run deploy:gas` a SILENT NO-OP** — it prints "not set" and exits looking
   fine. That is how a committed GAS fix sat undeployed for an hour.
-- **Live proofs, all both-directional** — run the one covering what you touch:
-  `node tools/gas-delete-actions.mjs` (6/6, includes a control that must FAIL) ·
-  `node tools/db-query.mjs tools/house0144-delete-impact.sql` (18/18,
-  differential) · `node tools/house0132-registry.mjs` (19/19) ·
-  `node tools/team0143-photo-refcount.mjs` (5/5) ·
-  `node tools/house0138-conflicts.mjs` (21/21) ·
-  `node tools/team0137-search.mjs` (14/14) ·
-  `node tools/team0135-name-split.mjs` (16/16) ·
-  `node tools/house0139-insert-path.mjs` (10/10) ·
-  `node tools/team0140-merge.mjs` (7/7) · `node tools/proj0114-visibility.mjs` (29/29).
-- **630 tests green.** `npm run build && npm test` before every commit.
+- **Live proofs — `tools/*.mjs` and `tools/*.sql`, ALL both-directional.** Run
+  the one covering what you touch (`node tools/db-query.mjs tools/<x>.sql` for
+  the SQL ones). Newest first, plus the two that catch the most:
+  `team0145-one-chan-pi.sql` (16/16) · `team0145-save-as-the-member.sql` (12/12,
+  impersonated) · `house0146-crest-refcount.sql` (5/5) ·
+  `house0145-duplicate-person.sql` (5/5) · `house0144-delete-impact.sql` (18/18,
+  differential) · `node tools/house0132-registry.mjs` (19/19 — run before
+  touching ANY mirror). The rest are named after the migration they guard.
+- **665 tests green.** `npm run build && npm test` before every commit.
 - ⚠️ **Rotate the VM sudo password** and the **KKU SSO client secret** — both
   were exposed in chat transcripts (2026-08-07 / 08-08).
 
@@ -78,32 +82,23 @@ this session. Write-ups in `docs/state-archive/` (VS confidentiality invariants:
   `main` protected (1 approval; owner ff-push exempt).
 - Retention jobs NOT scheduled (`prune_analytics`, `prune_notify_log`).
 
-## Housekeeping — the memory system
+## Housekeeping
 
-Restructured 2026-08-05 and stable since. **Do not re-create
-`.claude/rules/mistakes-archive.md`** — it lived in the auto-loaded directory, so
-archiving into it saved nothing.
+The memory system — what auto-loads, what is fetched on demand, the enforced
+budget — is described in `CLAUDE.md` § "Memory layout". It was duplicated here,
+and two copies of one rule is the class this repo pays for most. Only what is
+NOT in CLAUDE.md remains:
 
-| | where | loaded |
-|---|---|---|
-| recurring **classes** + a 1-line index of every entry | `.claude/rules/mistakes.md` | every session |
-| the **write-ups**, nine files by area | `docs/mistakes/*.md` | on demand |
-
-- **The index is GENERATED** — `npm run mistakes:index`. Never hand-edit it; if a
-  line reads badly, fix the heading it came from.
-- **The budget is ENFORCED** — `npm run check:context` (run by `npm test`) fails
-  when an auto-loaded file exceeds its cap. **When it breaches, move detail into
-  `docs/`. Never raise the cap** — reaching for the cap is what caused the 63k-token
-  problem this replaced.
-- **Release notes are staged as the work ships** — `PENDING` in
-  `src/data/changelog.js`, folded in by `npm run release`. Not rendered on
-  `/updates`: an unreleased list on a public page is a promise.
-- **STATE.md**: keep COMPLETED work in `docs/state-archive/`; leave only what is
-  true right now. `git log --oneline` is the chronology.
-- `.env.local` holds the Supabase PAT, VM sudo pw, project-B DB creds — never commit.
+- **Do not re-create `.claude/rules/mistakes-archive.md`.** It lived in the
+  auto-loaded directory, so archiving into it saved nothing.
+- **Never hand-edit the mistakes index** — `npm run mistakes:index` generates it.
+  If a line reads badly, fix the heading it came from.
+- **Never raise the context cap** when `npm run check:context` fails. Move detail
+  into `docs/`; reaching for the cap caused the 63k-token problem this replaced.
+- `.env.local` holds the Supabase PAT, the VM sudo pw and project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-09, late)
+## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-10)
 
 > **Read this file first. Then read your agent memory — it holds one item that
 > is NOT in this repo and must not be.** This repo is PUBLIC, so an open security
@@ -111,19 +106,26 @@ archiving into it saved nothing.
 > highest-priority work. Do not write its detail into any tracked file until it
 > is FIXED.
 >
-> ### 1. Two things are open, both already investigated
+> ### 1. One thing is open
 >
-> 1. **The security item in memory.** Verified live, minimal fix scoped, and the
->    one thing that would make the fix dangerous was checked and is clear. The
->    owner was asked and had not answered when the session ended. Ask once, ship.
-> 2. **`photo_reference_count()` cannot see `houses.icon_url`.** The house-crest
->    cleanup (`house/index.js` → `deleteTeamPhotoIfUnused(prevIcon)`) therefore
->    decides on a count that always answers 0. Safe today by coincidence — the
->    row is repointed first — but two houses sharing a crest means replacing one
->    trashes the other's, and since deletes now REVOKE SHARING first the victim
->    breaks instantly rather than lingering. Fix: add `houses` to the function in
->    a new migration, and widen `src/js/photo-refcount.test.js`, which scans only
->    for `photo_url` columns and so reports green on exactly this.
+> **The security item in memory.** Verified live, minimal fix scoped, and the one
+> thing that would make the fix dangerous was checked and is clear. The owner has
+> now been asked TWICE (2026-08-09 and 2026-08-10) and has not answered either
+> time. It is one migration with a written proof. Ask again; if the answer is
+> "decide", ship it.
+>
+> The crest refcount that sat here is **DONE** (0146) — along with the guard test
+> that had been reporting green over it.
+>
+> Two follow-ups with full reasoning in `docs/NEXT.md`:
+> **(a) drop `team_members.year` and `people.year`** — dead since 0145, left in
+> place because the served bundle still named them; v4.6.0 has been served since
+> 2026-08-10, so the window is open. Three things go together: the columns,
+> `'year'` in `team_members_self_update_guard`'s `v_allowed` (and the exception
+> naming it in `src/js/name-split.test.js`), and the `'year', m.year` key still
+> emitted by `get_my_team_seat()`.
+> **(b) `photo_reference_count` compares URL STRINGS**, so it cannot be widened
+> past portraits until Drive file IDs are normalised.
 >
 > ### 2. Invariants that will bite you
 >
@@ -153,6 +155,30 @@ archiving into it saved nothing.
 >   crest count above, and it is why 0144 is an RPC). Count server-side.
 > - **Deploy first, drop second.** 0129 dropped columns the SERVED bundle still
 >   named and took ระบบบ้าน's admin tab down for 20 minutes.
+> - **ชั้นปี IS NOT STORED (0145).** `src/js/study-year.js` computes it:
+>   `ปีการศึกษา − ปีที่เข้า + 1 + year_offset`. `cohort_year` and `year_offset`
+>   live on `public.people` and are MIRRORED DOWN onto both placements, read-only
+>   there — a direct PATCH is undone on the next registry touch. The one writer
+>   is the person's own card, via `update_my_identity` → `year_offset`. Nothing
+>   may introduce a stored ชั้นปี again: `study-year.test.js` fails the build on a
+>   `year:` key in ANY write payload.
+> - **A mirror is only bidirectional on the columns BOTH directions NAME.**
+>   `people.year` was pushed down and never carried up, so any touch of the
+>   registry reverted a person's own ชั้นปี edit — "nothing happens". The
+>   `is distinct from` guard cannot see this; it is a TERMINATION condition, not
+>   a completeness check.
+> - **`person_mirror_down` SAVES AND RESTORES `app.team_sync`, never blanks it.**
+>   It writes columns outside the self-update guard's allow-list, so it needs the
+>   server-writer exemption — and `set_config(…, true)` is TRANSACTION-scoped, so
+>   blanking it lets row 1's mirror disarm the exemption for row 2. That failure
+>   appears ONLY for members with more than one ตำแหน่ง.
+> - **A stale `cohort_year` outvotes a corrected รหัส in the FORMS too.**
+>   `studyYear` reads `cohort_year || cohortFromStudentId(sid)`. Never spread a
+>   row and overwrite only `student_id` — call `yearBasis(stored, typed)`.
+> - **A guard TEST can be blind to its own hazard.** `photo-refcount.test.js` was
+>   asked to find `photo_url` columns and found every one, faithfully, while the
+>   hazard sat in `houses.icon_url` one column along. Scan by SHAPE and force a
+>   decision on each hit, never by one name.
 > - **Grep the SERVED artifact for a STRING LITERAL or a CSS class.** Minified
 >   builds rename module-scope `let`s, so grepping a variable name returns 0 on a
 >   perfectly good deploy. Code also often lands in a SHARED chunk rather than the
@@ -199,6 +225,25 @@ archiving into it saved nothing.
 >   `house/index.js` (exported for its test).
 > - `canOpenSection(which)` — `admin-main.js`. The hash router is gated now, so
 >   `/admin/#vs` no longer opens VitalSound for an account without the grant.
+>
+> ### 5. Signatures that changed on 2026-08-10
+>
+> - **`src/js/study-year.js` is NEW** and owns ชั้นปี / รุ่น / ปีการศึกษา for the
+>   whole app: `studyYear` · `studyYearLabel` · `cohortLabel` ·
+>   `cohortFromStudentId` · `offsetForPickedYear` · `yearBasis` ·
+>   `setAcademicYear` / `academicYear`. `house/fields.js` re-exports all of them
+>   so no caller had to change; new code imports from `study-year.js`.
+> - `arabicDigits` moved to `utils.js` — it had grown three copies.
+> - `normalizeIdentityFields()` no longer returns `year`. It still REPORTS an
+>   unreadable ชั้นปี; it just never hands a caller one to store.
+> - `IDENTITY_FIELDS` (`team/identity.js`) dropped `year` — two postings cannot
+>   disagree about a derived value.
+> - `duplicateMessage(err, payload)` — `house/index.js`, exported for its test.
+>   Turns a 23505 into a sentence about a PERSON; every other error passes
+>   through untranslated, and there is a control for that.
+> - `admin-main.js` calls `primeAcademicYear()` at boot. It used to be primed
+>   only when ระบบบ้าน opened, which was fine while ระบบบ้าน was the only pane
+>   computing a ชั้นปี.
 >
 > Backlog: `docs/NEXT.md` · Registry plan: `docs/PERSON-REGISTRY.md` ·
 > Bug corpus: `docs/mistakes/*.md`, indexed by `.claude/rules/mistakes.md`.
