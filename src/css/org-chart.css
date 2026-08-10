@@ -987,9 +987,10 @@
   max-width: 100vw;
   margin-inline: calc(50% - 50vw);
   padding-inline: clamp(0.75rem, 3vw, 2rem);
-  /* The breakout must not create a horizontal scrollbar on the PAGE — the
-     scrolling belongs to this element, not the document. */
-  scrollbar-gutter: stable;
+  /* NO `scrollbar-gutter: stable` here — it reserves ~13px that every section
+     then counted as overflow, so twelve sections that fit exactly all reported
+     13px of panning. The scroller is horizontal; there is no vertical bar to
+     reserve room for. */
 }
 
 /* ── tighten แผนผัง ──────────────────────────────────────────────────────────
@@ -1053,3 +1054,54 @@
 /* "ยังไม่มีสมาชิก" is a phrase, not a count — keep it on one line so it does not
    wrap mid-word inside a narrow chart box. */
 .org-station-meta { white-space: nowrap; }
+
+/* ── a wide branch becomes a grid ────────────────────────────────────────────
+   "on ipad still got clipped when department has many member too vertically
+   long". Measured at 820px: ฝ่ายเวชนิทัศน์ needed +1,360px of panning and
+   ฝ่ายรังสีเทคนิค +1,100px, because each has TWELVE sub-ฝ่าย and depth 1 is the
+   level that spreads sideways. Branching once is not enough when the one branch
+   is twelve wide.
+   So past four children the row wraps. A single horizontal bar cannot describe
+   wrapped lines, so it goes; each child keeps the drop tick that ties it to the
+   parent, and the parent's own drop still lands on the group. */
+.org-tree-wrap[data-view="chart"] .org-branch.is-grid {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 0.9rem;
+  justify-content: safe center;
+}
+.org-tree-wrap[data-view="chart"] .org-branch.is-grid > .org-node::before { display: none; }
+.org-tree-wrap[data-view="chart"] .org-branch.is-grid > .org-node::after {
+  left: 50%;
+  right: auto;
+  width: 0;
+  border-top: 0;
+  border-left: 1px solid var(--org-spine);
+}
+
+/* `flex-wrap` on its own did NOTHING here, and the reason is worth keeping:
+   `.org-tree` is `width: max-content`, so the flex container always grows to
+   whatever its content needs and the wrap point is never reached. A wrapping
+   row has to be BOUNDED. Bound it to the viewport (minus the scroller's own
+   padding) so it wraps at the screen edge on any device. */
+.org-tree-wrap[data-view="chart"] .org-branch.is-grid {
+  max-width: calc(100vw - clamp(1.5rem, 6vw, 4rem));
+}
+
+/* EVERY spreading row wraps, not just the wide ones. A threshold of "more than
+   four children" fixed ฝ่ายเวชนิทัศน์ but left ฝ่ายกิจการภายใน (+301px) and
+   ฝ่ายยุทธศาสตร์ (+264px) panning, because they have three or four — and on a
+   390px phone even TWO columns do not fit. Bounding the row costs nothing when
+   it already fits (wrapping is a no-op then) and rescues it when it does not.
+   `is-grid` still marks the genuinely wide ones, where the single connector bar
+   would be describing wrapped lines and is dropped. */
+.org-tree-wrap[data-view="chart"] > .org-tree > .org-node > .org-node-body > .org-branch {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 0.9rem;
+  max-width: calc(100vw - clamp(1.5rem, 6vw, 4rem));
+}
+/* The trailing spacer was itself the last 38–44px of overflow on sections that
+   otherwise fitted exactly. Padding on the scroller does the same job without
+   adding a flex item that counts toward scrollWidth. */
+.org-tree-wrap[data-view="chart"] .org-tree::after { content: none; }

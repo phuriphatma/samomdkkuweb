@@ -336,7 +336,15 @@ function nodeBlock(node, depth, filter) {
   const peopleHtml = people.length
     ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>`
     : '';
-  const branchHtml = childHtml ? `<ul class="org-branch">${childHtml}</ul>` : '';
+  // A ฝ่าย with a dozen sub-ฝ่าย still went 12 columns wide in แผนผัง, because
+  // depth 1 is the one level that spreads. ฝ่ายเวชนิทัศน์ and ฝ่ายรังสีเทคนิค
+  // have 12+ each and needed >1,100px of panning on an iPad. Past a handful the
+  // row WRAPS into a grid: the single connector bar stops being meaningful
+  // across wrapped lines, so `is-grid` drops it and each child keeps its own
+  // drop tick instead.
+  const branchHtml = childHtml
+    ? `<ul class="org-branch${kids.length > 4 ? ' is-grid' : ''}">${childHtml}</ul>`
+    : '';
   const inner = `${peopleHtml}${branchHtml}`;
 
   // A search result is always fully open — a disclosure the user has to expand
