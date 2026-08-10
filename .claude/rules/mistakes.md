@@ -342,7 +342,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(6 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(7 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
@@ -350,5 +350,6 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
 - `pg_get_functiondef` over every function 42809s on aggregates
 - A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
+- A proof that ERRORS is not a proof that fails
 
 <!-- END GENERATED INDEX -->

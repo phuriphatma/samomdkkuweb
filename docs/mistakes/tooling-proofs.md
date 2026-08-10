@@ -188,3 +188,53 @@ touching anything else — and if it is the fixture, fix the proof rather than
 noting it, because the note is what the next person will not read. (3) The tell
 here was a FAIL sitting next to a PASS that used the same function: when one
 assertion about a function fails and another succeeds, suspect the data.
+
+---
+
+## A proof that ERRORS is not a proof that fails — it is a proof that is ABSENT, and `house0116-authz.sql` had been absent for 23 migrations
+
+**Symptom**: `node tools/db-query.mjs tools/house0116-authz.sql` returned
+`HTTP 400 … ERROR: 42883: function public.get_house_roster(smallint) does not
+exist`. Not one assertion printed. Found only because 0147 prompted a re-run of
+the whole proof suite; nothing had run this file since **0124**.
+
+**Cause**: three separate rots, each individually reasonable, and one of them
+fatal in a way the other two are not.
+
+1. `get_house_roster()` was DROPPED on purpose by 0124 (ระบบบ้าน publishes
+   อาจารย์, never students). The script still called it — inside the `DO` block,
+   so the whole block aborted at that line and **every assertion, including the
+   ones before it, produced nothing**.
+2. It still asserted `students.status` and `students.sai_locked`, columns 0120
+   dropped.
+3. Its signed-in subject was the hardcoded `manee.j@kkumail.com`, which has
+   **never existed in `public.users`** — so `auth.uid()` was NULL and the ALLOW
+   half could not have worked even before (1) killed the file outright.
+
+The distinction that matters: a proof that FAILS is loud and shows you which
+assertion. A proof that ERRORS produces no assertions at all, and a file that
+exists, is named after the migration it guards, and is listed in `STATE.md` looks
+exactly like coverage. It is worse than having no proof, because it occupies the
+slot where a real one would go.
+
+**Fix**: subjects resolved from the grant model instead of named (an account
+holding `house`/`master` for the allow half; an ungranted account with no
+`students` row for the ordinary half, so the fixture row can be inserted without
+colliding with `students_kkumail_key`). The allow assertion compares against the
+REAL row count rather than a hardcoded `2`. The self-edit probe now smuggles
+`sai_code` — a column that still exists and still must not be self-writable —
+beside the legal `nickname_self`, and asserts the STORED value afterwards,
+because the RPC builds an explicit column list and so IGNORES an unknown key
+rather than raising. And the roster probe is **inverted**: it now asserts
+`get_house_roster` does NOT exist, turning 0124's privacy decision into a guard
+that fails if anyone re-adds a student-roster reader. 8/8.
+
+**Where it lives now**: `tools/house0116-authz.sql`.
+
+**Rules**: (1) **When a migration drops a function or a column, grep `tools/` for
+it in the SAME commit.** 0120 and 0124 each dropped something this file named,
+and neither noticed. (2) Distinguish "the proof failed" from "the proof did not
+run" — a suite runner that only looks for the word FAIL scores an aborted script
+as silence. (3) Invert a deletion into an assertion: if dropping something was a
+DECISION, guard its absence, or the next person re-adds it and every proof still
+passes.
