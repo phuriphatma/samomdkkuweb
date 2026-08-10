@@ -32,14 +32,12 @@ history.
 
 - Prod host = KKU VM `samo.md.kku.ac.th` (pages.dev retired → splash-redirects).
   Deploy = commit → push `main` → `skills/deploy-vm.md`. **Needs VPN.**
-- 🔴 **UNDEPLOYED — `599a767` is pushed but NOT on the VM (VPN was down).**
-  It carries the ทีม SAMO identity-swap guard, the "พบคนนี้ในระบบแล้ว" panel and
-  the portrait-filename fixes. **Until it deploys, picking a person in
-  แก้ไขสมาชิก still silently rewrites that person across ทีม SAMO + ระบบบ้าน.**
-  Migration 0148 IS already applied and is safe ahead of the bundle — it only
-  ADDS `photo_url`/`photo_focus` keys to `search_people`, which the served
-  bundle ignores. Connect VPN and run `skills/deploy-vm.md`.
-- **samoweb**: **deployed = `237a82d`** (v4.6.0 + the 0147 client change),
+- **samoweb**: **deployed = `32edf61`** (v4.6.0 + 0147 + the ทีม SAMO
+  identity-swap guard, the "พบคนนี้ในระบบแล้ว" panel and the portrait-filename
+  fixes), verified from the served `admin-7Rsp-5hG.js`: the confirm title, both
+  panels and `person-match-posts` grep 1/2/1, and the pre-0148 class
+  `house-person-` greps 0. **Migrations applied through 0148.**
+  Older note, still true of the v4.6.0 half:
   verified from the SERVED artifacts: both entries load the shared chunk
   `analytics-kwxw5HXu.js`, which carries the two new `console.error` literals,
   while the deleted raw users read

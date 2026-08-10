@@ -38,6 +38,20 @@ function ensureModal() {
   el.className = 'modal fade';
   el.tabIndex = -1;
   el.setAttribute('aria-hidden', 'true');
+  // `data-bs-dismiss="modal"` on the ยกเลิก button is LOAD-BEARING, not
+  // decoration. Nothing in this module binds a click handler to
+  // [data-confirm-no] — the promise resolves from `hidden.bs.modal`, so ESC,
+  // the backdrop and the button can share one exit — but that only works if
+  // something HIDES the modal. The yes button calls `modal.hide()` itself; the
+  // no button has only this attribute. Without it the button is inert and the
+  // caller hangs until the user discovers ESC, which is precisely the "the
+  // button does nothing" failure this whole file was written to end. Pinned by
+  // confirm-modal.test.js.
+  //
+  // (This paragraph lives out here rather than inside the template below
+  // because it names attributes in backticks, and a backtick inside a template
+  // literal ends the template literal — which is how the first attempt at this
+  // comment turned the module into a syntax error.)
   el.innerHTML = `
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content">
@@ -46,7 +60,8 @@ function ensureModal() {
           <p class="small text-muted mb-0" data-confirm-body></p>
         </div>
         <div class="modal-footer py-2">
-          <button type="button" class="btn btn-sm btn-secondary" data-confirm-no>ยกเลิก</button>
+          <button type="button" class="btn btn-sm btn-secondary"
+                  data-bs-dismiss="modal" data-confirm-no>ยกเลิก</button>
           <button type="button" class="btn btn-sm btn-danger" data-confirm-yes>ยืนยัน</button>
         </div>
       </div>

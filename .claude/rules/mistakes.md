@@ -241,7 +241,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(43 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(44 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -286,6 +286,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `/admin/#vs` opened the VitalSound workspace for an admin with no VitalSound grant
 - `{"code":"23505" … "students_kkumail_key"}` in an alert() — a unique index used as a first line of defence
 - "แก้ไขสมาชิก … ค้นหาคนจากระบบ … พู่กัน picture become myself"
+- The ยกเลิก button in `askConfirm` did nothing — in the module written because buttons did nothing
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*

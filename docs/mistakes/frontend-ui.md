@@ -1440,3 +1440,68 @@ distributed one: before allowing a form to change a foreign key, ask what
 follows it. (3) When a projection feeds a form, it must carry EVERY column the
 save will write, or the form composes one entity out of two. (4) Fixing this in
 the client alone was not possible — the missing column was the bug.
+
+---
+
+## The ยกเลิก button in `askConfirm` did nothing — in the module written because buttons did nothing
+
+**Symptom**: found by driving the real UI, not by a report. A confirm dialog
+opened, and clicking **ยกเลิก** left it on screen. Clicked again — still there.
+Clicked by element reference rather than coordinates, to rule out an overlay
+stealing the hit — still there. `ESC` dismissed it instantly.
+
+**Cause**: the markup in `confirm-modal.js` was
+
+```html
+<button type="button" class="btn btn-sm btn-secondary" data-confirm-no>ยกเลิก</button>
+```
+
+Nothing in the module binds a click handler to `[data-confirm-no]`. That is by
+design and it is the good design — the promise resolves from `hidden.bs.modal`,
+so ESC, the backdrop and the button all funnel through one exit and cannot
+disagree. But that only works if something actually HIDES the modal. The yes
+button calls `modal.hide()` explicitly. The no button was relying on a
+`data-bs-dismiss="modal"` attribute **that was never written**. So it was inert:
+21 call sites, every destructive confirmation in the app, and the only way out
+was a key nobody is told about.
+
+The file's own header comment asserted *"ESC / backdrop / ยกเลิก all mean
+false"*. The intent was documented; the wiring was absent. **A comment is not a
+mechanism** — and this is the second time that sentence has been earned by this
+exact file.
+
+**The irony is the finding.** `confirm-modal.js` exists *because* Chrome's
+"prevent this page from creating additional dialogs" checkbox turns native
+`confirm()` into a silently-false no-op, reported twice here as
+"ลบสมาชิกไม่ได้" and "ปฏิเสธ ไม่ทำงาน". The replacement shipped a button that
+does nothing. A fix for a class of bug is not immune to that class.
+
+**Fix**: `data-bs-dismiss="modal"` on the button, plus
+`src/js/confirm-modal.test.js`, which accepts EITHER that attribute or a real
+click handler, and separately pins that the resolution still happens in
+`hidden.bs.modal` (so "fixing" cancel by resolving in a click handler, which
+would break the ESC and backdrop paths instead, also fails).
+
+**Two ways the test itself was wrong first, both worth keeping**:
+1. Its helper found the marker with `indexOf`, and the marker string also
+   appears in the source's own COMMENT, so it reported "no cancel button found"
+   against markup that was right there. It matches a `<button …>` tag now.
+2. Its "or a click handler exists" branch matched the words `[data-confirm-no]`
+   in a comment plus an unrelated `addEventListener('click', onYes)` further
+   down — so with the bug reintroduced the test still PASSED. It strips comments
+   before asserting now. **A guard that reads comments can be satisfied by
+   writing about the fix instead of making it.**
+
+**And the explanatory comment broke the build once**: written as an HTML comment
+INSIDE the `innerHTML` template literal, it contained attribute names in
+backticks, and a backtick inside a template literal ends the template literal.
+`undefined-refs.test.js` caught it as a Rollup parse error.
+
+**Where it lives now**: `src/js/confirm-modal.js`, `src/js/confirm-modal.test.js`.
+
+**Rules**: (1) When a dismissal is declarative (`data-bs-dismiss`), it is CODE —
+losing it is losing a line of logic, so pin it. (2) Drive the control a person
+actually aims at; ESC working is not the button working. (3) Verify a new guard
+BOTH ways — reintroduce the bug and watch it fail — or you have written a test
+that asserts your own comment. (4) The module that fixes a bug class is not
+exempt from that class.
