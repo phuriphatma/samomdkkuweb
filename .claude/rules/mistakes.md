@@ -250,7 +250,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(48 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(49 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -300,6 +300,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A markup refactor silently unhooked every `> .org-station` selector
 - `justify-content: center` makes the overflow of a scroll container UNREACHABLE
 - `flex-wrap` does nothing inside `width: max-content`
+- "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule, and a form hidden behind a collapse
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(14 entries)*

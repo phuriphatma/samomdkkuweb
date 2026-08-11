@@ -1622,3 +1622,66 @@ bounds the container, nothing wraps. (2) **Identical measurements after a change
 mean the change did not apply** — that is a stronger signal than a small
 improvement, and it is worth re-measuring precisely so the difference between
 "no effect" and "small effect" is visible.
+
+---
+
+## "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule, and a form hidden behind a collapse
+
+**Symptom**: reported as two complaints about the sign-in modal at once. "it
+shows too many text", and — the substantive one — the copy made Google sign-in
+look restricted to KKU: *"i not just want to encourage only kku people, it'd be
+misleading for other normal people who thinks oh only kku would use login with
+google, in fact they can use it also and i want them to use it."* Plus: the
+username/password form "shouldn't be collapse, it should be expand all".
+
+**Cause**: three separate mistakes stacked on the same screen.
+
+1. **A steer stated as a requirement.** The copy read "นักศึกษาและบุคลากร MDKKU
+   ใช้บัญชี Google ของมหาวิทยาลัย" and "เลือกบัญชีที่ลงท้ายด้วย @kkumail.com หรือ
+   @kku.ac.th". Both are imperative. The intent was true and useful — a
+   non-kkumail account can never match `students.kkumail`, so ระบบบ้าน is empty
+   for it — but the reader cannot see intent, only grammar. An outsider reading
+   an instruction they cannot follow concludes the door is not theirs.
+2. **The benefit clause made it worse, not better.** "…เพื่อให้เห็นข้อมูลสายรหัส
+   บ้าน และตำแหน่งในทีม SAMO ของตัวเอง" was added to justify the steer, and it
+   re-created the impression it was meant to soften: a list of things you get by
+   using the KKU domains reads as the reason the KKU domains are required.
+3. **The collapse hid a route AND broke a caller.** The form lived in a
+   `.collapse` opened by a text link. `account-switch.js` `pickAccount()`
+   prefills `#signinLoginUsername` and then calls `pInput.focus()` — and
+   `.focus()` on a `display:none` input is a silent no-op. So switching back to
+   a saved password account opened a modal that looked empty and inert, with the
+   username invisibly prefilled inside a shut collapse.
+
+Found while fixing the copy, not reported: `samoShowSigninScreen()` toggles a
+`d-none` between the login and register screens and **nothing ever toggled it
+back**. One visit to สมัครสมาชิก made register the permanent landing screen for
+every later open — including the switcher path in (3), which prefills a form on
+a screen that is no longer showing.
+
+**Fix**: each line now names an AUDIENCE instead of stating a rule —
+"สำหรับบุคคลทั่วไป และนักศึกษา/บุคลากร มข. (@kkumail.com หรือ @kku.ac.th)" over the
+Google button, and "สำหรับผู้ที่ไม่ต้องการเปิดเผยตัวตน" over the password form,
+which is what that route has always actually been (it was mislabelled "สำหรับ
+บัญชีของฝ่ายงาน"). The domains survive as a parenthetical because KKU students
+scan for them; nothing tells anyone which account to pick. The collapse is gone,
+so both routes are visible and hierarchy is carried by button WEIGHT — filled
+Google, outline password. The screen reset is one `hidden.bs.modal` listener in
+`mountAccountSwitch()`, the only module BOTH entries import.
+
+**Where it lives now**: `src/html/modal-signin.html`, `src/css/cards.css`
+(`.signin-kku-hint`, `.signin-alt-caption`), `src/js/account-switch.js`.
+Guarded by `src/js/signin-screen.test.js` — no collapse on the login screen, the
+copy names บุคคลทั่วไป and never says "เลือกบัญชีที่ลงท้ายด้วย", and the reset
+listener exists. Verified by reintroducing all three bugs and watching four
+assertions fail.
+
+**Rules**: (1) **A steer written in the imperative is a rule to the reader**,
+whatever it was meant as. If a channel accepts everyone, the copy has to say who
+it is FOR, not what to pick. (2) Justifying a steer with the benefits it unlocks
+strengthens it — the benefit list is read as the reason for the restriction.
+(3) **Hiding a legitimate route behind a disclosure widget is an API change**:
+every caller that focuses, prefills, or scrolls to something inside it now acts
+on a `display:none` node, and `.focus()` fails silently. (4) A screen toggle
+with no reset is a mode the user cannot leave — pair every `d-none` flip that
+survives a close with a reset on `hidden.bs.modal`.

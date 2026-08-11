@@ -458,6 +458,20 @@ export function mountAccountSwitch() {
     try { document.activeElement.blur(); } catch {}
   });
 
+  // Sign-in modal always REOPENS on the login screen. samoShowSigninScreen()
+  // flips a d-none between the two screens and nothing ever flipped it back, so
+  // anyone who opened สมัครสมาชิก and closed the modal met the register form on
+  // every later open — including the account switcher's password path, which
+  // prefills the LOGIN username into a screen that is not showing. Reset lives
+  // here because mountAccountSwitch() is the one thing BOTH entries import; a
+  // copy in main.js and admin-main.js would be a second implementation to drift.
+  document.getElementById('signinModal')?.addEventListener('hidden.bs.modal', () => {
+    document.getElementById('signinLoginScreen')?.classList.remove('d-none');
+    document.getElementById('signinRegisterScreen')?.classList.add('d-none');
+    document.getElementById('signinLoginAlert')?.classList.add('d-none');
+    document.getElementById('signinRegisterAlert')?.classList.add('d-none');
+  });
+
   const modalEl = document.getElementById('samoSwitchAccountModal');
   if (modalEl) {
     modalEl.addEventListener('click', async (e) => {
