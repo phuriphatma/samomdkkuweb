@@ -98,6 +98,18 @@ because two copies of one rule is the class this repo pays for most.
 >
 > ### 1. What is owed
 >
+> - **เกี่ยวกับเรา on mobile — a decision is pending, not code.** 2026-08-12 the
+>   owner said the org chart "doesn't look good on mobile, the width can only
+>   show one column" and asked to try 3D (three.js). Measured on the live site at
+>   390px: แผนผัง is **108,726px tall** (~130 screens), รายการ is 12,484px, and a
+>   person card uses ~35% of the width because one row holds one person.
+>   A demo comparing three layouts on the real 398-person data is published at
+>   `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0` (source in a
+>   scratchpad, not in this repo). Measured there, same data expanded the same
+>   way: today's layout 64,419px vs a 4-column tile grid at 19,901px, landing at
+>   1,248px with ฝ่าย collapsed. **Recommendation given: ship the 2D grid; treat
+>   3D as an optional hero only.** Nothing is implemented yet — wait for the
+>   owner's pick before touching `org-chart.js` / `org-chart.css`.
 > - **The signed-in browser pass, continued.** It started 2026-08-10 and
 >   immediately found a bug nothing else could: the ยกเลิก button in EVERY
 >   confirm dialog did nothing, because ESC worked and nobody clicks ESC.
