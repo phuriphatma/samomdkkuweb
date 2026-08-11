@@ -21,7 +21,7 @@ was built:
 | แผนผัง view, whole page height | **108,726 px** (~130 screens) |
 | รายการ view, same width | 12,484 px |
 | Width one person card actually uses | **~35%** — one row holds one person |
-| The data | 398 คน · 270 ตำแหน่ง · 11 ฝ่าย · 5 levels deep · up to 21 people in one ตำแหน่ง |
+| The data | 398 คน · 270 ตำแหน่ง · 11 ฝ่าย · 6 levels deep counting ฝ่าย · up to 21 people in one ตำแหน่ง |
 | People with a photo uploaded | **10 of 398** |
 
 That last row is the one that keeps being forgotten: any "wall of faces"
