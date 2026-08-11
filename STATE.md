@@ -22,14 +22,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- 🔴 **DEPLOYED = `44fadf1`. `main` is at `86cc524` and is NOT deployed** — the
-  VPN dropped at the end of 2026-08-10. Connect VPN and run
-  `skills/deploy-vm.md`; nothing else is needed, the commit is already pushed.
-  What is undeployed is USER-VISIBLE: the รายการ view's connector rails and
-  depth-scaled headings on desktop (both were silently disabled), plus a CSS
-  consolidation and dead-code removal that are provably no-ops. No migration is
-  pending; 0148 is the last and it is applied.
-  **Migrations applied through 0148.** **678 tests green.**
+- ✅ **DEPLOYED = `9a2eec3` = `main`** (2026-08-12). That carries the org-chart
+  work stranded by the 2026-08-10 VPN drop (`86cc524`) plus the sign-in modal
+  rewrite. Verified from the served artifact: `ไม่ต้องการเปิดเผยตัวตน` present in
+  both `/index.html` and `/admin/index.html` on the VM and over HTTPS,
+  `signin-alt-caption` in both CSS bundles. No migration is pending; 0148 is the
+  last and it is applied.
+  **Migrations applied through 0148.** **684 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
