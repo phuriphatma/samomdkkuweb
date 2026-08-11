@@ -77,7 +77,7 @@ npm pack three@latest && tar xzf three-*.tgz     # three.js source
 printf "import * as THREE from './package/build/three.module.js';\nwindow.THREE = THREE;\n" > three-entry.js
 npx esbuild three-entry.js --bundle --minify --format=iife --outfile=three-bundle.js
 node atlas.mjs           # bakes 398 cards → atlas.jpg.txt + cards.json
-node assemble.mjs        # → about-mobile.html (self-contained, ~2.5 MB)
+node assemble.mjs        # → about-mobile.html (self-contained, ~2.6 MB on disk)
 ```
 
 `evid.jpg` (the screenshot of the live site in the "ปัญหา" section) is optional;
