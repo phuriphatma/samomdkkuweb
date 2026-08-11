@@ -3,7 +3,7 @@
   // Same idea as vasturiano's 3d-force-graph tree example: nodes repel, links
   // pull, and the tree finds its own shape in space instead of being placed on
   // a grid by hand. The physics here is written directly rather than pulled in
-  // from d3-force-3d — 668 nodes with a spatial hash is a page of code, and the
+  // from d3-force-3d — 669 nodes with a spatial hash is a page of code, and the
   // page is already carrying three.js.
   //
   // Every person is a CARD, and every card is a slice of one baked atlas: the
