@@ -23,10 +23,17 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `9a2eec3`. `src/` has not changed since, so prod is CURRENT** —
-  every commit after it is docs-only and needs no deploy. Check that claim the
-  cheap way rather than trusting it: `git diff --stat 9a2eec3..HEAD -- src/
-  supabase/ appscript/ server/` should be EMPTY. If it is not, deploy before
-  believing anything else in this file.
+  every commit after it is docs- and test-only, and neither reaches a browser.
+  Check that rather than trusting it — EMPTY means prod is current, anything
+  else means deploy before believing the rest of this file:
+
+  ```bash
+  git diff --stat 9a2eec3..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  ```
+
+  The `:!…*.test.js` exclusion is load-bearing, not tidiness: the first version
+  of this command flagged a guard-test edit one commit after it was written and
+  would have sent the next reader on a pointless 90-second deploy.
   9a2eec3 carries the org-chart work stranded by the 2026-08-10 VPN drop
   (`86cc524`) plus the sign-in modal rewrite. Verified from the served artifact:
   `ไม่ต้องการเปิดเผยตัวตน` present in both `/index.html` and `/admin/index.html` on
