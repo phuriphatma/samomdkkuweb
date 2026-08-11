@@ -1685,3 +1685,67 @@ every caller that focuses, prefills, or scrolls to something inside it now acts
 on a `display:none` node, and `.focus()` fails silently. (4) A screen toggle
 with no reset is a mode the user cannot leave — pair every `d-none` flip that
 survives a close with a reset on `hidden.bs.modal`.
+
+---
+
+## "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
+
+**Symptom**: reported by the owner while driving the 3D org-chart demo on a
+phone: pinching to zoom made the view flicker to a different framing and snap
+back. Reported a second time after the first fix, so **this one is still open**
+— the write-up below is the half that was found, and
+`docs/demos/about-3d/README.md` carries the remaining leads.
+
+**Cause (the part that was real)**: the camera re-fit itself to the graph
+whenever `fitted` was false, and a `ResizeObserver` set `fitted = false` on
+every resize. On a phone a pinch **resizes the visual viewport**, so the gesture
+re-armed the auto-fit on every frame of itself: the user zoomed, the fit yanked
+the camera back to its computed distance, the user zoomed again. Two things were
+each correct alone — "refit when the frame size changes" and "let the user
+zoom" — and neither knew the other existed.
+
+**Fix**: a `userZoomed` latch. The first manual zoom takes ownership of the
+camera, and after that only an EXPLICIT action (entering fullscreen, switching
+layout, focusing a ฝ่าย) is allowed to reframe; a bare resize only updates the
+aspect ratio, the renderer size and the pixel ratio.
+
+**Where it lives now**: `zoomBy()` and the `ResizeObserver` in
+`docs/demos/about-3d/frameC.js` — a demo, not shipped app code.
+
+**Rules**: (1) **A gesture that changes the viewport will re-trigger anything
+keyed to viewport changes.** Pinch-zoom, the mobile URL bar collapsing, and the
+on-screen keyboard all fire resize; none of them mean "the user wants their view
+reset". (2) When automatic and manual control share one value, the manual one
+must latch, and the list of things allowed to override it must be written down
+as explicit actions — not "whenever it looks stale".
+
+---
+
+## A blank canvas is not a diagnosis — the graph had flown past the far plane
+
+**Symptom**: the 3D frame rendered nothing at all. No exception, no console
+warning, WebGL context alive and not lost, canvas the right size, every DOM
+overlay in place. Just an empty stage.
+
+**Cause**: two of them, and the second is the lesson. Each ฝ่าย had been given
+an angular wedge, enforced by **hard-clamping** every node back inside its slice
+each tick. But a hard positional clamp inside a relaxation loop is a ratchet:
+cards squeezed together inside a narrow wedge could not relieve the pressure
+sideways, so the only direction left was outward, every tick, forever. Measured
+extent of the position buffer: **5,708 units** — while the camera's far plane
+was 4,000. Everything was still being drawn, perfectly, entirely outside the
+view frustum.
+
+**Fix**: the wedge became a spring (rotate a fraction of the overshoot back,
+damp the tangential velocity) plus a hard radius cap as a backstop, and the far
+plane went to 20,000 so a future runaway is visible rather than invisible.
+
+**Where it lives now**: the wedge block in `docs/demos/about-3d/frameC.js`.
+
+**Rules**: (1) **"Nothing rendered" and "everything flew off screen" look
+identical**, so never debug a blank viewport by looking at it — print the extent
+of the data (`Math.max(...positions.map(Math.abs))`) and the camera distance.
+One probe found this immediately; staring at the picture found nothing in
+several attempts. (2) A hard constraint applied every tick inside a physics or
+layout relaxation will convert pressure into drift along whatever axis you left
+free. Constrain with a force, and cap the axis you left free.

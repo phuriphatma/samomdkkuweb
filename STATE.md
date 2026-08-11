@@ -90,26 +90,38 @@ because two copies of one rule is the class this repo pays for most.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — written 2026-08-10)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-12)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking. The
-> security item that used to live in agent memory is CLOSED (0147); its write-up
-> is in `docs/mistakes/authz-rls.md`.
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, and
+> prod is current: `main` = deployed = the sign-in rewrite. The security item
+> that used to live in agent memory is CLOSED (0147); its write-up is in
+> `docs/mistakes/authz-rls.md`.
+>
+> The one thing to know before you start: **the top item below is a decision
+> waiting on the owner, not a task.** A demo was built and published for them to
+> choose from; building the feature before they pick would be wasted work.
 >
 > ### 1. What is owed
 >
-> - **เกี่ยวกับเรา on mobile — a decision is pending, not code.** 2026-08-12 the
->   owner said the org chart "doesn't look good on mobile, the width can only
->   show one column" and asked to try 3D (three.js). Measured on the live site at
->   390px: แผนผัง is **108,726px tall** (~130 screens), รายการ is 12,484px, and a
->   person card uses ~35% of the width because one row holds one person.
->   A demo comparing three layouts on the real 398-person data is published at
->   `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0` (source in a
->   scratchpad, not in this repo). Measured there, same data expanded the same
->   way: today's layout 64,419px vs a 4-column tile grid at 19,901px, landing at
->   1,248px with ฝ่าย collapsed. **Recommendation given: ship the 2D grid; treat
->   3D as an optional hero only.** Nothing is implemented yet — wait for the
->   owner's pick before touching `org-chart.js` / `org-chart.css`.
+> - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
+>   2026-08-12 the owner said the org chart "doesn't look good on mobile, the
+>   width can only show one column" and asked to try 3D like
+>   `vasturiano/3d-force-graph`'s tree example. A three-option demo on the real
+>   398-person data is published (private artifact) at
+>   `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0`.
+>   **Everything about it — the numbers, the rebuild pipeline, the open bug, the
+>   recommendation — is in `docs/demos/about-3d/README.md`. Read that before
+>   touching this, not this bullet.** The short version: measured on the live
+>   site at 390px, แผนผัง is 108,726px tall (~130 screens) and a person card uses
+>   ~35% of the width; a 4-column tile grid takes the same content from 64,419px
+>   to 19,901px and lands at 1,247px with ฝ่าย collapsed. Recommendation given:
+>   ship the 2D grid, treat 3D as an optional hero only. **Nothing in `src/` was
+>   changed** — no `org-chart.js` / `org-chart.css` edits exist for any of this.
+>   ⚠️ One bug is OPEN: the 3D frame still flickers while zooming, reported twice.
+>   One real cause was found and fixed (auto-fit re-armed by every resize, and a
+>   pinch resizes the visual viewport); something else remains. Four leads and a
+>   repro note are in that README — and it needs a real touch device, since the
+>   `touchmove` path never runs under a headless mouse.
 > - **The signed-in browser pass, continued.** It started 2026-08-10 and
 >   immediately found a bug nothing else could: the ยกเลิก button in EVERY
 >   confirm dialog did nothing, because ESC worked and nobody clicks ESC.

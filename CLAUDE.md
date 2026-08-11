@@ -100,6 +100,8 @@ session re-derives or re-breaks work that was finished yesterday.
 - `docs/KKU-SSO.md` — KKU SSO assessment: a login improvement, NOT a data source
   (no roster endpoint, no สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
+- `docs/demos/*/README.md` — built-and-published comparisons the owner is
+  choosing between. Not shipped code; each says what is decided and what is not.
 - `skills/*.md` — playbooks for the non-obvious workflows
 
 ## End-of-turn loop (MANDATORY)

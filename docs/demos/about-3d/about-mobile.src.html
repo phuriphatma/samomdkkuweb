@@ -1,0 +1,1589 @@
+<title>เกี่ยวกับเรา บนมือถือ — สามทางเลือก</title>
+
+<style>
+  :root {
+    --ground:      #F6F7F4;
+    --surface:     #FFFFFF;
+    --surface-2:   #FBFCFA;
+    --ink:         #14201A;
+    --ink-soft:    #5C6C63;
+    --ink-faint:   #8A968F;
+    --line:        #E3E8E2;
+    --line-strong: #CBD4CC;
+    --accent:      #105922;
+    --accent-ink:  #FFFFFF;
+    --accent-soft: #E9F1EA;
+    --mark:        #FF6F30;
+    --warn:        #B4451A;
+    --warn-soft:   #FBEBE3;
+    --shadow:      0 1px 2px rgba(20, 32, 26, .06), 0 8px 24px -12px rgba(20, 32, 26, .18);
+    --frame-bg:    #F2F3F0;
+
+    --font-ui: "Noto Sans Thai", "IBM Plex Sans Thai", "Sukhumvit Set", -apple-system,
+               BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* ฝ่าย identities, taken from the app's own base.css so the demo frames
+       look like the site rather than like a mock of it. */
+    --dept-admin:      #A17A60;
+    --dept-digital:    #F2CB67;
+    --dept-internal:   #E68FAA;
+    --dept-external:   #7DB0CD;
+    --dept-university: #F49D5F;
+    --dept-academic:   #2F5F9C;
+    --dept-strategy:   #318D65;
+    --dept-quality:    #8DC96C;
+    --dept-media:      #2294BC;
+    --dept-projects:   #8C6A47;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0F1512;
+      --surface:     #161D19;
+      --surface-2:   #1B231E;
+      --ink:         #E8EFE9;
+      --ink-soft:    #9DACA3;
+      --ink-faint:   #75837B;
+      --line:        #26302A;
+      --line-strong: #35423A;
+      --accent:      #6FC98A;
+      --accent-ink:  #0B1410;
+      --accent-soft: #182A1E;
+      --mark:        #FF8A50;
+      --warn:        #FF9A6B;
+      --warn-soft:   #2A1A12;
+      --shadow:      0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -14px rgba(0, 0, 0, .7);
+      --frame-bg:    #101613;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0F1512;
+    --surface:     #161D19;
+    --surface-2:   #1B231E;
+    --ink:         #E8EFE9;
+    --ink-soft:    #9DACA3;
+    --ink-faint:   #75837B;
+    --line:        #26302A;
+    --line-strong: #35423A;
+    --accent:      #6FC98A;
+    --accent-ink:  #0B1410;
+    --accent-soft: #182A1E;
+    --mark:        #FF8A50;
+    --warn:        #FF9A6B;
+    --warn-soft:   #2A1A12;
+    --shadow:      0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -14px rgba(0, 0, 0, .7);
+    --frame-bg:    #101613;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(1.75rem, 5vw, 4rem) clamp(1rem, 4vw, 2.5rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .prose { max-width: 66ch; display: flex; flex-direction: column; gap: 1rem; }
+  .prose p { margin: 0; }
+  .prose p + p { margin-top: .25rem; }
+
+  h1, h2, h3 { margin: 0; text-wrap: balance; line-height: 1.25; letter-spacing: -.01em; }
+  h1 { font-size: clamp(1.9rem, 5.5vw, 2.9rem); font-weight: 800; }
+  h2 { font-size: clamp(1.35rem, 3.4vw, 1.8rem); font-weight: 750; }
+  h3 { font-size: 1.05rem; font-weight: 700; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .lead { font-size: clamp(1rem, 2.2vw, 1.14rem); color: var(--ink-soft); }
+
+  header.masthead { display: flex; flex-direction: column; gap: .85rem; }
+  header.masthead .rule {
+    height: 3px; width: 68px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 55%, var(--mark) 55%, var(--mark) 100%);
+  }
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+  .section-head { display: flex; flex-direction: column; gap: .5rem; }
+
+  /* ---- measured facts ---- */
+  .stats { display: grid; gap: .85rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: .3rem;
+    box-shadow: var(--shadow);
+  }
+  .stat-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em;
+  }
+  .stat-num.is-bad { color: var(--warn); }
+  .stat-num.is-good { color: var(--accent); }
+  .stat-label { font-size: .84rem; color: var(--ink-soft); line-height: 1.45; }
+
+  .evidence {
+    display: grid; gap: 1.25rem;
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+    align-items: start;
+  }
+  @media (max-width: 620px) { .evidence { grid-template-columns: 1fr; } }
+  .evidence img {
+    width: 100%; max-width: 330px; height: auto; display: block;
+    border: 1px solid var(--line-strong); border-radius: 12px;
+  }
+  figcaption { font-size: .82rem; color: var(--ink-faint); margin-top: .5rem; }
+
+  .callout {
+    border-left: 3px solid var(--mark);
+    background: var(--warn-soft);
+    padding: .9rem 1.1rem;
+    border-radius: 0 10px 10px 0;
+    font-size: .95rem;
+  }
+
+  /* ---- the three device frames ---- */
+  .rail {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 1060px) {
+    .rail {
+      grid-auto-flow: column;
+      grid-auto-columns: min(88vw, 390px);
+      grid-template-columns: none;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: .75rem;
+      margin-inline: calc(-1 * clamp(1rem, 4vw, 2.5rem));
+      padding-inline: clamp(1rem, 4vw, 2.5rem);
+    }
+    .option { scroll-snap-align: center; }
+  }
+
+  .option { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+  .option-head { display: flex; flex-direction: column; gap: .3rem; }
+  .option-tag {
+    font-family: var(--font-mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .option-title { font-size: 1.1rem; font-weight: 750; }
+  .option-note { font-size: .86rem; color: var(--ink-soft); }
+
+  .device {
+    background: var(--frame-bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    padding: 8px;
+    box-shadow: var(--shadow);
+  }
+  .device-screen {
+    background: var(--surface);
+    border-radius: 15px;
+    height: 560px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .device-bar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    padding: .5rem .75rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .78rem; color: var(--ink-faint);
+    background: var(--surface-2);
+  }
+  .device-bar strong { color: var(--ink); font-weight: 700; font-size: .82rem; }
+  .device-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  .device-body::-webkit-scrollbar { width: 6px; }
+  .device-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+
+  .measure {
+    display: flex; align-items: baseline; gap: .4rem;
+    font-family: var(--font-mono); font-size: .78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  .measure b { font-size: .95rem; color: var(--ink); font-weight: 700; }
+  .measure.is-bad b { color: var(--warn); }
+  .measure.is-good b { color: var(--accent); }
+
+  /* ---- frame A: today ---- */
+  .a-wrap { padding: 10px 12px 28px; display: flex; flex-direction: column; gap: 10px; }
+  .a-station {
+    border: 1px solid var(--line); border-top: 3px solid var(--tint, var(--line-strong));
+    border-radius: 9px; padding: .5rem .6rem; background: var(--surface);
+    display: flex; align-items: center; gap: .4rem;
+    font-size: .82rem; font-weight: 700;
+  }
+  .a-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tint, var(--ink-faint)); flex: 0 0 auto; }
+  .a-person { display: flex; flex-direction: column; align-items: center; width: 84px; gap: 4px; }
+  .a-face {
+    width: 72px; height: 84px; border-radius: 8px;
+    background: color-mix(in srgb, var(--tint, #999) 16%, var(--surface));
+    color: color-mix(in srgb, var(--tint, #555) 78%, var(--ink));
+    display: grid; place-items: center;
+    font-size: 1.15rem; font-weight: 700;
+  }
+  .a-name { font-size: .62rem; line-height: 1.25; text-align: center; color: var(--ink); }
+  .a-nick { font-size: .58rem; color: var(--ink-faint); }
+  .a-indent { padding-left: 14px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---- frame B: proposal ---- */
+  .b-chips {
+    position: sticky; top: 0; z-index: 3;
+    display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  .b-chips::-webkit-scrollbar { display: none; }
+  .b-chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink); border-radius: 999px; padding: 4px 10px;
+    font: inherit; font-size: .72rem; cursor: pointer; white-space: nowrap;
+  }
+  .b-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tint); }
+  .b-chip[aria-current="true"] { border-color: var(--tint); background: color-mix(in srgb, var(--tint) 14%, var(--surface)); font-weight: 700; }
+  .b-list { padding: 8px 10px 32px; display: flex; flex-direction: column; gap: 8px; }
+  .b-dept { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .b-dept-head {
+    width: 100%; display: flex; align-items: center; gap: .5rem; text-align: start;
+    padding: .6rem .7rem; background: var(--surface-2); border: 0; border-left: 3px solid var(--tint);
+    font: inherit; color: var(--ink); cursor: pointer;
+  }
+  .b-dept-name { font-size: .86rem; font-weight: 750; flex: 1 1 auto; line-height: 1.3; }
+  .b-dept-meta { font-family: var(--font-mono); font-size: .68rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .b-caret { transition: transform .18s ease; color: var(--ink-faint); font-size: .7rem; }
+  .b-dept[open] .b-caret, .b-dept.is-open .b-caret { transform: rotate(90deg); }
+  .b-role { padding: .55rem .7rem .7rem; border-top: 1px solid var(--line); }
+  .b-role-name {
+    font-size: .72rem; font-weight: 700; color: var(--ink-soft);
+    display: flex; align-items: baseline; gap: .35rem; margin-bottom: .45rem;
+  }
+  .b-role-path { font-size: .62rem; color: var(--ink-faint); font-weight: 400; }
+  .b-people { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; }
+  .b-person { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+  .b-face {
+    width: 100%; aspect-ratio: 1 / 1; border-radius: 10px;
+    background: color-mix(in srgb, var(--tint) 16%, var(--surface));
+    color: color-mix(in srgb, var(--tint) 78%, var(--ink));
+    display: grid; place-items: center; font-size: .82rem; font-weight: 700;
+  }
+  .b-person-name { font-size: .58rem; line-height: 1.2; text-align: center; color: var(--ink); }
+  .b-person-nick { font-size: .55rem; color: var(--ink-faint); }
+  /* ตำแหน่ง as a caption on the tile — this is what replaces one heading row
+     per person, and it is where most of the height saving comes from. */
+  .b-person-role {
+    font-size: .52rem; line-height: 1.25; text-align: center; color: var(--ink-faint);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .b-search { padding: 8px 10px 0; }
+  .b-search input {
+    width: 100%; border: 1px solid var(--line-strong); border-radius: 999px;
+    padding: .4rem .8rem; font: inherit; font-size: .78rem;
+    background: var(--surface); color: var(--ink);
+  }
+  .b-search input::placeholder { color: var(--ink-faint); }
+  .b-empty { padding: 1rem .7rem; font-size: .78rem; color: var(--ink-faint); }
+
+  /* ---- frame C: 3D ---- */
+  .c-stage { position: relative; flex: 1 1 auto; background: var(--frame-bg); overflow: hidden; }
+  .c-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  /* Sits over a moving field of 398 cards, so it needs a solid ground of its
+     own — a translucent chip over that much detail is unreadable. */
+  .c-label {
+    position: absolute; transform: translate(-50%, -50%);
+    font-size: .6rem; font-weight: 700; color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 999px;
+    padding: 1px 7px; pointer-events: none; white-space: nowrap;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .25);
+  }
+  .c-card {
+    position: absolute; left: 8px; right: 8px; bottom: 42px;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: 12px; padding: .6rem .7rem; box-shadow: var(--shadow);
+    font-size: .76rem;
+  }
+  .c-card b { display: block; font-size: .84rem; margin-bottom: .2rem; }
+  .c-card .c-people { color: var(--ink-soft); line-height: 1.5; }
+  .c-hint {
+    position: absolute; bottom: 12px; right: 8px;
+    font-family: var(--font-mono); font-size: .62rem; letter-spacing: .04em;
+    color: var(--ink-faint); background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border-radius: 999px; padding: 2px 8px;
+  }
+  .c-boot { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; color: var(--ink-faint); }
+
+  /* The ฝ่าย picker doubles as the legend — the colours in the scene have no
+     key otherwise, and eleven tints are not learnable without one. */
+  .c-legend {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+    display: flex; gap: 5px; overflow-x: auto; padding: 7px 8px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+            mask-image: linear-gradient(90deg, #000 92%, transparent);
+  }
+  .c-legend::-webkit-scrollbar { display: none; }
+  .c-legend button {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+    font: inherit; font-size: .64rem; white-space: nowrap; cursor: pointer;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 8px;
+  }
+  .c-legend button[data-di]:not([data-di="-1"])::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tint);
+  }
+  .c-legend button[aria-pressed="true"] {
+    border-color: var(--tint, var(--accent));
+    background: color-mix(in srgb, var(--tint, var(--accent)) 20%, var(--surface));
+    font-weight: 700;
+  }
+
+  .c-label.is-muted { opacity: .18 !important; }
+
+  .c-btns { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 6px; z-index: 2; }
+  .c-btns button {
+    font: inherit; font-size: .7rem; font-weight: 600;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 999px;
+    padding: 3px 10px; cursor: pointer;
+  }
+  .c-btns button[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  }
+
+  /* Fullscreen has two paths: the real Fullscreen API when the host frame
+     allows it, and this — a fixed overlay — when it does not. The published
+     page runs inside an iframe, where requestFullscreen is often refused, and
+     a button that silently does nothing is worse than no button. */
+  .c-stage.is-expanded {
+    position: fixed; inset: 0; z-index: 9999;
+    width: 100vw; height: 100dvh;
+    border-radius: 0; background: var(--ground);
+  }
+  body.is-locked { overflow: hidden; }
+  .c-status {
+    position: absolute; bottom: 12px; right: 8px;
+    font-family: var(--font-mono); font-size: .62rem; letter-spacing: .04em;
+    color: var(--ink-faint); background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border-radius: 999px; padding: 2px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- verdict ---- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: .9rem; }
+  th, td { text-align: start; padding: .7rem .9rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .yes { color: var(--accent); font-weight: 700; }
+  .no { color: var(--warn); font-weight: 700; }
+
+  .verdict {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+    border-radius: 16px;
+    padding: 1.25rem 1.35rem;
+    display: flex; flex-direction: column; gap: .75rem;
+  }
+  .verdict h2 { font-size: 1.2rem; }
+  .verdict ol { margin: 0; padding-inline-start: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+  .verdict li::marker { font-family: var(--font-mono); color: var(--accent); font-weight: 700; }
+
+  .split { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note-card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: .45rem;
+  }
+  .note-card h3 { font-size: .95rem; }
+  .note-card p { margin: 0; font-size: .88rem; color: var(--ink-soft); }
+  .note-card .tag {
+    align-self: start; font-family: var(--font-mono); font-size: .65rem;
+    letter-spacing: .1em; text-transform: uppercase;
+    border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 7px;
+    color: var(--ink-faint);
+  }
+
+  footer.foot { font-size: .8rem; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 1.25rem; }
+
+  :where(button, a, input, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">เกี่ยวกับเรา · โครงสร้างองค์กร · ปี 2569</span>
+    <h1>หน้าทีม SAMO บนมือถือ<br>วัดปัญหา แล้วลองสามทาง</h1>
+    <div class="rule"></div>
+    <p class="lead">
+      แผนผังองค์กรบนจอมือถือใช้ความกว้างได้แค่ราวหนึ่งในสาม ที่เหลือเป็นที่ว่าง
+      และหน้าก็ยาวจนเลื่อนไม่จบ ด้านล่างคือตัวเลขที่วัดจากเว็บจริง
+      แล้วเทียบสามทางเลือกด้วยข้อมูลชุดเดียวกันทั้งหมด — 398 คน 270 ตำแหน่ง 11 ฝ่าย
+      ทุกกรอบเลื่อนและกดได้จริง
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">สิ่งที่วัดได้</span>
+      <h2>ปัญหาไม่ใช่ความสวย แต่เป็นความยาวกับความกว้าง</h2>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-num is-bad">108,726<span style="font-size:.6em"> px</span></span>
+        <span class="stat-label">ความสูงของหน้า เกี่ยวกับเรา ในมุมมอง <strong>แผนผัง</strong> ที่ความกว้าง 390px — ประมาณ 130 หน้าจอ</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">12,484<span style="font-size:.6em"> px</span></span>
+        <span class="stat-label">มุมมอง <strong>รายการ</strong> ที่ความกว้างเดียวกัน สั้นกว่าเกือบ 9 เท่า</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num is-bad">~35%</span>
+        <span class="stat-label">สัดส่วนความกว้างที่การ์ดคนหนึ่งใช้จริง ที่เหลือว่างเปล่าเพราะหนึ่งแถวมีคนเดียว</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">398 <span style="font-size:.6em">คน</span></span>
+        <span class="stat-label">ใน 270 ตำแหน่ง 11 ฝ่าย ลึกสุด 5 ชั้น — ตำแหน่งเดียวมีได้ถึง 21 คน</span>
+      </div>
+    </div>
+
+    <figure class="evidence" style="margin:0">
+      <div>
+        <img src="EVIDENCE_SRC" alt="ภาพหน้าจอแผนผังองค์กรบนมือถือ การ์ดคนเรียงคนละแถว เหลือพื้นที่ว่างด้านขวา">
+        <figcaption>ของจริงจาก samo.md.kku.ac.th ที่ความกว้าง 390px</figcaption>
+      </div>
+      <div class="prose">
+        <p>
+          แผนผังถูกออกแบบให้กว้าง — พ่อแม่อยู่ซ้าย ลูกอยู่ขวา เส้นโยงไปทางขวา
+          พอจอแคบกว่าที่ผังต้องการ มันจึงยุบเหลือคอลัมน์เดียว
+          แต่การ์ดยังคงขนาดของผังแนวนอนไว้ ผลคือคนละหนึ่งแถว
+          และการย่อหน้าตามชั้นความลึกยังกินความกว้างซ้ำอีกชั้นละสิบกว่าพิกเซล
+        </p>
+        <p class="callout">
+          ทั้งสองอย่างนี้แก้ได้โดยไม่ต้องเปลี่ยนเทคโนโลยี: ให้คนเรียงเป็นตาราง
+          แทนที่จะเรียงลงมาทีละคน และให้ความลึกเป็นข้อความบอกทาง แทนที่จะเป็นระยะย่อหน้า
+        </p>
+      </div>
+    </figure>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">ลองของจริง</span>
+      <h2>สามทางเลือก ข้อมูลชุดเดียวกัน</h2>
+      <p class="lead" style="max-width:66ch">
+        เลื่อนในกรอบได้เลย ตัวเลข “ความสูงเนื้อหา” ใต้แต่ละกรอบวัดสดจากกรอบนั้นจริง ๆ
+        ไม่ได้พิมพ์ไว้ล่วงหน้า
+      </p>
+    </div>
+
+    <div class="rail">
+
+      <article class="option">
+        <div class="option-head">
+          <span class="option-tag">แบบ ก · ตอนนี้</span>
+          <span class="option-title">คนละแถว ย่อหน้าตามชั้น</span>
+          <span class="option-note">จำลองการวางแบบเดียวกับหน้าจริงในมุมมองแผนผัง</span>
+        </div>
+        <div class="device">
+          <div class="device-screen">
+            <div class="device-bar"><strong>ทีม SAMO</strong><span>แผนผัง</span></div>
+            <div class="device-body" id="frameA"><div class="a-wrap" id="aWrap"></div></div>
+          </div>
+        </div>
+        <p class="measure is-bad">เปิดทุกฝ่าย <b id="mA">—</b> px</p>
+      </article>
+
+      <article class="option">
+        <div class="option-head">
+          <span class="option-tag">แบบ ข · ข้อเสนอ</span>
+          <span class="option-title">ตารางสี่คอลัมน์ ฝ่ายพับได้</span>
+          <span class="option-note">ชิปฝ่ายติดบน ค้นหาได้ ความลึกกลายเป็นข้อความบอกทาง</span>
+        </div>
+        <div class="device">
+          <div class="device-screen">
+            <div class="device-bar"><strong>ทีม SAMO</strong><span id="bCount">398 คน</span></div>
+            <div class="device-body" id="frameB">
+              <div class="b-chips" id="bChips"></div>
+              <div class="b-search"><input type="search" id="bSearch" placeholder="ค้นหาชื่อ ชื่อเล่น หรือตำแหน่ง" aria-label="ค้นหา"></div>
+              <div class="b-list" id="bList"></div>
+            </div>
+          </div>
+        </div>
+        <p class="measure is-good">เปิดทุกฝ่าย <b id="mBall">—</b> px · ตอนเปิดหน้า <b id="mB">—</b> px</p>
+      </article>
+
+      <article class="option">
+        <div class="option-head">
+          <span class="option-tag">แบบ ค · 3D</span>
+          <span class="option-title">3D force graph — การ์ดรูปคน</span>
+          <span class="option-note">
+            แบบเดียวกับตัวอย่าง 3d-force-graph แบบ tree: เรียงจากบนลงล่างตามลำดับชั้น
+            จุดผลักกัน เส้นดึงกัน ผังหาที่อยู่ของตัวเอง · ลากเพื่อหมุน จีบสองนิ้วเพื่อซูม
+            แตะการ์ดเพื่อดูว่าใคร · กด <strong>เต็มจอ</strong> เพื่อดูเต็ม ๆ
+          </span>
+        </div>
+        <div class="device">
+          <div class="device-screen">
+            <div class="device-bar"><strong>ทีม SAMO</strong><span>3D · 398 การ์ด</span></div>
+            <div class="c-stage" id="frameC">
+              <div class="c-boot" id="cBoot">แตะเพื่อเริ่ม 3D</div>
+              <span class="c-hint" id="cHint" hidden>ลากเพื่อหมุน · แตะการ์ด</span>
+              <span class="c-status" id="cStatus" hidden></span>
+              <div class="c-legend" id="cLegend" hidden></div>
+              <div class="c-btns" id="cBtns" hidden>
+                <button type="button" id="cDag" aria-pressed="true">บนลงล่าง</button>
+                <button type="button" id="cFull">เต็มจอ</button>
+              </div>
+              <div class="c-card" id="cCard" hidden></div>
+            </div>
+          </div>
+        </div>
+        <p class="measure">โหลดเพิ่ม <b>713 KB</b> (three.js) <b>+ 1.3 MB</b> (การ์ด 398 ใบ) · มีรูปจริง <b>10</b> คน</p>
+      </article>
+
+    </div>
+
+    <p class="callout" id="verdictLine" style="max-width:72ch">—</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">เทียบกันตรง ๆ</span>
+      <h2>อะไรได้ อะไรเสีย</h2>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>เกณฑ์</th><th>ก · ตอนนี้</th><th>ข · ตาราง</th><th>ค · 3D</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ใช้ความกว้างจอ</td><td class="num"><span class="no">~35%</span></td><td class="num"><span class="yes">100%</span></td><td class="num"><span class="yes">100%</span></td></tr>
+          <tr><td>ต้องโหลดเพิ่ม</td><td class="num">0 KB</td><td class="num">0 KB</td><td class="num"><span class="no">713 KB</span></td></tr>
+          <tr><td>ค้นด้วย Ctrl+F / อ่านออกเสียงได้</td><td><span class="yes">ได้</span></td><td><span class="yes">ได้</span></td><td><span class="no">ไม่ได้</span></td></tr>
+          <tr><td>ชื่อไทยคมชัด สระวรรณยุกต์ถูกที่</td><td><span class="yes">ได้</span></td><td><span class="yes">ได้</span></td><td>ได้ แต่เป็นภาพที่อบไว้ล่วงหน้า — ซูมมากก็แตก</td></tr>
+          <tr><td>รูปคนที่มีจริงตอนนี้</td><td class="num">10 / 398</td><td class="num">10 / 398</td><td class="num">10 / 398</td></tr>
+          <tr><td>ลิงก์ตรงไปที่ฝ่ายหนึ่ง ๆ</td><td><span class="yes">ได้</span></td><td><span class="yes">ได้</span></td><td><span class="no">ไม่ได้</span></td></tr>
+          <tr><td>เครื่องเก่า / แบตเตอรี่</td><td><span class="yes">ปกติ</span></td><td><span class="yes">ปกติ</span></td><td><span class="no">กิน GPU ตลอดเวลาที่หมุน</span></td></tr>
+          <tr><td>เห็นภาพรวมทั้งองค์กรครั้งเดียว</td><td><span class="no">ไม่เห็น</span></td><td>เห็นระดับฝ่าย</td><td><span class="yes">เห็นทั้งก้อน</span></td></tr>
+          <tr><td>ความรู้สึกแรกเมื่อเปิดหน้า</td><td>เฉย ๆ</td><td>เป็นระเบียบ</td><td><span class="yes">จำได้</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="verdict">
+      <h2>ข้อเสนอ: เอาแบบ ข เป็นเนื้อหา และเอา 3D เป็นภาพเปิด ถ้าอยากได้</h2>
+      <p style="margin:0">
+        เรื่องที่ร้องเรียนคือ “บนมือถือดูไม่ดี ความกว้างแสดงได้คอลัมน์เดียว” ซึ่งเป็นปัญหาการวาง ไม่ใช่ปัญหามิติ
+        3D ไม่ได้ทำให้ชื่อ 398 ชื่ออ่านง่ายขึ้นบนจอหกนิ้ว และมันแลกด้วยการค้นหา การอ่านออกเสียง
+        ลิงก์ตรง และไฟล์อีกเจ็ดแสนไบต์ แต่ 3D เก่งอีกอย่างที่แบบ ข ทำไม่ได้เลย คือทำให้คน
+        “อ๋อ องค์กรหน้าตาแบบนี้” ในสามวินาทีแรก
+      </p>
+      <ol>
+        <li><strong>เปลี่ยนการวางบนมือถือก่อน</strong> — คนเรียงเป็นตาราง 4 คอลัมน์ ฝ่ายพับได้ ชิปฝ่ายติดบน ความลึกเป็นข้อความบอกทางแทนการย่อหน้า นี่คือแบบ ข และไม่ต้องเพิ่มไลบรารีอะไรเลย</li>
+        <li><strong>ค่อยตัดสินใจเรื่อง 3D แยกกัน</strong> — ถ้าเอา ให้เป็นภาพเปิดสูงประมาณ 40% ของจอ อยู่เหนือรายการ กดข้ามได้ และโหลดแบบ lazy เฉพาะตอนเลื่อนมาถึง คนที่เข้ามาหาชื่อจะไม่ต้องจ่ายค่าไฟล์นั้น</li>
+        <li><strong>ถ้าอยากได้แค่ลุค 3D ไม่ต้องใช้ three.js</strong> — ภาพหมุนแบบในกรอบ ค วาดด้วย canvas ธรรมดาได้ ใช้โค้ดราวร้อยบรรทัด โหลดเพิ่ม 0 KB ต่างกันตรงที่ไม่มีแสงเงาและวัสดุจริง ซึ่งผังจุดกับเส้นไม่ได้ใช้อยู่แล้ว</li>
+      </ol>
+    </div>
+
+    <div class="split">
+      <div class="note-card">
+        <span class="tag">รูปคน</span>
+        <h3>ตอนนี้มีรูปจริงแค่ 10 จาก 398 คน</h3>
+        <p>
+          ที่เหลือเป็นรูปโปรไฟล์เริ่มต้น ไล่สีตามฝ่าย ผังการ์ดจะสวยแบบที่ควรเป็นก็ต่อเมื่อคนอัปโหลดรูปกันจริง ๆ
+          — ซึ่งแปลว่างานจริงของทางเลือกนี้คือการชวนให้คนใส่รูป ไม่ใช่โค้ด
+        </p>
+      </div>
+      <div class="note-card">
+        <span class="tag">ข้อจำกัดที่แก้แล้ว</span>
+        <h3>ตัวอักษรไทยใน 3D ทำได้ ด้วยการอบเป็นภาพ</h3>
+        <p>
+          การ์ดทั้ง 398 ใบถูกวาดด้วย canvas ก่อน — เบราว์เซอร์จัดสระและวรรณยุกต์ให้ถูกต้อง —
+          แล้วค่อยส่งเป็นภาพเดียวเข้า WebGL ผลคือชื่อคมชัด แลกกับไฟล์ภาพ 1.3 MB
+          และการที่มันเป็นภาพ จึงเลือกไม่ได้ ค้นด้วย Ctrl+F ไม่ได้ และซูมมากก็แตก
+        </p>
+      </div>
+      <div class="note-card">
+        <span class="tag">สิ่งที่ 3D ให้จริง</span>
+        <h3>ขนาดขององค์กร ในภาพเดียว</h3>
+        <p>
+          668 จุดหมุนอยู่ด้วยกันบอกได้ทันทีว่าฝ่ายไหนใหญ่ ฝ่ายไหนลึก
+          และทุกอย่างต่อกันอย่างไร ซึ่งการเลื่อนอ่านทีละฝ่ายไม่มีวันบอก
+          เก็บไว้เป็นภาพเปิดจึงคุ้ม เก็บไว้เป็นวิธีหาคนไม่คุ้ม
+        </p>
+      </div>
+      <div class="note-card">
+        <span class="tag">ผลข้างเคียงที่ดี</span>
+        <h3>แบบ ข ช่วยเดสก์ท็อปด้วย</h3>
+        <p>
+          ตารางคนกับฝ่ายพับได้ ใช้ได้กับจอใหญ่เหมือนกัน แค่เพิ่มจำนวนคอลัมน์
+          และแผนผังแนวนอนเดิมยังอยู่ได้ในฐานะมุมมองของจอกว้าง ไม่ต้องทิ้ง
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    ข้อมูลจริงจาก <code>get_public_team_chart(2569)</code> บน samo.md.kku.ac.th ·
+    ตัวเลขความสูงหน้าเว็บวัดด้วย Chrome ที่ 390×844 · รูปถ่ายจริงถูกแทนด้วยอักษรย่อในเดโมนี้
+    เพราะหน้านี้โหลดภาพจากภายนอกไม่ได้
+  </footer>
+</div>
+
+<script>
+  window.ORG_DATA = ORG_DATA_JSON;
+  window.CARD_DATA = CARD_DATA_JSON;
+  window.CARD_ATLAS = 'CARD_ATLAS_SRC';
+</script>
+
+<script>
+(() => {
+  const DATA = window.ORG_DATA;
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const tintVar = (t) => `var(--dept-${t})`;
+
+  const countPeople = (n) => n.people.length + n.kids.reduce((s, k) => s + countPeople(k), 0);
+  const countNodes = (n) => 1 + n.kids.reduce((s, k) => s + countNodes(k), 0);
+
+  // ---------- FRAME A — the layout as it is today ----------
+  // One person per row, and one indent step per level of depth. Both are the
+  // things being measured, so both are reproduced exactly rather than softened.
+  const aHtml = (node, tint, depth) => {
+    const kids = node.kids.map((k) => aHtml(k, tint, depth + 1)).join('');
+    const people = node.people.map((p) => `
+      <div class="a-person">
+        <span class="a-face">${esc(p.i)}</span>
+        <span class="a-name">${esc(p.n)}</span>
+        ${p.k ? `<span class="a-nick">${esc(p.k)}</span>` : ''}
+      </div>`).join('');
+    const inner = (people || kids)
+      ? `<div class="a-indent">${people}${kids}</div>` : '';
+    return `
+      <div>
+        <div class="a-station">
+          <span class="a-dot"></span><span>${esc(node.name)}</span>
+        </div>
+        ${inner}
+      </div>`;
+  };
+  document.getElementById('aWrap').innerHTML = DATA.roots
+    .map((r) => `<div style="--tint:${tintVar(r.tint)}">${aHtml(r, r.tint, 0)}</div>`)
+    .join('');
+
+  // ---------- FRAME B — the proposal ----------
+  const list = document.getElementById('bList');
+  const chips = document.getElementById('bChips');
+  const search = document.getElementById('bSearch');
+  const open = new Set([DATA.roots[0].name]);
+
+  // Depth stops being an indent and becomes a path string, so nesting costs
+  // characters instead of pixels — that is the whole width saving.
+  const flatten = (node, path, out) => {
+    if (node.people.length) out.push({ role: node.name, path: path.join(' › '), people: node.people });
+    for (const k of node.kids) flatten(k, [...path, node.name], out);
+    return out;
+  };
+
+  // A heading costs a whole row, and 270 ตำแหน่ง hold 398 people — most of them
+  // alone. So a ตำแหน่ง only earns a heading when it is an actual team (3+);
+  // everyone else carries their ตำแหน่ง as a caption on their own tile and packs
+  // four to a row with their neighbours. That single rule is the difference
+  // between "a grid" and "a grid that is actually shorter".
+  const tile = (p, role) => `
+    <div class="b-person">
+      <span class="b-face">${esc(p.i)}</span>
+      <span class="b-person-name">${esc(p.n.split(' ')[0])}</span>
+      ${p.k ? `<span class="b-person-nick">${esc(p.k)}</span>` : ''}
+      ${role ? `<span class="b-person-role">${esc(role)}</span>` : ''}
+    </div>`;
+
+  const blocks = (rows) => {
+    const out = [];
+    let loose = [];
+    const flush = () => {
+      if (!loose.length) return;
+      out.push(`<div class="b-role"><div class="b-people">${loose.join('')}</div></div>`);
+      loose = [];
+    };
+    for (const row of rows) {
+      if (row.people.length >= 3) {
+        flush();
+        out.push(`
+          <div class="b-role">
+            <div class="b-role-name">
+              <span>${esc(row.role)}</span>
+              <span class="b-role-path">${row.people.length} คน</span>
+            </div>
+            <div class="b-people">${row.people.map((p) => tile(p, '')).join('')}</div>
+          </div>`);
+      } else {
+        loose.push(...row.people.map((p) => tile(p, row.role)));
+      }
+    }
+    flush();
+    return out.join('');
+  };
+
+  const matches = (q, root) => {
+    if (!q) return null;
+    const hit = [];
+    for (const row of flatten(root, [], [])) {
+      const people = row.people.filter((p) => (p.n + p.k).includes(q));
+      if (row.role.includes(q)) hit.push(row);
+      else if (people.length) hit.push({ ...row, people });
+    }
+    return hit;
+  };
+
+  function renderB(quiet) {
+    const q = search.value.trim();
+    chips.innerHTML = DATA.roots.map((r) => `
+      <button type="button" class="b-chip" data-dept="${esc(r.name)}"
+              style="--tint:${tintVar(r.tint)}"
+              aria-current="${open.has(r.name)}">${esc(r.name)}</button>`).join('');
+
+    let shown = 0;
+    list.innerHTML = DATA.roots.map((r) => {
+      const rows = q ? matches(q, r) : (open.has(r.name) ? flatten(r, [], []) : null);
+      if (q && (!rows || !rows.length)) return '';
+      const total = countPeople(r);
+      shown += q ? rows.reduce((s, x) => s + x.people.length, 0) : total;
+      const body = rows ? blocks(rows) : '';
+      return `
+        <section class="b-dept ${rows ? 'is-open' : ''}" style="--tint:${tintVar(r.tint)}">
+          <button type="button" class="b-dept-head" data-toggle="${esc(r.name)}"
+                  aria-expanded="${Boolean(rows)}">
+            <span class="b-caret">▸</span>
+            <span class="b-dept-name">${esc(r.name)}</span>
+            <span class="b-dept-meta">${total} คน · ${countNodes(r) - 1} ตำแหน่ง</span>
+          </button>
+          ${body}
+        </section>`;
+    }).join('') || '<p class="b-empty">ไม่พบชื่อหรือตำแหน่งที่ตรงกับคำค้น</p>';
+
+    document.getElementById("bCount").textContent = q ? `พบ ${shown} คน` : "398 คน";
+    if (!quiet) measure();
+  }
+
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-toggle]');
+    if (!btn) return;
+    const name = btn.dataset.toggle;
+    if (open.has(name)) open.delete(name); else open.add(name);
+    search.value = '';
+    renderB();
+  });
+  chips.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dept]');
+    if (!btn) return;
+    const name = btn.dataset.dept;
+    open.clear();
+    open.add(name);
+    search.value = '';
+    renderB();
+    document.querySelector(`[data-toggle="${CSS.escape(name)}"]`)
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+  search.addEventListener('input', renderB);
+
+  // ---------- the live measurement under each frame ----------
+  // Printed from the DOM rather than asserted, so the comparison cannot drift
+  // from what the frames actually render.
+  //
+  // AND MEASURED LIKE FOR LIKE. The first version of this page compared frame A
+  // with all eleven ฝ่าย open against frame B with one open, and reported a 22×
+  // win. That number was about the collapse, not about the layout. So B is
+  // measured with everything open too — that is the number that belongs beside
+  // A — and the collapsed default is reported separately as what you actually
+  // land on.
+  const fmt = (n) => n.toLocaleString('en-US');
+  function measureExpandedB() {
+    const keep = new Set(open);
+    const q = search.value;
+    open.clear();
+    for (const r of DATA.roots) open.add(r.name);
+    search.value = '';
+    renderB(true);
+    const h = document.getElementById('frameB').scrollHeight;
+    open.clear();
+    for (const k of keep) open.add(k);
+    search.value = q;
+    renderB(true);
+    return h;
+  }
+  function measure() {
+    document.getElementById('mA').textContent = fmt(document.getElementById('frameA').scrollHeight);
+    document.getElementById('mB').textContent = fmt(document.getElementById('frameB').scrollHeight);
+  }
+  renderB(true);
+  const bAll = measureExpandedB();
+  document.getElementById('mBall').textContent = fmt(bAll);
+  measure();
+
+  // The one-sentence verdict is written from the numbers the frames just
+  // produced, not typed in — so it cannot end up describing an older build.
+  {
+    const a = document.getElementById('frameA').scrollHeight;
+    const b0 = document.getElementById('frameB').scrollHeight;
+    document.getElementById('verdictLine').innerHTML =
+      `เนื้อหาเดียวกัน เปิดเท่ากัน: แบบ ก สูง <strong>${fmt(a)} px</strong> แบบ ข สูง `
+      + `<strong>${fmt(bAll)} px</strong> — สั้นลง <strong>${(a / bAll).toFixed(1)} เท่า</strong> `
+      + `และตอนเปิดหน้าจริง แบบ ข เห็นแค่ <strong>${fmt(b0)} px</strong> เพราะฝ่ายอื่นยังพับอยู่ `
+      + `ส่วนแบบ ค วัดความสูงไม่ได้ เพราะมันไม่ได้เลื่อน — ซึ่งเป็นทั้งข้อดีและข้อเสียของมัน`;
+  }
+  window.addEventListener('resize', () => {
+    measure();
+    document.getElementById('mBall').textContent = fmt(measureExpandedB());
+  });
+
+  // ---------- FRAME C — a 3D force-directed graph of the whole องค์กร ----------
+  //
+  // Same idea as vasturiano's 3d-force-graph tree example: nodes repel, links
+  // pull, and the tree finds its own shape in space instead of being placed on
+  // a grid by hand. The physics here is written directly rather than pulled in
+  // from d3-force-3d — 668 nodes with a spatial hash is a page of code, and the
+  // page is already carrying three.js.
+  //
+  // Every person is a CARD, and every card is a slice of one baked atlas: the
+  // photo when there is one, a default profile picture when there is not, with
+  // the Thai name drawn by the browser's own text engine before it ever became
+  // a texture.
+  const stage = document.getElementById('frameC');
+  const boot = document.getElementById('cBoot');
+  let started = false;
+
+  function start3d() {
+    if (started) return;
+    started = true;
+    boot.remove();
+    document.getElementById('cHint').hidden = false;
+
+    const THREE = window.THREE;
+    const CARDS = window.CARD_DATA;
+    const W = () => stage.clientWidth;
+    const H = () => stage.clientHeight;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, W() / H(), 0.5, 20000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(W(), H());
+    stage.appendChild(renderer.domElement);
+
+    const css = getComputedStyle(document.documentElement);
+    const tintHex = (t) => (css.getPropertyValue(`--dept-${t}`).trim() || '#8C6A47');
+
+    // ---- graph: root → ฝ่าย → ตำแหน่ง → คน ----
+    const nodes = [];
+    const links = [];
+    const addNode = (o) => { o.id = nodes.length; nodes.push(o); return o; };
+
+    const root = addNode({
+      kind: 'root', label: 'สโมสรนักศึกษาฯ', tint: 'strategy', r: 5, level: 0, dept: -1,
+    });
+    let cardIndex = 0;
+    let maxLevel = 0;
+    let deptIndex = -1;
+    const walk = (n, dept, parent, depth) => {
+      const level = parent.level + 1;
+      maxLevel = Math.max(maxLevel, level);
+      const self = addNode({
+        kind: 'role', label: n.name, tint: dept.tint, r: Math.max(1.6, 4 - depth),
+        role: n.name, dept: dept.name, level, di: deptIndex,
+      });
+      links.push([parent.id, self.id, depth === 0 ? 70 : 34 - depth * 4]);
+      for (const p of n.people) {
+        const card = CARDS.cards[cardIndex];
+        const person = addNode({
+          kind: 'person', tint: dept.tint, r: 3.2, card: cardIndex,
+          label: p.n, nick: p.k, role: n.name, dept: dept.name, path: card ? card.path : '',
+          level: level + 1, di: deptIndex,
+        });
+        maxLevel = Math.max(maxLevel, level + 1);
+        cardIndex++;
+        links.push([self.id, person.id, 22]);
+      }
+      for (const kid of n.kids) walk(kid, dept, self, depth + 1);
+    };
+    for (const dept of DATA.roots) { deptIndex++; walk(dept, dept, root, 0); }
+
+    const persons = nodes.filter((n) => n.kind === 'person');
+    const structs = nodes.filter((n) => n.kind !== 'person');
+
+    // ---- initial positions: a radial tree, so the simulation relaxes an
+    // already-sensible shape instead of untangling a random cloud ----
+    const fib = (i, n) => {
+      const k = i + 0.5;
+      const phi = Math.acos(1 - 2 * k / n);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * k;
+      return [Math.cos(theta) * Math.sin(phi), Math.sin(theta) * Math.sin(phi), Math.cos(phi)];
+    };
+    const pos = new Float32Array(nodes.length * 3);
+    const vel = new Float32Array(nodes.length * 3);
+    const childrenOf = new Map();
+    for (const [a, b] of links) {
+      if (!childrenOf.has(a)) childrenOf.set(a, []);
+      childrenOf.get(a).push(b);
+    }
+    (function seed(id, dir, radius, depth) {
+      const kids = childrenOf.get(id) || [];
+      kids.forEach((kid, i) => {
+        const f = fib(i, Math.max(kids.length, 3));
+        // The ฝ่าย leave the root in every direction — biasing them along the
+        // parent's axis at depth 0 grew the whole graph out of one side and
+        // left half the frame empty.
+        const bias = depth === 0 ? 0 : 1.3;
+        const d = [
+          dir[0] * bias + f[0] * 0.9,
+          dir[1] * bias + f[1] * 0.9,
+          dir[2] * bias + f[2] * 0.9,
+        ];
+        const len = Math.hypot(d[0], d[1], d[2]) || 1;
+        pos[kid * 3] = pos[id * 3] + (d[0] / len) * radius;
+        pos[kid * 3 + 1] = pos[id * 3 + 1] + (d[1] / len) * radius;
+        pos[kid * 3 + 2] = pos[id * 3 + 2] + (d[2] / len) * radius;
+        seed(kid, [d[0] / len, d[1] / len, d[2] / len], radius * 0.62, depth + 1);
+      });
+    })(root.id, [0, 1, 0], 90, 0);
+
+    // ---- forces ----
+    // Repulsion uses a uniform-grid neighbour search: without a cutoff this is
+    // 223,000 pairs per tick, which a phone will not do sixty times a second.
+    const CUT = 26, CELL = CUT;
+    const LEVEL_GAP = 58;
+    const grid = new Map();
+    const key = (x, y, z) => `${Math.floor(x / CELL)},${Math.floor(y / CELL)},${Math.floor(z / CELL)}`;
+    let alpha = 1;
+    let topDown = true;
+
+    function tick() {
+      alpha += (0 - alpha) * 0.021;
+
+      grid.clear();
+      for (let i = 0; i < nodes.length; i++) {
+        const k = key(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+        let bucket = grid.get(k);
+        if (!bucket) { bucket = []; grid.set(k, bucket); }
+        bucket.push(i);
+      }
+
+      // repulsion between neighbours only
+      for (const [k, bucket] of grid) {
+        const [gx, gy, gz] = k.split(',').map(Number);
+        const near = [];
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+          const b = grid.get(`${gx + dx},${gy + dy},${gz + dz}`);
+          if (b) near.push(...b);
+        }
+        for (const i of bucket) {
+          for (const j of near) {
+            if (j <= i) continue;
+            let dx = pos[j * 3] - pos[i * 3];
+            let dy = pos[j * 3 + 1] - pos[i * 3 + 1];
+            let dz = pos[j * 3 + 2] - pos[i * 3 + 2];
+            let d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > CUT * CUT) continue;
+            if (d2 < 0.01) { dx = Math.random() - .5; dy = Math.random() - .5; dz = Math.random() - .5; d2 = 0.01; }
+            const d = Math.sqrt(d2);
+            // cards need more personal space than the little structure dots,
+            // and two different ฝ่าย need more space than two people in the
+            // same one — that is what makes the clusters read as clusters
+            const strength = ((nodes[i].kind === 'person' ? 150 : 110)
+                           + (nodes[j].kind === 'person' ? 150 : 110))
+                           * (nodes[i].di !== nodes[j].di ? 2.1 : 1);
+            const f = (strength / d2) * alpha;
+            const ux = dx / d, uy = dy / d, uz = dz / d;
+            vel[i * 3] -= ux * f; vel[i * 3 + 1] -= uy * f; vel[i * 3 + 2] -= uz * f;
+            vel[j * 3] += ux * f; vel[j * 3 + 1] += uy * f; vel[j * 3 + 2] += uz * f;
+          }
+        }
+      }
+
+      // link springs
+      for (const [a, b, L] of links) {
+        const dx = pos[b * 3] - pos[a * 3];
+        const dy = pos[b * 3 + 1] - pos[a * 3 + 1];
+        const dz = pos[b * 3 + 2] - pos[a * 3 + 2];
+        const d = Math.hypot(dx, dy, dz) || 0.01;
+        const f = ((d - L) / d) * 0.32 * alpha;
+        vel[a * 3] += dx * f; vel[a * 3 + 1] += dy * f; vel[a * 3 + 2] += dz * f;
+        vel[b * 3] -= dx * f; vel[b * 3 + 1] -= dy * f; vel[b * 3 + 2] -= dz * f;
+      }
+
+      // gentle pull to the middle so the graph cannot drift off screen
+      for (let i = 0; i < nodes.length; i++) {
+        vel[i * 3] -= pos[i * 3] * 0.0016 * alpha;
+        vel[i * 3 + 1] -= pos[i * 3 + 1] * 0.0016 * alpha;
+        vel[i * 3 + 2] -= pos[i * 3 + 2] * 0.0016 * alpha;
+      }
+
+      for (let i = 0; i < nodes.length * 3; i++) {
+        vel[i] *= 0.55;
+        pos[i] += vel[i];
+      }
+
+      // TOP-DOWN (the 3d-force-graph `dagMode: 'td'` idea): every node is held
+      // on the Y plane of its own level, and the forces are left to sort out X
+      // and Z. Without this the graph is a ball — pretty, but it stops reading
+      // as a hierarchy, because "who reports to whom" has no direction in it.
+      if (topDown) {
+        for (let i = 0; i < nodes.length; i++) {
+          const target = (maxLevel / 2 - nodes[i].level) * LEVEL_GAP;
+          pos[i * 3 + 1] += (target - pos[i * 3 + 1]) * 0.9;
+          vel[i * 3 + 1] *= 0.1;
+        }
+      }
+
+      // ONE WEDGE PER ฝ่าย. Repulsion alone lets two ฝ่าย drift through each
+      // other and interleave, and then no amount of colour separates them, so
+      // each ฝ่าย owns an angular slice around the vertical axis.
+      //
+      // IT IS A SPRING, NOT A FENCE, and the first version got that wrong. A
+      // hard clamp back into the slice left cards that were being squeezed only
+      // one way out — further from the axis — so they ratcheted outward every
+      // tick. Measured: a radius of 5,708 units, past the camera's far plane,
+      // which renders as an empty canvas rather than as anything recognisable
+      // as "too big". Pressure now relieves sideways instead, and a radius cap
+      // stops any remaining drift from ever leaving the frame.
+      const SLICE = (Math.PI * 2) / DATA.roots.length;
+      const HALF = SLICE * 0.44;
+      const R_MAX = 520;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.di < 0) continue;
+        const x = pos[i * 3], z = pos[i * 3 + 2];
+        const r = Math.hypot(x, z);
+        if (r < 0.5) continue;
+        const want = n.di * SLICE;
+        let delta = Math.atan2(z, x) - want;
+        delta = Math.atan2(Math.sin(delta), Math.cos(delta));      // wrap to ±π
+        const over = Math.abs(delta) - HALF;
+        if (over > 0) {
+          // rotate part of the way back, and damp the tangential velocity
+          const back = Math.sign(delta) * over * 0.35;
+          const a = Math.atan2(z, x) - back;
+          pos[i * 3] = Math.cos(a) * r;
+          pos[i * 3 + 2] = Math.sin(a) * r;
+          vel[i * 3] *= 0.7; vel[i * 3 + 2] *= 0.7;
+        }
+        if (r > R_MAX) {
+          const k = R_MAX / r;
+          pos[i * 3] *= k; pos[i * 3 + 2] *= k;
+          vel[i * 3] *= 0.5; vel[i * 3 + 2] *= 0.5;
+        }
+      }
+
+      // the root is the anchor
+      pos[root.id * 3] = pos[root.id * 3 + 2] = 0;
+      if (!topDown) pos[root.id * 3 + 1] = 0;
+    }
+
+    // ---- links ----
+    const linePos = new Float32Array(links.length * 6);
+    const lineCol = new Float32Array(links.length * 6);
+    const lineColBase = new THREE.Color(css.getPropertyValue('--line-strong').trim() || '#ccc');
+    links.forEach(([a, b], i) => {
+      const c = new THREE.Color(tintHex(nodes[b].tint)).lerp(lineColBase, 0.5);
+      lineCol.set([c.r, c.g, c.b, c.r, c.g, c.b], i * 6);
+    });
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+    lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCol, 3));
+    scene.add(new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.4,
+    })));
+
+    // ---- structure dots ----
+    const sPos = new Float32Array(structs.length * 3);
+    const sCol = new Float32Array(structs.length * 3);
+    const sSize = new Float32Array(structs.length);
+    structs.forEach((n, i) => {
+      const c = new THREE.Color(tintHex(n.tint));
+      sCol.set([c.r, c.g, c.b], i * 3);
+      sSize[i] = n.kind === 'root' ? 26 : Math.max(7, n.r * 4);
+    });
+    const sGeo = new THREE.BufferGeometry();
+    sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+    sGeo.setAttribute('color', new THREE.BufferAttribute(sCol, 3));
+    sGeo.setAttribute('psize', new THREE.BufferAttribute(sSize, 1));
+    const disc = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const x = c.getContext('2d');
+      const g = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(.6, 'rgba(255,255,255,.96)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g;
+      x.beginPath(); x.arc(32, 32, 30, 0, Math.PI * 2); x.fill();
+      return new THREE.CanvasTexture(c);
+    })();
+    const dotMat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: disc }, scale: { value: H() } },
+      vertexShader: `
+        attribute float psize; varying vec3 vColor; uniform float scale;
+        void main() {
+          vColor = color;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = psize * (scale / 560.0) * (60.0 / -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform sampler2D map; varying vec3 vColor;
+        void main() {
+          vec4 t = texture2D(map, gl_PointCoord);
+          if (t.a < 0.2) discard;
+          gl_FragColor = vec4(vColor, t.a);
+        }`,
+      vertexColors: true, transparent: true, depthWrite: false,
+    });
+    scene.add(new THREE.Points(sGeo, dotMat));
+
+    // ---- person cards: one instanced quad, one atlas ----
+    const atlas = new THREE.TextureLoader().load(window.CARD_ATLAS);
+    atlas.colorSpace = THREE.SRGBColorSpace;
+    atlas.generateMipmaps = true;
+    atlas.minFilter = THREE.LinearMipmapLinearFilter;
+
+    const cell = CARDS.cell;
+    const CARD_H = 15, CARD_W = CARD_H * (cell.w / cell.h);
+    const quad = new THREE.InstancedBufferGeometry();
+    quad.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+      -0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0,
+    ]), 3));
+    quad.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2));
+    quad.setIndex([0, 1, 2, 0, 2, 3]);
+    const iPos = new Float32Array(persons.length * 3);
+    const iUv = new Float32Array(persons.length * 2);
+    const iDim = new Float32Array(persons.length * 2);
+    persons.forEach((p, i) => {
+      const col = p.card % cell.cols, row = Math.floor(p.card / cell.cols);
+      iUv[i * 2] = (col * cell.w) / cell.aw;
+      iUv[i * 2 + 1] = 1 - ((row + 1) * cell.h) / cell.ah;
+      iDim[i * 2] = cell.w / cell.aw;
+      iDim[i * 2 + 1] = cell.h / cell.ah;
+    });
+    quad.setAttribute('aPos', new THREE.InstancedBufferAttribute(iPos, 3));
+    quad.setAttribute('aUv', new THREE.InstancedBufferAttribute(iUv, 2));
+    quad.setAttribute('aDim', new THREE.InstancedBufferAttribute(iDim, 2));
+    quad.instanceCount = persons.length;
+
+    const iFocus = new Float32Array(persons.length).fill(1);
+    quad.setAttribute('aFocus', new THREE.InstancedBufferAttribute(iFocus, 1));
+    const bg = new THREE.Color(css.getPropertyValue('--frame-bg').trim() || '#f2f3f0');
+
+    const cardMat = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: atlas },
+        right: { value: new THREE.Vector3(1, 0, 0) },
+        up: { value: new THREE.Vector3(0, 1, 0) },
+        size: { value: new THREE.Vector2(CARD_W, CARD_H) },
+        bg: { value: bg },
+      },
+      vertexShader: `
+        attribute vec3 aPos; attribute vec2 aUv; attribute vec2 aDim; attribute float aFocus;
+        uniform vec3 right; uniform vec3 up; uniform vec2 size;
+        varying vec2 vUv; varying vec2 vLocal; varying float vFocus;
+        void main() {
+          vUv = aUv + uv * aDim;
+          vLocal = uv;
+          vFocus = aFocus;
+          // a card outside the focused ฝ่าย also shrinks, so the chosen group
+          // gains size as well as contrast
+          float s = mix(0.55, 1.0, aFocus);
+          vec3 world = aPos + right * (position.x * size.x * s) + up * (position.y * size.y * s);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
+        }`,
+      fragmentShader: `
+        uniform sampler2D map; uniform vec3 bg;
+        varying vec2 vUv; varying vec2 vLocal; varying float vFocus;
+        void main() {
+          // rounded corners, cut in the shader so the atlas can stay JPEG
+          vec2 p = abs(vLocal - 0.5) * 2.0;
+          vec2 q = max(p - vec2(0.86, 0.9), 0.0);
+          if (length(q / vec2(0.14, 0.1)) > 1.0) discard;
+          vec4 t = texture2D(map, vUv);
+          gl_FragColor = vec4(mix(bg, t.rgb, mix(0.09, 1.0, vFocus)), 1.0);
+        }`,
+      transparent: false,
+    });
+    const cardMesh = new THREE.Mesh(quad, cardMat);
+    cardMesh.frustumCulled = false;
+    scene.add(cardMesh);
+
+    // ---- ฝ่าย labels stay in the DOM ----
+    const labels = nodes
+      .filter((n) => n.kind === 'root' || (n.kind === 'role' && DATA.roots.some((r) => r.name === n.label)))
+      .map((n) => {
+        const el = document.createElement('span');
+        el.className = 'c-label';
+        el.textContent = n.label;
+        stage.appendChild(el);
+        return { el, n };
+      });
+
+    // ---- camera + input ----
+    // Looking slightly DOWN at a top-down tree: the levels only read as levels
+    // when the camera is above them.
+    let yaw = 0.5, pitch = 0.22, dist = 330, auto = true, fitted = false;
+    let drag = null, pinch = null, userZoomed = false;
+    let zoomMin = 45, zoomMax = 2000;
+    const center = new THREE.Vector3();
+    const target = new THREE.Vector3();
+    const onDown = (e) => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; auto = false; };
+    const onMove = (e) => {
+      if (!drag) return;
+      yaw += (e.clientX - drag.x) * 0.006;
+      pitch = Math.max(-1.45, Math.min(1.45, pitch + (e.clientY - drag.y) * 0.006));
+      drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+      drag = { x: e.clientX, y: e.clientY, moved: drag.moved };
+    };
+    stage.addEventListener('pointerdown', onDown);
+    stage.addEventListener('pointermove', onMove);
+    stage.addEventListener('pointerup', () => { drag = null; });
+    stage.addEventListener('pointercancel', () => { drag = null; });
+    // ZOOM IS THE USER'S, AND IT STICKS. The first version refit the camera on
+    // every resize — and a pinch on a phone resizes the visual viewport, so the
+    // gesture fought an auto-fit that kept yanking the camera back to its
+    // computed framing. That is the "it shows another view then switches back"
+    // flicker. Once the view has been zoomed by hand, only an explicit action
+    // (fullscreen, changing layout) is allowed to reframe it.
+    const zoomBy = (factor) => {
+      dist = Math.max(zoomMin, Math.min(zoomMax, dist * factor));
+      userZoomed = true;
+      auto = false;
+    };
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoomBy(1 + e.deltaY * 0.0012);
+    }, { passive: false });
+    stage.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+      if (pinch) zoomBy(pinch / d);
+      pinch = d;
+    }, { passive: false });
+    stage.addEventListener('touchend', () => { pinch = null; });
+
+    // ---- pick a card: project every person and take the nearest hit ----
+    const card = document.getElementById('cCard');
+    const proj = new THREE.Vector3();
+    stage.addEventListener('click', (e) => {
+      if (drag && drag.moved > 6) return;
+      const r = stage.getBoundingClientRect();
+      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      let best = null, bestD = 1e9;
+      persons.forEach((p, i) => {
+        proj.set(pos[p.id * 3], pos[p.id * 3 + 1], pos[p.id * 3 + 2]).project(camera);
+        if (proj.z > 1) return;
+        const sx = (proj.x * 0.5 + 0.5) * r.width;
+        const sy = (-proj.y * 0.5 + 0.5) * r.height;
+        const d = Math.hypot(sx - mx, sy - my);
+        if (d < bestD) { bestD = d; best = p; }
+      });
+      if (!best || bestD > 26) { card.hidden = true; return; }
+      card.hidden = false;
+      card.innerHTML = `<b>${esc(best.label)}${best.nick ? ' (' + esc(best.nick) + ')' : ''}</b>
+        <span class="c-people">${esc(best.role)}</span>
+        <span class="c-people" style="opacity:.7">${esc(best.dept)}${best.path ? ' › ' + esc(best.path) : ''}</span>`;
+    });
+
+    // ---- focus one ฝ่าย ----
+    // Colour alone stops separating eleven groups once they overlap on screen,
+    // so this removes the other ten instead: everything else fades into the
+    // background and the camera reframes on the one that is left.
+    let focus = -1;
+    const baseLineCol = lineCol.slice();
+    const baseDotCol = sCol.slice();
+    const fade = (arr, base, on, i, stride) => {
+      for (let k = 0; k < stride; k += 3) {
+        const c = new THREE.Color(base[i * stride + k], base[i * stride + k + 1], base[i * stride + k + 2]);
+        if (!on) c.lerp(bg, 0.9);
+        arr[i * stride + k] = c.r;
+        arr[i * stride + k + 1] = c.g;
+        arr[i * stride + k + 2] = c.b;
+      }
+    };
+    function applyFocus(di) {
+      focus = di;
+      persons.forEach((p, i) => { iFocus[i] = (di < 0 || p.di === di) ? 1 : 0; });
+      quad.attributes.aFocus.needsUpdate = true;
+      links.forEach(([, b], i) => fade(lineCol, baseLineCol, di < 0 || nodes[b].di === di, i, 6));
+      lineGeo.attributes.color.needsUpdate = true;
+      structs.forEach((n, i) => fade(sCol, baseDotCol, di < 0 || n.di === di || n.kind === 'root', i, 3));
+      sGeo.attributes.color.needsUpdate = true;
+      for (const { el, n } of labels) {
+        el.classList.toggle('is-muted', di >= 0 && n.di !== di && n.kind !== 'root');
+      }
+      [...legend.children].forEach((b, i) => {
+        b.setAttribute('aria-pressed', String(i === 0 ? di < 0 : i - 1 === di));
+      });
+      fitted = false;       // reframe on whatever is now visible
+      userZoomed = false;
+    }
+
+    const legend = document.getElementById('cLegend');
+    legend.hidden = false;
+    legend.innerHTML = `<button type="button" data-di="-1" aria-pressed="true">ทุกฝ่าย</button>`
+      + DATA.roots.map((r, i) => `
+        <button type="button" data-di="${i}" style="--tint: var(--dept-${r.tint})"
+                aria-pressed="false">${esc(r.name)}</button>`).join('');
+    legend.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-di]');
+      if (!b) return;
+      const di = Number(b.dataset.di);
+      applyFocus(di === focus ? -1 : di);
+    });
+
+    // ---- controls: layout + fullscreen ----
+    const btns = document.getElementById('cBtns');
+    btns.hidden = false;
+
+    const dagBtn = document.getElementById('cDag');
+    dagBtn.addEventListener('click', () => {
+      topDown = !topDown;
+      userZoomed = false;
+      dagBtn.setAttribute('aria-pressed', String(topDown));
+      dagBtn.textContent = topDown ? 'บนลงล่าง' : 'กระจายรอบทิศ';
+      // re-run the simulation so the new constraint actually re-settles
+      alpha = 0.7;
+      settled = Math.min(settled, SETTLE - 90);
+      fitted = false;
+    });
+
+    const fullBtn = document.getElementById('cFull');
+    const setExpanded = (on) => {
+      stage.classList.toggle('is-expanded', on);
+      document.body.classList.toggle('is-locked', on);
+      fullBtn.textContent = on ? 'ออกจากเต็มจอ' : 'เต็มจอ';
+      userZoomed = false;
+      fitted = false;
+    };
+    fullBtn.addEventListener('click', async () => {
+      const real = document.fullscreenElement === stage;
+      const expanded = stage.classList.contains('is-expanded');
+      if (real) { document.exitFullscreen?.(); return; }
+      if (expanded) { setExpanded(false); return; }
+      try {
+        if (stage.requestFullscreen && document.fullscreenEnabled) {
+          await stage.requestFullscreen();
+          fullBtn.textContent = 'ออกจากเต็มจอ';
+          fitted = false;
+          return;
+        }
+      } catch { /* the host frame refused — fall through to the overlay */ }
+      setExpanded(true);
+    });
+    document.addEventListener('fullscreenchange', () => {
+      const real = document.fullscreenElement === stage;
+      fullBtn.textContent = real ? 'ออกจากเต็มจอ' : 'เต็มจอ';
+      fitted = false;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && stage.classList.contains('is-expanded')) setExpanded(false);
+    });
+
+    // ---- loop ----
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const placed = [];
+    const status = document.getElementById('cStatus');
+    let settled = 0;
+    const SETTLE = 260;
+    let raf = 0;
+
+    function frame() {
+      // Physics runs a few ticks per painted frame so the graph is watched
+      // finding its shape, the way the reference demo does — and so a phone is
+      // never blocked by one long synchronous solve.
+      if (settled < SETTLE) {
+        const budget = settled < 40 ? 3 : 2;
+        for (let i = 0; i < budget && settled < SETTLE; i++, settled++) tick();
+        if (status) {
+          status.textContent = settled >= SETTLE ? '' : `กำลังจัดผัง ${Math.round(settled / SETTLE * 100)}%`;
+          status.hidden = settled >= SETTLE;
+        }
+      }
+
+      if (auto && !reduce) yaw += 0.0011;
+
+      // Orbit the graph's own centre, and frame it by its real radius. The
+      // first version orbited the origin at a fixed distance, so the whole
+      // organisation sat in the top half of the screen with dead space below —
+      // the root is an anchor, not the middle of the mass.
+      // Centre on what is actually being looked at: the whole graph, or just
+      // the focused ฝ่าย.
+      const inView = (n) => focus < 0 || n.di === focus;
+      target.set(0, 0, 0);
+      let seen = 0;
+      for (const n of nodes) {
+        if (!inView(n)) continue;
+        target.x += pos[n.id * 3]; target.y += pos[n.id * 3 + 1]; target.z += pos[n.id * 3 + 2];
+        seen++;
+      }
+      if (seen) target.multiplyScalar(1 / seen);
+      // ease so a focus change glides instead of cutting
+      center.lerp(target, settled < SETTLE ? 1 : 0.08);
+      if (settled >= SETTLE && !fitted) {
+        // Fit the two axes separately. A single bounding-sphere fit is wrong
+        // for a top-down tree: it is much taller than it is wide, so the sphere
+        // is mostly empty and the graph ends up tiny in the middle of the frame.
+        // The horizontal extent is measured as a radius in X/Z so the fit still
+        // holds while the graph spins.
+        let halfY = 0, halfXZ = 0;
+        for (const n of nodes) {
+          if (!inView(n)) continue;
+          halfY = Math.max(halfY, Math.abs(pos[n.id * 3 + 1] - target.y));
+          halfXZ = Math.max(halfXZ, Math.hypot(pos[n.id * 3] - target.x, pos[n.id * 3 + 2] - target.z));
+        }
+        const t = Math.tan((camera.fov * Math.PI / 180) / 2);
+        const fit = Math.max(
+          (halfY + CARD_H) / t,
+          (halfXZ + CARD_W) / (t * camera.aspect),
+        ) * 1.06;
+        // The zoom range is derived from the graph itself: close enough to read
+        // one card, far enough to see the whole thing with air around it.
+        zoomMin = Math.max(30, CARD_H * 2.2);
+        zoomMax = fit * 2.4;
+        dist = fit;
+        fitted = true;
+      }
+
+      camera.position.set(
+        center.x + dist * Math.cos(pitch) * Math.sin(yaw),
+        center.y + dist * Math.sin(pitch),
+        center.z + dist * Math.cos(pitch) * Math.cos(yaw),
+      );
+      camera.lookAt(center);
+
+      // billboard basis for the cards
+      cardMat.uniforms.right.value.setFromMatrixColumn(camera.matrixWorld, 0);
+      cardMat.uniforms.up.value.setFromMatrixColumn(camera.matrixWorld, 1);
+
+      // push positions into the buffers
+      links.forEach(([a, b], i) => {
+        linePos.set([pos[a * 3], pos[a * 3 + 1], pos[a * 3 + 2],
+          pos[b * 3], pos[b * 3 + 1], pos[b * 3 + 2]], i * 6);
+      });
+      lineGeo.attributes.position.needsUpdate = true;
+      structs.forEach((n, i) => {
+        sPos.set([pos[n.id * 3], pos[n.id * 3 + 1], pos[n.id * 3 + 2]], i * 3);
+      });
+      sGeo.attributes.position.needsUpdate = true;
+      persons.forEach((p, i) => {
+        iPos.set([pos[p.id * 3], pos[p.id * 3 + 1], pos[p.id * 3 + 2]], i * 3);
+      });
+      quad.attributes.aPos.needsUpdate = true;
+
+      renderer.render(scene, camera);
+
+      // Labels are drawn nearest-first and a later one is dropped if it would
+      // land on top of one already placed. Eleven ฝ่าย names stacked on the
+      // same few pixels is not a label layer, it is a smudge.
+      placed.length = 0;
+      const order = labels
+        .map((l) => {
+          proj.set(pos[l.n.id * 3], pos[l.n.id * 3 + 1], pos[l.n.id * 3 + 2]).project(camera);
+          return { l, x: (proj.x * 0.5 + 0.5) * W(), y: (-proj.y * 0.5 + 0.5) * H(), z: proj.z };
+        })
+        .sort((a, b) => a.z - b.z);
+      for (const { l, x, y, z } of order) {
+        // Sits above its node, not on it: in top-down mode every ฝ่าย shares one
+        // Y plane, so a label centred on the node lands on the ฝ่าย's own cards.
+        const ly = y - 16;
+        const clash = z > 1 || placed.some((p) => Math.abs(p.x - x) < 82 && Math.abs(p.y - ly) < 17);
+        l.el.style.display = clash ? 'none' : '';
+        if (clash) continue;
+        placed.push({ x, y: ly });
+        l.el.style.left = `${x}px`;
+        l.el.style.top = `${ly}px`;
+        l.el.style.opacity = String(Math.max(0.45, 1 - Math.max(0, z) * 0.75));
+      }
+
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+
+    // A WebGL canvas left spinning in a scrolled-past section is pure battery
+    // drain, so stop the loop whenever the frame is off screen.
+    new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (en.isIntersecting && !raf) raf = requestAnimationFrame(frame);
+        else if (!en.isIntersecting && raf) { cancelAnimationFrame(raf); raf = 0; }
+      }
+    }, { threshold: 0.05 }).observe(stage);
+
+    new ResizeObserver(() => {
+      camera.aspect = W() / H();
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setSize(W(), H());
+      dotMat.uniforms.scale.value = H();
+      // Refit ONLY if the view is still the one we chose. See zoomBy().
+      if (!userZoomed) fitted = false;
+    }).observe(stage);
+  }
+
+  boot.addEventListener('click', start3d);
+  new IntersectionObserver((entries, obs) => {
+    if (entries.some((e) => e.isIntersecting && e.intersectionRatio > 0.5)) {
+      obs.disconnect();
+      start3d();
+    }
+  }, { threshold: [0.5] }).observe(stage);
+})();
+
+
+
+
+
+
+
+
+
+</script>
