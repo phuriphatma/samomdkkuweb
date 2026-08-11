@@ -167,3 +167,17 @@ wrapper; `justify-content: center` making overflow unreachable; and dead
 consolidated 421 → 328 lines (20 selectors had been defined 2–4 times), proved
 a visual no-op by diffing 55 computed-style rows and all 12 section geometries
 before and after — 0 differences.
+
+
+## Signatures that changed on 2026-08-10
+
+- `src/js/study-year.js` owns ชั้นปี / รุ่น / ปีการศึกษา for the whole app.
+- `src/js/duplicate-message.js` — the 23505 translator, keyed on CONSTRAINT
+  NAME. `house/index.js` imports and re-exports it.
+- `src/css/person-match.css` — the "พบคนนี้ในระบบแล้ว" panel, shared by
+  ระบบบ้าน and ทีม SAMO (`.person-match*`).
+- `listUsersByRole()` is GONE (0147). `renderMyHouse(host, rec, {signedIn,
+  account})` renders an explainer instead of nothing.
+- `photoToRetire(prevUrl, payload, key)` · `filesToRetire(before, after,
+  others)` · `fetchDeleteImpact(id)` · `canOpenSection(which)` — see the
+  2026-08-09 archive.

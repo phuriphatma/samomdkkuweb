@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-10**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-12**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. Keep it under ~200 lines — when it bloats, move narrative to the
 archive rather than trimming the invariants.
@@ -233,19 +233,7 @@ because two copies of one rule is the class this repo pays for most.
 >   hazard. Six ratchets exist and every one found something:
 >   `undefined-refs.test.js` · `native-dialog.test.js` · `upload-cleanup.test.js`
 >   · `photo-retire.test.js` · `portrait-filename.test.js` (found a 4th bad call
->   site on its first run) · `confirm-modal.test.js`.
+>   site on its first run) · `confirm-modal.test.js` · `signin-screen.test.js`.
 > - **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
 >   `docs/`-only commit needs no deploy.
 >
-> ### 4. Signatures that changed on 2026-08-10
->
-> - `src/js/study-year.js` owns ชั้นปี / รุ่น / ปีการศึกษา for the whole app.
-> - `src/js/duplicate-message.js` — the 23505 translator, keyed on CONSTRAINT
->   NAME. `house/index.js` imports and re-exports it.
-> - `src/css/person-match.css` — the "พบคนนี้ในระบบแล้ว" panel, shared by
->   ระบบบ้าน and ทีม SAMO (`.person-match*`).
-> - `listUsersByRole()` is GONE (0147). `renderMyHouse(host, rec, {signedIn,
->   account})` renders an explainer instead of nothing.
-> - `photoToRetire(prevUrl, payload, key)` · `filesToRetire(before, after,
->   others)` · `fetchDeleteImpact(id)` · `canOpenSection(which)` — see the
->   2026-08-09 archive.
