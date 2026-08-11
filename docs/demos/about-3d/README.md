@@ -46,8 +46,12 @@ The height numbers printed under frames ก and ข are **measured live from the
 DOM at render time**, not typed in — and both are measured with every ฝ่าย
 expanded, so they compare like with like. An earlier version compared ก
 fully-expanded against ข with one ฝ่าย open and reported a 22× win that was
-really about the collapse; it now reports ~3.2×, plus the 1,247px you actually
+really about the collapse; it now reports ~3.2×, plus the ~1,250px you actually
 land on.
+
+**Do not quote a single figure as fixed.** All of them are re-measured on every
+render and move with the frame width — ข measured 19,901px at a 400px viewport
+and 19,858px at 1200px. The ratio is the finding; the exact pixel count is not.
 
 ## The recommendation given
 

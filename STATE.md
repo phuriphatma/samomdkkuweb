@@ -22,13 +22,17 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `9a2eec3` = `main`** (2026-08-12). That carries the org-chart
-  work stranded by the 2026-08-10 VPN drop (`86cc524`) plus the sign-in modal
-  rewrite. Verified from the served artifact: `ไม่ต้องการเปิดเผยตัวตน` present in
-  both `/index.html` and `/admin/index.html` on the VM and over HTTPS,
-  `signin-alt-caption` in both CSS bundles. No migration is pending; 0148 is the
-  last and it is applied.
-  **Migrations applied through 0148.** **684 tests green.**
+- ✅ **DEPLOYED = `9a2eec3`. `src/` has not changed since, so prod is CURRENT** —
+  every commit after it is docs-only and needs no deploy. Check that claim the
+  cheap way rather than trusting it: `git diff --stat 9a2eec3..HEAD -- src/
+  supabase/ appscript/ server/` should be EMPTY. If it is not, deploy before
+  believing anything else in this file.
+  9a2eec3 carries the org-chart work stranded by the 2026-08-10 VPN drop
+  (`86cc524`) plus the sign-in modal rewrite. Verified from the served artifact:
+  `ไม่ต้องการเปิดเผยตัวตน` present in both `/index.html` and `/admin/index.html` on
+  the VM and over HTTPS, `signin-alt-caption` in both CSS bundles.
+  **Migrations applied through 0148** (0148 is the last, and it is applied).
+  **684 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
@@ -93,8 +97,10 @@ because two copies of one rule is the class this repo pays for most.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-12)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, and
-> prod is current: `main` = deployed = the sign-in rewrite. The security item
-> that used to live in agent memory is CLOSED (0147); its write-up is in
+> prod is current — the last deploy was the sign-in rewrite, and every commit
+> after it is docs-only (CURRENT DEPLOY above says how to confirm that in one
+> command instead of trusting this sentence). The security item that used to
+> live in agent memory is CLOSED (0147); its write-up is in
 > `docs/mistakes/authz-rls.md`.
 >
 > The one thing to know before you start: **the top item below is a decision
@@ -114,7 +120,8 @@ because two copies of one rule is the class this repo pays for most.
 >   touching this, not this bullet.** The short version: measured on the live
 >   site at 390px, แผนผัง is 108,726px tall (~130 screens) and a person card uses
 >   ~35% of the width; a 4-column tile grid takes the same content from 64,419px
->   to 19,901px and lands at 1,247px with ฝ่าย collapsed. Recommendation given:
+>   to ~19,900px (the demo measures both live, so the exact figure moves with
+>   the frame width) and lands at ~1,250px with ฝ่าย collapsed. Recommendation given:
 >   ship the 2D grid, treat 3D as an optional hero only. **Nothing in `src/` was
 >   changed** — no `org-chart.js` / `org-chart.css` edits exist for any of this.
 >   ⚠️ One bug is OPEN: the 3D frame still flickers while zooming, reported twice.

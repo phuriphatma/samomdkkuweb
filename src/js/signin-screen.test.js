@@ -48,6 +48,18 @@ const LOGIN_SCREEN = HTML.slice(
   HTML.indexOf('id="signinRegisterScreen"'),
 );
 
+// THE SLICE IS THE GUARD'S EYESIGHT, so it gets checked before anything is
+// asserted about it. Reorder the two screens in the markup and this slice
+// becomes the empty string — at which point every `not.toMatch` below passes
+// for the worst possible reason. Other assertions in this file would still go
+// red, but they would blame the wrong thing; this one names it.
+describe('sign-in modal — the guard can see the markup', () => {
+  it('found a login screen with something in it', () => {
+    expect(LOGIN_SCREEN.length).toBeGreaterThan(500);
+    expect(LOGIN_SCREEN).toContain('samoGoogleSignIn');
+  });
+});
+
 describe('sign-in modal — the password route is visible', () => {
   it('has no collapse anywhere on the login screen', () => {
     expect(LOGIN_SCREEN).not.toMatch(/class="[^"]*\bcollapse\b/);
