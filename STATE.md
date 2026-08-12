@@ -41,7 +41,11 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   **Migrations applied through 0149** (0149 is the last, and it is applied).
   **685 tests green.**
   ⚠️ 0149 is DB-ONLY (an RPC body) — it took effect the moment it was applied;
-  no VM deploy is needed for it, and `src/` is unchanged by it.
+  no VM deploy is needed for it, and it changes nothing a browser loads.
+  So the command above now prints TWO paths and prod is still current: the
+  migration (DB-only, already applied) and a `src/data/changelog.js` PENDING
+  entry, which `/updates` does not render — only released versions are shown.
+  A PENDING-only changelog edit never needs a deploy; a RELEASED one does.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
