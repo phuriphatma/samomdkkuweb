@@ -371,7 +371,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(9 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(10 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
@@ -381,6 +381,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
 - Four guards were reading a MANGLED file — `'image/*'` opened a "comment" that ate 13,839 characters of main.js
 - A proof whose subject was a SHOP ADMIN reported that a buyer could set an order total to ฿1
+- Checking the proofs by hand produced TWO false alarms in a row — they emit four different output shapes
 - A proof that ERRORS is not a proof that fails
 
 <!-- END GENERATED INDEX -->

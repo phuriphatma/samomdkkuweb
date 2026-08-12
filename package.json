@@ -13,7 +13,8 @@
     "release": "node tools/release.mjs",
     "check:icons": "node tools/check-icons.mjs",
     "check:context": "node tools/check-context-budget.mjs",
-    "mistakes:index": "node tools/mistakes-index.mjs"
+    "mistakes:index": "node tools/mistakes-index.mjs",
+    "proofs": "node tools/run-proofs.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

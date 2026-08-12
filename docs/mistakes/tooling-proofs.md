@@ -264,6 +264,37 @@ was the only thing that revealed the probe was measuring the wrong person.
 
 ---
 
+## Checking the proofs by hand produced TWO false alarms in a row — they emit four different output shapes
+
+**Symptom**: An end-of-session sweep ran every live proof through an ad-hoc
+parser and reported `authz-sweep-identity 0/23 FAIL`. The proof was fully green.
+The corrected parser then reported four more as `N-1/N FAIL`. Those were green
+too.
+**Cause**: The parser looked for a `result` column. The proofs do not agree on
+one — `authz-sweep-identity` and `pr0149` use `verdict`, `house0144` and
+`shop0150` use `result`, the `house0145` / `house0146` / `team0145` family uses
+`status` **and ends with an `ALL PASS` SCORE row**, `house0116` returns a single
+JSON blob with no per-case column at all, and six more are `.mjs` scripts
+printing plain text. The first parser could not see `verdict`; the second
+counted each file's own summary row as a failing case.
+**Fix**: `tools/run-proofs.mjs` (`npm run proofs`) runs all fifteen and prints
+one normalised verdict each. It knows the four shapes, treats a trailing
+`ALL PASS` row as a summary rather than a case, and reports a proof that ERRORS
+as a failure — with the property that matters: **output it cannot interpret is
+UNKNOWN and exits non-zero**, never a pass.
+**Where**: `tools/run-proofs.mjs`; `STATE.md` now says to use it and why.
+Verified by reintroduction, both ways: a SQL syntax error surfaces as
+`✗ FAIL errored: …`, and a flipped expectation as `✗ FAIL 1 failed — B3. RPC
+denies the ungranted user`.
+**Rule**: **the thing that READS a guard's output is part of the guard.** A
+verification step that cries wolf gets switched off, and this repo has written
+that down twice already — so the parser is not an incidental script, it is the
+instrument, and it needs the same reintroduce-and-watch-it-fail treatment as the
+assertion. When several guards report in different formats, normalise them once
+in a checked-in tool instead of re-deriving the format at each call site.
+
+---
+
 ## A proof that ERRORS is not a proof that fails — it is a proof that is ABSENT, and `house0116-authz.sql` had been absent for 23 migrations
 
 **Symptom**: `node tools/db-query.mjs tools/house0116-authz.sql` returned

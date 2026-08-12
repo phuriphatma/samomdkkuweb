@@ -7,6 +7,21 @@ un-started; STATE.md carries a one-line pointer to this file.
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
+### 0b2. The shop checkout + order card have never been driven in a browser (2026-08-12)
+
+The contact recap above the place-order button, and the inline "แก้ไขข้อมูลติดต่อ"
+editor on an order card, shipped on 2026-08-12 verified by: build, 717 tests,
+`undefined-refs`, a full code trace, and a STATIC render of the two markup
+fragments against the real stylesheet at 390px. **Not verified: the wiring** —
+the delegated click handlers for แก้ไข / บันทึก / ยกเลิก, and the live recap sync
+from the field listeners. Driving it needs a signed-in session with items in the
+cart, which the headless driver cannot fake (module-scope `getUser()` cannot be
+stubbed from the page).
+
+Worth doing on the next browser pass: sign in as a test account, add an item,
+and walk checkout → place → order card → แก้ไข → บันทึก. Everything else in that
+flow is unchanged and long-proven; only this session's additions are unexercised.
+
 ### 0c. Two authorization gates that are latent, not broken (2026-08-12)
 
 Found while sweeping for more of 0149's shape (a definer RPC that restated a
