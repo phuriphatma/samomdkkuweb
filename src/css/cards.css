@@ -908,42 +908,254 @@
   letter-spacing: 0.05em;
 }
 
-/* Sign-in modal — OR divider between password form and Google button */
+/* ==========================================================================
+   SIGN-IN MODAL
+   --------------------------------------------------------------------------
+   One screen, two routes. Google is the primary and never disappears; the
+   anonymous route is a panel with its own heading and a segmented control that
+   swaps only the fields.
+
+   THE MEASUREMENTS THAT MATTER, and why:
+   - 400px dialog. At the Bootstrap default (500px) the fields stretched into
+     wide empty slabs and the whole thing read as unfinished. 400px keeps a Thai
+     line at a comfortable measure on a desktop and is still edge-to-edge on a
+     phone.
+   - 48px controls. Every button and input is at least 48px tall — above the
+     44px touch minimum, and the number that makes the form feel deliberate
+     rather than roomy. Do not shrink these to fit more in: the modal SCROLLS
+     (modal-dialog-scrollable), which is the correct answer on a short screen.
+   - One vertical rhythm: 1rem between fields, 1.25rem between sections. The
+     previous version mixed 0.6/0.75/1rem ad hoc and the misalignment is most of
+     why it looked untidy.
+   ========================================================================== */
+
+.signin-modal .modal-dialog { max-width: 400px; }
+.signin-modal .modal-content { border-radius: 20px; }
+.signin-body { padding: 0.5rem 1.5rem 1.5rem; }
+
+@media (max-width: 400.98px) {
+  /* A phone in portrait: give the content the width back rather than keeping a
+     decorative gutter. */
+  .signin-body { padding: 0.5rem 1.15rem 1.25rem; }
+}
+
+.signin-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-900, #0f172a);
+}
+
+/* ---- Route 1: Google ---------------------------------------------------- */
+
+/* Flex rather than an inline icon + margin, so the label stays optically
+   centred whatever the translation does to its length. */
+.signin-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 48px;
+  font-size: 0.98rem;
+}
+.signin-google i { font-size: 1.05rem; }
+
+/* The line under the Google button. It names Gmail FIRST and does not
+   emphasise the KKU domains — see the long note in modal-signin.html. Bolding
+   them is what made this button read as KKU-only the second time, so there is
+   deliberately no `strong` rule here to inherit. */
+.signin-kku-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  text-align: center;
+  color: var(--ink-500, #64748b);
+}
+
+/* ---- Divider ------------------------------------------------------------ */
+
 .signin-divider {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #94a3b8;
-  font-size: 0.8rem;
+  margin: 1.25rem 0;
+  color: var(--ink-400, #94a3b8);
+  font-size: 0.78rem;
 }
-
 .signin-divider::before,
 .signin-divider::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: #e2e8f0;
+  background: var(--ink-200, #e2e8f0);
 }
 
-/* The line under the Google button. It names the AUDIENCE (everyone, KKU
-   included) rather than what a KKU address unlocks — a benefit list re-created
-   the impression that the domains were required. No icon and no colour of its
-   own; only the two domains are emphasised in brand green, because those are
-   the words a KKU student scans for. */
-.signin-kku-hint {
-  margin: 0.6rem 0 0;
+/* ---- Route 2: the anonymous panel --------------------------------------- */
+
+/* A tinted card, so the route reads as ONE thing with a name — not as loose
+   fields that happen to sit under the divider. */
+.signin-anon {
+  background: var(--green-50, #f1f8f2);
+  border: 1px solid var(--green-100, #dceede);
+  border-radius: 16px;
+  padding: 1.15rem;
+}
+
+.signin-anon-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink-900, #0f172a);
+}
+.signin-anon-sub {
+  margin: 0.2rem 0 0.9rem;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: var(--ink-600, #475569);
+  color: var(--ink-500, #64748b);
 }
-.signin-kku-hint strong { color: var(--brand-primary); font-weight: 700; }
 
-/* Caption naming who the username/password form is for — people who would
-   rather not sign in as themselves. Sits above the fields, not below the
-   button: it answers "is this me?" before anyone starts typing. */
-.signin-alt-caption {
-  margin: 0 0 0.75rem;
-  font-size: 0.78rem;
+/* Segmented control. Both options are visible and full-size — the signup route
+   used to be a small text link, which is a 14px tap target for the only way to
+   create an account. */
+.signin-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 1rem;
+  background: #ffffff;
+  border: 1px solid var(--green-100, #dceede);
+  border-radius: 12px;
+}
+.signin-seg-btn {
+  min-height: 40px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-500, #64748b);
+  transition: background-color var(--t-fast, 120ms) var(--ease, ease),
+    color var(--t-fast, 120ms) var(--ease, ease);
+}
+.signin-seg-btn:hover { color: var(--brand-primary); }
+.signin-seg-btn.is-active {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+.signin-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring, 0 0 0 3px rgba(16, 89, 34, 0.25));
+}
+
+/* ---- Fields ------------------------------------------------------------- */
+
+.signin-field { margin-bottom: 1rem; }
+
+.signin-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-700, #334155);
+}
+
+.signin-input.form-control {
+  min-height: 48px;
+  padding: 0.6rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid var(--ink-200, #e2e8f0);
+  border-radius: 11px;
+  font-size: 0.95rem;
+}
+.signin-input.form-control:focus {
+  border-color: var(--green-300, #86c498);
+  box-shadow: var(--shadow-focus-ring, 0 0 0 3px rgba(16, 89, 34, 0.15));
+}
+
+/* Reveal button. Typing a password blind is the single biggest friction on a
+   phone keyboard, and this form is often reached by someone who just made the
+   password up seconds earlier. */
+.signin-input-wrap { position: relative; }
+.signin-input-wrap .signin-input.form-control { padding-right: 3rem; }
+.signin-reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 0 11px 11px 0;
+  color: var(--ink-400, #94a3b8);
+}
+.signin-reveal:hover { color: var(--ink-600, #475569); }
+.signin-reveal:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring, 0 0 0 3px rgba(16, 89, 34, 0.25));
+}
+
+.signin-help {
+  margin: 0.35rem 0 0;
+  font-size: 0.74rem;
+  color: var(--ink-500, #64748b);
+}
+
+.signin-alert {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  border-radius: 10px;
+}
+
+/* The anonymous route's submit. Outline, so that EXACTLY ONE button on this
+   screen is filled and it is Google — hierarchy carried by weight, which is the
+   rule this modal has been rebuilt around three times. It is white-filled and
+   brand-bordered rather than the old grey `btn-outline-secondary`, which was a
+   muted full-width slab that read as disabled.
+
+   Both panels use the same weight on purpose: signing in and signing up are the
+   same size of decision, and making สมัครสมาชิก the louder one would say the
+   anonymous route wants you to create an account. */
+.signin-submit {
+  width: 100%;
+  min-height: 48px;
+  border-radius: var(--radius-pill, 999px);
+  background: #ffffff;
+  border: 1.5px solid var(--brand-primary);
+  color: var(--brand-primary);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.signin-submit:hover,
+.signin-submit:focus {
+  background: var(--green-50, #f1f8f2);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.signin-submit.is-primary {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #ffffff;
+}
+.signin-submit.is-primary:hover,
+.signin-submit.is-primary:focus {
+  background: #0d4a1d;
+  border-color: #0d4a1d;
+  color: #ffffff;
+}
+.signin-submit:disabled { opacity: 0.65; }
+
+.signin-note {
+  margin: 0.85rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  text-align: center;
   color: var(--ink-500, #64748b);
 }
 

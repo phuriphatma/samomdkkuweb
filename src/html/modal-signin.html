@@ -1,16 +1,19 @@
-  <!-- Sign-in modal — two screens: Login (with Google + username/password) and Register -->
-  <div class="modal fade" id="signinModal" tabindex="-1" aria-labelledby="signinModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+  <!-- Sign-in modal — ONE screen, two routes. Google stays visible at all times;
+       only the anonymous panel swaps between เข้าสู่ระบบ and สมัครใหม่. -->
+  <div class="modal fade signin-modal" id="signinModal" tabindex="-1" aria-labelledby="signinModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow">
         <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title fw-bold" id="signinModalLabel">
+          <span class="modal-title fw-bold" id="signinModalLabel">
             <span class="brand-mdkku">MDKKU</span><span class="brand-samo">SAMO</span>
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
-        <div class="modal-body p-4 pt-2">
+        <div class="modal-body signin-body">
 
-          <!-- ====== LOGIN SCREEN ======
+          <h2 class="signin-title" id="signinModalTitle">เข้าสู่ระบบ</h2>
+
+          <!-- ====== ROUTE 1 — GOOGLE ======
                ORDER IS THE MESSAGE, and so is what the words CLAIM.
 
                Google leads because ระบบบ้าน matches `users.email` against
@@ -21,106 +24,129 @@
                people into the one state where the main feature of the site
                silently does not exist for them.
 
-               But the earlier copy over-corrected. "นักศึกษาและบุคลากร MDKKU ใช้
-               บัญชี Google ของมหาวิทยาลัย" + "เลือกบัญชีที่ลงท้ายด้วย @kkumail.com"
-               reads as a REQUIREMENT, so anyone outside KKU — the guests this
-               site actively wants — concluded Google was not for them and went
-               looking for another door. Google sign-in accepts ANY Google
-               account. So each line now says WHO IT IS FOR, not what it unlocks:
-               the audience is the useful fact, and listing benefits
-               (สายรหัส/บ้าน/ทีม) only made the KKU domains look mandatory again.
+               THE CAPTION HAS NOW BEEN REPORTED TWICE, so read this before
+               editing it. Version 1 ("เลือกบัญชีที่ลงท้ายด้วย @kkumail.com") was
+               an imperative and read as a requirement. Version 2 named
+               บุคคลทั่วไป but put the two KKU domains in bold brand green —
+               the only emphasis on the line — and the owner read the button as
+               KKU-only AGAIN: "it also gmail.com email etc."
 
-               The password form is what it has always actually been: the way in
-               WITHOUT revealing who you are. It is not "for ฝ่ายงาน" — the
-               tradeoff is simply that an account with no email can never match
-               `students.kkumail`, so ระบบบ้าน stays empty for it. That is a
-               choice a person can make, so it is stated plainly and left open,
-               not collapsed behind a link: hiding a legitimate route makes it
-               look like a footnote and costs a click for no gain. Hierarchy is
-               carried by button WEIGHT (filled vs outline) instead. -->
-          <div id="signinLoginScreen">
-            <h6 class="fw-bold mb-3 text-center">เข้าสู่ระบบ</h6>
+               EMPHASIS IS A CLAIM. Bolding the domains said "these are the
+               addresses that count" louder than the sentence said otherwise. So
+               the domains are no longer the emphasised words; GMAIL IS NAMED
+               FIRST, as the concrete thing a non-KKU reader is looking for, and
+               the KKU addresses follow as an also — still scannable, no longer
+               the headline. Nothing here lists what a KKU address unlocks: a
+               benefit list is what made the domains look mandatory the first
+               time. -->
+          <button type="button" class="btn btn-custom signin-google" onclick="samoGoogleSignIn()">
+            <i class="bi bi-google" aria-hidden="true"></i>
+            <span>เข้าสู่ระบบด้วย Google</span>
+          </button>
+          <p class="signin-kku-hint">
+            <!-- Thai has no spaces inside a word and Chrome will break mid-term,
+                 so each domain is kept whole with nowrap. -->
+            ใช้ได้ทุกบัญชี Google ทั้ง Gmail ของบุคคลทั่วไป และอีเมล มข.
+            (<span class="text-nowrap">@kkumail.com</span>,
+            <span class="text-nowrap">@kku.ac.th</span>)
+          </p>
 
-            <button type="button" class="btn btn-custom w-100 py-2" onclick="samoGoogleSignIn()">
-              <i class="bi bi-google me-2"></i> เข้าสู่ระบบด้วย Google
-            </button>
-            <p class="signin-kku-hint text-center">
-              <!-- Thai has no spaces inside a word and Chrome will break mid-term,
-                   so each domain is kept whole with nowrap. -->
-              สำหรับบุคคลทั่วไป และนักศึกษา/บุคลากร มข.
-              (<strong class="text-nowrap">@kkumail.com</strong> หรือ
-              <strong class="text-nowrap">@kku.ac.th</strong>)
-            </p>
+          <div class="signin-divider"><span>หรือ</span></div>
 
-            <div class="signin-divider my-3">
-              <span>หรือ</span>
+          <!-- ====== ROUTE 2 — ANONYMOUS ======
+               The username/password route is what it has always actually been:
+               the way in WITHOUT revealing who you are. It is not "for ฝ่ายงาน"
+               — that was an invented purpose, corrected by the owner.
+
+               IT IS ONE ROUTE, NOT TWO. Previously signing in and signing up
+               were separate full screens, and the only way to reach signup was a
+               ~14px text link at the bottom that said "ยังไม่มีบัญชีชื่อผู้ใช้?"
+               — which never mentioned anonymity, so the ONE thing the route is
+               for was invisible at the exact moment somebody chose it. Now both
+               live under one heading that names the route, and the segmented
+               control switches only the fields. Google never disappears. -->
+          <section class="signin-anon" aria-labelledby="signinAnonTitle">
+            <h3 class="signin-anon-title" id="signinAnonTitle">เข้าใช้แบบไม่เปิดเผยตัวตน</h3>
+            <p class="signin-anon-sub">ตั้งชื่อผู้ใช้และรหัสผ่านเอง ไม่ต้องใช้อีเมล</p>
+
+            <div class="signin-seg" role="tablist" aria-label="เลือกวิธีเข้าใช้แบบไม่เปิดเผยตัวตน">
+              <button type="button" class="signin-seg-btn is-active" role="tab" id="signinSegLogin"
+                aria-selected="true" aria-controls="signinLoginScreen"
+                onclick="samoShowSigninScreen('login')">มีบัญชีอยู่แล้ว</button>
+              <button type="button" class="signin-seg-btn" role="tab" id="signinSegRegister"
+                aria-selected="false" aria-controls="signinRegisterScreen"
+                onclick="samoShowSigninScreen('register')">สร้างบัญชีใหม่</button>
             </div>
 
-            <!-- `required` here is safe: this form is always visible whenever the
-                 login screen is, so it can never be a required field inside a
-                 display:none container blocking submit (mistakes.md). The
-                 register screen is a SEPARATE form, so hiding this screen while
-                 registering cannot block that submit either. -->
-            <form id="signinLoginForm" onsubmit="event.preventDefault(); samoPasswordSignIn();">
-              <p class="signin-alt-caption text-center">สำหรับผู้ที่ไม่ต้องการเปิดเผยตัวตน</p>
-              <div class="mb-2">
-                <label class="form-label small fw-bold mb-1" for="signinLoginUsername">ชื่อผู้ใช้</label>
-                <input type="text" class="form-control" id="signinLoginUsername" autocomplete="username" required>
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-bold mb-1" for="signinLoginPassword">รหัสผ่าน</label>
-                <input type="password" class="form-control" id="signinLoginPassword"
-                  autocomplete="current-password" required>
-              </div>
-              <div id="signinLoginAlert" class="alert alert-danger small py-2 d-none mb-3"></div>
-              <button type="submit" class="btn btn-outline-secondary w-100" id="signinLoginBtn">
-                <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
-              </button>
-            </form>
+            <!-- `required` is safe on BOTH forms: they are separate <form>s, so a
+                 required field inside the hidden one can never block the other's
+                 submit (docs/mistakes/frontend-ui.md). -->
+            <div id="signinLoginScreen" role="tabpanel" aria-labelledby="signinSegLogin">
+              <form id="signinLoginForm" onsubmit="event.preventDefault(); samoPasswordSignIn();">
+                <div class="signin-field">
+                  <label class="signin-label" for="signinLoginUsername">ชื่อผู้ใช้</label>
+                  <input type="text" class="form-control signin-input" id="signinLoginUsername"
+                    autocomplete="username" required>
+                </div>
+                <div class="signin-field">
+                  <label class="signin-label" for="signinLoginPassword">รหัสผ่าน</label>
+                  <div class="signin-input-wrap">
+                    <input type="password" class="form-control signin-input" id="signinLoginPassword"
+                      autocomplete="current-password" required>
+                    <button type="button" class="signin-reveal" data-signin-reveal="signinLoginPassword"
+                      aria-label="แสดงรหัสผ่าน" aria-pressed="false">
+                      <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </div>
+                <div id="signinLoginAlert" class="alert alert-danger signin-alert d-none" role="alert"></div>
+                <button type="submit" class="btn signin-submit" id="signinLoginBtn">เข้าสู่ระบบ</button>
+              </form>
+            </div>
 
-            <p class="text-muted small mt-3 mb-0 text-center">
-              ยังไม่มีบัญชีชื่อผู้ใช้?
-              <a href="#" class="fw-bold text-decoration-none" style="color: var(--brand-primary);"
-                onclick="event.preventDefault(); samoShowSigninScreen('register');">
-                สมัครสมาชิก
-              </a>
-            </p>
-          </div>
-
-          <!-- ====== REGISTER SCREEN ====== -->
-          <div id="signinRegisterScreen" class="d-none">
-            <h6 class="fw-bold mb-3 text-center">สมัครสมาชิก</h6>
-
-            <form id="signinRegisterForm" onsubmit="event.preventDefault(); samoPasswordRegister();">
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Username</label>
-                <input type="text" class="form-control" id="signinRegisterUsername" autocomplete="username"
-                  placeholder="อย่างน้อย 3 ตัวอักษร" required minlength="3">
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Password</label>
-                <input type="password" class="form-control" id="signinRegisterPassword" autocomplete="new-password"
-                  placeholder="อย่างน้อย 4 ตัวอักษร" required minlength="4">
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Confirm Password</label>
-                <input type="password" class="form-control" id="signinRegisterConfirm" autocomplete="new-password"
-                  placeholder="กรอกรหัสผ่านอีกครั้ง" required>
-              </div>
-              <div id="signinRegisterAlert" class="alert alert-danger small py-2 d-none mb-3"></div>
-              <button type="submit" class="btn btn-custom w-100" id="signinRegisterBtn">
-                <i class="bi bi-person-plus me-1"></i> สมัครสมาชิก
-              </button>
-            </form>
-
-            <p class="text-muted small mt-4 mb-0 text-center">
-              มีบัญชีอยู่แล้ว?
-              <a href="#" class="fw-bold text-decoration-none" style="color: var(--brand-primary);"
-                onclick="event.preventDefault(); samoShowSigninScreen('login');">
-                เข้าสู่ระบบ
-              </a>
-            </p>
-          </div>
+            <div id="signinRegisterScreen" class="d-none" role="tabpanel" aria-labelledby="signinSegRegister">
+              <form id="signinRegisterForm" onsubmit="event.preventDefault(); samoPasswordRegister();">
+                <div class="signin-field">
+                  <label class="signin-label" for="signinRegisterUsername">ชื่อผู้ใช้</label>
+                  <input type="text" class="form-control signin-input" id="signinRegisterUsername"
+                    autocomplete="username" required minlength="3" aria-describedby="signinRegisterUsernameHelp">
+                  <!-- The rules live in TEXT THAT STAYS, not in a placeholder: a
+                       placeholder disappears at the first keystroke, which is
+                       exactly when the rule starts to matter. -->
+                  <p class="signin-help" id="signinRegisterUsernameHelp">อย่างน้อย 3 ตัวอักษร</p>
+                </div>
+                <div class="signin-field">
+                  <label class="signin-label" for="signinRegisterPassword">รหัสผ่าน</label>
+                  <div class="signin-input-wrap">
+                    <input type="password" class="form-control signin-input" id="signinRegisterPassword"
+                      autocomplete="new-password" required minlength="6"
+                      aria-describedby="signinRegisterPasswordHelp">
+                    <button type="button" class="signin-reveal" data-signin-reveal="signinRegisterPassword"
+                      aria-label="แสดงรหัสผ่าน" aria-pressed="false">
+                      <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <!-- 6, because auth.js registerWithPassword() rejects 5. This
+                       said 4 for months, so the form invited a password the code
+                       then refused with a red alert — pinned by
+                       signin-screen.test.js, which reads the number out of
+                       auth.js and compares. -->
+                  <p class="signin-help" id="signinRegisterPasswordHelp">อย่างน้อย 6 ตัวอักษร</p>
+                </div>
+                <div class="signin-field">
+                  <label class="signin-label" for="signinRegisterConfirm">ยืนยันรหัสผ่าน</label>
+                  <input type="password" class="form-control signin-input" id="signinRegisterConfirm"
+                    autocomplete="new-password" required>
+                </div>
+                <div id="signinRegisterAlert" class="alert alert-danger signin-alert d-none" role="alert"></div>
+                <button type="submit" class="btn signin-submit" id="signinRegisterBtn">สมัครสมาชิก</button>
+                <!-- The tradeoff, stated once, where the choice is actually made.
+                     Not on the login panel: somebody who already has one of these
+                     accounts has made the choice and does not need reminding. -->
+                <p class="signin-note">บัญชีแบบนี้ไม่ผูกกับอีเมล จึงไม่แสดงข้อมูลสายรหัสและบ้าน</p>
+              </form>
+            </div>
+          </section>
 
         </div>
       </div>

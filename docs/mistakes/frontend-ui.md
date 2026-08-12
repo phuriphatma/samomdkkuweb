@@ -1688,6 +1688,48 @@ survives a close with a reset on `hidden.bs.modal`.
 
 ---
 
+## "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc." — the third report on one caption, and this time it was the BOLD
+
+**Symptom**: The sign-in modal's Google caption read
+"สำหรับบุคคลทั่วไป และนักศึกษา/บุคลากร มข. (**@kkumail.com** หรือ **@kku.ac.th**)"
+— which NAMES บุคคลทั่วไป, exactly as the previous fix intended. The owner still
+read the button as KKU-only: *"it also gmail.com email etc."* Same complaint,
+third time, against copy written to answer it.
+**Cause**: The sentence said "anyone"; the TYPOGRAPHY said "these two domains".
+The KKU addresses were the only emphasised words on the line — `<strong>` in
+brand green — so the eye landed on them and the qualifier around them did not
+register. Emphasis is a claim, and it was contradicting the words it sat inside.
+Gmail, the concrete thing a non-KKU reader is scanning for, was never named at
+all. Two more instances of the same misdescription were open elsewhere: the
+signup link ("ยังไม่มีบัญชีชื่อผู้ใช้?") never said the account was the anonymous
+one — the only fact about that route lived on the screen the reader was leaving
+— and the home page's sign-in strip said "เข้าสู่ระบบเพื่อเข้าถึงเครื่องมือฝ่ายของคุณ
+… จัดการงานเจ้าหน้าที่", framing the whole door as staff-only before anyone even
+reached the modal.
+**Fix**: The caption names Gmail FIRST and emphasises nothing
+("ใช้ได้ทุกบัญชี Google ทั้ง Gmail ของบุคคลทั่วไป และอีเมล มข. (…)"). The two
+routes became one screen: Google always visible, and the anonymous route a
+titled panel whose segmented control (มีบัญชีอยู่แล้ว / สร้างบัญชีใหม่) swaps only
+the fields, so the heading that names the route is on screen at the moment the
+choice is made. Exactly one filled button on the screen, and it is Google.
+The home strip now names the visitor, not the ฝ่าย.
+**Also fixed in passing, and it was not a wording problem**: the register form
+carried `minlength="4"` and "อย่างน้อย 4 ตัวอักษร" while `registerWithPassword()`
+rejects anything under 6 — the form invited a password the code then refused
+with a red alert.
+**Where**: `src/html/modal-signin.html` · `src/css/cards.css` (the `.signin-*`
+block) · `src/js/signin-modal.js` (new — the handlers were defined VERBATIM in
+both `main.js` and `admin-main.js`, with the reset in a third file) ·
+`src/html/tab-home.html`. Guard: `signin-screen.test.js`, which now also fails
+on a `<strong>` in the caption and reads the password minimum OUT OF auth.js.
+**Rule**: when copy is reported as misleading and the words already say the
+right thing, look at what the FORMATTING says — bold, colour, order and size are
+read before the sentence is. And a caption is not the only place a route is
+described: the same claim was in the link that opened it and on the page above
+it, which is why this took three passes.
+
+---
+
 ## "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
 
 **Symptom**: reported by the owner while driving the 3D org-chart demo on a

@@ -40,7 +40,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   only released versions are). It was deployed anyway so prod == main and the
   command above reads EMPTY for the next session.
   **Migrations applied through 0149** (0149 is the last, and it is applied).
-  **689 tests green.**
+  **709 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
@@ -264,7 +264,7 @@ because two copies of one rule is the class this repo pays for most.
 >   `.claude/rules/mistakes.md`; not restated here on purpose.
 > - **When a hazard has been paid for twice, the third fix is a TEST** — and
 >   `skills/write-a-guard.md` says how to write one that is not blind to its own
->   hazard. Six ratchets exist and every one found something:
+>   hazard. Ratchets exist and every one found something:
 >   `undefined-refs.test.js` · `native-dialog.test.js` · `upload-cleanup.test.js`
 >   · `photo-retire.test.js` · `portrait-filename.test.js` (found a 4th bad call
 >   site on its first run) · `confirm-modal.test.js` · `signin-screen.test.js`.

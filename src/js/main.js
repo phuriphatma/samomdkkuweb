@@ -17,8 +17,9 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, getUser as authGetUser, userCanAccess } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
+import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
@@ -152,48 +153,6 @@ window.samoOpenProfile = openProfileModal;
 // "sign out + open sign-in modal" so first-time users still get a
 // useful action.
 window.samoSwitchAccount = () => openAccountSwitcher();
-window.samoGoogleSignIn = async () => {
-  try {
-    await signInWithGoogle();
-  } catch (e) {
-    alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e));
-  }
-};
-
-// Sign-in modal: toggle between login and register screens
-window.samoShowSigninScreen = (screen) => {
-  const login = document.getElementById('signinLoginScreen');
-  const register = document.getElementById('signinRegisterScreen');
-  if (!login || !register) return;
-  const showRegister = screen === 'register';
-  login.classList.toggle('d-none', showRegister);
-  register.classList.toggle('d-none', !showRegister);
-  // Clear stale alerts/inputs when switching
-  document.getElementById('signinLoginAlert')?.classList.add('d-none');
-  document.getElementById('signinRegisterAlert')?.classList.add('d-none');
-};
-
-// Sign-in modal: username/password handlers
-window.samoPasswordSignIn = async () => {
-  const username = document.getElementById('signinLoginUsername').value;
-  const password = document.getElementById('signinLoginPassword').value;
-  const alert = document.getElementById('signinLoginAlert');
-  const btn = document.getElementById('signinLoginBtn');
-  alert.classList.add('d-none');
-  btn.disabled = true;
-  const original = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
-  try {
-    await signInWithPassword(username, password);
-    // Auth subscriber will close the modal.
-  } catch (e) {
-    alert.textContent = e.message || 'เข้าสู่ระบบไม่สำเร็จ';
-    alert.classList.remove('d-none');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = original;
-  }
-};
 
 // Admin / projects handlers no longer live in the public bundle —
 // they're in /admin/. If something on the public site references them
@@ -233,33 +192,6 @@ window.goToAbout = (sectionId) => {
     const target = document.getElementById(sectionId);
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-};
-
-window.samoPasswordRegister = async () => {
-  const username = document.getElementById('signinRegisterUsername').value;
-  const password = document.getElementById('signinRegisterPassword').value;
-  const confirm = document.getElementById('signinRegisterConfirm').value;
-  const alert = document.getElementById('signinRegisterAlert');
-  const btn = document.getElementById('signinRegisterBtn');
-  alert.classList.add('d-none');
-  if (password !== confirm) {
-    alert.textContent = 'รหัสผ่านไม่ตรงกัน';
-    alert.classList.remove('d-none');
-    return;
-  }
-  btn.disabled = true;
-  const original = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังสมัคร...';
-  try {
-    await registerWithPassword(username, password);
-    // Auth subscriber will close the modal.
-  } catch (e) {
-    alert.textContent = e.message || 'สมัครสมาชิกไม่สำเร็จ';
-    alert.classList.remove('d-none');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = original;
-  }
 };
 
 // PR Auth
@@ -933,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   initProfileModal();
   mountAccountSwitch();
+  mountSigninModal();
 
   // Cookieless usage tracking + the landing-page "by the numbers" strip.
   initAnalytics('public');

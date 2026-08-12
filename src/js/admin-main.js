@@ -19,8 +19,9 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // Auth (shared with public)
-import { initAuth, onAuthChange, signOut as samoSignOut, signInWithPassword, registerWithPassword, signInWithGoogle, getUser as authGetUser, userCanAccess, authReady, hasPersistedSession } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, getUser as authGetUser, userCanAccess, authReady, hasPersistedSession } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
+import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
 
@@ -277,48 +278,6 @@ window.samoOpenProfile = openProfileModal;
 // Multi-account chooser (Gmail-style). Particularly handy for staff
 // who jump between dev / vp_admin / uni_staff seats during testing.
 window.samoSwitchAccount = () => openAccountSwitcher();
-window.samoGoogleSignIn = async () => {
-  try { await signInWithGoogle(); }
-  catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }
-};
-window.samoPasswordSignIn = async () => {
-  const username = document.getElementById('signinLoginUsername').value;
-  const password = document.getElementById('signinLoginPassword').value;
-  const alert = document.getElementById('signinLoginAlert');
-  const btn = document.getElementById('signinLoginBtn');
-  alert.classList.add('d-none');
-  btn.disabled = true;
-  const original = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังตรวจสอบ...';
-  try { await signInWithPassword(username, password); }
-  catch (e) { alert.textContent = e.message || 'เข้าสู่ระบบไม่สำเร็จ'; alert.classList.remove('d-none'); }
-  finally { btn.disabled = false; btn.innerHTML = original; }
-};
-window.samoPasswordRegister = async () => {
-  const username = document.getElementById('signinRegisterUsername').value;
-  const password = document.getElementById('signinRegisterPassword').value;
-  const confirm = document.getElementById('signinRegisterConfirm').value;
-  const alert = document.getElementById('signinRegisterAlert');
-  const btn = document.getElementById('signinRegisterBtn');
-  alert.classList.add('d-none');
-  if (password !== confirm) { alert.textContent = 'รหัสผ่านไม่ตรงกัน'; alert.classList.remove('d-none'); return; }
-  btn.disabled = true;
-  const original = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังสมัคร...';
-  try { await registerWithPassword(username, password); }
-  catch (e) { alert.textContent = e.message || 'สมัครสมาชิกไม่สำเร็จ'; alert.classList.remove('d-none'); }
-  finally { btn.disabled = false; btn.innerHTML = original; }
-};
-window.samoShowSigninScreen = (screen) => {
-  const login = document.getElementById('signinLoginScreen');
-  const register = document.getElementById('signinRegisterScreen');
-  if (!login || !register) return;
-  const showRegister = screen === 'register';
-  login.classList.toggle('d-none', showRegister);
-  register.classList.toggle('d-none', !showRegister);
-  document.getElementById('signinLoginAlert')?.classList.add('d-none');
-  document.getElementById('signinRegisterAlert')?.classList.add('d-none');
-};
 
 // Announcements (creator side)
 window.loadAnnouncements = loadAnnouncements;
@@ -978,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   initProfileModal();
   mountAccountSwitch();
+  mountSigninModal();
   initShop();
   initProjects();
   initTeam();
