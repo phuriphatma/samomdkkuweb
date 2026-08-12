@@ -22,8 +22,9 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2b980cc` (2026-08-12), verified from the SERVED artifact**:
-  `prefillUid` in the served `analytics-*.js`, plus (from the deploy before it)
+- ✅ **DEPLOYED = `2c6736a` (2026-08-12), verified from the SERVED artifact**:
+  the new Google label + `bi-eye-slash` in the served HTML, the no-pink-header
+  rule in the served CSS, `prefillUid` in the served `analytics-*.js`, plus
   `order-contact` in the public CSS bundle, `เราจะติดต่อกลับที่` in the served
   `analytics-*.js` (the shared chunk — NOT in `index-*.js`, which is exactly the
   documented trap), and the sign-in caption's KKU domains gone (the remaining
@@ -31,7 +32,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   else means deploy before believing the rest of this file:
 
   ```bash
-  git diff --stat 2b980cc..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 2c6736a..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: the first version
@@ -43,7 +44,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   any list of email domains under that button is read as a whitelist.
   `signin-screen.test.js` fails if one reappears.
   **Migrations applied through 0150** (0150 is the last, and it is applied).
-  **714 tests green.**
+  **717 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
@@ -129,6 +130,17 @@ because two copies of one rule is the class this repo pays for most.
 > (CURRENT DEPLOY above says how to confirm that in one command instead of
 > trusting this sentence). The security item that used to live in agent memory
 > is CLOSED (0147); its write-up is in `docs/mistakes/authz-rls.md`.
+>
+> **The sign-in modal has now been reported SIX times and is the single most
+> re-worked screen here. Read `docs/mistakes/frontend-ui.md`'s four-report entry
+> BEFORE touching its copy.** Every report had one mechanism: text that is
+> accurate to us and ambiguous to somebody who has never seen the site. The
+> settled rules, all guarded by `signin-screen.test.js`: NO email domain
+> anywhere in the modal (a domain list is read as a whitelist); the Google button
+> keeps the spec fill and the four-colour G; the switch link asks about a WANT
+> ("ไม่ต้องการเปิดเผยตัวตน?") never a STATE ("ยังไม่มีบัญชี?"); ONE verb for
+> creating an account (สร้างบัญชี); and the Google label says it both creates and
+> signs in, because a newcomer does not know Google needs no registration.
 >
 > **The SAMO Shop login question is DECIDED: both routes stay, the ORDER is
 > hardened.** The owner asked whether shop customers should be Google-only. They
