@@ -22,23 +22,24 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2fee3e2` (2026-08-12), and the VM's git HEAD was read back to
-  confirm it.** Check rather than trust — EMPTY means prod is current, anything
+- ✅ **DEPLOYED = `ca3b824` (2026-08-12), verified from the SERVED artifact:
+  `signin-google` present in the public CSS bundle, and the sign-in caption's
+  KKU domains gone (the remaining `kkumail.com` hits in the served HTML are a
+  Google Apps Script URL, not copy).** Check rather than trust — EMPTY means prod is current, anything
   else means deploy before believing the rest of this file:
 
   ```bash
-  git diff --stat 2fee3e2..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat ca3b824..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: the first version
   of this command flagged a guard-test edit one commit after it was written and
   would have sent the next reader on a pointless 90-second deploy.
-  The predecessor `9a2eec3` carried the org-chart work stranded by the
-  2026-08-10 VPN drop (`86cc524`) plus the sign-in modal rewrite; 2fee3e2 adds
-  nothing a browser renders (0149 is a DB-only RPC body, and the
-  `src/data/changelog.js` entry is PENDING, which `/updates` does not show —
-  only released versions are). It was deployed anyway so prod == main and the
-  command above reads EMPTY for the next session.
+  `ca3b824` is the sign-in modal rebuilt to the conventional layout with a
+  branding-compliant Google button. **Its caption is deleted on purpose and must
+  not come back** — see `docs/mistakes/frontend-ui.md`, the four-report entry:
+  any list of email domains under that button is read as a whitelist.
+  `signin-screen.test.js` fails if one reappears.
   **Migrations applied through 0149** (0149 is the last, and it is applied).
   **709 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands

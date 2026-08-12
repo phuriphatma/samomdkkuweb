@@ -1688,45 +1688,59 @@ survives a close with a reset on `hidden.bs.modal`.
 
 ---
 
-## "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc." — the third report on one caption, and this time it was the BOLD
+## "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc." — FOUR reports on one caption, because a DOMAIN LIST is read as a whitelist
 
-**Symptom**: The sign-in modal's Google caption read
-"สำหรับบุคคลทั่วไป และนักศึกษา/บุคลากร มข. (**@kkumail.com** หรือ **@kku.ac.th**)"
-— which NAMES บุคคลทั่วไป, exactly as the previous fix intended. The owner still
-read the button as KKU-only: *"it also gmail.com email etc."* Same complaint,
-third time, against copy written to answer it.
-**Cause**: The sentence said "anyone"; the TYPOGRAPHY said "these two domains".
-The KKU addresses were the only emphasised words on the line — `<strong>` in
-brand green — so the eye landed on them and the qualifier around them did not
-register. Emphasis is a claim, and it was contradicting the words it sat inside.
-Gmail, the concrete thing a non-KKU reader is scanning for, was never named at
-all. Two more instances of the same misdescription were open elsewhere: the
-signup link ("ยังไม่มีบัญชีชื่อผู้ใช้?") never said the account was the anonymous
-one — the only fact about that route lived on the screen the reader was leaving
-— and the home page's sign-in strip said "เข้าสู่ระบบเพื่อเข้าถึงเครื่องมือฝ่ายของคุณ
-… จัดการงานเจ้าหน้าที่", framing the whole door as staff-only before anyone even
-reached the modal.
-**Fix**: The caption names Gmail FIRST and emphasises nothing
-("ใช้ได้ทุกบัญชี Google ทั้ง Gmail ของบุคคลทั่วไป และอีเมล มข. (…)"). The two
-routes became one screen: Google always visible, and the anonymous route a
-titled panel whose segmented control (มีบัญชีอยู่แล้ว / สร้างบัญชีใหม่) swaps only
-the fields, so the heading that names the route is on screen at the moment the
-choice is made. Exactly one filled button on the screen, and it is Google.
-The home strip now names the visitor, not the ฝ่าย.
-**Also fixed in passing, and it was not a wording problem**: the register form
-carried `minlength="4"` and "อย่างน้อย 4 ตัวอักษร" while `registerWithPassword()`
-rejects anything under 6 — the form invited a password the code then refused
-with a red alert.
-**Where**: `src/html/modal-signin.html` · `src/css/cards.css` (the `.signin-*`
-block) · `src/js/signin-modal.js` (new — the handlers were defined VERBATIM in
-both `main.js` and `admin-main.js`, with the reset in a third file) ·
-`src/html/tab-home.html`. Guard: `signin-screen.test.js`, which now also fails
-on a `<strong>` in the caption and reads the password minimum OUT OF auth.js.
-**Rule**: when copy is reported as misleading and the words already say the
-right thing, look at what the FORMATTING says — bold, colour, order and size are
-read before the sentence is. And a caption is not the only place a route is
-described: the same claim was in the link that opened it and on the page above
-it, which is why this took three passes.
+**Symptom**: Four separate reports, months apart, all saying the Google button
+looked KKU-only. Each rewrite answered the previous wording and kept the same
+element — a parenthesised list of the two KKU domains — on the theory that KKU
+students scan for it. The last version said, in words, that anyone could use it:
+"ใช้ได้ทุกบัญชี Google ทั้ง Gmail ของบุคคลทั่วไป และอีเมล มข.
+(@kkumail.com, @kku.ac.th)". The owner: *"this'll make normal people who glance
+think @gmail.com cant sign in."*
+**Cause**: **A list of addresses is read as the set of ACCEPTED addresses**,
+whatever the sentence around it claims, because the literal domains are the only
+scannable tokens on the line and they are both KKU. Report 3 had been about the
+same thing one level up — those domains were the only BOLD text, so emphasis
+contradicted the words it sat inside. Removing the bold left the list, and the
+list was the mechanism all along.
+Two accompanying misreads, same family: the signup link ("ยังไม่มีบัญชีชื่อ
+ผู้ใช้?") never said the account was the ANONYMOUS one, so the single fact about
+that route was absent where the choice was made; and the home page's sign-in
+strip said "เข้าสู่ระบบเพื่อเข้าถึงเครื่องมือฝ่ายของคุณ … จัดการงานเจ้าหน้าที่",
+framing the whole door as staff-only before the modal was ever opened.
+**Fix**: the caption is GONE. The standard button carries no caption anywhere
+else on the web, and a line that does not exist cannot be misread. The link text
+names the route ("สร้างบัญชีแบบไม่เปิดเผยตัวตน"); the home strip names the
+visitor.
+**And the button was non-compliant, which is why the screen also felt
+unfamiliar** — reported separately as *"the ui doesnt look familiar to the user
+how they would see in other website, company, making them friction"*. Google's
+branding guidelines allow light (#FFFFFF + #747775 stroke), dark (#131314) or
+neutral (#F2F2F2) fills only, and require the standard four-colour G at its own
+size on white; ours was brand-green with a monochrome Bootstrap glyph. It broke
+both rules AND stopped reading as a Google button to someone who has signed in
+elsewhere a hundred times. Compliance is required for app verification, so this
+was never a style choice.
+An intermediate pass had also boxed the anonymous route in a tinted panel with a
+segmented control. It tested clean and was still wrong: it read as a second app
+bolted under the divider. Reverted to the convention — social button, divider,
+credentials, switch link at the bottom — which took the login screen from 659px
+to 465px.
+**Where**: `src/html/modal-signin.html` · `src/css/cards.css` (`.signin-*`) ·
+`src/js/signin-modal.js` (new — the handlers had been VERBATIM in both `main.js`
+and `admin-main.js`, reset in a third file) · `src/html/tab-home.html`.
+Guard: `signin-screen.test.js` now fails if ANY email domain appears in the
+modal, and pins the four G hexes.
+**Also fixed in passing, not a wording problem**: the register form advertised
+`minlength="4"` and "อย่างน้อย 4 ตัวอักษร" while `registerWithPassword()` rejects
+under 6 — the form invited a password the code refused. The guard reads the
+number out of `auth.js` now.
+**Rule**: when copy is reported as misleading and the words already say the right
+thing, the claim is being made by something OTHER than the words — the emphasis,
+the punctuation, the one concrete token in a sentence of abstractions. Ask what
+a person who reads three words of it takes away. And before styling a
+third-party sign-in button, read that party's branding guidelines: familiarity
+is the feature, and for Google it is also a verification requirement.
 
 ---
 
