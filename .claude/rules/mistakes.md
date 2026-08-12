@@ -46,7 +46,8 @@ has not been written yet.
    query string, deep link. Non-security twin: a fix
    in an EVENT handler guarded on state the CALLER sets misses every other entry
    point — the /updates scroll fix worked for nav pills and not for
-   `navigateTo()`.
+   `navigateTo()`. COPY too: one claim lived in the sign-in caption, the signup
+   link AND the home strip; fixing the caption left two places still wrong.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -76,8 +77,7 @@ has not been written yet.
    (0145). The guard reports a one-way column as settled, by construction.
    Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
-   the รุ่น and every reader's `coalesce(copy, source)` preferred the stale one
-   (0128). Fill-once means never-correct — and the SAME shape reappeared in the
+   the รุ่น (0128). Fill-once means never-correct — and the SAME shape reappeared in the
    FORMS, where `{...row, student_id: typed}` keeps the stale `cohort_year` that
    `studyYear` prefers (`yearBasis`, 0145). Also one fact STORED in one system and
    DERIVED in the other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine
@@ -99,9 +99,12 @@ has not been written yet.
    wrapper, grep `> .<child>`; when a layout becomes a choice, grep the `@media`
    that used to make it. The only instrument that can see this is the COMPUTED
    style, never the stylesheet.
-   `prefer: 'return=representation'` + a `data.length` check on every DELETE
-   (projects/vs/announcements had it; all 5 in `team/api.js` and 3 in
-   `shop/api.js` did not) — now swept by `delete-guard.test.js`.
+   `prefer: 'return=representation'` + a `data.length` check on every DELETE —
+   swept by `delete-guard.test.js`.
+   Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6 — the form
+   invited a password the code refused), and ONE SCREEN'S BEHAVIOUR IN THREE
+   FILES (the signin handlers, verbatim in both entries + a third module, until
+   `signin-modal.js`).
    Also TWO PASSES assigning one DOM property: the perm grid's
    markup locked ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket
    `cb.disabled = on` unlocked it. Only touch what THIS pass locked. Same

@@ -1063,15 +1063,21 @@ and the sidebar.
 
 ## Deploy plumbing
 
-### Two Cloudflare Pages projects
+### One host: the KKU VM (Cloudflare Pages is RETIRED)
 
-| Project | Branch | URL |
-|---|---|---|
-| `samomdkkuweb` | `main` | <https://samomdkkuweb.pages.dev> |
-| `refactorsamomdkkuweb` | `refactor/modular` | <https://refactorsamomdkkuweb.pages.dev> |
+| What | Where |
+|---|---|
+| Production | <https://samo.md.kku.ac.th> — nginx on the KKU VM, built from `main` |
+| `samomdkkuweb.pages.dev` | ⚠️ RETIRED — resolves, splash-redirects to the VM |
+| `refactorsamomdkkuweb.pages.dev` | ⚠️ RETIRED — same |
 
-Both share the same Supabase + GAS backends. Different env vars must be set
-on EACH project (Cloudflare doesn't share env between projects).
+**A retired host is worse than a dead one**: it answers 200 with a page that
+looks like the app, so verifying a deploy there reports healthy while production
+is stale. Verify from the SERVED artifact on `samo.md.kku.ac.th` — and find the
+bundle name in the served HTML, because the VM builds its own asset hashes.
+
+Env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) are baked in at build
+time ON THE VM. A secret added to the Cloudflare dashboard reaches nothing.
 
 Required env vars on both:
 - `VITE_SUPABASE_URL = https://fheueuowbchsnsvbcgil.supabase.co`

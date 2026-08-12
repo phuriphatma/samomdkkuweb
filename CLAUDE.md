@@ -71,7 +71,7 @@ npm run preview      # serve dist locally on :4173
 
 **Auto-loaded into every session** (`CLAUDE.md` + everything in
 `.claude/rules/`): this file, `.claude/rules/mistakes.md` (recurring bug
-CLASSES + a one-line index of all 142 write-ups), `.claude/rules/security.md`
+CLASSES + a one-line index of every write-up), `.claude/rules/security.md`
 (key hygiene). Budget ~26k chars total, enforced by `npm run check:context`,
 which `npm test` runs. **Never put a bug write-up, a session narrative, or
 anything long in `.claude/rules/` — it is charged to every future session.**
@@ -84,7 +84,8 @@ session re-derives or re-breaks work that was finished yesterday.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
-- `docs/mistakes/*.md` — the 142 bug write-ups, nine files by area. The index
+- `docs/mistakes/*.md` — the bug write-ups (179 as of 2026-08-12), nine files
+  by area. The index
   in `.claude/rules/mistakes.md` says which file; `grep -rin "<symptom>"
   docs/mistakes/` is usually faster. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
@@ -92,11 +93,13 @@ session re-derives or re-breaks work that was finished yesterday.
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
 - `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
-- `docs/SUPABASE-MIGRATION.md` — phase tracker
+- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL**, the Sheets→Supabase migration
+  (finished long ago; kept for why the schema is shaped as it is). Not a status.
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
   version or adding a release note; `npm run release` does the mechanical half.
-- `docs/AUTH-MODEL.md` — unified user model proposal (future)
+- `docs/AUTH-MODEL.md` — **HISTORICAL**, the pre-Supabase user-model proposal.
+  Largely shipped and gone past; its "current state" section is the GAS era.
 - `docs/KKU-SSO.md` — KKU SSO assessment: a login improvement, NOT a data source
   (no roster endpoint, no สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference

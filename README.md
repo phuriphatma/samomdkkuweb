@@ -6,10 +6,16 @@ intake, and the Vital Sound grievance/ticket system.
 
 ## Live
 
-- **Production**: <https://samomdkkuweb.pages.dev> (tracks `main`)
-- **Preview**:    <https://refactorsamomdkkuweb.pages.dev> (tracks `refactor/modular`)
+- **Production**: <https://samo.md.kku.ac.th> — self-hosted on the KKU VM
+  (nginx), built from `main`.
 
-Both Cloudflare projects hit the same Supabase backend.
+⚠️ **`samomdkkuweb.pages.dev` and `refactorsamomdkkuweb.pages.dev` are RETIRED.**
+They still resolve and splash-redirect to the VM, so a check against them can
+look healthy while production is stale — never verify a deploy there. Cloudflare
+Pages no longer builds this project.
+
+**Pushing `main` does not deploy.** `server/deploy.sh` runs on the VM and is
+triggered over ssh (needs the KKU VPN).
 
 ## Key features
 

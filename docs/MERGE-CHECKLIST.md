@@ -1,5 +1,15 @@
 # Merge Checklist: `refactor/modular` → `main`
 
+> ## ⚠️ HISTORICAL. This merge happened; the branch is gone.
+>
+> Status added 2026-08-12. `refactor/modular` no longer exists as a staging
+> branch — `main` is the only long-lived one, and the maintainer commits to it
+> directly. The "only system in active campus use" line below is also out of
+> date: SAMO Shop, ระบบบ้าน, ทีม SAMO and หนังสือโครงการ are all live now.
+>
+> Kept because the data-safety sequencing is a good model for the next big
+> cutover. Not a checklist anyone should be working through today.
+
 Goal: ship the refactor to production **without losing or contradicting
 PR data**, which is the only system in active campus use right now.
 Announcements and VitalSound have low-to-zero live volume.

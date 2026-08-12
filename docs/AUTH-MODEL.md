@@ -1,8 +1,20 @@
 # Auth + User Model — Proposed Unified Structure
 
-Status: **proposal** (not yet implemented). This document describes how to
-unify user data across PR, Vital Sound, and future tools so every project
-reads/writes from a single source of truth.
+> ## ⚠️ LARGELY SHIPPED, AND ITS "CURRENT STATE" SECTION IS HISTORY.
+>
+> Status corrected 2026-08-12. The section below titled *"Current state
+> (problematic)"* describes the **pre-Supabase, Apps-Script world** — accounts
+> living in columns D/E of a `Tickets` sheet, Google sign-in with no backend
+> record. None of that is true any more, and reading it as current will mislead
+> you badly.
+>
+> The unified `public.users` table this proposed EXISTS, and went further:
+> `public.people` is now the person registry, with `students` and `team_members`
+> as placements, plus a two-channel authorization model (roles **and**
+> per-capability permissions, including ones inherited from a ทีม SAMO ตำแหน่ง).
+>
+> **For what is true now:** `docs/CONTEXT.md` (schema, RLS, the auth flow) and
+> `STATE.md`. Kept for the reasoning behind the shape, not as a plan.
 
 ## Current state (problematic)
 

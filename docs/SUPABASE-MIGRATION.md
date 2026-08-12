@@ -1,7 +1,21 @@
 # Supabase Migration — Step-by-Step Plan
 
-Status: **Phase 1 in code, not yet deployed.** See the phase tracker at the
-bottom of this doc for what's done and what's left.
+> ## ⚠️ HISTORICAL. This migration is FINISHED.
+>
+> Status corrected 2026-08-12. This document said *"Phase 1 in code, not yet
+> deployed"* and referenced migrations `0001`/`0002` — the repo is at **0150**,
+> all applied, and Supabase has been the only backend for months. Apps Script
+> survives as a thin proxy for Discord webhooks and Drive uploads ONLY; the
+> Google-Sheets backend this plan migrates AWAY from no longer exists.
+>
+> **Do not use this as a status report.** For what is true now:
+> `STATE.md` (deploy + what is in flight) · `docs/CONTEXT.md` (schema, RLS,
+> definer functions, module map) · `supabase/migrations/` (the real record).
+>
+> Kept because the *reasoning* — why each table is shaped the way it is, and the
+> "without data loss" sequencing — is still the best explanation of how the
+> current schema came to be. The one-time Sheets import tooling was deleted; see
+> the note at the bottom.
 
 This is the playbook for moving from the current Google Sheets + Apps
 Script backend to Supabase (Postgres + Edge Functions + Auth + Storage)

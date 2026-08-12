@@ -10,9 +10,16 @@ Supabase (Postgres + Auth + RLS). Google Apps Script (`appscript/`) survives
 as a thin proxy for Discord webhooks and Drive file uploads only.
 
 Live URLs:
-- **Production**: <https://samomdkkuweb.pages.dev> ← `main` branch
-- **Preview / staging**: <https://refactorsamomdkkuweb.pages.dev> ← `refactor/modular` branch
-- Cloudflare Pages also generates a per-branch preview URL for any branch you push.
+- **Production**: <https://samo.md.kku.ac.th> — the KKU VM, `main` branch.
+- ⚠️ **`samomdkkuweb.pages.dev` and `refactorsamomdkkuweb.pages.dev` are
+  RETIRED.** They still resolve and splash-redirect to the VM, so a check
+  against them can look healthy while production is stale. **Never verify a
+  deploy there.** Cloudflare Pages no longer builds this project, so there are
+  no per-branch preview URLs either.
+- **Pushing `main` does NOT deploy.** `server/deploy.sh` runs ON the VM and is
+  triggered over ssh (needs the KKU VPN). Verify from the SERVED artifact on
+  `samo.md.kku.ac.th`, not from your local build — the VM builds its own asset
+  hashes, so find the bundle name in the served HTML first.
 
 ## Quick start
 
@@ -27,9 +34,12 @@ npm run build        # production build (run before opening a PR)
 
 ## Branch model
 
+⚠️ **`refactor/modular` was merged and is no longer the staging branch** — that
+migration finished (see `docs/MERGE-CHECKLIST.md`, kept as history). `main` is
+the only long-lived branch.
+
 ```
-main                  ← production. Touched only via PR + review.
-└─ refactor/modular   ← staging. Direct merges from feature branches OK.
+main                  ← production. The maintainer commits here directly.
    ├─ ui/<topic>      ← your branch — start here
    ├─ fix/<topic>
    └─ feat/<topic>
@@ -38,8 +48,8 @@ main                  ← production. Touched only via PR + review.
 Workflow:
 
 ```bash
-git checkout refactor/modular
-git pull origin refactor/modular
+git checkout main
+git pull origin main
 git checkout -b ui/<short-topic>   # e.g. ui/home-hero-redesign
 
 # edit, commit, push…
