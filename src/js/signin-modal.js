@@ -20,10 +20,9 @@ const $ = (id) => document.getElementById(id);
 /**
  * Show one of the two anonymous-route panels.
  *
- * This also drives the segmented control's pressed state and `aria-selected`.
- * The panels and the control are two views of ONE piece of state, so they are
- * set in one place — a second function that flipped only the buttons is how a
- * tab strip ends up disagreeing with the panel it labels.
+ * This also swaps the dialog title. The panel and its title are two views of
+ * ONE piece of state, so they are set in one place — a second function that
+ * moved only one of them is how a screen ends up labelled as the other.
  */
 export function showSigninScreen(screen) {
   const login = $('signinLoginScreen');
@@ -34,27 +33,24 @@ export function showSigninScreen(screen) {
   login.classList.toggle('d-none', showRegister);
   register.classList.toggle('d-none', !showRegister);
 
-  const segLogin = $('signinSegLogin');
-  const segRegister = $('signinSegRegister');
-  segLogin?.classList.toggle('is-active', !showRegister);
-  segRegister?.classList.toggle('is-active', showRegister);
-  segLogin?.setAttribute('aria-selected', String(!showRegister));
-  segRegister?.setAttribute('aria-selected', String(showRegister));
+  // The dialog's TITLE names the screen you are on. The register screen's title
+  // is where "this is the anonymous account" is stated — the old flow put that
+  // fact only on the screen the reader was leaving.
+  $('signinTitleLogin')?.classList.toggle('d-none', showRegister);
+  $('signinTitleRegister')?.classList.toggle('d-none', !showRegister);
 
   // Clear stale alerts — an error from the other panel is about a form the
   // reader can no longer see.
   $('signinLoginAlert')?.classList.add('d-none');
   $('signinRegisterAlert')?.classList.add('d-none');
 
-  // Move focus into the panel that just appeared, but ONLY when the switch came
-  // from a click on the segmented control — never on the reset that runs when
-  // the modal closes, which would pull focus into a hidden dialog. `isTrusted`
-  // cannot be read here, so the reset path calls showSigninScreen('login',
-  // { focus: false }) explicitly instead.
-  return { login, register };
+  // NOTE: no focus move here. Focus belongs to pickScreen(), which the switch
+  // LINKS call — the reset that runs when the modal closes goes through this
+  // function instead, and focusing an input inside a dialog that is going away
+  // pulls the phone keyboard up over the page behind it.
 }
 
-/** Same as showSigninScreen, plus focus. Wired to the segmented control. */
+/** Same as showSigninScreen, plus focus. Wired to the switch links. */
 function pickScreen(screen) {
   showSigninScreen(screen);
   const first = screen === 'register' ? $('signinRegisterUsername') : $('signinLoginUsername');

@@ -65,13 +65,13 @@ const AUTH_JS = stripJs(
 // THE SLICE IS THE GUARD'S EYESIGHT, so it is checked before anything is
 // asserted about it. If the markup is reordered so a slice comes back empty,
 // every `not.toMatch` below passes for the worst possible reason.
-const ANON = HTML.slice(HTML.indexOf('signin-anon'), HTML.indexOf('</section>'));
-const HINT = HTML.slice(HTML.indexOf('signin-kku-hint'), HTML.indexOf('signin-divider'));
+const LOGIN = HTML.slice(HTML.indexOf('id="signinLoginScreen"'), HTML.indexOf('id="signinRegisterScreen"'));
+const REGISTER = HTML.slice(HTML.indexOf('id="signinRegisterScreen"'));
 
 describe('sign-in modal — the guard can see the markup', () => {
-  it('found the anonymous panel and the Google caption', () => {
-    expect(ANON.length).toBeGreaterThan(500);
-    expect(HINT.length).toBeGreaterThan(40);
+  it('found both screens and the Google button', () => {
+    expect(LOGIN.length).toBeGreaterThan(500);
+    expect(REGISTER.length).toBeGreaterThan(500);
     expect(HTML).toContain('samoGoogleSignIn');
   });
 });
@@ -83,49 +83,45 @@ describe('sign-in modal — both routes are visible at once', () => {
   });
 
   it('keeps the username and password inputs in the markup, not behind a link', () => {
-    expect(ANON).toContain('id="signinLoginUsername"');
-    expect(ANON).toContain('id="signinLoginPassword"');
+    expect(LOGIN).toContain('id="signinLoginUsername"');
+    expect(LOGIN).toContain('id="signinLoginPassword"');
   });
 
-  it('offers สร้างบัญชีใหม่ as a full control, not a text link', () => {
-    // The signup route was a ~14px anchor — the only way to create an account.
-    // It is now one half of the segmented control, so it is a real target.
-    expect(ANON).toMatch(/<button[^>]*signin-seg-btn[^>]*>[\s\S]*?สร้างบัญชีใหม่/);
-    expect(ANON).not.toMatch(/<a[^>]*samoShowSigninScreen\('register'\)/);
+  it('names the anonymous route AT the link that opens it', () => {
+    // The one fact about this route used to live only on the screen the reader
+    // was leaving. It is in the link text and in the register screen's title.
+    expect(LOGIN).toMatch(/<a[^>]*samoShowSigninScreen\('register'\)[^>]*>[^<]*ไม่เปิดเผยตัวตน/);
+    // And again beside the fields it describes. NOT in the screen title: Google
+    // sits above the divider on that screen too, so titling the whole screen
+    // "anonymous" would contradict the button above it.
+    expect(REGISTER).toMatch(/class="signin-lede"[^>]*>[^<]*ไม่เปิดเผยตัวตน/);
   });
 
-  it('names the anonymous route where the choice is made', () => {
-    // Both panels live under this heading, so it is on screen whichever one is
-    // showing — which is the whole point of the restructure.
-    expect(ANON).toContain('ไม่เปิดเผยตัวตน');
-  });
-
-  it('gives Google the filled button and the anonymous form the outline one', () => {
-    // Hierarchy is carried by weight, not by hiding. If this inverts, the
-    // password form has been promoted over Google by accident.
-    expect(HTML).toMatch(/btn btn-custom[^"]*"[^>]*onclick="samoGoogleSignIn\(\)"/);
-    expect(ANON).toMatch(/class="btn signin-submit"[^>]*id="signinLoginBtn"/);
+  it('uses the Google-spec button, not a brand-coloured one', () => {
+    // Google's branding guidelines permit white / dark / neutral fills only and
+    // require the standard four-colour G at its own size. A brand-green button
+    // with a monochrome glyph broke both — and read as "not a Google button",
+    // which is most of why the screen felt unfamiliar.
+    const btn = HTML.slice(HTML.indexOf('samoGoogleSignIn'), HTML.indexOf('signin-divider'));
+    expect(btn).not.toMatch(/btn-custom/);
+    for (const hex of ['#4285F4', '#34A853', '#FBBC05', '#EA4335']) {
+      expect(btn, 'the four-colour G must be intact').toContain(hex);
+    }
   });
 });
 
 describe('sign-in modal — the copy does not gate Google on a KKU address', () => {
-  it('names Gmail, the account a non-KKU reader is looking for', () => {
-    expect(HINT).toContain('Gmail');
-    expect(HINT).toContain('บุคคลทั่วไป');
+  // FOUR reports, one cause. Each rewrite kept a parenthesised domain list
+  // because KKU students were assumed to scan for it, and each time a glancer
+  // read the list as the set of ACCEPTED addresses. The rule that survives:
+  // no email domain appears in this modal at all.
+  it('shows no email domain anywhere in the modal', () => {
+    expect(HTML).not.toMatch(/@[a-z0-9.-]+\.[a-z]{2,}/i);
   });
 
   it('never instructs the reader to pick a kku address', () => {
-    // The exact phrasings that caused reports 1 and 2, plus the imperative
-    // shape they share. A kkumail address may be MENTIONED (KKU students scan
-    // for it); it may not be presented as the account to choose.
     expect(HTML).not.toContain('เลือกบัญชีที่ลงท้ายด้วย');
     expect(HTML).not.toContain('ใช้บัญชี Google ของมหาวิทยาลัย');
-  });
-
-  it('does not emphasise the KKU domains — report 3 was about the bold', () => {
-    // `<strong>`/`<b>` anywhere in the caption re-creates exactly the visual
-    // claim the owner read as "these are the addresses that count".
-    expect(HINT).not.toMatch(/<(strong|b)[\s>]/);
   });
 });
 
@@ -166,8 +162,8 @@ describe('sign-in modal — the form asks for what the code accepts', () => {
   it('keeps the rules in text that stays, not in a placeholder', () => {
     // A placeholder vanishes at the first keystroke — which is when the rule
     // starts to matter. Both hints are <p class="signin-help">.
-    expect(ANON).not.toMatch(/placeholder="อย่างน้อย/);
-    expect(ANON).toMatch(/class="signin-help"/);
+    expect(REGISTER).not.toMatch(/placeholder="อย่างน้อย/);
+    expect(REGISTER).toMatch(/class="signin-help"/);
   });
 });
 
@@ -195,15 +191,14 @@ describe('sign-in modal — one implementation, and it resets', () => {
     expect(reset).toMatch(/type = 'password'/);
   });
 
-  it('keeps the segmented control in step with the panel it labels', () => {
-    // One function sets both. A second one that flipped only the buttons is how
-    // a tab strip ends up disagreeing with the panel underneath it.
+  it('keeps the dialog title in step with the screen it labels', () => {
+    // One function sets both. A second one that moved only the panel is how a
+    // screen ends up labelled as the other one.
     const fn = SIGNIN_JS.slice(
       SIGNIN_JS.indexOf('export function showSigninScreen'),
       SIGNIN_JS.indexOf('function pickScreen'),
     );
     expect(fn).toContain("classList.toggle('d-none'");
-    expect(fn).toContain('is-active');
-    expect(fn).toContain('aria-selected');
+    expect(fn).toContain('signinTitleRegister');
   });
 });

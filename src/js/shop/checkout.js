@@ -131,6 +131,17 @@ export async function renderCheckout() {
   wireEvents();
 }
 
+/** An anonymous (username/password) account has NO email — auth.js stores '' for
+ *  the synthetic one — so the prefill above leaves this required field blank and
+ *  the buyer meets a validation error with no explanation of why their account
+ *  did not fill it in. It is not a block: they can type any address. But the
+ *  order's only contact channel is what goes in this box, so say both things —
+ *  what to type, and the one-tap way to stop having to. */
+function noEmailOnAccount() {
+  const u = getUser();
+  return !!u && !u.email;
+}
+
 function renderHtml() {
   const cart = getCart();
   const subtotal = cartSubtotal();
@@ -167,6 +178,13 @@ function renderHtml() {
             <label class="form-label small fw-bold mb-1" for="shopBuyerEmail">อีเมล <span class="req-star" aria-hidden="true">*</span></label>
             <input type="email" class="form-control" id="shopBuyerEmail"
                    value="${escHtml(state.buyerEmail)}" autocomplete="email" required />
+            ${noEmailOnAccount() ? `
+              <div class="form-text small mt-1">
+                บัญชีนี้ไม่มีอีเมล (เข้าสู่ระบบด้วยชื่อผู้ใช้) กรอกอีเมลที่ติดต่อได้จริง
+                หรือ<button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+                  data-bs-toggle="modal" data-bs-target="#signinModal">เข้าสู่ระบบด้วย Google</button>
+                เพื่อให้กรอกให้อัตโนมัติ
+              </div>` : ''}
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-bold mb-1" for="shopBuyerPhone">เบอร์โทรศัพท์ <span class="req-star" aria-hidden="true">*</span></label>
