@@ -152,7 +152,7 @@ export const AREAS = {
  */
 export const PENDING = [
   { type: 'improved', area: 'account', audience: 'public',
-    text: 'ปุ่ม Google เขียนว่า “สมัครและเข้าสู่ระบบด้วย Google” แล้ว '
+    text: 'ปุ่ม Google เขียนว่า “สร้างบัญชีและเข้าสู่ระบบด้วย Google” แล้ว '
     + 'เพราะคนที่เพิ่งเข้าเว็บครั้งแรกไม่รู้ว่าใช้ Google ได้เลยโดยไม่ต้องสมัครก่อน '
     + 'กดปุ่มเดียวจบ ทั้งคนที่เคยเข้าแล้วและคนที่ยังไม่เคย', },
   { type: 'fixed', area: 'account', audience: 'public',

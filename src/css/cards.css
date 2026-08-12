@@ -995,6 +995,18 @@
 }
 .signin-google-g { width: 18px; height: 18px; flex: 0 0 18px; }
 
+/* The Google label is long in Thai ("สร้างบัญชีและเข้าสู่ระบบด้วย Google"), and at
+   320px — iPhone SE, and any phone with display zoom on — it wraps to two lines.
+   A wrapped social button reads as broken, so the type steps down instead. The
+   logo does NOT scale: Google's guidelines fix its size.
+   ⚠ THIS MUST STAY BELOW `.signin-google`. It was first written above it, and at
+   equal specificity the later rule won — the media query matched, and the font
+   size never changed. Measured, not assumed. */
+@media (max-width: 360px) {
+  .signin-google { font-size: 0.84rem; gap: 0.5rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+}
+
+
 /* ---- Divider ------------------------------------------------------------ */
 
 .signin-divider {

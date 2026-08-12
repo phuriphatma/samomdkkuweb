@@ -1750,10 +1750,17 @@ can login with google account immediately without having to register like the
 anonymous."* "เข้าสู่ระบบด้วย Google" reads as *for people who already have an
 account* — a newcomer does not know that signing in with Google CREATES theirs,
 so they go hunting for a สมัคร link and land on the anonymous route. Now
-"สมัครและเข้าสู่ระบบด้วย Google" (Google's guidelines recommend Sign in / Sign up
-/ Continue and permit localization; the one-button-does-both case is what
-"Continue with Google" exists for). Measured at 390px: 203px of text in a 337px
-button, no wrap.
+"สร้างบัญชีและเข้าสู่ระบบด้วย Google" (Google's guidelines recommend Sign in /
+Sign up / Continue and permit localization; the one-button-does-both case is what
+"Continue with Google" exists for). Google's own Thai string is
+"ลงชื่อเข้าใช้ด้วย Google" and is deliberately NOT used — this site says
+เข้าสู่ระบบ everywhere, and a third verb for one action costs more than matching
+Google's wording gains. The screen now uses ONE verb for creating an account
+(สร้างบัญชี); it had been saying both สร้างบัญชี and สมัครสมาชิก, which a guard
+now forbids. ⚠ The label is LONG: fine at 390px, but it WRAPPED at 320px until a
+font step was added — and the first version of that step sat ABOVE
+`.signin-google` in the file, so at equal specificity the base rule won and the
+media query changed nothing while matching. Measured, not assumed.
 **Two more from the same pass**: the modal header carried a PINK wash, because
 `.modal-header` in `modals.css` paints EVERY modal `--pink-50` — pink is the PR
 form's per-tab accent (CLAUDE.md), not global chrome, and the account switcher

@@ -107,6 +107,18 @@ describe('sign-in modal — both routes are visible at once', () => {
     expect(REGISTER).toMatch(/class="signin-lede"[^>]*>[^<]*ไม่เปิดเผยตัวตน/);
   });
 
+  it('uses ONE verb for creating an account', () => {
+    // The screen said both "สร้างบัญชี" (title, anonymous link) and "สมัครสมาชิก"
+    // (register submit) for the same action. Two words for one thing is
+    // something a first-time reader has to resolve before they can act, and it
+    // is the kind of drift that creeps back one string at a time.
+    const hasCreate = HTML.includes('สร้างบัญชี');
+    const hasRegister = HTML.includes('สมัครสมาชิก');
+    expect(hasCreate, 'the modal should name the action at all').toBe(true);
+    expect(hasRegister,
+      'pick one: this modal uses สร้างบัญชี, so สมัครสมาชิก must not appear too').toBe(false);
+  });
+
   it('uses the Google-spec button, not a brand-coloured one', () => {
     // Google's branding guidelines permit white / dark / neutral fills only and
     // require the standard four-colour G at its own size. A brand-green button

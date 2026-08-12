@@ -66,10 +66,23 @@
                  sent them to the anonymous route.
                  Google's guidelines recommend "Sign in / Sign up / Continue
                  with Google" and permit localization; this merges two of the
-                 three, which the one-button-does-both case is exactly what
-                 "Continue with Google" exists for. Measured at 390px: 203px of
-                 text in a 337px button, no wrap. -->
-            <span>สมัครและเข้าสู่ระบบด้วย Google</span>
+                 three — the one-button-does-both case is exactly what
+                 "Continue with Google" exists for.
+
+                 "สร้างบัญชี", not "สมัคร", because this screen now uses ONE verb
+                 for creating an account: the register screen's title, its submit
+                 button and the anonymous link all say สร้างบัญชี. Two words for
+                 one action is a thing a newcomer has to resolve before acting.
+                 Google's own Thai string is "ลงชื่อเข้าใช้ด้วย Google", which is
+                 deliberately NOT used: this site says เข้าสู่ระบบ everywhere, and
+                 a third verb for the same action costs more than matching
+                 Google's wording gains.
+
+                 ⚠ IT IS LONG. Measured: 231px of text in a 337px button at
+                 390px (fine), but at 320px it WRAPS to two lines and a wrapped
+                 social button looks broken — hence the font step in cards.css
+                 under 360px. Re-measure if you edit this string. -->
+            <span>สร้างบัญชีและเข้าสู่ระบบด้วย Google</span>
           </button>
 
           <div class="signin-divider"><span>หรือ</span></div>
@@ -165,7 +178,7 @@
                   autocomplete="new-password" required>
               </div>
               <div id="signinRegisterAlert" class="alert alert-danger signin-alert d-none" role="alert"></div>
-              <button type="submit" class="btn signin-submit" id="signinRegisterBtn">สมัครสมาชิก</button>
+              <button type="submit" class="btn signin-submit" id="signinRegisterBtn">สร้างบัญชี</button>
             </form>
             <p class="signin-switch">
               มีบัญชีอยู่แล้ว?
