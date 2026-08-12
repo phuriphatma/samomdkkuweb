@@ -37,6 +37,50 @@ permission-aware predicate the fine-grained gates use, never a hardcoded role li
 
 ---
 
+## "โมนา got pr permission in teamsamo but she can't delete pr ticket" — a SECURITY DEFINER RPC restated a policy that had already moved
+
+**Symptom**: A ทีม SAMO member granted PR through her node
+(`role='user'`, `permissions='{}'`, `managed_permissions='{creator,pr,team}'`)
+could open the PR staff dashboard, read every ticket and save edits — but ลบ
+returned `{"code":"42501", "message":"not authorized to delete PR tickets"}`.
+Everything else about her access worked, which is what made it look like a
+one-off rather than a channel gap.
+**Cause**: 0043 moved ticket deletion behind `soft_delete_pr_ticket()` on
+purpose — a soft delete is an UPDATE at the storage level, so a plain PATCH
+would have inherited the BROADER update policy — and re-checked, by hand, what
+its header called "the EXACT current delete authorization":
+`current_user_role() not in ('pr_staff','dev')`. That was 0001's version of the
+rule. 0014 had already taught `pr_tickets_delete_staff` the permission channel
+(`or current_user_has_permission('pr')`) twenty-nine migrations earlier. So the
+copy was stale **on the day it was written**, and stayed invisible because every
+account anyone tested with holds the ROLE, which satisfies both spellings. The
+VS twin in the very same migration, `soft_delete_vs_ticket`, DID carry
+`current_user_has_permission('vs')` — one gate of a pair was right, so review
+saw a permission-aware pair.
+**Fix**: 0149 makes the RPC mirror the live policy —
+`v_role in ('pr_staff','dev') or public.current_user_has_permission('pr')`,
+with 0045's `v_role is null` fail-closed guard kept ahead of it.
+`current_user_has_permission` already reads the UNION of `permissions` and
+`managed_permissions` (0081) and answers yes to everything for `master` (0111),
+so a node grant, a direct grant and a master account all resolve in one call.
+**Where**: `supabase/migrations/0149_pr_soft_delete_honours_the_permission_channel.sql`;
+guard `tools/pr0149-delete-permission.sql` (12/12). The guard is DIFFERENTIAL by
+construction: it asks the POLICY and the RPC the same question about three
+subjects — permission-only, role-only, ungranted — and fails when they disagree,
+so it cannot be satisfied by a gate that merely denies. It reproduced the bug
+before the fix (B1 FAIL, C1 2-of-3) with both controls behaving. Its instruments
+undo themselves by raising inside their own subtransaction, because the first
+version used `rollback to savepoint` and silently discarded its own probe rows
+along with the delete — an empty result read exactly like a passing run.
+**Rule**: when a policy is restated in a SECURITY DEFINER function, the
+restatement is a COPY, and this repo's rule is that two implementations of one
+rule drift. Do not copy the policy TEXT — copy the QUESTION, and write the
+differential in the same commit. A comment saying "mirrors policy X" is not a
+mechanism; the one in 0043 said exactly that and was wrong when it was typed.
+And when you thread a new access channel through a pair of twins, check the
+SECOND one: `soft_delete_vs_ticket` being correct is what hid this for 106
+migrations.
+
 ---
 
 ## A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD — RLS ORs the branches, so the broad grant always wins

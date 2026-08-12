@@ -51,7 +51,11 @@ has not been written yet.
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
    (0089 → 0090 → 0091 → 0093 → 0102). A UI gate that honours the new channel
-   hides the gap until someone tries to save.
+   hides the gap until someone tries to save. **A SECURITY DEFINER RPC that
+   restates a policy is one of those gates** — `soft_delete_pr_ticket` copied the
+   pr_staff/dev test 29 migrations AFTER the policy learned `has_permission('pr')`,
+   and its VS twin in the same migration was correct, so the pair read as
+   permission-aware (0149). Check the SECOND twin.
 6. **Two implementations of one rule drift.** SQL↔JS mirrors, a read path and a
    write path, an export and its import, a guard and its call sites. Write the
    differential test in the same commit — a comment saying "keep these in step"
@@ -213,9 +217,10 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
 
 ### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
-*Open when:* adding an access channel, a scope, or a seat. *(11 entries)*
+*Open when:* adding an access channel, a scope, or a seat. *(12 entries)*
 
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
+- "โมนา got pr permission in teamsamo but she can't delete pr ticket"
 - A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD
 - The privilege-ESCALATING option must never be a select's default
 - A capability key is not a ROLE — granting flat `projects` produced a tab with no controls, because the app branches on…

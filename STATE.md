@@ -38,8 +38,10 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   (`86cc524`) plus the sign-in modal rewrite. Verified from the served artifact:
   `ไม่ต้องการเปิดเผยตัวตน` present in both `/index.html` and `/admin/index.html` on
   the VM and over HTTPS, `signin-alt-caption` in both CSS bundles.
-  **Migrations applied through 0148** (0148 is the last, and it is applied).
-  **684 tests green.**
+  **Migrations applied through 0149** (0149 is the last, and it is applied).
+  **685 tests green.**
+  ⚠️ 0149 is DB-ONLY (an RPC body) — it took effect the moment it was applied;
+  no VM deploy is needed for it, and `src/` is unchanged by it.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
   rename module-scope `let`s — grep a STRING LITERAL or a CSS class.
@@ -59,6 +61,10 @@ All both-directional. `node tools/db-query.mjs tools/<x>.sql` for the SQL ones.
 - `authz-sweep-identity.sql` (23/23) — the identity boundary for anon AND an
   ungranted student. Run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
+- `pr0149-delete-permission.sql` (12/12, differential) — asks the DELETE POLICY
+  and `soft_delete_pr_ticket()` the same question about a permission-only, a
+  role-only and an ungranted subject, and fails if they disagree. Run it after
+  touching either. Any OTHER definer RPC that restates a policy needs the same.
 - `house0116-authz.sql` (8/8) · `house0144-delete-impact.sql` (18/18,
   differential) · `house0145-duplicate-person.sql` (6/6) ·
   `house0146-crest-refcount.sql` (6/6)
