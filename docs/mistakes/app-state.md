@@ -533,6 +533,42 @@ finding into no finding.
 
 ---
 
+## The checkout form kept the PREVIOUS account's email after an in-place account switch — and the new recap asked the buyer to confirm it
+
+**Symptom**: Found by review, not by a report. Switch accounts with the Gmail-style
+switcher (no page reload), open SAMO Shop checkout, and the ชื่อ/อีเมล/เบอร์ fields
+still hold the person who was signed in before.
+**Cause**: `src/js/shop/checkout.js` keeps `buyerName` / `buyerEmail` /
+`buyerPhone` at MODULE SCOPE, prefilled as
+`if (!state.buyerEmail) state.buyerEmail = user.email || ''`. That guard exists
+for a good reason — a typed edit must survive the re-render every slip upload
+triggers — but it never overwrites, and `account-switch.js` has no
+`location.reload`, so the module state outlives the account it was filled from.
+`onAuthChange` re-renders checkout, which re-runs a prefill that declines to
+change anything. Same class as the module-scope caches entry above it.
+**Why it got worse before it got better**: the checkout had just grown a contact
+recap above the confirm button. That turned a stale default into the thing the
+buyer is explicitly asked to approve, and placing the order writes a stranger's
+address as the only channel staff have for slip and pickup.
+**Fix**: `applyBuyerPrefill(state, user)` — one exported function with two rules
+that pull in opposite directions, which is why "just always overwrite" is also
+wrong: when `user.id` differs from the `prefillUid` the state was filled from,
+replace ALL THREE fields (typed or not); when it is the same account, fill only
+what is empty, so edits survive a re-render and a placed order re-prefills.
+**Where**: `src/js/shop/checkout.js` (`applyBuyerPrefill`, `state.prefillUid`),
+guarded by `src/js/checkout-prefill.test.js` (7 cases, including the
+switch-with-a-typed-value case and an account with NO email — the anonymous
+route, where inheriting the previous address is the most misleading outcome).
+**Rule**: a "fill only if empty" prefill is correct only while the IDENTITY
+behind it cannot change. The moment an app can switch accounts without a reload,
+every such prefill needs to remember WHOSE data it holds — the emptiness of a
+field is not a proxy for the freshness of it. And when a value that was
+previously a quiet default becomes something the user must confirm, re-examine
+where it came from: the display change did not create this bug, but it raised
+the cost of it from "wrong default" to "you approved a stranger's address".
+
+---
+
 ## An INSERT is a write path too — the import guard covered UPDATE only
 
 **Symptom**: none yet, because the roster file has not landed. Found by asking

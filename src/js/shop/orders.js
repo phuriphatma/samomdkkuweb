@@ -357,7 +357,12 @@ const CONTACT_EDITABLE = new Set(['pending', 'review', 'slip_mismatch']);
 function contactRowHtml(o) {
   const email = (o.buyer_email || '').trim();
   const phone = (o.buyer_phone || '').trim();
-  if (!email && !phone) return '';
+  const editable = CONTACT_EDITABLE.has(o.status);
+  // An order with NEITHER still shows the row while it is editable — hiding it
+  // would leave the one case that most needs fixing with no way to fix it.
+  // (None exist today; orders created before 0026/0033 added these columns, or
+  // by an admin on someone's behalf, are how one appears.)
+  if (!email && !phone && !editable) return '';
   return `
     <div class="order-contact">
       <div class="order-contact-body">
@@ -365,10 +370,11 @@ function contactRowHtml(o) {
         <div class="oc-lines">
           ${email ? `<span><i class="bi bi-envelope"></i> ${escHtml(email)}</span>` : ''}
           ${phone ? `<span><i class="bi bi-telephone"></i> ${escHtml(phone)}</span>` : ''}
+          ${!email && !phone ? '<span class="oc-empty">ยังไม่มีช่องทางติดต่อ</span>' : ''}
         </div>
       </div>
-      ${CONTACT_EDITABLE.has(o.status)
-        ? `<button type="button" class="oc-edit" data-edit-contact="${escHtml(o.id)}">แก้ไข</button>`
+      ${editable
+        ? `<button type="button" class="oc-edit" data-edit-contact="${escHtml(o.id)}">${email || phone ? 'แก้ไข' : 'เพิ่ม'}</button>`
         : ''}
     </div>`;
 }

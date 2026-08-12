@@ -31,8 +31,51 @@ const state = {
   buyerName: '',
   buyerEmail: '',
   buyerPhone: '',
+  // WHOSE contact is currently sitting in the three fields above. This state is
+  // module-scope and the account switcher does NOT reload the page, so without
+  // it a switch left the PREVIOUS person's name/email/phone in the form — see
+  // applyBuyerPrefill().
+  prefillUid: null,
   agree: false,
 };
+
+/**
+ * Fill the buyer contact fields from the signed-in profile.
+ *
+ * TWO RULES, and they are different on purpose:
+ *
+ * 1. WHEN THE ACCOUNT CHANGES, overwrite all three. The old guard was
+ *    `if (!state.buyerEmail) state.buyerEmail = user.email` — which never
+ *    overwrites — and this module's state outlives an in-place account switch
+ *    (account-switch.js does not reload). So switching accounts and opening
+ *    checkout showed the PREVIOUS person's email, and the recap above the
+ *    confirm button then asked the buyer to approve it. Placing that order
+ *    stores a stranger's address as the only channel staff have.
+ *    This is the documented "module-scope caches make an in-place account
+ *    switch show two accounts at once" class (docs/mistakes/app-state.md).
+ *
+ * 2. WITHIN ONE ACCOUNT, only fill what is EMPTY. Typed edits must survive the
+ *    re-render that every slip upload triggers, and the fields are deliberately
+ *    blanked after a successful order so the next one prefills again.
+ *
+ * Exported for `checkout-prefill.test.js`: the difference between these two
+ * rules is invisible until someone switches accounts, which is exactly the kind
+ * of thing nobody re-tests by hand.
+ */
+export function applyBuyerPrefill(state_, user) {
+  if (!user) return state_;
+  if (state_.prefillUid !== user.id) {
+    state_.prefillUid   = user.id;
+    state_.buyerName    = user.name  || '';
+    state_.buyerEmail   = user.email || '';
+    state_.buyerPhone   = user.phone || '';
+    return state_;
+  }
+  if (!state_.buyerName)  state_.buyerName  = user.name  || '';
+  if (!state_.buyerEmail) state_.buyerEmail = user.email || '';
+  if (!state_.buyerPhone) state_.buyerPhone = user.phone || '';
+  return state_;
+}
 
 // ── Account grouping (split-by-account checkout, migration 0057) ────────
 
@@ -121,12 +164,7 @@ export async function renderCheckout() {
   if (!settingsCache) {
     try { settingsCache = await getSettings(); } catch { settingsCache = null; }
   }
-  // Prefill buyer name + email from the signed-in profile on first paint —
-  // user can override in the form. We only autofill the first time state
-  // is empty to preserve typed-in changes across re-renders.
-  if (!state.buyerName)  state.buyerName  = user.name  || '';
-  if (!state.buyerEmail) state.buyerEmail = user.email || '';
-  if (!state.buyerPhone) state.buyerPhone = user.phone || '';
+  applyBuyerPrefill(state, user);
   body.innerHTML = renderHtml();
   wireEvents();
 }

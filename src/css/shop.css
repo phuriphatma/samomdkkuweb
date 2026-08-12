@@ -916,6 +916,14 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
+/* Bootstrap's .btn-link is #0d6efd, which would be the only blue link in an app
+   whose links are all brand green. */
+.shop-tab .order-contact-form .oc-actions .btn-link {
+  color: var(--shop-ink-500, #64748b);
+  text-decoration: none;
+}
+.shop-tab .order-contact-form .oc-actions .btn-link:hover { text-decoration: underline; }
+.shop-tab .order-contact .oc-empty { color: var(--shop-ink-400, #94a3b8); font-style: italic; }
 
 /* Contact recap above the place-order button — see the long note at its markup
    in checkout.js. Deliberately quiet: it is a confirmation, not an alert, so it

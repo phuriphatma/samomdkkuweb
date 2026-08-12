@@ -315,7 +315,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(14 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(15 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -330,6 +330,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Stripping a คำนำหน้า off a name renames the people whose name STARTS with one
 - "แก้ชื่อในหน้าตัวเอง แล้วชื่อ-นามสกุลในระบบบ้านสลับกัน"
 - "this person is the same person but it detects wrong because no email"
+- The checkout form kept the PREVIOUS account's email after an in-place account switch
 - An INSERT is a write path too — the import guard covered UPDATE only
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
