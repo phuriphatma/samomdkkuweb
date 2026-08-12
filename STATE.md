@@ -112,12 +112,11 @@ because two copies of one rule is the class this repo pays for most.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-12)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, and
-> prod is current — the last deploy was the sign-in rewrite, and every commit
-> after it is docs-, test- and DB-only (CURRENT DEPLOY above says how to confirm
-> that in one command instead of trusting this sentence). The security item that
-> used to live in agent memory is CLOSED (0147); its write-up is in
-> `docs/mistakes/authz-rls.md`.
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
+> prod == main — deployed at the end of the session and the VM's HEAD read back
+> (CURRENT DEPLOY above says how to confirm that in one command instead of
+> trusting this sentence). The security item that used to live in agent memory
+> is CLOSED (0147); its write-up is in `docs/mistakes/authz-rls.md`.
 >
 > **Last session (2026-08-12, second half) shipped 0149** — the owner reported
 > that a ทีม SAMO member with the PR grant could read and edit PR tickets but got
