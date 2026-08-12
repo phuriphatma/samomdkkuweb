@@ -7,6 +7,49 @@ un-started; STATE.md carries a one-line pointer to this file.
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
+### 0c. Two authorization gates that are latent, not broken (2026-08-12)
+
+Found while sweeping for more of 0149's shape (a definer RPC that restated a
+policy and missed the permission channel). Both were PROBED LIVE and neither is
+reachable from the app today, which is why they are here and not a fix:
+
+- **`users_update_staff` is `current_user_is_staff()`** — a pure role list. A
+  person holding `master` through the ทีม SAMO tree (3 accounts, `role='user'`)
+  cannot UPDATE another user's row; probed live, 0 rows affected. Harmless
+  ONLY because nothing in `src/js` writes another user's row — permissions flow
+  from `team_nodes` through the definer sync, not through this policy. The day
+  something needs a cross-user write from the admin UI, this refuses the very
+  people the tree was built to empower.
+- **`notify_log_select_staff` / `reserved_staff_usernames_read_staff`** — same
+  role list, both probed at 0 rows for a permission-only admin. Neither table
+  is read from `src/js` at all.
+
+Deliberately NOT swept into 0149: changing a live policy for a path nothing
+takes is risk without a beneficiary. `src/js/definer-authz.test.js` covers the
+FUNCTION half of this class on every commit; policies are not machine-checkable
+the same way, which is what this note is for.
+
+Checked and CORRECT, recorded so nobody re-investigates: `vs_tags` reads pass
+through `vs_tags_write_scoped` (a `FOR ALL` policy also covers SELECT — probed
+9/9 with an ungranted control at 0); `projects/manage.js` gates on the
+SEAT-RESOLVED role via `projectSeatRole()`, so a `vpa`-seat holder does get the
+controls; `vs-staff.js` `isVsSuper` and `team-vocab.js` `canEditTeam` both
+consult permissions and role.
+
+### 0d. Make the PR delete rule ONE implementation, not two (2026-08-12)
+
+0149 fixed the drift between `pr_tickets_delete_staff` and
+`soft_delete_pr_ticket` by correcting the copy. The copy still exists. The
+elegant version is the one the VS side already uses: a single named predicate
+(`current_user_vs_scope()`) called by BOTH the policy and the RPC, so there is
+nothing to drift. A `public.current_user_can_delete_pr_ticket()` would do the
+same here.
+
+Not done in 0149 on purpose: it mutates a live security policy for a pair that
+`tools/pr0149-delete-permission.sql` now pins differentially, so the drift is
+already detected the moment it reappears. Worth doing the next time that area is
+open, and worth COPYING as the pattern for any new policy+RPC pair.
+
 ### 0. `photo_reference_count()` cannot see `houses.icon_url` (2026-08-09)
 
 The house-crest cleanup in `src/js/house/index.js` (`onHouseSubmit` →

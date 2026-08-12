@@ -72,6 +72,15 @@ before the fix (B1 FAIL, C1 2-of-3) with both controls behaving. Its instruments
 undo themselves by raising inside their own subtransaction, because the first
 version used `rollback to savepoint` and silently discarded its own probe rows
 along with the delete — an empty result read exactly like a passing run.
+**Ratchet**: `src/js/definer-authz.test.js` — runs in `npm test`, reads the
+migrations, and fails when a SECURITY DEFINER function raises 42501 while
+consulting the ROLE and never the permission channel. Its own first version was
+BLIND: it matched the role-list SYNTAX (`current_user_role() in (…)`), and
+re-introducing this exact bug left it green, because 0045 had already captured
+the call into `v_role` and tested the VARIABLE. Matching the CHANNEL rather than
+one spelling of it caught it; the lesson is now in `skills/write-a-guard.md` §1.
+The scan found no other instance — 14 definer functions raise 42501 and the
+static parse matched `pg_proc` exactly, which is the control.
 **Rule**: when a policy is restated in a SECURITY DEFINER function, the
 restatement is a COPY, and this repo's rule is that two implementations of one
 rule drift. Do not copy the policy TEXT — copy the QUESTION, and write the

@@ -39,7 +39,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   `ไม่ต้องการเปิดเผยตัวตน` present in both `/index.html` and `/admin/index.html` on
   the VM and over HTTPS, `signin-alt-caption` in both CSS bundles.
   **Migrations applied through 0149** (0149 is the last, and it is applied).
-  **685 tests green.**
+  **689 tests green.**
   ⚠️ 0149 is DB-ONLY (an RPC body) — it took effect the moment it was applied;
   no VM deploy is needed for it, and it changes nothing a browser loads.
   So the command above now prints TWO paths and prod is still current: the
@@ -69,6 +69,10 @@ All both-directional. `node tools/db-query.mjs tools/<x>.sql` for the SQL ones.
   and `soft_delete_pr_ticket()` the same question about a permission-only, a
   role-only and an ungranted subject, and fails if they disagree. Run it after
   touching either. Any OTHER definer RPC that restates a policy needs the same.
+  Its commit-time half is `src/js/definer-authz.test.js`, which runs in
+  `npm test`: no definer function may raise 42501 on the ROLE channel alone.
+  The whole class was swept on 2026-08-12 — 0149 was the only live instance;
+  the latent-but-unreachable ones are `docs/NEXT.md` §0c.
 - `house0116-authz.sql` (8/8) · `house0144-delete-impact.sql` (18/18,
   differential) · `house0145-duplicate-person.sql` (6/6) ·
   `house0146-crest-refcount.sql` (6/6)
@@ -115,10 +119,22 @@ because two copies of one rule is the class this repo pays for most.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, and
 > prod is current — the last deploy was the sign-in rewrite, and every commit
-> after it is docs-only (CURRENT DEPLOY above says how to confirm that in one
-> command instead of trusting this sentence). The security item that used to
-> live in agent memory is CLOSED (0147); its write-up is in
+> after it is docs-, test- and DB-only (CURRENT DEPLOY above says how to confirm
+> that in one command instead of trusting this sentence). The security item that
+> used to live in agent memory is CLOSED (0147); its write-up is in
 > `docs/mistakes/authz-rls.md`.
+>
+> **Last session (2026-08-12, second half) shipped 0149** — the owner reported
+> that a ทีม SAMO member with the PR grant could read and edit PR tickets but got
+> `42501 not authorized to delete PR tickets`. `soft_delete_pr_ticket` had
+> hand-copied the DELETE policy from 0001 while 0014 had already added
+> `has_permission('pr')` to it; the copy was stale the day it was written and
+> survived 106 migrations because every tester holds the ROLE and the VS twin in
+> the same migration was correct. DB-only, applied, nothing to deploy. The class
+> was then swept end-to-end (definer functions, policies, and the JS gates) —
+> that was the ONLY live instance; see `docs/NEXT.md` §0c for two latent ones
+> that are deliberately unfixed and §0d for the one-predicate refactor worth
+> copying next time that area is open.
 >
 > The one thing to know before you start: **the top item below is a decision
 > waiting on the owner, not a task.** A demo was built and published for them to

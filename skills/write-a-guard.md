@@ -47,6 +47,16 @@ every one, faithfully, and reported green for three days while the hazard sat in
 > explicit allow-list of exclusions that each carry a reason. A new column then
 > fails the test until somebody classifies it.
 
+The same trap, one level finer: **a guard can match one SPELLING of the thing it
+is looking for.** `definer-authz.test.js` was written to catch a SECURITY DEFINER
+function that refuses people on a role list, and its first pattern looked for the
+role-list SYNTAX — `current_user_role() in (…)`. Re-introducing the exact bug it
+was written for left it GREEN, because 0045 had refactored the call into a local
+`v_role` and tested the variable. The predicate was still a role list; it just
+did not look like one. Matching the CHANNEL instead (`current_user_role` in the
+body at all) caught it. When your pattern names an operator, an argument list, or
+a call shape, ask what a rename or an intermediate variable does to it.
+
 ### 2. Its control finds nothing either
 
 A sweep that returns zero rows has told you nothing until you have proved it can
