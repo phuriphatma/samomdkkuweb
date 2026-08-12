@@ -29,6 +29,7 @@
 // legitimately be satisfied.
 // ==============================================
 import { describe, it, expect } from 'vitest';
+import { stripComments, stripHtmlComments } from './strip-comments.js';
 import { readFileSync } from 'node:fs';
 
 const RAW = readFileSync(new URL('./confirm-modal.js', import.meta.url), 'utf8');
@@ -41,10 +42,7 @@ const RAW = readFileSync(new URL('./confirm-modal.js', import.meta.url), 'utf8')
 // prose plus a different line, and the test PASSED with the bug reintroduced.
 // A guard that reads comments is a guard that can be satisfied by writing about
 // the fix instead of making it.
-const SRC = RAW
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^\s*\/\/.*$/gm, '');
+const SRC = stripComments(stripHtmlComments(RAW));
 
 /** The full <button ...> tag carrying the given marker attribute.
  *  Matched as a TAG, not by indexOf: the marker names also appear in this

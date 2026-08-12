@@ -191,6 +191,47 @@ assertion about a function fails and another succeeds, suspect the data.
 
 ---
 
+## Four guards were reading a MANGLED file — `'image/*'` opened a "comment" that ate 13,839 characters of main.js
+
+**Symptom**: A new assertion in `signin-screen.test.js` — "these handlers are
+defined exactly once" — passed with a duplicate handler sitting in `main.js` on
+a line the test had just been shown. Reintroducing the bug did not turn it red.
+**Cause**: Every guard that reads JS source carried its own
+`.replace(/\/\*[\s\S]*?\*\//g, '')` to strip block comments. That regex cannot
+tell a comment opener from the two characters `/*` inside a STRING, and
+`main.js` contains `input.accept = 'image/*';`. The "comment" opened there and
+ran to the next close-marker anywhere in the file: **13,839 characters of real
+source blanked before a single assertion ran**. The same literal is in
+`admin-main.js` (2,321 chars) and `my-seat.js` (~6,000 across seven spots).
+Measured total: ~24,000 characters invisible to the guards — and one of the
+blinded readers was `native-dialog.test.js`, whose entire job is to find native
+dialogs in exactly those modules.
+**Fix**: one shared `src/js/strip-comments.js` — a character scanner with a mode
+stack that knows strings, template literals and regex literals, and replaces
+comments with equivalent whitespace so line numbers still match. All four guards
+read through it.
+**The fix's own first draft was wrong in the same family**, which is the part
+worth keeping: it skipped from a backtick to the next backtick, ignoring that
+`${…}` holds real code. A multi-line template in `house/my-house.js` put it out
+of phase for the rest of the file, leaving a `/** … */` block unstripped — and
+`native-dialog.test.js` then reported that block's PROSE as a call site. A false
+positive is how that got noticed at all; had it failed the other way it would
+have been silent.
+**Where**: `src/js/strip-comments.js` + `strip-comments.test.js`, used by
+`signin-screen` · `native-dialog` · `confirm-modal` · `definer-authz`.
+The stripper's own test asserts the property a phase error violates: with
+strings and regex literals blanked, NO comment marker may survive in ANY module
+— and it walks subdirectories, because the top-level-only first version never
+saw the file that broke it.
+**Rule**: a guard's INSTRUMENT needs a guard. Comment-stripping, minified-bundle
+grepping and "read the source and match a pattern" all silently change what the
+test can see, and when the instrument is wrong the test does not fail — it
+PASSES, because the hazard is no longer in the text it was handed. Never
+hand-roll a lexer per test file: one shared instrument, with its own test, whose
+control asserts it still finds the hazard it was built for.
+
+---
+
 ## A proof that ERRORS is not a proof that fails — it is a proof that is ABSENT, and `house0116-authz.sql` had been absent for 23 migrations
 
 **Symptom**: `node tools/db-query.mjs tools/house0116-authz.sql` returned

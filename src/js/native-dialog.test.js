@@ -26,6 +26,7 @@
 // to a module that has been cleaned fails it too.
 // ==============================================
 import { describe, it, expect } from 'vitest';
+import { stripComments } from './strip-comments.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -52,13 +53,14 @@ const STILL_NATIVE = new Set([
  *  because several of these modules explain the hazard in prose. */
 const CALL = /(^|[^.\w$])(confirm|prompt)\s*\(/;
 
+// Comments AND string contents, via the shared scanner. The regex this used to
+// carry opened a "comment" at the `/*` inside `input.accept = 'image/*'` and ran
+// to the next `*​/` in the file — 13,839 characters of main.js, 2,321 of
+// admin-main.js and ~6,000 across my-seat.js were never scanned at all, and
+// my-seat.js is one of the modules this test was written for. See
+// strip-comments.js.
 function stripCommentsAndStrings(code) {
-  return code
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/`(?:[^`\\]|\\.)*`/g, '``');
+  return stripComments(code, { keepStrings: false });
 }
 
 function jsFiles(dir = SRC, out = []) {

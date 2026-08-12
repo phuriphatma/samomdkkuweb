@@ -47,6 +47,20 @@ every one, faithfully, and reported green for three days while the hazard sat in
 > explicit allow-list of exclusions that each carry a reason. A new column then
 > fails the test until somebody classifies it.
 
+**And the instrument that feeds the guard needs a guard.** Four tests here each
+hand-rolled `.replace(/\/\*[\s\S]*?\*\//g, '')` to strip comments. `main.js`
+contains `input.accept = 'image/*'`, so the "comment" opened inside that string
+and ran to the next close-marker in the file — 13,839 characters blanked before
+any assertion ran, ~24,000 across three modules, and `native-dialog.test.js` was
+one of the readers left blind. A wrong instrument does not fail the test; it
+makes the test PASS, because the hazard is no longer in the text it was handed.
+One shared `src/js/strip-comments.js`, with its own test whose control asserts it
+can still find the motivating hazard. Its OWN first draft was out of phase on
+template interpolations — so the rule is: anything that transforms the source
+before the assertion (comment stripping, minified-bundle grepping, slicing a
+region out of a file) is part of the guard and needs the same reintroduce-and-
+watch-it-fail treatment as the assertion.
+
 The same trap, one level finer: **a guard can match one SPELLING of the thing it
 is looking for.** `definer-authz.test.js` was written to catch a SECURITY DEFINER
 function that refuses people on a role list, and its first pattern looked for the
@@ -119,7 +133,8 @@ still looked like coverage in `STATE.md`.
 - [ ] The control prints what it found, not just that it found nothing.
 - [ ] It matches shape, not one name; new instances fail until classified.
 - [ ] Its subject is derived, not named.
-- [ ] It reads code, not comments.
+- [ ] It reads code, not comments — and the STRIPPER it reads through is the
+      shared `strip-comments.js`, not a fresh regex.
 - [ ] If it errors, that is distinguishable from passing.
 
 ## Shapes worth copying
@@ -131,7 +146,8 @@ still looked like coverage in `STATE.md`.
 | Both-directional live authz sweep | `tools/authz-sweep-identity.sql` |
 | Differential — predict, act, compare | `tools/house0144-delete-impact.sql` |
 | Derived subject + existence assertion | `tools/house0116-authz.sql` |
-| Source-text ratchet done safely | `confirm-modal.test.js` (comment stripping) |
+| Source-text ratchet done safely | `confirm-modal.test.js` + `strip-comments.js` |
+| Differential between a form and the code behind it | `signin-screen.test.js` (reads the minimum out of auth.js) |
 
 ## Two SQL-specific traps
 

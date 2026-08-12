@@ -116,6 +116,10 @@ has not been written yet.
 
    **Guards fail GREEN, which is why they get their own playbook —
    `skills/write-a-guard.md`. Read it before writing any test, proof or sweep.**
+   **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled the same
+   block-comment regex, and `'image/*'` in `main.js` opened a "comment" that
+   blanked 13,839 characters before any assertion ran. One shared
+   `strip-comments.js`, with its own test, now serves all four.
    The five ways, each paid for here: it cannot SEE the hazard
    (`photo-refcount.test.js` scanned for `photo_url`, hazard sat in
    `houses.icon_url`, 0146) · its CONTROL also finds nothing (0147's first sweep
@@ -255,7 +259,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(51 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(52 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -306,6 +310,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `justify-content: center` makes the overflow of a scroll container UNREACHABLE
 - `flex-wrap` does nothing inside `width: max-content`
 - "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule, and a form hidden behind a collapse
+- "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc."
 - "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
 
@@ -365,7 +370,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(7 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(8 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
@@ -373,6 +378,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
 - `pg_get_functiondef` over every function 42809s on aggregates
 - A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
+- Four guards were reading a MANGLED file — `'image/*'` opened a "comment" that ate 13,839 characters of main.js
 - A proof that ERRORS is not a proof that fails
 
 <!-- END GENERATED INDEX -->
