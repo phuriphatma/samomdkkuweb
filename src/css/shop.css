@@ -863,6 +863,105 @@
 @media (min-width: 992px) {
   .shop-tab .checkout-grid { grid-template-columns: 1fr 380px; }
 }
+/* The contact shown on a placed order, with an inline editor. Quiet by default —
+   it is reference information, not an action — and it only grows a button while
+   the order is still early enough for the database to accept the change
+   (shop_orders_self_update_guard + the RLS status window). */
+.shop-tab .order-contact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--shop-surface-2, #f8fafc);
+  border-radius: 10px;
+}
+.shop-tab .order-contact .oc-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--shop-ink-500, #64748b);
+  margin-bottom: 0.2rem;
+}
+.shop-tab .order-contact .oc-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.82rem;
+  color: var(--shop-ink-700, #334155);
+  word-break: break-all;
+}
+.shop-tab .order-contact .oc-lines i { color: var(--shop-ink-400, #94a3b8); }
+.shop-tab .order-contact .oc-edit {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  padding: 0.15rem 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+.shop-tab .order-contact-form { width: 100%; }
+.shop-tab .order-contact-form .oc-label {
+  display: block;
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--shop-ink-700, #334155);
+}
+.shop-tab .order-contact-form .oc-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* Contact recap above the place-order button — see the long note at its markup
+   in checkout.js. Deliberately quiet: it is a confirmation, not an alert, so it
+   must not compete with the QR or the slip drop. The MISSING state is the only
+   part that raises its voice. */
+.shop-tab .checkout-recap {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--shop-surface-2, #f8fafc);
+  border: 1px solid var(--shop-ink-200, #e2e8f0);
+  border-radius: 12px;
+}
+.shop-tab .checkout-recap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--shop-ink-900, #0f172a);
+}
+.shop-tab .checkout-recap-edit {
+  border: none;
+  background: transparent;
+  padding: 0.15rem 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+.shop-tab .checkout-recap-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--shop-ink-700, #334155);
+  word-break: break-all;
+}
+.shop-tab .checkout-recap-row i { color: var(--shop-ink-400, #94a3b8); flex: 0 0 auto; }
+.shop-tab .checkout-recap-row .is-missing {
+  color: #b42318;
+  font-weight: 600;
+}
+
 .shop-tab .checkout-panel {
   background: #fff;
   border-radius: var(--shop-radius-lg);

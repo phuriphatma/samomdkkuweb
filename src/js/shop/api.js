@@ -544,6 +544,34 @@ function normalizeSlips(order) {
  *  Appends to the slips[] array, mirrors slip_url to the newest, and
  *  sends the order back to 'review' so it reappears in the admin verify
  *  queue. Multiple slips are kept — we no longer trash the prior one. */
+/** Buyer-facing: correct the CONTACT on your own order.
+ *
+ *  Only `buyer_email` and `buyer_phone` are sent, and the database agrees:
+ *  `shop_orders_self_update_guard` whitelists exactly these two contact columns
+ *  for a buyer self-update (migration 0150 added the email; the phone was
+ *  already there), and the RLS policy limits it to pending / review /
+ *  slip_mismatch. Sending anything else here raises P0001 rather than silently
+ *  writing — which is the point of the guard.
+ *
+ *  `return=representation` + a length check, because PostgREST answers an
+ *  RLS-blocked UPDATE with 0 rows and NO error — reporting success on an empty
+ *  array is the silent-failure shape this repo has paid for repeatedly. */
+export async function updateOrderContact(id, { email, phone }) {
+  const idEsc = encodeURIComponent(id);
+  const body = {};
+  if (email !== undefined) body.buyer_email = (email || '').trim().toLowerCase() || null;
+  if (phone !== undefined) body.buyer_phone = (phone || '').trim() || null;
+  const { data, error } = await dbRest(
+    `/shop_orders?id=eq.${idEsc}`,
+    { method: 'PATCH', body, prefer: 'return=representation' },
+  );
+  if (error) throw new Error(error.message || 'บันทึกข้อมูลติดต่อไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกไม่สำเร็จ — แก้ไขได้เฉพาะคำสั่งซื้อที่ยังไม่ได้ตรวจสลิป');
+  }
+  return data[0];
+}
+
 export async function addOrderSlip(id, slipUrl) {
   const idEsc = encodeURIComponent(id);
   const now = new Date().toISOString();

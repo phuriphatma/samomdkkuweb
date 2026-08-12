@@ -232,6 +232,38 @@ control asserts it still finds the hazard it was built for.
 
 ---
 
+## A proof whose subject was a SHOP ADMIN reported that a buyer could set an order total to ฿1
+
+**Symptom**: A new both-directional proof for the buyer self-update whitelist
+printed `D1. buyer may NOT change the total — expected refused, got allowed`,
+and `D4. the total is untouched — expected 5, got 1`. Read literally, anyone
+could rewrite the price of their own order.
+**Cause**: The proof resolved its subject as "an order in a buyer-editable
+status", `order by id limit 1`. Every one of the six orders in this database was
+placed by a shop ADMIN (they are test orders), and
+`shop_orders_self_update_guard` opens with
+`if public.current_user_is_shop_admin() then return new; end if;` — so the guard
+never engaged. Every case, ALLOW and DENY alike, was measuring an admin's
+permissions. The ALLOW half had been "passing" for the same reason.
+**Fix**: the subject is MANUFACTURED — clone a real order onto a real non-admin
+account inside the transaction that is rolled back anyway — and the exclusion is
+asserted rather than assumed (`S2. the subject is NOT a shop admin`, read from
+`current_user_is_shop_admin()` under the subject's own claims). Note the
+exclusion needs the permission columns, not just the role: that helper is true
+for `samoshop` OR `master` through either `permissions` or `managed_permissions`.
+**Where**: `tools/shop0150-buyer-contact.sql`.
+**Rule**: **an authorization proof measures whoever it impersonates, and a
+privileged subject makes both halves vacuous at once** — the ALLOW half passes
+for the wrong reason and the DENY half fails for the wrong reason. When the
+guard under test has an early-return for a role, the subject MUST be excluded
+from that role, and the exclusion must be an assertion in the output. If real
+data cannot supply such a subject, manufacture one inside the rollback rather
+than settling for the subject that exists. Corollary: a DENY case that fails
+loudly is worth more than an ALLOW case that passes quietly — here the deny half
+was the only thing that revealed the probe was measuring the wrong person.
+
+---
+
 ## A proof that ERRORS is not a proof that fails — it is a proof that is ABSENT, and `house0116-authz.sql` had been absent for 23 migrations
 
 **Symptom**: `node tools/db-query.mjs tools/house0116-authz.sql` returned

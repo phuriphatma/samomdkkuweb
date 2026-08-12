@@ -40,7 +40,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   not come back** — see `docs/mistakes/frontend-ui.md`, the four-report entry:
   any list of email domains under that button is read as a whitelist.
   `signin-screen.test.js` fails if one reappears.
-  **Migrations applied through 0149** (0149 is the last, and it is applied).
+  **Migrations applied through 0150** (0150 is the last, and it is applied).
   **709 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import, and minified builds
@@ -61,6 +61,12 @@ All both-directional. `node tools/db-query.mjs tools/<x>.sql` for the SQL ones.
 - `authz-sweep-identity.sql` (23/23) — the identity boundary for anon AND an
   ungranted student. Run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
+- `shop0150-buyer-contact.sql` (10/10) — what a BUYER may change on their own
+  order. **Its subject is MANUFACTURED** (an order cloned onto a real non-admin
+  account inside the rolled-back transaction) because all six real orders belong
+  to shop ADMINS, and `shop_orders_self_update_guard` returns early for an
+  admin — a proof that picks a real order reports that a buyer may set the total
+  to 1. The DENY half is what caught that.
 - `pr0149-delete-permission.sql` (12/12, differential) — asks the DELETE POLICY
   and `soft_delete_pr_ticket()` the same question about a permission-only, a
   role-only and an ungranted subject, and fails if they disagree. Run it after

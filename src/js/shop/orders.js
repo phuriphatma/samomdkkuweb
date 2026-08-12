@@ -11,7 +11,7 @@ import {
   thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries,
   rollupOrderStage, ITEM_STAGES_ORDER, itemStatusMeta,
 } from './data.js';
-import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip } from './api.js';
+import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, slipFolderForNow } from './uploads.js';
 import { showShopToast } from './products.js';
@@ -45,6 +45,49 @@ export async function mountOrdersView() {
       if (o) showOrderQrModal(o);
     });
   }
+  // Inline contact correction. Delegated to the list so it survives re-renders,
+  // and INLINE rather than a dialog: this repo forbids native prompt() (it is
+  // silently suppressed by Chrome after a few uses, which made buttons look
+  // dead), and a whole modal for two fields the card is already showing is more
+  // ceremony than the edit deserves.
+  if (list && !list.dataset.contactBound) {
+    list.dataset.contactBound = '1';
+    list.addEventListener('click', async (e) => {
+      const openBtn = e.target.closest('[data-edit-contact]');
+      if (openBtn) {
+        const o = state.orders.find((x) => x.id === openBtn.dataset.editContact);
+        if (o) openContactEditor(openBtn.closest('.order-contact'), o);
+        return;
+      }
+      const cancel = e.target.closest('[data-contact-cancel]');
+      if (cancel) { render(); return; }
+      const save = e.target.closest('[data-contact-save]');
+      if (!save) return;
+      const wrap = save.closest('.order-contact');
+      const id = save.dataset.contactSave;
+      const email = wrap.querySelector('[data-contact-email]')?.value || '';
+      const phone = wrap.querySelector('[data-contact-phone]')?.value || '';
+      if (!email.trim() || !phone.trim()) {
+        showShopToast('กรอกอีเมลและเบอร์โทรศัพท์ให้ครบ', 'warn');
+        return;
+      }
+      save.disabled = true;
+      const original = save.textContent;
+      save.textContent = 'กำลังบันทึก...';
+      try {
+        const row = await updateOrderContact(id, { email, phone });
+        const o = state.orders.find((x) => x.id === id);
+        if (o) { o.buyer_email = row.buyer_email; o.buyer_phone = row.buyer_phone; }
+        showShopToast('บันทึกข้อมูลติดต่อแล้ว', 'success');
+        render();
+      } catch (err) {
+        showShopToast(err.message || 'บันทึกไม่สำเร็จ', 'warn');
+        save.disabled = false;
+        save.textContent = original;
+      }
+    });
+  }
+
   if (list && !list.dataset.reuploadBound) {
     list.dataset.reuploadBound = '1';
     list.addEventListener('click', async (e) => {
@@ -71,6 +114,26 @@ export async function mountOrdersView() {
       await handleSlipAdd(orderId, file);
     });
   }
+}
+
+/** Swap the contact row for its editor, in place. */
+function openContactEditor(wrap, o) {
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <div class="order-contact-form">
+      <div class="oc-title">แก้ไขช่องทางติดต่อ</div>
+      <label class="oc-label" for="ocEmail-${escHtml(o.id)}">อีเมล</label>
+      <input class="form-control form-control-sm" id="ocEmail-${escHtml(o.id)}" type="email"
+             data-contact-email value="${escHtml(o.buyer_email || '')}" autocomplete="email" />
+      <label class="oc-label" for="ocPhone-${escHtml(o.id)}">เบอร์โทรศัพท์</label>
+      <input class="form-control form-control-sm" id="ocPhone-${escHtml(o.id)}" type="tel"
+             data-contact-phone value="${escHtml(o.buyer_phone || '')}" autocomplete="tel" inputmode="tel" />
+      <div class="oc-actions">
+        <button type="button" class="btn btn-sm btn-shop" data-contact-save="${escHtml(o.id)}">บันทึก</button>
+        <button type="button" class="btn btn-sm btn-link" data-contact-cancel>ยกเลิก</button>
+      </div>
+    </div>`;
+  wrap.querySelector('[data-contact-email]')?.focus();
 }
 
 /** Read the order's slips as an array of { url, at }, folding in the
@@ -269,7 +332,44 @@ function orderCardHtml(o) {
           </div>
         </div>` : ''}
 
+      ${contactRowHtml(o)}
+
       ${reuploadCalloutHtml(o)}
+    </div>`;
+}
+
+/** The contact staff will actually use for this order, shown on the order and
+ *  editable while the order is still early.
+ *
+ *  WHY IT IS HERE. The email on an order is TYPED at checkout and verified
+ *  nowhere — a Google account prefills it but the field stays editable, and a
+ *  username/password account has nothing to prefill. So the one channel staff
+ *  have for a slip problem or a pickup announcement can be a typo, and today the
+ *  buyer's only remedy was to ask an admin. `shop_orders_self_update_guard`
+ *  already let them fix the PHONE; migration 0150 added the email to the same
+ *  whitelist, which is what makes this button possible.
+ *
+ *  This is also the answer to "should the shop force Google sign-in": the
+ *  problem is a reachable contact ON THE ORDER, not the login method — so it is
+ *  fixed on the order. */
+const CONTACT_EDITABLE = new Set(['pending', 'review', 'slip_mismatch']);
+
+function contactRowHtml(o) {
+  const email = (o.buyer_email || '').trim();
+  const phone = (o.buyer_phone || '').trim();
+  if (!email && !phone) return '';
+  return `
+    <div class="order-contact">
+      <div class="order-contact-body">
+        <div class="oc-title">ช่องทางติดต่อของคำสั่งซื้อนี้</div>
+        <div class="oc-lines">
+          ${email ? `<span><i class="bi bi-envelope"></i> ${escHtml(email)}</span>` : ''}
+          ${phone ? `<span><i class="bi bi-telephone"></i> ${escHtml(phone)}</span>` : ''}
+        </div>
+      </div>
+      ${CONTACT_EDITABLE.has(o.status)
+        ? `<button type="button" class="oc-edit" data-edit-contact="${escHtml(o.id)}">แก้ไข</button>`
+        : ''}
     </div>`;
 }
 

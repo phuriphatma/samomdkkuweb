@@ -262,6 +262,32 @@ function renderHtml() {
           <span>ยอดที่ต้องโอนรวม</span>
           <span class="amount">฿${thb(subtotal)}</span>
         </div>
+        <!-- CONTACT RECAP — the last thing read before committing.
+             The buyer typed these three fields in step 1, three scroll-screens
+             up, and by the time they have chosen products, scanned a QR and
+             uploaded a slip, whether the address was right is out of working
+             memory. This is not decoration: the ORDER's email is the only
+             channel staff have for slip problems and pickup, and it is not
+             verified anywhere — an account signed in with Google can still have
+             typed over the prefill. Showing it back at the moment of commitment
+             is what catches a typo, and it is the reason the shop does not need
+             to restrict WHO may sign in.
+             Live-updated by the field listeners in wireEvents(); never
+             re-rendered, because a re-render on keystroke would drop focus. -->
+        <div class="checkout-recap" id="shopContactRecap">
+          <div class="checkout-recap-head">
+            <span>เราจะติดต่อกลับที่</span>
+            <button type="button" class="checkout-recap-edit" id="shopRecapEdit">แก้ไข</button>
+          </div>
+          <div class="checkout-recap-row">
+            <i class="bi bi-envelope" aria-hidden="true"></i>
+            <span id="shopRecapEmail"></span>
+          </div>
+          <div class="checkout-recap-row">
+            <i class="bi bi-telephone" aria-hidden="true"></i>
+            <span id="shopRecapPhone"></span>
+          </div>
+        </div>
         <div class="form-check mt-3">
           <input id="shopCheckoutAgree" class="form-check-input" type="checkbox" ${state.agree ? 'checked' : ''} />
           <label class="form-check-label small" for="shopCheckoutAgree">
@@ -343,8 +369,18 @@ function wireEvents() {
   const buyerEmail = document.getElementById('shopBuyerEmail');
   const buyerPhone = document.getElementById('shopBuyerPhone');
   if (buyerName)  buyerName.addEventListener('input',  () => { state.buyerName  = buyerName.value;  });
-  if (buyerEmail) buyerEmail.addEventListener('input', () => { state.buyerEmail = buyerEmail.value; });
-  if (buyerPhone) buyerPhone.addEventListener('input', () => { state.buyerPhone = buyerPhone.value; });
+  if (buyerEmail) buyerEmail.addEventListener('input', () => { state.buyerEmail = buyerEmail.value; syncRecap(); });
+  if (buyerPhone) buyerPhone.addEventListener('input', () => { state.buyerPhone = buyerPhone.value; syncRecap(); });
+  syncRecap();
+
+  // แก้ไข on the recap sends the reader back to the fields it is showing —
+  // scrolled AND focused. A link that only scrolls leaves them hunting for
+  // which of three boxes to fix.
+  document.getElementById('shopRecapEdit')?.addEventListener('click', () => {
+    const target = document.getElementById('shopBuyerEmail');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target?.focus({ preventScroll: true });
+  });
 
   // Per-account slip drops (one card per PromptPay group). Each drop/input
   // carries its group key in data-slip-drop / data-slip-file.
@@ -387,6 +423,21 @@ function wireEvents() {
   });
 
   document.getElementById('shopPlaceOrderBtn')?.addEventListener('click', placeOrder);
+}
+
+/** Paint the recap from state. An empty field says so in its own words rather
+ *  than showing a blank line — a blank reads as "nothing needed here", which is
+ *  the opposite of true for a required contact. */
+function syncRecap() {
+  const set = (id, value, missing) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = (value || '').trim();
+    el.textContent = v || missing;
+    el.classList.toggle('is-missing', !v);
+  };
+  set('shopRecapEmail', state.buyerEmail, 'ยังไม่ได้กรอกอีเมล');
+  set('shopRecapPhone', state.buyerPhone, 'ยังไม่ได้กรอกเบอร์โทรศัพท์');
 }
 
 function onSlipChosen(file, key) {
