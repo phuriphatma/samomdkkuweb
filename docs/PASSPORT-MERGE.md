@@ -1,6 +1,22 @@
 # Passport → samoweb auth merge — zero-data-loss playbook
 
-Status: **plan** (not started). Goal: one sign-in across samoweb (`/`) and
+> ## ⚠️ DONE. THIS MERGE HAS ALREADY HAPPENED — DO NOT RE-RUN IT.
+>
+> Status corrected 2026-08-12, measured against the live database: project
+> `fheueuowbchsnsvbcgil` HAS a `passport` schema, with **13 tables** and real
+> data (`passport.account_migrations` holds 6 rows). Passport runs against it
+> today via `app.js`'s `{ db: { schema: 'passport' } }`, and the old project
+> `idwlabpbwiwgaoqwbozz` is a FROZEN pre-move backup that must not be written.
+>
+> **This document still reads as a forward plan and contains destructive steps**
+> — including "truncate `passport.*` user data and re-run Phase 1". Running the
+> rollback or re-copy sections against the live project would destroy live
+> student km-point data. They are recovery procedures for a cutover that is
+> finished, not instructions.
+>
+> Current truth: `STATE.md` (passport section) and `docs/CONTEXT.md`.
+
+Original status line (kept for context): **plan** (not started). Goal: one sign-in across samoweb (`/`) and
 passport (`/passport/`) on `samo.md.kku.ac.th`, with **no data loss and no
 forced downtime** for live passport users (students scanning QR codes for km
 points + leaderboard).
