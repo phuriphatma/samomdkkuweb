@@ -95,6 +95,15 @@ because two copies of one rule is the class this repo pays for most.
 
 - **Do not re-create `.claude/rules/mistakes-archive.md`** — it lived in the
   auto-loaded directory, so archiving into it saved nothing.
+- **The design/plan docs were swept 2026-08-12 and now carry accurate status
+  banners.** Five described a world that had ended: SUPABASE-MIGRATION said
+  "Phase 1, not yet deployed" at migration 0150; AUTH-MODEL's "current state"
+  was the Google-Sheets era; MERGE-CHECKLIST and CONTRIBUTING still ran the
+  `refactor/modular` two-branch flow; README/CONTRIBUTING/CONTEXT all named the
+  RETIRED pages.dev hosts as production; PASSPORT-MERGE said "plan (not
+  started)" for a merge that is live — while containing a `truncate passport.*`
+  step. **When a plan doc is finished, banner it the same day** — a stale plan
+  with destructive steps is the most dangerous file in a repo.
 - **Never hand-edit the mistakes index** — `npm run mistakes:index` generates it.
 - **Never raise the context cap** when `npm run check:context` fails. Move detail
   into `docs/`.
