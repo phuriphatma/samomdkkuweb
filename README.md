@@ -132,10 +132,21 @@ Both Cloudflare projects hit the same Supabase backend.
   inheritance (in a separate "จัดการสิทธิ์" mode). Live multi-editor sync
   (Supabase Realtime) and JSON / CSV import-export. Responsive
   desktop / iPad / phone.
-- **Global auth.** One sign-in (Google OAuth + username/password). Roles:
-  regular user, `pr_staff`, `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`,
-  `dev`. Role gates the Admin tab, the project-tracking tab + bell, and
-  dev-only flags like silent Discord notify.
+- **Global auth.** One sign-in, two routes: **any Google account** (a KKU
+  address is not required — that misreading was reported six times and the
+  screen is now written to prevent it), or a **username/password account for
+  people who would rather not be identified**. The password route has no email,
+  so ระบบบ้าน — which matches `users.email` against `students.kkumail` — stays
+  empty for it; that is the tradeoff, stated on the screen where the choice is
+  made.
+  Access is granted by **two channels, not one**: the legacy roles (`pr_staff`,
+  `vs_staff`, `shop_admin`, `vp_admin`, `uni_staff`, `sa_prof`, `dev`) **and**
+  per-capability permissions carried on the account or inherited from a ทีม SAMO
+  ตำแหน่ง (`pr`, `vs`, `samoshop`, `projects`, `creator`, `team`, `house`,
+  `master`). 85 accounts hold a permission while carrying a non-staff role, so
+  **anything that gates on the role list alone silently excludes them** — the
+  Admin tab, the project tab + bell and every feature gate go through
+  `canUseAdmin()` / `userCanAccess()`, never a bare role check.
 - **Profile self-edit.** Every signed-in user can change their display
   name, add/verify a real email (Supabase magic-link), and link a Google
   identity to a username/password account so they can sign in with
@@ -197,6 +208,7 @@ Authorized JavaScript origins.
 | `npm run preview` | Serve `dist/` locally on :4173 |
 | `npm test` | Vitest suite (run this and `build` before every commit) |
 | `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
+| `npm run proofs` | Run every live database proof (RLS boundaries, column guards, definer-function authorization) against the real project in rolled-back transactions, and print one verdict each. Needs `SUPABASE_ACCESS_TOKEN` in `.env.local`, so it is a maintainer step, not a CI one. `npm run proofs <substring>` runs a subset. |
 | `npm run gen:activity` | Refresh `src/data/dev-activity.json` from git history. Deliberately NOT part of `build` — a build should not rewrite a tracked source file. Run it when you want the landing-page numbers to move; `--check` fails if the file is stale. |
 
 ## Project layout

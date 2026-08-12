@@ -130,13 +130,35 @@ recurring classes are in `.claude/rules/mistakes.md`. Highlights:
 
 ### Tests
 
-We have a small Vitest suite covering the pure helpers in
-`src/js/utils.js` and the Drive-URL normalizer in `src/js/uploads.js`
-(escape functions, URL sanitizer, JWT decode). Run with `npm test`.
+`npm test` runs a Vitest suite of ~717 cases across ~45 files. It is two
+different things:
 
-If you add a new pure helper in `utils.js`, please add a few test cases
-to `src/js/utils.test.js`. We don't test DOM-touching code (too painful
-for the value) — visual review on the preview deploy covers that.
+1. **Unit tests** for pure helpers — `src/js/utils.js` (escaping, URL sanitizer,
+   JWT decode), the Drive-URL normalizer, `study-year.js`, name splitting. If you
+   add a pure helper, add a few cases next to it.
+2. **Ratchets** — sweeps that read the whole codebase and fail when a known-bad
+   SHAPE reappears: a `confirm()`/`prompt()` used as control flow, an upload site
+   with no answer for the file it replaces, a `DELETE` that cannot tell "blocked"
+   from "done", a SECURITY DEFINER function that refuses people on a role list
+   alone, an identifier read but bound nowhere. Each exists because the same bug
+   was paid for twice. **If one fails, do not weaken the assertion** — the
+   allow-lists inside them are meant to shrink, never grow.
+
+So we DO test markup and behaviour now, statically: several ratchets read
+`src/html/*.html` and assert structure and copy rules that were reported by
+users. `skills/write-a-guard.md` is required reading before adding one.
+
+### Live proofs — `npm run proofs`
+
+Some invariants only exist in the database (RLS policies, SECURITY DEFINER
+functions, column guards). Those are checked by SQL/Node proofs that run against
+the real project inside a rolled-back transaction, and `npm run proofs` runs all
+of them and prints one verdict each.
+
+**Run it if you touched a migration, a policy, or a definer function.** It needs
+`SUPABASE_ACCESS_TOKEN` in `.env.local`, so CI does not run it — a maintainer
+does, before deploying. Output it cannot interpret is reported as UNKNOWN and
+exits non-zero, so a green line means green.
 
 ## Where to learn more
 

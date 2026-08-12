@@ -49,6 +49,17 @@ src/js/
 ├── main.js              ─ entry point; wires window.* handlers; auth subscriber
 ├── db.js                ─ Supabase client + dbRest() raw-fetch helper
 ├── auth.js              ─ sign in / out, currentUser, onAuthChange subscribers
+├── signin-modal.js      ─ the ONE implementation of the sign-in modal: screen
+│                          switch, password submit/register, reveal toggle, and
+│                          the reset-on-close. Both entries call
+│                          mountSigninModal(); nothing about that screen is
+│                          defined anywhere else (it used to be duplicated
+│                          verbatim in main.js + admin-main.js with the reset in
+│                          account-switch.js)
+├── strip-comments.js    ─ comment/string-aware scanner used by the guard TESTS.
+│                          Not shipped logic — but load-bearing: four ratchets
+│                          read source through it, and the regex it replaced was
+│                          blanking 24k characters (see mistakes/tooling-proofs)
 ├── pr-auth.js           ─ reflects auth state into PR form's hidden inputs
 ├── pr-depts.js          ─ PR ฝ่าย list (single source of truth) + read-side aliases
 ├── pr-form.js           ─ PR ticket submit (raw fetch, idempotent retry)
@@ -760,8 +771,18 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
   staff.
 - **announcements**: SELECT for everyone (incl. anon) where status =
   'approved'; all writes restricted to `pr_staff` / `dev`.
-- **pr_tickets**: SELECT for submitter OR staff/dev. INSERT for anyone
-  (guest submissions). UPDATE / DELETE for staff/dev only.
+- **pr_tickets**: SELECT for submitter OR staff/dev **OR
+  `current_user_has_permission('pr')`**. INSERT for anyone (guest submissions).
+  UPDATE / DELETE the same: staff role **or the `pr` permission** (0014 — the
+  permission channel, which a ทีม SAMO node grant produces).
+  ⚠️ Deletion is a SOFT delete through `soft_delete_pr_ticket(text)`, a SECURITY
+  DEFINER RPC (0043), because stamping `deleted_at` is an UPDATE and would
+  otherwise inherit the broader UPDATE policy. **That RPC re-states the DELETE
+  policy, so the two can drift — and did**: it was written from 0001's
+  role-only rule and refused every permission-holder for 106 migrations until
+  0149. `tools/pr0149-delete-permission.sql` asks the policy and the RPC the
+  same question and fails if they disagree; `src/js/definer-authz.test.js` is
+  its commit-time half.
 - **vs_tickets**: same shape as pr_tickets (insert-open, mutate-staff). READ is
   dept-scoped: `vs_staff`/`dev` see all; `vp_admin` sees only `target_dept =
   current_user_dept()`; submitter sees own (0010).
@@ -839,8 +860,18 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
 - **shop_orders**: SELECT for buyer (own rows) or admin. INSERT for the
   buyer (`buyer_id = auth.uid()`) OR admin (0035 — walk-in/phone orders,
   buyer_id null). UPDATE allowed for admin always; allowed for buyer only
-  while status is `pending` / `review` / `slip_mismatch` (slip add/remove).
-  DELETE admin-only.
+  while status is `pending` / `review` / `slip_mismatch`. DELETE admin-only.
+  **The row policy is NOT the boundary for a buyer** — it is a row filter, and
+  0100 found it let a buyer rewrite prices. The column boundary is the
+  `shop_orders_self_update_guard` BEFORE-UPDATE trigger, which for a buyer
+  self-update permits ONLY `buyer_phone`, `buyer_email` (added 0150), `slips`,
+  `slip_url`, `slip_uploaded_at`, `status`, `timeline`, `updated_at`, and
+  enforces an append-only timeline whose new entries may not claim an author.
+  Everything else raises P0001. Buyer-facing writers: `addOrderSlip` /
+  `removeOrderSlip` / `updateOrderContact` in `src/js/shop/api.js`.
+  Proof: `tools/shop0150-buyer-contact.sql` — and note its subject must be
+  MANUFACTURED, because every real order belongs to a shop admin and the guard
+  returns early for one.
 - **shop_order_items**: read/insert piggy-back on parent order's policy.
 - **shop_settings**: public SELECT (so checkout can show the QR); admin
   write only.
