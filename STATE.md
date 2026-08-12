@@ -22,14 +22,15 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `ca3b824` (2026-08-12), verified from the SERVED artifact:
-  `signin-google` present in the public CSS bundle, and the sign-in caption's
-  KKU domains gone (the remaining `kkumail.com` hits in the served HTML are a
-  Google Apps Script URL, not copy).** Check rather than trust — EMPTY means prod is current, anything
+- ✅ **DEPLOYED = `1f514f1` (2026-08-12), verified from the SERVED artifact**:
+  `order-contact` in the public CSS bundle, `เราจะติดต่อกลับที่` in the served
+  `analytics-*.js` (the shared chunk — NOT in `index-*.js`, which is exactly the
+  documented trap), and the sign-in caption's KKU domains gone (the remaining
+  `kkumail.com` hits in the served HTML are a Google Apps Script URL, not copy). Check rather than trust — EMPTY means prod is current, anything
   else means deploy before believing the rest of this file:
 
   ```bash
-  git diff --stat ca3b824..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 1f514f1..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: the first version
@@ -125,7 +126,16 @@ because two copies of one rule is the class this repo pays for most.
 > trusting this sentence). The security item that used to live in agent memory
 > is CLOSED (0147); its write-up is in `docs/mistakes/authz-rls.md`.
 >
-> **Last session (2026-08-12, second half) shipped 0149** — the owner reported
+> **The SAMO Shop login question is DECIDED: both routes stay, the ORDER is
+> hardened.** The owner asked whether shop customers should be Google-only. They
+> should not — the checkout email field is editable even when Google prefills it,
+> so restricting the login method buys the LOOK of a verified contact and none of
+> it. What staff actually need is a reachable contact ON THE ORDER, so 0150 +
+> the checkout recap solve it there. Do not revisit this as a login-method
+> question; if contact reliability comes up again the next step is verifying the
+> address (a confirmation mail that bounces), not narrowing the door.
+>
+> **Also shipped (2026-08-12, second half): 0149** — the owner reported
 > that a ทีม SAMO member with the PR grant could read and edit PR tickets but got
 > `42501 not authorized to delete PR tickets`. `soft_delete_pr_ticket` had
 > hand-copied the DELETE policy from 0001 while 0014 had already added
