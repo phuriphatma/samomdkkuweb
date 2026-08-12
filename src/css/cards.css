@@ -929,6 +929,22 @@
 
 .signin-modal .modal-dialog { max-width: 400px; }
 .signin-modal .modal-content { border-radius: 16px; }
+
+/* NO PINK WASH. `.modal-header` in modals.css paints every modal header
+   `--pink-50` with a `--pink-100` rule — but pink is the PR FORM's per-tab
+   accent (CLAUDE.md § UI/UX), not a global chrome colour. On the sign-in dialog
+   it put an unexplained pink band above the wordmark on the first screen a
+   stranger ever sees, and it belongs to a feature they have not met. The
+   account switcher already opted out for the same reason and says so in
+   modals.css; this is that override, scoped here.
+   The global default is left alone deliberately — repainting every modal in the
+   app is a bigger decision than this screen. */
+.signin-modal .modal-header {
+  background-color: #ffffff;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.signin-modal .modal-title { color: var(--ink-900, #0f172a); }
 .signin-body { padding: 0.6rem 1.5rem 1.5rem; }
 
 @media (max-width: 400.98px) {

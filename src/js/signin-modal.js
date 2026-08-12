@@ -122,9 +122,13 @@ export function mountSigninModal() {
     const show = input.type === 'password';
     input.type = show ? 'text' : 'password';
     btn.setAttribute('aria-pressed', String(show));
+    // The LABEL names the action (what a click will do) because that is what a
+    // screen reader user needs. The ICON shows the STATE (a slashed eye while
+    // the password is hidden), because that is how the owner — and most people
+    // — read it. These two disagreeing is intentional, not an oversight.
     btn.setAttribute('aria-label', show ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
-    btn.querySelector('i')?.classList.toggle('bi-eye', !show);
-    btn.querySelector('i')?.classList.toggle('bi-eye-slash', show);
+    btn.querySelector('i')?.classList.toggle('bi-eye', show);
+    btn.querySelector('i')?.classList.toggle('bi-eye-slash', !show);
   });
 
   // The modal always REOPENS on the sign-in panel with the password hidden.
@@ -140,8 +144,8 @@ export function mountSigninModal() {
       if (input) input.type = 'password';
       btn.setAttribute('aria-pressed', 'false');
       btn.setAttribute('aria-label', 'แสดงรหัสผ่าน');
-      btn.querySelector('i')?.classList.add('bi-eye');
-      btn.querySelector('i')?.classList.remove('bi-eye-slash');
+      btn.querySelector('i')?.classList.add('bi-eye-slash');
+      btn.querySelector('i')?.classList.remove('bi-eye');
     });
   });
 }

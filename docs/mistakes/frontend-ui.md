@@ -1745,6 +1745,23 @@ about the WANT instead: "ไม่ต้องการเปิดเผยต�
 Google user answers no and moves on; the person who wants it finds the route by
 the words they were already looking for. `signin-screen.test.js` fails if
 "ยังไม่มีบัญชี" returns.
+**A sixth pass, on the button itself**: *"i want normal people to know that they
+can login with google account immediately without having to register like the
+anonymous."* "เข้าสู่ระบบด้วย Google" reads as *for people who already have an
+account* — a newcomer does not know that signing in with Google CREATES theirs,
+so they go hunting for a สมัคร link and land on the anonymous route. Now
+"สมัครและเข้าสู่ระบบด้วย Google" (Google's guidelines recommend Sign in / Sign up
+/ Continue and permit localization; the one-button-does-both case is what
+"Continue with Google" exists for). Measured at 390px: 203px of text in a 337px
+button, no wrap.
+**Two more from the same pass**: the modal header carried a PINK wash, because
+`.modal-header` in `modals.css` paints EVERY modal `--pink-50` — pink is the PR
+form's per-tab accent (CLAUDE.md), not global chrome, and the account switcher
+had already opted out with a comment saying so. And the password reveal showed
+an OPEN eye while the password was hidden (icon-as-action); the owner read it as
+backwards, so the icon now shows the STATE (slashed while hidden) while the
+`aria-label` keeps naming the action. A differential guard pins the markup's
+initial icon to the input's initial `type`, because those live in two files.
 **Rule**: when copy is reported as misleading and the words already say the right
 thing, the claim is being made by something OTHER than the words — the emphasis,
 the punctuation, the one concrete token in a sentence of abstractions. Ask what

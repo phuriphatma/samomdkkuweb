@@ -58,7 +58,18 @@
               <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.07H2.18a11 11 0 0 0 0 9.86l3.66-2.84z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z"/>
             </svg>
-            <span>เข้าสู่ระบบด้วย Google</span>
+            <!-- "สมัครและเข้าสู่ระบบ", not just "เข้าสู่ระบบ". A first-time
+                 visitor does not know that Google needs no registration here —
+                 signing in with Google CREATES the account — so a button that
+                 only says "เข้าสู่ระบบ" reads as "for people who already have an
+                 account", and they go looking for a สมัคร link. That is what
+                 sent them to the anonymous route.
+                 Google's guidelines recommend "Sign in / Sign up / Continue
+                 with Google" and permit localization; this merges two of the
+                 three, which the one-button-does-both case is exactly what
+                 "Continue with Google" exists for. Measured at 390px: 203px of
+                 text in a 337px button, no wrap. -->
+            <span>สมัครและเข้าสู่ระบบด้วย Google</span>
           </button>
 
           <div class="signin-divider"><span>หรือ</span></div>
@@ -89,7 +100,7 @@
                     autocomplete="current-password" required>
                   <button type="button" class="signin-reveal" data-signin-reveal="signinLoginPassword"
                     aria-label="แสดงรหัสผ่าน" aria-pressed="false">
-                    <i class="bi bi-eye" aria-hidden="true"></i>
+                    <i class="bi bi-eye-slash" aria-hidden="true"></i>
                   </button>
                 </div>
               </div>
@@ -120,7 +131,7 @@
                  titling the whole screen "แบบไม่เปิดเผยตัวตน" while offering
                  Google first contradicts itself. The anonymity belongs to THIS
                  half, so it is stated here, next to the fields it describes. -->
-            <p class="signin-lede">บัญชีแบบไม่เปิดเผยตัวตน — ตั้งชื่อผู้ใช้และรหัสผ่านเอง ไม่ต้องใช้อีเมล</p>
+            <p class="signin-lede">บัญชีแบบไม่เปิดเผยตัวตน ไม่ต้องใช้อีเมล</p>
             <form id="signinRegisterForm" onsubmit="event.preventDefault(); samoPasswordRegister();">
               <div class="signin-field">
                 <label class="signin-label" for="signinRegisterUsername">ชื่อผู้ใช้</label>
@@ -139,7 +150,7 @@
                     aria-describedby="signinRegisterPasswordHelp">
                   <button type="button" class="signin-reveal" data-signin-reveal="signinRegisterPassword"
                     aria-label="แสดงรหัสผ่าน" aria-pressed="false">
-                    <i class="bi bi-eye" aria-hidden="true"></i>
+                    <i class="bi bi-eye-slash" aria-hidden="true"></i>
                   </button>
                 </div>
                 <!-- 6, because auth.js registerWithPassword() rejects 5. This

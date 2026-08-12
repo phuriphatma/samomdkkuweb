@@ -196,6 +196,22 @@ describe('sign-in modal — one implementation, and it resets', () => {
     expect(reset).toMatch(/showSigninScreen\('login'\)/);
   });
 
+  it('starts with the icon that matches the input — hidden means eye-slash', () => {
+    // A DIFFERENTIAL between the markup's initial icon and the input's initial
+    // type. They are set in two files: the <i> class here, and the toggle in
+    // signin-modal.js. Change one without the other and the icon LIES about the
+    // state of the field — silently, since nothing errors.
+    const fields = HTML.match(/<input[^>]*type="password"[^>]*>[\s\S]*?<i class="bi ([a-z-]+)"/g) || [];
+    expect(fields.length).toBeGreaterThanOrEqual(2);
+    for (const f of fields) {
+      expect(f, 'a password field that starts hidden must show bi-eye-slash')
+        .toMatch(/bi-eye-slash/);
+    }
+    // …and the reset path must restore that same icon.
+    const reset = SIGNIN_JS.slice(SIGNIN_JS.indexOf("$('signinModal')"));
+    expect(reset).toMatch(/classList\.add\('bi-eye-slash'\)/);
+  });
+
   it('re-hides a revealed password when the modal closes', () => {
     const reset = SIGNIN_JS.slice(SIGNIN_JS.indexOf("$('signinModal')"));
     expect(reset).toMatch(/type = 'password'/);
