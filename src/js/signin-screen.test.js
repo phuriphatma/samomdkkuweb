@@ -87,10 +87,20 @@ describe('sign-in modal — both routes are visible at once', () => {
     expect(LOGIN).toContain('id="signinLoginPassword"');
   });
 
+  it('never offers signup as the answer to "you have no account"', () => {
+    // "ยังไม่มีบัญชี?" is true of every first-time visitor, including the ones
+    // who should press Google — which creates their account implicitly, so they
+    // never sign up at all. The generic phrasing reads as "sign up first".
+    expect(LOGIN).not.toContain('ยังไม่มีบัญชี');
+    expect(LOGIN).not.toMatch(/ยังไม่มีบัญชีชื่อผู้ใช้/);
+  });
+
   it('names the anonymous route AT the link that opens it', () => {
     // The one fact about this route used to live only on the screen the reader
-    // was leaving. It is in the link text and in the register screen's title.
-    expect(LOGIN).toMatch(/<a[^>]*samoShowSigninScreen\('register'\)[^>]*>[^<]*ไม่เปิดเผยตัวตน/);
+    // was leaving. It is in the switch line and in the register screen's lede.
+    const switchLine = LOGIN.slice(LOGIN.indexOf('signin-switch'));
+    expect(switchLine).toMatch(/ไม่ต้องการเปิดเผยตัวตน/);
+    expect(switchLine).toMatch(/<a[^>]*samoShowSigninScreen\('register'\)/);
     // And again beside the fields it describes. NOT in the screen title: Google
     // sits above the divider on that screen too, so titling the whole screen
     // "anonymous" would contradict the button above it.

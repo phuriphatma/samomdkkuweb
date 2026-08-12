@@ -96,9 +96,21 @@
               <div id="signinLoginAlert" class="alert alert-danger signin-alert d-none" role="alert"></div>
               <button type="submit" class="btn signin-submit" id="signinLoginBtn">เข้าสู่ระบบ</button>
             </form>
+            <!-- NOT "ยังไม่มีบัญชี?". That question is true of EVERY first-time
+                 visitor, including the ones who should just press the Google
+                 button — signing in with Google creates the account implicitly,
+                 so those people never need to "สร้างบัญชี" at all. Read cold, the
+                 generic phrasing tells a newcomer they must sign up first, which
+                 is the fifth report in this family: copy that describes a STATE
+                 the reader is in gets taken as an instruction.
+
+                 The question names the WANT instead. A Google user reads
+                 "ไม่ต้องการเปิดเผยตัวตน?", answers "no", and moves on; the person
+                 who does want it finds the route by the words they were looking
+                 for, at the front of the line. -->
             <p class="signin-switch">
-              ยังไม่มีบัญชี?
-              <a href="#" onclick="event.preventDefault(); samoShowSigninScreen('register');">สร้างบัญชีแบบไม่เปิดเผยตัวตน</a>
+              ไม่ต้องการเปิดเผยตัวตน?
+              <a href="#" onclick="event.preventDefault(); samoShowSigninScreen('register');">สร้างบัญชีด้วยชื่อผู้ใช้</a>
             </p>
           </div>
 

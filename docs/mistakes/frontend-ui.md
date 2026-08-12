@@ -1735,11 +1735,23 @@ modal, and pins the four G hexes.
 `minlength="4"` and "อย่างน้อย 4 ตัวอักษร" while `registerWithPassword()` rejects
 under 6 — the form invited a password the code refused. The guard reads the
 number out of `auth.js` now.
+**And a fifth report, on the switch link**: "ยังไม่มีบัญชี? สร้างบัญชีแบบไม่
+เปิดเผยตัวตน" — *"the people would think they have to สร้างบัญชีแบบไม่เปิดเผยตัวตน
+when they first come to the web when they can use google account."* **The
+question described a STATE every first-time visitor is in**, so all of them took
+it as their line — including the ones who should just press Google, which
+creates the account implicitly so they never sign up at all. Fixed by asking
+about the WANT instead: "ไม่ต้องการเปิดเผยตัวตน? สร้างบัญชีด้วยชื่อผู้ใช้". A
+Google user answers no and moves on; the person who wants it finds the route by
+the words they were already looking for. `signin-screen.test.js` fails if
+"ยังไม่มีบัญชี" returns.
 **Rule**: when copy is reported as misleading and the words already say the right
 thing, the claim is being made by something OTHER than the words — the emphasis,
 the punctuation, the one concrete token in a sentence of abstractions. Ask what
-a person who reads three words of it takes away. And before styling a
-third-party sign-in button, read that party's branding guidelines: familiarity
+a person who reads three words of it takes away. **A question addressed to a
+state ("no account yet?") is answered YES by everyone new, so it recruits the
+people it was not for; a question addressed to a want ("don't want to be
+identified?") sorts them.** And before styling a third-party sign-in button, read that party's branding guidelines: familiarity
 is the feature, and for Google it is also a verification requirement.
 
 ---
