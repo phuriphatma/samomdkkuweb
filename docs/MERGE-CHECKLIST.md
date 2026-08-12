@@ -1,10 +1,11 @@
 # Merge Checklist: `refactor/modular` → `main`
 
-> ## ⚠️ HISTORICAL. This merge happened; the branch is gone.
+> ## ⚠️ HISTORICAL. This merge happened.
 >
-> Status added 2026-08-12. `refactor/modular` no longer exists as a staging
-> branch — `main` is the only long-lived one, and the maintainer commits to it
-> directly. The "only system in active campus use" line below is also out of
+> Status added 2026-08-12. `origin/refactor/modular` still EXISTS as a ref but is
+> no longer used for anything — `main` is the only live branch, and the
+> maintainer commits to it directly. Do not restart the two-branch flow because
+> the ref is still there. The "only system in active campus use" line below is also out of
 > date: SAMO Shop, ระบบบ้าน, ทีม SAMO and หนังสือโครงการ are all live now.
 >
 > Kept because the data-safety sequencing is a good model for the next big

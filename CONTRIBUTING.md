@@ -58,15 +58,16 @@ git commit -m "ui: bigger headline on home"
 git push -u origin ui/<short-topic>
 ```
 
-Cloudflare Pages will comment a per-branch preview URL on the GitHub PR
-or commit. Use that URL to review the change visually before merging.
+There is **no preview deploy** — Cloudflare Pages is retired, so nothing
+comments a per-branch URL. Review visually by running `npm run dev` locally, and
+say in the PR which widths you checked (390 / 820 / 1280 is the usual set).
 
-When happy → merge your branch into `refactor/modular` (preview deploy updates).
-After a day or two of stability → PR `refactor/modular` → `main`.
+When happy → open a PR against `main`. The maintainer deploys to the VM after
+merging; pushing does not deploy.
 
 ## Touch zones — what's safe to merge solo, what to ask first
 
-Self-merge to `refactor/modular` without review:
+Self-merge to `main` without review:
 
 | Zone | Examples |
 |---|---|
@@ -175,7 +176,7 @@ exits non-zero, so a green line means green.
 - **`STATE.md`** — what's currently in flight, what just shipped
 - **`CLAUDE.md`** — project router for AI agents (you can read it too)
 - **`docs/CONTEXT.md`** — architecture, schema, RLS policies, deploy plumbing
-- **`docs/MERGE-CHECKLIST.md`** — steps to follow when merging `refactor/modular` → `main`
+- **`docs/MERGE-CHECKLIST.md`** — HISTORICAL: the `refactor/modular` → `main` cutover, already done
 - **`docs/PROJECT-ARCHITECTURE.md`** — proposed (deferred) multi-project engine design
 - **`docs/mistakes/*.md`** — every bug we've already fixed, with the *why*.
   Nine files by area; `.claude/rules/mistakes.md` indexes them and states the

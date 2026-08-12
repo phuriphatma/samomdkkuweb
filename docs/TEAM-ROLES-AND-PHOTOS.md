@@ -1,6 +1,18 @@
 # Design — managing roles & permissions, and getting faces onto เกี่ยวกับเรา
 
-Status: **proposal, nothing built.** Written 2026-08-04 against the live DB.
+Status (corrected 2026-08-12): **PART A is still unbuilt; most of PART B
+SHIPPED.** Written 2026-08-04 against the live DB, and half of it has since been
+overtaken — read it knowing which half.
+
+- **PART A (roles, permissions, audit): still a proposal.** Verified — no
+  `team_grant_log` table exists in `supabase/migrations/` or in `src/`, and
+  there is no recertification or role-template machinery.
+- **PART B (photos): largely done.** Portraits live on the person
+  (`people.photo_url`, migration 0132+), self-service upload exists on the
+  member's own card (`src/js/my-seat.js`), replaced files are cleaned out of
+  Drive (`photoToRetire()` + `photo-retire.test.js`), and a refcount decides
+  whether a file is still referenced (0143/0146). Consent-as-a-record (B2) and
+  the coverage dashboard (B5) were NOT built.
 Supersedes nothing; extends the model in `docs/CONTEXT.md` and the hard rules in
 `.claude/rules/mistakes.md`.
 
