@@ -88,6 +88,7 @@
    for the same measured reason (see org-graph.js). Each is its own zoom/pan
    surface, so panning inside ฝ่ายเวชนิทัศน์ never moves ฝ่ายวิชาการ. */
 .orgg-section {
+  position: relative;
   margin-top: 0.85rem;
   background: #fff;
   border: 1px solid var(--ink-200);
@@ -96,6 +97,66 @@
   overflow: hidden;
 }
 .orgg-section:first-child { margin-top: 0; }
+
+/* ── เต็มหน้าจอ ──────────────────────────────────────────────────────────────
+ *
+ * A CSS overlay, deliberately NOT the Fullscreen API: iOS and iPadOS Safari only
+ * honour requestFullscreen() on <video>, so the native path is a no-op on the
+ * devices where a bigger canvas helps most. `position: fixed` works everywhere
+ * and keeps the chart live and pannable.
+ *
+ * `dvh` (with a `vh` fallback for older engines) rather than `vh`: on mobile
+ * Safari `100vh` is the height WITHOUT the browser chrome, so the bottom of the
+ * overlay — and its close button — sits under the toolbar. That exact bug is
+ * already written up in docs/mistakes/frontend-ui.md for the drawer.
+ */
+.orgg-full {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--ink-200);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink-600);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.orgg-full:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+@media (hover: hover) {
+  .orgg-full:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
+}
+
+.orgg-section.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;          /* over the sticky navbar, under Bootstrap modals */
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.orgg-section.is-full .orgg-full {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  width: 42px;
+  height: 42px;
+  box-shadow: 0 6px 18px -8px rgba(15, 23, 42, 0.4);
+}
+
+/* Stop the page scrolling behind the overlay. `position: fixed` on body would
+   also work but loses the scroll position on exit. */
+body.orgg-full-open { overflow: hidden; }
 
 .orgg-canvas {
   width: 100%;
@@ -222,12 +283,55 @@
    — at 26px the head was ~8px and the card showed a torso. See ROW_H in
    org-graph.js for the measurement, and note the two heights must agree:
    org-graph-metrics.test.js fails if they drift. */
+/* ── the iPad bug: NOTHING may be POSITIONED inside a <foreignObject> ────────
+ *
+ * REPORTED with a screenshot: "the picture on ipad still bug". The portrait was
+ * painted at the CHART'S TOP-LEFT CORNER, detached from its card, while the card
+ * itself showed the name beside an empty slot.
+ *
+ * WebKit paints a POSITIONED element inside an SVG `<foreignObject>` WITHOUT the
+ * ancestor SVG transform, so it lands at the untransformed origin. `.org-face`
+ * carries `position: relative` (it is the containing block for the layered
+ * photo) and that is the whole cause — the img's own `position: absolute` is
+ * incidental.
+ *
+ * ISOLATED ON REAL WEBKIT with a minimal page: a `<g transform="translate(300,
+ * 200)">` over a foreignObject, flipping one property at a time and measuring
+ * where the pixels actually landed.
+ *
+ *     overflow:hidden · aspect-ratio · display:grid · border-radius →  312,214 ✓
+ *     position:relative                                             →   12, 14 ✗
+ *
+ * 12,14 is 312−300, 214−200: displaced by exactly the transform.
+ *
+ * THE INSTRUMENT MATTERS. `getBoundingClientRect()` returned the CORRECT box in
+ * every variant, including the broken ones — layout is right, only the paint is
+ * wrong. No computed style and no DOM measurement can see this; the only thing
+ * that could was decoding the screenshot and finding where the pixels were.
+ *
+ * So: no `position` here at all. The photo and the initials are stacked with
+ * GRID — same cell, both in flow. Scoped to this view because it is the only one
+ * that lives inside an SVG; รายการ is ordinary HTML and keeps the original.
+ */
 .orgg-person .org-face {
   width: 44px;
   flex: 0 0 44px;
   border-radius: 5px;
+  position: static;            /* ← the fix. See above before "tidying" it away. */
+  grid-template-areas: 'stack';
+}
+.orgg-person .org-face-initials,
+.orgg-person .org-face-img {
+  position: static;
+  grid-area: stack;
+}
+.orgg-person .org-face-img {
+  width: 100%;
+  height: 100%;
+  place-self: stretch;
 }
 .orgg-person .org-face-initials {
+  place-self: center;
   font-size: 0.9rem;
   font-weight: 600;
 }

@@ -63,8 +63,7 @@ has not been written yet.
    is not a mechanism. Also the shape where one list is spelled out by hand
    beside a shared constant: main.js's own five-key admin-link list vs
    `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
-   `team/fields.js`. Also a CONVENTION applied in some modules and not others:
-   Also TWO WRITABLE TABLES holding one fact: `students` and `team_members` both
+   `team/fields.js`. Also TWO WRITABLE TABLES holding one fact: `students` and `team_members` both
    carried a person's identity, and each editor wrote only its own copy — fixed
    by `public.people` plus mirrors (0132–0134). **A bidirectional mirror needs
    `is distinct from` on BOTH sides: that guard is the TERMINATION CONDITION,
@@ -97,10 +96,8 @@ has not been written yet.
    `@media (max-width: 1023.98px)` and later making the view USER-SELECTABLE
    disabled it on desktop (a view is not a breakpoint). When you insert a
    wrapper, grep `> .<child>`; when a layout becomes a choice, grep the `@media`
-   that used to make it. The only instrument that can see this is the COMPUTED
-   style, never the stylesheet.
-   `prefer: 'return=representation'` + a `data.length` check on every DELETE —
-   swept by `delete-guard.test.js`.
+   that used to make it. The instrument is the COMPUTED style, never the
+   stylesheet — and for a PAINT bug, the PIXELS.
    Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6 — the form
    invited a password the code refused), and ONE SCREEN'S BEHAVIOUR IN THREE
    FILES (the signin handlers, verbatim in both entries + a third module, until
@@ -116,6 +113,9 @@ has not been written yet.
    `pg_proc.proacl`, not the `revoke` you just wrote; grep the SERVED bundle,
    not the local file; read the LIVE function body, not the migration that first
    defined it.
+
+   Every DELETE needs `return=representation` + a `data.length` check
+   (`delete-guard.test.js`) — RLS returns zero rows, not an error.
 
    **Guards fail GREEN, which is why they get their own playbook —
    `skills/write-a-guard.md`. Read it before writing any test, proof or sweep.**
@@ -256,13 +256,13 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)` — the upsert 42P10s, so the whole import is dead on arrival
 - Seeding an OBSERVED range as if it were reference data — the FK then rejects every real row outside the guess
 - Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
-- "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once and never re-derived
+- "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once, never re-derived
 - A bidirectional mirror without an `is distinct from` guard is an infinite recursion
-- "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
-- "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
+- "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column treated as a reason to skip the field
+- "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(53 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(54 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -296,12 +296,12 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A filled "danger" style made an UNCHECKED checkbox look ticked
 - A second pass over the same controls silently UNLOCKED the checkbox the first pass had locked
 - "ลบสมาชิกไม่ได้" — the delete button did nothing at all, and BOTH ways it can do nothing were silent
-- "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
+- "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render + a toggle reading its own state
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
-- "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
+- "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, where there WAS a human to ask
 - Adding an `await` before the modal closes re-opened a double-submit window
-- "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block sitting next to it
+- "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block beside it
 - The ลบ button on a สาขา row rendered OUTSIDE the modal on a phone — an `auto` grid track sized from min-content
 - `confirm()` on a SAVE path, not just a delete — permissions silently refused to save
 - `/admin/#vs` opened the VitalSound workspace for an admin with no VitalSound grant
@@ -312,11 +312,12 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A markup refactor silently unhooked every `> .org-station` selector
 - `justify-content: center` makes the overflow of a scroll container UNREACHABLE
 - `flex-wrap` does nothing inside `width: max-content`
-- "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule, and a form hidden behind a collapse
+- "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule + a form behind a collapse
 - "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc."
-- "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
+- "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
-- "the picture render wrong, and when zoom picture also bug"
+- "the picture render wrong ... zoom also bug" — `srcset` resolves ONCE
+- "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*
@@ -358,8 +359,8 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
 - A vendor manual's field list is not the contract
 - A refcount is only as true as its list of referrers — and a client-side one cannot see past RLS
-- "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed, on one of the two writers
-- "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still served publicly
+- "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed on only one writer
+- "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still public
 - `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
 - The crest refcount could not see the crest — and the guard reported green
 

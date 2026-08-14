@@ -23,6 +23,7 @@ import { escHtml } from './utils.js';
 import { faceHtml, TREE_SHAPE } from './org-face.js';
 import {
   mountOrgGraph, destroyOrgGraph, setGraphDepth, fitGraphs, zoomGraphs, DEFAULT_DEPTH,
+  toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
@@ -76,12 +77,10 @@ try {
 //
 // Kept PER VIEW, because the same number means different things in each: ผังรวม
 // has the synthetic องค์กร box at level 0, so every level below it is shifted
-// down by one relative to ผังองค์กร. One shared variable would make switching
-// views silently jump a level.
-// ผังรวม opens one level SHALLOWER than ผังองค์กร, and it is the same picture:
-// its synthetic องค์กร box sits above the ฝ่าย, so level 1 there == level 0
-// here. Measured, it is also the only rung of ผังรวม that fits without panning
-// (540px at scale 1.0; level 2 is 6,443px).
+// down by one relative to ผังองค์กร — one shared variable would jump a level on
+// switch. ผังรวม therefore opens one level shallower for the SAME picture, and
+// measured, that is also its only rung that fits without panning (540px at
+// scale 1.0; the next is 6,443px).
 const graphDepth = { graph: DEFAULT_DEPTH, all: 1 };
 
 /** The depth control's rungs, per view. The labels differ because the levels
@@ -706,6 +705,19 @@ function toggleNode(btn) {
 }
 
 export function initOrgChart() {
+  // ESC leaves เต็มหน้าจอ. The overlay is ours, not the Fullscreen API (iOS and
+  // iPadOS only honour requestFullscreen on <video>), so the browser will not
+  // provide this for free — and an overlay with no keyboard exit is a trap on a
+  // desktop, where ESC is the reflex.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && anyGraphFullscreen()) {
+      exitGraphFullscreen();
+      $('orgBody')?.querySelectorAll('[data-orgg-full] i').forEach((i) => {
+        i.className = 'bi bi-arrows-fullscreen';
+      });
+    }
+  });
+
   const search = $('orgSearch');
   const clear = $('orgSearchClear');
   let t = null;
@@ -743,6 +755,17 @@ export function initOrgChart() {
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', String(on));
       });
+      return;
+    }
+
+    // เต็มหน้าจอ. The button lives on the section, which org-graph.js builds —
+    // delegated here because #orgBody is the one element that survives a paint.
+    const fb = e.target.closest('[data-orgg-full]');
+    if (fb) {
+      const on = toggleGraphFullscreen(fb.closest('.orgg-section'));
+      fb.querySelector('i')?.setAttribute('class',
+        `bi bi-${on ? 'fullscreen-exit' : 'arrows-fullscreen'}`);
+      fb.setAttribute('aria-label', on ? 'ออกจากเต็มหน้าจอ' : 'ดูเต็มหน้าจอ');
       return;
     }
 

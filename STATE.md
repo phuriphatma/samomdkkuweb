@@ -34,9 +34,9 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0150.** **734 tests green.**
-- ⚠️ **UNDEPLOYED: ผังรวม (the 4th view) + the applyDepth `<=` fix.** Built,
-  734 tests green, measured in headless Chrome. **Not yet on the VM.**
+  **Migrations applied through 0150.** **737 tests green.**
+- ⚠️ **UNDEPLOYED: the iPad portrait fix + เต็มหน้าจอ.** Verified on real WebKit
+  (Playwright) by decoding the screenshot, not by reading the DOM.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -117,7 +117,7 @@ because two copies of one rule is the class this repo pays for most.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through 0150 applied; 734 tests green; `npm run proofs` 15/15.
+> through 0150 applied; 737 tests green; `npm run proofs` 15/15.
 >
 > ### The decisions already made — do not re-litigate
 >
@@ -225,7 +225,15 @@ because two copies of one rule is the class this repo pays for most.
 >   zeroing `centerG`. `fit()` fits BOTH axes, which is wrong at both ends here.
 > - **Card height is computed in JS from constants mirroring the CSS**, and d3
 >   is dynamically imported so it stays out of the entry bundle. Both guarded by
->   `org-graph-metrics.test.js`, verified by reintroducing five drifts.
+>   `org-graph-metrics.test.js`, verified by reintroducing the drifts.
+> - **NOTHING inside the card may be `position`ed.** WebKit paints a positioned
+>   element in a `<foreignObject>` WITHOUT the ancestor SVG transform, so the
+>   portrait drew at the chart's origin on iPad. `.orgg-person .org-face` is
+>   forced back to `static` and stacks with grid. **`getBoundingClientRect()`
+>   reports the box CORRECT while this is happening** — the only instrument that
+>   can see it is the decoded screenshot. Reproduce with Playwright's `webkit`.
+> - **เต็มหน้าจอ is a CSS overlay, never the Fullscreen API** — iOS/iPadOS only
+>   honour `requestFullscreen()` on `<video>`.
 >
 > ### 2. Invariants that will bite you
 >

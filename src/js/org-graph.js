@@ -342,7 +342,12 @@ function frameChart(chart) {
   } = b;
 
   const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, st.svgWidth / cw));
-  const h = Math.max(MIN_H, Math.min(MAX_H, Math.round(ch * scale)));
+  // Full screen means the canvas may use the whole viewport; otherwise it stays
+  // a bounded card in a scrolling page, so there is page left to scroll on a
+  // touch device (d3-zoom claims the gesture inside the canvas).
+  const full = st.svg?.node()?.closest?.('.orgg-section')?.classList.contains('is-full');
+  const capH = full ? Math.max(320, window.innerHeight - 96) : MAX_H;
+  const h = Math.max(MIN_H, Math.min(capH, Math.round(ch * scale)));
 
   // Node coordinates come from the flextree layout and do not depend on the
   // svg height, so the bounds measured above stay valid across this re-render.
@@ -404,6 +409,20 @@ export async function mountOrgGraph(hostEl, ctx) {
 
     const section = document.createElement('section');
     section.className = 'orgg-section';
+
+    // เต็มหน้าจอ. A CSS overlay, NOT the Fullscreen API: iOS and iPadOS Safari
+    // only honour requestFullscreen() on <video>, so the native path is a no-op
+    // on exactly the devices where a bigger canvas matters most. `position:
+    // fixed` + a high z-index works everywhere, and keeps the chart a live,
+    // pannable canvas rather than a screenshot of one.
+    const full = document.createElement('button');
+    full.type = 'button';
+    full.className = 'orgg-full';
+    full.dataset.orggFull = '';
+    full.setAttribute('aria-label', 'ดูเต็มหน้าจอ');
+    full.innerHTML = '<i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>';
+    section.appendChild(full);
+
     const canvas = document.createElement('div');
     canvas.className = 'orgg-canvas';
     section.appendChild(canvas);
@@ -496,6 +515,48 @@ export function fitGraphs() {
   charts.forEach(({ chart }) => frameChart(chart));
 }
 
+/**
+ * Toggle เต็มหน้าจอ on one section.
+ *
+ * The chart must be re-laid-out, not just re-styled: `svgWidth` is a value the
+ * library holds, so growing the box without telling it leaves the chart drawn at
+ * the old width in the middle of a much larger canvas. layoutChart() also gets
+ * to re-decide compaction — a ฝ่าย that needed packing at 1,016px may not at
+ * full width, which is most of the point of going full screen.
+ */
+export function toggleGraphFullscreen(section) {
+  if (!section) return false;
+  const on = !section.classList.contains('is-full');
+  // Only one at a time; and `body` stops scrolling underneath the overlay.
+  charts.forEach(({ canvas }) => canvas.closest('.orgg-section')?.classList.remove('is-full'));
+  section.classList.toggle('is-full', on);
+  document.body.classList.toggle('orgg-full-open', on);
+
+  const entry = charts.find(({ canvas }) => canvas.closest('.orgg-section') === section);
+  if (entry) {
+    // Two frames: one for the class to apply, one for the new box to be laid
+    // out and measurable. Reading clientWidth in the same tick returns the old
+    // width, and the chart re-renders into a box that no longer exists.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const w = entry.canvas.clientWidth;
+      if (w > 0) entry.chart.svgWidth(w);
+      layoutChart(entry.chart);
+      frameChart(entry.chart);
+    }));
+  }
+  return on;
+}
+
+/** True while any section is expanded — so ESC knows whether it has a job. */
+export function anyGraphFullscreen() {
+  return charts.some(({ canvas }) => canvas.closest('.orgg-section')?.classList.contains('is-full'));
+}
+
+export function exitGraphFullscreen() {
+  const open = charts.find(({ canvas }) => canvas.closest('.orgg-section')?.classList.contains('is-full'));
+  if (open) toggleGraphFullscreen(open.canvas.closest('.orgg-section'));
+}
+
 export function zoomGraphs(dir) {
   charts.forEach(({ chart }) => (dir > 0 ? chart.zoomIn() : chart.zoomOut()));
 }
@@ -506,6 +567,9 @@ export function zoomGraphs(dir) {
  *  many times in one visit. */
 export function destroyOrgGraph() {
   if (ro) { try { ro.disconnect(); } catch { /* already gone */ } ro = null; }
+  // A view or year switch while เต็มหน้าจอ is open would otherwise leave the
+  // page permanently unscrollable, with the overlay's markup already gone.
+  document.body.classList.remove('orgg-full-open');
   charts = [];
   if (host) host.innerHTML = '';
   host = null;

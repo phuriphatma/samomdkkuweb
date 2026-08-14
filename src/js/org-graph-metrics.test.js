@@ -181,6 +181,65 @@ describe('ผังองค์กร portraits: the srcset must cover the MAX Z
   });
 });
 
+describe('ผังองค์กร / ผังรวม: nothing inside the <foreignObject> may be POSITIONED', () => {
+  // REPORTED from an iPad, with a screenshot: the portrait painted at the
+  // chart's top-left corner while its card showed an empty slot.
+  //
+  // WebKit paints a POSITIONED element inside an SVG <foreignObject> without the
+  // ancestor SVG transform. Isolated on real WebKit against a
+  // `<g transform="translate(300,200)">`: with `position: relative` the pixels
+  // landed at 12,14 instead of 312,214 — off by exactly the transform.
+  // overflow:hidden, aspect-ratio, display:grid and border-radius were all fine.
+  //
+  // `.org-face` ships `position: relative` from org-chart.css (it is the
+  // containing block for the layered photo there, where it is ordinary HTML and
+  // correct). This view MUST override it back to static, and stack with grid.
+  //
+  // Nothing in the DOM can see a regression here: getBoundingClientRect returns
+  // the CORRECT box even when the paint is wrong. A reviewer deleting these
+  // "redundant" declarations would see every test pass and the bug return, which
+  // is exactly why they are asserted rather than merely commented.
+  // MATCH THE SELECTOR EXACTLY. The first version of this helper tested
+  // `sel.includes('.org-face')`, which also matches `.org-face-initials` — so
+  // deleting the rule under test still passed, because the OTHER rule satisfied
+  // it. Caught by running the falsification: removing the fix left the suite
+  // green. A guard that cannot see its own hazard is the failure mode this repo
+  // pays for most (`.claude/rules/mistakes.md`, class 7).
+  // STRIP COMMENTS FIRST. Without this the scanner swallows the whole preceding
+  // comment block into the selector, so `.orgg-person .org-face` never matches
+  // and the assertion fails even when the rule is present — the second way this
+  // guard was wrong before it was right. (A plain regex is safe for CSS in a way
+  // it is not for JS: there is no string literal here that can contain `/*`
+  // except inside `content:`, which this file does not use.)
+  const cssBare = css.replace(/\/\*[\s\S]*?\*\//g, '\n');
+  const ruleBody = (selector) => {
+    const rules = [...cssBare.matchAll(/(?:^|\n)\s*([^{}@][^{}]*?)\s*\{([^}]*)\}/g)];
+    const hit = rules.find(([, sel]) => sel
+      .split(',').map((s) => s.trim().replace(/\s+/g, ' ')).includes(selector));
+    return hit ? hit[2] : null;
+  };
+
+  it('.orgg-person .org-face is position:static — NOT the inherited relative', () => {
+    const body = ruleBody('.orgg-person .org-face');
+    expect(body, 'org-graph.css must declare a rule for `.orgg-person .org-face`').toBeTruthy();
+    expect(body).toMatch(/(?:^|[;\s])position\s*:\s*static/);
+  });
+
+  it('the photo and initials are stacked with grid, not with absolute positioning', () => {
+    const block = css.match(/\n\.orgg-person \.org-face-initials,\s*\n\.orgg-person \.org-face-img\s*\{([^}]*)\}/);
+    expect(block, 'the graph view must re-declare both face children').toBeTruthy();
+    expect(block[1]).toMatch(/position\s*:\s*static/);
+    expect(block[1]).toMatch(/grid-area\s*:\s*stack/);
+  });
+
+  it('the base .org-face still uses relative/absolute — the override is view-scoped', () => {
+    // If the BASE rule ever stops being positioned, this override is dead code
+    // and the next reader should delete it rather than cargo-cult it.
+    const base = readFileSync(new URL('../css/org-chart.css', import.meta.url), 'utf8');
+    expect(base).toMatch(/\.org-face\s*\{[^}]*position:\s*relative/);
+  });
+});
+
 describe('ผังองค์กร / ผังรวม: the depth control must reach the level it names', () => {
   it('applyDepth is INCLUSIVE of `level` — `<` renders one level too shallow', () => {
     // The library's `_expanded` means "this node should be VISIBLE"

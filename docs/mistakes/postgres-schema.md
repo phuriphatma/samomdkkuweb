@@ -520,7 +520,7 @@ Count the writers first — `grep` the column name.
 
 ---
 
-## "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once and never re-derived
+## "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once, never re-derived
 
 **Symptom**: in ระบบบ้าน, editing a student's รหัสนักศึกษา from `65…` to `59…`
 saved fine, and the รุ่น stayed **MD50**. It stayed wrong on every screen, on the
@@ -620,7 +620,7 @@ as the trigger — a mirror pair is one mechanism, and half of it is a hang.
 
 ---
 
-## "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column was treated as a reason to skip the field
+## "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column treated as a reason to skip the field
 
 **Symptom**: an admin changed ชื่อเล่น in the ทีม SAMO pane. `team_members` and
 `people` both took it; ระบบบ้าน kept showing the old one. Every other field —
@@ -658,7 +658,7 @@ either never terminates or terminates on the wrong condition.
 
 ---
 
-## "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
+## "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 **Symptom**: three reports in one message. Changing ชั้นปี on the home card did
 nothing at all — the save reported success and the old value came straight back.

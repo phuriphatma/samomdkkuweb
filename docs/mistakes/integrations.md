@@ -674,7 +674,7 @@ answer to the direction that keeps the file.
 
 ---
 
-## "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed, on one of the two writers
+## "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed on only one writer
 
 **Symptom** (reported after the owner tested a fix for a different photo bug):
 replacing a portrait from **ข้อมูลของฉัน** changed the picture everywhere in the
@@ -735,7 +735,7 @@ opens Drive.
 
 ---
 
-## "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still served publicly
+## "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still public
 
 **Symptom**: the owner deleted their portrait's file in Google Drive and the app
 went on showing it. Reported twice, in two different shapes, before the cause

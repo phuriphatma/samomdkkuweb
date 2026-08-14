@@ -955,7 +955,7 @@ back, cost one query and eliminated RLS, FKs, triggers and realtime in one shot.
 
 ---
 
-## "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render, and a toggle that reads its own state
+## "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render + a toggle reading its own state
 
 **Symptom** (as reported): *"the แก้ไขข้อมูล of ระบบบ้าน on samoweb main page, i
 need to click many times and sometime it will appear, also the เพื่อนร่วมบ้าน"*.
@@ -1095,7 +1095,7 @@ same helper.
 
 ---
 
-## "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, applied where there WAS a human to ask
+## "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, where there WAS a human to ask
 
 **Symptom**: after the ชื่อ/นามสกุล split shipped (0135), opening แก้ไขสมาชิก on
 any of the 399 pre-split members showed both name boxes EMPTY, with the stored
@@ -1165,7 +1165,7 @@ it.
 
 ---
 
-## "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block sitting next to it
+## "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block beside it
 
 **Symptom**: two reports, one session, on iPad AND desktop. (1) In `/admin/`
 ทีม SAMO, the **เพิ่มสมาชิก** button did nothing at all — no modal, no message,
@@ -1625,7 +1625,7 @@ improvement, and it is worth re-measuring precisely so the difference between
 
 ---
 
-## "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule, and a form hidden behind a collapse
+## "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule + a form behind a collapse
 
 **Symptom**: reported as two complaints about the sign-in modal at once. "it
 shows too many text", and — the substantive one — the copy made Google sign-in
@@ -1780,7 +1780,7 @@ is the feature, and for Google it is also a verification requirement.
 
 ---
 
-## "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
+## "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture
 
 **Symptom**: reported by the owner while driving the 3D org-chart demo on a
 phone: pinching to zoom made the view flicker to a different framing and snap
@@ -1844,7 +1844,7 @@ free. Constrain with a force, and cap the axis you left free.
 
 ---
 
-## "the picture render wrong, and when zoom picture also bug" — `srcset` is resolved ONCE, and an SVG transform is not a resize
+## "the picture render wrong ... zoom also bug" — `srcset` resolves ONCE
 
 **Symptom**: as reported, two things at once on the new ผังองค์กร view. The
 portraits in the chart cards looked wrong at rest, and got visibly worse the
@@ -1896,3 +1896,54 @@ platform behaviour, and fixing either alone still looked broken. (3) **Reuse of
 a shared element does not carry its sizing rationale.** `.org-face` was built
 for a 130px card; dropping it into a 26px slot inherited the markup and threw
 away the only reason the crop worked.
+
+
+---
+
+## "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
+
+**Symptom**: on iPad (and any WebKit), the portrait in a ผังองค์กร card was
+painted at the **chart's top-left corner**, detached from its card, while the
+card itself showed the person's name beside an empty slot. Chrome was perfect.
+
+**Cause**: `.org-face` carries `position: relative` — it is the containing block
+for the photo layered over the initials, which is right in the รายการ view where
+it is ordinary HTML. Inside an SVG `<foreignObject>`, WebKit paints a
+**positioned** element *without the ancestor SVG transform*, so it lands at the
+untransformed origin. The `<g>` holding the chart is transformed, so the face
+was drawn as if that transform did not exist.
+
+Isolated on real WebKit with a minimal page — a `<g transform="translate(300,
+200)">` over a `foreignObject`, flipping one property at a time and measuring
+where the pixels actually landed:
+
+```
+overflow:hidden · aspect-ratio · display:grid · border-radius  →  312,214   ok
+position:relative                                              →   12, 14   wrong
+```
+
+12,14 is 312−300, 214−200: displaced by exactly the transform. The `img`'s own
+`position: absolute` was incidental — a first fix removed only that, and the bug
+simply moved from the image to the whole face box.
+
+**Fix**: nothing inside the foreignObject is positioned. `.orgg-person .org-face`
+overrides back to `position: static`, and the photo/initials stack via
+`grid-area` in one cell instead of absolute layering. Scoped to this view,
+because it is the only one living inside an SVG.
+
+**Where it lives now**: `.orgg-person .org-face` in `src/css/org-graph.css`,
+guarded by `org-graph-metrics.test.js`.
+
+**Rules**: (1) **`getBoundingClientRect()` cannot see a paint bug.** It returned
+the CORRECT box in every variant, including the broken ones — layout was right,
+only the compositing was wrong. No computed style and no DOM measurement could
+detect this; the only instrument that could was decoding the screenshot and
+finding where the pixels were. When a bug is visible but every measurement says
+fine, measure the PIXELS. (2) **Reusing an HTML component inside SVG re-opens
+every CSS assumption it was built on.** `.org-face` was correct for six months in
+two views; the third view put it inside a `foreignObject` and `position:
+relative` silently changed meaning. (3) The guard for this needed TWO corrections
+before it worked — it first matched `.org-face-initials` as a substring of
+`.org-face` and passed with the fix deleted, then swallowed the preceding comment
+block into the selector and failed with the fix present. **Run the falsification;
+a guard you have not seen fail is not a guard.**

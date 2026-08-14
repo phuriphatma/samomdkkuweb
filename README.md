@@ -60,7 +60,8 @@ triggered over ssh (needs the KKU VPN).
   zoom/pan canvas drawn by `d3-org-chart` — **ผังองค์กร** (one chart per ฝ่าย,
   opening down to that ฝ่าย's heads) and **ผังรวม** (the whole organisation in a
   single chart under a synthetic root). Both carry per-ตำแหน่ง expand and a
-  depth selector. There is
+  depth selector, and a full-screen toggle (a CSS overlay, not the Fullscreen
+  API, which iPadOS only honours for `<video>`). There is
   deliberately no separate คณะกรรมการ portrait grid: the chart already states
   rank by position, so a second larger rendering of the same people was both a
   duplicate and a competing ranking.
