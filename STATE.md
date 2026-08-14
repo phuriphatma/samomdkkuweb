@@ -1,13 +1,15 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-14**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-15**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. Keep it under ~200 lines — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
-Archives (all `docs/state-archive/`): `2026-08-12-signin-shop-guards.md`
+Archives (all `docs/state-archive/`): `2026-08-15-org-chart-views.md` (the two
+d3 views, the library survey, three portrait bugs) ·
+`2026-08-12-signin-shop-guards.md`
 (0149/0150, the sign-in rebuild, two blind guards) ·
 `2026-08-10-late-security-and-identity.md` (0147–0148) ·
 `2026-08-10-chan-pi.md` (0145–0146, v4.6.0) · `2026-08-09-session.md` ·
@@ -22,21 +24,20 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b140578` (2026-08-14)**, verified from the SERVED artifact:
-  `ผังองค์กร` + `data-org-depth` in the served JS, `.orgg-person .org-face`
-  at 44px in the served CSS, `scaleExtent([.3,3])` and `sizes:"132px"` in the
-  served bundle, and both lazy d3 chunks HTTP 200 with the engine in them.
-  Check rather than trust — EMPTY means prod is current:
+- ✅ **DEPLOYED = `f2a564a` (2026-08-15)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifact: `position:static` +
+  `grid-area:stack` on `.orgg-person .org-face` in the served CSS,
+  `orgg-full-open` and `bi-arrows-fullscreen` in the served JS, and re-driven on
+  PRODUCTION with real WebKit (painted pixels == layout box, normal and full
+  screen). Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat b140578..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat f2a564a..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
   **Migrations applied through 0150.** **737 tests green.**
-- ⚠️ **UNDEPLOYED: the iPad portrait fix + เต็มหน้าจอ.** Verified on real WebKit
-  (Playwright) by decoding the screenshot, not by reading the DOM.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -64,20 +65,16 @@ Run the one covering what you touch. All are both-directional.
 
 - `authz-sweep-identity.sql` (23/23) — run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
-- `pr0149-delete-permission.sql` (12/12, differential) — the PR delete RPC must
-  decide what its POLICY decides. Its commit-time half is
-  `src/js/definer-authz.test.js`: no definer function may raise 42501 on the
-  ROLE channel alone.
-- `shop0150-buyer-contact.sql` (10/10) — what a BUYER may change on their own
-  order. **Its subject is MANUFACTURED**, because all six real orders belong to
-  shop ADMINS and the guard early-returns for an admin; a proof that picks a
-  real order reports that a buyer may set the total to ฿1.
-- `house0116-authz.sql` · `house0144-delete-impact.sql` (18/18, differential) ·
-  `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql`
-- `team0145-one-chan-pi.sql` · `team0145-save-as-the-member.sql`
-- `house0132-registry.mjs` · `proj0092-seat-parity.mjs` ·
+- `pr0149-delete-permission.sql` (12/12) · `shop0150-buyer-contact.sql` (10/10) ·
+  `house0116-authz.sql` · `house0144-delete-impact.sql` (18/18) ·
+  `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql` ·
+  `team0145-one-chan-pi.sql` · `team0145-save-as-the-member.sql` ·
+  `house0132-registry.mjs` · `proj0092-seat-parity.mjs` ·
   `team0135-name-split.mjs` · `team0137-search.mjs` · `grant0093-reads.mjs` ·
   `team0143-photo-refcount.mjs`
+- ⚠️ **`shop0150`'s subject is MANUFACTURED** — all six real orders belong to
+  shop ADMINS and the guard early-returns for one, so a proof that picks a real
+  order reports that a buyer may set the total to ฿1.
 
 ## OTHER SYSTEMS — stable, nothing owed
 
@@ -98,22 +95,17 @@ because two copies of one rule is the class this repo pays for most.
 
 - **Do not re-create `.claude/rules/mistakes-archive.md`** — it lived in the
   auto-loaded directory, so archiving into it saved nothing.
-- **The design/plan docs were swept 2026-08-12 and now carry accurate status
-  banners.** Five described a world that had ended: SUPABASE-MIGRATION said
-  "Phase 1, not yet deployed" at migration 0150; AUTH-MODEL's "current state"
-  was the Google-Sheets era; MERGE-CHECKLIST and CONTRIBUTING still ran the
-  `refactor/modular` two-branch flow; README/CONTRIBUTING/CONTEXT all named the
-  RETIRED pages.dev hosts as production; PASSPORT-MERGE said "plan (not
-  started)" for a merge that is live — while containing a `truncate passport.*`
-  step. **When a plan doc is finished, banner it the same day** — a stale plan
-  with destructive steps is the most dangerous file in a repo.
+- **The design/plan docs were swept 2026-08-12 and now carry status banners.**
+  **When a plan doc is finished, banner it the same day** — a stale plan with
+  destructive steps (PASSPORT-MERGE still said "not started" while containing a
+  `truncate passport.*`) is the most dangerous file in a repo.
 - **Never hand-edit the mistakes index** — `npm run mistakes:index` generates it.
 - **Never raise the context cap** when `npm run check:context` fails. Move detail
   into `docs/`.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-14)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-15)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
@@ -130,18 +122,11 @@ because two copies of one rule is the class this repo pays for most.
 >   restructure warning below is real: the same inheritance reaches further the
 >   moment a ฝ่าย is reparented.
 > - **The ทีม SAMO admin-model rework is PARKED at the owner's request
->   (2026-08-14).** The analysis stands and nothing was built. In short: one
->   `parent_id` edge carries three different relations (display containment,
->   reporting line, permission inheritance), only 12 of 272 nodes carry any
->   grant, and 6 nodes in ฝ่ายดิจิทัล use a nesting convention the other 96 head
->   nodes do not (`kind='role'` with children — a mechanical detector). Proposed,
->   in order: (1) disable the grant control on container nodes, (2) show the
->   DOWNWARD blast radius in the perms modal — `refreshPermInherited()`
->   (`src/js/team/index.js:1869`) only ever walks UP, which is how this went
->   unnoticed, (3) a flat `mode: 'grants'` table of all ~12 grants sorted by
->   reach, (4) normalise the 6 nodes. **Do NOT build a second tree for
->   permissions** — the admin already has `mode: 'team' | 'perms' | 'years' |
->   'health'`, and views over one tree is the correct pattern.
+>   (2026-08-14).** Analysed in full, nothing built. **Do not restart it unless
+>   they ask — `docs/NEXT.md` §0a has the diagnosis, the measurements and the
+>   four-step plan.** One thing to carry: they asked whether the display
+>   structure and the permission structure should be SEPARATE. They should not —
+>   the admin already has four `mode`s over ONE tree, which is the right pattern.
 > - **SAMO Shop stays open to BOTH login routes.** The owner asked whether
 >   customers should be Google-only. They should not: the checkout email field is
 >   editable even when Google prefills it, so restricting the login method buys
@@ -168,18 +153,23 @@ because two copies of one rule is the class this repo pays for most.
 >   **Nothing in `src/` was changed for any of it.** ⚠️ One bug is OPEN: the 3D
 >   frame flickers while zooming; one cause was fixed, something remains, and it
 >   needs a real touch device.
-> - **The signed-in browser pass, continued.** It has found bugs nothing else
->   could (the dead ยกเลิก button in every confirm dialog). Driven so far: ทีม
->   SAMO member modal, confirm dialog, sign-in modal (320/390/820/1280), public
->   org chart. **Still undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature
->   queue, and the SHOP CHECKOUT + order card** — the shop contact recap and the
->   inline contact editor shipped 2026-08-12 were verified by build, tests, code
->   trace and a static CSS render, but never exercised in a browser, because that
->   needs a signed-in session with a cart. `docs/NEXT.md` §1.
+> - **The browser pass, continued — now with a playbook:
+>   `skills/drive-the-browser.md`.** It has found bugs nothing else could (the
+>   dead ยกเลิก button; the iPad portrait no DOM measurement could see). **Still
+>   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, and the
+>   SHOP CHECKOUT + order card** — the shop contact recap and inline contact
+>   editor shipped 2026-08-12 were verified by build, tests, code trace and a
+>   static render, never in a browser, because that needs a signed-in session
+>   with a cart. `docs/NEXT.md` §1.
+> - **The org chart on a REAL iPad.** The four views are shipped and verified on
+>   Playwright's WebKit with an iPad profile — same engine, not the same device.
+>   Worth one real-device pass: whether the pan/zoom canvas or the เต็มหน้าจอ
+>   overlay traps touch-scroll, and whether four view buttons wrap acceptably on
+>   a phone. Nothing is known to be wrong; nothing has been confirmed right.
 > - **ทีม SAMO restructure — DO NOT reparent ฝ่าย without reading this.** The
 >   owner wants นายกฯ → อุปนายก → ฝ่าย. `node_effective_permissions()` climbs the
->   parent chain while `inherit_permissions` is true, and eleven nodes carry
->   grants. **Simulated in a rolled-back transaction: moving ฝ่าย PR/ComArt/IT
+>   parent chain while `inherit_permissions` is true, and TWELVE nodes carry
+>   grants (measured 2026-08-14). **Simulated in a rolled-back transaction: moving ฝ่าย PR/ComArt/IT
 >   under อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20** — 17 students
 >   silently become full admins. First move the grants onto
 >   `team_members.permissions`, or set `inherit_permissions = false` on the ฝ่าย
@@ -191,7 +181,7 @@ because two copies of one rule is the class this repo pays for most.
 >
 > ### 1b. The public org chart (`/team`) — how it is built
 >
-> THREE views now. **รายการ + แผนผัง share ONE renderer and ONE markup; only CSS
+> FOUR views. **รายการ + แผนผัง share ONE renderer and ONE markup; only CSS
 > differs.** The wrapper carries `data-view`, and the toggle flips it WITHOUT
 > re-rendering so open ตำแหน่ง and scroll position survive. **Scope every rule on
 > `[data-view=…]`, never on a width** — the list rules were once inside a media
@@ -203,37 +193,34 @@ because two copies of one rule is the class this repo pays for most.
 > overflow unreachable). The คณะกรรมการ grid is GONE on purpose: **rank is
 > position in the chart, not card size.**
 >
-> **ผังองค์กร + ผังรวม (2026-08-14) share the one SEPARATE renderer** —
-> `src/js/org-graph.js`, d3-org-chart (MIT) on a zoom/pan SVG canvas; the face
-> element both renderers draw lives in `src/js/org-face.js` so it cannot drift.
-> Four things will bite you, all written up in that file's header:
+> **ผังองค์กร + ผังรวม share ONE SEPARATE renderer** — `src/js/org-graph.js`,
+> d3-org-chart (MIT) on a zoom/pan SVG canvas. They differ ONLY in grouping:
+> ผังองค์กร is one chart per root ฝ่าย, ผังรวม is one chart under a synthetic
+> องค์กร root. The face element both renderers draw lives in `src/js/org-face.js`
+> so it cannot drift. **Why the library, the measured widths, the three portrait
+> bugs and the guards: `docs/state-archive/2026-08-15-org-chart-views.md`.**
+> Six things will bite you, all in that file's header and guarded by
+> `org-graph-metrics.test.js` (20 assertions, each falsified):
 >
-> - **The two d3 views differ ONLY in how the data is grouped** — ผังองค์กร is
->   one chart per root ฝ่าย, ผังรวม is one chart under a synthetic องค์กร root
->   (`ORG_ROOT_ID`; `d3.stratify()` throws on multiple roots). Same card, same
->   controls, one renderer. ผังรวม's depth rungs are shifted one level and its
->   depth is tracked separately — MEASURED widths: 540 px at ฝ่ายหลัก, 6,443 px
->   at ฝ่ายย่อย, 24,226 px at หัวหน้าฝ่าย, 39,112 px at ทั้งหมด. Only the first
->   fits without panning, which is why it is the default there.
-> - **`applyDepth` must be `<=`, never `<`** — the library's `_expanded` means
->   "I am visible", not "open my children", so `<` renders one level shallower
->   than the rung is labelled. That shipped once: the หัวหน้าฝ่าย default never
->   reached a หัวหน้าฝ่าย.
-> - **`initialExpandLevel` is NOT the depth control** — the library consumes it
->   once and resets it to 1. Depth is `_expanded` on the data rows.
+> - **NOTHING inside a card may be `position`ed.** WebKit paints a positioned
+>   element in a `<foreignObject>` WITHOUT the ancestor SVG transform — the
+>   portrait drew at the chart's origin on iPad. **`getBoundingClientRect()`
+>   reports the box CORRECT while this happens**; the only instrument that can
+>   see it is the decoded screenshot (`skills/drive-the-browser.md`).
+> - **`applyDepth` must be `<=`, never `<`** — `_expanded` means "I am visible",
+>   not "open my children". `<` renders one level shallower than the rung is
+>   labelled, and that SHIPPED: the หัวหน้าฝ่าย default never reached one.
+> - **`initialExpandLevel` is NOT the depth control** — consumed once, then reset
+>   to 1 by the library. Depth is `_expanded` on the data rows.
 > - **`frameChart()` replaces `fit()` and inherits its obligations**, including
->   zeroing `centerG`. `fit()` fits BOTH axes, which is wrong at both ends here.
-> - **Card height is computed in JS from constants mirroring the CSS**, and d3
->   is dynamically imported so it stays out of the entry bundle. Both guarded by
->   `org-graph-metrics.test.js`, verified by reintroducing the drifts.
-> - **NOTHING inside the card may be `position`ed.** WebKit paints a positioned
->   element in a `<foreignObject>` WITHOUT the ancestor SVG transform, so the
->   portrait drew at the chart's origin on iPad. `.orgg-person .org-face` is
->   forced back to `static` and stacks with grid. **`getBoundingClientRect()`
->   reports the box CORRECT while this is happening** — the only instrument that
->   can see it is the decoded screenshot. Reproduce with Playwright's `webkit`.
+>   zeroing `centerG`. `fit()` fits BOTH axes, wrong at both ends here.
+> - **`sizes` must be `portrait width × max zoom`, and zoom must be capped.**
+>   `srcset` resolves ONCE from the LAYOUT size; an SVG transform never re-picks.
+>   Uncapped zoom and responsive images are incompatible by construction.
 > - **เต็มหน้าจอ is a CSS overlay, never the Fullscreen API** — iOS/iPadOS only
->   honour `requestFullscreen()` on `<video>`.
+>   honour `requestFullscreen()` on `<video>`. Card height is computed in JS from
+>   constants mirroring the CSS, and d3 is dynamically imported (a static import
+>   put d3-zoom in the ENTRY bundle, +13.6 KB gz for everyone).
 >
 > ### 2. Invariants that will bite you
 >

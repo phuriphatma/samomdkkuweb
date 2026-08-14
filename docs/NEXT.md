@@ -7,6 +7,54 @@ un-started; STATE.md carries a one-line pointer to this file.
 Ordered by what will bite first. Everything named here is verified true as of
 HEAD; the proof scripts and migrations referenced all exist and pass.
 
+### 0a. ทีม SAMO admin model — PARKED at the owner's request (2026-08-14)
+
+Analysed in full, nothing built, owner asked to hold it. Do not restart this
+without them asking; do not re-raise the `master` finding (it is INTENTIONAL —
+see STATE.md).
+
+**The diagnosis.** One `team_nodes.parent_id` edge carries three different
+relations at once: display containment, reporting line, and permission
+inheritance. That is why grants behave surprisingly — you cannot express "the
+head reports to the ฝ่าย, members report to the head, but the head's personal
+grants are personal", because it is all one edge.
+
+Measured on the live tree (2026-08-14):
+
+- **12 of 272 nodes carry any grant** (permission, `vs_dept` or `project_seat`).
+  The permission "tree" is a list of twelve; it is not a hierarchy.
+- **4 of those 12 sit on CONTAINER nodes** (`ฝ่าย IT`, `ฝ่าย Media management`,
+  `📇 ฝ่ายเลขานุการนายกฯ`, `อุปนายกฯ`), where they cascade to everything below.
+- **6 nodes use a nesting convention the other 96 head nodes do not** — all in
+  ฝ่ายดิจิทัล, where members hang *under* the head instead of beside them.
+  Mechanical detector: **`kind='role'` WITH children** (exactly those 6).
+
+**The proposed rule**, if it is ever picked up: a `kind='role'` node is always a
+leaf, and grants attach only to `kind='role'`. `kind` already exists and is
+currently marked "advisory only"; making it load-bearing means a grant can never
+cascade, by construction rather than by care.
+
+**Proposed order** (1 and 2 are UI-only, no migration, and stop the bleeding):
+
+1. Disable the grant control on `division`/`department` rows, with a hint that
+   the grant belongs on a ตำแหน่ง inside.
+2. Show the **downward blast radius** in the perms modal. `refreshPermInherited()`
+   (`src/js/team/index.js:1869`) calls `inheritedPermsFor` / `inheritedSeatsFor` /
+   `inheritedVsDeptsFor` — **all three walk `parent_id` UPWARD**. Nothing anywhere
+   computes what a grant *gives*, which is exactly how a container grant went
+   unnoticed. Add the descending counterpart plus a confirm above N people.
+3. A new `mode: 'grants'`: one flat table of all ~12 grants, sorted by reach
+   descending, so anything odd floats to the top. Derived, so it cannot drift.
+4. Only then, the migration: re-parent the 6 nodes and move the 4 container
+   grants onto leaves, with the invariant landing as a guard test in the same
+   commit.
+
+**Do NOT build a second tree for permissions.** The owner asked whether the
+display structure and the permission structure should be separated; they should
+not. The admin already has `mode: 'team' | 'perms' | 'years' | 'health'` — four
+views over ONE tree — which is the correct pattern and already shipped. Two
+writable trees is `.claude/rules/mistakes.md` class 6 by construction.
+
 ### 0b2. The shop checkout + order card have never been driven in a browser (2026-08-12)
 
 The contact recap above the place-order button, and the inline "แก้ไขข้อมูลติดต่อ"
