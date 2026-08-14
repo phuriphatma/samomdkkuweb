@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-12**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-14**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. Keep it under ~200 lines — when it bloats, move narrative to the
 archive rather than trimming the invariants.
@@ -33,7 +33,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0150.** **717 tests green.**
+  **Migrations applied through 0150.** **727 tests green.**
+- ⚠️ **UNDEPLOYED (2026-08-14): the ผังองค์กร view.** `src/js/org-graph.js`,
+  `src/js/org-face.js`, `src/css/org-graph.css`, plus the third view button in
+  `org-chart.js`. New deps `d3-org-chart` + `d3-zoom` — both lazy chunks, entry
+  bundle unchanged (53.88 KB gz vs 53.38 before). Built, 727 tests green, and
+  driven in headless Chrome (12 sections, depth/zoom/search/teardown all
+  exercised, no console errors). **Not yet on the VM.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -110,14 +116,35 @@ because two copies of one rule is the class this repo pays for most.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-12)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-14)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through 0150 applied; 717 tests green; `npm run proofs` 15/15.
+> through 0150 applied; 727 tests green; `npm run proofs` 15/15.
 >
-> ### The two decisions already made — do not re-litigate
+> ### The decisions already made — do not re-litigate
 >
+> - **The `master` grants inside ฝ่าย IT are INTENTIONAL — the owner confirmed
+>   this on 2026-08-14.** `ฝ่าย IT` carries `permissions = {master}` with
+>   inheritance on, so 13 member rows resolve to `master`, 9 of them ordinary
+>   `สมาชิกฝ่าย Backend/Frontend` accounts with it live on their users row. That
+>   is the IT team that builds this app, and it is deliberate. **Do not "fix" it,
+>   and do not raise it as a finding again.** It does still mean the §1
+>   restructure warning below is real: the same inheritance reaches further the
+>   moment a ฝ่าย is reparented.
+> - **The ทีม SAMO admin-model rework is PARKED at the owner's request
+>   (2026-08-14).** The analysis stands and nothing was built. In short: one
+>   `parent_id` edge carries three different relations (display containment,
+>   reporting line, permission inheritance), only 12 of 272 nodes carry any
+>   grant, and 6 nodes in ฝ่ายดิจิทัล use a nesting convention the other 96 head
+>   nodes do not (`kind='role'` with children — a mechanical detector). Proposed,
+>   in order: (1) disable the grant control on container nodes, (2) show the
+>   DOWNWARD blast radius in the perms modal — `refreshPermInherited()`
+>   (`src/js/team/index.js:1869`) only ever walks UP, which is how this went
+>   unnoticed, (3) a flat `mode: 'grants'` table of all ~12 grants sorted by
+>   reach, (4) normalise the 6 nodes. **Do NOT build a second tree for
+>   permissions** — the admin already has `mode: 'team' | 'perms' | 'years' |
+>   'health'`, and views over one tree is the correct pattern.
 > - **SAMO Shop stays open to BOTH login routes.** The owner asked whether
 >   customers should be Google-only. They should not: the checkout email field is
 >   editable even when Google prefills it, so restricting the login method buys
@@ -167,16 +194,32 @@ because two copies of one rule is the class this repo pays for most.
 >
 > ### 1b. The public org chart (`/team`) — how it is built
 >
-> Two views over ONE renderer and ONE markup; only CSS differs. The wrapper
-> carries `data-view`, and the toggle flips it WITHOUT re-rendering so open
-> ตำแหน่ง and scroll position survive. **Scope every rule on `[data-view=…]`,
-> never on a width** — the list rules were once inside a media query and silently
-> stopped applying when the view became a user choice. แผนผัง fits 400 people via
-> ONE SECTION PER ฝ่าย, BRANCH SIDEWAYS ONCE, and a BOUNDED wrapping row
-> (`flex-wrap` alone did nothing — `.org-tree` is `width: max-content`, so the
-> wrap point is never reached; `justify-content: safe center`, because plain
-> `center` makes the start-side overflow unreachable). The คณะกรรมการ grid is
-> GONE on purpose: **rank is position in the chart, not card size.**
+> THREE views now. **รายการ + แผนผัง share ONE renderer and ONE markup; only CSS
+> differs.** The wrapper carries `data-view`, and the toggle flips it WITHOUT
+> re-rendering so open ตำแหน่ง and scroll position survive. **Scope every rule on
+> `[data-view=…]`, never on a width** — the list rules were once inside a media
+> query and silently stopped applying when the view became a user choice. แผนผัง
+> fits 400 people via ONE SECTION PER ฝ่าย, BRANCH SIDEWAYS ONCE, and a BOUNDED
+> wrapping row (`flex-wrap` alone did nothing — `.org-tree` is
+> `width: max-content`, so the wrap point is never reached;
+> `justify-content: safe center`, because plain `center` makes the start-side
+> overflow unreachable). The คณะกรรมการ grid is GONE on purpose: **rank is
+> position in the chart, not card size.**
+>
+> **ผังองค์กร (2026-08-14) is the one view with a SEPARATE renderer** —
+> `src/js/org-graph.js`, d3-org-chart (MIT) on a zoom/pan SVG canvas; the face
+> element both renderers draw lives in `src/js/org-face.js` so it cannot drift.
+> Four things will bite you, all written up in that file's header:
+>
+> - **ONE CHART PER ฝ่าย is arithmetic, not taste** — a single whole-org chart
+>   measures 20,770 px at the default depth even WITH compact packing.
+> - **`initialExpandLevel` is NOT the depth control** — the library consumes it
+>   once and resets it to 1. Depth is `_expanded` on the data rows.
+> - **`frameChart()` replaces `fit()` and inherits its obligations**, including
+>   zeroing `centerG`. `fit()` fits BOTH axes, which is wrong at both ends here.
+> - **Card height is computed in JS from constants mirroring the CSS**, and d3
+>   is dynamically imported so it stays out of the entry bundle. Both guarded by
+>   `org-graph-metrics.test.js`, verified by reintroducing five drifts.
 >
 > ### 2. Invariants that will bite you
 >

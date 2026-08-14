@@ -53,9 +53,15 @@ triggered over ssh (needs the KKU VPN).
   (the raw report is never shown); signed-in @kkumail students hit "เจอเหมือนกัน"
   (me-too aggregation) and add pseudonymous comments. Confidential categories
   never appear on the board.
-- **ทีม SAMO org chart.** Public page (`/team`) that opens with the คณะกรรมการ as
-  a grid of large portrait cards, followed by the whole structure — ฝ่าย, ตำแหน่ง,
-  and who holds each — with a search that keeps the branch a match sits in.
+- **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
+  ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
+  sits in. Three interchangeable views over the one dataset: **รายการ** (an
+  indented outline), **แผนผัง** (a CSS chart), and **ผังองค์กร** (a real
+  top-down chart on a zoom/pan canvas, drawn by `d3-org-chart`, opening down to
+  the ฝ่าย heads with per-ตำแหน่ง expand and a depth selector). There is
+  deliberately no separate คณะกรรมการ portrait grid: the chart already states
+  rank by position, so a second larger rendering of the same people was both a
+  duplicate and a competing ranking.
   Switchable by **ปีการศึกษา**: the current year renders from the live tree, past
   years from a published snapshot that stays editable in the admin. Fed by one
   SECURITY DEFINER projection (`get_public_team_chart`), so it can only ever show
@@ -166,7 +172,8 @@ triggered over ssh (needs the KKU VPN).
 
 ## Tech stack
 
-- **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill
+- **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill (rich text)
+  + d3-org-chart (the ผังองค์กร view, lazy-loaded)
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
 - **Discord**: Cloudflare Pages Function `/notify` (`functions/notify.js`),

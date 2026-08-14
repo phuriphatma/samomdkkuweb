@@ -20,9 +20,10 @@
 // Read-only, anonymous, no writes.
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
+import { faceHtml, TREE_SHAPE } from './org-face.js';
 import {
-  portraitSrc, portraitSrcSet, focusToObjectPosition, PORTRAIT_RATIO,
-} from './uploads.js';
+  mountOrgGraph, destroyOrgGraph, setGraphDepth, fitGraphs, zoomGraphs, DEFAULT_DEPTH,
+} from './org-graph.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -47,13 +48,27 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
-// รายการ (the indented tree) or แผนผัง (the horizontal org chart). Both render
-// from the SAME markup — only the CSS differs — so this is a class on a wrapper,
-// not a second renderer to keep in step. Kept in localStorage because a reader
-// who prefers one has that preference on every visit, and the choice costs
-// nothing to honour.
+// THREE surfaces over one dataset:
+//   • รายการ  — the indented outline
+//   • แผนผัง  — the CSS chart. Same markup as รายการ, only the CSS differs, so
+//               it is a class on a wrapper rather than a second renderer.
+//   • ผังองค์กร — a real top-down org chart on a zoom/pan canvas, drawn by
+//               d3-org-chart. This one IS a separate renderer (org-graph.js),
+//               because SVG layout is not something CSS can be talked into.
+//               It shares the face element via org-face.js so the one thing the
+//               two renderers both draw cannot drift.
+// Kept in localStorage because a reader who prefers one has that preference on
+// every visit, and the choice costs nothing to honour.
+const VIEWS = ['list', 'chart', 'graph'];
 let view = 'list';
-try { view = localStorage.getItem('samo.org.view') === 'chart' ? 'chart' : 'list'; } catch { /* private mode */ }
+try {
+  const saved = localStorage.getItem('samo.org.view');
+  if (VIEWS.includes(saved)) view = saved;
+} catch { /* private mode */ }
+
+// ผังองค์กร's expand depth. Level 2 within a ฝ่าย chart is "down to the heads" —
+// see the header of org-graph.js for why that is the default.
+let graphDepth = DEFAULT_DEPTH;
 
 // A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
 // a disclosure — 106 of them hold exactly one person, and making those a click
@@ -61,23 +76,6 @@ try { view = localStorage.getItem('samo.org.view') === 'chart' ? 'chart' : 'list
 const PEOPLE_INLINE_MAX = 3;
 
 const $ = (id) => document.getElementById(id);
-
-// The two shapes a face appears in, and the exact widths lh3 is asked for.
-//
-// This split is the whole point of the srcset: the board card renders at up to
-// 250 CSS px and the tree avatar at 44, so handing the avatar the card's file
-// would waste ~35 KB × 400 people. Widths cover 1x through 3x; the browser
-// downloads exactly one per image using the `sizes` hint.
-// Same card, smaller. The tree uses ONE visual language with the board grid —
-// portrait over name over ตำแหน่ง — rather than a separate avatar treatment, so
-// a person looks like the same kind of object wherever they appear.
-const TREE_SHAPE = {
-  cls: 'org-face',
-  ratio: PORTRAIT_RATIO,
-  widths: [130, 200, 260, 390],
-  sizes: '(max-width: 560px) 28vw, 130px',
-  base: 260,
-};
 
 /** The ten ฝ่าย already have colour identities in base.css; reuse them so a
  *  ฝ่าย looks the same here as it does on the ฝ่าย tab. Matched on the ฝ่าย name
@@ -99,15 +97,6 @@ const DEPT_TINT = [
 function tintFor(name) {
   const hit = DEPT_TINT.find(([re]) => re.test(name || ''));
   return hit ? hit[1] : null;
-}
-
-/** Initials for the no-photo state. Thai names have no case, so take the first
- *  glyph of the first two words — enough to differentiate at a glance without
- *  pretending to be a monogram. */
-function initials(name) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '—';
-  return (parts[0][0] || '') + (parts[1] ? parts[1][0] : '');
 }
 
 function index() {
@@ -156,32 +145,8 @@ function indexStats() {
   for (const r of byParent.get('') || []) walk(r.id);
 }
 
-// ── the photo element ───────────────────────────────────────────────────────
-//
-// Initials are ALWAYS rendered, with the photo layered over them. A Drive link
-// can rot (file unshared, moved, deleted) and an <img alt=""> that fails to load
-// draws nothing — so without this a broken photo would leave an empty box.
-// Layering means it degrades to the same initials as someone who never uploaded
-// one, with no error handler to wire up.
-//
-// `focus` decides HOW the 3:4 crop happens: 'center' lets lh3 crop server-side
-// (half the bytes), 'top'/'bottom' fetch the uncropped frame and crop in CSS,
-// because lh3 has no focal-point option and a centre crop of a landscape studio
-// shot can slice the head.
-function faceHtml(m, shape) {
-  const { cls, ratio, widths, sizes, base } = shape;
-  const photo = m.photo_url || '';
-  const focus = m.photo_focus || 'center';
-  const inner = `<span class="${cls}-initials" aria-hidden="true">${escHtml(initials(m.name))}</span>`;
-  if (!photo) return inner;
-  const set = portraitSrcSet(photo, widths, focus, ratio);
-  const pos = focusToObjectPosition(focus);
-  return `${inner}<img class="${cls}-img" src="${escHtml(portraitSrc(photo, base, focus, ratio))}"${
-    set ? ` srcset="${escHtml(set)}" sizes="${sizes}"` : ''
-  } alt="" loading="lazy" decoding="async"${
-    focus === 'center' ? '' : ` style="object-position:${pos}"`
-  } />`;
-}
+// The face element lives in org-face.js — see the note there on why it is
+// shared rather than copied into the graph renderer.
 
 // THE คณะกรรมการ GRID IS GONE, and deliberately.
 //
@@ -476,7 +441,11 @@ function render() {
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
   const html = roots.map((n) => nodeBlock(n, 0, filter)).join('');
-  renderExpandAll(!!filter);
+  // ขยาย/ย่อทั้งหมด drives the DOM tree, which ผังองค์กร does not use — it has
+  // its own depth control, because "expanded" there is a d3 layout state rather
+  // than a `hidden` attribute. Hide it rather than leave a button that silently
+  // does nothing in one of three views.
+  renderExpandAll(!!filter || view === 'graph');
 
   const shownMembers = filter
     ? filter.keepMembers.size
@@ -489,11 +458,18 @@ function render() {
   }
 
   if (!html) {
+    destroyOrgGraph();
     body.innerHTML = `<p class="org-status">${
       filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
     }</p>`;
     return;
   }
+
+  // Every paint replaces #orgBody's markup, which would strand the charts'
+  // ResizeObserver and zoom behaviours on detached nodes. Tear down first,
+  // unconditionally — including when leaving ผังองค์กร for another view.
+  destroyOrgGraph();
+
   body.innerHTML = `
     <div class="org-tree-head">
       <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
@@ -506,8 +482,13 @@ function render() {
           data-org-view="chart" aria-pressed="${view === 'chart'}">
           <i class="bi bi-diagram-3" aria-hidden="true"></i> แผนผัง
         </button>
+        <button type="button" class="org-view-btn${view === 'graph' ? ' is-on' : ''}"
+          data-org-view="graph" aria-pressed="${view === 'graph'}">
+          <i class="bi bi-diagram-2" aria-hidden="true"></i> ผังองค์กร
+        </button>
       </div>
     </div>
+    ${view === 'graph' ? graphShellHtml(filter) : ''}
     ${view === 'chart'
     ? roots.map((n) => {
       const one = nodeBlock(n, 0, filter);
@@ -517,9 +498,75 @@ function render() {
            </div>`
         : '';
     }).join('')
-    : `<div class="org-tree-wrap" data-view="list">
+    : view === 'list'
+      ? `<div class="org-tree-wrap" data-view="list">
          <ul class="org-tree">${rootBlock(html, filter)}</ul>
-       </div>`}`;
+       </div>`
+      : ''}`;
+
+  if (view === 'graph') paintGraph(roots, filter);
+}
+
+/** ผังองค์กร's own toolbar + the host the charts mount into. The depth control
+ *  is separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
+ *  whole point of the view is choosing how far down to look. */
+function graphShellHtml(filter) {
+  const lvl = (n, label) => `<button type="button" class="orgg-depth-btn${
+    graphDepth === n ? ' is-on' : ''}" data-org-depth="${n}" aria-pressed="${graphDepth === n}">${label}</button>`;
+  return `
+    <div class="orgg-toolbar">
+      ${filter ? '' : `
+      <div class="orgg-depth" role="group" aria-label="ระดับที่แสดง">
+        <span class="orgg-depth-label">แสดงถึง</span>
+        ${lvl(1, 'ฝ่าย')}
+        ${lvl(2, 'หัวหน้าฝ่าย')}
+        ${lvl(3, 'ทีมย่อย')}
+        ${lvl(99, 'ทั้งหมด')}
+      </div>`}
+      <div class="orgg-zoom" role="group" aria-label="ย่อ-ขยายมุมมอง">
+        <button type="button" class="orgg-zoom-btn" data-org-zoom="out" aria-label="ซูมออก"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
+        <button type="button" class="orgg-zoom-btn" data-org-zoom="in" aria-label="ซูมเข้า"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+        <button type="button" class="orgg-zoom-btn" data-org-zoom="fit" aria-label="พอดีหน้าจอ"><i class="bi bi-aspect-ratio" aria-hidden="true"></i></button>
+      </div>
+      <p class="orgg-hint">ลากเพื่อเลื่อน · กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน</p>
+    </div>
+    <div class="orgg-host" id="orgGraphHost"></div>`;
+}
+
+/** Mount the charts. Async and fire-and-forget: the library is a dynamic import
+ *  so the first switch into this view pays a network round trip, and awaiting it
+ *  inside render() would freeze the other two views' repaint behind it. The
+ *  token guards the case where the reader switches away (or changes year) while
+ *  that import is still in flight — without it a late mount paints charts into a
+ *  page that has moved on. */
+let graphToken = 0;
+async function paintGraph(roots, filter) {
+  const mine = ++graphToken;
+  const hostEl = $('orgGraphHost');
+  if (!hostEl) return;
+  hostEl.innerHTML = '<p class="org-status">กำลังวาดผังองค์กร…</p>';
+  try {
+    const ctx = {
+      roots, byParent, byNode, subStats, tintFor, filter, depth: graphDepth,
+    };
+    if (mine !== graphToken) return;
+    hostEl.innerHTML = '';
+    const drawn = await mountOrgGraph(hostEl, ctx);
+    if (mine !== graphToken) { destroyOrgGraph(); return; }
+    if (!drawn) {
+      hostEl.innerHTML = `<p class="org-status">${
+        filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
+      }</p>`;
+    }
+  } catch (err) {
+    // A failed dynamic import (offline, a stale chunk after a deploy) must not
+    // leave the reader on a spinner — the other two views still work, so say so
+    // rather than pretending the data is missing.
+    console.warn('org graph failed to load:', err);
+    if (mine === graphToken && hostEl) {
+      hostEl.innerHTML = '<p class="org-status is-error">แสดงผังองค์กรไม่ได้ ลองใช้มุมมอง รายการ หรือ แผนผัง</p>';
+    }
+  }
 }
 
 // ── loading ─────────────────────────────────────────────────────────────────
@@ -650,12 +697,34 @@ export function initOrgChart() {
     const btn = e.target.closest('.org-station-btn');
     if (btn && btn.tagName === 'BUTTON') { toggleNode(btn); return; }
 
-    // รายการ ⇄ แผนผัง. Flipping the wrapper's data-view is the whole switch —
-    // no re-render, so every open/closed ตำแหน่ง and the scroll position survive
-    // the change, which is what makes the two actually comparable.
+    // ผังองค์กร's depth control. A full re-mount rather than a DOM toggle: the
+    // level decides d3's LAYOUT, not just visibility, so every box moves.
+    const db = e.target.closest('[data-org-depth]');
+    if (db) {
+      const next = Number(db.dataset.orgDepth);
+      if (!Number.isFinite(next) || next === graphDepth) return;
+      graphDepth = next;
+      setGraphDepth(next);
+      $('orgBody')?.querySelectorAll('[data-org-depth]').forEach((b) => {
+        const on = Number(b.dataset.orgDepth) === next;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+      return;
+    }
+
+    const zb = e.target.closest('[data-org-zoom]');
+    if (zb) {
+      const how = zb.dataset.orgZoom;
+      if (how === 'fit') fitGraphs();
+      else zoomGraphs(how === 'in' ? 1 : -1);
+      return;
+    }
+
+    // รายการ ⇄ แผนผัง ⇄ ผังองค์กร.
     const vb = e.target.closest('[data-org-view]');
     if (!vb) return;
-    const next = vb.dataset.orgView === 'chart' ? 'chart' : 'list';
+    const next = VIEWS.includes(vb.dataset.orgView) ? vb.dataset.orgView : 'list';
     if (next === view) return;
     view = next;
     try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
