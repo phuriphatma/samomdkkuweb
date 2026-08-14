@@ -262,7 +262,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror that was one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(52 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(53 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -316,6 +316,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc."
 - "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture itself
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
+- "the picture render wrong, and when zoom picture also bug"
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*

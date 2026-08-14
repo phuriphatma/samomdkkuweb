@@ -1841,3 +1841,58 @@ One probe found this immediately; staring at the picture found nothing in
 several attempts. (2) A hard constraint applied every tick inside a physics or
 layout relaxation will convert pressure into drift along whatever axis you left
 free. Constrain with a force, and cap the axis you left free.
+
+---
+
+## "the picture render wrong, and when zoom picture also bug" — `srcset` is resolved ONCE, and an SVG transform is not a resize
+
+**Symptom**: as reported, two things at once on the new ผังองค์กร view. The
+portraits in the chart cards looked wrong at rest, and got visibly worse the
+moment you zoomed in.
+
+**Cause**: two independent causes wearing one report.
+
+1. **The portrait was sized like an avatar, but the source photos are waist-up
+   studio shots.** The card drew a 26px face. At 26px a head is about eight
+   pixels: what you actually see is a torso and a shirt. The control was the
+   OTHER views — รายการ renders the identical photo into a 136px box, where it
+   reads as a person. 26px was never a resolution problem, it was a *crop*
+   problem, and no amount of extra pixels would have fixed it.
+
+2. **`srcset` is resolved once, from the element's CSS LAYOUT size — and zooming
+   an SVG never changes that.** The chart lives on a `d3-zoom` canvas, so a card
+   can be magnified several times over, but the transform only scales the
+   painted result; layout is untouched, so the browser never re-runs candidate
+   selection. Measured live: six zoom-in steps grew the portrait's box from
+   26×35 to **125×167** while `naturalWidth` stayed **34** and `currentSrc`
+   never changed — a bitmap stretched **3.7×** past its pixel data.
+
+**Fix**: the portrait went to 44px so a face is legible, and the `srcset` hint
+was made to buy the zoom headroom up front —
+
+```
+sizes = <portrait CSS width> × <max zoom>   =   44 × 3   =   132px
+```
+
+with candidates at 1×/2×/3× of that for DPR 1–3. **Both halves are required**:
+the second only terminates because `scaleExtent` now caps zoom at 3. With the
+library's default `[0.001, 20]` there is no source size that is ever enough.
+A first attempt used `box × 2` and still measured 0.67× headroom at full zoom on
+a retina screen.
+
+**Where it lives now**: `GRAPH_SHAPE` in `src/js/org-face.js`, `ROW_H` and the
+`.scaleExtent([0.3, 3])` call in `src/js/org-graph.js`, `.orgg-person` in
+`src/css/org-graph.css`. `org-graph-metrics.test.js` asserts
+`sizes >= faceWidth × maxZoom`, that candidates cover DPR 1–3, and that the zoom
+cap exists at all — so raising the zoom without raising the request fails.
+
+**Rules**: (1) **A responsive-image hint describes LAYOUT size, so it is blind to
+any transform.** On a zoom/pan canvas, `sizes` must be the size at MAXIMUM zoom,
+not the resting size — and that is only a finite number if the zoom is capped.
+Uncapped zoom and responsive images are incompatible by construction. (2) When a
+report says "wrong" AND "worse when I do X", suspect two causes, not one
+cause with two symptoms — here the size was a design error and the blur was a
+platform behaviour, and fixing either alone still looked broken. (3) **Reuse of
+a shared element does not carry its sizing rationale.** `.org-face` was built
+for a 130px card; dropping it into a 26px slot inherited the markup and threw
+away the only reason the crop worked.

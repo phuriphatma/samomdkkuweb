@@ -61,17 +61,33 @@ let host = null;
 
 const NODE_W = 250;
 const PAD = 11;          // card padding, top and bottom
-const ROW_H = 38;        // one person row
 const META_H = 17;       // the "n ตำแหน่ง · n คน" line
 const MORE_H = 17;       // the "+N คน" line
 const TITLE_LH = 17;     // one line of ตำแหน่ง name
 const MAX_TITLE_LINES = 3;
 
+// ── how big a face has to be here, and why 26px was wrong ───────────────────
+//
+// REPORTED: "the picture render wrong". The first version drew a 26px portrait,
+// avatar-sized. But these are WAIST-UP STUDIO SHOTS, not head-and-shoulders
+// crops: at 26px the head is about eight pixels and the card shows a torso.
+// The control is the other views — รายการ renders the same photo at a 136px box,
+// where it reads as a person.
+//
+// So the row is sized around a portrait that is actually legible. 44px wide at
+// 3:4 is 58.7px tall, and ROW_H carries that plus breathing room. It makes a
+// one-person card ~124px instead of ~90; that is the cost, and it is worth it,
+// because a face nobody can recognise is not worth any pixels at all.
+//
+// ROW_H and .orgg-person's height in org-graph.css are ONE decision in two
+// files — org-graph-metrics.test.js fails if they drift.
+const ROW_H = 62;        // one person row (44px portrait at 3:4 = 58.7, + gap)
+
 // How many faces a card shows before collapsing the rest into "+N คน". 214 of
 // 272 ตำแหน่ง hold one person or none, so this only ever bites the ~20 large
-// สมาชิก buckets — and on those, sixteen stacked faces would make one card
-// taller than the ฝ่าย beside it.
-const PEOPLE_INLINE_MAX = 4;
+// สมาชิก buckets — and with the bigger portrait, four stacked faces would make
+// one card taller than the ฝ่าย beside it.
+const PEOPLE_INLINE_MAX = 3;
 
 /** Text measurement for the card title, so a two-line ตำแหน่ง gets a two-line
  *  box. d3-org-chart needs the height BEFORE it lays out — it cannot ask the
@@ -343,6 +359,18 @@ export async function mountOrgGraph(hostEl, ctx) {
       .nodeButtonY(() => -13)
       .compact(true)
       .layout('top')
+      // A CEILING ON ZOOM, and it is half of the portrait fix.
+      //
+      // The library defaults to [0.001, 20]. Twenty times is not a feature on a
+      // 250px card — and because `srcset` is resolved once from the LAYOUT size
+      // and never re-evaluated under an SVG transform (see GRAPH_SHAPE in
+      // org-face.js), unbounded zoom means no source image is ever big enough.
+      // Capping the zoom is what makes "request a bigger portrait up front" a
+      // complete answer rather than a bet on how far someone drags.
+      //
+      // The floor sits below MIN_SCALE (0.52) so frameChart's own transform is
+      // never clamped by it.
+      .scaleExtent([0.3, 3])
       .defaultFont("'Noto Sans Thai', system-ui, sans-serif")
       // initialExpandLevel is consumed once and then reset to 1 by the library,
       // so it is NOT the depth control — `_expanded` on the data rows is. Set to

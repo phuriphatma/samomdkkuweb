@@ -111,6 +111,76 @@ describe('ผังองค์กร card metrics: org-graph.js and org-graph.c
   });
 });
 
+describe('ผังองค์กร portraits: the srcset must cover the MAX ZOOM, not the box', () => {
+  // REPORTED: "the picture render wrong, and when zoom picture also bug".
+  //
+  // Two causes, and this block guards the second. `srcset` is resolved ONCE from
+  // the element's CSS layout size, and an SVG transform never changes that — so
+  // a card magnified 3× paints a bitmap chosen for 1×. Measured before the fix:
+  // the box went 26×35 → 125×167 while `naturalWidth` stayed 34.
+  //
+  // The fix is arithmetic — `sizes` = portrait width × max zoom — spread across
+  // TWO files plus a stylesheet. That is three ways to drift, and every one of
+  // them fails silently as "the photos look a bit soft". Hence this guard.
+  const face = readFileSync(new URL('./org-face.js', import.meta.url), 'utf8');
+
+  const graphShape = (() => {
+    const block = stripComments(face).match(/export const GRAPH_SHAPE = \{([\s\S]*?)\};/);
+    expect(block, 'org-face.js must export GRAPH_SHAPE').toBeTruthy();
+    return block[1];
+  })();
+
+  const facePx = () => px(cssProp('.orgg-person .org-face', 'width'));
+  const maxZoom = () => {
+    const m = js.match(/\.scaleExtent\(\[\s*[0-9.]+\s*,\s*([0-9.]+)\s*\]\)/);
+    expect(m, 'org-graph.js must cap zoom with .scaleExtent([min, max])').toBeTruthy();
+    return Number(m[1]);
+  };
+  const sizesPx = () => {
+    const m = graphShape.match(/sizes:\s*'(\d+(?:\.\d+)?)px'/);
+    expect(m, 'GRAPH_SHAPE.sizes must be a plain px value').toBeTruthy();
+    return Number(m[1]);
+  };
+  const widths = () => {
+    const m = graphShape.match(/widths:\s*\[([^\]]+)\]/);
+    expect(m, 'GRAPH_SHAPE must declare widths').toBeTruthy();
+    return m[1].split(',').map((s) => Number(s.trim()));
+  };
+
+  it('zoom is capped — without a ceiling no source size is ever enough', () => {
+    expect(maxZoom()).toBeGreaterThan(1);
+    // The library default is 20. That is not a usable cap for this: a 44px
+    // portrait at 20× would need a 880px source per face.
+    expect(maxZoom()).toBeLessThanOrEqual(4);
+  });
+
+  it('sizes covers the portrait at FULL zoom', () => {
+    expect(sizesPx()).toBeGreaterThanOrEqual(facePx() * maxZoom());
+  });
+
+  it('candidates cover DPR 1, 2 and 3 at that size', () => {
+    const w = widths();
+    const need = sizesPx();
+    for (const dpr of [1, 2, 3]) {
+      expect(
+        w.some((c) => c >= need * dpr),
+        `no srcset candidate covers DPR ${dpr} (needs >= ${need * dpr}px, have ${w.join('/')})`,
+      ).toBe(true);
+    }
+  });
+
+  it('the zoom floor sits below frameChart MIN_SCALE, or its transform is clamped', () => {
+    const m = js.match(/\.scaleExtent\(\[\s*([0-9.]+)/);
+    expect(Number(m[1])).toBeLessThanOrEqual(jsConst('MIN_SCALE'));
+  });
+
+  it('the portrait is big enough to be a face, not a torso', () => {
+    // These are waist-up studio shots. At 26px the head was ~8px — the bug as
+    // reported. รายการ renders the same photo at a 136px box.
+    expect(facePx()).toBeGreaterThanOrEqual(40);
+  });
+});
+
 describe('ผังองค์กร: the framing contract with d3-org-chart', () => {
   it('frameChart zeroes centerG as well as setting the zoom transform', () => {
     // FOUND BY DRIVING THE REAL PAGE: setting only the zoom transform left every

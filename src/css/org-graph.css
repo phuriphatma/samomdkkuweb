@@ -209,21 +209,26 @@
 .orgg-person {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 38px;
+  gap: 10px;
+  height: 62px;
   min-width: 0;
 }
 
-/* The face is the shared .org-face element (3:4, initials under the photo), just
-   small. Fixed px, not a percentage: this card is laid out in SVG user units at
-   a known width, so there is nothing fluid to be a percentage of. */
+/* The face is the shared .org-face element (3:4, initials under the photo).
+   Fixed px, not a percentage: this card is laid out in SVG user units at a known
+   width, so there is nothing fluid to be a percentage of.
+
+   44px, NOT the 26px this shipped with. The portraits are waist-up studio shots
+   — at 26px the head was ~8px and the card showed a torso. See ROW_H in
+   org-graph.js for the measurement, and note the two heights must agree:
+   org-graph-metrics.test.js fails if they drift. */
 .orgg-person .org-face {
-  width: 26px;
-  flex: 0 0 26px;
-  border-radius: 4px;
+  width: 44px;
+  flex: 0 0 44px;
+  border-radius: 5px;
 }
 .orgg-person .org-face-initials {
-  font-size: 0.62rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 

@@ -45,15 +45,42 @@ export const TREE_SHAPE = {
   base: 260,
 };
 
-/** ผังรวม — the d3 chart's node cards. A fixed 34px thumbnail beside the name,
- *  never fluid, because the card is laid out in SVG user units at a known width.
- *  A fixed `sizes` is correct here for the same reason. */
+/**
+ * ผังองค์กร — the d3 chart's node cards. Fixed px, never fluid, because the card
+ * is laid out in SVG user units at a known width.
+ *
+ * `sizes` IS DELIBERATELY LARGER THAN THE BOX (88px hint for a 44px portrait),
+ * and that is a fix, not a typo.
+ *
+ * REPORTED: "when zoom picture also bug". The chart lives on a zoom/pan canvas,
+ * so a card can be magnified several times over. But `srcset` is resolved ONCE,
+ * from the element's CSS LAYOUT size — and an SVG transform never changes that,
+ * it only scales the painted result. Measured on the live page: six zoom-in
+ * steps grew the portrait's box from 26×35 to 125×167 while `naturalWidth`
+ * stayed 34 and `currentSrc` never changed — the bitmap was stretched 3.7× past
+ * its pixel data. The browser will not re-pick a candidate for you here.
+ *
+ * So the hint has to buy the zoom headroom up front, and the arithmetic is
+ * exactly:
+ *
+ *     sizes = <portrait CSS width> × <max zoom>  =  44 × 3  =  132px
+ *
+ * with candidates at 1×/2×/3× that for DPR 1, 2 and 3. The zoom ceiling in
+ * org-graph.js (`scaleExtent`) is the other half of this: with unbounded zoom no
+ * source size is ever enough, so neither number means anything alone. A first
+ * attempt used 88px (box × 2) and measured 0.67× at full zoom on a retina
+ * screen — still soft, which is why the multiplier has to be the ACTUAL cap.
+ *
+ * `org-graph-metrics.test.js` asserts this relationship against the CSS width
+ * and the real `scaleExtent`, so changing the zoom cap without changing this
+ * fails rather than quietly going blurry again.
+ */
 export const GRAPH_SHAPE = {
   cls: 'org-face',
   ratio: PORTRAIT_RATIO,
-  widths: [34, 68, 102],
-  sizes: '34px',
-  base: 68,
+  widths: [132, 264, 396],
+  sizes: '132px',
+  base: 264,
 };
 
 /**
