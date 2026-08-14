@@ -153,9 +153,10 @@ function cardHtml(d, q) {
  * projection rather than a transform — the shape matching is most of why this
  * library was chosen over the alternatives.
  */
-function flatten(rootNode, ctx) {
+function flatten(rootNode, ctx, opts = {}) {
   const { byParent, byNode, subStats, tintFor, filter } = ctx;
-  const out = [];
+  const { into = [], parentId: startParent = null, depthOffset = 0 } = opts;
+  const out = into;
   const tint = tintFor(rootNode.name);
 
   const walk = (node, parentId, depth) => {
@@ -193,14 +194,77 @@ function flatten(rootNode, ctx) {
     (byParent.get(node.id) || []).forEach((c) => walk(c, node.id, depth + 1));
   };
 
-  walk(rootNode, null, 0);
+  walk(rootNode, startParent, depthOffset);
   return out;
 }
 
-/** Level 2 by default — see the header. A search overrides it: a result you
- *  have to expand to reach is the same as no result. */
+/**
+ * ผังรวม — ONE chart over the whole organisation.
+ *
+ * The synthetic root is the same one รายการ uses, and for the same reason:
+ * without it the twelve ฝ่าย are twelve ROOTS, and `d3.stratify()` throws on
+ * multiple roots rather than drawing twelve unconnected columns. It is synthetic
+ * on purpose — there is no such row in `team_nodes`, and adding one would put a
+ * fake ตำแหน่ง into the admin tree, the archive, the export and the seat
+ * resolver to serve a drawing.
+ *
+ * This view is WIDE by construction, and that is the trade the owner asked for:
+ * one picture of the whole organisation instead of twelve. The depth control is
+ * what makes it usable — at ระดับ ฝ่าย it is a dozen boxes and reads at a
+ * glance; deeper, it becomes something you pan around. Both are legitimate uses
+ * of a canvas, which is exactly why this is a separate view from ผังองค์กร
+ * rather than a replacement for it.
+ */
+function flattenCombined(ctx) {
+  const { roots, chart, filter } = ctx;
+  const data = [];
+  const kids = [];
+  for (const r of roots) flattenCombined.pushRoot(data, kids, r, ctx);
+  if (!kids.length) return [];
+
+  const n = (chart?.nodes || []).length;
+  const p = (chart?.members || []).length;
+  const root = {
+    id: ORG_ROOT_ID,
+    parentId: null,
+    name: 'สโมสรนักศึกษาคณะแพทยศาสตร์',
+    people: [],
+    meta: filter ? '' : `${n} ตำแหน่ง · ${p} คน`,
+    tint: null,
+    depth: 0,
+    kids: kids.length,
+  };
+  root._h = cardHeight(root);
+  return [root, ...data];
+}
+flattenCombined.pushRoot = (data, kids, r, ctx) => {
+  const before = data.length;
+  flatten(r, ctx, { into: data, parentId: ORG_ROOT_ID, depthOffset: 1 });
+  if (data.length > before) kids.push(r);
+};
+
+const ORG_ROOT_ID = '__samo_org_root__';
+
+/**
+ * Show every node down to and INCLUDING `level`.
+ *
+ * `<=`, not `<`, and the difference is a level of the org chart. The library's
+ * `_expanded` flag means "this node should be VISIBLE" — `expandSomeNodes()`
+ * walks up and opens its ancestors — it does NOT mean "open my children". So
+ * marking `depth < level` renders depths `0 .. level-1`, one shallower than the
+ * control claims.
+ *
+ * Measured on the live tree before the fix: the ผังองค์กร default of 2 rendered
+ * 65 cards = the 12 ฝ่าย plus their 53 sub-ฝ่าย, and stopped there — the
+ * หัวหน้าฝ่าย the button is NAMED for were still one click away, which was the
+ * whole point of the default ("from นายกสโม to heads of it depth"). A rung
+ * labelled หัวหน้าฝ่าย that does not reach a หัวหน้าฝ่าย is the bug.
+ *
+ * A search overrides the level entirely: a result you have to expand to reach is
+ * the same as no result.
+ */
 function applyDepth(data, level) {
-  data.forEach((d) => { d._expanded = d.depth < level; });
+  data.forEach((d) => { d._expanded = d.depth <= level; });
 }
 
 export const DEFAULT_DEPTH = 2;
@@ -325,8 +389,14 @@ export async function mountOrgGraph(hostEl, ctx) {
   const q = ctx.filter?.q || '';
   let drawn = 0;
 
-  for (const root of ctx.roots) {
-    const data = flatten(root, ctx);
+  // ผังรวม is ONE chart over everything; ผังองค์กร is one per root ฝ่าย. Same
+  // renderer, same card, same controls — only how the data is grouped differs,
+  // so there is no second implementation to keep in step.
+  const datasets = ctx.combined
+    ? [flattenCombined(ctx)].filter((d) => d.length)
+    : ctx.roots.map((r) => flatten(r, ctx)).filter((d) => d.length);
+
+  for (const data of datasets) {
     // A ฝ่าย the search filtered down to nothing is noise — drop the section
     // rather than render a chart with a lone empty root.
     if (!data.length) continue;

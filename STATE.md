@@ -22,24 +22,21 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2c6736a` (2026-08-12)**, verified from the SERVED artifact:
-  the Google label + `bi-eye-slash` in the served HTML, the no-pink-header rule
-  in the served CSS, `prefillUid` in the served `analytics-*.js`.
+- ✅ **DEPLOYED = `b140578` (2026-08-14)**, verified from the SERVED artifact:
+  `ผังองค์กร` + `data-org-depth` in the served JS, `.orgg-person .org-face`
+  at 44px in the served CSS, `scaleExtent([.3,3])` and `sizes:"132px"` in the
+  served bundle, and both lazy d3 chunks HTTP 200 with the engine in them.
   Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat 2c6736a..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat b140578..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0150.** **727 tests green.**
-- ⚠️ **UNDEPLOYED (2026-08-14): the ผังองค์กร view.** `src/js/org-graph.js`,
-  `src/js/org-face.js`, `src/css/org-graph.css`, plus the third view button in
-  `org-chart.js`. New deps `d3-org-chart` + `d3-zoom` — both lazy chunks, entry
-  bundle unchanged (53.88 KB gz vs 53.38 before). Built, 727 tests green, and
-  driven in headless Chrome (12 sections, depth/zoom/search/teardown all
-  exercised, no console errors). **Not yet on the VM.**
+  **Migrations applied through 0150.** **734 tests green.**
+- ⚠️ **UNDEPLOYED: ผังรวม (the 4th view) + the applyDepth `<=` fix.** Built,
+  734 tests green, measured in headless Chrome. **Not yet on the VM.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -120,7 +117,7 @@ because two copies of one rule is the class this repo pays for most.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through 0150 applied; 727 tests green; `npm run proofs` 15/15.
+> through 0150 applied; 734 tests green; `npm run proofs` 15/15.
 >
 > ### The decisions already made — do not re-litigate
 >
@@ -206,13 +203,22 @@ because two copies of one rule is the class this repo pays for most.
 > overflow unreachable). The คณะกรรมการ grid is GONE on purpose: **rank is
 > position in the chart, not card size.**
 >
-> **ผังองค์กร (2026-08-14) is the one view with a SEPARATE renderer** —
+> **ผังองค์กร + ผังรวม (2026-08-14) share the one SEPARATE renderer** —
 > `src/js/org-graph.js`, d3-org-chart (MIT) on a zoom/pan SVG canvas; the face
 > element both renderers draw lives in `src/js/org-face.js` so it cannot drift.
 > Four things will bite you, all written up in that file's header:
 >
-> - **ONE CHART PER ฝ่าย is arithmetic, not taste** — a single whole-org chart
->   measures 20,770 px at the default depth even WITH compact packing.
+> - **The two d3 views differ ONLY in how the data is grouped** — ผังองค์กร is
+>   one chart per root ฝ่าย, ผังรวม is one chart under a synthetic องค์กร root
+>   (`ORG_ROOT_ID`; `d3.stratify()` throws on multiple roots). Same card, same
+>   controls, one renderer. ผังรวม's depth rungs are shifted one level and its
+>   depth is tracked separately — MEASURED widths: 540 px at ฝ่ายหลัก, 6,443 px
+>   at ฝ่ายย่อย, 24,226 px at หัวหน้าฝ่าย, 39,112 px at ทั้งหมด. Only the first
+>   fits without panning, which is why it is the default there.
+> - **`applyDepth` must be `<=`, never `<`** — the library's `_expanded` means
+>   "I am visible", not "open my children", so `<` renders one level shallower
+>   than the rung is labelled. That shipped once: the หัวหน้าฝ่าย default never
+>   reached a หัวหน้าฝ่าย.
 > - **`initialExpandLevel` is NOT the depth control** — the library consumes it
 >   once and resets it to 1. Depth is `_expanded` on the data rows.
 > - **`frameChart()` replaces `fit()` and inherits its obligations**, including

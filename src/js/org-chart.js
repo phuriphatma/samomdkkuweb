@@ -48,7 +48,7 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
-// THREE surfaces over one dataset:
+// FOUR surfaces over one dataset:
 //   • รายการ  — the indented outline
 //   • แผนผัง  — the CSS chart. Same markup as รายการ, only the CSS differs, so
 //               it is a class on a wrapper rather than a second renderer.
@@ -56,19 +56,40 @@ let expanded = new Set();
 //               d3-org-chart. This one IS a separate renderer (org-graph.js),
 //               because SVG layout is not something CSS can be talked into.
 //               It shares the face element via org-face.js so the one thing the
-//               two renderers both draw cannot drift.
+//               two renderers both draw cannot drift. ONE CHART PER ฝ่าย.
+//   • ผังรวม   — the SAME renderer and the same card, but ONE chart over the
+//               whole organisation, hung off a synthetic องค์กร root. Wide by
+//               construction; the depth control is what makes it navigable.
+//
 // Kept in localStorage because a reader who prefers one has that preference on
 // every visit, and the choice costs nothing to honour.
-const VIEWS = ['list', 'chart', 'graph'];
+const VIEWS = ['list', 'chart', 'graph', 'all'];
+const GRAPH_VIEWS = ['graph', 'all'];
 let view = 'list';
 try {
   const saved = localStorage.getItem('samo.org.view');
   if (VIEWS.includes(saved)) view = saved;
 } catch { /* private mode */ }
 
-// ผังองค์กร's expand depth. Level 2 within a ฝ่าย chart is "down to the heads" —
-// see the header of org-graph.js for why that is the default.
-let graphDepth = DEFAULT_DEPTH;
+// The d3 views' expand depth. Level 2 within a ฝ่าย chart is "down to the
+// heads" — see the header of org-graph.js for why that is the default.
+//
+// Kept PER VIEW, because the same number means different things in each: ผังรวม
+// has the synthetic องค์กร box at level 0, so every level below it is shifted
+// down by one relative to ผังองค์กร. One shared variable would make switching
+// views silently jump a level.
+// ผังรวม opens one level SHALLOWER than ผังองค์กร, and it is the same picture:
+// its synthetic องค์กร box sits above the ฝ่าย, so level 1 there == level 0
+// here. Measured, it is also the only rung of ผังรวม that fits without panning
+// (540px at scale 1.0; level 2 is 6,443px).
+const graphDepth = { graph: DEFAULT_DEPTH, all: 1 };
+
+/** The depth control's rungs, per view. The labels differ because the levels
+ *  differ: ผังรวม starts a level higher, at the organisation itself. */
+const DEPTH_RUNGS = {
+  graph: [[1, 'ฝ่าย'], [2, 'หัวหน้าฝ่าย'], [3, 'ทีมย่อย'], [99, 'ทั้งหมด']],
+  all: [[1, 'ฝ่ายหลัก'], [2, 'ฝ่ายย่อย'], [3, 'หัวหน้าฝ่าย'], [99, 'ทั้งหมด']],
+};
 
 // A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
 // a disclosure — 106 of them hold exactly one person, and making those a click
@@ -445,7 +466,7 @@ function render() {
   // its own depth control, because "expanded" there is a d3 layout state rather
   // than a `hidden` attribute. Hide it rather than leave a button that silently
   // does nothing in one of three views.
-  renderExpandAll(!!filter || view === 'graph');
+  renderExpandAll(!!filter || GRAPH_VIEWS.includes(view));
 
   const shownMembers = filter
     ? filter.keepMembers.size
@@ -486,9 +507,13 @@ function render() {
           data-org-view="graph" aria-pressed="${view === 'graph'}">
           <i class="bi bi-diagram-2" aria-hidden="true"></i> ผังองค์กร
         </button>
+        <button type="button" class="org-view-btn${view === 'all' ? ' is-on' : ''}"
+          data-org-view="all" aria-pressed="${view === 'all'}">
+          <i class="bi bi-bounding-box" aria-hidden="true"></i> ผังรวม
+        </button>
       </div>
     </div>
-    ${view === 'graph' ? graphShellHtml(filter) : ''}
+    ${GRAPH_VIEWS.includes(view) ? graphShellHtml(filter) : ''}
     ${view === 'chart'
     ? roots.map((n) => {
       const one = nodeBlock(n, 0, filter);
@@ -504,31 +529,31 @@ function render() {
        </div>`
       : ''}`;
 
-  if (view === 'graph') paintGraph(roots, filter);
+  if (GRAPH_VIEWS.includes(view)) paintGraph(roots, filter);
 }
 
 /** ผังองค์กร's own toolbar + the host the charts mount into. The depth control
  *  is separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
  *  whole point of the view is choosing how far down to look. */
 function graphShellHtml(filter) {
+  const cur = graphDepth[view];
   const lvl = (n, label) => `<button type="button" class="orgg-depth-btn${
-    graphDepth === n ? ' is-on' : ''}" data-org-depth="${n}" aria-pressed="${graphDepth === n}">${label}</button>`;
+    cur === n ? ' is-on' : ''}" data-org-depth="${n}" aria-pressed="${cur === n}">${label}</button>`;
   return `
     <div class="orgg-toolbar">
       ${filter ? '' : `
       <div class="orgg-depth" role="group" aria-label="ระดับที่แสดง">
         <span class="orgg-depth-label">แสดงถึง</span>
-        ${lvl(1, 'ฝ่าย')}
-        ${lvl(2, 'หัวหน้าฝ่าย')}
-        ${lvl(3, 'ทีมย่อย')}
-        ${lvl(99, 'ทั้งหมด')}
+        ${(DEPTH_RUNGS[view] || DEPTH_RUNGS.graph).map(([n, label]) => lvl(n, label)).join('')}
       </div>`}
       <div class="orgg-zoom" role="group" aria-label="ย่อ-ขยายมุมมอง">
         <button type="button" class="orgg-zoom-btn" data-org-zoom="out" aria-label="ซูมออก"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
         <button type="button" class="orgg-zoom-btn" data-org-zoom="in" aria-label="ซูมเข้า"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
         <button type="button" class="orgg-zoom-btn" data-org-zoom="fit" aria-label="พอดีหน้าจอ"><i class="bi bi-aspect-ratio" aria-hidden="true"></i></button>
       </div>
-      <p class="orgg-hint">ลากเพื่อเลื่อน · กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน</p>
+      <p class="orgg-hint">${view === 'all'
+    ? 'ผังเดียวทั้งองค์กร — ลากเพื่อเลื่อน กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน'
+    : 'ลากเพื่อเลื่อน · กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน'}</p>
     </div>
     <div class="orgg-host" id="orgGraphHost"></div>`;
 }
@@ -547,7 +572,15 @@ async function paintGraph(roots, filter) {
   hostEl.innerHTML = '<p class="org-status">กำลังวาดผังองค์กร…</p>';
   try {
     const ctx = {
-      roots, byParent, byNode, subStats, tintFor, filter, depth: graphDepth,
+      roots,
+      byParent,
+      byNode,
+      subStats,
+      tintFor,
+      filter,
+      depth: graphDepth[view],
+      combined: view === 'all',
+      chart,
     };
     if (mine !== graphToken) return;
     hostEl.innerHTML = '';
@@ -702,8 +735,8 @@ export function initOrgChart() {
     const db = e.target.closest('[data-org-depth]');
     if (db) {
       const next = Number(db.dataset.orgDepth);
-      if (!Number.isFinite(next) || next === graphDepth) return;
-      graphDepth = next;
+      if (!Number.isFinite(next) || next === graphDepth[view]) return;
+      graphDepth[view] = next;
       setGraphDepth(next);
       $('orgBody')?.querySelectorAll('[data-org-depth]').forEach((b) => {
         const on = Number(b.dataset.orgDepth) === next;

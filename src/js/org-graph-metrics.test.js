@@ -181,6 +181,30 @@ describe('ผังองค์กร portraits: the srcset must cover the MAX Z
   });
 });
 
+describe('ผังองค์กร / ผังรวม: the depth control must reach the level it names', () => {
+  it('applyDepth is INCLUSIVE of `level` — `<` renders one level too shallow', () => {
+    // The library's `_expanded` means "this node should be VISIBLE"
+    // (expandSomeNodes walks UP and opens ancestors); it does NOT mean "open my
+    // children". So `d.depth < level` renders depths 0..level-1, and the rung
+    // labelled หัวหน้าฝ่าย stopped at the sub-ฝ่าย above them — measured as 65
+    // cards with zero ตำแหน่ง named หัวหน้าฝ่าย on screen.
+    const fn = js.slice(js.indexOf('function applyDepth'));
+    const body = fn.slice(0, fn.indexOf('\n}'));
+    expect(body).toMatch(/_expanded\s*=\s*d\.depth\s*<=\s*level/);
+    expect(body).not.toMatch(/_expanded\s*=\s*d\.depth\s*<\s*level/);
+  });
+
+  it('ผังรวม hangs everything off ONE synthetic root', () => {
+    // d3.stratify() throws on multiple roots, so the twelve ฝ่าย cannot simply
+    // be handed over as-is — and the root is synthetic because adding a real row
+    // would put a fake ตำแหน่ง into the admin tree, the archive and the export.
+    expect(js).toMatch(/const ORG_ROOT_ID\s*=/);
+    expect(js).toMatch(/parentId:\s*ORG_ROOT_ID/);
+    const root = js.slice(js.indexOf('function flattenCombined'));
+    expect(root.slice(0, root.indexOf('\n}'))).toMatch(/parentId:\s*null/);
+  });
+});
+
 describe('ผังองค์กร: the framing contract with d3-org-chart', () => {
   it('frameChart zeroes centerG as well as setting the zoom transform', () => {
     // FOUND BY DRIVING THE REAL PAGE: setting only the zoom transform left every
