@@ -1,4 +1,6 @@
-/* org-graph.css — ผังองค์กร, the d3-org-chart surface on the เกี่ยวกับเรา page.
+/* org-graph.css — ผังองค์กร AND ผังรวม, the two d3-org-chart surfaces on the
+ * เกี่ยวกับเรา page. Both use this same card and chrome; they differ only in how
+ * org-graph.js groups the data.
  *
  * The library draws the SVG, the connectors and the transforms; everything
  * visible inside a box is ours, rendered into a foreignObject. So this file

@@ -1,9 +1,9 @@
 // org-chart.js — the public ทีม SAMO page.
 //
-// Two surfaces over one dataset:
-//   • โครงสร้างทั้งหมด — every ตำแหน่ง and person, searchable, in two
-//     interchangeable layouts: รายการ (indented tree) and แผนผัง (a horizontal
-//     org chart). One renderer, one markup; only the CSS differs.
+// FOUR surfaces over one dataset — every ตำแหน่ง and person, searchable:
+//   • รายการ / แผนผัง — one renderer, one markup; only the CSS differs.
+//   • ผังองค์กร / ผังรวม — d3-org-chart on a zoom/pan canvas (org-graph.js).
+// The full note on which is which, and why, is at the `VIEWS` constant below.
 //
 // Data comes from ONE rpc: public.get_public_team_chart(year). That function is
 // the only sanctioned publisher of team data (0086 → 0103 → 0104) — a SECURITY

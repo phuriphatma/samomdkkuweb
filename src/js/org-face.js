@@ -1,7 +1,8 @@
 // org-face.js — the ONE way a person's face is drawn on the ทีม SAMO page.
 //
 // Extracted because there are now THREE surfaces over the same dataset
-// (รายการ, แผนผัง, ผังรวม) and the first two shared this code only by sitting in
+// (รายการ, แผนผัง, and the two d3 charts) and the first two shared this code
+// only by sitting in
 // the same file. `.claude/rules/mistakes.md` class 6 is "two implementations of
 // one rule drift"; a second copy of the srcset/initials logic in org-graph.js
 // would have been exactly that, and the drift would have been silent — a wrong
@@ -28,10 +29,10 @@ export function initials(name) {
 
 // The shapes a face appears in, and the exact widths lh3 is asked for.
 //
-// This split is the whole point of the srcset: a tree avatar renders at up to
-// 130 CSS px and a ผังรวม avatar at 34, so handing the small one the big file
-// would waste ~35 KB × 400 people. Widths cover 1x through 3x; the browser
-// downloads exactly one per image using the `sizes` hint.
+// This split is the whole point of the srcset: a รายการ portrait renders at up
+// to 130 CSS px and a chart-card portrait at 44, so handing the small one the
+// big file would waste bytes across 400 people. Widths cover 1x through 3x; the
+// browser downloads exactly one per image using the `sizes` hint.
 
 /** รายการ / แผนผัง — same portrait card as the board grid, smaller. The tree
  *  uses ONE visual language with the grid — portrait over name over ตำแหน่ง —

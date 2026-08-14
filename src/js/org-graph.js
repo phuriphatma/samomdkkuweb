@@ -1,10 +1,13 @@
-// org-graph.js — ผังองค์กร, the third surface over the ทีม SAMO dataset.
+// org-graph.js — ผังองค์กร AND ผังรวม, the two d3 surfaces over the ทีม SAMO
+// dataset. รายการ is an indented outline and แผนผัง a CSS chart; these two are
+// real top-down org charts drawn by d3-org-chart (MIT) on a pannable, zoomable
+// canvas with per-ตำแหน่ง collapse.
 //
-// รายการ is an indented outline, แผนผัง is a CSS chart, and this is a real
-// top-down org chart drawn by d3-org-chart (MIT) on a pannable, zoomable canvas
-// with per-ตำแหน่ง collapse.
+// They share EVERYTHING except how the data is grouped: ผังองค์กร renders one
+// chart per root ฝ่าย, ผังรวม one chart under a synthetic องค์กร root
+// (`flattenCombined`). `ctx.combined` is the whole difference.
 //
-// ── WHY ONE CHART PER ฝ่าย, NOT ONE CHART ──────────────────────────────────
+// ── WHY ผังองค์กร IS ONE CHART PER ฝ่าย ─────────────────────────────────────
 //
 // Measured on the live 272-node tree, laid out as a SINGLE chart:
 //
@@ -38,9 +41,15 @@
 // so level 2 IS "down to the heads", exactly. สำนักนายกฯ resolves the same way:
 // level 1 is นายกฯ / อุปนายกฯ, level 2 is the ten อุปนายกฝ่าย.
 //
+// ผังรวม accepts that width deliberately: it is ONE picture of the whole
+// organisation, its default rung is the only one that fits (540 px, measured),
+// and everything below that is pan/zoom. See docs/state-archive/2026-08-15.
+//
 // The library is loaded with a dynamic import so none of it — nor its d3
 // subset, 33 KB gzipped together — is in the entry bundle. A reader who never
-// opens ผังองค์กร never downloads it.
+// opens one of these two views never downloads it. d3-org-chart is PINNED to an
+// exact version: npm is stale at 3.1.1 (Sept 2023) while the repo is active, so
+// a float could silently jump three years of unreleased changes.
 import { escHtml } from './utils.js';
 import { faceHtml, GRAPH_SHAPE } from './org-face.js';
 

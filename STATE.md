@@ -51,8 +51,19 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 ## Live proofs — `npm run proofs`
 
-**All 15 green as of 2026-08-12.** One command runs every live proof and prints
-one verdict each; `npm run proofs <substring>` runs a subset.
+**All 15 green as of 2026-08-15 — RE-RUN, not inherited.** One command runs
+every live proof and prints one verdict each; `npm run proofs <substring>` runs a
+subset.
+
+⚠️ **They were 14/15 when this session checked, and STATE.md had been claiming
+15/15 for three days.** `house0144-delete-impact.sql` was ERRORING (42501): its
+subject picker matched only `has_permission('house')`, and zero accounts held it
+in either permission column while twelve held the `vp_admin`/`dev` role the
+function ALSO accepts — so it selected nobody and the RPC correctly refused.
+Fixed by making the picker mirror the gate. **A proof's subject selector is part
+of the gate; re-derive it from the function's own `if`.**
+`docs/mistakes/tooling-proofs.md`. **Do not carry this claim forward without
+re-running — it went stale silently, and an errored proof is silence.**
 
 **Do not check them with an ad-hoc parser.** They emit four different output
 shapes, and doing it by hand produced two false alarms in a row (a fully green
@@ -127,6 +138,11 @@ because two copies of one rule is the class this repo pays for most.
 >   four-step plan.** One thing to carry: they asked whether the display
 >   structure and the permission structure should be SEPARATE. They should not —
 >   the admin already has four `mode`s over ONE tree, which is the right pattern.
+>   ⚠️ **The owner has been EDITING the tree since (272 → 296 nodes), and has
+>   already moved `อุปนายกฯ`'s container grant onto the ten อุปนายก leaves by
+>   hand. Re-measure before acting on any count.** One open question for them:
+>   **`house` is now granted by NO node**, so ระบบบ้าน admin is role-only
+>   (12 accounts, zero via permission). Intentional, or lost in the restructure?
 > - **SAMO Shop stays open to BOTH login routes.** The owner asked whether
 >   customers should be Google-only. They should not: the checkout email field is
 >   editable even when Google prefills it, so restricting the login method buys

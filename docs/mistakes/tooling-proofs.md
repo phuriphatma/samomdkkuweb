@@ -191,6 +191,40 @@ assertion about a function fails and another succeeds, suspect the data.
 
 ---
 
+
+### Second instance, 2026-08-15: the subject SELECTOR was narrower than the gate
+
+`house0144-delete-impact.sql` picked whoever could run the RPC with
+
+```sql
+where 'house' = any(managed_permissions) or 'house' = any(permissions)
+```
+
+but `student_delete_impact` (0144) admits **two** channels:
+
+```sql
+current_user_role() in ('vp_admin','dev')  OR  has_permission('house')
+```
+
+On 2026-08-15 the permission half selected **nobody** — zero accounts held
+`house` in either column, while **twelve** held the role — so `admin_uid` was
+empty, `sub` was null, and the RPC correctly raised 42501. The proof did not go
+red with a useful message: it **ERRORED**, which `run-proofs.mjs` reports as
+UNKNOWN, and `STATE.md` had been asserting "15/15 green" for three days.
+
+Nothing was wrong with the function or the policy. The proof had simply lost its
+subject, because a grant channel moved while the picker watched only one of them.
+
+**Fix**: the picker now mirrors the gate — both channels, permission-holders
+ranked first so that half keeps being exercised whenever anyone holds it.
+
+**Rule**: **a proof's SUBJECT SELECTOR is part of the gate it is testing, and has
+to be as wide as the gate.** If the function accepts role OR permission, a picker
+that matches only permission is one org-chart edit away from testing nothing —
+and it fails by ERRORING, which is silence rather than a red line. Re-derive the
+selector from the function's own `if`, never from the channel that happened to be
+populated the day it was written.
+
 ## Four guards were reading a MANGLED file — `'image/*'` opened a "comment" that ate 13,839 characters of main.js
 
 **Symptom**: A new assertion in `signin-screen.test.js` — "these handlers are

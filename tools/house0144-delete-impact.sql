@@ -23,11 +23,31 @@ create temporary table probe (step text, expected text, got text) on commit drop
 -- somebody who could actually delete. Running as the Postgres owner has
 -- auth.uid() = null and no grants, and the function (correctly) raises — which
 -- is asserted as its own case in D2/D3 rather than worked around.
+-- THE SUBJECT MUST MIRROR THE GATE, BOTH CHANNELS.
+--
+-- `student_delete_impact` (0144) admits
+--     current_user_role() in ('vp_admin','dev')  OR  has_permission('house')
+-- but this picker originally matched only the PERMISSION half. On 2026-08-15 it
+-- selected NOBODY — zero accounts held `house` in either permission column,
+-- while twelve held the role — so `sub` was null, the RPC correctly raised
+-- 42501, and the whole proof ERRORED. An errored proof is silence, not a red
+-- line (`docs/mistakes/tooling-proofs.md`), and it had been reporting green from
+-- a subject that has since evaporated.
+--
+-- Permission FIRST so the proof keeps exercising that channel whenever anyone
+-- holds it; the role branch is the fallback that stops it going subjectless.
 create temporary table admin_uid on commit drop as
-select u.id as uid from public.users u
- where 'house' = any(coalesce(u.managed_permissions,'{}'))
-    or 'house' = any(coalesce(u.permissions,'{}'))
- limit 1;
+select uid from (
+  select u.id as uid,
+         case when 'house' = any(coalesce(u.managed_permissions,'{}'))
+                or 'house' = any(coalesce(u.permissions,'{}')) then 0 else 1 end as rank
+    from public.users u
+   where 'house' = any(coalesce(u.managed_permissions,'{}'))
+      or 'house' = any(coalesce(u.permissions,'{}'))
+      or u.role = any (array['vp_admin', 'dev'])
+) q
+order by rank
+limit 1;
 
 create or replace function pg_temp.impact(p_id uuid) returns jsonb as $$
 declare j jsonb;

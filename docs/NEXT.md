@@ -19,15 +19,30 @@ inheritance. That is why grants behave surprisingly — you cannot express "the
 head reports to the ฝ่าย, members report to the head, but the head's personal
 grants are personal", because it is all one edge.
 
-Measured on the live tree (2026-08-14):
+⚠️ **RE-MEASURE BEFORE ACTING — the owner has been editing the tree.** The
+numbers below moved between 2026-08-14 and 08-15 (272 → 296 nodes, 398 → 423
+people), so treat any count here as a method, not a fact.
 
-- **12 of 272 nodes carry any grant** (permission, `vs_dept` or `project_seat`).
-  The permission "tree" is a list of twelve; it is not a hierarchy.
-- **4 of those 12 sit on CONTAINER nodes** (`ฝ่าย IT`, `ฝ่าย Media management`,
-  `📇 ฝ่ายเลขานุการนายกฯ`, `อุปนายกฯ`), where they cascade to everything below.
-- **6 nodes use a nesting convention the other 96 head nodes do not** — all in
-  ฝ่ายดิจิทัล, where members hang *under* the head instead of beside them.
-  Mechanical detector: **`kind='role'` WITH children** (exactly those 6).
+Measured 2026-08-15:
+
+- **18 nodes carry a grant** (permission, `vs_dept` or `project_seat`) — was 12
+  the day before. The permission "tree" is still a short list, not a hierarchy.
+- **6 of those still CASCADE** (they have children), which is the shape the plan
+  is about. Re-run: a grant-bearing node that `exists (select 1 from team_nodes
+  c where c.parent_id = n.id)`.
+- **The owner already did part of step 4 by hand.** `อุปนายกฯ` — a CONTAINER
+  carrying `team_edit, house` over 10 children — is gone; `team_edit` now sits on
+  each of the ten individual อุปนายก LEAF nodes instead. That is exactly the
+  "move the grant from the container to the leaf" move. Credit it, do not redo it.
+- **`house` is now granted by NO node at all.** ระบบบ้าน admin is reachable only
+  through the `vp_admin`/`dev` ROLE — 12 accounts — and through zero permission
+  grants. **Ask the owner whether that is intentional**; it disappeared during
+  the same restructure, and a role-only gate is the exact shape
+  `.claude/rules/mistakes.md` class 5 warns about. It also broke
+  `house0144-delete-impact.sql`, which had been selecting its subject from the
+  permission channel alone.
+- **`kind='role'` WITH children** remains the mechanical detector for the
+  ฝ่ายดิจิทัล nesting convention the other head nodes do not use.
 
 **The proposed rule**, if it is ever picked up: a `kind='role'` node is always a
 leaf, and grants attach only to `kind='role'`. `kind` already exists and is
