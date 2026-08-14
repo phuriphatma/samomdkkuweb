@@ -24,7 +24,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f2a564a` (2026-08-15)** — working tree clean, local ==
+- ✅ **DEPLOYED = `3f908cf` (2026-08-15)** — working tree clean, local ==
   origin == VM. Verified from the SERVED artifact: `position:static` +
   `grid-area:stack` on `.orgg-person .org-face` in the served CSS,
   `orgg-full-open` and `bi-arrows-fullscreen` in the served JS, and re-driven on
@@ -32,7 +32,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   screen). Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat f2a564a..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 3f908cf..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
