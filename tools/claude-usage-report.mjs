@@ -45,10 +45,21 @@
 //   Linux  → ~/.claude/.credentials.json
 //
 // RUN IT ON THE MACHINE THAT HOLDS THE SAMO CLAUDE LOGIN. For SAMO that is the
-// KKU VM, so it keeps reporting when nobody's laptop is open:
-//     ssh samo-vm
-//     claude login                      # once, as the SAMO Claude account
-//     node tools/claude-usage-report.mjs
+// KKU VM, so it keeps reporting when nobody's laptop is open.
+//
+// TWO WAYS TO GIVE IT A CREDENTIAL. Prefer the first:
+//
+//   1. A LONG-LIVED TOKEN (recommended — set once, no rotation to think about)
+//        ssh samo-vm && claude setup-token
+//      Sign in as the SAMO Claude account; it prints a token. Put that in
+//      /etc/samo-claude-usage.env as CLAUDE_OAUTH_TOKEN=… and this script uses
+//      it directly — no refresh, no 12-day window, nothing to re-run. When it
+//      does eventually expire the script says so in Discord.
+//
+//   2. A NORMAL LOGIN (fallback)
+//        ssh samo-vm && claude login
+//      Writes ~/.claude/.credentials.json. The script then owns the refresh
+//      cycle described above. Works, but has more moving parts than (1).
 // then install the timer (every 15 min):
 //     sudo cp server/samo-claude-usage.{service,timer} /etc/systemd/system/
 //     sudo systemctl enable --now samo-claude-usage.timer
@@ -299,6 +310,14 @@ async function main() {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    // 401/403 on a STATIC long-lived token is the one failure that path has,
+    // and nothing here can fix it — a person must issue a new token. So it is
+    // loud, like the refresh failure.
+    if (res.status === 401 || res.status === 403) {
+      await dieLoudly(env, 'สิทธิ์เข้าถึงข้อมูลการใช้งาน Claude หมดอายุ',
+        `usage API HTTP ${res.status}. ออกโทเคนใหม่ด้วย \`claude setup-token\` `
+        + 'บนเซิร์ฟเวอร์ แล้วใส่ค่าใน /etc/samo-claude-usage.env');
+    }
     die(`usage API HTTP ${res.status} — ${body.slice(0, 300)}`);
   }
   const usage = await res.json();
