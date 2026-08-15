@@ -26,7 +26,7 @@ import {
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
 import {
-  RUNG, DEFAULT_RUNG, chartParentage, subtreeMeta,
+  RUNG, DEFAULT_RUNG, chartParentage, sortSiblings, subtreeMeta,
 } from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
@@ -43,6 +43,26 @@ let byNode = new Map();   // node_id -> member[]
 let nodeById = new Map();
 let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
 let collapsibleIds = new Set();
+
+// ── TWO PARENTAGES, and which view gets which ───────────────────────────────
+//
+// รายการ and แผนผัง draw CONTAINMENT: what is inside ฝ่าย IT. They read the
+// tree as stored.
+//
+// ผังองค์กร and ผังรวม draw REPORTING: a ฝ่าย's sub-ฝ่าย hang off its head
+// seat (`chartParentage`). That is what the owner asked the canvas views for.
+//
+// It was applied to ALL FOUR at first, on the theory that one structure cannot
+// drift. It can't — but แผนผัง's whole design is "a ฝ่าย branches sideways
+// once", and re-parenting leaves nearly every ฝ่าย with a single child, so
+// nothing branches. Measured on the live tree: the แผนผัง page went from
+// 25,847 px to 52,163 px, ฝ่ายดิจิทัล's section from 1,627 px to 4,265 px, and
+// max depth from 5 to 9 — a staircase down the middle of an empty page.
+//
+// So the two are not one rule drifting; they are two different drawings of one
+// dataset, and the difference is the point.
+let byParentChart = new Map();
+let subStatsChart = new Map();
 let loading = false;
 let query = '';
 
@@ -112,17 +132,21 @@ function index() {
     byParent.get(k).push(n);
     nodeById.set(n.id, n);
   }
-  // The four public views draw a REPORTING structure, not the storage tree:
-  // a ฝ่าย's seats are its children and its sub-ฝ่าย hang off the head seat.
-  // Done once, here, on the index every view reads — including the search,
-  // which derives its parent map from this same structure below, so a filtered
-  // chart cannot disagree with an unfiltered one about who reports to whom.
-  byParent = chartParentage(byParent, nodeById);
+  // ตำแหน่ง before ฝ่าย, in EVERY view — an ordering, not a restructure.
+  for (const bucket of byParent.values()) sortSiblings(bucket);
+  // The canvas views' reporting structure, built from the stored one.
+  byParentChart = chartParentage(byParent, nodeById);
+
   for (const m of chart.members || []) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
   }
-  indexStats();
+
+  // Twice, because the two parentages give different answers and both are
+  // shown: a head seat's "ใต้สังกัด …" on the canvas has to count the sub-ฝ่าย
+  // hanging off it, while the same seat in รายการ must not claim them.
+  ({ subStats, collapsibleIds } = indexStats(byParent));
+  ({ subStats: subStatsChart } = indexStats(byParentChart));
 }
 
 /** Subtree totals, so a collapsed ฝ่าย still says how much is inside it — a
@@ -130,14 +154,14 @@ function index() {
  *  per year rather than per paint; `seen` guards against a cycle turning a
  *  render into an infinite loop (the projection is a tree, but this is the only
  *  walk whose cost is unbounded if that ever stops being true). */
-function indexStats() {
-  subStats = new Map();
-  collapsibleIds = new Set();
+function indexStats(parents) {
+  const subs = new Map();
+  const collapsible = new Set();
   const seen = new Set();
   const walk = (id) => {
     if (seen.has(id)) return { nodes: 0, people: 0 };
     seen.add(id);
-    const kids = byParent.get(id) || [];
+    const kids = parents.get(id) || [];
     const own = (byNode.get(id) || []).length;
     let people = own;
     let nodes = 0;
@@ -147,11 +171,12 @@ function indexStats() {
       nodes += s.nodes + 1;
     }
     const stat = { nodes, people };
-    subStats.set(id, stat);
-    if (kids.length || own > PEOPLE_INLINE_MAX) collapsibleIds.add(id);
+    subs.set(id, stat);
+    if (kids.length || own > PEOPLE_INLINE_MAX) collapsible.add(id);
     return stat;
   };
-  for (const r of byParent.get('') || []) walk(r.id);
+  for (const r of parents.get('') || []) walk(r.id);
+  return { subStats: subs, collapsibleIds: collapsible };
 }
 
 // The face element lives in org-face.js — see the note there on why it is
@@ -196,10 +221,9 @@ function computeFilter(qRaw) {
   if (!q) return null;
   const keepNodes = new Set();
   const keepMembers = new Set();
-  // From byParent, NOT from `chart.nodes` — the chart re-parents sub-ฝ่าย onto
-  // their head ตำแหน่ง (chartParentage), and a search that walked the STORED
-  // parents would keep an ancestor the chart no longer draws a line to, leaving
-  // a result hanging off nothing.
+  // From byParent — the STORED parentage, which is what รายการ and แผนผัง draw.
+  // The canvas views re-parent, so they widen this result themselves rather
+  // than making every view keep an ancestor only they need (`chartFilter`).
   const parentOf = new Map();
   for (const [k, kids] of byParent) for (const n of kids) parentOf.set(n.id, k);
   const markUp = (id) => {
@@ -565,6 +589,30 @@ function graphShellHtml(filter) {
  *  token guards the case where the reader switches away (or changes year) while
  *  that import is still in flight — without it a late mount paints charts into a
  *  page that has moved on. */
+/**
+ * Widen a search result to the ancestors the CANVAS draws.
+ *
+ * `computeFilter` walks the stored parents, which is right for รายการ and
+ * แผนผัง. On the canvas, ฝ่าย PR's parent is the อุปนายก — a stored SIBLING —
+ * so a search for "PR" would keep ฝ่าย PR without keeping the box the line is
+ * drawn from, and `flatten`'s walk, which descends from the root and stops at
+ * the first node the filter does not keep, would drop the whole branch.
+ *
+ * Widened HERE rather than in computeFilter so รายการ does not start listing a
+ * head seat nobody searched for.
+ */
+function chartFilter(filter) {
+  if (!filter) return null;
+  const parentOf = new Map();
+  for (const [k, kids] of byParentChart) for (const n of kids) parentOf.set(n.id, k);
+  const keepNodes = new Set(filter.keepNodes);
+  for (const id of filter.keepNodes) {
+    let cur = parentOf.get(id);
+    while (cur && !keepNodes.has(cur)) { keepNodes.add(cur); cur = parentOf.get(cur); }
+  }
+  return { ...filter, keepNodes };
+}
+
 let graphToken = 0;
 async function paintGraph(roots, filter) {
   const mine = ++graphToken;
@@ -574,10 +622,10 @@ async function paintGraph(roots, filter) {
   try {
     const ctx = {
       roots,
-      byParent,
+      byParent: byParentChart,
       byNode,
-      subStats,
-      filter,
+      subStats: subStatsChart,
+      filter: chartFilter(filter),
       rung: graphRung[view],
       combined: view === 'all',
       chart,

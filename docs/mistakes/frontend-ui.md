@@ -2095,3 +2095,59 @@ interchangeable defaults: derivation is only correct where inheritance has
 nothing to offer.* And when a heuristic is right most of the time BY
 COINCIDENCE, its successes are not evidence — count how many of them would have
 been right anyway.
+
+## แผนผัง became a staircase — one structure, two different drawings
+
+**Symptom.** Not reported by anyone; found by rendering a view the change had
+never been rendered in. After sub-ฝ่าย were re-parented onto their ฝ่าย's head
+seat, แผนผัง — the CSS chart — stopped being a chart. It descended as a
+one-node-wide diagonal ribbon down the middle of an otherwise empty page.
+
+**Measured, same data, same viewport, only the parentage swapped:**
+
+| | before | after |
+|---|---|---|
+| แผนผัง page height | 25,847 px | **52,163 px** |
+| ฝ่ายดิจิทัล section | 1,627 px | **4,265 px** |
+| max node depth | 5 | **9** |
+| single-child branches | 25 / 97 | 43 / 122 |
+
+รายการ's page height was unchanged (3,723 px) **only because it opens
+collapsed** — its depth moved 5 → 9 too, so expanded it ran four levels deeper
+than the admin tree it mirrors.
+
+**Cause.** `chartParentage()` was applied to the shared `byParent` index, so all
+four views got it. แผนผัง's entire design is "a ฝ่าย branches SIDEWAYS once";
+re-parenting leaves nearly every ฝ่าย with a single child, so nothing branches
+and every level is one more step down the staircase.
+
+The reasoning that produced it was the trap. "One structure, so the views cannot
+drift" is normally right in this repo — class 6 is its most expensive class. But
+these are not two implementations of one rule. **รายการ and แผนผัง draw
+CONTAINMENT** (what is inside ฝ่าย IT); **ผังองค์กร and ผังรวม draw REPORTING**
+(who answers to whom). Two drawings of one dataset, and the difference is the
+product decision, not drift.
+
+**Fix.** Two parentages, named as such: `byParent` (stored, what the CSS views
+read) and `byParentChart` (`chartParentage`, what the canvas views read).
+`indexStats()` became a function OF a map and runs twice — a head seat's
+"ใต้สังกัด …" on the canvas must count the sub-ฝ่าย hanging off it, while the
+same seat in รายการ must not claim them.
+
+The search needed a third piece. `computeFilter` walks the stored parents, which
+is right for the CSS views; on the canvas, ฝ่าย PR's parent is the อุปนายก — a
+stored SIBLING — so a search for "PR" kept ฝ่าย PR without keeping the box its
+line is drawn from, and `flatten`, which descends from the root and stops at the
+first node the filter does not keep, dropped the whole branch. `chartFilter()`
+widens the kept set to the canvas's own ancestors, in the canvas only, so
+รายการ does not start listing a head seat nobody searched for.
+
+**Where it lives now.** `src/js/org-chart.js` — the two maps are declared
+together under a comment carrying these measurements. Verified by re-measuring:
+แผนผัง returned to 25,847 / 1,627 / depth 5, identical to before.
+
+**The general rule.** *"One implementation so they cannot drift" is only a
+virtue when the two callers actually want the same answer.* Before unifying,
+name what each caller is drawing. And: **a change is not verified in a view you
+did not open** — three of the four views were rendered and inspected here, and
+the fourth was the one that broke.

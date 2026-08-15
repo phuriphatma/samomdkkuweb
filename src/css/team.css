@@ -51,7 +51,8 @@
 
 /* ---- multi-select ---- */
 .team-check { width: 1.05rem; height: 1.05rem; flex: 0 0 auto; cursor: pointer; accent-color: var(--brand-primary); }
-.team-node.is-selected > .team-row,
+/* The ROW half of this rule lives with the ฝ่าย bands further down — see
+   "STATE BEATS IDENTITY". Leaving it here let the band out-specify it. */
 .team-member.is-selected { background: rgba(16,89,34,0.1); box-shadow: inset 3px 0 0 var(--brand-primary); }
 .team-tree.is-selectmode .team-row-actions,
 .team-tree.is-selectmode .team-member-actions { display: none; }  /* declutter while selecting */
@@ -309,6 +310,41 @@
   background: color-mix(in srgb, var(--node-tint) 24%, transparent);
 }
 
+/* ---- STATE BEATS IDENTITY ---------------------------------------------------
+ *
+ * A ฝ่าย band is a fact about WHAT a row is. Selected and being-dragged are
+ * facts about what is HAPPENING to it right now, and those have to win.
+ *
+ * They did not. The band's selector is
+ * `.team-node[data-kind][data-depth] > .team-row` — specificity (0,4,0) — while
+ * `.team-node.is-selected > .team-row` is (0,3,0) and `.team-chosen > .team-row`
+ * is (0,2,0). CSS resolves by specificity, not by which rule is about the more
+ * urgent thing, so on every ฝ่าย row the band won and neither state drew.
+ * MEASURED in a browser: a selected ฝ่าย row's box-shadow was the ฝ่าย's own
+ * tint bar, not the green selection bar; a long-pressed one showed no ring at
+ * all — the exact silence the comment above `.team-chosen` says it exists to
+ * prevent.
+ *
+ * Fixed by WEIGHT, not by order. `[data-kind][data-depth]` lifts each state
+ * rule to (0,5,0), one above the (0,4,0) bands, so it wins wherever it sits in
+ * the file — order alone would have been true today and silently false the
+ * first time somebody appends a band rule at the bottom. Both attributes are on
+ * every node the renderer emits, so the extra selector costs no matches.
+ * `!important` would also have worked and is the wrong tool: it beats rules
+ * nobody has written yet, including one that legitimately needs to override
+ * this. `team-state-specificity.test.js` computes both numbers and fails if the
+ * gap ever closes.
+ */
+.team-node[data-kind][data-depth].is-selected > .team-row {
+  background: rgba(16, 89, 34, 0.1);
+  box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+.team-node[data-kind][data-depth].team-chosen > .team-row {
+  background: var(--pink-50, rgba(16, 89, 34, 0.06));
+  box-shadow: inset 0 0 0 2px var(--brand-primary);
+  border-radius: var(--radius-xs);
+}
+
 .team-handle {
   cursor: grab; color: var(--ink-300); display: inline-flex;
   padding: 0.15rem; flex: 0 0 auto;
@@ -327,8 +363,8 @@
 .team-handle-sm { font-size: 0.85rem; }
 
 /* Confirm that a long press registered — without this, a touch drag begins with
-   no feedback and feels either broken or accidental. */
-.team-chosen > .team-row,
+   no feedback and feels either broken or accidental. The ROW half is with the
+   ฝ่าย bands; see "STATE BEATS IDENTITY". */
 .team-chosen.team-member {
   background: var(--pink-50, rgba(16, 89, 34, 0.06));
   box-shadow: inset 0 0 0 2px var(--brand-primary);

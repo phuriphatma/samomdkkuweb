@@ -43,9 +43,8 @@ has not been written yet.
    is not a gate on the ROUTE: the admin sidebar hid sections an account could
    not use and the delegate skipped them, but the HASH was unchecked, so
    `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
-   way in — click, hash, query string, deep link. Non-security twin: a fix in an EVENT
-   handler guarded on state the CALLER sets misses every other entry point — the
-   /updates scroll fix worked for nav pills, not `navigateTo()`. COPY too:
+   way in — click, hash, query string, deep link. Non-security twin: a handler
+   guarded on state the CALLER sets misses every other entry point. COPY too:
    one claim lived in the sign-in caption, the signup link AND the home strip.
    A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
    that was a head in one ฝ่าย and a ฝ่าย in the next. A CHART claims one rank
@@ -61,13 +60,13 @@ has not been written yet.
    pr_staff/dev test 29 migrations AFTER the policy learned `has_permission('pr')`,
    and its VS twin in the same migration was correct, so the pair read as
    permission-aware (0149). Check the SECOND twin.
-6. **Two implementations of one rule drift.** SQL↔JS mirrors, a read path and a
+6. **Two implementations of one rule drift** — but check both callers want the
+   SAME answer: unifying the four org views on one parentage made แผนผัง a
+   52,000px staircase (two draw containment, two reporting) A change is NOT verified in a view you never opened. SQL↔JS mirrors, a read path and a
    write path, an export and its import, a guard and its call sites. Write the
-   differential test in the same commit — a comment saying "keep these in step"
-   is not a mechanism. Also the shape where one list is spelled out by hand
-   beside a shared constant: main.js's own five-key admin-link list vs
-   `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
-   `team/fields.js`. Also TWO WRITABLE TABLES holding one fact:
+   differential test in the same commit — a comment saying "keep in step" is
+   not a mechanism. Also a list spelled out by hand beside a shared
+   constant: main.js's admin-link list vs `ADMIN_FEATURES` (0113). Also TWO WRITABLE TABLES holding one fact:
    `students` and `team_members` each carried a person's identity and each
    editor wrote only its own copy — fixed by `public.people` (0132–0134). **A bidirectional mirror needs
    `is distinct from` on BOTH sides: that guard is the TERMINATION CONDITION,
@@ -85,20 +84,17 @@ has not been written yet.
    other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine members a year behind,
    predicted in a `house/fields.js` comment eight months early.
    Also a rule implemented on the writers you HAPPENED to be looking at: the
-   replaced-portrait cleanup existed on the ทีม SAMO and archive editors but NOT
-   on `my-seat.js` — "เปลี่ยนรูป leaves the old picture in Drive" LOOKED
-   implemented. Now one `photoToRetire()` all call. When a second copy is
+   portrait cleanup existed on the ทีม SAMO and archive editors but NOT on
+   `my-seat.js`, so "เปลี่ยนรูป leaves the old picture in Drive" LOOKED
+   implemented. One `photoToRetire()` now. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
-   that stops matching looks like a feature nobody built. Wrapping a station
-   in `.org-box` unhooked five `> .org-station` rules; scoping a layout to
-   `@media (max-width: 1023.98px)` and later making the view USER-SELECTABLE
-   disabled it on desktop (a view is not a breakpoint). Insert a wrapper → grep
-   `> .<child>`; a layout becomes a choice → grep its `@media`. The instrument is the COMPUTED style, never the
-   stylesheet — and for a PAINT bug, the PIXELS.
-   Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6), and ONE
-   SCREEN IN THREE FILES (until `signin-modal.js`).
+   that stops matching looks like a feature nobody built. Wrapping a station in
+   `.org-box` unhooked five `> .org-station` rules; a layout scoped to `@media`
+   died when the view became USER-SELECTABLE (a view is not a breakpoint). Also
+   SPECIFICITY: the ฝ่าย band out-weighed `.is-selected`, so a selected row drew nothing. The instrument is the COMPUTED style, never the stylesheet — and for
+   a PAINT bug, the PIXELS.
    Also TWO PASSES assigning one DOM property: the perm grid's markup locked
    ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket `cb.disabled = on`
    unlocked it. Only touch what THIS pass locked. Same geometry, N passes: a
@@ -120,8 +116,8 @@ has not been written yet.
    blanked 13,839 characters before any assertion ran. One shared
    `strip-comments.js`, with its own test, now serves all four.
    The five ways, each paid for here: it cannot SEE the hazard
-   (`photo-refcount.test.js` scanned `photo_url`, hazard sat in
-   `houses.icon_url`, 0146) · its CONTROL also finds nothing (0147's first sweep
+   (`photo-refcount.test.js` scanned `photo_url`, the hazard sat in
+   `houses.icon_url`, 0146) · its CONTROL finds nothing either (0147's sweep
    printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
    (`confirm-modal.test.js` matched `[data-confirm-no]` in a *comment*) · its
    SUBJECT is a hardcoded name that rotted (`proj0092`'s member moved;
@@ -258,7 +254,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(57 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(58 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -317,6 +313,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A DEPTH NUMBER cannot name a level of a ragged tree
 - "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
 - "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
+- แผนผัง became a staircase — one structure, two different drawings
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*
