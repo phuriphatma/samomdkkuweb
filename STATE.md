@@ -51,6 +51,18 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   this board books against exist only on the SUBSCRIPTION.
   ✅ Discord webhook regenerated, installed at `/etc/samo-notify.env`, and
   test-delivered (HTTP 204).
+- ⚠️ **The 700% weekly pool may be wrong from 19 Aug 16:00.** `/usage` on the
+  owner's machine shows *"+50% weekly limits promo through Aug 19"*. The pool
+  is derived from their ratio 1% weekly = 7% session; if the weekly cap is
+  currently inflated 50% and the session cap is not, that ratio is not stable
+  across the promo boundary — and the boundary IS the next weekly reset. Nobody
+  has measured which side the 1:7 was taken on, so this is a question for the
+  owner, not a number to guess. Fix is one statement, no migration:
+  `update public.claude_settings set week_pool_pct = <n>;` — the value was made
+  a SETTING for exactly this.
+  It is also DERIVABLE once samples accumulate: each `claude_usage_samples` row
+  carries both `five_hour_pct` and `seven_day_pct`, so the weekly delta across
+  one full session window is the ratio, measured rather than assumed.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
