@@ -39,7 +39,9 @@ const SLOT_MIN = 15;               // picker granularity, and the drag snap
 
 let board = null;                  // the whole payload from get_claude_board()
 let weekAnchor = null;             // Date inside the week being viewed
-let built = false;                 // grid skeleton painted once
+let built = false;                 // listeners wired once
+let gridBuilt = false;             // grid skeleton painted for the current week
+let pollTimer = null;              // the once-a-minute repaint while on screen
 let editing = null;                // the booking open in the modal, or null
 let modalRef = null;               // one Bootstrap Modal instance, reused
 
@@ -136,20 +138,73 @@ export async function enterClaudeWorkspace() {
     built = true;
   }
   await refresh();
+  startPolling();
 }
 
-async function refresh() {
+/**
+ * Reload the board and repaint.
+ *
+ * `quiet` is for the poll below: it must not steal the page out from under
+ * somebody. Two things it preserves that a naive repaint destroys —
+ *   • the scroll position (buildGrid() jumps to 08:00, so re-running it every
+ *     minute would yank the view while you were reading Thursday night);
+ *   • the grid skeleton, which is only rebuilt when the WEEK changes, because
+ *     rebuilding is what moves the scroll in the first place.
+ */
+async function refresh({ quiet = false } = {}) {
+  const scroller = $('claudeCalScroll');
+  const keepScroll = scroller ? scroller.scrollTop : null;
+  const prevWeek = board?.week?.starts_at || null;
+
   try {
     board = await loadBoard(weekAnchor);
   } catch (e) {
     console.warn('claude: board load failed:', e);
-    $('claudeHelp').textContent = 'โหลดข้อมูลการจองไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง';
+    // A failed POLL must stay silent — the board on screen is still valid, and
+    // overwriting the help line every minute would be its own bug.
+    if (!quiet) {
+      $('claudeHelp').textContent = 'โหลดข้อมูลการจองไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง';
+    }
     return;
   }
+
   weekAnchor = new Date(board.week.starts_at);
+  const weekChanged = prevWeek !== board.week.starts_at;
+
   paintWeekMeter();
-  buildGrid();
+  if (weekChanged || !gridBuilt) {
+    buildGrid();
+    gridBuilt = true;
+  }
   paintGrid();
+  if (!weekChanged && keepScroll != null && scroller) scroller.scrollTop = keepScroll;
+}
+
+/**
+ * Keep the page as live as the data underneath it.
+ *
+ * The measured numbers land every 15 minutes, but nothing was re-reading them:
+ * a tab left open showed whatever was true when it was opened, with a
+ * "อัปเดต N นาทีที่แล้ว" label quietly counting up. A minute is well below the
+ * sample cadence, so the reading is never more stale on screen than it is in
+ * the database, and the reset countdowns tick.
+ *
+ * Three things stop it, each a bug this repo has already paid for once:
+ *   • the pane is not on screen — an admin sitting in VitalSound should not be
+ *     polling this;
+ *   • the tab is backgrounded — same request, nobody to see it;
+ *   • THE MODAL IS OPEN — repainting a pane while someone is typing into a form
+ *     it owns is exactly the "shared render() destroys in-progress input" class.
+ */
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    const pane = document.querySelector('[data-admin-pane="claude"]');
+    if (!pane || pane.classList.contains('d-none')) return;
+    if (document.hidden) return;
+    if ($('claudeBookingModal')?.classList.contains('show')) return;
+    refresh({ quiet: true });
+  }, 60000);
 }
 
 function wire() {
@@ -408,7 +463,8 @@ function buildGrid() {
     body.appendChild(col);
   });
 
-  // Open on the working day rather than at midnight.
+  // Open on the working day rather than at midnight. Only ever on a FRESH
+  // grid — refresh() restores the reader's own scroll otherwise.
   $('claudeCalScroll').scrollTop = 8 * hourH();
 }
 
