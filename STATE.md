@@ -1,6 +1,6 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-15**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-16**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. **Keep it under ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
@@ -20,24 +20,23 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f73a6a4` (2026-08-15)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifacts: `teamNodeTierField` in the
-  admin HTML, `tier-down` in the admin JS, `team-tier-btn` and
-  `[data-depth].is-selected` in the admin CSS, and `ใต้สังกัด` in
-  **`analytics-*.js`** — the shared chunk, NOT `public-*.js`, which is the trap
-  two bullets down and cost a false alarm here. Check rather than trust — EMPTY
-  means prod is current:
+- ✅ **DEPLOYED = `6880e58` (2026-08-16)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifacts: `data-admin-pane="claude"`
+  in the admin HTML, `get_claude_board` in the admin JS, `claude-session-tag`
+  + `claude-dayhead` in the admin CSS the served HTML actually links, and 0 in
+  the served `public-*.css` (the pane is admin-only). Check rather than trust —
+  EMPTY means prod is current:
 
   ```bash
-  git diff --stat f73a6a4..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 6880e58..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
   **Migrations applied through 0154.** **847 tests green.**
-- ⚠️ **จองโควตา Claude (0154) is BUILT AND APPLIED but NOT YET DEPLOYED.** The
-  migration is live on Supabase; the bundle serving it is not on the VM yet.
-  Two things it needs before it works for anyone:
+- ⚠️ **จองโควตา Claude (0154) is DEPLOYED, but not yet USABLE by anyone.**
+  Migration applied, bundle served, CSS verified live. Two things still owed
+  before a person can actually book:
   **(a) `DISCORD_CLAUDE_WEBHOOK=` in `/etc/samo-notify.env`** then
   `sudo systemctl restart samo-notify` — without it the booking still saves and
   only the notification is skipped. **The webhook the owner supplied was pasted
