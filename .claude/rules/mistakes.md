@@ -35,7 +35,7 @@ has not been written yet.
    mutually exclusive.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
    `select=*`, the other RPC, the view without `security_invoker`, and the
-   audience lookup still leaking. Enumerate the paths. Mirror image: a correct
+   audience lookup leaking. Enumerate the paths. Mirror image: a correct
    restriction mistaken for a complete design — an admin's decision note went
    into admin-only `student_change_requests` and the student it addressed had no
    read path (0128). A form collecting a message for a named person promises
@@ -43,14 +43,15 @@ has not been written yet.
    is not a gate on the ROUTE: the admin sidebar hid sections an account could
    not use and the delegate skipped them, but the HASH was unchecked, so
    `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
-   way in — click, hash, query string, deep link. Non-security twin: a fix in an
-   EVENT handler guarded on state the CALLER sets misses every other entry point
-   — the /updates scroll fix worked for nav pills, not `navigateTo()`. COPY too:
+   way in — click, hash, query string, deep link. Non-security twin: a fix in an EVENT
+   handler guarded on state the CALLER sets misses every other entry point — the
+   /updates scroll fix worked for nav pills, not `navigateTo()`. COPY too:
    one claim lived in the sign-in caption, the signup link AND the home strip.
    A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
    that was a head in one ฝ่าย and a ฝ่าย in the next. A CHART claims one rank
    = peers: when the STORED and REPORTING parents differ, the drawing needs its
-   own parentage.
+   own parentage. A DERIVED value must not beat an INHERITED
+   one — a name-matched colour fired at every depth, right 27/29 by chance.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -66,9 +67,9 @@ has not been written yet.
    is not a mechanism. Also the shape where one list is spelled out by hand
    beside a shared constant: main.js's own five-key admin-link list vs
    `ADMIN_FEATURES` (0113), and `io.js`'s own `normalizeYear` vs
-   `team/fields.js`. Also TWO WRITABLE TABLES holding one fact: `students` and `team_members` both
-   carried a person's identity, and each editor wrote only its own copy — fixed
-   by `public.people` plus mirrors (0132–0134). **A bidirectional mirror needs
+   `team/fields.js`. Also TWO WRITABLE TABLES holding one fact:
+   `students` and `team_members` each carried a person's identity and each
+   editor wrote only its own copy — fixed by `public.people` (0132–0134). **A bidirectional mirror needs
    `is distinct from` on BOTH sides: that guard is the TERMINATION CONDITION,
    not an optimisation**, and it must compare the value a READER sees — for a
    GENERATED target, compare the generated column while writing the source it
@@ -79,28 +80,25 @@ has not been written yet.
    (0145). The guard reports a one-way column as settled, by construction.
    Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
-   the รุ่น (0128). Fill-once means never-correct — and the SAME shape reappeared in the
-   FORMS, where `{...row, student_id: typed}` keeps the stale `cohort_year` that
-   (`yearBasis`, 0145). Also one fact STORED in one system and DERIVED in the
-   other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine members a year
-   behind, predicted in a `house/fields.js` comment eight months early, which
-   prevented nothing.
+   the รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS,
+   where `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one system and DERIVED in the
+   other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine members a year behind,
+   predicted in a `house/fields.js` comment eight months early.
    Also a rule implemented on the writers you HAPPENED to be looking at: the
    replaced-portrait cleanup existed on the ทีม SAMO and archive editors but NOT
-   on `my-seat.js`, the card every member uses — "เปลี่ยนรูป leaves the old
-   picture in Drive" LOOKED implemented. Now one `photoToRetire()` all call. When a second copy is
+   on `my-seat.js` — "เปลี่ยนรูป leaves the old picture in Drive" LOOKED
+   implemented. Now one `photoToRetire()` all call. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
-   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule that
-   stops matching looks exactly like a feature nobody built. Wrapping a station
+   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
+   that stops matching looks like a feature nobody built. Wrapping a station
    in `.org-box` unhooked five `> .org-station` rules; scoping a layout to
    `@media (max-width: 1023.98px)` and later making the view USER-SELECTABLE
    disabled it on desktop (a view is not a breakpoint). Insert a wrapper → grep
    `> .<child>`; a layout becomes a choice → grep its `@media`. The instrument is the COMPUTED style, never the
    stylesheet — and for a PAINT bug, the PIXELS.
    Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6), and ONE
-   SCREEN IN THREE FILES (the signin handlers, verbatim in both entries + a
-   third module, until `signin-modal.js`).
+   SCREEN IN THREE FILES (until `signin-modal.js`).
    Also TWO PASSES assigning one DOM property: the perm grid's markup locked
    ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket `cb.disabled = on`
    unlocked it. Only touch what THIS pass locked. Same geometry, N passes: a
@@ -115,8 +113,8 @@ has not been written yet.
    Every DELETE needs `return=representation` + a `data.length` check
    (`delete-guard.test.js`) — RLS returns zero rows, not an error.
 
-   **Guards fail GREEN, which is why they get their own playbook —
-   `skills/write-a-guard.md`. Read it before writing any test, proof or sweep.**
+   **Guards fail GREEN — `skills/write-a-guard.md`.
+   Read it before writing any test, proof or sweep.**
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled the same
    block-comment regex, and `'image/*'` in `main.js` opened a "comment" that
    blanked 13,839 characters before any assertion ran. One shared
@@ -126,9 +124,9 @@ has not been written yet.
    `houses.icon_url`, 0146) · its CONTROL also finds nothing (0147's first sweep
    printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
    (`confirm-modal.test.js` matched `[data-confirm-no]` in a *comment*) · its
-   SUBJECT is a hardcoded name that rotted (`proj0092` named a member the org
-   chart moved; `house0116` named an email that never existed, so its ALLOW
-   half was vacuous) · it ERRORS rather
+   SUBJECT is a hardcoded name that rotted (`proj0092`'s member moved;
+   `house0116`'s email never existed, so its ALLOW half was empty) · it
+   ERRORS rather
    than fails, and an aborted script is silence, not a red line (`house0116`
    called a function 0124 dropped and ran ZERO assertions for 23 migrations —
    when a migration drops a function or column, grep `tools/` in the same
@@ -260,7 +258,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(56 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(57 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -318,6 +316,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
 - A DEPTH NUMBER cannot name a level of a ragged tree
 - "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
+- "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*

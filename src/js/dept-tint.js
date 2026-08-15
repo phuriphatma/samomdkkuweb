@@ -42,20 +42,37 @@ export function tintFor(name) {
 }
 
 /**
- * The CSS colour a node is drawn in, or null to inherit the brand green.
+ * The CSS colour a node is drawn in, or null to INHERIT its parent's.
  *
- * TWO SOURCES, in order: what the admin CHOSE (`team_nodes.color`, 0152), then
- * what the name IMPLIES. Chosen wins, because the derived answer exists only
- * because there was nothing better — the palette names ten ฝ่าย and the tree
- * has fifteen roots, and a rename used to lose a ฝ่าย's colour in silence.
+ * TWO SOURCES, and they have different scopes:
+ *
+ *   CHOSEN  (`team_nodes.color`, 0152) — honoured at ANY depth. Somebody typed
+ *           it about this exact node, so it is never a guess.
+ *   DERIVED (the name matched `DEPT_TINT`) — honoured at the ROOT ONLY.
+ *
+ * REPORTED: "ฝ่ายวิชาการ that is inside ฝ่ายรังสีเทคนิค shows different color,
+ * there shouldnt be a bug like that." Exactly right. The name match is a GUESS
+ * standing in for an identity nobody recorded, and a guess is only defensible
+ * where there is nothing to inherit. Applied at every level it overrides the
+ * branch a node actually belongs to: measured on the live tree, 29 non-root
+ * nodes match the palette by name, and `ฝ่ายวิชาการ` turns up under
+ * ฝ่ายรังสีเทคนิค AND under ฝ่ายเวชนิทัศน์.
+ *
+ * The other 27 mostly matched the SAME colour as their own root by coincidence
+ * (`อุปนายกฝ่ายบริหารองค์กร` contains `บริหารองค์กร`), painted the right answer
+ * for the wrong reason, and are why this survived review — the visible failures
+ * were the two where the coincidence broke.
  *
  * The stored value is constrained to a hex literal in the database (0152), and
- * this is the only place either half turns into a CSS value, so a caller cannot
- * accidentally interpolate something else into a style attribute.
+ * this is the only place either source turns into a CSS value, so a caller
+ * cannot accidentally interpolate something else into a style attribute.
+ *
+ * @param isRoot true only for a node with no ฝ่าย above it to inherit from
  */
-export function tintColor(node) {
+export function tintColor(node, isRoot = false) {
   if (!node) return null;
   if (isHexColor(node.color)) return node.color;
+  if (!isRoot) return null;
   const named = tintFor(node.name);
   return named ? `var(--dept-${named})` : null;
 }

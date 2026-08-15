@@ -2053,3 +2053,45 @@ does not: that everything on one rank is peer to everything else on it.* When a
 storage parent and a reporting parent differ, the drawing needs its own
 parentage — and when someone describes what they want in terms of LINES and
 what is UNDER what, they are describing rank, not sequence.
+
+## "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
+
+**Symptom.** As reported. A sub-ฝ่าย named `ฝ่ายวิชาการ`, nested inside
+`ฝ่ายรังสีเทคนิค`, rendered in ฝ่ายวิชาการ's blue instead of its parent
+branch's brown — in the admin tree and in รายการ/แผนผัง.
+
+**Cause.** A ฝ่าย's colour has two sources: one the admin CHOSE
+(`team_nodes.color`, 0152) and one DERIVED by matching the name against a regex
+table. `tintColor()` was called on EVERY node, so the derived half fired at
+every depth. `/วิชาการ/` matches `ฝ่ายวิชาการ` wherever it sits, and the match
+overrode the `--node-tint` the node would otherwise have inherited from its
+root.
+
+The derived answer is a GUESS standing in for an identity nobody recorded. That
+is defensible at a root, where there is nothing to inherit. Inside a branch
+there always is, so the guess must lose.
+
+**Why it survived.** Measured on the live tree: **29 non-root nodes match the
+palette by name, and 27 of them match the SAME colour as their own root by
+coincidence** — `อุปนายกฝ่ายบริหารองค์กร` contains `บริหารองค์กร`,
+`อุปนายกฝ่ายเวชนิทัศน์` contains `เวชนิทัศน์`. They painted the right answer for
+the wrong reason. Only the two where the coincidence broke — `ฝ่ายวิชาการ` under
+`ฝ่ายรังสีเทคนิค` and under `ฝ่ายเวชนิทัศน์` — were visible, so 27 of the 29
+instances were invisible evidence that the mechanism was sound.
+
+**Fix.** `tintColor(node, isRoot)`: a CHOSEN colour is honoured at any depth (a
+human typed it about that node); a DERIVED one only at a root. `isRoot`
+**defaults to false**, so a caller that forgets the argument inherits — the safe
+answer — rather than guessing.
+
+**Where it lives now.** `src/js/dept-tint.js`, one resolver for the admin tree
+and both public renderers. `dept-tint.test.js` asserts the non-root case with
+the reported subject AND one of the coincidental ones, and separately that all
+three call sites still pass the flag — a bare `tintColor(node)` is exactly how
+this would come back.
+
+**The general rule.** *A derived value and an inherited one are not
+interchangeable defaults: derivation is only correct where inheritance has
+nothing to offer.* And when a heuristic is right most of the time BY
+COINCIDENCE, its successes are not evidence — count how many of them would have
+been right anyway.

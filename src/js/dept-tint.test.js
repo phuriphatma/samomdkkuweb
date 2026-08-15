@@ -97,24 +97,54 @@ describe('the JS hex check and the SQL CHECK are one rule in two places', () => 
   });
 });
 
-describe('tintColor: chosen beats derived, derived beats nothing', () => {
-  it('uses the admin\'s colour when there is one', () => {
-    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: '#F2CB67' })).toBe('#F2CB67');
+describe('tintColor: chosen beats derived, and derived is ROOT-ONLY', () => {
+  const ROOT = true;
+
+  it('uses the admin\'s colour when there is one, at any depth', () => {
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: '#F2CB67' }, ROOT)).toBe('#F2CB67');
+    expect(tintColor({ name: 'ฝ่ายอะไรก็ได้', color: '#F2CB67' }, false)).toBe('#F2CB67');
   });
 
-  it('falls back to the name when there is not', () => {
-    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: null })).toBe('var(--dept-academic)');
+  it('falls back to the name AT A ROOT', () => {
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: null }, ROOT)).toBe('var(--dept-academic)');
+  });
+
+  it('a NON-ROOT ฝ่ายวิชาการ inherits instead of matching its own name', () => {
+    // THE REPORT: "ฝ่ายวิชาการ that is inside ฝ่ายรังสีเทคนิค shows different
+    // color". The name match is a guess standing in for an identity nobody
+    // recorded; inside a branch there IS something to inherit, so the guess
+    // must lose. Measured: 29 non-root nodes match the palette by name, and
+    // ฝ่ายวิชาการ sits under BOTH ฝ่ายรังสีเทคนิค and ฝ่ายเวชนิทัศน์.
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: null }, false)).toBeNull();
+    // The coincidental ones too — these painted the right answer for the wrong
+    // reason and are why the bug survived review.
+    expect(tintColor({ name: 'อุปนายกฝ่ายบริหารองค์กร' }, false)).toBeNull();
   });
 
   it('ignores a stored value that is not a hex literal', () => {
     // Defence in depth against the projection ever carrying something else:
     // this string would land inside `style="--org-tint: …"` on a public page.
-    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: 'red;x:url(//e)' }))
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: 'red;x:url(//e)' }, ROOT))
       .toBe('var(--dept-academic)');
   });
 
   it('returns null when neither source has an answer', () => {
-    expect(tintColor({ name: 'เอิงtesting' })).toBeNull();
-    expect(tintColor(null)).toBeNull();
+    expect(tintColor({ name: 'เอิงtesting' }, ROOT)).toBeNull();
+    expect(tintColor(null, ROOT)).toBeNull();
+  });
+
+  it('every caller passes the root flag — a default of true would re-open it', () => {
+    // The signature defaults isRoot to FALSE, so a caller that forgets the
+    // argument inherits (safe) rather than guessing (the bug). This asserts the
+    // three real call sites still say which they are, because a silent
+    // `tintColor(node)` in the tree renderer is exactly how this came back.
+    const sites = ['./team/index.js', './org-chart.js', './org-graph.js']
+      .map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8'))
+      .flatMap((src) => [...src.matchAll(/tintColor\(([^)]*)\)/g)].map((m) => m[1]));
+    expect(sites.length, 'no tintColor call sites found at all').toBe(3);
+    for (const args of sites) {
+      expect(args, `tintColor(${args}) does not say whether it is a root`)
+        .toMatch(/,/);
+    }
   });
 });

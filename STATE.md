@@ -24,20 +24,19 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `3f908cf` (2026-08-15)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifact: `position:static` +
-  `grid-area:stack` on `.orgg-person .org-face` in the served CSS,
-  `orgg-full-open` and `bi-arrows-fullscreen` in the served JS, and re-driven on
-  PRODUCTION with real WebKit (painted pixels == layout box, normal and full
-  screen). Check rather than trust — EMPTY means prod is current:
+- ✅ **DEPLOYED = `7c5cd26` (2026-08-15)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifact: `data-org-rung`, `ฝ่ายหลัก`
+  and `ฝ่ายย่อย` in the served public bundle, and the only seven `department`
+  hits in the served admin bundle are the unrelated PR/VS/passport fields.
+  Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat 3f908cf..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 7c5cd26..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0150.** **737 tests green.**
+  **Migrations applied through 0152.** **777 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -200,43 +199,84 @@ because two copies of one rule is the class this repo pays for most.
 > FOUR views. **รายการ + แผนผัง share ONE renderer and ONE markup; only CSS
 > differs.** The wrapper carries `data-view`, and the toggle flips it WITHOUT
 > re-rendering so open ตำแหน่ง and scroll position survive. **Scope every rule on
-> `[data-view=…]`, never on a width** — the list rules were once inside a media
-> query and silently stopped applying when the view became a user choice. แผนผัง
-> fits 400 people via ONE SECTION PER ฝ่าย, BRANCH SIDEWAYS ONCE, and a BOUNDED
-> wrapping row (`flex-wrap` alone did nothing — `.org-tree` is
-> `width: max-content`, so the wrap point is never reached;
-> `justify-content: safe center`, because plain `center` makes the start-side
-> overflow unreachable). The คณะกรรมการ grid is GONE on purpose: **rank is
-> position in the chart, not card size.**
+> `[data-view=…]`, never on a width.** แผนผัง fits 400 people via ONE SECTION PER
+> ฝ่าย, BRANCH SIDEWAYS ONCE, and a BOUNDED wrapping row (`flex-wrap` alone did
+> nothing — `.org-tree` is `width: max-content`; `justify-content: safe center`,
+> because plain `center` makes the start-side overflow unreachable). The
+> คณะกรรมการ grid is GONE on purpose: **rank is position in the chart, not card
+> size.**
 >
 > **ผังองค์กร + ผังรวม share ONE SEPARATE renderer** — `src/js/org-graph.js`,
-> d3-org-chart (MIT) on a zoom/pan SVG canvas. They differ ONLY in grouping:
-> ผังองค์กร is one chart per root ฝ่าย, ผังรวม is one chart under a synthetic
-> องค์กร root. The face element both renderers draw lives in `src/js/org-face.js`
-> so it cannot drift. **Why the library, the measured widths, the three portrait
-> bugs and the guards: `docs/state-archive/2026-08-15-org-chart-views.md`.**
-> Six things will bite you, all in that file's header and guarded by
-> `org-graph-metrics.test.js` (20 assertions, each falsified):
+> d3-org-chart (MIT) on a zoom/pan SVG canvas, differing ONLY in grouping. The
+> face element both renderers draw lives in `src/js/org-face.js`. **Why the
+> library, the measured widths, the three portrait bugs:
+> `docs/state-archive/2026-08-15-org-chart-views.md`.**
+>
+> **THREE display rules the chart applies that the STORED tree does not**
+> (all in `src/js/org-rung.js`, applied once in `org-chart.js`'s `index()` so all
+> four views AND the search read one structure; guarded by `org-rung.test.js`):
+>
+> - **`chartParentage()` — sub-ฝ่าย hang off the ฝ่าย's HEAD seat**, not beside
+>   it. Reported twice: four lines out of ฝ่ายดิจิทัล said the อุปนายก and ฝ่าย
+>   PR/ComArt/IT were peers. First = `position` 0 = the head. NOT applied when
+>   the parent is a ตำแหน่ง (หัวหน้าฝ่าย PR holds a seat AND ฝ่าย Media
+>   management; those are peers). `team_nodes.parent_id` is untouched.
+> - **`sortSiblings()` — ตำแหน่ง before ฝ่าย**, stable, so `position` still
+>   orders within each group.
+> - **The "แสดงถึง" rungs are a KIND, not a depth** — ฝ่ายหลัก / ฝ่ายย่อย /
+>   ตำแหน่ง / ทั้งหมด, measuring 14 / 136 / 290 / 298 cards. A number could not
+>   express it: depth 2 is a หัวหน้า in สำนักนายกฯ and a ฝ่าย in ฝ่ายดิจิทัล.
+>   A kind predicate is NOT ancestor-closed the way `depth <= n` was, so
+>   `applyRung` walks up; the ladder is asserted to be nested.
+>
+> **TWO KINDS ONLY — ฝ่าย and ตำแหน่ง** (0151 folded 78 แผนก into ฝ่าย; all were
+> containers). `src/js/node-kind.js` still reads a stray `department` as a ฝ่าย
+> — old bundle, old export, hand-edited import. `node-kind.test.js` keeps the
+> `<select>` and every writer at two. **The CHECK constraint making `department`
+> unwritable was deliberately NOT shipped with 0151** and is still owed — it is
+> safe to add now that the new bundle is served.
+>
+> **COLOUR (0152).** `team_nodes.color`, null = derive from the name via the
+> shared `src/js/dept-tint.js`. Constrained to a hex literal in the DB **and** by
+> `isHexColor()` in JS, because the value lands in `style="--org-tint: …"` on an
+> anonymous page — `dept-tint.test.js` reads the regex OUT of the migration so
+> the two cannot drift. **Both read paths carry it**: `get_public_team_chart` has
+> a published-snapshot branch AND a live branch, and the CURRENT year reads the
+> snapshot once published, so publishing would otherwise revert every colour.
+> The 20 `[data-tint="x"]` CSS rules are gone; both renderers set `--org-tint`
+> inline from `tintColor()`.
+>
+> Six things in the d3 renderer will still bite you, all guarded by
+> `org-graph-metrics.test.js`:
 >
 > - **NOTHING inside a card may be `position`ed.** WebKit paints a positioned
->   element in a `<foreignObject>` WITHOUT the ancestor SVG transform — the
->   portrait drew at the chart's origin on iPad. **`getBoundingClientRect()`
->   reports the box CORRECT while this happens**; the only instrument that can
->   see it is the decoded screenshot (`skills/drive-the-browser.md`).
-> - **`applyDepth` must be `<=`, never `<`** — `_expanded` means "I am visible",
->   not "open my children". `<` renders one level shallower than the rung is
->   labelled, and that SHIPPED: the หัวหน้าฝ่าย default never reached one.
+>   element in a `<foreignObject>` WITHOUT the ancestor SVG transform.
+>   `getBoundingClientRect()` reports the box CORRECT while this happens; only a
+>   decoded screenshot can see it (`skills/drive-the-browser.md`).
 > - **`initialExpandLevel` is NOT the depth control** — consumed once, then reset
->   to 1 by the library. Depth is `_expanded` on the data rows.
+>   to 1 by the library. Visibility is `_expanded` on the data rows.
 > - **`frameChart()` replaces `fit()` and inherits its obligations**, including
->   zeroing `centerG`. `fit()` fits BOTH axes, wrong at both ends here.
+>   zeroing `centerG`.
 > - **`sizes` must be `portrait width × max zoom`, and zoom must be capped.**
->   `srcset` resolves ONCE from the LAYOUT size; an SVG transform never re-picks.
->   Uncapped zoom and responsive images are incompatible by construction.
-> - **เต็มหน้าจอ is a CSS overlay, never the Fullscreen API** — iOS/iPadOS only
->   honour `requestFullscreen()` on `<video>`. Card height is computed in JS from
->   constants mirroring the CSS, and d3 is dynamically imported (a static import
->   put d3-zoom in the ENTRY bundle, +13.6 KB gz for everyone).
+>   `srcset` resolves ONCE from the LAYOUT size.
+> - **เต็มหน้าจอ is a CSS overlay, never the Fullscreen API** — iOS only honours
+>   `requestFullscreen()` on `<video>`.
+> - **d3 is dynamically imported** — a static import put d3-zoom in the ENTRY
+>   bundle, +13.6 KB gz for everyone.
+>
+> ### 1c. OPEN — asked, not yet answered
+>
+> The owner asked (2026-08-15, unanswered when the session ended): ฝ่าย IT stores
+> `สมาชิกฝ่าย IT` INSIDE `หัวหน้าฝ่าย IT` purely to make the drawing rank
+> correctly, and they want `หัวหน้า` + `เลขานุการ` on one rank and `สมาชิก`
+> below **without** that nesting. **A `tier` column is the proposed answer** —
+> the tree expresses CONTAINMENT (a ฝ่าย holds its seats, flat) and `tier`
+> expresses RANK, with `chartParentage` hanging tier k+1 off the first node of
+> tier k. Additive: existing nesting keeps working unchanged.
+> **Measured 2026-08-15: only 8 seat-under-seat nestings exist, 4 of them
+> inherit a permission FROM THE SEAT ABOVE, reaching 19 people** — so the
+> layout hack is also a live permission channel, which is the real argument for
+> separating the two.
 >
 > ### 2. Invariants that will bite you
 >

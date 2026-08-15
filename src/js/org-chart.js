@@ -305,7 +305,7 @@ function nodeBlock(node, depth, filter) {
   // A CSS COLOUR, not a palette key. Set inline so an admin-chosen colour and
   // a name-derived one arrive by the same route — a `data-tint` attribute could
   // only ever express the ten the stylesheet had a rule for.
-  const tint = tintColor(node);
+  const tint = tintColor(node, depth === 0);
   const peopleHtml = people.length
     ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>`
     : '';

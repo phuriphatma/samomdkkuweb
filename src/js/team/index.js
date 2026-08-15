@@ -559,7 +559,7 @@ function renderNode(node, filter, depth = 0) {
   // A colour set ANYWHERE down the tree overrides what it inherits, so a
   // sub-ฝ่าย can be given its own identity without detaching it from its root.
   // Nothing set = inherit, which is why this is not applied unconditionally.
-  const tint = tintColor(node);
+  const tint = tintColor(node, depth === 0);
   if (tint) li.style.setProperty('--node-tint', tint);
 
   const checkbox = selectionMode

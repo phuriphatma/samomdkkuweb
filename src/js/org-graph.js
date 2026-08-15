@@ -165,7 +165,7 @@ function flatten(rootNode, ctx, opts = {}) {
   const out = into;
   // The whole subtree of a root ฝ่าย is drawn in that ฝ่าย's colour, chosen or
   // derived — see tintColor in dept-tint.js.
-  const tint = tintColor(rootNode);
+  const tint = tintColor(rootNode, true);
 
   const walk = (node, parentId, depth, parentIsDiv, parentDivDepth) => {
     if (filter && !filter.keepNodes.has(node.id)) return;
