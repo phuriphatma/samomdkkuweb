@@ -391,10 +391,22 @@ org tree + people directory. Two tables:
 
 ```
 team_nodes (uuid id PK, parent_id FK team_nodes(id) CASCADE,
-            name, kind ['division'|'department'|'role' — advisory, drives icon],
+            name, kind ['division'|'role' — TWO only since 0151],
             position int [sibling order], permissions text[] [app perm keys],
-            inherit_permissions bool, timestamps)
-  ↳ tree depth is unlimited (defined purely by parent_id); kind is cosmetic.
+            inherit_permissions bool,
+            color text [0152, hex-CHECKed, null = derive from the name],
+            tier smallint [0153, 1..9, null = 1 — RANK inside the ฝ่าย],
+            timestamps)
+  ↳ tree depth is unlimited (defined purely by parent_id).
+  ↳ `kind` is NOT cosmetic any more. 0151 folded 78 'department' rows into
+    'division' (every one was a container) and the public chart now branches on
+    it: seats sort above sub-ฝ่าย, and the "แสดงถึง" rungs are defined by kind
+    rather than by depth. `src/js/node-kind.js` still READS a stray 'department'
+    as a ฝ่าย (old bundle, old export); writers are normalised to the two.
+  ↳ `tier` carries RANK so `parent_id` can go back to meaning CONTAINMENT: a
+    ฝ่าย holds its seats FLAT, seats on one tier draw on one row, and tier k+1
+    is drawn under the FIRST seat of tier k. Nesting a seat under a seat still
+    works and still draws — tier removes the need for it, not the ability.
   ↳ permissions ∈ {pr,vs,samoshop,projects,creator,team,team_edit,passport,
     master} (the live list is `PERM_CATALOG` in `src/js/team-vocab.js` — RLS
     matches these strings, so a typo is a dead grant, not a crash). inherit
@@ -636,13 +648,24 @@ stamping to a definer RPC, gate admin writes on `passport_admin_context()` — a
 per-department filtering in the passport UI is cosmetic. Do not describe this
 grant as securing passport.
 
+**TWO PARENTAGES on the public page.** รายการ and แผนผัง draw the STORED tree
+(containment); ผังองค์กร and ผังรวม draw a REPORTING tree built by
+`chartParentage()` in `src/js/org-rung.js` — a ฝ่าย's sub-ฝ่าย hang off its head
+seat, and `tier` ranks the seats. `org-chart.js` builds both indexes
+(`byParent`, `byParentChart`) and runs `indexStats()` over each. **Do not unify
+them**: applying the reporting parentage to all four views turned แผนผัง into a
+52,000 px staircase (it branches sideways once, and re-parenting leaves every
+ฝ่าย single-child). The search widens its kept set for the canvas only
+(`chartFilter`), because a canvas ancestor can be a stored sibling.
+Full reference: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
+
 **Public org chart — projection only (migration 0086).** `team_nodes.is_public`
 (default true) marks a subtree as hidden from the future public org chart;
 อาจารย์ / เจ้าหน้าที่คณะ hold seats but are not part of the student org, so their
 roots are false. **The flag is not the privacy boundary.** The only sanctioned
 publisher is `public.get_public_team_chart(year)` — SECURITY DEFINER, granted to
 anon, returning a hand-built jsonb of node
-`{id,parent_id,name,kind,position,is_board}` + member
+`{id,parent_id,name,kind,position,is_board,color,tier}` + member
 `{node_id,name,nickname,photo_url,photo_focus,position}` over a recursive CTE (so
 hiding a parent hides its subtree). `get_public_org_chart()` still exists and is
 now a one-line delegate to it, so there is exactly ONE body for the live

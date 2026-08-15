@@ -57,11 +57,15 @@ triggered over ssh (needs the KKU VPN).
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
   sits in. Four interchangeable views over the one dataset: **รายการ** (an
   indented outline), **แผนผัง** (a CSS chart), and two real top-down charts on a
-  zoom/pan canvas drawn by `d3-org-chart` — **ผังองค์กร** (one chart per ฝ่าย,
-  opening down to that ฝ่าย's heads) and **ผังรวม** (the whole organisation in a
-  single chart under a synthetic root). Both carry per-ตำแหน่ง expand and a
-  depth selector, and a full-screen toggle (a CSS overlay, not the Fullscreen
-  API, which iPadOS only honours for `<video>`). There is
+  zoom/pan canvas drawn by `d3-org-chart` — **ผังองค์กร** (one chart per ฝ่าย)
+  and **ผังรวม** (the whole organisation in a single chart under a synthetic
+  root). The two canvas views read the structure as a REPORTING chart: a ฝ่าย's
+  sub-ฝ่าย hang off its head ตำแหน่ง rather than sitting beside it. Both carry
+  per-ตำแหน่ง expand, a **แสดงถึง** selector whose rungs are ฝ่ายหลัก / ฝ่ายย่อย
+  / ตำแหน่ง / ทั้งหมด (a kind, not a depth — this org's branches are not the
+  same shape), and a full-screen toggle (a CSS overlay, not the Fullscreen API,
+  which iPadOS only honours for `<video>`). Each ฝ่าย carries a colour the
+  admin can choose, used on both the public chart and the admin tree. There is
   deliberately no separate คณะกรรมการ portrait grid: the chart already states
   rank by position, so a second larger rendering of the same people was both a
   duplicate and a competing ranking.
@@ -71,7 +75,10 @@ triggered over ssh (needs the KKU VPN).
   name, nickname and photo: no email, student id, year, major or permissions, and
   nodes marked non-public hide their whole subtree. Portraits are uploaded per
   member in ทีม SAMO — downscaled in the browser, filed in Drive by year and ฝ่าย,
-  and served as server-cropped WebP.
+  and served as server-cropped WebP. In the admin tree a ตำแหน่ง is placed
+  directly under its ฝ่าย and given a **ระดับ** with one tap, rather than being
+  nested inside another ตำแหน่ง to make the chart rank it — so the stored tree
+  says who is IN a ฝ่าย and ระดับ says who is drawn above whom.
 - **Release notes.** A public changelog at `/updates`, reached from the footer
   and from the version chip in the footer bar. Curated entries (not a git-log
   dump) grouped ใหม่ / ปรับปรุง / แก้ไข, tagged by product area, filterable by
