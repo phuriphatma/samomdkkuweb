@@ -56,15 +56,64 @@
 .claude-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .claude-legend-item b { font-variant-numeric: tabular-nums; }
 
-/* The one measured number on the page. Hidden until a sample exists — a zero
-   here would read as "0% used", which is a claim we cannot make. */
+/* The MEASURED panel — the only numbers on this page that are not a guess.
+   Everything else is what people declared they would use; this is what Claude
+   says the account actually spent. Given the whole board's credibility rests on
+   it, it gets a real readout rather than a footnote. */
 .claude-measured {
-  margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dee2e6;
-  font-size: 0.78rem; color: #495057;
-  display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center;
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed #dee2e6;
 }
-.claude-measured b { font-variant-numeric: tabular-nums; }
-.claude-measured .claude-stale { color: #b54708; }
+.claude-measured-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  font-size: 0.78rem; margin-bottom: 9px;
+}
+.claude-measured-head b { font-size: 0.85rem; }
+.claude-measured-age { color: #8b968f; }
+/* A sample older than the timer interval is not a reading, it is a memory. */
+.claude-measured-age.is-stale { color: #b54708; font-weight: 600; }
+
+.claude-gauges { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) { .claude-gauges { grid-template-columns: 1fr; } }
+
+.claude-gauge-k {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 0.75rem; color: #495057; margin-bottom: 4px;
+}
+.claude-gauge-k .claude-gauge-left {
+  margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: #212529;
+}
+.claude-meter {
+  height: 12px; border-radius: 3px; background: var(--claude-track); overflow: hidden;
+}
+.claude-meter > i {
+  display: block; height: 100%; font-style: normal;
+  background: var(--brand-primary); transition: width 0.3s ease;
+}
+/* Semantic, and separate from the brand accent: past 80% of a window the
+   question stops being "how much is left" and becomes "who is about to be
+   blocked". */
+.claude-meter.is-warn > i { background: #d97706; }
+.claude-meter.is-crit > i { background: #b42318; }
+.claude-gauge-sub {
+  font-size: 0.68rem; color: #8b968f; margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Booked-vs-actual. The reason the reporter exists: a declared percentage is a
+   guess, and this line is where the guess meets the measurement. */
+.claude-reconcile {
+  margin-top: 10px; font-size: 0.75rem; color: #495057;
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
+}
+.claude-reconcile b { font-variant-numeric: tabular-nums; }
+.claude-reconcile .claude-over { color: #b42318; font-weight: 700; }
+.claude-reconcile .claude-under { color: #067647; font-weight: 700; }
+
+/* No sample yet. Says WHY rather than hiding — an admin looking for the live
+   numbers should learn they were never switched on, not see a blank. */
+.claude-measured-off {
+  font-size: 0.75rem; color: #8b968f; display: flex; gap: 7px; align-items: flex-start;
+}
 
 .claude-weeklabel { font-weight: 600; font-size: 0.9rem; }
 

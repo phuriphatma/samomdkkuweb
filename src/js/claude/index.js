@@ -252,24 +252,108 @@ function paintWeekMeter() {
   paintMeasured();
 }
 
-/** The one MEASURED number on the page (claude_usage_samples, fed by
- *  tools/claude-usage-report.mjs). Hidden entirely when no sample exists —
- *  a zero here would read as "0% used", which is a claim we cannot make. */
+/**
+ * The MEASURED panel — the only numbers on this page that are not a guess.
+ *
+ * Everything above it is what people DECLARED they would use. This is what
+ * Claude says the account actually spent, from claude_usage_samples, written by
+ * tools/claude-usage-report.mjs running where the credential is.
+ *
+ * Two things it does that the ledger cannot:
+ *   • shows how much of each real window is LEFT, with the real reset time —
+ *     including when Anthropic resets early after an incident, which the
+ *     configured Wed 16:00 cannot know about;
+ *   • reconciles booked against actual. The booking unit is session-percent out
+ *     of 700 and the API reports the weekly window as 0–100%, and those are the
+ *     SAME quantity at a factor of seven, so they can be compared directly.
+ *
+ * With no sample it says so, rather than hiding: an admin looking for the live
+ * numbers should learn the reporter was never switched on, not see a blank.
+ */
 function paintMeasured() {
   const host = $('claudeMeasured');
   const m = board.measured;
-  if (!m) { host.hidden = true; return; }
-  host.hidden = false;
+
+  if (!m) {
+    host.innerHTML =
+      '<div class="claude-measured-off">'
+      + '<i class="bi bi-info-circle" aria-hidden="true"></i>'
+      + '<div>ยังไม่ได้เชื่อมต่อข้อมูลการใช้งานจริงจาก Claude — '
+      + 'ตัวเลขด้านบนคือสิ่งที่ทุกคนจองไว้ ไม่ใช่สิ่งที่ใช้ไปจริง<br>'
+      + 'ตั้งค่าได้ที่เซิร์ฟเวอร์ (ดู <code>tools/claude-usage-report.mjs</code>)</div></div>';
+    return;
+  }
+
   const age = Date.now() - new Date(m.sampled_at).getTime();
-  const stale = age > 6 * HOUR_MS;
+  // The timer runs every 15 minutes, so anything past ~35 tells you the
+  // reporter has stopped rather than that usage is quiet.
+  const stale = age > 35 * 60 * 1000;
+
+  // Booked, expressed on the weekly window's own 0–100 scale so the two are
+  // the same quantity: 700 session-% IS 100% of the week.
+  const bookedWeekly = board.week.pool_pct
+    ? (board.week.used_pct / board.week.pool_pct) * 100 : 0;
+  const actualWeekly = m.seven_day_pct;
+
   host.innerHTML =
-    `<span>ใช้จริง (วัดจาก Claude):</span>`
-    + `<span>เซสชันปัจจุบัน <b>${fmtPct(m.five_hour_pct)}</b></span>`
-    + `<span>รายสัปดาห์ <b>${fmtPct(m.seven_day_pct)}</b></span>`
-    + `<span class="${stale ? 'claude-stale' : 'text-muted'}">`
-    + `อัปเดต ${stampLabel(new Date(m.sampled_at))}${stale ? ' — ข้อมูลเก่า' : ''}</span>`;
+    '<div class="claude-measured-head">'
+    + '<b>ใช้จริง</b><span class="text-muted">วัดจาก Claude โดยตรง</span>'
+    + `<span class="claude-measured-age ms-auto ${stale ? 'is-stale' : ''}">`
+    + `${stale ? 'ข้อมูลค้าง — ' : ''}อัปเดต${ago(age)}</span>`
+    + '</div>'
+    + '<div class="claude-gauges">'
+    + gauge('เซสชัน 5 ชม. ตอนนี้', m.five_hour_pct, m.five_hour_resets_at)
+    + gauge('โควตารายสัปดาห์', m.seven_day_pct, m.seven_day_resets_at)
+    + '</div>'
+    + reconcile(bookedWeekly, actualWeekly);
 }
-const fmtPct = (v) => (v == null ? '—' : `${Number(v).toFixed(0)}%`);
+
+/** One window: how much is left, and when it comes back. */
+function gauge(label, pct, resetsAt) {
+  if (pct == null) {
+    return `<div><div class="claude-gauge-k"><span>${escHtml(label)}</span>`
+      + '<span class="claude-gauge-left">—</span></div>'
+      + '<div class="claude-meter"><i style="width:0"></i></div></div>';
+  }
+  const used = Math.max(0, Math.min(100, Number(pct)));
+  const cls = used >= 90 ? ' is-crit' : used >= 80 ? ' is-warn' : '';
+  const reset = resetsAt ? new Date(resetsAt) : null;
+  const left = reset ? reset.getTime() - Date.now() : null;
+  return '<div>'
+    + `<div class="claude-gauge-k"><span>${escHtml(label)}</span>`
+    + `<span class="claude-gauge-left">เหลือ ${(100 - used).toFixed(0)}%</span></div>`
+    + `<div class="claude-meter${cls}"><i style="width:${used}%"></i></div>`
+    + '<div class="claude-gauge-sub">'
+    + `ใช้ไป ${used.toFixed(0)}%`
+    + (reset ? ` · รีเซ็ต ${stampLabel(reset)}${left > 0 ? ` (อีก ${durLabel(left)})` : ''}` : '')
+    + '</div></div>';
+}
+
+/** Booked against actual, on one scale. The reason the reporter exists. */
+function reconcile(bookedWeekly, actualWeekly) {
+  if (actualWeekly == null) return '';
+  const diff = actualWeekly - bookedWeekly;
+  const verdict = Math.abs(diff) < 1
+    ? '<span>ตรงกับที่จองไว้</span>'
+    : diff > 0
+      ? `<span class="claude-over">ใช้เกินที่จองไว้ ${diff.toFixed(0)}%</span>`
+      : `<span class="claude-under">ใช้น้อยกว่าที่จองไว้ ${Math.abs(diff).toFixed(0)}%</span>`;
+  return '<div class="claude-reconcile">'
+    + `<span>สัปดาห์นี้ จองไว้ <b>${bookedWeekly.toFixed(0)}%</b></span>`
+    + `<span>ใช้จริง <b>${Number(actualWeekly).toFixed(0)}%</b></span>`
+    + verdict
+    + '</div>';
+}
+
+/** "3 นาทีที่แล้ว" — a timestamp answers "when", this answers "is it live". */
+function ago(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return 'เมื่อครู่';
+  if (mins < 60) return ` ${mins} นาทีที่แล้ว`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return ` ${h} ชม.ที่แล้ว`;
+  return ` ${Math.floor(h / 24)} วันที่แล้ว`;
+}
 
 // ============================================================
 // Grid

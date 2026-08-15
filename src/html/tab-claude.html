@@ -50,7 +50,11 @@
       <div class="claude-week-bar" id="claudeWeekBar"></div>
       <div class="claude-week-scale" id="claudeWeekScale"></div>
       <div class="claude-legend" id="claudeLegend"></div>
-      <div class="claude-measured" id="claudeMeasured" hidden></div>
+      <!-- LIVE, MEASURED usage from Claude itself (claude_usage_samples, fed by
+           tools/claude-usage-report.mjs). Everything above this line is what
+           people SAID they would use; this is what the account actually spent.
+           Rendered by paintMeasured(). -->
+      <div class="claude-measured" id="claudeMeasured"></div>
     </div>
 
     <p class="text-muted small mb-2" id="claudeHelp">
