@@ -68,22 +68,23 @@
 // RUN IT ON THE MACHINE THAT HOLDS THE SAMO CLAUDE LOGIN. For SAMO that is the
 // KKU VM, so it keeps reporting when nobody's laptop is open.
 //
-// TWO WAYS TO GIVE IT A CREDENTIAL. Prefer the first:
+// USE `claude login`, NOT `claude setup-token`. MEASURED 2026-08-16:
 //
-//   1. A LONG-LIVED TOKEN (recommended — set once, no rotation to think about)
-//        ssh samo-vm && claude setup-token
-//      Sign in as the SAMO Claude account; it prints a token. Put that in
-//      /etc/samo-claude-usage.env as CLAUDE_OAUTH_TOKEN=… and this script uses
-//      it directly — no refresh, no 12-day window, nothing to re-run. When it
-//      does eventually expire the script says so in Discord.
+//   setup-token  → oauth/usage HTTP 403
+//                  {"type":"permission_error","message":"OAuth token does not
+//                   meet scope requirement user:profile"}
+//   claude login → oauth/usage HTTP 200
 //
-//   2. A NORMAL LOGIN (fallback)
-//        ssh samo-vm && claude login
-//      Writes ~/.claude/.credentials.json. The script then owns the refresh
-//      cycle described above. Works, but has more moving parts than (1).
-// then install the timer (every 15 min):
-//     sudo cp server/samo-claude-usage.{service,timer} /etc/systemd/system/
-//     sudo systemctl enable --now samo-claude-usage.timer
+// `claude setup-token` advertises a one-year token and looks like the obvious
+// answer to "I don't want to keep logging in" — it was recommended here for
+// exactly that reason and it was WRONG. The token it mints carries
+// `user:inference` but not `user:profile`, so it can spend the subscription and
+// cannot read it. Precisely backwards for a monitor.
+//
+// So: run `claude login` on the machine that will report (for SAMO, the VM).
+// It writes ~/.claude/.credentials.json with the full scope set, and this
+// script owns the refresh cycle from there — see below. One login, then never
+// again while the timer keeps running.
 //
 // ENV (.env.local on a dev box, /etc/samo-claude-usage.env on the VM):
 //     VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
