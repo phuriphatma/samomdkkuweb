@@ -34,16 +34,23 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
   **Migrations applied through 0154.** **1022 tests green.**
-- ⚠️ **จองโควตา Claude (0154) is DEPLOYED, but not yet USABLE by anyone.**
-  Migration applied, bundle served, CSS verified live. Two things still owed
-  before a person can actually book:
-  **(a) `DISCORD_CLAUDE_WEBHOOK=` in `/etc/samo-notify.env`** then
-  `sudo systemctl restart samo-notify` — without it the booking still saves and
-  only the notification is skipped. **The webhook the owner supplied was pasted
-  in chat and must be REGENERATED first.**
-  **(b) grant the `claude` permission** to whoever should book (ทีม SAMO →
-  the permission grid). Note ~13 ฝ่าย IT accounts already hold `master`, which
-  answers yes to every key, so they have it whether or not anyone ticks a box.
+- ⚠️ **จองโควตา Claude (0154) is DEPLOYED. Two owner steps left before the
+  MEASURED usage strip can appear** (booking itself already works):
+  **(a) grant the `claude` permission** in ทีม SAMO to whoever should book.
+  ~13 ฝ่าย IT accounts already hold `master`, which answers yes to every key.
+  **(b) fill two blanks in `/etc/samo-claude-usage.env` on the VM.** Everything
+  else is staged: Claude Code 2.1.233 installed, systemd unit + timer copied to
+  `/etc/systemd/system/`, Supabase URL/anon-key already written, timer
+  deliberately NOT enabled yet. What is missing:
+  `CLAUDE_OAUTH_TOKEN` (run `claude setup-token` ON THE VM — a LONG-LIVED
+  token, no rotation, nothing to re-run) and `CLAUDE_REPORTER_EMAIL` /
+  `CLAUDE_REPORTER_PASSWORD` for any account holding `claude`. Then
+  `sudo systemctl enable --now samo-claude-usage.timer`.
+  ⚠️ **An `sk-ant-…` API key CANNOT substitute** — it authenticates the
+  pay-per-token API, which has no 5-hour session and no weekly cap. The windows
+  this board books against exist only on the SUBSCRIPTION.
+  ✅ Discord webhook regenerated, installed at `/etc/samo-notify.env`, and
+  test-delivered (HTTP 204).
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
