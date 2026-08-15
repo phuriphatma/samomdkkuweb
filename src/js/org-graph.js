@@ -46,7 +46,9 @@
 // a float could silently jump three years of unreleased changes.
 import { escHtml } from './utils.js';
 import { faceHtml, GRAPH_SHAPE } from './org-face.js';
-import { RUNG, applyRung, DEFAULT_RUNG } from './org-rung.js';
+import {
+  RUNG, applyRung, DEFAULT_RUNG, subtreeMeta,
+} from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
 
@@ -173,22 +175,17 @@ function flatten(rootNode, ctx, opts = {}) {
     if (filter) people = people.filter((m) => filter.keepMembers.has(m));
 
     const s = subStats.get(node.id) || { nodes: 0, people: 0 };
-    let meta = '';
-    if (!filter) {
-      if (s.nodes === 0 && s.people === 0) meta = 'ยังไม่มีสมาชิก';
-      else {
-        const bits = [];
-        if (s.nodes > 0) bits.push(`${s.nodes} ตำแหน่ง`);
-        if (s.people > 1 || (s.people === 1 && s.nodes > 0)) bits.push(`${s.people} คน`);
-        meta = bits.join(' · ');
-      }
-    }
-
     // ฝ่าย or ตำแหน่ง, and how deep into the ฝ่าย CHAIN this sits — the two
     // facts the rung predicate is written in terms of. `divDepth` counts only
     // ฝ่าย ancestors, so it means the same thing in both views even though
     // ผังรวม has an extra synthetic box above everything (see applyRung).
     const isDiv = isDivision(node.kind);
+
+    // Suppressed under a search: a count of the WHOLE subtree beside a card
+    // showing only the matches would contradict what is on screen.
+    const meta = filter ? '' : subtreeMeta({
+      isDiv, nodes: s.nodes, people: s.people, own: (byNode.get(node.id) || []).length,
+    });
     const divDepth = parentDivDepth + (isDiv ? 1 : 0);
 
     const d = {

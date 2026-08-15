@@ -21,7 +21,10 @@
 // assertion below. Then put it back.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { RUNG, applyRung, sortSiblings, chartParentage } from './org-rung.js';
+import { readFileSync } from 'node:fs';
+import {
+  RUNG, applyRung, sortSiblings, chartParentage, subtreeMeta,
+} from './org-rung.js';
 
 // The live shape, in miniature — ฝ่ายดิจิทัล as it actually is on
 // samo.md.kku.ac.th, plus the ผังรวม synthetic root above it.
@@ -266,5 +269,56 @@ describe('a ฝ่าย\'s sub-ฝ่าย hang off its HEAD ตำแหน�
     const input = stored();
     chartParentage(input, nodeById);
     expect(ids(input, 'dig')).toEqual(['vp', 'pr', 'comart', 'it']);
+  });
+});
+
+describe('the count line says whether it means INSIDE or BELOW', () => {
+  it('a ฝ่าย states its CONTENTS, people included', () => {
+    expect(subtreeMeta({ isDiv: true, nodes: 18, people: 41, own: 0 }))
+      .toBe('18 ตำแหน่ง · 41 คน');
+  });
+
+  it('a ตำแหน่ง with a subtree says ใต้สังกัด, and does not count ITSELF', () => {
+    // THE FINDING: อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร rendered
+    // "17 ตำแหน่ง · 41 คน" — a person appearing to contain 41 people, one of
+    // whom was the person the card is about.
+    expect(subtreeMeta({ isDiv: false, nodes: 17, people: 41, own: 1 }))
+      .toBe('ใต้สังกัด 17 ตำแหน่ง · 40 คน');
+  });
+
+  it('a ตำแหน่ง with NO subtree still means who HOLDS it', () => {
+    // No subtree, no claim to get wrong — the number is the seat's holders and
+    // has always meant that. Prefixing this one would be a new mistake.
+    expect(subtreeMeta({ isDiv: false, nodes: 0, people: 9, own: 9 })).toBe('9 คน');
+  });
+
+  it('an empty ตำแหน่ง says so — it is a vacancy, not a broken card', () => {
+    expect(subtreeMeta({ isDiv: false, nodes: 0, people: 0, own: 0 }))
+      .toBe('ยังไม่มีสมาชิก');
+  });
+
+  it('a seat whose whole subtree is empty names the ตำแหน่ง only', () => {
+    expect(subtreeMeta({ isDiv: false, nodes: 3, people: 1, own: 1 }))
+      .toBe('ใต้สังกัด 3 ตำแหน่ง');
+  });
+
+  it('never renders a negative or a bare zero', () => {
+    // `people - own` is a subtraction over two independently computed numbers.
+    // If they ever disagree, a card must not say "-1 คน".
+    for (const own of [0, 1, 5, 99]) {
+      const out = subtreeMeta({ isDiv: false, nodes: 2, people: 3, own });
+      expect(out, `own=${own} produced ${out}`).not.toMatch(/-\d|\b0 คน/);
+    }
+  });
+
+  it('both renderers call it — neither keeps a hand-rolled copy', () => {
+    // It was hand-rolled TWICE with the same four branches before this existed,
+    // which is how one wording bug shipped to two views at once.
+    for (const rel of ['./org-chart.js', './org-graph.js']) {
+      const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+      expect(src, `${rel} does not call subtreeMeta`).toMatch(/subtreeMeta\(/);
+      expect(src, `${rel} still builds the line itself`)
+        .not.toMatch(/bits\.push\(`\$\{[^}]+\} ตำแหน่ง`\)/);
+    }
   });
 });

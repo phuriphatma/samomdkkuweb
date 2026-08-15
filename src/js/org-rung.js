@@ -174,3 +174,47 @@ export function applyRung(data, rung) {
 }
 
 export const DEFAULT_RUNG = RUNG.role;
+
+/**
+ * The "n ตำแหน่ง · n คน" line under a card.
+ *
+ * REVIEWED, and it was a new claim nobody made on purpose: once sub-ฝ่าย hang
+ * off the head seat, `อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร` rendered
+ * **"17 ตำแหน่ง · 41 คน"**. On a ฝ่าย that line means CONTENTS and reads
+ * correctly. On a person it reads as though the person contains forty-one
+ * people — and it counted the อุปนายก themselves among them.
+ *
+ * So the line means different things on the two kinds, and says which:
+ *
+ *   ฝ่าย                    `18 ตำแหน่ง · 41 คน`            — what is inside it
+ *   ตำแหน่ง with a subtree   `ใต้สังกัด 17 ตำแหน่ง · 40 คน`   — what reports below
+ *   ตำแหน่ง with none        `9 คน`                          — who holds the seat
+ *   nothing at all           `ยังไม่มีสมาชิก`
+ *
+ * `own` is excluded from the seat figure, because the holders of a seat are not
+ * under it. That is the off-by-one the old wording hid: 41 included the one
+ * person the card is about.
+ *
+ * ONE function, because both renderers drew this line and had hand-rolled the
+ * same four branches — `.claude/rules/mistakes.md` class 6, found while it was
+ * still only a wording bug.
+ *
+ * @param isDiv   this node is a ฝ่าย
+ * @param nodes   ตำแหน่ง in the subtree, NOT counting this node
+ * @param people  people in the subtree, INCLUDING those holding this node
+ * @param own     people holding this node itself
+ */
+export function subtreeMeta({ isDiv, nodes, people, own = 0 }) {
+  if (nodes === 0 && people === 0) return 'ยังไม่มีสมาชิก';
+
+  // A seat with nothing under it is not making a claim about a subtree — the
+  // number is simply who holds it, which is what it has always meant.
+  const below = !isDiv && nodes > 0;
+  const shown = below ? people - own : people;
+
+  const bits = [];
+  if (nodes > 0) bits.push(`${nodes} ตำแหน่ง`);
+  if (shown > 1 || (shown === 1 && nodes > 0)) bits.push(`${shown} คน`);
+  if (!bits.length) return '';
+  return below ? `ใต้สังกัด ${bits.join(' · ')}` : bits.join(' · ');
+}

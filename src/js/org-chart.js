@@ -25,7 +25,10 @@ import {
   mountOrgGraph, destroyOrgGraph, setGraphRung, fitGraphs, zoomGraphs,
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
-import { RUNG, DEFAULT_RUNG, chartParentage } from './org-rung.js';
+import {
+  RUNG, DEFAULT_RUNG, chartParentage, subtreeMeta,
+} from './org-rung.js';
+import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
@@ -278,18 +281,23 @@ function memberCard(m, filter) {
 /** "12 ตำแหน่ง · 48 คน" — the reason to open a collapsed branch. Suppressed
  *  while a search is running: those totals describe the WHOLE subtree, and next
  *  to a filtered view they would contradict what is on screen. */
+/** The line under a station name. The wording rule — and why a ตำแหน่ง says
+ *  something different from a ฝ่าย — lives in org-rung.js's `subtreeMeta`,
+ *  shared with the graph renderer.
+ *
+ *  A ตำแหน่ง with nobody in it and nothing under it used to render as a bare
+ *  name — no count, no cards — which reads as a card that failed to load rather
+ *  than as a vacancy. 21 of them exist ("สมาชิกฝ่าย Production" is the one that
+ *  got reported), and `subtreeMeta` says so: an empty ตำแหน่ง is real
+ *  information, especially on a page that doubles as recruitment. */
 function stationMeta(node) {
   const s = subStats.get(node.id) || { nodes: 0, people: 0 };
-  // A ตำแหน่ง with nobody in it and nothing under it rendered as a bare name —
-  // no count, no cards — which reads as a card that failed to load rather than
-  // as a vacancy. 21 of them exist ("สมาชิกฝ่าย Production" is the one that got
-  // reported). Say so: an empty ตำแหน่ง is real information, especially on a
-  // page that doubles as recruitment.
-  if (s.nodes === 0 && s.people === 0) return 'ยังไม่มีสมาชิก';
-  const bits = [];
-  if (s.nodes > 0) bits.push(`${s.nodes} ตำแหน่ง`);
-  if (s.people > 1 || (s.people === 1 && s.nodes > 0)) bits.push(`${s.people} คน`);
-  return bits.join(' · ');
+  return subtreeMeta({
+    isDiv: isDivision(node.kind),
+    nodes: s.nodes,
+    people: s.people,
+    own: (byNode.get(node.id) || []).length,
+  });
 }
 
 function nodeBlock(node, depth, filter) {
