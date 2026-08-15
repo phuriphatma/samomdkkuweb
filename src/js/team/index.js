@@ -18,7 +18,7 @@ import {
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
 import { normalizeKind } from '../node-kind.js';
-import { tintFor } from '../dept-tint.js';
+import { tintColor, isHexColor } from '../dept-tint.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
@@ -556,10 +556,11 @@ function renderNode(node, filter, depth = 0) {
   // is shared with the public chart (dept-tint.js) so a ฝ่าย is not yellow on
   // one screen and green on the other. An unrecognised ฝ่าย sets nothing and
   // keeps the brand green that .team-tree declares.
-  if (depth === 0) {
-    const tint = tintFor(node.name);
-    if (tint) li.style.setProperty('--node-tint', `var(--dept-${tint})`);
-  }
+  // A colour set ANYWHERE down the tree overrides what it inherits, so a
+  // sub-ฝ่าย can be given its own identity without detaching it from its root.
+  // Nothing set = inherit, which is why this is not applied unconditionally.
+  const tint = tintColor(node);
+  if (tint) li.style.setProperty('--node-tint', tint);
 
   const checkbox = selectionMode
     ? `<input type="checkbox" class="team-check" data-act="select" ${selectedNodes.has(node.id) ? 'checked' : ''} aria-label="เลือกตำแหน่ง" />`
@@ -1211,8 +1212,44 @@ function highlightPlain(text, q) {
 // NODE MODAL (name + kind only)
 // ============================================================
 
+/** Paint the swatch row to match a stored value. '' = อัตโนมัติ. */
+function setNodeColor(value) {
+  const v = isHexColor(value) ? value : '';
+  const hidden = $('teamNodeColor');
+  if (hidden) hidden.value = v;
+  const row = $('teamNodeSwatches');
+  if (!row) return;
+  let matched = false;
+  row.querySelectorAll('.team-swatch[data-color]').forEach((b) => {
+    const on = b.dataset.color.toLowerCase() === v.toLowerCase();
+    if (on) matched = true;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  // A colour that is NOT one of the ten is still a real choice — show it on the
+  // custom well rather than leaving the row looking like nothing is selected,
+  // which is how a saved value gets overwritten by accident.
+  const custom = row.querySelector('.is-custom');
+  if (custom) {
+    custom.classList.toggle('is-on', !!v && !matched);
+    if (v) custom.style.setProperty('--sw', v);
+    else custom.style.removeProperty('--sw');
+  }
+  const picker = $('teamNodeColorCustom');
+  if (picker && /^#[0-9A-Fa-f]{6}$/.test(v)) picker.value = v;
+}
+
 function wireNodeModal() {
   $('teamNodeForm')?.addEventListener('submit', onNodeSubmit);
+  // Delegated: the swatches are static markup, but the modal is shared between
+  // จัดการทีม and จัดการสิทธิ์ and this runs once either way.
+  $('teamNodeSwatches')?.addEventListener('click', (e) => {
+    const sw = e.target.closest('.team-swatch[data-color]');
+    if (sw) setNodeColor(sw.dataset.color);
+  });
+  // `input`, not `change`: the native picker fires input while dragging, and a
+  // swatch row that only updates on close makes the choice feel unregistered.
+  $('teamNodeColorCustom')?.addEventListener('input', (e) => setNodeColor(e.target.value));
   $('teamNodeDelete')?.addEventListener('click', () => {
     const id = $('teamNodeId').value;
     if (id) { modalInstance('teamNodeModal')?.hide(); onDeleteNode(id); }
@@ -1224,6 +1261,7 @@ function openNodeModal({ node = null, parentId = null, kind = null, tab = 'info'
   $('teamNodeParentId').value = node ? (node.parent_id || '') : (parentId || '');
   $('teamNodeName').value = node?.name || '';
   $('teamNodeKind').value = node?.kind || kind || 'role';
+  setNodeColor(node?.color || '');
   // New nodes default to visible; only an explicit false hides the subtree.
   if ($('teamNodeIsPublic')) $('teamNodeIsPublic').checked = node ? node.is_public !== false : true;
   // Board membership is opt-in, so a NEW ตำแหน่ง is never silently promoted into
@@ -1302,6 +1340,10 @@ async function onNodeSubmit(e) {
   const payload = {
     name,
     kind: normalizeKind($('teamNodeKind').value),
+    // '' means "derive it from the name", and that has to reach the database as
+    // NULL — an empty string would pass the hex CHECK's `is null` arm nowhere
+    // and 23514 the save. Stored null is also what makes `tintColor` fall back.
+    color: isHexColor($('teamNodeColor').value) ? $('teamNodeColor').value : null,
     is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
     is_board: $('teamNodeIsBoard') ? $('teamNodeIsBoard').checked : false,
   };
@@ -3371,6 +3413,7 @@ async function importJson(data) {
   const mkNode = async (n, newParent, position) => {
     const row = await createNode({
       parent_id: newParent, name: n.name.trim(), kind: normalizeKind(n.kind),
+      color: isHexColor(n.color) ? n.color : null,
       position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,

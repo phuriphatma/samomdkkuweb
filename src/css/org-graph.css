@@ -237,16 +237,6 @@ body.orgg-full-open { overflow: hidden; }
   overflow: hidden;
 }
 
-.orgg-card[data-tint="admin"]      { --org-tint: var(--dept-admin); }
-.orgg-card[data-tint="digital"]    { --org-tint: var(--dept-digital); }
-.orgg-card[data-tint="internal"]   { --org-tint: var(--dept-internal); }
-.orgg-card[data-tint="external"]   { --org-tint: var(--dept-external); }
-.orgg-card[data-tint="university"] { --org-tint: var(--dept-university); }
-.orgg-card[data-tint="academic"]   { --org-tint: var(--dept-academic); }
-.orgg-card[data-tint="strategy"]   { --org-tint: var(--dept-strategy); }
-.orgg-card[data-tint="quality"]    { --org-tint: var(--dept-quality); }
-.orgg-card[data-tint="media"]      { --org-tint: var(--dept-media); }
-.orgg-card[data-tint="projects"]   { --org-tint: var(--dept-projects); }
 
 .orgg-name {
   font-family: 'Prompt', system-ui, sans-serif;

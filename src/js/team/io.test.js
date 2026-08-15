@@ -143,7 +143,7 @@ describe('buildExportJson round-trip fidelity', () => {
     id: 'n1', parent_id: null, name: 'ฝ่ายทดสอบ', kind: 'division', position: 3,
     permissions: ['pr'], inherit_permissions: false, vs_dept: 'SE',
     project_seat: 'vpa', is_public: true, is_board: true,
-    passport_dept_id: 0, passport_sub_dept_id: 7,
+    passport_dept_id: 0, passport_sub_dept_id: 7, color: '#2F5F9C',
   };
   const MEMBER = {
     id: 'm1', node_id: 'n1', position: 2, full_name: 'ทดสอบ ระบบ',
@@ -158,10 +158,15 @@ describe('buildExportJson round-trip fidelity', () => {
   it('exports every persisted node field', () => {
     const [n] = buildExportJson([NODE], []).nodes;
     expect(Object.keys(n).sort()).toEqual([
-      'id', 'inherit_permissions', 'is_board', 'is_public', 'kind', 'name',
-      'parent_id', 'passport_dept_id', 'passport_sub_dept_id', 'permissions',
-      'position', 'project_seat', 'vs_dept',
+      'color', 'id', 'inherit_permissions', 'is_board', 'is_public', 'kind',
+      'name', 'parent_id', 'passport_dept_id', 'passport_sub_dept_id',
+      'permissions', 'position', 'project_seat', 'vs_dept',
     ]);
+    // The VALUE too, not just the key. `color: n.color || null` would export
+    // the key and drop the choice if the mapping were ever written as a bare
+    // spread of a subset — and a ฝ่าย re-imported to its name-derived colour
+    // looks like a colour, not like a loss.
+    expect(n.color).toBe('#2F5F9C');
   });
 
   it('exports every persisted member field', () => {

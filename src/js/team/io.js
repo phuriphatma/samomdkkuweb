@@ -107,6 +107,10 @@ export function buildExportJson(nodes, members) {
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
       is_board: !!n.is_board,
+      // 0152. An export that drops this re-imports every ฝ่าย back to the
+      // name-derived colour — silently, since a derived colour looks like a
+      // colour rather than like a loss.
+      color: n.color || null,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     })),

@@ -26,7 +26,7 @@ import {
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
 import { RUNG, DEFAULT_RUNG, chartParentage } from './org-rung.js';
-import { tintFor } from './dept-tint.js';
+import { tintColor } from './dept-tint.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -302,7 +302,10 @@ function nodeBlock(node, depth, filter) {
   // A branch that filtered down to nothing at all is noise — drop it.
   if (filter && !people.length && !childHtml) return '';
 
-  const tint = tintFor(node.name);
+  // A CSS COLOUR, not a palette key. Set inline so an admin-chosen colour and
+  // a name-derived one arrive by the same route — a `data-tint` attribute could
+  // only ever express the ten the stylesheet had a rule for.
+  const tint = tintColor(node);
   const peopleHtml = people.length
     ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>`
     : '';
@@ -353,7 +356,7 @@ function nodeBlock(node, depth, filter) {
   // of the node. One markup, two layouts, no second renderer to keep in step.
   return `
     <li class="org-node${collapsible ? ' is-collapsible' : ''}" data-depth="${depth}"${
-      tint ? ` data-tint="${tint}"` : ''}>
+      tint ? ` style="--org-tint:${tint}"` : ''}>
       <div class="org-box">
         <${hTag} class="org-station">${station}</${hTag}>
       </div>
@@ -566,7 +569,6 @@ async function paintGraph(roots, filter) {
       byParent,
       byNode,
       subStats,
-      tintFor,
       filter,
       rung: graphRung[view],
       combined: view === 'all',

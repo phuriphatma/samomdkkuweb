@@ -20,7 +20,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { TINT_NAMES, tintFor } from './dept-tint.js';
+import { TINT_NAMES, tintFor, tintColor, isHexColor } from './dept-tint.js';
 
 const base = readFileSync(new URL('../css/base.css', import.meta.url), 'utf8');
 
@@ -55,5 +55,66 @@ describe('the table is shared, so both surfaces agree', () => {
     expect(tintFor('เอิงtesting')).toBeNull();
     expect(tintFor('')).toBeNull();
     expect(tintFor(null)).toBeNull();
+  });
+});
+
+describe('the JS hex check and the SQL CHECK are one rule in two places', () => {
+  // 0152 constrains team_nodes.color in the database AND isHexColor() guards the
+  // same value on the way into a `style` attribute. Two implementations of one
+  // rule is `.claude/rules/mistakes.md` class 6, and the mitigation is the
+  // differential test written in the same commit — the regex is read out of the
+  // migration rather than retyped, so the two cannot drift without this failing.
+  const sql = readFileSync(
+    new URL('../../supabase/migrations/0152_a_faai_can_choose_its_colour.sql', import.meta.url),
+    'utf8',
+  );
+  const m = sql.match(/color\s*~\s*'(\^[^']+)'/);
+
+  it('the migration still carries a hex pattern this test can read', () => {
+    // The instrument, checked before it is trusted: a renamed migration or a
+    // rewritten constraint would otherwise leave the differential below
+    // comparing against nothing and passing.
+    expect(m, 'no `color ~ \'…\'` CHECK found in 0152').toBeTruthy();
+  });
+
+  it('agrees with the database on every case, accept AND refuse', () => {
+    const pg = new RegExp(m[1].replace(/\{(\d)\}/g, '{$1}'));
+    const cases = [
+      '#abc', '#ABC', '#105922', '#F2CB67', '#10592280',
+      'red', '', '#', '#ab', '#abcd', '#abcde', '#12345g',
+      '#fff;background:url(//x)', 'var(--dept-digital)', 'rgb(1,2,3)',
+    ];
+    const disagree = cases.filter((c) => pg.test(c) !== isHexColor(c));
+    expect(disagree, `JS and SQL disagree on: ${disagree.join(', ')}`).toEqual([]);
+    // The control: the case list must actually contain both verdicts, or
+    // "they agree" would be true of two functions that always say no.
+    expect(cases.some(isHexColor)).toBe(true);
+    expect(cases.some((c) => !isHexColor(c))).toBe(true);
+  });
+
+  it('rejects a non-string without throwing', () => {
+    for (const v of [null, undefined, 42, {}, ['#abc']]) expect(isHexColor(v)).toBe(false);
+  });
+});
+
+describe('tintColor: chosen beats derived, derived beats nothing', () => {
+  it('uses the admin\'s colour when there is one', () => {
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: '#F2CB67' })).toBe('#F2CB67');
+  });
+
+  it('falls back to the name when there is not', () => {
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: null })).toBe('var(--dept-academic)');
+  });
+
+  it('ignores a stored value that is not a hex literal', () => {
+    // Defence in depth against the projection ever carrying something else:
+    // this string would land inside `style="--org-tint: …"` on a public page.
+    expect(tintColor({ name: 'ฝ่ายวิชาการ', color: 'red;x:url(//e)' }))
+      .toBe('var(--dept-academic)');
+  });
+
+  it('returns null when neither source has an answer', () => {
+    expect(tintColor({ name: 'เอิงtesting' })).toBeNull();
+    expect(tintColor(null)).toBeNull();
   });
 });

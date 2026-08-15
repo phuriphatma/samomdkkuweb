@@ -170,6 +170,40 @@
               ก็ใช้ประเภทนี้ตัดสินว่าจะเปิดถึงระดับไหน — ส่วนโครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย
             </div>
           </div>
+          <!-- Colour identity (0152). Swatch buttons rather than a bare colour
+               input: the ten --dept-* values are the SAMO 69 colour sheet and
+               are the answer nine times out of ten, while a free picker invites
+               a colour that vanishes on white. The picker is still there, one
+               click further in, for the tenth time. -->
+          <div class="mb-1 mt-3" id="teamNodeColorField">
+            <label class="form-label d-block">สีประจำฝ่าย</label>
+            <div class="team-swatches" id="teamNodeSwatches" role="group" aria-label="สีประจำฝ่าย">
+              <button type="button" class="team-swatch is-auto is-on" data-color=""
+                title="ใช้สีอัตโนมัติจากชื่อฝ่าย" aria-pressed="true">
+                <i class="bi bi-magic" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="team-swatch" data-color="#A17A60" style="--sw:#A17A60" aria-pressed="false" aria-label="น้ำตาล"></button>
+              <button type="button" class="team-swatch" data-color="#F2CB67" style="--sw:#F2CB67" aria-pressed="false" aria-label="เหลือง"></button>
+              <button type="button" class="team-swatch" data-color="#E68FAA" style="--sw:#E68FAA" aria-pressed="false" aria-label="ชมพู"></button>
+              <button type="button" class="team-swatch" data-color="#7DB0CD" style="--sw:#7DB0CD" aria-pressed="false" aria-label="ฟ้า"></button>
+              <button type="button" class="team-swatch" data-color="#F49D5F" style="--sw:#F49D5F" aria-pressed="false" aria-label="ส้ม"></button>
+              <button type="button" class="team-swatch" data-color="#2F5F9C" style="--sw:#2F5F9C" aria-pressed="false" aria-label="น้ำเงิน"></button>
+              <button type="button" class="team-swatch" data-color="#318D65" style="--sw:#318D65" aria-pressed="false" aria-label="เขียว"></button>
+              <button type="button" class="team-swatch" data-color="#8DC96C" style="--sw:#8DC96C" aria-pressed="false" aria-label="เขียวอ่อน"></button>
+              <button type="button" class="team-swatch" data-color="#2294BC" style="--sw:#2294BC" aria-pressed="false" aria-label="ฟ้าเข้ม"></button>
+              <button type="button" class="team-swatch" data-color="#8C6A47" style="--sw:#8C6A47" aria-pressed="false" aria-label="น้ำตาลเข้ม"></button>
+              <label class="team-swatch is-custom" title="เลือกสีเอง">
+                <i class="bi bi-eyedropper" aria-hidden="true"></i>
+                <input type="color" id="teamNodeColorCustom" value="#105922" aria-label="เลือกสีเอง" />
+              </label>
+            </div>
+            <input type="hidden" id="teamNodeColor" value="" />
+            <div class="form-text">
+              สีนี้ใช้ทั้งในหน้าจัดการนี้และในผังองค์กรหน้าเว็บ — ฝ่ายย่อยและตำแหน่งข้างในจะใช้สีเดียวกันทั้งสาย
+              เลือก <i class="bi bi-magic"></i> เพื่อให้ระบบเลือกให้จากชื่อฝ่าย
+            </div>
+          </div>
+
           <!-- Org-chart visibility (0086). Off for อาจารย์ / เจ้าหน้าที่คณะ, who hold
                system permissions but are not part of the student org chart. -->
           <div class="form-check form-switch mt-3">

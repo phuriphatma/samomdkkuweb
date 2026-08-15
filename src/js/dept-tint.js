@@ -33,10 +33,40 @@ const DEPT_TINT = [
   [/รังสีเทคนิค/, 'projects'],
 ];
 
-/** The tint name for a ฝ่าย, or null if the palette has none for it. */
+/** The tint NAME for a ฝ่าย, from its name alone, or null. The fallback half
+ *  of `tintColor` — exported for the guard, which asserts every name this can
+ *  return has a `--dept-*` behind it. */
 export function tintFor(name) {
   const hit = DEPT_TINT.find(([re]) => re.test(name || ''));
   return hit ? hit[1] : null;
+}
+
+/**
+ * The CSS colour a node is drawn in, or null to inherit the brand green.
+ *
+ * TWO SOURCES, in order: what the admin CHOSE (`team_nodes.color`, 0152), then
+ * what the name IMPLIES. Chosen wins, because the derived answer exists only
+ * because there was nothing better — the palette names ten ฝ่าย and the tree
+ * has fifteen roots, and a rename used to lose a ฝ่าย's colour in silence.
+ *
+ * The stored value is constrained to a hex literal in the database (0152), and
+ * this is the only place either half turns into a CSS value, so a caller cannot
+ * accidentally interpolate something else into a style attribute.
+ */
+export function tintColor(node) {
+  if (!node) return null;
+  if (isHexColor(node.color)) return node.color;
+  const named = tintFor(node.name);
+  return named ? `var(--dept-${named})` : null;
+}
+
+/** The client-side half of 0152's CHECK. Belt and braces: the column is
+ *  constrained, but this value is interpolated into a `style` attribute on an
+ *  anonymous public page, and a projection is one `create or replace` away from
+ *  carrying something else. Two checks of one rule, deliberately — see
+ *  `dept-tint.test.js`, which asserts they agree on the same strings. */
+export function isHexColor(v) {
+  return typeof v === 'string' && /^#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{2})?)?$/.test(v);
 }
 
 /** Every tint this table can return — the subject `dept-tint.test.js` checks

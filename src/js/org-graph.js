@@ -48,6 +48,7 @@ import { escHtml } from './utils.js';
 import { faceHtml, GRAPH_SHAPE } from './org-face.js';
 import { RUNG, applyRung, DEFAULT_RUNG } from './org-rung.js';
 import { isDivision } from './node-kind.js';
+import { tintColor } from './dept-tint.js';
 
 // d3-zoom is imported DYNAMICALLY, beside the chart library, and not with a
 // static `import` at the top of this file. This module is reachable statically
@@ -143,7 +144,7 @@ function cardHtml(d, q) {
   const shown = d.people.slice(0, PEOPLE_INLINE_MAX);
   const rest = d.people.length - shown.length;
   return `
-    <div class="orgg-card"${d.tint ? ` data-tint="${d.tint}"` : ''}>
+    <div class="orgg-card"${d.tint ? ` style="--org-tint:${d.tint}"` : ''}>
       <div class="orgg-name">${hi(d.name || '', q)}</div>
       ${shown.length ? `<div class="orgg-people">${shown.map((m) => personHtml(m, q)).join('')}</div>` : ''}
       ${rest > 0 ? `<div class="orgg-more">+${rest} คน</div>` : ''}
@@ -159,10 +160,12 @@ function cardHtml(d, q) {
  * library was chosen over the alternatives.
  */
 function flatten(rootNode, ctx, opts = {}) {
-  const { byParent, byNode, subStats, tintFor, filter } = ctx;
+  const { byParent, byNode, subStats, filter } = ctx;
   const { into = [], parentId: startParent = null, depthOffset = 0 } = opts;
   const out = into;
-  const tint = tintFor(rootNode.name);
+  // The whole subtree of a root ฝ่าย is drawn in that ฝ่าย's colour, chosen or
+  // derived — see tintColor in dept-tint.js.
+  const tint = tintColor(rootNode);
 
   const walk = (node, parentId, depth, parentIsDiv, parentDivDepth) => {
     if (filter && !filter.keepNodes.has(node.id)) return;

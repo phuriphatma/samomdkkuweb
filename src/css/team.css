@@ -186,34 +186,23 @@
 .team-node-body > .team-members { padding-left: 1.1rem; }
 .team-node-body { position: relative; }
 
-/* ---- the guide rail, graded by depth --------------------------------------
+/* ---- no guide rails -------------------------------------------------------
  *
- * REPORTED: "every ฝ่าย got the same color, making it confusing what's outer,
- * what's inner, what's sub of which."
+ * There WERE rails — one vertical line per open ฝ่าย, tinted by depth, plus an
+ * orange one that lit up under the pointer. REPORTED: "i dont like the orange
+ * highlight line, and i dont think we need a line outside for each ฝ่าย it's
+ * dizzy, i think making it step the highlight is enough."
  *
- * The rail used to be one flat --ink-100 hairline at every level, which is fine
- * when there are two levels and useless at five. Now the OUTERMOST rail is the
- * darkest and each level inward is fainter, so a rail's weight tells you how
- * deep the branch it belongs to is, and two rails side by side are visibly a
- * parent and a child rather than two peers.
+ * They are right, and the reason is worth keeping: five levels deep there were
+ * five parallel lines down the left margin, all in the same hue, none of them
+ * the one you were reading. A guide rail helps when the thing it guides you to
+ * is far away — in a tree where each row is one line tall and the bands already
+ * step, it is five pieces of furniture answering a question nobody asked.
  *
- * Strongest-outside, not strongest-inside: at a glance you are looking for the
- * boundary of the big thing, and the eye should find the ฝ่ายหลัก's rail first.
+ * Indentation plus the graded band carries the hierarchy on its own. If a
+ * rail ever comes back, it should be ONE — the branch you are inside — not one
+ * per level.
  */
-.team-node-body::before {
-  content: ''; position: absolute; left: 0.42rem; top: 0; bottom: 0.3rem;
-  width: 2px; border-radius: 1px; background: var(--ink-100);
-  transition: background 0.12s;
-}
-.team-node[data-depth="0"] > .team-node-body::before { background: var(--node-tint); opacity: 0.85; }
-.team-node[data-depth="1"] > .team-node-body::before { background: var(--node-tint); opacity: 0.5; }
-.team-node[data-depth="2"] > .team-node-body::before { background: var(--node-tint); opacity: 0.28; }
-
-/* Point at a row and its OWN children's rail lights up — the direct answer to
- * "sub of which", without having to trace an indent down the page. Scoped to
- * the row rather than the node so hovering a grandchild does not light up every
- * ancestor rail at once, which is noise rather than an answer. */
-.team-row:hover + .team-node-body::before { background: var(--brand-orange); opacity: 1; }
 
 .team-empty {
   padding: 2rem 1rem; text-align: center; color: var(--ink-400);
@@ -256,24 +245,47 @@
    strengths. Every rule declares a flat rgba FIRST as the fallback: a browser
    that cannot mix keeps the original green band rather than losing the band
    entirely, which would take the hierarchy with it. */
+/* THE RIGHT EDGE COMES IN WITH THE DEPTH, and this is the part that was
+   missing when the rails came out. Left-indent alone moves a nested band's
+   START by 1.1rem while its END stays flush with the page — two bands whose
+   right edges line up read as PEERS however far apart their left edges are.
+   Bringing the right edge in as well makes a sub-ฝ่าย visibly sit INSIDE its
+   parent's width, which is the containment the rails were doing badly. */
 .team-node[data-kind="division"][data-depth="0"] > .team-row {
-  background: rgba(16, 89, 34, 0.09);
-  background: color-mix(in srgb, var(--node-tint) 16%, transparent);
-  box-shadow: inset 3px 0 0 var(--node-tint);
+  background: rgba(16, 89, 34, 0.12);
+  background: color-mix(in srgb, var(--node-tint) 20%, transparent);
+  box-shadow: inset 4px 0 0 var(--node-tint);
   font-weight: 700;
   font-size: 1rem;
+  /* A ฝ่ายหลัก is a section, not a row — it gets air above it and a taller box
+     so the eye can find the boundaries while scrolling 300 rows. */
+  padding-top: 0.55rem; padding-bottom: 0.55rem;
+  margin-top: 1.1rem;
 }
 .team-node[data-kind="division"][data-depth="1"] > .team-row {
   background: rgba(16, 89, 34, 0.05);
-  background: color-mix(in srgb, var(--node-tint) 9%, transparent);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--node-tint) 60%, transparent);
+  background: color-mix(in srgb, var(--node-tint) 10%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--node-tint) 65%, transparent);
   font-size: 0.95rem;
+  margin-right: 1rem;
+  margin-top: 0.45rem;
 }
 .team-node[data-kind="division"][data-depth="2"] > .team-row {
   background: rgba(16, 89, 34, 0.03);
-  background: color-mix(in srgb, var(--node-tint) 5%, transparent);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--node-tint) 40%, transparent);
+  background: color-mix(in srgb, var(--node-tint) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--node-tint) 45%, transparent);
+  margin-right: 2rem;
+  margin-top: 0.35rem;
 }
+.team-node[data-kind="division"][data-depth="3"] > .team-row {
+  background: rgba(16, 89, 34, 0.02);
+  background: color-mix(in srgb, var(--node-tint) 4%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--node-tint) 30%, transparent);
+  margin-right: 3rem;
+  margin-top: 0.35rem;
+}
+/* The first ฝ่ายหลัก has nothing above it to be separated from. */
+.team-tree > .team-children > .team-node:first-child > .team-row { margin-top: 0; }
 .team-node[data-kind="division"][data-depth="0"] > .team-row .team-node-icon,
 .team-node[data-kind="division"][data-depth="1"] > .team-row .team-node-icon,
 .team-node[data-kind="division"][data-depth="2"] > .team-row .team-node-icon {
@@ -978,4 +990,48 @@
   font-size: .75rem;
   background: var(--brand-orange-050, #fff1e8);
   color: var(--brand-orange, #ff6f30);
+}
+
+/* ---- สีประจำฝ่าย: the swatch row (0152) -----------------------------------
+ *
+ * Buttons, not a bare <input type=color>. The ten --dept-* values ARE the
+ * answer nine times out of ten, and a picker as the only affordance makes
+ * choosing one of them a four-step colour-wheel errand — while inviting a
+ * colour that disappears against white. The picker is the last cell, for the
+ * tenth time. อัตโนมัติ is FIRST and is the default, because "derive it from
+ * the name" is what every existing ฝ่าย already does.
+ */
+.team-swatches {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;
+}
+.team-swatch {
+  --sw: var(--ink-200);
+  position: relative;
+  width: 1.9rem; height: 1.9rem; flex: 0 0 auto;
+  border: 2px solid transparent; border-radius: 50%;
+  background: var(--sw); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-500); cursor: pointer;
+  /* The ring sits OUTSIDE the circle, so selecting one does not change its
+     size and the row does not reflow as you click along it. */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.team-swatch:hover { transform: scale(1.08); }
+.team-swatch.is-on {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+              0 0 0 2px #fff, 0 0 0 4px var(--ink-700);
+}
+.team-swatch.is-auto, .team-swatch.is-custom { background: #fff; }
+.team-swatch.is-custom { --sw: #fff; background: var(--sw); overflow: hidden; }
+.team-swatch.is-custom .bi { position: relative; z-index: 1; mix-blend-mode: difference; color: #fff; }
+/* The native colour input is the whole cell but invisible — it keeps the
+   keyboard and the OS picker while the circle above is what anyone sees. */
+.team-swatch.is-custom input[type="color"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
+@media (hover: none) and (pointer: coarse) {
+  /* A colour chip is a target, and 1.9rem is a mouse-sized one. */
+  .team-swatch { width: 2.4rem; height: 2.4rem; }
 }

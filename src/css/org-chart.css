@@ -270,17 +270,13 @@
   overflow-wrap: anywhere;
 }
 
-/* Board cards carry their own tint; the tree's rule lives on .org-node. */
-.org-board-card[data-tint="admin"]      { --org-tint: var(--dept-admin); }
-.org-board-card[data-tint="digital"]    { --org-tint: var(--dept-digital); }
-.org-board-card[data-tint="internal"]   { --org-tint: var(--dept-internal); }
-.org-board-card[data-tint="external"]   { --org-tint: var(--dept-external); }
-.org-board-card[data-tint="university"] { --org-tint: var(--dept-university); }
-.org-board-card[data-tint="academic"]   { --org-tint: var(--dept-academic); }
-.org-board-card[data-tint="strategy"]   { --org-tint: var(--dept-strategy); }
-.org-board-card[data-tint="quality"]    { --org-tint: var(--dept-quality); }
-.org-board-card[data-tint="media"]      { --org-tint: var(--dept-media); }
-.org-board-card[data-tint="projects"]   { --org-tint: var(--dept-projects); }
+/* THE TINT ARRIVES INLINE, as `style="--org-tint: …"`, set by org-chart.js and
+   org-graph.js from `tintColor()`. There used to be twenty rules here mapping
+   `[data-tint="digital"]` → `var(--dept-digital)`, one per palette entry — a
+   stylesheet that could only express the ten colours somebody had written a
+   rule for. An admin can now choose any colour per ฝ่าย (0152), so the value
+   itself travels and this file only ever reads `var(--org-tint)`, which every
+   rule below already did. Default is on :root. */
 
 /* ── the tree ───────────────────────────────────────────────────────────── */
 
@@ -314,16 +310,6 @@
   padding: clamp(0.9rem, 2.5vw, 1.35rem) clamp(0.9rem, 2.5vw, 1.35rem) clamp(1.1rem, 3vw, 1.6rem);
 }
 
-.org-node[data-tint="admin"]      { --org-tint: var(--dept-admin); }
-.org-node[data-tint="digital"]    { --org-tint: var(--dept-digital); }
-.org-node[data-tint="internal"]   { --org-tint: var(--dept-internal); }
-.org-node[data-tint="external"]   { --org-tint: var(--dept-external); }
-.org-node[data-tint="university"] { --org-tint: var(--dept-university); }
-.org-node[data-tint="academic"]   { --org-tint: var(--dept-academic); }
-.org-node[data-tint="strategy"]   { --org-tint: var(--dept-strategy); }
-.org-node[data-tint="quality"]    { --org-tint: var(--dept-quality); }
-.org-node[data-tint="media"]      { --org-tint: var(--dept-media); }
-.org-node[data-tint="projects"]   { --org-tint: var(--dept-projects); }
 
 /* The spine. A nested list gets a left rule and each child hangs off it with a
    short horizontal tick — one rule per level, so depth is legible without any
