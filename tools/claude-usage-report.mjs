@@ -74,9 +74,21 @@
 // path into a table the app also writes, and this repo's rule is that the gate
 // lives on the table.
 //
+// POLL EVERY 15 MINUTES, NOT IN A LOOP. The usage endpoint rate-limits hard.
+// 15 min is well inside what it tolerates and is what the systemd timer does;
+// a 429 is handled as a normal skipped tick, never as an incident.
+//
+// WHAT THIS DOES NOT DO, and cannot: attribute usage to a PERSON. The endpoint
+// reports the whole subscription — "how close is the account to its cap" — and
+// says nothing about who spent it. That breakdown lives in each person's own
+// ~/.claude session logs, on their own laptop, which is what ccusage reads.
+// Nothing on the VM can see those, because nobody runs Claude on the VM. If
+// per-person truth is ever wanted, the shape is a small reporter each member
+// runs, not a change here.
+//
 // FAILURE POSTURE: everything degrades to "no sample". The board renders a
 // plain ledger and hides the measured strip rather than showing a zero — a zero
-// reads as a reading. So every error path exits non-zero and writes nothing.
+// reads as a reading. So every error path writes nothing.
 // ============================================================
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
@@ -310,6 +322,18 @@ async function main() {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    // 429 is EXPECTED, not a fault. The usage endpoint rate-limits hard, and a
+    // missed tick costs nothing — the next one is 15 minutes away and the board
+    // simply keeps the previous sample. Critically it must NOT reach
+    // alertHuman(): a throttling blip that pages someone about re-logging in is
+    // how an alert channel gets muted, and then the real expiry goes unseen.
+    // Exit 0 so systemd does not record a failed unit for a normal event.
+    if (res.status === 429) {
+      const retry = res.headers.get('retry-after');
+      console.log(`· rate-limited by the usage API${retry ? ` (retry-after ${retry}s)` : ''}`
+        + ' — skipping this tick, the board keeps the previous sample');
+      process.exit(0);
+    }
     // 401/403 on a STATIC long-lived token is the one failure that path has,
     // and nothing here can fix it — a person must issue a new token. So it is
     // loud, like the refresh failure.
