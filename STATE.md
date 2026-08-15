@@ -21,7 +21,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `6880e58` (2026-08-16)** — working tree clean, local ==
+- ✅ **DEPLOYED = `2f80973` (2026-08-16)** — working tree clean, local ==
   origin == VM. Verified from the SERVED artifacts: `data-admin-pane="claude"`
   in the admin HTML, `get_claude_board` in the admin JS, `claude-session-tag`
   + `claude-dayhead` in the admin CSS the served HTML actually links, and 0 in
@@ -29,7 +29,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   EMPTY means prod is current:
 
   ```bash
-  git diff --stat 6880e58..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat 2f80973..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
