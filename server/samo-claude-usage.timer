@@ -1,0 +1,13 @@
+# Every 15 minutes. The 5-hour window moves fast enough that hourly would show a
+# number nobody recognises, and the usage endpoint is cheap.
+[Unit]
+Description=Report Claude usage every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+# Catch up after a reboot instead of waiting a full interval.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

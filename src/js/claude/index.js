@@ -30,6 +30,7 @@ import { escHtml } from '../utils.js';
 import { askDelete } from '../confirm-modal.js';
 import { tintFor } from '../dept-tint.js';
 import { sendNotify } from '../notify.js';
+import { dayColumnsFor, bookableRangeFor, startOfDay } from './week.js';
 
 const HOUR_MS  = 3600000;
 const DAY_MS   = 86400000;
@@ -48,7 +49,6 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const minsOfDay = (d) => d.getHours() * 60 + d.getMinutes();
-const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 
 /** Thai day/month for a header cell. Intl carries the Buddhist era and the
  *  abbreviations; hand-rolling a month table is how a date renders as 'undefined'
@@ -117,14 +117,14 @@ const weekStart = () => new Date(board.week.starts_at);
 const weekEnd   = () => new Date(board.week.ends_at);
 const sessionMs = () => (board.settings.session_minutes || 300) * MIN_MS;
 
-/** The seven day columns. The quota week runs Wed 16:00 → Wed 16:00, so it
- *  spans EIGHT calendar dates; the grid shows seven columns starting on the
- *  reset day and hatches the parts that belong to the neighbouring weeks.
- *  Anything else would either hide bookings or draw a column nobody can use. */
-function dayColumns() {
-  const first = startOfDay(weekStart());
-  return Array.from({ length: 7 }, (_, i) => new Date(first.getTime() + i * DAY_MS));
-}
+/**
+ * The day columns and the bookable slice of each — geometry lives in week.js,
+ * which is pure and directly tested (claude/week.test.js). Keeping it there is
+ * the point: the bug this replaces was a hardcoded column count, and a number
+ * assumed in a DOM module is a number nothing can assert about.
+ */
+const dayColumns = () => dayColumnsFor(weekStart(), weekEnd());
+const bookableRange = (dayStartMs) => bookableRangeFor(dayStartMs, weekStart(), weekEnd());
 
 // ============================================================
 // Entry point
@@ -286,8 +286,14 @@ function buildGrid() {
   head.innerHTML = '<div class="claude-corner"></div>';
   body.innerHTML = '';
 
+  // The column count is derived (7 or 8, see dayColumns), so the grid track
+  // list has to follow it rather than being fixed in the stylesheet.
+  const cols = dayColumns();
+  head.style.setProperty('--claude-cols', String(cols.length));
+  body.style.setProperty('--claude-cols', String(cols.length));
+
   const today = startOfDay(new Date()).getTime();
-  dayColumns().forEach((d) => {
+  cols.forEach((d) => {
     const el = document.createElement('div');
     el.className = 'claude-dayhead' + (d.getTime() === today ? ' is-today' : '');
     el.innerHTML = `<div class="claude-dow">${THAI_DOW[d.getDay()]}</div>`
@@ -305,7 +311,7 @@ function buildGrid() {
   }
   body.appendChild(gut);
 
-  dayColumns().forEach((d, i) => {
+  cols.forEach((d, i) => {
     const col = document.createElement('div');
     col.className = 'claude-daycol';
     col.dataset.dayIndex = String(i);
@@ -345,12 +351,13 @@ function paintGrid() {
       .forEach((n) => n.remove());
   });
 
-  // Hatch what belongs to the neighbouring quota weeks.
-  const wS = weekStart().getTime();
-  const wE = weekEnd().getTime();
+  // Hatch what belongs to the neighbouring quota weeks. Indexed off the DERIVED
+  // column list — a hardcoded 6 here is what left the last 16 hours of the week
+  // undrawn.
   const cols = dayColumns();
-  addDead(0, 0, (wS - cols[0].getTime()) / MIN_MS, 'สัปดาห์ก่อน');
-  addDead(6, (wE - cols[6].getTime()) / MIN_MS, 1440, 'สัปดาห์ถัดไป');
+  const last = cols.length - 1;
+  addDead(0, 0, bookableRange(cols[0].getTime()).min, 'สัปดาห์ก่อน');
+  addDead(last, bookableRange(cols[last].getTime()).max, 1440, 'สัปดาห์ถัดไป');
 
   const pool = board.settings.session_pool_pct;
   board.sessions.forEach((sn) => {
@@ -401,7 +408,7 @@ function paintGrid() {
 
   // "Now", only when the week on screen is the one containing it.
   const now = Date.now();
-  if (now >= cols[0].getTime() && now < cols[6].getTime() + DAY_MS) {
+  if (now >= cols[0].getTime() && now < cols[last].getTime() + DAY_MS) {
     const idx = Math.floor((now - cols[0].getTime()) / DAY_MS);
     const col = colFor(idx);
     if (col) {
@@ -436,8 +443,14 @@ function onDragStart(ev) {
   const col = ev.target.closest('.claude-daycol');
   if (!col || ev.target.closest('.claude-bk')) return;
   const rect = col.getBoundingClientRect();
+  const dayStart = Number(col.dataset.dayStart);
+  const range = bookableRange(dayStart);
   const start = snapMin(((ev.clientY - rect.top) / hourH()) * 60);
-  drag = { col, rect, start, cur: start, dayStart: Number(col.dataset.dayStart) };
+  // Starting inside a hatched sliver means a different quota week. Refuse the
+  // drag outright rather than booking a block this view will not draw — the
+  // bug this replaces let exactly that happen, silently.
+  if (start < range.min || start >= range.max) return;
+  drag = { col, rect, start, cur: start, dayStart, range };
   const box = document.createElement('div');
   box.className = 'claude-sel';
   box.id = 'claudeSelBox';
@@ -458,7 +471,10 @@ function paintSel() {
   const maxMin = sessionMs() / MIN_MS;
   let a = Math.min(drag.start, drag.cur);
   let b = Math.max(drag.start, drag.cur);
-  if (b - a < SLOT_MIN) b = a + SLOT_MIN;
+  // Clamp to the part of this column that is inside the quota week.
+  a = Math.max(a, drag.range.min);
+  b = Math.min(b, drag.range.max);
+  if (b - a < SLOT_MIN) b = Math.min(drag.range.max, a + SLOT_MIN);
   // Clamp to the 5-hour ceiling AT THE EDGE THE POINTER IS MOVING, so dragging
   // upward past the limit walks the start rather than freezing the selection.
   if (b - a > maxMin) {
@@ -617,22 +633,6 @@ function recalc() {
     ? `เซสชันใหม่ — จองได้สูงสุด ${pool}%`
     : `เซสชันนี้เหลือ ${remaining}%`;
 
-  // duration chips
-  const durs = [30, 60, 120, 180, maxMin];
-  $('claudeDurChips').innerHTML = '';
-  durs.forEach((d) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'claude-chip' + (eMin - sMin === d ? ' on' : '');
-    b.textContent = d === maxMin ? `${maxMin / 60} ชม. (สูงสุด)` : durLabel(d * MIN_MS);
-    b.disabled = sMin + d > 1440;
-    b.addEventListener('click', () => {
-      $('claudeEnd').value = String(Math.min(1440, sMin + d));
-      recalc();
-    });
-    $('claudeDurChips').appendChild(b);
-  });
-
   // percent chips
   $('claudePctChips').innerHTML = '';
   [10, 25, 50, 75, 100].filter((v) => v <= cap).forEach((v) => {
@@ -675,9 +675,18 @@ function recalc() {
       `เกินโควตาสัปดาห์ ${weekAfter - board.week.pool_pct}% — สัปดาห์นี้เหลือ `
       + `${board.week.pool_pct - board.week.used_pct}%`));
   }
+  // The selects are a SECOND way into the range, so the week bounds have to be
+  // checked here too and not only in the drag handler — a guard on one entry
+  // point is not a guard (class 4).
   if (e.getTime() > weekEnd().getTime()) {
     notes.push(noteHtml('crit',
-      'ช่วงนี้คร่อมเวลารีเซ็ตโควตาสัปดาห์ — แบ่งเป็นสองการจองคนละสัปดาห์'));
+      'ช่วงนี้เลยเวลารีเซ็ตโควตาสัปดาห์ '
+      + `(${stampLabel(weekEnd())}) — ไปที่สัปดาห์ถัดไปแล้วจองที่นั่น`));
+  }
+  if (s.getTime() < weekStart().getTime()) {
+    notes.push(noteHtml('crit',
+      `ช่วงนี้อยู่ก่อนเวลาเริ่มโควตาสัปดาห์นี้ (${stampLabel(weekStart())}) `
+      + 'จึงนับเป็นโควตาของสัปดาห์ก่อน — กดปุ่มย้อนสัปดาห์แล้วจองที่นั่น'));
   }
   $('claudeNotes').innerHTML = notes.join('');
 

@@ -1,0 +1,25 @@
+# Posts MEASURED Claude usage into the จองโควตา Claude board (migration 0154).
+#
+# Runs as the deploy user, NOT root: it reads that user's ~/.claude/.credentials.json,
+# which is what `claude login` writes. Root has no such login and would find nothing.
+#
+# The script refreshes the OAuth token itself (access ~2h, refresh ~12d and it
+# ROTATES), so the unit needs no credential of its own — but the refresh token
+# does expire, so if this starts failing with "token refresh failed", the fix is
+# to run `claude login` on the VM again as this user.
+[Unit]
+Description=Report Claude usage to the SAMO booking board
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=samo
+WorkingDirectory=/home/samo/samo-projects/samomdkkuweb
+# Supabase URL/key + the reporter account that holds the `claude` permission.
+# chmod 600, root-owned, never in git.
+EnvironmentFile=/etc/samo-claude-usage.env
+ExecStart=/usr/bin/node tools/claude-usage-report.mjs
+# A failed sample is not an incident: the board hides the measured strip rather
+# than showing a stale or zero reading, which is the designed degradation.
+SuccessExitStatus=0

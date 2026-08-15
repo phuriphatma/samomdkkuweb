@@ -33,7 +33,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0154.** **847 tests green.**
+  **Migrations applied through 0154.** **1022 tests green.**
 - ⚠️ **จองโควตา Claude (0154) is DEPLOYED, but not yet USABLE by anyone.**
   Migration applied, bundle served, CSS verified live. Two things still owed
   before a person can actually book:

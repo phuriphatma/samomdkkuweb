@@ -74,10 +74,13 @@
   border-radius: 8px; overflow: hidden;
 }
 .claude-cal-scroll { overflow: auto; max-height: 620px; }
-.claude-cal-grid { min-width: 780px; position: relative; }
+.claude-cal-grid { min-width: 820px; position: relative; }
 
 .claude-cal-head {
-  display: grid; grid-template-columns: var(--claude-gutter) repeat(7, 1fr);
+  /* --claude-cols is set by buildGrid(): the quota week runs Wed 16:00 -> Wed
+     16:00, so it spans EIGHT calendar dates, and a midnight reset would span
+     seven. A fixed track count here drew the wrong week. */
+  display: grid; grid-template-columns: var(--claude-gutter) repeat(var(--claude-cols, 7), 1fr);
   position: sticky; top: 0; z-index: 6;
   background: #fff; border-bottom: 1px solid #dee2e6;
 }
@@ -93,7 +96,7 @@
 .claude-dayhead.is-today .claude-dow { color: var(--brand-orange); }
 
 .claude-cal-body {
-  display: grid; grid-template-columns: var(--claude-gutter) repeat(7, 1fr);
+  display: grid; grid-template-columns: var(--claude-gutter) repeat(var(--claude-cols, 7), 1fr);
   position: relative;
 }
 .claude-gutter { border-right: 1px solid #eceff0; }
