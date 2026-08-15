@@ -28,6 +28,74 @@ export function sortSiblings(list) {
   return list;
 }
 
+/**
+ * A ฝ่าย's sub-ฝ่าย hang off its HEAD ตำแหน่ง, not off the ฝ่าย box.
+ *
+ * REPORTED, after a first attempt that only re-ORDERED the siblings: "currently
+ * on ผังรวม it shows ฝ่ายดิจิทัลและสื่อสารองค์กร then 4 lines showing all
+ * อุปนายกฝ่ายดิจิทัล, ฝ่าย PR, ฝ่าย ComArt, ฝ่าย IT. It should be
+ * ฝ่ายดิจิทัลและสื่อสารองค์กร then ONE line to อุปนายกฝ่ายดิจิทัล then THREE
+ * lines to ฝ่าย PR, ฝ่าย ComArt, ฝ่าย IT."
+ *
+ * Order was never the point — RANK was. Drawn as four siblings, the chart says
+ * the อุปนายก and the three ฝ่าย are peers under the same box. They are not:
+ * the อุปนายก HEADS the ฝ่าย and the three sub-ฝ่าย report to them. Putting the
+ * seats and the units on one rank is the one thing an org chart exists to
+ * distinguish, and no amount of left-to-right ordering fixes it.
+ *
+ * So, for a ฝ่าย with both seats and sub-ฝ่าย: the seats stay its children, and
+ * the sub-ฝ่าย become children of the FIRST seat. First = `position` 0 = the
+ * head — the tree already ranks its own children that way, verified across the
+ * live tree, and it is the same fact the equal-sized cards rely on. Deriving
+ * the head from the structure means no prefix list of ("หัวหน้า…", "อุปนายก…",
+ * "ประธาน…") titles to rot the first time someone invents a new one.
+ *
+ * WHEN IT DOES NOT APPLY, and why the parent's kind is the test:
+ *
+ *   • the parent is a ตำแหน่ง (หัวหน้าฝ่าย PR holds both a seat and
+ *     ฝ่าย Media management). Its seat-children are PEERS of the ฝ่าย, not the
+ *     ฝ่าย's head — pushing the ฝ่าย under หัวหน้าฝ่าย Content creator would
+ *     invent a reporting line that does not exist. They stay siblings, seats
+ *     first, which is what `sortSiblings` is still for.
+ *   • the ฝ่าย has no seats at all. Nothing to hang them off; they stay put
+ *     rather than vanish.
+ *
+ * This is a DISPLAY parentage. `team_nodes.parent_id` is untouched, the admin
+ * tree still shows what is actually stored, and this runs over the projection
+ * on the way to the four public views so they cannot disagree with each other.
+ *
+ * @param byParent  parent id ('' for root) → node[], as org-chart.js indexes it
+ * @param nodeById  id → node, to ask whether a parent is a ฝ่าย
+ * @returns a NEW map; the input is not mutated
+ */
+export function chartParentage(byParent, nodeById) {
+  const out = new Map();
+  for (const [key, kids] of byParent) out.set(key, sortSiblings([...kids]));
+
+  // Iterating the ORIGINAL map, not `out`. `out.set(head.id, …)` can add a key
+  // that was not there, and adding keys to a Map you are iterating means the
+  // loop visits them — so the decision would depend on insertion order. The
+  // parent-kind test below happens to skip every such key today; this keeps
+  // that from being the only thing standing between here and an order-dependent
+  // drawing.
+  for (const [key, kids] of byParent) {
+    // '' is the organisation itself: a unit, so the rule applies to it too.
+    // (Every root is a ฝ่าย today, so it is a no-op — but it is a no-op for the
+    // right reason rather than by accident.)
+    const parent = key === '' ? null : nodeById.get(key);
+    if (key !== '' && !(parent && isDivision(parent.kind))) continue;
+
+    const seats = kids.filter((n) => !isDivision(n.kind));
+    const units = kids.filter((n) => isDivision(n.kind));
+    if (!seats.length || !units.length) continue;
+
+    const head = seats[0];
+    out.set(key, seats);
+    out.set(head.id, [...(out.get(head.id) || []), ...units]);
+  }
+  return out;
+}
+
 /** A flattened row, as org-graph.js builds it. The three fields this module
  *  reads are set once in `flatten()`:
  *

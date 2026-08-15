@@ -18,6 +18,7 @@ import {
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
 import { normalizeKind } from '../node-kind.js';
+import { tintFor } from '../dept-tint.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
@@ -508,7 +509,7 @@ function render() {
   const ul = document.createElement('ul');
   ul.className = 'team-children team-root';
   ul.dataset.parentId = '';
-  roots.forEach((n) => { const li = renderNode(n, filter); if (li) ul.appendChild(li); });
+  roots.forEach((n) => { const li = renderNode(n, filter, 0); if (li) ul.appendChild(li); });
   tree.innerHTML = '';
   tree.appendChild(ul);
 
@@ -523,7 +524,7 @@ function render() {
   updateSelectionBar();
 }
 
-function renderNode(node, filter) {
+function renderNode(node, filter, depth = 0) {
   if (filter && !filter.visible.has(node.id)) return null;
   const kids = childrenOf(node.id);
   const mem = membersOf(node.id);
@@ -542,6 +543,23 @@ function renderNode(node, filter) {
   li.className = 'team-node' + (selectionMode && selectedNodes.has(node.id) ? ' is-selected' : '');
   li.dataset.nodeId = node.id;
   li.dataset.kind = normalizeKind(node.kind);
+  // REPORTED: "every ฝ่าย got the same color, making it confusing what's outer,
+  // what's inner, what's sub of which". Indentation alone stopped carrying the
+  // hierarchy once every container became a ฝ่าย — 93 of them, all painted the
+  // same green. The depth is what team.css grades the row and its guide rail
+  // by. Capped at 3: past that the tint is already at its lightest, and an
+  // uncapped attribute would need a rule per level forever.
+  li.dataset.depth = String(Math.min(depth, 3));
+  // Colour says WHICH root ฝ่าย you are inside; the depth grading above says how
+  // deep. Set once on the root and inherited by the whole subtree — a custom
+  // property cascades, so nothing has to carry the tint down by hand. The table
+  // is shared with the public chart (dept-tint.js) so a ฝ่าย is not yellow on
+  // one screen and green on the other. An unrecognised ฝ่าย sets nothing and
+  // keeps the brand green that .team-tree declares.
+  if (depth === 0) {
+    const tint = tintFor(node.name);
+    if (tint) li.style.setProperty('--node-tint', `var(--dept-${tint})`);
+  }
 
   const checkbox = selectionMode
     ? `<input type="checkbox" class="team-check" data-act="select" ${selectedNodes.has(node.id) ? 'checked' : ''} aria-label="เลือกตำแหน่ง" />`
@@ -623,7 +641,7 @@ function renderNode(node, filter) {
   const cul = document.createElement('ul');
   cul.className = 'team-children';
   cul.dataset.parentId = node.id;
-  kids.forEach((c) => { const cli = renderNode(c, filter); if (cli) cul.appendChild(cli); });
+  kids.forEach((c) => { const cli = renderNode(c, filter, depth + 1); if (cli) cul.appendChild(cli); });
   body.appendChild(cul);
 
   li.appendChild(body);

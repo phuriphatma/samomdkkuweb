@@ -25,7 +25,8 @@ import {
   mountOrgGraph, destroyOrgGraph, setGraphRung, fitGraphs, zoomGraphs,
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
-import { RUNG, DEFAULT_RUNG, sortSiblings } from './org-rung.js';
+import { RUNG, DEFAULT_RUNG, chartParentage } from './org-rung.js';
+import { tintFor } from './dept-tint.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -98,28 +99,6 @@ const PEOPLE_INLINE_MAX = 3;
 
 const $ = (id) => document.getElementById(id);
 
-/** The ten ฝ่าย already have colour identities in base.css; reuse them so a
- *  ฝ่าย looks the same here as it does on the ฝ่าย tab. Matched on the ฝ่าย name
- *  because the chart projection deliberately carries no dept id. */
-const DEPT_TINT = [
-  [/สำนักนายก/, 'admin'],
-  [/บริหารองค์กร/, 'admin'],
-  [/ดิจิทัล|สื่อสารองค์กร/, 'digital'],
-  [/กิจการภายใน/, 'internal'],
-  [/กิจการภายนอก/, 'external'],
-  [/กิจการมหาวิทยาลัย/, 'university'],
-  [/วิชาการ/, 'academic'],
-  [/ยุทธศาสตร์|พัฒนาองค์กร/, 'strategy'],
-  [/คุณภาพชีวิต|สิ่งแวดล้อม/, 'quality'],
-  [/เวชนิทัศน์/, 'media'],
-  [/รังสีเทคนิค/, 'projects'],
-];
-
-function tintFor(name) {
-  const hit = DEPT_TINT.find(([re]) => re.test(name || ''));
-  return hit ? hit[1] : null;
-}
-
 function index() {
   byParent = new Map();
   byNode = new Map();
@@ -130,7 +109,12 @@ function index() {
     byParent.get(k).push(n);
     nodeById.set(n.id, n);
   }
-  for (const bucket of byParent.values()) sortSiblings(bucket);
+  // The four public views draw a REPORTING structure, not the storage tree:
+  // a ฝ่าย's seats are its children and its sub-ฝ่าย hang off the head seat.
+  // Done once, here, on the index every view reads — including the search,
+  // which derives its parent map from this same structure below, so a filtered
+  // chart cannot disagree with an unfiltered one about who reports to whom.
+  byParent = chartParentage(byParent, nodeById);
   for (const m of chart.members || []) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
@@ -209,7 +193,12 @@ function computeFilter(qRaw) {
   if (!q) return null;
   const keepNodes = new Set();
   const keepMembers = new Set();
-  const parentOf = new Map((chart.nodes || []).map((n) => [n.id, n.parent_id || '']));
+  // From byParent, NOT from `chart.nodes` — the chart re-parents sub-ฝ่าย onto
+  // their head ตำแหน่ง (chartParentage), and a search that walked the STORED
+  // parents would keep an ancestor the chart no longer draws a line to, leaving
+  // a result hanging off nothing.
+  const parentOf = new Map();
+  for (const [k, kids] of byParent) for (const n of kids) parentOf.set(n.id, k);
   const markUp = (id) => {
     let cur = id;
     while (cur && !keepNodes.has(cur)) { keepNodes.add(cur); cur = parentOf.get(cur); }

@@ -174,17 +174,46 @@
 .team-statusbar { font-size: 0.8rem; color: var(--ink-500); padding: 0 0.15rem; }
 
 /* ---- tree scaffolding ---- */
-.team-tree { padding-bottom: 4rem; }
+/* The colour a ฝ่าย's subtree is drawn in. team/index.js overrides it on each
+   ROOT ฝ่าย from the shared --dept-* palette; a custom property inherits, so
+   every row and rail below that root picks it up with no further plumbing.
+   Declared HERE rather than on .team-node — on the node it would be re-declared
+   at every level and reset the inherited value on the way down. */
+.team-tree { padding-bottom: 4rem; --node-tint: var(--brand-primary); }
 .team-tree ul { list-style: none; margin: 0; padding: 0; }
 .team-children { padding-left: 0; }
 .team-node-body > .team-children,
 .team-node-body > .team-members { padding-left: 1.1rem; }
 .team-node-body { position: relative; }
-/* guide rail down the left of a node's children */
+
+/* ---- the guide rail, graded by depth --------------------------------------
+ *
+ * REPORTED: "every ฝ่าย got the same color, making it confusing what's outer,
+ * what's inner, what's sub of which."
+ *
+ * The rail used to be one flat --ink-100 hairline at every level, which is fine
+ * when there are two levels and useless at five. Now the OUTERMOST rail is the
+ * darkest and each level inward is fainter, so a rail's weight tells you how
+ * deep the branch it belongs to is, and two rails side by side are visibly a
+ * parent and a child rather than two peers.
+ *
+ * Strongest-outside, not strongest-inside: at a glance you are looking for the
+ * boundary of the big thing, and the eye should find the ฝ่ายหลัก's rail first.
+ */
 .team-node-body::before {
   content: ''; position: absolute; left: 0.42rem; top: 0; bottom: 0.3rem;
-  width: 2px; background: var(--ink-100);
+  width: 2px; border-radius: 1px; background: var(--ink-100);
+  transition: background 0.12s;
 }
+.team-node[data-depth="0"] > .team-node-body::before { background: var(--node-tint); opacity: 0.85; }
+.team-node[data-depth="1"] > .team-node-body::before { background: var(--node-tint); opacity: 0.5; }
+.team-node[data-depth="2"] > .team-node-body::before { background: var(--node-tint); opacity: 0.28; }
+
+/* Point at a row and its OWN children's rail lights up — the direct answer to
+ * "sub of which", without having to trace an indent down the page. Scoped to
+ * the row rather than the node so hovering a grandchild does not light up every
+ * ancestor rail at once, which is noise rather than an answer. */
+.team-row:hover + .team-node-body::before { background: var(--brand-orange); opacity: 1; }
 
 .team-empty {
   padding: 2rem 1rem; text-align: center; color: var(--ink-400);
@@ -201,11 +230,72 @@
   transition: background 0.12s;
 }
 .team-row:hover { background: var(--ink-50); }
+
+/* ---- a ฝ่าย looks like the LEVEL it is ------------------------------------
+ *
+ * Every container in this tree is a ฝ่าย now (migration 0151 retired แผนก), and
+ * for a while they were all painted the same green — 93 identical bands, with
+ * nothing but indentation saying which contained which.
+ *
+ * So the WEIGHT of the treatment carries the level. A ฝ่ายหลัก is a heading: a
+ * solid band and a thick accent bar. Four levels in, a ฝ่าย is a folder: no
+ * fill, a thin grey bar, still bolder than the ตำแหน่ง around it. Same colour
+ * family throughout, because they are the same kind of thing — what changes is
+ * how loudly each one is said.
+ *
+ * The accent bar is an inset box-shadow rather than a border so it costs no
+ * layout: a border would shift every row's text by its own width, and rows at
+ * different depths would no longer line up with their carets. */
 .team-node[data-kind="division"] > .team-row {
-  background: linear-gradient(0deg, rgba(16,89,34,0.05), rgba(16,89,34,0.05));
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--ink-200);
 }
-.team-node[data-kind="division"] > .team-row .team-node-icon { color: var(--brand-primary); }
+.team-node[data-kind="division"] > .team-row .team-node-icon { color: var(--ink-400); }
+
+/* `color-mix` is the whole reason one --node-tint can drive four different
+   strengths. Every rule declares a flat rgba FIRST as the fallback: a browser
+   that cannot mix keeps the original green band rather than losing the band
+   entirely, which would take the hierarchy with it. */
+.team-node[data-kind="division"][data-depth="0"] > .team-row {
+  background: rgba(16, 89, 34, 0.09);
+  background: color-mix(in srgb, var(--node-tint) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--node-tint);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.team-node[data-kind="division"][data-depth="1"] > .team-row {
+  background: rgba(16, 89, 34, 0.05);
+  background: color-mix(in srgb, var(--node-tint) 9%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--node-tint) 60%, transparent);
+  font-size: 0.95rem;
+}
+.team-node[data-kind="division"][data-depth="2"] > .team-row {
+  background: rgba(16, 89, 34, 0.03);
+  background: color-mix(in srgb, var(--node-tint) 5%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--node-tint) 40%, transparent);
+}
+.team-node[data-kind="division"][data-depth="0"] > .team-row .team-node-icon,
+.team-node[data-kind="division"][data-depth="1"] > .team-row .team-node-icon,
+.team-node[data-kind="division"][data-depth="2"] > .team-row .team-node-icon {
+  color: var(--brand-primary);
+}
+/* The NAME stays ink at every level. It was brand green for a moment, which
+   read fine until the bands took the ฝ่าย's own colour — green text on a brown
+   or a yellow band is two identities arguing. Weight and size already say
+   "this is the top"; the colour is the band's job. */
+
+/* A ตำแหน่ง is the thing IN a ฝ่าย, so it must not compete with one. No fill,
+ * no bar, normal weight — the contrast between a filled row and a bare one is
+ * what makes a ฝ่าย's contents scannable as a group. */
+.team-node[data-kind="role"] > .team-row { font-weight: 400; }
+
+/* Hover has to come AFTER the depth rules or it never wins — they are the same
+ * specificity, and a ฝ่าย row that does not respond to the pointer reads as
+ * disabled next to the ตำแหน่ง rows that do. */
+.team-node[data-kind="division"] > .team-row:hover {
+  background: rgba(16, 89, 34, 0.14);
+  background: color-mix(in srgb, var(--node-tint) 24%, transparent);
+}
 
 .team-handle {
   cursor: grab; color: var(--ink-300); display: inline-flex;

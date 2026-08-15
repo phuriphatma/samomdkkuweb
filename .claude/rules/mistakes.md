@@ -32,14 +32,14 @@ has not been written yet.
 3. **Scoped is not full.** A narrow branch added *beside* an unconditional one
    (`has_permission('x')`, `using (true)`, a role list) is decorative —
    permissive policies are OR'd, so the broad grant always wins. Make them
-   mutually exclusive, in the form as well as the schema.
+   mutually exclusive.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
    `select=*`, the other RPC, the view without `security_invoker`, and the
    audience lookup still leaking. Enumerate the paths. Mirror image: a correct
-   restriction mistaken for a complete design — an admin typed a decision note
-   into `student_change_requests`, which is admin-only, and the student it was
-   addressed to had no read path at all (0128). A form that collects a message
-   for a named person is a promise that person can read it. A gate on the WIDGET
+   restriction mistaken for a complete design — an admin's decision note went
+   into admin-only `student_change_requests` and the student it addressed had no
+   read path (0128). A form collecting a message for a named person promises
+   that person can read it. A gate on the WIDGET
    is not a gate on the ROUTE: the admin sidebar hid sections an account could
    not use and the delegate skipped them, but the HASH was unchecked, so
    `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
@@ -48,7 +48,9 @@ has not been written yet.
    — the /updates scroll fix worked for nav pills, not `navigateTo()`. COPY too:
    one claim lived in the sign-in caption, the signup link AND the home strip.
    A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
-   that was a head in one ฝ่าย and a ฝ่าย in the next.
+   that was a head in one ฝ่าย and a ฝ่าย in the next. A CHART claims one rank
+   = peers: when the STORED and REPORTING parents differ, the drawing needs its
+   own parentage.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -79,15 +81,14 @@ has not been written yet.
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
    the รุ่น (0128). Fill-once means never-correct — and the SAME shape reappeared in the
    FORMS, where `{...row, student_id: typed}` keeps the stale `cohort_year` that
-   `studyYear` prefers (`yearBasis`, 0145). Also one fact STORED in one system and
-   DERIVED in the other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine
-   members a year behind, and `house/fields.js` had predicted it in a comment
-   eight months early, which prevented nothing.
-   Also a rule implemented on the writers you HAPPENED to be looking at:
-   the replaced-portrait cleanup existed on the ทีม SAMO admin editor and the
-   archive editor but NOT on `my-seat.js`, the card every ordinary member uses —
-   so "เปลี่ยนรูป leaves the old picture in Drive" was a rule that looked
-   implemented. Now one `photoToRetire()` all three call. When a second copy is
+   (`yearBasis`, 0145). Also one fact STORED in one system and DERIVED in the
+   other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine members a year
+   behind, predicted in a `house/fields.js` comment eight months early, which
+   prevented nothing.
+   Also a rule implemented on the writers you HAPPENED to be looking at: the
+   replaced-portrait cleanup existed on the ทีม SAMO and archive editors but NOT
+   on `my-seat.js`, the card every member uses — "เปลี่ยนรูป leaves the old
+   picture in Drive" LOOKED implemented. Now one `photoToRetire()` all call. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule that
@@ -100,13 +101,12 @@ has not been written yet.
    Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6), and ONE
    SCREEN IN THREE FILES (the signin handlers, verbatim in both entries + a
    third module, until `signin-modal.js`).
-   Also TWO PASSES assigning one DOM property: the perm grid's
-   markup locked ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket
-   `cb.disabled = on` unlocked it. Only touch what THIS pass locked. Same
-   geometry, N passes: a delegated listener re-attached to the SURVIVING host on
-   every render, whose handler `toggle`d `d-none` — the panel then opened only
-   on odd-numbered paints (`my-house.js`). State in a variable, listeners on the
-   nodes this paint made.
+   Also TWO PASSES assigning one DOM property: the perm grid's markup locked
+   ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket `cb.disabled = on`
+   unlocked it. Only touch what THIS pass locked. Same geometry, N passes: a
+   delegated listener re-attached to the SURVIVING host every render, whose
+   handler `toggle`d `d-none` — the panel opened only on odd paints
+   (`my-house.js`). State in a variable, listeners on the nodes this paint made.
 7. **Verify from the authority, and test BOTH directions.** Read the ACL from
    `pg_proc.proacl`, not the `revoke` you just wrote; grep the SERVED bundle,
    not the local file; read the LIVE function body, not the migration that first
@@ -122,13 +122,13 @@ has not been written yet.
    blanked 13,839 characters before any assertion ran. One shared
    `strip-comments.js`, with its own test, now serves all four.
    The five ways, each paid for here: it cannot SEE the hazard
-   (`photo-refcount.test.js` scanned for `photo_url`, hazard sat in
+   (`photo-refcount.test.js` scanned `photo_url`, hazard sat in
    `houses.icon_url`, 0146) · its CONTROL also finds nothing (0147's first sweep
    printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
-   (`confirm-modal.test.js` matched `[data-confirm-no]` inside a *comment* and
-   passed with the bug present) · its SUBJECT is a hardcoded name that rotted
-   (`proj0092` named a member the org chart moved; `house0116` named an email
-   that never existed, so its ALLOW half was always vacuous) · it ERRORS rather
+   (`confirm-modal.test.js` matched `[data-confirm-no]` in a *comment*) · its
+   SUBJECT is a hardcoded name that rotted (`proj0092` named a member the org
+   chart moved; `house0116` named an email that never existed, so its ALLOW
+   half was vacuous) · it ERRORS rather
    than fails, and an aborted script is silence, not a red line (`house0116`
    called a function 0124 dropped and ran ZERO assertions for 23 migrations —
    when a migration drops a function or column, grep `tools/` in the same
@@ -260,7 +260,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(55 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(56 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -317,6 +317,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "the picture render wrong ... zoom also bug" — `srcset` resolves ONCE
 - "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
 - A DEPTH NUMBER cannot name a level of a ragged tree
+- "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*

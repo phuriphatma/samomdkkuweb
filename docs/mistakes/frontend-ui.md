@@ -2002,3 +2002,54 @@ applies to.* Before naming a rung after a thing ("หัวหน้าฝ่า
 that the thing is at the same coordinate everywhere — and if it is not, express
 the rung in whatever the data actually distinguishes, even if that means giving
 the data a distinction it did not reliably carry.
+
+
+## "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
+
+**Symptom.** Reported twice. First: "Navigate to role at that level first, then
+ฝ่าย will be under it." That was read as an ORDERING request and shipped as a
+stable sort putting ตำแหน่ง before ฝ่าย among siblings. The owner came back with
+the concrete case: *"currently on ผังรวม it shows ฝ่ายดิจิทัลและสื่อสารองค์กร
+then 4 lines showing all อุปนายกฝ่ายดิจิทัล, ฝ่าย PR, ฝ่าย ComArt, ฝ่าย IT. It
+should be … then ONE line to อุปนายกฝ่ายดิจิทัล then THREE lines to ฝ่าย PR,
+ComArt, IT."* Then a third time, to be sure: *"after the ฝ่าย head, it should
+run through roles first, then put all sub ฝ่าย as one step down not siblings to
+the roles."*
+
+**Cause.** The chart drew `team_nodes.parent_id` literally. Stored, a ฝ่าย's
+head seat and its sub-ฝ่าย are all children of the ฝ่าย row, so d3 put them on
+ONE RANK — four lines fanning out of the same box. That is the chart asserting
+they are peers. They are not: the อุปนายก heads the ฝ่าย and the three sub-ฝ่าย
+report to them. Reordering left-to-right cannot fix a wrong rank, which is why
+the first fix looked like it did nothing.
+
+The reading error is the reusable part. "role first, then ฝ่าย under it" is
+ambiguous between sequence and depth, and the first reading was picked because
+it was the cheaper change. **"under" from someone describing a drawing means
+BELOW, not AFTER.**
+
+**Fix.** `chartParentage()` — a DISPLAY parentage computed over the projection
+on the way to all four public views. For a ฝ่าย holding both seats and
+sub-ฝ่าย: the seats stay its children, the sub-ฝ่าย become children of the
+FIRST seat. First = `position` 0 = the head, which the tree already ranks and
+which the equal-sized cards already rely on — so no list of Thai title prefixes
+to rot.
+
+It does NOT apply when the parent is a ตำแหน่ง: หัวหน้าฝ่าย PR holds a seat and
+ฝ่าย Media management, and pushing the ฝ่าย under หัวหน้าฝ่าย Content creator
+would invent a reporting line nobody drew. Those stay siblings, seats first.
+`team_nodes.parent_id` is untouched and the admin tree still shows what is
+stored.
+
+**Where it lives now.** `src/js/org-rung.js`, applied once in `org-chart.js`'s
+`index()` so all four views read the same structure — including the SEARCH,
+whose `parentOf` map now derives from `byParent` instead of `chart.nodes`. Built
+from the stored parent map it would have kept an ancestor the chart no longer
+draws a line to, leaving a filtered result hanging off nothing. Guarded by
+`org-rung.test.js`.
+
+**The general rule.** *A tree drawn as a chart makes a claim the stored tree
+does not: that everything on one rank is peer to everything else on it.* When a
+storage parent and a reporting parent differ, the drawing needs its own
+parentage — and when someone describes what they want in terms of LINES and
+what is UNDER what, they are describing rank, not sequence.

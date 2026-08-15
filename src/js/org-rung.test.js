@@ -21,7 +21,7 @@
 // assertion below. Then put it back.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { RUNG, applyRung, sortSiblings } from './org-rung.js';
+import { RUNG, applyRung, sortSiblings, chartParentage } from './org-rung.js';
 
 // The live shape, in miniature — ฝ่ายดิจิทัล as it actually is on
 // samo.md.kku.ac.th, plus the ผังรวม synthetic root above it.
@@ -174,5 +174,97 @@ describe('a ฝ่าย draws its own ตำแหน่ง before its sub-ฝ�
       { name: 'ฝ่าย PR (เก่า)', kind: 'department' },
       { name: 'หัวหน้า', kind: 'role' },
     ])).toEqual(['หัวหน้า', 'ฝ่าย PR (เก่า)']);
+  });
+});
+
+describe('a ฝ่าย\'s sub-ฝ่าย hang off its HEAD ตำแหน่ง', () => {
+  // ฝ่ายดิจิทัล exactly as stored, which is the case that was reported:
+  // one seat and three sub-ฝ่าย, all four stored as children of the ฝ่าย.
+  const N = {
+    dig: { id: 'dig', kind: 'division', name: 'ฝ่ายดิจิทัลและสื่อสารองค์กร' },
+    vp: { id: 'vp', kind: 'role', name: 'อุปนายกฝ่ายดิจิทัล' },
+    pr: { id: 'pr', kind: 'division', name: 'ฝ่าย PR' },
+    comart: { id: 'comart', kind: 'division', name: 'ฝ่าย ComArt' },
+    it: { id: 'it', kind: 'division', name: 'ฝ่าย IT' },
+    prhead: { id: 'prhead', kind: 'role', name: 'หัวหน้าฝ่าย PR' },
+    content: { id: 'content', kind: 'role', name: 'หัวหน้าฝ่าย Content creator' },
+    media: { id: 'media', kind: 'division', name: 'ฝ่าย Media management' },
+  };
+  const nodeById = new Map(Object.values(N).map((n) => [n.id, n]));
+  const stored = () => new Map([
+    ['', [N.dig]],
+    // position order as the rpc returns it: the seat first, then the units.
+    ['dig', [N.vp, N.pr, N.comart, N.it]],
+    ['pr', [N.prhead]],
+    // A ตำแหน่ง parent holding BOTH — stored units-first, to prove the sort runs.
+    ['prhead', [N.media, N.content]],
+  ]);
+  const ids = (m, k) => (m.get(k) || []).map((n) => n.id);
+  /** id → how many ranks below the root each node sits, in a given parentage. */
+  const depths = (m) => {
+    const out = new Map();
+    const walk = (key, d) => (m.get(key) || []).forEach((n) => {
+      out.set(n.id, d); walk(n.id, d + 1);
+    });
+    walk('', 0);
+    return out;
+  };
+
+  it('draws ONE line to the head, then the sub-ฝ่าย below it', () => {
+    // The report, verbatim: "It should be ฝ่ายดิจิทัลและสื่อสารองค์กร then one
+    // line to อุปนายกฝ่ายดิจิทัล then three lines to ฝ่าย PR, ComArt, IT."
+    const out = chartParentage(stored(), nodeById);
+    expect(ids(out, 'dig')).toEqual(['vp']);
+    expect(ids(out, 'vp')).toEqual(['pr', 'comart', 'it']);
+  });
+
+  it('leaves a ตำแหน่ง parent alone — its seats are PEERS, not the head', () => {
+    // หัวหน้าฝ่าย PR holds a seat and a ฝ่าย. Pushing ฝ่าย Media under
+    // หัวหน้าฝ่าย Content creator would invent a reporting line. They stay
+    // siblings — seats first, which is the ordering rule still doing its job.
+    const out = chartParentage(stored(), nodeById);
+    expect(ids(out, 'prhead')).toEqual(['content', 'media']);
+    expect(ids(out, 'content')).toEqual([]);
+  });
+
+  it('moves a ฝ่าย DOWN BY ONE RANK, never further', () => {
+    // The invariant, not the mechanism. Today the parent-kind guard makes a
+    // double move structurally impossible — the bucket a unit is moved INTO is
+    // always keyed by a seat, and seats are skipped — so this cannot be
+    // falsified by breaking the loop, and saying it could would be a lie about
+    // what this test does. It is here for the version of this function that
+    // relaxes that guard: "one rank down" is the whole claim the chart makes,
+    // and a unit that lands two ranks down is a reporting line nobody drew.
+    const before = depths(stored());
+    const after = depths(chartParentage(stored(), nodeById));
+    for (const [id, d] of after) {
+      expect(d - before.get(id), `${id} moved ${d - before.get(id)} ranks`)
+        .toBeLessThanOrEqual(1);
+    }
+    expect(after.get('pr') - before.get('pr'), 'ฝ่าย PR should have moved').toBe(1);
+  });
+
+  it('a ฝ่าย with NO seat keeps its sub-ฝ่าย rather than losing them', () => {
+    const only = { id: 'only', kind: 'division', name: 'ฝ่ายไม่มีหัวหน้า' };
+    const kid = { id: 'kid', kind: 'division', name: 'ฝ่ายย่อย' };
+    const out = chartParentage(new Map([['only', [kid]]]),
+      new Map([['only', only], ['kid', kid]]));
+    expect(ids(out, 'only')).toEqual(['kid']);
+  });
+
+  it('every node still appears exactly once, and no node is orphaned', () => {
+    // A re-parenting that DROPS a branch looks like a filter, and a chart that
+    // quietly omits a ฝ่าย is worse than one that draws it in the wrong place.
+    const out = chartParentage(stored(), nodeById);
+    const placed = [...out.values()].flat().map((n) => n.id);
+    expect(placed.sort()).toEqual([...new Set(placed)].sort());
+    const all = [...stored().values()].flat().map((n) => n.id).sort();
+    expect(placed.sort()).toEqual(all);
+  });
+
+  it('does not mutate the map it was given', () => {
+    const input = stored();
+    chartParentage(input, nodeById);
+    expect(ids(input, 'dig')).toEqual(['vp', 'pr', 'comart', 'it']);
   });
 });
