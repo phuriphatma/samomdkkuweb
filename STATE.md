@@ -8,6 +8,7 @@ archive rather than trimming the invariants.
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
 Reasoning lives in `docs/state-archive/` — newest first:
+`2026-08-16-claude-quota-booking.md` (**read before touching `/admin#claude`**) ·
 `2026-08-15-late-org-chart-reporting.md` (the two parentages, ระดับ, colour;
 **read before touching `/team`**) · `2026-08-15-org-chart-views.md` (the d3
 views, the library survey, three portrait bugs) ·
@@ -34,23 +35,26 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
   **Migrations applied through 0154.** **1022 tests green.**
-- ⚠️ **จองโควตา Claude (0154) is DEPLOYED. Two owner steps left before the
-  MEASURED usage strip can appear** (booking itself already works):
-  **(a) grant the `claude` permission** in ทีม SAMO to whoever should book.
-  ~13 ฝ่าย IT accounts already hold `master`, which answers yes to every key.
-  **(b) fill two blanks in `/etc/samo-claude-usage.env` on the VM.** Everything
-  else is staged: Claude Code 2.1.233 installed, systemd unit + timer copied to
-  `/etc/systemd/system/`, Supabase URL/anon-key already written, timer
-  deliberately NOT enabled yet. What is missing:
-  `CLAUDE_OAUTH_TOKEN` (run `claude setup-token` ON THE VM — a LONG-LIVED
-  token, no rotation, nothing to re-run) and `CLAUDE_REPORTER_EMAIL` /
-  `CLAUDE_REPORTER_PASSWORD` for any account holding `claude`. Then
-  `sudo systemctl enable --now samo-claude-usage.timer`.
-  ⚠️ **An `sk-ant-…` API key CANNOT substitute** — it authenticates the
-  pay-per-token API, which has no 5-hour session and no weekly cap. The windows
-  this board books against exist only on the SUBSCRIPTION.
-  ✅ Discord webhook regenerated, installed at `/etc/samo-notify.env`, and
-  test-delivered (HTTP 204).
+- ✅ **จองโควตา Claude (0154) is LIVE END TO END** — booking, the board, the
+  Discord notice, and the MEASURED usage strip. Verified 2026-08-16: the VM's
+  systemd timer wrote a real sample (`5h 88% · 7d 37%`) as
+  `claude-reporter@samomdkku.app`, under RLS, and fires every 15 minutes.
+  **One thing still owed: grant the `claude` permission** in ทีม SAMO to whoever
+  should book. (~13 ฝ่าย IT accounts already hold `master`, which answers yes to
+  every key.)
+- ⛔ **`claude setup-token` CANNOT be used for the usage reporter. Measured:**
+  `oauth/usage` → **403 "OAuth token does not meet scope requirement
+  user:profile"**, while a `claude login` token → 200. The one-year token
+  carries `user:inference` but not `user:profile`, so it can SPEND the
+  subscription and cannot READ it. It was recommended here for its lifetime and
+  that was wrong; do not re-suggest it. The reporter's credential comes from
+  `claude login` ON THE VM, and the script refreshes and re-saves it (access
+  ~2h, refresh ~12d and rotating), so a 15-minute timer renews it ~96×/day.
+- ⚠️ **A `setup-token` (valid to 2027-08) was pasted in chat and is STILL LIVE**
+  — confirmed HTTP 200 on `/v1/messages`. It was removed from the VM but only
+  the owner can revoke it: claude.ai → Settings → Connectors/Tokens, or
+  `claude auth logout` on the machine that minted it. It can burn quota; it
+  cannot spend money (see the security note below).
 - ⚠️ **The 700% weekly pool may be wrong from 19 Aug 16:00.** `/usage` on the
   owner's machine shows *"+50% weekly limits promo through Aug 19"*. The pool
   is derived from their ratio 1% weekly = 7% session; if the weekly cap is
@@ -122,6 +126,33 @@ Run the one covering what you touch. All are both-directional.
   shop ADMINS and the guard early-returns for one, so a proof that picks a real
   order reports that a buyer may set the total to ฿1.
 
+## จองโควตา Claude — security posture (verified 2026-08-16)
+
+Checked rather than assumed, because the owner asked directly.
+
+- **Nothing leaked to git.** `sk-ant-oat01` appears in **0** commits; the only
+  `discord.com/api/webhooks/...` strings ever committed are the `xxx/yyy`
+  placeholders in `*.example`; `dist/` carries neither. `.env.local` is ignored.
+- **What DID leak is the chat transcript** — the Discord webhook and the Claude
+  token were both pasted there. That is the real exposure surface, not the repo.
+- **Blast radius if the VM is compromised**: an attacker gets a credential that
+  can make inference calls, i.e. burn the 5-hour/weekly QUOTA. Self-healing at
+  the next reset, and revocable.
+- **It cannot spend MONEY.** Read live from the account:
+  `extra_usage.is_enabled=false`, `user_disabled=true`, `spend.enabled=false`,
+  `can_purchase_credits=false`, `can_toggle=false`, `spend.used=0`. Billing and
+  plan changes need a claude.ai WEB session (cookies), a different credential
+  that never touches the VM. **Keep usage credits disabled — that setting is
+  doing real work as a spend ceiling.**
+- Both VM secret files are `-rw------- root root`:
+  `/etc/samo-notify.env`, `/etc/samo-claude-usage.env`.
+- `claude-reporter@samomdkku.app` is a DEDICATED account holding only
+  `claude` — least privilege, so the credential in `/etc` can insert usage
+  samples and read the board and nothing else. Password in `/etc` (600) only,
+  never in git, never printed. Created by direct `auth.users` insert; that needs
+  the GoTrue token columns set to `''` not NULL or every sign-in 500s with
+  "Database error querying schema".
+
 ## OTHER SYSTEMS — stable, nothing owed
 
 PR · VitalSound · News · หนังสือโครงการ · Analytics: unchanged. Write-ups in
@@ -151,14 +182,23 @@ because two copies of one rule is the class this repo pays for most.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-15)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
 > through **0153** applied; **798 tests green**; `npm run proofs` 15/15,
 > re-run at the end of that session.
 >
-> **The last session was the org chart**, front to back: two kinds instead of
+> **The last session was จองโควตา Claude**, front to back: migration 0154, the
+> admin pane, the Discord notice, and a systemd reporter on the VM feeding a
+> LIVE measured-usage strip. It is done and running — the only thing owed is
+> granting the `claude` permission to whoever should book.
+> **Read `docs/state-archive/2026-08-16-claude-quota-booking.md` before touching
+> `/admin#claude`** — especially the three bugs the owner found, the two dead
+> ends (`setup-token` cannot read usage; local-log tools cannot see a shared
+> account), and why a session is DERIVED rather than a slot on a grid.
+>
+> The session before that was the org chart, front to back: two kinds instead of
 > three, kind-based rungs, a reporting parentage on the canvas, per-ฝ่าย colour,
 > and ระดับ. Seven commits, four deploys, three migrations, five owner reports
 > answered. **If the next thing you touch is `/team`, read
@@ -173,109 +213,58 @@ because two copies of one rule is the class this repo pays for most.
 >
 > ### The decisions already made — do not re-litigate
 >
-> - **The `master` grants inside ฝ่าย IT are INTENTIONAL — the owner confirmed
->   this on 2026-08-14.** `ฝ่าย IT` carries `permissions = {master}` with
->   inheritance on, so 13 member rows resolve to `master`, 9 of them ordinary
->   `สมาชิกฝ่าย Backend/Frontend` accounts with it live on their users row. That
->   is the IT team that builds this app, and it is deliberate. **Do not "fix" it,
->   and do not raise it as a finding again.** It does still mean the §1
->   restructure warning below is real: the same inheritance reaches further the
->   moment a ฝ่าย is reparented.
-> - **The ทีม SAMO admin-model rework is PARKED at the owner's request
->   (2026-08-14).** Analysed in full, nothing built. **Do not restart it unless
->   they ask — `docs/NEXT.md` §0a has the diagnosis, the measurements and the
->   four-step plan.** One thing to carry: they asked whether the display
->   structure and the permission structure should be SEPARATE. They should not —
->   the admin already has four `mode`s over ONE tree, which is the right pattern.
->   ⚠️ **The owner has been EDITING the tree since (272 → 296 nodes), and has
->   already moved `อุปนายกฯ`'s container grant onto the ten อุปนายก leaves by
->   hand. Re-measure before acting on any count.** One open question for them:
->   **`house` is now granted by NO node**, so ระบบบ้าน admin is role-only
->   (12 accounts, zero via permission). Intentional, or lost in the restructure?
-> - **SAMO Shop stays open to BOTH login routes.** The owner asked whether
->   customers should be Google-only. They should not: the checkout email field is
+> Each was settled with the owner; the reasoning is in the archive file named.
+>
+> - **The `master` grants reaching สมาชิกฝ่าย IT are INTENTIONAL** — confirmed
+>   twice (2026-08-14, 2026-08-15). That is the team that builds this app. Do
+>   not "fix" it and do not raise it a third time.
+> - **The ทีม SAMO admin-model rework is PARKED** at the owner's request.
+>   `docs/NEXT.md` §0a has the diagnosis and plan. Display structure and
+>   permission structure should NOT be separated — four `mode`s over ONE tree is
+>   the right pattern. ⚠️ The tree has been edited since (272 → 296 nodes);
+>   re-measure before acting on any count. Open question for them: **`house` is
+>   granted by NO node**, so ระบบบ้าน admin is role-only. Intentional or lost?
+> - **SAMO Shop stays open to BOTH login routes** — the checkout email is
 >   editable even when Google prefills it, so restricting the login method buys
->   the LOOK of a verified contact and none of it. What staff need is a reachable
->   contact ON THE ORDER — 0150 plus the checkout recap solve it there. If
->   contact reliability comes up again the next step is verifying the address (a
->   confirmation mail that bounces), not narrowing the door.
-> - **The sign-in modal's copy rules are settled after SIX reports.** Read the
->   four-report entry in `docs/mistakes/frontend-ui.md` BEFORE touching it. All
->   guarded by `signin-screen.test.js`: NO email domain anywhere in the modal (a
->   domain list is read as a whitelist); the Google button keeps the spec fill and
->   the four-colour G (branding compliance, not taste); the switch link asks about
->   a WANT never a STATE; ONE verb for creating an account (สร้างบัญชี); and the
->   Google label says it both creates and signs in.
+>   the LOOK of a verified contact and none of it.
+> - **The sign-in modal's copy is settled after SIX reports.** Read the entry in
+>   `docs/mistakes/frontend-ui.md` BEFORE touching it; guarded by
+>   `signin-screen.test.js`. No email domain anywhere in the modal, ever.
+> - **The org chart: the owner's asks are about ผังรวม**; they explicitly do not
+>   want แผนผัง reworked.
 >
 > ### 1. What is owed
 >
+> - **จองโควตา Claude: grant the `claude` permission** to whoever should book.
+>   Everything else is live. (Details in CURRENT DEPLOY above.)
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
->   Demo published (private artifact
->   `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0`); nothing in
->   `src/` was changed. **Read `docs/demos/about-3d/README.md`, not this
->   bullet** — numbers, pipeline, the open 3D-flicker bug, and the
->   recommendation (ship the 2D grid, 3D as an optional hero).
-> - **The browser pass, continued — now with a playbook:
->   `skills/drive-the-browser.md`.** It has found bugs nothing else could (the
->   dead ยกเลิก button; the iPad portrait no DOM measurement could see). **Still
+>   Read `docs/demos/about-3d/README.md`, not a bullet — it has the numbers, the
+>   open 3D-flicker bug and the recommendation. Nothing in `src/` was changed.
+> - **The browser pass, continued — `skills/drive-the-browser.md`.** It finds
+>   bugs nothing else can (the dead ยกเลิก button; the iPad portrait). Still
 >   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, and the
->   SHOP CHECKOUT + order card** — the shop contact recap and inline contact
->   editor shipped 2026-08-12 were verified by build, tests, code trace and a
->   static render, never in a browser, because that needs a signed-in session
->   with a cart. `docs/NEXT.md` §1.
-> - **The org chart on a REAL iPad.** The four views are shipped and verified on
->   Playwright's WebKit with an iPad profile — same engine, not the same device.
->   Worth one real-device pass: whether the pan/zoom canvas or the เต็มหน้าจอ
->   overlay traps touch-scroll, and whether four view buttons wrap acceptably on
->   a phone. Nothing is known to be wrong; nothing has been confirmed right.
+>   SHOP CHECKOUT + order card. `docs/NEXT.md` §1.
+> - **The org chart on a REAL iPad.** Verified on Playwright's WebKit with an
+>   iPad profile — same engine, not the same device. Nothing is known wrong;
+>   nothing is confirmed right.
 > - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading this.**
->   `node_effective_permissions()` climbs the parent chain while
->   `inherit_permissions` is true, and twelve nodes carry grants. **Simulated in
->   a rolled-back transaction: moving ฝ่าย PR/ComArt/IT under
->   อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20** — 17 students
->   silently become full admins. Move the grants onto
->   `team_members.permissions` first, or set `inherit_permissions = false` on
->   the ฝ่าย being moved, then re-run that simulation as a BEFORE == AFTER
->   differential. ⚠️ 0153 flattened eight SEATS; it moved no ฝ่าย, so this is
->   untouched and still true.
-> - `docs/NEXT.md` carries the rest, including **§0c** (two role-only policies
->   left latent on purpose) and **§0d** (make the PR delete rule ONE predicate
->   instead of a policy plus a copy — `current_user_vs_scope()` is the model).
+>   `node_effective_permissions()` climbs while `inherit_permissions` is true.
+>   **Simulated in a rolled-back transaction: moving ฝ่าย PR/ComArt/IT under
+>   อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20.** Move grants onto
+>   `team_members.permissions` first, or set `inherit_permissions = false`, then
+>   re-run that simulation as a BEFORE == AFTER differential.
+> - `docs/NEXT.md` carries the rest (§0c two latent role-only policies, §0d make
+>   the PR delete rule ONE predicate).
 >
-> ### 1b. The public org chart (`/team`) — the six-line version
+> ### 1b. The public org chart (`/team`)
 >
-> **Full reference: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
-> Read it before touching any of the four views.** What you must not rediscover
-> the hard way:
+> **Fully archived — read `docs/state-archive/2026-08-15-late-org-chart-reporting.md`
+> before touching any of the four views.** The two rules that get rediscovered
+> the hard way: **FOUR views, TWO parentages** (รายการ+แผนผัง draw CONTAINMENT,
+> ผังองค์กร+ผังรวม draw REPORTING — do NOT unify them, that is what made แผนผัง
+> a 52,000px staircase), and **"แสดงถึง" is a KIND, not a depth**. Display rules
+> live in `src/js/org-rung.js`, guarded by `org-rung.test.js`.
 >
-> - **FOUR views, TWO parentages.** รายการ + แผนผัง draw CONTAINMENT from the
->   stored tree; ผังองค์กร + ผังรวม draw REPORTING from `chartParentage()`.
->   **Do not unify them** — "one structure so they cannot drift" is exactly the
->   reasoning that turned แผนผัง into a 52,000px staircase.
-> - **รายการ + แผนผัง share ONE renderer and ONE markup**; only CSS differs.
->   Scope every rule on `[data-view=…]`, never on a width.
-> - **The display rules all live in `src/js/org-rung.js`** — sibling order,
->   the ฝ่าย→head re-parenting, ระดับ, the rungs, and the card's meta line.
->   Pure, no DOM, guarded by `org-rung.test.js` (32).
-> - **"แสดงถึง" is a KIND, not a depth** (ฝ่ายหลัก / ฝ่ายย่อย / ตำแหน่ง /
->   ทั้งหมด = 14 / 136 / 290 / 298 cards). A number cannot name a level of a
->   ragged tree.
-> - **ระดับ (`tier`, 0153) carries RANK so `parent_id` can mean CONTAINMENT.**
->   NULL = 1. Nesting still works; ระดับ removes the need for it.
-> - **Colour**: `team_nodes.color` (0152) beats the name-derived tint, which is
->   **ROOT-ONLY**. Hex-constrained in the DB *and* in JS — it lands in a
->   `style` attribute on an anonymous page.
->
-> ### 1c. OPEN — nothing, and two rulings not to re-raise
->
-> Nothing is outstanding from the org-chart work. Two things the owner has
-> ruled on:
->
-> - **The `master` grants that reach สมาชิกฝ่าย IT are INTENTIONAL** — confirmed
->   twice, most recently 2026-08-15 when the tier proposal cited them as a side
->   effect. They are not an argument for anything. Do not raise them a third time.
-> - **The owner's asks are about ผังรวม.** They explicitly do not want แผนผัง
->   reworked.
 > ### 2. Invariants that will bite you
 >
 > - **`public.people` is the person registry.** `students.person_id` /
