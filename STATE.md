@@ -7,6 +7,9 @@ archive rather than trimming the invariants.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
+Keep it under ~200 lines — it is at 347 and the org-chart sections (§1b–1d)
+are the next thing to archive once the owner stops iterating on them.
+
 Archives (all `docs/state-archive/`): `2026-08-15-org-chart-views.md` (the two
 d3 views, the library survey, three portrait bugs) ·
 `2026-08-12-signin-shop-guards.md`
@@ -24,20 +27,21 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e3fe236` (2026-08-15)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifacts: `--org-tint` + `ฝ่ายหลัก` in
-  the public bundle; `สีประจำฝ่าย` / `teamNodeSwatches` present and
-  `แผนก (Department)` GONE in the admin HTML; `data-tint` count is 0 and
-  `team-swatch` present in the admin CSS. Check rather than trust — EMPTY means
-  prod is current:
+- ✅ **DEPLOYED = `f73a6a4` (2026-08-15)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifacts: `teamNodeTierField` in the
+  admin HTML, `tier-down` in the admin JS, `team-tier-btn` and
+  `[data-depth].is-selected` in the admin CSS, and `ใต้สังกัด` in
+  **`analytics-*.js`** — the shared chunk, NOT `public-*.js`, which is the trap
+  two bullets down and cost a false alarm here. Check rather than trust — EMPTY
+  means prod is current:
 
   ```bash
-  git diff --stat e3fe236..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat f73a6a4..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0152.** **779 tests green.**
+  **Migrations applied through 0153.** **798 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -270,19 +274,35 @@ because two copies of one rule is the class this repo pays for most.
 > - **d3 is dynamically imported** — a static import put d3-zoom in the ENTRY
 >   bundle, +13.6 KB gz for everyone.
 >
-> ### 1c. OPEN — asked, not yet answered
+> ### 1c. ระดับ (`team_nodes.tier`, 0153) — rank without nesting
 >
-> The owner asked (2026-08-15, unanswered when the session ended): ฝ่าย IT stores
-> `สมาชิกฝ่าย IT` INSIDE `หัวหน้าฝ่าย IT` purely to make the drawing rank
-> correctly, and they want `หัวหน้า` + `เลขานุการ` on one rank and `สมาชิก`
-> below **without** that nesting. **A `tier` column is the proposed answer** —
-> the tree expresses CONTAINMENT (a ฝ่าย holds its seats, flat) and `tier`
-> expresses RANK, with `chartParentage` hanging tier k+1 off the first node of
-> tier k. Additive: existing nesting keeps working unchanged.
-> **Measured 2026-08-15: only 8 seat-under-seat nestings exist, 4 of them
-> inherit a permission FROM THE SEAT ABOVE, reaching 19 people** — so the
-> layout hack is also a live permission channel, which is the real argument for
-> separating the two.
+> **The tree means CONTAINMENT; `tier` means RANK.** Seats on one tier draw on
+> one row; tier k+1 hangs off the FIRST seat of the tier above (position 0 = the
+> head). NULL means 1, so nothing was backfilled. A gap (1 and 3, no 2) closes
+> rather than orphaning — `rungs[i-1]`, never `i-1`.
+>
+> **The eight pre-existing seat-under-seat nestings were converted** and the
+> drawing did not change: `tools/team0153-tier-parity.mjs` runs the committed
+> pre-migration snapshot (`tools/fixtures/team-tree-before-0153.json`) and the
+> live tree through the SAME `chartParentage()` the page uses and compares the
+> DRAWINGS. **Deliberately NOT in `npm run proofs`** — the snapshot is a moment,
+> so it will legitimately go red once the tree is edited, and a proof that cries
+> wolf teaches people to ignore proofs.
+>
+> **Nesting still works.** This does not forbid a seat under a seat; it removes
+> the need for one. `chartParentage` reads both, and the ระดับ control is hidden
+> where nesting is already saying it.
+>
+> ### 1d. OPEN — asked, not yet answered
+>
+> Nothing is outstanding from the org-chart work. Two things the owner has
+> ruled on that a future session should not re-raise:
+>
+> - **The `master` grants that reach สมาชิกฝ่าย IT are INTENTIONAL** — confirmed
+>   again 2026-08-15 when the tier proposal cited them as a side effect. They
+>   are not an argument for anything. Do not raise them a third time.
+> - **แผนผัง and รายการ read the STORED tree; only the canvas views re-parent.**
+>   The owner's asks have all been about ผังรวม. Do not "unify" the four views.
 >
 > ### 2. Invariants that will bite you
 >
