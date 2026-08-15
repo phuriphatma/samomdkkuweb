@@ -263,3 +263,28 @@
   .claude-week-fig { font-size: 1.45rem; }
   .claude-cal-scroll { max-height: 480px; }
 }
+
+/* ------------------------------------------------------------------
+   The Claude mark. Requested by the owner in place of a Bootstrap icon.
+
+   Drawn as inline SVG, NOT as the ❋ character: U+274B has an emoji
+   presentation in several system fonts, so the glyph renders as a colour
+   blob on some machines and as monochrome text on others — beside a
+   sidebar of monochrome bootstrap-icons that reads as a mistake. An SVG
+   inherits `currentColor`, so it goes green when the item is active and
+   white on the coloured landing card, exactly like every icon near it.
+
+   Sized in `em` so it tracks whatever font-size its slot already sets,
+   which is how bootstrap-icons behave and why no call site needs to know
+   this element is an SVG.
+
+   Not scoped under .claude-tab: two of its three sites (the sidebar item
+   and the landing card) live in the admin shell, OUTSIDE the pane.
+   ------------------------------------------------------------------ */
+svg.claude-mark {
+  width: 1.05em;
+  height: 1.05em;
+  fill: none;
+  flex: none;
+  vertical-align: -0.14em;
+}
