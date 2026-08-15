@@ -2,24 +2,17 @@
 
 Last updated: **2026-08-15**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
-reasoning. Keep it under ~200 lines — when it bloats, move narrative to the
+reasoning. **Keep it under ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
-Keep it under ~200 lines — it is at 347 and the org-chart sections (§1b–1d)
-are the next thing to archive once the owner stops iterating on them.
-
-Archives (all `docs/state-archive/`): `2026-08-15-org-chart-views.md` (the two
-d3 views, the library survey, three portrait bugs) ·
-`2026-08-12-signin-shop-guards.md`
-(0149/0150, the sign-in rebuild, two blind guards) ·
-`2026-08-10-late-security-and-identity.md` (0147–0148) ·
-`2026-08-10-chan-pi.md` (0145–0146, v4.6.0) · `2026-08-09-session.md` ·
-`2026-08-08-late-0128-0131.md` · `2026-08-08-house-polish.md` ·
-`2026-08-05-late-13-requests.md` · `2026-08-05-shipped.md` ·
-`2026-08-04-shipped.md` · `2026-07-31-team-0104-detail.md` ·
-`2026-07-30-pre-clear.md` · `2026-07-24-full.md`.
+Reasoning lives in `docs/state-archive/` — newest first:
+`2026-08-15-late-org-chart-reporting.md` (the two parentages, ระดับ, colour;
+**read before touching `/team`**) · `2026-08-15-org-chart-views.md` (the d3
+views, the library survey, three portrait bugs) ·
+`2026-08-12-signin-shop-guards.md` · `2026-08-10-late-security-and-identity.md`
+· `2026-08-10-chan-pi.md` · and nine older files back to `2026-07-24-full.md`.
 Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 `.claude/rules/mistakes.md`. Backlog: `docs/NEXT.md`.
 
@@ -55,9 +48,14 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 ## Live proofs — `npm run proofs`
 
-**All 15 green as of 2026-08-15 — RE-RUN, not inherited.** One command runs
-every live proof and prints one verdict each; `npm run proofs <substring>` runs a
-subset.
+**All 15 green — RE-RUN 2026-08-15 at the end of the org-chart session, after
+0151–0153, not inherited.** One command runs every live proof and prints one
+verdict each; `npm run proofs <substring>` runs a subset.
+
+**`tools/team0153-tier-parity.mjs` is NOT in that 15, on purpose** — it compares
+the tree against a snapshot pinned to 2026-08-15, so it will legitimately go red
+once the tree is edited. One-shot, kept re-runnable:
+`node tools/team0153-tier-parity.mjs tools/fixtures/team-tree-before-0153.json`.
 
 ⚠️ **They were 14/15 when this session checked, and STATE.md had been claiming
 15/15 for three days.** `house0144-delete-impact.sql` was ERRORING (42501): its
@@ -124,7 +122,21 @@ because two copies of one rule is the class this repo pays for most.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through 0150 applied; 737 tests green; `npm run proofs` 15/15.
+> through **0153** applied; **798 tests green**; `npm run proofs` 15/15,
+> re-run at the end of that session.
+>
+> **The last session was the org chart**, front to back: two kinds instead of
+> three, kind-based rungs, a reporting parentage on the canvas, per-ฝ่าย colour,
+> and ระดับ. Seven commits, four deploys, three migrations, five owner reports
+> answered. **If the next thing you touch is `/team`, read
+> `docs/state-archive/2026-08-15-late-org-chart-reporting.md` first** — §1b here
+> is only the index to it.
+>
+> Two habits that session paid for, in case they save you the same money:
+> **render the view you changed** (three of four views were inspected; the
+> fourth was the one that broke), and **when a report reads as ambiguous between
+> two designs, it means the more expensive one** — "role first, then ฝ่าย under
+> it" was shipped as a sort and meant a rank, and cost two extra rounds.
 >
 > ### The decisions already made — do not re-litigate
 >
@@ -165,14 +177,11 @@ because two copies of one rule is the class this repo pays for most.
 > ### 1. What is owed
 >
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
->   A three-option demo on the real 398-person data is published (private
->   artifact) at `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0`.
->   **Everything — numbers, rebuild pipeline, the open bug, the recommendation —
->   is in `docs/demos/about-3d/README.md`. Read that, not this bullet.**
->   Recommendation given: ship the 2D grid, treat 3D as an optional hero.
->   **Nothing in `src/` was changed for any of it.** ⚠️ One bug is OPEN: the 3D
->   frame flickers while zooming; one cause was fixed, something remains, and it
->   needs a real touch device.
+>   Demo published (private artifact
+>   `claude.ai/code/artifact/0c4533a8-099a-49c0-bf48-35173db32cc0`); nothing in
+>   `src/` was changed. **Read `docs/demos/about-3d/README.md`, not this
+>   bullet** — numbers, pipeline, the open 3D-flicker bug, and the
+>   recommendation (ship the 2D grid, 3D as an optional hero).
 > - **The browser pass, continued — now with a playbook:
 >   `skills/drive-the-browser.md`.** It has found bugs nothing else could (the
 >   dead ยกเลิก button; the iPad portrait no DOM measurement could see). **Still
@@ -186,124 +195,54 @@ because two copies of one rule is the class this repo pays for most.
 >   Worth one real-device pass: whether the pan/zoom canvas or the เต็มหน้าจอ
 >   overlay traps touch-scroll, and whether four view buttons wrap acceptably on
 >   a phone. Nothing is known to be wrong; nothing has been confirmed right.
-> - **ทีม SAMO restructure — DO NOT reparent ฝ่าย without reading this.** The
->   owner wants นายกฯ → อุปนายก → ฝ่าย. `node_effective_permissions()` climbs the
->   parent chain while `inherit_permissions` is true, and TWELVE nodes carry
->   grants (measured 2026-08-14). **Simulated in a rolled-back transaction: moving ฝ่าย PR/ComArt/IT
->   under อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20** — 17 students
->   silently become full admins. First move the grants onto
->   `team_members.permissions`, or set `inherit_permissions = false` on the ฝ่าย
->   being moved; then re-run that simulation as a differential guard showing
->   BEFORE == AFTER.
+> - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading this.**
+>   `node_effective_permissions()` climbs the parent chain while
+>   `inherit_permissions` is true, and twelve nodes carry grants. **Simulated in
+>   a rolled-back transaction: moving ฝ่าย PR/ComArt/IT under
+>   อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20** — 17 students
+>   silently become full admins. Move the grants onto
+>   `team_members.permissions` first, or set `inherit_permissions = false` on
+>   the ฝ่าย being moved, then re-run that simulation as a BEFORE == AFTER
+>   differential. ⚠️ 0153 flattened eight SEATS; it moved no ฝ่าย, so this is
+>   untouched and still true.
 > - `docs/NEXT.md` carries the rest, including **§0c** (two role-only policies
 >   left latent on purpose) and **§0d** (make the PR delete rule ONE predicate
 >   instead of a policy plus a copy — `current_user_vs_scope()` is the model).
 >
-> ### 1b. The public org chart (`/team`) — how it is built
+> ### 1b. The public org chart (`/team`) — the six-line version
 >
-> FOUR views. **รายการ + แผนผัง share ONE renderer and ONE markup; only CSS
-> differs.** The wrapper carries `data-view`, and the toggle flips it WITHOUT
-> re-rendering so open ตำแหน่ง and scroll position survive. **Scope every rule on
-> `[data-view=…]`, never on a width.** แผนผัง fits 400 people via ONE SECTION PER
-> ฝ่าย, BRANCH SIDEWAYS ONCE, and a BOUNDED wrapping row (`flex-wrap` alone did
-> nothing — `.org-tree` is `width: max-content`; `justify-content: safe center`,
-> because plain `center` makes the start-side overflow unreachable). The
-> คณะกรรมการ grid is GONE on purpose: **rank is position in the chart, not card
-> size.**
+> **Full reference: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
+> Read it before touching any of the four views.** What you must not rediscover
+> the hard way:
 >
-> **ผังองค์กร + ผังรวม share ONE SEPARATE renderer** — `src/js/org-graph.js`,
-> d3-org-chart (MIT) on a zoom/pan SVG canvas, differing ONLY in grouping. The
-> face element both renderers draw lives in `src/js/org-face.js`. **Why the
-> library, the measured widths, the three portrait bugs:
-> `docs/state-archive/2026-08-15-org-chart-views.md`.**
+> - **FOUR views, TWO parentages.** รายการ + แผนผัง draw CONTAINMENT from the
+>   stored tree; ผังองค์กร + ผังรวม draw REPORTING from `chartParentage()`.
+>   **Do not unify them** — "one structure so they cannot drift" is exactly the
+>   reasoning that turned แผนผัง into a 52,000px staircase.
+> - **รายการ + แผนผัง share ONE renderer and ONE markup**; only CSS differs.
+>   Scope every rule on `[data-view=…]`, never on a width.
+> - **The display rules all live in `src/js/org-rung.js`** — sibling order,
+>   the ฝ่าย→head re-parenting, ระดับ, the rungs, and the card's meta line.
+>   Pure, no DOM, guarded by `org-rung.test.js` (32).
+> - **"แสดงถึง" is a KIND, not a depth** (ฝ่ายหลัก / ฝ่ายย่อย / ตำแหน่ง /
+>   ทั้งหมด = 14 / 136 / 290 / 298 cards). A number cannot name a level of a
+>   ragged tree.
+> - **ระดับ (`tier`, 0153) carries RANK so `parent_id` can mean CONTAINMENT.**
+>   NULL = 1. Nesting still works; ระดับ removes the need for it.
+> - **Colour**: `team_nodes.color` (0152) beats the name-derived tint, which is
+>   **ROOT-ONLY**. Hex-constrained in the DB *and* in JS — it lands in a
+>   `style` attribute on an anonymous page.
 >
-> **THREE display rules the chart applies that the STORED tree does not**
-> (all in `src/js/org-rung.js`, applied once in `org-chart.js`'s `index()` so all
-> four views AND the search read one structure; guarded by `org-rung.test.js`):
->
-> - **`chartParentage()` — sub-ฝ่าย hang off the ฝ่าย's HEAD seat**, not beside
->   it. Reported twice: four lines out of ฝ่ายดิจิทัล said the อุปนายก and ฝ่าย
->   PR/ComArt/IT were peers. First = `position` 0 = the head. NOT applied when
->   the parent is a ตำแหน่ง (หัวหน้าฝ่าย PR holds a seat AND ฝ่าย Media
->   management; those are peers). `team_nodes.parent_id` is untouched.
-> - **`sortSiblings()` — ตำแหน่ง before ฝ่าย**, stable, so `position` still
->   orders within each group.
-> - **The "แสดงถึง" rungs are a KIND, not a depth** — ฝ่ายหลัก / ฝ่ายย่อย /
->   ตำแหน่ง / ทั้งหมด, measuring 14 / 136 / 290 / 298 cards. A number could not
->   express it: depth 2 is a หัวหน้า in สำนักนายกฯ and a ฝ่าย in ฝ่ายดิจิทัล.
->   A kind predicate is NOT ancestor-closed the way `depth <= n` was, so
->   `applyRung` walks up; the ladder is asserted to be nested.
->
-> **TWO KINDS ONLY — ฝ่าย and ตำแหน่ง** (0151 folded 78 แผนก into ฝ่าย; all were
-> containers). `src/js/node-kind.js` still reads a stray `department` as a ฝ่าย
-> — old bundle, old export, hand-edited import. `node-kind.test.js` keeps the
-> `<select>` and every writer at two. **The CHECK constraint making `department`
-> unwritable was deliberately NOT shipped with 0151** and is still owed — it is
-> safe to add now that the new bundle is served.
->
-> **COLOUR (0152).** A DERIVED colour is a **ROOT-ONLY** answer —
-> `tintColor(node, isRoot)`, `isRoot` defaulting to FALSE so a forgetful caller
-> inherits rather than guesses. Applied at every depth it made `ฝ่ายวิชาการ`
-> inside `ฝ่ายรังสีเทคนิค` blue; 27 of the 29 name-matching non-root nodes hit
-> their own root's colour BY COINCIDENCE, which is why it survived review.
-> `team_nodes.color`, null = derive from the name via the
-> shared `src/js/dept-tint.js`. Constrained to a hex literal in the DB **and** by
-> `isHexColor()` in JS, because the value lands in `style="--org-tint: …"` on an
-> anonymous page — `dept-tint.test.js` reads the regex OUT of the migration so
-> the two cannot drift. **Both read paths carry it**: `get_public_team_chart` has
-> a published-snapshot branch AND a live branch, and the CURRENT year reads the
-> snapshot once published, so publishing would otherwise revert every colour.
-> The 20 `[data-tint="x"]` CSS rules are gone; both renderers set `--org-tint`
-> inline from `tintColor()`.
->
-> Six things in the d3 renderer will still bite you, all guarded by
-> `org-graph-metrics.test.js`:
->
-> - **NOTHING inside a card may be `position`ed.** WebKit paints a positioned
->   element in a `<foreignObject>` WITHOUT the ancestor SVG transform.
->   `getBoundingClientRect()` reports the box CORRECT while this happens; only a
->   decoded screenshot can see it (`skills/drive-the-browser.md`).
-> - **`initialExpandLevel` is NOT the depth control** — consumed once, then reset
->   to 1 by the library. Visibility is `_expanded` on the data rows.
-> - **`frameChart()` replaces `fit()` and inherits its obligations**, including
->   zeroing `centerG`.
-> - **`sizes` must be `portrait width × max zoom`, and zoom must be capped.**
->   `srcset` resolves ONCE from the LAYOUT size.
-> - **เต็มหน้าจอ is a CSS overlay, never the Fullscreen API** — iOS only honours
->   `requestFullscreen()` on `<video>`.
-> - **d3 is dynamically imported** — a static import put d3-zoom in the ENTRY
->   bundle, +13.6 KB gz for everyone.
->
-> ### 1c. ระดับ (`team_nodes.tier`, 0153) — rank without nesting
->
-> **The tree means CONTAINMENT; `tier` means RANK.** Seats on one tier draw on
-> one row; tier k+1 hangs off the FIRST seat of the tier above (position 0 = the
-> head). NULL means 1, so nothing was backfilled. A gap (1 and 3, no 2) closes
-> rather than orphaning — `rungs[i-1]`, never `i-1`.
->
-> **The eight pre-existing seat-under-seat nestings were converted** and the
-> drawing did not change: `tools/team0153-tier-parity.mjs` runs the committed
-> pre-migration snapshot (`tools/fixtures/team-tree-before-0153.json`) and the
-> live tree through the SAME `chartParentage()` the page uses and compares the
-> DRAWINGS. **Deliberately NOT in `npm run proofs`** — the snapshot is a moment,
-> so it will legitimately go red once the tree is edited, and a proof that cries
-> wolf teaches people to ignore proofs.
->
-> **Nesting still works.** This does not forbid a seat under a seat; it removes
-> the need for one. `chartParentage` reads both, and the ระดับ control is hidden
-> where nesting is already saying it.
->
-> ### 1d. OPEN — asked, not yet answered
+> ### 1c. OPEN — nothing, and two rulings not to re-raise
 >
 > Nothing is outstanding from the org-chart work. Two things the owner has
-> ruled on that a future session should not re-raise:
+> ruled on:
 >
 > - **The `master` grants that reach สมาชิกฝ่าย IT are INTENTIONAL** — confirmed
->   again 2026-08-15 when the tier proposal cited them as a side effect. They
->   are not an argument for anything. Do not raise them a third time.
-> - **แผนผัง and รายการ read the STORED tree; only the canvas views re-parent.**
->   The owner's asks have all been about ผังรวม. Do not "unify" the four views.
->
+>   twice, most recently 2026-08-15 when the tier proposal cited them as a side
+>   effect. They are not an argument for anything. Do not raise them a third time.
+> - **The owner's asks are about ผังรวม.** They explicitly do not want แผนผัง
+>   reworked.
 > ### 2. Invariants that will bite you
 >
 > - **`public.people` is the person registry.** `students.person_id` /
@@ -333,6 +272,9 @@ because two copies of one rule is the class this repo pays for most.
 >   and result parsing all silently change what a test can SEE, and a wrong
 >   instrument makes a test PASS. Use `src/js/strip-comments.js` and
 >   `npm run proofs`, never a fresh regex.
+> - **Grep the SHARED chunk, not just `public-*.js`.** `ใต้สังกัด` reads 0 in the
+>   public bundle and 1 in `analytics-*.js`, which `/team` also loads. That cost
+>   a false "the deploy did not take" on 2026-08-15.
 >
 > ### 3. How this repo wants you to work
 >
@@ -342,9 +284,13 @@ because two copies of one rule is the class this repo pays for most.
 >   were all "this text is accurate to us and ambiguous to a stranger".
 > - **A fix on ONE path is not a fix** (class 4) and **prove it live in BOTH
 >   directions** (class 7) — both are in the auto-loaded `.claude/rules/mistakes.md`.
-> - **When a hazard has been paid for twice, the third fix is a TEST.** Ratchets:
->   `undefined-refs` · `native-dialog` · `upload-cleanup` · `photo-retire` ·
->   `portrait-filename` · `confirm-modal` · `signin-screen` · `definer-authz` ·
->   `strip-comments` · `checkout-prefill`. Every one found something.
+> - **When a hazard has been paid for twice, the third fix is a TEST.** Fourteen
+>   ratchets now (`undefined-refs` · `native-dialog` · `upload-cleanup` ·
+>   `photo-retire` · `portrait-filename` · `confirm-modal` · `signin-screen` ·
+>   `definer-authz` · `strip-comments` · `checkout-prefill` · `node-kind` ·
+>   `org-rung` · `dept-tint` · `team-state-specificity`). Every one found
+>   something. **Falsify each assertion before committing it** — two fixtures
+>   written on 2026-08-15 passed with the bug reintroduced because they could
+>   not reach the branch they claimed to cover.
 > - **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
 >   `docs/`-only commit needs no deploy.
