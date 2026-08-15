@@ -24,19 +24,20 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `7c5cd26` (2026-08-15)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifact: `data-org-rung`, `ฝ่ายหลัก`
-  and `ฝ่ายย่อย` in the served public bundle, and the only seven `department`
-  hits in the served admin bundle are the unrelated PR/VS/passport fields.
-  Check rather than trust — EMPTY means prod is current:
+- ✅ **DEPLOYED = `e3fe236` (2026-08-15)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifacts: `--org-tint` + `ฝ่ายหลัก` in
+  the public bundle; `สีประจำฝ่าย` / `teamNodeSwatches` present and
+  `แผนก (Department)` GONE in the admin HTML; `data-tint` count is 0 and
+  `team-swatch` present in the admin CSS. Check rather than trust — EMPTY means
+  prod is current:
 
   ```bash
-  git diff --stat 7c5cd26..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat e3fe236..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0152.** **777 tests green.**
+  **Migrations applied through 0152.** **779 tests green.**
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -236,7 +237,12 @@ because two copies of one rule is the class this repo pays for most.
 > unwritable was deliberately NOT shipped with 0151** and is still owed — it is
 > safe to add now that the new bundle is served.
 >
-> **COLOUR (0152).** `team_nodes.color`, null = derive from the name via the
+> **COLOUR (0152).** A DERIVED colour is a **ROOT-ONLY** answer —
+> `tintColor(node, isRoot)`, `isRoot` defaulting to FALSE so a forgetful caller
+> inherits rather than guesses. Applied at every depth it made `ฝ่ายวิชาการ`
+> inside `ฝ่ายรังสีเทคนิค` blue; 27 of the 29 name-matching non-root nodes hit
+> their own root's colour BY COINCIDENCE, which is why it survived review.
+> `team_nodes.color`, null = derive from the name via the
 > shared `src/js/dept-tint.js`. Constrained to a hex literal in the DB **and** by
 > `isHexColor()` in JS, because the value lands in `style="--org-tint: …"` on an
 > anonymous page — `dept-tint.test.js` reads the regex OUT of the migration so
