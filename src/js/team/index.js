@@ -19,6 +19,7 @@ import {
 import { escHtml } from '../utils.js';
 import { normalizeKind } from '../node-kind.js';
 import { tintColor, isHexColor } from '../dept-tint.js';
+import { tierOf } from '../org-rung.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
@@ -68,6 +69,11 @@ import {
 
 // Keyed by the NORMALISED kind — two of them now (see src/js/node-kind.js).
 const KIND_ICON = { division: 'bi-diagram-2', role: 'bi-person-badge' };
+
+// Mirrors the CHECK on team_nodes.tier (0153). Two copies of one number, so the
+// → button greys out at the same place the database refuses — otherwise the
+// last press is a round trip that fails with a raw 23514.
+const TIER_MAX = 9;
 
 // ---- module state ----
 let initialized = false;
@@ -135,6 +141,36 @@ function rebuildIndexes(nodes, members) {
 }
 
 function childrenOf(id) { return childrenByParent.get(id || '') || []; }
+
+/**
+ * Move a ตำแหน่ง one rung up or down inside its ฝ่าย.
+ *
+ * Optimistic: the row repaints from the local model and the write follows. The
+ * alternative is a spinner on a button whose whole point is that it is cheaper
+ * than a drag, and a failed write puts the old value back and says so.
+ *
+ * `null` is written rather than `1`, so "never been told otherwise" stays
+ * distinguishable from "explicitly rung 1" — the column's default is the
+ * former, and 296 rows should not acquire a value to say nothing.
+ */
+async function shiftTier(nodeId, delta) {
+  const node = nodesById.get(nodeId);
+  if (!node || !canEdit()) return;
+  const from = tierOf(node);
+  const to = Math.min(TIER_MAX, Math.max(1, from + delta));
+  if (to === from) return;
+
+  const stored = to === 1 ? null : to;
+  node.tier = stored;
+  render();
+  try {
+    await updateNode(nodeId, { tier: stored });
+  } catch (err) {
+    node.tier = from === 1 ? null : from;
+    render();
+    setStatus(`เปลี่ยนระดับไม่สำเร็จ: ${err.message || err}`);
+  }
+}
 function membersOf(id) { return membersByNode.get(id) || []; }
 
 function subtreeMemberCount(id) {
@@ -587,6 +623,28 @@ function renderNode(node, filter, depth = 0) {
     if (!permChips) permChips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
   }
 
+  // ระดับ — rank inside the ฝ่าย, so a ตำแหน่ง never has to be NESTED inside
+  // another one just to be drawn a row lower (0153). Only offered where it
+  // means something: on a ตำแหน่ง whose parent is a ฝ่าย. A seat still stored
+  // under another seat draws by nesting, and showing a rung control there would
+  // imply two ways of saying one thing.
+  const parentNode = node.parent_id ? nodesById.get(node.parent_id) : null;
+  const canTier = normalizeKind(node.kind) === 'role'
+    && (!parentNode || normalizeKind(parentNode.kind) === 'division');
+  const tier = tierOf(node);
+  // The indent PREVIEWS the chart inside a flat list, so the admin can see the
+  // shape they are describing without the tree having to be shaped like it.
+  const tierIndent = canTier && tier > 1
+    ? `<span class="team-tier-indent" style="width:${(tier - 1) * 1.4}rem"></span>` : '';
+  const tierControl = !canTier ? '' : `
+      ${tier > 1 ? `<span class="team-tier-pill" title="ระดับที่ ${tier} ในผังองค์กร">ระดับ ${tier}</span>` : ''}
+      ${canEdit() ? `<span class="team-tier-arrows">
+        <button type="button" class="team-tier-btn" data-act="tier-up" title="ขึ้นหนึ่งระดับ"
+          aria-label="ขึ้นหนึ่งระดับ"${tier <= 1 ? ' disabled' : ''}>&#8592;</button>
+        <button type="button" class="team-tier-btn" data-act="tier-down" title="ลงหนึ่งระดับ"
+          aria-label="ลงหนึ่งระดับ"${tier >= TIER_MAX ? ' disabled' : ''}>&#8594;</button>
+      </span>` : ''}`;
+
   const nameHtml = filter ? highlight(node.name, filter.q) : escHtml(node.name);
   const actions = !canEdit() ? '' : mode === 'team' ? `
         <button type="button" class="team-act" data-act="add-member" title="เพิ่มสมาชิก"><i class="bi bi-person-plus"></i></button>
@@ -603,8 +661,9 @@ function renderNode(node, filter, depth = 0) {
       ${canEdit() ? '<span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>' : ''}
       <button type="button" class="team-caret ${expandable ? '' : 'is-leaf'}" data-act="toggle"
         aria-label="ขยาย/ย่อ">${expandable ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
-      <i class="bi ${KIND_ICON[normalizeKind(node.kind)]} team-node-icon"></i>
+      ${tierIndent}<i class="bi ${KIND_ICON[normalizeKind(node.kind)]} team-node-icon"></i>
       <span class="team-node-name" data-act="primary">${nameHtml}</span>
+      ${tierControl}
       ${count ? `<span class="team-count" title="สมาชิกในสายนี้">${count}</span>` : ''}
       ${healthNodeCounts.get(node.id)
         ? `<button type="button" class="team-count team-count-warn" data-act="check-member"
@@ -962,6 +1021,10 @@ function wireTreeDelegation() {
       if (expanded.has(nodeId)) expanded.delete(nodeId); else expanded.add(nodeId);
       render(); return;
     }
+    if (act === 'tier-up' || act === 'tier-down') {
+      if (nodeId) shiftTier(nodeId, act === 'tier-down' ? 1 : -1);
+      return;
+    }
     if (act === 'primary') {
       if (!nodeId) return;
       // ONE editor, opened on the tab that matches the mode you are in (0110).
@@ -1239,8 +1302,47 @@ function setNodeColor(value) {
   if (picker && /^#[0-9A-Fa-f]{6}$/.test(v)) picker.value = v;
 }
 
+/**
+ * Show the ระดับ stepper only where a rung means something.
+ *
+ * A ฝ่าย has no rung — it IS the thing rungs are inside. A ตำแหน่ง stored under
+ * another ตำแหน่ง already expresses its rank by nesting, and offering a second
+ * way to say the same thing is how two mechanisms start disagreeing.
+ */
+function setNodeTier(node, parentId) {
+  const field = $('teamNodeTierField');
+  if (!field) return;
+  const parent = parentId ? nodesById.get(parentId) : null;
+  const eligible = normalizeKind($('teamNodeKind').value) === 'role'
+    && (!parent || normalizeKind(parent.kind) === 'division');
+  field.classList.toggle('d-none', !eligible);
+
+  const tier = eligible ? tierOf(node) : 1;
+  $('teamNodeTier').value = tier > 1 ? String(tier) : '';
+  $('teamNodeTierValue').textContent = `ระดับ ${tier}`;
+  $('teamNodeTierUp').disabled = tier <= 1;
+  $('teamNodeTierDown').disabled = tier >= TIER_MAX;
+}
+
+function stepNodeTier(delta) {
+  const cur = Number($('teamNodeTier').value) || 1;
+  const next = Math.min(TIER_MAX, Math.max(1, cur + delta));
+  $('teamNodeTier').value = next > 1 ? String(next) : '';
+  $('teamNodeTierValue').textContent = `ระดับ ${next}`;
+  $('teamNodeTierUp').disabled = next <= 1;
+  $('teamNodeTierDown').disabled = next >= TIER_MAX;
+}
+
 function wireNodeModal() {
   $('teamNodeForm')?.addEventListener('submit', onNodeSubmit);
+  $('teamNodeTierUp')?.addEventListener('click', () => stepNodeTier(-1));
+  $('teamNodeTierDown')?.addEventListener('click', () => stepNodeTier(1));
+  // Switching ประเภท to ฝ่าย must hide the rung, not leave a stale one that the
+  // save would then write onto a ฝ่าย.
+  $('teamNodeKind')?.addEventListener('change', () => {
+    setNodeTier({ tier: Number($('teamNodeTier').value) || null },
+      $('teamNodeParentId').value || null);
+  });
   // Delegated: the swatches are static markup, but the modal is shared between
   // จัดการทีม and จัดการสิทธิ์ and this runs once either way.
   $('teamNodeSwatches')?.addEventListener('click', (e) => {
@@ -1262,6 +1364,7 @@ function openNodeModal({ node = null, parentId = null, kind = null, tab = 'info'
   $('teamNodeName').value = node?.name || '';
   $('teamNodeKind').value = node?.kind || kind || 'role';
   setNodeColor(node?.color || '');
+  setNodeTier(node, node ? node.parent_id : parentId);
   // New nodes default to visible; only an explicit false hides the subtree.
   if ($('teamNodeIsPublic')) $('teamNodeIsPublic').checked = node ? node.is_public !== false : true;
   // Board membership is opt-in, so a NEW ตำแหน่ง is never silently promoted into
@@ -1344,6 +1447,9 @@ async function onNodeSubmit(e) {
     // NULL — an empty string would pass the hex CHECK's `is null` arm nowhere
     // and 23514 the save. Stored null is also what makes `tintColor` fall back.
     color: isHexColor($('teamNodeColor').value) ? $('teamNodeColor').value : null,
+    // '' = the field was hidden (a ฝ่าย, or a seat under a seat) or the rung is
+    // 1. Both mean NULL: "never told otherwise", which is the column's default.
+    tier: Number($('teamNodeTier').value) > 1 ? Number($('teamNodeTier').value) : null,
     is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
     is_board: $('teamNodeIsBoard') ? $('teamNodeIsBoard').checked : false,
   };
@@ -3414,6 +3520,7 @@ async function importJson(data) {
     const row = await createNode({
       parent_id: newParent, name: n.name.trim(), kind: normalizeKind(n.kind),
       color: isHexColor(n.color) ? n.color : null,
+      tier: tierOf(n) > 1 ? tierOf(n) : null,
       position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,

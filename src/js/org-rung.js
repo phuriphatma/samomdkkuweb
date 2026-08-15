@@ -68,6 +68,14 @@ export function sortSiblings(list) {
  * @param nodeById  id → node, to ask whether a parent is a ฝ่าย
  * @returns a NEW map; the input is not mutated
  */
+/** Which rung of its ฝ่าย a ตำแหน่ง sits on. `null` — everything that has
+ *  never been told otherwise — is rung 1, which is the shape the chart had
+ *  before tiers existed, so nothing had to be backfilled. */
+export function tierOf(node) {
+  const t = Number(node?.tier);
+  return Number.isFinite(t) && t > 1 ? Math.floor(t) : 1;
+}
+
 export function chartParentage(byParent, nodeById) {
   const out = new Map();
   for (const [key, kids] of byParent) out.set(key, sortSiblings([...kids]));
@@ -87,12 +95,45 @@ export function chartParentage(byParent, nodeById) {
 
     const seats = kids.filter((n) => !isDivision(n.kind));
     const units = kids.filter((n) => isDivision(n.kind));
-    if (!seats.length || !units.length) continue;
+    // Nothing to hang anything off. The sub-ฝ่าย stay where they are rather
+    // than vanishing.
+    if (!seats.length) continue;
 
-    const head = seats[0];
-    out.set(key, seats);
-    out.set(head.id, [...(out.get(head.id) || []), ...units]);
+    // Group the ฝ่าย's seats by rung, lowest first. `position` still orders
+    // WITHIN a rung, because `kids` arrives in position order and this walk
+    // preserves it.
+    const byTier = new Map();
+    for (const s of seats) {
+      const t = tierOf(s);
+      if (!byTier.has(t)) byTier.set(t, []);
+      byTier.get(t).push(s);
+    }
+    const rungs = [...byTier.keys()].sort((a, b) => a - b);
+
+    // The ฝ่าย keeps its TOP rung and nothing else...
+    out.set(key, byTier.get(rungs[0]));
+
+    // ...each deeper rung hangs off the FIRST seat of the rung above it. First
+    // = position 0 = the head, which the tree already ranks — the same fact the
+    // equal-sized cards rely on, and the reason there is no list of Thai title
+    // prefixes here to rot. `rungs[i - 1]`, not `i - 1`: rungs may be 1 and 3
+    // with nothing at 2, and a gap must close rather than orphan the branch.
+    for (let i = 1; i < rungs.length; i++) {
+      const host = byTier.get(rungs[i - 1])[0];
+      out.set(host.id, [...(out.get(host.id) || []), ...byTier.get(rungs[i])]);
+    }
+
+    // ...and the sub-ฝ่าย hang off the head of the top rung.
+    if (units.length) {
+      const head = byTier.get(rungs[0])[0];
+      out.set(head.id, [...(out.get(head.id) || []), ...units]);
+    }
   }
+
+  // Re-sort AFTER the moves, not just before. A host can end up holding its own
+  // sub-ฝ่าย and a seat moved onto it by the tier rule, and the append order
+  // would put the ฝ่าย first — seats always come before units, at every level.
+  for (const bucket of out.values()) sortSiblings(bucket);
   return out;
 }
 

@@ -23,7 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  RUNG, applyRung, sortSiblings, chartParentage, subtreeMeta,
+  RUNG, applyRung, sortSiblings, chartParentage, subtreeMeta, tierOf,
 } from './org-rung.js';
 
 // The live shape, in miniature — ฝ่ายดิจิทัล as it actually is on
@@ -320,5 +320,113 @@ describe('the count line says whether it means INSIDE or BELOW', () => {
       expect(src, `${rel} still builds the line itself`)
         .not.toMatch(/bits\.push\(`\$\{[^}]+\} ตำแหน่ง`\)/);
     }
+  });
+});
+
+describe('ระดับ — rank inside a ฝ่าย, without nesting', () => {
+  // REQUESTED: "I want in the main web to show หัวหน้าฝ่าย IT and
+  // เลขานุการฝ่าย IT at the same level then next level be สมาชิกฝ่าย IT
+  // without having to put Role สมาชิกฝ่าย IT inside หัวหน้าฝ่าย IT."
+  //
+  // ฝ่าย IT stored FLAT — every seat a direct child, which is where they
+  // actually belong — with the rank carried by `tier`.
+  const N = {
+    it: { id: 'it', kind: 'division', name: 'ฝ่าย IT' },
+    head: { id: 'head', kind: 'role', name: 'หัวหน้าฝ่าย IT' },
+    sec: { id: 'sec', kind: 'role', name: 'เลขานุการฝ่าย IT' },
+    mem: { id: 'mem', kind: 'role', name: 'สมาชิกฝ่าย IT', tier: 2 },
+  };
+  const nodeById = new Map(Object.values(N).map((n) => [n.id, n]));
+  const flat = () => new Map([['', [N.it]], ['it', [N.head, N.sec, N.mem]]]);
+  const ids = (m, k) => (m.get(k) || []).map((n) => n.id);
+
+  it('draws two lines to ระดับ 1 and one line below to ระดับ 2', () => {
+    const out = chartParentage(flat(), nodeById);
+    expect(ids(out, 'it')).toEqual(['head', 'sec']);
+    expect(ids(out, 'head')).toEqual(['mem']);
+  });
+
+  it('matches what the NESTED version drew — the point is the admin, not the chart', () => {
+    // Same picture from the storage shape it replaces. If these ever diverge,
+    // converting the live tree would silently redraw it.
+    const nested = new Map([['', [N.it]], ['it', [N.head, N.sec]], ['head', [N.mem]]]);
+    const nestedIds = { it: ids(chartParentage(nested, nodeById), 'it'),
+      head: ids(chartParentage(nested, nodeById), 'head') };
+    const out = chartParentage(flat(), nodeById);
+    expect(ids(out, 'it')).toEqual(nestedIds.it);
+    expect(ids(out, 'head')).toEqual(nestedIds.head);
+  });
+
+  it('a deeper rung hangs off the FIRST seat of the rung above', () => {
+    // ฝ่าย ComArt, as stored: two ระดับ 2 heads, and the ระดับ 3 members belong
+    // to the first of them.
+    const A = { id: 'a', kind: 'role', name: 'หัวหน้าฝ่าย Art/Graphic', tier: 2 };
+    const P = { id: 'p', kind: 'role', name: 'หัวหน้าฝ่าย production', tier: 2 };
+    const M = { id: 'm', kind: 'role', name: 'สมาชิกฝ่าย Art/Graphic', tier: 3 };
+    const H = { id: 'h', kind: 'role', name: 'หัวหน้าฝ่าย ComArt' };
+    const C = { id: 'c', kind: 'division', name: 'ฝ่าย ComArt' };
+    const out = chartParentage(
+      new Map([['', [C]], ['c', [H, A, M, P]]]),
+      new Map([[C.id, C], [H.id, H], [A.id, A], [P.id, P], [M.id, M]]),
+    );
+    expect(ids(out, 'c')).toEqual(['h']);
+    expect(ids(out, 'h')).toEqual(['a', 'p']);
+    expect(ids(out, 'a')).toEqual(['m']);
+    expect(ids(out, 'p')).toEqual([]);
+  });
+
+  it('a GAP in the rungs closes instead of orphaning the branch', () => {
+    // ระดับ 1 and ระดับ 3 with nothing at 2 — an admin can produce this by
+    // deleting the middle seat. It must draw, not disappear.
+    const H = { id: 'h', kind: 'role', name: 'หัวหน้า' };
+    const D = { id: 'd', kind: 'role', name: 'ลึก', tier: 3 };
+    const F = { id: 'f', kind: 'division', name: 'ฝ่าย' };
+    const out = chartParentage(new Map([['', [F]], ['f', [H, D]]]),
+      new Map([[F.id, F], [H.id, H], [D.id, D]]));
+    expect(ids(out, 'f')).toEqual(['h']);
+    expect(ids(out, 'h')).toEqual(['d']);
+  });
+
+  it('a ฝ่าย with ONLY deep seats hangs them off the ฝ่าย, not nowhere', () => {
+    const D = { id: 'd', kind: 'role', name: 'ลึก', tier: 4 };
+    const F = { id: 'f', kind: 'division', name: 'ฝ่าย' };
+    const out = chartParentage(new Map([['', [F]], ['f', [D]]]),
+      new Map([[F.id, F], [D.id, D]]));
+    expect(ids(out, 'f')).toEqual(['d']);
+  });
+
+  it('a host holding a STORED sub-ฝ่าย keeps seats first when a rung lands on it', () => {
+    // ฝ่าย PR's real shape: หัวหน้าฝ่าย PR already owns ฝ่าย Media management,
+    // and then a ระดับ 2 seat is moved onto it. The bucket is built [ฝ่าย Media]
+    // and the seat is APPENDED, so without a re-sort after the moves the ฝ่าย
+    // comes out first — the exact inverse of the ordering rule. The first
+    // version of this test used a host with no stored children and could not
+    // fail; a fixture that cannot reach the branch is not coverage.
+    const F = { id: 'f', kind: 'division', name: 'ฝ่าย PR' };
+    const H = { id: 'h', kind: 'role', name: 'หัวหน้าฝ่าย PR' };
+    const M = { id: 'm', kind: 'role', name: 'หัวหน้าฝ่าย Content creator', tier: 2 };
+    const S = { id: 's', kind: 'division', name: 'ฝ่าย Media management' };
+    const out = chartParentage(
+      new Map([['', [F]], ['f', [H, M]], ['h', [S]]]),
+      new Map([[F.id, F], [H.id, H], [M.id, M], [S.id, S]]),
+    );
+    expect(ids(out, 'f')).toEqual(['h']);
+    expect(ids(out, 'h'), 'the seat must come before the ฝ่าย').toEqual(['m', 's']);
+  });
+
+  it('tierOf: anything not a number above 1 is rung 1', () => {
+    for (const v of [null, undefined, 0, 1, -3, 'x', NaN, {}]) {
+      expect(tierOf({ tier: v })).toBe(1);
+    }
+    expect(tierOf({ tier: 2 })).toBe(2);
+    expect(tierOf({ tier: '3' })).toBe(3);
+    expect(tierOf({ tier: 2.7 })).toBe(2);
+    expect(tierOf(undefined)).toBe(1);
+  });
+
+  it('every node still appears exactly once', () => {
+    const out = chartParentage(flat(), nodeById);
+    const placed = [...out.values()].flat().map((n) => n.id).sort();
+    expect(placed).toEqual(['head', 'it', 'mem', 'sec']);
   });
 });

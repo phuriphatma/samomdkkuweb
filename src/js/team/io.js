@@ -111,6 +111,9 @@ export function buildExportJson(nodes, members) {
       // name-derived colour — silently, since a derived colour looks like a
       // colour rather than like a loss.
       color: n.color || null,
+      // 0153. Same shape: dropped, every ฝ่าย re-imports with all its ตำแหน่ง
+      // on one rung, which looks like a chart rather than like a loss.
+      tier: n.tier ?? null,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     })),

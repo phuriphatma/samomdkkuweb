@@ -143,7 +143,7 @@ describe('buildExportJson round-trip fidelity', () => {
     id: 'n1', parent_id: null, name: 'ฝ่ายทดสอบ', kind: 'division', position: 3,
     permissions: ['pr'], inherit_permissions: false, vs_dept: 'SE',
     project_seat: 'vpa', is_public: true, is_board: true,
-    passport_dept_id: 0, passport_sub_dept_id: 7, color: '#2F5F9C',
+    passport_dept_id: 0, passport_sub_dept_id: 7, color: '#2F5F9C', tier: 2,
   };
   const MEMBER = {
     id: 'm1', node_id: 'n1', position: 2, full_name: 'ทดสอบ ระบบ',
@@ -160,8 +160,9 @@ describe('buildExportJson round-trip fidelity', () => {
     expect(Object.keys(n).sort()).toEqual([
       'color', 'id', 'inherit_permissions', 'is_board', 'is_public', 'kind',
       'name', 'parent_id', 'passport_dept_id', 'passport_sub_dept_id',
-      'permissions', 'position', 'project_seat', 'vs_dept',
+      'permissions', 'position', 'project_seat', 'tier', 'vs_dept',
     ]);
+    expect(n.tier, 'the rung must survive a round trip, not just the key').toBe(2);
     // The VALUE too, not just the key. `color: n.color || null` would export
     // the key and drop the choice if the mapping were ever written as a bare
     // spread of a subset — and a ฝ่าย re-imported to its name-derived colour

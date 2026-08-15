@@ -1071,3 +1071,55 @@
   /* A colour chip is a target, and 1.9rem is a mouse-sized one. */
   .team-swatch { width: 2.4rem; height: 2.4rem; }
 }
+
+/* ---- ระดับ: rank inside a ฝ่าย (0153) --------------------------------------
+ *
+ * The tree stores CONTAINMENT; `tier` carries RANK. This is the control for it,
+ * and its whole justification is that it replaces a long-press drag onto one
+ * exact row — the fiddliest interaction in this tree on a tablet, and the one
+ * that can silently drop a seat into the wrong ฝ่าย.
+ *
+ * DEFAULT INVISIBLE, DEVIATION VISIBLE. 205 seats each wearing a permanent
+ * "ระดับ 1" badge is noise nobody reads; only the handful that differ carry
+ * one. The arrows appear on hover, and unconditionally on touch, where there is
+ * no hover to appear on.
+ */
+.team-tier-pill {
+  flex: 0 0 auto; white-space: nowrap;
+  font-size: 0.64rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--ink-500);
+  border: 1px solid var(--ink-200); border-radius: var(--radius-pill);
+  padding: 0.05rem 0.45rem;
+}
+/* Sized in JS from the tier, because the number of rungs is data, not a fixed
+   set of classes. The rule left is the same cue the chart draws with a line. */
+.team-tier-indent {
+  display: inline-block; flex: 0 0 auto; align-self: stretch;
+  border-left: 2px solid var(--ink-200);
+  margin: 0.15rem 0.35rem 0.15rem 0.1rem;
+}
+.team-tier-arrows { display: inline-flex; gap: 0.1rem; flex: 0 0 auto; }
+.team-tier-btn {
+  width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; font-size: 0.85rem;
+  border: 1px solid var(--ink-200); background: #fff; color: var(--ink-600);
+  border-radius: var(--radius-xs);
+}
+.team-tier-btn:hover:not(:disabled) { background: var(--ink-100); color: var(--brand-primary); }
+.team-tier-btn:disabled { opacity: 0.3; cursor: default; }
+
+@media (hover: hover) {
+  /* Same treatment as the row actions: quiet until you are pointing at the row.
+     Kept as opacity rather than display so the row does not reflow on hover —
+     the buttons are 1.6rem wide and the name would jump. */
+  .team-tier-arrows { opacity: 0; transition: opacity 0.12s; }
+  .team-row:hover .team-tier-arrows,
+  .team-tier-arrows:focus-within { opacity: 1; }
+}
+
+/* The same control in the node editor, for keyboard users and for anyone who
+   never discovers the row buttons. */
+.team-tier-field { display: flex; align-items: center; gap: 0.5rem; }
+.team-tier-field .team-tier-btn { width: 2.1rem; height: 2.1rem; font-size: 1rem; }
+.team-tier-value {
+  min-width: 5.5rem; text-align: center; font-weight: 600; color: var(--ink-700);
+}

@@ -170,6 +170,28 @@
               ก็ใช้ประเภทนี้ตัดสินว่าจะเปิดถึงระดับไหน — ส่วนโครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย
             </div>
           </div>
+          <!-- ระดับในผัง (0153). The row buttons in the tree are the fast path;
+               this is the discoverable one, and the only one a keyboard reaches.
+               Hidden for a ฝ่าย and for a ตำแหน่ง stored under another ตำแหน่ง,
+               where a rung would be a second way to say what the nesting
+               already says — team/index.js toggles it. -->
+          <div class="mb-1 mt-3 d-none" id="teamNodeTierField">
+            <label class="form-label d-block">ระดับในผังองค์กร</label>
+            <div class="team-tier-field">
+              <button type="button" class="team-tier-btn" id="teamNodeTierUp"
+                aria-label="ขึ้นหนึ่งระดับ">&#8592;</button>
+              <span class="team-tier-value" id="teamNodeTierValue">ระดับ 1</span>
+              <button type="button" class="team-tier-btn" id="teamNodeTierDown"
+                aria-label="ลงหนึ่งระดับ">&#8594;</button>
+            </div>
+            <input type="hidden" id="teamNodeTier" value="" />
+            <div class="form-text">
+              ตำแหน่งที่อยู่ระดับเดียวกันจะวาดเรียงกันเป็นแถวเดียวในผังองค์กร
+              ส่วนระดับถัดไปจะอยู่ใต้ตำแหน่งแรกของระดับบน (คือหัวหน้า)
+              — ไม่ต้องเอาตำแหน่งไปซ้อนไว้ข้างในอีกตำแหน่งแล้ว
+            </div>
+          </div>
+
           <!-- Colour identity (0152). Swatch buttons rather than a bare colour
                input: the ten --dept-* values are the SAMO 69 colour sheet and
                are the answer nine times out of ten, while a free picker invites
