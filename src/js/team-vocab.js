@@ -33,6 +33,12 @@ export const PERM_CATALOG = [
   // not a rung, and อาจารย์ have no login today.
   { key: 'house',     label: 'ระบบบ้าน',
     hint: 'จัดการบ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษาทั้งคณะ' },
+  // Migration 0154. ONE rung, like `house`: everyone who holds it can see the
+  // whole board and book on it. There is deliberately no view-only rung — a
+  // shared calendar you may read but never claim a slot on is a notice board,
+  // and that is not what anyone asked for.
+  { key: 'claude',    label: 'จองโควตา Claude',
+    hint: 'จองช่วงเวลาใช้งาน Claude ของสโม และดูว่าใครจองอะไรไว้บ้าง' },
   { key: 'master',    label: 'ทุกระบบ (Master)',
     hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
     danger: true },
@@ -137,4 +143,4 @@ export const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s
 // whole point: they can open ทีม SAMO and look. `team_edit` is listed too so a
 // hypothetical editor who somehow lacks the view rung is not locked out; the
 // list is OR-ed, so naming both costs nothing and cannot fail closed.
-export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house'];
+export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house', 'claude'];

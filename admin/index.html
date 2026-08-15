@@ -161,6 +161,10 @@
             <i class="bi bi-house-heart"></i><span>ระบบบ้าน</span>
           </button>
 
+          <button type="button" class="workspace-side-item d-none" data-admin-side="claude">
+            <i class="bi bi-stars"></i><span>จองโควตา Claude</span>
+          </button>
+
           <div class="workspace-side-section">รายงาน</div>
           <button type="button" class="workspace-side-item d-none" data-admin-side="analytics">
             <i class="bi bi-graph-up-arrow"></i><span>สถิติการใช้งาน</span>
@@ -358,6 +362,17 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="claude">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-media);"
+                  onclick="openAdminSection('claude')">
+                  <span class="admin-card-icon"><i class="bi bi-stars"></i></span>
+                  <div class="admin-card-body">
+                    <h5>จองโควตา Claude</h5>
+                    <p>จองช่วงเวลาใช้งาน Claude ของสโม และดูว่าใครจองอะไรไว้</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="analytics">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
                   onclick="openAdminSection('analytics')">
@@ -430,6 +445,10 @@
 
           <section data-admin-pane="analytics" class="d-none">
             <include src="./src/html/tab-analytics.html" />
+          </section>
+
+          <section data-admin-pane="claude" class="d-none">
+            <include src="./src/html/tab-claude.html" />
           </section>
 
         </main>

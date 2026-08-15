@@ -1064,6 +1064,63 @@ student's own card on the home page). Permission key `house` is threaded through
 `PERM_CATALOG`, `ADMIN_FEATURES`, `PERM_SECTION`, `SECTION_META`, `SIDE_FEATURE`
 and the sidebar.
 
+## จองโควตา Claude — migration 0154
+
+Booking a share of SAMO's ONE Claude Pro subscription. The stored unit is
+**session percent**: a 5-hour session carries 100%, and the week carries 700%
+(the owner's conversion — 1% weekly = 7% session, so a week is seven full
+sessions). Nothing converts at read time.
+
+**A session is DERIVED, not a slot on a grid.** Claude opens its 5-hour window
+at the *first message*, so a wall-clock grid would be a fiction that reports
+"both bookings fine" until the account caps out. `claude_sessions()` walks
+bookings in start order: each joins the session it fits entirely inside, or
+opens a new one beginning at its own start. Checking only the LAST open session
+is correct by monotonicity, not by luck — see the comment in the migration.
+
+**Tables**: `claude_settings` (one row: reset dow/time/tz, the two pools, the
+session length — the reset is Wed 16:00 ICT but *configurable*, because
+Anthropic sometimes resets early after an incident and a hardcoded anchor would
+report a spent pool as full), `claude_bookings`, `claude_usage_samples`.
+
+**Where each rule lives** — all four in the database, none in the form:
+| Rule | Mechanism |
+|---|---|
+| ≤ 5 hours per block | `claude_bookings_span_max` check constraint |
+| no two blocks overlap | `claude_bookings_no_overlap` **exclusion constraint** (gist over `tstzrange`) — two people pressing ยืนยัน at the same second both pass a client-side "is it free?" read |
+| one session ≤ 100%, one week ≤ 700%, no straddling a session edge or the weekly reset | `claude_booking_guard()` **trigger** — on the TABLE, so an import or a psql session passes through it too |
+
+**Reads**: `get_claude_board(p_at)` returns the whole board in one payload —
+week bounds, settings, bookings, sessions, and the latest measured sample. One
+call on purpose: deriving sessions again in JavaScript would put the rule in two
+places, which is this repo's most expensive class. `claude_sessions()` and
+`claude_week_start()` are SECURITY DEFINER over the whole table and are
+**revoked from `authenticated`** — only the trigger and the gated board RPC
+reach them. The identity in the payload is a hand-built projection (name,
+nickname, ฝ่าย path, ตำแหน่ง titles): since 0147 `public.users` is self-read
+only, so no email, รหัสนักศึกษา, role or permission array is published.
+
+**RLS**: permission key `claude`, one rung. SELECT for any holder; INSERT for
+yourself only (`user_id = auth.uid()`); UPDATE/DELETE on your own row or
+`master`. Threaded through `PERM_CATALOG`, `ADMIN_FEATURES`, `SIDE_FEATURE`,
+`SECTION_META`, the sidebar and the landing card.
+
+**Frontend**: `src/js/claude/index.js` (section `claude`),
+`src/html/tab-claude.html`, `src/css/claude.css`. Week timegrid, sessions drawn
+as frames with a "เหลือ N%" chip, drag-to-select capped at 5h, ฝ่าย colour from
+`dept-tint.js`. Discord via `sendNotify('claude', …)` →
+`notifyClaudeBooking` → `DISCORD_CLAUDE_WEBHOOK` in `/etc/samo-notify.env`.
+
+**It coordinates; it does not enforce.** Everyone shares one login and can use
+Claude outside their block. The only *measured* number is
+`claude_usage_samples`, written by `tools/claude-usage-report.mjs` — it reads
+the OAuth token from `~/.claude/.credentials.json` and calls
+`GET api.anthropic.com/api/oauth/usage`, which a browser can never do. Absent a
+sample the board hides that strip rather than showing a zero.
+
+**Proof**: `tools/claude0154-quota-guard.sql` (20/20, in `npm run proofs`).
+**Guard test**: `src/js/claude/wiring.test.js`.
+
 ## Auth model details
 
 - **Google OAuth**: routed through Supabase's `signInWithOAuth({ provider:

@@ -1,0 +1,151 @@
+  <!-- จองโควตา Claude (migration 0154) — booking a share of SAMO's one Claude
+       Pro subscription.
+
+       The unit shown everywhere is SESSION PERCENT. A 5-hour session carries
+       100%; the week carries 700% (= seven full sessions), per the owner's
+       conversion 1% weekly = 7% session.
+
+       The GREEN FRAMES on the grid are the load-bearing idea: a session is not
+       a fixed slot, it is opened by the first booking in an area and runs five
+       hours from there. Everyone whose block falls inside one frame shares that
+       frame's 100%. Both the frames and the arithmetic come from ONE place,
+       get_claude_board() — nothing here re-derives a session in JavaScript.
+
+       This board coordinates; it does not enforce. Everyone shares one login and
+       can use Claude outside their block. The "ใช้จริง" strip is the only
+       measured number on the page and it is absent until the reporter runs
+       (tools/claude-usage-report.mjs) — deliberately blank rather than zero,
+       because a zero reads as a reading. -->
+  <div class="claude-tab">
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="เลือกสัปดาห์">
+        <button type="button" class="btn btn-outline-secondary" id="claudePrevWeek">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="claudeThisWeek">สัปดาห์นี้</button>
+        <button type="button" class="btn btn-outline-secondary" id="claudeNextWeek">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+      <span class="claude-weeklabel" id="claudeWeekLabel"></span>
+      <span class="ms-auto"></span>
+      <button type="button" class="btn btn-success btn-sm" id="claudeNewBooking">
+        <i class="bi bi-plus-lg me-1"></i>จองช่วงเวลา
+      </button>
+    </div>
+
+    <!-- Weekly pool. Seven ticks because 700% IS seven sessions — the scale
+         explains the unit without a sentence of help text. -->
+    <div class="claude-week card-soft mb-3">
+      <div class="claude-week-top">
+        <span class="claude-week-fig" id="claudeWeekUsed">0</span>
+        <span class="claude-week-of">/ <span id="claudeWeekPool">700</span>%</span>
+        <span class="text-muted">ใช้ไปแล้วสัปดาห์นี้</span>
+        <span class="claude-week-right">
+          รีเซ็ต <strong id="claudeResetAt">—</strong>
+          <span id="claudeResetIn" class="text-muted"></span>
+        </span>
+      </div>
+      <div class="claude-week-bar" id="claudeWeekBar"></div>
+      <div class="claude-week-scale" id="claudeWeekScale"></div>
+      <div class="claude-legend" id="claudeLegend"></div>
+      <div class="claude-measured" id="claudeMeasured" hidden></div>
+    </div>
+
+    <p class="text-muted small mb-2" id="claudeHelp">
+      ลากบนตารางเพื่อเลือกช่วงเวลา — กรอบสีเขียวคือ <strong>เซสชัน 5 ชั่วโมง</strong>
+      ที่เกิดจากการจองแรกของช่วงนั้น ทุกคนที่จองอยู่ในกรอบเดียวกันจะแบ่งโควตา 100% ก้อนเดียวกัน
+    </p>
+
+    <div class="claude-cal-shell">
+      <div class="claude-cal-scroll" id="claudeCalScroll">
+        <div class="claude-cal-grid">
+          <div class="claude-cal-head" id="claudeCalHead"><div class="claude-corner"></div></div>
+          <div class="claude-cal-body" id="claudeCalBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="claudeEmptyNote" class="text-muted small mt-2 d-none">
+      ยังไม่มีการจองในสัปดาห์นี้
+    </div>
+  </div>
+
+  <!-- ── booking modal ─────────────────────────────────────────────────── -->
+  <div class="modal fade claude-tab" id="claudeBookingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-stars me-2"></i><span id="claudeModalTitle">จองโควตา Claude</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Who is booking. Rendered from the board payload's own identity
+               projection, not from a name typed into the form: the booking is a
+               claim BY an account and the ฝ่าย beside it has to be the one the
+               org tree says, not one somebody chose. -->
+          <div class="claude-idcard" id="claudeIdCard"></div>
+
+          <div class="row g-2 mt-1">
+            <div class="col-12">
+              <label class="form-label small fw-bold mb-1" for="claudeDate">วันที่</label>
+              <input type="date" class="form-control form-control-sm" id="claudeDate">
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-bold mb-1" for="claudeStart">เริ่ม</label>
+              <select class="form-select form-select-sm" id="claudeStart"></select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-bold mb-1" for="claudeEnd">ถึง</label>
+              <select class="form-select form-select-sm" id="claudeEnd"></select>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <span class="form-label small fw-bold mb-1 d-block">ใช้นานเท่าไร</span>
+            <div class="claude-chips" id="claudeDurChips"></div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label small fw-bold mb-1" for="claudePct">
+              จะใช้โควตาเซสชันเท่าไร
+            </label>
+            <div class="d-flex align-items-baseline gap-2">
+              <span class="claude-pct-val" id="claudePctVal">30%</span>
+              <span class="ms-auto small text-muted" id="claudePctMax"></span>
+            </div>
+            <input type="range" class="form-range" id="claudePct" min="5" max="100" step="5" value="30">
+            <div class="claude-chips" id="claudePctChips"></div>
+            <div class="form-text">
+              ประมาณการได้ — ตัวเลขนี้คือสิ่งที่จองไว้ ไม่ใช่สิ่งที่วัดได้จริง
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label small fw-bold mb-1" for="claudePurpose">จองไปทำอะไร</label>
+            <textarea class="form-control form-control-sm" id="claudePurpose" rows="2"
+              maxlength="500" placeholder="เช่น แก้บั๊กหน้าจองห้องสโม"></textarea>
+            <div class="form-text">ต้องกรอก — คนอื่นในทีมจะเห็นว่าช่วงนี้ถูกใช้ทำอะไร</div>
+          </div>
+
+          <div class="claude-ledger mt-3" id="claudeLedger"></div>
+          <div id="claudeNotes"></div>
+        </div>
+
+        <div class="modal-footer">
+          <!-- ลบ only renders for a booking the account may actually delete;
+               a live-looking button that 42501s is its own entry in the
+               mistakes log. -->
+          <button type="button" class="btn btn-outline-danger btn-sm me-auto d-none" id="claudeDelete">
+            <i class="bi bi-trash me-1"></i>ลบการจอง
+          </button>
+          <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-success btn-sm" id="claudeSave">ยืนยันการจอง</button>
+        </div>
+      </div>
+    </div>
+  </div>

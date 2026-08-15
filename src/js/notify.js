@@ -22,6 +22,9 @@ export function actionFor(system, mode) {
   if (system === 'pr') return 'notifyPROnly';
   if (system === 'vs' && mode === 'consult') return 'notifyVSConsult';
   if (system === 'vs') return 'notifyVSOnly';
+  // จองโควตา Claude (0154). Its webhook URL lives in /etc/samo-notify.env on
+  // the VM like every other one — NEVER in src/, which is served to browsers.
+  if (system === 'claude') return 'notifyClaudeBooking';
   throw new Error(`notify: unknown system "${system}" mode "${mode}"`);
 }
 

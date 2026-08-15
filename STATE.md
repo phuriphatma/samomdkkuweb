@@ -34,7 +34,17 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0153.** **798 tests green.**
+  **Migrations applied through 0154.** **812 tests green.**
+- ⚠️ **จองโควตา Claude (0154) is BUILT AND APPLIED but NOT YET DEPLOYED.** The
+  migration is live on Supabase; the bundle serving it is not on the VM yet.
+  Two things it needs before it works for anyone:
+  **(a) `DISCORD_CLAUDE_WEBHOOK=` in `/etc/samo-notify.env`** then
+  `sudo systemctl restart samo-notify` — without it the booking still saves and
+  only the notification is skipped. **The webhook the owner supplied was pasted
+  in chat and must be REGENERATED first.**
+  **(b) grant the `claude` permission** to whoever should book (ทีม SAMO →
+  the permission grid). Note ~13 ฝ่าย IT accounts already hold `master`, which
+  answers yes to every key, so they have it whether or not anyone ticks a box.
 - ⚠️ **Verify from the chunk the served HTML actually loads.** Code often lands
   in the SHARED `analytics-*.js` that BOTH entries import (the shop checkout
   strings did), and minified builds rename module-scope `let`s — grep a STRING
@@ -78,6 +88,11 @@ Run the one covering what you touch. All are both-directional.
 
 - `authz-sweep-identity.sql` (23/23) — run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
+- `claude0154-quota-guard.sql` (20/20) — the จองโควตา Claude caps. Written and
+  FALSIFIED on 2026-08-16: with the trigger disabled and the exclusion
+  constraint dropped, D1/D2/D4/D5 flip red and D3 stays green (it is the CHECK
+  constraint, a different mechanism), which is what says each case is held by
+  the thing it names.
 - `pr0149-delete-permission.sql` (12/12) · `shop0150-buyer-contact.sql` (10/10) ·
   `house0116-authz.sql` · `house0144-delete-impact.sql` (18/18) ·
   `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql` ·

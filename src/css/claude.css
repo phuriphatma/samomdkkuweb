@@ -1,0 +1,250 @@
+/* ============================================================
+   claude.css — จองโควตา Claude (migration 0154).
+
+   Every rule is scoped under `.claude-tab`, which sits on the pane AND on the
+   modal (a Bootstrap modal is portalled to <body>, so a rule scoped only to the
+   pane silently stops matching the moment the dialog opens — the "a selector
+   and the markup it targets" class in mistakes.md).
+
+   The per-ฝ่าย colour on a booking block comes from dept-tint.js, which sets
+   `--claude-c` inline. Nothing here name-matches a ฝ่าย: a derived colour that
+   guesses beat an inherited one once already (the org chart, 0152).
+   ============================================================ */
+
+.claude-tab {
+  --claude-hour-h: 44px;
+  --claude-gutter: 58px;
+  --claude-band: rgba(16, 89, 34, 0.05);
+  --claude-band-line: rgba(16, 89, 34, 0.22);
+  --claude-track: #e6ebe7;
+}
+
+/* ---------- weekly pool ---------- */
+.claude-week { padding: 14px 16px; }
+
+.claude-week-top {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 4px 12px; margin-bottom: 10px;
+}
+.claude-week-fig {
+  font-size: 1.75rem; font-weight: 700; line-height: 1;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.claude-week-of { color: #6c757d; font-variant-numeric: tabular-nums; }
+.claude-week-right { margin-left: auto; font-size: 0.8rem; text-align: right; }
+
+.claude-week-bar {
+  position: relative; height: 22px; border-radius: 3px;
+  background: var(--claude-track); overflow: hidden; display: flex;
+}
+.claude-week-bar > i { display: block; height: 100%; font-style: normal; }
+.claude-week-tick {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: #fff; opacity: 0.85;
+}
+.claude-week-scale {
+  display: flex; justify-content: space-between;
+  margin-top: 3px; font-size: 0.65rem; color: #8b968f;
+  font-variant-numeric: tabular-nums;
+}
+
+.claude-legend {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  margin-top: 10px; font-size: 0.78rem; color: #495057;
+}
+.claude-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.claude-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.claude-legend-item b { font-variant-numeric: tabular-nums; }
+
+/* The one measured number on the page. Hidden until a sample exists — a zero
+   here would read as "0% used", which is a claim we cannot make. */
+.claude-measured {
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dee2e6;
+  font-size: 0.78rem; color: #495057;
+  display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center;
+}
+.claude-measured b { font-variant-numeric: tabular-nums; }
+.claude-measured .claude-stale { color: #b54708; }
+
+.claude-weeklabel { font-weight: 600; font-size: 0.9rem; }
+
+/* ---------- calendar ---------- */
+.claude-cal-shell {
+  background: #fff; border: 1px solid #dee2e6;
+  border-radius: 8px; overflow: hidden;
+}
+.claude-cal-scroll { overflow: auto; max-height: 620px; }
+.claude-cal-grid { min-width: 780px; position: relative; }
+
+.claude-cal-head {
+  display: grid; grid-template-columns: var(--claude-gutter) repeat(7, 1fr);
+  position: sticky; top: 0; z-index: 6;
+  background: #fff; border-bottom: 1px solid #dee2e6;
+}
+.claude-corner { border-right: 1px solid #eceff0; }
+.claude-dayhead {
+  padding: 6px 4px; text-align: center; border-right: 1px solid #eceff0;
+}
+.claude-dayhead .claude-dow { font-size: 0.68rem; color: #8b968f; font-weight: 600; }
+.claude-dayhead .claude-dnum {
+  font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.claude-dayhead.is-today .claude-dnum,
+.claude-dayhead.is-today .claude-dow { color: var(--brand-orange); }
+
+.claude-cal-body {
+  display: grid; grid-template-columns: var(--claude-gutter) repeat(7, 1fr);
+  position: relative;
+}
+.claude-gutter { border-right: 1px solid #eceff0; }
+.claude-gutter .claude-hr {
+  height: var(--claude-hour-h); position: relative;
+  font-size: 0.65rem; color: #8b968f; font-variant-numeric: tabular-nums;
+}
+.claude-gutter .claude-hr span {
+  position: absolute; right: 5px; top: -6px; background: #fff; padding: 0 2px;
+}
+.claude-daycol { position: relative; border-right: 1px solid #eceff0; }
+.claude-daycol .claude-hr {
+  height: var(--claude-hour-h); border-bottom: 1px solid #eceff0;
+}
+.claude-daycol .claude-hr:nth-child(even) { background: #fafbfa; }
+
+/* Outside the quota week — hatched, so "this bar covers Wed 16:00 to Wed
+   16:00" is visible on the grid instead of stated in a caption. */
+.claude-dead {
+  position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(-45deg,
+    transparent 0 6px, rgba(139, 150, 143, 0.16) 6px 7px);
+}
+.claude-dead-label {
+  position: absolute; left: 4px; top: 3px; font-size: 0.62rem; color: #8b968f;
+  background: #fff; padding: 0 4px; border-radius: 2px;
+}
+
+/* The 5-hour session frame. */
+.claude-session {
+  position: absolute; left: 2px; right: 2px; z-index: 2; pointer-events: none;
+  border: 1px solid var(--claude-band-line); border-left-width: 3px;
+  border-radius: 3px; background: var(--claude-band);
+}
+.claude-session-tag {
+  position: absolute; top: 2px; right: 4px;
+  font-size: 0.62rem; font-weight: 600; color: var(--brand-primary);
+  background: #fff; border: 1px solid var(--claude-band-line);
+  border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums;
+}
+.claude-session.is-full { border-color: #b42318; background: rgba(180, 35, 24, 0.06); }
+.claude-session.is-full .claude-session-tag { color: #b42318; border-color: #b42318; }
+/* A session that crossed midnight: same frame, continued in the next column. */
+.claude-session.is-cont { border-left-width: 1px; border-left-style: dashed; }
+
+/* A booking. */
+.claude-bk {
+  position: absolute; z-index: 3; left: 9px; right: 5px;
+  border-radius: 3px; padding: 2px 6px; overflow: hidden; cursor: pointer;
+  border: 0; border-left: 3px solid var(--claude-c, var(--brand-primary));
+  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 17%, #fff);
+  color: #212529; font-size: 0.72rem; line-height: 1.25; text-align: left;
+  font-family: inherit;
+}
+.claude-bk:hover {
+  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 28%, #fff);
+}
+.claude-bk:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
+.claude-bk .claude-bk-t { font-weight: 700; font-variant-numeric: tabular-nums; }
+.claude-bk .claude-bk-n {
+  color: #495057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.claude-bk .claude-bk-p {
+  position: absolute; right: 4px; top: 2px;
+  font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.7rem;
+}
+.claude-bk.is-mine {
+  outline: 1.5px solid var(--claude-c, var(--brand-primary)); outline-offset: -1.5px;
+}
+
+.claude-sel {
+  position: absolute; z-index: 5; left: 9px; right: 5px;
+  border: 1.5px dashed var(--brand-primary); border-radius: 3px; pointer-events: none;
+  background: rgba(16, 89, 34, 0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; font-weight: 700; color: var(--brand-primary);
+  font-variant-numeric: tabular-nums;
+}
+.claude-nowline {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: var(--brand-orange); z-index: 4; pointer-events: none;
+}
+.claude-nowline::before {
+  content: ""; position: absolute; left: -4px; top: -3px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--brand-orange);
+}
+
+/* ---------- modal ---------- */
+.claude-tab .claude-idcard {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: #f6f8f6; border: 1px solid #e4ebe5;
+  border-left: 3px solid var(--claude-c, var(--brand-primary));
+  border-radius: 6px; padding: 10px 12px;
+}
+.claude-tab .claude-idcard .claude-av {
+  width: 36px; height: 36px; border-radius: 50%; flex: none;
+  color: #fff; display: grid; place-items: center; font-weight: 700;
+  background: var(--claude-c, var(--brand-primary));
+}
+.claude-tab .claude-idcard .claude-nm { font-weight: 700; }
+.claude-tab .claude-idcard .claude-mt { font-size: 0.78rem; color: #495057; }
+.claude-tab .claude-roles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.claude-tab .claude-role-pill {
+  font-size: 0.68rem; padding: 1px 7px; border-radius: 999px;
+  background: #fff; border: 1px solid #dee2e6; color: #495057;
+}
+
+.claude-tab .claude-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.claude-tab .claude-chip {
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  border: 1px solid #dee2e6; background: #fff; color: #495057;
+  border-radius: 999px; padding: 4px 12px; font-variant-numeric: tabular-nums;
+}
+.claude-tab .claude-chip:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.claude-tab .claude-chip.on {
+  background: var(--brand-primary); border-color: var(--brand-primary); color: #fff;
+}
+.claude-tab .claude-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.claude-tab .claude-pct-val {
+  font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.claude-tab .claude-ledger {
+  border: 1px solid #dee2e6; border-radius: 6px; background: #f6f8f6; overflow: hidden;
+}
+.claude-tab .claude-ledger-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 11px; font-size: 0.78rem; border-bottom: 1px solid #e9ecef;
+}
+.claude-tab .claude-ledger-row:last-child { border-bottom: 0; }
+.claude-tab .claude-ledger-row .claude-lk { color: #495057; }
+.claude-tab .claude-ledger-row .claude-lv {
+  margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.claude-tab .claude-ledger-row .claude-lv.bad { color: #b42318; }
+.claude-tab .claude-ledger-row .claude-lv.good { color: #067647; }
+
+.claude-tab .claude-note {
+  display: flex; gap: 8px; padding: 9px 11px; border-radius: 6px;
+  font-size: 0.78rem; line-height: 1.45; margin-top: 9px;
+  background: #fffaeb; border: 1px solid #f5c77e; color: #b54708;
+}
+.claude-tab .claude-note.crit {
+  background: #fef3f2; border-color: #b42318; color: #b42318;
+}
+.claude-tab .claude-note i { flex: none; margin-top: 2px; }
+
+@media (max-width: 768px) {
+  .claude-tab { --claude-hour-h: 38px; }
+  .claude-week-fig { font-size: 1.45rem; }
+  .claude-cal-scroll { max-height: 480px; }
+}

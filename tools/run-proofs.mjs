@@ -45,6 +45,7 @@ const PROOFS = [
   ['house0146-crest-refcount.sql', 'the crest refcount can see the crest'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],
   ['team0145-save-as-the-member.sql', 'saving as the member keeps the mirror'],
+  ['claude0154-quota-guard.sql', 'the Claude quota caps hold, and the board is gated'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
   ['team0135-name-split.mjs', 'name splitting round-trips'],

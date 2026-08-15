@@ -8,6 +8,7 @@
 
 import { ADMIN_FEATURES } from './team-vocab.js';
 import { enterHouseWorkspace } from './house/index.js';
+import { enterClaudeWorkspace } from './claude/index.js';
 // ปีการศึกษา — every ชั้นปี in the admin app is computed against it (0141/0145).
 import { primeAcademicYear } from './house/api.js';
 import { startBuildCheck } from './build-check.js';
@@ -352,6 +353,7 @@ const SECTION_META = {
   team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
   house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
+  claude:   { pane: 'claude',   title: 'จองโควตา Claude',   sub: 'จองช่วงเวลาใช้งาน Claude ของสโม' },
 };
 
 /** Hard-reload after an account switch, dropping the hash on the way out.
@@ -486,6 +488,11 @@ function showAdminSide(which) {
   // Usage analytics: lazy-load the dashboard payload on entry.
   if (which === 'analytics') {
     enterAnalytics();
+  }
+
+  // จองโควตา Claude (0154): same lazy-on-entry shape as ทีม SAMO / ระบบบ้าน.
+  if (which === 'claude') {
+    enterClaudeWorkspace();
   }
 
   // ข้อมูลของฉัน, on the landing.
@@ -683,6 +690,7 @@ const SIDE_FEATURE = {
   order:    'creator',   // same gate as เขียนประกาศ — announcement management
   team:     'team',
   house:    'house',
+  claude:   'claude',    // จองโควตา Claude (0154)
   analytics: null,       // usage stats — any admin-dashboard user (0102 widened
                          // analytics_overview to current_user_has_any_grant() to match)
 };

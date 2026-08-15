@@ -19,6 +19,16 @@ triggered over ssh (needs the KKU VPN).
 
 ## Key features
 
+- **จองโควตา Claude.** SAMO has one Claude Pro subscription; this is the admin
+  page people use to claim a share of it. A week calendar shows who booked what,
+  for what, and how much is left. The unit is *session percent* — a 5-hour
+  session carries 100% and the week carries 700%. The green frames are the idea:
+  a session is opened by the first booking in an area and runs five hours from
+  there, and everyone whose block lands inside one frame shares that frame's
+  100%. Blocks are at most 5 hours, never overlap, and every cap is enforced by
+  the database rather than the form. It **coordinates rather than enforces** —
+  everyone shares one login — so `tools/claude-usage-report.mjs` can run where
+  the credentials are and post the real usage back for comparison.
 - **ระบบบ้าน (House).** Every student in the faculty gets a record they can see
   by signing in with their kkumail — their สายรหัส, their อาจารย์ที่ปรึกษา, and
   their house. There are ten houses and a student's house is the last digit of

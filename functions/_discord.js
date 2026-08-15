@@ -151,10 +151,44 @@ export function parseVsWebhooks(env = {}) {
  * { error } for an unknown action, { url: undefined } when the action is
  * known but no webhook is configured (caller surfaces that distinctly).
  */
+/**
+ * จองโควตา Claude (migration 0154).
+ *
+ * Reports a claim on the shared Claude Pro subscription: who, which ฝ่าย and
+ * ตำแหน่ง, the block, the session percent it consumes, and what is left in both
+ * pools. The two "เหลือ" numbers are the point — a booking notice that does not
+ * say what remains makes everyone open the board to find out.
+ *
+ * The identity here is already a projection (get_claude_board names its
+ * columns); nothing on this path can reach an email or a รหัสนักศึกษา.
+ */
+export function buildClaudeBookingPayload(data = {}) {
+  const fields = [
+    { name: 'ฝ่าย', value: data.dept || '-', inline: true },
+    { name: 'ตำแหน่ง', value: data.roles || '-', inline: true },
+    { name: 'ช่วงเวลา', value: `${data.when || '-'} (${data.duration || '-'})`, inline: false },
+    { name: 'ใช้โควตาเซสชัน', value: `${data.pct ?? '-'}%`, inline: true },
+    { name: 'เหลือในเซสชันนี้', value: `${data.sessionLeft ?? '-'}%`, inline: true },
+    { name: 'จองไปทำอะไร', value: data.purpose || '-', inline: false },
+    {
+      name: 'โควตาสัปดาห์',
+      value: `${data.weekUsed ?? '-'} / ${data.weekPool ?? '-'}%`
+        + ` · เหลือ ${(data.weekPool ?? 0) - (data.weekUsed ?? 0)}%`,
+      inline: false,
+    },
+  ];
+  return {
+    content: `จองโควตา Claude — **${data.who || 'ไม่ทราบชื่อ'}**`,
+    embeds: [{ title: 'จองโควตา Claude แล้ว', color: 1071394, fields }],
+  };
+}
+
 export function resolveTarget(action, data = {}, env = {}) {
   switch (action) {
     case 'notifyPROnly':
       return { url: env.DISCORD_PR_WEBHOOK, payload: buildPrPayload(data) };
+    case 'notifyClaudeBooking':
+      return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeBookingPayload(data) };
     case 'notifyProjectDiscord':
       return { url: env.DISCORD_PROJECTS_WEBHOOK, payload: buildProjectPayload(data) };
     case 'notifyVSOnly': {
