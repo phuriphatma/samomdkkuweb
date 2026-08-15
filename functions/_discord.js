@@ -183,12 +183,43 @@ export function buildClaudeBookingPayload(data = {}) {
   };
 }
 
+/**
+ * The Claude usage reporter needs help (migration 0154).
+ *
+ * A monitor that fails silently is worse than no monitor: the board would keep
+ * showing the last sample, quietly ageing, and the first sign of trouble would
+ * be someone noticing the number looked wrong days later. The reporter's one
+ * real failure mode is the OAuth refresh token expiring — which only happens if
+ * the timer has been dead for ~12 days — and the fix is a human running
+ * `claude login` on the VM, so it has to reach a human.
+ */
+export function buildClaudeAlertPayload(data = {}) {
+  return {
+    content: `**ตัวรายงานการใช้งาน Claude มีปัญหา** — ${data.reason || 'ไม่ทราบสาเหตุ'}`,
+    embeds: [{
+      title: 'ต้องเข้าสู่ระบบใหม่บนเซิร์ฟเวอร์',
+      color: 11815192,
+      fields: [
+        { name: 'อาการ', value: String(data.detail || '-').slice(0, 1000), inline: false },
+        {
+          name: 'วิธีแก้',
+          value: 'ssh เข้าเครื่องเซิร์ฟเวอร์ แล้วรัน `claude login` '
+            + 'ด้วยบัญชี Claude ของสโม จากนั้นตัวรายงานจะต่ออายุตัวเองได้อีกครั้ง',
+          inline: false,
+        },
+      ],
+    }],
+  };
+}
+
 export function resolveTarget(action, data = {}, env = {}) {
   switch (action) {
     case 'notifyPROnly':
       return { url: env.DISCORD_PR_WEBHOOK, payload: buildPrPayload(data) };
     case 'notifyClaudeBooking':
       return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeBookingPayload(data) };
+    case 'notifyClaudeAlert':
+      return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeAlertPayload(data) };
     case 'notifyProjectDiscord':
       return { url: env.DISCORD_PROJECTS_WEBHOOK, payload: buildProjectPayload(data) };
     case 'notifyVSOnly': {

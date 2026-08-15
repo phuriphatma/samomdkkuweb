@@ -35,7 +35,7 @@ function systemForAction(action) {
   if (action === 'notifyPROnly') return 'pr';
   if (action === 'notifyVSOnly' || action === 'notifyVSConsult') return 'vs';
   if (action === 'notifyProjectDiscord') return 'projects';
-  if (action === 'notifyClaudeBooking') return 'claude';
+  if (action === 'notifyClaudeBooking' || action === 'notifyClaudeAlert') return 'claude';
   return null;
 }
 

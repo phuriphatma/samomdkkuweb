@@ -16,14 +16,28 @@
 // That seven_day reset is 19 Aug 16:00 ICT — exactly the Wed 16:00 the board
 // computes, which is the cross-check that the two systems agree on the week.
 //
-// The token is a USER credential, not an API key, so it cannot be pasted into
-// an env file and left there:
+// YOU LOG IN ONCE. Not every 2 hours, not every 12 days.
+//
+// The token is a USER credential, not an API key:
 //   • the ACCESS token lives ~2 hours
-//   • the REFRESH token lives ~12 days and ROTATES on every use
-// A copied token is dead the same afternoon. So this script owns the refresh:
-// it reads the stored credentials, refreshes when they are near expiry, and
-// writes the rotated pair back where it found them. Skipping the write-back
-// would burn the refresh token and lock the account out of Claude Code.
+//   • the REFRESH token lives ~12 days and ROTATES on every use — each refresh
+//     returns a new one with a fresh window
+// so this script owns the refresh: it reads the stored credentials, refreshes
+// when they are near expiry, and writes the rotated pair back where it found
+// them. Running every 15 minutes renews that 12-day window ~96 times a day, so
+// it never approaches expiry. A re-login is needed only if the timer has been
+// dead for ~12 consecutive days.
+//
+// The write-back is not optional. Dropping the rotated pair burns the refresh
+// token and strands the account at the next run.
+//
+// AND NO, AN API KEY CANNOT DO THIS. An `sk-ant-…` key authenticates the pay-
+// per-token API, which has no 5-hour session window and no weekly cap at all —
+// it is metered by RPM/ITPM/OTPM against a bill. The 5-hour and 7-day windows
+// this board books against exist only on the *subscription*, and the only
+// credential that can read them is the subscription login. The Admin API
+// (`sk-ant-admin-…`) reports API-organisation cost, not subscription limits,
+// and needs a Team/Enterprise org. Neither substitutes for the OAuth token.
 //
 // WHERE THE CREDENTIALS LIVE (this differs by OS, and getting it wrong is why
 // the first version of this script found nothing on a Mac):
@@ -56,7 +70,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { homedir, platform } from 'node:os';
+import { homedir, platform, tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
@@ -89,6 +103,47 @@ function loadEnv() {
 function die(msg) {
   console.error(`✗ ${msg}`);
   process.exit(1);
+}
+
+/**
+ * Tell a human, in Discord, that the reporter needs a re-login.
+ *
+ * A monitor that fails silently is worse than no monitor: the board would go on
+ * showing the last sample, quietly ageing, and the first sign of trouble would
+ * be someone noticing weeks later that the number looked wrong. The one failure
+ * that needs a person is the refresh token expiring, and the fix (`claude
+ * login` on the VM) is something only a person can do.
+ *
+ * THROTTLED to once per 6 hours via a stamp file: the timer runs every 15
+ * minutes, so an un-throttled alert would post ~96 times a day and be muted
+ * within the hour — which is the same as not alerting at all.
+ */
+async function alertHuman(env, reason, detail) {
+  const stamp = join(tmpdir(), 'samo-claude-usage-alert.stamp');
+  try {
+    if (existsSync(stamp)
+        && Date.now() - Number(readFileSync(stamp, 'utf8')) < 6 * 60 * 60 * 1000) {
+      return;
+    }
+  } catch { /* unreadable stamp → alert anyway, better twice than never */ }
+
+  const url = env.NOTIFY_URL || 'http://127.0.0.1:8787/notify';
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'notifyClaudeAlert', reason, detail }),
+    });
+    writeFileSync(stamp, String(Date.now()));
+  } catch (e) {
+    console.error(`  (could not reach ${url} to raise an alert: ${e.message})`);
+  }
+}
+
+/** die(), but tell Discord first — for the failures a person must fix. */
+async function dieLoudly(env, reason, detail) {
+  await alertHuman(env, reason, detail);
+  die(`${reason} — ${detail}`);
 }
 
 // ---------- credential store (two backends, one shape) ----------
@@ -154,9 +209,11 @@ async function refresh(creds) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    die(`token refresh failed: HTTP ${res.status} ${body.slice(0, 200)}\n`
-      + '  The refresh token lives ~12 days and rotates on use. Run `claude login` '
-      + 'on this machine to re-establish it.');
+    // This is THE failure a person has to fix, so it does not just exit 1 into
+    // a log nobody reads.
+    await dieLoudly(creds.env || process.env,
+      'ต่ออายุสิทธิ์เข้าถึง Claude ไม่สำเร็จ',
+      `HTTP ${res.status} ${body.slice(0, 200)}`);
   }
   const t = await res.json();
   const next = {
@@ -176,7 +233,10 @@ async function refresh(creds) {
 async function freshToken(env) {
   if (env.CLAUDE_OAUTH_TOKEN) return env.CLAUDE_OAUTH_TOKEN;
   const creds = loadCreds(env);
+  if (creds) creds.env = env;
   if (!creds) {
+    await alertHuman(env, 'ไม่พบข้อมูลเข้าสู่ระบบ Claude บนเซิร์ฟเวอร์',
+      `looked for ${credFilePath(env)}`);
     die('no Claude credentials found.\n'
       + `  Looked for ${credFilePath(env)}`
       + (platform() === 'darwin' ? ` and Keychain service "${KEYCHAIN_SERVICE}".` : '.')
