@@ -2151,3 +2151,55 @@ virtue when the two callers actually want the same answer.* Before unifying,
 name what each caller is drawing. And: **a change is not verified in a view you
 did not open** — three of the four views were rendered and inspected here, and
 the fourth was the one that broke.
+
+---
+
+## จองโควตา Claude rendered unstyled — CSS in the wrong ENTRY
+
+**Symptom.** A screenshot of the new จองโควตา Claude pane, minutes after it was
+deployed: the sidebar entry, the title, the week label, the 700% pool and the
+"= อีก 7.0 เซสชัน" readout all correct — and everything below them stacked down
+the left edge as plain text. Day names, day numbers, the week-scale digits
+(`01234567` on one line) and all 24 hour labels, one per line, no grid, no
+columns, no calendar.
+
+**Cause.** `src/css/claude.css` was imported by `src/main.css`. The pane lives in
+`admin/index.html`, which loads `src/admin.css`. This repo builds **two SPA
+entries from one tree** (public `/` and admin `/admin/`), each with its own CSS
+root, so the stylesheet was compiled into the bundle the page does not download
+and was absent from the one it does. Nothing failed: the build was clean, the
+tests were green, the markup was right, the data was right, and the deploy
+verified. The rules simply never loaded.
+
+Two things made it invisible. **CSS fails silently** — no error, no failed
+request, no console warning — and this repo already has the entry for that
+(*"a class in the markup with no rule in any stylesheet is invisible in review
+and looks exactly like a broken value"*). And the failure mode is
+indistinguishable from never having written the layout, so a reviewer reading
+the diff sees a complete stylesheet and a complete partial and no defect.
+
+It is also, exactly, class 4 wearing new clothes: *a fix on one path is not a
+fix*. The path enumerated here was "add the import to the CSS entry", and there
+are two CSS entries.
+
+**Fix.** Moved the `@import` to `src/admin.css` and **removed** it from
+`src/main.css` — the pane is admin-only, so the public bundle was carrying 6 kB
+of rules nothing could ever match. Then the mechanism: `src/css-entry.test.js`
+asserts (a) every file in `src/css/` is imported by at least one entry, so an
+orphan stylesheet cannot exist, and (b) for each admin-only pane, its stylesheet
+is in `admin.css` and *not* in `main.css`. The second check asserts its own
+premise first — that the partial really is absent from `index.html` — so if a
+pane later becomes public the test reports a stale pairing instead of quietly
+enforcing it.
+
+**Where it lives now.** `src/admin.css` (the import, with a comment saying why it
+must not also be in `main.css`), `src/css-entry.test.js` (35 cases). Falsified by
+putting the import back in `main.css`: the paired assertion goes red.
+
+**The general rule.** *An `@import` is a path, and this repo has two of them.*
+When a feature is scoped to one entry, every layer it needs — module, partial,
+stylesheet — has to be added on that entry's side, and "it built and the tests
+passed" cannot tell you it was. **Render the view you changed.** The org-chart
+session paid for that sentence a day earlier and it was true again here: this
+pane was verified by build, tests, a live RPC probe and a 20/20 SQL proof, and
+was never once looked at.

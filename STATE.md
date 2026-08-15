@@ -34,7 +34,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0154.** **812 tests green.**
+  **Migrations applied through 0154.** **847 tests green.**
 - ⚠️ **จองโควตา Claude (0154) is BUILT AND APPLIED but NOT YET DEPLOYED.** The
   migration is live on Supabase; the bundle serving it is not on the VM yet.
   Two things it needs before it works for anyone:

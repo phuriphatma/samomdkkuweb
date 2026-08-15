@@ -93,8 +93,10 @@ has not been written yet.
    that stops matching looks like a feature nobody built. Wrapping a station in
    `.org-box` unhooked five `> .org-station` rules; a layout scoped to `@media`
    died when the view became USER-SELECTABLE (a view is not a breakpoint). Also
-   SPECIFICITY: the ฝ่าย band out-weighed `.is-selected`, so a selected row drew nothing. The instrument is the COMPUTED style, never the stylesheet — and for
-   a PAINT bug, the PIXELS.
+   SPECIFICITY: the ฝ่าย band out-weighed `.is-selected`, so a selected row drew
+   nothing. TWO CSS ENTRIES: a sheet in the wrong one never loads. The
+   instrument is the COMPUTED style, never the stylesheet — and for a PAINT
+   bug, the PIXELS.
    Also TWO PASSES assigning one DOM property: the perm grid's markup locked
    ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket `cb.disabled = on`
    unlocked it. Only touch what THIS pass locked. Same geometry, N passes: a
@@ -120,13 +122,10 @@ has not been written yet.
    `houses.icon_url`, 0146) · its CONTROL finds nothing either (0147's sweep
    printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
    (`confirm-modal.test.js` matched `[data-confirm-no]` in a *comment*) · its
-   SUBJECT is a hardcoded name that rotted (`proj0092`'s member moved;
-   `house0116`'s email never existed, so its ALLOW half was empty) · it
-   ERRORS rather
-   than fails, and an aborted script is silence, not a red line (`house0116`
-   called a function 0124 dropped and ran ZERO assertions for 23 migrations —
-   when a migration drops a function or column, grep `tools/` in the same
-   commit). **The ritual that catches all five: reintroduce the bug, watch it
+   SUBJECT is a hardcoded name that rotted (`proj0092`, `house0116`) · it
+   ERRORS rather than fails, and an aborted script is silence, not a red line
+   (`house0116` ran ZERO assertions for 23 migrations — when a migration drops
+   a function or column, grep `tools/` in the same commit). **The ritual that catches all five: reintroduce the bug, watch it
    fail on the assertion you expect, restore.**
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
@@ -254,7 +253,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(58 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(59 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -314,6 +313,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
 - "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
 - แผนผัง became a staircase — one structure, two different drawings
+- จองโควตา Claude rendered unstyled — CSS in the wrong ENTRY
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*
