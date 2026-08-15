@@ -240,17 +240,23 @@ describe('ผังองค์กร / ผังรวม: nothing inside the <
   });
 });
 
-describe('ผังองค์กร / ผังรวม: the depth control must reach the level it names', () => {
-  it('applyDepth is INCLUSIVE of `level` — `<` renders one level too shallow', () => {
-    // The library's `_expanded` means "this node should be VISIBLE"
-    // (expandSomeNodes walks UP and opens ancestors); it does NOT mean "open my
-    // children". So `d.depth < level` renders depths 0..level-1, and the rung
-    // labelled หัวหน้าฝ่าย stopped at the sub-ฝ่าย above them — measured as 65
-    // cards with zero ตำแหน่ง named หัวหน้าฝ่าย on screen.
-    const fn = js.slice(js.indexOf('function applyDepth'));
-    const body = fn.slice(0, fn.indexOf('\n}'));
-    expect(body).toMatch(/_expanded\s*=\s*d\.depth\s*<=\s*level/);
-    expect(body).not.toMatch(/_expanded\s*=\s*d\.depth\s*<\s*level/);
+describe('ผังองค์กร / ผังรวม: the flattened row carries what the rung asks about', () => {
+  // org-rung.test.js proves the PREDICATE. This proves the other half of the
+  // contract — that flatten() actually sets the three fields the predicate
+  // reads. Split because the predicate is testable directly and flatten() is
+  // not (it needs d3 and a live ctx); if these two halves drift, every rung
+  // silently answers `undefined` and collapses to "ตำแหน่ง only".
+  it('flatten() sets isDiv / parentIsDiv / divDepth on every row', () => {
+    const fn = js.slice(js.indexOf('function flatten('));
+    const body = fn.slice(0, fn.indexOf('\nflattenCombined'));
+    for (const field of ['isDiv', 'parentIsDiv', 'divDepth']) {
+      expect(body, `flatten() must set ${field}`).toMatch(new RegExp(`\\n\\s+${field},`));
+    }
+    // …and the synthetic ผังรวม root too, which is built separately.
+    const root = js.slice(js.indexOf('function flattenCombined(ctx)'));
+    const rootBody = root.slice(0, root.indexOf('\nflattenCombined.pushRoot'));
+    expect(rootBody).toMatch(/isDiv:\s*true/);
+    expect(rootBody).toMatch(/divDepth:\s*0/);
   });
 
   it('ผังรวม hangs everything off ONE synthetic root', () => {

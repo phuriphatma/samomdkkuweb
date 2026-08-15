@@ -1947,3 +1947,58 @@ before it worked — it first matched `.org-face-initials` as a substring of
 `.org-face` and passed with the fix deleted, then swallowed the preceding comment
 block into the selector and failed with the fix present. **Run the falsification;
 a guard you have not seen fail is not a guard.**
+
+## A DEPTH NUMBER cannot name a level of a ragged tree
+
+**Symptom.** Nothing was reported as broken. The owner asked for a different
+picture — "การแสดงบนหน้าเว็บเริ่มจากฝ่าย PR then draw line to 3: Role head PR,
+Role 2 PR, Role 3 PR … Then next will show 2 lines to ฝ่าย media, creator" —
+and building it exposed that the existing control could not express it.
+
+**Cause.** The ผังองค์กร / ผังรวม "แสดงถึง" rungs were RAW DEPTH:
+`d._expanded = d.depth <= level`, with the buttons labelled ฝ่าย / หัวหน้าฝ่าย /
+ทีมย่อย. That labelling is only true if every branch has the same shape, and
+this tree does not. Measured on the live 298 nodes, depth 2 is:
+
+| branch | depth 2 |
+|---|---|
+| สำนักนายกฯ | `หัวหน้าฝ่ายเลขาฯนายกฯ` — a head ✅ |
+| ฝ่ายดิจิทัล | `ฝ่าย PR` — a ฝ่าย, one rung short ❌ |
+| ฝ่ายบริหารองค์กร | `หัวหน้าฝ่ายเอกสาร` … and `สมาชิกฝ่ายตรวจเอกสาร` beside it |
+
+So ONE number was simultaneously right and wrong depending on where you looked,
+and the button's label was accurate for part of the screen only. This is the
+same family as the `<` / `<=` off-by-one that shipped in the same control weeks
+earlier — that one was fixable by changing an operator; this one was not,
+because the levels genuinely do not line up.
+
+**Fix.** Define the rungs on what a node **IS**, not how deep it sits:
+`ฝ่ายหลัก` (root ฝ่าย) → `ฝ่ายย่อย` (every ฝ่าย) → `ตำแหน่ง` (every ฝ่าย plus the
+seats it holds directly) → `ทั้งหมด`. In ฝ่ายดิจิทัล the ตำแหน่ง rung reaches
+four levels down and in สำนักนายกฯ two, which is the point. This required the
+`kind` vocabulary to be unambiguous first — the tree carried a third value,
+`department`, on 78 of 298 nodes, all of them containers (0151 folded it into
+`division`; `src/js/node-kind.js` still reads it leniently).
+
+Two things a depth predicate gave for free and a kind predicate does not, both
+now asserted:
+
+- **Ancestor closure.** `depth <= n` implies every ancestor passes; "every ฝ่าย"
+  does not. `ฝ่าย Media management` hangs off `หัวหน้าฝ่าย PR`, a ตำแหน่ง, so the
+  ฝ่าย rungs must drag that seat in or d3 draws a line to a box that is not
+  there. `applyRung` walks up explicitly.
+- **Nesting.** Pressing a deeper rung must never REMOVE a box. Asserted as a
+  superset check across the whole ladder.
+
+**Where it lives now.** `src/js/org-rung.js` — a pure module holding both rules
+that `kind` decides (sibling order and the rungs), so all four views obey one
+copy. Guarded by `org-rung.test.js`, which runs the predicate over a fixture
+shaped like the live tree instead of reading the source for an operator; the
+old guard could only ever check that `<=` was the right way round.
+`node-kind.test.js` keeps the vocabulary at two.
+
+**The general rule.** *A control's LABEL is a claim about every branch it
+applies to.* Before naming a rung after a thing ("หัวหน้าฝ่าย", "ทีมย่อย"), check
+that the thing is at the same coordinate everywhere — and if it is not, express
+the rung in whatever the data actually distinguishes, even if that means giving
+the data a distinction it did not reliably carry.

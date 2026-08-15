@@ -22,9 +22,10 @@ import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
 import { faceHtml, TREE_SHAPE } from './org-face.js';
 import {
-  mountOrgGraph, destroyOrgGraph, setGraphDepth, fitGraphs, zoomGraphs, DEFAULT_DEPTH,
+  mountOrgGraph, destroyOrgGraph, setGraphRung, fitGraphs, zoomGraphs,
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
+import { RUNG, DEFAULT_RUNG, sortSiblings } from './org-rung.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -60,7 +61,7 @@ let expanded = new Set();
 //               two renderers both draw cannot drift. ONE CHART PER ฝ่าย.
 //   • ผังรวม   — the SAME renderer and the same card, but ONE chart over the
 //               whole organisation, hung off a synthetic องค์กร root. Wide by
-//               construction; the depth control is what makes it navigable.
+//               construction; the แสดงถึง rung is what makes it navigable.
 //
 // Kept in localStorage because a reader who prefers one has that preference on
 // every visit, and the choice costs nothing to honour.
@@ -72,22 +73,22 @@ try {
   if (VIEWS.includes(saved)) view = saved;
 } catch { /* private mode */ }
 
-// The d3 views' expand depth. Level 2 within a ฝ่าย chart is "down to the
-// heads" — see the header of org-graph.js for why that is the default.
+// The d3 views' "แสดงถึง" rung. A KIND, not a depth — the `RUNG` note in
+// org-rung.js has the measurements and why a number could not express it.
 //
-// Kept PER VIEW, because the same number means different things in each: ผังรวม
-// has the synthetic องค์กร box at level 0, so every level below it is shifted
-// down by one relative to ผังองค์กร — one shared variable would jump a level on
-// switch. ผังรวม therefore opens one level shallower for the SAME picture, and
-// measured, that is also its only rung that fits without panning (540px at
-// scale 1.0; the next is 6,443px).
-const graphDepth = { graph: DEFAULT_DEPTH, all: 1 };
+// Kept PER VIEW because the two views want different starting pictures, not
+// because the same rung means different things in them: it no longer does.
+// ผังองค์กร opens at ตำแหน่ง (each ฝ่าย with the seats it holds); ผังรวม opens
+// at ฝ่ายหลัก, its only rung that fits without panning.
+const graphRung = { graph: DEFAULT_RUNG, all: RUNG.top };
 
-/** The depth control's rungs, per view. The labels differ because the levels
- *  differ: ผังรวม starts a level higher, at the organisation itself. */
-const DEPTH_RUNGS = {
-  graph: [[1, 'ฝ่าย'], [2, 'หัวหน้าฝ่าย'], [3, 'ทีมย่อย'], [99, 'ทั้งหมด']],
-  all: [[1, 'ฝ่ายหลัก'], [2, 'ฝ่ายย่อย'], [3, 'หัวหน้าฝ่าย'], [99, 'ทั้งหมด']],
+/** Which rungs each view OFFERS. ผังองค์กร is already one chart per root ฝ่าย,
+ *  so its "ฝ่ายหลัก" rung would be a single box — it starts at ฝ่ายย่อย
+ *  instead. The labels say what you will SEE, not how deep it goes. */
+const VIEW_RUNGS = {
+  graph: [[RUNG.fai, 'ฝ่าย'], [RUNG.role, 'ตำแหน่ง'], [RUNG.full, 'ทั้งหมด']],
+  all: [[RUNG.top, 'ฝ่ายหลัก'], [RUNG.fai, 'ฝ่ายย่อย'], [RUNG.role, 'ตำแหน่ง'],
+    [RUNG.full, 'ทั้งหมด']],
 };
 
 // A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
@@ -129,6 +130,7 @@ function index() {
     byParent.get(k).push(n);
     nodeById.set(n.id, n);
   }
+  for (const bucket of byParent.values()) sortSiblings(bucket);
   for (const m of chart.members || []) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
@@ -535,15 +537,15 @@ function render() {
  *  is separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
  *  whole point of the view is choosing how far down to look. */
 function graphShellHtml(filter) {
-  const cur = graphDepth[view];
-  const lvl = (n, label) => `<button type="button" class="orgg-depth-btn${
-    cur === n ? ' is-on' : ''}" data-org-depth="${n}" aria-pressed="${cur === n}">${label}</button>`;
+  const cur = graphRung[view];
+  const lvl = (r, label) => `<button type="button" class="orgg-depth-btn${
+    cur === r ? ' is-on' : ''}" data-org-rung="${r}" aria-pressed="${cur === r}">${label}</button>`;
   return `
     <div class="orgg-toolbar">
       ${filter ? '' : `
       <div class="orgg-depth" role="group" aria-label="ระดับที่แสดง">
         <span class="orgg-depth-label">แสดงถึง</span>
-        ${(DEPTH_RUNGS[view] || DEPTH_RUNGS.graph).map(([n, label]) => lvl(n, label)).join('')}
+        ${(VIEW_RUNGS[view] || VIEW_RUNGS.graph).map(([r, label]) => lvl(r, label)).join('')}
       </div>`}
       <div class="orgg-zoom" role="group" aria-label="ย่อ-ขยายมุมมอง">
         <button type="button" class="orgg-zoom-btn" data-org-zoom="out" aria-label="ซูมออก"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
@@ -577,7 +579,7 @@ async function paintGraph(roots, filter) {
       subStats,
       tintFor,
       filter,
-      depth: graphDepth[view],
+      rung: graphRung[view],
       combined: view === 'all',
       chart,
     };
@@ -742,16 +744,16 @@ export function initOrgChart() {
     const btn = e.target.closest('.org-station-btn');
     if (btn && btn.tagName === 'BUTTON') { toggleNode(btn); return; }
 
-    // ผังองค์กร's depth control. A full re-mount rather than a DOM toggle: the
-    // level decides d3's LAYOUT, not just visibility, so every box moves.
-    const db = e.target.closest('[data-org-depth]');
+    // ผังองค์กร's "แสดงถึง" control. A full re-layout rather than a DOM toggle:
+    // the rung decides d3's LAYOUT, not just visibility, so every box moves.
+    const db = e.target.closest('[data-org-rung]');
     if (db) {
-      const next = Number(db.dataset.orgDepth);
-      if (!Number.isFinite(next) || next === graphDepth[view]) return;
-      graphDepth[view] = next;
-      setGraphDepth(next);
-      $('orgBody')?.querySelectorAll('[data-org-depth]').forEach((b) => {
-        const on = Number(b.dataset.orgDepth) === next;
+      const next = db.dataset.orgRung;
+      if (!RUNG[next] || next === graphRung[view]) return;
+      graphRung[view] = next;
+      setGraphRung(next);
+      $('orgBody')?.querySelectorAll('[data-org-rung]').forEach((b) => {
+        const on = b.dataset.orgRung === next;
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', String(on));
       });

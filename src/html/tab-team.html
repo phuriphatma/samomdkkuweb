@@ -109,7 +109,7 @@
   </div>
 </div>
 
-<!-- Node editor modal (add / edit a division / department / role) — name + kind
+<!-- Node editor modal (add / edit a ฝ่าย / ตำแหน่ง) — name + kind
      only; permissions live in the separate "จัดการสิทธิ์" mode. -->
 <!-- TABBED ENTITY EDITOR (0110).
      Reported: "when I click a person / ตำแหน่ง I can only see แก้ไขสมาชิก, and to
@@ -161,11 +161,14 @@
           <div class="mb-1">
             <label class="form-label" for="teamNodeKind">ประเภท</label>
             <select class="form-select" id="teamNodeKind">
-              <option value="division">ฝ่าย (Division)</option>
-              <option value="department">แผนก (Department)</option>
-              <option value="role" selected>ตำแหน่ง (Role)</option>
+              <option value="division">ฝ่าย</option>
+              <option value="role" selected>ตำแหน่ง</option>
             </select>
-            <div class="form-text">ประเภทใช้แสดงไอคอนเท่านั้น โครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย</div>
+            <div class="form-text">
+              <b>ฝ่าย</b> คือหน่วยงานที่มีคนหรือฝ่ายย่อยอยู่ข้างใน — <b>ตำแหน่ง</b> คือที่นั่งของคน
+              ในผังองค์กรหน้าเว็บ ตำแหน่งของฝ่ายจะเรียงขึ้นก่อนฝ่ายย่อยเสมอ และปุ่ม “แสดงถึง”
+              ก็ใช้ประเภทนี้ตัดสินว่าจะเปิดถึงระดับไหน — ส่วนโครงสร้างจริงกำหนดด้วยการลากวาง/ปุ่มย้าย
+            </div>
           </div>
           <!-- Org-chart visibility (0086). Off for อาจารย์ / เจ้าหน้าที่คณะ, who hold
                system permissions but are not part of the student org chart. -->
@@ -303,7 +306,7 @@
             รองรับ <b>JSON</b> (โครงสร้าง + สมาชิก จากการส่งออก) หรือ <b>CSV</b> รายชื่อสมาชิก
             (จาก Google Sheet). คอลัมน์ CSV: <code>path, full_name, nickname,
             student_id, year, major, kkumail, confirmed</code> — โดย <code>path</code> คือ
-            “ฝ่าย / แผนก / ตำแหน่ง” (คั่นด้วย <b>เว้นวรรค-สแลช-เว้นวรรค</b> “ / ”;
+            “ฝ่าย / ฝ่ายย่อย / ตำแหน่ง” (คั่นด้วย <b>เว้นวรรค-สแลช-เว้นวรรค</b> “ / ”;
             เครื่องหมาย “/” ที่ติดกับตัวอักษรเช่น <code>Art/Graphic</code> ถือเป็นส่วนของชื่อ).
           </p>
           <input type="file" class="form-control mb-2" id="teamImportFile" accept=".json,.csv,.txt" />

@@ -206,7 +206,6 @@
   font-weight: 600;
 }
 .team-node[data-kind="division"] > .team-row .team-node-icon { color: var(--brand-primary); }
-.team-node[data-kind="department"] > .team-row { font-weight: 500; }
 
 .team-handle {
   cursor: grab; color: var(--ink-300); display: inline-flex;

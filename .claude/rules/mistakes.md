@@ -39,15 +39,16 @@ has not been written yet.
    restriction mistaken for a complete design — an admin typed a decision note
    into `student_change_requests`, which is admin-only, and the student it was
    addressed to had no read path at all (0128). A form that collects a message
-   for a named person is a promise that person can read it. A gate on the WIDGET is not a gate on the ROUTE: the admin sidebar hid
-   sections an account could not use and the click delegate skipped them, but
-   the HASH was unchecked, so `/admin/#vs` opened VitalSound for someone with no
-   VS grant (fixed by `canOpenSection`). Enumerate every way in — click, hash,
-   query string, deep link. Non-security twin: a fix
-   in an EVENT handler guarded on state the CALLER sets misses every other entry
-   point — the /updates scroll fix worked for nav pills and not for
-   `navigateTo()`. COPY too: one claim lived in the sign-in caption, the signup
-   link AND the home strip; fixing the caption left two places still wrong.
+   for a named person is a promise that person can read it. A gate on the WIDGET
+   is not a gate on the ROUTE: the admin sidebar hid sections an account could
+   not use and the delegate skipped them, but the HASH was unchecked, so
+   `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
+   way in — click, hash, query string, deep link. Non-security twin: a fix in an
+   EVENT handler guarded on state the CALLER sets misses every other entry point
+   — the /updates scroll fix worked for nav pills, not `navigateTo()`. COPY too:
+   one claim lived in the sign-in caption, the signup link AND the home strip.
+   A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
+   that was a head in one ฝ่าย and a ฝ่าย in the next.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -89,19 +90,16 @@ has not been written yet.
    implemented. Now one `photoToRetire()` all three call. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
-   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY — no
-   undefined-reference error, no console warning — so a rule that stops matching
-   looks exactly like a feature nobody built. Wrapping a station in `.org-box`
-   unhooked five `> .org-station` rules; scoping a layout to
+   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule that
+   stops matching looks exactly like a feature nobody built. Wrapping a station
+   in `.org-box` unhooked five `> .org-station` rules; scoping a layout to
    `@media (max-width: 1023.98px)` and later making the view USER-SELECTABLE
-   disabled it on desktop (a view is not a breakpoint). When you insert a
-   wrapper, grep `> .<child>`; when a layout becomes a choice, grep the `@media`
-   that used to make it. The instrument is the COMPUTED style, never the
+   disabled it on desktop (a view is not a breakpoint). Insert a wrapper → grep
+   `> .<child>`; a layout becomes a choice → grep its `@media`. The instrument is the COMPUTED style, never the
    stylesheet — and for a PAINT bug, the PIXELS.
-   Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6 — the form
-   invited a password the code refused), and ONE SCREEN'S BEHAVIOUR IN THREE
-   FILES (the signin handlers, verbatim in both entries + a third module, until
-   `signin-modal.js`).
+   Also a FORM vs the CODE behind it (`minlength="4"` vs auth.js's 6), and ONE
+   SCREEN IN THREE FILES (the signin handlers, verbatim in both entries + a
+   third module, until `signin-modal.js`).
    Also TWO PASSES assigning one DOM property: the perm grid's
    markup locked ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket
    `cb.disabled = on` unlocked it. Only touch what THIS pass locked. Same
@@ -262,7 +260,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(54 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(55 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -318,6 +316,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
 - "the picture render wrong ... zoom also bug" — `srcset` resolves ONCE
 - "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
+- A DEPTH NUMBER cannot name a level of a ragged tree
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*

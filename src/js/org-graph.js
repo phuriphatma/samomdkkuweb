@@ -28,22 +28,16 @@
 // does, and what the owner asked for originally ("vstack{ hstack ฝ่ายบริหาร }
 // then the next {hstack ฝ่ายดิจิทัล}").
 //
-// ── WHY IT OPENS AT LEVEL 2 ────────────────────────────────────────────────
+// ── WHAT IT OPENS AT ───────────────────────────────────────────────────────
 //
-// REQUESTED: "i want it to can view to some depth at the first time, like from
-// นายกสโม to heads of it depth". Within one ฝ่าย chart the levels are
+// ผังองค์กร opens at the ตำแหน่ง rung: every ฝ่าย in the branch plus the
+// ตำแหน่ง each one holds, with ตำแหน่ง-under-ตำแหน่ง behind their own expand
+// button. ผังรวม opens at ฝ่ายหลัก — twelve boxes, 540 px measured, the only
+// rung of the whole-organisation picture that fits without panning; everything
+// below that is pan/zoom, which is what the canvas is for.
 //
-//     0  ฝ่ายดิจิทัลและสื่อสารองค์กร     (the chart's root)
-//     1  ฝ่าย PR · ฝ่าย ComArt · ฝ่าย IT
-//     2  หัวหน้าฝ่าย PR · หัวหน้าฝ่าย IT …   ← the heads
-//     3  สมาชิกฝ่าย Backend …
-//
-// so level 2 IS "down to the heads", exactly. สำนักนายกฯ resolves the same way:
-// level 1 is นายกฯ / อุปนายกฯ, level 2 is the ten อุปนายกฝ่าย.
-//
-// ผังรวม accepts that width deliberately: it is ONE picture of the whole
-// organisation, its default rung is the only one that fits (540 px, measured),
-// and everything below that is pan/zoom. See docs/state-archive/2026-08-15.
+// The rungs are defined by KIND, not by depth — the note above `RUNG` says why
+// a number could not express this, and what it got wrong before.
 //
 // The library is loaded with a dynamic import so none of it — nor its d3
 // subset, 33 KB gzipped together — is in the entry bundle. A reader who never
@@ -52,6 +46,8 @@
 // a float could silently jump three years of unreleased changes.
 import { escHtml } from './utils.js';
 import { faceHtml, GRAPH_SHAPE } from './org-face.js';
+import { RUNG, applyRung, DEFAULT_RUNG } from './org-rung.js';
+import { isDivision } from './node-kind.js';
 
 // d3-zoom is imported DYNAMICALLY, beside the chart library, and not with a
 // static `import` at the top of this file. This module is reachable statically
@@ -168,7 +164,7 @@ function flatten(rootNode, ctx, opts = {}) {
   const out = into;
   const tint = tintFor(rootNode.name);
 
-  const walk = (node, parentId, depth) => {
+  const walk = (node, parentId, depth, parentIsDiv, parentDivDepth) => {
     if (filter && !filter.keepNodes.has(node.id)) return;
     let people = byNode.get(node.id) || [];
     if (filter) people = people.filter((m) => filter.keepMembers.has(m));
@@ -185,6 +181,13 @@ function flatten(rootNode, ctx, opts = {}) {
       }
     }
 
+    // ฝ่าย or ตำแหน่ง, and how deep into the ฝ่าย CHAIN this sits — the two
+    // facts the rung predicate is written in terms of. `divDepth` counts only
+    // ฝ่าย ancestors, so it means the same thing in both views even though
+    // ผังรวม has an extra synthetic box above everything (see applyRung).
+    const isDiv = isDivision(node.kind);
+    const divDepth = parentDivDepth + (isDiv ? 1 : 0);
+
     const d = {
       id: node.id,
       parentId,
@@ -193,6 +196,9 @@ function flatten(rootNode, ctx, opts = {}) {
       meta,
       tint,
       depth,
+      isDiv,
+      parentIsDiv,
+      divDepth,
       // The count on the expand button. Direct children, not the whole subtree —
       // the button opens ONE level, so promising the subtree total would be a
       // number the click does not deliver.
@@ -200,10 +206,13 @@ function flatten(rootNode, ctx, opts = {}) {
     };
     d._h = cardHeight(d);
     out.push(d);
-    (byParent.get(node.id) || []).forEach((c) => walk(c, node.id, depth + 1));
+    (byParent.get(node.id) || []).forEach((c) => walk(c, node.id, depth + 1, isDiv, divDepth));
   };
 
-  walk(rootNode, startParent, depthOffset);
+  // The chart root's own parent is either nothing (ผังองค์กร) or the synthetic
+  // องค์กร box (ผังรวม). Neither is a ฝ่าย the reader can see, so both start the
+  // ฝ่าย chain at zero and a root ฝ่าย is divDepth 1 in either view.
+  walk(rootNode, startParent, depthOffset, false, 0);
   return out;
 }
 
@@ -241,6 +250,11 @@ function flattenCombined(ctx) {
     meta: filter ? '' : `${n} ตำแหน่ง · ${p} คน`,
     tint: null,
     depth: 0,
+    // A unit, so it survives every rung — but divDepth 0, so the ฝ่าย beneath it
+    // are 1 here exactly as they are in ผังองค์กร.
+    isDiv: true,
+    parentIsDiv: false,
+    divDepth: 0,
     kids: kids.length,
   };
   root._h = cardHeight(root);
@@ -254,29 +268,6 @@ flattenCombined.pushRoot = (data, kids, r, ctx) => {
 
 const ORG_ROOT_ID = '__samo_org_root__';
 
-/**
- * Show every node down to and INCLUDING `level`.
- *
- * `<=`, not `<`, and the difference is a level of the org chart. The library's
- * `_expanded` flag means "this node should be VISIBLE" — `expandSomeNodes()`
- * walks up and opens its ancestors — it does NOT mean "open my children". So
- * marking `depth < level` renders depths `0 .. level-1`, one shallower than the
- * control claims.
- *
- * Measured on the live tree before the fix: the ผังองค์กร default of 2 rendered
- * 65 cards = the 12 ฝ่าย plus their 53 sub-ฝ่าย, and stopped there — the
- * หัวหน้าฝ่าย the button is NAMED for were still one click away, which was the
- * whole point of the default ("from นายกสโม to heads of it depth"). A rung
- * labelled หัวหน้าฝ่าย that does not reach a หัวหน้าฝ่าย is the bug.
- *
- * A search overrides the level entirely: a result you have to expand to reach is
- * the same as no result.
- */
-function applyDepth(data, level) {
-  data.forEach((d) => { d._expanded = d.depth <= level; });
-}
-
-export const DEFAULT_DEPTH = 2;
 
 // ── framing: why this does NOT use the library's fit() ──────────────────────
 //
@@ -399,7 +390,7 @@ export async function mountOrgGraph(hostEl, ctx) {
   destroyOrgGraph();
   host = hostEl;
 
-  const depth = ctx.filter ? 99 : (ctx.depth ?? DEFAULT_DEPTH);
+  const rung = ctx.filter ? RUNG.full : (ctx.rung ?? DEFAULT_RUNG);
   const q = ctx.filter?.q || '';
   let drawn = 0;
 
@@ -414,7 +405,7 @@ export async function mountOrgGraph(hostEl, ctx) {
     // A ฝ่าย the search filtered down to nothing is noise — drop the section
     // rather than render a chart with a lone empty root.
     if (!data.length) continue;
-    applyDepth(data, depth);
+    applyRung(data, rung);
 
     const section = document.createElement('section');
     section.className = 'orgg-section';
@@ -472,7 +463,7 @@ export async function mountOrgGraph(hostEl, ctx) {
       .defaultFont("'Noto Sans Thai', system-ui, sans-serif")
       // initialExpandLevel is consumed once and then reset to 1 by the library,
       // so it is NOT the depth control — `_expanded` on the data rows is. Set to
-      // 0 here so the library never overrides what applyDepth() just decided.
+      // 0 here so the library never overrides what applyRung() just decided.
       .initialExpandLevel(0)
       .nodeContent((d) => cardHtml(d.data, q))
       .buttonContent(({ node }) => {
@@ -510,10 +501,10 @@ export async function mountOrgGraph(hostEl, ctx) {
 }
 
 /** Expand / collapse every chart on the page at once. */
-export function setGraphDepth(level) {
+export function setGraphRung(rung) {
   charts.forEach(({ chart }) => {
     const data = chart.getChartState().data || [];
-    applyDepth(data, level);
+    applyRung(data, rung);
     chart.initialExpandLevel(0);
     layoutChart(chart);
     frameChart(chart);

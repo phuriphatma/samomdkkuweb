@@ -17,6 +17,7 @@ import {
   PROJECT_SEATS, PROJECT_SEAT_LABEL, IMPLICIT_PERMS,
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
+import { normalizeKind } from '../node-kind.js';
 import { uploadTeamPhoto, portraitSrc, focusToObjectPosition } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { dbRest } from '../db.js';
@@ -64,7 +65,8 @@ import {
 // src/js/team-vocab.js so the PUBLIC "ตำแหน่งของฉัน" card names them the same
 // way this admin UI does. Behaviour here is unchanged — same lists, one home.
 
-const KIND_ICON = { division: 'bi-diagram-2', department: 'bi-folder2', role: 'bi-person-badge' };
+// Keyed by the NORMALISED kind — two of them now (see src/js/node-kind.js).
+const KIND_ICON = { division: 'bi-diagram-2', role: 'bi-person-badge' };
 
 // ---- module state ----
 let initialized = false;
@@ -539,7 +541,7 @@ function renderNode(node, filter) {
   const li = document.createElement('li');
   li.className = 'team-node' + (selectionMode && selectedNodes.has(node.id) ? ' is-selected' : '');
   li.dataset.nodeId = node.id;
-  li.dataset.kind = node.kind;
+  li.dataset.kind = normalizeKind(node.kind);
 
   const checkbox = selectionMode
     ? `<input type="checkbox" class="team-check" data-act="select" ${selectedNodes.has(node.id) ? 'checked' : ''} aria-label="เลือกตำแหน่ง" />`
@@ -582,7 +584,7 @@ function renderNode(node, filter) {
       ${canEdit() ? '<span class="team-handle" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>' : ''}
       <button type="button" class="team-caret ${expandable ? '' : 'is-leaf'}" data-act="toggle"
         aria-label="ขยาย/ย่อ">${expandable ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
-      <i class="bi ${KIND_ICON[node.kind] || KIND_ICON.role} team-node-icon"></i>
+      <i class="bi ${KIND_ICON[normalizeKind(node.kind)]} team-node-icon"></i>
       <span class="team-node-name" data-act="primary">${nameHtml}</span>
       ${count ? `<span class="team-count" title="สมาชิกในสายนี้">${count}</span>` : ''}
       ${healthNodeCounts.get(node.id)
@@ -1281,7 +1283,7 @@ async function onNodeSubmit(e) {
   const parentId = $('teamNodeParentId').value || null;
   const payload = {
     name,
-    kind: $('teamNodeKind').value,
+    kind: normalizeKind($('teamNodeKind').value),
     is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
     is_board: $('teamNodeIsBoard') ? $('teamNodeIsBoard').checked : false,
   };
@@ -3350,7 +3352,7 @@ async function importJson(data) {
   const idMap = new Map();
   const mkNode = async (n, newParent, position) => {
     const row = await createNode({
-      parent_id: newParent, name: n.name.trim(), kind: n.kind || 'role',
+      parent_id: newParent, name: n.name.trim(), kind: normalizeKind(n.kind),
       position, permissions: Array.isArray(n.permissions) ? n.permissions : [],
       inherit_permissions: n.inherit_permissions !== false,
       vs_dept: n.vs_dept || null,
@@ -3597,7 +3599,8 @@ async function ensurePath(segs, createMissing) {
     const existing = childrenOf(parentId).find((c) => c.name === name);
     if (existing) { parentId = existing.id; continue; }
     if (!createMissing) return null;
-    const kind = i === 0 ? 'division' : (i === segs.length - 1 ? 'role' : 'department');
+    // Every level but the last is a container; the leaf is the seat.
+    const kind = i === segs.length - 1 ? 'role' : 'division';
     const row = await createNode({
       parent_id: parentId, name, kind, position: childrenOf(parentId).length,
       permissions: [], inherit_permissions: true,
