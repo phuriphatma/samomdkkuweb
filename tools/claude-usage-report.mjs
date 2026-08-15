@@ -13,8 +13,29 @@
 //     anthropic-beta: oauth-2025-04-20
 //   → {"five_hour":{"utilization":51.0,"resets_at":"…"},
 //      "seven_day":{"utilization":34.0,"resets_at":"2026-08-19T09:00:00Z"}, …}
-// That seven_day reset is 19 Aug 16:00 ICT — exactly the Wed 16:00 the board
-// computes, which is the cross-check that the two systems agree on the week.
+// VALIDATED AGAINST /usage (2026-08-16). Claude Code's own TUI and this
+// endpoint were read minutes apart and agree exactly:
+//        /usage TUI                     oauth/usage API
+//   session  77% · resets 4:30am ICT    75% · 21:29:59Z = 4:30am ICT
+//   week     36% · resets Aug 19 4pm    36% · 08:59:59Z = Aug 19 4pm
+// and claude_week_start() independently computes 09:00:00Z for that same
+// boundary. Three sources, one answer. So this is not an approximation of what
+// /usage shows — it IS what /usage shows, in JSON.
+//
+// WHY NOT DRIVE /usage INSTEAD (it is free, it consumes no session tokens):
+// because it only exists inside the interactive TUI, so reading it means
+// attaching a pseudo-terminal, typing the command and screen-scraping the
+// rendered frame. Same numbers, via a terminal emulator, from a Claude Code
+// process that has to be installed and logged in. The endpoint gives the same
+// data as JSON with one fetch.
+//
+// AND WHY NOT A LOCAL-LOG TOOL (ccusage, phuryn/claude-usage, and the local
+// mode of Maciek-roboblog/Claude-Code-Usage-Monitor): /usage itself states the
+// ceiling — "Approximate, based on local sessions on this machine — does not
+// include other devices or claude.ai". SAMO's members use one shared account
+// from their own laptops, so no single machine's logs can see the account. Only
+// this endpoint is account-wide, which is the entire reason it can run on a VM
+// where nobody codes.
 //
 // YOU LOG IN ONCE. Not every 2 hours, not every 12 days.
 //
