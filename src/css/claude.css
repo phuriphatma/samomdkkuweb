@@ -113,17 +113,29 @@
 }
 .claude-daycol .claude-hr:nth-child(even) { background: #fafbfa; }
 
-/* Outside the quota week — hatched, so "this bar covers Wed 16:00 to Wed
-   16:00" is visible on the grid instead of stated in a caption. */
+/* Outside the quota week. This has to READ as unavailable at a glance, not as
+   a texture: the reset falls mid-day, so a whole half-column of one week's grid
+   belongs to the neighbouring week, and the first version's 16%-alpha hatch was
+   faint enough that it looked like decoration. Solid tinted ground + denser,
+   darker stripes, and a hard rule on the edge facing the week so the reset
+   moment itself is a visible line rather than an inference. */
 .claude-dead {
   position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
-  background: repeating-linear-gradient(-45deg,
-    transparent 0 6px, rgba(139, 150, 143, 0.16) 6px 7px);
+  background-color: #dde2de;
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(88, 100, 92, 0.38) 0 2px, transparent 2px 8px);
 }
+/* The quota week is BELOW this block (it is the run-up to the reset)… */
+.claude-dead.is-before { border-bottom: 2px solid #8b968f; }
+/* …and ABOVE this one (the run-off after the next reset). */
+.claude-dead.is-after  { border-top: 2px solid #8b968f; }
+
 .claude-dead-label {
-  position: absolute; left: 4px; top: 3px; font-size: 0.62rem; color: #8b968f;
-  background: #fff; padding: 0 4px; border-radius: 2px;
+  position: absolute; left: 4px; top: 3px; font-size: 0.62rem; font-weight: 600;
+  color: #4a544d; background: rgba(255, 255, 255, 0.92);
+  padding: 1px 5px; border-radius: 2px;
 }
+.claude-dead.is-before .claude-dead-label { top: auto; bottom: 4px; }
 
 /* The 5-hour session frame. */
 .claude-session {

@@ -356,8 +356,8 @@ function paintGrid() {
   // undrawn.
   const cols = dayColumns();
   const last = cols.length - 1;
-  addDead(0, 0, bookableRange(cols[0].getTime()).min, 'สัปดาห์ก่อน');
-  addDead(last, bookableRange(cols[last].getTime()).max, 1440, 'สัปดาห์ถัดไป');
+  addDead(0, 0, bookableRange(cols[0].getTime()).min, 'โควตาสัปดาห์ก่อน', 'is-before');
+  addDead(last, bookableRange(cols[last].getTime()).max, 1440, 'โควตาสัปดาห์ถัดไป', 'is-after');
 
   const pool = board.settings.session_pool_pct;
   board.sessions.forEach((sn) => {
@@ -422,11 +422,13 @@ function paintGrid() {
   $('claudeEmptyNote').classList.toggle('d-none', board.bookings.length > 0);
 }
 
-function addDead(colIdx, sMin, eMin, label) {
+function addDead(colIdx, sMin, eMin, label, edge) {
   const col = colFor(colIdx);
   if (!col || eMin <= sMin) return;
   const el = document.createElement('div');
-  el.className = 'claude-dead';
+  // `edge` says which side of this block the quota week is on, so the 2px rule
+  // lands on the reset moment itself rather than on both borders.
+  el.className = `claude-dead ${edge}`;
   el.style.top = `${yForMin(sMin)}px`;
   el.style.height = `${yForMin(eMin) - yForMin(sMin)}px`;
   el.innerHTML = `<div class="claude-dead-label">${escHtml(label)}</div>`;

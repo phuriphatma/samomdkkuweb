@@ -16,10 +16,18 @@ ssh.
 
 ```bash
 PW=$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')
-{ printf '%s\n' "$PW"; sleep 420; } | timeout 470 ssh -tt -o BatchMode=yes samo-vm \
+{ printf '%s\n' "$PW"; sleep 10; } | timeout 300 ssh -tt -o BatchMode=yes samo-vm \
   'sudo -v && cd "$HOME/samo-projects/samomdkkuweb" && ./server/deploy.sh; echo "DEPLOY_EXIT=$?"' 2>&1 \
   | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|==>|error" | tail -12
 ```
+
+**`sleep 10`, not `sleep 420`.** The sleep exists only to hold stdin open long
+enough for `sudo -v` to read the password — which happens in the first second.
+It is NOT a timeout for the deploy. `sleep` never writes, so it never gets
+SIGPIPE when ssh exits; bash therefore waits for the whole sleep, and a
+`sleep 420` made every deploy sit idle for ~5 minutes after the VM had already
+printed `==> done`. The deploy itself takes ~90 s and is bounded by `timeout`,
+not by the sleep. Reported by the owner: *"you take too long timeout sleep"*.
 
 Then verify — **from the served artifact, never the local file**:
 
