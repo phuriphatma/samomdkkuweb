@@ -21,6 +21,10 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
+- ⚠️ **0155 IS APPLIED TO THE LIVE DB — the bundle that reads it must be
+  DEPLOYED.** `get_claude_board()` now returns `me`, `right_now` and
+  `free_windows`; those are ADDITIVE, so the old served bundle keeps working,
+  but nothing renders them until the VM rebuilds. Deploy is `skills/deploy-vm.md`.
 - ✅ **DEPLOYED = `2f80973` (2026-08-16)** — working tree clean, local ==
   origin == VM. Verified from the SERVED artifacts: `data-admin-pane="claude"`
   in the admin HTML, `get_claude_board` in the admin JS, `claude-session-tag`
@@ -35,13 +39,23 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
   **Migrations applied through 0154.** **1022 tests green.**
-- ✅ **จองโควตา Claude (0154) is LIVE END TO END** — booking, the board, the
-  Discord notice, and the MEASURED usage strip. Verified 2026-08-16: the VM's
-  systemd timer wrote a real sample (`5h 88% · 7d 37%`) as
-  `claude-reporter@samomdkku.app`, under RLS, and fires every 15 minutes.
+- ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
+  the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
+  per-segment capacity rail on the calendar, and the measured LOG. Verified
+  2026-08-16: the VM's systemd timer fires every 15 minutes and writes as
+  `claude-reporter@samomdkku.app` under RLS.
   **One thing still owed: grant the `claude` permission** in ทีม SAMO to whoever
   should book. (~13 ฝ่าย IT accounts already hold `master`, which answers yes to
   every key.)
+- **0155's one idea: the board answers "may I use it NOW", not only "is this
+  slot free".** `claude_free_now(p_at)` = `min(what is left in the live 5-hour
+  window, what the week has left after everyone's reservations)`, and
+  `claude_free_windows()` walks it over the whole week for the calendar rail.
+  Read `docs/state-archive/2026-08-16-claude-quota-booking.md` §"0155" before
+  touching any of it — especially **why the answer changes at
+  `booking_start − 5h`**, an instant nothing on a calendar marks.
+  Proof: `tools/claude0155-free-now.sql` (21/21), built from the owner's own
+  three worked examples and falsified against two injected bugs.
 - ⛔ **`claude setup-token` CANNOT be used for the usage reporter. Measured:**
   `oauth/usage` → **403 "OAuth token does not meet scope requirement
   user:profile"**, while a `claude login` token → 200. The one-year token
@@ -110,6 +124,12 @@ Run the one covering what you touch. All are both-directional.
 
 - `authz-sweep-identity.sql` (23/23) — run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
+- `claude0155-free-now.sql` (21/21) — "how much may I use right now, until
+  when". Its §A is the owner's three worked examples verbatim; §B1 holds the
+  branch they never reach (an ALREADY-OPEN 5-hour window comes from the
+  MEASUREMENT, not the clock) and §B2 is the unconstrained control. FALSIFIED
+  2026-08-16 by injecting two bugs — dropping the weekly term reddens A3 only,
+  anchoring the window to the clock reddens B1/B1b only.
 - `claude0154-quota-guard.sql` (20/20) — the จองโควตา Claude caps. Written and
   FALSIFIED on 2026-08-16: with the trigger disabled and the exclusion
   constraint dropped, D1/D2/D4/D5 flip red and D3 stays green (it is the CHECK

@@ -2203,3 +2203,95 @@ passed" cannot tell you it was. **Render the view you changed.** The org-chart
 session paid for that sentence a day earlier and it was true again here: this
 pane was verified by build, tests, a live RPC probe and a 20/20 SQL proof, and
 was never once looked at.
+
+## "on ipad, when touch, it mess up between scroll and adding the booking"
+
+**Symptom.** On an iPad, จองโควตา Claude was unusable: touching the calendar to
+scroll the week would open the booking modal instead. The owner also reported,
+separately and confusingly, *"when i click arrow next to สัปดาห์นี้ on my ipad
+it shows my profile"* — tapping the week arrow at the TOP of the pane opened a
+dialog showing their name and ตำแหน่ง.
+
+**Cause.** Two failures of one design. `pointerdown` on a day column started a
+drag-selection, which is right for a mouse and wrong for a finger, because every
+scroll of a 24-hour × 8-day grid begins with exactly that event.
+
+1. A plain TAP booked. `paintSel()` floors a selection at one slot
+   (`if (b - a < SLOT_MIN) b = a + SLOT_MIN`), so even a zero-distance press
+   produced a bookable 15 minutes and `onDragEnd` opened the modal.
+2. The "shows my profile" report was the same drag, one step later. When the
+   browser takes a gesture over to scroll it fires `pointercancel` — and nothing
+   listened for it, so `drag` stayed set. `pointerup` is bound to `window` by
+   necessity (a drag may end outside the column), so the NEXT tap anywhere in
+   the pane ran `onDragEnd` with the stale state. "My profile" was the booking
+   modal's identity card, which is the first thing visible in it on a tablet.
+
+**Fix.** A finger must HOLD before it is selecting — holding still is the one
+thing a scroll gesture never does, so it is what separates them. `gesture.js`
+decides per `pointerType` (`mouse` → drag immediately, `touch`/`pen` → hold
+400 ms within a 12 px slop). A hold produces a 60-minute block, so the gesture
+is complete without dragging. `pointercancel` AND `touchcancel` clear both the
+pending hold and any live drag.
+
+Scrolling is suppressed only while a touch-initiated selection is live, via a
+`{ passive: false }` `touchmove` listener that calls `preventDefault()` — **not**
+`touch-action: none`, which is already an entry in this file (it makes the
+surface unscrollable). The ordering is what makes it work: the hold fires only
+while the finger is still, so no scroll has begun yet, and a scroll that has not
+begun can still be refused.
+
+**Where it lives now.** `src/js/claude/gesture.js` (pure, unit-tested),
+`onDragStart`/`onDragMove`/`onDragCancel`/`onTouchMove` in
+`src/js/claude/index.js`. Guarded by `src/js/claude/gesture.test.js` §A/§B, and
+driven end-to-end on an emulated iPad with real touch events
+(`skills/drive-the-browser.md`): tap → no modal, hold → modal, scroll → no
+modal, arrow-tap-after-scroll → no modal.
+
+**The general rule.** *On a scroll surface, `pointerdown` is not an intent — it
+is the start of every gesture the surface supports.* And a handler that arms
+state on `pointerdown` must handle `pointercancel`, or the state outlives the
+gesture and fires from somewhere the user was not even touching.
+
+Two things the falsification run taught, both worth more than the fix:
+
+- **Removing the `pointercancel` listener did NOT reproduce the bug** once the
+  hold gate existed — a scroll never arms a drag any more, so the listener is
+  unreachable by that path. The case that reaches it is a hold that ARMS and is
+  then cancelled. A falsification that does not go red may mean the guard is
+  wrong, or it may mean the path is already closed; you cannot tell without
+  writing the case that reaches it.
+- **CDP's `Input.dispatchTouchEvent{type:'touchCancel'}` dispatches no DOM
+  events at all** in headless Chrome. The instrument could not see the hazard
+  (`skills/write-a-guard.md`); the test now dispatches a real `PointerEvent`.
+
+## "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
+
+**Symptom.** In the current week the booking modal named the owner correctly —
+ภูริพัฒณ์ มหาพรหมรักษ์, ฝ่าย IT, หัวหน้า IT. Press ▸ to next week and book
+there, and the same modal showed the raw account name and
+"ยังไม่มีตำแหน่งในผังทีม".
+
+**Cause.** `paintIdCard()` resolved who the reader is with
+`board.bookings.find((b) => b.is_mine)` — i.e. by hunting for a booking of
+theirs among the rows for the week being displayed. The board RPC filters
+bookings to one quota week, so in any week you had not booked in, the lookup
+found nothing and fell through to `getUser()`, which knows only the auth
+account. The identity was correct exactly when you had already booked, and
+wrong every other time.
+
+**Fix.** The projection that builds a booking's `person` became its own function
+(`claude_person(uuid)`, migration 0155) and `get_claude_board()` now returns
+`me` built from it. One projection serves the reader and everyone else, so they
+cannot drift. `board.me` is used only when it carries a name — an account with
+no ตำแหน่ง projects to a null name, and letting that displace the account's own
+name would replace one wrong label with another.
+
+**Where it lives now.** `claude_person()` and `get_claude_board()` in
+`supabase/migrations/0155_claude_measured_usage_log.sql`; `paintIdCard()` in
+`src/js/claude/index.js`. Guarded by `gesture.test.js` §C.
+
+**The general rule.** *An identity must never be derived from a row that
+happened to be in the current query's result set.* The filter that makes a list
+correct — a week, a department, a status — is not a filter anyone applied to the
+question "who am I", and the fallback hides it: it looks right in exactly the
+case you tested in.

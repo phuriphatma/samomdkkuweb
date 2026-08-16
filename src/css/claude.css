@@ -337,3 +337,317 @@ svg.claude-mark {
   flex: none;
   vertical-align: -0.14em;
 }
+
+/* ============================================================
+   0155 — the MEASURED half, and the answer to "can I use it now".
+
+   Two additions, and they sit at opposite ends of the pane on purpose: the
+   hero at the top is one number a person reads in a second, and the log at the
+   bottom is the evidence behind it, folded away until asked for. Putting the
+   evidence first would be honest and unusable.
+   ============================================================ */
+
+/* ---------- "ใช้ได้เลยตอนนี้" ---------- */
+.claude-tab .claude-now {
+  border: 1px solid #cfe0d4;
+  border-left: 4px solid var(--brand-primary);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f4faf5 0%, #fff 65%);
+  padding: 14px 16px; margin-bottom: 14px;
+}
+/* Low and empty are STATES, not decoration: the colour changes with the border
+   and the meter together so the panel reads differently across the room. A
+   filled danger style on its own once made an unchecked box look ticked, so the
+   tone here never carries meaning alone — the sentence underneath always says
+   the same thing in words. */
+.claude-tab .claude-now.is-low {
+  border-color: #f5c77e; border-left-color: var(--brand-orange);
+  background: linear-gradient(180deg, #fffaf2 0%, #fff 65%);
+}
+.claude-tab .claude-now.is-none {
+  border-color: #f1c4bf; border-left-color: #b42318;
+  background: linear-gradient(180deg, #fef5f4 0%, #fff 65%);
+}
+
+.claude-tab .claude-now-main {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 20px;
+}
+.claude-tab .claude-now-lead { min-width: 0; }
+.claude-tab .claude-now-k {
+  font-size: 0.78rem; font-weight: 600; color: #4a5a4e; margin-bottom: 2px;
+}
+.claude-tab .claude-now-fig { display: flex; align-items: baseline; gap: 8px; }
+.claude-tab .claude-now-pct {
+  font-size: 2.6rem; font-weight: 800; line-height: 1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  color: var(--brand-primary);
+}
+.claude-tab .claude-now.is-low .claude-now-pct { color: #b54708; }
+.claude-tab .claude-now.is-none .claude-now-pct { color: #b42318; }
+.claude-tab .claude-now-of { font-size: 0.8rem; color: #6c757d; }
+
+.claude-tab .claude-now-until {
+  margin-left: auto; text-align: right; line-height: 1.25;
+}
+.claude-tab .claude-now-until-k { font-size: 0.72rem; color: #6c757d; }
+.claude-tab .claude-now-until-v {
+  font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.claude-tab .claude-now-until-s { font-size: 0.72rem; color: #6c757d; }
+
+.claude-tab .claude-now-meter {
+  height: 8px; border-radius: 999px; background: var(--claude-track);
+  overflow: hidden; margin: 11px 0 8px;
+}
+.claude-tab .claude-now-meter > i {
+  display: block; height: 100%; background: var(--brand-primary);
+  transition: width 0.35s var(--ease, ease);
+}
+.claude-tab .claude-now.is-low .claude-now-meter > i { background: var(--brand-orange); }
+.claude-tab .claude-now.is-none .claude-now-meter > i { background: #b42318; }
+
+.claude-tab .claude-now-why { font-size: 0.8rem; color: #495057; line-height: 1.5; }
+.claude-tab .claude-now-why b { color: #1f2d23; }
+
+.claude-tab .claude-now-live {
+  display: flex; gap: 8px; align-items: flex-start;
+  font-size: 0.78rem; line-height: 1.45;
+  background: #fff6ed; border: 1px solid #f5c77e; color: #b54708;
+  border-radius: 6px; padding: 7px 10px; margin-bottom: 11px;
+}
+.claude-tab .claude-now-live i { flex: none; margin-top: 2px; }
+
+/* ---------- the three-state weekly bar ---------- */
+/* Spent is solid; promised is the same per-ฝ่าย colour under a hatch, so the
+   two are told apart by TEXTURE as well as by position — the segments are
+   adjacent and a viewer with a colour deficiency cannot rely on the hue. */
+.claude-week-bar > i.is-used { background: var(--brand-primary); }
+.claude-week-bar > i.is-booked {
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(255, 255, 255, 0.55) 0 3px, transparent 3px 7px);
+}
+/* 2px of surface between fills, so adjacent segments never blur into one. */
+.claude-week-bar > i + i { box-shadow: -2px 0 0 0 #fff; }
+
+.claude-legend .claude-swatch.is-used { background: var(--brand-primary); }
+.claude-legend .claude-swatch.is-track {
+  background: var(--claude-track); border: 1px solid #cfd6d1;
+}
+.claude-legend .claude-legend-item.is-free { font-weight: 600; }
+
+/* ---------- the hold-to-book affordance ---------- */
+/* The finger has pressed and the timer is running. Something has to happen
+   NOW, or a hold feels like a tap that failed — and then nobody holds again. */
+.claude-daycol.is-holding { background: rgba(16, 89, 34, 0.05); }
+.claude-sel.is-armed { animation: claude-armed 0.22s ease-out; }
+@keyframes claude-armed {
+  from { transform: scale(0.96); opacity: 0.4; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ---------- the measured log ---------- */
+.claude-usage { padding: 0; overflow: hidden; }
+.claude-usage-toggle {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 16px; border: 0; background: transparent; text-align: left;
+  font-size: 0.9rem; font-weight: 700; color: #1f2d23;
+}
+.claude-usage-toggle:hover { background: #f6f8f6; }
+.claude-usage-toggle .bi-activity { color: var(--brand-primary); }
+.claude-usage-sub {
+  font-size: 0.74rem; font-weight: 400; color: #6c757d; margin-left: auto;
+}
+.claude-usage-caret { transition: transform 0.2s var(--ease, ease); color: #8b968f; }
+.claude-usage-toggle.is-open .claude-usage-caret { transform: rotate(180deg); }
+.claude-usage-body { padding: 4px 16px 16px; border-top: 1px solid #e9ecef; }
+.cu-loading { padding: 22px 0; text-align: center; color: #8b968f; font-size: 0.85rem; }
+
+.cu-h {
+  font-size: 0.82rem; font-weight: 700; margin: 18px 0 8px; color: #1f2d23;
+}
+.cu-fine { font-size: 0.72rem; color: #8b968f; margin: 6px 0 0; line-height: 1.5; }
+.cu-empty { font-size: 0.8rem; color: #8b968f; padding: 10px 0; }
+
+/* The reconciliation row: four figures that have to add up, side by side. */
+/* Separators are BORDERS on the cells, not a coloured grid background showing
+   through the gaps: with five cells in a six-column track list the leftover
+   track drew as a grey stub that looked like a missing figure. Rendered and
+   looked at — a screenshot is the only instrument that could see it. */
+.cu-recon {
+  display: grid; background: #fff;
+  border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  margin-top: 12px;
+}
+.cu-recon-cell { padding: 10px 12px; border-left: 1px solid #e9ecef; }
+.cu-recon-cell:first-child { border-left: 0; }
+.cu-recon-v {
+  font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.cu-recon-cell.is-used .cu-recon-v { color: var(--brand-primary); }
+.cu-recon-cell.is-loose .cu-recon-v { color: var(--brand-orange); }
+.cu-recon-cell.is-dim .cu-recon-v { color: #8b968f; }
+.cu-recon-k { font-size: 0.7rem; color: #6c757d; line-height: 1.35; margin-top: 2px; }
+.cu-recon-note {
+  grid-column: 1 / -1; background: #f6f8f6; padding: 6px 12px;
+  border-top: 1px solid #e9ecef;
+  font-size: 0.7rem; color: #8b968f;
+}
+
+/* The chart. Thin marks, recessive grid, one 0–100 axis for both series —
+   they are both a percentage of their own window, so a point at 40 means the
+   same thing on either line. */
+.cu-chart-wrap { margin-top: 16px; }
+.cu-chart { width: 100%; height: auto; display: block; }
+.cu-base, .cu-grid { stroke: #e3e8e4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cu-axis { font-size: 9px; fill: #a6b0a9; }
+.cu-band { opacity: 0.1; }
+.cu-area { fill: rgba(16, 89, 34, 0.1); stroke: none; }
+.cu-line-week {
+  fill: none; stroke: var(--brand-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+}
+.cu-line-sess {
+  fill: none; stroke: var(--brand-orange); stroke-width: 1.5;
+  stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+}
+.cu-now { stroke: #b42318; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.cu-tag-week { font-size: 10px; font-weight: 700; fill: var(--brand-primary); }
+.cu-tag-sess { font-size: 10px; font-weight: 700; fill: var(--brand-orange); }
+
+.cu-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px;
+  font-size: 0.72rem; color: #495057;
+}
+.cu-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.cu-key { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.cu-key-week { background: var(--brand-primary); }
+.cu-key-sess { background: var(--brand-orange); height: 2px; }
+.cu-key-band { background: rgba(16, 89, 34, 0.18); height: 10px; width: 10px; border-radius: 2px; }
+
+/* Tables. A wide table has to scroll inside ITS OWN box — a pane that scrolls
+   sideways is a pane whose toolbar walks off the screen. */
+.cu-scroll { overflow-x: auto; border: 1px solid #e9ecef; border-radius: 8px; }
+.cu-scroll-tall { max-height: 320px; overflow-y: auto; }
+.cu-table { width: 100%; font-size: 0.76rem; border-collapse: collapse; min-width: 460px; }
+.cu-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: #f6f8f6; color: #6c757d; font-weight: 600;
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid #e9ecef;
+  white-space: nowrap;
+}
+.cu-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; vertical-align: top; }
+.cu-table tr:last-child td { border-bottom: 0; }
+.cu-table .cu-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cu-table th.cu-num { text-align: right; }
+.cu-table-log td:first-child { color: #6c757d; }
+.cu-table tr.is-reset td { background: #f6f8f6; color: #8b968f; font-style: italic; }
+.cu-sub { font-size: 0.7rem; color: #8b968f; margin-top: 1px; }
+.cu-loose { color: var(--brand-orange); }
+.cu-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 5px; vertical-align: middle;
+}
+
+/* Verdict chips carry an explicit word, never a colour alone. */
+.cu-chip {
+  display: inline-block; font-size: 0.68rem; font-weight: 600;
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  background: #f1f3f2; color: #495057; border: 1px solid #e3e8e4;
+}
+.cu-chip.is-over  { background: #fef3f2; border-color: #f1c4bf; color: #b42318; }
+.cu-chip.is-under { background: #f0fdf4; border-color: #bbe7c9; color: #067647; }
+.cu-chip.is-ok    { background: #f0fdf4; border-color: #bbe7c9; color: #067647; }
+.cu-chip.is-live  { background: #fff6ed; border-color: #f5c77e; color: #b54708; }
+.cu-chip.is-dim   { color: #8b968f; }
+
+/* The observed 5-hour windows. */
+.cu-wins { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.cu-win {
+  border: 1px solid #e9ecef; border-radius: 8px; padding: 9px 11px; background: #fff;
+}
+.cu-win-pct {
+  font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--brand-primary); line-height: 1.1;
+}
+.cu-win.is-warn .cu-win-pct { color: #b54708; }
+.cu-win.is-crit .cu-win-pct { color: #b42318; }
+.cu-win-meter {
+  height: 5px; border-radius: 999px; background: var(--claude-track);
+  overflow: hidden; margin: 5px 0 5px;
+}
+.cu-win-meter > i { display: block; height: 100%; background: var(--brand-primary); }
+.cu-win.is-warn .cu-win-meter > i { background: var(--brand-orange); }
+.cu-win.is-crit .cu-win-meter > i { background: #b42318; }
+.cu-win-when { font-size: 0.7rem; color: #6c757d; font-variant-numeric: tabular-nums; }
+
+.cu-cov {
+  display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 14px;
+  padding-top: 10px; border-top: 1px solid #f1f3f2;
+  font-size: 0.7rem; color: #8b968f;
+}
+.cu-cov .is-late { color: #b54708; font-weight: 600; }
+.cu-cov .is-dim { color: #a6b0a9; }
+
+@media (max-width: 768px) {
+  .claude-tab .claude-now-pct { font-size: 2.1rem; }
+  .claude-tab .claude-now-until { margin-left: 0; text-align: left; }
+  .claude-usage-sub { display: none; }
+  .claude-usage-body { padding: 4px 11px 14px; }
+}
+
+/* ---------- the clamp, and the note that explains it ---------- */
+/* A selection that has hit a wall says so in its own outline as well as in its
+   label: the drag is still live and moving further changes nothing, which is
+   confusing unless the box acknowledges it. */
+.claude-sel.is-capped {
+  border-style: solid; border-color: var(--brand-orange);
+  background: rgba(255, 111, 48, 0.12); color: #b54708;
+}
+
+/* Info, not warning. The amber default reads as "you did something wrong"; this
+   note means "a boundary exists and the form has already respected it". */
+.claude-tab .claude-note.info {
+  background: #f2f8ff; border-color: #b6d4f5; color: #0b4a80;
+}
+.claude-tab .claude-note.info strong { color: #073763; }
+
+/* ---------- the capacity rail ---------- */
+/* "If I start here, how much may I take?" — a ribbon down the left edge of each
+   day column, beside the bookings rather than under them (blocks start at 9px).
+   Deliberately NOT a wash over the whole column: the number is a property of a
+   START TIME, and tinting the area a booking already occupies would say the
+   opposite of what it means. */
+.claude-free {
+  position: absolute; left: 0; width: 6px; z-index: 1; pointer-events: none;
+  border-radius: 0 3px 3px 0;
+}
+/* A whole session free is the UNREMARKABLE case and gets the quiet colour; the
+   constrained stretches are the information, so they carry the weight. A rail
+   that shouts everywhere points at nothing. */
+.claude-free.is-full { background: rgba(16, 89, 34, 0.22); }
+.claude-free.is-part { background: rgba(255, 111, 48, 0.75); }
+.claude-free.is-none { background: rgba(180, 35, 24, 0.65); }
+
+/* The label sits OUTSIDE the 6px ribbon, over the empty left margin of the
+   column, so it can be read without making the ribbon wide enough to crowd the
+   blocks. pointer-events stays off — this is a readout, not a control. */
+.claude-free-tag {
+  position: absolute; left: 8px; top: 2px; white-space: nowrap;
+  font-size: 0.6rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--brand-primary); background: rgba(255, 255, 255, 0.92);
+  border-radius: 3px; padding: 0 3px;
+}
+.claude-free.is-full .claude-free-tag { color: #4a5a4e; font-weight: 600; }
+.claude-free.is-part .claude-free-tag { color: #b54708; }
+.claude-free.is-none .claude-free-tag { color: #b42318; }
+
+/* The rail's key, inline in the help line. The swatches reuse the rail's own
+   classes so a colour can never be changed in one place and not the other. */
+.claude-rail-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.claude-rail-key .claude-free {
+  position: static; display: inline-block; width: 9px; height: 9px;
+  border-radius: 2px; margin: 0 1px 0 5px;
+}

@@ -111,3 +111,99 @@ Next.js/PostgreSQL stack this project does not have.
   `notifyClaudeAlert`, throttled to once per 6 hours.
 - With no sample the board says so rather than showing a zero. **A zero reads as
   a reading.**
+
+
+---
+
+# 0155 — the same afternoon, four owner reports later
+
+0154 shipped a calendar. Using it for a day produced four reports, and the
+fourth one changed what the feature is FOR.
+
+## The reports
+
+1. *"on ipad, when touch, it mess up between scroll and adding the booking —
+   what about having to long press"* — and, separately, *"when i click arrow
+   next to สัปดาห์นี้ on my ipad it shows my profile"*. **One root cause**, in
+   `docs/mistakes/frontend-ui.md`: `pointerdown` on a day column started a
+   drag, which is every scroll's first event. A tap booked; and a scroll fired
+   `pointercancel`, nothing listened, so the drag stayed armed and the next tap
+   ANYWHERE — the week arrow — ran the drag-end handler. "My profile" was the
+   booking modal's identity card.
+2. *"when i book in the next week it shows Phuriphat Mahapromrak ยังไม่มีตำแหน่ง
+   ในผังทีม"* — the id card resolved WHO YOU ARE from a booking of yours in the
+   week on screen. Correct exactly when you had already booked there.
+3. *"it should calculate how much claude token left … and log of the claude 5hr
+   token, like what you get polling every 15 minutes, with what user booking,
+   how many token used during that booking"* — the measured log.
+4. *"i still has 660% i can use 100% token because it'll reset in 5 hr, but if
+   it's 12.00 i'll can use only 30% from 12.00-16.00"* — **the one that
+   mattered.**
+
+## Why report 4 is the feature
+
+Nobody books before opening Claude for ten minutes. A calendar answers "is this
+slot free"; the question people actually arrive with is the opposite one —
+*I want to use it NOW, how much may I take, and until when.*
+
+The owner stated it as three worked examples and all three fall out of one
+expression, `min(session_free, week_free)`. What makes it non-obvious is the
+third boundary:
+
+- 11:00, someone booked 16:00–19:00 for 70%, week has 660% → **100%**. A session
+  opened at 11:00 runs to 16:00 and ENDS as theirs begins.
+- 12:00, same board → **30% until 16:00**. The window now runs to 17:00 and
+  their block is INSIDE it, so the two share one 100%.
+- week has 100% left instead → **30%**, because their 70% is a claim on the week.
+
+So the answer changes at **`booking_start − 5h`** — an instant nothing on a
+calendar marks and no one would think to look at. `claude_free_windows()` puts
+it in the boundary set, which is the only reason the calendar rail is right for
+the five hours before every booking. `claude0155-free-now.sql` §C4 pins it.
+
+## The design question the owner asked, and the answer
+
+*"if there's people book at 03.00-06.45, if people book at 06.45, they should
+can book to 13.00 because … it'll split their booking into 06.45-08.00 and
+08.00-13.00. or … fixed people to book from 06.45 to 08.00 only … what do you
+think is the best way, best practice"*
+
+**Clamp, do not split.** The two halves draw from DIFFERENT pools — the first
+from whatever the 03:00 session has left, the second from a fresh 100% — so one
+`pct` cannot describe both and the system would have to invent the division.
+Worse, the first half can be REFUSED (that session may have 10% left) while the
+second succeeds, leaving half a booking nobody asked for. And the boundary is
+real: it is how Claude meters, not a rule this app invented, so hiding it makes
+"เหลือ X%" unreadable everywhere else.
+
+What was built instead: `limitsFor()` stops the drag AND the time selects at the
+first real wall (session edge, next booking, weekly reset), the selection box
+says which wall, and the tail is offered as a second booking with the times
+already filled in — announced BEFORE saving, so it is a promise kept rather than
+a surprise. One press still makes one row.
+
+## What is where
+
+- `claude_person(uuid)` — the identity projection, extracted so the reader and
+  every booking go through ONE piece of SQL. Fixes report 2.
+- `claude_free_now(p_at)` / `claude_free_windows(p_at)` — reports 4 and the rail.
+- `claude_usage_deltas` / `claude_usage_attribution` / `get_claude_usage_log` —
+  report 3. Four rules, each learned from the live samples BEFORE writing it:
+  a delta is only meaningful inside one window (decided on MONOTONICITY, because
+  `resets_at` jitters ±1 min and an equality test marks half the intervals as a
+  reset); a span is only partly booked, so the uncovered fraction stays
+  unattributed; the log is not the total; a 5-hour window is OBSERVED, not
+  configured.
+- `src/js/claude/gesture.js` (pure) + `fmt.js` (shared formatters) +
+  `usage.js` (the measured half's rendering). Report 1.
+
+## Two things the verification taught
+
+- **Falsifying the `pointercancel` fix did not go red.** With the hold gate in
+  place a scroll never arms a drag, so that listener is unreachable by that
+  path; the case that reaches it is a hold that ARMS and is then cancelled. A
+  falsification that stays green may mean the guard is blind — or that the path
+  is already closed. Only writing the reaching case tells you which.
+- **The browser probe's own coordinates were wrong twice**, and both times the
+  result was PASS. `docs/mistakes/tooling-proofs.md`. Every synthetic tap now
+  carries an `elementFromPoint` control.

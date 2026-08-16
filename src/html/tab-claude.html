@@ -35,13 +35,32 @@
       </button>
     </div>
 
+    <!-- "ใช้ได้เลยตอนนี้" — the first thing on the page, because it is the
+         question people arrive with. A calendar answers "is this slot free";
+         nobody books before opening Claude for ten minutes, so what they
+         actually need is "I want to use it NOW — how much, and until when".
+
+         Rendered by paintFreeNow() from board.right_now, which is
+         claude_free_now() (migration 0155): min(what is left in the live
+         5-hour window, what the week has left after everyone's reservations).
+         The sentence underneath is not decoration — a shared quota with a bare
+         number gets argued with, and the name of whoever holds the next block
+         is what turns it from arbitrary into agreed. -->
+    <div class="claude-now" id="claudeNow"></div>
+
     <!-- Weekly pool. Seven ticks because 700% IS seven sessions — the scale
-         explains the unit without a sentence of help text. -->
+         explains the unit without a sentence of help text.
+
+         The bar is three STATES, not a row of people: spent (measured), still
+         promised to somebody, and genuinely free. Per-person colour survives
+         inside the promised segment. It used to be per-person end to end, which
+         drew a full week as soon as a few people booked, however little of it
+         had actually been spent. -->
     <div class="claude-week card-soft mb-3">
       <div class="claude-week-top">
         <span class="claude-week-fig" id="claudeWeekUsed">0</span>
         <span class="claude-week-of">/ <span id="claudeWeekPool">700</span>%</span>
-        <span class="text-muted">ใช้ไปแล้วสัปดาห์นี้</span>
+        <span class="text-muted" id="claudeWeekWhat">ใช้ไปแล้วสัปดาห์นี้</span>
         <span class="claude-week-right">
           รีเซ็ต <strong id="claudeResetAt">—</strong>
           <span id="claudeResetIn" class="text-muted"></span>
@@ -74,6 +93,24 @@
     <div id="claudeEmptyNote" class="text-muted small mt-2 d-none">
       ยังไม่มีการจองในสัปดาห์นี้
     </div>
+
+    <!-- The MEASURED log (migration 0155). Everything above is a claim; this is
+         what Claude's own account says was spent, read every 15 minutes by
+         tools/claude-usage-report.mjs on the VM.
+
+         Collapsed by default and loaded on open: it is a second RPC carrying a
+         week of samples, and the board above it already answers the common
+         question. Rendered by src/js/claude/usage.js. -->
+    <section class="claude-usage card-soft mt-3">
+      <button type="button" class="claude-usage-toggle" id="claudeUsageToggle"
+              aria-expanded="false" aria-controls="claudeUsageBody">
+        <i class="bi bi-activity" aria-hidden="true"></i>
+        <span class="claude-usage-title">บันทึกการใช้งานจริง</span>
+        <span class="claude-usage-sub">ใครใช้ไปเท่าไร · เทียบกับที่จองไว้ · ทุก 15 นาที</span>
+        <i class="bi bi-chevron-down claude-usage-caret" aria-hidden="true"></i>
+      </button>
+      <div class="claude-usage-body d-none" id="claudeUsageBody"></div>
+    </section>
   </div>
 
   <!-- ── booking modal ─────────────────────────────────────────────────── -->

@@ -376,3 +376,44 @@ run" — a suite runner that only looks for the word FAIL scores an aborted scri
 as silence. (3) Invert a deletion into an assertion: if dropping something was a
 DECISION, guard its absence, or the next person re-adds it and every proof still
 passes.
+
+## A browser probe measured its coordinates before the page scrolled
+
+**Symptom.** A CDP touch-gesture run against the Claude booking calendar
+reported four of five cases green on its first run. The one red case was the one
+asserting that a long press DOES open the modal.
+
+**Cause.** The touch point was computed as `column.getBoundingClientRect().top +
+120`. `buildGrid()` scrolls the calendar to 08:00, so the column's own rect
+starts several hundred pixels ABOVE the scroll viewport and that expression
+landed on the hero panel. Every "a tap opens no modal" result was true because
+nothing was being tapped. The single failing case was the only one that could
+not pass vacuously — which is the entire reason to write an ALLOW beside every
+DENY.
+
+The same run then produced a second instance of the same mistake: the week
+arrow's coordinates were read BEFORE a `scrollIntoView()` moved the toolbar,
+because the app sets `scroll-behavior: smooth`, so `scrollIntoView()` returns
+before the scroll has happened. The arrow tap landed on empty page and "tapping
+the arrow opens no modal" passed for the wrong reason.
+
+**Fix.** Every synthetic-input probe now carries a CONTROL that names what is
+under the point before touching it:
+
+```js
+const hit = document.elementFromPoint(x, y);
+results.push(`${hit?.closest('.claude-daycol') ? 'PASS' : 'FAIL'}  CONTROL: …`);
+```
+
+and coordinates are re-measured at the moment of use, after an instant scroll
+plus a wait.
+
+**Where it lives now.** The driver pattern in `skills/drive-the-browser.md`.
+
+**The general rule.** *A synthetic click, tap or drag must prove it hit
+something before it proves anything else.* Input coordinates are computed from a
+layout that the previous step may have moved, and the failure mode is silent and
+green: a tap on nothing produces exactly the same "no side effect" the passing
+case asserts. Related and equally silent: `scrollIntoView()` under
+`scroll-behavior: smooth` returns before the scroll, so any coordinate read on
+the next line is stale.

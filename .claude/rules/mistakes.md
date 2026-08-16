@@ -43,7 +43,9 @@ has not been written yet.
    is not a gate on the ROUTE: the admin sidebar hid sections an account could
    not use and the delegate skipped them, but the HASH was unchecked, so
    `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
-   way in — click, hash, query string, deep link. Non-security twin: a handler
+   way in — click, hash, query string, deep link, GESTURE (on a scroll surface
+   `pointerdown` starts every gesture the surface supports, and state armed
+   there must be released on `pointercancel`). Non-security twin: a handler
    guarded on state the CALLER sets misses every other entry point. COPY too:
    one claim lived in the sign-in caption, the signup link AND the home strip.
    A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
@@ -80,9 +82,8 @@ has not been written yet.
    Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
    was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
    the รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS,
-   where `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one system and DERIVED in the
-   other: `team_members.year` vs ระบบบ้าน's computed ชั้นปี — nine members a year behind,
-   predicted in a `house/fields.js` comment eight months early.
+   where `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
+   system and DERIVED in the other (`team_members.year` vs ระบบบ้าน's ชั้นปี).
    Also a rule implemented on the writers you HAPPENED to be looking at: the
    portrait cleanup existed on the ทีม SAMO and archive editors but NOT on
    `my-seat.js`, so "เปลี่ยนรูป leaves the old picture in Drive" LOOKED
@@ -90,19 +91,15 @@ has not been written yet.
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
-   that stops matching looks like a feature nobody built. Wrapping a station in
-   `.org-box` unhooked five `> .org-station` rules; a layout scoped to `@media`
-   died when the view became USER-SELECTABLE (a view is not a breakpoint). Also
-   SPECIFICITY: the ฝ่าย band out-weighed `.is-selected`, so a selected row drew
-   nothing. TWO CSS ENTRIES: a sheet in the wrong one never loads. The
-   instrument is the COMPUTED style, never the stylesheet — and for a PAINT
-   bug, the PIXELS.
-   Also TWO PASSES assigning one DOM property: the perm grid's markup locked
-   ทีม SAMO (ดู), then `syncMasterVisibility`'s blanket `cb.disabled = on`
-   unlocked it. Only touch what THIS pass locked. Same geometry, N passes: a
-   delegated listener re-attached to the SURVIVING host every render, whose
-   handler `toggle`d `d-none` — the panel opened only on odd paints
-   (`my-house.js`). State in a variable, listeners on the nodes this paint made.
+   that stops matching looks like a feature nobody built (`.org-station`, a
+   `@media`-scoped layout made user-selectable, a ฝ่าย band out-weighing
+   `.is-selected`, a sheet in the wrong ENTRY). The instrument is the COMPUTED
+   style, never the stylesheet — and for a PAINT bug, the PIXELS.
+   Also TWO PASSES assigning one DOM property: a blanket `cb.disabled = on`
+   unlocked what the previous pass had locked. Only touch what THIS pass set.
+   Same geometry, N passes: a delegated listener re-attached every render made
+   a panel open on odd paints only. State in a variable, listeners on the nodes
+   this paint made.
 7. **Verify from the authority, and test BOTH directions.** Read the ACL from
    `pg_proc.proacl`, not the `revoke` you just wrote; grep the SERVED bundle,
    not the local file; read the LIVE function body, not the migration that first
@@ -253,7 +250,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(59 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(61 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -314,6 +311,8 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
 - แผนผัง became a staircase — one structure, two different drawings
 - จองโควตา Claude rendered unstyled — CSS in the wrong ENTRY
+- "on ipad, when touch, it mess up between scroll and adding the booking"
+- "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(15 entries)*
@@ -372,7 +371,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(10 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(11 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
@@ -384,5 +383,6 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A proof whose subject was a SHOP ADMIN reported that a buyer could set an order total to ฿1
 - Checking the proofs by hand produced TWO false alarms in a row — they emit four different output shapes
 - A proof that ERRORS is not a proof that fails
+- A browser probe measured its coordinates before the page scrolled
 
 <!-- END GENERATED INDEX -->

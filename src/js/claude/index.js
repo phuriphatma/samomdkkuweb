@@ -28,9 +28,19 @@ import { dbRest } from '../db.js';
 import { getUser } from '../auth.js';
 import { escHtml } from '../utils.js';
 import { askDelete } from '../confirm-modal.js';
-import { tintFor } from '../dept-tint.js';
 import { sendNotify } from '../notify.js';
 import { dayColumnsFor, bookableRangeFor, startOfDay } from './week.js';
+import {
+  pressIntent, movedTooFar, shouldBlockScroll, HOLD_MS, HOLD_MIN,
+} from './gesture.js';
+import { paintUsageLog, paintFreeNow } from './usage.js';
+// Every formatter and the ฝ่าย colour live in ONE module, shared with
+// usage.js. Two copies of "what colour is this person" is the drift class
+// this repo pays for most.
+import {
+  pad, hhmm, minsOfDay, THAI_DOW, fullDate, stampLabel, durLabel, pctText,
+  personName, shortName, personDept, personColor,
+} from './fmt.js';
 
 const HOUR_MS  = 3600000;
 const DAY_MS   = 86400000;
@@ -44,64 +54,9 @@ let gridBuilt = false;             // grid skeleton painted for the current week
 let pollTimer = null;              // the once-a-minute repaint while on screen
 let editing = null;                // the booking open in the modal, or null
 let modalRef = null;               // one Bootstrap Modal instance, reused
+let continuation = null;           // the tail a session edge cut off, if any
 
 const $ = (id) => document.getElementById(id);
-
-// ---------- small time helpers ----------
-const pad = (n) => String(n).padStart(2, '0');
-const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-const minsOfDay = (d) => d.getHours() * 60 + d.getMinutes();
-
-/** Thai day/month for a header cell. Intl carries the Buddhist era and the
- *  abbreviations; hand-rolling a month table is how a date renders as 'undefined'
- *  for one month of the year. */
-const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-const dayLabel = (d) => `${THAI_DOW[d.getDay()]} ${d.getDate()}`;
-const fullDate = (d) => d.toLocaleDateString('th-TH', {
-  day: 'numeric', month: 'short', year: '2-digit',
-});
-const stampLabel = (d) => `${fullDate(d)} ${hhmm(d)}`;
-
-function durLabel(ms) {
-  const mins = Math.round(ms / MIN_MS);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h && m) return `${h} ชม. ${m} น.`;
-  if (h) return `${h} ชม.`;
-  return `${m} น.`;
-}
-
-/** The ฝ่าย colour for a person, from their org path.
- *
- *  Scanned ROOT-FIRST and stopped at the first match, which is the same
- *  inheritance rule dept-tint.js settled on in 0152: a name match is a GUESS
- *  standing in for an identity nobody recorded, so the OUTERMOST ฝ่าย wins and a
- *  ฝ่ายวิชาการ nested under ฝ่ายรังสีเทคนิค draws in รังสีเทคนิค's colour rather
- *  than hijacking its own. */
-function personColor(person) {
-  const path = Array.isArray(person?.path) ? person.path : [];
-  for (const name of path) {
-    const tint = tintFor(name);
-    if (tint) return `var(--dept-${tint})`;
-  }
-  return 'var(--brand-primary)';
-}
-
-function personName(person) {
-  const n = (person?.name || '').trim();
-  if (n) return n;
-  // A booking by an account with no ตำแหน่ง in the tree. Shared department
-  // accounts have none, and they are exactly the operators most likely to be
-  // using this — so name the situation rather than rendering a blank block.
-  return 'บัญชีที่ยังไม่มีตำแหน่งในผังทีม';
-}
-const shortName = (person) => personName(person).split(' ')[0];
-
-function personDept(person) {
-  const path = Array.isArray(person?.path) ? person.path : [];
-  // The last ancestor is the immediate container — the most specific ฝ่าย.
-  return path.length ? path[path.length - 1] : '';
-}
 
 // ============================================================
 // Data
@@ -171,6 +126,7 @@ async function refresh({ quiet = false } = {}) {
   weekAnchor = new Date(board.week.starts_at);
   const weekChanged = prevWeek !== board.week.starts_at;
 
+  paintFreeNow($('claudeNow'), board.right_now);
   paintWeekMeter();
   if (weekChanged || !gridBuilt) {
     buildGrid();
@@ -178,6 +134,42 @@ async function refresh({ quiet = false } = {}) {
   }
   paintGrid();
   if (!weekChanged && keepScroll != null && scroller) scroller.scrollTop = keepScroll;
+  // The log is a second RPC over the same week, so it follows the week being
+  // browsed — but only while it is open. Closed, it costs nothing.
+  if (usageOpen) loadUsage({ quiet });
+}
+
+// ============================================================
+// The measured log — a second RPC, on demand
+// ============================================================
+let usageOpen = false;
+
+function toggleUsage() {
+  usageOpen = !usageOpen;
+  $('claudeUsageBody').classList.toggle('d-none', !usageOpen);
+  $('claudeUsageToggle').setAttribute('aria-expanded', String(usageOpen));
+  $('claudeUsageToggle').classList.toggle('is-open', usageOpen);
+  if (usageOpen) loadUsage();
+}
+
+async function loadUsage({ quiet = false } = {}) {
+  const host = $('claudeUsageBody');
+  if (!quiet) host.innerHTML = '<div class="cu-loading">กำลังโหลดข้อมูลการใช้งานจริง…</div>';
+  try {
+    const { data, error } = await dbRest('/rpc/get_claude_usage_log', {
+      method: 'POST',
+      body: { p_at: (weekAnchor || new Date()).toISOString() },
+    });
+    if (error) throw new Error(error.message || `HTTP ${error.status}`);
+    paintUsageLog(host, data);
+  } catch (e) {
+    console.warn('claude: usage log failed:', e);
+    // A failed POLL leaves what is on screen alone — it is still valid, and
+    // replacing a working panel with an error every minute is its own bug.
+    if (!quiet) {
+      host.innerHTML = '<div class="cu-loading">โหลดข้อมูลการใช้งานจริงไม่สำเร็จ</div>';
+    }
+  }
 }
 
 /**
@@ -223,6 +215,46 @@ function wire() {
   $('claudeCalBody').addEventListener('pointerdown', onDragStart);
   $('claudeCalBody').addEventListener('pointermove', onDragMove);
   window.addEventListener('pointerup', onDragEnd);
+  // Both directions of "the browser took the gesture": pointercancel is fired
+  // when it starts scrolling, and a finger lifted off-pane raises pointerup on
+  // window. Without the first, a scrolled-away drag stayed armed and the next
+  // tap anywhere opened the booking modal.
+  window.addEventListener('pointercancel', onDragCancel);
+  // `touchcancel` as well, and not as belt-and-braces theatre: the two are
+  // separate event streams, and an engine that fires one without the other
+  // leaves the drag armed — which is the whole bug. onDragCancel is idempotent,
+  // so being told twice costs nothing and being told once is enough.
+  window.addEventListener('touchcancel', onDragCancel);
+  // passive:false or preventDefault() is ignored — the default for touchmove is
+  // passive in every current browser, and a listener that cannot prevent is a
+  // listener that silently does nothing.
+  $('claudeCalScroll').addEventListener('touchmove', onTouchMove, { passive: false });
+
+  // The measured log is heavier than the board and answers a different
+  // question, so it loads when it is opened rather than on every visit.
+  $('claudeUsageToggle').addEventListener('click', toggleUsage);
+
+  // Say the gesture the device in someone's hands actually uses. `pointer:
+  // coarse` is the media query for "the primary input is a finger", which is
+  // the question being asked — not the screen width, which answers a different
+  // one and gets it wrong on a laptop with a touchscreen.
+  const coarse = window.matchMedia?.('(pointer: coarse)')?.matches;
+  $('claudeHelp').innerHTML = coarse
+    ? '<strong>แตะค้างไว้</strong>บนตารางแล้วลากเพื่อเลือกช่วงเวลา '
+      + '(แตะเฉย ๆ ใช้เลื่อนดูตารางได้ตามปกติ) — กรอบสีเขียวคือ '
+      + '<strong>เซสชัน 5 ชั่วโมง</strong> ที่เกิดจากการจองแรกของช่วงนั้น '
+      + 'ทุกคนที่จองอยู่ในกรอบเดียวกันจะแบ่งโควตา 100% ก้อนเดียวกัน'
+    : 'ลากบนตารางเพื่อเลือกช่วงเวลา — กรอบสีเขียวคือ '
+      + '<strong>เซสชัน 5 ชั่วโมง</strong> ที่เกิดจากการจองแรกของช่วงนั้น '
+      + 'ทุกคนที่จองอยู่ในกรอบเดียวกันจะแบ่งโควตา 100% ก้อนเดียวกัน';
+  // The rail has no meaning until it is named. A colour down the edge of a
+  // calendar that nobody can read is decoration, however correct the number
+  // behind it is.
+  $('claudeHelp').innerHTML += '<br><span class="claude-rail-key">'
+    + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันคือ '
+    + '<strong>โควตาที่ใช้ได้ทันทีโดยไม่ต้องจอง</strong> ถ้าเริ่มใช้ตอนนั้น — '
+    + '<i class="claude-free is-part"></i>สีส้มคือช่วงที่มีคนจองไว้แล้วบางส่วน '
+    + '<i class="claude-free is-none"></i>สีแดงคือไม่เหลือ</span>';
 
   ['claudeDate', 'claudeStart', 'claudeEnd', 'claudePct'].forEach((id) => {
     $(id).addEventListener('input', recalc);
@@ -245,13 +277,34 @@ const roundUp = (d) => {
 };
 
 // ============================================================
+// "ใช้ได้เลยตอนนี้" — the question this board is actually opened with
+// ============================================================
+//
+// Nobody books before opening Claude for ten minutes. The question people
+// arrive with is the opposite of the one a calendar answers: *I want to use it
+// NOW. How much may I take, and until when, without stepping on anyone?*
+//
+// The arithmetic is claude_free_now() (migration 0155) and it is not repeated
+// here — this renders `board.right_now`. What it adds is the SENTENCE: a number
+// with no reason beside it gets argued with, and the reason is different
+// depending on which of the two ceilings bound it.
+// ============================================================
 // Weekly meter
 // ============================================================
 function paintWeekMeter() {
   const pool = board.week.pool_pct;
   const used = board.week.used_pct;
-  $('claudeWeekUsed').textContent = used;
+  // The headline figure is what has actually been SPENT when that is known,
+  // and only falls back to the booked total when the reporter has never run.
+  // They are different quantities and the label says which one is on screen —
+  // a number whose meaning depends on a system's state elsewhere must never
+  // wear the same words in both states.
+  const rnw = board.right_now?.week;
+  const haveMeasured = rnw && rnw.used_pct != null;
+  $('claudeWeekUsed').textContent = haveMeasured ? Math.round(rnw.used_pct) : used;
   $('claudeWeekPool').textContent = pool;
+  $('claudeWeekWhat').textContent = haveMeasured
+    ? 'ใช้ไปแล้วจริงสัปดาห์นี้' : 'จองไว้แล้วสัปดาห์นี้';
   $('claudeWeekLabel').textContent =
     `${fullDate(weekStart())} ${hhmm(weekStart())} – ${fullDate(weekEnd())} ${hhmm(weekEnd())}`;
   $('claudeResetAt').textContent = stampLabel(weekEnd());
@@ -261,24 +314,49 @@ function paintWeekMeter() {
     ? `(อีก ${Math.floor(left / DAY_MS)} วัน ${Math.floor((left % DAY_MS) / HOUR_MS)} ชม.)`
     : '';
 
-  // Per-person segments. Keyed by name because the payload deliberately does
-  // not carry a user id for anyone but the reader.
-  const per = new Map();
-  board.bookings.forEach((b) => {
-    const key = personName(b.person);
-    const cur = per.get(key) || { pct: 0, color: personColor(b.person) };
-    cur.pct += b.pct;
-    per.set(key, cur);
-  });
+  // THE BAR ANSWERS "how much is left for me", not "who booked what".
+  //
+  // It used to be per-person booked segments end to end, which reads as a full
+  // week the moment a few people book — even when almost none of it has been
+  // spent. The three states someone actually needs apart are: gone (measured),
+  // promised to somebody (booked and not yet run), and genuinely free. The
+  // per-person split survives inside the promised segment and in the legend, so
+  // nothing is lost; it stops being the first thing read.
+  const rn = board.right_now;
+  const measured = rn && rn.week.left_pct != null;
+  const usedReal = measured ? Number(rn.week.used_pct) : null;
 
   const bar = $('claudeWeekBar');
   bar.innerHTML = '';
-  [...per.entries()].forEach(([name, v]) => {
+  const seg = (w, cls, style, title) => {
+    if (w <= 0) return;
     const i = document.createElement('i');
-    i.style.width = `${(v.pct / pool) * 100}%`;
-    i.style.background = v.color;
-    i.title = `${name} — ${v.pct}%`;
+    i.className = cls;
+    i.style.width = `${(w / pool) * 100}%`;
+    if (style) i.style.background = style;
+    if (title) i.title = title;
     bar.appendChild(i);
+  };
+
+  if (measured) {
+    seg(usedReal, 'is-used', null, `ใช้ไปแล้วจริง — ${pctText(usedReal)}`);
+  }
+  // The promised part, still split by person: whose claim it is stays visible.
+  //
+  // Built from the bookings that have NOT finished, not by scaling the
+  // all-bookings totals down — a person whose blocks all ran yesterday is
+  // reserving nothing, and pro-rating would draw them a slice anyway.
+  const perPending = new Map();
+  board.bookings
+    .filter((b) => !measured || new Date(b.ends_at).getTime() > Date.now())
+    .forEach((b) => {
+      const key = personName(b.person);
+      const cur = perPending.get(key) || { pct: 0, color: personColor(b.person) };
+      cur.pct += b.pct;
+      perPending.set(key, cur);
+    });
+  [...perPending.entries()].forEach(([name, v]) => {
+    seg(v.pct, 'is-booked', v.color, `${name} จองไว้ ${v.pct}%`);
   });
   // One tick per full session the pool holds: 700% IS seven sessions, and the
   // scale says so without a sentence of help text.
@@ -292,17 +370,27 @@ function paintWeekMeter() {
   $('claudeWeekScale').innerHTML =
     Array.from({ length: sessions + 1 }, (_, k) => `<span>${k}</span>`).join('');
 
+  // The legend names the three states first, then who holds the middle one.
+  // The last item is the one people came for: what is left that nobody has
+  // claimed, in sessions as well as percent, because "374%" means nothing until
+  // it is "more than three full sessions".
+  const freeLeft = measured ? Number(rn.week.free_pct) : pool - used;
   const legend = $('claudeLegend');
-  legend.innerHTML = [...per.entries()]
-    .sort((a, b) => b[1].pct - a[1].pct)
-    .map(([name, v]) => `<span class="claude-legend-item">`
-      + `<span class="claude-swatch" style="background:${v.color}"></span>`
-      + `${escHtml(name)} · <b>${v.pct}%</b></span>`)
-    .join('')
-    + `<span class="claude-legend-item">`
-    + `<span class="claude-swatch" style="background:var(--claude-track)"></span>`
-    + `ยังไม่ถูกจอง · <b>${pool - used}%</b> = อีก `
-    + `<b>${((pool - used) / board.settings.session_pool_pct).toFixed(1)}</b> เซสชัน</span>`;
+  legend.innerHTML =
+    (measured
+      ? '<span class="claude-legend-item"><span class="claude-swatch is-used"></span>'
+        + `ใช้ไปแล้วจริง · <b>${pctText(usedReal)}</b></span>`
+      : '')
+    + [...perPending.entries()]
+      .sort((a, b) => b[1].pct - a[1].pct)
+      .map(([name, v]) => '<span class="claude-legend-item">'
+        + `<span class="claude-swatch" style="background:${v.color}"></span>`
+        + `${escHtml(name)} จองไว้ · <b>${v.pct}%</b></span>`)
+      .join('')
+    + '<span class="claude-legend-item is-free">'
+    + '<span class="claude-swatch is-track"></span>'
+    + `${measured ? 'ว่างให้ใช้โดยไม่ต้องจอง' : 'ยังไม่ถูกจอง'} · <b>${pctText(freeLeft)}</b>`
+    + ` = อีก <b>${(freeLeft / board.settings.session_pool_pct).toFixed(1)}</b> เซสชัน</span>`;
 
   paintMeasured();
 }
@@ -318,9 +406,13 @@ function paintWeekMeter() {
  *   • shows how much of each real window is LEFT, with the real reset time —
  *     including when Anthropic resets early after an incident, which the
  *     configured Wed 16:00 cannot know about;
- *   • reconciles booked against actual. The booking unit is session-percent out
- *     of 700 and the API reports the weekly window as 0–100%, and those are the
- *     SAME quantity at a factor of seven, so they can be compared directly.
+ *   • carries the reset instants the configured Wed 16:00 cannot know about.
+ *
+ * The booked-vs-actual reconciliation used to live here too, on the weekly
+ * window's own 0–100 scale, one card below a bar reading 287 / 700 in session
+ * percent. Same comparison, two units, and no way to tell that they agreed. It
+ * is now stated once, in the measured log, in session percent like everything
+ * else.
  *
  * With no sample it says so, rather than hiding: an admin looking for the live
  * numbers should learn the reporter was never switched on, not see a blank.
@@ -344,11 +436,11 @@ function paintMeasured() {
   // reporter has stopped rather than that usage is quiet.
   const stale = age > 35 * 60 * 1000;
 
-  // Booked, expressed on the weekly window's own 0–100 scale so the two are
-  // the same quantity: 700 session-% IS 100% of the week.
-  const bookedWeekly = board.week.pool_pct
-    ? (board.week.used_pct / board.week.pool_pct) * 100 : 0;
-  const actualWeekly = m.seven_day_pct;
+  // NO reconciliation here any more. It printed booked-vs-actual on the WEEKLY
+  // window's 0–100 scale, directly under a bar reading 287 / 700 in session
+  // percent — the same comparison twice, in two units, one card apart. It now
+  // lives once, in the measured log, in the unit the rest of the feature uses.
+  // Two numbers that mean the same thing and do not match is worse than one.
 
   host.innerHTML =
     '<div class="claude-measured-head">'
@@ -360,7 +452,7 @@ function paintMeasured() {
     + gauge('เซสชัน 5 ชม. ตอนนี้', m.five_hour_pct, m.five_hour_resets_at)
     + gauge('โควตารายสัปดาห์', m.seven_day_pct, m.seven_day_resets_at)
     + '</div>'
-    + reconcile(bookedWeekly, actualWeekly);
+    ;
 }
 
 /** One window: how much is left, and when it comes back. */
@@ -382,22 +474,6 @@ function gauge(label, pct, resetsAt) {
     + `ใช้ไป ${used.toFixed(0)}%`
     + (reset ? ` · รีเซ็ต ${stampLabel(reset)}${left > 0 ? ` (อีก ${durLabel(left)})` : ''}` : '')
     + '</div></div>';
-}
-
-/** Booked against actual, on one scale. The reason the reporter exists. */
-function reconcile(bookedWeekly, actualWeekly) {
-  if (actualWeekly == null) return '';
-  const diff = actualWeekly - bookedWeekly;
-  const verdict = Math.abs(diff) < 1
-    ? '<span>ตรงกับที่จองไว้</span>'
-    : diff > 0
-      ? `<span class="claude-over">ใช้เกินที่จองไว้ ${diff.toFixed(0)}%</span>`
-      : `<span class="claude-under">ใช้น้อยกว่าที่จองไว้ ${Math.abs(diff).toFixed(0)}%</span>`;
-  return '<div class="claude-reconcile">'
-    + `<span>สัปดาห์นี้ จองไว้ <b>${bookedWeekly.toFixed(0)}%</b></span>`
-    + `<span>ใช้จริง <b>${Number(actualWeekly).toFixed(0)}%</b></span>`
-    + verdict
-    + '</div>';
 }
 
 /** "3 นาทีที่แล้ว" — a timestamp answers "when", this answers "is it live". */
@@ -487,7 +563,7 @@ function splitAcrossDays(start, end) {
 
 function paintGrid() {
   document.querySelectorAll('.claude-daycol').forEach((c) => {
-    c.querySelectorAll('.claude-session,.claude-bk,.claude-dead,.claude-nowline,.claude-sel')
+    c.querySelectorAll('.claude-session,.claude-bk,.claude-dead,.claude-nowline,.claude-sel,.claude-free')
       .forEach((n) => n.remove());
   });
 
@@ -500,6 +576,52 @@ function paintGrid() {
   addDead(last, bookableRange(cols[last].getTime()).max, 1440, 'โควตาสัปดาห์ถัดไป', 'is-after');
 
   const pool = board.settings.session_pool_pct;
+
+  // ── "how much may I take if I start HERE" ─────────────────────────────────
+  //
+  // A capacity RAIL down the left edge of each column, not a wash over the
+  // whole column: the answer is a property of a START TIME, and it has to be
+  // readable next to the bookings that cause it rather than tinted underneath
+  // them. Bookings begin at 9px, so the rail owns the strip beside them and
+  // nothing overlaps.
+  //
+  // Segments come from claude_free_windows() — the same claude_free_now() the
+  // hero panel prints, evaluated at each instant where the answer can change.
+  // Nothing here recomputes it; a second implementation of this rule in
+  // JavaScript would drift from the trigger within a week.
+  //
+  // Only the current week has any: for a later week the weekly remainder is not
+  // knowable yet, and a plausible-looking number would be a lie.
+  (board.free_windows || []).forEach((fw) => {
+    const free = Math.round(Number(fw.free_pct));
+    const s = new Date(fw.starts_at).getTime();
+    const e = new Date(fw.ends_at).getTime();
+    splitAcrossDays(s, e).forEach((seg, idx) => {
+      const col = colFor(seg.i);
+      if (!col) return;
+      const el = document.createElement('div');
+      el.className = 'claude-free'
+        + (free <= 0 ? ' is-none' : free < pool ? ' is-part' : ' is-full');
+      el.style.top = `${yForMin(seg.sMin)}px`;
+      el.style.height = `${Math.max(2, yForMin(seg.eMin) - yForMin(seg.sMin))}px`;
+      el.title = free > 0
+        ? `เริ่มใช้ในช่วงนี้ได้ ${free}% โดยไม่ต้องจอง`
+        : 'ช่วงนี้ไม่เหลือโควตาให้ใช้โดยไม่จอง';
+      // Label the first day-segment, and any CONTINUATION long enough to be
+      // read as its own band. Labelling only idx 0 left a whole column of อ 18
+      // drawing a 968px ribbon with nothing on it — a colour with no number is
+      // a decoration, and the number is the entire point. Found by measuring
+      // the painted bands, not by reading the loop.
+      if ((idx === 0 || seg.eMin - seg.sMin >= 180) && seg.eMin - seg.sMin >= 45) {
+        const tag = document.createElement('span');
+        tag.className = 'claude-free-tag';
+        tag.textContent = free > 0 ? `ว่าง ${free}%` : 'เต็ม';
+        el.appendChild(tag);
+      }
+      col.appendChild(el);
+    });
+  });
+
   board.sessions.forEach((sn) => {
     const full = sn.used_pct >= pool;
     const s = new Date(sn.starts_at).getTime();
@@ -576,35 +698,199 @@ function addDead(colIdx, sMin, eMin, label, edge) {
 }
 
 // ============================================================
-// Drag to select
+// How far may a block starting HERE run?
 // ============================================================
-let drag = null;
+//
+// Three things can stop it, and until now none of them stopped anything until
+// you pressed ยืนยัน and the database said no:
+//
+//   • the 5-hour ceiling;
+//   • the edge of the session this block would sit in — one booking belongs to
+//     exactly one session or its percentage means nothing;
+//   • the next booking or the next session already on the board.
+//
+// WHY CLAMP RATHER THAN SPLIT. Consider 03:00–06:45 booked, which opens a
+// session running to 08:00, and someone now wants 06:45–13:00. Splitting that
+// into 06:45–08:00 + 08:00–13:00 automatically looks kind and is not: the two
+// halves draw from DIFFERENT pools — the first from whatever the 03:00 session
+// has left, the second from a fresh 100% — so one `pct` cannot describe both,
+// and the system would have to invent the division. Worse, the first half can
+// be REFUSED (that session may have 10% left) while the second succeeds,
+// leaving half a booking nobody asked for.
+//
+// So the block stops at the edge, the edge is DRAWN and explained, and the
+// second booking is offered as one tap with the remaining time already filled
+// in. One press still makes one row; the boundary stays visible, which matters
+// because it is real — it is how Claude meters, not a rule this app invented.
+function limitsFor(startMs) {
+  const span = sessionMs();
+  let maxEnd = startMs + span;
+  let reason = null;
+
+  // Inside an existing session? Then this block belongs to it, and its edge is
+  // the ceiling — that is the straddle the 0154 trigger refuses.
+  const host = board.sessions.find((sn) => {
+    const ss = new Date(sn.starts_at).getTime();
+    return startMs >= ss && startMs < ss + span;
+  });
+  if (host) {
+    const edge = new Date(host.starts_at).getTime() + span;
+    if (edge < maxEnd) { maxEnd = edge; reason = 'session'; }
+  } else {
+    // Otherwise the next session's opening is the wall: a block reaching past
+    // it would straddle that session's start.
+    board.sessions.forEach((sn) => {
+      const ss = new Date(sn.starts_at).getTime();
+      if (ss > startMs && ss < maxEnd) { maxEnd = ss; reason = 'session'; }
+    });
+  }
+
+  // And nothing may overlap an existing block — the exclusion constraint. Doing
+  // this here as well as in the database is not a second implementation of the
+  // rule; it is refusing to let someone DRAW something the rule forbids.
+  board.bookings.forEach((b) => {
+    if (editing && b.id === editing.id) return;
+    const bs = new Date(b.starts_at).getTime();
+    if (bs > startMs && bs < maxEnd) { maxEnd = bs; reason = 'booking'; }
+  });
+
+  // The quota week itself.
+  if (weekEnd().getTime() < maxEnd) { maxEnd = weekEnd().getTime(); reason = 'week'; }
+
+  return { maxEnd, reason };
+}
+
+/** Is this instant already inside somebody's block? Nothing may start there. */
+function insideBooking(ms) {
+  return board.bookings.some((b) => {
+    if (editing && b.id === editing.id) return false;
+    return ms >= new Date(b.starts_at).getTime() && ms < new Date(b.ends_at).getTime();
+  });
+}
+
+// ============================================================
+// Drag to select — and, with a finger, HOLD to select
+// ============================================================
+//
+// A mouse presses without scrolling, so for a mouse this is unchanged: press,
+// drag, release. A finger cannot — every scroll of this eight-day, 24-hour grid
+// begins with a press on a day column, so a press alone cannot mean "book
+// here". On an iPad it meant both, and the two failures that produced are in
+// gesture.js: a tap opened the modal, and a scroll left the drag ARMED so the
+// next tap anywhere — the week arrows at the top of the pane — opened it too.
+//
+// So a finger must hold still for HOLD_MS first. Holding still is the one thing
+// a scroll never does.
+let drag = null;      // a live selection
+let pending = null;    // a finger waiting out the hold
+
 const snapMin = (m) => Math.max(0, Math.min(1440, Math.round(m / SLOT_MIN) * SLOT_MIN));
 
-function onDragStart(ev) {
-  const col = ev.target.closest('.claude-daycol');
-  if (!col || ev.target.closest('.claude-bk')) return;
+/** Where in the week is this pointer, and may a selection start there?
+ *  null when it may not — outside a column, on an existing booking, or in the
+ *  hatched sliver that belongs to a neighbouring quota week. */
+function seedFor(ev) {
+  const col = ev.target.closest?.('.claude-daycol');
+  if (!col || ev.target.closest('.claude-bk')) return null;
   const rect = col.getBoundingClientRect();
   const dayStart = Number(col.dataset.dayStart);
   const range = bookableRange(dayStart);
   const start = snapMin(((ev.clientY - rect.top) / hourH()) * 60);
-  // Starting inside a hatched sliver means a different quota week. Refuse the
-  // drag outright rather than booking a block this view will not draw — the
-  // bug this replaces let exactly that happen, silently.
-  if (start < range.min || start >= range.max) return;
-  drag = { col, rect, start, cur: start, dayStart, range };
+  // Starting inside a hatched sliver means a different quota week. Refuse
+  // outright rather than booking a block this view will not draw — the bug this
+  // replaces let exactly that happen, silently.
+  if (start < range.min || start >= range.max) return null;
+  // A block already occupies this minute. Overlapping is refused by the
+  // exclusion constraint, so let nobody draw one.
+  if (insideBooking(dayStart + start * MIN_MS)) return null;
+  return { col, rect, start, cur: start, dayStart, range };
+}
+
+function beginDrag(seed, ev, viaTouch) {
+  drag = { ...seed, viaTouch };
   const box = document.createElement('div');
-  box.className = 'claude-sel';
+  box.className = 'claude-sel' + (viaTouch ? ' is-armed' : '');
   box.id = 'claudeSelBox';
-  col.appendChild(box);
+  seed.col.appendChild(box);
   paintSel();
-  col.setPointerCapture(ev.pointerId);
+  try { seed.col.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
+}
+
+function clearPending() {
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  pending.col.classList.remove('is-holding');
+  pending = null;
+}
+
+function onDragStart(ev) {
+  clearPending();
+  const intent = pressIntent(ev);
+  if (intent === 'ignore') return;
+  const seed = seedFor(ev);
+  if (!seed) return;
+
+  if (intent === 'drag') { beginDrag(seed, ev, false); return; }
+
+  // A finger: arm, and let the browser keep the gesture until we know.
+  pending = {
+    ...seed,
+    x: ev.clientX,
+    y: ev.clientY,
+    timer: setTimeout(() => {
+      const seedNow = pending;
+      if (!seedNow) return;
+      seedNow.col.classList.remove('is-holding');
+      pending = null;
+      // A hold with no drag is already a complete gesture, so it produces a
+      // real block rather than the 15-minute sliver a stray tap used to make.
+      beginDrag({ ...seedNow, cur: seedNow.start + HOLD_MIN }, ev, true);
+      // Android/desktop honour this; iOS ignores it silently. The visible
+      // change of state is what actually tells everyone the hold took.
+      navigator.vibrate?.(12);
+    }, HOLD_MS),
+  };
+  seed.col.classList.add('is-holding');
 }
 
 function onDragMove(ev) {
+  // Still waiting out the hold: any real movement means this was a scroll.
+  if (pending) {
+    if (movedTooFar(ev.clientX - pending.x, ev.clientY - pending.y)) clearPending();
+    return;
+  }
   if (!drag) return;
   drag.cur = snapMin(((ev.clientY - drag.rect.top) / hourH()) * 60);
   paintSel();
+}
+
+/**
+ * The browser has taken the gesture over — almost always to scroll.
+ *
+ * Nothing was listening for this, and that is the whole of report #3: a
+ * cancelled drag stayed armed, so the next `pointerup` ANYWHERE ran onDragEnd
+ * and opened the booking modal. The pointerup listener is on `window` by
+ * necessity (a drag may end outside the column), which is exactly what made the
+ * stale state reachable from the other end of the pane.
+ */
+function onDragCancel() {
+  clearPending();
+  if (!drag) return;
+  drag = null;
+  $('claudeSelBox')?.remove();
+}
+
+/**
+ * Refuse the browser's scroll, but only while a finger-selection is live.
+ *
+ * Deliberately NOT `touch-action: none` in the stylesheet: that would make the
+ * calendar unscrollable with a finger, which is its own entry in this repo's
+ * mistakes log. The hold only fires while the finger is STILL, so at that
+ * moment no scroll has begun — and a scroll that has not begun can still be
+ * refused. Once one is under way, preventDefault does nothing.
+ */
+function onTouchMove(ev) {
+  if (shouldBlockScroll(drag)) ev.preventDefault();
 }
 
 function paintSel() {
@@ -622,14 +908,33 @@ function paintSel() {
   if (b - a > maxMin) {
     if (drag.cur >= drag.start) b = a + maxMin; else a = b - maxMin;
   }
+  // …and to the first real wall past the start: a session edge, the next
+  // booking, or the weekly reset. The same limitsFor() the modal uses, because
+  // a rule enforced on one entry point is not enforced (class 4).
+  const lim = limitsFor(drag.dayStart + a * MIN_MS);
+  const maxB = (lim.maxEnd - drag.dayStart) / MIN_MS;
+  const hitWall = b > maxB;
+  if (hitWall) b = Math.max(a + SLOT_MIN, maxB);
+
   drag.a = a; drag.b = b;
+  box.classList.toggle('is-capped', hitWall);
   box.style.top = `${yForMin(a)}px`;
   box.style.height = `${yForMin(b) - yForMin(a)}px`;
   box.textContent = `${pad(Math.floor(a / 60))}:${pad(a % 60)} – `
-    + `${pad(Math.floor(b / 60) % 24)}:${pad(b % 60)} (${durLabel((b - a) * MIN_MS)})`;
+    + `${pad(Math.floor(b / 60) % 24)}:${pad(b % 60)} (${durLabel((b - a) * MIN_MS)})`
+    + (hitWall ? ` · สุดขอบ${WALL_WORD[lim.reason] || ''}` : '');
 }
 
+const WALL_WORD = {
+  session: 'เซสชัน',
+  booking: 'การจองถัดไป',
+  week: 'สัปดาห์',
+};
+
 function onDragEnd() {
+  // A finger that let go before the hold fired was scrolling, or changed its
+  // mind. Either way it books nothing — the tap-opens-the-modal bug.
+  clearPending();
   if (!drag) return;
   const d = drag;
   drag = null;
@@ -687,10 +992,20 @@ function openModal({ start, end, edit = null } = {}) {
 function paintIdCard(edit) {
   const host = $('claudeIdCard');
   // Editing shows whose booking it is; a new booking shows the signed-in
-  // account, resolved the same way — through the board's projection when we
-  // have a row of theirs, else from the session profile.
-  const mine = board.bookings.find((b) => b.is_mine);
-  const person = edit ? edit.person : (mine ? mine.person : null);
+  // account — from `board.me`, which the server resolves through the same
+  // projection as everyone else on the board.
+  //
+  // This used to hunt for a booking of yours in the week on screen and fall
+  // back to the raw account when it found none, so browsing to a week you had
+  // not booked in showed "Phuriphat Mahapromrak · ยังไม่มีตำแหน่งในผังทีม" for
+  // the same person the current week named correctly. Identity is not a
+  // property of which week is open.
+  // An account with no ตำแหน่ง in the tree resolves to a projection with a null
+  // name. That is not an identity, so it must not displace the account's own
+  // name — otherwise the card reads "บัญชีที่ยังไม่มีตำแหน่งในผังทีม" for
+  // somebody the sign-in screen greeted by name a moment ago.
+  const me = board.me?.name ? board.me : null;
+  const person = edit ? edit.person : me;
   const user = getUser();
   const name = person ? personName(person) : (user?.name || user?.email || 'บัญชีของคุณ');
   const dept = person ? personDept(person) : '';
@@ -760,6 +1075,27 @@ function recalc() {
   if (eMin <= sMin) { eMin = Math.min(1440, sMin + 60); $('claudeEnd').value = String(eMin); }
   if (eMin - sMin > maxMin) { eMin = sMin + maxMin; $('claudeEnd').value = String(eMin); }
 
+  // The wall, applied to the SELECTS as well as to the drag. What the person
+  // asked for is remembered, because the leftover is what the continuation
+  // offer below is made of — clamping without keeping it would silently throw
+  // away the half of the request the board cannot take.
+  const dayBase = formRange().s.getTime() - sMin * MIN_MS;
+  const lim = limitsFor(dayBase + sMin * MIN_MS);
+  const wallMin = (lim.maxEnd - dayBase) / MIN_MS;
+  const wanted = eMin;
+  continuation = null;
+  if (eMin > wallMin) {
+    eMin = Math.max(sMin + SLOT_MIN, wallMin);
+    $('claudeEnd').value = String(eMin);
+    if (wanted - eMin >= SLOT_MIN) {
+      continuation = {
+        start: new Date(dayBase + eMin * MIN_MS),
+        end: new Date(dayBase + wanted * MIN_MS),
+        reason: lim.reason,
+      };
+    }
+  }
+
   const { s, e } = formRange();
   const pr = probeSession(s, e);
   const remaining = pr.isNew ? pool : pool - pr.used;
@@ -803,7 +1139,23 @@ function recalc() {
   ].join('');
 
   const notes = [];
-  if (pr.straddled) {
+  // The clamp, explained where it bit. Not an error: nothing is wrong, the
+  // block simply stops at a real boundary — and the rest of what was asked for
+  // is offered as the next booking rather than dropped on the floor.
+  if (continuation) {
+    const why = continuation.reason === 'booking'
+      ? `มีคนจองต่อจาก <strong>${escHtml(hhmm(continuation.start))}</strong> อยู่แล้ว`
+      : continuation.reason === 'week'
+        ? `<strong>${escHtml(hhmm(continuation.start))}</strong> คือเวลารีเซ็ตโควตาสัปดาห์`
+        : `เซสชัน 5 ชั่วโมงรอบนี้จบที่ <strong>${escHtml(hhmm(continuation.start))}</strong>`
+          + ' — หนึ่งการจองต้องอยู่ในเซสชันเดียว โควตาคนละก้อนกัน';
+    notes.push(noteHtml('info',
+      `${why} จึงจองได้ถึง <strong>${escHtml(hhmm(continuation.start))}</strong> ก่อน`
+      + `<br>กด “${escHtml($('claudeSave').textContent)}” แล้วระบบจะเปิดฟอร์มให้จองช่วง `
+      + `<strong>${escHtml(hhmm(continuation.start))}–${escHtml(hhmm(continuation.end))}</strong>`
+      + ' ต่อให้ทันที'));
+  }
+  if (pr.straddled && !continuation) {
     notes.push(noteHtml('crit',
       `ช่วงนี้คร่อมขอบเซสชันที่เริ่ม <strong>${escHtml(stampLabel(new Date(pr.straddled.starts_at)))}</strong>`
       + ' — หนึ่งการจองต้องอยู่ในเซสชัน 5 ชั่วโมงเดียว ลองเลื่อนเวลาเริ่ม'));
@@ -832,15 +1184,22 @@ function recalc() {
   }
   $('claudeNotes').innerHTML = notes.join('');
 
-  $('claudeSave').disabled = notes.length > 0;
+  // Only a CRITICAL note blocks the save. The continuation note is information
+  // about a boundary the form has already respected — disabling ยืนยัน on it
+  // would refuse the very booking it just made legal.
+  $('claudeSave').disabled = notes.some((n) => n.includes('claude-note crit'));
 }
 
 const ledgerRow = (k, v, cls = '') =>
   `<div class="claude-ledger-row"><span class="claude-lk">${escHtml(k)}</span>`
   + `<span class="claude-lv ${cls}">${escHtml(v)}</span></div>`;
 
+/** The icon follows the KIND. An info note wearing a warning triangle reads as
+ *  a problem, and this one is the opposite — it is the form telling you it has
+ *  already handled a boundary for you. */
 const noteHtml = (kind, html) =>
-  `<div class="claude-note ${kind}"><i class="bi bi-exclamation-triangle-fill"></i>`
+  `<div class="claude-note ${kind}">`
+  + `<i class="bi ${kind === 'info' ? 'bi-info-circle-fill' : 'bi-exclamation-triangle-fill'}"></i>`
   + `<div>${html}</div></div>`;
 
 // ============================================================
@@ -890,9 +1249,25 @@ async function save() {
 
     modalRef?.hide();
     const wasEdit = !!editing;
+    const next = continuation;
     editing = null;
+    continuation = null;
     await refresh();
     if (!wasEdit) notifyBooked(saved);
+
+    // The half the session edge cut off, offered as its own booking with the
+    // times already in place — announced BEFORE the save, so this is the thing
+    // that was promised and not a surprise. The purpose carries over because it
+    // is the same piece of work; only the pool is different.
+    if (next) {
+      const lim = limitsFor(next.start.getTime());
+      const end = new Date(Math.min(next.end.getTime(), lim.maxEnd));
+      if (end.getTime() - next.start.getTime() >= SLOT_MIN * MIN_MS) {
+        openModal({ start: next.start, end });
+        $('claudePurpose').value = purpose;
+        recalc();
+      }
+    }
   } catch (err) {
     $('claudeNotes').innerHTML = noteHtml('crit', escHtml(err.message || String(err)));
   } finally {
