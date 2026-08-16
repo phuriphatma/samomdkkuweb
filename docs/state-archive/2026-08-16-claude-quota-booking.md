@@ -207,3 +207,33 @@ a surprise. One press still makes one row.
 - **The browser probe's own coordinates were wrong twice**, and both times the
   result was PASS. `docs/mistakes/tooling-proofs.md`. Every synthetic tap now
   carries an `elementFromPoint` control.
+
+
+---
+
+# Security posture (moved out of STATE.md, verified 2026-08-16)
+
+Checked rather than assumed, because the owner asked directly.
+
+- **Nothing leaked to git.** `sk-ant-oat01` appears in **0** commits; the only
+  `discord.com/api/webhooks/...` strings ever committed are the `xxx/yyy`
+  placeholders in `*.example`; `dist/` carries neither. `.env.local` is ignored.
+- **What DID leak is the chat transcript** — the Discord webhook and the Claude
+  token were both pasted there. That is the real exposure surface, not the repo.
+- **Blast radius if the VM is compromised**: an attacker gets a credential that
+  can make inference calls, i.e. burn the 5-hour/weekly QUOTA. Self-healing at
+  the next reset, and revocable.
+- **It cannot spend MONEY.** Read live from the account:
+  `extra_usage.is_enabled=false`, `user_disabled=true`, `spend.enabled=false`,
+  `can_purchase_credits=false`, `can_toggle=false`, `spend.used=0`. Billing and
+  plan changes need a claude.ai WEB session (cookies), a different credential
+  that never touches the VM. **Keep usage credits disabled — that setting is
+  doing real work as a spend ceiling.**
+- Both VM secret files are `-rw------- root root`:
+  `/etc/samo-notify.env`, `/etc/samo-claude-usage.env`.
+- `claude-reporter@samomdkku.app` is a DEDICATED account holding only
+  `claude` — least privilege, so the credential in `/etc` can insert usage
+  samples and read the board and nothing else. Password in `/etc` (600) only,
+  never in git, never printed. Created by direct `auth.users` insert; that needs
+  the GoTrue token columns set to `''` not NULL or every sign-in 500s with
+  "Database error querying schema".

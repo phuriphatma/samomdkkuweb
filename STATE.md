@@ -21,14 +21,12 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `1e752d5` (2026-08-16)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifacts: `get_claude_usage_log`,
-  `free_windows`, `ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง`, `แตะค้างไว้` and
-  `pointercancel` in `admin-2IUWXJd9.js`; `claude-free-tag`, `cu-line-week`,
-  `claude-now-pct` in the `admin-*.css` the served HTML actually links; **0** in
-  the served `public-*.js` (the pane is admin-only — that is the control).
-  PostgREST resolves both RPCs (42501, not 404), so its schema cache is current
-  and anon is refused. Check rather than trust — EMPTY means prod is current:
+- ✅ **DEPLOYED = `d83308c` (2026-08-16)** — working tree clean, local == origin == VM.
+  Verified from the SERVED artifacts: `ว่างให้ใช้เลย โดยไม่ต้องจอง`,
+  `จำกัดด้วยโควตาสัปดาห์`, `claude-week-fig-block`, `ช่วงนี้มีคนจองไว้แล้ว`,
+  `hidden.bs.modal` in the admin JS; `--claude-lane`, `--claude-part`,
+  `claude-free.is-held` in the admin CSS; **0** in the served `public-*.js`
+  (the pane is admin-only — that is the control). Check rather than trust — EMPTY means prod is current:
 
   ```bash
   git diff --stat 2f80973..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
@@ -36,7 +34,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0157.** **1057 tests green.**
+  **Migrations applied through 0158.** **1057 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -111,11 +109,9 @@ of the gate; re-derive it from the function's own `if`.**
 `docs/mistakes/tooling-proofs.md`. **Do not carry this claim forward without
 re-running — it went stale silently, and an errored proof is silence.**
 
-**Do not check them with an ad-hoc parser.** They emit four different output
-shapes, and doing it by hand produced two false alarms in a row (a fully green
-proof read as "0/23 FAIL", then four more as N-1/N because each file's own
-`ALL PASS` summary row was counted as a failing case). `tools/run-proofs.mjs`
-normalises them and reports **UNKNOWN as a failure** for output it cannot read.
+**Do not check them with an ad-hoc parser** — they emit four different output
+shapes and doing it by hand produced two false alarms in a row.
+`tools/run-proofs.mjs` normalises them and reports UNKNOWN as a FAILURE.
 
 Run the one covering what you touch. All are both-directional.
 **Read `skills/write-a-guard.md` before writing or trusting any of them.**
@@ -173,32 +169,16 @@ Run the one covering what you touch. All are both-directional.
   shop ADMINS and the guard early-returns for one, so a proof that picks a real
   order reports that a buyer may set the total to ฿1.
 
-## จองโควตา Claude — security posture (verified 2026-08-16)
+## จองโควตา Claude — security posture
 
-Checked rather than assumed, because the owner asked directly.
-
-- **Nothing leaked to git.** `sk-ant-oat01` appears in **0** commits; the only
-  `discord.com/api/webhooks/...` strings ever committed are the `xxx/yyy`
-  placeholders in `*.example`; `dist/` carries neither. `.env.local` is ignored.
-- **What DID leak is the chat transcript** — the Discord webhook and the Claude
-  token were both pasted there. That is the real exposure surface, not the repo.
-- **Blast radius if the VM is compromised**: an attacker gets a credential that
-  can make inference calls, i.e. burn the 5-hour/weekly QUOTA. Self-healing at
-  the next reset, and revocable.
-- **It cannot spend MONEY.** Read live from the account:
-  `extra_usage.is_enabled=false`, `user_disabled=true`, `spend.enabled=false`,
-  `can_purchase_credits=false`, `can_toggle=false`, `spend.used=0`. Billing and
-  plan changes need a claude.ai WEB session (cookies), a different credential
-  that never touches the VM. **Keep usage credits disabled — that setting is
-  doing real work as a spend ceiling.**
-- Both VM secret files are `-rw------- root root`:
-  `/etc/samo-notify.env`, `/etc/samo-claude-usage.env`.
-- `claude-reporter@samomdkku.app` is a DEDICATED account holding only
-  `claude` — least privilege, so the credential in `/etc` can insert usage
-  samples and read the board and nothing else. Password in `/etc` (600) only,
-  never in git, never printed. Created by direct `auth.users` insert; that needs
-  the GoTrue token columns set to `''` not NULL or every sign-in 500s with
-  "Database error querying schema".
+Verified 2026-08-16 and unchanged since; the detail moved to
+`docs/state-archive/2026-08-16-claude-quota-booking.md`. The three facts that
+matter: **nothing leaked to git** (the token appears in 0 commits), the
+credential on the VM can burn QUOTA but **cannot spend money**
+(`extra_usage.is_enabled=false`, `can_purchase_credits=false` — keep it that
+way, that setting is doing real work), and `claude-reporter@samomdkku.app`
+holds only `claude`. ⚠️ A `setup-token` pasted in chat is STILL LIVE; only the
+owner can revoke it.
 
 ## OTHER SYSTEMS — stable, nothing owed
 
@@ -229,6 +209,68 @@ because two copies of one rule is the class this repo pays for most.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
+## จองโควตา Claude — THE FEATURE THIS SESSION REBUILT (read before touching it)
+
+Five migrations in one day (0154 → 0158) and **every single fix came from the
+owner testing live**. The pattern is worth more than the code: each bug was a
+number that was ARITHMETICALLY RIGHT and MEANT something else.
+
+**The two rules that produced four of the five bugs:**
+
+1. **Two quantities in one subtraction must share an INSTANT.** 0156 (the week
+   card read `right_now`, so browsing ahead showed today's usage) and 0158 (the
+   weekly remainder subtracted a FUTURE reservation list from a PRESENT
+   measurement, so finished bookings appeared to hand their quota back and
+   `week_free` climbed 10 → 60 → 160 → 260 → 360). Both were invisible in
+   review, because the present is the one instant where every scope agrees —
+   and it is the instant you are looking at while you build.
+
+2. **A readout is only correct where its question applies.** The rail's
+   `claude_free_now()` really is 50 inside somebody's block — and the rail says
+   "free to use without booking", so it was inviting the collision booking
+   exists to prevent. Now carved out and drawn as a hatched "held" state.
+
+**The three panels and their scopes — do not cross them:**
+
+| Panel | Scope | Source |
+|---|---|---|
+| `ใช้ได้เลยตอนนี้` (hero) | this instant | `claude_free_now()` |
+| the week card | the week ON SCREEN | `board.week.*` (0156) |
+| the rail | per START TIME | `claude_free_windows()` |
+
+**Colour carries meaning here:** clay = MEASURED (Claude's own number) · green =
+free · ฝ่าย colours = booked by a person · amber = partly available · red = none
+· hatch = held by someone. Amber was `--brand-orange` and had to move: it sat
+one hue-step from clay and "partly booked" started looking like "actually used".
+
+**The rail's semantics, exactly:** a band means "start anywhere in here and you
+may take this much", and its END is the LATEST START that still earns it. That
+is why `booking_start − 5h` is a boundary — a session begun exactly then ends as
+their block opens and shares with nobody. Bands are evaluated one second INSIDE,
+never at the edge (0157).
+
+**Guards, and what they cost to get right:**
+- `tools/claude0157-rail-segments.sql` (10/10) asserts the PROPERTY ("the answer
+  does not change inside a band"), **not a list of boundaries — because the bug
+  WAS a wrong list**: 0155's header named four instants and the code had three.
+- Its §B first asserted every band's end earns that band's number; three bands
+  failed and the ASSERTION was wrong, not the code.
+- Its sample is DERIVED from the booked total: hardcoded, the live week capped
+  every band and the controls B3/B4 correctly went red.
+- `tools/claude0155-free-now.sql` (22/22) — C3 asserted the opposite of the
+  truth and went red the moment 0158 landed. That is the right way round.
+- `src/js/claude/gesture.test.js` (35) — the touch gesture, the lane, the
+  identity. Three of its assertions were BLIND on first write (a regex that ran
+  past the end of a function; `.match` without `/g` reading the wrong CSS rule;
+  `toContain('carve(')` matching the definition).
+- Browser probes live in the scratchpad, not the repo: a 13-case iPad touch run
+  and a painted-box overlap check. **The touch run's ALLOW case is what caught
+  a harness where the modal counter had been dropped** and every "opens no
+  modal" case was passing vacuously.
+
+⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
+at 30, polled every 60 s per open tab. Fine at real scale; see the note above.
+
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
@@ -236,14 +278,22 @@ because two copies of one rule is the class this repo pays for most.
 > through **0155** applied; **1047 tests green**; `npm run proofs` 15/15 as of
 > 2026-08-15, plus `claude0155-free-now.sql` 21/21 re-run today.
 >
-> **The last session was จองโควตา Claude again**, answering four owner reports
-> from a day of using 0154: the iPad touch mess (hold-to-book), the week-arrow
-> "shows my profile" (a stale drag), the id card naming the wrong person in
-> another week, and — the one that changed the feature — **"ใช้ได้เลยตอนนี้"**,
-> how much may be used right now without booking, and until when. Plus the
-> measured 15-minute log and a capacity rail on the calendar. Migration 0155.
-> It is done, deployed and verified — the only thing owed is still granting the
-> `claude` permission to whoever should book.
+> **The last session was จองโควตา Claude, front to back, five migrations
+> (0154 → 0158) and eleven owner reports.** It is done, deployed and verified.
+> **Read the "จองโควตา Claude" section above before touching `/admin#claude`** —
+> it has the three panels and their scopes, the colour system, the rail's exact
+> semantics, and what the guards cost to get right. The archive file
+> `docs/state-archive/2026-08-16-claude-quota-booking.md` has the reasoning.
+>
+> **The one thing still owed: grant the `claude` permission** in ทีม SAMO to
+> whoever should book. Exactly ONE account holds it today.
+>
+> **Two habits this session paid for, in case they save you the money:**
+> **render the view you changed** (three bugs were only visible in a
+> screenshot, and one — the rail overlapping the session frame — was invisible
+> in the stylesheet and obvious in the painted boxes), and **when a number
+> looks right, check the SENTENCE around it is true everywhere it is drawn.**
+> Four of the five bugs were correct arithmetic answering the wrong question.
 > **Read `docs/state-archive/2026-08-16-claude-quota-booking.md` before touching
 > `/admin#claude`** — especially the three bugs the owner found, the two dead
 > ends (`setup-token` cannot read usage; local-log tools cannot see a shared
