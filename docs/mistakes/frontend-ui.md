@@ -2689,3 +2689,55 @@ rate limit and, here, rotates an OAuth credential 96×/day), look for a field
 already in the payload that pins an edge exactly. And when precision is uneven
 across a picture, DRAW it uneven: an exact edge and a fifteen-minute guess that
 look identical are a claim you did not measure.
+
+---
+
+## "why does it show color weird" / "i still see rail weird" — a magnitude encoding that was too loud, three times
+
+**Symptom.** The capacity rail bucketed a continuous 0–100% into one amber, so
+*"the bar 98% show yellow, and the 25% also show yellow, may make user
+misunderstood that it's also 98%"*. Three attempts at the fix were each reported
+back within minutes.
+
+**What each attempt got wrong, and it is the same mistake at three sizes:**
+
+1. **Solid saturated fill.** A band is ~8px wide and often many HOURS tall, so
+   full saturation is a column of mustard hard against the day divider. It read
+   as a rule, not as data. The design it replaced was a 30%-alpha wash for
+   exactly this reason — the alpha was load-bearing and looked like styling.
+2. **Quiet fill + a saturated 2px right edge.** Fixed the wide bands and made
+   the narrow ones worse: that week's quota was ~6% free everywhere, so every
+   band sat on its 2.5px minimum and 2.5px of fill under a 2px border is
+   *almost all border* — a hard gold line down all seven days.
+3. **A column-wide track** to read the bar against. Once it was strong enough to
+   be a container it drew an **empty gauge** down every day with no reading at
+   all, which states "nothing available" where the truth is "no data".
+
+⚠️ **And clipping the band deleted every number on it.** Splitting the rail into
+track + fill needed the fill's corners rounded, and `overflow: hidden` on the
+band was the quick way. But `.claude-free-tag` is a CHILD at
+`left: calc(100% + 3px)` — outside the band on purpose, because "100%" does not
+fit in a 10px lane — so the clip removed every percentage. Reported as *"it
+doesn't show the percentage of rail anymore"*.
+
+**The browser probe could not see it.** It measured the tag's own `scrollWidth`
+(unaffected by an ancestor clipping it) and counted label COLLISIONS — of which
+there were now zero, because no label was visible. **A guard that asks "do these
+overlap" scores "none of them exist" as a pass.**
+
+**Fix.** Colour alone, four validated steps, full width — the owner's call:
+*"i just want the color full, you seperate color like that is enough"*. The
+percentage beside each band carries the precision.
+
+**Where it lives now.** `.claude-free.is-full/.is-part/.is-low/.is-none` in
+`src/css/claude.css`, thresholds in `paintGrid()`, guarded in
+`window-share.test.js` (including "the band never clips its own label" and "no
+width encoding", both falsified).
+
+**The general rule.** *A colour scale is computable — compute it.* Two candidate
+steps were rejected by `dataviz/scripts/validate_palette.js` on numbers no eye
+would produce: a burnt orange for the low step is ΔE 10.4 from the clay
+"measured" colour (the collision this repo had already paid for once), and
+`#a67c00` is 14.0 from the amber, under the 15 floor. And *the same encoding is
+a different object at 2px and at 8px* — decide it at the size it will actually
+be drawn, over the data that actually exists, not on a swatch.

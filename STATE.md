@@ -430,14 +430,15 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Migrations through **0162**; **1110 tests green**; **all 21 proofs green**.
+> Local == origin == VM. Migrations through **0163**; **1122 tests green**;
+> **all 21 proofs green**. Deployed and verified from the served artifacts.
 >
 > ### What the last session was
 >
-> **จองโควตา Claude — one bug and two UI asks, all from the owner testing
-> live.** Migrations 0161 and 0162. **Read the "จองโควตา Claude" section above
-> before touching `/admin#claude`**; its §0161 and §0162 have the four things
-> that cost real time:
+> **จองโควตา Claude only — three migrations (0161, 0162, 0163) and a UI pass,
+> every item from the owner testing live and reporting in bursts.** Read the
+> "จองโควตา Claude" section above before touching `/admin#claude`. The five
+> things that cost real time:
 >
 > 1. **The rail was a SECOND author of the window rule** (0161).
 >    `claude_free_now()` took its 5-hour window from the CLOCK; the trigger's
@@ -446,23 +447,39 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    **"One home" means one FUNCTION, not one tier.**
 > 2. **A field already in the payload beat polling harder** (0162).
 >    `five_hour.resets_at − 5h` is the instant a window OPENED, so a rise
->    between two polls can be clamped to it — "10:07–10:15", not
->    "10:00–10:15" — with no change to the 15-minute reporter. **Look for the
->    field that pins an edge before adding resolution.** It wobbles ±1s, so
->    round it to the minute or you render API noise as a time.
-> 3. **Rewriting a function from its ORIGINAL migration reverted 0158.**
->    `claude0155 §C3` caught it in a minute. For 0162 the body was taken from
->    `pg_get_functiondef` instead and diffed first. **Do that.**
-> 4. **The booking card's media queries were on the wrong number** — 767.98,
->    when `.claude-cal-grid` has `min-width: 940px` and SCROLLS sideways, so the
->    card is ~81px at every viewport below 940 and an iPad got a desktop font in
->    a phone-sized card. **On this grid the breakpoint belongs on the COLUMN,
->    not the viewport**; and the browser harness must load `src/admin.css` or
->    the pane renders unstyled and every overflow probe passes vacuously.
+>    between two polls is clamped to it — "10:07–10:15", not "10:00–10:15" —
+>    with no change to the 15-minute reporter. **Look for the field that pins an
+>    edge before adding resolution.**
+> 3. **A ROUNDING KEY has a boundary; an instant does not** (0163). Identifying
+>    a window by `date_trunc('minute', resets_at + 30s)` splits it mid-window
+>    whenever the true reset lands near :30, and the split attributes the whole
+>    CUMULATIVE reading as a rise. Compare raw instants with a tolerance.
+> 4. **Rewriting a function from its ORIGINAL migration reverted 0158.**
+>    `claude0155 §C3` caught it in a minute. 0162 took its body from
+>    `pg_get_functiondef` and diffed first. **Do that.**
+> 5. **The rail's colour scale took three attempts** and every one was reported
+>    back. Read the "calendar rail" block above before touching it — especially
+>    ⛔ **never put `overflow` clipping on `.claude-free`**, and **do not re-add
+>    the width encoding**, which was built and pulled.
 >
-> ⚠️ **Everything the 0159 + 0160 session learned is still in the "จองโควตา
-> Claude" section above** — the window rule, "an open window is not bookable at
-> all", and the 390/834/1440 rule. None of it was superseded.
+> ⚠️ **Everything the 0159 + 0160 session learned is still above** — the window
+> rule, "an open window is not bookable at all", and 390/834/1440. Not
+> superseded.
+>
+> ### Owed, and offered but not chosen
+>
+> - **The reporter's polling was analysed and left at 15 minutes.** It is
+>   `OnUnitActiveSec=15min` (relative, drifts ~1s/run, harmless) and it CANNOT
+>   be aligned to the 5-hour reset — the reset is set by whoever sends the first
+>   message. What stays unmeasured is the TAIL of a closing window (4 and 9
+>   minutes on the two real windows of 2026-08-16); closing it needs a one-shot
+>   poll at `reset − 30s` on the VM, ~2–3 extra calls a day. **Offered; the
+>   owner has not answered.**
+> - **`claude_open_window()` (0160) tests `pct > 0`, but a window can be open
+>   with `resets_at` set and 0% spent** — measured at 09:50 on 2026-08-16. For
+>   ~15 minutes after someone's first message the guard would let a latecomer
+>   book straight through them. Widening that refusal is a decision about who
+>   may book, so it was flagged and NOT changed. **Ask the owner.**
 >
 > ### What is owed
 >
