@@ -37,7 +37,7 @@ const MIN_MS = 60000;
 // repeated here — this renders `board.right_now`. What it adds is the SENTENCE:
 // a number with no reason beside it gets argued with, and the reason is
 // different depending on which of the two ceilings bound it.
-export function paintFreeNow(host, rn) {
+export function paintFreeNow(host, rn, viewingOtherWeek = false) {
   if (!host) return;
   if (!rn) { host.innerHTML = ''; return; }
 
@@ -89,6 +89,14 @@ export function paintFreeNow(host, rn) {
 
   host.className = `claude-now ${tone}`;
   host.innerHTML = liveNote
+    // The hero is ALWAYS about this instant — that is the whole point of it —
+    // so when the grid below is showing some other week it has to say so.
+    // Silently correct and apparently about the week on screen is the pairing
+    // that produced "in next next week, it still show ใช้ไปแล้วจริง".
+    + (viewingOtherWeek
+      ? '<div class="claude-now-elsewhere">ตัวเลขนี้คือ<strong>ตอนนี้</strong> '
+        + 'ไม่ใช่สัปดาห์ที่กำลังดูอยู่ด้านล่าง</div>'
+      : '')
     + '<div class="claude-now-main">'
     + '<div class="claude-now-lead">'
     + '<div class="claude-now-k">ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง</div>'

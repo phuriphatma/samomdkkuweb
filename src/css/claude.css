@@ -12,6 +12,23 @@
    ============================================================ */
 
 .claude-tab {
+  /* THE PANE'S OWN ACCENT — Claude's clay.
+     This repo already gives each tab an identity colour (PR pink, VS teal,
+     ประกาศ slate, Admin green); this is จองโควตา Claude's, and taking it from
+     Claude's own brand is the one choice that needs no explaining.
+
+     IT IS CHROME, NEVER DATA. Marks, icons, section rules, card edges. The
+     capacity colours stay exactly as they are — green free, orange partial,
+     red none — because those carry MEANING, and a brand colour that wanders
+     into a status ramp makes both unreadable. Clay never appears on a bar, a
+     line or a block.
+
+     Two steps, because one cannot do both jobs: #D97757 is ~3:1 on white,
+     which is fine for a border or a 16px icon and fails for small text. */
+  --claude-clay: #d97757;
+  --claude-clay-ink: #a0472b;
+  --claude-clay-wash: #fdf5f2;
+
   --claude-hour-h: 44px;
   --claude-gutter: 58px;
   --claude-band: rgba(16, 89, 34, 0.05);
@@ -439,7 +456,39 @@ svg.claude-mark {
 /* ---------- the hold-to-book affordance ---------- */
 /* The finger has pressed and the timer is running. Something has to happen
    NOW, or a hold feels like a tap that failed — and then nobody holds again. */
-.claude-daycol.is-holding { background: rgba(16, 89, 34, 0.05); }
+/* A bar on the minute under the finger, filling over exactly HOLD_MS. The
+   first version tinted the whole column, which reads as "this day is selected"
+   rather than "your press is being counted" — the owner reported it as the
+   column highlighting. Feedback for a press belongs AT the press. */
+.claude-hold {
+  position: absolute; left: 0; right: 0; height: 3px; z-index: 6;
+  pointer-events: none; border-radius: 2px; overflow: hidden;
+  background: rgba(16, 89, 34, 0.18);
+}
+.claude-hold::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+  background: var(--brand-primary); border-radius: 2px;
+  /* Duration is set inline from HOLD_MS — a stylesheet copy of that number
+     would drift from the timer it is drawing. */
+  animation: claude-hold-fill var(--claude-hold-ms, 400ms) linear forwards;
+}
+@keyframes claude-hold-fill { to { width: 100%; } }
+
+/* iOS Safari's OWN long press: the text-selection handles and the callout
+   (copy / look up / share) fire on the same gesture this feature just claimed,
+   so a hold produced a booking AND a system selection at the same time. Both
+   are refused on the grid — there is no prose here to select, and the blocks
+   are buttons.
+
+   This is NOT `touch-action: none`, which would make the grid unscrollable
+   (docs/mistakes/frontend-ui.md). user-select and touch-callout do not affect
+   panning at all; only text selection and the callout menu. */
+.claude-cal-grid {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
 .claude-sel.is-armed { animation: claude-armed 0.22s ease-out; }
 @keyframes claude-armed {
   from { transform: scale(0.96); opacity: 0.4; }
@@ -651,3 +700,38 @@ svg.claude-mark {
   position: static; display: inline-block; width: 9px; height: 9px;
   border-radius: 2px; margin: 0 1px 0 5px;
 }
+
+/* Two panels that mean NOW, under a grid that may be showing another week. */
+.claude-tab .claude-now-elsewhere {
+  font-size: 0.72rem; color: #6c757d; margin-bottom: 7px;
+}
+.claude-tab .claude-measured-elsewhere {
+  display: flex; gap: 8px; align-items: center;
+  font-size: 0.78rem; color: #6c757d;
+  padding: 9px 0 2px; border-top: 1px dashed #dde2de; margin-top: 10px;
+}
+
+/* ---------- the Claude accent, applied ---------- */
+/* Chrome only. Every one of these is a border, an icon or a rule — nothing
+   here encodes a quantity, so none of it competes with the capacity ramp. */
+.claude-tab .claude-mark { color: var(--claude-clay); }
+
+.claude-usage-toggle .bi-activity { color: var(--claude-clay); }
+.claude-usage-toggle:hover { background: var(--claude-clay-wash); }
+
+/* Section headings in the measured log get a short clay rule, which is enough
+   to make the whole panel read as one thing without tinting any of its data. */
+.cu-h {
+  border-left: 3px solid var(--claude-clay);
+  padding-left: 8px;
+}
+
+/* The week card's top edge — the pane's one large surface, signed rather than
+   coloured in. */
+.claude-week {
+  border-top: 2px solid var(--claude-clay);
+}
+
+/* The Claude mark in the modal header keeps its own colour on the dark-ish
+   header background too. */
+.claude-tab .modal-header .claude-mark { color: var(--claude-clay); }

@@ -85,9 +85,8 @@ has not been written yet.
    where `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
    system and DERIVED in the other (`team_members.year` vs ระบบบ้าน's ชั้นปี).
    Also a rule implemented on the writers you HAPPENED to be looking at: the
-   portrait cleanup existed on the ทีม SAMO and archive editors but NOT on
-   `my-seat.js`, so "เปลี่ยนรูป leaves the old picture in Drive" LOOKED
-   implemented. One `photoToRetire()` now. When a second copy is
+   portrait cleanup existed on two editors and not on `my-seat.js`, so it
+   LOOKED implemented. One `photoToRetire()` now. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
@@ -315,7 +314,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(15 entries)*
+*Open when:* URL state, per-user "seen", import/export. *(16 entries)*
 
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
@@ -332,6 +331,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "this person is the same person but it detects wrong because no email"
 - The checkout form kept the PREVIOUS account's email after an in-place account switch
 - An INSERT is a write path too — the import guard covered UPDATE only
+- "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
 
 ### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
 *Open when:* notify, GAS handlers, Drive URLs. *(22 entries)*

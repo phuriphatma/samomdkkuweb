@@ -126,7 +126,7 @@ async function refresh({ quiet = false } = {}) {
   weekAnchor = new Date(board.week.starts_at);
   const weekChanged = prevWeek !== board.week.starts_at;
 
-  paintFreeNow($('claudeNow'), board.right_now);
+  paintFreeNow($('claudeNow'), board.right_now, board.week.is_current === false);
   paintWeekMeter();
   if (weekChanged || !gridBuilt) {
     buildGrid();
@@ -294,17 +294,24 @@ const roundUp = (d) => {
 function paintWeekMeter() {
   const pool = board.week.pool_pct;
   const used = board.week.used_pct;
-  // The headline figure is what has actually been SPENT when that is known,
-  // and only falls back to the booked total when the reporter has never run.
-  // They are different quantities and the label says which one is on screen —
-  // a number whose meaning depends on a system's state elsewhere must never
-  // wear the same words in both states.
-  const rnw = board.right_now?.week;
-  const haveMeasured = rnw && rnw.used_pct != null;
-  $('claudeWeekUsed').textContent = haveMeasured ? Math.round(rnw.used_pct) : used;
+  // THIS CARD DESCRIBES THE WEEK ON SCREEN, and every number in it comes from
+  // `board.week`, which the server scoped to exactly that week (0156).
+  //
+  // It used to read `right_now`, which is a fact about NOW — so browsing two
+  // weeks ahead still printed "287 / 700% ใช้ไปแล้วจริง" for a pool that will
+  // have reset twice before that week starts. Reported as "in next next week,
+  // it still show ใช้ไปแล้วจริง value, which it would be reset by then".
+  //
+  // A future week measures NULL, not 0: a zero draws an empty bar and reads as
+  // "nothing used yet", which is the same bug wearing a plausible number.
+  const measuredUsed = board.week.measured_used_pct;
+  const haveMeasured = measuredUsed != null;
+  const isCurrent = board.week.is_current !== false;
+  $('claudeWeekUsed').textContent = haveMeasured ? Math.round(measuredUsed) : used;
   $('claudeWeekPool').textContent = pool;
   $('claudeWeekWhat').textContent = haveMeasured
-    ? 'ใช้ไปแล้วจริงสัปดาห์นี้' : 'จองไว้แล้วสัปดาห์นี้';
+    ? (isCurrent ? 'ใช้ไปแล้วจริงสัปดาห์นี้' : 'ใช้ไปจริงในสัปดาห์นั้น')
+    : (isCurrent ? 'จองไว้แล้วสัปดาห์นี้' : 'จองไว้ในสัปดาห์นั้น');
   $('claudeWeekLabel').textContent =
     `${fullDate(weekStart())} ${hhmm(weekStart())} – ${fullDate(weekEnd())} ${hhmm(weekEnd())}`;
   $('claudeResetAt').textContent = stampLabel(weekEnd());
@@ -322,9 +329,8 @@ function paintWeekMeter() {
   // promised to somebody (booked and not yet run), and genuinely free. The
   // per-person split survives inside the promised segment and in the legend, so
   // nothing is lost; it stops being the first thing read.
-  const rn = board.right_now;
-  const measured = rn && rn.week.left_pct != null;
-  const usedReal = measured ? Number(rn.week.used_pct) : null;
+  const measured = haveMeasured;
+  const usedReal = measured ? Number(measuredUsed) : null;
 
   const bar = $('claudeWeekBar');
   bar.innerHTML = '';
@@ -374,7 +380,12 @@ function paintWeekMeter() {
   // The last item is the one people came for: what is left that nobody has
   // claimed, in sessions as well as percent, because "374%" means nothing until
   // it is "more than three full sessions".
-  const freeLeft = measured ? Number(rn.week.free_pct) : pool - used;
+  // Free = what the week has left MINUS what is still promised. Both scoped to
+  // the week on screen, so a future week says "ยังไม่ถูกจอง" about its own
+  // bookings rather than borrowing this week's remainder.
+  const freeLeft = measured
+    ? Math.max(0, Number(board.week.measured_left_pct) - Number(board.week.reserved_pct))
+    : pool - used;
   const legend = $('claudeLegend');
   legend.innerHTML =
     (measured
@@ -420,6 +431,18 @@ function paintWeekMeter() {
 function paintMeasured() {
   const host = $('claudeMeasured');
   const m = board.measured;
+
+  // These two gauges are the live windows AS THEY STAND NOW — including their
+  // real reset instants. Under a week that is not this one they would be read
+  // as that week's, which is the same confusion of scopes 0156 fixed one card
+  // up. Say which week they belong to instead of drawing them silently.
+  if (board.week.is_current === false) {
+    host.innerHTML = '<div class="claude-measured-elsewhere">'
+      + '<i class="bi bi-clock-history" aria-hidden="true"></i>'
+      + '<span>ตัวเลข “ใช้จริง” เป็นของสัปดาห์ปัจจุบันเสมอ — '
+      + 'กดปุ่ม <strong>สัปดาห์นี้</strong> เพื่อกลับไปดู</span></div>';
+    return;
+  }
 
   if (!m) {
     host.innerHTML =
@@ -819,8 +842,30 @@ function beginDrag(seed, ev, viaTouch) {
 function clearPending() {
   if (!pending) return;
   clearTimeout(pending.timer);
-  pending.col.classList.remove('is-holding');
+  pending.puck?.remove();
   pending = null;
+}
+
+/**
+ * The "I am counting" mark, at the point being pressed.
+ *
+ * The first version tinted the WHOLE COLUMN while the timer ran, and the owner
+ * read it exactly as it looks: *"it highlights the entire column"* — a day
+ * being selected, not a press being measured. Feedback for a press has to be
+ * AT the press: a bar on the minute under the finger that fills over HOLD_MS,
+ * so it says both "this registered" and "keep holding, this long".
+ *
+ * The duration comes from HOLD_MS through a custom property rather than being
+ * written again in the stylesheet — an animation that disagrees with the timer
+ * it depicts is worse than no animation.
+ */
+function holdPuck(seed) {
+  const el = document.createElement('div');
+  el.className = 'claude-hold';
+  el.style.top = `${yForMin(seed.start)}px`;
+  el.style.setProperty('--claude-hold-ms', `${HOLD_MS}ms`);
+  seed.col.appendChild(el);
+  return el;
 }
 
 function onDragStart(ev) {
@@ -840,7 +885,7 @@ function onDragStart(ev) {
     timer: setTimeout(() => {
       const seedNow = pending;
       if (!seedNow) return;
-      seedNow.col.classList.remove('is-holding');
+      seedNow.puck?.remove();
       pending = null;
       // A hold with no drag is already a complete gesture, so it produces a
       // real block rather than the 15-minute sliver a stray tap used to make.
@@ -850,7 +895,7 @@ function onDragStart(ev) {
       navigator.vibrate?.(12);
     }, HOLD_MS),
   };
-  seed.col.classList.add('is-holding');
+  pending.puck = holdPuck(seed);
 }
 
 function onDragMove(ev) {

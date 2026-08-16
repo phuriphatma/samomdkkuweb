@@ -130,6 +130,42 @@ describe('the listeners that make the gesture work at all', () => {
   it('a press that never became a hold books nothing', () => {
     expect(INDEX).toMatch(/function onDragEnd\(\)\s*\{\s*clearPending\(\)/);
   });
+
+  it("refuses iOS's own long press — text selection and the callout menu", () => {
+    // Safari fires selection handles and the copy/look-up callout on the SAME
+    // gesture this feature claims, so a hold produced a booking and a system
+    // selection at once. Reported as "it trigger the selection of the apple
+    // system, the select text".
+    //
+    // Asserted on the calendar grid specifically: blanket user-select:none on
+    // the pane would also kill selecting the text in the measured log, which is
+    // the one place here someone might want to copy a number out of.
+    // EVERY .claude-cal-grid rule, not the first one. There are two — the
+    // original geometry block and this one — and `String.match` without /g
+    // returns the earlier, which has none of these properties. The first
+    // version of this test failed on correct code for that reason, which is
+    // the same class as the clamp test above: the instrument was reading
+    // something other than its subject.
+    const grid = (CSS.match(/\.claude-cal-grid\s*\{[^}]*\}/g) || []).join('\n');
+    expect(grid, 'the grid must exist as a rule').not.toBe('');
+    expect(grid).toMatch(/-webkit-touch-callout:\s*none/);
+    expect(grid).toMatch(/(^|[^-])user-select:\s*none/m);
+  });
+
+  it('the hold indicator marks the PRESS, not the whole day', () => {
+    // The first version tinted the entire column, which reads as "this day is
+    // selected". The owner reported it as exactly that.
+    expect(CSS).not.toContain('.claude-daycol.is-holding');
+    expect(INDEX).toContain('claude-hold');
+  });
+
+  it('the indicator lasts exactly as long as the timer it depicts', () => {
+    // The duration is handed to CSS from HOLD_MS. A stylesheet that repeats the
+    // number drifts from the timer, and then the bar finishes early or late —
+    // which teaches the wrong hold length to everyone who watches it.
+    expect(INDEX).toMatch(/--claude-hold-ms['"`],\s*`\$\{HOLD_MS\}ms`/);
+    expect(CSS).toMatch(/animation:\s*claude-hold-fill\s+var\(--claude-hold-ms/);
+  });
 });
 
 // ── §C. Identity is not a property of which week is open ───────────────────

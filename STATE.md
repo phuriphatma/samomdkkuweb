@@ -36,7 +36,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0155.** **1047 tests green.**
+  **Migrations applied through 0156.** **1050 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -122,6 +122,11 @@ Run the one covering what you touch. All are both-directional.
 
 - `authz-sweep-identity.sql` (23/23) — run after ANY policy change on
   `users`/`people`/`students`/`team_members`.
+- ⚠️ **The claude pane has TWO TIME SCOPES and they are not interchangeable.**
+  The hero (`ใช้ได้เลยตอนนี้`) is about NOW; the week card is about the week the
+  arrows landed on. 0156 exists because the card was reading `right_now` — it
+  agreed on the current week and was wrong on every other. A future week
+  measures **NULL, not 0**: a zero draws an empty bar and reads as a reading.
 - `claude0155-free-now.sql` (21/21) — "how much may I use right now, until
   when". Its §A is the owner's three worked examples verbatim; §B1 holds the
   branch they never reach (an ALREADY-OPEN 5-hour window comes from the

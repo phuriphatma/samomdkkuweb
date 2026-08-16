@@ -605,3 +605,37 @@ INSERT never did either.
 invariant — "the write path is guarded" is only ever true of the one you looked
 at. (2) A trigger whose correctness depends on firing after another trigger
 should be the same trigger.
+
+## "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
+
+**Symptom.** Browsing forward on the จองโควตา Claude board, the week card kept
+reading "287 / 700% ใช้ไปแล้วจริงสัปดาห์นี้" — a measured figure — on weeks that
+had not started, whose pool will have reset once or twice before they do.
+
+**Cause.** Two different SCOPES reading one payload. The pane has a hero panel
+that means *right now* and a week card that means *the week the arrows landed
+on*. `right_now.week` was built to serve the hero, and the card was pointed at
+it too, so every number in the card silently became a fact about today. It was
+correct on the current week — which is the week it was built and tested on — and
+wrong on every other.
+
+**Fix.** The card's three numbers are now scoped to the week being drawn, in
+SQL: `measured_used_pct` is the newest sample INSIDE `[week_start, week_end)`,
+`reserved_pct` counts only that week's unfinished bookings, and `is_current`
+lets the panels that genuinely mean "now" say so. A future week measures **NULL**
+and the card falls back to the booked ledger with a label that says which
+quantity is on screen.
+
+**NULL, not 0** — that is the load-bearing half. A future week returning zero
+draws an empty bar and reads as "nothing used yet", which is indistinguishable
+from a real reading and is the same bug wearing a plausible number.
+
+**Where it lives now.** `get_claude_board()` in
+`supabase/migrations/0156_claude_the_week_card_describes_the_week_on_screen.sql`;
+`paintWeekMeter()` and `paintMeasured()` in `src/js/claude/index.js`.
+
+**The general rule.** *When one payload serves two panels with different time
+scopes, the narrower scope has to be in the payload — not assumed by whoever
+reads it.* "Now" and "the period on screen" agree exactly while you are looking
+at the current period, which is when the feature is built, demonstrated and
+reviewed. The disagreement only appears when someone presses the arrow.
