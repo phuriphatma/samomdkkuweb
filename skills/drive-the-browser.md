@@ -218,3 +218,55 @@ const hit = (a,b) => a.l < b.r-0.5 && a.r > b.l+0.5 && a.t < b.b-0.5 && a.b > b.
 with a CONTROL asserting all layers are actually on screen. This named the real
 collision as rail-vs-SESSION-FRAME — reading the stylesheet said the rail (0–6px)
 and the block (9px+) did not overlap, which was true and not the problem.
+
+---
+
+## 8. Probing a MODAL, and three ways this harness passed vacuously
+
+All four learned in one session on `/admin#claude`, each after the probe had
+already reported green.
+
+**The stylesheet is `src/admin.css`, not `src/main.css`.** `claude.css` (and
+every other admin pane's CSS) is `@import`ed by the ADMIN entry only. Point the
+harness at the public one and the pane renders completely unstyled — no lane, no
+hour height, no borders — and the probe reports zero overflow, which looks
+exactly like a pass. **Assert the stylesheet applied as a CONTROL in every run**:
+a computed `--claude-lane`, a `dashed` border, a real `--claude-hour-h`.
+
+**A closed Bootstrap modal is `display: none`, so everything in it measures 0.**
+`querySelectorAll` still finds the elements, so a count-based assertion passes
+while every `getBoundingClientRect()` returns an empty box. Click the button that
+opens it and `await sleep(600)` before measuring anything inside:
+
+```js
+await evaluate(`document.getElementById('claudeNewBooking').click()`);
+```
+
+**A collision probe cannot see "none of them exist".** An assertion of the shape
+"no two labels overlap" returns zero collisions when zero labels are rendered.
+That is exactly what happened when `overflow: hidden` on a parent clipped every
+label away: the probe went green on the run that shipped the bug. **Pair every
+"these do not collide" with "and there are N of them".**
+
+**The ข้อตกลง modal opens by itself** on a device that has not seen the current
+`TERMS_VERSION`, and it covers the grid in every screenshot. Dismiss it before
+clipping:
+
+```js
+document.querySelectorAll('.modal.show').forEach((m) => {
+  window.bootstrap.Modal.getInstance(m)?.hide(); m.style.display = 'none';
+});
+document.querySelectorAll('.modal-backdrop').forEach((b) => b.remove());
+document.body.classList.remove('modal-open');
+```
+
+### Shell gotcha that costs a run each time
+
+Write the harness generator with a **quoted** heredoc (`<<'PY'`). Unquoted, the
+shell performs command substitution on the backticks inside JS template literals
+and the file comes out mangled — or the generator silently writes nothing. Pass
+paths in through `os.environ` rather than interpolating them.
+
+And `cd` inside a compound command changes the cwd for everything after it in
+that call: `cd "$SCRATCH" && node tools/db-query.mjs …` resolves `tools/`
+relative to the scratchpad and fails. Use absolute paths.
