@@ -145,3 +145,76 @@ pkill -f "vite preview"; pkill -f "remote-debugging-port=92"
 
 Use a distinct `--remote-debugging-port` per concurrent driver; a stale Chrome on
 the same port silently attaches you to the wrong browser.
+
+---
+
+## 7. Driving a GATED admin pane without signing in
+
+`/admin#claude` needs a session and a permission, which is a lot of ceremony for
+a layout question. Stub the network instead and the whole pane runs for real.
+
+Write a throwaway `claude-harness.html` at the REPO ROOT (vite dev serves it;
+delete it after — it must never be committed):
+
+```html
+<link rel="stylesheet" href="/src/admin.css">
+<script src="…bootstrap.bundle.min.js"></script>
+<div data-admin-pane="claude" class="harness"><!-- paste src/html/tab-*.html --></div>
+<script>
+window.__P = { /* real payload, dumped from the RPC via tools/db-query.mjs */ };
+window.__modalOpens = 0;
+const rf = window.fetch.bind(window);
+window.fetch = async (u, o) => {                       // stub BEFORE any module loads
+  const s = String(u?.url ?? u);
+  if (s.includes('/rpc/get_claude_board'))
+    return new Response(JSON.stringify(window.__P.board), { status: 200 });
+  if (s.includes('/rest/v1/') || s.includes('/auth/v1/'))
+    return new Response('[]', { status: 200 });
+  return rf(u, o);
+};
+</script>
+<script type="module">
+  import { enterClaudeWorkspace } from '/src/js/claude/index.js';
+  document.addEventListener('show.bs.modal', () => { window.__modalOpens++; });
+  await enterClaudeWorkspace();
+  window.__ready = true;
+</script>
+```
+
+Dump the payload with a real RPC call under an impersonated JWT:
+`select set_config('request.jwt.claims', json_build_object('sub', <uid>, 'role',
+'authenticated')::text, true);` then `select public.get_claude_board();`.
+
+**Never omit the `show.bs.modal` counter.** Regenerating the harness once
+without it made every "opens no modal" case pass vacuously; only the ALLOW case
+("a long press DOES open it") went red and exposed it.
+
+### Two probes worth rebuilding — each found a bug nothing else could
+
+**A. Touch gestures, with REAL touch events.** `Emulation.setDeviceMetricsOverride
+{mobile:true}` + `Emulation.setTouchEmulationEnabled`, then
+`Input.dispatchTouchEvent` (`touchStart` / `touchMove` / `touchEnd`; `touchPoints:
+[]` on end). The gesture branches on `pointerType`, so emulating a mouse tests
+the branch that never runs. Cases: tap → no modal · long press → modal · drag →
+no modal · tap the week arrow after a drag → no modal.
+
+- **Always assert the point HIT something first.** `document.elementFromPoint(x,y)`
+  must name the expected element. Coordinates taken from a scrolled-away column
+  rect landed on the hero panel and four cases passed vacuously.
+- **Re-measure coordinates at the moment of use.** The app sets
+  `scroll-behavior: smooth`, so `scrollIntoView()` returns before the scroll and
+  anything read on the next line is stale. Use `window.scrollTo({behavior:'instant'})`
+  and wait.
+- **CDP `touchCancel` dispatches NO dom events** in headless Chrome. To test a
+  `pointercancel` handler, dispatch `new PointerEvent('pointercancel',{bubbles:true})`.
+
+**B. Painted-box overlap.** "It looks weird" is a geometry claim; answer it with
+geometry. Collect `getBoundingClientRect()` for each layer and count intersections:
+
+```js
+const hit = (a,b) => a.l < b.r-0.5 && a.r > b.l+0.5 && a.t < b.b-0.5 && a.b > b.t+0.5;
+```
+
+with a CONTROL asserting all layers are actually on screen. This named the real
+collision as rail-vs-SESSION-FRAME — reading the stylesheet said the rail (0–6px)
+and the block (9px+) did not overlap, which was true and not the problem.
