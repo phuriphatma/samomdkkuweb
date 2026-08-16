@@ -275,8 +275,10 @@ at 30, polled every 60 s per open tab. Fine at real scale; see the note above.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through **0155** applied; **1047 tests green**; `npm run proofs` 15/15 as of
-> 2026-08-15, plus `claude0155-free-now.sql` 21/21 re-run today.
+> through **0158** applied; **1057 tests green**; `claude0155-free-now.sql`
+> 22/22 and `claude0157-rail-segments.sql` 10/10 re-run today.
+> ⚠️ **`npm run proofs` (the other 15) was last run in full on 2026-08-15** —
+> re-run it first; a proof here went stale silently for three days once.
 >
 > **The last session was จองโควตา Claude, front to back, five migrations
 > (0154 → 0158) and eleven owner reports.** It is done, deployed and verified.
