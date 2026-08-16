@@ -30,16 +30,20 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `6f0548c` (2026-08-16)** — working tree clean, local == origin == VM.
-  Verified from the SERVED artifacts, found via the bundle name in
-  `curl -s https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old
-  chunks are kept on purpose, so several `admin-*.js` sit in that directory):
-  `claude-gap`, `claude-hist-reset`, `hk-exact`, `claude-hist-key`,
-  `2026-08-16.5`, the `full/tight/micro` tier ladder and `ขีดทึบด้านบน` in the
-  admin JS; `939.98px` and `.claude-gap.is-none` in the admin CSS. **0** for the
-  REMOVED `claude-session` / `claude-bk-t2` / `is-oneline` / `MAX_GAP_MS` /
-  `max-width:var(--claude-hist-w` — a present-only check cannot see a rename.
-  Live RPC confirmed returning 5 runs / 4 windows / 2 exact starts.
+- ✅ **DEPLOYED = `a2596c3` (2026-08-16)** — the two commits after it are
+  docs/STATE only and need no deploy (`git diff --stat a2596c3..HEAD -- src/
+  supabase/ appscript/ server/ functions/` is empty). Verified from the SERVED
+  artifacts, found via the bundle name in `curl -s
+  https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old chunks are
+  kept on purpose): `is-low`, `claudeSilentWrap`, `claude.ai/settings/usage`,
+  `claude-hist-reset`, `รวม ` in the admin JS; `100dvh`, `.claude-free.is-low`,
+  `claude-req` in the admin CSS; and **6 stars + `ต้องกรอกทุกช่อง` +
+  `จองแบบเงียบ` in the served `/admin/` HTML** — those live in the partial, not
+  the bundle, so grepping only the JS reports 0 and looks like a failed deploy.
+  **0** for the REMOVED `ยิ่งแถบกว้าง` / `MAX_GAP_MS` / `max-height:620px`.
+  ⚠️ `--f` greps 1 in the served CSS and it is `--form-shadow` from another
+  component, not the rail's deleted width variable — check WHAT matched.
+  Live RPC confirmed: 5 runs / 4 windows / 2 exact starts.
   ⚠️ **Greps that legitimately return 0**, all documented traps: a module-scope
   `const` is renamed by the minifier (`MAX_GAP_MS` reads 0, the string literal
   `แถบขวาของแต่ละวันคือรอบ` reads 1), anything in `functions/` is the notify
