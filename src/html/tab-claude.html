@@ -231,8 +231,8 @@
          • it opens BY ITSELF the first time an account reaches this pane, and
            again whenever the text changes (CLAUDE_TERMS_VERSION in index.js);
          • the ข้อตกลง button in the toolbar re-opens it any time;
-         • the modal cannot be dismissed by clicking the backdrop on the first
-           showing — there is one button and it says เข้าใจแล้ว.
+         • it closes on รับทราบ, which is what records the acknowledgement;
+           dismissing it any other way leaves it to open again next visit.
        Acceptance is remembered per account in localStorage. That is honest
        about what it is: a reminder people have read the rules, not a signature.
 
