@@ -36,7 +36,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0157.** **1055 tests green.**
+  **Migrations applied through 0157.** **1057 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -133,6 +133,14 @@ Run the one covering what you touch. All are both-directional.
   arrows landed on. 0156 exists because the card was reading `right_now` — it
   agreed on the current week and was wrong on every other. A future week
   measures **NULL, not 0**: a zero draws an empty bar and reads as a reading.
+- ⚠️ **`get_claude_board()` grows superlinearly with bookings** — measured
+  2026-08-16: ~25 ms at 7 bookings in a week, ~37 at 19, ~65 at 24, ~100 at 30.
+  `claude_free_windows()` calls `claude_free_now()` once per boundary and the
+  boundaries grow with the bookings, so it is O(bookings²)-ish, and the board
+  polls every 60 s per open admin tab. Fine at this feature's real scale (a
+  handful a week) — recorded so nobody rediscovers it in production. If a week
+  ever carries ~50 bookings, hoist the settings/sample reads out of
+  `claude_free_now()` or compute the bands in one pass.
 - `claude0157-rail-segments.sql` (8/8) — the calendar's capacity rail. Asserts
   the PROPERTY ("the answer does not change inside a band") rather than a list
   of boundaries, **because the bug WAS a wrong list**: 0155's header named four
