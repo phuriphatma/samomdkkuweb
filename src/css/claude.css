@@ -820,53 +820,35 @@ svg.claude-mark {
    13.4 CVD, both above the floor. The amber's low contrast against the surface
    is why the percentage is printed beside the band. */
 .claude-free {
-  /* ⚠️ NO `overflow: hidden` HERE, EVER. It was added to clip the fill's corners
-     and it silently deleted every percentage on the rail — `.claude-free-tag` is
-     a CHILD positioned at `left: calc(100% + 3px)`, i.e. deliberately OUTSIDE
-     this box, so clipping the box clips the label. Reported as *"it doesn't
-     show the percentage of rail anymore"*.
-     The fill never needs clipping anyway: its width is capped at the lane width,
-     so it cannot escape. It rounds its own corners instead. */
-  /* the TRACK — the 100% reference, present only where a reading is */
-  background: #e9ecea; box-shadow: inset 0 0 0 1px rgba(88, 100, 92, 0.16);
-}
-.claude-free::before {
-  content: ""; position: absolute; top: 0; bottom: 0; left: 0;
-  border-radius: 3px 0 0 3px;
-  width: max(3px, calc(var(--claude-rail-w) * var(--f, 1)));
-  /* NO HARD EDGE ON THE FILL, and this was reported twice before it was right.
-     Solid saturated colour came back as *"why does it show color weird"* — a
-     band is many hours tall, so at full saturation it is a column of mustard
-     against the day divider and reads as a RULE, not as data. Moving the hue
-     to a 2px right-edge fixed the wide bands and made the narrow ones worse:
-     this week's quota is ~6% free everywhere, every band sits on its minimum
-     width, and 2.5px of fill under a 2px saturated border is ~all border — a
-     hard gold line down all seven days (*"i still see rail weird"*).
+  /* ⚠️ NO `overflow: hidden` HERE, EVER. `.claude-free-tag` is a CHILD
+     positioned at `left: calc(100% + 3px)` — outside this box on purpose,
+     because "100%" does not fit in a 10px lane — so clipping the box deletes
+     every number on the rail. It has happened once ("it doesn't show the
+     percentage of rail anymore") and is guarded by window-share.test.js. */
 
-     So the fill is a TINT at every width and the track behind it is the thing
-     you read it against. The number beside the band is what carries precision;
-     the ribbon only has to say "roughly this much, and is that good or bad",
-     which a tint and a length do without shouting. */
+  /* COLOUR ALONE CARRIES THE MAGNITUDE, by the owner's decision: *"i don't need
+     this ยิ่งแถบกว้าง ยิ่งเหลือมาก, i just want the color full, you seperate
+     color like that is enough"*. A proportional-width fill was tried and pulled
+     — a full-width band is calmer at this size, and the four steps plus the
+     percentage printed beside each band already separate 98% from 25%, which
+     was the original complaint.
+
+     What the width channel was doing, now resting on the label: the deep green
+     and the red are the two ends of the scale and are ΔE 3.4 apart under
+     deuteranopia. Adjacent steps are all fine (≥15.1 normal / 13.4 CVD,
+     validated with dataviz/validate_palette.js), so the risk is only
+     full-vs-none — and those two never abut, and both are labelled. */
+  background: rgba(20, 96, 42, 0.26);
 }
-.claude-free.is-full::before { background: rgba(20, 96, 42, 0.42); }
-.claude-free.is-part::before { background: rgba(217, 164, 0, 0.40); }
-/* The two low states are NARROW by construction, so they get more weight — a
-   2.5px sliver at 26% alpha is invisible, and these are the two a reader most
-   needs to notice. */
-.claude-free.is-low::before  { background: rgba(138, 97, 0, 0.45); }
-/* NOT forced to full width. It was, and that inverted the encoding: "nothing
-   left" drew the longest bar on the calendar, which reads as "maximum" — a
-   heavy red column dominating the day it is least relevant to. Bar length means
-   quota EVERYWHERE, so zero gets the same 2.5px floor any near-zero gets and
-   the red plus the "เต็ม" tag carry the state. */
-.claude-free.is-none::before { background: rgba(143, 29, 19, 0.55); }
+.claude-free.is-full { background: rgba(20, 96, 42, 0.34); }
+.claude-free.is-part { background: rgba(217, 164, 0, 0.55); }
+.claude-free.is-low  { background: rgba(138, 97, 0, 0.62); }
+.claude-free.is-none { background: rgba(143, 29, 19, 0.60); }
 /* Held by someone. Hatched and neutral — the same visual language as the
    out-of-week hatch, which already means "not available to you". A gap here
    reads as missing data, and red would read as "the quota is gone", which is a
    different and much more alarming statement than "อ้อ, someone booked it". */
-.claude-free.is-held::before { display: none; }
 .claude-free.is-held {
-  box-shadow: none;
   background-color: #dfe3e0;
   background-image: repeating-linear-gradient(-45deg,
     rgba(88, 100, 92, 0.30) 0 2px, transparent 2px 6px);
@@ -907,9 +889,6 @@ svg.claude-mark {
   position: static; display: inline-block; width: 9px; height: 9px;
   border-radius: 2px; margin: 0 1px 0 5px;
 }
-/* The key's swatches are identity, not magnitude, so they are square — the
-   width channel means nothing here and letting --f through would shrink them. */
-.claude-rail-key .claude-free { --f: 1; }
 .claude-free.is-low .claude-free-tag { color: #6b4c00; }
 
 /* Two panels that mean NOW, under a grid that may be showing another week. */

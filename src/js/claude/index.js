@@ -380,8 +380,7 @@ function wire() {
     + 'เขียวคือได้เต็มรอบ '
     + '<i class="claude-free is-part"></i>เหลืองคือได้เกินครึ่งรอบ '
     + '<i class="claude-free is-low"></i>น้ำตาลคือเหลือน้อย '
-    + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ — '
-    + '<strong>ยิ่งแถบกว้าง ยิ่งเหลือมาก</strong> '
+    + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ '
     + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้ '
     + 'ส่วนในรอบ 5 ชั่วโมงที่มีคนจอง ให้ดูที่กล่องเส้นประแทน</span>';
   $('claudeTermsInline')?.addEventListener('click', (ev) => {
@@ -1071,16 +1070,15 @@ function paintGrid() {
 
       carve(seg.sMin, seg.eMin, inWindow.get(seg.i)).forEach(([ps, pe], pi) => {
       const el = document.createElement('div');
-      // FOUR steps, not two, and the width carries the number as well — 98%
-      // and 25% used to be the same amber and the same pixel width, which is
+      // FOUR steps, not two: 98% and 25% used to be the same amber, which is
       // what made them indistinguishable. Thresholds are about what a reader
-      // can DO: essentially a whole session · most of one · a scrap · none.
+      // can DO with it: essentially a whole session · most of one · a scrap ·
+      // none. The percentage printed beside the band carries the precision.
       el.className = 'claude-free'
         + (free <= 0 ? ' is-none'
           : free >= pool * 0.9 ? ' is-full'
           : free >= pool * 0.4 ? ' is-part'
           : ' is-low');
-      el.style.setProperty('--f', String(Math.max(0, Math.min(1, free / pool))));
       el.style.top = `${yForMin(ps)}px`;
       el.style.height = `${Math.max(2, yForMin(pe) - yForMin(ps))}px`;
       // The band's END is a DEADLINE, not just where the colour changes: start

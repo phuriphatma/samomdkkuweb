@@ -363,18 +363,22 @@ describe('giving a slot back is ยกเลิก, not ลบ', () => {
 
 // ── the capacity rail encodes magnitude twice (0164) ───────────────────────
 describe('the rail says HOW MUCH, not just "some"', () => {
-  it('width is driven by the value, not a fixed lane', () => {
-    // Reported: "the bar 98% show yellow, and the 25% also show yellow, may
-    // make user misunderstood that it's also 98%". One bucket over a continuous
-    // quantity. The fill now runs from the lane's left edge in proportion to
-    // --f, which paintGrid sets from free/pool.
-    expect(CSS).toMatch(/\.claude-free::before[\s\S]{0,220}calc\(var\(--claude-rail-w\) \* var\(--f/);
-    expect(CODE).toMatch(/setProperty\('--f', String\(Math\.max\(0, Math\.min\(1, free \/ pool\)\)\)\)/);
+  it('carries no width encoding — the owner asked for colour alone', () => {
+    // "i don't need this ยิ่งแถบกว้าง ยิ่งเหลือมาก, i just want the color full".
+    // A proportional fill was built and pulled; asserted so it is not
+    // reintroduced as an "improvement", and so the key does not promise it.
+    expect(CSS).not.toContain('--f');
+    expect(CODE).not.toContain("setProperty('--f'");
+    expect(CODE).not.toContain('ยิ่งแถบกว้าง');
   });
 
   it('and colour steps FOUR ways, so 98% and 25% are not one bucket', () => {
+    // Matched as a RULE WITH A BACKGROUND, not as a literal string: the first
+    // version asserted `.claude-free.is-low {` and failed on the two spaces
+    // used to align the four declarations. A guard that breaks on whitespace
+    // is testing the formatter.
     for (const c of ['is-full', 'is-part', 'is-low', 'is-none']) {
-      expect(CSS).toContain(`.claude-free.${c}::before`);
+      expect(CSS).toMatch(new RegExp(`\\.claude-free\\.${c}\\s*\\{[^}]*background`));
     }
     expect(CODE).toMatch(/free >= pool \* 0\.9 \? ' is-full'/);
     expect(CODE).toMatch(/free >= pool \* 0\.4 \? ' is-part'/);
@@ -382,7 +386,7 @@ describe('the rail says HOW MUCH, not just "some"', () => {
 
   it('"none" is not forced to full width — that inverted the encoding', () => {
     // A zero drawn as the longest bar on the calendar reads as "maximum".
-    expect(CSS).not.toMatch(/\.claude-free\.is-none[^}]*width:\s*var\(--claude-rail-w\)/);
+    expect(CSS).not.toMatch(/\.claude-free\.is-none[^}]*width:/);
   });
 
   it('the band never clips its own label', () => {

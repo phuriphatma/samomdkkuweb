@@ -52,7 +52,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0162.** **1110 tests green. All 21 proofs green.**
+  **Migrations applied through 0163.** **1122 tests green. All 21 proofs green.**
   ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
   the moment this line was written — that order is correct (the RPC keeps its
   shape, so the served bundle reads the new numbers immediately), but the
@@ -255,6 +255,51 @@ refuses · `claude_booking_limits()` caps the FORM's slider (called on a RANGE
 change, never on the slider) · `get_claude_board()` draws each window's
 remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
 that and is deleted.
+
+### 0163 — a window is identified by PROXIMITY, never by a rounded key
+
+0162 keyed a window on `date_trunc('minute', resets_at + 30s)`. The API returns
+`now + seconds_remaining`, so the value wobbles ±1s — and that key is stable
+only while the true reset is not near the :30 boundary. A window resetting at
+17:04:29.8 comes back either side of it, flipping `v_new_win` MID-window, and
+the new-window branch is `v_delta := r.pct` — the whole CUMULATIVE reading.
+**Falsified: restoring the key splits one window into FOUR runs reading
+`20+40+90+90` and inflates the week from 150 to 300.** Reported as *"the ใช้จริง
+shows like all 90% up in short period of time"*. Now compared as raw instants
+with a 2-minute tolerance — **no boundary to land on. Never re-introduce a
+rounding key here.**
+
+⚠️ **The rendering half of that report was different and also real**: a window
+with ONE run has run-total == window-total, so the same number printed twice,
+and where a window reset as the next opened the two landed on the same minute
+with different denominators ("96" over "ใช้ 55%"). Run labels are `+N%` (a
+rise), the window total is `รวม N%`, and a total that merely repeats its single
+run is suppressed.
+
+### The calendar rail — colour ONLY, by the owner's decision
+
+Four steps (`is-full` ≥90% · `is-part` ≥40% · `is-low` · `is-none`), validated
+with `dataviz/validate_palette.js`, **full width**. A proportional-width fill
+was built and PULLED — *"i just want the color full, you seperate color like
+that is enough"*. Do not re-add it.
+
+⚠️ **This surface has been too loud three times.** Solid saturated read as a
+column DIVIDER; a saturated 2px edge became a hard gold rule once every band sat
+on its minimum width; a column-wide track drew an empty gauge down days with no
+reading. It is now four tinted full-width bands and nothing else.
+⚠️ **NEVER put `overflow` clipping on `.claude-free`** — `.claude-free-tag` is a
+child at `left: calc(100% + 3px)`, deliberately OUTSIDE the band, so clipping
+deletes every percentage on the rail. Cost one report; guarded now.
+⚠️ Two colours the validator REFUSED: a burnt orange for the low step is ΔE 10.4
+from the clay "measured" colour, and `#a67c00` is 14.0 from the amber.
+
+### The calendar height
+
+`min(1100px, 100dvh - 230px)`, and `100dvh - 170px` under 768px — measured at
+74–80% of the viewport, up from a fixed 620/480px (~57% / ~51%). **`dvh`, not
+`vh`** (the iOS entry in `docs/mistakes/frontend-ui.md`). ⚠️ `applyFit()` READS
+this value as the cap it divides by 24, so it must stay a real computed
+max-height.
 
 ### 0162 — ใช้จริง draws WHEN it was used, not what the gauge said
 
