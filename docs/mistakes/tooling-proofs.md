@@ -417,3 +417,41 @@ green: a tap on nothing produces exactly the same "no side effect" the passing
 case asserts. Related and equally silent: `scrollIntoView()` under
 `scroll-behavior: smooth` returns before the scroll, so any coordinate read on
 the next line is stale.
+
+## A comment listed four boundaries and the code had three
+
+**Symptom.** The Claude capacity rail drew one band "ว่าง 48%" from 11:00 to
+03:00 the next day, straight through 14:39 — the moment the open 5-hour window
+resets and a fresh 100% becomes available.
+
+**Cause.** `claude_free_windows()` builds its segments by evaluating
+`claude_free_now()` at every instant where the answer can change. The migration
+header lists four such instants and names the fourth as "the open window's own
+reset". The `union` had three. The three that were there all came from the
+bookings table and were easy to enumerate; the missing one came from a
+MEASUREMENT, which is exactly why it was the one left out.
+
+**Fix.** The reset is in the boundary set — and, more usefully, the guard no
+longer asserts a list of boundaries at all. It asserts the PROPERTY:
+
+> the answer does not change inside a band.
+
+Three interior samples per band, compared to the number the band is labelled
+with. Any missing boundary — that one, or one nobody has thought of — makes some
+band non-constant and turns it red without anyone predicting it. Falsified by
+reintroducing both original bugs: the general case catches both.
+
+**Where it lives now.** `tools/claude0157-rail-segments.sql` §A1.
+
+**The general rule.** *Do not write a guard from the same list the code was
+written from.* If the list is what is wrong, a guard that restates it passes.
+Assert the property the list was supposed to produce.
+
+A second lesson from the same file: the first draft of §B asserted that every
+band's end instant still earns that band's number, and three bands failed —
+**the assertion was wrong, not the code.** Only one boundary kind
+(`booking_start − 5h`) carries "you may still start AT this moment"; at a
+window reset or a booking's start or end the later value already applies. A
+guard that generalises one boundary's behaviour to all of them turns a true
+statement into a false one, and it costs a debugging session to find out which
+end was wrong.

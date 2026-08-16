@@ -253,7 +253,7 @@ function wire() {
   $('claudeHelp').innerHTML += '<br><span class="claude-rail-key">'
     + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันคือ '
     + '<strong>โควตาที่ใช้ได้ทันทีโดยไม่ต้องจอง</strong> ถ้าเริ่มใช้ตอนนั้น — '
-    + '<i class="claude-free is-part"></i>สีส้มคือช่วงที่มีคนจองไว้แล้วบางส่วน '
+    + '<i class="claude-free is-part"></i>สีเหลืองคือช่วงที่มีคนจองไว้แล้วบางส่วน '
     + '<i class="claude-free is-none"></i>สีแดงคือไม่เหลือ</span>';
 
   ['claudeDate', 'claudeStart', 'claudeEnd', 'claudePct'].forEach((id) => {
@@ -600,25 +600,48 @@ function paintGrid() {
 
   const pool = board.settings.session_pool_pct;
 
-  // ── "how much may I take if I start HERE" ─────────────────────────────────
+  // ── "how much may I take if I start HERE" ─────────────────────────────
   //
-  // A capacity RAIL down the left edge of each column, not a wash over the
-  // whole column: the answer is a property of a START TIME, and it has to be
-  // readable next to the bookings that cause it rather than tinted underneath
-  // them. Bookings begin at 9px, so the rail owns the strip beside them and
-  // nothing overlaps.
+  // A capacity gauge in its OWN LANE down the left of each day, never over the
+  // blocks. The first version put a 6px bar at left:0 while session frames
+  // start at 2px and bookings at 9px, so on any day with a booking the three
+  // stacked into a striped mess and the label sat on the block's edge —
+  // reported as "the rails it got overlap with the booking making it look
+  // weird". The lane is now reserved in the stylesheet and everything else
+  // starts after it.
   //
   // Segments come from claude_free_windows() — the same claude_free_now() the
-  // hero panel prints, evaluated at each instant where the answer can change.
-  // Nothing here recomputes it; a second implementation of this rule in
-  // JavaScript would drift from the trigger within a week.
+  // hero panel prints, evaluated one second INSIDE each band (0157), so a band
+  // means "start anywhere in here and you may take this much" and its END is
+  // the LATEST START that still earns the previous, larger number.
   //
   // Only the current week has any: for a later week the weekly remainder is not
   // knowable yet, and a plausible-looking number would be a lie.
-  (board.free_windows || []).forEach((fw) => {
+
+  // Where the blocks are, per column, so a label can decline to sit on one.
+  const occupied = new Map();
+  board.bookings.forEach((bk) => {
+    splitAcrossDays(new Date(bk.starts_at).getTime(), new Date(bk.ends_at).getTime())
+      .forEach((sg) => {
+        if (!occupied.has(sg.i)) occupied.set(sg.i, []);
+        occupied.get(sg.i).push([sg.sMin, sg.eMin]);
+      });
+  });
+  // A label is ~18px tall; express that in minutes so the test is in the same
+  // units as everything else here and survives a change of --claude-hour-h.
+  const labelMin = (18 / hourH()) * 60;
+
+  const fws = board.free_windows || [];
+  fws.forEach((fw, wi) => {
     const free = Math.round(Number(fw.free_pct));
+    // A band whose successor is worth LESS ends at a deadline: start by then
+    // and you still get this much. That is the single most useful thing the
+    // rail knows, and the geometry alone does not say it out loud.
+    const next = fws[wi + 1];
+    const isDeadline = next != null && Math.round(Number(next.free_pct)) < free;
     const s = new Date(fw.starts_at).getTime();
     const e = new Date(fw.ends_at).getTime();
+    const until = new Date(fw.ends_at);
     splitAcrossDays(s, e).forEach((seg, idx) => {
       const col = colFor(seg.i);
       if (!col) return;
@@ -627,19 +650,36 @@ function paintGrid() {
         + (free <= 0 ? ' is-none' : free < pool ? ' is-part' : ' is-full');
       el.style.top = `${yForMin(seg.sMin)}px`;
       el.style.height = `${Math.max(2, yForMin(seg.eMin) - yForMin(seg.sMin))}px`;
+      // The band's END is a DEADLINE, not just where the colour changes: start
+      // by then and you still get this much. Saying it is most of the value.
       el.title = free > 0
-        ? `เริ่มใช้ในช่วงนี้ได้ ${free}% โดยไม่ต้องจอง`
+        ? `เริ่มใช้ได้ถึง ${hhmm(until)} จะได้ ${free}% โดยไม่ต้องจอง`
+          + (fw.week_free_pct != null
+            ? ` · สัปดาห์นี้เหลือรวม ${pctText(fw.week_free_pct)}` : '')
         : 'ช่วงนี้ไม่เหลือโควตาให้ใช้โดยไม่จอง';
-      // Label the first day-segment, and any CONTINUATION long enough to be
-      // read as its own band. Labelling only idx 0 left a whole column of อ 18
-      // drawing a 968px ribbon with nothing on it — a colour with no number is
-      // a decoration, and the number is the entire point. Found by measuring
-      // the painted bands, not by reading the loop.
-      if ((idx === 0 || seg.eMin - seg.sMin >= 180) && seg.eMin - seg.sMin >= 45) {
+
+      // Label the first day-segment, and any CONTINUATION long enough to read
+      // as its own band — labelling only idx 0 left a whole column drawing a
+      // 968px ribbon with nothing on it. But never where a block already is:
+      // that collision is what made the rail look broken.
+      const tall = seg.eMin - seg.sMin >= 45;
+      const clash = (occupied.get(seg.i) || [])
+        .some(([bs, be]) => bs < seg.sMin + labelMin && be > seg.sMin);
+      if ((idx === 0 || seg.eMin - seg.sMin >= 180) && tall && !clash) {
         const tag = document.createElement('span');
         tag.className = 'claude-free-tag';
-        tag.textContent = free > 0 ? `ว่าง ${free}%` : 'เต็ม';
+        tag.textContent = free > 0 ? `${free}%` : 'เต็ม';
         el.appendChild(tag);
+      }
+      // The deadline mark goes on the LAST day-segment of the band, at its
+      // foot — that is the instant it names.
+      const isLastSeg = seg.eMin >= (e - (s - seg.sMin * MIN_MS)) / MIN_MS - 1
+        || fw.ends_at === new Date(dayColumns()[seg.i].getTime() + seg.eMin * MIN_MS).toISOString();
+      if (isDeadline && tall && (isLastSeg || seg.eMin === 1440)) {
+        const dl = document.createElement('span');
+        dl.className = 'claude-free-deadline';
+        dl.textContent = `เริ่มถึง ${hhmm(until)}`;
+        el.appendChild(dl);
       }
       col.appendChild(el);
     });

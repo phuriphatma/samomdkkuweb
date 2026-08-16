@@ -51,8 +51,7 @@ has not been written yet.
    A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
    that was a head in one ฝ่าย and a ฝ่าย in the next. A CHART claims one rank
    = peers: when the STORED and REPORTING parents differ, the drawing needs its
-   own parentage. A DERIVED value must not beat an INHERITED
-   one — a name-matched colour fired at every depth, right 27/29 by chance.
+   own parentage. A DERIVED value must not beat an INHERITED one.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
    UI `role === 'x'` branches. This is the single most repeated bug here
@@ -113,16 +112,16 @@ has not been written yet.
    block-comment regex, and `'image/*'` in `main.js` opened a "comment" that
    blanked 13,839 characters before any assertion ran. One shared
    `strip-comments.js`, with its own test, now serves all four.
-   The five ways, each paid for here: it cannot SEE the hazard
-   (`photo-refcount.test.js` scanned `photo_url`, the hazard sat in
-   `houses.icon_url`, 0146) · its CONTROL finds nothing either (0147's sweep
-   printed "0 name users" beside "0 name anything") · it is satisfied by PROSE
-   (`confirm-modal.test.js` matched `[data-confirm-no]` in a *comment*) · its
-   SUBJECT is a hardcoded name that rotted (`proj0092`, `house0116`) · it
-   ERRORS rather than fails, and an aborted script is silence, not a red line
-   (`house0116` ran ZERO assertions for 23 migrations — when a migration drops
-   a function or column, grep `tools/` in the same commit). **The ritual that catches all five: reintroduce the bug, watch it
-   fail on the assertion you expect, restore.**
+   The five ways, each paid for here: it cannot SEE the hazard (0146) · its
+   CONTROL finds nothing either (0147) · it is satisfied by PROSE
+   (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
+   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails,
+   and an aborted script is silence, not a red line (`house0116` ran ZERO
+   assertions for 23 migrations — when a migration drops a function or column,
+   grep `tools/` in the same commit). **The ritual that catches all five: reintroduce the bug, watch it
+   fail on the assertion you expect, restore.** Never write a guard from the
+   SAME LIST the code came from — assert the PROPERTY that list was meant to
+   produce, or a wrong list passes itself.
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
    no GRANT denies everyone and reads exactly like the policy working (0138),
@@ -132,8 +131,7 @@ has not been written yet.
    account picked by `permissions='{}'` may hold `master` through the tree.
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
    `let`s (grep a STRING LITERAL or CSS class), code often lands in a SHARED
-   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a
-   GET, and `lh3` still serves a TRASHED Drive file. **Re-read a rule's stated
+   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a GET. **Re-read a rule's stated
    JUSTIFICATION, not just its predicate** — `users_read_all` carried "needed
    for staff dashboards" in a comment, that need had ended years earlier, and
    the policy outlived its reason in silence (0147).
@@ -249,7 +247,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(61 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(62 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -312,6 +310,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - จองโควตา Claude rendered unstyled — CSS in the wrong ENTRY
 - "on ipad, when touch, it mess up between scroll and adding the booking"
 - "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
+- "the rails it got overlap with the booking making it look weird"
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(16 entries)*
@@ -371,7 +370,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
 ### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(11 entries)*
+*Open when:* writing or trusting a `tools/*.mjs` proof. *(12 entries)*
 
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
@@ -384,5 +383,6 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Checking the proofs by hand produced TWO false alarms in a row — they emit four different output shapes
 - A proof that ERRORS is not a proof that fails
 - A browser probe measured its coordinates before the page scrolled
+- A comment listed four boundaries and the code had three
 
 <!-- END GENERATED INDEX -->

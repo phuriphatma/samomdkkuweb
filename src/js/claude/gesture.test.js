@@ -168,6 +168,35 @@ describe('the listeners that make the gesture work at all', () => {
   });
 });
 
+// ── §B2. The capacity rail has its own lane ────────────────────────────────
+describe('the capacity rail never shares space with a block', () => {
+  // Reported as "the rails it got overlap with the booking making it look
+  // weird". The rail was at left:0/6px while session frames start at 2px, so
+  // the two literally overlapped and, with the block's own coloured left
+  // border beside them, drew three adjacent stripes.
+  //
+  // The real proof of a geometry claim is the PAINTED BOXES, and that is a
+  // browser measurement (tools/, skills/drive-the-browser.md) — it found the
+  // overlap was rail-vs-SESSION-FRAME, which reading the stylesheet had not
+  // made obvious. This is the cheap structural half: the lane exists and
+  // everything that is not the rail is positioned off it.
+  const rule = (sel) => (CSS.match(
+    new RegExp(`\\${sel}\\s*\\{[^}]*\\}`, 'g')) || []).join('\n');
+
+  it('the day column reserves a lane', () => {
+    expect(rule('.claude-daycol')).toMatch(/--claude-lane:/);
+  });
+
+  it('the rail sits inside it', () => {
+    expect(rule('.claude-free')).toMatch(/left:\s*var\(--claude-rail-x\)/);
+  });
+
+  it.each(['.claude-bk', '.claude-session', '.claude-sel'])(
+    '%s starts after the lane', (sel) => {
+      expect(rule(sel)).toMatch(/left:\s*(calc\()?var\(--claude-lane\)/);
+    });
+});
+
 // ── §C. Identity is not a property of which week is open ───────────────────
 describe('the booking modal names the same person in every week', () => {
   it('the id card reads board.me', () => {

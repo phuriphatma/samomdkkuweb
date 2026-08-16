@@ -2295,3 +2295,41 @@ happened to be in the current query's result set.* The filter that makes a list
 correct — a week, a department, a status — is not a filter anyone applied to the
 question "who am I", and the fallback hides it: it looks right in exactly the
 case you tested in.
+
+## "the rails it got overlap with the booking making it look weird"
+
+**Symptom.** The capacity rail down the left of each day drew into the session
+frame and beside the booking block, so any day with a booking showed three
+adjacent vertical stripes, and the "ว่าง 100%" label sat on the block's edge.
+
+**Cause.** Three absolutely-positioned things claiming the same 10 pixels and
+nobody owning the layout: `.claude-free` at `left: 0; width: 6px`,
+`.claude-session` at `left: 2px`, and `.claude-bk` at `left: 9px` with a 3px
+coloured left border. Each was written against the column, none against the
+others.
+
+**Fix.** The day column now declares the lane —
+`--claude-rail-x` / `--claude-rail-w` / `--claude-lane` — the rail draws inside
+it over a faint track, and the frame, the block and the drag selection all
+start at `var(--claude-lane)`. The label moved beside the lane (100% does not
+fit in 11px and overflowed looking broken) and `paintGrid()` skips it where a
+block occupies the same minutes.
+
+**Where it lives now.** `.claude-daycol` in `src/css/claude.css`; the
+`occupied`/`clash` check in `paintGrid()`.
+
+**The general rule.** *When several absolutely-positioned layers share a
+column, one of them has to own the geometry and the rest have to be expressed
+in terms of it.* Independent pixel offsets agree until one changes.
+
+**And the instrument matters.** Reading the stylesheet says the rail (0–6px) and
+the block (9px+) do not overlap, which is true — the actual collision was rail
+against SESSION FRAME. Only measuring the painted boxes named it:
+
+```js
+const hit = (a,b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
+```
+
+over every `.claude-free` × `.claude-bk` / `.claude-session` pair, with a
+control asserting all three kinds are actually on screen. "It looks weird" is a
+geometry claim; answer it with geometry.

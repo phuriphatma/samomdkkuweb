@@ -28,6 +28,16 @@
   --claude-clay: #d97757;
   --claude-clay-ink: #a0472b;
   --claude-clay-wash: #fdf5f2;
+  /* A DEEPER step of the same family, for the second measured series. One hue,
+     two lightnesses, so the chart's two lines read as one thing (both are
+     Claude reporting on itself) while still being told apart. */
+  --claude-clay-deep: #8c4a2f;
+  /* The capacity ramp's middle. It was --brand-orange (#FF6F30), which sat one
+     hue-step from clay and made "partly booked" and "actually used" look like
+     the same colour once clay started carrying meaning. Amber is unmistakably
+     not clay, and unmistakably not the green above it. */
+  --claude-part: #d9a400;
+  --claude-part-ink: #8a6100;
 
   --claude-hour-h: 44px;
   --claude-gutter: 58px;
@@ -173,7 +183,22 @@
 .claude-gutter .claude-hr span {
   position: absolute; right: 5px; top: -6px; background: #fff; padding: 0 2px;
 }
-.claude-daycol { position: relative; border-right: 1px solid #eceff0; }
+.claude-daycol {
+  position: relative; border-right: 1px solid #eceff0;
+  /* The capacity lane, reserved. Everything that is not the rail starts after
+     it — before this, the rail, the session frame and the block's own left
+     border stacked into three adjacent stripes on any day with a booking. */
+  --claude-rail-x: 3px;
+  --claude-rail-w: 11px;
+  --claude-lane: calc(var(--claude-rail-x) + var(--claude-rail-w) + 5px);
+}
+/* The lane's empty track, so the rail reads as a gauge running down the day
+   rather than as coloured stripes appearing and disappearing. */
+.claude-daycol::before {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  left: var(--claude-rail-x); width: var(--claude-rail-w); top: 0; bottom: 0;
+  background: #f2f4f2; border-radius: 3px;
+}
 .claude-daycol .claude-hr {
   height: var(--claude-hour-h); border-bottom: 1px solid #eceff0;
 }
@@ -205,7 +230,7 @@
 
 /* The 5-hour session frame. */
 .claude-session {
-  position: absolute; left: 2px; right: 2px; z-index: 2; pointer-events: none;
+  position: absolute; left: var(--claude-lane); right: 2px; z-index: 2; pointer-events: none;
   border: 1px solid var(--claude-band-line); border-left-width: 3px;
   border-radius: 3px; background: var(--claude-band);
 }
@@ -222,7 +247,7 @@
 
 /* A booking. */
 .claude-bk {
-  position: absolute; z-index: 3; left: 9px; right: 5px;
+  position: absolute; z-index: 3; left: calc(var(--claude-lane) + 4px); right: 5px;
   border-radius: 3px; padding: 2px 6px; overflow: hidden; cursor: pointer;
   border: 0; border-left: 3px solid var(--claude-c, var(--brand-primary));
   background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 17%, #fff);
@@ -246,7 +271,7 @@
 }
 
 .claude-sel {
-  position: absolute; z-index: 5; left: 9px; right: 5px;
+  position: absolute; z-index: 5; left: calc(var(--claude-lane) + 4px); right: 5px;
   border: 1.5px dashed var(--brand-primary); border-radius: 3px; pointer-events: none;
   background: rgba(16, 89, 34, 0.1);
   display: flex; align-items: center; justify-content: center;
@@ -254,11 +279,13 @@
   font-variant-numeric: tabular-nums;
 }
 .claude-nowline {
-  position: absolute; left: 0; right: 0; height: 2px;
+  position: absolute; left: var(--claude-lane); right: 0; height: 2px;
   background: var(--brand-orange); z-index: 4; pointer-events: none;
 }
+/* The dot moved to the RIGHT end: on the left it sat exactly where the
+   capacity lane's label starts and clipped it. */
 .claude-nowline::before {
-  content: ""; position: absolute; left: -4px; top: -3px;
+  content: ""; position: absolute; right: -2px; top: -3px;
   width: 8px; height: 8px; border-radius: 50%; background: var(--brand-orange);
 }
 
@@ -461,7 +488,7 @@ svg.claude-mark {
    rather than "your press is being counted" — the owner reported it as the
    column highlighting. Feedback for a press belongs AT the press. */
 .claude-hold {
-  position: absolute; left: 0; right: 0; height: 3px; z-index: 6;
+  position: absolute; left: var(--claude-lane); right: 0; height: 3px; z-index: 6;
   pointer-events: none; border-radius: 2px; overflow: hidden;
   background: rgba(16, 89, 34, 0.18);
 }
@@ -536,7 +563,7 @@ svg.claude-mark {
   letter-spacing: -0.02em;
 }
 .cu-recon-cell.is-used .cu-recon-v { color: var(--brand-primary); }
-.cu-recon-cell.is-loose .cu-recon-v { color: var(--brand-orange); }
+.cu-recon-cell.is-loose .cu-recon-v { color: var(--claude-part-ink); }
 .cu-recon-cell.is-dim .cu-recon-v { color: #8b968f; }
 .cu-recon-k { font-size: 0.7rem; color: #6c757d; line-height: 1.35; margin-top: 2px; }
 .cu-recon-note {
@@ -559,12 +586,12 @@ svg.claude-mark {
   stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
 }
 .cu-line-sess {
-  fill: none; stroke: var(--brand-orange); stroke-width: 1.5;
+  fill: none; stroke: var(--claude-clay-deep); stroke-width: 1.5;
   stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
 }
 .cu-now { stroke: #b42318; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 .cu-tag-week { font-size: 10px; font-weight: 700; fill: var(--brand-primary); }
-.cu-tag-sess { font-size: 10px; font-weight: 700; fill: var(--brand-orange); }
+.cu-tag-sess { font-size: 10px; font-weight: 700; fill: var(--claude-clay-deep); }
 
 .cu-legend {
   display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px;
@@ -573,7 +600,7 @@ svg.claude-mark {
 .cu-legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .cu-key { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .cu-key-week { background: var(--brand-primary); }
-.cu-key-sess { background: var(--brand-orange); height: 2px; }
+.cu-key-sess { background: var(--claude-clay-deep); height: 2px; }
 .cu-key-band { background: rgba(16, 89, 34, 0.18); height: 10px; width: 10px; border-radius: 2px; }
 
 /* Tables. A wide table has to scroll inside ITS OWN box — a pane that scrolls
@@ -594,7 +621,7 @@ svg.claude-mark {
 .cu-table-log td:first-child { color: #6c757d; }
 .cu-table tr.is-reset td { background: #f6f8f6; color: #8b968f; font-style: italic; }
 .cu-sub { font-size: 0.7rem; color: #8b968f; margin-top: 1px; }
-.cu-loose { color: var(--brand-orange); }
+.cu-loose { color: var(--claude-part-ink); }
 .cu-dot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;
   margin-right: 5px; vertical-align: middle;
@@ -621,14 +648,14 @@ svg.claude-mark {
   font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--brand-primary); line-height: 1.1;
 }
-.cu-win.is-warn .cu-win-pct { color: #b54708; }
+.cu-win.is-warn .cu-win-pct { color: var(--claude-part-ink); }
 .cu-win.is-crit .cu-win-pct { color: #b42318; }
 .cu-win-meter {
   height: 5px; border-radius: 999px; background: var(--claude-track);
   overflow: hidden; margin: 5px 0 5px;
 }
 .cu-win-meter > i { display: block; height: 100%; background: var(--brand-primary); }
-.cu-win.is-warn .cu-win-meter > i { background: var(--brand-orange); }
+.cu-win.is-warn .cu-win-meter > i { background: var(--claude-part); }
 .cu-win.is-crit .cu-win-meter > i { background: #b42318; }
 .cu-win-when { font-size: 0.7rem; color: #6c757d; font-variant-numeric: tabular-nums; }
 
@@ -670,27 +697,42 @@ svg.claude-mark {
    START TIME, and tinting the area a booking already occupies would say the
    opposite of what it means. */
 .claude-free {
-  position: absolute; left: 0; width: 6px; z-index: 1; pointer-events: none;
-  border-radius: 0 3px 3px 0;
+  position: absolute; z-index: 1; pointer-events: none;
+  left: var(--claude-rail-x); width: var(--claude-rail-w); border-radius: 3px;
 }
 /* A whole session free is the UNREMARKABLE case and gets the quiet colour; the
    constrained stretches are the information, so they carry the weight. A rail
    that shouts everywhere points at nothing. */
-.claude-free.is-full { background: rgba(16, 89, 34, 0.22); }
-.claude-free.is-part { background: rgba(255, 111, 48, 0.75); }
+.claude-free.is-full { background: rgba(16, 89, 34, 0.30); }
+.claude-free.is-part { background: var(--claude-part); }
 .claude-free.is-none { background: rgba(180, 35, 24, 0.65); }
 
-/* The label sits OUTSIDE the 6px ribbon, over the empty left margin of the
-   column, so it can be read without making the ribbon wide enough to crowd the
-   blocks. pointer-events stays off — this is a readout, not a control. */
+/* The number sits BESIDE the lane, not in it — "100%" does not fit in 11px and
+   overflowed into the column looking broken. paintGrid refuses to draw it where
+   a block occupies the same minutes, so beside is safe. */
 .claude-free-tag {
-  position: absolute; left: 8px; top: 2px; white-space: nowrap;
+  position: absolute; left: calc(100% + 3px); top: 0; white-space: nowrap;
   font-size: 0.6rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--brand-primary); background: rgba(255, 255, 255, 0.92);
+  line-height: 1.35; letter-spacing: -0.02em;
+  background: rgba(255, 255, 255, 0.94); border-radius: 3px; padding: 0 3px;
+}
+
+/* The deadline: "start by this time and you still get the number above". The
+   band's end already draws it; this says it in words, because a colour change
+   does not tell anyone they are looking at a cut-off. */
+.claude-free-deadline {
+  position: absolute; left: calc(100% + 3px); bottom: 0; white-space: nowrap;
+  font-size: 0.55rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--claude-part-ink); background: rgba(255, 255, 255, 0.94);
   border-radius: 3px; padding: 0 3px;
 }
-.claude-free.is-full .claude-free-tag { color: #4a5a4e; font-weight: 600; }
-.claude-free.is-part .claude-free-tag { color: #b54708; }
+.claude-free-deadline::before {
+  content: ""; position: absolute; left: -4px; bottom: 0;
+  width: 3px; height: 2px; background: var(--claude-part-ink);
+}
+/* Ink that matches the band it labels, dark enough to read on white. */
+.claude-free.is-full .claude-free-tag { color: #2c5c37; }
+.claude-free.is-part .claude-free-tag { color: var(--claude-part-ink); }
 .claude-free.is-none .claude-free-tag { color: #b42318; }
 
 /* The rail's key, inline in the help line. The swatches reuse the rail's own
@@ -712,8 +754,26 @@ svg.claude-mark {
 }
 
 /* ---------- the Claude accent, applied ---------- */
-/* Chrome only. Every one of these is a border, an icon or a rule — nothing
-   here encodes a quantity, so none of it competes with the capacity ramp. */
+/*
+ * CLAY MEANS "MEASURED — THIS IS CLAUDE'S OWN NUMBER".
+ *
+ * The first attempt kept clay to pure chrome and the owner's verdict was fair:
+ * *"i only see weird long line showing clay color, but วัดจาก claude โดยตรง
+ * still green"*. A 2px rule across a card is not an accent, it is a stray line,
+ * and the one panel that IS Claude speaking was still wearing the app's green.
+ *
+ * So clay now carries a meaning, and it is the one meaning this pane needed a
+ * second colour for:
+ *
+ *   clay          what Claude reports it actually spent  (measured)
+ *   green         what is free / still available          (the capacity ramp)
+ *   ฝ่าย colours   what a person has booked                (a claim)
+ *   amber / red   a warning about any of the above         (status, reserved)
+ *
+ * Booked and measured sit side by side in the same bar and the same table, and
+ * before this they were told apart only by position. Now they are told apart by
+ * colour, and the colour is the right one: the measured half is Claude's.
+ */
 .claude-tab .claude-mark { color: var(--claude-clay); }
 
 .claude-usage-toggle .bi-activity { color: var(--claude-clay); }
@@ -726,12 +786,29 @@ svg.claude-mark {
   padding-left: 8px;
 }
 
-/* The week card's top edge — the pane's one large surface, signed rather than
-   coloured in. */
-.claude-week {
-  border-top: 2px solid var(--claude-clay);
-}
-
 /* The Claude mark in the modal header keeps its own colour on the dark-ish
    header background too. */
 .claude-tab .modal-header .claude-mark { color: var(--claude-clay); }
+
+/* ---------- clay = measured ---------- */
+/* The weekly bar's spent segment, and its legend swatch. */
+.claude-week-bar > i.is-used { background: var(--claude-clay); }
+.claude-legend .claude-swatch.is-used { background: var(--claude-clay); }
+
+/* "ใช้จริง — วัดจาก Claude โดยตรง". This strip is Claude reporting on itself;
+   it is the single most literal place the brand colour belongs. */
+.claude-measured-head b { color: var(--claude-clay-ink); }
+.claude-meter > i { background: var(--claude-clay); }
+/* Status still overrides — a window at 90% is a warning before it is a brand. */
+.claude-meter.is-warn > i { background: var(--claude-part); }
+.claude-meter.is-crit > i { background: #b42318; }
+
+/* The measured log: the reconciliation's "used for real" figure, the observed
+   5-hour peaks, and the weekly series in the chart — all the same quantity. */
+.cu-recon-cell.is-used .cu-recon-v { color: var(--claude-clay-ink); }
+.cu-win-pct { color: var(--claude-clay-ink); }
+.cu-win-meter > i { background: var(--claude-clay); }
+.cu-area { fill: rgba(217, 119, 87, 0.14); }
+.cu-line-week { stroke: var(--claude-clay); }
+.cu-tag-week { fill: var(--claude-clay-ink); }
+.cu-key-week { background: var(--claude-clay); }
