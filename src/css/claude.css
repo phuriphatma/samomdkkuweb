@@ -832,3 +832,127 @@ svg.claude-mark {
 .claude-week-fig-block.is-free.is-low .claude-week-fig { color: var(--claude-part-ink); }
 .claude-week-fig-block.is-free.is-none .claude-week-fig { color: #b42318; }
 .claude-week-fig-k { font-size: 0.72rem; color: #6c757d; margin-top: 1px; }
+
+/* ============================================================
+   0159 — the toolbar, the three-state week card, the two view switches,
+   the "ใช้จริง" overlay, and the ข้อตกลง.
+   ============================================================ */
+
+/* ---------- toolbar ---------- */
+.claude-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* The week label IS the date picker. A <label> wrapping a transparent
+   <input type="date"> so the platform's own calendar opens on tap — on iPad and
+   on a phone that is the picker people already know, and there is no second
+   month grid on the page to keep in step with this one. */
+.claude-jump {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border: 1px solid #dee2e6; border-radius: 6px;
+  cursor: pointer; background: #fff; color: inherit;
+}
+.claude-jump:hover { border-color: var(--claude-clay); }
+.claude-jump > i { color: var(--claude-clay-ink); }
+.claude-jump input[type="date"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: 0; padding: 0;
+}
+#claudeRefresh.is-spinning i { animation: claude-spin 0.8s linear infinite; }
+@keyframes claude-spin { to { transform: rotate(360deg); } }
+
+/* ---------- the week card's three figures ---------- */
+/* ใช้ไปแล้ว (clay — measured) · จองไว้ (amber — promised) · ว่าง (green).
+   The colours are the ones the rest of the pane already uses for those three
+   meanings; a fourth palette here would make all of them ambiguous. */
+.claude-week-fig-block.is-booked .claude-week-fig { color: var(--claude-part-ink); }
+.claude-week-fig-block.is-unknown .claude-week-fig { color: #adb5bd; }
+.claude-week-fig-block.is-unknown .claude-week-of { display: none; }
+
+/* ---------- the two view switches ---------- */
+.claude-calbar {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; margin-bottom: 6px;
+}
+.claude-vbtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; font-size: 0.78rem; font-weight: 600;
+  border: 1px solid #dee2e6; border-radius: 999px;
+  background: #fff; color: #495057; cursor: pointer;
+}
+.claude-vbtn:hover { border-color: var(--claude-clay); color: var(--claude-clay-ink); }
+.claude-vbtn.on {
+  background: var(--claude-clay-wash); border-color: var(--claude-clay);
+  color: var(--claude-clay-ink);
+}
+.claude-calbar-note { font-size: 0.72rem; color: #6c757d; }
+
+/* ---------- "ใช้จริง" overlay ---------- */
+/* ITS OWN LANE, on the right, mirroring the capacity rail on the left. The rail
+   cost this feature one report by being drawn over the blocks ("the rails it
+   got overlap with the booking making it look weird"); the answer there was a
+   reserved lane, so it is the answer here.
+
+   The lane only exists when the overlay is ON — .is-hist narrows the blocks.
+   Nothing moves for a reader who never turns it on. */
+.claude-cal-shell.is-hist .claude-daycol { --claude-hist-w: 30px; }
+.claude-cal-shell.is-hist .claude-bk,
+.claude-cal-shell.is-hist .claude-sel { right: calc(var(--claude-hist-w, 0px) + 5px); }
+.claude-cal-shell.is-hist .claude-session { right: calc(var(--claude-hist-w, 0px) + 2px); }
+
+/* Width IS the reading: a 15-minute slice at 60% draws 60% of the lane. Read
+   top to bottom the column is an area chart of the 5-hour window filling and
+   sawtoothing back to zero, and an unused stretch is simply blank — which is
+   the "free usage in between" the overlay is for. */
+.claude-hist {
+  position: absolute; right: 0; z-index: 2; pointer-events: none;
+  max-width: var(--claude-hist-w, 30px);
+  background: rgba(217, 119, 87, 0.42);
+  border-right: 2px solid var(--claude-clay);
+}
+.claude-hist-peak {
+  position: absolute; right: 1px; z-index: 4; pointer-events: none;
+  font-size: 0.58rem; font-weight: 700; line-height: 1;
+  color: var(--claude-clay-ink); background: #fff;
+  border: 1px solid var(--claude-clay); border-radius: 3px;
+  padding: 1px 3px; font-variant-numeric: tabular-nums;
+}
+
+/* ---------- ข้อตกลง ---------- */
+.claude-terms-lead {
+  background: var(--claude-clay-wash); border-left: 3px solid var(--claude-clay);
+  padding: 9px 12px; border-radius: 0 6px 6px 0; margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+.claude-terms-list { margin: 0; padding-left: 1.35rem; }
+.claude-terms-list > li { margin-bottom: 13px; }
+.claude-terms-list > li::marker { color: var(--claude-clay); font-weight: 700; }
+/* The DIRECT child only. Written as `.claude-terms-list b` it also caught every
+   inline <b> inside the explanation, so "กด ยกเลิกการจอง ให้คนอื่นด้วย" broke
+   into three lines with the middle one looking like a second heading. A
+   descendant selector is a claim about everything underneath it. */
+.claude-terms-list > li > b {
+  display: block; font-size: 0.96rem; color: #212529; margin-bottom: 2px;
+}
+.claude-terms-list span b { color: #212529; }
+.claude-terms-list span { display: block; font-size: 0.85rem; color: #495057; }
+/* The worked examples are the part people skip, so they get to look skippable —
+   set apart, quieter, and never mixed into the rule they illustrate. */
+.claude-terms-list em {
+  display: block; margin-top: 4px; padding: 5px 9px;
+  background: #f6f7f6; border-radius: 5px;
+  font-style: normal; font-size: 0.8rem; color: #495057;
+}
+.claude-terms-tips {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid #e9ecef;
+  display: grid; gap: 8px;
+}
+.claude-terms-tips > div { display: flex; gap: 8px; font-size: 0.82rem; color: #495057; }
+.claude-terms-tips i { color: var(--claude-clay-ink); flex: none; margin-top: 2px; }
+.claude-terms-link { color: var(--claude-clay-ink); font-weight: 600; }
+
+/* A note that is a REMINDER, not a refusal: the start-on-time warning is amber,
+   because it does not block anything and a red one that never blocks teaches
+   people that red does not block. */
+.claude-tab .claude-note.warn {
+  background: #fff8e6; border-color: #f0c000; color: #6b4e00;
+}
+.claude-tab .claude-note.warn strong { color: #6b4e00; }

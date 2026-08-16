@@ -65,9 +65,13 @@ export function buildIndex() {
     if (!fs.existsSync(full)) throw new Error(`missing topic file: docs/mistakes/${file}`);
     const heads = headingsOf(full);
     total += heads.length;
-    out.push(`### \`docs/mistakes/${file}\` — ${title}`);
-    out.push(`*Open when:* ${when}. *(${heads.length} entries)*`);
-    out.push('');
+    // ONE header line per area, not three, and no "open when" — the TITLE
+    // already says when ("Migrations, DDL, triggers & constraints" is the
+    // answer to "writing a migration"). Three lines and a restated purpose per
+    // file was ~155 bytes × 9 of a budget this file is permanently against, and
+    // none of it helped anyone scan. `when` is kept in TOPICS because it is the
+    // one-line description of each file and belongs with its definition.
+    out.push(`### \`${file}\` — ${title} *(${heads.length})*`);
     for (const h of heads) out.push(`- ${shorten(h)}`);
     out.push('');
   }

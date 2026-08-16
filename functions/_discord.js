@@ -162,24 +162,67 @@ export function parseVsWebhooks(env = {}) {
  * The identity here is already a projection (get_claude_board names its
  * columns); nothing on this path can reach an email or a รหัสนักศึกษา.
  */
+/**
+ * A booking was made, MOVED, or GIVEN BACK.
+ *
+ * All three are announced, and the reason is the same one that makes the board
+ * worth having: each of them changes what everybody else can have. A cancel is
+ * the most valuable of the three — it hands quota back, and nobody discovers
+ * that by staring at a page they closed an hour ago — so it gets its own colour
+ * and its own verb rather than being a quieter version of a booking.
+ *
+ * `mode` is 'new' | 'edit' | 'cancel'. An unknown or missing mode reads as
+ * 'new', which is what every caller before this field existed meant.
+ */
+const CLAUDE_MODES = {
+  new:    { verb: 'จองโควตา Claude',      title: 'จองโควตา Claude แล้ว',  color: 1071394 },
+  edit:   { verb: 'แก้ไขการจอง Claude',   title: 'แก้ไขการจองแล้ว',        color: 15832320 },
+  cancel: { verb: 'ยกเลิกการจอง Claude',  title: 'ยกเลิกการจองแล้ว — ช่วงนี้ว่างแล้ว', color: 11815192 },
+};
+
 export function buildClaudeBookingPayload(data = {}) {
+  const m = CLAUDE_MODES[data.mode] || CLAUDE_MODES.new;
+  const cancelled = data.mode === 'cancel';
+
   const fields = [
     { name: 'ฝ่าย', value: data.dept || '-', inline: true },
     { name: 'ตำแหน่ง', value: data.roles || '-', inline: true },
     { name: 'ช่วงเวลา', value: `${data.when || '-'} (${data.duration || '-'})`, inline: false },
-    { name: 'ใช้โควตาเซสชัน', value: `${data.pct ?? '-'}%`, inline: true },
-    { name: 'เหลือในเซสชันนี้', value: `${data.sessionLeft ?? '-'}%`, inline: true },
-    { name: 'จองไปทำอะไร', value: data.purpose || '-', inline: false },
     {
-      name: 'โควตาสัปดาห์',
-      value: `${data.weekUsed ?? '-'} / ${data.weekPool ?? '-'}%`
-        + ` · เหลือ ${(data.weekPool ?? 0) - (data.weekUsed ?? 0)}%`,
-      inline: false,
+      name: cancelled ? 'โควตาที่คืนกลับมา' : 'ใช้โควตาเซสชัน',
+      value: `${data.pct ?? '-'}%`,
+      inline: true,
     },
   ];
+  // A cancelled block has no "how much is left in its session" — the session it
+  // belonged to may not exist any more. A dash there would look like a reading.
+  if (!cancelled) {
+    fields.push({ name: 'เหลือในรอบ 5 ชม. นี้', value: `${data.sessionLeft ?? '-'}%`, inline: true });
+  }
+  fields.push({ name: 'จองไปทำอะไร', value: data.purpose || '-', inline: false });
+
+  // WHO IS WAITING. The board says it in the form; Discord is where people
+  // actually are, so it says it here too — a late start moves the next person's
+  // 5-hour reset by exactly as long as the lateness.
+  if (!cancelled && data.nextUp) {
+    fields.push({
+      name: 'มีคนใช้ต่อ',
+      value: `${data.nextUp} — กรุณาเริ่มใช้ให้ตรงเวลา `
+        + 'เพราะรอบ 5 ชม. เริ่มนับตอนพิมพ์ข้อความแรก',
+      inline: false,
+    });
+  }
+
+  fields.push({
+    name: 'โควตาสัปดาห์',
+    value: `${data.weekUsed ?? '-'} / ${data.weekPool ?? '-'}%`
+      + ` · เหลือ ${(data.weekPool ?? 0) - (data.weekUsed ?? 0)}%`,
+    inline: false,
+  });
+
   return {
-    content: `จองโควตา Claude — **${data.who || 'ไม่ทราบชื่อ'}**`,
-    embeds: [{ title: 'จองโควตา Claude แล้ว', color: 1071394, fields }],
+    content: `${m.verb} — **${data.who || 'ไม่ทราบชื่อ'}**`,
+    embeds: [{ title: m.title, color: m.color, fields }],
   };
 }
 

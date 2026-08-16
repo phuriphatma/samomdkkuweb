@@ -1064,7 +1064,7 @@ student's own card on the home page). Permission key `house` is threaded through
 `PERM_CATALOG`, `ADMIN_FEATURES`, `PERM_SECTION`, `SECTION_META`, `SIDE_FEATURE`
 and the sidebar.
 
-## จองโควตา Claude — migration 0154
+## จองโควตา Claude — migrations 0154–0159
 
 Booking a share of SAMO's ONE Claude Pro subscription. The stored unit is
 **session percent**: a 5-hour session carries 100%, and the week carries 700%
@@ -1073,10 +1073,25 @@ sessions). Nothing converts at read time.
 
 **A session is DERIVED, not a slot on a grid.** Claude opens its 5-hour window
 at the *first message*, so a wall-clock grid would be a fiction that reports
-"both bookings fine" until the account caps out. `claude_sessions()` walks
-bookings in start order: each joins the session it fits entirely inside, or
-opens a new one beginning at its own start. Checking only the LAST open session
-is correct by monotonicity, not by luck — see the comment in the migration.
+"both bookings fine" until the account caps out. Whoever starts first OPENS a
+window; everyone whose block falls inside it shares that window's 100%.
+`claude_sessions()` walks bookings in start order and opens a window only when
+the previous one has closed — a block that begins inside somebody's window joins
+it, even if it runs past the end.
+
+**The rule the guard enforces (0159), in one sentence**: *for every window opened
+in that chain, the bookings whose time overlaps `[open, open + 5h)` may not claim
+more than 100% together.* It is a property of the SET, so it cannot depend on
+insert order — which is exactly what 0154 got wrong. **There is no straddle rule
+any more**: a block may cross a window boundary, because every window it touches
+is checked to have room for it.
+
+**The third anchor is the window that is already OPEN.** If the measurement says
+a 5-hour window is running, that window is an anchor too, carrying Claude's own
+reported utilization as its base load. So somebody who is already working cannot
+be squeezed by a booking made afterwards — a late booking may only claim what the
+open window has left. Nobody declares a session; the measurement is the signal.
+Its one honest limit is that the sample is up to 15 minutes old.
 
 **Tables**: `claude_settings` (one row: reset dow/time/tz, the two pools, the
 session length — the reset is Wed 16:00 ICT but *configurable*, because
@@ -1088,12 +1103,16 @@ report a spent pool as full), `claude_bookings`, `claude_usage_samples`.
 |---|---|
 | ≤ 5 hours per block | `claude_bookings_span_max` check constraint |
 | no two blocks overlap | `claude_bookings_no_overlap` **exclusion constraint** (gist over `tstzrange`) — two people pressing ยืนยัน at the same second both pass a client-side "is it free?" read |
-| one session ≤ 100%, one week ≤ 700%, no straddling a session edge or the weekly reset | `claude_booking_guard()` **trigger** — on the TABLE, so an import or a psql session passes through it too |
+| every 5-hour window ≤ 100% (including the one Claude says is open now), one week ≤ 700%, no straddling the weekly reset | `claude_booking_guard()` **trigger** — on the TABLE, so an import or a psql session passes through it too. It reads `claude_window_loads()`, which is the ONLY implementation of the window rule |
 
 **Reads**: `get_claude_board(p_at)` returns the whole board in one payload —
-week bounds, settings, bookings, sessions, and the latest measured sample. One
-call on purpose: deriving sessions again in JavaScript would put the rule in two
-places, which is this repo's most expensive class. `claude_sessions()` and
+week bounds, settings, bookings (each with its own `window_ends_at` /
+`window_free_pct`), sessions, `right_now`, `free_windows` and the latest measured
+sample. `claude_booking_limits(start, end, id)` is the second gated read: the
+booking form calls it on a RANGE change (never on the slider — `max_pct` does not
+depend on the pct asked for) to cap the slider, name who shares the window and
+warn about a late start. One implementation, three readers. `claude_sessions()`,
+`claude_window_loads()`, `claude_free_now()`, `claude_free_windows()` and
 `claude_week_start()` are SECURITY DEFINER over the whole table and are
 **revoked from `authenticated`** — only the trigger and the gated board RPC
 reach them. The identity in the payload is a hand-built projection (name,
@@ -1106,13 +1125,22 @@ yourself only (`user_id = auth.uid()`); UPDATE/DELETE on your own row or
 `SECTION_META`, the sidebar and the landing card.
 
 **Frontend**: `src/js/claude/index.js` (section `claude`),
-`src/html/tab-claude.html`, `src/css/claude.css`. Week timegrid, sessions drawn
-as frames with a "เหลือ N%" chip, drag-to-select capped at 5h, ฝ่าย colour from
-`dept-tint.js`. Discord via `sendNotify('claude', …)` →
+`src/html/tab-claude.html`, `src/css/claude.css`. Week timegrid, windows drawn
+as frames tagged "เหลือ N% · ถึง HH:MM", drag-to-select capped at 5h, ฝ่าย colour
+from `dept-tint.js`. The week card states the three figures **ใช้ไปแล้ว / จองไว้ /
+ว่าง** and sits ABOVE the "ใช้ได้เลยตอนนี้" hero on purpose. Two remembered view
+switches: **พอดีจอ** (compress 24h to fit — sized from the scroller's CSS
+`max-height`, never its `clientHeight`, which is a feedback loop) and **ใช้จริง**
+(overlay the measured samples in a lane down the right of each day). A date
+picker on the week label jumps weeks; a throttled refresh re-reads the database
+(it cannot make the VM poll sooner). **ข้อตกลง** opens on first visit per
+`TERMS_VERSION` and from the toolbar. Discord via `sendNotify('claude', …)` →
 `notifyClaudeBooking` → `DISCORD_CLAUDE_WEBHOOK` in `/etc/samo-notify.env`.
 
 **It coordinates; it does not enforce.** Everyone shares one login and can use
-Claude outside their block. The only *measured* number is
+Claude outside their block — and the window model assumes people who book turn
+up, which is why "จองแล้วเข้ามาใช้ และเริ่มให้ตรงเวลา" is rule 2 and 3 of the
+ข้อตกลง rather than a nicety. The only *measured* number is
 `claude_usage_samples`, written by `tools/claude-usage-report.mjs` — it reads
 the OAuth token from `~/.claude/.credentials.json` and calls
 `GET api.anthropic.com/api/oauth/usage`, which a browser can never do. Absent a

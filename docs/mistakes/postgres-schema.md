@@ -779,3 +779,59 @@ same instant.* This is the second time the same feature shipped this exact
 shape (0156 was the week card reading `right_now`), and both times it was
 invisible in review — the present is the one instant where every scope agrees,
 and it is the instant you are looking at while you build.
+
+## "i can even book at 06.00 which shouldn't be" — a guard checked against a state the insert changes
+
+**Symptom.** With 17 Aug 08:00–13:00 booked at 100%, the board accepted a second
+booking starting at 06:00 — and at 03:01, and at 05:00 for 1%. It also did the
+opposite: writing 06:00@50% FIRST and then 08:00–13:00@50% was REFUSED
+("คร่อมขอบเซสชัน"), although 50 + 50 is exactly 100 and perfectly legal. Which of
+two bookings was allowed depended on which had been typed first.
+
+**Cause.** `claude_booking_guard()` (0154 §5) validated the incoming row against
+`claude_sessions()` derived from **the other rows**. But that derivation is
+greedy **in `starts_at` order**, so a row inserted with an EARLIER start silently
+re-derives everybody else's session — and nothing re-validated them. The guard
+was checking the new row against a state the new row destroys.
+
+Dumped after the third accepted insert, the derived sessions were
+`07:00→12:00 @100` **and** `08:00→13:00 @100`: two 5-hour windows overlapping
+four hours, each claiming a full 100%, which one Claude account cannot serve.
+Physically, whoever sends the first message opens the window; a 06:00 start opens
+[06:00, 11:00) and the 08:00 block is inside it, so they share one 100%.
+
+The mirror image had the same single cause. The straddle rule refused any block
+crossing a session edge because its percentage "belonged to no window" — a rule
+that only ever fired on the LATER-written row, which is why the identical pair
+was legal in one order and not the other.
+
+**Fix.** Replace both session rules with one that is a property of the SET, so it
+cannot depend on insert order: *for every 5-hour window opened in the chain, the
+bookings whose time overlaps it may not claim more than 100% together.* The
+openers are a chain (a booking inside an earlier booking's window joins it rather
+than opening a second one), and the window the MEASUREMENT says is open right now
+is an anchor too, carrying Claude's own reported utilization as its base load —
+which is also what stops a late booking from squeezing somebody who is already
+working. The straddle rule is deleted: under the window rule a crossing block IS
+defined, because every window it touches is checked to have room for it.
+
+⚠️ **The obvious version of this fix is too strict.** Treating every booking start
+as a window opener refuses a booking that begins exactly when the previous window
+closes — `claude0154-quota-guard.sql` §A4 went red, and one further case (§D5)
+went red only as a CONSEQUENCE of it. The chain is not an optimisation.
+
+**Where it lives now.** `claude_window_loads()` + `claude_booking_guard()` in
+`0159_claude_a_window_is_shared_by_whoever_it_covers.sql`. One implementation,
+three readers: the trigger refuses, `claude_booking_limits()` caps the form's
+slider before anyone presses save, and the board draws each window's remaining
+capacity. Guarded by `tools/claude0159-window-share.sql` (30/30, both directions,
+FALSIFIED by restoring the 0154 guard — which reddens exactly A3–A6, B2, B4 and
+C2 and nothing else) plus `src/js/claude/window-share.test.js`.
+
+**The general rule.** *A guard that validates a candidate against a DERIVED state
+must re-derive that state WITH the candidate in it.* Any derivation that depends
+on ordering — greedy, `lag()`, "the last open X", a running total — is changed by
+an insert anywhere but the end, and checking the newcomer against the old
+derivation asks a question about a world that will not exist. The symptom is
+always an asymmetry: the same set of rows is legal or illegal depending on the
+order it was written in, and that asymmetry is the thing to look for.

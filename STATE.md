@@ -21,6 +21,9 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
+- ⏳ **0159 IS APPLIED TO THE LIVE DB AND NOT YET DEPLOYED** at the time this was
+  written — read the ordering note under "จองโควตา Claude" below. It is
+  ADD-ONLY (no drop, no signature change), so the served bundle keeps working.
 - ✅ **DEPLOYED = `d83308c` (2026-08-16)** — working tree clean, local == origin == VM.
   Verified from the SERVED artifacts: `ว่างให้ใช้เลย โดยไม่ต้องจอง`,
   `จำกัดด้วยโควตาสัปดาห์`, `claude-week-fig-block`, `ช่วงนี้มีคนจองไว้แล้ว`,
@@ -34,7 +37,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0158.** **1057 tests green.**
+  **Migrations applied through 0159.** **1082 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -147,6 +150,15 @@ Run the one covering what you touch. All are both-directional.
   ASSERTION was wrong. Only `booking_start − 5h` carries "you may still start
   AT this instant"; at a window reset or a booking's start/end the later value
   already applies.
+- `claude0159-window-share.sql` (30/30) — **the booking guard's window rule**.
+  A→B are the owner's two cases (100% blocks everything after `start − 5h`;
+  50% leaves 50% for whoever starts after it), C is the live-window anchor with
+  its no-sample CONTROL, D is nothing-else-moved, E is the privileges.
+  FALSIFIED by restoring the 0154 guard verbatim inside the transaction: it
+  reddens exactly A3–A6, B2, B4, C2 and nothing else.
+  ⚠️ Its first draft was CUMULATIVE and an earlier allowed row made a later case
+  deny for the WRONG reason; §C's sample injection also poisoned §D until §C was
+  moved last. Both were green. Isolation is the assertion.
 - `claude0155-free-now.sql` (21/21) — "how much may I use right now, until
   when". Its §A is the owner's three worked examples verbatim; §B1 holds the
   branch they never reach (an ALREADY-OPEN 5-hour window comes from the
@@ -209,28 +221,51 @@ because two copies of one rule is the class this repo pays for most.
 - `.env.local` holds the Supabase PAT, the VM sudo pw, project-B DB creds.
 - CI = Node 22. `npm run build && npm test` before every commit.
 
-## จองโควตา Claude — THE FEATURE THIS SESSION REBUILT (read before touching it)
+## จองโควตา Claude — READ THIS BEFORE TOUCHING `/admin#claude`
 
-Five migrations in one day (0154 → 0158) and **every single fix came from the
-owner testing live**. The pattern is worth more than the code: each bug was a
-number that was ARITHMETICALLY RIGHT and MEANT something else.
+Six migrations (0154 → 0159) and **every single fix came from the owner testing
+live**. The pattern is worth more than the code: each bug was a number that was
+ARITHMETICALLY RIGHT and MEANT something else.
 
-**The two rules that produced four of the five bugs:**
+### 0159 — THE RULE THAT NOW GOVERNS. Do not re-derive it anywhere.
 
-1. **Two quantities in one subtraction must share an INSTANT.** 0156 (the week
-   card read `right_now`, so browsing ahead showed today's usage) and 0158 (the
-   weekly remainder subtracted a FUTURE reservation list from a PRESENT
-   measurement, so finished bookings appeared to hand their quota back and
-   `week_free` climbed 10 → 60 → 160 → 260 → 360). Both were invisible in
-   review, because the present is the one instant where every scope agrees —
-   and it is the instant you are looking at while you build.
+> For every 5-hour window opened in the chain, the bookings whose time overlaps
+> `[open, open + 5h)` may not claim more than 100% together.
 
-2. **A readout is only correct where its question applies.** The rail's
-   `claude_free_now()` really is 50 inside somebody's block — and the rail says
-   "free to use without booking", so it was inviting the collision booking
-   exists to prevent. Now carved out and drawn as a hatched "held" state.
+It is a property of the SET of bookings, so it cannot depend on insert order —
+which is exactly what 0154 got wrong: its guard checked the incoming row against
+sessions derived from the OTHER rows, and that derivation is greedy in
+`starts_at`, so an earlier-starting insert re-derived everyone and nothing
+re-checked them. `08:00–13:00 @100%` standing, a booking at `06:00` was
+ACCEPTED; and `06:00@50 + 08:00@50` was REFUSED in one typing order and legal in
+the other.
 
-**The three panels and their scopes — do not cross them:**
+Three things that follow, and each cost something to learn:
+
+1. **The openers are a CHAIN.** A booking that starts inside an earlier
+   booking's window JOINS it. Treating every start as an opener is the obvious
+   fix and it is too strict — `claude0154 §A4` went red, and `§D5` went red only
+   as a consequence.
+2. **THE STRADDLE RULE IS GONE.** A block may cross a window boundary. Do not
+   put it back in SQL *or* in `limitsFor()`; it is what made a legal pair
+   bookable in only one order.
+3. **The window the MEASUREMENT says is open is an anchor**, carrying
+   `five_hour_pct` as its base load. That is the whole answer to *"i'm using at
+   16.00… then suddenly someone book so i have to stop my work?"* — no, the
+   later booking may only take what the open window has left. Nobody declares a
+   session. Limit: the sample is ≤15 min old.
+
+**ONE implementation, three readers**: `claude_window_loads()` → the trigger
+refuses · `claude_booking_limits()` caps the FORM's slider (called on a RANGE
+change, never on the slider) · `get_claude_board()` draws each window's
+remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
+that and is deleted.
+
+**Everything 0154–0158 learned — the two mixed-instant bugs, the three panels
+and their scopes, the colour system, the rail's exact semantics, and what each
+guard cost to get right — moved to
+`docs/state-archive/2026-08-16-claude-quota-booking.md` § "What 0154–0158
+learned". Read it before touching the panels; the two lines you cannot skip:**
 
 | Panel | Scope | Source |
 |---|---|---|
@@ -238,57 +273,48 @@ number that was ARITHMETICALLY RIGHT and MEANT something else.
 | the week card | the week ON SCREEN | `board.week.*` (0156) |
 | the rail | per START TIME | `claude_free_windows()` |
 
-**Colour carries meaning here:** clay = MEASURED (Claude's own number) · green =
-free · ฝ่าย colours = booked by a person · amber = partly available · red = none
-· hatch = held by someone. Amber was `--brand-orange` and had to move: it sat
-one hue-step from clay and "partly booked" started looking like "actually used".
-
-**The rail's semantics, exactly:** a band means "start anywhere in here and you
-may take this much", and its END is the LATEST START that still earns it. That
-is why `booking_start − 5h` is a boundary — a session begun exactly then ends as
-their block opens and shares with nobody. Bands are evaluated one second INSIDE,
-never at the edge (0157).
-
-**Guards, and what they cost to get right:**
-- `tools/claude0157-rail-segments.sql` (10/10) asserts the PROPERTY ("the answer
-  does not change inside a band"), **not a list of boundaries — because the bug
-  WAS a wrong list**: 0155's header named four instants and the code had three.
-- Its §B first asserted every band's end earns that band's number; three bands
-  failed and the ASSERTION was wrong, not the code.
-- Its sample is DERIVED from the booked total: hardcoded, the live week capped
-  every band and the controls B3/B4 correctly went red.
-- `tools/claude0155-free-now.sql` (22/22) — C3 asserted the opposite of the
-  truth and went red the moment 0158 landed. That is the right way round.
-- `src/js/claude/gesture.test.js` (35) — the touch gesture, the lane, the
-  identity. Three of its assertions were BLIND on first write (a regex that ran
-  past the end of a function; `.match` without `/g` reading the wrong CSS rule;
-  `toContain('carve(')` matching the definition).
-- Browser probes live in the scratchpad, not the repo: a 13-case iPad touch run
-  and a painted-box overlap check. **The touch run's ALLOW case is what caught
-  a harness where the modal counter had been dropped** and every "opens no
-  modal" case was passing vacuously.
-
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
-at 30, polled every 60 s per open tab. Fine at real scale; see the note above.
+at 30, polled every 60 s per open tab. Fine at real scale.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
-> prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through **0158** applied; **1057 tests green**; `claude0155-free-now.sql`
-> 22/22 and `claude0157-rail-segments.sql` 10/10 re-run today.
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
+> Migrations through **0159** applied; **1082 tests green**;
+> `claude0154` 20/20, `claude0155` 22/22, `claude0157` 10/10 and the new
+> `claude0159-window-share.sql` 30/30 all re-run today.
 > ⚠️ **`npm run proofs` (the other 15) was last run in full on 2026-08-15** —
 > re-run it first; a proof here went stale silently for three days once.
 >
-> **The last session was จองโควตา Claude, front to back, five migrations
-> (0154 → 0158) and eleven owner reports.** It is done, deployed and verified.
-> **Read the "จองโควตา Claude" section above before touching `/admin#claude`** —
-> it has the three panels and their scopes, the colour system, the rail's exact
-> semantics, and what the guards cost to get right. The archive file
-> `docs/state-archive/2026-08-16-claude-quota-booking.md` has the reasoning.
+> **The last session was จองโควตา Claude again: one real bug and nine asks.**
+> The bug is the one worth knowing — **read the 0159 block in the
+> "จองโควตา Claude" section above before touching anything in that pane.** It
+> replaced the session rules with a window rule, deleted the straddle rule, and
+> moved the form's cap onto a server RPC. Everything else that session was UI:
+> the three-figure week card, the ข้อตกลง, the date jump, พอดีจอ, the ใช้จริง
+> overlay, refresh, and notify-on-edit/cancel.
+>
+> ⚠️ **`.claude/rules/mistakes.md` is at 29,498 / 30,000 bytes** and the index
+> only grows. The next entry or two will breach it. Micro-trimming prose has
+> been done twice now and buys ~100 bytes an hour — **the next session that hits
+> this should restructure rather than trim**: the index is ~21 KB of the 30 KB
+> and its per-entry value declines, while `grep -rin "<symptom>" docs/mistakes/`
+> already does the finding. `check-context-budget.mjs` measures BYTES and Thai
+> costs 3 per character; `mistakes-index.mjs` caps in CHARACTERS. A byte cap was
+> tried and REVERTED — it truncated the Thai symptom lines mid-word, and those
+> lead lines are the thing the index exists for.
 >
 > **The one thing still owed: grant the `claude` permission** in ทีม SAMO to
 > whoever should book. Exactly ONE account holds it today.
+>
+> **Open question for the owner, asked and not yet answered**: the usage
+> reporter polls every 15 minutes on a systemd timer. Faster is possible but the
+> endpoint rate-limits hard (a 429 is already handled as a skipped tick) and each
+> run rotates the OAuth refresh token, so more runs is more chances to strand the
+> credential — which needs a human on the VM to fix. The refresh BUTTON added
+> this session re-reads the DATABASE only; a true on-demand poll would need an
+> authenticated endpoint on the VM that spawns the reporter, which is new attack
+> surface on a service that is currently unauthenticated. Recommendation: leave
+> it at 15 minutes.
 >
 > **Two habits this session paid for, in case they save you the money:**
 > **render the view you changed** (three bugs were only visible in a

@@ -9,9 +9,9 @@ open that file — or just `grep -rin "<phrase>" docs/mistakes/`. A near-match i
 worth reading; most of these bugs recurred in a second place wearing different
 clothes.
 
-**Read the matching file BEFORE touching**: `src/js/auth.js` · `src/js/db.js` ·
-anything calling supabase-js · any RLS policy, `current_user_*` helper or
-SECURITY DEFINER function · `server/deploy.sh` · `appscript/*.gs`.
+**Read the matching file BEFORE touching** `auth.js` · `db.js` · anything
+calling supabase-js · any RLS policy, `current_user_*` helper or definer
+function · `server/deploy.sh` · `appscript/*.gs`.
 
 ---
 
@@ -23,79 +23,78 @@ has not been written yet.
 
 1. **A per-row UPDATE policy is not a column policy.** `for update using (<col>
    = auth.uid())` gates *which row*, then grants *every column in it*. Found on
-   `users` (0028), `vs_tickets` (0096), `shop_orders` (0100) — treat it as
-   incomplete by construction and pair it with a column guard.
+   `users` (0028), `vs_tickets` (0096), `shop_orders` (0100) — incomplete by
+   construction; pair it with a column guard.
 2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a
-   `left join`, `if not found then`, and `null in (...)` all answer "allowed"
-   for an id that no longer resolves. Adding a DELETE to reference data creates
-   that input for the first time.
+   `left join`, `if not found then` and `null in (...)` all answer "allowed" for
+   an id that no longer resolves. A DELETE on reference data creates that input
+   for the first time.
 3. **Scoped is not full.** A narrow branch added *beside* an unconditional one
    (`has_permission('x')`, `using (true)`, a role list) is decorative —
-   permissive policies are OR'd, so the broad grant always wins. Make them
-   mutually exclusive.
+   permissive policies are OR'd, so the broad grant wins. Make them exclusive.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
-   `select=*`, the other RPC, the view without `security_invoker`, and the
-   audience lookup leaking. Enumerate the paths. Mirror image: a correct
-   restriction mistaken for a complete design — an admin's decision note went
-   into admin-only `student_change_requests` and the student it addressed had no
-   read path (0128). A form collecting a message for a named person promises
-   that person can read it. A gate on the WIDGET
-   is not a gate on the ROUTE: the admin sidebar hid sections an account could
-   not use and the delegate skipped them, but the HASH was unchecked, so
+   `select=*`, the other RPC, the view without `security_invoker` and the
+   audience lookup leaking. Mirror image: a correct restriction mistaken for a
+   complete design — an admin's decision note went into admin-only
+   `student_change_requests` and the student it addressed had no read path
+   (0128). A form collecting a message for a named person promises that person
+   can read it. A gate on the WIDGET is not a gate on the ROUTE: the sidebar hid
+   sections an account could not use, but the HASH was unchecked, so
    `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
    way in — click, hash, query string, deep link, GESTURE (on a scroll surface
    `pointerdown` starts every gesture the surface supports, and state armed
    there must be released on `pointercancel`). Non-security twin: a handler
-   guarded on state the CALLER sets misses every other entry point. COPY too:
+   guarded on state the CALLER sets misses every other entry point. COPY too —
    one claim lived in the sign-in caption, the signup link AND the home strip.
-   A LABEL is a claim about every branch it covers — "หัวหน้าฝ่าย" named a depth
-   that was a head in one ฝ่าย and a ฝ่าย in the next. A CHART claims one rank
-   = peers: when the STORED and REPORTING parents differ, the drawing needs its
-   own parentage. A DERIVED value must not beat an INHERITED one.
+   A LABEL, a CHART and a DERIVED value each make a claim about every case they
+   cover — the four org-chart entries in `docs/mistakes/frontend-ui.md`.
 5. **A new access channel must be threaded through EVERY gate the old one used**
-   — writes, reads, audience/directory lookups, definer-RPC `raise` guards, and
-   UI `role === 'x'` branches. This is the single most repeated bug here
+   — writes, reads, audience/directory lookups, definer-RPC `raise` guards and
+   UI `role === 'x'` branches. The most repeated bug here
    (0089 → 0090 → 0091 → 0093 → 0102). A UI gate that honours the new channel
    hides the gap until someone tries to save. **A SECURITY DEFINER RPC that
    restates a policy is one of those gates** — `soft_delete_pr_ticket` copied the
-   pr_staff/dev test 29 migrations AFTER the policy learned `has_permission('pr')`,
-   and its VS twin in the same migration was correct, so the pair read as
+   pr_staff/dev test 29 migrations after the policy learned `has_permission('pr')`
+   while its VS twin in the same migration was correct, so the pair read as
    permission-aware (0149). Check the SECOND twin.
 6. **Two implementations of one rule drift** — but check both callers want the
    SAME answer: unifying the four org views on one parentage made แผนผัง a
-   52,000px staircase (two draw containment, two reporting) A change is NOT verified in a view you never opened. SQL↔JS mirrors, a read path and a
-   write path, an export and its import, a guard and its call sites. Write the
-   differential test in the same commit — a comment saying "keep in step" is
-   not a mechanism. Also a list spelled out by hand beside a shared
-   constant: main.js's admin-link list vs `ADMIN_FEATURES` (0113). Also TWO WRITABLE TABLES holding one fact:
-   `students` and `team_members` each carried a person's identity and each
-   editor wrote only its own copy — fixed by `public.people` (0132–0134). **A bidirectional mirror needs
-   `is distinct from` on BOTH sides: that guard is the TERMINATION CONDITION,
-   not an optimisation**, and it must compare the value a READER sees — for a
-   GENERATED target, compare the generated column while writing the source it
-   derives from (ชื่อเล่น, 0134). A generated column is never a reason to skip a
-   field in a sync. **And a mirror is only bidirectional on the columns BOTH
-   directions NAME**: `people.year` was pushed down and never carried up, so any
-   touch of the registry reverted a person's own ชั้นปี edit — "nothing happens"
-   (0145). The guard reports a one-way column as settled, by construction.
-   Also a DERIVED COLUMN and the expression it came from: `cohort_year` was
-   filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the
-   รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS, where
-   `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
-   system and DERIVED in the other (`team_members.year` vs ระบบบ้าน's ชั้นปี).
+   52,000px staircase (two draw containment, two reporting). A change is NOT
+   verified in a view you never opened. SQL↔JS mirrors, a read path and a write
+   path, an export and its import, a guard and its call sites. Write the
+   differential test in the same commit — a comment saying "keep in step" is not
+   a mechanism. Also a hand-written list beside a shared constant (main.js's
+   admin links vs `ADMIN_FEATURES`, 0113). Also TWO WRITABLE TABLES holding one
+   fact: `students` and `team_members` each carried a person's identity and each
+   editor wrote its own copy — fixed by `public.people` (0132–0134).
+   **A bidirectional mirror needs `is distinct from` on BOTH sides: that guard is
+   the TERMINATION CONDITION, not an optimisation**, and it must compare the
+   value a READER sees — for a GENERATED target, compare the generated column
+   while writing the source it derives from (ชื่อเล่น, 0134); a generated column
+   is never a reason to skip a field. **And a mirror is only bidirectional on
+   the columns BOTH directions NAME**: `people.year` was pushed down, never
+   carried up, so any touch of the registry reverted a person's own ชั้นปี edit
+   (0145) — the guard reports a one-way column as settled, by construction.
+   Also a DERIVED COLUMN vs the expression it came from: `cohort_year` was filled
+   `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the รุ่น
+   (0128) — fill-once means never-correct; same shape in FORMS, where
+   `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145).
    Also a rule implemented on the writers you HAPPENED to be looking at (the
-   portrait cleanup missed `my-seat.js`). One `photoToRetire()` now. When a second copy is
-   unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
-   guard is a DIFFERENTIAL test that predicts, then does it, then compares.
-   Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
-   that stops matching looks like a feature nobody built. The instrument is the
-   COMPUTED style, never the stylesheet — and for a PAINT or OVERLAP bug, the
-   PAINTED BOXES.
-   Also TWO PASSES assigning one DOM property: a blanket `cb.disabled = on`
-   undid what the previous pass locked. Only touch what THIS pass set.
-   Same geometry, N passes: a delegated listener re-attached every render made
-   a panel open on odd paints only. State in a variable, listeners on the nodes
-   this paint made.
+   portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
+   the guard is a DIFFERENTIAL test.
+   Also a GUARD vs the DERIVED STATE it checks: `claude_booking_guard` checked a
+   new booking against sessions derived from the OTHER rows, and that derivation
+   is greedy in start order, so an earlier insert re-derived everyone and
+   nothing re-checked them (0159). **Tell: the same rows legal or illegal
+   depending on TYPING ORDER.** Re-derive WITH the candidate in it.
+   Also a SELECTOR vs the MARKUP, in BOTH directions: a descendant selector
+   styles content not written yet (`.list b` made every inline bold a heading),
+   a child combinator stops matching after a refactor. CSS fails SILENTLY, so a
+   rule that stops matching looks like a feature nobody built. The instrument is
+   the COMPUTED style, never the stylesheet — and for a PAINT or OVERLAP bug,
+   the PAINTED BOXES. Also TWO PASSES over one DOM property, and one listener
+   per re-render (`docs/mistakes/frontend-ui.md`): touch only what THIS pass set,
+   keep state in a variable and listeners on the nodes this paint made.
 7. **Verify from the authority, and test BOTH directions.** Read the ACL from
    `pg_proc.proacl`, not the `revoke` you just wrote; grep the SERVED bundle,
    not the local file; read the LIVE function body, not the migration that first
@@ -104,50 +103,53 @@ has not been written yet.
    Every DELETE needs `return=representation` + a `data.length` check — RLS
    returns zero rows, not an error (`delete-guard.test.js`).
 
-   **Guards fail GREEN — `skills/write-a-guard.md`.**
-   Two quantities in one SUBTRACTION must share an INSTANT (0156/0158).
-   **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled the same
-   block-comment regex, and `'image/*'` in `main.js` opened a "comment" that
-   blanked 13,839 characters before any assertion ran. One shared
-   `strip-comments.js`, with its own test, now serves all four.
+   **Guards fail GREEN — `skills/write-a-guard.md`.** Two quantities in one
+   SUBTRACTION must share an INSTANT (0156/0158).
+   **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled one
+   block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
+   chars before any assertion ran (one shared `strip-comments.js` now).
+   Also: **never measure a container to size the content that sizes it**
+   (`overflow:auto`+`max-height` makes `clientHeight` an OUTPUT; tell — it fixes
+   itself if you toggle twice), and **a button label is only unambiguous next to
+   the OTHER buttons** — read the rendered dialog.
    The five ways, each paid for here: it cannot SEE the hazard (0146) · its
    CONTROL finds nothing either (0147) · it is satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
-   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails,
-   and an aborted script is silence, not a red line (`house0116` ran ZERO
-   assertions for 23 migrations — when a migration drops a function or column,
-   grep `tools/` in the same commit). **The ritual that catches all five: reintroduce the bug, watch it
-   fail on the assertion you expect, restore.** Never write a guard from the
-   SAME LIST the code came from — assert the PROPERTY that list was meant to
-   produce, or a wrong list passes itself.
+   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and
+   an aborted script is silence (`house0116` ran ZERO assertions for 23
+   migrations — when a migration drops a function or column, grep `tools/` in
+   the same commit). **The ritual that catches all five: reintroduce the bug,
+   watch it fail on the assertion you expect, restore.** Never write a guard
+   from the SAME LIST the code came from — assert the PROPERTY that list was
+   meant to produce, or a wrong list passes itself.
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
    no GRANT denies everyone and reads exactly like the policy working (0138),
-   and a probe that can only print "denied" cannot tell a working guard from a
-   broken service. **Check the PROBE SUBJECT**: `current_user_has_permission()`
-   reads the UNION of `permissions` AND `managed_permissions` (0081), so an
-   account picked by `permissions='{}'` may hold `master` through the tree.
+   and a deny-only probe cannot tell a working guard from a broken service.
+   **Check the PROBE SUBJECT**, and derive it from the gate's own predicate:
+   `current_user_has_permission()` reads the UNION of `permissions` AND
+   `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
    `let`s (grep a STRING LITERAL or CSS class), code often lands in a SHARED
-   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a GET. **Re-read a rule's stated
-   JUSTIFICATION, not just its predicate** — `users_read_all` carried "needed
-   for staff dashboards" in a comment, that need had ended years earlier, and
-   the policy outlived its reason in silence (0147).
+   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a
+   GET. **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
+   `users_read_all` carried "needed for staff dashboards" in a comment, the need
+   had ended years earlier, and the policy outlived its reason (0147).
 
 ---
 
 ## Adding an entry
 
-1. Write it in the matching `docs/mistakes/*.md`, shaped
-   **Symptom → Cause → Fix → Where it lives now**, ending with the general rule.
-   Lead with the symptom *as it was reported* — that is what the next reader greps for.
-2. Run `npm run mistakes:index` (regenerates the index below from the headings —
-   never hand-edit it). If a generated line reads badly, fix the heading.
-3. If it is a new instance of one of the seven classes, say so in the entry and
-   add the site to that class's list above.
+Write it in the matching `docs/mistakes/*.md` as **Symptom → Cause → Fix → Where
+it lives now**, ending with the general rule and LEADING with the symptom as it
+was reported — that is what the next reader greps for. Run
+`npm run mistakes:index` (never hand-edit the index; if a line reads badly, fix
+the heading). If it is a new instance of one of the seven classes, add the site
+to that class above.
 
-`npm run check:context` fails if this file grows past its budget. When it does,
-the fix is to move detail into `docs/mistakes/`, never to raise the budget.
+**This file is charged to every session and the index only grows.** When
+`npm run check:context` fails, compress the classes or move detail into
+`docs/mistakes/` — never raise the budget.
 
 ---
 
@@ -155,9 +157,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
-### `docs/mistakes/supabase-client.md` — supabase-js, PostgREST & the session lifecycle
-*Open when:* auth.js · db.js · anything calling supabase-js. *(17 entries)*
-
+### `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(17)*
 - Supabase Realtime in this app: token goes stale + RLS-gated events silently vanish (autoRefreshToken is OFF), and re-re…
 - supabase-js `onAuthStateChange` deadlocks every subsequent call
 - supabase-js autoRefreshToken can stall, blocking subsequent requests
@@ -176,9 +176,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back fo…
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
-### `docs/mistakes/authz-rls.md` — RLS policies, SECURITY DEFINER & read paths
-*Open when:* any policy, `current_user_*` helper, or definer RPC. *(26 entries)*
-
+### `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(26)*
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
 - `INSERT ... RETURNING` (a.k.a. `Prefer: return=representation`) re-applies the SELECT RLS policy to the inserted row
@@ -206,9 +204,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
 - Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
 
-### `docs/mistakes/authz-grants.md` — The permission / seat / scope channel
-*Open when:* adding an access channel, a scope, or a seat. *(12 entries)*
-
+### `authz-grants.md` — The permission / seat / scope channel *(12)*
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
 - "โมนา got pr permission in teamsamo but she can't delete pr ticket"
 - A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD
@@ -222,9 +218,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A seat that grants a SHARED role must not be modelled as a new individual
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
-### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(19 entries)*
-
+### `postgres-schema.md` — Migrations, DDL, triggers & constraints *(20)*
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
 - Service-role seed can't UPDATE `role`/`permissions`
@@ -244,10 +238,9 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column treated as a reason to skip the field
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 - "why 18 august has rail show green 100% shouldn't it be 10%"
+- "i can even book at 06.00 which shouldn't be" — a guard checked against a state the insert changes
 
-### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(63 entries)*
-
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(66)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -311,10 +304,11 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
 - "the rails it got overlap with the booking making it look weird"
 - "why there's 50% rails in the period that has people book" — a right number answering the wrong question
+- "พอดีจอ" collapsed the calendar to its minimum row height
+- An inline `<b>` rendered as a second heading
+- A confirm dialog offered two buttons that both began with "ยกเลิก"
 
-### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
-*Open when:* URL state, per-user "seen", import/export. *(16 entries)*
-
+### `app-state.md` — Routing, read-state, caches & serialization *(16)*
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
 - Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind
@@ -332,9 +326,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - An INSERT is a write path too — the import guard covered UPDATE only
 - "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
 
-### `docs/mistakes/integrations.md` — Notifications, Apps Script & Google Drive
-*Open when:* notify, GAS handlers, Drive URLs. *(22 entries)*
-
+### `integrations.md` — Notifications, Apps Script & Google Drive *(22)*
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
 - Discord-notify drops leave NO trace — Pages Function logs aren't retained, so add a durable log before debugging
 - `convertDriveUrl(url, size)` silently ignores `size` for an already-lh3 URL
@@ -358,9 +350,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
 - The crest refcount could not see the crest — and the guard reported green
 
-### `docs/mistakes/deploy-hosting.md` — Deploy, nginx & caching
-*Open when:* deploy.sh, nginx, cache headers. *(7 entries)*
-
+### `deploy-hosting.md` — Deploy, nginx & caching *(7)*
 - `rsync --delete` on deploy yanks the previous build's chunks out from under OPEN tabs
 - A deploy script that `git pull`s ITSELF and keeps running will execute a garbage fragment
 - "Login is still there so the cache must be cleared" — localStorage and the HTTP cache are different buckets
@@ -369,9 +359,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
 - Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
 
-### `docs/mistakes/tooling-proofs.md` — Proof scripts & verification discipline
-*Open when:* writing or trusting a `tools/*.mjs` proof. *(12 entries)*
-
+### `tooling-proofs.md` — Proof scripts & verification discipline *(12)*
 - Two implementations of one rule drift silently — diff them, don't eyeball them
 - Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
 - RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted

@@ -237,3 +237,64 @@ Checked rather than assumed, because the owner asked directly.
   never in git, never printed. Created by direct `auth.users` insert; that needs
   the GoTrue token columns set to `''` not NULL or every sign-in 500s with
   "Database error querying schema".
+
+
+---
+
+# What 0154–0158 learned (moved out of STATE.md, 2026-08-16)
+
+**The two rules that produced four of the five bugs BEFORE 0159:**
+
+1. **Two quantities in one subtraction must share an INSTANT.** 0156 (the week
+   card read `right_now`, so browsing ahead showed today's usage) and 0158 (the
+   weekly remainder subtracted a FUTURE reservation list from a PRESENT
+   measurement, so finished bookings appeared to hand their quota back and
+   `week_free` climbed 10 → 60 → 160 → 260 → 360). Both were invisible in
+   review, because the present is the one instant where every scope agrees —
+   and it is the instant you are looking at while you build.
+
+2. **A readout is only correct where its question applies.** The rail's
+   `claude_free_now()` really is 50 inside somebody's block — and the rail says
+   "free to use without booking", so it was inviting the collision booking
+   exists to prevent. Now carved out and drawn as a hatched "held" state.
+
+**The three panels and their scopes — do not cross them:**
+
+| Panel | Scope | Source |
+|---|---|---|
+| `ใช้ได้เลยตอนนี้` (hero) | this instant | `claude_free_now()` |
+| the week card | the week ON SCREEN | `board.week.*` (0156) |
+| the rail | per START TIME | `claude_free_windows()` |
+
+**Colour carries meaning here:** clay = MEASURED (Claude's own number) · green =
+free · ฝ่าย colours = booked by a person · amber = partly available · red = none
+· hatch = held by someone. Amber was `--brand-orange` and had to move: it sat
+one hue-step from clay and "partly booked" started looking like "actually used".
+
+**The rail's semantics, exactly:** a band means "start anywhere in here and you
+may take this much", and its END is the LATEST START that still earns it. That
+is why `booking_start − 5h` is a boundary — a session begun exactly then ends as
+their block opens and shares with nobody. Bands are evaluated one second INSIDE,
+never at the edge (0157).
+
+**Guards, and what they cost to get right:**
+- `tools/claude0157-rail-segments.sql` (10/10) asserts the PROPERTY ("the answer
+  does not change inside a band"), **not a list of boundaries — because the bug
+  WAS a wrong list**: 0155's header named four instants and the code had three.
+- Its §B first asserted every band's end earns that band's number; three bands
+  failed and the ASSERTION was wrong, not the code.
+- Its sample is DERIVED from the booked total: hardcoded, the live week capped
+  every band and the controls B3/B4 correctly went red.
+- `tools/claude0155-free-now.sql` (22/22) — C3 asserted the opposite of the
+  truth and went red the moment 0158 landed. That is the right way round.
+- `src/js/claude/gesture.test.js` (35) — the touch gesture, the lane, the
+  identity. Three of its assertions were BLIND on first write (a regex that ran
+  past the end of a function; `.match` without `/g` reading the wrong CSS rule;
+  `toContain('carve(')` matching the definition).
+- Browser probes live in the scratchpad, not the repo: a 13-case iPad touch run
+  and a painted-box overlap check. **The touch run's ALLOW case is what caught
+  a harness where the modal counter had been dropped** and every "opens no
+  modal" case was passing vacuously.
+
+⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
+at 30, polled every 60 s per open tab. Fine at real scale; see the note above.

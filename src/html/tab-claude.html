@@ -18,56 +18,63 @@
        because a zero reads as a reading. -->
   <div class="claude-tab">
 
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <div class="claude-toolbar mb-3">
       <div class="btn-group btn-group-sm" role="group" aria-label="เลือกสัปดาห์">
-        <button type="button" class="btn btn-outline-secondary" id="claudePrevWeek">
-          <i class="bi bi-chevron-left"></i>
-        </button>
+        <button type="button" class="btn btn-outline-secondary" id="claudePrevWeek"
+                title="สัปดาห์ก่อน"><i class="bi bi-chevron-left"></i></button>
         <button type="button" class="btn btn-outline-secondary" id="claudeThisWeek">สัปดาห์นี้</button>
-        <button type="button" class="btn btn-outline-secondary" id="claudeNextWeek">
-          <i class="bi bi-chevron-right"></i>
-        </button>
+        <button type="button" class="btn btn-outline-secondary" id="claudeNextWeek"
+                title="สัปดาห์ถัดไป"><i class="bi bi-chevron-right"></i></button>
       </div>
-      <span class="claude-weeklabel" id="claudeWeekLabel"></span>
+      <!-- Jump straight to a date instead of tapping the arrow eight times.
+           A native <input type="date"> and not a hand-built month grid: on a
+           phone and on an iPad the platform picker is the one people already
+           know, it is keyboard- and screen-reader-complete for free, and there
+           is no second calendar widget on the page to keep in step with this
+           one. The visible label is the week; the input sits on top of it. -->
+      <label class="claude-jump" title="เลือกวันที่เพื่อข้ามไปสัปดาห์นั้น">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="claude-weeklabel" id="claudeWeekLabel"></span>
+        <input type="date" id="claudeJump" aria-label="ข้ามไปสัปดาห์ของวันที่">
+      </label>
       <span class="ms-auto"></span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="claudeTermsOpen">
+        <i class="bi bi-file-text me-1"></i>ข้อตกลง
+      </button>
+      <!-- The measurement lands every 15 minutes on a timer we do not control;
+           this asks the board to re-read what is already in the database. It is
+           throttled in the JS, and it says when the reading itself last moved —
+           a refresh button that silently returns the same number reads as
+           broken. -->
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="claudeRefresh"
+              title="อ่านข้อมูลล่าสุดอีกครั้ง">
+        <i class="bi bi-arrow-clockwise me-1"></i>รีเฟรช
+      </button>
       <button type="button" class="btn btn-success btn-sm" id="claudeNewBooking">
         <i class="bi bi-plus-lg me-1"></i>จองช่วงเวลา
       </button>
     </div>
 
-    <!-- "ใช้ได้เลยตอนนี้" — the first thing on the page, because it is the
-         question people arrive with. A calendar answers "is this slot free";
-         nobody books before opening Claude for ten minutes, so what they
-         actually need is "I want to use it NOW — how much, and until when".
+    <!-- THE WEEK, IN THREE WORDS. ใช้ไปแล้ว / จองไว้ / ว่าง — the three states
+         of the pool, named, before anything else on the page.
 
-         Rendered by paintFreeNow() from board.right_now, which is
-         claude_free_now() (migration 0155): min(what is left in the live
-         5-hour window, what the week has left after everyone's reservations).
-         The sentence underneath is not decoration — a shared quota with a bare
-         number gets argued with, and the name of whoever holds the next block
-         is what turns it from arbitrary into agreed. -->
-    <div class="claude-now" id="claudeNow"></div>
+         This card sits ABOVE "ใช้ได้เลยตอนนี้" on purpose. The hero answers
+         "may I just start now without booking", which is genuinely useful and
+         is NOT the behaviour this board wants to encourage; putting the shared
+         pool first says the plan is to book, and leaves the other number
+         available for whoever needs it.
 
-    <!-- Weekly pool. Seven ticks because 700% IS seven sessions — the scale
-         explains the unit without a sentence of help text.
-
-         The bar is three STATES, not a row of people: spent (measured), still
-         promised to somebody, and genuinely free. Per-person colour survives
-         inside the promised segment. It used to be per-person end to end, which
-         drew a full week as soon as a few people booked, however little of it
-         had actually been spent. -->
+         Seven ticks on the bar because 700% IS seven sessions — the scale
+         explains the unit without a sentence of help text. -->
     <div class="claude-week card-soft mb-3">
       <div class="claude-week-top">
         <div class="claude-week-figs">
-          <div class="claude-week-fig-block">
+          <div class="claude-week-fig-block is-used" id="claudeWeekUsedBlock">
             <span class="claude-week-fig" id="claudeWeekUsed">0</span>
             <span class="claude-week-of">/ <span id="claudeWeekPool">700</span>%</span>
-            <div class="claude-week-fig-k" id="claudeWeekWhat">ใช้ไปแล้วสัปดาห์นี้</div>
+            <div class="claude-week-fig-k" id="claudeWeekWhat">ใช้ไปแล้ว</div>
           </div>
-          <!-- The number people came for, given its own figure instead of the
-               tail of a legend line: "how much can I still use without booking
-               anything". Painted by paintWeekMeter() from week.measured_left −
-               week.reserved, both scoped to the week on screen. -->
+          <div class="claude-week-fig-block is-booked" id="claudeWeekBooked"></div>
           <div class="claude-week-fig-block is-free" id="claudeWeekFree"></div>
         </div>
         <span class="claude-week-right">
@@ -85,10 +92,30 @@
       <div class="claude-measured" id="claudeMeasured"></div>
     </div>
 
-    <p class="text-muted small mb-2" id="claudeHelp">
-      ลากบนตารางเพื่อเลือกช่วงเวลา — กรอบสีเขียวคือ <strong>เซสชัน 5 ชั่วโมง</strong>
-      ที่เกิดจากการจองแรกของช่วงนั้น ทุกคนที่จองอยู่ในกรอบเดียวกันจะแบ่งโควตา 100% ก้อนเดียวกัน
-    </p>
+    <!-- "ใช้ได้เลยตอนนี้" — deliberately SECOND. Rendered by paintFreeNow()
+         from board.right_now (claude_free_now, migration 0155): min(what is
+         left in the live 5-hour window, what the week has left after everyone's
+         reservations). The sentence underneath is not decoration — a shared
+         quota with a bare number gets argued with, and the name of whoever
+         holds the next block is what turns it from arbitrary into agreed. -->
+    <div class="claude-now" id="claudeNow"></div>
+
+    <p class="text-muted small mb-2" id="claudeHelp"></p>
+
+    <div class="claude-calbar">
+      <!-- Two view switches, both remembered. "พอดีจอ" compresses the 24 hours
+           until they fit without scrolling; "ใช้จริง" overlays what Claude
+           measured on top of what people booked. Both default OFF: the scrolled
+           day view is what every calendar people already use does, and the
+           overlay is a second layer of information that should be asked for. -->
+      <button type="button" class="claude-vbtn" id="claudeFitToggle" aria-pressed="false">
+        <i class="bi bi-arrows-collapse" aria-hidden="true"></i><span>พอดีจอ</span>
+      </button>
+      <button type="button" class="claude-vbtn" id="claudeHistToggle" aria-pressed="false">
+        <i class="bi bi-activity" aria-hidden="true"></i><span>ใช้จริง</span>
+      </button>
+      <span class="claude-calbar-note" id="claudeHistNote"></span>
+    </div>
 
     <div class="claude-cal-shell">
       <div class="claude-cal-scroll" id="claudeCalScroll">
@@ -190,10 +217,124 @@
                a live-looking button that 42501s is its own entry in the
                mistakes log. -->
           <button type="button" class="btn btn-outline-danger btn-sm me-auto d-none" id="claudeDelete">
-            <i class="bi bi-trash me-1"></i>ลบการจอง
+            <i class="bi bi-x-circle me-1"></i>ยกเลิกการจอง
           </button>
           <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
           <button type="button" class="btn btn-success btn-sm" id="claudeSave">ยืนยันการจอง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ข้อตกลงในการใช้ Claude ─────────────────────────────────────────────
+       WHERE THIS SHOWS UP, and why it is not a link in a footer:
+         • it opens BY ITSELF the first time an account reaches this pane, and
+           again whenever the text changes (CLAUDE_TERMS_VERSION in index.js);
+         • the ข้อตกลง button in the toolbar re-opens it any time;
+         • the modal cannot be dismissed by clicking the backdrop on the first
+           showing — there is one button and it says เข้าใจแล้ว.
+       Acceptance is remembered per account in localStorage. That is honest
+       about what it is: a reminder people have read the rules, not a signature.
+
+       HOW IT IS WRITTEN. Nine rules, each a bold line somebody can remember and
+       one line of why. Numbers appear only where a rule is unreadable without
+       one. Anything longer than this does not get read, and a rule nobody reads
+       is not a rule. -->
+  <div class="modal fade claude-tab" id="claudeTermsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold">
+            <svg class="claude-mark me-2" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.4v17.2"/><path d="M3.4 12h17.2"/><path d="M5.9 5.9l12.2 12.2"/><path d="M18.1 5.9L5.9 18.1"/></g></svg>ข้อตกลงในการใช้ Claude ของสโม
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" id="claudeTermsX"></button>
+        </div>
+
+        <div class="modal-body claude-terms">
+          <p class="claude-terms-lead">
+            สโมมีบัญชี <strong>Claude Pro บัญชีเดียว</strong> ทุกคนใช้ร่วมกัน
+            อ่านครั้งเดียวจบ แล้วใช้ให้สนุก
+          </p>
+
+          <ol class="claude-terms-list">
+            <li>
+              <b>ใช้สำหรับงานสโมเท่านั้น</b>
+              <span>ไม่ใช่งานส่วนตัว ไม่ใช่การบ้าน และอย่าให้รหัสกับคนนอกสโม</span>
+            </li>
+
+            <li>
+              <b>จองแล้วต้องเข้ามาใช้</b>
+              <span>ใช้ <u>น้อยกว่า</u> ที่จองได้ ไม่เป็นไร — แต่ถ้าจองแล้วหายไป
+                คนอื่นจะเสียเวลาไปเปล่า ๆ ทั้งช่วง ถ้าไม่ได้ใช้แล้ว กด
+                <b>ยกเลิกการจอง</b> ให้คนอื่นด้วย</span>
+            </li>
+
+            <li>
+              <b>เริ่มให้ตรงเวลา โดยเฉพาะเมื่อมีคนใช้ต่อ</b>
+              <span>รอบ 5 ชั่วโมงเริ่มนับตอนคุณพิมพ์ข้อความแรก ไม่ใช่ตอนที่จองไว้
+                <em>เช่น จอง 16:00–18:00 และมีคนจองต่อ 21:00 ถ้าคุณเริ่ม 16:15
+                รอบจะไปรีเซ็ต 21:15 เขาต้องนั่งรออีก 15 นาที</em></span>
+            </li>
+
+            <li>
+              <b>ดูเครดิตที่เหลือของตัวเองจาก Claude โดยตรง</b>
+              <span>ที่ <a href="https://claude.ai/new#settings/usage" target="_blank"
+                rel="noopener">claude.ai → Settings → Usage</a> —
+                <u>อย่าดูจากหน้านี้</u> หน้านี้ดึงข้อมูลทุก 15 นาที จึงช้ากว่าความจริงเสมอ</span>
+            </li>
+
+            <li>
+              <b>หนึ่งรอบ 5 ชั่วโมง = 100% ใช้ร่วมกัน</b>
+              <span>ใครเริ่มก่อนคนนั้นเปิดรอบ ใครเข้ามาในรอบเดียวกันแบ่ง 100%
+                ก้อนเดียวกัน พอครบ 5 ชั่วโมงจึงขึ้นรอบใหม่เต็ม 100%</span>
+            </li>
+
+            <li>
+              <b>จองไม่เต็ม 100% คนอื่นจองต่อได้</b>
+              <span>เช่น จองไว้ 50% เป็นเวลา 3 ชั่วโมง อีก 50% ยังเหลือให้คนอื่น
+                จองในรอบเดียวกันได้ — ดูได้จาก<b>กรอบใต้กล่องการจอง</b>
+                ที่บอกว่ารอบนั้นเหลือกี่เปอร์เซ็นต์และถึงกี่โมง</span>
+            </li>
+
+            <li>
+              <b>ไม่จองก็ใช้ได้ แต่ต้องดูตารางก่อน</b>
+              <span>ถ้าไม่จอง แปลว่าใครจะมาใช้พร้อมคุณก็ได้ ก่อนเริ่มให้ดูว่ามีใครจองต่อไหม
+                และรอบ 5 ชั่วโมงของคุณจะไปทับเขาหรือเปล่า
+                <em>เช่น มีคนจอง 16:00–19:00 ไว้ 70% — ถ้าคุณเริ่ม 11:00
+                ใช้ได้เต็ม 100% เพราะรอบคุณจบ 16:00 พอดี แต่ถ้าเริ่ม 12:00
+                ใช้ได้แค่ 30% เพราะรอบคุณจะไปจบ 17:00 ทับกับเขา</em></span>
+            </li>
+
+            <li>
+              <b>ถ้าคุณกำลังใช้อยู่ ไม่ต้องหยุดกลางคัน</b>
+              <span>คนที่มาจองทีหลังจะจองได้แค่ส่วนที่รอบปัจจุบันยังเหลือ
+                ระบบกันให้เอง — แต่ถ้าจะใช้ยาว ๆ จองไว้จะชัวร์กว่า</span>
+            </li>
+
+            <li>
+              <b>แถบสีซ้ายมือของแต่ละวันบอก “เริ่มได้ถึงเมื่อไร”</b>
+              <span>ไม่ได้บอกว่าช่วงนั้นว่าง แต่บอกว่า<u>ถ้าเริ่มตอนนั้น</u>จะได้กี่เปอร์เซ็นต์
+                ปลายแถบคือเวลาเริ่มช้าที่สุดที่ยังได้เท่านั้น
+                <em>เช่น มีคนจอง 16:00–21:00 ไว้ 100% คุณต้องเริ่มไม่เกิน 11:00
+                ถ้าเริ่ม 11:15 จะไม่ทัน เพราะรอบจะไปรีเซ็ตหลังเขาเริ่มแล้ว</em></span>
+            </li>
+          </ol>
+
+          <div class="claude-terms-tips">
+            <div><i class="bi bi-hand-index-thumb" aria-hidden="true"></i>
+              <span>บนมือถือและไอแพด <b>แตะค้างไว้แล้วลาก</b> บนตารางเพื่อเลือกช่วงเวลา
+                (แตะเฉย ๆ ใช้เลื่อนดูตาราง)</span></div>
+            <div><i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+              <span>โควตาสัปดาห์รีเซ็ต <b id="claudeTermsReset">ทุกวันพุธ 16:00</b>
+                — จองคร่อมเวลานี้ไม่ได้ ต้องแยกเป็นสองการจอง</span></div>
+            <div><i class="bi bi-discord" aria-hidden="true"></i>
+              <span>ทุกครั้งที่มีคนจอง แก้ไข หรือยกเลิก ระบบจะแจ้งใน Discord ให้ทีมรู้</span></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <span class="claude-terms-ver small text-muted me-auto" id="claudeTermsVer"></span>
+          <button type="button" class="btn btn-success btn-sm" id="claudeTermsOk">เข้าใจแล้ว</button>
         </div>
       </div>
     </div>

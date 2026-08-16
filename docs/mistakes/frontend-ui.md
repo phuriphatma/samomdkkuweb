@@ -2361,3 +2361,88 @@ which is a different and much more alarming fact than "somebody booked this".
 Before believing a number, check that the sentence the UI puts around it is true
 at every point it is drawn — the arithmetic can be right everywhere while the
 sentence is false in half the places it appears.
+
+## "พอดีจอ" collapsed the calendar to its minimum row height
+
+**Symptom.** A "fit the whole day on screen" toggle worked when clicked, and was
+wrong on the next page load — the grid came back at the 16px floor, the shortest
+hour row the CSS allows, with the card mostly white space. Clicking the toggle
+off and on again fixed it until the next reload.
+
+**Cause.** The handler sized the content from its own container:
+
+```js
+const usable = scroller.clientHeight - headH;      // ← the loop
+tab.style.setProperty('--claude-hour-h', `${usable / 24}px`);
+```
+
+The scroller is `max-height: 620px` with `overflow: auto`, so while the content is
+SHORTER than the cap its `clientHeight` **is the content height**. Shrink the
+rows, the container shrinks with them, the next pass reads the smaller number and
+shrinks again. On a fresh load — where the toggle is applied before the content
+has ever been tall — it ran straight to the floor. Clicking off restored the
+default hour height, which made the content tall enough to hit the cap, so
+clicking on again read the real 620 and looked correct.
+
+**Fix.** Measure the CAP, not the container:
+`parseFloat(getComputedStyle(scroller).maxHeight)`. It is a fixed quantity, it is
+where the mobile breakpoint already lives (480px), and it breaks the loop.
+
+**Where it lives now.** `applyFit()` in `src/js/claude/index.js`.
+
+**The general rule.** *Never measure a container to size the content that
+determines the container's size.* `overflow: auto` + `max-height` is a
+shrink-to-fit box until the cap is reached, so `clientHeight` is an OUTPUT of the
+content, not a constraint on it. Read the constraint itself. The tell is a bug
+that fixes itself when you toggle it twice — that is a feedback loop finding a
+fixed point, not a race.
+
+## An inline `<b>` rendered as a second heading
+
+**Symptom.** In the ข้อตกลง list, "กด **ยกเลิกการจอง** ให้คนอื่นด้วย" broke into
+three lines with the bold phrase alone in the middle, reading like a heading for
+a rule that did not exist. Invisible in the markup, invisible in review, obvious
+in the first screenshot.
+
+**Cause.** `.claude-terms-list b { display: block; font-size: 0.96rem; }` was
+written for the rule's headline, which is a direct child of the `<li>`. A
+descendant selector is a claim about EVERYTHING underneath it, so it also caught
+every inline `<b>` inside the explanation `<span>`.
+
+**Fix.** `.claude-terms-list > li > b` for the headline; a separate rule for
+`span b` that only sets colour.
+
+**Where it lives now.** `src/css/claude.css`, the ข้อตกลง section. Guarded by the
+`inline <b> stays inline` browser probe, which asserts the COMPUTED `display`
+rather than the stylesheet.
+
+**The general rule.** *A descendant selector styles content you have not written
+yet.* When a rule is meant for a structural position, say the position (`>`).
+This is the same class as the markup refactor that unhooked every
+`> .org-station` selector, from the other direction: there the child combinator
+was too narrow, here the descendant one was too wide. Both fail SILENTLY, and
+both are only visible in the render.
+
+## A confirm dialog offered two buttons that both began with "ยกเลิก"
+
+**Symptom.** Renaming ลบการจอง → ยกเลิกการจอง put the dialog's confirming button
+one word away from its dismissing one: **ยกเลิก** (back out) beside **ยกเลิกการจอง**
+(do it). Both correct in isolation; together, a coin flip on a destructive action.
+
+**Cause.** `askConfirm()`'s "no" button is a hardcoded, shared `ยกเลิก` — it is
+the same component every delete in the app uses. The caller only chooses the
+`yes` label, so a caller whose ACTION is itself a cancellation collides with it.
+
+**Fix.** The action shares no word with the dismissal and says what happens:
+`ใช่ คืนช่วงเวลานี้`. The button in the modal FOOTER still reads ยกเลิกการจอง,
+which is what was asked for — the collision only exists inside the dialog.
+
+**Where it lives now.** `removeBooking()` in `src/js/claude/index.js`; guarded by
+`window-share.test.js` §G, which asserts the `yes` label does not START with the
+same word as the shared dismissal rather than pinning one exact string.
+
+**The general rule.** *A button label is only unambiguous next to the other
+buttons.* Any confirm whose ACTION is a cancellation, an undo, a revert or a
+"no" will collide with a generic dismiss label, and the collision is invisible in
+the source because the two strings live in different files. Read the rendered
+dialog.
