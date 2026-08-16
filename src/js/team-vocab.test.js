@@ -87,16 +87,30 @@ describe('master (migration 0111)', () => {
     expect(PERM_CATALOG[PERM_CATALOG.length - 1].key).toBe('master');
   });
 
-  it('mirrors the SQL: userCanAccess() checks BOTH permission channels', () => {
+  it('mirrors the SQL: the master test checks BOTH permission channels', () => {
     // current_user_has_permission() tests `permissions` OR `managed_permissions`
     // for 'master'. A JS mirror that read only one of them would let a
     // tree-granted master be bounced by the UI while RLS let them write — the
     // exact UI/DB mismatch that made the `team` permission look broken in 0089.
+    //
+    // ⚠️ THIS ASSERTION'S SUBJECT MOVED and it went red saying so, which is the
+    // guard working. The test used to read the two channels out of
+    // userCanAccess() itself; the จองโควตา Claude pane needed the key ITSELF
+    // (not "can you reach feature X"), so it was extracted to holdsMaster().
+    // Re-pointed at the new home AND at the delegation, because "both channels
+    // are checked somewhere" and "userCanAccess uses that check" are two
+    // different facts and only the pair of them keeps the mirror honest.
     const src = readFileSync(new URL('./auth.js', import.meta.url), 'utf8');
-    const block = src.slice(src.indexOf('export function userCanAccess'),
-      src.indexOf('export function userCanAccess') + 1200);
+    const block = src.slice(src.indexOf('export function holdsMaster'),
+      src.indexOf('export function holdsMaster') + 900);
     expect(block).toContain("permissions.includes('master')");
     expect(block).toContain("managedPermissions.includes('master')");
+    // There must be exactly ONE implementation — a second hand-rolled
+    // `includes('master')` elsewhere is the drift this extraction prevents.
+    expect(src.match(/permissions\.includes\('master'\)/g) || []).toHaveLength(2);
+    const uca = src.slice(src.indexOf('export function userCanAccess'),
+      src.indexOf('export function userCanAccess') + 600);
+    expect(uca).toContain('holdsMaster(user)');
   });
 
   it('does NOT appear in ADMIN_FEATURES — it is a grant, not a feature tab', () => {

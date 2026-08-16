@@ -360,3 +360,34 @@ describe('giving a slot back is ยกเลิก, not ลบ', () => {
     expect(yes).toContain('คืนช่วงเวลา');
   });
 });
+
+// ── the capacity rail encodes magnitude twice (0164) ───────────────────────
+describe('the rail says HOW MUCH, not just "some"', () => {
+  it('width is driven by the value, not a fixed lane', () => {
+    // Reported: "the bar 98% show yellow, and the 25% also show yellow, may
+    // make user misunderstood that it's also 98%". One bucket over a continuous
+    // quantity. The fill now runs from the lane's left edge in proportion to
+    // --f, which paintGrid sets from free/pool.
+    expect(CSS).toMatch(/\.claude-free::before[\s\S]{0,220}calc\(var\(--claude-rail-w\) \* var\(--f/);
+    expect(CODE).toMatch(/setProperty\('--f', String\(Math\.max\(0, Math\.min\(1, free \/ pool\)\)\)\)/);
+  });
+
+  it('and colour steps FOUR ways, so 98% and 25% are not one bucket', () => {
+    for (const c of ['is-full', 'is-part', 'is-low', 'is-none']) {
+      expect(CSS).toContain(`.claude-free.${c}::before`);
+    }
+    expect(CODE).toMatch(/free >= pool \* 0\.9 \? ' is-full'/);
+    expect(CODE).toMatch(/free >= pool \* 0\.4 \? ' is-part'/);
+  });
+
+  it('"none" is not forced to full width — that inverted the encoding', () => {
+    // A zero drawn as the longest bar on the calendar reads as "maximum".
+    expect(CSS).not.toMatch(/\.claude-free\.is-none[^}]*width:\s*var\(--claude-rail-w\)/);
+  });
+
+  it('the track belongs to the BAND, so a day with no reading has none', () => {
+    // A column-wide track drew an empty gauge down the past, which states
+    // "nothing available" where the truth is "no data".
+    expect(CSS).not.toMatch(/\.claude-daycol::before\s*\{[^}]*--claude-rail-w/);
+  });
+});

@@ -86,6 +86,35 @@ select pg_temp.poll(interval '12 hours 15 min',20, interval '17 hours 10 min'); 
 select pg_temp.poll(interval '14 hours',       50, interval '17 hours 10 min');
 select pg_temp.poll(interval '14 hours 15 min',50, interval '17 hours 10 min'); -- idle
 
+-- ── §F. THE ROUNDING BOUNDARY (0163) ──────────────────────────────────────
+-- A window whose TRUE reset lands near :30 seconds comes back either side of
+-- the rounding boundary from one poll to the next, so a key built as
+-- `date_trunc('minute', resets_at + 30s)` changes MID-WINDOW. The new-window
+-- branch attributes the whole CUMULATIVE reading as a rise, so a window sitting
+-- at 90% emits a spurious 90% run out of nowhere — reported as *"the ใช้จริง
+-- shows like all 90% up in short period of time"*.
+--
+-- Reset at 16:00:30 exactly: the polls report 16:00:29.8 and 16:00:30.3, which
+-- truncate to 16:00 and 16:01. Proximity does not care.
+insert into public.claude_usage_samples
+  (sampled_at, five_hour_pct, five_hour_resets_at, seven_day_pct, seven_day_resets_at, raw)
+select (select d0 from sc) + i.m, i.p,
+       (select d0 from sc) + interval '16 hours 30 seconds' + i.j,
+       50, (select d0 from sc) + interval '3 days',
+       jsonb_build_object('proof', 'claude0162')
+--
+-- CONTIGUOUS with §C's last poll (14:15), on purpose. The first draft started
+-- at 15:00, which is 45 minutes later — past the outage threshold — so the
+-- first rise went into the UNKNOWN branch and §F was quietly testing §C's rule
+-- instead of its own. It read 70 where it should read 90. A case must exercise
+-- ONE mechanism; claude0159 learned the same thing when its §C poisoned its §D.
+  from (values
+    (interval '14 hours 30 min', 20, interval '-0.2 seconds'),
+    (interval '14 hours 45 min', 40, interval '0.3 seconds'),
+    (interval '15 hours',        90, interval '-0.4 seconds'),
+    (interval '15 hours 15 min', 90, interval '0.2 seconds')
+  ) as i(m, p, j);
+
 create temp table r on commit drop as
   select * from public.claude_usage_runs(
     (select d0 from sc) + interval '9 hours 50 min',
@@ -154,10 +183,12 @@ insert into probe select 'B2b. a window polled 5 min after it opened is NOT part
      (select d0 from sc) + interval '9 hours',
      (select d0 from sc) + interval '20 hours') -> 1 ->> 'partial');
 
+-- Scoped to §A+§B's own stretch: §F adds a third window later in the day, and
+-- an assertion that silently counts it is an assertion about the wrong thing.
 insert into probe select 'B3. the two windows are counted as TWO', '2',
   (select jsonb_array_length(public.claude_usage_windows(
      (select d0 from sc) + interval '9 hours',
-     (select d0 from sc) + interval '20 hours'))::text);
+     (select d0 from sc) + interval '14 hours 20 min'))::text);
 
 -- ── §C — downtime is UNKNOWN, not used and not idle ───────────────────────
 insert into probe select 'C1. the 105-minute outage is marked unknown', 'unknown',
@@ -174,7 +205,8 @@ insert into probe select 'C3. control — the outage still reports the 30% that 
 -- Nothing invented, nothing lost: every run's percentage is a real rise, and
 -- the runs together account for exactly the rises in the scenario
 -- (3+4+3+20+30 = 60).
-insert into probe select 'D1. the runs account for every rise, and only rises', '60',
+-- 3+4+3 (§A) + 20 (§B) + 30 (§C) + 90 (§F) = 150.
+insert into probe select 'D1. the runs account for every rise, and only rises', '150',
   (select round(coalesce(sum(pct), 0))::text from r);
 
 insert into probe select 'D2. no run is zero or negative', '0',
@@ -196,6 +228,32 @@ insert into probe select 'D5. a run that ended before the last poll is not open-
   (select count(*)::text from r where open_ended
      and run_to < (select max(sampled_at) from public.claude_usage_samples
                     where raw->>'proof' = 'claude0162'));
+
+insert into probe select 'F1. a reset on the :30 rounding boundary stays ONE window', '1',
+  (select count(*)::text from r
+    where run_from >= (select d0 from sc) + interval '14 hours'
+      and run_from <  (select d0 from sc) + interval '16 hours');
+
+-- The NUMBER is the assertion, not just the count. Under the rounding key the
+-- mid-window split emitted a second run carrying the whole CUMULATIVE reading
+-- (40, then 90) instead of the rise — which is the reported symptom, "all 90%
+-- up in short period of time". 20 → 40 → 90 is a rise of 90 across one run.
+--
+-- AGGREGATED, not a bare subquery. Written as `select round(pct) ... where`, the
+-- falsification did not FAIL — it ERRORED with 21000 "more than one row returned
+-- by a subquery", because the bug's whole effect is to turn one run into two.
+-- An errored proof is silence (this repo has paid for that once already), so the
+-- assertion has to survive the very shape it is hunting and print it: under the
+-- rounding key this reads "20+70", which names the bug on sight.
+insert into probe select 'F2. …and reports the RISE (90) as ONE run, not a cumulative reading', '90',
+  (select string_agg(round(pct)::text, '+' order by run_from) from r
+    where run_from >= (select d0 from sc) + interval '14 hours'
+      and run_from <  (select d0 from sc) + interval '16 hours');
+
+insert into probe select 'F3. …and claude_usage_windows agrees it is ONE window there', '3',
+  (select jsonb_array_length(public.claude_usage_windows(
+     (select d0 from sc) + interval '9 hours',
+     (select d0 from sc) + interval '20 hours'))::text);
 
 -- ── §E — the gate ─────────────────────────────────────────────────────────
 -- Both are SECURITY DEFINER over the whole samples table. A grant to

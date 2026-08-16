@@ -154,7 +154,31 @@
   background: #fff; border: 1px solid #dee2e6;
   border-radius: 8px; overflow: hidden;
 }
-.claude-cal-scroll { overflow: auto; max-height: 620px; }
+/* ── HOW TALL THE CALENDAR IS ───────────────────────────────────────────────
+   Reported: *"the calendar height can be longer, it only takes about 60% of my
+   mobile height, also the same for computers, ipad"*. It was a fixed 620px
+   (480 under 768px wide), so on a 1080px-tall laptop it used 57% of the screen
+   and on a 932px phone 51% — and the taller the display, the worse the ratio.
+   A fixed pixel cap cannot follow a viewport by construction.
+
+   `dvh` and not `vh`: on mobile Safari `vh` is the LARGEST viewport (toolbars
+   retracted), so a 100vh-derived cap overflows behind the address bar until you
+   scroll — this repo already has "iOS Safari 100vh hides the bottom of a
+   full-height drawer" in its mistakes log. `dvh` tracks the visible box.
+
+   The subtraction is the chrome above the grid (toolbar, week meter, hero) plus
+   breathing room; measured rather than guessed, and it stays a max-height so a
+   short week still shrink-wraps instead of leaving a void.
+
+   ⚠️ `applyFit()` READS this value as the cap it divides by 24 for "พอดีจอ", so
+   this is not only a look — it is the input to that arithmetic. Keeping it a
+   real computed max-height is what lets that keep working. */
+.claude-cal-scroll { overflow: auto; max-height: min(1100px, calc(100dvh - 230px)); }
+/* No dvh (older Safari/Firefox): fall back to vh, which is close enough on a
+   desktop and only over-tall on a phone that would have scrolled anyway. */
+@supports not (height: 100dvh) {
+  .claude-cal-scroll { max-height: min(1100px, calc(100vh - 230px)); }
+}
 /* 820 gave a 95px day column on a phone, which leaves a booking ~66px — not
    enough for "00:45–05:45", so every time label ellipsised and the owner saw
    "01:0". The grid already scrolls horizontally; 940 buys a 110px column and a
@@ -197,17 +221,20 @@
   /* The capacity lane, reserved. Everything that is not the rail starts after
      it — before this, the rail, the session frame and the block's own left
      border stacked into three adjacent stripes on any day with a booking. */
-  --claude-rail-x: 3px;
-  --claude-rail-w: 11px;
+  /* Inset from the column border on purpose: at 3px the rail sat flush against
+     the day divider and a wide band merged with it into one thick rule. */
+  --claude-rail-x: 5px;
+  --claude-rail-w: 10px;
   --claude-lane: calc(var(--claude-rail-x) + var(--claude-rail-w) + 5px);
 }
 /* The lane's empty track, so the rail reads as a gauge running down the day
    rather than as coloured stripes appearing and disappearing. */
-.claude-daycol::before {
-  content: ""; position: absolute; z-index: 0; pointer-events: none;
-  left: var(--claude-rail-x); width: var(--claude-rail-w); top: 0; bottom: 0;
-  background: #f2f4f2; border-radius: 3px;
-}
+/* NO COLUMN-WIDE TRACK. It used to run the full height of every day, so once
+   it was strong enough to read as a gauge's container it drew an EMPTY gauge
+   down the days that have no reading at all (the past, and anything before
+   `now`) — which states "nothing available" where the honest answer is "no
+   data". The track now belongs to each BAND (.claude-free below), so it exists
+   exactly where there is something to measure. */
 .claude-daycol .claude-hr {
   height: var(--claude-hour-h); border-bottom: 1px solid #eceff0;
 }
@@ -422,7 +449,10 @@
 @media (max-width: 768px) {
   .claude-tab { --claude-hour-h: 38px; }
   .claude-week-fig { font-size: 1.45rem; }
-  .claude-cal-scroll { max-height: 480px; }
+  /* A phone has less chrome above the grid, so it can give the calendar more of
+     the screen, not less. The old 480px was the single worst offender — half a
+     932px display. */
+  .claude-cal-scroll { max-height: calc(100dvh - 170px); }
 }
 
 /* ------------------------------------------------------------------
@@ -766,19 +796,70 @@ svg.claude-mark {
    opposite of what it means. */
 .claude-free {
   position: absolute; z-index: 1; pointer-events: none;
-  left: var(--claude-rail-x); width: var(--claude-rail-w); border-radius: 3px;
+  left: var(--claude-rail-x); width: var(--claude-rail-w);
+  border-radius: 0 3px 3px 0;
 }
 /* A whole session free is the UNREMARKABLE case and gets the quiet colour; the
    constrained stretches are the information, so they carry the weight. A rail
    that shouts everywhere points at nothing. */
-.claude-free.is-full { background: rgba(16, 89, 34, 0.30); }
-.claude-free.is-part { background: var(--claude-part); }
-.claude-free.is-none { background: rgba(180, 35, 24, 0.65); }
+/* ── WIDTH IS THE NUMBER ────────────────────────────────────────────────────
+   Reported: *"the bar 98% show yellow, and the 25% also show yellow, may make
+   user misunderstood that it's also 98%"*. Exactly right — `is-part` was one
+   bucket over a continuous 0–100 quantity, so 98 and 25 were the same pixel.
+
+   The rail's job is MAGNITUDE, so magnitude is now encoded twice: the fill runs
+   from the lane's left edge in proportion to what is free (the grey track
+   behind it, .claude-daycol::before, is the 100% reference), AND the colour
+   steps. Redundant encoding is what makes it readable for the ~8% of men with
+   a red-green deficiency, for whom the deep green and the red below are ΔE 3.4
+   apart in deuteranopia — those two are the scale's opposite ends and are told
+   apart by a full bar versus a 2px stub, never by hue.
+
+   The four steps and their thresholds were validated, not chosen by eye
+   (dataviz `validate_palette.js`): worst ADJACENT pair is 15.1 normal-vision /
+   13.4 CVD, both above the floor. The amber's low contrast against the surface
+   is why the percentage is printed beside the band. */
+.claude-free {
+  overflow: hidden;
+  /* the TRACK — the 100% reference, present only where a reading is */
+  background: #e9ecea; box-shadow: inset 0 0 0 1px rgba(88, 100, 92, 0.16);
+}
+.claude-free::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+  width: max(3px, calc(var(--claude-rail-w) * var(--f, 1)));
+  /* NO HARD EDGE ON THE FILL, and this was reported twice before it was right.
+     Solid saturated colour came back as *"why does it show color weird"* — a
+     band is many hours tall, so at full saturation it is a column of mustard
+     against the day divider and reads as a RULE, not as data. Moving the hue
+     to a 2px right-edge fixed the wide bands and made the narrow ones worse:
+     this week's quota is ~6% free everywhere, every band sits on its minimum
+     width, and 2.5px of fill under a 2px saturated border is ~all border — a
+     hard gold line down all seven days (*"i still see rail weird"*).
+
+     So the fill is a TINT at every width and the track behind it is the thing
+     you read it against. The number beside the band is what carries precision;
+     the ribbon only has to say "roughly this much, and is that good or bad",
+     which a tint and a length do without shouting. */
+}
+.claude-free.is-full::before { background: rgba(20, 96, 42, 0.42); }
+.claude-free.is-part::before { background: rgba(217, 164, 0, 0.52); }
+/* The two low states are NARROW by construction, so they get more weight — a
+   2.5px sliver at 26% alpha is invisible, and these are the two a reader most
+   needs to notice. */
+.claude-free.is-low::before  { background: rgba(138, 97, 0, 0.45); }
+/* NOT forced to full width. It was, and that inverted the encoding: "nothing
+   left" drew the longest bar on the calendar, which reads as "maximum" — a
+   heavy red column dominating the day it is least relevant to. Bar length means
+   quota EVERYWHERE, so zero gets the same 2.5px floor any near-zero gets and
+   the red plus the "เต็ม" tag carry the state. */
+.claude-free.is-none::before { background: rgba(143, 29, 19, 0.55); }
 /* Held by someone. Hatched and neutral — the same visual language as the
    out-of-week hatch, which already means "not available to you". A gap here
    reads as missing data, and red would read as "the quota is gone", which is a
    different and much more alarming statement than "อ้อ, someone booked it". */
+.claude-free.is-held::before { display: none; }
 .claude-free.is-held {
+  box-shadow: none;
   background-color: #dfe3e0;
   background-image: repeating-linear-gradient(-45deg,
     rgba(88, 100, 92, 0.30) 0 2px, transparent 2px 6px);
@@ -819,6 +900,10 @@ svg.claude-mark {
   position: static; display: inline-block; width: 9px; height: 9px;
   border-radius: 2px; margin: 0 1px 0 5px;
 }
+/* The key's swatches are identity, not magnitude, so they are square — the
+   width channel means nothing here and letting --f through would shrink them. */
+.claude-rail-key .claude-free { --f: 1; }
+.claude-free.is-low .claude-free-tag { color: #6b4c00; }
 
 /* Two panels that mean NOW, under a grid that may be showing another week. */
 .claude-tab .claude-now-elsewhere {
@@ -1192,3 +1277,32 @@ svg.claude-mark {
 .claude-terms-math-note {
   display: block; margin-top: 7px; font-size: 0.8rem; color: #6c757d;
 }
+
+/* ---------- required-field marks & the silent-booking control ---------- */
+/* Every field in the booking form is required — the save handler refuses an
+   empty purpose and always sends a range — so ALL of them are starred. Starring
+   some and not others is a claim that the unstarred ones are optional. */
+.claude-req { color: #b42318; font-weight: 700; margin-left: 2px; }
+.claude-req-note {
+  margin: 0; padding: 0 1rem 0.35rem; font-size: 0.76rem; color: #6c757d;
+}
+.claude-silent {
+  margin: 0 1rem 0.5rem; padding: 8px 10px;
+  background: #f6f7f6; border: 1px dashed #ced4da; border-radius: 7px;
+}
+.claude-silent .form-check-label { cursor: pointer; }
+.claude-silent .form-check-input { cursor: pointer; }
+.claude-silent span { font-size: 0.72rem; margin-top: 1px; }
+
+/* The account's own live usage page — the authority every number here is a
+   15-minute-old copy of. Inline with the "ใช้จริง" heading it reads as a
+   source citation rather than as another control. */
+.claude-src-link {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+  color: var(--claude-clay-ink); text-decoration: none;
+}
+.claude-src-link:hover { text-decoration: underline; color: var(--claude-clay-ink); }
+/* The age badge already claims ms-auto; with the link present it no longer
+   should, or the two fight for the same edge. */
+.claude-measured-head .claude-src-link + .claude-measured-age { margin-left: 8px; }

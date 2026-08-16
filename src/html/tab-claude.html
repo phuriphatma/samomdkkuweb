@@ -169,15 +169,15 @@
 
           <div class="row g-2 mt-1">
             <div class="col-12">
-              <label class="form-label small fw-bold mb-1" for="claudeDate">วันที่</label>
+              <label class="form-label small fw-bold mb-1" for="claudeDate">วันที่<span class="claude-req" aria-hidden="true">*</span></label>
               <input type="date" class="form-control form-control-sm" id="claudeDate">
             </div>
             <div class="col-6">
-              <label class="form-label small fw-bold mb-1" for="claudeStart">เริ่ม</label>
+              <label class="form-label small fw-bold mb-1" for="claudeStart">เริ่ม<span class="claude-req" aria-hidden="true">*</span></label>
               <select class="form-select form-select-sm" id="claudeStart"></select>
             </div>
             <div class="col-6">
-              <label class="form-label small fw-bold mb-1" for="claudeEnd">ถึง</label>
+              <label class="form-label small fw-bold mb-1" for="claudeEnd">ถึง<span class="claude-req" aria-hidden="true">*</span></label>
               <select class="form-select form-select-sm" id="claudeEnd"></select>
             </div>
           </div>
@@ -188,7 +188,7 @@
                the answer — which the ledger below prints. -->
           <div class="mt-3">
             <label class="form-label small fw-bold mb-1" for="claudePct">
-              จะใช้โควตาเซสชันเท่าไร
+              จะใช้โควตาเซสชันเท่าไร<span class="claude-req" aria-hidden="true">*</span>
             </label>
             <div class="d-flex align-items-baseline gap-2">
               <span class="claude-pct-val" id="claudePctVal">30%</span>
@@ -202,7 +202,7 @@
           </div>
 
           <div class="mt-3">
-            <label class="form-label small fw-bold mb-1" for="claudePurpose">จองไปทำอะไร</label>
+            <label class="form-label small fw-bold mb-1" for="claudePurpose">จองไปทำอะไร<span class="claude-req" aria-hidden="true">*</span></label>
             <textarea class="form-control form-control-sm" id="claudePurpose" rows="2"
               maxlength="500" placeholder="เช่น แก้บั๊กหน้าจองห้องสโม"></textarea>
             <div class="form-text">ต้องกรอก — คนอื่นในทีมจะเห็นว่าช่วงนี้ถูกใช้ทำอะไร</div>
@@ -211,6 +211,31 @@
           <div class="claude-ledger mt-3" id="claudeLedger"></div>
           <div id="claudeNotes"></div>
         </div>
+
+        <!-- SILENT BOOKING — master holders only, hidden for everyone else.
+             ~13 ฝ่าย IT accounts hold `master`, which answers yes to every
+             permission key, so they could already book; what they could not do
+             is book WITHOUT posting to the team's Discord. A dev checking that
+             the form still works should not ring a channel full of students.
+
+             OPT-IN, not automatic. Making every master booking silent would
+             also drop the notice for the REAL bookings those same accounts
+             make, and a notification that silently fails to arrive is the most
+             expensive bug shape in this repo (docs/mistakes/integrations.md
+             opens with one). The choice is remembered per DEVICE, so a testing
+             session does not mean re-ticking it every time.
+
+             It never suppresses the booking: the row, the board, the guard and
+             the quota are identical either way. Only the Discord line goes. -->
+        <div class="claude-silent d-none" id="claudeSilentWrap">
+          <label class="form-check-label small" for="claudeSilent">
+            <input class="form-check-input me-1" type="checkbox" id="claudeSilent">
+            จองแบบเงียบ — ไม่แจ้งเตือนใน Discord
+            <span class="d-block text-muted">สำหรับผู้ดูแลระบบที่กำลังทดสอบ · การจองยังนับโควตาตามปกติ</span>
+          </label>
+        </div>
+
+        <p class="claude-req-note"><span class="claude-req" aria-hidden="true">*</span> ต้องกรอกทุกช่อง</p>
 
         <div class="modal-footer">
           <!-- ลบ only renders for a booking the account may actually delete;

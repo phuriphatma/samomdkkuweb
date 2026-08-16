@@ -120,3 +120,62 @@ describe('the `claude` permission key is grantable and enforced', () => {
     });
   });
 });
+
+// ── silent booking, and the NaN that reached the slider ────────────────────
+// COMMENT-STRIPPED source, deliberately. Every assertion below names an
+// identifier that also appears in the comment explaining it, so an unstripped
+// read would let the prose satisfy the test — the `confirm-modal.test.js
+// matched a *comment*` failure in this repo's own log.
+const CODE = stripComments(INDEX_JS);
+const HTML = read('../../html/tab-claude.html');
+
+describe('silent booking is a master-only OPTION, never a default', () => {
+  it('the control ships hidden and is un-hidden only under holdsMaster()', () => {
+    // A checkbox that suppresses a team notification must not be reachable by
+    // whoever happens to open the form. The gate is the same key SQL uses.
+    expect(HTML).toMatch(/id="claudeSilentWrap"[^>]*class="[^"]*d-none|class="[^"]*d-none[^"]*"[^>]*id="claudeSilentWrap"/);
+    expect(CODE).toMatch(/if \(holdsMaster\(\)\) \{[\s\S]{0,200}claudeSilentWrap'\)\.classList\.remove\('d-none'\)/);
+  });
+
+  it('imports the ONE master test rather than re-deriving it', () => {
+    expect(CODE).toContain("import { getUser, holdsMaster } from '../auth.js'");
+    expect(CODE).not.toMatch(/permissions[\s\S]{0,40}includes\('master'\)/);
+  });
+
+  it('suppresses only the Discord line, and only when master AND ticked', () => {
+    // Both halves matter: dropping the `holdsMaster()` term would let a stale
+    // ticked box silence a non-master, and dropping `.checked` would make every
+    // master booking silent — which is the version that loses REAL notices.
+    expect(CODE).toMatch(/if \(holdsMaster\(\) && \$\('claudeSilent'\)\?\.checked\) return;/);
+    // …and it sits AFTER the write, so a silent booking is still a booking.
+    expect(CODE.indexOf("claudeSilent')?.checked")).toBeGreaterThan(CODE.indexOf('async function save('));
+  });
+});
+
+describe('the booking form never prints a NaN', () => {
+  it('rejects a limits response whose max_pct is not a finite number', () => {
+    // Number(undefined) is NaN, and `NaN <= 0` is false — so a malformed reply
+    // sailed past the "no quota" branch and rendered "จองได้สูงสุด NaN%".
+    expect(CODE).toMatch(/Number\.isFinite\(Number\(data\.max_pct\)\)/);
+  });
+
+  it('and clamps the slider ceiling even if one gets through', () => {
+    expect(CODE).toMatch(/Number\.isFinite\(Number\(v\)\) \? Number\(v\) : fallback/);
+  });
+});
+
+describe('every field the booking form requires is marked', () => {
+  it('each label carries a star and the legend explains it', () => {
+    const stars = (HTML.match(/class="claude-req"/g) || []).length;
+    // five fields + the legend's own star
+    expect(stars).toBe(6);
+    expect(HTML).toContain('ต้องกรอกทุกช่อง');
+  });
+});
+
+describe('the measured panel cites its source', () => {
+  it('links to the account\'s own usage page, safely', () => {
+    expect(CODE).toContain('https://claude.ai/settings/usage');
+    expect(CODE).toContain("rel=\"noopener noreferrer\"");
+  });
+});

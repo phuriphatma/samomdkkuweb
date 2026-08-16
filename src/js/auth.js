@@ -298,6 +298,26 @@ async function buildCurrentUser(session) {
  *
  * Use this for UI gating; the database RLS is the real boundary.
  */
+/**
+ * Does this account hold `master` (migration 0111) — the key that answers yes to
+ * every permission?
+ *
+ * Extracted so `userCanAccess()` and the callers that need the key ITSELF share
+ * one test. A second hand-rolled `permissions.includes('master')` somewhere else
+ * is the drift class this repo pays for most, and this one has two channels to
+ * get wrong: `permissions` AND `managed_permissions` (0081). `dev` is included
+ * because the role short-circuits every gate above anyway, so excluding it here
+ * would make "holds master" and "is treated as master" two different answers.
+ *
+ * This mirrors SQL's `current_user_has_permission()` exactly.
+ */
+export function holdsMaster(user = currentUser) {
+  if (!user) return false;
+  if (user.role === 'dev') return true;
+  return (Array.isArray(user.permissions) && user.permissions.includes('master'))
+      || (Array.isArray(user.managedPermissions) && user.managedPermissions.includes('master'));
+}
+
 export function userCanAccess(feature, user = currentUser) {
   if (!user) return false;
   if (user.role === 'dev') return true;
@@ -305,10 +325,7 @@ export function userCanAccess(feature, user = currentUser) {
   // channel. This mirrors the SQL side EXACTLY — current_user_has_permission()
   // does the same test — and it is the only place JS knows about the key, so
   // the two cannot drift feature by feature.
-  if ((Array.isArray(user.permissions) && user.permissions.includes('master'))
-      || (Array.isArray(user.managedPermissions) && user.managedPermissions.includes('master'))) {
-    return true;
-  }
+  if (holdsMaster(user)) return true;
   const roleDefaults = {
     pr_staff:   ['pr'],
     vs_staff:   ['vs'],

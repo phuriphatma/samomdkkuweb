@@ -25,7 +25,7 @@
 // ============================================================
 
 import { dbRest } from '../db.js';
-import { getUser } from '../auth.js';
+import { getUser, holdsMaster } from '../auth.js';
 import { escHtml } from '../utils.js';
 import { askConfirm } from '../confirm-modal.js';
 import { sendNotify } from '../notify.js';
@@ -83,6 +83,7 @@ const $ = (id) => document.getElementById(id);
 const LS_FIT  = 'claude.cal.fit';
 const LS_HIST = 'claude.cal.hist';
 const LS_TERMS = 'claude.terms.seen';
+const LS_SILENT = 'claude.notify.silent';
 /** Bump when the ข้อตกลง text changes materially — everyone sees it again. */
 const TERMS_VERSION = '2026-08-16.5';
 
@@ -377,9 +378,10 @@ function wire() {
     + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันบอกว่า '
     + '<strong>ถ้าเริ่มใช้ตอนนั้น จะได้กี่เปอร์เซ็นต์</strong> โดยไม่ต้องจอง — '
     + 'เขียวคือได้เต็มรอบ '
-    + '<i class="claude-free is-part"></i>เหลืองคือได้บางส่วน '
-    + '(เช่น โควตาสัปดาห์ใกล้หมด) '
-    + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ '
+    + '<i class="claude-free is-part"></i>เหลืองคือได้เกินครึ่งรอบ '
+    + '<i class="claude-free is-low"></i>น้ำตาลคือเหลือน้อย '
+    + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ — '
+    + '<strong>ยิ่งแถบกว้าง ยิ่งเหลือมาก</strong> '
     + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้ '
     + 'ส่วนในรอบ 5 ชั่วโมงที่มีคนจอง ให้ดูที่กล่องเส้นประแทน</span>';
   $('claudeTermsInline')?.addEventListener('click', (ev) => {
@@ -407,6 +409,16 @@ function wire() {
   //
   // Bootstrap fires this for every close path there is, which is the point:
   // one place to clear it beats finding all four buttons.
+  // Only master holders see it at all. It is a convenience for the people who
+  // maintain this board, not a way for a booker to hide a claim on shared quota.
+  if (holdsMaster()) {
+    $('claudeSilentWrap').classList.remove('d-none');
+    $('claudeSilent').checked = lsGet(LS_SILENT) === '1';
+    $('claudeSilent').addEventListener('change', (ev) => {
+      lsSet(LS_SILENT, ev.target.checked ? '1' : '0');
+    });
+  }
+
   $('claudeBookingModal').addEventListener('hidden.bs.modal', () => {
     editing = null;
     continuation = null;
@@ -799,6 +811,15 @@ function paintMeasured() {
   host.innerHTML =
     '<div class="claude-measured-head">'
     + '<b>ใช้จริง</b><span class="text-muted">วัดจาก Claude โดยตรง</span>'
+    // Everything on this page is a reading taken up to 15 minutes ago. This is
+    // the account's own live page — the authority the numbers here come from —
+    // so anyone who doubts a figure can check it at source rather than argue
+    // with the board. rel=noopener because target=_blank without it hands the
+    // opened page a handle on this one.
+    + '<a class="claude-src-link" href="https://claude.ai/settings/usage"'
+    + ' target="_blank" rel="noopener noreferrer"'
+    + ' title="เปิดหน้าการใช้งานจริงของบัญชี Claude">'
+    + '<i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>ดูที่ Claude</a>'
     + `<span class="claude-measured-age ms-auto ${stale ? 'is-stale' : ''}">`
     + `${stale ? 'ข้อมูลค้าง — ' : ''}อัปเดต${ago(age)}</span>`
     + '</div>'
@@ -1050,8 +1071,16 @@ function paintGrid() {
 
       carve(seg.sMin, seg.eMin, inWindow.get(seg.i)).forEach(([ps, pe], pi) => {
       const el = document.createElement('div');
+      // FOUR steps, not two, and the width carries the number as well — 98%
+      // and 25% used to be the same amber and the same pixel width, which is
+      // what made them indistinguishable. Thresholds are about what a reader
+      // can DO: essentially a whole session · most of one · a scrap · none.
       el.className = 'claude-free'
-        + (free <= 0 ? ' is-none' : free < pool ? ' is-part' : ' is-full');
+        + (free <= 0 ? ' is-none'
+          : free >= pool * 0.9 ? ' is-full'
+          : free >= pool * 0.4 ? ' is-part'
+          : ' is-low');
+      el.style.setProperty('--f', String(Math.max(0, Math.min(1, free / pool))));
       el.style.top = `${yForMin(ps)}px`;
       el.style.height = `${Math.max(2, yForMin(pe) - yForMin(ps))}px`;
       // The band's END is a DEADLINE, not just where the colour changes: start
@@ -1282,7 +1311,8 @@ function paintHistory() {
   // "N%" on a calendar that already shows three other percentages is noise.
   $('claudeHistNote').innerHTML =
     '<b>แถบสีดินเผาด้านขวาของแต่ละวัน</b> คือช่วงที่มีคน<b>ใช้งานจริง</b> '
-    + 'ตัวเลขคือโควตาที่ใช้ไปในช่วงนั้น (ไม่ใช่ยอดสะสม) '
+    + '<b>+N%</b> คือโควตาที่ใช้ไป<b>ในช่วงนั้น</b> (ไม่ใช่ยอดสะสม) '
+    + 'ส่วน <b>รวม N%</b> ที่เส้นแบ่งคือยอดรวมของรอบ 5 ชั่วโมงนั้นทั้งรอบ '
     + 'ช่วงที่ไม่มีแถบคือไม่มีใครใช้ '
     + '<span class="claude-hist-key"><i class="hk-exact"></i>ขีดทึบด้านบน = '
     + 'เวลาที่เริ่มใช้จริง คำนวณจากเวลารีเซ็ตของรอบ 5 ชั่วโมง '
@@ -1304,6 +1334,20 @@ function paintHistory() {
   // glance.
   const LABEL_H = 15;
   const taken = new Map();
+
+  // ── which runs belong to which window ────────────────────────────────────
+  // Needed to answer "does this window's total say anything its runs do not".
+  // When a window holds exactly ONE run, the run's rise IS the window's total,
+  // so printing both put the same number on the calendar twice — and where a
+  // window reset as the next one opened, the two labels landed on the same
+  // minute with different denominators: "96" over "ใช้ 55%". Reported as
+  // *"it also show like 96 with 55% thats weird"*.
+  const runsByWin = new Map();
+  runs.forEach((r) => {
+    if (r.kind !== 'used' || !r.win_reset) return;
+    const k = new Date(r.win_reset).getTime();
+    runsByWin.set(k, (runsByWin.get(k) || []).concat(r));
+  });
   /** First free top at or below `want`, within `limit`, or null. */
   function place(colIdx, want, limit) {
     const rows = taken.get(colIdx) || [];
@@ -1332,6 +1376,15 @@ function paintHistory() {
     if (!seg) return;
     const col = colFor(seg.i);
     if (!col) return;
+    // ── SAY NOTHING THE RUNS HAVE ALREADY SAID ────────────────────────────
+    // One run, its rise equal to the window's peak, and nothing missing from
+    // the front of the window: the total is that run and the run is labelled.
+    // A second pill carrying the identical number is where "96 with 55%" came
+    // from — it is not extra information, it is the same fact competing with
+    // its neighbour for the same pixel.
+    const rs = runsByWin.get(new Date(w.resets_at).getTime()) || [];
+    if (!w.partial && rs.length === 1
+        && Math.round(Number(rs[0].pct)) === Math.round(Number(w.peak_pct))) return;
     // It marks a hard instant, so it may not be nudged — it takes its slot and
     // a run label that wanted the same one moves instead.
     const y = yForMin(seg.sMin);
@@ -1341,7 +1394,7 @@ function paintHistory() {
     const el = document.createElement('div');
     el.className = 'claude-hist-reset';
     el.style.top = `${y}px`;
-    el.textContent = `${w.partial ? '≥' : ''}${Math.round(Number(w.peak_pct))}%`;
+    el.textContent = `รวม ${w.partial ? '≥' : ''}${Math.round(Number(w.peak_pct))}%`;
     el.title = `รอบ 5 ชั่วโมง ${hhmm(new Date(w.starts_at))}–${hhmm(new Date(w.resets_at))}`
       + ` — ใช้ไปทั้งหมด ${w.partial ? 'อย่างน้อย ' : ''}${Math.round(Number(w.peak_pct))}%`
       + (w.partial ? ' (เริ่มเก็บข้อมูลหลังรอบนี้เริ่มไปแล้ว)' : '');
@@ -1396,7 +1449,9 @@ function paintHistory() {
           const tag = document.createElement('div');
           tag.className = 'claude-hist-peak' + (unknown ? ' is-unknown' : '');
           tag.style.top = `${y}px`;
-          tag.textContent = unknown ? `? ${pct}%` : `ใช้ ${pct}%`;
+          // "+" because it is a RISE, not a level. "ใช้ 96%" beside a window
+          // total of "96%" read as the same statement twice; "+96%" cannot.
+          tag.textContent = unknown ? `? +${pct}%` : `+${pct}%`;
           col.appendChild(tag);
         }
       }
@@ -1810,6 +1865,17 @@ async function fetchLimits() {
     });
     if (error) throw new Error(error.message || `HTTP ${error.status}`);
     if (seq !== limitsSeq) return;              // a later edit already won
+    // AN ANSWER OF THE WRONG SHAPE IS NOT AN ANSWER. `max_pct` drives the
+    // slider's ceiling through Number(), and `Number(undefined)` is NaN —
+    // which is not caught by the `cap <= 0` branch below it (every comparison
+    // with NaN is false), so it flowed all the way to the label and printed
+    // "จองได้สูงสุด NaN%". Seen in a browser probe where the RPC was stubbed;
+    // in production the same thing happens to any response that is not the
+    // object this expects. Refusing it here keeps the form on "กำลังตรวจสอบ…"
+    // and re-asks, which is what "we do not know yet" should look like.
+    if (!data || typeof data !== 'object' || !Number.isFinite(Number(data.max_pct))) {
+      throw new Error('claude_booking_limits returned an unusable shape');
+    }
     limits = data;
     limitsKey = key;
   } catch (err) {
@@ -1860,8 +1926,12 @@ function recalc() {
   // Until the server answers, the ceiling is the pool. It cannot be anything
   // else that is honest — a guess here would be the second implementation this
   // was written to avoid — and the save path is validated server-side anyway.
-  const cap = fresh ? Math.max(0, Number(limits.max_pct)) : pool;
-  const sessMax = fresh ? Number(limits.session_max_pct) : pool;
+  // Belt as well as braces: `fresh` now implies a validated shape, but a NaN
+  // reaching the slider is silent and prints as a number, so neither of these
+  // may ever be NaN.
+  const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+  const cap = fresh ? Math.max(0, num(limits.max_pct, pool)) : pool;
+  const sessMax = fresh ? num(limits.session_max_pct, pool) : pool;
 
   const slider = $('claudePct');
   slider.max = String(Math.max(5, cap));
@@ -2201,6 +2271,11 @@ function notifyBooking(mode, row, personOverride = null) {
       && new Date(x.starts_at).getTime() >= e.getTime()
       && new Date(x.starts_at).getTime() < s.getTime() + sessionMs())
     .sort((x, y) => new Date(x.starts_at) - new Date(y.starts_at))[0];
+
+  // The booking is already written; this is only the Discord line. Checked at
+  // SEND time rather than captured at save time so a cancel is as silent as the
+  // booking it cancels.
+  if (holdsMaster() && $('claudeSilent')?.checked) return;
 
   sendNotify('claude', {
     mode,                                   // 'new' | 'edit' | 'cancel'
