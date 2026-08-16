@@ -2,8 +2,16 @@
 
 Last updated: **2026-08-16**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
-reasoning. **Keep it under ~200 lines** — when it bloats, move narrative to the
+reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
+
+⚠️ **It is 485 and has been over target for several sessions.** Two prunes were
+done on 2026-08-16 (the 0154–0158 narrative went to the archive; the duplicated
+"What is owed" / "How this repo wants you to work" blocks were deleted) and it
+still grew, because 0159 + 0160 added rules that genuinely belong here. **The
+next structural pass should move the "Live proofs" per-proof narrative to
+`docs/state-archive/` and leave one line per proof** — that section is ~100 of
+the 485 and is reference, not state.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
@@ -21,26 +29,26 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `c0b9e17` (2026-08-16)** — working tree clean, local == origin == VM.
+- ✅ **DEPLOYED = `0946ae5` (2026-08-16)** — working tree clean, local == origin == VM.
   Verified from the SERVED artifacts, found via the bundle name in
   `curl -s https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old
-  chunks are kept on purpose, so the directory has several `admin-*.js`):
-  `rpc/claude_booking_limits`, `ยกเลิกการจองนี้`, `ใช่ คืนช่วงเวลานี้`,
-  `claude.terms.seen`, `claude.cal.fit`, `แถบขวาของแต่ละวันคือรอบ 5 ชม.` in the
-  admin JS; `claude-terms-list`, `is-hist`, `claude-vbtn`, `claude-jump` in the
-  admin CSS; `ข้อตกลงในการใช้ Claude` + `claudeWeekBooked` in the admin HTML,
-  and **`ลบการจอง` is 0** (the removed string — a present-only check cannot see
-  a rename). **0** in the served `public-*.js` (the pane is admin-only — that is
-  the control). The notify service was restarted and carries the new
-  `_discord.js` (`CLAUDE_MODES` = 2 on the VM); `/notify` answers.
-  ⚠️ **Two of the nine greps returned 0 for CORRECT reasons** and both are the
-  documented traps: `MAX_GAP_MS` is a module-scope `const` the minifier renames
-  (grep a STRING LITERAL), and `โควตาที่คืนกลับมา` lives in `functions/`, which
-  is the notify SERVICE and never reaches a bundle. Check rather than trust —
-  EMPTY means prod is current:
+  chunks are kept on purpose, so several `admin-*.js` sit in that directory):
+  `2026-08-16.4`, `open_window`, `rpc/claude_booking_limits`, `showPicker`,
+  `ช่วงนี้จองไม่ได้ — รอบนี้เริ่มไปแล้ว`, `claude-bk-head`, `is-free-seg` in the
+  admin JS; `claude-terms-math`, `700%`, `7 รอบเต็ม`,
+  `รอบที่เริ่มไปแล้ว จองไม่ได้` in the admin HTML. **0** in the served
+  `public-*.js` (the pane is admin-only — that is the control), and **0** for the
+  REMOVED strings `ลบการจอง` / `อ่านครั้งเดียวจบ` / `ซึ่งใช้ร่วมกัน` — a
+  present-only check cannot see a rename. The notify service was restarted and
+  carries the new `_discord.js`; `/notify` answers.
+  ⚠️ **Greps that legitimately return 0**, all documented traps: a module-scope
+  `const` is renamed by the minifier (`MAX_GAP_MS` reads 0, the string literal
+  `แถบขวาของแต่ละวันคือรอบ` reads 1), anything in `functions/` is the notify
+  SERVICE and never reaches a bundle, and `::before` minifies to `:before`.
+  Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat c0b9e17..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
+  git diff --stat 0946ae5..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
@@ -101,9 +109,18 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 ## Live proofs — `npm run proofs`
 
-**All 15 green — RE-RUN 2026-08-15 at the end of the org-chart session, after
-0151–0153, not inherited.** One command runs every live proof and prints one
-verdict each; `npm run proofs <substring>` runs a subset.
+**The registry is now 18** — `claude0155`, `claude0157` and `claude0159` were
+added to `tools/run-proofs.mjs` on 2026-08-16; they were being run by hand and
+were therefore invisible to `npm run proofs`.
+
+⚠️ **ONLY THE FOUR CLAUDE PROOFS WERE RUN ON 2026-08-16** (0154 20/20 · 0155
+22/22 · 0157 10/10 · 0159 32/32, all re-run after 0160 landed). **The other
+fourteen were last run in full on 2026-08-15** — run `npm run proofs` FIRST next
+session; a proof here went stale silently for three days once, and the entry
+below is what that cost.
+
+One command runs every live proof and prints one verdict each;
+`npm run proofs <substring>` runs a subset.
 
 **`tools/team0153-tier-parity.mjs` is NOT in that 15, on purpose** — it compares
 the tree against a snapshot pinned to 2026-08-15, so it will legitimately go red
@@ -158,7 +175,11 @@ Run the one covering what you touch. All are both-directional.
   ASSERTION was wrong. Only `booking_start − 5h` carries "you may still start
   AT this instant"; at a window reset or a booking's start/end the later value
   already applies.
-- `claude0159-window-share.sql` (30/30) — **the booking guard's window rule**.
+- `claude0159-window-share.sql` (32/32) — **the booking guard's window rule**,
+  and since 0160 the open-window rule too. **§C3 went RED the moment 0160
+  landed**, because it still asserted the old clamp ("40% is accepted"). That is
+  the right way round: the guard noticed the behaviour change before the author
+  did.
   A→B are the owner's two cases (100% blocks everything after `start − 5h`;
   50% leaves 50% for whoever starts after it), C is the live-window anchor with
   its no-sample CONTROL, D is nothing-else-moved, E is the privileges.
@@ -322,66 +343,88 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Migrations through **0160** applied; **1093 tests green**;
-> `claude0154` 20/20, `claude0155` 22/22, `claude0157` 10/10 and the new
-> `claude0159-window-share.sql` 30/30 all re-run today.
-> ⚠️ **`npm run proofs` (the other 15) was last run in full on 2026-08-15** —
-> re-run it first; a proof here went stale silently for three days once.
+> Local == origin == VM == `0946ae5`; migrations through **0160**; **1093 tests
+> green**. ⚠️ **Run `npm run proofs` FIRST** — only the four claude proofs were
+> run on 2026-08-16; the other fourteen date from 2026-08-15.
 >
-> **The last session was จองโควตา Claude again: one real bug and nine asks.**
-> The bug is the one worth knowing — **read the 0159 block in the
-> "จองโควตา Claude" section above before touching anything in that pane.** It
-> replaced the session rules with a window rule, deleted the straddle rule, and
-> moved the form's cap onto a server RPC. Everything else that session was UI:
-> the three-figure week card, the ข้อตกลง, the date jump, พอดีจอ, the ใช้จริง
-> overlay, refresh, and notify-on-edit/cancel.
+> ### What the last session was
 >
-> ⚠️ **`.claude/rules/mistakes.md` is at 29,498 / 30,000 bytes** and the index
-> only grows. The next entry or two will breach it. Micro-trimming prose has
-> been done twice now and buys ~100 bytes an hour — **the next session that hits
-> this should restructure rather than trim**: the index is ~21 KB of the 30 KB
-> and its per-entry value declines, while `grep -rin "<symptom>" docs/mistakes/`
-> already does the finding. `check-context-budget.mjs` measures BYTES and Thai
-> costs 3 per character; `mistakes-index.mjs` caps in CHARACTERS. A byte cap was
-> tried and REVERTED — it truncated the Thai symptom lines mid-word, and those
-> lead lines are the thing the index exists for.
+> **จองโควตา Claude, second pass: one real bug, then ten owner reports in a
+> burst — most of them from a PHONE.** Two migrations (0159, 0160), four
+> deploys. **Read the "จองโควตา Claude" section above before touching
+> `/admin#claude`.** The three things in it that cost real money to learn:
 >
-> **The one thing still owed: grant the `claude` permission** in ทีม SAMO to
-> whoever should book. Exactly ONE account holds it today.
+> 1. **The window rule (0159)** — for every 5-hour window opened in the chain,
+>    the bookings overlapping it may not claim >100% together. It is a property
+>    of the SET, so it cannot depend on insert order. **The straddle rule is
+>    deleted; do not put it back**, in SQL or in `limitsFor()`.
+> 2. **⛔ An OPEN window is not bookable AT ALL (0160)** — not even its
+>    remainder. Do not "improve" this back into a clamp; the ⛔ block above has
+>    the owner's own numbers and the reason.
+> 3. **The pane had only ever been opened on a laptop**, and six bugs were
+>    phone-only. **Render at 390 / 834 / 1440 before claiming a layout change
+>    works**, and assert `scrollWidth - clientWidth === 0` per element rather
+>    than reading the CSS.
 >
-> **Open question for the owner, asked and not yet answered**: the usage
-> reporter polls every 15 minutes on a systemd timer. Faster is possible but the
-> endpoint rate-limits hard (a 429 is already handled as a skipped tick) and each
-> run rotates the OAuth refresh token, so more runs is more chances to strand the
-> credential — which needs a human on the VM to fix. The refresh BUTTON added
-> this session re-reads the DATABASE only; a true on-demand poll would need an
-> authenticated endpoint on the VM that spawns the reporter, which is new attack
-> surface on a service that is currently unauthenticated. Recommendation: leave
-> it at 15 minutes.
+> ### What is owed
 >
-> **Two habits this session paid for, in case they save you the money:**
-> **render the view you changed** (three bugs were only visible in a
-> screenshot, and one — the rail overlapping the session frame — was invisible
-> in the stylesheet and obvious in the painted boxes), and **when a number
-> looks right, check the SENTENCE around it is true everywhere it is drawn.**
-> Four of the five bugs were correct arithmetic answering the wrong question.
-> **Read `docs/state-archive/2026-08-16-claude-quota-booking.md` before touching
-> `/admin#claude`** — especially the three bugs the owner found, the two dead
-> ends (`setup-token` cannot read usage; local-log tools cannot see a shared
-> account), and why a session is DERIVED rather than a slot on a grid.
+> - **Grant the `claude` permission** in ทีม SAMO to whoever should book.
+>   Exactly ONE account holds it today. The feature is otherwise finished,
+>   deployed and verified end to end — this is the last thing between it and use.
+> - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
+>   Read `docs/demos/about-3d/README.md`, not a bullet.
+> - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
+>   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
+>   CHECKOUT. `docs/NEXT.md` §1.
+> - **The org chart on a REAL iPad.** Verified on Playwright's WebKit only.
+> - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading §1 below.**
+> - `docs/NEXT.md` carries the rest (§0c two latent role-only policies, §0d make
+>   the PR delete rule ONE predicate).
 >
-> The session before that was the org chart, front to back: two kinds instead of
-> three, kind-based rungs, a reporting parentage on the canvas, per-ฝ่าย colour,
-> and ระดับ. Seven commits, four deploys, three migrations, five owner reports
-> answered. **If the next thing you touch is `/team`, read
-> `docs/state-archive/2026-08-15-late-org-chart-reporting.md` first** — §1b here
-> is only the index to it.
+> ### Open question for the owner, asked and unanswered
 >
-> Two habits that session paid for, in case they save you the same money:
-> **render the view you changed** (three of four views were inspected; the
-> fourth was the one that broke), and **when a report reads as ambiguous between
-> two designs, it means the more expensive one** — "role first, then ฝ่าย under
-> it" was shipped as a sort and meant a rank, and cost two extra rounds.
+> The usage reporter polls every 15 min on a systemd timer. Faster is possible,
+> but the endpoint rate-limits hard (a 429 is already handled as a skipped tick)
+> and every run rotates the OAuth refresh token — more runs is more chances to
+> strand a credential only a human on the VM can restore. The **refresh button**
+> added this session re-reads the DATABASE only, and says so; a true on-demand
+> poll would need an authenticated endpoint on the VM that spawns the reporter,
+> which is new attack surface on a service that is currently unauthenticated.
+> **Recommendation given: leave it at 15 minutes.**
+>
+> ### ⚠️ Three traps this session walked into
+>
+> - **`.claude/rules/mistakes.md` sits at ~29.9 KB of a 30 KB cap** and the index
+>   only grows. Micro-trimming prose was tried TWICE and buys ~100 bytes an hour.
+>   **The next session that breaches it should RESTRUCTURE, not trim**: the index
+>   is ~21 KB of the 30 and its per-entry value declines, while
+>   `grep -rin "<symptom>" docs/mistakes/` already does the finding.
+>   `check-context-budget.mjs` measures BYTES and Thai costs 3 per character.
+>   A byte cap on the index was tried and **REVERTED** — it truncated Thai
+>   symptom lines mid-word, and those lead lines are what the index is for.
+> - **A browser harness inlines `src/html/*.html` at generation time.** Edit the
+>   partial, re-run the probe, and it reads the STALE copy and reports the old
+>   text as if it shipped. Regenerate the harness after every partial edit.
+> - **`str.index("## NEXT-SESSION PROMPT")` finds the mention in the INTRO, not
+>   the heading**, and a slice built on it truncates this file. It happened
+>   twice. Use `rindex`, or an anchor that appears once.
+>
+> ### How this repo wants you to work
+>
+> - **The owner tests live and reports in bursts**, often against code shipped
+>   minutes earlier, and increasingly from a phone. Treat their message as the
+>   test pass this repo does not have. Their reports are usually about MEANING:
+>   "ซึ่งใช้ร่วมกัน" was arithmetically true and said the wrong thing about who
+>   owns a session, and "อ่านครั้งเดียวจบ แล้วใช้ให้สนุก" was the wrong register
+>   for a document people are held to.
+> - **A fix on ONE path is not a fix** (class 4) and **prove it live in BOTH
+>   directions** (class 7) — both in the auto-loaded `.claude/rules/mistakes.md`.
+> - **When a hazard has been paid for twice, the third fix is a TEST.** Fifteen
+>   ratchets now. **Falsify each assertion before committing it** — and when a
+>   deliberate behaviour change reddens an old assertion, that is the guard
+>   working (0160 reddened `claude0159 §C3`), not a test to silence.
+> - **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
+>   `docs/`-only commit needs no deploy.
 >
 > ### The decisions already made — do not re-litigate
 >
@@ -404,29 +447,6 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   `signin-screen.test.js`. No email domain anywhere in the modal, ever.
 > - **The org chart: the owner's asks are about ผังรวม**; they explicitly do not
 >   want แผนผัง reworked.
->
-> ### 1. What is owed
->
-> - **จองโควตา Claude: grant the `claude` permission** to whoever should book.
->   Everything else is live. (Details in CURRENT DEPLOY above.)
-> - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
->   Read `docs/demos/about-3d/README.md`, not a bullet — it has the numbers, the
->   open 3D-flicker bug and the recommendation. Nothing in `src/` was changed.
-> - **The browser pass, continued — `skills/drive-the-browser.md`.** It finds
->   bugs nothing else can (the dead ยกเลิก button; the iPad portrait). Still
->   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, and the
->   SHOP CHECKOUT + order card. `docs/NEXT.md` §1.
-> - **The org chart on a REAL iPad.** Verified on Playwright's WebKit with an
->   iPad profile — same engine, not the same device. Nothing is known wrong;
->   nothing is confirmed right.
-> - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading this.**
->   `node_effective_permissions()` climbs while `inherit_permissions` is true.
->   **Simulated in a rolled-back transaction: moving ฝ่าย PR/ComArt/IT under
->   อุปนายกฝ่ายดิจิทัล takes `master` from 3 people to 20.** Move grants onto
->   `team_members.permissions` first, or set `inherit_permissions = false`, then
->   re-run that simulation as a BEFORE == AFTER differential.
-> - `docs/NEXT.md` carries the rest (§0c two latent role-only policies, §0d make
->   the PR delete rule ONE predicate).
 >
 > ### 1b. The public org chart (`/team`)
 >
@@ -470,21 +490,3 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   public bundle and 1 in `analytics-*.js`, which `/team` also loads. That cost
 >   a false "the deploy did not take" on 2026-08-15.
 >
-> ### 3. How this repo wants you to work
->
-> - **The owner tests live and reports in bursts**, often against code shipped
->   hours earlier. Treat their message as the test pass this repo does not have.
->   Their reports are usually about MEANING, not mechanics — six sign-in reports
->   were all "this text is accurate to us and ambiguous to a stranger".
-> - **A fix on ONE path is not a fix** (class 4) and **prove it live in BOTH
->   directions** (class 7) — both are in the auto-loaded `.claude/rules/mistakes.md`.
-> - **When a hazard has been paid for twice, the third fix is a TEST.** Fourteen
->   ratchets now (`undefined-refs` · `native-dialog` · `upload-cleanup` ·
->   `photo-retire` · `portrait-filename` · `confirm-modal` · `signin-screen` ·
->   `definer-authz` · `strip-comments` · `checkout-prefill` · `node-kind` ·
->   `org-rung` · `dept-tint` · `team-state-specificity`). Every one found
->   something. **Falsify each assertion before committing it** — two fixtures
->   written on 2026-08-15 passed with the bug reintroduced because they could
->   not reach the branch they claimed to cover.
-> - **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
->   `docs/`-only commit needs no deploy.
