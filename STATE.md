@@ -470,6 +470,56 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > rule, "an open window is not bookable at all", and 390/834/1440. Not
 > superseded.
 >
+> ### ⚠️ FOUR FINDINGS FROM A SELF-REVIEW OF 0161–0163 — NOT YET FIXED
+>
+> A `/scrutinize` pass over my own work found these AFTER it was deployed. All
+> four are live on prod right now. Ordered by consequence.
+>
+> 1. **`open_ended` is wrong for every historical week.** `0163:191` is
+>    `open_ended := (v_to = v_last_at)` and `v_last_at` is scoped to the
+>    REQUESTED RANGE (`0163:93-95`), not to now. So browsing any past week marks
+>    its final run "may still be running" — the UI fades the bottom edge and the
+>    tooltip says `อาจยังใช้อยู่` about a week that ended days ago.
+>    **Fix: `open_ended := (v_to = v_last_at and p_to > now())`.**
+>    ⚠️ The probe returned 0 for last week and that is VACUOUS, not a pass —
+>    there are only ~84 samples, so the previous week has none. And
+>    `claude0162 §D5` cannot catch it either: it only checks runs that ended
+>    BEFORE the last poll, and this one IS the last poll. **Add the past-week
+>    case to §D in the same commit.**
+>
+> 2. **The 0161 header's cost claim is UNVERIFIED and probably wrong.** It says
+>    the change is "a constant factor, not an order". It is not obviously so:
+>    0161 added a boundary per booking (`starts_at + 5h`, ~4n instead of ~3n)
+>    AND made each boundary's `claude_free_now()` call `claude_window_loads()`,
+>    which itself loops over bookings — so ~4n evaluations that are each O(n).
+>    Measured: `claude_free_now()` 0.78 ms/call, `claude_free_windows()` 21 ms
+>    at ONE booking. `STATE.md` recorded ~100 ms at 30 bookings BEFORE 0161, and
+>    `get_claude_board()` is polled every 60 s per open admin tab.
+>    **I could not complete the synthetic benchmark** — the 0160 open-window
+>    guard and the real bookings refused the inserts three ways (start after
+>    `claude_open_window().win_end`, and keep each probe booking's window clear
+>    of the real ones). **Benchmark at 7/15/30, then correct or confirm the
+>    header.** If real, hoist the settings/sample reads out of
+>    `claude_free_now()`.
+>
+> 3. **The silent-booking control goes stale on an in-place account switch.**
+>    `claude/index.js:413` evaluates `holdsMaster()` inside `wire()`, which the
+>    one-shot `built` flag runs once per session; the account switcher does not
+>    reload. COSMETIC, not a leak — the notify gate re-checks `holdsMaster()` at
+>    SEND time, so a non-master's ticked box suppresses nothing; they just see a
+>    checkbox that does nothing, which is its own class here.
+>    **Fix: move the toggle from `wire()` into `enterClaudeWorkspace()`.**
+>
+> 4. **No index on `claude_usage_samples.sampled_at`.** `claude_usage_runs`
+>    opens with `where sampled_at < p_from order by sampled_at desc limit 1`.
+>    84 rows today, ~35k/year at 96/day.
+>
+> **Also unverified, and cheap to check:** `applyFit()` parses
+> `getComputedStyle(scroller).maxHeight`, which is now
+> `min(1100px, calc(100dvh - 230px))`. `getComputedStyle` resolves that to px so
+> it SHOULD work, but the calendar height was measured with **"พอดีจอ" OFF** and
+> never tested with it on. That toggle divides this value by 24.
+>
 > ### Owed, and offered but not chosen
 >
 > - **The reporter's polling was analysed and left at 15 minutes.** It is
