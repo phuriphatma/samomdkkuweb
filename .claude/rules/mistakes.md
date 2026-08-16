@@ -83,9 +83,8 @@ has not been written yet.
    รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS, where
    `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
    system and DERIVED in the other (`team_members.year` vs ระบบบ้าน's ชั้นปี).
-   Also a rule implemented on the writers you HAPPENED to be looking at: the
-   portrait cleanup existed on two editors and not on `my-seat.js`, so it
-   LOOKED implemented. One `photoToRetire()` now. When a second copy is
+   Also a rule implemented on the writers you HAPPENED to be looking at (the
+   portrait cleanup missed `my-seat.js`). One `photoToRetire()` now. When a second copy is
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
@@ -93,7 +92,7 @@ has not been written yet.
    COMPUTED style, never the stylesheet — and for a PAINT or OVERLAP bug, the
    PAINTED BOXES.
    Also TWO PASSES assigning one DOM property: a blanket `cb.disabled = on`
-   unlocked what the previous pass had locked. Only touch what THIS pass set.
+   undid what the previous pass locked. Only touch what THIS pass set.
    Same geometry, N passes: a delegated listener re-attached every render made
    a panel open on odd paints only. State in a variable, listeners on the nodes
    this paint made.
@@ -102,11 +101,11 @@ has not been written yet.
    not the local file; read the LIVE function body, not the migration that first
    defined it.
 
-   Every DELETE needs `return=representation` + a `data.length` check
-   (`delete-guard.test.js`) — RLS returns zero rows, not an error.
+   Every DELETE needs `return=representation` + a `data.length` check — RLS
+   returns zero rows, not an error (`delete-guard.test.js`).
 
-   **Guards fail GREEN — `skills/write-a-guard.md`.
-   Read it before writing any test, proof or sweep.**
+   **Guards fail GREEN — `skills/write-a-guard.md`.**
+   Two quantities in one SUBTRACTION must share an INSTANT (0156/0158).
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled the same
    block-comment regex, and `'image/*'` in `main.js` opened a "comment" that
    blanked 13,839 characters before any assertion ran. One shared
@@ -224,7 +223,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
 ### `docs/mistakes/postgres-schema.md` — Migrations, DDL, triggers & constraints
-*Open when:* writing a migration. *(18 entries)*
+*Open when:* writing a migration. *(19 entries)*
 
 - Postgres has no `create or replace policy` — partial-replay migrations 42710 out
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
@@ -244,6 +243,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - A bidirectional mirror without an `is distinct from` guard is an infinite recursion
 - "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column treated as a reason to skip the field
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
+- "why 18 august has rail show green 100% shouldn't it be 10%"
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
 *Open when:* markup, modals, layout, touch, icons. *(63 entries)*

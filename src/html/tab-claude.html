@@ -58,9 +58,18 @@
          had actually been spent. -->
     <div class="claude-week card-soft mb-3">
       <div class="claude-week-top">
-        <span class="claude-week-fig" id="claudeWeekUsed">0</span>
-        <span class="claude-week-of">/ <span id="claudeWeekPool">700</span>%</span>
-        <span class="text-muted" id="claudeWeekWhat">ใช้ไปแล้วสัปดาห์นี้</span>
+        <div class="claude-week-figs">
+          <div class="claude-week-fig-block">
+            <span class="claude-week-fig" id="claudeWeekUsed">0</span>
+            <span class="claude-week-of">/ <span id="claudeWeekPool">700</span>%</span>
+            <div class="claude-week-fig-k" id="claudeWeekWhat">ใช้ไปแล้วสัปดาห์นี้</div>
+          </div>
+          <!-- The number people came for, given its own figure instead of the
+               tail of a legend line: "how much can I still use without booking
+               anything". Painted by paintWeekMeter() from week.measured_left −
+               week.reserved, both scoped to the week on screen. -->
+          <div class="claude-week-fig-block is-free" id="claudeWeekFree"></div>
+        </div>
         <span class="claude-week-right">
           รีเซ็ต <strong id="claudeResetAt">—</strong>
           <span id="claudeResetIn" class="text-muted"></span>

@@ -744,3 +744,38 @@ prevent it: this one was written down, correctly, eight months early, and the
 bug shipped anyway. **The third fix is a test.** `study-year.test.js` now fails
 the build on any `year:` key in a write payload, any second implementation of the
 arithmetic, and any ชั้นปี rendered outside `studyYearLabel()`.
+
+## "why 18 august has rail show green 100% shouldn't it be 10%"
+
+**Symptom.** The legend read "ว่างให้ใช้โดยไม่ต้องจอง 10%" while the calendar's
+capacity rail showed 60% on one day and 100% on the next. Dumping the segments
+showed `week_free_pct` climbing with time: 10 → 60 → 160 → 260 → 360.
+
+**Cause.** `claude_free_now(p_at)` subtracted two quantities measured at
+different moments. `left` came from the newest sample — a fact about NOW (385 of
+700 remaining). `reserved` was `ends_at > p_at`, the blocks still outstanding at
+that FUTURE instant. So a Tuesday question subtracted Tuesday's shrunken
+reservation list from Saturday's remaining pool, and every booking that finished
+in between silently handed its quota back.
+
+It does not come back: a block that runs SPENDS. With 315 used and 375 booked,
+the week ends at 690 of 700 and 10 is the unbooked remainder at every moment
+until the reset. The old code reached 160 on Tuesday by counting the same 150%
+twice — once as "no longer reserved" and never as "spent".
+
+**Fix.** Pin the reservation set to `least(p_at, now())`. A block between now and
+`p_at` stays subtracted because it will consume its share before `p_at` arrives.
+`least(...)` rather than a bare `now()` so a question about a PAST instant still
+gets the reservation set that was outstanding then.
+
+**Where it lives now.** `claude_free_now()` in
+`supabase/migrations/0158_claude_a_finished_booking_spent_its_quota.sql`.
+Guarded by `tools/claude0157-rail-segments.sql` §B5 — stated as "the weekly
+remainder never RISES as time advances" rather than "is constant", so a change
+that legitimately makes it fall stays green.
+
+**The general rule.** *Two quantities in one subtraction must be measured at the
+same instant.* This is the second time the same feature shipped this exact
+shape (0156 was the week card reading `right_now`), and both times it was
+invisible in review — the present is the one instant where every scope agrees,
+and it is the instant you are looking at while you build.

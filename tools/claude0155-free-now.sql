@@ -146,11 +146,25 @@ insert into probe select 'C1. week free = left − reserved (660 − 70)', '590'
 insert into probe select 'C2. reserved counts the block that has not run yet', '70',
   ((pg_temp.free_at((select d0 from t) + interval '11 hours', 660))
      ->'week'->>'reserved_pct');
--- C3: once their block is OVER it stops being a reservation — it is measured
--- usage now, and counting it in both places would charge the week twice.
-insert into probe select 'C3. a finished block is no longer reserved', '0',
+-- C3 asserted the opposite of the truth until 0158 and went red the moment the
+-- bug was fixed, which is the right way round for a guard to be wrong.
+--
+-- It said "asked about an instant after their block ends, it is no longer
+-- reserved". That is only true once the block has ACTUALLY RUN. Asking on
+-- Saturday about Tuesday does not spend it — and treating it as released let
+-- the weekly remainder climb 10 → 60 → 160 → 260 → 360 across the week, with
+-- the freed reservation counted once as "not reserved" and never as "spent".
+--
+-- The scenario here is entirely in the future, so the block stays subtracted at
+-- every probe instant, and what the number must NOT do is grow.
+insert into probe select 'C3. a still-to-run block stays reserved, whenever you ask', '70',
   ((pg_temp.free_at((select d0 from t) + interval '20 hours', 660))
      ->'week'->>'reserved_pct');
+
+insert into probe select 'C3b. …so the weekly remainder does not grow by waiting', 'true',
+  (((pg_temp.free_at((select d0 from t) + interval '20 hours', 660))->'week'->>'free_pct')::numeric
+   <= ((pg_temp.free_at((select d0 from t) + interval '11 hours', 660))->'week'->>'free_pct')::numeric
+   )::text;
 
 -- ── §C2. The boundary the calendar rail is drawn from ──────────────────────
 -- claude_free_windows() only works because the answer changes at

@@ -821,3 +821,14 @@ svg.claude-mark {
 .cu-line-week { stroke: var(--claude-clay); }
 .cu-tag-week { fill: var(--claude-clay-ink); }
 .cu-key-week { background: var(--claude-clay); }
+
+/* Two figures, not one: what has gone, and what is still there for anyone to
+   use without booking. The second was the tail of a legend line in 0.72rem
+   type, and it is the number the whole board exists to answer. */
+.claude-week-figs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; }
+.claude-week-fig-block { min-width: 0; }
+.claude-week-fig-block .claude-week-fig { color: var(--claude-clay-ink); }
+.claude-week-fig-block.is-free .claude-week-fig { color: var(--brand-primary); }
+.claude-week-fig-block.is-free.is-low .claude-week-fig { color: var(--claude-part-ink); }
+.claude-week-fig-block.is-free.is-none .claude-week-fig { color: #b42318; }
+.claude-week-fig-k { font-size: 0.72rem; color: #6c757d; margin-top: 1px; }

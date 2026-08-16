@@ -253,9 +253,11 @@ function wire() {
   $('claudeHelp').innerHTML += '<br><span class="claude-rail-key">'
     + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันคือ '
     + '<strong>โควตาที่ใช้ได้ทันทีโดยไม่ต้องจอง</strong> ถ้าเริ่มใช้ตอนนั้น — '
-    + '<i class="claude-free is-part"></i>สีเหลืองคือช่วงที่มีคนจองไว้แล้วบางส่วน '
-    + '<i class="claude-free is-none"></i>สีแดงคือไม่เหลือ '
-    + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้แล้ว</span>';
+    + 'เขียวคือได้เต็มเซสชัน '
+    + '<i class="claude-free is-part"></i>เหลืองคือได้บางส่วน (อาจเพราะมีคนจองไว้ '
+    + 'หรือเพราะโควตาสัปดาห์ใกล้หมด) '
+    + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ '
+    + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้</span>';
 
   ['claudeDate', 'claudeStart', 'claudeEnd', 'claudePct'].forEach((id) => {
     $(id).addEventListener('input', recalc);
@@ -402,6 +404,18 @@ function paintWeekMeter() {
   const freeLeft = measured
     ? Math.max(0, Number(board.week.measured_left_pct) - Number(board.week.reserved_pct))
     : pool - used;
+
+  // The headline it deserves. This is the number the board exists to answer —
+  // "how much can I still use without booking anything" — and it was the tail
+  // of a legend line in 0.72rem type.
+  const freeSessions = freeLeft / board.settings.session_pool_pct;
+  const freeTone = freeSessions >= 1 ? '' : freeSessions > 0 ? ' is-low' : ' is-none';
+  $('claudeWeekFree').className = `claude-week-fig-block is-free${freeTone}`;
+  $('claudeWeekFree').innerHTML =
+    `<span class="claude-week-fig">${pctText(freeLeft)}</span>`
+    + `<span class="claude-week-of">= ${freeSessions.toFixed(1)} เซสชัน</span>`
+    + `<div class="claude-week-fig-k">${measured
+        ? 'ว่างให้ใช้เลย โดยไม่ต้องจอง' : 'ยังไม่ถูกจอง'}</div>`;
   const legend = $('claudeLegend');
   legend.innerHTML =
     (measured
@@ -416,8 +430,7 @@ function paintWeekMeter() {
       .join('')
     + '<span class="claude-legend-item is-free">'
     + '<span class="claude-swatch is-track"></span>'
-    + `${measured ? 'ว่างให้ใช้โดยไม่ต้องจอง' : 'ยังไม่ถูกจอง'} · <b>${pctText(freeLeft)}</b>`
-    + ` = อีก <b>${(freeLeft / board.settings.session_pool_pct).toFixed(1)}</b> เซสชัน</span>`;
+    + `${measured ? 'ว่าง' : 'ยังไม่ถูกจอง'} · <b>${pctText(freeLeft)}</b></span>`;
 
   paintMeasured();
 }
@@ -715,8 +728,9 @@ function paintGrid() {
       // by then and you still get this much. Saying it is most of the value.
       el.title = free > 0
         ? `เริ่มใช้ได้ถึง ${hhmm(until)} จะได้ ${free}% โดยไม่ต้องจอง`
-          + (fw.week_free_pct != null
-            ? ` · สัปดาห์นี้เหลือรวม ${pctText(fw.week_free_pct)}` : '')
+          + (fw.bound_by === 'week'
+            ? ` — จำกัดด้วยโควตาสัปดาห์ ที่เหลือรวม ${pctText(fw.week_free_pct)}`
+            : ' — จำกัดด้วยเซสชัน 5 ชม. ช่วงนั้น')
         : 'ช่วงนี้ไม่เหลือโควตาให้ใช้โดยไม่จอง';
 
       // Label the first day-segment, and any CONTINUATION long enough to read

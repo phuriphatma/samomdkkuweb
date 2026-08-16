@@ -68,11 +68,22 @@ create temp table sc on commit drop as
 -- A sample whose 5-hour window is OPEN and closes in the future — the branch
 -- that was broken. Without forcing it, a run that happens to start when no
 -- window is open would not exercise it and would pass on the old code.
+--
+-- Its WEEKLY figure is DERIVED, not chosen. A hardcoded 43% left the weekly
+-- remainder below the live reservations, so the week bound every band to the
+-- same number, no band stepped down, and B3/B4 — the controls — went red
+-- exactly as they are meant to. This subject has to leave the SESSION as the
+-- binding constraint or §B is testing nothing, and how much headroom that
+-- needs depends on what is really booked this week.
 insert into public.claude_usage_samples (
   sampled_at, five_hour_pct, five_hour_resets_at,
   seven_day_pct, seven_day_resets_at, raw)
-values (now(), 52, now() + interval '3 hours',
-        43, now() + interval '3 days', jsonb_build_object('proof', 'claude0157'));
+select now(), 52, now() + interval '3 hours',
+       greatest(0, 100 - ((reserved + 300.0) / (pool / 100.0))),
+       now() + interval '3 days', jsonb_build_object('proof', 'claude0157')
+  from (select (select week_pool_pct from public.claude_settings where id) as pool,
+               (select coalesce(sum(pct), 0) + 50 from public.claude_bookings
+                 where ends_at > now()) as reserved) q;
 
 insert into public.claude_bookings (user_id, starts_at, ends_at, pct, purpose)
 select uid, (select b_start from sc), (select b_start from sc) + interval '5 hours',
@@ -165,6 +176,31 @@ insert into probe select 'B3. control — the bands are not all the same number'
 
 insert into probe select 'B4. control — at least one deadline is a real STEP DOWN', 'true',
   ((select count(*) from steps where before_free > after_free) >= 1)::text;
+
+-- ── §B5. What is left for UNBOOKED use cannot improve by waiting ──────────
+--
+-- 0158. `week_free` climbed across the week — 10 → 60 → 160 → 260 → 360 —
+-- because `left` was measured as of NOW while `reserved` was recomputed at each
+-- future instant, so every booking that finished in between handed its quota
+-- back. It does not: a block that runs SPENDS.
+--
+-- With the reservation set pinned to now, the weekly remainder is the same
+-- number at every instant until the reset, and that is the shape to assert.
+-- Stated as "never rises" rather than "is constant" so it survives a future
+-- change that legitimately makes it fall (a booking added mid-week would).
+insert into probe select
+  'B5. weekly free-for-unbooked-use never RISES as time advances',
+  '0',
+  (select count(*)::text from seg s1
+     join seg s2 on s2.n = s1.n + 1
+    where (public.claude_free_now(s2.a + interval '1 second')->'week'->>'free_pct')::numeric
+        > (public.claude_free_now(s1.a + interval '1 second')->'week'->>'free_pct')::numeric
+          + 0.01);
+
+-- B6 is B5's control: with no measurement there is no weekly number at all and
+-- B5 passes on nulls. The scenario forces a sample, so this must be non-null.
+insert into probe select 'B6. control — a weekly remainder is actually being computed', 'true',
+  ((select public.claude_free_now(now())->'week'->>'free_pct') is not null)::text;
 
 -- ── §C. The two boundaries the bugs were about, named ──────────────────────
 -- §A covers the boundary set generally. These two are pinned because each was
