@@ -269,6 +269,26 @@ change, never on the slider) · `get_claude_board()` draws each window's
 remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
 that and is deleted.
 
+⚠️ **THE PANE HAD ONLY EVER BEEN OPENED ON A LAPTOP.** Six bugs in this feature
+were phone-only and every one was invisible in the stylesheet: a tag positioned
+where the block always covers it · an absolute percentage colliding with a
+wrapping time · a session frame with the same visual weight as a booking card ·
+an overlay lane taken OUT of the block instead of ADDED to the grid · a
+"พอดีจอ" toggle measuring the container its own output sizes · a date picker
+that only opens on touch (desktop needs `showPicker()`).
+**Render at 390 / 834 / 1440 before claiming a layout change works**, and assert
+`scrollWidth - clientWidth === 0` per element rather than reading the CSS.
+Also measured: the END time cannot be drawn as text at ANY width (77px + 34px
+against a 96px head), and a ONE-pixel shortfall renders as `0…`, not as a tight
+line — "fits" has to mean "with headroom".
+
+**A BOOKED WINDOW BELONGS TO WHOEVER BOOKED IT.** The ข้อตกลง said "หนึ่งรอบ 5
+ชั่วโมง มีโควตา 100% ซึ่งใช้ร่วมกัน" and the owner rejected it: sharing is
+between BOOKERS, not with anyone who wanders in. Unbooked time is open to
+anyone; booked time is not. Booking 100% is how you guarantee nobody joins you.
+Nothing in the guard changed — this was the wording, and the wording was the
+part people are held to.
+
 **Everything 0154–0158 learned — the two mixed-instant bugs, the three panels
 and their scopes, the colour system, the rail's exact semantics, and what each
 guard cost to get right — moved to

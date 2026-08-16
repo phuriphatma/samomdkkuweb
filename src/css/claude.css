@@ -57,7 +57,12 @@
   font-size: 1.75rem; font-weight: 700; line-height: 1;
   letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
 }
-.claude-week-of { color: #6c757d; font-variant-numeric: tabular-nums; }
+/* nowrap: "= 0.9 เซสชัน" broke after the number, leaving "เซสชัน" alone on the
+   next line above the label it belongs to. */
+.claude-week-of {
+  color: #6c757d; font-variant-numeric: tabular-nums;
+  margin-left: 4px; white-space: nowrap;
+}
 .claude-week-right { margin-left: auto; font-size: 0.8rem; text-align: right; }
 
 .claude-week-bar {
@@ -150,7 +155,11 @@
   border-radius: 8px; overflow: hidden;
 }
 .claude-cal-scroll { overflow: auto; max-height: 620px; }
-.claude-cal-grid { min-width: 820px; position: relative; }
+/* 820 gave a 95px day column on a phone, which leaves a booking ~66px — not
+   enough for "00:45–05:45", so every time label ellipsised and the owner saw
+   "01:0". The grid already scrolls horizontally; 940 buys a 110px column and a
+   time that reads. */
+.claude-cal-grid { min-width: 940px; position: relative; }
 
 .claude-cal-head {
   /* --claude-cols is set by buildGrid(): the quota week runs Wed 16:00 -> Wed
@@ -229,21 +238,42 @@
 .claude-dead.is-before .claude-dead-label { top: auto; bottom: 4px; }
 
 /* The 5-hour session frame. */
+/* A BRACKET, not a box. It used to be a rounded, filled, bordered rectangle —
+   the same visual weight as a booking card — so the part of it hanging BELOW a
+   short booking read as an empty second booking. Reported from a phone as
+   "something weird in the box booking behind". A bracket cannot be mistaken for
+   a card, and it says the right thing: this stretch is one span, and the empty
+   part of it is what nobody has claimed. */
 .claude-session {
-  position: absolute; left: var(--claude-lane); right: 2px; z-index: 2; pointer-events: none;
-  border: 1px solid var(--claude-band-line); border-left-width: 3px;
-  border-radius: 3px; background: var(--claude-band);
+  position: absolute; left: var(--claude-lane); right: 2px; z-index: 2;
+  pointer-events: none;
+  border: 0; border-left: 3px solid var(--claude-band-line);
+  border-radius: 0; background: none;
 }
+.claude-session::before,
+.claude-session::after {
+  content: ''; position: absolute; left: 0; width: 10px; height: 2px;
+  background: var(--claude-band-line);
+}
+.claude-session::before { top: 0; }
+.claude-session::after { bottom: 0; }
+/* The tail is where the tag goes — see the comment in paintGrid(). Bottom, not
+   top: a window OPENS at a booking's start, so the top is always covered by the
+   block that opened it and the tag was invisible in every real case. */
 .claude-session-tag {
-  position: absolute; top: 2px; right: 4px;
+  position: absolute; bottom: 1px; left: 5px; max-width: calc(100% - 7px);
   font-size: 0.62rem; font-weight: 600; color: var(--brand-primary);
   background: #fff; border: 1px solid var(--claude-band-line);
   border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.claude-session.is-full { border-color: #b42318; background: rgba(180, 35, 24, 0.06); }
+.claude-session.is-full { border-left-color: #b42318; }
+.claude-session.is-full::before,
+.claude-session.is-full::after { background: #b42318; }
 .claude-session.is-full .claude-session-tag { color: #b42318; border-color: #b42318; }
 /* A session that crossed midnight: same frame, continued in the next column. */
 .claude-session.is-cont { border-left-width: 1px; border-left-style: dashed; }
+.claude-session.is-cont::before { display: none; }
 
 /* A booking. */
 .claude-bk {
@@ -258,12 +288,26 @@
   background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 28%, #fff);
 }
 .claude-bk:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
-.claude-bk .claude-bk-t { font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Time and percentage share ONE flex row. As an absolutely positioned tag over
+   a free-flowing line, the percentage collided with the time the moment the
+   column got narrow enough for the time to wrap — printed on a phone as
+   "10:00100%". In a row they cannot overlap at any width: the time ellipsises
+   and the percentage, which is the shorter and the more important of the two,
+   always survives. */
+.claude-bk .claude-bk-head {
+  display: flex; align-items: baseline; gap: 4px; width: 100%;
+}
+.claude-bk .claude-bk-t {
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .claude-bk .claude-bk-n {
+  display: block;
   color: #495057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .claude-bk .claude-bk-p {
-  position: absolute; right: 4px; top: 2px;
+  flex: 0 0 auto; margin-left: auto;
   font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.7rem;
 }
 .claude-bk.is-mine {
@@ -825,12 +869,33 @@ svg.claude-mark {
 /* Two figures, not one: what has gone, and what is still there for anyone to
    use without booking. The second was the tail of a legend line in 0.72rem
    type, and it is the number the whole board exists to answer. */
-.claude-week-figs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; }
-.claude-week-fig-block { min-width: 0; }
+/* THREE FIGURES, ONE PER BAR SEGMENT, IN THE BAR'S ORDER.
+   Each carries a colour bar matching its stripe, which is what attaches a
+   number to a segment at every width. Labelling the segments themselves does
+   not survive contact with the data — a segment is 2% wide as often as it is
+   50%, and a label that disappears at 2% is a label nobody can rely on.
+   `flex: 1 1 auto` with a min-width lets the row sit evenly on a laptop and
+   wrap to two lines on a phone without any breakpoint. */
+.claude-week-figs {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-start;
+}
+.claude-week-fig-block {
+  min-width: 0; flex: 1 1 7.5rem; padding-left: 9px; position: relative;
+}
+.claude-week-fig-block::before {
+  content: ''; position: absolute; left: 0; top: 2px; bottom: 2px; width: 3px;
+  border-radius: 2px; background: currentColor; opacity: 0.85;
+}
+.claude-week-fig-block.is-used { color: var(--claude-clay); }
+.claude-week-fig-block.is-booked { color: var(--claude-part-ink); }
+/* Green, always — see paintWeekMeter(). The low/none signal lives on the
+   sub-line, which is not part of the colour key. */
+.claude-week-fig-block.is-free { color: var(--brand-primary); }
+.claude-week-of.is-low { color: var(--claude-part-ink); font-weight: 600; }
+.claude-week-of.is-none { color: #b42318; font-weight: 600; }
+.claude-week-fig-block.is-unknown { color: #ced4da; }
 .claude-week-fig-block .claude-week-fig { color: var(--claude-clay-ink); }
 .claude-week-fig-block.is-free .claude-week-fig { color: var(--brand-primary); }
-.claude-week-fig-block.is-free.is-low .claude-week-fig { color: var(--claude-part-ink); }
-.claude-week-fig-block.is-free.is-none .claude-week-fig { color: #b42318; }
 .claude-week-fig-k { font-size: 0.72rem; color: #6c757d; margin-top: 1px; }
 
 /* ============================================================
@@ -866,6 +931,9 @@ svg.claude-mark {
 .claude-week-fig-block.is-booked .claude-week-fig { color: var(--claude-part-ink); }
 .claude-week-fig-block.is-unknown .claude-week-fig { color: #adb5bd; }
 .claude-week-fig-block.is-unknown .claude-week-of { display: none; }
+/* The legend is people now, so it gets a label saying so — a row of coloured
+   names under a bar is otherwise a key to nothing. */
+.claude-legend-k { font-size: 0.72rem; color: #6c757d; margin-right: 2px; }
 
 /* ---------- the two view switches ---------- */
 .claude-calbar {
@@ -893,7 +961,13 @@ svg.claude-mark {
 
    The lane only exists when the overlay is ON — .is-hist narrows the blocks.
    Nothing moves for a reader who never turns it on. */
-.claude-cal-shell.is-hist .claude-daycol { --claude-hist-w: 30px; }
+/* The overlay ADDS a lane, so it needs the width to add it in. Without this the
+   lane came out of the booking's width instead: at a 95px phone column the
+   blocks lost a third and their times clipped mid-digit ("01:0"). The grid
+   already scrolls horizontally, so widening it is the honest cost of a second
+   layer — and it costs nothing when the overlay is off. */
+.claude-cal-shell.is-hist .claude-cal-grid { min-width: 1140px; }
+.claude-cal-shell.is-hist .claude-daycol { --claude-hist-w: 18px; }
 .claude-cal-shell.is-hist .claude-bk,
 .claude-cal-shell.is-hist .claude-sel { right: calc(var(--claude-hist-w, 0px) + 5px); }
 .claude-cal-shell.is-hist .claude-session { right: calc(var(--claude-hist-w, 0px) + 2px); }
@@ -908,12 +982,16 @@ svg.claude-mark {
   background: rgba(217, 119, 87, 0.42);
   border-right: 2px solid var(--claude-clay);
 }
+/* Anchored to the lane's OUTER edge and allowed to sit over the empty part of
+   the day, because the number is the thing the overlay is for and 26px cannot
+   hold "ใช้ 93%". It carries the verb: a bare "93%" on a calendar that already
+   shows three other percentages answers no question. */
 .claude-hist-peak {
   position: absolute; right: 1px; z-index: 4; pointer-events: none;
-  font-size: 0.58rem; font-weight: 700; line-height: 1;
+  font-size: 0.58rem; font-weight: 700; line-height: 1.35; white-space: nowrap;
   color: var(--claude-clay-ink); background: #fff;
   border: 1px solid var(--claude-clay); border-radius: 3px;
-  padding: 1px 3px; font-variant-numeric: tabular-nums;
+  padding: 0 3px; font-variant-numeric: tabular-nums;
 }
 
 /* ---------- ข้อตกลง ---------- */
@@ -956,3 +1034,39 @@ svg.claude-mark {
   background: #fff8e6; border-color: #f0c000; color: #6b4e00;
 }
 .claude-tab .claude-note.warn strong { color: #6b4e00; }
+
+/* A 95px day cannot carry "เหลือ 50% · ถึง 13:00"; clipped, it reads as a WRONG
+   number rather than a short one. The percentage is the half that must survive,
+   so the time is dropped rather than truncated. The full sentence stays in the
+   frame's title. */
+@media (max-width: 767.98px) {
+  .claude-session-until { display: none; }
+}
+
+/* THE END TIME IS NOT DRAWN AS TEXT, at any width, and this is measured rather
+   than preferred. "10:00–11:45" wants 77px on its own and the percentage wants
+   another 34px; the head is 96px on a DESKTOP day column and 66px on a phone.
+   There is no width at which both fit that does not mean scrolling a 1300px
+   grid sideways on a phone.
+   So the end goes, because it is the one of the three that is already on
+   screen: the block's HEIGHT is its duration and its bottom edge is its end.
+   The percentage and the start time survive at every width, the full range is
+   in the tooltip, and the modal has all of it. This is also what every calendar
+   people already use does with a compact event. */
+.claude-bk .claude-bk-t2 { display: none; }
+
+/* HEADROOM, not an exact fit. At 0.66rem "10:00" is 32px and "100%" is 33px in
+   a 66px head with a 2px gap — one pixel short, and a one-pixel shortfall does
+   not render as a slightly tight line, it renders as "0…", because the ellipsis
+   needs room of its own. 0.62rem leaves ~5px spare, which is what "fits" has to
+   mean when the content is variable ("100%" is wider than "5%"). */
+@media (max-width: 767.98px) {
+  .claude-bk .claude-bk-head { font-size: 0.62rem; gap: 2px; }
+  .claude-bk .claude-bk-p { font-size: 0.62rem; }
+  .claude-bk .claude-bk-n { font-size: 0.62rem; }
+}
+
+/* The bar's third segment. It used to be the bare grey track, so "free" was the
+   only one of the three states with no colour of its own for a figure to key
+   to. */
+.claude-week-bar > i.is-free-seg { background: rgba(16, 89, 34, 0.30); }

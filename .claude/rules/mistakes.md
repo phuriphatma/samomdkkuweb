@@ -240,7 +240,7 @@ to that class above.
 - "why 18 august has rail show green 100% shouldn't it be 10%"
 - "i can even book at 06.00 which shouldn't be" — a guard checked against a state the insert changes
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(66)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(68)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -307,6 +307,8 @@ to that class above.
 - "พอดีจอ" collapsed the calendar to its minimum row height
 - An inline `<b>` rendered as a second heading
 - A confirm dialog offered two buttons that both began with "ยกเลิก"
+- "i see something weird in the box booking behind" + "10:00100%" — one narrow column, three collisions
+- A tag positioned where the thing it describes always covers it
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(16)*
 - "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view

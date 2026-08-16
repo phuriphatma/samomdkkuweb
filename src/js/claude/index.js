@@ -38,7 +38,7 @@ import { paintUsageLog, paintFreeNow } from './usage.js';
 // usage.js. Two copies of "what colour is this person" is the drift class
 // this repo pays for most.
 import {
-  pad, hhmm, minsOfDay, THAI_DOW, fullDate, stampLabel, durLabel, pctText,
+  pad, hhmm, minsOfDay, THAI_DOW, THAI_DOW_FULL, fullDate, stampLabel, durLabel, pctText,
   personName, shortName, personDept, personColor,
 } from './fmt.js';
 
@@ -82,7 +82,7 @@ const LS_FIT  = 'claude.cal.fit';
 const LS_HIST = 'claude.cal.hist';
 const LS_TERMS = 'claude.terms.seen';
 /** Bump when the ข้อตกลง text changes materially — everyone sees it again. */
-const TERMS_VERSION = '2026-08-16';
+const TERMS_VERSION = '2026-08-16.3';
 
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -258,6 +258,19 @@ function wire() {
   // times. Noon and not midnight: the quota week starts at 16:00, so a date at
   // 00:00 lands in the PREVIOUS week for that day and the picker would send you
   // somewhere you did not ask for on eight days out of every fifty-six.
+  // ON A DESKTOP THE OVERLAY IS NOT ENOUGH. A transparent <input type="date">
+  // laid over the label opens the platform picker on a phone and an iPad, where
+  // tapping the FIELD opens it — but on a desktop browser the field only takes
+  // focus, and the calendar is opened by the small indicator icon, which is
+  // exactly the thing opacity:0 makes unclickable. Reported as *"i can select
+  // calendar in mobile, but i can't in computer"*.
+  //
+  // showPicker() is the API for "open it now", and the click IS the user
+  // gesture it requires. It throws where it is unsupported or already open, and
+  // in both of those cases the native behaviour is what we already had.
+  $('claudeJump').addEventListener('click', (ev) => {
+    try { ev.currentTarget.showPicker(); } catch { /* older browser, or already open */ }
+  });
   $('claudeJump').addEventListener('change', (ev) => {
     const v = ev.target.value;
     if (!v) return;
@@ -346,8 +359,9 @@ function wire() {
     // first, shared by everyone inside it. Its tag says how much of that pot is
     // still free and until when, which is the question the owner asked to be
     // able to answer off the rectangle itself.
-    + 'กรอบสีเขียวคือ <strong>รอบ 5 ชั่วโมง</strong> หนึ่งก้อน '
-    + 'ทุกการจองที่อยู่ในกรอบเดียวกันแบ่งโควตา 100% ก้อนเดียวกัน '
+    + 'กรอบสีเขียวคือ <strong>รอบ 5 ชั่วโมง</strong> หนึ่งก้อน โควตา 100% '
+    + '<strong>รอบที่มีคนจองเป็นของผู้จอง</strong> ถ้าจองรอบเดียวกันหลายคนจะแบ่งกัน '
+    + 'ช่วงที่ไม่มีใครจอง ใครใช้ก็ได้ '
     + '<a href="#" class="claude-terms-link" id="claudeTermsInline">อ่านข้อตกลง</a>';
   // The rail has no meaning until it is named. A colour down the edge of a
   // calendar that nobody can read is decoration, however correct the number
@@ -431,8 +445,8 @@ async function manualRefresh() {
   const m = board?.measured;
   const age = m ? Date.now() - new Date(m.sampled_at).getTime() : null;
   $('claudeHistNote').textContent = m
-    ? `อ่านล่าสุด — ตัวเลข “ใช้จริง” จาก Claude อัปเดต${ago(age)} (ทุก 15 นาที)`
-    : 'อ่านล่าสุดแล้ว — ยังไม่มีข้อมูลการใช้จริงจาก Claude';
+    ? `อ่านข้อมูลล่าสุดแล้ว — ตัวเลข “ใช้จริง” จาก Claude อัปเดต${ago(age)} (ทุก 15 นาที)`
+    : 'อ่านข้อมูลล่าสุดแล้ว — ยังไม่มีข้อมูลการใช้จริงจาก Claude';
 }
 
 /**
@@ -527,7 +541,7 @@ function openTerms() {
   // Wednesday while the database says Sunday is worse than no rule sheet.
   if (board?.week?.ends_at) {
     $('claudeTermsReset').textContent =
-      `ทุกวัน${THAI_DOW[weekEnd().getDay()]} ${hhmm(weekEnd())} น.`;
+      `ทุกวัน${THAI_DOW_FULL[weekEnd().getDay()]} ${hhmm(weekEnd())} น.`;
   }
   $('claudeTermsVer').textContent = `ฉบับ ${TERMS_VERSION}`;
   // ONE instance, reused — constructing a second Modal over an already-open one
@@ -614,13 +628,20 @@ function paintWeekMeter() {
   $('claudeWeekBooked').innerHTML =
     `<span class="claude-week-fig">${pctText(bookedPct)}</span>`
     + '<div class="claude-week-fig-k">จองไว้</div>';
+  $('claudeWeekBooked').title =
+    `มีผู้จองไว้แล้วและยังไม่ได้ใช้ ${pctText(bookedPct)} จากโควตาสัปดาห์ ${pool}%`;
 
+  // ว่าง IS ALWAYS GREEN, and that is a colour-key decision rather than a
+  // cosmetic one. The three figures key to the three bar segments by colour, so
+  // if "ว่าง" turned amber when it ran low it would be the same colour as
+  // "จองไว้" and the key would say two things at once. The running-low signal
+  // moves onto the sub-line, which is not part of the key.
   const freeSessions = freeLeft / board.settings.session_pool_pct;
   const freeTone = freeSessions >= 1 ? '' : freeSessions > 0 ? ' is-low' : ' is-none';
-  $('claudeWeekFree').className = `claude-week-fig-block is-free${freeTone}`;
+  $('claudeWeekFree').className = 'claude-week-fig-block is-free';
   $('claudeWeekFree').innerHTML =
     `<span class="claude-week-fig">${pctText(freeLeft)}</span>`
-    + `<span class="claude-week-of">= ${freeSessions.toFixed(1)} เซสชัน</span>`
+    + `<span class="claude-week-of${freeTone}"> = ${freeSessions.toFixed(1)} เซสชัน</span>`
     + '<div class="claude-week-fig-k">ว่าง</div>';
 
   $('claudeWeekLabel').textContent =
@@ -668,6 +689,10 @@ function paintWeekMeter() {
   [...perPending.entries()].forEach(([name, v]) => {
     seg(v.pct, 'is-booked', v.color, `${name} จองไว้ ${v.pct}%`);
   });
+  // The free remainder gets a segment of its own rather than being whatever the
+  // track happens to look like. Three states, three colours, and the figures
+  // above key to them: clay = used, ฝ่าย/amber = booked, green = free.
+  seg(freeLeft, 'is-free-seg', null, `ว่าง — ${pctText(freeLeft)}`);
   // One tick per full session the pool holds: 700% IS seven sessions, and the
   // scale says so without a sentence of help text.
   const sessions = Math.round(pool / board.settings.session_pool_pct);
@@ -680,23 +705,26 @@ function paintWeekMeter() {
   $('claudeWeekScale').innerHTML =
     Array.from({ length: sessions + 1 }, (_, k) => `<span>${k}</span>`).join('');
 
-  // The legend restates the three figures with their colours attached, then
-  // names who holds the middle one.
+  // THE LEGEND IS ONLY THE PEOPLE NOW.
+  //
+  // It used to restate ใช้ไปแล้ว and ว่าง underneath figures that had just said
+  // the same two numbers a centimetre above, so the card printed each of them
+  // twice and neither copy was clearly the one attached to the bar. The three
+  // figures carry a colour key of their own (see .claude-week-fig-block::before)
+  // and sit in the SAME left-to-right order as the bar's segments, which is what
+  // ties a number to its stripe at any width — an in-bar label cannot, because a
+  // segment is 2% wide as often as it is 50%.
+  //
+  // What is left here is the one thing the figures genuinely cannot say: WHOSE
+  // the middle number is.
   const legend = $('claudeLegend');
-  legend.innerHTML =
-    (measured
-      ? '<span class="claude-legend-item"><span class="claude-swatch is-used"></span>'
-        + `ใช้ไปแล้วจริง · <b>${pctText(usedReal)}</b></span>`
-      : '')
-    + [...perPending.entries()]
-      .sort((a, b) => b[1].pct - a[1].pct)
-      .map(([name, v]) => '<span class="claude-legend-item">'
+  const people = [...perPending.entries()].sort((a, b) => b[1].pct - a[1].pct);
+  legend.innerHTML = people.length
+    ? '<span class="claude-legend-k">จองไว้โดย</span>'
+      + people.map(([name, v]) => '<span class="claude-legend-item">'
         + `<span class="claude-swatch" style="background:${v.color}"></span>`
-        + `${escHtml(name)} จองไว้ · <b>${v.pct}%</b></span>`)
-      .join('')
-    + '<span class="claude-legend-item is-free">'
-    + '<span class="claude-swatch is-track"></span>'
-    + `ว่าง · <b>${pctText(freeLeft)}</b></span>`;
+        + `${escHtml(name)} · <b>${v.pct}%</b></span>`).join('')
+    : '<span class="claude-legend-k">ยังไม่มีการจองในสัปดาห์นี้</span>';
 
   paintMeasured();
 }
@@ -1048,16 +1076,30 @@ function paintGrid() {
       // question was exactly that: *"จองไว้ 50% เป็นเวลา 3 ชม. คนอื่นสามารถจอง
       // ต่อได้อีก 50% ใน 2 ชม.หลัง ดูได้จากสี่เหลี่ยมที่โชว์บนเว็บ"*. "เหลือ
       // 50%" alone leaves the reader to work out the deadline off the geometry.
-      if (idx === 0) {
+      // THE TAG BELONGS AT THE BOTTOM, and that is not a cosmetic choice. A
+      // window OPENS at a booking's start, so the frame's top-right corner is
+      // always covered by the block that opened it — the tag was painted there
+      // and was therefore invisible in every real case, which is exactly the
+      // number the owner asked to be able to read off the rectangle. The frame's
+      // TAIL is the part of the window nobody has claimed yet, so labelling the
+      // tail says what the tail means.
+      //
+      // Only on the LAST day-segment, so a frame crossing midnight labels the
+      // end of the window rather than the end of Tuesday.
+      const isLast = idx === splitAcrossDays(s, e).length - 1;
+      const tall = seg.eMin - seg.sMin >= 30;
+      if (isLast && tall) {
         const tag = document.createElement('div');
         tag.className = 'claude-session-tag';
-        tag.textContent = full
-          ? `เต็ม · ถึง ${hhmm(new Date(sn.ends_at))}`
-          : `เหลือ ${pool - sn.used_pct}% · ถึง ${hhmm(new Date(sn.ends_at))}`;
-        el.title = `รอบ 5 ชั่วโมงนี้ ${hhmm(new Date(sn.starts_at))}–${hhmm(new Date(sn.ends_at))}`
-          + ` — จองไปแล้ว ${sn.used_pct}% จาก ${pool}%`;
+        // The "ถึง HH:MM" half is hidden by CSS on a narrow column — a 95px
+        // day cannot carry "เหลือ 50% · ถึง 13:00" without clipping it
+        // mid-number, which reads as a wrong number rather than a short one.
+        tag.innerHTML = (full ? 'เต็ม' : `เหลือ ${pool - sn.used_pct}%`)
+          + `<span class="claude-session-until"> · ถึง ${escHtml(hhmm(new Date(sn.ends_at)))}</span>`;
         el.appendChild(tag);
       }
+      el.title = `รอบ 5 ชั่วโมงนี้ ${hhmm(new Date(sn.starts_at))}–${hhmm(new Date(sn.ends_at))}`
+        + ` — จองไปแล้ว ${sn.used_pct}% จาก ${pool}%`;
       col.appendChild(el);
     });
   });
@@ -1081,10 +1123,18 @@ function paintGrid() {
       // escHtml on every interpolated field: purpose and name are user text,
       // and a ticket renderer that interpolated raw user text into innerHTML is
       // an entry in this repo's mistakes log.
+      // ONE flex row for the time and the percentage, not an absolutely
+      // positioned tag over a wrapping line. Reported on a phone as
+      // "10:00100%": at a 95px column the time is wider than the space the
+      // absolute tag left it, so it wrapped underneath and the two printed on
+      // top of each other. In a row they cannot overlap at any width — the time
+      // ellipsises instead.
       el.innerHTML =
-        `<span class="claude-bk-p">${b.pct}%</span>`
-        + `<span class="claude-bk-t">${hhmm(new Date(b.starts_at))}–${hhmm(new Date(b.ends_at))}</span>`
-        + `<span class="claude-bk-n d-block">${escHtml(shortName(b.person))} · ${escHtml(b.purpose)}</span>`;
+        '<span class="claude-bk-head">'
+        + `<span class="claude-bk-t">${hhmm(new Date(b.starts_at))}`
+        + `<span class="claude-bk-t2">–${hhmm(new Date(b.ends_at))}</span></span>`
+        + `<span class="claude-bk-p">${b.pct}%</span></span>`
+        + `<span class="claude-bk-n">${escHtml(shortName(b.person))} · ${escHtml(b.purpose)}</span>`;
       el.addEventListener('click', (ev) => { ev.stopPropagation(); openModal({ edit: b }); });
       col.appendChild(el);
     });
@@ -1138,8 +1188,14 @@ function paintHistory() {
       : 'กำลังโหลดข้อมูลการใช้จริง…';
     return;
   }
-  $('claudeHistNote').textContent =
-    `ใช้จริงจาก Claude · ${series.length} จุด ทุก 15 นาที · แถบขวาของแต่ละวันคือรอบ 5 ชม.`;
+  // A bare percentage on a calendar answers no question — it has to say what is
+  // a percentage of what, and which stretch it describes.
+  $('claudeHistNote').innerHTML =
+    '<b>แถบสีดินเผาด้านขวาของแต่ละวัน</b> คือโควตาที่ใช้ไปจริง '
+    + 'ความกว้างคือเปอร์เซ็นต์ที่ใช้ไป ณ เวลานั้น '
+    + '<b>ตัวเลขคือยอดรวมของรอบ 5 ชั่วโมงนั้น</b> '
+    + 'ช่วงที่ไม่มีแถบคือไม่มีผู้ใดใช้งาน '
+    + `(วัดจาก Claude ทุก 15 นาที · ${series.length} จุดในสัปดาห์นี้)`;
 
   // A gap longer than ~40 minutes is the reporter having been DOWN, not a quiet
   // stretch. Joining across it would draw a reading that was never taken.
@@ -1179,9 +1235,13 @@ function paintHistory() {
     const el = document.createElement('div');
     el.className = 'claude-hist-peak';
     el.style.top = `${yForMin(seg.sMin)}px`;
-    el.textContent = `${Math.round(Number(w.peak_pct))}%`;
+    // "ใช้" and not a bare number: the label is a reading about a 5-hour
+    // window, and without the verb it reads as one more capacity figure on a
+    // calendar that already carries three. Reported as *"i don't understand
+    // ใช้จริง overlay that shows 93% 97% etc"*.
+    el.textContent = `ใช้ ${Math.round(Number(w.peak_pct))}%`;
     el.title = `รอบ 5 ชม. ${hhmm(new Date(w.from))}–${hhmm(new Date(w.to))}`
-      + ` — สูงสุด ${Math.round(Number(w.peak_pct))}%`;
+      + ` — ใช้โควตาไป ${Math.round(Number(w.peak_pct))}% ของรอบนั้น`;
     col.appendChild(el);
   });
 }
@@ -1657,7 +1717,7 @@ function recalc() {
       : limits.bound_by === 'week'
         ? `จองได้สูงสุด ${cap}% (โควตาสัปดาห์เหลือเท่านี้)`
         : limits.bound_by === 'live'
-          ? `จองได้สูงสุด ${cap}% (ตอนนี้มีคนกำลังใช้อยู่)`
+          ? `จองได้สูงสุด ${cap}% (ขณะนี้มีผู้กำลังใช้งานอยู่)`
           : `จองได้สูงสุด ${cap}%`;
 
   // percent chips
@@ -1719,18 +1779,18 @@ function recalc() {
         + `(${hhmm(new Date(b.starts_at))}–${hhmm(new Date(b.ends_at))})`)
       .join(' · ');
     notes.push(noteHtml('info',
-      `ช่วงนี้อยู่ใน<strong>รอบ 5 ชั่วโมงเดียวกัน</strong>กับ ${who} — `
-      + `แบ่งโควตา ${pool}% ก้อนเดียวกัน`
+      `ช่วงนี้อยู่ใน<strong>รอบ 5 ชั่วโมงเดียวกัน</strong>กับ ${who} `
+      + `จึงแบ่งโควตา ${pool}% ก้อนเดียวกัน`
       + (win.clear_before
-        ? `<br>ถ้าเริ่มไม่เกิน <strong>${escHtml(stampLabel(new Date(win.clear_before)))}</strong> `
-          + 'จะได้เต็มโดยไม่ต้องแบ่งกับใคร'
+        ? `<br>หากเริ่มใช้ไม่เกิน <strong>${escHtml(stampLabel(new Date(win.clear_before)))}</strong> `
+          + 'จะได้โควตาเต็มโดยไม่ต้องแบ่ง'
         : '')));
   }
   if (fresh && win && win.kind === 'live') {
     notes.push(noteHtml('info',
-      'ตอนนี้มีคนกำลังใช้ Claude อยู่ และรอบ 5 ชั่วโมงของเขาจะรีเซ็ต '
-      + `<strong>${escHtml(hhmm(winEnd))}</strong> — จองช่วงนี้ได้เท่าที่รอบปัจจุบันเหลือ `
-      + 'ถ้าอยากได้เต็ม ให้เริ่มหลังเวลานั้น'));
+      'ขณะนี้มีผู้กำลังใช้งาน Claude อยู่ และรอบ 5 ชั่วโมงจะรีเซ็ตเวลา '
+      + `<strong>${escHtml(hhmm(winEnd))}</strong> จึงจองช่วงนี้ได้เท่าที่รอบปัจจุบันเหลือ `
+      + 'หากต้องการโควตาเต็ม กรุณาเริ่มใช้หลังเวลาดังกล่าว'));
   }
 
   // ── START ON TIME ─────────────────────────────────────────────────────
@@ -1740,23 +1800,23 @@ function recalc() {
   if (fresh && limits.next_up) {
     const n = limits.next_up;
     notes.push(noteHtml('warn',
-      `<b>${escHtml(personName(n.person))}</b> จองต่อจากคุณ `
-      + `<strong>${escHtml(stampLabel(new Date(n.starts_at)))}</strong> — `
-      + `กรุณาเริ่มใช้ตอน <strong>${escHtml(hhmm(s))}</strong> ให้ตรงเวลา `
-      + 'เพราะรอบ 5 ชั่วโมงเริ่มนับตอนคุณพิมพ์ข้อความแรก '
-      + 'เริ่มช้าเท่าไร เขาต้องรอนานขึ้นเท่านั้น'));
+      `<b>${escHtml(personName(n.person))}</b> จองต่อจากช่วงนี้เวลา `
+      + `<strong>${escHtml(stampLabel(new Date(n.starts_at)))}</strong> `
+      + `กรุณาเริ่มใช้งานเวลา <strong>${escHtml(hhmm(s))}</strong> ให้ตรงเวลา `
+      + 'เนื่องจากรอบ 5 ชั่วโมงเริ่มนับจากข้อความแรกที่ส่ง '
+      + 'หากเริ่มช้า ผู้จองรายถัดไปจะต้องรอนานขึ้นเท่านั้น'));
   }
 
   if (fresh && cap <= 0) {
     notes.push(noteHtml('crit',
-      'ช่วงนี้จองไม่ได้ — รอบ 5 ชั่วโมงที่ครอบช่วงนี้ถูกจองเต็มแล้ว '
+      'ช่วงนี้จองไม่ได้ เนื่องจากรอบ 5 ชั่วโมงที่ครอบช่วงนี้ถูกจองเต็มแล้ว '
       + (win?.clear_before
-        ? `ลองเริ่มไม่เกิน <strong>${escHtml(stampLabel(new Date(win.clear_before)))}</strong> `
+        ? `กรุณาเริ่มไม่เกิน <strong>${escHtml(stampLabel(new Date(win.clear_before)))}</strong> `
           + 'หรือเลื่อนไปหลังรอบนี้'
-        : 'ลองเลื่อนเวลาเริ่ม')));
+        : 'กรุณาเลื่อนเวลาเริ่ม')));
   } else if (fresh && pct > cap) {
     notes.push(noteHtml('crit',
-      `เกินโควตาที่จองได้ ${pct - cap}% — ลดเหลือ ${cap}% หรือย้ายไปช่วงอื่น`));
+      `เกินโควตาที่จองได้ ${pct - cap}% กรุณาลดเหลือ ${cap}% หรือเลือกช่วงเวลาอื่น`));
   }
   if (weekAfter > board.week.pool_pct) {
     notes.push(noteHtml('crit',
@@ -1905,13 +1965,13 @@ async function removeBooking() {
     title: 'ยกเลิกการจองนี้?',
     body: `${stampLabel(new Date(editing.starts_at))}–${hhmm(new Date(editing.ends_at))}`
       + ` · ${editing.pct}% · ${editing.purpose}`
-      + '\nช่วงเวลานี้จะกลับไปว่างให้คนอื่นจอง และระบบจะแจ้งใน Discord',
+      + '\nช่วงเวลานี้จะว่างให้ผู้อื่นจองได้ และระบบจะแจ้งเตือนใน Discord',
     // NOT 'ยกเลิกการจอง'. askConfirm's dismiss button is a hardcoded, shared
     // 'ยกเลิก', so that label put two buttons starting with the same word side
     // by side — one meaning "back out", one meaning "do it". Seen in the
     // rendered dialog, not in the source. The action shares no word with the
     // dismissal now, and says what actually happens.
-    yes: 'ใช่ คืนช่วงเวลานี้',
+    yes: 'คืนช่วงเวลานี้',
   });
   if (!ok) return;
   // Captured BEFORE the delete: once the row is gone it is off the board, and

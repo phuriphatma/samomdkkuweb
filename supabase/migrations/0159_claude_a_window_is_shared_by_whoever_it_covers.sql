@@ -276,7 +276,7 @@ begin
     -- prints the sign on the wrong side of the number.
     raise exception 'เกินโควตาเซสชัน — %. ช่วงนี้เหลือให้จอง % แต่ขอจอง %',
       case when v_bad.kind = 'live'
-             then 'ตอนนี้มีคนกำลังใช้ Claude อยู่ และรอบ 5 ชม. ของเขาจะรีเซ็ต '
+             then 'ขณะนี้มีผู้กำลังใช้งาน Claude อยู่ และรอบ 5 ชม. จะรีเซ็ตเวลา '
                   || to_char(v_bad.win_end at time zone s.week_reset_tz, 'HH24:MI')
            else 'ช่วง 5 ชม. ที่เริ่ม '
                 || to_char(v_bad.win_start at time zone s.week_reset_tz, 'DD Mon HH24:MI')
@@ -285,7 +285,7 @@ begin
                 || ' — ถ้าเริ่มไม่เกิน '
                 || to_char((v_bad.win_start - make_interval(mins => s.session_minutes))
                            at time zone s.week_reset_tz, 'DD Mon HH24:MI')
-                || ' จะไม่ต้องแบ่งกับใคร'
+                || ' จะได้โควตาเต็มโดยไม่ต้องแบ่ง'
       end,
       greatest(0, s.session_pool_pct - (v_bad.load_pct - new.pct))::text || '%',
       new.pct::text || '%';

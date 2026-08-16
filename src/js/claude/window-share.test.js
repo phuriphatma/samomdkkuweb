@@ -169,6 +169,25 @@ describe('the week card names ใช้ไปแล้ว / จองไว้ /
       .toBeLessThan(HTML.indexOf('id="claudeNow"'));
   });
 
+  it('the three figures are stated ONCE, not repeated in the legend', () => {
+    // They used to appear twice — as figures and again as legend rows — so
+    // neither copy was clearly the one attached to the bar. The legend is now
+    // the one thing the figures cannot say: whose the middle number is.
+    expect(CODE).toContain('claude-legend-k');
+    expect(CODE).toContain('จองไว้โดย');
+    expect(CODE).not.toMatch(/claude-swatch is-track/);
+    expect(CODE).not.toContain('ใช้ไปแล้วจริง ·');
+  });
+
+  it('each figure carries its segment colour, in the bar\'s order', () => {
+    // The association between a number and a stripe cannot live in an in-bar
+    // label — a segment is 2% wide as often as it is 50%.
+    ['is-used', 'is-booked', 'is-free'].forEach((cls) => {
+      expect(CSS).toMatch(new RegExp(`\\.claude-week-fig-block\\.${cls}\\s*\\{[^}]*color:`));
+    });
+    expect(CSS).toMatch(/\.claude-week-fig-block::before[\s\S]{0,160}background: currentColor/);
+  });
+
   it('a week with no measurement shows no number rather than a zero', () => {
     // A zero draws an empty bar and reads as "nothing used yet", which is
     // indistinguishable from a real reading (0156).
@@ -215,6 +234,24 @@ describe('the rules open by themselves, and again when they change', () => {
     expect(CODE).toMatch(/lsSet\(LS_TERMS, TERMS_VERSION\)/);
   });
 
+  it('the date jump opens the picker on a DESKTOP too', () => {
+    // A transparent <input type="date"> over a label opens the platform picker
+    // on a phone, where tapping the FIELD opens it. On a desktop the field only
+    // takes focus and the calendar belongs to an indicator icon that opacity:0
+    // makes unclickable. showPicker() is the API for "open it now"; the click is
+    // the user gesture it requires, and it must be guarded because it throws
+    // where unsupported or already open.
+    expect(CODE).toMatch(/claudeJump'\)\.addEventListener\('click'/);
+    expect(CODE).toMatch(/showPicker\(\)/);
+    expect(CODE).toMatch(/try \{ ev\.currentTarget\.showPicker\(\); \} catch/);
+  });
+
+  it('jumps to NOON so a date lands in the week that day belongs to', () => {
+    // The quota week starts at 16:00, so a date at 00:00 falls in the PREVIOUS
+    // week on eight days out of every fifty-six.
+    expect(CODE).toMatch(/new Date\(y, \(m \|\| 1\) - 1, d \|\| 1, 12, 0, 0, 0\)/);
+  });
+
   it('is reachable again from the toolbar and from the help line', () => {
     expect(HTML).toContain('id="claudeTermsOpen"');
     expect(CODE).toContain('claudeTermsInline');
@@ -224,6 +261,13 @@ describe('the rules open by themselves, and again when they change', () => {
     // A rule sheet that says Wednesday while claude_settings says Sunday is
     // worse than no rule sheet.
     expect(CODE).toMatch(/claudeTermsReset[\s\S]{0,160}weekEnd\(\)/);
+  });
+
+  it('spells the day out — THAI_DOW is an abbreviation for a column header', () => {
+    // Rendered, it read "ทุกวันพ". The two arrays are interchangeable to a
+    // type-checker and to a reviewer, and only one of them is a word.
+    expect(CODE).toMatch(/ทุกวัน\$\{THAI_DOW_FULL\[/);
+    expect(CODE).not.toMatch(/ทุกวัน\$\{THAI_DOW\[/);
   });
 });
 

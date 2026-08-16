@@ -2446,3 +2446,80 @@ buttons.* Any confirm whose ACTION is a cancellation, an undo, a revert or a
 "no" will collide with a generic dismiss label, and the collision is invisible in
 the source because the two strings live in different files. Read the rendered
 dialog.
+
+## "i see something weird in the box booking behind" + "10:00100%" — one narrow column, three collisions
+
+**Symptom.** From a phone, on the จองโควตา Claude calendar: a booking block
+printed `10:00100%` with the two runs of text on top of each other, and an empty
+pale card hung underneath the block with nothing in it. Turning the ใช้จริง
+overlay on made it worse — times clipped mid-digit (`01:0`) and the whole column
+read, in the owner's words, as a mess.
+
+**Cause.** Three separate failures that only appear once a column is narrow, and
+the pane had only ever been opened on a laptop.
+
+1. **An absolutely positioned tag over free-flowing text.** `.claude-bk-p` sat at
+   `top: 2px; right: 4px` and the time was a normal line. At a 66px head the
+   time wrapped — underneath the tag, which is not in the flow and therefore
+   reserves nothing. Wide enough, no overlap; narrow enough, guaranteed overlap.
+2. **A frame with the same visual weight as a card.** The 5-hour session frame
+   was a rounded, filled, bordered rectangle. A window opens at a booking's
+   start and runs five hours, so the frame is usually TALLER than the block that
+   opened it — and the part hanging below read as an empty second booking.
+3. **A lane taken out of the content instead of added to the layout.** The
+   ใช้จริง overlay reserved 30px down the right of each day but the grid's
+   `min-width` did not change, so the 30px came out of the booking's width.
+
+**Fix.** (1) time and percentage in one flex row — they cannot overlap at any
+width, and the time ellipsises instead. (2) The frame is a BRACKET: a left rail
+with a cap at each end, no fill, no radius; it cannot be mistaken for a card.
+(3) `min-width` rises with the overlay, so the lane is added rather than taken.
+
+Two things the fix then taught, both measured:
+
+- **The end time cannot be drawn as text at any width.** "10:00–11:45" wants
+  77px and the percentage another 34px, against a 96px head on a DESKTOP column.
+  There is no width that fits both without a 1300px grid to scroll sideways
+  through on a phone. So the end goes: the block's HEIGHT is its duration and
+  its bottom edge is its end, which is what every calendar people already use
+  does with a compact event. The full range stays in the tooltip and the modal.
+- **A one-pixel shortfall does not render as a tight line, it renders as `0…`**
+  — the ellipsis needs room of its own, so it eats a whole character. "It fits"
+  has to mean "with headroom", especially when the content varies ("100%" is
+  wider than "5%").
+
+**Where it lives now.** `.claude-bk-head` / `.claude-session` / `.is-hist` in
+`src/css/claude.css`; the block markup in `paintGrid()`. The instrument is a
+browser probe that reports `scrollWidth - clientWidth` per block across five
+configurations (phone/iPad/desktop × overlay on/off) — zero is the assertion.
+
+**The general rule.** *A layout is only correct at the widths it has been
+rendered at.* Every one of these three is invisible in the stylesheet, invisible
+in a unit test, and obvious in the first phone screenshot. And when text and a
+number must share a line, put them in the same FLOW — an absolutely positioned
+label reserves nothing, so it is a collision waiting for a narrow viewport.
+
+## A tag positioned where the thing it describes always covers it
+
+**Symptom.** A "เหลือ N% · ถึง HH:MM" chip was added to the 5-hour session frame
+— the number the owner had asked to be able to read off the rectangle — and it
+never appeared on screen once.
+
+**Cause.** It was placed at the frame's top-right. But a window OPENS at a
+booking's start, by definition, so the frame's top is *always* covered by the
+block that opened it, and the block is a higher z-index with an opaque
+background. The tag was correct, rendered, and behind something in every real
+case. A screenshot showed it missing; nothing else would have.
+
+**Fix.** Move it to the frame's BOTTOM, which is the tail — the part of the
+window nobody has claimed yet. That is also the part the tag is *about*, so the
+position now carries meaning instead of fighting for space.
+
+**Where it lives now.** `.claude-session-tag` in `src/css/claude.css`, placed by
+`paintGrid()`.
+
+**The general rule.** *Before positioning a label, ask what is always at that
+position.* Anything anchored to a container whose contents are generated —
+"top-right of the frame", "start of the range", "the first row" — has a
+neighbour by construction, and the geometry that makes the container exist is
+usually the geometry that fills that corner.

@@ -19,6 +19,11 @@ export const minsOfDay = (d) => d.getHours() * 60 + d.getMinutes();
  *  hand-rolled month table is how a date renders as 'undefined' for one month
  *  of the year. */
 export const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+/** The SPELLED-OUT day, for prose. THAI_DOW is the calendar column header and
+ *  is an abbreviation, so using it in a sentence produces "ทุกวันพ". */
+export const THAI_DOW_FULL = [
+  'อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์',
+];
 export const dayLabel = (d) => `${THAI_DOW[d.getDay()]} ${d.getDate()}`;
 export const fullDate = (d) => d.toLocaleDateString('th-TH', {
   day: 'numeric', month: 'short', year: '2-digit',

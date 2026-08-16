@@ -152,18 +152,14 @@ export function parseVsWebhooks(env = {}) {
  * known but no webhook is configured (caller surfaces that distinctly).
  */
 /**
- * จองโควตา Claude (migration 0154).
+ * จองโควตา Claude — a booking was made, MOVED, or GIVEN BACK.
  *
  * Reports a claim on the shared Claude Pro subscription: who, which ฝ่าย and
  * ตำแหน่ง, the block, the session percent it consumes, and what is left in both
- * pools. The two "เหลือ" numbers are the point — a booking notice that does not
- * say what remains makes everyone open the board to find out.
- *
- * The identity here is already a projection (get_claude_board names its
- * columns); nothing on this path can reach an email or a รหัสนักศึกษา.
- */
-/**
- * A booking was made, MOVED, or GIVEN BACK.
+ * pools. The "เหลือ" numbers are the point — a notice that does not say what
+ * remains makes everyone open the board to find out. The identity is already a
+ * projection (get_claude_board names its columns); nothing on this path can
+ * reach an email or a รหัสนักศึกษา.
  *
  * All three are announced, and the reason is the same one that makes the board
  * worth having: each of them changes what everybody else can have. A cancel is
@@ -177,7 +173,7 @@ export function parseVsWebhooks(env = {}) {
 const CLAUDE_MODES = {
   new:    { verb: 'จองโควตา Claude',      title: 'จองโควตา Claude แล้ว',  color: 1071394 },
   edit:   { verb: 'แก้ไขการจอง Claude',   title: 'แก้ไขการจองแล้ว',        color: 15832320 },
-  cancel: { verb: 'ยกเลิกการจอง Claude',  title: 'ยกเลิกการจองแล้ว — ช่วงนี้ว่างแล้ว', color: 11815192 },
+  cancel: { verb: 'ยกเลิกการจอง Claude',  title: 'ยกเลิกการจองแล้ว — ช่วงเวลานี้ว่างแล้ว', color: 11815192 },
 };
 
 export function buildClaudeBookingPayload(data = {}) {
@@ -207,8 +203,8 @@ export function buildClaudeBookingPayload(data = {}) {
   if (!cancelled && data.nextUp) {
     fields.push({
       name: 'มีคนใช้ต่อ',
-      value: `${data.nextUp} — กรุณาเริ่มใช้ให้ตรงเวลา `
-        + 'เพราะรอบ 5 ชม. เริ่มนับตอนพิมพ์ข้อความแรก',
+      value: `${data.nextUp} · กรุณาเริ่มใช้งานให้ตรงเวลา `
+        + 'เนื่องจากรอบ 5 ชม. เริ่มนับจากข้อความแรกที่ส่ง',
       inline: false,
     });
   }
