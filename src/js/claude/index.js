@@ -918,7 +918,7 @@ function splitAcrossDays(start, end) {
 function paintGrid() {
   document.querySelectorAll('.claude-daycol').forEach((c) => {
     c.querySelectorAll('.claude-gap,.claude-bk,.claude-dead,.claude-nowline,'
-      + '.claude-sel,.claude-free,.claude-hist,.claude-hist-peak')
+      + '.claude-sel,.claude-free,.claude-hist,.claude-hist-peak,.claude-hist-reset')
       .forEach((n) => n.remove());
   });
 
@@ -1225,93 +1225,184 @@ function paintGrid() {
 }
 
 /**
- * What Claude actually spent, drawn on the calendar beside what people booked.
+ * When Claude was ACTUALLY being used, drawn on the calendar beside what people
+ * booked.
  *
- * Asked for as *"see the history how many got used during each session, overlay
- * on the calendar, the free usage in between history"*.
+ * ── WHAT CHANGED, AND WHY IT HAD TO ──────────────────────────────────────
+ * This used to draw one bar per 15-minute sample, its WIDTH the CUMULATIVE
+ * five-hour reading. That is the integral: a staircase climbing to 97% and
+ * sawtoothing back. It answers "what did the gauge say at 12:15", which nobody
+ * asks, and it was reported once already as unreadable ("i don't understand
+ * ใช้จริง overlay that shows 93% 97% etc").
  *
- * THE SHAPE. `series` is one point every 15 minutes: [epoch, five_hour%,
- * seven_day%]. Between two consecutive points the 5-hour reading held some
- * value, so each interval is drawn as a bar in its own lane down the RIGHT of
- * the day, its WIDTH the reading. Read top to bottom it is an area chart of the
- * session window filling and sawtoothing back to zero — and the stretches
- * nobody used are simply blank, which is the "free usage in between" the
- * question is really about.
+ * It now draws the DERIVATIVE — the stretches where the reading ROSE, each
+ * carrying the percentage that went in during it. Asked for with worked
+ * examples: *"if actual people use at 10.07, your last detect at 10.00 found
+ * nothing, 10.15 found 3% … show it as 10.07-10.15 as 3%"*.
+ *
+ * ── THE ARITHMETIC IS NOT HERE ───────────────────────────────────────────
+ * `claude_usage_runs()` (migration 0162) computes it, because a rise's left
+ * edge depends on the 5-hour window's opening instant and that is the same
+ * derivation the booking guard uses. A second copy in JavaScript is the class
+ * this repo pays for most — 0161 was exactly that bug, one layer down. This
+ * renders `usageData.runs` and adds nothing to it.
+ *
+ * ── THE THREE STATES A RUN CAN BE IN, AND WHY EACH IS DRAWN DIFFERENTLY ───
+ * The picture must not claim more precision than the polling has.
+ *
+ *   exact_start  the run begins at the window's OWN opening instant — the first
+ *                message. Known to the minute, not to the poll. Gets a solid
+ *                cap, because it is the only edge on this overlay that is a
+ *                measurement rather than a bound.
+ *   inferred     the run begins at a poll: usage started somewhere in the 15
+ *                minutes before it. Feathered top, so it reads as "about here".
+ *   unknown      the reporter was DOWN and the rise could be anywhere in the
+ *                gap. Hatched, and labelled as missing rather than as usage —
+ *                measured for real on the window of 15 Aug 23:30, first polled
+ *                at 01:04 already reading 75%.
  *
  * ITS OWN LANE, never over the blocks. The rail on the left already cost this
  * feature one report — *"the rails it got overlap with the booking making it
- * look weird"* — and the answer there was a reserved lane, so it is the answer
- * here too. `.is-hist` on the shell narrows the blocks to make room; without
- * that class the lane does not exist and nothing has to move.
+ * look weird"* — so it is the answer here too. `.is-hist` on the shell narrows
+ * the blocks to make room; without that class the lane does not exist and
+ * nothing has to move.
  *
- * TOGGLED OFF BY DEFAULT. It is a second layer of information over a grid that
- * is already carrying three, and a page that shows everything at once shows
- * nothing.
+ * TOGGLED OFF BY DEFAULT. It is a second layer over a grid already carrying
+ * three, and a page that shows everything at once shows nothing.
  */
 function paintHistory() {
-  const series = usageData?.series || [];
-  if (!series.length) {
+  const runs = usageData?.runs || [];
+  if (!runs.length) {
     $('claudeHistNote').textContent = usageData
       ? 'ยังไม่มีข้อมูลการใช้จริงในสัปดาห์นี้'
       : 'กำลังโหลดข้อมูลการใช้จริง…';
     return;
   }
-  // A bare percentage on a calendar answers no question — it has to say what is
-  // a percentage of what, and which stretch it describes.
+  // The overlay has to say what a block MEANS before its numbers mean anything.
+  // "N%" on a calendar that already shows three other percentages is noise.
   $('claudeHistNote').innerHTML =
-    '<b>แถบสีดินเผาด้านขวาของแต่ละวัน</b> คือโควตาที่ใช้ไปจริง '
-    + 'ความกว้างคือเปอร์เซ็นต์ที่ใช้ไป ณ เวลานั้น '
-    + '<b>ตัวเลขคือยอดรวมของรอบ 5 ชั่วโมงนั้น</b> '
-    + 'ช่วงที่ไม่มีแถบคือไม่มีผู้ใดใช้งาน '
-    + `(วัดจาก Claude ทุก 15 นาที · ${series.length} จุดในสัปดาห์นี้)`;
+    '<b>แถบสีดินเผาด้านขวาของแต่ละวัน</b> คือช่วงที่มีคน<b>ใช้งานจริง</b> '
+    + 'ตัวเลขคือโควตาที่ใช้ไปในช่วงนั้น (ไม่ใช่ยอดสะสม) '
+    + 'ช่วงที่ไม่มีแถบคือไม่มีใครใช้ '
+    + '<span class="claude-hist-key"><i class="hk-exact"></i>ขีดทึบด้านบน = '
+    + 'เวลาที่เริ่มใช้จริง คำนวณจากเวลารีเซ็ตของรอบ 5 ชั่วโมง '
+    + '<i class="hk-fuzzy"></i>ขอบจาง = รู้แค่ว่าเริ่มในช่วง 15 นาทีนั้น '
+    + '<i class="hk-unknown"></i>ลายทแยง = ระบบเก็บข้อมูลไม่ทำงานช่วงนั้น</span>';
 
-  // A gap longer than ~40 minutes is the reporter having been DOWN, not a quiet
-  // stretch. Joining across it would draw a reading that was never taken.
-  const MAX_GAP_MS = 40 * 60 * 1000;
-
-  for (let i = 1; i < series.length; i++) {
-    const [t0, v0] = series[i - 1];
-    const [t1] = series[i];
-    const a = t0 * 1000;
-    const b = t1 * 1000;
-    if (b - a > MAX_GAP_MS) continue;
-    const pct = Number(v0);
-    if (!(pct > 0)) continue;                 // nothing was open; leave it blank
-    splitAcrossDays(a, b).forEach((seg) => {
-      const col = colFor(seg.i);
-      if (!col) return;
-      const el = document.createElement('div');
-      el.className = 'claude-hist';
-      el.style.top = `${yForMin(seg.sMin)}px`;
-      el.style.height = `${Math.max(1, yForMin(seg.eMin) - yForMin(seg.sMin))}px`;
-      el.style.width = `${Math.max(2, Math.min(100, pct))}%`;
-      el.title = `${hhmm(new Date(a))} — รอบ 5 ชม. ใช้ไป ${Math.round(pct)}%`;
-      col.appendChild(el);
-    });
+  // ── ONE occupancy map for EVERY label this overlay puts in a column ──────
+  //
+  // Two kinds land here — a run's "ใช้ N%" and a window's reset total — and they
+  // collide precisely when it matters most: a window that resets at 20:00 while
+  // the next one opens at 20:00 puts both at the same pixel, and "ใช้ 55%"
+  // printed over "96%" makes BOTH unreadable. Measured on the live payload.
+  // Tracking only run-vs-run (the first version) cannot see it, because the two
+  // labels come from different loops.
+  //
+  // Nudge down to the first free slot, never overlap, and drop the label
+  // entirely rather than shift it somewhere it would describe the wrong minute.
+  // The tooltip carries every number, so a dropped label loses nothing but a
+  // glance.
+  const LABEL_H = 15;
+  const taken = new Map();
+  /** First free top at or below `want`, within `limit`, or null. */
+  function place(colIdx, want, limit) {
+    const rows = taken.get(colIdx) || [];
+    let y = want;
+    for (let guard = 0; guard < 40; guard++) {
+      const hit = rows.find(([t, b]) => y < b && y + LABEL_H > t);
+      if (!hit) break;
+      y = hit[1];
+    }
+    if (y > limit) return null;
+    rows.push([y, y + LABEL_H]);
+    taken.set(colIdx, rows);
+    return y;
   }
 
-  // One label per OBSERVED window, at its peak: "this session burned 78%". The
-  // windows come from the server, which splits the series wherever the reading
-  // drops — that split is what a real 5-hour window IS, observed rather than
-  // assumed (migration 0155, rule 4).
+  // ── where each observed 5-hour window ENDED ──────────────────────────────
+  // A tick at the reset with what that window burned in total. The runs say
+  // when; this says which pot they came out of and how full it got — which is
+  // the number the booking side of the board is denominated in.
+  //
+  // `partial` windows are marked: we joined them after they had already been
+  // used, so their total is a floor, not a reading.
   (usageData.windows || []).forEach((w) => {
-    const at = new Date(w.from).getTime();
+    const at = new Date(w.resets_at).getTime();
     const seg = splitAcrossDays(at, at + MIN_MS)[0];
     if (!seg) return;
     const col = colFor(seg.i);
     if (!col) return;
+    // It marks a hard instant, so it may not be nudged — it takes its slot and
+    // a run label that wanted the same one moves instead.
+    const y = yForMin(seg.sMin);
+    const rows = taken.get(seg.i) || [];
+    rows.push([y - LABEL_H / 2, y + LABEL_H / 2]);
+    taken.set(seg.i, rows);
     const el = document.createElement('div');
-    el.className = 'claude-hist-peak';
-    el.style.top = `${yForMin(seg.sMin)}px`;
-    // "ใช้" and not a bare number: the label is a reading about a 5-hour
-    // window, and without the verb it reads as one more capacity figure on a
-    // calendar that already carries three. Reported as *"i don't understand
-    // ใช้จริง overlay that shows 93% 97% etc"*.
-    el.textContent = `ใช้ ${Math.round(Number(w.peak_pct))}%`;
-    el.title = `รอบ 5 ชม. ${hhmm(new Date(w.from))}–${hhmm(new Date(w.to))}`
-      + ` — ใช้โควตาไป ${Math.round(Number(w.peak_pct))}% ของรอบนั้น`;
+    el.className = 'claude-hist-reset';
+    el.style.top = `${y}px`;
+    el.textContent = `${w.partial ? '≥' : ''}${Math.round(Number(w.peak_pct))}%`;
+    el.title = `รอบ 5 ชั่วโมง ${hhmm(new Date(w.starts_at))}–${hhmm(new Date(w.resets_at))}`
+      + ` — ใช้ไปทั้งหมด ${w.partial ? 'อย่างน้อย ' : ''}${Math.round(Number(w.peak_pct))}%`
+      + (w.partial ? ' (เริ่มเก็บข้อมูลหลังรอบนี้เริ่มไปแล้ว)' : '');
     col.appendChild(el);
   });
+
+  runs.forEach((r) => {
+    const s = new Date(r.from).getTime();
+    const e = new Date(r.to).getTime();
+    const pct = Math.round(Number(r.pct));
+    const unknown = r.kind === 'unknown';
+    const parts = splitAcrossDays(s, e);
+    parts.forEach((seg, idx) => {
+      const col = colFor(seg.i);
+      if (!col) return;
+      const top = yForMin(seg.sMin);
+      // 3px floor: a run can be four minutes long (a window that opened and was
+      // polled almost at once) and a zero-height div is a run that happened and
+      // cannot be seen.
+      const h = Math.max(3, yForMin(seg.eMin) - yForMin(seg.sMin));
+      const el = document.createElement('div');
+      el.className = 'claude-hist'
+        + (unknown ? ' is-unknown' : '')
+        // The caps belong to the run's real ends, so a run split across midnight
+        // must not draw them at 00:00 on both pieces.
+        + (idx === 0 && r.exact_start && !unknown ? ' is-exact' : '')
+        + (idx > 0 ? ' is-cont' : '')
+        + (idx === parts.length - 1 && r.open_ended ? ' is-open' : '');
+      el.style.top = `${top}px`;
+      el.style.height = `${h}px`;
+      el.title = unknown
+        ? `ไม่มีข้อมูลช่วง ${hhmm(new Date(s))}–${hhmm(new Date(e))} `
+          + `(ระบบเก็บข้อมูลไม่ทำงาน) — มีการใช้ ${pct}% ที่ไหนสักช่วงนี้ `
+          + 'แต่บอกเวลาที่แน่นอนไม่ได้'
+        : `ใช้จริง ${hhmm(new Date(s))}–${hhmm(new Date(e))} — ${pct}% ของรอบ 5 ชั่วโมง`
+          + (r.exact_start
+            ? ' · เริ่มใช้เวลานี้พอดี (คำนวณจากเวลารีเซ็ตของรอบ)'
+            : ' · เริ่มใช้ช่วง 15 นาทีก่อนหน้านี้')
+          + (r.win_start
+            ? ` · รอบ ${hhmm(new Date(r.win_start))}–${hhmm(new Date(r.win_reset))}`
+            : '')
+          + (r.open_ended ? ' · อาจยังใช้อยู่' : '');
+      col.appendChild(el);
+
+      // Label the FIRST day-segment only — a run crossing midnight is one run
+      // and one number, not two.
+      // A label may sit anywhere inside the run it describes, but not past it —
+      // below its own block it would point at the wrong stretch of the day.
+      if (idx === 0 && h >= 14) {
+        const y = place(seg.i, top, top + h - LABEL_H);
+        if (y != null) {
+          const tag = document.createElement('div');
+          tag.className = 'claude-hist-peak' + (unknown ? ' is-unknown' : '');
+          tag.style.top = `${y}px`;
+          tag.textContent = unknown ? `? ${pct}%` : `ใช้ ${pct}%`;
+          col.appendChild(tag);
+        }
+      }
+    });
+  });
+
 }
 
 function addDead(colIdx, sMin, eMin, label, edge) {

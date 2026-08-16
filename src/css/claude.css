@@ -996,18 +996,49 @@ svg.claude-mark {
 .claude-cal-shell.is-hist .claude-sel { right: calc(var(--claude-hist-w, 0px) + 5px); }
 .claude-cal-shell.is-hist .claude-gap { right: calc(var(--claude-hist-w, 0px) + 2px); }
 
-/* Width IS the reading: a 15-minute slice at 60% draws 60% of the lane. Read
-   top to bottom the column is an area chart of the 5-hour window filling and
-   sawtoothing back to zero, and an unused stretch is simply blank — which is
-   the "free usage in between" the overlay is for. */
+/* HEIGHT is the reading now, not width: a run occupies exactly the stretch it
+   was used in, and the percentage that went in during it is a LABEL. Width used
+   to encode the cumulative gauge, which made the lane an area chart of a number
+   nobody asks for — see paintHistory(). Full-lane and solid, so a four-minute
+   run is as visible as a two-hour one; magnitude lives in the label, where 3%
+   and 30% are equally legible. */
 .claude-hist {
   position: absolute; right: 0; z-index: 2; pointer-events: none;
-  max-width: var(--claude-hist-w, 30px);
-  background: rgba(217, 119, 87, 0.42);
-  border-right: 2px solid var(--claude-clay);
+  width: var(--claude-hist-w, 18px); border-radius: 2px;
+  background: rgba(217, 119, 87, 0.62);
 }
+/* THE TOP EDGE CARRIES THE PRECISION, and this is the whole honesty of the
+   overlay. A solid cap means the instant is KNOWN — it is the window's own
+   opening, back-calculated from its reset, not a poll boundary. Without the
+   cap the top fades, because all we know is "somewhere in the last 15 min".
+   Drawing both the same way would claim a measurement we do not have. */
+.claude-hist.is-exact { border-top: 2.5px solid var(--claude-clay); }
+.claude-hist:not(.is-exact):not(.is-unknown) {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5px);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 5px);
+}
+/* Still the newest sample we hold, so it may be continuing right now. Fading
+   the bottom says "this is where we stopped looking", not "this is where they
+   stopped". */
+.claude-hist.is-open {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 6px);
+          mask-image: linear-gradient(to top, transparent 0, #000 6px);
+}
+/* The reporter was down. Hatched and grey — the same language the calendar
+   already uses for "not yours / no data" (the out-of-week hatch and the held
+   rail), and deliberately NOT clay, because clay means measured and this is the
+   absence of measurement. */
+.claude-hist.is-unknown {
+  background-color: #e6e3e0;
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(120, 110, 100, 0.38) 0 2px, transparent 2px 6px);
+}
+/* A run that crossed midnight: no cap on the continuation, it did not start
+   there. */
+.claude-hist.is-cont { border-top: 0; }
+
 /* Anchored to the lane's OUTER edge and allowed to sit over the empty part of
-   the day, because the number is the thing the overlay is for and 26px cannot
+   the day, because the number is the thing the overlay is for and 18px cannot
    hold "ใช้ 93%". It carries the verb: a bare "93%" on a calendar that already
    shows three other percentages answers no question. */
 .claude-hist-peak {
@@ -1016,6 +1047,41 @@ svg.claude-mark {
   color: var(--claude-clay-ink); background: #fff;
   border: 1px solid var(--claude-clay); border-radius: 3px;
   padding: 0 3px; font-variant-numeric: tabular-nums;
+}
+.claude-hist-peak.is-unknown {
+  color: #6c757d; border-color: #adb5bd; border-style: dashed;
+}
+/* Where a 5-hour window ENDED, and how full it got. Sits on the reset instant
+   with a rule through the lane, so the runs above it visibly belong to it. */
+.claude-hist-reset {
+  position: absolute; right: 1px; z-index: 4; pointer-events: none;
+  transform: translateY(-50%);
+  font-size: 0.55rem; font-weight: 700; line-height: 1.3; white-space: nowrap;
+  color: var(--claude-clay-ink); background: #fff;
+  border: 1px dashed var(--claude-clay); border-radius: 999px;
+  padding: 0 4px; font-variant-numeric: tabular-nums;
+}
+.claude-hist-reset::before {
+  content: ""; position: absolute; right: calc(100% + 1px); top: 50%;
+  width: 10px; height: 1.5px; background: var(--claude-clay);
+}
+/* The key, inline in the note. The swatches reuse the overlay's own rules so a
+   look cannot be changed in one place and not the other. */
+.claude-hist-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.claude-hist-key i {
+  display: inline-block; width: 10px; height: 11px; margin: 0 1px 0 6px;
+  border-radius: 2px; vertical-align: -1px;
+  background: rgba(217, 119, 87, 0.55);
+}
+.claude-hist-key i.hk-exact { border-top: 2.5px solid var(--claude-clay); }
+.claude-hist-key i.hk-fuzzy {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5px);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 5px);
+}
+.claude-hist-key i.hk-unknown {
+  background-color: #e6e3e0;
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(120, 110, 100, 0.38) 0 2px, transparent 2px 6px);
 }
 
 /* ---------- ข้อตกลง ---------- */

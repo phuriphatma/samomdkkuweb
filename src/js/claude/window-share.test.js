@@ -21,6 +21,8 @@ const HTML     = read('../../html/tab-claude.html');
 const CSS      = read('../../css/claude.css');
 const M0159    = read('../../../supabase/migrations/'
   + '0159_claude_a_window_is_shared_by_whoever_it_covers.sql');
+const M0162    = read('../../../supabase/migrations/'
+  + '0162_claude_usage_runs_when_it_was_actually_used.sql');
 
 const CODE = stripComments(INDEX_JS);
 
@@ -212,11 +214,23 @@ describe('the measured overlay has its own lane', () => {
     expect(CSS).toMatch(/\.claude-hist \{[\s\S]{0,200}right: 0/);
   });
 
-  it('a gap in the samples is left blank, not bridged', () => {
-    // The reporter goes down. Joining across a two-hour hole would draw a
-    // reading that was never taken.
-    expect(CODE).toContain('MAX_GAP_MS');
-    expect(CODE).toMatch(/if \(b - a > MAX_GAP_MS\) continue/);
+  it('a gap in the samples is neither bridged nor drawn as idle', () => {
+    // The reporter goes down. Joining across a two-hour hole draws a reading
+    // nobody took; leaving it blank says nobody was using it, which is worse.
+    //
+    // ⚠️ THIS ASSERTION MOVED IN 0162 AND THAT IS THE GUARD WORKING. It used to
+    // read `MAX_GAP_MS` out of index.js, and went red the moment the derivation
+    // moved into claude_usage_runs() — correctly: the hazard still exists, its
+    // OWNER changed. Re-pointed rather than deleted, because deleting it is how
+    // a rule loses its last enforcement while looking tidied up.
+    expect(M0162).toMatch(/v_gap_limit\s+constant\s+interval/);
+    expect(M0162).toMatch(/r\.sampled_at - v_prev_at > v_gap_limit/);
+    // …and the gap becomes its own STATE, not an absence.
+    expect(M0162).toContain("kind := 'unknown'");
+    // The client must render that state distinctly, or the honesty is lost on
+    // the way to the screen.
+    expect(CODE).toContain("r.kind === 'unknown'");
+    expect(CSS).toMatch(/\.claude-hist\.is-unknown/);
   });
 });
 

@@ -54,7 +54,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0161.** **1110 tests green.**
+  **Migrations applied through 0162.** **1110 tests green. All 21 proofs green.**
   ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
   the moment this line was written — that order is correct (the RPC keeps its
   shape, so the served bundle reads the new numbers immediately), but the
@@ -143,6 +143,12 @@ the entry for the proof you are about to touch.** One line each here:
   open-window rule.
 - `claude0161-rail-guard-parity.sql` (10/10) — **the rail and the trigger derive
   the SAME window.** A DIFFERENTIAL over every quarter-hour of the week.
+- `claude0162-usage-runs.sql` (23/23) — **ใช้จริง says WHEN Claude was used.**
+  §A is the owner's worked example sample-for-sample; the rest are the states
+  the live table cannot be made to contain on demand (a window first polled
+  ABOVE where the previous ended, a reporter outage, the ±1s `resets_at`
+  wobble). Uses SYNTHETIC samples in a future quota week for exactly that
+  reason. Falsified by deleting the clamp.
 - `pr0149-delete-permission.sql` (12/12) · `shop0150-buyer-contact.sql` (10/10) ·
   `house0116-authz.sql` · `house0144-delete-impact.sql` (18/18) ·
   `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql` ·
@@ -252,6 +258,40 @@ change, never on the slider) · `get_claude_board()` draws each window's
 remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
 that and is deleted.
 
+### 0162 — ใช้จริง draws WHEN it was used, not what the gauge said
+
+The overlay drew one bar per 15-minute sample, width = the CUMULATIVE five-hour
+reading: the integral. It now draws the DERIVATIVE — the stretches where the
+reading ROSE, each labelled with what went in during it, blank where nobody used
+it.
+
+**THE ONE THING TO KEEP: `five_hour.resets_at` minus 5h is the instant the
+window OPENED — the first message.** It is not a sample, so it is not bounded by
+the polling rate. A rise between two polls is attributed to `(prev, cur]`
+**clamped to that instant**, which is what turns "10:00–10:15" into
+"10:07–10:15". `claude_usage_runs()` (0162) is the only implementation.
+
+Three drawn states, because the picture must not claim precision the polling
+does not have: **exact** left edge (solid cap) · **inferred** (feathered) ·
+**unknown**, the reporter was down (hatched, labelled as missing — NOT blank,
+which reads as "nobody used it").
+
+⚠️ **`resets_at` wobbles ±1s between polls** (the API returns
+`now + seconds_remaining`), so it identifies a window only when ROUNDED TO THE
+MINUTE. Clamping to the raw value drew a run starting at `14:59:59`.
+⚠️ **Windows are keyed on `resets_at`, not on "the reading dropped"** — a window
+first polled ABOVE where the previous one ended produces no drop and the two
+were silently merged.
+
+**POLLING, since it was asked:** the timer is `OnUnitActiveSec=15min`, i.e.
+RELATIVE, so it drifts (+1s/run, harmless). **It cannot be "aligned" to the
+5-hour reset** — the reset is set by whoever sends the first message, so it is
+arbitrary against any fixed period. The clamp is what recovers the accuracy
+instead, and it is free. What remains unmeasured is the TAIL of a closing
+window: measured 4 and 9 minutes on the two real windows of 2026-08-16. Closing
+that would need a one-shot poll at `reset − 30s` on the VM (~2–3 extra calls a
+day). **Not built — offered to the owner, who has not chosen.**
+
 ### 0161 — the RAIL is a fourth reader of the window rule, not a second author
 
 Reported: *"i book 16.00-19.00 for 75% … it shouldnt show the rail as 100% in
@@ -347,35 +387,39 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Migrations through **0161**; **1110 tests green**; **all 20 proofs green**.
+> Migrations through **0162**; **1110 tests green**; **all 21 proofs green**.
 >
 > ### What the last session was
 >
-> **One bug and one UI ask on จองโควตา Claude, both from the owner testing
-> live.** Migration 0161 + a frontend pass. **Read the "จองโควตา Claude" section
-> above before touching `/admin#claude`** — its §0161 has the three things that
-> cost real time:
+> **จองโควตา Claude — one bug and two UI asks, all from the owner testing
+> live.** Migrations 0161 and 0162. **Read the "จองโควตา Claude" section above
+> before touching `/admin#claude`**; its §0161 and §0162 have the four things
+> that cost real time:
 >
-> 1. **The rail was a SECOND author of the window rule.** `claude_free_now()`
->    took its 5-hour window from the CLOCK; the trigger's
+> 1. **The rail was a SECOND author of the window rule** (0161).
+>    `claude_free_now()` took its 5-hour window from the CLOCK; the trigger's
 >    `claude_window_loads()` takes it from the booking chain. 0154 had claimed
->    the arithmetic lived in exactly one home, and the database then grew two.
+>    the arithmetic lived in exactly one home and the database then grew two.
 >    **"One home" means one FUNCTION, not one tier.**
-> 2. **The rewrite silently REVERTED 0158**, because it was built from the 0155
->    migration text rather than the live function body. `claude0155 §C3` went
->    red within a minute. `create or replace` over a function several migrations
->    have edited undoes all of them at once, and nothing warns you.
-> 3. **The booking card's media queries were on the wrong number** — 767.98,
->    when `.claude-cal-grid` has `min-width: 940px` and SCROLLS sideways. The
->    card is ~81px at every viewport below 940, so an iPad got a desktop font in
+> 2. **A field already in the payload beat polling harder** (0162).
+>    `five_hour.resets_at − 5h` is the instant a window OPENED, so a rise
+>    between two polls can be clamped to it — "10:07–10:15", not
+>    "10:00–10:15" — with no change to the 15-minute reporter. **Look for the
+>    field that pins an edge before adding resolution.** It wobbles ±1s, so
+>    round it to the minute or you render API noise as a time.
+> 3. **Rewriting a function from its ORIGINAL migration reverted 0158.**
+>    `claude0155 §C3` caught it in a minute. For 0162 the body was taken from
+>    `pg_get_functiondef` instead and diffed first. **Do that.**
+> 4. **The booking card's media queries were on the wrong number** — 767.98,
+>    when `.claude-cal-grid` has `min-width: 940px` and SCROLLS sideways, so the
+>    card is ~81px at every viewport below 940 and an iPad got a desktop font in
 >    a phone-sized card. **On this grid the breakpoint belongs on the COLUMN,
 >    not the viewport**; and the browser harness must load `src/admin.css` or
 >    the pane renders unstyled and every overflow probe passes vacuously.
 >
-> ⚠️ **Everything the PREVIOUS session learned (0159 + 0160, ten owner reports,
-> six phone-only bugs) is still in the "จองโควตา Claude" section above — the
-> window rule, "an open window is not bookable at all", and the 390/834/1440
-> rule. None of it was superseded.**
+> ⚠️ **Everything the 0159 + 0160 session learned is still in the "จองโควตา
+> Claude" section above** — the window rule, "an open window is not bookable at
+> all", and the 390/834/1440 rule. None of it was superseded.
 >
 > ### What is owed
 >

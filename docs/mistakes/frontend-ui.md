@@ -2619,3 +2619,73 @@ a mark that describes a container makes every reader do the subtraction, and
 some of them will do it wrong. The test for whether a mark has earned its place
 is whether there is a case where it should not appear at all — if there is none,
 it is decoration.
+
+---
+
+## "ใช้จริง" drew the gauge reading instead of the usage — the integral where the derivative was wanted
+
+**Symptom.** Two reports, months apart, about the same overlay: first *"i don't
+understand ใช้จริง overlay that shows 93% 97% etc"*, then a full specification
+of what it should have been: *"if actual people use at 10.07, your last detect
+at 10.00 found nothing, 10.15 found 3% … show it as 10.07-10.15 as 3% instead …
+then 10.23 till 10.45 they don't use any … so you'd display 10.07-10.30 7%,
+10:45-11.00 3%"*.
+
+**Cause.** One bar per 15-minute sample, its WIDTH the CUMULATIVE five-hour
+reading. Read top to bottom that is the integral — a staircase climbing to 97%
+and sawtoothing back — and it answers "what did the gauge say at 12:15", which
+is not a question anyone brings to a calendar. The question is *when was it
+being used, and how much went in then*: the DERIVATIVE.
+
+**The thing that made it fixable was already in every sample and unused.**
+`five_hour.resets_at` comes back on every poll, so `resets_at − 5h` is the
+instant the window opened — the first message. That is not a sample, so it is
+not bounded by the sampling rate at all. Measured: a window whose first message
+was at 15:00 was polled at 14:51 (nothing) and 15:06 (7%). The old drawing put
+that 7% at 14:51–15:06; it can only have been spent in 15:00–15:06.
+
+**Fix.** `claude_usage_runs()` (0162): a rise between two polls is attributed to
+`(prev, cur]`, **clamped to the window's opening instant**. Consecutive rises
+merge into a run; a poll with no rise ends it. That single clamp reproduces
+every case in the report exactly.
+
+Three drawn states, because the picture must not claim more precision than the
+polling has: an **exact** left edge (the window's own opening) gets a solid cap,
+an **inferred** one (a poll boundary) is feathered, and a stretch where the
+reporter was DOWN is **hatched and labelled as missing** — not drawn as usage
+(a time nobody measured) and not left blank (which reads as "nobody used it").
+
+⚠️ **Three defects the drawing itself surfaced, none visible in the diff:**
+- `exact_start` was true for no run, because the flag was recomputed per SPAN
+  and cleared when a later span was folded into the run — i.e. on every run
+  longer than one poll.
+- The window's `resets_at` wobbles ±1s between polls (the API returns
+  `now + seconds_remaining`), so clamping to the RAW value drew a run starting
+  at `14:59:59`. A second of API noise, rendered as a time. Round to the minute.
+- `partial` ("we joined this window too late to say when it was used") was
+  written as "the first reading was above zero" — which is true of every window,
+  since the first poll after an opening is already above zero. It marked all
+  four live windows partial. The real test is whether that first reading can be
+  LOCATED: is the first poll more than one missed-poll interval after the
+  opening?
+
+⚠️ **And one collision the measurement caught:** a window that resets at 20:00
+while the next opens at 20:00 puts a run label and a window-total label on the
+same pixel — `ใช้ 55%` printed over `96%`, both unreadable, the same shape as the
+`10:00100%` entry above. The first collision tracker only compared run labels to
+each other and could not see it, because the two labels are emitted by different
+loops. One occupancy map per column now covers every label the overlay places.
+
+**Where it lives now.** `claude_usage_runs()` / `claude_usage_windows()` in
+`0162_claude_usage_runs_when_it_was_actually_used.sql`, rendered by
+`paintHistory()`. Guarded by `tools/claude0162-usage-runs.sql` (23/23), whose §A
+is the owner's worked example sample-for-sample, falsified by deleting the clamp
+(which reddens exactly A1, A5, B1, B2 and leaves every control green).
+
+**The general rule.** *When a gauge is sampled, the reading is not the story —
+the CHANGE between readings is, and its position in time is bounded by whatever
+else the sample carries.* Before adding resolution (polling harder, which costs
+rate limit and, here, rotates an OAuth credential 96×/day), look for a field
+already in the payload that pins an edge exactly. And when precision is uneven
+across a picture, DRAW it uneven: an exact edge and a fifteen-minute guess that
+look identical are a claim you did not measure.

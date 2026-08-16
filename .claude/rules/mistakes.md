@@ -244,7 +244,7 @@ to that class above.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(70)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(71)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -315,6 +315,7 @@ to that class above.
 - A tag positioned where the thing it describes always covers it
 - "it shows only 16.00 not 16.00-21:00"
 - The 5-hour frame described the window; people were asking what they could put in it
+- "ใช้จริง" drew the gauge reading instead of the usage
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(16)*
 - "Unread" highlight inside an item vanishes the moment you open it
