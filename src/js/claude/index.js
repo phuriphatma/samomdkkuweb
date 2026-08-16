@@ -254,7 +254,8 @@ function wire() {
     + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันคือ '
     + '<strong>โควตาที่ใช้ได้ทันทีโดยไม่ต้องจอง</strong> ถ้าเริ่มใช้ตอนนั้น — '
     + '<i class="claude-free is-part"></i>สีเหลืองคือช่วงที่มีคนจองไว้แล้วบางส่วน '
-    + '<i class="claude-free is-none"></i>สีแดงคือไม่เหลือ</span>';
+    + '<i class="claude-free is-none"></i>สีแดงคือไม่เหลือ '
+    + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้แล้ว</span>';
 
   ['claudeDate', 'claudeStart', 'claudeEnd', 'claudePct'].forEach((id) => {
     $(id).addEventListener('input', recalc);
@@ -262,6 +263,21 @@ function wire() {
   });
   $('claudeSave').addEventListener('click', save);
   $('claudeDelete').addEventListener('click', removeBooking);
+
+  // `editing` was cleared only on a SUCCESSFUL save or delete, so dismissing
+  // the modal with ยกเลิก or the X left it pointing at that booking. Both
+  // limitsFor() and insideBooking() deliberately skip the row being edited —
+  // so after closing someone's block you could drag a selection straight
+  // across it and the clamp said nothing. (The database still refused it on
+  // save, and openModal() resets `editing` before the form opens, so nothing
+  // was ever written wrongly; the drag preview simply lied.)
+  //
+  // Bootstrap fires this for every close path there is, which is the point:
+  // one place to clear it beats finding all four buttons.
+  $('claudeBookingModal').addEventListener('hidden.bs.modal', () => {
+    editing = null;
+    continuation = null;
+  });
 }
 
 function shiftWeek(dir) {
@@ -631,6 +647,21 @@ function paintGrid() {
   // units as everything else here and survives a change of --claude-hour-h.
   const labelMin = (18 / hourH()) * 60;
 
+  /** [a,b) minus every range in `cuts`, as the pieces that survive. */
+  function carve(a, b, cuts) {
+    let pieces = [[a, b]];
+    (cuts || []).forEach(([cs, ce]) => {
+      const next = [];
+      pieces.forEach(([ps, pe]) => {
+        if (ce <= ps || cs >= pe) { next.push([ps, pe]); return; }
+        if (cs > ps) next.push([ps, cs]);
+        if (ce < pe) next.push([ce, pe]);
+      });
+      pieces = next;
+    });
+    return pieces;
+  }
+
   const fws = board.free_windows || [];
   fws.forEach((fw, wi) => {
     const free = Math.round(Number(fw.free_pct));
@@ -642,14 +673,44 @@ function paintGrid() {
     const s = new Date(fw.starts_at).getTime();
     const e = new Date(fw.ends_at).getTime();
     const until = new Date(fw.ends_at);
-    splitAcrossDays(s, e).forEach((seg, idx) => {
+    const parts = splitAcrossDays(s, e);
+    parts.forEach((seg, idx) => {
       const col = colFor(seg.i);
       if (!col) return;
+
+      // THE RAIL MEANS "FREE TO USE WITHOUT BOOKING", so it must not be drawn
+      // over a block somebody holds. Reported: "why there's 50% rails in the
+      // period that has people book 08.00-13.00, the rail mean free use".
+      //
+      // The number was arithmetically right — a session begun inside their
+      // block shares it and 50% is what they left — but it is the wrong answer
+      // to the question the rail asks, and it invites exactly the collision
+      // booking exists to prevent. That time already carries two better
+      // statements: the block says who holds it, and the session frame's tag
+      // says how much of that session is left.
+      // The stretch somebody HOLDS gets its own mark rather than a gap. A gap
+       // reads as "no data"; this reads as "not yours to start in". It is
+       // deliberately NOT red — red in this lane already means "no quota left
+       // at all", which is a different fact, and one that would be alarming
+       // about a perfectly normal booking.
+      (occupied.get(seg.i) || []).forEach(([bs, be]) => {
+        const hs = Math.max(bs, seg.sMin);
+        const he = Math.min(be, seg.eMin);
+        if (he <= hs) return;
+        const h = document.createElement('div');
+        h.className = 'claude-free is-held';
+        h.style.top = `${yForMin(hs)}px`;
+        h.style.height = `${Math.max(2, yForMin(he) - yForMin(hs))}px`;
+        h.title = 'ช่วงนี้มีคนจองไว้แล้ว — ดูรายละเอียดที่กล่องการจอง';
+        col.appendChild(h);
+      });
+
+      carve(seg.sMin, seg.eMin, occupied.get(seg.i)).forEach(([ps, pe], pi) => {
       const el = document.createElement('div');
       el.className = 'claude-free'
         + (free <= 0 ? ' is-none' : free < pool ? ' is-part' : ' is-full');
-      el.style.top = `${yForMin(seg.sMin)}px`;
-      el.style.height = `${Math.max(2, yForMin(seg.eMin) - yForMin(seg.sMin))}px`;
+      el.style.top = `${yForMin(ps)}px`;
+      el.style.height = `${Math.max(2, yForMin(pe) - yForMin(ps))}px`;
       // The band's END is a DEADLINE, not just where the colour changes: start
       // by then and you still get this much. Saying it is most of the value.
       el.title = free > 0
@@ -662,26 +723,31 @@ function paintGrid() {
       // as its own band — labelling only idx 0 left a whole column drawing a
       // 968px ribbon with nothing on it. But never where a block already is:
       // that collision is what made the rail look broken.
-      const tall = seg.eMin - seg.sMin >= 45;
-      const clash = (occupied.get(seg.i) || [])
-        .some(([bs, be]) => bs < seg.sMin + labelMin && be > seg.sMin);
-      if ((idx === 0 || seg.eMin - seg.sMin >= 180) && tall && !clash) {
+      // Carving already removed every block, so a surviving piece cannot clash
+      // with one — the label just needs room to be read.
+      const tall = pe - ps >= 45;
+      if ((pi === 0 && (idx === 0 || pe - ps >= 180)) && tall) {
         const tag = document.createElement('span');
         tag.className = 'claude-free-tag';
         tag.textContent = free > 0 ? `${free}%` : 'เต็ม';
         el.appendChild(tag);
       }
-      // The deadline mark goes on the LAST day-segment of the band, at its
-      // foot — that is the instant it names.
-      const isLastSeg = seg.eMin >= (e - (s - seg.sMin * MIN_MS)) / MIN_MS - 1
-        || fw.ends_at === new Date(dayColumns()[seg.i].getTime() + seg.eMin * MIN_MS).toISOString();
-      if (isDeadline && tall && (isLastSeg || seg.eMin === 1440)) {
+      // The deadline goes on the piece that actually ENDS where the band ends.
+      // The previous test was an arithmetic expression that reduced to "true
+      // for a single-day band" and to a string comparison between a Postgres
+      // `+00:00` timestamp and JS `.toISOString()` — which never matches — so
+      // on a band spanning midnight the mark landed at 00:00 wearing a label
+      // that said 03:00. Compare the instants.
+      const pieceEndsBand = idx === parts.length - 1
+        && dayColumns()[seg.i].getTime() + pe * MIN_MS >= e - MIN_MS;
+      if (isDeadline && tall && pieceEndsBand) {
         const dl = document.createElement('span');
         dl.className = 'claude-free-deadline';
         dl.textContent = `เริ่มถึง ${hhmm(until)}`;
         el.appendChild(dl);
       }
       col.appendChild(el);
+      });
     });
   });
 

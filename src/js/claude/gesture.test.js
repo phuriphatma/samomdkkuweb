@@ -241,6 +241,24 @@ describe('the session edge is a wall in the UI, not only in the trigger', () => 
     expect(INDEX).toMatch(/if \(next\)[\s\S]*?openModal\(\{ start: next\.start/);
   });
 
+  it('closing the modal any way clears the row being edited', () => {
+    // limitsFor() and insideBooking() skip the edited row on purpose, so a
+    // stale `editing` makes the drag clamp ignore a real booking. Cleared on
+    // hidden.bs.modal because that is the one event every close path fires.
+    expect(INDEX).toMatch(
+      /addEventListener\('hidden\.bs\.modal',[\s\S]{0,120}editing = null/,
+    );
+  });
+
+  it('the rail is never drawn over a block somebody holds', () => {
+    // The rail means "free to use without booking". Inside a booked span the
+    // number was arithmetically right and answered the wrong question.
+    // The CALL, not the definition — `function carve(...)` also lives inside
+    // paintGrid, so `toContain('carve(')` matched itself and stayed green with
+    // the call replaced. Third time this file has caught its own instrument.
+    expect(bodyOf('paintGrid')).toMatch(/carve\(seg\.sMin,\s*seg\.eMin,/);
+  });
+
   it('the informational clamp note does not disable ยืนยัน', () => {
     // It would refuse the very booking the clamp just made legal.
     expect(INDEX).toMatch(/claudeSave'\)\.disabled = notes\.some\(/);

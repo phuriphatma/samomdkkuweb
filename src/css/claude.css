@@ -706,6 +706,15 @@ svg.claude-mark {
 .claude-free.is-full { background: rgba(16, 89, 34, 0.30); }
 .claude-free.is-part { background: var(--claude-part); }
 .claude-free.is-none { background: rgba(180, 35, 24, 0.65); }
+/* Held by someone. Hatched and neutral — the same visual language as the
+   out-of-week hatch, which already means "not available to you". A gap here
+   reads as missing data, and red would read as "the quota is gone", which is a
+   different and much more alarming statement than "อ้อ, someone booked it". */
+.claude-free.is-held {
+  background-color: #dfe3e0;
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(88, 100, 92, 0.30) 0 2px, transparent 2px 6px);
+}
 
 /* The number sits BESIDE the lane, not in it — "100%" does not fit in 11px and
    overflowed into the column looking broken. paintGrid refuses to draw it where

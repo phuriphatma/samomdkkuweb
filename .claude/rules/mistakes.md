@@ -78,10 +78,10 @@ has not been written yet.
    directions NAME**: `people.year` was pushed down and never carried up, so any
    touch of the registry reverted a person's own ชั้นปี edit — "nothing happens"
    (0145). The guard reports a one-way column as settled, by construction.
-   Also a DERIVED COLUMN and the expression it came from: `students.cohort_year`
-   was filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived
-   the รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS,
-   where `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
+   Also a DERIVED COLUMN and the expression it came from: `cohort_year` was
+   filled `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the
+   รุ่น (0128) — fill-once means never-correct. Same shape in the FORMS, where
+   `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also one fact STORED in one
    system and DERIVED in the other (`team_members.year` vs ระบบบ้าน's ชั้นปี).
    Also a rule implemented on the writers you HAPPENED to be looking at: the
    portrait cleanup existed on two editors and not on `my-seat.js`, so it
@@ -89,10 +89,9 @@ has not been written yet.
    unavoidable (`student_delete_impact` restates `prune_orphan_person`), the
    guard is a DIFFERENTIAL test that predicts, then does it, then compares.
    Also a SELECTOR and the MARKUP it targets: CSS fails SILENTLY, so a rule
-   that stops matching looks like a feature nobody built (`.org-station`, a
-   `@media`-scoped layout made user-selectable, a ฝ่าย band out-weighing
-   `.is-selected`, a sheet in the wrong ENTRY). The instrument is the COMPUTED
-   style, never the stylesheet — and for a PAINT bug, the PIXELS.
+   that stops matching looks like a feature nobody built. The instrument is the
+   COMPUTED style, never the stylesheet — and for a PAINT or OVERLAP bug, the
+   PAINTED BOXES.
    Also TWO PASSES assigning one DOM property: a blanket `cb.disabled = on`
    unlocked what the previous pass had locked. Only touch what THIS pass set.
    Same geometry, N passes: a delegated listener re-attached every render made
@@ -247,7 +246,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
 
 ### `docs/mistakes/frontend-ui.md` — Bootstrap, CSS, DOM & the browser
-*Open when:* markup, modals, layout, touch, icons. *(62 entries)*
+*Open when:* markup, modals, layout, touch, icons. *(63 entries)*
 
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
@@ -311,6 +310,7 @@ the fix is to move detail into `docs/mistakes/`, never to raise the budget.
 - "on ipad, when touch, it mess up between scroll and adding the booking"
 - "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
 - "the rails it got overlap with the booking making it look weird"
+- "why there's 50% rails in the period that has people book" — a right number answering the wrong question
 
 ### `docs/mistakes/app-state.md` — Routing, read-state, caches & serialization
 *Open when:* URL state, per-user "seen", import/export. *(16 entries)*

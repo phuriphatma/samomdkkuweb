@@ -2333,3 +2333,31 @@ const hit = (a,b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
 over every `.claude-free` × `.claude-bk` / `.claude-session` pair, with a
 control asserting all three kinds are actually on screen. "It looks weird" is a
 geometry claim; answer it with geometry.
+
+## "why there's 50% rails in the period that has people book" — a right number answering the wrong question
+
+**Symptom.** The capacity rail drew "50%" down the side of a block somebody had
+booked 08:00–13:00. The rail's stated meaning is *free to use without booking*.
+
+**Cause.** Not arithmetic. `claude_free_now(t)` for a `t` inside their block is
+genuinely 50 — a session begun then shares theirs, and 50 is what they left. The
+rail asked "how much could I take starting here" over a stretch where the right
+answer is "nothing, this is theirs". A correct number, in a place where the
+question does not apply, reading as an invitation to do the exact thing the
+booking exists to prevent.
+
+**Fix.** The rail is carved against the booked spans in the same column and each
+booked stretch draws a distinct hatched "held" state with no number. That time
+already carries two better statements: the block says who holds it, and the
+session frame's tag says how much of that session is left.
+
+Deliberately not red — red in this lane already means "no quota left at all",
+which is a different and much more alarming fact than "somebody booked this".
+
+**Where it lives now.** `carve()` and the `is-held` pass in `paintGrid()`,
+`src/js/claude/index.js`; `.claude-free.is-held` in `src/css/claude.css`.
+
+**The general rule.** *A readout is only correct where its question applies.*
+Before believing a number, check that the sentence the UI puts around it is true
+at every point it is drawn — the arithmetic can be right everywhere while the
+sentence is false in half the places it appears.
