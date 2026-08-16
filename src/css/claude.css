@@ -820,12 +820,19 @@ svg.claude-mark {
    13.4 CVD, both above the floor. The amber's low contrast against the surface
    is why the percentage is printed beside the band. */
 .claude-free {
-  overflow: hidden;
+  /* ⚠️ NO `overflow: hidden` HERE, EVER. It was added to clip the fill's corners
+     and it silently deleted every percentage on the rail — `.claude-free-tag` is
+     a CHILD positioned at `left: calc(100% + 3px)`, i.e. deliberately OUTSIDE
+     this box, so clipping the box clips the label. Reported as *"it doesn't
+     show the percentage of rail anymore"*.
+     The fill never needs clipping anyway: its width is capped at the lane width,
+     so it cannot escape. It rounds its own corners instead. */
   /* the TRACK — the 100% reference, present only where a reading is */
   background: #e9ecea; box-shadow: inset 0 0 0 1px rgba(88, 100, 92, 0.16);
 }
 .claude-free::before {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+  border-radius: 3px 0 0 3px;
   width: max(3px, calc(var(--claude-rail-w) * var(--f, 1)));
   /* NO HARD EDGE ON THE FILL, and this was reported twice before it was right.
      Solid saturated colour came back as *"why does it show color weird"* — a
@@ -842,7 +849,7 @@ svg.claude-mark {
      which a tint and a length do without shouting. */
 }
 .claude-free.is-full::before { background: rgba(20, 96, 42, 0.42); }
-.claude-free.is-part::before { background: rgba(217, 164, 0, 0.52); }
+.claude-free.is-part::before { background: rgba(217, 164, 0, 0.40); }
 /* The two low states are NARROW by construction, so they get more weight — a
    2.5px sliver at 26% alpha is invisible, and these are the two a reader most
    needs to notice. */

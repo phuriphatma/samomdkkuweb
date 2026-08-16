@@ -385,6 +385,17 @@ describe('the rail says HOW MUCH, not just "some"', () => {
     expect(CSS).not.toMatch(/\.claude-free\.is-none[^}]*width:\s*var\(--claude-rail-w\)/);
   });
 
+  it('the band never clips its own label', () => {
+    // `.claude-free-tag` sits at left: calc(100% + 3px) — OUTSIDE the band, on
+    // purpose, because "100%" does not fit in a 10px lane. Any overflow
+    // clipping on the band therefore deletes every number on the rail, which is
+    // exactly what happened when the fill was given a rounded corner.
+    const band = CSS.slice(CSS.indexOf('.claude-free {'),
+      CSS.indexOf('.claude-free {') + 700);
+    expect(band).not.toMatch(/overflow:\s*hidden/);
+    expect(CSS).toMatch(/\.claude-free-tag[\s\S]{0,160}left:\s*calc\(100% \+/);
+  });
+
   it('the track belongs to the BAND, so a day with no reading has none', () => {
     // A column-wide track drew an empty gauge down the past, which states
     // "nothing available" where the truth is "no data".
