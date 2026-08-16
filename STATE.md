@@ -21,18 +21,26 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ⏳ **0159 IS APPLIED TO THE LIVE DB AND NOT YET DEPLOYED** at the time this was
-  written — read the ordering note under "จองโควตา Claude" below. It is
-  ADD-ONLY (no drop, no signature change), so the served bundle keeps working.
-- ✅ **DEPLOYED = `d83308c` (2026-08-16)** — working tree clean, local == origin == VM.
-  Verified from the SERVED artifacts: `ว่างให้ใช้เลย โดยไม่ต้องจอง`,
-  `จำกัดด้วยโควตาสัปดาห์`, `claude-week-fig-block`, `ช่วงนี้มีคนจองไว้แล้ว`,
-  `hidden.bs.modal` in the admin JS; `--claude-lane`, `--claude-part`,
-  `claude-free.is-held` in the admin CSS; **0** in the served `public-*.js`
-  (the pane is admin-only — that is the control). Check rather than trust — EMPTY means prod is current:
+- ✅ **DEPLOYED = `c0b9e17` (2026-08-16)** — working tree clean, local == origin == VM.
+  Verified from the SERVED artifacts, found via the bundle name in
+  `curl -s https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old
+  chunks are kept on purpose, so the directory has several `admin-*.js`):
+  `rpc/claude_booking_limits`, `ยกเลิกการจองนี้`, `ใช่ คืนช่วงเวลานี้`,
+  `claude.terms.seen`, `claude.cal.fit`, `แถบขวาของแต่ละวันคือรอบ 5 ชม.` in the
+  admin JS; `claude-terms-list`, `is-hist`, `claude-vbtn`, `claude-jump` in the
+  admin CSS; `ข้อตกลงในการใช้ Claude` + `claudeWeekBooked` in the admin HTML,
+  and **`ลบการจอง` is 0** (the removed string — a present-only check cannot see
+  a rename). **0** in the served `public-*.js` (the pane is admin-only — that is
+  the control). The notify service was restarted and carries the new
+  `_discord.js` (`CLAUDE_MODES` = 2 on the VM); `/notify` answers.
+  ⚠️ **Two of the nine greps returned 0 for CORRECT reasons** and both are the
+  documented traps: `MAX_GAP_MS` is a module-scope `const` the minifier renames
+  (grep a STRING LITERAL), and `โควตาที่คืนกลับมา` lives in `functions/`, which
+  is the notify SERVICE and never reaches a bundle. Check rather than trust —
+  EMPTY means prod is current:
 
   ```bash
-  git diff --stat 2f80973..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
+  git diff --stat c0b9e17..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
