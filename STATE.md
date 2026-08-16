@@ -30,18 +30,16 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `0946ae5` (2026-08-16)** — working tree clean, local == origin == VM.
+- ✅ **DEPLOYED = `6f0548c` (2026-08-16)** — working tree clean, local == origin == VM.
   Verified from the SERVED artifacts, found via the bundle name in
   `curl -s https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old
   chunks are kept on purpose, so several `admin-*.js` sit in that directory):
-  `2026-08-16.4`, `open_window`, `rpc/claude_booking_limits`, `showPicker`,
-  `ช่วงนี้จองไม่ได้ — รอบนี้เริ่มไปแล้ว`, `claude-bk-head`, `is-free-seg` in the
-  admin JS; `claude-terms-math`, `700%`, `7 รอบเต็ม`,
-  `รอบที่เริ่มไปแล้ว จองไม่ได้` in the admin HTML. **0** in the served
-  `public-*.js` (the pane is admin-only — that is the control), and **0** for the
-  REMOVED strings `ลบการจอง` / `อ่านครั้งเดียวจบ` / `ซึ่งใช้ร่วมกัน` — a
-  present-only check cannot see a rename. The notify service was restarted and
-  carries the new `_discord.js`; `/notify` answers.
+  `claude-gap`, `claude-hist-reset`, `hk-exact`, `claude-hist-key`,
+  `2026-08-16.5`, the `full/tight/micro` tier ladder and `ขีดทึบด้านบน` in the
+  admin JS; `939.98px` and `.claude-gap.is-none` in the admin CSS. **0** for the
+  REMOVED `claude-session` / `claude-bk-t2` / `is-oneline` / `MAX_GAP_MS` /
+  `max-width:var(--claude-hist-w` — a present-only check cannot see a rename.
+  Live RPC confirmed returning 5 runs / 4 windows / 2 exact starts.
   ⚠️ **Greps that legitimately return 0**, all documented traps: a module-scope
   `const` is renamed by the minifier (`MAX_GAP_MS` reads 0, the string literal
   `แถบขวาของแต่ละวันคือรอบ` reads 1), anything in `functions/` is the notify
