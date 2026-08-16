@@ -220,6 +220,59 @@ describe('the measured overlay has its own lane', () => {
   });
 });
 
+// ── §H. An open window cannot be claimed (0160) ────────────────────────────
+describe('a 5-hour window that has already opened is not bookable', () => {
+  const M0160 = read('../../../supabase/migrations/'
+    + '0160_claude_an_open_window_cannot_be_claimed.sql');
+
+  it('the guard refuses ANY percentage, not just one over the remainder', () => {
+    // Clamping to the remainder was the 0159 behaviour and it was wrong: the
+    // remainder is not a quantity anybody can promise, because the person
+    // already in the window may spend it at any moment. Reported as "i'm
+    // currently working 82% … someone could just book 16.40-20.00 kick me out".
+    expect(M0160).toContain('claude_open_window()');
+    expect(M0160).toMatch(/if new\.pct > coalesce\(v_prev, 0\) then/);
+  });
+
+  it('an edit may still SHRINK or cancel a claim already inside it', () => {
+    // The test is on the CLAIM, not on the row — otherwise somebody who booked
+    // before the window opened could not give their block back.
+    expect(M0160).toMatch(/select coalesce\(b\.pct, 0\) into v_prev/);
+  });
+
+  it('the rule is checked BEFORE the capacity rule', () => {
+    // Order is the message a person gets. An arithmetic complaint about a
+    // window they were never allowed to book is not an explanation.
+    expect(M0160.indexOf('claude_open_window()'))
+      .toBeLessThan(M0160.indexOf('claude_window_loads(new.id'));
+  });
+
+  it('the form leads with it, and does not report it as "0% left"', () => {
+    // "เหลือ 0%" sends somebody to change the percentage, and no percentage
+    // works.
+    expect(CODE).toContain('limits.open_window');
+    expect(CODE).toContain('ช่วงนี้จองไม่ได้ — รอบนี้เริ่มไปแล้ว');
+    expect(CODE).toContain('โดยไม่ต้องจอง (ใช้ร่วมกัน)');
+  });
+
+  it('claude_open_window is not reachable by a signed-in account', () => {
+    expect(M0160).toContain(
+      'revoke all on function public.claude_open_window() from authenticated');
+  });
+});
+
+// ── §I. The unit is stated before the rules that use it ────────────────────
+describe('the ข้อตกลง says what a percentage IS', () => {
+  it('gives the session/weekly conversion and the pool', () => {
+    // Every number on the page is SESSION percent and the week is 700 of them.
+    // Without this "จองไว้ 50%" and "สัปดาห์เหลือ 350%" read as two scales.
+    expect(HTML).toContain('claude-terms-math');
+    expect(HTML).toMatch(/7%[\s\S]{0,80}1%[\s\S]{0,120}รายสัปดาห์/);
+    expect(HTML).toContain('700%');
+    expect(HTML).toContain('7 รอบเต็ม');
+  });
+});
+
 // ── §F. The ข้อตกลง is seen, and can be re-seen ────────────────────────────
 describe('the rules open by themselves, and again when they change', () => {
   it('opens on first visit', () => {

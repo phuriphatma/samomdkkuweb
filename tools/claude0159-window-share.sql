@@ -164,13 +164,24 @@ insert into public.claude_usage_samples
 values (now(), 60, '2027-08-16 11:00+07', null,
         (select id from public.users order by created_at limit 1));
 
+-- 0160 CHANGED WHAT THIS SECTION ASSERTS, and the change is the point. 0159
+-- clamped a booking inside an open window to the remainder; the owner showed
+-- why that is wrong — "i'm currently working 82%, someone could just book
+-- 16.40-20.00 kick me out". The remainder is not a quantity anybody can
+-- promise, because the person already in the window may spend it at any moment,
+-- so a booking for it is a claim over somebody else's work. An open window is
+-- now not bookable AT ALL, at any percentage.
 insert into probe values
- ('C2. a window open to 11:00 at 60%% leaves 40 — 100 at 07:00 is refused', 'deny',
+ ('C2. a window open to 11:00 cannot be booked at 100', 'deny',
    pg_temp.only('2027-08-16 07:00+07', 120, 100)),
- ('C3. …and 40 at 07:00 is accepted', 'allow',
+ ('C3. …nor at 40, the amount it has left', 'deny',
    pg_temp.only('2027-08-16 07:00+07', 120, 40)),
+ ('C3b. …nor at 1 — no amount claims an open window', 'deny',
+   pg_temp.only('2027-08-16 07:00+07', 120, 1)),
  ('C4. a block starting AFTER that window closes gets a fresh 100', 'allow',
    pg_temp.only('2027-08-16 11:00+07', 120, 100)),
+ ('C4b. a block ENDING exactly as the window opens is untouched by the rule', 'allow',
+   pg_temp.only('2027-08-16 04:00+07', 120, 100)),
  ('C5. claude_window_loads reports the live window with the measured base', '60',
    coalesce((select max(base_pct)::int::text from public.claude_window_loads(
       null, '2027-08-16 07:00+07', '2027-08-16 09:00+07', 0)

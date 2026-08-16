@@ -1049,3 +1049,51 @@ and `permissions` share the row: enumerate what a dump COMPOSES, not just what
 each column is. (4) Prove BOTH directions — the ALLOW half here (`S7. student CAN
 still read their OWN row`) is what distinguishes "fixed" from "login is now
 broken for everyone".
+
+## "someone could just book 16.40-20.00 kick me out" — a cap is not a refusal
+
+**Symptom.** Reported with the live numbers: a 5-hour window open since 15:00,
+82% of it spent, the clock at 16:28. Somebody could book 16:40–20:00 and take
+the session out from under the person working in it.
+
+**Cause.** The guard treated a running window as a CAPACITY question. It refused
+100% (82 + 100 > 100) and accepted 18%, and 5%. Arithmetically impeccable, and
+the wrong question — because a booking is not a quantity, it is a CLAIM. Once
+the latecomer held one, the rules said "รอบที่มีผู้จองไว้ เป็นของผู้จอง" and the
+occupant was inside somebody else's block.
+
+The deeper error: the remainder of an open window is not a quantity anyone can
+promise. The person already in it may spend the other 18% in ten minutes, doing
+nothing wrong — it is their session. So a booking for that 18% is a reservation
+the system cannot honour: a hope wearing a booking's clothes, which also confers
+authority over someone else's work.
+
+**Fix.** An open window is not bookable at ALL, at any percentage. Whoever sent
+the first message holds it until it resets; the earliest a new block may start
+is that reset. The refusal names both ways forward — book from the reset, or use
+it right now unbooked and shared — because the latecomer is not being denied
+ACCESS, only a claim.
+
+The rule is checked BEFORE the capacity rule, so the message a person gets
+explains their situation instead of complaining about arithmetic in a window
+they were never allowed to book in. And the test is `new.pct > v_prev` — on the
+CLAIM, not on the row — so someone who booked before the window opened can still
+shrink or cancel.
+
+**Known cost, accepted:** 3% used at 15:05 leaves the window "open" until 20:00
+and blocks booking that whole time. That is the right side to err on; the
+alternative is issuing reservations that cannot be kept, and the stretch is
+still freely usable.
+
+**Where it lives now.** `claude_open_window()` + `claude_booking_guard()` §2 in
+`0160_claude_an_open_window_cannot_be_claimed.sql`; surfaced before the save by
+`claude_booking_limits().open_window`. Guarded by `claude0159-window-share.sql`
+§C (32/32) — whose §C3 went RED when 0160 landed, because it asserted the old
+clamp. That is the right way round.
+
+**The general rule.** *When a resource is already in use, the question is not
+"how much is left" but "may this be claimed at all".* A cap answers the first
+and silently grants the second. Any booking, lock, or reservation over something
+with an incumbent needs an ownership test that runs BEFORE the capacity test —
+and if the remaining quantity cannot be guaranteed, offering it is worse than
+refusing it.

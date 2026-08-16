@@ -1070,3 +1070,24 @@ svg.claude-mark {
    only one of the three states with no colour of its own for a figure to key
    to. */
 .claude-week-bar > i.is-free-seg { background: rgba(16, 89, 34, 0.30); }
+
+/* The unit, stated before any rule that uses it. Set apart from the numbered
+   rules because it is not a rule — it is the arithmetic every number on the
+   page is in, and a reader who skips it cannot read the board at all. */
+.claude-terms-math {
+  background: #f6f7f6; border-radius: 7px; padding: 10px 12px; margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+.claude-terms-math > b { display: block; margin-bottom: 6px; color: #212529; }
+.claude-terms-eq { display: grid; gap: 3px; }
+.claude-terms-eq span {
+  padding-left: 12px; position: relative; color: #495057;
+  font-variant-numeric: tabular-nums;
+}
+.claude-terms-eq span::before {
+  content: '·'; position: absolute; left: 3px; color: var(--claude-clay);
+  font-weight: 700;
+}
+.claude-terms-math-note {
+  display: block; margin-top: 7px; font-size: 0.8rem; color: #6c757d;
+}

@@ -45,7 +45,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0159.** **1082 tests green.**
+  **Migrations applied through 0160.** **1093 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -282,6 +282,21 @@ Also measured: the END time cannot be drawn as text at ANY width (77px + 34px
 against a 96px head), and a ONE-pixel shortfall renders as `0…`, not as a tight
 line — "fits" has to mean "with headroom".
 
+⛔ **AN OPEN WINDOW IS NOT BOOKABLE AT ALL (0160).** Do not "improve" this back
+into a clamp. 0159 let a latecomer book the REMAINDER of a running window; the
+owner showed why that is wrong with live numbers — *"i'm currently working
+ใช้ไป 82% · รีเซ็ต 20:00, current time 16:28, someone could just book 16.40-20.00
+kick me out"*. 100% was refused, but **18% and 5% were accepted**, and a booking
+is a CLAIM: the ข้อตกลง then said that stretch belonged to the latecomer.
+The remainder is not a quantity anybody can promise — the person in the window
+may spend it at any moment — so a booking for it is a reservation the system
+cannot honour. Refusing it is honesty, not restriction, and the error names both
+ways forward: book from the reset, or just use it now unbooked.
+Known cost, accepted: 3% used at 15:05 blocks BOOKING until 20:00. Erring the
+other way hands out reservations that cannot be kept.
+An UPDATE may still shrink or cancel a claim already inside the window — the
+test is `new.pct > v_prev`, on the CLAIM, not on the row.
+
 **A BOOKED WINDOW BELONGS TO WHOEVER BOOKED IT.** The ข้อตกลง said "หนึ่งรอบ 5
 ชั่วโมง มีโควตา 100% ซึ่งใช้ร่วมกัน" and the owner rejected it: sharing is
 between BOOKERS, not with anyone who wanders in. Unbooked time is open to
@@ -307,7 +322,7 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Migrations through **0159** applied; **1082 tests green**;
+> Migrations through **0160** applied; **1093 tests green**;
 > `claude0154` 20/20, `claude0155` 22/22, `claude0157` 10/10 and the new
 > `claude0159-window-share.sql` 30/30 all re-run today.
 > ⚠️ **`npm run proofs` (the other 15) was last run in full on 2026-08-15** —

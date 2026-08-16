@@ -82,7 +82,7 @@ const LS_FIT  = 'claude.cal.fit';
 const LS_HIST = 'claude.cal.hist';
 const LS_TERMS = 'claude.terms.seen';
 /** Bump when the ข้อตกลง text changes materially — everyone sees it again. */
-const TERMS_VERSION = '2026-08-16.3';
+const TERMS_VERSION = '2026-08-16.4';
 
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -1716,9 +1716,11 @@ function recalc() {
       ? 'ช่วงนี้ไม่เหลือโควตาให้จอง'
       : limits.bound_by === 'week'
         ? `จองได้สูงสุด ${cap}% (โควตาสัปดาห์เหลือเท่านี้)`
-        : limits.bound_by === 'live'
-          ? `จองได้สูงสุด ${cap}% (ขณะนี้มีผู้กำลังใช้งานอยู่)`
-          : `จองได้สูงสุด ${cap}%`;
+        : limits.bound_by === 'open_window'
+          ? 'ช่วงนี้จองไม่ได้ — รอบนี้เริ่มไปแล้ว'
+          : limits.bound_by === 'live'
+            ? `จองได้สูงสุด ${cap}% (ขณะนี้มีผู้กำลังใช้งานอยู่)`
+            : `จองได้สูงสุด ${cap}%`;
 
   // percent chips
   $('claudePctChips').innerHTML = '';
@@ -1786,11 +1788,22 @@ function recalc() {
           + 'จะได้โควตาเต็มโดยไม่ต้องแบ่ง'
         : '')));
   }
-  if (fresh && win && win.kind === 'live') {
+  // AN OPEN WINDOW IS NOT A CAPACITY PROBLEM, so it must not be reported as
+  // one. "เหลือ 0%" would send somebody to change the percentage, and no
+  // percentage works. Lead with what is true — this stretch belongs to whoever
+  // is in it — and give both ways forward.
+  const openWin = fresh ? limits.open_window : null;
+  if (openWin) {
+    notes.push(noteHtml('crit',
+      `ช่วงนี้อยู่ในรอบ 5 ชั่วโมงที่<strong>มีคนเริ่มใช้ไปแล้ว</strong> `
+      + `(ใช้ไป ${Math.round(Number(openWin.used_pct))}%) `
+      + 'รอบนี้เป็นของคนที่เริ่มก่อน จึงจองแทรกไม่ได้'
+      + `<br>จองได้ตั้งแต่ <strong>${escHtml(stampLabel(new Date(openWin.ends_at)))}</strong> `
+      + 'เป็นต้นไป หรือถ้าจะใช้ตอนนี้เลยก็ได้โดยไม่ต้องจอง (ใช้ร่วมกัน)'));
+  } else if (fresh && win && win.kind === 'live') {
     notes.push(noteHtml('info',
       'ขณะนี้มีผู้กำลังใช้งาน Claude อยู่ และรอบ 5 ชั่วโมงจะรีเซ็ตเวลา '
-      + `<strong>${escHtml(hhmm(winEnd))}</strong> จึงจองช่วงนี้ได้เท่าที่รอบปัจจุบันเหลือ `
-      + 'หากต้องการโควตาเต็ม กรุณาเริ่มใช้หลังเวลาดังกล่าว'));
+      + `<strong>${escHtml(hhmm(winEnd))}</strong>`));
   }
 
   // ── START ON TIME ─────────────────────────────────────────────────────

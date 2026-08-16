@@ -176,7 +176,7 @@ to that class above.
 - Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back fo…
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 
-### `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(26)*
+### `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(27)*
 - RLS inline subqueries silently depend on the referenced table's RLS
 - RLS row-level policies don't gate per-column writes
 - `INSERT ... RETURNING` (a.k.a. `Prefer: return=representation`) re-applies the SELECT RLS policy to the inserted row
@@ -203,6 +203,7 @@ to that class above.
 - An RLS policy's inline subquery is subject to the referenced table's RLS
 - A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
 - Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
+- "someone could just book 16.40-20.00 kick me out" — a cap is not a refusal
 
 ### `authz-grants.md` — The permission / seat / scope channel *(12)*
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
