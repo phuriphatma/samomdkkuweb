@@ -21,16 +21,14 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ⚠️ **0155 IS APPLIED TO THE LIVE DB — the bundle that reads it must be
-  DEPLOYED.** `get_claude_board()` now returns `me`, `right_now` and
-  `free_windows`; those are ADDITIVE, so the old served bundle keeps working,
-  but nothing renders them until the VM rebuilds. Deploy is `skills/deploy-vm.md`.
-- ✅ **DEPLOYED = `2f80973` (2026-08-16)** — working tree clean, local ==
-  origin == VM. Verified from the SERVED artifacts: `data-admin-pane="claude"`
-  in the admin HTML, `get_claude_board` in the admin JS, `claude-session-tag`
-  + `claude-dayhead` in the admin CSS the served HTML actually links, and 0 in
-  the served `public-*.css` (the pane is admin-only). Check rather than trust —
-  EMPTY means prod is current:
+- ✅ **DEPLOYED = `1e752d5` (2026-08-16)** — working tree clean, local ==
+  origin == VM. Verified from the SERVED artifacts: `get_claude_usage_log`,
+  `free_windows`, `ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง`, `แตะค้างไว้` and
+  `pointercancel` in `admin-2IUWXJd9.js`; `claude-free-tag`, `cu-line-week`,
+  `claude-now-pct` in the `admin-*.css` the served HTML actually links; **0** in
+  the served `public-*.js` (the pane is admin-only — that is the control).
+  PostgREST resolves both RPCs (42501, not 404), so its schema cache is current
+  and anon is refused. Check rather than trust — EMPTY means prod is current:
 
   ```bash
   git diff --stat 2f80973..HEAD -- src/ supabase/ appscript/ server/ ':!src/**/*.test.js'
@@ -38,7 +36,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0154.** **1022 tests green.**
+  **Migrations applied through 0155.** **1047 tests green.**
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -206,13 +204,17 @@ because two copies of one rule is the class this repo pays for most.
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
 > prod == main (CURRENT DEPLOY says how to confirm in one command). Migrations
-> through **0153** applied; **798 tests green**; `npm run proofs` 15/15,
-> re-run at the end of that session.
+> through **0155** applied; **1047 tests green**; `npm run proofs` 15/15 as of
+> 2026-08-15, plus `claude0155-free-now.sql` 21/21 re-run today.
 >
-> **The last session was จองโควตา Claude**, front to back: migration 0154, the
-> admin pane, the Discord notice, and a systemd reporter on the VM feeding a
-> LIVE measured-usage strip. It is done and running — the only thing owed is
-> granting the `claude` permission to whoever should book.
+> **The last session was จองโควตา Claude again**, answering four owner reports
+> from a day of using 0154: the iPad touch mess (hold-to-book), the week-arrow
+> "shows my profile" (a stale drag), the id card naming the wrong person in
+> another week, and — the one that changed the feature — **"ใช้ได้เลยตอนนี้"**,
+> how much may be used right now without booking, and until when. Plus the
+> measured 15-minute log and a capacity rail on the calendar. Migration 0155.
+> It is done, deployed and verified — the only thing owed is still granting the
+> `claude` permission to whoever should book.
 > **Read `docs/state-archive/2026-08-16-claude-quota-booking.md` before touching
 > `/admin#claude`** — especially the three bugs the owner found, the two dead
 > ends (`setup-token` cannot read usage; local-log tools cannot see a shared
