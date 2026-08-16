@@ -835,3 +835,79 @@ an insert anywhere but the end, and checking the newcomer against the old
 derivation asks a question about a world that will not exist. The symptom is
 always an asymmetry: the same set of rows is legal or illegal depending on the
 order it was written in, and that asymmetry is the thing to look for.
+
+---
+
+## "it shouldnt show the rail as 100% in that 25%" — the rail derived its own 5-hour window, and the guard's disagreed
+
+**Symptom.** *"i book 16.00-19.00 for 75% … it shouldnt show the rail as 100% in
+that 25%, it shouldnt show yellow, currently there's a bug"*. A booking of 75%
+for three hours opens a 5-hour window running 16:00–21:00. In the TAIL of that
+window — after the block ends, before the window resets — the capacity rail
+offered a whole fresh session.
+
+**Reproduced exactly**, one booking 03:00–06:00 at 75%:
+
+```
+claude_window_loads()  a 06:00–08:00 booking → load 175, REFUSED
+claude_free_now(06:00) → free 100,  window 06:00–11:00
+```
+
+The trigger and the rail, two centimetres apart on the same screen, answering
+the same question with two different windows.
+
+**Cause.** `claude_window_loads()` (0159) derives the window from the BOOKING
+CHAIN: a booking opens one and everything landing inside joins it.
+`claude_free_now()` derived its own from the CLOCK — if the measurement reported
+no open window it simply said `[p_at, p_at + 5h)`, and counted only the bookings
+overlapping *that*. A block that had already finished inside the real window was
+therefore invisible to it, so the tail always looked untouched.
+
+This is the drift class, and the 0154 header had already claimed immunity from
+it: *"the arithmetic has exactly one home and it is the database."* It was, and
+then the database grew a second one. **A rule can drift between two functions in
+the SAME schema; "one home" has to mean one FUNCTION, not one tier.**
+
+**Fix.** `claude_free_now()` stops deriving anything and asks
+`claude_window_loads()` which windows contain the instant, taking the heaviest —
+the same `order by load_pct desc limit 1` the trigger uses. Everything the
+hand-rolled version did is already in there and better: the live measured window
+as an anchor, "for the LIVE window count only from now forward" (0158), and for a
+chain window count everything OVERLAPPING it, which is the half that was missing.
+
+⚠️ **This gave the rail a new boundary.** The answer now also changes at
+`booking_start + 5h`, an instant nothing on a calendar marks and which was in no
+other term of `claude_free_windows()`' union. Without adding it the rail draws
+ONE band across the reset carrying the smaller number for hours — the same shape
+as 0157's BUG 1. It is added as a deliberate SUPERSET (every booking's start+5h,
+including bookings that joined an earlier window and open nothing), because a
+boundary too many splits one band into two carrying the same number and the
+client merges those, while a boundary too few is a wrong number for hours.
+
+⚠️ **AND THE REWRITE SILENTLY REVERTED 0158.** `claude_free_now()` was rebuilt
+from the 0155 migration text rather than from the live function body, so
+`least(p_at, v_now)` — 0158's whole content — went back to `p_at` and the weekly
+remainder started growing again just by asking about a later instant.
+`claude0155-free-now.sql` §C3/§C3b went red immediately. This is class 7
+verbatim ("read the LIVE function body, not the migration that first defined
+it") and it had already been written up once, for a different function.
+**`create or replace` over a function that several migrations have edited undoes
+all of them at once, and nothing warns you.**
+
+**Where it lives now.**
+`0161_claude_the_rail_reads_the_same_window_the_guard_does.sql`. Guarded by
+`tools/claude0161-rail-guard-parity.sql` (10/10) — a DIFFERENTIAL, not a list of
+expected numbers: over every quarter-hour of the quota week,
+`claude_free_now(t)->session->free_pct` must equal
+`pool − max(claude_window_loads load at t)`. FALSIFIED by restoring the pre-0161
+body inside the transaction, which reddens exactly A2, A3 and B1 and leaves both
+controls green. Its §D2 re-asserts the 0158 property from this file too, because
+rewriting this function is precisely the event that undoes it.
+
+**The general rule.** *When two functions must agree, the guard is a
+differential over their whole input domain, not an example.* An example is
+written from the same understanding the code was and passes the day somebody
+changes one side. And when a proof's own subject is polluted by live state (a
+first draft asserted "the whole pool" at `booking_start − 5h` and got 93,
+because a real window was open and carrying 7%), the case does not belong in
+that file — it belongs where a controlled sample forces the branch.

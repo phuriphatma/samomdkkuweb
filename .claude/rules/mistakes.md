@@ -53,10 +53,10 @@ has not been written yet.
    UI `role === 'x'` branches. The most repeated bug here
    (0089 → 0090 → 0091 → 0093 → 0102). A UI gate that honours the new channel
    hides the gap until someone tries to save. **A SECURITY DEFINER RPC that
-   restates a policy is one of those gates** — `soft_delete_pr_ticket` copied the
+   restates a policy is one of those gates** — `soft_delete_pr_ticket` kept the
    pr_staff/dev test 29 migrations after the policy learned `has_permission('pr')`
-   while its VS twin in the same migration was correct, so the pair read as
-   permission-aware (0149). Check the SECOND twin.
+   while its VS twin was correct, so the pair read as permission-aware (0149).
+   Check the SECOND twin.
 6. **Two implementations of one rule drift** — but check both callers want the
    SAME answer: unifying the four org views on one parentage made แผนผัง a
    52,000px staircase (two draw containment, two reporting). A change is NOT
@@ -75,13 +75,16 @@ has not been written yet.
    the columns BOTH directions NAME**: `people.year` was pushed down, never
    carried up, so any touch of the registry reverted a person's own ชั้นปี edit
    (0145) — the guard reports a one-way column as settled, by construction.
-   Also a DERIVED COLUMN vs the expression it came from: `cohort_year` was filled
+   Also a DERIVED COLUMN vs the expression it came from: `cohort_year` filled
    `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the รุ่น
-   (0128) — fill-once means never-correct; same shape in FORMS, where
+   (0128) — fill-once means never-correct; same in FORMS, where
    `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145).
    Also a rule implemented on the writers you HAPPENED to be looking at (the
    portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
+   **"ONE HOME" MUST MEAN ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took
+   the 5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
+   booking chain — the rail offered 100% where the guard refused over 25% (0161).
    Also a GUARD vs the DERIVED STATE it checks: `claude_booking_guard` checked a
    new booking against sessions derived from the OTHER rows, and that derivation
    is greedy in start order, so an earlier insert re-derived everyone and
@@ -115,10 +118,9 @@ has not been written yet.
    The five ways, each paid for here: it cannot SEE the hazard (0146) · its
    CONTROL finds nothing either (0147) · it is satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
-   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and
-   an aborted script is silence (`house0116` ran ZERO assertions for 23
-   migrations — when a migration drops a function or column, grep `tools/` in
-   the same commit). **The ritual that catches all five: reintroduce the bug,
+   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and an
+   aborted script is silence (`house0116`: ZERO assertions for 23 migrations —
+   when a migration drops a function or column, grep `tools/` in that commit). **The ritual that catches all five: reintroduce the bug,
    watch it fail on the assertion you expect, restore.** Never write a guard
    from the SAME LIST the code came from — assert the PROPERTY that list was
    meant to produce, or a wrong list passes itself.
@@ -164,14 +166,14 @@ to that class above.
 - supabase-js silent-success on RLS-blocked updates / deletes
 - supabase-js gets into a bad state — bypass with `dbRest()`
 - Android Chrome surfaces the supabase-js "bad state" hang on the FIRST call
-- `onAuthChange` fires on every refresh — "initial-routing" logic inside it must be gated by a one-shot flag
-- PostgREST 400s on unknown URL query params — never cache-bust via `?_=…`
+- `onAuthChange` fires on every refresh
+- PostgREST 400s on unknown URL query params
 - `PGRST303 JWT expired` mid-modal when the 25-min proactive refresh misses
 - Synchronous first `onAuthChange` fire flashes the sign-in gate before the session is restored (looks like "logged out o…
 - Hardcoded reserved-username lists rot when new staff accounts are added
 - Synthetic email domain must be a real public TLD
 - Email confirmation must be OFF in Supabase for synthetic emails
-- Supabase `unlinkIdentity` requires ≥2 identities — `hasPassword` is NOT the check
+- Supabase `unlinkIdentity` requires ≥2 identities
 - supabase-js `updateUser({password})` doesn't create an `email` identity
 - Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back fo…
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
@@ -189,7 +191,7 @@ to that class above.
 - Publishing a table-backed directory must be a PROJECTION, never a public SELECT policy
 - A row-level UPDATE policy with no column guard let a SUBMITTER self-publish to the public board
 - Adding a DELETE to reference data turns every `coalesce(<flag>, false)` lookup into a live fail-open
-- The row-level-UPDATE-without-a-column-guard class, found on a THIRD table — this time it was money
+- The row-level-UPDATE-without-a-column-guard class, found on a THIRD table
 - An `ILIKE` lookup makes the id a PATTERN, not a capability
 - A `left join` onto a reference table fails OPEN exactly as `coalesce(flag,false)` does
 - An UPDATE that moves a row OUT of your own SELECT policy fails with the WITH-CHECK error
@@ -202,8 +204,8 @@ to that class above.
 - An RLS policy with no table GRANT denies everyone, and looks exactly like the policy working
 - An RLS policy's inline subquery is subject to the referenced table's RLS
 - A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
-- Every signed-in account could read all 531 rows of `public.users` — a directory dump AND a map of who holds `master`
-- "someone could just book 16.40-20.00 kick me out" — a cap is not a refusal
+- Every signed-in account could read all 531 rows of `public.users`
+- "someone could just book 16.40-20.00 kick me out"
 
 ### `authz-grants.md` — The permission / seat / scope channel *(12)*
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
@@ -219,11 +221,11 @@ to that class above.
 - A seat that grants a SHARED role must not be modelled as a new individual
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 
-### `postgres-schema.md` — Migrations, DDL, triggers & constraints *(20)*
-- Postgres has no `create or replace policy` — partial-replay migrations 42710 out
+### `postgres-schema.md` — Migrations, DDL, triggers & constraints *(21)*
+- Postgres has no `create or replace policy`
 - A self-update column guard silently bricks EVERY new signup when it blocks a column another trigger legitimately writes
 - Service-role seed can't UPDATE `role`/`permissions`
-- `create or replace function` CANNOT change the return type — drop it first
+- `create or replace function` CANNOT change the return type
 - A `NOT NULL` column with `ON DELETE SET NULL` is a latent contradiction
 - Recreating a function from the migration that FIRST defined it silently reverts every later one
 - Hard-deleting a row referenced by an `ON DELETE RESTRICT` FK fails 23503
@@ -231,31 +233,32 @@ to that class above.
 - (Passport) An `AFTER INSERT`-on-`auth.users` re-key trigger only fires for accounts that have NEVER logged into the pro…
 - A PL/pgSQL `RETURNS TABLE(... col ...)` function silently ignores `ORDER BY col`
 - A self-update column guard must exempt the definer FUNCTION that writes on login
-- A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)` — the upsert 42P10s, so the whole import is dead on arrival
-- Seeding an OBSERVED range as if it were reference data — the FK then rejects every real row outside the guess
-- Applying "create the parent on demand" at ONE call site instead of on the table — the other three writers still 23503
-- "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม" — a DERIVED column filled once, never re-derived
+- A UNIQUE EXPRESSION index cannot serve `ON CONFLICT (col)`
+- Seeding an OBSERVED range as if it were reference data
+- Applying "create the parent on demand" at ONE call site instead of on the table
+- "เปลี่ยนรหัสนักศึกษาเป็น 59… หรือ 64… แล้วรุ่นไม่เปลี่ยนตาม"
 - A bidirectional mirror without an `is distinct from` guard is an infinite recursion
-- "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน" — a GENERATED column treated as a reason to skip the field
-- "when i change ชั้นปี in the main web, nothing happens" — a mirror one-way on ONE column
+- "เปลี่ยนชื่อเล่นในทีม SAMO แล้วระบบบ้านไม่เปลี่ยน"
+- "when i change ชั้นปี in the main web, nothing happens"
 - "why 18 august has rail show green 100% shouldn't it be 10%"
-- "i can even book at 06.00 which shouldn't be" — a guard checked against a state the insert changes
+- "i can even book at 06.00 which shouldn't be"
+- "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(68)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(70)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
 - Re-opening an ALREADY-OPEN Bootstrap modal with `new bootstrap.Modal(...).show()` stacks a second backdrop
 - A destructive-direction toggle without a confirm silently dropped a privacy guard (vs_categories.personal flipped to pu…
-- A modal that closes on save makes every edit a round trip — refresh in place instead
+- A modal that closes on save makes every edit a round trip
 - A manager modal opened ON TOP of a form must repaint that form's inputs
 - Attribute-driven visibility: check that EVERY value in the markup has a handler, and which way an unhandled one fails
 - A directional action whose direction lives ONLY in a label on the other party's row gets read backwards
 - `touch-action: none` on a drag handle makes the page unscrollable THERE
 - A partial left behind by a restructure is a DECOY
 - A shared `render()` that repaints a pane another module owns will destroy that module's in-progress input
-- A `busy` flag that RETURNS EARLY silently discards the second action — serialise instead of dropping
-- A Bootstrap icon name from a LATER release renders as nothing — no error, no failed request, just an empty box
+- A `busy` flag that RETURNS EARLY silently discards the second action
+- A Bootstrap icon name from a LATER release renders as nothing
 - iOS Safari `100vh` hides the bottom of a full-height drawer
 - Pane-scoped DOM selectors break when the shell is rewritten
 - A full-height centered page with `height:100% + overflow:hidden` is unscrollable on mobile when the content is taller t…
@@ -268,8 +271,8 @@ to that class above.
 - A `data-role="x"` element with no matching toggle in the JS is visible to EVERYONE
 - Bootstrap gives EVERY modal the same z-index
 - A class in the markup with NO rule in any stylesheet is invisible in review and looks exactly like a broken value
-- An indicator that links to a LIST moves the work instead of removing it — the click already said WHICH one, so carry it
-- State parked on a REUSED DOM element outlives the record it describes — a modal is filled again, the element is not
+- An indicator that links to a LIST moves the work instead of removing it
+- State parked on a REUSED DOM element outlives the record it describes
 - Uploading a replacement photo on PICK leaves the previous file in Drive forever
 - A filled "danger" style made an UNCHECKED checkbox look ticked
 - A second pass over the same controls silently UNLOCKED the checkbox the first pass had locked
@@ -277,46 +280,48 @@ to that class above.
 - "แก้ไขข้อมูล ของระบบบ้าน — ต้องกดหลายครั้งถึงจะขึ้น" — one listener per re-render + a toggle reading its own state
 - A chooser that opens as an empty placeholder while its vocabulary loads SUBMITS the empty value
 - "ปฏิเสธ ไม่ทำงาน แต่อนุมัติทำงาน" — the same suppressed-dialog bug, on a different button
-- "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good" — a correct refusal, where there WAS a human to ask
+- "แก้ไขสมาชิก shows ชื่อ นามสกุล as blank, that isn't good"
 - Adding an `await` before the modal closes re-opened a double-submit window
-- "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ" — one deletion took out the block beside it
-- The ลบ button on a สาขา row rendered OUTSIDE the modal on a phone — an `auto` grid track sized from min-content
-- `confirm()` on a SAVE path, not just a delete — permissions silently refused to save
+- "เพิ่มสมาชิก ไม่ทำงาน" + "ค้นหาคนจากระบบ ไม่ขึ้นรายชื่อ"
+- The ลบ button on a สาขา row rendered OUTSIDE the modal on a phone
+- `confirm()` on a SAVE path, not just a delete
 - `/admin/#vs` opened the VitalSound workspace for an admin with no VitalSound grant
-- `{"code":"23505" … "students_kkumail_key"}` in an alert() — a unique index used as a first line of defence
+- `{"code":"23505" … "students_kkumail_key"}` in an alert()
 - "แก้ไขสมาชิก … ค้นหาคนจากระบบ … พู่กัน picture become myself"
-- The ยกเลิก button in `askConfirm` did nothing — in the module written because buttons did nothing
+- The ยกเลิก button in `askConfirm` did nothing
 - A VIEW is not a BREAKPOINT — scoping a layout to `@media` and then making it user-selectable
 - A markup refactor silently unhooked every `> .org-station` selector
 - `justify-content: center` makes the overflow of a scroll container UNREACHABLE
 - `flex-wrap` does nothing inside `width: max-content`
-- "เข้าสู่ระบบด้วย Google" read as KKU-only — a steer written as a rule + a form behind a collapse
+- "เข้าสู่ระบบด้วย Google" read as KKU-only
 - "เข้าสู่ระบบด้วย Google ... it also gmail.com email etc."
-- "when i zoom, it renders some different view then switches back" — an auto-fit re-armed by the gesture
+- "when i zoom, it renders some different view then switches back"
 - A blank canvas is not a diagnosis — the graph had flown past the far plane
-- "the picture render wrong ... zoom also bug" — `srcset` resolves ONCE
+- "the picture render wrong ... zoom also bug"
 - "the picture on ipad still bug" — `position` in `<foreignObject>` drops the transform
 - A DEPTH NUMBER cannot name a level of a ragged tree
-- "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT" — ORDER was not the problem, RANK was
-- "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color" — a GUESS beat inheritance
+- "It shows 4 lines to อุปนายก, ฝ่าย PR, ComArt, IT"
+- "ฝ่ายวิชาการ inside ฝ่ายรังสีเทคนิค shows different color"
 - แผนผัง became a staircase — one structure, two different drawings
 - จองโควตา Claude rendered unstyled — CSS in the wrong ENTRY
 - "on ipad, when touch, it mess up between scroll and adding the booking"
-- "in the next week it shows ยังไม่มีตำแหน่งในผังทีม" — identity from a row on screen
+- "in the next week it shows ยังไม่มีตำแหน่งในผังทีม"
 - "the rails it got overlap with the booking making it look weird"
-- "why there's 50% rails in the period that has people book" — a right number answering the wrong question
+- "why there's 50% rails in the period that has people book"
 - "พอดีจอ" collapsed the calendar to its minimum row height
 - An inline `<b>` rendered as a second heading
 - A confirm dialog offered two buttons that both began with "ยกเลิก"
-- "i see something weird in the box booking behind" + "10:00100%" — one narrow column, three collisions
+- "i see something weird in the box booking behind" + "10:00100%"
 - A tag positioned where the thing it describes always covers it
+- "it shows only 16.00 not 16.00-21:00"
+- The 5-hour frame described the window; people were asking what they could put in it
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(16)*
-- "Unread" highlight inside an item vanishes the moment you open it — mark seen AFTER capturing seenAt for the open view
+- "Unread" highlight inside an item vanishes the moment you open it
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
 - Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind
 - Module-scope caches make an in-place account switch show two accounts at once
-- A path-only router silently discards sub-state — and its own tab handler is what clears the hash you just wrote
+- A path-only router silently discards sub-state
 - A snapshot table that COPIES a foreign resource id makes the original's delete path destroy history
 - An allow-list feeding a BACKUP has the opposite safe default from one feeding a public projection
 - A scroll-to-top fix applied in the tab handler misses every link that navigates programmatically
@@ -347,31 +352,31 @@ to that class above.
 - Awaiting the serialised Discord notify queue blocks the UI re-render (status/comment clicks feel sluggish)
 - `drive.google.com/thumbnail?id=…` images 302-redirect → intermittently BLANK on iOS Safari (iPad) while desktop is fine
 - A vendor manual's field list is not the contract
-- A refcount is only as true as its list of referrers — and a client-side one cannot see past RLS
-- "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่" — the cleanup existed on only one writer
-- "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม" — a TRASHED Drive file is still public
+- A refcount is only as true as its list of referrers
+- "เปลี่ยนรูป เปลี่ยนรูปแล้ว แต่ในไดรฟ์ยังมีรูปเก่าอยู่"
+- "ลบรูปใน Drive แล้ว แต่เว็บยังขึ้นรูปเดิม"
 - `uploadPRFile` had no counterpart, so every announcement cover ever re-cropped is still in Drive
-- The crest refcount could not see the crest — and the guard reported green
+- The crest refcount could not see the crest
 
 ### `deploy-hosting.md` — Deploy, nginx & caching *(7)*
 - `rsync --delete` on deploy yanks the previous build's chunks out from under OPEN tabs
 - A deploy script that `git pull`s ITSELF and keeps running will execute a garbage fragment
-- "Login is still there so the cache must be cleared" — localStorage and the HTTP cache are different buckets
+- "Login is still there so the cache must be cleared"
 - CI `npm test` fails on Node 20 — supabase-js throws "Node.js 20 detected without native WebSocket support" at import
 - nginx subpath app: bare `/passport` (no trailing slash) silently serves the wrong SPA
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
-- Dropping a column while the SERVED bundle still names it — `42703` on the live admin tab
+- Dropping a column while the SERVED bundle still names it
 
 ### `tooling-proofs.md` — Proof scripts & verification discipline *(12)*
-- Two implementations of one rule drift silently — diff them, don't eyeball them
-- Debugging note: `tools/db-query.mjs` COMMITS — a probe with `limit 1` and no `ORDER BY` will mutate a real row
+- Two implementations of one rule drift silently
+- Debugging note: `tools/db-query.mjs` COMMITS
 - RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted
-- A proof script that fails for a CORRECT reason gets ignored — then it protects nothing
+- A proof script that fails for a CORRECT reason gets ignored
 - `pg_get_functiondef` over every function 42809s on aggregates
-- A proof failed for a CORRECT reason because its subject was hardcoded — the org chart moved underneath it
-- Four guards were reading a MANGLED file — `'image/*'` opened a "comment" that ate 13,839 characters of main.js
+- A proof failed for a CORRECT reason because its subject was hardcoded
+- Four guards were reading a MANGLED file
 - A proof whose subject was a SHOP ADMIN reported that a buyer could set an order total to ฿1
-- Checking the proofs by hand produced TWO false alarms in a row — they emit four different output shapes
+- Checking the proofs by hand produced TWO false alarms in a row
 - A proof that ERRORS is not a proof that fails
 - A browser probe measured its coordinates before the page scrolled
 - A comment listed four boundaries and the code had three

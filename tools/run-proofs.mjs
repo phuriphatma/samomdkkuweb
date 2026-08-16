@@ -49,6 +49,7 @@ const PROOFS = [
   ['claude0155-free-now.sql', 'how much Claude quota may be used right now, and until when'],
   ['claude0157-rail-segments.sql', "the calendar rail's bands are constant and its edges are deadlines"],
   ['claude0159-window-share.sql', 'a 5-hour Claude window is shared by everyone it covers'],
+  ['claude0161-rail-guard-parity.sql', 'the calendar rail and the booking guard derive the SAME window'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
   ['team0135-name-split.mjs', 'name splitting round-trips'],

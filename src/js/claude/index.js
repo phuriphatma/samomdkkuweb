@@ -29,7 +29,9 @@ import { getUser } from '../auth.js';
 import { escHtml } from '../utils.js';
 import { askConfirm } from '../confirm-modal.js';
 import { sendNotify } from '../notify.js';
-import { dayColumnsFor, bookableRangeFor, startOfDay } from './week.js';
+import {
+  dayColumnsFor, bookableRangeFor, startOfDay, carve, mergeBands, bookingLayout,
+} from './week.js';
 import {
   pressIntent, movedTooFar, shouldBlockScroll, HOLD_MS, HOLD_MIN,
 } from './gesture.js';
@@ -82,7 +84,7 @@ const LS_FIT  = 'claude.cal.fit';
 const LS_HIST = 'claude.cal.hist';
 const LS_TERMS = 'claude.terms.seen';
 /** Bump when the ข้อตกลง text changes materially — everyone sees it again. */
-const TERMS_VERSION = '2026-08-16.4';
+const TERMS_VERSION = '2026-08-16.5';
 
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -355,25 +357,31 @@ function wire() {
     ? '<strong>แตะค้างไว้</strong>บนตารางแล้วลากเพื่อเลือกช่วงเวลา '
       + '(แตะเฉย ๆ ใช้เลื่อนดูตารางได้ตามปกติ) — '
     : 'ลากบนตารางเพื่อเลือกช่วงเวลา — ')
-    // The frame is the RULE, drawn: one 5-hour pot, opened by whoever starts
-    // first, shared by everyone inside it. Its tag says how much of that pot is
-    // still free and until when, which is the question the owner asked to be
-    // able to answer off the rectangle itself.
-    + 'กรอบสีเขียวคือ <strong>รอบ 5 ชั่วโมง</strong> หนึ่งก้อน โควตา 100% '
-    + '<strong>รอบที่มีคนจองเป็นของผู้จอง</strong> ถ้าจองรอบเดียวกันหลายคนจะแบ่งกัน '
-    + 'ช่วงที่ไม่มีใครจอง ใครใช้ก็ได้ '
+    // The dashed box is the RULE, drawn. One 5-hour pot is opened by whoever
+    // starts first and shared by everyone inside it; the box hangs off the
+    // bottom of the block that opened it and covers exactly the time still
+    // open, which is the question somebody looking at the week is asking.
+    + '<strong>กล่องเส้นประใต้การจอง</strong> คือช่วงที่ยัง<strong>จองต่อได้</strong> '
+    + 'ในรอบ 5 ชั่วโมงเดียวกัน (บอกว่าเหลือกี่ % และรอบนั้นจบเมื่อไร) '
+    + 'เส้นประ<strong>สีแดง</strong>แปลว่าเวลาว่างแต่โควตาหมดแล้ว จองเพิ่มไม่ได้ '
+    + '<strong>รอบที่มีคนจองเป็นของผู้จอง</strong> ช่วงที่ไม่มีใครจอง ใครใช้ก็ได้ '
     + '<a href="#" class="claude-terms-link" id="claudeTermsInline">อ่านข้อตกลง</a>';
   // The rail has no meaning until it is named. A colour down the edge of a
   // calendar that nobody can read is decoration, however correct the number
   // behind it is.
+  //
+  // It is deliberately NOT drawn inside a 5-hour window any more — there the
+  // block and the dashed box already answer it — so the key says where it
+  // applies rather than leaving a reader to wonder why it stops.
   $('claudeHelp').innerHTML += '<br><span class="claude-rail-key">'
     + '<i class="claude-free is-full"></i>แถบด้านซ้ายของแต่ละวันบอกว่า '
     + '<strong>ถ้าเริ่มใช้ตอนนั้น จะได้กี่เปอร์เซ็นต์</strong> โดยไม่ต้องจอง — '
     + 'เขียวคือได้เต็มรอบ '
-    + '<i class="claude-free is-part"></i>เหลืองคือได้บางส่วน (อาจเพราะมีคนจองไว้ '
-    + 'หรือเพราะโควตาสัปดาห์ใกล้หมด) '
+    + '<i class="claude-free is-part"></i>เหลืองคือได้บางส่วน '
+    + '(เช่น โควตาสัปดาห์ใกล้หมด) '
     + '<i class="claude-free is-none"></i>แดงคือไม่เหลือ '
-    + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้</span>';
+    + '<i class="claude-free is-held"></i>ลายทแยงคือช่วงที่มีคนจองไว้ '
+    + 'ส่วนในรอบ 5 ชั่วโมงที่มีคนจอง ให้ดูที่กล่องเส้นประแทน</span>';
   $('claudeTermsInline')?.addEventListener('click', (ev) => {
     ev.preventDefault();
     openTerms();
@@ -909,7 +917,7 @@ function splitAcrossDays(start, end) {
 
 function paintGrid() {
   document.querySelectorAll('.claude-daycol').forEach((c) => {
-    c.querySelectorAll('.claude-session,.claude-bk,.claude-dead,.claude-nowline,'
+    c.querySelectorAll('.claude-gap,.claude-bk,.claude-dead,.claude-nowline,'
       + '.claude-sel,.claude-free,.claude-hist,.claude-hist-peak')
       .forEach((n) => n.remove());
   });
@@ -951,26 +959,53 @@ function paintGrid() {
         occupied.get(sg.i).push([sg.sMin, sg.eMin]);
       });
   });
-  // A label is ~18px tall; express that in minutes so the test is in the same
-  // units as everything else here and survives a change of --claude-hour-h.
-  const labelMin = (18 / hourH()) * 60;
+  // ── the 5-hour windows, and the part of each that nobody has claimed ───
+  //
+  // A window is opened by a booking and runs five hours; the blocks inside it
+  // share its one 100%. What is interesting is therefore not the window — it is
+  // the part of it that is still OPEN TO SOMEBODY: unbooked TIME, with unbooked
+  // PERCENT to go with it. Both halves have to be there.
+  //
+  //   3 hours at 75%, in a 5-hour window  → 2 hours and 25% left. Fillable.
+  //   3 hours at 100%                     → 2 hours and NOTHING left.
+  //   5 hours at 70%                      → 30% left and no time to use it in.
+  //
+  // The owner stated the last one exactly: *"if that person book any% like 70%
+  // 100% full 5 hours, you dont need to show dash line because no one would be
+  // able to fill in during that period"*. A mark over a stretch nobody can book
+  // is decoration that has to be reasoned about before it can be dismissed.
+  const windowsMs = [];   // [startMs, endMs) per window, for carving the rail
+  const gaps = [];        // {s, e, free, winEnd} — what is still fillable
+  const bookedMs = board.bookings.map((b) => [
+    new Date(b.starts_at).getTime(), new Date(b.ends_at).getTime(),
+  ]);
+  board.sessions.forEach((sn) => {
+    const ws = new Date(sn.starts_at).getTime();
+    const we = new Date(sn.ends_at).getTime();
+    windowsMs.push([ws, we]);
+    const free = pool - sn.used_pct;
+    carve(ws, we, bookedMs.filter(([bs, be]) => bs < we && be > ws))
+      .forEach(([s, e]) => gaps.push({ s, e, free, winEnd: we }));
+  });
 
-  /** [a,b) minus every range in `cuts`, as the pieces that survive. */
-  function carve(a, b, cuts) {
-    let pieces = [[a, b]];
-    (cuts || []).forEach(([cs, ce]) => {
-      const next = [];
-      pieces.forEach(([ps, pe]) => {
-        if (ce <= ps || cs >= pe) { next.push([ps, pe]); return; }
-        if (cs > ps) next.push([ps, cs]);
-        if (ce < pe) next.push([ce, pe]);
-      });
-      pieces = next;
+  // The rail is carved against the WHOLE window, not just the blocks in it.
+  //
+  // Its question is "start here and take this much WITHOUT booking", and inside
+  // a window that question already has two better answers on screen: the block
+  // says who holds this minute, and the dashed box says how much of the window
+  // is left and until when. Reported as *"it shouldnt show the rail as 100% in
+  // that 25%, it shouldnt show yellow"* — 0161 fixed the number (it was reading
+  // 100 where the guard said 25), and this stops the rail restating it in a
+  // third visual language two pixels away.
+  const inWindow = new Map();
+  windowsMs.forEach(([s, e]) => {
+    splitAcrossDays(s, e).forEach((sg) => {
+      if (!inWindow.has(sg.i)) inWindow.set(sg.i, []);
+      inWindow.get(sg.i).push([sg.sMin, sg.eMin]);
     });
-    return pieces;
-  }
+  });
 
-  const fws = board.free_windows || [];
+  const fws = mergeBands(board.free_windows || []);
   fws.forEach((fw, wi) => {
     const free = Math.round(Number(fw.free_pct));
     // A band whose successor is worth LESS ends at a deadline: start by then
@@ -1013,7 +1048,7 @@ function paintGrid() {
         col.appendChild(h);
       });
 
-      carve(seg.sMin, seg.eMin, occupied.get(seg.i)).forEach(([ps, pe], pi) => {
+      carve(seg.sMin, seg.eMin, inWindow.get(seg.i)).forEach(([ps, pe], pi) => {
       const el = document.createElement('div');
       el.className = 'claude-free'
         + (free <= 0 ? ' is-none' : free < pool ? ' is-part' : ' is-full');
@@ -1060,46 +1095,61 @@ function paintGrid() {
     });
   });
 
-  board.sessions.forEach((sn) => {
-    const full = sn.used_pct >= pool;
-    const s = new Date(sn.starts_at).getTime();
-    const e = new Date(sn.ends_at).getTime();
-    splitAcrossDays(s, e).forEach((seg, idx) => {
+  // ── the fillable remainder, as a box you could put a booking in ──────────
+  //
+  // WHY A DASHED BOX AND NOT THE OLD BRACKET. The bracket framed the whole
+  // 5-hour window, blocks included, and hung a tag off the bottom saying how
+  // much was left. It described the window; people are trying to answer a
+  // different question — *can I put something here, and how much?* A dashed
+  // outline is the shape every calendar already uses for "an empty slot", and
+  // it is drawn over EXACTLY the time that is still free, so its geometry is
+  // the answer rather than a caption about a bigger rectangle.
+  //
+  // OPEN AT THE TOP, three sides. A window is opened BY a booking, so a gap
+  // always sits below one, and leaving that edge off says the two are one pot —
+  // this is the rest of the block above it, not a separate thing.
+  //
+  // RED WHEN THERE IS NOTHING LEFT. Asked for exactly: *"if people book 100%
+  // 16.00-19.00 just show the dashline as red"*. The time is free and the quota
+  // is not, which is a real state and an easy one to walk into; a box that
+  // looked the same as a fillable one would invite the booking the guard is
+  // about to refuse.
+  //
+  // NOTHING AT ALL when the window has no free time — see the comment where
+  // `gaps` is built.
+  gaps.forEach((g) => {
+    const none = g.free <= 0;
+    const parts = splitAcrossDays(g.s, g.e);
+    parts.forEach((seg, idx) => {
       const col = colFor(seg.i);
       if (!col) return;
       const el = document.createElement('div');
-      el.className = 'claude-session' + (full ? ' is-full' : '') + (idx > 0 ? ' is-cont' : '');
+      // The bottom edge is the window's REAL end, so a gap running past
+      // midnight must not draw one at 24:00 — that would read as the window
+      // closing there.
+      el.className = 'claude-gap' + (none ? ' is-none' : '')
+        + (idx < parts.length - 1 ? ' is-cut-b' : '');
       el.style.top = `${yForMin(seg.sMin)}px`;
       el.style.height = `${Math.max(6, yForMin(seg.eMin) - yForMin(seg.sMin))}px`;
-      // THE FRAME IS THE RULE, DRAWN. Its tag has to say both halves of it —
-      // how much of this one pot is left AND until when — because the owner's
-      // question was exactly that: *"จองไว้ 50% เป็นเวลา 3 ชม. คนอื่นสามารถจอง
-      // ต่อได้อีก 50% ใน 2 ชม.หลัง ดูได้จากสี่เหลี่ยมที่โชว์บนเว็บ"*. "เหลือ
-      // 50%" alone leaves the reader to work out the deadline off the geometry.
-      // THE TAG BELONGS AT THE BOTTOM, and that is not a cosmetic choice. A
-      // window OPENS at a booking's start, so the frame's top-right corner is
-      // always covered by the block that opened it — the tag was painted there
-      // and was therefore invisible in every real case, which is exactly the
-      // number the owner asked to be able to read off the rectangle. The frame's
-      // TAIL is the part of the window nobody has claimed yet, so labelling the
-      // tail says what the tail means.
-      //
-      // Only on the LAST day-segment, so a frame crossing midnight labels the
-      // end of the window rather than the end of Tuesday.
-      const isLast = idx === splitAcrossDays(s, e).length - 1;
-      const tall = seg.eMin - seg.sMin >= 30;
-      if (isLast && tall) {
+      el.title = none
+        ? `รอบ 5 ชั่วโมงนี้ถูกจองครบ ${pool}% แล้ว — ช่วงนี้ว่างแต่จองเพิ่มไม่ได้`
+          + ` (รอบนี้ถึง ${hhmm(new Date(g.winEnd))})`
+        : `ช่วงนี้ยังจองได้อีก ${g.free}% — เป็นโควตาที่เหลือของรอบ 5 ชั่วโมง`
+          + ` ที่จบเวลา ${hhmm(new Date(g.winEnd))}`;
+      // The tag goes on the LAST day-segment, so a gap crossing midnight
+      // labels the end of the WINDOW rather than the end of Tuesday.
+      const tall = seg.eMin - seg.sMin >= 26;
+      if (idx === parts.length - 1 && tall) {
         const tag = document.createElement('div');
-        tag.className = 'claude-session-tag';
-        // The "ถึง HH:MM" half is hidden by CSS on a narrow column — a 95px
-        // day cannot carry "เหลือ 50% · ถึง 13:00" without clipping it
-        // mid-number, which reads as a wrong number rather than a short one.
-        tag.innerHTML = (full ? 'เต็ม' : `เหลือ ${pool - sn.used_pct}%`)
-          + `<span class="claude-session-until"> · ถึง ${escHtml(hhmm(new Date(sn.ends_at)))}</span>`;
+        tag.className = 'claude-gap-tag';
+        // "ถึง HH:MM" is dropped by CSS on a narrow column — a 110px day cannot
+        // carry "ว่าง 25% · ถึง 21:00" without clipping it mid-number, and a
+        // clipped number reads as a wrong one rather than a short one.
+        tag.innerHTML = none ? 'เต็ม'
+          : `ว่าง ${g.free}%`
+            + `<span class="claude-gap-until"> · ถึง ${escHtml(hhmm(new Date(g.winEnd)))}</span>`;
         el.appendChild(tag);
       }
-      el.title = `รอบ 5 ชั่วโมงนี้ ${hhmm(new Date(sn.starts_at))}–${hhmm(new Date(sn.ends_at))}`
-        + ` — จองไปแล้ว ${sn.used_pct}% จาก ${pool}%`;
       col.appendChild(el);
     });
   });
@@ -1115,26 +1165,44 @@ function paintGrid() {
       if (!col) return;
       const el = document.createElement('button');
       el.type = 'button';
-      el.className = 'claude-bk' + (b.is_mine ? ' is-mine' : '');
+      const h = Math.max(18, yForMin(seg.eMin) - yForMin(seg.sMin) - 2);
+      const tier = bookingLayout(h);
+      el.className = `claude-bk is-${tier}` + (b.is_mine ? ' is-mine' : '');
       el.style.setProperty('--claude-c', personColor(b.person));
       el.style.top = `${yForMin(seg.sMin)}px`;
-      el.style.height = `${Math.max(18, yForMin(seg.eMin) - yForMin(seg.sMin) - 2)}px`;
-      el.title = `${personName(b.person)} — ${b.purpose}`;
-      // escHtml on every interpolated field: purpose and name are user text,
-      // and a ticket renderer that interpolated raw user text into innerHTML is
-      // an entry in this repo's mistakes log.
-      // ONE flex row for the time and the percentage, not an absolutely
-      // positioned tag over a wrapping line. Reported on a phone as
-      // "10:00100%": at a 95px column the time is wider than the space the
-      // absolute tag left it, so it wrapped underneath and the two printed on
-      // top of each other. In a row they cannot overlap at any width — the time
-      // ellipsises instead.
-      el.innerHTML =
-        '<span class="claude-bk-head">'
-        + `<span class="claude-bk-t">${hhmm(new Date(b.starts_at))}`
-        + `<span class="claude-bk-t2">–${hhmm(new Date(b.ends_at))}</span></span>`
-        + `<span class="claude-bk-p">${b.pct}%</span></span>`
-        + `<span class="claude-bk-n">${escHtml(shortName(b.person))} · ${escHtml(b.purpose)}</span>`;
+      el.style.height = `${h}px`;
+      const range = `${hhmm(new Date(b.starts_at))}–${hhmm(new Date(b.ends_at))}`;
+      el.title = `${personName(b.person)} · ${range} · ${b.pct}% — ${b.purpose}`;
+      // WHAT A BLOCK SAYS, and what it no longer says.
+      //
+      // The RANGE, not just the start. It used to print "16:00" and the end
+      // time was dropped at every width, on the reasoning that the block's
+      // HEIGHT is its duration. The owner read the block and asked for the end
+      // anyway — *"it shows only 16.00 not 16.00-21:00"* — and they are right:
+      // height is duration only if you can find the hour lines behind three
+      // other layers, and a booking is a claim on a STRETCH, which is two
+      // numbers. So the range gets a line of its own rather than fighting the
+      // percentage for one, which is what made it not fit before ("10:00–11:45"
+      // wants 77px and "100%" another 34, against a ~90px card).
+      //
+      // The REASON is gone from the face of the block. It was the thing pushing
+      // the name into an ellipsis, it is never the question somebody scanning a
+      // week is asking, and it is one tap away in the modal — and still in the
+      // tooltip. Asked for: *"with name, no need for reason why booking"*.
+      //
+      // escHtml on the name: it is user text, and a renderer that interpolated
+      // raw user text into innerHTML is an entry in this repo's mistakes log.
+      // The time and the percentage are numbers this module formatted itself.
+      const pctCell = `<span class="claude-bk-p">${b.pct}%</span>`;
+      el.innerHTML = tier === 'micro'
+        // Too short for a name: the range and the percentage stack, each on a
+        // line of its own. Side by side they wanted 86px of a 71px card — see
+        // bookingLayout(). The name goes to the tooltip; a clipped name is
+        // worse than no name.
+        ? `<span class="claude-bk-t">${range}</span>${pctCell}`
+        : `<span class="claude-bk-t">${range}</span>`
+          + `<span class="claude-bk-head"><span class="claude-bk-n">`
+          + `${escHtml(shortName(b.person))}</span>${pctCell}</span>`;
       el.addEventListener('click', (ev) => { ev.stopPropagation(); openModal({ edit: b }); });
       col.appendChild(el);
     });

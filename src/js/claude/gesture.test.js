@@ -191,7 +191,7 @@ describe('the capacity rail never shares space with a block', () => {
     expect(rule('.claude-free')).toMatch(/left:\s*var\(--claude-rail-x\)/);
   });
 
-  it.each(['.claude-bk', '.claude-session', '.claude-sel'])(
+  it.each(['.claude-bk', '.claude-gap', '.claude-sel'])(
     '%s starts after the lane', (sel) => {
       expect(rule(sel)).toMatch(/left:\s*(calc\()?var\(--claude-lane\)/);
     });

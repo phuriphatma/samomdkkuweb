@@ -5,13 +5,14 @@ Last updated: **2026-08-16**. This is "what is true RIGHT NOW" and nothing else;
 reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
-⚠️ **It is 485 and has been over target for several sessions.** Two prunes were
-done on 2026-08-16 (the 0154–0158 narrative went to the archive; the duplicated
-"What is owed" / "How this repo wants you to work" blocks were deleted) and it
-still grew, because 0159 + 0160 added rules that genuinely belong here. **The
-next structural pass should move the "Live proofs" per-proof narrative to
-`docs/state-archive/` and leave one line per proof** — that section is ~100 of
-the 485 and is reference, not state.
+⚠️ **It is ~500 and has been over target for several sessions.** Three prunes
+have been done: the 0154–0158 narrative and the "Live proofs" PER-PROOF
+NARRATIVE both went to `docs/state-archive/` (the latter on 2026-08-16, leaving
+one line per proof here), and the duplicated "What is owed" blocks were deleted.
+It keeps growing because each session adds rules that genuinely belong here.
+**The next structural pass should take the "จองโควตา Claude — READ THIS BEFORE
+TOUCHING" section to the archive and leave its ⛔ rules only** — it is ~120 lines
+and most of it is now reasoning, not state.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
@@ -53,7 +54,14 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0160.** **1093 tests green.**
+  **Migrations applied through 0161.** **1110 tests green.**
+  ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
+  the moment this line was written — that order is correct (the RPC keeps its
+  shape, so the served bundle reads the new numbers immediately), but the
+  calendar's dashed box and the booking card's time range only appear after the
+  VM build. Verify from the SERVED artifact: `claude-gap`, `is-micro`,
+  `2026-08-16.5` in the admin JS, `กล่องเส้นประ` in the admin HTML, and **0** for
+  the REMOVED `claude-session-tag` / `claude-bk-t2`.
 - ✅ **จองโควตา Claude (0154 + 0155) is LIVE END TO END** — booking, the board,
   the Discord notice, the MEASURED usage strip, **"ใช้ได้เลยตอนนี้"**, the
   per-segment capacity rail on the calendar, and the measured LOG. Verified
@@ -109,96 +117,32 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 ## Live proofs — `npm run proofs`
 
-**The registry is now 18** — `claude0155`, `claude0157` and `claude0159` were
-added to `tools/run-proofs.mjs` on 2026-08-16; they were being run by hand and
-were therefore invisible to `npm run proofs`.
+**The registry is now 20**, and **all 20 were run green on 2026-08-16** after
+0161 landed. `claude0161-rail-guard-parity.sql` is the newest. `npm run proofs`
+runs every one; `npm run proofs <substring>` runs a subset. Run the one covering
+what you touch — all are both-directional.
 
-⚠️ **ONLY THE FOUR CLAUDE PROOFS WERE RUN ON 2026-08-16** (0154 20/20 · 0155
-22/22 · 0157 10/10 · 0159 32/32, all re-run after 0160 landed). **The other
-fourteen were last run in full on 2026-08-15** — run `npm run proofs` FIRST next
-session; a proof here went stale silently for three days once, and the entry
-below is what that cost.
-
-One command runs every live proof and prints one verdict each;
-`npm run proofs <substring>` runs a subset.
-
-**`tools/team0153-tier-parity.mjs` is NOT in that 15, on purpose** — it compares
-the tree against a snapshot pinned to 2026-08-15, so it will legitimately go red
-once the tree is edited. One-shot, kept re-runnable:
-`node tools/team0153-tier-parity.mjs tools/fixtures/team-tree-before-0153.json`.
-
-⚠️ **They were 14/15 when this session checked, and STATE.md had been claiming
-15/15 for three days.** `house0144-delete-impact.sql` was ERRORING (42501): its
-subject picker matched only `has_permission('house')`, and zero accounts held it
-in either permission column while twelve held the `vp_admin`/`dev` role the
-function ALSO accepts — so it selected nobody and the RPC correctly refused.
-Fixed by making the picker mirror the gate. **A proof's subject selector is part
-of the gate; re-derive it from the function's own `if`.**
-`docs/mistakes/tooling-proofs.md`. **Do not carry this claim forward without
-re-running — it went stale silently, and an errored proof is silence.**
-
-**Do not check them with an ad-hoc parser** — they emit four different output
+⚠️ **Do not check them with an ad-hoc parser** — they emit four different output
 shapes and doing it by hand produced two false alarms in a row.
 `tools/run-proofs.mjs` normalises them and reports UNKNOWN as a FAILURE.
-
-Run the one covering what you touch. All are both-directional.
+**An ERRORED proof is silence, not a failure** — that is how one went stale for
+three days while this file claimed it was green.
 **Read `skills/write-a-guard.md` before writing or trusting any of them.**
 
-- `authz-sweep-identity.sql` (23/23) — run after ANY policy change on
-  `users`/`people`/`students`/`team_members`.
-- **The claude pane's colour system, since the owner asked for it:** clay
-  (`--claude-clay`, Claude's own) = MEASURED, what Claude reports it spent ·
-  green = free/available · ฝ่าย colours = booked by a person · amber
-  (`--claude-part`) = partly booked · red = none left. The capacity ramp's
-  middle was `--brand-orange` and had to move to amber, because orange sits one
-  hue-step from clay and "partly booked" started looking like "actually used".
-- ⚠️ **The claude pane has TWO TIME SCOPES and they are not interchangeable.**
-  The hero (`ใช้ได้เลยตอนนี้`) is about NOW; the week card is about the week the
-  arrows landed on. 0156 exists because the card was reading `right_now` — it
-  agreed on the current week and was wrong on every other. A future week
-  measures **NULL, not 0**: a zero draws an empty bar and reads as a reading.
-- ⚠️ **`get_claude_board()` grows superlinearly with bookings** — measured
-  2026-08-16: ~25 ms at 7 bookings in a week, ~37 at 19, ~65 at 24, ~100 at 30.
-  `claude_free_windows()` calls `claude_free_now()` once per boundary and the
-  boundaries grow with the bookings, so it is O(bookings²)-ish, and the board
-  polls every 60 s per open admin tab. Fine at this feature's real scale (a
-  handful a week) — recorded so nobody rediscovers it in production. If a week
-  ever carries ~50 bookings, hoist the settings/sample reads out of
-  `claude_free_now()` or compute the bands in one pass.
-- `claude0157-rail-segments.sql` (8/8) — the calendar's capacity rail. Asserts
-  the PROPERTY ("the answer does not change inside a band") rather than a list
-  of boundaries, **because the bug WAS a wrong list**: 0155's header named four
-  instants where the answer can change and the code's `union` had three. A
-  guard restating that list would have passed. Falsified against both original
-  bugs. ⚠️ Its §B taught the other half — the first draft asserted that every
-  band's END still earns that band's number and three bands failed; the
-  ASSERTION was wrong. Only `booking_start − 5h` carries "you may still start
-  AT this instant"; at a window reset or a booking's start/end the later value
-  already applies.
-- `claude0159-window-share.sql` (32/32) — **the booking guard's window rule**,
-  and since 0160 the open-window rule too. **§C3 went RED the moment 0160
-  landed**, because it still asserted the old clamp ("40% is accepted"). That is
-  the right way round: the guard noticed the behaviour change before the author
-  did.
-  A→B are the owner's two cases (100% blocks everything after `start − 5h`;
-  50% leaves 50% for whoever starts after it), C is the live-window anchor with
-  its no-sample CONTROL, D is nothing-else-moved, E is the privileges.
-  FALSIFIED by restoring the 0154 guard verbatim inside the transaction: it
-  reddens exactly A3–A6, B2, B4, C2 and nothing else.
-  ⚠️ Its first draft was CUMULATIVE and an earlier allowed row made a later case
-  deny for the WRONG reason; §C's sample injection also poisoned §D until §C was
-  moved last. Both were green. Isolation is the assertion.
-- `claude0155-free-now.sql` (21/21) — "how much may I use right now, until
-  when". Its §A is the owner's three worked examples verbatim; §B1 holds the
-  branch they never reach (an ALREADY-OPEN 5-hour window comes from the
-  MEASUREMENT, not the clock) and §B2 is the unconstrained control. FALSIFIED
-  2026-08-16 by injecting two bugs — dropping the weekly term reddens A3 only,
-  anchoring the window to the clock reddens B1/B1b only.
-- `claude0154-quota-guard.sql` (20/20) — the จองโควตา Claude caps. Written and
-  FALSIFIED on 2026-08-16: with the trigger disabled and the exclusion
-  constraint dropped, D1/D2/D4/D5 flip red and D3 stays green (it is the CHECK
-  constraint, a different mechanism), which is what says each case is held by
-  the thing it names.
+**Full per-proof narrative — what each cost, how its subject is chosen, and the
+traps in reading it — is in `docs/state-archive/2026-08-16-live-proofs.md`. Read
+the entry for the proof you are about to touch.** One line each here:
+
+- `authz-sweep-identity.sql` (23/23) — the identity boundary. Run after ANY
+  policy change on `users`/`people`/`students`/`team_members`.
+- `claude0154-quota-guard.sql` (20/20) — the จองโควตา Claude caps.
+- `claude0155-free-now.sql` (22/22) — "how much may I use now, until when".
+- `claude0157-rail-segments.sql` (10/10) — the rail's bands are CONSTANT and its
+  edges are deadlines. Asserts the property, not a list of boundaries.
+- `claude0159-window-share.sql` (32/32) — the window rule, and since 0160 the
+  open-window rule.
+- `claude0161-rail-guard-parity.sql` (10/10) — **the rail and the trigger derive
+  the SAME window.** A DIFFERENTIAL over every quarter-hour of the week.
 - `pr0149-delete-permission.sql` (12/12) · `shop0150-buyer-contact.sql` (10/10) ·
   `house0116-authz.sql` · `house0144-delete-impact.sql` (18/18) ·
   `house0145-duplicate-person.sql` · `house0146-crest-refcount.sql` ·
@@ -206,9 +150,27 @@ Run the one covering what you touch. All are both-directional.
   `house0132-registry.mjs` · `proj0092-seat-parity.mjs` ·
   `team0135-name-split.mjs` · `team0137-search.mjs` · `grant0093-reads.mjs` ·
   `team0143-photo-refcount.mjs`
-- ⚠️ **`shop0150`'s subject is MANUFACTURED** — all six real orders belong to
-  shop ADMINS and the guard early-returns for one, so a proof that picks a real
-  order reports that a buyer may set the total to ฿1.
+
+⚠️ **Two subjects that are not what they look like**, both paid for:
+`shop0150`'s is MANUFACTURED (every real order belongs to a shop ADMIN, for whom
+the guard early-returns, so a proof picking a real order reports that a buyer may
+set a total to ฿1), and `house0144`'s picker must mirror the function's own `if`
+or it selects nobody and ERRORS — which is silence, not a failure.
+
+**The claude pane's colour system, since the owner asked for it:** clay
+(`--claude-clay`, Claude's own) = MEASURED · green = free/available · ฝ่าย
+colours = booked by a person · amber (`--claude-part`) = partly booked · red =
+none left. The ramp's middle moved off `--brand-orange` because orange sits one
+hue-step from clay and "partly booked" started looking like "actually used".
+
+⚠️ **The claude pane has TWO TIME SCOPES and they are not interchangeable.** The
+hero (`ใช้ได้เลยตอนนี้`) is about NOW; the week card is about the week the arrows
+landed on. A future week measures **NULL, not 0** — a zero draws an empty bar and
+reads as a reading.
+
+⚠️ **`get_claude_board()` grows superlinearly with bookings** — ~25 ms at 7/week,
+~100 ms at 30, polled every 60 s per open tab. Fine at this feature's real scale;
+recorded so nobody rediscovers it in production.
 
 ## จองโควตา Claude — security posture
 
@@ -290,6 +252,37 @@ change, never on the slider) · `get_claude_board()` draws each window's
 remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
 that and is deleted.
 
+### 0161 — the RAIL is a fourth reader of the window rule, not a second author
+
+Reported: *"i book 16.00-19.00 for 75% … it shouldnt show the rail as 100% in
+that 25%"*. `claude_free_now()` derived its 5-hour window from the CLOCK while
+the trigger's `claude_window_loads()` derived it from the BOOKING CHAIN, so in
+the tail of any window a booking had opened the rail offered a fresh 100% and
+the trigger refused anything over the real remainder. **0154 claimed "the
+arithmetic has exactly one home and it is the database" — and then the database
+grew a second copy. "One home" has to mean one FUNCTION, not one tier.**
+`claude_free_now()` now asks `claude_window_loads()`, exactly as the guard does.
+
+Two things that follow:
+
+- **The rail gained a boundary**: `booking_start + 5h`. Added to
+  `claude_free_windows()`' union as a deliberate SUPERSET; the client merges
+  adjacent equal bands (`mergeBands()` in `claude/week.js`).
+- ⛔ **The rewrite REVERTED 0158** — it was built from the 0155 migration text
+  instead of the live function body, and `least(p_at, v_now)` went back to
+  `p_at`. `claude0155 §C3` caught it within a minute. **`create or replace` over
+  a function several migrations have edited undoes all of them at once.**
+
+**The calendar's three UI rules, since the owner asked for each by name:**
+a booking card shows the **time RANGE** (not just the start), the name, and the
+percentage — the REASON is in the modal and the tooltip only. Under it, a
+**dashed box open at the top** covers exactly the time still fillable in that
+5-hour window, green with "ว่าง N% · ถึง HH:MM", **red "เต็ม"** when the time is
+free but the quota is not, and **absent entirely** when a booking fills its whole
+window (nobody can fill anything, so the mark would be decoration). The capacity
+rail is **no longer drawn inside a window at all** — the block and the box answer
+it there, and a third mark saying the same number was what read as wrong.
+
 ⚠️ **THE PANE HAD ONLY EVER BEEN OPENED ON A LAPTOP.** Six bugs in this feature
 were phone-only and every one was invisible in the stylesheet: a tag positioned
 where the block always covers it · an absolute percentage colliding with a
@@ -299,6 +292,17 @@ an overlay lane taken OUT of the block instead of ADDED to the grid · a
 that only opens on touch (desktop needs `showPicker()`).
 **Render at 390 / 834 / 1440 before claiming a layout change works**, and assert
 `scrollWidth - clientWidth === 0` per element rather than reading the CSS.
+⚠️ **THE MEDIA QUERIES ON THE BOOKING CARD WERE ON THE WRONG NUMBER** and had
+been since they were written: they said 767.98, but `.claude-cal-grid` has
+`min-width: 940px` and the calendar SCROLLS sideways rather than squeezing, so
+the card is ~81px at EVERY viewport below 940 — an iPad at 834 got the desktop
+font in a phone-sized card. They are 939.98 now. **On this grid the breakpoint
+belongs on the COLUMN, not the viewport.**
+⚠️ **The browser harness must load `src/admin.css`, NOT `src/main.css`** —
+`claude.css` is `@import`ed by the admin entry only. Pointed at the public one
+the pane renders completely unstyled and the probe reports zero overflow, which
+looks exactly like a pass. Assert the stylesheet applied (a computed
+`--claude-lane`, a `dashed` border) as a CONTROL in every run.
 Also measured: the END time cannot be drawn as text at ANY width (77px + 34px
 against a 96px head), and a ONE-pixel shortfall renders as `0…`, not as a tight
 line — "fits" has to mean "with headroom".
@@ -343,28 +347,35 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin == VM == `0946ae5`; migrations through **0160**; **1093 tests
-> green**. ⚠️ **Run `npm run proofs` FIRST** — only the four claude proofs were
-> run on 2026-08-16; the other fourteen date from 2026-08-15.
+> Migrations through **0161**; **1110 tests green**; **all 20 proofs green**.
 >
 > ### What the last session was
 >
-> **จองโควตา Claude, second pass: one real bug, then ten owner reports in a
-> burst — most of them from a PHONE.** Two migrations (0159, 0160), four
-> deploys. **Read the "จองโควตา Claude" section above before touching
-> `/admin#claude`.** The three things in it that cost real money to learn:
+> **One bug and one UI ask on จองโควตา Claude, both from the owner testing
+> live.** Migration 0161 + a frontend pass. **Read the "จองโควตา Claude" section
+> above before touching `/admin#claude`** — its §0161 has the three things that
+> cost real time:
 >
-> 1. **The window rule (0159)** — for every 5-hour window opened in the chain,
->    the bookings overlapping it may not claim >100% together. It is a property
->    of the SET, so it cannot depend on insert order. **The straddle rule is
->    deleted; do not put it back**, in SQL or in `limitsFor()`.
-> 2. **⛔ An OPEN window is not bookable AT ALL (0160)** — not even its
->    remainder. Do not "improve" this back into a clamp; the ⛔ block above has
->    the owner's own numbers and the reason.
-> 3. **The pane had only ever been opened on a laptop**, and six bugs were
->    phone-only. **Render at 390 / 834 / 1440 before claiming a layout change
->    works**, and assert `scrollWidth - clientWidth === 0` per element rather
->    than reading the CSS.
+> 1. **The rail was a SECOND author of the window rule.** `claude_free_now()`
+>    took its 5-hour window from the CLOCK; the trigger's
+>    `claude_window_loads()` takes it from the booking chain. 0154 had claimed
+>    the arithmetic lived in exactly one home, and the database then grew two.
+>    **"One home" means one FUNCTION, not one tier.**
+> 2. **The rewrite silently REVERTED 0158**, because it was built from the 0155
+>    migration text rather than the live function body. `claude0155 §C3` went
+>    red within a minute. `create or replace` over a function several migrations
+>    have edited undoes all of them at once, and nothing warns you.
+> 3. **The booking card's media queries were on the wrong number** — 767.98,
+>    when `.claude-cal-grid` has `min-width: 940px` and SCROLLS sideways. The
+>    card is ~81px at every viewport below 940, so an iPad got a desktop font in
+>    a phone-sized card. **On this grid the breakpoint belongs on the COLUMN,
+>    not the viewport**; and the browser harness must load `src/admin.css` or
+>    the pane renders unstyled and every overflow probe passes vacuously.
+>
+> ⚠️ **Everything the PREVIOUS session learned (0159 + 0160, ten owner reports,
+> six phone-only bugs) is still in the "จองโควตา Claude" section above — the
+> window rule, "an open window is not bookable at all", and the 390/834/1440
+> rule. None of it was superseded.**
 >
 > ### What is owed
 >
@@ -405,9 +416,11 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > - **A browser harness inlines `src/html/*.html` at generation time.** Edit the
 >   partial, re-run the probe, and it reads the STALE copy and reports the old
 >   text as if it shipped. Regenerate the harness after every partial edit.
-> - **`str.index("## NEXT-SESSION PROMPT")` finds the mention in the INTRO, not
->   the heading**, and a slice built on it truncates this file. It happened
->   twice. Use `rindex`, or an anchor that appears once.
+> - **Slicing this file on `"## NEXT-SESSION PROMPT"` fails in BOTH directions.**
+>   `index()` finds the mention in the INTRO and truncates the file (twice).
+>   `rindex()` finds the mention in THIS trap list, which sits after the
+>   subsections you were trying to reach, and the slice then raises. Anchor on
+>   `"## NEXT-SESSION PROMPT (paste"` — the only occurrence that appears once.
 >
 > ### How this repo wants you to work
 >

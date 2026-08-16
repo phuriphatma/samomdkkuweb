@@ -1111,7 +1111,21 @@ week bounds, settings, bookings (each with its own `window_ends_at` /
 sample. `claude_booking_limits(start, end, id)` is the second gated read: the
 booking form calls it on a RANGE change (never on the slider — `max_pct` does not
 depend on the pct asked for) to cap the slider, name who shares the window and
-warn about a late start. One implementation, three readers. `claude_sessions()`,
+warn about a late start. One implementation, three readers.
+
+⚠️ **`claude_free_now()` is a FOURTH reader of `claude_window_loads()`, and must
+stay one (0161).** It answers "how much may I use right now, without booking",
+which is the same question the trigger refuses with — so it asks
+`claude_window_loads(null, t, t+1µs, 0)` which windows contain the instant and
+takes the heaviest, exactly as the guard does. Until 0161 it derived its own
+window from the CLOCK, and in the tail of any window a booking had opened it
+offered a fresh 100% while the trigger refused anything over the real remainder.
+`claude_free_windows()` walks it over the week for the calendar rail; its
+boundary union must therefore include `booking_start + 5h` (the window's reset)
+as well as `starts_at`, `ends_at` and `starts_at − 5h`. Guarded by
+`tools/claude0161-rail-guard-parity.sql`, a differential over the whole week.
+
+`claude_sessions()`,
 `claude_window_loads()`, `claude_free_now()`, `claude_free_windows()` and
 `claude_week_start()` are SECURITY DEFINER over the whole table and are
 **revoked from `authenticated`** — only the trigger and the gated board RPC

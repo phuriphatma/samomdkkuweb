@@ -38,11 +38,25 @@ export const TOPICS = [
 
 const MAX = 120;
 
-/** The heading, trimmed to a scannable symptom line. Deterministic. */
+/**
+ * The heading, trimmed to a scannable symptom line. Deterministic.
+ *
+ * ALWAYS cut at the ` — ` separator, not only when the line is over MAX.
+ * Headings here are "<claim> — <elaboration>", the file's own rule is to LEAD
+ * with the symptom as reported because that is what the next reader greps for,
+ * and the elaboration is in the write-up two seconds away. Keeping it in the
+ * always-loaded layer charges every future session for a sentence nobody
+ * searches on.
+ *
+ * ⚠️ THE CUT IS AT A SEPARATOR, NEVER AT A BYTE COUNT. A byte cap on this index
+ * was tried once and REVERTED, because `check-context-budget.mjs` measures
+ * BYTES, Thai costs 3 per character, and the truncation landed mid-word in
+ * exactly the Thai symptom lines the index exists for. A word boundary has no
+ * such failure mode. `claim.length >= 36` keeps the elaboration whenever the
+ * claim alone is too short to identify the entry.
+ */
 export function shorten(heading) {
   const full = heading.trim();
-  if (full.length <= MAX) return full;
-  // Too long: headings are "<claim> — <elaboration>", and the claim is the symptom.
   const claim = full.split(' — ')[0].trim();
   const s = claim.length >= 36 ? claim : full;
   if (s.length <= MAX) return s;

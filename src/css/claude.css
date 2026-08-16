@@ -237,43 +237,48 @@
 }
 .claude-dead.is-before .claude-dead-label { top: auto; bottom: 4px; }
 
-/* The 5-hour session frame. */
-/* A BRACKET, not a box. It used to be a rounded, filled, bordered rectangle —
-   the same visual weight as a booking card — so the part of it hanging BELOW a
-   short booking read as an empty second booking. Reported from a phone as
-   "something weird in the box booking behind". A bracket cannot be mistaken for
-   a card, and it says the right thing: this stretch is one span, and the empty
-   part of it is what nobody has claimed. */
-.claude-session {
+/* ---------- the fillable remainder of a 5-hour window ---------- */
+/* A DASHED BOX, OPEN AT THE TOP. This replaced a bracket that framed the whole
+   window, blocks and all, and captioned it "เหลือ 25%". The bracket described
+   the window; the question people bring is "can I put something HERE" — so the
+   mark is now drawn over exactly the time that is still free, three sides, in
+   the outline every calendar already uses for an empty slot.
+
+   The missing top edge is load-bearing, not a style: a window is OPENED by a
+   booking, so a gap always hangs off the bottom of one, and the open edge says
+   "this is the rest of that block's pot", not "a second, empty thing" — which
+   is precisely how the old filled frame was misread ("something weird in the
+   box booking behind").
+
+   It is drawn ONLY where there is time AND quota to fill; paintGrid() decides,
+   and the reasoning is there. */
+.claude-gap {
   position: absolute; left: var(--claude-lane); right: 2px; z-index: 2;
-  pointer-events: none;
-  border: 0; border-left: 3px solid var(--claude-band-line);
-  border-radius: 0; background: none;
+  pointer-events: none; border-radius: 0 0 4px 4px;
+  /* Not --claude-band-line (0.22 alpha): a dashed edge shows less ink than a
+     solid one of the same colour, so the tint that read as a frame reads as
+     nothing as a dash. Measured on screen, not guessed from the value. */
+  border: 1.5px dashed rgba(16, 89, 34, 0.45); border-top: 0;
+  background: rgba(16, 89, 34, 0.045);
 }
-.claude-session::before,
-.claude-session::after {
-  content: ''; position: absolute; left: 0; width: 10px; height: 2px;
-  background: var(--claude-band-line);
+/* A gap that runs past midnight: the bottom edge is the window's REAL end, so
+   the piece that stops at 24:00 must not draw one. */
+.claude-gap.is-cut-b { border-bottom: 0; border-radius: 0; }
+/* The time is free and the quota is NOT. Red, because a box that looked
+   fillable would invite the booking the guard is about to refuse. */
+.claude-gap.is-none {
+  border-color: #b42318; background: rgba(180, 35, 24, 0.05);
 }
-.claude-session::before { top: 0; }
-.claude-session::after { bottom: 0; }
-/* The tail is where the tag goes — see the comment in paintGrid(). Bottom, not
-   top: a window OPENS at a booking's start, so the top is always covered by the
-   block that opened it and the tag was invisible in every real case. */
-.claude-session-tag {
+/* Bottom, not top: the top edge of a gap is always under the block that opened
+   the window, so a tag there is covered in every real case. */
+.claude-gap-tag {
   position: absolute; bottom: 1px; left: 5px; max-width: calc(100% - 7px);
   font-size: 0.62rem; font-weight: 600; color: var(--brand-primary);
   background: #fff; border: 1px solid var(--claude-band-line);
   border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.claude-session.is-full { border-left-color: #b42318; }
-.claude-session.is-full::before,
-.claude-session.is-full::after { background: #b42318; }
-.claude-session.is-full .claude-session-tag { color: #b42318; border-color: #b42318; }
-/* A session that crossed midnight: same frame, continued in the next column. */
-.claude-session.is-cont { border-left-width: 1px; border-left-style: dashed; }
-.claude-session.is-cont::before { display: none; }
+.claude-gap.is-none .claude-gap-tag { color: #b42318; border-color: #b42318; }
 
 /* A booking. */
 .claude-bk {
@@ -297,18 +302,37 @@
 .claude-bk .claude-bk-head {
   display: flex; align-items: baseline; gap: 4px; width: 100%;
 }
+/* THE RANGE GETS ITS OWN LINE. "16:00–19:00" wants ~77px and "100%" another
+   ~34 — they do not both fit on one row of a ~90px card at any width that does
+   not mean scrolling a 1300px grid sideways on a phone, which is why the end
+   time used to be dropped entirely. Stacked, each has the full width and
+   neither has to be truncated. */
 .claude-bk .claude-bk-t {
-  font-weight: 700; font-variant-numeric: tabular-nums;
-  flex: 1 1 auto; min-width: 0;
+  display: block; font-weight: 700; font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .claude-bk .claude-bk-n {
-  display: block;
+  flex: 1 1 auto; min-width: 0;
   color: #495057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .claude-bk .claude-bk-p {
   flex: 0 0 auto; margin-left: auto;
   font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.7rem;
+}
+/* A 45-minute block on a phone is ~28px: two lines still fit, at a smaller
+   size. Shrinking beats dropping the name — the tier below this one already
+   drops it, and there is no reason to reach that tier early. */
+.claude-bk.is-tight { padding: 1px 5px; line-height: 1.15; }
+.claude-bk.is-tight .claude-bk-t,
+.claude-bk.is-tight .claude-bk-n,
+.claude-bk.is-tight .claude-bk-p { font-size: 0.58rem; }
+/* Two stacked lines with no padding at all — an 18px card (a 15-minute block)
+   holds exactly that and nothing more. The percentage becomes a block so it
+   sits under the range instead of beside it; see bookingLayout(). */
+.claude-bk.is-micro { padding: 0 4px; line-height: 1.05; }
+.claude-bk.is-micro .claude-bk-t,
+.claude-bk.is-micro .claude-bk-p {
+  display: block; font-size: 0.55rem; margin-left: 0;
 }
 .claude-bk.is-mine {
   outline: 1.5px solid var(--claude-c, var(--brand-primary)); outline-offset: -1.5px;
@@ -970,7 +994,7 @@ svg.claude-mark {
 .claude-cal-shell.is-hist .claude-daycol { --claude-hist-w: 18px; }
 .claude-cal-shell.is-hist .claude-bk,
 .claude-cal-shell.is-hist .claude-sel { right: calc(var(--claude-hist-w, 0px) + 5px); }
-.claude-cal-shell.is-hist .claude-session { right: calc(var(--claude-hist-w, 0px) + 2px); }
+.claude-cal-shell.is-hist .claude-gap { right: calc(var(--claude-hist-w, 0px) + 2px); }
 
 /* Width IS the reading: a 15-minute slice at 60% draws 60% of the lane. Read
    top to bottom the column is an area chart of the 5-hour window filling and
@@ -1035,35 +1059,46 @@ svg.claude-mark {
 }
 .claude-tab .claude-note.warn strong { color: #6b4e00; }
 
-/* A 95px day cannot carry "เหลือ 50% · ถึง 13:00"; clipped, it reads as a WRONG
+/* ⚠️ 940, NOT 768, AND THIS IS THE MEASUREMENT THAT MATTERS ON THIS GRID.
+   `.claude-cal-grid` has `min-width: 940px` and the calendar SCROLLS sideways
+   rather than squeezing its columns, so a day column is ~112px and a booking
+   card ~81px at EVERY viewport below 940 — an iPad at 834 gets exactly the same
+   card a phone at 390 does. The old 767.98 queries therefore did not apply on a
+   tablet, and it was measured overflowing: "16:00–21:00" by 11px and
+   "ว่าง 25% · ถึง 21:00" by 28px. The viewport is not the constraint; the
+   column is, and the column stops changing at 940. */
+
+/* A 110px day cannot carry "ว่าง 25% · ถึง 21:00"; clipped, it reads as a WRONG
    number rather than a short one. The percentage is the half that must survive,
    so the time is dropped rather than truncated. The full sentence stays in the
-   frame's title. */
-@media (max-width: 767.98px) {
-  .claude-session-until { display: none; }
+   box's title. */
+@media (max-width: 939.98px) {
+  .claude-gap-until { display: none; }
 }
-
-/* THE END TIME IS NOT DRAWN AS TEXT, at any width, and this is measured rather
-   than preferred. "10:00–11:45" wants 77px on its own and the percentage wants
-   another 34px; the head is 96px on a DESKTOP day column and 66px on a phone.
-   There is no width at which both fit that does not mean scrolling a 1300px
-   grid sideways on a phone.
-   So the end goes, because it is the one of the three that is already on
-   screen: the block's HEIGHT is its duration and its bottom edge is its end.
-   The percentage and the start time survive at every width, the full range is
-   in the tooltip, and the modal has all of it. This is also what every calendar
-   people already use does with a compact event. */
-.claude-bk .claude-bk-t2 { display: none; }
 
 /* HEADROOM, not an exact fit. At 0.66rem "10:00" is 32px and "100%" is 33px in
    a 66px head with a 2px gap — one pixel short, and a one-pixel shortfall does
    not render as a slightly tight line, it renders as "0…", because the ellipsis
-   needs room of its own. 0.62rem leaves ~5px spare, which is what "fits" has to
-   mean when the content is variable ("100%" is wider than "5%"). */
-@media (max-width: 767.98px) {
+   needs room of its own. 0.62rem leaves spare, which is what "fits" has to mean
+   when the content is variable ("100%" is wider than "5%").
+
+   The RANGE now has a row to itself (see .claude-bk-t), which is what bought
+   the room for it: at 0.62rem "16:00–19:00" is ~62px in a ~90px card. */
+@media (max-width: 939.98px) {
+  .claude-bk { padding: 2px 5px; }
   .claude-bk .claude-bk-head { font-size: 0.62rem; gap: 2px; }
   .claude-bk .claude-bk-p { font-size: 0.62rem; }
   .claude-bk .claude-bk-n { font-size: 0.62rem; }
+  /* The RANGE is the longest string on the card and the one that must not be
+     truncated, so it gets the smaller size rather than the ellipsis: at 0.62rem
+     "16:00–21:00" measured 68px inside a 69px box — a one-pixel shortfall,
+     which renders as "16:00–21:0…", not as a tight line. */
+  .claude-bk .claude-bk-t { font-size: 0.56rem; }
+  .claude-bk.is-tight .claude-bk-n,
+  .claude-bk.is-tight .claude-bk-p { font-size: 0.55rem; }
+  .claude-bk.is-tight .claude-bk-t,
+  .claude-bk.is-micro .claude-bk-t,
+  .claude-bk.is-micro .claude-bk-p { font-size: 0.53rem; }
 }
 
 /* The bar's third segment. It used to be the bare grey track, so "free" was the

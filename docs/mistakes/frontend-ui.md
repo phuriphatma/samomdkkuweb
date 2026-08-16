@@ -2523,3 +2523,99 @@ position.* Anything anchored to a container whose contents are generated —
 "top-right of the frame", "start of the range", "the first row" — has a
 neighbour by construction, and the geometry that makes the container exist is
 usually the geometry that fills that corner.
+
+---
+
+## "it shows only 16.00 not 16.00-21:00" — the end time was dropped at every width, on a measurement taken against the wrong breakpoint
+
+**Symptom.** Two asks in one message: *"The booking in calendar should show time
+when to when, currently it shows only 16.00 not 16.00-21:00, with name, no need
+for reason why booking."*
+
+**Cause.** `.claude-bk-t2` carried `display: none` unconditionally, and the
+comment above it recorded the measurement that put it there: `"10:00–11:45"`
+wants 77px and `"100%"` another 34, against a 96px head. Both numbers were
+right. The conclusion was not — it assumed the two had to share a ROW. Given a
+line of its own the range fits at every width the grid produces.
+
+The reason was on the block because there was nothing else on that line; it was
+also the thing pushing the name into an ellipsis, and it is never the question
+somebody scanning a week is asking.
+
+**Fix.** Three height tiers, chosen in JS from the block's MEASURED height
+(`bookingLayout()` in `claude/week.js`) rather than by a media query, because the
+constraint is the block's height — duration × `--claude-hour-h` — and that
+variable moves with "พอดีจอ", the mobile breakpoint and a tablet rotation. A
+stylesheet cannot ask how tall an element is. `full` and `tight` stack the range
+over `name + %`; `micro` (under 28px, a 15-minute block) stacks range over `%`
+and sends the name to the tooltip. The range survives every tier.
+
+⚠️ **THE MEDIA QUERIES WERE ON THE WRONG NUMBER, AND HAD BEEN ALL ALONG.** They
+said `max-width: 767.98px`. But `.claude-cal-grid` has `min-width: 940px` and
+the calendar SCROLLS SIDEWAYS rather than squeezing its columns — so a day
+column is ~112px and a booking card ~81px at EVERY viewport below 940. An iPad
+at 834px got the desktop font in a phone-sized card. Measured in the browser:
+`"16:00–21:00"` overflowed by 11px and `"ว่าง 25% · ถึง 21:00"` by 28px, neither
+visible in the stylesheet. The breakpoint is now 939.98.
+
+⚠️ **A first version of `micro` put the range and the percentage in one flex
+row** — 86px of content in a 71px card. Two short lines fit where one long one
+does not.
+
+**Where it lives now.** `bookingLayout()` in `src/js/claude/week.js` (pure, with
+a MONOTONE property test: a taller block may never get a poorer layout), the
+`.claude-bk.is-full/.is-tight/.is-micro` rules in `src/css/claude.css`.
+
+**The general rule.** *The breakpoint belongs on the quantity that actually
+constrains the text, and on this grid that is the COLUMN, not the viewport.* A
+container with a `min-width` that scrolls decouples the two completely, and a
+viewport media query on such a layout is a guess that happens to be right on one
+device. Assert `scrollWidth - clientWidth === 0` per element in a real browser at
+390 / 834 / 1440 — and check first that the stylesheet under test is even
+loaded, since `claude.css` is `@import`ed by `src/admin.css` and a harness
+pointed at `src/main.css` renders the pane unstyled and reports zero overflow.
+
+---
+
+## The 5-hour frame described the window; people were asking what they could put in it
+
+**Symptom.** *"like i book 16.00-19.00 for 75%, it should show being dash box
+(three sides) for 25% that can be filled … and if like people book 100%
+16.00-19.00 just show the dashline as red but if that person book any% like 70%
+100% full 5 hours, you dont need to show dash line because no one would be able
+to fill in during that period."*
+
+**Cause.** The session bracket framed the WHOLE 5-hour window — blocks included
+— and hung a tag off the bottom reading "เหลือ 25%". It was an accurate
+description of a rectangle. The question people bring to a calendar is *can I
+put something HERE, and how much?*, and answering it off that mark required
+knowing that the window is five hours, that the block inside it is three, and
+subtracting. It was also drawn over windows where the answer is "nothing, ever",
+because a booking filling all five hours leaves quota with no time to spend it
+in.
+
+**Fix.** Draw the mark over exactly what is still fillable: the window's time
+MINUS every booking in it, and only when that stretch has both free TIME and
+free PERCENT. Both halves are load-bearing — 3h at 75% leaves 2h and 25%, 3h at
+100% leaves 2h and nothing (red), 5h at 70% leaves 30% and no time at all
+(nothing drawn). A dashed outline, open at the top: a window is OPENED by a
+booking, so a gap always hangs off the bottom of one, and the open edge says
+"the rest of that block's pot" rather than "a second, empty thing" — which is
+exactly how the old filled frame was misread once already ("something weird in
+the box booking behind").
+
+The capacity rail is no longer drawn inside a window either. Its question is
+"start here and take this much WITHOUT booking", and inside a window the block
+and the dashed box already answer it; a third mark saying the same number two
+pixels away is what the owner was reading as wrong.
+
+**Where it lives now.** `gaps` / `.claude-gap` in `src/js/claude/paintGrid()`
+and `src/css/claude.css`; `carve()` in `claude/week.js`, now shared with the
+rail instead of being a closure serving one caller.
+
+**The general rule.** *Draw the answer, not the object.* A mark whose geometry
+IS the answer needs no caption and cannot be read off by the wrong arithmetic;
+a mark that describes a container makes every reader do the subtraction, and
+some of them will do it wrong. The test for whether a mark has earned its place
+is whether there is a case where it should not appear at all — if there is none,
+it is decoration.
