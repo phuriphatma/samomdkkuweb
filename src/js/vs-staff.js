@@ -5,7 +5,7 @@
 import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText } from './utils.js';
 import { db, dbRest } from './db.js';
 import { sendNotify } from './notify.js';
-import { getUser as authGetUser } from './auth.js';
+import { getUser as authGetUser, holdsMaster } from './auth.js';
 import { MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
 
 const DONE_STATUS = 'เสร็จสิ้น';
@@ -131,7 +131,12 @@ const ALL_DEPTS = '__all__';
  *  from either the manual or the tree-managed channel). Mirrors the SQL
  *  `current_user_vs_scope() is null` branch (migration 0083). */
 function isVsSuper(u = authGetUser()) {
-  return !!u && (u.role === 'vs_staff' || u.role === 'dev'
+  // `holdsMaster(u)` mirrors the DB: current_user_vs_scope() returns null (super)
+  // for has_permission('vs'), and has_permission folds `master` — so a master
+  // holder already reads every ticket under RLS. Without this the frontend hid
+  // the full-VS controls from someone the database treats as super (the
+  // frontend/DB mismatch class).
+  return !!u && (u.role === 'vs_staff' || u.role === 'dev' || holdsMaster(u)
     || (Array.isArray(u.permissions) && u.permissions.includes('vs'))
     || (Array.isArray(u.managedPermissions) && u.managedPermissions.includes('vs')));
 }

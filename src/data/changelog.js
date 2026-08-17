@@ -152,6 +152,10 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'fixed', area: 'account', audience: 'staff',
+    text: 'ผู้ดูแลที่มีสิทธิ์ “ทุกระบบ” (ฝ่าย IT) กลับมาเห็นปุ่มส่งงาน PR และ '
+    + 'VitalSound แบบไม่แจ้งเตือน Discord และเห็นทุกฝ่ายในหน้า VitalSound '
+    + 'เหมือนเดิม จากเดิมที่ปุ่มเหล่านี้หายไปเมื่อเข้าด้วยบัญชีส่วนตัวแทนบัญชีรวมของฝ่าย', },
   { type: 'improved', area: 'claude', audience: 'staff',
     text: 'ข้อตกลงการใช้ Claude เพิ่มคำแนะนำช่วยประหยัดโควตาให้ทีม — '
     + 'งานเบา ๆ ให้เลือกโมเดลเล็กอย่าง Sonnet หรือ Haiku และถ้าจะพักงาน '

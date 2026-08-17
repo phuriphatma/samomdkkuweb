@@ -17,7 +17,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, getUser as authGetUser, userCanAccess } from './auth.js';
+import { initAuth, onAuthChange, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
@@ -692,9 +692,13 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('d-none', !userCanAccess(feature, user));
     });
 
-    // Dev-only features
+    // Dev-only features (the "ไม่ส่งแจ้งเตือน Discord" toggle on the PR + VS
+    // forms). Shown to the `dev` ROLE and to any `master` holder — master is the
+    // ทุกระบบ key held by ฝ่าย IT, so it must carry the same maintenance
+    // affordances the dev role does. `role === 'dev'` alone missed every master
+    // account (they are role='user' with master in managed_permissions).
     document.querySelectorAll('.dev-only-feature').forEach((el) => {
-      el.classList.toggle('d-none', role !== 'dev');
+      el.classList.toggle('d-none', role !== 'dev' && !holdsMaster(user));
     });
 
     // Home page
