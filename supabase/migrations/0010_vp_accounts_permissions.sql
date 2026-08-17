@@ -96,7 +96,7 @@ on conflict (username) do nothing;
 --
 -- 1. In Supabase Dashboard → Authentication → Users → Add user,
 --    create the 9 new accounts with the emails below + password.
---    Suggested pattern: 'samo69<short>' (e.g. samo69digital).
+--    Suggested pattern: '«a strong password» (NOT the retired samo69* pattern).
 --
 -- 2. Run these UPDATE statements to set role/department/permissions:
 --

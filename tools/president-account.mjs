@@ -61,10 +61,14 @@ const supabase = createClient(TARGET_URL, SERVICE_KEY, {
 
 // ---------- the account ----------
 
+// RETIRED 2026-08-17 — this shared dev-level account was DELETED
+// permanently (2026-08-17). The นายกสโม now signs in with their
+// personal @kkumail.com via ทีม SAMO (master/team). Password is NO LONGER
+// hardcoded (public repo); `seed` reads PRESIDENT_SEED_PASSWORD and refuses
+// without it, so this tool cannot re-create the account with a leaked password.
 const PRESIDENT = {
   username:   'samomdkkupresident',
   email:      'samomdkkupresident@samomdkku.app',
-  password:   'samo69president',
   role:       'dev',          // full access — "permission like dev"
   department: 'นายกสโม',       // VS dashboard defaults its dept filter to this
 };
@@ -103,6 +107,13 @@ async function confirmTarget(action) {
 }
 
 async function seed() {
+  const SEED_PW = env.PRESIDENT_SEED_PASSWORD;
+  if (!SEED_PW) {
+    console.error('refusing to seed: samomdkkupresident was DELETED 2026-08-17 (permanently retired).');
+    console.error('Set PRESIDENT_SEED_PASSWORD to a strong, non-public value to recreate it.');
+    console.error('Do NOT reuse the old samo69president password.');
+    process.exit(2);
+  }
   await confirmTarget('seed president');
 
   let user = await findUserByEmail(PRESIDENT.email);
@@ -111,7 +122,7 @@ async function seed() {
   } else {
     const { data, error } = await supabase.auth.admin.createUser({
       email: PRESIDENT.email,
-      password: PRESIDENT.password,
+      password: SEED_PW,
       email_confirm: true,
       user_metadata: {
         username: PRESIDENT.username,

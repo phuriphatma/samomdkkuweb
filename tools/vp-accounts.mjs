@@ -78,17 +78,23 @@ const supabase = createClient(TARGET_URL, SERVICE_KEY, {
 
 // ---------- canonical VP roster ----------
 
+// RETIRED 2026-08-17 — these 10 shared VP accounts were DELETED
+// permanently (2026-08-17). VPs now sign in with their personal
+// @kkumail.com via ทีม SAMO managed permissions. Passwords are NO LONGER
+// hardcoded here (this repo is PUBLIC): `seed` reads VP_SEED_PASSWORD from the
+// environment and refuses to run without it, so this tool can never silently
+// re-establish the retired shared logins with a known password.
 const VPs = [
-  { username: 'samomdkkuvpa',        email: 'samomdkkuvpa@samomdkku.app',        password: 'samo69vpa',        dept: 'อุปนายกฝ่ายบริหารองค์กร',          permissions: ['projects', 'samoshop'] },
-  { username: 'samomdkkudigital',    email: 'samomdkkudigital@samomdkku.app',    password: 'samo69digital',    dept: 'อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร', permissions: ['pr', 'creator'] },
-  { username: 'samomdkkuinternal',   email: 'samomdkkuinternal@samomdkku.app',   password: 'samo69internal',   dept: 'อุปนายกฝ่ายกิจการภายใน',          permissions: [] },
-  { username: 'samomdkkuexternal',   email: 'samomdkkuexternal@samomdkku.app',   password: 'samo69external',   dept: 'อุปนายกฝ่ายกิจการภายนอก',          permissions: [] },
-  { username: 'samomdkkuuniversity', email: 'samomdkkuuniversity@samomdkku.app', password: 'samo69university', dept: 'อุปนายกฝ่ายกิจการมหาวิทยาลัย',     permissions: [] },
-  { username: 'samomdkkuacademic',   email: 'samomdkkuacademic@samomdkku.app',   password: 'samo69academic',   dept: 'อุปนายกฝ่ายวิชาการ',                  permissions: [] },
-  { username: 'samomdkkustrategy',   email: 'samomdkkustrategy@samomdkku.app',   password: 'samo69strategy',   dept: 'อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร', permissions: [] },
-  { username: 'samomdkkuquality',    email: 'samomdkkuquality@samomdkku.app',    password: 'samo69quality',    dept: 'อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม', permissions: [] },
-  { username: 'samomdkkumdi',        email: 'samomdkkumdi@samomdkku.app',        password: 'samo69mdi',        dept: 'อุปนายกฝ่ายเวชนิทัศน์',                permissions: [] },
-  { username: 'samomdkkuradiology',  email: 'samomdkkuradiology@samomdkku.app',  password: 'samo69radiology',  dept: 'อุปนายกฝ่ายรังสีเทคนิค',               permissions: [] },
+  { username: 'samomdkkuvpa',        email: 'samomdkkuvpa@samomdkku.app',        dept: 'อุปนายกฝ่ายบริหารองค์กร',          permissions: ['projects', 'samoshop'] },
+  { username: 'samomdkkudigital',    email: 'samomdkkudigital@samomdkku.app',    dept: 'อุปนายกฝ่ายดิจิทัลและสื่อสารองค์กร', permissions: ['pr', 'creator'] },
+  { username: 'samomdkkuinternal',   email: 'samomdkkuinternal@samomdkku.app',   dept: 'อุปนายกฝ่ายกิจการภายใน',          permissions: [] },
+  { username: 'samomdkkuexternal',   email: 'samomdkkuexternal@samomdkku.app',   dept: 'อุปนายกฝ่ายกิจการภายนอก',          permissions: [] },
+  { username: 'samomdkkuuniversity', email: 'samomdkkuuniversity@samomdkku.app', dept: 'อุปนายกฝ่ายกิจการมหาวิทยาลัย',     permissions: [] },
+  { username: 'samomdkkuacademic',   email: 'samomdkkuacademic@samomdkku.app',   dept: 'อุปนายกฝ่ายวิชาการ',                  permissions: [] },
+  { username: 'samomdkkustrategy',   email: 'samomdkkustrategy@samomdkku.app',   dept: 'อุปนายกฝ่ายยุทธศาสตร์และพัฒนาองค์กร', permissions: [] },
+  { username: 'samomdkkuquality',    email: 'samomdkkuquality@samomdkku.app',    dept: 'อุปนายกฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม', permissions: [] },
+  { username: 'samomdkkumdi',        email: 'samomdkkumdi@samomdkku.app',        dept: 'อุปนายกฝ่ายเวชนิทัศน์',                permissions: [] },
+  { username: 'samomdkkuradiology',  email: 'samomdkkuradiology@samomdkku.app',  dept: 'อุปนายกฝ่ายรังสีเทคนิค',               permissions: [] },
 ];
 
 // Old name of the media account before the rename. Cleanup AND seed
@@ -152,6 +158,16 @@ async function cleanup() {
 }
 
 async function seed() {
+  // Passwords are no longer hardcoded (public repo). Refuse unless an explicit
+  // VP_SEED_PASSWORD is supplied, so this retired tool can never re-create the
+  // shared accounts with a known/leaked password.
+  const SEED_PW = env.VP_SEED_PASSWORD;
+  if (!SEED_PW) {
+    console.error('refusing to seed: these VP accounts were DELETED 2026-08-17 (permanently retired).');
+    console.error('If you truly need to recreate them, set VP_SEED_PASSWORD to a strong,');
+    console.error('non-public value in the environment. Do NOT reuse the old samo69* passwords.');
+    process.exit(2);
+  }
   await confirmTarget('seed');
 
   // First, drop the legacy media account if it's still here (so the
@@ -172,7 +188,7 @@ async function seed() {
     } else {
       const { data, error } = await supabase.auth.admin.createUser({
         email: vp.email,
-        password: vp.password,
+        password: SEED_PW,
         email_confirm: true,                       // ← equivalent to "Auto Confirm User"
         user_metadata: {
           username: vp.username,

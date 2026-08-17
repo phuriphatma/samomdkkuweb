@@ -3,7 +3,7 @@
 --
 -- Two corrections on top of 0010:
 --   1. Rename the VP-Media account: samomdkkumedia → samomdkkumdi
---      (so the password follows samo69mdi). The auth.users row must
+--      (so the password follows the shared pattern (now retired)). The auth.users row must
 --      be re-created in the Supabase dashboard with the new email —
 --      see manual steps below.
 --   2. Of the VP accounts, ONLY อุปนายกฝ่ายบริหารองค์กร
@@ -39,7 +39,7 @@ end $$;
 -- If you already created the samomdkkumedia auth user before this
 -- rename, delete it in the Supabase Dashboard (Authentication → Users
 -- → find samomdkkumedia@samomdkku.app → "Delete user"). Then re-add as
--- samomdkkumdi@samomdkku.app with password samo69mdi.
+-- samomdkkumdi@samomdkku.app with a password (now retired).
 
 
 -- ============================================================

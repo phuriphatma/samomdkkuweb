@@ -47,7 +47,7 @@ Options:
 
 - **(A) Update prod GAS** to match refactor (recommended). After this,
   the existing staff need to be told the new login is
-  `samomdkkupr` + `samo69pr`.
+  `samomdkkupr` + `«disabled 2026-08-17»`.
 - **(B) Update refactor frontend** to match prod creds, then merge.
   Set `STAFF_ACCOUNTS` in `src/js/auth.js` to the prod usernames; also
   update `handleVerifyPRStaffLogin` in `appscript/prform.gs` and

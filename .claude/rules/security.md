@@ -10,7 +10,8 @@
 | Google OAuth client secret | ❌ NEVER | Supabase dashboard only |
 | Discord webhook URLs | ❌ NEVER (in frontend code) | embedded in `appscript/*.gs` only |
 | Apps Script `/exec` URLs | ✅ yes (treated as public webhooks) | `src/js/config.js` |
-| Staff passwords (`samo69pr` etc.) | ⚠️ git ok, do NOT post anywhere public | only in this repo; rotate if leaked |
+| Shared VP/staff account passwords (the old `samo69*` pattern) | ❌ NEVER in git | **RETIRED 2026-08-17** — 14 shared admin accounts + passportadmin were DELETED PERMANENTLY (auth + public.users rows removed after their data was reassigned to real people); staff now sign in with personal @kkumail.com via ทีม SAMO. The `samo69*` literals were scrubbed from `tools/` + `docs/`. Do NOT re-introduce a hardcoded shared password |
+| `sastaff` / `saprof` weak password (`1234`) | ⚠️ still LIVE | KEPT accounts (owner's call); `1234` is trivially guessable — rotate when convenient. `samomdkkudev` password is owner-managed |
 | Supabase PAT (`SUPABASE_ACCESS_TOKEN=sbp_…`) | ❌ NEVER | `.env.local` only — account-wide Management-API token; used by `tools/apply-migration.mjs` to run DDL. Revoke at dashboard/account/tokens when done |
 | Supabase DB URL (`SUPABASE_DB_URL=postgresql://…`) | ❌ NEVER | `.env.local` only (optional) — direct Postgres conn string incl. password; psql path for `apply-migration.mjs` |
 | clasp OAuth creds (`~/.clasprc.json`) | ❌ NEVER | outside the repo, in `$HOME`. Written by `npx clasp login`; a full Google OAuth credential for the account (Drive + Apps Script). `.gitignore` carries `.clasprc.json` in case one is ever written into the repo root. Revoke at myaccount.google.com/permissions |

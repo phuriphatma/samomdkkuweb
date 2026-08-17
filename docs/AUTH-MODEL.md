@@ -121,7 +121,7 @@ update is:
   response, not from a hardcoded `STAFF_ACCOUNTS` map in the frontend.
 
 This last change moves staff role assignment to the backend, which means
-no more shipping `samomdkkupr` / `samo69pr` literals in the JS bundle.
+no more shipping `samomdkkupr` / `«disabled 2026-08-17»` literals in the JS bundle.
 Staff usernames become regular `Users` rows with `role: 'pr_staff'`.
 
 ## Migration order (when we do this)

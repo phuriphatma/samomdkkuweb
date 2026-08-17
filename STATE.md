@@ -191,6 +191,40 @@ way, that setting is doing real work), and `claude-reporter@samomdkku.app`
 holds only `claude`. ⚠️ A `setup-token` pasted in chat is STILL LIVE; only the
 owner can revoke it.
 
+## Security — shared-account purge (2026-08-17)
+
+**15 shared password accounts DELETED PERMANENTLY** (auth + public.users), after
+their data was reassigned to real people first: the 10 VP accounts,
+`samomdkkupr`, `samomdkkudigital`, `samomdkkupresident` (was role=dev),
+`samomdkkuvssound`, `samomdkkushop`, and `passportadmin`. Reason: their
+`samo69*` / `1234` passwords were published in the PUBLIC repo and verified to
+open live dev/vp_admin sessions.
+
+**KEPT** (owner's decision): `samomdkkudev` (owner will rotate its pw),
+`sastaff`, `saprof` (both still have the weak `1234` pw — flagged, not rotated),
+and `claude-reporter` (machine account).
+
+**Attribution transferred BEFORE delete** (so nothing orphaned; every SET-NULL
+column verified 0 before deletion):
+- samomdkkuvpa → **พรู** (jinjutha.t): created_by on 27 projects/42 docs/47 files
+  + its 43 read/unread rows (via `tools/proj-handover.mjs`). พรู holds `master`,
+  which grants all project seats at the RLS level, so she sees them all; she was
+  also given the explicit `vpa` seat.
+- pr_tickets: samomdkkupr + samomdkkudigital → **พู่กัน** (putita.s);
+  samomdkkupresident → **สายป่าน** (worapat.c); samomdkkuquality → **เอ๋ย** (naphat.pr).
+- samomdkkuvssound → **ปัน** (nattapong.chi): 9 vs_tickets + 1 public comment.
+
+⚠️ **`current_user_project_seats()` folds `master` → {vpa,staff,prof}** — a master
+holder IS a project actor and sees ALL หนังสือโครงการ. The team editor stores
+`master` alone and nulls the explicit project_seat on purpose (master already
+covers it). This is NOT a bug; do not "fix" it by forcing a seat under master.
+
+**Repo scrubbed**: `samo69*` literals removed from `tools/vp-accounts.mjs`,
+`tools/president-account.mjs` (both now read a `*_SEED_PASSWORD` env var and
+REFUSE to reseed without it) and from `docs/`. `tools/saprof-account.mjs` still
+carries `1234` — saprof is a KEPT account, left per owner. No src/ change → **no
+deploy needed**; the DB changes are already live.
+
 ## OTHER SYSTEMS — stable, nothing owed
 
 PR · VitalSound · News · หนังสือโครงการ · Analytics: unchanged. Write-ups in
