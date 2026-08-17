@@ -54,7 +54,11 @@ rollback;`);
 const TREE_USER = 'phuriphat.ma@kkumail.com';
 const PROF = 'saprof@samomdkku.app';
 const STAFF = 'sastaff@samomdkku.app';
-const VPA = 'samomdkkuvpa@samomdkku.app';
+// The shared `samomdkkuvpa` account (role=vp_admin) was RETIRED 2026-08-17.
+// The vpa subject is now resolved LIVE from whoever actually holds the seat
+// (role vp_admin OR the `vpa` project seat), so this proof can never rot the
+// way it did when it named the deleted account. Resolved in main().
+let VPA = null;
 
 async function main() {
   console.log('project', REF, '\n');
@@ -136,7 +140,14 @@ rollback;`);
 
   // ---- D. the professor's notify audience ----
   console.log('\nD) a professor can resolve a notify audience (regressed by 0091)');
+  // Resolve the vpa subject LIVE — a real project actor who holds the seat.
+  VPA = val(await mgmt(`select email from public.users
+     where email is not null
+       and (role in ('vp_admin','dev') or 'vpa' = any(coalesce(managed_project_seats,'{}')))
+     order by email limit 1;`), 'email');
+  check('a live vpa-seat holder exists to test with', !!VPA, 'no vp_admin/vpa-seat account found');
   for (const [who, email] of [['saprof (role)', PROF], ['sastaff', STAFF], ['vpa', VPA]]) {
+    if (!email) { check(`${who} resolves BOTH audiences`, false, 'subject email is null'); continue; }
     const s = await asUser(email, `select count(*)::int as n from public.list_project_seat_users('staff');`);
     const v = await asUser(email, `select count(*)::int as n from public.list_project_seat_users('vpa');`);
     check(`${who} resolves BOTH audiences (staff=${val(s, 'n')}, vpa=${val(v, 'n')})`,

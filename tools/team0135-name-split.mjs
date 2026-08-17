@@ -197,8 +197,15 @@ select m.id as mid, u.id as uid
   from public.team_members m
   join public.users u on lower(btrim(u.email)) = lower(btrim(m.kkumail))
  where u.role not in ('vp_admin','dev')
-   and not ('team_edit' = any (coalesce(u.permissions, '{}')
-                            || coalesce(u.managed_permissions, '{}')))
+   -- master (0111) folds into current_user_has_permission(team_edit), so a
+   -- master holder is privileged for this write even without the literal key --
+   -- exclude it too, or the guard returns early and D5 tests nothing. This is
+   -- exactly what surfaced on 2026-08-17 when the account purge shifted the
+   -- unordered pick onto one of the ~42 master holders. order-by pins the
+   -- subject so the pick can never silently drift again.
+   and not (array['team_edit','master'] && (coalesce(u.permissions, '{}')
+                                          || coalesce(u.managed_permissions, '{}')))
+ order by u.id
  limit 1;
 
 -- ⚠️ BOTH halves below are scored on the STORED VALUE, never on whether an
