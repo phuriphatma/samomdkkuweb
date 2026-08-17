@@ -255,6 +255,32 @@ insert into probe select 'F3. …and claude_usage_windows agrees it is ONE windo
      (select d0 from sc) + interval '9 hours',
      (select d0 from sc) + interval '20 hours'))::text);
 
+-- ── §G — a CLOSED (past) week is NEVER open-ended (0164) ───────────────────
+-- The §A–§F scenario lives 21 days in the FUTURE, so its `p_to` is > now() and
+-- its last run legitimately CAN be open-ended — which is exactly why §D5 could
+-- not catch the past-week bug: it only checks runs that ended BEFORE the last
+-- poll, and the offending run IS the last poll. This section builds one window
+-- entirely in the PAST and calls over a range whose `p_to` is also in the past.
+-- Before 0164 (`open_ended := v_to = v_last_at`) the final run came back
+-- open_ended=true — every historical week drawn as "อาจยังใช้อยู่". Falsified:
+-- reintroduce the un-guarded line and G2 flips 0 → 1.
+insert into public.claude_usage_samples
+    (sampled_at, five_hour_pct, five_hour_resets_at, seven_day_pct, seven_day_resets_at, raw)
+values
+  (now() - interval '10 days',                     0, now() - interval '10 days' + interval '5 hours', 30, now() - interval '9 days',  jsonb_build_object('proof','claude0162g')),
+  (now() - interval '10 days' + interval '15 min',10, now() - interval '10 days' + interval '5 hours', 30, now() - interval '9 days',  jsonb_build_object('proof','claude0162g')),
+  (now() - interval '10 days' + interval '30 min',25, now() - interval '10 days' + interval '5 hours', 30, now() - interval '9 days',  jsonb_build_object('proof','claude0162g'));
+
+create temp table rg on commit drop as
+  select * from public.claude_usage_runs(
+    now() - interval '10 days' - interval '5 min',
+    now() - interval '10 days' + interval '1 hour');   -- p_to safely in the PAST
+
+insert into probe select 'G1. a past-week range still yields the run', 'true',
+  ((select count(*) from rg) >= 1)::text;
+insert into probe select 'G2. no run in a CLOSED past range is open-ended', '0',
+  (select count(*)::text from rg where open_ended);
+
 -- ── §E — the gate ─────────────────────────────────────────────────────────
 -- Both are SECURITY DEFINER over the whole samples table. A grant to
 -- `authenticated` would publish the account's usage history to any signed-in

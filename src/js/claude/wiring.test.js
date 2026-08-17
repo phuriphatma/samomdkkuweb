@@ -134,7 +134,12 @@ describe('silent booking is a master-only OPTION, never a default', () => {
     // A checkbox that suppresses a team notification must not be reachable by
     // whoever happens to open the form. The gate is the same key SQL uses.
     expect(HTML).toMatch(/id="claudeSilentWrap"[^>]*class="[^"]*d-none|class="[^"]*d-none[^"]*"[^>]*id="claudeSilentWrap"/);
-    expect(CODE).toMatch(/if \(holdsMaster\(\)\) \{[\s\S]{0,200}claudeSilentWrap'\)\.classList\.remove\('d-none'\)/);
+    // Visibility is (re)decided by holdsMaster() on EVERY entry via
+    // paintSilentToggle(), NOT once at wire() — the account switcher swaps the
+    // user without reloading, so a wire()-time read would leave the toggle
+    // showing for a non-master who switched in. Dropping `!master` here is the
+    // regression this asserts against.
+    expect(CODE).toMatch(/const master = holdsMaster\(\);[\s\S]{0,200}claudeSilentWrap'\)\?\.classList\.toggle\('d-none', !master\)/);
   });
 
   it('imports the ONE master test rather than re-deriving it', () => {

@@ -85,7 +85,7 @@ const LS_HIST = 'claude.cal.hist';
 const LS_TERMS = 'claude.terms.seen';
 const LS_SILENT = 'claude.notify.silent';
 /** Bump when the ข้อตกลง text changes materially — everyone sees it again. */
-const TERMS_VERSION = '2026-08-16.5';
+const TERMS_VERSION = '2026-08-17';
 
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -130,6 +130,7 @@ export async function enterClaudeWorkspace() {
   await refresh();
   applyFit();
   paintViewToggles();
+  paintSilentToggle();
   startPolling();
   // The rules open by themselves the first time an account reaches this pane,
   // and again whenever the text changes. "Make sure everyone sees it" cannot be
@@ -410,13 +411,14 @@ function wire() {
   // one place to clear it beats finding all four buttons.
   // Only master holders see it at all. It is a convenience for the people who
   // maintain this board, not a way for a booker to hide a claim on shared quota.
-  if (holdsMaster()) {
-    $('claudeSilentWrap').classList.remove('d-none');
-    $('claudeSilent').checked = lsGet(LS_SILENT) === '1';
-    $('claudeSilent').addEventListener('change', (ev) => {
-      lsSet(LS_SILENT, ev.target.checked ? '1' : '0');
-    });
-  }
+  // The change listener is wired ONCE here; its VISIBILITY is (re)decided on
+  // every entry by paintSilentToggle() — because the account switcher does not
+  // reload, a holdsMaster() read taken once at wire() goes stale the moment the
+  // signed-in account changes. Wiring the listener here (not in the per-entry
+  // paint) avoids stacking one listener per entry.
+  $('claudeSilent').addEventListener('change', (ev) => {
+    lsSet(LS_SILENT, ev.target.checked ? '1' : '0');
+  });
 
   $('claudeBookingModal').addEventListener('hidden.bs.modal', () => {
     editing = null;
@@ -519,6 +521,20 @@ function paintViewToggles() {
   $('claudeHistToggle')?.classList.toggle('on', histMode);
   document.querySelector('.claude-cal-shell')?.classList.toggle('is-hist', histMode);
   if (!histMode) $('claudeHistNote').textContent = '';
+}
+
+/**
+ * Show/hide the master-only "จองแบบเงียบ" toggle for the CURRENT account.
+ * Re-run on every entry (not just once at wire()) because the account switcher
+ * swaps the signed-in user without reloading the page — a holdsMaster() read
+ * taken once at wire() would leave the toggle visible to a non-master who
+ * switched in, or hidden from a master who did. The send-time gate re-checks
+ * holdsMaster() regardless, so this is purely the visible-control half.
+ */
+function paintSilentToggle() {
+  const master = holdsMaster();
+  $('claudeSilentWrap')?.classList.toggle('d-none', !master);
+  if ($('claudeSilent')) $('claudeSilent').checked = master && lsGet(LS_SILENT) === '1';
 }
 
 /**
