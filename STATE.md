@@ -191,6 +191,33 @@ way, that setting is doing real work), and `claude-reporter@samomdkku.app`
 holds only `claude`. ⚠️ A `setup-token` pasted in chat is STILL LIVE; only the
 owner can revoke it.
 
+## จองโควตา Claude — /scrutinize pass (2026-08-17), migrations through 0164
+
+Deployed bundle `admin-DDDRehOn.js` (verified from served `/admin/`).
+- ✅ **Finding 1 FIXED (migration 0164 applied live):** `claude_usage_runs`
+  marked a PAST week's final run `open_ended=true` (v_last_at is scoped to the
+  requested range, not now) → historical weeks said "อาจยังใช้อยู่". Now guarded
+  by `+ and p_to > now()`; new §G past-week case in
+  `tools/claude0162-usage-runs.sql` (falsified 0→1).
+- ✅ **Finding 3 FIXED:** the master-only "จองแบบเงียบ" toggle read
+  `holdsMaster()` once at `wire()`, stale on an in-place account switch. Now
+  re-decided per entry in `paintSilentToggle()`; listener still wired once.
+- ⛔ **Finding 4 was STALE** — `claude_usage_samples_at_idx` already exists. No
+  change made.
+- ⏳ **Finding 2 (0161 cost claim) still open** — unbenchmarked; low priority.
+- ➕ **ข้อตกลง gained two usage tips** (Sonnet/Haiku for light work; don't work a
+  chat left open >30–60 min — context reload burns quota, /clear before a
+  break). `TERMS_VERSION` bumped to `2026-08-17` so everyone re-sees it.
+
+⚠️ **`claude0157-rail-segments.sql` is currently RED on control B4** — NOT a
+regression from this work. There are **0 active bookings** right now, so the
+rail has no stepping deadline and B4 (a control that refuses to pass vacuously)
+goes red exactly as designed. The scenario is not fully self-contained: its
+step-down depends on live booking geometry. **Fix (follow-up): add a second
+synthetic booking that guarantees a stepping deadline independent of live data**
+— but do NOT tune it to merely pass; verify B1/B2/B5 stay meaningful. The other
+5 claude proofs + all 1122 tests are green.
+
 ## Security — shared-account purge (2026-08-17)
 
 **15 shared password accounts DELETED PERMANENTLY** (auth + public.users), after
