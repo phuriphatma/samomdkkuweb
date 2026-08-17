@@ -56,7 +56,11 @@ has not been written yet.
    restates a policy is one of those gates** — `soft_delete_pr_ticket` kept the
    pr_staff/dev test 29 migrations after the policy learned `has_permission('pr')`
    while its VS twin was correct, so the pair read as permission-aware (0149).
-   Check the SECOND twin.
+   Check the SECOND twin. **A `role === 'x'` gate cannot see a PERMISSION**: a
+   `master` holder is `role='user'`, so `master` opened every tab and RLS row but
+   missed the ROLE-gated controls inside — the PR/VS skip-notify toggle and
+   `isVsSuper()` (2026-08-17). Grep the role-literal gates too, not just the
+   permission ones; `holdsMaster()` belongs wherever `role==='dev'` grants power.
 6. **Two implementations of one rule drift** — but check both callers want the
    SAME answer: unifying the four org views on one parentage made แผนผัง a
    52,000px staircase (two draw containment, two reporting). A change is NOT
@@ -207,7 +211,7 @@ to that class above.
 - Every signed-in account could read all 531 rows of `public.users`
 - "someone could just book 16.40-20.00 kick me out"
 
-### `authz-grants.md` — The permission / seat / scope channel *(12)*
+### `authz-grants.md` — The permission / seat / scope channel *(13)*
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
 - "โมนา got pr permission in teamsamo but she can't delete pr ticket"
 - A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD
@@ -220,6 +224,7 @@ to that class above.
 - Deriving "which department is this admin" from a UI filter is not a permission
 - A seat that grants a SHARED role must not be modelled as a new individual
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
+- `master` opened the tab but not the ROLE-gated controls inside it
 
 ### `postgres-schema.md` — Migrations, DDL, triggers & constraints *(21)*
 - Postgres has no `create or replace policy`

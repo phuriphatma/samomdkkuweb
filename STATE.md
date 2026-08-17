@@ -218,6 +218,26 @@ synthetic booking that guarantees a stepping deadline independent of live data**
 — but do NOT tune it to merely pass; verify B1/B2/B5 stay meaningful. The other
 5 claude proofs + all 1122 tests are green.
 
+## master ≠ dev role — frontend gates fixed (2026-08-17, deployed)
+
+Reported: a `master` holder (phuriphat.ma, ทุกระบบ from ฝ่าย IT) found features
+missing vs the shared `samomdkkudev` (role=dev). Cause: `master` is honored by
+PERMISSION gates + RLS but a master holder is `role='user'`, so `role === 'dev'`
+/ role-literal gates skipped them. Fixed the two reported sites:
+- `main.js` `.dev-only-feature` (the PR/VS "ไม่ส่งแจ้งเตือน Discord" toggle) →
+  `role !== 'dev' && !holdsMaster(user)`. **Verified in served bundle.**
+- `vs-staff.js` `isVsSuper()` → `|| holdsMaster(u)`, matching the DB (which
+  already made master VS-super).
+- Guard: `src/js/master-role-gates.test.js` (falsified). Write-up in
+  `docs/mistakes/authz-grants.md`, class 5.
+- **Left as-is per owner**: the ~28 `role === 'dev'` gates in `src/js/projects/*`
+  (หนังสือ send flow) — driven by the project-seat picker, not master.
+
+Also confirmed same day: **ร้านค้า "0 รายการ" is NOT a bug** — 3 products exist,
+all `is_active=false` (test items), hidden by a human on 2026-08-16 (saved one at
+a time). No product was ever deleted; the account purge cannot delete products
+(`shop_products.created_by` is SET NULL). Storefront shows active-only.
+
 ## Security — shared-account purge (2026-08-17)
 
 **15 shared password accounts DELETED PERMANENTLY** (auth + public.users), after

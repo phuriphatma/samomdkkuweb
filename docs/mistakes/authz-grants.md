@@ -568,3 +568,42 @@ lockout, which someone reports in minutes; the way round it was actually done,
 a missed gate is a silent privilege grant nobody notices. **This is why the
 whole `tools/` suite gets re-run, not just the proof for the migration you
 wrote**: 0110's own proof was 34/34 green while this was live.
+
+---
+
+## `master` opened the tab but not the ROLE-gated controls inside it
+
+**Symptom** (reported 2026-08-17): a person holding `master` (ทุกระบบ,
+inherited from ฝ่าย IT) opened the app on their personal @kkumail.com and found
+features "stripped off" versus the shared `samomdkkudev` (role=`dev`): the
+"ไม่ส่งแจ้งเตือน Discord" toggle on the PR/VS forms was gone, and the VitalSound
+workspace hid its full-department controls.
+
+**Cause**: `master` answers YES to every *permission* question — `userCanAccess`,
+and the DB `current_user_has_permission` which folds `master` (0111). So the TAB
+opens (`userCanAccess('vs')` → true) and RLS grants the rows
+(`current_user_vs_scope()` = null-super for `has_permission('vs')` ← master). But
+a master holder is `role='user'`, so every gate written against the ROLE —
+`role === 'dev'` (`main.js` `.dev-only-feature`) and the literal role list in
+`isVsSuper()` (`vs-staff.js`) — skipped them. The DB said super; the frontend
+said not-super. Classic frontend/DB mismatch, and the fifth surface of "a new
+access channel must be threaded through EVERY gate": `master` was threaded
+through the permission gates and the RLS, and missed the ROLE gates.
+
+**Fix**: `main.js` `.dev-only-feature` now toggles on
+`role !== 'dev' && !holdsMaster(user)`; `isVsSuper()` adds `|| holdsMaster(u)`,
+mirroring the DB. Guard: `src/js/master-role-gates.test.js` (both assertions
+falsified — they go red when the `holdsMaster` term is dropped).
+
+**Where it lives now**: `src/js/main.js` (the `.dev-only-feature` loop),
+`src/js/vs-staff.js` `isVsSuper()`, guarded by
+`src/js/master-role-gates.test.js`. **Left as-is by the owner's decision**: the
+~28 `role === 'dev'` gates in `src/js/projects/*` (the หนังสือ send flow) — that
+module is driven by the project-seat picker, not by master.
+
+**Rule**: when a permission key is meant to imply full access, grep for the
+ROLE-literal gates too, not just the permission gates —
+`grep -rn "role === '\''dev'\''\|=== '\''dev'\''" src/js/`. `holdsMaster()`
+belongs anywhere `role === 'dev'` grants a capability that master should also
+grant. A gate that reads the ROLE cannot see a permission, and master is a
+permission.
