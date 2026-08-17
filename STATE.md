@@ -512,18 +512,57 @@ learned". Read it before touching the panels; the two lines you cannot skip:**
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
 at 30, polled every 60 s per open tab. Fine at real scale.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-16)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-17)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin == VM. Migrations through **0163**; **1122 tests green**;
-> **all 21 proofs green**. Deployed and verified from the served artifacts.
+> Local == origin (`50dcee8`+); **VM built from the last CODE commit `d6dde06`**
+> (commits after it are docs/tools only — confirm with
+> `git diff --stat d6dde06..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
+> current). Migrations through **0164**; **1124 tests green**; **20 of 21 proofs
+> green** — the one red is `claude0157` and it is ENVIRONMENTAL (see below), not
+> a regression. All shipped work verified from the served artifacts.
 >
-> ### What the last session was
+> ### What the 2026-08-17 session was — FOUR things, all deployed
 >
-> **จองโควตา Claude only — three migrations (0161, 0162, 0163) and a UI pass,
-> every item from the owner testing live and reporting in bursts.** Read the
-> "จองโควตา Claude" section above before touching `/admin#claude`. The five
-> things that cost real time:
+> Read the four dated sections at the TOP of this file first; they have the
+> detail. In order of consequence:
+>
+> 1. **SECURITY: 15 shared password accounts DELETED** (see "shared-account
+>    purge"). Their `samo69*`/`1234` passwords were in the PUBLIC repo and opened
+>    live dev/vp_admin sessions. Data was reassigned to real people FIRST
+>    (พรู/พู่กัน/สายป่าน/เอ๋ย/ปัน), then the accounts deleted. Repo creds scrubbed.
+>    **`samomdkkudev` password was rotated + all its sessions revoked.** KEPT:
+>    samomdkkudev, sastaff, saprof (both still weak `1234` — owner will rotate),
+>    claude-reporter.
+> 2. **master ≠ dev role — two frontend gates fixed** (see "master ≠ dev role").
+>    A master holder is `role='user'`, so `role === 'dev'` gates skipped them.
+>    Fixed the PR/VS skip-notify toggle + `isVsSuper()` to honour `holdsMaster()`.
+>    Owner's decision: the ~28 `role === 'dev'` gates in `src/js/projects/*` are
+>    LEFT as-is (driven by the seat picker). ⚠️ If more "master lost X" reports
+>    come in, the fix is `holdsMaster()` next to the `role === 'dev'` check — but
+>    NOT in projects.
+> 3. **จองโควตา Claude /scrutinize** (see "/scrutinize pass"): migration 0164
+>    (a PAST week is never "still running"), the silent-toggle staleness fix, and
+>    TWO ข้อตกลง usage tips (Sonnet/Haiku for light work; /clear before a break).
+> 4. **ร้านค้า "0 รายการ" is NOT a bug** — 3 test products, all hidden by a human
+>    on 08-16. No product was ever deleted; the purge cannot delete products.
+>
+> ⚠️ **The account purge ROTTED two proof subjects** (now fixed, `50dcee8`):
+> `proj0092` named the deleted `samomdkkuvpa`; `team0135`'s unordered `limit 1`
+> landed on a master holder (`has_permission('team_edit')` folds master). Both
+> now resolve their subject live/deterministically. **Lesson: any account
+> delete or permission edit can rot a proof whose subject is hardcoded or
+> unordered — run `npm run proofs` after touching accounts.**
+>
+> ⚠️ **`claude0157` is RED because there are 0 active bookings** — its B4 control
+> needs a stepping deadline and correctly refuses to pass vacuously. Fix
+> (follow-up, NOT done): make the scenario self-contained with a second synthetic
+> booking that guarantees a step-down; do NOT tune it to merely pass. It goes
+> green on its own once real bookings exist.
+>
+> ### The earlier (2026-08-16) จองโควตา Claude session — still current
+>
+> Migrations 0161/0162/0163 + a UI pass. The five things that cost real time:
 >
 > 1. **The rail was a SECOND author of the window rule** (0161).
 >    `claude_free_now()` took its 5-hour window from the CLOCK; the trigger's
