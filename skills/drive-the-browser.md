@@ -270,3 +270,81 @@ paths in through `os.environ` rather than interpolating them.
 And `cd` inside a compound command changes the cwd for everything after it in
 that call: `cd "$SCRATCH" && node tools/db-query.mjs …` resolves `tools/`
 relative to the scratchpad and fails. Use absolute paths.
+
+---
+
+## 4. Signing the driver IN — and the two traps that eat an hour
+
+Most of this app is behind auth, so a driver that cannot log in can only ever
+see the public mirror. Both shortcuts you will reach for first do not work.
+
+### Trap 1: you cannot inject a session into `localStorage`
+
+Writing `sb-<ref>-auth-token` yourself and reloading looks right and silently
+does nothing — the app boots signed-OUT. (supabase-js has changed that key's
+encoding across versions; do not spend time reverse-engineering it.)
+
+**What works: drive the app's own sign-in form.** It is the path a person uses,
+so it also tests the thing you actually care about.
+
+```js
+await evalJs(`(() => {
+  const m = document.getElementById('signinModal');
+  window.bootstrap.Modal.getOrCreateInstance(m).show();
+})()`);
+await sleep(1200);
+await evalJs(`(() => {
+  document.getElementById('signinLoginUsername').value = 'probe';
+  document.getElementById('signinLoginPassword').value = '…';
+  document.getElementById('signinLoginForm')
+    .dispatchEvent(new Event('submit', { cancelable: true }));
+})()`);
+await sleep(7000);   // auth + profile + team sync + first data load
+```
+
+### Trap 2: a grant written straight into `public.users` is ERASED on login
+
+`buildCurrentUser()` calls the `sync_my_team_permissions` RPC on **every**
+login, and it OVERWRITES `managed_permissions`, `managed_vs_depts` and
+`managed_project_seats` from the ทีม SAMO tree. So this:
+
+```sql
+update public.users set managed_project_seats = array['staff'] where email = …;
+```
+
+survives exactly until the probe logs in, at which point the tree says "this
+person holds nothing" and the columns go back to `{}`. The symptom is a signed-in
+account whose sidebar shows no workspaces, which reads as a broken gate.
+
+**The grant has to come from the tree.** Give the probe a `team_members` row:
+
+```sql
+select set_config('app.team_sync','1',true);   -- the columns are guarded
+insert into public.team_members
+  (node_id, kkumail, full_name, project_seat, permissions, inherit_permissions, position)
+select n.id, 'probe@…', 'probe', 'staff', array['projects'], false, 999
+  from public.team_nodes n order by n.id limit 1;
+```
+
+### The whole recipe, and cleaning up after it
+
+1. `signUp` through the PUBLIC auth endpoint with the anon key — signup is open,
+   so this needs no admin credential and creates a real account.
+2. Insert the `team_members` row above for whatever seat/permission you are
+   testing.
+3. Drive the sign-in form, then assert on the SIDEBAR
+   (`#adminSideNav [data-admin-side="x"]` not carrying `d-none`) before
+   asserting on anything inside the pane — a hidden ancestor makes
+   `getClientRects()` empty, so every inner check reads "missing" for the wrong
+   reason.
+4. **Delete it all afterwards**: the `team_members` row, the `public.people` row
+   the registry mirror created for it, any feature rows it wrote, the
+   `public.users` row, and the `auth.users` row. Then re-query to prove the
+   probe is gone — and re-query the FEATURE for residue too (a probe that moved
+   a real record must move it back).
+
+This is worth the ~5 minutes: it is the only way to see a role-gated control
+render for the role that is supposed to have it, and it caught that the
+`ย้ายปีงบ` button correctly appears for a `staff` seat while `แก้ไขโครงการ`
+(sender-only) correctly does not — a distinction no unit test in this repo can
+make, because there is no DOM environment configured.

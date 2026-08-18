@@ -583,6 +583,12 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
 >   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
 >   CHECKOUT. `docs/NEXT.md` §1.
+>   ✅ **The auth blocker is solved — §4 of that skill now has the recipe.** The
+>   two traps that made this hard, both paid for on 2026-08-18: you CANNOT
+>   inject a session into `localStorage` (drive the sign-in form instead), and a
+>   grant written straight into `public.users` is ERASED on the next login by
+>   `sync_my_team_permissions` — a probe account needs a `team_members` row.
+>   With that, a throwaway account can render any role-gated control.
 > - **The org chart on a REAL iPad.** Verified on Playwright's WebKit only.
 > - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading §1 below.**
 > - `docs/NEXT.md` carries the rest (§0c two latent role-only policies, §0d make
