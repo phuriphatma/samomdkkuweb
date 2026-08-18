@@ -575,6 +575,20 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >
 > ### What is owed
 >
+> - 🔴 **TELL TWO PEOPLE THEIR LOGIN CHANGED — nobody has.** `sastaff` and
+>   `saprof` were deleted on 2026-08-18 and **their live sessions died with
+>   them** (`sastaff` had signed in that morning at 05:22 ICT). Until they are
+>   told, the เจ้าหน้าที่คณะ and อาจารย์ desks are simply locked out and will
+>   read it as the site being broken:
+>   - **เจ้าหน้าที่คณะ — Worapong, `woratho@kku.ac.th`** (seat `staff`)
+>   - **อาจารย์ — Prakasit, `prakasa@kku.ac.th`** (seat `prof`)
+>
+>   The message is short: *the shared username/password is gone; sign in with
+>   "เข้าสู่ระบบด้วย Google" using your own KKU address — everything you had is
+>   still there.* Both HAVE signed in with Google before (Worapong that same
+>   morning, Prakasit on 2026-07-23), so there is nothing to set up; verified
+>   live that the seat opens the whole desk. **This is a message to a human, not
+>   a code task — it cannot be closed from this repo.**
 > - **Grant the `claude` permission** in ทีม SAMO to whoever should book.
 >   Exactly ONE account holds it today. The feature is otherwise finished,
 >   deployed and verified end to end — this is the last thing between it and use.
