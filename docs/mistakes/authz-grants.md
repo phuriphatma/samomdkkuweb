@@ -607,3 +607,106 @@ ROLE-literal gates too, not just the permission gates —
 belongs anywhere `role === 'dev'` grants a capability that master should also
 grant. A gate that reads the ROLE cannot see a permission, and master is a
 permission.
+
+---
+
+## "when i select permission as master, i cant select sub of the หนังสือโครงการ"
+
+**Symptom** (2026-08-18, with a screenshot): granting `master` in ทีม SAMO made
+the หนังสือโครงการ **บทบาท** un-selectable. The dropdown was visible and
+enabled, the admin could pick "ผู้ส่งหนังสือ (SAMO)", บันทึก reported success —
+and re-opening the modal showed it empty again. The workaround in the field was
+to untick master and hand-tick seven individual permissions instead, which is
+the exact rot `master` exists to prevent.
+
+Underneath it, a second and larger symptom nobody had reported: a master holder
+opening หนังสือโครงการ got the tab and **nothing inside it** — no ส่งหนังสือ
+button, no inbox controls, a blank role hint. Measured on the live DB: **36 of
+41 master holders** were in that state. The other 5 worked, which is why it
+looked intermittent — they happened to inherit a `vpa` seat from a parent
+ตำแหน่ง.
+
+**Cause** — two halves of one mistake, both reading the seat as if it were a
+*scope*.
+
+*The editor half.* `readPermInputs` returned `project_seat: null` the instant
+`master` was ticked, alongside `vs_dept: null` and `passport_*: null`. For VS
+and Passport that is correct and deliberate (0083: a scope stored beside the
+blanket key is swallowed by it). But VitalSound แผนก and Passport ฝ่าย are
+**scopes** — each has a widest value and master IS that value — while the
+หนังสือโครงการ seat is not. `vpa` / `staff` / `prof` are three **desks in one
+transaction** (sender → receiver → signer); there is no "all three" desk to
+draw, so nulling it did not mean "the widest", it meant "nobody". Worse, the
+three scope pickers stayed VISIBLE and ENABLED under master —
+`syncMasterVisibility` only disables checkboxes, never the selects — so the form
+offered three live controls whose values were all discarded on save.
+
+*The frontend half.* `projectSeatRole()` in `src/js/projects/index.js` read the
+raw `users.managed_project_seats` column. SQL does not:
+`current_user_project_seats()` (0111) is
+`when current_user_has_permission('master') then array['vpa','staff','prof']`.
+So RLS treated a master as a project actor AND a prof, while JS resolved
+`role='user'` — hiding every `[data-projects-role]` block and blanking
+`projectsRoleHint`. The migration's own comment asserts *"`projectSeatRole()`
+resolves the widest (vpa)"*. It never did. A comment saying "keep in step" is
+not a mechanism.
+
+**Why the previous sweep missed it.** The 2026-08-17 master≠role write-up above
+ends by explicitly LEAVING the `role === 'dev'` gates in `src/js/projects/*`,
+on the reasoning that "that module is driven by the project-seat picker, not by
+master". That was true and it was the wrong conclusion, because nobody asked
+what the seat picker *did* under master — it was being erased. And the guard
+written after that report (`master-role-gates.test.js`) swept for `role === 'x'`
+literals, which `projectSeatRole` does not contain: **it does not GATE on a
+role, it PRODUCES one**, upstream of all 28 of them. A sweep shaped like the
+last bug cannot see the function that feeds it.
+
+The DB proof was green throughout. `tools/master0111-grant.mjs` asserts "holds
+all three หนังสือโครงการ seats" — but it asks the *database*, so it could not
+see the frontend at all.
+
+**Fix**
+- `projectSeatRole()` folds master as a **floor**, not an override: an
+  explicitly stored seat still decides the desk. Master says *may*; the seat
+  says *which screen*. Under-showing relative to RLS is safe; the reverse is not.
+- `readPermInputs` keeps `project_seat` under master and still nulls the two
+  real scopes.
+- The VS and Passport pickers are now **hidden** under master (replaced by one
+  line saying master already covers them) instead of live-and-discarded.
+- The บุคคล editor **pre-fills ผู้ส่งหนังสือ** when master goes on, marked
+  `dataset.masterAuto` so turning master back off removes a value the form
+  invented (the `preMaster` rule, one control over) and cleared by
+  `resetMasterState` so it cannot leak onto the next row opened.
+- A ตำแหน่ง is deliberately **not** pre-filled: a node seat inherits down the
+  subtree, and simulating it on the live tree showed it would hand `vpa` to
+  **57 more people**, each then on `list_project_seat_users('vpa')` — i.e.
+  notified on every หนังสือ update in the faculty. That row shows the head-count
+  instead.
+
+**The part that is invisible and mattered most**: the stored seat is not only a
+screen. `list_project_seat_users()` / `list_project_profs()` read
+`managed_project_seats` to decide **who gets notified** (`projects/notify.js`)
+and **who can be picked as the signing อาจารย์** (`projects/sign.js`). So the
+null seat also meant the bell never rang and nobody could address them. Note the
+asymmetry the DB already encodes and the fix mirrors: the CALLER-scoped
+`current_user_project_seats()` folds master, while the PUBLISHED
+`managed_project_seats` column does not — access is implied, a directory listing
+is declared.
+
+**Where it lives now**: `src/js/projects/index.js` (`MASTER_SEATS`,
+`projectSeatRole`), `src/js/team/index.js` (`readPermInputs`, `masterOn`,
+`syncMasterSeatDefault`, `seatFanoutCount`, `permChipsHtml`).
+Guards: `src/js/projects/seat.test.js` (differential — the expected seats are
+PARSED out of `0111_master_grant.sql`, never retyped), `src/js/team/master-seat.test.js`
+(behavioural, calling the real functions with plain-object DOM stand-ins), and
+`src/js/master-mirrors.test.js` (the ratchet below). All falsified by
+reintroducing each bug.
+
+**Rule**: when one grant is defined to imply another, the implication is a rule
+on BOTH sides of the wire — and the JS side is not found by grepping for gates,
+because the drift can live in the function that COMPUTES the value every gate
+reads. Enumerate the SQL functions that special-case the key and keep a registry
+of where JS says the same thing. And before nulling a field because a stronger
+grant "covers" it, ask whether the field is a SCOPE (has a widest value, which
+the stronger grant is) or an IDENTITY (names one of several roles, which no
+amount of access answers). Only the first is safe to erase.

@@ -381,15 +381,67 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin; **VM built from `161310e`** — confirm with
-> `git diff --stat 161310e..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
-> served bundle is current. (Ask about `src/` ALONE here: adding `supabase/`
-> lists the 0166 migration, whose header comment was corrected after it was
-> already applied, and an applied migration cannot make a bundle stale.) Migrations through **0166**; **1170 tests green**; **21 of 22 proofs
-> green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below),
-> not a regression. All shipped work verified from the served artifacts.
+> **⚠️ `src/` IS AHEAD OF THE VM — the master/seat fix is committed but NOT
+> DEPLOYED.** Confirm with
+> `git diff --stat 161310e..HEAD -- src/ ':!src/**/*.test.js'` (non-empty =
+> deploy owed; `skills/deploy-vm.md`, needs VPN). Ask about `src/` ALONE: adding
+> `supabase/` lists the 0166 migration, whose header comment was corrected after
+> it was already applied, and an applied migration cannot make a bundle stale.
+> Migrations through **0166** (none added); **1200 tests green**; **21 of 22
+> proofs green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see
+> below), not a regression.
 >
-> ### What the LATEST session (2026-08-18, evening) was — FOUR things
+> ⚠️ **`.claude/rules/mistakes.md` is at 29999 / 30000 bytes.** The next entry
+> CANNOT be added without compressing first, and the budget counts UTF-8 BYTES
+> (Thai is 3 bytes/char), not characters — `len(s)` reads ~28.4k and lies. The
+> 2026-08-18 pass already compressed classes 1–7 to buy ~700 bytes. The next one
+> should move a whole class's examples into `docs/mistakes/` rather than shaving
+> words; several class sentences now merely restate an indexed entry.
+>
+> ### What the 2026-08-18 (late) session was — `master` and the หนังสือโครงการ seat
+>
+> **REPORTED**: "when i select permission as master, i cant select sub of the
+> หนังสือโครงการ as ผู้ส่งหนังสือ … so my friend has to tick manually like 7
+> tickcheckbox." Full write-up in `docs/mistakes/authz-grants.md`. What matters
+> going forward:
+>
+> - **`master` erased the seat, and the seat is an IDENTITY, not a scope.**
+>   VS แผนก and Passport ฝ่าย have a widest value and master IS it — correctly
+>   nulled. `vpa`/`staff`/`prof` are three DESKS in one transaction; "all three"
+>   is not a desk, so nulling meant NOBODY. **Do not "simplify" this back into
+>   one rule** — `readPermInputs` treats the three sub-controls differently on
+>   purpose, and `master-seat.test.js` will go red if you don't.
+> - **Measured on the live DB before the fix: 41 masters, 36 with no seat and no
+>   role.** All 36 opened หนังสือโครงการ onto a blank pane; the 5 that worked had
+>   inherited `vpa` from a parent ตำแหน่ง, which is why it looked intermittent.
+> - **The บุคคล editor pre-fills ผู้ส่งหนังสือ under master; a ตำแหน่ง does NOT.**
+>   The owner asked for auto-fill; scoping it to people is a deliberate
+>   narrowing, because a node seat inherits down the subtree and simulating it
+>   showed **57 more people** would land on `list_project_seat_users('vpa')` —
+>   i.e. notified on every หนังสือ update. If the owner later asks for it on
+>   ตำแหน่ง too, that is one line, and 57 is the number to quote.
+> - **The stored seat is not only a screen — it is the NOTIFICATION list.**
+>   `list_project_seat_users()` / `list_project_profs()` read
+>   `managed_project_seats` to decide who gets notified and who can be picked as
+>   the signing อาจารย์. The asymmetry the DB already encodes and the fix
+>   mirrors: the CALLER-scoped `current_user_project_seats()` folds master, the
+>   PUBLISHED column does not. Access is implied; a directory listing is declared.
+> - **New ratchet: `src/js/master-mirrors.test.js`.** It enumerates every SQL
+>   function that special-cases `'master'` (today exactly two, reconciled against
+>   the live DB) and pins each to where JS says the same thing. A THIRD name
+>   appearing is not automatically a bug — it is an unanswered question. Its
+>   first version over-reported `get_claude_board` by slicing "up to the next
+>   function" and swallowing 0154's trailing `create policy` statements; it now
+>   reads the dollar-quoted body.
+> - **Why the 2026-08-17 sweep missed this**: it grepped `role === 'x'` gates,
+>   and `projectSeatRole` has none — it PRODUCES the role, upstream of all 28 of
+>   them. And `tools/master0111-grant.mjs` was green throughout, because it asks
+>   the DATABASE. A DB proof cannot see the frontend half of a mirrored rule.
+> - **Chips**: value-carrying first, master collapses to one chip, `หนังสือโครงการ`
+>   suppressed when a seat chip already says it. Owner's constraint, honoured:
+>   "i still like how current text display" — words kept, icons added beside them.
+>
+> ### What the earlier 2026-08-18 session was — FOUR things
 >
 > 1. **The ปีงบ is now on every กล่องจดหมาย row**, grid card and list row, from
 >    ONE `fyChipHtml()` — quiet grey normally, orange `ย้ายเอง` when a human

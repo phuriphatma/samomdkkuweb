@@ -1,13 +1,12 @@
 # Mistakes — classes & index
 
-Every bug this repo has paid for is written up. **This file is loaded into
-every session, so it holds only the recurring CLASSES and one line per entry.**
-The write-ups live in `docs/mistakes/*.md` and are read on demand.
+Every bug this repo has paid for is written up. **This file is loaded into every
+session, so it holds only the recurring CLASSES and one line per entry.** The
+write-ups live in `docs/mistakes/*.md`, read on demand.
 
-**To use it**: scan the index below for a line that resembles your symptom, then
-open that file — or just `grep -rin "<phrase>" docs/mistakes/`. A near-match is
-worth reading; most of these bugs recurred in a second place wearing different
-clothes.
+**To use it**: scan the index for a line resembling your symptom, then open that
+file — or `grep -rin "<phrase>" docs/mistakes/`. Read near-matches; most of these
+recurred elsewhere in different clothes.
 
 **Read the matching file BEFORE touching** `auth.js` · `db.js` · anything
 calling supabase-js · any RLS policy, `current_user_*` helper or definer
@@ -17,37 +16,35 @@ function · `server/deploy.sh` · `appscript/*.gs`.
 
 ## The seven classes
 
-Most of what has bitten this repo twice or more is one of these. If you read
-nothing else, read this section — it is the part that generalises to code that
-has not been written yet.
+What has bitten this repo twice or more. If you read nothing else, read this —
+it is the part that generalises to code not yet written.
 
-1. **A per-row UPDATE policy is not a column policy.** `for update using (<col>
-   = auth.uid())` gates *which row*, then grants *every column in it*. Found on
-   `users` (0028), `vs_tickets` (0096), `shop_orders` (0100) — incomplete by
-   construction; pair it with a column guard.
-2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a
-   `left join`, `if not found then` and `null in (...)` all answer "allowed" for
-   an id that no longer resolves. A DELETE on reference data creates that input
-   for the first time.
+1. **A per-row UPDATE policy is not a column policy.** `for update using (<col> =
+   auth.uid())` gates *which row*, then grants *every column in it*. On `users`
+   (0028), `vs_tickets` (0096), `shop_orders` (0100) — incomplete by construction;
+   pair it with a column guard.
+2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a `left
+   join`, `if not found then` and `null in (...)` all answer "allowed" for an id
+   that no longer resolves. A DELETE on reference data first creates that input.
 3. **Scoped is not full.** A narrow branch added *beside* an unconditional one
-   (`has_permission('x')`, `using (true)`, a role list) is decorative —
-   permissive policies are OR'd, so the broad grant wins. Make them exclusive.
+   (`has_permission('x')`, `using (true)`, a role list) is decorative — permissive
+   policies are OR'd — the broad grant wins. Make them exclusive.
 4. **Authorization is per-PATH, not per-table.** Sanitising one reader leaves
    `select=*`, the other RPC, the view without `security_invoker` and the
    audience lookup leaking. Mirror image: a correct restriction mistaken for a
    complete design — an admin's decision note went into admin-only
-   `student_change_requests` and the student it addressed had no read path
+   `student_change_requests`, which the student it addressed could not read
    (0128). A form collecting a message for a named person promises that person
    can read it. A gate on the WIDGET is not a gate on the ROUTE: the sidebar hid
-   sections an account could not use, but the HASH was unchecked, so
-   `/admin/#vs` opened VitalSound for someone with no VS grant. Enumerate every
-   way in — click, hash, query string, deep link, GESTURE (on a scroll surface
-   `pointerdown` starts every gesture the surface supports, and state armed
-   there must be released on `pointercancel`). Non-security twin: a handler
-   guarded on state the CALLER sets misses every other entry point. COPY too —
-   one claim lived in the sign-in caption, the signup link AND the home strip.
-   A LABEL, a CHART and a DERIVED value each make a claim about every case they
-   cover — the four org-chart entries in `docs/mistakes/frontend-ui.md`.
+   sections an account could not use, but the HASH was unchecked, so `/admin/#vs`
+   opened VitalSound with no VS grant. Enumerate every way in — click, hash,
+   query string, deep link, GESTURE (on a scroll surface `pointerdown` starts
+   every gesture it supports; state armed there must be released on
+   `pointercancel`). Non-security twin: a handler guarded on state the CALLER
+   sets misses every other entry point. COPY too — one claim lived in the
+   sign-in caption, the signup link AND the home strip. A LABEL, a CHART and a
+   DERIVED value each claim something about every case they cover — the four
+   org-chart entries in `frontend-ui.md`.
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards and
    UI `role === 'x'` branches. The most repeated bug here
@@ -57,58 +54,63 @@ has not been written yet.
    pr_staff/dev test 29 migrations after the policy learned `has_permission('pr')`
    while its VS twin was correct, so the pair read as permission-aware (0149).
    Check the SECOND twin. **A `role === 'x'` gate cannot see a PERMISSION**: a
-   `master` holder is `role='user'`, so `master` opened every tab and RLS row but
-   missed the ROLE-gated controls inside — the PR/VS skip-notify toggle and
-   `isVsSuper()` (2026-08-17). Grep the role-literal gates too, not just the
-   permission ones; `holdsMaster()` belongs wherever `role==='dev'` grants power.
+   `master` holder is `role='user'`, so master opened every tab and RLS row but
+   missed the ROLE-gated controls inside — the PR/VS skip-notify toggle,
+   `isVsSuper()` (2026-08-17). Grep role literals too, and put `holdsMaster()`
+   wherever `role==='dev'` grants power. **But a gate sweep misses the function
+   that PRODUCES what gates read** — `projectSeatRole` has no role literal; 36 of
+   41 masters got a blank หนังสือโครงการ (2026-08-18). Registry, not pattern: `master-mirrors.test.js`
 6. **Two implementations of one rule drift** — but check both callers want the
    SAME answer: unifying the four org views on one parentage made แผนผัง a
    52,000px staircase (two draw containment, two reporting). A change is NOT
-   verified in a view you never opened. SQL↔JS mirrors, a read path and a write
-   path, an export and its import, a guard and its call sites. Write the
-   differential test in the same commit — a comment saying "keep in step" is not
-   a mechanism. Also a hand-written list beside a shared constant (main.js's
-   admin links vs `ADMIN_FEATURES`, 0113). Also TWO WRITABLE TABLES holding one
-   fact: `students` and `team_members` each carried a person's identity and each
-   editor wrote its own copy — fixed by `public.people` (0132–0134).
-   **A bidirectional mirror needs `is distinct from` on BOTH sides: that guard is
-   the TERMINATION CONDITION, not an optimisation**, and it must compare the
-   value a READER sees — for a GENERATED target, compare the generated column
-   while writing the source it derives from (ชื่อเล่น, 0134); a generated column
-   is never a reason to skip a field. **And a mirror is only bidirectional on
+   verified in a view you never opened. SQL↔JS mirrors, read path vs write path,
+   an export and its import, a guard and its call sites. Write the differential
+   test in the same commit — "keep in step" in a comment is not a mechanism.
+   Also a hand-written list beside a shared constant (main.js's admin links vs
+   `ADMIN_FEATURES`, 0113). Also TWO WRITABLE TABLES holding one fact: `students`
+   and `team_members` each carried a person's identity and each editor wrote its
+   own copy — fixed by `public.people` (0132–0134).
+   **A bidirectional mirror needs `is distinct from` on BOTH sides — that guard
+   is the TERMINATION CONDITION, not an optimisation** — comparing the value a
+   READER sees: for a GENERATED target compare the generated column while
+   writing its source (ชื่อเล่น, 0134). **And a mirror is bidirectional only on
    the columns BOTH directions NAME**: `people.year` was pushed down, never
-   carried up, so any touch of the registry reverted a person's own ชั้นปี edit
-   (0145) — the guard reports a one-way column as settled, by construction.
+   carried up, so any registry touch reverted a person's own ชั้นปี edit (0145)
+   — the guard reports a one-way column as settled, by construction.
    Also a DERIVED COLUMN vs the expression it came from: `cohort_year` filled
    `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the รุ่น
-   (0128) — fill-once means never-correct; same in FORMS, where
-   `{...row, student_id: typed}` keeps the stale copy (`yearBasis`, 0145).
-   Also a rule implemented on the writers you HAPPENED to be looking at (the
-   portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
+   (0128) — fill-once means never-correct; same in FORMS, where `{...row,
+   student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also a rule
+   applied to the writers you HAPPENED to be looking at (the portrait cleanup
+   missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
+   **Erasing a field a stronger grant "covers" — SCOPE or IDENTITY?** A scope
+   has a widest value the grant IS (VS แผนก, Passport ฝ่าย); an identity names
+   one of several roles, which access cannot answer. `master` nulled the
+   หนังสือโครงการ seat — three DESKS in one transaction — so "all" meant NOBODY,
+   and that column is also who gets NOTIFIED.
    **A uid in JSON is a uid**: the purge rewrote every uid COLUMN and skipped
-   `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button —
-   a documented trade-off nobody had COSTED (0166). Put the number in the note.
+   `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — a
+   trade-off nobody had COSTED (0166). Put the number in the note.
    Ask whether an id RESOLVES, never whether it is `null` (§D4 asked `is null`).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
    the ปีงบ move followed the filter using the value WRITTEN, and clearing an
-   override writes NULL, so the auto option made the project vanish (the exact
-   failure the follow prevented). The null branch is where a local prediction
-   and the real filter part company first.
-   **"ONE HOME" MUST MEAN ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took
-   the 5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
+   override writes NULL, so the auto option made the project vanish. The null
+   branch is where a local prediction and the real filter part company first.
+   **"ONE HOME" MEANS ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took the
+   5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
    booking chain — the rail offered 100% where the guard refused over 25% (0161).
    Also a GUARD vs the DERIVED STATE it checks: `claude_booking_guard` checked a
-   new booking against sessions derived from the OTHER rows, and that derivation
-   is greedy in start order, so an earlier insert re-derived everyone and
-   nothing re-checked them (0159). **Tell: the same rows legal or illegal
-   depending on TYPING ORDER.** Re-derive WITH the candidate in it.
-   Also a SELECTOR vs the MARKUP, in BOTH directions: a descendant selector
-   styles content not written yet (`.list b` made every inline bold a heading),
-   a child combinator stops matching after a refactor. CSS fails SILENTLY, so a
-   rule that stops matching looks like a feature nobody built. The instrument is
-   the COMPUTED style, never the stylesheet — and for a PAINT or OVERLAP bug,
-   the PAINTED BOXES. Also TWO PASSES over one DOM property, and one listener
+   new booking against sessions derived from the OTHER rows, a greedy
+   start-order derivation, so an earlier insert re-derived everyone and nothing
+   re-checked them (0159). **Tell: the same rows legal or illegal depending on
+   TYPING ORDER.** Re-derive WITH the candidate in it.
+   Also a SELECTOR vs the MARKUP, both directions: a descendant selector styles
+   content not written yet (`.list b` made every inline bold a heading), a child
+   combinator stops matching after a refactor. CSS fails SILENTLY — a rule that
+   stops matching looks like a feature nobody built. The instrument is the
+   COMPUTED style, never the stylesheet; for a PAINT/OVERLAP bug, the PAINTED
+   BOXES. Also TWO PASSES over one DOM property, and one listener
    per re-render (`docs/mistakes/frontend-ui.md`): touch only what THIS pass set,
    keep state in a variable and listeners on the nodes this paint made.
 7. **Verify from the authority, and test BOTH directions.** Read the ACL from
@@ -124,43 +126,43 @@ has not been written yet.
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled one
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
    chars before any assertion ran (one shared `strip-comments.js` now).
-   Also: **never measure a container to size the content that sizes it**
-   (`overflow:auto`+`max-height` makes `clientHeight` an OUTPUT; tell — it fixes
-   itself if you toggle twice), and **a button label is only unambiguous next to
-   the OTHER buttons** — read the rendered dialog.
+   Two more, in `frontend-ui.md`: never measure a container to size the content
+   that sizes it; and read the RENDERED dialog — a button label is only
+   unambiguous beside the other buttons.
    The five ways, each paid for here: it cannot SEE the hazard (0146) · its
-   CONTROL finds nothing either (0147) · it is satisfied by PROSE
+   CONTROL finds nothing either (0147) · satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
-   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and an
-   aborted script is silence (`house0116`: ZERO assertions for 23 migrations —
-   when a migration drops a function or column, grep `tools/` in that commit). **The ritual that catches all five: reintroduce the bug,
-   watch it fail on the assertion you expect, restore.** Never write a guard
-   from the SAME LIST the code came from — assert the PROPERTY that list was
-   meant to produce, or a wrong list passes itself.
+   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and
+   an aborted script is silence (`house0116`: ZERO assertions for 23 migrations
+   — when a migration drops a function or column, grep `tools/` in that commit).
+   **The ritual that catches all five: reintroduce the bug, watch it fail on the
+   assertion you expect, restore.** Never write a guard from the SAME LIST the
+   code came from — assert the PROPERTY that list was meant to produce, or a
+   wrong list passes itself.
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
-   no GRANT denies everyone and reads exactly like the policy working (0138),
-   and a deny-only probe cannot tell a working guard from a broken service.
-   **Check the PROBE SUBJECT**, and derive it from the gate's own predicate:
+   no GRANT denies everyone and reads like the policy working (0138); a
+   deny-only probe cannot tell a working guard from a broken service.
+   **Check the PROBE SUBJECT**, derived from the gate's own predicate:
    `current_user_has_permission()` reads the UNION of `permissions` AND
    `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
    `let`s (grep a STRING LITERAL or CSS class), code often lands in a SHARED
    chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a
-   GET. **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
-   `users_read_all` carried "needed for staff dashboards" in a comment, the need
-   had ended years earlier, and the policy outlived its reason (0147).
+   GET, and a DB-side proof cannot see the FRONTEND half of a mirrored rule.
+   **Re-read a rule's stated
+   JUSTIFICATION, not just its predicate** — `users_read_all` carried "needed
+   for staff dashboards", the need had ended years earlier (0147).
 
 ---
 
 ## Adding an entry
 
 Write it in the matching `docs/mistakes/*.md` as **Symptom → Cause → Fix → Where
-it lives now**, ending with the general rule and LEADING with the symptom as it
-was reported — that is what the next reader greps for. Run
-`npm run mistakes:index` (never hand-edit the index; if a line reads badly, fix
-the heading). If it is a new instance of one of the seven classes, add the site
-to that class above.
+it lives now**, ending with the general rule and LEADING with the symptom as
+REPORTED — that is what the next reader greps for. Run `npm run mistakes:index`
+(never hand-edit it; if a line reads badly, fix the heading). A new instance of
+one of the seven classes gets its site added to that class above.
 
 **This file is charged to every session and the index only grows.** When
 `npm run check:context` fails, compress the classes or move detail into
@@ -220,7 +222,7 @@ to that class above.
 - Every signed-in account could read all 531 rows of `public.users`
 - "someone could just book 16.40-20.00 kick me out"
 
-### `authz-grants.md` — The permission / seat / scope channel *(13)*
+### `authz-grants.md` — The permission / seat / scope channel *(14)*
 - Adding a permission-based access channel leaves every ROLE-ONLY gate as a latent block
 - "โมนา got pr permission in teamsamo but she can't delete pr ticket"
 - A narrowing "scope" dimension added ALONGSIDE an unconditional full-access permission is DEAD
@@ -234,6 +236,7 @@ to that class above.
 - A seat that grants a SHARED role must not be modelled as a new individual
 - WEAKENING the meaning of a permission key silently PROMOTES every gate that still treats it as the strong one
 - `master` opened the tab but not the ROLE-gated controls inside it
+- "when i select permission as master, i cant select sub of the หนังสือโครงการ"
 
 ### `postgres-schema.md` — Migrations, DDL, triggers & constraints *(21)*
 - Postgres has no `create or replace policy`

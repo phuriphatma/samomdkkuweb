@@ -9,7 +9,7 @@
 //   - exposes openProjectsTab() so other modules / hash routing can jump in
 // ==============================================
 
-import { onAuthChange, getUser, userCanAccess } from '../auth.js';
+import { onAuthChange, getUser, userCanAccess, holdsMaster } from '../auth.js';
 import { listProjects, listDocTypes, getSettings, listMyDocViews } from './api.js';
 import {
   mountInbox, renderInbox, openProjectDetail, openDocumentDetail,
@@ -77,10 +77,33 @@ const SEAT_TO_ROLE = { vpa: 'vp_admin', staff: 'uni_staff', prof: 'sa_prof' };
 // เจ้าหน้าที่คณะ grant open the sender's see-everything inbox.
 const SEAT_ORDER = ['vpa', 'staff', 'prof'];
 
+/**
+ * The seats `master` implies — the JS half of a rule the DATABASE already had.
+ *
+ * `current_user_project_seats()` (migration 0111) reads:
+ *     when current_user_has_permission('master') then array['vpa','staff','prof']
+ * so at the DB a master holder is a project actor, is a prof, and passes every
+ * projects RLS policy. This module never learned that, and read the RAW
+ * `managed_project_seats` column instead — which the ทีม SAMO editor stores as
+ * NULL for a master row. Result: role resolved to 'user', every
+ * `[data-projects-role]` block hid, `projectsRoleHint` went blank, and the tab
+ * opened onto nothing. Measured 2026-08-18: 36 of 41 master holders were in
+ * that state, and the 5 that worked only did so because a parent ตำแหน่ง
+ * happened to carry a seat — which is why it looked intermittent.
+ *
+ * It is a FLOOR, not an override: an explicitly stored seat still wins. The
+ * seat names a DESK (ผู้ส่ง / เจ้าหน้าที่ / อาจารย์ — three sides of one
+ * transaction), not an amount of access, and there is no "all three" desk to
+ * draw. So master supplies access; the stored seat, when there is one, still
+ * says which screen. Under-showing relative to RLS is safe; the reverse is not.
+ */
+const MASTER_SEATS = ['vpa', 'staff', 'prof'];
+
 export function projectSeatRole(user) {
   const role = user?.role || null;
   if (role && role !== 'user') return role;
-  const seats = Array.isArray(user?.managedProjectSeats) ? user.managedProjectSeats : [];
+  let seats = Array.isArray(user?.managedProjectSeats) ? user.managedProjectSeats : [];
+  if (!seats.some((s) => SEAT_ORDER.includes(s)) && holdsMaster(user)) seats = MASTER_SEATS;
   const seat = SEAT_ORDER.find((s) => seats.includes(s));
   return seat ? SEAT_TO_ROLE[seat] : role;
 }

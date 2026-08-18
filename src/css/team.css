@@ -420,6 +420,22 @@
 .team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
 .team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
 .team-perm-chip.is-seat .bi { font-size: 0.62rem; }
+/* ทุกระบบ (Master) — orange, the brand's "strongest grant" colour, matching
+   .team-perm-opt.is-danger in the editor so the row and the checkbox read as
+   the same thing. A master row prints this chip INSTEAD of the capability
+   chips it implies (see permChipsHtml), so it is the only chip on most rows
+   and can afford to be the loudest. */
+.team-perm-chip.is-master.is-own {
+  background: var(--brand-orange, #FF6F30); color: #fff;
+}
+.team-perm-chip.is-master.is-inherited {
+  background: transparent; color: var(--brand-orange, #FF6F30);
+  border: 1px dashed var(--brand-orange, #FF6F30);
+}
+/* Every chip can now carry an icon; keep it subordinate to the word. The label
+   is what people read (the owner asked to keep the text) — the icon is a
+   secondary landmark for scanning a 300-row tree, not a replacement. */
+.team-perm-chip .bi { font-size: 0.62rem; opacity: 0.85; }
 
 .team-row-actions, .team-member-actions {
   display: flex; gap: 0.1rem; flex: 0 0 auto; margin-left: auto;
@@ -862,6 +878,30 @@
 }
 .team-perm-opt.is-implied { opacity: 0.55; }
 .team-perm-grid.is-master .team-perm-opt.is-implied { cursor: not-allowed; }
+
+/* The line that REPLACES the VitalSound and Passport scope pickers while Master
+   is on. Those two are scopes and Master is already their widest value, so they
+   are hidden rather than left live-with-no-effect — but a control that simply
+   vanishes reads as a bug, so this says where it went. */
+.team-perm-master-note {
+  display: flex; gap: 0.5rem; align-items: flex-start;
+  margin-top: 0.75rem; padding: 0.5rem 0.65rem;
+  border: 1px solid #ffd7bd; border-radius: var(--radius-sm, 0.5rem);
+  background: #fff6ef; color: var(--ink-700, #343a40);
+  font-size: 0.8rem; line-height: 1.5;
+}
+.team-perm-master-note .bi { color: var(--brand-orange, #FF6F30); margin-top: 0.15rem; }
+
+/* The หนังสือโครงการ seat is the one sub-choice Master does NOT answer, so both
+   editors keep it — and both explain what it costs. On a ตำแหน่ง it fans out to
+   the whole subtree (`.team-seat-fanout`, with the head-count); on a person it
+   is pre-filled and explains that the seat also drives NOTIFICATIONS
+   (`.team-seat-master-hint`). */
+.team-seat-fanout, .team-seat-master-hint {
+  margin-top: 0.35rem; padding: 0.35rem 0.5rem;
+  border-left: 2px solid var(--brand-orange, #FF6F30);
+  background: var(--ink-100, #f1f3f5); border-radius: 0 var(--radius-xs, 0.25rem) var(--radius-xs, 0.25rem) 0;
+}
 
 /* An IMPLICIT permission — ทีม SAMO (ดู), which every person in the tree gets
  * automatically (0110). Ticked and disabled, so it must LOOK locked rather than

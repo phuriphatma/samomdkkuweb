@@ -265,6 +265,15 @@
             <span class="team-perm-inherited-label">สิทธิ์ที่ได้รับจากแม่:</span>
             <span id="teamPermInheritedList"></span>
           </div>
+          <!-- Shown only while Master is on. The VS and Passport scope pickers
+               are HIDDEN in that state (Master already means the widest value
+               of each), so this line replaces them rather than leaving two live
+               dropdowns whose value is discarded on save. -->
+          <div class="team-perm-master-note d-none" id="teamPermMasterNote">
+            <i class="bi bi-shield-lock-fill" aria-hidden="true"></i>
+            <span>เปิด <b>ทุกระบบ (Master)</b> แล้ว — VitalSound ดูแลได้ทุกแผนก
+              และ SAMO Passport ดูแลได้ทุกฝ่ายโดยอัตโนมัติ จึงไม่ต้องเลือกขอบเขต</span>
+          </div>
           <!-- VS scope: appears only when "VitalSound" is ticked above. The
                scope is part of the VS grant, not a separate switch (0083). -->
           <div class="d-none" id="teamPermVsWrap">
@@ -289,6 +298,12 @@
             </label>
             <select class="form-select" id="teamPermSeat"></select>
             <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
+            <!-- The seat is NOT a scope, so Master does not subsume it — it
+                 decides which screen the person gets AND who the system
+                 notifies. On a ตำแหน่ง it fans out to everyone underneath,
+                 which is why this row is never auto-filled (the บุคคล editor
+                 is). The count is filled in by refreshSeatFanout(). -->
+            <div class="form-text team-seat-fanout d-none" id="teamPermSeatFanout"></div>
           </div>
           <div class="team-perm-inherited d-none mt-2" id="teamPermSeatInheritedWrap">
             <span class="team-perm-inherited-label">บทบาทหนังสือโครงการที่รับมาจากฝ่ายแม่:</span>
@@ -655,6 +670,12 @@
               รับสิทธิ์จากตำแหน่งด้วย (inherit)
             </label>
           </div>
+          <!-- Shown only while Master is on — see teamPermMasterNote. -->
+          <div class="team-perm-master-note d-none" id="teamMPermMasterNote">
+            <i class="bi bi-shield-lock-fill" aria-hidden="true"></i>
+            <span>เปิด <b>ทุกระบบ (Master)</b> แล้ว — VitalSound ดูแลได้ทุกแผนก
+              และ SAMO Passport ดูแลได้ทุกฝ่ายโดยอัตโนมัติ จึงไม่ต้องเลือกขอบเขต</span>
+          </div>
           <!-- VS scope for THIS person: appears only when "VitalSound" is
                ticked above. Unions with whatever their ตำแหน่ง grants. -->
           <div class="d-none" id="teamMPermVsWrap">
@@ -681,6 +702,15 @@
             </label>
             <select class="form-select" id="teamMPermSeat"></select>
             <div class="form-text">ผู้ส่ง = สร้างโครงการและส่งหนังสือ · เจ้าหน้าที่คณะ = รับเรื่องและอัปเดตสถานะ · อาจารย์ = ลงนาม (เห็นเฉพาะหนังสือที่ส่งให้)</div>
+            <!-- Master pre-fills ผู้ส่งหนังสือ here (and ONLY here — see
+                 teamPermSeatFanout for why a ตำแหน่ง is not pre-filled). This
+                 line says what the stored seat buys beyond the screen, because
+                 that is the part nobody can see: it is what
+                 list_project_seat_users() reads to decide who gets notified. -->
+            <div class="form-text team-seat-master-hint d-none" id="teamMPermSeatMasterHint">
+              บทบาทนี้ไม่ใช่ “สิทธิ์” แต่คือหน้าจอที่จะได้ใช้ และเป็นตัวบอกระบบว่าจะ<b>แจ้งเตือน</b>ใคร
+              — ตั้งเป็น “ผู้ส่งหนังสือ” ให้แล้ว เปลี่ยนได้ตามงานจริง
+            </div>
           </div>
           <div class="team-perm-inherited d-none" id="teamMPermEffWrap">
             <span class="team-perm-inherited-label">สิทธิ์รวมที่บุคคลนี้จะได้รับ:</span>

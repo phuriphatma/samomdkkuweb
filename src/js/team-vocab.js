@@ -16,33 +16,34 @@
 // Labels are display-only and safe to reword.
 
 export const PERM_CATALOG = [
-  { key: 'pr',        label: 'PR' },
-  { key: 'vs',        label: 'VitalSound' },
-  { key: 'samoshop',  label: 'SAMO Shop' },
-  { key: 'projects',  label: 'หนังสือโครงการ' },
-  { key: 'creator',   label: 'เขียนประกาศ' },
+  { key: 'pr',        label: 'PR', icon: 'bi-megaphone' },
+  { key: 'vs',        label: 'VitalSound', icon: 'bi-soundwave' },
+  { key: 'samoshop',  label: 'SAMO Shop', icon: 'bi-bag' },
+  { key: 'projects',  label: 'หนังสือโครงการ', icon: 'bi-file-earmark-text' },
+  { key: 'creator',   label: 'เขียนประกาศ', icon: 'bi-newspaper' },
   // `implicit` = the server grants this to every person in the tree, so the
   // checkbox cannot turn it off. See IMPLICIT_PERMS below.
-  { key: 'team',      label: 'ทีม SAMO (ดู)', implicit: true,
+  { key: 'team',      label: 'ทีม SAMO (ดู)', implicit: true, icon: 'bi-people',
     hint: 'ทุกคนที่มีอีเมลอยู่ในผังทีมได้สิทธิ์นี้อัตโนมัติ — ปิดไม่ได้' },
-  { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)',
+  { key: 'team_edit', label: 'ทีม SAMO (แก้ไข)', icon: 'bi-people-fill',
     hint: 'แก้ไขโครงสร้าง สมาชิก และสิทธิ์ของทุกคน' },
-  { key: 'passport',  label: 'SAMO Passport' },
+  { key: 'passport',  label: 'SAMO Passport', icon: 'bi-airplane' },
   // Migration 0116. ONE rung on purpose — there is no house_edit yet. The
   // obvious second audience (an อาจารย์ seeing only their own สาย) is a SCOPE,
   // not a rung, and อาจารย์ have no login today.
-  { key: 'house',     label: 'ระบบบ้าน',
+  { key: 'house',     label: 'ระบบบ้าน', icon: 'bi-house-heart',
     hint: 'จัดการบ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษาทั้งคณะ' },
   // Migration 0154. ONE rung, like `house`: everyone who holds it can see the
   // whole board and book on it. There is deliberately no view-only rung — a
   // shared calendar you may read but never claim a slot on is a notice board,
   // and that is not what anyone asked for.
-  { key: 'claude',    label: 'จองโควตา Claude',
+  { key: 'claude',    label: 'จองโควตา Claude', icon: 'bi-stars',
     hint: 'จองช่วงเวลาใช้งาน Claude ของสโม และดูว่าใครจองอะไรไว้บ้าง' },
-  { key: 'master',    label: 'ทุกระบบ (Master)',
+  { key: 'master',    label: 'ทุกระบบ (Master)', icon: 'bi-shield-lock-fill',
     hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
     danger: true },
 ];
+export const PERM_ICON = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.icon || '']));
 export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
 
 // ทีม SAMO is the one capability with two rungs (migration 0110). They are NOT

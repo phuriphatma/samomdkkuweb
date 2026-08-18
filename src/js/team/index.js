@@ -13,7 +13,7 @@
 // ==============================================
 
 import {
-  PERM_CATALOG, PERM_LABEL, VS_DEPTS, VS_DEPT_LABEL,
+  PERM_CATALOG, PERM_LABEL, PERM_ICON, VS_DEPTS, VS_DEPT_LABEL,
   PROJECT_SEATS, PROJECT_SEAT_LABEL, IMPLICIT_PERMS,
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
@@ -604,23 +604,14 @@ function renderNode(node, filter, depth = 0) {
 
   let permChips = '';
   if (mode === 'perms') {
-    const own = new Set(node.permissions || []);
-    const inh = inheritedPermsFor(node.id);
-    [...own].forEach((p) => { permChips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
-    [...inh].forEach((p) => { if (!own.has(p)) permChips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
-    // VitalSound per-ฝ่าย binding: own dept solid, inherited dashed (0082).
-    const ownDept = node.vs_dept;
-    if (ownDept) permChips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
-    [...inheritedVsDeptsFor(node.id)].forEach((d) => { if (d !== ownDept) permChips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // หนังสือโครงการ seat (0086): own solid, inherited dashed — and an own seat
-    // REPLACES the inherited one (0092), so only one chip ever shows.
-    const ownSeat = node.project_seat;
-    if (ownSeat) {
-      permChips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
-    } else {
-      [...inheritedSeatsFor(node.id)].forEach((x) => { permChips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
-    }
-    if (!permChips) permChips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
+    permChips = permChipsHtml({
+      own: new Set(node.permissions || []),
+      inherited: inheritedPermsFor(node.id),
+      vsOwn: node.vs_dept || null,
+      vsInherited: inheritedVsDeptsFor(node.id),
+      seatOwn: node.project_seat || null,
+      seatInherited: inheritedSeatsFor(node.id),
+    });
   }
 
   // ระดับ — rank inside the ฝ่าย, so a ตำแหน่ง never has to be NESTED inside
@@ -725,27 +716,18 @@ function renderMember(m, filter) {
   if (mode === 'perms') {
     // Per-person permission row: name + effective chips (own solid,
     // node-inherited dashed) + a shield button opening the person's editor.
-    const own = new Set(m.permissions || []);
-    const inh = m.inherit_permissions !== false ? nodeEffectivePerms(m.node_id) : new Set();
-    let chips = '';
-    [...own].forEach((p) => { chips += `<span class="team-perm-chip is-own">${escHtml(PERM_LABEL[p] || p)}</span>`; });
-    [...inh].forEach((p) => { if (!own.has(p)) chips += `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`; });
-    // VitalSound scope: the person's OWN binding (0083, solid) + whatever
-    // their ตำแหน่ง passes down (0082, dashed).
-    const ownDept = m.vs_dept || null;
-    if (ownDept) chips += `<span class="team-perm-chip is-vs is-own" title="VitalSound: ${escHtml(ownDept)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[ownDept] || ownDept)}</span>`;
-    const vsDepts = m.inherit_permissions !== false ? nodeEffectiveVsDepts(m.node_id) : new Set();
-    [...vsDepts].forEach((d) => { if (d !== ownDept) chips += `<span class="team-perm-chip is-vs is-inherited" title="VitalSound: ${escHtml(d)}"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`; });
-    // หนังสือโครงการ seat: an own binding REPLACES the inherited one (0092), so
-    // show one chip or the other — never both, or the row would advertise a
-    // grant ("ผู้ส่งหนังสือ") the person does not actually resolve to.
-    const ownSeat = m.project_seat || null;
-    if (ownSeat) {
-      chips += `<span class="team-perm-chip is-seat is-own" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[ownSeat] || ownSeat)}</span>`;
-    } else if (m.inherit_permissions !== false) {
-      [...nodeEffectiveSeats(m.node_id)].forEach((x) => { chips += `<span class="team-perm-chip is-seat is-inherited" title="หนังสือโครงการ: ${escHtml(PROJECT_SEAT_LABEL[x] || x)}"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`; });
-    }
-    if (!chips) chips = '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
+    // `inherit_permissions === false` cuts the person off from their ตำแหน่ง
+    // entirely, so every inherited set is empty — including the seat, which the
+    // node-row copy of this block used to get wrong.
+    const inheriting = m.inherit_permissions !== false;
+    const chips = permChipsHtml({
+      own: new Set(m.permissions || []),
+      inherited: inheriting ? nodeEffectivePerms(m.node_id) : new Set(),
+      vsOwn: m.vs_dept || null,
+      vsInherited: inheriting ? nodeEffectiveVsDepts(m.node_id) : new Set(),
+      seatOwn: m.project_seat || null,
+      seatInherited: inheriting ? nodeEffectiveSeats(m.node_id) : new Set(),
+    });
     li.innerHTML = `
       ${checkbox}
       ${canEdit() ? '<span class="team-handle team-handle-sm" title="ลากเพื่อจัดลำดับ"><i class="bi bi-grip-vertical"></i></span>' : ''}
@@ -1648,6 +1630,112 @@ async function bulkDelete() {
 }
 
 // ============================================================
+// PERMISSION CHIPS — the row display in สิทธิ์ mode
+//
+// REPORTED 2026-08-18, with a screenshot: "look at this messy … even theres 5
+// permission still messy but i want them to can still see all permission each
+// one get like now." So the words stay; what changes is how many of them a row
+// has to print, and in what order.
+//
+// Three rules, and they were separate bugs before they were a design:
+//
+//  1. VALUE-CARRYING CHIPS COME FIRST. บทบาท / VitalSound แผนก are the parts
+//     that differ per person and that an admin is actually scanning for. They
+//     used to print LAST, so on the reported row `ผู้ส่งหนังสือ (SAMO)` — the
+//     single most important fact about that person — wrapped onto line 2 behind
+//     eight interchangeable capability chips.
+//
+//  2. A MASTER ROW PRINTS ONE CHIP. It used to print `ทุกระบบ (Master)` and
+//     then the inherited `SAMO Shop` / `จองโควตา Claude` chips as well, which
+//     says the opposite of the truth: master already answers yes to every
+//     permission key (0111), so listing two of them implies it is NOT covering
+//     them. The seat is the exception and still prints, because it is the one
+//     thing master genuinely does not imply.
+//
+//  3. ONE BUILDER, TWO CALLERS. The ตำแหน่ง row and the บุคคล row had two
+//     copies of this logic that had already drifted (the member copy guards the
+//     inherited seat on `inherit_permissions`, the node copy does not). That is
+//     the "two implementations of one rule" class; the resolvers differ, the
+//     drawing must not.
+// ============================================================
+
+/** One chip. `icon` is a bootstrap-icons class (pinned 1.10.5 — run
+ *  `npm run check:icons` after adding one, a missing name renders as nothing). */
+function permChip(cls, label, { icon = '', title = '' } = {}) {
+  return `<span class="team-perm-chip ${cls}"${title ? ` title="${escHtml(title)}"` : ''}>`
+    + `${icon ? `<i class="${icon}"></i> ` : ''}${escHtml(label)}</span>`;
+}
+
+/**
+ * Draw one row's grants. Callers resolve the sets; this decides the display.
+ *
+ * @param {Set<string>} own          permission keys stored ON this row
+ * @param {Set<string>} inherited    permission keys reaching it from its parent
+ * @param {string|null} vsOwn        this row's VitalSound dept binding
+ * @param {Set<string>} vsInherited  dept bindings from the parent
+ * @param {string|null} seatOwn      this row's หนังสือโครงการ seat
+ * @param {Set<string>} seatInherited seats from the parent (own REPLACES, 0092)
+ */
+export function permChipsHtml({ own, inherited, vsOwn, vsInherited, seatOwn, seatInherited }) {
+  let out = '';
+  const hasMaster = own.has('master') || inherited.has('master');
+
+  // Rule 2 — master subsumes every capability key, so print it instead of them.
+  if (hasMaster) {
+    out += permChip(own.has('master') ? 'is-master is-own' : 'is-master is-inherited',
+      PERM_LABEL.master, {
+        icon: PERM_ICON.master,
+        title: own.has('master') ? 'เข้าถึงได้ทุกระบบ' : 'เข้าถึงได้ทุกระบบ (รับมาจากตำแหน่งแม่)',
+      });
+  }
+
+  // Rule 1 — the value-carrying chips, before the capability keys.
+  // An own seat REPLACES what the parent offers (0092), so only ever one chip:
+  // showing both would advertise a grant the person does not resolve to.
+  if (seatOwn) {
+    out += permChip('is-seat is-own', PROJECT_SEAT_LABEL[seatOwn] || seatOwn,
+      { icon: 'bi-file-earmark-text', title: `หนังสือโครงการ: ${PROJECT_SEAT_LABEL[seatOwn] || seatOwn}` });
+  } else {
+    [...seatInherited].forEach((x) => {
+      out += permChip('is-seat is-inherited', PROJECT_SEAT_LABEL[x] || x,
+        { icon: 'bi-file-earmark-text', title: `หนังสือโครงการ: ${PROJECT_SEAT_LABEL[x] || x}` });
+    });
+  }
+  if (vsOwn) {
+    out += permChip('is-vs is-own', VS_DEPT_LABEL[vsOwn] || vsOwn,
+      { icon: 'bi-soundwave', title: `VitalSound: ${vsOwn}` });
+  }
+  [...vsInherited].forEach((d) => {
+    if (d === vsOwn) return;
+    out += permChip('is-vs is-inherited', VS_DEPT_LABEL[d] || d,
+      { icon: 'bi-soundwave', title: `VitalSound: ${d}` });
+  });
+
+  // The plain capability keys — skipped entirely under master (rule 2).
+  //
+  // `projects` is skipped once a SEAT chip is already on the row: the seat is
+  // strictly more specific ("ผู้ส่งหนังสือ (SAMO)" says หนังสือโครงการ and then
+  // says which desk), so printing both spends two chips on one fact. It is NOT
+  // dropped unconditionally — a `projects` grant with no seat is the one state
+  // that genuinely needs saying, because that person opens the tab onto no
+  // controls (0086) and the plain chip is the only sign of it.
+  const seatShown = !!(seatOwn || seatInherited.size);
+  if (!hasMaster) {
+    [...own].forEach((p) => {
+      if (p === 'projects' && seatShown) return;
+      out += permChip('is-own', PERM_LABEL[p] || p, { icon: PERM_ICON[p] });
+    });
+    [...inherited].forEach((p) => {
+      if (own.has(p) || (p === 'projects' && seatShown)) return;
+      out += permChip('is-inherited', PERM_LABEL[p] || p,
+        { icon: PERM_ICON[p], title: 'รับมาจากตำแหน่งแม่' });
+    });
+  }
+
+  return out || '<span class="team-perm-none">ไม่มีสิทธิ์</span>';
+}
+
+// ============================================================
 // PERMISSION MODAL (perms mode)
 // ============================================================
 
@@ -1735,10 +1823,16 @@ function syncMasterVisibility(grid) {
  * that is not a display glitch: it would write permissions the second person
  * never had. Reproduced in a headless browser before fixing.
  */
-function resetMasterState(grid) {
-  if (!grid) return;
-  grid.classList.remove('is-master');
-  delete grid.dataset.preMaster;
+function resetMasterState(grid, seatSel) {
+  if (grid) {
+    grid.classList.remove('is-master');
+    delete grid.dataset.preMaster;
+  }
+  // `masterAuto` is the same hazard one control over: it lives on the SELECT,
+  // which also outlives the row. Left set, opening a master person and then an
+  // ordinary one would let syncMasterSeatDefault clear the second person's real
+  // seat as if the form had invented it.
+  if (seatSel) delete seatSel.dataset.masterAuto;
 }
 
 /** Ask before handing over everything. Resolves false if the admin backs out,
@@ -1828,25 +1922,112 @@ function fillPassSubSelect(sel, deptId) {
   sel.classList.remove('d-none');
 }
 
-/** Show the passport scope block only while "SAMO Passport" is ticked. */
+/** Is `master` ticked in this grid? One reader, so the four sync functions
+ *  below cannot disagree about what "master mode" means. */
+function masterOn(grid) {
+  return !!grid?.querySelector('input[value="master"]')?.checked;
+}
+
+/**
+ * A SCOPE picker is meaningless under master and must be HIDDEN, not left live.
+ *
+ * Master force-ticks every box, so before this the VS and Passport blocks
+ * appeared (their checkbox was ticked), stayed enabled — `syncMasterVisibility`
+ * only disables checkboxes, never the selects — and had their value discarded
+ * by `readPermInputs`. Three live controls with no effect, which is precisely
+ * how "i cant select…" gets reported: the control answers, the save does not.
+ *
+ * The seat block is deliberately NOT in this pair; see syncSeatVisibility.
+ */
 function syncPassVisibility(grid, wrap) {
   if (!grid || !wrap) return;
-  const on = !!grid.querySelector('input[value="passport"]')?.checked;
+  const on = !!grid.querySelector('input[value="passport"]')?.checked && !masterOn(grid);
   wrap.classList.toggle('d-none', !on);
 }
 
-/** Show the VS scope block only while "VitalSound" is ticked in `grid`. */
+/** Show the VS scope block only while "VitalSound" is ticked and master is off. */
 function syncVsScopeVisibility(grid, wrap) {
   if (!grid || !wrap) return;
-  const on = !!grid.querySelector('input[value="vs"]')?.checked;
+  const on = !!grid.querySelector('input[value="vs"]')?.checked && !masterOn(grid);
   wrap.classList.toggle('d-none', !on);
 }
 
-/** Same, for the หนังสือโครงการ seat block. */
+/** The หนังสือโครงการ seat block — shown under master TOO, because the seat is
+ *  a desk, not a scope, and master does not answer it. */
 function syncSeatVisibility(grid, wrap) {
   if (!grid || !wrap) return;
   const on = !!grid.querySelector('input[value="projects"]')?.checked;
   wrap.classList.toggle('d-none', !on);
+}
+
+/** The one-line replacement for the two scope pickers master just hid. Without
+ *  it the blocks would simply vanish and an admin would wonder where the
+ *  VitalSound แผนก choice went. */
+function syncMasterNote(grid, note) {
+  note?.classList.toggle('d-none', !masterOn(grid));
+}
+
+/**
+ * Turning master on pre-selects ผู้ส่งหนังสือ — in the บุคคล editor ONLY.
+ *
+ * The owner's call (2026-08-18): a master holder should get the same screen AND
+ * the same notifications as someone who picked the seat by hand, without having
+ * to know that the seat is a separate question. So the บุคคล editor fills it in.
+ *
+ * A ตำแหน่ง is NOT pre-filled, because a seat set there is inherited by the
+ * whole subtree: measured on the live tree, auto-filling every master-bearing
+ * ตำแหน่ง would have handed `vpa` to 57 more people, each of whom would then be
+ * on `list_project_seat_users('vpa')` — i.e. notified on every หนังสือ update
+ * in the faculty. Ticking master on a ฝ่าย must not sign 57 people up for mail.
+ * That row shows a fan-out COUNT instead (see seatFanoutCount).
+ *
+ * `masterAuto` marks the value as OURS, so turning master back off removes it
+ * again — the same rule `preMaster` follows for the checkboxes, and for the
+ * same reason: a value the form invented must not survive as if a human chose
+ * it. Any human `change` on the select clears the mark (see the wiring below),
+ * and `resetMasterState` clears it between rows.
+ */
+const MASTER_DEFAULT_SEAT = 'vpa';
+function syncMasterSeatDefault(grid, sel, hint) {
+  const on = masterOn(grid);
+  if (sel) {
+    if (on && !sel.value) { sel.value = MASTER_DEFAULT_SEAT; sel.dataset.masterAuto = '1'; }
+    else if (!on && sel.dataset.masterAuto) { sel.value = ''; delete sel.dataset.masterAuto; }
+  }
+  hint?.classList.toggle('d-none', !on);
+}
+
+/**
+ * How many people would actually RECEIVE a seat set on this ตำแหน่ง.
+ *
+ * Mirrors the descent in SQL's `node_effective_project_seats()`: a person with
+ * their own `project_seat`, a person who opted out of inheriting, and anything
+ * under a descendant ตำแหน่ง that sets its own seat are all shielded — they
+ * already resolve to something nearer. Showing `subtreeMemberCount` instead
+ * would overstate it and train the admin to ignore the number.
+ */
+function seatFanoutCount(nodeId) {
+  let n = 0;
+  const walk = (id, blocked) => {
+    for (const m of membersOf(id)) {
+      if (!blocked && !m.project_seat && m.inherit_permissions !== false) n += 1;
+    }
+    for (const c of childrenOf(id)) {
+      walk(c.id, blocked || !!c.project_seat || c.inherit_permissions === false);
+    }
+  };
+  walk(nodeId, false);
+  return n;
+}
+
+/** Say out loud who a ตำแหน่ง-level seat lands on, before it lands on them. */
+function refreshSeatFanout(nodeId, el) {
+  if (!el) return;
+  const n = nodeId ? seatFanoutCount(nodeId) : 0;
+  if (!n) { el.classList.add('d-none'); return; }
+  el.innerHTML = `<i class="bi bi-people"></i> บทบาทที่เลือกตรงนี้จะมีผลกับคนในตำแหน่งนี้และตำแหน่งย่อย
+    <b>${n} คน</b> — ทุกคนจะได้หน้าจอนั้น และจะได้รับแจ้งเตือนหนังสือโครงการด้วย`;
+  el.classList.remove('d-none');
 }
 
 /** Split the modal inputs into the { permissions, vs_dept } the row stores.
@@ -1854,7 +2035,7 @@ function syncSeatVisibility(grid, wrap) {
  *  vs + ทุกแผนก          → `vs` (full), no dept
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
-function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
+export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])]
     .map((cb) => cb.value)
     // Never store an implicit key. `input:checked` matches a DISABLED box too,
@@ -1868,8 +2049,23 @@ function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   // unticked — the same trap as storing `vs` next to a vs_dept (0083) — and
   // would silently rot the day a new permission key is added.
   if (perms.includes('master')) {
+    // ...but the หนังสือโครงการ SEAT is not an implied permission, so it stays.
+    //
+    // VitalSound แผนก and Passport ฝ่าย are SCOPES: each has a widest value and
+    // master IS that value, so storing a narrower one beside the blanket grant
+    // is the 0083 trap. The seat is not a scope — ผู้ส่ง / เจ้าหน้าที่ / อาจารย์
+    // are three DESKS in one transaction and there is no "all three" desk. The
+    // stored seat is also what `list_project_seat_users()` reads to decide who
+    // gets NOTIFIED (projects/notify.js) and who can be picked as the signing
+    // อาจารย์ (projects/sign.js), so nulling it made a master holder invisible
+    // to both while the DB happily let them do the work.
+    //
+    // REPORTED 2026-08-18: "i cant select sub of the หนังสือโครงการ … so my
+    // friend has to tick manually like 7 tickcheckbox". The select was live and
+    // its value was thrown away right here.
     return {
-      permissions: ['master'], vs_dept: null, project_seat: null,
+      permissions: ['master'], vs_dept: null,
+      project_seat: (seatSel?.value || '') || null,
       passport_dept_id: null, passport_sub_dept_id: null,
     };
   }
@@ -1959,6 +2155,9 @@ function wirePermModal() {
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
+    syncMasterNote(grid, $('teamPermMasterNote'));
+    // No syncMasterSeatDefault here on purpose — a ตำแหน่ง seat fans out.
+    refreshSeatFanout($('teamPermNodeId').value, $('teamPermSeatFanout'));
   };
   grid?.addEventListener('change', async (e) => {
     // Repaint FIRST so the grid never sits mid-dialog showing neither state,
@@ -2002,7 +2201,7 @@ function fillNodePermPane(id) {
   $('teamPermNodeId').value = id;
   $('teamPermNodeName').textContent = nodePath(id);
   const own = new Set(node.permissions || []);
-  resetMasterState($('teamPermGrid'));
+  resetMasterState($('teamPermGrid'), $('teamPermSeat'));
   $('teamPermGrid').querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = permTicked(cb.value, own, node);
   });
@@ -2025,6 +2224,8 @@ function fillNodePermPane(id) {
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
+  syncMasterNote($('teamPermGrid'), $('teamPermMasterNote'));
+  refreshSeatFanout(id, $('teamPermSeatFanout'));
   refreshPermInherited();
 }
 
@@ -2757,7 +2958,13 @@ function wireMemberPermModal() {
     refreshMemberPermEff();
   });
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
-  $('teamMPermSeat')?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermSeat')?.addEventListener('change', (e) => {
+    // A human touched it, so the value is theirs now and must survive master
+    // being turned off again. Clearing the mark BEFORE the refresh matters:
+    // syncMasterSeatDefault runs inside it and would otherwise still see ours.
+    delete e.target.dataset.masterAuto;
+    refreshMemberPermEff();
+  });
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermForm')?.addEventListener('submit', onMemberPermSubmit);
 }
@@ -2770,7 +2977,7 @@ function fillMemberPermPane(memberId) {
   $('teamMPermName').textContent = m.full_name || '';
   $('teamMPermNode').textContent = nodePath(m.node_id);
   const own = new Set(m.permissions || []);
-  resetMasterState($('teamMPermGrid'));
+  resetMasterState($('teamMPermGrid'), $('teamMPermSeat'));
   $('teamMPermGrid')?.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = permTicked(cb.value, own, m);
   });
@@ -2806,6 +3013,9 @@ function refreshMemberPermEff() {
   syncVsScopeVisibility($('teamMPermGrid'), $('teamMPermVsWrap'));
   syncSeatVisibility($('teamMPermGrid'), $('teamMPermSeatWrap'));
   syncPassVisibility($('teamMPermGrid'), $('teamMPermPassWrap'));
+  syncMasterNote($('teamMPermGrid'), $('teamMPermMasterNote'));
+  // บุคคล only: a person's seat lands on that person, so pre-filling it is safe.
+  syncMasterSeatDefault($('teamMPermGrid'), $('teamMPermSeat'), $('teamMPermSeatMasterHint'));
   const wrap = $('teamMPermEffWrap');
   const list = $('teamMPermEffList');
   if (!wrap || !list) return;
