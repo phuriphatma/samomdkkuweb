@@ -381,9 +381,11 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin; **VM built from `161310e`** (confirm with
-> `git diff --stat 161310e..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
-> current). Migrations through **0166**; **1170 tests green**; **21 of 22 proofs
+> Local == origin; **VM built from `161310e`** — confirm with
+> `git diff --stat 161310e..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
+> served bundle is current. (Ask about `src/` ALONE here: adding `supabase/`
+> lists the 0166 migration, whose header comment was corrected after it was
+> already applied, and an applied migration cannot make a bundle stale.) Migrations through **0166**; **1170 tests green**; **21 of 22 proofs
 > green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below),
 > not a regression. All shipped work verified from the served artifacts.
 >
