@@ -33,8 +33,8 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e8f3fc0` (2026-08-18)** — 0166 + the audit, on top of
-  `e5a8524`: — the ปีงบ chip on every กล่องจดหมาย
+- ✅ **DEPLOYED = `161310e` (2026-08-18)** — `canManageComment` + the 0166-class
+  sweep, on top of `e8f3fc0` (0166 + the audit) and `e5a8524`: — the ปีงบ chip on every กล่องจดหมาย
   row (grid card + list row, one `fyChipHtml()`), the list-row width floor +
   mobile `flex-wrap`, and the plain-Thai rewrite of the ปีงบ-default dialog.
   Verified from the SERVED `analytics-*.js`: `projects-fy-mini` = 1,
@@ -47,6 +47,10 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
   `project_user_prefs`, `fiscal_year_be`, `ย้ายเอง` all = 1–2, and the REMOVED
   `seed บัญชี saprof` = **0**.
+  ⚠️ **`canManageComment` greps 0 in the served bundle** — it is a module-scope
+  function name and the minifier renames it; the bundle HASH changing
+  (`analytics-DZcPLnhL` → `analytics-C_2oekEU`) plus the VM's HEAD is the
+  evidence. Pick a STRING LITERAL or a CSS class as a deploy marker.
   ⚠️ **They are NOT in `admin-*.js`** — every one of those greps reads 0 there.
   The whole projects module lives in the shared chunk that Vite names
   **`analytics-*.js`** (the name is a lie; both entries import it). Find it with
@@ -349,8 +353,8 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin; **VM built from `e8f3fc0`** (confirm with
-> `git diff --stat e8f3fc0..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
+> Local == origin; **VM built from `161310e`** (confirm with
+> `git diff --stat 161310e..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
 > current). Migrations through **0166**; **1170 tests green**; **21 of 22 proofs
 > green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below),
 > not a regression. All shipped work verified from the served artifacts.
