@@ -5,7 +5,7 @@ Last updated: **2026-08-18**. This is "what is true RIGHT NOW" and nothing else;
 reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
-⚠️ **It is ~775 and still over target.** Five prunes have been done: the
+⚠️ **It is ~820 and still over target.** Five prunes have been done: the
 0154–0158 narrative, the "Live proofs" PER-PROOF NARRATIVE, the duplicated
 "What is owed" blocks, the 211-line "จองโควตา Claude — READ THIS BEFORE
 TOUCHING" walk-through → `2026-08-18-claude-quota-deep-dive.md` (leaving its ⛔
@@ -14,7 +14,7 @@ rules, 44 lines), and on 2026-08-18 the three dated 2026-08-17 sections →
 that are still LIVE rules. It keeps growing because each session adds rules
 that genuinely belong here.
 **The next structural pass is the NEXT-SESSION PROMPT itself**, which is now
-~420 of these lines. Most of it IS durable (the invariants, the settled
+440 of these 820 lines. Most of it IS durable (the invariants, the settled
 decisions, the traps) — the prunable part is the per-session "what the
 2026-08-1x session was" narrative, which `git log` and the archive already
 hold. Take the OLDEST such block each time, never the invariants.
@@ -136,6 +136,12 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
+  ⚠️ **RIGHT NOW that command is NOT empty and prod IS current.** The one file
+  it lists is `supabase/migrations/0166…sql`, whose HEADER COMMENT was corrected
+  after it had already been applied — nothing a build could carry. **Narrow it
+  to `-- src/ ':!src/**/*.test.js'` to answer "is the served bundle current";
+  that IS empty.** A migration already applied to the live DB can never make the
+  bundle stale, so read WHICH file the diff names before deploying.
   **Migrations applied through 0166.** **1170 tests green. 21 of 22 proofs
   green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below).
   ⚠️ `claude0161` C1 was ALSO red on 2026-08-18 and is now FIXED: its control
@@ -698,7 +704,7 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >
 > ### ⚠️ Four traps these sessions walked into
 >
-> - 🔴 **`.claude/rules/mistakes.md` is at 29,721 of its 30,000-char cap — 279
+> - 🔴 **`.claude/rules/mistakes.md` is at 29,725 of its 30,000-char cap — 275
 >   chars of headroom, and `npm run check:context` runs inside `npm test`.**
 >   That means **the next write-up may turn the standing `npm test` red before
 >   you have done anything wrong.** This session added 744 chars (three entries
@@ -706,7 +712,7 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   the whole lever prose gives you. Micro-trimming prose was tried TWICE in
 >   earlier sessions and buys ~100 bytes an hour.
 >   **The next session that breaches it should RESTRUCTURE, not trim**: the
->   `## Index` half is **18,535 of the 29,721** (measured 2026-08-18, 212 lines,
+>   `## Index` half is **18,533 of the 29,725** (measured 2026-08-18, 212 lines,
 >   and it only grows), its per-entry value declines, and
 >   `grep -rin "<symptom>" docs/mistakes/` already does the finding. The classes
 >   above it are the part that generalises and must survive any cut.
