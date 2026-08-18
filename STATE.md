@@ -36,7 +36,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 - ✅ **DEPLOYED = `2f35068` (2026-08-18)** — ปีงบ move + per-person default
   filter + the `sastaff`/`saprof` purge (`8359026`), plus the /scrutinize fixes
   on top. Verified from the SERVED artifacts:
-  `ค่าเริ่มต้นของปีงบประมาณ`, `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
+  `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
   `project_user_prefs`, `fiscal_year_be`, `ย้ายเอง` all = 1–2, and the REMOVED
   `seed บัญชี saprof` = **0**.
   ⚠️ **They are NOT in `admin-*.js`** — every one of those greps reads 0 there.

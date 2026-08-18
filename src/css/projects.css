@@ -294,7 +294,14 @@
 }
 .projects-tab .projects-list-name-wrap {
   flex: 1 1 auto;
-  min-width: 0;
+  /* A FLOOR, not 0. Every other cell in the row is `flex: 0 0 auto`, so they
+     take their width out of this one — and because a Thai name breaks at any
+     character (`overflow-wrap: anywhere`), min-width:0 let it collapse to one
+     character per line rather than to an ellipsis. Adding the ปีงบ chip to a
+     row that already carried a badge measured name width 0px and row height
+     702px on a 390px viewport. The floor makes that unreachable for any
+     future cell too. */
+  min-width: 7.5rem;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -374,7 +381,14 @@
   text-align: right;
 }
 @media (max-width: 575.98px) {
-  .projects-tab .projects-list-row { gap: 8px; }
+  /* WRAP rather than compete. On a phone the badges + count + timestamp do
+     not fit beside a Thai project name: with `min-width: 0` the name used to
+     collapse to one character per line (measured 43px wide / 208px tall at
+     320px), and with a width floor they instead overflowed the row by ~65px.
+     Letting the row wrap puts the name on line 1 and the metadata on line 2,
+     which is the only arrangement where neither is damaged. */
+  .projects-tab .projects-list-row { gap: 8px 10px; flex-wrap: wrap; }
+  .projects-tab .projects-list-name-wrap { flex: 1 1 65%; }
   .projects-tab .projects-list-id { display: none; }
   .projects-tab .projects-list-count { min-width: 30px; }
   .projects-tab .projects-list-time { min-width: 60px; }
@@ -495,6 +509,27 @@
   background: #fff7ed;
   color: #c2410c;
   border-color: #fed7aa;
+}
+/* The ปีงบ chip on an inbox card / list row (fyChipHtml). Deliberately
+   quieter than the detail-header pill: it sits on every โครงการ, so the
+   routine case is muted text and only a HAND-MOVED year earns the orange. */
+.projects-tab .projects-fy-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-muted);
+  white-space: nowrap;
+}
+.projects-tab .projects-fy-mini.is-moved {
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
 }
 .projects-tab .projects-hidden-pill.is-partial {
   background: #f1f5f9;

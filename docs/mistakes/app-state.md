@@ -639,3 +639,49 @@ scopes, the narrower scope has to be in the payload — not assumed by whoever
 reads it.* "Now" and "the period on screen" agree exactly while you are looking
 at the current period, which is when the feature is built, demonstrated and
 reviewed. The disagreement only appears when someone presses the arrow.
+
+---
+
+## "I'm looking from เจ้าหน้าที่คณะ and I don't see file highlighting anymore"
+
+**Symptom.** After the shared `sastaff` login was retired and the work moved to
+a named person's own account, the new account saw no "ใหม่" pill on any
+attached file and no blue "อัปเดต" badge anywhere in กล่องจดหมาย. Reported as
+"is this a bug, are there many things missing more?"
+
+**Cause.** Not a bug — the BASELINE rule, working. `planSeenAtRows()` in
+`src/js/projects/inbox.js` gives a user with no seen history anywhere (no
+`project_doc_views` rows, no localStorage map) one bulk write marking every
+currently-visible หนังสือ as seen RIGHT NOW, so a newly-granted person does not
+inherit a year of unread. `fileNewnessForViewer()` then flags a file only when
+`uploaded_at > seenAt`, and every existing file predates the baseline.
+
+Measured on the live DB rather than reasoned about:
+
+```sql
+count(*) filter (where f.uploaded_at > coalesce(dv.seen_at, '-infinity')
+                   and f.uploaded_by is distinct from v.id)
+```
+
+→ `woratho@kku.ac.th` (the successor, account created that morning): **0 of 91
+files** could highlight, and its 43 `project_doc_views` rows all carry the same
+first-open timestamp. The owner's own long-lived account: **40**. That single
+query is what separates "the highlight code broke" from "there is nothing to
+highlight".
+
+**The inconsistency that IS worth knowing.** The purge REASSIGNED the
+predecessor's `project_notifications` (the successor opens with 77 unread) but
+could not carry over `project_doc_views` — those rows were FK-deleted with the
+old account, so the baseline filled them as seen. The same person is therefore
+told "77 things you have not read" by the bell and "you are caught up" by every
+per-document highlight. Two systems answering "what have you seen".
+
+**Where it lives now.** `planSeenAtRows()` + `fileNewnessForViewer()` in
+`src/js/projects/inbox.js`; `seen-baseline.test.js`.
+
+**The general rule.** **A successor account inherits AUTHORIZATION, not
+READ-STATE — and a read-state system that baselines on first sight is
+indistinguishable, from the user's chair, from one that is broken.** When
+someone reports a highlight missing, the first question is not "which code path
+draws it" but "how many rows currently QUALIFY for it, for this exact user id".
+Ask the database before reading the renderer.

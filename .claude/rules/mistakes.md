@@ -254,7 +254,7 @@ to that class above.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(73)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(74)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -328,8 +328,9 @@ to that class above.
 - "ใช้จริง" drew the gauge reading instead of the usage
 - "why does it show color weird" / "i still see rail weird"
 - "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
+- Adding one cell to a flex row collapsed the project name to one character per line
 
-### `app-state.md` — Routing, read-state, caches & serialization *(16)*
+### `app-state.md` — Routing, read-state, caches & serialization *(17)*
 - "Unread" highlight inside an item vanishes the moment you open it
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
 - Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind
@@ -346,6 +347,7 @@ to that class above.
 - The checkout form kept the PREVIOUS account's email after an in-place account switch
 - An INSERT is a write path too — the import guard covered UPDATE only
 - "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
+- "I'm looking from เจ้าหน้าที่คณะ and I don't see file highlighting anymore"
 
 ### `integrations.md` — Notifications, Apps Script & Google Drive *(22)*
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…

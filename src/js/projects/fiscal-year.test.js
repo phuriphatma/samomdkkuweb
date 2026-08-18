@@ -19,6 +19,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
+import { stripComments } from '../strip-comments.js';
 import { join } from 'node:path';
 import {
   deriveFiscalYearBE,
@@ -219,6 +220,71 @@ describe('§3d after a move, "where does it show up now" has ONE answer', () => 
       const after = { ...sept, fiscal_year_be: picked };
       expect(resulting(sept, picked)).toBe(projectFiscalYear(after));
     }
+  });
+});
+
+describe('§3e the inbox shows the year, and BOTH layouts show the same one', () => {
+  // The กล่องจดหมาย renders a โครงการ two ways — a grid card and a list row.
+  // Two copies of "which ปีงบ is this" is mistakes class 6 by construction:
+  // one gets the override, the other keeps deriving from created_at, and the
+  // same โครงการ reads differently depending on a view toggle. So both must
+  // go through the ONE helper.
+  //
+  // Reintroduce-the-bug check: inline the chip markup into renderProjectCard
+  // and the "exactly one place builds it" assertion fails naming the count.
+  const inbox = readFileSync(join(HERE, 'inbox.js'), 'utf8');
+  const bodyOf = (name) => {
+    const start = inbox.indexOf(`function ${name}(p) {`);
+    expect(start).toBeGreaterThan(-1);
+    const next = inbox.indexOf('\nfunction ', start + 1);
+    return inbox.slice(start, next === -1 ? inbox.length : next);
+  };
+
+  it('both renderers emit the chip', () => {
+    expect(bodyOf('renderProjectCard')).toMatch(/\$\{fyChipHtml\(p\)\}/);
+    expect(bodyOf('renderProjectListRow')).toMatch(/\$\{fyChipHtml\(p\)\}/);
+  });
+
+  it('exactly one place builds it, and it asks projectFiscalYear', () => {
+    expect(inbox.match(/projects-fy-mini/g) || []).toHaveLength(1);
+    expect(bodyOf('fyChipHtml')).toMatch(/projectFiscalYear\(p\)/);
+  });
+
+  it('the PUBLIC mirror gets the year without the internal ย้ายเอง marker', () => {
+    // index.js enterCustomerView() calls the SAME renderInbox, so every row
+    // built here is also a public page. `ย้ายเอง` answers a question only the
+    // two desks have.
+    expect(bodyOf('fyChipHtml')).toMatch(/!customerMode\s*&&\s*isFiscalYearMoved\(p\)/);
+  });
+
+  it('the moved case is distinguishable, not just a year', () => {
+    // A ย้ายเอง year is a fact the created_at cannot tell you, so it has to
+    // survive the filter being pinned to that same year.
+    expect(bodyOf('fyChipHtml')).toMatch(/isFiscalYearMoved\(p\)/);
+    expect(bodyOf('fyChipHtml')).toMatch(/ย้ายเอง/);
+  });
+
+  it('the class has a rule — a class no stylesheet matches is invisible in review', () => {
+    const css = readFileSync(join(HERE, '../../css/projects.css'), 'utf8');
+    expect(css).toMatch(/\.projects-fy-mini\s*\{/);
+    expect(css).toMatch(/\.projects-fy-mini\.is-moved\s*\{/);
+  });
+
+  it('the list row name cell has a WIDTH FLOOR, so a new cell cannot crush it', () => {
+    // MEASURED, not theorised. Every other cell in .projects-list-row is
+    // `flex: 0 0 auto`, so each one takes its width out of the name cell —
+    // and a Thai name breaks at ANY character (`overflow-wrap: anywhere`),
+    // so min-width:0 let it collapse to one character per line instead of
+    // to an ellipsis. Adding this chip to a row that already carried a
+    // badge measured name 0px / row height 702px at a 390px viewport.
+    // Through stripComments, because the rule's own comment EXPLAINS the bug
+    // and names `min-width:0` — a guard read on raw text fails on the prose
+    // describing what it forbids (the exact shape `confirm-modal.test.js`
+    // was caught by). Never hand-roll the block-comment regex here.
+    const css = stripComments(readFileSync(join(HERE, '../../css/projects.css'), 'utf8'));
+    const block = css.match(/\.projects-list-name-wrap\s*\{[^}]*\}/)[0];
+    expect(block).toMatch(/min-width:\s*[0-9.]+(rem|px|em)/);
+    expect(block).not.toMatch(/min-width:\s*0[;\s]/);
   });
 });
 

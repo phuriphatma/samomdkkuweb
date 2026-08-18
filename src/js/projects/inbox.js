@@ -615,13 +615,13 @@ async function openFiscalYearDefaultPicker() {
     ...years.map((y) => ({ value: y, label: `ปีงบ ${y}` })),
   ];
   const res = await openProjectPrompt({
-    title: 'ค่าเริ่มต้นของปีงบประมาณ',
+    title: 'ปีงบเริ่มต้นของหน้านี้',
     hideText: true,
-    selectLabel: 'เปิดหน้านี้ครั้งต่อไปให้กรองที่',
+    selectLabel: 'เปิดหน้านี้ทุกครั้ง ให้แสดงปีงบ',
     selectOptions: options,
     selectInitial: defaultFYPref,
-    hint: 'เลือก "ปีงบปัจจุบัน (อัตโนมัติ)" แล้วระบบจะเลื่อนไปปีงบใหม่ให้เองทุกวันที่ 1 ตุลาคม',
-    okLabel: 'บันทึกค่าเริ่มต้น',
+    hint: 'เลือก "ปีงบปัจจุบัน (อัตโนมัติ)" ระบบจะเปลี่ยนปีงบให้เองทุกวันที่ 1 ตุลาคม',
+    okLabel: 'บันทึก',
   });
   const picked = res && typeof res === 'object' ? res.select : null;
   if (!picked || picked === defaultFYPref) return;
@@ -773,6 +773,35 @@ function renderGrid() {
   grid.innerHTML = rows.map(renderer).join('');
 }
 
+/** The ปีงบประมาณ chip the inbox shows on a โครงการ — ONE function, used by
+ *  BOTH the card and the list row.
+ *
+ *  Why a helper and not two copies of the markup: a card and a list row of
+ *  the SAME โครงการ answering differently is mistakes class 6 by
+ *  construction, and this repo has paid for that shape more than once. The
+ *  year comes from projectFiscalYear(), the same function the ปีงบ filter
+ *  and the detail header ask, so "which year does this show" and "which
+ *  year does the filter put it in" cannot drift apart.
+ *
+ *  Quiet by default and ORANGE when a human moved it: the routine case
+ *  restates the created_at, the moved case is a fact about the row that the
+ *  date does not tell you — and it stays visible even when the filter is
+ *  already pinned to that year. §3e in fiscal-year.test.js is the ratchet.
+ */
+function fyChipHtml(p) {
+  const year = projectFiscalYear(p);
+  if (year == null) return '';
+  // The PUBLIC mirror renders these same rows (index.js enterCustomerView →
+  // renderInbox), and "ย้ายเอง" is internal bookkeeping: it answers a question
+  // only the two desks have. A student gets the year, plainly.
+  const moved = !customerMode && isFiscalYearMoved(p);
+  const title = moved
+    ? `ย้ายมาที่ปีงบ ${year} เอง (วันที่สร้างอยู่ในปีงบ ${deriveFiscalYearBE(p.created_at)})`
+    : 'ปีงบประมาณตามวันที่สร้างโครงการ';
+  return `<span class="projects-fy-mini${moved ? ' is-moved' : ''}" title="${escHtml(title)}"
+    ><i class="bi bi-calendar3"></i>ปีงบ ${year}${moved ? ' · ย้ายเอง' : ''}</span>`;
+}
+
 // Compact one-row-per-project layout for the list view. Same data
 // surface as the card; the click target wraps the whole row.
 function renderProjectListRow(p) {
@@ -817,6 +846,7 @@ function renderProjectListRow(p) {
         <span class="projects-list-name-line">
           <span class="projects-list-name">${escHtml(p.name)}</span>
           <span class="projects-list-id">${escHtml(p.id)}</span>
+          ${fyChipHtml(p)}
         </span>
         ${p.description ? `<span class="projects-list-desc">${escHtml(p.description)}</span>` : ''}
       </span>
@@ -884,6 +914,7 @@ function renderProjectCard(p) {
       <div class="projects-card-desc">${escHtml(p.description || '')}</div>
       <div class="projects-card-foot">
         <span class="projects-card-foot-stat"><i class="bi bi-journal-text me-1"></i>${total} หนังสือ</span>
+        ${fyChipHtml(p)}
         <span class="projects-card-last"><i class="bi bi-clock-history me-1"></i>${escHtml(fmtRelative(lastTouch))}</span>
       </div>
     </button>

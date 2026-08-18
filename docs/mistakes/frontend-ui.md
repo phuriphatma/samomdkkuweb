@@ -2785,3 +2785,63 @@ reacts to a change by predicting where a row lands, it must ask the same
 function the view asks — never re-derive the answer beside it. A local
 prediction and the real filter are two implementations of one rule, and the
 `null` branch is where they part company first.
+
+---
+
+## Adding one cell to a flex row collapsed the project name to one character per line
+
+**Symptom.** Putting the ปีงบ chip on the กล่องจดหมาย list rows looked right on
+a desktop. On a 390px phone, the one row that also carried a badge rendered its
+name as a vertical column of single characters, ~700px tall, with the chip and
+the timestamp running off the right edge of the card.
+
+**Cause.** `.projects-list-row` is a flex row whose every other cell —
+icon, badges, count, timestamp — is `flex: 0 0 auto`. Only the name cell
+(`.projects-list-name-wrap`) flexes, and it carried `min-width: 0`. So each
+fixed cell takes its width **out of the name**, and `min-width: 0` says the
+name may go to zero. Thai has no spaces, so the name is `overflow-wrap:
+anywhere` — with no width left it wraps after every character instead of
+truncating. Adding one more fixed cell was all it took.
+
+**Fix.** Three parts, each one found by measuring the previous one:
+
+1. the chip moved into `.projects-list-name-line` (which already wraps)
+   instead of being taken as another column;
+2. `min-width: 7.5rem` — a floor, not zero — on the name cell;
+3. `flex-wrap: wrap` on the row under 576px, with the name cell at
+   `flex: 1 1 65%`, so the badges + count + timestamp go to a second line.
+
+Part 3 exists because part 2 alone was not enough, and only the 320px
+measurement said so — the floor stops the name collapsing and the row then
+overflows its own box instead:
+
+```
+390px viewport                    name width   row height
+control (no chip)                    120px         94px
+chip as a new cell                     0px        702px    ← the bug
+chip in the name line + floor        120px        123px
+
+320px viewport                    name width   row height   content overflow
+before this change (min-width:0)      43px        208px       none
+floor, no wrap                       120px         94px       +65px  ← traded one for the other
+floor + wrap (shipped)               213px        105px       none
+```
+
+Note the "before" column: at 320px the row was ALREADY crushing the name to
+43px. The new cell did not create that bug, it made it visible.
+
+**Where it lives now.** `src/css/projects.css` `.projects-list-name-wrap`;
+`fyChipHtml()` + `renderProjectListRow()` in `src/js/projects/inbox.js`; pinned
+by `fiscal-year.test.js` §3e, which fails if the floor goes back to `0` —
+read through `stripComments`, because the rule's own comment names
+`min-width:0` while explaining the bug and a raw-text guard fails on that prose.
+
+**The general rule.** **In a flex row where every other cell is `flex: 0 0
+auto`, the flexible text cell needs a width FLOOR, not `min-width: 0` — the
+next cell anyone adds is taken out of it — and below some viewport the row has
+to WRAP, because a floor with no wrap just moves the damage from the text to
+the row's own bounds.** And the instrument has to be a CONTROL: the same page
+rendered with the new element hidden, measured side by side, at the NARROWEST
+supported width. Row height alone does not say whether a tall row is the new
+element or the old one being crushed, and the width where a change is safe is
+not the width where it is tested.
