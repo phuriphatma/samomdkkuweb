@@ -381,6 +381,14 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    **`public.users` now holds NO `uni_staff` and NO `sa_prof` row** — the role
 >    branches survive only as the pre-seat path in the helpers. The only shared
 >    password account left is `samomdkkudev`.
+>    ⚠️ **`email like '%@samomdkku.app'` is NOT an audit for shared accounts** —
+>    it returns **48**, and 46 of them are ordinary students who registered with
+>    a username (that domain is the synthetic email every password signup gets).
+>    Counting it looks alarming and means nothing. Audit by GRANT instead: add
+>    `and (role <> 'user' or permissions <> '{}' or managed_permissions <> '{}'
+>    or managed_project_seats <> '{}' …)` — which returns exactly two,
+>    `samomdkkudev` (dev) and `claude-reporter` (holds `claude`, machine
+>    account). Verified 2026-08-18.
 >    ⚠️ **The role LITERALS are still all over `src/js/projects/*`** (~28
 >    `role === 'dev'` / `'uni_staff'` / `'sa_prof'` branches). They still work,
 >    because `projectSeatRole()` maps a seat to the role STRING before anything
