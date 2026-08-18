@@ -513,7 +513,8 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    (พรู/พู่กัน/สายป่าน/เอ๋ย/ปัน), then the accounts deleted. Repo creds scrubbed.
 >    **`samomdkkudev` password was rotated + all its sessions revoked.** KEPT:
 >    samomdkkudev, sastaff, saprof, claude-reporter. **sastaff + saprof were
->    then DELETED too on 2026-08-18 — see the section above.**
+>    then DELETED too on 2026-08-18 — see "What the 2026-08-18 DAYTIME session
+>    was" above.**
 > 2. **master ≠ dev role — two frontend gates fixed** (archived).
 >    A master holder is `role='user'`, so `role === 'dev'` gates skipped them.
 >    Fixed the PR/VS skip-notify toggle + `isVsSuper()` to honour `holdsMaster()`.
