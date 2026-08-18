@@ -21,6 +21,21 @@
 //                               same uid.
 //   3. project_notifications  — the bell. Rows name a recipient uid.
 //      .user_id
+//   4. the JSONB TIMELINES     — `project_documents.timeline[].by` and
+//      (opt-in: --timelines)     `project_sign_requests.timeline[].by` carry the
+//                                actor uid. `isMineComment` is `c.by === myId`
+//                                and is the ONLY thing that draws a comment's
+//                                แก้ไข / ลบ controls, so an un-remapped timeline
+//                                leaves every comment the source wrote
+//                                uneditable by the target — by ANYONE.
+//
+// #4 WAS DELIBERATELY OMITTED until 2026-08-18, on the reasoning that rewriting
+// history to say someone did something they did not do is worse than losing an
+// edit button. The reasoning was sound and the SIZE was never measured: when
+// the shared logins went, it cost 42 of the 43 comments in the system, for
+// every account. Shown that number the owner reversed it and migration 0166
+// remapped them. So the count is now PRINTED on every dry run — the cost can
+// never be invisible again — and the rewrite still needs an explicit flag.
 //
 // READ STATE IS REPLACED, NOT MERGED. Parity means the target ends up with
 // exactly the source's rows: a document the source has never opened must have NO
@@ -49,9 +64,10 @@ const TO = opt('--to');
 const APPLY = flag('--apply');
 const DO_NOTIFS = flag('--notifications');
 const DO_SIGN = flag('--sign-requests');
+const DO_TIMELINES = flag('--timelines');
 
 if (!FROM || !TO) {
-  console.error('usage: node tools/proj-handover.mjs --from <email> --to <email> [--apply] [--notifications] [--sign-requests]');
+  console.error('usage: node tools/proj-handover.mjs --from <email> --to <email> [--apply] [--notifications] [--sign-requests] [--timelines]');
   process.exit(1);
 }
 
@@ -161,6 +177,54 @@ async function main() {
     const after = await mgmt(
       `select count(*) as n from public.project_sign_requests where prof_id = ${lit(toId)};`);
     console.log(`           ✓ moved — target now holds ${after[0].n} signature request(s)`);
+  }
+
+  // ---- 4. timeline attribution (opt-in — it rewrites history) ----
+  const tl = await mgmt(`
+    select
+      (select count(*) from public.project_documents d,
+              jsonb_array_elements(coalesce(d.timeline,'[]'::jsonb)) e
+        where e->>'by' = ${lit(fromId)}) as doc_events,
+      (select count(*) from public.project_documents d,
+              jsonb_array_elements(coalesce(d.timeline,'[]'::jsonb)) e
+        where e->>'by' = ${lit(fromId)} and e->>'action' = 'comment') as comments,
+      (select count(*) from public.project_sign_requests r,
+              jsonb_array_elements(coalesce(r.timeline,'[]'::jsonb)) e
+        where e->>'by' = ${lit(fromId)}) as sign_events;`);
+  console.log(`timelines  : source authored ${tl[0].doc_events} doc event(s) (${tl[0].comments} comment(s))`
+    + ` and ${tl[0].sign_events} sign event(s)`
+    + (DO_TIMELINES ? '' : '   [skipped — pass --timelines]'));
+  if (!DO_TIMELINES && Number(tl[0].comments) > 0) {
+    console.log(`           ! those ${tl[0].comments} comment(s) stay attributed to the SOURCE.`);
+    console.log('             isMineComment is `c.by === myId`, so the target cannot edit or');
+    console.log('             delete them — and if the source is then DELETED, nobody can:');
+    console.log('             that is what cost 42 of 43 comments in 0166. Decide, do not default.');
+  }
+  if (APPLY && DO_TIMELINES) {
+    // Rewrites ONLY the `by` key and preserves array ORDER (`with ordinality`
+    // + `order by`) — a timeline that re-sorted itself would change what "the
+    // last action" is. Same shape as migration 0166.
+    for (const [table] of [['project_documents'], ['project_sign_requests']]) {
+      await mgmt(`
+        update public.${table} t
+           set timeline = (
+             select jsonb_agg(case when e->>'by' = ${lit(fromId)}
+                                   then jsonb_set(e, '{by}', to_jsonb(${lit(toId)}::text))
+                                   else e end order by ord)
+               from jsonb_array_elements(t.timeline) with ordinality x(e, ord))
+         where t.timeline @> ${lit(JSON.stringify([{ by: fromId }]))}::jsonb;`);
+    }
+    const after = await mgmt(`
+      select
+        (select count(*) from public.project_documents d,
+                jsonb_array_elements(coalesce(d.timeline,'[]'::jsonb)) e
+          where e->>'by' = ${lit(fromId)}) as left_doc,
+        (select count(*) from public.project_sign_requests r,
+                jsonb_array_elements(coalesce(r.timeline,'[]'::jsonb)) e
+          where e->>'by' = ${lit(fromId)}) as left_sign;`);
+    const leftOver = Number(after[0].left_doc) + Number(after[0].left_sign);
+    if (leftOver > 0) throw new Error(`timeline remap left ${leftOver} event(s) on the source uid`);
+    console.log('           ✓ remapped — no timeline event names the source any more');
   }
 
   console.log(APPLY ? '\ndone.' : '\nnothing written. re-run with --apply to commit.');

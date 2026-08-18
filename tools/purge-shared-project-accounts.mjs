@@ -20,14 +20,26 @@
 // orphan the rows instead of failing — the attribution would be gone with no
 // error to notice.
 //
-// WHAT IS NOT REASSIGNED, deliberately: `project_documents.timeline` /
-// `project_sign_requests.timeline` embed the actor uid as `by`. The UI
-// renders the ROLE label from the same entry and never the person, so a
-// dangling uid is invisible there; `by` is only compared against the viewer's
-// own id to decide "may I edit this comment". Rewriting history to say
-// someone did something they did not do is worse than the two people no
-// longer being able to edit an old shared-account comment. The 2026-08-17
-// purge left timelines alone for the same reason.
+// ⚠️ THE TIMELINE DECISION BELOW WAS REVERSED BY THE OWNER ON 2026-08-18.
+// Migration `0166` remapped the 298 events this script left behind, and
+// `tools/proj-handover.mjs` now has a `--timelines` step that PRINTS the count
+// on every dry run. If this script is ever run again, remap the timelines too.
+//
+// The original reasoning, kept because it was sound and the flaw is worth
+// seeing: `project_documents.timeline` / `project_sign_requests.timeline`
+// embed the actor uid as `by`. The UI renders the ROLE label from the same
+// entry and never the person, so a dangling uid is invisible there; `by` is
+// only compared against the viewer's own id to decide "may I edit this
+// comment". Rewriting history to say someone did something they did not do
+// is worse than the two people no longer being able to edit an old
+// shared-account comment. The 2026-08-17 purge left timelines alone for the
+// same reason.
+//
+// WHAT WAS WRONG WITH IT: not the trade-off, the ESTIMATE inside it. It was
+// never "two people"; `isMineComment` is `c.by === myId`, so it was 42 of the
+// 43 comments in the system, uneditable and undeletable by EVERY account. The
+// number was one query away and nobody ran it. **When a note explains what a
+// decision costs, put the count in the note.**
 //
 //   node tools/purge-shared-project-accounts.mjs           # dry run (default)
 //   CONFIRM=1 node tools/purge-shared-project-accounts.mjs # actually do it

@@ -5,22 +5,28 @@ Last updated: **2026-08-18**. This is "what is true RIGHT NOW" and nothing else;
 reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
-⚠️ **It is ~670 and still over target.** Four prunes have been done: the
+⚠️ **It is ~775 and still over target.** Five prunes have been done: the
 0154–0158 narrative, the "Live proofs" PER-PROOF NARRATIVE, the duplicated
-"What is owed" blocks, and on 2026-08-18 the 211-line "จองโควตา Claude — READ
-THIS BEFORE TOUCHING" walk-through → `2026-08-18-claude-quota-deep-dive.md`,
-leaving its ⛔ rules (44 lines). It keeps growing because each session adds
-rules that genuinely belong here.
-**The next structural pass should take the three dated 2026-08-17 sections**
-("/scrutinize pass", "master ≠ dev role", "shared-account purge") **to the
-archive** — they are ~80 lines of finished narrative that the NEXT-SESSION
-PROMPT already summarises.
+"What is owed" blocks, the 211-line "จองโควตา Claude — READ THIS BEFORE
+TOUCHING" walk-through → `2026-08-18-claude-quota-deep-dive.md` (leaving its ⛔
+rules, 44 lines), and on 2026-08-18 the three dated 2026-08-17 sections →
+`2026-08-17-scrutinize-master-purge.md`, leaving a 20-line summary of the parts
+that are still LIVE rules. It keeps growing because each session adds rules
+that genuinely belong here.
+**The next structural pass is the NEXT-SESSION PROMPT itself**, which is now
+~420 of these lines. Most of it IS durable (the invariants, the settled
+decisions, the traps) — the prunable part is the per-session "what the
+2026-08-1x session was" narrative, which `git log` and the archive already
+hold. Take the OLDEST such block each time, never the invariants.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
 Reasoning lives in `docs/state-archive/` — newest first:
 `2026-08-18-claude-quota-deep-dive.md` + `2026-08-16-claude-quota-booking.md`
 (**read one before touching `/admin#claude`**) ·
+`2026-08-17-scrutinize-master-purge.md` (the 15-account purge, master ≠ dev,
+the 0164 scrutinize pass — ⚠️ its "sastaff/saprof were KEPT" line is now FALSE,
+see the header it carries) ·
 `2026-08-15-late-org-chart-reporting.md` (the two parentages, ระดับ, colour;
 **read before touching `/team`**) · `2026-08-15-org-chart-views.md` (the d3
 views, the library survey, three portrait bugs) ·
@@ -33,24 +39,28 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `161310e` (2026-08-18)** — `canManageComment` + the 0166-class
-  sweep, on top of `e8f3fc0` (0166 + the audit) and `e5a8524`: — the ปีงบ chip on every กล่องจดหมาย
-  row (grid card + list row, one `fyChipHtml()`), the list-row width floor +
-  mobile `flex-wrap`, and the plain-Thai rewrite of the ปีงบ-default dialog.
-  Verified from the SERVED `analytics-*.js`: `projects-fy-mini` = 1,
-  `ปีงบเริ่มต้นของหน้านี้` = 1, `เปิดหน้านี้ทุกครั้ง` = 1, `ย้ายเอง` = 2, and
-  the REMOVED `ค่าเริ่มต้นของปีงบประมาณ` = **0**; `projects-fy-mini` = 2 in the
-  admin CSS and `ตั้งปีงบเริ่มต้นของหน้านี้` = 1 in the served `/admin/` HTML.
+- ✅ **DEPLOYED = `161310e` (2026-08-18)**, VM HEAD confirmed over ssh. Three
+  commits shipped that day, newest first:
+  - `161310e` — `canManageComment()` + the 0166-class sweep + the `claude0161`
+    C1 threshold. ⚠️ **`canManageComment` greps 0 in the served bundle** — it
+    is a module-scope function name and the minifier renames it. The evidence
+    is the bundle HASH changing (`analytics-DZcPLnhL` → `analytics-C_2oekEU`)
+    plus the VM's HEAD. **Pick a STRING LITERAL or a CSS class as a marker.**
+  - `e8f3fc0` — migration 0166 (the timelines) + the three-desk audit. DB-only;
+    no served string of its own.
+  - `e5a8524` — the ปีงบ chip on every กล่องจดหมาย row (grid card + list row,
+    one `fyChipHtml()`), the list-row width floor + mobile `flex-wrap`, and the
+    plain-Thai ปีงบ-default dialog. Verified from the SERVED `analytics-*.js`:
+    `projects-fy-mini` = 1, `ปีงบเริ่มต้นของหน้านี้` = 1,
+    `เปิดหน้านี้ทุกครั้ง` = 1, `ย้ายเอง` = 2, and the REMOVED
+    `ค่าเริ่มต้นของปีงบประมาณ` = **0**; `projects-fy-mini` = 2 in the admin CSS
+    and `ตั้งปีงบเริ่มต้นของหน้านี้` = 1 in the served `/admin/` HTML.
 - Previous deploy `2f35068` (2026-08-18) — ปีงบ move + per-person default
   filter + the `sastaff`/`saprof` purge (`8359026`), plus the /scrutinize fixes
   on top. Verified from the SERVED artifacts:
   `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
   `project_user_prefs`, `fiscal_year_be`, `ย้ายเอง` all = 1–2, and the REMOVED
   `seed บัญชี saprof` = **0**.
-  ⚠️ **`canManageComment` greps 0 in the served bundle** — it is a module-scope
-  function name and the minifier renames it; the bundle HASH changing
-  (`analytics-DZcPLnhL` → `analytics-C_2oekEU`) plus the VM's HEAD is the
-  evidence. Pick a STRING LITERAL or a CSS class as a deploy marker.
   ⚠️ **They are NOT in `admin-*.js`** — every one of those greps reads 0 there.
   The whole projects module lives in the shared chunk that Vite names
   **`analytics-*.js`** (the name is a lie; both entries import it). Find it with
@@ -70,19 +80,31 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   reference left in the database is `analytics_events.user_id` (1316 of 8408,
   historic telemetry from deleted accounts — append-only, nothing reads it by
   identity).
-- ✅ **0166 APPLIED (2026-08-18) — the purge missed the JSONB timelines.** Every
-  uid COLUMN was reassigned when the shared logins went; the 298 uids inside
+- ✅ **0166 APPLIED (2026-08-18) — the purge SKIPPED the JSONB timelines on
+  purpose, and the owner reversed that call.** Every uid COLUMN was reassigned
+  when the shared logins went; the 298 uids inside
   `project_documents.timeline[].by` / `project_sign_requests.timeline[].by` were
-  not, so `isMineComment` (`c.by === myId`) hid the แก้ไข/ลบ buttons on **42 of
-  43 comments** for everyone. Remapped to the people the columns already named
-  (vpa→jinjutha, staff→woratho, prof→prakasa). Verified after: 308 events, **0**
-  unresolvable, 43/43 comments owned by a live account. Snapshot kept in
-  `public._timeline_backup_0166` (60 rows) with the rollback in the migration —
-  **drop that table once the owner has confirmed the comments look right.**
+  deliberately left (`tools/purge-shared-project-accounts.mjs` header: rewriting
+  history is worse than "the two people no longer being able to edit an old
+  shared-account comment"). **The cost had never been counted: it was 42 of the
+  43 comments in the system, uneditable by every account**, because
+  `isMineComment` is `c.by === myId`. Shown the number, the owner chose the
+  remap — to the people the columns already named (vpa→jinjutha, staff→woratho,
+  prof→prakasa). Verified after: 308 events, **0** unresolvable, 43/43 comments
+  owned by a live account. Snapshot kept in `public._timeline_backup_0166`
+  (60 rows) with the rollback in the migration — **drop that table once the
+  owner has confirmed the comments look right.**
   Guard: `proj0165` §D7/§D8 (37/37 green, D7 falsified). §D4/§D5 were widened
   from `is null` to "does the uid RESOLVE" — the narrow form is why this was
-  green for a day. Nothing role-based ever broke (the blue อัปเดต badge, ใหม่/
-  ตีกลับ, ของฉัน, รอลงนาม all key off the timeline's `role` string).
+  green for a day.
+  ⚠️ The migration's FILENAME still reads `…missed_the_timelines`; it was
+  already applied so it was left alone, and its header carries the correction.
+  **`tools/proj-handover.mjs` now has a `--timelines` step**, and it PRINTS the
+  comment count on every dry run whether or not you pass the flag — so this
+  cost can never be invisible again.
+  ✅ **Nothing role-based ever broke** — the blue อัปเดต badge, ใหม่ / ตีกลับ,
+  ของฉัน and รอลงนาม all key off the timeline entry's `role` string, which the
+  successors still resolve to through their seat.
 - ⚠️ **The เจ้าหน้าที่คณะ successor account sees NO file "ใหม่" highlight, and
   that is the BASELINE rule, not a bug.** Measured 2026-08-18 on the live DB:
   `woratho@kku.ac.th` (created that morning) has 43 `project_doc_views` rows all
@@ -109,7 +131,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat 2f35068..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
+  git diff --stat 161310e..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
@@ -371,11 +393,13 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    0px wide / 702px tall at 390px. Now a `7.5rem` floor **plus** `flex-wrap`
 >    under 576px; at 320px the name was already collapsing to 43px BEFORE any of
 >    this. If you add a cell to that row, re-measure at 320px with a control.
-> 2. **0166 — the shared-login purge reassigned every uid COLUMN and missed the
->    JSONB timelines.** 298 events in `project_documents.timeline[].by` /
->    `project_sign_requests.timeline[].by` still named the deleted accounts, and
->    `isMineComment` is `c.by === myId`, so **42 of 43 comments had no แก้ไข/ลบ
->    button for anyone**. Remapped to the people the columns already named.
+> 2. **0166 — the purge SKIPPED the JSONB timelines deliberately, and that call
+>    was reversed.** `tools/purge-shared-project-accounts.mjs` says so in its
+>    header and gives a real reason (do not rewrite history). What it never
+>    counted is what the skip COST: `isMineComment` is `c.by === myId`, so **42
+>    of the 43 comments in the system had no แก้ไข/ลบ button for anyone**, not
+>    the "two people" the note imagined. Shown that number the owner chose the
+>    remap, to the people the columns already named.
 >    Snapshot `public._timeline_backup_0166` (60 rows) + rollback in the
 >    migration — **drop that table once the owner confirms the comments.**
 >    Guard: `proj0165` §D7/§D8; §D4/§D5 were widened from `is null` to "does the
@@ -394,7 +418,7 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > write-up in `docs/mistakes/app-state.md`. **Before debugging a missing
 > highlight, ask the DATABASE how many rows currently QUALIFY for it.**
 >
-> ### What the 2026-08-18 session was — THREE things, all deployed
+> ### What the 2026-08-18 DAYTIME session was — THREE things, all deployed
 >
 > 1. **The LAST two shared logins are gone.** `sastaff` (role `uni_staff`) and
 >    `saprof` (role `sa_prof`) were deleted by
@@ -471,24 +495,25 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >
 > ### What the 2026-08-17 session was — FOUR things, all deployed
 >
-> Read the four dated sections at the TOP of this file first; they have the
-> detail. In order of consequence:
+> Detail is in `docs/state-archive/2026-08-17-scrutinize-master-purge.md`; only
+> the still-live rules were kept at the top of this file. In order of
+> consequence:
 >
-> 1. **SECURITY: 15 shared password accounts DELETED** (see "shared-account
->    purge"). Their `samo69*`/`1234` passwords were in the PUBLIC repo and opened
+> 1. **SECURITY: 15 shared password accounts DELETED** (archived). Their
+>    `samo69*`/`1234` passwords were in the PUBLIC repo and opened
 >    live dev/vp_admin sessions. Data was reassigned to real people FIRST
 >    (พรู/พู่กัน/สายป่าน/เอ๋ย/ปัน), then the accounts deleted. Repo creds scrubbed.
 >    **`samomdkkudev` password was rotated + all its sessions revoked.** KEPT:
 >    samomdkkudev, sastaff, saprof, claude-reporter. **sastaff + saprof were
 >    then DELETED too on 2026-08-18 — see the section above.**
-> 2. **master ≠ dev role — two frontend gates fixed** (see "master ≠ dev role").
+> 2. **master ≠ dev role — two frontend gates fixed** (archived).
 >    A master holder is `role='user'`, so `role === 'dev'` gates skipped them.
 >    Fixed the PR/VS skip-notify toggle + `isVsSuper()` to honour `holdsMaster()`.
 >    Owner's decision: the ~28 `role === 'dev'` gates in `src/js/projects/*` are
 >    LEFT as-is (driven by the seat picker). ⚠️ If more "master lost X" reports
 >    come in, the fix is `holdsMaster()` next to the `role === 'dev'` check — but
 >    NOT in projects.
-> 3. **จองโควตา Claude /scrutinize** (see "/scrutinize pass"): migration 0164
+> 3. **จองโควตา Claude /scrutinize** (archived): migration 0164
 >    (a PAST week is never "still running"), the silent-toggle staleness fix, and
 >    TWO ข้อตกลง usage tips (Sonnet/Haiku for light work; /clear before a break).
 > 4. **ร้านค้า "0 รายการ" is NOT a bug** — 3 test products, all hidden by a human
@@ -549,10 +574,17 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > rule, "an open window is not bookable at all", and 390/834/1440. Not
 > superseded.
 >
-> ### ⚠️ FOUR FINDINGS FROM A SELF-REVIEW OF 0161–0163 — NOT YET FIXED
+> ### A SELF-REVIEW OF 0161–0163 FOUND FOUR THINGS — **ONE is still open**
 >
-> A `/scrutinize` pass over my own work found these AFTER it was deployed. All
-> four are live on prod right now. Ordered by consequence.
+> ⚠️ **This section used to say all four were unfixed, and that was stale for a
+> day.** Re-verified against the LIVE database on 2026-08-18:
+> **1 is FIXED** (`claude_usage_runs` now contains `p_to > now()` — migration
+> 0164), **3 is FIXED** (`paintSilentToggle()` exists in
+> `src/js/claude/index.js`), **4 was never real** (`claude_usage_samples_at_idx`
+> exists). **Only 2 — the 0161 cost claim — is still open, and it is low
+> priority.** The original text is kept below because the REASONING is what
+> makes each one findable again; read the status line above it, not the heading
+> it carries.
 >
 > 1. **`open_ended` is wrong for every historical week.** `0163:191` is
 >    `open_ended := (v_to = v_last_at)` and `v_last_at` is scoped to the
@@ -630,9 +662,13 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   morning, Prakasit on 2026-07-23), so there is nothing to set up; verified
 >   live that the seat opens the whole desk. **This is a message to a human, not
 >   a code task — it cannot be closed from this repo.**
-> - **Grant the `claude` permission** in ทีม SAMO to whoever should book.
->   Exactly ONE account holds it today. The feature is otherwise finished,
->   deployed and verified end to end — this is the last thing between it and use.
+> - ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
+>   2026-08-18: **146** accounts carry the `claude` key in `permissions` /
+>   `managed_permissions`, plus 41 `master` holders who answer yes to every key.
+>   What is still true is that **`claude_bookings` is EMPTY** — the feature is
+>   deployed, granted and unused. That is also why `claude0157` B4 is red: its
+>   control needs a stepping deadline and refuses to pass vacuously. **The first
+>   real booking turns it green.**
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
 >   Read `docs/demos/about-3d/README.md`, not a bullet.
 > - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
@@ -660,13 +696,20 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > which is new attack surface on a service that is currently unauthenticated.
 > **Recommendation given: leave it at 15 minutes.**
 >
-> ### ⚠️ Three traps this session walked into
+> ### ⚠️ Four traps these sessions walked into
 >
-> - **`.claude/rules/mistakes.md` sits at ~29.9 KB of a 30 KB cap** and the index
->   only grows. Micro-trimming prose was tried TWICE and buys ~100 bytes an hour.
->   **The next session that breaches it should RESTRUCTURE, not trim**: the index
->   is ~21 KB of the 30 and its per-entry value declines, while
->   `grep -rin "<symptom>" docs/mistakes/` already does the finding.
+> - 🔴 **`.claude/rules/mistakes.md` is at 29,721 of its 30,000-char cap — 279
+>   chars of headroom, and `npm run check:context` runs inside `npm test`.**
+>   That means **the next write-up may turn the standing `npm test` red before
+>   you have done anything wrong.** This session added 744 chars (three entries
+>   + a class site) and gave 78 back by compressing its own class site; that is
+>   the whole lever prose gives you. Micro-trimming prose was tried TWICE in
+>   earlier sessions and buys ~100 bytes an hour.
+>   **The next session that breaches it should RESTRUCTURE, not trim**: the
+>   `## Index` half is **18,535 of the 29,721** (measured 2026-08-18, 212 lines,
+>   and it only grows), its per-entry value declines, and
+>   `grep -rin "<symptom>" docs/mistakes/` already does the finding. The classes
+>   above it are the part that generalises and must survive any cut.
 >   `check-context-budget.mjs` measures BYTES and Thai costs 3 per character.
 >   A byte cap on the index was tried and **REVERTED** — it truncated Thai
 >   symptom lines mid-word, and those lead lines are what the index is for.

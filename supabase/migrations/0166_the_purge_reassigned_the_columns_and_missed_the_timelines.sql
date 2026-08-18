@@ -1,8 +1,16 @@
 -- ============================================================
--- 0166 — the shared-account purge reassigned every uid COLUMN and missed
--- every uid inside the JSONB timelines.
+-- 0166 — the shared-account purge reassigned every uid COLUMN and left every
+-- uid inside the JSONB timelines alone. That was DELIBERATE — and the owner
+-- reversed it on 2026-08-18 once the cost was counted.
 --
--- WHAT WAS MISSED. When `samomdkkuvpa` / `sastaff` / `saprof` were deleted
+-- THE DECISION IT REVERSES. `tools/purge-shared-project-accounts.mjs` says in
+-- its own header that rewriting history to say someone did something they did
+-- not do is worse than "the two people no longer being able to edit an old
+-- shared-account comment". Sound reasoning, unmeasured cost: it was not two
+-- people, it was 42 of the 43 comments in the system, uneditable by every
+-- account. Shown the number, the owner chose the remap.
+--
+-- WHAT WAS LEFT. When `samomdkkuvpa` / `sastaff` / `saprof` were deleted
 -- (2026-08-17/18) their work was reassigned to the named people who now hold
 -- the seats. That pass covered the columns — `projects.created_by`,
 -- `project_documents.created_by`, `project_files.uploaded_by`,

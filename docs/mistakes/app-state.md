@@ -688,7 +688,7 @@ Ask the database before reading the renderer.
 
 ---
 
-## The purge reassigned every uid COLUMN and missed every uid inside the JSONB timelines
+## A DELIBERATE omission in the account purge cost 42 of 43 comments their edit button
 
 **Symptom.** Asked to check whether the three project desks (ผู้ส่งหนังสือ /
 เจ้าหน้าที่คณะ / อาจารย์) had lost any highlighting when the shared
@@ -696,19 +696,32 @@ Ask the database before reading the renderer.
 fine. What was gone: **the แก้ไข and ลบ buttons on 42 of the 43 comments in the
 system** — for everyone, in every role.
 
-**Cause.** A person's id is stored in this schema in two shapes:
+**Cause — and this is the part worth reading: it was NOT an oversight.** A
+person's id is stored in this schema in two shapes:
 
 | shape | example | reassigned by the purge? |
 |---|---|---|
 | a uid COLUMN | `project_files.uploaded_by`, `project_documents.created_by`, `project_sign_requests.prof_id` | ✅ all of them |
-| a uid INSIDE a JSONB array | `project_documents.timeline[].by`, `project_sign_requests.timeline[].by` | ❌ none of them |
+| a uid INSIDE a JSONB array | `project_documents.timeline[].by`, `project_sign_requests.timeline[].by` | ❌ none — **on purpose** |
 
-298 timeline events still named the three deleted accounts.
-`isMineComment` in `src/js/projects/inbox.js` is `c.by === myId` and is the only
-thing that renders a comment's edit/delete controls, so every comment written
-through a shared desk became uneditable by the person who now holds that desk.
-The same comparison in the signing section (`e.by !== myId`) scored a person's
-own past actions as somebody else's.
+`tools/purge-shared-project-accounts.mjs` says so in its own header, under
+"WHAT IS NOT REASSIGNED, deliberately": *"Rewriting history to say someone did
+something they did not do is worse than the two people no longer being able to
+edit an old shared-account comment."* That is a real trade-off, honestly made
+and written down.
+
+What made it the wrong call was the SIZE of the cost, which nobody had
+measured. `isMineComment` in `src/js/projects/inbox.js` is `c.by === myId` and
+is the only thing that renders a comment's edit/delete controls — so the price
+was not "two people cannot edit an old comment", it was **42 of the 43 comments
+in the entire system, uneditable and undeletable by every account**. The same
+comparison in the signing section (`e.by !== myId`) scored a person's own past
+actions as somebody else's. Shown that number, the owner reversed the
+trade-off in one sentence.
+
+**So the defect is not the decision, it is that the decision was recorded and
+never re-costed.** The note says what would be lost; it does not say how much,
+and the number is one query away.
 
 **Why the proof said the purge was clean.** `proj0165` §D4 read
 *"no project_files row is left unattributed by the purge"* and asserted
@@ -732,9 +745,16 @@ successors still resolve to through their seat — so the blue "อัปเด�
 the ใหม่ / ตีกลับ status badges, comment unread, ของฉัน and รอลงนาม never
 broke. `docPendingSignForProf` and `isMine` are role-based too.
 
-**The general rule.** **A uid stored in JSON is a uid, and a data migration that
-walks the columns will not see it.** When an account is deleted or merged,
-enumerate every SHAPE the id is stored in — column, JSONB array, array column,
-text note — not every TABLE. And a referential guard must ask whether the id
-RESOLVES, never whether it is `null`: the null case is the one the purge was
-least likely to leave behind.
+**The general rule.** **A documented trade-off is not a closed question — it is
+an estimate with no number in it.** "Two people lose an edit button" and "42 of
+43 comments lose it for everyone" are the same sentence until somebody counts,
+and the count was one query. When a note explains what a decision COSTS,
+measure the cost before trusting the note; when you WRITE one, put the number in
+it.
+
+Underneath that: **a uid stored in JSON is a uid, and a migration that walks the
+columns will not see it.** When an account is deleted or merged, enumerate every
+SHAPE the id is stored in — column, JSONB array, array column, text note — not
+every TABLE. And a referential guard must ask whether the id RESOLVES, never
+whether it is `null`: the null case is the one the purge was least likely to
+leave behind.

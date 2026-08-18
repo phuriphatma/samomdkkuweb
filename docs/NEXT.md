@@ -292,8 +292,17 @@ The model that replaced them: a ทีม SAMO seat IS the role. `projectSeatRol
 maps the seat to the role string the module branches on,
 `current_user_project_seats()` carries it into RLS, and every project_* policy
 asks a seat-aware helper. Proof: `tools/proj0165-succession-and-prefs.sql`
-(33/33) — the seat reads a project the public mirror cannot, opens a signing
+(37/37) — the seat reads a project the public mirror cannot, opens a signing
 request, and is denied everything the seat should not reach.
+
+⚠️ **CLOSED does not mean the first pass was complete.** The purge moved every
+uid COLUMN and deliberately left `project_documents.timeline[].by` /
+`project_sign_requests.timeline[].by` alone (its header said why). That cost 42
+of the 43 comments in the system their แก้ไข / ลบ buttons, for every account,
+because `isMineComment` is `c.by === myId`. Migration **0166** remapped the 298
+events on 2026-08-18 after the owner reversed the call; §D7/§D8 of the proof now
+watch both timelines, and §D4/§D5 ask whether a uid RESOLVES rather than whether
+it is `null` — which is why this read green for a day.
 
 `tools/proj-handover.mjs` remains for the general case (moving read-state,
 sign-requests and bell rows between two accounts); the purge script does the

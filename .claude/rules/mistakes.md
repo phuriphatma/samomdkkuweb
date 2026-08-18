@@ -86,11 +86,10 @@ has not been written yet.
    Also a rule implemented on the writers you HAPPENED to be looking at (the
    portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
-   **A uid stored in JSON is a uid**: the shared-account purge reassigned every
-   uid COLUMN and left 298 inside `timeline[].by`, so 42 of 43 comments lost
-   their edit/delete controls (0166). Enumerate the SHAPES an id is stored in,
-   not the tables — and a referential guard asks whether it RESOLVES, never
-   whether it is `null` (`proj0165` §D4 asserted `is null` and read green).
+   **A uid in JSON is a uid**: the purge rewrote every uid COLUMN and skipped
+   `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button —
+   a documented trade-off nobody had COSTED (0166). Put the number in the note.
+   Ask whether an id RESOLVES, never whether it is `null` (§D4 asked `is null`).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
    the ปีงบ move followed the filter using the value WRITTEN, and clearing an
    override writes NULL, so the auto option made the project vanish (the exact
@@ -353,7 +352,7 @@ to that class above.
 - An INSERT is a write path too — the import guard covered UPDATE only
 - "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
 - "I'm looking from เจ้าหน้าที่คณะ and I don't see file highlighting anymore"
-- The purge reassigned every uid COLUMN and missed every uid inside the JSONB timelines
+- A DELIBERATE omission in the account purge cost 42 of 43 comments their edit button
 
 ### `integrations.md` — Notifications, Apps Script & Google Drive *(22)*
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…
