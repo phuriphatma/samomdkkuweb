@@ -1,8 +1,18 @@
 // 0095 proof: the อาจารย์ SEAT grants the อาจารย์ ROLE.
 //
-// A kkumail account granted อาจารย์ in ทีม SAMO must see exactly what the shared
-// `saprof` account sees — same documents, same files, same signature queue —
-// because อาจารย์ is one institutional role, like เจ้าหน้าที่คณะ.
+// A kkumail account granted อาจารย์ in ทีม SAMO must see the professor's whole
+// desk — every หนังสือ sent for signature, its files, its queue — because
+// อาจารย์ is one institutional role, like เจ้าหน้าที่คณะ.
+//
+// WHAT §A COMPARES AGAINST, AND WHY IT CHANGED. This used to diff the seat
+// against the shared `saprof` account, which was DELETED 2026-08-18 (its work
+// reassigned to the named อาจารย์ who already held the seat). A comparison
+// against a subject that no longer exists does not fail loudly — `sub` resolves
+// to null, the reads return 0, and "0 == 0" scores as parity. So §A now
+// compares against the GROUND TRUTH computed as superuser: the professor's desk
+// IS "every หนังสือ carrying a signature request". That is the property the
+// shared account was only ever standing in for, and unlike an account it cannot
+// be deleted out from under the proof (docs/mistakes/tooling-proofs.md).
 //
 // And it must NOT become a project actor: หนังสือ never sent for signature stay
 // invisible to both. That is the line 0086 drew and 0095 keeps.
@@ -32,7 +42,6 @@ const val = (r, k) => rows(r).map((x) => x[k]).find((v) => v !== undefined);
 const errText = (r) => (r.body && r.body.message) ? r.body.message : JSON.stringify(r.body).slice(0, 200);
 const denied = (r) => /row-level security|42501|permission denied/i.test(errText(r));
 
-const SHARED = 'saprof@samomdkku.app';
 const SEAT = 'phuriphat.ma@kkumail.com';
 
 /** Run `sql` as `email` under RLS. `seat` stages managed_project_seats first. */
@@ -61,25 +70,41 @@ async function main() {
   const withReq = await mgmt(`select count(distinct document_id)::int as n from public.project_sign_requests;`);
   console.log(`corpus: ${val(total, 'n')} หนังสือ total, ${val(withReq, 'n')} sent for signature\n`);
 
-  console.log('A) the seat sees the same desk as the shared account');
-  const shared = await as(SHARED, INBOX);
+  console.log('A) the seat sees the WHOLE professor desk');
+  // Ground truth, read as superuser with RLS bypassed. These are the numbers a
+  // correct prof session must reproduce, and they are non-zero by assertion —
+  // an empty corpus would let every comparison below pass vacuously.
+  const truthDocs = Number(val(await mgmt(INBOX), 'docs'));
+  const truthReqs = Number(val(await mgmt(`select count(*)::int as n from public.project_sign_requests;`), 'n'));
+  // Derived from prof_can_see_file()'s OWN predicate, not from "files on a doc
+  // that has a request" — that first guess said 45 where the function says 32,
+  // because a professor is shown the files SENT to them (r.file_ids) plus the
+  // signed PDF that came back (f.sign_request_id), never every attachment on
+  // the หนังสือ. An expectation invented beside the gate instead of read off it
+  // fails for a correct reason, and a proof that cries wolf gets ignored.
+  const truthFiles = Number(val(await mgmt(
+    `select count(*)::int as n from public.project_files f
+      where exists (select 1 from public.project_sign_requests r
+                     where f.id = any (r.file_ids))
+         or exists (select 1 from public.project_sign_requests r
+                     where r.id = f.sign_request_id);`), 'n'));
+  check(`the corpus is non-empty: ${truthDocs} หนังสือ sent for signature`, truthDocs > 0);
+  check(`…carrying ${truthReqs} signature requests`, truthReqs > 0);
+
   const seat = await as(SEAT, INBOX, `array['prof']`);
-  check(`saprof sees ${val(shared, 'docs')} หนังสือ`, Number(val(shared, 'docs')) > 0, errText(shared));
-  check('a tree-granted อาจารย์ sees the SAME count',
-    Number(val(seat, 'docs')) === Number(val(shared, 'docs')),
-    `saprof=${val(shared, 'docs')} seat=${val(seat, 'docs')}`);
+  check('a tree-granted อาจารย์ sees EVERY หนังสือ sent for signature',
+    Number(val(seat, 'docs')) === truthDocs,
+    `truth=${truthDocs} seat=${val(seat, 'docs')}`);
 
   const sr = await as(SEAT, `select count(*)::int as n from public.project_sign_requests;`, `array['prof']`);
-  const srShared = await as(SHARED, `select count(*)::int as n from public.project_sign_requests;`);
-  check('…and the same signature queue',
-    Number(val(sr, 'n')) === Number(val(srShared, 'n')) && Number(val(sr, 'n')) > 0,
-    `saprof=${val(srShared, 'n')} seat=${val(sr, 'n')}`);
+  check('…and the whole signature queue',
+    Number(val(sr, 'n')) === truthReqs,
+    `truth=${truthReqs} seat=${val(sr, 'n')}`);
 
-  const f1 = await as(SHARED, `select count(*)::int as n from public.project_files where prof_can_see_file(id);`);
   const f2 = await as(SEAT, `select count(*)::int as n from public.project_files where prof_can_see_file(id);`, `array['prof']`);
-  check('…and the same signable files',
-    Number(val(f1, 'n')) === Number(val(f2, 'n')),
-    `saprof=${val(f1, 'n')} seat=${val(f2, 'n')}`);
+  check('…and every signable file on those หนังสือ',
+    Number(val(f2, 'n')) === truthFiles,
+    `truth=${truthFiles} seat=${val(f2, 'n')}`);
 
   console.log('\nB) but a professor is still NOT a project actor');
   const actor = await as(SEAT, `select public.current_user_is_project_actor() as a;`, `array['prof']`);
@@ -96,7 +121,8 @@ async function main() {
   const req = await as(SEAT, `
     insert into public.project_sign_requests (id, document_id, prof_id, requested_by)
     select 'SR-'||substr(md5(random()::text),1,8), d.id,
-           (select id from public.users where email='${SHARED}'),
+           (select id from public.users
+             where 'prof' = any(coalesce(managed_project_seats,'{}')) limit 1),
            (select id from public.users where email='${SEAT}')
       from public.project_documents d limit 1 returning id;`, `array['prof']`);
   check('a professor still cannot request a signature (that is เจ้าหน้าที่คณะ)',

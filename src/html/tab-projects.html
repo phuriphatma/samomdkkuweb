@@ -43,9 +43,18 @@
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                     <input id="projectsSearchInput" type="search" class="form-control" placeholder="ค้นหาชื่อโครงการ / รหัส…" />
                   </div>
-                  <select id="projectsFiscalYear" class="form-select form-select-sm projects-fy-filter" aria-label="กรองตามปีงบประมาณ" title="ปีงบประมาณ">
-                    <option value="all">ทุกปีงบ</option>
-                  </select>
+                  <div class="projects-fy-group">
+                    <select id="projectsFiscalYear" class="form-select form-select-sm projects-fy-filter" aria-label="กรองตามปีงบประมาณ" title="ปีงบประมาณ">
+                      <option value="all">ทุกปีงบ</option>
+                    </select>
+                    <!-- Pin = "open on this ปีงบ next time". Hidden for the
+                         public mirror, which has no account to save it to;
+                         inbox.js toggles that in renderFiscalYearDefaultBtn(). -->
+                    <button type="button" id="projectsFyDefaultBtn" class="projects-fy-default-btn d-none"
+                      title="ตั้งค่าเริ่มต้นของปีงบประมาณ" aria-label="ตั้งค่าเริ่มต้นของปีงบประมาณ">
+                      <i class="bi bi-pin-angle"></i>
+                    </button>
+                  </div>
                   <div id="projectsFilterRow" class="projects-filter-row" role="tablist"></div>
                   <div id="projectsViewToggle" class="projects-view-toggle" role="group" aria-label="สลับมุมมอง">
                     <button type="button" class="projects-view-toggle-btn" data-projects-view-mode="grid" title="มุมมองกริด" aria-label="มุมมองกริด">

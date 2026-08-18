@@ -31,6 +31,8 @@ import {
   appendSignTimeline,
   updateSignRequest,
   deleteSignRequest,
+  getMyProjectPrefs,
+  saveMyProjectDefaultFY,
 } from './api.js';
 import {
   DOC_STATUS_META,
@@ -49,6 +51,17 @@ import { notifyUniStaff, notifyVpAdmin, notifyProf } from './notify.js';
 // the heavy PDF libs never ship in the main bundle / public mirror.
 import { openProjectPrompt, openProjectConfirm } from './ui-prompt.js';
 import { showProjectQrModal } from './qr.js';
+import {
+  projectFiscalYear,
+  isFiscalYearMoved,
+  deriveFiscalYearBE,
+  fiscalYearOptions,
+  moveTargetYears,
+  resolveDefaultFY,
+  isValidDefaultFY,
+  DEFAULT_FY_ALL,
+  DEFAULT_FY_CURRENT,
+} from './fiscal-year.js';
 
 // ---------- module state ----------
 
@@ -84,6 +97,17 @@ let expandedDocsSeenAt = new Map();   // docId -> ms-since-epoch frozen at expan
 let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
 let filterFY   = 'all';    // 'all' | '<4-digit BE year>' — ปีงบประมาณ (Thai fiscal year)
+// The viewer's SAVED default (project_user_prefs.default_fiscal_year, 0165):
+// 'all' | 'current' | '<4-digit BE year>'. null until the first load resolves
+// it; an absent row stays 'all', which is what the inbox did before 0165.
+let defaultFYPref = DEFAULT_FY_ALL;
+// The default is applied ONCE PER ACCOUNT, not on every render — otherwise
+// every repaint would yank the dropdown back and the user could never pick
+// a different year for the session they are in. Keyed by uid rather than a
+// bare boolean because this app switches accounts IN PLACE, and a module-scope
+// flag is exactly how a previous account's state survives that switch
+// (docs/mistakes/app-state.md).
+let fyDefaultAppliedFor = null;
 // 'grid' = original card grid; 'list' = compact one-row-per-project list.
 // Persisted per browser so the user's preference sticks across sessions.
 let viewMode = (() => {
@@ -158,25 +182,16 @@ function projectBucket(p, role) {
   return 'waiting';
 }
 
-/** Thai fiscal year (ปีงบประมาณ, พ.ศ. — 4 digits) for a timestamp.
- *  The Thai budget year runs 1 ต.ค. – 30 ก.ย. and is NAMED for the year it
- *  ends in: ปีงบ 2569 = 1 ต.ค. 2568 → 30 ก.ย. 2569. So Oct–Dec fall into the
- *  NEXT BE year. Uses the viewer's local calendar (audience is in ICT, where
- *  local time is the authoritative boundary). Returns null on a bad/absent date. */
-function fiscalYearBE(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return null;
-  // getMonth() is 0-based; 9 = October → rolls into the next fiscal year.
-  return d.getFullYear() + 543 + (d.getMonth() >= 9 ? 1 : 0);
-}
-
 /** Base project set after the ปีงบประมาณ filter — the OUTERMOST filter, so
  *  both the chip counts and the grid see the same fiscal-year-scoped set
- *  (a selected year with 0 "mine" reads as "cleared", not "no year"). */
+ *  (a selected year with 0 "mine" reads as "cleared", not "no year").
+ *
+ *  The year comes from projectFiscalYear() — the override a vpa/staff actor
+ *  set, else the derivation from created_at — so a โครงการ moved to another
+ *  ปีงบ moves in the FILTER, the CHIP COUNTS and the GRID together. */
 function projectsInSelectedFY() {
   if (filterFY === 'all') return cache.projects;
-  return cache.projects.filter((p) => String(fiscalYearBE(p.created_at)) === filterFY);
+  return cache.projects.filter((p) => String(projectFiscalYear(p)) === filterFY);
 }
 
 /** Counts for the level-1 filter chips, computed once per render(). */
@@ -400,6 +415,10 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject,
     render();
   });
 
+  document.getElementById('projectsFyDefaultBtn')?.addEventListener('click', () => {
+    openFiscalYearDefaultPicker();
+  });
+
   document.getElementById('projectsViewToggle')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-projects-view-mode]');
     if (!btn) return;
@@ -433,6 +452,10 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject,
 export function renderInbox(next) {
   cache = { ...cache, ...next };
   render();
+  // Fire-and-forget: the inbox paints immediately on ทุกปีงบ and re-paints
+  // on the viewer's saved ปีงบ default a moment later. Awaiting it here
+  // would make every data refresh wait on a preference read.
+  applyDefaultFiscalYear();
 }
 
 export function openProjectDetail(projectId) {
@@ -520,21 +543,91 @@ function updateFab() {
 
 // ---------- Level 1: filter chips + project grid ----------
 
-/** Populate the ปีงบประมาณ dropdown from the fiscal years actually present in
- *  the data (newest first) + an "all" option. Options are data-driven so the
- *  list grows automatically each new budget year with no code change. */
+/** Populate the ปีงบประมาณ dropdown. Options are data-driven so the list grows
+ *  by itself each budget year — plus the CURRENT year and the year the
+ *  viewer's own default resolves to, which is what keeps "ปีงบปัจจุบัน" from
+ *  snapping back to ทุกปีงบ on 1 ต.ค. before the first โครงการ of that year
+ *  exists (fiscalYearOptions() owns that rule). */
 function renderFiscalYearOptions() {
   const sel = document.getElementById('projectsFiscalYear');
   if (!sel) return;
-  const years = [...new Set(
-    cache.projects.map((p) => fiscalYearBE(p.created_at)).filter((y) => y != null),
-  )].sort((a, b) => b - a);
+  const years = fiscalYearOptions(cache.projects, { defaultFY: defaultFYPref });
   // Drop a now-stale selection (e.g. the year's last project was deleted).
-  if (filterFY !== 'all' && !years.some((y) => String(y) === filterFY)) filterFY = 'all';
+  if (filterFY !== 'all' && !years.includes(filterFY)) filterFY = 'all';
   sel.innerHTML = ['<option value="all">ทุกปีงบ</option>']
     .concat(years.map((y) => `<option value="${y}">ปีงบ ${y}</option>`))
     .join('');
   sel.value = filterFY;
+  renderFiscalYearDefaultBtn();
+}
+
+/** The pin beside the ปีงบ dropdown. Filled when what is on screen IS the
+ *  saved default, hollow when it is a one-off pick — so the control says
+ *  which of the two states you are in before you open it. */
+function renderFiscalYearDefaultBtn() {
+  const btn = document.getElementById('projectsFyDefaultBtn');
+  if (!btn) return;
+  // customerMode has no account, so it has nothing to save a default to.
+  btn.classList.toggle('d-none', customerMode || !getUser()?.id);
+  const isDefault = filterFY === resolveDefaultFY(defaultFYPref);
+  btn.classList.toggle('is-set', isDefault);
+  btn.innerHTML = `<i class="bi bi-pin-angle${isDefault ? '-fill' : ''}"></i>`;
+  btn.title = defaultFYPref === DEFAULT_FY_CURRENT
+    ? 'ค่าเริ่มต้น: ปีงบปัจจุบัน (อัตโนมัติ) — กดเพื่อเปลี่ยน'
+    : defaultFYPref === DEFAULT_FY_ALL
+    ? 'ค่าเริ่มต้น: ทุกปีงบ — กดเพื่อเปลี่ยน'
+    : `ค่าเริ่มต้น: ปีงบ ${defaultFYPref} — กดเพื่อเปลี่ยน`;
+  btn.setAttribute('aria-label', btn.title);
+}
+
+/** Load the viewer's saved default and apply it — ONCE per mount, before the
+ *  first grid paint. Everything here is best-effort: a failed read leaves
+ *  'all', the behaviour the inbox had before 0165. */
+export async function applyDefaultFiscalYear() {
+  if (customerMode) return;
+  const uid = getUser()?.id;
+  if (!uid || fyDefaultAppliedFor === uid) return;
+  fyDefaultAppliedFor = uid;
+  const row = await getMyProjectPrefs(uid).catch(() => null);
+  const pref = row?.default_fiscal_year;
+  defaultFYPref = isValidDefaultFY(pref) ? pref : DEFAULT_FY_ALL;
+  if (defaultFYPref === DEFAULT_FY_ALL) { renderFiscalYearDefaultBtn(); return; }
+  filterFY = resolveDefaultFY(defaultFYPref);
+  render();
+}
+
+/** "ตั้งค่าเริ่มต้น" — pick which ปีงบ this account opens on. Offered to every
+ *  seat (ผู้ส่งหนังสือ / เจ้าหน้าที่คณะ / อาจารย์): it is a view preference,
+ *  not a permission, and each of them opens this inbox. */
+async function openFiscalYearDefaultPicker() {
+  const uid = getUser()?.id;
+  if (!uid) return;
+  const years = fiscalYearOptions(cache.projects, { defaultFY: defaultFYPref });
+  const options = [
+    { value: DEFAULT_FY_ALL,     label: 'ทุกปีงบ' },
+    { value: DEFAULT_FY_CURRENT, label: `ปีงบปัจจุบัน (อัตโนมัติ) — ตอนนี้คือ ${resolveDefaultFY(DEFAULT_FY_CURRENT)}` },
+    ...years.map((y) => ({ value: y, label: `ปีงบ ${y}` })),
+  ];
+  const res = await openProjectPrompt({
+    title: 'ค่าเริ่มต้นของปีงบประมาณ',
+    hideText: true,
+    selectLabel: 'เปิดหน้านี้ครั้งต่อไปให้กรองที่',
+    selectOptions: options,
+    selectInitial: defaultFYPref,
+    hint: 'เลือก "ปีงบปัจจุบัน (อัตโนมัติ)" แล้วระบบจะเลื่อนไปปีงบใหม่ให้เองทุกวันที่ 1 ตุลาคม',
+    okLabel: 'บันทึกค่าเริ่มต้น',
+  });
+  const picked = res && typeof res === 'object' ? res.select : null;
+  if (!picked || picked === defaultFYPref) return;
+  try {
+    await saveMyProjectDefaultFY(uid, picked);
+  } catch (err) {
+    window.alert(err?.message || 'บันทึกค่าเริ่มต้นไม่สำเร็จ');
+    return;
+  }
+  defaultFYPref = picked;
+  filterFY = resolveDefaultFY(defaultFYPref);
+  render();
 }
 
 function renderFilterChips() {
@@ -805,6 +898,15 @@ function renderDetail() {
     .sort((a, b) => new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
   const role = cache.role;
   const canManage = role === 'vp_admin' || role === 'dev';
+  // Moving a โครงการ between ปีงบประมาณ is BOTH desks' job, not just the
+  // sender's: the ผู้ส่งหนังสือ (vpa) sends it, and the เจ้าหน้าที่คณะ
+  // (staff) is the one who knows which budget year the faculty actually
+  // booked it against. This is the same audience the DB already allows —
+  // `projects_update` is current_user_is_project_actor() — so the button
+  // and the policy agree instead of one of them being decorative.
+  const canMoveFY = role === 'vp_admin' || role === 'uni_staff' || role === 'dev';
+  const projFY = projectFiscalYear(project);
+  const fyMoved = isFiscalYearMoved(project);
   // Public-mirror visibility (0114). `is_public` defaults to true, so a row
   // written before the column existed reads as shown — matching what the
   // public site did before this feature.
@@ -826,6 +928,10 @@ function renderDetail() {
       ${project.description ? `<p class="projects-detail-desc">${escHtml(project.description)}</p>` : ''}
       <div class="projects-detail-meta">
         <span class="text-muted small">หนังสือทั้งหมด ${docs.length} ฉบับ</span>
+        ${projFY != null ? `<span class="projects-fy-pill${fyMoved ? ' is-moved' : ''}"
+          title="${fyMoved
+            ? `ย้ายมาที่ปีงบ ${projFY} เอง (วันที่สร้างอยู่ในปีงบ ${deriveFiscalYearBE(project.created_at)})`
+            : 'ปีงบประมาณตามวันที่สร้างโครงการ'}"><i class="bi bi-calendar3 me-1"></i>ปีงบ ${projFY}${fyMoved ? ' · ย้ายเอง' : ''}</span>` : ''}
         ${!projShown
           ? `<span class="projects-hidden-pill" title="โครงการนี้ไม่แสดงบนเว็บสาธารณะ"><i class="bi bi-eye-slash-fill me-1"></i>ซ่อนจากเว็บสาธารณะ</span>`
           : ''}
@@ -850,6 +956,9 @@ function renderDetail() {
         </button>` : ''}
         ${canManage ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-edit-project="${escHtml(project.id)}" title="แก้ไขชื่อ / รายละเอียดโครงการ">
           <i class="bi bi-pencil me-1"></i> แก้ไขโครงการ
+        </button>` : ''}
+        ${canMoveFY ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-move-fy="${escHtml(project.id)}" title="ย้ายโครงการนี้ไปปีงบประมาณอื่น">
+          <i class="bi bi-calendar3 me-1"></i> ย้ายปีงบ
         </button>` : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-copy="${escHtml(project.id)}" title="คัดลอกรหัสโครงการ">
           <i class="bi bi-clipboard me-1"></i> คัดลอกรหัส
@@ -1758,6 +1867,11 @@ function onInboxClick(e) {
     onToggleProjectPublic(pubProj);
     return;
   }
+  const moveFyProj = e.target.closest('[data-projects-move-fy]');
+  if (moveFyProj) {
+    onMoveProjectFiscalYear(moveFyProj.dataset.projectsMoveFy);
+    return;
+  }
 
   // Doc actions
   const statusBtn = e.target.closest('[data-projects-doc-status]');
@@ -1812,6 +1926,55 @@ function onInboxChange(e) {
 }
 
 // ---------- project actions ----------
+
+/** Move a โครงการ to another ปีงบประมาณ.
+ *
+ *  WHY THIS EXISTS. The ปีงบ is derived from `created_at`, and that is right
+ *  almost always and wrong exactly when it matters: a ผู้ส่งหนังสือ sends a
+ *  โครงการ in ก.ย. 2569 and the faculty books it against ปีงบ 2570. The
+ *  office's answer is the one people search by, so a human has to be able to
+ *  say it.
+ *
+ *  Setting it back to "ตามวันที่สร้าง" writes NULL, not the derived number —
+ *  a stored copy of an expression stops tracking that expression forever
+ *  (0128), so "no opinion" has to stay expressible.
+ */
+async function onMoveProjectFiscalYear(projectId) {
+  const p = cache.projects.find((x) => x.id === projectId);
+  if (!p) return;
+  const derived = deriveFiscalYearBE(p.created_at);
+  const current = projectFiscalYear(p);
+  const options = [
+    { value: 'auto', label: `ตามวันที่สร้าง (อัตโนมัติ)${derived != null ? ` — ปีงบ ${derived}` : ''}` },
+    ...moveTargetYears(p, cache.projects).map((y) => ({ value: y, label: `ปีงบ ${y}` })),
+  ];
+  const res = await openProjectPrompt({
+    title: 'ย้ายปีงบประมาณ',
+    hideText: true,
+    selectLabel: `ย้าย "${p.name || projectId}" ไปที่`,
+    selectOptions: options,
+    selectInitial: isFiscalYearMoved(p) ? String(current) : 'auto',
+    hint: 'ใช้เมื่อหนังสือถูกส่งในปีงบหนึ่ง แต่คณะลงเป็นอีกปีงบหนึ่ง — มีผลกับตัวกรองปีงบและการค้นหา',
+    okLabel: 'ย้าย',
+  });
+  const picked = res && typeof res === 'object' ? res.select : null;
+  if (!picked) return;
+  const next = picked === 'auto' ? null : Number(picked);
+  // Compare against what is STORED, not against what is displayed: picking
+  // the year the date already implies is a real change when an override is
+  // currently pinning the project somewhere else.
+  const stored = Number.isFinite(Number(p.fiscal_year_be)) ? Number(p.fiscal_year_be) : null;
+  if (next === stored) return;
+  try {
+    await updateProject(projectId, { fiscal_year_be: next });
+    // If the viewer is filtered to a year the project just left, it would
+    // vanish from under them with no explanation. Follow it.
+    if (filterFY !== 'all' && next != null && String(next) !== filterFY) filterFY = String(next);
+    onChanged();
+  } catch (e) {
+    window.alert(e?.message || 'ย้ายปีงบประมาณไม่สำเร็จ');
+  }
+}
 
 async function onEditProject(projectId) {
   const p = cache.projects.find((x) => x.id === projectId);

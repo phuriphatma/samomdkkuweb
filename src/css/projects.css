@@ -92,6 +92,41 @@
   max-width: 170px;
   font-size: 0.92rem;
 }
+/* The ปีงบ select and its "make this my default" pin travel together, so the
+   toolbar treats the pair as ONE flex item — otherwise the pin wraps to the
+   next line on the narrow iPad toolbar and reads as a stray button. */
+.projects-tab .projects-fy-group {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.projects-tab .projects-fy-default-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--p-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.projects-tab .projects-fy-default-btn:hover {
+  color: var(--p-text);
+  border-color: #cbd5e1;
+}
+/* is-set = what is on screen IS the saved default. Green rather than a
+   second grey state so the two are distinguishable at a glance. */
+.projects-tab .projects-fy-default-btn.is-set {
+  color: var(--brand-primary, #105922);
+  border-color: var(--brand-primary, #105922);
+  background: #f0f7f2;
+}
 .projects-tab .projects-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -440,6 +475,26 @@
   background: #e2e8f0;
   color: #475569;
   border: 1px solid #cbd5e1;
+}
+/* ปีงบประมาณ of the โครงการ, on the detail header. `.is-moved` marks a year a
+   human set by hand — without it a year that disagrees with the created date
+   looks like a bug in the derivation rather than somebody's decision. */
+.projects-tab .projects-fy-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+.projects-tab .projects-fy-pill.is-moved {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
 }
 .projects-tab .projects-hidden-pill.is-partial {
   background: #f1f5f9;

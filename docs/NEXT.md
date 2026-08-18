@@ -203,9 +203,11 @@ place a regression hides.
 - **VS จัดการหมวดหมู่ / จัดการแท็กภายใน** — ลบ works, its confirm names the
   usage count, and a newly ADDED หมวดหมู่ is immediately selectable in the open
   ticket without closing it.
-- **อาจารย์ (0095)** — `phuriphat.ma@kkumail.com` holds the `prof` seat and must
-  now see the SAME 11 หนังสือ as `saprof` (26 exist; 11 carry a signature
-  request). If it shows 0, the seat resolution broke, not the RLS.
+- **อาจารย์ (0095)** — a `prof`-seat holder must see EVERY หนังสือ that carries
+  a signature request (17 of 43 as of 2026-08-18), not a per-uid subset. The
+  shared `saprof` account this used to be diffed against is gone; the number to
+  compare with is the corpus count, which `tools/prof0095-seat-parity.mjs` now
+  computes as superuser. If it shows 0, the seat resolution broke, not the RLS.
 - **SAMO Shop (0094)** — unscoped again for everyone; the ทีม SAMO picker should
   have NO แหล่งที่มา field.
 - **ประกาศ (0093B)** — a `creator` grantee must see their own drafts/pending in
@@ -278,32 +280,27 @@ asking**; checklist in #2.
    already exists for it. Pointless while the all-departments `1234` door is open,
    so sequence it after retiring that door.
 
-### 4. Shared → personal accounts: the AUTHORIZATION is DONE — only read-state cosmetics remain
-**The intended model, confirmed by the user 2026-07-30**: a ทีม SAMO seat IS the
-shared account's role. `เจ้าหน้าที่คณะ` ≡ `sastaff`, `อาจารย์` ≡ `saprof`,
-`ผู้ส่งหนังสือ` ≡ `samomdkkuvpa`. **That is what ships** — `projectSeatRole()`
-maps the seat to the role string the module branches on, `current_user_project_seats()`
-carries it into RLS, and 0095 made the อาจารย์ seat see the same signature queue
-as `saprof` rather than a per-uid subset. A seat holder needs NO migration to do
-the job. Earlier notes framed this as a pending "migration", which overstated it.
+### 4. Shared → personal accounts: ✅ CLOSED 2026-08-18
+Every shared หนังสือโครงการ login is now DELETED. `samomdkkuvpa` went on
+2026-08-17; `sastaff` and `saprof` went on 2026-08-18 via
+`tools/purge-shared-project-accounts.mjs`, which reassigned their work to the
+named person already holding the equivalent seat (161 rows → เจ้าหน้าที่คณะ,
+65 rows → อาจารย์) before deleting them. `public.users` now holds **no**
+`uni_staff` and **no** `sa_prof` row at all.
 
-The ONE thing a grant cannot carry is per-user state, and neither piece affects
-access:
-- `project_doc_views` — which documents *you personally* have opened, i.e. the
-  "อัปเดต" badge. Live: `samomdkkuvpa` 28/28 docs, `sastaff` 25, `saprof` 11,
-  `phuriphat.ma` 22 (from the one handover already run).
-- `project_notifications` — historical bell rows addressed to the shared
-  account's uid. NEW notifications already reach seat holders (0091
-  `list_project_seat_users`).
+The model that replaced them: a ทีม SAMO seat IS the role. `projectSeatRole()`
+maps the seat to the role string the module branches on,
+`current_user_project_seats()` carries it into RLS, and every project_* policy
+asks a seat-aware helper. Proof: `tools/proj0165-succession-and-prefs.sql`
+(33/33) — the seat reads a project the public mirror cannot, opens a signing
+request, and is denied everything the seat should not reach.
 
-So `tools/proj-handover.mjs` is **optional badge parity**, worth running only
-when RETIRING a shared account and you want day-one badges to match it. Skip it
-and the first-run BASELINE marks everything seen — the sane default for someone
-joining today. `--sign-requests` is NOT needed for an อาจารย์ to see the queue
-(0095); run it only to re-attribute history away from `saprof`.
-Residual if you do run it: `getDocSeenAt()` falls back to a localStorage map when
-the server has no row, so a badge can look wrong on a device the target already
-browsed on — clear site data there.
+`tools/proj-handover.mjs` remains for the general case (moving read-state,
+sign-requests and bell rows between two accounts); the purge script does the
+same job inline for a delete. Residual if you run the handover:
+`getDocSeenAt()` falls back to a localStorage map when the server has no row,
+so a badge can look wrong on a device the target already browsed on — clear
+site data there.
 
 ### 5. Inert columns from the reverted shop scope
 `team_nodes.shop_source`, `team_members.shop_source`,

@@ -7,9 +7,9 @@
 // policy never calls it cannot pass.
 //
 //   A  explicit member seat overrides the inherited node seat
-//   B  the `staff` seat can run the signature workflow (sastaff parity)
-//   C  the `vpa` seat can save settings (samomdkkuvpa parity)
-//   D  a professor can resolve a notify audience (saprof — regressed by 0091)
+//   B  the `staff` seat can run the signature workflow (เจ้าหน้าที่คณะ parity)
+//   C  the `vpa` seat can save settings (ผู้ส่งหนังสือ parity)
+//   D  a professor can resolve a notify audience (regressed by 0091)
 //
 // Usage: node tools/proj0092-seat-parity.mjs
 import { readFileSync } from 'node:fs';
@@ -52,13 +52,25 @@ ${sql}
 rollback;`);
 
 const TREE_USER = 'phuriphat.ma@kkumail.com';
-const PROF = 'saprof@samomdkku.app';
-const STAFF = 'sastaff@samomdkku.app';
-// The shared `samomdkkuvpa` account (role=vp_admin) was RETIRED 2026-08-17.
-// The vpa subject is now resolved LIVE from whoever actually holds the seat
-// (role vp_admin OR the `vpa` project seat), so this proof can never rot the
-// way it did when it named the deleted account. Resolved in main().
+// EVERY subject here is resolved LIVE from whoever holds the seat, never named.
+// The three shared accounts this proof used to hardcode are all gone now —
+// `samomdkkuvpa` (RETIRED 2026-08-17), and `sastaff` + `saprof` (RETIRED
+// 2026-08-18, their work reassigned to the named เจ้าหน้าที่คณะ / อาจารย์ who
+// already held the seat). A proof whose subject is a hardcoded name rots the
+// day that account changes, and this one has now rotted twice for exactly that
+// reason (docs/mistakes/tooling-proofs.md). Resolved in main().
+let PROF = null;
+let STAFF = null;
 let VPA = null;
+
+/** The live holder of a หนังสือโครงการ seat, by ROLE or by ทีม SAMO seat —
+ *  the same union `list_project_seat_users()` uses, so the proof addresses
+ *  its subjects by the rule the app addresses them by. */
+const seatHolder = async (seat, role) => val(await mgmt(`
+  select email from public.users
+   where email is not null
+     and (role in ('${role}', 'dev') or '${seat}' = any(coalesce(managed_project_seats, '{}')))
+   order by (role = 'dev'), email limit 1;`), 'email');
 
 async function main() {
   console.log('project', REF, '\n');
@@ -103,8 +115,10 @@ rollback;`);
       JSON.stringify(got) === '["staff"]', JSON.stringify(got));
   }
 
-  // ---- B. staff seat parity with sastaff ----
-  console.log('\nB) the `staff` seat can run the signature workflow (sastaff parity)');
+  // ---- B. staff seat parity with the เจ้าหน้าที่คณะ desk ----
+  console.log('\nB) the `staff` seat can run the signature workflow (เจ้าหน้าที่คณะ parity)');
+  PROF = await seatHolder('prof', 'sa_prof');
+  check('a live prof-seat holder exists to test with', !!PROF, 'no sa_prof/prof-seat account found');
   // `id` is a client-supplied text key (no default) — mirror what sign.js sends.
   const insSql = `
     insert into public.project_sign_requests (id, document_id, prof_id, requested_by)
@@ -127,8 +141,8 @@ rollback;`);
   check('projects permission with NO seat cannot create a sign request',
     denied(noSeat), errText(noSeat));
 
-  // ---- C. vpa seat parity with samomdkkuvpa ----
-  console.log('\nC) the `vpa` seat can save การตั้งค่า (samomdkkuvpa parity)');
+  // ---- C. vpa seat parity with the ผู้ส่งหนังสือ desk ----
+  console.log('\nC) the `vpa` seat can save การตั้งค่า (ผู้ส่งหนังสือ parity)');
   const setSql = `update public.project_settings set uni_staff_label = uni_staff_label where id = 1 returning id;`;
   const vpaSet = await asUser(TREE_USER, setSql, { seats: `array['vpa']`, perms: `array['projects']` });
   check('vpa seat CAN write project_settings',
@@ -141,12 +155,11 @@ rollback;`);
   // ---- D. the professor's notify audience ----
   console.log('\nD) a professor can resolve a notify audience (regressed by 0091)');
   // Resolve the vpa subject LIVE — a real project actor who holds the seat.
-  VPA = val(await mgmt(`select email from public.users
-     where email is not null
-       and (role in ('vp_admin','dev') or 'vpa' = any(coalesce(managed_project_seats,'{}')))
-     order by email limit 1;`), 'email');
+  VPA   = await seatHolder('vpa', 'vp_admin');
+  STAFF = await seatHolder('staff', 'uni_staff');
   check('a live vpa-seat holder exists to test with', !!VPA, 'no vp_admin/vpa-seat account found');
-  for (const [who, email] of [['saprof (role)', PROF], ['sastaff', STAFF], ['vpa', VPA]]) {
+  check('a live staff-seat holder exists to test with', !!STAFF, 'no uni_staff/staff-seat account found');
+  for (const [who, email] of [['อาจารย์ (prof seat)', PROF], ['เจ้าหน้าที่คณะ (staff seat)', STAFF], ['ผู้ส่งหนังสือ (vpa seat)', VPA]]) {
     if (!email) { check(`${who} resolves BOTH audiences`, false, 'subject email is null'); continue; }
     const s = await asUser(email, `select count(*)::int as n from public.list_project_seat_users('staff');`);
     const v = await asUser(email, `select count(*)::int as n from public.list_project_seat_users('vpa');`);

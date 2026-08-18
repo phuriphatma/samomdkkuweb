@@ -257,8 +257,15 @@ project_doc_types (text id PK, label_th, sort_order, is_active)
            หนังสือขอความอนุเคราะห์ sponsor / หนังสืออื่นๆ
 
 projects (text id PK ["PRJ-YYMM-NNNN"], name, description, status,
-          created_by, timestamps)
+          created_by, timestamps, is_public, fiscal_year_be)
   ↳ status IN ('open','in_progress','completed','cancelled')
+  ↳ fiscal_year_be (migration 0165) is an OVERRIDE, not a copy: NULL means
+    "derive the ปีงบประมาณ from created_at" (1 ต.ค.–30 ก.ย., named for the
+    ending year), a number means a human moved it. Nothing backfills it, so
+    a corrected created_at still re-derives. Settable by
+    current_user_is_project_actor() — the ผู้ส่งหนังสือ + เจ้าหน้าที่คณะ
+    audience — via projects_update. One implementation, in
+    src/js/projects/fiscal-year.js, ratcheted by its .test.js.
 
 project_documents (text id PK ["DOC-YYMMDD-HHMM-XXXX"],
                    project_id FK projects(id) CASCADE,
@@ -293,8 +300,17 @@ project_sign_requests (text id PK ["SGN-XXXXX"], migration 0050,
                   file_ids bigint[], timeline jsonb, requested_by,
                   requested_at, decided_at, timestamps)
   ↳ status IN ('pending','accepted','rejected')
-  ↳ sastaff sends a SUBSET (file_ids) of a หนังสือ's files to the prof;
-    he accepts (e-sign / reupload) or rejects (→ back to sastaff)
+  ↳ เจ้าหน้าที่คณะ sends a SUBSET (file_ids) of a หนังสือ's files to the
+    prof; he accepts (e-sign / reupload) or rejects (→ back to คณะ)
+
+project_user_prefs (user_id PK FK users(id) CASCADE, migration 0165,
+                  default_fiscal_year 'all'|'current'|'<4-digit BE>',
+                  updated_at)
+  ↳ own-row-only RLS in BOTH directions (USING + WITH CHECK), granted to
+    `authenticated` only. An ABSENT row means 'all' — the behaviour the
+    inbox had before the table existed. 'current' is resolved at OPEN
+    time by src/js/projects/fiscal-year.js, so it rolls itself over on
+    1 ต.ค. with nobody editing anything.
 
 project_settings (singleton id=1, uni_staff_email, uni_staff_label,
                   vp_admin_label, notify_uni_in_app, notify_uni_email,
@@ -305,12 +321,21 @@ project_settings (singleton id=1, uni_staff_email, uni_staff_label,
 
 Roles: `users.role` CHECK admits `vp_admin` (SAMO sender), `uni_staff`
 (university officer receiver), and `sa_prof` (professor signer, migration
-0050). `reserved_staff_usernames` seeds `samomdkkuvpa` (vp_admin) + `sastaff`
-(uni_staff); `saprof` is seeded by `tools/saprof-account.mjs`. Helper
-`public.current_user_is_project_actor()` returns true for `vp_admin`,
-`uni_staff`, or `dev` — `sa_prof` is deliberately NOT an actor (narrow helper
-`current_user_is_prof()` instead). `auth.js registerWithPassword` reserves
-`saprof` (the one non-`samomdkku` staff username).
+0050). **NO ACCOUNT HOLDS ANY OF THE THREE ANY MORE.** The shared logins that
+did — `samomdkkuvpa` (retired 2026-08-17), `sastaff` + `saprof` (retired
+2026-08-18, `tools/purge-shared-project-accounts.mjs`) — were deleted after
+their work was reassigned; every actor is now a named person holding a ทีม SAMO
+**project seat** (`vpa` / `staff` / `prof`, migration 0086), and every
+project_* policy asks a seat-aware helper rather than the role. The role
+branches stay in the CHECK and in the helpers as the pre-seat path; treat the
+SEAT as the live channel. `auth.js registerWithPassword` still RESERVES
+`sastaff` / `saprof` so a deleted staff username cannot be squatted.
+Helper `public.current_user_is_project_actor()` returns true for `vp_admin`,
+`uni_staff`, `dev`, or the `vpa`/`staff` seat — `sa_prof`/`prof` is
+deliberately NOT an actor (narrow helper `current_user_is_prof()` instead).
+It is also the gate on `projects_update`, and therefore the exact audience
+allowed to move a โครงการ between ปีงบประมาณ (`projects.fiscal_year_be`,
+migration 0165).
 
 **Professor signing (migration 0050).** A third seat, `sa_prof`, signs
 documents. uni_staff (+ dev) create a `project_sign_requests` row addressed to

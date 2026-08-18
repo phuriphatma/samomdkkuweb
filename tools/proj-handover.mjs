@@ -1,10 +1,13 @@
 // หนังสือโครงการ — hand a shared account's state over to a personal one.
 //
 // WHY THIS EXISTS
-// The workflow accounts (sastaff / samomdkkuvpa / saprof) are being migrated to
-// personal @kkumail.com logins granted through ทีม SAMO. Granting the seat moves
-// the *authorization*, but three things are bound to the OLD account's uid and do
-// not follow:
+// The shared workflow accounts (samomdkkuvpa, then sastaff / saprof) were
+// migrated to personal @kkumail.com logins granted through ทีม SAMO and then
+// DELETED — the last two on 2026-08-18 by
+// `tools/purge-shared-project-accounts.mjs`, which does the reassignment below
+// as part of the delete. This tool remains for the general case: granting a
+// seat moves the *authorization*, but three things are bound to the OLD
+// account's uid and do not follow:
 //
 //   1. project_doc_views      — read state. Without it the new account either
 //                               sees the entire history as unread, or (after the
@@ -26,7 +29,7 @@
 // this is a tool with a dry run rather than something the app does silently.
 //
 // USAGE
-//   node tools/proj-handover.mjs --from sastaff@samomdkku.app --to me@kkumail.com
+//   node tools/proj-handover.mjs --from old@example.com --to me@kkumail.com
 //        (dry run — prints what would change, writes nothing)
 //   node tools/proj-handover.mjs --from … --to … --apply
 //   node tools/proj-handover.mjs --from … --to … --apply --notifications

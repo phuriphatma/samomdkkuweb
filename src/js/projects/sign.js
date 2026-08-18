@@ -1,8 +1,8 @@
 // ==============================================
-// PROJECTS SIGN — "ส่งให้อาจารย์ลงนาม" picker (uni_staff → saprof)
+// PROJECTS SIGN — "ส่งให้อาจารย์ลงนาม" picker (เจ้าหน้าที่คณะ → อาจารย์)
 //
 // A modal (`#projectSignModal`) that lists a หนังสือ's active files with
-// checkboxes so sastaff can pick a SUBSET to send to the professor for
+// checkboxes so เจ้าหน้าที่คณะ can pick a SUBSET to send to the professor for
 // signing (e.g. the final PDFs, not the private docx drafts). Submit
 // creates a project_sign_requests row addressed to the sa_prof user and
 // pings the professor (in-app + email).
@@ -129,7 +129,10 @@ async function onSubmit(e) {
       : (profs[0]?.id || null);
     const profId = picked;
     if (!profId) {
-      throw new Error('ยังไม่มีผู้รับที่เป็นอาจารย์ — กำหนดบทบาท "อาจารย์ (ลงนาม)" ให้สมาชิกในทีม SAMO หรือ seed บัญชี saprof');
+      // The `saprof` shared account was deleted 2026-08-18, so "seed บัญชี
+      // saprof" is no longer a thing anyone can do — pointing a user at a
+      // route that does not exist is worse than no hint at all.
+      throw new Error('ยังไม่มีผู้รับที่เป็นอาจารย์ — กำหนดบทบาท "อาจารย์ (ลงนาม)" ให้สมาชิกในทีม SAMO ก่อน');
     }
     await createSignRequest({
       documentId: ctxDoc.id,

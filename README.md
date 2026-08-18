@@ -145,7 +145,7 @@ triggered over ssh (needs the KKU VPN).
   หนังสือ and file under it; signed-in staff keep seeing everything.
   **Professor signing (migration 0050).** The
   university officer can send a chosen subset of a หนังสือ's files to a
-  professor (`saprof` seat) who signs them — either in-browser (draw a
+  professor (the `อาจารย์` seat) who signs them — either in-browser (draw a
   signature and place it on the PDF) or by uploading an externally-signed
   file — or rejects them back. The officer can also add / replace / remove
   files like the sender; the professor sees only the documents sent to him.

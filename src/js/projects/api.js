@@ -608,3 +608,48 @@ export async function listProjectProfs() {
   console.error('[projects] list_project_profs failed:', error?.message || error);
   return [];
 }
+
+// ---- Per-person inbox preferences (migration 0165) ----
+
+/** The viewer's own ปีงบประมาณ default, or null when they have never set one.
+ *
+ *  Fails to null on EVERY error path on purpose: an absent row, an
+ *  un-migrated DB and a network blip must all land on the app's
+ *  pre-preference behaviour (ทุกปีงบ) rather than on an empty screen.
+ *  RLS is own-row-only, so the `user_id=eq.` filter is belt-and-braces —
+ *  it also keeps the request cheap. */
+export async function getMyProjectPrefs(userId) {
+  if (!userId) return null;
+  const idEsc = encodeURIComponent(userId);
+  const { data, error } = await dbRest(
+    `/project_user_prefs?select=default_fiscal_year&user_id=eq.${idEsc}`,
+  );
+  if (error) {
+    const tableMissing = error.status === 404
+      || /project_user_prefs/i.test(error.message || '');
+    if (!tableMissing) console.warn('[projects] prefs fetch failed:', error.message);
+    return null;
+  }
+  return (data && data[0]) || null;
+}
+
+/** Save the viewer's ปีงบประมาณ default. Upsert on the pk so the second save
+ *  updates rather than 409s. `return=representation` + a length check so an
+ *  RLS denial surfaces as an error instead of a silent success (the standing
+ *  rule in this file). */
+export async function saveMyProjectDefaultFY(userId, value) {
+  if (!userId) throw new Error('ไม่พบบัญชีผู้ใช้');
+  const { data, error } = await dbRest(
+    '/project_user_prefs?on_conflict=user_id',
+    {
+      method: 'POST',
+      body: { user_id: userId, default_fiscal_year: value, updated_at: new Date().toISOString() },
+      prefer: 'return=representation,resolution=merge-duplicates',
+    },
+  );
+  if (error) throw new Error(error.message || 'บันทึกค่าเริ่มต้นไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกค่าเริ่มต้นไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  }
+  return data[0];
+}

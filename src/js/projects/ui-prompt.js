@@ -28,6 +28,7 @@ function getBootstrap() {
  *    selectLabel?: string,
  *    selectOptions?: { value: string, label: string }[],
  *    selectInitial?: string,
+ *    hideText?: boolean,
  * }} ProjectPromptOpts */
 
 /**
@@ -43,10 +44,20 @@ function getBootstrap() {
  */
 export function openProjectPrompt(opts = {}) {
   const hasSelect = Array.isArray(opts.selectOptions) && opts.selectOptions.length > 0;
+  // A select-only dialog (ย้ายปีงบ, ค่าเริ่มต้นของปีงบ) has nothing to type.
+  // Only honoured WITH a select — hiding both would leave an empty modal.
+  const hideText = !!opts.hideText && hasSelect;
   const bs = getBootstrap();
   const modalEl = document.getElementById('projectPromptModal');
   if (!bs || !modalEl) {
     // Fallback for any context where the modal partial wasn't loaded.
+    // A select-only dialog has no text to ask for, so don't ask for any —
+    // prompting and then discarding the answer reads as a broken dialog.
+    if (hideText) {
+      return Promise.resolve(window.confirm(opts.title || opts.selectLabel || '')
+        ? { text: '', select: opts.selectInitial || opts.selectOptions[0].value }
+        : null);
+    }
     const v = window.prompt(opts.title || opts.label || '');
     const text = v == null ? null : v.trim();
     if (text == null) return Promise.resolve(null);
@@ -64,10 +75,17 @@ export function openProjectPrompt(opts = {}) {
   const selEl    = document.getElementById('projectPromptSelect');
 
   if (titleEl) titleEl.textContent = opts.title || 'กรอกข้อความ';
-  if (labelEl) labelEl.textContent = opts.label || 'ข้อความ';
+  if (labelEl) {
+    labelEl.textContent = opts.label || 'ข้อความ';
+    labelEl.classList.toggle('d-none', hideText);
+  }
   if (inputEl) {
     inputEl.value = opts.initial || '';
     inputEl.placeholder = opts.placeholder || '';
+    // The textarea carries no `required` attribute (validation is the JS
+    // `opts.required` branch below), so hiding it cannot block submit the
+    // way a hidden HTML5-required field does (docs/mistakes/frontend-ui.md).
+    inputEl.classList.toggle('d-none', hideText);
   }
   if (hintEl) hintEl.textContent = opts.hint || '';
   if (okLabel) okLabel.textContent = opts.okLabel || 'บันทึก';
@@ -78,7 +96,14 @@ export function openProjectPrompt(opts = {}) {
       selEl.innerHTML = opts.selectOptions
         .map((o) => `<option value="${String(o.value).replace(/"/g, '&quot;')}">${String(o.label).replace(/</g, '&lt;')}</option>`)
         .join('');
-      selEl.value = opts.selectInitial != null ? opts.selectInitial : opts.selectOptions[0].value;
+      // An initial value with no matching <option> would leave the select
+      // showing the FIRST option while the caller believes it is showing the
+      // saved one — so fall back explicitly rather than silently.
+      const wanted = opts.selectInitial != null ? String(opts.selectInitial) : null;
+      const has = wanted != null && opts.selectOptions.some((o) => String(o.value) === wanted);
+      selEl.value = has ? wanted : opts.selectOptions[0].value;
+      // No text field above it means no top margin either.
+      selWrap.classList.toggle('mt-3', !hideText);
       selWrap.classList.remove('d-none');
     } else {
       selWrap.classList.add('d-none');
@@ -107,7 +132,11 @@ export function openProjectPrompt(opts = {}) {
       formEl?.removeEventListener('submit', onSubmit);
       modalEl.removeEventListener('hidden.bs.modal', onHidden);
       inputEl?.classList.remove('is-invalid');
-      if (selWrap) selWrap.classList.add('d-none');
+      // Restore the shared modal for the NEXT caller — a dialog left in
+      // select-only shape would open the comment prompt with no textarea.
+      labelEl?.classList.remove('d-none');
+      inputEl?.classList.remove('d-none');
+      if (selWrap) { selWrap.classList.add('d-none'); selWrap.classList.add('mt-3'); }
       resolve(settled ? result : null);
     };
 
@@ -116,7 +145,7 @@ export function openProjectPrompt(opts = {}) {
     modal.show();
     // Defer focus until after the modal transition lays the field out;
     // immediate focus inside .show() races with Bootstrap's own focus.
-    setTimeout(() => inputEl?.focus(), 200);
+    setTimeout(() => (hideText ? selEl : inputEl)?.focus(), 200);
   });
 }
 
