@@ -1,23 +1,26 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-16**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-18**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
-⚠️ **It is ~500 and has been over target for several sessions.** Three prunes
-have been done: the 0154–0158 narrative and the "Live proofs" PER-PROOF
-NARRATIVE both went to `docs/state-archive/` (the latter on 2026-08-16, leaving
-one line per proof here), and the duplicated "What is owed" blocks were deleted.
-It keeps growing because each session adds rules that genuinely belong here.
-**The next structural pass should take the "จองโควตา Claude — READ THIS BEFORE
-TOUCHING" section to the archive and leave its ⛔ rules only** — it is ~120 lines
-and most of it is now reasoning, not state.
+⚠️ **It is ~670 and still over target.** Four prunes have been done: the
+0154–0158 narrative, the "Live proofs" PER-PROOF NARRATIVE, the duplicated
+"What is owed" blocks, and on 2026-08-18 the 211-line "จองโควตา Claude — READ
+THIS BEFORE TOUCHING" walk-through → `2026-08-18-claude-quota-deep-dive.md`,
+leaving its ⛔ rules (44 lines). It keeps growing because each session adds
+rules that genuinely belong here.
+**The next structural pass should take the three dated 2026-08-17 sections**
+("/scrutinize pass", "master ≠ dev role", "shared-account purge") **to the
+archive** — they are ~80 lines of finished narrative that the NEXT-SESSION
+PROMPT already summarises.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
 Reasoning lives in `docs/state-archive/` — newest first:
-`2026-08-16-claude-quota-booking.md` (**read before touching `/admin#claude`**) ·
+`2026-08-18-claude-quota-deep-dive.md` + `2026-08-16-claude-quota-booking.md`
+(**read one before touching `/admin#claude`**) ·
 `2026-08-15-late-org-chart-reporting.md` (the two parentages, ระดับ, colour;
 **read before touching `/team`**) · `2026-08-15-org-chart-views.md` (the d3
 views, the library survey, three portrait bugs) ·
@@ -30,10 +33,21 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `a2596c3` (2026-08-16)** — the two commits after it are
-  docs/STATE only and need no deploy (`git diff --stat a2596c3..HEAD -- src/
-  supabase/ appscript/ server/ functions/` is empty). Verified from the SERVED
-  artifacts, found via the bundle name in `curl -s
+- ✅ **DEPLOYED = `8359026` (2026-08-18)** — ปีงบ move + per-person default
+  filter + the `sastaff`/`saprof` purge. Verified from the SERVED artifacts:
+  `ค่าเริ่มต้นของปีงบประมาณ`, `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
+  `project_user_prefs`, `fiscal_year_be`, `ย้ายเอง` all = 1–2, and the REMOVED
+  `seed บัญชี saprof` = **0**.
+  ⚠️ **They are NOT in `admin-*.js`** — every one of those greps reads 0 there.
+  The whole projects module lives in the shared chunk that Vite names
+  **`analytics-*.js`** (the name is a lie; both entries import it). Find it with
+  `curl -s https://samo.md.kku.ac.th/admin/ | grep -oE 'assets/[A-Za-z0-9_.-]+\.js'`
+  and grep THAT — grepping only the admin entry reports 0 and looks exactly like
+  a failed deploy. The toolbar markup (`projectsFyDefaultBtn`,
+  `projects-fy-group`) is in the served `/admin/` HTML, and
+  `projects-fy-default-btn` / `projects-fy-pill` / `is-moved` in the admin CSS.
+- Previous deploy `a2596c3` (2026-08-16), for the record. Verified then from the
+  SERVED artifacts, found via the bundle name in `curl -s
   https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old chunks are
   kept on purpose): `is-low`, `claudeSilentWrap`, `claude.ai/settings/usage`,
   `claude-hist-reset`, `รวม ` in the admin JS; `100dvh`, `.claude-free.is-low`,
@@ -51,12 +65,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat 0946ae5..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
+  git diff --stat 8359026..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0163.** **1122 tests green. All 21 proofs green.**
+  **Migrations applied through 0165.** **1153 tests green. 21 of 22 proofs
+  green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below).
   ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
   the moment this line was written — that order is correct (the RPC keeps its
   shape, so the served bundle reads the new numbers immediately), but the
@@ -303,205 +318,38 @@ because two copies of one rule is the class this repo pays for most.
 
 ## จองโควตา Claude — READ THIS BEFORE TOUCHING `/admin#claude`
 
-Six migrations (0154 → 0159) and **every single fix came from the owner testing
-live**. The pattern is worth more than the code: each bug was a number that was
-ARITHMETICALLY RIGHT and MEANT something else.
+**The reasoning is archived: `docs/state-archive/2026-08-18-claude-quota-deep-dive.md`
+(the 0154→0163 walk-through) and `2026-08-16-claude-quota-booking.md` (0154–0158).
+Read one of them before changing anything here.** What stays below is only the
+rules that change what you DO.
 
-### 0159 — THE RULE THAT NOW GOVERNS. Do not re-derive it anywhere.
+**THE RULE THAT GOVERNS (0159).** For every 5-hour window opened in the chain,
+the bookings overlapping `[open, open + 5h)` may not claim more than 100%
+together. A window is opened by the FIRST booking after a ≥5h gap, and the chain
+is derived greedily in START order.
 
-> For every 5-hour window opened in the chain, the bookings whose time overlaps
-> `[open, open + 5h)` may not claim more than 100% together.
-
-It is a property of the SET of bookings, so it cannot depend on insert order —
-which is exactly what 0154 got wrong: its guard checked the incoming row against
-sessions derived from the OTHER rows, and that derivation is greedy in
-`starts_at`, so an earlier-starting insert re-derived everyone and nothing
-re-checked them. `08:00–13:00 @100%` standing, a booking at `06:00` was
-ACCEPTED; and `06:00@50 + 08:00@50` was REFUSED in one typing order and legal in
-the other.
-
-Three things that follow, and each cost something to learn:
-
-1. **The openers are a CHAIN.** A booking that starts inside an earlier
-   booking's window JOINS it. Treating every start as an opener is the obvious
-   fix and it is too strict — `claude0154 §A4` went red, and `§D5` went red only
-   as a consequence.
-2. **THE STRADDLE RULE IS GONE.** A block may cross a window boundary. Do not
-   put it back in SQL *or* in `limitsFor()`; it is what made a legal pair
-   bookable in only one order.
-3. **The window the MEASUREMENT says is open is an anchor**, carrying
-   `five_hour_pct` as its base load. That is the whole answer to *"i'm using at
-   16.00… then suddenly someone book so i have to stop my work?"* — no, the
-   later booking may only take what the open window has left. Nobody declares a
-   session. Limit: the sample is ≤15 min old.
-
-**ONE implementation, three readers**: `claude_window_loads()` → the trigger
-refuses · `claude_booking_limits()` caps the FORM's slider (called on a RANGE
-change, never on the slider) · `get_claude_board()` draws each window's
-remainder. **Do not add a fourth in JavaScript** — `probeSession()` was exactly
-that and is deleted.
-
-### 0163 — a window is identified by PROXIMITY, never by a rounded key
-
-0162 keyed a window on `date_trunc('minute', resets_at + 30s)`. The API returns
-`now + seconds_remaining`, so the value wobbles ±1s — and that key is stable
-only while the true reset is not near the :30 boundary. A window resetting at
-17:04:29.8 comes back either side of it, flipping `v_new_win` MID-window, and
-the new-window branch is `v_delta := r.pct` — the whole CUMULATIVE reading.
-**Falsified: restoring the key splits one window into FOUR runs reading
-`20+40+90+90` and inflates the week from 150 to 300.** Reported as *"the ใช้จริง
-shows like all 90% up in short period of time"*. Now compared as raw instants
-with a 2-minute tolerance — **no boundary to land on. Never re-introduce a
-rounding key here.**
-
-⚠️ **The rendering half of that report was different and also real**: a window
-with ONE run has run-total == window-total, so the same number printed twice,
-and where a window reset as the next opened the two landed on the same minute
-with different denominators ("96" over "ใช้ 55%"). Run labels are `+N%` (a
-rise), the window total is `รวม N%`, and a total that merely repeats its single
-run is suppressed.
-
-### The calendar rail — colour ONLY, by the owner's decision
-
-Four steps (`is-full` ≥90% · `is-part` ≥40% · `is-low` · `is-none`), validated
-with `dataviz/validate_palette.js`, **full width**. A proportional-width fill
-was built and PULLED — *"i just want the color full, you seperate color like
-that is enough"*. Do not re-add it.
-
-⚠️ **This surface has been too loud three times.** Solid saturated read as a
-column DIVIDER; a saturated 2px edge became a hard gold rule once every band sat
-on its minimum width; a column-wide track drew an empty gauge down days with no
-reading. It is now four tinted full-width bands and nothing else.
-⚠️ **NEVER put `overflow` clipping on `.claude-free`** — `.claude-free-tag` is a
-child at `left: calc(100% + 3px)`, deliberately OUTSIDE the band, so clipping
-deletes every percentage on the rail. Cost one report; guarded now.
-⚠️ Two colours the validator REFUSED: a burnt orange for the low step is ΔE 10.4
-from the clay "measured" colour, and `#a67c00` is 14.0 from the amber.
-
-### The calendar height
-
-`min(1100px, 100dvh - 230px)`, and `100dvh - 170px` under 768px — measured at
-74–80% of the viewport, up from a fixed 620/480px (~57% / ~51%). **`dvh`, not
-`vh`** (the iOS entry in `docs/mistakes/frontend-ui.md`). ⚠️ `applyFit()` READS
-this value as the cap it divides by 24, so it must stay a real computed
-max-height.
-
-### 0162 — ใช้จริง draws WHEN it was used, not what the gauge said
-
-The overlay drew one bar per 15-minute sample, width = the CUMULATIVE five-hour
-reading: the integral. It now draws the DERIVATIVE — the stretches where the
-reading ROSE, each labelled with what went in during it, blank where nobody used
-it.
-
-**THE ONE THING TO KEEP: `five_hour.resets_at` minus 5h is the instant the
-window OPENED — the first message.** It is not a sample, so it is not bounded by
-the polling rate. A rise between two polls is attributed to `(prev, cur]`
-**clamped to that instant**, which is what turns "10:00–10:15" into
-"10:07–10:15". `claude_usage_runs()` (0162) is the only implementation.
-
-Three drawn states, because the picture must not claim precision the polling
-does not have: **exact** left edge (solid cap) · **inferred** (feathered) ·
-**unknown**, the reporter was down (hatched, labelled as missing — NOT blank,
-which reads as "nobody used it").
-
-⚠️ **`resets_at` wobbles ±1s between polls** (the API returns
-`now + seconds_remaining`), so it identifies a window only when ROUNDED TO THE
-MINUTE. Clamping to the raw value drew a run starting at `14:59:59`.
-⚠️ **Windows are keyed on `resets_at`, not on "the reading dropped"** — a window
-first polled ABOVE where the previous one ended produces no drop and the two
-were silently merged.
-
-**POLLING, since it was asked:** the timer is `OnUnitActiveSec=15min`, i.e.
-RELATIVE, so it drifts (+1s/run, harmless). **It cannot be "aligned" to the
-5-hour reset** — the reset is set by whoever sends the first message, so it is
-arbitrary against any fixed period. The clamp is what recovers the accuracy
-instead, and it is free. What remains unmeasured is the TAIL of a closing
-window: measured 4 and 9 minutes on the two real windows of 2026-08-16. Closing
-that would need a one-shot poll at `reset − 30s` on the VM (~2–3 extra calls a
-day). **Not built — offered to the owner, who has not chosen.**
-
-### 0161 — the RAIL is a fourth reader of the window rule, not a second author
-
-Reported: *"i book 16.00-19.00 for 75% … it shouldnt show the rail as 100% in
-that 25%"*. `claude_free_now()` derived its 5-hour window from the CLOCK while
-the trigger's `claude_window_loads()` derived it from the BOOKING CHAIN, so in
-the tail of any window a booking had opened the rail offered a fresh 100% and
-the trigger refused anything over the real remainder. **0154 claimed "the
-arithmetic has exactly one home and it is the database" — and then the database
-grew a second copy. "One home" has to mean one FUNCTION, not one tier.**
-`claude_free_now()` now asks `claude_window_loads()`, exactly as the guard does.
-
-Two things that follow:
-
-- **The rail gained a boundary**: `booking_start + 5h`. Added to
-  `claude_free_windows()`' union as a deliberate SUPERSET; the client merges
-  adjacent equal bands (`mergeBands()` in `claude/week.js`).
-- ⛔ **The rewrite REVERTED 0158** — it was built from the 0155 migration text
-  instead of the live function body, and `least(p_at, v_now)` went back to
-  `p_at`. `claude0155 §C3` caught it within a minute. **`create or replace` over
-  a function several migrations have edited undoes all of them at once.**
-
-**The calendar's three UI rules, since the owner asked for each by name:**
-a booking card shows the **time RANGE** (not just the start), the name, and the
-percentage — the REASON is in the modal and the tooltip only. Under it, a
-**dashed box open at the top** covers exactly the time still fillable in that
-5-hour window, green with "ว่าง N% · ถึง HH:MM", **red "เต็ม"** when the time is
-free but the quota is not, and **absent entirely** when a booking fills its whole
-window (nobody can fill anything, so the mark would be decoration). The capacity
-rail is **no longer drawn inside a window at all** — the block and the box answer
-it there, and a third mark saying the same number was what read as wrong.
-
-⚠️ **THE PANE HAD ONLY EVER BEEN OPENED ON A LAPTOP.** Six bugs in this feature
-were phone-only and every one was invisible in the stylesheet: a tag positioned
-where the block always covers it · an absolute percentage colliding with a
-wrapping time · a session frame with the same visual weight as a booking card ·
-an overlay lane taken OUT of the block instead of ADDED to the grid · a
-"พอดีจอ" toggle measuring the container its own output sizes · a date picker
-that only opens on touch (desktop needs `showPicker()`).
-**Render at 390 / 834 / 1440 before claiming a layout change works**, and assert
-`scrollWidth - clientWidth === 0` per element rather than reading the CSS.
-⚠️ **THE MEDIA QUERIES ON THE BOOKING CARD WERE ON THE WRONG NUMBER** and had
-been since they were written: they said 767.98, but `.claude-cal-grid` has
-`min-width: 940px` and the calendar SCROLLS sideways rather than squeezing, so
-the card is ~81px at EVERY viewport below 940 — an iPad at 834 got the desktop
-font in a phone-sized card. They are 939.98 now. **On this grid the breakpoint
-belongs on the COLUMN, not the viewport.**
-⚠️ **The browser harness must load `src/admin.css`, NOT `src/main.css`** —
-`claude.css` is `@import`ed by the admin entry only. Pointed at the public one
-the pane renders completely unstyled and the probe reports zero overflow, which
-looks exactly like a pass. Assert the stylesheet applied (a computed
-`--claude-lane`, a `dashed` border) as a CONTROL in every run.
-Also measured: the END time cannot be drawn as text at ANY width (77px + 34px
-against a 96px head), and a ONE-pixel shortfall renders as `0…`, not as a tight
-line — "fits" has to mean "with headroom".
-
-⛔ **AN OPEN WINDOW IS NOT BOOKABLE AT ALL (0160).** Do not "improve" this back
-into a clamp. 0159 let a latecomer book the REMAINDER of a running window; the
-owner showed why that is wrong with live numbers — *"i'm currently working
-ใช้ไป 82% · รีเซ็ต 20:00, current time 16:28, someone could just book 16.40-20.00
-kick me out"*. 100% was refused, but **18% and 5% were accepted**, and a booking
-is a CLAIM: the ข้อตกลง then said that stretch belonged to the latecomer.
-The remainder is not a quantity anybody can promise — the person in the window
-may spend it at any moment — so a booking for it is a reservation the system
-cannot honour. Refusing it is honesty, not restriction, and the error names both
-ways forward: book from the reset, or just use it now unbooked.
-Known cost, accepted: 3% used at 15:05 blocks BOOKING until 20:00. Erring the
-other way hands out reservations that cannot be kept.
-An UPDATE may still shrink or cancel a claim already inside the window — the
-test is `new.pct > v_prev`, on the CLAIM, not on the row.
-
-**A BOOKED WINDOW BELONGS TO WHOEVER BOOKED IT.** The ข้อตกลง said "หนึ่งรอบ 5
-ชั่วโมง มีโควตา 100% ซึ่งใช้ร่วมกัน" and the owner rejected it: sharing is
-between BOOKERS, not with anyone who wanders in. Unbooked time is open to
-anyone; booked time is not. Booking 100% is how you guarantee nobody joins you.
-Nothing in the guard changed — this was the wording, and the wording was the
-part people are held to.
-
-**Everything 0154–0158 learned — the two mixed-instant bugs, the three panels
-and their scopes, the colour system, the rail's exact semantics, and what each
-guard cost to get right — moved to
-`docs/state-archive/2026-08-16-claude-quota-booking.md` § "What 0154–0158
-learned". Read it before touching the panels; the two lines you cannot skip:**
+- ⛔ **"One home" means one FUNCTION, not one tier.** `claude_free_now()` asks
+  `claude_window_loads()`; the rail asks the same. Do not re-derive a window
+  from the clock anywhere (that was 0161).
+- ⛔ **A window is identified by PROXIMITY to an instant, never by a rounded
+  key** (0163). `date_trunc('minute', resets_at + 30s)` splits a window whenever
+  the true reset lands near `:30`, and the split attributes the whole cumulative
+  reading as a rise. Compare raw instants with a tolerance.
+- ⛔ **Never `create or replace` one of these functions from its ORIGINAL
+  migration text.** Several migrations have edited each. Take the body from
+  `pg_get_functiondef` and diff. (Doing otherwise silently reverted 0158.)
+- ⛔ **A guard re-derives state from the OTHER rows, so an earlier insert
+  re-derives everyone** and nothing re-checks them. Tell: the same rows legal or
+  illegal depending on TYPING ORDER. Re-derive WITH the candidate in it.
+- ⛔ **Never put `overflow` clipping on `.claude-free`**, and **do not re-add the
+  rail's width encoding** — it was built, reported, and pulled. The rail is
+  **colour only**, by the owner's decision.
+- ⛔ **Two quantities in one SUBTRACTION must share an INSTANT** (0156/0158).
+- ⚠️ **This pane's bugs are PHONE bugs.** Six were phone-only and every one was
+  invisible in the stylesheet. Open it at a phone width before calling it done.
+- ⚠️ **`claude setup-token` CANNOT read usage** — it carries `user:inference`,
+  not `user:profile`. The reporter's credential comes from `claude login` ON
+  THE VM.
 
 | Panel | Scope | Source |
 |---|---|---|
@@ -512,15 +360,55 @@ learned". Read it before touching the panels; the two lines you cannot skip:**
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
 at 30, polled every 60 s per open tab. Fine at real scale.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-17)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin (`50dcee8`+); **VM built from the last CODE commit `d6dde06`**
-> (commits after it are docs/tools only — confirm with
-> `git diff --stat d6dde06..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
-> current). Migrations through **0164**; **1124 tests green**; **20 of 21 proofs
+> Local == origin; **VM built from `8359026`** (confirm with
+> `git diff --stat 8359026..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
+> current). Migrations through **0165**; **1153 tests green**; **21 of 22 proofs
 > green** — the one red is `claude0157` and it is ENVIRONMENTAL (see below), not
 > a regression. All shipped work verified from the served artifacts.
+>
+> ### What the 2026-08-18 session was — THREE things, all deployed
+>
+> 1. **The LAST two shared logins are gone.** `sastaff` (role `uni_staff`) and
+>    `saprof` (role `sa_prof`) were deleted by
+>    `tools/purge-shared-project-accounts.mjs` after 161 + 65 rows were
+>    reassigned to the named เจ้าหน้าที่คณะ (`woratho@kku.ac.th`, `staff` seat)
+>    and อาจารย์ (`prakasa@kku.ac.th`, `prof` seat) who already held the seat.
+>    Both had signed in with Google before, so nothing was staged for them.
+>    **`public.users` now holds NO `uni_staff` and NO `sa_prof` row** — the role
+>    branches survive only as the pre-seat path in the helpers. The only shared
+>    password account left is `samomdkkudev`.
+>    ⚠️ **The role LITERALS are still all over `src/js/projects/*`** (~28
+>    `role === 'dev'` / `'uni_staff'` / `'sa_prof'` branches). They still work,
+>    because `projectSeatRole()` maps a seat to the role STRING before anything
+>    branches. Do not "clean them up" without re-reading that function.
+> 2. **ปีงบประมาณ is now a fact you can correct** (`projects.fiscal_year_be`,
+>    0165). NULL = derive from `created_at`; a number = a human moved it. The
+>    ONE implementation is `src/js/projects/fiscal-year.js`, and
+>    `fiscal-year.test.js` §4 is a RATCHET that greps every projects module for
+>    a second one. ⚠️ It asserts the พ.ศ. offset **paired with a month
+>    comparison** — a bare `/543/` flags `fmtDate`, which is correct code.
+>    Who may move it is NOT a new gate: `projects_update` is already
+>    `current_user_is_project_actor()` = ผู้ส่งหนังสือ + เจ้าหน้าที่คณะ.
+> 3. **Each person picks the ปีงบ their inbox opens on** (`project_user_prefs`,
+>    0165): `'all' | 'current' | '<year>'`, own-row-only RLS both directions.
+>    `'current'` resolves at OPEN time, so it rolls over on 1 ต.ค. by itself.
+>    An ABSENT row means `'all'` — nobody's behaviour changed until they opt in.
+>
+> **Two guard lessons paid for in this session, both worth remembering:**
+> - `proj0165`'s first draft could not tell a working policy from no policy:
+>   `projects_read_public` is `using(is_public)` and 27 of 28 projects are
+>   public, so "the staff seat reads every project" was ALSO true of a user with
+>   no grant. It now CREATES a hidden project inside its own transaction as the
+>   discriminator. **When a probe's ALLOW and its DENY would give the same
+>   answer, the subject is wrong.**
+> - `prof0095` diffed the seat against the shared `saprof` account. Deleting
+>   that account would NOT have reddened it — `sub` resolves to null, both reads
+>   return 0, and `0 == 0` scores as parity. It now diffs against ground truth
+>   computed as superuser. **A comparison against a deleted subject fails
+>   silently in the PASS direction.**
 >
 > ### What the 2026-08-17 session was — FOUR things, all deployed
 >
@@ -532,8 +420,8 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    live dev/vp_admin sessions. Data was reassigned to real people FIRST
 >    (พรู/พู่กัน/สายป่าน/เอ๋ย/ปัน), then the accounts deleted. Repo creds scrubbed.
 >    **`samomdkkudev` password was rotated + all its sessions revoked.** KEPT:
->    samomdkkudev, sastaff, saprof (both still weak `1234` — owner will rotate),
->    claude-reporter.
+>    samomdkkudev, sastaff, saprof, claude-reporter. **sastaff + saprof were
+>    then DELETED too on 2026-08-18 — see the section above.**
 > 2. **master ≠ dev role — two frontend gates fixed** (see "master ≠ dev role").
 >    A master holder is `role='user'`, so `role === 'dev'` gates skipped them.
 >    Fixed the PR/VS skip-notify toggle + `isVsSuper()` to honour `holdsMaster()`.
@@ -547,12 +435,15 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > 4. **ร้านค้า "0 รายการ" is NOT a bug** — 3 test products, all hidden by a human
 >    on 08-16. No product was ever deleted; the purge cannot delete products.
 >
-> ⚠️ **The account purge ROTTED two proof subjects** (now fixed, `50dcee8`):
-> `proj0092` named the deleted `samomdkkuvpa`; `team0135`'s unordered `limit 1`
-> landed on a master holder (`has_permission('team_edit')` folds master). Both
-> now resolve their subject live/deterministically. **Lesson: any account
-> delete or permission edit can rot a proof whose subject is hardcoded or
-> unordered — run `npm run proofs` after touching accounts.**
+> ⚠️ **The account purges ROTTED four proof subjects across two sessions.**
+> 2026-08-17: `proj0092` named the deleted `samomdkkuvpa`; `team0135`'s
+> unordered `limit 1` landed on a master holder. 2026-08-18: `proj0092` again
+> (it named `sastaff` + `saprof`) and `prof0095` (its whole §A diffed against
+> `saprof`). All four now resolve their subject live/deterministically, and
+> `proj0092` resolves ALL THREE seats through one `seatHolder()` helper.
+> **Lesson: any account delete or permission edit can rot a proof whose subject
+> is hardcoded or unordered — run `npm run proofs` after touching accounts, and
+> never write a new proof that names an account.**
 >
 > ⚠️ **`claude0157` is RED because there are 0 active bookings** — its B4 control
 > needs a stepping deadline and correctly refuses to pass vacuously. Fix
