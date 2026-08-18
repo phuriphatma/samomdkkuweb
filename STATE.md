@@ -33,8 +33,9 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `8359026` (2026-08-18)** — ปีงบ move + per-person default
-  filter + the `sastaff`/`saprof` purge. Verified from the SERVED artifacts:
+- ✅ **DEPLOYED = `2f35068` (2026-08-18)** — ปีงบ move + per-person default
+  filter + the `sastaff`/`saprof` purge (`8359026`), plus the /scrutinize fixes
+  on top. Verified from the SERVED artifacts:
   `ค่าเริ่มต้นของปีงบประมาณ`, `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
   `project_user_prefs`, `fiscal_year_be`, `ย้ายเอง` all = 1–2, and the REMOVED
   `seed บัญชี saprof` = **0**.
@@ -65,7 +66,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   Check rather than trust — EMPTY means prod is current:
 
   ```bash
-  git diff --stat 8359026..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
+  git diff --stat 2f35068..HEAD -- src/ supabase/ appscript/ server/ functions/ ':!src/**/*.test.js'
   ```
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
@@ -363,9 +364,9 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin; **VM built from `8359026`** (confirm with
-> `git diff --stat 8359026..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
-> current). Migrations through **0165**; **1153 tests green**; **21 of 22 proofs
+> Local == origin; **VM built from `2f35068`** (confirm with
+> `git diff --stat 2f35068..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
+> current). Migrations through **0165**; **1157 tests green**; **21 of 22 proofs
 > green** — the one red is `claude0157` and it is ENVIRONMENTAL (see below), not
 > a regression. All shipped work verified from the served artifacts.
 >
@@ -396,6 +397,32 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    0165): `'all' | 'current' | '<year>'`, own-row-only RLS both directions.
 >    `'current'` resolves at OPEN time, so it rolls over on 1 ต.ค. by itself.
 >    An ABSENT row means `'all'` — nobody's behaviour changed until they opt in.
+>
+> **A /scrutinize pass on the same session's work found four defects (`2f35068`)
+> — worth reading, because three are shapes that recur here:**
+> - **The auto-move lost the viewer's filter.** The move handler follows the ปีงบ
+>   filter so a project does not vanish; it followed only when a NUMBER was
+>   written, and clearing an override writes NULL. Fixed by asking
+>   `projectFiscalYear({ ...p, fiscal_year_be: next })` — the SAME function the
+>   grid filter uses. **A "where does it end up" question answered locally will
+>   drift from the filter that answers it for real.**
+> - **A half-done reset.** `applyDefaultFiscalYear` reset `defaultFYPref` on a
+>   uid change but returned early for `'all'`, leaving `filterFY` on the previous
+>   account's year. Unreachable only because `admin-main.js` hard-reloads on an
+>   account switch. **A guard that depends on an unrelated module's reload is
+>   not a guard.**
+> - **The purge script audited 10 of 23 FK columns**, and the 13 it missed
+>   included three `ON DELETE CASCADE` ones. The run lost nothing (verified) but
+>   could not have said so. Now read from the catalog — which immediately caught
+>   `project_user_prefs.user_id`, added by 0165 the same day.
+> - Two proof assertions asserted the WRONG PROPERTY. `B5` counted overrides
+>   equal to their derived year (vacuous today, red the first time someone pins
+>   a project to the year its date implies, and its SQL rule used UTC months
+>   where the app uses ICT). `B6` ("no trigger exists") found two that do —
+>   `projects_public_flag_guard` is the column guard keeping `is_public`
+>   sender-only even though `projects_update` has **no WITH CHECK**. Worth
+>   knowing: a `staff`-seat actor can therefore write any other column on
+>   `projects`; only `is_public` is separately guarded.
 >
 > **Two guard lessons paid for in this session, both worth remembering:**
 > - `proj0165`'s first draft could not tell a working policy from no policy:

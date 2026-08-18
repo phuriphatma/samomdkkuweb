@@ -86,6 +86,11 @@ has not been written yet.
    Also a rule implemented on the writers you HAPPENED to be looking at (the
    portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
+   **A prediction of where a row LANDS must ask the function the VIEW asks** —
+   the ปีงบ move followed the filter using the value WRITTEN, and clearing an
+   override writes NULL, so the auto option made the project vanish (the exact
+   failure the follow prevented). The null branch is where a local prediction
+   and the real filter part company first.
    **"ONE HOME" MUST MEAN ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took
    the 5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
    booking chain — the rail offered 100% where the guard refused over 25% (0161).
@@ -249,7 +254,7 @@ to that class above.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(72)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(73)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -322,6 +327,7 @@ to that class above.
 - The 5-hour frame described the window; people were asking what they could put in it
 - "ใช้จริง" drew the gauge reading instead of the usage
 - "why does it show color weird" / "i still see rail weird"
+- "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(16)*
 - "Unread" highlight inside an item vanishes the moment you open it

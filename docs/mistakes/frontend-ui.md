@@ -2741,3 +2741,47 @@ would produce: a burnt orange for the low step is ΔE 10.4 from the clay
 `#a67c00` is 14.0 from the amber, under the 15 floor. And *the same encoding is
 a different object at 2px and at 8px* — decide it at the size it will actually
 be drawn, over the data that actually exists, not on a swatch.
+
+---
+
+## "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
+
+**Symptom.** Moving a โครงการ to another ปีงบประมาณ while the grid was filtered
+to a year worked; choosing **"ตามวันที่สร้าง (อัตโนมัติ)"** on the same project
+made it disappear from the list with no explanation.
+
+**Cause.** `onMoveProjectFiscalYear` deliberately follows the viewer's filter to
+wherever the project lands, so it does not vanish from under them. The line was:
+
+```js
+const next = picked === 'auto' ? null : Number(picked);
+if (filterFY !== 'all' && next != null && String(next) !== filterFY) filterFY = String(next);
+```
+
+`next` is the value **written to the column**, and clearing an override writes
+`NULL`. So the `next != null` test skipped the follow for exactly the case where
+the resulting year is not the value written — and the project moved to its
+derived year while the filter stayed put. The guard produced the failure it
+existed to prevent.
+
+**Fix.** Ask the resulting year through the same function the grid filter uses,
+with the row as it will be:
+
+```js
+const resulting = projectFiscalYear({ ...p, fiscal_year_be: next });
+if (filterFY !== 'all' && resulting != null && String(resulting) !== filterFY) {
+  filterFY = String(resulting);
+}
+```
+
+**Where it lives now.** `src/js/projects/inbox.js` `onMoveProjectFiscalYear()`;
+`projectFiscalYear()` in `src/js/projects/fiscal-year.js`; pinned by
+`fiscal-year.test.js` §3d, which asserts the follow agrees with the filter for
+every value the dialog can return (falsified before committing).
+
+**The general rule.** **The value you WRITE and the state the user will SEE are
+two different questions, and a null write is where they diverge.** When code
+reacts to a change by predicting where a row lands, it must ask the same
+function the view asks — never re-derive the answer beside it. A local
+prediction and the real filter are two implementations of one rule, and the
+`null` branch is where they part company first.
