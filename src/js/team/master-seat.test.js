@@ -255,3 +255,80 @@ describe('permChipsHtml — the seat chip subsumes the plain หนังสื�
     expect(html).toContain('หนังสือโครงการ</span>');
   });
 });
+
+describe('permChipsHtml — master hides SCOPES, keeps the IDENTITY', () => {
+  const set = (...k) => new Set(k);
+  const empty = new Set();
+
+  it('drops the VitalSound แผนก chip under master — it understates', () => {
+    // A แผนก chip is a SCOPE and master is already its widest value, so drawing
+    // "บริหารองค์กร" next to Master says "only that dept" about someone who
+    // reads every one. Measured 2026-08-18: 2 live member rows drew one.
+    const html = permChipsHtml({
+      own: set('master'), inherited: empty,
+      vsOwn: 'อุปนายกฝ่ายบริหารองค์กร', vsInherited: set('อุปนายกฝ่ายวิชาการ'),
+      seatOwn: 'vpa', seatInherited: empty,
+    });
+    expect(html).toContain('ทุกระบบ (Master)');
+    expect(html).not.toContain('บริหารองค์กร');
+    expect(html).not.toContain('วิชาการ');
+    // …but the SEAT is an identity, not a scope, so it survives.
+    expect(html).toContain('ผู้ส่งหนังสือ (SAMO)');
+  });
+
+  it('still draws แผนก chips when master is absent', () => {
+    const html = permChipsHtml({
+      own: empty, inherited: empty,
+      vsOwn: 'อุปนายกฝ่ายบริหารองค์กร', vsInherited: empty,
+      seatOwn: null, seatInherited: empty,
+    });
+    expect(html).toContain('บริหารองค์กร');
+  });
+
+  it('flat mode draws every chip solid — a dashed chip would claim "inherited"', () => {
+    // The modal preview answers "what will they end up with", where own-vs-
+    // inherited is not a distinction being drawn. A dashed chip there would say
+    // "from the parent" about a value the admin just picked in that same form.
+    const html = permChipsHtml({
+      own: set('pr'), inherited: empty, vsOwn: null, vsInherited: set('อุปนายกฝ่ายวิชาการ'),
+      seatOwn: null, seatInherited: set('staff'), flat: true,
+    });
+    expect(html).not.toContain('is-inherited');
+    expect(html).toContain('is-own');
+  });
+
+  it('is safe to call with only `own` — every other field defaults', () => {
+    // It is exported and has three callers now; a missing `seatInherited` used
+    // to throw on `.size` rather than render nothing.
+    expect(() => permChipsHtml({ own: set('pr') })).not.toThrow();
+    expect(permChipsHtml({ own: empty })).toContain('ไม่มีสิทธิ์');
+  });
+});
+
+describe('the modal preview uses the shared builder, not a fourth copy', () => {
+  const SRC = stripComments(readFileSync(new URL('./index.js', import.meta.url), 'utf8'));
+
+  it('refreshMemberPermEff renders through permChipsHtml', () => {
+    // It hand-rolled its own chips and never learned the master rule, so
+    // ticking Master previewed the Master chip PLUS everything it implies.
+    const fn = SRC.slice(SRC.indexOf('function refreshMemberPermEff'));
+    const body = fn.slice(0, fn.indexOf('\n}'));
+    expect(body).toContain('permChipsHtml({');
+    expect(body).toContain('flat: true');
+    // No hand-rolled chip markup left anywhere in it.
+    expect(body).not.toContain('team-perm-chip');
+  });
+
+  it('nothing else in the module hand-rolls a team-perm-chip span', () => {
+    // permChip() is the only place that may emit one. If this fails, a fourth
+    // copy has appeared and it will drift exactly like the third one did.
+    const lines = SRC.split('\n');
+    const at = lines.reduce((acc, l, i) => (l.includes('class="team-perm-chip') ? [...acc, i] : acc), []);
+    expect(at).toHaveLength(1);
+    // …and that one line must live inside permChip(). The emitter is the
+    // RETURN line, not the signature, so walk back to the nearest declaration
+    // rather than asserting on the line itself.
+    const owner = lines.slice(0, at[0] + 1).reverse().find((l) => /^function \w+\(/.test(l));
+    expect(owner).toMatch(/^function permChip\(/);
+  });
+});

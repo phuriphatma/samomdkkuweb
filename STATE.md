@@ -39,6 +39,23 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
+- ⏳ **DEPLOY OWED — `7debbe9` (the master/seat fix) is pushed and NOT on the
+  VM.** The VPN was down when it was written, so `ssh samo-vm` timed out at
+  `10.101.111.181:22`. Confirmed from the PUBLIC host that prod is unchanged:
+  `/admin/` still serves `analytics-C_2oekEU.js` (the `161310e` bundle) and
+  greps **0** for `บทบาทที่เลือกตรงนี้`, while the served `/admin/` HTML greps
+  **0** for `VitalSound ดูแลได้ทุกแผนก`.
+  **After deploying, verify with these — and note WHICH artifact**, measured on
+  the local `dist/` before pushing:
+  - `บทบาทที่เลือกตรงนี้` → **1 in `admin-*.js`, 0 in `analytics-*.js`.**
+    ⚠️ That is the OPPOSITE of the projects-module trap documented below: the
+    ทีม SAMO editor lands in the ADMIN entry, not the shared `analytics` chunk.
+    Grepping `analytics-*.js` here reports 0 and looks like a failed deploy.
+  - `VitalSound ดูแลได้ทุกแผนก` → **2 in the served `/admin/` HTML** (both the
+    ตำแหน่ง and บุคคล modals); it is markup, so it is in no bundle at all.
+  - `masterAuto` → 2 in `admin-*.js` (a `dataset` key, so the string survives
+    minification). `permChipsHtml` / `projectSeatRole` / `seatFanoutCount` grep
+    **0** by construction — module-scope names the minifier renames.
 - ✅ **DEPLOYED = `161310e` (2026-08-18)**, VM HEAD confirmed over ssh. Three
   commits shipped that day, newest first:
   - `161310e` — `canManageComment()` + the 0166-class sweep + the `claude0161`

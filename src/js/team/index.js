@@ -1676,40 +1676,55 @@ function permChip(cls, label, { icon = '', title = '' } = {}) {
  * @param {string|null} seatOwn      this row's หนังสือโครงการ seat
  * @param {Set<string>} seatInherited seats from the parent (own REPLACES, 0092)
  */
-export function permChipsHtml({ own, inherited, vsOwn, vsInherited, seatOwn, seatInherited }) {
+export function permChipsHtml({
+  own, inherited = new Set(), vsOwn = null, vsInherited = new Set(),
+  seatOwn = null, seatInherited = new Set(), flat = false,
+}) {
   let out = '';
   const hasMaster = own.has('master') || inherited.has('master');
+  // `flat` = render an EFFECTIVE set, where own-vs-inherited is not a
+  // distinction the caller is making (the modal's "สิทธิ์รวมที่จะได้รับ"
+  // preview). Everything draws solid, because a dashed chip there would claim
+  // "inherited" about a value the admin just picked by hand.
+  const st = (base, isOwn) => `${base} ${flat || isOwn ? 'is-own' : 'is-inherited'}`;
 
   // Rule 2 — master subsumes every capability key, so print it instead of them.
   if (hasMaster) {
-    out += permChip(own.has('master') ? 'is-master is-own' : 'is-master is-inherited',
-      PERM_LABEL.master, {
-        icon: PERM_ICON.master,
-        title: own.has('master') ? 'เข้าถึงได้ทุกระบบ' : 'เข้าถึงได้ทุกระบบ (รับมาจากตำแหน่งแม่)',
-      });
+    out += permChip(st('is-master', own.has('master')), PERM_LABEL.master, {
+      icon: PERM_ICON.master,
+      title: own.has('master') ? 'เข้าถึงได้ทุกระบบ' : 'เข้าถึงได้ทุกระบบ (รับมาจากตำแหน่งแม่)',
+    });
   }
 
   // Rule 1 — the value-carrying chips, before the capability keys.
   // An own seat REPLACES what the parent offers (0092), so only ever one chip:
   // showing both would advertise a grant the person does not resolve to.
   if (seatOwn) {
-    out += permChip('is-seat is-own', PROJECT_SEAT_LABEL[seatOwn] || seatOwn,
+    out += permChip(st('is-seat', true), PROJECT_SEAT_LABEL[seatOwn] || seatOwn,
       { icon: 'bi-file-earmark-text', title: `หนังสือโครงการ: ${PROJECT_SEAT_LABEL[seatOwn] || seatOwn}` });
   } else {
     [...seatInherited].forEach((x) => {
-      out += permChip('is-seat is-inherited', PROJECT_SEAT_LABEL[x] || x,
+      out += permChip(st('is-seat', false), PROJECT_SEAT_LABEL[x] || x,
         { icon: 'bi-file-earmark-text', title: `หนังสือโครงการ: ${PROJECT_SEAT_LABEL[x] || x}` });
     });
   }
-  if (vsOwn) {
-    out += permChip('is-vs is-own', VS_DEPT_LABEL[vsOwn] || vsOwn,
-      { icon: 'bi-soundwave', title: `VitalSound: ${vsOwn}` });
+  // A VitalSound แผนก chip is a SCOPE, and master is already its widest value —
+  // so under master it UNDERSTATES ("only บริหารองค์กร" for someone who reads
+  // every department). Same rule as the capability chips below, and the same
+  // reason the editor hides the VS picker under master. Two live member rows
+  // were drawing one (measured 2026-08-18). The seat chip survives master
+  // because a seat is an identity, not a scope.
+  if (!hasMaster) {
+    if (vsOwn) {
+      out += permChip(st('is-vs', true), VS_DEPT_LABEL[vsOwn] || vsOwn,
+        { icon: 'bi-soundwave', title: `VitalSound: ${vsOwn}` });
+    }
+    [...vsInherited].forEach((d) => {
+      if (d === vsOwn) return;
+      out += permChip(st('is-vs', false), VS_DEPT_LABEL[d] || d,
+        { icon: 'bi-soundwave', title: `VitalSound: ${d}` });
+    });
   }
-  [...vsInherited].forEach((d) => {
-    if (d === vsOwn) return;
-    out += permChip('is-vs is-inherited', VS_DEPT_LABEL[d] || d,
-      { icon: 'bi-soundwave', title: `VitalSound: ${d}` });
-  });
 
   // The plain capability keys — skipped entirely under master (rule 2).
   //
@@ -1723,11 +1738,11 @@ export function permChipsHtml({ own, inherited, vsOwn, vsInherited, seatOwn, sea
   if (!hasMaster) {
     [...own].forEach((p) => {
       if (p === 'projects' && seatShown) return;
-      out += permChip('is-own', PERM_LABEL[p] || p, { icon: PERM_ICON[p] });
+      out += permChip(st('', true).trim(), PERM_LABEL[p] || p, { icon: PERM_ICON[p] });
     });
     [...inherited].forEach((p) => {
       if (own.has(p) || (p === 'projects' && seatShown)) return;
-      out += permChip('is-inherited', PERM_LABEL[p] || p,
+      out += permChip(st('', false).trim(), PERM_LABEL[p] || p,
         { icon: PERM_ICON[p], title: 'รับมาจากตำแหน่งแม่' });
     });
   }
@@ -1991,8 +2006,13 @@ const MASTER_DEFAULT_SEAT = 'vpa';
 function syncMasterSeatDefault(grid, sel, hint) {
   const on = masterOn(grid);
   if (sel) {
-    if (on && !sel.value) { sel.value = MASTER_DEFAULT_SEAT; sel.dataset.masterAuto = '1'; }
-    else if (!on && sel.dataset.masterAuto) { sel.value = ''; delete sel.dataset.masterAuto; }
+    if (on && !sel.value) {
+      sel.value = MASTER_DEFAULT_SEAT;
+      // Mark it ours only if the value actually TOOK. Assigning a value with no
+      // matching <option> silently leaves the select empty, and the hint below
+      // would then claim "ตั้งเป็นผู้ส่งหนังสือให้แล้ว" over a blank control.
+      if (sel.value) sel.dataset.masterAuto = '1';
+    } else if (!on && sel.dataset.masterAuto) { sel.value = ''; delete sel.dataset.masterAuto; }
   }
   hint?.classList.toggle('d-none', !on);
 }
@@ -2243,7 +2263,11 @@ function refreshPermInherited() {
   if (wrap && list && id) {
     const set = inheritedPermsFor(id, inheritOn);
     if (set.size) {
-      list.innerHTML = [...set].map((p) => `<span class="team-perm-chip is-inherited">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
+      // Through the shared builder: this list has the same master redundancy
+      // the tree rows had — inheriting master AND the nine keys it implies is
+      // nine chips saying one thing. `own` is empty because everything here is,
+      // by definition, from the parent.
+      list.innerHTML = permChipsHtml({ own: new Set(), inherited: set });
       wrap.classList.remove('d-none');
     } else wrap.classList.add('d-none');
   }
@@ -2253,7 +2277,11 @@ function refreshPermInherited() {
   if (sw && sl && id) {
     const set = inheritedSeatsFor(id, inheritOn);
     if (set.size) {
-      sl.innerHTML = [...set].map((x) => `<span class="team-perm-chip is-seat is-inherited">${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`).join(' ');
+      // Single-purpose list under its own label, so no collapse rule applies —
+      // but it still emits through permChip(), the one place that writes this
+      // markup, so escaping and styling cannot drift per copy.
+      sl.innerHTML = [...set].map((x) => permChip('is-seat is-inherited',
+        PROJECT_SEAT_LABEL[x] || x, { icon: 'bi-file-earmark-text' })).join(' ');
       sw.classList.remove('d-none');
     } else sw.classList.add('d-none');
   }
@@ -2263,7 +2291,8 @@ function refreshPermInherited() {
   if (vw && vl && id) {
     const set = inheritedVsDeptsFor(id, inheritOn);
     if (set.size) {
-      vl.innerHTML = [...set].map((d) => `<span class="team-perm-chip is-vs is-inherited">${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
+      vl.innerHTML = [...set].map((d) => permChip('is-vs is-inherited',
+        VS_DEPT_LABEL[d] || d, { icon: 'bi-soundwave' })).join(' ');
       vw.classList.remove('d-none');
     } else vw.classList.add('d-none');
   }
@@ -3037,14 +3066,23 @@ function refreshMemberPermEff() {
     nodeEffectiveVsDepts(m.node_id).forEach((d) => vsSet.add(d));
     if (!seat) nodeEffectiveSeats(m.node_id).forEach((x) => seatSet.add(x));
   }
-  let html = [...set].map((p) => `<span class="team-perm-chip">${escHtml(PERM_LABEL[p] || p)}</span>`).join(' ');
-  // A dept chip only means anything when it isn't already swallowed by full VS.
-  if (!set.has('vs')) {
-    html += ' ' + [...vsSet].map((d) => `<span class="team-perm-chip is-vs"><i class="bi bi-soundwave"></i> ${escHtml(VS_DEPT_LABEL[d] || d)}</span>`).join(' ');
-  }
-  html += ' ' + [...seatSet].map((x) => `<span class="team-perm-chip is-seat"><i class="bi bi-file-earmark-text"></i> ${escHtml(PROJECT_SEAT_LABEL[x] || x)}</span>`).join(' ');
-  if (set.size || (!set.has('vs') && vsSet.size) || seatSet.size) {
-    list.innerHTML = html;
+  // ONE chip builder, three callers. This preview used to hand-roll its own —
+  // a third copy, and the one that never learned the master rule, so ticking
+  // ทุกระบบ (Master) previewed the Master chip PLUS every inherited capability
+  // it already implies. Exactly the display the tree rows were just fixed for,
+  // one modal away. `flat: true` because this answers "what will they end up
+  // with", where own-vs-inherited is not a distinction being drawn.
+  //
+  // A dept chip only means anything when it isn't already swallowed by full VS
+  // (permChipsHtml drops it under master on its own).
+  const showVs = !set.has('vs');
+  if (set.size || (showVs && vsSet.size) || seatSet.size) {
+    list.innerHTML = permChipsHtml({
+      own: set,
+      vsInherited: showVs ? vsSet : new Set(),
+      seatInherited: seatSet,
+      flat: true,
+    });
     wrap.classList.remove('d-none');
   } else wrap.classList.add('d-none');
 }
