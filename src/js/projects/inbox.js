@@ -591,7 +591,13 @@ export async function applyDefaultFiscalYear() {
   const row = await getMyProjectPrefs(uid).catch(() => null);
   const pref = row?.default_fiscal_year;
   defaultFYPref = isValidDefaultFY(pref) ? pref : DEFAULT_FY_ALL;
-  if (defaultFYPref === DEFAULT_FY_ALL) { renderFiscalYearDefaultBtn(); return; }
+  // Assign UNCONDITIONALLY, including the 'all' case. An early return there
+  // reset `defaultFYPref` for the new account but left `filterFY` holding the
+  // PREVIOUS account's year — half a reset, which is the shape that makes an
+  // in-place account switch show two accounts at once. The admin shell happens
+  // to hard-reload on a switch today (swapAccountReload), so this was not
+  // reachable; a half-done guard that depends on an unrelated module's reload
+  // is not a guard.
   filterFY = resolveDefaultFY(defaultFYPref);
   render();
 }
@@ -1968,8 +1974,23 @@ async function onMoveProjectFiscalYear(projectId) {
   try {
     await updateProject(projectId, { fiscal_year_be: next });
     // If the viewer is filtered to a year the project just left, it would
-    // vanish from under them with no explanation. Follow it.
-    if (filterFY !== 'all' && next != null && String(next) !== filterFY) filterFY = String(next);
+    // vanish from under them with no explanation when they go back. Follow it.
+    //
+    // Follow the year the project ENDS UP IN, not the value written. Clearing
+    // the override writes NULL, and the first version of this line skipped the
+    // follow whenever `next == null` — so picking "ตามวันที่สร้าง" on a project
+    // whose date implies a DIFFERENT year did exactly the disappearing act the
+    // line exists to prevent. The stored value and the resulting year are two
+    // different questions.
+    //
+    // Asked through projectFiscalYear(), the SAME function the grid filter
+    // uses, so "where will it show up" and "where does the filter put it"
+    // cannot answer differently — a second local derivation here is how the
+    // two would drift.
+    const resulting = projectFiscalYear({ ...p, fiscal_year_be: next });
+    if (filterFY !== 'all' && resulting != null && String(resulting) !== filterFY) {
+      filterFY = String(resulting);
+    }
     onChanged();
   } catch (e) {
     window.alert(e?.message || 'ย้ายปีงบประมาณไม่สำเร็จ');

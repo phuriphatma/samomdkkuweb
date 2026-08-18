@@ -119,7 +119,11 @@ export function openProjectPrompt(opts = {}) {
     const onSubmit = (e) => {
       e.preventDefault();
       const v = (inputEl?.value || '').trim();
-      if (opts.required && !v) {
+      // `required` is ignored when the field is hidden. Blocking submit on a
+      // control the user cannot see is the same dead-end as an HTML5 `required`
+      // on a hidden input (docs/mistakes/frontend-ui.md) — the dialog would
+      // simply stop responding to its own OK button with nothing to fix.
+      if (opts.required && !hideText && !v) {
         inputEl?.focus();
         inputEl?.classList.add('is-invalid');
         return;

@@ -268,10 +268,39 @@ insert into probe select 'B3. อาจารย์ (prof) may NOT move a โค
   pg_temp.can_move_fy((select uid from subj_prof), (select id from subj_project));
 insert into probe select 'B4. an ungranted user may NOT move a โครงการ ปีงบ', 'deny',
   pg_temp.can_move_fy((select uid from subj_none), (select id from subj_project));
-insert into probe select 'B5. NULL still means "ask the created_at" — no backfill happened', '0',
-  (select count(*)::text from public.projects where fiscal_year_be is not null
-     and fiscal_year_be = (extract(year from created_at)::int + 543
-                           + case when extract(month from created_at)::int >= 10 then 1 else 0 end));
+-- B5/B6: "nothing backfills fiscal_year_be" is a statement about the SCHEMA,
+-- not about today's rows. The first version of this counted overrides that
+-- happen to EQUAL their derived year and asserted 0 — wrong twice over:
+--   · it passed only because there are currently no overrides at all (vacuous),
+--     and it would have gone RED the first time somebody legitimately pinned a
+--     project to the year its date already implied;
+--   · its SQL copy of the rule used `extract(month …) >= 10` on a timestamptz
+--     in a DB whose TimeZone is UTC, while the JS rule reads the VIEWER's
+--     local calendar (ICT, +7). Anything created 17:00–24:00 UTC on 30 ก.ย.
+--     is ปีงบ 2570 in the app and 2569 here. A SQL mirror of a JS rule is two
+--     implementations of one rule (mistakes class 6); do not write one that
+--     nothing needs.
+-- What actually guarantees "no backfill" is that the column is nullable, has
+-- no DEFAULT, and no trigger writes it. All three are catalog facts.
+insert into probe select 'B5. fiscal_year_be is nullable with NO default (nothing fills it)', 'YES|',
+  (select is_nullable || '|' || coalesce(column_default, '')
+     from information_schema.columns
+    where table_schema = 'public' and table_name = 'projects'
+      and column_name = 'fiscal_year_be');
+-- "No trigger EXISTS" was the wrong property too, and asserting it found two
+-- that do (`projects_public_flag_guard`, which is the column guard that keeps
+-- is_public sender-only even though projects_update has no WITH CHECK, and
+-- `touch_updated_at`). Neither touches this column. Assert THAT.
+insert into probe select 'B6. no trigger on public.projects assigns fiscal_year_be', '0',
+  (select count(*)::text from pg_trigger t
+     join pg_proc p on p.oid = t.tgfoid
+    where t.tgrelid = 'public.projects'::regclass and not t.tgisinternal
+      and pg_get_functiondef(p.oid) ~* 'fiscal_year_be');
+insert into probe select 'B7. control — the trigger scan can SEE a column name', '2',
+  (select count(*)::text from pg_trigger t
+     join pg_proc p on p.oid = t.tgfoid
+    where t.tgrelid = 'public.projects'::regclass and not t.tgisinternal
+      and pg_get_functiondef(p.oid) ~* '(is_public|updated_at)');
 
 -- ── §C the per-person default filter ────────────────────────────────────────
 insert into probe select 'C1. a person may set their OWN default', 'allow',

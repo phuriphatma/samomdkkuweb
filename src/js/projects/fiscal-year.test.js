@@ -186,6 +186,42 @@ describe('§3c the move-target list', () => {
   });
 });
 
+describe('§3d after a move, "where does it show up now" has ONE answer', () => {
+  // REGRESSION. The move handler follows the viewer's ปีงบ filter to wherever
+  // the project lands, so it does not vanish from under them. The first
+  // version followed only when a NUMBER was written, so choosing
+  // "ตามวันที่สร้าง (อัตโนมัติ)" — which writes NULL — skipped the follow and
+  // produced exactly the disappearance the follow exists to prevent.
+  //
+  // The property: the resulting year is projectFiscalYear() of the row AS IT
+  // WILL BE, for every value the dialog can return. Same function the grid
+  // filter uses, so the two cannot disagree.
+  const sept = { created_at: local(2026, 9, 20), fiscal_year_be: 2571 };
+  const resulting = (p, picked) => projectFiscalYear({ ...p, fiscal_year_be: picked });
+
+  it('clearing the override lands on the DERIVED year, not on nothing', () => {
+    expect(resulting(sept, null)).toBe(2569);
+  });
+
+  it('and that year can differ from the one the filter is on — the bug', () => {
+    // Viewer filtered to 2571 (where the override put it); clearing sends it
+    // to 2569. A follow that only fires for a number leaves them on 2571
+    // looking at a grid the project is no longer in.
+    expect(String(resulting(sept, null))).not.toBe(String(projectFiscalYear(sept)));
+  });
+
+  it('setting a year lands on that year', () => {
+    expect(resulting(sept, 2570)).toBe(2570);
+  });
+
+  it('agrees with the grid filter for every case', () => {
+    for (const picked of [null, 2568, 2569, 2570]) {
+      const after = { ...sept, fiscal_year_be: picked };
+      expect(resulting(sept, picked)).toBe(projectFiscalYear(after));
+    }
+  });
+});
+
 // ── §4 the ratchet ──────────────────────────────────────────────────────────
 //
 // Reintroduce-the-bug check for this guard: paste `d.getFullYear() + 543`

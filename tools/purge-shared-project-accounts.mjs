@@ -64,20 +64,48 @@ const RETIRE = [
   { email: 'saprof@samomdkku.app',  role: 'sa_prof',   seat: 'prof',  th: 'อาจารย์' },
 ];
 
-/** Every place a uid can be attached to project work. The SET-NULL columns
- *  first (attribution), then the CASCADE ones (per-person state). */
-const REASSIGN = [
-  { t: 'project_files',         c: 'uploaded_by',  kind: 'attribution' },
-  { t: 'project_sign_requests', c: 'requested_by', kind: 'attribution' },
-  { t: 'project_sign_requests', c: 'prof_id',      kind: 'attribution' },
-  { t: 'project_documents',     c: 'created_by',   kind: 'attribution' },
-  { t: 'projects',              c: 'created_by',   kind: 'attribution' },
-  { t: 'announcements',         c: 'created_by',   kind: 'attribution' },
-  { t: 'pr_tickets',            c: 'submitter_id', kind: 'attribution' },
-  { t: 'vs_tickets',            c: 'submitter_id', kind: 'attribution' },
-  { t: 'shop_orders',           c: 'buyer_id',     kind: 'attribution' },
-  { t: 'team_members',          c: 'user_id',      kind: 'attribution' },
-];
+/** Every column in the database that points at `public.users`, READ FROM THE
+ *  CATALOG rather than written down here.
+ *
+ *  WHY NOT A LIST. The first version of this script carried a hand-written
+ *  list of 10 columns. The database has 22, and the 12 it omitted included
+ *  THREE `ON DELETE CASCADE` ones (`vs_followers.user_id`,
+ *  `vs_public_comments.author_user_id`, `claude_bookings.user_id`) — rows that
+ *  a delete would have removed silently, with no error and nothing in the
+ *  report to notice. The run on 2026-08-18 happened to lose nothing (the two
+ *  accounts had no rows in any of them) but it could not have SAID so.
+ *
+ *  This repo's own rule: never write a guard from the same list the code came
+ *  from — assert the PROPERTY that list was meant to produce. The property
+ *  here is "every reference to this uid is accounted for", and only the
+ *  catalog knows what "every" is.
+ *
+ *  Returns `{ table, column, rule }` where rule is 'a' (SET NULL), 'c'
+ *  (CASCADE), 'r' (RESTRICT/NO ACTION). */
+async function usersReferences() {
+  return sql(`
+    select tc.table_name  as table,
+           kcu.column_name as column,
+           rc.delete_rule  as rule
+      from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu
+        on kcu.constraint_name = tc.constraint_name
+       and kcu.constraint_schema = tc.constraint_schema
+      join information_schema.constraint_column_usage ccu
+        on ccu.constraint_name = tc.constraint_name
+       and ccu.constraint_schema = tc.constraint_schema
+      join information_schema.referential_constraints rc
+        on rc.constraint_name = tc.constraint_name
+       and rc.constraint_schema = tc.constraint_schema
+     where tc.constraint_type = 'FOREIGN KEY'
+       and ccu.table_schema = 'public' and ccu.table_name = 'users'
+       and tc.table_schema = 'public'
+     order by tc.table_name, kcu.column_name`);
+}
+
+/** Columns handled by a SPECIAL rule below rather than a plain reassign.
+ *  Anything not named here gets `update <t> set <c> = heir where <c> = me`. */
+const SPECIAL = new Set(['project_doc_views.user_id', 'project_notifications.user_id']);
 
 async function resolveSuccessor(seat) {
   // role OR seat, the same union list_project_seat_users() uses — so this
@@ -111,26 +139,41 @@ async function main() {
     console.log(`· ${acct.email}  (role ${me.role})`);
     console.log(`  → ${heir.email}  ${heir.display_name || ''}   [seat '${acct.seat}' = ${acct.th}]`);
 
+    const refs = await usersReferences();
+    console.log(`    (scanning all ${refs.length} FK columns that point at public.users)`);
     let total = 0;
-    for (const r of REASSIGN) {
-      const [{ n }] = await sql(`select count(*)::int as n from public.${r.t} where ${r.c} = '${me.id}'`);
-      if (n > 0) { console.log(`    ${n.toString().padStart(4)}  ${r.t}.${r.c}`); total += n; }
+    const reassign = [];
+    for (const r of refs) {
+      const key = `${r.table}.${r.column}`;
+      const [{ n }] = await sql(`select count(*)::int as n from public.${r.table} where ${r.column} = '${me.id}'`);
+      if (SPECIAL.has(key)) {
+        if (n > 0) {
+          console.log(`    ${String(n).padStart(4)}  ${key.padEnd(34)} ${key.startsWith('project_doc_views')
+            ? '(merged, newest seen_at wins)' : '(moved)'}`);
+          total += n;
+        }
+        continue;
+      }
+      reassign.push(r);
+      if (n > 0) {
+        // A CASCADE column is the dangerous one: if it were left to the DELETE
+        // it would vanish without a word. Say so out loud in the plan.
+        console.log(`    ${String(n).padStart(4)}  ${key.padEnd(34)} ${r.rule === 'CASCADE'
+          ? '⚠️  CASCADE — would be DELETED if not reassigned' : `(${r.rule})`}`);
+        total += n;
+      }
     }
-    const [{ n: views }] = await sql(`select count(*)::int as n from public.project_doc_views where user_id = '${me.id}'`);
-    const [{ n: notifs }] = await sql(`select count(*)::int as n from public.project_notifications where user_id = '${me.id}'`);
-    if (views)  console.log(`    ${String(views).padStart(4)}  project_doc_views.user_id      (merged, newest seen_at wins)`);
-    if (notifs) console.log(`    ${String(notifs).padStart(4)}  project_notifications.user_id  (moved)`);
-    console.log(`    ${String(total + views + notifs).padStart(4)}  TOTAL\n`);
+    console.log(`    ${String(total).padStart(4)}  TOTAL\n`);
 
-    plan.push({ acct, me, heir });
+    plan.push({ acct, me, heir, reassign });
   }
 
   if (!CONFIRM) { console.log('Dry run only. Re-run with CONFIRM=1 to apply.'); return; }
   if (plan.length === 0) { console.log('Nothing to do.'); return; }
 
-  for (const { acct, me, heir } of plan) {
-    const stmts = REASSIGN.map((r) =>
-      `update public.${r.t} set ${r.c} = '${heir.id}' where ${r.c} = '${me.id}';`);
+  for (const { acct, me, heir, reassign } of plan) {
+    const stmts = reassign.map((r) =>
+      `update public.${r.table} set ${r.column} = '${heir.id}' where ${r.column} = '${me.id}';`);
 
     // project_doc_views is (user_id, document_id) PK — a straight UPDATE would
     // 23505 on any doc the heir has ALSO opened. Merge instead, keeping the
@@ -150,15 +193,23 @@ async function main() {
 
     // Only now is it safe to delete: every SET-NULL column must be empty
     // first, or the attribution silently becomes NULL instead of erroring.
+    // Only now is it safe to delete: EVERY reference must be gone first, or the
+    // delete turns a SET NULL column into lost attribution and a CASCADE column
+    // into lost rows — both silently. The first version checked two columns by
+    // name; this checks every one the catalog knows about, so a column added to
+    // the schema next year is covered without anyone remembering to add it.
+    const leftovers = reassign.concat([...SPECIAL].map((k) => {
+      const [table, column] = k.split('.');
+      return { table, column };
+    })).map((r) =>
+      `select count(*) into n from public.${r.table} where ${r.column} = '${me.id}';
+       if n > 0 then raise exception '${r.table}.${r.column} still references %', '${me.id}'; end if;`
+    ).join('\n');
     stmts.push(`
       do $$
       declare n int;
       begin
-        select count(*) into n from public.project_files where uploaded_by = '${me.id}';
-        if n > 0 then raise exception 'project_files still references %', '${me.id}'; end if;
-        select count(*) into n from public.project_sign_requests
-          where requested_by = '${me.id}' or prof_id = '${me.id}';
-        if n > 0 then raise exception 'project_sign_requests still references %', '${me.id}'; end if;
+        ${leftovers}
       end $$;`);
 
     stmts.push(`delete from public.users where id = '${me.id}';`);
