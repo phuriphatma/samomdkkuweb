@@ -455,3 +455,46 @@ window reset or a booking's start or end the later value already applies. A
 guard that generalises one boundary's behaviour to all of them turns a true
 statement into a false one, and it costs a debugging session to find out which
 end was wrong.
+
+---
+
+## A control threshold that assumed the proof runs early in the quota week
+
+**Symptom.** `claude0161-rail-guard-parity.sql` went red on
+**C1. control — the grid is not empty**, with every real assertion green. The
+suite had been 21/22 the day before and was now 20/22, which reads as a
+regression in the rail↔guard parity.
+
+**Cause.** The grid the differential walks is the REMAINDER of the Claude quota
+week, at 15-minute steps:
+
+```sql
+generate_series(greatest(now(), claude_week_start(now())) + interval '1 minute',
+                claude_week_start(now()) + interval '7 days' - interval '1 minute',
+                interval '15 minutes')
+```
+
+so it has ~672 points just after the Wednesday 16:00 reset and shrinks to zero
+as the next one approaches. The control asserted `count(*) > 100` — a constant
+that silently means "this proof is run with at least 25 hours left in the week".
+Measured on 2026-08-18 at 18:39 ICT, ~21 h before the reset: **86 points**. The
+guard was correct, the code was correct, and the proof was red.
+
+**Fix.** `> 20` — five hours, one full Claude window, the shortest span over
+which the differential says anything — with the reason written next to it. The
+vacuity that C1 exists to catch is really covered by **C2** ("the answer
+actually VARIES across the week"): a constant pair of functions fails C2 no
+matter how many points the grid has.
+
+**Where it lives now.** `tools/claude0161-rail-guard-parity.sql` §C.
+Sibling hazard, noted but not hit: `claude0157`'s sample-booking search runs
+`date_trunc('hour', now()) + 7h` → `week_start + 7d − 11h` and collapses the
+same way (5 candidate slots left at that same instant).
+
+**The general rule.** **A control whose threshold is a constant encodes WHEN
+the proof is allowed to run.** Any subject derived from `now()` against a
+period boundary shrinks to nothing at the end of that period — so either
+derive the threshold from the span actually available, or set it to the
+smallest span over which the assertion still means something, and say which in
+the file. A proof that fails for a correct reason is a proof that gets ignored,
+and the next reader pays for it by re-deriving a green result.

@@ -1735,11 +1735,7 @@ function renderCommentsList(doc, role, seenAtOverride) {
       <ul class="projects-comments-list">
         ${ordered.map((c) => {
           const isUnread = !customerMode && c.role !== role && effectiveTs(c) > seenAt;
-          // Only the author can edit / delete their own comment.
-          // `by` carries the auth user id (see appendDocTimeline calls);
-          // fall back to role match for legacy entries that pre-date the
-          // by-id stamping. Dev accounts can manage everything.
-          const isMineComment = !!myId && (c.by === myId || role === 'dev');
+          const isMineComment = canManageComment(c, myId, role);
           const editedBadge = c.edited_at
             ? `<span class="projects-comment-edited" title="${escHtml(fmtDateTime(c.edited_at))}">แก้ไขแล้ว</span>`
             : '';
@@ -1768,6 +1764,31 @@ function renderCommentsList(doc, role, seenAtOverride) {
       </ul>
     </details>
   `;
+}
+
+/** May this viewer edit or delete this comment?
+ *
+ *  `by` carries the auth user id (see the appendDocTimeline calls). The ROLE
+ *  fallback is for an entry with no `by` at all — the write is
+ *  `by: user?.id || null`, so a comment saved while the session was half
+ *  loaded would be stranded FOREVER without it: nobody matches null. The
+ *  surrounding comment used to promise that fallback while the code only had
+ *  `c.by === myId`; this is the promise, implemented.
+ *
+ *  Deliberately `!c.by` and NOT "by does not resolve to a live account". A uid
+ *  naming somebody else is not mine, and the browser cannot tell a deleted
+ *  account from a stranger — that case is a data repair (migration 0166, where
+ *  the shared-login purge left 298 timeline uids naming deleted accounts and
+ *  42 of 43 comments lost these controls), never a UI guess.
+ *
+ *  Exported for comment-ownership.test.js: the rule reads as four one-line
+ *  branches and every one of them was wrong at some point.
+ */
+export function canManageComment(comment, myId, role) {
+  if (!myId) return false;              // no session → no controls at all
+  if (role === 'dev') return true;
+  if (comment?.by) return comment.by === myId;
+  return !!comment?.role && comment.role === role;
 }
 
 function renderTimeline(tl, doc) {

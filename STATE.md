@@ -55,6 +55,17 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   a failed deploy. The toolbar markup (`projectsFyDefaultBtn`,
   `projects-fy-group`) is in the served `/admin/` HTML, and
   `projects-fy-default-btn` / `projects-fy-pill` / `is-moved` in the admin CSS.
+- 🔎 **The 0166 class does NOT exist anywhere else — swept 2026-08-18.** Every
+  `jsonb`/`json` column in `public.*` was scanned for uuid-shaped strings that
+  no account resolves: only the two project timelines ever held any, and both
+  are clean (`_timeline_backup_0166` still holds the 298 old ones, which is what
+  proves the scanner works — the first version of that sweep reported 0 orphans
+  everywhere because `where u.id = id` bound `id` to `users.id` instead of the
+  outer alias, a shadowed correlated subquery that cannot fail). Every uuid
+  column WITHOUT a foreign key was swept too: the only dangling person
+  reference left in the database is `analytics_events.user_id` (1316 of 8408,
+  historic telemetry from deleted accounts — append-only, nothing reads it by
+  identity).
 - ✅ **0166 APPLIED (2026-08-18) — the purge missed the JSONB timelines.** Every
   uid COLUMN was reassigned when the shared logins went; the 298 uids inside
   `project_documents.timeline[].by` / `project_sign_requests.timeline[].by` were
@@ -99,8 +110,16 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0166.** **1163 tests green. 21 of 22 proofs
+  **Migrations applied through 0166.** **1170 tests green. 21 of 22 proofs
   green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below).
+  ⚠️ `claude0161` C1 was ALSO red on 2026-08-18 and is now FIXED: its control
+  asserted `count(grid) > 100` while the grid is the REMAINDER of the quota
+  week, so 21 h before the Wed 16:00 reset only 86 points were left. Threshold
+  is now `> 20` (one 5-hour window) with the reason in the file
+  (`docs/mistakes/tooling-proofs.md`). **`claude0157`'s sample search has the
+  same shape** — `date_trunc('hour', now()) + 7h` → `week_start + 7d − 11h`,
+  down to 5 candidate slots at that instant — so if B4 is still red early in a
+  fresh quota week, that is the REAL failure and not this rot.
   ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
   the moment this line was written — that order is correct (the RPC keeps its
   shape, so the served bundle reads the new numbers immediately), but the
@@ -235,86 +254,24 @@ way, that setting is doing real work), and `claude-reporter@samomdkku.app`
 holds only `claude`. ⚠️ A `setup-token` pasted in chat is STILL LIVE; only the
 owner can revoke it.
 
-## จองโควตา Claude — /scrutinize pass (2026-08-17), migrations through 0164
+## 2026-08-17 — archived (scrutinize pass · master ≠ dev · the purge)
 
-Deployed bundle `admin-DDDRehOn.js` (verified from served `/admin/`).
-- ✅ **Finding 1 FIXED (migration 0164 applied live):** `claude_usage_runs`
-  marked a PAST week's final run `open_ended=true` (v_last_at is scoped to the
-  requested range, not now) → historical weeks said "อาจยังใช้อยู่". Now guarded
-  by `+ and p_to > now()`; new §G past-week case in
-  `tools/claude0162-usage-runs.sql` (falsified 0→1).
-- ✅ **Finding 3 FIXED:** the master-only "จองแบบเงียบ" toggle read
-  `holdsMaster()` once at `wire()`, stale on an in-place account switch. Now
-  re-decided per entry in `paintSilentToggle()`; listener still wired once.
-- ⛔ **Finding 4 was STALE** — `claude_usage_samples_at_idx` already exists. No
-  change made.
-- ⏳ **Finding 2 (0161 cost claim) still open** — unbenchmarked; low priority.
-- ➕ **ข้อตกลง gained two usage tips** (Sonnet/Haiku for light work; don't work a
-  chat left open >30–60 min — context reload burns quota, /clear before a
-  break). `TERMS_VERSION` bumped to `2026-08-17` so everyone re-sees it.
+Full text: `docs/state-archive/2026-08-17-scrutinize-master-purge.md`. Only the
+parts that are still LIVE rules are kept here:
 
-⚠️ **`claude0157-rail-segments.sql` is currently RED on control B4** — NOT a
-regression from this work. There are **0 active bookings** right now, so the
-rail has no stepping deadline and B4 (a control that refuses to pass vacuously)
-goes red exactly as designed. The scenario is not fully self-contained: its
-step-down depends on live booking geometry. **Fix (follow-up): add a second
-synthetic booking that guarantees a stepping deadline independent of live data**
-— but do NOT tune it to merely pass; verify B1/B2/B5 stay meaningful. The other
-5 claude proofs + all 1122 tests are green.
-
-## master ≠ dev role — frontend gates fixed (2026-08-17, deployed)
-
-Reported: a `master` holder (phuriphat.ma, ทุกระบบ from ฝ่าย IT) found features
-missing vs the shared `samomdkkudev` (role=dev). Cause: `master` is honored by
-PERMISSION gates + RLS but a master holder is `role='user'`, so `role === 'dev'`
-/ role-literal gates skipped them. Fixed the two reported sites:
-- `main.js` `.dev-only-feature` (the PR/VS "ไม่ส่งแจ้งเตือน Discord" toggle) →
-  `role !== 'dev' && !holdsMaster(user)`. **Verified in served bundle.**
-- `vs-staff.js` `isVsSuper()` → `|| holdsMaster(u)`, matching the DB (which
-  already made master VS-super).
-- Guard: `src/js/master-role-gates.test.js` (falsified). Write-up in
-  `docs/mistakes/authz-grants.md`, class 5.
-- **Left as-is per owner**: the ~28 `role === 'dev'` gates in `src/js/projects/*`
-  (หนังสือ send flow) — driven by the project-seat picker, not master.
-
-Also confirmed same day: **ร้านค้า "0 รายการ" is NOT a bug** — 3 products exist,
-all `is_active=false` (test items), hidden by a human on 2026-08-16 (saved one at
-a time). No product was ever deleted; the account purge cannot delete products
-(`shop_products.created_by` is SET NULL). Storefront shows active-only.
-
-## Security — shared-account purge (2026-08-17)
-
-**15 shared password accounts DELETED PERMANENTLY** (auth + public.users), after
-their data was reassigned to real people first: the 10 VP accounts,
-`samomdkkupr`, `samomdkkudigital`, `samomdkkupresident` (was role=dev),
-`samomdkkuvssound`, `samomdkkushop`, and `passportadmin`. Reason: their
-`samo69*` / `1234` passwords were published in the PUBLIC repo and verified to
-open live dev/vp_admin sessions.
-
-**KEPT** (owner's decision): `samomdkkudev` (owner will rotate its pw),
-`sastaff`, `saprof` (both still have the weak `1234` pw — flagged, not rotated),
-and `claude-reporter` (machine account).
-
-**Attribution transferred BEFORE delete** (so nothing orphaned; every SET-NULL
-column verified 0 before deletion):
-- samomdkkuvpa → **พรู** (jinjutha.t): created_by on 27 projects/42 docs/47 files
-  + its 43 read/unread rows (via `tools/proj-handover.mjs`). พรู holds `master`,
-  which grants all project seats at the RLS level, so she sees them all; she was
-  also given the explicit `vpa` seat.
-- pr_tickets: samomdkkupr + samomdkkudigital → **พู่กัน** (putita.s);
-  samomdkkupresident → **สายป่าน** (worapat.c); samomdkkuquality → **เอ๋ย** (naphat.pr).
-- samomdkkuvssound → **ปัน** (nattapong.chi): 9 vs_tickets + 1 public comment.
-
-⚠️ **`current_user_project_seats()` folds `master` → {vpa,staff,prof}** — a master
-holder IS a project actor and sees ALL หนังสือโครงการ. The team editor stores
-`master` alone and nulls the explicit project_seat on purpose (master already
-covers it). This is NOT a bug; do not "fix" it by forcing a seat under master.
-
-**Repo scrubbed**: `samo69*` literals removed from `tools/vp-accounts.mjs`,
-`tools/president-account.mjs` (both now read a `*_SEED_PASSWORD` env var and
-REFUSE to reseed without it) and from `docs/`. `tools/saprof-account.mjs` still
-carries `1234` — saprof is a KEPT account, left per owner. No src/ change → **no
-deploy needed**; the DB changes are already live.
+- ⚠️ **`current_user_project_seats()` folds `master` → {vpa,staff,prof}.** A
+  master holder IS a project actor and sees every หนังสือโครงการ. The team
+  editor stores `master` alone and nulls the explicit project_seat on purpose.
+  **This is not a bug — do not "fix" it by forcing a seat under master.**
+- ⚠️ **`claude0157` B4 is red by design when live booking geometry has no
+  stepping deadline.** The follow-up is to inject a SECOND synthetic booking
+  that guarantees one — but do NOT tune it to merely pass; verify B1/B2/B5 stay
+  meaningful afterwards.
+- ⏳ **0161's cost claim (scrutinize finding 2) is still unbenchmarked.** Low
+  priority, nothing depends on it.
+- `master` needs `holdsMaster()` beside every `role === 'dev'` gate that grants
+  power; the ~28 in `src/js/projects/*` are seat-driven and were left as-is per
+  the owner.
 
 ## OTHER SYSTEMS — stable, nothing owed
 
@@ -392,11 +349,46 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> Local == origin; **VM built from `2f35068`** (confirm with
-> `git diff --stat 2f35068..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
-> current). Migrations through **0165**; **1157 tests green**; **21 of 22 proofs
-> green** — the one red is `claude0157` and it is ENVIRONMENTAL (see below), not
-> a regression. All shipped work verified from the served artifacts.
+> Local == origin; **VM built from `e8f3fc0`** (confirm with
+> `git diff --stat e8f3fc0..HEAD -- src/ supabase/ ':!src/**/*.test.js'`, empty =
+> current). Migrations through **0166**; **1170 tests green**; **21 of 22 proofs
+> green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below),
+> not a regression. All shipped work verified from the served artifacts.
+>
+> ### What the LATEST session (2026-08-18, evening) was — FOUR things
+>
+> 1. **The ปีงบ is now on every กล่องจดหมาย row**, grid card and list row, from
+>    ONE `fyChipHtml()` — quiet grey normally, orange `ย้ายเอง` when a human
+>    moved it, and never `ย้ายเอง` on the public mirror (`enterCustomerView()`
+>    renders the SAME rows). Guarded by `fiscal-year.test.js` §3e.
+>    ⚠️ **The list row could not take another cell**: every other cell is
+>    `flex: 0 0 auto` and the name cell had `min-width: 0`, so a Thai name
+>    (`overflow-wrap: anywhere`) collapsed to ONE CHARACTER PER LINE — measured
+>    0px wide / 702px tall at 390px. Now a `7.5rem` floor **plus** `flex-wrap`
+>    under 576px; at 320px the name was already collapsing to 43px BEFORE any of
+>    this. If you add a cell to that row, re-measure at 320px with a control.
+> 2. **0166 — the shared-login purge reassigned every uid COLUMN and missed the
+>    JSONB timelines.** 298 events in `project_documents.timeline[].by` /
+>    `project_sign_requests.timeline[].by` still named the deleted accounts, and
+>    `isMineComment` is `c.by === myId`, so **42 of 43 comments had no แก้ไข/ลบ
+>    button for anyone**. Remapped to the people the columns already named.
+>    Snapshot `public._timeline_backup_0166` (60 rows) + rollback in the
+>    migration — **drop that table once the owner confirms the comments.**
+>    Guard: `proj0165` §D7/§D8; §D4/§D5 were widened from `is null` to "does the
+>    uid RESOLVE", which is why this was green for a day.
+> 3. **`canManageComment()` is now exported and tested** (`comment-ownership.
+>    test.js`, 7 cases, both branches falsified). It also implements the ROLE
+>    fallback the surrounding comment had PROMISED for years without the code
+>    having it — an entry with no `by` at all was stranded forever.
+> 4. **`claude0161` C1 was red for a correct reason and is fixed** — see the
+>    proofs note below.
+>
+> ⚠️ **The เจ้าหน้าที่คณะ successor sees NO file "ใหม่" pill and that is BY
+> DESIGN** (the first-run BASELINE marks everything seen). Measured: 0 of 91
+> files qualify for them, 40 for a long-lived account. Their bell still shows 77
+> unread, so the two read-state systems disagree for the same person. Full
+> write-up in `docs/mistakes/app-state.md`. **Before debugging a missing
+> highlight, ask the DATABASE how many rows currently QUALIFY for it.**
 >
 > ### What the 2026-08-18 session was — THREE things, all deployed
 >
@@ -513,6 +505,15 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > (follow-up, NOT done): make the scenario self-contained with a second synthetic
 > booking that guarantees a step-down; do NOT tune it to merely pass. It goes
 > green on its own once real bookings exist.
+>
+> ⚠️ **`claude0161` C1 went red on 2026-08-18 for a COMPLETELY CORRECT reason
+> and is now fixed.** Its grid is the REMAINDER of the quota week, so it shrinks
+> to nothing as the Wed 16:00 reset approaches; the control asserted
+> `count > 100` and only 86 quarter-hours were left. Threshold is now `> 20`
+> (one 5-hour window); C2 is what really stops vacuity. **`claude0157`'s sample
+> search has the same shape** (`now() + 7h` → `week_start + 7d − 11h`, 5 slots
+> left at that instant) — so if B4 is red EARLY in a fresh quota week, that is
+> the real failure, not this rot. Write-up in `docs/mistakes/tooling-proofs.md`.
 >
 > ### The earlier (2026-08-16) จองโควตา Claude session — still current
 >
@@ -668,6 +669,14 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > - **A browser harness inlines `src/html/*.html` at generation time.** Edit the
 >   partial, re-run the probe, and it reads the STALE copy and reports the old
 >   text as if it shipped. Regenerate the harness after every partial edit.
+> - **A correlated subquery can SHADOW the alias you meant.** An app-wide sweep
+>   for orphaned uids wrote `not exists (select 1 from public.users u where
+>   u.id = id)` over a CTE column also called `id` — Postgres bound the inner
+>   `id` to `users.id`, so the predicate was `u.id = u.id` and every uid
+>   "resolved". It reported the database clean, including a table that provably
+>   held 298 orphans. **Name the extracted column something no table has
+>   (`uid_txt`), and run the sweep against a subject you KNOW is dirty before
+>   believing a zero.**
 > - **Slicing this file on `"## NEXT-SESSION PROMPT"` fails in BOTH directions.**
 >   `index()` finds the mention in the INTRO and truncates the file (twice).
 >   `rindex()` finds the mention in THIS trap list, which sits after the

@@ -388,7 +388,7 @@ to that class above.
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
 - Dropping a column while the SERVED bundle still names it
 
-### `tooling-proofs.md` — Proof scripts & verification discipline *(12)*
+### `tooling-proofs.md` — Proof scripts & verification discipline *(13)*
 - Two implementations of one rule drift silently
 - Debugging note: `tools/db-query.mjs` COMMITS
 - RLS does not RAISE on UPDATE/DELETE — a proof that asks "did it throw?" scores a fully-blocked write as permitted
@@ -401,5 +401,6 @@ to that class above.
 - A proof that ERRORS is not a proof that fails
 - A browser probe measured its coordinates before the page scrolled
 - A comment listed four boundaries and the code had three
+- A control threshold that assumed the proof runs early in the quota week
 
 <!-- END GENERATED INDEX -->

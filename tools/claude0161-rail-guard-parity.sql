@@ -129,8 +129,15 @@ insert into probe select 'B1. rail and guard agree at EVERY instant of the week'
 -- ── §C. THE CONTROL ────────────────────────────────────────────────────────
 -- "0 mismatches" is also what an empty grid and a pair of constant functions
 -- print. Both halves are asserted, so neither failure can wear a pass.
-insert into probe select 'C1. control — the grid is not empty', 'true',
-  ((select count(*) from grid) > 100)::text;
+-- The grid is the REMAINDER of the quota week, so its size shrinks to zero as
+-- the weekly reset approaches. `> 100` assumed the proof runs early in the
+-- week: on 2026-08-18, ~21 h before the Wed 16:00 reset, only 86 quarter-hours
+-- were left and this control went red — for a completely correct reason, which
+-- is how a proof gets ignored. 20 points is 5 hours, one full Claude window,
+-- which is the shortest span over which the differential says anything; C2
+-- (the answer VARIES) is what actually stops "0 mismatches" being vacuous.
+insert into probe select 'C1. control — the grid has at least a 5-hour window of points', 'true',
+  ((select count(*) from grid) > 20)::text;
 
 insert into probe select 'C2. control — the answer actually VARIES across the week', 'true',
   ((select count(distinct rail) from grid) > 1)::text;
