@@ -33,7 +33,14 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2f35068` (2026-08-18)** — ปีงบ move + per-person default
+- ✅ **DEPLOYED = `e5a8524` (2026-08-18)** — the ปีงบ chip on every กล่องจดหมาย
+  row (grid card + list row, one `fyChipHtml()`), the list-row width floor +
+  mobile `flex-wrap`, and the plain-Thai rewrite of the ปีงบ-default dialog.
+  Verified from the SERVED `analytics-*.js`: `projects-fy-mini` = 1,
+  `ปีงบเริ่มต้นของหน้านี้` = 1, `เปิดหน้านี้ทุกครั้ง` = 1, `ย้ายเอง` = 2, and
+  the REMOVED `ค่าเริ่มต้นของปีงบประมาณ` = **0**; `projects-fy-mini` = 2 in the
+  admin CSS and `ตั้งปีงบเริ่มต้นของหน้านี้` = 1 in the served `/admin/` HTML.
+- Previous deploy `2f35068` (2026-08-18) — ปีงบ move + per-person default
   filter + the `sastaff`/`saprof` purge (`8359026`), plus the /scrutinize fixes
   on top. Verified from the SERVED artifacts:
   `ย้ายปีงบประมาณ`, `ปีงบปัจจุบัน (อัตโนมัติ)`,
@@ -47,6 +54,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   a failed deploy. The toolbar markup (`projectsFyDefaultBtn`,
   `projects-fy-group`) is in the served `/admin/` HTML, and
   `projects-fy-default-btn` / `projects-fy-pill` / `is-moved` in the admin CSS.
+- ⚠️ **The เจ้าหน้าที่คณะ successor account sees NO file "ใหม่" highlight, and
+  that is the BASELINE rule, not a bug.** Measured 2026-08-18 on the live DB:
+  `woratho@kku.ac.th` (created that morning) has 43 `project_doc_views` rows all
+  stamped at first open, so **0 of 91 files** qualify for a pill; the owner's own
+  account scores 40. Its `project_notifications` WERE reassigned (77 unread), so
+  the bell and the per-document highlights now answer "what have you seen"
+  differently for the same person. Write-up in `docs/mistakes/app-state.md`.
 - Previous deploy `a2596c3` (2026-08-16), for the record. Verified then from the
   SERVED artifacts, found via the bundle name in `curl -s
   https://samo.md.kku.ac.th/admin/` (**not** `ls` on the VM — old chunks are
