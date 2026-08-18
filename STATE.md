@@ -33,7 +33,8 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e5a8524` (2026-08-18)** — the ปีงบ chip on every กล่องจดหมาย
+- ✅ **DEPLOYED = `e8f3fc0` (2026-08-18)** — 0166 + the audit, on top of
+  `e5a8524`: — the ปีงบ chip on every กล่องจดหมาย
   row (grid card + list row, one `fyChipHtml()`), the list-row width floor +
   mobile `flex-wrap`, and the plain-Thai rewrite of the ปีงบ-default dialog.
   Verified from the SERVED `analytics-*.js`: `projects-fy-mini` = 1,
