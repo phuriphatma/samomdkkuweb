@@ -326,11 +326,45 @@ insert into probe select 'D2. no account holds the sa_prof role any more', '0',
 insert into probe select 'D3. the shared project logins are gone from auth too', '0',
   (select count(*)::text from auth.users
     where email in ('sastaff@samomdkku.app', 'saprof@samomdkku.app'));
+-- D4/D5 ask whether the uid RESOLVES, not whether it is null. They used to ask
+-- `is null`, and that is how the timeline gap survived a green proof: a uid
+-- pointing at a DELETED account is exactly "unattributed", and `is null` cannot
+-- see one. Every uid in this file is now checked against public.users.
 insert into probe select 'D4. no project_files row is left unattributed by the purge', '0',
-  (select count(*)::text from public.project_files where uploaded_by is null);
+  (select count(*)::text from public.project_files f
+    where f.uploaded_by is null
+       or not exists (select 1 from public.users u where u.id = f.uploaded_by));
 insert into probe select 'D5. every pending sign request still names a real อาจารย์', '0',
-  (select count(*)::text from public.project_sign_requests
-    where status = 'pending' and prof_id is null);
+  (select count(*)::text from public.project_sign_requests r
+    where r.status = 'pending'
+      and (r.prof_id is null
+           or not exists (select 1 from public.users u where u.id = r.prof_id)));
+-- D7 is the one 0166 was written for. The purge reassigned every uid COLUMN and
+-- left 298 uids inside the JSONB timelines naming the three deleted shared
+-- accounts — which is what `isMineComment` (c.by === myId) compares against, so
+-- 42 of 43 comments lost their แก้ไข / ลบ buttons for everyone. A uid lives in
+-- two shapes here; a proof that only knows about the column shape is blind to
+-- half the data.
+insert into probe select 'D7. no timeline names an account that no longer exists', '0',
+  (select count(*)::text from (
+      select e->>'by' by from public.project_documents d,
+             jsonb_array_elements(coalesce(d.timeline,'[]'::jsonb)) e
+      union all
+      select e->>'by' from public.project_sign_requests r,
+             jsonb_array_elements(coalesce(r.timeline,'[]'::jsonb)) e
+    ) t
+   where t.by ~ '^[0-9a-f-]{36}$'
+     and not exists (select 1 from public.users u where u.id = t.by::uuid));
+-- CONTROL for D7. "No unresolvable uid" is also what an empty scan reports, and
+-- a timeline whose entries stopped carrying `by` at all would sail through.
+insert into probe select 'D8. control — the timeline scan SEES uids (D7 is not vacuous)', 'true',
+  ((select count(*) from (
+      select e->>'by' by from public.project_documents d,
+             jsonb_array_elements(coalesce(d.timeline,'[]'::jsonb)) e
+      union all
+      select e->>'by' from public.project_sign_requests r,
+             jsonb_array_elements(coalesce(r.timeline,'[]'::jsonb)) e
+    ) t where t.by ~ '^[0-9a-f-]{36}$') > 250)::text;
 insert into probe select 'D6. the notify audiences are not empty (staff + prof seats resolve)', 'true',
   ((select count(*) from public.users where 'staff' = any (coalesce(managed_project_seats,'{}'))) > 0
    and (select count(*) from public.users where 'prof' = any (coalesce(managed_project_seats,'{}'))) > 0)::text;

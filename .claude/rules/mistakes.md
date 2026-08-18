@@ -86,6 +86,11 @@ has not been written yet.
    Also a rule implemented on the writers you HAPPENED to be looking at (the
    portrait cleanup missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
+   **A uid stored in JSON is a uid**: the shared-account purge reassigned every
+   uid COLUMN and left 298 inside `timeline[].by`, so 42 of 43 comments lost
+   their edit/delete controls (0166). Enumerate the SHAPES an id is stored in,
+   not the tables — and a referential guard asks whether it RESOLVES, never
+   whether it is `null` (`proj0165` §D4 asserted `is null` and read green).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
    the ปีงบ move followed the filter using the value WRITTEN, and clearing an
    override writes NULL, so the auto option made the project vanish (the exact
@@ -330,7 +335,7 @@ to that class above.
 - "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
 - Adding one cell to a flex row collapsed the project name to one character per line
 
-### `app-state.md` — Routing, read-state, caches & serialization *(17)*
+### `app-state.md` — Routing, read-state, caches & serialization *(18)*
 - "Unread" highlight inside an item vanishes the moment you open it
 - Per-user read-state means a newly-granted account INHERITS the whole backlog as unread
 - Migrating a SHARED workflow account to a personal one moves the AUTHORIZATION but leaves every uid-bound row behind
@@ -348,6 +353,7 @@ to that class above.
 - An INSERT is a write path too — the import guard covered UPDATE only
 - "in next next week, it still show ใช้ไปแล้วจริง value, which it would be reset by then"
 - "I'm looking from เจ้าหน้าที่คณะ and I don't see file highlighting anymore"
+- The purge reassigned every uid COLUMN and missed every uid inside the JSONB timelines
 
 ### `integrations.md` — Notifications, Apps Script & Google Drive *(22)*
 - "Email notification doesn't work" = a silent gate, not broken plumbing (verify the channel end-to-end BEFORE rebuilding…

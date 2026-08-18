@@ -54,6 +54,19 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   a failed deploy. The toolbar markup (`projectsFyDefaultBtn`,
   `projects-fy-group`) is in the served `/admin/` HTML, and
   `projects-fy-default-btn` / `projects-fy-pill` / `is-moved` in the admin CSS.
+- ✅ **0166 APPLIED (2026-08-18) — the purge missed the JSONB timelines.** Every
+  uid COLUMN was reassigned when the shared logins went; the 298 uids inside
+  `project_documents.timeline[].by` / `project_sign_requests.timeline[].by` were
+  not, so `isMineComment` (`c.by === myId`) hid the แก้ไข/ลบ buttons on **42 of
+  43 comments** for everyone. Remapped to the people the columns already named
+  (vpa→jinjutha, staff→woratho, prof→prakasa). Verified after: 308 events, **0**
+  unresolvable, 43/43 comments owned by a live account. Snapshot kept in
+  `public._timeline_backup_0166` (60 rows) with the rollback in the migration —
+  **drop that table once the owner has confirmed the comments look right.**
+  Guard: `proj0165` §D7/§D8 (37/37 green, D7 falsified). §D4/§D5 were widened
+  from `is null` to "does the uid RESOLVE" — the narrow form is why this was
+  green for a day. Nothing role-based ever broke (the blue อัปเดต badge, ใหม่/
+  ตีกลับ, ของฉัน, รอลงนาม all key off the timeline's `role` string).
 - ⚠️ **The เจ้าหน้าที่คณะ successor account sees NO file "ใหม่" highlight, and
   that is the BASELINE rule, not a bug.** Measured 2026-08-18 on the live DB:
   `woratho@kku.ac.th` (created that morning) has 43 `project_doc_views` rows all
@@ -85,7 +98,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  **Migrations applied through 0165.** **1153 tests green. 21 of 22 proofs
+  **Migrations applied through 0166.** **1163 tests green. 21 of 22 proofs
   green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below).
   ⚠️ **0161 IS APPLIED TO THE LIVE DB AND ITS FRONTEND IS NOT DEPLOYED YET** at
   the moment this line was written — that order is correct (the RPC keeps its

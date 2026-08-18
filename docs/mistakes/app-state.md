@@ -685,3 +685,56 @@ indistinguishable, from the user's chair, from one that is broken.** When
 someone reports a highlight missing, the first question is not "which code path
 draws it" but "how many rows currently QUALIFY for it, for this exact user id".
 Ask the database before reading the renderer.
+
+---
+
+## The purge reassigned every uid COLUMN and missed every uid inside the JSONB timelines
+
+**Symptom.** Asked to check whether the three project desks (ผู้ส่งหนังสือ /
+เจ้าหน้าที่คณะ / อาจารย์) had lost any highlighting when the shared
+`samomdkkuvpa` / `sastaff` / `saprof` logins were retired. The highlights were
+fine. What was gone: **the แก้ไข and ลบ buttons on 42 of the 43 comments in the
+system** — for everyone, in every role.
+
+**Cause.** A person's id is stored in this schema in two shapes:
+
+| shape | example | reassigned by the purge? |
+|---|---|---|
+| a uid COLUMN | `project_files.uploaded_by`, `project_documents.created_by`, `project_sign_requests.prof_id` | ✅ all of them |
+| a uid INSIDE a JSONB array | `project_documents.timeline[].by`, `project_sign_requests.timeline[].by` | ❌ none of them |
+
+298 timeline events still named the three deleted accounts.
+`isMineComment` in `src/js/projects/inbox.js` is `c.by === myId` and is the only
+thing that renders a comment's edit/delete controls, so every comment written
+through a shared desk became uneditable by the person who now holds that desk.
+The same comparison in the signing section (`e.by !== myId`) scored a person's
+own past actions as somebody else's.
+
+**Why the proof said the purge was clean.** `proj0165` §D4 read
+*"no project_files row is left unattributed by the purge"* and asserted
+`uploaded_by is null`. A uid pointing at a DELETED account is exactly
+"unattributed" — and `is null` cannot see one. The prose was right and the
+predicate was narrower than the prose, on a table that was not even the one
+holding the problem.
+
+**Fix.** Migration `0166` remaps the three retired uids inside both timelines to
+the same people the COLUMN pass already chose (read back out of the columns, not
+invented), with a full `_timeline_backup_0166` snapshot, in-transaction
+assertions in both directions (nothing unresolvable left AND no entry lost
+against the snapshot), and the rollback in the file. `proj0165` §D4/§D5 now ask
+whether the uid RESOLVES, and §D7/§D8 scan both timelines with a control that
+fails if the scan sees no uids at all. Falsified by corrupting one entry inside
+the proof's own rolled-back transaction and watching D7 go red.
+
+**What was NOT affected**, checked for all three roles: every highlight keys off
+the entry's `role` string (`vp_admin` / `uni_staff` / `sa_prof`), which the
+successors still resolve to through their seat — so the blue "อัปเดต" badge,
+the ใหม่ / ตีกลับ status badges, comment unread, ของฉัน and รอลงนาม never
+broke. `docPendingSignForProf` and `isMine` are role-based too.
+
+**The general rule.** **A uid stored in JSON is a uid, and a data migration that
+walks the columns will not see it.** When an account is deleted or merged,
+enumerate every SHAPE the id is stored in — column, JSONB array, array column,
+text note — not every TABLE. And a referential guard must ask whether the id
+RESOLVES, never whether it is `null`: the null case is the one the purge was
+least likely to leave behind.
