@@ -43,8 +43,27 @@ export const PERM_CATALOG = [
     hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
     danger: true },
 ];
-export const PERM_ICON = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.icon || '']));
-export const PERM_LABEL = Object.fromEntries(PERM_CATALOG.map((p) => [p.key, p.label]));
+/**
+ * Lookup maps with NO PROTOTYPE.
+ *
+ * These are keyed by values that come out of the database — `permissions` is an
+ * admin-writable `text[]`, `vs_dept` and `project_seat` are plain columns — and
+ * a plain object answers `constructor`, `toString`, `valueOf` and `__proto__`
+ * with an inherited FUNCTION instead of missing. That is not a hypothetical
+ * shape: every reader here is written as `MAP[key] || key`, so an inherited
+ * member is truthy and wins the `||`. A permission key of `constructor` rendered
+ * a chip labelled `function Object() { [native code] }`, and `PERM_ICON` fed the
+ * same string straight into a `class` attribute unescaped.
+ *
+ * `Object.create(null)` makes every one of those a clean miss, so the `|| key`
+ * fallback does what it reads like. Nothing in this repo asks these maps for a
+ * prototype method (checked), and spread / JSON.stringify / for-in are all
+ * unaffected.
+ */
+const byKey = (pairs) => Object.assign(Object.create(null), Object.fromEntries(pairs));
+
+export const PERM_ICON = byKey(PERM_CATALOG.map((p) => [p.key, p.icon || '']));
+export const PERM_LABEL = byKey(PERM_CATALOG.map((p) => [p.key, p.label]));
 
 // ทีม SAMO is the one capability with two rungs (migration 0110). They are NOT
 // independent: `team_edit` is strictly stronger and every read policy accepts
@@ -121,7 +140,7 @@ export const VS_DEPTS = [
   { value: 'อุปนายกฝ่ายเวชนิทัศน์',                    label: 'เวชนิทัศน์' },
   { value: 'อุปนายกฝ่ายรังสีเทคนิค',                   label: 'รังสีเทคนิค' },
 ];
-export const VS_DEPT_LABEL = Object.fromEntries(VS_DEPTS.map((d) => [d.value, d.label]));
+export const VS_DEPT_LABEL = byKey(VS_DEPTS.map((d) => [d.value, d.label]));
 
 // หนังสือโครงการ seats (team_nodes/team_members.project_seat, migration 0086).
 // Projects is NOT one capability — it is three workflows keyed off the seat,
@@ -131,7 +150,7 @@ export const PROJECT_SEATS = [
   { value: 'staff', label: 'เจ้าหน้าที่คณะ' },
   { value: 'prof',  label: 'อาจารย์ (ลงนาม)' },
 ];
-export const PROJECT_SEAT_LABEL = Object.fromEntries(PROJECT_SEATS.map((s) => [s.value, s.label]));
+export const PROJECT_SEAT_LABEL = byKey(PROJECT_SEATS.map((s) => [s.value, s.label]));
 
 // Which grants actually open the admin app (/admin/). Mirrors the coarse
 // "can this account use the app at all" gate in admin-main.js canUseAdmin() —

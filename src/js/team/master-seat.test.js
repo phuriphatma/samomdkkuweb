@@ -23,7 +23,7 @@
 // assertion that would have failed before the fix.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { readPermInputs, permChipsHtml } from './index.js';
+import { readPermInputs, permChipsHtml, permChip, seatFanoutCount } from './index.js';
 import { stripComments } from '../strip-comments.js';
 
 /** A stand-in for the checkbox grid. `readPermInputs` only ever asks it for
@@ -193,10 +193,15 @@ describe('the two SCOPE pickers are hidden under master, the seat is not', () =>
     // Measured on the live tree: auto-filling every master-bearing ตำแหน่ง
     // would have handed `vpa` to 57 more people, each then on
     // list_project_seat_users('vpa') — notified on every หนังสือ update.
-    expect(SRC).toMatch(/refreshMemberPermEff[\s\S]{0,400}syncMasterSeatDefault\(\$\('teamMPermGrid'\)/);
+    const memberFn = SRC.slice(SRC.indexOf('function refreshMemberPermEff'));
+    expect(memberFn.slice(0, memberFn.indexOf('\n}'))).toContain("syncMasterSeatDefault($('teamMPermGrid')");
+    // Slice the arrow body to its closing `};` rather than a fixed window — a
+    // {0,N} window measures whatever comment happens to be in the way, and this
+    // assertion already failed once for exactly that reason when a comment grew.
     const nodeSync = SRC.slice(SRC.indexOf('const syncPermGrid = ()'));
-    expect(nodeSync.slice(0, 400)).not.toContain('syncMasterSeatDefault');
-    expect(nodeSync.slice(0, 400)).toContain('refreshSeatFanout');
+    const body = nodeSync.slice(0, nodeSync.indexOf('\n  };'));
+    expect(body).not.toContain('syncMasterSeatDefault');
+    expect(body).toContain('refreshSeatFanout');
   });
 
   it('the auto-filled value is marked so turning master off removes it again', () => {
@@ -328,7 +333,126 @@ describe('the modal preview uses the shared builder, not a fourth copy', () => {
     // …and that one line must live inside permChip(). The emitter is the
     // RETURN line, not the signature, so walk back to the nearest declaration
     // rather than asserting on the line itself.
-    const owner = lines.slice(0, at[0] + 1).reverse().find((l) => /^function \w+\(/.test(l));
-    expect(owner).toMatch(/^function permChip\(/);
+    // `export function` counts too — this regex missed it once and walked back
+    // to an unrelated function, reporting a failure that was purely the
+    // instrument's.
+    const owner = lines.slice(0, at[0] + 1).reverse().find((l) => /^(export )?function \w+\(/.test(l));
+    expect(owner).toMatch(/^(export )?function permChip\(/);
+  });
+});
+
+describe('permChip — the icon is the one value that reaches markup unescaped', () => {
+  const set = (...k) => new Set(k);
+
+  it('refuses a hostile icon at the boundary itself', () => {
+    // Tested on permChip DIRECTLY, not through permChipsHtml. The
+    // null-prototype vocabulary maps already close the only route that reaches
+    // it today, so a test going through the caller passes whether or not this
+    // validation exists — it could not tell the regex from a no-op. This is the
+    // guard for the NEXT caller that sources an icon from somewhere else.
+    expect(permChip('is-own', 'x', { icon: 'x" onerror="alert(1)' }))
+      .not.toMatch(/onerror="/);
+    expect(permChip('is-own', 'x', { icon: 'x" onerror="alert(1)' })).not.toContain('<i ');
+    expect(permChip('is-own', 'x', { icon: 'bi-megaphone' })).toContain('<i class="bi-megaphone">');
+    // A typo'd icon renders as nothing anyway, so dropping it loses nothing.
+    expect(permChip('is-own', 'x', { icon: 'BI-Megaphone' })).not.toContain('<i ');
+  });
+
+  it('refuses an icon that is not a bootstrap-icons class', () => {
+    // PERM_ICON is a plain object, so a permission key of `constructor` returns
+    // a FUNCTION, not undefined — truthy, and stringified straight into the
+    // class attribute. Permission keys are admin-writable text[].
+    const html = permChipsHtml({ own: set('constructor') });
+    expect(html).not.toContain('native code');
+    expect(html).not.toContain('<i class="function');
+    // The label still renders (escaped), so the row does not silently lose it.
+    expect(html).toContain('constructor');
+  });
+
+  it('is not fooled by __proto__ or toString either', () => {
+    for (const key of ['__proto__', 'toString', 'valueOf', 'hasOwnProperty']) {
+      const html = permChipsHtml({ own: set(key) });
+      expect(html).not.toMatch(/<i class="(?!bi-[a-z0-9-]+")/);
+      expect(html).not.toContain('[object Object]');
+    }
+  });
+
+  it('still emits a real icon for a real key', () => {
+    expect(permChipsHtml({ own: set('pr') })).toContain('<i class="bi-megaphone">');
+  });
+
+  it('cannot break out of an attribute even if a key smuggles quotes', () => {
+    // The label falls back to the raw key when the vocabulary misses, and it
+    // reaches innerHTML. Assert the QUOTE is neutralised, not that the word is
+    // absent — `onload=&quot;` is inert text and a blanket .not.toContain()
+    // would fail on a correct escape.
+    const html = permChipsHtml({ own: set('x" onload="alert(1)') });
+    expect(html).not.toMatch(/onload="/);
+    expect(html).toContain('&quot;');
+  });
+});
+
+describe('seatFanoutCount — the number the ตำแหน่ง editor puts in front of an admin', () => {
+  // Injected tree, so this asserts the RULE rather than whatever the live
+  // roster happens to contain. Shape: root → [a, b]; b sets its own seat.
+  const tree = {
+    root: [{ id: 'm1', kkumail: 'a@kkumail.com' },
+           { id: 'm2', kkumail: '' },
+           { id: 'm3' }],
+    a:    [{ id: 'm4', kkumail: 'd@kkumail.com' },
+           { id: 'm5', kkumail: 'e@kkumail.com', project_seat: 'prof' },
+           { id: 'm6', kkumail: 'f@kkumail.com', inherit_permissions: false }],
+    b:    [{ id: 'm7', kkumail: 'g@kkumail.com' }],
+  };
+  const kids = { root: [{ id: 'a' }, { id: 'b', project_seat: 'staff' }], a: [], b: [] };
+  const count = (id) => seatFanoutCount(id, (x) => tree[x] || [], (x) => kids[x] || []);
+
+  it('counts only people a seat would actually reach', () => {
+    // root: m1 ✓ · m2 ✗ no email · m3 ✗ no email · m4 ✓ · m5 ✗ own seat ·
+    // m6 ✗ opted out · m7 ✗ shielded by b's own seat  ⇒ 2
+    expect(count('root')).toBe(2);
+  });
+
+  it('excludes members with no อีเมล — they have no account to notify', () => {
+    // The sentence beside this number promises a notification. 31 of the 447
+    // live member rows have no email; counting them would make it false, and
+    // would disagree with the SQL simulation that produced the 57 figure.
+    const noMail = { x: [{ id: 'p', kkumail: '' }, { id: 'q', kkumail: '   ' }, { id: 'r' }] };
+    expect(seatFanoutCount('x', (i) => noMail[i] || [], () => [])).toBe(0);
+  });
+
+  it('a descendant ตำแหน่ง with its own seat shields its whole subtree (0092)', () => {
+    expect(count('b')).toBe(1);   // reached directly, nothing shields it
+    expect(count('a')).toBe(1);   // m4 only
+  });
+});
+
+describe('the ตำแหน่ง editor explains why its seat is NOT auto-filled', () => {
+  const SRC = stripComments(readFileSync(new URL('./index.js', import.meta.url), 'utf8'));
+  const HTML = readFileSync(new URL('../../html/tab-team.html', import.meta.url), 'utf8');
+
+  it('has a master hint that does not ride on the fan-out count', () => {
+    // REPORTED: "i gave my self master permission but why doesnt it display
+    // autoselect of ผู้ส่งหนังสือ" — from the ตำแหน่ง modal, which is the one
+    // that deliberately does not auto-fill. Its only note was the fan-out
+    // head-count, and refreshSeatFanout HIDES itself at 0, so the common case
+    // was an empty dropdown with no explanation at all.
+    expect(HTML).toContain('id="teamPermSeatMasterHint"');
+    // It must be toggled by syncMasterNote (master state), never by
+    // refreshSeatFanout (head-count) — that distinction IS the bug.
+    expect(SRC).toMatch(/syncMasterNote\(grid, \$\('teamPermMasterNote'\), \$\('teamPermSeatMasterHint'\)\)/);
+    expect(SRC).toMatch(/syncMasterNote\(\$\('teamPermGrid'\), \$\('teamPermMasterNote'\), \$\('teamPermSeatMasterHint'\)\)/);
+    const fanout = SRC.slice(SRC.indexOf('function refreshSeatFanout'));
+    expect(fanout.slice(0, fanout.indexOf('\n}'))).not.toContain('teamPermSeatMasterHint');
+  });
+
+  it('says what leaving it empty costs, in the words a person would use', () => {
+    // Plain-Thai consequence, not mechanism: the two things they actually lose.
+    const block = HTML.slice(HTML.indexOf('id="teamPermSeatMasterHint"'));
+    const hint = block.slice(0, block.indexOf('</div>'));
+    expect(hint).toContain('ไม่ได้รับแจ้งเตือน');
+    expect(hint).toContain('แก้ไขสมาชิก');
+    // No table names, no permission keys, no migration numbers in user copy.
+    expect(hint).not.toMatch(/project_seat|managed_|team_nodes|vpa|master\b/);
   });
 });

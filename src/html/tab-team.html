@@ -304,6 +304,18 @@
                  which is why this row is never auto-filled (the บุคคล editor
                  is). The count is filled in by refreshSeatFanout(). -->
             <div class="form-text team-seat-fanout d-none" id="teamPermSeatFanout"></div>
+            <!-- Shown whenever Master is on. The fan-out note above hides when
+                 the head-count is 0, so without this a ตำแหน่ง under Master
+                 showed an empty dropdown and NO explanation — reported by the
+                 owner: "i gave my self master permission but why doesnt it
+                 display autoselect of ผู้ส่งหนังสือ". -->
+            <div class="form-text team-seat-master-hint d-none" id="teamPermSeatMasterHint">
+              ตรงนี้ไม่ได้เลือกให้อัตโนมัติ เพราะบทบาทที่ตั้งกับ<b>ตำแหน่ง</b>จะมีผลกับทุกคนในตำแหน่งนี้และตำแหน่งย่อย
+              — ถ้าต้องการให้มีผลกับตัวเองคนเดียว ให้ตั้งที่ “แก้ไขสมาชิก” ของคนนั้นแทน (ตรงนั้นระบบเลือก
+              “ผู้ส่งหนังสือ” ให้อัตโนมัติ)<br />
+              ปล่อยว่างไว้ก็ได้ — จะยังเปิดหนังสือโครงการได้แบบผู้ส่งหนังสือ
+              แต่จะ<b>ไม่ได้รับแจ้งเตือน</b> และคนอื่นจะเลือกเป็นผู้รับไม่ได้
+            </div>
           </div>
           <div class="team-perm-inherited d-none mt-2" id="teamPermSeatInheritedWrap">
             <span class="team-perm-inherited-label">บทบาทหนังสือโครงการที่รับมาจากฝ่ายแม่:</span>

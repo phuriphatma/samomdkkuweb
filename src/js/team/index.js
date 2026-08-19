@@ -1661,9 +1661,19 @@ async function bulkDelete() {
 
 /** One chip. `icon` is a bootstrap-icons class (pinned 1.10.5 — run
  *  `npm run check:icons` after adding one, a missing name renders as nothing). */
-function permChip(cls, label, { icon = '', title = '' } = {}) {
+export function permChip(cls, label, { icon = '', title = '' } = {}) {
+  // The icon is the ONE value here that goes into markup unescaped (it is a
+  // class name, so escaping it would break it). Callers pass `PERM_ICON[key]`,
+  // and PERM_ICON is a plain object built with Object.fromEntries — so a
+  // permission key of `constructor` or `toString` does NOT miss, it returns a
+  // FUNCTION, which stringifies to `function Object() { [native code] }` and
+  // lands inside the class attribute. Permission keys are admin-writable
+  // `text[]`, so this is reachable without being a privilege boundary (they
+  // already hold team_edit). Validate the shape rather than trust the lookup;
+  // it also catches a typo'd icon, which otherwise renders as nothing at all.
+  const ic = /^bi-[a-z0-9-]+$/.test(icon) ? icon : '';
   return `<span class="team-perm-chip ${cls}"${title ? ` title="${escHtml(title)}"` : ''}>`
-    + `${icon ? `<i class="${icon}"></i> ` : ''}${escHtml(label)}</span>`;
+    + `${ic ? `<i class="${ic}"></i> ` : ''}${escHtml(label)}</span>`;
 }
 
 /**
@@ -1978,8 +1988,9 @@ function syncSeatVisibility(grid, wrap) {
 /** The one-line replacement for the two scope pickers master just hid. Without
  *  it the blocks would simply vanish and an admin would wonder where the
  *  VitalSound แผนก choice went. */
-function syncMasterNote(grid, note) {
-  note?.classList.toggle('d-none', !masterOn(grid));
+function syncMasterNote(grid, ...notes) {
+  const on = masterOn(grid);
+  notes.forEach((n) => n?.classList.toggle('d-none', !on));
 }
 
 /**
@@ -2026,13 +2037,20 @@ function syncMasterSeatDefault(grid, sel, hint) {
  * already resolve to something nearer. Showing `subtreeMemberCount` instead
  * would overstate it and train the admin to ignore the number.
  */
-function seatFanoutCount(nodeId) {
+export function seatFanoutCount(nodeId, members = membersOf, children = childrenOf) {
   let n = 0;
   const walk = (id, blocked) => {
-    for (const m of membersOf(id)) {
+    for (const m of members(id)) {
+      // No อีเมล means no account, so this person can never resolve a seat, get
+      // the screen, or receive a notification — counting them would inflate the
+      // very sentence the number appears in. 31 of the 447 member rows are in
+      // that state (measured 2026-08-18), and the SQL simulation that produced
+      // the "57 people" figure filtered on it, so leaving it out here would
+      // make the UI and the instrument disagree about the same subtree.
+      if (!m.kkumail || !String(m.kkumail).trim()) continue;
       if (!blocked && !m.project_seat && m.inherit_permissions !== false) n += 1;
     }
-    for (const c of childrenOf(id)) {
+    for (const c of children(id)) {
       walk(c.id, blocked || !!c.project_seat || c.inherit_permissions === false);
     }
   };
@@ -2175,7 +2193,11 @@ function wirePermModal() {
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
-    syncMasterNote(grid, $('teamPermMasterNote'));
+    // Two notes on this modal: what master already covers, and why the seat is
+    // still a real question here. The second must NOT ride on refreshSeatFanout,
+    // which hides itself at a head-count of 0 — that is exactly how a ตำแหน่ง
+    // under master ended up with an unexplained empty dropdown.
+    syncMasterNote(grid, $('teamPermMasterNote'), $('teamPermSeatMasterHint'));
     // No syncMasterSeatDefault here on purpose — a ตำแหน่ง seat fans out.
     refreshSeatFanout($('teamPermNodeId').value, $('teamPermSeatFanout'));
   };
@@ -2244,7 +2266,7 @@ function fillNodePermPane(id) {
   syncVsScopeVisibility($('teamPermGrid'), $('teamPermVsWrap'));
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
-  syncMasterNote($('teamPermGrid'), $('teamPermMasterNote'));
+  syncMasterNote($('teamPermGrid'), $('teamPermMasterNote'), $('teamPermSeatMasterHint'));
   refreshSeatFanout(id, $('teamPermSeatFanout'));
   refreshPermInherited();
 }
