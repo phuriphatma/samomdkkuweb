@@ -39,8 +39,29 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `033d041` (2026-08-18, late)**, VM HEAD confirmed over ssh.
-  Two commits, newest first — the `master` / หนังสือโครงการ-seat fix and the
+- ✅ **DEPLOYED = `af36088` (2026-08-19)**, VM HEAD confirmed over ssh.
+  Verified from the served `/admin/` HTML: `teamPermSeatMasterHint` = 1,
+  `ไม่ได้รับแจ้งเตือน` = 1, `VitalSound ดูแลได้ทุกแผนก` = 2; and from
+  `assets/admin-*.js`: `บทบาทที่เลือกตรงนี้` = 1, `masterAuto` = 2 (both 0 in
+  `analytics-*.js` — see the entry-point note below).
+  - `af36088` — a ตำแหน่ง under Master showed an EMPTY seat dropdown with no
+    explanation, because its only note was the fan-out head-count and that note
+    hides itself at 0. Owner reported it as "why doesnt it display autoselect".
+    Plus: `seatFanoutCount` was counting members with no อีเมล (31 of 447 — they
+    have no account, so the notification the sentence promises cannot reach
+    them), and the four vocabulary maps are now `Object.create(null)` because
+    every reader is `MAP[key] || key` and a permission key of `constructor`
+    returned an inherited FUNCTION that won the `||`.
+  ⚠️ **THE RULE THE OWNER KEEPS ASKING ABOUT, because it is genuinely subtle:**
+  master + NO stored seat gives the ผู้ส่งหนังสือ SCREEN and full RLS, but NOT
+  the notifications and NOT a listing others can pick from. That is deliberate:
+  everyone under a master ตำแหน่ง already inherits master and already sees
+  everything, so storing `vpa` there would add ONLY notifications — to 57 people
+  who are mostly ฝ่าย IT and do not work on หนังสือ. Parity for one person is
+  one click: แก้ไขสมาชิก on their name, where it IS auto-filled. **If the owner
+  ever asks for the ตำแหน่ง to auto-fill too, it is one line and 57 is the
+  number to quote.**
+  Previous deploy `033d041` (2026-08-18, late), for the record — two commits — the `master` / หนังสือโครงการ-seat fix and the
   /scrutinize pass over it:
   - `033d041` — the modal's "สิทธิ์รวม" preview was a THIRD hand-rolled chip
     builder that never learned the master rule; VS แผนก chips suppressed under
