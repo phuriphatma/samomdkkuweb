@@ -45,12 +45,22 @@ function main() {
       problems.push(`missing declared file: ${rel}`);
       continue;
     }
+    // BYTES on disk, not characters. These files are heavily Thai and every
+    // Thai codepoint is 3 bytes in UTF-8, so `mistakes.md` reads ~28.4k in a
+    // character count and ~30.0k here. The label below says BYTES for that
+    // reason: it said "chars" until 2026-08-18, when a session trimmed ASCII
+    // words to free room, watched the number barely move, and only then worked
+    // out it was measuring something else. Byte-size is the right unit anyway —
+    // it is what the tokenizer is fed — but the word has to match the unit.
     const size = fs.statSync(full).size;
     total += size;
     const pct = Math.round((size / cap) * 100);
     const flag = size > cap ? '✖' : pct > 85 ? '!' : '✔';
-    console.log(`  ${flag} ${rel.padEnd(32)} ${String(size).padStart(7)} / ${cap} chars (${pct}%)`);
-    if (size > cap) problems.push(`${rel} is ${size - cap} chars over its ${cap} budget — move detail into docs/, don't raise the cap`);
+    console.log(`  ${flag} ${rel.padEnd(32)} ${String(size).padStart(7)} / ${cap} bytes (${pct}%)`);
+    if (size > cap) {
+      problems.push(`${rel} is ${size - cap} BYTES over its ${cap} budget — move detail into docs/, don't raise the cap`
+        + ' (Thai is 3 bytes/char, so trimming English words frees far less than it looks)');
+    }
   }
 
   // Anything undeclared in a watched dir is auto-loaded weight nobody accounted for.
@@ -70,8 +80,8 @@ function main() {
   }
 
   const totalPct = Math.round((total / TOTAL_BUDGET) * 100);
-  console.log(`\n  total ${total} / ${TOTAL_BUDGET} chars (${totalPct}%) ≈ ${Math.round(total / 4)} tokens per session`);
-  if (total > TOTAL_BUDGET) problems.push(`total auto-loaded context is ${total - TOTAL_BUDGET} chars over the ${TOTAL_BUDGET} budget`);
+  console.log(`\n  total ${total} / ${TOTAL_BUDGET} bytes (${totalPct}%) ≈ ${Math.round(total / 4)} tokens per session`);
+  if (total > TOTAL_BUDGET) problems.push(`total auto-loaded context is ${total - TOTAL_BUDGET} bytes over the ${TOTAL_BUDGET} budget`);
 
   if (!problems.length) {
     console.log('\n✔ within budget');

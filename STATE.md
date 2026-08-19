@@ -39,23 +39,29 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ⏳ **DEPLOY OWED — `7debbe9` (the master/seat fix) is pushed and NOT on the
-  VM.** The VPN was down when it was written, so `ssh samo-vm` timed out at
-  `10.101.111.181:22`. Confirmed from the PUBLIC host that prod is unchanged:
-  `/admin/` still serves `analytics-C_2oekEU.js` (the `161310e` bundle) and
-  greps **0** for `บทบาทที่เลือกตรงนี้`, while the served `/admin/` HTML greps
-  **0** for `VitalSound ดูแลได้ทุกแผนก`.
-  **After deploying, verify with these — and note WHICH artifact**, measured on
-  the local `dist/` before pushing:
-  - `บทบาทที่เลือกตรงนี้` → **1 in `admin-*.js`, 0 in `analytics-*.js`.**
-    ⚠️ That is the OPPOSITE of the projects-module trap documented below: the
-    ทีม SAMO editor lands in the ADMIN entry, not the shared `analytics` chunk.
-    Grepping `analytics-*.js` here reports 0 and looks like a failed deploy.
-  - `VitalSound ดูแลได้ทุกแผนก` → **2 in the served `/admin/` HTML** (both the
-    ตำแหน่ง and บุคคล modals); it is markup, so it is in no bundle at all.
-  - `masterAuto` → 2 in `admin-*.js` (a `dataset` key, so the string survives
-    minification). `permChipsHtml` / `projectSeatRole` / `seatFanoutCount` grep
-    **0** by construction — module-scope names the minifier renames.
+- ✅ **DEPLOYED = `033d041` (2026-08-18, late)**, VM HEAD confirmed over ssh.
+  Two commits, newest first — the `master` / หนังสือโครงการ-seat fix and the
+  /scrutinize pass over it:
+  - `033d041` — the modal's "สิทธิ์รวม" preview was a THIRD hand-rolled chip
+    builder that never learned the master rule; VS แผนก chips suppressed under
+    master (a scope master already widens); `permChipsHtml` gained `flat` mode
+    and defaults. There is now exactly ONE line in `team/index.js` that writes a
+    `team-perm-chip` span, and `master-seat.test.js` asserts it.
+  - `7debbe9` — `projectSeatRole()` folds master; `readPermInputs` keeps
+    `project_seat` under master; บุคคล editor pre-fills ผู้ส่งหนังสือ; ตำแหน่ง
+    shows a fan-out head-count instead.
+  **Verified from the SERVED artifacts** (not the local files) — and note WHICH
+  artifact, because it is the OPPOSITE of the projects-module trap below: the
+  ทีม SAMO editor lands in the **ADMIN entry**, not the shared `analytics` chunk.
+  - `assets/admin-CPiyOZWb.js` → `บทบาทที่เลือกตรงนี้` = **1**, `masterAuto` =
+    **2** (both **0** in `analytics-Bw7hwBIp.js`; grepping that one reports 0 and
+    looks exactly like a failed deploy).
+  - served `/admin/` HTML → `VitalSound ดูแลได้ทุกแผนก` = **2** (both modals),
+    `บทบาทของบุคคลนี้` = **1**. Markup lives in the partial, in no bundle at all.
+  - served admin CSS → `team-perm-chip.is-master` = 1, `team-seat-fanout` = 1.
+  - `permChipsHtml` / `projectSeatRole` / `seatFanoutCount` grep **0** by
+    construction — module-scope names the minifier renames. Pick a STRING
+    LITERAL or a CSS class as the marker, never a function name.
 - ✅ **DEPLOYED = `161310e` (2026-08-18)**, VM HEAD confirmed over ssh. Three
   commits shipped that day, newest first:
   - `161310e` — `canManageComment()` + the 0166-class sweep + the `claude0161`
@@ -309,9 +315,16 @@ Full text: `docs/state-archive/2026-08-17-scrutinize-master-purge.md`. Only the
 parts that are still LIVE rules are kept here:
 
 - ⚠️ **`current_user_project_seats()` folds `master` → {vpa,staff,prof}.** A
-  master holder IS a project actor and sees every หนังสือโครงการ. The team
-  editor stores `master` alone and nulls the explicit project_seat on purpose.
-  **This is not a bug — do not "fix" it by forcing a seat under master.**
+  master holder IS a project actor and sees every หนังสือโครงการ.
+  ❌ **The rest of this bullet used to read "the editor nulls project_seat on
+  purpose — do not fix it". THAT WAS WRONG and it is why the bug below survived
+  a whole session.** Access is folded; IDENTITY is not. The seat decides which
+  screen the person gets AND is what `list_project_seat_users()` reads to build
+  the notify audience, so nulling it stranded 36 of 41 masters on a blank pane
+  and took them off every notification. Fixed 2026-08-18 (`7debbe9`); see the
+  session block in the NEXT-SESSION PROMPT and
+  `docs/mistakes/authz-grants.md`. **Never compute project visibility from the
+  stored column — simulate the session.**
 - ⚠️ **`claude0157` B4 is red by design when live booking geometry has no
   stepping deadline.** The follow-up is to inject a SECOND synthetic booking
   that guarantees one — but do NOT tune it to merely pass; verify B1/B2/B5 stay
@@ -397,23 +410,24 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
-> **⚠️ `src/` IS AHEAD OF THE VM — the master/seat fix is committed but NOT
-> DEPLOYED.** Confirm with
-> `git diff --stat 161310e..HEAD -- src/ ':!src/**/*.test.js'` (non-empty =
-> deploy owed; `skills/deploy-vm.md`, needs VPN). Ask about `src/` ALONE: adding
-> `supabase/` lists the 0166 migration, whose header comment was corrected after
-> it was already applied, and an applied migration cannot make a bundle stale.
-> Migrations through **0166** (none added); **1200 tests green**; **21 of 22
-> proofs green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see
-> below), not a regression.
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
+> nothing is owed. Local == origin == **VM = `033d041`**; confirm with
+> `git diff --stat 033d041..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
+> served bundle is current. (Ask about `src/` ALONE: adding `supabase/` lists
+> the 0166 migration, whose header comment was corrected after it was already
+> applied, and an applied migration cannot make a bundle stale.)
+> Migrations through **0166** (none added since); **1206 tests green**;
+> **21 of 22 proofs green** — the one red is `claude0157` B4 and it is
+> ENVIRONMENTAL (see below), not a regression.
 >
-> ⚠️ **`.claude/rules/mistakes.md` is at 29999 / 30000 bytes.** The next entry
-> CANNOT be added without compressing first, and the budget counts UTF-8 BYTES
-> (Thai is 3 bytes/char), not characters — `len(s)` reads ~28.4k and lies. The
-> 2026-08-18 pass already compressed classes 1–7 to buy ~700 bytes. The next one
-> should move a whole class's examples into `docs/mistakes/` rather than shaving
-> words; several class sentences now merely restate an indexed entry.
+> ⚠️ **`.claude/rules/mistakes.md` is at 29999 / 30000 and the budget counts
+> UTF-8 BYTES.** The next entry CANNOT be added without compressing first. Thai
+> is 3 bytes/char, so trimming English words frees far less than it looks — the
+> 2026-08-18 pass shaved ~15 lines of prose to buy ~700 bytes. `tools/
+> check-context-budget.mjs` now SAYS "bytes" (it said "chars" until that session
+> misled itself for twenty minutes). The next pass should move a whole class's
+> examples into `docs/mistakes/` rather than shaving words; several class
+> sentences now merely restate an entry the index already carries.
 >
 > ### What the 2026-08-18 (late) session was — `master` and the หนังสือโครงการ seat
 >
@@ -570,32 +584,14 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   computed as superuser. **A comparison against a deleted subject fails
 >   silently in the PASS direction.**
 >
-> ### What the 2026-08-17 session was — FOUR things, all deployed
+> ### What the 2026-08-17 session was
 >
-> Detail is in `docs/state-archive/2026-08-17-scrutinize-master-purge.md`; only
-> the still-live rules were kept at the top of this file. In order of
-> consequence:
->
-> 1. **SECURITY: 15 shared password accounts DELETED** (archived). Their
->    `samo69*`/`1234` passwords were in the PUBLIC repo and opened
->    live dev/vp_admin sessions. Data was reassigned to real people FIRST
->    (พรู/พู่กัน/สายป่าน/เอ๋ย/ปัน), then the accounts deleted. Repo creds scrubbed.
->    **`samomdkkudev` password was rotated + all its sessions revoked.** KEPT:
->    samomdkkudev, sastaff, saprof, claude-reporter. **sastaff + saprof were
->    then DELETED too on 2026-08-18 — see "What the 2026-08-18 DAYTIME session
->    was" above.**
-> 2. **master ≠ dev role — two frontend gates fixed** (archived).
->    A master holder is `role='user'`, so `role === 'dev'` gates skipped them.
->    Fixed the PR/VS skip-notify toggle + `isVsSuper()` to honour `holdsMaster()`.
->    Owner's decision: the ~28 `role === 'dev'` gates in `src/js/projects/*` are
->    LEFT as-is (driven by the seat picker). ⚠️ If more "master lost X" reports
->    come in, the fix is `holdsMaster()` next to the `role === 'dev'` check — but
->    NOT in projects.
-> 3. **จองโควตา Claude /scrutinize** (archived): migration 0164
->    (a PAST week is never "still running"), the silent-toggle staleness fix, and
->    TWO ข้อตกลง usage tips (Sonnet/Haiku for light work; /clear before a break).
-> 4. **ร้านค้า "0 รายการ" is NOT a bug** — 3 test products, all hidden by a human
->    on 08-16. No product was ever deleted; the purge cannot delete products.
+> **Pruned 2026-08-18** — the narrative is in full at
+> `docs/state-archive/2026-08-17-scrutinize-master-purge.md`, and the still-live
+> rules are in the `## 2026-08-17 — archived` section near the top of this file.
+> One correction that outlived it: that session concluded the projects module
+> did not need the master fold "because it is seat-driven". It was, and the
+> seat was being erased — see the 2026-08-18 (late) block above.
 >
 > ⚠️ **The account purges ROTTED four proof subjects across two sessions.**
 > 2026-08-17: `proj0092` named the deleted `samomdkkuvpa`; `team0135`'s
