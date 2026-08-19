@@ -1857,7 +1857,10 @@ function resetMasterState(grid, seatSel) {
   // which also outlives the row. Left set, opening a master person and then an
   // ordinary one would let syncMasterSeatDefault clear the second person's real
   // seat as if the form had invented it.
-  if (seatSel) delete seatSel.dataset.masterAuto;
+  if (seatSel) {
+    delete seatSel.dataset.masterAuto;
+    delete seatSel.dataset.userSet;
+  }
 }
 
 /** Ask before handing over everything. Resolves false if the admin backs out,
@@ -2017,15 +2020,27 @@ const MASTER_DEFAULT_SEAT = 'vpa';
 function syncMasterSeatDefault(grid, sel, hint) {
   const on = masterOn(grid);
   if (sel) {
-    if (on && !sel.value) {
+    // `userSet` is the guard that makes "— เลือกบทบาท —" selectable at all.
+    // Without it the fill condition is just `on && !sel.value`, so clearing the
+    // seat re-filled it on the very next sync and the empty option could not be
+    // chosen while master was on. Shipped that way and caught by tracing it.
+    if (on && !sel.value && !sel.dataset.userSet) {
       sel.value = MASTER_DEFAULT_SEAT;
       // Mark it ours only if the value actually TOOK. Assigning a value with no
-      // matching <option> silently leaves the select empty, and the hint below
-      // would then claim "ตั้งเป็นผู้ส่งหนังสือให้แล้ว" over a blank control.
+      // matching <option> silently leaves the select empty, and the hint would
+      // then claim "ตั้งเป็นผู้ส่งหนังสือให้แล้ว" over a blank control.
       if (sel.value) sel.dataset.masterAuto = '1';
     } else if (!on && sel.dataset.masterAuto) { sel.value = ''; delete sel.dataset.masterAuto; }
   }
   hint?.classList.toggle('d-none', !on);
+}
+
+/** Any human touch on a seat select — including choosing the EMPTY option —
+ *  makes the value theirs. Must run before the sync that would refill it. */
+function markSeatUserSet(sel) {
+  if (!sel) return;
+  sel.dataset.userSet = '1';
+  delete sel.dataset.masterAuto;
 }
 
 /**
@@ -2198,7 +2213,16 @@ function wirePermModal() {
     // which hides itself at a head-count of 0 — that is exactly how a ตำแหน่ง
     // under master ended up with an unexplained empty dropdown.
     syncMasterNote(grid, $('teamPermMasterNote'), $('teamPermSeatMasterHint'));
-    // No syncMasterSeatDefault here on purpose — a ตำแหน่ง seat fans out.
+    // A ตำแหน่ง auto-fills TOO, since 2026-08-19. It deliberately did not, on
+    // the grounds that a node seat fans out to the subtree and would sign ~57
+    // people up for notifications. Re-measured on the owner's challenge, and
+    // that cost was wrong: `notifyVpAdmin` fires ONE Discord message to ONE
+    // channel OUTSIDE the recipient loop, and email goes to a fixed address in
+    // settings — so extra recipients add neither. What they add is background
+    // `project_notifications` rows and a bell badge. Against that: `master`
+    // exists so the dev team can TEST every workflow, and a master holder who
+    // silently misses the notification half cannot. Owner's call, and correct.
+    syncMasterSeatDefault(grid, $('teamPermSeat'), null);
     refreshSeatFanout($('teamPermNodeId').value, $('teamPermSeatFanout'));
   };
   grid?.addEventListener('change', async (e) => {
@@ -2210,6 +2234,7 @@ function wirePermModal() {
       syncPermGrid();
     }
   });
+  $('teamPermSeat')?.addEventListener('change', (e) => { markSeatUserSet(e.target); syncPermGrid(); });
   $('teamPermPassDept')?.addEventListener('change', () =>
     fillPassSubSelect($('teamPermPassSub'), $('teamPermPassDept').value));
   $('teamPermForm')?.addEventListener('submit', onPermSubmit);
@@ -2267,6 +2292,7 @@ function fillNodePermPane(id) {
   syncSeatVisibility($('teamPermGrid'), $('teamPermSeatWrap'));
   syncPassVisibility($('teamPermGrid'), $('teamPermPassWrap'));
   syncMasterNote($('teamPermGrid'), $('teamPermMasterNote'), $('teamPermSeatMasterHint'));
+  syncMasterSeatDefault($('teamPermGrid'), $('teamPermSeat'), null);
   refreshSeatFanout(id, $('teamPermSeatFanout'));
   refreshPermInherited();
 }
@@ -3011,9 +3037,9 @@ function wireMemberPermModal() {
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermSeat')?.addEventListener('change', (e) => {
     // A human touched it, so the value is theirs now and must survive master
-    // being turned off again. Clearing the mark BEFORE the refresh matters:
+    // being turned off again. Marking BEFORE the refresh matters:
     // syncMasterSeatDefault runs inside it and would otherwise still see ours.
-    delete e.target.dataset.masterAuto;
+    markSeatUserSet(e.target);
     refreshMemberPermEff();
   });
   $('teamMPermInherit')?.addEventListener('change', refreshMemberPermEff);

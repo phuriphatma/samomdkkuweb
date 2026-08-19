@@ -189,10 +189,14 @@ describe('the two SCOPE pickers are hidden under master, the seat is not', () =>
     expect(fn.slice(0, 260)).not.toContain('masterOn');
   });
 
-  it('only the บุคคล editor pre-fills the seat; a ตำแหน่ง fans out instead', () => {
-    // Measured on the live tree: auto-filling every master-bearing ตำแหน่ง
-    // would have handed `vpa` to 57 more people, each then on
-    // list_project_seat_users('vpa') — notified on every หนังสือ update.
+  it('BOTH editors pre-fill the seat under master — changed 2026-08-19', () => {
+    // This assertion used to say the OPPOSITE, and going red is it working.
+    // The original reasoning was that a ตำแหน่ง seat fans out and would sign
+    // ~57 people up for notifications. Re-measured on the owner's challenge:
+    // notifyVpAdmin fires ONE Discord message to ONE channel OUTSIDE the
+    // recipient loop, and email goes to a fixed settings address — so extra
+    // recipients add neither. `master` exists so the dev team can TEST every
+    // workflow, which a silently-unnotified master holder cannot.
     const memberFn = SRC.slice(SRC.indexOf('function refreshMemberPermEff'));
     expect(memberFn.slice(0, memberFn.indexOf('\n}'))).toContain("syncMasterSeatDefault($('teamMPermGrid')");
     // Slice the arrow body to its closing `};` rather than a fixed window — a
@@ -200,8 +204,26 @@ describe('the two SCOPE pickers are hidden under master, the seat is not', () =>
     // assertion already failed once for exactly that reason when a comment grew.
     const nodeSync = SRC.slice(SRC.indexOf('const syncPermGrid = ()'));
     const body = nodeSync.slice(0, nodeSync.indexOf('\n  };'));
-    expect(body).not.toContain('syncMasterSeatDefault');
+    expect(body).toContain("syncMasterSeatDefault(grid, $('teamPermSeat')");
+    // The head-count note stays: the seat still applies to the whole subtree,
+    // and that is worth saying even when the fill is automatic.
     expect(body).toContain('refreshSeatFanout');
+  });
+
+  it('the EMPTY option is selectable — clearing must not be re-filled', () => {
+    // Shipped broken on 2026-08-18: the fill condition was `on && !sel.value`,
+    // so choosing "— เลือกบทบาท —" was undone by the very next sync and the
+    // seat could not be cleared at all while master was on.
+    expect(SRC).toMatch(/if \(on && !sel\.value && !sel\.dataset\.userSet\)/);
+    // Every human touch must set the flag, on BOTH editors…
+    expect(SRC).toMatch(/function markSeatUserSet\(sel\)[\s\S]{0,200}dataset\.userSet = '1'/);
+    expect(SRC).toContain("$('teamPermSeat')?.addEventListener('change'");
+    expect(SRC).toContain("$('teamMPermSeat')?.addEventListener('change'");
+    const listeners = SRC.split('\n').filter((l) => l.includes("Seat')?.addEventListener('change'"));
+    expect(listeners).toHaveLength(2);
+    // …and it must be cleared between rows, or row B inherits row A's answer.
+    const reset = SRC.slice(SRC.indexOf('function resetMasterState'));
+    expect(reset.slice(0, reset.indexOf('\n}'))).toContain('delete seatSel.dataset.userSet');
   });
 
   it('the auto-filled value is marked so turning master off removes it again', () => {
@@ -451,7 +473,7 @@ describe('the ตำแหน่ง editor explains why its seat is NOT auto-fil
     const block = HTML.slice(HTML.indexOf('id="teamPermSeatMasterHint"'));
     const hint = block.slice(0, block.indexOf('</div>'));
     expect(hint).toContain('ไม่ได้รับแจ้งเตือน');
-    expect(hint).toContain('แก้ไขสมาชิก');
+    expect(hint).toContain('เลือกบทบาท');
     // No table names, no permission keys, no migration numbers in user copy.
     expect(hint).not.toMatch(/project_seat|managed_|team_nodes|vpa|master\b/);
   });
