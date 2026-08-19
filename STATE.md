@@ -22,6 +22,7 @@ hold. Take the OLDEST such block each time, never the invariants.
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
 Reasoning lives in `docs/state-archive/` — newest first:
+`2026-08-18-daytime.md` (ปีงบ default + the sastaff/saprof purge) ·
 `2026-08-18-claude-quota-deep-dive.md` + `2026-08-16-claude-quota-booking.md`
 (**read one before touching `/admin#claude`**) ·
 `2026-08-17-scrutinize-master-purge.md` (the 15-account purge, master ≠ dev,
@@ -444,17 +445,31 @@ is derived greedily in START order.
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
 at 30, polled every 60 s per open tab. Fine at real scale.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-18)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-19)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
-> nothing is owed. Local == origin == **VM = `033d041`**; confirm with
-> `git diff --stat 033d041..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
-> served bundle is current. (Ask about `src/` ALONE: adding `supabase/` lists
-> the 0166 migration, whose header comment was corrected after it was already
-> applied, and an applied migration cannot make a bundle stale.)
-> Migrations through **0166** (none added since); **1206 tests green**;
-> **21 of 22 proofs green** — the one red is `claude0157` B4 and it is
-> ENVIRONMENTAL (see below), not a regression.
+> no deploy is owed. **VM = `7dbc153`**; local == origin == `6ff839e`, which is
+> TWO DOCS-ONLY commits ahead — confirm with
+> `git diff --stat 7dbc153..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
+> served bundle is current, and it IS empty. (Ask about `src/` ALONE: adding
+> `supabase/` lists the 0166 migration, whose header comment was corrected after
+> it was already applied, and an applied migration cannot make a bundle stale.)
+> Migrations through **0166** (none added since); **1217 tests green**.
+>
+> ⚠️ **20 of 22 proofs green, and the two reds are NOT what this file used to
+> say.** It claimed one red (`claude0157` B4, environmental). Measured
+> 2026-08-19 03:12 UTC: `claude0157` AND `claude0161` both **ERROR**, not fail —
+> `HTTP 400 … 23502: null value in column "starts_at"`. Cause: each searches
+> LIVE booking geometry for a 5-hour candidate slot, and the run happened
+> 5h48m before the weekly reset (`claude_week_start()` = 08-12 09:00 UTC,
+> week_end = **08-19 09:00 UTC**) with **0 active bookings**, so the search
+> returned NULL and the insert hit a NOT NULL constraint. **They should go green
+> on their own after the reset.** Nothing in this session touched SQL or the
+> Claude module, so this is not a regression — but it IS the documented
+> "a proof that ERRORS is not a proof that fails" class, now on TWO proofs.
+> **The owed fix (still not done): make both scenarios self-contained with a
+> synthetic booking instead of searching live geometry — and do NOT tune them
+> to merely pass.**
 >
 > ⚠️ **`.claude/rules/mistakes.md` is at 29999 / 30000 and the budget counts
 > UTF-8 BYTES.** The next entry CANNOT be added without compressing first. Thai
@@ -465,48 +480,70 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > examples into `docs/mistakes/` rather than shaving words; several class
 > sentences now merely restate an entry the index already carries.
 >
-> ### What the 2026-08-18 (late) session was — `master` and the หนังสือโครงการ seat
+> ### 2026-08-18 → 08-19 — `master` and the หนังสือโครงการ seat (ONE thread)
 >
 > **REPORTED**: "when i select permission as master, i cant select sub of the
 > หนังสือโครงการ as ผู้ส่งหนังสือ … so my friend has to tick manually like 7
-> tickcheckbox." Full write-up in `docs/mistakes/authz-grants.md`. What matters
-> going forward:
+> tickcheckbox." Full write-up in `docs/mistakes/authz-grants.md`. Shipped over
+> five commits and **reversed once**; this block is the CURRENT state.
 >
 > - **`master` erased the seat, and the seat is an IDENTITY, not a scope.**
 >   VS แผนก and Passport ฝ่าย have a widest value and master IS it — correctly
 >   nulled. `vpa`/`staff`/`prof` are three DESKS in one transaction; "all three"
 >   is not a desk, so nulling meant NOBODY. **Do not "simplify" this back into
 >   one rule** — `readPermInputs` treats the three sub-controls differently on
->   purpose, and `master-seat.test.js` will go red if you don't.
-> - **Measured on the live DB before the fix: 41 masters, 36 with no seat and no
->   role.** All 36 opened หนังสือโครงการ onto a blank pane; the 5 that worked had
->   inherited `vpa` from a parent ตำแหน่ง, which is why it looked intermittent.
-> - **The บุคคล editor pre-fills ผู้ส่งหนังสือ under master; a ตำแหน่ง does NOT.**
->   The owner asked for auto-fill; scoping it to people is a deliberate
->   narrowing, because a node seat inherits down the subtree and simulating it
->   showed **57 more people** would land on `list_project_seat_users('vpa')` —
->   i.e. notified on every หนังสือ update. If the owner later asks for it on
->   ตำแหน่ง too, that is one line, and 57 is the number to quote.
-> - **The stored seat is not only a screen — it is the NOTIFICATION list.**
->   `list_project_seat_users()` / `list_project_profs()` read
->   `managed_project_seats` to decide who gets notified and who can be picked as
->   the signing อาจารย์. The asymmetry the DB already encodes and the fix
->   mirrors: the CALLER-scoped `current_user_project_seats()` folds master, the
->   PUBLISHED column does not. Access is implied; a directory listing is declared.
-> - **New ratchet: `src/js/master-mirrors.test.js`.** It enumerates every SQL
->   function that special-cases `'master'` (today exactly two, reconciled against
->   the live DB) and pins each to where JS says the same thing. A THIRD name
->   appearing is not automatically a bug — it is an unanswered question. Its
->   first version over-reported `get_claude_board` by slicing "up to the next
->   function" and swallowing 0154's trailing `create policy` statements; it now
->   reads the dollar-quoted body.
+>   purpose, and `master-seat.test.js` will go red if you do.
+> - **Measured before the fix: 41 masters, 36 with no seat and no role.** All 36
+>   opened หนังสือโครงการ onto a blank pane; the 5 that worked had inherited
+>   `vpa` from a parent ตำแหน่ง, which is why it looked intermittent.
+> - ✅ **CURRENT: BOTH editors (บุคคล and ตำแหน่ง) auto-fill ผู้ส่งหนังสือ under
+>   master and STORE it.** Clearing works — any human touch on the seat select,
+>   including choosing "— เลือกบทบาท —", sets `dataset.userSet`, which blocks the
+>   refill; `resetMasterState` clears it between rows.
+> - ❌ **The one-day asymmetry (ตำแหน่ง did NOT auto-fill) was WRONG, and the
+>   reason it was wrong is the lesson.** It rested on "57 people would be
+>   notified". That number counted RECIPIENTS without checking what the recipient
+>   list drives. `notifyVpAdmin` fires ONE `queueDiscord` to ONE webhook
+>   **outside** the loop, and email goes to `settings.uni_staff_email` /
+>   `prof_email`, fixed addresses — extra recipients add **zero** of either. The
+>   loop only writes in-app rows, fire-and-forget. **Open the fan-out code and
+>   check WHICH channel actually loops before quoting a fan-out cost.**
+> - 📌 **What the stored seat buys differs BY SEAT.** `listProjectSeatUsers()` is
+>   referenced in `notify.js` and NOWHERE else — it is the notification list, and
+>   no UI renders those people as a chooser. The only pick-a-person-by-name
+>   control is `listProjectProfs()` → `renderProfPicker()` in `sign.js`. So
+>   `prof` = notifications + that dropdown; `vpa`/`staff` = notifications ONLY.
+>   (Told the owner otherwise once and had to retract it.)
+> - **The DB asymmetry the fix mirrors**: the CALLER-scoped
+>   `current_user_project_seats()` folds master; the PUBLISHED
+>   `managed_project_seats` column does not. Access is implied; a listing is
+>   declared.
+> - **New ratchet: `src/js/master-mirrors.test.js`.** Enumerates every SQL
+>   function that special-cases `'master'` (exactly two, reconciled against the
+>   live DB) and pins each to where JS says the same thing. A THIRD name is not
+>   automatically a bug — it is an unanswered question. Its first version
+>   over-reported `get_claude_board` by slicing "up to the next function" and
+>   swallowing 0154's trailing `create policy`; it now reads the $$-quoted body.
 > - **Why the 2026-08-17 sweep missed this**: it grepped `role === 'x'` gates,
 >   and `projectSeatRole` has none — it PRODUCES the role, upstream of all 28 of
 >   them. And `tools/master0111-grant.mjs` was green throughout, because it asks
 >   the DATABASE. A DB proof cannot see the frontend half of a mirrored rule.
-> - **Chips**: value-carrying first, master collapses to one chip, `หนังสือโครงการ`
->   suppressed when a seat chip already says it. Owner's constraint, honoured:
->   "i still like how current text display" — words kept, icons added beside them.
+> - **A /scrutinize pass found three more, all shipped**: the modal's "สิทธิ์รวม"
+>   preview was a THIRD hand-rolled chip builder that never learned the master
+>   rule; VS แผนก chips understated under master; `seatFanoutCount` counted
+>   members with no อีเมล (31 of 447 — no account, so no notification is
+>   possible). There is now exactly ONE line in `team/index.js` that writes a
+>   `team-perm-chip` span, asserted.
+> - **Security/robustness**: the four vocabulary maps are `Object.create(null)`.
+>   Every reader is `MAP[key] || key`, so a permission key of `constructor`
+>   returned an inherited FUNCTION that won the `||`, and `PERM_ICON` fed it
+>   unescaped into a `class` attribute. Not a privilege boundary (`permissions[]`
+>   is written by `team_edit` holders) but free to close; `permChip` also
+>   validates the icon shape at the one unescaped interpolation.
+> - **Chips**: value-carrying first, master collapses to one chip,
+>   `หนังสือโครงการ` suppressed when a seat chip already says it. Owner's
+>   constraint, honoured: "i still like how current text display" — words kept,
+>   icons added beside them. See [[keep-what-works-show-evidence]] in memory.
 >
 > ### What the earlier 2026-08-18 session was — FOUR things
 >
@@ -545,80 +582,16 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > write-up in `docs/mistakes/app-state.md`. **Before debugging a missing
 > highlight, ask the DATABASE how many rows currently QUALIFY for it.**
 >
-> ### What the 2026-08-18 DAYTIME session was — THREE things, all deployed
+> ### What the 2026-08-18 DAYTIME session was
 >
-> 1. **The LAST two shared logins are gone.** `sastaff` (role `uni_staff`) and
->    `saprof` (role `sa_prof`) were deleted by
->    `tools/purge-shared-project-accounts.mjs` after 161 + 65 rows were
->    reassigned to the named เจ้าหน้าที่คณะ (`woratho@kku.ac.th`, `staff` seat)
->    and อาจารย์ (`prakasa@kku.ac.th`, `prof` seat) who already held the seat.
->    Both had signed in with Google before, so nothing was staged for them.
->    **`public.users` now holds NO `uni_staff` and NO `sa_prof` row** — the role
->    branches survive only as the pre-seat path in the helpers. The only shared
->    password account left is `samomdkkudev`.
->    ⚠️ **`email like '%@samomdkku.app'` is NOT an audit for shared accounts** —
->    it returns **48**, and 46 of them are ordinary students who registered with
->    a username (that domain is the synthetic email every password signup gets).
->    Counting it looks alarming and means nothing. Audit by GRANT instead: add
->    `and (role <> 'user' or permissions <> '{}' or managed_permissions <> '{}'
->    or managed_project_seats <> '{}' …)` — which returns exactly two,
->    `samomdkkudev` (dev) and `claude-reporter` (holds `claude`, machine
->    account). Verified 2026-08-18.
->    ⚠️ **The role LITERALS are still all over `src/js/projects/*`** (~28
->    `role === 'dev'` / `'uni_staff'` / `'sa_prof'` branches). They still work,
->    because `projectSeatRole()` maps a seat to the role STRING before anything
->    branches. Do not "clean them up" without re-reading that function.
-> 2. **ปีงบประมาณ is now a fact you can correct** (`projects.fiscal_year_be`,
->    0165). NULL = derive from `created_at`; a number = a human moved it. The
->    ONE implementation is `src/js/projects/fiscal-year.js`, and
->    `fiscal-year.test.js` §4 is a RATCHET that greps every projects module for
->    a second one. ⚠️ It asserts the พ.ศ. offset **paired with a month
->    comparison** — a bare `/543/` flags `fmtDate`, which is correct code.
->    Who may move it is NOT a new gate: `projects_update` is already
->    `current_user_is_project_actor()` = ผู้ส่งหนังสือ + เจ้าหน้าที่คณะ.
-> 3. **Each person picks the ปีงบ their inbox opens on** (`project_user_prefs`,
->    0165): `'all' | 'current' | '<year>'`, own-row-only RLS both directions.
->    `'current'` resolves at OPEN time, so it rolls over on 1 ต.ค. by itself.
->    An ABSENT row means `'all'` — nobody's behaviour changed until they opt in.
->
-> **A /scrutinize pass on the same session's work found four defects (`2f35068`)
-> — worth reading, because three are shapes that recur here:**
-> - **The auto-move lost the viewer's filter.** The move handler follows the ปีงบ
->   filter so a project does not vanish; it followed only when a NUMBER was
->   written, and clearing an override writes NULL. Fixed by asking
->   `projectFiscalYear({ ...p, fiscal_year_be: next })` — the SAME function the
->   grid filter uses. **A "where does it end up" question answered locally will
->   drift from the filter that answers it for real.**
-> - **A half-done reset.** `applyDefaultFiscalYear` reset `defaultFYPref` on a
->   uid change but returned early for `'all'`, leaving `filterFY` on the previous
->   account's year. Unreachable only because `admin-main.js` hard-reloads on an
->   account switch. **A guard that depends on an unrelated module's reload is
->   not a guard.**
-> - **The purge script audited 10 of 23 FK columns**, and the 13 it missed
->   included three `ON DELETE CASCADE` ones. The run lost nothing (verified) but
->   could not have said so. Now read from the catalog — which immediately caught
->   `project_user_prefs.user_id`, added by 0165 the same day.
-> - Two proof assertions asserted the WRONG PROPERTY. `B5` counted overrides
->   equal to their derived year (vacuous today, red the first time someone pins
->   a project to the year its date implies, and its SQL rule used UTC months
->   where the app uses ICT). `B6` ("no trigger exists") found two that do —
->   `projects_public_flag_guard` is the column guard keeping `is_public`
->   sender-only even though `projects_update` has **no WITH CHECK**. Worth
->   knowing: a `staff`-seat actor can therefore write any other column on
->   `projects`; only `is_public` is separately guarded.
->
-> **Two guard lessons paid for in this session, both worth remembering:**
-> - `proj0165`'s first draft could not tell a working policy from no policy:
->   `projects_read_public` is `using(is_public)` and 27 of 28 projects are
->   public, so "the staff seat reads every project" was ALSO true of a user with
->   no grant. It now CREATES a hidden project inside its own transaction as the
->   discriminator. **When a probe's ALLOW and its DENY would give the same
->   answer, the subject is wrong.**
-> - `prof0095` diffed the seat against the shared `saprof` account. Deleting
->   that account would NOT have reddened it — `sub` resolves to null, both reads
->   return 0, and `0 == 0` scores as parity. It now diffs against ground truth
->   computed as superuser. **A comparison against a deleted subject fails
->   silently in the PASS direction.**
+> **Pruned 2026-08-19** — full narrative in
+> `docs/state-archive/2026-08-18-daytime.md`. The three still-live consequences:
+> the per-person ปีงบ default filter and the ย้ายปีงบ move (both deployed and
+> described under CURRENT DEPLOY), the `sastaff`/`saprof` purge (the last two
+> shared logins; both usernames stay RESERVED in `auth.js` so nobody can squat
+> them — see `.claude/rules/security.md`), and the เจ้าหน้าที่คณะ successor
+> seeing **no** file "ใหม่" highlight, which is the BASELINE rule and not a bug
+> (write-up in `docs/mistakes/app-state.md`).
 >
 > ### What the 2026-08-17 session was
 >
