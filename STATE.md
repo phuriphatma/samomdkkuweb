@@ -47,9 +47,15 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   days, so read it before changing it again:**
   **BOTH editors (บุคคล and ตำแหน่ง) auto-fill ผู้ส่งหนังสือ when Master goes
   on, and the value is STORED.** A master holder therefore gets the ผู้ส่งหนังสือ
-  screen AND the notifications AND a listing others can pick from — identical to
-  a real ผู้ส่งหนังสือ. That is the point: `master` is what the dev team holds to
-  TEST every workflow, and one who silently misses the notification half cannot.
+  screen AND the notifications — identical to a real ผู้ส่งหนังสือ. That is the
+  point: `master` is what the dev team holds to TEST every workflow, and one who
+  silently misses the notification half cannot.
+  📌 **What the stored seat buys differs BY SEAT — do not describe it loosely.**
+  `listProjectSeatUsers('vpa'|'staff'|'prof')` is referenced in `notify.js` and
+  NOWHERE else: it is the notification list, and no UI renders those people as a
+  chooser. The only pick-a-person-by-name control is `listProjectProfs()` →
+  `renderProfPicker()` in `sign.js` ("ส่งให้อาจารย์คนไหนลงนาม"). So `prof` =
+  notifications + that dropdown; `vpa`/`staff` = notifications only.
   ❌ **The "57 people would be signed up for notifications" argument that
   justified NOT auto-filling on a ตำแหน่ง was WRONG, and the mistake was
   measuring the wrong channel.** Traced in `projects/notify.js`:
