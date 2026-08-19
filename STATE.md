@@ -39,28 +39,37 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `af36088` (2026-08-19)**, VM HEAD confirmed over ssh.
-  Verified from the served `/admin/` HTML: `teamPermSeatMasterHint` = 1,
-  `ไม่ได้รับแจ้งเตือน` = 1, `VitalSound ดูแลได้ทุกแผนก` = 2; and from
-  `assets/admin-*.js`: `บทบาทที่เลือกตรงนี้` = 1, `masterAuto` = 2 (both 0 in
-  `analytics-*.js` — see the entry-point note below).
-  - `af36088` — a ตำแหน่ง under Master showed an EMPTY seat dropdown with no
-    explanation, because its only note was the fan-out head-count and that note
-    hides itself at 0. Owner reported it as "why doesnt it display autoselect".
-    Plus: `seatFanoutCount` was counting members with no อีเมล (31 of 447 — they
-    have no account, so the notification the sentence promises cannot reach
-    them), and the four vocabulary maps are now `Object.create(null)` because
-    every reader is `MAP[key] || key` and a permission key of `constructor`
-    returned an inherited FUNCTION that won the `||`.
-  ⚠️ **THE RULE THE OWNER KEEPS ASKING ABOUT, because it is genuinely subtle:**
-  master + NO stored seat gives the ผู้ส่งหนังสือ SCREEN and full RLS, but NOT
-  the notifications and NOT a listing others can pick from. That is deliberate:
-  everyone under a master ตำแหน่ง already inherits master and already sees
-  everything, so storing `vpa` there would add ONLY notifications — to 57 people
-  who are mostly ฝ่าย IT and do not work on หนังสือ. Parity for one person is
-  one click: แก้ไขสมาชิก on their name, where it IS auto-filled. **If the owner
-  ever asks for the ตำแหน่ง to auto-fill too, it is one line and 57 is the
-  number to quote.**
+- ✅ **DEPLOYED = `7dbc153` (2026-08-19)**, VM HEAD confirmed over ssh.
+  Verified from the served `/admin/` HTML: the new hint `ควรใช้งานและ` = 1 and
+  the REMOVED `ไม่ได้เลือกให้อัตโนมัติ` = **0**; `userSet` and `masterAuto` both
+  present in `assets/admin-*.js` and **0** in `analytics-*.js`.
+  ⚠️ **THE `master` + SEAT RULE, AS IT NOW STANDS — this reversed twice in two
+  days, so read it before changing it again:**
+  **BOTH editors (บุคคล and ตำแหน่ง) auto-fill ผู้ส่งหนังสือ when Master goes
+  on, and the value is STORED.** A master holder therefore gets the ผู้ส่งหนังสือ
+  screen AND the notifications AND a listing others can pick from — identical to
+  a real ผู้ส่งหนังสือ. That is the point: `master` is what the dev team holds to
+  TEST every workflow, and one who silently misses the notification half cannot.
+  ❌ **The "57 people would be signed up for notifications" argument that
+  justified NOT auto-filling on a ตำแหน่ง was WRONG, and the mistake was
+  measuring the wrong channel.** Traced in `projects/notify.js`:
+  `notifyVpAdmin` fires ONE `queueDiscord` call to ONE webhook **outside** the
+  recipient loop, and email goes to `settings.uni_staff_email` / `prof_email`,
+  fixed addresses. Extra recipients add **zero** Discord messages and **zero**
+  email. They add background `project_notifications` rows and a bell badge, on a
+  path that is fire-and-forget so no user waits. Owner's challenge — "discord
+  wouldnt ping for it bc i only have discord implement to one single channel" —
+  was correct on both halves. **Before quoting a fan-out cost again, open the
+  fan-out code and check WHICH channel actually loops.**
+  Clearing works: any human touch on the seat select (including choosing
+  "— เลือกบทบาท —") sets `dataset.userSet`, which blocks the refill. Without it
+  the condition is `on && !sel.value` and the empty option is unselectable —
+  shipped that way in `af36088` for a few hours.
+  - `af36088` — the ตำแหน่ง Master hint (its only note had been the fan-out
+    head-count, which hides at 0); `seatFanoutCount` stopped counting members
+    with no อีเมล (31 of 447); the four vocabulary maps became
+    `Object.create(null)` because every reader is `MAP[key] || key` and a
+    permission key of `constructor` returned an inherited FUNCTION.
   Previous deploy `033d041` (2026-08-18, late), for the record — two commits — the `master` / หนังสือโครงการ-seat fix and the
   /scrutinize pass over it:
   - `033d041` — the modal's "สิทธิ์รวม" preview was a THIRD hand-rolled chip
