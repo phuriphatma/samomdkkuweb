@@ -43,8 +43,8 @@ it is the part that generalises to code not yet written.
    `pointercancel`). Non-security twin: a handler guarded on state the CALLER
    sets misses every other entry point. COPY too — one claim lived in the
    sign-in caption, the signup link AND the home strip. A LABEL, a CHART and a
-   DERIVED value each claim something about every case they cover — the four
-   org-chart entries in `frontend-ui.md`.
+   DERIVED value each claim something about every case they cover (org chart,
+   `frontend-ui.md`).
 5. **A new access channel must be threaded through EVERY gate the old one used**
    — writes, reads, audience/directory lookups, definer-RPC `raise` guards and
    UI `role === 'x'` branches. The most repeated bug here
@@ -61,14 +61,14 @@ it is the part that generalises to code not yet written.
    that PRODUCES what gates read** — `projectSeatRole` has no role literal; 36 of
    41 masters got a blank หนังสือโครงการ (2026-08-18). Registry, not pattern: `master-mirrors.test.js`
 6. **Two implementations of one rule drift** — but check both callers want the
-   SAME answer: unifying the four org views on one parentage made แผนผัง a
-   52,000px staircase (two draw containment, two reporting). A change is NOT
-   verified in a view you never opened. SQL↔JS mirrors, read path vs write path,
+   SAME answer, and SHARE THE ORDER, NOT THE GEOMETRY: one parentage for both org
+   views made แผนผัง a 52,000px staircase; none left ระดับ drawn in one, ignored
+   in the other. A change is NOT verified in a view you never opened. SQL↔JS mirrors, read path vs write path,
    an export and its import, a guard and its call sites. Write the differential
    test in the same commit — "keep in step" in a comment is not a mechanism.
    Also a hand-written list beside a shared constant (main.js's admin links vs
    `ADMIN_FEATURES`, 0113). Also TWO WRITABLE TABLES holding one fact: `students`
-   and `team_members` each carried a person's identity and each editor wrote its
+   and `team_members` each carried a person's identity, each editor writing its
    own copy — fixed by `public.people` (0132–0134).
    **A bidirectional mirror needs `is distinct from` on BOTH sides — that guard
    is the TERMINATION CONDITION, not an optimisation** — comparing the value a
@@ -79,8 +79,8 @@ it is the part that generalises to code not yet written.
    — the guard reports a one-way column as settled, by construction.
    Also a DERIVED COLUMN vs the expression it came from: `cohort_year` filled
    `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the รุ่น
-   (0128) — fill-once means never-correct; same in FORMS, where `{...row,
-   student_id: typed}` keeps the stale copy (`yearBasis`, 0145). Also a rule
+   (0128) — fill-once means never-correct; same in FORMS: `{...row, student_id:
+   typed}` keeps the stale copy (`yearBasis`, 0145). Also a rule
    applied to the writers you HAPPENED to be looking at (the portrait cleanup
    missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
@@ -90,27 +90,25 @@ it is the part that generalises to code not yet written.
    หนังสือโครงการ seat — three DESKS in one transaction — so "all" meant NOBODY,
    and that column is also who gets NOTIFIED.
    **A uid in JSON is a uid**: the purge rewrote every uid COLUMN and skipped
-   `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — a
-   trade-off nobody had COSTED (0166). Put the number in the note.
+   `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — an
+   uncosted trade-off (0166). Put the number in the note.
    Ask whether an id RESOLVES, never whether it is `null` (§D4 asked `is null`).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
-   the ปีงบ move followed the filter using the value WRITTEN, and clearing an
-   override writes NULL, so the auto option made the project vanish. The null
-   branch is where a local prediction and the real filter part company first.
+   the NULL branch is where a prediction and the real filter part first (the ปีงบ
+   move, `frontend-ui.md`).
    **"ONE HOME" MEANS ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took the
    5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
-   booking chain — the rail offered 100% where the guard refused over 25% (0161).
+   booking chain — the rail offered 100% where the guard refused 25% (0161).
    Also a GUARD vs the DERIVED STATE it checks: `claude_booking_guard` checked a
    new booking against sessions derived from the OTHER rows, a greedy
    start-order derivation, so an earlier insert re-derived everyone and nothing
    re-checked them (0159). **Tell: the same rows legal or illegal depending on
    TYPING ORDER.** Re-derive WITH the candidate in it.
-   Also a SELECTOR vs the MARKUP, both directions: a descendant selector styles
-   content not written yet (`.list b` made every inline bold a heading), a child
-   combinator stops matching after a refactor. CSS fails SILENTLY — a rule that
-   stops matching looks like a feature nobody built. The instrument is the
-   COMPUTED style, never the stylesheet; for a PAINT/OVERLAP bug, the PAINTED
-   BOXES. Also TWO PASSES over one DOM property, and one listener
+   Also a SELECTOR vs the MARKUP, both ways: a descendant selector styles content
+   not written yet (`.list b` made every inline bold a heading); a child
+   combinator stops matching after a refactor. CSS fails SILENTLY — a dead rule
+   looks like a feature nobody built. The instrument is the COMPUTED style, never
+   the stylesheet; for a PAINT/OVERLAP bug, the PAINTED BOXES. Also TWO PASSES over one DOM property, and one listener
    per re-render (`docs/mistakes/frontend-ui.md`): touch only what THIS pass set,
    keep state in a variable and listeners on the nodes this paint made.
 7. **Verify from the authority, and test BOTH directions.** Read the ACL from
@@ -141,8 +139,8 @@ it is the part that generalises to code not yet written.
    wrong list passes itself.
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
-   no GRANT denies everyone and reads like the policy working (0138); a
-   deny-only probe cannot tell a working guard from a broken service.
+   no GRANT denies everyone and reads like the policy working (0138); a deny-only
+   probe cannot tell a working guard from a broken service.
    **Check the PROBE SUBJECT**, derived from the gate's own predicate:
    `current_user_has_permission()` reads the UNION of `permissions` AND
    `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
@@ -261,7 +259,7 @@ one of the seven classes gets its site added to that class above.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(74)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(75)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -336,6 +334,7 @@ one of the seven classes gets its site added to that class above.
 - "why does it show color weird" / "i still see rail weird"
 - "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
 - Adding one cell to a flex row collapsed the project name to one character per line
+- "it doesn't care about ระดับ that i config in the admin teamsamo"
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(18)*
 - "Unread" highlight inside an item vanishes the moment you open it

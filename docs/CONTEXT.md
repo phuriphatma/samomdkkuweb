@@ -673,15 +673,27 @@ stamping to a definer RPC, gate admin writes on `passport_admin_context()` — a
 per-department filtering in the passport UI is cosmetic. Do not describe this
 grant as securing passport.
 
-**TWO PARENTAGES on the public page.** รายการ and แผนผัง draw the STORED tree
-(containment); ผังองค์กร and ผังรวม draw a REPORTING tree built by
-`chartParentage()` in `src/js/org-rung.js` — a ฝ่าย's sub-ฝ่าย hang off its head
-seat, and `tier` ranks the seats. `org-chart.js` builds both indexes
-(`byParent`, `byParentChart`) and runs `indexStats()` over each. **Do not unify
-them**: applying the reporting parentage to all four views turned แผนผัง into a
-52,000 px staircase (it branches sideways once, and re-parenting leaves every
-ฝ่าย single-child). The search widens its kept set for the canvas only
-(`chartFilter`), because a canvas ancestor can be a stored sibling.
+**TWO VIEWS, TWO PARENTAGES, ONE ORDERING.** The public page offers แผนผัง (a
+page of nesting ฝ่าย panels, `org-chart.js` + `org-chart.css`) and ผังรวม (one
+d3 canvas, `org-graph.js` + `org-graph.css`). รายการ and ผังองค์กร were removed
+on 2026-08-20 — each was a near-duplicate of a survivor (same markup / same
+renderer), and a reader whose stored preference is one of them is MIGRATED
+(`RETIRED_VIEWS` in `org-chart.js`), not reset.
+
+แผนผัง draws the STORED tree (containment) and expresses ระดับ as ROWS inside a
+panel; ผังรวม draws a REPORTING tree built by `chartParentage()` in
+`src/js/org-rung.js` — a ฝ่าย's sub-ฝ่าย hang off its head seat, and `tier`
+ranks the seats by NESTING. `org-chart.js` builds both indexes (`byParent`,
+`byParentChart`) and runs `indexStats()` over each. **Do not unify the
+geometries**: applying the reporting parentage to แผนผัง turned it into a
+52,000 px staircase. **Do unify the ORDER** — both call `orderChildren()`
+(ตำแหน่ง before ฝ่าย, ระดับ ascending), and `org-rung.test.js` holds the
+differential that the seat sequence is identical either way. That differential
+is the fix for "แผนผัง doesn't show order like the ผังรวม … it doesn't care
+about ระดับ" (2026-08-20).
+
+The search widens its kept set for the canvas only (`chartFilter`), because a
+canvas ancestor can be a stored sibling.
 Full reference: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
 
 **Public org chart — projection only (migration 0086).** `team_nodes.is_public`

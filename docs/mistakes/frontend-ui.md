@@ -2845,3 +2845,80 @@ rendered with the new element hidden, measured side by side, at the NARROWEST
 supported width. Row height alone does not say whether a tall row is the new
 element or the old one being crushed, and the width where a change is safe is
 not the width where it is tested.
+
+---
+
+## "it doesn't care about ระดับ that i config in the admin teamsamo"
+
+**Symptom.** Two complaints in one message, and they turned out to have one
+cause. (1) On เกี่ยวกับเรา, แผนผัง drew a ฝ่าย's ระดับ 2 seats beside its own
+หัวหน้า and its sub-ฝ่าย beside the อุปนายก who runs them, while ผังรวม — the
+canvas view of the same data — had honoured ระดับ since 0153. (2) "i see there
+are many leftover space including the box ui ฝ่าย role etc". Measured: the
+section was **24,101px at 1440px wide and 55,273px on a 390px phone** — sixty-five
+screens — and at 390px the PAGE scrolled horizontally (395/390).
+
+**Cause.** แผนผัง read `byParent` — the STORED children, in `position` order.
+`tier` was never consulted anywhere in that renderer; the only reader of
+`tierOf()` was `chartParentage()`, which the canvas view uses. So ระดับ existed,
+the admin could set it, and exactly one of the two public surfaces drew it.
+
+The emptiness was structural, not spacing. แผนผัง was a classic top-down
+connector chart in CSS: a box, a horizontal bar, a row of child boxes. In that
+geometry siblings sit in a ROW and are TOP-ALIGNED, so a ตำแหน่ง holding one
+person standing beside a ฝ่าย holding forty leaves a column of dead pixels the
+exact height of the tall one. No padding value fixes a layout whose rows are as
+tall as their tallest cell.
+
+The tempting fix — "make แผนผัง call `chartParentage` too" — had already been
+tried and reverted (`docs/state-archive/2026-08-15-late-org-chart-reporting.md`):
+nesting is how a CANVAS states rank, and on a page nesting is vertical. Applied
+to แผนผัง it took the page from 25,847px to 52,163px and max depth from 5 to 9.
+
+**Fix.** Split the two questions the "one structure" idea had merged.
+
+*Order* is one rule: `orderChildren(kids, groupTiers)` in `org-rung.js` —
+ตำแหน่ง before ฝ่าย, seats grouped by ระดับ ascending. `chartParentage()` now
+calls it instead of building its own `byTier` map, so there is one grouping
+implementation, and `org-rung.test.js` holds the differential that the SEAT
+SEQUENCE `orderChildren` produces equals the sequence you get by walking
+`chartParentage`'s rung chain.
+
+*Geometry* is two rules, deliberately. ผังรวม keeps nesting. แผนผัง became a
+page of ฝ่าย PANELS: a titled collapsible container whose body is ONE wrapping
+band holding its ตำแหน่ง cards (rung order preserved, the leading rung tinted)
+followed by its sub-ฝ่าย as cards. Flow has no ragged-column failure mode and
+never needs a horizontal scrollbar.
+
+Four measurements drove the rest of it, in this order:
+
+| change | 1440px | 390px |
+|---|---|---|
+| the connector chart | 24,101 | 55,273 |
+| panels, `align-items: stretch` | 17,895 | — |
+| … `flex-start` + seats sized by content | 16,872 | 32,776 |
+| … portrait BESIDE the name, root ฝ่าย open only | **3,989** | **8,144** |
+
+`align-items: stretch` was the single worst line: it made every tile on a line
+as tall as the tallest, so a one-person ตำแหน่ง sharing a line with a
+forty-person ฝ่าย became a 900px empty bordered column — the old dead space,
+redrawn with a border round it.
+
+**Where it lives now.** `orderChildren()` in `src/js/org-rung.js`;
+`unitBlock()` / `seatBlock()` / `childrenHtml()` in `src/js/org-chart.js`; the
+แผนผัง block in `src/css/org-chart.css`. Guard: `org-rung.test.js` §"แผนผัง and
+ผังรวม order one ฝ่าย identically" — falsified by reversing the rung sort (8
+assertions red) and by ignoring `groupTiers` (1 red).
+
+**The general rule.** **When two views of one dataset must agree, separate the
+ORDER from the GEOMETRY and share only the order.** Sharing the geometry is the
+mistake this repo made in both directions: once by giving both views the
+canvas's parentage (a 52,000px staircase), once by leaving them with no shared
+rule at all (ระดับ drawn in one view and ignored in the other). The order is a
+pure function over the data and belongs in one module with a differential test;
+the geometry is what each surface is FOR.
+
+And: **a layout whose rows are as tall as their tallest cell cannot be made
+dense by tuning spacing.** Whitespace complaints on a connector tree are a
+report about the geometry. The instrument is the section's own scrollHeight at
+three widths, before and after — not a screenshot of the part that looks wrong.

@@ -1,9 +1,8 @@
 // org-face.js — the ONE way a person's face is drawn on the ทีม SAMO page.
 //
-// Extracted because there are now THREE surfaces over the same dataset
-// (รายการ, แผนผัง, and the two d3 charts) and the first two shared this code
-// only by sitting in
-// the same file. `.claude/rules/mistakes.md` class 6 is "two implementations of
+// Extracted because there are TWO surfaces over the same dataset — แผนผัง (the
+// page) and ผังรวม (the d3 canvas) — and they shared this code only by sitting
+// in the same file. `.claude/rules/mistakes.md` class 6 is "two implementations of
 // one rule drift"; a second copy of the srcset/initials logic in org-graph.js
 // would have been exactly that, and the drift would have been silent — a wrong
 // `sizes` hint just downloads the wrong file.
@@ -29,21 +28,32 @@ export function initials(name) {
 
 // The shapes a face appears in, and the exact widths lh3 is asked for.
 //
-// This split is the whole point of the srcset: a รายการ portrait renders at up
-// to 130 CSS px and a chart-card portrait at 44, so handing the small one the
-// big file would waste bytes across 400 people. Widths cover 1x through 3x; the
-// browser downloads exactly one per image using the `sizes` hint.
+// This split is the whole point of the srcset: a แผนผัง portrait renders at 52
+// CSS px and a ผังรวม card portrait at 44 under up to 3× zoom, so handing the
+// small one the big file would waste bytes across 448 people. Widths cover 1×
+// through 3×; the browser downloads exactly one per image using `sizes`.
 
-/** รายการ / แผนผัง — same portrait card as the board grid, smaller. The tree
- *  uses ONE visual language with the grid — portrait over name over ตำแหน่ง —
- *  rather than a separate avatar treatment, so a person looks like the same kind
- *  of object wherever they appear. */
+/**
+ * แผนผัง — the page. A 52px-wide 3:4 portrait with the name BESIDE it, not
+ * under it.
+ *
+ * The widths shrank from [130, 200, 260, 390] when the layout did. The portrait
+ * used to sit above its name in a ~130px column; it now sits beside the name in
+ * a row, because a column of portrait-over-name leaves the width of the name
+ * empty next to every one-person ตำแหน่ง — and one-person ตำแหน่ง are most of
+ * this page. `sizes: '52px'` with candidates at 1×/2×/3× is the whole ask: 448
+ * portraits at 260px each was ~5× the pixels any of them are drawn at.
+ *
+ * If the CSS width of `.orgc-person .org-face` changes, these change with it —
+ * an over-large `sizes` only wastes bytes, but an under-large one is visibly
+ * soft on a retina screen.
+ */
 export const TREE_SHAPE = {
   cls: 'org-face',
   ratio: PORTRAIT_RATIO,
-  widths: [130, 200, 260, 390],
-  sizes: '(max-width: 560px) 28vw, 130px',
-  base: 260,
+  widths: [52, 104, 156],
+  sizes: '52px',
+  base: 104,
 };
 
 /**

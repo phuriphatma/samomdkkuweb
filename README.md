@@ -65,12 +65,12 @@ triggered over ssh (needs the KKU VPN).
   never appear on the board.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
-  sits in. Four interchangeable views over the one dataset: **รายการ** (an
-  indented outline), **แผนผัง** (a CSS chart), and two real top-down charts on a
-  zoom/pan canvas drawn by `d3-org-chart` — **ผังองค์กร** (one chart per ฝ่าย)
-  and **ผังรวม** (the whole organisation in a single chart under a synthetic
-  root). The two canvas views read the structure as a REPORTING chart: a ฝ่าย's
-  sub-ฝ่าย hang off its head ตำแหน่ง rather than sitting beside it. Both carry
+  sits in. TWO views over the one dataset: **แผนผัง**, a page of ฝ่าย panels that
+  reflow at any width (each ฝ่าย opens with the ตำแหน่ง it holds, grouped by
+  ระดับ, and its sub-ฝ่าย as cards you tap to open), and **ผังรวม**, the whole
+  organisation as one real top-down chart on a zoom/pan canvas drawn by
+  `d3-org-chart`. The canvas reads the structure as a REPORTING chart: a ฝ่าย's
+  sub-ฝ่าย hang off its head ตำแหน่ง rather than sitting beside it. It carries
   per-ตำแหน่ง expand, a **แสดงถึง** selector whose rungs are ฝ่ายหลัก / ฝ่ายย่อย
   / ตำแหน่ง / ทั้งหมด (a kind, not a depth — this org's branches are not the
   same shape), and a full-screen toggle (a CSS overlay, not the Fullscreen API,
@@ -193,7 +193,7 @@ triggered over ssh (needs the KKU VPN).
 ## Tech stack
 
 - **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill (rich text)
-  + d3-org-chart (the ผังองค์กร view, lazy-loaded)
+  + d3-org-chart (the ผังรวม view, lazy-loaded)
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
 - **Discord**: Cloudflare Pages Function `/notify` (`functions/notify.js`),

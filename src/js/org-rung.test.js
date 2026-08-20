@@ -24,6 +24,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   RUNG, applyRung, sortSiblings, chartParentage, subtreeMeta, tierOf,
+  orderChildren,
 } from './org-rung.js';
 
 // The live shape, in miniature — ฝ่ายดิจิทัล as it actually is on
@@ -131,7 +132,7 @@ describe('nothing is ever left orphaned', () => {
   });
 
   it('the chart root survives a rung its own kind would fail', () => {
-    // ผังองค์กร draws one chart per root ฝ่าย. If a root were ever stored as a
+    // A root ฝ่าย heads its own branch. If one were ever stored as a
     // ตำแหน่ง, the ฝ่าย rungs would hide it and the section would render empty —
     // which looks exactly like a broken chart, not like a filter.
     const data = [
@@ -428,5 +429,126 @@ describe('ระดับ — rank inside a ฝ่าย, without nesting', () =
     const out = chartParentage(flat(), nodeById);
     const placed = [...out.values()].flat().map((n) => n.id).sort();
     expect(placed).toEqual(['head', 'it', 'mem', 'sec']);
+  });
+});
+
+
+// ==============================================
+// THE TWO VIEWS MUST ORDER A ฝ่าย THE SAME WAY.
+//
+// REPORTED: "แผนผัง doesn't show order like the ผังรวม — it doesn't order in
+// the ฝ่าย from role, then ฝ่าย, it doesn't care about ระดับ that i config in
+// the admin teamsamo."
+//
+// It didn't. แผนผัง read the STORED children in `position` order, so ระดับ 2
+// seats drew beside their own head and sub-ฝ่าย drew beside the อุปนายก who
+// runs them, while ผังรวม (through `chartParentage`) had honoured ระดับ since
+// 0153.
+//
+// The fix is not "make แผนผัง call chartParentage" — nesting is how a CANVAS
+// says rank, and on a page it just costs depth: applied to แผนผัง once, it took
+// the page from 25,847px to 52,163px and max depth from 5 to 9. So the two draw
+// ONE ordering in TWO geometries — rows in a panel, ranks on a canvas — and that
+// is exactly the `.claude/rules/mistakes.md` class-6 shape ("two implementations
+// of one rule drift"), with the drift invisible because both would still render
+// something plausible.
+//
+// This is the differential. `orderChildren` is what แผนผัง lays out; walking
+// `chartParentage`'s rung chain is what ผังรวม draws. The SEQUENCE OF SEATS must
+// be the same list, and the sub-ฝ่าย must come after every seat in both.
+//
+// TO CHECK THIS GUARD ACTUALLY GUARDS: in org-rung.js drop the `.sort((a, b) =>
+// a - b)` from orderChildren's rung keys, or make it group by `position`
+// instead of `tierOf`. Either turns one of the assertions below red. Then put
+// it back.
+// ==============================================
+describe('แผนผัง and ผังรวม order one ฝ่าย identically', () => {
+  /** The seat order ผังรวม DRAWS: rung 1 are the ฝ่าย's own children, each
+   *  deeper rung hangs off the first seat of the rung above. Reading it back out
+   *  of the parentage map is the only honest way to compare — it is what the
+   *  renderer walks. */
+  const canvasSeatOrder = (out, unitId) => {
+    const seq = [];
+    let bucket = (out.get(unitId) || []).filter((n) => n.kind === 'role');
+    const guard = new Set();
+    while (bucket.length && !guard.has(bucket[0].id)) {
+      guard.add(bucket[0].id);
+      seq.push(...bucket.map((n) => n.id));
+      bucket = (out.get(bucket[0].id) || []).filter((n) => n.kind === 'role');
+    }
+    return seq;
+  };
+  const pageSeatOrder = (kids) => orderChildren(kids).rungs
+    .flatMap(([, list]) => list.map((n) => n.id));
+
+  // ฝ่ายดิจิทัล's real shape plus a ระดับ 2 rung: two heads on rung 1, a
+  // สมาชิก bucket on rung 2, and two sub-ฝ่าย.
+  const U = { id: 'u', kind: 'division', name: 'ฝ่ายดิจิทัล' };
+  const KIDS = [
+    { id: 'vp', kind: 'role', name: 'อุปนายกฝ่ายดิจิทัล' },
+    { id: 'sec', kind: 'role', name: 'เลขาฯ' },
+    { id: 'mem', kind: 'role', name: 'สมาชิก', tier: 2 },
+    { id: 'deep', kind: 'role', name: 'ผู้ช่วยสมาชิก', tier: 3 },
+    { id: 'pr', kind: 'division', name: 'ฝ่าย PR' },
+    { id: 'it', kind: 'division', name: 'ฝ่าย IT' },
+  ];
+  const byId = new Map([[U.id, U], ...KIDS.map((n) => [n.id, n])]);
+  const parents = () => new Map([['', [U]], ['u', KIDS.map((n) => ({ ...n }))]]);
+
+  it('the SEAT SEQUENCE is the same list in both', () => {
+    const page = pageSeatOrder(parents().get('u'));
+    const canvas = canvasSeatOrder(chartParentage(parents(), byId), 'u');
+    expect(page).toEqual(['vp', 'sec', 'mem', 'deep']);
+    expect(canvas).toEqual(page);
+  });
+
+  it('ตำแหน่ง come before ฝ่าย in both', () => {
+    const { rungs, units } = orderChildren(parents().get('u'));
+    expect(units.map((n) => n.id)).toEqual(['pr', 'it']);
+    // Nothing in `units` may appear among the rungs, and vice versa.
+    const seatIds = new Set(rungs.flatMap(([, l]) => l.map((n) => n.id)));
+    expect(units.some((n) => seatIds.has(n.id))).toBe(false);
+
+    // On the canvas the ฝ่าย hang off the head of the top rung, i.e. AFTER every
+    // seat on that rung — the same statement in the other geometry.
+    const out = chartParentage(parents(), byId);
+    expect(out.get('u').map((n) => n.id)).toEqual(['vp', 'sec']);
+    expect(out.get('vp').map((n) => n.id)).toEqual(['mem', 'pr', 'it']);
+  });
+
+  it('a GAP in ระดับ closes the same way in both', () => {
+    const kids = [
+      { id: 'h', kind: 'role', name: 'หัวหน้า' },
+      { id: 'd', kind: 'role', name: 'ลึก', tier: 3 },
+    ];
+    const F = { id: 'f', kind: 'division', name: 'ฝ่าย' };
+    const map = new Map([['', [F]], ['f', kids.map((n) => ({ ...n }))]]);
+    const ids2 = new Map([[F.id, F], ...kids.map((n) => [n.id, n])]);
+    expect(pageSeatOrder(kids)).toEqual(['h', 'd']);
+    expect(canvasSeatOrder(chartParentage(map, ids2), 'f')).toEqual(['h', 'd']);
+  });
+
+  it('a ตำแหน่ง parent groups NO rungs — the same test chartParentage makes', () => {
+    // Seats under a ตำแหน่ง are that ตำแหน่ง's own sub-seats, not rungs of a
+    // ฝ่าย. Ranking them against each other would invent a hierarchy nobody
+    // stored, so แผนผัง passes `false` exactly where chartParentage `continue`s.
+    const kids = [
+      { id: 'a', kind: 'role', name: 'ก', tier: 2 },
+      { id: 'b', kind: 'role', name: 'ข' },
+    ];
+    const { rungs } = orderChildren(kids, false);
+    expect(rungs).toHaveLength(1);
+    expect(rungs[0][1].map((n) => n.id)).toEqual(['a', 'b']);
+  });
+
+  it('the ORDER WITHIN a rung is position order, not id order', () => {
+    // `position` arrives as array order and the grouping must preserve it —
+    // that is what keeps "the first seat is the head" true, which both the
+    // canvas parentage and แผนผัง's leading card depend on.
+    const kids = [
+      { id: 'zz', kind: 'role', name: 'หัวหน้า' },
+      { id: 'aa', kind: 'role', name: 'รองหัวหน้า' },
+    ];
+    expect(pageSeatOrder(kids)).toEqual(['zz', 'aa']);
   });
 });

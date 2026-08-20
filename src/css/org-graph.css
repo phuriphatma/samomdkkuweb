@@ -1,15 +1,13 @@
-/* org-graph.css — ผังองค์กร AND ผังรวม, the two d3-org-chart surfaces on the
- * เกี่ยวกับเรา page. Both use this same card and chrome; they differ only in how
- * org-graph.js groups the data.
+/* org-graph.css — ผังรวม, the d3-org-chart surface on the เกี่ยวกับเรา page.
  *
  * The library draws the SVG, the connectors and the transforms; everything
  * visible inside a box is ours, rendered into a foreignObject. So this file
  * styles two things and nothing else: the card, and the chrome around the
  * canvas (toolbar, scroller, expand button).
  *
- * PALETTE is the same one the other two views use — the ten --dept-* identities
- * via --org-tint, green --brand-primary, Prompt for display. A ฝ่าย must look
- * like the same ฝ่าย whichever view you are in.
+ * PALETTE is the same one แผนผัง uses — the ten --dept-* identities via
+ * --org-tint, green --brand-primary, Prompt for display. A ฝ่าย must look like
+ * the same ฝ่าย in either view.
  *
  * LIGHT-ONLY, like the rest of the app. No prefers-color-scheme block here: the
  * one component that has one goes dark alone on a dark-mode OS while the rest of
@@ -303,7 +301,7 @@ body.orgg-full-open { overflow: hidden; }
  *
  * So: no `position` here at all. The photo and the initials are stacked with
  * GRID — same cell, both in flow. Scoped to this view because it is the only one
- * that lives inside an SVG; รายการ is ordinary HTML and keeps the original.
+ * that lives inside an SVG; แผนผัง is ordinary HTML and keeps the original.
  */
 .orgg-person .org-face {
   width: 44px;

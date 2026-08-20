@@ -1,9 +1,10 @@
 // org-chart.js — the public ทีม SAMO page.
 //
-// FOUR surfaces over one dataset — every ตำแหน่ง and person, searchable:
-//   • รายการ / แผนผัง — one renderer, one markup; only the CSS differs.
-//   • ผังองค์กร / ผังรวม — d3-org-chart on a zoom/pan canvas (org-graph.js).
-// The full note on which is which, and why, is at the `VIEWS` constant below.
+// TWO surfaces over one dataset — every ตำแหน่ง and person, searchable:
+//   • แผนผัง  — the PAGE. ฝ่าย panels that reflow at any width (this file).
+//   • ผังรวม  — the CANVAS. One d3 chart over the whole org (org-graph.js).
+// The full note on which is which, and why the other two were removed, is at
+// the `VIEWS` constant below.
 //
 // Data comes from ONE rpc: public.get_public_team_chart(year). That function is
 // the only sanctioned publisher of team data (0086 → 0103 → 0104) — a SECURITY
@@ -26,7 +27,7 @@ import {
   toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
 } from './org-graph.js';
 import {
-  RUNG, DEFAULT_RUNG, chartParentage, sortSiblings, subtreeMeta,
+  RUNG, chartParentage, sortSiblings, subtreeMeta, orderChildren,
 } from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
@@ -43,24 +44,26 @@ let byNode = new Map();   // node_id -> member[]
 let nodeById = new Map();
 let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
 let collapsibleIds = new Set();
+let depthById = new Map(); // node_id -> depth in the STORED tree (roots are 0)
 
-// ── TWO PARENTAGES, and which view gets which ───────────────────────────────
+// ── TWO PARENTAGES, ONE ORDERING ────────────────────────────────────────────
 //
-// รายการ and แผนผัง draw CONTAINMENT: what is inside ฝ่าย IT. They read the
-// tree as stored.
+// แผนผัง draws CONTAINMENT: what is inside ฝ่าย IT. It reads the tree as stored
+// and expresses ระดับ as ROWS inside the ฝ่าย panel.
 //
-// ผังองค์กร and ผังรวม draw REPORTING: a ฝ่าย's sub-ฝ่าย hang off its head
-// seat (`chartParentage`). That is what the owner asked the canvas views for.
+// ผังรวม draws REPORTING: a ฝ่าย's sub-ฝ่าย hang off its head seat, and ระดับ 2
+// hangs off ระดับ 1 (`chartParentage`). That is what a top-down canvas needs.
 //
-// It was applied to ALL FOUR at first, on the theory that one structure cannot
-// drift. It can't — but แผนผัง's whole design is "a ฝ่าย branches sideways
-// once", and re-parenting leaves nearly every ฝ่าย with a single child, so
-// nothing branches. Measured on the live tree: the แผนผัง page went from
-// 25,847 px to 52,163 px, ฝ่ายดิจิทัล's section from 1,627 px to 4,265 px, and
-// max depth from 5 to 9 — a staircase down the middle of an empty page.
+// The reporting parentage was applied to BOTH at one point, on the theory that
+// one structure cannot drift. It can't — but nesting costs DEPTH, and on a page
+// depth is vertical: measured on the live tree, แผนผัง went from 25,847px to
+// 52,163px and max depth from 5 to 9, a staircase down the middle of an empty
+// page.
 //
-// So the two are not one rule drifting; they are two different drawings of one
-// dataset, and the difference is the point.
+// So the geometries differ and the ORDER does not. Both read `orderChildren` —
+// ตำแหน่ง before ฝ่าย, ระดับ ascending — and `org-rung.test.js` holds the
+// differential that says the seat sequence is the same one either way. That is
+// the answer to "แผนผัง doesn't show order like the ผังรวม".
 let byParentChart = new Map();
 let subStatsChart = new Map();
 let loading = false;
@@ -74,51 +77,80 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
-// FOUR surfaces over one dataset:
-//   • รายการ  — the indented outline
-//   • แผนผัง  — the CSS chart. Same markup as รายการ, only the CSS differs, so
-//               it is a class on a wrapper rather than a second renderer.
-//   • ผังองค์กร — a real top-down org chart on a zoom/pan canvas, drawn by
-//               d3-org-chart. This one IS a separate renderer (org-graph.js),
-//               because SVG layout is not something CSS can be talked into.
-//               It shares the face element via org-face.js so the one thing the
-//               two renderers both draw cannot drift. ONE CHART PER ฝ่าย.
-//   • ผังรวม   — the SAME renderer and the same card, but ONE chart over the
-//               whole organisation, hung off a synthetic องค์กร root. Wide by
-//               construction; the แสดงถึง rung is what makes it navigable.
+// TWO surfaces over one dataset, answering two different questions:
 //
-// Kept in localStorage because a reader who prefers one has that preference on
-// every visit, and the choice costs nothing to honour.
-const VIEWS = ['list', 'chart', 'graph', 'all'];
-const GRAPH_VIEWS = ['graph', 'all'];
-let view = 'list';
+//   • แผนผัง  — THE PAGE. Every ฝ่าย is a panel; inside it, its ตำแหน่ง are laid
+//               out as one ROW PER ระดับ and its sub-ฝ่าย pack into a grid that
+//               reflows from four columns to one. No canvas, no panning, no
+//               horizontal scrollbar — this is the surface you read on a phone.
+//   • ผังรวม  — THE CANVAS. ONE d3 chart over the whole organisation, hung off a
+//               synthetic องค์กร root, with real connector lines and pan/zoom
+//               (org-graph.js). Wide by construction; the แสดงถึง rung is what
+//               makes it navigable.
+//
+// รายการ AND ผังองค์กร WERE REMOVED, on the owner's call: "remove รายการ and
+// ผังองค์กร, left only แผนผัง and ผังรวม". Neither was a third picture. รายการ
+// shared แผนผัง's markup and differed only in CSS; ผังองค์กร shared ผังรวม's
+// renderer and differed only in how the rows were grouped. Four buttons offered
+// two pictures twice, and the pair that went is the pair whose survivor already
+// does the job better at every width.
+//
+// The saved preference is MIGRATED rather than dropped: a reader whose last
+// choice was รายการ lands on แผนผัง, and ผังองค์กร lands on ผังรวม. Silently
+// resetting them to the default would be the same bug as forgetting the
+// preference existed.
+const VIEWS = ['chart', 'all'];
+const RETIRED_VIEWS = { list: 'chart', graph: 'all' };
+const GRAPH_VIEWS = ['all'];
+let view = 'chart';
 try {
   const saved = localStorage.getItem('samo.org.view');
-  if (VIEWS.includes(saved)) view = saved;
+  const mapped = RETIRED_VIEWS[saved] || saved;
+  if (VIEWS.includes(mapped)) view = mapped;
 } catch { /* private mode */ }
 
-// The d3 views' "แสดงถึง" rung. A KIND, not a depth — the `RUNG` note in
-// org-rung.js has the measurements and why a number could not express it.
-//
-// Kept PER VIEW because the two views want different starting pictures, not
-// because the same rung means different things in them: it no longer does.
-// ผังองค์กร opens at ตำแหน่ง (each ฝ่าย with the seats it holds); ผังรวม opens
-// at ฝ่ายหลัก, its only rung that fits without panning.
-const graphRung = { graph: DEFAULT_RUNG, all: RUNG.top };
+// ผังรวม's "แสดงถึง" rung. A KIND, not a depth — the `RUNG` note in org-rung.js
+// has the measurements and why a number could not express it. It opens at
+// ฝ่ายหลัก, the only rung of the whole-organisation picture that fits without
+// panning. Still a per-view map (of one) so the control code below does not have
+// to change shape if a second canvas view ever comes back.
+const graphRung = { all: RUNG.top };
 
-/** Which rungs each view OFFERS. ผังองค์กร is already one chart per root ฝ่าย,
- *  so its "ฝ่ายหลัก" rung would be a single box — it starts at ฝ่ายย่อย
- *  instead. The labels say what you will SEE, not how deep it goes. */
+/** Which rungs the canvas view OFFERS. The labels say what you will SEE, not
+ *  how deep it goes. */
 const VIEW_RUNGS = {
-  graph: [[RUNG.fai, 'ฝ่าย'], [RUNG.role, 'ตำแหน่ง'], [RUNG.full, 'ทั้งหมด']],
   all: [[RUNG.top, 'ฝ่ายหลัก'], [RUNG.fai, 'ฝ่ายย่อย'], [RUNG.role, 'ตำแหน่ง'],
     [RUNG.full, 'ทั้งหมด']],
 };
 
-// A ตำแหน่ง with a couple of people and no sub-ตำแหน่ง is not worth hiding behind
-// a disclosure — 106 of them hold exactly one person, and making those a click
-// each would be worse than the scroll it saves.
-const PEOPLE_INLINE_MAX = 3;
+// ── what opens by default, and why it is a DEPTH ────────────────────────────
+//
+// Every ฝ่าย open at once is 448 people in one scroll — measured at 16,872px on
+// a desktop and 32,776px on a phone, which is forty screens. Every ฝ่าย closed
+// is fifteen names and no reason to tap any of them.
+//
+// So the ROOT ฝ่าย open and nothing below them does. What that shows is exactly
+// the shape of the organisation: each ฝ่าย, the ตำแหน่ง it holds directly with
+// the faces of the people in them, and its sub-ฝ่าย as named cards carrying
+// their own head-counts. The membership lists are one tap in, and
+// "ขยายทั้งหมด" still opens the lot.
+const OPEN_TO_DEPTH = 0;
+
+// A sub-ฝ่าย that CONTAINS ฝ่าย, or that is simply large, takes a whole line of
+// the band instead of a 16rem tile. Both thresholds are about the same failure:
+// a 16rem column is one portrait wide, so anything with real content inside it
+// stacks one item per line and becomes a tower beside its neighbours. Measured
+// against the live tree — ฝ่ายจัดการโครงการ is 2 ตำแหน่ง and 13 คน, so the
+// node count alone would have missed it.
+const WIDE_SUB_NODES = 5;
+const WIDE_SUB_PEOPLE = 6;
+
+// Above this a ตำแหน่ง is a MEMBERSHIP LIST and wants the whole line to wrap its
+// faces into; at or below it the card is capped, because a seat holding one
+// person stretched across a 1,000px row is the same emptiness in a narrower
+// costume. The threshold is 3 because 214 of 296 ตำแหน่ง hold that many or
+// fewer — the cap is the common case, not the exception.
+const SEAT_LEAN_MAX = 3;
 
 const $ = (id) => document.getElementById(id);
 
@@ -144,9 +176,14 @@ function index() {
 
   // Twice, because the two parentages give different answers and both are
   // shown: a head seat's "ใต้สังกัด …" on the canvas has to count the sub-ฝ่าย
-  // hanging off it, while the same seat in รายการ must not claim them.
-  ({ subStats, collapsibleIds } = indexStats(byParent));
+  // hanging off it, while the same seat in แผนผัง must not claim them.
+  ({ subStats, collapsibleIds, depthById } = indexStats(byParent));
   ({ subStats: subStatsChart } = indexStats(byParentChart));
+
+  // The default disclosure state belongs to the DATASET, not to a paint — a
+  // render() triggered by a search or a view switch must not silently reopen
+  // every ฝ่าย the reader closed.
+  expanded = new Set([...collapsibleIds].filter((id) => (depthById.get(id) ?? 0) <= OPEN_TO_DEPTH));
 }
 
 /** Subtree totals, so a collapsed ฝ่าย still says how much is inside it — a
@@ -157,26 +194,31 @@ function index() {
 function indexStats(parents) {
   const subs = new Map();
   const collapsible = new Set();
+  const depths = new Map();
   const seen = new Set();
-  const walk = (id) => {
+  const walk = (id, depth) => {
     if (seen.has(id)) return { nodes: 0, people: 0 };
     seen.add(id);
+    depths.set(id, depth);
     const kids = parents.get(id) || [];
     const own = (byNode.get(id) || []).length;
     let people = own;
     let nodes = 0;
     for (const c of kids) {
-      const s = walk(c.id);
+      const s = walk(c.id, depth + 1);
       people += s.people;
       nodes += s.nodes + 1;
     }
     const stat = { nodes, people };
     subs.set(id, stat);
-    if (kids.length || own > PEOPLE_INLINE_MAX) collapsible.add(id);
+    // ONLY a ฝ่าย collapses. A ตำแหน่ง in แผนผัง is a card the width of its own
+    // name with its holders' faces under it — hiding that behind a chevron
+    // would cost a tap to reveal something already smaller than the control.
+    if ((kids.length || own) && isDivision(nodeById.get(id)?.kind)) collapsible.add(id);
     return stat;
   };
-  for (const r of parents.get('') || []) walk(r.id);
-  return { subStats: subs, collapsibleIds: collapsible };
+  for (const r of parents.get('') || []) walk(r.id, 0);
+  return { subStats: subs, collapsibleIds: collapsible, depthById: depths };
 }
 
 // The face element lives in org-face.js — see the note there on why it is
@@ -221,9 +263,9 @@ function computeFilter(qRaw) {
   if (!q) return null;
   const keepNodes = new Set();
   const keepMembers = new Set();
-  // From byParent — the STORED parentage, which is what รายการ and แผนผัง draw.
-  // The canvas views re-parent, so they widen this result themselves rather
-  // than making every view keep an ancestor only they need (`chartFilter`).
+  // From byParent — the STORED parentage, which is what แผนผัง draws. ผังรวม
+  // re-parents, so it widens this result itself rather than making แผนผัง keep
+  // an ancestor only the canvas needs (`chartFilter`).
   const parentOf = new Map();
   for (const [k, kids] of byParent) for (const n of kids) parentOf.set(n.id, k);
   const markUp = (id) => {
@@ -265,8 +307,18 @@ function highlight(text, q) {
   return `${escHtml(text.slice(0, i))}<mark>${escHtml(text.slice(i, i + q.length))}</mark>${escHtml(text.slice(i + q.length))}`;
 }
 
-// ── rendering the tree ──────────────────────────────────────────────────────
-
+// ── rendering แผนผัง ────────────────────────────────────────────────────────
+//
+// TWO ELEMENTS, and the difference between them is the whole layout.
+//
+//   ฝ่าย (a UNIT)     a PANEL — a titled, collapsible container.
+//   ตำแหน่ง (a SEAT)   a CARD  — a title and the faces of whoever holds it.
+//
+// A panel lays its contents out in two bands: one row per ระดับ of its own
+// seats, then a grid of its sub-ฝ่าย. That is the ordering `orderChildren`
+// returns, which is the SAME ordering ผังรวม draws — see the note there on why
+// one rule in two geometries beats one geometry that fits neither.
+//
 // ── why every card is the SAME SIZE ─────────────────────────────────────────
 //
 // REPORTED: "the head of like each ฝ่าย got drowned inside many people in their
@@ -277,123 +329,165 @@ function highlight(text, q) {
 // A first attempt gave หัวหน้า a BIGGER card, detected from a list of Thai name
 // prefixes (หัวหน้า…, อุปนายก…, ประธาน…). That was the wrong instrument, for the
 // reason the owner gave: the tree ALREADY ranks people. Every ฝ่าย orders its
-// children by `position`, and position 0 is the head — verified across the
-// whole ฝ่ายดิจิทัล subtree, where หัวหน้าฝ่าย PR / IT / ComArt / Media
-// management are each pos 0 and every สมาชิก node follows at 1, 2, 4… So a
-// prefix list would have been a SECOND source of truth for a fact the structure
-// already carries, and it would drift the first time somebody renamed a
-// ตำแหน่ง or invented a title the list had never heard of.
+// children by `position`, and position 0 is the head — so a prefix list would
+// have been a SECOND source of truth for a fact the structure already carries,
+// and it would drift the first time somebody renamed a ตำแหน่ง or invented a
+// title the list had never heard of.
 //
 // So: one card, one size, for everyone. What makes the head stand out is where
-// they SIT — first in their ฝ่าย, alone under their own ตำแหน่ง heading, with a
-// connector rail tying them to the parent — not how big their photo is.
-// Hierarchy belongs to the layout; the card is just a person.
+// they SIT — first seat, on the first ระดับ row of their own ฝ่าย panel. Rank
+// belongs to the layout; the card is just a person.
 
-function memberCard(m, filter) {
+function personCard(m, filter) {
   const name = m.name || '';
   const nick = m.nickname || '';
   return `
-    <li class="org-person${m.photo_url ? '' : ' is-nophoto'}">
+    <li class="orgc-person">
       <span class="org-face">${faceHtml(m, TREE_SHAPE)}</span>
-      <span class="org-person-text">
-        <span class="org-person-name">${highlight(name, filter?.q)}</span>
-        ${nick ? `<span class="org-person-nick">${highlight(nick, filter?.q)}</span>` : ''}
+      <span class="orgc-person-text">
+        <span class="orgc-person-name">${highlight(name, filter?.q)}</span>
+        ${nick ? `<span class="orgc-person-nick">${highlight(nick, filter?.q)}</span>` : ''}
       </span>
     </li>`;
 }
 
-/** "12 ตำแหน่ง · 48 คน" — the reason to open a collapsed branch. Suppressed
- *  while a search is running: those totals describe the WHOLE subtree, and next
- *  to a filtered view they would contradict what is on screen. */
-/** The line under a station name. The wording rule — and why a ตำแหน่ง says
- *  something different from a ฝ่าย — lives in org-rung.js's `subtreeMeta`,
- *  shared with the graph renderer.
- *
- *  A ตำแหน่ง with nobody in it and nothing under it used to render as a bare
- *  name — no count, no cards — which reads as a card that failed to load rather
- *  than as a vacancy. 21 of them exist ("สมาชิกฝ่าย Production" is the one that
- *  got reported), and `subtreeMeta` says so: an empty ตำแหน่ง is real
- *  information, especially on a page that doubles as recruitment. */
-function stationMeta(node) {
+/** The people this paint may show for a node — everyone, or just the search
+ *  hits. One helper because three call sites need both the COUNT and the
+ *  markup, and filtering twice is how the two disagree. */
+function visiblePeople(node, filter) {
+  const people = byNode.get(node.id) || [];
+  return filter ? people.filter((m) => filter.keepMembers.has(m)) : people;
+}
+
+function peopleHtml(people, filter) {
+  if (!people.length) return '';
+  return `<ul class="orgc-people">${people.map((m) => personCard(m, filter)).join('')}</ul>`;
+}
+
+/** The line under a ฝ่าย's name: what is inside it. Wording lives in
+ *  org-rung.js's `subtreeMeta`, shared with the graph renderer. */
+function unitMeta(node) {
   const s = subStats.get(node.id) || { nodes: 0, people: 0 };
   return subtreeMeta({
-    isDiv: isDivision(node.kind),
-    nodes: s.nodes,
-    people: s.people,
-    own: (byNode.get(node.id) || []).length,
+    isDiv: true, nodes: s.nodes, people: s.people, own: (byNode.get(node.id) || []).length,
   });
 }
 
-function nodeBlock(node, depth, filter) {
+/**
+ * The line under a ตำแหน่ง's name — and it says LESS than a ฝ่าย's on purpose.
+ *
+ * `subtreeMeta` will happily render "9 คน" for a seat, which is what the old
+ * outline needed: the holders were behind a disclosure. Here the faces are
+ * directly beneath the name, so that number is a caption counting what the
+ * reader is already looking at. What is NOT visible is a subtree hanging off
+ * the seat, and an empty seat — 21 of them exist, and on a page that doubles as
+ * recruitment a vacancy is real information rather than a card that failed to
+ * load.
+ */
+function seatMeta(node) {
+  const s = subStats.get(node.id) || { nodes: 0, people: 0 };
+  const own = (byNode.get(node.id) || []).length;
+  if (!s.nodes && !own) return 'ยังไม่มีสมาชิก';
+  if (!s.nodes) return '';
+  return subtreeMeta({ isDiv: false, nodes: s.nodes, people: s.people, own });
+}
+
+/**
+ * A node's children, in the ONE order both views agree on.
+ *
+ * `orderChildren` groups by ระดับ only when the parent is a ฝ่าย — the same
+ * test `chartParentage` makes, and for the same reason: seats under a ตำแหน่ง
+ * are that ตำแหน่ง's own sub-seats, not rungs of a ฝ่าย, so ranking them
+ * against each other would invent a hierarchy nobody stored.
+ */
+function childrenHtml(node, depth, filter) {
+  const { rungs, units } = orderChildren(byParent.get(node.id) || [], isDivision(node.kind));
+
+  // FLAT, and that is the density decision. Wrapping each ระดับ in a row of its
+  // own forces a line break after it, so a ฝ่าย whose top rung is one อุปนายก
+  // spends a whole row on one card and leaves the rest of the line empty — the
+  // exact "leftover space" this rewrite is about. Emitted as siblings, every
+  // tile flows into one wrapping band and the rung survives as a `data-rung`
+  // attribute the stylesheet weights by: ระดับ 1 reads as the heads, deeper
+  // rungs read quieter, and the ORDER is what states the rank.
+  // `i === 0` decides the leading rung, NOT `tier === 1`. Measured on the live
+  // tree: ฝ่ายพัฒนาทรัพยากรบุคคล's หัวหน้า is ระดับ 2 and ฝ่ายวิเคราะห์ข้อมูล's
+  // is ระดับ 3 — the numbers are what an admin typed, and nothing makes them
+  // start at 1. Styling the heads off the literal number left those ฝ่าย with no
+  // head marked at all, which reads as a ฝ่าย that has no head.
+  const seats = rungs.map(([tier, list], i) => list
+    .map((n) => seatBlock(n, depth + 1, filter, tier, i === 0)).join('')).join('');
+
+  const subs = units.map((n) => unitBlock(n, depth + 1, filter)).join('');
+  return { seats, subs };
+}
+
+function seatBlock(node, depth, filter, tier = 1, lead = true) {
   if (filter && !filter.keepNodes.has(node.id)) return '';
-  const kids = byParent.get(node.id) || [];
-  let people = byNode.get(node.id) || [];
-  if (filter) people = people.filter((m) => filter.keepMembers.has(m));
-
-  const childHtml = kids.map((c) => nodeBlock(c, depth + 1, filter)).join('');
+  const people = visiblePeople(node, filter);
+  const kid = childrenHtml(node, depth, filter);
+  const sub = kid.seats + kid.subs;
   // A branch that filtered down to nothing at all is noise — drop it.
-  if (filter && !people.length && !childHtml) return '';
+  if (filter && !people.length && !sub) return '';
 
-  // A CSS COLOUR, not a palette key. Set inline so an admin-chosen colour and
-  // a name-derived one arrive by the same route — a `data-tint` attribute could
+  const meta = filter ? '' : seatMeta(node);
+  const hTag = `h${Math.min(depth + 3, 6)}`;
+  return `
+    <article class="orgc-seat${lead ? ' is-lead' : ''}${sub ? ' has-sub' : ''}${
+  people.length > SEAT_LEAN_MAX ? ' has-many' : ''}"
+      data-depth="${depth}" data-rung="${tier}">
+      <${hTag} class="orgc-seat-name">${highlight(node.name || '', filter?.q)}</${hTag}>
+      ${meta ? `<p class="orgc-seat-meta">${escHtml(meta)}</p>` : ''}
+      ${peopleHtml(people, filter)}
+      ${sub ? `<div class="orgc-seat-sub">${sub}</div>` : ''}
+    </article>`;
+}
+
+function unitBlock(node, depth, filter) {
+  if (filter && !filter.keepNodes.has(node.id)) return '';
+  const people = visiblePeople(node, filter);
+  const kid = childrenHtml(node, depth, filter);
+  const inner = peopleHtml(people, filter) + kid.seats + kid.subs;
+  if (filter && !inner) return '';
+
+  // A CSS COLOUR, not a palette key. Set inline so an admin-chosen colour and a
+  // name-derived one arrive by the same route — a `data-tint` attribute could
   // only ever express the ten the stylesheet had a rule for.
   const tint = tintColor(node, depth === 0);
-  const peopleHtml = people.length
-    ? `<ul class="org-people">${people.map((m) => memberCard(m, filter)).join('')}</ul>`
-    : '';
-  // A ฝ่าย with a dozen sub-ฝ่าย still went 12 columns wide in แผนผัง, because
-  // depth 1 is the one level that spreads. ฝ่ายเวชนิทัศน์ and ฝ่ายรังสีเทคนิค
-  // have 12+ each and needed >1,100px of panning on an iPad. Past a handful the
-  // row WRAPS into a grid: the single connector bar stops being meaningful
-  // across wrapped lines, so `is-grid` drops it and each child keeps its own
-  // drop tick instead.
-  const branchHtml = childHtml
-    ? `<ul class="org-branch${kids.length > 4 ? ' is-grid' : ''}">${childHtml}</ul>`
-    : '';
-  const inner = `${peopleHtml}${branchHtml}`;
+  const meta = filter ? '' : unitMeta(node);
+  const stat = subStats.get(node.id) || { nodes: 0, people: 0 };
 
   // A search result is always fully open — a disclosure the user has to expand
   // to find what they just searched for is the same as no result.
   const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
   const open = !collapsible || expanded.has(node.id);
   const bodyId = `org-n-${node.id}`;
-  const meta = filter ? '' : stationMeta(node);
   const hTag = `h${Math.min(depth + 3, 6)}`;
 
-  const stationInner = `
-        <span class="org-station-dot" aria-hidden="true"></span>
-        <span class="org-station-name">${highlight(node.name || '', filter?.q)}</span>
-        ${meta ? `<span class="org-station-meta">${meta}</span>` : ''}
-        ${collapsible ? '<i class="bi bi-chevron-right org-station-chev" aria-hidden="true"></i>' : ''}`;
+  const headInner = `
+        <span class="orgc-unit-name">${highlight(node.name || '', filter?.q)}</span>
+        ${meta ? `<span class="orgc-unit-meta">${escHtml(meta)}</span>` : ''}
+        ${collapsible ? '<i class="bi bi-chevron-down orgc-unit-chev" aria-hidden="true"></i>' : ''}`;
 
-  // ARIA accordion pattern: the heading WRAPS the button, so the outline still
-  // reads as a hierarchy and the control is the whole row.
-  const station = collapsible
-    ? `<button type="button" class="org-station-btn" aria-expanded="${open}" aria-controls="${escHtml(bodyId)}">${stationInner}</button>`
-    : `<span class="org-station-btn is-static">${stationInner}</span>`;
+  // ARIA accordion pattern: the heading WRAPS the button, so the panel still
+  // reads as a hierarchy to a screen reader and the control is the whole row.
+  const head = collapsible
+    ? `<button type="button" class="orgc-unit-btn" aria-expanded="${open}" aria-controls="${escHtml(bodyId)}">${headInner}</button>`
+    : `<span class="orgc-unit-btn is-static">${headInner}</span>`;
 
-  // MARKUP SHAPE, and why the box is its own element.
-  //
-  // The horizontal chart layout (>=1024px) needs a node's BOX — its ตำแหน่ง and
-  // the people holding it — to be a layout sibling of the row of its children,
-  // because that is the only arrangement the classic CSS connector technique can
-  // draw: `li > .box + ul`, with the elbows hung off the box and the row.
-  // Everything used to live inside one collapsible `.org-node-body`, which put a
-  // wrapper between the `li` and the child `ul` and made that impossible.
-  //
-  // So: `.org-box` holds the station, and the body still wraps what collapses.
-  // In chart mode the body becomes `display: contents` so it stops being a box
-  // of its own while `hidden` keeps working (`[hidden]`'s display:none wins over
-  // display:contents), and `.org-people` / `.org-branch` become direct children
-  // of the node. One markup, two layouts, no second renderer to keep in step.
+  // NOTE the stylesheet only honours this while the panel is OPEN — a collapsed
+  // ฝ่าย is one title row, and giving that a whole line is the emptiness this
+  // rewrite exists to remove. Expressed with `:has()` rather than a second class
+  // so `toggleNode`, which only flips `hidden`, cannot leave the two disagreeing.
+  const wide = depth > 0 && (!!kid.subs
+    || stat.nodes >= WIDE_SUB_NODES || stat.people >= WIDE_SUB_PEOPLE);
+
   return `
-    <li class="org-node${collapsible ? ' is-collapsible' : ''}" data-depth="${depth}"${
-      tint ? ` style="--org-tint:${tint}"` : ''}>
-      <div class="org-box">
-        <${hTag} class="org-station">${station}</${hTag}>
-      </div>
-      ${inner ? `<div class="org-node-body" id="${escHtml(bodyId)}"${open ? '' : ' hidden'}>${inner}</div>` : ''}
-    </li>`;
+    <section class="orgc-unit${collapsible ? ' is-collapsible' : ''}${wide ? ' is-wide' : ''}"
+      data-depth="${depth}"${tint ? ` style="--org-tint:${tint}"` : ''}>
+      <${hTag} class="orgc-unit-title">${head}</${hTag}>
+      ${inner ? `<div class="orgc-unit-body" id="${escHtml(bodyId)}"${open ? '' : ' hidden'}>${inner}</div>` : ''}
+    </section>`;
 }
 
 /** The ขยาย/ย่อทั้งหมด control. Hidden while searching (results are already
@@ -411,99 +505,36 @@ function renderExpandAll(searching) {
   if (label) label.textContent = allOpen ? 'ย่อทั้งหมด' : 'ขยายทั้งหมด';
 }
 
-/**
- * ONE SECTION PER ฝ่าย, STACKED — why แผนผัง is not a single chart.
- *
- * Rendered as one tree the fully-expanded chart measured 44,386px wide (~30
- * screens), because the twelve ฝ่าย sit SIDE BY SIDE and the total width is
- * their sum. The owner's fix, from SAMO's own recruitment poster:
- * "vstack{ {hstack ฝ่ายบริหาร} then the next {hstack ฝ่ายดิจิทัล} etc }".
- *
- * So each root ฝ่าย gets its own chart and its own horizontal scroller, stacked
- * down the page. Width is now the WIDEST SINGLE ฝ่าย instead of the sum of all
- * of them, which is the whole difference between usable and not — and it reads
- * the way the poster does, one ฝ่าย at a time.
- *
- * รายการ keeps the single tree with the synthetic root below, because there the
- * axis is vertical and one spine down the page is exactly right.
- */
-
-/**
- * The organisation itself, as the ONE box everything hangs from — LIST VIEW.
- *
- * REQUESTED: "everyone of like สำนักนายกฯ … ฝ่ายบริหารองค์กร … ฝ่ายกิจการภายใน,
- * etc should be line link under สโมสรนักศึกษาแพทย์".
- *
- * Without it the twelve ฝ่าย are twelve ROOTS — siblings with no parent — so the
- * chart had nothing to draw a connector from and they floated as twelve
- * unrelated columns. Every reference org chart descends from a single box for
- * exactly this reason; the bar across the top only means something if it comes
- * from somewhere.
- *
- * Synthetic on purpose: there is no such row in `team_nodes`, and adding one
- * would put a fake ตำแหน่ง into the admin tree, the archive, the export and the
- * seat resolver to serve a drawing. It is not collapsible either — collapsing
- * the organisation would just blank the page.
- */
-function rootBlock(childHtml, filter) {
-  if (!childHtml) return '';
-  const n = (chart.nodes || []).length;
-  const p = (chart.members || []).length;
-  const meta = filter ? '' : `${n} ตำแหน่ง · ${p} คน`;
-  return `
-    <li class="org-node is-org-root" data-depth="-1">
-      <div class="org-box">
-        <h2 class="org-station">
-          <span class="org-station-btn is-static">
-            <span class="org-station-dot" aria-hidden="true"></span>
-            <span class="org-station-name">สโมสรนักศึกษาคณะแพทยศาสตร์</span>
-            ${meta ? `<span class="org-station-meta">${meta}</span>` : ''}
-          </span>
-        </h2>
-      </div>
-      <div class="org-node-body"><ul class="org-branch">${childHtml}</ul></div>
-    </li>`;
-}
-
 function render() {
   const body = $('orgBody');
   if (!body || !chart) return;
   renderYears();
 
-  // แผนผัง OPENS THE SHAPE, NOT EVERYTHING — and the number is why.
-  //
-  // "it should be expand automatically" was right, and the first attempt opened
-  // every ตำแหน่ง. Measured: 44,386px wide. That is not a chart anyone can read,
-  // on any device — and it cannot be zoomed out of either, since fitting it to a
-  // 1016px viewport is a 0.02x scale. 400 people laid out horizontally simply do
-  // not fit, which is exactly why the reference charts show fifteen.
-  //
-  // So it opens องค์กร → ฝ่าย → ตำแหน่ง: enough to see the whole shape of the
-  // organisation at a glance, which is what the layout is FOR, and every box
-  // below that is one click away. Nobody is hidden; the depth is just not all
-  // unrolled at once.
-  if (view === 'chart') expanded = new Set(collapsibleIds);
-
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
-  const html = roots.map((n) => nodeBlock(n, 0, filter)).join('');
-  // ขยาย/ย่อทั้งหมด drives the DOM tree, which ผังองค์กร does not use — it has
-  // its own depth control, because "expanded" there is a d3 layout state rather
-  // than a `hidden` attribute. Hide it rather than leave a button that silently
-  // does nothing in one of three views.
+
+  // ขยาย/ย่อทั้งหมด drives the DOM panels, which ผังรวม does not use — it has
+  // its own แสดงถึง control, because "expanded" there is a d3 layout state
+  // rather than a `hidden` attribute. Hide it rather than leave a button that
+  // silently does nothing in one of the two views.
   renderExpandAll(!!filter || GRAPH_VIEWS.includes(view));
 
-  const shownMembers = filter
-    ? filter.keepMembers.size
-    : (chart.members || []).length;
   const cnt = $('orgCount');
   if (cnt) {
     cnt.textContent = filter
-      ? `พบ ${shownMembers} คน`
+      ? `พบ ${filter.keepMembers.size} คน`
       : `${(chart.nodes || []).length} ตำแหน่ง · ${(chart.members || []).length} คน`;
   }
 
-  if (!html) {
+  // Built before the shell so the empty state can be decided from the SAME
+  // markup that would have been shown, rather than from a second guess at
+  // whether the filter kept anything.
+  const panels = view === 'chart'
+    ? roots.map((n) => unitBlock(n, 0, filter)).join('')
+    : '';
+  const nothing = view === 'chart' ? !panels : !roots.length;
+
+  if (nothing) {
     destroyOrgGraph();
     body.innerHTML = `<p class="org-status">${
       filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
@@ -511,26 +542,18 @@ function render() {
     return;
   }
 
-  // Every paint replaces #orgBody's markup, which would strand the charts'
+  // Every paint replaces #orgBody's markup, which would strand the chart's
   // ResizeObserver and zoom behaviours on detached nodes. Tear down first,
-  // unconditionally — including when leaving ผังองค์กร for another view.
+  // unconditionally — including when leaving ผังรวม for แผนผัง.
   destroyOrgGraph();
 
   body.innerHTML = `
     <div class="org-tree-head">
       <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
       <div class="org-view-switch" role="group" aria-label="รูปแบบการแสดงผล">
-        <button type="button" class="org-view-btn${view === 'list' ? ' is-on' : ''}"
-          data-org-view="list" aria-pressed="${view === 'list'}">
-          <i class="bi bi-list-nested" aria-hidden="true"></i> รายการ
-        </button>
         <button type="button" class="org-view-btn${view === 'chart' ? ' is-on' : ''}"
           data-org-view="chart" aria-pressed="${view === 'chart'}">
           <i class="bi bi-diagram-3" aria-hidden="true"></i> แผนผัง
-        </button>
-        <button type="button" class="org-view-btn${view === 'graph' ? ' is-on' : ''}"
-          data-org-view="graph" aria-pressed="${view === 'graph'}">
-          <i class="bi bi-diagram-2" aria-hidden="true"></i> ผังองค์กร
         </button>
         <button type="button" class="org-view-btn${view === 'all' ? ' is-on' : ''}"
           data-org-view="all" aria-pressed="${view === 'all'}">
@@ -538,27 +561,15 @@ function render() {
         </button>
       </div>
     </div>
-    ${GRAPH_VIEWS.includes(view) ? graphShellHtml(filter) : ''}
-    ${view === 'chart'
-    ? roots.map((n) => {
-      const one = nodeBlock(n, 0, filter);
-      return one
-        ? `<div class="org-tree-wrap" data-view="chart">
-             <ul class="org-tree">${one}</ul>
-           </div>`
-        : '';
-    }).join('')
-    : view === 'list'
-      ? `<div class="org-tree-wrap" data-view="list">
-         <ul class="org-tree">${rootBlock(html, filter)}</ul>
-       </div>`
-      : ''}`;
+    ${view === 'all'
+    ? graphShellHtml(filter)
+    : `<div class="orgc-tree">${panels}</div>`}`;
 
-  if (GRAPH_VIEWS.includes(view)) paintGraph(roots, filter);
+  if (view === 'all') paintGraph(roots, filter);
 }
 
-/** ผังองค์กร's own toolbar + the host the charts mount into. The depth control
- *  is separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
+/** ผังรวม's own toolbar + the host the chart mounts into. The depth control is
+ *  separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
  *  whole point of the view is choosing how far down to look. */
 function graphShellHtml(filter) {
   const cur = graphRung[view];
@@ -569,16 +580,14 @@ function graphShellHtml(filter) {
       ${filter ? '' : `
       <div class="orgg-depth" role="group" aria-label="ระดับที่แสดง">
         <span class="orgg-depth-label">แสดงถึง</span>
-        ${(VIEW_RUNGS[view] || VIEW_RUNGS.graph).map(([r, label]) => lvl(r, label)).join('')}
+        ${(VIEW_RUNGS[view] || VIEW_RUNGS.all).map(([r, label]) => lvl(r, label)).join('')}
       </div>`}
       <div class="orgg-zoom" role="group" aria-label="ย่อ-ขยายมุมมอง">
         <button type="button" class="orgg-zoom-btn" data-org-zoom="out" aria-label="ซูมออก"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
         <button type="button" class="orgg-zoom-btn" data-org-zoom="in" aria-label="ซูมเข้า"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
         <button type="button" class="orgg-zoom-btn" data-org-zoom="fit" aria-label="พอดีหน้าจอ"><i class="bi bi-aspect-ratio" aria-hidden="true"></i></button>
       </div>
-      <p class="orgg-hint">${view === 'all'
-    ? 'ผังเดียวทั้งองค์กร — ลากเพื่อเลื่อน กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน'
-    : 'ลากเพื่อเลื่อน · กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน'}</p>
+      <p class="orgg-hint">ผังเดียวทั้งองค์กร — ลากเพื่อเลื่อน กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน</p>
     </div>
     <div class="orgg-host" id="orgGraphHost"></div>`;
 }
@@ -592,13 +601,13 @@ function graphShellHtml(filter) {
 /**
  * Widen a search result to the ancestors the CANVAS draws.
  *
- * `computeFilter` walks the stored parents, which is right for รายการ and
- * แผนผัง. On the canvas, ฝ่าย PR's parent is the อุปนายก — a stored SIBLING —
+ * `computeFilter` walks the stored parents, which is right for แผนผัง. On the
+ * canvas, ฝ่าย PR's parent is the อุปนายก — a stored SIBLING —
  * so a search for "PR" would keep ฝ่าย PR without keeping the box the line is
  * drawn from, and `flatten`'s walk, which descends from the root and stops at
  * the first node the filter does not keep, would drop the whole branch.
  *
- * Widened HERE rather than in computeFilter so รายการ does not start listing a
+ * Widened HERE rather than in computeFilter so แผนผัง does not start listing a
  * head seat nobody searched for.
  */
 function chartFilter(filter) {
@@ -627,7 +636,6 @@ async function paintGraph(roots, filter) {
       subStats: subStatsChart,
       filter: chartFilter(filter),
       rung: graphRung[view],
-      combined: view === 'all',
       chart,
     };
     if (mine !== graphToken) return;
@@ -645,7 +653,7 @@ async function paintGraph(roots, filter) {
     // rather than pretending the data is missing.
     console.warn('org graph failed to load:', err);
     if (mine === graphToken && hostEl) {
-      hostEl.innerHTML = '<p class="org-status is-error">แสดงผังองค์กรไม่ได้ ลองใช้มุมมอง รายการ หรือ แผนผัง</p>';
+      hostEl.innerHTML = '<p class="org-status is-error">แสดงผังองค์กรไม่ได้ ลองสลับไปมุมมอง แผนผัง</p>';
     }
   }
 }
@@ -738,13 +746,12 @@ export async function enterOrgChart() {
   }
 }
 
-/** Toggle in the DOM rather than re-rendering. A full repaint of 279 ตำแหน่ง
+/** Toggle in the DOM rather than re-rendering. A full repaint of 296 ตำแหน่ง
  *  would drop the scroll position — and the row you clicked would jump out from
  *  under the pointer, which is exactly the wrong feel for a disclosure. */
 function toggleNode(btn) {
-  const li = btn.closest('.org-node');
-  const panel = li && li.querySelector(':scope > .org-node-body');
-  if (!li || !panel) return;
+  const panel = btn.closest('.orgc-unit')?.querySelector(':scope > .orgc-unit-body');
+  if (!panel) return;
   const willOpen = btn.getAttribute('aria-expanded') !== 'true';
   btn.setAttribute('aria-expanded', String(willOpen));
   panel.hidden = !willOpen;
@@ -788,10 +795,10 @@ export function initOrgChart() {
   // Delegated: every station is re-rendered on each paint, and #orgBody itself
   // is the one element that survives.
   $('orgBody')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.org-station-btn');
+    const btn = e.target.closest('.orgc-unit-btn');
     if (btn && btn.tagName === 'BUTTON') { toggleNode(btn); return; }
 
-    // ผังองค์กร's "แสดงถึง" control. A full re-layout rather than a DOM toggle:
+    // ผังรวม's "แสดงถึง" control. A full re-layout rather than a DOM toggle:
     // the rung decides d3's LAYOUT, not just visibility, so every box moves.
     const db = e.target.closest('[data-org-rung]');
     if (db) {
@@ -826,16 +833,13 @@ export function initOrgChart() {
       return;
     }
 
-    // รายการ ⇄ แผนผัง ⇄ ผังองค์กร.
+    // แผนผัง ⇄ ผังรวม.
     const vb = e.target.closest('[data-org-view]');
     if (!vb) return;
-    const next = VIEWS.includes(vb.dataset.orgView) ? vb.dataset.orgView : 'list';
+    const next = VIEWS.includes(vb.dataset.orgView) ? vb.dataset.orgView : 'chart';
     if (next === view) return;
     view = next;
     try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
-    // A full re-render, because entering แผนผัง expands everything and leaving
-    // it must not strand the reader in a 400-person wall of open ตำแหน่ง.
-    if (view === 'list') expanded = new Set();
     render();
   });
 

@@ -1,7 +1,7 @@
 // ==============================================
 // THE CARD HEIGHT IS ONE DECISION WRITTEN IN TWO FILES.
 //
-// ผังองค์กร draws its node cards into an SVG foreignObject, and d3-org-chart
+// ผังรวม draws its node cards into an SVG foreignObject, and d3-org-chart
 // needs each card's HEIGHT before it lays anything out — it cannot measure the
 // DOM, because at that point nothing is rendered. So `cardHeight()` in
 // org-graph.js ADDS UP the card's vertical rhythm from constants:
@@ -63,7 +63,7 @@ const px = (v) => {
   return Number(m[1]);
 };
 
-describe('ผังองค์กร card metrics: org-graph.js and org-graph.css agree', () => {
+describe('ผังรวม card metrics: org-graph.js and org-graph.css agree', () => {
   it('PAD matches .orgg-card padding', () => {
     expect(px(cssProp('.orgg-card', 'padding'))).toBe(jsConst('PAD'));
   });
@@ -111,7 +111,7 @@ describe('ผังองค์กร card metrics: org-graph.js and org-graph.c
   });
 });
 
-describe('ผังองค์กร portraits: the srcset must cover the MAX ZOOM, not the box', () => {
+describe('ผังรวม portraits: the srcset must cover the MAX ZOOM, not the box', () => {
   // REPORTED: "the picture render wrong, and when zoom picture also bug".
   //
   // Two causes, and this block guards the second. `srcset` is resolved ONCE from
@@ -181,7 +181,7 @@ describe('ผังองค์กร portraits: the srcset must cover the MAX Z
   });
 });
 
-describe('ผังองค์กร / ผังรวม: nothing inside the <foreignObject> may be POSITIONED', () => {
+describe('ผังรวม: nothing inside the <foreignObject> may be POSITIONED', () => {
   // REPORTED from an iPad, with a screenshot: the portrait painted at the
   // chart's top-left corner while its card showed an empty slot.
   //
@@ -240,7 +240,7 @@ describe('ผังองค์กร / ผังรวม: nothing inside the <
   });
 });
 
-describe('ผังองค์กร / ผังรวม: the flattened row carries what the rung asks about', () => {
+describe('ผังรวม: the flattened row carries what the rung asks about', () => {
   // org-rung.test.js proves the PREDICATE. This proves the other half of the
   // contract — that flatten() actually sets the three fields the predicate
   // reads. Split because the predicate is testable directly and flatten() is
@@ -270,7 +270,7 @@ describe('ผังองค์กร / ผังรวม: the flattened row ca
   });
 });
 
-describe('ผังองค์กร: the framing contract with d3-org-chart', () => {
+describe('ผังรวม: the framing contract with d3-org-chart', () => {
   it('frameChart zeroes centerG as well as setting the zoom transform', () => {
     // FOUND BY DRIVING THE REAL PAGE: setting only the zoom transform left every
     // chart shifted by the library's own `translate(centerX, rootMargin)`
@@ -287,7 +287,7 @@ describe('ผังองค์กร: the framing contract with d3-org-chart', 
     // org-graph.js is reachable STATICALLY from org-chart.js (destroyOrgGraph
     // runs on every paint of all three views), so a top-level `import` of
     // d3-zoom lands it in the entry bundle — measured at +13.6 KB gzipped for
-    // every reader, including those who never open ผังองค์กร.
+    // every reader, including those who never open ผังรวม.
     expect(js).not.toMatch(/^\s*import\s+.*from\s+['"]d3-zoom['"]/m);
     expect(js).not.toMatch(/^\s*import\s+.*from\s+['"]d3-org-chart['"]/m);
     expect(js).toMatch(/await\s+Promise\.all\(\[[\s\S]*?import\(['"]d3-org-chart['"]\)[\s\S]*?import\(['"]d3-zoom['"]\)/);

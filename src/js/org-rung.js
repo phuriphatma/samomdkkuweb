@@ -1,9 +1,10 @@
 // org-rung.js — the two things a node's KIND decides on the public chart: what
 // order siblings are drawn in, and how far down the chart opens.
 //
-// Pure: no DOM, no d3, no config. Both rules live here rather than in the
-// renderers because all four views obey them and four copies of one rule is the
-// class this repo pays for most — and because a pure module can be tested
+// Pure: no DOM, no d3, no config. The rules live here rather than in the
+// renderers because BOTH surfaces obey them — แผนผัง lays ระดับ out as rows in a
+// panel, ผังรวม as ranks on a canvas, and they must not disagree about the ORDER
+// — and because a pure module can be tested
 // against a fixture directly. The guard the rung used to have read the SOURCE
 // TEXT for `d.depth <= level`: it could check that one operator was the right
 // way round, and nothing about whether the rung reaches what its label
@@ -76,6 +77,53 @@ export function tierOf(node) {
   return Number.isFinite(t) && t > 1 ? Math.floor(t) : 1;
 }
 
+/**
+ * ONE ฝ่าย's children, split the way BOTH public views read them: its ตำแหน่ง
+ * grouped into ระดับ (lowest first), then its sub-ฝ่าย.
+ *
+ * REPORTED: "แผนผัง doesn't show order like the ผังรวม — it doesn't order in
+ * the ฝ่าย from role then ฝ่าย, it doesn't care about ระดับ that i config in
+ * the admin teamsamo." It did not: แผนผัง read the STORED parentage, where every
+ * seat is a flat sibling and `tier` is never consulted, so ระดับ 2 seats drew
+ * beside their own head and sub-ฝ่าย drew beside the อุปนายก who runs them.
+ *
+ * WHY THIS IS NOT JUST `chartParentage`. That function expresses ระดับ as
+ * NESTING — rung 2 becomes a child of rung 1's head — which is right for a
+ * top-down canvas and wrong for a page: measured on the live tree, re-parenting
+ * แผนผัง took it from 25,847px to 52,163px and max depth from 5 to 9, a
+ * staircase down the middle of an empty page. แผนผัง expresses the same ranking
+ * as ROWS inside one ฝ่าย panel, which costs no depth at all.
+ *
+ * So the two views draw the same ORDER from the same two facts — `tier` and
+ * `isDivision` — in two different geometries. `org-rung.test.js` holds the
+ * differential: the seat sequence this returns must equal the sequence you get
+ * by walking `chartParentage`'s rung chain. Two geometries, one ordering; if
+ * they ever disagree the guard fails rather than the page quietly drifting.
+ *
+ * @param groupTiers  false when the PARENT is a ตำแหน่ง. Seats under a ตำแหน่ง
+ *   are that ตำแหน่ง's own sub-seats, not rungs of a ฝ่าย — ranking them against
+ *   each other would invent a hierarchy nobody stored. It is the same test
+ *   `chartParentage` makes before it re-parents anything, written once here so
+ *   the two cannot disagree about where ระดับ applies.
+ * @returns { rungs: [tier, node[]][], units: node[] } — rungs sorted ascending
+ */
+export function orderChildren(kids, groupTiers = true) {
+  const seats = [];
+  const units = [];
+  for (const n of kids || []) (isDivision(n.kind) ? units : seats).push(n);
+
+  if (!groupTiers) return { rungs: seats.length ? [[1, seats]] : [], units };
+
+  const byTier = new Map();
+  for (const s of seats) {
+    const t = tierOf(s);
+    if (!byTier.has(t)) byTier.set(t, []);
+    byTier.get(t).push(s);
+  }
+  const rungs = [...byTier.keys()].sort((a, b) => a - b).map((t) => [t, byTier.get(t)]);
+  return { rungs, units };
+}
+
 export function chartParentage(byParent, nodeById) {
   const out = new Map();
   for (const [key, kids] of byParent) out.set(key, sortSiblings([...kids]));
@@ -93,25 +141,16 @@ export function chartParentage(byParent, nodeById) {
     const parent = key === '' ? null : nodeById.get(key);
     if (key !== '' && !(parent && isDivision(parent.kind))) continue;
 
-    const seats = kids.filter((n) => !isDivision(n.kind));
-    const units = kids.filter((n) => isDivision(n.kind));
+    // The SAME split แผนผัง draws — seats grouped by ระดับ, then the sub-ฝ่าย.
+    // Shared rather than repeated: this loop used to build its own `byTier`, and
+    // two copies of a grouping rule is the class this repo pays for most.
+    const { rungs, units } = orderChildren(kids);
     // Nothing to hang anything off. The sub-ฝ่าย stay where they are rather
     // than vanishing.
-    if (!seats.length) continue;
-
-    // Group the ฝ่าย's seats by rung, lowest first. `position` still orders
-    // WITHIN a rung, because `kids` arrives in position order and this walk
-    // preserves it.
-    const byTier = new Map();
-    for (const s of seats) {
-      const t = tierOf(s);
-      if (!byTier.has(t)) byTier.set(t, []);
-      byTier.get(t).push(s);
-    }
-    const rungs = [...byTier.keys()].sort((a, b) => a - b);
+    if (!rungs.length) continue;
 
     // The ฝ่าย keeps its TOP rung and nothing else...
-    out.set(key, byTier.get(rungs[0]));
+    out.set(key, [...rungs[0][1]]);
 
     // ...each deeper rung hangs off the FIRST seat of the rung above it. First
     // = position 0 = the head, which the tree already ranks — the same fact the
@@ -119,13 +158,13 @@ export function chartParentage(byParent, nodeById) {
     // prefixes here to rot. `rungs[i - 1]`, not `i - 1`: rungs may be 1 and 3
     // with nothing at 2, and a gap must close rather than orphan the branch.
     for (let i = 1; i < rungs.length; i++) {
-      const host = byTier.get(rungs[i - 1])[0];
-      out.set(host.id, [...(out.get(host.id) || []), ...byTier.get(rungs[i])]);
+      const host = rungs[i - 1][1][0];
+      out.set(host.id, [...(out.get(host.id) || []), ...rungs[i][1]]);
     }
 
     // ...and the sub-ฝ่าย hang off the head of the top rung.
     if (units.length) {
-      const head = byTier.get(rungs[0])[0];
+      const head = rungs[0][1][0];
       out.set(head.id, [...(out.get(head.id) || []), ...units]);
     }
   }

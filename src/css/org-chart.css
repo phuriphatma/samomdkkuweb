@@ -1,29 +1,28 @@
 /* org-chart.css — the public โครงสร้างองค์กร section inside เกี่ยวกับเรา (#pills-about).
  *
- * DIRECTION. Two surfaces, ONE person-card. The page opens with the คณะกรรมการ
- * grid — large 3:4 portraits, name, ชื่อเล่น, ตำแหน่ง — and the full structure
- * follows underneath using the same card at ~130px. (An earlier revision styled
- * the tree people as circular ID badges; that made a person look like two
- * different kinds of object depending on where you met them, and the brief was
- * explicitly the docchula card. One shape, two sizes.)
+ * DIRECTION. TWO surfaces over one dataset, and this file styles one of them:
  *
- * The hierarchy runs down a SPINE rather than a classic top-down tree: a
- * top-down chart of 279 ตำแหน่ง needs horizontal scrolling on a phone, while a
- * spine reads the same at every width and encodes depth as indentation from it.
- * The ฝ่าย "station" — a dot on the spine, the name in Prompt at display weight,
- * and a live head-count — is real information rather than decoration (no
- * 01/02/03 numbering: ฝ่าย order carries no meaning).
+ *   แผนผัง  the PAGE — ฝ่าย panels that nest and reflow. Everything below the
+ *           masthead in this file. No canvas, no panning, no horizontal
+ *           scrollbar at any width.
+ *   ผังรวม  the CANVAS — one d3 chart with connector lines and pan/zoom. Lives
+ *           in org-graph.css.
  *
- * ปีการศึกษา sits above both as a plain row of years, because it is a
+ * รายการ and ผังองค์กร were removed with their stylesheets; the note above the
+ * แผนผัง block says what the old connector-tree layout cost and why flow
+ * replaced it.
+ *
+ * ONE PERSON-CARD, everywhere: a 3:4 portrait above the name and ชื่อเล่น. The
+ * 3:4 here and PORTRAIT_RATIO in uploads.js are ONE decision written in two
+ * files — lh3 is asked to crop to exactly that ratio server-side, so if they
+ * disagree the image letterboxes or squashes.
+ *
+ * ปีการศึกษา sits above everything as a plain row of years, because it is a
  * navigational index and pill buttons would compete with the masthead.
  *
- * The 3:4 in `.org-face` / `.org-board-photo` and PORTRAIT_RATIO in uploads.js
- * are ONE decision written in two files — lh3 is asked to crop to exactly that
- * ratio server-side, so if they disagree the image letterboxes or squashes.
- *
  * Palette and type are the brand's, not invented: green --brand-primary, orange
- * --brand-orange, the ten --dept-* identities reused from the ฝ่าย tab, Prompt for
- * display and Noto Sans Thai for body. Both faces are already loaded.
+ * --brand-orange, the ten --dept-* identities reused from the ฝ่าย tab, Prompt
+ * for display and Noto Sans Thai for body. Both faces are already loaded.
  *
  * LIGHT-ONLY on purpose. This app has no theme system anywhere; adding a
  * prefers-color-scheme block here would make this one page go dark on a
@@ -31,6 +30,8 @@
  */
 
 .org-page {
+  /* org-graph.css draws its connector strokes with this; it is declared here
+     because both surfaces live under .org-page. */
   --org-spine: var(--ink-200);
   --org-tint: var(--brand-primary);
   max-width: 1080px;
@@ -181,94 +182,17 @@
   border-radius: 0;
 }
 
-/* ── คณะกรรมการ board grid ───────────────────────────────────────────────── */
+/* ── the section heading above the view switch ───────────────────────────── */
 
-.org-board { margin-top: clamp(1.75rem, 4vw, 2.75rem); }
-
-.org-board-heading,
 .org-tree-heading {
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: clamp(1rem, 2.6vw, 1.15rem);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink-900);
-  margin: 0 0 clamp(1rem, 2.5vw, 1.5rem);
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--ink-200);
-}
-.org-tree-heading { margin-top: clamp(2.25rem, 5vw, 3.25rem); }
-
-.org-board-grid {
-  list-style: none; margin: 0; padding: 0;
-  display: grid;
-  /* Four across on a desktop, matching the reference. The 1080px page caps a
-     card at ~250px, which is exactly the width the srcset in org-chart.js is
-     built for — widen this and the images start upscaling. */
-  grid-template-columns: repeat(auto-fill, minmax(clamp(7.5rem, 16vw, 13rem), 1fr));
-  gap: clamp(1.25rem, 3vw, 2rem) clamp(0.85rem, 2.5vw, 1.5rem);
+  margin: 0;
 }
 
-.org-board-card {
-  display: flex; flex-direction: column; align-items: stretch;
-  gap: 0.55rem;
-  min-width: 0;
-}
-
-.org-board-photo {
-  position: relative;
-  display: grid; place-items: center;
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  overflow: hidden;
-  border-radius: var(--radius-md, 0.75rem);
-  background: color-mix(in srgb, var(--org-tint) 12%, #fff);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 20%, transparent);
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
-}
-@media (hover: hover) {
-  .org-board-card:hover .org-board-photo {
-    transform: translateY(-3px);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 42%, transparent),
-                0 16px 30px -16px rgba(15, 23, 42, 0.45);
-  }
-}
-
-.org-board-img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: cover;
-}
-
-.org-board-initials {
-  font-family: 'Prompt', system-ui, sans-serif;
-  font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 600;
-  color: color-mix(in srgb, var(--org-tint) 55%, var(--ink-900));
-  line-height: 1;
-}
-
-.org-board-name {
-  text-align: center;
-  font-size: clamp(0.85rem, 2vw, 0.95rem);
-  font-weight: 600;
-  color: var(--ink-900);
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.org-board-nick {
-  text-align: center;
-  font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.75rem;
-  color: var(--ink-500);
-  margin-top: -0.35rem;
-}
-.org-board-role {
-  text-align: center;
-  font-family: 'Prompt', system-ui, sans-serif;
-  font-size: clamp(0.74rem, 1.8vw, 0.82rem);
-  font-weight: 500;
-  color: var(--org-tint);
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
 
 /* THE TINT ARRIVES INLINE, as `style="--org-tint: …"`, set by org-chart.js and
    org-graph.js from `tintColor()`. There used to be twenty rules here mapping
@@ -278,215 +202,365 @@
    itself travels and this file only ever reads `var(--org-tint)`, which every
    rule below already did. Default is on :root. */
 
-/* ── the tree ───────────────────────────────────────────────────────────── */
 
-.org-tree, .org-branch, .org-people { list-style: none; margin: 0; padding: 0; }
+/* ============================================================================
+   แผนผัง — THE PAGE SURFACE
+   ============================================================================
+   WHAT THIS REPLACED, AND WHY. แผนผัง used to be a classic top-down connector
+   chart in CSS: a box, a horizontal bar, a row of child boxes. Measured on the
+   live tree it came to 24,100px at 1440px wide and 55,273px on a 390px phone —
+   sixty-five screens for 448 people — because a connector tree can only spend
+   space one way. Siblings sit in a ROW and are TOP-ALIGNED, so a ตำแหน่ง with
+   one person standing beside a ฝ่าย with forty leaves a column of dead pixels
+   the exact height of the tall one. That is the "many leftover space including
+   the box ui ฝ่าย role" the owner reported, and it is structural: no amount of
+   padding tuning fixes a layout whose rows are as tall as their tallest cell.
 
-.org-tree { margin-top: clamp(1.5rem, 4vw, 2.5rem); }
+   So the geometry changed rather than the spacing. Hierarchy is expressed by
+   NESTING — a ฝ่าย is a panel, and what is inside it is inside its box — and
+   within a panel everything FLOWS: ตำแหน่ง wrap along a row, sub-ฝ่าย pack into
+   an auto-fill grid. Flow has no ragged-column failure mode, reflows from four
+   columns to one without a media query per level, and never needs a horizontal
+   scrollbar. The connector-line picture is not lost; it is ผังรวม, which is a
+   pan/zoom canvas because that is the only place a 296-node tree of lines is
+   readable.
 
-/* Each root ฝ่าย is a CARD, and — since the whole tree now opens collapsed — the
-   card IS the row you tap. Twelve of them stack into a scannable index instead
-   of the six screens of continuous scroll this page used to be. Its tint
-   cascades to everything inside it. */
-.org-tree > .org-node {
-  margin-top: 0.7rem;
+   THE THREE RANKS A READER SEES, in order of weight:
+     1. root ฝ่าย   a white panel with a tinted title rail — the index.
+     2. ระดับ rows  seats grouped by tier, top rung first (`orderChildren`).
+     3. sub-ฝ่าย    a grid of tinted-edge cards inside the panel.
+
+   LIGHT-ONLY, like the rest of this app. No prefers-color-scheme block here.
+   ============================================================================ */
+
+.orgc-tree {
+  margin-top: clamp(1rem, 2.5vw, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vw, 1.1rem);
+}
+
+/* ── the ฝ่าย panel ──────────────────────────────────────────────────────── */
+
+.orgc-unit {
+  --orgc-pad: clamp(0.75rem, 2.2vw, 1.15rem);
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-md, 0.75rem);
+}
+
+/* A ROOT ฝ่าย is the card you scan the page by: white, lifted, its own colour
+   down the left edge. The tint is a RAIL rather than a top border because the
+   panels now stack directly on one another — a 3px line between two white cards
+   reads as a divider, a rail reads as an identity. */
+.orgc-tree > .orgc-unit {
   background: #fff;
   border: 1px solid var(--ink-200);
-  border-radius: var(--radius-md, 0.75rem);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  overflow: hidden;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.org-tree > .org-node:first-child { margin-top: 0; }
 @media (hover: hover) {
-  .org-tree > .org-node:hover {
-    border-color: color-mix(in srgb, var(--org-tint) 32%, var(--ink-200));
-    box-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.35);
+  .orgc-tree > .orgc-unit:hover {
+    border-color: color-mix(in srgb, var(--org-tint) 34%, var(--ink-200));
+    box-shadow: 0 10px 24px -18px rgb(15 23 42 / 45%);
   }
 }
-/* The open body sits under a hairline rather than inside a second box — one
-   card, two regions. */
-.org-tree > .org-node > .org-node-body {
-  border-top: 1px solid var(--ink-100);
-  padding: clamp(0.9rem, 2.5vw, 1.35rem) clamp(0.9rem, 2.5vw, 1.35rem) clamp(1.1rem, 3vw, 1.6rem);
-}
-
-
-/* The spine. A nested list gets a left rule and each child hangs off it with a
-   short horizontal tick — one rule per level, so depth is legible without any
-   per-level colour or icon noise. */
-.org-branch {
-  position: relative;
-  margin-left: 0.55rem;
-  padding-left: clamp(1rem, 3vw, 1.65rem);
-  border-left: 1px solid var(--org-spine);
-}
-.org-branch > .org-node { position: relative; margin-top: 0.85rem; }
-/* The tick meets the spine at the dot's centre line. That centre moved when the
-   station became a padded button row, so this offset and .org-station-btn's
-   padding are one decision in two rules. */
-.org-branch > .org-node::before {
-  content: ''; position: absolute;
-  left: calc(clamp(1rem, 3vw, 1.65rem) * -1);
-  top: 1.2rem; width: clamp(0.6rem, 2vw, 1.1rem); height: 1px;
-  background: var(--org-spine);
-}
-
-/* ── station (the ฝ่าย / ตำแหน่ง marker) ─────────────────────────────────── */
-
-/* The station is an <h3>–<h6> WRAPPING a <button> (the ARIA accordion pattern),
-   so the document outline still reads as a hierarchy while the whole row is the
-   control. Non-collapsible ตำแหน่ง render the same row as a <span>, so a leaf and
-   a branch line up on the same grid — only the chevron tells them apart. */
-.org-station { margin: 0; font: inherit; }
-
-/* GRID, not flex-wrap. A ตำแหน่ง name here can be "ฝ่ายจัดการโครงการ (Project
-   management)"; flex-wrapped, the meta pill and the chevron each fell onto
-   their own line and the chevron ended up floating alone under the name. Named
-   areas let the row reflow to two lines on a phone with the chevron still
-   pinned to the right edge. */
-.org-station-btn {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  grid-template-areas: "dot name meta chev";
-  align-items: center;
-  column-gap: 0.6rem;
-  width: 100%;
-  text-align: start;
-  font: inherit; color: inherit;
-  background: transparent; border: 0;
-  padding: 0.4rem 0.5rem;
-  margin-left: -0.5rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-.org-station-btn.is-static { cursor: default; }
-.org-station-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
-@media (hover: hover) {
-  button.org-station-btn:hover { background: color-mix(in srgb, var(--org-tint) 7%, transparent); }
-}
-
-/* The root row is the card header: bigger padding, no negative offset, and its
-   corners follow the card so a hover tint cannot square them off. */
-.org-tree > .org-node > .org-station > .org-station-btn {
-  padding: clamp(0.85rem, 2.4vw, 1.15rem) clamp(0.9rem, 2.5vw, 1.35rem);
-  margin-left: 0;
-  border-radius: calc(var(--radius-md, 0.75rem) - 1px);
-}
-
-.org-station-dot {
-  flex: 0 0 auto;
-  width: 0.55rem; height: 0.55rem; border-radius: 50%;
+.orgc-tree > .orgc-unit > .orgc-unit-title::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
   background: var(--org-tint);
-  grid-area: dot;
-}
-/* Inside a branch the dot has to sit on the FIRST line of the name, not in the
-   middle of a wrapped one — it has to meet the spine tick, whose offset is a
-   fixed 1.2rem. Root cards have no tick, so their dot stays centred. */
-.org-branch .org-station-dot { align-self: start; margin-top: 0.5rem; }
-
-.org-tree > .org-node > .org-station .org-station-dot {
-  width: 0.8rem; height: 0.8rem;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--org-tint) 16%, transparent);
 }
 
-.org-station-name {
+.orgc-unit-title { margin: 0; font: inherit; position: relative; }
+
+/* A GRID, not a flex row. The three parts are a name of unbounded length, a
+   count pill and a chevron, and on a 360px phone a wrapping flex row put each
+   on its own line — the chevron ending up alone under the pill, three lines to
+   say one thing. The grid gives the name the only flexible column and pins the
+   chevron to the end at every width; the narrow override below moves the pill
+   under the name and lets the chevron span both rows. */
+.orgc-unit-btn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "name meta chev";
+  align-items: center;
+  column-gap: 0.7rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  padding: var(--orgc-pad);
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.orgc-unit-name { grid-area: name; }
+.orgc-unit-meta { grid-area: meta; }
+.orgc-unit-chev { grid-area: chev; }
+.orgc-unit-btn.is-static { cursor: default; }
+.orgc-unit-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -3px; }
+@media (hover: hover) {
+  .orgc-unit-btn:not(.is-static):hover { background: color-mix(in srgb, var(--org-tint) 5%, #fff); }
+}
+
+.orgc-unit-name {
   font-family: 'Prompt', system-ui, sans-serif;
   font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.35;
   color: var(--ink-900);
-  margin: 0;
-  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
-  grid-area: name;
+  min-width: 0;
 }
-.org-tree > .org-node > .org-station .org-station-name {
-  font-size: clamp(1.05rem, 3.1vw, 1.45rem);
-  font-weight: 700;
-  color: var(--org-tint);
-}
-.org-node[data-depth="1"] > .org-station .org-station-name { font-size: 1.02rem; }
-.org-node[data-depth="2"] > .org-station .org-station-name { font-size: 0.95rem; }
-.org-node[data-depth="3"] > .org-station .org-station-name,
-.org-node[data-depth="4"] > .org-station .org-station-name { font-size: 0.9rem; color: var(--ink-700); }
-
-/* "12 ตำแหน่ง · 48 คน" — the reason to open a collapsed branch. */
-.org-station-meta {
-  font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.7rem; font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--ink-500);
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--ink-200);
-  border-radius: 999px;
-  white-space: nowrap;
-  grid-area: meta;
-  justify-self: start;
+.orgc-tree > .orgc-unit > .orgc-unit-title .orgc-unit-name {
+  font-size: clamp(1rem, 2.4vw, 1.15rem);
 }
 
-/* The chevron is pushed to the far end so every disclosure on the page lines up
-   down one edge, regardless of how long the ตำแหน่ง name is. */
-.org-station-chev {
-  grid-area: chev;
+/* The count is a PILL, so it reads as a fact about the panel rather than as a
+   second half of its name. */
+.orgc-unit-meta {
   justify-self: end;
-  font-size: 0.75rem;
-  color: var(--ink-400);
-  transition: transform 0.18s ease, color 0.18s ease;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--org-tint) 68%, var(--ink-700));
+  background: color-mix(in srgb, var(--org-tint) 9%, #fff);
+  border: 1px solid color-mix(in srgb, var(--org-tint) 18%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  white-space: nowrap;
 }
-.org-station-btn[aria-expanded="true"] .org-station-chev {
-  transform: rotate(90deg);
-  color: var(--org-tint);
-}
-.org-tree > .org-node > .org-station .org-station-chev { font-size: 0.9rem; }
 
-/* Revealed content fades in over ~1 frame of travel. No height animation: the
-   body is `hidden` when closed, which is what keeps 400 lazy portraits from
-   being fetched for branches nobody opened. */
-.org-node-body { animation: orgReveal 0.22s ease both; }
-@keyframes orgReveal {
+.orgc-unit-chev {
+  font-size: 0.8rem;
+  color: var(--ink-400);
+  transition: transform 0.2s ease;
+}
+.orgc-unit-btn[aria-expanded="false"] .orgc-unit-chev { transform: rotate(-90deg); }
+
+/* ── the panel body: ONE wrapping band ─────────────────────────────────────
+   Seats and sub-ฝ่าย are SIBLINGS in one flex-wrap container rather than two
+   stacked rows, and that is what removed the emptiness. A row per ระดับ ends
+   the line after its last card, so a ฝ่าย whose top rung is a single อุปนายก
+   burned a full-width row on one portrait. Flowing them together, a short seat
+   tile is followed on the same line by the next tile — and the sub-ฝ่าย cards,
+   which are the only elements here that GROW, absorb whatever is left over. */
+
+.orgc-unit-body {
+  padding: 0 var(--orgc-pad) var(--orgc-pad);
+  display: flex;
+  flex-wrap: wrap;
+  /* `flex-start`, NEVER `stretch`. Stretch makes every tile on a line as tall
+     as the tallest one on it, so a one-person ตำแหน่ง sharing a line with a
+     forty-person ฝ่าย became a 900px empty bordered column — the same dead space
+     the old connector rows had, drawn with a border round it. */
+  align-items: flex-start;
+  gap: clamp(0.4rem, 1.3vw, 0.6rem);
+  animation: orgcReveal 0.22s ease both;
+}
+@keyframes orgcReveal {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: none; }
 }
 
-/* ── people ─────────────────────────────────────────────────────────────── */
+/* ── a nested ฝ่าย ──────────────────────────────────────────────────────── */
 
-/* ONE card shape for a person, everywhere on this page: portrait above the name.
-   The board grid renders it at ~250px and the tree at ~130px, but it is the same
-   object — a face in the tree and a face at the top of the page should not look
-   like two different kinds of thing. (This replaced a circular ID-badge row; the
-   brief was explicitly the docchula card.) */
-.org-people {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 8.5rem));
-  gap: 0.9rem 0.75rem;
-  margin-top: 0.85rem;
-  /* Line the first card up under the ตำแหน่ง NAME rather than under its dot —
-     dot width + the station's gap. Without it the faces hang half a character
-     to the left of the heading they belong to. */
-  margin-left: 1.15rem;
+/* Inside a panel a sub-ฝ่าย is a tinted card on a tinted wash, one step quieter
+   than its parent at every level. Depth is capped visually: past the third
+   nesting the wash stops deepening, because ten shades of one hue stop meaning
+   anything and start looking like a rendering bug.
+
+   `flex: 1 1 16rem` — GROW is deliberate and it is these cards' job on the page.
+   They are the widest tiles in the band, so letting them take the slack is what
+   keeps the right-hand edge straight instead of ragged. */
+.orgc-unit .orgc-unit {
+  --orgc-pad: clamp(0.6rem, 1.6vw, 0.8rem);
+  /* CLOSED, a sub-ฝ่าย is a title row and packs at 12rem, so four of them share
+     a desktop line instead of three plus one stretched across the next. OPEN it
+     needs room for the ตำแหน่ง cards inside it, hence the wider basis below —
+     both read the disclosure state off `hidden`, so nothing has to be told. */
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 100%;
+  background: color-mix(in srgb, var(--org-tint) 4%, #fff);
+  border: 1px solid color-mix(in srgb, var(--org-tint) 16%, var(--ink-200));
+}
+.orgc-unit .orgc-unit:has(> .orgc-unit-body:not([hidden])) { flex-basis: 22rem; }
+
+/* A sub-ฝ่าย that itself holds ฝ่าย, or that is simply large, takes the whole
+   line ONCE IT IS OPEN. Those two are what make a wrapping band ragged — a
+   forty-position branch sharing a line with a three-person card is a tower
+   beside a step. Closed, it is a single title row, and a full line for that is
+   the emptiness this file exists to remove: `:has()` reads the disclosure state
+   straight off the `hidden` attribute, so nothing has to keep a class in step
+   with it. */
+.orgc-unit .orgc-unit.is-wide:has(> .orgc-unit-body:not([hidden])) {
+  flex-basis: 100%;
 }
 
-/* A one-person ตำแหน่ง reads as a single line: the position, then the holder.
-   This is the common case here, and a one-item grid left a screenful of dead
-   space next to every name. The child branch is forced onto its own row so the
-   spine still descends correctly underneath. */
-/* GRID, not flex-wrap: siblings at the same depth share a container width, so a
-   fixed right-hand column makes every person card in a branch start at the same x.
-   Flexing them to fill left a ragged edge that read as sloppy rather than airy. */
-/* `is-solo` is still emitted by the renderer (one-person ตำแหน่ง is the dominant
-   shape here — 279 ตำแหน่ง, 401 people) but no longer changes the layout: with a
-   portrait card the row height is set by the card whether the ตำแหน่ง name sits
-   beside it or above it, so the old two-column treatment saved no vertical space
-   and opened a ~380px canyon between the name and the card. Heading-above-card is
-   also the same shape as the คณะกรรมการ grid, which is the point. */
+.orgc-unit .orgc-unit .orgc-unit {
+  background: color-mix(in srgb, var(--org-tint) 7%, #fff);
+}
+.orgc-unit .orgc-unit .orgc-unit .orgc-unit {
+  background: color-mix(in srgb, var(--org-tint) 9%, #fff);
+}
+.orgc-unit .orgc-unit .orgc-unit-name { font-size: 0.86rem; }
+.orgc-unit .orgc-unit .orgc-unit-meta { font-size: 0.7rem; }
 
-.org-person {
-  display: flex; flex-direction: column; gap: 0.45rem;
+/* A nested card is 16rem at its narrowest, so the one-row header squeezes the
+   ฝ่าย name into a 7rem column and wraps "(Inter-universities collaboration)"
+   to one word a line. Stack it: name across the top, pill under it, chevron
+   spanning both. Root panels keep the single row — they are always full width,
+   and there the count belongs on the same line as the name it counts. */
+.orgc-unit .orgc-unit > .orgc-unit-title > .orgc-unit-btn {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name chev"
+    "meta chev";
+  row-gap: 0.25rem;
+}
+.orgc-unit .orgc-unit > .orgc-unit-title > .orgc-unit-btn > .orgc-unit-meta {
+  justify-self: start;
+}
+.orgc-unit .orgc-unit > .orgc-unit-title > .orgc-unit-btn > .orgc-unit-chev {
+  align-self: center;
+}
+
+/* ── the ตำแหน่ง card ─────────────────────────────────────────────────────── */
+
+/* `flex: 0 1 auto` — a seat is sized by its CONTENT, never stretched. A seat
+   holding one person is a card the width of one portrait plus its name; letting
+   it grow to fill a 1,000px row was the old layout's whole failure, just moved
+   inside the box.
+   SHRINK, not a max-width. A twelve-person สมาชิก bucket wants ~52rem in one
+   line, more than any panel has, so flex-shrink pulls it back to the line width
+   and the faces wrap to fill it. An earlier 26rem cap did the wrapping too — and
+   left a third of every wide panel blank, which is the bug this file exists to
+   remove.
+   ⚠️ DO NOT make `.orgc-people` a grid to line its columns up across rows. A
+   `repeat(auto-fill, …)` track list contributes ONE column to intrinsic sizing,
+   so the bucket's max-content collapses to a single name — it stops asking for
+   the line, lands beside the three seat cards, and renders as a one-per-row
+   tower with 700px of nothing beside it. Measured; the ragged last row is the
+   cheaper of the two. */
+.orgc-seat {
+  /* GROW, but only into a line nothing else claimed. Flexbox packs a line by
+     flex-BASIS first and distributes the remainder afterwards, so a sub-ฝ่าย
+     card that fits still lands on this line and the seats merely share what is
+     left over — while a line the sub-ฝ่าย could not fit on gets filled by the
+     seats instead of ending in 500px of nothing. */
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem 0.6rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-left: 3px solid color-mix(in srgb, var(--org-tint) 55%, transparent);
+}
+
+/* ระดับ. Rank is stated by ORDER — the top rung comes first — and the weight
+   here only confirms it: the leading rung keeps the full-strength rail and a
+   tint wash, everything below it fades. No "ระดับ 2" caption, because a label on
+   every card would be louder than the fact it carries.
+   `is-lead` is the FIRST rung present, not `[data-rung="1"]`: the numbers are an
+   admin's, and several ฝ่าย on the live tree start at 2 or 3. */
+.orgc-seat.is-lead {
+  background: color-mix(in srgb, var(--org-tint) 5%, #fff);
+}
+.orgc-seat:not(.is-lead) {
+  border-left-color: color-mix(in srgb, var(--org-tint) 26%, transparent);
+}
+
+/* The cap on that growth. A membership bucket (`has-many`) is exempt: it wants
+   every pixel of the line to wrap its faces into. Everything else stops at 30rem
+   so a one-person ตำแหน่ง never becomes a 1,000px card with a 52px portrait in
+   the corner. */
+.orgc-seat:not(.has-many) { max-width: min(100%, 30rem); }
+
+/* A seat that carries its own sub-structure is a container, not a card: it takes
+   the whole line so what hangs off it is not squeezed into a column. */
+.orgc-seat.has-sub { flex-basis: 100%; max-width: 100%; }
+
+.orgc-seat-name {
+  margin: 0;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+.orgc-seat.is-lead > .orgc-seat-name { font-size: 0.85rem; }
+.orgc-seat-meta {
+  margin: -0.1rem 0 0;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.68rem;
+  color: var(--ink-500);
+}
+
+.orgc-seat-sub {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: clamp(0.4rem, 1.3vw, 0.6rem);
+  margin-top: 0.15rem;
+  padding-left: clamp(0.5rem, 1.6vw, 0.75rem);
+  border-left: 1px solid color-mix(in srgb, var(--org-tint) 22%, var(--ink-200));
+}
+
+/* ── people ─────────────────────────────────────────────────────────────── */
+
+/* ONE card shape for a person, everywhere on this page: portrait above the
+   name. `auto-fill` with a 4.5rem floor packs six across a desktop panel and
+   three across a 360px phone, from one rule. */
+/* A PERSON IS A ROW, not a column — portrait, then the name beside it.
+   Portrait-above-name is the shape a photo grid wants, and it is exactly wrong
+   here: a name is three to five times wider than a 52px portrait, so a column
+   card is as wide as the name and leaves the portrait floating in the middle of
+   it. Beside it, the name fills the width the portrait cannot, which is most of
+   what made the old layout feel empty.
+
+   `flex: 1 1 9rem` — the entries GROW to consume the line exactly, and because
+   the portrait is fixed the growth all lands on the text. One per line on a
+   phone, six across a desktop panel, no breakpoint. */
+.orgc-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.45rem;
+}
+
+.orgc-person {
+  flex: 1 1 9rem;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   min-width: 0;
 }
 
 /* The portrait. 3:4 to match the crop lh3 is asked for — if these two ever
    disagree the image letterboxes or gets squashed, so PORTRAIT_RATIO in
    uploads.js and this ratio are one decision in two files. */
+.orgc-person > .org-face {
+  flex: 0 0 auto;
+  /* 52px. TREE_SHAPE in org-face.js asks lh3 for exactly this width at 1×/2×/3×
+     — the two are ONE decision in two files, and an under-sized `sizes` here is
+     silently soft rather than broken. */
+  width: 3.25rem;
+}
+
 .org-face {
   position: relative;               /* the photo is layered over the initials */
   display: grid; place-items: center;
@@ -499,10 +573,10 @@
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 @media (hover: hover) {
-  .org-person:hover .org-face {
+  .orgc-person:hover .org-face {
     transform: translateY(-2px);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 40%, transparent),
-                0 10px 22px -12px rgba(15, 23, 42, 0.4);
+                0 10px 22px -12px rgb(15 23 42 / 40%);
   }
 }
 
@@ -513,405 +587,88 @@
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
 }
-
 .org-face-initials {
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 1.6rem; font-weight: 600;
+  font-size: 0.95rem; font-weight: 600;
   color: color-mix(in srgb, var(--org-tint) 62%, var(--ink-900));
   line-height: 1;
 }
 
-.org-person-text {
-  display: flex; flex-direction: column; gap: 0.05rem; min-width: 0;
-  text-align: center;
+.orgc-person-text {
+  display: flex; flex-direction: column; gap: 0.02rem; min-width: 0;
 }
-.org-person-name {
-  font-size: 0.82rem; font-weight: 500; color: var(--ink-800);
-  line-height: 1.35;
+.orgc-person-name {
+  font-size: 0.75rem; font-weight: 500; color: var(--ink-800);
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
-.org-person-nick {
+.orgc-person-nick {
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.72rem; color: var(--ink-500);
+  font-size: 0.68rem; color: var(--ink-500);
 }
-.org-person mark {
-  background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
-  color: inherit; padding: 0 0.1em; border-radius: 2px;
-}
-.org-station-name mark {
+.orgc-person mark,
+.orgc-unit-name mark,
+.orgc-seat-name mark {
   background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
   color: inherit; padding: 0 0.1em; border-radius: 2px;
 }
 
 /* ── motion ─────────────────────────────────────────────────────────────── */
-/* One orchestrated entrance for the root sections, nothing per-card: 279 nodes
+/* One orchestrated entrance for the root panels, nothing per-card: 296 nodes
    animating individually would be noise (and jank on a phone). */
-.org-tree > .org-node {
-  animation: orgRise 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+.orgc-tree > .orgc-unit {
+  animation: orgcRise 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
-.org-tree > .org-node:nth-child(1) { animation-delay: 0.02s; }
-.org-tree > .org-node:nth-child(2) { animation-delay: 0.06s; }
-.org-tree > .org-node:nth-child(3) { animation-delay: 0.10s; }
-.org-tree > .org-node:nth-child(4) { animation-delay: 0.14s; }
-.org-tree > .org-node:nth-child(n+5) { animation-delay: 0.18s; }
+.orgc-tree > .orgc-unit:nth-child(1) { animation-delay: 0.02s; }
+.orgc-tree > .orgc-unit:nth-child(2) { animation-delay: 0.06s; }
+.orgc-tree > .orgc-unit:nth-child(3) { animation-delay: 0.10s; }
+.orgc-tree > .orgc-unit:nth-child(n+4) { animation-delay: 0.14s; }
 
-@keyframes orgRise {
+@keyframes orgcRise {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .org-tree > .org-node { animation: none; }
-  .org-node-body { animation: none; }
-  .org-face, .org-board-photo, .org-station-chev { transition: none; }
-  .org-person:hover .org-face,
-  .org-board-card:hover .org-board-photo { transform: none; }
+  .orgc-tree > .orgc-unit,
+  .orgc-unit-body { animation: none; }
+  .org-face, .orgc-unit-chev { transition: none; }
+  .orgc-person:hover .org-face { transform: none; }
 }
 
 /* ── narrow screens ─────────────────────────────────────────────────────── */
 
-@media (max-width: 767.98px) {
-  /* Two columns stop paying for themselves once the ตำแหน่ง name has to wrap —
-     stack instead, so neither the name nor the card gets squeezed. */
-  /* nothing solo-specific left to undo here */
-}
-
 @media (max-width: 575.98px) {
-  /* Cards, so the phone still gets a grid — going to one column would make a
-     279-ตำแหน่ง page unscrollably long. Track sizing switches to fr here because
-     a fixed 8.5rem leaves a dead gutter at 360px. */
-  .org-people { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 0.5rem; margin-left: 0; }
-  .org-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .org-count { margin-inline-start: 0; }
-  /* Two lines: name on top, the count pill under it, chevron pinned right
-     across both. A ตำแหน่ง name and "65 ตำแหน่ง · 81 คน" do not fit on one
-     390px line, and letting them wrap freely stranded the chevron on a line
-     of its own. */
-  .org-station-btn {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  /* The band still wraps, but a phone has room for at most one sub-ฝ่าย card
+     per line, and a seat tile that has to share a 340px line with another one
+     wraps its ตำแหน่ง name to a word per row. Full-width seats are not empty
+     here the way they would have been with portrait-above-name cards: the
+     person rows inside them grow to the same width. */
+  .orgc-seat { flex: 1 1 100%; }
+
+  /* Two rows instead of three: the pill drops under the name and the chevron
+     spans both. */
+  .orgc-unit-btn {
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "dot name chev"
-      ".   meta chev";
+      "name chev"
+      "meta chev";
     row-gap: 0.3rem;
   }
-  .org-station-chev { align-self: center; }
-  .org-branch { padding-left: 0.9rem; margin-left: 0.35rem; }
-  .org-branch > .org-node::before { left: -0.9rem; width: 0.5rem; }
+  .orgc-unit-meta { justify-self: start; }
+  .orgc-unit-chev { align-self: center; }
 }
 
-
-/* ============================================================================
-   THE TWO VIEWS — รายการ (indented tree) and แผนผัง (horizontal org chart)
-   ============================================================================
-   One markup, one renderer, one set of nodes; only these rules differ. The
-   wrapper carries `data-view`, and `org-chart.js` flips it without re-rendering
-   so open/closed ตำแหน่ง and scroll position survive the switch.
-
-   ⚠️ SCOPE ON `[data-view]`, NEVER ON A WIDTH. These blocks were originally
-   width-based (list under 1024px, chart above), which was correct while the
-   layout was chosen by screen size. Once the reader could choose, the media
-   query silently stopped applying: the list view on a desktop lost its connector
-   rails and its depth-scaled headings, because those rules were still inside
-   `@media (max-width: 1023.98px)`. A view is not a breakpoint.
-   ============================================================================ */
-
-/* ── รายการ: connector rails down the indented tree ───────────────────────── */
-.org-tree-wrap[data-view="list"] .org-branch > .org-node { position: relative; }
-
-/* The elbow from the branch spine to each ตำแหน่ง, positioned off the padding
-   `.org-branch` already reserves so the two stay in step at every width. */
-.org-tree-wrap[data-view="list"] .org-branch > .org-node::before {
-  content: '';
-  position: absolute;
-  left: calc(-1 * clamp(1rem, 3vw, 1.65rem));
-  top: 1.15rem;
-  width: clamp(0.55rem, 1.9vw, 1.05rem);
-  height: 1px;
-  background: var(--org-spine);
-}
-
-/* Depth is the rank, so depth drives the weight — a ฝ่าย reads as a heading, a
-   ตำแหน่ง four levels down reads as a label. Type, not a special case for
-   particular job titles. */
-/* NOTE the `> .org-box >` hop. These were written as `.org-node > .org-station`
-   and then the chart work wrapped every station in `.org-box`, so the selectors
-   silently stopped matching and the depth scaling was dead — invisible, because
-   headings simply rendered at the base size. Found by asking the browser for the
-   computed font-size rather than by looking at the page. */
-.org-tree-wrap[data-view="list"] .org-node[data-depth="0"] > .org-box > .org-station .org-station-name { font-size: 1.08rem; }
-.org-tree-wrap[data-view="list"] .org-node[data-depth="1"] > .org-box > .org-station .org-station-name { font-size: 1rem; }
-.org-tree-wrap[data-view="list"] .org-node[data-depth="2"] > .org-box > .org-station .org-station-name { font-size: 0.94rem; }
-.org-tree-wrap[data-view="list"] .org-node[data-depth="0"] > .org-box > .org-station .org-station-dot,
-.org-tree-wrap[data-view="list"] .org-node[data-depth="1"] > .org-box > .org-station .org-station-dot {
-  width: 0.7rem; height: 0.7rem;
-}
-
-/* A ตำแหน่ง holding exactly ONE person — which is what a หัวหน้า is — ties its
-   heading to its card with a short rail, so the pair reads as one unit. Applied
-   by COUNT, not by title: any solo ตำแหน่ง is a role, whoever holds it. */
-.org-tree-wrap[data-view="list"] .org-people:has(> :only-child) {
-  position: relative;
-  padding-left: 0.85rem;
-  margin-left: 0.55rem;
-}
-.org-tree-wrap[data-view="list"] .org-people:has(> :only-child)::before {
-  content: '';
-  position: absolute;
-  left: 0; top: -0.5rem; bottom: 0.9rem;
-  width: 1px;
-  background: var(--org-spine);
-}
-
-/* ── แผนผัง: the horizontal org chart ──────────────────────────────────────
-   The shape from SAMO's own recruitment poster: a box per ตำแหน่ง, children in
-   a row beneath, elbow connectors, read top to bottom.
-
-   THREE THINGS MAKE IT FIT 400 PEOPLE, and each was measured:
-     1. ONE SECTION PER ฝ่าย. As a single chart the twelve ฝ่าย sit side by side
-        and the width is their SUM — 44,386px, about 30 screens. Per-ฝ่าย it is
-        the widest single ฝ่าย instead.
-     2. BRANCH SIDEWAYS ONCE. Below depth 1 the chart reuses รายการ's vertical
-        spine. Branching at every level let the LEAF row set the width even
-        though the real branching factor is two or three.
-     3. THE SPREADING ROW WRAPS. ฝ่ายเวชนิทัศน์ has twelve sub-ฝ่าย and still
-        needed +1,360px on an iPad. Note `flex-wrap` alone did NOTHING: `.org-tree`
-        is `width: max-content`, so the container always grows to fit and the
-        wrap point is never reached — a wrapping row must be BOUNDED.
-   Result at 390 / 820 / 1024px: every section within ~13px of the viewport. */
-.org-tree-wrap[data-view="chart"] {
-  /* Break out of the page's centred reading column: right for a diagram, wrong
-     for prose. Verified this does not give the PAGE a horizontal scrollbar —
-     the scrolling belongs to this element. */
-  width: 100vw;
-  max-width: 100vw;
-  margin-inline: calc(50% - 50vw);
-  padding-inline: clamp(0.75rem, 3vw, 2rem);
-  padding-bottom: 1rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-/* Rows. `safe center` is load-bearing: plain `center` on a flex row that
-   overflows its scroll container pushes the excess past BOTH edges and the
-   start side becomes unreachable — the browser clips it and no scroll position
-   reveals it. `safe` falls back to `start` exactly when that would happen. */
-.org-tree-wrap[data-view="chart"] .org-tree,
-.org-tree-wrap[data-view="chart"] .org-branch {
-  display: flex;
-  justify-content: safe center;
-  align-items: flex-start;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  border-left: 0;
-  list-style: none;
-  width: max-content;
-  min-width: 100%;
-}
-.org-tree-wrap[data-view="chart"] .org-branch {
-  position: relative;
-  padding-top: 0.95rem;
-  width: auto;
-  min-width: 0;
-}
-/* Every spreading row is bounded so it can wrap. Costs nothing when it already
-   fits — wrapping is a no-op then — and rescues it when it does not, including
-   a 390px phone where even two columns are too many. */
-.org-tree-wrap[data-view="chart"] > .org-tree > .org-node > .org-node-body > .org-branch,
-.org-tree-wrap[data-view="chart"] .org-branch.is-grid {
-  flex-wrap: wrap;
-  align-items: flex-start;
-  row-gap: 0.9rem;
-  max-width: calc(100vw - clamp(1.5rem, 6vw, 4rem));
-}
-
-/* The drop from a parent box into its children's bar. */
-.org-tree-wrap[data-view="chart"] .org-branch::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 50%;
-  width: 1px; height: 0.95rem;
-  background: var(--org-spine);
-}
-
-.org-tree-wrap[data-view="chart"] .org-node {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.95rem 0.35rem 0;
-  margin: 0;
-}
-
-/* Half-bar left, half-bar + drop right; across a row of siblings these join
-   into one continuous bar with a tick above each child. */
-.org-tree-wrap[data-view="chart"] .org-node::before,
-.org-tree-wrap[data-view="chart"] .org-node::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 50%;
-  height: 0.95rem;
-  border-top: 1px solid var(--org-spine);
-  background: none;
-  left: auto;
-}
-.org-tree-wrap[data-view="chart"] .org-node::before { right: 50%; }
-.org-tree-wrap[data-view="chart"] .org-node::after {
-  left: 50%;
-  border-left: 1px solid var(--org-spine);
-}
-/* The section root hangs from nothing; a lone child needs only the parent drop. */
-.org-tree-wrap[data-view="chart"] > .org-tree > .org-node::before,
-.org-tree-wrap[data-view="chart"] > .org-tree > .org-node::after,
-.org-tree-wrap[data-view="chart"] .org-node:only-child::before,
-.org-tree-wrap[data-view="chart"] .org-node:only-child::after { display: none; }
-/* Trim the outer halves so the bar begins and ends at real children. */
-.org-tree-wrap[data-view="chart"] .org-node:first-child::before,
-.org-tree-wrap[data-view="chart"] .org-node:last-child::after { border-top: 0; }
-
-/* A wrapped row: one horizontal bar cannot describe several lines, so it goes
-   and each child keeps the drop tick that ties it to the parent. */
-.org-tree-wrap[data-view="chart"] .org-branch.is-grid > .org-node::before { display: none; }
-.org-tree-wrap[data-view="chart"] .org-branch.is-grid > .org-node::after {
-  left: 50%;
-  right: auto;
-  width: 0;
-  border-top: 0;
-  border-left: 1px solid var(--org-spine);
-}
-
-/* The body stops being a layout box so `.org-people` and `.org-branch` become
-   direct children of the node. `[hidden]`'s display:none still wins over
-   display:contents, so collapse is intact. */
-.org-tree-wrap[data-view="chart"] .org-node-body { display: contents; }
-
-/* The card. */
-.org-tree-wrap[data-view="chart"] .org-box {
-  position: relative;
-  z-index: 1;
-  background: #fff;
-  border: 1px solid var(--ink-200);
-  border-top: 3px solid var(--org-tint, var(--ink-300));
-  border-radius: var(--radius-sm, 0.5rem);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
-  min-width: 8.5rem;
-  max-width: 13rem;
-}
-/* The station row is a 4-column grid in รายการ (dot / name / meta / chevron),
-   which inside a narrow box squeezed the name to about one character and wrapped
-   Thai vertically, one glyph per line. In a box, stack it. */
-.org-tree-wrap[data-view="chart"] .org-station-btn {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.4rem;
-  margin-left: 0;
-  padding: 0.4rem 0.55rem;
-}
-.org-tree-wrap[data-view="chart"] .org-station-name {
-  flex: 1 1 100%;
-  overflow-wrap: break-word;
-  font-size: 0.8rem;
-  line-height: 1.3;
-}
-.org-tree-wrap[data-view="chart"] .org-station-dot { order: -1; }
-.org-tree-wrap[data-view="chart"] .org-station-meta { font-size: 0.68rem; }
-
-/* People: a real portrait card, sized for a chart rather than a column. ONE
-   size for everyone — rank is position in the chart, not card size. */
-.org-tree-wrap[data-view="chart"] .org-people {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.35rem 0.3rem;
-  max-width: 14rem;
-  margin: 0.35rem 0 0;
-  padding: 0;
-}
-.org-tree-wrap[data-view="chart"] .org-person {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 3.5rem;
-  gap: 0.12rem;
-}
-.org-tree-wrap[data-view="chart"] .org-face {
-  width: 3.5rem;
-  height: 4.65rem;                     /* 3:4 */
-  border-radius: var(--radius-sm, 0.4rem);
-  overflow: hidden;
-}
-.org-tree-wrap[data-view="chart"] .org-face-img { width: 100%; height: 100%; object-fit: cover; }
-.org-tree-wrap[data-view="chart"] .org-face-initials { font-size: 1rem; }
-.org-tree-wrap[data-view="chart"] .org-person-text { min-width: 0; width: 100%; text-align: center; }
-.org-tree-wrap[data-view="chart"] .org-person-name {
-  display: block;
-  font-size: 0.6rem;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-.org-tree-wrap[data-view="chart"] .org-person-nick {
-  display: block;
-  font-size: 0.56rem;
-  color: var(--ink-500);
-}
-
-/* Below depth 1: vertical, reusing รายการ's spine. This is what keeps the chart
-   narrow — see (2) in the header. */
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch {
-  display: block;
-  width: auto;
-  min-width: 0;
-  padding: 0.2rem 0 0 0.75rem;
-  margin-left: 0.45rem;
-  border-left: 1px solid var(--org-spine);
-}
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch::before {
-  display: none;
-}
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node {
-  display: block;
-  align-items: stretch;
-  padding: 0.3rem 0 0;
-}
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::before {
-  content: '';
-  position: absolute;
-  left: -0.75rem;
-  top: 1rem;
-  width: 0.5rem;
-  height: 1px;
-  right: auto;
-  border-top: 1px solid var(--org-spine);
-}
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch > .org-node::after {
-  display: none;
-}
-/* Left-aligned once the axis is vertical — centring a stack reintroduces the
-   empty gutters this whole arrangement exists to remove. */
-.org-tree-wrap[data-view="chart"] .org-node:not([data-depth="0"]) > .org-node-body > .org-branch .org-people {
-  justify-content: flex-start;
-  margin-left: 0.2rem;
-}
-
-/* The synthetic organisation root (รายการ only — แผนผัง heads each section with
-   its own ฝ่าย). Its dot has no ฝ่าย tint to inherit. */
-.org-node.is-org-root > .org-box { border-top-color: var(--brand-primary); }
-.org-node.is-org-root > .org-box .org-station-dot { background: var(--brand-primary); }
-.org-node.is-org-root > .org-box .org-station-name { font-size: 1.05rem; }
-.org-tree-wrap[data-view="list"] > .org-tree > .org-node.is-org-root { padding-left: 0; }
-
-/* "ยังไม่มีสมาชิก" is a phrase, not a count — keep it on one line. */
-.org-station-meta { white-space: nowrap; }
-
-/* ── the รายการ ⇄ แผนผัง switch ────────────────────────────────────────────── */
+/* ── the แผนผัง ⇄ ผังรวม switch ─────────────────────────────────────────── */
 .org-tree-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   flex-wrap: wrap;
+  margin-top: clamp(1.5rem, 4vw, 2.25rem);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--ink-200);
 }
 .org-view-switch {
   display: inline-flex;
@@ -926,9 +683,10 @@
   border: 0;
   background: transparent;
   color: var(--ink-600);
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 0.85rem;
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
 }
 .org-view-btn.is-on { background: var(--brand-primary); color: #fff; }
+.org-view-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }

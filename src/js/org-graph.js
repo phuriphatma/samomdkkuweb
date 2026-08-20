@@ -1,15 +1,16 @@
-// org-graph.js — ผังองค์กร AND ผังรวม, the two d3 surfaces over the ทีม SAMO
-// dataset. รายการ is an indented outline and แผนผัง a CSS chart; these two are
-// real top-down org charts drawn by d3-org-chart (MIT) on a pannable, zoomable
-// canvas with per-ตำแหน่ง collapse.
+// org-graph.js — ผังรวม, the d3 surface over the ทีม SAMO dataset. แผนผัง is a
+// page of nesting panels (org-chart.js); this is a real top-down org chart drawn
+// by d3-org-chart (MIT) on a pannable, zoomable canvas with per-ตำแหน่ง
+// collapse, ONE chart over the whole organisation hung off a synthetic องค์กร
+// root (`flattenCombined`).
 //
-// They share EVERYTHING except how the data is grouped: ผังองค์กร renders one
-// chart per root ฝ่าย, ผังรวม one chart under a synthetic องค์กร root
-// (`flattenCombined`). `ctx.combined` is the whole difference.
+// ── THIS USED TO BE TWO VIEWS ───────────────────────────────────────────────
 //
-// ── WHY ผังองค์กร IS ONE CHART PER ฝ่าย ─────────────────────────────────────
-//
-// Measured on the live 272-node tree, laid out as a SINGLE chart:
+// ผังองค์กร drew the same card with the same renderer, one chart per root ฝ่าย
+// instead of one over everything, and was removed with รายการ on the owner's
+// call. What its split solved is worth keeping written down, because it is the
+// reason ผังรวม has a แสดงถึง control at all. Measured on the live 272-node tree
+// as a SINGLE chart:
 //
 //     expand depth │ plain tree │ d3-flextree compact
 //     ─────────────┼────────────┼────────────────────
@@ -19,31 +20,14 @@
 //
 // Compact packing buys ~40%, and 20,770 px is still twenty screens. This is not
 // a library limitation — twelve root ฝ่าย at a ~500 px minimum each is a
-// ~6,000 px floor before anything is drawn. Dropping the สมาชิก buckets to leave
-// only leadership still measured 17,530 px.
-//
-// Split per ฝ่าย, the widest SINGLE ฝ่าย is 2,140–2,680 px at the default depth.
-// That is two screens — pannable, and zoom-to-fit lands at a readable scale. So
-// the page stacks one chart per root ฝ่าย, which is also what แผนผัง already
-// does, and what the owner asked for originally ("vstack{ hstack ฝ่ายบริหาร }
-// then the next {hstack ฝ่ายดิจิทัล}").
+// ~6,000 px floor before anything is drawn. So the whole-organisation picture is
+// WIDE by construction, and the rung is what makes it usable: at ฝ่ายหลัก it is
+// a dozen boxes and reads at a glance; deeper, it is something you pan around.
+// Both are legitimate uses of a canvas, which is why this view kept the control
+// and the per-ฝ่าย split was the half that could go.
 //
 // ── WHAT IT OPENS AT ───────────────────────────────────────────────────────
 //
-// ผังองค์กร opens at the ตำแหน่ง rung: every ฝ่าย in the branch plus the
-// ตำแหน่ง each one holds, with ตำแหน่ง-under-ตำแหน่ง behind their own expand
-// button. ผังรวม opens at ฝ่ายหลัก — twelve boxes, 540 px measured, the only
-// rung of the whole-organisation picture that fits without panning; everything
-// below that is pan/zoom, which is what the canvas is for.
-//
-// The rungs are defined by KIND, not by depth — the note above `RUNG` says why
-// a number could not express this, and what it got wrong before.
-//
-// The library is loaded with a dynamic import so none of it — nor its d3
-// subset, 33 KB gzipped together — is in the entry bundle. A reader who never
-// opens one of these two views never downloads it. d3-org-chart is PINNED to an
-// exact version: npm is stale at 3.1.1 (Sept 2023) while the repo is active, so
-// a float could silently jump three years of unreleased changes.
 import { escHtml } from './utils.js';
 import { faceHtml, GRAPH_SHAPE } from './org-face.js';
 import {
@@ -54,9 +38,9 @@ import { tintColor } from './dept-tint.js';
 
 // d3-zoom is imported DYNAMICALLY, beside the chart library, and not with a
 // static `import` at the top of this file. This module is reachable statically
-// from org-chart.js (destroyOrgGraph runs on every paint of all three views), so
+// from org-chart.js (destroyOrgGraph runs on every paint of BOTH views), so
 // a static import here puts d3-zoom in the ENTRY bundle — measured at +13.6 KB
-// gzipped for every reader, including the ones who never open ผังองค์กร. Both
+// gzipped for every reader, including the ones who never open ผังรวม. Both
 // dynamic imports resolve into the same lazy chunk instead.
 let zoomIdentity = null;
 
@@ -79,8 +63,8 @@ const MAX_TITLE_LINES = 3;
 // REPORTED: "the picture render wrong". The first version drew a 26px portrait,
 // avatar-sized. But these are WAIST-UP STUDIO SHOTS, not head-and-shoulders
 // crops: at 26px the head is about eight pixels and the card shows a torso.
-// The control is the other views — รายการ renders the same photo at a 136px box,
-// where it reads as a person.
+// The control is the other surface — แผนผัง renders the same photo beside the
+// name, where it reads as a person.
 //
 // So the row is sized around a portrait that is actually legible. 44px wide at
 // 3:4 is 58.7px tall, and ROW_H carries that plus breathing room. It makes a
@@ -132,8 +116,8 @@ function personHtml(m, q) {
     </div>`;
 }
 
-/** Same search highlight as the other two views. Kept tiny and local rather than
- *  imported from org-chart.js, which would make the import cycle real. */
+/** Same search highlight as แผนผัง. Kept tiny and local rather than imported
+ *  from org-chart.js, which would make the import cycle real. */
 function hi(text, q) {
   const safe = escHtml(text);
   if (!q) return safe;
@@ -177,7 +161,7 @@ function flatten(rootNode, ctx, opts = {}) {
     const s = subStats.get(node.id) || { nodes: 0, people: 0 };
     // ฝ่าย or ตำแหน่ง, and how deep into the ฝ่าย CHAIN this sits — the two
     // facts the rung predicate is written in terms of. `divDepth` counts only
-    // ฝ่าย ancestors, so it means the same thing in both views even though
+    // ฝ่าย ancestors, so a root ฝ่าย is 1 even though
     // ผังรวม has an extra synthetic box above everything (see applyRung).
     const isDiv = isDivision(node.kind);
 
@@ -209,29 +193,21 @@ function flatten(rootNode, ctx, opts = {}) {
     (byParent.get(node.id) || []).forEach((c) => walk(c, node.id, depth + 1, isDiv, divDepth));
   };
 
-  // The chart root's own parent is either nothing (ผังองค์กร) or the synthetic
-  // องค์กร box (ผังรวม). Neither is a ฝ่าย the reader can see, so both start the
-  // ฝ่าย chain at zero and a root ฝ่าย is divDepth 1 in either view.
+  // The chart root's own parent is the synthetic องค์กร box, which is not a ฝ่าย
+  // the reader can see — so the ฝ่าย chain starts at zero and a root ฝ่าย is
+  // divDepth 1.
   walk(rootNode, startParent, depthOffset, false, 0);
   return out;
 }
 
 /**
- * ผังรวม — ONE chart over the whole organisation.
+ * ONE chart over the whole organisation.
  *
- * The synthetic root is the same one รายการ uses, and for the same reason:
- * without it the twelve ฝ่าย are twelve ROOTS, and `d3.stratify()` throws on
- * multiple roots rather than drawing twelve unconnected columns. It is synthetic
- * on purpose — there is no such row in `team_nodes`, and adding one would put a
- * fake ตำแหน่ง into the admin tree, the archive, the export and the seat
- * resolver to serve a drawing.
- *
- * This view is WIDE by construction, and that is the trade the owner asked for:
- * one picture of the whole organisation instead of twelve. The depth control is
- * what makes it usable — at ระดับ ฝ่าย it is a dozen boxes and reads at a
- * glance; deeper, it becomes something you pan around. Both are legitimate uses
- * of a canvas, which is exactly why this is a separate view from ผังองค์กร
- * rather than a replacement for it.
+ * The synthetic root is there because without it the fifteen ฝ่าย are fifteen
+ * ROOTS, and `d3.stratify()` throws on multiple roots rather than drawing
+ * fifteen unconnected columns. It is synthetic on purpose — there is no such row
+ * in `team_nodes`, and adding one would put a fake ตำแหน่ง into the admin tree,
+ * the archive, the export and the seat resolver to serve a drawing.
  */
 function flattenCombined(ctx) {
   const { roots, chart, filter } = ctx;
@@ -251,7 +227,7 @@ function flattenCombined(ctx) {
     tint: null,
     depth: 0,
     // A unit, so it survives every rung — but divDepth 0, so the ฝ่าย beneath it
-    // are 1 here exactly as they are in ผังองค์กร.
+    // are 1, which is the depth every rung predicate is written against.
     isDiv: true,
     parentIsDiv: false,
     divDepth: 0,
@@ -394,16 +370,12 @@ export async function mountOrgGraph(hostEl, ctx) {
   const q = ctx.filter?.q || '';
   let drawn = 0;
 
-  // ผังรวม is ONE chart over everything; ผังองค์กร is one per root ฝ่าย. Same
-  // renderer, same card, same controls — only how the data is grouped differs,
-  // so there is no second implementation to keep in step.
-  const datasets = ctx.combined
-    ? [flattenCombined(ctx)].filter((d) => d.length)
-    : ctx.roots.map((r) => flatten(r, ctx)).filter((d) => d.length);
+  // ONE dataset, kept as a list because `charts` and the teardown path were
+  // written for the per-ฝ่าย view that used to produce several, and a section
+  // that a search filtered down to nothing still has to drop out.
+  const datasets = [flattenCombined(ctx)].filter((d) => d.length);
 
   for (const data of datasets) {
-    // A ฝ่าย the search filtered down to nothing is noise — drop the section
-    // rather than render a chart with a lone empty root.
     if (!data.length) continue;
     applyRung(data, rung);
 

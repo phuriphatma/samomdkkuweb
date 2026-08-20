@@ -445,10 +445,55 @@ is derived greedily in START order.
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
 at 30, polled every 60 s per open tab. Fine at real scale.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-19)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking and
-> no deploy is owed. **VM = `7dbc153`**; local == origin == `6ff839e`, which is
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
+>
+> ### 2026-08-20 — เกี่ยวกับเรา: two views, and แผนผัง rebuilt
+>
+> **REPORTED**: "remove รายการ and ผังองค์กร, left only แผนผัง and ผังรวม … แผนผัง
+> doesn't show order like the ผังรวม … it doesn't care about ระดับ that i config
+> in the admin teamsamo … many leftover space including the box ui ฝ่าย role."
+> Write-up in `docs/mistakes/frontend-ui.md`
+> ("it doesn't care about ระดับ …").
+>
+> - **TWO views now: แผนผัง and ผังรวม.** รายการ shared แผนผัง's markup;
+>   ผังองค์กร shared ผังรวม's renderer. A stored preference of either is
+>   MIGRATED, not reset (`RETIRED_VIEWS` in `org-chart.js`).
+> - **แผนผัง is no longer a connector tree.** It is a page of ฝ่าย PANELS —
+>   a title row you tap, then ONE wrapping band holding its ตำแหน่ง cards
+>   (ระดับ order, leading rung tinted) followed by its sub-ฝ่าย as cards.
+>   Measured section height: **24,101 → 3,989px at 1440, 55,273 → 8,110px at
+>   390**, and the page no longer scrolls horizontally at 390.
+> - ⚠️ **DO NOT "unify" the two views on `chartParentage`.** That was tried in
+>   August 2026 and cost a 52,000px staircase. What IS shared is the ORDER:
+>   both call `orderChildren()` in `org-rung.js`, and `org-rung.test.js`
+>   §"แผนผัง and ผังรวม order one ฝ่าย identically" holds the differential
+>   (falsified both ways before shipping).
+> - ⚠️ **Only the ROOT ฝ่าย open by default** (`OPEN_TO_DEPTH = 0`). Everything
+>   deeper is one tap, and ขยายทั้งหมด still opens all 90 panels (23,458px).
+> - ⚠️ **`is-wide` and the nested basis are honoured through `:has(>
+>   .orgc-unit-body:not([hidden]))`**, because `toggleNode` only flips `hidden`
+>   — never add a second class for the open state, it will drift.
+> - ⚠️ **Do NOT make `.orgc-people` a grid** to line its columns up across rows.
+>   `repeat(auto-fill, …)` contributes ONE column to intrinsic sizing, so a
+>   membership bucket stops asking for the line and renders as a one-per-row
+>   tower. Measured; the comment in `org-chart.css` says so.
+> - `TREE_SHAPE` in `org-face.js` dropped from [130,200,260,390] to [52,104,156]
+>   with the portrait; it is ONE decision with `.orgc-person > .org-face`'s
+>   `width: 3.25rem`.
+> - `.claude/rules/mistakes.md` needed ~250 bytes of compression to fit the new
+>   entry — class 6 now says "share the ORDER, not the GEOMETRY".
+>
+> **NOT YET DEPLOYED at the time this was written.** Verify from the SERVED
+> artifact: the public entry is `assets/public-*.js` / the shared
+> `assets/analytics-*.js` — grep a STRING LITERAL or a CSS class
+> (`orgc-unit-btn`, `orgc-seat`, `ยังไม่มีสมาชิก`) and confirm the REMOVED
+> `data-org-view="list"` / `org-tree-wrap` read **0**.
+>
+> ### Older, still true
+>
+> **VM = `7dbc153`**; local == origin == `6ff839e`, which is
 > TWO DOCS-ONLY commits ahead — confirm with
 > `git diff --stat 7dbc153..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
 > served bundle is current, and it IS empty. (Ask about `src/` ALONE: adding
