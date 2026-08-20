@@ -542,7 +542,13 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    rather than writing a second one.
 > 4. **Then improve it, which is what was actually asked.** The measured
 >    complaints against the old geometry, all still true and all reproducible
->    with `docs/demos/about-3d/tools/org.mjs <width> <view>`:
+>    with **`docs/demos/about-3d/tools/org-local.mjs`** — committed this session
+>    precisely so you do not rebuild the harness a third time. It drives the
+>    LOCAL dev server, prints `sectionH` / `pageScrollsSideways` / portrait
+>    request count BEFORE the pictures, and takes `--open "<ฝ่าย name>"` and
+>    `--no-bootstrap`. **Run it at 390 / 820 / 1440 before and after any change
+>    here** — this page is judged on those numbers, not on a screenshot of the
+>    part that looks wrong:
 >    - 24,101px at 1440 / 55,273px at 390 (the new panel view is 3,989 / 8,110).
 >    - `align-items: flex-start` on a connector row means a one-person ตำแหน่ง
 >      beside a forty-person ฝ่าย leaves a dead column the height of the tall
