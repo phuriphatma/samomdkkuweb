@@ -485,11 +485,22 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > - `.claude/rules/mistakes.md` needed ~250 bytes of compression to fit the new
 >   entry — class 6 now says "share the ORDER, not the GEOMETRY".
 >
-> **NOT YET DEPLOYED at the time this was written.** Verify from the SERVED
-> artifact: the public entry is `assets/public-*.js` / the shared
-> `assets/analytics-*.js` — grep a STRING LITERAL or a CSS class
-> (`orgc-unit-btn`, `orgc-seat`, `ยังไม่มีสมาชิก`) and confirm the REMOVED
-> `data-org-view="list"` / `org-tree-wrap` read **0**.
+> ⛔ **NOT DEPLOYED — the VPN was down (`ssh samo-vm` timed out at
+> 10.101.111.181:22), so `1f966f3` is on `origin/main` and NOT on the VM.**
+> Run `skills/deploy-vm.md` once the VPN is up. Verified from the LOCAL build,
+> which says exactly which artifact to grep on the VM: this code lands in the
+> **public entry**, `assets/public-*.js` and `assets/public-*.css` — NOT in
+> `analytics-*.js` and NOT in `admin-*.js`. So:
+>
+> ```bash
+> B=$(curl -s https://samo.md.kku.ac.th/ | grep -oE 'assets/public-[A-Za-z0-9_.-]+\.js' | head -1)
+> curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'orgc-unit-btn'            # expect >= 1
+> curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'data-org-view=.list.'     # expect 0
+> ```
+>
+> and the same for the CSS: `orgc-seat` >= 1, the REMOVED `org-tree-wrap` = 0.
+> `orderChildren` / `unitBlock` / `seatBlock` grep **0** by construction — the
+> minifier renames module-scope names. Use a CSS class or a Thai literal.
 >
 > ### Older, still true
 >
