@@ -448,6 +448,17 @@ is derived greedily in START order.
 ⚠️ **`get_claude_board()` cost grows with bookings** — ~25 ms at 7/week, ~100 ms
 at 30, polled every 60 s per open tab. Fine at real scale.
 
+## ⚠️ STATE.md IS 1,126 LINES AND THE RULE IS ~200
+
+CLAUDE.md's end-of-turn loop says: *"Keep STATE.md under ~200 lines; if it
+bloats, prune past-session sections to `docs/state-archive/YYYY-MM-DD.md` and
+trust `git log --oneline` for the chronology."* This file is five times that and
+2026-08-20 made it worse, not better. **Whoever has budget next: prune before
+adding.** Everything above `## NEXT-SESSION PROMPT` older than the current
+deploy is archive material — the `## 2026-08-17 — archived` block and the
+per-deploy verification logs for anything before `68d08ea` are the obvious
+first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
+
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
 > **Read this file, then `skills/write-a-guard.md`.** ⛳ **ONE THING IS OWED and
@@ -571,6 +582,15 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    which the third view falsifies. It has a ⛳ comment on it. Revise it in the
 >    SAME commit as the restore — a release note that contradicts the page is
 >    worse than no note.
+>
+> **UNFIXED, found while measuring and never written down until now**:
+> `#about-mission` and `#about-policy` overflow their own box by 8–12px at
+> 390px (`about-section:1304/1296` at 1440 too). It is Bootstrap `.row`'s
+> negative gutter margins, absorbed by `.container`'s padding, so NOTHING is
+> clipped and the PAGE does not scroll — which is why it was never reported.
+> Out of scope for the org chart; fix it or decide it is noise, but do not
+> re-discover it. Reproduce: `node docs/demos/about-3d/tools/org-local.mjs 390`
+> and read `overflowing`.
 >
 > **Fixed already, do not redo**: "there's a line that being draw solo i think i
 > don't need that" (`~/T/…/Screenshot 2026-08-20 at 8.12.50 PM.png`) — the
