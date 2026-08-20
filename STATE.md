@@ -450,13 +450,93 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, no
-> deploy is owed, no migration is pending. **Prod = `aae1852`.** Migrations
+> **Read this file, then `skills/write-a-guard.md`.** ⛳ **ONE THING IS OWED and
+> it is the first section below: restore the old connector-chart แผนผัง as a
+> THIRD view.** No migration is pending. **Prod = `aae1852`.** Migrations
 > through **0166** (none added since). **1229 tests green** (+7 this session:
 > `hidden-attribute.test.js` ×3, `org-chart-metrics.test.js` ×4, the
 > ordering differential ×5, minus none). **Proofs NOT re-run this session** —
 > the two `claude0157`/`claude0161` reds below are still owed and were not
 > touched.
+>
+> ### ⛳ OWED — RESTORE THE OLD CONNECTOR CHART AS A THIRD VIEW (start here)
+>
+> **REPORTED, right after the rework deployed**: "this orgchart แผนผัง that
+> you've implemented has completely change the ui of my previous design … i just
+> want to modify this more to improve it, not changing entire ui. but you've
+> implemented this design which i also like, so i would like to KEEP this and
+> RESTORE the previous and improve it."
+>
+> **So the answer is THREE views, not two, and it is a restore + a rename — not
+> a redesign.** I removed a picture the owner valued. That was the error: the
+> brief said "improve", and the ระดับ bug plus the dead space were both fixable
+> inside the old geometry. Do NOT re-litigate this; the owner has said they like
+> both.
+>
+> **WHAT THE OLD ONE IS** (see the owner's screenshot, `~/Desktop/IMG_8132.png`,
+> iPad, 2026-08-13): the CSS connector tree — one section per root ฝ่าย, a box
+> per node, children in a ROW beneath it joined by elbow connectors, read top to
+> bottom, from SAMO's own recruitment poster. It is NOT ผังรวม (that is d3 on a
+> pan/zoom canvas) and NOT the new panel view.
+>
+> **WHERE THE CODE IS.** It was deleted whole in `1f966f3`; the last good copy
+> is its parent, **`befd30e`**. Recover with `git show befd30e:<path>`:
+>
+> | piece | at `befd30e` |
+> |---|---|
+> | renderer | `src/js/org-chart.js` `nodeBlock()` (line 327) + `rootBlock()` (448) |
+> | markup hook | `<div class="org-tree-wrap" data-view="chart">` (546) |
+> | styles | `src/css/org-chart.css`, the block headed `── แผนผัง: the horizontal org chart` (line 665) to the end of the `[data-view]` section |
+>
+> That CSS header carries THREE measured constraints — one section per ฝ่าย,
+> branch sideways once, the spreading row must WRAP because `.org-tree` is
+> `width: max-content` — **read it before changing any of them.** `git show
+> befd30e:src/css/org-chart.css | sed -n '665,905p'`.
+>
+> **HOW TO LAND IT — the ordering, so nothing regresses:**
+>
+> 1. **Three buttons.** `VIEWS = ['chart', 'panel', 'all']` (or keep `chart` for
+>    the connector tree and give the new panel view a new key — whichever, but
+>    `RETIRED_VIEWS` must map every old value INCLUDING whatever key the panel
+>    view ships under today, or every reader's saved preference breaks).
+>    ⚠️ The panel view currently owns the key `'chart'`. Decide the key mapping
+>    FIRST and write it down, or the migration silently sends people to the
+>    wrong picture.
+> 2. **Thai labels.** Two views both called "แผนผัง" is not shippable. Ask the
+>    owner what to call them — do not invent names (see
+>    `ui-copy-names-the-audience` in memory: never invent a feature's purpose).
+> 3. **The restored view MUST honour ระดับ**, which the old one did not — that
+>    was half the original bug report. It reads `byParent` (stored order);
+>    route it through `orderChildren()` in `org-rung.js` the way `childrenHtml()`
+>    already does, so all three views share ONE ordering.
+>    ⚠️ Do NOT give it `chartParentage` — that is the 52,000px staircase, paid
+>    for twice now. Order, not geometry. `org-rung.test.js` §"แผนผัง and ผังรวม
+>    order one ฝ่าย identically" is the differential; EXTEND it to the third view
+>    rather than writing a second one.
+> 4. **Then improve it, which is what was actually asked.** The measured
+>    complaints against the old geometry, all still true and all reproducible
+>    with `docs/demos/about-3d/tools/org.mjs <width> <view>`:
+>    - 24,101px at 1440 / 55,273px at 390 (the new panel view is 3,989 / 8,110).
+>    - `align-items: flex-start` on a connector row means a one-person ตำแหน่ง
+>      beside a forty-person ฝ่าย leaves a dead column the height of the tall
+>      one. **This is the structural cause of "many leftover space" — spacing
+>      tweaks cannot fix it.** Ideas not yet tried: collapse deeper by default
+>      (the panel view's `OPEN_TO_DEPTH = 0` bought most of its win), the
+>      horizontal person row (52px portrait, name BESIDE it) which the panel
+>      view already uses, and per-ฝ่าย horizontal scroll instead of page growth.
+>    - At 390px the page scrolled horizontally (395/390) because
+>      `.org-tree-wrap[data-view="chart"]` breaks out with `width: 100vw;
+>      margin-inline: calc(50% - 50vw)`. Re-check that at 320/390 after restore.
+> 5. **Regression floor.** `npm test` must stay green — `hidden-attribute.test.js`
+>    and `org-chart-metrics.test.js` both assert against the CURRENT class names
+>    (`.orgc-unit-body`, `.orgc-person > .org-face`). If the restore renames or
+>    removes either, the guards' CONTROL assertions fail LOUDLY and tell you to
+>    re-derive the subject — that is by design, do not delete them.
+>
+> **Fixed already, do not redo**: "there's a line that being draw solo i think i
+> don't need that" (`~/T/…/Screenshot 2026-08-20 at 8.12.50 PM.png`) — the
+> `border-left` rail on `.orgc-seat-sub`, redundant beside the bordered cards it
+> contained. Removed in the commit that carries this note.
 >
 > ### 2026-08-20 — เกี่ยวกับเรา: two views, and แผนผัง rebuilt
 >

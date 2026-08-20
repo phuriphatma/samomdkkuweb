@@ -523,9 +523,15 @@
   align-items: flex-start;
   gap: clamp(0.4rem, 1.3vw, 0.6rem);
   margin-top: 0.15rem;
-  padding-left: clamp(0.5rem, 1.6vw, 0.75rem);
-  border-left: 1px solid color-mix(in srgb, var(--org-tint) 22%, var(--ink-200));
 }
+
+/* NO RAIL DOWN THE LEFT. This block used to carry a `border-left` to say "these
+   belong to the seat above". REPORTED: "there's a line that being draw solo i
+   think i don't need that" — and it was right twice over. Every child in here is
+   a CARD with its own border, so the rail states a containment the boxes already
+   state; and because the block is the last thing in a seat that is itself
+   left-railed, the two ran parallel a few pixels apart, which reads as a
+   rendering artefact rather than as structure. Nesting is the mark. */
 
 /* ── people ─────────────────────────────────────────────────────────────── */
 
