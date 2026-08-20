@@ -473,11 +473,23 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > inside the old geometry. Do NOT re-litigate this; the owner has said they like
 > both.
 >
-> **WHAT THE OLD ONE IS** (see the owner's screenshot, `~/Desktop/IMG_8132.png`,
-> iPad, 2026-08-13): the CSS connector tree — one section per root ฝ่าย, a box
-> per node, children in a ROW beneath it joined by elbow connectors, read top to
-> bottom, from SAMO's own recruitment poster. It is NOT ผังรวม (that is d3 on a
-> pan/zoom canvas) and NOT the new panel view.
+> **WHAT THE OLD ONE IS — LOOK AT THE PICTURE FIRST:**
+> **`docs/design-refs/2026-08-20-old-connector-chart.png`**, with
+> `docs/design-refs/README.md` describing it in prose in case the file is gone
+> (the images there are gitignored ON PURPOSE — this repo is public and they
+> carry student faces; the README says why). The owner's original was
+> `~/Desktop/IMG_8132.png`.
+>
+> It is the CSS connector tree: one section per root ฝ่าย; each node a white
+> rounded box with a coloured TOP border, a dot, its name and a count pill; the
+> ฝ่าย's อุปนายก as a centred portrait card with the name BELOW the photo; then a
+> real elbow connector — vertical drop, horizontal bar, a tick into each child —
+> fanning out to a ROW of sibling ฝ่าย boxes; below depth 1 it switches to a
+> vertical spine; the section scrolls horizontally inside its own scroller.
+> Read top to bottom, from SAMO's own recruitment poster.
+>
+> ⚠️ It is NOT ผังรวม (that is d3 on a pan/zoom canvas, still shipping) and NOT
+> the new panel view. Three different pictures; the owner wants all three.
 >
 > **WHERE THE CODE IS.** It was deleted whole in `1f966f3`; the last good copy
 > is its parent, **`befd30e`**. Recover with `git show befd30e:<path>`:
