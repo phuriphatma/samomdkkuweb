@@ -459,7 +459,22 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > the two `claude0157`/`claude0161` reds below are still owed and were not
 > touched.
 >
-> ### ⛳ OWED — RESTORE THE OLD CONNECTOR CHART AS A THIRD VIEW (start here)
+> ### ⛳ OWED — ADD BACK THE OLD CONNECTOR CHART AS A THIRD, SEPARATE VIEW
+>
+> 🚫 **DO NOT `git revert 1f966f3`. DO NOT DELETE OR CHANGE THE CURRENT PANEL
+> VIEW. THIS IS AN ADDITION.**
+>
+> The word "restore" below means **bring the old picture back BESIDE the new
+> one**, as one more button in the view switch. It does NOT mean undo the
+> rework. The owner said, in the same sentence, that they like the new one:
+> *"you've implemented this design which i also like, so i would like to KEEP
+> this and RESTORE the previous and improve it."* Both ship. Three buttons:
+> the old connector chart, the current panel view, and ผังรวม.
+>
+> If you find yourself reverting a commit, reading the old CSS over the new
+> file, or deleting `.orgc-unit` / `.orgc-seat` rules — **stop, you have
+> misread this.** The old code is COPIED OUT of `befd30e` and added alongside;
+> nothing currently on the page is removed.
 >
 > **REPORTED, right after the rework deployed**: "this orgchart แผนผัง that
 > you've implemented has completely change the ui of my previous design … i just
@@ -650,6 +665,11 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > ```bash
 > git diff --stat 68d08ea..HEAD -- src/ ':!src/**/*.test.js'
 > ```
+>
+> ⚠️ **RIGHT NOW that is NOT empty and prod IS current.** The one file it lists
+> is `src/data/changelog.js`, and the diff is a **⛳ comment only** — 0
+> non-comment lines added. Read WHICH file and WHAT changed before spending 90 s
+> on a deploy; this is the same trap the 0166 migration set for the last reader.
 >
 > ### Older, still true
 >
