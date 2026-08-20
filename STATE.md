@@ -40,7 +40,10 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `7dbc153` (2026-08-19)**, VM HEAD confirmed over ssh.
+- ✅ **DEPLOYED = `aae1852` (2026-08-20)** — the เกี่ยวกับเรา two-view rework
+  and the `[hidden]` fix. VM HEAD confirmed over ssh; the served-artifact greps
+  are in the NEXT-SESSION PROMPT at the bottom, which is the authority.
+- Previous deploy `7dbc153` (2026-08-19), VM HEAD confirmed over ssh.
   Verified from the served `/admin/` HTML: the new hint `ควรใช้งานและ` = 1 and
   the REMOVED `ไม่ได้เลือกให้อัตโนมัติ` = **0**; `userSet` and `masterAuto` both
   present in `assets/admin-*.js` and **0** in `analytics-*.js`.
@@ -447,7 +450,13 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
-> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking.
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is blocking, no
+> deploy is owed, no migration is pending. **Prod = `aae1852`.** Migrations
+> through **0166** (none added since). **1229 tests green** (+7 this session:
+> `hidden-attribute.test.js` ×3, `org-chart-metrics.test.js` ×4, the
+> ordering differential ×5, minus none). **Proofs NOT re-run this session** —
+> the two `claude0157`/`claude0161` reds below are still owed and were not
+> touched.
 >
 > ### 2026-08-20 — เกี่ยวกับเรา: two views, and แผนผัง rebuilt
 >
@@ -523,30 +532,28 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   current and future case, which is why the fix went there and not on three
 >   selectors.
 >
-> ⛔ **NOT DEPLOYED — the VPN was down (`ssh samo-vm` timed out at
-> 10.101.111.181:22), so `1f966f3` is on `origin/main` and NOT on the VM.**
-> Run `skills/deploy-vm.md` once the VPN is up. Verified from the LOCAL build,
-> which says exactly which artifact to grep on the VM: this code lands in the
-> **public entry**, `assets/public-*.js` and `assets/public-*.css` — NOT in
-> `analytics-*.js` and NOT in `admin-*.js`. So:
+> ✅ **DEPLOYED = `aae1852` (2026-08-20)**, VM HEAD confirmed over ssh,
+> `DEPLOY_EXIT=0`. Verified from the SERVED artifacts — and note WHICH ones:
+> this code lands in the **public entry**, `assets/public-*.js` +
+> `assets/public-*.css`, NOT in `analytics-*.js` and NOT in `admin-*.js`.
+> Served `public-DUXCISQP.js`: `orgc-unit-btn` ✓, `ยังไม่มีสมาชิก` ✓, and the
+> REMOVED `data-org-view="list"` = **0**. Served `public-DLaz7hrf.css`:
+> `orgc-seat` ✓, `:has(` ✓, `[hidden]{display:none!important}` ✓, and the
+> REMOVED `org-tree-wrap` = **0**.
+> ⚠️ `bi-diagram-2` greps 1 in the served JS and it is **VitalSound's duplicate
+> icon** (`vs-staff.js`), not the deleted ผังองค์กร button — check WHAT matched.
+> `orderChildren` / `unitBlock` / `seatBlock` grep **0** by construction: the
+> minifier renames module-scope names. Use a CSS class or a Thai literal.
+>
+> Re-check "is prod current" with — EMPTY means yes:
 >
 > ```bash
-> B=$(curl -s https://samo.md.kku.ac.th/ | grep -oE 'assets/public-[A-Za-z0-9_.-]+\.js' | head -1)
-> curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'orgc-unit-btn'            # expect >= 1
-> curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'data-org-view=.list.'     # expect 0
+> git diff --stat aae1852..HEAD -- src/ ':!src/**/*.test.js'
 > ```
->
-> …and in the served CSS (either entry — base.css is in both):
-> `grep -c 'hidden\]{display:none!important}'` → expect >= 1.
->
-> and the same for the CSS: `orgc-seat` >= 1, the REMOVED `org-tree-wrap` = 0.
-> `orderChildren` / `unitBlock` / `seatBlock` grep **0** by construction — the
-> minifier renames module-scope names. Use a CSS class or a Thai literal.
 >
 > ### Older, still true
 >
-> **VM = `7dbc153`**; local == origin == `6ff839e`, which is
-> TWO DOCS-ONLY commits ahead — confirm with
+> (Previous deploy was `7dbc153`, 2026-08-19.) That entry read: confirm with
 > `git diff --stat 7dbc153..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
 > served bundle is current, and it IS empty. (Ask about `src/` ALONE: adding
 > `supabase/` lists the 0166 migration, whose header comment was corrected after
