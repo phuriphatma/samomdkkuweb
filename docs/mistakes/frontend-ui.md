@@ -2922,3 +2922,59 @@ And: **a layout whose rows are as tall as their tallest cell cannot be made
 dense by tuning spacing.** Whitespace complaints on a connector tree are a
 report about the geometry. The instrument is the section's own scrollHeight at
 three widths, before and after — not a screenshot of the part that looks wrong.
+
+---
+
+## `hidden` did nothing, and only Bootstrap's CDN stylesheet was hiding it
+
+**Symptom.** None visible — which is the point. The ทีม SAMO page's ฝ่าย
+panels collapsed correctly, the ปีการศึกษา picker hid itself when there was
+only one year, and ขยาย/ย่อทั้งหมด hid itself during a search. All three are
+`element.hidden = true` in `org-chart.js`. All three were one blocked request
+away from doing nothing at all.
+
+**Cause.** The UA rule is `[hidden] { display: none }` with **no
+`!important`**, so any author rule that sets `display` on the same element beats
+it. Three elements were in exactly that shape:
+
+| element | its own rule | toggled by |
+|---|---|---|
+| `.org-years` | `display: flex` | `host.hidden = …` |
+| `.org-expand-all` | `display: inline-flex` | `btn.hidden = …` |
+| `.orgc-unit-body` | `display: flex` | `panel.hidden = …` |
+
+It worked because Bootstrap's reboot ships `[hidden]{display:none!important}`
+and `index.html` loads Bootstrap from `cdn.jsdelivr.net`. Nothing in `src/css/`
+carried the rule. Measured in a headless browser with that one `<link>` blocked
+and nothing else changed:
+
+```
+Bootstrap CSS      .orgc-unit-body[hidden]      #orgBody height
+loaded             display: none                    3,463 px
+blocked            display: flex                   22,474 px   ← every ฝ่าย open
+blocked, + fix     display: none                    3,318 px
+```
+
+The older markup was safe by accident — `.org-node-body` set only an
+`animation`, no `display`, so the UA rule was unopposed. The panel rewrite gave
+the body a `display: flex` and moved the whole disclosure onto a third-party
+stylesheet arriving, without anybody choosing that.
+
+**Fix.** One declaration in `src/css/base.css`, which both entries import:
+`[hidden] { display: none !important; }`. `!important` is not decoration —
+`[hidden]` and `.orgc-unit-body` are both specificity (0,1,0), and base.css is
+imported FIRST, so without it source order hands the win to the later file.
+
+**Where it lives now.** `src/css/base.css`, top of file, with the measurement in
+its comment. Guard: `hidden-attribute.test.js` — asserts the rule exists, that
+it carries `!important`, and (the CONTROL) that a class declaring `display` is
+still toggled via `.hidden`, so the guard cannot pass by having nothing to
+protect. Falsified three ways before shipping.
+
+**The general rule.** **A behaviour that depends on a rule you did not write is
+not implemented, it is borrowed** — and CSS borrowing fails silently, at someone
+else's deploy, on someone else's network. When an attribute is your mechanism
+(`hidden`, `disabled`, `open`), own the rule that makes it work in a file you
+ship. The instrument is not "does it work here": it is **remove the dependency
+and measure again**. Blocking one `<link>` in a headless browser is a
+five-minute experiment that turns "it works" into "it works BECAUSE".

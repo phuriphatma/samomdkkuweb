@@ -38,9 +38,8 @@ it is the part that generalises to code not yet written.
    can read it. A gate on the WIDGET is not a gate on the ROUTE: the sidebar hid
    sections an account could not use, but the HASH was unchecked, so `/admin/#vs`
    opened VitalSound with no VS grant. Enumerate every way in — click, hash,
-   query string, deep link, GESTURE (on a scroll surface `pointerdown` starts
-   every gesture it supports; state armed there must be released on
-   `pointercancel`). Non-security twin: a handler guarded on state the CALLER
+   query string, deep link, GESTURE (`pointerdown` starts every gesture a scroll
+   surface supports; release on `pointercancel`). Non-security twin: a handler guarded on state the CALLER
    sets misses every other entry point. COPY too — one claim lived in the
    sign-in caption, the signup link AND the home strip. A LABEL, a CHART and a
    DERIVED value each claim something about every case they cover (org chart,
@@ -52,8 +51,7 @@ it is the part that generalises to code not yet written.
    hides the gap until someone tries to save. **A SECURITY DEFINER RPC that
    restates a policy is one of those gates** — `soft_delete_pr_ticket` kept the
    pr_staff/dev test 29 migrations after the policy learned `has_permission('pr')`
-   while its VS twin was correct, so the pair read as permission-aware (0149).
-   Check the SECOND twin. **A `role === 'x'` gate cannot see a PERMISSION**: a
+   while its VS twin was correct (0149). Check the SECOND twin. **A `role === 'x'` gate cannot see a PERMISSION**: a
    `master` holder is `role='user'`, so master opened every tab and RLS row but
    missed the ROLE-gated controls inside — the PR/VS skip-notify toggle,
    `isVsSuper()` (2026-08-17). Grep role literals too, and put `holdsMaster()`
@@ -87,8 +85,8 @@ it is the part that generalises to code not yet written.
    **Erasing a field a stronger grant "covers" — SCOPE or IDENTITY?** A scope
    has a widest value the grant IS (VS แผนก, Passport ฝ่าย); an identity names
    one of several roles, which access cannot answer. `master` nulled the
-   หนังสือโครงการ seat — three DESKS in one transaction — so "all" meant NOBODY,
-   and that column is also who gets NOTIFIED.
+   หนังสือโครงการ seat — three DESKS at once — so "all" meant NOBODY, and that
+   column is also who gets NOTIFIED.
    **A uid in JSON is a uid**: the purge rewrote every uid COLUMN and skipped
    `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — an
    uncosted trade-off (0166). Put the number in the note.
@@ -99,15 +97,15 @@ it is the part that generalises to code not yet written.
    **"ONE HOME" MEANS ONE FUNCTION, NOT ONE TIER**: `claude_free_now` took the
    5-hour window from the CLOCK, the trigger's `claude_window_loads` from the
    booking chain — the rail offered 100% where the guard refused 25% (0161).
-   Also a GUARD vs the DERIVED STATE it checks: `claude_booking_guard` checked a
-   new booking against sessions derived from the OTHER rows, a greedy
-   start-order derivation, so an earlier insert re-derived everyone and nothing
-   re-checked them (0159). **Tell: the same rows legal or illegal depending on
-   TYPING ORDER.** Re-derive WITH the candidate in it.
+   Also a GUARD vs the DERIVED STATE it checks — **tell: the same rows legal or
+   illegal depending on TYPING ORDER**; re-derive WITH the candidate in it
+   (`claude_booking_guard`, 0159, `postgres-schema.md`).
    Also a SELECTOR vs the MARKUP, both ways: a descendant selector styles content
    not written yet (`.list b` made every inline bold a heading); a child
    combinator stops matching after a refactor. CSS fails SILENTLY — a dead rule
-   looks like a feature nobody built. The instrument is the COMPUTED style, never
+   looks like a feature nobody built. **And a rule you did not WRITE is borrowed,
+   not implemented**: `[hidden]` worked only because Bootstrap's CDN reboot ships
+   it `!important` (`frontend-ui.md`). The instrument is the COMPUTED style, never
    the stylesheet; for a PAINT/OVERLAP bug, the PAINTED BOXES. Also TWO PASSES over one DOM property, and one listener
    per re-render (`docs/mistakes/frontend-ui.md`): touch only what THIS pass set,
    keep state in a variable and listeners on the nodes this paint made.
@@ -124,15 +122,15 @@ it is the part that generalises to code not yet written.
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled one
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
    chars before any assertion ran (one shared `strip-comments.js` now).
-   Two more, in `frontend-ui.md`: never measure a container to size the content
-   that sizes it; and read the RENDERED dialog — a button label is only
-   unambiguous beside the other buttons.
+   Two more in `frontend-ui.md`: never measure a container to size the content
+   that sizes it; read the RENDERED dialog — a label is unambiguous only beside
+   the other buttons.
    The five ways, each paid for here: it cannot SEE the hazard (0146) · its
    CONTROL finds nothing either (0147) · satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
    name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and
-   an aborted script is silence (`house0116`: ZERO assertions for 23 migrations
-   — when a migration drops a function or column, grep `tools/` in that commit).
+   an aborted script is silence (`house0116`: 0 assertions for 23 migrations —
+   when a migration drops a function or column, grep `tools/` in that commit).
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
    assertion you expect, restore.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
@@ -145,12 +143,12 @@ it is the part that generalises to code not yet written.
    `current_user_has_permission()` reads the UNION of `permissions` AND
    `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
-   `let`s (grep a STRING LITERAL or CSS class), code often lands in a SHARED
-   chunk both entries import (0145), `curl -L` turns a GAS `/exec` POST into a
-   GET, and a DB-side proof cannot see the FRONTEND half of a mirrored rule.
-   **Re-read a rule's stated
-   JUSTIFICATION, not just its predicate** — `users_read_all` carried "needed
-   for staff dashboards", the need had ended years earlier (0147).
+   names (grep a STRING LITERAL or CSS class), code often lands in a SHARED chunk
+   both entries import (0145), `curl -L` turns a GAS `/exec` POST into a GET, and
+   a DB-side proof cannot see the FRONTEND half of a mirrored rule.
+   **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
+   `users_read_all` carried "needed for staff dashboards"; the need had ended
+   years earlier (0147).
 
 ---
 
@@ -259,7 +257,7 @@ one of the seven classes gets its site added to that class above.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(75)*
+### `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(76)*
 - Ticket renderers interpolate user-text into innerHTML → XSS
 - A module shared across two shells carries shell-specific assumptions that silently break in the other shell
 - An anon-INSERTable table's text columns are ATTACKER-controlled
@@ -335,6 +333,7 @@ one of the seven classes gets its site added to that class above.
 - "ย้ายปีงบ แล้วโครงการหายไปเลย" — a follow-the-row fix that only fired half the time
 - Adding one cell to a flex row collapsed the project name to one character per line
 - "it doesn't care about ระดับ that i config in the admin teamsamo"
+- `hidden` did nothing, and only Bootstrap's CDN stylesheet was hiding it
 
 ### `app-state.md` — Routing, read-state, caches & serialization *(18)*
 - "Unread" highlight inside an item vanishes the moment you open it

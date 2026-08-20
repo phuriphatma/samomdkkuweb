@@ -100,7 +100,14 @@ let expanded = new Set();
 // resetting them to the default would be the same bug as forgetting the
 // preference existed.
 const VIEWS = ['chart', 'all'];
-const RETIRED_VIEWS = { list: 'chart', graph: 'all' };
+// `Object.create(null)`, and it is the same fix af36088 made to the four
+// vocabulary maps in team/index.js one day earlier: the key here comes from
+// localStorage, which a reader can set to anything, and the read below is
+// `MAP[key] || key`. On a plain object literal `RETIRED_VIEWS['constructor']`
+// returns an inherited FUNCTION rather than undefined. `VIEWS.includes()` would
+// still reject it — so this is the benign end of that bug — but a map read by
+// `[untrusted]` should never have a prototype at all.
+const RETIRED_VIEWS = Object.assign(Object.create(null), { list: 'chart', graph: 'all' });
 const GRAPH_VIEWS = ['all'];
 let view = 'chart';
 try {
@@ -701,9 +708,11 @@ async function showYear(year) {
     if (mine !== showToken) return;   // a newer click already took over
     chart = next;
     activeYear = year ?? chart.year ?? null;
-    // Node ids are per-tree (the live tree and each frozen archive are different
-    // rows), so a stale expanded set would silently open nothing.
-    expanded = new Set();
+    // NOTE `expanded` is reset by index(), not here — node ids are per-tree (the
+    // live tree and each frozen archive are different rows), so a stale set
+    // would silently open nothing, and the DEFAULT open state is a fact about
+    // the dataset. A `new Set()` on this line survived the rewrite for a while
+    // and read like the policy while index() overwrote it two lines later.
     index();
     render();
   } catch (err) {

@@ -1,11 +1,11 @@
-// Screenshot the เกี่ยวกับเรา org chart on a phone viewport, both views.
+// Screenshot the เกี่ยวกับเรา org chart on a phone viewport, either view.
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9223;
 const WIDTH = Number(process.argv[2] || 390);
-const VIEW = process.argv[3] || 'list';      // 'list' | 'chart'
+const VIEW = process.argv[3] || 'chart';     // 'chart' | 'all' ('list'/'graph' retired 2026-08-20)
 const OUT = process.argv[4] || `./org-${VIEW}-${WIDTH}.png`;
 
 const chrome = spawn(CHROME, [

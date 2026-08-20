@@ -374,6 +374,16 @@
    nesting the wash stops deepening, because ten shades of one hue stop meaning
    anything and start looking like a rendering bug.
 
+   ⚠️ `:has()` IS LOAD-BEARING HERE, not a progressive enhancement. Simulated by
+   deleting the two `:has` rules below and reopening ฝ่ายพัฒนาทรัพยากรบุคคล: the
+   open panel keeps the 12rem basis, is squeezed into a ~19rem column beside its
+   collapsed siblings, and becomes a one-card-per-row tower with ~700px of empty
+   page to its left — the exact defect this rewrite removed. It is not a cliff
+   this page introduced (`:has()` shipped on it before, and team.css uses it),
+   and it is Baseline-widely-available; but if it ever has to go, the state must
+   move to an attribute the RENDERER and `toggleNode` both write, not to a
+   silent fallback.
+
    `flex: 1 1 16rem` — GROW is deliberate and it is these cards' job on the page.
    They are the widest tiles in the band, so letting them take the slack is what
    keeps the right-hand edge straight instead of ragged. */

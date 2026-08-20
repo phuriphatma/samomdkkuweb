@@ -485,6 +485,44 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > - `.claude/rules/mistakes.md` needed ~250 bytes of compression to fit the new
 >   entry — class 6 now says "share the ORDER, not the GEOMETRY".
 >
+> ### 2026-08-20 (scrutinize pass on the above) — `hidden` was borrowed, not owned
+>
+> 🔴 **The blocker the review found, now fixed: NOTHING in `src/css/` made the
+> `hidden` attribute work.** The UA rule has no `!important`, so any class that
+> sets `display` beats it — and three elements on this page do (`.org-years`
+> flex, `.org-expand-all` inline-flex, `.orgc-unit-body` flex), all toggled by
+> `element.hidden =`. It worked only because Bootstrap's reboot, loaded from
+> **cdn.jsdelivr.net in index.html**, ships `[hidden]{display:none!important}`.
+> Measured with that one `<link>` blocked and nothing else changed:
+> `.orgc-unit-body[hidden]` computed `display: flex` and #orgBody went
+> **3,463px → 22,474px** — every ฝ่าย open, disclosure gone, 448 portraits live.
+> Fix: `[hidden] { display: none !important; }` at the top of `src/css/base.css`
+> (imported by BOTH entries). Re-measured with Bootstrap blocked: 3,318px. ✅
+> Guard `hidden-attribute.test.js`, falsified three ways. Write-up in
+> `docs/mistakes/frontend-ui.md`.
+> **`!important` is load-bearing**: `[hidden]` and `.orgc-unit-body` are both
+> specificity (0,1,0) and base.css is imported FIRST, so source order would hand
+> the win to org-chart.css.
+>
+> Also from that pass:
+> - `RETIRED_VIEWS` was a plain object read as `MAP[localStorage value]` — the
+>   af36088 prototype bug one day later, benign here (`VIEWS.includes` rejects a
+>   function) but now `Object.create(null)`.
+> - `org-chart-metrics.test.js` (new) pins `TREE_SHAPE` in org-face.js to
+>   `.orgc-person > .org-face { width: 3.25rem }` — 52px, widths at 1×/2×/3×,
+>   `base` = the 2× candidate, ratio 3/4. Falsified three ways.
+> - ⚠️ **`:has()` is LOAD-BEARING on this public page, and it does NOT degrade
+>   gracefully.** Simulated by deleting the two `:has` rules: an open ฝ่าย keeps
+>   the 12rem basis, is squeezed into a ~19rem column and becomes a tower with
+>   ~700px of empty page beside it — the defect the rewrite removed. Accepted
+>   (Baseline-widely-available; team.css already uses it; this page did too). If
+>   it ever has to go, move the open state to an attribute the RENDERER and
+>   `toggleNode` both write — do not add a silent fallback.
+> - The `.hidden`-vs-`display` hazard is NOT org-chart-only. `.org-years` and
+>   `.org-expand-all` were in the same shape; the base.css rule covers every
+>   current and future case, which is why the fix went there and not on three
+>   selectors.
+>
 > ⛔ **NOT DEPLOYED — the VPN was down (`ssh samo-vm` timed out at
 > 10.101.111.181:22), so `1f966f3` is on `origin/main` and NOT on the VM.**
 > Run `skills/deploy-vm.md` once the VPN is up. Verified from the LOCAL build,
@@ -497,6 +535,9 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'orgc-unit-btn'            # expect >= 1
 > curl -s "https://samo.md.kku.ac.th/$B" | grep -c 'data-org-view=.list.'     # expect 0
 > ```
+>
+> …and in the served CSS (either entry — base.css is in both):
+> `grep -c 'hidden\]{display:none!important}'` → expect >= 1.
 >
 > and the same for the CSS: `orgc-seat` >= 1, the REMOVED `org-tree-wrap` = 0.
 > `orderChildren` / `unitBlock` / `seatBlock` grep **0** by construction — the

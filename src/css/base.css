@@ -3,6 +3,29 @@
  * Theme: MDKKUSAMO "Bright and simple" (green-led)
  * ============================================== */
 
+/* ── `hidden` MUST WIN, and it must win from OUR stylesheet ────────────────
+ *
+ * The UA rule is `[hidden] { display: none }` with NO `!important`, so ANY
+ * author rule that sets `display` on the same element beats it and the
+ * attribute silently does nothing. Three elements on the ทีม SAMO page alone
+ * are in that shape — `.org-years` (flex), `.org-expand-all` (inline-flex) and
+ * `.orgc-unit-body` (flex) — and every one of them is toggled by
+ * `element.hidden = true` in `org-chart.js`.
+ *
+ * It worked anyway, by accident: Bootstrap's reboot ships
+ * `[hidden]{display:none!important}` and index.html loads Bootstrap from
+ * cdn.jsdelivr.net. MEASURED with that one <link> blocked and nothing else
+ * changed: every `.orgc-unit-body[hidden]` computed to `display: flex`, and
+ * #orgBody went from 3,463px to 22,474px — every ฝ่าย open at once, with the
+ * disclosure gone. A student behind a filtered network, a self-hosted Bootstrap
+ * at another version, or dropping the CDN would each turn that on.
+ *
+ * So the rule lives here, in a file both entries import. Same declaration
+ * Bootstrap makes; owning it means the behaviour no longer depends on a
+ * third-party stylesheet arriving. Guarded by `hidden-attribute.test.js`.
+ */
+[hidden] { display: none !important; }
+
 :root {
   /* --- Brand palette (SAMO 69 colour sheet) --- */
   --brand-primary: #105922;
