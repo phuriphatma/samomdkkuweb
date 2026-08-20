@@ -40,8 +40,8 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `aae1852` (2026-08-20)** — the เกี่ยวกับเรา two-view rework
-  and the `[hidden]` fix. VM HEAD confirmed over ssh; the served-artifact greps
+- ✅ **DEPLOYED = `68d08ea` (2026-08-20)** — the เกี่ยวกับเรา two-view rework,
+  the `[hidden]` fix, and the solo-rail removal. VM HEAD confirmed over ssh; the served-artifact greps
   are in the NEXT-SESSION PROMPT at the bottom, which is the authority.
 - Previous deploy `7dbc153` (2026-08-19), VM HEAD confirmed over ssh.
   Verified from the served `/admin/` HTML: the new hint `ควรใช้งานและ` = 1 and
@@ -624,8 +624,10 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >   current and future case, which is why the fix went there and not on three
 >   selectors.
 >
-> ✅ **DEPLOYED = `aae1852` (2026-08-20)**, VM HEAD confirmed over ssh,
-> `DEPLOY_EXIT=0`. Verified from the SERVED artifacts — and note WHICH ones:
+> ✅ **DEPLOYED = `68d08ea` (2026-08-20)**, VM HEAD confirmed over ssh,
+> `DEPLOY_EXIT=0`. Deployed TWICE that day; the second run also carried the
+> solo-rail fix — verified in the served `public-DIvV34Fz.css`, where
+> `.orgc-seat-sub{…}` has **no `border-left`**. Verified from the SERVED artifacts — and note WHICH ones:
 > this code lands in the **public entry**, `assets/public-*.js` +
 > `assets/public-*.css`, NOT in `analytics-*.js` and NOT in `admin-*.js`.
 > Served `public-DUXCISQP.js`: `orgc-unit-btn` ✓, `ยังไม่มีสมาชิก` ✓, and the
@@ -640,7 +642,7 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 > Re-check "is prod current" with — EMPTY means yes:
 >
 > ```bash
-> git diff --stat aae1852..HEAD -- src/ ':!src/**/*.test.js'
+> git diff --stat 68d08ea..HEAD -- src/ ':!src/**/*.test.js'
 > ```
 >
 > ### Older, still true
