@@ -160,6 +160,11 @@ export const PENDING = [
     text: 'ในหน้าโครงสร้างองค์กร ตำแหน่งในแต่ละฝ่ายเรียงตามระดับที่ตั้งไว้ในระบบแล้ว '
     + 'หัวหน้าอยู่บนสุด แล้วค่อยเป็นระดับถัดไป และฝ่ายย่อยอยู่ท้ายสุด '
     + 'จากเดิมที่เรียงปนกันจนดูไม่ออกว่าใครอยู่ระดับไหน', },
+  // ⛳ REVISE THIS ONE BEFORE `npm run release` IF THE OLD CONNECTOR CHART IS
+  // BACK. "เหลือ 2 มุมมอง" becomes FALSE the moment the third view lands (see
+  // STATE.md's ⛳ OWED section). A release note that contradicts the page is
+  // worse than no note. If the restore ships first, merge the two into one
+  // entry; if this ships first, the restore gets its own "new" entry.
   { type: 'improved', area: 'team', audience: 'public',
     text: 'หน้าโครงสร้างองค์กรเหลือ 2 มุมมองคือ "แผนผัง" กับ "ผังรวม" '
     + 'จากเดิมสี่มุมมองที่ซ้ำกันเอง ใครเคยเลือกมุมมองที่ถอดออก ระบบจะพาไปมุมมองที่ใกล้เคียงที่สุดให้เอง', },

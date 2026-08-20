@@ -545,6 +545,12 @@ at 30, polled every 60 s per open tab. Fine at real scale.
 >    removes either, the guards' CONTROL assertions fail LOUDLY and tell you to
 >    re-derive the subject — that is by design, do not delete them.
 >
+> 6. **The changelog is already wrong about this.** `PENDING` in
+>    `src/data/changelog.js` carries "หน้าโครงสร้างองค์กรเหลือ 2 มุมมอง…",
+>    which the third view falsifies. It has a ⛳ comment on it. Revise it in the
+>    SAME commit as the restore — a release note that contradicts the page is
+>    worse than no note.
+>
 > **Fixed already, do not redo**: "there's a line that being draw solo i think i
 > don't need that" (`~/T/…/Screenshot 2026-08-20 at 8.12.50 PM.png`) — the
 > `border-left` rail on `.orgc-seat-sub`, redundant beside the bordered cards it
