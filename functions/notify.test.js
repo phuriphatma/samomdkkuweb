@@ -69,9 +69,9 @@ describe('buildPrPayload', () => {
 });
 
 describe('buildVsPayload', () => {
-  it('normal ticket: @here mention, red embed, dept in title', () => {
+  it('normal ticket: no @here mention, red embed, dept in title', () => {
     const p = buildVsPayload({ ticketId: 'VS-1', vsProblem: '<p>broken</p>', department: 'SE' });
-    expect(p.content).toContain('@here');
+    expect(p.content).not.toContain('@here');
     expect(p.embeds[0].title).toBe('Ticket: VS-1 [SE]');
     expect(p.embeds[0].description).toBe('broken');
     expect(p.embeds[0].color).toBe(15548997);

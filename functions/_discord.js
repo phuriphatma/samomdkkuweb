@@ -76,14 +76,10 @@ export function buildVsPayload(data = {}) {
   const silent = isTruthyFlag(data.vsSilentNotify);
   const emergency = isTruthyFlag(data.isEmergency);
 
-  let content = silent
-    ? '🚨 **แจ้งปัญหาใหม่ระบบ Vital Sound**'
-    : '🚨 @here **แจ้งปัญหาใหม่ระบบ Vital Sound**';
+  let content = '🚨 **แจ้งปัญหาใหม่ระบบ Vital Sound**';
   let color = 15548997;
   if (emergency) {
-    content = silent
-      ? '‼️ **แจ้งปัญหาฉุกเฉิน (ส่งตรงถึงอุปนายก)!!**'
-      : '‼️ @here **แจ้งปัญหาฉุกเฉิน (ส่งตรงถึงอุปนายก)!!**';
+    content = '‼️ **แจ้งปัญหาฉุกเฉิน (ส่งตรงถึงอุปนายก)!!**';
     color = 16711680;
   }
 
@@ -110,8 +106,7 @@ export function buildVsPayload(data = {}) {
 
 export function buildVsConsultPayload(data = {}) {
   const silent = isTruthyFlag(data.isSilent);
-  const mention = silent ? '' : '@here ';
-  const content = `💬 ${mention}**${data.role}** มีการอัปเดตใน Ticket **${data.ticketId}**`;
+  const content = `💬 **${data.role}** มีการอัปเดตใน Ticket **${data.ticketId}**`;
   let desc = `**ฝ่ายที่ดูแล:** ${data.displayDept || '-'}\n**สถานะ:** ${data.displayStatus || '-'}\n\n`;
   desc += data.remark ? `**ข้อความ:**\n${data.remark}` : '*(ไม่มีข้อความแนบ)*';
 
