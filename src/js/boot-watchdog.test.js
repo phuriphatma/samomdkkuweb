@@ -119,6 +119,26 @@ describe.each(ENTRIES)('%s boots visibly or complains', (page, mod, name) => {
     expect(bar).toContain('scripts: ');
   });
 
+  it('it names an EXTENSION when the page carries scripts we did not ship', () => {
+    // Confirmed from a real report: an extension had appended five scripts
+    // (one with a syntax error) and the stack named `webkit-masked-url://
+    // hidden/`. "Did not load fully" is not actionable; "an extension is
+    // injecting code, turn it off for this site" is.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toContain('function foreignScripts()');
+    expect(bar).toContain('extension');
+    expect(bar).toContain('Content Blocker');
+    // Counted by IDENTIFYING ours, never by a hardcoded total — a fifth script
+    // of our own would otherwise read as an injection.
+    expect(bar).toContain("src.indexOf('/assets/') === 0");
+    // MARKED, never sniffed: content-sniffing our own inline scripts reported
+    // a false positive on a clean page, because the redirect script contains
+    // `pages\.dev` escaped. An attribute we write cannot be wrong.
+    expect(bar).toContain("hasAttribute('data-samo')");
+    expect(H).toContain('<script data-samo="boot">');
+    expect(H).toContain('<script data-samo="redirect">');
+  });
+
   it('the retry does not stack `_r=` forever', () => {
     // Nine of them turned up in one report.
     const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));

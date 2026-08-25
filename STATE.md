@@ -475,12 +475,37 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
-> **Read this file, then `skills/write-a-guard.md`.** ✅ **The ⛳ owed third
-> org-chart view SHIPPED on 2026-08-25 — nothing is owed on `/team`.** See the
-> first section below for what it is and the three traps it carries.
-> Migrations through **0167** (0167 applied 2026-08-25: the Claude measurement
-> switch + a freshness bound on every "right now" sample read).
-> **1277 tests green** (+48 since 2026-08-20).
+> **Read this file, then `skills/write-a-guard.md`.** Nothing is owed on `/team`
+> — the ⛳ third org-chart view shipped. Migrations through **0167** (applied
+> 2026-08-25). **1306 tests green. ALL 23 LIVE PROOFS GREEN** — first clean
+> sweep in over a week.
+>
+> ### WHAT PROD IS DOING RIGHT NOW (read before touching anything Claude-related)
+>
+> - **Claude usage measurement is switched OFF**, deliberately, with the reason
+>   *"ยังไม่ได้ต่ออายุ Claude…"* on the board. The VM timer IS enabled and firing
+>   every 15 min; each tick reads the switch, logs `· ปิดการติดตามอยู่ …` and
+>   exits 0 having called Anthropic **zero** times.
+> - **TO TURN IT BACK ON when the subscription is renewed** — in this order:
+>   1. `ssh samo-vm` → `claude login` (the refresh token WILL have expired; a
+>      paused reporter deliberately does not rotate it),
+>   2. then flip it on at `/admin#claude`, which posts the Discord notice with
+>      the person's name on it.
+> - **`monitoring_changed_by` is NULL** because the first pause was set
+>   server-side, so the board says "หยุดไปแล้ว N" instead of a name. The owner
+>   re-setting it from the UI stamps themselves. This is not a bug.
+> - **No Discord message was ever sent for that pause** — it was set with SQL,
+>   not through the UI, and posting to a student channel was not mine to do
+>   unasked. Offer it, or just toggle in the UI.
+>
+> ### STILL OWED — a message to two humans, and only they can close it
+>
+> `sastaff` and `saprof` were deleted 2026-08-18 and **nobody has told the two
+> people**: **Worapong `woratho@kku.ac.th`** (เจ้าหน้าที่คณะ) and **Prakasit
+> `prakasa@kku.ac.th`** (อาจารย์). Both have signed in with Google before, so
+> there is nothing to set up — the shared password is gone, everything they had
+> is still there. Until told, both desks read as the site being broken. **This
+> cannot be closed from this repo.**
 >
 > ### 2026-08-25 (late) — the page could be DEAD AND ANIMATED at the same time
 >
@@ -525,27 +550,30 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   errored), 25 s only as a backstop, and the poll keeps running so a late boot
 >   DISMISSES the bar. Verified live on WebKit across normal / 11 s / 27 s / 404
 >   asserting `booted === !bar`. Write-up in `docs/mistakes/frontend-ui.md`.
-> - 🔎 **NARROWED 2026-08-26 to A SCRIPT WE DO NOT SHIP.** The owner's
->   diagnostic returned `SyntaxError: Unexpected identifier 't' … @<document>:74`
->   plus `script failed: public-*.js`. Established by elimination: the bundle is
->   current and 200; both inline scripts and the bundle parse cleanly; a corrupt
->   BUNDLE is blamed on the bundle (`@/assets/…:1`), not the document; and the
->   watchdog RAN, so it cannot be a parse failure of its own script even though
->   line 74 is inside it. Feeding WebKit a broken inline `<script>` placed AFTER
->   the watchdog reproduces the message, the attribution AND the ordering. So a
->   script is being injected/rewritten in that browser — which is also the only
->   theory that explains "works in the Google app", whose in-app browser runs no
->   Safari extensions. **Next: ask the owner to turn off Content Blockers for
->   the site (iPadOS: the `aA` menu in the address bar) and re-copy the
->   diagnostic — it now lists every `<script>` on the page.**
-> - ⚠️ **THE ORIGINAL CAUSE IS STILL UNCONFIRMED, and do not let the tidy story
->   fool you.** "Reload did not help" was the evidence used to kill the
->   stale-bundle hypothesis — but that report was about the BAR, which was a
->   false positive, not about the buttons. The stale-bundle story remains the
->   best fit and the reload probably did fix the buttons. **Ask the owner
->   whether the BUTTONS work now**; if they do not, the bar's
->   "คัดลอกรายละเอียด" now carries the bundle name, readyState, UA and the
->   captured error, which is the evidence this needs.
+> - ✅ **RESOLVED 2026-08-26: it was a Safari extension ("Stay"), not our code.**
+>   The owner turned it off for the site and everything worked. Proof, from the
+>   diagnostic the watchdog now produces: **five inline scripts we do not ship**
+>   (~65 KB, one of them a MODULE) and a stack whose frames sit at
+>   `webkit-masked-url://hidden/` — WebKit's marker for extension-injected code.
+>   One of them had a syntax error; our entry module failed alongside it.
+>   ⚠️ **NOTHING IN THIS REPO WAS BROKEN.** The bundle was current and 200, both
+>   inline scripts and the bundle parsed clean, and a corrupt BUNDLE is blamed by
+>   WebKit on the bundle (`@/assets/…:1`) — the owner's error named the DOCUMENT.
+>   **The clue that cracked it was a CONTRADICTION**: the watchdog reported a
+>   syntax error that would have prevented the watchdog from running. Chase that
+>   shape; it is never noise.
+>   📌 **The watchdog now NAMES this case for the next person** — it counts
+>   scripts carrying no `data-samo` marker and no known src, and when the page is
+>   dead AND carries foreign ones it says so and tells the reader to turn off
+>   Content Blockers (iPad: the `aA` menu). Counter verified 0 on a clean page,
+>   5 after injecting 5. ⛔ It identifies OUR scripts by an ATTRIBUTE we write,
+>   never by sniffing content — the first version tested for `pages.dev` in the
+>   redirect script, which contains that string ESCAPED, so a clean page reported
+>   a false positive.
+>   ⚠️ **Three of my own diagnoses were wrong before this one**, each stated too
+>   confidently: stale cached bundle (disproved — bundle was current), the
+>   watchdog's 8 s timer (that was a REAL second bug, but not this one), and a
+>   lossy `split("/").pop()` that hid the filename for a whole round trip.
 >
 > ### 2026-08-25 — จองโควตา Claude can be switched OFF, and a stale reading expires
 >

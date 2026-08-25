@@ -9,7 +9,7 @@
        the app is self-hosted at samo.md.kku.ac.th. On any pages.dev host,
        forward to the "we've moved" splash (preserving the deep link). Fires
        only on *.pages.dev — never on the VM domain or localhost dev. -->
-  <script>
+  <script data-samo="redirect">
     (function () {
       try {
         if (/\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
@@ -49,7 +49,7 @@
        — a reload with a cache-busting query, because a plain location.reload()
        on iOS may re-serve the same stale HTML that caused this.
        ──────────────────────────────────────────────────────────────────────── -->
-  <script>
+  <script data-samo="boot">
     (function () {
       window.__samoBooted = false;
       var notes = [];
@@ -133,6 +133,38 @@
         } catch (x) { return '(unreadable: ' + x + ')'; }
       }
 
+      // HOW MANY SCRIPTS ARE OURS. Confirmed 2026-08-26 from a real report: an
+      // extension had appended five more (9kb, 2.2kb, 43.5kb, 2kb and an 8kb
+      // MODULE), one of which had a syntax error, and the stack named
+      // `webkit-masked-url://hidden/` — WebKit's marker for extension-injected
+      // code. That is also the only explanation for the fact that started the
+      // whole investigation: it worked in the Google app, whose in-app browser
+      // runs no Safari extensions.
+      //
+      // So when the page is dead AND carries scripts we did not ship, say so.
+      // A person who is told "an extension is injecting code" can act; a person
+      // told "did not load fully" cannot.
+      function foreignScripts() {
+        try {
+          var ours = 0, all = document.querySelectorAll('script');
+          for (var i = 0; i < all.length; i++) {
+            var src = all[i].getAttribute('src') || '';
+            // Ours: same-origin /assets/, the two CDNs we load, and our own two
+            // inline blocks (identified by content, not by counting).
+            // MARKED, not sniffed. The first version tested the inline scripts'
+            // CONTENT for `pages\.dev` — and the redirect script contains that
+            // string ESCAPED (`\\.pages\\.dev`), so the regex never matched and a
+            // clean page reported one foreign script. An attribute we write
+            // ourselves cannot be wrong about whether we wrote it.
+            if (all[i].hasAttribute('data-samo')
+                || src.indexOf('/assets/') === 0
+                || src.indexOf('cdn.jsdelivr.net') !== -1
+                || src.indexOf('cdn.quilljs.com') !== -1) ours++;
+          }
+          return all.length - ours;
+        } catch (x) { return 0; }
+      }
+
       function diagnostics() {
         var el = document.querySelector('script[type="module"][src]');
         return [
@@ -142,7 +174,7 @@
           'retried: ' + RETRIED + '  waited: ' + Math.round((Date.now() - started) / 1000) + 's',
           'readyState: ' + document.readyState,
           'ua: ' + navigator.userAgent,
-          'scripts: ' + scriptInventory(),
+          'scripts: ' + scriptInventory() + '  (not ours: ' + foreignScripts() + ')',
           'errors: ' + (notes.length ? notes.join(' | ') : '(none captured)'),
         ].join('\n');
       }
@@ -165,7 +197,12 @@
             + '<button type="button" id="samoBootRetry" style="' + btn
             + ';background:#fff;color:#7d4f16">โหลดใหม่</button>';
         } else {
-          bar.innerHTML = '<span>ยังโหลดไม่สำเร็จหลังลองใหม่แล้ว — ส่งรายละเอียดให้ผู้ดูแลได้เลย</span>'
+          var foreign = foreignScripts();
+          bar.innerHTML = '<span>' + (foreign > 0
+            ? 'ส่วนขยาย (extension) ในเบราว์เซอร์กำลังแทรกสคริปต์ ' + foreign
+              + ' ตัวและทำให้หน้านี้ใช้งานไม่ได้ — ลองปิด Content Blocker/ส่วนขยายสำหรับเว็บนี้ '
+              + '(บน iPad กด aA ที่แถบที่อยู่) แล้วโหลดใหม่'
+            : 'ยังโหลดไม่สำเร็จหลังลองใหม่แล้ว — ส่งรายละเอียดให้ผู้ดูแลได้เลย') + '</span>'
             + '<button type="button" id="samoBootCopy" style="' + btn
             + ';background:#fff;color:#7d4f16">คัดลอกรายละเอียด</button>'
             + '<button type="button" id="samoBootShow" style="' + btn

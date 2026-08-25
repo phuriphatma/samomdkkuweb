@@ -3180,7 +3180,22 @@ AFTER the watchdog. Result — same message, same document attribution, and the
 same ORDER (SyntaxError first, `script failed` second). The owner's page
 contains a script we do not ship.
 
-**Cause.** Something in that browser is injecting or rewriting script in the
+**Cause — CONFIRMED by the owner: the "Stay" Safari extension.** Turning it off
+for the site fixed it immediately. The next report carried the proof:
+
+```
+scripts: 1:inline(293b) 2:inline(8592b) 3:cdn.quilljs.com 4:/assets/public-*.js[mod]
+         5:inline(9021b) 6:inline(2188b) 7:inline(43561b) 8:inline(2012b)
+         9:inline(8027b)[mod] 10:cdn.jsdelivr.net/…/bootstrap
+stack: appendChild@[native code] / i@webkit-masked-url://hidden/:1:72535
+```
+
+Five inline scripts we do not ship — ~65 KB, one of them a MODULE — and a stack
+whose frames live at `webkit-masked-url://hidden/`, which is WebKit's marker for
+extension-injected code. One of the injected scripts had a syntax error, and our
+entry module failed alongside it.
+
+Something in that browser was injecting script into the
 page — a Safari content blocker or extension is the ordinary version of this,
 and it explains the fact that started the whole investigation and that no
 same-origin theory ever could: **it works in the Google app's in-app browser,
