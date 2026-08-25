@@ -758,3 +758,65 @@ SHAPE the id is stored in — column, JSONB array, array column, text note — n
 every TABLE. And a referential guard must ask whether the id RESOLVES, never
 whether it is `null`: the null case is the one the purge was least likely to
 leave behind.
+
+## "why does the week still say 61% used when nothing has measured it for four days"
+
+**Symptom.** Not reported by a person — found while designing the pause switch,
+which is the only reason it is written up as a near miss rather than an outage.
+The จองโควตา Claude hero panel ("ใช้ได้เลยตอนนี้") and the rail both derive
+`week.left_pct` from Claude's measured 7-day utilization. The reporter on the VM
+had been dead since 21 Aug; the board went on printing the remainder computed
+from the last successful poll, and would have gone on printing it across the Wed
+16:00 quota reset — a week whose pool is 700% again reported as ~61% spent, for
+ever.
+
+**Cause.** `claude_free_now()` read the measurement as
+
+```sql
+select * into v_sample from public.claude_usage_samples
+ order by sampled_at desc limit 1;
+```
+
+with no freshness bound and no week bound. Correct every day it was tested,
+because the newest sample was always fifteen minutes old.
+
+The 5-hour half of the same payload was fine, and the contrast is the lesson:
+every reader of `five_hour_resets_at` tests `> now()`, so a frozen 5-hour window
+falls out of play by itself within five hours. Nothing made the 7-day half
+expire, because nothing had asked what happens when sampling STOPS. Three
+separate conditions produce that — an admin pausing it, a dead timer, an expired
+credential — and only the first is a decision anyone makes.
+
+The same defect had already been fixed one card up. 0156 scoped the week CARD's
+`measured_used_pct` to `[week_start, week_end)` after *"in next next week, it
+still show ใช้ไปแล้วจริง value"* was reported. The HERO was left alone because
+the hero means "right now" and the fix was framed as being about which WEEK is
+on screen — so the panel that most needed a time bound was the one the fix
+reasoned itself out of.
+
+**Fix.** Migration 0167. One function, `claude_latest_sample()`, returns the
+newest sample only while it can still describe now: not when measurement is
+switched off, and not once the sample is older than
+`claude_settings.sample_stale_minutes` (45 = three missed ticks). It returns NO
+ROW rather than a zero, so every caller lands in the `v_wk_left := null` branch
+that has shipped since 0155 for "the reporter has never run" — a designed,
+tested path rather than a new one. All four "as of now" readers were moved onto
+it in the same migration, including `claude_free_windows()`, where a stale value
+was already inert; leaving that one is how the second copy starts.
+
+**Where it lives now.** `claude_latest_sample()` in
+`supabase/migrations/0167_claude_measurement_can_be_switched_off.sql`; the JS
+half reads the same threshold out of `board.settings.sample_stale_minutes`
+(`src/js/claude/monitor.js`, `staleAfterMs`) instead of the 35 minutes it used
+to hardcode. Proof: `tools/claude0167-monitoring-switch.sql` §A, which tests the
+AGE rule with the switch left ON precisely so the fix cannot degenerate into a
+special case for the switch. Falsified by restoring the unbounded read: A2, A4,
+B2 and B5 go red and report the frozen `350.0`.
+
+**The general rule.** *A measurement that means "right now" must expire, and the
+bound belongs on the READ.* A cache with no TTL is recognisable; a database
+column with no TTL looks like a fact. Ask of every "latest reading": what does
+this return when nothing has written for a week — and if the answer is "the last
+one, indefinitely", the reading has no clock and something downstream is about
+to state it as current. The tell is that the bug is invisible while the writer
+is healthy, which is every moment you are testing.

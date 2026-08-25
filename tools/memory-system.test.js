@@ -10,7 +10,9 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { TOPICS, headingsOf, shorten, buildIndex } from './mistakes-index.mjs';
+import {
+  TOPICS, headingsOf, shorten, buildIndex, buildFullIndex,
+} from './mistakes-index.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIR = path.join(ROOT, 'docs/mistakes');
@@ -44,9 +46,33 @@ describe('mistakes index', () => {
   });
 
   it('lists every topic file, and every topic file is listed', () => {
-    const onDisk = fs.readdirSync(DIR).filter((f) => f.endsWith('.md')).sort();
+    // INDEX.md is the GENERATED full listing that sits beside the write-ups,
+    // not a topic — declaring it in TOPICS would make the generator index its
+    // own output.
+    const onDisk = fs.readdirSync(DIR)
+      .filter((f) => f.endsWith('.md') && f !== 'INDEX.md').sort();
     const declared = TOPICS.map(([f]) => f).sort();
     expect(onDisk).toEqual(declared);
+  });
+
+  it('the ALWAYS-LOADED file carries the directory, and the full list does NOT live there', () => {
+    // The property that broke: the per-entry index grew with every bug fixed
+    // until it was 18,533 of a 30,000-byte budget and blocked the next
+    // write-up from being added at all. What is charged to every session must
+    // be O(1) in the number of entries, not O(n).
+    const hot = read('.claude/rules/mistakes.md');
+    const full = read('docs/mistakes/INDEX.md');
+    const someHeading = headingsOf(path.join(DIR, 'frontend-ui.md')).at(-1);
+
+    expect(full).toContain(shorten(someHeading));   // it is findable…
+    expect(hot).not.toContain(shorten(someHeading)); // …and not charged to every session
+    // The directory line for that file IS there, with its count.
+    expect(hot).toMatch(/`frontend-ui\.md` \*\(\d+\)\*/);
+    expect(hot).toContain('docs/mistakes/INDEX.md');
+  });
+
+  it('the full index is in sync too', () => {
+    expect(read('docs/mistakes/INDEX.md')).toBe(buildFullIndex());
   });
 
   it('has no duplicate entry across the nine files', () => {

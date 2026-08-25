@@ -24,6 +24,15 @@ export function actionFor(system, mode) {
   if (system === 'vs') return 'notifyVSOnly';
   // จองโควตา Claude (0154). Its webhook URL lives in /etc/samo-notify.env on
   // the VM like every other one — NEVER in src/, which is served to browsers.
+  //
+  // ⚠️ THE MONITOR MODES MUST BE TESTED BEFORE THE CATCH-ALL BELOW, and the
+  // failure if they are not is silent rather than loud: buildClaudeBookingPayload
+  // reads `CLAUDE_MODES[data.mode] || CLAUDE_MODES.new`, so a monitor event that
+  // reached it would render as a brand-new booking — right channel, wrong
+  // meaning, no error anywhere. Order is the guard here (0167).
+  if (system === 'claude' && (mode === 'monitor-on' || mode === 'monitor-off')) {
+    return 'notifyClaudeMonitor';
+  }
   if (system === 'claude') return 'notifyClaudeBooking';
   throw new Error(`notify: unknown system "${system}" mode "${mode}"`);
 }

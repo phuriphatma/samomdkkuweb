@@ -71,11 +71,14 @@ npm run preview      # serve dist locally on :4173
 ## Memory layout — what loads, what you fetch
 
 **Auto-loaded into every session** (`CLAUDE.md` + everything in
-`.claude/rules/`): this file, `.claude/rules/mistakes.md` (recurring bug
-CLASSES + a one-line index of every write-up), `.claude/rules/security.md`
-(key hygiene). Budget ~26k chars total, enforced by `npm run check:context`,
-which `npm test` runs. **Never put a bug write-up, a session narrative, or
-anything long in `.claude/rules/` — it is charged to every future session.**
+`.claude/rules/`): this file, `.claude/rules/mistakes.md` (the recurring bug
+CLASSES + a nine-line directory of which write-up file holds what),
+`.claude/rules/security.md` (key hygiene). Budget enforced in BYTES by
+`npm run check:context`, which `npm test` runs. **Never put a bug write-up, a
+session narrative, or anything that GROWS WITH THE WORK in `.claude/rules/` —
+it is charged to every future session.** The per-entry symptom index used to
+live there and reached 18.5k of its 30k budget before being moved to
+`docs/mistakes/INDEX.md` (2026-08-25); do not move it back.
 
 **READ FIRST, EVERY SESSION — `STATE.md`.** Not on demand: it is the handoff.
 Its `## NEXT-SESSION PROMPT` carries what is in flight, what is deployed, the
@@ -85,10 +88,11 @@ session re-derives or re-breaks work that was finished yesterday.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
-- `docs/mistakes/*.md` — the bug write-ups (179 as of 2026-08-12), nine files
-  by area. The index
-  in `.claude/rules/mistakes.md` says which file; `grep -rin "<symptom>"
-  docs/mistakes/` is usually faster. **Read the matching file BEFORE touching
+- `docs/mistakes/*.md` — the bug write-ups (215 as of 2026-08-25), nine files
+  by area, plus the generated `docs/mistakes/INDEX.md` (one symptom line per
+  entry, for scanning). The directory in `.claude/rules/mistakes.md` says which
+  file to open; `grep -rin "<symptom>" docs/mistakes/` is usually faster,
+  because it searches the write-ups rather than their titles. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
   SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.

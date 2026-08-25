@@ -147,6 +147,55 @@
   font-size: 0.75rem; color: #8b968f; display: flex; gap: 7px; align-items: flex-start;
 }
 
+/* ── the measurement on/off pill + its dialog (migration 0167) ──────────────
+   A STATUS FIRST AND A CONTROL SECOND, which is why it is not a btn-* class.
+   Most of the ~150 people who see it cannot press it; it is there to answer
+   "are these numbers live", and a control-looking thing that does nothing when
+   tapped is its own bug (this repo has one written up under a checkbox that
+   looked ticked). Green-on-white when running, amber when paused — the same
+   two colours the Discord notice uses, so the two readings of the same fact
+   look like the same fact. */
+.claude-mon {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; font-weight: 600; line-height: 1;
+  padding: 6px 11px; border-radius: 999px;
+  border: 1px solid #b7d9c2; background: #f2f9f4; color: #1c6b34;
+  cursor: pointer; transition: background .12s, border-color .12s;
+}
+.claude-mon:hover:not(:disabled) { background: #e6f3ea; border-color: #8dc3a1; }
+.claude-mon.is-off { border-color: #f0c99a; background: #fff6ea; color: #9a5b12; }
+.claude-mon.is-off:hover:not(:disabled) { background: #ffefdb; border-color: #e3b077; }
+/* Not `opacity` — a pill nobody can press is not a dimmed button, it is a
+   label, and fading it makes the state it reports harder to read for the
+   people who cannot change it, which is most of them. */
+.claude-mon:disabled { cursor: default; }
+.claude-mon i { font-size: 0.9rem; }
+
+.claude-mon-warn {
+  display: flex; gap: 8px; align-items: flex-start;
+  font-size: 0.76rem; line-height: 1.45;
+  padding: 9px 11px; border-radius: 7px;
+}
+.claude-mon-warn.is-note { background: #f4f7f5; color: #55635a; }
+.claude-mon-warn.is-warn { background: #fff4e5; color: #8a4f0c; }
+.claude-mon-warn code {
+  background: rgba(0, 0, 0, .06); padding: 0 4px; border-radius: 3px; color: inherit;
+}
+
+/* The paused card that replaces the two gauges. Deliberately the SAME shape as
+   .claude-measured-off (icon + block) so the strip does not jump between
+   states, but amber rather than grey: "switched off on purpose, with a reason"
+   is a different thing from "never set up". */
+.claude-measured-paused {
+  font-size: 0.75rem; line-height: 1.5;
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #fff6ea; border: 1px solid #f2d6b0; border-radius: 7px;
+  padding: 9px 11px; color: #7d4f16;
+}
+.claude-measured-paused i { font-size: 0.95rem; line-height: 1.3; }
+.claude-measured-why { margin-top: 4px; font-weight: 600; }
+.claude-measured-who { margin-top: 2px; opacity: .8; }
+
 .claude-weeklabel { font-weight: 600; font-size: 0.9rem; }
 
 /* ---------- calendar ---------- */

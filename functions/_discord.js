@@ -241,8 +241,98 @@ export function buildClaudeAlertPayload(data = {}) {
             + 'ด้วยบัญชี Claude ของสโม จากนั้นตัวรายงานจะต่ออายุตัวเองได้อีกครั้ง',
           inline: false,
         },
+        {
+          // Added after this embed repeated itself four times a day for three
+          // days about a lapsed subscription nobody could renew that week. The
+          // fix above is right when the TOKEN expired; it is useless when the
+          // ACCOUNT did, and the person reading needs to be told there is a
+          // second thing they can do.
+          name: 'ถ้ายังไม่ได้ต่ออายุ Claude',
+          value: 'ไปที่ จองโควตา Claude แล้วกดปุ่มสถานะด้านบนกระดานเพื่อ '
+            + '**หยุดติดตามชั่วคราว** พร้อมระบุเหตุผล — การแจ้งเตือนนี้จะหยุด '
+            + 'และทุกคนยังจองได้ตามปกติ',
+          inline: false,
+        },
       ],
     }],
+  };
+}
+
+/**
+ * จองโควตา Claude — an admin switched the usage MEASUREMENT off, or back on.
+ *
+ * Not an incident, and it must not look like one. buildClaudeAlertPayload above
+ * is the "something is broken, a human must fix it" embed; this is a decision
+ * somebody made on purpose, and rendering it in the alert's clothes is how the
+ * channel learns to ignore both. The reason a person typed is the headline
+ * field, because it is the only thing that answers what everyone reading will
+ * actually wonder — is the board broken, or did we mean this?
+ *
+ * BOOKING IS UNAFFECTED, and the message says so out loud. The board's job is
+ * coordinating one shared login; that job never depended on the measurement,
+ * and a notice that only says "measurement is off" leaves people guessing
+ * whether they may still reserve their evening.
+ *
+ * `mode` is 'monitor-off' | 'monitor-on'. Unknown reads as 'monitor-off' — the
+ * quieter, more cautious of the two, and the one whose copy makes sense even if
+ * the state it describes turns out to be the other.
+ */
+const CLAUDE_MONITOR_MODES = {
+  'monitor-off': {
+    verb: 'หยุดติดตามการใช้งานจริงของ Claude ชั่วคราว',
+    title: 'ตัวเลข “ใช้จริง” จะหยุดอัปเดตจนกว่าจะเปิดใหม่',
+    color: 15832320,          // amber — a deliberate pause, not the alert red
+  },
+  'monitor-on': {
+    verb: 'กลับมาติดตามการใช้งานจริงของ Claude แล้ว',
+    title: 'ตัวเลข “ใช้จริง” จะอัปเดตทุก 15 นาทีตามปกติ',
+    color: 1071394,           // the same green a new booking uses
+  },
+};
+
+export function buildClaudeMonitorPayload(data = {}) {
+  const off = data.mode !== 'monitor-on';
+  const m = CLAUDE_MONITOR_MODES[off ? 'monitor-off' : 'monitor-on'];
+
+  const fields = [];
+  if (off) {
+    fields.push({ name: 'เหตุผล', value: String(data.note || '-').slice(0, 1000), inline: false });
+  } else if (data.note) {
+    // On resume, the note is what it HAD been off for. Saying it closes the
+    // loop for anyone who saw the pause and never heard the end of it.
+    fields.push({
+      name: 'ที่หยุดไปเพราะ',
+      value: String(data.note).slice(0, 1000),
+      inline: false,
+    });
+  }
+
+  fields.push({ name: off ? 'หยุดโดย' : 'เปิดโดย', value: data.who || 'ไม่ทราบชื่อ', inline: true });
+  if (data.since) fields.push({ name: 'หยุดไปนาน', value: data.since, inline: true });
+
+  fields.push({
+    name: 'จองได้ตามปกติไหม',
+    value: off
+      ? 'ได้ตามปกติ — การจองไม่เกี่ยวกับการติดตาม เพียงแต่กระดานจะไม่รู้ว่าใช้ไปจริงเท่าไร'
+      : 'ได้ตามปกติ',
+    inline: false,
+  });
+
+  if (off) {
+    // The cost of a long pause, said once, where the person who will pay it
+    // reads it. Twelve days is the refresh token's life; a paused reporter does
+    // not rotate it on purpose (tools/claude-usage-report.mjs).
+    fields.push({
+      name: 'ถ้าหยุดนานเกิน 12 วัน',
+      value: 'ต้อง ssh เข้าเซิร์ฟเวอร์แล้วรัน `claude login` อีกครั้งตอนเปิดกลับมา '
+        + 'เพราะสิทธิ์เข้าถึงจะหมดอายุระหว่างที่หยุด',
+      inline: false,
+    });
+  }
+
+  return {
+    content: `${m.verb} — **${data.who || 'ไม่ทราบชื่อ'}**`,
+    embeds: [{ title: m.title, color: m.color, fields }],
   };
 }
 
@@ -254,6 +344,8 @@ export function resolveTarget(action, data = {}, env = {}) {
       return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeBookingPayload(data) };
     case 'notifyClaudeAlert':
       return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeAlertPayload(data) };
+    case 'notifyClaudeMonitor':
+      return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeMonitorPayload(data) };
     case 'notifyProjectDiscord':
       return { url: env.DISCORD_PROJECTS_WEBHOOK, payload: buildProjectPayload(data) };
     case 'notifyVSOnly': {
@@ -275,12 +367,39 @@ const MAX_ATTEMPTS = 3;
 const FALLBACK_SLEEPS_MS = [1200, 2500, 4000];
 const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * NOTHING THIS APP POSTS MAY PING ANYBODY.
+ *
+ * `@here` was removed from the two VitalSound builders by hand in August 2026,
+ * and doing it that way left the rule living in four string literals across
+ * three functions — one per branch, with no branch obliged to know about the
+ * others. The emergency branch and the consult branch had no test at all.
+ *
+ * Worse, a builder is not the only way a mention gets into `content`. VS pastes
+ * `data.role` in, Claude bookings paste a person's display name in, and a name
+ * or a title that happens to contain "@everyone" would ping the server from a
+ * builder that never wrote a mention anywhere.
+ *
+ * `allowed_mentions: { parse: [] }` is Discord's own answer: the text is still
+ * whatever it was, and NOTHING in it resolves to a notification. Applied here,
+ * at the one place every payload passes through, it is a property of the
+ * transport rather than a promise each builder has to keep. A builder may still
+ * set its own `allowed_mentions` if a deliberate ping is ever wanted — this only
+ * supplies the default.
+ */
+function withoutMentions(payload) {
+  if (payload && typeof payload === 'object' && payload.allowed_mentions === undefined) {
+    return { ...payload, allowed_mentions: { parse: [] } };
+  }
+  return payload;
+}
+
 async function postOnce(url, payload, fetchImpl) {
   try {
     const resp = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withoutMentions(payload)),
     });
     const code = resp.status;
     if (code >= 200 && code < 300) return { ok: true, status: code };

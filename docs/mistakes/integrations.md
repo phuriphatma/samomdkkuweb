@@ -877,3 +877,94 @@ a column name — the name is not the fact. And when you write a guard for a
 hazard, check that the guard can see an instance of it: this one was asked to
 find `photo_url` and found every `photo_url`, faithfully, while the hazard sat in
 the next column along.
+
+## The Discord alert told a human to run the command that CAUSED the error
+
+**Symptom.** Reported by the owner, pasted straight out of Discord, twice in one
+message: *"currently claude keep sending this to discord, because claude.ai
+hasn't been renewed subscription… can you stop it properly"*. The embed read:
+
+> **อาการ** usage API HTTP 403. ออกโทเคนใหม่ด้วย `claude setup-token` บนเซิร์ฟเวอร์…
+> **วิธีแก้** ssh เข้าเครื่องเซิร์ฟเวอร์ แล้วรัน `claude login`…
+
+Two contradictory instructions in one message, four times a day.
+
+**Cause.** The two halves of the embed were written at different times by
+different reasoning and never read side by side. `tools/claude-usage-report.mjs`
+supplies `detail`; `buildClaudeAlertPayload` in `functions/_discord.js` supplies
+the fixed วิธีแก้ field. The script's own hundred-line header documents, with
+measurements, that `claude setup-token` mints a `user:inference` token WITHOUT
+`user:profile` — so it can spend the subscription and cannot read it, and it is
+exactly what produces a 403 here. The `detail` string recommending it was left
+over from the version written before that was measured. Nothing could catch it:
+the two strings live in different repos-worth of context, one is data passed to
+the other, and no test read the rendered embed.
+
+Worse, both halves assumed the same cause. A 403 also arrives when the ACCOUNT
+lapsed rather than the token, and then neither instruction helps — which was the
+actual situation, so the alert fired ~4×/day for three days telling someone to
+do two different things, neither of which would have worked.
+
+**Fix.** The `detail` no longer names `setup-token`; it names both causes and
+points at the new pause switch. The embed gained a third field for the case the
+first two do not cover ("ถ้ายังไม่ได้ต่ออายุ Claude → ปิดการติดตามชั่วคราว"), so a
+person whose subscription lapsed is told what they CAN do. Guarded by
+`src/js/claude/monitor.test.js` §"the 403 alert no longer recommends the command
+that CAUSES a 403", which reads the comment-stripped script — the header names
+`setup-token` four times in prose, so an unstripped grep passes on any file.
+
+**Where it lives now.** `tools/claude-usage-report.mjs` (the 401/403 branch) and
+`buildClaudeAlertPayload` in `functions/_discord.js`.
+
+**The general rule.** *An alert is a message to a person, so read it RENDERED,
+in the channel, next to the other fields.* A `detail` string composed at the
+call site and a fixed remediation field composed in the builder are two authors
+of one instruction, and neither one can see the contradiction from where it
+sits. And when the same error code has two causes, an alert naming only one
+sends every reader down the wrong path half the time — say both, and say what to
+do when neither applies.
+
+## Removing `@here` from two builders left three ways to put it back
+
+**Symptom.** No user report — this is the audit of a change made an hour
+earlier. `@here` was removed from `buildVsPayload` (normal + emergency) and
+`buildVsConsultPayload`, and one test was updated. The removal itself was
+correct and complete. What shipped with it was a rule living in four string
+literals across three functions, with assertions on ONE of them.
+
+**Cause.** The obvious test for "no `@here`" is per-builder, and a per-builder
+test is a list — so it inherits every property of a list. The emergency branch
+and the consult branch had no assertion at all; the next builder added would be
+the next one nobody checks; and none of them can see the other way a mention
+arrives, which is INTERPOLATED USER TEXT. `buildVsConsultPayload` puts
+`data.role` into `content`, `buildClaudeBookingPayload` puts a person's display
+name into `content` — a ticket title or a ตำแหน่ง containing "@everyone" pings
+the whole server from a builder that never wrote a mention anywhere.
+
+**Fix.** Two layers, because they answer different questions.
+
+1. **The transport.** `postOnce()` now sends `allowed_mentions: { parse: [] }`
+   on every payload that has not set its own. The text is unchanged; nothing in
+   it resolves to a notification. This is Discord's own mechanism and it covers
+   the interpolation case, which no builder-level rule can. A builder may still
+   opt in to a real ping, so this is a default and not a policy.
+2. **The property test.** `functions/notify.test.js` enumerates every action
+   from `resolveTarget`'s own SOURCE — comment-stripped, since the file's prose
+   names the actions — and asserts over all of them at once. An action added
+   tomorrow is covered without anyone remembering. Its control asserts the
+   sweep found something, so a restructure away from a `switch` fails loudly
+   instead of sweeping an empty array and reporting green.
+
+**Where it lives now.** `withoutMentions()` in `functions/_discord.js`;
+`functions/notify.test.js` §"no notification this app sends may ping the
+channel". Falsified three ways before committing: `@here` restored in the
+consult builder (property test red), `allowed_mentions` removed (both wire
+tests red), the action unrouted (the control red).
+
+**The general rule.** *When a rule has to hold for every message, put it where
+every message passes, not in every message.* A per-branch fix is complete for
+the branches you were looking at and silent about the ones you were not — and if
+the value can arrive from DATA as well as from code, no amount of auditing the
+code closes it. Also: a guard enumerated from the same list the code was written
+from proves the list matches itself; derive the list from the source, and assert
+the enumeration is non-empty.

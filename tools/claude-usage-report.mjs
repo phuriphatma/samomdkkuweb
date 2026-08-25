@@ -100,6 +100,28 @@
 // 15 min is well inside what it tolerates and is what the systemd timer does;
 // a 429 is handled as a normal skipped tick, never as an incident.
 //
+// THE OFF SWITCH LIVES IN THE DATABASE, AND IS READ FIRST (migration 0167).
+// Before this run touches Anthropic it signs in to Supabase and asks
+// `claude_monitoring_enabled()`. Switched off, it logs one line and exits 0:
+// no usage call, no token refresh, no Discord alert. The whole point is that a
+// pause costs Anthropic ZERO requests.
+//
+// Why the switch is not just `systemctl disable`, which is what it replaced:
+// that needs ssh through the VPN, so no admin without a shell can do it; it is
+// invisible to the app, so the board goes on showing the last sample as though
+// it were live; and it carries no reason, so the ~150 people who can book have
+// no way to learn that the subscription lapsed rather than the site breaking.
+// The switch is flipped at /admin#claude, requires a reason, and announces
+// itself in the same Discord channel the bookings use.
+//
+// A PAUSE LONGER THAN ~12 DAYS COSTS ONE `claude login`. The refresh token
+// rotates on use and expires after about twelve days, and a paused reporter
+// deliberately does not refresh it — refreshing would mean calling Anthropic
+// every couple of hours while claiming to be switched off, and when the
+// SUBSCRIPTION is what lapsed the refresh fails and alerts exactly as before.
+// So: a short pause resumes by itself, a long one needs one ssh. That trade is
+// stated on the board and in the Discord notice, not hidden here.
+//
 // WHAT THIS DOES NOT DO, and cannot: attribute usage to a PERSON. The endpoint
 // reports the whole subscription — "how close is the account to its cap" — and
 // says nothing about who spent it. That breakdown lives in each person's own
@@ -111,6 +133,12 @@
 // FAILURE POSTURE: everything degrades to "no sample". The board renders a
 // plain ledger and hides the measured strip rather than showing a zero — a zero
 // reads as a reading. So every error path writes nothing.
+//
+// AND THE SWITCH READ FAILS CLOSED. If the question "am I switched on?" cannot
+// be answered — network, HTTP 500, a revoked grant returning zero rows rather
+// than an error — the answer is treated as NO. Polling on an unanswered
+// question is the fail-open shape this repo keeps paying for, and here it would
+// restore the exact behaviour the switch exists to stop.
 // ============================================================
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
@@ -320,6 +348,53 @@ function readWindow(usage, key, limitKind) {
   return { pct: null, resetsAt: null };
 }
 
+/**
+ * Is measurement switched on?
+ *
+ * FAIL CLOSED, and that is the whole design of this function. Three things can
+ * happen here and only one of them is "yes": the RPC can say true, it can say
+ * false, or it can fail to answer — a network blip, a 500, a revoked grant. RLS
+ * returns ZERO ROWS rather than an error when a read is refused, so "no answer"
+ * arrives looking exactly like a successful empty response.
+ *
+ * Treating an unanswered question as "yes, keep polling" is the fail-open shape
+ * this repo has been bitten by repeatedly (`coalesce(flag, false)`, `null in
+ * (...)`, a left join), and here it would restore precisely the behaviour the
+ * switch exists to stop: hammering Anthropic and alerting a human about a
+ * condition nobody can fix. A skipped tick costs nothing — the next one is
+ * fifteen minutes away and the board keeps its previous sample, which is the
+ * posture this script already takes for a 429.
+ */
+async function monitoringEnabled(supaUrl, anonKey, accessToken) {
+  let res;
+  try {
+    res = await fetch(`${supaUrl}/rest/v1/rpc/claude_monitoring_enabled`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+  } catch (e) {
+    return { on: false, why: `could not reach Supabase to read the switch (${e.message})` };
+  }
+  if (!res.ok) {
+    return { on: false, why: `switch read returned HTTP ${res.status}` };
+  }
+  const body = await res.text().catch(() => '');
+  let value;
+  try { value = JSON.parse(body); } catch {
+    return { on: false, why: `switch read returned unparseable body: ${body.slice(0, 120)}` };
+  }
+  // `true` is the ONLY answer that means yes. null (no row / no grant), false,
+  // a string, an object — all of them mean "do not poll".
+  if (value === true) return { on: true, why: null };
+  if (value === false) return { on: false, why: 'an admin switched measurement off' };
+  return { on: false, why: `switch read returned ${JSON.stringify(value)}, which is not a yes` };
+}
+
 async function main() {
   const env = loadEnv();
   const supaUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
@@ -333,7 +408,43 @@ async function main() {
       + 'Use an account that holds the `claude` permission.');
   }
 
-  // ---- 1. the measurement ----
+  // ---- 1. sign in as an ordinary account (RLS applies) ----
+  // MOVED AHEAD OF THE MEASUREMENT IN 0167, and the order is the feature: the
+  // switch lives in the database, so the database has to be asked BEFORE
+  // anything touches Anthropic. Signing in first costs nothing — this run
+  // signed in anyway, just later — and it means a paused reporter makes exactly
+  // ZERO calls to their API, which is the point of the pause.
+  const signIn = await fetch(`${supaUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!signIn.ok) {
+    die(`Supabase sign-in failed: HTTP ${signIn.status} ${await signIn.text().catch(() => '')}`);
+  }
+  const session = await signIn.json();
+  if (!session?.access_token || !session?.user?.id) die('Supabase sign-in returned no session');
+
+  // ---- 2. the switch (migration 0167) ----
+  const gate = await monitoringEnabled(supaUrl, anonKey, session.access_token);
+  if (!gate.on) {
+    // Exit 0: a paused reporter is a normal state, not a failed unit. And no
+    // alertHuman() on this path — the entire reason the switch exists is that
+    // the alerts were the problem.
+    //
+    // NOT REFRESHING THE OAUTH TOKEN WHILE PAUSED IS DELIBERATE. The refresh
+    // token rotates on use and lives ~12 days, so a pause longer than that
+    // strands the credential and turning measurement back on needs one `claude
+    // login` on the VM. Refreshing anyway would keep it alive — at the cost of
+    // calling Anthropic every couple of hours while pretending to be switched
+    // off, and, when the subscription is the thing that lapsed, failing and
+    // alerting exactly as before. The board and the Discord notice both say so.
+    console.log(`· ปิดการติดตามอยู่ — ${gate.why}. Skipping this tick;`
+      + ' no call was made to the Claude API.');
+    process.exit(0);
+  }
+
+  // ---- 3. the measurement ----
   const token = await freshToken(env);
   const res = await fetch(USAGE_URL, {
     headers: {
@@ -360,9 +471,18 @@ async function main() {
     // and nothing here can fix it — a person must issue a new token. So it is
     // loud, like the refresh failure.
     if (res.status === 401 || res.status === 403) {
+      // ⚠️ THIS MESSAGE USED TO RECOMMEND `claude setup-token`, WHICH IS WHAT
+      // PRODUCES A 403. The header of this file has documented that since the
+      // day it was written — setup-token mints a `user:inference` token with no
+      // `user:profile` scope, so it can SPEND the subscription and cannot READ
+      // it — and the alert told a human to go and do it anyway, in the same
+      // embed whose วิธีแก้ field says `claude login`. Two contradictory
+      // instructions in one message, four times a day.
       await dieLoudly(env, 'สิทธิ์เข้าถึงข้อมูลการใช้งาน Claude หมดอายุ',
-        `usage API HTTP ${res.status}. ออกโทเคนใหม่ด้วย \`claude setup-token\` `
-        + 'บนเซิร์ฟเวอร์ แล้วใส่ค่าใน /etc/samo-claude-usage.env');
+        `usage API HTTP ${res.status}. `
+        + 'เกิดจากโทเคนหมดอายุ หรือบัญชี Claude ยังไม่ได้ต่ออายุ — '
+        + 'ถ้ายังไม่ต่ออายุ ให้ปิดการติดตามไว้ก่อนที่หน้า จองโควตา Claude '
+        + '(ปุ่มสถานะด้านบนของกระดาน) แทนการปล่อยให้แจ้งเตือนซ้ำ');
     }
     die(`usage API HTTP ${res.status} — ${body.slice(0, 300)}`);
   }
@@ -374,19 +494,7 @@ async function main() {
     die(`neither five_hour nor seven_day found. Keys: ${Object.keys(usage).join(', ')}`);
   }
 
-  // ---- 2. sign in as an ordinary account (RLS applies) ----
-  const signIn = await fetch(`${supaUrl}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!signIn.ok) {
-    die(`Supabase sign-in failed: HTTP ${signIn.status} ${await signIn.text().catch(() => '')}`);
-  }
-  const session = await signIn.json();
-  if (!session?.access_token || !session?.user?.id) die('Supabase sign-in returned no session');
-
-  // ---- 3. write the sample ----
+  // ---- 4. write the sample ----
   const ins = await fetch(`${supaUrl}/rest/v1/claude_usage_samples`, {
     method: 'POST',
     headers: {

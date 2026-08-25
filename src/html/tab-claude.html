@@ -38,6 +38,19 @@
         <input type="date" id="claudeJump" aria-label="ข้ามไปสัปดาห์ของวันที่">
       </label>
       <span class="ms-auto"></span>
+      <!-- IS THE MEASUREMENT RUNNING? (migration 0167)
+           Everyone with the `claude` grant sees this, because everyone who
+           books needs to know whether the "ใช้จริง" numbers on this page are
+           live or frozen — the state that produced this control was four
+           Discord alerts a day about a subscription nobody could renew, while
+           the board went on showing a four-day-old reading as though it were
+           current.
+
+           For a vp_admin / dev / master it is a BUTTON that opens the pause
+           dialog; for everyone else it is the same pill, disabled. Rendered by
+           paintMonitor(); the label and colour come from the board payload, so
+           the markup carries no default state to go stale. -->
+      <button type="button" class="claude-mon" id="claudeMonitor" hidden></button>
       <button type="button" class="btn btn-outline-secondary btn-sm" id="claudeTermsOpen">
         <i class="bi bi-file-text me-1"></i>ข้อตกลง
       </button>
@@ -147,6 +160,43 @@
       </button>
       <div class="claude-usage-body d-none" id="claudeUsageBody"></div>
     </section>
+  </div>
+
+  <!-- ── measurement on/off (migration 0167) ───────────────────────────── -->
+  <!-- Its own dialog rather than a row of settings, because the reason is the
+       point: pausing without one leaves ~150 people looking at a frozen number
+       with no way to tell a lapsed subscription from a broken site. The DB
+       enforces it too (claude_settings_off_needs_a_reason) — this form is the
+       polite half of a rule that has a home. -->
+  <div class="modal fade claude-tab" id="claudeMonitorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold" id="claudeMonitorTitle">การติดตามการใช้งานจริง</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-3" id="claudeMonitorLede"></p>
+
+          <div id="claudeMonitorReasonWrap">
+            <label class="form-label small fw-bold mb-1" for="claudeMonitorReason">
+              เหตุผลที่หยุด<span class="claude-req" aria-hidden="true">*</span>
+            </label>
+            <textarea class="form-control form-control-sm" id="claudeMonitorReason" rows="2"
+              maxlength="300" placeholder="เช่น ยังไม่ได้ต่ออายุ Claude รอเดือนหน้า"></textarea>
+            <div class="form-text">
+              ทุกคนที่เปิดหน้านี้จะเห็นข้อความนี้ และจะถูกส่งเข้า Discord ด้วย
+            </div>
+          </div>
+
+          <div class="claude-mon-warn mt-3" id="claudeMonitorWarn"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-sm" id="claudeMonitorSave"></button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ── booking modal ─────────────────────────────────────────────────── -->

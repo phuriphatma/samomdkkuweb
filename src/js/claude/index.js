@@ -25,7 +25,7 @@
 // ============================================================
 
 import { dbRest } from '../db.js';
-import { getUser, holdsMaster } from '../auth.js';
+import { getUser, getRole, holdsMaster } from '../auth.js';
 import { escHtml } from '../utils.js';
 import { askConfirm } from '../confirm-modal.js';
 import { sendNotify } from '../notify.js';
@@ -36,6 +36,9 @@ import {
   pressIntent, movedTooFar, shouldBlockScroll, HOLD_MS, HOLD_MIN,
 } from './gesture.js';
 import { paintUsageLog, paintFreeNow } from './usage.js';
+import {
+  canEditMonitor, monitorState, staleAfterMs, pauseAge, pauseNeedsRelogin,
+} from './monitor.js';
 // Every formatter and the ฝ่าย colour live in ONE module, shared with
 // usage.js. Two copies of "what colour is this person" is the drift class
 // this repo pays for most.
@@ -56,6 +59,7 @@ let gridBuilt = false;             // grid skeleton painted for the current week
 let pollTimer = null;              // the once-a-minute repaint while on screen
 let editing = null;                // the booking open in the modal, or null
 let modalRef = null;               // one Bootstrap Modal instance, reused
+let monitorRef = null;             // ditto, for the measurement on/off dialog
 let termsRef = null;               // the ข้อตกลง modal, also reused
 let continuation = null;           // the tail a wall cut off, if any
 
@@ -176,6 +180,7 @@ async function refresh({ quiet = false } = {}) {
   $('claudeJump').value =
     `${wsFor.getFullYear()}-${pad(wsFor.getMonth() + 1)}-${pad(wsFor.getDate())}`;
 
+  paintMonitor();
   paintFreeNow($('claudeNow'), board.right_now, board.week.is_current === false);
   paintWeekMeter();
   if (weekChanged || !gridBuilt) {
@@ -249,6 +254,11 @@ function startPolling() {
     if (!pane || pane.classList.contains('d-none')) return;
     if (document.hidden) return;
     if ($('claudeBookingModal')?.classList.contains('show')) return;
+    // …and neither may it repaint while somebody is typing a pause reason.
+    // Same rule as the line above, and the reason it needs its own line is that
+    // the line above names ONE modal by id: a second modal on this pane is
+    // invisible to it. Any third one must be added here too.
+    if ($('claudeMonitorModal')?.classList.contains('show')) return;
     refresh({ quiet: true });
   }, 60000);
 }
@@ -287,6 +297,18 @@ function wire() {
   // every 15 minutes and a button somebody can hold down is a button somebody
   // will hold down.
   $('claudeRefresh').addEventListener('click', manualRefresh);
+
+  // The measurement on/off control (0167). The listener is wired ONCE here,
+  // but who may use it is decided in paintMonitor(), which runs on every
+  // refresh — the account switcher swaps the signed-in user without reloading,
+  // so a permission read taken at wire() goes stale exactly as the silent-
+  // booking toggle's did.
+  $('claudeMonitor').addEventListener('click', openMonitorDialog);
+  $('claudeMonitorSave').addEventListener('click', saveMonitor);
+  // The DB refuses a pause with no reason; the button refuses first, so nobody
+  // meets a 400 at the end of a form. Same rule, stated twice on purpose —
+  // one of them is the gate and one of them is the manners.
+  $('claudeMonitorReason').addEventListener('input', paintMonitorDialog);
 
   $('claudeFitToggle').addEventListener('click', () => {
     fitMode = !fitMode;
@@ -764,6 +786,192 @@ function paintWeekMeter() {
   paintMeasured();
 }
 
+// ============================================================
+// The measurement on/off switch (migration 0167)
+// ============================================================
+
+/**
+ * The status pill: is the account's usage actually being measured?
+ *
+ * VISIBLE TO EVERYONE WITH THE `claude` GRANT, not only to admins. The state
+ * this replaced is the argument: for three days the reporter posted an alert
+ * into Discord four times a day and the board went on drawing a four-day-old
+ * reading, and nobody looking at the page could tell. Whether the numbers are
+ * live is a fact about the page, not an administrative detail.
+ *
+ * Only a vp_admin / dev / master gets a working button — mirroring
+ * `claude_settings_write`, so nobody is handed a form whose save is refused.
+ * Re-evaluated on every refresh() rather than once at wire(): the account
+ * switcher changes the signed-in user without reloading the page.
+ */
+function paintMonitor() {
+  const btn = $('claudeMonitor');
+  if (!btn) return;
+  const st = monitorState(board);
+  const may = canEditMonitor({ role: getRole(), master: holdsMaster() });
+
+  btn.hidden = false;
+  btn.classList.toggle('is-off', !st.enabled);
+  btn.disabled = !may;
+  // A pill nobody can press is not a button, and announcing it as one sends a
+  // screen reader looking for an action that is not there.
+  btn.setAttribute('aria-disabled', String(!may));
+
+  const age = st.enabled ? '' : pauseAge(st.changedAt);
+  btn.innerHTML = st.enabled
+    ? '<i class="bi bi-activity" aria-hidden="true"></i><span>ติดตามการใช้งานจริงอยู่</span>'
+    : '<i class="bi bi-pause-circle" aria-hidden="true"></i>'
+      + `<span>หยุดติดตามชั่วคราว${age ? ` · ${escHtml(age)}` : ''}</span>`;
+  btn.title = st.enabled
+    ? (may ? 'ตัวเลข “ใช้จริง” กำลังอัปเดตทุก 15 นาที — กดเพื่อหยุดชั่วคราว'
+           : 'ตัวเลข “ใช้จริง” กำลังอัปเดตทุก 15 นาที')
+    : (st.note || 'หยุดติดตามการใช้งานจริงไว้ชั่วคราว');
+}
+
+/** Open the dialog, with the fields set from the state we are leaving. */
+function openMonitorDialog() {
+  const st = monitorState(board);
+  // The reason box starts holding the CURRENT reason when pausing is not what
+  // is about to happen — resuming keeps it so the Discord notice can say what
+  // it had been off for, and editing a live pause should not make you retype
+  // the sentence you already wrote.
+  $('claudeMonitorReason').value = st.note;
+  paintMonitorDialog();
+  const el = $('claudeMonitorModal');
+  // ONE instance, reused. `new bootstrap.Modal(el).show()` on an already-open
+  // modal stacks a second backdrop that nothing removes
+  // (docs/mistakes/frontend-ui.md).
+  monitorRef = monitorRef || new window.bootstrap.Modal(el);
+  monitorRef.show();
+}
+
+/**
+ * Everything in the dialog that depends on state, in one function called from
+ * both open and every keystroke.
+ *
+ * Two passes over one control is a bug class this pane has already paid for
+ * (the second pass silently unlocked a checkbox the first had locked), so the
+ * save button's label, colour and disabled state are all decided here and
+ * nowhere else.
+ */
+function paintMonitorDialog() {
+  const st = monitorState(board);
+  const turningOff = st.enabled;                 // the dialog always flips it
+  const reason = $('claudeMonitorReason').value.trim();
+  const save = $('claudeMonitorSave');
+
+  $('claudeMonitorTitle').textContent = turningOff
+    ? 'หยุดติดตามการใช้งานจริงชั่วคราว'
+    : 'กลับมาติดตามการใช้งานจริง';
+
+  $('claudeMonitorLede').textContent = turningOff
+    ? 'ระบบจะหยุดอ่านข้อมูลการใช้งานจากบัญชี Claude และตัวเลข “ใช้จริง” '
+      + 'จะหายไปจากกระดาน — ทุกคนยังจองช่วงเวลาได้ตามปกติ'
+    : 'ระบบจะกลับไปอ่านข้อมูลการใช้งานจากบัญชี Claude ทุก 15 นาที '
+      + 'และตัวเลข “ใช้จริง” จะกลับมาแสดงอีกครั้ง';
+
+  // The reason belongs to the OFF direction. On resume it is shown as
+  // read-only context in the lede instead of asking for it again.
+  $('claudeMonitorReasonWrap').hidden = !turningOff;
+
+  const warn = $('claudeMonitorWarn');
+  if (turningOff) {
+    warn.className = 'claude-mon-warn mt-3 is-note';
+    warn.innerHTML = '<i class="bi bi-info-circle" aria-hidden="true"></i>'
+      + '<span>ถ้าหยุดนานเกิน 12 วัน สิทธิ์เข้าถึงบัญชี Claude จะหมดอายุ '
+      + 'และตอนเปิดกลับมาต้อง ssh เข้าเซิร์ฟเวอร์เพื่อ <code>claude login</code> อีกครั้ง</span>';
+  } else if (pauseNeedsRelogin(st.changedAt)) {
+    // Not a guess: this is exactly the condition the reporter's header
+    // describes, and telling somebody afterwards is a post-mortem.
+    warn.className = 'claude-mon-warn mt-3 is-warn';
+    warn.innerHTML = '<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>'
+      + `<span>หยุดมานาน ${escHtml(pauseAge(st.changedAt))} — `
+      + 'สิทธิ์เข้าถึงน่าจะหมดอายุแล้ว ถ้าเปิดแล้วตัวเลขไม่กลับมาภายใน 15 นาที '
+      + 'ต้อง ssh เข้าเซิร์ฟเวอร์แล้วรัน <code>claude login</code></span>';
+  } else {
+    warn.className = 'claude-mon-warn mt-3 d-none';
+    warn.innerHTML = '';
+  }
+
+  save.className = `btn btn-sm ${turningOff ? 'btn-warning' : 'btn-success'}`;
+  save.textContent = turningOff ? 'หยุดติดตาม' : 'เปิดการติดตาม';
+  save.disabled = turningOff && reason.length < 3;
+}
+
+/**
+ * Write the switch, then announce it.
+ *
+ * `return=representation` and a row count, NOT a bare 204. RLS does not raise
+ * on a refused UPDATE — it matches zero rows and PostgREST answers success — so
+ * without this an account that fails `claude_settings_write` would change
+ * nothing and still post "measurement paused" into Discord. Same rule as the
+ * app's delete guard, and the reason `delete-guard.test.js` exists.
+ */
+async function saveMonitor() {
+  const st = monitorState(board);
+  const turningOff = st.enabled;
+  const reason = $('claudeMonitorReason').value.trim();
+  const save = $('claudeMonitorSave');
+  if (turningOff && reason.length < 3) return;
+  if (save.disabled) return;
+  save.disabled = true;
+
+  // The note is KEPT on resume rather than cleared: it is what the
+  // "กลับมาแล้ว" notice reports as the thing it had been off for, and the row
+  // is the only place it lives.
+  const patch = turningOff
+    ? { monitoring_enabled: false, monitoring_note: reason }
+    : { monitoring_enabled: true };
+
+  const { data, error } = await dbRest('/claude_settings?id=eq.true', {
+    method: 'PATCH',
+    body: patch,
+    prefer: 'return=representation',
+  });
+  if (error) {
+    save.disabled = false;
+    $('claudeMonitorWarn').className = 'claude-mon-warn mt-3 is-warn';
+    $('claudeMonitorWarn').textContent = `บันทึกไม่สำเร็จ: ${error.message || error.status}`;
+    return;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    save.disabled = false;
+    $('claudeMonitorWarn').className = 'claude-mon-warn mt-3 is-warn';
+    $('claudeMonitorWarn').textContent =
+      'บันทึกไม่สำเร็จ — บัญชีนี้ไม่มีสิทธิ์เปลี่ยนการตั้งค่านี้';
+    return;
+  }
+
+  monitorRef?.hide();
+  // The age is taken from the state BEFORE the write: after it, the stamp is
+  // "just now" by construction and "หยุดไปนาน 0 นาที" would be a reading.
+  const since = turningOff ? '' : pauseAge(st.changedAt);
+  await refresh();
+  notifyMonitor(turningOff ? 'monitor-off' : 'monitor-on', turningOff ? reason : st.note, since);
+}
+
+/**
+ * Fire-and-forget into the same Discord channel the bookings use.
+ *
+ * Announced for the same reason a cancelled booking is: it changes what
+ * everybody else can rely on. Somebody reading a percentage on this board
+ * tomorrow deserves to have been told that the percentage stopped moving —
+ * and Discord is where people are, not this page.
+ *
+ * NOT gated on the silent-booking toggle. That switch exists so a dev testing
+ * the booking form does not ring a channel full of students; pausing the whole
+ * account's measurement is not a test action, and it is exactly the kind of
+ * thing that must not happen quietly.
+ */
+function notifyMonitor(mode, note, since) {
+  sendNotify('claude', {
+    mode,
+    who: personName(board?.me) || getUser()?.name || '',
+    note: note || '',
+    since: since || '',
+  });
+}
+
 /**
  * The MEASURED panel — the only numbers on this page that are not a guess.
  *
@@ -802,6 +1010,36 @@ function paintMeasured() {
     return;
   }
 
+  // PAUSED ON PURPOSE (0167). Ordered BEFORE the "no sample" branch, because
+  // both are true at once while paused and only one of them is useful: "nobody
+  // ever set this up" is wrong and sends an admin to the server to fix
+  // something that is not broken.
+  //
+  // THE GAUGES ARE NOT DRAWN, not even greyed. A meter with a number in it is a
+  // reading, and the last one taken before a pause stops being true the moment
+  // the account is used again — which is precisely what a pause makes likely.
+  // This page has refused to print a stale figure since 0154 ("deliberately
+  // blank rather than zero, because a zero reads as a reading"); a frozen 61%
+  // is the same mistake wearing a plausible number.
+  const mon = monitorState(board);
+  if (!mon.enabled) {
+    const age = pauseAge(mon.changedAt);
+    const by = mon.by ? personName(mon.by) : '';
+    host.innerHTML =
+      '<div class="claude-measured-paused">'
+      + '<i class="bi bi-pause-circle" aria-hidden="true"></i>'
+      + '<div><b>หยุดติดตามการใช้งานจริงชั่วคราว</b><br>'
+      + 'ตัวเลขด้านบนคือสิ่งที่ทุกคนจองไว้ ไม่ใช่สิ่งที่ใช้ไปจริง — '
+      + 'ยังจองช่วงเวลาได้ตามปกติ'
+      + (mon.note ? `<div class="claude-measured-why">เหตุผล: ${escHtml(mon.note)}</div>` : '')
+      + ((by || age)
+          ? `<div class="claude-measured-who">หยุดโดย ${escHtml(by || 'ไม่ทราบชื่อ')}`
+            + `${age ? ` · ${escHtml(age)}ที่แล้ว` : ''}</div>`
+          : '')
+      + '</div></div>';
+    return;
+  }
+
   if (!m) {
     host.innerHTML =
       '<div class="claude-measured-off">'
@@ -813,9 +1051,13 @@ function paintMeasured() {
   }
 
   const age = Date.now() - new Date(m.sampled_at).getTime();
-  // The timer runs every 15 minutes, so anything past ~35 tells you the
-  // reporter has stopped rather than that usage is quiet.
-  const stale = age > 35 * 60 * 1000;
+  // How old a reading may be before it is announced as stuck. The number comes
+  // from claude_settings.sample_stale_minutes, published in the board payload
+  // since 0167 — it used to be a hardcoded 35 here while the DATABASE went on
+  // believing the newest sample for ever, so the page could say "ข้อมูลค้าง"
+  // over a figure the SQL underneath was still treating as current. One
+  // threshold, one home.
+  const stale = age > staleAfterMs(board);
 
   // NO reconciliation here any more. It printed booked-vs-actual on the WEEKLY
   // window's 0–100 scale, directly under a bar reading 287 / 700 in session

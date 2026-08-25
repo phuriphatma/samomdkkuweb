@@ -4,10 +4,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   htmlToText, buildPrPayload, buildVsPayload, buildVsConsultPayload,
-  buildProjectPayload, parseVsWebhooks, resolveTarget, postToDiscord,
-  logNotifyOutcome,
+  buildProjectPayload, buildClaudeMonitorPayload, parseVsWebhooks, resolveTarget,
+  postToDiscord, logNotifyOutcome,
 } from './_discord.js';
 import { onRequestPost } from './notify.js';
+import { readFileSync } from 'node:fs';
+import { stripComments } from '../src/js/strip-comments.js';
 
 const noSleep = () => Promise.resolve();
 const resp = (status, body = '', headers = {}) => ({
@@ -19,6 +21,9 @@ const resp = (status, body = '', headers = {}) => ({
 const ENV = {
   DISCORD_PR_WEBHOOK: 'https://discord/pr',
   DISCORD_PROJECTS_WEBHOOK: 'https://discord/projects',
+  // Absent until 0167, which made every "routes to the Claude webhook"
+  // assertion compare undefined with undefined and pass.
+  DISCORD_CLAUDE_WEBHOOK: 'https://discord/claude',
   DISCORD_VS_WEBHOOKS: JSON.stringify({
     SE: 'https://discord/vs/se',
     'อุปนายกฝ่ายวิชาการ': 'https://discord/vs/academic',
@@ -341,5 +346,169 @@ describe('onRequestPost + notify_log wiring', () => {
     // Only the Discord POST — no notify_log insert.
     expect(fetchMock).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
+  });
+});
+
+// ============================================================
+// NOTHING THIS APP POSTS MAY PING ANYBODY
+//
+// `@here` was removed from the two VitalSound builders by hand, and that fix
+// left the rule living in string literals inside three functions with no test
+// on two of the branches — the emergency ticket and the consult update both
+// went unasserted. Rewriting the same assertion once per builder would repeat
+// the mistake in test form: the next builder added is the next one nobody
+// checks.
+//
+// So this asserts the PROPERTY instead, and it asserts it in the two places the
+// property can be broken:
+//   • at the WIRE, where allowed_mentions decides what actually notifies —
+//     which also covers a mention that arrives inside interpolated user text
+//     rather than from a builder's own string;
+//   • over EVERY action resolveTarget knows, enumerated FROM ITS SOURCE, so an
+//     action added tomorrow is covered without anybody remembering to.
+// ============================================================
+describe('no notification this app sends may ping the channel', () => {
+  const SOURCE = stripComments(
+    readFileSync(new URL('./_discord.js', import.meta.url), 'utf8'),
+  );
+
+  /** Every `case '…':` inside resolveTarget, read out of the stripped source.
+   *  Comments are stripped first because this file's prose NAMES these actions
+   *  — an instrument that cannot tell a case label from a paragraph about one
+   *  is the failure mode `strip-comments.js` exists for. */
+  const ACTIONS = [...SOURCE.slice(SOURCE.indexOf('export function resolveTarget'))
+    .matchAll(/case\s+'([A-Za-z]+)'/g)].map((m) => m[1]);
+
+  it('the instrument found the actions (a sweep over nothing proves nothing)', () => {
+    // The control. If resolveTarget is ever restructured away from a switch,
+    // this fails loudly and tells the next reader to re-derive the list, rather
+    // than sweeping an empty array and reporting green.
+    expect(ACTIONS.length).toBeGreaterThanOrEqual(6);
+    expect(ACTIONS).toContain('notifyVSOnly');
+    expect(ACTIONS).toContain('notifyClaudeMonitor');
+  });
+
+  /** A payload for every action, each carrying user-supplied text in the field
+   *  that reaches `content` — because that is where a mention could ride in
+   *  from data rather than from a literal. */
+  const DATA = {
+    department: 'SE',
+    notifyTo: 'SE',
+    ticketId: 'VS-1',
+    vsProblem: 'x',
+    content: 'x',
+    role: 'SE',
+    who: 'x',
+    reason: 'x',
+    mode: 'monitor-off',
+    note: 'x',
+  };
+
+  it.each(['@here', '@everyone'])('no builder writes %s into content', (mention) => {
+    for (const action of ACTIONS) {
+      const { payload } = resolveTarget(action, DATA, ENV);
+      expect(`${action}: ${payload?.content || ''}`).not.toContain(mention);
+    }
+  });
+
+  it('a mention pasted into user text is defused at the wire, not in a builder', async () => {
+    // The half a per-builder assertion cannot reach: nothing here wrote a
+    // mention, a person typed one into a ticket title.
+    const { payload } = resolveTarget('notifyVSConsult',
+      { ...DATA, role: '@everyone please look' }, ENV);
+    expect(payload.content).toContain('@everyone');   // the text is preserved…
+
+    const calls = [];
+    await postToDiscord('https://discord/vs', payload, {
+      fetchImpl: async (_u, opts) => { calls.push(JSON.parse(opts.body)); return resp(204); },
+      sleep: noSleep,
+    });
+    // …and it still cannot notify anybody.
+    expect(calls[0].allowed_mentions).toEqual({ parse: [] });
+  });
+
+  it('every action is sent with mentions suppressed', async () => {
+    for (const action of ACTIONS) {
+      const { payload } = resolveTarget(action, DATA, ENV);
+      const calls = [];
+      await postToDiscord('https://discord/x', payload, {
+        fetchImpl: async (_u, opts) => { calls.push(JSON.parse(opts.body)); return resp(204); },
+        sleep: noSleep,
+      });
+      expect(calls[0].allowed_mentions, action).toEqual({ parse: [] });
+    }
+  });
+
+  it('a builder that deliberately wants a ping is still able to ask for one', async () => {
+    // The opposite direction. A blanket suppression nothing can override is a
+    // policy, not a default, and would have to be undone rather than configured
+    // the first time a real ping is wanted.
+    const calls = [];
+    await postToDiscord('https://discord/x',
+      { content: 'x', allowed_mentions: { parse: ['everyone'] } },
+      {
+        fetchImpl: async (_u, opts) => { calls.push(JSON.parse(opts.body)); return resp(204); },
+        sleep: noSleep,
+      });
+    expect(calls[0].allowed_mentions).toEqual({ parse: ['everyone'] });
+  });
+});
+
+// ============================================================
+// The measurement on/off notice (migration 0167)
+// ============================================================
+describe('buildClaudeMonitorPayload', () => {
+  it('off: the reason is the headline field, and booking is addressed', () => {
+    const p = buildClaudeMonitorPayload({
+      mode: 'monitor-off', who: 'พู่กัน', note: 'ยังไม่ได้ต่ออายุ Claude',
+    });
+    const f = p.embeds[0].fields;
+    expect(p.content).toContain('พู่กัน');
+    expect(f[0].name).toBe('เหตุผล');
+    expect(f[0].value).toBe('ยังไม่ได้ต่ออายุ Claude');
+    // The question everyone reading will actually have.
+    expect(f.some((x) => x.name === 'จองได้ตามปกติไหม' && x.value.includes('ได้ตามปกติ')))
+      .toBe(true);
+    // The cost of a long pause is stated where the person who pays it reads it.
+    expect(f.some((x) => x.value.includes('claude login'))).toBe(true);
+  });
+
+  it('off does NOT wear the alert embed\'s clothes', () => {
+    // A deliberate pause rendered as an incident is how a channel learns to
+    // ignore both. Different colour, and none of the alert's "ต้องเข้าสู่ระบบ
+    // ใหม่บนเซิร์ฟเวอร์" framing.
+    const p = buildClaudeMonitorPayload({ mode: 'monitor-off', who: 'x', note: 'y' });
+    expect(p.embeds[0].color).not.toBe(11815192);
+    expect(p.embeds[0].title).not.toContain('ต้องเข้าสู่ระบบใหม่');
+  });
+
+  it('on: reports how long it was off, and what it had been off for', () => {
+    const p = buildClaudeMonitorPayload({
+      mode: 'monitor-on', who: 'พู่กัน', note: 'รอต่ออายุ', since: '3 วัน',
+    });
+    const f = p.embeds[0].fields;
+    expect(p.content).toContain('กลับมาติดตาม');
+    expect(f.some((x) => x.name === 'ที่หยุดไปเพราะ' && x.value === 'รอต่ออายุ')).toBe(true);
+    expect(f.some((x) => x.name === 'หยุดไปนาน' && x.value === '3 วัน')).toBe(true);
+    expect(f.some((x) => x.name === 'เปิดโดย')).toBe(true);
+  });
+
+  it('an unknown mode reads as OFF, never as a resume', () => {
+    // Fail toward the quieter statement: announcing "measurement is back" when
+    // it is not is the one direction that makes a stale number look trusted.
+    const p = buildClaudeMonitorPayload({ who: 'x', note: 'y' });
+    expect(p.content).toContain('หยุดติดตาม');
+  });
+
+  it('routes to the Claude webhook — the same one bookings use', () => {
+    // Asserted against a LITERAL, not against `ENV.DISCORD_CLAUDE_WEBHOOK`:
+    // that key was missing from ENV when this test was first written, so the
+    // check was `undefined === undefined` and would have passed for an action
+    // that routed nowhere at all.
+    const monitor = resolveTarget('notifyClaudeMonitor',
+      { mode: 'monitor-off', who: 'x', note: 'y' }, ENV);
+    const booking = resolveTarget('notifyClaudeBooking', { mode: 'new' }, ENV);
+    expect(monitor.url).toBe('https://discord/claude');
+    expect(monitor.url).toBe(booking.url);
   });
 });

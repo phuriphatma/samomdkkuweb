@@ -143,7 +143,12 @@ describe('silent booking is a master-only OPTION, never a default', () => {
   });
 
   it('imports the ONE master test rather than re-deriving it', () => {
-    expect(CODE).toContain("import { getUser, holdsMaster } from '../auth.js'");
+    // Asserts the PROPERTY — "master comes from auth.js" — rather than the
+    // exact import line, which pinned the full named-import list and went red
+    // in 0167 for the entirely innocent reason that `getRole` was added beside
+    // it. A guard whose subject is a literal spelling reports a rename as a
+    // regression, and this repo has that one written up twice.
+    expect(CODE).toMatch(/import \{[^}]*\bholdsMaster\b[^}]*\} from '\.\.\/auth\.js'/);
     expect(CODE).not.toMatch(/permissions[\s\S]{0,40}includes\('master'\)/);
   });
 
@@ -170,11 +175,30 @@ describe('the booking form never prints a NaN', () => {
 });
 
 describe('every field the booking form requires is marked', () => {
-  it('each label carries a star and the legend explains it', () => {
-    const stars = (HTML.match(/class="claude-req"/g) || []).length;
+  /** The BOOKING modal alone. This counted stars across the whole partial until
+   *  0167 put a second dialog on the pane, at which point the count moved for a
+   *  reason that had nothing to do with the booking form. Raising the number
+   *  would have been tuning the guard to pass; scoping it to its actual subject
+   *  is what it always meant. */
+  const BOOKING_MODAL = HTML.slice(
+    HTML.indexOf('id="claudeBookingModal"'),
+    HTML.indexOf('id="claudeTerms"') > -1 ? HTML.indexOf('id="claudeTerms"') : HTML.length,
+  );
+
+  it('each label in the booking form carries a star and the legend explains it', () => {
+    const stars = (BOOKING_MODAL.match(/class="claude-req"/g) || []).length;
     // five fields + the legend's own star
     expect(stars).toBe(6);
-    expect(HTML).toContain('ต้องกรอกทุกช่อง');
+    expect(BOOKING_MODAL).toContain('ต้องกรอกทุกช่อง');
+  });
+
+  it('the pause dialog marks its reason required too — the DB refuses without it', () => {
+    // claude_settings_off_needs_a_reason. A field the database will reject
+    // must not look optional (0167).
+    const PAUSE = HTML.slice(HTML.indexOf('id="claudeMonitorModal"'),
+      HTML.indexOf('id="claudeBookingModal"'));
+    expect(PAUSE).toContain('id="claudeMonitorReason"');
+    expect(PAUSE).toContain('class="claude-req"');
   });
 });
 
