@@ -482,6 +482,40 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > switch + a freshness bound on every "right now" sample read).
 > **1277 tests green** (+48 since 2026-08-20).
 >
+> ### 2026-08-25 (late) — the page could be DEAD AND ANIMATED at the same time
+>
+> **REPORTED from an iPad**: *"i press สร้างบัญชีและเข้าสู่ระบบด้วย google and
+> button do nothing, like when i click on อุปบริหาร on ฝ่าย it also do nothing
+> on safari, but on google app it works"*.
+>
+> - ⚠️ **"WORKS IN THE OTHER iOS BROWSER" IS NEVER EVIDENCE ABOUT THE BROWSER.**
+>   Every iOS browser is WebKit, the Google app's in-app browser included. The
+>   engine cannot differ; only STATE can. Disprove with a fresh context FIRST —
+>   that took this from three hypotheses to one in a single run.
+> - **Cause: the entry ES module failed to fetch, and nothing said so.**
+>   Bootstrap is a classic CDN `<script>`, so every `data-bs-toggle` still opens
+>   its menu and the page LOOKS alive; ~90 controls in `src/html` are inline
+>   `onclick="someGlobal()"` against globals the module defines, so all ninety
+>   die at once with the only signal a console error nobody on an iPad sees.
+> - **Why the module goes missing**: `deploy.sh` keeps old chunks on purpose but
+>   only back to the oldest deploy on disk (7 days). A tab open longer, restored
+>   from a suspended tab or bfcache, re-runs an `index.html` naming a pruned
+>   bundle — and `no-cache, must-revalidate` does NOT save you, because a
+>   bfcache restore does not revalidate. Flaky wifi at load time is identical.
+> - ✅ **FIXED with a BOOT WATCHDOG** in both entry HTMLs — a CLASSIC script, so
+>   it runs in the world where the module does not. The module sets
+>   `window.__samoBooted` AFTER its imports (a module that fails to load a
+>   dependency is just as dead). No report → a bar plus one button that
+>   re-navigates with `?_r=<now>`. ⛔ **NOT `location.reload()`** — on iOS that
+>   can re-serve the very HTML that named the missing bundle, so the fix would
+>   exhibit the bug. Guarded by `boot-watchdog.test.js`, falsified three ways.
+> - **Reproduced with Playwright WebKit at iPad size against LIVE**, by 404ing
+>   `assets/public-*.js`: every symptom matched and the control passed. The
+>   harness is `scratchpad/disprove.mjs`-shaped — 30 lines, worth rebuilding.
+> - ⚠️ **A reader already stuck sees no bar** — their cached HTML predates it.
+>   They have to close the tab or hard-refresh ONCE; after that the watchdog
+>   is in their cache.
+>
 > ### 2026-08-25 — จองโควตา Claude can be switched OFF, and a stale reading expires
 >
 > **REPORTED**: *"claude keep sending this to discord, because claude.ai hasn't
