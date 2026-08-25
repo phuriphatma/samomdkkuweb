@@ -40,9 +40,23 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `68d08ea` (2026-08-20)** — the เกี่ยวกับเรา two-view rework,
-  the `[hidden]` fix, and the solo-rail removal. VM HEAD confirmed over ssh; the served-artifact greps
-  are in the NEXT-SESSION PROMPT at the bottom, which is the authority.
+- ✅ **DEPLOYED = `543a025` (2026-08-25)** — the Claude measurement switch
+  (0167), the restored ผังสายงาน view, the proof repairs and the timer fix.
+  VM HEAD confirmed over ssh, `DEPLOY_EXIT=0`, deployed twice that day.
+  Verified from the SERVED artifacts, and note WHICH ones: the org chart is in
+  the **public** entry, the Claude board in the **admin** entry.
+  Served `admin-DrTH7Aud.js`: `claudeMonitor` ✓ `หยุดติดตามการใช้งานจริงชั่วคราว`
+  ✓ `sample_stale_minutes` ✓ `หยุดไปแล้ว` ✓, and the REMOVED hardcoded
+  `35 * 60 * 1000` = **0**. Served `public-BtnDkbwE.js`: `ผังสายงาน` ✓
+  `org-station-dot` ✓ `data-org-view="lines"` ✓, REMOVED `org-tree-wrap` = **0**.
+  Served public CSS: `org-lines` ✓ `org-station-btn` ✓ `orgc-seat` ✓ (both
+  views styled). `samo-notify` restarted, so the @here removal is LIVE — its one
+  remaining `@here` in `_discord.js` is inside the explanatory comment, checked.
+  **`git diff --stat 543a025..HEAD -- src/ ':!src/**/*.test.js'` is EMPTY.**
+- ✅ **ALL 23 LIVE PROOFS GREEN** (2026-08-25), first time in over a week.
+- **Prod runtime state**: Claude measurement is **OFF** with a reason, the VM
+  timer is **enabled and firing** every 15 min, and each tick makes **zero**
+  calls to Anthropic. See "What is owed" for how to turn it back on.
 - Previous deploy `7dbc153` (2026-08-19), VM HEAD confirmed over ssh.
   Verified from the served `/admin/` HTML: the new hint `ควรใช้งานและ` = 1 and
   the REMOVED `ไม่ได้เลือกให้อัตโนมัติ` = **0**; `userSet` and `masterAuto` both
