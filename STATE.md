@@ -515,6 +515,24 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - ⚠️ **A reader already stuck sees no bar** — their cached HTML predates it.
 >   They have to close the tab or hard-refresh ONCE; after that the watchdog
 >   is in their cache.
+> - 🔴 **THE WATCHDOG'S FIRST VERSION WAS ITSELF THE NEXT BUG, reported within
+>   the hour**: *"even i press the โหลดใหม่ … it still show it"*. It decided
+>   failure on a bare 8 s timer, so a slow-but-WORKING load tripped it
+>   (reproduced: bundle delayed 11 s and allowed to arrive → booted fine, bar
+>   shown anyway), and nothing could ever remove the bar. The remedy therefore
+>   looked broken too. Fixed: trigger on the script `error` event or window
+>   `load` (every resource settled ⇒ a module that has not reported has
+>   errored), 25 s only as a backstop, and the poll keeps running so a late boot
+>   DISMISSES the bar. Verified live on WebKit across normal / 11 s / 27 s / 404
+>   asserting `booted === !bar`. Write-up in `docs/mistakes/frontend-ui.md`.
+> - ⚠️ **THE ORIGINAL CAUSE IS STILL UNCONFIRMED, and do not let the tidy story
+>   fool you.** "Reload did not help" was the evidence used to kill the
+>   stale-bundle hypothesis — but that report was about the BAR, which was a
+>   false positive, not about the buttons. The stale-bundle story remains the
+>   best fit and the reload probably did fix the buttons. **Ask the owner
+>   whether the BUTTONS work now**; if they do not, the bar's
+>   "คัดลอกรายละเอียด" now carries the bundle name, readyState, UA and the
+>   captured error, which is the evidence this needs.
 >
 > ### 2026-08-25 — จองโควตา Claude can be switched OFF, and a stale reading expires
 >
