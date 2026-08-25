@@ -70,6 +70,41 @@ describe.each(ENTRIES)('%s boots visibly or complains', (page, mod, name) => {
     expect(bar).not.toMatch(/location\.reload\(\)/);
   });
 
+  it('a REPEAT failure stops offering the retry that already failed', () => {
+    // The owner pressed โหลดใหม่ on an iPad and got the same bar back. The bar
+    // was re-offering a fix that had just been proved not to work, which reads
+    // as the fix being broken too. A reload only helps when the HTML named a
+    // bundle that is gone; if `_r=` is already in the URL, it did not.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toMatch(/RETRIED\s*=\s*\/\[\?&\]_r=\//);
+    expect(bar).toContain('if (!RETRIED)');
+    expect(bar).toContain('ยังโหลดไม่สำเร็จ');
+  });
+
+  it('it captures WHY, not just THAT — the device has to be able to tell us', () => {
+    // The first version knew only "did not boot", which is not actionable: it
+    // cannot distinguish a 404 from a parse error from a module-scope throw,
+    // and those need three different fixes.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toContain('unhandledrejection');     // a rejected top-level promise
+    expect(bar).toMatch(/e\.message/);               // a thrown error
+    expect(bar).toContain('script failed');          // a resource that never arrived
+    // …and hands it over in one tap, with the two facts that identify the build
+    // and the device.
+    expect(bar).toContain('navigator.userAgent');
+    expect(bar).toMatch(/bundle: /);
+    expect(bar).toContain('คัดลอกรายละเอียด');
+  });
+
+  it('the clipboard path has a fallback', () => {
+    // navigator.clipboard is absent on older iOS in contexts the browser does
+    // not consider secure-and-granted, and a copy button that silently does
+    // nothing is the same class of bug this whole file exists for.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toContain('fallback');
+    expect(bar).toContain('pre.select()');
+  });
+
   it('it listens for the script error AND has a deadline', () => {
     const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
     // Two triggers because neither is reliable alone: some failures never fire
