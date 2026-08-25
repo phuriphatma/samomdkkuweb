@@ -3097,3 +3097,54 @@ module has to be able to say so.* More generally: a failure whose only signal is
 a console error is invisible on a phone. And when a bug appears in one browser
 but not another **on the same engine**, stop looking at the browser; the variable
 is state, and the fastest disproof is a fresh context.
+
+## "even i press the โหลดใหม่ … it still show it" — the watchdog was the bug
+
+**Symptom.** A boot watchdog shipped that morning to catch a dead entry module
+(see the entry above). Within the hour: *"even i press the โหลดใหม่ on ipad from
+the 'โหลดหน้าเว็บได้ไม่ครบ', it still show it"*. Note what the report does NOT
+say: the buttons were not reported dead any more. Only the warning would not go
+away.
+
+**Cause — two mistakes, and the first one is the interesting one.**
+
+1. **A bare 8-second timer decided the app had failed.** Reproduced on WebKit at
+   iPad size by delaying the bundle 11 s and letting it ARRIVE: the app booted
+   perfectly and the bar appeared anyway. On a phone with bad wifi that repeats
+   on every load — so the warning was firing on the most common case in the
+   world it was written for, and no reload could ever clear it because the next
+   load did the same thing.
+2. **Nothing could ever remove the bar.** `tell()` appended it and there was no
+   path back. A late-arriving module left a permanent warning over a working
+   page. A one-way door on a heuristic is how a false positive becomes
+   unfixable.
+
+Together these made the fix indistinguishable from the bug it was fixing — the
+person taps the remedy, the warning returns, and now the remedy looks broken
+too.
+
+**Fix.** Wait for a DEFINITE signal, and stay reversible.
+
+- The script element's own `error` event — that bundle will never arrive, so
+  speak immediately.
+- The window `load` event — every resource has settled, so a module that still
+  has not reported itself has errored or thrown. This is the real trigger.
+- The timer survives only as a 25 s backstop for a `load` that never comes, and
+  it defers while `document.readyState !== 'complete'`.
+- The poll keeps running after the bar is shown, so a module that arrives late
+  takes the bar away with it.
+
+Verified on WebKit across four scenarios — normal, slow-but-arrives (11 s),
+very-slow-past-the-backstop (27 s, bar appears then self-dismisses), and a real
+404 — with the assertion `booted === !bar` in every one.
+
+**Where it lives now.** `index.html` + `admin/index.html`; guarded by
+`src/js/boot-watchdog.test.js` (23 assertions), falsified by restoring the bare
+timer and by removing the dismiss path.
+
+**The general rule.** *A warning that fires on the healthy case is worse than no
+warning, and a warning that cannot be withdrawn is worse still.* Before shipping
+a heuristic that speaks to a user, run it against the SLOW-BUT-FINE case, not
+only the broken one — that is the case it will actually meet. And give every
+such heuristic a way back: if the thing it warned about resolves, it must
+un-warn, or the first false positive is permanent.

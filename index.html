@@ -52,21 +52,24 @@
   <script>
     (function () {
       window.__samoBooted = false;
-      var TIMEOUT = 8000;
-      var notes = [];                       // what actually went wrong, in order
+      var notes = [];
       var RETRIED = /[?&]_r=/.test(location.search);
+      var started = Date.now();
+      var HARD = 25000;              // stop waiting and speak up
+      var GIVE_UP = 90000;           // stop watching entirely
 
+      function booted() { return window.__samoBooted === true; }
       function note(s) { if (s && notes.indexOf(s) === -1 && notes.length < 6) notes.push(s); }
+      function dismiss() {
+        var b = document.getElementById('samoBootFail'); if (b) b.parentNode.removeChild(b);
+        var d = document.getElementById('samoBootDiag'); if (d) d.parentNode.removeChild(d);
+      }
 
-      // ── collect the reason ────────────────────────────────────────────────
-      // Three different failures reach three different places, and the one we
-      // needed on the reported iPad reached NONE of them in the first version:
-      // it only knew "did not boot", which is not enough to act on.
       window.addEventListener('error', function (e) {
         var t = e && e.target;
         if (t && t.tagName === 'SCRIPT' && String(t.src || '').indexOf('/assets/') !== -1) {
           note('script failed: ' + String(t.src).split('/').pop());
-          tell();
+          tell();                      // a DEFINITE failure — no need to wait
         } else if (e && e.message) {
           note(e.message + (e.filename ? ' @' + String(e.filename).split('/').pop() : '')
                + (e.lineno ? ':' + e.lineno : ''));
@@ -76,20 +79,49 @@
         note('promise: ' + String((e && e.reason && e.reason.message) || e.reason || '').slice(0, 120));
       });
 
+      // ── WHEN TO SPEAK, and this is where the first version was wrong ───────
+      // v1 fired on a bare 8-second timer. Reproduced on WebKit by delaying the
+      // bundle 11s and letting it ARRIVE: the app booted fine and the bar
+      // appeared anyway — then never left, because nothing removed it. On a slow
+      // connection that repeats on every load, which is exactly what the owner
+      // hit ("even i press the โหลดใหม่ … it still show it"). A warning that
+      // cannot be wrong is a warning nobody can act on, and this one was wrong
+      // in the most common case: a phone on bad wifi.
+      //
+      // So: two DEFINITE signals, and no bare timer.
+      //   • the module element's error event — it will never arrive;
+      //   • the window `load` event — every resource has settled, so a module
+      //     that has still not reported has errored or thrown.
+      // The 25 s deadline is only a backstop for a load event that never comes,
+      // and even then it defers while the document is still loading.
+      //
+      // AND IT IS REVERSIBLE. The poll keeps running after the bar is shown, so
+      // a module that arrives late takes the bar away with it. Nothing here is
+      // allowed to be a one-way door.
+      function check() {
+        if (booted()) { dismiss(); return; }
+        var waited = Date.now() - started;
+        if (document.readyState === 'complete' || waited > HARD) tell();
+        if (waited < GIVE_UP) setTimeout(check, 1000);
+      }
+      window.addEventListener('load', function () { setTimeout(check, 400); });
+      setTimeout(check, HARD);
+
       function diagnostics() {
         var el = document.querySelector('script[type="module"][src]');
         return [
           'SAMO boot failure',
           'url: ' + location.href,
           'bundle: ' + (el ? el.getAttribute('src') : '(no module tag)'),
-          'retried: ' + RETRIED,
+          'retried: ' + RETRIED + '  waited: ' + Math.round((Date.now() - started) / 1000) + 's',
+          'readyState: ' + document.readyState,
           'ua: ' + navigator.userAgent,
           'errors: ' + (notes.length ? notes.join(' | ') : '(none captured)'),
         ].join('\n');
       }
 
       function tell() {
-        if (window.__samoBooted || document.getElementById('samoBootFail')) return;
+        if (booted() || document.getElementById('samoBootFail')) return;
         var bar = document.createElement('div');
         bar.id = 'samoBootFail';
         bar.setAttribute('role', 'alert');
@@ -98,15 +130,11 @@
           + 'display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center';
         var btn = 'font:inherit;border:0;border-radius:999px;padding:7px 14px;cursor:pointer';
 
-        // ── FIRST failure vs REPEAT failure, and the difference is the point ──
-        // The first version offered "โหลดใหม่" unconditionally. The owner
-        // pressed it on an iPad and got the same bar back — so the bar was
-        // repeating an offer that had already been proved not to work, which
-        // reads as the fix being broken too. A reload only helps when the HTML
-        // named a bundle that is gone; if we already reloaded, it did not, and
-        // saying so honestly is more useful than a second identical button.
+        // FIRST failure vs REPEAT. A reload only helps when the HTML named a
+        // bundle that is gone; if `_r=` is already in the URL it did not, and
+        // re-offering the same button reads as the fix being broken too.
         if (!RETRIED) {
-          bar.innerHTML = '<span>โหลดหน้าเว็บได้ไม่ครบ ปุ่มต่าง ๆ จะยังกดไม่ได้</span>'
+          bar.innerHTML = '<span>โหลดหน้าเว็บได้ไม่ครบ ปุ่มต่าง ๆ อาจยังกดไม่ได้</span>'
             + '<button type="button" id="samoBootRetry" style="' + btn
             + ';background:#fff;color:#7d4f16">โหลดใหม่</button>';
         } else {
@@ -128,15 +156,10 @@
         var c = document.getElementById('samoBootCopy');
         if (c) c.onclick = function () {
           var text = diagnostics();
-          // The click IS the user gesture the clipboard API needs. The fallback
-          // matters on older iOS, where navigator.clipboard is absent over
-          // anything the browser does not consider a secure, granted context.
           function fallback() { show(text, true); }
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(text).then(function () {
-                c.textContent = 'คัดลอกแล้ว';
-              }, fallback);
+              navigator.clipboard.writeText(text).then(function () { c.textContent = 'คัดลอกแล้ว'; }, fallback);
             } else { fallback(); }
           } catch (err) { fallback(); }
         };
@@ -156,8 +179,6 @@
           if (selectable) { pre.focus(); pre.select(); }
         }
       }
-
-      setTimeout(tell, TIMEOUT);
     })();
   </script>
 

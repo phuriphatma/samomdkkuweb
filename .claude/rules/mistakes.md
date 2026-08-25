@@ -118,6 +118,12 @@ it is the part that generalises to code not yet written.
    rules and the page rendered *plausibly* (names centred, dot 0×0). Slice by
    structure, and check the output parses. Guard the property, not the rules:
    every class the renderer EMITS must have a live rule (`frontend-ui.md`).
+   **A WARNING THAT FIRES ON THE HEALTHY CASE IS WORSE THAN NO WARNING** — and
+   one that cannot be WITHDRAWN is worse still. A boot watchdog on a bare 8 s
+   timer fired on a slow-but-working load and never left; the remedy it offered
+   then looked broken too. Trigger on a DEFINITE signal (`load`, an `error`
+   event), keep the timer as a backstop, and always leave a path back. Test the
+   SLOW-BUT-FINE case, not only the broken one (`frontend-ui.md`).
    **A MODULE THAT NEVER LOADS LEAVES A PAGE DEAD AND ANIMATED.** Bootstrap is a
    classic CDN script so every menu still opens; ~90 inline `onclick="global()"`
    handlers die at once, silently. Cause is ANY failed fetch of the entry
@@ -221,7 +227,7 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(14)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(21)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(78)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(79)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(8)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

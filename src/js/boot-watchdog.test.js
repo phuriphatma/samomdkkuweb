@@ -105,12 +105,43 @@ describe.each(ENTRIES)('%s boots visibly or complains', (page, mod, name) => {
     expect(bar).toContain('pre.select()');
   });
 
+  it('a SLOW load is not a failed load — it waits for a DEFINITE signal', () => {
+    // The first version fired on a bare 8-second timer. Measured on WebKit with
+    // the bundle delayed 11 s and allowed to ARRIVE: the app booted fine and the
+    // bar appeared anyway. On a phone with bad wifi that repeats on every load,
+    // which is what the owner hit — and it made the retry button look broken.
+    //
+    // The definite signals are the script's own error event (it will never
+    // arrive) and window `load` (every resource has settled, so a module that
+    // still has not reported has errored or thrown). The timer is a backstop
+    // for a `load` that never comes, not the primary trigger.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toMatch(/addEventListener\('load'/);
+    expect(bar).toContain("document.readyState === 'complete'");
+    // The backstop must be generous — a cold 3G load of the entry bundle is
+    // seconds, not milliseconds.
+    const hard = Number(/HARD\s*=\s*(\d+)/.exec(bar)?.[1]);
+    expect(hard).toBeGreaterThanOrEqual(20000);
+  });
+
+  it('the warning is REVERSIBLE — a late boot takes it away', () => {
+    // Nothing here may be a one-way door. The bar outliving a module that
+    // simply arrived late is the same false alarm, just delayed, and no reload
+    // can clear it because the next load repeats it.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toContain('function dismiss()');
+    expect(bar).toMatch(/if \(booted\(\)\) \{ dismiss\(\); return; \}/);
+    // …and the poll keeps running AFTER the bar is shown, or a late arrival
+    // would never be noticed.
+    expect(bar).toMatch(/tell\(\);\s*\n\s*if \(waited < GIVE_UP\) setTimeout\(check/);
+  });
+
   it('it listens for the script error AND has a deadline', () => {
     const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
     // Two triggers because neither is reliable alone: some failures never fire
     // an error event, and a deadline alone leaves the reader waiting.
     expect(bar).toContain("addEventListener('error'");
-    expect(bar).toContain('setTimeout(tell');
+    expect(bar).toContain('setTimeout(check');
   });
 });
 
