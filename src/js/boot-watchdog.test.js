@@ -96,6 +96,35 @@ describe.each(ENTRIES)('%s boots visibly or complains', (page, mod, name) => {
     expect(bar).toContain('คัดลอกรายละเอียด');
   });
 
+  it('the diagnostic keeps the FILENAME, which is the whole point of it', () => {
+    // It used to report `String(e.filename).split('/').pop()`. On a document URL
+    // that returns the QUERY STRING and discards which file the error was in —
+    // so the owner's report said "@?_r=1787676475017&…:74" and could not
+    // distinguish an inline script from the bundle from a CDN script. The
+    // basename trick is lossy exactly where it matters. Cost a full round trip.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).not.toMatch(/e\.filename\)\.split\('\/'\)\.pop\(\)/);
+    expect(bar).toContain('e.colno');
+    expect(bar).toMatch(/e\.error && e\.error\.stack/);
+  });
+
+  it('it inventories the page\'s scripts, so an INJECTED one is visible', () => {
+    // The reported SyntaxError pointed at the DOCUMENT while the served
+    // document parses cleanly from here — which means something in the reader's
+    // browser is changing the page. A list of what scripts are actually present
+    // turns that from a theory into an observation.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toContain('function scriptInventory()');
+    expect(bar).toContain("querySelectorAll('script')");
+    expect(bar).toContain('scripts: ');
+  });
+
+  it('the retry does not stack `_r=` forever', () => {
+    // Nine of them turned up in one report.
+    const bar = H.slice(H.indexOf('__samoBooted'), H.indexOf('</script>', H.indexOf('__samoBooted')));
+    expect(bar).toMatch(/replace\(\/\[\?&\]_r=/);
+  });
+
   it('the clipboard path has a fallback', () => {
     // navigator.clipboard is absent on older iOS in contexts the browser does
     // not consider secure-and-granted, and a copy button that silently does

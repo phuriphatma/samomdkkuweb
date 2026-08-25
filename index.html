@@ -71,8 +71,18 @@
           note('script failed: ' + String(t.src).split('/').pop());
           tell();                      // a DEFINITE failure — no need to wait
         } else if (e && e.message) {
-          note(e.message + (e.filename ? ' @' + String(e.filename).split('/').pop() : '')
-               + (e.lineno ? ':' + e.lineno : ''));
+          // FULL filename, not the basename. `String(f).split('/').pop()` on a
+          // document URL returns the QUERY STRING and throws away which file the
+          // error was in — which is the one fact a report needs. It cost a whole
+          // round trip with the owner on 2026-08-26. Keep the origin off (noise)
+          // but keep the path.
+          var f = String(e.filename || '');
+          try { f = f.replace(location.origin, ''); } catch (x) {}
+          note(e.message + (f ? ' @' + f : '')
+               + (e.lineno ? ':' + e.lineno + (e.colno ? ':' + e.colno : '') : ''));
+          if (e.error && e.error.stack) {
+            note('stack: ' + String(e.error.stack).split('\n').slice(0, 3).join(' / ').slice(0, 260));
+          }
         }
       }, true);
       window.addEventListener('unhandledrejection', function (e) {
@@ -107,6 +117,22 @@
       window.addEventListener('load', function () { setTimeout(check, 400); });
       setTimeout(check, HARD);
 
+      // WHICH scripts the page actually has, and what happened to each. The
+      // reported SyntaxError pointed at the DOCUMENT, which means an inline
+      // script or an inline handler — and the served document parses cleanly
+      // from here, so something in the reader's browser is changing the page.
+      // Listing the scripts is how that becomes visible instead of theoretical.
+      function scriptInventory() {
+        try {
+          return [].slice.call(document.querySelectorAll('script')).map(function (s, i) {
+            var src = s.getAttribute('src');
+            return (i + 1) + ':' + (src ? src.replace(/^https?:\/\//, '').slice(0, 46)
+              : 'inline(' + (s.textContent || '').length + 'b)')
+              + (s.type === 'module' ? '[mod]' : '');
+          }).join(' ');
+        } catch (x) { return '(unreadable: ' + x + ')'; }
+      }
+
       function diagnostics() {
         var el = document.querySelector('script[type="module"][src]');
         return [
@@ -116,6 +142,7 @@
           'retried: ' + RETRIED + '  waited: ' + Math.round((Date.now() - started) / 1000) + 's',
           'readyState: ' + document.readyState,
           'ua: ' + navigator.userAgent,
+          'scripts: ' + scriptInventory(),
           'errors: ' + (notes.length ? notes.join(' | ') : '(none captured)'),
         ].join('\n');
       }
@@ -150,8 +177,12 @@
         if (r) r.onclick = function () {
           // A cache-busting NAVIGATION, not reload(): on iOS a plain reload can
           // re-serve the very HTML that named the missing bundle.
-          location.replace(location.pathname
-            + (location.search ? location.search + '&' : '?') + '_r=' + Date.now() + location.hash);
+          // Strip any previous `_r` first. Nine stacked copies turned up in the
+          // owner's report — harmless, but it buries the real query and grows
+          // without bound.
+          var q = location.search.replace(/[?&]_r=\d+/g, '').replace(/^&/, '?');
+          location.replace(location.pathname + (q && q !== '?' ? q + '&' : '?')
+            + '_r=' + Date.now() + location.hash);
         };
         var c = document.getElementById('samoBootCopy');
         if (c) c.onclick = function () {
