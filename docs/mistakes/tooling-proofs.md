@@ -498,3 +498,118 @@ derive the threshold from the span actually available, or set it to the
 smallest span over which the assertion still means something, and say which in
 the file. A proof that fails for a correct reason is a proof that gets ignored,
 and the next reader pays for it by re-deriving a green result.
+
+## Two proofs ERRORED for six days because their scenario needed a week with room left in it
+
+**Symptom.** `claude0157` and `claude0161` both died on
+`HTTP 400 … 23502: null value in column "starts_at"` — not a failing assertion,
+an aborted script producing zero probe rows. `STATE.md` carried the right
+diagnosis on 2026-08-19 and the owed fix went unwritten, so the two reds sat in
+every subsequent handoff as known-bad noise. That is the whole cost: a proof
+that errors is indistinguishable from a proof nobody reads, and both of these
+guard the rail arithmetic a later session then changed.
+
+**Cause, and it is a rot with a clock on it.** Both scenarios find their slot in
+
+```sql
+generate_series(date_trunc('hour', now()) + interval '7 hours',
+                public.claude_week_start(now()) + interval '7 days' - interval '11 hours',
+                interval '1 hour')
+```
+
+— the remainder of the LIVE quota week. Run late enough in that week and the
+range is empty, `sc.b_start` is NULL, and the booking insert six statements
+later violates NOT NULL. Measured 2026-08-25 23:05 ICT: the week ended in
+5h55m; zero rows. The slot was already resolved from the data rather than
+hardcoded (the lesson from `proj0092`), which is why this reads as safe — but
+"derived from live data" and "always derivable" are different properties, and
+only the second keeps a proof runnable.
+
+**Fix.** Three things, and only the first is about the error.
+
+1. **The proof owns its week.** `claude_free_windows()` reads `now()` itself and
+   only ever draws the CURRENT week — there is no `p_at` to move — so the
+   scenario genuinely needs a week with room in it. What decides where that week
+   starts is `claude_settings.week_reset_dow` / `week_reset_time`, a SETTING,
+   and the whole proof runs inside a transaction that rolls back. It now states
+   the geometry it needs: *the current quota week began two hours ago*. Every
+   `claude_week_start()` call — in the search, in the function, in the trigger —
+   reads that same moved boundary.
+2. **The empty search FAILS instead of aborting.** A00 asserts a slot was found
+   and the insert is `where … is not null`, so a genuinely full week produces a
+   red assertion rather than silence.
+3. **`claude0157` B4 got the second booking it always needed.** B4 asserts at
+   least one deadline is a real STEP DOWN — that waiting can COST you quota,
+   which is the rail's entire claim. One booking produced `48 → 48 → 50 → 50 →
+   100`, monotonically non-decreasing: the heaviest window was the EARLIEST one,
+   so every edge stepped up and B4 correctly refused to pass vacuously. A heavy
+   block after the free stretch supplies the phenomenon. A01 controls that the
+   row was actually written — a B4 red because the SCENARIO failed reads exactly
+   like a B4 red because the RULE broke.
+
+**What the new scenario then found, which is why this entry is worth reading.**
+B1 asserted that at a deadline the instant itself EQUALS the earlier band.
+Measured where a window RESET and a DEADLINE coincide:
+
+```
+04:00 − 1s    50    the first booking's window, still running
+04:00        100    a session begun exactly here ends exactly as the next
+                    booking opens, and the previous window has just reset
+04:00 + 1s    20    inside the next booking's window, 80 loaded
+```
+
+100 is correct, and larger than BOTH neighbours. The promise a deadline makes is
+*"act at this instant and you do not lose the larger number"*, not "you get
+exactly the earlier band" — identical at an ordinary deadline, different when
+two boundary kinds land on one instant. B1 is now `>=`, falsified with a
+one-second-late oracle (B1 and the new B1b go red; A1 and B2 stay green, which
+is what shows the weakening did not blind it).
+
+**It also means the RAIL under-reports at that instant**, and that is recorded
+rather than hidden: bands are drawn from one second INSIDE, so no band carries
+the 100. Accepted — an isolated instant that beats both open intervals around it
+has no width to be drawn with, and the error is in the safe direction: the rail
+shows less than is available, never more.
+
+**Where it lives now.** `tools/claude0157-rail-segments.sql` §A00/§A01/§B1/§B1b
+and `tools/claude0161-rail-guard-parity.sql`. All 23 proofs green 2026-08-25.
+
+**The general rule.** *A scenario built from live geometry is only as runnable
+as that geometry — if the thing it needs can run out, the proof must CREATE it,
+not search for it.* Move the SETTING that defines the geometry rather than
+relaxing what the scenario asks for; relaxing it is tuning the guard to pass.
+And when a control refuses to pass vacuously, supply the phenomenon it is asking
+about AND add a control that the supply worked — otherwise the next red is
+unreadable.
+
+## `open(p, "w")` truncates before the `read()` you passed to it
+
+**Symptom.** A one-liner meant to append a write-up —
+`open(p,'w').write(open(p).read() + entry)` — left `docs/mistakes/tooling-proofs.md`
+holding only the new entry. 12 write-ups gone. Caught within seconds, but only
+because `npm run mistakes:index` printed **207 entries** where the previous run
+had printed 219, and that number was on screen to compare against.
+
+**Cause.** Python evaluates the CALL's arguments before the call, so
+`open(p,'w')` runs first and truncates the file to zero; the inner
+`open(p).read()` then reads the empty file. The expression looks like
+"read, then write" and executes as "truncate, then read".
+
+**Fix.** Read into a variable first, assert it looks whole, then open for
+writing:
+
+```python
+prev = open(p, encoding='utf-8').read()
+assert len(prev) > 10000, 'refusing to append to a file that looks truncated'
+open(p, 'w', encoding='utf-8').write(prev + entry)
+```
+
+**Where it lives now.** Recovered with `git checkout` — the only reason the loss
+was cheap is that the file was committed.
+
+**The general rule.** *A destructive open is not an argument, it is a
+statement.* Any expression that both opens a file for writing and reads that
+same file is a truncation, whatever the order looks like on the page. And the
+generated COUNT that caught it is the real lesson: a tool that prints "219
+entries" every run turns a silent deletion into a number that visibly moved —
+which is worth more than the tool's actual job.

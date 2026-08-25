@@ -258,7 +258,7 @@ Open when: deploy.sh, nginx, cache headers.
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
 - Dropping a column while the SERVED bundle still names it
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(13)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(15)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -275,5 +275,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A browser probe measured its coordinates before the page scrolled
 - A comment listed four boundaries and the code had three
 - A control threshold that assumed the proof runs early in the quota week
+- Two proofs ERRORED for six days because their scenario needed a week with room left in it
+- `open(p, "w")` truncates before the `read()` you passed to it
 
-_219 entries across 9 files._
+_221 entries across 9 files._

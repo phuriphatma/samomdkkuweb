@@ -691,8 +691,29 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > it was already applied, and an applied migration cannot make a bundle stale.)
 > Migrations through **0166** (none added since); **1217 tests green**.
 >
-> ⚠️ **20 of 22 proofs green, and the two reds are NOT what this file used to
-> say.** It claimed one red (`claude0157` B4, environmental). Measured
+> ✅ **ALL 23 PROOFS GREEN (2026-08-25)** — including `claude0167`, new this
+> session. The `claude0157` / `claude0161` reds below are FIXED; the paragraph
+> is kept because its diagnosis was right and the reasoning is what makes the
+> failure findable again. **What was actually wrong, and it took three fixes:**
+> (1) both scenarios searched the REMAINDER of the live quota week for a slot,
+> so late in a week the search returned nothing and the insert died on
+> `23502` — an ERROR, not a failure, which is silence. They now MOVE the week
+> (`claude_settings.week_reset_dow`/`time`, inside the rolled-back transaction)
+> instead of hoping the calendar cooperates, and an empty search now FAILS
+> loudly. (2) `claude0157` B4 got the second synthetic booking this file has
+> been asking for since 2026-08-18: with one booking the bands ran
+> `48 → 48 → 50 → 50 → 100`, monotonically non-decreasing, so no deadline could
+> step DOWN and B4 was correctly refusing to pass vacuously. (3) That new
+> scenario then found a REAL thing: where a window RESET and a DEADLINE
+> coincide, the instant is worth MORE than both neighbouring bands (100 against
+> 50 and 20), because a session begun exactly there ends exactly as the next
+> booking opens. B1 asserted EQUALITY with the earlier band and is now `>=`;
+> B1b pins the coincident case. **The rail under-reports at that instant and
+> that is accepted** — no band can carry an isolated point, and the error is in
+> the safe direction. Write-up in `docs/mistakes/tooling-proofs.md`.
+>
+> ⚠️ **(HISTORICAL — the diagnosis that was right.)** It once said one red
+> (`claude0157` B4, environmental).** It claimed one red (`claude0157` B4, environmental). Measured
 > 2026-08-19 03:12 UTC: `claude0157` AND `claude0161` both **ERROR**, not fail —
 > `HTTP 400 … 23502: null value in column "starts_at"`. Cause: each searches
 > LIVE booking geometry for a 5-hour candidate slot, and the run happened

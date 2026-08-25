@@ -153,7 +153,11 @@ it is the part that generalises to code not yet written.
    The five ways, each paid for here: it cannot SEE the hazard (0146) · its
    CONTROL finds nothing either (0147) · satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
-   name that rotted (`proj0092`, `house0116`) · it ERRORS rather than fails, and
+   name that rotted (`proj0092`, `house0116`) — **or its SCENARIO needs live
+   geometry that RAN OUT**: two rail proofs searched the remainder of the quota
+   week for a slot and errored for six days once the week was nearly over. If
+   the thing a proof needs can run out, CREATE it (move the setting that defines
+   the geometry) — do not relax what the scenario asks for · it ERRORS rather than fails, and
    an aborted script is silence (`house0116`: 0 assertions for 23 migrations —
    when a migration drops a function or column, grep `tools/` in that commit).
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
@@ -207,6 +211,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(7)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(13)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(15)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

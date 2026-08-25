@@ -45,6 +45,37 @@ create temp table pool on commit drop as
 -- The slot is FOUND, not hardcoded: a proof naming a constant instant rots the
 -- moment a real booking lands on it. Six hours clear on both sides so the
 -- scenario cannot straddle a real window's edge.
+-- ── THE SCENARIO NEEDS A WEEK WITH ROOM IN IT, AND THE WEEK IS A SETTING ────
+--
+-- WHY THIS BLOCK EXISTS (added 2026-08-25, after this proof had been ERRORING
+-- for six days and nobody could tell an error from a failure).
+--
+-- The slot search below walks `now() + 7h` up to `week_end - 11h`. Run late in
+-- a quota week that range is EMPTY, `sc.b_start` comes back NULL, and the
+-- booking insert dies on `23502: null value in column "starts_at"`. An aborted
+-- script produces no probe rows at all, so this scored as an ERROR — and an
+-- error is silence, not a red light (`docs/mistakes/tooling-proofs.md`, "a
+-- proof that ERRORS is not a proof that fails"). Measured 2026-08-25 23:05
+-- ICT: the week ended in 5h55m, the series had zero rows.
+--
+-- The fix is NOT to shrink the clearance, which would be tuning the guard to
+-- pass. `claude_free_windows()` reads `now()` itself and only ever draws the
+-- CURRENT week — there is no `p_at` to move — so the scenario genuinely needs
+-- to sit inside a week that has room left. What decides where that week starts
+-- is `claude_settings.week_reset_dow` / `week_reset_time`, which is a SETTING,
+-- and this transaction rolls back.
+--
+-- So the proof stops hoping the calendar cooperates and states the geometry it
+-- needs: the current quota week began two hours ago. Every claude_week_start()
+-- call below — in the search, in claude_free_now(), in the trigger — reads the
+-- same moved boundary, because they all read the same settings row.
+update public.claude_settings
+   set week_reset_dow  = extract(dow from (now() - interval '2 hours')
+                                   at time zone week_reset_tz)::smallint,
+       week_reset_time = ((now() - interval '2 hours')
+                           at time zone week_reset_tz)::time
+ where id;
+
 create temp table sc on commit drop as
   select t as b_start
     from (select generate_series(
@@ -58,13 +89,24 @@ create temp table sc on commit drop as
    order by t
    limit 1;
 
+-- The slot search can still come back empty — a week whose remainder is wholly
+-- covered by real bookings is a legitimate state. It must FAIL, loudly, rather
+-- than abort the script on a NOT NULL violation six statements later.
+insert into probe
+select 'A00. control — a clear slot exists in this quota week (else nothing below runs)',
+       'true', (exists (select 1 from sc where b_start is not null))::text;
+
+
+
 -- The owner's shape: a block SHORTER than the window it opens, so the window
 -- has a tail. The tail is the whole bug — a block filling its window has none
 -- and the old code was accidentally right there.
 insert into public.claude_bookings (user_id, starts_at, ends_at, pct, purpose)
 select uid, (select b_start from sc), (select b_start from sc) + interval '3 hours',
        75, 'proof row 0161'
-  from subj;
+  from subj
+ where (select b_start from sc) is not null;   -- A00 already failed if not
+
 
 -- The rail's own answer at an instant, in session percent.
 create or replace function pg_temp.rail(t timestamptz) returns numeric
