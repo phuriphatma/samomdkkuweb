@@ -132,6 +132,12 @@ it is the part that generalises to code not yet written.
    not the local file; read the LIVE function body, not the migration that first
    defined it.
 
+   **`enable` IS NOT `schedule`** — a systemd timer whose only triggers are
+   `OnBootSec` + `OnUnitActiveSec` comes back from a `disable` reporting
+   `enabled` and `active` with `NextElapseUSecMonotonic=infinity`. Read `NEXT`
+   from `list-timers`, and anchor one trigger to the TIMER's own activation
+   (`deploy-hosting.md`).
+
    Every DELETE needs `return=representation` + a `data.length` check — RLS
    returns zero rows, not an error (`delete-guard.test.js`). **So does every
    UPDATE whose success triggers something OUTWARD** — a refused PATCH answers
@@ -210,7 +216,7 @@ shaving the classes, which are the only part that generalises.
 - `frontend-ui.md` *(77)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(7)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `deploy-hosting.md` *(8)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(15)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

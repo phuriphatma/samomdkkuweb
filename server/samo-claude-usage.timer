@@ -5,6 +5,19 @@ Description=Report Claude usage every 15 minutes
 
 [Timer]
 OnBootSec=3min
+# ⚠️ OnActiveSec IS LOAD-BEARING, and its absence was a silent failure.
+# Measured 2026-08-25: after the timer had been `disable`d for four days and was
+# re-enabled with `systemctl enable --now`, it reported `enabled` and `active`
+# and `NextElapseUSecMonotonic=infinity` — it would never have fired again.
+# OnBootSec is measured from BOOT, and that trigger point was days in the past,
+# so nothing anchored a next elapse; OnUnitActiveSec only chains once a run has
+# happened. `enable --now` therefore SUCCEEDS and schedules nothing.
+#
+# This is the resume half of the pause switch (migration 0167), so it is a
+# workflow somebody will perform again — and it fails by looking like it worked.
+# OnActiveSec is relative to the TIMER being started, so enabling it always
+# anchors a first run a minute later, and OnUnitActiveSec chains from there.
+OnActiveSec=1min
 OnUnitActiveSec=15min
 # Catch up after a reboot instead of waiting a full interval.
 Persistent=true

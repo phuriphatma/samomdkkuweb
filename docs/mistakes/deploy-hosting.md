@@ -258,3 +258,51 @@ still asking. If the drop must go first, it is not a drop — it is a two-step:
 ship the code that stops reading the column, confirm it is the version being
 SERVED, then drop. The window between them is measured in whatever your deploy
 takes, and during it the feature is down.
+
+## `systemctl enable --now` reported success and scheduled nothing
+
+**Symptom.** The Claude usage reporter's timer had been `disable`d by hand for
+four days to stop a Discord alert loop. Re-enabling it with
+`sudo systemctl enable --now samo-claude-usage.timer` printed the symlink line,
+and `is-enabled` / `is-active` both answered `enabled` / `active`. It would
+never have run again. The tell was one field:
+
+```
+NextElapseUSecMonotonic=infinity
+NEXT  -   LEFT  -   LAST Fri 2026-08-21 17:15:24 UTC
+```
+
+An empty `NEXT` in `systemctl list-timers`, which nothing about the enable
+command draws your attention to.
+
+**Cause.** The unit had only monotonic triggers:
+
+```ini
+OnBootSec=3min
+OnUnitActiveSec=15min
+```
+
+`OnBootSec` is measured from BOOT. The machine had been up for weeks, so that
+trigger point was long past and consumed. `OnUnitActiveSec` only chains from a
+run that has already happened, and the timer had not run since being disabled.
+So nothing anchored a next elapse, and systemd correctly scheduled infinity —
+there was no rule left that named a future instant.
+
+The unit worked for months because it was enabled once, shortly after a boot,
+and then never stopped. The failure needs a gap: `disable`, wait past the boot
+window, `enable --now`. Which is exactly the workflow the new pause switch
+(migration 0167) creates, and will create again.
+
+**Fix.** `OnActiveSec=1min`, which is relative to the TIMER being started rather
+than to boot or to a previous run. Enabling now always anchors a first run a
+minute later, and `OnUnitActiveSec=15min` chains from there. Verified live: the
+timer fired on its own at 16:19:44 and scheduled 16:34:44.
+
+**Where it lives now.** `server/samo-claude-usage.timer`, with the measurement
+in a comment on the line.
+
+**The general rule.** *`enable` is not `schedule` — after enabling any timer,
+read `NEXT` from `systemctl list-timers`, not `is-active`.* A unit whose only
+triggers are relative to events that already happened is enabled, active, and
+inert. Any timer that a human will ever stop and restart needs at least one
+trigger anchored to the TIMER's own activation.

@@ -987,15 +987,24 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >
 > ### What is owed
 >
-> - 🔴 **RE-ENABLE THE USAGE REPORTER ON THE VM.** `samo-claude-usage.timer` is
->   `inactive` + `disabled` — the owner stopped it by hand on 2026-08-22 to end
->   the Discord alerts, and NOTHING has sampled since 2026-08-21 17:15. The
->   0167 switch only works if the timer is running to obey it. Order, on the
->   VM: set the switch OFF with a reason at `/admin#claude` first, THEN
->   `sudo systemctl enable --now samo-claude-usage.timer`. A tick should print
->   `· ปิดการติดตามอยู่ …` and exit 0, having called Anthropic zero times.
->   When the subscription is renewed: `claude login` on the VM (the refresh
->   token will have expired by then), then flip the switch back on in the app.
+> - ✅ **THE REPORTER IS RUNNING AGAIN AND IS SWITCHED OFF — done 2026-08-25.**
+>   `monitoring_enabled = false` with the reason *"ยังไม่ได้ต่ออายุ Claude — ปิด
+>   การติดตามไว้ก่อน…"*. Verified live on the VM: the timer fires on its own
+>   (16:19:44 UTC), the tick prints `· ปิดการติดตามอยู่ … no call was made to
+>   the Claude API`, and the next run is chained 15 minutes out. `monitoring_
+>   changed_by` is NULL because the pause was set server-side, so the board
+>   shows "หยุดไปแล้ว N" rather than a name — the owner re-setting it from
+>   `/admin#claude` will stamp themselves.
+>   ⚠️ **A LATENT BUG WAS FOUND DOING THIS AND IS FIXED**: the timer's only
+>   triggers were `OnBootSec` + `OnUnitActiveSec`, so `systemctl enable --now`
+>   after a multi-day `disable` reported `enabled` + `active` and scheduled
+>   **infinity** — it would never have fired. `OnActiveSec=1min` added. **The
+>   fixed unit is INSTALLED on the VM by hand** (`/etc/systemd/system/`), which
+>   `server/deploy.sh` does not touch; a rebuilt VM takes it from
+>   `server/setup.sh`. Write-up in `docs/mistakes/deploy-hosting.md`.
+>   **WHEN THE SUBSCRIPTION IS RENEWED**: `claude login` on the VM first (the
+>   refresh token will have expired — a paused reporter deliberately does not
+>   rotate it), THEN flip the switch on at `/admin#claude`.
 > - 🔴 **TELL TWO PEOPLE THEIR LOGIN CHANGED — nobody has.** `sastaff` and
 >   `saprof` were deleted on 2026-08-18 and **their live sessions died with
 >   them** (`sastaff` had signed in that morning at 05:22 ICT). Until they are

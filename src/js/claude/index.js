@@ -1032,10 +1032,14 @@ function paintMeasured() {
       + 'ตัวเลขด้านบนคือสิ่งที่ทุกคนจองไว้ ไม่ใช่สิ่งที่ใช้ไปจริง — '
       + 'ยังจองช่วงเวลาได้ตามปกติ'
       + (mon.note ? `<div class="claude-measured-why">เหตุผล: ${escHtml(mon.note)}</div>` : '')
-      + ((by || age)
-          ? `<div class="claude-measured-who">หยุดโดย ${escHtml(by || 'ไม่ทราบชื่อ')}`
+      // WHO, only when there is a who. A pause set from the server (the first
+      // one was) has no auth.uid() for the trigger to stamp, and "หยุดโดย
+      // ไม่ทราบชื่อ" is worse than silence — it invites the reader to wonder
+      // who that is. The age still says everything useful on its own.
+      + (by
+          ? `<div class="claude-measured-who">หยุดโดย ${escHtml(by)}`
             + `${age ? ` · ${escHtml(age)}ที่แล้ว` : ''}</div>`
-          : '')
+          : (age ? `<div class="claude-measured-who">หยุดไปแล้ว ${escHtml(age)}</div>` : ''))
       + '</div></div>';
     return;
   }
