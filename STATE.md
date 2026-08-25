@@ -498,14 +498,20 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   not through the UI, and posting to a student channel was not mine to do
 >   unasked. Offer it, or just toggle in the UI.
 >
-> ### STILL OWED — a message to two humans, and only they can close it
+> ### NOTHING IS OWED TO A HUMAN — corrected 2026-08-26
 >
-> `sastaff` and `saprof` were deleted 2026-08-18 and **nobody has told the two
-> people**: **Worapong `woratho@kku.ac.th`** (เจ้าหน้าที่คณะ) and **Prakasit
-> `prakasa@kku.ac.th`** (อาจารย์). Both have signed in with Google before, so
-> there is nothing to set up — the shared password is gone, everything they had
-> is still there. Until told, both desks read as the site being broken. **This
-> cannot be closed from this repo.**
+> Two sessions, this one included, carried a 🔴 "TELL TWO PEOPLE THEIR LOGIN
+> CHANGED". **That was wrong, and the owner corrected it: the shared `sastaff` /
+> `saprof` accounts were removed exactly as intended, and Worapong
+> (`woratho@kku.ac.th`, seat `staff`) and Prakasit (`prakasa@kku.ac.th`, seat
+> `prof`) already sign in with their own kkumail — they hold the desk through
+> their ทีม SAMO permission.**
+>
+> 📌 **The mistake was reasoning about the CREDENTIAL THAT WAS REMOVED instead
+> of the CHANNEL THAT GRANTS ACCESS.** Deleting a shared password locks nobody
+> out when the access comes from the SEAT — which is what this app has been
+> built around since the purge. Before writing that somebody is locked out, ask
+> which channel actually grants them access today, not which one disappeared.
 >
 > ### 2026-08-25 (late) — the page could be DEAD AND ANIMATED at the same time
 >
@@ -1112,20 +1118,13 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   **WHEN THE SUBSCRIPTION IS RENEWED**: `claude login` on the VM first (the
 >   refresh token will have expired — a paused reporter deliberately does not
 >   rotate it), THEN flip the switch on at `/admin#claude`.
-> - 🔴 **TELL TWO PEOPLE THEIR LOGIN CHANGED — nobody has.** `sastaff` and
->   `saprof` were deleted on 2026-08-18 and **their live sessions died with
->   them** (`sastaff` had signed in that morning at 05:22 ICT). Until they are
->   told, the เจ้าหน้าที่คณะ and อาจารย์ desks are simply locked out and will
->   read it as the site being broken:
->   - **เจ้าหน้าที่คณะ — Worapong, `woratho@kku.ac.th`** (seat `staff`)
->   - **อาจารย์ — Prakasit, `prakasa@kku.ac.th`** (seat `prof`)
->
->   The message is short: *the shared username/password is gone; sign in with
->   "เข้าสู่ระบบด้วย Google" using your own KKU address — everything you had is
->   still there.* Both HAVE signed in with Google before (Worapong that same
->   morning, Prakasit on 2026-07-23), so there is nothing to set up; verified
->   live that the seat opens the whole desk. **This is a message to a human, not
->   a code task — it cannot be closed from this repo.**
+> - ✅ **NOT OWED — the two named people were never locked out.** `sastaff` /
+>   `saprof` were deleted 2026-08-18 as intended. **Worapong
+>   (`woratho@kku.ac.th`, seat `staff`) and Prakasit (`prakasa@kku.ac.th`, seat
+>   `prof`) sign in with their own kkumail and hold the desk through their
+>   ทีม SAMO permission.** Corrected by the owner 2026-08-26, after two sessions
+>   repeated the claim. **Reason about the LIVE channel (the seat), not the
+>   credential that was removed.**
 > - ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
 >   2026-08-18: **146** accounts carry the `claude` key in `permissions` /
 >   `managed_permissions`, plus 41 `master` holders who answer yes to every key.
