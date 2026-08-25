@@ -111,7 +111,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(76)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(77)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -191,6 +191,7 @@ Open when: markup, modals, layout, touch, icons.
 - Adding one cell to a flex row collapsed the project name to one character per line
 - "it doesn't care about ระดับ that i config in the admin teamsamo"
 - `hidden` did nothing, and only Bootstrap's CDN stylesheet was hiding it
+- A CSS block lifted out of a deleted commit came back with three rules silently commented out
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(19)*
 
@@ -275,4 +276,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A comment listed four boundaries and the code had three
 - A control threshold that assumed the proof runs early in the quota week
 
-_218 entries across 9 files._
+_219 entries across 9 files._

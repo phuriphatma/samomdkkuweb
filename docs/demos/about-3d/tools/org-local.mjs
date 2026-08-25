@@ -7,6 +7,9 @@
 //
 //   node org-local.mjs 390            frames down the section, phone width
 //   node org-local.mjs 1440 chart     …desktop, and pick the view
+//                                     views: `lines` (ผังสายงาน, the connector
+//                                     tree), `chart` (แผนผัง, the panels),
+//                                     `all` (ผังรวม, the d3 canvas)
 //   node org-local.mjs 820 all        …ผังรวม on an iPad
 //   node org-local.mjs 1440 chart --open "ฝ่ายพัฒนาทรัพยากรบุคคล"
 //                                     open one ฝ่าย and shoot it in place
@@ -19,9 +22,14 @@
 //
 // It prints the numbers that matter before the pictures: section height at that
 // width (the density metric this page is judged on — 24,101px was the old
-// connector chart, 3,989px is the panel view), whether the PAGE scrolls
-// horizontally, and any element overflowing its own box. Screenshots go to
-// ./shots/.
+// connector chart before it was restored collapsed, 4,674px is that same view
+// now, 3,989px is the panel view), whether the PAGE scrolls horizontally, and
+// any element overflowing its own box. Screenshots go to ./shots/.
+//
+// ⚠️ `overflowing` IS scrollWidth > clientWidth, so an intentional scroller is
+// ALWAYS in that list. ผังสายงาน has one `.org-lines` scroller per ฝ่าย and
+// every one of them reports; that is the feature. The number that means
+// something is `pageScrollsSideways`.
 import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -89,7 +97,12 @@ await sleep(5200);
 
 if (OPEN) {
   console.log('open:', await ev(`
-    const b = [...orgBody.querySelectorAll('.orgc-unit-btn')]
+    // BOTH views' disclosure rows. แผนผัง's is .orgc-unit-btn and ผังสายงาน's
+    // is .org-station-btn; knowing only one made --open report "NOT FOUND" on a
+    // ฝ่าย that was right there, which reads as a wrong name rather than as a
+    // harness that cannot see the view it was pointed at.
+    const b = [...orgBody.querySelectorAll('.orgc-unit-btn, .org-station-btn')]
+      .filter((x) => x.tagName === 'BUTTON')
       .find((x) => x.textContent.includes(${JSON.stringify(OPEN)}));
     if (!b) return 'NOT FOUND — check the ฝ่าย name';
     b.click(); await new Promise((r) => setTimeout(r, 500));

@@ -135,13 +135,20 @@ describe('tintColor: chosen beats derived, and derived is ROOT-ONLY', () => {
 
   it('every caller passes the root flag — a default of true would re-open it', () => {
     // The signature defaults isRoot to FALSE, so a caller that forgets the
-    // argument inherits (safe) rather than guessing (the bug). This asserts the
-    // three real call sites still say which they are, because a silent
-    // `tintColor(node)` in the tree renderer is exactly how this came back.
+    // argument inherits (safe) rather than guessing (the bug). This asserts
+    // every real call site still says which it is, because a silent
+    // `tintColor(node)` in a tree renderer is exactly how this came back.
     const sites = ['./team/index.js', './org-chart.js', './org-graph.js']
       .map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8'))
       .flatMap((src) => [...src.matchAll(/tintColor\(([^)]*)\)/g)].map((m) => m[1]));
-    expect(sites.length, 'no tintColor call sites found at all').toBe(3);
+    // A FLOOR, not an equality. This was `toBe(3)`, and adding a legitimate
+    // fourth call site (ผังสายงาน's lineBlock, 2026-08-25) turned it red for a
+    // reason that had nothing to do with the rule it guards — the same
+    // "its SUBJECT is a hardcoded value that rotted" shape the proofs keep
+    // hitting. The count is only here so a sweep that finds NOTHING cannot
+    // report green; the loop below is the actual assertion, and it gets
+    // stronger with each call site rather than needing to be edited.
+    expect(sites.length, 'no tintColor call sites found at all').toBeGreaterThanOrEqual(3);
     for (const args of sites) {
       expect(args, `tintColor(${args}) does not say whether it is a root`)
         .toMatch(/,/);

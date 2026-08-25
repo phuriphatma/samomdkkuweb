@@ -2978,3 +2978,57 @@ else's deploy, on someone else's network. When an attribute is your mechanism
 ship. The instrument is not "does it work here": it is **remove the dependency
 and measure again**. Blocking one `<link>` in a headless browser is a
 five-minute experiment that turns "it works" into "it works BECAUSE".
+
+## A CSS block lifted out of a deleted commit came back with three rules silently commented out
+
+**Symptom.** Not reported — caught by looking at a screenshot, which is why it
+is written up. ผังสายงาน was restored from `befd30e` and rendered *almost*
+right: every box was there, every connector was drawn, but the ฝ่าย names were
+CENTRED instead of left-aligned and the coloured dot beside each name was
+missing entirely. Nothing errored. Nothing logged. It looked like a design
+choice somebody had made.
+
+**Cause.** The restore lifted ~230 lines of CSS out of the deleted commit by
+LINE NUMBER. One of those slices began mid-comment:
+
+```css
+/* GRID, not flex-wrap. A ตำแหน่ง name here can be "ฝ่ายจัดการโครงการ …
+   their own line and the chevron ended up floating alone under the name. Named
+.org-station-btn { … }          ← inside the comment
+.org-station-dot { … }          ← inside the comment
+.org-branch .org-station-dot { … }  ← inside the comment
+```
+
+The `/*` never closed until the next `*/` three rules later, so the browser
+never saw them. `.org-station-btn`'s `display: grid` and `text-align: start`
+were gone, leaving the row's default centring; `.org-station-dot`'s
+`background`, `width` and `height` were gone, leaving a 0×0 element.
+
+An unclosed comment is the only CSS defect that can delete code you did not
+touch, and the failure is doubly quiet: the deleted rules are the ones with a
+VISUAL default (`text-align`, a zero-size element), so the page renders
+something plausible rather than nothing. The same slice also opened
+`@media (hover: hover) {` with no body, which swallowed the following rule too.
+
+**Fix.** The extraction now takes ONE contiguous slice with complete comments
+and complete blocks, and the extractor asserts `count('/*') == count('*/')` and
+`count('{') == count('}')` before writing. Guarded permanently by
+`src/js/org-lines.test.js` §A (the stylesheet parses) and §B, which is the
+stronger half: **every class the renderer emits must have at least one live
+rule**, with the class list read out of the renderer's own source rather than
+typed. A rule that is commented out, a selector left pointing at a class that
+was renamed, and a class nobody ever styled are three different mistakes with
+one symptom, and §B catches all three. Falsified by reintroducing the exact
+unclosed comment.
+
+**Where it lives now.** `src/css/org-chart.css`, the ผังสายงาน block;
+`src/js/org-lines.test.js`.
+
+**The general rule.** *Never slice source by line number — slice by structure,
+and check the result parses before you trust it.* This is the same class as the
+`'image/*'` regex that blanked 13,839 characters before any assertion ran
+(`tooling-proofs.md`): the INSTRUMENT that moves code is part of the change, and
+an instrument that produces syntactically broken output produces something that
+still runs. For CSS specifically, the tell is that a missing rule and a rule
+that was never written look identical, so "it renders" is not evidence — ask
+whether every class you EMIT is styled, mechanically.

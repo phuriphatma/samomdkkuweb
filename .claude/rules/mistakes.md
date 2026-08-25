@@ -113,6 +113,11 @@ it is the part that generalises to code not yet written.
    Also a GUARD vs the DERIVED STATE it checks — **tell: the same rows legal or
    illegal depending on TYPING ORDER**; re-derive WITH the candidate in it
    (`claude_booking_guard`, 0159, `postgres-schema.md`).
+   **NEVER SLICE SOURCE BY LINE NUMBER** — a CSS block lifted out of a deleted
+   commit began mid-comment, so the unclosed `/*` swallowed the next three
+   rules and the page rendered *plausibly* (names centred, dot 0×0). Slice by
+   structure, and check the output parses. Guard the property, not the rules:
+   every class the renderer EMITS must have a live rule (`frontend-ui.md`).
    Also a SELECTOR vs the MARKUP, both ways: a descendant selector styles content
    not written yet (`.list b` made every inline bold a heading); a child
    combinator stops matching after a refactor. CSS fails SILENTLY — a dead rule
@@ -198,7 +203,7 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(14)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(21)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(76)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(77)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(7)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

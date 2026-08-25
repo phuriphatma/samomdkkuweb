@@ -461,141 +461,126 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
-> **Read this file, then `skills/write-a-guard.md`.** ⛳ **ONE THING IS OWED and
-> it is the first section below: restore the old connector-chart แผนผัง as a
-> THIRD view.** No migration is pending. **Prod = `aae1852`.** Migrations
-> through **0166** (none added since). **1229 tests green** (+7 this session:
-> `hidden-attribute.test.js` ×3, `org-chart-metrics.test.js` ×4, the
-> ordering differential ×5, minus none). **Proofs NOT re-run this session** —
-> the two `claude0157`/`claude0161` reds below are still owed and were not
-> touched.
+> **Read this file, then `skills/write-a-guard.md`.** ✅ **The ⛳ owed third
+> org-chart view SHIPPED on 2026-08-25 — nothing is owed on `/team`.** See the
+> first section below for what it is and the three traps it carries.
+> Migrations through **0167** (0167 applied 2026-08-25: the Claude measurement
+> switch + a freshness bound on every "right now" sample read).
+> **1277 tests green** (+48 since 2026-08-20).
 >
-> ### ⛳ OWED — ADD BACK THE OLD CONNECTOR CHART AS A THIRD, SEPARATE VIEW
+> ### 2026-08-25 — จองโควตา Claude can be switched OFF, and a stale reading expires
 >
-> 🚫 **DO NOT `git revert 1f966f3`. DO NOT DELETE OR CHANGE THE CURRENT PANEL
-> VIEW. THIS IS AN ADDITION.**
+> **REPORTED**: *"claude keep sending this to discord, because claude.ai hasn't
+> been renewed subscription… stop it properly, stop having it check the claude
+> credit also"*, then: a switch, a status on the board, a reason, and a decent
+> Discord notice.
 >
-> The word "restore" below means **bring the old picture back BESIDE the new
-> one**, as one more button in the view switch. It does NOT mean undo the
-> rework. The owner said, in the same sentence, that they like the new one:
-> *"you've implemented this design which i also like, so i would like to KEEP
-> this and RESTORE the previous and improve it."* Both ship. Three buttons:
-> the old connector chart, the current panel view, and ผังรวม.
+> - **The switch is `claude_settings.monitoring_enabled` (0167)** and the
+>   reporter reads it BEFORE it touches Anthropic, so a pause costs their API
+>   zero calls. **The read FAILS CLOSED** — a network error, an HTTP 500 or an
+>   RLS-refused read (which returns zero rows, not an error) all mean "do not
+>   poll". Only literal `true` is a yes.
+> - **A pause REQUIRES a reason, enforced by a CHECK.** It is the only thing on
+>   a paused board that tells a booker whether the site broke or somebody
+>   decided this. WHO paused it is stamped by a TRIGGER, not claimed by the
+>   client.
+> - **BOOKING IS UNAFFECTED while paused, by design.** The gauges are HIDDEN,
+>   not greyed — a frozen meter reads as a live reading, and this board has
+>   refused to print an unmeasured number since 0154.
+> - ⚠️ **A PAUSE LONGER THAN ~12 DAYS COSTS ONE `claude login` ON THE VM.** The
+>   OAuth refresh token rotates on use and a paused reporter deliberately does
+>   not rotate it. Said in the paused dialog, the Discord notice and the
+>   script header. The board warns at 10 days.
+> - 🔴 **THE HALF THAT WOULD HAVE SHIPPED A WRONG NUMBER**: `claude_free_now()`
+>   read the newest sample with **no bound at all**, so the weekly remainder
+>   froze at the last successful poll and would have survived the Wed 16:00
+>   reset for ever. 0156 fixed exactly this for the week CARD and left the HERO
+>   alone. **Pausing does not create that bug — a dead timer does the same with
+>   nobody deciding anything.** Fixed as a FRESHNESS BOUND on the read, in one
+>   function, `claude_latest_sample()`: no row when measurement is off, and no
+>   row once the sample is older than `claude_settings.sample_stale_minutes`
+>   (45). All four "as of now" readers go through it. Callers land in the
+>   `v_wk_left := null` branch that has shipped since 0155.
+> - **`sample_stale_minutes` is published in `board.settings`** and the JS reads
+>   it — it used to carry its own hardcoded 35 minutes while the SQL believed
+>   the newest sample for ever.
+> - **Proof `tools/claude0167-monitoring-switch.sql`, 18/18**, registered in
+>   `npm run proofs`. §A tests the AGE rule with the switch ON, deliberately, so
+>   the fix cannot degenerate into a special case for the switch.
+> - **Two bugs found auditing the @here removal**: the 403 alert told a human to
+>   run `claude setup-token`, which is what CAUSES a 403, in the same embed
+>   whose วิธีแก้ said `claude login`; and the @here removal left the rule in
+>   four string literals with two branches untested. **Every payload now goes
+>   out with `allowed_mentions: {parse: []}`** — a property of the transport,
+>   which also covers a mention arriving through interpolated user text.
+> - ⚠️ **THE TIMER ON THE VM IS `disabled` AND MUST BE RE-ENABLED** for any of
+>   this to run — see "What is owed" below.
 >
-> If you find yourself reverting a commit, reading the old CSS over the new
-> file, or deleting `.orgc-unit` / `.orgc-seat` rules — **stop, you have
-> misread this.** The old code is COPIED OUT of `befd30e` and added alongside;
-> nothing currently on the page is removed.
+> ### `.claude/rules/mistakes.md` was restructured (2026-08-25)
 >
-> **REPORTED, right after the rework deployed**: "this orgchart แผนผัง that
-> you've implemented has completely change the ui of my previous design … i just
-> want to modify this more to improve it, not changing entire ui. but you've
-> implemented this design which i also like, so i would like to KEEP this and
-> RESTORE the previous and improve it."
+> It was at **29,923 of 30,000 bytes** and could not take another write-up. The
+> per-entry index — 18.5k, bigger than the classes, growing with every bug
+> fixed — moved to **`docs/mistakes/INDEX.md`**, leaving a nine-line directory
+> that does not grow. **12,860 bytes now.** `npm run mistakes:index` writes
+> both; `tools/memory-system.test.js` asserts the full list is NOT in the
+> always-loaded file. **Do not move it back** — two earlier sessions tried to
+> buy room by shaving the classes, which is the only part that generalises.
 >
-> **So the answer is THREE views, not two, and it is a restore + a rename — not
-> a redesign.** I removed a picture the owner valued. That was the error: the
-> brief said "improve", and the ระดับ bug plus the dead space were both fixable
-> inside the old geometry. Do NOT re-litigate this; the owner has said they like
-> both.
+> ### ✅ 2026-08-25 — THE OWED THIRD VIEW SHIPPED. Nothing is owed on /team now.
 >
-> **WHAT THE OLD ONE IS — LOOK AT THE PICTURE FIRST:**
-> **`docs/design-refs/2026-08-20-old-connector-chart.png`**, with
-> `docs/design-refs/README.md` describing it in prose in case the file is gone
-> (the images there are gitignored ON PURPOSE — this repo is public and they
-> carry student faces; the README says why). The owner's original was
-> `~/Desktop/IMG_8132.png`.
+> ผังสายงาน — the old connector chart — is BACK, beside แผนผัง and ผังรวม.
+> Copied out of `befd30e` as an ADDITION; the panel view was not touched
+> (measured identical: 3,989px at 1440 and 8,110px at 390, the exact numbers
+> this file recorded before the restore).
 >
-> It is the CSS connector tree: one section per root ฝ่าย; each node a white
-> rounded box with a coloured TOP border, a dot, its name and a count pill; the
-> ฝ่าย's อุปนายก as a centred portrait card with the name BELOW the photo; then a
-> real elbow connector — vertical drop, horizontal bar, a tick into each child —
-> fanning out to a ROW of sibling ฝ่าย boxes; below depth 1 it switches to a
-> vertical spine; the section scrolls horizontally inside its own scroller.
-> Read top to bottom, from SAMO's own recruitment poster.
+> **The names, chosen by the owner — do not rename these without asking:**
+> `lines` = **ผังสายงาน** (the connector tree) · `chart` = **แผนผัง** (the
+> panels) · `all` = **ผังรวม** (the d3 canvas).
 >
-> ⚠️ It is NOT ผังรวม (that is d3 on a pan/zoom canvas, still shipping) and NOT
-> the new panel view. Three different pictures; the owner wants all three.
+> ⚠️ **`'chart'` STILL MEANS THE PANEL VIEW.** The restored tree took the NEW
+> key `'lines'`, deliberately: it historically owned `'chart'`, and giving it
+> back would have silently sent every reader whose saved preference is
+> `'chart'` to a different picture. `RETIRED_VIEWS` is unchanged. Guarded by
+> `org-lines.test.js` §C.
 >
-> **WHERE THE CODE IS.** It was deleted whole in `1f966f3`; the last good copy
-> is its parent, **`befd30e`**. Recover with `git show befd30e:<path>`:
+> **What changed from `befd30e`, and it is only three things:**
+> 1. **It honours ระดับ** — routed through `orderChildren()`, the same call the
+>    other two make. That was half the original bug report. ⚠️ ORDER, NOT
+>    GEOMETRY: it keeps CONTAINMENT parentage. `chartParentage` here is the
+>    52,000px staircase, now paid for twice.
+> 2. **It opens COLLAPSED**, sharing the one `expanded` set (`OPEN_TO_DEPTH =
+>    0`). **Measured: 24,101 → 4,674px at 1440, 55,273 → 4,707px at 390**, and
+>    `pageScrollsSideways` is FALSE at 1440 / 820 / 390 / 320. This also
+>    dissolves "many leftover space" at its structural cause — a connector row
+>    is `align-items: flex-start`, so collapsed there is no tall sibling to
+>    leave a dead column beside.
+> 3. **No viewport breakout.** `width: 100vw; margin-inline: calc(50% - 50vw)`
+>    measured 395/390 and gave the PAGE a horizontal scrollbar. Each section
+>    scrolls inside the reading column instead.
 >
-> | piece | at `befd30e` |
-> |---|---|
-> | renderer | `src/js/org-chart.js` `nodeBlock()` (line 327) + `rootBlock()` (448) |
-> | markup hook | `<div class="org-tree-wrap" data-view="chart">` (546) |
-> | styles | `src/css/org-chart.css`, the block headed `── แผนผัง: the horizontal org chart` (line 665) to the end of the `[data-view]` section |
+> The ordering differential in `org-rung.test.js` was EXTENDED to the third
+> view, not duplicated. `org-lines.test.js` is new (11 assertions, falsified
+> four ways).
 >
-> That CSS header carries THREE measured constraints — one section per ฝ่าย,
-> branch sideways once, the spreading row must WRAP because `.org-tree` is
-> `width: max-content` — **read it before changing any of them.** `git show
-> befd30e:src/css/org-chart.css | sed -n '665,905p'`.
+> ⚠️ **`docs/demos/about-3d/tools/org-local.mjs` now takes `lines` as a view**
+> and its `--open` knows both disclosure markups. **`overflowing` in its output
+> is `scrollWidth > clientWidth`, so every `.org-lines` scroller ALWAYS
+> reports** — that is the feature, not a defect. The number that means
+> something is `pageScrollsSideways`.
 >
-> **HOW TO LAND IT — the ordering, so nothing regresses:**
+> 🔴 **ONE BUG WAS MADE AND FIXED DOING THIS, and it is the reason to read
+> `org-lines.test.js` before touching that stylesheet.** The CSS was lifted out
+> of the deleted commit BY LINE NUMBER, one slice began mid-comment, and the
+> unclosed `/*` silently swallowed `.org-station-btn`, `.org-station-dot` and
+> one more. The page rendered plausibly — names centred, dot 0×0 — and nothing
+> errored. Write-up in `docs/mistakes/frontend-ui.md`. Never slice source by
+> line number.
 >
-> 1. **Three buttons.** `VIEWS = ['chart', 'panel', 'all']` (or keep `chart` for
->    the connector tree and give the new panel view a new key — whichever, but
->    `RETIRED_VIEWS` must map every old value INCLUDING whatever key the panel
->    view ships under today, or every reader's saved preference breaks).
->    ⚠️ The panel view currently owns the key `'chart'`. Decide the key mapping
->    FIRST and write it down, or the migration silently sends people to the
->    wrong picture.
-> 2. **Thai labels.** Two views both called "แผนผัง" is not shippable. Ask the
->    owner what to call them — do not invent names (see
->    `ui-copy-names-the-audience` in memory: never invent a feature's purpose).
-> 3. **The restored view MUST honour ระดับ**, which the old one did not — that
->    was half the original bug report. It reads `byParent` (stored order);
->    route it through `orderChildren()` in `org-rung.js` the way `childrenHtml()`
->    already does, so all three views share ONE ordering.
->    ⚠️ Do NOT give it `chartParentage` — that is the 52,000px staircase, paid
->    for twice now. Order, not geometry. `org-rung.test.js` §"แผนผัง and ผังรวม
->    order one ฝ่าย identically" is the differential; EXTEND it to the third view
->    rather than writing a second one.
-> 4. **Then improve it, which is what was actually asked.** The measured
->    complaints against the old geometry, all still true and all reproducible
->    with **`docs/demos/about-3d/tools/org-local.mjs`** — committed this session
->    precisely so you do not rebuild the harness a third time. It drives the
->    LOCAL dev server, prints `sectionH` / `pageScrollsSideways` / portrait
->    request count BEFORE the pictures, and takes `--open "<ฝ่าย name>"` and
->    `--no-bootstrap`. **Run it at 390 / 820 / 1440 before and after any change
->    here** — this page is judged on those numbers, not on a screenshot of the
->    part that looks wrong:
->    - 24,101px at 1440 / 55,273px at 390 (the new panel view is 3,989 / 8,110).
->    - `align-items: flex-start` on a connector row means a one-person ตำแหน่ง
->      beside a forty-person ฝ่าย leaves a dead column the height of the tall
->      one. **This is the structural cause of "many leftover space" — spacing
->      tweaks cannot fix it.** Ideas not yet tried: collapse deeper by default
->      (the panel view's `OPEN_TO_DEPTH = 0` bought most of its win), the
->      horizontal person row (52px portrait, name BESIDE it) which the panel
->      view already uses, and per-ฝ่าย horizontal scroll instead of page growth.
->    - At 390px the page scrolled horizontally (395/390) because
->      `.org-tree-wrap[data-view="chart"]` breaks out with `width: 100vw;
->      margin-inline: calc(50% - 50vw)`. Re-check that at 320/390 after restore.
-> 5. **Regression floor.** `npm test` must stay green — `hidden-attribute.test.js`
->    and `org-chart-metrics.test.js` both assert against the CURRENT class names
->    (`.orgc-unit-body`, `.orgc-person > .org-face`). If the restore renames or
->    removes either, the guards' CONTROL assertions fail LOUDLY and tell you to
->    re-derive the subject — that is by design, do not delete them.
->
-> 6. **The changelog is already wrong about this.** `PENDING` in
->    `src/data/changelog.js` carries "หน้าโครงสร้างองค์กรเหลือ 2 มุมมอง…",
->    which the third view falsifies. It has a ⛳ comment on it. Revise it in the
->    SAME commit as the restore — a release note that contradicts the page is
->    worse than no note.
->
-> **UNFIXED, found while measuring and never written down until now**:
-> `#about-mission` and `#about-policy` overflow their own box by 8–12px at
-> 390px (`about-section:1304/1296` at 1440 too). It is Bootstrap `.row`'s
-> negative gutter margins, absorbed by `.container`'s padding, so NOTHING is
-> clipped and the PAGE does not scroll — which is why it was never reported.
-> Out of scope for the org chart; fix it or decide it is noise, but do not
-> re-discover it. Reproduce: `node docs/demos/about-3d/tools/org-local.mjs 390`
-> and read `overflowing`.
->
-> **Fixed already, do not redo**: "there's a line that being draw solo i think i
-> don't need that" (`~/T/…/Screenshot 2026-08-20 at 8.12.50 PM.png`) — the
-> `border-left` rail on `.orgc-seat-sub`, redundant beside the bordered cards it
-> contained. Removed in the commit that carries this note.
+> **STILL UNFIXED, unrelated, and still not worth a session on its own**:
+> `#about-mission` / `#about-policy` overflow their own box by 8–12px at 390px
+> (Bootstrap `.row`'s negative gutters absorbed by `.container` padding).
+> Nothing is clipped and the page does not scroll. Reproduce:
+> `node docs/demos/about-3d/tools/org-local.mjs 390` and read `overflowing`.
 >
 > ### 2026-08-20 — เกี่ยวกับเรา: two views, and แผนผัง rebuilt
 >
@@ -689,13 +674,13 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > Re-check "is prod current" with — EMPTY means yes:
 >
 > ```bash
-> git diff --stat 68d08ea..HEAD -- src/ ':!src/**/*.test.js'
+> git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js'
 > ```
 >
-> ⚠️ **RIGHT NOW that is NOT empty and prod IS current.** The one file it lists
-> is `src/data/changelog.js`, and the diff is a **⛳ comment only** — 0
-> non-comment lines added. Read WHICH file and WHAT changed before spending 90 s
-> on a deploy; this is the same trap the 0166 migration set for the last reader.
+> Ask about `src/` ALONE. Adding `supabase/` lists applied migrations, and an
+> APPLIED migration cannot make a bundle stale. Read WHICH file it lists and
+> WHAT changed before spending 90 s on a deploy — a comment-only diff has
+> caught two readers now.
 >
 > ### Older, still true
 >
@@ -981,6 +966,15 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >
 > ### What is owed
 >
+> - 🔴 **RE-ENABLE THE USAGE REPORTER ON THE VM.** `samo-claude-usage.timer` is
+>   `inactive` + `disabled` — the owner stopped it by hand on 2026-08-22 to end
+>   the Discord alerts, and NOTHING has sampled since 2026-08-21 17:15. The
+>   0167 switch only works if the timer is running to obey it. Order, on the
+>   VM: set the switch OFF with a reason at `/admin#claude` first, THEN
+>   `sudo systemctl enable --now samo-claude-usage.timer`. A tick should print
+>   `· ปิดการติดตามอยู่ …` and exit 0, having called Anthropic zero times.
+>   When the subscription is renewed: `claude login` on the VM (the refresh
+>   token will have expired by then), then flip the switch back on in the app.
 > - 🔴 **TELL TWO PEOPLE THEIR LOGIN CHANGED — nobody has.** `sastaff` and
 >   `saprof` were deleted on 2026-08-18 and **their live sessions died with
 >   them** (`sastaff` had signed in that morning at 05:22 ICT). Until they are

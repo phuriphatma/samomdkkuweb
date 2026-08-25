@@ -174,14 +174,19 @@ export const PENDING = [
     text: 'ในหน้าโครงสร้างองค์กร ตำแหน่งในแต่ละฝ่ายเรียงตามระดับที่ตั้งไว้ในระบบแล้ว '
     + 'หัวหน้าอยู่บนสุด แล้วค่อยเป็นระดับถัดไป และฝ่ายย่อยอยู่ท้ายสุด '
     + 'จากเดิมที่เรียงปนกันจนดูไม่ออกว่าใครอยู่ระดับไหน', },
-  // ⛳ REVISE THIS ONE BEFORE `npm run release` IF THE OLD CONNECTOR CHART IS
-  // BACK. "เหลือ 2 มุมมอง" becomes FALSE the moment the third view lands (see
-  // STATE.md's ⛳ OWED section). A release note that contradicts the page is
-  // worse than no note. If the restore ships first, merge the two into one
-  // entry; if this ships first, the restore gets its own "new" entry.
+  // ⛳ RESOLVED 2026-08-25: the third view landed, so the old "เหลือ 2 มุมมอง"
+  // text was false and is replaced by this one. Kept as ONE entry rather than
+  // two — a reader does not care that the count went 4 → 2 → 3, only what the
+  // page offers now.
   { type: 'improved', area: 'team', audience: 'public',
-    text: 'หน้าโครงสร้างองค์กรเหลือ 2 มุมมองคือ "แผนผัง" กับ "ผังรวม" '
-    + 'จากเดิมสี่มุมมองที่ซ้ำกันเอง ใครเคยเลือกมุมมองที่ถอดออก ระบบจะพาไปมุมมองที่ใกล้เคียงที่สุดให้เอง', },
+    text: 'หน้าโครงสร้างองค์กรมี 3 มุมมองให้เลือก — "ผังสายงาน" เป็นแผนผังแบบมีเส้นโยง '
+    + 'เห็นว่าใครขึ้นกับใคร "แผนผัง" เป็นการ์ดรายฝ่ายที่เลื่อนน้อยและอ่านบนมือถือง่าย '
+    + 'และ "ผังรวม" เป็นผังใหญ่ทั้งองค์กรที่ลากดูได้ ใครเคยเลือกมุมมองเดิมที่ถอดออกไป '
+    + 'ระบบจะพาไปมุมมองที่ใกล้เคียงที่สุดให้เอง', },
+  { type: 'improved', area: 'team', audience: 'public',
+    text: 'ผังสายงานเปิดมาแบบย่อไว้ก่อน กดเปิดเฉพาะฝ่ายที่อยากดูได้ '
+    + 'จากเดิมที่กางทุกฝ่ายพร้อมกันจนหน้ายาวมากและต้องเลื่อนซ้ายขวาบนมือถือ '
+    + 'ถ้าอยากเห็นทั้งหมดพร้อมกันก็ยังกด "ขยายทั้งหมด" ได้เหมือนเดิม', },
   { type: 'improved', area: 'projects', audience: 'staff',
     text: 'คนที่ได้สิทธิ์ "ทุกระบบ" จะถูกตั้งเป็น "ผู้ส่งหนังสือ" ให้อัตโนมัติ '
     + 'ทั้งตอนตั้งให้รายคนและตั้งทั้งตำแหน่ง — ใช้งานและได้รับแจ้งเตือนเหมือนผู้ส่งหนังสือทุกอย่าง '

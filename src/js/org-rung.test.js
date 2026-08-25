@@ -528,6 +528,45 @@ describe('แผนผัง and ผังรวม order one ฝ่าย ident
     expect(canvasSeatOrder(chartParentage(map, ids2), 'f')).toEqual(['h', 'd']);
   });
 
+  // ── ผังสายงาน, the third view (restored 2026-08-25) ────────────────────
+  //
+  // EXTENDED here rather than given a differential of its own, and that choice
+  // is the point: three views ordering one ฝ่าย is ONE claim, and a second test
+  // file asserting it separately is how the two versions of the claim drift.
+  //
+  // ผังสายงาน draws the CONTAINMENT parentage, like แผนผัง — it must NOT be
+  // handed `chartParentage`; that geometry is what made this exact view a
+  // 52,000px staircase, and it has now been paid for twice. What it shares is
+  // the ORDER. `lineBlock()` flattens `orderChildren` as
+  // `[...rungs.flat(), ...units]`, which is the line below.
+  const linesChildOrder = (kids) => {
+    const { rungs, units } = orderChildren(kids);
+    return [...rungs.flatMap(([, list]) => list), ...units].map((n) => n.id);
+  };
+
+  it('ผังสายงาน draws the seats in the SAME order as the other two', () => {
+    const kids = parents().get('u');
+    expect(linesChildOrder(kids).filter((id) => !['pr', 'it'].includes(id)))
+      .toEqual(pageSeatOrder(kids));
+    expect(linesChildOrder(kids).filter((id) => !['pr', 'it'].includes(id)))
+      .toEqual(canvasSeatOrder(chartParentage(parents(), byId), 'u'));
+  });
+
+  it('ผังสายงาน puts ตำแหน่ง before ฝ่าย, like the other two', () => {
+    // The whole child list this time, seats and ฝ่าย together, because that is
+    // what the connector row actually renders left to right.
+    expect(linesChildOrder(parents().get('u')))
+      .toEqual(['vp', 'sec', 'mem', 'deep', 'pr', 'it']);
+  });
+
+  it('a GAP in ระดับ closes the same way in ผังสายงาน too', () => {
+    const kids = [
+      { id: 'h', kind: 'role', name: 'หัวหน้า' },
+      { id: 'd', kind: 'role', name: 'ลึก', tier: 3 },
+    ];
+    expect(linesChildOrder(kids)).toEqual(['h', 'd']);
+  });
+
   it('a ตำแหน่ง parent groups NO rungs — the same test chartParentage makes', () => {
     // Seats under a ตำแหน่ง are that ตำแหน่ง's own sub-seats, not rungs of a
     // ฝ่าย. Ranking them against each other would invent a hierarchy nobody
