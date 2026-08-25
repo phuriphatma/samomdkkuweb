@@ -111,7 +111,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(79)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(80)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -194,6 +194,7 @@ Open when: markup, modals, layout, touch, icons.
 - A CSS block lifted out of a deleted commit came back with three rules silently commented out
 - "i press สร้างบัญชีและเข้าสู่ระบบด้วย google and button do nothing … but on google app it works"
 - "even i press the โหลดใหม่ … it still show it"
+- A SyntaxError blamed on the DOCUMENT, in a page whose own scripts all parse
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(19)*
 
@@ -281,4 +282,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Two proofs ERRORED for six days because their scenario needed a week with room left in it
 - `open(p, "w")` truncates before the `read()` you passed to it
 
-_224 entries across 9 files._
+_225 entries across 9 files._

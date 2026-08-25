@@ -3148,3 +3148,59 @@ a heuristic that speaks to a user, run it against the SLOW-BUT-FINE case, not
 only the broken one — that is the case it will actually meet. And give every
 such heuristic a way back: if the thing it warned about resolves, it must
 un-warn, or the first false positive is permanent.
+
+## A SyntaxError blamed on the DOCUMENT, in a page whose own scripts all parse
+
+**Symptom.** After two rounds of watchdog fixes the owner's iPad still failed,
+and the diagnostic finally produced something real:
+
+```
+bundle: /assets/public-Cy2iC_uh.js      readyState: complete   waited: 11s
+errors: SyntaxError: Unexpected identifier 't'. Expected ')' to end an
+        argument list. @?_r=…:74 | script failed: public-Cy2iC_uh.js
+```
+
+**What it took to read it.** Four things were established by elimination, each
+cheap, and together they point somewhere none of them does alone:
+
+1. **The bundle is fine** — that hash is current and serves 200.
+2. **Everything the server sends parses** — both inline scripts under
+   `node --check` (extracted with a real HTML parser, not a regex; a regex
+   matched a `<script>` *inside an HTML comment* and produced a false alarm),
+   and the bundle as an ES module.
+3. **A corrupt BUNDLE is blamed on the bundle.** Fed WebKit a truncated
+   `assets/public-*.js`: `SyntaxError … @/assets/public-*.js:1`. The owner's
+   error names the DOCUMENT, so the bad script is not the bundle.
+4. **The watchdog RAN** — it is what reported this. So the error cannot be a
+   parse failure of the watchdog's own inline script, even though document line
+   74 sits inside it. That contradiction is the whole clue.
+
+Resolving it: fed WebKit a document with a broken inline `<script>` placed
+AFTER the watchdog. Result — same message, same document attribution, and the
+same ORDER (SyntaxError first, `script failed` second). The owner's page
+contains a script we do not ship.
+
+**Cause.** Something in that browser is injecting or rewriting script in the
+page — a Safari content blocker or extension is the ordinary version of this,
+and it explains the fact that started the whole investigation and that no
+same-origin theory ever could: **it works in the Google app's in-app browser,
+which does not run Safari extensions.** Same engine, different injected page.
+
+**Fix (of the instrument — the cause is the reader's browser).** The diagnostic
+now keeps the FULL filename instead of `String(e.filename).split('/').pop()`,
+which on a document URL returns the query string and throws away which file the
+error was in; adds the column and the error's stack; and inventories every
+`<script>` on the page with its source and byte length, so a script that is
+present in the reader's DOM and absent from ours is visible rather than
+inferred.
+
+**Where it lives now.** `index.html` + `admin/index.html`, guarded by
+`src/js/boot-watchdog.test.js`.
+
+**The general rule.** *When an error names a FILE, check that the file is the
+one you think — and never reduce a filename to its basename in a diagnostic.*
+The lossy version cost a full round trip with a real user. And when a page's own
+scripts all parse but the browser reports a syntax error in the document, stop
+looking for your bug: the document being parsed is not the document you sent.
+The tell is a contradiction like "the reporter reported an error that would have
+prevented the reporter from running" — chase that, it is never noise.

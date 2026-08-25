@@ -525,6 +525,19 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   errored), 25 s only as a backstop, and the poll keeps running so a late boot
 >   DISMISSES the bar. Verified live on WebKit across normal / 11 s / 27 s / 404
 >   asserting `booted === !bar`. Write-up in `docs/mistakes/frontend-ui.md`.
+> - 🔎 **NARROWED 2026-08-26 to A SCRIPT WE DO NOT SHIP.** The owner's
+>   diagnostic returned `SyntaxError: Unexpected identifier 't' … @<document>:74`
+>   plus `script failed: public-*.js`. Established by elimination: the bundle is
+>   current and 200; both inline scripts and the bundle parse cleanly; a corrupt
+>   BUNDLE is blamed on the bundle (`@/assets/…:1`), not the document; and the
+>   watchdog RAN, so it cannot be a parse failure of its own script even though
+>   line 74 is inside it. Feeding WebKit a broken inline `<script>` placed AFTER
+>   the watchdog reproduces the message, the attribution AND the ordering. So a
+>   script is being injected/rewritten in that browser — which is also the only
+>   theory that explains "works in the Google app", whose in-app browser runs no
+>   Safari extensions. **Next: ask the owner to turn off Content Blockers for
+>   the site (iPadOS: the `aA` menu in the address bar) and re-copy the
+>   diagnostic — it now lists every `<script>` on the page.**
 > - ⚠️ **THE ORIGINAL CAUSE IS STILL UNCONFIRMED, and do not let the tidy story
 >   fool you.** "Reload did not help" was the evidence used to kill the
 >   stale-bundle hypothesis — but that report was about the BAR, which was a
