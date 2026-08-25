@@ -118,6 +118,14 @@ it is the part that generalises to code not yet written.
    rules and the page rendered *plausibly* (names centred, dot 0×0). Slice by
    structure, and check the output parses. Guard the property, not the rules:
    every class the renderer EMITS must have a live rule (`frontend-ui.md`).
+   **A MODULE THAT NEVER LOADS LEAVES A PAGE DEAD AND ANIMATED.** Bootstrap is a
+   classic CDN script so every menu still opens; ~90 inline `onclick="global()"`
+   handlers die at once, silently. Cause is ANY failed fetch of the entry
+   bundle (a >7-day-old cached HTML naming a pruned chunk, or flaky wifi).
+   Something that is NOT your module must be able to say so — boot watchdog,
+   `boot-watchdog.test.js`. **And a bug in one iOS browser but not another is
+   never the browser** — all iOS browsers are WebKit, so the variable is STATE;
+   disprove with a fresh context first (`frontend-ui.md`).
    Also a SELECTOR vs the MARKUP, both ways: a descendant selector styles content
    not written yet (`.list b` made every inline bold a heading); a child
    combinator stops matching after a refactor. CSS fails SILENTLY — a dead rule
@@ -213,7 +221,7 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(14)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(21)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(77)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(78)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(8)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

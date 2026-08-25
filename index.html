@@ -19,6 +19,72 @@
     })();
   </script>
 
+  <!-- ── BOOT WATCHDOG ──────────────────────────────────────────────────────
+       Reported from an iPad: *"i press สร้างบัญชีและเข้าสู่ระบบด้วย google and
+       button do nothing, like when i click on อุปบริหาร on ฝ่าย it also do
+       nothing on safari, but on google app it works"*.
+
+       Reproduced on WebKit at iPad size by 404ing the module below. Every
+       symptom matched exactly: the drawer OPENS, the sign-in modal OPENS, and
+       everything inside them does NOTHING — silently.
+
+       WHY IT LOOKS ALIVE WHILE BEING DEAD. Bootstrap is a classic <script> from
+       a CDN and keeps working, so every `data-bs-toggle` still opens its menu.
+       Our own code is an ES module, and 90 controls in these partials are inline
+       `onclick="activateTab(...)"` calling globals that module defines. Lose the
+       module and you lose all ninety, while the page still animates — the worst
+       possible failure shape, because nothing tells the person anything.
+
+       WHY THE MODULE GOES MISSING. `server/deploy.sh` keeps old hashed chunks on
+       purpose (c5edc16), but only back to the oldest deploy on disk — 2026-08-18
+       at the time of writing. A Safari tab left open for longer, restored from a
+       suspended tab or the back/forward cache, re-runs an index.html that names
+       a bundle the server no longer has. A flaky connection at load time
+       produces the identical result, which is why this is not really a cache
+       bug: ANY failure to fetch the entry module lands here.
+
+       THE FIX IS DETECTION, NOT PREVENTION. This is a classic script, so it runs
+       even when the module does not, and the module clears the flag as its first
+       act. If it never does, the reader gets told and gets one tap that fixes it
+       — a reload with a cache-busting query, because a plain location.reload()
+       on iOS may re-serve the same stale HTML that caused this.
+       ──────────────────────────────────────────────────────────────────────── -->
+  <script>
+    (function () {
+      window.__samoBooted = false;
+      // 8s: slower than a cold 3G load of the entry bundle, faster than someone
+      // decides the site is broken and leaves.
+      var TIMEOUT = 8000;
+      function tell() {
+        if (window.__samoBooted || document.getElementById('samoBootFail')) return;
+        var bar = document.createElement('div');
+        bar.id = 'samoBootFail';
+        bar.setAttribute('role', 'alert');
+        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;'
+          + 'background:#7d4f16;color:#fff;padding:14px 16px;font:600 14px/1.5 system-ui,sans-serif;'
+          + 'display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap';
+        bar.innerHTML = '<span>โหลดหน้าเว็บได้ไม่ครบ ปุ่มต่าง ๆ จะยังกดไม่ได้</span>'
+          + '<button type="button" style="font:inherit;border:0;border-radius:999px;'
+          + 'padding:7px 16px;background:#fff;color:#7d4f16;cursor:pointer">โหลดใหม่</button>';
+        bar.querySelector('button').onclick = function () {
+          // A cache-busting NAVIGATION, not reload(): on iOS a plain reload can
+          // re-serve the very HTML that named the missing bundle.
+          var u = location.pathname + (location.search ? location.search + '&' : '?')
+            + '_r=' + Date.now() + location.hash;
+          location.replace(u);
+        };
+        document.body.appendChild(bar);
+      }
+      // The module element's own error event — immediate, when the browser tells us.
+      window.addEventListener('error', function (e) {
+        var t = e && e.target;
+        if (t && t.tagName === 'SCRIPT' && String(t.src || '').indexOf('/assets/') !== -1) tell();
+      }, true);
+      // …and a deadline, for the cases where it never tells us.
+      setTimeout(tell, TIMEOUT);
+    })();
+  </script>
+
   <title>MDKKU SAMO - Portal</title>
 
   <!-- Bootstrap & Fonts -->

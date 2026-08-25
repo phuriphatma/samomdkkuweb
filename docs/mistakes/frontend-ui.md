@@ -3032,3 +3032,68 @@ an instrument that produces syntactically broken output produces something that
 still runs. For CSS specifically, the tell is that a missing rule and a rule
 that was never written look identical, so "it renders" is not evidence — ask
 whether every class you EMIT is styled, mechanically.
+
+## "i press สร้างบัญชีและเข้าสู่ระบบด้วย google and button do nothing … but on google app it works"
+
+**Symptom.** On an iPad in Safari, two unrelated controls were dead: the Google
+button inside the sign-in modal, and a ฝ่าย entry in the nav. Both opened their
+container — the modal appeared, the menu appeared — and then nothing happened.
+In the Google app's in-app browser the same two worked. The owner guessed cache,
+and was right about the cause without being right about the mechanism.
+
+**Cause.** Not a Safari bug, and not two bugs. On iOS every browser is WebKit,
+including the Google app's in-app browser, so the ENGINE cannot be the
+difference — only STATE can. What differs is which copy of `index.html` each one
+is running, and that turns out to be everything:
+
+- Bootstrap is a **classic `<script>` from a CDN**. It loads and works
+  regardless. So every `data-bs-toggle` still opens its menu and its modal —
+  the page LOOKS alive.
+- Our own code is an **ES module**, and ~90 controls across `src/html/*.html`
+  are inline `onclick="activateTab(…)"` / `onclick="samoGoogleSignIn()"` against
+  globals that module defines. Lose the module and all ninety die at once,
+  silently: an inline handler calling a missing global throws into the console,
+  which nobody on an iPad is looking at.
+
+`server/deploy.sh` keeps old hashed chunks on purpose (`c5edc16`), but only as
+far back as the oldest deploy on disk — 2026-08-18 when this was reported, seven
+days. A Safari tab open longer than that, restored from a suspended tab or the
+back/forward cache, re-runs an `index.html` naming a bundle the server no longer
+has. **The HTML's `Cache-Control: no-cache, must-revalidate` does not save you**:
+a bfcache/suspended-tab restore does not revalidate. And a flaky connection at
+load time produces the identical failure, which is why this is not really a
+cache bug — ANY failure to fetch the entry module lands here.
+
+**Reproduced, and that is the part worth copying.** Playwright's WebKit at iPad
+size against the live site, with one route rule 404ing `assets/public-*.js`:
+
+```
+bootstrap alive : true        drawer opens : true
+our module ran  : false       signin modal : OPENS
+ฝ่าย navigates  : NO          google button: DOES NOTHING
+visible errors  : "Can't find variable: activateTab"   (console only)
+```
+
+Every symptom matched, and the control — the same script without the 404 —
+passed. A fresh context could not reproduce it, which is exactly why "works in
+the other browser" was never evidence about the browser.
+
+**Fix: DETECTION, not prevention.** A boot watchdog in both entry HTMLs, as a
+CLASSIC script so it runs in the world where the module does not. The module
+sets `window.__samoBooted = true` after its imports (a module that fails to load
+a DEPENDENCY is just as dead). If the flag is never set — on the module
+element's `error` event, or after 8 s — a bar appears saying the page did not
+load fully, with one button that re-navigates with a cache-busting query.
+`location.reload()` is deliberately NOT used: on iOS it can re-serve the very
+HTML that named the missing bundle, so the fix would exhibit the bug.
+
+**Where it lives now.** `index.html` + `admin/index.html` (the watchdog),
+`src/js/main.js` + `src/js/admin-main.js` (the flag), guarded by
+`src/js/boot-watchdog.test.js`, falsified three ways.
+
+**The general rule.** *If your code is a module and your framework is not, the
+page can be dead and animated at the same time — so something that is NOT your
+module has to be able to say so.* More generally: a failure whose only signal is
+a console error is invisible on a phone. And when a bug appears in one browser
+but not another **on the same engine**, stop looking at the browser; the variable
+is state, and the fastest disproof is a fresh context.

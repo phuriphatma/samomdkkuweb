@@ -111,7 +111,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(77)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(78)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -192,6 +192,7 @@ Open when: markup, modals, layout, touch, icons.
 - "it doesn't care about ระดับ that i config in the admin teamsamo"
 - `hidden` did nothing, and only Bootstrap's CDN stylesheet was hiding it
 - A CSS block lifted out of a deleted commit came back with three rules silently commented out
+- "i press สร้างบัญชีและเข้าสู่ระบบด้วย google and button do nothing … but on google app it works"
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(19)*
 
@@ -279,4 +280,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Two proofs ERRORED for six days because their scenario needed a week with room left in it
 - `open(p, "w")` truncates before the `read()` you passed to it
 
-_222 entries across 9 files._
+_223 entries across 9 files._

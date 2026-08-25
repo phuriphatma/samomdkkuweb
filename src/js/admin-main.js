@@ -48,6 +48,14 @@ import { loadMySeat, renderMySeat } from './my-seat.js';
 import { initAnalytics, trackTab } from './analytics.js';
 import { initAnalyticsDashboard, enterAnalytics } from './analytics-dashboard.js';
 
+// The boot watchdog in index.html is a CLASSIC script, so it runs even when
+// this module does not. Clearing its flag here is what tells it the app is
+// alive; if it is never cleared, the reader gets a "โหลดใหม่" bar instead of
+// a page whose menus open and whose buttons all silently do nothing.
+// Set after the imports, so a module that fails to LOAD ITS DEPENDENCIES is
+// still reported as not booted.
+try { window.__samoBooted = true; } catch { /* nothing to tell */ }
+
 // ==============================================
 // QUILL — creator only (no VS form in admin)
 // ==============================================

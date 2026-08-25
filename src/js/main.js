@@ -50,6 +50,14 @@ import { initDevActivity } from './dev-activity.js';
 import { initChangelog } from './changelog.js';
 import { copyText } from './utils.js';
 
+// The boot watchdog in index.html is a CLASSIC script, so it runs even when
+// this module does not. Clearing its flag here is what tells it the app is
+// alive; if it is never cleared, the reader gets a "โหลดใหม่" bar instead of
+// a page whose menus open and whose buttons all silently do nothing.
+// Set after the imports, so a module that fails to LOAD ITS DEPENDENCIES is
+// still reported as not booted.
+try { window.__samoBooted = true; } catch { /* nothing to tell */ }
+
 // ==============================================
 // QUILL SETUP
 // ==============================================
