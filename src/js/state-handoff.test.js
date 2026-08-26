@@ -64,6 +64,8 @@ const ABSENT_ON_PURPOSE = {
     'an ephemeral ~30-line WebKit harness; STATE.md names it as a SHAPE worth rebuilding and says so',
   'assets/admin-CPiyOZWb.js':
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
+  'docs/INVARIANTS.md':
+    'PLANNED, not written — the destination for STATE.md\'s durable rules in the split designed in docs/TEAM-WORKFLOW.md §6.5. Named here so the target of that move has one agreed name; DELETE this exemption in the same commit that creates the file',
 };
 
 describe('STATE.md is a handoff, not a memory', () => {
