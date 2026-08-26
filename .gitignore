@@ -8,6 +8,7 @@ test_gas.py
 # Claude Code: ignore user-local config, but track shared project rules
 .claude/*
 !.claude/rules/
+!.claude/agents/
 
 # Local samples / exports of real production data — never commit
 sheetexample/

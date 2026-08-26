@@ -551,10 +551,18 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > the AUTHORITATIVE record. An Artifact rendering exists for humans and may be
 > stale; the file wins.
 >
-> ⛔ **No part of it exists yet.** No dev Supabase project, no preview URL, no
-> refresh script, no `schema_migrations` table. `CONTRIBUTING.md` still
-> correctly describes today (test against production) and must NOT be edited
-> until the matching phase ships — see its §9.
+> ⛔ **Almost none of it exists yet.** No dev Supabase project, no preview URL,
+> no refresh script, no `schema_migrations` table, no `CODEOWNERS`.
+> `CONTRIBUTING.md` still correctly describes today (test against production)
+> and must NOT be edited until the matching phase ships — see its §9.
+> ✅ **What DID ship 2026-08-26**: the document itself, and two shared subagent
+> definitions in `.claude/agents/` (`mistake-finder` searches the 227 bug
+> write-ups; `db-inspector` runs read-only SQL and returns the answer, not the
+> dump). `.gitignore` now allows that directory. Usable immediately.
+> 📌 **Measured, not assumed: the PR workflow already exists** — five `write`
+> collaborators plus the owner, 16 PRs, 9 merged, newest 2026-07-11. Branch
+> protection is ON (1 approval, no force-push) but **CI is NOT a required check**,
+> so a PR with failing tests can merge today. That is the 20-minute fix in §8a.
 >
 > 📌 **Read its §0 before proposing anything about dev/staging.** Seven design
 > points were argued and then DECIDED BY THE OWNER, several reversing an earlier

@@ -2,11 +2,13 @@
 
 > ## ⛔ STATUS: NOTHING HERE IS BUILT. This is a design, agreed 2026-08-26.
 >
-> As of this file's last edit there is **no dev Supabase project, no preview
-> deploy, no refresh script, no `schema_migrations` table, no docs site**. The
-> repository is exactly as it was. Do not read any sentence below as a
-> description of something that exists — every one of them is a description of
-> something *intended*.
+> There is **no dev Supabase project, no preview deploy, no refresh script, no
+> `schema_migrations` table, no docs site, no `CODEOWNERS`**. Do not read any
+> sentence below as a description of something that exists.
+>
+> **The two exceptions, which DO exist**: this document, and the two subagent
+> definitions in `.claude/agents/` described in §6.2 (`mistake-finder`,
+> `db-inspector`) — those are usable now and need nothing built.
 >
 > **This file is the authoritative record.** A rendered version was published as
 > an Artifact for the owner to read
@@ -19,10 +21,23 @@
 > everything else.
 
 Context: the owner plus **about five other people**, some of whom may come and
-go. Today the repo is built for one person — `CONTRIBUTING.md` tells a new
-collaborator to test against **production** and ask the owner to delete the test
-rows afterwards. That does not survive five people, and it makes migrations
-untestable by anyone but the owner.
+go.
+
+⚠️ **This is not a team that has never collaborated — measured 2026-08-26, the
+PR workflow already exists and has been used.** The repo has **five `write`
+collaborators plus the owner as `admin`** (`Naphawarit`, `panascha`,
+`p4ngpond-rhael`, `ZeaHunter`, `Kita1103`), and **16 pull requests** have been
+opened, of which 9 merged — the most recent on 2026-07-11, six weeks before this
+design. Two were CLOSED unmerged and their branches are still on `origin`
+(`feat/dept-resource-cards`, `feat/mobile-auth-navbar`, both Kita1103,
+2026-06-16).
+
+So the problem is **not** "introduce a workflow". It is that the existing one
+has no dev environment and no preview URL, so every change must be verified by
+the owner running it locally, and no contributor can touch the database at all.
+`CONTRIBUTING.md` says so plainly: *"There is no preview deploy"*, and it tells
+contributors to test against **production** and ask the owner to delete the test
+rows. That is what does not survive five people.
 
 ---
 
@@ -200,35 +215,102 @@ confirm the channel, delete it.
 
 ---
 
-## §6. Claude sessions on a shared repo
+## §6. How Claude works on this repo, with several people
 
-- **Do not have models talk to each other.** The handoff medium is a file, and
-  the file is the PR: **Opus** plans into the issue → **Sonnet** implements
-  against that checklist → **Opus** reviews the diff (`/code-review`). Anything
-  touching auth, RLS, migrations, deploy or the seven mistake classes is Opus
-  throughout. Agent-to-agent chat is unauditable, evaporates at session end, and
-  doubles the burn on a subscription the team already books slots on
-  (`/admin#claude`).
-- **One session per working tree.** Two things in flight means `git worktree`.
-- `CLAUDE.md` and `.claude/rules/*` are shared context charged to every session:
-  change by PR, and `npm run check:context` already enforces the byte budget
-  inside `npm test`. **`CLAUDE.md` sits near 90% of its cap — adding the
-  pointer to this file cost 2% on its own. Additions must be one line, or
-  something must move to `docs/`. Never quote a remembered number: run
-  `npm run check:context`.**
-- **Splitting `STATE.md`** (planned, not done). It is unmergeable because it
-  holds three lifetimes at once:
-  - status → `STATE.md`, ≤200 lines, deploy block **written by the deploy**
-  - durable invariants → `docs/INVARIANTS.md`
-  - "what my session was" → `docs/state/<github-handle>.md`, one per person
-  - narrative → `docs/state-archive/` (exists)
-  Rule for agents: *write your own state file; never rewrite someone else's;
-  never touch the deploy block unless you deployed.* Widen
-  `state-handoff.test.js` to run over every `docs/state/*.md`.
-- `docs/mistakes/*.md` gets `merge=union` in `.gitattributes` so two write-ups
-  never conflict.
+### 6.1 Which model does what
 
----
+The handoff medium is a **file**, and the file is the pull request. Do **not**
+have models talk to each other: agent-to-agent chat is unauditable, evaporates
+at session end, and doubles the burn on a subscription the team already books
+slots on (`/admin#claude`).
+
+| Step | Model | What survives |
+|---|---|---|
+| Plan the change | **Opus** | a checklist in the issue — files to touch, the guard test, the rollback |
+| Implement it | **Sonnet** | commits on the branch, ticking that checklist |
+| Review the diff | **Opus**, `/code-review` | PR comments |
+| auth · RLS · migrations · deploy · anything in the seven mistake classes | **Opus throughout** | — |
+
+Haiku is deliberately absent: the bottleneck on this repo is judgement, not
+throughput, and a cheap model on `auth.js` is a false economy.
+
+### 6.2 Subagents — when they pay for themselves
+
+A subagent **starts cold and re-derives context**, so it is not a way to think
+faster. It pays in exactly two situations:
+
+1. **Fan-out search** — a question answered by sweeping many files where only
+   the conclusion is wanted.
+2. **Keeping large output out of the main context** — a query whose result is
+   3,000 lines of JSON and whose *answer* is one sentence.
+
+Both are common here, so two definitions live in **`.claude/agents/`** (shared
+via git — `.gitignore` excludes `.claude/*` but allows `rules/` and `agents/`):
+
+- **`mistake-finder`** — searches the 227 write-ups in `docs/mistakes/` for a
+  symptom and returns the two or three that actually apply, summarised. Without
+  it, `grep -rin` over that directory floods a session with near-matches.
+- **`db-inspector`** — runs a **read-only** query through `tools/db-query.mjs`
+  and returns the answer rather than the dump. This repo's rule is "verify from
+  the authority" (`pg_policy`, `pg_proc.proacl`, the live function body), and the
+  authority is verbose.
+
+**Do not** delegate: anything needing `STATE.md` context, any design decision,
+anything touching auth or RLS, or "review this diff" (that is `/code-review`).
+
+### 6.3 Memory — three layers, and only two are shared
+
+| Layer | Where | Shared with the team? |
+|---|---|---|
+| Personal auto-memory | `~/.claude/projects/<path-hash>/memory/` | ❌ **No.** Per machine, and keyed by the clone's path — five developers have five disjoint memories, and none of them is in git |
+| Always loaded | `CLAUDE.md`, `.claude/rules/*` | ✅ yes — byte-capped by `npm run check:context`, changed by PR |
+| Read on demand | `STATE.md` (read first), `docs/*`, `docs/mistakes/*`, `skills/*` | ✅ yes |
+
+⛔ **The rule that matters with more than one developer: if another person
+needs to know it, it goes in the repo.** A fact recorded only in a personal
+memory is invisible to everyone else and to the same person on another machine —
+and it will be *confidently* recalled by one session while another re-derives it
+wrongly.
+
+Where each kind of thing belongs:
+
+- a bug that was fixed → `docs/mistakes/<area>.md`, then `npm run mistakes:index`
+- a rule that will still be true next year → `docs/INVARIANTS.md` (planned) or
+  the class list in `.claude/rules/mistakes.md`
+- what is deployed / in flight → `STATE.md`
+- a repeatable multi-step procedure → `skills/*.md`
+- "how this person likes to work" → personal memory, and nowhere else
+
+### 6.4 Efficiency habits, in rough order of what they save
+
+- **`/clear` between unrelated tasks.** The always-loaded layer is ~8.5k tokens
+  before anyone types; a stale 200k-token context is far more expensive than
+  re-reading `STATE.md`.
+- **One session per working tree.** Two things in flight means `git worktree`;
+  two agents in one checkout is the fastest way to lose work.
+- **Grep `docs/mistakes/`, do not read it.** `grep -rin "<symptom>"` searches the
+  write-ups; `docs/mistakes/INDEX.md` scans the headings.
+- **`npm test` before every commit.** It runs the 1,318 unit tests *and*
+  `check:context` *and* `state-handoff.test.js`, so it catches a bloated rules
+  file and a broken pointer in the handoff at the same time.
+- **Batch commits before deploying** — each VM deploy is ~90 s; a `docs/`- or
+  `tools/`-only commit needs no deploy at all.
+- **Do not re-read a file you just edited** to confirm the edit landed.
+
+### 6.5 Splitting `STATE.md` — planned, not done
+
+It is unmergeable because it holds three lifetimes at once, and at ~1,400 lines
+it is also the biggest fixed cost in every session:
+
+- status → `STATE.md`, ≤200 lines, deploy block **written by the deploy**
+- durable invariants → `docs/INVARIANTS.md`
+- "what my session was" → `docs/state/<github-handle>.md`, one per person
+- narrative → `docs/state-archive/` (exists)
+
+Rule for agents: *write your own state file; never rewrite someone else's; never
+touch the deploy block unless you deployed.* Widen `state-handoff.test.js` to run
+over every `docs/state/*.md`. Give `docs/mistakes/*.md` `merge=union` in
+`.gitattributes` so two write-ups never conflict.
 
 ## §7. Open unknowns — read before building
 
@@ -239,7 +321,8 @@ for the live project**. Phase 1 starts with fetching the database password from
 the dashboard, adding `SUPABASE_DB_URL`, and checking the local `pg_dump` major
 version matches the server's. Until that works, nothing downstream can be built.
 
-**7.2 — Do NOT replay the 168 migrations to create the dev schema.** Nothing
+**7.2 — Do NOT replay the migration chain to create the dev schema.**
+(168 files as of 2026-08-26 — `ls supabase/migrations | wc -l`.) Nothing
 proves the chain reproduces production: there is no `schema_migrations` table,
 function bodies have been edited live (`STATE.md` says to read the LIVE body,
 not the migration that defined it), and a replay that differs silently would
@@ -295,13 +378,36 @@ useful. **Phases 0–3 are what actually unblock five people.**
 
 | # | Phase | Effort | Prerequisite |
 |---|---|---|---|
-| 0 | Repo guardrails: branch protection, `CODEOWNERS` from the `CONTRIBUTING.md` touch-zone table, PR/issue templates, project board, team vault, two named peer approvers | ~1 h | none — touches no code |
+| 0 | Repo guardrails — **mostly already in place, see §8a** | ~20 min | none — touches no code |
 | 1 | Dev account + `samo-dev` + `samo-scratch`; **schema from `pg_dump`, not a replay** (§7.2); `public.schema_migrations` + `npm run migrate:status`; Google callback line; redirect URLs; sign-ups OFF | ~2 h | **§7.1** |
 | 2 | `npm run dev:refresh` + `dev:check` + `dev-grants.json`; the mail trap; the dev GAS deployment under its own Google account; `#samo-dev-bot` | ~3 h | phase 1, **§7.5 first** |
 | 3 | Preview builds: Actions job → `wrangler pages deploy` (**§7.4**), PR comment, `VITE_ENV_NAME` ribbon, narrow the `*.pages.dev` guard in BOTH entry HTMLs to the two named retired hosts, `noindex` header, `/notify` dev middleware in `vite.config.js` | ~2 h | phase 1 |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
 | 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |
 | 6 | Proofs + browser smoke in CI against `samo-dev` | ~3 h | phases 1–3 |
+
+### §8a. What phase 0 still needs — measured 2026-08-26, not assumed
+
+Read from the GitHub API rather than assumed. **Most of phase 0 already exists**:
+
+| Guardrail | State today | Action |
+|---|---|---|
+| Repo is public | ✅ `"visibility":"public"` | — (branch protection is therefore available on the free plan) |
+| Collaborators | ✅ five `write` + owner `admin` | — |
+| PR required, 1 approval | ✅ `required_approving_review_count: 1` | — |
+| Force-push / delete blocked | ✅ both `false` | — |
+| **CI must pass before merge** | ❌ **`required_status_checks` returns 404 — NOT ENABLED** | **the single highest-value fix here.** `build.yml` runs on every PR and nothing enforces its result: a PR with 1,318 failing tests can be merged today |
+| `CODEOWNERS` | ❌ no file; `require_code_owner_reviews: false` | write it from the `CONTRIBUTING.md` touch-zone table, then enable the flag |
+| PR / issue templates | ❌ `.github/` holds only `workflows/` | add |
+| Project board | ❌ | add |
+| Linear history | ❌ `required_linear_history: false` | optional — squash-merge by convention achieves it |
+
+⚠️ **`enforce_admins` is `false`, and leave it that way.** That is what lets the
+owner commit and push `main` directly, which is the normal flow here (the
+authority model in `CLAUDE.md` says so, and this very design was pushed that
+way). Turning it on would route the owner's own deploy commits through PRs for
+no benefit.
+
 
 ---
 
@@ -322,3 +428,68 @@ paying for. **When the phase lands, correct them in the same commit:**
 - **`skills/deploy-vm.md`** — add `npm run migrate:status` to the pre-deploy
   checklist and the smoke-test line, at phase 1.
 - **`STATE.md`** — the pointer in the next-session prompt, every phase.
+
+---
+
+## §10. First session after a `/clear` — start here
+
+**Read in this order:** `STATE.md` → this file's **§0** (the decisions) → **§7**
+(the unknowns). Then:
+
+### If the owner says "build it"
+
+Start at **§8a**, not at phase 1 — most of phase 0 already exists and what is
+missing takes about twenty minutes.
+
+**a. Make CI blocking.** Today a PR can merge with 1,318 failing tests. The job
+in `.github/workflows/build.yml` is named `build`, so that is the check context.
+
+⚠️ **`required_status_checks` is not enabled, so it cannot be PATCHed — it has to
+go in through a full `PUT` of the protection object, and a `PUT` that omits a
+field WIPES it.** Read the current protection first
+(`gh api repos/phuriphatma/samomdkkuweb/branches/main/protection`) and send back
+everything it already has plus the checks. What it has as of 2026-08-26: one
+required approving review, no force-push, no deletions, `enforce_admins: false`
+(**keep that false** — it is what lets the owner push `main` directly, which is
+the normal flow here).
+
+**b. Write `.github/CODEOWNERS`** — no default owner line, or everything routes
+to the owner and the whole point is lost:
+
+```
+/src/js/auth.js      @phuriphatma
+/src/js/db.js        @phuriphatma
+/src/js/notify.js    @phuriphatma
+/src/js/uploads.js   @phuriphatma
+/supabase/           @phuriphatma
+/server/             @phuriphatma
+/appscript/          @phuriphatma
+/tools/              @phuriphatma
+/.github/            @phuriphatma
+/.claude/            @phuriphatma
+/CLAUDE.md           @phuriphatma
+/STATE.md            @phuriphatma
+```
+
+Then set `require_code_owner_reviews: true`. Everything not listed keeps needing
+one approval from **any** collaborator — that is what stops the owner being the
+bottleneck for CSS and copy.
+
+**c. PR and issue templates**, then the project board.
+
+### Before phase 1 can start, the owner must supply one thing
+
+**The database password** (Supabase dashboard → Settings → Database) so
+`SUPABASE_DB_URL` can go in `.env.local`. The Management PAT already there
+**cannot** `pg_dump`. Also confirm the local `pg_dump` major version matches the
+server's. Until this exists, phases 1, 2 and 6 cannot begin — see §7.1.
+
+### What NOT to do in that session
+
+- **Do not edit `CONTRIBUTING.md` or `README.md` "to match this plan".** They
+  correctly describe today. §9 says which phase corrects which file.
+- **Do not re-argue §0.** Those seven were decided by the owner, several against
+  the assistant's recommendation, and the reasoning is recorded.
+- **Do not build the dev schema by replaying the migration chain** — §7.2.
+- **Do not put the plan's numbers into `STATE.md`.** They decay; this file
+  carries them once, with the command that re-measures them.
