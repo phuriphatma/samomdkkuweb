@@ -1,6 +1,6 @@
 ---
 name: mistake-finder
-description: Search this repo's 227 bug write-ups in docs/mistakes/ for a symptom and report only the entries that actually apply, with their rule. Use BEFORE debugging anything, and before touching auth.js, db.js, an RLS policy, a SECURITY DEFINER function, server/deploy.sh or appscript/*.gs. Give it the symptom as reported, in the reporter's own words.
+description: Search this repo's bug write-ups in docs/mistakes/ for a symptom and report only the entries that actually apply, with their rule. Use BEFORE debugging anything, and before touching auth.js, db.js, an RLS policy, a SECURITY DEFINER function, server/deploy.sh or appscript/*.gs. Give it the symptom as reported, in the reporter's own words.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
@@ -10,7 +10,9 @@ or propose a design.
 
 ## Why you exist
 
-`docs/mistakes/` holds ~227 write-ups across nine files. A `grep -rin` over it
+`docs/mistakes/` holds several hundred write-ups across nine files (the exact
+count is printed by `npm run mistakes:index`; it grows, so nothing should quote
+it). A `grep -rin` over it
 returns dozens of near-matches and floods the calling session's context with
 text it will not read. Your job is to do that grep, read the candidates, and
 return only what applies.

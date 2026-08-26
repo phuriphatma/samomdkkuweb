@@ -518,11 +518,10 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-26)
 
-> ✅ **NOTHING IS OWED TO A PERSON.** Deployed = `2993dd1`, VM HEAD confirmed
-> over ssh, verified from the served `analytics-*.js`.
->
-> ✅ **DEPLOYED = `36ac1d5` (2026-08-26 late)**, VM HEAD confirmed over ssh,
-> `DEPLOY_EXIT=0`. It carried one copy change: `src/js/db.js`'s missing-env-var
+> ✅ **NOTHING IS OWED TO A PERSON. DEPLOYED = `36ac1d5` (2026-08-26 late)**,
+> VM HEAD confirmed over ssh, `DEPLOY_EXIT=0`. (The previous deploy was
+> `2993dd1`, the ประกาศ refusal copy, verified from the served
+> `analytics-*.js`.) `36ac1d5` carried one copy change: `src/js/db.js`'s missing-env-var
 > `console.error` used to send the reader to the retired **Cloudflare Pages
 > dashboard** — the first message a new developer sees when their `.env.local`
 > is wrong, with five of them joining. It now names `.env.example`.
@@ -569,14 +568,23 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > the AUTHORITATIVE record. An Artifact rendering exists for humans and may be
 > stale; the file wins.
 >
-> ⛔ **Almost none of it exists yet.** No dev Supabase project, no preview URL,
-> no refresh script, no `schema_migrations` table, no `CODEOWNERS`.
-> `CONTRIBUTING.md` still correctly describes today (test against production)
-> and must NOT be edited until the matching phase ships — see its §9.
-> ✅ **What DID ship 2026-08-26**: the document itself, and two shared subagent
-> definitions in `.claude/agents/` (`mistake-finder` searches the 227 bug
-> write-ups; `db-inspector` runs read-only SQL and returns the answer, not the
-> dump). `.gitignore` now allows that directory. Usable immediately.
+> ⛔ **The dev environment does not exist yet.** No dev Supabase project, no
+> preview URL, no refresh script, no `schema_migrations` table.
+> ⚠️ **`CONTRIBUTING.md` still correctly describes TODAY — that contributors
+> test against production — and that part must NOT be "corrected" to match the
+> plan until the matching phase ships (see §9 of the plan).** Its stale *test
+> count* was fixed on 2026-08-26; the workflow description was deliberately left
+> alone.
+> ✅ **What DID ship 2026-08-26, and needs nothing built**: the document itself ·
+> `.github/CODEOWNERS` (advisory — it REQUESTS the owner's review on the
+> load-bearing paths; it only BLOCKS once `require_code_owner_reviews` is
+> enabled) · `.github/pull_request_template.md` and two issue templates · two
+> shared subagent definitions in `.claude/agents/` (`mistake-finder` searches
+> the bug write-ups and returns only what applies; `db-inspector` runs read-only
+> SQL and returns the answer, not the dump), with `.gitignore` opened for that
+> directory. ⚠️ **Neither agent has ever been invoked** — a malformed frontmatter
+> header fails silently by the agent simply not appearing in the list. Check
+> that before relying on one.
 > 📌 **Measured, not assumed: the PR workflow already exists** — five `write`
 > collaborators plus the owner, 16 PRs, 9 merged, newest 2026-07-11. Branch
 > protection is ON (1 approval, no force-push) but **CI is NOT a required check**,

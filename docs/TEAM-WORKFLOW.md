@@ -277,7 +277,7 @@ faster. It pays in exactly two situations:
 Both are common here, so two definitions live in **`.claude/agents/`** (shared
 via git — `.gitignore` excludes `.claude/*` but allows `rules/` and `agents/`):
 
-- **`mistake-finder`** — searches the 227 write-ups in `docs/mistakes/` for a
+- **`mistake-finder`** — searches the write-ups in `docs/mistakes/` for a
   symptom and returns the two or three that actually apply, summarised. Without
   it, `grep -rin` over that directory floods a session with near-matches.
 - **`db-inspector`** — runs a **read-only** query through `tools/db-query.mjs`
