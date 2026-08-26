@@ -521,13 +521,20 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > ✅ **NOTHING IS OWED TO A PERSON.** Deployed = `2993dd1`, VM HEAD confirmed
 > over ssh, verified from the served `analytics-*.js`.
 >
-> 🚚 **ONE TINY DEPLOY IS NOW OWED, and it is copy only.** `src/js/db.js`'s
-> missing-env-var `console.error` told the reader to set the values in the
-> **Cloudflare Pages dashboard**, which is retired and reaches nothing — it is
-> the first message a new developer sees when their `.env.local` is wrong, and
-> five of them are joining. It now names `.env.example` instead. Nothing else
-> under `src/` changed. **Batch it with the next real change; it does not
-> deserve a VPN session of its own.**
+> ✅ **DEPLOYED = `36ac1d5` (2026-08-26 late)**, VM HEAD confirmed over ssh,
+> `DEPLOY_EXIT=0`. It carried one copy change: `src/js/db.js`'s missing-env-var
+> `console.error` used to send the reader to the retired **Cloudflare Pages
+> dashboard** — the first message a new developer sees when their `.env.local`
+> is wrong, with five of them joining. It now names `.env.example`.
+>
+> ⚠️ **DO NOT try to verify that one by grepping the served bundle — it is not
+> there, and that is correct.** The message sits behind
+> `if (!import.meta.env.VITE_SUPABASE_URL)`, Vite substitutes the value at build
+> time, and the whole branch is compiled out of every build that HAS the vars.
+> Proved both ways: 0 of 27 served bundles, and 1 occurrence in a build made
+> with the vars blanked. Write-up in `docs/mistakes/deploy-hosting.md`; the
+> class-7 line in `.claude/rules/mistakes.md` now names it. **A control
+> (`อัปเดตไม่สำเร็จ`, 8 chunks) confirmed the grep itself was working.**
 >
 > ⚠️ **Otherwise `main` being AHEAD of the deployed sha is the NORMAL state
 > here** — most commits are docs, `docs/mistakes/` and tests, none of which

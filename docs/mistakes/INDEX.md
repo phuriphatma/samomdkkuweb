@@ -249,7 +249,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The Discord alert told a human to run the command that CAUSED the error
 - Removing `@here` from two builders left three ways to put it back
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(8)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(9)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -261,6 +261,7 @@ Open when: deploy.sh, nginx, cache headers.
 - nginx without an `$uri.html` fallback breaks EXTENSIONLESS deep links that a retired Cloudflare-Pages host used to serv…
 - Dropping a column while the SERVED bundle still names it
 - `systemctl enable --now` reported success and scheduled nothing
+- "I grepped the served bundle for the string I just changed and it is not there
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(17)*
 
@@ -284,4 +285,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A proof went red fifteen minutes after the app started working again
 - STATE.md said a proof was red that had been green for a day
 
-_227 entries across 9 files._
+_228 entries across 9 files._

@@ -207,7 +207,11 @@ it is the part that generalises to code not yet written.
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
    names (grep a STRING LITERAL or CSS class), code often lands in a SHARED chunk
    both entries import (0145), `curl -L` turns a GAS `/exec` POST into a GET, and
-   a DB-side proof cannot see the FRONTEND half of a mirrored rule.
+   a DB-side proof cannot see the FRONTEND half of a mirrored rule. **A string
+   behind a build-time flag is DELETED, not renamed** — `import.meta.env` is
+   substituted, so `if (!VITE_X)` folds away and its message greps 0 in every
+   build where X is set (`deploy-hosting.md`). Pick a verification string from
+   code that runs unconditionally, and grep a known-shipping control beside it.
    **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
    `users_read_all` carried "needed for staff dashboards"; the need had ended
    years earlier (0147).
@@ -243,7 +247,7 @@ shaving the classes, which are the only part that generalises.
 - `frontend-ui.md` *(80)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(8)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(17)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

@@ -306,3 +306,55 @@ read `NEXT` from `systemctl list-timers`, not `is-active`.* A unit whose only
 triggers are relative to events that already happened is enabled, active, and
 inert. Any timer that a human will ever stop and restart needs at least one
 trigger anchored to the TIMER's own activation.
+
+---
+
+## "I grepped the served bundle for the string I just changed and it is not there — did the deploy fail?"
+
+**Symptom.** A one-line copy fix to `src/js/db.js` was deployed to the VM.
+`DEPLOY_EXIT=0`, VM `git log` matched local HEAD. Then the standing
+verification step — grep the SERVED artifact for a string the change added —
+found the new text in **0 of 27 bundles**. The old text was also gone, so the
+evidence was equally consistent with "the deploy worked" and "the deploy
+silently shipped nothing".
+
+**Cause.** The string lives inside a guard on a build-time variable:
+
+```js
+const url = import.meta.env.VITE_SUPABASE_URL;
+if (!url || !anonKey) { console.error('[db] Missing Supabase env vars…'); }
+```
+
+Vite **substitutes** `import.meta.env.*` at build time. On any build where the
+variable is set — which is every real build, on the VM and on a developer's
+machine alike — `!url` becomes `!"https://…"`, folds to `false`, and the minifier
+deletes the whole branch. **The message ships only in a build that does not have
+the values**, which is precisely the situation it exists to explain. It is not
+missing from production; it cannot be in production.
+
+**Fix.** Nothing to fix in the code. What was wrong was the verification. Proved
+in both directions before believing it:
+
+```bash
+# with the vars present (the VM build, and a normal local build)
+grep -l "Missing Supabase env vars" dist/assets/*.js        # → nothing
+# with them blanked, which is when the message is meant to appear
+VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite build --outDir /tmp/noenv
+grep -c "Missing Supabase env vars" /tmp/noenv/assets/*.js  # → analytics-*.js:1
+```
+
+A control ran alongside it — a string known to ship (`อัปเดตไม่สำเร็จ`) greps 1 in
+eight `analytics-*.js` chunks, so the grep and the path were both working.
+
+**Where it lives now.** `src/js/db.js`, and this entry. `STATE.md` already warns
+that a bundle grep can read 0 for reasons that are not "the deploy failed" —
+minified module-scope names, and code landing in the SHARED chunk. This is the
+third reason and the only one where the string is *deleted rather than renamed*.
+
+**The general rule.** *A string behind a build-time flag is not in the artifact
+you are grepping — it was compiled out.* Before concluding a deploy failed,
+ask whether the code you changed can even be reached in this build's
+configuration, and verify a change like that by building **with the flag in the
+state that makes the branch live**. Pick a verification string from code that
+runs unconditionally; a control that greps a string you know ships tells you
+whether the instrument or the deploy is the problem.
