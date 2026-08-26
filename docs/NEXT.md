@@ -114,19 +114,35 @@ SEAT-RESOLVED role via `projectSeatRole()`, so a `vpa`-seat holder does get the
 controls; `vs-staff.js` `isVsSuper` and `team-vocab.js` `canEditTeam` both
 consult permissions and role.
 
-### 0d. Make the PR delete rule ONE implementation, not two (2026-08-12)
+### 0d. ✅ DONE 2026-08-26 — the PR desk rule is ONE predicate (0168)
 
-0149 fixed the drift between `pr_tickets_delete_staff` and
-`soft_delete_pr_ticket` by correcting the copy. The copy still exists. The
-elegant version is the one the VS side already uses: a single named predicate
-(`current_user_vs_scope()`) called by BOTH the policy and the RPC, so there is
-nothing to drift. A `public.current_user_can_delete_pr_ticket()` would do the
-same here.
+Kept as a pointer because the SHAPE is worth copying, and because opening it
+found more than this note knew.
 
-Not done in 0149 on purpose: it mutates a live security policy for a pair that
-`tools/pr0149-delete-permission.sql` now pins differentially, so the drift is
-already detected the moment it reappears. Worth doing the next time that area is
-open, and worth COPYING as the pattern for any new policy+RPC pair.
+**It was FOUR copies, not two.** `pr_tickets_read`'s third branch,
+`pr_tickets_update_staff`, `pr_tickets_delete_staff` and `soft_delete_pr_ticket`
+all spelled `current_user_role() in ('pr_staff','dev') or
+current_user_has_permission('pr')`. Naming the extraction after DELETE — which
+is what this note asked for — would have left three copies behind under a name
+that lied about where the rule is used. **Read `pg_policy` before believing a
+note about how many copies there are.**
+
+All four now call `public.current_user_can_manage_pr()`. Behaviour unchanged and
+measured both directions before and after;
+`tools/pr0149-delete-permission.sql` went 13 cases → 25, with a new §D that is
+STRUCTURAL — behaviour alone cannot see a fourth copy, because four identical
+copies agree perfectly right up until one is edited.
+
+⚠️ **The cleanup nearly cost a guard its eyesight, and that is the transferable
+part.** Moving the decision into a shared predicate moved it out of the body
+`src/js/definer-authz.test.js` reads, so that sweep would have skipped
+`soft_delete_pr_ticket` at "it decides some other way" — green, and blind. It
+now follows one level of helper calls, with a control that measures raw vs
+expanded so the expansion cannot silently stop. **Extracting a predicate is the
+right fix for drift; check what was WATCHING the thing you extracted.**
+
+The same treatment is still worth copying for any new policy+RPC pair — it is
+what the VS side has done since 0083 (`current_user_vs_scope()`).
 
 ### 0. `photo_reference_count()` cannot see `houses.icon_url` (2026-08-09)
 

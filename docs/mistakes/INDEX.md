@@ -262,7 +262,7 @@ Open when: deploy.sh, nginx, cache headers.
 - Dropping a column while the SERVED bundle still names it
 - `systemctl enable --now` reported success and scheduled nothing
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(15)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(16)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -281,5 +281,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A control threshold that assumed the proof runs early in the quota week
 - Two proofs ERRORED for six days because their scenario needed a week with room left in it
 - `open(p, "w")` truncates before the `read()` you passed to it
+- A proof went red fifteen minutes after the app started working again
 
-_225 entries across 9 files._
+_226 entries across 9 files._

@@ -613,3 +613,67 @@ same file is a truncation, whatever the order looks like on the page. And the
 generated COUNT that caught it is the real lesson: a tool that prints "219
 entries" every run turns a silent deletion into a number that visibly moved —
 which is worth more than the tool's actual job.
+
+## A proof went red fifteen minutes after the app started working again
+
+**Symptom.** `npm run proofs` reported `claude0167-monitoring-switch.sql ✗ FAIL
+— 2 failed — A2 · stale sample (600 min) → NO weekly remainder is claimed`. It
+had been green the day before, and nothing in the commit under test came within
+a mile of the Claude module — the session had touched `pr_tickets` policies and
+nothing else.
+
+**Cause.** Not the code, and not the assertion. The INSTRUMENT.
+
+`pg_temp.week_left(p_age)` puts one sample in the table at a chosen age and asks
+`claude_free_now()` what the week has left. Its whole premise is that the row it
+inserts is the newest one `claude_latest_sample()` can see — that function takes
+the newest row in the table and *then* tests its age, so anything fresher
+answers the question instead. The comment above it said exactly that, and said
+it in the confident voice: *"the sample is deleted first, so the probe's row is
+the newest by construction rather than by hoping — the real table holds four
+days of rows whose sampled_at would otherwise be compared against."*
+
+The delete was `where raw->>'proof' = 'claude0167'`. Its own rows. The real ones
+were never touched.
+
+That was invisible for exactly as long as the reporter was PAUSED. With no real
+sample newer than about eleven hours, a deliberately 600-minute-old probe row
+genuinely was the newest, and the proof measured the age rule it meant to
+measure. The owner switched measurement back on at 17:18 UTC; the timer wrote a
+fresh sample at 17:20 and every fifteen minutes after that. From then on the
+newest row was a real one twelve minutes old, `claude_free_now()` believed it —
+correctly — and A2 read `560.0` where it wanted `NULL`.
+
+**Fix.** Clear every sample inside the proof's own transaction, which is rolled
+back like every other write in the file (`claude_usage_samples` carries no
+triggers — checked before the change, and the 585 real rows were counted again
+after). Then A0, which asserts the premise instead of asserting it in prose:
+after a probe call there is exactly one sample in the table and it is the
+probe's.
+
+**A0 needed a second pass, and that is its own lesson.** Written as one
+statement — `... from (select pg_temp.week_left(5)) warm` — it reported `585
+rows, probe=none`. A volatile function's writes are not visible to the rest of
+the statement that called it, so the count saw the table as it stood *before*
+the delete. A control that measures the wrong instant is not a control. The
+warm-up call is now its own statement.
+
+Falsified by restoring the scoped delete: A0, A2 and A4 all go red together.
+
+**Where it lives now.** `tools/claude0167-monitoring-switch.sql` — the delete,
+the ⚠️ paragraph on the instrument, and §A0.
+
+**The general rule.** This file already carries *"its SCENARIO needs live
+geometry that RAN OUT"* — two rail proofs that searched the remainder of the
+quota week for a slot and errored once the week was nearly over. This is the
+same class from the other side: **a scenario can depend on the ABSENCE of
+something just as silently as on the presence of it**, and absence is the harder
+one to notice, because the proof is green while the system is broken and goes
+red when the system recovers. Ask of every proof: *what is this quietly assuming
+the environment will not do?* Here the answer was "write a row", which is the
+one thing the feature exists to do.
+
+And the tell was in the comment all along. **A comment that says a thing is true
+"by construction rather than by hoping" is a claim, and a claim in a comment is
+the shape this repo keeps paying for.** If it is by construction, the
+construction can assert it — that is what A0 is.

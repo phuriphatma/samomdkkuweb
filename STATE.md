@@ -40,7 +40,15 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `543a025` (2026-08-25)** — the Claude measurement switch
+- ✅ **DEPLOYED = `e42ce80` (2026-08-26)** — the boot watchdog and its
+  extension diagnostic. **Verified 2026-08-26 from the SERVED HTML on BOTH
+  entries** (`/` and `/admin/`): `data-samo="boot"` ✓ `data-samo="redirect"` ✓
+  `ส่วนขยาย (extension)` ✓ `not ours:` ✓. Everything after it is docs-only.
+  ⚠️ **This line said `543a025` for a day while prod was two deploys ahead.**
+  The deploy happened; recording it did not. Grep the served artifact before
+  believing this line in either direction — a stale sha here reads exactly like
+  "there is a deploy owed" and costs somebody 90 s and a VPN session.
+- Previous deploy = `543a025` (2026-08-25) — the Claude measurement switch
   (0167), the restored ผังสายงาน view, the proof repairs and the timer fix.
   VM HEAD confirmed over ssh, `DEPLOY_EXIT=0`, deployed twice that day.
   Verified from the SERVED artifacts, and note WHICH ones: the org chart is in
@@ -53,10 +61,19 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   views styled). `samo-notify` restarted, so the @here removal is LIVE — its one
   remaining `@here` in `_discord.js` is inside the explanatory comment, checked.
   **`git diff --stat 543a025..HEAD -- src/ ':!src/**/*.test.js'` is EMPTY.**
-- ✅ **ALL 23 LIVE PROOFS GREEN** (2026-08-25), first time in over a week.
-- **Prod runtime state**: Claude measurement is **OFF** with a reason, the VM
-  timer is **enabled and firing** every 15 min, and each tick makes **zero**
-  calls to Anthropic. See "What is owed" for how to turn it back on.
+- ✅ **ALL 23 LIVE PROOFS GREEN** (re-run 2026-08-26, after `claude0167`'s
+  instrument was fixed — see below). **1309 tests. Migrations through 0168.**
+- **Prod runtime state**: Claude measurement is **ON again since 2026-08-25
+  17:18 UTC**, switched on from `/admin#claude` by Phuriphat (the trigger
+  stamped them, so the board shows a name this time). Samples resumed 17:20 and
+  have run every 15 min since — **40 in the last 24 h**, newest 12 min old when
+  measured 2026-08-26. The subscription question is settled; `claude login` on
+  the VM evidently held.
+  ⚠️ **`monitoring_note` still carries the OLD pause reason** ("ยังไม่ได้
+  ต่ออายุ Claude…"). Harmless — `paintMeasured` renders the note only inside
+  `if (!mon.enabled)`, so nobody sees it while measurement is on, and the
+  monitor-on Discord notice uses it as "why it HAD been paused", which reads
+  correctly. Checked, not assumed. Do not "fix" it into a blank.
 - Previous deploy `7dbc153` (2026-08-19), VM HEAD confirmed over ssh.
   Verified from the served `/admin/` HTML: the new hint `ควรใช้งานและ` = 1 and
   the REMOVED `ไม่ได้เลือกให้อัตโนมัติ` = **0**; `userSet` and `masterAuto` both
@@ -476,27 +493,78 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
 
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is owed on `/team`
-> — the ⛳ third org-chart view shipped. Migrations through **0167** (applied
-> 2026-08-25). **1306 tests green. ALL 23 LIVE PROOFS GREEN** — first clean
-> sweep in over a week.
+> — the ⛳ third org-chart view shipped. Migrations through **0168** (applied
+> 2026-08-26). **1309 tests green. ALL 23 LIVE PROOFS GREEN.**
+> **Prod = `e42ce80`, confirmed from the served HTML, not from this line.**
 >
-> ### WHAT PROD IS DOING RIGHT NOW (read before touching anything Claude-related)
+> ### WHAT PROD IS DOING RIGHT NOW
 >
-> - **Claude usage measurement is switched OFF**, deliberately, with the reason
->   *"ยังไม่ได้ต่ออายุ Claude…"* on the board. The VM timer IS enabled and firing
->   every 15 min; each tick reads the switch, logs `· ปิดการติดตามอยู่ …` and
->   exits 0 having called Anthropic **zero** times.
-> - **TO TURN IT BACK ON when the subscription is renewed** — in this order:
->   1. `ssh samo-vm` → `claude login` (the refresh token WILL have expired; a
->      paused reporter deliberately does not rotate it),
->   2. then flip it on at `/admin#claude`, which posts the Discord notice with
->      the person's name on it.
-> - **`monitoring_changed_by` is NULL** because the first pause was set
->   server-side, so the board says "หยุดไปแล้ว N" instead of a name. The owner
->   re-setting it from the UI stamps themselves. This is not a bug.
-> - **No Discord message was ever sent for that pause** — it was set with SQL,
->   not through the UI, and posting to a student channel was not mine to do
->   unasked. Offer it, or just toggle in the UI.
+> - **Claude usage measurement is ON.** The owner switched it back on from
+>   `/admin#claude` on 2026-08-25 17:18 UTC; the timer wrote its first sample at
+>   17:20 and has run every 15 minutes since. ⚠️ **The previous version of this
+>   block said measurement was switched OFF, with a whole procedure for turning
+>   it back on. It had already been done.** Ask the DATABASE what the switch says
+>   before repeating a runtime claim out of this file — `select
+>   monitoring_enabled, monitoring_changed_at from public.claude_settings`.
+> - `monitoring_note` still holds the old pause reason. Not shown while
+>   measurement is on (checked in `paintMeasured`), and used correctly by the
+>   monitor-on Discord notice as "why it had been paused". Leave it.
+> - **`claude_bookings` is still EMPTY** — deployed, granted to 146 accounts
+>   plus every master holder, and unused.
+>
+> ### 2026-08-26 — the PR desk rule, and a proof that was reading the weather
+>
+> **ASKED**: *"who has PR permission, including the master in the admin teamsamo
+> should be able to do anything add edit delete etc of the pr"*.
+>
+> - ✅ **It already worked, and that was MEASURED, not read off the code.** A
+>   real `master` holder with no `pr` key and no staff role was walked through
+>   add / see-others' / edit / delete / the ลบ RPC against a live ticket inside a
+>   rolled-back transaction — all five allowed. Same five for a permission-only
+>   holder. The front end has exactly ONE PR gate and `pr-staff.js` contains no
+>   role check at all. **Answer a "can X do Y" question by making X try Y.**
+> - **0168 — the rule is now ONE predicate**, `current_user_can_manage_pr()`.
+>   `docs/NEXT.md` §0d asked for the delete PAIR; `pg_policy` said FOUR —
+>   `pr_tickets_read`'s third branch, `_update_staff`, `_delete_staff` and the
+>   RPC. **Read the catalog before believing a note's count.** Naming it after
+>   DELETE would have left three copies under a name that lied.
+> - **A latent divergence closed on the way past**: the RPC's `if v_role is null
+>   or not (...)` REFUSED a null-role caller the policy ALLOWED. Unreachable
+>   (`users.role` is NOT NULL, 0 null rows, and no users row also means no
+>   permission — all three measured), so it is settled in the POLICY's direction
+>   with a `coalesce`, making fail-closed a property of the predicate instead of
+>   a branch each caller has to remember.
+> - ⚠️ **THE CLEANUP NEARLY COST A GUARD ITS EYESIGHT — this is the transferable
+>   part.** Moving the decision into a shared predicate moved it out of the body
+>   `definer-authz.test.js` reads, so that sweep would have skipped
+>   `soft_delete_pr_ticket` at "it decides some other way": green, and blind. It
+>   now follows one level of helper calls, with a control measuring raw vs
+>   expanded so the expansion cannot silently stop. **When you extract a
+>   predicate, check what was WATCHING the thing you extracted.**
+> - `tools/pr0149-delete-permission.sql` went 13 cases → **25**. §A/§B/§C cover
+>   read and update too; §D is STRUCTURAL, because behaviour alone cannot see a
+>   fourth copy — four identical copies agree perfectly right up until one is
+>   edited. §D failed 5/5 against the pre-0168 database. D3–D5 report `MISSING`
+>   rather than raising: "the predicate was deleted" is the regression §D exists
+>   for, so it must be a loud FAIL and not a stack trace.
+> - 🔴 **`claude0167` went red 15 minutes after the app started working again,
+>   and the INSTRUMENT was wrong, not the code.** `week_left()` deleted `where
+>   raw->>'proof' = 'claude0167'` — its own rows — while its comment claimed it
+>   cleared the real ones "by construction rather than by hoping".
+>   `claude_latest_sample()` takes the newest row and THEN tests its age, so once
+>   real samples resumed, a 12-minute-old real one answered instead of the
+>   deliberately 600-minute-old probe row. **It was green only because the
+>   reporter was PAUSED.** Fixed by clearing every sample inside the proof's own
+>   rolled-back transaction (no triggers on that table, checked; 585 real rows
+>   counted again after), plus §A0 asserting the premise.
+>   📌 **A scenario can depend on an ABSENCE as silently as on a presence — and
+>   that one is worse, because the proof is green while the system is broken and
+>   goes red when it recovers.** Ask what a proof assumes the environment will
+>   NOT do. **"By construction" in a COMMENT is the tell; the construction can
+>   assert it.** Write-up in `docs/mistakes/tooling-proofs.md`.
+> - §A0 needed a second pass: written as one statement it read the table BEFORE
+>   its own volatile function's delete. A control that measures the wrong instant
+>   is not a control.
 >
 > ### NOTHING IS OWED TO A HUMAN — corrected 2026-08-26
 >
@@ -795,60 +863,21 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > WHAT changed before spending 90 s on a deploy — a comment-only diff has
 > caught two readers now.
 >
-> ### Older, still true
+> ### Older — pruned 2026-08-26, and one line of it was actively WRONG
 >
-> (Previous deploy was `7dbc153`, 2026-08-19.) That entry read: confirm with
-> `git diff --stat 7dbc153..HEAD -- src/ ':!src/**/*.test.js'`, empty = the
-> served bundle is current, and it IS empty. (Ask about `src/` ALONE: adding
-> `supabase/` lists the 0166 migration, whose header comment was corrected after
-> it was already applied, and an applied migration cannot make a bundle stale.)
-> Migrations through **0166** (none added since); **1217 tests green**.
+> A 54-line block sat here carrying: the `7dbc153` deploy, "migrations through
+> 0166", "1217 tests", the `claude0157` / `claude0161` diagnosis (fixed
+> 2026-08-25, written up in `docs/mistakes/tooling-proofs.md`), and the same
+> diagnosis a second time in a garbled HISTORICAL paragraph.
 >
-> ✅ **ALL 23 PROOFS GREEN (2026-08-25)** — including `claude0167`, new this
-> session. The `claude0157` / `claude0161` reds below are FIXED; the paragraph
-> is kept because its diagnosis was right and the reasoning is what makes the
-> failure findable again. **What was actually wrong, and it took three fixes:**
-> (1) both scenarios searched the REMAINDER of the live quota week for a slot,
-> so late in a week the search returned nothing and the insert died on
-> `23502` — an ERROR, not a failure, which is silence. They now MOVE the week
-> (`claude_settings.week_reset_dow`/`time`, inside the rolled-back transaction)
-> instead of hoping the calendar cooperates, and an empty search now FAILS
-> loudly. (2) `claude0157` B4 got the second synthetic booking this file has
-> been asking for since 2026-08-18: with one booking the bands ran
-> `48 → 48 → 50 → 50 → 100`, monotonically non-decreasing, so no deadline could
-> step DOWN and B4 was correctly refusing to pass vacuously. (3) That new
-> scenario then found a REAL thing: where a window RESET and a DEADLINE
-> coincide, the instant is worth MORE than both neighbouring bands (100 against
-> 50 and 20), because a session begun exactly there ends exactly as the next
-> booking opens. B1 asserted EQUALITY with the earlier band and is now `>=`;
-> B1b pins the coincident case. **The rail under-reports at that instant and
-> that is accepted** — no band can carry an isolated point, and the error is in
-> the safe direction. Write-up in `docs/mistakes/tooling-proofs.md`.
->
-> ⚠️ **(HISTORICAL — the diagnosis that was right.)** It once said one red
-> (`claude0157` B4, environmental).** It claimed one red (`claude0157` B4, environmental). Measured
-> 2026-08-19 03:12 UTC: `claude0157` AND `claude0161` both **ERROR**, not fail —
-> `HTTP 400 … 23502: null value in column "starts_at"`. Cause: each searches
-> LIVE booking geometry for a 5-hour candidate slot, and the run happened
-> 5h48m before the weekly reset (`claude_week_start()` = 08-12 09:00 UTC,
-> week_end = **08-19 09:00 UTC**) with **0 active bookings**, so the search
-> returned NULL and the insert hit a NOT NULL constraint. **They should go green
-> on their own after the reset.** Nothing in this session touched SQL or the
-> Claude module, so this is not a regression — but it IS the documented
-> "a proof that ERRORS is not a proof that fails" class, now on TWO proofs.
-> **The owed fix (still not done): make both scenarios self-contained with a
-> synthetic booking instead of searching live geometry — and do NOT tune them
-> to merely pass.**
->
-> ⚠️ **`.claude/rules/mistakes.md` is at 29999 / 30000 and the budget counts
-> UTF-8 BYTES.** The next entry CANNOT be added without compressing first. Thai
-> is 3 bytes/char, so trimming English words frees far less than it looks — the
-> 2026-08-18 pass shaved ~15 lines of prose to buy ~700 bytes. `tools/
-> check-context-budget.mjs` now SAYS "bytes" (it said "chars" until that session
-> misled itself for twenty minutes). The next pass should move a whole class's
-> examples into `docs/mistakes/` rather than shaving words; several class
-> sentences now merely restate an entry the index already carries.
->
+> 🔴 **It also said `.claude/rules/mistakes.md` is at 29999 / 30000 bytes and
+> "the next entry CANNOT be added without compressing first". That has been
+> false since the 2026-08-25 restructure moved the index out — it is 16,712 of
+> 30,000 (56%).** A warning that has stopped being true costs a session real
+> time before it is disbelieved, and this one was written to be believed. When
+> a block here becomes history, DELETE it; `git log` and `docs/mistakes/` are
+> the archive, and a stale number is worse than no number.
+
 > ### 2026-08-18 → 08-19 — `master` and the หนังสือโครงการ seat (ONE thread)
 >
 > **REPORTED**: "when i select permission as master, i cant select sub of the
@@ -1100,24 +1129,18 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >
 > ### What is owed
 >
-> - ✅ **THE REPORTER IS RUNNING AGAIN AND IS SWITCHED OFF — done 2026-08-25.**
->   `monitoring_enabled = false` with the reason *"ยังไม่ได้ต่ออายุ Claude — ปิด
->   การติดตามไว้ก่อน…"*. Verified live on the VM: the timer fires on its own
->   (16:19:44 UTC), the tick prints `· ปิดการติดตามอยู่ … no call was made to
->   the Claude API`, and the next run is chained 15 minutes out. `monitoring_
->   changed_by` is NULL because the pause was set server-side, so the board
->   shows "หยุดไปแล้ว N" rather than a name — the owner re-setting it from
->   `/admin#claude` will stamp themselves.
->   ⚠️ **A LATENT BUG WAS FOUND DOING THIS AND IS FIXED**: the timer's only
->   triggers were `OnBootSec` + `OnUnitActiveSec`, so `systemctl enable --now`
->   after a multi-day `disable` reported `enabled` + `active` and scheduled
->   **infinity** — it would never have fired. `OnActiveSec=1min` added. **The
->   fixed unit is INSTALLED on the VM by hand** (`/etc/systemd/system/`), which
->   `server/deploy.sh` does not touch; a rebuilt VM takes it from
->   `server/setup.sh`. Write-up in `docs/mistakes/deploy-hosting.md`.
->   **WHEN THE SUBSCRIPTION IS RENEWED**: `claude login` on the VM first (the
->   refresh token will have expired — a paused reporter deliberately does not
->   rotate it), THEN flip the switch on at `/admin#claude`.
+> - ✅ **MEASUREMENT IS ON AND NOTHING IS OWED HERE — 2026-08-25 17:18 UTC.**
+>   The owner flipped it on from `/admin#claude`; the trigger stamped them, the
+>   timer wrote its first sample two minutes later, and it has run every 15 min
+>   since (40 samples in the 24 h to 2026-08-26). The `claude login` this file
+>   warned would be needed evidently held.
+>   ⚠️ **The latent timer bug found on 2026-08-25 is still only fixed BY HAND on
+>   the VM** (`OnActiveSec=1min` added in `/etc/systemd/system/`, which
+>   `server/deploy.sh` does not touch). A rebuilt VM takes it from
+>   `server/setup.sh`. Without it, `systemctl enable --now` after a multi-day
+>   `disable` reports `enabled` + `active` and schedules **infinity**. Read `NEXT`
+>   from `list-timers`, never the `enabled` word. Write-up in
+>   `docs/mistakes/deploy-hosting.md`.
 > - ✅ **NOT OWED — the two named people were never locked out.** `sastaff` /
 >   `saprof` were deleted 2026-08-18 as intended. **Worapong
 >   (`woratho@kku.ac.th`, seat `staff`) and Prakasit (`prakasa@kku.ac.th`, seat
