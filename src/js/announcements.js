@@ -319,7 +319,8 @@ export async function publishAnnouncement() {
         prefer: 'return=representation',
       });
       if (!result.error && (!Array.isArray(result.data) || result.data.length === 0)) {
-        throw new Error('อัปเดตไม่สำเร็จ — ไม่พบประกาศ id=' + editingAnnouncementId + ' หรือคุณไม่มีสิทธิ์แก้ไข (ต้องเป็น pr_staff หรือ dev)');
+        throw new Error('อัปเดตไม่สำเร็จ — ไม่พบประกาศนี้ หรือบัญชีของคุณไม่มีสิทธิ์ “เขียนประกาศ” (id='
+          + editingAnnouncementId + ')');
       }
     } else {
       result = await writeWithExcerptFallback('/announcements', {
@@ -404,7 +405,7 @@ export async function deleteAnnouncement(targetId) {
     return false;
   }
   if (!Array.isArray(data) || data.length === 0) {
-    alert('ลบไม่สำเร็จ — ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ (ต้องเป็น pr_staff / dev หรือสิทธิ์ creator)');
+    alert('ลบไม่สำเร็จ — ไม่พบประกาศนี้ หรือบัญชีของคุณไม่มีสิทธิ์ “เขียนประกาศ”');
     return false;
   }
 
@@ -508,7 +509,7 @@ export async function togglePinAnnouncement(targetId) {
     );
     if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
     if (!Array.isArray(data) || data.length === 0) {
-      throw new Error('ไม่พบประกาศ หรือคุณไม่มีสิทธิ์ (ต้องเป็น pr_staff หรือ dev)');
+      throw new Error('ไม่พบประกาศนี้ หรือบัญชีของคุณไม่มีสิทธิ์ “เขียนประกาศ”');
     }
   } catch (e) {
     alert('ปักหมุดไม่สำเร็จ: ' + (e.message || e));
@@ -825,9 +826,19 @@ function renderNewsCard(post) {
  *   options.isPreview — when true, suppresses the staff edit/delete
  *     action row and the loading state (everything is local).
  *
- * Quill-produced post.content is intentionally rendered raw (trusted —
- * only pr_staff / dev can publish). title / department / excerpt are
- * plain text and run through escHtml.
+ * Quill-produced post.content is intentionally rendered raw. WHO that trusts
+ * is a security boundary, so state it accurately: `announcements_write` is
+ * `current_user_role() in ('pr_staff','dev') OR
+ * current_user_has_permission('creator')`. The permission channel is the live
+ * one — a ทีม SAMO node grants it as **เขียนประกาศ**, and `master` answers yes
+ * to it — so the set that can publish raw HTML here is LARGER than two staff
+ * roles and grows whenever someone is granted เขียนประกาศ.
+ *
+ * It is still a GRANTED set, never self-service: probed live 2026-08-26, a
+ * creator-permission holder and a master holder can insert / update / delete,
+ * and an account with neither is refused all three.
+ *
+ * title / department / excerpt are plain text and run through escHtml.
  */
 export function renderArticleView(post, { isPreview = false } = {}) {
   if (!post) return '';
