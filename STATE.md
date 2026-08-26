@@ -78,8 +78,13 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 - **Prod runtime state**: Claude measurement is **ON again since 2026-08-25
   17:18 UTC**, switched on from `/admin#claude` by Phuriphat (the trigger
   stamped them, so the board shows a name this time). Samples resumed 17:20 and
-  have run every 15 min since — **40 in the last 24 h**, newest 12 min old when
-  measured 2026-08-26. The subscription question is settled; `claude login` on
+  have run every 15 min since. **Do not quote a sample count from this file —
+  ask the database** (`select monitoring_enabled from public.claude_settings`,
+  and `select max(sampled_at), count(*) from public.claude_usage_samples where
+  sampled_at > now() - interval '24 hours'`). Re-verified 2026-08-26 late: ON,
+  newest sample 13 minutes old, 90 in the last 24 h — the steady rate for a
+  15-minute timer, and the "40" this line used to carry was a mid-day reading
+  that read like a half-broken reporter. The subscription question is settled; `claude login` on
   the VM evidently held.
   ⚠️ **`monitoring_note` still carries the OLD pause reason** ("ยังไม่ได้
   ต่ออายุ Claude…"). Harmless — `paintMeasured` renders the note only inside
@@ -1154,8 +1159,9 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - ✅ **MEASUREMENT IS ON AND NOTHING IS OWED HERE — 2026-08-25 17:18 UTC.**
 >   The owner flipped it on from `/admin#claude`; the trigger stamped them, the
 >   timer wrote its first sample two minutes later, and it has run every 15 min
->   since (40 samples in the 24 h to 2026-08-26). The `claude login` this file
->   warned would be needed evidently held.
+>   since — re-verified 2026-08-26 late at the steady 15-minute rate. The
+>   `claude login` this file warned would be needed evidently held. **Ask the
+>   database for the count; this file must not carry one.**
 >   ⚠️ **The latent timer bug found on 2026-08-25 is still only fixed BY HAND on
 >   the VM** (`OnActiveSec=1min` added in `/etc/systemd/system/`, which
 >   `server/deploy.sh` does not touch). A rebuilt VM takes it from
@@ -1171,11 +1177,13 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   repeated the claim. **Reason about the LIVE channel (the seat), not the
 >   credential that was removed.**
 > - ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
->   2026-08-26: **153** accounts carry the `claude` key in `permissions` /
+>   2026-08-26: **~154** accounts carry the `claude` key in `permissions` /
 >   `managed_permissions`, plus **42** `master` holders who answer yes to every
->   key. ⚠️ **These were 146 and 41 eight days earlier — the owner edits the tree,
->   so treat any head-count in this file as a METHOD, not a fact, and re-run it
->   before quoting it.**
+>   key. ⚠️ **These were 146 and 41 eight days earlier, and the `claude` count
+>   moved 153 → 154 within a single day — the owner edits the tree, so treat
+>   every head-count here as a METHOD, not a fact.** The method:
+>   `select count(*) from public.users where 'claude' = any(permissions) or
+>   'claude' = any(managed_permissions);`
 >   What is still true is that **`claude_bookings` is EMPTY** — the feature is
 >   deployed, granted and unused. ⚠️ **This bullet used to add "that is also why
 >   `claude0157` B4 is red". It is NOT red** — 0157 was made self-contained on
