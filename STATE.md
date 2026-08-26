@@ -490,12 +490,32 @@ deploy is archive material — the `## 2026-08-17 — archived` block and the
 per-deploy verification logs for anything before `68d08ea` are the obvious
 first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
-## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-20)
+## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-26)
 
+> 🚚 **A DEPLOY IS OWED — do this first.** `src/js/announcements.js` changed
+> after the served bundle was built, so the corrected ประกาศ refusal text is in
+> `main` and NOT on the site. Nothing is broken without it; the old text simply
+> names a role that stopped being the rule. Needs VPN —
+> `skills/deploy-vm.md`, ~90 s. Confirm with (EMPTY = prod current):
+>
+> ```bash
+> git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+> ```
+>
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is owed on `/team`
 > — the ⛳ third org-chart view shipped. Migrations through **0168** (applied
-> 2026-08-26). **1309 tests green. ALL 23 LIVE PROOFS GREEN.**
-> **Prod = `e42ce80`, confirmed from the served HTML, not from this line.**
+> 2026-08-26). **1312 tests green. ALL 23 LIVE PROOFS GREEN.**
+> **Prod = `e42ce80` + this one file behind**, confirmed from the served HTML,
+> not from this line.
+>
+> ### ⏸ TWO DECISIONS PARKED WITH THE OWNER — "i'll decide later"
+>
+> Do NOT build either of these unprompted; both were offered and explicitly
+> deferred on 2026-08-26.
+>
+> 1. **The boot bar's first-failure branch** (the Stay finding below). One
+>    contained change, ~15 min with a falsified test.
+> 2. **The ประกาศ deploy** above — they may want it batched with other work.
 >
 > ### WHAT PROD IS DOING RIGHT NOW
 >
@@ -580,6 +600,78 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > out when the access comes from the SEAT — which is what this app has been
 > built around since the purge. Before writing that somebody is locked out, ask
 > which channel actually grants them access today, not which one disappeared.
+>
+> ### 2026-08-26 — ประกาศ refusals named a role that had stopped being the rule
+>
+> **ASKED**: *"whoever got the เขียนประกาศ permission in admin teamsamo or master
+> can use it"* — then: fix the wording.
+>
+> - ✅ **The permission works, MEASURED not read.** A `creator` holder (no
+>   master, no staff role) and a `master` holder (no creator key, no staff role)
+>   can each INSERT / UPDATE / DELETE an announcement; an account with neither is
+>   refused all three. 11/11 in a rolled-back transaction.
+>   ⚠️ **The first run reported `ERROR 23502` on both INSERT cases and that was
+>   the PROBE's fault** — `announcements` has three NOT NULL columns with no
+>   default (`title`, `content`, `department`) and it supplied two. An ERROR is
+>   not a failure; check your own instrument before reporting a red.
+> - **Three strings said "ต้องเป็น pr_staff หรือ dev".** True when written, false
+>   since 0014 taught `announcements_write` the `creator` permission — which a
+>   ทีม SAMO node grants as เขียนประกาศ and `master` answers yes to. They now
+>   name the permission the way the admin UI names it.
+>   📌 **WHY IT SURVIVED 154 MIGRATIONS: a refusal message is only ever shown to
+>   somebody who has already failed, and a person who is refused rarely reports
+>   the WORDING of the refusal.** Copy that restates an authorization rule drifts
+>   with no symptom at all. Treat every such sentence as a second implementation.
+> - **The security comment above `renderArticleView` justified rendering Quill
+>   content raw with "only pr_staff / dev can publish".** That sentence describes
+>   who may inject raw HTML into a PUBLIC page, so it is worth being right: the
+>   set is larger than two roles and grows with every เขียนประกาศ grant. Still a
+>   GRANTED set, never self-service — probed.
+> - **New ratchet `src/js/ui-copy-roles.test.js`**: a string literal containing
+>   Thai may not contain a raw role identifier (`pr_staff`, `vs_staff`,
+>   `shop_admin`, `vp_admin`, `uni_staff`, `sa_prof`). Falsified by restoring the
+>   old wording. It carries its own controls — it must FIND a planted violation,
+>   must NOT be satisfied by the same sentence in a comment, and must still see
+>   300+ Thai strings, so a broken literal pattern cannot make it pass by finding
+>   nothing. Comments stripped with `strip-comments.js`, never a fresh regex.
+>
+> ### 2026-08-26 — the iPad/Stay investigation, CLOSED as not-our-bug
+>
+> Scrutinized on request. **Conclusion: there is nothing in this repo to fix,
+> and the culprit is probably one of the OWNER'S OWN userscripts.**
+>
+> - **Stay is a userscript MANAGER** (Tampermonkey/Violentmonkey-compatible,
+>   `github.com/shenruisi/Stay`), not a content blocker. It runs scripts the
+>   owner installed. So the five injected scripts are Stay's runtime plus
+>   userscripts, and the one with the syntax error is most likely a userscript
+>   matching every site. **The fix is to find that one script in Stay's list —
+>   not to abandon the extension.** Told to the owner; they will decide.
+> - **Re-verified this session, so nobody re-does it:** `foreignScripts()` reads
+>   **0** on BOTH served pages (`/` = 5 scripts, `/admin/` = 7) — no false
+>   positive waiting to happen. **No CSP header is sent**, so "our own header
+>   blocked it" is dead. `script failed:` fires only from the module element's
+>   own error event, so our module really did fail — it is not a misattributed
+>   window error.
+>   ⚠️ **Count the page's scripts with an HTML PARSER, never a regex.** Mine
+>   matched a `<script>` inside an HTML COMMENT and reported a false positive —
+>   the same trap the write-up already records, walked into again one day later.
+> - ❌ **WHY our module died is NOT established and probably cannot be.** Two
+>   readings fit the evidence equally (the broken script prevented the load / both
+>   are symptoms of the extension's own startup aborting), and WebKit masks
+>   extension code at `webkit-masked-url://hidden/` on purpose. **Three
+>   over-confident diagnoses were already given on this bug. Do not add a
+>   fourth** — say "not established" and stop.
+> - 📌 **THE ONE REAL FINDING IN OUR CODE, offered and PARKED**: on the FIRST
+>   failure the bar offers only โหลดใหม่, and the extension message appears only
+>   once `_r=` is in the URL. But `foreignScripts()` is computable on the first
+>   pass, and a reload cannot help when an extension re-injects on every
+>   navigation — so the person who most needs the answer gets it last. Fix is to
+>   ADD the extension line beside the retry button on the first failure, **not
+>   replace it**: a legitimate ad blocker plus flaky wifi is a real combination
+>   and must not be blamed on the extension.
+> - **Not a problem, checked**: the watchdog is 202 lines duplicated VERBATIM in
+>   both entry HTMLs, but `boot-watchdog.test.js` runs every assertion over both
+>   files, so they cannot silently diverge.
 >
 > ### 2026-08-25 (late) — the page could be DEAD AND ANIMATED at the same time
 >
@@ -878,70 +970,26 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > a block here becomes history, DELETE it; `git log` and `docs/mistakes/` are
 > the archive, and a stale number is worse than no number.
 
-> ### 2026-08-18 → 08-19 — `master` and the หนังสือโครงการ seat (ONE thread)
+> ### 2026-08-18 → 08-19 — `master` and the หนังสือโครงการ seat
 >
-> **REPORTED**: "when i select permission as master, i cant select sub of the
-> หนังสือโครงการ as ผู้ส่งหนังสือ … so my friend has to tick manually like 7
-> tickcheckbox." Full write-up in `docs/mistakes/authz-grants.md`. Shipped over
-> five commits and **reversed once**; this block is the CURRENT state.
+> **Pruned 2026-08-26.** It was 65 lines and said in its own first line that the
+> full write-up is in `docs/mistakes/authz-grants.md`; the LIVE rule is also
+> stated at length under CURRENT DEPLOY. Three copies of one thread is what this
+> file keeps growing on. What survives, because neither is written down
+> elsewhere as a rule:
 >
-> - **`master` erased the seat, and the seat is an IDENTITY, not a scope.**
->   VS แผนก and Passport ฝ่าย have a widest value and master IS it — correctly
->   nulled. `vpa`/`staff`/`prof` are three DESKS in one transaction; "all three"
->   is not a desk, so nulling meant NOBODY. **Do not "simplify" this back into
->   one rule** — `readPermInputs` treats the three sub-controls differently on
->   purpose, and `master-seat.test.js` will go red if you do.
-> - **Measured before the fix: 41 masters, 36 with no seat and no role.** All 36
->   opened หนังสือโครงการ onto a blank pane; the 5 that worked had inherited
->   `vpa` from a parent ตำแหน่ง, which is why it looked intermittent.
-> - ✅ **CURRENT: BOTH editors (บุคคล and ตำแหน่ง) auto-fill ผู้ส่งหนังสือ under
->   master and STORE it.** Clearing works — any human touch on the seat select,
->   including choosing "— เลือกบทบาท —", sets `dataset.userSet`, which blocks the
->   refill; `resetMasterState` clears it between rows.
-> - ❌ **The one-day asymmetry (ตำแหน่ง did NOT auto-fill) was WRONG, and the
->   reason it was wrong is the lesson.** It rested on "57 people would be
->   notified". That number counted RECIPIENTS without checking what the recipient
->   list drives. `notifyVpAdmin` fires ONE `queueDiscord` to ONE webhook
->   **outside** the loop, and email goes to `settings.uni_staff_email` /
->   `prof_email`, fixed addresses — extra recipients add **zero** of either. The
->   loop only writes in-app rows, fire-and-forget. **Open the fan-out code and
->   check WHICH channel actually loops before quoting a fan-out cost.**
-> - 📌 **What the stored seat buys differs BY SEAT.** `listProjectSeatUsers()` is
->   referenced in `notify.js` and NOWHERE else — it is the notification list, and
->   no UI renders those people as a chooser. The only pick-a-person-by-name
->   control is `listProjectProfs()` → `renderProfPicker()` in `sign.js`. So
->   `prof` = notifications + that dropdown; `vpa`/`staff` = notifications ONLY.
->   (Told the owner otherwise once and had to retract it.)
-> - **The DB asymmetry the fix mirrors**: the CALLER-scoped
->   `current_user_project_seats()` folds master; the PUBLISHED
->   `managed_project_seats` column does not. Access is implied; a listing is
->   declared.
-> - **New ratchet: `src/js/master-mirrors.test.js`.** Enumerates every SQL
->   function that special-cases `'master'` (exactly two, reconciled against the
->   live DB) and pins each to where JS says the same thing. A THIRD name is not
->   automatically a bug — it is an unanswered question. Its first version
->   over-reported `get_claude_board` by slicing "up to the next function" and
->   swallowing 0154's trailing `create policy`; it now reads the $$-quoted body.
-> - **Why the 2026-08-17 sweep missed this**: it grepped `role === 'x'` gates,
->   and `projectSeatRole` has none — it PRODUCES the role, upstream of all 28 of
->   them. And `tools/master0111-grant.mjs` was green throughout, because it asks
->   the DATABASE. A DB proof cannot see the frontend half of a mirrored rule.
-> - **A /scrutinize pass found three more, all shipped**: the modal's "สิทธิ์รวม"
->   preview was a THIRD hand-rolled chip builder that never learned the master
->   rule; VS แผนก chips understated under master; `seatFanoutCount` counted
->   members with no อีเมล (31 of 447 — no account, so no notification is
->   possible). There is now exactly ONE line in `team/index.js` that writes a
->   `team-perm-chip` span, asserted.
-> - **Security/robustness**: the four vocabulary maps are `Object.create(null)`.
->   Every reader is `MAP[key] || key`, so a permission key of `constructor`
->   returned an inherited FUNCTION that won the `||`, and `PERM_ICON` fed it
->   unescaped into a `class` attribute. Not a privilege boundary (`permissions[]`
->   is written by `team_edit` holders) but free to close; `permChip` also
->   validates the icon shape at the one unescaped interpolation.
-> - **Chips**: value-carrying first, master collapses to one chip,
->   `หนังสือโครงการ` suppressed when a seat chip already says it. Owner's
->   constraint, honoured: "i still like how current text display" — words kept,
->   icons added beside them. See [[keep-what-works-show-evidence]] in memory.
+> - ⛔ **Do NOT "simplify" `readPermInputs` back into one rule.** It treats the
+>   three หนังสือโครงการ sub-controls differently ON PURPOSE — VS แผนก and
+>   Passport ฝ่าย are SCOPES whose widest value master IS, so master correctly
+>   nulls them; `vpa`/`staff`/`prof` are three DESKS, and "all three" is not a
+>   desk, so nulling meant NOBODY. `master-seat.test.js` goes red if you do.
+> - **`src/js/master-mirrors.test.js` is a REGISTRY, not a pattern**: it
+>   enumerates every SQL function that special-cases `'master'` (exactly two,
+>   reconciled against the live DB) and pins each to where JS says the same
+>   thing. A THIRD name is not automatically a bug — it is an unanswered
+>   question. It exists because the 2026-08-17 gate sweep grepped `role === 'x'`
+>   and `projectSeatRole` has no role literal: it PRODUCES the role, upstream of
+>   all 28 gates.
 >
 > ### What the earlier 2026-08-18 session was — FOUR things
 >
@@ -1155,6 +1203,11 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   deployed, granted and unused. That is also why `claude0157` B4 is red: its
 >   control needs a stepping deadline and refuses to pass vacuously. **The first
 >   real booking turns it green.**
+> - 🚚 **THE ประกาศ DEPLOY — the only thing here a person is waiting on.**
+>   `src/js/announcements.js` is one commit ahead of the served bundle. Nothing
+>   is broken without it. `skills/deploy-vm.md`, needs VPN.
+> - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
+>   the Stay block above. Do not build it unprompted.
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
 >   Read `docs/demos/about-3d/README.md`, not a bullet.
 > - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
