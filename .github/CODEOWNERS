@@ -1,0 +1,44 @@
+# CODEOWNERS — who is automatically asked to review what.
+#
+# THERE IS DELIBERATELY NO DEFAULT OWNER LINE. A `*  @phuriphatma` rule would
+# route every pull request to one person, which is the bottleneck this file
+# exists to remove. Anything not listed here still needs one approving review
+# (branch protection), but from ANY collaborator.
+#
+# Listed here = the load-bearing surfaces, taken from the "touch zones" table in
+# CONTRIBUTING.md. Every one of them has cost this repo a real outage or a real
+# bug; the write-ups are in docs/mistakes/.
+#
+# NOTE: this file makes GitHub REQUEST a review. It only BLOCKS a merge once
+# `require_code_owner_reviews` is enabled on the branch protection rule — see
+# docs/TEAM-WORKFLOW.md §8a.
+
+# Auth, the Supabase client, and anything that talks to the database
+/src/js/auth.js        @phuriphatma
+/src/js/db.js          @phuriphatma
+
+# Notifications and uploads — wrong here is a silent production outage
+/src/js/notify.js      @phuriphatma
+/src/js/uploads.js     @phuriphatma
+
+# Schema is the source of truth for the live database
+/supabase/             @phuriphatma
+
+# Deploy plumbing, the notify service, nginx
+/server/               @phuriphatma
+
+# Apps Script — Discord webhooks live here; a redeploy hits production at once
+/appscript/            @phuriphatma
+
+# Proof scripts and migration tooling
+/tools/                @phuriphatma
+
+# CI, and this file
+/.github/              @phuriphatma
+
+# Agent context: charged to every session on the team, byte-capped
+/CLAUDE.md             @phuriphatma
+/.claude/              @phuriphatma
+
+# The handoff
+/STATE.md              @phuriphatma

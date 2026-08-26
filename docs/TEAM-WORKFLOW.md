@@ -6,9 +6,10 @@
 > `schema_migrations` table, no docs site, no `CODEOWNERS`**. Do not read any
 > sentence below as a description of something that exists.
 >
-> **The two exceptions, which DO exist**: this document, and the two subagent
-> definitions in `.claude/agents/` described in §6.2 (`mistake-finder`,
-> `db-inspector`) — those are usable now and need nothing built.
+> **The exceptions, which DO exist**: this document; the two subagent
+> definitions in `.claude/agents/` (§6.2); and `.github/CODEOWNERS` +
+> the PR and issue templates (§8a). All usable now, none of them needing
+> anything built.
 >
 > **This file is the authoritative record.** A rendered version was published as
 > an Artifact for the owner to read
@@ -27,10 +28,21 @@ go.
 PR workflow already exists and has been used.** The repo has **five `write`
 collaborators plus the owner as `admin`** (`Naphawarit`, `panascha`,
 `p4ngpond-rhael`, `ZeaHunter`, `Kita1103`), and **16 pull requests** have been
-opened, of which 9 merged — the most recent on 2026-07-11, six weeks before this
-design. Two were CLOSED unmerged and their branches are still on `origin`
-(`feat/dept-resource-cards`, `feat/mobile-auth-navbar`, both Kita1103,
-2026-06-16).
+opened, the most recent on 2026-07-11 — six weeks before this design.
+
+⚠️ **Two of them show as CLOSED rather than merged, and that is NOT lost work.**
+`#12` and `#13` (Kita1103, 2026-06-16) were **cherry-picked into
+`refactor/modular` and closed with a note saying so** — read the PR comments
+before concluding anything from the state badge. Their branches are still on
+`origin` (`feat/dept-resource-cards`, `feat/mobile-auth-navbar`) and are safe to
+delete.
+
+📌 **And the workflow this design proposes is partly a RESTORATION, not an
+invention.** `#13`'s thread carries a *"Deploying samomdkkuweb with Cloudflare
+Pages"* comment — **per-PR preview URLs used to exist on this repo** and the
+team reviewed against them. They went away with the Pages retirement, which was
+a decision about *production hosting*. Phase 3 gives back a capability this
+workflow was already built around.
 
 So the problem is **not** "introduce a workflow". It is that the existing one
 has no dev environment and no preview URL, so every change must be verified by
@@ -82,12 +94,12 @@ file is where it was designed.
 `npm run migrate:status` · `tools/dev-grants.json` · `public.schema_migrations` ·
 `VITE_ENV_NAME` · `#samo-dev-bot` · the `samo-dev` and `samo-scratch` Supabase
 projects · `samo-preview.pages.dev` · `docs/INVARIANTS.md` ·
-`docs/state/<handle>.md` · `.github/CODEOWNERS`
+`docs/state/<handle>.md`
 
 Everything else named in this file — `tools/apply-migration.mjs`,
 `tools/db-query.mjs`, `npm run proofs`, `npm run check:context`,
 `skills/deploy-vm.md`, `skills/ship-a-migration.md`, `functions/notify.js`,
-`.claude/agents/*` — **does** exist today.
+`.claude/agents/*`, `.github/CODEOWNERS` — **does** exist today.
 
 
 ---
@@ -332,12 +344,24 @@ over every `docs/state/*.md`. Give `docs/mistakes/*.md` `merge=union` in
 
 ## §7. Open unknowns — read before building
 
-**7.1 — `pg_dump` has no credential, and this blocks everything.** `.env.local`
-has `SUPABASE_ACCESS_TOKEN` (Management API — cannot `pg_dump`) and
-`PASSPORT_B_DB_URL` for the *old passport* project, but **no `SUPABASE_DB_URL`
-for the live project**. Phase 1 starts with fetching the database password from
-the dashboard, adding `SUPABASE_DB_URL`, and checking the local `pg_dump` major
-version matches the server's. Until that works, nothing downstream can be built.
+**7.1 — There is no way to dump the database from this machine today, and it
+blocks phases 1, 2 and 6.** Two separate gaps, both measured 2026-08-26:
+
+1. **No credential.** `.env.local` has `SUPABASE_ACCESS_TOKEN` (Management API —
+   it runs SQL but **cannot** `pg_dump`) and `PASSPORT_B_DB_URL` for the *old
+   passport* project. There is **no `SUPABASE_DB_URL` for the live project**.
+   Get the password from Supabase → Settings → Database.
+2. **No client tools.** `pg_dump`, `psql` and the `supabase` CLI are **all
+   absent** from this machine — `which` finds none of them. And the server is
+   **PostgreSQL 17.6** (`select version()`), so a client older than 17 will
+   refuse: `pg_dump` will not dump a server newer than itself. Install the
+   matching major version — `brew install libpq` (then link `pg_dump`/`psql`) or
+   `brew install postgresql@17` — and verify with `pg_dump --version` **before**
+   planning around it.
+
+Alternative worth trying first, since it needs no local client at all:
+`npx supabase db dump`. It is still a Postgres client under the hood, so confirm
+which version it ships.
 
 **7.2 — Do NOT replay the migration chain to create the dev schema.**
 (168 files as of 2026-08-26 — `ls supabase/migrations | wc -l`.) Nothing
@@ -415,8 +439,8 @@ Read from the GitHub API rather than assumed. **Most of phase 0 already exists**
 | PR required, 1 approval | ✅ `required_approving_review_count: 1` | — |
 | Force-push / delete blocked | ✅ both `false` | — |
 | **CI must pass before merge** | ❌ **`required_status_checks` returns 404 — NOT ENABLED** | **the single highest-value fix here.** `build.yml` runs on every PR and nothing enforces its result: a PR with 1,318 failing tests can be merged today |
-| `CODEOWNERS` | ❌ no file; `require_code_owner_reviews: false` | write it from the `CONTRIBUTING.md` touch-zone table, then enable the flag |
-| PR / issue templates | ❌ `.github/` holds only `workflows/` | add |
+| `CODEOWNERS` | ⚠️ **file written 2026-08-26**; `require_code_owner_reviews` still `false` | the file already makes GitHub REQUEST the owner's review on those paths. Enabling the flag makes it BLOCK — do that once someone confirms the path list is right |
+| PR / issue templates | ✅ **written 2026-08-26** — `pull_request_template.md`, `ISSUE_TEMPLATE/{bug,task}.md` | — |
 | Project board | ❌ | add |
 | Linear history | ❌ `required_linear_history: false` | optional — squash-merge by convention achieves it |
 
@@ -471,8 +495,9 @@ required approving review, no force-push, no deletions, `enforce_admins: false`
 (**keep that false** — it is what lets the owner push `main` directly, which is
 the normal flow here).
 
-**b. Write `.github/CODEOWNERS`** — no default owner line, or everything routes
-to the owner and the whole point is lost:
+**b. `.github/CODEOWNERS` is already written** (2026-08-26) with no default
+owner line — a `*` rule would route everything to the owner and lose the point.
+It currently reads:
 
 ```
 /src/js/auth.js      @phuriphatma
@@ -489,18 +514,23 @@ to the owner and the whole point is lost:
 /STATE.md            @phuriphatma
 ```
 
-Then set `require_code_owner_reviews: true`. Everything not listed keeps needing
-one approval from **any** collaborator — that is what stops the owner being the
-bottleneck for CSS and copy.
+Check the path list still matches reality, then set
+`require_code_owner_reviews: true` to make it blocking rather than advisory.
+Everything not listed keeps needing one approval from **any** collaborator —
+that is what stops the owner being the bottleneck for CSS and copy.
 
-**c. PR and issue templates**, then the project board.
+**c. The project board.** PR and issue templates are already written.
 
 ### Before phase 1 can start, the owner must supply one thing
 
 **The database password** (Supabase dashboard → Settings → Database) so
-`SUPABASE_DB_URL` can go in `.env.local`. The Management PAT already there
-**cannot** `pg_dump`. Also confirm the local `pg_dump` major version matches the
-server's. Until this exists, phases 1, 2 and 6 cannot begin — see §7.1.
+`SUPABASE_DB_URL` can go in `.env.local` — the Management PAT already there
+**cannot** `pg_dump`.
+
+And one thing the session can do itself while waiting: **install a PostgreSQL 17
+client.** Measured 2026-08-26, this machine has no `pg_dump`, no `psql` and no
+`supabase` CLI, and the server is 17.6 — a client older than the server refuses
+to dump. Until both exist, phases 1, 2 and 6 cannot begin (§7.1).
 
 ### What NOT to do in that session
 
