@@ -4,7 +4,7 @@ Read this when editing:
 - Anything in `supabase/migrations/`
 - Anything that crosses the frontend ↔ backend boundary
 - The auth model or RLS policies
-- The deploy / env-var story for either Cloudflare project
+- The deploy / env-var story (the KKU VM — see "One host" below)
 
 For day-to-day feature work, `CLAUDE.md` is enough.
 
@@ -13,7 +13,7 @@ For day-to-day feature work, `CLAUDE.md` is enough.
 ## Overall request flow
 
 ```
-Browser (Cloudflare Pages-hosted SPA)
+Browser (SPA served by nginx on the KKU VM)
   │
   ├─→ Supabase PostgREST (data CRUD)         ── primary read/write path
   │     ↳ public.users / pr_tickets / vs_tickets / announcements / pr_agents
@@ -29,11 +29,14 @@ Browser (Cloudflare Pages-hosted SPA)
   │     ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
   │     ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
   │
-  └─→ /notify (Cloudflare Pages Function — all Discord)
+  └─→ /notify (all Discord) — nginx proxies it to the samo-notify Node
+        service on 127.0.0.1:8787 (server/notify-server.mjs)
         ↳ notifyPROnly                    → PR-team webhook
         ↳ notifyVSOnly / notifyVSConsult  → per-dept VS webhooks
         ↳ notifyProjectDiscord            → SAMO admin webhook
-           (webhooks in Pages env vars; see functions/notify.js)
+           (webhooks in /etc/samo-notify.env on the VM. functions/notify.js is
+            the Cloudflare-Pages twin of the same handler, kept in the repo and
+            behaviourally identical — it is NOT what serves production.)
 ```
 
 GAS is intentionally minimal post-migration. Drops to 104 + 154 lines.
@@ -1204,8 +1207,12 @@ sample the board hides that strip rather than showing a zero.
 
 - **Google OAuth**: routed through Supabase's `signInWithOAuth({ provider:
   'google' })`. Browser redirects to Google → Supabase callback → app.
-  Authorized origins / redirect URIs must include both Cloudflare URLs
-  AND localhost for dev.
+  ⚠️ **Google Cloud Console only ever needs the SUPABASE callback**
+  (`https://<ref>.supabase.co/auth/v1/callback`) — the browser never talks to
+  Google directly. Where the app's own return URLs are listed is **Supabase →
+  Auth → URL Configuration**, which must include `https://samo.md.kku.ac.th`
+  and `http://localhost:5174` for dev. Any `*.pages.dev` entries still in that
+  list are leftovers from the retired host.
 - **Username/password**: synthetic email `<username>@samomdkku.app`.
   Supabase Auth treats it as an email-based account. The user only ever
   sees the username.
@@ -1253,7 +1260,7 @@ Build config on both:
   tree (`Shop/Slips/...`, `Shop/Products/...`, `Shop/QR/`) +
   the projects email (MailApp). Add a new file-upload destination by passing
   a new `folderPath` prefix to `uploadShopFile`. (Its Discord actions are now
-  dead code — Discord moved to the `/notify` Cloudflare Function.)
+  dead code — Discord moved to the `/notify` proxy.)
 - `vssound` — historically owned the per-dept Discord webhook map; that map
   now lives in the `DISCORD_VS_WEBHOOKS` Pages env var. The `.gs` is dead
   code pending its next redeploy.
@@ -1351,25 +1358,33 @@ never `DriveApp.getRootFolder()`.
 - Region: Southeast Asia (Singapore)
 - Free tier (1 GB DB + 1 GB storage — we use Drive for files instead)
 - Auth providers enabled: Email (synthetic), Google OAuth
-- URL Configuration must include both Cloudflare URLs + localhost
-- Migrations applied: `supabase/migrations/0001_initial_schema.sql` +
-  `0002_seed_staff_accounts.sql` +
-  `0003_samoshop_schema.sql` + `0004_seed_shop_admin.sql` +
-  `0005_project_tracking_schema.sql` + `0006_seed_project_accounts.sql`
+- URL Configuration must include `https://samo.md.kku.ac.th` + localhost
+- **Migrations applied: everything in `supabase/migrations/`, in order.**
+  ⚠️ This line used to enumerate `0001`–`0006` by name, and stood while the
+  directory grew past 160 files — a list that has to be edited by hand every
+  time is a list that stops being true. `ls supabase/migrations | wc -l` counts
+  them; the high-water mark that has actually been APPLIED lives in `STATE.md`
+  until the `schema_migrations` table designed in `docs/TEAM-WORKFLOW.md` §2
+  exists.
 
 ---
 
 ## Notable design decisions
 
 - **Drive for files, not Supabase Storage**: 2 TB vs 1 GB free tier.
-- **Cloudflare Pages Function for Discord** (`functions/notify.js`): ALL
-  Discord notifications (PR/VS/projects) proxy through `/notify`, not GAS.
-  Cloudflare's egress IP (vs GAS's shared IP) ≈ removes the 1015 per-IP rate
-  limit, and gives real logs. Webhook URLs are Pages env vars
-  (`DISCORD_PR_WEBHOOK`, `DISCORD_PROJECTS_WEBHOOK`, `DISCORD_VS_WEBHOOKS`
-  JSON map). Setup + rotation in `skills/cloudflare-notify-function.md`.
-  (Supabase Edge Functions were the earlier candidate but 502 in this
-  project — Cloudflare Pages Functions are the chosen path.)
+- **A dedicated `/notify` proxy for Discord, not GAS**: ALL Discord
+  notifications (PR/VS/projects) go through `/notify`. A dedicated egress IP
+  (vs GAS's shared one) removes the 1015 per-IP rate limit and gives real logs.
+  ⚠️ **In production that proxy is the `samo-notify` Node service on the KKU VM**
+  (`server/notify-server.mjs`, systemd unit `samo-notify`, nginx proxies
+  `/notify` to `127.0.0.1:8787`, webhooks in `/etc/samo-notify.env`).
+  `functions/notify.js` is the Cloudflare-Pages twin of the same handler — kept
+  because the two must stay behaviourally identical, and because a preview
+  environment would use it (`docs/TEAM-WORKFLOW.md` §5). Setup + rotation:
+  `server/setup.sh`; the Pages-era procedure is in
+  `skills/cloudflare-notify-function.md`.
+  (Supabase Edge Functions were the earlier candidate but 502'd in this
+  project.)
 - **GAS = Drive uploads + projects email only** now: the 2 TB Drive quota is
   the one thing nothing free beats, so uploads stay on GAS; Discord moved off.
 - **Raw `fetch` via `dbRest()` for hot paths**: supabase-js has been a
@@ -1506,5 +1521,9 @@ It WILL drift. Trust the code over this doc when they disagree:
 
 - Authoritative schema: `supabase/migrations/0001_initial_schema.sql`
 - Authoritative auth flow: `src/js/auth.js`
-- Authoritative deploy config: Cloudflare Pages dashboard +
-  `appscript/*.gs` deployment dropdowns
+- Authoritative deploy config: `server/deploy.sh` + `server/nginx-samo.conf` on
+  the KKU VM, plus `appscript/*.gs` deployment dropdowns.
+  ⚠️ **This line used to say "Cloudflare Pages dashboard", in the section about
+  this document going stale.** That dashboard reaches nothing — Pages is
+  retired. A doc that names the wrong authority is worse than one that names
+  none, because the reader stops looking.
