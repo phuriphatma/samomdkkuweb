@@ -1,23 +1,21 @@
 # STATE — current task & latest known state
 
-Last updated: **2026-08-18**. This is "what is true RIGHT NOW" and nothing else;
+Last updated: **2026-08-26**. This is "what is true RIGHT NOW" and nothing else;
 `git log --oneline` is the chronology and `docs/state-archive/` holds the
 reasoning. **Target is ~200 lines** — when it bloats, move narrative to the
 archive rather than trimming the invariants.
 
-⚠️ **It is ~820 and still over target.** Five prunes have been done: the
-0154–0158 narrative, the "Live proofs" PER-PROOF NARRATIVE, the duplicated
-"What is owed" blocks, the 211-line "จองโควตา Claude — READ THIS BEFORE
-TOUCHING" walk-through → `2026-08-18-claude-quota-deep-dive.md` (leaving its ⛔
-rules, 44 lines), and on 2026-08-18 the three dated 2026-08-17 sections →
-`2026-08-17-scrutinize-master-purge.md`, leaving a 20-line summary of the parts
-that are still LIVE rules. It keeps growing because each session adds rules
-that genuinely belong here.
-**The next structural pass is the NEXT-SESSION PROMPT itself**, which is now
-440 of these 820 lines. Most of it IS durable (the invariants, the settled
-decisions, the traps) — the prunable part is the per-session "what the
-2026-08-1x session was" narrative, which `git log` and the archive already
-hold. Take the OLDEST such block each time, never the invariants.
+⚠️ **It is still several times over target — `wc -l STATE.md` says how far, and
+do not write that number here; a header that carries a count is a header that
+goes stale, which this file has now done twice.** Seven prunes have been done so
+far; each one took the OLDEST per-session narrative block, verified its full
+write-up existed in `docs/mistakes/` or `docs/state-archive/`, and left behind
+only the rules that are still LIVE plus a pointer. **Take the OLDEST such block
+each time, never the invariants, and never a block whose write-up you have not
+opened.** It keeps growing because each session adds rules that genuinely belong
+here — the structural fix is the split designed in `docs/TEAM-WORKFLOW.md` §6.5
+(status here, invariants to `docs/INVARIANTS.md`, per-person session notes to
+`docs/state/<handle>.md`), which is planned and not built.
 
 **Read the `## NEXT-SESSION PROMPT` at the bottom first.** Then CURRENT DEPLOY.
 
@@ -737,74 +735,28 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   both entry HTMLs, but `boot-watchdog.test.js` runs every assertion over both
 >   files, so they cannot silently diverge.
 >
-> ### 2026-08-25 (late) — the page could be DEAD AND ANIMATED at the same time
+> ### 2026-08-25 → 08-26 — the dead-and-animated page, CLOSED (not our bug)
 >
-> **REPORTED from an iPad**: *"i press สร้างบัญชีและเข้าสู่ระบบด้วย google and
-> button do nothing, like when i click on อุปบริหาร on ฝ่าย it also do nothing
-> on safari, but on google app it works"*.
+> *(Same incident as the "2026-08-26 — the iPad/Stay investigation" block above:
+> that one is the diagnosis, this one is the bug and the watchdog it produced.)*
 >
-> - ⚠️ **"WORKS IN THE OTHER iOS BROWSER" IS NEVER EVIDENCE ABOUT THE BROWSER.**
->   Every iOS browser is WebKit, the Google app's in-app browser included. The
->   engine cannot differ; only STATE can. Disprove with a fresh context FIRST —
->   that took this from three hypotheses to one in a single run.
-> - **Cause: the entry ES module failed to fetch, and nothing said so.**
->   Bootstrap is a classic CDN `<script>`, so every `data-bs-toggle` still opens
->   its menu and the page LOOKS alive; ~90 controls in `src/html` are inline
->   `onclick="someGlobal()"` against globals the module defines, so all ninety
->   die at once with the only signal a console error nobody on an iPad sees.
-> - **Why the module goes missing**: `deploy.sh` keeps old chunks on purpose but
->   only back to the oldest deploy on disk (7 days). A tab open longer, restored
->   from a suspended tab or bfcache, re-runs an `index.html` naming a pruned
->   bundle — and `no-cache, must-revalidate` does NOT save you, because a
->   bfcache restore does not revalidate. Flaky wifi at load time is identical.
-> - ✅ **FIXED with a BOOT WATCHDOG** in both entry HTMLs — a CLASSIC script, so
->   it runs in the world where the module does not. The module sets
->   `window.__samoBooted` AFTER its imports (a module that fails to load a
->   dependency is just as dead). No report → a bar plus one button that
->   re-navigates with `?_r=<now>`. ⛔ **NOT `location.reload()`** — on iOS that
->   can re-serve the very HTML that named the missing bundle, so the fix would
->   exhibit the bug. Guarded by `boot-watchdog.test.js`, falsified three ways.
-> - **Reproduced with Playwright WebKit at iPad size against LIVE**, by 404ing
->   `assets/public-*.js`: every symptom matched and the control passed. The
->   harness is `scratchpad/disprove.mjs`-shaped — 30 lines, worth rebuilding.
-> - ⚠️ **A reader already stuck sees no bar** — their cached HTML predates it.
->   They have to close the tab or hard-refresh ONCE; after that the watchdog
->   is in their cache.
-> - 🔴 **THE WATCHDOG'S FIRST VERSION WAS ITSELF THE NEXT BUG, reported within
->   the hour**: *"even i press the โหลดใหม่ … it still show it"*. It decided
->   failure on a bare 8 s timer, so a slow-but-WORKING load tripped it
->   (reproduced: bundle delayed 11 s and allowed to arrive → booted fine, bar
->   shown anyway), and nothing could ever remove the bar. The remedy therefore
->   looked broken too. Fixed: trigger on the script `error` event or window
->   `load` (every resource settled ⇒ a module that has not reported has
->   errored), 25 s only as a backstop, and the poll keeps running so a late boot
->   DISMISSES the bar. Verified live on WebKit across normal / 11 s / 27 s / 404
->   asserting `booted === !bar`. Write-up in `docs/mistakes/frontend-ui.md`.
-> - ✅ **RESOLVED 2026-08-26: it was a Safari extension ("Stay"), not our code.**
->   The owner turned it off for the site and everything worked. Proof, from the
->   diagnostic the watchdog now produces: **five inline scripts we do not ship**
->   (~65 KB, one of them a MODULE) and a stack whose frames sit at
->   `webkit-masked-url://hidden/` — WebKit's marker for extension-injected code.
->   One of them had a syntax error; our entry module failed alongside it.
->   ⚠️ **NOTHING IN THIS REPO WAS BROKEN.** The bundle was current and 200, both
->   inline scripts and the bundle parsed clean, and a corrupt BUNDLE is blamed by
->   WebKit on the bundle (`@/assets/…:1`) — the owner's error named the DOCUMENT.
->   **The clue that cracked it was a CONTRADICTION**: the watchdog reported a
->   syntax error that would have prevented the watchdog from running. Chase that
->   shape; it is never noise.
->   📌 **The watchdog now NAMES this case for the next person** — it counts
->   scripts carrying no `data-samo` marker and no known src, and when the page is
->   dead AND carries foreign ones it says so and tells the reader to turn off
->   Content Blockers (iPad: the `aA` menu). Counter verified 0 on a clean page,
->   5 after injecting 5. ⛔ It identifies OUR scripts by an ATTRIBUTE we write,
->   never by sniffing content — the first version tested for `pages.dev` in the
->   redirect script, which contains that string ESCAPED, so a clean page reported
->   a false positive.
->   ⚠️ **Three of my own diagnoses were wrong before this one**, each stated too
->   confidently: stale cached bundle (disproved — bundle was current), the
->   watchdog's 8 s timer (that was a REAL second bug, but not this one), and a
->   lossy `split("/").pop()` that hid the filename for a whole round trip.
+> **Pruned 2026-08-26** — full write-up in `docs/mistakes/frontend-ui.md`, the
+> class in `.claude/rules/mistakes.md`, guard `boot-watchdog.test.js`.
+> **Resolution: a Safari extension ("Stay"), NOT this repo.** The bundle was
+> current and 200; three confident diagnoses were wrong before that one. The
+> live rules that survive:
 >
+> - ⛔ The retry re-navigates with `?_r=<now>`, **never `location.reload()`** —
+>   on iOS a reload can re-serve the very HTML that named the missing bundle.
+> - ⚠️ It decides failure on the script `error` event or window `load`, with
+>   25 s only as a backstop, and the poll keeps running so a late boot
+>   DISMISSES the bar. A warning that fires on the healthy case, and cannot be
+>   withdrawn, is worse than no warning. Test the slow-but-fine case.
+> - The watchdog is duplicated VERBATIM in both entry HTMLs; the test runs every
+>   assertion over both, so they cannot silently diverge.
+> - ⚠️ Count a page's scripts with an HTML PARSER, never a regex — a `<script>`
+>   inside an HTML COMMENT produced a false positive one day after the same trap
+>   was written up.
 > ### 2026-08-25 — จองโควตา Claude can be switched OFF, and a stale reading expires
 >
 > **REPORTED**: *"claude keep sending this to discord, because claude.ai hasn't
@@ -955,70 +907,24 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - `.claude/rules/mistakes.md` needed ~250 bytes of compression to fit the new
 >   entry — class 6 now says "share the ORDER, not the GEOMETRY".
 >
-> ### 2026-08-20 (scrutinize pass on the above) — `hidden` was borrowed, not owned
+> ### 2026-08-20 — `hidden` was borrowed, not owned (scrutinize pass)
 >
-> 🔴 **The blocker the review found, now fixed: NOTHING in `src/css/` made the
-> `hidden` attribute work.** The UA rule has no `!important`, so any class that
-> sets `display` beats it — and three elements on this page do (`.org-years`
-> flex, `.org-expand-all` inline-flex, `.orgc-unit-body` flex), all toggled by
-> `element.hidden =`. It worked only because Bootstrap's reboot, loaded from
-> **cdn.jsdelivr.net in index.html**, ships `[hidden]{display:none!important}`.
-> Measured with that one `<link>` blocked and nothing else changed:
-> `.orgc-unit-body[hidden]` computed `display: flex` and #orgBody went
-> **3,463px → 22,474px** — every ฝ่าย open, disclosure gone, 448 portraits live.
-> Fix: `[hidden] { display: none !important; }` at the top of `src/css/base.css`
-> (imported by BOTH entries). Re-measured with Bootstrap blocked: 3,318px. ✅
-> Guard `hidden-attribute.test.js`, falsified three ways. Write-up in
-> `docs/mistakes/frontend-ui.md`.
-> **`!important` is load-bearing**: `[hidden]` and `.orgc-unit-body` are both
-> specificity (0,1,0) and base.css is imported FIRST, so source order would hand
-> the win to org-chart.css.
+> **Pruned 2026-08-26** — write-up in `docs/mistakes/frontend-ui.md`, guard
+> `hidden-attribute.test.js`. The live rules:
 >
-> Also from that pass:
-> - `RETIRED_VIEWS` was a plain object read as `MAP[localStorage value]` — the
->   af36088 prototype bug one day later, benign here (`VIEWS.includes` rejects a
->   function) but now `Object.create(null)`.
-> - `org-chart-metrics.test.js` (new) pins `TREE_SHAPE` in org-face.js to
->   `.orgc-person > .org-face { width: 3.25rem }` — 52px, widths at 1×/2×/3×,
->   `base` = the 2× candidate, ratio 3/4. Falsified three ways.
-> - ⚠️ **`:has()` is LOAD-BEARING on this public page, and it does NOT degrade
->   gracefully.** Simulated by deleting the two `:has` rules: an open ฝ่าย keeps
->   the 12rem basis, is squeezed into a ~19rem column and becomes a tower with
->   ~700px of empty page beside it — the defect the rewrite removed. Accepted
->   (Baseline-widely-available; team.css already uses it; this page did too). If
->   it ever has to go, move the open state to an attribute the RENDERER and
+> - `[hidden] { display: none !important; }` sits at the top of
+>   `src/css/base.css`, and **the `!important` is load-bearing**: `[hidden]` and
+>   `.orgc-unit-body` are both specificity (0,1,0) and base.css is imported
+>   FIRST, so source order alone would hand the win to org-chart.css. Before it,
+>   the rule was being supplied by Bootstrap's CDN reboot — measured with that
+>   one `<link>` blocked, #orgBody went 3,463px → 22,474px.
+> - ⚠️ `:has()` is LOAD-BEARING on `/team` and does NOT degrade gracefully. If it
+>   ever has to go, move the open state to an attribute the renderer and
 >   `toggleNode` both write — do not add a silent fallback.
-> - The `.hidden`-vs-`display` hazard is NOT org-chart-only. `.org-years` and
->   `.org-expand-all` were in the same shape; the base.css rule covers every
->   current and future case, which is why the fix went there and not on three
->   selectors.
->
-> ✅ **DEPLOYED = `68d08ea` (2026-08-20)**, VM HEAD confirmed over ssh,
-> `DEPLOY_EXIT=0`. Deployed TWICE that day; the second run also carried the
-> solo-rail fix — verified in the served `public-DIvV34Fz.css`, where
-> `.orgc-seat-sub{…}` has **no `border-left`**. Verified from the SERVED artifacts — and note WHICH ones:
-> this code lands in the **public entry**, `assets/public-*.js` +
-> `assets/public-*.css`, NOT in `analytics-*.js` and NOT in `admin-*.js`.
-> Served `public-DUXCISQP.js`: `orgc-unit-btn` ✓, `ยังไม่มีสมาชิก` ✓, and the
-> REMOVED `data-org-view="list"` = **0**. Served `public-DLaz7hrf.css`:
-> `orgc-seat` ✓, `:has(` ✓, `[hidden]{display:none!important}` ✓, and the
-> REMOVED `org-tree-wrap` = **0**.
-> ⚠️ `bi-diagram-2` greps 1 in the served JS and it is **VitalSound's duplicate
-> icon** (`vs-staff.js`), not the deleted ผังองค์กร button — check WHAT matched.
-> `orderChildren` / `unitBlock` / `seatBlock` grep **0** by construction: the
-> minifier renames module-scope names. Use a CSS class or a Thai literal.
->
-> Re-check "is prod current" with — EMPTY means yes:
->
-> ```bash
-> git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js'
-> ```
->
-> Ask about `src/` ALONE. Adding `supabase/` lists applied migrations, and an
-> APPLIED migration cannot make a bundle stale. Read WHICH file it lists and
-> WHAT changed before spending 90 s on a deploy — a comment-only diff has
-> caught two readers now.
->
+> - `RETIRED_VIEWS` is `Object.create(null)` — it is read as `MAP[localStorage
+>   value]`.
+> - `org-chart-metrics.test.js` pins `TREE_SHAPE` in `org-face.js` to
+>   `.orgc-person > .org-face { width: 3.25rem }`.
 > ### Older — pruned 2026-08-26, and one line of it was actively WRONG
 >
 > A 54-line block sat here carrying: the `7dbc153` deploy, "migrations through

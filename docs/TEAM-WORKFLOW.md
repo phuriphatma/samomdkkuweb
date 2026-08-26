@@ -72,6 +72,24 @@ more than the fix:**
   theme. `fill` is inherited, so `fill="currentColor"` on the `<svg>` root fixes
   every label at once. Strokes were `currentColor`; text was forgotten.
 
+### §0b. Names this document invents — none of them exist yet
+
+If you are here because you grepped for one of these, **it is not built**; this
+file is where it was designed.
+
+`npm run dev:refresh` · `npm run dev:check` · `npm run dev:grant` ·
+`npm run dev:who` · `npm run dev:cleanup` · `npm run migrate:new` ·
+`npm run migrate:status` · `tools/dev-grants.json` · `public.schema_migrations` ·
+`VITE_ENV_NAME` · `#samo-dev-bot` · the `samo-dev` and `samo-scratch` Supabase
+projects · `samo-preview.pages.dev` · `docs/INVARIANTS.md` ·
+`docs/state/<handle>.md` · `.github/CODEOWNERS`
+
+Everything else named in this file — `tools/apply-migration.mjs`,
+`tools/db-query.mjs`, `npm run proofs`, `npm run check:context`,
+`skills/deploy-vm.md`, `skills/ship-a-migration.md`, `functions/notify.js`,
+`.claude/agents/*` — **does** exist today.
+
+
 ---
 
 ## §1. The three environments
