@@ -39,6 +39,16 @@
 // satisfy is the failure mode this repo has already paid for once —
 // confirm-modal.test.js passed with the bug present because its pattern matched
 // inside a comment.
+//
+// IT FOLLOWS ONE LEVEL OF HELPER CALLS (0168). Extracting a guard into a shared
+// predicate is the RIGHT fix for the drift class — it is what the VS side has
+// done since 0083 — but it silently moved the decision out of the body this
+// sweep reads. `soft_delete_pr_ticket` went from spelling the rule itself to
+// calling `current_user_can_manage_pr()`, and a body-only sweep would then skip
+// it at "it decides some other way": clean-looking, and blind. A cleanup must
+// not cost a guard its eyesight, so the bodies of called public functions are
+// appended before matching, and `sees through a helper` below is the control
+// that proves the expansion is actually happening.
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -108,15 +118,47 @@ function liveFunctions() {
 
 const FUNCTIONS = liveFunctions();
 
+/** Live body of every function in the schema, by name, comments already gone. */
+const BODIES = new Map(FUNCTIONS.map((f) => [f.name.toLowerCase(), stripComments(f.body)]));
+
+/**
+ * A function's body PLUS the bodies of the public functions it calls, one level
+ * deep. Appended, never substituted: this feeds two channel REGEXES, and for
+ * "is the role consulted anywhere in this decision" appending is exactly right
+ * and cannot mangle the SQL the way a textual substitution would.
+ *
+ * One level, not transitive, and deliberately so — the helpers this schema
+ * actually uses (`current_user_role`, `current_user_has_permission`,
+ * `current_user_vs_scope`, `current_user_can_manage_pr`) are all leaves over
+ * `public.users`. A cycle would loop; `name !== self` stops the only one that
+ * can occur in a single level, and a deeper chain is a shape worth noticing by
+ * hand rather than following automatically.
+ */
+function withHelpers(fn) {
+  const self = fn.name.toLowerCase();
+  const body = stripComments(fn.body);
+  const seen = new Set();
+  let out = body;
+  for (const m of body.matchAll(/(?:public\.)?([a-z0-9_]+)\s*\(/gi)) {
+    const name = m[1].toLowerCase();
+    if (name === self || seen.has(name)) continue;
+    const helper = BODIES.get(name);
+    if (!helper) continue;
+    seen.add(name);
+    out += `\n/* inlined ${name}() */ ${helper}`;
+  }
+  return out;
+}
+
 describe('SECURITY DEFINER authorization', () => {
   it('parses the migrations at all (a sweep that finds nothing must prove it looked)', () => {
     expect(FUNCTIONS.length).toBeGreaterThan(40);
     const names = FUNCTIONS.map((f) => f.name);
     expect(names).toContain('soft_delete_pr_ticket');
     expect(names).toContain('soft_delete_vs_ticket');
-    // The live body is the LAST one, not 0043's.
+    // The live body is the LAST one, not 0043's or 0149's.
     const pr = FUNCTIONS.find((f) => f.name === 'soft_delete_pr_ticket');
-    expect(pr.file).toMatch(/^0149_/);
+    expect(pr.file).toMatch(/^0168_/);
   });
 
   it('actually examines the functions that refuse people (the control)', () => {
@@ -136,7 +178,7 @@ describe('SECURITY DEFINER authorization', () => {
 
     for (const fn of FUNCTIONS) {
       const header = stripComments(fn.header);
-      const body = stripComments(fn.body);
+      const body = withHelpers(fn);                   // sees through a shared predicate
       if (!/security\s+definer/i.test(header)) continue;
       if (!body.includes('42501')) continue;          // it never refuses anyone
       if (!ROLE_CHANNEL.test(body)) continue;         // it decides some other way
@@ -158,6 +200,30 @@ describe('SECURITY DEFINER authorization', () => {
       '',
       'See docs/mistakes/authz-grants.md — the โมนา entry (0149).',
     ].join('\n')).toEqual([]);
+  });
+
+  it('sees through a helper (the control for the expansion itself)', () => {
+    // THE INSTRUMENT'S OWN GUARD. Without this, `withHelpers` could quietly
+    // stop expanding — a typo in the call regex, a rename — and the sweep would
+    // go back to reading bodies only. It would still be GREEN, because a
+    // function whose decision it can no longer see is skipped, not flagged.
+    //
+    // soft_delete_pr_ticket is the case that motivated the change: after 0168
+    // its own body names NEITHER channel, and both appear only inside the
+    // predicate it calls. So raw-vs-expanded is a direct measurement of whether
+    // the expansion happened.
+    const pr = FUNCTIONS.find((f) => f.name === 'soft_delete_pr_ticket');
+    const raw = stripComments(pr.body);
+    const expanded = withHelpers(pr);
+
+    expect(raw).toContain('current_user_can_manage_pr');
+    expect(PERMISSION_CHANNEL.test(raw),
+      'the RPC body itself must NOT name the permission channel — if it does, '
+      + 'the rule has been copied back out of the predicate').toBe(false);
+    expect(PERMISSION_CHANNEL.test(expanded),
+      'the expansion is not reaching the predicate; the sweep is blind').toBe(true);
+    expect(ROLE_CHANNEL.test(expanded),
+      'the expansion is not reaching the predicate; the sweep is blind').toBe(true);
   });
 
   it('every entry claiming to be role-only by design gives a reason', () => {

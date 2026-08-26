@@ -18,6 +18,18 @@
 -- Every subject is RESOLVED FROM THE DATA, never hardcoded — a proof whose
 -- subject is a person's name rots the moment the org chart moves.
 --
+-- 0168 WIDENED THIS PROOF, because it widened what the drift was. The same rule
+-- was spelled FOUR times, not two — pr_tickets_read's third branch,
+-- pr_tickets_update_staff, pr_tickets_delete_staff and the RPC — and all four
+-- now call one predicate, public.current_user_can_manage_pr(). So:
+--
+--   §A/§B/§C  behavioural, unchanged in shape: read / update / delete / rpc,
+--             three subjects each, allow AND deny, every gate compared.
+--   §D        STRUCTURAL, new: there is exactly ONE implementation. It fails if
+--             a site stops calling the predicate, or starts spelling the rule
+--             out again beside it. Behaviour alone cannot see that — four
+--             identical copies agree perfectly right up until one is edited.
+--
 -- Each instrument UNDOES ITSELF by raising inside its own subtransaction, so
 -- nothing here depends on the outer rollback and no probe row is lost to a
 -- `rollback to savepoint` (which discards the temp-table insert as well).
@@ -87,6 +99,50 @@ begin
   end;
 end $$ language plpgsql;
 
+-- What the READ policy decides. Counted over tickets the subject did NOT
+-- submit, because pr_tickets_read has a submitter branch that has nothing to do
+-- with the PR desk — counting all rows would score a guest's own ticket as desk
+-- access. No undo needed: a select changes nothing.
+create or replace function pg_temp.read_allows(p_uid uuid)
+returns text as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_uid::text, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.pr_tickets t
+   where t.submitter_id is distinct from p_uid;
+  execute 'reset role';
+  return case when n > 0 then 'allow' else 'deny' end;
+end $$ language plpgsql;
+
+-- What the UPDATE policy decides. The write is a no-op assignment (status to
+-- itself) so nothing is altered even before the undo, and the row is found by
+-- id so a wrong subject cannot silently hit a different ticket.
+--
+-- ⚠️ This measures read AND update: Postgres needs the SELECT policy to locate
+-- the row an UPDATE ... WHERE names. That is not a flaw here — it is exactly
+-- what the app path requires, and both gates ask the same predicate now. If
+-- they ever disagree, §A1r/§A1u disagreeing is the signal.
+create or replace function pg_temp.update_allows(p_uid uuid, p_id text)
+returns text as $$
+declare n int; msg text;
+begin
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', p_uid::text, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    with u as (update public.pr_tickets set status = status where id = p_id returning 1)
+      select count(*) into n from u;
+    raise exception using errcode = '22000',
+      message = 'UNDO:' || case when n > 0 then 'allow' else 'deny' end;
+  exception when sqlstate '22000' then
+    get stacked diagnostics msg = message_text;
+    execute 'reset role';
+    return replace(msg, 'UNDO:', '');
+  end;
+end $$ language plpgsql;
+
 -- What the RPC decides. 'allow' is only reported when the soft delete actually
 -- STAMPED deleted_at — passing the gate and doing nothing is a different bug,
 -- and this proof must not score it as success.
@@ -131,6 +187,18 @@ insert into probe select 'S5. the permission-only subject carries no staff role'
   'true', (select (role not in ('pr_staff', 'dev'))::text from subj_perm);
 
 -- ── Both gates, all three subjects ──────────────────────────────────────────
+insert into verdict select 'perm', 'read',
+  pg_temp.read_allows((select uid from subj_perm));
+insert into verdict select 'role', 'read',
+  pg_temp.read_allows((select uid from subj_role));
+insert into verdict select 'none', 'read',
+  pg_temp.read_allows((select uid from subj_none));
+insert into verdict select 'perm', 'update',
+  pg_temp.update_allows((select uid from subj_perm), (select id from subj_ticket));
+insert into verdict select 'role', 'update',
+  pg_temp.update_allows((select uid from subj_role), (select id from subj_ticket));
+insert into verdict select 'none', 'update',
+  pg_temp.update_allows((select uid from subj_none), (select id from subj_ticket));
 insert into verdict select 'perm', 'policy',
   pg_temp.policy_allows((select uid from subj_perm), (select id from subj_ticket));
 insert into verdict select 'role', 'policy',
@@ -144,11 +212,23 @@ insert into verdict select 'role', 'rpc',
 insert into verdict select 'none', 'rpc',
   pg_temp.rpc_allows((select uid from subj_none), (select id from subj_ticket));
 
-insert into probe select 'A1. POLICY allows the permission-only user', 'allow',
+insert into probe select 'A0a. READ allows the permission-only user', 'allow',
+  (select got from verdict where subj = 'perm' and gate = 'read');
+insert into probe select 'A0b. READ allows the staff-role user', 'allow',
+  (select got from verdict where subj = 'role' and gate = 'read');
+insert into probe select 'A0c. READ denies the ungranted user', 'deny',
+  (select got from verdict where subj = 'none' and gate = 'read');
+insert into probe select 'A0d. UPDATE allows the permission-only user', 'allow',
+  (select got from verdict where subj = 'perm' and gate = 'update');
+insert into probe select 'A0e. UPDATE allows the staff-role user', 'allow',
+  (select got from verdict where subj = 'role' and gate = 'update');
+insert into probe select 'A0f. UPDATE denies the ungranted user', 'deny',
+  (select got from verdict where subj = 'none' and gate = 'update');
+insert into probe select 'A1. DELETE POLICY allows the permission-only user', 'allow',
   (select got from verdict where subj = 'perm' and gate = 'policy');
-insert into probe select 'A2. POLICY allows the staff-role user', 'allow',
+insert into probe select 'A2. DELETE POLICY allows the staff-role user', 'allow',
   (select got from verdict where subj = 'role' and gate = 'policy');
-insert into probe select 'A3. POLICY denies the ungranted user', 'deny',
+insert into probe select 'A3. DELETE POLICY denies the ungranted user', 'deny',
   (select got from verdict where subj = 'none' and gate = 'policy');
 insert into probe select 'B1. RPC allows the permission-only user', 'allow',
   (select got from verdict where subj = 'perm' and gate = 'rpc');
@@ -162,6 +242,72 @@ insert into probe select 'C1. RPC and POLICY agree on all three subjects', '3',
   (select count(*)::text from verdict p join verdict r
      on r.subj = p.subj and r.gate = 'rpc' and p.gate = 'policy'
    where p.got = r.got);
+
+-- All four gates ask one predicate, so all four must return one answer per
+-- subject. 3 subjects x 1 distinct answer = 3.
+insert into probe select 'C2. all FOUR gates agree, per subject', '3',
+  (select count(*)::text from (
+     select subj from verdict where gate in ('read','update','policy','rpc')
+      group by subj having count(distinct got) = 1) s);
+
+-- ── §D. Structural: ONE implementation, not four that happen to agree ───────
+-- Read from the AUTHORITY (pg_policy / pg_proc), never from the migration that
+-- wrote them. The rule's old spelling is the thing that must be GONE: a site
+-- that calls the predicate AND still carries `'pr_staff'` beside it has grown a
+-- second copy again, and behaviour would not notice for as long as they match.
+create temporary table site on commit drop as
+select 'pr_tickets_read'          as name, pg_get_expr(polqual, polrelid) as src
+  from pg_policy where polname = 'pr_tickets_read'
+union all
+select 'pr_tickets_update_staff', pg_get_expr(polqual, polrelid)
+  from pg_policy where polname = 'pr_tickets_update_staff'
+union all
+select 'pr_tickets_delete_staff', pg_get_expr(polqual, polrelid)
+  from pg_policy where polname = 'pr_tickets_delete_staff'
+union all
+select 'soft_delete_pr_ticket', p.prosrc
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname = 'soft_delete_pr_ticket';
+
+insert into probe select 'D0. all four sites were found (the sweep looked)', '4',
+  (select count(*)::text from site);
+insert into probe select 'D1. all four CALL current_user_can_manage_pr()', '4',
+  (select count(*)::text from site where src like '%current_user_can_manage_pr%');
+insert into probe select 'D2. none of the four still SPELLS the rule', '0',
+  (select count(*)::text from site
+    where src ~ 'pr_staff' or src ~ 'current_user_has_permission');
+-- ⚠️ D3–D5 name the predicate, so each one is written to report 'MISSING'
+-- rather than raise if it is not there. An aborted script is SILENCE — this
+-- repo has lost 23 migrations of coverage to a proof that errored instead of
+-- failing — and "the predicate was deleted" is precisely the regression §D is
+-- here to catch, so it must be the loudest FAIL, not a stack trace.
+insert into probe select 'D3. the predicate exists, is STABLE and SECURITY DEFINER', 'true',
+  coalesce((select (p.prosecdef and p.provolatile = 's')::text
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'current_user_can_manage_pr'), 'MISSING');
+
+-- Fail-closed is a property of the predicate now, not a branch each caller has
+-- to remember. A caller with no public.users row has a NULL role, `null in
+-- (...)` is NULL, and NULL must read as NO — coalesce is what makes it so.
+--
+-- The claim is CLEARED first, deliberately: set_config(..., true) is
+-- TRANSACTION-scoped, so without this the probe would still be wearing
+-- subj_none from the instrument above and would answer 'false' for the wrong
+-- reason — a pass that proves nothing about the NULL branch.
+create or replace function pg_temp.predicate_with_no_user() returns text as $$
+begin
+  perform set_config('request.jwt.claims', '{}', true);
+  return public.current_user_can_manage_pr()::text;
+exception when undefined_function then return 'MISSING';
+end $$ language plpgsql;
+
+insert into probe select 'D4. the predicate fails CLOSED for a caller with no users row',
+  'false', pg_temp.predicate_with_no_user();
+
+insert into probe select 'D5. the predicate is reachable by the app roles', 'true',
+  coalesce((select has_function_privilege('authenticated', oid, 'execute')::text
+      from pg_proc
+     where oid = to_regprocedure('public.current_user_can_manage_pr()')), 'MISSING');
 
 select step, expected, got,
        case when expected = got then 'PASS' else 'FAIL' end as result
