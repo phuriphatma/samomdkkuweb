@@ -677,3 +677,72 @@ And the tell was in the comment all along. **A comment that says a thing is true
 "by construction rather than by hoping" is a claim, and a claim in a comment is
 the shape this repo keeps paying for.** If it is by construction, the
 construction can assert it — that is what A0 is.
+
+## STATE.md said a proof was red that had been green for a day — in three places
+
+**Symptom.** Asked to "check the handoff until you find no error", an audit of
+`STATE.md` turned up **six** stale claims in a file whose entire value is being
+true. Five shared one shape, and it is the shape that matters:
+
+> the same fact lived in TWO OR MORE places, and only ONE was corrected.
+
+| claim | where it was still wrong | reality |
+|---|---|---|
+| context budget "29,725 / 30,000, 275 bytes of headroom — the next write-up may turn `npm test` red" | one paragraph, ~400 lines below a paragraph saying that exact claim was false and had been deleted | 16,712 / 30,000 (56%) |
+| "`claude0157` B4 is red" | three separate places | green since 2026-08-25 |
+| test count | 1309 · 1170 · 1312, three homes | 1312 |
+| "still owed: grant the `claude` permission" | top of the file | granted; the bottom of the same file said so |
+| deployed sha | `543a025` | prod was two deploys ahead |
+| head-counts (146 accounts / 41 masters) | two homes, one updated | 153 / 42 |
+
+**Cause.** Not carelessness in any single edit. Each correction was made
+*correctly* — in the place the author happened to be reading. `STATE.md` is
+~1,350 lines, and a fact acquired a second home the moment a session summarised
+it in its own block while an older block still stated it. Nothing connected the
+two, so a correction landed in one and the other went on asserting the opposite.
+
+**Why it costs more than being silent.** A file that contradicts itself cannot
+be partially trusted: the reader has no way to tell which half is current, so
+they re-derive the work anyway — which is the single thing the handoff exists to
+prevent. The `543a025` line is the sharpest case. A stale deployed sha reads
+*exactly* like "there is a deploy owed", and disproving it costs a VPN session
+and 90 seconds. It is not a missing fact; it is a fact pointing the wrong way.
+
+**Fix.** `src/js/state-handoff.test.js`, five assertions, each falsified:
+
+- every repo-relative path `STATE.md` names resolves (or is exempted with a
+  written reason — served bundle hashes and filename PATTERNS are named as
+  evidence, not as files, and are excluded by requiring a `/`);
+- "Migrations through NNNN" matches the highest migration on disk;
+- the claimed live-proof count matches what `run-proofs.mjs` registers
+  (minus `db-query.mjs`, which is the runner, not a proof);
+- **every** spelling of each of those must agree — the check runs over all
+  matches, not the first;
+- the file may state exactly one test count.
+
+It found a third home of the test count on its first run, in a paragraph that
+had also been carrying "migrations through 0166" and "21 of 22 proofs green"
+for a week.
+
+**Where it lives now.** `src/js/state-handoff.test.js`; `STATE.md`'s example
+paragraph now carries ⛔ *do not read counts out of this paragraph*, and says
+the live numbers live in exactly one place.
+
+**The general rule.** This is the repo's class 6 — *two implementations of one
+rule drift* — with prose as the implementation, and it is easier to walk into
+than the code version, because a document has no compiler and every sentence
+looks equally authoritative. Two habits, in order of value:
+
+1. ⛔ **When you correct a claim, grep the whole file for its other homes before
+   you commit.** Every one of the five was a single grep away.
+2. **Give a decaying fact exactly one home, and make the other places point at
+   it rather than repeat it.** A number in a narrative block is a copy that will
+   never be updated, because nobody re-reads a session summary to check its
+   arithmetic. The durable half of an old block is the LESSON; the counts in it
+   are already wrong.
+
+And the reason a test is the third fix here: this had been paid for at least
+three times before — "this line said `543a025` for a day", "two sessions
+repeated the locked-out claim", "it said measurement was OFF after it had been
+turned back on" — each time diagnosed correctly, written down, and repeated
+anyway.

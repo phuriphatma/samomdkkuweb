@@ -40,7 +40,21 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e42ce80` (2026-08-26)** — the boot watchdog and its
+- ✅ **DEPLOYED = `2993dd1` (2026-08-26)** — the ประกาศ refusal text (0168 and
+  the proof repairs are DB/tooling only and needed no bundle). VM HEAD confirmed
+  over ssh = local HEAD, `DEPLOY_EXIT=0`.
+  **Verified from the SERVED artifacts — and note WHICH one, because this is the
+  trap that has cost two false "the deploy did not take" readings:
+  `announcements.js` lands in the SHARED `analytics-*.js` chunk, which BOTH
+  entries load. It is 0 in `public-*.js` and 0 in `admin-*.js`.**
+  Served `analytics-B2rPVvmB.js`: `อัปเดตไม่สำเร็จ — ไม่พบประกาศนี้` = 1,
+  `ลบไม่สำเร็จ — ไม่พบประกาศนี้` = 1, `ไม่มีสิทธิ์ “เขียนประกาศ”` = 3 (all three
+  refusals), and the REMOVED `ต้องเป็น pr_staff` = **0 in all three bundles**.
+  ⚠️ **`pr_staff` still greps 1–2 per bundle and that is CORRECT — check WHAT
+  matched.** Every remaining hit is a role→LABEL map (`pr_staff:"PR Staff"`),
+  `STAFF_ROLES`, or `userCanAccess`'s `roleDefaults`. None is inside a sentence,
+  which is exactly what `ui-copy-roles.test.js` allows.
+- Previous deploy = `e42ce80` (2026-08-26) — the boot watchdog and its
   extension diagnostic. **Verified 2026-08-26 from the SERVED HTML on BOTH
   entries** (`/` and `/admin/`): `data-samo="boot"` ✓ `data-samo="redirect"` ✓
   `ส่วนขยาย (extension)` ✓ `not ours:` ✓. Everything after it is docs-only.
@@ -62,7 +76,7 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   remaining `@here` in `_discord.js` is inside the explanatory comment, checked.
   **`git diff --stat 543a025..HEAD -- src/ ':!src/**/*.test.js'` is EMPTY.**
 - ✅ **ALL 23 LIVE PROOFS GREEN** (re-run 2026-08-26, after `claude0167`'s
-  instrument was fixed — see below). **1309 tests. Migrations through 0168.**
+  instrument was fixed — see below). **1318 tests. Migrations through 0168.**
 - **Prod runtime state**: Claude measurement is **ON again since 2026-08-25
   17:18 UTC**, switched on from `/admin#claude` by Phuriphat (the trigger
   stamped them, so the board shows a name this time). Samples resumed 17:20 and
@@ -230,14 +244,19 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
 
   The `:!…*.test.js` exclusion is load-bearing, not tidiness: without it a
   guard-test edit sends the next reader on a pointless 90-second deploy.
-  ⚠️ **RIGHT NOW that command is NOT empty and prod IS current.** The one file
-  it lists is `supabase/migrations/0166…sql`, whose HEADER COMMENT was corrected
-  after it had already been applied — nothing a build could carry. **Narrow it
-  to `-- src/ ':!src/**/*.test.js'` to answer "is the served bundle current";
-  that IS empty.** A migration already applied to the live DB can never make the
-  bundle stale, so read WHICH file the diff names before deploying.
-  **Migrations applied through 0166.** **1170 tests green. 21 of 22 proofs
-  green** — the one red is `claude0157` B4 and it is ENVIRONMENTAL (see below).
+  ⚠️ **The example above is a 2026-08-19 SNAPSHOT, kept for the lesson and not
+  as a status.** It read: that command is NOT empty yet prod IS current, because
+  the only file listed was a migration whose HEADER COMMENT had been corrected
+  after it was already applied. **The lesson is the durable half — narrow the
+  diff to `-- src/ ':!src/**/*.test.js'` to answer "is the served bundle
+  current", and read WHICH file it names before spending 90 s on a deploy. An
+  already-applied migration can never make a bundle stale.**
+  ⛔ **Do NOT read counts out of this paragraph.** It carried "migrations through
+  0166, 1170 tests, 21 of 22 proofs green, the red is `claude0157` B4" for a
+  week after every one of those stopped being true — a third home of three facts
+  the top of the file had already corrected. **The live numbers live in exactly
+  one place, the NEXT-SESSION PROMPT header, and `state-handoff.test.js` now
+  fails if a second home disagrees with it.**
   ⚠️ `claude0161` C1 was ALSO red on 2026-08-18 and is now FIXED: its control
   asserted `count(grid) > 100` while the grid is the REMAINDER of the quota
   week, so 21 h before the Wed 16:00 reset only 86 points were left. Threshold
@@ -258,9 +277,11 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   per-segment capacity rail on the calendar, and the measured LOG. Verified
   2026-08-16: the VM's systemd timer fires every 15 minutes and writes as
   `claude-reporter@samomdkku.app` under RLS.
-  **One thing still owed: grant the `claude` permission** in ทีม SAMO to whoever
-  should book. (~13 ฝ่าย IT accounts already hold `master`, which answers yes to
-  every key.)
+  ✅ **The `claude` permission is GRANTED — this said "still owed" for eight days
+  after it was done, while the NEXT-SESSION PROMPT recorded it as granted. Two
+  homes, one corrected.** Measured 2026-08-26: 153 accounts hold the key through
+  `permissions` / `managed_permissions`, plus 42 `master` holders who answer yes
+  to every key. Re-run before quoting — the owner edits the tree.
 - **0155's one idea: the board answers "may I use it NOW", not only "is this
   slot free".** `claude_free_now(p_at)` = `min(what is left in the live 5-hour
   window, what the week has left after everyone's reservations)`, and
@@ -396,10 +417,12 @@ parts that are still LIVE rules are kept here:
   session block in the NEXT-SESSION PROMPT and
   `docs/mistakes/authz-grants.md`. **Never compute project visibility from the
   stored column — simulate the session.**
-- ⚠️ **`claude0157` B4 is red by design when live booking geometry has no
-  stepping deadline.** The follow-up is to inject a SECOND synthetic booking
-  that guarantees one — but do NOT tune it to merely pass; verify B1/B2/B5 stay
-  meaningful afterwards.
+- ✅ **`claude0157` B4 is GREEN and self-contained — the follow-up this bullet
+  used to ask for was DONE on 2026-08-25.** It plants a second synthetic booking
+  and MOVES the quota week rather than searching live geometry for a slot. It was
+  not tuned to pass: the new scenario found a real thing (where a window reset
+  and a deadline coincide the instant is worth MORE than both neighbouring bands,
+  so B1 became `>=` and B1b pins the coincident case).
 - ⏳ **0161's cost claim (scrutinize finding 2) is still unbenchmarked.** Low
   priority, nothing depends on it.
 - `master` needs `holdsMaster()` beside every `role === 'dev'` gate that grants
@@ -492,11 +515,9 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-26)
 
-> 🚚 **A DEPLOY IS OWED — do this first.** `src/js/announcements.js` changed
-> after the served bundle was built, so the corrected ประกาศ refusal text is in
-> `main` and NOT on the site. Nothing is broken without it; the old text simply
-> names a role that stopped being the rule. Needs VPN —
-> `skills/deploy-vm.md`, ~90 s. Confirm with (EMPTY = prod current):
+> ✅ **NOTHING IS OWED TO A PERSON. Prod is current** — `2993dd1`, VM HEAD
+> confirmed over ssh, verified from the served `analytics-*.js`. Re-check with
+> (EMPTY = current), and ask about `src/` plus the two entry HTMLs ALONE:
 >
 > ```bash
 > git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
@@ -504,18 +525,28 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is owed on `/team`
 > — the ⛳ third org-chart view shipped. Migrations through **0168** (applied
-> 2026-08-26). **1312 tests green. ALL 23 LIVE PROOFS GREEN.**
-> **Prod = `e42ce80` + this one file behind**, confirmed from the served HTML,
-> not from this line.
+> 2026-08-26). **1318 tests green. ALL 23 LIVE PROOFS GREEN.**
 >
-> ### ⏸ TWO DECISIONS PARKED WITH THE OWNER — "i'll decide later"
+> ⛔ **BEFORE YOU EDIT THIS FILE — the rule it cost six stale claims to learn.**
+> **When you correct a fact here, grep the WHOLE file for its other homes.** On
+> 2026-08-26 an audit found a proof called red in THREE places that had been
+> green for a day, three different test counts, a budget warning contradicted
+> 400 lines above it, and "still owed" above a section recording it as done.
+> Each correction had been made properly — in the one place the author was
+> reading. `state-handoff.test.js` now pins what is mechanically checkable
+> (paths resolve · migration high-water mark · proof count · one test count, all
+> spellings agreeing); it cannot judge whether a SENTENCE is true, which is why
+> the grep is a habit and not a test. **Give a decaying fact ONE home; in an old
+> block keep the LESSON, never the counts.**
 >
-> Do NOT build either of these unprompted; both were offered and explicitly
-> deferred on 2026-08-26.
+> ### ⏸ ONE DECISION PARKED WITH THE OWNER — "i'll decide later"
+>
+> Do NOT build it unprompted; it was offered and explicitly deferred
+> on 2026-08-26.
 >
 > 1. **The boot bar's first-failure branch** (the Stay finding below). One
->    contained change, ~15 min with a falsified test.
-> 2. **The ประกาศ deploy** above — they may want it batched with other work.
+>    contained change, ~15 min with a falsified test. This is the ONLY code
+>    change currently on the table, and it was explicitly deferred.
 >
 > ### WHAT PROD IS DOING RIGHT NOW
 >
@@ -529,8 +560,8 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - `monitoring_note` still holds the old pause reason. Not shown while
 >   measurement is on (checked in `paintMeasured`), and used correctly by the
 >   monitor-on Discord notice as "why it had been paused". Leave it.
-> - **`claude_bookings` is still EMPTY** — deployed, granted to 146 accounts
->   plus every master holder, and unused.
+> - **`claude_bookings` is still EMPTY** — deployed, widely granted, and unused.
+>   (Head-counts rot here; the numbers and the query live under "What is owed".)
 >
 > ### 2026-08-26 — the PR desk rule, and a proof that was reading the weather
 >
@@ -1058,11 +1089,13 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > is hardcoded or unordered — run `npm run proofs` after touching accounts, and
 > never write a new proof that names an account.**
 >
-> ⚠️ **`claude0157` is RED because there are 0 active bookings** — its B4 control
-> needs a stepping deadline and correctly refuses to pass vacuously. Fix
-> (follow-up, NOT done): make the scenario self-contained with a second synthetic
-> booking that guarantees a step-down; do NOT tune it to merely pass. It goes
-> green on its own once real bookings exist.
+> ✅ **(HISTORICAL — `claude0157` is GREEN since 2026-08-25.)** It read: RED
+> because there are 0 active bookings, its B4 control needs a stepping deadline
+> and correctly refuses to pass vacuously, and it "goes green on its own once
+> real bookings exist". **The last part was the wrong instinct** — waiting on
+> real usage to make a proof pass is waiting on the environment. It was fixed by
+> CREATING the geometry instead (move the week, plant two bookings). Kept because
+> the diagnosis was right and the wrong instinct is the reusable lesson.
 >
 > ⚠️ **`claude0161` C1 went red on 2026-08-18 for a COMPLETELY CORRECT reason
 > and is now fixed.** Its grid is the REMAINDER of the quota week, so it shrinks
@@ -1071,7 +1104,9 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > (one 5-hour window); C2 is what really stops vacuity. **`claude0157`'s sample
 > search has the same shape** (`now() + 7h` → `week_start + 7d − 11h`, 5 slots
 > left at that instant) — so if B4 is red EARLY in a fresh quota week, that is
-> the real failure, not this rot. Write-up in `docs/mistakes/tooling-proofs.md`.
+> the real failure, not this rot. **Both have since been made self-contained and
+> neither searches live geometry any more (2026-08-25).**
+> Write-up in `docs/mistakes/tooling-proofs.md`.
 >
 > ### The earlier (2026-08-16) จองโควตา Claude session — still current
 >
@@ -1197,15 +1232,19 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   repeated the claim. **Reason about the LIVE channel (the seat), not the
 >   credential that was removed.**
 > - ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
->   2026-08-18: **146** accounts carry the `claude` key in `permissions` /
->   `managed_permissions`, plus 41 `master` holders who answer yes to every key.
+>   2026-08-26: **153** accounts carry the `claude` key in `permissions` /
+>   `managed_permissions`, plus **42** `master` holders who answer yes to every
+>   key. ⚠️ **These were 146 and 41 eight days earlier — the owner edits the tree,
+>   so treat any head-count in this file as a METHOD, not a fact, and re-run it
+>   before quoting it.**
 >   What is still true is that **`claude_bookings` is EMPTY** — the feature is
->   deployed, granted and unused. That is also why `claude0157` B4 is red: its
->   control needs a stepping deadline and refuses to pass vacuously. **The first
->   real booking turns it green.**
-> - 🚚 **THE ประกาศ DEPLOY — the only thing here a person is waiting on.**
->   `src/js/announcements.js` is one commit ahead of the served bundle. Nothing
->   is broken without it. `skills/deploy-vm.md`, needs VPN.
+>   deployed, granted and unused. ⚠️ **This bullet used to add "that is also why
+>   `claude0157` B4 is red". It is NOT red** — 0157 was made self-contained on
+>   2026-08-25 (it MOVES the quota week and plants two synthetic bookings rather
+>   than hoping the live calendar cooperates), and all 23 proofs are green.
+>   A proof that depends on real usage existing is the thing that was FIXED; do
+>   not re-derive the old excuse from this file.
+> - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 > - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
 >   the Stay block above. Do not build it unprompted.
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
@@ -1221,8 +1260,12 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   With that, a throwaway account can render any role-gated control.
 > - **The org chart on a REAL iPad.** Verified on Playwright's WebKit only.
 > - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading §1 below.**
-> - `docs/NEXT.md` carries the rest (§0c two latent role-only policies, §0d make
->   the PR delete rule ONE predicate).
+> - `docs/NEXT.md` carries the rest. **§0d is DONE (0168, 2026-08-26)** and is
+>   kept there only as a PATTERN worth copying. What is genuinely un-started:
+>   §0c (two latent role-only policies, deliberately not swept — nothing in
+>   `src/js` takes those paths), §0a (ทีม SAMO admin model, PARKED by the owner),
+>   §0b2 and §1 (the browser pass), §0 (`photo_reference_count()` cannot see
+>   `houses.icon_url`).
 >
 > ### Open question for the owner, asked and unanswered
 >
@@ -1237,21 +1280,25 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >
 > ### ⚠️ Four traps these sessions walked into
 >
-> - 🔴 **`.claude/rules/mistakes.md` is at 29,725 of its 30,000-char cap — 275
->   chars of headroom, and `npm run check:context` runs inside `npm test`.**
->   That means **the next write-up may turn the standing `npm test` red before
->   you have done anything wrong.** This session added 744 chars (three entries
->   + a class site) and gave 78 back by compressing its own class site; that is
->   the whole lever prose gives you. Micro-trimming prose was tried TWICE in
->   earlier sessions and buys ~100 bytes an hour.
->   **The next session that breaches it should RESTRUCTURE, not trim**: the
->   `## Index` half is **18,533 of the 29,725** (measured 2026-08-18, 212 lines,
->   and it only grows), its per-entry value declines, and
->   `grep -rin "<symptom>" docs/mistakes/` already does the finding. The classes
->   above it are the part that generalises and must survive any cut.
->   `check-context-budget.mjs` measures BYTES and Thai costs 3 per character.
->   A byte cap on the index was tried and **REVERTED** — it truncated Thai
->   symptom lines mid-word, and those lead lines are what the index is for.
+> - ✅ **THE CONTEXT BUDGET IS FINE — this bullet used to say the opposite and
+>   it was the second copy of a warning already deleted higher up.** It claimed
+>   `.claude/rules/mistakes.md` was at 29,725 of 30,000 with 275 bytes of
+>   headroom, so "the next write-up may turn `npm test` red before you have done
+>   anything wrong". **Measured 2026-08-26: 16,712 of 30,000 (56%); the whole
+>   auto-loaded set is 55%.** The 2026-08-25 restructure moved the per-entry
+>   index to `docs/mistakes/INDEX.md` and that is what bought the room.
+>   📌 **Two copies of one warning, and only ONE of them was corrected when it
+>   stopped being true — for a whole session this file asserted a fact in one
+>   place and called it false in another.** Exactly the drift class the repo
+>   documents, in the handoff itself. Grep the WHOLE file before believing any
+>   number in it, and when you correct a claim, grep for its second home.
+>   What is still true, and is a RULE rather than a number: if the budget is ever
+>   breached, **RESTRUCTURE, do not trim** — micro-trimming prose was tried twice
+>   and buys ~100 bytes an hour; `check-context-budget.mjs` measures BYTES and
+>   Thai costs 3 per character; and a byte cap on the index was tried and
+>   **REVERTED** because it truncated Thai symptom lines mid-word, which are the
+>   lead lines the index exists for. Run `npm run check:context` — never quote a
+>   remembered number.
 > - **A browser harness inlines `src/html/*.html` at generation time.** Edit the
 >   partial, re-run the probe, and it reads the STALE copy and reports the old
 >   text as if it shipped. Regenerate the harness after every partial edit.

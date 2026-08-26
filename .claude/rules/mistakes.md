@@ -89,6 +89,13 @@ it is the part that generalises to code not yet written.
    applied to the writers you HAPPENED to be looking at (the portrait cleanup
    missed `my-seat.js`). Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
+   **PROSE IS AN IMPLEMENTATION TOO.** `STATE.md` held six stale claims at once,
+   five being a fact with TWO homes where only one was corrected — a proof
+   called red that was green (3 homes), three different test counts, a budget
+   warning contradicted 400 lines above it. A document has no compiler and every
+   sentence looks equally authoritative. **Grep the WHOLE file for a claim's
+   other homes before committing a correction**; give a decaying fact ONE home;
+   keep the LESSON in an old block, never the counts (`state-handoff.test.js`).
    **Erasing a field a stronger grant "covers" — SCOPE or IDENTITY?** A scope
    has a widest value the grant IS (VS แผนก, Passport ฝ่าย); an identity names
    one of several roles, which access cannot answer. `master` nulled the
@@ -237,6 +244,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(8)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(16)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(17)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

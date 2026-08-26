@@ -88,7 +88,8 @@ session re-derives or re-breaks work that was finished yesterday.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
-- `docs/mistakes/*.md` — the bug write-ups (215 as of 2026-08-25), nine files
+- `docs/mistakes/*.md` — the bug write-ups (227 as of 2026-08-26; `npm run
+  mistakes:index` prints the live count — do not quote this number, run it), nine files
   by area, plus the generated `docs/mistakes/INDEX.md` (one symptom line per
   entry, for scanning). The directory in `.claude/rules/mistakes.md` says which
   file to open; `grep -rin "<symptom>" docs/mistakes/` is usually faster,
