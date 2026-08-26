@@ -515,9 +515,13 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-26)
 
-> ✅ **NOTHING IS OWED TO A PERSON. Prod is current** — `2993dd1`, VM HEAD
-> confirmed over ssh, verified from the served `analytics-*.js`. Re-check with
-> (EMPTY = current), and ask about `src/` plus the two entry HTMLs ALONE:
+> ✅ **NOTHING IS OWED TO A PERSON. Prod is current** — deployed `2993dd1`, VM
+> HEAD confirmed over ssh, verified from the served `analytics-*.js`.
+> **`main` is AHEAD of that sha and prod is still current**: everything after it
+> is docs, `docs/mistakes/`, and a test file, none of which reaches a bundle.
+> That is the normal state here — do NOT read "HEAD ≠ deployed sha" as a deploy
+> owed. Re-check with (EMPTY = current), asking about `src/` plus the two entry
+> HTMLs ALONE:
 >
 > ```bash
 > git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
