@@ -288,6 +288,13 @@ via git — `.gitignore` excludes `.claude/*` but allows `rules/` and `agents/`)
 **Do not** delegate: anything needing `STATE.md` context, any design decision,
 anything touching auth or RLS, or "review this diff" (that is `/code-review`).
 
+⚠️ **Both definitions are UNVERIFIED BY EXECUTION.** They were written from the
+documented frontmatter shape and committed, but no session has invoked one yet —
+a malformed header fails by the agent simply not appearing, which is silent. The
+check takes ten seconds in a fresh session: the agent list should name
+`mistake-finder` and `db-inspector`. If it does not, the frontmatter is wrong,
+not the prose. **Do this before relying on either.**
+
 ### 6.3 Memory — three layers, and only two are shared
 
 | Layer | Where | Shared with the team? |

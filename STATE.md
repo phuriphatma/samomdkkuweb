@@ -1085,26 +1085,12 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > ### A SELF-REVIEW OF 0161–0163 FOUND FOUR THINGS — **ONE is still open**
 >
 > ⚠️ **This section used to say all four were unfixed, and that was stale for a
-> day.** Re-verified against the LIVE database on 2026-08-18:
-> **1 is FIXED** (`claude_usage_runs` now contains `p_to > now()` — migration
-> 0164), **3 is FIXED** (`paintSilentToggle()` exists in
-> `src/js/claude/index.js`), **4 was never real** (`claude_usage_samples_at_idx`
-> exists). **Only 2 — the 0161 cost claim — is still open, and it is low
-> priority.** The original text is kept below because the REASONING is what
-> makes each one findable again; read the status line above it, not the heading
-> it carries.
+> day.** Re-verified against the LIVE database on 2026-08-18; **only #2 is still
+> open**, and it is low priority. Compressed 2026-08-26: the three closed ones
+> kept their record and their one transferable lesson, not their full reasoning —
+> a finding that is fixed is findable through the migration that fixed it.
 >
-> 1. **`open_ended` is wrong for every historical week.** `0163:191` is
->    `open_ended := (v_to = v_last_at)` and `v_last_at` is scoped to the
->    REQUESTED RANGE (`0163:93-95`), not to now. So browsing any past week marks
->    its final run "may still be running" — the UI fades the bottom edge and the
->    tooltip says `อาจยังใช้อยู่` about a week that ended days ago.
->    **Fix: `open_ended := (v_to = v_last_at and p_to > now())`.**
->    ⚠️ The probe returned 0 for last week and that is VACUOUS, not a pass —
->    there are only ~84 samples, so the previous week has none. And
->    `claude0162 §D5` cannot catch it either: it only checks runs that ended
->    BEFORE the last poll, and this one IS the last poll. **Add the past-week
->    case to §D in the same commit.**
+> **STILL OPEN — the only one that needs anything:**
 >
 > 2. **The 0161 header's cost claim is UNVERIFIED and probably wrong.** It says
 >    the change is "a constant factor, not an order". It is not obviously so:
@@ -1121,17 +1107,16 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >    header.** If real, hoist the settings/sample reads out of
 >    `claude_free_now()`.
 >
-> 3. **The silent-booking control goes stale on an in-place account switch.**
->    `claude/index.js:413` evaluates `holdsMaster()` inside `wire()`, which the
->    one-shot `built` flag runs once per session; the account switcher does not
->    reload. COSMETIC, not a leak — the notify gate re-checks `holdsMaster()` at
->    SEND time, so a non-master's ticked box suppresses nothing; they just see a
->    checkbox that does nothing, which is its own class here.
->    **Fix: move the toggle from `wire()` into `enterClaudeWorkspace()`.**
+> **CLOSED — 1, 3 and 4, one line each:**
 >
-> 4. **No index on `claude_usage_samples.sampled_at`.** `claude_usage_runs`
->    opens with `where sampled_at < p_from order by sampled_at desc limit 1`.
->    84 rows today, ~35k/year at 96/day.
+> 1. `open_ended` was wrong for every historical week — fixed in **0164**
+>    (`p_to > now()`). ⚠️ The lesson that outlived it: **the probe returned 0 for
+>    last week and that was VACUOUS, not a pass** — there were no samples that
+>    far back to test with. Ask what a zero means before believing it.
+> 3. The silent-booking toggle went stale on an in-place account switch — fixed;
+>    `paintSilentToggle()` exists in `src/js/claude/index.js`.
+> 4. "No index on `claude_usage_samples.sampled_at`" was never real —
+>    `claude_usage_samples_at_idx` exists.
 >
 > **Also unverified, and cheap to check:** `applyFit()` parses
 > `getComputedStyle(scroller).maxHeight`, which is now
