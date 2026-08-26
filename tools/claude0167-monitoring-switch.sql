@@ -45,14 +45,28 @@ create temp table probe (step text, expected text, got text) on commit drop;
 -- what the week has left. `p_age` is minutes BEFORE now(): 0 is a sample taken
 -- this instant, 999 is one nobody has refreshed in sixteen hours.
 --
--- The sample is deleted first, so the probe's row is the newest by construction
--- rather than by hoping — the real table holds four days of rows whose
--- sampled_at would otherwise be compared against.
+-- EVERY sample is cleared first, so the probe's row is the newest BY
+-- CONSTRUCTION. claude_latest_sample() asks for the newest row in the table and
+-- then tests its AGE, so any real row fresher than a deliberately stale probe
+-- row answers the question instead of it.
+--
+-- ⚠️ THIS DELETED ONLY ITS OWN ROWS UNTIL 2026-08-26, while this comment
+-- already claimed otherwise — `where raw->>'proof' = 'claude0167'`. It scored
+-- green for a day because the reporter was PAUSED: with no sample newer than
+-- ~11 hours, a 600-minute-old probe row really was the newest. Fifteen minutes
+-- after measurement was switched back on it went red, and correctly — the
+-- newest sample was a real one twelve minutes old and claude_free_now() was
+-- right to believe it. The proof was reading the ENVIRONMENT, not the rule.
+-- A0 below is the control that makes the premise assert itself.
+--
+-- The delete runs inside this proof's own transaction and is undone by the
+-- `rollback` at the end, like every other write here. claude_usage_samples
+-- carries no triggers (checked), so nothing is fired by removing the rows.
 create function pg_temp.week_left(p_age int) returns text
 language plpgsql as $$
 declare v jsonb;
 begin
-  delete from public.claude_usage_samples where raw->>'proof' = 'claude0167';
+  delete from public.claude_usage_samples;
   insert into public.claude_usage_samples (
     sampled_at, five_hour_pct, five_hour_resets_at,
     seven_day_pct, seven_day_resets_at, raw)
@@ -66,6 +80,25 @@ end $$;
 -- This is the pre-existing defect. `sample_stale_minutes` is 45 by default, so
 -- 5 minutes is believable and 600 is not. Nothing about monitoring_enabled is
 -- touched in this section.
+-- ── §A0 — the instrument's premise, asserted rather than assumed ───────────
+-- After a call there must be exactly ONE sample in play, and it must be the
+-- probe's. If a real row survives, the AGE cases below stop measuring the age
+-- rule and start measuring whether the reporter happens to be running.
+-- The warm-up call is its OWN statement, deliberately. Written as one statement
+-- (`... from (select pg_temp.week_left(5)) warm`) the assertion read 585 rows
+-- and `probe=none`: a volatile function's writes are invisible to the rest of
+-- the statement that called it, so the count saw the table as it stood BEFORE
+-- the delete. A control that measures the wrong instant is not a control.
+do $$ begin perform pg_temp.week_left(5); end $$;
+
+insert into probe
+select 'A0 · after a probe call, the probe''s sample is the only one in play',
+       '1 probe row', (select case
+         when count(*) = 1 and bool_and(raw->>'proof' = 'claude0167')
+         then '1 probe row' else count(*) || ' rows, probe=' ||
+              coalesce(bool_and(raw->>'proof' = 'claude0167')::text, 'none') end
+       from public.claude_usage_samples);
+
 insert into probe
 select 'A1 · fresh sample (5 min) → the week has a measured remainder',
        'a number', case when pg_temp.week_left(5) = 'NULL' then 'NULL' else 'a number' end;
