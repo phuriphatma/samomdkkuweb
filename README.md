@@ -196,9 +196,13 @@ triggered over ssh (needs the KKU VPN).
   + d3-org-chart (the ผังรวม view, lazy-loaded)
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
-- **Discord**: Cloudflare Pages Function `/notify` (`functions/notify.js`),
-  one proxy for PR / Vital Sign / หนังสือโครงการ webhooks
-- **Hosting**: Cloudflare Pages (two projects, one per branch)
+- **Discord**: one `/notify` proxy for PR / Vital Sign / หนังสือโครงการ webhooks.
+  In production that is the **`samo-notify` Node service on the KKU VM**, which
+  nginx proxies at `/notify`. `functions/notify.js` is its Cloudflare Pages twin,
+  kept in the repo because the two must stay behaviourally identical
+- **Hosting**: the **KKU VM** (nginx), deployed by `server/deploy.sh` over ssh.
+  ⚠️ Cloudflare Pages is RETIRED — see the warning at the top of this file.
+  **Pushing `main` does not deploy**
 
 For the full architecture map, schema, and deploy plumbing see
 `docs/CONTEXT.md`.

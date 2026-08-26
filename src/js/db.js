@@ -2,8 +2,9 @@
 // DB — Supabase client (single shared instance)
 //
 // Imports from Vite env vars. For local dev, set them in .env.local
-// (gitignored). For Cloudflare Pages, set them under the project's
-// Environment Variables in the dashboard.
+// (gitignored). In production they are baked in at build time ON THE KKU VM by
+// server/deploy.sh — Cloudflare Pages is retired, so its dashboard reaches
+// nothing.
 //
 // The anon key is safe to ship in the bundle; RLS policies enforce
 // security on the server. Don't ever expose the service-role key here.
@@ -19,8 +20,8 @@ if (!url || !anonKey) {
   // a clear error is better than mysterious "fetch failed" later.
   console.error(
     '[db] Missing Supabase env vars. Set VITE_SUPABASE_URL and '
-    + 'VITE_SUPABASE_ANON_KEY in .env.local (dev) or Cloudflare Pages '
-    + 'env vars (production).'
+    + 'VITE_SUPABASE_ANON_KEY in .env.local — copy .env.example and ask a '
+    + 'maintainer for the values. (In production they are baked in on the VM.)'
   );
 }
 

@@ -518,13 +518,21 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 
 ## NEXT-SESSION PROMPT (paste this after a /clear — updated 2026-08-26)
 
-> ✅ **NOTHING IS OWED TO A PERSON. Prod is current** — deployed `2993dd1`, VM
-> HEAD confirmed over ssh, verified from the served `analytics-*.js`.
-> **`main` is AHEAD of that sha and prod is still current**: everything after it
-> is docs, `docs/mistakes/`, and a test file, none of which reaches a bundle.
-> That is the normal state here — do NOT read "HEAD ≠ deployed sha" as a deploy
-> owed. Re-check with (EMPTY = current), asking about `src/` plus the two entry
-> HTMLs ALONE:
+> ✅ **NOTHING IS OWED TO A PERSON.** Deployed = `2993dd1`, VM HEAD confirmed
+> over ssh, verified from the served `analytics-*.js`.
+>
+> 🚚 **ONE TINY DEPLOY IS NOW OWED, and it is copy only.** `src/js/db.js`'s
+> missing-env-var `console.error` told the reader to set the values in the
+> **Cloudflare Pages dashboard**, which is retired and reaches nothing — it is
+> the first message a new developer sees when their `.env.local` is wrong, and
+> five of them are joining. It now names `.env.example` instead. Nothing else
+> under `src/` changed. **Batch it with the next real change; it does not
+> deserve a VPN session of its own.**
+>
+> ⚠️ **Otherwise `main` being AHEAD of the deployed sha is the NORMAL state
+> here** — most commits are docs, `docs/mistakes/` and tests, none of which
+> reaches a bundle. Do NOT read "HEAD ≠ deployed sha" as a deploy owed. Re-check
+> with (EMPTY = current), asking about `src/` plus the two entry HTMLs ALONE:
 >
 > ```bash
 > git diff --stat <DEPLOYED-SHA>..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html

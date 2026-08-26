@@ -141,8 +141,9 @@ recurring classes are in `.claude/rules/mistakes.md`. Highlights:
 
 ### Tests
 
-`npm test` runs a Vitest suite of ~717 cases across ~45 files. It is two
-different things:
+`npm test` runs the whole Vitest suite — it prints the count, and this page
+deliberately does not, because the last number written here went ~600 tests out
+of date before anyone noticed. It is two different things:
 
 1. **Unit tests** for pure helpers — `src/js/utils.js` (escaping, URL sanitizer,
    JWT decode), the Drive-URL normalizer, `study-year.js`, name splitting. If you

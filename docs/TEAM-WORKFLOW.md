@@ -327,7 +327,7 @@ Where each kind of thing belongs:
   two agents in one checkout is the fastest way to lose work.
 - **Grep `docs/mistakes/`, do not read it.** `grep -rin "<symptom>"` searches the
   write-ups; `docs/mistakes/INDEX.md` scans the headings.
-- **`npm test` before every commit.** It runs the 1,318 unit tests *and*
+- **`npm test` before every commit.** It runs the whole unit suite *and*
   `check:context` *and* `state-handoff.test.js`, so it catches a bloated rules
   file and a broken pointer in the handoff at the same time.
 - **Batch commits before deploying** — each VM deploy is ~90 s; a `docs/`- or
@@ -445,7 +445,7 @@ Read from the GitHub API rather than assumed. **Most of phase 0 already exists**
 | Collaborators | ✅ five `write` + owner `admin` | — |
 | PR required, 1 approval | ✅ `required_approving_review_count: 1` | — |
 | Force-push / delete blocked | ✅ both `false` | — |
-| **CI must pass before merge** | ❌ **`required_status_checks` returns 404 — NOT ENABLED** | **the single highest-value fix here.** `build.yml` runs on every PR and nothing enforces its result: a PR with 1,318 failing tests can be merged today |
+| **CI must pass before merge** | ❌ **`required_status_checks` returns 404 — NOT ENABLED** | **the single highest-value fix here.** `build.yml` runs on every PR and nothing enforces its result: a PR with the entire suite failing can be merged today |
 | `CODEOWNERS` | ⚠️ **file written 2026-08-26**; `require_code_owner_reviews` still `false` | the file already makes GitHub REQUEST the owner's review on those paths. Enabling the flag makes it BLOCK — do that once someone confirms the path list is right |
 | PR / issue templates | ✅ **written 2026-08-26** — `pull_request_template.md`, `ISSUE_TEMPLATE/{bug,task}.md` | — |
 | Project board | ❌ | add |
@@ -490,7 +490,7 @@ paying for. **When the phase lands, correct them in the same commit:**
 Start at **§8a**, not at phase 1 — most of phase 0 already exists and what is
 missing takes about twenty minutes.
 
-**a. Make CI blocking.** Today a PR can merge with 1,318 failing tests. The job
+**a. Make CI blocking.** Today a PR can merge with the entire suite failing. The job
 in `.github/workflows/build.yml` is named `build`, so that is the check context.
 
 ⚠️ **`required_status_checks` is not enabled, so it cannot be PATCHed — it has to
