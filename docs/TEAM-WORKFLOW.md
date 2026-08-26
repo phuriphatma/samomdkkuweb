@@ -1,0 +1,324 @@
+# Team workflow — the plan for working with several developers
+
+> ## ⛔ STATUS: NOTHING HERE IS BUILT. This is a design, agreed 2026-08-26.
+>
+> As of this file's last edit there is **no dev Supabase project, no preview
+> deploy, no refresh script, no `schema_migrations` table, no docs site**. The
+> repository is exactly as it was. Do not read any sentence below as a
+> description of something that exists — every one of them is a description of
+> something *intended*.
+>
+> **This file is the authoritative record.** A rendered version was published as
+> an Artifact for the owner to read
+> (`https://claude.ai/code/artifact/50eb9af4-8320-45ed-8b83-b1fa078cf4d7`); it is
+> a COPY and may be stale. If the two disagree, this file wins. If you change
+> the design, change it here first.
+>
+> **Before building any phase, re-read §7 (open unknowns).** Two of them can
+> only be answered by trying, and one of those (the `pg_dump` credential) blocks
+> everything else.
+
+Context: the owner plus **about five other people**, some of whom may come and
+go. Today the repo is built for one person — `CONTRIBUTING.md` tells a new
+collaborator to test against **production** and ask the owner to delete the test
+rows afterwards. That does not survive five people, and it makes migrations
+untestable by anyone but the owner.
+
+---
+
+## §0. Decisions the owner made — DO NOT RE-LITIGATE
+
+Each of these was proposed by the assistant, argued, and then **decided by the
+owner** during the 2026-08-26 session. Several reverse an earlier draft of this
+same design. They are listed with the reasoning so a later session does not
+"fix" them back.
+
+| # | Proposed | **Decided** | Why |
+|---|---|---|---|
+| D1 | Mask names / emails / รหัส in the dev copy (PDPA, five people holding student PII) | ❌ **No masking. Dev holds production data as it is.** | *"don't worry about the data privacy"* — it is the owner's own organisation's data, the team are friends, and the owner carries the accountability. Raised twice, declined twice. |
+| D2 | An email allow-list (Cloudflare Access) on the preview URLs | ❌ **No door gate.** Unpublished, `noindex`, PREVIEW ribbon only | *"would be a big hassle"*. What makes it safe is that **RLS behaves identically on dev** — see the risk in §7. |
+| D3 | Give developers only their normal permissions on production; grant `master` on dev via a file | ❌ **`master` in the real ทีม SAMO tree is fine for the team** | *"the team is trustable"*. The `dev-grants.json` file survives for guests only (§3). |
+| D4 | Dev sends to a dev Discord channel + `DEV` Drive folder + a mail trap | ✅ **Accepted**, after the owner asked why real channels were not simply used | The deciding argument was **not** safety: *the destination is not part of the code path*. A dev channel exercises the identical builder, payload, `allowed_mentions`, error handling. The real channel proves only that one URL string is still valid — a config fact, answered by the post-deploy smoke test. |
+| D5 | Turn auth email OFF on dev | ❌ **Wrong — use a mail trap instead** | The owner pushed back that sign-up / login must be testable. "Off" would leave the signup, email-change and reset paths untested until production. Custom SMTP → Mailtrap/Mailpit means the mail is really sent and really readable, and never reaches a student. |
+| D6 | Block the VitalSound form on dev unless the submitter holds `master` | ❌ **No special case. Both forms behave identically to production.** | *"it's our friend, everyone knows that when you test, they have to clean up"*. The residual risk is handled by a habit — the dev link is never published — not by code. **This is the better design anyway: no environment-dependent branch exists in the app.** |
+| D7 | Use a second Supabase project on the existing account | ❌ **A separate Supabase ACCOUNT** | A third project on the current account pauses another (the owner has hit this). The separate account has a second benefit: its Management PAT is safe to share with all five, so they run migrations and proofs with the existing tooling. |
+| D8 | Preview builds on the KKU VM | ❌ **Off the production box** | The VM serves students; it is on a private address so GitHub Actions cannot reach it, meaning the VM would have to *poll* — the same systemd shape that already produced a timer reporting `enabled`/`active` while scheduling `infinity` (`docs/mistakes/deploy-hosting.md`). |
+
+**Two assistant errors from that session, recorded because the reasoning matters
+more than the fix:**
+
+- **"Deleting `auth.identities` means nothing can sign in"** — wrong, and the
+  wrong *kind* of claim. Traced live: `pr_tickets_insert_anyone` and
+  `vs_tickets_insert_anyone` are both granted to **`public`**, so guest
+  submission needs no account at all. A control on the login path was described
+  as though it covered every path — class 4 in `.claude/rules/mistakes.md`,
+  walked into while writing a document about avoiding it.
+- **SVG `<text>` with no `fill` renders black** — invisible on a dark artifact
+  theme. `fill` is inherited, so `fill="currentColor"` on the `<svg>` root fixes
+  every label at once. Strokes were `currentColor`; text was forgotten.
+
+---
+
+## §1. The three environments
+
+| | local | preview | production |
+|---|---|---|---|
+| Address | `localhost:5174` | `<pr>.samo-preview.pages.dev` | `samo.md.kku.ac.th` |
+| Database | `samo-dev` (copy of prod) | `samo-dev` | the live project |
+| Who deploys | the developer, on save | GitHub Actions, per PR | **the owner only**, `skills/deploy-vm.md` |
+| Discord | printed to the terminal | `#samo-dev-bot` | the real ฝ่าย channels |
+| Drive | GAS dev deployment → `IT Database/DEV` | same | the live GAS deployment |
+| Mail | mail trap | mail trap | real inboxes |
+| Marker | PREVIEW ribbon | PREVIEW ribbon | none |
+
+**Everything else is identical** — same code, same data, same permissions, same
+RLS, same forms, same login. `VITE_ENV_NAME` is `production` only on the VM
+build; anywhere else the app paints one global ribbon. There are **no other
+environment-dependent branches in the app**, and adding one should be treated as
+a design smell (see D6).
+
+Cleanup on dev is `npm run dev:refresh`, not deleting rows.
+
+---
+
+## §2. Data: one-way copy, structure the other way
+
+- **Data flows production → dev**, on demand, run by the owner. Never nightly
+  (a refresh destroys whatever people were doing), never automated (it would put
+  production credentials in a CI secret).
+- **Structure flows dev → production.** A migration is applied to `samo-dev`
+  while the PR is open and to production only after it merges. **Dev leads,
+  production follows** — so "works on dev, breaks on prod" can never be a schema
+  problem.
+- **The reverse data direction is impossible, not merely forbidden**: different
+  Supabase accounts, different keys. The script must additionally refuse if the
+  target ref is production's.
+
+`npm run dev:refresh`, in order:
+
+1. `pg_dump` production (**needs a credential that does not exist yet — §7.1**)
+2. load into `samo-dev`
+3. point every outward channel at its dev destination, then `npm run dev:check`
+4. apply `tools/dev-grants.json`
+5. **re-apply every migration in the repo that the dump predates**, then post to
+   `#samo-dev-bot`
+
+**Step 5 is the one that gets forgotten.** The dump carries *production's*
+schema, which is behind whatever is in review — without it a refresh silently
+reverts everyone's unmerged migrations.
+
+**No incremental sync.** Copying only what changed is a second implementation of
+the same rules, which drift (class 6). The database is 38 MB (measured
+2026-08-26; re-measure with `select pg_size_pretty(pg_database_size(current_database()))`).
+
+---
+
+## §3. Access and permissions
+
+**The mechanism to keep in your head:** dev is a copy *including permissions*.
+There is no such thing as granting someone access "on dev" by editing the
+ทีม SAMO tree — that grant is live on the real site the moment it is saved, and
+the copy inherits it later. The owner has accepted this for the team (D3).
+
+| Credential | Who | Note |
+|---|---|---|
+| `samo-dev` URL + anon key | everyone | in the team vault, not in git |
+| dev account PAT + dev DB URL | everyone | safe *because* that account holds nothing but disposable projects |
+| production PAT · service_role | **owner only** | account-wide; unchanged by any of this |
+| KKU VPN · ssh · `SAMO_VM_SUDO_PASSWORD` | **owner only** | developers never reach the VM. If a second deployer is ever needed the mechanism is a sudoers drop-in for the one command, never a shared password |
+| clasp — **production** Apps Script | **owner only** | re-authorising grants a token that can read the whole SAMO Drive (`.claude/rules/security.md`) |
+| clasp — **dev** Apps Script | whoever works on it | put the dev script + `DEV` folder under a **separate Google account**; its credential then reaches nothing real. This is the only way GAS work becomes shareable |
+| Cloudflare API token | GitHub Actions secret | scope to Pages:Edit. `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` already exist in `.env.local` |
+
+`tools/dev-grants.json` — dev-only extra permissions, applied at step 4 of the
+refresh, for a reviewer who should see one feature for one week without becoming
+an administrator of the live system. It will rot like every list of people;
+review it at each refresh.
+
+---
+
+## §4. Branches, review, and not blocking each other
+
+Trunk-based, short-lived branches, squash merge. `main` protected: PR required,
+CI green, one approval, no force-push, linear history. (Branch protection is
+free on this repo because it is public.)
+
+**The reframe that removes the bottleneck: merging is not publishing.** Pushing
+`main` does not deploy — the site changes only when the owner runs the deploy.
+So approving is cheap and reversible, and the careful gate stays where it
+already is: one deploy per batch.
+
+Dependency chains (feature 2 needs feature 1, which is in review):
+
+- **Branch off the branch** and rebase when 1 merges (stacked branches), or
+- **merge 1 early but unreachable** — not linked in the nav, or behind a
+  permission nobody holds. Ordinary trunk-based development.
+- CSS / copy / layout PRs never reach the owner: `CODEOWNERS` routes only
+  `auth.js`, `db.js`, `notify.js`, `supabase/`, `server/`, `appscript/`,
+  `CLAUDE.md`, `.claude/rules/` to them; everything else merges on one peer
+  approval.
+
+**Migration numbering**: `npm run migrate:new "<slug>"` takes the next number
+from `origin/main`; a CI check fails any PR whose number already exists.
+Renaming an unapplied migration is free.
+
+**How the owner learns about a schema change and what they run:**
+
+| Moment | What tells them | What they run |
+|---|---|---|
+| PR opened | `CODEOWNERS` on `supabase/` → automatic review request | nothing, they read it |
+| before deploying | `npm run migrate:status` diffs repo files against each database's `schema_migrations` | `node tools/apply-migration.mjs supabase/migrations/NNNN_….sql` |
+| two people used one number | CI fails the second PR | nothing — they rename |
+
+Order is unchanged: **add before deploying the code that reads it; drop only
+after the new bundle is confirmed served** (`skills/ship-a-migration.md`).
+
+---
+
+## §5. Testing tiers, and where each question is answered
+
+| Tier | What | Runs where |
+|---|---|---|
+| unit + guards | `npm test` | every laptop, every push |
+| build | `npm run build` | CI |
+| live proofs | `npm run proofs` | today the owner against prod; **should run against `samo-dev` in CI** on any PR touching `supabase/` — see the risk in §7.3 |
+| browser | Playwright WebKit, `skills/drive-the-browser.md` | against the preview URL |
+
+| Question | Answered on |
+|---|---|
+| sign-in / sign-up / reset | dev, with the mail trap |
+| Discord embed, skip-notify path | dev, `#samo-dev-bot` |
+| VitalSound end to end | dev — the form is unmodified (D6) |
+| upload lands with the right sharing | dev, `Drive/DEV` |
+| **does the real webhook still exist after I rotated it** | **production**, once, as a post-deploy smoke test |
+| does the migration work | dev, always |
+
+The deploy routine already in `skills/deploy-vm.md` — grep the served bundle,
+read `/build.json`, `curl /notify` — **is** a post-deploy smoke test. The only
+addition is: after rotating a webhook or redeploying GAS, send one real ticket,
+confirm the channel, delete it.
+
+---
+
+## §6. Claude sessions on a shared repo
+
+- **Do not have models talk to each other.** The handoff medium is a file, and
+  the file is the PR: **Opus** plans into the issue → **Sonnet** implements
+  against that checklist → **Opus** reviews the diff (`/code-review`). Anything
+  touching auth, RLS, migrations, deploy or the seven mistake classes is Opus
+  throughout. Agent-to-agent chat is unauditable, evaporates at session end, and
+  doubles the burn on a subscription the team already books slots on
+  (`/admin#claude`).
+- **One session per working tree.** Two things in flight means `git worktree`.
+- `CLAUDE.md` and `.claude/rules/*` are shared context charged to every session:
+  change by PR, and `npm run check:context` already enforces the byte budget
+  inside `npm test`. **`CLAUDE.md` sits near 90% of its cap — adding the
+  pointer to this file cost 2% on its own. Additions must be one line, or
+  something must move to `docs/`. Never quote a remembered number: run
+  `npm run check:context`.**
+- **Splitting `STATE.md`** (planned, not done). It is unmergeable because it
+  holds three lifetimes at once:
+  - status → `STATE.md`, ≤200 lines, deploy block **written by the deploy**
+  - durable invariants → `docs/INVARIANTS.md`
+  - "what my session was" → `docs/state/<github-handle>.md`, one per person
+  - narrative → `docs/state-archive/` (exists)
+  Rule for agents: *write your own state file; never rewrite someone else's;
+  never touch the deploy block unless you deployed.* Widen
+  `state-handoff.test.js` to run over every `docs/state/*.md`.
+- `docs/mistakes/*.md` gets `merge=union` in `.gitattributes` so two write-ups
+  never conflict.
+
+---
+
+## §7. Open unknowns — read before building
+
+**7.1 — `pg_dump` has no credential, and this blocks everything.** `.env.local`
+has `SUPABASE_ACCESS_TOKEN` (Management API — cannot `pg_dump`) and
+`PASSPORT_B_DB_URL` for the *old passport* project, but **no `SUPABASE_DB_URL`
+for the live project**. Phase 1 starts with fetching the database password from
+the dashboard, adding `SUPABASE_DB_URL`, and checking the local `pg_dump` major
+version matches the server's. Until that works, nothing downstream can be built.
+
+**7.2 — Do NOT replay the 168 migrations to create the dev schema.** Nothing
+proves the chain reproduces production: there is no `schema_migrations` table,
+function bodies have been edited live (`STATE.md` says to read the LIVE body,
+not the migration that defined it), and a replay that differs silently would
+make dev wrong in ways nobody notices. **Take the schema from `pg_dump`
+instead** — dev is then identical by construction. "Does the chain replay from
+zero?" becomes a valuable *optional* proof, not a dependency.
+*(Checked 2026-08-26: the migrations are otherwise portable — the only extension
+is `pg_trgm with schema extensions` in 0068, and every `pg_cron` / `storage.` /
+`supabase_admin` hit in `grep` is inside a comment.)*
+
+**7.3 — With no door gate (D2), RLS is carrying the whole design.** Openness is
+safe *because* the policies behave identically on dev. A branch that loosens a
+policy "just to test", or a definer function that skips a check, is no longer a
+dev-only mistake: it is a public URL serving real rows. This is the strongest
+argument for running the authorization proofs against dev in CI (§5).
+
+**7.4 — `wrangler pages deploy dist` will not upload `functions/`.**
+`functions/notify.js` sits at the repo root, so a naive direct upload produces a
+preview where **every Discord notification silently no-ops** — and silence is
+indistinguishable from "no notification was due". Pass the functions directory
+explicitly and verify with one real submission on the first preview.
+
+**7.5 — Rebuilding `auth.users` in the dev project.** GoTrue's admin API cannot
+create a user with a chosen id, and those ids are foreign keys across 64 tables,
+so the load must write `auth.users` directly over the superuser connection. That
+couples the copy to the dev project's auth schema version, which may be newer
+than production's. Copy only the columns both have and let defaults fill the
+rest, then **prove it by signing in as a copied account before declaring the
+refresh good**. Do this step first in the refresh phase; everything else depends
+on it.
+
+**7.6 — Supabase's current free-tier limits.** The owner's experience (a third
+project pauses another) is better evidence than anything quotable. Confirm on
+the new account before assuming two projects.
+
+**7.7 — Fork PRs get no secrets.** The preview build needs the `samo-dev` keys
+from GitHub secrets; a PR from a fork cannot read them. Keep the five as repo
+collaborators pushing branches, not forks.
+
+**7.8 — "The team is trusted" is a statement about today's team.** `master` in
+the real tree (D3) is fine while the five are the five. Nothing will ever tell
+the owner when that stops being true. Habit: read the master list once a term
+(`select … from public.users where 'master' = any(permissions)` — 42 holders and
+153 `claude` holders in August 2026; re-run, never quote) and remove who is no
+longer building.
+
+---
+
+## §8. Build order
+
+Effort estimates assume one session each, and every phase is independently
+useful. **Phases 0–3 are what actually unblock five people.**
+
+| # | Phase | Effort | Prerequisite |
+|---|---|---|---|
+| 0 | Repo guardrails: branch protection, `CODEOWNERS` from the `CONTRIBUTING.md` touch-zone table, PR/issue templates, project board, team vault, two named peer approvers | ~1 h | none — touches no code |
+| 1 | Dev account + `samo-dev` + `samo-scratch`; **schema from `pg_dump`, not a replay** (§7.2); `public.schema_migrations` + `npm run migrate:status`; Google callback line; redirect URLs; sign-ups OFF | ~2 h | **§7.1** |
+| 2 | `npm run dev:refresh` + `dev:check` + `dev-grants.json`; the mail trap; the dev GAS deployment under its own Google account; `#samo-dev-bot` | ~3 h | phase 1, **§7.5 first** |
+| 3 | Preview builds: Actions job → `wrangler pages deploy` (**§7.4**), PR comment, `VITE_ENV_NAME` ribbon, narrow the `*.pages.dev` guard in BOTH entry HTMLs to the two named retired hosts, `noindex` header, `/notify` dev middleware in `vite.config.js` | ~2 h | phase 1 |
+| 4 | The `STATE.md` split (§6) | ~2 h | none |
+| 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |
+| 6 | Proofs + browser smoke in CI against `samo-dev` | ~3 h | phases 1–3 |
+
+---
+
+## §9. What must be corrected in OTHER files when this ships
+
+Left alone deliberately — today they describe today's reality, and a document
+that describes a plan as though it were real is the failure this repo keeps
+paying for. **When the phase lands, correct them in the same commit:**
+
+- **`CONTRIBUTING.md`** — currently says *"There is no preview deploy"* and
+  tells contributors to test against production and ask the owner to delete the
+  rows. Both become false at phase 3 and phase 1 respectively. Its Quick start
+  must point at `samo-dev`, not at a `.env.local` from the owner.
+- **`README.md`** — Quick start / env section, at phase 1.
+- **`docs/CONTEXT.md`** — deploy plumbing and environment map, at phase 3.
+- **`.claude/rules/security.md`** — add rows for the dev account PAT, the dev DB
+  URL, the dev GAS credential and the Cloudflare token, at phases 1–3.
+- **`skills/deploy-vm.md`** — add `npm run migrate:status` to the pre-deploy
+  checklist and the smoke-test line, at phase 1.
+- **`STATE.md`** — the pointer in the next-session prompt, every phase.

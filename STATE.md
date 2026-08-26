@@ -543,6 +543,27 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > the grep is a habit and not a test. **Give a decaying fact ONE home; in an old
 > block keep the LESSON, never the counts.**
 >
+> ### 🆕 2026-08-26 — A TEAM WORKFLOW WAS DESIGNED. NOTHING WAS BUILT.
+>
+> The owner is bringing in **~5 more developers**. A full design for that —
+> dev environment, preview deploys, credentials, migration flow, review flow,
+> the Claude protocol, a docs site — is in **`docs/TEAM-WORKFLOW.md`**, which is
+> the AUTHORITATIVE record. An Artifact rendering exists for humans and may be
+> stale; the file wins.
+>
+> ⛔ **No part of it exists yet.** No dev Supabase project, no preview URL, no
+> refresh script, no `schema_migrations` table. `CONTRIBUTING.md` still
+> correctly describes today (test against production) and must NOT be edited
+> until the matching phase ships — see its §9.
+>
+> 📌 **Read its §0 before proposing anything about dev/staging.** Seven design
+> points were argued and then DECIDED BY THE OWNER, several reversing an earlier
+> draft: no data masking, no gate on the preview URL, `master` in the real tree
+> is fine for the team, a mail TRAP not mail-off, and NO environment-dependent
+> branch in the app (the VitalSound form is unmodified on dev). §7 holds the
+> unknowns; **§7.1 — there is no `pg_dump` credential in `.env.local` — blocks
+> every other phase.**
+
 > ### ⏸ ONE DECISION PARKED WITH THE OWNER — "i'll decide later"
 >
 > Do NOT build it unprompted; it was offered and explicitly deferred
