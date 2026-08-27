@@ -1,0 +1,82 @@
+      <!-- ==========================================================
+           GOLDEN PERIOD — ฉบับร่าง เปิดให้ฝ่ายแก้เองได้
+
+           ★ ถึงฝ่าย: หน้านี้เป็นของคุณ แก้ไฟล์นี้แล้วเปิด Pull Request มาได้เลย
+             ไม่ต้องรอไอทีเขียนให้ ใช้ Claude ช่วยแก้ก็ได้ บอกมันว่า
+             "แก้ไฟล์ src/html/tab-golden-period.html" แล้วให้มันเปิด PR ให้
+
+           แก้ได้: ข้อความทุกบรรทัด · ลำดับของหัวข้อ · เพิ่มหัวข้อใหม่ ·
+                   หน้าตาใน src/css/golden-period.css (ทุกกฎขึ้นต้นด้วย .gp-tab)
+           อย่าแก้: id="gpCalendar" (สคริปต์หาไอดีนี้) · ชื่อคลาส .gp-tab
+                   ถ้าจะเปลี่ยนลิงก์ปฏิทิน แก้ที่ src/js/golden-period.js
+
+           ทุก PR ต้องให้เจ้าของเว็บอนุมัติ เพราะไฟล์นี้อยู่ใน src/ — ดู
+           .github/CODEOWNERS และ skills/onboard-a-contributor.md
+
+           ⚠️ ไอทีเขียนฉบับนี้ไว้เป็นจุดตั้งต้นเท่านั้น (docs/DEPT-TOOLS.md D8)
+             หน้าจริงเป็นของฝ่าย — ลิงก์ /tools/golden-period จะไม่เปลี่ยน
+             ต่อให้เนื้อข้างในถูกเขียนใหม่ทั้งหมด คนที่ส่งลิงก์ต่อกันไปแล้วยังใช้ได้
+           ========================================================== -->
+      <div class="tab-pane fade gp-tab" id="pills-golden-period" role="tabpanel">
+        <div class="container gp-body">
+
+          <header class="about-section-header text-center mb-3">
+            <span class="about-section-eyebrow">Golden Period</span>
+            <h2 class="about-section-title">
+              <i class="bi bi-calendar-heart me-2" style="color: var(--brand-primary);"></i>
+              ช่วงเวลาที่เหมาะกับการจัดกิจกรรม
+            </h2>
+            <p class="about-section-lead">
+              ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ
+            </p>
+          </header>
+
+          <p class="gp-placeholder">
+            หน้านี้เป็นฉบับชั่วคราว ทำไว้ให้เข้าถึงข้อมูลได้ก่อน
+            ฝ่ายกำลังจัดทำฉบับเต็มอยู่
+          </p>
+
+          <section class="gp-key" aria-labelledby="gpKeyTitle">
+            <h3 class="gp-key-title" id="gpKeyTitle">วิธีอ่านค่า</h3>
+            <p class="gp-key-lead">ยิ่งเปอร์เซ็นต์สูง ยิ่งมีโอกาสที่นักศึกษาจะว่างและมาร่วมกิจกรรมได้มาก</p>
+            <ul class="gp-bands">
+              <li class="gp-band gp-band-4"><span class="gp-dot" aria-hidden="true"></span>
+                <span class="gp-band-name">สูงมาก</span>
+                <span class="gp-band-note">ว่างมาก เหมาะกับงานใหญ่</span></li>
+              <li class="gp-band gp-band-3"><span class="gp-dot" aria-hidden="true"></span>
+                <span class="gp-band-name">สูง</span>
+                <span class="gp-band-note">จัดได้ คนน่าจะมาได้เยอะ</span></li>
+              <li class="gp-band gp-band-2"><span class="gp-dot" aria-hidden="true"></span>
+                <span class="gp-band-name">ปานกลาง</span>
+                <span class="gp-band-note">จัดได้ แต่เผื่อคนติดธุระไว้</span></li>
+              <li class="gp-band gp-band-1"><span class="gp-dot" aria-hidden="true"></span>
+                <span class="gp-band-name">ต่ำ</span>
+                <span class="gp-band-note">ควรเลี่ยง คนน่าจะติดสอบหรือติดเรียน</span></li>
+            </ul>
+          </section>
+
+          <section class="gp-cal" aria-labelledby="gpCalTitle">
+            <h3 class="gp-key-title" id="gpCalTitle">ปฏิทินสอบและกิจกรรม</h3>
+            <p class="gp-key-lead">ตารางสอบของแต่ละชั้นปี วันจัดโครงการของสโมฯ และกำหนดการสำคัญ</p>
+            <!-- src is set by golden-period.js the first time this tab opens:
+                 AGENDA on narrow screens (MONTH is unreadable at 390px), and
+                 lazily so a hidden iframe costs no request on every page load. -->
+            <div class="gp-cal-frame">
+              <iframe id="gpCalendar" title="ปฏิทินสอบและกิจกรรม" loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <noscript><p class="gp-key-lead">เปิดปฏิทินได้ที่ Google Calendar ของสโมฯ</p></noscript>
+          </section>
+
+          <section class="gp-sheet">
+            <h3 class="gp-key-title">ตารางข้อมูลเต็ม</h3>
+            <p class="gp-key-lead">ตัวเลขรายสัปดาห์ของแต่ละชั้นปี อยู่ในชีท GPC Dashboard</p>
+            <a class="btn btn-outline-success gp-sheet-btn"
+              href="https://docs.google.com/spreadsheets/d/1qnYMVQYwkvQ5MZTslNyoDZ6dbNUFDWqG94VnrP7nU_E/edit?gid=1453756721"
+              target="_blank" rel="noopener">
+              เปิดชีท GPC Dashboard <i class="bi bi-box-arrow-up-right ms-1" aria-hidden="true"></i>
+            </a>
+          </section>
+
+        </div>
+      </div>

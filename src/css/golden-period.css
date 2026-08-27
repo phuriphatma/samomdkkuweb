@@ -1,0 +1,65 @@
+/* ==========================================================================
+   Golden Period — the IT DRAFT of /tools/golden-period.
+   docs/DEPT-TOOLS.md D8: the real page belongs to the ฝ่าย. Keep this plain;
+   nothing here should be worth defending when their version replaces it.
+
+   Every rule is scoped under .gp-tab so it cannot leak into another tab — a
+   descendant selector loose in the global sheet is how `.list b` once turned
+   every inline bold into a heading (docs/mistakes/frontend-ui.md).
+   ========================================================================== */
+
+.gp-tab .gp-body { max-width: 56rem; padding-bottom: 3rem; }
+
+.gp-tab .gp-placeholder {
+  border: 1px dashed var(--brand-primary);
+  border-radius: 10px;
+  padding: .7rem 1rem;
+  margin: 0 auto 1.75rem;
+  max-width: 44rem;
+  text-align: center;
+  font-size: .92rem;
+  color: #4c5a50;
+  background: #f4f8f4;
+}
+
+.gp-tab .gp-key-title { font-size: 1.05rem; font-weight: 600; margin: 0 0 .25rem; }
+.gp-tab .gp-key-lead { font-size: .92rem; color: #5c6a60; margin: 0 0 .9rem; }
+.gp-tab .gp-key,
+.gp-tab .gp-cal,
+.gp-tab .gp-sheet { margin-bottom: 2.25rem; }
+
+/* The four bands. Colour is a SECOND channel here, never the only one — the
+   name is always written out, so this still reads without colour vision. */
+.gp-tab .gp-bands { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+@media (min-width: 768px) { .gp-tab .gp-bands { grid-template-columns: 1fr 1fr; } }
+
+.gp-tab .gp-band {
+  display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+  border: 1px solid #e2e8e3; border-left: 4px solid var(--gp-c);
+  border-radius: 8px; padding: .6rem .85rem; background: #fff;
+}
+.gp-tab .gp-band-4 { --gp-c: #1b7f3b; }
+.gp-tab .gp-band-3 { --gp-c: #67a70e; }
+.gp-tab .gp-band-2 { --gp-c: #e0a11a; }
+.gp-tab .gp-band-1 { --gp-c: #d1553a; }
+
+.gp-tab .gp-dot {
+  width: .62rem; height: .62rem; border-radius: 50%;
+  background: var(--gp-c); flex: none; align-self: center;
+}
+.gp-tab .gp-band-name { font-weight: 600; color: #1e2a22; }
+.gp-tab .gp-band-note { font-size: .88rem; color: #5c6a60; }
+
+/* The calendar. A fixed aspect ratio keeps it from collapsing to 0 height
+   before Google's own layout settles; it scrolls internally on mobile. */
+.gp-tab .gp-cal-frame {
+  border: 1px solid #e2e8e3; border-radius: 10px; overflow: hidden; background: #fff;
+}
+.gp-tab .gp-cal-frame iframe {
+  display: block; width: 100%; height: 560px; border: 0;
+}
+@media (max-width: 767.98px) {
+  .gp-tab .gp-cal-frame iframe { height: 420px; }
+}
+
+.gp-tab .gp-sheet-btn { font-weight: 600; }

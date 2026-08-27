@@ -44,6 +44,7 @@ import {
 // canUseAdmin() so the navbar link and the door it opens cannot drift.
 import { ADMIN_FEATURES } from './team-vocab.js';
 import { initProjectsView } from './projects-view.js';
+import { mountGoldenPeriodCalendar } from './golden-period.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
 import { initDevActivity } from './dev-activity.js';
@@ -306,9 +307,14 @@ document.addEventListener('shown.bs.tab', (e) => {
       || e.target?.id === 'pills-tools-tab'
       || e.target?.id === 'pills-departments-tab'
       || e.target?.id === 'pills-projects-view-tab'
+      || e.target?.id === 'pills-golden-period-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
+
+  // The Google Calendar embed is built the first time this tab opens, never at
+  // page load — see golden-period.js.
+  if (e.target?.id === 'pills-golden-period-tab') mountGoldenPeriodCalendar();
 
   // The org chart is one rpc and ~400 people of DOM; load it the first time the
   // about tab is opened (org chart now lives inside เกี่ยวกับเรา).
@@ -383,6 +389,7 @@ const PATH_ROUTES = [
   { path: '/departments', tab: 'pills-departments-tab' },
   { path: '/team',     tab: 'pills-about-tab' },
   { path: '/projects-view', tab: 'pills-projects-view-tab' },
+  { path: '/tools/golden-period', tab: 'pills-golden-period-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
   { path: '/updates',  tab: 'pills-updates-tab' },
 ];

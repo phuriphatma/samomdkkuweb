@@ -1363,9 +1363,14 @@ never `DriveApp.getRootFolder()`.
   ⚠️ This line used to enumerate `0001`–`0006` by name, and stood while the
   directory grew past 160 files — a list that has to be edited by hand every
   time is a list that stops being true. `ls supabase/migrations | wc -l` counts
-  them; the high-water mark that has actually been APPLIED lives in `STATE.md`
-  until the `schema_migrations` table designed in `docs/TEAM-WORKFLOW.md` §2
-  exists.
+  them. ✅ **The applied high-water mark now lives in the DATABASE, not in a
+  document** — `public.schema_migrations` (migration `0169`) exists on both
+  projects since 2026-08-27. **Ask it, do not read a number out of a file:**
+  `npm run migrate:status` (add `--dev` for `samo-dev`; the default is
+  PRODUCTION on purpose, and it prints which one it chose).
+  ⚠️ **`backfilled` is not `applied`**: backfilled means the file predates
+  tracking and no apply time was ever observed. Only rows written by
+  `apply-migration.mjs` carry a real timestamp.
 
 ---
 
@@ -1444,10 +1449,17 @@ change.
 
 **Mocking external services:**
 
-- **Supabase**: we don't mock it. Use the real dev project (same as prod
-  currently — there's no separate dev branch). Sign in with a throwaway
-  password account. The migration script is idempotent; you can wipe a
-  table and re-seed from the CSVs.
+- **Supabase**: we don't mock it — **use `samo-dev`.** ✅ **Corrected
+  2026-08-27: this line used to say "the real dev project (same as prod
+  currently — there's no separate dev branch)", and that stopped being true the
+  day a dev project was built.** There is now a separate Supabase project on a
+  separate account, holding a full copy of production — same schema, same data,
+  same permissions, same RLS. Credentials are the `SUPABASE_DEV_*` block in
+  `.env.local`. `CONFIRM=1 npm run dev:refresh` rebuilds it from production;
+  `npm run dev:check` proves it still answers the way production does.
+  ⚠️ **It holds REAL student data** (a deliberate decision — `docs/TEAM-WORKFLOW.md`
+  D1), so never publish the URL and never let a real name or รหัส reach a
+  commit, a fixture or a screenshot: this repository is public.
 - **Discord webhooks**: don't fire them during dev. Either:
   - Toggle the `silent_notify` flag on the PR form (dev-role only), OR
   - Temporarily point `GAS_API_URL` in `src/js/config.js` at a no-op GAS

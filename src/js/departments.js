@@ -91,6 +91,10 @@ const DEPT_DEFS = {
     icon: 'bi-puzzle',
     colorVar: '--dept-strategy',
     tools: [
+      { kind: 'path', path: '/tools/golden-period', icon: 'bi-calendar-heart',
+        name: 'Golden Period',
+        desc: 'ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ',
+        color: 'var(--dept-strategy)' },
       { kind: 'tab', tabId: 'pills-vitalsound-tab', icon: 'bi-clipboard2-pulse',
         name: 'VitalSound', desc: 'ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร',
         color: 'var(--vs-accent)' },
