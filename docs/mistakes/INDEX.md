@@ -263,7 +263,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `systemctl enable --now` reported success and scheduled nothing
 - "I grepped the served bundle for the string I just changed and it is not there
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(20)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(21)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -287,5 +287,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `which pg_dump` said it was not installed, and it had been installed all along
 - A `pg_dump` restore made the copy MORE permissive than the original
 - A refresh script printed "identical to production" while refreshing nothing
+- `npm test | grep` returned success while the suite was failing
 
-_231 entries across 9 files._
+_232 entries across 9 files._

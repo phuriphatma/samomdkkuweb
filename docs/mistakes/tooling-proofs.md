@@ -864,3 +864,31 @@ the verification's subject list covers all of it. Here the operation wrote to
 `auth` and `public`; the check read only `public`. **Also: a script that filters
 its own noise must not filter its own errors.** The COPY failure was on screen
 the whole time, three lines above a green summary that contradicted it.
+
+## `npm test | grep` returned success while the suite was failing
+
+**Symptom.** Two commits were pushed to `main` on 2026-08-27 with a failing
+test, hours after CI was made blocking. Both were written as guarded chains that
+looked safe.
+
+**Cause, and the second one is the interesting half.** The first was
+`npm test ... ; git add` — a semicolon, so nothing gated the commit. The "fix"
+committed for it was `npm test 2>&1 | grep -E "Tests" && git commit` — **and a
+pipe replaces the exit status with the LAST command's.** `grep` found the summary
+line and exited 0, so `&&` saw success while the suite was red and the failure
+was printed on screen three lines above.
+
+**Fix.** `npm test > /tmp/t.log 2>&1; echo $?` and read the CODE, or keep any
+pipe out from between the test and the `&&`. Direct pushes to `main` by an admin
+bypass the required check (`enforce_admins: false`, deliberate — it is what lets
+the owner push), so branch protection does not catch this shape.
+
+**Where it lives now.** `skills/` habits and this entry.
+
+**The general rule.** *Class 7 — the instrument decides what can be seen.* A
+pipeline's exit code describes its LAST stage, not its first; a summary line
+matching is not the same fact as a suite passing. Same shape as `which pg_dump`
+reporting "absent" for a keg-only binary earlier the same day: both times the
+tool answered a narrower question than the one being asked, and the narrower
+answer was read as the broader one. **When a check gates something, verify the
+CHECK reports failure — run it once against a known-bad state.**
