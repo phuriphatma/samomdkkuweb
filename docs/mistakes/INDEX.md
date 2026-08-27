@@ -111,7 +111,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(80)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(81)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -195,8 +195,9 @@ Open when: markup, modals, layout, touch, icons.
 - "i press สร้างบัญชีและเข้าสู่ระบบด้วย google and button do nothing … but on google app it works"
 - "even i press the โหลดใหม่ … it still show it"
 - A SyntaxError blamed on the DOCUMENT, in a page whose own scripts all parse
+- A second markup site for the same navigation had no handler, so it full-reloaded
 
-## `app-state.md` — Routing, read-state, caches & serialization *(19)*
+## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -219,6 +220,7 @@ Open when: URL state, per-user "seen", import/export.
 - "I'm looking from เจ้าหน้าที่คณะ and I don't see file highlighting anymore"
 - A DELIBERATE omission in the account purge cost 42 of 43 comments their edit button
 - "why does the week still say 61% used when nothing has measured it for four days"
+- A trailing slash matched no route and landed on the home tab, silently
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(24)*
 
@@ -289,4 +291,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A refresh script printed "identical to production" while refreshing nothing
 - `npm test | grep` returned success while the suite was failing
 
-_232 entries across 9 files._
+_234 entries across 9 files._

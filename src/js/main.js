@@ -402,9 +402,14 @@ window.openUpdates = () => {
 };
 
 function pathToTab(pathname) {
-  const exact = PATH_ROUTES.find((r) => r.path === pathname);
+  // Normalise a trailing slash first. `/shop/` used to match NOTHING and fall
+  // through to the landing tab — silently, so it read as "the link is broken".
+  // Harmless for every existing route and load-bearing for nested ones like
+  // /tools/golden-period, which people paste with a slash far more often.
+  const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') || '/' : pathname;
+  const exact = PATH_ROUTES.find((r) => r.path === p);
   if (exact) return exact.tab;
-  if (/^\/news\/.+/.test(pathname)) return 'pills-article-tab';
+  if (/^\/news\/.+/.test(p)) return 'pills-article-tab';
   return null;
 }
 

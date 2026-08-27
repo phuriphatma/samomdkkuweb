@@ -3219,3 +3219,37 @@ scripts all parse but the browser reports a syntax error in the document, stop
 looking for your bug: the document being parsed is not the document you sent.
 The tell is a contradiction like "the reporter reported an error that would have
 prevented the reporter from running" — chase that, it is never noise.
+
+## A second markup site for the same navigation had no handler, so it full-reloaded
+
+**Symptom.** Golden Period opened correctly from the ฝ่าย page and, from the
+เครื่องมือ launcher, threw away the SPA and reloaded the entire bundle. Both
+"worked", so nothing looked broken — the launcher route was simply slow and lost
+all in-memory state.
+
+**Cause.** One navigation, **two pieces of markup**. `departments.js` renders its
+cards with `data-dept-tool-path` and has a delegated click handler that
+`preventDefault()`s and calls `window.navigateTo`. The launcher
+(`src/html/tab-tools.html`) is hand-written markup with **no such handler** —
+every other entry there is a `<button onclick="activateTab(…)">`, so the gap had
+never shown up. Adding the repo's first `<a href>` to an in-app route in that
+file inherited the browser's default navigation.
+
+**Fix.** Keep the `href` — it is what makes middle-click and copy-link work —
+and add `onclick="navigateTo('<path>'); return false;"`, which is the launcher's
+own idiom. Guarded by `dept-tool-mirror.test.js`.
+
+⚠️ **The guard's FIRST version was wrong and fired on the healthy case**: it
+flagged any `href` starting with `/`, which caught `/passport/` — a SEPARATE
+application at its own base, where a full page load is CORRECT. The subject is
+now derived from `PATH_ROUTES` in `main.js`, so it means "an in-app route"
+rather than "looks internal".
+
+**Where it lives now.** `src/html/tab-tools.html`, `src/js/dept-tool-mirror.test.js`.
+
+**The general rule.** *When one behaviour is implemented by a delegated handler,
+every markup site that can produce the element must be inside the delegate's
+subtree — or it silently gets the browser default instead.* The tell is that
+both paths "work" and only one is fast. And when guarding it, derive the subject
+from the routing table, never from the shape of the string: a guard that fires
+on a correct case gets suppressed, and then it protects nothing.

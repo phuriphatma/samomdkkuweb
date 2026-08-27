@@ -820,3 +820,34 @@ this return when nothing has written for a week — and if the answer is "the la
 one, indefinitely", the reading has no clock and something downstream is about
 to state it as current. The tell is that the bug is invisible while the writer
 is healthy, which is every moment you are testing.
+
+## A trailing slash matched no route and landed on the home tab, silently
+
+**Symptom.** `/tools/golden-period/` showed the landing page. So did `/shop/`,
+`/team/` and every other route with a slash appended — which is what a pasted or
+auto-linkified URL very often has.
+
+**Cause.** `pathToTab()` matched `PATH_ROUTES` by **exact string equality**
+against the raw `location.pathname`. `'/shop/' !== '/shop'`, so the lookup
+missed, the `/news/` regex did not apply, and the function returned `null` — and
+a null route falls through to the landing tab. Nothing errored, nothing logged;
+the app simply showed the wrong page, which reads to a student as "the link
+Bank sent me is broken".
+
+It had been latent for every route. Adding the first NESTED path made it likely
+rather than theoretical: people paste `/tools/golden-period/` far more readily
+than `/shop/`.
+
+**Fix.** Normalise once at the top of `pathToTab` —
+`pathname.replace(/\/+$/, '') || '/'` — and match the NORMALISED value in every
+branch, including the `/news/` regex. Guarded by `route-normalise.test.js`,
+which asserts both halves: that the strip exists, and that no branch still tests
+the raw `pathname` (fixing only the exact-match branch would have left
+`/news/x/` broken while `/shop/` worked).
+
+**Where it lives now.** `pathToTab()` in `src/js/main.js`.
+
+**The general rule.** *A lookup keyed on a URL must normalise before it
+compares, and a routing miss must not resolve to a valid-looking page.* Falling
+through to a landing tab is indistinguishable from a working link to the wrong
+place. Where a miss is possible, make it visible.

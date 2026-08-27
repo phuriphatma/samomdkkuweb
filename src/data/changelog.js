@@ -152,6 +152,9 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'fixed', area: 'portal', audience: 'public',
+    text: 'ลิงก์ที่ลงท้ายด้วยเครื่องหมาย / เช่นที่ก๊อปมาจากแชท เคยเปิดแล้วเด้งกลับหน้าแรก '
+    + 'เหมือนลิงก์เสีย ตอนนี้เปิดตรงไปหน้าที่ต้องการแล้ว' },
   { type: 'new', area: 'portal', audience: 'public',
     text: 'เพิ่มหน้า Golden Period — ดูได้ว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน '
     + 'พร้อมปฏิทินสอบและกำหนดการของสโมฯ ในหน้าเดียว ไม่ต้องเปิดชีทเองแล้ว '

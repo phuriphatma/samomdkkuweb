@@ -43,6 +43,37 @@ describe('the ฝ่าย pages and the tools launcher list the same tools', ()
     expect(tools.length).toBeGreaterThan(4);
   });
 
+  it('no launcher entry full-reloads an IN-APP route', () => {
+    // The ฝ่าย cards navigate through `navigateTo` (a delegated handler on
+    // [data-dept-tool-path]); the launcher is separate markup with no such
+    // handler, so a bare <a href="/spa-route"> there throws away the SPA and
+    // reloads the whole bundle. Shipped exactly that on 2026-08-27.
+    //
+    // ⚠️ The subject is derived from PATH_ROUTES, not from "starts with /".
+    // The first version of this guard flagged `/passport/` — a SEPARATE app at
+    // its own base, where a full load is CORRECT — and a guard that fires on
+    // the healthy case is worse than no guard (`.claude/rules/mistakes.md`).
+    const main = readFileSync(`${ROOT}src/js/main.js`, 'utf8');
+    const spaPaths = new Set(
+      [...main.matchAll(/\{\s*path:\s*'([^']+)'/g)].map((m) => m[1]),
+    );
+    expect(spaPaths.size, 'no PATH_ROUTES found — did the shape change?')
+      .toBeGreaterThan(5);
+
+    const bad = [];
+    for (const m of launcher.matchAll(/<a\s[^>]*class="launcher-tool"[^>]*>/g)) {
+      const tag = m[0];
+      const href = /href="([^"]+)"/.exec(tag)?.[1] ?? '';
+      if (spaPaths.has(href) && !/onclick=|data-dept-tool-path=/.test(tag)) bad.push(href);
+    }
+    expect(bad, [
+      'A launcher entry links to an IN-APP route with no in-app navigation, so',
+      'clicking it reloads the entire bundle instead of switching tabs.',
+      "Add onclick=\"navigateTo('<path>'); return false;\" and KEEP the href —",
+      'it is what makes middle-click and copy-link work.',
+    ].join('\n')).toEqual([]);
+  });
+
   it('every ฝ่าย tool is reachable from the launcher too', () => {
     const missing = tools.filter((t) => !launcher.includes(t.target));
     expect(missing.map((t) => `${t.name} → ${t.target}`), [
