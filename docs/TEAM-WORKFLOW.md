@@ -71,6 +71,20 @@ same design. They are listed with the reasoning so a later session does not
 | D7 | Use a second Supabase project on the existing account | ❌ **A separate Supabase ACCOUNT** | A third project on the current account pauses another (the owner has hit this). The separate account has a second benefit: its Management PAT is safe to share with all five, so they run migrations and proofs with the existing tooling. |
 | D8 | Preview builds on the KKU VM | ❌ **Off the production box** | The VM serves students; it is on a private address so GitHub Actions cannot reach it, meaning the VM would have to *poll* — the same systemd shape that already produced a timer reporting `enabled`/`active` while scheduling `infinity` (`docs/mistakes/deploy-hosting.md`). |
 
+⛔ **§1's preview row IS a decision, not a sketch — it was re-opened once and
+should not be again.** On 2026-08-27 a session presented "per-PR preview URLs
+vs one always-on dev site" to the owner as an open question, recommended the
+always-on site, and was corrected by the owner (*"haven't we decided there'll be
+dev web to view … on cloudflare?"*). They had. §1 says
+`<pr>.samo-preview.pages.dev`, deployed by **GitHub Actions, per PR**, and D8
+says off the VM. The session had read the owner's phrase "the dev server" as a
+preference and never opened §1.
+
+**The habit that prevents it: before calling anything an open question, grep §0
+and §1.** A settled decision restated as a question costs the owner a reply,
+teaches them the plan is not trustworthy, and risks reversing a call that had
+reasons behind it.
+
 **Two assistant errors from that session, recorded because the reasoning matters
 more than the fix:**
 

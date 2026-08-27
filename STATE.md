@@ -142,24 +142,24 @@ because it held three lifetimes at once. It now holds one: **status**.
   "predates tracking, apply time never observed". Do not merge the two words.
   ⏳ **Left in phase 2**: mail trap · `#samo-dev-bot` · dev GAS deployment under
   its own Google account · `dev-grants.json`.
-  ❓ **Phase 3 (previews) is UNSTARTED and needs an owner decision. State the
-  question in PLAIN terms — it was asked in jargon once and did not land:**
-  *when someone opens a pull request, how does anyone else LOOK at that change
-  running, without installing anything?*
-  - **A — a temporary website per pull request.** PR #42 gets its own address;
-    open it, see that person's change, comment, and the address dies when the PR
-    closes. Three people's changes never mix.
-  - **B — one permanent "dev" website** always showing the latest of one branch.
-    Simpler, but ONE version at a time: two changes in flight means taking turns,
-    which is a queue, which is the bottleneck this workflow exists to remove.
-
-  📌 **Recommendation, CORRECTED — A.** An earlier session recommended B on the
-  strength of the owner saying "the dev server", singular, and that was reading
-  their PHRASING rather than their NEED. Two different needs were being
-  conflated: *"I want to develop against realistic data"* is already solved
-  (run locally against `samo-dev`), and *"I want someone to look at my change
-  without installing anything"* is what previews are for. B answers the first
-  need badly and the second need worse. **Ask, do not assume — but recommend A.**
+  ✅ **Phase 3 (previews) is DECIDED — do NOT re-open it.** `docs/TEAM-WORKFLOW.md`
+  §1 and D8 settled it: **one temporary site per pull request, on Cloudflare
+  Pages** (`<pr>.samo-preview.pages.dev`), deployed by GitHub Actions. Off the
+  VM on purpose — the VM is on a private address, so Actions cannot reach it and
+  it would have to poll, which is the systemd shape that already produced a
+  timer scheduling `infinity`.
+  ⛔ **A 2026-08-27 session presented this as an OPEN QUESTION, recommended the
+  opposite, then argued back to the decision.** It had read the owner's phrase
+  "the dev server" as a preference and never checked §1. **Before calling
+  anything an open question, grep `docs/TEAM-WORKFLOW.md` §0 and §1 — a settled
+  decision restated as a question costs the owner a reply and buys nothing.**
+  📌 **It is UNBLOCKED and buildable now**: phase 1 is done and
+  `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` are already in `.env.local`.
+  ~2 h. The task list is phase 3 in §8, and two traps are already written down:
+  `wrangler pages deploy dist` **will not upload `functions/`** (§7.4 — every
+  Discord notification would silently no-op), and the `*.pages.dev` host-guard
+  in BOTH entry HTMLs currently redirects any `pages.dev` to the VM, so it must
+  be narrowed to the two named retired hosts or every preview URL bounces.
   ⚠️ **OWED, small, and nobody has built it: the repo SETTINGS have no guard.**
   The two branch-protection flags and the `tool-request` label live on GitHub,
   outside git — if anyone switches them off, no test goes red and the whole
@@ -229,15 +229,18 @@ that has none today. The refresh button re-reads the DATABASE only, and says so.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
 3. Only then, the archive file for whatever you are about to touch.
 
-**Nothing is blocked on a credential.** FOUR things are waiting on the owner and
+**Nothing is blocked on a credential.** THREE things are waiting on the owner and
 none should be built unprompted. Ask them in plain language:
 
 | # | Question | Where | Recommendation on file |
 |---|---|---|---|
-| 1 | How does someone look at a pull request's change without installing anything — a temporary site per PR, or one permanent dev site? | ❓ above | **per PR** (and see why the earlier answer was corrected) |
-| 2 | Should the Claude usage reporter poll more often than every 15 min? | "Open question" below | **leave it at 15** |
-| 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
-| 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+| 1 | Should the Claude usage reporter poll more often than every 15 min? | below | **leave it at 15** |
+| 2 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
+| 3 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+
+⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
+per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
+round trip. **Check `docs/TEAM-WORKFLOW.md` §0/§1 before asking anything.**
 
 Two more the assistant should offer rather than assume: **start Golden Period?**
 (`docs/DEPT-TOOLS.md` §13 has the order — the tool registry first) and **build
