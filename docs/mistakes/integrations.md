@@ -999,9 +999,18 @@ curl -s -X POST "$HOST/notify" -H 'Content-Type: text/plain' --data 'not-json'
 proves liveness **without sending anything**. Never probe a notification
 endpoint with a valid payload.
 
-**Fix.** The three `DISCORD_*` vars were removed from the PREVIEW environment;
-production keeps its own copies, verified untouched. Preview now answers "no
-webhook configured", which sends nothing and says so. `GAS_WEBHOOK_URL` is
+**Fix — INCOMPLETE, and the first attempt was wrong.** The three `DISCORD_*`
+vars were removed from the PREVIEW environment, and that was reported as the
+fix. It is not: **Cloudflare binds env vars at DEPLOY time**, so the change
+reaches only FUTURE builds. Every deployment built earlier still carries the
+real webhook URLs and still serves them, and preview URLs are posted into
+**public** PR comments. Deleting a deployment did not free its URL either — it
+was still answering minutes after the API reported success.
+
+**The only complete fix is to ROTATE the three webhooks in Discord**, which
+invalidates every baked-in copy at once — in old deployments, and in any chat
+transcript they have ever appeared in — then update Cloudflare's PRODUCTION env
+and the VM's `samo-notify` env with the new URLs. `GAS_WEBHOOK_URL` is
 deliberately left real — Drive pollution is quiet and deletable where a Discord
 post interrupts people, and removing it would break the PR form on preview
 entirely.

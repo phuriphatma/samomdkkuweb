@@ -147,10 +147,18 @@ because it held three lifetimes at once. It now holds one: **status**.
   production has none. ✅ `public/robots.txt` exists now (nginx used to answer
   `/robots.txt` with the SPA).
   ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
-  ⛔ **Previews could ping the REAL ฝ่าย Discord until 2026-08-27.** The three
-  `DISCORD_*` vars are now REMOVED from the preview env; production keeps its
-  own, verified untouched. Write-up + the safe way to probe a notify endpoint:
-  `docs/mistakes/integrations.md`.
+  ⛔ **A PREVIEW CAN STILL PING THE REAL ฝ่าย DISCORD. NOT FIXED — needs the
+  owner to ROTATE three webhooks.** Cloudflare **bakes env vars in at DEPLOY
+  time**, so removing them from the preview env only affects FUTURE builds:
+  every deployment built before 2026-08-27 still carries the real webhook URLs,
+  and `refactorsamomdkkuweb` alone has 25 of them at live URLs. Preview URLs are
+  posted into **PUBLIC** PR comments. Deleting a deployment did NOT free its URL
+  (still answering minutes later), so **the only complete fix is rotating
+  `DISCORD_PR_WEBHOOK` / `DISCORD_VS_WEBHOOKS` / `DISCORD_PROJECTS_WEBHOOK` in
+  Discord**, then updating Cloudflare's PRODUCTION env and the VM's
+  `samo-notify` env. This is PRE-EXISTING, not caused by the preview work — but
+  it was proven live on 2026-08-27 by a test message that reached the real PR
+  channel. Write-up: `docs/mistakes/integrations.md`.
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
   preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
   form on preview, and Drive pollution is quiet and deletable where Discord
