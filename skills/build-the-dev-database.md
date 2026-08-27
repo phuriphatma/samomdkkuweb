@@ -141,12 +141,52 @@ RLS behaves identically on dev, or the whole design (`docs/TEAM-WORKFLOW.md`
   which one it chose, because a tool that silently defaults to dev is a tool
   that reports production healthy while looking elsewhere.
 
+## 4b. It is now one command — `CONFIRM=1 npm run dev:refresh`
+
+Everything above is encoded in `tools/dev-refresh.mjs`. Three guards protect
+production, and each was falsified rather than assumed: the dev connection must
+point at the dev project (tested by aiming it at production — refused), it must
+not contain the production ref, and `CONFIRM=1` is required (tested — refused).
+Production is only ever opened with `pg_dump`.
+
+⛔ **Two defects the first run had, both worth knowing because they will recur
+in any refresh script:**
+
+1. **It did not refresh `auth`.** Step 2 drops `public` and `passport`; `auth`
+   is a different schema and survives, so `COPY auth.users` aborted at line 1 on
+   duplicate ids and dev kept its old accounts. Now: `truncate auth.users
+   cascade` first.
+2. **The verification could not see that.** It compared 64 tables —
+   `public` + `passport` — so it never looked where the failure was, and printed
+   "identical to production". Now 66, including `auth.users` and
+   `auth.identities`.
+
+Note that `truncate auth.users cascade` cascades into `team_members`,
+`vs_followers`, `vs_public_comments` and `shop_order_items`; that is harmless
+here only because step 2 has already emptied them. **Order matters: truncate,
+then auth, then app.**
+
+📌 **`schema_migrations` is excluded from the data copy** (`--exclude-table-data`).
+It describes the database it lives in, not the application — copying it makes
+dev claim production's apply history, and it is what collided on the first
+hand-run.
+
+📌 **After a `drop schema public cascade`, the grant drift does not appear** —
+Supabase's `ALTER DEFAULT PRIVILEGES` are attached to the schema and go with it.
+The revoke step still ran and reported 0. Keep it: it is needed whenever the
+schema is loaded into a project whose defaults are intact, which is what a fresh
+project is.
+
 ## 5. Still unknown — do not plan around these as if settled
 
 - Whether the free tier allows two active projects on a new account (§7.6). The
   owner has hit a pause before. **A third project on the LIVE account is already
   INACTIVE** (`letuxetrbejoqsnaqdgl`, ap-southeast-1) — evidence the limit is
   real, and the reason `samo-dev` goes on a SEPARATE account (D7).
-- The auth schema version skew in §3.
+- ~~The auth schema version skew in §3.~~ ✅ **Measured 2026-08-27: there is
+  none.** `auth.users` + `auth.identities` have **44 shared columns and zero on
+  either side alone** between the live project and a project created today. The
+  §7.5 worry did not materialise — but it is a fact about two projects on the
+  same platform version, so re-measure rather than assume it stays true.
 - Whether `storage` objects need copying at all — nothing in the app's schema
   references `storage.*` (measured: 0 hits), so probably not.

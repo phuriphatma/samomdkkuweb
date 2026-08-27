@@ -465,8 +465,8 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | # | Phase | Effort | Prerequisite |
 |---|---|---|---|
 | 0 | ✅ **DONE 2026-08-27** — repo guardrails. `required_status_checks` (`build`) and `require_code_owner_reviews` both ON, read back from the API; `CODEOWNERS` extended; `enforce_admins` deliberately still `false`. Only the project board is outstanding | — | — |
-| 1 | ⏳ **PART DONE.** ✅ `public.schema_migrations` + `npm run migrate:status` + `npm run migrate:new` built and applied (0169); ✅ schema dumped from the live project, recipe in `skills/build-the-dev-database.md`. ❌ Still needs a **separate Supabase account** (D7) to create `samo-dev` in, then load, then the Google callback line, redirect URLs, sign-ups OFF | ~1 h left | the dev ACCOUNT — the only thing outstanding |
-| 2 | `npm run dev:refresh` + `dev:check` + `dev-grants.json`; the mail trap; the dev GAS deployment under its own Google account; `#samo-dev-bot` | ~3 h | phase 1, **§7.5 first** |
+| 1 | ✅ **DONE 2026-08-27.** `samo-dev` = `xibugtlsphcfuvstnxxh` on the separate account (D7). Schema + data loaded and verified against production: 66 tables, 0 row diffs, 0 grant diffs either way. `public.schema_migrations` + `migrate:status --dev` + `migrate:new` built. Sign-in as a copied account PROVEN end to end. One command: `CONFIRM=1 npm run dev:refresh` | — | — |
+| 2 | ⏳ **PART DONE** — ✅ `npm run dev:refresh` and `npm run dev:check` are built, falsified and in use; ✅ §7.5 answered (no auth schema skew, sign-in proven). ❌ Still to do: the mail trap, the dev GAS deployment under its own Google account, `#samo-dev-bot`, `dev-grants.json` | ~2 h left | — |
 | 3 | Preview builds: Actions job → `wrangler pages deploy` (**§7.4**), PR comment, `VITE_ENV_NAME` ribbon, narrow the `*.pages.dev` guard in BOTH entry HTMLs to the two named retired hosts, `noindex` header, `/notify` dev middleware in `vite.config.js` | ~2 h | phase 1 |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
 | 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |

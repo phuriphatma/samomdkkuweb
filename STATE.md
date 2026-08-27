@@ -156,10 +156,27 @@ because it held three lifetimes at once. It now holds one: **status**.
   MEASURED difference; now 0 extra / 0 missing. **`npm run dev:check` is the
   ratchet** (falsified by re-granting `anon` on `students`: reported DRIFT,
   exit 1). Write-up in `docs/mistakes/tooling-proofs.md`.
-  ⏳ **What is left before dev is usable: DATA.** The schema is there and empty.
-  `auth.users` loads FIRST (7 tables FK to it), GoTrue cannot choose ids so it
-  is a direct write over the superuser connection, and **the proof is signing in
-  as a copied account** — nothing else settles it (§7.5).
+  ✅ **DATA IS LOADED AND PROVEN. Phase 1 + the auth half of phase 2 are DONE.**
+  66 tables compared (`public` + `passport` + `auth.users` + `auth.identities`):
+  **0 row-count differences, 0 grant differences either way.**
+  **`CONFIRM=1 npm run dev:refresh` rebuilds it in one command** — three guards
+  protect production, all three falsified rather than assumed.
+  **Sign-in proven END TO END on the rebuilt copy**, five steps, both
+  directions: GoTrue accepts the directly-written `auth.users` row · password
+  sign-in returns a session · RLS returns that identity's OWN row (`role=dev`) ·
+  returns ZERO rows for anyone else · and a control read that must ALLOW does.
+  ⛔ **The first `dev:refresh` run printed "identical to production" and had
+  refreshed NOTHING in `auth`** — step 2 drops `public`/`passport` only, so the
+  `COPY auth.users` aborted on duplicate ids, and the verification compared 64
+  tables instead of 66 so it could not see it. **The check's blind spot was in
+  the same place as the bug.** Both fixed; write-up in
+  `docs/mistakes/tooling-proofs.md`.
+  📌 `auth` schema skew (§7.5's worry) **does not exist**: 44 shared columns,
+  0 on either side alone. `schema_migrations` is EXCLUDED from the data copy —
+  it describes the database it lives in.
+  ⏳ **Left for phase 2**: the mail trap, `#samo-dev-bot`, the dev GAS
+  deployment, `dev-grants.json`. **Phase 3** (previews) is untouched, and the
+  owner has not chosen per-PR previews vs one always-on dev site.
   📌 The 4 `storage` policies were NOT copied and that is correct: the app has
   **0** Supabase-Storage call sites (files go to Drive via GAS).
 - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT

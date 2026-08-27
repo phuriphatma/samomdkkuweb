@@ -23,11 +23,14 @@ path named here must resolve.
   `skills/build-the-dev-database.md`. **The dump is a build artifact and is NOT
   in the repo** — it lives in the session scratchpad and goes stale; re-run the
   dump rather than reusing an old file.
-- ⏳ **Phase 1 now needs one thing only: a SEPARATE Supabase account** to create
-  `samo-dev` in (D7 — a third project on the live account pauses another, and
-  `letuxetrbejoqsnaqdgl` sitting INACTIVE is the evidence). Then load, then
-  prove it by SIGNING IN as a copied account before calling it good.
-- **`auth.users` loads FIRST** — seven public tables carry a foreign key to it.
+- ✅ **`samo-dev` is BUILT, LOADED and PROVEN** (`xibugtlsphcfuvstnxxh`).
+  Rebuild any time with `CONFIRM=1 npm run dev:refresh`; check it with
+  `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
+  `.env.local` and are safe to share with the team — that account holds nothing
+  but disposable projects.
+- **Next: decide previews.** Per-PR URLs, or one always-on dev site? The owner
+  said "the dev server", singular, which is cheaper. Then phase 2's remainder:
+  mail trap, `#samo-dev-bot`, dev GAS deployment.
 - **Golden Period is un-started.** `docs/DEPT-TOOLS.md` §13 has the order; the
   first code step is the one-source tool registry, because `DEPT_DEFS` in
   `src/js/departments.js` and `src/html/tab-tools.html` are two hand-maintained

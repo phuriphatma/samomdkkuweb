@@ -17,7 +17,8 @@
     "proofs": "node tools/run-proofs.mjs",
     "migrate:status": "node tools/migrate-status.mjs",
     "migrate:new": "node tools/migrate-new.mjs",
-    "dev:check": "node tools/dev-check.mjs"
+    "dev:check": "node tools/dev-check.mjs",
+    "dev:refresh": "node tools/dev-refresh.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

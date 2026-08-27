@@ -827,3 +827,40 @@ directions** — "everything the original had is present" is half a check, and i
 is the half that cannot see an addition. And when a platform ships non-standard
 defaults, any tool that emits only the positive state (a dump, an export, a
 seed) will silently inherit them.
+
+## A refresh script printed "identical to production" while refreshing nothing
+
+**Symptom.** `tools/dev-refresh.mjs`, run for the first time, finished with
+`row-count diffs: 0 · grants extra: 0 · grants missing: 0` and
+`✓ samo-dev rebuilt and identical to production`. Buried above it, filtered out
+of the summary, was `ERROR: duplicate key value violates unique constraint
+"users_pkey" … CONTEXT: COPY users, line 1`.
+
+**Cause, two halves that hid each other.** Step 2 drops and recreates `public`
+and `passport` — it does **not** touch `auth`, which is a different schema. So
+`COPY auth.users` hit rows from the previous load and **aborted the entire COPY
+at line 1**, leaving dev's accounts exactly as they were. Step 6 then compared
+64 tables — `public` and `passport` only — and never looked at `auth`, so it
+could not see what step 4 had failed to do. **The verification's blind spot was
+in the same place as the bug**, which is why the run went green.
+
+It only *looked* correct because the stale auth copy happened to be identical to
+the fresh one: the hand-run had loaded it minutes earlier. A refresh a week later
+would have carried a week-old set of accounts and still reported parity.
+
+**Fix.** `truncate auth.users cascade` before loading, and include
+`auth.users` / `auth.identities` in the comparison — 64 tables became 66, which
+is the number the by-hand check had used all along. Re-run: 66 compared, 0
+diffs, and the sign-in proof re-run against the rebuilt copy because truncating
+auth had wiped the password the earlier proof set.
+
+**Where it lives now.** `tools/dev-refresh.mjs` steps 4 and 6,
+`skills/build-the-dev-database.md`.
+
+**The general rule.** *A verification that covers less than the operation is not
+a verification — and the gap is always where the bug lives, because the same
+blind spot produced both.* Enumerate what the operation TOUCHES, then check that
+the verification's subject list covers all of it. Here the operation wrote to
+`auth` and `public`; the check read only `public`. **Also: a script that filters
+its own noise must not filter its own errors.** The COPY failure was on screen
+the whole time, three lines above a green summary that contradicted it.
