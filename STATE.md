@@ -32,16 +32,12 @@ because it held three lifetimes at once. It now holds one: **status**.
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `7405712` (2026-08-27)**, VM HEAD confirmed over ssh equals
-  local HEAD, `DEPLOY_EXIT=0`. Carried the Golden Period draft and the routing
-  fixes. **Verified from the SERVED artifacts, both directions:**
-  served HTML → `pills-golden-period` = 3, `ช่วงเวลาที่เหมาะกับการจัดกิจกรรม` = 1;
-  served **`public-*.js`** → `calendar.google.com/calendar/embed` = 1, `AGENDA` = 1,
-  `/tools/golden-period` = 2 — and **0 of each in `analytics-*.js`**, which is
-  CORRECT (this module is public-entry only), with `pills-projects-view-tab` = 2
-  in the public bundle as the control proving the grep worked;
-  served CSS → `gp-tab` = 1. **Then driven live in headless Chrome**: pane
-  activates at 1280 and 390, MONTH/AGENDA respectively, `/tools/golden-period/`
-  with the slash works too, no console errors.
+  local HEAD, `DEPLOY_EXIT=0`. Carried the Golden Period draft and the
+  routing fixes. **Verified from the SERVED artifacts** (HTML, `public-*.js`,
+  CSS — with a long-shipped string as the control) **and driven live in headless
+  Chrome** at 1280 and 390. Full record in the commit message.
+  📌 **The Golden Period strings are 0 in `analytics-*.js` and that is CORRECT** —
+  this module belongs to the public entry alone. Grep `public-*.js`.
   ⚠️ **A stale sha here reads exactly like "a deploy is owed" and costs somebody
   a VPN session to disprove**, so if you deploy, correct THIS line and no other.
   Previous: `36ac1d5` (2026-08-26 late).
@@ -252,8 +248,8 @@ Two more the assistant should offer rather than assume:
   switches live on GitHub, outside git — turn them off and no test goes red,
   while every contributor rule built on 2026-08-27 silently becomes advisory.
 
-**Nothing is owed to a person, and no deploy is owed** — as of 2026-08-27 every
-commit since `36ac1d5` is docs, tooling or tests. Check, do not trust this line:
+**Nothing is owed to a person, and no deploy is owed** — `7405712` is deployed
+and verified. Check, do not trust this line:
 
 ```bash
 git diff --stat 7405712..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
