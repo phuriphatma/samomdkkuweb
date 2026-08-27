@@ -61,13 +61,13 @@ describe('buildPrPayload', () => {
     expect(p.flags).toBeUndefined();
   });
 
-  it('rush → red, silent → flags 4096, other-platform fields appended', () => {
+  it('rush → red, other-platform fields appended', () => {
     const p = buildPrPayload({
       ticketId: 'PR-2', content: 'X', department: 'd', deadlineMode: 'Rush PR Review',
       silentNotify: true, otherPlatform: ['IG', 'FB'], otherPlatformReason: 'reach',
     });
     expect(p.embeds[0].color).toBe(16711680);
-    expect(p.flags).toBe(4096);
+    // flags are set in resolveTarget now — see the every-action test at the end.
     expect(p.embeds[0].fields.some((f) => f.name === 'Other Platform' && f.value === 'IG, FB')).toBe(true);
     expect(p.embeds[0].fields.some((f) => f.name === 'เหตุผลที่ต้องการ PR')).toBe(true);
   });
@@ -88,10 +88,10 @@ describe('buildVsPayload', () => {
     expect(p.embeds[0].color).toBe(16711680);
   });
 
-  it('silent → no mention + flags 4096', () => {
+  it('silent → no @here mention', () => {
     const p = buildVsPayload({ ticketId: 'VS-3', vsProblem: 'x', department: 'SE', vsSilentNotify: true });
     expect(p.content).not.toContain('@here');
-    expect(p.flags).toBe(4096);
+    // flags are set in resolveTarget now — see the every-action test at the end.
   });
 
   it('non-SE requestedDept adds a routing note; empty problem gets a placeholder', () => {
@@ -511,4 +511,45 @@ describe('buildClaudeMonitorPayload', () => {
     expect(monitor.url).toBe('https://discord/claude');
     expect(monitor.url).toBe(booking.url);
   });
+});
+
+// ============================================================
+// Every action must honour "do not ping" — the PROPERTY, not a list.
+//
+// Until 2026-08-28 each builder decided this for itself and only three of seven
+// did. `silentNotify` was accepted by the API and silently DROPPED for
+// projects and all three claude actions, so a test run pinged people in
+// #notify-samodocument. Reported by the owner: "on samodocument not silent".
+//
+// The action list is read out of the SOURCE, so a `case` added later cannot
+// escape this test by nobody remembering to extend a list here.
+// ============================================================
+describe('silence is honoured by every action, not only the ones that remembered', () => {
+  const WEBHOOK = 'https://discord.com/api/webhooks/1/x';
+  const env = {
+    DISCORD_PR_WEBHOOK: WEBHOOK,
+    DISCORD_PROJECTS_WEBHOOK: WEBHOOK,
+    DISCORD_CLAUDE_WEBHOOK: WEBHOOK,
+    DISCORD_VS_WEBHOOKS: JSON.stringify({ SE: WEBHOOK }),
+  };
+  const src = readFileSync(new URL('./_discord.js', import.meta.url), 'utf8');
+  const ACTIONS = [...stripComments(src).matchAll(/case '(notify\w+)':/g)].map((m) => m[1]);
+
+  it('found every action in the source', () => {
+    expect(ACTIONS.length, 'no actions parsed — did the switch change shape?').toBeGreaterThanOrEqual(7);
+  });
+
+  for (const action of ACTIONS) {
+    it(`${action} suppresses the ping when asked`, () => {
+      const data = { department: 'SE', notifyTo: 'SE', ticketId: 'T', silentNotify: true };
+      const { payload, error } = resolveTarget(action, data, env);
+      expect(error, `${action} did not resolve`).toBeFalsy();
+      expect(payload && payload.flags, `${action} DROPPED the silence flag`).toBe(4096);
+    });
+
+    it(`${action} pings normally when not asked`, () => {
+      const { payload } = resolveTarget(action, { department: 'SE', notifyTo: 'SE', ticketId: 'T' }, env);
+      expect(payload && payload.flags, `${action} silenced a message nobody asked to silence`).toBeUndefined();
+    });
+  }
 });

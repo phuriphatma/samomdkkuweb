@@ -36,6 +36,26 @@ export function htmlToText(html) {
 
 const isTruthyFlag = (v) => v === true || v === 'true';
 
+/**
+ * Should this notification arrive WITHOUT pinging anyone?
+ *
+ * ⚠️ ONE HOME. Until 2026-08-28 each builder decided this for itself, and only
+ * three of seven did: PR, VS and VS-consult honoured the flag while
+ * projects, claude-booking, claude-alert and claude-monitor silently dropped
+ * it. A caller passing `silentNotify` therefore got a ping anyway, depending on
+ * which action they used — reported by the owner as "on samodocument not
+ * silent" after a test run interrupted people.
+ *
+ * Both spellings are accepted because both are already in the wire format the
+ * app sends: the PR form sends `silentNotify`, the VS form `vsSilentNotify`.
+ * Discord's flag is SUPPRESS_NOTIFICATIONS (1 << 12) — the message still
+ * appears, it just does not notify.
+ */
+export const SUPPRESS_NOTIFICATIONS = 4096;
+export function wantsSilence(data = {}) {
+  return isTruthyFlag(data.silentNotify) || isTruthyFlag(data.vsSilentNotify);
+}
+
 // ---- payload builders (one per GAS action) ----
 
 export function buildPrPayload(data = {}) {
@@ -68,7 +88,6 @@ export function buildPrPayload(data = {}) {
     content: `🚨 ส่งงาน PR ใหม่ จาก **${data.department}**!`,
     embeds: [{ title: data.content, color: isRush ? 16711680 : DISCORD_BLUE, fields }],
   };
-  if (isTruthyFlag(data.silentNotify)) payload.flags = 4096;
   return payload;
 }
 
@@ -100,7 +119,6 @@ export function buildVsPayload(data = {}) {
       color,
     }],
   };
-  if (silent) payload.flags = 4096;
   return payload;
 }
 
@@ -114,7 +132,6 @@ export function buildVsConsultPayload(data = {}) {
     content,
     embeds: [{ title: `อัปเดต Ticket: ${data.ticketId}`, description: desc.substring(0, 2048), color: DISCORD_BLUE }],
   };
-  if (silent) payload.flags = 4096;
   return payload;
 }
 
@@ -337,6 +354,14 @@ export function buildClaudeMonitorPayload(data = {}) {
 }
 
 export function resolveTarget(action, data = {}, env = {}) {
+  const t = resolveTargetInner(action, data, env);
+  // Applied HERE so no builder can forget it, and so an action added later
+  // inherits it for free. See wantsSilence().
+  if (t && t.payload && wantsSilence(data)) t.payload.flags = SUPPRESS_NOTIFICATIONS;
+  return t;
+}
+
+function resolveTargetInner(action, data = {}, env = {}) {
   switch (action) {
     case 'notifyPROnly':
       return { url: env.DISCORD_PR_WEBHOOK, payload: buildPrPayload(data) };
