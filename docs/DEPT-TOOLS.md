@@ -83,9 +83,18 @@ touches*, not a process anyone has to follow:
 | `src/js/data/**` (the doors) | **owner** | D — it decides who sees what |
 | `auth.js` · `db.js` · `notify.js` · `uploads.js` · `supabase/` · `server/` · `appscript/` · `tools/` | **owner** | D — already listed today |
 
-⚠️ **This only works once `require_code_owner_reviews` is `true`.** Measured
-2026-08-27: it is **`false`**, so every line above is advisory and any one of the
-five collaborators can merge into any of those paths. §10.1.
+✅ **`require_code_owner_reviews` was turned ON 2026-08-27**, so every line above
+now BLOCKS rather than merely requests. Before that it was `false` and any one
+of the five collaborators could merge a change to `auth.js`.
+
+⚠️ **The trap that follows from it, so nobody rediscovers it at midnight:**
+GitHub does not let anyone approve their own pull request. So a pull request
+**opened by the owner** that touches an owner-owned path can never collect the
+code-owner approval it now demands. It is not stuck — `enforce_admins` is
+deliberately `false`, so the owner merges with the admin bypass, or pushes
+`main` directly, which is this repo's normal flow anyway (`CLAUDE.md`, authority
+model). **Do not "fix" this by turning `enforce_admins` on or by removing the
+owner's own paths from `CODEOWNERS`.**
 
 📌 **The consequence for planning, and it is the useful one:** this is not a
 second project beside `docs/TEAM-WORKFLOW.md`. It is **the same project with
@@ -115,7 +124,7 @@ What is actually true today (read from the code on 2026-08-27):
 | Only the owner can deploy | `skills/deploy-vm.md`, needs VPN | merge ≠ live; ~90 s per deploy, batched |
 | No preview URL | `docs/TEAM-WORKFLOW.md` §8 phase 3, not built | a contributor cannot see their work on the real site |
 | Five `write` collaborators, 16 past PRs | GitHub, measured 2026-08-26 | the PR road exists and has been driven |
-| CI is not blocking | `required_status_checks` 404 | a red PR can be merged today |
+| ~~CI is not blocking~~ | **FIXED 2026-08-27** — `build` is now a required check | *was:* a red PR could be merged |
 
 So the request is not "can IT build GPC" — IT can, in an afternoon. The request
 is **"can a ฝ่าย own a page and keep changing it without spending IT's time
@@ -536,9 +545,11 @@ check it**. Four checks, all cheap:
    page must render from the same source, asserting the property, never the
    list (a guard written from the same list as the code passes a wrong list).
 
-Plus the one already owed from `docs/TEAM-WORKFLOW.md` §8a: **make CI blocking**
-(`required_status_checks`). Today a PR with the whole suite red can be merged —
-and a contributor PR is precisely the case where nobody reads the diff closely.
+✅ **The prerequisite is DONE**: `required_status_checks` (`build`) and
+`require_code_owner_reviews` were both enabled 2026-08-27 and read back from the
+API. Until that morning every guard on this list was decorative — a PR with the
+whole suite red was mergeable, which is precisely the case where nobody reads
+the diff closely.
 
 `CODEOWNERS` gains one line: `/src/data/tools.js @phuriphatma`. That is the one
 place a tool becomes reachable and receives its visibility gate; the owner
@@ -575,19 +586,21 @@ the plan, not for it. **Findings measured live from the GitHub API on
 
 ### The blockers — these are true of the repo TODAY
 
-**10.1 — "I'll just approve" is not what the branch rule says.** Measured:
-`required_approving_review_count: 1`, and **any of the five collaborators
-satisfies it**. `require_code_owner_reviews` is **`false`**, so `CODEOWNERS` only
-*requests* the owner's review — it does not block. Two contributors can approve
-each other's pull request into `auth.js` today and merge it, with the owner
-never involved. *Fix: `require_code_owner_reviews: true`. One flag.*
+**10.1 + 10.2 — ✅ CLOSED 2026-08-27. Kept because the SHAPE recurs, not the
+numbers.** Both were measured from the GitHub API and both were true that
+morning: `required_status_checks` returned **404**, so a pull request with the
+entire suite red was mergeable; and `require_code_owner_reviews` was **`false`**,
+so `CODEOWNERS` only *requested* the owner — any one of the five collaborators
+could approve a change to `auth.js` and merge it. Both are now on, verified by
+reading the protection object back rather than trusting the write, and the
+required context was confirmed against a **real check run** (`build`) — a name
+that does not match blocks every pull request forever on a check that never
+arrives.
 
-**10.2 — CI cannot block anything.** Measured: `required_status_checks` returns
-**404 — not enabled**. `build.yml` runs `npm test` + `npm run build` on every
-pull request and **nothing enforces the result**. Every guard described in §8 is
-decorative until this is switched on: a contributor pull request with the whole
-suite red is mergeable. *Fix: a full `PUT` of the protection object including the
-`build` check — see `docs/TEAM-WORKFLOW.md` §10a; a `PATCH` cannot add it.*
+> **The lesson, which outlives the fix: a process can look enforced and enforce
+> nothing.** The workflow, the reviewers and the checks all existed; the two
+> booleans that made any of it binding did not. **Read the setting, never the
+> workflow file.**
 
 **10.3 — Right now, a contributor touching data is touching PRODUCTION.**
 `CONTRIBUTING.md` says it plainly today: both branches hit the same Supabase

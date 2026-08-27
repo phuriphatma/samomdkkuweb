@@ -97,3 +97,19 @@ The owner does not have to read it. In a **fresh** Claude session:
 - **What it does NOT cover**: the data doors in `src/js/data/`, and anything in
   the `CODEOWNERS` list. Those decide who may see what, that rule lives in the
   database rather than in the diff, and the owner reads those personally.
+
+---
+
+## Two things that will confuse someone later
+
+- **The owner cannot approve their own pull request.** GitHub forbids it, and
+  `require_code_owner_reviews` is now on — so an owner PR touching an
+  owner-owned path (`supabase/`, `auth.js`, `STATE.md`, …) can never collect the
+  approval it asks for. That is not a misconfiguration: `enforce_admins` is
+  `false` on purpose, so the owner merges with the admin bypass or pushes `main`
+  directly, which is the normal flow here. **Do not turn `enforce_admins` on to
+  "make it consistent".**
+- **A red CI check on a contributor's PR is usually not their change.** Ask them
+  to run `npm test` locally first; the suite also enforces the agent-context
+  byte budget and the handoff's pointers, so an unrelated edit elsewhere can be
+  what is red.

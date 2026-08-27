@@ -1202,24 +1202,27 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 > - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
 >   the Stay block above. Do not build it unprompted.
-> - **ฝ่าย tools / Golden Period — DESIGNED, NOT BUILT.** Read
->   `docs/DEPT-TOOLS.md`, not this bullet; its §0a holds owner decisions that
->   must not be re-litigated (pull requests are the road; data-backed ฝ่าย tools
->   are in scope). Four lanes, and the boundary is **"can it decide who sees
->   what"** — the ฝ่าย may write a page that shows data, never the rule that
->   picks the rows. **ONE workflow for everybody: the ฝ่าย use the dev team's
->   pull-request pipeline unchanged and `CODEOWNERS` carries the entire
->   difference (§0b). This is NOT a second project — it is
->   `docs/TEAM-WORKFLOW.md` with more users; delete the restatement when
->   those phases land rather than maintaining it twice.**
->   ⚠️ **Three findings measured live from the GitHub API 2026-08-27, all true
->   of this repo NOW**: `required_status_checks` is **404 — CI cannot block a
->   merge**; `require_code_owner_reviews` is **false**, so `CODEOWNERS` only
->   requests the owner and any one of the five collaborators can approve a PR
->   into `auth.js`; and `CONTRIBUTING.md` still tells contributors to test
->   against **production**, so lane C (data tools) is HARD-BLOCKED on
->   `docs/TEAM-WORKFLOW.md` phase 1. Nothing is built: no `src/data/tools.js`,
->   no `public/embed/`, no `src/js/data/` doors, no `/tools/<slug>` route.
+> - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
+>   BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
+>   not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev
+>   team's pull-request pipeline unchanged and `CODEOWNERS` carries the whole
+>   difference. This is NOT a second project: it is `docs/TEAM-WORKFLOW.md`
+>   with more users; delete the restatement when those phases land rather
+>   than maintaining it twice.**
+>   ✅ **LIVE on the repo since 2026-08-27, verified back from the GitHub
+>   API** — `main` now REQUIRES the `build` check (context confirmed against
+>   a real check run) and code-owner review. `enforce_admins` is still
+>   `false` ON PURPOSE: it is what lets the owner push `main`.
+>   ⚠️ **Consequence, do not 'fix' it:** nobody may approve their own PR, so
+>   an OWNER PR touching an owner-owned path cannot collect the approval it
+>   now demands — merge with the admin bypass, or push `main` as usual.
+>   Also shipped: `CODEOWNERS` contributor paths (`public/embed/**`
+>   deliberately unowned), the Thai tool-request template + its label,
+>   `skills/onboard-a-contributor.md`, CONTRIBUTING + PR-template updates.
+>   **NOT built**: `src/data/tools.js`, `public/embed/`, the frame,
+>   `src/js/data/` doors, `/tools/<slug>`, the starter kit.
+>   **Lane C stays SHUT until `TEAM-WORKFLOW` phase 1 (the dev database)** —
+>   `CONTRIBUTING.md` still sends contributors at production.
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
 >   Read `docs/demos/about-3d/README.md`, not a bullet.
 > - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
