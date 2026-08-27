@@ -101,21 +101,9 @@ because it held three lifetimes at once. It now holds one: **status**.
   `disable` reports `enabled` + `active` and schedules **infinity**. Read `NEXT`
   from `list-timers`, never the `enabled` word. Write-up in
   `docs/mistakes/deploy-hosting.md`.
-- ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
-  2026-08-26: **~154** accounts carry the `claude` key in `permissions` /
-  `managed_permissions`, plus **42** `master` holders who answer yes to every
-  key. ⚠️ **These were 146 and 41 eight days earlier, and the `claude` count
-  moved 153 → 154 within a single day — the owner edits the tree, so treat
-  every head-count here as a METHOD, not a fact.** The method:
-  `select count(*) from public.users where 'claude' = any(permissions) or
-  'claude' = any(managed_permissions);`
-  What is still true is that **`claude_bookings` is EMPTY** — the feature is
-  deployed, granted and unused. ⚠️ **This bullet used to add "that is also why
-  `claude0157` B4 is red". It is NOT red** — 0157 was made self-contained on
-  2026-08-25 (it MOVES the quota week and plants two synthetic bookings rather
-  than hoping the live calendar cooperates), and all 23 proofs are green.
-  A proof that depends on real usage existing is the thing that was FIXED; do
-  not re-derive the old excuse from this file.
+- ✅ **The `claude` permission is GRANTED and `claude_bookings` is EMPTY** —
+  deployed, widely granted, unused. Head-counts belong to the database, not to
+  this file; the query and the reason are in `docs/INVARIANTS.md`.
 - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
   the Stay block above. Do not build it unprompted.

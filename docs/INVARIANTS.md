@@ -366,3 +366,32 @@ access, and check whether it survived. A removed password is evidence about a
 password. It is not evidence about a permission, a seat, or a role — those are
 different channels, and this repo's most repeated bug class is exactly that
 confusion (class 5 in `.claude/rules/mistakes.md`).
+
+---
+
+## A head-count is a METHOD, not a fact
+
+Moved out of `STATE.md` 2026-08-27. The `claude` permission grant was recorded
+there as "~154 accounts, plus 42 `master` holders". Those were **146 and 41
+eight days earlier**, and the `claude` count moved 153 → 154 inside a single
+day — the owner edits the ทีม SAMO tree continuously, so any number written
+down is a photograph, not a state.
+
+**Never quote one. Re-run it:**
+
+```sql
+select count(*) from public.users
+ where 'claude' = any(permissions) or 'claude' = any(managed_permissions);
+```
+
+The same applies to the `master` list, the node count in the tree, the number of
+migrations, the test count and the proof count — every one of them has been
+wrong in this repo's own documentation at least once. Where a count MUST be
+written (the migration high-water mark, the test count), it gets exactly one
+home and a guard; everywhere else, write the query instead.
+
+⚠️ **A related excuse that must not be re-derived:** an old note said
+`claude0157` B4 was red *because* `claude_bookings` is empty. It is NOT red —
+0157 was made self-contained on 2026-08-25 by MOVING the quota week and planting
+synthetic bookings, rather than hoping the live calendar would cooperate. **A
+proof that depends on real usage existing is the thing that was fixed.**
