@@ -133,24 +133,22 @@ because it held three lifetimes at once. It now holds one: **status**.
   "predates tracking, apply time never observed". Do not merge the two words.
   ⏳ **Left in phase 2**: mail trap · `#samo-dev-bot` · dev GAS deployment under
   its own Google account · `dev-grants.json`.
-  ✅ **Phase 3 (previews) is DECIDED — do NOT re-open it.** `docs/TEAM-WORKFLOW.md`
-  §1 and D8 settled it: **one temporary site per pull request, on Cloudflare
-  Pages** (`<pr>.samo-preview.pages.dev`), deployed by GitHub Actions. Off the
-  VM on purpose — the VM is on a private address, so Actions cannot reach it and
-  it would have to poll, which is the systemd shape that already produced a
-  timer scheduling `infinity`.
-  ⛔ **A 2026-08-27 session presented this as an OPEN QUESTION, recommended the
-  opposite, then argued back to the decision.** It had read the owner's phrase
-  "the dev server" as a preference and never checked §1. **Before calling
-  anything an open question, grep `docs/TEAM-WORKFLOW.md` §0 and §1 — a settled
-  decision restated as a question costs the owner a reply and buys nothing.**
-  📌 **It is UNBLOCKED and buildable now**: phase 1 is done and
-  `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` are already in `.env.local`.
-  ~2 h. The task list is phase 3 in §8, and two traps are already written down:
-  `wrangler pages deploy dist` **will not upload `functions/`** (§7.4 — every
-  Discord notification would silently no-op), and the `*.pages.dev` host-guard
-  in BOTH entry HTMLs currently redirects any `pages.dev` to the VM, so it must
-  be narrowed to the two named retired hosts or every preview URL bounces.
+  ✅ **PHASE 3 — PREVIEWS WORK, proven end to end 2026-08-27** (throwaway PR
+  #17, closed). **They were ALREADY configured** on the `samomdkkuweb` project —
+  **no Actions job, no `wrangler`**, so §7.4's `functions/` trap never applied.
+  A PR builds at `<hash>.samomdkkuweb.pages.dev`; Cloudflare posts the link.
+  ⚠️ **The preview host is a SUBDOMAIN OF THE RETIRED PROJECT** — hence the
+  `pages.dev` guard matching only the two EXACT hosts. Relaxing it to `(^|.)`
+  kills every preview and reads as a broken build (`host-guard.test.js`).
+  ⚠️ **Preview env points at `samo-dev`** (set on Cloudflare, not in git).
+  **Never copy production's** — that aims every preview at the live student
+  database. Its Discord vars are `secret_text` and read back EMPTY; PATCH
+  merges, which was tested on a throwaway project first.
+  📌 `refactorsamomdkkuweb` built every commit a second time (dead prod branch,
+  508 behind). Preview builds + PR comments now **OFF**; project NOT deleted, so
+  its URL still serves the moved splash. Undo = set that field back to `all`.
+  ❌ **Left**: `VITE_ENV_NAME` PREVIEW ribbon · `noindex` header · `/notify` dev
+  middleware.
   ⚠️ **OWED, small, and nobody has built it: the repo SETTINGS have no guard.**
   The two branch-protection flags and the `tool-request` label live on GitHub,
   outside git — if anyone switches them off, no test goes red and the whole
