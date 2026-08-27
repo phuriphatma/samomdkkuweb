@@ -80,16 +80,26 @@ it is charged to every future session.** The per-entry symptom index used to
 live there and reached 18.5k of its 30k budget before being moved to
 `docs/mistakes/INDEX.md` (2026-08-25); do not move it back.
 
-**READ FIRST, EVERY SESSION — `STATE.md`.** Not on demand: it is the handoff.
-Its `## NEXT-SESSION PROMPT` carries what is in flight, what is deployed, the
-open bugs, and the things that change what you do first. Everything else below
-is genuinely fetch-when-needed; this one is not, and skipping it is how a
-session re-derives or re-breaks work that was finished yesterday.
+**READ FIRST, EVERY SESSION — `STATE.md`, then `docs/INVARIANTS.md`.**
+Since the 2026-08-27 split there are four homes and mixing them is what made the
+handoff unreadable: **`STATE.md`** = what is true right now (~200 lines, guarded)
+· **`docs/INVARIANTS.md`** = rules that outlive a session · **`docs/state/<handle>.md`**
+= one person's in-flight notes, never rewritten by anyone else ·
+**`docs/state-archive/`** = why it was done that way.
+
+`STATE.md` carries what is in flight, what is deployed, and what is owed —
+the things that change what you do FIRST. Everything else below is genuinely
+fetch-when-needed; these two are not, and skipping them is how a session
+re-derives or re-breaks work that was finished yesterday.
+⛔ **Write to the right home.** Appending a session narrative to `STATE.md` is
+what took it to 1,403 lines against a 200-line target; `state-handoff.test.js`
+now fails the build if it grows back past ~200.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
-- `docs/mistakes/*.md` — the bug write-ups (227 as of 2026-08-26; `npm run
-  mistakes:index` prints the live count — do not quote this number, run it), nine files
+- `docs/mistakes/*.md` — the bug write-ups (`npm run mistakes:index` prints the
+  live count; this line used to carry one, which is exactly the habit it warns
+  against), nine files
   by area, plus the generated `docs/mistakes/INDEX.md` (one symptom line per
   entry, for scanning). The directory in `.claude/rules/mistakes.md` says which
   file to open; `grep -rin "<symptom>" docs/mistakes/` is usually faster,

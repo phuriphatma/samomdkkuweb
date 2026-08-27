@@ -66,14 +66,53 @@ const ABSENT_ON_PURPOSE = {
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
   'src/data/tools.js':
     'PLANNED, not written — the single ฝ่าย-tool registry designed in docs/DEPT-TOOLS.md §2, which today is three hand-maintained copies (DEPT_DEFS, tab-tools.html, PATH_ROUTES). Named here so the destination of that merge has one agreed name; DELETE this exemption in the same commit that creates the file',
-  'docs/INVARIANTS.md':
-    'PLANNED, not written — the destination for STATE.md\'s durable rules in the split designed in docs/TEAM-WORKFLOW.md §6.5. Named here so the target of that move has one agreed name; DELETE this exemption in the same commit that creates the file',
 };
 
 describe('STATE.md is a handoff, not a memory', () => {
   it('reads the file at all (a sweep that finds nothing must prove it looked)', () => {
-    expect(STATE.length).toBeGreaterThan(20000);
-    expect(namedPaths(STATE).length).toBeGreaterThan(30);
+    expect(STATE.length).toBeGreaterThan(4000);
+    expect(namedPaths(STATE).length).toBeGreaterThan(10);
+  });
+
+  // This floor used to be 20,000 bytes, which was not a sanity check — it was a
+  // description of the bloat the file had at the time, and it would have gone
+  // red on the split that FIXED the problem. The ceiling below is the real
+  // rule, and it is the one CLAUDE.md states.
+  it('stays a status file — under ~200 lines', () => {
+    const lines = STATE.split('\n').length;
+    expect(lines, [
+      `STATE.md is ${lines} lines; the rule in CLAUDE.md is ~200.`,
+      'It grew back because someone appended instead of routing. Where it goes:',
+      '  a rule that outlives the session  → docs/INVARIANTS.md',
+      '  what your session did             → docs/state/<handle>.md',
+      '  why it was done that way          → docs/state-archive/YYYY-MM-DD.md',
+      'Prune the OLDEST block, and only after opening the write-up it points to.',
+    ].join('\n')).toBeLessThan(260);
+  });
+
+  // §6.5: the same dead-pointer sweep over every file the split created.
+  it('the split files name no file that is not there either', () => {
+    const extra = ['docs/INVARIANTS.md'];
+    if (existsSync(join(ROOT, 'docs/state'))) {
+      for (const f of readdirSync(join(ROOT, 'docs/state'))) {
+        if (f.endsWith('.md')) extra.push(`docs/state/${f}`);
+      }
+    }
+    const broken = [];
+    for (const rel of extra) {
+      const md = readFileSync(join(ROOT, rel), 'utf8');
+      for (const t of namedPaths(md)) {
+        if (t in ABSENT_ON_PURPOSE) continue;
+        if (!existsSync(join(ROOT, t)) && !existsSync(join(ROOT, 'src/js', t))) {
+          broken.push(`${rel} → ${t}`);
+        }
+      }
+    }
+    expect(broken, [
+      'A split file points at something that is not there. The split moved these',
+      'lines out of STATE.md, so a pointer that was relative to it may now be',
+      'wrong — fix the path, or add it to ABSENT_ON_PURPOSE with the reason.',
+    ].join('\n')).toEqual([]);
   });
 
   it('names no file that is not there', () => {

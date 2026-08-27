@@ -340,10 +340,13 @@ Where each kind of thing belongs:
   `tools/`-only commit needs no deploy at all.
 - **Do not re-read a file you just edited** to confirm the edit landed.
 
-### 6.5 Splitting `STATE.md` — planned, not done
+### 6.5 Splitting `STATE.md` — ✅ DONE 2026-08-27
 
-It is unmergeable because it holds three lifetimes at once, and at ~1,400 lines
-it is also the biggest fixed cost in every session:
+It was unmergeable because it held three lifetimes at once, and at 1,403 lines
+it was also the biggest fixed cost in every session. **Done: `STATE.md` is 204
+lines, `docs/INVARIANTS.md` and `docs/state/<handle>.md` exist, and the narrative
+went to `docs/state-archive/2026-08-27-state-split.md`.** The shape that was
+designed here, for the record:
 
 - status → `STATE.md`, ≤200 lines, deploy block **written by the deploy**
 - durable invariants → `docs/INVARIANTS.md`
@@ -351,9 +354,17 @@ it is also the biggest fixed cost in every session:
 - narrative → `docs/state-archive/` (exists)
 
 Rule for agents: *write your own state file; never rewrite someone else's; never
-touch the deploy block unless you deployed.* Widen `state-handoff.test.js` to run
-over every `docs/state/*.md`. Give `docs/mistakes/*.md` `merge=union` in
-`.gitattributes` so two write-ups never conflict.
+touch the deploy block unless you deployed.*
+
+✅ Both follow-ups are done too: `state-handoff.test.js` now sweeps
+`docs/INVARIANTS.md` and every `docs/state/*.md` for dead pointers, and enforces
+the ~200-line ceiling — **its old assertion was `STATE.length > 20000`, which
+described the bloat rather than checking anything, and would have gone RED on the
+split that fixed it.** `.gitattributes` gives `docs/mistakes/*.md` `merge=union`,
+and deliberately gives it to nothing else: where two people edit the same lines
+of `STATE.md` or `CLAUDE.md`, one of them is usually correcting a claim the other
+still believes, and silently keeping both is how this repo ends up asserting a
+fact and its opposite.
 
 ## §7. Open unknowns — read before building
 
