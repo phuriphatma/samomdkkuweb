@@ -72,7 +72,8 @@ TRUE. That is what the grep is for.
   substitutes at build time, so a message inside `if (!VITE_SUPABASE_URL)` greps
   0 in every build that has the vars, correctly. Grep a known-shipping control
   beside whatever you are looking for.
-- **1323 tests. Migrations through 0169.** Both have exactly ONE home, here, and
+- **Migrations through 0169.** For the test count run `npm test` — a number
+  here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
   2026-08-27**, after 0169 was applied to production. Run `npm test` /
   `npm run proofs`; never quote a remembered number.

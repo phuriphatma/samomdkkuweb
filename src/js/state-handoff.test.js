@@ -172,9 +172,18 @@ describe('STATE.md is a handoff, not a memory', () => {
     }
   });
 
-  it('does not state two different test counts', () => {
+  // A test COUNT has no authority to check it against — `it()` occurrences
+  // under-count loop-generated cases badly, so a static check would fire on the
+  // healthy file. The migration high-water mark and the proof count DO have
+  // authorities (the directory, and run-proofs.mjs), and are checked above.
+  //
+  // So this asserts only that the count is not stated TWICE differently, and
+  // permits it to be absent. On 2026-08-28 STATE.md said "1323 tests" when the
+  // suite ran 1355: single-homed, guarded, and wrong. A number nothing can
+  // verify is better replaced by the command that produces it.
+  it('does not state two different test counts (and need not state one)', () => {
     const counts = new Set([...STATE.matchAll(/\*\*(\d{3,5}) tests/g)].map((m) => m[1]));
     expect([...counts], 'STATE.md states more than one test count — correct BOTH homes')
-      .toHaveLength(1);
+      .toHaveLength(counts.size > 0 ? 1 : 0);
   });
 });
