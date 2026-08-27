@@ -16,46 +16,34 @@ path named here must resolve.
 
 ---
 
-## ▶ DO THIS FIRST — the Golden Period draft (~1 session)
+## ▶ FIRST — DEPLOY IS OWED
 
-Owner asked for it plainly: *"just setup the page, link, show the calendar,
-google sheet as you think you should do"*. **Very simple on purpose** — it is the
-D8 draft, not the real thing. `docs/DEPT-TOOLS.md` D8: the ฝ่าย own the page, IT
-may draft a placeholder. **Keep it plain, SAY on the page that it is a
-placeholder, and hand the route over when their version lands.**
+✅ **The Golden Period draft is BUILT and pushed (`3b92df5`), and it is the
+first `src/` change since `36ac1d5`, so a DEPLOY IS OWED** —
+`skills/deploy-vm.md`, needs VPN. Verify from the SERVED artifact afterwards;
+the marker to grep is the string `gp-tab` or `ช่วงเวลาที่เหมาะกับการจัดกิจกรรม`,
+NOT a function name (the minifier renames those).
 
-### What goes on it
+What shipped: `/tools/golden-period` under **ฝ่ายยุทธศาสตร์และพัฒนาองค์กร**
+(`strategy` — NOT `admin`; that was a wrong guess from a screenshot, corrected
+by the owner). วิธีอ่านค่า as four bands, the สโมฯ calendar embedded, a button
+to the GPC Dashboard sheet, and a release note in `PENDING`.
 
-1. **วิธีอ่านค่า** — four bands as coloured chips: `% สูงมาก` → `สูง` →
-   `ปานกลาง` → `ต่ำ`, with one line saying high = students likely free.
-2. **The exam / activity calendar**, embedded:
-   `https://calendar.google.com/calendar/embed?src=samomdkku.sod%40gmail.com&ctz=Asia%2FBangkok`
-   ⚠️ **`MONTH` is unreadable at 390 px** — pick `&mode=AGENDA` under 768 px and
-   `MONTH` above, and build the iframe `src` **when the tab opens**, not at page
-   load, so a hidden iframe does not cost every visitor a request.
-3. **A button to the GPC Dashboard sheet** (opens in a new tab):
-   `https://docs.google.com/spreadsheets/d/1qnYMVQYwkvQ5MZTslNyoDZ6dbNUFDWqG94VnrP7nU_E/edit?gid=1453756721`
+**Verified in headless Chrome at 390 px and 1280 px** (`skills/drive-the-browser.md`):
+pane activates from the route, calendar mode is AGENDA on the phone and MONTH on
+desktop, the band dot is actually painted, no horizontal overflow, no console
+errors, and the calendar returns real data.
 
-### The wiring — measured 2026-08-27, do not re-derive
+📌 **It is the file the ฝ่าย open a PR against, not a placeholder to replace.**
+Its header says so in Thai and names what is safe to change. `id="gpCalendar"`
+and the `.gp-tab` class are the two things that must not move.
 
-| Step | Where |
-|---|---|
-| the partial | new `src/html/tab-golden-period.html`; copy the shell of `tab-projects-view.html` — `<div class="tab-pane fade" id="pills-golden-period" role="tabpanel">` + `.about-section-header` / eyebrow / title / lead |
-| include it | `index.html`, beside the other `<include src="./src/html/tab-*.html" />` lines (~line 354) |
-| the route | `PATH_ROUTES` in `src/js/main.js` (~line 385): `{ path: '/tools/golden-period', tab: 'pills-golden-period-tab' }`. Exact match, so no regex branch needed |
-| the ฝ่าย card | `DEPT_DEFS.admin.tools` in `src/js/departments.js` — `kind: 'path'`. **Dept keys are `admin digital academic strategy media rt`**; ฝ่ายบริหารองค์กร is `admin`, which already holds หนังสือโครงการ |
-| the launcher | `src/html/tab-tools.html` — ⚠️ **this is a hand-maintained SECOND copy of the dept tool list.** Adding here makes a third home for one fact. Add it, and **write the differential test in the same commit** (every `DEPT_DEFS` tool must appear in the launcher) so the next person is stopped rather than warned |
-| the note | `PENDING` in `src/data/changelog.js` — a student WILL notice this. Plain Thai, no table names |
+⚠️ **`dept-tool-mirror.test.js` is new** — every ฝ่าย tool must be findable in
+the launcher, because `DEPT_DEFS` and `tab-tools.html` are still two
+hand-maintained copies. The real fix remains the single registry
+(`docs/DEPT-TOOLS.md` §2).
 
-⚠️ **UNVERIFIED, check first:** where the `pills-*-tab` *buttons* are declared
-(`navbar.html`? a hidden tab list?). Every other tab has one; find the pattern
-before writing the partial, or the route will resolve to a tab that cannot be
-activated.
-
-**It needs a DEPLOY** (`skills/deploy-vm.md`, VPN). Batch it with anything else
-pending — each deploy is ~90 s.
-
-## In flight
+## In flight## In flight
 
 - ✅ **The database password is in `.env.local` and verified.** Schema dumped:
   64 tables, 165 functions, 156 policies, 592 GRANTs. Recipe and traps in
