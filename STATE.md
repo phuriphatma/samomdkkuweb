@@ -31,19 +31,26 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- **Last recorded deploy = `36ac1d5` (2026-08-26 late)**, VM HEAD confirmed over
-  ssh, `DEPLOY_EXIT=0`.
-  ⚠️ **Two blocks of this file disagreed about this until the split** — one said
-  `2993dd1`, which is the deploy before it. `36ac1d5` is kept because it is the
-  later claim and carries its ssh confirmation. **A stale sha here reads exactly
-  like "a deploy is owed" and costs somebody a VPN session to disprove**, so if
-  you deploy, correct THIS line and no other.
+- ✅ **DEPLOYED = `7405712` (2026-08-27)**, VM HEAD confirmed over ssh equals
+  local HEAD, `DEPLOY_EXIT=0`. Carried the Golden Period draft and the routing
+  fixes. **Verified from the SERVED artifacts, both directions:**
+  served HTML → `pills-golden-period` = 3, `ช่วงเวลาที่เหมาะกับการจัดกิจกรรม` = 1;
+  served **`public-*.js`** → `calendar.google.com/calendar/embed` = 1, `AGENDA` = 1,
+  `/tools/golden-period` = 2 — and **0 of each in `analytics-*.js`**, which is
+  CORRECT (this module is public-entry only), with `pills-projects-view-tab` = 2
+  in the public bundle as the control proving the grep worked;
+  served CSS → `gp-tab` = 1. **Then driven live in headless Chrome**: pane
+  activates at 1280 and 390, MONTH/AGENDA respectively, `/tools/golden-period/`
+  with the slash works too, no console errors.
+  ⚠️ **A stale sha here reads exactly like "a deploy is owed" and costs somebody
+  a VPN session to disprove**, so if you deploy, correct THIS line and no other.
+  Previous: `36ac1d5` (2026-08-26 late).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — **EMPTY means current**:
 
   ```bash
-  git diff --stat 36ac1d5..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+  git diff --stat 7405712..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
   ```
 
 - ⚠️ **Verify a deploy from the SERVED artifact, and grep the RIGHT one.** The
@@ -249,5 +256,5 @@ Two more the assistant should offer rather than assume:
 commit since `36ac1d5` is docs, tooling or tests. Check, do not trust this line:
 
 ```bash
-git diff --stat 36ac1d5..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+git diff --stat 7405712..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
 ```
