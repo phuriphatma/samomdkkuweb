@@ -105,25 +105,24 @@ TRUE. That is what the grep is for.
 
 ### What is owed
 
-⛔ **TWO THINGS THE OWNER MUST DO — nothing else is blocked on anyone.**
+⛔ **START HERE. Two actions for the OWNER, one queue of work for YOU.**
+Nothing else in this file is blocked on anyone.
 
-1. **Reset the Discord bot token.** On 2026-08-28 the owner handed over the
-   token for *"Role assignment bot for SAMO69"* (app id `1492541609445949465`)
-   so webhooks could be provisioned in bulk. **It has Administrator** and it was
-   pasted in a chat transcript. The job is done and nothing built here depends
-   on it. Developer Portal → that app → Bot → **Reset Token**. ⚠️ If a running
-   service uses that bot for role assignment, resetting BREAKS it until that
-   service gets the new token — check before clicking.
-2. **Three things were ASKED FOR and not done** — a `DEV` folder in Drive, the
-   dev Apps Script deployment, and a mail trap on the VM (answer: Mailpit, not a
-   real mail server). All three, with the folder id and the reasoning, are at the
-   TOP of **`docs/state/phuriphatma.md`**.
-3. **Confirm the dev-channel test landed.** From a preview build, all 12 ฝ่าย
-   notifications were sent naming REAL ฝ่าย (`อุปนายกฝ่ายบริหารองค์กร` …). They
-   must all be in **`#developer-server-notify`** and NONE in a real `#vs-*`
-   channel. Delivery was confirmed (16×204) but the DESTINATION cannot be seen
-   from outside Discord. **If any reached a real ฝ่าย channel, the preview
-   isolation is broken and that is urgent.**
+1. **Reset the Discord bot token** — *"Role assignment bot for SAMO69"*
+   (app `1492541609445949465`). It has **Administrator**, it was pasted into a
+   chat transcript on 2026-08-28 to provision webhooks in bulk, and nothing
+   built here still needs it. ⚠️ If a service uses that bot for role
+   assignment, resetting BREAKS it until that service gets the new token.
+2. **Confirm the dev-channel test landed** (owner — it needs eyes on Discord).
+   All 12 ฝ่าย notifications were sent from a preview naming REAL ฝ่าย; they
+   must ALL be in `#developer-server-notify` and none in a real `#vs-*`.
+   Delivery is confirmed (16×204); the DESTINATION needs human eyes.
+   **If any reached a real ฝ่าย channel, preview isolation is broken.**
+
+**Then the work queue — three things ASKED FOR and never done**: a `DEV` folder
+in Drive, the dev Apps Script deployment, and a mail trap on the VM (the answer
+is Mailpit, not a real mail server). All three, with the Drive folder id and the
+reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
 
 
 - ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
