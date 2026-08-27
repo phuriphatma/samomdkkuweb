@@ -1,15 +1,25 @@
 # Team workflow — the plan for working with several developers
 
-> ## ⛔ STATUS: NOTHING HERE IS BUILT. This is a design, agreed 2026-08-26.
+> ## ⚠️ STATUS: phases 0 and 1 are BUILT. Designed 2026-08-26, half-built 2026-08-27.
 >
-> There is **no dev Supabase project, no preview deploy, no refresh script, no
-> `schema_migrations` table, no docs site, no `CODEOWNERS`**. Do not read any
-> sentence below as a description of something that exists.
+> **This banner said "NOTHING HERE IS BUILT" until 2026-08-27 and it was the most
+> misleading line in the repo** — the first thing a cold session reads, listing
+> three things that had been built that morning. **Correct it in the same commit
+> as the phase it describes, or it will mislead the next person the same way.**
 >
-> **The exceptions, which DO exist**: this document; the two subagent
-> definitions in `.claude/agents/` (§6.2); and `.github/CODEOWNERS` +
-> the PR and issue templates (§8a). All usable now, none of them needing
-> anything built.
+> ✅ **REAL — use it, do not re-design it:** `samo-dev` (`xibugtlsphcfuvstnxxh`,
+> loaded from production and verified) · `npm run dev:refresh` · `npm run
+> dev:check` · `public.schema_migrations` + `npm run migrate:status` /
+> `migrate:new` · branch protection ENFORCING the `build` check and code-owner
+> review · `.github/CODEOWNERS` · the PR and issue templates ·
+> `docs/INVARIANTS.md` · `docs/state/<handle>.md` · the two subagents in
+> `.claude/agents/`.
+>
+> ❌ **STILL A DESIGN — nothing below about these describes something real:**
+> preview deploys · the mail trap · `#samo-dev-bot` · the dev GAS deployment ·
+> `dev-grants.json` · the docs site · `samo-scratch`.
+>
+> **§0b has the precise line between the two. Read it before building anything.**
 >
 > **This file is the authoritative record.** A rendered version was published as
 > an Artifact for the owner to read
@@ -98,23 +108,25 @@ more than the fix:**
   theme. `fill` is inherited, so `fill="currentColor"` on the `<svg>` root fixes
   every label at once. Strokes were `currentColor`; text was forgotten.
 
-### §0b. Names this document invents — none of them exist yet
+### §0b. What is BUILT and what is still only a name — corrected 2026-08-27
 
-If you are here because you grepped for one of these, **it is not built**; this
-file is where it was designed.
+⚠️ **This section said "none of them exist yet" and listed five things that now
+DO exist.** A cold session reading it would have re-designed work already
+finished. **When you build one, move it up here in the same commit.**
 
-`npm run dev:refresh` · `npm run dev:check` · `npm run dev:grant` ·
-`npm run dev:who` · `npm run dev:cleanup` · `tools/dev-grants.json` ·
+✅ **BUILT — do not re-design, use them:**
+`npm run dev:refresh` · `npm run dev:check` · `npm run migrate:status` (takes
+`--dev`) · `npm run migrate:new` · `public.schema_migrations` (0169, applied and
+backfilled on BOTH databases) · `tools/migrations-lib.mjs` ·
+`src/js/migration-numbers.test.js` · **the `samo-dev` project**
+(`xibugtlsphcfuvstnxxh`, loaded and verified) · `docs/INVARIANTS.md` ·
+`docs/state/<handle>.md` · `.gitattributes` · `skills/build-the-dev-database.md`
+· `skills/onboard-a-contributor.md`
 
-✅ **BUILT 2026-08-27, remove them from the list above rather than
-re-designing them**: `npm run migrate:new`, `npm run migrate:status`,
-`public.schema_migrations` (migration 0169, applied and backfilled),
-`tools/migrations-lib.mjs`, and the duplicate-number guard
-`src/js/migration-numbers.test.js`. Still invented, still unbuilt:
-
-`VITE_ENV_NAME` · `#samo-dev-bot` · the `samo-dev` and `samo-scratch` Supabase
-projects · `samo-preview.pages.dev` · `docs/INVARIANTS.md` ·
-`docs/state/<handle>.md`
+❌ **Still only a name in this document:**
+`npm run dev:grant` · `npm run dev:who` · `npm run dev:cleanup` ·
+`tools/dev-grants.json` · `VITE_ENV_NAME` · `#samo-dev-bot` ·
+`samo-preview.pages.dev` · the `samo-scratch` project
 
 Everything else named in this file — `tools/apply-migration.mjs`,
 `tools/db-query.mjs`, `npm run proofs`, `npm run check:context`,
@@ -538,20 +550,24 @@ paying for. **When the phase lands, correct them in the same commit:**
 
 ### If the owner says "build it"
 
-Start at **§8a**, not at phase 1 — most of phase 0 already exists and what is
-missing takes about twenty minutes.
+✅ **Phase 0 and phase 1 are DONE (2026-08-27). Do not start there.**
+Branch protection now requires the `build` check AND code-owner review — both
+read back from the GitHub API, with `enforce_admins` deliberately left `false`
+so the owner can still push `main`. `samo-dev` exists, is loaded from
+production, and was verified table by table with sign-in proven end to end.
 
-**a. Make CI blocking.** Today a PR can merge with the entire suite failing. The job
-in `.github/workflows/build.yml` is named `build`, so that is the check context.
+⚠️ **This section used to say "start at §8a — make CI blocking. Today a PR can
+merge with the entire suite failing."** That was true until the morning of
+2026-08-27 and is now false; a session following it would re-do finished work.
 
-⚠️ **`required_status_checks` is not enabled, so it cannot be PATCHed — it has to
-go in through a full `PUT` of the protection object, and a `PUT` that omits a
-field WIPES it.** Read the current protection first
-(`gh api repos/phuriphatma/samomdkkuweb/branches/main/protection`) and send back
-everything it already has plus the checks. What it has as of 2026-08-26: one
-required approving review, no force-push, no deletions, `enforce_admins: false`
-(**keep that false** — it is what lets the owner push `main` directly, which is
-the normal flow here).
+**Start instead at `STATE.md`, then `docs/state/<handle>.md`.** The next
+unstarted pieces are **phase 3** (previews — DECIDED, per-PR on Cloudflare
+Pages, §1 + D8, `CLOUDFLARE_*` already in `.env.local`) and **the rest of phase
+2** (mail trap, `#samo-dev-bot`, the dev GAS deployment, `dev-grants.json`).
+
+**The one guardrail still missing** is a check that the two protection settings
+are still on — they live on GitHub, outside git, so switching them off turns
+every contributor rule back into a suggestion with nothing going red.
 
 **b. `.github/CODEOWNERS` is already written** (2026-08-26) with no default
 owner line — a `*` rule would route everything to the owner and lose the point.
