@@ -1207,7 +1207,11 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 >   must not be re-litigated (pull requests are the road; data-backed ฝ่าย tools
 >   are in scope). Four lanes, and the boundary is **"can it decide who sees
 >   what"** — the ฝ่าย may write a page that shows data, never the rule that
->   picks the rows.
+>   picks the rows. **ONE workflow for everybody: the ฝ่าย use the dev team's
+>   pull-request pipeline unchanged and `CODEOWNERS` carries the entire
+>   difference (§0b). This is NOT a second project — it is
+>   `docs/TEAM-WORKFLOW.md` with more users; delete the restatement when
+>   those phases land rather than maintaining it twice.**
 >   ⚠️ **Three findings measured live from the GitHub API 2026-08-27, all true
 >   of this repo NOW**: `required_status_checks` is **404 — CI cannot block a
 >   merge**; `require_code_owner_reviews` is **false**, so `CODEOWNERS` only
