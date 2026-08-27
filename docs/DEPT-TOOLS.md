@@ -46,6 +46,8 @@ not "fix" them back.
 
 | D7 | Step 0 was a gate: *"can you live with a page you did not design?"* | ❌ **Wrong question, retired.** It is a HABIT, not a decision. | *"i don't understand this when i can just make who want to develop this project test in local, test in developer server and i'll just push into main server later"*. Correct, and it exposes an error in the draft: **control was never at stake.** Nothing merges without approval and nothing ships without the owner's deploy. The real risk was always narrower — that the owner *personally does the polishing*, which costs a session and takes the pen back. The remedy is one sentence in `skills/onboard-a-contributor.md`: **send it back, do not fix it yourself.** It is no longer a gate on anything. |
 
+| D8 | IT builds a simple "v0" of Golden Period first (route + วิธีอ่านค่า + calendar + sheet link), and the ฝ่าย replace it later | ❌ **IT never builds the page. The ฝ่าย build it with Claude; IT builds the SLOT.** | *"golden period will be implemented by people in that department, it'll make them use claude to do it"*. The v0 idea was the very pattern this document exists to remove — IT writing the page, then owning every edit after. **IT's remaining work is the tool registry, the frame and the starter kit; the page is theirs.** The trade-off is real and accepted: if the ฝ่าย take two months, students get nothing in the meantime. |
+
 ⚠️ **What D1 changes about this document**: the frame (§3) stops being "the
 mechanism" and becomes **the fast lane** — the class of tool that can be
 approved in thirty seconds because it cannot reach anything. §4 stops being
@@ -796,13 +798,13 @@ Reordered 2026-08-27 for D4–D7. **Framing: this is not a plan beside
 | 4 | `skills/onboard-a-contributor.md` + the `CONTRIBUTING.md` and PR-template updates | ✅ **DONE** |
 | 5 | Verify §11.1–11.4 on the VM and a real phone | ~30 min |
 | 6 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session |
-| 7 | Golden Period **v0** | ~1 session |
+| 7 | ~~Golden Period v0~~ **DROPPED (D8)** — IT does not build the page | — |
 | 8 | **Onboard TWO contributors** — each ending in a merged practice PR (§10.5) | 45 min × 2 |
 | 9 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session |
 | 10 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` | ~1 session |
 | 11 | Boundary CI on `tool/*` branches | ~30 min |
 | 12 | ⚙️ Preview builds for `tool/*` (pulled forward from phase 3) | ~2 h |
-| 13 | Golden Period **v1** — their pull request | review only |
+| 13 | **Golden Period — THEIRS**, built with Claude, arriving as a pull request | review only |
 | — | **Read-only BI for "we want to see the numbers"** (§1c) | ~half a day, independent — **probably before 15** |
 | 14 | ⚙️ `TEAM-WORKFLOW` phase 1 — the `samo-dev` database | ~2 h + its own blockers |
 | 15 | **Lane C**: `src/js/data/` doors + the first data tool | ~2 sessions. **Hard block on 14 — §10.3** |

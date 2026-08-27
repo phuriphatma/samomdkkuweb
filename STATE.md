@@ -242,10 +242,17 @@ none should be built unprompted. Ask them in plain language:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
 round trip. **Check `docs/TEAM-WORKFLOW.md` §0/§1 before asking anything.**
 
-Two more the assistant should offer rather than assume: **start Golden Period?**
-(`docs/DEPT-TOOLS.md` §13 has the order — the tool registry first) and **build
-the ~20-line guard for the repo settings?** (they live outside git and nothing
-notices if they are switched off).
+Two more the assistant should offer rather than assume:
+
+- **Build the SLOT for ฝ่าย tools?** — one tool list instead of the two
+  hand-maintained copies, the frame a contributed page drops into, and the
+  starter kit. ⛔ **IT does NOT build Golden Period itself** (`docs/DEPT-TOOLS.md`
+  D8): the ฝ่าย build it with Claude. A session proposed an "IT builds v0 first"
+  step and the owner rejected it as the very pattern being removed. **The slot
+  is what blocks them, not the page.**
+- **The ~20-line guard for the repo settings?** The two branch-protection
+  switches live on GitHub, outside git — turn them off and no test goes red,
+  while every contributor rule built on 2026-08-27 silently becomes advisory.
 
 **Nothing is owed to a person, and no deploy is owed** — as of 2026-08-27 every
 commit since `36ac1d5` is docs, tooling or tests. Check, do not trust this line:
