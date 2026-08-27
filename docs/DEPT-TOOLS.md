@@ -14,8 +14,10 @@
 > merged: the developer plan is about giving people MORE access safely; this
 > one is about giving people LESS access and still letting them ship.
 >
-> **This file is the authoritative record.** If a rendered artifact copy
-> disagrees with it, this file wins.
+> **This file is the authoritative record.** A rendered Thai version was
+> published as an Artifact for the owner to read on a phone
+> (`https://claude.ai/code/artifact/a5058409-0c45-4adb-bec2-27cb1b53bd36`); it
+> is a COPY and may be stale. If the two disagree, this file wins.
 
 ---
 
