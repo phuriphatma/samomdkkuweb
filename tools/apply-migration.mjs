@@ -26,6 +26,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { recordApplied } from './migrations-lib.mjs';
 
 // ---- tiny .env.local parser (no dependency) ----
 function loadEnvLocal() {
@@ -49,6 +50,22 @@ function projectRefFromUrl(url) {
   // https://<ref>.supabase.co  →  <ref>
   const m = String(url || '').match(/^https?:\/\/([a-z0-9]+)\.supabase\.(?:co|in)/i);
   return m ? m[1] : null;
+}
+
+/**
+ * Record the apply in public.schema_migrations (0169).
+ *
+ * NEVER fails the run. The migration has already executed by the time this is
+ * called; reporting failure here would tell a human to re-run DDL that already
+ * landed, which is worse than a missing row. It says so loudly instead.
+ */
+async function note(file, ref, token) {
+  const who = process.env.USER || process.env.LOGNAME || 'unknown';
+  const r = await recordApplied(file, { ref, token, by: who });
+  if (r.ok) return;
+  console.warn(`! applied, but NOT recorded in schema_migrations: ${r.why}`);
+  console.warn('  If the table does not exist yet, apply 0169 and then run:');
+  console.warn('    node tools/migrate-status.mjs --backfill');
 }
 
 async function main() {
@@ -94,6 +111,7 @@ async function main() {
     if (bodyText && bodyText.trim() && bodyText.trim() !== '[]') {
       console.log('  response:', bodyText.slice(0, 2000));
     }
+    await note(file, ref, token);
     return;
   }
 
@@ -102,6 +120,8 @@ async function main() {
     try {
       execFileSync('psql', [dbUrl, '-v', 'ON_ERROR_STOP=1', '-f', file], { stdio: 'inherit' });
       console.log('✓ migration applied.');
+      if (token) await note(file, ref, token);
+      else console.log('  (not recorded in schema_migrations — that path needs SUPABASE_ACCESS_TOKEN)');
     } catch (e) {
       console.error('✗ psql failed:', e.message);
       process.exit(1);

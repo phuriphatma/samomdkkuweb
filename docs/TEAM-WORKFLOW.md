@@ -90,8 +90,14 @@ If you are here because you grepped for one of these, **it is not built**; this
 file is where it was designed.
 
 `npm run dev:refresh` · `npm run dev:check` · `npm run dev:grant` ·
-`npm run dev:who` · `npm run dev:cleanup` · `npm run migrate:new` ·
-`npm run migrate:status` · `tools/dev-grants.json` · `public.schema_migrations` ·
+`npm run dev:who` · `npm run dev:cleanup` · `tools/dev-grants.json` ·
+
+✅ **BUILT 2026-08-27, remove them from the list above rather than
+re-designing them**: `npm run migrate:new`, `npm run migrate:status`,
+`public.schema_migrations` (migration 0169, applied and backfilled),
+`tools/migrations-lib.mjs`, and the duplicate-number guard
+`src/js/migration-numbers.test.js`. Still invented, still unbuilt:
+
 `VITE_ENV_NAME` · `#samo-dev-bot` · the `samo-dev` and `samo-scratch` Supabase
 projects · `samo-preview.pages.dev` · `docs/INVARIANTS.md` ·
 `docs/state/<handle>.md`
@@ -351,20 +357,28 @@ over every `docs/state/*.md`. Give `docs/mistakes/*.md` `merge=union` in
 
 ## §7. Open unknowns — read before building
 
-**7.1 — There is no way to dump the database from this machine today, and it
-blocks phases 1, 2 and 6.** Two separate gaps, both measured 2026-08-26:
+**7.1 — ⚠️ HALF RESOLVED 2026-08-27. Only the CREDENTIAL is still missing.**
+This read "there is no way to dump the database from this machine, and it blocks
+phases 1, 2 and 6" and named two gaps. The second was never real. Measured
+2026-08-26, re-measured 2026-08-27:
 
 1. **No credential.** `.env.local` has `SUPABASE_ACCESS_TOKEN` (Management API —
    it runs SQL but **cannot** `pg_dump`) and `PASSPORT_B_DB_URL` for the *old
    passport* project. There is **no `SUPABASE_DB_URL` for the live project**.
    Get the password from Supabase → Settings → Database.
-2. **No client tools.** `pg_dump`, `psql` and the `supabase` CLI are **all
-   absent** from this machine — `which` finds none of them. And the server is
-   **PostgreSQL 17.6** (`select version()`), so a client older than 17 will
-   refuse: `pg_dump` will not dump a server newer than itself. Install the
-   matching major version — `brew install libpq` (then link `pg_dump`/`psql`) or
-   `brew install postgresql@17` — and verify with `pg_dump --version` **before**
-   planning around it.
+2. ~~**No client tools.**~~ ✅ **CORRECTED 2026-08-27 — the client was there all
+   along, and the INSTRUMENT could not see it.** This bullet said `pg_dump`,
+   `psql` and the `supabase` CLI were "all absent — `which` finds none of them",
+   and it blocked three phases for a day. `which` searches `PATH`; **`libpq` is
+   keg-only, so Homebrew deliberately does not put it on `PATH`.**
+   Measured: `brew list --versions libpq` → **18.4**, and
+   `/opt/homebrew/opt/libpq/bin/pg_dump --version` → **pg_dump (PostgreSQL)
+   18.4**. A NEWER client dumps an OLDER server, so 18.4 against the server's
+   17.6 is fine — the refusal only runs the other way.
+   **Use the full path, or `export PATH="/opt/homebrew/opt/libpq/bin:$PATH"`.**
+   *(Class 7 in `.claude/rules/mistakes.md`: check that the instrument can SEE
+   the thing. `which` answers a question about `PATH`, not about the disk, and
+   the answer was read as if it were about the disk.)*
 
 Alternative worth trying first, since it needs no local client at all:
 `npx supabase db dump`. It is still a Postgres client under the hood, so confirm
@@ -427,7 +441,7 @@ useful. **Phases 0–3 are what actually unblock five people.**
 
 | # | Phase | Effort | Prerequisite |
 |---|---|---|---|
-| 0 | Repo guardrails — **mostly already in place, see §8a** | ~20 min | none — touches no code |
+| 0 | ✅ **DONE 2026-08-27** — repo guardrails. `required_status_checks` (`build`) and `require_code_owner_reviews` both ON, read back from the API; `CODEOWNERS` extended; `enforce_admins` deliberately still `false`. Only the project board is outstanding | — | — |
 | 1 | Dev account + `samo-dev` + `samo-scratch`; **schema from `pg_dump`, not a replay** (§7.2); `public.schema_migrations` + `npm run migrate:status`; Google callback line; redirect URLs; sign-ups OFF | ~2 h | **§7.1** |
 | 2 | `npm run dev:refresh` + `dev:check` + `dev-grants.json`; the mail trap; the dev GAS deployment under its own Google account; `#samo-dev-bot` | ~3 h | phase 1, **§7.5 first** |
 | 3 | Preview builds: Actions job → `wrangler pages deploy` (**§7.4**), PR comment, `VITE_ENV_NAME` ribbon, narrow the `*.pages.dev` guard in BOTH entry HTMLs to the two named retired hosts, `noindex` header, `/notify` dev middleware in `vite.config.js` | ~2 h | phase 1 |

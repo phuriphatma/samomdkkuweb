@@ -746,3 +746,41 @@ three times before — "this line said `543a025` for a day", "two sessions
 repeated the locked-out claim", "it said measurement was OFF after it had been
 turned back on" — each time diagnosed correctly, written down, and repeated
 anyway.
+
+## `which pg_dump` said it was not installed, and it had been installed all along
+
+**Symptom (as recorded in the plan).** *"`pg_dump`, `psql` and the `supabase`
+CLI are **all absent** from this machine — `which` finds none of them."* On the
+strength of that line, three phases of `docs/TEAM-WORKFLOW.md` were marked
+blocked on "install a PostgreSQL 17 client", and a note was written telling the
+next session to `brew install libpq` before planning around it.
+
+**Cause.** `which` searches `PATH`. **Homebrew's `libpq` is keg-only** — it is
+installed under `/opt/homebrew/opt/libpq/bin` and deliberately NOT linked into
+`PATH`, because its binaries collide with the ones a full `postgresql` formula
+would install. So `which` was answering a question about `PATH` and the answer
+was read as a statement about the disk. Measured 2026-08-27:
+`brew list --versions libpq` → `libpq 18.4`, and
+`/opt/homebrew/opt/libpq/bin/pg_dump --version` → `pg_dump (PostgreSQL) 18.4`.
+It had been there the whole time.
+
+There was a second, smaller error stacked on the first: the plan reasoned that a
+client older than the 17.6 server would refuse, and concluded "install 17". The
+refusal is one-directional — `pg_dump` refuses to dump a server *newer* than
+itself, and a newer client dumping an older server is the supported case. 18.4
+against 17.6 was always fine.
+
+**Fix.** Use the full path, or `export PATH="/opt/homebrew/opt/libpq/bin:$PATH"`.
+`docs/TEAM-WORKFLOW.md` §7.1 now records the correction, and phase 1 is blocked
+on the database password alone.
+
+**Where it lives now.** `docs/TEAM-WORKFLOW.md` §7.1.
+
+**The general rule.** *Class 7 — check that the INSTRUMENT can see the thing.*
+A negative result is a statement about what the instrument searched, never about
+what exists. `which` searches `PATH`; `grep` searches the file you gave it (not
+the shared chunk the code actually landed in); a minified bundle has no
+module-scope names to find. **Before believing a zero, ask what the tool looked
+at, and check it against a subject you KNOW is there** — here, one
+`brew list --versions` would have cost five seconds and saved a day of the plan
+being wrong about its own blockers.

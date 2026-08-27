@@ -74,7 +74,9 @@ Architecture/RLS: `docs/CONTEXT.md`. Bugs: `docs/mistakes/*.md`, indexed by
   remaining `@here` in `_discord.js` is inside the explanatory comment, checked.
   **`git diff --stat 543a025..HEAD -- src/ ':!src/**/*.test.js'` is EMPTY.**
 - ✅ **ALL 23 LIVE PROOFS GREEN** (re-run 2026-08-26, after `claude0167`'s
-  instrument was fixed — see below). **1318 tests. Migrations through 0168.**
+  instrument was fixed — see below). **1321 tests. Migrations through 0169.**
+  Both are guarded by `state-handoff.test.js`, which requires EXACTLY ONE home
+  for each — write them here and nowhere else.
 - **Prod runtime state**: Claude measurement is **ON again since 2026-08-25
   17:18 UTC**, switched on from `/admin#claude` by Phuriphat (the trigger
   stamped them, so the board shows a name this time). Samples resumed 17:20 and
@@ -545,8 +547,14 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > ```
 >
 > **Read this file, then `skills/write-a-guard.md`.** Nothing is owed on `/team`
-> — the ⛳ third org-chart view shipped. Migrations through **0168** (applied
-> 2026-08-26). **1318 tests green. ALL 23 LIVE PROOFS GREEN.**
+> — the ⛳ third org-chart view shipped.
+> ⛔ **This block used to restate the migration number, the test count and the
+> proof count.** They are stated ONCE, at the top of this file, and
+> `state-handoff.test.js` guards the migration number there. A second home is
+> how a corrected fact goes on being asserted in its old form — which is exactly
+> what happened here: the top said 0169 and this line still said 0168, in the
+> same commit. **Run `npm test` and `npm run proofs`; do not read a count from
+> a paragraph.**
 >
 > ⛔ **BEFORE YOU EDIT THIS FILE — the rule it cost six stale claims to learn.**
 > **When you correct a fact here, grep the WHOLE file for its other homes.** On
@@ -1202,6 +1210,26 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 > - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
 >   the Stay block above. Do not build it unprompted.
+> - **DEV SYSTEM — phase 0 DONE, migration coordination DONE, phase 1 blocked
+>   on ONE thing.** `docs/TEAM-WORKFLOW.md` is the plan.
+>   ✅ **Built 2026-08-27**: `public.schema_migrations` (0169, applied +
+>   backfilled — 1 `applied`, 168 `backfilled`, 0 pending), `npm run
+>   migrate:status`, `npm run migrate:new` (numbers from the HIGHER of the
+>   working tree and `origin/main`), `tools/migrations-lib.mjs` (one home for
+>   what all three tools need), `migration-numbers.test.js` (falsified by
+>   planting a duplicate), `.gitattributes` `merge=union` on
+>   `docs/mistakes/*.md` ONLY.
+>   `apply-migration.mjs` now records every apply and **never fails the run if
+>   the bookkeeping fails** — the DDL already landed by then.
+>   ⚠️ **`backfilled` ≠ `applied`.** A backfilled row means "predates tracking,
+>   believed present, apply time never observed". Do not merge the two words.
+>   RLS is deny-all BY DESIGN and was proved in both directions: anon → 401
+>   `42501`, control table → 200 with a row.
+>   🔓 **§7.1's "no `pg_dump` on this machine" WAS FALSE** — `libpq 18.4` is
+>   keg-only, so `which` could not see it, and a NEWER client dumps an older
+>   server fine. Use `/opt/homebrew/opt/libpq/bin/`. **Phase 1 is now blocked on
+>   the DATABASE PASSWORD alone** (Supabase → Settings → Database →
+>   `SUPABASE_DB_URL` in `.env.local`). **Ask the owner for it.**
 > - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
 >   BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
 >   not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev

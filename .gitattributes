@@ -1,0 +1,12 @@
+# Two people adding a bug write-up to the same file must not conflict.
+#
+# docs/mistakes/*.md are append-mostly: each entry is a self-contained
+# Symptom → Cause → Fix block, and two entries added at the same place are both
+# wanted. `merge=union` keeps both sides instead of raising a conflict a human
+# would resolve by... keeping both sides.
+#
+# Deliberately NOT applied to STATE.md, CLAUDE.md or .claude/rules/*: there,
+# two people editing the same lines usually means one of them is correcting a
+# claim the other still believes, and silently keeping both is how this repo
+# ends up asserting a fact and its opposite in one file. Those must conflict.
+docs/mistakes/*.md   merge=union

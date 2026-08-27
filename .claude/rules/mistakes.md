@@ -248,6 +248,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(19)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(24)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(17)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(18)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->
