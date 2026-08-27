@@ -222,7 +222,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(25)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(26)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -251,6 +251,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The Discord alert told a human to run the command that CAUSED the error
 - Removing `@here` from two builders left three ways to put it back
 - A preview deployment could post into the real ฝ่าย Discord channel
+- A test notification read as a real incident, because every builder hardcodes its own alarm
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(9)*
 
@@ -293,4 +294,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm test | grep` returned success while the suite was failing
 - `urllib` got 403 from Discord and I reported the service as DOWN
 
-_236 entries across 9 files._
+_237 entries across 9 files._

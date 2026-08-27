@@ -1025,3 +1025,38 @@ REACHES, and ask what the worst thing a tester could do with it is. And when
 checking whether an endpoint exists, probe it the way it is actually invoked: a
 404 or an HTML fallback on the wrong METHOD says nothing about the right one.
 
+## A test notification read as a real incident, because every builder hardcodes its own alarm
+
+**Symptom (as reported).** *"you should also make the message show test, people
+panic"* — after test notifications were sent into live ฝ่าย channels while
+verifying that routing worked.
+
+**Cause.** Every payload builder in `functions/_discord.js` writes its OWN
+`content` line and **ignores the `title` a caller passes**:
+
+- PR → `🚨 ส่งงาน PR ใหม่ จาก **<dept>**!`
+- VS → `🚨 **แจ้งปัญหาใหม่ระบบ Vital Sound**` (or `‼️ แจ้งปัญหาฉุกเฉิน` when
+  `isEmergency`)
+- VS consult → `💬 **<role>** มีการอัปเดตใน Ticket **<id>**`
+
+A caller passing `{"title":"[TEST] …"}` therefore changes NOTHING that renders.
+The embed title comes from `ticketId`; the body from `vsProblem`. The test
+messages looked exactly like genuine reports, in a confidential service desk, to
+people whose job is to react to them.
+
+**Fix.** `npm run notify:smoke` — it writes the marker into the fields that
+actually render (`ticketId`, `vsProblem`, `detail`, `department`) and sets the
+silent flag every builder supports (`silentNotify` / `vsSilentNotify` →
+Discord's `flags: 4096`), so a test appears without pinging anyone. One command,
+every action, at any host: `--host <preview-url>`, `--vs-all` for all twelve
+ฝ่าย.
+
+**Where it lives now.** `tools/notify-smoke.mjs`.
+
+**The general rule.** *Before sending a test through someone else's alerting
+path, read the RENDERER — not the payload schema.* A field you can set is not
+the same as a field that is shown, and the difference decides whether your test
+is legible as a test. And where the transport offers a "do not ping" flag, a
+test should always use it: the cost of a test that is merely quiet is nothing;
+the cost of one that summons people is their trust in the alert.
+

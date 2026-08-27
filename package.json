@@ -20,7 +20,8 @@
     "dev:check": "node tools/dev-check.mjs",
     "dev:refresh": "node tools/dev-refresh.mjs",
     "webhook:id": "node tools/discord-webhook-identify.mjs",
-    "webhook:provision": "node tools/discord-webhooks-provision.mjs"
+    "webhook:provision": "node tools/discord-webhooks-provision.mjs",
+    "notify:smoke": "node tools/notify-smoke.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",
