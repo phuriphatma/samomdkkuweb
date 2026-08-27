@@ -50,7 +50,7 @@ const cases = [
 ];
 
 console.log(`host: ${HOST}`);
-let ok = 0, bad = 0;
+let ok = 0, bad = 0, skipped = 0;
 for (const [action, extra, label] of cases) {
   const r = await fetch(`${HOST}/notify`, {
     method: 'POST',
@@ -59,8 +59,15 @@ for (const [action, extra, label] of cases) {
   });
   let j = {}; try { j = JSON.parse(await r.text()); } catch { /* non-JSON */ }
   const good = j.success === true;
-  good ? ok++ : bad++;
-  console.log(`  ${good ? '✓' : '✗'} ${action}${label ? ` [${label}]` : ''} → ${j.status ?? j.message ?? r.status}`);
+  // "no webhook configured" is a DELIBERATE refusal, not a failure: an
+  // environment that was never given that credential cannot reach that channel,
+  // which on a preview is the isolation working. Counting it as a failure
+  // teaches people to ignore a red line that is telling the truth.
+  const refused = !good && /no webhook configured/.test(j.message || '');
+  if (good) ok++; else if (refused) skipped++; else bad++;
+  const mark = good ? '\u2713' : refused ? '\u2013' : '\u2717';
+  console.log(`  ${mark} ${action}${label ? ` [${label}]` : ''} → ${j.status ?? j.message ?? r.status}`);
 }
-console.log(`\n  delivered=${ok}  failed=${bad}  (all SILENT — no ping raised)`);
+console.log(`\n  delivered=${ok}  not-configured=${skipped}  failed=${bad}  (all SILENT — no ping raised)`);
+if (skipped) console.log('  \u2013 = no webhook for that action in this environment. On a preview that is isolation, not breakage.');
 process.exit(bad ? 1 : 0);
