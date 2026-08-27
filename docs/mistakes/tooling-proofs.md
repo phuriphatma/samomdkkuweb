@@ -784,3 +784,46 @@ module-scope names to find. **Before believing a zero, ask what the tool looked
 at, and check it against a subject you KNOW is there** — here, one
 `brew list --versions` would have cost five seconds and saved a day of the plan
 being wrong about its own blockers.
+
+## A `pg_dump` restore made the copy MORE permissive than the original
+
+**Symptom.** `samo-dev` was built from a `pg_dump` of production and compared
+against it object by object. Tables, functions, triggers and RLS-enabled tables
+matched exactly. **Grants did not: dev had 134 that production does not have,
+and 0 that it was missing.** Sixteen tables — `students`, `people`,
+`student_change_requests`, `student_import_batches`, `_timeline_backup_0166`,
+`schema_migrations` and ten more — had been granted to **`anon`**, which
+production grants nothing on.
+
+**Cause.** Supabase sets `ALTER DEFAULT PRIVILEGES` granting everything to
+`anon` / `authenticated` / `service_role` on newly created tables. `pg_dump`
+writes the GRANTs a database HAS; it writes no REVOKEs, because it assumes stock
+PostgreSQL defaults where nothing is granted to anyone. Every table the restore
+CREATES therefore picks up the platform's defaults first, and nothing in the
+dump takes them back off. **The dump is a description of what is granted, not of
+what is denied, and on a platform with non-standard defaults those are different
+things.**
+
+**Why it was not cosmetic.** RLS was still enabled on all of them, so rows were
+still filtered — which is exactly why it would have survived a casual look.
+But production refuses `anon` at the GRANT, *before any policy runs*, and dev
+would have refused only at the policy. Two databases, two different gates, and
+`docs/TEAM-WORKFLOW.md` D2 puts **no door gate on the preview URL** precisely
+because dev is supposed to behave identically (§7.3).
+
+**Fix.** Generate the REVOKEs from the measured difference — never from a
+hand-written list of tables that look sensitive — and re-measure until extra = 0
+and missing = 0. It took 134 revokes. `npm run dev:check` (`tools/dev-check.mjs`)
+is now the ratchet: it compares the anon key's HTTP status on both databases
+across allow-subjects AND deny-subjects, and was falsified by granting `anon`
+SELECT on `students` on dev alone — it reported `DRIFT` and exited 1.
+
+**Where it lives now.** `skills/build-the-dev-database.md` §3b,
+`tools/dev-check.mjs`.
+
+**The general rule.** *Comparing two systems, compare what each DENIES, not only
+what each allows.* A copy is verified by the differences being zero in **both
+directions** — "everything the original had is present" is half a check, and it
+is the half that cannot see an addition. And when a platform ships non-standard
+defaults, any tool that emits only the positive state (a dump, an export, a
+seed) will silently inherit them.

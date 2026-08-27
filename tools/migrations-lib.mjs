@@ -77,23 +77,33 @@ export async function runSql(sql, { ref, token }) {
   try { return JSON.parse(text); } catch { return []; }
 }
 
-/** Resolve the project + token, or exit with the setup instructions. */
-export function credentials() {
+/**
+ * Resolve the project + token, or exit with the setup instructions.
+ *
+ * WHICH DATABASE: `--dev` on the command line, or SAMO_TARGET=dev, selects the
+ * samo-dev project. Default is PRODUCTION — deliberately, because a tool that
+ * silently defaults to dev is a tool that reports production as healthy while
+ * looking somewhere else. Every caller prints which one it chose.
+ */
+export function credentials(argv = process.argv) {
   const env = { ...loadEnvLocal(), ...process.env };
-  const ref = projectRefFromUrl(env.VITE_SUPABASE_URL);
-  const token = env.SUPABASE_ACCESS_TOKEN;
+  const dev = argv.includes('--dev') || env.SAMO_TARGET === 'dev';
+  const url = dev ? env.SUPABASE_DEV_URL : env.VITE_SUPABASE_URL;
+  const token = dev ? env.SUPABASE_DEV_ACCESS_TOKEN : env.SUPABASE_ACCESS_TOKEN;
+  const label = dev ? 'samo-dev' : 'PRODUCTION';
+  const ref = projectRefFromUrl(url);
   if (!ref) {
-    console.error('could not derive the project ref from VITE_SUPABASE_URL in .env.local');
+    console.error(`could not derive the project ref from ${dev ? 'SUPABASE_DEV_URL' : 'VITE_SUPABASE_URL'} in .env.local`);
     process.exit(1);
   }
   if (!token) {
     console.error(
-      'SUPABASE_ACCESS_TOKEN missing from .env.local.\n' +
+      `${dev ? 'SUPABASE_DEV_ACCESS_TOKEN' : 'SUPABASE_ACCESS_TOKEN'} missing from .env.local.\n` +
       '  https://supabase.com/dashboard/account/tokens → Generate new token',
     );
     process.exit(1);
   }
-  return { ref, token, env };
+  return { ref, token, env, dev, label };
 }
 
 /**

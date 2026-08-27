@@ -142,10 +142,26 @@ because it held three lifetimes at once. It now holds one: **status**.
   ⛔ **The first dump used `--no-privileges` and had ZERO grants** — RLS with no
   GRANT denies everyone and reads exactly like the policies working (0138).
   **Count the GRANTs after every dump.**
-  ⏳ **Phase 1 now needs ONE thing: a SEPARATE Supabase account** to create
-  `samo-dev` in. A third project on the live account pauses another — and
-  `letuxetrbejoqsnaqdgl` is sitting INACTIVE right now, which is that limit,
-  observed.
+  ✅ **`samo-dev` EXISTS — `xibugtlsphcfuvstnxxh`**, ap-southeast-1, Postgres
+  17.6, on the separate account `samomdkkuaiorg` (D7). Schema loaded and
+  **verified against production object by object**: tables 64=64, functions
+  165=165, triggers 64=64, RLS-on 62=62, `public`+`passport` policies 121+35
+  identical. Credentials are the `SUPABASE_DEV_*` block in `.env.local`.
+  Tools take `--dev`; **the default is PRODUCTION on purpose** and each prints
+  which it chose.
+  ⛔ **THE RESTORE WAS MORE PERMISSIVE THAN THE SOURCE — 134 grants dev had and
+  prod does not, 0 missing.** `anon` had been granted on 16 tables including
+  `students` and `people`, because Supabase's `ALTER DEFAULT PRIVILEGES` grant
+  on every newly created table and `pg_dump` emits no REVOKEs. Revoked from the
+  MEASURED difference; now 0 extra / 0 missing. **`npm run dev:check` is the
+  ratchet** (falsified by re-granting `anon` on `students`: reported DRIFT,
+  exit 1). Write-up in `docs/mistakes/tooling-proofs.md`.
+  ⏳ **What is left before dev is usable: DATA.** The schema is there and empty.
+  `auth.users` loads FIRST (7 tables FK to it), GoTrue cannot choose ids so it
+  is a direct write over the superuser connection, and **the proof is signing in
+  as a copied account** — nothing else settles it (§7.5).
+  📌 The 4 `storage` policies were NOT copied and that is correct: the app has
+  **0** Supabase-Storage call sites (files go to Drive via GAS).
 - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
   BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
   not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev

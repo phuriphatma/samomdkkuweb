@@ -2,7 +2,8 @@
 // ============================================================
 // migrate-status.mjs — what does this database have, and what is pending?
 //
-//   node tools/migrate-status.mjs             # report
+//   node tools/migrate-status.mjs             # report (PRODUCTION)
+//   node tools/migrate-status.mjs --dev       # report against samo-dev
 //   node tools/migrate-status.mjs --backfill  # record every existing file as
 //                                             # source='backfilled' (once)
 //
@@ -17,7 +18,7 @@
 import { listMigrationFiles, checksumOf, sqlLit, runSql, credentials } from './migrations-lib.mjs';
 
 const backfill = process.argv.includes('--backfill');
-const { ref, token } = credentials();
+const { ref, token, label } = credentials();
 
 async function main() {
   const files = listMigrationFiles();
@@ -72,7 +73,7 @@ async function main() {
     return r && r.checksum && r.checksum !== checksumOf(f.path);
   });
 
-  console.log(`project ${ref}`);
+  console.log(`project ${ref}  [${label}]`);
   console.log(`  files:      ${files.length}`);
   console.log(`  applied:    ${applied.length}   (observed by apply-migration.mjs)`);
   console.log(`  backfilled: ${backfilled.length}   (predates tracking, no apply time)`);

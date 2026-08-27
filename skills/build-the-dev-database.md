@@ -88,6 +88,43 @@ the columns both sides have and let defaults fill the rest.**
 **Then prove it before declaring the refresh good: sign in as a copied account.**
 Nothing else settles whether the auth load worked.
 
+## 3b. ⛔ THE ONE THAT ALMOST GOT THROUGH — a restore is MORE permissive than the source
+
+**Measured 2026-08-27 on the real restore.** After loading the dump, dev had
+**134 grants production does not have, and 0 that it was missing.** Sixteen
+tables — including `students`, `people`, `student_change_requests`,
+`student_import_batches` and `_timeline_backup_0166` — had been granted to
+**`anon`**, which production grants nothing on.
+
+**Cause.** Supabase ships `ALTER DEFAULT PRIVILEGES` granting everything to
+`anon` / `authenticated` / `service_role` on newly created tables. `pg_dump`
+emits the GRANTs a database has, but no REVOKEs — it assumes stock PostgreSQL
+defaults, where nothing is granted. So every table the dump CREATES picks up the
+platform defaults, and the dump has nothing to take them back off.
+
+**Why it matters more than it looks.** RLS is still on, so rows are still
+filtered. But production refuses `anon` at the GRANT — before any policy runs —
+and dev would refuse only at the policy. **Two databases, two different gates,
+and the preview URL has no door on it.** (The 12 `permission denied to change
+default privileges` errors during the load are unrelated and harmless: the dump
+tries to re-assert defaults it does not own.)
+
+**Fix, and never from a hand-written list — from the measured difference:**
+
+```bash
+# every (schema, table, grantee, privilege) dev has that prod does not
+comm -13 <(sort grants.prod) <(sort grants.dev) \
+  | awk -F'|' '{printf "revoke %s on %s.%s from %s;\n", $4, $1, $2, $3}' > revoke.sql
+```
+
+Then re-measure until **extra = 0 and missing = 0**. It took 134 revokes here.
+
+**`npm run dev:check` is the ratchet for this**, and it is the thing to run after
+every refresh — not this paragraph. It compares the anon key's HTTP status on
+both databases across allow-subjects AND deny-subjects. *Falsified by granting
+`anon` SELECT on `students` on dev alone: it reported `students deny 401 200 ←
+DRIFT` and exited 1, then went green on the revoke.*
+
 ## 4. After loading — the check that matters
 
 RLS behaves identically on dev, or the whole design (`docs/TEAM-WORKFLOW.md`
@@ -96,10 +133,13 @@ RLS behaves identically on dev, or the whole design (`docs/TEAM-WORKFLOW.md`
 - `npm run proofs` against dev. All of them are both-directional.
 - One ALLOW and one DENY over the same rows with the **anon key**. A deny-only
   probe cannot tell a working guard from a broken service.
-- `npm run migrate:status` — after loading a `pg_dump`, the dev database has the
-  schema but an EMPTY `schema_migrations` unless the table came with it. Run
-  `node tools/migrate-status.mjs --backfill` against dev once, or every
-  migration will read as pending for ever.
+- `npm run dev:check` — the grant/RLS parity check above. Run it every refresh.
+- `npm run migrate:status --dev` — **confirmed 2026-08-27: after a schema-only
+  restore the table EXISTS and is EMPTY, so all 169 migrations read as
+  PENDING.** Run `node tools/migrate-status.mjs --dev --backfill` once. Both
+  tools take `--dev`; the DEFAULT IS PRODUCTION on purpose, and each prints
+  which one it chose, because a tool that silently defaults to dev is a tool
+  that reports production healthy while looking elsewhere.
 
 ## 5. Still unknown — do not plan around these as if settled
 
