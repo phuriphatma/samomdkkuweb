@@ -421,3 +421,60 @@ Write-up in `docs/mistakes/deploy-hosting.md`.
 files a deploy replays, is invisible to every later deploy and to everyone
 reading the repo. If it must survive, it belongs in `server/setup.sh`; if it
 cannot, it belongs here, written down.
+
+---
+
+## Testing a notification without setting the building on fire
+
+Learned on 2026-08-27/28, at the cost of real messages in live ฝ่าย channels.
+
+**Never answer "where would this send?" by sending.** `npm run webhook:id <url>`
+does a **GET** on a Discord webhook and returns its name and `channel_id`,
+delivering nothing. Use it before touching anything.
+
+**`npm run notify:smoke` is the only sanctioned way to send a test.**
+`--host <url>` targets a preview; `--vs-all` covers all twelve ฝ่าย. It is safe
+for two reasons that are NOT obvious:
+
+1. **Every builder in `functions/_discord.js` hardcodes its own `content` and
+   IGNORES a caller's `title`.** PR emits `🚨 ส่งงาน PR ใหม่`, VS emits
+   `🚨 แจ้งปัญหาใหม่ระบบ Vital Sound`. A test passing `title: "[TEST]"` renders
+   as a genuine incident. The marker must go in the fields that DO render —
+   `ticketId`, `vsProblem`, `detail`, `department`.
+2. **It sets the silence flag**, so Discord shows the message without notifying
+   anyone. A quiet test costs nothing; a loud one costs trust in the alert.
+
+**Cloudflare freezes env vars into a deployment at BUILD time.** Changing a
+project's config affects only future builds — an existing deployment keeps its
+credentials for ever, at a live URL. To change what a deployed thing can reach:
+rebuild it, delete it, or **rotate the credential**, which is the only option
+that neutralises copies you cannot enumerate.
+
+**Never probe a Discord webhook with Python `urllib`** — Discord's edge 403s its
+User-Agent regardless of whether the webhook exists. That once produced a false
+"twelve dead, VitalSound is down" report. Use the tool, which uses `fetch`.
+
+**A `functions/` change is not in any JS bundle.** The notify service is Node on
+the VM; verify it there:
+`ssh samo-vm 'grep -c <marker> ~/samo-projects/samomdkkuweb/functions/_discord.js'`.
+
+---
+
+## The non-production ribbon's polarity is deliberately the reverse of the plan
+
+`docs/TEAM-WORKFLOW.md` §1 says `VITE_ENV_NAME` is `production` only on the VM
+and everything else paints a "PREVIEW" ribbon. **`src/js/env-ribbon.js` does the
+opposite: an ABSENT variable paints NOTHING.**
+
+Because §1's polarity means the first VM rebuild that forgets an env var
+splashes **PREVIEW across the live site** for every student — a visible incident
+caused by an omission. Here an omission is silent, and a `*.pages.dev` host
+paints the ribbon anyway, so a forgotten variable still cannot hide a real
+preview. An EXPLICIT `production` beats the host check: explicit configuration
+beating inference is the less surprising rule, and it leaves an escape hatch if
+the live site ever moves onto a pages.dev host.
+
+📌 **The ribbon lands in `analytics-*.js`, the SHARED chunk**, because both
+entries import it. Grepping `public-*.js` for it returns 0 and reads as a failed
+deploy — the same trap as `ใต้สังกัด` in 2026-08-15.
+

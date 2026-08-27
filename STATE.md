@@ -31,16 +31,15 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `832bb14` (2026-08-27)**, VM HEAD = local HEAD,
-  `DEPLOY_EXIT=0`. Golden Period, the routing fixes, the PREVIEW ribbon,
-  `robots.txt` and the dev notify stub. **Verified from the served artifacts**
-  and driven live.
-  ⚠️ **The check that mattered: production renders NO ribbon** — confirmed by
-  DRIVING the page (`ribbon: null`), not by grepping. A grep for `"preview"` in
-  the bundle DOES hit, from an unrelated announcements preview button; the
-  string was never the instrument, the rendered DOM was.
-  📌 `robots.txt` is now `text/plain`; it used to be the SPA answering with
-  `text/html`.
+- ✅ **DEPLOYED = `2151d6a` (2026-08-28)**, VM HEAD = local HEAD,
+  `DEPLOY_EXIT=0`. The notify silence fix; before it, Golden Period, the routing
+  fixes, the PREVIEW ribbon, `robots.txt` and the dev notify stub.
+  ⚠️ **Verify a `functions/` change ON THE VM, not in a bundle** — the notify
+  service is Node on the box, not part of any JS chunk. `ssh samo-vm 'grep -c
+  <marker> ~/samo-projects/samomdkkuweb/functions/_discord.js'`.
+  ⚠️ **Production renders NO env ribbon** — confirmed by DRIVING the page, not
+  grepping. A grep for `"preview"` DOES hit, from an unrelated announcements
+  button; the rendered DOM is the instrument.
   Previous: `36ac1d5` (2026-08-26 late).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
@@ -92,13 +91,26 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ### What is owed
 
-- ✅ **Claude measurement is ON and nothing is owed here.** Ask the DATABASE for
-  the state and the counts; this file must not carry them. The systemd-timer
-  trap it used to describe is now in `docs/INVARIANTS.md`.
-- ✅ **The `claude` permission is GRANTED and `claude_bookings` is EMPTY** —
-  deployed, widely granted, unused. Head-counts belong to the database, not to
-  this file; the query and the reason are in `docs/INVARIANTS.md`.
-- ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
+⛔ **TWO THINGS THE OWNER MUST DO — nothing else is blocked on anyone.**
+
+1. **Reset the Discord bot token.** On 2026-08-28 the owner handed over the
+   token for *"Role assignment bot for SAMO69"* (app id `1492541609445949465`)
+   so webhooks could be provisioned in bulk. **It has Administrator** and it was
+   pasted in a chat transcript. The job is done and nothing built here depends
+   on it. Developer Portal → that app → Bot → **Reset Token**. ⚠️ If a running
+   service uses that bot for role assignment, resetting BREAKS it until that
+   service gets the new token — check before clicking.
+2. **Confirm the dev-channel test landed.** From a preview build, all 12 ฝ่าย
+   notifications were sent naming REAL ฝ่าย (`อุปนายกฝ่ายบริหารองค์กร` …). They
+   must all be in **`#developer-server-notify`** and NONE in a real `#vs-*`
+   channel. Delivery was confirmed (16×204) but the DESTINATION cannot be seen
+   from outside Discord. **If any reached a real ฝ่าย channel, the preview
+   isolation is broken and that is urgent.**
+
+
+- ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
+  Ask the DATABASE for any runtime state or count; this file must not carry
+  them. The durable rules from these are in `docs/INVARIANTS.md`.
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
   the Stay block above. Do not build it unprompted.
 - ✅ **DEV SYSTEM — phases 0 and 1 are DONE and `samo-dev` IS USABLE.**
@@ -115,56 +127,44 @@ because it held three lifetimes at once. It now holds one: **status**.
   npm run migrate:status [--dev]  # default is PRODUCTION, on purpose
   npm run migrate:new "<slug>"    # numbers from the higher of tree and origin/main
   ```
-  **Verified 2026-08-27, both directions**: 66 tables (`public` + `passport` +
-  `auth.users` + `auth.identities`), 0 row-count differences, 0 grant
-  differences either way, and sign-in as a copied account proven end to end
-  (GoTrue accepts the row · session issued · RLS gives that identity its OWN row
-  and ZERO of anyone else's · a control read that must ALLOW does).
+  **Verified both directions**: 66 tables, 0 row-count and 0 grant differences,
+  and sign-in as a copied account proven end to end.
   ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`: backfilled means
   "predates tracking, apply time never observed". Do not merge the two words.
-  ⏳ **Left in phase 2**: mail trap · `#samo-dev-bot` · dev GAS deployment under
-  its own Google account · `dev-grants.json`.
+  ⏳ **Left in phase 2**: mail trap · dev GAS deployment under its own Google
+  account · `dev-grants.json`. (The plan's `#samo-dev-bot` EXISTS — it is
+  `#developer-server-notify`, and previews post there.)
   ✅ **PHASE 3 — PREVIEWS WORK, proven end to end 2026-08-27** (throwaway PR
   #17, closed). **They were ALREADY configured** on the `samomdkkuweb` project —
   **no Actions job, no `wrangler`**, so §7.4's `functions/` trap never applied.
   A PR builds at `<hash>.samomdkkuweb.pages.dev`; Cloudflare posts the link.
-  ⚠️ **The preview host is a SUBDOMAIN OF THE RETIRED PROJECT** — hence the
-  `pages.dev` guard matching only the two EXACT hosts. Relaxing it to `(^|.)`
-  kills every preview and reads as a broken build (`host-guard.test.js`).
-  ⚠️ **Preview env points at `samo-dev`** (set on Cloudflare, not in git).
-  **Never copy production's** — that aims every preview at the live student
-  database. Its Discord vars are `secret_text` and read back EMPTY; PATCH
-  merges, which was tested on a throwaway project first.
+  ⚠️ **Preview traps (host guard must match EXACT hosts; preview env points at
+  `samo-dev`; env vars freeze at BUILD time) — `docs/INVARIANTS.md`.**
   📌 `refactorsamomdkkuweb` built every commit a second time (dead prod branch,
   508 behind). Preview builds + PR comments now **OFF**; project NOT deleted, so
   its URL still serves the moved splash. Undo = set that field back to `all`.
-  ✅ **PREVIEW ribbon ships** (`env-ribbon.js`). ⚠️ **Polarity is the OPPOSITE
-  of `TEAM-WORKFLOW` §1, on purpose**: an ABSENT `VITE_ENV_NAME` paints NOTHING,
-  because §1's version splashes "PREVIEW" across the live site the first time a
-  VM rebuild forgets the var. A `*.pages.dev` host paints it anyway; an explicit
-  `production` wins. Set on Cloudflare's PREVIEW env only.
-  ✅ **`noindex` needed no work** — Cloudflare already sets it on previews;
-  production has none. ✅ `public/robots.txt` exists now (nginx used to answer
-  `/robots.txt` with the SPA).
+  ✅ **PREVIEW ribbon ships** — polarity is deliberately the REVERSE of
+  `TEAM-WORKFLOW` §1 (absent var = no ribbon); why, and the shared-chunk
+  grep trap, in `docs/INVARIANTS.md`. `noindex` needed no work; `robots.txt`
+  now exists.
   ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
-  ✅ **NOTIFY CREDENTIALS — RESOLVED 2026-08-27.** Cloudflare **freezes env vars
-  into each deployment at build time** (~600 historical deployments keep what
-  they were built with; clearing a config fixes only FUTURE builds). All three
-  exposed webhooks are rotated and live only in `/etc/samo-notify.env`.
-  🆕 **VitalSound routes PER ฝ่าย now** — 12 webhooks, 12 distinct `#vs-*`
-  channels, all verified. It was ONE webhook for all 12, so every ฝ่าย's
-  confidential reports landed in one place. **Map KEYS must be the exact
-  `data.department` strings**; a mismatch falls back to `SE` and misroutes.
-  🔧 `npm run webhook:provision` (DRY RUN by default) · `npm run webhook:id`
-  says where a webhook points via GET — **never verify by sending**.
-  ⚠️ **Never check a webhook with Python `urllib`** — Discord 403s its
-  User-Agent, which produced a false "12 dead, VS is down" report.
+  ✅ **NOTIFY — RESOLVED 2026-08-28 and TESTED end to end** (prod: every action;
+  preview: every action + all 12 ฝ่าย → the dev channel). All three exposed
+  webhooks rotated, so the ~600 frozen deployment copies are inert. Credentials
+  live in `/etc/samo-notify.env` and, dev-channel only, the `samomdkkuweb`
+  PREVIEW env.
+  🆕 **VitalSound routes PER ฝ่าย** — 12 webhooks, 12 distinct `#vs-*` channels
+  (it was ONE for all 12). **Map KEYS must be the exact `data.department`
+  strings**; a mismatch falls back to `SE` and misroutes one ฝ่าย's confidential
+  reports to another.
+  ✅ Silence is applied ONCE in `resolveTarget`; 4 of 7 actions used to DROP it.
+  🔧 **`npm run notify:smoke` is the ONLY way to test notifications.**
+  `webhook:id` says where one points via GET. **Never verify by sending.**
+  📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
   preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
   form on preview, and Drive pollution is quiet and deletable where Discord
-  pings humans). **Needs the owner: `#samo-dev-bot` + a dev GAS deployment.**
-  📌 **The ribbon lands in `analytics-*.js`**, the SHARED chunk — both entries
-  import it. Grepping `public-*.js` for it returns 0 and looks like a failure.
+  pings humans). **Owed: a dev GAS deployment under its own Google account.**
   ✅ **The repo SETTINGS now have a guard** — `tools/repo-protection.mjs`, proof
   #24. They live on GitHub, outside git, so nothing here noticed if they were
   switched off. Checks BOTH directions: four things that must be ON, and

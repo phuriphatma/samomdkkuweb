@@ -15,9 +15,15 @@
 > `docs/INVARIANTS.md` · `docs/state/<handle>.md` · the two subagents in
 > `.claude/agents/`.
 >
+> ✅ **ALSO REAL as of 2026-08-28:** **preview deploys** (they were already
+> configured on the `samomdkkuweb` Pages project — no Actions job, no
+> `wrangler`) and the **dev Discord channel**, which this document calls
+> `#samo-dev-bot` and which actually exists as **`#developer-server-notify`**.
+> Preview builds post there, verified with every action and all 12 ฝ่าย.
+>
 > ❌ **STILL A DESIGN — nothing below about these describes something real:**
-> preview deploys · the mail trap · `#samo-dev-bot` · the dev GAS deployment ·
-> `dev-grants.json` · the docs site · `samo-scratch`.
+> the mail trap · the dev GAS deployment · `dev-grants.json` · the docs site ·
+> `samo-scratch`.
 >
 > **§0b has the precise line between the two. Read it before building anything.**
 >
@@ -125,8 +131,13 @@ backfilled on BOTH databases) · `tools/migrations-lib.mjs` ·
 
 ❌ **Still only a name in this document:**
 `npm run dev:grant` · `npm run dev:who` · `npm run dev:cleanup` ·
-`tools/dev-grants.json` · `VITE_ENV_NAME` · `#samo-dev-bot` ·
-`samo-preview.pages.dev` · the `samo-scratch` project
+`tools/dev-grants.json` · the `samo-scratch` project · `samo-preview.pages.dev`
+(previews come from the EXISTING `samomdkkuweb` project instead)
+
+📌 **`VITE_ENV_NAME` is BUILT**, with the polarity deliberately reversed —
+`docs/INVARIANTS.md`. **`#samo-dev-bot` is BUILT**, under the real name
+**`#developer-server-notify`**; wherever this document says `#samo-dev-bot`,
+that is the channel it means.
 
 Everything else named in this file — `tools/apply-migration.mjs`,
 `tools/db-query.mjs`, `npm run proofs`, `npm run check:context`,
