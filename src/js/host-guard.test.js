@@ -30,21 +30,24 @@ function guardFor(file) {
   return (host) => re.test(host);
 }
 
+// Only the two RETIRED PRODUCTION hosts. Nothing else — see below.
 const MUST_REDIRECT = [
   'samomdkkuweb.pages.dev',
   'refactorsamomdkkuweb.pages.dev',
-  // Cloudflare preview builds of the RETIRED projects are still retired.
-  'abc123.samomdkkuweb.pages.dev',
-  'deadbeef.refactorsamomdkkuweb.pages.dev',
 ];
 
 const MUST_NOT_REDIRECT = [
   'samo.md.kku.ac.th',        // production
   'localhost',                // dev
   '127.0.0.1',
-  // The whole point of narrowing: previews live on pages.dev too.
+  // The whole point of narrowing: previews live on pages.dev too — and,
+  // measured on the Cloudflare API 2026-08-27, they are served BY the
+  // `samomdkkuweb` project at <hash>.samomdkkuweb.pages.dev. A subdomain of a
+  // retired project is therefore a PREVIEW, not something retired. Redirecting
+  // these would kill every per-PR preview and look like a broken build.
+  'abc123.samomdkkuweb.pages.dev',
+  'deadbeef.refactorsamomdkkuweb.pages.dev',
   'samo-preview.pages.dev',
-  '7f3a91c2.samo-preview.pages.dev',
   'some-other-project.pages.dev',
 ];
 

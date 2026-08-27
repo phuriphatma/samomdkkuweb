@@ -9,19 +9,22 @@
        now that the app is self-hosted at samo.md.kku.ac.th. On one of those
        hosts, forward to the "we've moved" splash, preserving the deep link.
 
-       ⚠️ NARROWED 2026-08-27, and it must stay narrow. This used to test
+       ⚠️ NARROWED TWICE on 2026-08-27, and it must stay EXACT. It first tested
        /\.pages\.dev$/ — ANY pages.dev host — which would bounce every per-PR
-       PREVIEW URL straight to the splash, since previews live on pages.dev too
-       (docs/TEAM-WORKFLOW.md §1 + D8). The named hosts are the retired ones;
-       a subdomain of either (Cloudflare preview builds of the OLD projects)
-       still redirects, and nothing else does.
+       PREVIEW URL to the splash (previews live on pages.dev too:
+       docs/TEAM-WORKFLOW.md §1 + D8). The first narrowing still matched
+       SUBDOMAINS of the retired projects, which was also wrong: measured on the
+       Cloudflare API, per-PR previews are served BY the `samomdkkuweb` project
+       itself, at `<hash>.samomdkkuweb.pages.dev`. So only the two EXACT hosts —
+       the retired production URLs — redirect. Any subdomain is a preview.
+       Anchored `^` for exactly that reason; do not relax it to (^|\.).
        Both entry HTMLs carry this. Guarded by host-guard.test.js, which checks
        BOTH files — fixing one entry and not the other is this repo's most
        repeated shape. -->
   <script data-samo="redirect">
     (function () {
       try {
-        if (/(^|\.)(samomdkkuweb|refactorsamomdkkuweb)\.pages\.dev$/i.test(location.hostname)
+        if (/^(samomdkkuweb|refactorsamomdkkuweb)\.pages\.dev$/i.test(location.hostname)
             && location.pathname !== '/moved.html') {
           location.replace('/moved.html?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
         }
