@@ -100,7 +100,11 @@ because it held three lifetimes at once. It now holds one: **status**.
    on it. Developer Portal → that app → Bot → **Reset Token**. ⚠️ If a running
    service uses that bot for role assignment, resetting BREAKS it until that
    service gets the new token — check before clicking.
-2. **Confirm the dev-channel test landed.** From a preview build, all 12 ฝ่าย
+2. **Three things were ASKED FOR and not done** — a `DEV` folder in Drive, the
+   dev Apps Script deployment, and a mail trap on the VM (answer: Mailpit, not a
+   real mail server). All three, with the folder id and the reasoning, are at the
+   TOP of **`docs/state/phuriphatma.md`**.
+3. **Confirm the dev-channel test landed.** From a preview build, all 12 ฝ่าย
    notifications were sent naming REAL ฝ่าย (`อุปนายกฝ่ายบริหารองค์กร` …). They
    must all be in **`#developer-server-notify`** and NONE in a real `#vs-*`
    channel. Delivery was confirmed (16×204) but the DESTINATION cannot be seen
@@ -121,12 +125,8 @@ because it held three lifetimes at once. It now holds one: **status**.
   block in `.env.local`, **safe to share with the team** (that account holds
   only disposable projects) — but the URL is never published, because dev holds
   REAL student data (D1).
-  ```
-  CONFIRM=1 npm run dev:refresh   # rebuild from prod, ~2 min, refuses production
-  npm run dev:check               # does dev answer identically to prod?
-  npm run migrate:status [--dev]  # default is PRODUCTION, on purpose
-  npm run migrate:new "<slug>"    # numbers from the higher of tree and origin/main
-  ```
+  Commands: `dev:refresh` · `dev:check` · `migrate:status [--dev]` ·
+  `migrate:new` — documented in `README.md` and the skill.
   **Verified both directions**: 66 tables, 0 row-count and 0 grant differences,
   and sign-in as a copied account proven end to end.
   ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`: backfilled means

@@ -43,6 +43,31 @@ the launcher, because `DEPT_DEFS` and `tab-tools.html` are still two
 hand-maintained copies. The real fix remains the single registry
 (`docs/DEPT-TOOLS.md` §2).
 
+## ▶ ASKED FOR AND NOT DONE — pick these up first
+
+1. **A `DEV` folder inside `IT Database` on Drive.** The owner asked for it
+   (2026-08-27) and it was never created — the Discord webhook incident took the
+   rest of the session. Parent folder id: **`1_VQXAVh4ZMoj7_TLiHJFe4HM223Q0oLW`**.
+   Purpose: a dev Apps Script deployment writes uploads there instead of into the
+   real tree (`docs/TEAM-WORKFLOW.md` §1). ⚠️ The clasp token on this machine is
+   `drive.file` + `drive.metadata.readonly` and EXPIRES hourly, so it may not be
+   able to create inside a folder it did not make — **it is 30 seconds by hand in
+   the Drive UI**, and that is the sane path.
+
+2. **The dev Apps Script deployment.** `samoweb` (`1lENmMdToG_P…`) is the LIVE
+   one — confirmed by matching its deployment v11 to the `/exec` id in
+   `src/js/config.js`. A dev copy should live under **its own Google account** so
+   its credential reaches nothing real (`.claude/rules/security.md` explains why:
+   `prform.gs` uses `DriveApp`, so re-authorising grants the whole Drive).
+
+3. **Answer given, not acted on: a mail server on the VM.** The owner asked. The
+   answer is **do not host real mail** — deliverability, blocklists and spam
+   handling are a permanent job. But the plan does not want real mail: it wants a
+   **trap**. Run **Mailpit** on the VM (one static binary, a fake SMTP that
+   captures everything and shows a web inbox), point `samo-dev`'s SMTP at it, and
+   sign-up / reset / email-change become testable without a single message
+   reaching a student. That closes the last of phase 2 besides the GAS work.
+
 ## In flight## In flight
 
 - ✅ **The database password is in `.env.local` and verified.** Schema dumped:
