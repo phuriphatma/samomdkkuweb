@@ -146,7 +146,15 @@ because it held three lifetimes at once. It now holds one: **status**.
   ✅ **`noindex` needed no work** — Cloudflare already sets it on previews;
   production has none. ✅ `public/robots.txt` exists now (nginx used to answer
   `/robots.txt` with the SPA).
-  ❌ **Left in phase 3**: only the `/notify` dev middleware in `vite.config.js`.
+  ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
+  ⛔ **Previews could ping the REAL ฝ่าย Discord until 2026-08-27.** The three
+  `DISCORD_*` vars are now REMOVED from the preview env; production keeps its
+  own, verified untouched. Write-up + the safe way to probe a notify endpoint:
+  `docs/mistakes/integrations.md`.
+  ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
+  preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
+  form on preview, and Drive pollution is quiet and deletable where Discord
+  pings humans). **Needs the owner: `#samo-dev-bot` + a dev GAS deployment.**
   📌 **The ribbon lands in `analytics-*.js`**, the SHARED chunk — both entries
   import it. Grepping `public-*.js` for it returns 0 and looks like a failure.
   ✅ **The repo SETTINGS now have a guard** — `tools/repo-protection.mjs`, proof
@@ -158,29 +166,18 @@ because it held three lifetimes at once. It now holds one: **status**.
   `docs/mistakes/tooling-proofs.md`: a `pg_dump` restore is MORE permissive than
   its source; a refresh that cannot refresh `auth` still printed "identical to
   production"; and `which` cannot see a keg-only binary.
-- **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
-  BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
-  not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev
-  team's pull-request pipeline unchanged and `CODEOWNERS` carries the whole
-  difference. This is NOT a second project: it is `docs/TEAM-WORKFLOW.md`
-  with more users; delete the restatement when those phases land rather
-  than maintaining it twice.**
-  ✅ **LIVE on the repo since 2026-08-27, verified back from the GitHub
-  API** — `main` now REQUIRES the `build` check (context confirmed against
-  a real check run) and code-owner review. `enforce_admins` is still
-  `false` ON PURPOSE: it is what lets the owner push `main`.
-  ⚠️ **Consequence, do not 'fix' it:** nobody may approve their own PR, so
-  an OWNER PR touching an owner-owned path cannot collect the approval it
-  now demands — merge with the admin bypass, or push `main` as usual.
-  Also shipped: `CODEOWNERS` contributor paths (`public/embed/**`
-  deliberately unowned), the Thai tool-request template + its label,
+- **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
+  Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must not be
+  re-litigated. **ONE workflow for everybody** — the ฝ่าย use the dev team's
+  pull-request pipeline unchanged and `CODEOWNERS` carries the whole difference.
+  ✅ Live since 2026-08-27: branch protection ENFORCING (guarded by proof #24),
+  `CODEOWNERS` contributor paths, the Thai tool-request template + label,
   `skills/onboard-a-contributor.md`, CONTRIBUTING + PR-template updates.
-  **NOT built**: `src/data/tools.js`, `public/embed/`, the frame,
-  `src/js/data/` doors, `/tools/<slug>`, the starter kit.
-  ✅ **Lane C's blocker is GONE** — phase 1 landed the same day, and
-  `CONTRIBUTING.md` now points contributors at `samo-dev` instead of at
-  production. What still gates lane C is only the work itself: the
-  `src/js/data/` doors do not exist.
+  ✅ **Golden Period ships** at `/tools/golden-period` under ฝ่ายยุทธศาสตร์ —
+  the IT DRAFT (D8). **The ฝ่าย own the page and PR against
+  `src/html/tab-golden-period.html`**, whose header tells them so in Thai.
+  ❌ NOT built: `src/data/tools.js` registry · `public/embed/` + the frame ·
+  `src/js/data/` doors · the starter kit.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still

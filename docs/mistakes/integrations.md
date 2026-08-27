@@ -968,3 +968,51 @@ the value can arrive from DATA as well as from code, no amount of auditing the
 code closes it. Also: a guard enumerated from the same list the code was written
 from proves the list matches itself; derive the list from the source, and assert
 the enumeration is non-empty.
+
+## A preview deployment could post into the real ฝ่าย Discord channel
+
+**Symptom.** None reported — found by asking what a ฝ่าย contributor would
+actually DO on a preview build, which is submit the PR form.
+
+**Cause, two halves.** `functions/notify.js` runs on Cloudflare **preview**
+deployments, not just production. And the preview environment carried the REAL
+`DISCORD_PR_WEBHOOK` / `DISCORD_VS_WEBHOOKS` / `DISCORD_PROJECTS_WEBHOOK`. So a
+form submitted from an unreviewed branch build would have pinged the channel
+real people read.
+
+**What hid it.** `GET /notify` on the preview returns the SPA's **HTML**, which
+reads exactly like "the function is not deployed here". It is not: the module
+exports only `onRequestPost`, so a GET falls through to the `_redirects`
+catch-all. **The absence of a GET handler looked like the absence of the
+function.**
+
+**How to probe it safely** — this is the reusable part. POST a **malformed
+body**:
+
+```bash
+curl -s -X POST "$HOST/notify" -H 'Content-Type: text/plain' --data 'not-json'
+# {"success":false,"message":"invalid JSON body"}  → the function IS live
+# <!doctype html>                                  → it is NOT there
+```
+
+`onRequestPost` parses before it resolves a webhook, so the malformed body
+proves liveness **without sending anything**. Never probe a notification
+endpoint with a valid payload.
+
+**Fix.** The three `DISCORD_*` vars were removed from the PREVIEW environment;
+production keeps its own copies, verified untouched. Preview now answers "no
+webhook configured", which sends nothing and says so. `GAS_WEBHOOK_URL` is
+deliberately left real — Drive pollution is quiet and deletable where a Discord
+post interrupts people, and removing it would break the PR form on preview
+entirely.
+
+**Where it lives now.** Cloudflare Pages env (`samomdkkuweb` → preview),
+`STATE.md`.
+
+**The general rule.** *A non-production environment inherits every secret nobody
+deliberately took out of it.* When an environment is created by copying, the
+copy includes the credentials that make it dangerous — enumerate what each one
+REACHES, and ask what the worst thing a tester could do with it is. And when
+checking whether an endpoint exists, probe it the way it is actually invoked: a
+404 or an HTML fallback on the wrong METHOD says nothing about the right one.
+
