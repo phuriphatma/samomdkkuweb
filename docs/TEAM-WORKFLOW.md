@@ -368,7 +368,19 @@ fact and its opposite.
 
 ## §7. Open unknowns — read before building
 
-**7.1 — ⚠️ HALF RESOLVED 2026-08-27. Only the CREDENTIAL is still missing.**
+**7.1 — ✅ FULLY RESOLVED 2026-08-27. This no longer blocks anything.** The
+owner supplied the database password, it was verified against the live project
+(`current_user=postgres`, server 17.6), `SUPABASE_DB_URL` is in `.env.local`,
+and **the schema has been dumped** — 64 tables, 165 functions, 156 policies, 64
+triggers, 592 GRANTs. The recipe and the four traps found while doing it are in
+**`skills/build-the-dev-database.md`**; read that rather than the two bullets
+below, which are kept for the record.
+
+⛔ **The trap worth carrying forward: the first dump used `--no-privileges` and
+produced ZERO grants.** RLS policies with no GRANT deny everyone and read
+exactly like the policies working (0138). Count the GRANTs after every dump.
+
+*The original text of this section:*
 This read "there is no way to dump the database from this machine, and it blocks
 phases 1, 2 and 6" and named two gaps. The second was never real. Measured
 2026-08-26, re-measured 2026-08-27:
@@ -453,7 +465,7 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | # | Phase | Effort | Prerequisite |
 |---|---|---|---|
 | 0 | ✅ **DONE 2026-08-27** — repo guardrails. `required_status_checks` (`build`) and `require_code_owner_reviews` both ON, read back from the API; `CODEOWNERS` extended; `enforce_admins` deliberately still `false`. Only the project board is outstanding | — | — |
-| 1 | Dev account + `samo-dev` + `samo-scratch`; **schema from `pg_dump`, not a replay** (§7.2); `public.schema_migrations` + `npm run migrate:status`; Google callback line; redirect URLs; sign-ups OFF | ~2 h | **§7.1** |
+| 1 | ⏳ **PART DONE.** ✅ `public.schema_migrations` + `npm run migrate:status` + `npm run migrate:new` built and applied (0169); ✅ schema dumped from the live project, recipe in `skills/build-the-dev-database.md`. ❌ Still needs a **separate Supabase account** (D7) to create `samo-dev` in, then load, then the Google callback line, redirect URLs, sign-ups OFF | ~1 h left | the dev ACCOUNT — the only thing outstanding |
 | 2 | `npm run dev:refresh` + `dev:check` + `dev-grants.json`; the mail trap; the dev GAS deployment under its own Google account; `#samo-dev-bot` | ~3 h | phase 1, **§7.5 first** |
 | 3 | Preview builds: Actions job → `wrangler pages deploy` (**§7.4**), PR comment, `VITE_ENV_NAME` ribbon, narrow the `*.pages.dev` guard in BOTH entry HTMLs to the two named retired hosts, `noindex` header, `/notify` dev middleware in `vite.config.js` | ~2 h | phase 1 |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |

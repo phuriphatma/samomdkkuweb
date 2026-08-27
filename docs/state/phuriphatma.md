@@ -18,14 +18,16 @@ path named here must resolve.
 
 ## In flight
 
-- **`docs/TEAM-WORKFLOW.md` phase 1 is blocked on ONE thing: the database
-  password** (Supabase dashboard → Settings → Database), into `.env.local` as
-  `SUPABASE_DB_URL`. With it: dump the schema, create the `samo-dev` project,
-  load it, and prove it by signing in as a copied account (§7.5) before
-  declaring the refresh good.
-- **`pg_dump` is NOT missing** — `libpq` is keg-only, so it is at
-  `/opt/homebrew/opt/libpq/bin/pg_dump` (18.4) and not on `PATH`. A newer client
-  dumps an older server, so 18.4 against the server's 17.6 is fine.
+- ✅ **The database password is in `.env.local` and verified.** Schema dumped:
+  64 tables, 165 functions, 156 policies, 592 GRANTs. Recipe and traps in
+  `skills/build-the-dev-database.md`. **The dump is a build artifact and is NOT
+  in the repo** — it lives in the session scratchpad and goes stale; re-run the
+  dump rather than reusing an old file.
+- ⏳ **Phase 1 now needs one thing only: a SEPARATE Supabase account** to create
+  `samo-dev` in (D7 — a third project on the live account pauses another, and
+  `letuxetrbejoqsnaqdgl` sitting INACTIVE is the evidence). Then load, then
+  prove it by SIGNING IN as a copied account before calling it good.
+- **`auth.users` loads FIRST** — seven public tables carry a foreign key to it.
 - **Golden Period is un-started.** `docs/DEPT-TOOLS.md` §13 has the order; the
   first code step is the one-source tool registry, because `DEPT_DEFS` in
   `src/js/departments.js` and `src/html/tab-tools.html` are two hand-maintained

@@ -135,11 +135,17 @@ because it held three lifetimes at once. It now holds one: **status**.
   believed present, apply time never observed". Do not merge the two words.
   RLS is deny-all BY DESIGN and was proved in both directions: anon → 401
   `42501`, control table → 200 with a row.
-  🔓 **§7.1's "no `pg_dump` on this machine" WAS FALSE** — `libpq 18.4` is
-  keg-only, so `which` could not see it, and a NEWER client dumps an older
-  server fine. Use `/opt/homebrew/opt/libpq/bin/`. **Phase 1 is now blocked on
-  the DATABASE PASSWORD alone** (Supabase → Settings → Database →
-  `SUPABASE_DB_URL` in `.env.local`). **Ask the owner for it.**
+  ✅ **2026-08-27 later — §7.1 is CLOSED.** The password is in `.env.local` and
+  verified against the live project; the schema is dumped (64 tables, 165
+  functions, 156 policies, **592 GRANTs**). Recipe + four measured traps:
+  **`skills/build-the-dev-database.md`**.
+  ⛔ **The first dump used `--no-privileges` and had ZERO grants** — RLS with no
+  GRANT denies everyone and reads exactly like the policies working (0138).
+  **Count the GRANTs after every dump.**
+  ⏳ **Phase 1 now needs ONE thing: a SEPARATE Supabase account** to create
+  `samo-dev` in. A third project on the live account pauses another — and
+  `letuxetrbejoqsnaqdgl` is sitting INACTIVE right now, which is that limit,
+  observed.
 - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
   BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
   not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev
