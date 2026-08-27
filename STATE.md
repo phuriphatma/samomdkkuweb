@@ -60,7 +60,7 @@ because it held three lifetimes at once. It now holds one: **status**.
   0 in every build that has the vars, correctly. Grep a known-shipping control
   beside whatever you are looking for.
 - **1323 tests. Migrations through 0169.** Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 23 LIVE PROOFS GREEN — re-run
+  `state-handoff.test.js` enforces that. **ALL 24 LIVE PROOFS GREEN — re-run
   2026-08-27**, after 0169 was applied to production. Run `npm test` /
   `npm run proofs`; never quote a remembered number.
 

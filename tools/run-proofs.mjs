@@ -59,6 +59,10 @@ const PROOFS = [
   ['team0137-search.mjs', 'search_people boundary'],
   ['grant0093-reads.mjs', 'a grant channel reaches the READS too'],
   ['team0143-photo-refcount.mjs', 'portrait refcount'],
+  // Not a database proof — the repo's own branch protection, which lives on
+  // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
+  // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.
+  ['repo-protection.mjs', 'branch protection is still enforcing'],
 ];
 
 /**
