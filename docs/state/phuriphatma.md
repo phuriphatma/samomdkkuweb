@@ -28,9 +28,6 @@ path named here must resolve.
   `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
   `.env.local` and are safe to share with the team — that account holds nothing
   but disposable projects.
-- **Next: decide previews.** Per-PR URLs, or one always-on dev site? The owner
-  said "the dev server", singular, which is cheaper. Then phase 2's remainder:
-  mail trap, `#samo-dev-bot`, dev GAS deployment.
 - **Golden Period is un-started.** `docs/DEPT-TOOLS.md` §13 has the order; the
   first code step is the one-source tool registry, because `DEPT_DEFS` in
   `src/js/departments.js` and `src/html/tab-tools.html` are two hand-maintained

@@ -177,6 +177,20 @@ The revoke step still ran and reported 0. Keep it: it is needed whenever the
 schema is loaded into a project whose defaults are intact, which is what a fresh
 project is.
 
+## 4c. Two things that will waste someone's afternoon
+
+- **The dev database password exists in ONE place: `SUPABASE_DEV_DB_URL` in
+  `.env.local`.** It was generated at project creation and written nowhere else.
+  If that file is lost, do not go looking — reset it in the dev project's
+  dashboard (Settings → Database) and update the line. Nothing depends on the
+  old value.
+- **Do not pick `claude-reporter@samomdkku.app` as the account to prove sign-in
+  with.** Measured 2026-08-27: it has **no `auth.identities` row at all**
+  (`providers=none`) on production, so it is copied faithfully and still cannot
+  do a password sign-in. That is correct — it is a service identity, not a
+  login. Use `samomdkkudev@samomdkku.app`, which has an `email` identity and a
+  matching `public.users` row with `role=dev`.
+
 ## 5. Still unknown — do not plan around these as if settled
 
 - Whether the free tier allows two active projects on a new account (§7.6). The

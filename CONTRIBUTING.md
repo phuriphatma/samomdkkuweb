@@ -111,6 +111,21 @@ approve a change to `auth.js`.
 
 ## How to test without spamming production
 
+✅ **UPDATED 2026-08-27 — there is now a development database.** `samo-dev` is a
+full copy of production (same schema, same data, same permissions, same RLS) on
+a separate Supabase account. **Point `.env.local` at it and test freely**: the
+`SUPABASE_DEV_*` block, or ask the owner for it. Rebuild it any time with
+`CONFIRM=1 npm run dev:refresh`, and check it still behaves like production with
+`npm run dev:check`.
+
+⚠️ **Dev holds REAL student data** — it is a copy, not a fake (a deliberate
+decision, `docs/TEAM-WORKFLOW.md` D1). Do not publish the URL, and never put a
+real name, รหัสนักศึกษา or photo into a commit, a fixture or a screenshot: this
+repository is **public** and git history is permanent.
+
+⛔ **Everything below describes the OLD way and applies only if you are working
+against production on purpose.** Prefer dev.
+
 Both branches hit the same Supabase project and the same Discord channels.
 **For UI-only edits this is fine**. If your change involves submitting a
 form or writing to the DB, suppress the Discord ping:

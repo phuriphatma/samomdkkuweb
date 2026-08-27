@@ -57,9 +57,9 @@ because it held three lifetimes at once. It now holds one: **status**.
   0 in every build that has the vars, correctly. Grep a known-shipping control
   beside whatever you are looking for.
 - **1323 tests. Migrations through 0169.** Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 23 LIVE PROOFS GREEN**
-  (re-run 2026-08-26). Run `npm test` / `npm run proofs`; never quote a
-  remembered number.
+  `state-handoff.test.js` enforces that. **ALL 23 LIVE PROOFS GREEN — re-run
+  2026-08-27**, after 0169 was applied to production. Run `npm test` /
+  `npm run proofs`; never quote a remembered number.
 
 ---
 
@@ -77,6 +77,12 @@ because it held three lifetimes at once. It now holds one: **status**.
   monitor-on Discord notice as "why it had been paused". Leave it.
 - **`claude_bookings` is still EMPTY** — deployed, widely granted, and unused.
   (Head-counts rot here; the numbers and the query live under "What is owed".)
+- ✅ **All three of the above were re-verified against the DATABASE on
+  2026-08-27**: measurement `true` since 2026-08-25 17:18, **96 samples in the
+  last 24 h with the newest 7 minutes old** — exactly the rate a 15-minute timer
+  gives, so the reporter is healthy — 0 bookings, 154 `claude` holders.
+  ⚠️ **Re-verify rather than quoting this**; it is a runtime fact with a
+  timestamp, and `tools/db-query.mjs` takes a FILE, not an inline string.
 
 ---
 
@@ -120,65 +126,42 @@ because it held three lifetimes at once. It now holds one: **status**.
 - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
   the Stay block above. Do not build it unprompted.
-- **DEV SYSTEM — phase 0 DONE, migration coordination DONE, phase 1 blocked
-  on ONE thing.** `docs/TEAM-WORKFLOW.md` is the plan.
-  ✅ **Built 2026-08-27**: `public.schema_migrations` (0169, applied +
-  backfilled — 1 `applied`, 168 `backfilled`, 0 pending), `npm run
-  migrate:status`, `npm run migrate:new` (numbers from the HIGHER of the
-  working tree and `origin/main`), `tools/migrations-lib.mjs` (one home for
-  what all three tools need), `migration-numbers.test.js` (falsified by
-  planting a duplicate), `.gitattributes` `merge=union` on
-  `docs/mistakes/*.md` ONLY.
-  `apply-migration.mjs` now records every apply and **never fails the run if
-  the bookkeeping fails** — the DDL already landed by then.
-  ⚠️ **`backfilled` ≠ `applied`.** A backfilled row means "predates tracking,
-  believed present, apply time never observed". Do not merge the two words.
-  RLS is deny-all BY DESIGN and was proved in both directions: anon → 401
-  `42501`, control table → 200 with a row.
-  ✅ **2026-08-27 later — §7.1 is CLOSED.** The password is in `.env.local` and
-  verified against the live project; the schema is dumped (64 tables, 165
-  functions, 156 policies, **592 GRANTs**). Recipe + four measured traps:
-  **`skills/build-the-dev-database.md`**.
-  ⛔ **The first dump used `--no-privileges` and had ZERO grants** — RLS with no
-  GRANT denies everyone and reads exactly like the policies working (0138).
-  **Count the GRANTs after every dump.**
-  ✅ **`samo-dev` EXISTS — `xibugtlsphcfuvstnxxh`**, ap-southeast-1, Postgres
-  17.6, on the separate account `samomdkkuaiorg` (D7). Schema loaded and
-  **verified against production object by object**: tables 64=64, functions
-  165=165, triggers 64=64, RLS-on 62=62, `public`+`passport` policies 121+35
-  identical. Credentials are the `SUPABASE_DEV_*` block in `.env.local`.
-  Tools take `--dev`; **the default is PRODUCTION on purpose** and each prints
-  which it chose.
-  ⛔ **THE RESTORE WAS MORE PERMISSIVE THAN THE SOURCE — 134 grants dev had and
-  prod does not, 0 missing.** `anon` had been granted on 16 tables including
-  `students` and `people`, because Supabase's `ALTER DEFAULT PRIVILEGES` grant
-  on every newly created table and `pg_dump` emits no REVOKEs. Revoked from the
-  MEASURED difference; now 0 extra / 0 missing. **`npm run dev:check` is the
-  ratchet** (falsified by re-granting `anon` on `students`: reported DRIFT,
-  exit 1). Write-up in `docs/mistakes/tooling-proofs.md`.
-  ✅ **DATA IS LOADED AND PROVEN. Phase 1 + the auth half of phase 2 are DONE.**
-  66 tables compared (`public` + `passport` + `auth.users` + `auth.identities`):
-  **0 row-count differences, 0 grant differences either way.**
-  **`CONFIRM=1 npm run dev:refresh` rebuilds it in one command** — three guards
-  protect production, all three falsified rather than assumed.
-  **Sign-in proven END TO END on the rebuilt copy**, five steps, both
-  directions: GoTrue accepts the directly-written `auth.users` row · password
-  sign-in returns a session · RLS returns that identity's OWN row (`role=dev`) ·
-  returns ZERO rows for anyone else · and a control read that must ALLOW does.
-  ⛔ **The first `dev:refresh` run printed "identical to production" and had
-  refreshed NOTHING in `auth`** — step 2 drops `public`/`passport` only, so the
-  `COPY auth.users` aborted on duplicate ids, and the verification compared 64
-  tables instead of 66 so it could not see it. **The check's blind spot was in
-  the same place as the bug.** Both fixed; write-up in
-  `docs/mistakes/tooling-proofs.md`.
-  📌 `auth` schema skew (§7.5's worry) **does not exist**: 44 shared columns,
-  0 on either side alone. `schema_migrations` is EXCLUDED from the data copy —
-  it describes the database it lives in.
-  ⏳ **Left for phase 2**: the mail trap, `#samo-dev-bot`, the dev GAS
-  deployment, `dev-grants.json`. **Phase 3** (previews) is untouched, and the
-  owner has not chosen per-PR previews vs one always-on dev site.
-  📌 The 4 `storage` policies were NOT copied and that is correct: the app has
-  **0** Supabase-Storage call sites (files go to Drive via GAS).
+- ✅ **DEV SYSTEM — phases 0 and 1 are DONE and `samo-dev` IS USABLE.**
+  Plan: `docs/TEAM-WORKFLOW.md`. Procedure + every trap:
+  `skills/build-the-dev-database.md`.
+  **`samo-dev` = `xibugtlsphcfuvstnxxh`**, ap-southeast-1, Postgres 17.6, on the
+  separate account `samomdkkuaiorg` (D7). Credentials = the `SUPABASE_DEV_*`
+  block in `.env.local`, **safe to share with the team** (that account holds
+  only disposable projects) — but the URL is never published, because dev holds
+  REAL student data (D1).
+  ```
+  CONFIRM=1 npm run dev:refresh   # rebuild from prod, ~2 min, refuses production
+  npm run dev:check               # does dev answer identically to prod?
+  npm run migrate:status [--dev]  # default is PRODUCTION, on purpose
+  npm run migrate:new "<slug>"    # numbers from the higher of tree and origin/main
+  ```
+  **Verified 2026-08-27, both directions**: 66 tables (`public` + `passport` +
+  `auth.users` + `auth.identities`), 0 row-count differences, 0 grant
+  differences either way, and sign-in as a copied account proven end to end
+  (GoTrue accepts the row · session issued · RLS gives that identity its OWN row
+  and ZERO of anyone else's · a control read that must ALLOW does).
+  ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`: backfilled means
+  "predates tracking, apply time never observed". Do not merge the two words.
+  ⏳ **Left in phase 2**: mail trap · `#samo-dev-bot` · dev GAS deployment under
+  its own Google account · `dev-grants.json`.
+  ❓ **Phase 3 (previews) is UNSTARTED and needs an owner decision first:**
+  per-PR preview URLs, or **one always-on dev site**? The owner said "the dev
+  server", singular, which is the cheaper shape. **Ask before building.**
+  ⚠️ **OWED, small, and nobody has built it: the repo SETTINGS have no guard.**
+  The two branch-protection flags and the `tool-request` label live on GitHub,
+  outside git — if anyone switches them off, no test goes red and the whole
+  contributor design silently becomes advisory again. ~20 lines: read the
+  protection object and assert `required_status_checks.contexts = ['build']`
+  and `require_code_owner_reviews = true`. Offered, not built.
+  📌 The three lessons this cost are NOT repeated here — they are in
+  `docs/mistakes/tooling-proofs.md`: a `pg_dump` restore is MORE permissive than
+  its source; a refresh that cannot refresh `auth` still printed "identical to
+  production"; and `which` cannot see a keg-only binary.
 - **ฝ่าย tools / Golden Period — THE WORKFLOW IS ON; THE TOOLS ARE NOT
   BUILT.** Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must
   not be re-litigated. **ONE workflow for everybody — the ฝ่าย use the dev
@@ -198,8 +181,10 @@ because it held three lifetimes at once. It now holds one: **status**.
   `skills/onboard-a-contributor.md`, CONTRIBUTING + PR-template updates.
   **NOT built**: `src/data/tools.js`, `public/embed/`, the frame,
   `src/js/data/` doors, `/tools/<slug>`, the starter kit.
-  **Lane C stays SHUT until `TEAM-WORKFLOW` phase 1 (the dev database)** —
-  `CONTRIBUTING.md` still sends contributors at production.
+  ✅ **Lane C's blocker is GONE** — phase 1 landed the same day, and
+  `CONTRIBUTING.md` now points contributors at `samo-dev` instead of at
+  production. What still gates lane C is only the work itself: the
+  `src/js/data/` doors do not exist.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
@@ -238,6 +223,14 @@ which is new attack surface on a service that is currently unauthenticated.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
 3. Only then, the archive file for whatever you are about to touch.
 
-**What the owner is owed a question about** is under "What is owed" above, and
-the one blocker is named there: **the database password**, which is the only
-thing standing between here and `docs/TEAM-WORKFLOW.md` phase 1.
+**Nothing is blocked on a credential.** Two questions are waiting on the owner
+and are marked ❓ under "What is owed": **per-PR previews vs one always-on dev
+site** (phase 3 cannot start without it), and the Claude reporter's polling
+interval. Neither should be built unprompted.
+
+**Nothing is owed to a person, and no deploy is owed** — as of 2026-08-27 every
+commit since `36ac1d5` is docs, tooling or tests. Check, do not trust this line:
+
+```bash
+git diff --stat 36ac1d5..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+```

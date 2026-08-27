@@ -12,6 +12,18 @@ ssh.
 - `SAMO_VM_SUDO_PASSWORD` in `.env.local` (gitignored). Sudo on the VM is **not**
   passwordless.
 
+
+⚠️ **Added 2026-08-27 — check this BEFORE you deploy, not after:**
+
+```bash
+npm run migrate:status        # PENDING must be 0 on production
+```
+
+A bundle that reads a column the live database does not have is 0129's
+20-minute outage in the other direction. Order is unchanged: **ADD before the
+code that reads it ships; DROP only after the new bundle is confirmed SERVED**
+(`skills/ship-a-migration.md`).
+
 ## The command
 
 ```bash

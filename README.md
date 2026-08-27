@@ -225,8 +225,19 @@ VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings → API>
 ```
 
-Apply the SQL migrations in `supabase/migrations/` to your project (paste
-each file into the Supabase SQL editor and run, in order).
+Contributors should point these at **`samo-dev`**, the shared development
+database — a full copy of production on a separate Supabase account. Ask the
+maintainer for the `SUPABASE_DEV_*` block. It means you never have to test
+against the live student data.
+
+Apply the SQL migrations in `supabase/migrations/` to your project — or, if you
+have the maintainer credentials, use the tooling instead of the SQL editor:
+
+```bash
+npm run migrate:status        # what does production have, what is pending?
+npm run migrate:status --dev  # the same question, against samo-dev
+npm run migrate:new "<slug>"  # take the next number without colliding
+```
 
 ```bash
 npm run dev    # http://localhost:5174 with HMR
@@ -246,6 +257,10 @@ Authorized JavaScript origins.
 | `npm test` | Vitest suite (run this and `build` before every commit) |
 | `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
 | `npm run proofs` | Run every live database proof (RLS boundaries, column guards, definer-function authorization) against the real project in rolled-back transactions, and print one verdict each. Needs `SUPABASE_ACCESS_TOKEN` in `.env.local`, so it is a maintainer step, not a CI one. `npm run proofs <substring>` runs a subset. |
+| `npm run dev:refresh` | Rebuild `samo-dev` from production — schema, data and permissions — then verify the two match. Needs `CONFIRM=1`; refuses to run against production. Maintainer step. |
+| `npm run dev:check` | Ask production and `samo-dev` the same questions with the anon key and compare the answers. Both directions: subjects that must be allowed AND subjects that must be denied. |
+| `npm run migrate:status` | What migrations this database has, and what is pending. `--dev` targets `samo-dev`; the default is production, on purpose. |
+| `npm run migrate:new "<slug>"` | Create the next migration file, numbering from the higher of your working tree and `origin/main` so two branches cannot take one number. |
 | `npm run gen:activity` | Refresh `src/data/dev-activity.json` from git history. Deliberately NOT part of `build` — a build should not rewrite a tracked source file. Run it when you want the landing-page numbers to move; `--check` fails if the file is stale. |
 
 ## Project layout

@@ -25,8 +25,13 @@ where the runner registers 23.
 
 ## Live proofs — `npm run proofs`
 
-**The registry is now 20**, and **all 20 were run green on 2026-08-16** after
-0161 landed. `claude0161-rail-guard-parity.sql` is the newest. `npm run proofs`
+⛔ **This file states NO proof count on purpose.** It used to say *"the registry
+is now 20, all 20 run green on 2026-08-16"*; by 2026-08-27 the registry held 23
+and the sentence had been wrong for days. `state-handoff.test.js` guards the
+count — but only in `STATE.md`, and only in the spelling `ALL <n> PROOFS`, so
+"the registry is now 20" was invisible to it. **The count lives in `STATE.md`,
+once. `tools/run-proofs.mjs` is the authority; `npm run proofs` prints it.**
+`npm run proofs`
 runs every one; `npm run proofs <substring>` runs a subset. Run the one covering
 what you touch — all are both-directional.
 
