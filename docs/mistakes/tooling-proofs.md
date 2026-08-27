@@ -892,3 +892,39 @@ reporting "absent" for a keg-only binary earlier the same day: both times the
 tool answered a narrower question than the one being asked, and the narrower
 answer was read as the broader one. **When a check gates something, verify the
 CHECK reports failure — run it once against a known-bad state.**
+
+## `urllib` got 403 from Discord and I reported the service as DOWN
+
+**Symptom.** A check of the VitalSound webhooks reported all twelve DEAD with
+HTTP 403, and "VitalSound notifications are broken for 12 departments" was
+reported to the owner as a live production outage.
+
+**Cause.** The check used Python's `urllib.request`, whose default User-Agent is
+`Python-urllib/3.x`. Discord's edge rejects it with **403 Forbidden** regardless
+of whether the webhook exists. The same twelve URLs checked with `curl` — and
+with Node's `fetch`, which is what `tools/discord-webhook-identify.mjs` uses —
+returned **200 with the channel id, all twelve alive**.
+
+**How it was caught.** The twelve had been created and read back through the bot
+API minutes earlier, so "all twelve dead" contradicted a known-good observation
+from the same session. A result that contradicts a breadcrumb you already have
+is the instrument, not the world.
+
+**The earlier reading was probably wrong too.** The check that first declared
+the OLD VS webhook dead used the identical urllib script and got the identical
+403. The webhook it condemned may have been healthy; it has since been replaced,
+so that can no longer be settled — which is itself the cost.
+
+**Fix.** Use the committed tool (`npm run webhook:id`), which uses `fetch`.
+Never hand-roll an HTTP check against a third-party API with a library whose
+default User-Agent is a bot signature.
+
+**Where it lives now.** `tools/discord-webhook-identify.mjs`.
+
+**The general rule.** *Distinguish "the service says no" from "the service did
+not answer the question you think you asked."* 401 and 403 are different
+answers: 401 said "invalid webhook token" (a real verdict about the credential),
+403 said nothing about the credential at all. **Before believing a negative
+result from a network probe, reproduce it with a second client.** Two clients
+disagreeing means the instrument; two agreeing means the world.
+

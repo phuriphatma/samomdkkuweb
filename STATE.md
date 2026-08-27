@@ -147,18 +147,18 @@ because it held three lifetimes at once. It now holds one: **status**.
   production has none. ✅ `public/robots.txt` exists now (nginx used to answer
   `/robots.txt` with the SPA).
   ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
-  ⚠️ **NOTIFY CREDENTIALS — one rotation still owed.** Cloudflare **freezes env
-  vars into each deployment at build time**, so ~600 historical deployments keep
-  the webhooks they were built with, at live URLs; clearing a project config
-  fixes only FUTURE builds. ✅ PR + หนังสือโครงการ webhooks ROTATED and installed
-  in `/etc/samo-notify.env` (the old one now 401s — that is what neutralises all
-  600 at once). ⚠️ **STILL OWED: rotate `DISCORD_VS_WEBHOOKS`** (one webhook,
-  all 12 VS depts). `DISCORD_CLAUDE_WEBHOOK` was NEVER on Cloudflare — nothing
-  owed there. ✅ No webhook token has ever been committed, any branch, any
-  commit. 🔧 **`npm run webhook:id <url>` — a GET tells you the channel and
-  sends NOTHING. Never verify by sending**; that caused two real messages to
-  reach a live ฝ่าย channel. `notify-exposure.mjs` (proof) fails on fixable
-  exposure and only reports the frozen tail. `docs/mistakes/integrations.md`.
+  ✅ **NOTIFY CREDENTIALS — RESOLVED 2026-08-27.** Cloudflare **freezes env vars
+  into each deployment at build time** (~600 historical deployments keep what
+  they were built with; clearing a config fixes only FUTURE builds). All three
+  exposed webhooks are rotated and live only in `/etc/samo-notify.env`.
+  🆕 **VitalSound routes PER ฝ่าย now** — 12 webhooks, 12 distinct `#vs-*`
+  channels, all verified. It was ONE webhook for all 12, so every ฝ่าย's
+  confidential reports landed in one place. **Map KEYS must be the exact
+  `data.department` strings**; a mismatch falls back to `SE` and misroutes.
+  🔧 `npm run webhook:provision` (DRY RUN by default) · `npm run webhook:id`
+  says where a webhook points via GET — **never verify by sending**.
+  ⚠️ **Never check a webhook with Python `urllib`** — Discord 403s its
+  User-Agent, which produced a false "12 dead, VS is down" report.
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
   preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
   form on preview, and Drive pollution is quiet and deletable where Discord
