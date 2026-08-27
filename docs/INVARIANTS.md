@@ -346,3 +346,23 @@ Annotated, because the annotation is the useful part. This list lived in
   portrait bugs.
 - `2026-08-12-signin-shop-guards.md` · `2026-08-10-late-security-and-identity.md`
   · `2026-08-10-chan-pi.md` · and nine older files back to `2026-07-24-full.md`.
+
+---
+
+## Reason about the LIVE channel, not the credential that was removed
+
+Moved out of `STATE.md` 2026-08-27 when it stopped being a status item; it is a
+rule, and it was re-derived wrongly twice before the owner corrected it.
+
+`sastaff` / `saprof` were deleted on 2026-08-18 along with the other shared
+password accounts. **Two sessions then recorded that the people behind those
+desks had been locked out. They had not been.** Worapong (`woratho@kku.ac.th`,
+seat `staff`) and Prakasit (`prakasa@kku.ac.th`, seat `prof`) sign in with their
+own kkumail and hold the desk through their **ทีม SAMO permission** — the seat,
+not the login.
+
+**The rule:** when a credential is deleted, ask what channel actually grants the
+access, and check whether it survived. A removed password is evidence about a
+password. It is not evidence about a permission, a seat, or a role — those are
+different channels, and this repo's most repeated bug class is exactly that
+confusion (class 5 in `.claude/rules/mistakes.md`).

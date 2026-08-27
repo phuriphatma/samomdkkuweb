@@ -101,13 +101,6 @@ because it held three lifetimes at once. It now holds one: **status**.
   `disable` reports `enabled` + `active` and schedules **infinity**. Read `NEXT`
   from `list-timers`, never the `enabled` word. Write-up in
   `docs/mistakes/deploy-hosting.md`.
-- ✅ **NOT OWED — the two named people were never locked out.** `sastaff` /
-  `saprof` were deleted 2026-08-18 as intended. **Worapong
-  (`woratho@kku.ac.th`, seat `staff`) and Prakasit (`prakasa@kku.ac.th`, seat
-  `prof`) sign in with their own kkumail and hold the desk through their
-  ทีม SAMO permission.** Corrected by the owner 2026-08-26, after two sessions
-  repeated the claim. **Reason about the LIVE channel (the seat), not the
-  credential that was removed.**
 - ✅ **The `claude` permission is GRANTED — no longer owed.** Measured
   2026-08-26: **~154** accounts carry the `claude` key in `permissions` /
   `managed_permissions`, plus **42** `master` holders who answer yes to every
@@ -149,9 +142,24 @@ because it held three lifetimes at once. It now holds one: **status**.
   "predates tracking, apply time never observed". Do not merge the two words.
   ⏳ **Left in phase 2**: mail trap · `#samo-dev-bot` · dev GAS deployment under
   its own Google account · `dev-grants.json`.
-  ❓ **Phase 3 (previews) is UNSTARTED and needs an owner decision first:**
-  per-PR preview URLs, or **one always-on dev site**? The owner said "the dev
-  server", singular, which is the cheaper shape. **Ask before building.**
+  ❓ **Phase 3 (previews) is UNSTARTED and needs an owner decision. State the
+  question in PLAIN terms — it was asked in jargon once and did not land:**
+  *when someone opens a pull request, how does anyone else LOOK at that change
+  running, without installing anything?*
+  - **A — a temporary website per pull request.** PR #42 gets its own address;
+    open it, see that person's change, comment, and the address dies when the PR
+    closes. Three people's changes never mix.
+  - **B — one permanent "dev" website** always showing the latest of one branch.
+    Simpler, but ONE version at a time: two changes in flight means taking turns,
+    which is a queue, which is the bottleneck this workflow exists to remove.
+
+  📌 **Recommendation, CORRECTED — A.** An earlier session recommended B on the
+  strength of the owner saying "the dev server", singular, and that was reading
+  their PHRASING rather than their NEED. Two different needs were being
+  conflated: *"I want to develop against realistic data"* is already solved
+  (run locally against `samo-dev`), and *"I want someone to look at my change
+  without installing anything"* is what previews are for. B answers the first
+  need badly and the second need worse. **Ask, do not assume — but recommend A.**
   ⚠️ **OWED, small, and nobody has built it: the repo SETTINGS have no guard.**
   The two branch-protection flags and the `tool-request` label live on GitHub,
   outside git — if anyone switches them off, no test goes red and the whole
@@ -205,16 +213,14 @@ because it held three lifetimes at once. It now holds one: **status**.
   §0b2 and §1 (the browser pass), §0 (`photo_reference_count()` cannot see
   `houses.icon_url`).
 
-### Open question for the owner, asked and unanswered
+### Question 2 in full — the reporter's polling interval
 
-The usage reporter polls every 15 min on a systemd timer. Faster is possible,
-but the endpoint rate-limits hard (a 429 is already handled as a skipped tick)
-and every run rotates the OAuth refresh token — more runs is more chances to
-strand a credential only a human on the VM can restore. The **refresh button**
-added this session re-reads the DATABASE only, and says so; a true on-demand
-poll would need an authenticated endpoint on the VM that spawns the reporter,
-which is new attack surface on a service that is currently unauthenticated.
-**Recommendation given: leave it at 15 minutes.**
+Faster than 15 min is possible but pays three ways: the endpoint rate-limits
+hard, **every run rotates the OAuth refresh token** (more runs = more chances to
+strand a credential only a human on the VM can restore), and a true on-demand
+poll needs an authenticated endpoint on the VM — new attack surface on a service
+that has none today. The refresh button re-reads the DATABASE only, and says so.
+**Recommendation: leave it at 15 minutes.**
 ---
 
 ## NEXT SESSION — start here
@@ -223,10 +229,20 @@ which is new attack surface on a service that is currently unauthenticated.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
 3. Only then, the archive file for whatever you are about to touch.
 
-**Nothing is blocked on a credential.** Two questions are waiting on the owner
-and are marked ❓ under "What is owed": **per-PR previews vs one always-on dev
-site** (phase 3 cannot start without it), and the Claude reporter's polling
-interval. Neither should be built unprompted.
+**Nothing is blocked on a credential.** FOUR things are waiting on the owner and
+none should be built unprompted. Ask them in plain language:
+
+| # | Question | Where | Recommendation on file |
+|---|---|---|---|
+| 1 | How does someone look at a pull request's change without installing anything — a temporary site per PR, or one permanent dev site? | ❓ above | **per PR** (and see why the earlier answer was corrected) |
+| 2 | Should the Claude usage reporter poll more often than every 15 min? | "Open question" below | **leave it at 15** |
+| 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
+| 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+
+Two more the assistant should offer rather than assume: **start Golden Period?**
+(`docs/DEPT-TOOLS.md` §13 has the order — the tool registry first) and **build
+the ~20-line guard for the repo settings?** (they live outside git and nothing
+notices if they are switched off).
 
 **Nothing is owed to a person, and no deploy is owed** — as of 2026-08-27 every
 commit since `36ac1d5` is docs, tooling or tests. Check, do not trust this line:
