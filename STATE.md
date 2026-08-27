@@ -13,17 +13,30 @@ because it held three lifetimes at once. It now holds one: **status**.
 | architecture, RLS, schema, deploy | `docs/CONTEXT.md` |
 | the backlog | `docs/NEXT.md` |
 
-**Rules for editing this file, all of them paid for:**
+## WHAT CHANGED MOST RECENTLY (2026-08-27 → 28)
 
-1. **Give a decaying fact ONE home.** The split itself surfaced four facts with
-   two homes, each corrected in only one: a deployed sha, the migration
-   high-water mark, the test count, and a proof count reading 20 where the
-   runner registers 23. `state-handoff.test.js` pins what is mechanically
-   checkable; it cannot judge whether a sentence is TRUE.
-2. **Grep the WHOLE file before correcting anything.**
-3. **Never touch the deploy block unless you deployed.**
-4. **Do not append a session narrative.** Write `docs/state/<your-handle>.md`,
-   or archive it. Never rewrite someone else's.
+Four things, in the order a newcomer needs them:
+
+1. **There is a development database now** — `samo-dev`, a full copy of
+   production on a separate Supabase account. Nobody tests against live student
+   data any more.
+2. **Per-PR previews work.** Open a pull request, Cloudflare builds it at its own
+   URL and posts the link. Previews talk to `samo-dev` and to a dev Discord
+   channel, never to production or a real ฝ่าย channel.
+3. **Golden Period shipped** at `/tools/golden-period` — an IT *draft*; the ฝ่าย
+   own the page and open PRs against it (`docs/DEPT-TOOLS.md` D8).
+4. **The Discord notify credentials were rotated**, VitalSound now routes per
+   ฝ่าย to 12 channels instead of one, and the "do not ping" flag works on every
+   action. **Two real messages reached a live ฝ่าย channel during this work** —
+   read the notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.
+
+**Rules for editing this file, each paid for:** give a decaying fact ONE home ·
+grep the WHOLE file before correcting anything · never touch the deploy block
+unless you deployed · **do not append a session narrative** — write
+`docs/state/<your-handle>.md` instead, and never rewrite someone else's.
+`state-handoff.test.js` pins what is mechanically checkable (dead pointers,
+disagreeing counts, this file's length); it cannot judge whether a sentence is
+TRUE. That is what the grep is for.
 
 ---
 
@@ -120,17 +133,12 @@ because it held three lifetimes at once. It now holds one: **status**.
 - ✅ **DEV SYSTEM — phases 0 and 1 are DONE and `samo-dev` IS USABLE.**
   Plan: `docs/TEAM-WORKFLOW.md`. Procedure + every trap:
   `skills/build-the-dev-database.md`.
-  **`samo-dev` = `xibugtlsphcfuvstnxxh`**, ap-southeast-1, Postgres 17.6, on the
-  separate account `samomdkkuaiorg` (D7). Credentials = the `SUPABASE_DEV_*`
-  block in `.env.local`, **safe to share with the team** (that account holds
-  only disposable projects) — but the URL is never published, because dev holds
-  REAL student data (D1).
-  Commands: `dev:refresh` · `dev:check` · `migrate:status [--dev]` ·
-  `migrate:new` — documented in `README.md` and the skill.
-  **Verified both directions**: 66 tables, 0 row-count and 0 grant differences,
-  and sign-in as a copied account proven end to end.
-  ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`: backfilled means
-  "predates tracking, apply time never observed". Do not merge the two words.
+  **`samo-dev` = `xibugtlsphcfuvstnxxh`** (separate account `samomdkkuaiorg`,
+  D7). Creds = `SUPABASE_DEV_*` in `.env.local`, **shareable with the team**;
+  the URL is never published — dev holds REAL student data (D1). Verified both
+  directions: 66 tables, 0 row-count and 0 grant differences, sign-in proven.
+  ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`. Commands + every trap:
+  `skills/build-the-dev-database.md` and `README.md`.
   ⏳ **Left in phase 2**: mail trap · dev GAS deployment under its own Google
   account · `dev-grants.json`. (The plan's `#samo-dev-bot` EXISTS — it is
   `#developer-server-notify`, and previews post there.)
@@ -161,26 +169,17 @@ because it held three lifetimes at once. It now holds one: **status**.
   🔧 **`npm run notify:smoke` is the ONLY way to test notifications.**
   `webhook:id` says where one points via GET. **Never verify by sending.**
   📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
-  ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
-  preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
-  form on preview, and Drive pollution is quiet and deletable where Discord
-  pings humans). **Owed: a dev GAS deployment under its own Google account.**
-  ✅ **The repo SETTINGS now have a guard** — `tools/repo-protection.mjs`, proof
-  #24. They live on GitHub, outside git, so nothing here noticed if they were
-  switched off. Checks BOTH directions: four things that must be ON, and
-  `enforce_admins` which must stay OFF because it is what lets the owner push
-  `main` and is the escape hatch when their own PR cannot self-approve.
-  📌 The three lessons this cost are NOT repeated here — they are in
-  `docs/mistakes/tooling-proofs.md`: a `pg_dump` restore is MORE permissive than
-  its source; a refresh that cannot refresh `auth` still printed "identical to
-  production"; and `which` cannot see a keg-only binary.
+  ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a preview upload lands in
+  the REAL Drive. Left deliberately; closed by the dev GAS deployment.
+  ✅ **The repo SETTINGS have a guard** — `tools/repo-protection.mjs`, proof
+  #24. `enforce_admins` must stay OFF: it is what lets the owner push `main`.
+  📌 Three lessons this cost are in `docs/mistakes/tooling-proofs.md`.
 - **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
   Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must not be
   re-litigated. **ONE workflow for everybody** — the ฝ่าย use the dev team's
   pull-request pipeline unchanged and `CODEOWNERS` carries the whole difference.
-  ✅ Live since 2026-08-27: branch protection ENFORCING (guarded by proof #24),
-  `CODEOWNERS` contributor paths, the Thai tool-request template + label,
-  `skills/onboard-a-contributor.md`, CONTRIBUTING + PR-template updates.
+  ✅ Live: branch protection ENFORCING · `CODEOWNERS` contributor paths · the
+  Thai tool-request template · `skills/onboard-a-contributor.md`.
   ✅ **Golden Period ships** at `/tools/golden-period` under ฝ่ายยุทธศาสตร์ —
   the IT DRAFT (D8). **The ฝ่าย own the page and PR against
   `src/html/tab-golden-period.html`**, whose header tells them so in Thai.
