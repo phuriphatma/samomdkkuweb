@@ -63,6 +63,11 @@ const PROOFS = [
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.
   ['repo-protection.mjs', 'branch protection is still enforcing'],
+  // Also not a database proof: can anything OUTSIDE the VM fire a real
+  // notification? Cloudflare freezes env vars into each deployment, so this
+  // reads every deployment's baked-in env — the project's current config says
+  // nothing about what an existing deployment will do.
+  ['notify-exposure.mjs', 'only the VM can reach a real notification channel'],
 ];
 
 /**

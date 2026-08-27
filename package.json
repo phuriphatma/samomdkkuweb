@@ -18,7 +18,8 @@
     "migrate:status": "node tools/migrate-status.mjs",
     "migrate:new": "node tools/migrate-new.mjs",
     "dev:check": "node tools/dev-check.mjs",
-    "dev:refresh": "node tools/dev-refresh.mjs"
+    "dev:refresh": "node tools/dev-refresh.mjs",
+    "webhook:id": "node tools/discord-webhook-identify.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

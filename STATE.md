@@ -61,7 +61,7 @@ because it held three lifetimes at once. It now holds one: **status**.
   0 in every build that has the vars, correctly. Grep a known-shipping control
   beside whatever you are looking for.
 - **1323 tests. Migrations through 0169.** Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 24 LIVE PROOFS GREEN — re-run
+  `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
   2026-08-27**, after 0169 was applied to production. Run `npm test` /
   `npm run proofs`; never quote a remembered number.
 
@@ -147,18 +147,18 @@ because it held three lifetimes at once. It now holds one: **status**.
   production has none. ✅ `public/robots.txt` exists now (nginx used to answer
   `/robots.txt` with the SPA).
   ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
-  ⛔ **A PREVIEW CAN STILL PING THE REAL ฝ่าย DISCORD. NOT FIXED — needs the
-  owner to ROTATE three webhooks.** Cloudflare **bakes env vars in at DEPLOY
-  time**, so removing them from the preview env only affects FUTURE builds:
-  every deployment built before 2026-08-27 still carries the real webhook URLs,
-  and `refactorsamomdkkuweb` alone has 25 of them at live URLs. Preview URLs are
-  posted into **PUBLIC** PR comments. Deleting a deployment did NOT free its URL
-  (still answering minutes later), so **the only complete fix is rotating
-  `DISCORD_PR_WEBHOOK` / `DISCORD_VS_WEBHOOKS` / `DISCORD_PROJECTS_WEBHOOK` in
-  Discord**, then updating Cloudflare's PRODUCTION env and the VM's
-  `samo-notify` env. This is PRE-EXISTING, not caused by the preview work — but
-  it was proven live on 2026-08-27 by a test message that reached the real PR
-  channel. Write-up: `docs/mistakes/integrations.md`.
+  ⚠️ **NOTIFY CREDENTIALS — one rotation still owed.** Cloudflare **freezes env
+  vars into each deployment at build time**, so ~600 historical deployments keep
+  the webhooks they were built with, at live URLs; clearing a project config
+  fixes only FUTURE builds. ✅ PR + หนังสือโครงการ webhooks ROTATED and installed
+  in `/etc/samo-notify.env` (the old one now 401s — that is what neutralises all
+  600 at once). ⚠️ **STILL OWED: rotate `DISCORD_VS_WEBHOOKS`** (one webhook,
+  all 12 VS depts). `DISCORD_CLAUDE_WEBHOOK` was NEVER on Cloudflare — nothing
+  owed there. ✅ No webhook token has ever been committed, any branch, any
+  commit. 🔧 **`npm run webhook:id <url>` — a GET tells you the channel and
+  sends NOTHING. Never verify by sending**; that caused two real messages to
+  reach a live ฝ่าย channel. `notify-exposure.mjs` (proof) fails on fixable
+  exposure and only reports the frozen tail. `docs/mistakes/integrations.md`.
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a file uploaded from a
   preview lands in the REAL Drive. Left on purpose (removing it breaks the PR
   form on preview, and Drive pollution is quiet and deletable where Discord
