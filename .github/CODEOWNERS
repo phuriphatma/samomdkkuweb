@@ -42,3 +42,32 @@
 
 # The handoff
 /STATE.md              @phuriphatma
+
+# ---------------------------------------------------------------------------
+# ฝ่าย CONTRIBUTIONS — added 2026-08-27. See docs/DEPT-TOOLS.md §0b.
+#
+# There is ONE workflow: a ฝ่าย member uses the identical pull-request pipeline
+# as the dev team. The whole difference between them lives in THIS FILE, which
+# is how large orgs do it — same process, different paths you may merge into.
+#
+# These paths do not all exist yet. A rule for a path that does not exist is
+# harmless and is here so the ownership question is settled BEFORE the first
+# contribution arrives, not during it.
+
+# The line that decides what is reachable and who may see it.
+/src/data/tools.js     @phuriphatma
+
+# A tool that runs INSIDE the app bundle — it can reach what the app can reach.
+/src/tools/            @phuriphatma
+
+# The data doors. Each one answers a single question and carries the access
+# rule. This is the "who may see what" decision, which is the one thing a
+# contributor may never write.
+/src/js/data/          @phuriphatma
+
+# DELIBERATELY NOT LISTED: /public/embed/**
+#
+# A contributed page in the sandbox frame reaches NOTHING — no app DOM, no
+# session, no database. Any collaborator may approve it, and that is the point:
+# a rule here would route every poster and infographic back to one person and
+# rebuild the bottleneck this file exists to remove.

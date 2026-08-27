@@ -1,11 +1,18 @@
 # เครื่องมือฝ่าย — how a ฝ่าย gets a tool onto samoweb without IT writing it
 
-> ## ⛔ STATUS: NOTHING HERE IS BUILT. This is a design, written 2026-08-27.
+> ## ⚠️ STATUS: the WORKFLOW is built. The TOOLS are not. Written 2026-08-27.
 >
-> There is **no `src/data/tools.js` registry, no `public/embed/`, no tool frame,
-> no `check:embeds`, no boundary CI, no tool-request template, no starter kit,
-> no Golden Period route.** Do not read any sentence below as a description of
-> something that exists.
+> **Built and verified the same day** — these are real, do not re-plan them:
+> branch protection now requires the `build` check AND code-owner review
+> (measured back from the API, `enforce_admins` deliberately still `false`);
+> `.github/CODEOWNERS` names the contributor paths; the tool-request template;
+> `skills/onboard-a-contributor.md`; the `CONTRIBUTING.md` and pull-request
+> template updates.
+>
+> **Still not built** — do not read any sentence about these as a description of
+> something that exists: **no `src/data/tools.js` registry, no `public/embed/`,
+> no tool frame, no `check:embeds`, no boundary CI, no `src/js/data/` doors, no
+> starter kit, no Golden Period route.**
 >
 > Sibling document: **`docs/TEAM-WORKFLOW.md`** is the plan for *developers*
 > (dev database, previews, migrations, review). This file is the plan for
@@ -36,6 +43,8 @@ not "fix" them back.
 | D4 | The ฝ่าย get their own intake, separate from the dev team's | ❌ **One workflow. They work exactly like the dev team.** | *"i want them to be like how dev team works"*. Two processes for one repo is the drift class this repo documents, in prose. **See §0b — this is the biggest structural simplification in the file, and it comes from the owner.** |
 | D5 | Every contributor PR is reviewed by the owner personally | ❌ **Claude reviews first; the owner still approves.** | *"i'll just have claude do it"*. Correct as a FILTER — it makes the human's 30 seconds honest by handing them a clean diff. It is not correct as the GATE on anything that can reach student data (§10.4). |
 | D6 | Onboard all five | ❌ **One person, taught properly.** | *"i have to teach them only one person"*. Cost drops from ~4 hours to 45 minutes. **New risk created — see §10.5; one person is a bus factor, and SAMO turns over every year.** |
+
+| D7 | Step 0 was a gate: *"can you live with a page you did not design?"* | ❌ **Wrong question, retired.** It is a HABIT, not a decision. | *"i don't understand this when i can just make who want to develop this project test in local, test in developer server and i'll just push into main server later"*. Correct, and it exposes an error in the draft: **control was never at stake.** Nothing merges without approval and nothing ships without the owner's deploy. The real risk was always narrower — that the owner *personally does the polishing*, which costs a session and takes the pen back. The remedy is one sentence in `skills/onboard-a-contributor.md`: **send it back, do not fix it yourself.** It is no longer a gate on anything. |
 
 ⚠️ **What D1 changes about this document**: the frame (§3) stops being "the
 mechanism" and becomes **the fast lane** — the class of tool that can be
@@ -643,10 +652,29 @@ what makes a thirty-second approval honest. But:
 
 > **So the boundary is what decides whether an AI review is enough.** For a
 > framed tool the worst case is a broken page inside a box — Claude's review
-> genuinely suffices, and any peer can merge it. For anything that reads student
-> data the worst case is a leak, and an AI review must never be the last line.
-> Same rule as everywhere else in this file: it turns on *what the code can
-> reach*, not on who or what reviewed it.
+> genuinely suffices, and any peer can merge it.
+
+📌 **And the doors (§4) are what make "the owner does not read pull requests"
+work rather than merely feel efficient.** Objections 1 and 2 above both say the
+same thing: the dangerous part is not in the diff. The doors move the dangerous
+part **out of the contributor's pull request entirely** — if the access rule
+lives in a file only the owner may merge, then a contributor PR *cannot contain
+an access decision*, and a reviewer reading only the diff is reading everything
+that is there. The design was justified as "who may decide"; it turns out to
+also be the thing that makes delegated review sound.
+
+The two residual gaps close cheaply, and both are now shipped:
+
+- **Intent** — the tool-request issue IS the spec, the pull-request template asks
+  for the link, and `skills/onboard-a-contributor.md` says to paste the issue
+  into the review and compare the diff *to it*.
+- **Correlated blind spots** — review in a **fresh** session, never the one that
+  helped write the change. Also in the skill.
+
+What does not close: **anything in the `CODEOWNERS` list, and the doors
+themselves, the owner reads personally.** That is a small, bounded amount of
+reading — one function per data question — and it is the only reading the
+workflow actually requires of them.
 
 **10.7 — "Work like the dev team" is currently parity with a DESIGN, not with a
 working system.** `docs/TEAM-WORKFLOW.md` opens with ⛔ *nothing here is built*:
@@ -656,12 +684,15 @@ enforced checks*. That is not an argument against D4 — it is the reason the
 build order now leads with the two protection flags and treats
 `TEAM-WORKFLOW` phases 0–3 as the actual dependency (§13).
 
-**10.8 — The biggest risk is still the owner, not the technology.** This repo
-went six rounds on the copy of one sign-in modal. A contributor page will look
-slightly foreign. If the owner edits it, they have taken the pen back and
-rebuilt the exact bottleneck. **Can you live with a page on your site you did not
-design?** If the answer is no, the correct plan is lane A plus a quota, and
-everything else here is decoration.
+**10.8 — RETIRED by D7, and the reason is worth keeping.** This finding used to
+read *"the biggest risk is the owner — can you live with a page you did not
+design?"*, and it was raised three times. It was the wrong shape: the owner
+approves every merge and performs every deploy, so **control was never being
+given up**. What remains is narrower and is a habit, not a gate — *send it back,
+do not fix it yourself* — and it now lives in
+`skills/onboard-a-contributor.md` where the person who needs it will actually
+read it. **A concern that survives three restatements without ever becoming
+actionable is usually mis-stated, not under-emphasised.**
 
 **10.9 — Most "we need the database" requests are cheaper answered elsewhere,
 and building lane C first would hide that.** §1c: if the ask is "we want to see
@@ -738,33 +769,34 @@ in `departments.js`, the editor's first task is un-hardcoding them — which is
 
 ## §13. Build order
 
-Reordered again 2026-08-27 for D4–D6. **The framing changed: this is no longer a
-plan beside `docs/TEAM-WORKFLOW.md` — it is that plan, with more users** (§0b).
-Steps marked ⚙️ are `TEAM-WORKFLOW`'s, and they now lead.
+Reordered 2026-08-27 for D4–D7. **Framing: this is not a plan beside
+`docs/TEAM-WORKFLOW.md` — it is that plan with more users** (§0b). Steps marked
+⚙️ are `TEAM-WORKFLOW`'s.
 
-| # | Step | Effort | Gate |
-|---|---|---|---|
-| 0 | Answer §10.8 — *can the owner live with a page they did not design?* | 0 | **if no, stop; Golden Period v0 only, plus a quota** |
-| 1 | ⚙️ **Turn on `required_status_checks` (`build`) and `require_code_owner_reviews`** — a full `PUT`, keep `enforce_admins:false` | ~20 min | none. **Do this whatever else is decided** — without it every guard below is advisory |
-| 2 | `CODEOWNERS` gains `src/data/tools.js`, `src/tools/`, `src/js/data/`; `public/embed/**` deliberately gets none | ~10 min | 1 |
-| 3 | Verify §11.1–11.4 on the VM and a real phone | ~30 min | none |
-| 4 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session | 3 |
-| 5 | Golden Period **v0** | ~1 session | 4 |
-| 6 | **Onboard the ฝ่าย's contributor — TWO people, not one (§10.5)** — ending in a merged practice PR each, written up as `skills/onboard-a-contributor.md` | ~45 min × 2 | 1 |
-| 7 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session | 3 |
-| 8 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` + tool-request template | ~1 session | 7 |
-| 9 | Boundary CI on `tool/*` + Claude review on contributor PRs (a filter, §10.6) | ~30 min | 1, 7 |
-| 10 | ⚙️ Preview builds for `tool/*` branches (pulled forward from phase 3) | ~2 h | 9 |
-| 11 | Golden Period **v1** — their pull request | review only | 6, 8, them |
-| — | **Read-only BI for "we want to see the numbers"** (§1c) | ~half a day | independent — **probably before 13** |
-| 12 | ⚙️ **`TEAM-WORKFLOW` phase 1 — the `samo-dev` database** | ~2 h + §7.1 | its own blockers |
-| 13 | **Lane C**: `src/js/data/` doors + the first data tool | ~2 sessions | **12. Hard block — see §10.3** |
+**The old step 0 is gone** (D7). Nothing gates the rest.
 
-Steps 4 + 5 are one batch and one deploy; 7–9 are the second. **Step 1 is worth
-doing today regardless of step 0**, because the pull-request process the owner
-wants to rely on is currently enforcing nothing. **Step 13 must not start
-early**: opening the data lane without a dev database points contributors at
-production student records.
+| # | Step | State |
+|---|---|---|
+| 1 | ⚙️ Require the `build` check + code-owner review on `main` | ✅ **DONE 2026-08-27**, read back from the API; `enforce_admins` deliberately left `false` so the owner can still push `main` |
+| 2 | `CODEOWNERS` for `src/data/tools.js`, `src/tools/`, `src/js/data/`; `public/embed/**` deliberately unowned | ✅ **DONE** |
+| 3 | Tool-request issue template, in Thai | ✅ **DONE** |
+| 4 | `skills/onboard-a-contributor.md` + the `CONTRIBUTING.md` and PR-template updates | ✅ **DONE** |
+| 5 | Verify §11.1–11.4 on the VM and a real phone | ~30 min |
+| 6 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session |
+| 7 | Golden Period **v0** | ~1 session |
+| 8 | **Onboard TWO contributors** — each ending in a merged practice PR (§10.5) | 45 min × 2 |
+| 9 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session |
+| 10 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` | ~1 session |
+| 11 | Boundary CI on `tool/*` branches | ~30 min |
+| 12 | ⚙️ Preview builds for `tool/*` (pulled forward from phase 3) | ~2 h |
+| 13 | Golden Period **v1** — their pull request | review only |
+| — | **Read-only BI for "we want to see the numbers"** (§1c) | ~half a day, independent — **probably before 15** |
+| 14 | ⚙️ `TEAM-WORKFLOW` phase 1 — the `samo-dev` database | ~2 h + its own blockers |
+| 15 | **Lane C**: `src/js/data/` doors + the first data tool | ~2 sessions. **Hard block on 14 — §10.3** |
+
+Steps 6 + 7 are one batch and one deploy; 9–11 are the second. **Step 15 must
+not start early**: opening the data lane without a dev database points
+contributors at production student records.
 
 ---
 

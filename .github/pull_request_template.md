@@ -1,3 +1,8 @@
+<!-- ฝ่าย tool? Link the tool-request issue below with `Closes #<n>`.
+     The review compares the diff TO THAT ISSUE — without the link, the reviewer
+     (human or Claude) can check that the code is consistent, but not that it is
+     what was agreed. -->
+
 ## What changed, and why
 
 <!-- One or two sentences. If it fixes something a person reported, quote them —

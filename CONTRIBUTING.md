@@ -92,6 +92,23 @@ Ping Phuri / open a PR with `@phuriphatma` review request before merging:
 | `appscript/*.gs` | Discord webhook URLs live here; redeploys affect prod immediately |
 | Anything that adds a real-money or third-party dependency | Coordinate first |
 
+### ฝ่าย tool contributions — added 2026-08-27
+
+There is **one workflow**: a ฝ่าย member uses this same pull-request pipeline,
+unchanged. `.github/CODEOWNERS` carries the whole difference — see
+`docs/DEPT-TOOLS.md` §0b, and `skills/onboard-a-contributor.md` for the
+45-minute session that gets someone from nothing to a merged PR.
+
+| Path | Approval |
+|---|---|
+| `public/embed/**` — a page in the sandbox frame | any collaborator |
+| `src/data/tools.js` · `src/tools/` · `src/js/data/` | the owner |
+
+⚠️ **Enabled 2026-08-27 and true now**: CI (`build`) must pass before a merge,
+and `CODEOWNERS` **blocks** rather than merely requests. Before that date a pull
+request with the whole suite red was mergeable, and any one collaborator could
+approve a change to `auth.js`.
+
 ## How to test without spamming production
 
 Both branches hit the same Supabase project and the same Discord channels.
