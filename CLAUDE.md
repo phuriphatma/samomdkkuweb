@@ -99,6 +99,7 @@ session re-derives or re-breaks work that was finished yesterday.
 - `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
 - `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
 - `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY, nothing built**; its §0 holds owner decisions that must not be re-litigated
+- `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10 self-scrutiny, §13 build order
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/SUPABASE-MIGRATION.md` — **HISTORICAL**, the Sheets→Supabase migration
   (finished long ago; kept for why the schema is shaped as it is). Not a status.
