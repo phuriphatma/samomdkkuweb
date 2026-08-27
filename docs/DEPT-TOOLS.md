@@ -396,7 +396,13 @@ and copy, not about whether student data leaks.
 
 ## §5. Golden Period, concretely
 
-### v0 — this week, IT, ~1 session (after the §2 registry)
+### The draft — OPTIONAL, IT, ~1 session
+
+⚠️ **Read D8 first; this section was written before it and used to say "v0 —
+this week, IT", which reads as though IT owns the first version by default.** It
+does not. **The ฝ่าย own this page and build it with Claude.** The owner then
+allowed IT to draft a plain placeholder so students are not left waiting. A
+draft is a courtesy, not the plan.
 
 `/tools/golden-period` exists as a real route and a real card on ฝ่ายบริหารองค์กร,
 containing:
@@ -410,12 +416,18 @@ containing:
    of the alternative.
 3. **A button to the GPC Dashboard sheet**, opening in a new tab.
 
-**v0 is not a fallback — it is version 0 of the same URL.** When their page
-arrives it replaces the body of this route, and every link anyone already shared
-still works. That is the whole reason to give it a route on day one instead of
+**The draft is not a fallback — it is the same URL, held open.** When their page
+arrives it replaces the body of this route and every link anyone already shared
+still works. That is the reason to give it a route on day one rather than
 pasting a sheet link into a card.
 
-### v1 — theirs, whenever they finish
+⛔ **Three conditions, or the draft becomes the thing IT owns for ever:** keep it
+deliberately plain, **say on the page that it is a placeholder**, and hand the
+route over the moment their version lands. Every "ขอแก้นิดนึง" against an
+IT-built page is an IT session, which is the bottleneck this document exists to
+remove.
+
+### The real one — THEIRS, whenever they finish
 
 They fill in the request issue (§6), take the starter folder, tell Claude what
 they want, and hand back `index.html` + `data.js`. IT reviews against §8 and
@@ -824,8 +836,8 @@ as though it were real is the failure this repo keeps paying for.
   and `src/data/tools.js` (owner).
 - **`CLAUDE.md`** — the file-placement table gains a row: *a ฝ่าย tool →
   `public/embed/<slug>/`, see `docs/DEPT-TOOLS.md`*.
-- **`README.md`** — "Key features", only when GPC v0 ships (a student notices it).
-- **`src/data/changelog.js`** — a `PENDING` entry in the same commit as GPC v0,
+- **`README.md`** — "Key features", when the Golden Period page ships (a student notices it), whether it is the draft or theirs.
+- **`src/data/changelog.js`** — a `PENDING` entry in the same commit as the Golden Period page,
   in plain Thai: what you can now see, and what you no longer have to open a
   sheet to find out.
 - **`docs/TEAM-WORKFLOW.md`** — §8 phase 3 gains the note that a `tool/*`-only
