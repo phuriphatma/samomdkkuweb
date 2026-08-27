@@ -90,9 +90,58 @@ function spaFallback() {
   };
 }
 
+// Dev-only stand-in for the `/notify` service.
+//
+// In production `/notify` is a Node service on the VM (server/notify-server.mjs)
+// wrapping functions/notify.js, and it holds the Discord webhook URLs as
+// secrets. `npm run dev` has neither, so every notify POST used to fail — a
+// 404 from Vite's SPA fallback, parsed as JSON, surfacing as a confusing error
+// on a form that had actually saved fine.
+//
+// docs/TEAM-WORKFLOW.md §1: on LOCAL, Discord is "printed to the terminal".
+// This is that. It NEVER forwards anywhere — a dev machine holding a real
+// webhook URL is exactly what the service exists to avoid — so it cannot
+// notify a real ฝ่าย channel by accident, which is the failure that matters.
+//
+// ⚠️ This is the DEV SERVER only. Preview builds on Cloudflare do not run
+// vite.config.js at all; their Discord path is a dev webhook (#samo-dev-bot),
+// which is phase 2 and not built.
+function notifyDevStub() {
+  return {
+    name: 'notify-dev-stub',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/notify', (req, res, next) => {
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true, stub: true, note: 'dev stub — nothing is sent' }));
+          return;
+        }
+        if (req.method !== 'POST') return next();
+        let body = '';
+        req.on('data', (c) => {
+          body += c;
+          if (body.length > 1e6) { req.destroy(); }
+        });
+        req.on('end', () => {
+          let parsed = null;
+          try { parsed = JSON.parse(body); } catch { /* print it raw below */ }
+          const action = parsed?.action || '(no action)';
+          console.log(`\n\u001b[33m[notify:dev]\u001b[0m ${action} — NOT SENT (dev stub)`);
+          console.log(parsed ? JSON.stringify(parsed, null, 2).slice(0, 2000) : body.slice(0, 2000));
+          res.setHeader('Content-Type', 'application/json');
+          // Same success shape the real handler returns, so client code that
+          // checks it takes the SAME branch it would in production.
+          res.end(JSON.stringify({ success: true, stub: true }));
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: '.',
-  plugins: [buildIdPlugin(), htmlPartials(), spaFallback()],
+  plugins: [notifyDevStub(), buildIdPlugin(), htmlPartials(), spaFallback()],
   build: {
     outDir: 'dist',
     // Multi-page build — public site at /, operator app at /admin/.
