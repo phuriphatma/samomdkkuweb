@@ -7,6 +7,7 @@
 // ==============================================
 
 import { ADMIN_FEATURES } from './team-vocab.js';
+import { mountEnvRibbon } from './env-ribbon.js';
 import { enterHouseWorkspace } from './house/index.js';
 import { enterClaudeWorkspace } from './claude/index.js';
 // ปีการศึกษา — every ชั้นปี in the admin app is computed against it (0141/0145).
@@ -1002,3 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Non-production marker. Last import wins nothing here — it only needs a body.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountEnvRibbon, { once: true });
+else mountEnvRibbon();

@@ -45,6 +45,7 @@ import {
 import { ADMIN_FEATURES } from './team-vocab.js';
 import { initProjectsView } from './projects-view.js';
 import { mountGoldenPeriodCalendar } from './golden-period.js';
+import { mountEnvRibbon } from './env-ribbon.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
 import { initDevActivity } from './dev-activity.js';
@@ -944,3 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // after the initial Bootstrap tab activation (default = home).
   queueMicrotask(applyPathRoute);
 });
+
+// Non-production marker. Last import wins nothing here — it only needs a body.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountEnvRibbon, { once: true });
+else mountEnvRibbon();

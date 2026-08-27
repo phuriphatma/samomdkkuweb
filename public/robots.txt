@@ -1,0 +1,16 @@
+# samo.md.kku.ac.th — the public student portal.
+#
+# Added 2026-08-27. Until then this path had no file, so nginx's SPA fallback
+# served index.html for it: a crawler asking for robots.txt got a 200 of
+# text/html, and the whole app booted to answer it.
+#
+# Preview deployments do not need a rule here — Cloudflare Pages sets
+# `x-robots-tag: noindex` on them itself (measured 2026-08-27), which is what
+# keeps a preview full of real student data out of search results.
+
+User-agent: *
+Allow: /
+
+# The staff app. Login-gated, and nothing inside it is useful in a search
+# result; keeping crawlers out of it saves them and us the boot.
+Disallow: /admin/

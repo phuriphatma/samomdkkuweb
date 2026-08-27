@@ -91,19 +91,9 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ### What is owed
 
-- ✅ **MEASUREMENT IS ON AND NOTHING IS OWED HERE — 2026-08-25 17:18 UTC.**
-  The owner flipped it on from `/admin#claude`; the trigger stamped them, the
-  timer wrote its first sample two minutes later, and it has run every 15 min
-  since — re-verified 2026-08-26 late at the steady 15-minute rate. The
-  `claude login` this file warned would be needed evidently held. **Ask the
-  database for the count; this file must not carry one.**
-  ⚠️ **The latent timer bug found on 2026-08-25 is still only fixed BY HAND on
-  the VM** (`OnActiveSec=1min` added in `/etc/systemd/system/`, which
-  `server/deploy.sh` does not touch). A rebuilt VM takes it from
-  `server/setup.sh`. Without it, `systemctl enable --now` after a multi-day
-  `disable` reports `enabled` + `active` and schedules **infinity**. Read `NEXT`
-  from `list-timers`, never the `enabled` word. Write-up in
-  `docs/mistakes/deploy-hosting.md`.
+- ✅ **Claude measurement is ON and nothing is owed here.** Ask the DATABASE for
+  the state and the counts; this file must not carry them. The systemd-timer
+  trap it used to describe is now in `docs/INVARIANTS.md`.
 - ✅ **The `claude` permission is GRANTED and `claude_bookings` is EMPTY** —
   deployed, widely granted, unused. Head-counts belong to the database, not to
   this file; the query and the reason are in `docs/INVARIANTS.md`.
@@ -147,14 +137,22 @@ because it held three lifetimes at once. It now holds one: **status**.
   📌 `refactorsamomdkkuweb` built every commit a second time (dead prod branch,
   508 behind). Preview builds + PR comments now **OFF**; project NOT deleted, so
   its URL still serves the moved splash. Undo = set that field back to `all`.
-  ❌ **Left**: `VITE_ENV_NAME` PREVIEW ribbon · `noindex` header · `/notify` dev
-  middleware.
-  ⚠️ **OWED, small, and nobody has built it: the repo SETTINGS have no guard.**
-  The two branch-protection flags and the `tool-request` label live on GitHub,
-  outside git — if anyone switches them off, no test goes red and the whole
-  contributor design silently becomes advisory again. ~20 lines: read the
-  protection object and assert `required_status_checks.contexts = ['build']`
-  and `require_code_owner_reviews = true`. Offered, not built.
+  ✅ **PREVIEW ribbon ships** (`env-ribbon.js`). ⚠️ **Polarity is the OPPOSITE
+  of `TEAM-WORKFLOW` §1, on purpose**: an ABSENT `VITE_ENV_NAME` paints NOTHING,
+  because §1's version splashes "PREVIEW" across the live site the first time a
+  VM rebuild forgets the var. A `*.pages.dev` host paints it anyway; an explicit
+  `production` wins. Set on Cloudflare's PREVIEW env only.
+  ✅ **`noindex` needed no work** — Cloudflare already sets it on previews;
+  production has none. ✅ `public/robots.txt` exists now (nginx used to answer
+  `/robots.txt` with the SPA).
+  ❌ **Left in phase 3**: only the `/notify` dev middleware in `vite.config.js`.
+  📌 **The ribbon lands in `analytics-*.js`**, the SHARED chunk — both entries
+  import it. Grepping `public-*.js` for it returns 0 and looks like a failure.
+  ✅ **The repo SETTINGS now have a guard** — `tools/repo-protection.mjs`, proof
+  #24. They live on GitHub, outside git, so nothing here noticed if they were
+  switched off. Checks BOTH directions: four things that must be ON, and
+  `enforce_admins` which must stay OFF because it is what lets the owner push
+  `main` and is the escape hatch when their own PR cannot self-approve.
   📌 The three lessons this cost are NOT repeated here — they are in
   `docs/mistakes/tooling-proofs.md`: a `pg_dump` restore is MORE permissive than
   its source; a refresh that cannot refresh `auth` still printed "identical to

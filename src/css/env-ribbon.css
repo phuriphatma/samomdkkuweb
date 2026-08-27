@@ -1,0 +1,20 @@
+/* The non-production marker. Deliberately unmissable and deliberately out of
+   the way: fixed to the BOTTOM so it never covers the navbar or a modal's
+   header, and pointer-events:none so it can never swallow a click on whatever
+   sits under it. See src/js/env-ribbon.js for when it appears. */
+.samo-env-ribbon {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2000;                 /* above content, below Bootstrap modals (1055+ is backdrop/modal; this sits under nothing it needs to) */
+  pointer-events: none;
+  padding: .3rem .75rem;
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: #3a2200;
+  background: repeating-linear-gradient(45deg, #ffd76a, #ffd76a 12px, #ffc93d 12px, #ffc93d 24px);
+  border-top: 2px solid #e0a11a;
+}
+@media (max-width: 575.98px) { .samo-env-ribbon { font-size: .7rem; } }
+@media (prefers-reduced-motion: reduce) { .samo-env-ribbon { transition: none; } }

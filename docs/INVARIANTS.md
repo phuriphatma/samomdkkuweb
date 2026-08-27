@@ -395,3 +395,29 @@ home and a guard; everywhere else, write the query instead.
 0157 was made self-contained on 2026-08-25 by MOVING the quota week and planting
 synthetic bookings, rather than hoping the live calendar would cooperate. **A
 proof that depends on real usage existing is the thing that was fixed.**
+
+---
+
+## A systemd timer fixed BY HAND on the VM is one rebuild from coming back
+
+Moved out of `STATE.md` 2026-08-27 — it is a rule, not a status.
+
+The Claude usage timer carries `OnActiveSec=1min`, added **by hand** in
+`/etc/systemd/system/` on the VM. **`server/deploy.sh` does not touch unit
+files**, so a deploy will never restore it; only `server/setup.sh` would, on a
+rebuilt box.
+
+Without it, `systemctl enable --now` after a multi-day `disable` reports
+**`enabled`** and **`active`** while scheduling **`infinity`** — the timer is on
+by every word systemd prints, and will never fire.
+
+**The rule: read `NEXT` from `systemctl list-timers`, never the word
+`enabled`.** `enable` is not `schedule`; a unit whose only triggers are
+`OnBootSec` + `OnUnitActiveSec` has nothing to count from until something
+activates it, so anchor at least one trigger to the timer's own activation.
+Write-up in `docs/mistakes/deploy-hosting.md`.
+
+**And the general shape:** any fix applied directly to a server, outside the
+files a deploy replays, is invisible to every later deploy and to everyone
+reading the repo. If it must survive, it belongs in `server/setup.sh`; if it
+cannot, it belongs here, written down.
