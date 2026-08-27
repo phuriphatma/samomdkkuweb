@@ -56,6 +56,8 @@ function namedPaths(md) {
  * exemption is how a real broken pointer gets parked here and forgotten.
  */
 const ABSENT_ON_PURPOSE = {
+  'src/html/tab-golden-period.html':
+    'PLANNED, not written — the Golden Period draft page, specced in docs/state/phuriphatma.md with the exact wiring. Named there so the next session creates it at the agreed path; DELETE this exemption in the same commit that creates the file',
   '.claude/rules/mistakes-archive.md':
     'deleted; STATE.md names it only to say "do not re-create it" — it lived in the auto-loaded directory, so archiving into it saved nothing',
   'docs/state-archive/YYYY-MM-DD.md':
