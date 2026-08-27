@@ -31,15 +31,16 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `7405712` (2026-08-27)**, VM HEAD confirmed over ssh equals
-  local HEAD, `DEPLOY_EXIT=0`. Carried the Golden Period draft and the
-  routing fixes. **Verified from the SERVED artifacts** (HTML, `public-*.js`,
-  CSS — with a long-shipped string as the control) **and driven live in headless
-  Chrome** at 1280 and 390. Full record in the commit message.
-  📌 **The Golden Period strings are 0 in `analytics-*.js` and that is CORRECT** —
-  this module belongs to the public entry alone. Grep `public-*.js`.
-  ⚠️ **A stale sha here reads exactly like "a deploy is owed" and costs somebody
-  a VPN session to disprove**, so if you deploy, correct THIS line and no other.
+- ✅ **DEPLOYED = `832bb14` (2026-08-27)**, VM HEAD = local HEAD,
+  `DEPLOY_EXIT=0`. Golden Period, the routing fixes, the PREVIEW ribbon,
+  `robots.txt` and the dev notify stub. **Verified from the served artifacts**
+  and driven live.
+  ⚠️ **The check that mattered: production renders NO ribbon** — confirmed by
+  DRIVING the page (`ribbon: null`), not by grepping. A grep for `"preview"` in
+  the bundle DOES hit, from an unrelated announcements preview button; the
+  string was never the instrument, the rendered DOM was.
+  📌 `robots.txt` is now `text/plain`; it used to be the SPA answering with
+  `text/html`.
   Previous: `36ac1d5` (2026-08-26 late).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
