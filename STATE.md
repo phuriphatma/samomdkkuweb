@@ -234,10 +234,13 @@ Two more the assistant should offer rather than assume:
 
 - **Build the SLOT for ฝ่าย tools?** — one tool list instead of the two
   hand-maintained copies, the frame a contributed page drops into, and the
-  starter kit. ⛔ **IT does NOT build Golden Period itself** (`docs/DEPT-TOOLS.md`
-  D8): the ฝ่าย build it with Claude. A session proposed an "IT builds v0 first"
-  step and the owner rejected it as the very pattern being removed. **The slot
-  is what blocks them, not the page.**
+  starter kit. **The slot is what blocks them, not the page.**
+  📌 **Golden Period itself is THEIRS** — the ฝ่าย build it with Claude
+  (`docs/DEPT-TOOLS.md` D8). The owner then allowed IT to **draft a simple
+  placeholder** so students are not waiting. If you build that draft: keep it
+  plain, say on the page that it is a placeholder, and hand the route over the
+  moment their version lands — an IT-built page is the page IT owns, and that is
+  the bottleneck this whole design removes.
 - **The ~20-line guard for the repo settings?** The two branch-protection
   switches live on GitHub, outside git — turn them off and no test goes red,
   while every contributor rule built on 2026-08-27 silently becomes advisory.
