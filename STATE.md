@@ -1202,13 +1202,20 @@ first cuts. The NEXT-SESSION PROMPT itself is the part that must survive.
 > - ✅ **The ประกาศ deploy is DONE** (2026-08-26, `2993dd1`, verified served).
 > - ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
 >   the Stay block above. Do not build it unprompted.
-> - **ฝ่าย tools / Golden Period — DESIGNED, NOT BUILT, and step 0 is a
->   QUESTION FOR THE OWNER.** Read `docs/DEPT-TOOLS.md`, not this bullet. The
->   design: three lanes (content / sandboxed embed / native), the ฝ่าย owns the
->   inside of the frame and IT owns the chrome. **§13 step 0 can cancel the
->   rest** — if the owner will not tolerate a page they did not design, the
->   correct plan is GPC v0 plus a quota, and nothing else. Nothing in it is
->   built: no `src/data/tools.js`, no `public/embed/`, no `/tools/<slug>` route.
+> - **ฝ่าย tools / Golden Period — DESIGNED, NOT BUILT.** Read
+>   `docs/DEPT-TOOLS.md`, not this bullet; its §0a holds owner decisions that
+>   must not be re-litigated (pull requests are the road; data-backed ฝ่าย tools
+>   are in scope). Four lanes, and the boundary is **"can it decide who sees
+>   what"** — the ฝ่าย may write a page that shows data, never the rule that
+>   picks the rows.
+>   ⚠️ **Three findings measured live from the GitHub API 2026-08-27, all true
+>   of this repo NOW**: `required_status_checks` is **404 — CI cannot block a
+>   merge**; `require_code_owner_reviews` is **false**, so `CODEOWNERS` only
+>   requests the owner and any one of the five collaborators can approve a PR
+>   into `auth.js`; and `CONTRIBUTING.md` still tells contributors to test
+>   against **production**, so lane C (data tools) is HARD-BLOCKED on
+>   `docs/TEAM-WORKFLOW.md` phase 1. Nothing is built: no `src/data/tools.js`,
+>   no `public/embed/`, no `src/js/data/` doors, no `/tools/<slug>` route.
 > - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
 >   Read `docs/demos/about-3d/README.md`, not a bullet.
 > - **The browser pass, continued — `skills/drive-the-browser.md`.** Still

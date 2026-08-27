@@ -21,6 +21,25 @@
 
 ---
 
+## §0a. Decisions the owner made — DO NOT RE-LITIGATE
+
+Decided 2026-08-27, after the first draft of this file was read. Several reverse
+what that draft recommended. Listed with the reasoning so a later session does
+not "fix" them back.
+
+| # | First draft proposed | **Decided** | Why |
+|---|---|---|---|
+| D1 | Contributors attach an HTML file to an issue; IT imports it (the PR road was written off as "will probably die") | ❌ **They learn GitHub. Pull requests are the road, and the attachment road is a per-person exception, not a lane.** | *"it's tiring to handle files sent… i'll just make them learn github"*. Correct on both halves: file shuttling keeps IT in the loop on every edit forever, and it is not how anyone works. **The draft's §10.2 was a prediction about these five people, not a statement about practice, and the owner is entitled to change the prediction by onboarding them.** |
+| D2 | ฝ่าย tools never touch user data — the sandboxed frame excludes it by construction | ❌ **Data-backed tools are IN SCOPE.** | *"this department sometimes want to touch user data, handle database"*. A design that excludes exactly the requests that hurt most has not removed the bottleneck, it has renamed it. |
+| D3 | *(new, proposed in response to D2 — needs the owner's yes)* | ⏳ **The owner writes the data door; the ฝ่าย writes the room around it.** | Authorization is the single thing this repo has repeatedly got wrong (most of the write-ups in `docs/mistakes/authz-*.md`, and class 4/5 of the seven). UI is not. Splitting them puts the reviewed, tested, IT-owned part around the *access decision* and leaves everything else — layout, colour, the ten rounds of edits — with the ฝ่าย. |
+
+⚠️ **What D1 changes about this document**: the frame (§3) stops being "the
+mechanism" and becomes **the fast lane** — the class of tool that can be
+approved in thirty seconds because it cannot reach anything. §4 stops being
+"designed, not built" and becomes the road most data-backed requests take.
+
+---
+
 ## §0. The problem, measured — not assumed
 
 Trigger: ฝ่าย wants **Golden Period Calendar (GPC)** on the site — a per-ชั้นปี
@@ -56,41 +75,99 @@ however good its documentation is.
 
 ## §1. The decision
 
-**Three lanes, chosen by what the change can reach — not by who is asking.**
+**Three lanes, chosen by what a change can reach — not by who is asking.**
+Everything arrives the same way: **a pull request** (§6). The lanes decide how
+much review that pull request needs, and who has to be the one who gives it.
 
-| Lane | What it is | Who does it | Blast radius | Cost per edit |
+| Lane | What it is | Who writes it | What it can reach | Review needed |
 |---|---|---|---|---|
-| **A — Content** | a link, a card, a cover image, a text block, a Google embed | ฝ่าย, through data (later: a GUI editor) | one card | minutes, no thought |
-| **B — Embedded tool** | a real page with its own UI, running in a sandboxed frame | **ฝ่าย, with Claude** — IT reviews and merges | **the frame, and nothing else** | one review + the next deploy |
-| **C — Native feature** | anything reading the database, the signed-in user, uploads, notifications, schema | IT only | the whole app | as today |
+| **A — Content** | a link, a card, a cover image, a text block, a Google embed | ฝ่าย, editing data | one card | any peer, seconds |
+| **B — Framed tool** | a page with its own UI, running in a sandboxed frame | **ฝ่าย, with Claude** | **nothing outside the frame** | any peer, ~30 seconds |
+| **C — Data tool** | a page that reads real app data through a door the owner wrote | **ฝ่าย, with Claude** | only the named data functions it was given | **the owner, properly** |
+| **D — Platform** | the data door itself, RLS, migrations, auth, uploads, notifications, deploy | **owner / IT only** | everything | — |
 
-**The sentence that makes this work:**
+**The line that moved, and it is a better line than the first draft's:**
 
-> **IT owns the chrome. The ฝ่าย owns the inside of the frame.**
-> The boundary of the iframe is also the boundary of the argument.
+> The first draft drew the boundary at **"can it run code in my app"**.
+> The real boundary is **"can it decide who sees what."**
+>
+> Code can be read, tested and reverted. An authorization decision fails
+> silently, in production, on someone else's data — and it is the mistake this
+> repo has made most often, by people who *do* know the codebase.
 
-That is deliberate. This team is fussy about UI — and it is *their* UI to be
-fussy about. Handing them the inside of a box removes IT from the aesthetic
-conversation entirely, which is where most of the wasted rounds go.
+So a ฝ่าย may write a page that shows student data. A ฝ่าย may **not** write the
+rule that decides which students' data it shows. That rule is a function the
+owner writes once, reviews once, and tests once (§4).
 
-**Escalation rule, stated so it is not re-argued per request:**
-*anything that can be Lane A must not become Lane B; anything that can be Lane B
-must not become Lane C.* "แปะลิ้งไปชีท" is Lane A. A heat-map calendar drawn
-from that sheet is Lane B. "แสดงว่าโครงการไหนชนกัน" reads `project_documents`
-and is Lane C — IT, on IT's schedule.
+### What lane C actually looks like
 
-### Why not the two options that were on the table
+1. The ฝ่าย opens a tool request: *"เราอยากได้หน้าที่แสดง … ให้ … ดู"*.
+2. The **owner writes the door** — one named function that answers exactly that
+   question and nothing wider, with the permission rule inside it and a test
+   beside it. Perhaps an hour, once.
+3. The ฝ่าย builds everything on top of the door: the layout, the filters, the
+   colours, the ten rounds of edits. They never see the supabase client.
+4. CI refuses any tool file that imports `db.js`, calls `.from(`, or names a
+   table (§8).
 
-- **"They send it, IT incorporates it"** *(their proposal)* — this is Lane B
-  with no contract. Without a contract, incorporation means rewriting their
-  page into the app's idioms, and then IT owns it forever. It optimises the
-  first delivery and loses every one after.
-- **"They open pull requests like the dev team"** *(the other proposal)* — a PR
-  is a delivery mechanism, not a boundary. On its own it does not stop a page
-  from breaking the app, and `CODEOWNERS` routes everything interesting to the
-  owner anyway. **Keep the PR, add the boundary** — that is §3 and §8. And
-  accept that most of them will not manage git (§10.2); the boundary is what
-  makes the non-git intake safe too.
+**The owner is now asked once per data QUESTION, instead of once per EDIT.**
+That is the whole gain, and it is the same shape professional teams use: the
+platform team owns the API and the access rules; product teams build UI on top
+of it and ship on their own cadence.
+
+---
+
+## §1b. What professional teams actually do — because the answer is two answers
+
+The owner's instinct (*"isn't PR just best practice"*) is right, and the honest
+industry picture is more useful than a yes:
+
+**For engineers, yes — this is exactly it.** Short-lived branches, pull requests,
+`CODEOWNERS`, required status checks, one approval, squash merge, a preview
+deploy per PR, and nobody pushing to `main`. This repo already has most of it
+(§8a of `docs/TEAM-WORKFLOW.md`); it is two settings away from having it
+enforced rather than suggested.
+
+**For non-engineers, no — and this is the part worth taking seriously.** Real
+companies do not hand the product repo to the marketing team and review their
+code. They give them a different surface:
+
+| What the non-engineer wants | What a professional org gives them | The equivalent here |
+|---|---|---|
+| change a page's words, links, images | a CMS (Contentful, Sanity, Storyblok) or a page builder | **Lane A**, and later the ฝ่าย GUI editor (§12) |
+| a page with its own design | a design system + templates, or an engineer | **Lane B** — the frame is the template |
+| **see** the data | a BI tool — Metabase, Looker, Redash — connected to a read-only replica with per-team permissions | **not built, and it should be** (§1c) |
+| an internal tool over the data | a low-code platform — Retool, Appsmith, AppSheet — over an API the platform team exposes | **Lane C** |
+| **collect** data from people | a form product, or an engineer | Google Forms today; an engineer for anything else |
+
+Two practices from that world are worth stealing outright, and one is worth
+refusing:
+
+- ✅ **docs-as-code.** Plenty of serious companies do teach non-engineers git —
+  for *content*, reviewed by PR. That is the precedent that says D1 can work.
+- ✅ **The platform boundary.** Non-engineers build on an interface, never on the
+  database directly. That is §1's moved line, and it is why lane C is safe.
+- ❌ **"one approval and merge" applied to product code by people who cannot
+  read it.** No professional org does this. What makes their PR process safe is
+  everything *around* it — a staging environment, seeded fake data, automated
+  tests that block, and a reviewer who is an engineer on that code. Take the PR
+  workflow *and* take the things that make it safe, or it is cargo cult (§10).
+
+## §1c. Most "we need database access" requests are not that
+
+Before building lane C for a request, sort it:
+
+- **"we want to SEE the numbers"** — how many orders, how many people per ชั้นปี,
+  who has not submitted. **This needs no app code at all.** A BI tool
+  (Metabase is free and self-hostable; a read-only Postgres role over the live
+  database) answers it, the ฝ่าย build their own charts, and IT is out of the
+  loop entirely. **This is probably the single highest-value thing on this whole
+  page**, and it is a smaller build than the frame.
+- **"we want students to see something about themselves"** — lane C, and it
+  needs a door.
+- **"we want to collect something from students"** — lane D. A form needs a
+  table, an access rule, and an answer to "how long do we keep this". It is
+  never a contributor's first pull request, however small it looks.
 
 ---
 
@@ -206,25 +283,46 @@ actually needs it, not before.
 
 ---
 
-## §4. Lane C — the native module contract (designed, deliberately not built)
+## §4. Lane C — a data tool, and the door it is built on
 
-When a tool outgrows the frame (needs the signed-in user, the database, uploads,
-notifications), it is promoted, and **IT writes it**. The shape, recorded now so
-the promotion is not a redesign:
+Reversed by D2: this is no longer "designed, deliberately not built". It is the
+road most data-backed requests take, and the ฝ่าย writes the page.
+
+**The door — written by the owner, one per data question:**
+
+```js
+// src/js/data/<tool>.js  — OWNER-OWNED. CODEOWNERS routes it here.
+// Answers exactly one question, with the access rule inside it.
+export async function listGoldenPeriodWeeks() { … }
+```
+
+Rules that make the door a real boundary rather than a naming convention:
+
+- it answers **one question**, not "give me the table" — a door that returns
+  rows the page does not draw is a door that leaks the ones it does not draw
+- the access rule lives **inside** it, and a test beside it proves both
+  directions: the person who should see rows sees them, the person who should
+  not gets zero. *(A probe that only asserts "denied" cannot tell a working
+  guard from a broken service — this repo has paid for that.)*
+- RLS still stands behind it. The door is not the only gate; it is the only gate
+  a contributor can see.
+
+**The page — written by the ฝ่าย:**
 
 - `src/tools/<slug>/index.js` exports `mount(root, ctx)` / `unmount()`
 - dynamic-imported by the router, wrapped in try/catch → a broken tool renders
   "เครื่องมือนี้ขัดข้อง" and never kills boot (`boot-watchdog.test.js` exists
   because a module that never loads leaves a page dead and animated)
-- `style.css` — every selector must start `.tool-<slug>`, CI-checked
-- `ctx` is a frozen, documented surface (`escHtml`, `formatThaiDate`, the tint
-  helpers, a read-only `user`). **Never the supabase client** — a tool that
-  needs rows gets a purpose-built read function reviewed by the owner, so the
-  authorization question is asked once, at the right altitude.
+- `style.css` — every selector starts `.tool-<slug>`, CI-checked
+- `ctx` is a frozen surface: `escHtml`, `formatThaiDate`, the tint helpers, a
+  read-only `user`, **and the doors this tool was granted**. Never the supabase
+  client.
 - one render test, mandatory
 
-**Do not build this until a tool needs it.** Writing it now is a guess about a
-feature that has not been requested.
+⚠️ **A lane-C pull request is a real review, by the owner, not a rubber stamp.**
+That is the price of the lane, and it is bounded: the *access* question was
+already answered when the door was written, so the review is about correctness
+and copy, not about whether student data leaks.
 
 ---
 
@@ -305,17 +403,31 @@ highest-leverage artifact in the whole plan.** Most rounds of "ไม่สว�
 เข้ากับเว็บ" exist because the returned page never matched; a starter that
 matches on line one deletes those rounds before they happen.
 
-### Delivery — two roads, both supported
+### Delivery — pull requests, and an exception
 
-| | Road 1 — pull request | Road 2 — attach the file |
-|---|---|---|
-| Who | whoever can run git (realistically 1 of 5) | everyone else |
-| How | branch `tool/<slug>`, boundary CI (§8), one approval | attach `index.html` + `data.js` to the issue; IT runs `npm run tool:import` |
-| IT time | review only | ~15 min, mechanical, **no design decisions** |
+**Decided (D1): every contribution arrives as a pull request.** Not because it
+sounds professional, but because the alternative keeps IT inside every edit,
+forever, at fifteen minutes a time.
 
-**Road 2 is the one that will actually get used, and that is fine.** It is cheap
-*because* the contract shape is already the shape of their artifact. Do not
-design as though Road 1 is the main path (§10.2).
+What a ฝ่าย member has to learn is smaller than it sounds — Claude Code does the
+git. The real cost is **one-time setup**, not per-edit effort:
+
+| Once per person (~45 min, sitting next to them) | Every time after |
+|---|---|
+| GitHub account, added as a collaborator | *"claude, เอาที่แก้ขึ้นเป็น PR ให้หน่อย"* |
+| Node + the repo cloned | open the preview link, check it |
+| `gh auth login` | ask for review |
+| **one practice PR that changes one word** | — |
+
+⚠️ **Onboarding is a real task with a real owner, and if it is skipped the road
+does not exist.** It is a step in §13, done in person, and the practice PR is
+part of it. Someone who has merged one PR will open a second; someone handed a
+document will not.
+
+**The exception, not a lane**: a person who genuinely cannot be onboarded
+attaches `index.html` + `data.js` to their issue and IT imports it. **Count how
+often this happens.** If it is happening often, the onboarding failed — fix
+that, do not quietly rebuild the file-shuttling workflow.
 
 ---
 
@@ -356,7 +468,14 @@ check it**. Four checks, all cheap:
    touches anything outside `public/embed/<slug>/**` plus **one** entry in
    `src/data/tools.js`. No `package.json`, no `src/js/`, no `supabase/`. This is
    what makes "let them PR" safe, and it is ~15 lines of workflow.
-4. **The registry differential test** — the launcher grid and the ฝ่าย detail
+4. **No tool file may reach the database directly** — CI fails any file under
+   `src/tools/**` that imports `db.js` or `auth.js`, calls `.from(`, or names a
+   table. A data tool talks only to the doors in `src/js/data/` it was granted.
+   *Falsify it: add a `.from('users')` to a tool, watch it go red, restore.*
+5. **Every door has a both-directions permission test** in the same commit that
+   creates it — allowed sees rows, not-allowed sees zero. A door with only a
+   deny test cannot tell a working rule from a broken query.
+6. **The registry differential test** — the launcher grid and the ฝ่าย detail
    page must render from the same source, asserting the property, never the
    list (a guard written from the same list as the code passes a wrong list).
 
@@ -393,75 +512,101 @@ every time.
 
 ## §10. Scrutiny — where this plan is weak
 
-Written against the plan, not for it.
+Rewritten 2026-08-27 after the owner's counter-proposal (§0a). Written against
+the plan, not for it. **Findings measured live from the GitHub API on
+2026-08-27, not assumed.**
 
-**10.1 — The cost is front-loaded onto IT, and GPC may be the only tool ever
-built.** Registry refactor + frame + guards + starter + docs ≈ **2 sessions**
-before a single contributor page exists. Writing GPC by hand is ~2 hours.
-*The plan is only correct if a second and third ฝ่าย actually follow.* The owner
-believes they will. If that belief is wrong, this is over-engineering, and the
-honest cheaper answer is: build GPC v0, paste the sheet link, stop.
-**Decision rule: build §2 + §3 only. If nobody files a second tool request
-within a term, do not build §4, §6's Road 1, or §9.**
+### The blockers — these are true of the repo TODAY
 
-**10.2 — The pull-request lane will probably die, and the plan half-assumes
-it.** They do not know code; git, node and a GitHub account are three walls
-before line one. Realistically Road 2 (attach the file) carries everything.
-That is designed for — but it means **IT is still in the loop on every single
-edit**, at ~15 minutes each. Fifteen minutes is not zero. If a ฝ่าย iterates
-ten times, that is 2.5 hours of IT time the plan quietly spends. Mitigation is
-the preview URL (§9) plus one onboarding session to get *one* person per ฝ่าย
-onto Road 1 — and if that fails, accept the 15 minutes as the price and say so.
+**10.1 — "I'll just approve" is not what the branch rule says.** Measured:
+`required_approving_review_count: 1`, and **any of the five collaborators
+satisfies it**. `require_code_owner_reviews` is **`false`**, so `CODEOWNERS` only
+*requests* the owner's review — it does not block. Two contributors can approve
+each other's pull request into `auth.js` today and merge it, with the owner
+never involved. *Fix: `require_code_owner_reviews: true`. One flag.*
 
-**10.3 — This does not stop the edit requests. It only changes who pays.**
-The mechanism that limits round eleven is a *sentence the owner has to say*:
-"หลัง v1 ทีม IT รับผิดชอบแค่ตรวจกับขึ้นเว็บ — แก้ข้างในกล่องเป็นของฝ่าย".
-No CI check enforces that. If the owner keeps saying yes, the bottleneck
-returns wearing a new hat, and the whole plan is decoration.
+**10.2 — CI cannot block anything.** Measured: `required_status_checks` returns
+**404 — not enabled**. `build.yml` runs `npm test` + `npm run build` on every
+pull request and **nothing enforces the result**. Every guard described in §8 is
+decorative until this is switched on: a contributor pull request with the whole
+suite red is mergeable. *Fix: a full `PUT` of the protection object including the
+`build` check — see `docs/TEAM-WORKFLOW.md` §10a; a `PATCH` cannot add it.*
 
-**10.4 — The biggest real risk: the owner will not tolerate an off-brand page.**
-This repo went six rounds on the copy of one sign-in modal. A contributor page
-inside a frame *will* look slightly foreign — different spacing, different type
-scale, a colour that is nearly right. If the owner then edits it, they have
-taken the pen back and rebuilt the exact bottleneck this design exists to
-remove. **This must be answered before building: can you live with a page on
-your site that you did not design?** If the answer is no, the correct design is
-not this one — it is Lane A plus IT building everything, with a hard quota
-("one tool per ฝ่าย per term"), which is a legitimate choice and much cheaper.
+**10.3 — Right now, a contributor touching data is touching PRODUCTION.**
+`CONTRIBUTING.md` says it plainly today: both branches hit the same Supabase
+project and the same Discord channels, tick the silent-notify box, and *"ask
+Phuri to delete the TEST- rows"*. There is no dev database. So D2 —
+"the ฝ่าย sometimes want to touch user data" — currently means **five students
+querying live student records from their laptops**, in a repo that is
+**public**, where a screenshot in a pull request or a fixture file in a commit
+puts a real name and a real รหัสนักศึกษา in git history permanently. Secret
+scanning (measured: **enabled**, with push protection) catches API keys. **It
+does not catch a student's name.**
 
-**10.5 — Sandboxing costs exactly the features they will ask for next.** No
-login, no data, no personalisation. The first "ให้มันจำว่าเราเลือกอะไรไว้" or
-"ให้ดูว่าโครงการชนกันไหม" promotes the tool to Lane C, which is IT work. Expect
-that request within months; the frame is not a permanent home for a successful
-tool.
+> **This is the one hard ordering constraint in the whole document.**
+> Lane C cannot open before `docs/TEAM-WORKFLOW.md` phase 1 (the `samo-dev`
+> database) exists. Lanes A and B can open immediately — they touch no data.
 
-**10.6 — The visibility gate is a hide, not a lock** (§5). Written twice on
-purpose, because "signed-in" reads like a security control and is not one.
+### The rest
 
-**10.7 — The data will rot, and rot lands back on IT.** A sheet whose column
-someone renames turns the page blank, and the person who reports it will report
-it to IT. Defences: the data lives in `data.js` in the folder (so a break is a
-*commit*, not a surprise), the README names a **person**, and the page renders
-a visible "ข้อมูล ณ วันที่ …" stamp. If a tool's README names a ฝ่าย instead of
-a human, reject the PR — a ฝ่าย cannot be asked a question.
+**10.4 — "Just approve" is not free, and it is the cost the counter-proposal
+hides.** A pull request whose diff is 400 lines of Claude-written JavaScript,
+for a page the owner did not spec, is not a thirty-second approval — it is a
+code review, at 11pm, by the one person the plan is trying to unblock. This is
+**not an argument against pull requests**; it is the argument for the boundary.
+A lane-B pull request that can only touch one folder inside a frame that reaches
+nothing is genuinely approvable in thirty seconds. A lane-C one is not, and §4
+says so out loud. *The boundary is what makes "I'll just approve" honest.*
 
-**10.8 — Three assumptions in §3 are unverified and must be measured before
-building** (§11). If the height channel misbehaves on iOS Safari, the frame
-degrades to a fixed-height scroller — usable, uglier — and 10.4 gets harder.
+**10.5 — The plan now depends on an onboarding session that has no owner.**
+D1 is right that file-shuttling does not scale, but it converts the plan's
+biggest risk from "they will not use pull requests" into "someone has to sit
+with five people for forty-five minutes each and get them to merge a practice
+PR". If that never happens, the attachment exception silently becomes the lane
+again, and the design has changed nothing. **Give the onboarding a date and a
+person.**
 
-**10.9 — The registry is an interim shape.** §12's GUI editor moves it from a
-file to a table, and half of §2 is rewritten when that happens. It is chosen
-anyway because a file-based registry is a *strict improvement* over three
-hardcoded copies, and because the entry's fields are the columns that table
-would have. But do not describe it as final.
+**10.6 — The biggest risk is still the owner, not the technology.** This repo
+went six rounds on the copy of one sign-in modal. A contributor page will look
+slightly foreign. If the owner edits it, they have taken the pen back and
+rebuilt the exact bottleneck. **Can you live with a page on your site you did not
+design?** If the answer is no, the correct plan is lane A plus a quota, and
+everything else here is decoration.
 
-**10.10 — Two tools do not fit this taxonomy, and pretending they do is how
-Lane C gets bypassed.** A tool that *collects* anything from students (a form, a
-vote, a sign-up) is Lane C no matter how simple it looks — it needs a table, RLS
-and a retention answer. And a tool that *shows* anything about a named person is
-Lane C too. Write both exclusions into the request template, or the first
-"แค่ฟอร์มเล็กๆ" will arrive as an embed with a Google Form iframe and a
-copy-pasted webhook in it.
+**10.7 — Most "we need the database" requests are cheaper answered elsewhere,
+and building lane C first would hide that.** §1c: if the ask is "we want to see
+the numbers", a BI tool answers it with no app code, no review and no
+contributor near the schema. Build that before lane C, or lane C will be used
+for questions that never needed a page.
+
+**10.8 — This does not stop the edit requests. It only changes who pays.**
+The mechanism that limits round eleven is a sentence the owner has to say:
+"after v1, IT reviews and publishes — the inside is yours". No CI check enforces
+it.
+
+**10.9 — Sandboxing costs exactly the features they ask for next**, which is why
+D2 was right to reject the frame as the only shape. The promotion path from B to
+C is real work: a framed tool cannot be handed a session, so moving it means
+rewriting it as a module. **Choose the lane at request time, not after they have
+built it.**
+
+**10.10 — "Login required" hides, it does not lock.** Anything under
+`public/embed/` is fetchable by anyone with the URL. Written twice on purpose.
+
+**10.11 — The data will rot, and the rot lands on IT.** A sheet whose column
+someone renames turns the page blank, and the person who notices tells IT. The
+README must name **a person**; a ฝ่าย cannot be asked a question.
+
+**10.12 — Front-loaded cost.** Registry, frame, guards, starter, doors, docs, two
+protection flags and five onboarding sessions ≈ **three sessions plus half a
+day** before a second ฝ่าย benefits. Writing Golden Period by hand is two hours.
+The plan is only correct if a second and third ฝ่าย follow — the owner believes
+they will, and D2 is evidence they already are.
+
+**10.13 — The registry is an interim shape** (§12): the ฝ่าย GUI editor moves it
+from a file to a table and rewrites half of §2. Chosen anyway because one file
+beats three hand-maintained copies, and its fields are that table's columns. Do
+not call it final.
 
 ---
 
@@ -503,20 +648,29 @@ in `departments.js`, the editor's first task is un-hardcoding them — which is
 
 ## §13. Build order
 
+Reordered 2026-08-27 for D1 + D2. **The two protection flags come first because
+every guard in §8 is decorative without them**, and they cost minutes.
+
 | # | Step | Effort | Gate |
 |---|---|---|---|
-| 0 | Answer §10.4 — *can the owner live with a page they did not design?* | 0 | **if no, stop; build GPC v0 only and set a quota** |
-| 1 | Verify §11.1–11.4 on the VM and a real phone | ~30 min | none |
-| 2 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session | 1 |
-| 3 | GPC **v0**: route, card, วิธีอ่านค่า, calendar embed (AGENDA on mobile), sheet button | ~1 session | 2 |
-| 4 | The frame: `/tools/<slug>` embed host, height channel, sandbox test, `check:embeds` | ~1 session | 1 |
-| 5 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` + tool-request template | ~1 session | 4 |
-| 6 | Boundary CI + `CODEOWNERS` line + **make CI blocking** (`TEAM-WORKFLOW` §8a) | ~30 min | 4 |
-| 7 | Preview builds for `tool/*` branches only (pulled forward from `TEAM-WORKFLOW` phase 3) | ~2 h | 6 |
-| 8 | GPC **v1** — their file, imported | ~15 min | 5, and them |
+| 0 | Answer §10.6 — *can the owner live with a page they did not design?* | 0 | **if no, stop; Golden Period v0 only, plus a quota** |
+| 1 | **Turn on `required_status_checks` (`build`) and `require_code_owner_reviews`** — a full `PUT`, keeping `enforce_admins:false` | ~20 min | none |
+| 2 | Verify §11.1–11.4 on the VM and a real phone | ~30 min | none |
+| 3 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session | 2 |
+| 4 | Golden Period **v0**: route, card, วิธีอ่านค่า, calendar embed, sheet button | ~1 session | 3 |
+| 5 | **Onboard the ฝ่าย to pull requests — in person, one practice PR each** | ~45 min × 5 | 1 |
+| 6 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session | 2 |
+| 7 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` + tool-request template | ~1 session | 6 |
+| 8 | Boundary CI on `tool/*` + the `CODEOWNERS` line for the registry and `src/js/data/` | ~30 min | 1, 6 |
+| 9 | Preview builds for `tool/*` branches (pulled forward from `TEAM-WORKFLOW` phase 3) | ~2 h | 8 |
+| 10 | Golden Period **v1** — their pull request | review only | 5, 7, and them |
+| — | **A read-only BI tool for "we want to see the numbers"** (§1c) | ~half a day | independent — **probably do this before 11** |
+| 11 | **Lane C**: `src/js/data/` doors + the first data tool | ~2 sessions | **`TEAM-WORKFLOW` phase 1 — the dev database. See §10.3; this is a hard block.** |
 
-Steps 2 + 3 are one batch and one deploy. Steps 4–6 are the second.
-**Step 0 is not a formality** — it is the only step that can cancel the rest.
+Steps 3 + 4 are one batch and one deploy; 6–8 are the second. **Step 0 is not a
+formality** — it is the only step that can cancel the rest. **Step 11 must not
+start early**; opening lane C without a dev database points five students at
+production student records (§10.3).
 
 ---
 
