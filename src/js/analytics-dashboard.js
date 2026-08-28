@@ -153,10 +153,31 @@ function emailPanel(e) {
   let warn = '';
   if (e.enabled === false) {
     warn = `<div class="an-email-note">อีเมลแจ้งเตือนถูกปิดอยู่ — ระบบไม่ได้ส่งอีเมลในขณะนี้</div>`;
-  } else if (e.in_app_enabled === false) {
-    // The estimate's one failure mode, and the dangerous direction: silent zero.
+  } else if (e.in_app_enabled === false || Number(e.staff_holders || 0) === 0) {
+    // TWO CAUSES, ONE SYMPTOM, and the symptom is the dangerous one: a zero
+    // that means "we are not counting", read as "we are not sending".
+    //
+    //   1. the in-app half switched off — no rows written, mail still sent;
+    //   2. NOBODY HOLDS THE STAFF SEAT — the in-app loop runs over an empty
+    //      list, but the email does not depend on that list at all. Look at
+    //      notifyUniStaff(): the send is gated on `notify_uni_email !== false
+    //      && to`, and `to` comes from the SETTINGS, never from the seat.
+    //
+    // Cause 2 was missed when this panel was written and found by re-reading
+    // the send path rather than the counting path. The count and the thing it
+    // counts have different inputs; that gap is the whole hazard.
     warn = `<div class="an-email-note an-email-note--warn">ตัวเลขนี้เชื่อถือไม่ได้ในขณะนี้ —
-      การแจ้งเตือนในระบบถูกปิดไว้ แต่ยังส่งอีเมลอยู่ จำนวนที่นับได้จึงต่ำกว่าความเป็นจริง</div>`;
+      ระบบยังส่งอีเมลอยู่ แต่นับจำนวนไม่ได้ครบ จำนวนที่แสดงจึงต่ำกว่าความเป็นจริง</div>`;
+  } else if (recip > Number(e.recipients_per_message_limit || 50)) {
+    // Not a rate limit — a hard per-message cap. One address over and the send
+    // fails outright, with nothing in the app to say so.
+    warn = `<div class="an-email-note an-email-note--warn">ผู้รับต่อฉบับเกินที่ระบบส่งได้ —
+      ตั้งไว้ ${fmt(recip)} คน แต่ส่งได้สูงสุด ${fmt(e.recipients_per_message_limit || 50)} คนต่อฉบับ
+      อีเมลจะส่งไม่ออกทั้งฉบับ</div>`;
+  } else if (Number(e.peak_per_minute || 0) >= Number(e.simultaneous_limit || 30) * 0.5) {
+    warn = `<div class="an-email-note an-email-note--warn">ส่งพร้อมกันถี่ขึ้นมาก —
+      สูงสุด ${fmt(e.peak_per_minute)} ฉบับในนาทีเดียว จากที่ระบบรับได้
+      ${fmt(e.simultaneous_limit || 30)} พร้อมกัน</div>`;
   } else if (pct >= 80) {
     warn = `<div class="an-email-note an-email-note--warn">ใกล้ถึงขีดจำกัดรายวัน —
       วันที่ใช้มากที่สุดใช้ไป ${fmt(peakCost)} จาก ${fmt(quota)}</div>`;
@@ -176,8 +197,152 @@ function emailPanel(e) {
         <span><b>${fmt(peak)}</b> สูงสุดต่อวัน</span>
         <span><b>${fmt(Math.max(quota - peakCost, 0))}</b> คงเหลือในวันที่หนักที่สุด</span>
       </div>
+      ${burstRow(e)}
       ${warn}
       ${barChart(e.sent_by_day, 'var(--brand-orange,#FF6F30)')}
+    </div>`;
+}
+
+/**
+ * The OTHER ceilings — the ones a comfortable daily total says nothing about.
+ *
+ * A day well inside 100 can still fail if it all arrives at once: Apps Script
+ * caps simultaneous executions at 30 per user, and one message at 50
+ * recipients. And unlike Discord — which is serialised through `queueDiscord`,
+ * one global chain, deliberately spaced — the email path calls `callGAS`
+ * DIRECTLY. Nothing spaces it. That asymmetry sits invisibly in two adjacent
+ * lines of notify.js and only shows up under load, which is exactly the kind of
+ * thing that belongs on a dashboard rather than in someone's memory.
+ *
+ * Measured 2026-08-28: busiest minute 2, busiest hour 5, tightest gap 7.7s —
+ * against a limit of 30. Not close. This keeps that current instead of letting
+ * it rot in a comment.
+ */
+function burstRow(e) {
+  const perMin = Number(e.peak_per_minute || 0);
+  const perHour = Number(e.peak_per_hour || 0);
+  const gap = e.min_gap_seconds;
+  const sim = Number(e.simultaneous_limit || 30);
+  if (!perMin && !perHour) return '';
+  const gapTxt = (gap === null || gap === undefined)
+    ? '' : `<span>ห่างกันน้อยสุด <b>${fmt(gap)}</b> วินาที</span>`;
+  return `<div class="an-email-legend an-email-legend--sub">
+      <span>พร้อมกันมากสุด <b>${fmt(perMin)}</b> ฉบับ/นาที (ระบบรับได้ ${fmt(sim)})</span>
+      <span><b>${fmt(perHour)}</b> ฉบับ/ชั่วโมง</span>
+      ${gapTxt}
+    </div>`;
+}
+
+/**
+ * ALL Apps Script traffic — because the quota is a SHARED budget.
+ *
+ * Apps Script's ceilings are per GOOGLE ACCOUNT, not per script, and every
+ * component draws on the same one: PR photo uploads, หนังสือโครงการ files,
+ * shop slips, SAMO Passport, and the notification email above. A quiet email
+ * month therefore says nothing about whether uploads are near the edge, which
+ * is what the email panel alone was missing.
+ *
+ * TWO NUMBERS, DELIBERATELY. The in-range peak answers "how are we doing now";
+ * the ALL-TIME peak answers "is the ceiling even reachable". They matter
+ * separately, because the worst minute on record (25, on 2026-05-22) falls
+ * outside a 30-day window — a range-only view would report "nothing to see"
+ * about the one event proving it can happen.
+ *
+ * It is a FLOOR. Only calls that leave a database row can be counted: deletes,
+ * folder reads, photo overwrites with no per-upload timestamp, anything from a
+ * component outside this database, and every FAILED call are all invisible.
+ * The panel says so rather than implying a complete count.
+ */
+/**
+ * EVERY Apps Script action, and whether the dashboard can see it.
+ *
+ * The owner asked for this explicitly: "list all the action write in the stat".
+ * It matters because the counted number is a FLOOR — showing a total without
+ * showing what is missing from it invites the reader to treat it as complete.
+ *
+ * `counted` means the action leaves a database row with a usable timestamp.
+ * The rest still consume the SAME shared quota and are simply invisible here;
+ * a failed call of any kind is invisible too, which is the traffic you would
+ * most want to see.
+ *
+ * Mirrored against `appscript/prform.gs` by `analytics-email.test.js` — two
+ * hand-maintained copies of one list is a bug this repo has paid for
+ * repeatedly, so the test fails if an action is added there and not here.
+ */
+const GAS_ACTIONS = [
+  { name: 'uploadPRFile',          label: 'อัปโหลดไฟล์ PR',            counted: true },
+  { name: 'uploadProjectFile',     label: 'อัปโหลดไฟล์หนังสือโครงการ',   counted: true },
+  { name: 'uploadShopFile',        label: 'อัปโหลดสลิป/รูปร้านค้า',      counted: true },
+  { name: 'uploadTeamFile',        label: 'อัปโหลดรูปทีม/สมาชิก',        counted: false },
+  { name: 'notifyProjectEmail',    label: 'ส่งอีเมลแจ้งเตือน',           counted: true },
+  { name: 'deletePRFile',          label: 'ลบไฟล์ PR',                  counted: false },
+  { name: 'deleteProjectFile',     label: 'ลบไฟล์หนังสือโครงการ',        counted: false },
+  { name: 'deleteProjectFolder',   label: 'ลบโฟลเดอร์โครงการ',           counted: false },
+  { name: 'deleteShopFile',        label: 'ลบไฟล์ร้านค้า',               counted: false },
+  { name: 'deleteTeamFile',        label: 'ลบรูปทีม',                   counted: false },
+  { name: 'getProjectFolderInfo',  label: 'อ่านข้อมูลโฟลเดอร์',          counted: false },
+  { name: 'getProjectFileData',    label: 'อ่านไฟล์โครงการ',             counted: false },
+];
+
+/** The action table — what uses the shared quota, and what we can see. */
+function gasActionList() {
+  const row = (a) => `<tr>
+      <td>${escHtml(a.label)}</td>
+      <td><code>${escHtml(a.name)}</code></td>
+      <td>${a.counted
+        ? '<span class="an-gas-yes">นับได้</span>'
+        : '<span class="an-gas-no">มองไม่เห็น</span>'}</td>
+    </tr>`;
+  return `<div class="an-gas-actions">
+      <table>
+        <thead><tr><th>การทำงาน</th><th>ชื่อในระบบ</th><th>ในสถิตินี้</th></tr></thead>
+        <tbody>${GAS_ACTIONS.map(row).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function gasPanel(g) {
+  if (!g) return '';
+  const limit = Number(g.simultaneous_limit || 30);
+  const ever = Number(g.peak_per_minute_ever || 0);
+  const now = Number(g.peak_per_minute || 0);
+  const pct = Math.min(100, Math.round((ever / limit) * 100));
+  const tone = pct >= 80 ? '#dc2626' : pct >= 50 ? 'var(--brand-orange,#FF6F30)' : 'var(--brand-primary,#105922)';
+
+  const warn = ever >= limit * 0.5
+    ? `<div class="an-email-note an-email-note--warn">เคยมีช่วงที่เรียกใช้พร้อมกันถึง
+        ${fmt(ever)} ครั้งในนาทีเดียว${g.busiest_minute_at ? ` (${escHtml(g.busiest_minute_at)})` : ''} —
+        ระบบรับได้ ${fmt(limit)} พร้อมกัน ถ้าเกินกว่านี้จะมีบางรายการทำไม่สำเร็จโดยไม่มีคำเตือน</div>`
+    : '';
+
+  return `<div class="an-card an-card--wide">
+      <div class="an-card-head">
+        <h3>การเรียกใช้ระบบไฟล์และอีเมล (ทุกระบบรวมกัน)</h3>
+        <span>สูงสุด ${fmt(ever)} ครั้ง/นาที จากที่รับได้ ${fmt(limit)}</span>
+      </div>
+      <div class="an-email-meter" style="--fill:${pct}%;--tone:${tone}">
+        <div class="an-email-meter-bar"></div>
+      </div>
+      <div class="an-email-legend">
+        <span><b>${fmt(g.total)}</b> ครั้งในช่วงที่เลือก</span>
+        <span><b>${fmt(g.peak_per_day)}</b> สูงสุดต่อวัน</span>
+        <span><b>${fmt(now)}</b> สูงสุดต่อนาทีในช่วงนี้</span>
+      </div>
+      <div class="an-email-legend an-email-legend--sub">
+        <span>นับได้เฉพาะรายการที่บันทึกไว้ — การลบ การเปิดดูไฟล์
+          และรายการที่ทำไม่สำเร็จ ไม่ถูกนับ ตัวเลขจริงจึงสูงกว่านี้${
+          Number(g.excluded_bulk || 0)
+            ? ` · ไม่นับ ${fmt(g.excluded_bulk)} รายการที่เป็นการนำเข้าข้อมูล ไม่ใช่การใช้งานจริง`
+            : ''}</span>
+      </div>
+      ${warn}
+      ${barChart(g.by_day, '#6366f1')}
+      <div class="an-card-head" style="margin-top:.9rem"><h3>แยกตามระบบ</h3></div>
+      ${rankBars((g.by_source || []).map((x) => ({ label: x.label, n: x.n })), '#6366f1')}
+      <div class="an-card-head" style="margin-top:.9rem">
+        <h3>สิ่งที่ใช้โควตาเดียวกัน</h3><span>ทุกระบบใช้บัญชี Google เดียวกัน</span>
+      </div>
+      ${gasActionList()}
     </div>`;
 }
 
@@ -245,6 +410,7 @@ function render(body, d) {
         ${barChart(d.visitors_by_day, 'var(--vs-accent,#0d9488)')}
       </div>
       ${emailPanel(d.email)}
+      ${gasPanel(d.gas)}
       <div class="an-card">
         <div class="an-card-head"><h3>แท็บที่ใช้บ่อย</h3></div>
         ${rankBars((d.top_paths || []).map((p) => ({ label: p.path, n: p.n })), 'var(--brand-primary,#105922)', (l) => TAB_TH[l] || l)}

@@ -10,7 +10,7 @@ import { escHtml } from '../utils.js';
 import { GAS_API_URL } from '../config.js';
 import { callGAS } from '../discord-queue.js';
 import { upsertDocType, saveSettings } from './api.js';
-import { normalizeRecipients, resolveRecipients } from './notify.js';
+import { normalizeRecipients, resolveRecipients, markSubject } from './notify.js';
 
 let onChanged = () => {};
 let state = { docTypes: [], settings: null, role: null };
@@ -114,7 +114,11 @@ async function onSendTestEmail(emailFieldId = 'projectSettingsUniEmail') {
   try {
     const res = await callGAS(GAS_API_URL, 'notifyProjectEmail', {
       to,
-      subject: '[MDKKU SAMO] ทดสอบอีเมลแจ้งเตือนหนังสือโครงการ',
+      // Marked like every other send: a test mail from a preview must not
+      // look like a real one in the recipient's inbox either.
+      subject: markSubject('[MDKKU SAMO] ทดสอบอีเมลแจ้งเตือนหนังสือโครงการ',
+        import.meta.env.VITE_ENV_NAME,
+        typeof location !== 'undefined' ? location.hostname : ''),
       htmlBody: '<div style="font-family:sans-serif">นี่คืออีเมลทดสอบจากระบบหนังสือโครงการ MDKKU SAMO — หากได้รับแสดงว่าการตั้งค่าอีเมลทำงานปกติ</div>',
     });
     if (res && res.success !== false) {

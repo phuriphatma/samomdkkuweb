@@ -73,7 +73,7 @@ TRUE. That is what the grep is for.
   `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
   (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
   concluding a deploy failed; each has been mistaken for one.
-- **Migrations through 0170.** For the test count run `npm test` — a number
+- **Migrations through 0173.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
   2026-08-27**, after 0169 was applied to production. Run `npm test` /

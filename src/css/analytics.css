@@ -230,3 +230,37 @@
   background: #fff4ed;
   border-left: 3px solid var(--brand-orange, #ff6f30);
 }
+/* The burst row sits under the volume legend and is deliberately quieter —
+   it answers "are we anywhere near?", which is normally "no". */
+.an-email-legend--sub {
+  font-size: 0.75rem;
+  margin-top: -0.35rem;
+  opacity: 0.85;
+}
+
+/* The Apps Script action table — what shares the quota, and what this
+   dashboard can actually see. Deliberately plain: it is a reference list,
+   not a metric, and should not compete with the charts above it. */
+.an-gas-actions { overflow-x: auto; margin-top: 0.4rem; }
+.an-gas-actions table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+.an-gas-actions th {
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7a8a80;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem 0.35rem 0;
+  border-bottom: 1px solid #e2eae4;
+  white-space: nowrap;
+}
+.an-gas-actions td {
+  padding: 0.32rem 0.6rem 0.32rem 0;
+  border-bottom: 1px solid #f0f4f1;
+  color: #45544c;
+  vertical-align: top;
+}
+.an-gas-actions tr:last-child td { border-bottom: 0; }
+.an-gas-actions code { font-size: 0.92em; color: #5c6b63; }
+.an-gas-yes { color: #1f6f43; font-weight: 600; }
+.an-gas-no { color: #9a8570; }

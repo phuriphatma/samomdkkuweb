@@ -41,11 +41,19 @@ const MIG = readFileSync(
  * the function is extracted and executed against the payload shapes the RPC
  * actually returns, and the assertions are made on rendered OUTPUT.
  */
-function renderPanel(email) {
-  const start = SRC.indexOf('function emailPanel(');
-  expect(start, 'emailPanel() is gone — the panel was renamed or removed').toBeGreaterThan(-1);
-  const end = SRC.indexOf('\nfunction render(body, d) {', start);
-  const body = SRC.slice(start, end);
+function extract(name, ...alsoNeeds) {
+  const start = SRC.indexOf(`function ${name}(`);
+  expect(start, `${name}() is gone — was it renamed or removed?`).toBeGreaterThan(-1);
+  const end = SRC.indexOf('\nfunction ', start + 10);
+  return SRC.slice(start, end === -1 ? undefined : end)
+    + alsoNeeds.map((n) => `\n${extract(n)}`).join('');
+}
+
+function renderPanel() {
+  // emailPanel calls burstRow, so both must come along. Slicing "everything up
+  // to render()" used to work and silently started dragging gasPanel in too
+  // when it was added between them — extract by NAME instead.
+  const body = extract('emailPanel', 'burstRow');
   const fmt = (n) => Number(n || 0).toLocaleString('en-US');
   const escHtml = (x) => String(x).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -53,6 +61,33 @@ function renderPanel(email) {
   // eslint-disable-next-line no-new-func
   return Function('fmt', 'escHtml', 'barChart', `${body}\nreturn emailPanel;`)(
     fmt, escHtml, barChart);
+}
+
+/** The action table's source, which is a const rather than a function. */
+function gasActionsSource() {
+  const start = SRC.indexOf('const GAS_ACTIONS = [');
+  expect(start, 'GAS_ACTIONS is gone').toBeGreaterThan(-1);
+  const end = SRC.indexOf('];', start) + 2;
+  return SRC.slice(start, end);
+}
+
+/** The same, for the shared-budget GAS panel. */
+function renderGas() {
+  const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+  const escHtml = (x) => String(x).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const barChart = () => '<!--chart-->';
+  const rankBars = () => '<!--rank-->';
+  const body = `${gasActionsSource()}\n${extract('gasActionList')}\n${extract('gasPanel')}`;
+  // eslint-disable-next-line no-new-func
+  return Function('fmt', 'escHtml', 'barChart', 'rankBars',
+    `${body}\nreturn gasPanel;`)(fmt, escHtml, barChart, rankBars);
+}
+
+/** The action list itself, for the mirror test against prform.gs. */
+function gasActions() {
+  // eslint-disable-next-line no-new-func
+  return Function(`${gasActionsSource()}\nreturn GAS_ACTIONS;`)();
 }
 
 const BASE = {
@@ -81,6 +116,16 @@ describe('the อีเมลแจ้งเตือน panel', () => {
     expect(html).toMatch(/เชื่อถือไม่ได้/);
   });
 
+  it('warns when NOBODY holds the staff seat — mail still sends, rows do not', () => {
+    // The second cause of a silent zero, and the one the first version missed.
+    // notifyUniStaff() sends on `notify_uni_email !== false && to`, where `to`
+    // comes from SETTINGS. The in-app rows this count is derived from come
+    // from the seat. Empty seat, no rows, mail still going out.
+    const html = panel({ ...BASE, staff_holders: 0, sent_total: 0, peak_day: 0 });
+    expect(html, 'zero seat holders reads as "we send no email" while sending')
+      .toContain('an-email-note--warn');
+  });
+
   it('distinguishes "switched off" from "cannot be trusted"', () => {
     const off = panel({ ...BASE, enabled: false });
     expect(off).toContain('an-email-note');
@@ -101,6 +146,46 @@ describe('the อีเมลแจ้งเตือน panel', () => {
     expect(html, 'multi-recipient cost is not counted against the quota')
       .toContain('an-email-note--warn');
     expect(html).toContain('120');
+  });
+
+  // ── the OTHER ceilings (0171) ─────────────────────────────────────────
+  //
+  // A comfortable daily total says nothing about sending many at once. Apps
+  // Script caps simultaneous executions at 30/user and one message at 50
+  // recipients — and the email path, unlike Discord's, is NOT serialised.
+  it('shows burst against the concurrency ceiling', () => {
+    const html = panel({ ...BASE, peak_per_minute: 2, peak_per_hour: 5,
+      min_gap_seconds: 7.7, simultaneous_limit: 30 });
+    expect(html).toContain('2');
+    expect(html).toContain('30');
+    expect(html).toContain('7.7');
+    // 2 of 30 is not an alarm.
+    expect(html, 'the panel cries wolf at 2 sends a minute').not.toContain('an-email-note--warn');
+  });
+
+  it('warns when sends start bunching toward the concurrency limit', () => {
+    expect(panel({ ...BASE, peak_per_minute: 20, simultaneous_limit: 30 }))
+      .toContain('an-email-note--warn');
+    expect(panel({ ...BASE, peak_per_minute: 4, simultaneous_limit: 30 }))
+      .not.toContain('an-email-note--warn');
+  });
+
+  it('warns when one message would exceed the per-message recipient cap', () => {
+    // A hard cap, not a rate limit: one address over and the send fails
+    // outright, with nothing in the app to say so.
+    const html = panel({ ...BASE, recipients: 51, recipients_per_message_limit: 50 });
+    expect(html).toContain('an-email-note--warn');
+    expect(html).toContain('51');
+  });
+
+  it('a payload without the burst fields still renders (0170 shape)', () => {
+    // The RPC and the bundle deploy separately; the panel must not assume the
+    // newer migration is live.
+    const { peak_per_minute, peak_per_hour, min_gap_seconds, ...old } = {
+      ...BASE, peak_per_minute: 1, peak_per_hour: 1, min_gap_seconds: 1 };
+    expect(() => panel(old)).not.toThrow();
+    expect(panel(old), 'an empty burst row was drawn from a payload that has none')
+      .not.toContain('an-email-legend--sub');
   });
 
   it('survives a payload the RPC could not build', () => {
@@ -239,5 +324,102 @@ describe('only production emails the configured recipients', () => {
       expect(guarded, `${f} has ${sends} mail send(s) but ${guarded} guarded recipient(s)`)
         .toBeGreaterThanOrEqual(sends);
     }
+  });
+});
+
+// ── Apps Script is a SHARED budget across every component ───────────────
+//
+// The owner's correction, and the important one: "there're many components
+// like photo upload etc samoweb samopassport ระบบจองห้องสโม also use the same
+// gas". Apps Script quotas are per GOOGLE ACCOUNT, not per script, so a quiet
+// email month says nothing about whether uploads are near the ceiling.
+describe('the shared Apps Script panel', () => {
+  const gas = renderGas();
+  const G = {
+    simultaneous_limit: 30, is_floor: true, total: 254,
+    peak_per_day: 13, peak_per_hour: 7, peak_per_minute: 2,
+    peak_per_minute_ever: 25, busiest_minute_at: '2026-05-22 11:07',
+    by_source: [{ label: 'อัปโหลด PR', n: 124 }], by_day: [{ d: '2026-08-01', n: 3 }],
+  };
+
+  it('warns on the ALL-TIME peak, not only the selected range', () => {
+    // Synthetic numbers, on purpose: real traffic has never exceeded 2/minute
+    // (the "25" this was first written against turned out to be a bulk import,
+    // see 0173). What is being tested is that a spike OUTSIDE the selected
+    // range still raises the warning — a range-only view would show today's
+    // quiet 2/minute and say nothing about the day it nearly hit the ceiling.
+    const html = gas(G);
+    expect(html).toContain('25');
+    expect(html).toContain('2026-05-22 11:07');
+    expect(html, 'a spike outside the range is not surfaced').toContain('an-email-note--warn');
+  });
+
+  it('stays quiet when nothing has ever come close', () => {
+    expect(gas({ ...G, peak_per_minute_ever: 3, busiest_minute_at: null }))
+      .not.toContain('an-email-note--warn');
+  });
+
+  it('admits the count is a floor', () => {
+    // Deletes, reads, photo overwrites and FAILED calls leave no row. Implying
+    // a complete count is how a dashboard becomes confidently wrong.
+    expect(gas(G)).toMatch(/ไม่ถูกนับ/);
+  });
+
+  it('survives a payload from before the migration', () => {
+    expect(gas(null)).toBe('');
+    expect(() => gas({})).not.toThrow();
+  });
+
+  it('the migration ships every field the panel reads', () => {
+    const mig = readFileSync(join(ROOT,
+      'supabase/migrations/0172_analytics_shows_all_apps_script_traffic.sql'), 'utf8');
+    for (const k of ['peak_per_minute_ever', 'busiest_minute_at', 'is_floor',
+                     'simultaneous_limit', 'by_source', 'peak_per_day']) {
+      expect(mig, `0172 does not ship ${k}, which the panel reads`).toContain(`'${k}'`);
+    }
+    // Passport shares the account, so it must be in the union or the panel
+    // under-reports the shared budget it exists to show.
+    expect(mig, 'passport traffic is not counted — it shares the same Google account')
+      .toContain('passport.');
+  });
+});
+
+// ── The action list must match the Apps Script it describes ─────────────
+describe('the Apps Script action list', () => {
+  it('lists every action prform.gs actually handles, and no phantom ones', () => {
+    // Two hand-maintained copies of one list is a bug class this repo has paid
+    // for repeatedly. Assert against the SOURCE OF TRUTH — the handler itself —
+    // rather than against a list copied from it.
+    const gs = readFileSync(join(ROOT, 'appscript/prform.gs'), 'utf8');
+    const inGas = new Set(
+      [...gs.matchAll(/action === '([a-zA-Z]+)'/g)].map((m) => m[1]));
+    const listed = new Set(gasActions().map((a) => a.name));
+
+    const missing = [...inGas].filter((a) => !listed.has(a));
+    const phantom = [...listed].filter((a) => !inGas.has(a));
+    expect(missing, 'prform.gs handles actions the dashboard does not list — they use the same quota')
+      .toEqual([]);
+    expect(phantom, 'the dashboard lists actions prform.gs does not handle')
+      .toEqual([]);
+  });
+
+  it('every action says whether the dashboard can see it', () => {
+    for (const a of gasActions()) {
+      expect(typeof a.counted, `${a.name} does not say if it is counted`).toBe('boolean');
+      expect(a.label && a.label.length > 2, `${a.name} has no readable label`).toBe(true);
+    }
+    // Both kinds must exist, or the column is decorative. The whole point is
+    // that the total is a FLOOR — a list where everything is "counted" would
+    // say the opposite of what is true.
+    const counted = gasActions().filter((a) => a.counted).length;
+    expect(counted).toBeGreaterThan(0);
+    expect(counted).toBeLessThan(gasActions().length);
+  });
+
+  it('the panel renders the list, not just holds it', () => {
+    const html = renderGas()({ simultaneous_limit: 30, peak_per_minute_ever: 2, total: 1 });
+    expect(html).toContain('uploadPRFile');
+    expect(html).toContain('getProjectFileData');
+    expect(html).toMatch(/มองไม่เห็น/);
   });
 });
