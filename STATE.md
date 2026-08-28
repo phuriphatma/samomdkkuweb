@@ -81,6 +81,9 @@ TRUE. That is what the grep is for.
   `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
   (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
   concluding a deploy failed; each has been mistaken for one.
+- ⚠️ **The new สถิติ panels have NEVER been rendered** — unit-tested and grepped
+  in the served bundle, but nobody has opened `/admin#analytics`. Drive it
+  (`skills/drive-the-browser.md` §4); details in `docs/state/phuriphatma.md`.
 - **Migrations through 0173.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
@@ -136,8 +139,8 @@ is blocked on anyone, and there is no queue of buildable work left in it.
 - ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
   Ask the DATABASE for any runtime state or count; this file must not carry
   them. The durable rules from these are in `docs/INVARIANTS.md`.
-- ⏸ **The boot bar's first-failure branch — OFFERED, owner will decide.** See
-  the Stay block above. Do not build it unprompted.
+- ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.** Do not
+  build unprompted.
 - ✅ **DEV SYSTEM — phases 0 and 1 are DONE and `samo-dev` IS USABLE.**
   Plan: `docs/TEAM-WORKFLOW.md`. Procedure + every trap:
   `skills/build-the-dev-database.md`.
@@ -153,15 +156,11 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   connect IN and the VM has no inbound port but 443; dev mail is now forced to
   one test inbox at the transport instead. **That is NOT "the VM cannot do
   mail": it CAN send** via a relay on 587. Full assessment: `docs/EMAIL.md`.
-  ⚠️ **Four `samo-dev` hazards fixed 2026-08-28 — detail in `docs/EMAIL.md` §6.**
-  It emailed a REAL `@kku.ac.th` staff address (same GAS deployment as prod);
-  now the owner's test inbox, re-applied by `dev:refresh` step 7 so a rebuild
-  cannot undo it, and non-prod subjects carry an `[ENV]` prefix. Auth also
-  diverged: `mailer_autoconfirm` `false` where `auth.js` DEPENDS on `true`,
-  `site_url` `:3000`, and an EMPTY `uri_allow_list` — so no preview could
-  finish a redirect. **Google sign-in is still OFF on dev** (owner: an OAuth
-  client). (The plan's `#samo-dev-bot` EXISTS — it is
-  `#developer-server-notify`, and previews post there.)
+  ⚠️ **Four `samo-dev` hazards fixed 2026-08-28 — all four in `docs/EMAIL.md` §6**
+  (it emailed a REAL staff address; three auth settings diverged). Both are now
+  guarded: `dev:refresh` step 7 and `npm run dev:check`.
+  **Google sign-in is still OFF on dev** (owner: an OAuth client). The plan's
+  `#samo-dev-bot` EXISTS — it is `#developer-server-notify`.
   ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
   2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
   posts the link; the ribbon ships; the `/notify` dev stub prints to the
@@ -202,7 +201,6 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   ERASED at next login" means the **`managed_*`** columns only —
   `sync_my_team_permissions` does not touch `permissions`, which is why
   `dev-grants.mjs` writes that one.
-- **The org chart on a REAL iPad.** Verified on Playwright's WebKit only.
 - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
 - `docs/NEXT.md` carries the rest. **§0d is DONE (0168, 2026-08-26)** and is
   kept there only as a PATTERN worth copying. What is genuinely un-started:

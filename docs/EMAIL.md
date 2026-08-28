@@ -22,6 +22,11 @@ limits without getting flagged.
 
 ---
 
+📎 **A plain-language version of this assessment**, written for a reader who is
+not a mail specialist (the letter-and-front-desk framing, no jargon):
+<https://claude.ai/code/artifact/7b4d7e5b-9ce8-4272-a701-15d326eea064>. Same
+conclusions; this file keeps the evidence and the exact numbers.
+
 ## 1. What sends email today
 
 Two senders, and only one of them is admitted by `CLAUDE.md`.

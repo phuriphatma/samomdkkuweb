@@ -449,3 +449,17 @@ service that has none today. The refresh button re-reads the DATABASE only, and
 says so.
 
 **Recommendation: leave it at 15 minutes.**
+
+## The org chart on a REAL iPad
+
+Moved out of `STATE.md` on 2026-08-28 to stay under its line ceiling — it is a
+task, not a status, and deleting it would have lost the only record.
+
+The org chart has been verified on **Playwright's WebKit only**. That is the
+same engine iOS uses, but not the same device: touch targets, momentum
+scrolling, pinch-zoom and the safe-area insets are all things a desktop WebKit
+does not reproduce. It has never been opened on real hardware.
+
+📌 Related, and already paid for once: **a bug in one iOS browser but not
+another is never the browser** — every iOS browser is WebKit, so the variable is
+STATE. Disprove with a fresh context first (`docs/mistakes/frontend-ui.md`).

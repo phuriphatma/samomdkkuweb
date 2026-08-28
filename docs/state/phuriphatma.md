@@ -90,6 +90,25 @@ Worth knowing that the first handoff was incomplete, and how:
 context — a capability exercised once, a fix applied by hand, a number verified
 in a scratchpad. Those are the things that vanish silently.
 
+### ⚠️ THE NEW สถิติ PANELS HAVE NEVER BEEN LOOKED AT
+
+Be precise about what was verified, because it is less than it sounds:
+
+- ✅ the render functions have 29 unit tests, each falsified;
+- ✅ the strings and CSS classes are in the SERVED bundle and stylesheet;
+- ❌ **nobody has opened `/admin#analytics` and SEEN them.**
+
+This repo's own rule is that *a change is NOT verified in a view you never
+opened*, and the failures that would survive everything above are exactly the
+visual ones: a meter with no width, a table overflowing on a phone, the burst
+row colliding with the legend, Thai text wrapping badly. `an-email-meter` uses
+`--fill` as an inline width — if that percentage is ever 0 the bar is invisible
+and looks like a bug rather than good news.
+
+**Next session: drive it.** `skills/drive-the-browser.md` §4 has the auth
+recipe, and `/admin#analytics` needs any admin grant. It is the last honest step
+on this work.
+
 ### What is genuinely un-started (not blocked, just not begun)
 
 - `src/data/tools.js`, the one-source ฝ่าย tool registry — `DEPT_DEFS` and
