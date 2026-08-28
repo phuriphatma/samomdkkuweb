@@ -53,25 +53,25 @@ TRUE. That is what the grep is for.
   ⚠️ **Production renders NO env ribbon** — confirmed by DRIVING the page, not
   grepping. A grep for `"preview"` DOES hit, from an unrelated announcements
   button; the rendered DOM is the instrument.
-  Previous: `36ac1d5` (2026-08-26 late).
+  Previous: `832bb14`, and `7405712` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
-  about `src/` and the two entry HTMLs alone — **EMPTY means current**:
+  about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
 
   ```bash
-  git diff --stat 7405712..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+  npm run deploy:owed
   ```
 
-- ⚠️ **Verify a deploy from the SERVED artifact, and grep the RIGHT one.** The
-  VM builds its own asset hashes, so find the bundle name in the served HTML.
-  Most shared code lands in the chunk Vite names **`analytics-*.js`**, which
-  BOTH entries load — grepping only `public-*.js` or `admin-*.js` reports 0 and
-  looks exactly like a failed deploy. Pick a **string literal or a CSS class**
-  as the marker; module-scope function names are renamed by the minifier.
-  ⚠️ **A string behind `import.meta.env` is DELETED, not renamed** — Vite
-  substitutes at build time, so a message inside `if (!VITE_SUPABASE_URL)` greps
-  0 in every build that has the vars, correctly. Grep a known-shipping control
-  beside whatever you are looking for.
+  It reads the ✅ DEPLOYED line above, which is the sha's only home, and
+  compares that commit with the WORKING TREE. Exit 0 = prod is current.
+  ⛔ **Never paste a `git diff <sha>..HEAD` snippet back into this file.** That
+  is what rotted: the sha had four homes here and one of them was corrected.
+
+- ⚠️ **Verify a deploy from the SERVED artifact, and grep the RIGHT one** — the
+  shared-chunk trap and the marker rules are durable, so they live once, in
+  `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
+  (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
+  concluding a deploy failed; each has been mistaken for one.
 - **Migrations through 0169.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
@@ -249,9 +249,9 @@ Two more the assistant should offer rather than assume:
   switches live on GitHub, outside git — turn them off and no test goes red,
   while every contributor rule built on 2026-08-27 silently becomes advisory.
 
-**Nothing is owed to a person, and no deploy is owed** — `7405712` is deployed
-and verified. Check, do not trust this line:
+**Nothing is owed to a person, and no deploy is owed.** Check, do not trust
+this line — and note it names no sha, on purpose:
 
 ```bash
-git diff --stat 7405712..HEAD -- src/ ':!src/**/*.test.js' index.html admin/index.html
+npm run deploy:owed
 ```

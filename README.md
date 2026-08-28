@@ -255,6 +255,7 @@ Authorized JavaScript origins.
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
 | `npm test` | Vitest suite (run this and `build` before every commit) |
+| `npm run deploy:owed` | Is production serving current code? Reads the deployed sha from the one place it is written (`STATE.md`'s ✅ DEPLOYED line) and compares that commit with your WORKING TREE — so uncommitted and never-added files count too. Ignores docs, write-ups and tests, which never reach a bundle. Exit 0 = nothing owed. |
 | `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
 | `npm run proofs` | Run every live database proof (RLS boundaries, column guards, definer-function authorization) against the real project in rolled-back transactions, and print one verdict each. Needs `SUPABASE_ACCESS_TOKEN` in `.env.local`, so it is a maintainer step, not a CI one. `npm run proofs <substring>` runs a subset. |
 | `npm run dev:refresh` | Rebuild `samo-dev` from production — schema, data and permissions — then verify the two match. Needs `CONFIRM=1`; refuses to run against production. Maintainer step. |

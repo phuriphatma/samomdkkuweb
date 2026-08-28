@@ -267,7 +267,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `systemctl enable --now` reported success and scheduled nothing
 - "I grepped the served bundle for the string I just changed and it is not there
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(22)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(23)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -293,5 +293,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A refresh script printed "identical to production" while refreshing nothing
 - `npm test | grep` returned success while the suite was failing
 - `urllib` got 403 from Discord and I reported the service as DOWN
+- The verification command in STATE.md named a sha two deploys behind
 
-_237 entries across 9 files._
+_238 entries across 9 files._

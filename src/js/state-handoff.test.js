@@ -31,6 +31,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const STATE = readFileSync(join(ROOT, 'STATE.md'), 'utf8');
@@ -56,8 +57,6 @@ function namedPaths(md) {
  * exemption is how a real broken pointer gets parked here and forgotten.
  */
 const ABSENT_ON_PURPOSE = {
-  'src/html/tab-golden-period.html':
-    'PLANNED, not written — the Golden Period draft page, specced in docs/state/phuriphatma.md with the exact wiring. Named there so the next session creates it at the agreed path; DELETE this exemption in the same commit that creates the file',
   '.claude/rules/mistakes-archive.md':
     'deleted; STATE.md names it only to say "do not re-create it" — it lived in the auto-loaded directory, so archiving into it saved nothing',
   'docs/state-archive/YYYY-MM-DD.md':
@@ -138,6 +137,26 @@ describe('STATE.md is a handoff, not a memory', () => {
     }
   });
 
+  // An exemption is a claim about the world, and unlike "claude0157 is red"
+  // this one IS checkable. `src/html/tab-golden-period.html` was exempted as
+  // "PLANNED, not written — DELETE this exemption in the same commit that
+  // creates the file". The file was created on 2026-08-27 and the exemption
+  // stayed, so for every day after that the dead-pointer sweep SKIPPED a real
+  // file: rename or delete it and both sweeps above would have stayed green
+  // while STATE.md pointed at nothing. A guard fails GREEN when its exemption
+  // list outlives the absence it describes.
+  it('no exemption survives the file arriving', () => {
+    const arrived = Object.keys(ABSENT_ON_PURPOSE).filter(
+      (p) => existsSync(join(ROOT, p)) || existsSync(join(ROOT, 'src/js', p)),
+    );
+    expect(arrived, [
+      'These paths are listed as ABSENT_ON_PURPOSE but exist on disk.',
+      'An exemption for a file that is THERE is not an exemption — it is a hole:',
+      'the dead-pointer sweep skips that path, so a later rename goes unnoticed.',
+      'Delete the entry.',
+    ].join('\n')).toEqual([]);
+  });
+
   it('its "migrations through NNNN" matches the migrations on disk', () => {
     const claimed = [...STATE.matchAll(/Migrations through \*{0,2}(\d{4})\*{0,2}/gi)].map((m) => m[1]);
     expect(claimed.length, 'STATE.md no longer states a migration high-water mark').toBeGreaterThan(0);
@@ -181,6 +200,57 @@ describe('STATE.md is a handoff, not a memory', () => {
   // permits it to be absent. On 2026-08-28 STATE.md said "1323 tests" when the
   // suite ran 1355: single-homed, guarded, and wrong. A number nothing can
   // verify is better replaced by the command that produces it.
+  // ── THE DEPLOYED SHA ────────────────────────────────────────────────────
+  //
+  // The header of this file already records that a stale deployed sha "reads
+  // exactly like there is a deploy owed and costs a VPN session to disprove".
+  // It happened AGAIN on 2026-08-28, in a worse shape: the ✅ DEPLOYED line was
+  // correctly updated to `2151d6a`, while the file's own two "check, do not
+  // trust this line" commands and its closing paragraph still read
+  // `git diff --stat 7405712..HEAD`. Four homes, one corrected — and this time
+  // the stale copy was the INSTRUMENT. Running what the file told you to run
+  // reported 132 insertions of already-shipped code.
+  //
+  // Checking that the copies AGREE would be the weak guard: it leaves the
+  // retyping in place and only notices after someone forgets. So this forbids
+  // the SHAPE. The sha lives in exactly one line, and the verification command
+  // reads it from there — `npm run deploy:owed`, which also diffs the WORKING
+  // TREE, something `<sha>..HEAD` cannot see.
+  it('states the deployed sha exactly once, and never retypes it into a command', () => {
+    const declared = [...STATE.matchAll(/DEPLOYED = `([0-9a-f]{7,40})`/g)].map((m) => m[1]);
+    expect(declared.length, [
+      `STATE.md marks ${declared.length} deployed shas${declared.length ? ` (${declared.join(', ')})` : ''}; there must be exactly 1.`,
+      '0 — restore the line: - ✅ **DEPLOYED = `<sha>` (YYYY-MM-DD)**',
+      '2+ — that IS the bug: one fact, two homes, and only one of them corrected.',
+    ].join('\n')).toBe(1);
+
+    // Any OTHER 7+ hex sha fed to a `git diff ...HEAD` is a retyped copy.
+    const retyped = [...STATE.matchAll(/git diff[^\n]*?\b([0-9a-f]{7,40})\.\.HEAD/g)].map((m) => m[1]);
+    expect(retyped, [
+      'STATE.md hand-writes a deployed sha into a `git diff <sha>..HEAD` command.',
+      'That is the copy that rots — on 2026-08-28 two of them were two deploys',
+      'behind the ✅ DEPLOYED line and reported an already-shipped deploy as owed.',
+      'Use `npm run deploy:owed`; it reads the sha from the DEPLOYED line, which',
+      'is its only home, and it can also see uncommitted work.',
+    ].join('\n')).toEqual([]);
+
+    // And the one home must resolve. A mistyped sha is silent otherwise.
+    const sha = declared[0];
+    let resolves = null;
+    try {
+      execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`],
+        { cwd: ROOT, stdio: 'ignore' });
+      resolves = true;
+    } catch (err) {
+      // No git (a tarball, a sandbox) is not a stale handoff — do not fail the
+      // healthy case. Only a git that ran and said NO counts.
+      resolves = err.code === 'ENOENT' ? null : false;
+    }
+    if (resolves === false) {
+      throw new Error(`STATE.md says DEPLOYED = ${sha}, which is not a commit in this repo.`);
+    }
+  });
+
   it('does not state two different test counts (and need not state one)', () => {
     const counts = new Set([...STATE.matchAll(/\*\*(\d{3,5}) tests/g)].map((m) => m[1]));
     expect([...counts], 'STATE.md states more than one test count — correct BOTH homes')

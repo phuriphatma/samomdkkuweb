@@ -96,6 +96,12 @@ it is the part that generalises to code not yet written.
    sentence looks equally authoritative. **Grep the WHOLE file for a claim's
    other homes before committing a correction**; give a decaying fact ONE home;
    keep the LESSON in an old block, never the counts (`state-handoff.test.js`).
+   **WORST WHEN THE STALE COPY IS THE INSTRUMENT**: the deployed sha had FOUR
+   homes and one was corrected, so STATE.md's own "check, do not trust this
+   line" command named a sha two deploys back and printed 132 insertions of
+   ALREADY-SHIPPED code — false evidence with a diffstat, which invites none
+   of the doubt a sentence does. Delete the retyping, do not retype more
+   carefully: `npm run deploy:owed` READS the one home (`tooling-proofs.md`).
    **Erasing a field a stronger grant "covers" — SCOPE or IDENTITY?** A scope
    has a widest value the grant IS (VS แผนก, Passport ฝ่าย); an identity names
    one of several roles, which access cannot answer. `master` nulled the
@@ -177,7 +183,10 @@ it is the part that generalises to code not yet written.
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
    (`integrations.md`). Two authors of one instruction, neither able to see the
    contradiction from where it sits.
-   The five ways, each paid for here: it cannot SEE the hazard (0146) · its
+   The ways, each paid for here: it cannot SEE the hazard (0146 — and
+   `deploy-owed` v1, whose `<sha>..HEAD` could not see the WORKING TREE) ·
+   its EXEMPTION outlived the absence ("PLANNED, not written" for a file that
+   then arrived, so the sweep skipped a REAL path) · its
    CONTROL finds nothing either (0147) · satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
    name that rotted (`proj0092`, `house0116`) — **or its SCENARIO needs live
@@ -248,6 +257,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(26)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(22)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(23)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

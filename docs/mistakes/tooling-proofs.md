@@ -928,3 +928,67 @@ answers: 401 said "invalid webhook token" (a real verdict about the credential),
 result from a network probe, reproduce it with a second client.** Two clients
 disagreeing means the instrument; two agreeing means the world.
 
+
+---
+
+## The verification command in STATE.md named a sha two deploys behind — so following the handoff's own instructions reported a deploy that had already shipped
+
+**Symptom.** `STATE.md` said, in bold, *"Check, do not trust this line"*, and
+gave the command to run. Running it printed seven changed files and **132
+insertions** under `src/` — the unmistakable shape of *a deploy is owed*. Nothing
+was owed. Everything it listed had shipped two deploys earlier.
+
+**Cause.** The deployed sha had **four homes** in one file, and exactly one of
+them had been corrected:
+
+| line | said | actual |
+|---|---|---|
+| the ✅ DEPLOYED line | `2151d6a` | ✅ correct |
+| "Previous:" | `36ac1d5` | `832bb14` (two deploys stale) |
+| the `git diff` snippet, twice | `7405712` | two deploys stale |
+| the closing "no deploy is owed" | `7405712` | two deploys stale |
+
+This is class 6 (*two implementations of one rule drift*) with a twist that made
+it much more expensive: **the stale copy was the INSTRUMENT.** The file did not
+merely assert something false — it handed the reader a working command that
+produced convincing false evidence, complete with a diffstat. A prose claim
+invites doubt; a command's output does not.
+
+`state-handoff.test.js` had a comment in its own header naming this exact
+failure ("the deployed sha named a commit two deploys behind... costs a VPN
+session to disprove") and had not been given an assertion for it. **A hazard
+written down in the guard's comments is not guarded.**
+
+**Fix — remove the retyping, do not retype more carefully.** `npm run
+deploy:owed` (`tools/deploy-owed.mjs`) parses the ✅ DEPLOYED line — the sha's
+one home — and diffs it against the working tree. The guard then forbids the
+*shape*: STATE.md may not contain `git diff <sha>..HEAD` at all, and must
+declare exactly one DEPLOYED sha, which must resolve to a real commit.
+
+**A second bug, found by falsifying the first.** `deploy-owed.mjs` v1 used
+`git diff <sha>..HEAD`, copied from the snippet it replaced. That compares
+**commits**, so with an edited `src/main.css` sitting unstaged it answered
+**"NO DEPLOY OWED"** — the instrument could not see the hazard, and an
+uncommitted shipping change is the *more* urgent kind, since it is not even
+pushed. Omitting `..HEAD` diffs the deployed commit against the working tree;
+`git ls-files --others` catches a file never added at all. Only the ritual
+found this: reintroduce the bug, watch it fail, restore.
+
+**A third, in the guard's own exemption list.**
+`ABSENT_ON_PURPOSE['src/html/tab-golden-period.html']` said *"PLANNED, not
+written — DELETE this exemption in the same commit that creates the file."* The
+file was created; the exemption stayed. For every day after, the dead-pointer
+sweep **skipped a path that existed** — rename or delete that file and both
+sweeps stay green while STATE.md points at nothing. Now asserted: no exemption
+may survive its file arriving.
+
+**Where it lives now.** `tools/deploy-owed.mjs` · `npm run deploy:owed` ·
+three new assertions in `src/js/state-handoff.test.js`.
+
+**The general rule.** *When a fact is retyped into a command, the command is a
+copy that rots — and a rotten instrument is worse than a rotten sentence,
+because its output looks like evidence.* Delete the copy: have the command READ
+the fact from its one home, and let the guard forbid the shape that reintroduces
+it. **And an exemption is a claim about the world too** — the ones that say
+"not written yet" expire, and a guard whose exemption outlives the absence it
+describes fails GREEN.

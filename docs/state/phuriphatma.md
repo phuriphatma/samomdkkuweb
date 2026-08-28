@@ -16,13 +16,17 @@ path named here must resolve.
 
 ---
 
-## ▶ FIRST — DEPLOY IS OWED
+## ▶ Golden Period — BUILT, SHIPPED, LIVE
 
-✅ **The Golden Period draft is BUILT and pushed (`3b92df5`), and it is the
-first `src/` change since `36ac1d5`, so a DEPLOY IS OWED** —
-`skills/deploy-vm.md`, needs VPN. Verify from the SERVED artifact afterwards;
-the marker to grep is the string `gp-tab` or `ช่วงเวลาที่เหมาะกับการจัดกิจกรรม`,
-NOT a function name (the minifier renames those).
+✅ **Built as `3b92df5`, deployed in `7405712`, and two deploys behind us now.**
+No deploy is owed for it. This block said "DEPLOY IS OWED" for a day after it
+had gone out — never trust a deploy claim in a hand-written file; run
+`npm run deploy:owed`, which reads the one sha in `STATE.md` and answers from
+the working tree.
+
+If you ever do need to verify it in a served bundle, the marker is the string
+`gp-tab` or `ช่วงเวลาที่เหมาะกับการจัดกิจกรรม`, NOT a function name (the
+minifier renames those).
 
 What shipped: `/tools/golden-period` under **ฝ่ายยุทธศาสตร์และพัฒนาองค์กร**
 (`strategy` — NOT `admin`; that was a wrong guess from a screenshot, corrected
@@ -68,7 +72,7 @@ hand-maintained copies. The real fix remains the single registry
    sign-up / reset / email-change become testable without a single message
    reaching a student. That closes the last of phase 2 besides the GAS work.
 
-## In flight## In flight
+## In flight
 
 - ✅ **The database password is in `.env.local` and verified.** Schema dumped:
   64 tables, 165 functions, 156 policies, 592 GRANTs. Recipe and traps in
@@ -80,13 +84,17 @@ hand-maintained copies. The real fix remains the single registry
   `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
   `.env.local` and are safe to share with the team — that account holds nothing
   but disposable projects.
-- **Golden Period is un-started.** `docs/DEPT-TOOLS.md` §13 has the order; the
-  first code step is the one-source tool registry, because `DEPT_DEFS` in
-  `src/js/departments.js` and `src/html/tab-tools.html` are two hand-maintained
-  copies of one list today.
+- **The one-source tool registry is un-started** — `src/data/tools.js`,
+  `docs/DEPT-TOOLS.md` §13. (This bullet used to read "Golden Period is
+  un-started", contradicting the top of this same file; the PAGE shipped, the
+  REGISTRY did not.) `DEPT_DEFS` in `src/js/departments.js` and
+  `src/html/tab-tools.html` are still two hand-maintained copies of one list,
+  held in step only by `dept-tool-mirror.test.js`.
 
 ## Next time I have an hour
 
 - The project board (the last outstanding piece of `TEAM-WORKFLOW` phase 0).
-- Decide whether previews are per-pull-request or **one always-on dev site** —
-  the owner said "the dev server", singular, which is the cheaper shape.
+- ~~Decide whether previews are per-PR or one always-on dev site.~~ **DECIDED
+  and BUILT: per-pull-request, on Cloudflare Pages** (`docs/TEAM-WORKFLOW.md`
+  §1, D8), proven end to end on 2026-08-27. Left here struck through because a
+  session re-opened it from this very bullet and wasted a round trip.

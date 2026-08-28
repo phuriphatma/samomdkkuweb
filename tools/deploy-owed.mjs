@@ -1,0 +1,146 @@
+#!/usr/bin/env node
+// ============================================================
+// deploy-owed.mjs — is a deploy owed, or is prod current?
+//
+//   npm run deploy:owed
+//
+// WHY THIS EXISTS. `main` being ahead of the deployed sha is the NORMAL state
+// here: most commits are docs, write-ups and tests, none of which reaches a
+// bundle. The only question that matters is whether `src/` or either entry
+// HTML moved since the last deploy. STATE.md carried that as a copy-pasteable
+// `git diff --stat <sha>..HEAD` snippet — and the sha was RETYPED into it.
+//
+// On 2026-08-28 the deployed sha had FOUR homes in STATE.md and exactly one of
+// them had been corrected: the ✅ DEPLOYED line said `2151d6a` while the two
+// "check, do not trust this line" commands and the closing paragraph still said
+// `7405712`, two deploys behind. Following the file's OWN instrument reported
+// 132 insertions of already-shipped code — which reads exactly like "a deploy is
+// owed" and costs a VPN session to disprove. That is the failure this repo has
+// paid for twice (commit bcdd4cd was the first).
+//
+// THE FIX IS NOT A CAREFULLER EDIT. It is removing the retyping: the sha has
+// ONE home, the ✅ DEPLOYED line, and this script READS it from there. A
+// verification command that cannot name the wrong sha cannot rot.
+// ============================================================
+
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// What a deploy actually ships. Tests live under src/ but never reach a bundle,
+// so counting them would report a deploy owed for every guard we write.
+const SHIPPED = ['src/', ':!src/**/*.test.js', 'index.html', 'admin/index.html'];
+
+const git = (...args) =>
+  execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+
+// Same, but git's own `fatal:` stays quiet — used where WE print the diagnosis
+// and git's version would only arrive first and contradict the tone.
+const gitQuiet = (...args) =>
+  execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+function deployedSha() {
+  const state = readFileSync(join(ROOT, 'STATE.md'), 'utf8');
+  const found = [...state.matchAll(/DEPLOYED = `([0-9a-f]{7,40})`/g)].map((m) => m[1]);
+
+  if (found.length === 0) {
+    throw new Error(
+      'STATE.md states no deployed sha.\n' +
+      'The ✅ DEPLOYED line is this script\'s only input; restore it as:\n' +
+      '  - ✅ **DEPLOYED = `<sha>` (YYYY-MM-DD)**, ...',
+    );
+  }
+  if (new Set(found).size > 1) {
+    throw new Error(
+      `STATE.md names ${new Set(found).size} different deployed shas: ${[...new Set(found)].join(', ')}.\n` +
+      'That is the exact bug this script exists to end — one fact, one home.',
+    );
+  }
+  return found[0];
+}
+
+let sha;
+try {
+  sha = deployedSha();
+} catch (err) {
+  console.error(`✖ ${err.message}`);
+  process.exit(2);
+}
+
+try {
+  gitQuiet('cat-file', '-e', `${sha}^{commit}`);
+} catch {
+  console.error(`✖ STATE.md says DEPLOYED = ${sha}, which is not a commit in this repo.`);
+  console.error('  Either the sha is mistyped, or this clone has not fetched it.');
+  process.exit(2);
+}
+
+// An ancestry check first: "ahead" is only meaningful if the deployed commit is
+// actually behind us. If it is not, the diff below would still print something
+// and mean something else entirely.
+let ancestor = true;
+try {
+  git('merge-base', '--is-ancestor', sha, 'HEAD');
+} catch {
+  ancestor = false;
+}
+
+const head = git('rev-parse', '--short', 'HEAD');
+const subject = git('log', '-1', '--format=%s', sha);
+
+console.log(`deployed  ${sha}  ${subject}`);
+console.log(`local     ${head}  ${git('log', '-1', '--format=%s', 'HEAD')}`);
+console.log('');
+
+if (!ancestor) {
+  console.error(`✖ ${sha} is NOT an ancestor of HEAD.`);
+  console.error('  Production is running something this branch does not contain —');
+  console.error('  a force-push, a wrong branch, or a deploy from another clone.');
+  console.error('  Do not deploy over it until you know which.');
+  process.exit(2);
+}
+
+// `<sha>..HEAD` compares COMMITS, and the working tree is invisible to it.
+// Writing this script's first version that way made it answer "NO DEPLOY OWED"
+// with an edited src/main.css sitting unstaged — the instrument could not see
+// the hazard. Omitting `..HEAD` diffs the deployed commit against the WORKING
+// TREE, so committed and uncommitted shipping changes both count. An uncommitted
+// one is the more urgent of the two: it is not even pushed.
+const changed = git('diff', '--name-only', sha, '--', ...SHIPPED)
+  .split('\n')
+  .filter(Boolean);
+
+// A file that was never `git add`ed is not in any diff at all, and a new
+// component nobody has added is as undeployed as code gets.
+const untracked = git('ls-files', '--others', '--exclude-standard', '--', ...SHIPPED)
+  .split('\n')
+  .filter(Boolean);
+
+if (changed.length === 0 && untracked.length === 0) {
+  const behind = git('rev-list', '--count', `${sha}..HEAD`);
+  console.log('✅ NO DEPLOY OWED — production is serving current code.');
+  console.log(`   ${behind} commit(s) since the deploy, none of them shipping:`);
+  console.log('   docs, write-ups and tests do not reach a bundle.');
+  process.exit(0);
+}
+
+console.log(`⚠️  A DEPLOY IS OWED — ${changed.length + untracked.length} shipping file(s) changed:`);
+console.log('');
+if (changed.length) console.log(git('diff', '--stat', sha, '--', ...SHIPPED));
+if (untracked.length) {
+  console.log(' untracked (never committed):');
+  for (const f of untracked) console.log(`   ${f}`);
+  console.log('');
+}
+if (git('status', '--porcelain', '--', ...SHIPPED)) {
+  console.log('   ⛔ Some of these are UNCOMMITTED. Commit and push before you');
+  console.log('      deploy — the VM builds from the branch, not from this machine.');
+  console.log('');
+}
+console.log('   Deploy: skills/deploy-vm.md (needs VPN; pushing main does NOT deploy).');
+console.log('   Then verify from the SERVED artifact and update the ✅ DEPLOYED');
+console.log('   line in STATE.md — it is the only home for that sha.');
+process.exit(1);
