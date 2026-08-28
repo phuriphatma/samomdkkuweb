@@ -9,8 +9,10 @@ limits without getting flagged.
 
 - **The VM CAN send mail** — through an authenticated relay on 587/465, proven
   with a real SMTP session, needing nothing from anyone. §3.
-- **The VM cannot BE a mail server** — port 25 outbound is blocked and the
-  domain publishes `DMARC p=reject`. That is the part that would get us flagged.
+- **The VM should not BE a mail server** — not *cannot*: the blockers are KKU
+  firewall policy, missing PTR/MX/SPF records, and unearned IP reputation shared
+  with the whole campus NAT. Two of those three are askable; the third is not,
+  and none of them buys us anything. §3a lays out each layer.
 - **The VM cannot RECEIVE mail** — no inbound port but 443. This is what kills
   the Mailpit trap (§7), and it is a separate fact from the two above.
 - **The cheapest large win needs no infrastructure at all** — KKU runs Google
@@ -116,6 +118,131 @@ deferred**, so it is unused rather than broken — but with port 25 blocked and 
 relayhost, any system mail to an outside address today would go nowhere. Setting
 `relayhost` gives cron and certbot somewhere to send, and gives the app queuing
 and retry for free.
+
+## 3a. "Is it REALLY impossible?" — no, and that word was wrong
+
+Asked 2026-08-28. **Nothing stops the software from running** — Postfix is
+already running on that box. What stops the mail from being *accepted* is three
+layers, and it matters which of them anyone can actually remove.
+
+### Layer 1 — KKU's firewall. They could change this.
+
+Inbound 25 is not mapped, outbound 25 is blocked. **Both are policy, not
+physics.** You could ask, and the ask is not unreasonable — but understand what
+you are asking for: blocking 25 is near-universal at universities because one
+compromised machine behind it becomes a spam cannon overnight, and opening
+inbound 25 puts an internet-facing mail daemon on a box that currently exposes
+nothing but nginx.
+
+### Layer 2 — the identity records. KKU NOC could change these.
+
+| Record | State | Consequence |
+|---|---|---|
+| **PTR for `202.28.118.103`** | ❌ **none** | this is checked first by every large receiver; no reverse DNS is an immediate penalty at Gmail and a rejection at some hosts |
+| **PTR for `202.28.95.46`** | ❌ none | — |
+| **MX for `md.kku.ac.th`** | ❌ none | nothing would route mail to us even with 25 open |
+| **SPF** | authorizes Google, not us | mail from our IP fails alignment |
+| **DMARC** | `p=reject`, inherited | so that failure means *discarded* |
+
+⚠️ **The SPF change is the one NOC should refuse, and they would be right.**
+`202.28.118.103` is a *shared NAT address* — the VM's own interface is
+`10.101.111.181`. Adding that IP to `kku.ac.th`'s SPF authorizes **every machine
+behind that NAT** to send as the university.
+
+📌 **The VM's in and out addresses are different** — `202.28.95.46` inbound,
+`202.28.118.103` outbound. A mail server's identity has to be coherent: HELO
+name, PTR, SPF and MX all naming one address. Split NAT means that has to be
+aligned or dedicated before anything else can even be attempted.
+
+### Layer 3 — everyone else's spam filters. Nobody can change this.
+
+A new sending IP has no reputation, and is throttled or spam-foldered for weeks
+regardless of correct configuration. Worse here: **that reputation would be
+shared with the whole campus NAT.** One compromised machine anywhere behind
+`202.28.118.103` and password resets stop arriving, with no notification and no
+appeal. *(Checked 2026-08-28: not currently on Spamhaus, SpamCop, SORBS or
+Barracuda — with `127.0.0.2` as a positive control proving the lookups work. Not
+listed today is not the same as trusted, and it is not a property we control.)*
+
+Layer 3 is what that `r/selfhosted` thread is really about, and it is why even
+its success stories relay.
+
+### And what would we gain?
+
+Nothing this project needs. Mailboxes — staff already have Google ones at
+`@kku.ac.th`. Independence — we would be newly dependent on KKU's firewall,
+KKU's DNS, and a shared IP's reputation, all outside our control. That is more
+fragile than a relay, not less.
+
+**If the goal is genuinely to own the infrastructure, the KKU VM is the wrong
+box.** The right one is a €4–5/month VPS with a dedicated IP and rDNS you set
+yourself — which is exactly what everyone in that thread who succeeded actually
+did. Note that even they relay outbound.
+
+## 3b. "Is there a way around it?" — yes, for two of the three layers
+
+Asked 2026-08-28, straight after §3a. Taking the layers in order:
+
+### Layer 1 — already worked around, and by design
+
+**Port 587 is the way around a blocked port 25.** That is what submission ports
+exist for. KKU blocks 25 and leaves 587 open — that is not an oversight, it is
+the network telling you which door to use: *authenticated* mail through an
+accountable relay, rather than anonymous direct delivery. Using a smarthost is
+not a workaround here; it is the sanctioned path, and it already works from the
+VM today.
+
+⛔ **What is NOT worth doing is evading the 25 block itself** — tunnelling out
+to deliver directly. Not mainly because it is against the spirit of a control
+KKU put there deliberately, but because **it buys nothing**: you would still have
+no PTR and no IP reputation (§3a layers 2 and 3), so the mail would be discarded
+at the far end anyway. The block is not what is stopping you.
+
+### Layer 2 — worked around completely, by owning a domain
+
+**This is the real unlock, and it removes KKU NOC from the critical path.**
+
+Every identity problem in §3a is a problem *because the DNS belongs to someone
+else*. Register a domain — roughly $10–15/year at Cloudflare or Namecheap — and
+SPF, DKIM and DMARC become records you add yourself in five minutes. No request,
+no waiting, no asking anyone to widen the university's SPF.
+
+| | `md.kku.ac.th` | a domain we own |
+|---|---|---|
+| add DKIM/SPF | a request to KKU NOC | five minutes, self-service |
+| DMARC policy | inherited `p=reject`, not ours | ours to set |
+| institutional trust | **high** — students know it | has to be earned |
+| time to first send | unknown, depends on NOC | today |
+
+⚠️ **The trade is trust, and in a university it is a real cost.** A password
+reset from `noreply@samo-mdkku.org` can read as phishing to a student who has
+only ever seen `@kku.ac.th` — and teaching students to trust an unfamiliar
+domain for password mail is a genuinely bad habit to instil.
+
+**So do both, in this order:** own a domain to unblock the work now, and make the
+NOC request for a `mail.samo.md.kku.ac.th` subdomain in parallel. Move the
+sending identity across when it lands. Nothing is wasted — the relay, the code
+and the templates are identical either way; only the DKIM records change.
+
+### Layer 3 — no way around, for anyone
+
+Reputation cannot be bypassed, bought quickly, or tunnelled. **The way "around"
+it is to borrow someone else's**, which is exactly what sending through Google,
+Brevo, Resend or SES does — their IPs, their standing, built over years.
+
+That is the whole reason the recommendation is a relay. Not because self-hosting
+is hard, but because **reputation is the one component you cannot build, and
+renting it is free.**
+
+### If we ever do need to RECEIVE mail
+
+We do not today (§6a), but the pattern exists and is what the `r/selfhosted`
+thread's successful self-hosters actually run: **a small VPS holds the public MX
+and the port 25 the world connects to, and the VM reaches it over a tunnel the
+VM opens outward** (WireGuard or SSH — outbound, which works). Mail arrives at
+the VPS and is handed down to us. It is a genuine solution to a blocked inbound
+port, and it costs a second machine to maintain forever. Worth it only if
+receiving becomes a real requirement.
 
 ## 4. What KKU already has, and why it is the cheap win
 
