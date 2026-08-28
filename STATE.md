@@ -15,20 +15,29 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-27 → 28)
 
-Four things, in the order a newcomer needs them:
+In the order a newcomer needs them:
 
-1. **There is a development database now** — `samo-dev`, a full copy of
-   production on a separate Supabase account. Nobody tests against live student
-   data any more.
+1. **There is a development database** — `samo-dev`, a full copy of production on
+   a separate Supabase account. Nobody tests against live student data any more.
 2. **Per-PR previews work.** Open a pull request, Cloudflare builds it at its own
-   URL and posts the link. Previews talk to `samo-dev` and to a dev Discord
-   channel, never to production or a real ฝ่าย channel.
+   URL and posts the link. Previews talk to `samo-dev` and a dev Discord channel.
 3. **Golden Period shipped** at `/tools/golden-period` — an IT *draft*; the ฝ่าย
    own the page and open PRs against it (`docs/DEPT-TOOLS.md` D8).
-4. **The Discord notify credentials were rotated**, VitalSound now routes per
-   ฝ่าย to 12 channels instead of one, and the "do not ping" flag works on every
-   action. **Two real messages reached a live ฝ่าย channel during this work** —
-   read the notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.
+4. **Discord notify credentials rotated**, VitalSound routes per ฝ่าย to 12
+   channels, and "do not ping" works on every action. **Two real messages reached
+   a live ฝ่าย channel during that work** — read the notify rules in
+   `docs/INVARIANTS.md` BEFORE touching notifications.
+5. **EMAIL WAS AUDITED END TO END (2026-08-28).** Read `docs/EMAIL.md` before
+   touching anything that sends mail. The three facts that matter:
+   **the VM CAN send** through a relay on 587 (proven with a live SMTP session)
+   but cannot BE or RECEIVE mail · **only production emails the people configured
+   in admin** — `resolveRecipients()` forces every other environment to one test
+   inbox, at the transport, because dev held a REAL `@kku.ac.th` staff address ·
+   **there is NO password reset in the app**, and mail configuration is why.
+6. **สถิติ now shows email + Apps Script quota use** (migrations 0170–0173).
+   Measured: 95 emails in 72 days, busiest day 7 of 100; all Apps Script traffic
+   peaks at 2 calls/minute of 30. **Nothing is near a limit** — so Apps Script
+   stays exactly as it is. ⚠️ Both numbers are FLOORS and the panels say so.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -102,8 +111,8 @@ TRUE. That is what the grep is for.
 
 ### What is owed
 
-⛔ **START HERE. Two actions for the OWNER, one queue of work for YOU.**
-Nothing else in this file is blocked on anyone.
+⛔ **START HERE. THREE actions, ALL for the OWNER.** Nothing else in this file
+is blocked on anyone, and there is no queue of buildable work left in it.
 
 1. **Reset the Discord bot token** — *"Role assignment bot for SAMO69"*
    (app `1492541609445949465`). It has **Administrator**, it was pasted into a
@@ -116,10 +125,12 @@ Nothing else in this file is blocked on anyone.
    Delivery is confirmed (16×204); the DESTINATION needs human eyes.
    **If any reached a real ฝ่าย channel, preview isolation is broken.**
 
-**Then the work queue — three things ASKED FOR and never done**: a `DEV` folder
-in Drive, the dev Apps Script deployment, and a mail trap on the VM (the answer
-is Mailpit, not a real mail server). All three, with the Drive folder id and the
-reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
+3. **The dev Apps Script deployment, under its OWN Google account** — with a
+   `DEV` folder in Drive (parent id in `docs/state/phuriphatma.md`). This is the
+   LAST item of dev-system phase 2 and the only one nobody else can do: the
+   point is that its credential reaches nothing real, so it needs an account
+   only you can create. ⚠️ The clasp token on this Mac EXPIRED 2026-08-27.
+   ~~a mail trap on the VM~~ — **withdrawn, and no longer needed**; `docs/EMAIL.md` §7.
 
 
 - ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
@@ -132,15 +143,16 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   `skills/build-the-dev-database.md`.
   **`samo-dev` = `xibugtlsphcfuvstnxxh`** (separate account `samomdkkuaiorg`,
   D7). Creds = `SUPABASE_DEV_*` in `.env.local`, **shareable with the team**;
-  the URL is never published — dev holds REAL student data (D1). Verified both
-  directions: 66 tables, 0 row-count and 0 grant differences, sign-in proven.
-  ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`. Commands + every trap:
-  `skills/build-the-dev-database.md` and `README.md`.
-  ⏳ **Left in phase 2**: dev GAS deployment under its own Google account ·
-  `dev-grants.json`. **The mail trap is RETRACTED, not pending** — it needed
-  Supabase to connect IN and the VM has no inbound port but 443. **That is NOT
-  "the VM cannot do mail": it CAN send** through a relay on 587 (proven with a
-  live STARTTLS session). Full assessment: `docs/EMAIL.md`.
+  the URL is never published — dev holds REAL student data (D1). Commands and
+  every trap (incl. `backfilled` ≠ `applied`): `skills/build-the-dev-database.md`.
+  ⏳ **Phase 2 has ONE item left and it is owner-gated**: the dev Apps Script
+  deployment under its own Google account. ✅ `dev-grants.json` +
+  `npm run dev:grants` shipped (guest access that expires, refuses any project
+  but `samo-dev` by ref, re-applied as `dev:refresh` step 8).
+  ✅ **The mail trap is RETRACTED and its NEED is met** — it needed Supabase to
+  connect IN and the VM has no inbound port but 443; dev mail is now forced to
+  one test inbox at the transport instead. **That is NOT "the VM cannot do
+  mail": it CAN send** via a relay on 587. Full assessment: `docs/EMAIL.md`.
   ⚠️ **Four `samo-dev` hazards fixed 2026-08-28 — detail in `docs/EMAIL.md` §6.**
   It emailed a REAL `@kku.ac.th` staff address (same GAS deployment as prod);
   now the owner's test inbox, re-applied by `dev:refresh` step 7 so a rebuild
@@ -150,30 +162,19 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   finish a redirect. **Google sign-in is still OFF on dev** (owner: an OAuth
   client). (The plan's `#samo-dev-bot` EXISTS — it is
   `#developer-server-notify`, and previews post there.)
-  ✅ **PHASE 3 — PREVIEWS WORK, proven end to end 2026-08-27** (throwaway PR
-  #17, closed). **They were ALREADY configured** on the `samomdkkuweb` project —
-  **no Actions job, no `wrangler`**, so §7.4's `functions/` trap never applied.
-  A PR builds at `<hash>.samomdkkuweb.pages.dev`; Cloudflare posts the link.
-  ⚠️ **Preview traps (host guard must match EXACT hosts; preview env points at
-  `samo-dev`; env vars freeze at BUILD time) — `docs/INVARIANTS.md`.**
+  ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
+  2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
+  posts the link; the ribbon ships; the `/notify` dev stub prints to the
+  terminal; all exposed webhooks were rotated. How it was proven is archived —
+  **the RULES that outlive it are in `docs/INVARIANTS.md` and you must read them
+  before touching notifications or previews.** The three live warnings:
+  🆕 **VitalSound routes PER ฝ่าย** — 12 webhooks, 12 `#vs-*` channels. **Map
+  KEYS must be the exact `data.department` strings**; a mismatch falls back to
+  `SE` and misroutes one ฝ่าย's confidential reports to another.
+  🔧 **`npm run notify:smoke` is the ONLY way to test notifications**;
+  `webhook:id` says where one points via GET. **Never verify by sending.**
   📌 `refactorsamomdkkuweb` preview builds are OFF (dead branch building twice);
   project kept so its URL still serves the splash. Undo = that field back to `all`.
-  ✅ **PREVIEW ribbon ships** — polarity is deliberately the REVERSE of
-  `TEAM-WORKFLOW` §1 (absent var = no ribbon); why, in `docs/INVARIANTS.md`.
-  `robots.txt` now exists; `noindex` needed no work.
-  ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
-  ✅ **NOTIFY — RESOLVED 2026-08-28 and TESTED end to end** (prod: every action;
-  preview: every action + all 12 ฝ่าย → the dev channel). All three exposed
-  webhooks rotated, so the ~600 frozen deployment copies are inert. Credentials
-  live in `/etc/samo-notify.env` and, dev-channel only, the `samomdkkuweb`
-  PREVIEW env.
-  🆕 **VitalSound routes PER ฝ่าย** — 12 webhooks, 12 distinct `#vs-*` channels
-  (it was ONE for all 12). **Map KEYS must be the exact `data.department`
-  strings**; a mismatch falls back to `SE` and misroutes one ฝ่าย's confidential
-  reports to another.
-  ✅ Silence is applied ONCE in `resolveTarget`; 4 of 7 actions used to DROP it.
-  🔧 **`npm run notify:smoke` is the ONLY way to test notifications.**
-  `webhook:id` says where one points via GET. **Never verify by sending.**
   📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a preview upload lands in
   the REAL Drive, and preview EMAIL goes through the real deployment too (now
@@ -196,13 +197,11 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
-  CHECKOUT. `docs/NEXT.md` §1.
-  ✅ **The auth blocker is solved — §4 of that skill now has the recipe.** The
-  two traps that made this hard, both paid for on 2026-08-18: you CANNOT
-  inject a session into `localStorage` (drive the sign-in form instead), and a
-  grant written straight into `public.users` is ERASED on the next login by
-  `sync_my_team_permissions` — a probe account needs a `team_members` row.
-  With that, a throwaway account can render any role-gated control.
+  CHECKOUT. `docs/NEXT.md` §1. ✅ The auth blocker is solved (§4 of that skill
+  has the recipe and both traps). ⚠️ Its wording "a grant in `public.users` is
+  ERASED at next login" means the **`managed_*`** columns only —
+  `sync_my_team_permissions` does not touch `permissions`, which is why
+  `dev-grants.mjs` writes that one.
 - **The org chart on a REAL iPad.** Verified on Playwright's WebKit only.
 - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
 - `docs/NEXT.md` carries the rest. **§0d is DONE (0168, 2026-08-26)** and is
@@ -216,18 +215,22 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
 
 ## NEXT SESSION — start here
 
-1. **This file**, top to bottom. It is ~200 lines now; read all of it.
+1. **This file**, top to bottom. Read all of it.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-3. Only then, the archive file for whatever you are about to touch.
+3. **`docs/state/phuriphatma.md`** — its top block names the three claims a new
+   session is most likely to get wrong, and what is decided so you do not redo it.
+4. Only then, the archive file for whatever you are about to touch.
 
-**Nothing is blocked on a credential.** THREE things are waiting on the owner and
-none should be built unprompted. Ask them in plain language:
+**ONE thing is blocked on a credential**: the dev Apps Script deployment needs a
+Google account only the owner can create. FOUR things wait on the owner and none
+should be built unprompted. Ask in plain language:
 
 | # | Question | Where | Recommendation on file |
 |---|---|---|---|
-| 1 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
-| 2 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
-| 3 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+| 1 | **Turn on password reset?** It does not exist today and mail config is why — the biggest user-visible win available | `docs/EMAIL.md` §2/§5 | start with a Gmail app password; needs nothing from KKU |
+| 2 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
+| 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
+| 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
@@ -238,18 +241,17 @@ Two more the assistant should offer rather than assume:
 - **Build the SLOT for ฝ่าย tools?** — one tool list instead of the two
   hand-maintained copies, the frame a contributed page drops into, and the
   starter kit. **The slot is what blocks them, not the page.**
-  📌 **Golden Period itself is THEIRS** — the ฝ่าย build it with Claude
-  (`docs/DEPT-TOOLS.md` D8). The owner then allowed IT to **draft a simple
-  placeholder** so students are not waiting. If you build that draft: keep it
-  plain, say on the page that it is a placeholder, and hand the route over the
-  moment their version lands — an IT-built page is the page IT owns, and that is
-  the bottleneck this whole design removes.
+  📌 **Golden Period itself is THEIRS** — the ฝ่าย build it, IT only drafted a
+  placeholder; hand the route over when their version lands (`docs/DEPT-TOOLS.md`
+  D8). An IT-built page is the page IT owns, which is the bottleneck this design
+  removes.
 - **The ~20-line guard for the repo settings?** The two branch-protection
   switches live on GitHub, outside git — turn them off and no test goes red,
   while every contributor rule built on 2026-08-27 silently becomes advisory.
 
-**Nothing is owed to a person, and no deploy is owed.** Check, do not trust
-this line — and note it names no sha, on purpose:
+**No deploy is owed.** Check, do not trust this line — and note that it names
+no sha, on purpose. Retyping one into a `git diff` is the bug that opened
+2026-08-28, and `state-handoff.test.js` now forbids the shape:
 
 ```bash
 npm run deploy:owed

@@ -47,6 +47,50 @@ the launcher, because `DEPT_DEFS` and `tab-tools.html` are still two
 hand-maintained copies. The real fix remains the single registry
 (`docs/DEPT-TOOLS.md` §2).
 
+## ▶ SESSION 2026-08-28 — WHAT I DID, AND WHAT WOULD MISLEAD YOU
+
+Read `STATE.md` first; this is the part that does not fit there. **Six commits,
+all deployed or docs-only, working tree clean, 1394 tests green.**
+
+### The three things most likely to be misunderstood
+
+1. **"The VM cannot do email" is FALSE and I wrote it that way first.** It can
+   SEND, through a relay on 587, proven with a live SMTP session. It cannot BE a
+   mail server (port 25 out is blocked, `DMARC p=reject`) and cannot RECEIVE (no
+   inbound port but 443). Those are three separate facts — `docs/EMAIL.md` §3.
+   The owner pushed back on the sloppy version twice; do not re-flatten it.
+
+2. **`npm run deploy:owed` is the ONLY way to ask whether a deploy is owed.**
+   Do NOT retype a sha into a `git diff` — that is the bug this session opened
+   with (STATE.md's own "check, do not trust this line" command named a sha two
+   deploys stale and reported already-shipped code as owed).
+   `state-handoff.test.js` now forbids the shape.
+
+3. **The สถิติ email/GAS numbers are FLOORS and one was 12× wrong before I
+   checked the rows.** `file_url is not null` counted the sentinel
+   `ไม่มีไฟล์แนบ` and pasted links as uploads, and a bulk import (25 rows in
+   2.86 s) as live traffic. Real peak is 2 calls/minute of 30. **Before you
+   trust or extend those panels, read `docs/mistakes/tooling-proofs.md`.**
+
+### What is genuinely un-started (not blocked, just not begun)
+
+- `src/data/tools.js`, the one-source ฝ่าย tool registry — `DEPT_DEFS` and
+  `tab-tools.html` are still two hand-maintained copies held in step only by
+  `dept-tool-mirror.test.js`. `docs/DEPT-TOOLS.md` §13 has the order.
+- The browser pass — `docs/NEXT.md` §1; VS staff modal, ประกาศ drafts, อาจารย์
+  signature queue, SHOP CHECKOUT are still undriven.
+- **Password reset does not exist in the app**, and mail config is why
+  (`docs/EMAIL.md` §2). Fixing it is small and is the biggest user-visible win
+  available — but it needs a sending credential, which is owner-gated.
+
+### Do NOT redo these — they are decided
+
+- Previews are per-PR on Cloudflare Pages. Decided, built, proven.
+- Apps Script STAYS for email. 100/day against a busiest day of 7 is not a
+  problem; the Workspace move is an option to reach for IF volume changes, not
+  work to do. I recommended it before measuring, and measuring retired it.
+- The Mailpit trap is withdrawn AND its need is met.
+
 ## ▶ DEV SYSTEM — ONE ITEM LEFT, and it needs you
 
 ✅ **`dev-grants.json` is built** (2026-08-28) — `npm run dev:grants`, and step 8
