@@ -64,13 +64,20 @@ hand-maintained copies. The real fix remains the single registry
    its credential reaches nothing real (`.claude/rules/security.md` explains why:
    `prform.gs` uses `DriveApp`, so re-authorising grants the whole Drive).
 
-3. **Answer given, not acted on: a mail server on the VM.** The owner asked. The
-   answer is **do not host real mail** — deliverability, blocklists and spam
-   handling are a permanent job. But the plan does not want real mail: it wants a
-   **trap**. Run **Mailpit** on the VM (one static binary, a fake SMTP that
-   captures everything and shows a web inbox), point `samo-dev`'s SMTP at it, and
-   sign-up / reset / email-change become testable without a single message
-   reaching a student. That closes the last of phase 2 besides the GAS work.
+3. ~~**A mail server on the VM — run Mailpit, point `samo-dev`'s SMTP at it.**~~
+   **RETRACTED 2026-08-28: that cannot work here, and the reason is the
+   network, not the tool.** The VM holds only `10.101.111.181`; the public
+   address `202.28.95.46` has ports 25/587/465/1025 filtered (443 open as the
+   control). Supabase Cloud can never open an SMTP connection to that box.
+   Separately, `kku.ac.th` publishes `DMARC p=reject` with no `sp=`, so
+   `md.kku.ac.th` inherits reject and DNS belongs to KKU NOC.
+   **The whole assessment — both senders, every quota ceiling, and the
+   recommendation — is `docs/EMAIL.md`.** Read that, not this bullet.
+   Headline: there is no password reset in this app, and mail is why; the
+   cheapest large win is moving the Apps Script to a KKU Workspace account
+   (100 → 1,500 recipients/day, no DNS request, no new service). If a browsable
+   trap is still wanted, the transport is Supabase's Send Email Hook over
+   HTTPS — 443 is the only port that reaches the VM — and it is NOT built.
 
 ## In flight
 

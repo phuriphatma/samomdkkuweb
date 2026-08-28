@@ -139,8 +139,15 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   directions: 66 tables, 0 row-count and 0 grant differences, sign-in proven.
   ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`. Commands + every trap:
   `skills/build-the-dev-database.md` and `README.md`.
-  ⏳ **Left in phase 2**: mail trap · dev GAS deployment under its own Google
-  account · `dev-grants.json`. (The plan's `#samo-dev-bot` EXISTS — it is
+  ⏳ **Left in phase 2**: dev GAS deployment under its own Google account ·
+  `dev-grants.json`. **The mail trap is RETRACTED, not pending** — Mailpit over
+  SMTP cannot work (no inbound port to the VM, `DMARC p=reject` on the domain);
+  the whole email assessment is `docs/EMAIL.md`.
+  ⚠️ **`samo-dev` auth was diverging from prod and is fixed** (2026-08-28):
+  `mailer_autoconfirm` was `false` where prod is `true` — which `auth.js`
+  DEPENDS on — `site_url` was `localhost:3000`, and `uri_allow_list` was EMPTY,
+  so no preview could complete a redirect flow. Google sign-in is still OFF on
+  dev and needs the owner (an OAuth client). (The plan's `#samo-dev-bot` EXISTS — it is
   `#developer-server-notify`, and previews post there.)
   ✅ **PHASE 3 — PREVIEWS WORK, proven end to end 2026-08-27** (throwaway PR
   #17, closed). **They were ALREADY configured** on the `samomdkkuweb` project —
@@ -205,14 +212,6 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   §0b2 and §1 (the browser pass), §0 (`photo_reference_count()` cannot see
   `houses.icon_url`).
 
-### Question 2 in full — the reporter's polling interval
-
-Faster than 15 min is possible but pays three ways: the endpoint rate-limits
-hard, **every run rotates the OAuth refresh token** (more runs = more chances to
-strand a credential only a human on the VM can restore), and a true on-demand
-poll needs an authenticated endpoint on the VM — new attack surface on a service
-that has none today. The refresh button re-reads the DATABASE only, and says so.
-**Recommendation: leave it at 15 minutes.**
 ---
 
 ## NEXT SESSION — start here
@@ -226,7 +225,7 @@ none should be built unprompted. Ask them in plain language:
 
 | # | Question | Where | Recommendation on file |
 |---|---|---|---|
-| 1 | Should the Claude usage reporter poll more often than every 15 min? | below | **leave it at 15** |
+| 1 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
 | 2 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
 | 3 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 

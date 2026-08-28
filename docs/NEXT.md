@@ -433,3 +433,19 @@ the callers to one path over writing the second one).
 
 The exclusions and their reasons are the `NOT_A_PORTRAIT` map in
 `src/js/photo-refcount.test.js`. It is shrink-only.
+
+
+## The Claude reporter's polling interval — asked, answered, not acted on
+
+Moved out of `STATE.md` on 2026-08-28: it is reasoning, not status, and the
+status file was over its line budget. (Its heading there read "Question 2" while
+the table beside it called the same thing question 1.)
+
+Faster than 15 minutes is possible but pays three ways: the endpoint rate-limits
+hard, **every run rotates the OAuth refresh token** — more runs, more chances to
+strand a credential only a human on the VM can restore — and a true on-demand
+poll needs an authenticated endpoint on the VM, which is new attack surface on a
+service that has none today. The refresh button re-reads the DATABASE only, and
+says so.
+
+**Recommendation: leave it at 15 minutes.**
