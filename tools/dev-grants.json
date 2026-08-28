@@ -1,0 +1,22 @@
+{
+  "_README": [
+    "Dev-only extra permissions, applied by tools/dev-grants.mjs as the last step",
+    "of `npm run dev:refresh` (TEAM-WORKFLOW.md §3). NEVER applied to production —",
+    "the tool refuses by project ref, not by hoping the caller passed the right env.",
+    "",
+    "WHAT THIS IS FOR: a guest reviewer who needs to SEE one feature for a week",
+    "without becoming an administrator of the live system. The team itself does not",
+    "need it — D3 settled that a real ทีม SAMO seat is fine for them.",
+    "",
+    "WHY IT WRITES `permissions` AND NOT `managed_permissions`: on every login,",
+    "sync_my_team_permissions() rewrites every managed_* column from the team",
+    "registry, so a grant written there is erased the next time the person signs",
+    "in — silently. current_user_has_permission() reads the UNION of both columns,",
+    "so `permissions` grants the same access and survives.",
+    "",
+    "EVERY ENTRY MUST EXPIRE. `until` is a plain YYYY-MM-DD. Past that date the",
+    "tool SKIPS the entry and says so loudly at every refresh — this list will rot",
+    "like every list of people, and the only defence is making the rot visible."
+  ],
+  "grants": []
+}

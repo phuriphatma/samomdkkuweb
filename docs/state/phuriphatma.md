@@ -47,6 +47,22 @@ the launcher, because `DEPT_DEFS` and `tab-tools.html` are still two
 hand-maintained copies. The real fix remains the single registry
 (`docs/DEPT-TOOLS.md` §2).
 
+## ▶ DEV SYSTEM — ONE ITEM LEFT, and it needs you
+
+✅ **`dev-grants.json` is built** (2026-08-28) — `npm run dev:grants`, and step 8
+of `dev:refresh` so a rebuild cannot drop it. Refuses any project but `samo-dev`
+BY REF before it writes; every entry must carry an expiry and a reason; it
+reports expired entries and emails matching no account at each run, because a
+list of people rots and a typo grants nothing while looking like success.
+The file ships EMPTY, which is the correct steady state.
+
+✅ **The mail trap is retracted AND its need is met.** Dev mail is forced to one
+test inbox at the transport, so no trap is needed to keep test mail off real
+people. `docs/EMAIL.md` has the whole assessment.
+
+❌ **LAST ITEM: the dev Apps Script deployment under its own Google account.**
+Owner-gated — see item 2 below. Everything else in phase 2 is done.
+
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 
 1. **A `DEV` folder inside `IT Database` on Drive.** The owner asked for it

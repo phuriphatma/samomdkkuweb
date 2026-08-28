@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadEnvLocal, projectRefFromUrl, listMigrationFiles, checksumOf, sqlLit } from './migrations-lib.mjs';
 
 const PG = process.env.PG_BIN || '/opt/homebrew/opt/libpq/bin';
@@ -57,7 +58,7 @@ console.log(`→ work   ${work}`);
 // schema_migrations describes the DATABASE IT IS IN, not the application. Copying
 // it between databases makes dev claim production's apply history — and it is
 // what collided on the first hand-run (duplicate key on version 0169).
-console.log('\n[1/7] dumping production');
+console.log('\n[1/8] dumping production');
 execFileSync(`${PG}/pg_dump`, [PROD, '--schema-only', '--no-owner',
   '--schema=public', '--schema=passport', '-f', join(work, 'schema.sql')], { stdio: 'inherit' });
 execFileSync(`${PG}/pg_dump`, [PROD, '--data-only', '--no-owner',
@@ -74,7 +75,7 @@ if (grantCount < 100) die(`the schema dump has only ${grantCount} GRANTs — it 
 console.log(`      schema.sql: ${grantCount} GRANTs ✓`);
 
 // ---- 2. wipe + reload schema -------------------------------------------
-console.log('[2/7] rebuilding the dev schema');
+console.log('[2/8] rebuilding the dev schema');
 q(DEV, "drop schema if exists passport cascade; drop schema if exists public cascade; create schema public; grant usage on schema public to anon, authenticated, service_role;");
 q(DEV, "create extension if not exists pg_trgm with schema extensions;");
 psql(DEV, ['-q', '-f', join(work, 'schema.sql')]);
@@ -83,7 +84,7 @@ psql(DEV, ['-q', '-f', join(work, 'schema.sql')]);
 // Supabase's ALTER DEFAULT PRIVILEGES grant on every newly created table;
 // pg_dump emits no REVOKEs because it assumes stock PostgreSQL defaults. So a
 // restore is MORE PERMISSIVE than its source. Fix from the MEASURED difference.
-console.log('[3/7] removing grants the restore invented');
+console.log('[3/8] removing grants the restore invented');
 const GR = "select table_schema||'|'||table_name||'|'||grantee||'|'||privilege_type from information_schema.role_table_grants where table_schema in ('public','passport') and grantee in ('anon','authenticated','service_role') order by 1;";
 const setOf = (uri) => new Set(q(uri, GR).split('\n').filter(Boolean));
 const pg = setOf(PROD), dg = setOf(DEV);
@@ -103,7 +104,7 @@ console.log(`      revoked ${extra.length}`);
 // ITS OLD ACCOUNTS. The first version of this script did exactly that and still
 // printed "identical to production" — because step 6 was only comparing
 // public/passport. A refresh that cannot refresh auth is not a refresh.
-console.log('[4/7] loading data (auth first)');
+console.log('[4/8] loading data (auth first)');
 q(DEV, "truncate auth.users cascade;");
 for (const f of ['auth.sql', 'app.sql']) {
   writeFileSync(join(work, `load-${f}`), `set session_replication_role = 'replica';\n` + readFileSync(join(work, f), 'utf8'));
@@ -111,13 +112,13 @@ for (const f of ['auth.sql', 'app.sql']) {
 }
 
 // ---- 5. dev's own migration record -------------------------------------
-console.log('[5/7] recording migrations as backfilled on dev');
+console.log('[5/8] recording migrations as backfilled on dev');
 const files = listMigrationFiles();
 const values = files.map((f) => `(${sqlLit(f.version)}, ${sqlLit(f.name)}, 'backfilled', null, null, ${sqlLit(checksumOf(f.path))})`).join(',');
 q(DEV, `insert into public.schema_migrations (version,name,source,applied_at,applied_by,checksum) values ${values} on conflict (version) do nothing;`);
 
 // ---- 6. verify ----------------------------------------------------------
-console.log('[6/7] verifying against production');
+console.log('[6/8] verifying against production');
 const gen = q(PROD, "select string_agg(format('select %L::text as t, count(*) from %I.%I', n.nspname||'.'||c.relname, n.nspname, c.relname), ' union all ' order by 1) from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname in ('public','passport');");
 // Compare auth too. Leaving it out is what let a stale auth copy pass as good.
 const AUTH = "select 'auth.users', count(*) from auth.users union all select 'auth.identities', count(*) from auth.identities";
@@ -157,7 +158,7 @@ if (diffs.length || stillExtra || missing) die('dev does not match production �
 //
 // mdstuddata.beta@gmail.com is already a whole-address entry in the Apps
 // Script allow-list, so nothing on the GAS side needs changing.
-console.log('[7/7] repointing outward-facing destinations away from real people');
+console.log('[7/8] repointing outward-facing destinations away from real people');
 const DEV_INBOX = process.env.DEV_TEST_INBOX || 'mdstuddata.beta@gmail.com';
 q(DEV, `update public.project_settings set uni_staff_email = ${sqlLit(DEV_INBOX)};`);
 const landed = q(DEV, 'select uni_staff_email from public.project_settings;').trim();
@@ -167,6 +168,21 @@ if (!landed.includes(DEV_INBOX)) {
     + 'Do NOT use this copy for notification testing — it would mail a real person.');
 }
 console.log(`      หนังสือโครงการ email → ${DEV_INBOX}`);
+
+// ---- 8. dev-only guest grants -------------------------------------------
+// Same reasoning as step 7: a rebuild wipes anything applied by hand, so the
+// list of who can see what on dev lives in a reviewable file and is re-applied
+// here. It refuses any project that is not samo-dev, by ref, on its own.
+console.log('[8/8] applying tools/dev-grants.json');
+try {
+  execFileSync(process.execPath,
+    [fileURLToPath(new URL('./dev-grants.mjs', import.meta.url))], { stdio: 'inherit' });
+} catch {
+  // Not fatal: the database is rebuilt and usable. A missing guest grant is a
+  // person who cannot see one feature, which is visible immediately; failing
+  // the whole refresh over it would be the worse trade.
+  console.error('      ⚠️  dev-grants failed — the rebuild is still good, but nobody got guest access.');
+}
 
 console.log('\n✓ samo-dev rebuilt and identical to production.');
 console.log('  Now run:  npm run dev:check   (the anon-key parity probe)');
