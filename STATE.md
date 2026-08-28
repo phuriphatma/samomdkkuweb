@@ -44,9 +44,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2151d6a` (2026-08-28)**, VM HEAD = local HEAD,
-  `DEPLOY_EXIT=0`. The notify silence fix; before it, Golden Period, the routing
-  fixes, the PREVIEW ribbon, `robots.txt` and the dev notify stub.
+- ✅ **DEPLOYED = `c7d0cac` (2026-08-28)**, `DEPLOY_EXIT=0`. The email quota
+  panel + the send guard, verified from the SERVED bundle (all three send paths
+  call `resolveRecipients`). ⚠️ The host-dependency this exposed is a durable
+  rule and lives in `docs/INVARIANTS.md`, not here.
   ⚠️ **Verify a `functions/` change ON THE VM, not in a bundle** — the notify
   service is Node on the box, not part of any JS chunk. `ssh samo-vm 'grep -c
   <marker> ~/samo-projects/samomdkkuweb/functions/_discord.js'`.

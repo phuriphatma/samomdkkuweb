@@ -478,3 +478,42 @@ the live site ever moves onto a pages.dev host.
 entries import it. Grepping `public-*.js` for it returns 0 and reads as a failed
 deploy — the same trap as `ใต้สังกัด` in 2026-08-15.
 
+
+---
+
+## Who a notification email may reach is decided by the HOST, not a setting
+
+Established 2026-08-28, after `samo-dev` was found holding production's real
+`uni_staff_email` and sending through the same Apps Script deployment.
+
+**The rule.** `resolveRecipients()` in `src/js/projects/notify.js` is the only
+way any code obtains a mail recipient. On production it returns whatever admin
+configured in หนังสือโครงการ; anywhere else it returns the dev test inbox,
+**whatever the database says**. A stored value is not a guard — the next
+`dev:refresh` restores production's row, or somebody edits it in the dev admin
+UI, and both failures are silent.
+
+**⚠️ Its input is the HOST, and that has a consequence worth knowing.** It
+reuses `ribbonLabel()`, whose deliberate polarity is that an ABSENT
+`VITE_ENV_NAME` marks nothing — so a forgotten variable can never splash
+PREVIEW across the live site. Checked in the served bundle on 2026-08-28,
+**the VM sets no such variable**: `import.meta.env.VITE_ENV_NAME` compiles to
+`void 0`, and production is recognised purely by *not* being on `*.pages.dev`.
+
+That is the right trade for the ribbon, and it is the right trade here too —
+but it means:
+
+> **If this site ever moves onto a `pages.dev` host, notification email
+> silently goes to the dev inbox instead of ฝ่าย staff.**
+
+Nothing would error. The fix, in that event, is to set `VITE_ENV_NAME=production`
+in the VM build *before* the move, since an explicit value beats the host check
+by design.
+
+**Every send path must go through it.** When the rule was first written for
+`notifyUniStaff`, two paths were left open — `notifyProf` (a real อาจารย์) and
+the admin "ทดสอบ" button (whatever is typed, no save required). Enumerate the
+paths; the one in front of you is rarely the only one.
+`analytics-email.test.js` asserts the property rather than a spelling: every
+file containing a `notifyProjectEmail` send obtains its recipient from
+`resolveRecipients`.
