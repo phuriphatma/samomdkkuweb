@@ -216,6 +216,64 @@ is `false`, so **Google sign-in does not work on dev at all**. Previews can only
 exercise username/password. Fixing it needs a Google OAuth client for the dev
 project.
 
+## 6a. "What about Mailcow / a proper mail stack?" — asked 2026-08-28
+
+The owner brought a `r/selfhosted` thread on running Mailcow, Mailu, Stalwart,
+mail-in-a-box, or a hand-rolled postfix/dovecot/rspamd stack. Worth answering
+carefully, because **the thread's own top-voted advice is the test that settles
+it**: *"You should test to see if your ISP blocks port 25 outbound though."*
+
+We ran it. **KKU blocks 25 outbound** (§3). And nothing can reach us inbound.
+So on this box a full mail server is crippled at both ends:
+
+| What Mailcow is for | On this VM |
+|---|---|
+| deliver mail to recipients | ❌ port 25 outbound blocked — it must relay anyway |
+| receive mail into mailboxes | ❌ nothing can connect in |
+| host mailboxes / IMAP / webmail | ⚠️ a need we do not have — see below |
+| spam + antivirus filtering | ⚠️ only matters if you receive |
+
+What would be left running is the *relay client* — which is three lines of
+configuration, not a Docker stack with ClamAV, rspamd, Dovecot and SOGo.
+
+**But read what the people in that thread who SUCCEED actually do.** Every one
+of them relays outbound through a reputable provider — smtp2go, SES, Brevo,
+Mailgun, MXRoute, AuthSMTP, Google Workspace relay — and the ones who tried to
+deliver directly from their own IP got blacklisted and gave up. *"Outbound was a
+problem. Despite doing everything right… I eventually routed outbound mail
+through Amazon SES."* **The thread agrees with §5.** It just arrives there after
+building a mail server first, and we can skip that step.
+
+**And we need strictly less than they do.** They are hosting *mailboxes* —
+their identity, IMAP, storage, spam, and the disaster recovery of the address
+that resets every other password they own. SAMO needs to **send transactional
+mail**: a password reset, a notification. Nobody replies to those. Staff already
+have `@kku.ac.th` and `@kkumail.com` mailboxes on Google. **The entire inbound
+half — the hard, permanently-staffed half — is a need this project does not
+have.**
+
+📌 One comment in that thread is worth keeping for a reason beyond email:
+ClamAV was not ready when rspamd checked for it, so rspamd silently ran with **no
+virus scanning**, reported nowhere except one line in a startup log, for months.
+That is this repo's own recurring failure — a guard that fails GREEN — in
+someone else's stack, and it is a fair sample of the maintenance surface a mail
+system brings.
+
+### So: no mail server. A relay credential, and nothing else.
+
+- **Supabase auth mail** — set custom SMTP in the Supabase dashboard. Supabase
+  connects out to the relay itself; **the VM is not in this path at all.**
+- **The หนังสือโครงการ notification** — the Workspace account move (§4), or
+  `samo-notify` using the same relay credential (§5a).
+
+Free tiers, for the record: Brevo 300/day (~9,000/mo) · Resend 3,000/mo ·
+SMTP2GO 1,000/mo (200/day) · SES ~$0.10 per 1,000 · Gmail app password 500/day
+and **no DNS request at all**. Brevo has the largest free allowance; Gmail is
+the one that works this week.
+
+⚠️ The relay password is a credential like any other: `/etc/samo-notify.env` or
+the Supabase dashboard. Never a `VITE_*` var, never anything under `src/`.
+
 ## 7. The abandoned idea, recorded so it is not re-proposed
 
 `docs/state/phuriphatma.md` recorded "run **Mailpit** on the VM, point
