@@ -72,6 +72,24 @@ all deployed or docs-only, working tree clean, 1394 tests green.**
    2.86 s) as live traffic. Real peak is 2 calls/minute of 30. **Before you
    trust or extend those panels, read `docs/mistakes/tooling-proofs.md`.**
 
+### Two gaps closed only after being asked "are you sure"
+
+Worth knowing that the first handoff was incomplete, and how:
+
+- **`npm run email:smoke`** now exists. Before it, the only end-to-end email
+  test was a throwaway scratchpad script — the capability existed for one
+  session and would have died with it. It sends one marked message AND requires
+  an unlisted address to be refused, because that `/exec` URL is public and the
+  allow-list is all that stops it being an open relay.
+- **`npm run dev:check` now compares auth config.** The `mailer_autoconfirm` /
+  `site_url` / `uri_allow_list` drift was fixed BY HAND, and a hand fix has no
+  memory — those are dashboard settings, outside git, and nothing would have
+  noticed them coming back.
+
+**The lesson for the next handoff:** ask what only exists in THIS session's
+context — a capability exercised once, a fix applied by hand, a number verified
+in a scratchpad. Those are the things that vanish silently.
+
 ### What is genuinely un-started (not blocked, just not begun)
 
 - `src/data/tools.js`, the one-source ฝ่าย tool registry — `DEPT_DEFS` and
