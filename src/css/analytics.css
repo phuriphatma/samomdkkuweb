@@ -184,3 +184,49 @@
 /* Light-only: the rest of the app has no dark theme, so a dark-mode OS
    was making these cards dark while the white admin shell stayed light.
    No dark variant here on purpose. */
+
+/* ── อีเมลแจ้งเตือน: daily sends against the Apps Script ceiling (0170) ──
+   A meter rather than a number, because the question the panel answers is
+   "how close are we?", not "how many?". The fill colour carries the answer
+   at a glance: green well under, orange past half, red past 80%. */
+.an-email-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: #e8efe9;
+  overflow: hidden;
+  margin: 0.1rem 0 0.55rem;
+}
+.an-email-meter-bar {
+  height: 100%;
+  width: var(--fill, 0%);
+  min-width: 3px;
+  background: var(--tone, #105922);
+  border-radius: inherit;
+  transition: width 0.5s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .an-email-meter-bar { transition: none; }
+}
+.an-email-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  font-size: 0.79rem;
+  color: #7a8a80;
+  margin-bottom: 0.6rem;
+}
+.an-email-legend b { color: #1c2a22; font-weight: 700; }
+.an-email-note {
+  font-size: 0.8rem;
+  color: #5c6b63;
+  background: #f2f5f2;
+  border-radius: 7px;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.6rem;
+}
+/* A warning must not look like the neutral note beside it. */
+.an-email-note--warn {
+  color: #9a3412;
+  background: #fff4ed;
+  border-left: 3px solid var(--brand-orange, #ff6f30);
+}

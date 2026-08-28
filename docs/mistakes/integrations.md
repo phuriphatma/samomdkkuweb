@@ -1060,3 +1060,59 @@ is legible as a test. And where the transport offers a "do not ping" flag, a
 test should always use it: the cost of a test that is merely quiet is nothing;
 the cost of one that summons people is their trust in the alert.
 
+
+---
+
+## The dev database emailed a REAL staff member, because it is an exact copy of production
+
+**Symptom.** The owner asked for dev notifications to go to a test inbox
+instead — *"the dev server shouldn't send to real staff."* They were right, and
+it was worse than assumed: `samo-dev` held `uni_staff_email =
+woratho@kku.ac.th`, the live recipient, and dev and previews send through the
+**same Apps Script deployment as production**. Any หนังสือโครงการ test on dev
+would have emailed a real member of staff a document request that did not exist.
+
+**Cause.** `samo-dev` is a byte-faithful copy of production (`TEAM-WORKFLOW`
+D1 — no masking, deliberately, so bugs reproduce). Fidelity is the point
+everywhere *except* the columns that name a person to contact. Those are the one
+place where copying production is the bug.
+
+**The fix that was not enough.** The first fix was `update project_settings set
+uni_staff_email = '<test inbox>'` on dev. That is a *stored value, not a guard*,
+and it is undone two ways, both silent: the next `npm run dev:refresh` restores
+production's row, or somebody edits the box in the dev admin UI.
+
+**The fix.** The rule moved to the **transport**. `resolveRecipients()` in
+`notify.js` returns the configured address only when `ribbonLabel()` says
+production; off production it returns the test inbox whatever the database says.
+`dev:refresh` still repoints the row as step 7 — belt and braces, and it keeps
+the dev admin UI honest about where mail goes — but correctness no longer
+depends on it.
+
+**And the guard immediately found two more paths.** The transport rule was
+written for `notifyUniStaff` alone. A test asserting *every* send resolves
+through it went red on:
+
+- **`notifyProf`** — the อาจารย์ signing request, same shape, unguarded. Check
+  the SECOND twin.
+- **the admin "ทดสอบ" button** — it emails whatever is *typed*, with no save,
+  which makes it the easiest path of all to reach a real person from a preview.
+
+**A guard written from the code it came from would have missed both.** The
+first version asserted one spelling, `normalizeRecipients(settings`, and passed
+while both were open. It was rewritten to assert the PROPERTY — every file
+containing a `notifyProjectEmail` send must obtain its recipient from
+`resolveRecipients` — and that is what caught them.
+
+**Where it lives now.** `resolveRecipients` / `markSubject` in
+`src/js/projects/notify.js` · `tools/dev-refresh.mjs` step 7 ·
+`src/js/analytics-email.test.js`.
+
+**The general rule.** *A copy of production is a copy of its OUTWARD-FACING
+DESTINATIONS too* — every column holding an address, a webhook, a phone number
+or a channel id is a live wire in a system built for testing. Sanitise them in
+the REBUILD, not by hand, and enforce the rule at the transport so that a
+restored row cannot re-arm it. **Then ask which other paths send**: the one you
+are looking at is rarely the only one, and a guard built from that path's own
+code will agree with it. Non-production output should also *say* so — an
+`[ENV]` subject prefix costs nothing and stops a test message being acted on.

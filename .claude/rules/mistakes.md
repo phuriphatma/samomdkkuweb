@@ -264,7 +264,7 @@ shaving the classes, which are the only part that generalises.
 - `postgres-schema.md` *(21)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(81)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
-- `integrations.md` *(26)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
+- `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(24)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 

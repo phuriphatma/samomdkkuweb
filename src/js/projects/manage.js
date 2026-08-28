@@ -10,7 +10,7 @@ import { escHtml } from '../utils.js';
 import { GAS_API_URL } from '../config.js';
 import { callGAS } from '../discord-queue.js';
 import { upsertDocType, saveSettings } from './api.js';
-import { normalizeRecipients } from './notify.js';
+import { normalizeRecipients, resolveRecipients } from './notify.js';
 
 let onChanged = () => {};
 let state = { docTypes: [], settings: null, role: null };
@@ -97,7 +97,13 @@ function refreshEmailWarn() {
  *  recipient box (no save required) so the admin can confirm delivery
  *  end-to-end. `emailFieldId` selects the uni-staff or professor box. */
 async function onSendTestEmail(emailFieldId = 'projectSettingsUniEmail') {
-  const to = normalizeRecipients(document.getElementById(emailFieldId)?.value);
+  // Through the transport guard like every other send. This button emails
+  // whatever is TYPED, so on a preview it is the easiest way of all to reach a
+  // real person — you do not even have to save the setting first.
+  const to = resolveRecipients(
+    document.getElementById(emailFieldId)?.value,
+    import.meta.env.VITE_ENV_NAME,
+    typeof location !== 'undefined' ? location.hostname : '');
   if (!to) { alert('กรุณากรอกอีเมลผู้รับก่อนส่งทดสอบ'); return; }
   const btn = emailFieldId === 'projectSettingsProfEmail'
     ? document.getElementById('projectSettingsProfEmailTest')

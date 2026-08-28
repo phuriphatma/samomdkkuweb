@@ -222,7 +222,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(26)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(27)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -252,6 +252,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - Removing `@here` from two builders left three ways to put it back
 - A preview deployment could post into the real ฝ่าย Discord channel
 - A test notification read as a real incident, because every builder hardcodes its own alarm
+- The dev database emailed a REAL staff member, because it is an exact copy of production
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(9)*
 
@@ -296,4 +297,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - The verification command in STATE.md named a sha two deploys behind
 - "The VM can't do mail" — one probe answered a narrower question than the sentence it was written into
 
-_239 entries across 9 files._
+_240 entries across 9 files._

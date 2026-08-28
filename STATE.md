@@ -72,7 +72,7 @@ TRUE. That is what the grep is for.
   `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
   (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
   concluding a deploy failed; each has been mistaken for one.
-- **Migrations through 0169.** For the test count run `npm test` — a number
+- **Migrations through 0170.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
   2026-08-27**, after 0169 was applied to production. Run `npm test` /
@@ -82,13 +82,10 @@ TRUE. That is what the grep is for.
 
 ### WHAT PROD IS DOING RIGHT NOW
 
-- **Claude usage measurement is ON.** The owner switched it back on from
-  `/admin#claude` on 2026-08-25 17:18 UTC; the timer wrote its first sample at
-  17:20 and has run every 15 minutes since. ⚠️ **The previous version of this
-  block said measurement was switched OFF, with a whole procedure for turning
-  it back on. It had already been done.** Ask the DATABASE what the switch says
-  before repeating a runtime claim out of this file — `select
-  monitoring_enabled, monitoring_changed_at from public.claude_settings`.
+- **Claude usage measurement is ON** since 2026-08-25 17:18 UTC, sampling every
+  15 min. ⚠️ This block once said OFF, with a procedure to re-enable something
+  already enabled — **ask the DATABASE, never this file, for runtime state**:
+  `select monitoring_enabled, monitoring_changed_at from public.claude_settings`.
 - `monitoring_note` still holds the old pause reason. Not shown while
   measurement is on (checked in `paintMeasured`), and used correctly by the
   monitor-on Discord notice as "why it had been paused". Leave it.
@@ -144,11 +141,14 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   Supabase to connect IN and the VM has no inbound port but 443. **That is NOT
   "the VM cannot do mail": it CAN send** through a relay on 587 (proven with a
   live STARTTLS session). Full assessment: `docs/EMAIL.md`.
-  ⚠️ **`samo-dev` auth was diverging from prod and is fixed** (2026-08-28):
-  `mailer_autoconfirm` was `false` where prod is `true` — which `auth.js`
-  DEPENDS on — `site_url` was `localhost:3000`, and `uri_allow_list` was EMPTY,
-  so no preview could complete a redirect flow. Google sign-in is still OFF on
-  dev and needs the owner (an OAuth client). (The plan's `#samo-dev-bot` EXISTS — it is
+  ⚠️ **Four `samo-dev` hazards fixed 2026-08-28 — detail in `docs/EMAIL.md` §6.**
+  It emailed a REAL `@kku.ac.th` staff address (same GAS deployment as prod);
+  now the owner's test inbox, re-applied by `dev:refresh` step 7 so a rebuild
+  cannot undo it, and non-prod subjects carry an `[ENV]` prefix. Auth also
+  diverged: `mailer_autoconfirm` `false` where `auth.js` DEPENDS on `true`,
+  `site_url` `:3000`, and an EMPTY `uri_allow_list` — so no preview could
+  finish a redirect. **Google sign-in is still OFF on dev** (owner: an OAuth
+  client). (The plan's `#samo-dev-bot` EXISTS — it is
   `#developer-server-notify`, and previews post there.)
   ✅ **PHASE 3 — PREVIEWS WORK, proven end to end 2026-08-27** (throwaway PR
   #17, closed). **They were ALREADY configured** on the `samomdkkuweb` project —
@@ -156,13 +156,11 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   A PR builds at `<hash>.samomdkkuweb.pages.dev`; Cloudflare posts the link.
   ⚠️ **Preview traps (host guard must match EXACT hosts; preview env points at
   `samo-dev`; env vars freeze at BUILD time) — `docs/INVARIANTS.md`.**
-  📌 `refactorsamomdkkuweb` built every commit a second time (dead prod branch,
-  508 behind). Preview builds + PR comments now **OFF**; project NOT deleted, so
-  its URL still serves the moved splash. Undo = set that field back to `all`.
+  📌 `refactorsamomdkkuweb` preview builds are OFF (dead branch building twice);
+  project kept so its URL still serves the splash. Undo = that field back to `all`.
   ✅ **PREVIEW ribbon ships** — polarity is deliberately the REVERSE of
-  `TEAM-WORKFLOW` §1 (absent var = no ribbon); why, and the shared-chunk
-  grep trap, in `docs/INVARIANTS.md`. `noindex` needed no work; `robots.txt`
-  now exists.
+  `TEAM-WORKFLOW` §1 (absent var = no ribbon); why, in `docs/INVARIANTS.md`.
+  `robots.txt` now exists; `noindex` needed no work.
   ✅ **Phase 3 is COMPLETE** — the `/notify` dev stub prints to the terminal.
   ✅ **NOTIFY — RESOLVED 2026-08-28 and TESTED end to end** (prod: every action;
   preview: every action + all 12 ฝ่าย → the dev channel). All three exposed
@@ -178,7 +176,8 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   `webhook:id` says where one points via GET. **Never verify by sending.**
   📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a preview upload lands in
-  the REAL Drive. Left deliberately; closed by the dev GAS deployment.
+  the REAL Drive, and preview EMAIL goes through the real deployment too (now
+  marked `[PREVIEW]` in the subject). Closed properly by the dev GAS deployment.
   ✅ **The repo SETTINGS have a guard** — `tools/repo-protection.mjs`, proof
   #24. `enforce_admins` must stay OFF: it is what lets the owner push `main`.
   📌 Three lessons this cost are in `docs/mistakes/tooling-proofs.md`.

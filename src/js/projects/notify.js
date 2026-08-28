@@ -11,6 +11,7 @@
 // ==============================================
 
 import { GAS_API_URL, NOTIFY_FN_URL } from '../config.js';
+import { ribbonLabel } from '../env-ribbon.js';
 import { queueDiscord, callGAS } from '../discord-queue.js';
 import {
   createNotification,
@@ -51,6 +52,64 @@ export function normalizeRecipients(raw) {
     .join(',');
 }
 
+/**
+ * The ONE address any non-production build is allowed to email.
+ *
+ * Already a whole-address entry in the Apps Script allow-list, so nothing on
+ * the GAS side needs changing. Overridable at build time for a second dev.
+ */
+export const DEV_TEST_INBOX = 'mdstuddata.beta@gmail.com';
+
+/**
+ * Who this build may actually email — the RULE, not a stored value.
+ *
+ * WHY THIS IS A FUNCTION AND NOT A SETTING. `samo-dev` is a full copy of
+ * production, so `uni_staff_email` arrives holding a real `@kku.ac.th` staff
+ * address, and dev + previews send through the SAME Apps Script deployment as
+ * production. That was fixed once by UPDATE-ing the dev row — and a stored
+ * value is not a guard: the next `dev:refresh` restores it, or somebody edits
+ * it in the dev admin UI, and a test flow mails a real person a document
+ * request that does not exist. Both failures are silent.
+ *
+ * So the rule lives at the TRANSPORT. Off production, the configured recipient
+ * is IGNORED, whatever it says. `dev:refresh` step 7 still repoints the row —
+ * belt and braces, and it keeps the dev UI honest about where mail goes — but
+ * correctness no longer depends on it.
+ *
+ * This is the repo's own lesson from the Discord `@everyone` incident: a rule
+ * enforced in every MESSAGE gets missed by the next message; enforced at the
+ * transport, it cannot be.
+ */
+export function resolveRecipients(configured, envName, hostname) {
+  const to = normalizeRecipients(configured);
+  if (ribbonLabel(envName, hostname) === null) return to;   // production
+  // Not production. Never the configured address — but still honour an
+  // explicitly EMPTY setting, so "email off" stays off everywhere.
+  return to ? DEV_TEST_INBOX : '';
+}
+
+/**
+ * Mark a subject when the mail did NOT come from production.
+ *
+ * WHY. A preview and the dev database send through the SAME Apps Script
+ * deployment as production — that is recorded as a known gap in STATE.md — so
+ * a test notification lands in a real inbox looking exactly like a real one.
+ * The env RIBBON solves this for the screen; nothing solved it for email, and
+ * an unmarked test message asking someone to sign a document is worse than a
+ * missing one, because they may act on it.
+ *
+ * It deliberately reuses `ribbonLabel` rather than testing the environment
+ * again. Two implementations of one rule drift, and this repo has a whole
+ * class of bugs from exactly that — the ribbon's polarity was argued out once
+ * (an ABSENT variable marks nothing, so a forgotten var can never splash
+ * PREVIEW across the live site) and that reasoning should not be re-derived
+ * here, where the failure would be silent instead of visible.
+ */
+export function markSubject(subject, envName, hostname) {
+  const label = ribbonLabel(envName, hostname);
+  return label ? `[${label}] ${subject}` : subject;
+}
+
 // The Discord-call queue + logged GAS caller now live in the shared
 // `discord-queue.js` core (imported above) so PR, Vital Sign, and
 // หนังสือโครงการ all serialise through ONE global chain — see that file
@@ -83,12 +142,18 @@ export async function notifyUniStaff({ kind, project, document, body, subject } 
   // mail server shouldn't slow the user). callGAS logs failures so
   // the previously-silent "email didn't arrive" failure mode is now
   // debuggable from the console.
-  const to = normalizeRecipients(settings?.uni_staff_email);
+  const to = resolveRecipients(
+    settings?.uni_staff_email,
+    import.meta.env.VITE_ENV_NAME,
+    typeof location !== 'undefined' ? location.hostname : '');
   if (settings?.notify_uni_email !== false && to) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
-    const sub = subject || (project?.name
-      ? `[MDKKU SAMO] ${project.name} — ${kind}`
-      : `[MDKKU SAMO] หนังสือโครงการ`);
+    const sub = markSubject(
+      subject || (project?.name
+        ? `[MDKKU SAMO] ${project.name} — ${kind}`
+        : `[MDKKU SAMO] หนังสือโครงการ`),
+      import.meta.env.VITE_ENV_NAME,
+      typeof location !== 'undefined' ? location.hostname : '');
     const html = buildEmailHtml({ kind, project, document, body, link: url });
     callGAS(GAS_API_URL, 'notifyProjectEmail', {
       to,
@@ -178,13 +243,22 @@ export async function notifyProf({ kind, project, document, body, subject } = {}
     }
   }
 
-  // Email — fire-and-forget (mirrors the uni_staff email path).
-  const to = normalizeRecipients(settings?.prof_email);
+  // Email — fire-and-forget (mirrors the uni_staff email path), and through
+  // the SAME transport guard. This path was missed when the guard was written
+  // for uni_staff alone: a preview would have emailed a real อาจารย์ a signing
+  // request. Check the SECOND twin — it is the shape this repo repeats most.
+  const to = resolveRecipients(
+    settings?.prof_email,
+    import.meta.env.VITE_ENV_NAME,
+    typeof location !== 'undefined' ? location.hostname : '');
   if (settings?.notify_prof_email !== false && to) {
     const url = deepLink({ projectId: project?.id, documentId: document?.id });
-    const sub = subject || (project?.name
-      ? `[MDKKU SAMO] ${project.name} — ${kind}`
-      : `[MDKKU SAMO] หนังสือโครงการ — ลงนาม`);
+    const sub = markSubject(
+      subject || (project?.name
+        ? `[MDKKU SAMO] ${project.name} — ${kind}`
+        : `[MDKKU SAMO] หนังสือโครงการ — ลงนาม`),
+      import.meta.env.VITE_ENV_NAME,
+      typeof location !== 'undefined' ? location.hostname : '');
     const html = buildEmailHtml({ kind, project, document, body, link: url });
     callGAS(GAS_API_URL, 'notifyProjectEmail', {
       to,

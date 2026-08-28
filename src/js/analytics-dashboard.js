@@ -123,6 +123,64 @@ function tile(num, label, sub, accent) {
   </div>`;
 }
 
+/**
+ * อีเมลแจ้งเตือน — daily sends against the Apps Script ceiling.
+ *
+ * WHY THIS PANEL EXISTS. The owner asked "is 100 a day enough, and have we
+ * ever hit it?" and nobody could answer: the send is fire-and-forget
+ * (`callGAS(...).catch(() => {})` in projects/notify.js), so a refusal reaches
+ * a console nobody reads. Measured 2026-08-28: 95 sends in 72 days, busiest
+ * day 7. The answer is a comfortable yes — but it should not take a database
+ * session to find that out again.
+ *
+ * The number is an ESTIMATE derived from the notification fan-out (see
+ * migration 0170), and it has exactly one way to lie: if the in-app half of
+ * the notification is switched off while email stays on, no rows are written
+ * and this reads ZERO while mail is still going out. So when `in_app_enabled`
+ * is false we say the number cannot be trusted instead of drawing a confident
+ * empty chart. `analytics-email.test.js` pins that.
+ */
+function emailPanel(e) {
+  if (!e) return '';
+  const quota = Number(e.quota_per_day || 100);
+  const recip = Math.max(Number(e.recipients || 0), 0);
+  const peak = Number(e.peak_day || 0);
+  // The ceiling counts RECIPIENTS, so two addresses cost two per send.
+  const peakCost = peak * Math.max(recip, 1);
+  const pct = Math.min(100, Math.round((peakCost / quota) * 100));
+  const tone = pct >= 80 ? '#dc2626' : pct >= 50 ? 'var(--brand-orange,#FF6F30)' : 'var(--brand-primary,#105922)';
+
+  let warn = '';
+  if (e.enabled === false) {
+    warn = `<div class="an-email-note">อีเมลแจ้งเตือนถูกปิดอยู่ — ระบบไม่ได้ส่งอีเมลในขณะนี้</div>`;
+  } else if (e.in_app_enabled === false) {
+    // The estimate's one failure mode, and the dangerous direction: silent zero.
+    warn = `<div class="an-email-note an-email-note--warn">ตัวเลขนี้เชื่อถือไม่ได้ในขณะนี้ —
+      การแจ้งเตือนในระบบถูกปิดไว้ แต่ยังส่งอีเมลอยู่ จำนวนที่นับได้จึงต่ำกว่าความเป็นจริง</div>`;
+  } else if (pct >= 80) {
+    warn = `<div class="an-email-note an-email-note--warn">ใกล้ถึงขีดจำกัดรายวัน —
+      วันที่ใช้มากที่สุดใช้ไป ${fmt(peakCost)} จาก ${fmt(quota)}</div>`;
+  }
+
+  const sub = recip > 1
+    ? `${fmt(recip)} ผู้รับต่อครั้ง · สูงสุด ${fmt(peakCost)}/${fmt(quota)} ต่อวัน`
+    : `สูงสุด ${fmt(peak)} จาก ${fmt(quota)} ต่อวัน`;
+
+  return `<div class="an-card an-card--wide">
+      <div class="an-card-head"><h3>อีเมลแจ้งเตือน (หนังสือโครงการ)</h3><span>${escHtml(sub)}</span></div>
+      <div class="an-email-meter" style="--fill:${pct}%;--tone:${tone}">
+        <div class="an-email-meter-bar"></div>
+      </div>
+      <div class="an-email-legend">
+        <span><b>${fmt(e.sent_total)}</b> ฉบับในช่วงที่เลือก</span>
+        <span><b>${fmt(peak)}</b> สูงสุดต่อวัน</span>
+        <span><b>${fmt(Math.max(quota - peakCost, 0))}</b> คงเหลือในวันที่หนักที่สุด</span>
+      </div>
+      ${warn}
+      ${barChart(e.sent_by_day, 'var(--brand-orange,#FF6F30)')}
+    </div>`;
+}
+
 function render(body, d) {
   const t = d.totals || {};
   const a = d.active || {};
@@ -186,6 +244,7 @@ function render(body, d) {
         <div class="an-card-head"><h3>ผู้เข้าใช้งานรายวัน</h3><span>เซสชันไม่ซ้ำ / วัน</span></div>
         ${barChart(d.visitors_by_day, 'var(--vs-accent,#0d9488)')}
       </div>
+      ${emailPanel(d.email)}
       <div class="an-card">
         <div class="an-card-head"><h3>แท็บที่ใช้บ่อย</h3></div>
         ${rankBars((d.top_paths || []).map((p) => ({ label: p.path, n: p.n })), 'var(--brand-primary,#105922)', (l) => TAB_TH[l] || l)}

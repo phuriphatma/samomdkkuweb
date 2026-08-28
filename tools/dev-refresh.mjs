@@ -57,7 +57,7 @@ console.log(`→ work   ${work}`);
 // schema_migrations describes the DATABASE IT IS IN, not the application. Copying
 // it between databases makes dev claim production's apply history — and it is
 // what collided on the first hand-run (duplicate key on version 0169).
-console.log('\n[1/6] dumping production');
+console.log('\n[1/7] dumping production');
 execFileSync(`${PG}/pg_dump`, [PROD, '--schema-only', '--no-owner',
   '--schema=public', '--schema=passport', '-f', join(work, 'schema.sql')], { stdio: 'inherit' });
 execFileSync(`${PG}/pg_dump`, [PROD, '--data-only', '--no-owner',
@@ -74,7 +74,7 @@ if (grantCount < 100) die(`the schema dump has only ${grantCount} GRANTs — it 
 console.log(`      schema.sql: ${grantCount} GRANTs ✓`);
 
 // ---- 2. wipe + reload schema -------------------------------------------
-console.log('[2/6] rebuilding the dev schema');
+console.log('[2/7] rebuilding the dev schema');
 q(DEV, "drop schema if exists passport cascade; drop schema if exists public cascade; create schema public; grant usage on schema public to anon, authenticated, service_role;");
 q(DEV, "create extension if not exists pg_trgm with schema extensions;");
 psql(DEV, ['-q', '-f', join(work, 'schema.sql')]);
@@ -83,7 +83,7 @@ psql(DEV, ['-q', '-f', join(work, 'schema.sql')]);
 // Supabase's ALTER DEFAULT PRIVILEGES grant on every newly created table;
 // pg_dump emits no REVOKEs because it assumes stock PostgreSQL defaults. So a
 // restore is MORE PERMISSIVE than its source. Fix from the MEASURED difference.
-console.log('[3/6] removing grants the restore invented');
+console.log('[3/7] removing grants the restore invented');
 const GR = "select table_schema||'|'||table_name||'|'||grantee||'|'||privilege_type from information_schema.role_table_grants where table_schema in ('public','passport') and grantee in ('anon','authenticated','service_role') order by 1;";
 const setOf = (uri) => new Set(q(uri, GR).split('\n').filter(Boolean));
 const pg = setOf(PROD), dg = setOf(DEV);
@@ -103,7 +103,7 @@ console.log(`      revoked ${extra.length}`);
 // ITS OLD ACCOUNTS. The first version of this script did exactly that and still
 // printed "identical to production" — because step 6 was only comparing
 // public/passport. A refresh that cannot refresh auth is not a refresh.
-console.log('[4/6] loading data (auth first)');
+console.log('[4/7] loading data (auth first)');
 q(DEV, "truncate auth.users cascade;");
 for (const f of ['auth.sql', 'app.sql']) {
   writeFileSync(join(work, `load-${f}`), `set session_replication_role = 'replica';\n` + readFileSync(join(work, f), 'utf8'));
@@ -111,13 +111,13 @@ for (const f of ['auth.sql', 'app.sql']) {
 }
 
 // ---- 5. dev's own migration record -------------------------------------
-console.log('[5/6] recording migrations as backfilled on dev');
+console.log('[5/7] recording migrations as backfilled on dev');
 const files = listMigrationFiles();
 const values = files.map((f) => `(${sqlLit(f.version)}, ${sqlLit(f.name)}, 'backfilled', null, null, ${sqlLit(checksumOf(f.path))})`).join(',');
 q(DEV, `insert into public.schema_migrations (version,name,source,applied_at,applied_by,checksum) values ${values} on conflict (version) do nothing;`);
 
 // ---- 6. verify ----------------------------------------------------------
-console.log('[6/6] verifying against production');
+console.log('[6/7] verifying against production');
 const gen = q(PROD, "select string_agg(format('select %L::text as t, count(*) from %I.%I', n.nspname||'.'||c.relname, n.nspname, c.relname), ' union all ' order by 1) from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname in ('public','passport');");
 // Compare auth too. Leaving it out is what let a stale auth copy pass as good.
 const AUTH = "select 'auth.users', count(*) from auth.users union all select 'auth.identities', count(*) from auth.identities";
@@ -138,6 +138,36 @@ console.log(`      grants missing  : ${missing}`);
 for (const [t, n] of diffs.slice(0, 10)) console.log(`        ${t}: prod=${n} dev=${rd.get(t) ?? 'ABSENT'}`);
 
 if (diffs.length || stillExtra || missing) die('dev does not match production — do NOT use this copy');
+
+// ---- 7. repoint anything that reaches a REAL PERSON ---------------------
+//
+// This runs AFTER the parity check on purpose. Steps 1-6 exist to prove dev is
+// a faithful copy; this step deliberately makes it unfaithful, in the one
+// direction where fidelity is a hazard. Doing it before would fail the compare.
+//
+// WHY IT EXISTS. dev is loaded with REAL production data (TEAM-WORKFLOW D1, no
+// masking), so `project_settings.uni_staff_email` arrives holding a real
+// @kku.ac.th address — and dev and previews send through the SAME Apps Script
+// deployment as production. Testing a หนังสือโครงการ flow on dev would email a
+// real member of staff a document request that does not exist.
+//
+// It was fixed by hand once, on 2026-08-28. A hand fix is undone by the next
+// `dev:refresh`, silently and with no failure — which is the shape this repo
+// keeps paying for. So it lives in the rebuild instead.
+//
+// mdstuddata.beta@gmail.com is already a whole-address entry in the Apps
+// Script allow-list, so nothing on the GAS side needs changing.
+console.log('[7/7] repointing outward-facing destinations away from real people');
+const DEV_INBOX = process.env.DEV_TEST_INBOX || 'mdstuddata.beta@gmail.com';
+q(DEV, `update public.project_settings set uni_staff_email = ${sqlLit(DEV_INBOX)};`);
+const landed = q(DEV, 'select uni_staff_email from public.project_settings;').trim();
+// Verify rather than assume: an UPDATE that matched no rows returns success.
+if (!landed.includes(DEV_INBOX)) {
+  die(`could not repoint uni_staff_email on dev (it reads ${landed || 'nothing'}). `
+    + 'Do NOT use this copy for notification testing — it would mail a real person.');
+}
+console.log(`      หนังสือโครงการ email → ${DEV_INBOX}`);
+
 console.log('\n✓ samo-dev rebuilt and identical to production.');
 console.log('  Now run:  npm run dev:check   (the anon-key parity probe)');
 console.log('  And prove auth: sign in as a copied account. Nothing else settles it.');
