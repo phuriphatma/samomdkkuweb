@@ -111,6 +111,14 @@ it is the part that generalises to code not yet written.
    `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — an
    uncosted trade-off (0166). Put the number in the note.
    Ask whether an id RESOLVES, never whether it is `null` (§D4 asked `is null`).
+   **A SENTINEL IS NOT A VALUE, AND A TIMESTAMP IS NOT AN EVENT.** A quota
+   dashboard was about to report 83% of a ceiling that was really at 7%:
+   `file_url is not null` counted `ไม่มีไฟล์แนบ` and a PASTED link as uploads
+   (98 real → 157), and its "25 calls in one minute" was a bulk IMPORT — 2.86 s
+   apart at ~65 ms, rows written for files already in Drive, no call made.
+   **Before shipping an aggregate, print the ROWS behind its most extreme value
+   and look at them**; ask what else the column can hold, and what a bulk write
+   would look like (`tooling-proofs.md`).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
    the NULL branch is where a prediction and the real filter part first (the ปีงบ
    move, `frontend-ui.md`).
@@ -266,6 +274,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(24)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(25)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

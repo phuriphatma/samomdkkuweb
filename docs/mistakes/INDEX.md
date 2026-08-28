@@ -268,7 +268,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `systemctl enable --now` reported success and scheduled nothing
 - "I grepped the served bundle for the string I just changed and it is not there
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(24)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(25)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -296,5 +296,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `urllib` got 403 from Discord and I reported the service as DOWN
 - The verification command in STATE.md named a sha two deploys behind
 - "The VM can't do mail" — one probe answered a narrower question than the sentence it was written into
+- A dashboard was about to report 83% of a quota that was really at 7%
 
-_240 entries across 9 files._
+_241 entries across 9 files._

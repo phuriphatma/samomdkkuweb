@@ -1045,3 +1045,61 @@ credential.** Two supporting habits, both paid for here: evidence already
 collected in the session (that `github` 200) is evidence against your claim too,
 so re-read it; and **resolve a hostname before reporting its port shut**,
 because a typo and a firewall look identical from a connect() call.
+
+---
+
+## A dashboard was about to report 83% of a quota that was really at 7% — sentinel strings, and a data import counted as traffic
+
+**Symptom.** A new สถิติ panel was ready to show **25 Apps Script calls in one
+minute** against a 30-simultaneous ceiling. The owner asked the only question
+that mattered: *"are there really 25 pr upload in 60 seconds?"* There were not.
+The real peak is **2**.
+
+**Cause 1 — a sentinel is not a value.** The count used `file_url is not null`
+as "has an upload". That column holds four different things:
+
+| value | rows | is it an upload? |
+|---|---|---|
+| `https://drive.google.com/file/d/…` | 98 | **yes** |
+| `null` | 61 | no |
+| `ลิงก์เสริม: <url>` — a link the submitter PASTED | 50 | **no** |
+| `ไม่มีไฟล์แนบ` — "no attachment" | 9 | **no** |
+
+`null` was handled. The two Thai sentinels were not, so 98 real uploads were
+reported as 157. This is the repo's own recurring shape wearing new clothes:
+asking whether a field is `null` instead of whether it *resolves*.
+
+**Cause 2 — a timestamp records when a ROW was written, not when work was
+done.** The 25 rows landed within **2.86 seconds**, ~65 ms apart. That is the
+Sheets→Supabase migration writing straight to Postgres, for files that were
+*already in Drive*. **Not one Apps Script call happened.** Nothing in a `count()`
+distinguishes a bulk import from a stampede — the shape is identical.
+
+**Fix.** Count only real uploaded files, and drop rows arriving under a second
+after the previous one: no human submits two forms 65 ms apart, and that spacing
+is the signature of a machine. `excluded_bulk` ships in the payload so the
+exclusion is visible — *an exclusion nobody can see is how a number quietly
+becomes a lie*.
+
+**How close this came to being expensive.** 83% of a ceiling is a number
+somebody acts on. The panel would have argued for serialising uploads,
+splitting the Google account, or a migration off Apps Script — real work, to fix
+a system sitting at 7%.
+
+**A near-miss in the same session.** A build slip left the corrected migration
+containing only comments and one `comment on function` statement.
+`apply-migration.mjs` printed **`✓ migration applied`**, because that statement
+succeeded. The function was untouched and the old numbers kept coming back.
+Every apply is now followed by reading the live body back
+(`pg_get_functiondef(oid) like '%<new marker>%'`).
+
+**Where it lives now.** `supabase/migrations/0173_gas_count_real_uploads_not_sentinels_or_imports.sql`
+· `src/js/analytics-email.test.js`.
+
+**The general rule.** *A derived metric is a claim about the world, and it must
+be checked against the ROWS before anyone is shown it.* Both errors survived
+being written, reviewed, and a passing test suite — and neither survived thirty
+seconds of `select … limit 26`. Before shipping an aggregate, **print the
+records behind its most extreme value and look at them**. Two questions catch
+this class: *what else can this column contain?* and *what would a bulk write
+look like here?*
