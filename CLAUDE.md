@@ -7,7 +7,7 @@ Slim entry point. Everything else is read on demand.
 MDKKU SAMO student-portal SPA. Vite + Vanilla JS + Bootstrap, backed by
 Supabase (auth + Postgres + RLS). Apps Script (`appscript/`) survives as a
 thin proxy for Discord webhooks, Drive file uploads and the หนังสือโครงการ
-email (`MailApp` — ceilings and the do-not-self-host case in `docs/EMAIL.md`).
+email (`MailApp`, quota-bound — ceilings and options in `docs/EMAIL.md`).
 
 Live URLs:
 - **Production: `https://samo.md.kku.ac.th` — the KKU VM, `main` branch.**
@@ -110,8 +110,9 @@ now fails the build if it grows back past ~200.
 - `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY, nothing built**; its §0 holds owner decisions that must not be re-litigated
 - `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10 self-scrutiny, §13 build order
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
-- `docs/EMAIL.md` — who sends mail, the quota ceilings, and why self-hosting
-  SMTP here fails (`p=reject` + no inbound port). READ BEFORE touching mail.
+- `docs/EMAIL.md` — who sends mail and the quota ceilings. The VM CAN send via
+  a relay (587 out works); it cannot BE or RECEIVE mail (25 blocked out, no
+  inbound port, `p=reject`). READ BEFORE touching mail.
 - `docs/SUPABASE-MIGRATION.md` — **HISTORICAL**, the Sheets→Supabase migration
   (finished long ago; kept for why the schema is shaped as it is). Not a status.
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main

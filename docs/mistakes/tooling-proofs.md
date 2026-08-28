@@ -992,3 +992,56 @@ the fact from its one home, and let the guard forbid the shape that reintroduces
 it. **And an exemption is a claim about the world too** — the ones that say
 "not written yet" expire, and a guard whose exemption outlives the absence it
 describes fails GREEN.
+
+---
+
+## "The VM can't do mail" — one probe answered a narrower question than the sentence it was written into
+
+**Symptom.** An assessment concluded *do not self-host email*, and the owner
+immediately asked the obvious question back: **"isn't there a way to send email
+from the VM?"** There is. `smtp.gmail.com:587` answers from that box, completes
+STARTTLS, and offers `AUTH`. The conclusion had been generalised past its
+evidence.
+
+**Cause.** One probe was run — *can something outside connect IN to the VM?* —
+and the answer, correctly *no*, was written up as though it settled **three**
+different questions:
+
+| question | direction | truth |
+|---|---|---|
+| can anything connect **in**? | inbound | **no** — only 443 is mapped |
+| can it deliver **direct to MX**? | outbound :25 | **no** — egress blocked |
+| can it send via a **relay**? | outbound :587 | **YES**, and never tested |
+
+The probe swept `202.28.95.46` — *the public address*. Nothing about it could
+have answered a question about egress, because it was pointed the wrong way. The
+write-up then reached a conclusion that needed all three.
+
+The tell was in the evidence and went unread: `curl https://github.com` had
+already returned **200 from that box** in the same session. Outbound worked, it
+was recorded, and it was not connected to the claim being made.
+
+**A second error inside the correction.** The follow-up probe reported
+`smtp-brevo.com:587 blocked`. That host does not exist — Brevo's is
+`smtp-relay.brevo.com`, which is **OPEN**. A DNS failure and a filtered port are
+different facts and the probe printed them identically, so an invented hostname
+became a finding. Resolve the name first and print the IP; a probe that cannot
+distinguish "no such host" from "blocked" will manufacture blockers.
+
+**Fix.** Test each direction separately and say which one each result belongs
+to. `docs/EMAIL.md` §3 is now a three-row table — send / be a server / receive —
+because those were always three answers wearing one sentence. And a TCP connect
+is not a service: the relay claim is backed by an actual SMTP session
+(`openssl s_client -starttls smtp`) showing the `250-AUTH` line, since a captive
+proxy will complete a handshake and nothing else.
+
+**Where it lives now.** `docs/EMAIL.md` §3.
+
+**The general rule.** *A probe answers the question its direction asks, not the
+sentence you write around it.* Before generalising a negative result, name the
+question it actually tested and check whether the conclusion needs a wider one —
+**"X cannot do Y" almost always hides an unstated direction, endpoint or
+credential.** Two supporting habits, both paid for here: evidence already
+collected in the session (that `github` 200) is evidence against your claim too,
+so re-read it; and **resolve a hostname before reporting its port shut**,
+because a typo and a firewall look identical from a connect() call.

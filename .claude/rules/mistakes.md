@@ -213,6 +213,15 @@ it is the part that generalises to code not yet written.
    **Check the PROBE SUBJECT**, derived from the gate's own predicate:
    `current_user_has_permission()` reads the UNION of `permissions` AND
    `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
+   **A PROBE ANSWERS THE QUESTION ITS DIRECTION ASKS, not the sentence you write
+   around it.** An inbound port scan of the VM's public address proved nothing
+   could connect IN, and that was written up as "the VM cannot do mail" — it
+   sends fine through a relay on 587, never tested, while a `curl` returning 200
+   from that box sat in the same session's evidence. Before generalising a
+   negative, name the question it TESTED: "X cannot do Y" hides an unstated
+   direction, endpoint or credential. And **resolve a hostname before reporting
+   its port shut** — a typo and a firewall look identical from `connect()`
+   (`smtp-brevo.com` does not exist; `smtp-relay.brevo.com` is open).
    **Check the INSTRUMENT can see it**: minified builds rename module-scope
    names (grep a STRING LITERAL or CSS class), code often lands in a SHARED chunk
    both entries import (0145), `curl -L` turns a GAS `/exec` POST into a GET, and
@@ -257,6 +266,6 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(26)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(23)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(24)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

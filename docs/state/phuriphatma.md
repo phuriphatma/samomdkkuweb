@@ -65,12 +65,15 @@ hand-maintained copies. The real fix remains the single registry
    `prform.gs` uses `DriveApp`, so re-authorising grants the whole Drive).
 
 3. ~~**A mail server on the VM — run Mailpit, point `samo-dev`'s SMTP at it.**~~
-   **RETRACTED 2026-08-28: that cannot work here, and the reason is the
-   network, not the tool.** The VM holds only `10.101.111.181`; the public
-   address `202.28.95.46` has ports 25/587/465/1025 filtered (443 open as the
-   control). Supabase Cloud can never open an SMTP connection to that box.
-   Separately, `kku.ac.th` publishes `DMARC p=reject` with no `sp=`, so
-   `md.kku.ac.th` inherits reject and DNS belongs to KKU NOC.
+   **RETRACTED 2026-08-28 — but only the RECEIVING half.** A trap needs
+   Supabase to connect IN, and nothing can: the VM holds only
+   `10.101.111.181`, and the public `202.28.95.46` has 25/587/465/1025 filtered
+   (443 open as the control).
+   ⚠️ **Do not read that as "the VM cannot do mail" — it CAN send.**
+   `smtp.gmail.com:587` and every other relay answer from the box, proven with a
+   real STARTTLS session that offered `AUTH`. What is blocked is port 25
+   OUTBOUND (so it cannot be an independent server) and the domain's
+   `DMARC p=reject` (so it cannot send AS `@md.kku.ac.th` without KKU NOC).
    **The whole assessment — both senders, every quota ceiling, and the
    recommendation — is `docs/EMAIL.md`.** Read that, not this bullet.
    Headline: there is no password reset in this app, and mail is why; the

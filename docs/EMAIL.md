@@ -1,13 +1,22 @@
-# Email — what sends it, what the ceilings are, and why not to self-host
+# Email — what sends it, what the ceilings are, and what the VM can do
 
 **Status: assessment, 2026-08-28. Nothing here is built beyond the three
 `samo-dev` settings noted in §6.** Written after the owner asked whether to
 migrate email off Apps Script onto a self-hosted server, and how to raise the
 limits without getting flagged.
 
-The short answer: **do not self-host.** On this network and this domain,
-self-hosting is the option most likely to get mail rejected — not spam-foldered,
-*rejected* — and the cheapest large win costs no infrastructure at all.
+**The short answer, in one line each:**
+
+- **The VM CAN send mail** — through an authenticated relay on 587/465, proven
+  with a real SMTP session, needing nothing from anyone. §3.
+- **The VM cannot BE a mail server** — port 25 outbound is blocked and the
+  domain publishes `DMARC p=reject`. That is the part that would get us flagged.
+- **The VM cannot RECEIVE mail** — no inbound port but 443. This is what kills
+  the Mailpit trap (§7), and it is a separate fact from the two above.
+- **The cheapest large win needs no infrastructure at all** — KKU runs Google
+  Workspace and we are not using it. §4.
+- **The prize is bigger than a quota**: there is no password reset in this app,
+  and mail is why. §2.
 
 ---
 
@@ -40,29 +49,73 @@ password needs a human.
 **That is the strongest argument for doing this work**, and it is a bigger prize
 than raising the Apps Script quota.
 
-## 3. Why self-hosting is the wrong direction here
+## 3. What the VM can and cannot do
 
-Three independent blockers, each verified rather than assumed:
+⚠️ **An earlier version of this section said "do not self-host" without
+separating three different things, and that was too broad. The owner pushed
+back — "isn't there a way to send email from the VM?" — and they were right.**
+The VM is a perfectly good mail *client*. It just cannot be a mail *server*.
 
-1. **The VM cannot receive SMTP.** `samo.md.kku.ac.th` resolves to `202.28.95.46`;
-   the box itself holds only `10.101.111.181/24`. Probing the public address:
-   ports 25, 587, 465 and 1025 are all filtered, **with 443 open as the control**
-   proving the probe works. KKU maps one port to this VM. Supabase Cloud — or any
-   sender — has no route to an SMTP daemon there.
-2. **`kku.ac.th` publishes `DMARC p=reject`** (`v=DMARC1; p=reject;
-   rua=mailto:mail-report@kku.ac.th`) with no `sp=`, so `md.kku.ac.th` inherits
-   *reject*. Mail claiming either domain from a source outside their SPF/DKIM is
-   thrown away by the receiver. `md.kku.ac.th` publishes no SPF and no MX of its
-   own.
-3. **DNS is not ours.** `ns0`–`ns4.kku.ac.th`, SOA contact `noc.kku.ac.th`. Every
-   SPF or DKIM record is a request to KKU NOC, not a dashboard edit.
+Three directions, each probed on the box itself on 2026-08-28:
 
-A mail server on the VM would therefore send from a NAT'd university IP, with no
-control of its PTR record, into a domain whose policy is `reject`. **That is the
-definition of getting flagged.**
+| Direction | Verdict | Evidence |
+|---|---|---|
+| **Receive SMTP** (something outside connects in) | ❌ impossible | VM holds only `10.101.111.181`; public `202.28.95.46` has 25/587/465/1025 filtered, **443 open as the control** |
+| **Send direct to recipients' MX** (port 25 out) | ❌ blocked | `aspmx.l.google.com:25` refused from the VM — the standard anti-spam egress rule |
+| **Send through an authenticated relay** (587/465 out) | ✅ **works** | see below |
+
+**Every relay worth using is reachable from the VM**, verified by TCP connect,
+with `github.com:443` as the control:
+
+```
+smtp.gmail.com:587              OPEN      smtp-relay.brevo.com:587    OPEN
+smtp.gmail.com:465              OPEN      smtp.sendgrid.net:587       OPEN
+smtp-relay.gmail.com:587        OPEN      smtp.resend.com:587         OPEN
+email-smtp.us-east-1…:587       OPEN      smtp.postmarkapp.com:587    OPEN
+api.resend.com:443              OPEN      aspmx.l.google.com:25       blocked
+```
+
+⚠️ **A TCP handshake is not an SMTP session** — a captive proxy answers one and
+not the other. So the session was actually opened, and Gmail really talks:
+
+```
+$ openssl s_client -starttls smtp -connect smtp.gmail.com:587
+250-smtp.gmail.com at your service, [202.28.118.103]
+250-AUTH LOGIN PLAIN XOAUTH2 PLAIN-CLIENTTOKEN OAUTHBEARER XOAUTH
+250 SMTPUTF8
+```
+
+STARTTLS completes and `AUTH` is offered. **The VM can authenticate and send
+today**, with no request to anyone.
+
+📌 The VM's outbound NAT address is **`202.28.118.103`** — a *different* address
+from the `202.28.95.46` that serves the website.
+
+### So what is actually ruled out
+
+Only the *independent mail server*, and for two reasons that both still hold:
+
+- **Port 25 outbound is blocked**, so it could not deliver to recipients anyway.
+- **`kku.ac.th` publishes `DMARC p=reject`** (`v=DMARC1; p=reject;
+  rua=mailto:mail-report@kku.ac.th`) with no `sp=`, so `md.kku.ac.th` inherits
+  *reject* and publishes no SPF or MX of its own. Mail claiming either domain
+  from an unblessed source is discarded, not spam-foldered. **DNS is
+  `ns0`–`ns4.kku.ac.th` (SOA contact `noc.kku.ac.th`)**, so the records that
+  would fix that are a request to KKU NOC.
+
+DMARC constrains **which address you send AS**, not which machine sends. Relay
+through Google as the SAMO Gmail address and it is aligned today; send as
+`@md.kku.ac.th` and you need DKIM records from NOC, whatever host you use.
 
 📌 **Cloudflare is not in the mail path at all** — Pages is retired, Cloudflare
 does not send email, and nothing there is limiting or flagging anything.
+
+📌 Postfix runs on the VM already (`inet_interfaces = loopback-only`,
+`relayhost` empty) for local delivery only. **The queue is empty and nothing is
+deferred**, so it is unused rather than broken — but with port 25 blocked and no
+relayhost, any system mail to an outside address today would go nowhere. Setting
+`relayhost` gives cron and certbot somewhere to send, and gives the app queuing
+and retry for free.
 
 ## 4. What KKU already has, and why it is the cheap win
 
@@ -119,6 +172,33 @@ custom SMTP configured the auth rate limit goes from 2/hour to 30/hour, tunable.
    That is what buys mail that says SAMO and passes `p=reject`. Ask for the
    subdomain rather than records on `md.kku.ac.th` — it is a smaller ask and it
    keeps our sending reputation off the faculty domain.
+
+## 5a. The option §3 opens up — let the VM send the notification itself
+
+Because the VM can reach every relay on 587, **`notifyProjectEmail` does not have
+to live in Apps Script at all.** `samo-notify.service` is already a Node service
+on `:8787` behind nginx, already the place Discord notifications go. Adding mail
+to it means:
+
+- **the Apps Script mail quota stops mattering** — the ceiling becomes the
+  relay's (Gmail 500/day, Workspace relay 10,000/day, Brevo 300/day free);
+- **one notification path instead of two.** Today a หนังสือโครงการ notification
+  fans out to Discord through the VM and to email through Apps Script — two
+  services, two failure modes, two places to look;
+- **the recipient allow-list moves off a public unauthenticated endpoint.** The
+  GAS `/exec` URL ships in the browser bundle, which is why `sendProjectEmail`
+  needs `EMAIL_DOMAIN_ALLOWLIST` at all — it is guarding an open relay. The
+  notify service is not public in the same way.
+
+**This competes with "move the Apps Script to a Workspace account", it does not
+follow it.** Moving the script is smaller (an account change, no code) and keeps
+Drive and mail together; moving the mail to the VM is more work but retires the
+GAS mail path and its quota permanently. Both are defensible — **the Workspace
+move is the right first step**, because it is reversible, needs no code review,
+and buys 15× immediately.
+
+⚠️ Whichever wins, `MailApp` stays for nothing else — Apps Script keeps the Drive
+uploads regardless.
 
 ## 6. What was actually changed on 2026-08-28
 

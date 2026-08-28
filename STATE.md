@@ -140,9 +140,10 @@ reasoning, are at the TOP of **`docs/state/phuriphatma.md`**.
   ⚠️ **`backfilled` ≠ `applied`** in `schema_migrations`. Commands + every trap:
   `skills/build-the-dev-database.md` and `README.md`.
   ⏳ **Left in phase 2**: dev GAS deployment under its own Google account ·
-  `dev-grants.json`. **The mail trap is RETRACTED, not pending** — Mailpit over
-  SMTP cannot work (no inbound port to the VM, `DMARC p=reject` on the domain);
-  the whole email assessment is `docs/EMAIL.md`.
+  `dev-grants.json`. **The mail trap is RETRACTED, not pending** — it needed
+  Supabase to connect IN and the VM has no inbound port but 443. **That is NOT
+  "the VM cannot do mail": it CAN send** through a relay on 587 (proven with a
+  live STARTTLS session). Full assessment: `docs/EMAIL.md`.
   ⚠️ **`samo-dev` auth was diverging from prod and is fixed** (2026-08-28):
   `mailer_autoconfirm` was `false` where prod is `true` — which `auth.js`
   DEPENDS on — `site_url` was `localhost:3000`, and `uri_allow_list` was EMPTY,
