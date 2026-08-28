@@ -401,6 +401,27 @@ the one that works this week.
 ⚠️ The relay password is a credential like any other: `/etc/samo-notify.env` or
 the Supabase dashboard. Never a `VITE_*` var, never anything under `src/`.
 
+## 6b. How to test the email path
+
+```bash
+npm run email:smoke                       # to the dev test inbox
+npm run email:smoke -- --to a@kku.ac.th   # to a specific allowed address
+```
+
+⚠️ **It DOES send.** It also attempts one send to an address that is NOT on the
+Apps Script allow-list and requires that to be refused — without that control a
+success proves only that something answered, not that the guard still works.
+That matters more than usual here: the `/exec` URL is public and
+unauthenticated, so the allow-list is the only thing between it and being an
+open relay able to send mail as "MDKKU SAMO".
+
+Nothing it reports proves DELIVERY — only that Apps Script accepted the message.
+Check the inbox.
+
+📌 `npm run dev:check` also compares the auth settings the app branches on
+(`mailer_autoconfirm` and friends), because the drift in §6 was fixed by hand
+and a hand fix has no memory.
+
 ## 7. The abandoned idea, recorded so it is not re-proposed
 
 `docs/state/phuriphatma.md` recorded "run **Mailpit** on the VM, point

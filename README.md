@@ -255,6 +255,8 @@ Authorized JavaScript origins.
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
 | `npm test` | Vitest suite (run this and `build` before every commit) |
+| `npm run email:smoke` | Send one clearly-marked test email through the real Apps Script path, and prove the recipient allow-list still refuses an address that is not on it. Both directions on purpose: that `/exec` URL is public and unauthenticated, so without the allow-list it is an open relay able to send as "MDKKU SAMO". `--to <addr>` picks a recipient. It DOES send. |
+| `npm run dev:grants` | Apply `tools/dev-grants.json` — dev-only guest permissions that expire — to `samo-dev`. Refuses production and any unknown project by ref before it writes. Also runs as the last step of `dev:refresh`, since a rebuild wipes anything applied by hand. |
 | `npm run deploy:owed` | Is production serving current code? Reads the deployed sha from the one place it is written (`STATE.md`'s ✅ DEPLOYED line) and compares that commit with your WORKING TREE — so uncommitted and never-added files count too. Ignores docs, write-ups and tests, which never reach a bundle. Exit 0 = nothing owed. |
 | `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
 | `npm run proofs` | Run every live database proof (RLS boundaries, column guards, definer-function authorization) against the real project in rolled-back transactions, and print one verdict each. Needs `SUPABASE_ACCESS_TOKEN` in `.env.local`, so it is a maintainer step, not a CI one. `npm run proofs <substring>` runs a subset. |

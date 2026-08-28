@@ -1103,3 +1103,50 @@ seconds of `select … limit 26`. Before shipping an aggregate, **print the
 records behind its most extreme value and look at them**. Two questions catch
 this class: *what else can this column contain?* and *what would a bulk write
 look like here?*
+
+---
+
+## Impersonating a user through the Management API works for one statement and silently stops working at the next
+
+**Symptom.** Testing `analytics_overview()` needs a caller with an admin grant —
+as the Management-API superuser `auth.uid()` is null, so the RPC correctly
+raises. The documented workaround works:
+
+```sql
+begin;
+select set_config('role','authenticated',true),
+       set_config('request.jwt.claims', json_build_object('sub', '<uuid>')::text, true);
+select public.analytics_overview(90);   -- ✅ returns data
+rollback;
+```
+
+The identical pattern with an `update` in place of the `select` **silently does
+nothing**. No error, HTTP 200, and the row is unchanged.
+
+**Cause.** The endpoint does not carry the transaction-local settings across
+statements the way a psql session does. Verified rather than guessed: a probe
+inside the same block returns `role = authenticated`, `is_staff = true`,
+`auth.uid()` non-null — *the impersonation genuinely takes effect* — it just
+does not survive to the next statement, so the `update` runs back as superuser
+and `users_self_update_guard` rejects it.
+
+**What made it hard to see.** The failure has two layers of camouflage. The API
+returns only one result set, so a multi-statement block can answer with the
+`set_config` row and look like a success; and `public.users` has been SELECT
+self-only since 0147, so `returning email` yields nothing even when an update
+*does* land. "No rows back" therefore means *either* refused *or* invisible.
+
+**Fix.** For READS of a guarded RPC, the pattern is fine — one statement after
+the config, inside one block. For WRITES from a maintenance script, use
+`set session_replication_role = 'replica'` (what `dev-refresh.mjs` already does
+to load data) and make the script refuse every project except the disposable
+one, by ref, before it writes — see `tools/dev-grants.mjs`.
+
+**Where it lives now.** `tools/dev-grants.mjs` (the reasoning sits beside the
+line it explains) · `src/js/dev-grants.test.js` asserts the refusal ordering.
+
+**The general rule.** *A session setting is not a session when the transport
+re-connects between statements.* Before trusting an impersonated write, read the
+row back **as superuser in a separate call** — the write path's own answer
+cannot distinguish "refused" from "invisible to me". And treat a multi-statement
+block against an HTTP query endpoint as one statement's worth of guarantees.
