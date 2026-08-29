@@ -35,20 +35,16 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED BEFORE THAT (2026-08-27 → 28)
 
-1. **`samo-dev` exists** — a full copy of production on a separate account.
-   Nobody tests against live student data. `skills/build-the-dev-database.md`.
-2. **Per-PR previews work** (Cloudflare posts the link), pointing at `samo-dev`
-   and a dev Discord channel.
-3. **Golden Period ships** at `/tools/golden-period` — an IT DRAFT the ฝ่าย own
-   (`docs/DEPT-TOOLS.md` D8).
-4. **Discord notify rotated; VitalSound routes per ฝ่าย to 12 channels.** Two
+1. **`samo-dev` exists** (`skills/build-the-dev-database.md`); **per-PR previews
+   work**, pointing at it and a dev Discord channel. **Golden Period ships** at
+   `/tools/golden-period` — an IT DRAFT the ฝ่าย own (`docs/DEPT-TOOLS.md` D8).
+2. **Discord notify rotated; VitalSound routes per ฝ่าย to 12 channels.** Two
    real messages reached a live ฝ่าย channel then — **read the notify rules in
    `docs/INVARIANTS.md` BEFORE touching notifications.**
-5. **EMAIL WAS AUDITED END TO END — read `docs/EMAIL.md` before touching mail.**
-   The VM CAN send via a relay on 587; it cannot BE or RECEIVE mail. Only
-   production emails real people. **There is NO password reset; mail config is why.**
-6. **สถิติ shows email + Apps Script quota use** (0170–0173); nothing is near a
-   limit, and both numbers are FLOORS.
+3. **EMAIL AUDITED — read `docs/EMAIL.md` before touching mail.** The VM CAN
+   send via a relay on 587; it cannot BE or RECEIVE mail. **No password reset
+   exists; mail config is why.** สถิติ shows email + GAS quota (0170–0173);
+   nothing is near a limit and both numbers are FLOORS.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -119,70 +115,52 @@ TRUE. That is what the grep is for.
 
 ### What is owed
 
-⛔ **START HERE. THREE actions, ALL for the OWNER.** Nothing else in this file
-is blocked on anyone, and there is no queue of buildable work left in it.
+⛔ **START HERE.**
 
-1. **Reset the Discord bot token** — *"Role assignment bot for SAMO69"*
-   (app `1492541609445949465`). It has **Administrator**, it was pasted into a
-   chat transcript on 2026-08-28 to provision webhooks in bulk, and nothing
-   built here still needs it. ⚠️ If a service uses that bot for role
-   assignment, resetting BREAKS it until that service gets the new token.
-2. **Confirm the dev-channel test landed** (owner — it needs eyes on Discord).
-   All 12 ฝ่าย notifications were sent from a preview naming REAL ฝ่าย; they
-   must ALL be in `#developer-server-notify` and none in a real `#vs-*`.
-   Delivery is confirmed (16×204); the DESTINATION needs human eyes.
-   **If any reached a real ฝ่าย channel, preview isolation is broken.**
+### A. NEXT SESSION — buildable now, nobody is blocking you
 
-3. **The dev Apps Script deployment, under its OWN Google account** — with a
-   `DEV` folder in Drive (parent id in `docs/state/phuriphatma.md`). This is the
-   LAST item of dev-system phase 2 and the only one nobody else can do: the
-   point is that its credential reaches nothing real, so it needs an account
-   only you can create. ⚠️ The clasp token on this Mac EXPIRED 2026-08-27.
-   ~~a mail trap on the VM~~ — **withdrawn, and no longer needed**; `docs/EMAIL.md` §7.
+1. **The passport silent-failure guard.** `passport_link_user_by_email` re-keys
+   a carried profile on first signup but wraps the whole thing in
+   `exception when others then raise warning` — a failure is SILENT and the
+   student gets an empty passport. Guard = count profiles whose email matches
+   an `auth.users` row with a DIFFERENT id (0 after that user signs in).
+   Full context: `docs/state/phuriphatma.md`.
+2. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
+   the frame, the starter kit. **This is what blocks the departments**, not the
+   pages. `docs/DEPT-TOOLS.md` §13 has the build order.
+3. **Phase 5, optional** — a VitePress docs site over `docs/`.
 
+### B. OWNER ONLY — these need accounts/credentials nobody else has
+
+1. **A second Google OAuth client for `samo-dev`**, so previews can use Google
+   sign-in (today they are username/password only). **~2 min; exact steps in
+   `docs/TEAM-WORKFLOW.md` §3a.** ⛔ Do NOT reuse production's client — the dev
+   keys are shared with the whole team.
+2. **The dev Apps Script deployment under its own Google account** — the last
+   item of dev-system phase 2, plus a `DEV` folder in Drive (parent id in
+   `docs/state/phuriphatma.md`).
+3. **The GitHub project board** — phase 0's last piece; `gh` here lacks the
+   `project` scope.
+4. **Reset the Discord bot token** *"Role assignment bot for SAMO69"* (app
+   `1492541609445949465`) — it has Administrator and was pasted into a chat
+   transcript on 2026-08-28. Nothing built here needs it.
+5. **Confirm the dev-channel test landed** — all 12 ฝ่าย notifications must be
+   in `#developer-server-notify` and none in a real `#vs-*`. Delivery is
+   confirmed (16×204); the DESTINATION needs human eyes.
 
 - ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
   Ask the DATABASE for any runtime state or count; this file must not carry
   them. The durable rules from these are in `docs/INVARIANTS.md`.
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.** Do not
   build unprompted.
-- ✅ **DEV SYSTEM — phases 0 and 1 are DONE and `samo-dev` IS USABLE.**
-  Plan: `docs/TEAM-WORKFLOW.md`. Procedure + every trap:
-  `skills/build-the-dev-database.md`.
-  **`samo-dev` = `xibugtlsphcfuvstnxxh`** (separate account `samomdkkuaiorg`,
-  D7). Creds = `SUPABASE_DEV_*` in `.env.local`, **shareable with the team**;
-  the URL is never published — dev holds REAL student data (D1). Commands and
-  every trap (incl. `backfilled` ≠ `applied`): `skills/build-the-dev-database.md`.
-  ⏳ **Phase 2 has ONE item left and it is owner-gated**: the dev Apps Script
-  deployment under its own Google account. ✅ `dev-grants.json` +
-  `npm run dev:grants` shipped (guest access that expires, refuses any project
-  but `samo-dev` by ref, re-applied as `dev:refresh` step 8).
-  ✅ **The mail trap is RETRACTED and its NEED is met** — it needed Supabase to
-  connect IN and the VM has no inbound port but 443; dev mail is now forced to
-  one test inbox at the transport instead. **That is NOT "the VM cannot do
-  mail": it CAN send** via a relay on 587. Full assessment: `docs/EMAIL.md`.
-  ⚠️ **Four `samo-dev` hazards fixed 2026-08-28 — all four in `docs/EMAIL.md` §6**
-  (it emailed a REAL staff address; three auth settings diverged). Both are now
-  guarded: `dev:refresh` step 7 and `npm run dev:check`.
-  **Google sign-in is still OFF on dev** (owner: an OAuth client). The plan's
-  `#samo-dev-bot` EXISTS — it is `#developer-server-notify`.
-  ✅ **PHASE 6 IS DONE (2026-08-29)** — `npm run proofs:dev` (23/23 against dev)
-  and `npm run smoke:browser`, which runs on every preview. ⛔ **The proofs are
-  NOT in CI on purpose** — §7.9; the smoke needs no credential, which is why it
-  is. `docs/state/phuriphatma.md`.
-  ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
-  2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
-  posts the link; the ribbon ships; the `/notify` dev stub prints to the
-  terminal; all exposed webhooks were rotated. How it was proven is archived —
-  **the RULES that outlive it are in `docs/INVARIANTS.md` and you must read them
-  before touching notifications or previews.** The three live warnings:
-  🔧 **`npm run notify:smoke` is the ONLY way to test notifications**;
-  `webhook:id` says where one points via GET. **Never verify by sending.**
-  📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
-  ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a preview upload lands in
-  the REAL Drive, and preview EMAIL goes through the real deployment too (now
-  marked `[PREVIEW]` in the subject). Closed properly by the dev GAS deployment.
-  📌 Three lessons this cost are in `docs/mistakes/tooling-proofs.md`.
+- ✅ **DEV SYSTEM — phases 1, 3, 4 and 6 are DONE.** Plan + per-phase status:
+  `docs/TEAM-WORKFLOW.md` §8. Procedure and every trap:
+  `skills/build-the-dev-database.md`. **`samo-dev` = `xibugtlsphcfuvstnxxh`**
+  (separate account, D7); creds are the `SUPABASE_DEV_*` block in `.env.local`,
+  shareable with the team, URL never published — dev holds REAL student data.
+  Rebuild `CONFIRM=1 npm run dev:refresh`; check `npm run dev:check`;
+  proofs `npm run proofs:dev`. **Google sign-in is OFF on dev** (owner: §B1).
+  What remains is in "What is owed" above — nothing else is blocked.
 - **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
   Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must not be
   re-litigated. **ONE workflow for everybody** — the ฝ่าย use the dev team's
