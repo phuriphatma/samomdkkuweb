@@ -458,6 +458,17 @@ User-Agent regardless of whether the webhook exists. That once produced a false
 the VM; verify it there:
 `ssh samo-vm 'grep -c <marker> ~/samo-projects/samomdkkuweb/functions/_discord.js'`.
 
+**And a frontend change usually lands in the SHARED chunk, not the entry one.**
+Fetch the chunk URL and grep THAT. Deriving asset names from a freshly fetched
+`/` returned names matching nothing on 2026-08-29 and looked exactly like a
+failed deploy; the deploy was fine. Grep an ASCII marker beside any Thai one —
+and confirm with `npm run smoke:browser -- https://samo.md.kku.ac.th
+--expect-no-ribbon`, which asks the rendered page rather than the file.
+
+**Production renders NO env ribbon** — confirmed by DRIVING the page, not
+grepping: a grep for `"preview"` DOES hit, from an unrelated announcements
+button. `smoke:browser --expect-no-ribbon` is now the standing check.
+
 ---
 
 ## The non-production ribbon's polarity is deliberately the reverse of the plan

@@ -53,17 +53,13 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f9584e5` (2026-08-29)**, `DEPLOY_EXIT=0`. The สถิติ quota
-  panels' phone-layout fix, verified from the SERVED **stylesheet** (a CSS-only
-  change: grep `admin-*.css`, not a JS chunk), with an untouched rule beside it
-  as the control. ⚠️ The host-dependency this exposed is a durable
-  rule and lives in `docs/INVARIANTS.md`, not here.
-  ⚠️ **Verify a `functions/` change ON THE VM, not in a bundle** — the notify
-  service is Node on the box (`ssh samo-vm 'grep -c <marker>
-  ~/samo-projects/samomdkkuweb/functions/_discord.js'`). ⚠️ **Production renders
-  NO env ribbon** — confirmed by DRIVING it; a grep for `"preview"` hits an
-  unrelated button, so the rendered DOM is the instrument.
-  Previous: `e0bd2e2`, and `832bb14` before it.
+- ✅ **DEPLOYED = `ce23857` (2026-08-29)**, `DEPLOY_EXIT=0`. The Google-provider
+  guard, verified in the SERVED shared chunk by an ASCII marker AND the Thai
+  string, plus `npm run smoke:browser` 9/9 against production.
+  ⚠️ **How to verify a deploy — shared chunk, ASCII marker, `functions/` on the
+  VM, no ribbon on prod — is in `docs/INVARIANTS.md`, not here.** Each has been
+  mistaken for a failed deploy at least once.
+  Previous: `f9584e5`, and `e0bd2e2` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
