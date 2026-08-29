@@ -130,9 +130,18 @@ backfilled on BOTH databases) · `tools/migrations-lib.mjs` ·
 · `skills/onboard-a-contributor.md`
 
 ❌ **Still only a name in this document:**
-`npm run dev:grant` · `npm run dev:who` · `npm run dev:cleanup` ·
-`tools/dev-grants.json` · the `samo-scratch` project · `samo-preview.pages.dev`
-(previews come from the EXISTING `samomdkkuweb` project instead)
+`npm run dev:who` · `npm run dev:cleanup` · the `samo-scratch` project ·
+`samo-preview.pages.dev` (previews come from the EXISTING `samomdkkuweb`
+project instead)
+
+✅ **BUILT since that list was written — checked against the repo 2026-08-29,
+not against this document:** `tools/dev-grants.json` + `npm run dev:grants`
+(which supersedes the singular `dev:grant` named above) · `src/js/env-ribbon.js`
+(the PREVIEW ribbon) · `functions/notify.js` (the `/notify` dev stub) ·
+`tools/env-lib.mjs` + `npm run proofs:dev` + `.github/workflows/proofs.yml`
+(phase 6's first half). The `noindex` on previews needed nothing built —
+Cloudflare Pages sets `x-robots-tag: noindex` on preview deployments itself
+(measured 2026-08-27, recorded in `public/robots.txt`).
 
 📌 **`VITE_ENV_NAME` is BUILT**, with the polarity deliberately reversed —
 `docs/INVARIANTS.md`. **`#samo-dev-bot` is BUILT**, under the real name
@@ -504,10 +513,10 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | 0 | ✅ **DONE 2026-08-27** — repo guardrails. `required_status_checks` (`build`) and `require_code_owner_reviews` both ON, read back from the API; `CODEOWNERS` extended; `enforce_admins` deliberately still `false`. Only the project board is outstanding | — | — |
 | 1 | ✅ **DONE 2026-08-27.** `samo-dev` = `xibugtlsphcfuvstnxxh` on the separate account (D7). Schema + data loaded and verified against production: 66 tables, 0 row diffs, 0 grant diffs either way. `public.schema_migrations` + `migrate:status --dev` + `migrate:new` built. Sign-in as a copied account PROVEN end to end. One command: `CONFIRM=1 npm run dev:refresh` | — | — |
 | 2 | ⏳ **NEARLY DONE** — ✅ `dev:refresh` / `dev:check` built and in use; ✅ §7.5 answered; ✅ `#samo-dev-bot` exists (it is `#developer-server-notify`); ✅ **`dev-grants.json` + `npm run dev:grants` shipped 2026-08-28** — refuses any project but samo-dev by ref, expires every entry, re-applied as step 8 of the refresh; ✅ **the mail trap is RETRACTED and its NEED is met** — dev mail is forced to one test inbox at the transport (`resolveRecipients`), so no trap is required to keep test mail off real people (`docs/EMAIL.md`). ❌ Still to do: **the dev GAS deployment under its own Google account** — the last item, and it needs the owner | ~30 min left, owner-gated | — |
-| 3 | ⏳ **MOSTLY DONE 2026-08-27 — and most of it never needed building.** ✅ Per-PR previews were ALREADY configured on the `samomdkkuweb` Pages project (`preview_deployment_setting: all`, `pr_comments_enabled: true`) — **no Actions job and no `wrangler` are needed**, so §7.4's `functions/` trap does not apply. ✅ Preview env now points at `samo-dev`. ✅ The `pages.dev` guard is narrowed to the two EXACT retired hosts. ✅ Proven end to end on a throwaway PR. ❌ Left: the `VITE_ENV_NAME` PREVIEW ribbon, the `noindex` header, `/notify` dev middleware | ~1 h left | — |
+| 3 | ⏳ **MOSTLY DONE 2026-08-27 — and most of it never needed building.** ✅ Per-PR previews were ALREADY configured on the `samomdkkuweb` Pages project (`preview_deployment_setting: all`, `pr_comments_enabled: true`) — **no Actions job and no `wrangler` are needed**, so §7.4's `functions/` trap does not apply. ✅ Preview env now points at `samo-dev`. ✅ The `pages.dev` guard is narrowed to the two EXACT retired hosts. ✅ Proven end to end on a throwaway PR. ✅ **COMPLETE — corrected 2026-08-29.** All three items this row listed as outstanding were already built and are in the repo today: `src/js/env-ribbon.js` (the ribbon), `functions/notify.js` (the dev `/notify`), and the `noindex`, which Cloudflare sets on preview deployments itself. **This row said "❌ Left" while `STATE.md` and §0b both said BUILT** — the drift §0b warns about, in §0b's own file | done | — |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
 | 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |
-| 6 | Proofs + browser smoke in CI against `samo-dev` | ~3 h | phases 1–3 |
+| 6 | ⏳ **HALF DONE 2026-08-29.** ✅ The live proofs run against `samo-dev`: `npm run proofs:dev`, and `.github/workflows/proofs.yml` on any PR touching `supabase/`. **All 23 database proofs pass against dev** — the first direct evidence for §7.3's assumption that RLS behaves identically there. Building it found a live bug: two proofs ignored the dev override and answered from PRODUCTION inside a green run (`docs/mistakes/tooling-proofs.md`). ⚠️ **Needs two GitHub secrets** — `SUPABASE_DEV_URL`, `SUPABASE_DEV_ACCESS_TOKEN` — or the job cannot run. ❌ Left: the browser smoke against the preview URL | ~1 h left | phases 1–3 |
 
 ### §8a. What phase 0 still needs — measured 2026-08-26, not assumed
 

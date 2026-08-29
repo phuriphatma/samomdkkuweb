@@ -12,14 +12,11 @@
 //   D  a professor can resolve a notify audience (regressed by 0091)
 //
 // Usage: node tools/proj0092-seat-parity.mjs
-import { readFileSync } from 'node:fs';
+// Credentials and target come from env-lib so that `process.env` OVERRIDES
+// .env.local — see the note in grant0093-reads.mjs; this file had the same bug.
+import { loadEnv, announceTarget } from './env-lib.mjs';
 
-const env = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
-    .split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-    .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, '')]; }));
-const PAT = env.SUPABASE_ACCESS_TOKEN;
-const REF = env.VITE_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)[1];
+const { ref: REF, token: PAT } = announceTarget(loadEnv());
 
 let pass = 0, fail = 0;
 const check = (n, c, e = '') => { if (c) { pass++; console.log('  PASS', n); } else { fail++; console.log('  FAIL', n, String(e).slice(0, 240)); } };

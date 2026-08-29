@@ -1150,3 +1150,67 @@ re-connects between statements.* Before trusting an impersonated write, read the
 row back **as superuser in a separate call** — the write path's own answer
 cannot distinguish "refused" from "invisible to me". And treat a multi-statement
 block against an HTTP query endpoint as one statement's worth of guarantees.
+
+## `npm run proofs` against dev ran two proofs against PRODUCTION and printed one green summary
+
+**Symptom.** Nobody reported it — it was found while building the CI job that
+would have relied on it. The documented way to point the proofs at the dev
+database,
+
+```bash
+VITE_SUPABASE_URL=$SUPABASE_DEV_URL npm run proofs
+```
+
+sent the 17 `.sql` proofs to `samo-dev` and `proj0092-seat-parity.mjs` +
+`grant0093-reads.mjs` to **production**, then printed `all 25 proofs green`
+over the mixture. Nothing in the output named a project.
+
+**Cause.** 39 tools in `tools/` each hand-rolled the same `.env.local` parse,
+and they did not agree. `db-query.mjs` had ALREADY been bitten by this on
+2026-08-28 — a migration applied to dev, verified with the tool, reported NOT
+APPLIED, because the check read a different database than the write — and it
+was fixed there by letting `process.env` win. **Its siblings were not fixed, and
+the header recording the lesson sat in the one file that no longer had the
+bug.** A fix in one file is not a mechanism.
+
+The second half of the same defect: `.env.local` was read with an unguarded
+`readFileSync`, so any environment without that file (a CI runner) got an
+unhandled `ENOENT` that reads like a broken tool rather than a missing
+credential. Measured: 21 of 23 proofs failed a CI-shaped run that was holding
+perfectly valid credentials in its environment.
+
+**Fix.** `tools/env-lib.mjs` — one loader (`.env.local` optional, `process.env`
+wins) and one `resolveTarget()` that derives the label by **comparing refs**,
+never by trusting which variable a value came from. Adopted by `db-query.mjs`
+(which covers every `.sql` proof and the four `.mjs` proofs that shell to it)
+and by the two that hand-rolled HTTP.
+
+But the mechanism is not the refactor. **`run-proofs.mjs` now reads each proof's
+own `→ project: <ref>` announcement back and FAILS any proof whose answer came
+from a database other than the one it was sent to**; a proof that announces
+nothing is UNKNOWN, never PASS. That catches a proof nobody has written yet,
+which the two-file fix does not. `--dev` additionally refuses to run if
+`SUPABASE_DEV_URL` does not resolve to samo-dev, and SKIPS the two non-database
+proofs explicitly with the reason printed — a summary that silently shrinks is
+its own bug.
+
+**Where it lives now.** `tools/env-lib.mjs`, `tools/run-proofs.mjs`,
+`.github/workflows/proofs.yml`, guarded by `src/js/proof-targeting.test.js`.
+Both runtime branches were falsified by reintroducing the drift (FAIL: "ran
+against fheueuowbchsnsvbcgil, not xibugtlsphcfuvstnxxh") and by removing the
+announcement (UNKNOWN), and the static guard by making a proof parse
+`.env.local` again.
+
+⚠️ **The static guard's first version fired on the healthy case** — it required
+every `.mjs` proof to reach the database through `env-lib`, including
+`repo-protection.mjs` and `notify-exposure.mjs`, which ask GitHub and Cloudflare
+and hold no database credential at all. Its subject is now derived from the
+runner's own `NON_DB` set.
+
+**The general rule.** *A tool that can be pointed at more than one database must
+SAY which one answered, and whatever aggregates those tools must check the
+answer came from where it was sent.* Writing the lesson into the header of the
+one file you just fixed leaves every sibling holding the bug — and when the
+aggregate prints a single verdict, the mixture is invisible by construction.
+Corollary paid for here twice over: **before trusting a green suite, ask what it
+would look like if half of it had answered from somewhere else.**

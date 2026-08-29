@@ -34,41 +34,22 @@ if (!file) {
   process.exit(1);
 }
 
-const fileEnv = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8').split('\n')
-    .filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, '')];
-    }));
-
-// process.env WINS, matching apply-migration.mjs. This file used to read
-// .env.local ONLY, which made the documented way to target samo-dev —
+// Credentials, target and the "which project answered" line all come from
+// tools/env-lib.mjs now. Two behaviours this file established are preserved
+// there and must not be lost:
 //
-//   VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs q.sql
+//   process.env WINS over .env.local — the override in the header only works
+//   because of that, and it silently did not on 2026-08-28.
 //
-// silently query PRODUCTION instead, with no hint in the output. On
-// 2026-08-28 that cost a debugging detour: a migration was applied to dev,
-// verified with this tool, and reported as NOT APPLIED — because the check
-// was reading a different database than the one written to. Its sibling
-// honoured the override and this one did not, so the two disagreed about
-// which project the session was even working on.
-//
-// It failed in the dangerous direction: you believe you are inspecting a
-// disposable copy while actually reading live student data.
-const env = { ...fileEnv, ...process.env };
+//   .env.local is OPTIONAL — CI has none, and a hard read turned "no local
+//   secrets" into an unhandled ENOENT that read like a broken tool. Measured
+//   2026-08-29: without this, 21 of 23 proofs failed in a CI-shaped run with
+//   valid credentials in the environment.
+import { loadEnv, announceTarget } from './env-lib.mjs';
 
-const REF = (env.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-if (!REF || !env.SUPABASE_ACCESS_TOKEN) {
-  console.error('need VITE_SUPABASE_URL + SUPABASE_ACCESS_TOKEN in .env.local');
-  process.exit(1);
-}
-
-// Always say which project answered. An introspection tool whose target is
-// ambiguous produces confidently wrong answers, which is the same reason the
-// header gives for this file existing at all.
-const IS_PROD = REF === (fileEnv.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\./)?.[1];
-console.error(`→ project: ${REF}${IS_PROD ? '  (PRODUCTION)' : '  (not the default project)'}`);
+const loaded = loadEnv();
+const env = loaded.env;
+const { ref: REF } = announceTarget(loaded);
 
 const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
   method: 'POST',

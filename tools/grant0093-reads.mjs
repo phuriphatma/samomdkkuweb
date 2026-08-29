@@ -16,13 +16,16 @@
 //   F  current_user_is_staff() was NOT widened (it guards role escalation)
 //
 // Usage: node tools/shop0093-scope.mjs
-import { readFileSync } from 'node:fs';
+// Credentials and target come from env-lib so that `process.env` OVERRIDES
+// .env.local. This file used to parse .env.local itself, which meant
+// `VITE_SUPABASE_URL=$SUPABASE_DEV_URL npm run proofs` ran it against
+// PRODUCTION while the .sql proofs beside it ran against samo-dev — one green
+// summary over two different databases.
+import { loadEnv, announceTarget } from './env-lib.mjs';
 
-const env = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
-    .split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-    .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, '')]; }));
-const REF = env.VITE_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)[1];
+const loaded = loadEnv();
+const env = loaded.env;
+const { ref: REF } = announceTarget(loaded);
 
 let pass = 0, fail = 0;
 const check = (n, c, e = '') => { if (c) { pass++; console.log('  PASS', n); } else { fail++; console.log('  FAIL', n, String(e).slice(0, 220)); } };

@@ -28,7 +28,8 @@
 //   node tools/run-proofs.mjs            # all of them
 //   node tools/run-proofs.mjs team       # only proofs whose name matches
 // ============================================================
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
+import { loadEnv, resolveTarget } from './env-lib.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -69,6 +70,61 @@ const PROOFS = [
   // nothing about what an existing deployment will do.
   ['notify-exposure.mjs', 'only the VM can reach a real notification channel'],
 ];
+
+/**
+ * The two proofs above that ask GitHub and Cloudflare, not a database.
+ *
+ * They are listed separately because `--dev` must SKIP them EXPLICITLY. A
+ * dev-targeted run has nothing to say about the repo's branch protection or
+ * about which Cloudflare deployment holds a real webhook — those are global
+ * facts with one answer. Running them anyway would report the PRODUCTION
+ * answer inside a run labelled samo-dev, which is the same confusion this
+ * whole change exists to remove; silently dropping them would be worse still,
+ * because the summary would shrink with no reason given.
+ */
+const NON_DB = new Set(['repo-protection.mjs', 'notify-exposure.mjs']);
+
+/**
+ * WHERE THIS RUN POINTS, and the guard that makes the answer trustworthy.
+ *
+ * Measured 2026-08-29: `VITE_SUPABASE_URL=$SUPABASE_DEV_URL npm run proofs`
+ * sent the 17 `.sql` proofs to samo-dev and `proj0092-seat-parity.mjs` +
+ * `grant0093-reads.mjs` to PRODUCTION, then printed one green summary over the
+ * mixture. Both files now read their target through env-lib, but a FIX in two
+ * files is not a mechanism — the next proof written by hand can reintroduce it.
+ *
+ * So the runner does not trust them. Every database proof announces its target
+ * on stderr (`→ project: <ref>`), and this reads that line back and FAILS the
+ * proof if the ref is not the one it was SENT to. A proof that announces
+ * nothing is UNKNOWN, never PASS: "I cannot tell which database answered" is
+ * exactly the state this file was written to stop scoring as success.
+ */
+const wantDev = process.argv.includes('--dev');
+const loaded = loadEnv();
+const childEnv = { ...process.env };
+if (wantDev) {
+  const url = loaded.env.SUPABASE_DEV_URL;
+  const tok = loaded.env.SUPABASE_DEV_ACCESS_TOKEN;
+  if (!url || !tok) {
+    console.error('--dev needs SUPABASE_DEV_URL + SUPABASE_DEV_ACCESS_TOKEN '
+      + '(in .env.local, or the environment in CI)');
+    process.exit(2);
+  }
+  childEnv.VITE_SUPABASE_URL = url;
+  childEnv.SUPABASE_ACCESS_TOKEN = tok;
+}
+const TARGET = resolveTarget({ ...loaded, env: { ...loaded.env, ...childEnv } });
+if (!TARGET.ref) {
+  console.error('no VITE_SUPABASE_URL — nothing to run proofs against');
+  process.exit(2);
+}
+if (wantDev && !TARGET.isDev) {
+  // The label is derived by comparing refs, so this catches a SUPABASE_DEV_URL
+  // that points somewhere other than samo-dev — including at production.
+  console.error(`--dev resolved to ${TARGET.ref} (${TARGET.label}), which is not samo-dev`);
+  process.exit(2);
+}
+console.log(`→ target: ${TARGET.ref}  (${TARGET.label})\n`);
 
 /**
  * Decide a proof's verdict from its stdout.
@@ -122,33 +178,58 @@ function judge(file, out) {
   };
 }
 
-const filter = process.argv[2];
+const filter = process.argv.slice(2).find((a) => !a.startsWith('--'));
 const chosen = PROOFS.filter(([f]) => !filter || f.includes(filter));
 if (chosen.length === 0) {
   console.error(`no proof matches "${filter}"`);
   process.exit(2);
 }
 
+/** The project a proof SAYS it queried, from its own announcement on stderr. */
+export function announcedRef(text) {
+  return String(text).match(/→ project:\s*([a-z0-9]+)/)?.[1] ?? null;
+}
+
 let bad = 0;
+let skipped = 0;
 for (const [file, what] of chosen) {
-  process.stdout.write(`${file.padEnd(34)}`);
-  let out = '';
-  let verdict;
-  try {
-    out = file.endsWith('.mjs')
-      ? execFileSync('node', [join(HERE, file)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-      : execFileSync('node', [join(HERE, 'db-query.mjs'), join(HERE, file)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    verdict = judge(file, out);
-  } catch (e) {
-    // A proof that ERRORS is absent, not passing (docs/mistakes/tooling-proofs.md).
-    verdict = { state: 'FAIL', detail: `errored: ${String(e.stderr || e.message).trim().slice(0, 90)}` };
+  if (wantDev && NON_DB.has(file)) {
+    skipped += 1;
+    console.log(`${file.padEnd(34)}– SKIP    asks GitHub/Cloudflare, not a database   — ${what}`);
+    continue;
   }
+  process.stdout.write(`${file.padEnd(34)}`);
+  const r = file.endsWith('.mjs')
+    ? spawnSync('node', [join(HERE, file)], { encoding: 'utf8', env: childEnv })
+    : spawnSync('node', [join(HERE, 'db-query.mjs'), join(HERE, file)], { encoding: 'utf8', env: childEnv });
+
+  let verdict;
+  if (r.error || r.status !== 0) {
+    // A proof that ERRORS is absent, not passing (docs/mistakes/tooling-proofs.md).
+    const why = String(r.error?.message || r.stderr || '').trim().slice(0, 90);
+    verdict = { state: 'FAIL', detail: `errored: ${why}` };
+  } else {
+    verdict = judge(file, r.stdout);
+    // Only NOW ask where it went. A proof that passed against the wrong
+    // database has told you nothing about the one you asked about.
+    if (!NON_DB.has(file)) {
+      const said = announcedRef(`${r.stderr}\n${r.stdout}`);
+      if (!said) {
+        verdict = { state: 'UNKNOWN', detail: 'did not announce which project it queried' };
+      } else if (said !== TARGET.ref) {
+        verdict = { state: 'FAIL', detail: `ran against ${said}, not ${TARGET.ref}` };
+      }
+    }
+  }
+
   if (verdict.state !== 'PASS') bad += 1;
   const mark = { PASS: '✓', FAIL: '✗', UNKNOWN: '?' }[verdict.state];
   console.log(`${mark} ${verdict.state.padEnd(7)} ${verdict.detail}   — ${what}`);
 }
 
+const ran = chosen.length - skipped;
+const tail = skipped ? ` (${skipped} skipped — not database proofs)` : '';
 console.log(bad === 0
-  ? `\nall ${chosen.length} proofs green`
-  : `\n${bad} of ${chosen.length} proofs NOT green — an UNKNOWN counts, on purpose`);
+  ? `\nall ${ran} proofs green against ${TARGET.ref}${tail}`
+  : `\n${bad} of ${ran} proofs NOT green against ${TARGET.ref}${tail} — an UNKNOWN counts, on purpose`);
 process.exit(bad === 0 ? 0 : 1);

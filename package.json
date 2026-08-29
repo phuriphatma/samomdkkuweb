@@ -15,6 +15,7 @@
     "check:context": "node tools/check-context-budget.mjs",
     "mistakes:index": "node tools/mistakes-index.mjs",
     "proofs": "node tools/run-proofs.mjs",
+    "proofs:dev": "node tools/run-proofs.mjs --dev",
     "migrate:status": "node tools/migrate-status.mjs",
     "migrate:new": "node tools/migrate-new.mjs",
     "deploy:owed": "node tools/deploy-owed.mjs",

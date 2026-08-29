@@ -1,0 +1,72 @@
+# CI: run the LIVE authorization proofs against samo-dev on any PR that touches
+# the database.
+#
+# WHY. `docs/TEAM-WORKFLOW.md` §7.3 is the argument, and it is the strongest one
+# in that document: there is deliberately NO door gate on preview URLs (D2), so
+# what keeps a preview full of real student data safe is that RLS behaves
+# identically on dev. A branch that loosens a policy "just to test", or a
+# SECURITY DEFINER function that skips a check, is therefore not a dev-only
+# mistake — it is a public URL serving real rows. `npm test` cannot see any of
+# that: it runs no SQL.
+#
+# WHY ONLY ON `supabase/**`. The proofs take ~2 minutes and talk to a live
+# database. Every PR paying that for a CSS change would get the job disabled,
+# and a disabled guard protects nothing.
+#
+# WHY NOT PRODUCTION. Two reasons, both hard: the run would need a PAT with
+# production access sitting in CI, and the proofs impersonate real accounts.
+# samo-dev is a full copy (66 tables, 0 row diffs at load), so it answers the
+# authorization question — and it was measured on 2026-08-29: all 23 database
+# proofs pass against it, the same 23 that pass against production.
+#
+# ⚠️ FORK PRs GET NO SECRETS (§7.7). `pull_request` from a fork receives an
+# empty `secrets` context, so this job would fail on a missing credential and
+# read like a broken proof. It is skipped explicitly instead, and says so — the
+# five contributors push BRANCHES, not forks, which is the documented
+# arrangement.
+name: proofs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'tools/*proof*'
+      - 'tools/run-proofs.mjs'
+      - 'tools/env-lib.mjs'
+      - '.github/workflows/proofs.yml'
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    # A fork PR cannot read secrets; running would fail on the credential, not
+    # on the policy, and a red X that means "no key" trains people to ignore it.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      # There is no .env.local in CI. tools/env-lib.mjs treats it as OPTIONAL
+      # for exactly this reason and takes everything from the environment.
+      # THIS REPO IS PUBLIC, so these logs are public. The runner names the
+      # project ref it targeted — on purpose, that is the whole guard — and
+      # `docs/TEAM-WORKFLOW.md` D1/D7 says the dev project's address is not
+      # published, because dev holds REAL student data with no masking. A
+      # secret is masked automatically; a value DERIVED from one is not, so
+      # register the ref before anything can print it.
+      - name: hide the dev project ref from the public log
+        env:
+          SUPABASE_DEV_URL: ${{ secrets.SUPABASE_DEV_URL }}
+        run: |
+          REF="$(printf '%s' "$SUPABASE_DEV_URL" | sed -nE 's|https://([^.]+)\..*|\1|p')"
+          if [ -z "$REF" ]; then echo "SUPABASE_DEV_URL secret is missing or malformed"; exit 1; fi
+          echo "::add-mask::$REF"
+
+      - name: live proofs against samo-dev
+        env:
+          SUPABASE_DEV_URL: ${{ secrets.SUPABASE_DEV_URL }}
+          SUPABASE_DEV_ACCESS_TOKEN: ${{ secrets.SUPABASE_DEV_ACCESS_TOKEN }}
+        run: npm run proofs:dev
