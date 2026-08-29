@@ -239,41 +239,55 @@ not. `docs/INVARIANTS.md` says to rotate its DB password first.
 **Separately**: 11 profiles still have `total_km` disagreeing with the sum of
 their scans. Pre-existing, unexplained, not chased.
 
-## ▶ The 11 drifting passport totals — who they are (2026-08-29)
+## ▶ The 11 drifting passport totals — and the app CONTRADICTS ITSELF (2026-08-29)
 
-0174 stopped the drift GROWING. **No existing total was recalculated**, and the
-recommendation is to leave the students alone: Kanyapat proved the stored total
-is often the MORE complete record — hers was right (300) while her scan row was
-missing, so recomputing would have cut her to 100 and destroyed the good half.
+⚠️ **A first pass here recommended leaving the totals alone, reasoning that
+recomputing would "take points away". That reasoning was WRONG and the owner
+caught it**: *"worapat.c shows 750 in the leaderboard"*. The leaderboard never
+used `total_km` at all. Two different numbers drive two different screens:
 
-**SEVEN are consistent with the delete bug** — the diff is a valid sum of real
-point values (all are multiples of 50) and nothing else marks them:
-`worapat.c` 2850 · `kita.a` 2200 · `phatiphan.w` 200 · `natchanun.c` 200 ·
-`chayaphat.t` 100 · `supphaset.s` 100 · `thanakrit.kha` 100.
+| Screen | Source | worapat.c sees |
+|---|---|---|
+| Leaderboard (`admin_leaderboard`) | `sum(scans.points_awarded)` | **750** |
+| Tier badge + own page (`user_tiers`) | `profiles.total_km` | **3,600 → "The Voyager"** |
 
-**FOUR have their own story** — an earlier note said "3"; that was imprecise:
-- `pmphuriphat@gmail.com` **2800** — the OWNER'S TEST account.
-  `account_migrations` says *"TEST 2026-07-23 dev end-to-end — DELETE to
-  revert"*. Its scans moved to `phuriphat.ma`; the total stayed. **Test noise,
-  safe to clean.**
-- `phuriphat.ma@kkumail.com` **1200** — the target of that same test.
-- `putita.s@kkumail.com` **1996** — **not reachable from any scan.** Every
-  `points_awarded` is 0/50/100/200/500 and no activity is hourly or non-round,
-  so this was written DIRECTLY (`profiles_guard` lets `is_admin()` through).
-- `mintonaurak@gmail.com` **2700, 0 scans** — a gmail account that was **never
-  migrated**, so it cannot stamp (the app is kkumail-only) and its scans are
-  gone while the points remain. Full name "Mint N"; no kkumail profile shares
-  that name. ⚠️ Possibly a real student locked out — worth asking.
+Both are readable by `authenticated` (`profiles_read_self_or_admin`), so the
+student sees BOTH numbers and they disagree by 2,850.
+
+**SEVEN students display a tier they have not earned.** Recomputing changes no
+leaderboard position — those already come from scans — it only corrects badges:
+
+| Student | badge km | board km | tier now | tier if fixed |
+|---|---|---|---|---|
+| วรภัทร จงชูวณิชย์ | 3600 | 750 | Voyager | Novice |
+| *(test acct `pmphuriphat`)* | 2800 | 0 | Voyager | Novice |
+| Mint N *(`mintonaurak`, stranded)* | 2700 | 0 | Voyager | Novice |
+| Kita Aimsang | 2500 | 300 | Voyager | Novice |
+| พุธิตา สร้อยสุข | 2246 | 250 | Explorer | Novice |
+| Phuriphat mahapromrak *(owner)* | 1600 | 400 | Explorer | Novice |
+| Natchanun Chuangsakul | 1050 | 850 | Explorer | Novice |
+
+Four more drift without changing tier (all stay Novice): Supphaset 600/500 ·
+Chayaphat 500/400 · Phatiphan 500/300 · ธนกฤต 300/200.
+
+📌 **Which number is right is NOT settled.** Scans are auditable (activity,
+timestamp, department, points); `total_km` is an unauditable counter that has
+been provably one-way since 0056. That argues the scans win. **But Kanyapat's
+case argues the opposite** — her total was RIGHT and her scan row was the thing
+missing. If worapat really attended those activities, the fix is restoring
+scans, not cutting the badge. The deleted rows are gone, so this cannot be
+settled from the data. **Ask the students before demoting anyone.**
+
+📌 **`pmphuriphat`'s profile is named "วรภัทร จงชูวณิชย์ เอิงเทส"** — worapat's
+name plus a test marker. The test account appears to have been made from
+worapat's profile, which may be why worapat drifts too. A lead, not a finding.
 
 ### Two findings that are NOT about totals
 
 - **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
-  none by id and none by email. **They cannot sign in at all.** Separate bug,
-  not investigated.
-- **13 non-kkumail profiles exist and none of them can stamp.** Only ONE has
-  anything at stake: `mintonaurak` (2700 km). The other 12 hold 0 km, so the
-  kkumail gate costs them nothing. (`ty.mokkaranurak@gmail.com` has a similar
-  surname to "Mint N" and 0 points — might be the same person; do not assume.)
+  none by id and none by email. **They cannot sign in at all.**
+- **13 non-kkumail profiles cannot stamp.** Only `mintonaurak` (2700 km) has
+  anything at stake; the other 12 hold 0 km.
 
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 
