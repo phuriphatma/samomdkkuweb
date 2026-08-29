@@ -19,6 +19,9 @@
 # authorization question — and it was measured on 2026-08-29: all 23 database
 # proofs pass against it, the same 23 that pass against production.
 #
+# PROVEN END TO END on a throwaway PR (2026-08-29) — a CI job that has never
+# fired is not a guard, and the two secrets it needs are invisible from here.
+#
 # ⚠️ FORK PRs GET NO SECRETS (§7.7). `pull_request` from a fork receives an
 # empty `secrets` context, so this job would fail on a missing credential and
 # read like a broken proof. It is skipped explicitly instead, and says so — the
