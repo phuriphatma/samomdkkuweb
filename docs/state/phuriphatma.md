@@ -239,6 +239,42 @@ not. `docs/INVARIANTS.md` says to rotate its DB password first.
 **Separately**: 11 profiles still have `total_km` disagreeing with the sum of
 their scans. Pre-existing, unexplained, not chased.
 
+## ▶ The 11 drifting passport totals — who they are (2026-08-29)
+
+0174 stopped the drift GROWING. **No existing total was recalculated**, and the
+recommendation is to leave the students alone: Kanyapat proved the stored total
+is often the MORE complete record — hers was right (300) while her scan row was
+missing, so recomputing would have cut her to 100 and destroyed the good half.
+
+**SEVEN are consistent with the delete bug** — the diff is a valid sum of real
+point values (all are multiples of 50) and nothing else marks them:
+`worapat.c` 2850 · `kita.a` 2200 · `phatiphan.w` 200 · `natchanun.c` 200 ·
+`chayaphat.t` 100 · `supphaset.s` 100 · `thanakrit.kha` 100.
+
+**FOUR have their own story** — an earlier note said "3"; that was imprecise:
+- `pmphuriphat@gmail.com` **2800** — the OWNER'S TEST account.
+  `account_migrations` says *"TEST 2026-07-23 dev end-to-end — DELETE to
+  revert"*. Its scans moved to `phuriphat.ma`; the total stayed. **Test noise,
+  safe to clean.**
+- `phuriphat.ma@kkumail.com` **1200** — the target of that same test.
+- `putita.s@kkumail.com` **1996** — **not reachable from any scan.** Every
+  `points_awarded` is 0/50/100/200/500 and no activity is hourly or non-round,
+  so this was written DIRECTLY (`profiles_guard` lets `is_admin()` through).
+- `mintonaurak@gmail.com` **2700, 0 scans** — a gmail account that was **never
+  migrated**, so it cannot stamp (the app is kkumail-only) and its scans are
+  gone while the points remain. Full name "Mint N"; no kkumail profile shares
+  that name. ⚠️ Possibly a real student locked out — worth asking.
+
+### Two findings that are NOT about totals
+
+- **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
+  none by id and none by email. **They cannot sign in at all.** Separate bug,
+  not investigated.
+- **13 non-kkumail profiles exist and none of them can stamp.** Only ONE has
+  anything at stake: `mintonaurak` (2700 km). The other 12 hold 0 km, so the
+  kkumail gate costs them nothing. (`ty.mokkaranurak@gmail.com` has a similar
+  surname to "Mint N" and 0 points — might be the same person; do not assume.)
+
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 
 1. **A `DEV` folder inside `IT Database` on Drive.** The owner asked for it
