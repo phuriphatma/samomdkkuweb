@@ -90,24 +90,32 @@ Worth knowing that the first handoff was incomplete, and how:
 context — a capability exercised once, a fix applied by hand, a number verified
 in a scratchpad. Those are the things that vanish silently.
 
-### ⚠️ THE NEW สถิติ PANELS HAVE NEVER BEEN LOOKED AT
+### ✅ THE สถิติ PANELS HAVE NOW BEEN LOOKED AT — and two things were wrong
 
-Be precise about what was verified, because it is less than it sounds:
+Driven 2026-08-29 at 390 px and 1280 px, deployed as `f9584e5`. The previous
+handoff called this "the last honest step" and it was: **two faults were
+visible in the first screenshot**, and every instrument that had been used to
+verify these panels was blind to both.
 
-- ✅ the render functions have 29 unit tests, each falsified;
-- ✅ the strings and CSS classes are in the SERVED bundle and stylesheet;
-- ❌ **nobody has opened `/admin#analytics` and SEEN them.**
+- `มองไม่เห็น` wrapped to two lines in 8 of the 12 action rows.
+- `แยกตามระบบ` showed `ไฟล์หนังสือโคร…` and `SAMO Pass…` — the full text sat in
+  a `title` tooltip, **and a phone has no hover**. The panel's whole purpose is
+  to say which system spends the shared quota, and that was the cut-off part.
 
-This repo's own rule is that *a change is NOT verified in a view you never
-opened*, and the failures that would survive everything above are exactly the
-visual ones: a meter with no width, a table overflowing on a phone, the burst
-row colliding with the legend, Thai text wrapping badly. `an-email-meter` uses
-`--fill` as an inline width — if that percentage is ever 0 the bar is invisible
-and looks like a bug rather than good news.
+What was NOT wrong, so nobody needs to re-check it: the `--fill` meter renders
+at 6% and 7% (the `min-width: 3px` already covers a 0% reading — that was the
+worried-about case and it is fine), no horizontal overflow at either width, no
+console errors, the 12-row table fits 390 px without scrolling, and 186/186
+chart bars paint.
 
-**Next session: drive it.** `skills/drive-the-browser.md` §4 has the auth
-recipe, and `/admin#analytics` needs any admin grant. It is the last honest step
-on this work.
+📌 **Method, if you drive another gated pane.** `skills/drive-the-browser.md` §7
+works, but reproduce the pane's REAL ancestry — my first harness put the pane in
+a bare div and it rendered 660 px wide inside a 1280 px viewport, which would
+have hidden the truncation entirely. The real one is
+`.workspace-shell > main.workspace-main > section[data-admin-pane]`, and the
+payload comes from `analytics_overview(30)` under an impersonated JWT
+(`set_config('request.jwt.claims', …)`; a bare superuser call is refused with
+"requires an admin grant").
 
 ### What is genuinely un-started (not blocked, just not begun)
 

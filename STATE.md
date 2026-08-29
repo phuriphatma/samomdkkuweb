@@ -53,8 +53,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e0bd2e2` (2026-08-28)**, `DEPLOY_EXIT=0`. The สถิติ email +
-  Apps Script quota panels and the send guard, verified from the SERVED bundle. ⚠️ The host-dependency this exposed is a durable
+- ✅ **DEPLOYED = `f9584e5` (2026-08-29)**, `DEPLOY_EXIT=0`. The สถิติ quota
+  panels' phone-layout fix, verified from the SERVED **stylesheet** (a CSS-only
+  change: grep `admin-*.css`, not a JS chunk), with an untouched rule beside it
+  as the control. ⚠️ The host-dependency this exposed is a durable
   rule and lives in `docs/INVARIANTS.md`, not here.
   ⚠️ **Verify a `functions/` change ON THE VM, not in a bundle** — the notify
   service is Node on the box, not part of any JS chunk. `ssh samo-vm 'grep -c
@@ -62,7 +64,7 @@ TRUE. That is what the grep is for.
   ⚠️ **Production renders NO env ribbon** — confirmed by DRIVING the page, not
   grepping. A grep for `"preview"` DOES hit, from an unrelated announcements
   button; the rendered DOM is the instrument.
-  Previous: `832bb14`, and `7405712` before it.
+  Previous: `e0bd2e2`, and `832bb14` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
@@ -81,9 +83,8 @@ TRUE. That is what the grep is for.
   `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
   (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
   concluding a deploy failed; each has been mistaken for one.
-- ⚠️ **The new สถิติ panels have NEVER been rendered** — unit-tested and grepped
-  in the served bundle, but nobody has opened `/admin#analytics`. Drive it
-  (`skills/drive-the-browser.md` §4); details in `docs/state/phuriphatma.md`.
+- ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
+  faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
 - **Migrations through 0173.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
   `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
