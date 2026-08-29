@@ -15,13 +15,18 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-29)
 
-0. **PASSPORT IS CLOSED — read `docs/state/phuriphatma.md` FIRST if you touch
-   passport data, and do NOT re-investigate the totals.** A student's `total_km`
-   could only ever go UP (only a BEFORE INSERT trigger existed since 0056);
-   **0174** adds the delete/update halves. The app also contradicted itself —
-   the leaderboard sums SCANS while the tier badge reads `total_km` — so all 11
-   drifting totals were recalculated from scans (drift now 0, no leaderboard
-   position moved). One scan genuinely lost in the July migration was restored.
+0. ⛔ **PASSPORT — the totals work is CLOSED, but a SERIOUS bug is OPEN.**
+   **179 profiles have no auth account; 144 hold 25,150 km.**
+   `handle_new_user` inserts a profile keyed on the new auth uuid and never
+   matches by email, while `profiles.email` is UNIQUE — so the first sign-in by
+   any of those students likely FAILS. Predicted, not reproduced. Fix + full
+   context: `docs/state/phuriphatma.md`, top section. **Read it first.**
+
+0b. **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** `total_km` could only
+   go UP (only a BEFORE INSERT trigger since 0056); **0174** adds the
+   delete/update halves. The leaderboard sums SCANS while the tier badge reads
+   `total_km`, so all 11 drifting totals were recalculated from scans (drift 0,
+   no leaderboard position moved). One scan lost in July was restored.
    ⚠️ **The old Supabase project was DELETED by the owner; its salvaged scan
    dump is at `~/samo-passport-old-db-backup-2026-08-29/` and must never be
    committed — both repos are PUBLIC and it holds real student emails.**
@@ -33,15 +38,15 @@ because it held three lifetimes at once. It now holds one: **status**.
 2. **Per-PR previews work** (Cloudflare posts the link), pointing at `samo-dev`
    and a dev Discord channel.
 3. **Golden Period ships** at `/tools/golden-period` — an IT DRAFT the ฝ่าย own
-   and PR against (`docs/DEPT-TOOLS.md` D8).
+   (`docs/DEPT-TOOLS.md` D8).
 4. **Discord notify rotated; VitalSound routes per ฝ่าย to 12 channels.** Two
-   real messages reached a live ฝ่าย channel during that work — **read the
-   notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.**
+   real messages reached a live ฝ่าย channel then — **read the notify rules in
+   `docs/INVARIANTS.md` BEFORE touching notifications.**
 5. **EMAIL WAS AUDITED END TO END — read `docs/EMAIL.md` before touching mail.**
    The VM CAN send via a relay on 587; it cannot BE or RECEIVE mail. Only
    production emails real people. **There is NO password reset; mail config is why.**
-6. **สถิติ shows email + Apps Script quota use** (0170–0173). Nothing is near a
-   limit. Both numbers are FLOORS and the panels say so.
+6. **สถิติ shows email + Apps Script quota use** (0170–0173); nothing is near a
+   limit, and both numbers are FLOORS.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -169,19 +174,12 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   terminal; all exposed webhooks were rotated. How it was proven is archived —
   **the RULES that outlive it are in `docs/INVARIANTS.md` and you must read them
   before touching notifications or previews.** The three live warnings:
-  🆕 **VitalSound routes PER ฝ่าย** — 12 webhooks, 12 `#vs-*` channels. **Map
-  KEYS must be the exact `data.department` strings**; a mismatch falls back to
-  `SE` and misroutes one ฝ่าย's confidential reports to another.
   🔧 **`npm run notify:smoke` is the ONLY way to test notifications**;
   `webhook:id` says where one points via GET. **Never verify by sending.**
-  📌 `refactorsamomdkkuweb` preview builds are OFF (dead branch building twice);
-  project kept so its URL still serves the splash. Undo = that field back to `all`.
   📖 **The rules — and why each was paid for — are in `docs/INVARIANTS.md`.**
   ⚠️ **`GAS_WEBHOOK_URL` on preview is STILL REAL** — a preview upload lands in
   the REAL Drive, and preview EMAIL goes through the real deployment too (now
   marked `[PREVIEW]` in the subject). Closed properly by the dev GAS deployment.
-  ✅ **The repo SETTINGS have a guard** — `tools/repo-protection.mjs`, proof
-  #24. `enforce_admins` must stay OFF: it is what lets the owner push `main`.
   📌 Three lessons this cost are in `docs/mistakes/tooling-proofs.md`.
 - **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
   Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must not be

@@ -284,7 +284,40 @@ let deleted scans leave points behind.
 scan is deliberate, but if any were accidental those points were genuinely
 earned. The record is gone. Do not assert a reason.
 
-### Two open items, NOT investigated
+### ⛔ OPEN AND SERIOUS — found 2026-08-29, NOT fixed. Start here.
+
+**179 of 630 passport profiles have no `auth.users` row, and 144 of them hold
+km or scans — 25,150 km in total.** These are students copied from the old
+database who have not yet signed into the NEW project.
+
+`passport.handle_new_user()` fires on auth signup and does:
+
+    insert into passport.profiles (id, email, full_name, total_km)
+    values (new.id, new.email, ..., 0);
+
+It keys on the NEW auth uuid and **never looks for an existing profile by
+email**. And `passport.profiles` has a UNIQUE constraint on email
+(`profiles_email_key`).
+
+**So when any of those 144 students signs in for the first time, the insert
+violates the unique constraint and the trigger raises — which fails the signup
+transaction.** Predicted, NOT yet reproduced: reproduce it before fixing.
+
+`docs/PASSPORT-MERGE.md` Phase 1 anticipated exactly this and specified the fix
+that was never built: *"keep their rows keyed by email and resolve to `user_id`
+lazily on their first login (a `handle_new_user`-style trigger that back-fills
+`user_id` where `email` matches)"*.
+
+**Likely fix**: in `handle_new_user`, if a profile with that email exists,
+re-key it to `new.id` instead of inserting. Must preserve `total_km` and
+re-point `passport.scans.user_id`. Do it as a migration with a rollback-wrapped
+proof, and reproduce the failure FIRST.
+
+⚠️ **An earlier note in this file called this "chayaphat.t cannot sign in — a
+separate bug". That framing was wrong**: it is not one person, it is 179, and
+the mechanism is the signup trigger, not a deleted account.
+
+### Other open items, NOT investigated
 
 - **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
   none by id, none by email. **They cannot sign in.**
