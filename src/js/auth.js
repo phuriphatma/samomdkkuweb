@@ -11,6 +11,7 @@
 
 import { db, dbRest } from './db.js';
 import { decodeJwtResponse } from './utils.js';
+import { ribbonLabel } from './env-ribbon.js';
 
 // ============================================================
 // Username convention for password accounts
@@ -400,7 +401,56 @@ export async function initAuth() {
  *  account chooser (used by the account-switcher to jump straight to
  *  the previously-signed-in Google account).
  */
+/**
+ * Is Google sign-in actually configured on the project this build talks to?
+ *
+ * WHY THIS EXISTS. `signInWithOAuth` does not validate the provider — it builds
+ * the `/authorize` URL and navigates. So on a deployment where Google is not
+ * enabled, the browser LEAVES our app and lands on a raw Supabase error:
+ *
+ *   {"code":400,"error_code":"validation_failed",
+ *    "msg":"Unsupported provider: provider is not enabled"}
+ *
+ * Reported from a preview on 2026-08-29. Nothing in our code runs at that
+ * point, so there is no error to catch after the fact — the only place to say
+ * anything useful is BEFORE the navigation.
+ *
+ * ⚠️ FAILS OPEN, DELIBERATELY, AND ONLY RUNS OFF PRODUCTION. Two rules:
+ *
+ *   1. Production takes this path unchanged and makes NO extra request. The
+ *      problem exists only on samo-dev; adding a network hop in front of the
+ *      live site's main sign-in button to fix a preview's message would be a
+ *      bad trade.
+ *   2. Anywhere else, if the check cannot get an answer — offline, a 500, a
+ *      shape we do not recognise — we proceed to Google exactly as before.
+ *      A blocked sign-in is far worse than an ugly error page, so "unknown"
+ *      must never mean "no".
+ */
+let googleEnabled = null;
+async function googleSignInAvailable() {
+  // ribbonLabel(null) on production; any non-null value means this is not it.
+  if (!ribbonLabel(import.meta.env.VITE_ENV_NAME, location.hostname)) return true;
+  if (googleEnabled !== null) return googleEnabled;
+  try {
+    const base = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!base || !key) return true;
+    const r = await fetch(`${base}/auth/v1/settings`, { headers: { apikey: key } });
+    if (!r.ok) return true;
+    const j = await r.json();
+    // Only a definite `false` counts. A missing key is not a denial.
+    googleEnabled = j?.external?.google !== false;
+    return googleEnabled;
+  } catch {
+    return true;
+  }
+}
+
 export async function signInWithGoogle(opts = {}) {
+  if (!(await googleSignInAvailable())) {
+    throw new Error('เวอร์ชันทดสอบนี้ยังไม่เปิดให้เข้าสู่ระบบด้วย Google '
+      + '— ใช้ Username และ Password แทนได้เลย (ข้อมูลที่นี่ไม่ใช่ของจริง)');
+  }
   const oauthOptions = {
     // Land back on the current page after Google returns.
     redirectTo: window.location.origin + window.location.pathname,

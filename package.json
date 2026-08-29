@@ -17,6 +17,7 @@
     "proofs": "node tools/run-proofs.mjs",
     "proofs:dev": "node tools/run-proofs.mjs --dev",
     "smoke:browser": "node tools/smoke-browser.mjs",
+    "preview:url": "node tools/preview-url.mjs",
     "migrate:status": "node tools/migrate-status.mjs",
     "migrate:new": "node tools/migrate-new.mjs",
     "deploy:owed": "node tools/deploy-owed.mjs",

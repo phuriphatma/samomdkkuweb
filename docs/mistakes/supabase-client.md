@@ -476,3 +476,53 @@ Don't reintroduce `hd` for any OAuth call against an SSO-federated Workspace
 domain — enforce the domain app-side instead.
 
 ---
+
+## "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
+
+**Symptom.** Clicking the Google button on a preview left the app entirely and
+landed the browser on a raw Supabase JSON error at
+`…/auth/v1/authorize?provider=google&redirect_to=…`. Reported by the owner
+2026-08-29. A contributor's first act on a preview is to sign in, so this is the
+first thing anyone would hit.
+
+**Cause.** Two separate things, and only one of them is a bug.
+
+The configuration is expected: `external_google_enabled` is `false` on
+`samo-dev` — read from the live config, and already recorded in `STATE.md` as
+waiting on an OAuth client. `external_email_enabled` is `true` and
+`uri_allow_list` already covers `https://*.samomdkkuweb.pages.dev/**`, so only
+the provider is missing.
+
+The bug is the handling. **`supabase.auth.signInWithOAuth()` does not validate
+the provider** — it builds the `/authorize` URL and navigates. Our code checks
+its returned `error`, but there is no error to check: the call succeeds, the
+browser leaves, and Supabase renders the refusal. `try/catch` around it can
+never see this. The only place to say anything is BEFORE the navigation.
+
+**Fix.** Ask the public `GET /auth/v1/settings` endpoint (`external.google`)
+before handing off, and refuse with a Thai sentence naming the alternative.
+Two polarity rules, because both failure modes are worse than the bug:
+
+- it **fails OPEN** — a non-ok response, a thrown fetch, or a missing key all
+  mean "go ahead". A blocked sign-in beats an ugly error page, so "unknown"
+  must never mean "no";
+- it **does not run on production at all** (gated on `ribbonLabel()`), so the
+  live site's main sign-in button gains no network dependency to improve a
+  preview's wording.
+
+**Where it lives now.** `src/js/auth.js`, guarded by
+`src/js/google-provider-guard.test.js`, and explained for humans in
+`skills/onboard-a-contributor.md` and `docs/TEAM-WORKFLOW.md` §3a.
+
+⚠️ **The guard's first version was satisfied by a COMMENT.** Its
+"production is untouched" assertion passed while the production bail-out was
+deleted, because the identifier it searched for still appeared in a nearby
+comment — the exact failure `.claude/rules/mistakes.md` already lists, committed
+inside the test written to prevent a different one. It now runs
+`stripComments()` first, like the other four tests that learned this.
+
+**The general rule.** *An SDK call that NAVIGATES cannot report its own failure
+to you — check the precondition before the handoff, or you are catching an error
+that will never arrive.* And when a check gates a user-facing action, decide its
+polarity explicitly and write the reason down: this one is only correct because
+it fails open and skips production, and both are invisible from the code alone.

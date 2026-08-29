@@ -212,6 +212,38 @@ the same rules, which drift (class 6). The database is 38 MB (measured
 
 ## §3. Access and permissions
 
+### §3a. Google sign-in on `samo-dev` — OFF, and what it would take
+
+Reported from a preview on 2026-08-29: the Google button lands on
+
+```
+{"code":400,"error_code":"validation_failed",
+ "msg":"Unsupported provider: provider is not enabled"}
+```
+
+Read from the live config, not assumed: `external_google_enabled: false`,
+`external_email_enabled: true`, and `uri_allow_list` **already** contains
+`https://*.samomdkkuweb.pages.dev/**` — so the redirect side is ready and only
+the provider is missing. Until it is enabled, **sign in on previews with a
+username/password account**; the app now says so rather than navigating into
+that error page.
+
+**To turn it on** (owner — it needs the Google Cloud console):
+
+1. In the Google Cloud project, create a **NEW** OAuth 2.0 Client ID (Web).
+2. Authorised redirect URI:
+   `https://xibugtlsphcfuvstnxxh.supabase.co/auth/v1/callback`
+3. Put the client id and secret in `.env.local` as `GOOGLE_DEV_CLIENT_ID` /
+   `GOOGLE_DEV_CLIENT_SECRET` — **not into chat**, and not into git.
+
+⛔ **Do NOT reuse production's OAuth client for dev.** It is the tempting
+shortcut and it is the wrong trade: `samo-dev`'s credentials are deliberately
+**shareable with the whole team** (`.claude/rules/security.md`, D7), so putting
+production's client secret there hands five people a credential that can
+impersonate the real site's Google sign-in. A second client costs two minutes
+and keeps the blast radius where it belongs.
+
+
 **The mechanism to keep in your head:** dev is a copy *including permissions*.
 There is no such thing as granting someone access "on dev" by editing the
 ทีม SAMO tree — that grant is live on the real site the moment it is saved, and

@@ -134,6 +134,49 @@ The owner does not have to read it. In a **fresh** Claude session:
 
 ---
 
+## Working on the test site — where the link is, and how to get in
+
+**The question everyone asks first: "where do I see my change?"** Three places,
+and the first is the one people forget:
+
+| Where | Address | When to use it |
+|---|---|---|
+| **Your own machine** | `npm run dev` → `localhost:5174` | almost always. Instant reload, no waiting for a build |
+| **Your branch's preview** | `npm run preview:url` | showing someone else, or testing on a real phone |
+| Production | `samo.md.kku.ac.th` | never for testing |
+
+📌 **The preview address is NOT random and you do not have to hunt for it in
+GitHub.** It is your branch name with the slashes turned into dashes:
+
+```
+branch   feat/shop-checkout
+preview  https://feat-shop-checkout.samomdkkuweb.pages.dev
+```
+
+It is **stable** — the same address for the whole life of the branch, updating
+on every push — so bookmark it once and refresh. `npm run preview:url` prints
+it, and asks Cloudflare for the real one rather than trusting the pattern when a
+build already exists. Cloudflare also posts the link into the pull request, so
+that is a second way in if you are already there.
+
+⚠️ **The preview runs against `samo-dev`, not the real database.** Nothing you
+click there can touch real data. That is the point, and it is also why a preview
+carries a PREVIEW ribbon across the page — if you do not see the ribbon, you are
+on the live site.
+
+### Signing in on a preview
+
+⚠️ **The Google button does not work on previews**, because Google sign-in is
+not enabled on `samo-dev`. Clicking it used to dump a raw Supabase error page
+(`"Unsupported provider: provider is not enabled"`, reported 2026-08-29); it now
+says so in Thai and points you at the alternative instead.
+
+**Use a username/password account on previews.** Google sign-in on dev needs an
+OAuth client of its own — see the note in `docs/TEAM-WORKFLOW.md` §3. Do NOT
+solve this by copying production's Google client into the dev project: that
+would put a credential which can impersonate the real site's sign-in into the
+environment whose keys are deliberately shared with the whole team.
+
 ## Two things that will confuse someone later
 
 - **The owner cannot approve their own pull request.** GitHub forbids it, and

@@ -12,7 +12,7 @@ different clothes.
 The recurring CLASSES — the part that generalises to code not yet written —
 are in `.claude/rules/mistakes.md`, which every session already has.
 
-## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(17)*
+## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(18)*
 
 Open when: auth.js · db.js · anything calling supabase-js.
 
@@ -33,6 +33,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - supabase-js `updateUser({password})` doesn't create an `email` identity
 - Account-switcher: capturing the OUTGOING session's tokens fire-and-forget races the session swap → first switch-back fo…
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
+- "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 
 ## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(27)*
 
@@ -302,4 +303,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run proofs` against dev ran two proofs against PRODUCTION and printed one green summary
 - `main`'s CI was red for a day because a guard could not see the commit it was checking
 
-_245 entries across 9 files._
+_246 entries across 9 files._
