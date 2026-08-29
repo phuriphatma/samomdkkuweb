@@ -15,12 +15,14 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-29)
 
-0. ⛔ **PASSPORT — the totals work is CLOSED, but a SERIOUS bug is OPEN.**
-   **179 profiles have no auth account; 144 hold 25,150 km.**
-   `handle_new_user` inserts a profile keyed on the new auth uuid and never
-   matches by email, while `profiles.email` is UNIQUE — so the first sign-in by
-   any of those students likely FAILS. Predicted, not reproduced. Fix + full
-   context: `docs/state/phuriphatma.md`, top section. **Read it first.**
+0. ✅ **PASSPORT — the "144 students cannot sign in" alarm was FALSE.** 179
+   profiles have no auth row, which is the EXPECTED state: the trigger
+   `on_auth_user_created_passport_link` re-keys a carried profile by email on
+   first signup, so the student keeps their km. It was called a bug here for
+   one commit because the wrong function was read — **check `pg_trigger` on
+   `auth.users`, not a function body.** Residual: that re-key swallows its own
+   errors (`raise warning`), so a failure would be silent. Detail:
+   `docs/state/phuriphatma.md`.
 
 0b. **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** `total_km` could only
    go UP (only a BEFORE INSERT trigger since 0056); **0174** adds the

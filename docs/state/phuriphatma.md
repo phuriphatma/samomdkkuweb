@@ -284,40 +284,38 @@ let deleted scans leave points behind.
 scan is deliberate, but if any were accidental those points were genuinely
 earned. The record is gone. Do not assert a reason.
 
-### ⛔ OPEN AND SERIOUS — found 2026-08-29, NOT fixed. Start here.
+### ✅ NOT A BUG — 179 orphan profiles are the EXPECTED state (checked 2026-08-29)
 
-**179 of 630 passport profiles have no `auth.users` row, and 144 of them hold
-km or scans — 25,150 km in total.** These are students copied from the old
-database who have not yet signed into the NEW project.
+**Read this before acting on any earlier claim.** An earlier draft of this file
+said 144 students would fail to sign in. **That was wrong, and it was wrong
+because I read `passport.handle_new_user` and never checked what is actually
+attached to `auth.users`.**
 
-`passport.handle_new_user()` fires on auth signup and does:
+179 of 630 passport profiles have no `auth.users` row — students carried over
+from the old database who have not signed into the new project yet. 144 hold km
+or scans (25,150 km). That is normal, and it is handled:
 
-    insert into passport.profiles (id, email, full_name, total_km)
-    values (new.id, new.email, ..., 0);
+`auth.users` carries **`on_auth_user_created_passport_link` →
+`public.passport_link_user_by_email()`**, which on signup finds a passport
+profile with the same email and a different id, then re-keys
+`passport.scans.user_id`, `passport.season_results.user_id` and
+`passport.profiles.id` to the new auth id. The student keeps their km and
+stamps.
 
-It keys on the NEW auth uuid and **never looks for an existing profile by
-email**. And `passport.profiles` has a UNIQUE constraint on email
-(`profiles_email_key`).
+📌 **`passport.handle_new_user` is NOT attached to `auth.users`** — it is not in
+the trigger list on that table. Reading it and assuming it fires is exactly how
+the false alarm happened. **Check `pg_trigger` on `auth.users`, never the
+function's own body.**
 
-**So when any of those 144 students signs in for the first time, the insert
-violates the unique constraint and the trigger raises — which fails the signup
-transaction.** Predicted, NOT yet reproduced: reproduce it before fixing.
+⚠️ **One REAL residual risk, small and unverified.** The whole re-key sits in
+`exception when others then raise warning …`. It fails SILENTLY: if a re-key
+ever breaks, signup still succeeds and the student gets an empty passport while
+their old profile is orphaned — and nothing surfaces it. A warning in the
+Postgres log is not something anyone reads. Worth a guard that counts profiles
+whose email matches an `auth.users` row with a different id (should be 0 after
+that user signs in). **Not built.**
 
-`docs/PASSPORT-MERGE.md` Phase 1 anticipated exactly this and specified the fix
-that was never built: *"keep their rows keyed by email and resolve to `user_id`
-lazily on their first login (a `handle_new_user`-style trigger that back-fills
-`user_id` where `email` matches)"*.
-
-**Likely fix**: in `handle_new_user`, if a profile with that email exists,
-re-key it to `new.id` instead of inserting. Must preserve `total_km` and
-re-point `passport.scans.user_id`. Do it as a migration with a rollback-wrapped
-proof, and reproduce the failure FIRST.
-
-⚠️ **An earlier note in this file called this "chayaphat.t cannot sign in — a
-separate bug". That framing was wrong**: it is not one person, it is 179, and
-the mechanism is the signup trigger, not a deleted account.
-
-### Other open items, NOT investigated
+### Other open items, NOT investigated### Other open items, NOT investigated
 
 - **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
   none by id, none by email. **They cannot sign in.**

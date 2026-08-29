@@ -965,3 +965,34 @@ counts up.* The tell is in the data before you read any code: **if every drift
 points the same direction, the mechanism is one-way by construction.** And when
 a stored aggregate exists at all, ask what recomputing it would DO to a real
 person before offering that as the fix.
+
+## "144 students cannot sign in" — a false alarm from reading the function instead of the trigger list
+
+**Symptom.** A late-session audit reported that 144 passport students would fail
+to sign in, with 25,150 km at stake. It was written into the handoff as the top
+open item. **It was wrong.**
+
+**Cause.** `passport.handle_new_user()` inserts a profile keyed on the new auth
+uuid and never matches by email, and `passport.profiles.email` is UNIQUE — so
+reading that function, the collision looks certain. **But that function is not
+attached to `auth.users`.** The trigger that actually fires on signup is
+`on_auth_user_created_passport_link` → `public.passport_link_user_by_email()`,
+which finds a carried profile by email and re-keys `scans`, `season_results`
+and `profiles.id` onto the new auth id. The mechanism the merge playbook asked
+for HAD been built; the audit never looked for it.
+
+**Fix.** Retracted in the same session it was written, before `/clear`.
+
+**The general rule.** *A function body tells you what would happen IF it ran —
+`pg_trigger` tells you whether it runs.* Never conclude a signup/insert path is
+broken from the function alone: list the triggers on the table first, and
+confirm the one you are reading is among them. A dead function is
+indistinguishable from a live one when you only read its body — and this repo
+has the mirror-image rule already (verify from the authority, not from the
+definition you happen to be looking at).
+
+⚠️ **The one REAL finding underneath it**: `passport_link_user_by_email` wraps
+its whole re-key in `exception when others then raise warning`. It fails
+SILENTLY — signup still succeeds and the student silently gets an empty
+passport. A guard counting profiles whose email matches an `auth.users` row
+with a different id would catch it; not built.

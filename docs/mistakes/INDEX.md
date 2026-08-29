@@ -86,7 +86,7 @@ Open when: adding an access channel, a scope, or a seat.
 - `master` opened the tab but not the ROLE-gated controls inside it
 - "when i select permission as master, i cant select sub of the หนังสือโครงการ"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(22)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(23)*
 
 Open when: writing a migration.
 
@@ -112,6 +112,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 - 11 students' passport totals were higher than their own scans, and nothing could ever subtract
+- "144 students cannot sign in" — a false alarm from reading the function instead of the trigger list
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(82)*
 
@@ -305,4 +306,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `main`'s CI was red for a day because a guard could not see the commit it was checking
 - A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
 
-_248 entries across 9 files._
+_249 entries across 9 files._
