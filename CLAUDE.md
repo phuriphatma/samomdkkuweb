@@ -11,7 +11,7 @@ email (`MailApp`, quota-bound — ceilings and options in `docs/EMAIL.md`).
 
 Live URLs:
 - **Production: `https://samo.md.kku.ac.th` — the KKU VM, `main` branch.**
-- `samomdkkuweb.pages.dev` / `refactorsamomdkkuweb.pages.dev` are **RETIRED**.
+- `samomdkkuweb.pages.dev` / `refactorsamomdkkuweb.pages.dev` / `samomdkkupassport.pages.dev` are **RETIRED**.
   They still resolve and splash-redirect to the VM, so a check against them can
   look healthy while the real host is stale. Never verify a deploy there.
 
