@@ -30,6 +30,10 @@
 // anywhere, including on a public repo's CI. It therefore tests the LOGGED-OUT
 // surface only; anything behind sign-in needs `skills/drive-the-browser.md`.
 //
+// PROVEN END TO END on a throwaway PR (2026-08-29) — against production, a live
+// preview, and four deliberate failures. A CI job that has never fired is not a
+// guard.
+//
 // NO DEPENDENCIES. Chrome over CDP using Node's global WebSocket
 // (`skills/drive-the-browser.md` §1). GitHub's ubuntu-latest runners ship
 // Google Chrome, so this needs no install step.
