@@ -80,10 +80,11 @@ TRUE. That is what the grep is for.
   concluding a deploy failed; each has been mistaken for one.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
-- **Migrations through 0173.** For the test count run `npm test` — a number
+- **Migrations through 0174.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 25 LIVE PROOFS GREEN — re-run
-  2026-08-27**, after 0169 was applied to production. Run `npm test` /
+  `state-handoff.test.js` enforces that. **ALL 26 LIVE PROOFS GREEN — re-run
+  2026-08-29** (this count is guarded against `run-proofs.mjs`, unlike the test
+  count, which is not — that is why one is stated here and the other is not), after 0169 was applied to production. Run `npm test` /
   `npm run proofs`; never quote a remembered number.
 
 ---

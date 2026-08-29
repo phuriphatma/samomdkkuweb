@@ -911,3 +911,57 @@ changes one side. And when a proof's own subject is polluted by live state (a
 first draft asserted "the whole pool" at `booking_start − 5h` and got 93,
 because a real window was open and carrying 7%), the case does not belong in
 that file — it belongs where a controlled sample forces the branch.
+
+## 11 students' passport totals were higher than their own scans, and nothing could ever subtract
+
+**Symptom.** `passport.profiles.total_km` disagreed with the sum of that
+person's `passport.scans` for 11 profiles — by 100 up to 2,850. **Every single
+drift was POSITIVE.** Not one profile had fewer points than its scans justified.
+
+**Cause.** `passport.scans` carried exactly ONE trigger from 0056 until 0174:
+`on_new_scan`, **BEFORE INSERT**, which does
+`update profiles set total_km = total_km + calculated_points`. Nothing mirrored
+it. A deleted scan left its points on the profile for ever; an edited
+`points_awarded` never applied the difference.
+
+The asymmetry in the data was the whole diagnosis — a counter that only ever
+gains can only ever be too high — and the structure confirmed it before any
+hypothesis was tested: one trigger, one event, `INSERT`.
+
+**Proved, not inferred.** Inside a rolled-back transaction, deleting one
+200-point scan left `total_km` at 300 while the remaining scans summed to 100.
+Separately, the live-era id range (>648) holds 480 rows across 555 ids — **75
+missing** — so scans *are* deleted in normal operation.
+
+**Fix.** Migration 0174 adds `on_scan_deleted` (AFTER DELETE, subtract
+`old.points_awarded`) and `on_scan_points_changed` (AFTER UPDATE, apply the
+delta, and handle a scan moving between users as a debit plus a credit).
+Both subtract **the value the insert actually stored**, never a recomputed one:
+`is_marketing_bonus` doubles points at insert time and can be toggled later, so
+recomputing would reintroduce the same asymmetry in reverse. Guarded by
+`tools/passport0174-total-km-symmetry.sql` (proof #26), falsified by dropping
+the delete trigger and watching it go red.
+
+⚠️ **The migration deliberately does NOT recalculate existing totals.** Doing so
+would REMOVE points from real students — one would drop from 3,600 to 750.
+Whether a student keeps points they have already been shown is an owner's
+decision, not a migration's.
+
+⚠️ **AND THE BUG DOES NOT EXPLAIN EVERY ROW — do not claim it does.** One
+profile sits 1,996 above her scans, and every `points_awarded` in the table is
+0/50/100/200/500 with no hourly or non-round activity, so **1,996 is not
+reachable by any combination of deleted scans**. That total was written
+directly: `passport.profiles_guard` blocks `total_km` edits except for
+`pg_trigger_depth() > 1` (the trigger path) or `is_admin()`. Two more rows are
+the test account migration (`account_migrations`). A cause that explains 8 of 11
+rows is not the cause of 11.
+
+**Where it lives now.** `supabase/migrations/0174_…`,
+`tools/passport0174-total-km-symmetry.sql`, registered in `run-proofs.mjs`.
+
+**The general rule.** *A derived total maintained by a trigger needs a trigger
+on every event that can change its inputs — INSERT alone is a counter that only
+counts up.* The tell is in the data before you read any code: **if every drift
+points the same direction, the mechanism is one-way by construction.** And when
+a stored aggregate exists at all, ask what recomputing it would DO to a real
+person before offering that as the fix.
