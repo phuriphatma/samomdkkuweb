@@ -239,72 +239,59 @@ not. `docs/INVARIANTS.md` says to rotate its DB password first.
 **Separately**: 11 profiles still have `total_km` disagreeing with the sum of
 their scans. Pre-existing, unexplained, not chased.
 
-## ▶ The 11 drifting passport totals — and the app CONTRADICTS ITSELF (2026-08-29)
+## ▶ PASSPORT — CLOSED 2026-08-29. Read this before touching passport data.
 
-⚠️ **A first pass here recommended leaving the totals alone, reasoning that
-recomputing would "take points away". That reasoning was WRONG and the owner
-caught it**: *"worapat.c shows 750 in the leaderboard"*. The leaderboard never
-used `total_km` at all. Two different numbers drive two different screens:
+**All of it is done. Do not re-open, re-investigate, or "fix" the totals again.**
 
-| Screen | Source | worapat.c sees |
-|---|---|---|
-| Leaderboard (`admin_leaderboard`) | `sum(scans.points_awarded)` | **750** |
-| Tier badge + own page (`user_tiers`) | `profiles.total_km` | **3,600 → "The Voyager"** |
+### What was wrong, and what was done
 
-Both are readable by `authenticated` (`profiles_read_self_or_admin`), so the
-student sees BOTH numbers and they disagree by 2,850.
+1. **`passport.scans` had only a BEFORE INSERT trigger** (since 0056), so a
+   deleted scan left its points on `profiles.total_km` for ever. Proved by
+   deleting a scan in a rolled-back transaction: total stayed 300 while scans
+   summed to 100. → **Migration 0174** adds AFTER DELETE and AFTER UPDATE.
+   Proof #26 `tools/passport0174-total-km-symmetry.sql`, falsified by dropping
+   the trigger.
+2. **The app contradicted itself.** `admin_leaderboard` sums SCANS;
+   the `user_tiers` view and the student's own page read `total_km`. Both are
+   readable by `authenticated`, so a student saw 3,600 km / "The Voyager" on one
+   screen and 750 on another. **The owner caught this — I had assumed the
+   leaderboard used `total_km` and recommended the wrong thing off it.**
+3. **11 profiles drifted; the scan sum was proved correct** (see below), so
+   `total_km` was recalculated from scans for all 11. Verified: **drift 0,
+   1,016 scans untouched, no leaderboard position moved**, `profiles_guard`
+   re-enabled afterwards. 7 students lost an inflated tier badge; 2 of those
+   were test accounts and 1 was the owner's.
+4. **One scan was genuinely lost in the July migration** — kanyapat.ki's
+   โครงการรับน้องบ้านเขียว stamp (200 pts). **Restored** (id 157), with the
+   insert trigger held off so her total stayed correct at 300.
 
-**SEVEN students display a tier they have not earned.** Recomputing changes no
-leaderboard position — those already come from scans — it only corrects badges:
+### How "the scan sum is correct" was PROVED — this is the part not to redo
 
-| Student | badge km | board km | tier now | tier if fixed |
-|---|---|---|---|---|
-| วรภัทร จงชูวณิชย์ | 3600 | 750 | Voyager | Novice |
-| *(test acct `pmphuriphat`)* | 2800 | 0 | Voyager | Novice |
-| Mint N *(`mintonaurak`, stranded)* | 2700 | 0 | Voyager | Novice |
-| Kita Aimsang | 2500 | 300 | Voyager | Novice |
-| พุธิตา สร้อยสุข | 2246 | 250 | Explorer | Novice |
-| Phuriphat mahapromrak *(owner)* | 1600 | 400 | Explorer | Novice |
-| Natchanun Chuangsakul | 1050 | 850 | Explorer | Novice |
+The old project `idwlabpbwiwgaoqwbozz` was deleted by the owner on 2026-08-29.
+**Its full 537-row scan dump was captured hours earlier and survives at**
 
-Four more drift without changing tier (all stay Novice): Supphaset 600/500 ·
-Chayaphat 500/400 · Phatiphan 500/300 · ธนกฤต 300/200.
+    ~/samo-passport-old-db-backup-2026-08-29/
 
-✅ **SETTLED 2026-08-29 — the SCAN SUM is the correct number.** An earlier note
-here said this could not be decided; it could. The old project's full scan dump
-(537 rows: email, activity, timestamp) had been written to the session
-scratchpad BEFORE the project was deleted, which made the Kanyapat check
-repeatable for everyone:
+⚠️ **NOT in git — both repos are PUBLIC and it holds real student emails.**
 
-- **Not one of the 11 drifters is missing a single old scan.** Every scan they
-  had in the old database is present today.
-- **Control**: the same sweep over all 537 old scans finds exactly ONE
-  unmatched row — the known merge collapse — so the method demonstrably detects
-  a miss. "Zero missing" is a result, not a blind spot.
+With it: **not one of the 11 drifters is missing an old scan.** Control: the
+same sweep over all 537 finds exactly ONE unmatched row (a deliberate
+account-merge collapse), so the method detects a miss. Their totals were
+therefore already unbacked in the OLD database, whose identical one-way trigger
+let deleted scans leave points behind.
 
-Therefore **the migration lost nothing for these 11**. Kanyapat was the only
-person whose row went missing, and that is fixed. Their totals were ALREADY
-unbacked in the old database: worapat held 7 scans worth 750 there while his
-total said 3,600. The scans that would justify the difference were deleted in
-the OLD system — which carried the identical one-way trigger — long before the
-move.
+⚠️ **What is NOT knowable:** WHY each old deletion happened. Normally deleting a
+scan is deliberate, but if any were accidental those points were genuinely
+earned. The record is gone. Do not assert a reason.
 
-A deletion is normally a deliberate admin act (removing a wrong scan), and the
-bug is that the total never followed it down. ⚠️ **What cannot be recovered is
-WHY each old deletion happened**; if any were accidental, those points were
-genuinely earned. There is no record either way and the system that held it is
-gone.
-
-📌 **`pmphuriphat`'s profile is named "วรภัทร จงชูวณิชย์ เอิงเทส"** — worapat's
-name plus a test marker. The test account appears to have been made from
-worapat's profile, which may be why worapat drifts too. A lead, not a finding.
-
-### Two findings that are NOT about totals
+### Two open items, NOT investigated
 
 - **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
-  none by id and none by email. **They cannot sign in at all.**
-- **13 non-kkumail profiles cannot stamp.** Only `mintonaurak` (2700 km) has
-  anything at stake; the other 12 hold 0 km.
+  none by id, none by email. **They cannot sign in.**
+- **`mintonaurak@gmail.com` ("Mint N")** — gmail, so cannot stamp (kkumail-only
+  gate), never in `account_migrations`, and now reads 0 km. Possibly a real
+  student locked out. 12 other non-kkumail profiles hold 0 km, so nothing is at
+  stake for them.
 
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 

@@ -13,31 +13,35 @@ because it held three lifetimes at once. It now holds one: **status**.
 | architecture, RLS, schema, deploy | `docs/CONTEXT.md` |
 | the backlog | `docs/NEXT.md` |
 
-## WHAT CHANGED MOST RECENTLY (2026-08-27 → 28)
+## WHAT CHANGED MOST RECENTLY (2026-08-29)
 
-In the order a newcomer needs them:
+0. **PASSPORT IS CLOSED — read `docs/state/phuriphatma.md` FIRST if you touch
+   passport data, and do NOT re-investigate the totals.** A student's `total_km`
+   could only ever go UP (only a BEFORE INSERT trigger existed since 0056);
+   **0174** adds the delete/update halves. The app also contradicted itself —
+   the leaderboard sums SCANS while the tier badge reads `total_km` — so all 11
+   drifting totals were recalculated from scans (drift now 0, no leaderboard
+   position moved). One scan genuinely lost in the July migration was restored.
+   ⚠️ **The old Supabase project was DELETED by the owner; its salvaged scan
+   dump is at `~/samo-passport-old-db-backup-2026-08-29/` and must never be
+   committed — both repos are PUBLIC and it holds real student emails.**
 
-1. **There is a development database** — `samo-dev`, a full copy of production on
-   a separate Supabase account. Nobody tests against live student data any more.
-2. **Per-PR previews work.** Open a pull request, Cloudflare builds it at its own
-   URL and posts the link. Previews talk to `samo-dev` and a dev Discord channel.
-3. **Golden Period shipped** at `/tools/golden-period` — an IT *draft*; the ฝ่าย
-   own the page and open PRs against it (`docs/DEPT-TOOLS.md` D8).
-4. **Discord notify credentials rotated**, VitalSound routes per ฝ่าย to 12
-   channels, and "do not ping" works on every action. **Two real messages reached
-   a live ฝ่าย channel during that work** — read the notify rules in
-   `docs/INVARIANTS.md` BEFORE touching notifications.
-5. **EMAIL WAS AUDITED END TO END (2026-08-28).** Read `docs/EMAIL.md` before
-   touching anything that sends mail. The three facts that matter:
-   **the VM CAN send** through a relay on 587 (proven with a live SMTP session)
-   but cannot BE or RECEIVE mail · **only production emails the people configured
-   in admin** — `resolveRecipients()` forces every other environment to one test
-   inbox, at the transport, because dev held a REAL `@kku.ac.th` staff address ·
-   **there is NO password reset in the app**, and mail configuration is why.
-6. **สถิติ now shows email + Apps Script quota use** (migrations 0170–0173).
-   Measured: 95 emails in 72 days, busiest day 7 of 100; all Apps Script traffic
-   peaks at 2 calls/minute of 30. **Nothing is near a limit** — so Apps Script
-   stays exactly as it is. ⚠️ Both numbers are FLOORS and the panels say so.
+## WHAT CHANGED BEFORE THAT (2026-08-27 → 28)
+
+1. **`samo-dev` exists** — a full copy of production on a separate account.
+   Nobody tests against live student data. `skills/build-the-dev-database.md`.
+2. **Per-PR previews work** (Cloudflare posts the link), pointing at `samo-dev`
+   and a dev Discord channel.
+3. **Golden Period ships** at `/tools/golden-period` — an IT DRAFT the ฝ่าย own
+   and PR against (`docs/DEPT-TOOLS.md` D8).
+4. **Discord notify rotated; VitalSound routes per ฝ่าย to 12 channels.** Two
+   real messages reached a live ฝ่าย channel during that work — **read the
+   notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.**
+5. **EMAIL WAS AUDITED END TO END — read `docs/EMAIL.md` before touching mail.**
+   The VM CAN send via a relay on 587; it cannot BE or RECEIVE mail. Only
+   production emails real people. **There is NO password reset; mail config is why.**
+6. **สถิติ shows email + Apps Script quota use** (0170–0173). Nothing is near a
+   limit. Both numbers are FLOORS and the panels say so.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
