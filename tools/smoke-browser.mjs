@@ -66,7 +66,9 @@ if (!CHROME) {
   process.exit(2);
 }
 
-const PORT = 9411 + (process.pid % 100);
+// Random, not pid-derived: two concurrent local runs landed on the same
+// port often enough to matter (pid % 100 collides once in 100).
+const PORT = 9411 + Math.floor(Math.random() * 400);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let pass = 0;
@@ -100,6 +102,7 @@ let id = 0;
 const pending = new Map();
 const consoleErrors = [];
 const failedRequests = [];
+const requestUrls = new Map();
 
 ws.addEventListener('message', (m) => {
   const msg = JSON.parse(m.data);
@@ -114,7 +117,11 @@ ws.addEventListener('message', (m) => {
   // A failed fetch of the ENTRY BUNDLE is the cause of the dead-page bug, and
   // it is silent in the console on some browsers. Watch the network directly.
   if (msg.method === 'Network.loadingFailed') {
-    failedRequests.push(`${msg.params.type}: ${msg.params.errorText}`);
+    const url = requestUrls.get(msg.params.requestId) || '';
+    failedRequests.push({ url, type: msg.params.type, why: msg.params.errorText });
+  }
+  if (msg.method === 'Network.requestWillBeSent') {
+    requestUrls.set(msg.params.requestId, msg.params.request.url);
   }
 });
 
@@ -175,9 +182,21 @@ check(`window-bound handlers exist (${probe.handlers.length}/4)`,
   probe.handlers.length === 4,
   `missing: ${['samoSignOut', 'goToAbout', 'navigateTo', 'activateTab'].filter((n) => !probe.handlers.includes(n)).join(', ')}`);
 
-// 3. The watchdog must NOT accuse a healthy load. Its first version did.
-check('no boot-failure bar on a healthy load', probe.bootFailBar === false,
-  'the watchdog fired on a page that booted — it is crying wolf again');
+// 3. The watchdog must NOT accuse a HEALTHY load. Its first version did — a
+//    bare 8s timer that shouted at anyone on a slow connection.
+//
+//    ⚠️ Only meaningful when the page actually booted. Asserting it
+//    unconditionally printed "the watchdog fired on a page that booted — it is
+//    crying wolf again" over a page that had NOT booted, where the watchdog was
+//    doing exactly its job. A diagnostic that names the wrong culprit sends the
+//    reader to the wrong file; this repo has paid for that shape more than once.
+if (probe.booted) {
+  check('no boot-failure bar on a healthy load', probe.bootFailBar === false,
+    'the watchdog fired on a page that booted — it is crying wolf again');
+} else {
+  console.log('  n/a   boot-failure bar — the page did not boot, so the bar is CORRECT'
+    + ` (present: ${probe.bootFailBar})`);
+}
 
 // 4. Something was actually painted.
 check('the page rendered real content', probe.visibleText > 200,
@@ -196,11 +215,37 @@ if (EXPECT_RIBBON) {
     `ribbon present: ${probe.ribbon}`);
 }
 
-// 7. Nothing failed to load, and nothing threw.
-const bundleFailures = failedRequests.filter((f) => /Script|Stylesheet|Document/i.test(f));
-check('no script or stylesheet failed to load', bundleFailures.length === 0,
-  bundleFailures.join(' | '));
-check('no uncaught errors', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+// 7. OUR assets must load. A THIRD PARTY's must not fail the build.
+//
+// ⚠️ THIS CHECK USED TO BE THE WHOLE ORIGIN. That made a CI gate whose red
+// depended on jsDelivr, cdn.quilljs.com and fonts.googleapis.com all being
+// reachable from a GitHub runner at that moment — a warning that fires on the
+// healthy case, which this repo has already paid for twice and which this very
+// file's header cites. A third-party hiccup is now REPORTED, not failed: it is
+// worth seeing (Bootstrap failing to load is a real, visible degradation) but
+// it is not evidence that the change under test is broken.
+const ourOrigin = new URL(URL_).origin;
+const isOurs = (f) => !f.url || f.url.startsWith(ourOrigin) || f.url.startsWith('/');
+const fmt = (f) => `${f.type}: ${f.why} ${f.url}`.trim();
+const relevant = failedRequests.filter((f) => /Script|Stylesheet|Document/i.test(f.type));
+const ours = relevant.filter(isOurs);
+const theirs = relevant.filter((f) => !isOurs(f));
+
+check('none of OUR scripts or stylesheets failed to load', ours.length === 0,
+  ours.map(fmt).join(' | '));
+if (theirs.length) {
+  console.log(`  note  ${theirs.length} third-party asset(s) failed — not counted as a failure:`);
+  for (const f of theirs.slice(0, 4)) console.log(`          ${fmt(f)}`);
+}
+
+// Console errors get the same treatment for the same reason: a CDN 404 or a
+// blocked font logs an error that says nothing about this change.
+const ourErrors = consoleErrors.filter((e) => !/cdn\.|fonts\.googleapis|googletagmanager|gstatic/i.test(e));
+check('no uncaught errors from our own code', ourErrors.length === 0,
+  ourErrors.slice(0, 3).join(' | '));
+if (consoleErrors.length > ourErrors.length) {
+  console.log(`  note  ${consoleErrors.length - ourErrors.length} third-party console error(s), not counted`);
+}
 
 // 8. Desktop too — one width proves nothing about the other.
 await send('Emulation.setDeviceMetricsOverride',

@@ -185,9 +185,17 @@ if (chosen.length === 0) {
   process.exit(2);
 }
 
-/** The project a proof SAYS it queried, from its own announcement on stderr. */
-export function announcedRef(text) {
-  return String(text).match(/→ project:\s*([a-z0-9]+)/)?.[1] ?? null;
+/**
+ * EVERY project a proof says it queried, from its own announcements on stderr.
+ *
+ * ⚠️ Returns all of them, not the first. Reading only the first would let a
+ * proof that queried dev and THEN production pass on the strength of its
+ * opening line — narrower than the guarantee this check is supposed to give.
+ * No proof does that today (measured 2026-08-29: all six .mjs proofs announce
+ * exactly once), which is precisely why it would go unnoticed if one started.
+ */
+export function announcedRefs(text) {
+  return [...String(text).matchAll(/→ project:\s*([a-z0-9]+)/g)].map((m) => m[1]);
 }
 
 let bad = 0;
@@ -213,11 +221,12 @@ for (const [file, what] of chosen) {
     // Only NOW ask where it went. A proof that passed against the wrong
     // database has told you nothing about the one you asked about.
     if (!NON_DB.has(file)) {
-      const said = announcedRef(`${r.stderr}\n${r.stdout}`);
-      if (!said) {
+      const said = announcedRefs(`${r.stderr}\n${r.stdout}`);
+      const wrong = [...new Set(said.filter((x) => x !== TARGET.ref))];
+      if (!said.length) {
         verdict = { state: 'UNKNOWN', detail: 'did not announce which project it queried' };
-      } else if (said !== TARGET.ref) {
-        verdict = { state: 'FAIL', detail: `ran against ${said}, not ${TARGET.ref}` };
+      } else if (wrong.length) {
+        verdict = { state: 'FAIL', detail: `ran against ${wrong.join(', ')}, not ${TARGET.ref}` };
       }
     }
   }

@@ -521,6 +521,28 @@ comment — the exact failure `.claude/rules/mistakes.md` already lists, committ
 inside the test written to prevent a different one. It now runs
 `stripComments()` first, like the other four tests that learned this.
 
+⚠️ **AND THE FIRST WRITE-UP OF THIS ENTRY WAS WRONG ABOUT THE SECOND PATH.** A
+scrutiny pass flagged `linkGoogleIdentity()` as a third unguarded route to the
+same blank error page. It is not: `linkIdentity` is **not** `signInWithOAuth`.
+Read from the library source (`GoTrueClient.js`), `linkIdentityOAuth` GETs
+`/user/identities/authorize` with `skipBrowserRedirect: true` and only calls
+`window.location.assign` **after** that request succeeds — so a disabled
+provider comes back as a catchable error, and the browser never leaves.
+
+The real defect there was different and smaller: one branch matched
+`msg.includes('manual linking') || msg.includes('not enabled')`, and
+`"Unsupported provider: provider is not enabled"` contains `not enabled`. So a
+preview user was told to switch on **Manual linking** — a setting that was
+already correct and had nothing to do with the failure. **An instruction naming
+the wrong fix is worse than the raw error**: the raw one at least does not send
+someone to change a production setting. Split into two branches, provider first,
+guarded by order (`google-provider-guard.test.js`).
+
+Two lessons from getting it wrong: **"same provider" is not "same code path"** —
+two SDK methods for one provider differed on whether they ask the server before
+navigating, and only the source settles it; and **grep the SDK, not the docs**,
+because that difference is invisible from the call site.
+
 **The general rule.** *An SDK call that NAVIGATES cannot report its own failure
 to you — check the precondition before the handoff, or you are catching an error
 that will never arrive.* And when a check gates a user-facing action, decide its

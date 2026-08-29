@@ -809,7 +809,22 @@ export async function linkGoogleIdentity() {
     if (code === 'identity_already_exists' || msg.includes('already') || msg.includes('exists') || msg.includes('in use')) {
       throw new Error('บัญชี Google นี้ผูกกับ user คนอื่นอยู่แล้ว');
     }
-    if (msg.includes('manual linking') || msg.includes('not enabled')) {
+    // ⚠️ TWO DIFFERENT CAUSES, and `not enabled` matches BOTH. They were one
+    // branch until 2026-08-29, so on a preview — where Google is off on
+    // samo-dev — this told the person to switch on "Manual linking", which is
+    // a setting that is already correct and has nothing to do with it. An
+    // instruction that names the wrong fix is worse than the raw error: the
+    // raw one at least does not send someone to change something.
+    //
+    // Unlike signInWithOAuth, linkIdentity ASKS the server before navigating
+    // (it GETs /user/identities/authorize with skipBrowserRedirect, then
+    // assigns), so the error does reach us here — which is why this path needs
+    // a better message rather than the pre-flight check signInWithGoogle uses.
+    if (msg.includes('unsupported provider') || msg.includes('provider is not enabled')) {
+      throw new Error('เวอร์ชันทดสอบนี้ยังไม่เปิดให้เชื่อมบัญชี Google '
+        + '— ใช้ได้เฉพาะบนเว็บจริง');
+    }
+    if (msg.includes('manual linking')) {
       throw new Error('เปิด "Manual linking" ใน Supabase ก่อน — ดูคำสั่งใน STATE.md');
     }
     throw new Error(error.message || 'เชื่อมต่อ Google ไม่สำเร็จ');
@@ -877,7 +892,22 @@ export async function unlinkGoogleIdentity() {
     if (code === 'single_identity_not_deletable' || msg.includes('single')) {
       throw new Error('Supabase ปฏิเสธเพราะเหลือ identity เดียว — ลองตั้งรหัสผ่านอีกครั้งหรือเชื่อมผู้ให้บริการอื่น');
     }
-    if (msg.includes('manual linking') || msg.includes('not enabled')) {
+    // ⚠️ TWO DIFFERENT CAUSES, and `not enabled` matches BOTH. They were one
+    // branch until 2026-08-29, so on a preview — where Google is off on
+    // samo-dev — this told the person to switch on "Manual linking", which is
+    // a setting that is already correct and has nothing to do with it. An
+    // instruction that names the wrong fix is worse than the raw error: the
+    // raw one at least does not send someone to change something.
+    //
+    // Unlike signInWithOAuth, linkIdentity ASKS the server before navigating
+    // (it GETs /user/identities/authorize with skipBrowserRedirect, then
+    // assigns), so the error does reach us here — which is why this path needs
+    // a better message rather than the pre-flight check signInWithGoogle uses.
+    if (msg.includes('unsupported provider') || msg.includes('provider is not enabled')) {
+      throw new Error('เวอร์ชันทดสอบนี้ยังไม่เปิดให้เชื่อมบัญชี Google '
+        + '— ใช้ได้เฉพาะบนเว็บจริง');
+    }
+    if (msg.includes('manual linking')) {
       throw new Error('เปิด "Manual linking" ใน Supabase ก่อน — ดูคำสั่งใน STATE.md');
     }
     throw new Error(error.message || 'ยกเลิกการเชื่อม Google ไม่สำเร็จ');

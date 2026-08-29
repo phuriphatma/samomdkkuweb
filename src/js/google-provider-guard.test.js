@@ -37,6 +37,44 @@ function guardBody() {
   return AUTH.slice(start, AUTH.indexOf('\nexport async function signInWithGoogle', start));
 }
 
+describe('the LINK button names the right fix, not a different one', () => {
+  // Found by scrutiny, 2026-08-29. linkIdentity is NOT signInWithOAuth: it GETs
+  // /user/identities/authorize before navigating, so a disabled provider comes
+  // back as an error we can read. It was read by ONE branch that also matched
+  // "manual linking", so a preview user was told to switch on a setting that
+  // was already correct and had nothing to do with the failure.
+  //
+  // An instruction naming the WRONG fix is worse than the raw error — the raw
+  // one does not send anyone to change a production setting.
+  const fn = () => {
+    const at = AUTH.indexOf('export async function linkGoogleIdentity');
+    expect(at, 'linkGoogleIdentity() is gone').toBeGreaterThan(-1);
+    return AUTH.slice(at, AUTH.indexOf('\n}', AUTH.indexOf('throw new Error(error.message', at)));
+  };
+
+  it('a disabled provider and disabled manual-linking are separate branches', () => {
+    const body = fn();
+    expect(body, 'nothing distinguishes a disabled PROVIDER from manual linking')
+      .toMatch(/unsupported provider|provider is not enabled/);
+    expect(body, 'the manual-linking branch still swallows the provider case')
+      .not.toMatch(/manual linking'\)\s*\|\|\s*msg\.includes\('not enabled'\)/);
+  });
+
+  it('the provider branch is tested BEFORE the manual-linking one', () => {
+    // "not enabled" is a substring of the provider message, so order decides
+    // which message a person sees.
+    const body = fn();
+    const provider = body.indexOf('provider is not enabled');
+    const manual = body.indexOf('manual linking');
+    // Both must EXIST before their order means anything. Without this the
+    // assertion passed vacuously when the provider branch was deleted:
+    // indexOf returned -1, and -1 is less than everything.
+    expect(provider, 'no provider branch to order').toBeGreaterThan(-1);
+    expect(manual, 'no manual-linking branch to order').toBeGreaterThan(-1);
+    expect(provider).toBeLessThan(manual);
+  });
+});
+
 describe('the Google button does not walk into a Supabase error page', () => {
   it('checks availability BEFORE handing off to signInWithOAuth', () => {
     const fn = AUTH.slice(AUTH.indexOf('export async function signInWithGoogle'));

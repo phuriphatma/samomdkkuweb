@@ -96,8 +96,11 @@ describe('every proof runs against the database it was sent to', () => {
     // The property, read off the runner's source: the ref comparison must
     // produce FAIL, and a missing announcement must produce UNKNOWN. Both were
     // falsified for real by reintroducing the bug (see the write-up).
-    expect(RUNNER).toMatch(/said !== TARGET\.ref/);
-    expect(RUNNER).toMatch(/state: 'FAIL', detail: `ran against \$\{said\}/);
+    // EVERY announcement, not just the first — a proof that queried dev then
+    // production would otherwise pass on its opening line.
+    expect(RUNNER, 'the runner checks only one announcement').toMatch(/matchAll\(/);
+    expect(RUNNER).toMatch(/wrong\.length/);
+    expect(RUNNER).toMatch(/state: 'FAIL', detail: `ran against \$\{wrong\.join/);
     expect(RUNNER).toMatch(/state: 'UNKNOWN', detail: 'did not announce which project it queried'/);
   });
 });

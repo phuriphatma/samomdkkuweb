@@ -73,13 +73,19 @@ export function resolveTarget(loaded = loadEnv()) {
   const devRef = refOf(fileEnv.SUPABASE_DEV_URL || env.SUPABASE_DEV_URL);
   const isProd = Boolean(ref) && ref === prodRef;
   const isDev = Boolean(ref) && ref === devRef;
-  return {
-    ref,
-    token: env.SUPABASE_ACCESS_TOKEN,
-    isProd,
-    isDev,
-    label: isProd ? 'PRODUCTION' : isDev ? 'samo-dev' : 'not the default project',
-  };
+  // ⚠️ SAY "I DO NOT KNOW" RATHER THAN "NOT PRODUCTION". Without `.env.local`
+  // there is nothing to compare production against, so `isProd` is false for
+  // the production project itself — and a line reading "not the default
+  // project" over a production connection is worse than no line at all. CI is
+  // exactly that environment. `--dev` is unaffected: it refuses unless `isDev`
+  // matches a ref it CAN resolve, so this is about honest labelling, not about
+  // what is allowed to run.
+  const canTell = Boolean(prodRef) || Boolean(devRef);
+  const label = isProd ? 'PRODUCTION'
+    : isDev ? 'samo-dev'
+      : canTell ? 'not the default project'
+        : 'unidentified — no local config to compare against';
+  return { ref, token: env.SUPABASE_ACCESS_TOKEN, isProd, isDev, label };
 }
 
 /**

@@ -1255,3 +1255,50 @@ repo already had that rule for `which` not finding `pg_dump` (a `PATH` answer
 read as a disk answer); it recurred verbatim in git. **And check the CI
 dashboard**: a guard nobody looks at fails silently no matter how loudly it
 prints, and this one had been shouting for a day into a tab nobody opened.
+
+## A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
+
+**Symptom.** None yet — all three were found by a scrutiny pass on the day they
+were written, before anyone was misled. They are recorded because each is a
+recurrence of a rule this repo already had.
+
+**1. The browser smoke could go red on a CDN blip.** `smoke-browser.mjs` failed
+on ANY failed Script/Stylesheet fetch, and the page loads from
+`cdn.jsdelivr.net`, `cdn.quilljs.com` and `fonts.googleapis.com`. A slow route
+from a GitHub runner would have turned the check red for a reason unrelated to
+the change — *a warning that fires on the healthy case*, reproduced inside the
+instrument built to enforce that very rule. Now only **our own origin** fails
+the run; a third-party failure prints a note.
+
+⚠️ **This is safe only because a real outage is still caught, by a DIFFERENT
+check.** Blocking jsDelivr was measured: the page breaks badly (Bootstrap is a
+classic CDN script, so the module graph throws and no handler binds) and the
+BOOT checks fail. **Measure the outcome, not the cause** — the network
+assertion added little and carried all the false-positive risk.
+
+**2. The same file's watchdog diagnostic named the wrong culprit.** It printed
+"the watchdog fired on a page that booted — it is crying wolf again" over a page
+that had NOT booted, where the watchdog was right. The check is now skipped, and
+says so, when the page did not boot.
+
+**3. Two guards passed while the code they guard was deleted.** Both were
+vacuity, both in tests written that same hour:
+· one asserted an identifier appeared in `auth.js` — and it still appeared, **in
+a comment**. Fixed with `stripComments()`, which four other tests already use.
+· one asserted branch ORDER with `indexOf(a) < indexOf(b)` — and when `a` was
+deleted, `indexOf` returned **−1, which is less than everything**. Fixed by
+requiring both to exist first.
+
+**4. The proof-target check read only the FIRST announcement.** A proof querying
+dev and then production would have passed on its opening line. Now every
+announcement must match; falsified by making a proof emit a second one.
+
+**Where it lives now.** `tools/smoke-browser.mjs`, `tools/run-proofs.mjs`,
+`src/js/google-provider-guard.test.js`, `src/js/proof-targeting.test.js`.
+
+**The general rule.** *A guard written in the same hour as the code it guards
+has not been tested against anything but the author's intent — delete the code
+and watch it go red, and treat every `indexOf`, substring or identifier match as
+vacuous until you have seen it fail.* And when a check can be red for a reason
+outside the change, prefer the check that measures the OUTCOME: the boot probe
+catches a CDN outage without ever asserting on the network.
