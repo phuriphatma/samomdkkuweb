@@ -185,6 +185,28 @@ Dump the payload with a real RPC call under an impersonated JWT:
 `select set_config('request.jwt.claims', json_build_object('sub', <uid>, 'role',
 'authenticated')::text, true);` then `select public.get_claude_board();`.
 
+⚠️ **Reproduce the pane's REAL ancestry, or the harness hides the bug.** The
+first สถิติ harness (2026-08-29) dropped the pane into a bare `<div>`, so it
+rendered **660 px wide inside a 1280 px viewport** — and the truncation that was
+the entire finding was invisible at that width. The admin panes live in
+`.workspace-shell > main.workspace-main > section[data-admin-pane]`, and
+`.workspace-shell` is a `260px 1fr` grid: without a sidebar element the main
+column is not the width it will be in production. Copy the ancestry from
+`admin/index.html`, and sanity-check the rendered width before trusting
+anything you see.
+
+📌 **Dumping a payload from a gated RPC.** `analytics_overview()` refuses a bare
+superuser call (`requires an admin grant`), so impersonate inside a transaction:
+
+```sql
+begin;
+select set_config('request.jwt.claims',
+  json_build_object('sub','<uid>','role','authenticated')::text, true);
+select set_config('role','authenticated', true);
+select public.analytics_overview(30) as payload;
+rollback;
+```
+
 **Never omit the `show.bs.modal` counter.** Regenerating the harness once
 without it made every "opens no modal" case pass vacuously; only the ALLOW case
 ("a long press DOES open it") went red and exposed it.
