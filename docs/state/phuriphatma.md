@@ -270,13 +270,30 @@ leaderboard position — those already come from scans — it only corrects badg
 Four more drift without changing tier (all stay Novice): Supphaset 600/500 ·
 Chayaphat 500/400 · Phatiphan 500/300 · ธนกฤต 300/200.
 
-📌 **Which number is right is NOT settled.** Scans are auditable (activity,
-timestamp, department, points); `total_km` is an unauditable counter that has
-been provably one-way since 0056. That argues the scans win. **But Kanyapat's
-case argues the opposite** — her total was RIGHT and her scan row was the thing
-missing. If worapat really attended those activities, the fix is restoring
-scans, not cutting the badge. The deleted rows are gone, so this cannot be
-settled from the data. **Ask the students before demoting anyone.**
+✅ **SETTLED 2026-08-29 — the SCAN SUM is the correct number.** An earlier note
+here said this could not be decided; it could. The old project's full scan dump
+(537 rows: email, activity, timestamp) had been written to the session
+scratchpad BEFORE the project was deleted, which made the Kanyapat check
+repeatable for everyone:
+
+- **Not one of the 11 drifters is missing a single old scan.** Every scan they
+  had in the old database is present today.
+- **Control**: the same sweep over all 537 old scans finds exactly ONE
+  unmatched row — the known merge collapse — so the method demonstrably detects
+  a miss. "Zero missing" is a result, not a blind spot.
+
+Therefore **the migration lost nothing for these 11**. Kanyapat was the only
+person whose row went missing, and that is fixed. Their totals were ALREADY
+unbacked in the old database: worapat held 7 scans worth 750 there while his
+total said 3,600. The scans that would justify the difference were deleted in
+the OLD system — which carried the identical one-way trigger — long before the
+move.
+
+A deletion is normally a deliberate admin act (removing a wrong scan), and the
+bug is that the total never followed it down. ⚠️ **What cannot be recovered is
+WHY each old deletion happened**; if any were accidental, those points were
+genuinely earned. There is no record either way and the system that held it is
+gone.
 
 📌 **`pmphuriphat`'s profile is named "วรภัทร จงชูวณิชย์ เอิงเทส"** — worapat's
 name plus a test marker. The test account appears to have been made from
