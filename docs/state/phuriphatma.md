@@ -198,42 +198,46 @@ people. `docs/EMAIL.md` has the whole assessment.
 ❌ **LAST ITEM: the dev Apps Script deployment under its own Google account.**
 Owner-gated — see item 2 below. Everything else in phase 2 is done.
 
-## ▶ The old passport project — measured before deleting it (2026-08-29)
+## ▶ The old passport project — DONE, and it is now safe to delete (2026-08-29)
 
-`idwlabpbwiwgaoqwbozz` is the frozen pre-move backup. Before it is deleted,
-here is what it actually holds that A does not — measured, not assumed:
+`idwlabpbwiwgaoqwbozz` was the frozen pre-move backup. Checked before deleting,
+and the one thing it held that the live project did not has been restored.
 
-- **Frozen since 2026-07-22.** Last write of ANY kind (scans, profiles,
-  activities). Nothing in five weeks.
-- **All 469 profiles are represented in A**, except the 5 gmail accounts
-  deliberately merged into kkumail identities — `passport.account_migrations`
-  names all five.
-- **537 scans; exactly TWO are absent from A** — ids `157` and `213`. Every
-  other row came across **with its primary key preserved**, which is how the
-  comparison was made in the end (an email/timestamp diff was misleading).
+- **Frozen since 2026-07-22** — last write of any kind. Nothing in five weeks.
+- **All 469 profiles are represented**, except the 5 gmail accounts merged into
+  kkumail identities (`passport.account_migrations` names all five).
+- **537 scans. Two were absent; now ONE is**, and that one is correct:
   - `213` — kedsaraporn's gmail scan of an activity her kkumail account also
-    scanned. Correctly collapsed by the merge. Not a loss.
-  - `157` — **kanyapat.ki@kkumail.com**, โครงการรับน้องบ้านเขียว ปีการศึกษา 2569,
-    200 pts, 2026-06-21 12:24:55. **This row exists nowhere else.**
+    scanned. **The live table has `unique (user_id, activity_id)`**, so after
+    the merge made them one person the second row could not exist. That is the
+    constraint working, not a loss. (Found by accident, when a rollback-wrapped
+    trigger proof tripped it.)
+  - `157` — **RESTORED 2026-08-29.** kanyapat.ki@kkumail.com,
+    โครงการรับน้องบ้านเขียว ปีการศึกษา 2569, 200 pts, 2026-06-21 12:24:55.
+    She now reads **300 km, 2 stamps**, and her scan sum matches her stored
+    total (the profiles-with-drift count went 12 → 11).
 
-⚠️ **Her POINTS are not lost.** `profiles.total_km` is 300 and already includes
-that 200 — the stored total came across, the scan ROW did not. So her passport
-shows the right number but lists one activity instead of two.
+📌 **How the restore was done, if it is ever needed again.** `passport.scans`
+has an `on_new_scan` trigger that ADDS `points_awarded` to `profiles.total_km`.
+Her total ALREADY included the 200, so a plain insert would have taken her to
+500. The insert ran with the trigger disabled inside one transaction —
+`alter table … disable trigger` is transactional, so a failure would have rolled
+the disable back with everything else. **Then the trigger was proved to still
+FIRE** (rollback-wrapped insert → 300+7=307), because `tgenabled = 'O'` is a
+flag, not a behaviour: a passport whose trigger silently stopped firing would
+award nobody any points and look fine.
 
-📌 **Why row 157 dropped is NOT determined, and these were ruled out** — say so
-rather than inventing a cause: the activity exists in A · the season is missing
-from A but is missing for all 537 equally · her profile exists · id 157 is not
-occupied by anything else in A · her auth account was created in the SAME batch
-as controls whose scans copied fine (#180 of 247, with 67 created after her).
-The migration was a hand-run script that is not in this repo and left no log.
+📌 **Why 157 dropped is still NOT determined.** Ruled out: the activity exists ·
+the season is absent for all 537 equally · her profile exists · id 157 was free ·
+her auth account was created in the same batch as controls that copied fine
+(#180 of 247, 67 created after her). The migration was a hand-run script, not in
+this repo, and left no log. **Do not invent a cause for it.**
 
-**If restoring it**: `passport.scans` has an `on_new_scan` trigger that ADDS
-points on insert, so a plain insert would take her to 500. Insert and correct
-`total_km` in one transaction, or disable the trigger for the insert.
+⛔ **The old project can now be deleted** — it holds nothing the live one does
+not. `docs/INVARIANTS.md` says to rotate its DB password first.
 
-**Separately**: 12 profiles have `total_km` disagreeing with the sum of their
-scans. Pre-existing, unexplained, not chased. The total is a stored running
-value maintained by that trigger, not a derived one.
+**Separately**: 11 profiles still have `total_km` disagreeing with the sum of
+their scans. Pre-existing, unexplained, not chased.
 
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 
