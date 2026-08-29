@@ -1,0 +1,71 @@
+# CI: load the PREVIEW build in a real browser and check it is not dead.
+#
+# WHY. `npm test` and `npm run build` both pass for a build whose entry module
+# never reaches the browser — the failure this app's boot watchdog exists for.
+# Bootstrap comes from a CDN, so the page looks completely alive: menus open,
+# nothing is red, and roughly 90 inline `onclick="global()"` handlers silently
+# do nothing. Nothing else in CI can see that, because it is not a build error;
+# it is a runtime one, and only on the deployed artifact.
+#
+# WHAT IT NEEDS: nothing. It loads the preview the way an anonymous visitor
+# does — no key, no session, no secret. That is deliberate and is why this job
+# exists while the live-proofs job does not (`docs/TEAM-WORKFLOW.md` §7.9):
+# a public repo with five write-access collaborators is no place for a
+# credential, and this job never asks for one.
+#
+# WHY `check_run` AND NOT `deployment_status`. Cloudflare Pages does not create
+# GitHub Deployments for this repo (measured 2026-08-29: the deployments API
+# returns []). It reports through a CHECK RUN whose summary carries the URL, so
+# that is what we read.
+name: smoke
+
+on:
+  check_run:
+    types: [completed]
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  smoke:
+    # Only Cloudflare's own successful preview build, and only for the live
+    # project — `refactorsamomdkkuweb` is a retired project kept alive solely so
+    # its URL still serves the redirect splash.
+    if: >
+      github.event.check_run.conclusion == 'success' &&
+      github.event.check_run.name == 'Cloudflare Pages: samomdkkuweb' &&
+      github.event.check_run.pull_requests[0] != null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: find the preview URL in the Cloudflare check summary
+        id: url
+        env:
+          SUMMARY: ${{ github.event.check_run.output.summary }}
+        run: |
+          # Prefer the per-deployment hash URL: it is the immutable build for
+          # THIS commit. The branch alias moves when the branch does, so a slow
+          # job would otherwise smoke-test a newer build than the one that
+          # triggered it and report the result against the wrong commit.
+          URL="$(printf '%s' "$SUMMARY" | grep -oE 'https://[0-9a-f]{8}\.[a-z0-9.-]*pages\.dev' | head -1)"
+          if [ -z "$URL" ]; then
+            URL="$(printf '%s' "$SUMMARY" | grep -oE 'https://[a-z0-9.-]*pages\.dev' | head -1)"
+          fi
+          if [ -z "$URL" ]; then
+            echo "No pages.dev URL in the Cloudflare check summary — cannot smoke a build I cannot find."
+            echo "Failing rather than passing: 'I could not test it' must never read as 'it is fine'."
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Smoking $URL"
+
+      # ubuntu-latest ships Google Chrome, and the driver speaks CDP over Node's
+      # global WebSocket — so there is nothing to install.
+      - name: smoke the preview in a real browser
+        run: node tools/smoke-browser.mjs "${{ steps.url.outputs.url }}" --expect-ribbon
+
+      - name: say what was tested
+        if: always()
+        run: echo "### Browser smoke — ${{ steps.url.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
