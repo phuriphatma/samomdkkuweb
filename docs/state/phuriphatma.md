@@ -315,6 +315,19 @@ Postgres log is not something anyone reads. Worth a guard that counts profiles
 whose email matches an `auth.users` row with a different id (should be 0 after
 that user signs in). **Not built.**
 
+### ✅ OWNER DECISION 2026-08-29 — the tier demotions are ACCEPTED. Do not re-open.
+
+Reconciling the totals dropped 7 tier badges (2 test accounts, 1 the owner's,
+**4 real students**), mostly Voyager → Novice. The owner was told and decided:
+*"this is ok, if it shows in passport correctly it's fine. don't need to tell
+them anything."*
+
+**So: no student is to be contacted, and no total is to be re-inflated.** The
+badge now matches the scans, which is what the leaderboard always showed.
+`user_tiers` was read back afterwards and returns the corrected tier
+(`phuriphat.ma` = 400 km → Novice Traveler). A stale badge in a browser is a
+CACHE — hard-refresh before believing it.
+
 ### Other open items, NOT investigated### Other open items, NOT investigated
 
 - **`chayaphat.t@kkumail.com` has a passport profile but NO auth account** —
