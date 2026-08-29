@@ -149,10 +149,19 @@
 
 /* ---- Horizontal ranked bars ---- */
 .an-rank { display: flex; flex-direction: column; gap: 0.5rem; }
-.an-rank-row { display: grid; grid-template-columns: 96px 1fr 44px; align-items: center; gap: 0.5rem; }
+.an-rank-row { display: grid; grid-template-columns: 108px 1fr 44px; align-items: center; gap: 0.5rem; }
+/* The label must be READABLE, not merely present. It was nowrap + ellipsis in
+   a 96px column, so "ไฟล์หนังสือโครงการ" rendered as "ไฟล์หนังสือโคร…" and
+   "SAMO Passport" as "SAMO Pass…" — recoverable only from the `title`
+   tooltip, which A PHONE HAS NO WAY TO SHOW. Seen by driving /admin#analytics
+   at 390px; every DOM measurement said the row was fine.
+   Wrapping to two lines works at any column width and any label length,
+   which ellipsis-plus-hover does not. */
 .an-rank-label {
-  font-size: 0.82rem; color: #33413a; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.82rem; color: #33413a;
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .an-rank-track { height: 10px; background: rgba(20, 40, 27, 0.07); border-radius: 6px; overflow: hidden; }
 .an-rank-fill { display: block; height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -177,7 +186,7 @@
   .an-kpis { grid-template-columns: repeat(2, 1fr); }
   .an-grid { grid-template-columns: 1fr; }
   .an-card--wide { grid-column: span 1; }
-  .an-rank-row { grid-template-columns: 84px 1fr 38px; }
+  .an-rank-row { grid-template-columns: 92px 1fr 38px; }
   .an-proj-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -262,5 +271,10 @@
 }
 .an-gas-actions tr:last-child td { border-bottom: 0; }
 .an-gas-actions code { font-size: 0.92em; color: #5c6b63; }
+/* A two-word STATUS, not prose: it must never wrap. At 390px "มองไม่เห็น"
+   broke across two lines in 8 of the 12 rows and read as a layout fault
+   rather than an answer. The table around it already scrolls
+   (.an-gas-actions has overflow-x:auto), so nowrap costs nothing. */
+.an-gas-yes, .an-gas-no { white-space: nowrap; }
 .an-gas-yes { color: #1f6f43; font-weight: 600; }
 .an-gas-no { color: #9a8570; }

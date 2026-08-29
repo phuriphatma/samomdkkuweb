@@ -3253,3 +3253,52 @@ subtree — or it silently gets the browser default instead.* The tell is that
 both paths "work" and only one is fast. And when guarding it, derive the subject
 from the routing table, never from the shape of the string: a guard that fires
 on a correct case gets suppressed, and then it protects nothing.
+
+## The สถิติ quota panels had 29 tests and had never been LOOKED at — two faults at 390px
+
+**Symptom.** Nobody reported this, which is the point. The handoff said it
+plainly: the panels were unit-tested, their classes were confirmed in the
+SERVED bundle, and **nobody had opened `/admin#analytics`**. Driving it at
+390 px found two faults in the first screenshot:
+
+1. `มองไม่เห็น` wrapped to two lines in **8 of the 12** action rows, so a
+   two-word STATUS read as a broken cell rather than an answer.
+2. `แยกตามระบบ` showed **`ไฟล์หนังสือโคร…`** and **`SAMO Pass…`** — the one
+   thing that panel exists to say, which system is spending the shared Apps
+   Script quota, was the part cut off.
+
+**Cause.** Both are layout, and every instrument in use was blind to layout.
+The chip inherited the table cell's normal wrapping; nothing said it was a
+status. `.an-rank-label` was `white-space: nowrap` + `text-overflow: ellipsis`
+in a fixed **96 px** (84 px on phone) grid column, with the full text in a
+`title` attribute — **and a phone has no hover.** The desktop author saw a
+tooltip and considered the text disclosed.
+
+Note what did NOT catch it. `analytics-email.test.js` renders the panel to a
+string and asserts on the HTML: correct, and structurally blind. The
+class-existence guard passed because `.an-rank-label` *has* a rule — it was the
+rule that was wrong. And the bundle grep confirmed the strings ship, which says
+nothing about whether they are readable. Three green instruments, one unopened
+view.
+
+**Fix.** `white-space: nowrap` on `.an-gas-yes`/`.an-gas-no` (the table already
+carries `overflow-x: auto`, so it costs nothing); `.an-rank-label` wraps to two
+lines via `-webkit-line-clamp` + `overflow-wrap: anywhere` instead of
+ellipsizing, and the column went 96→108 px / 84→92 px. Wrapping works at any
+label length and any width, which ellipsis-plus-hover does not — and it fixed
+truncation nobody had noticed in the OTHER two rank panels too
+(`admin:landing`, `/admin/#team` were being cut at 84 px).
+
+**Where it lives now.** `src/css/analytics.css`; guarded by the
+`the quota panels stay readable on a phone` block in
+`src/js/analytics-email.test.js` (both guards falsified by reintroducing each
+fault and watching the named assertion go red).
+
+**The general rule.** *A `title` attribute is not a fallback — it is disclosure
+on ONE input path, and the touch path has no hover.* Truncating text and
+"recovering" it via tooltip means the content simply does not exist for phone
+users; if a label can be long, let it wrap. And the older rule this is the
+newest instance of: **a change is NOT verified in a view you never opened.**
+Unit tests, a class-existence guard and a bundle grep are all satisfied by a
+page that renders wrong — when the remaining risk is *visual*, the only
+instrument that can see it is a rendered screenshot you actually look at.

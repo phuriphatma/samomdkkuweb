@@ -42,6 +42,9 @@ it is the part that generalises to code not yet written.
    opened VitalSound with no VS grant. Enumerate every way in — click, hash,
    query string, deep link, GESTURE (`pointerdown` starts every gesture a scroll
    surface supports; release on `pointercancel`).
+   **DISCLOSURE has input paths too**: text truncated with `text-overflow` and
+   "recovered" via a `title` tooltip DOES NOT EXIST on a phone — `แยกตามระบบ`
+   cut the one thing its panel exists to say (`frontend-ui.md`).
    **A rule held in every MESSAGE instead of at the transport is the same
    shape**: `@here` was removed from three VS builders and two branches kept
    no test, while `data.role` / a display name could still carry `@everyone`
@@ -270,7 +273,7 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(14)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(21)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(81)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(82)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(9)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

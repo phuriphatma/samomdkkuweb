@@ -423,3 +423,77 @@ describe('the Apps Script action list', () => {
     expect(html).toMatch(/มองไม่เห็น/);
   });
 });
+
+/**
+ * WHAT DRIVING THE PAGE FOUND THAT NOTHING ABOVE COULD.
+ *
+ * Every test above this line passed while both of these were broken, because
+ * they are LAYOUT faults and this file renders to a string. The panels had 29
+ * unit tests, their classes were confirmed in the served bundle — and nobody
+ * had opened `/admin#analytics`. At 390px:
+ *
+ *   1. `มองไม่เห็น` wrapped to two lines in 8 of the 12 action rows, so a
+ *      two-word STATUS read as a broken cell.
+ *   2. `.an-rank-label` was `nowrap` + `text-overflow: ellipsis` in a 96px
+ *      column, so "ไฟล์หนังสือโครงการ" rendered "ไฟล์หนังสือโคร…" and
+ *      "SAMO Passport" rendered "SAMO Pass…". The full text was in `title`
+ *      — AND A PHONE HAS NO HOVER. Disclosure on one input path only is this
+ *      repo's most repeated bug shape; here it hid the very thing the panel
+ *      exists to say, which system is spending the shared quota.
+ *
+ * These assert the PROPERTY each fix produces, not the declaration text I
+ * happened to write, so a future restyle that keeps the property passes.
+ */
+describe('the quota panels stay readable on a phone', () => {
+  /** The declaration block of the first rule whose selector list matches. */
+  const ruleFor = (selector) => {
+    const re = new RegExp(`(^|})[^{}]*\\${selector}\\b[^{}]*{([^}]*)}`, 'm');
+    const m = CSS.match(re);
+    expect(m, `${selector} has no rule in analytics.css`).not.toBe(null);
+    return m[2].replace(/\s+/g, ' ');
+  };
+
+  it('the นับได้ / มองไม่เห็น status never wraps', () => {
+    // It is a status, not prose. The table around it already scrolls
+    // (.an-gas-actions is overflow-x:auto), so nowrap costs nothing.
+    const html = renderGas()({ simultaneous_limit: 30, peak_per_minute_ever: 2, total: 1 });
+    for (const cls of ['an-gas-yes', 'an-gas-no']) {
+      expect(html, `${cls} is not rendered — did the status column change?`).toContain(cls);
+      expect(ruleFor(`.${cls}`), `.${cls} may wrap; "มองไม่เห็น" broke across two lines at 390px`)
+        .toMatch(/white-space:\s*nowrap/);
+    }
+  });
+
+  it('a ranked label is never disclosed by hover alone', () => {
+    // `title` is not a fallback on a touch device. Whatever the label is, it
+    // must be readable from the page itself.
+    const label = ruleFor('.an-rank-label');
+    expect(label, '.an-rank-label is nowrap again — long Thai labels will ellipsize with no way to read them')
+      .not.toMatch(/white-space:\s*nowrap/);
+    expect(label, '.an-rank-label must allow the text to wrap or clamp, not be cut off')
+      .toMatch(/line-clamp|overflow-wrap|white-space:\s*normal/);
+  });
+
+  it('every class the shared-quota panel emits has a live CSS rule', () => {
+    // The an-email-* guard above never covered this panel, which is why a
+    // stylesheet gap here would have been silent. Same property, second panel.
+    const rank = extract('rankBars');
+    // eslint-disable-next-line no-new-func
+    const realRank = Function('fmt', 'escHtml', `${rank}\nreturn rankBars;`)(
+      (n) => String(n ?? ''), (x) => String(x));
+    const html = renderGas()({
+      simultaneous_limit: 30, peak_per_minute_ever: 2, total: 85, peak_per_day: 10,
+      by_source: [{ label: 'ไฟล์หนังสือโครงการ', n: 44 }],
+    }) + realRank([{ label: 'ไฟล์หนังสือโครงการ', n: 44 }], '#000');
+
+    const classes = new Set();
+    for (const m of html.matchAll(/class="([^"]+)"/g)) {
+      for (const c of m[1].split(/\s+/)) if (/^an-(gas|rank)/.test(c)) classes.add(c);
+    }
+    expect(classes.size, 'the panel emits no an-gas-*/an-rank-* class — did it get restyled?')
+      .toBeGreaterThan(3);
+    for (const c of classes) {
+      expect(CSS, `.${c} is rendered but has no rule in analytics.css`).toContain(`.${c}`);
+    }
+  });
+});

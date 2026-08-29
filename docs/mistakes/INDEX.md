@@ -111,7 +111,7 @@ Open when: writing a migration.
 - "i can even book at 06.00 which shouldn't be"
 - "it shouldnt show the rail as 100% in that 25%"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(81)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(82)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -196,6 +196,7 @@ Open when: markup, modals, layout, touch, icons.
 - "even i press the โหลดใหม่ … it still show it"
 - A SyntaxError blamed on the DOCUMENT, in a page whose own scripts all parse
 - A second markup site for the same navigation had no handler, so it full-reloaded
+- The สถิติ quota panels had 29 tests and had never been LOOKED at
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -299,4 +300,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A dashboard was about to report 83% of a quota that was really at 7%
 - Impersonating a user through the Management API works for one statement and silently stops working at the next
 
-_242 entries across 9 files._
+_243 entries across 9 files._
