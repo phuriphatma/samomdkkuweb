@@ -269,7 +269,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `systemctl enable --now` reported success and scheduled nothing
 - "I grepped the served bundle for the string I just changed and it is not there
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(27)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(28)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -300,5 +300,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A dashboard was about to report 83% of a quota that was really at 7%
 - Impersonating a user through the Management API works for one statement and silently stops working at the next
 - `npm run proofs` against dev ran two proofs against PRODUCTION and printed one green summary
+- `main`'s CI was red for a day because a guard could not see the commit it was checking
 
-_244 entries across 9 files._
+_245 entries across 9 files._

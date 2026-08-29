@@ -494,6 +494,20 @@ the new account before assuming two projects.
 from GitHub secrets; a PR from a fork cannot read them. Keep the five as repo
 collaborators pushing branches, not forks.
 
+**7.9 — Running the live proofs in CI would put a powerful credential where
+five people can read it, so it is NOT done.** The Supabase management token can
+run arbitrary SQL, and `samo-dev` holds REAL student data (D1, unmasked). This
+repo is PUBLIC and five people have write access; GitHub Actions secrets are
+withheld from FORK PRs but are readable by any workflow pushed on a BRANCH, so
+storing it would hand that token to all five. It was added on 2026-08-29 and
+**removed within minutes** on the owner's instruction to prefer the safe
+default. What was kept is the part that carries the value: `npm run proofs:dev`
+locally, and the mechanism that makes its answer trustworthy.
+
+If CI-side proofs are ever wanted, the safe shape is a GitHub **Environment**
+with the owner as a required reviewer, so a run must be approved before it can
+read the secret. That is a decision, not a task — do not build it unprompted.
+
 **7.8 — "The team is trusted" is a statement about today's team.** `master` in
 the real tree (D3) is fine while the five are the five. Nothing will ever tell
 the owner when that stops being true. Habit: read the master list once a term
@@ -516,7 +530,7 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | 3 | ⏳ **MOSTLY DONE 2026-08-27 — and most of it never needed building.** ✅ Per-PR previews were ALREADY configured on the `samomdkkuweb` Pages project (`preview_deployment_setting: all`, `pr_comments_enabled: true`) — **no Actions job and no `wrangler` are needed**, so §7.4's `functions/` trap does not apply. ✅ Preview env now points at `samo-dev`. ✅ The `pages.dev` guard is narrowed to the two EXACT retired hosts. ✅ Proven end to end on a throwaway PR. ✅ **COMPLETE — corrected 2026-08-29.** All three items this row listed as outstanding were already built and are in the repo today: `src/js/env-ribbon.js` (the ribbon), `functions/notify.js` (the dev `/notify`), and the `noindex`, which Cloudflare sets on preview deployments itself. **This row said "❌ Left" while `STATE.md` and §0b both said BUILT** — the drift §0b warns about, in §0b's own file | done | — |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
 | 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |
-| 6 | ⏳ **HALF DONE 2026-08-29.** ✅ The live proofs run against `samo-dev`: `npm run proofs:dev`, and `.github/workflows/proofs.yml` on any PR touching `supabase/`. **All 23 database proofs pass against dev** — the first direct evidence for §7.3's assumption that RLS behaves identically there. Building it found a live bug: two proofs ignored the dev override and answered from PRODUCTION inside a green run (`docs/mistakes/tooling-proofs.md`). ⚠️ **Needs two GitHub secrets** — `SUPABASE_DEV_URL`, `SUPABASE_DEV_ACCESS_TOKEN` — or the job cannot run. ❌ Left: the browser smoke against the preview URL | ~1 h left | phases 1–3 |
+| 6 | ⏳ **PART DONE 2026-08-29.** ✅ The live proofs run against `samo-dev`: **`npm run proofs:dev`**, and a proof can no longer lie about which database answered (`run-proofs.mjs` reads its `→ project:` line back). **All 23 database proofs pass against dev** — the first direct evidence for §7.3's assumption that RLS behaves identically there. Building it found a live bug: two proofs ignored the dev override and answered from PRODUCTION inside a green run (`docs/mistakes/tooling-proofs.md`). ⛔ **NOT in CI, deliberately** — see §7.9. ❌ Left: the browser smoke against the preview URL | ~1 h left | phases 1–3 |
 
 ### §8a. What phase 0 still needs — measured 2026-08-26, not assumed
 

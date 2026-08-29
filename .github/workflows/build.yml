@@ -27,6 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # FULL history. state-handoff.test.js resolves the sha STATE.md
+          # names as deployed, and the default depth-1 checkout has only the
+          # tip commit — so the guard reported every correct sha as "not a
+          # commit in this repo" and held `main` red from 2026-08-28.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           # Node 22 — supabase-js/realtime-js (imported transitively by

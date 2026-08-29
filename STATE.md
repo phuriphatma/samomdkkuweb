@@ -158,10 +158,10 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   guarded: `dev:refresh` step 7 and `npm run dev:check`.
   **Google sign-in is still OFF on dev** (owner: an OAuth client). The plan's
   `#samo-dev-bot` EXISTS — it is `#developer-server-notify`.
-  ⏳ **PHASE 6 IS HALF DONE (2026-08-29)** — `npm run proofs:dev` + a CI job on
-  PRs touching `supabase/`; **all 23 database proofs pass against dev**.
-  ⚠️ **Needs two GitHub secrets or the job never runs** (bottom table).
-  `docs/state/phuriphatma.md`.
+  ⏳ **PHASE 6 IS PART DONE (2026-08-29)** — **`npm run proofs:dev`**, and
+  **all 23 database proofs pass against dev**. ⛔ **NOT in CI, on purpose** —
+  that would put a token that can run any SQL where 5 people can read it
+  (`docs/TEAM-WORKFLOW.md` §7.9). `docs/state/phuriphatma.md`.
   ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
   2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
   posts the link; the ribbon ships; the `/notify` dev stub prints to the
@@ -229,7 +229,6 @@ should be built unprompted. Ask in plain language:
 | 1 | **Turn on password reset?** It does not exist today and mail config is why — the biggest user-visible win available | `docs/EMAIL.md` §2/§5 | start with a Gmail app password; needs nothing from KKU |
 | 2 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
-| 5 | **Add `SUPABASE_DEV_URL` + `SUPABASE_DEV_ACCESS_TOKEN` as GitHub secrets?** Without them the new proofs job never runs | `docs/TEAM-WORKFLOW.md` §6 | yes — but note any of the 5 collaborators could read them from a workflow they push |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:

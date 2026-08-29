@@ -1214,3 +1214,44 @@ one file you just fixed leaves every sibling holding the bug — and when the
 aggregate prints a single verdict, the mixture is invisible by construction.
 Corollary paid for here twice over: **before trusting a green suite, ask what it
 would look like if half of it had answered from somewhere else.**
+
+## `main`'s CI was red for a day because a guard could not see the commit it was checking
+
+**Symptom.** Every `build` run on `main` had failed since 2026-08-28 with
+
+```
+Error: STATE.md says DEPLOYED = e0bd2e2, which is not a commit in this repo.
+```
+
+and then, a day later, the same sentence with `f9584e5`. Both shas were
+perfectly correct and present. Nobody noticed, because a check that is always
+red is indistinguishable from a check.
+
+**Cause.** `actions/checkout@v4` fetches **depth 1**. `state-handoff.test.js`
+verifies STATE.md's deployed sha with `git cat-file -e <sha>^{commit}`, and in a
+shallow clone every commit but the tip is simply absent — so git answers exactly
+what it answers for a MISTYPED sha. The guard already handled "no git at all"
+(a tarball, a sandbox) and returned inconclusive; it had no idea that a git
+which *is* present can still be unable to see a valid object.
+
+**Why it mattered more than a red X.** `build` is a REQUIRED status check on
+`main` (phase 0's highest-value guardrail, enabled 2026-08-27). A permanently
+false red there blocks **every contributor PR** — the guardrail built to protect
+the branch was quietly closing it.
+
+**Fix.** Both halves, because either alone is a half-fix: `build.yml` checks out
+with `fetch-depth: 0`, so the guard is REAL in CI rather than merely quiet; and
+the test now asks `git rev-parse --is-shallow-repository` before failing, so
+"I cannot see that object" is never reported as "that object does not exist".
+Falsified both ways — a bogus sha in a full clone still fails, and the correct
+sha in a real `--depth 1` clone passes.
+
+**Where it lives now.** `.github/workflows/build.yml`,
+`src/js/state-handoff.test.js`.
+
+**The general rule.** *A guard's instrument needs a guard too, and the question
+"did it answer NO, or could it not see?" is the one that separates them.* This
+repo already had that rule for `which` not finding `pg_dump` (a `PATH` answer
+read as a disk answer); it recurred verbatim in git. **And check the CI
+dashboard**: a guard nobody looks at fails silently no matter how loudly it
+prints, and this one had been shouting for a day into a tab nobody opened.

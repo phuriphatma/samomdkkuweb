@@ -246,6 +246,26 @@ describe('STATE.md is a handoff, not a memory', () => {
       // healthy case. Only a git that ran and said NO counts.
       resolves = err.code === 'ENOENT' ? null : false;
     }
+
+    // ⚠️ A SHALLOW CLONE ANSWERS "NO" FOR A COMMIT THAT IS PERFECTLY FINE.
+    // `actions/checkout` fetches depth 1 by default, so every sha but the tip
+    // is absent and `cat-file` reports exactly what a MISTYPED sha reports.
+    // This guard therefore failed `main` continuously from 2026-08-28 — first
+    // on e0bd2e2, then on f9584e5 — and because `build` is a REQUIRED status
+    // check, a false red here blocks every contributor PR. Nobody noticed,
+    // because a guard that is always red is indistinguishable from a guard.
+    //
+    // build.yml now checks out with `fetch-depth: 0` so the guard is real in
+    // CI; this second half makes it honest anywhere else. "I cannot see that
+    // object" is not "that object does not exist".
+    if (resolves === false) {
+      let shallow = false;
+      try {
+        shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'],
+          { cwd: ROOT, encoding: 'utf8' }).trim() === 'true';
+      } catch { /* no git — already handled above */ }
+      if (shallow) resolves = null;
+    }
     if (resolves === false) {
       throw new Error(`STATE.md says DEPLOYED = ${sha}, which is not a commit in this repo.`);
     }

@@ -144,13 +144,19 @@ first direct evidence for §7.3's assumption, the one the un-gated preview URLs
 rest on. The two non-database proofs (`repo-protection`, `notify-exposure`) are
 SKIPPED with the reason printed, never silently dropped.
 
-⚠️ **BLOCKED ON TWO GITHUB SECRETS.** `SUPABASE_DEV_URL` and
-`SUPABASE_DEV_ACCESS_TOKEN`. Until they exist the workflow runs and fails at the
-first step. The trade-off is real and belongs to the owner: this repo is
-**public** and five people have write access, so any of them could read those
-values back out of a workflow they push. `.claude/rules/security.md` already
-calls the dev block "shareable with the team", which is most of the answer —
-but it is a decision, not a detail.
+⛔ **NOT WIRED INTO CI, and that is the decision — do not re-open it.** A CI job
+needs the Supabase management token in GitHub Actions secrets. That token runs
+arbitrary SQL, `samo-dev` holds real student data, and this repo is PUBLIC with
+five write-access collaborators — secrets are hidden from FORK PRs but readable
+by any workflow pushed on a BRANCH. The secrets were added on 2026-08-29 and
+**removed within minutes** when the owner said to take the safe default; the
+workflow file was deleted with them, and PR #18 (which proved the job fires) was
+closed. The reasoning and the safe alternative (a GitHub Environment with the
+owner as required reviewer) are in `docs/TEAM-WORKFLOW.md` §7.9.
+
+📌 **Nothing of value was lost.** The job was only ever a scheduler; the two
+things worth having — `npm run proofs:dev`, and a runner that fails a proof
+which answered from the wrong database — are local and shipped.
 
 📌 **What building it found, and why it matters more than the CI job.** The
 documented dev targeting was broken: two proofs parsed `.env.local` themselves,
