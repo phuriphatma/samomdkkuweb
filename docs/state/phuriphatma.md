@@ -136,6 +136,32 @@ payload comes from `analytics_overview(30)` under an impersonated JWT
   work to do. I recommended it before measuring, and measuring retired it.
 - The Mailpit trap is withdrawn AND its need is met.
 
+## ▶ PHASE 6 — the proofs now run against samo-dev (2026-08-29)
+
+✅ **`npm run proofs:dev`** and `.github/workflows/proofs.yml` (PRs touching
+`supabase/**`). **All 23 database proofs pass against `samo-dev`** — that is the
+first direct evidence for §7.3's assumption, the one the un-gated preview URLs
+rest on. The two non-database proofs (`repo-protection`, `notify-exposure`) are
+SKIPPED with the reason printed, never silently dropped.
+
+⚠️ **BLOCKED ON TWO GITHUB SECRETS.** `SUPABASE_DEV_URL` and
+`SUPABASE_DEV_ACCESS_TOKEN`. Until they exist the workflow runs and fails at the
+first step. The trade-off is real and belongs to the owner: this repo is
+**public** and five people have write access, so any of them could read those
+values back out of a workflow they push. `.claude/rules/security.md` already
+calls the dev block "shareable with the team", which is most of the answer —
+but it is a decision, not a detail.
+
+📌 **What building it found, and why it matters more than the CI job.** The
+documented dev targeting was broken: two proofs parsed `.env.local` themselves,
+so `VITE_SUPABASE_URL=$SUPABASE_DEV_URL npm run proofs` ran them against
+PRODUCTION and printed one green summary over the mixture. The fix is NOT the
+two files — it is that `run-proofs.mjs` reads each proof's own `→ project:`
+line back and fails any proof that answered from the wrong database. Write-up:
+`docs/mistakes/tooling-proofs.md`.
+
+❌ **Left in phase 6:** the browser smoke against the preview URL.
+
 ## ▶ DEV SYSTEM — ONE ITEM LEFT, and it needs you
 
 ✅ **`dev-grants.json` is built** (2026-08-28) — `npm run dev:grants`, and step 8

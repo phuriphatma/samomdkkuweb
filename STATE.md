@@ -59,11 +59,10 @@ TRUE. That is what the grep is for.
   as the control. ⚠️ The host-dependency this exposed is a durable
   rule and lives in `docs/INVARIANTS.md`, not here.
   ⚠️ **Verify a `functions/` change ON THE VM, not in a bundle** — the notify
-  service is Node on the box, not part of any JS chunk. `ssh samo-vm 'grep -c
-  <marker> ~/samo-projects/samomdkkuweb/functions/_discord.js'`.
-  ⚠️ **Production renders NO env ribbon** — confirmed by DRIVING the page, not
-  grepping. A grep for `"preview"` DOES hit, from an unrelated announcements
-  button; the rendered DOM is the instrument.
+  service is Node on the box (`ssh samo-vm 'grep -c <marker>
+  ~/samo-projects/samomdkkuweb/functions/_discord.js'`). ⚠️ **Production renders
+  NO env ribbon** — confirmed by DRIVING it; a grep for `"preview"` hits an
+  unrelated button, so the rendered DOM is the instrument.
   Previous: `e0bd2e2`, and `832bb14` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
@@ -104,12 +103,9 @@ TRUE. That is what the grep is for.
   monitor-on Discord notice as "why it had been paused". Leave it.
 - **`claude_bookings` is still EMPTY** — deployed, widely granted, and unused.
   (Head-counts rot here; the numbers and the query live under "What is owed".)
-- ✅ **All three of the above were re-verified against the DATABASE on
-  2026-08-27**: measurement `true` since 2026-08-25 17:18, **96 samples in the
-  last 24 h with the newest 7 minutes old** — exactly the rate a 15-minute timer
-  gives, so the reporter is healthy — 0 bookings, 154 `claude` holders.
-  ⚠️ **Re-verify rather than quoting this**; it is a runtime fact with a
-  timestamp, and `tools/db-query.mjs` takes a FILE, not an inline string.
+- ⚠️ **Re-verify all three against the DATABASE; do not quote a number from
+  here.** Last checked 2026-08-27 and healthy (sample rate matched the
+  15-minute timer). `tools/db-query.mjs` takes a FILE, not an inline string.
 
 ---
 
@@ -162,6 +158,10 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   guarded: `dev:refresh` step 7 and `npm run dev:check`.
   **Google sign-in is still OFF on dev** (owner: an OAuth client). The plan's
   `#samo-dev-bot` EXISTS — it is `#developer-server-notify`.
+  ⏳ **PHASE 6 IS HALF DONE (2026-08-29)** — `npm run proofs:dev` + a CI job on
+  PRs touching `supabase/`; **all 23 database proofs pass against dev**.
+  ⚠️ **Needs two GitHub secrets or the job never runs** (bottom table).
+  `docs/state/phuriphatma.md`.
   ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
   2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
   posts the link; the ribbon ships; the `/notify` dev stub prints to the
@@ -229,6 +229,7 @@ should be built unprompted. Ask in plain language:
 | 1 | **Turn on password reset?** It does not exist today and mail config is why — the biggest user-visible win available | `docs/EMAIL.md` §2/§5 | start with a Gmail app password; needs nothing from KKU |
 | 2 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
+| 5 | **Add `SUPABASE_DEV_URL` + `SUPABASE_DEV_ACCESS_TOKEN` as GitHub secrets?** Without them the new proofs job never runs | `docs/TEAM-WORKFLOW.md` §6 | yes — but note any of the 5 collaborators could read them from a workflow they push |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
