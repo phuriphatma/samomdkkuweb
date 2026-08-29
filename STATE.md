@@ -53,13 +53,13 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `ce23857` (2026-08-29)**, `DEPLOY_EXIT=0`. The Google-provider
+- ✅ **DEPLOYED = `8fd21f4` (2026-08-29)**, `DEPLOY_EXIT=0`. The Google-provider
   guard, verified in the SERVED shared chunk by an ASCII marker AND the Thai
   string, plus `npm run smoke:browser` 9/9 against production.
   ⚠️ **How to verify a deploy — shared chunk, ASCII marker, `functions/` on the
   VM, no ribbon on prod — is in `docs/INVARIANTS.md`, not here.** Each has been
   mistaken for a failed deploy at least once.
-  Previous: `f9584e5`, and `e0bd2e2` before it.
+  Previous: `ce23857`, and `f9584e5` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
