@@ -166,7 +166,21 @@ two files — it is that `run-proofs.mjs` reads each proof's own `→ project:`
 line back and fails any proof that answered from the wrong database. Write-up:
 `docs/mistakes/tooling-proofs.md`.
 
-❌ **Left in phase 6:** the browser smoke against the preview URL.
+✅ **PHASE 6 IS COMPLETE.** `tools/smoke-browser.mjs` — nine checks, Chrome over
+CDP, **no npm dependency and no credential** — runs on every Cloudflare preview
+(`.github/workflows/smoke.yml`). It exists because `npm test` and
+`npm run build` BOTH PASS for a build whose entry module never reaches the
+browser, which is this app's signature failure: Bootstrap is a CDN script, so
+every menu still opens while ~90 inline `onclick` handlers are dead.
+
+Run it by hand against anything: `npm run smoke:browser -- https://samo.md.kku.ac.th --expect-no-ribbon`.
+
+📌 **The design decision worth keeping.** It loads the page as an anonymous
+visitor, so it needs no key — and that is precisely why it is allowed in CI when
+the proofs job was not (§7.9). If you extend it to anything behind sign-in, you
+have changed that property and the whole §7.9 argument applies again.
+`src/js/ci-workflows.test.js` now fails the build if ANY workflow reads a stored
+secret, so that decision is a mechanism rather than a paragraph.
 
 ## ▶ DEV SYSTEM — ONE ITEM LEFT, and it needs you
 

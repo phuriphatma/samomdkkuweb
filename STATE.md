@@ -158,10 +158,12 @@ is blocked on anyone, and there is no queue of buildable work left in it.
   guarded: `dev:refresh` step 7 and `npm run dev:check`.
   **Google sign-in is still OFF on dev** (owner: an OAuth client). The plan's
   `#samo-dev-bot` EXISTS — it is `#developer-server-notify`.
-  ⏳ **PHASE 6 IS PART DONE (2026-08-29)** — **`npm run proofs:dev`**, and
-  **all 23 database proofs pass against dev**. ⛔ **NOT in CI, on purpose** —
-  that would put a token that can run any SQL where 5 people can read it
-  (`docs/TEAM-WORKFLOW.md` §7.9). `docs/state/phuriphatma.md`.
+  ✅ **PHASE 6 IS DONE (2026-08-29)** — **`npm run proofs:dev`** (all 23 database
+  proofs pass against dev) and **`npm run smoke:browser -- <url>`**, which runs
+  automatically on every preview. ⛔ **The proofs are NOT in CI, on purpose** —
+  that needs a token that can run any SQL, and on a public repo 5 people could
+  read it (`docs/TEAM-WORKFLOW.md` §7.9). The smoke needs NO credential, which
+  is why it is. `docs/state/phuriphatma.md`.
   ✅ **PHASE 3 IS COMPLETE — previews and notify both work**, proven end to end
   2026-08-27/28. A PR builds at `<hash>.samomdkkuweb.pages.dev` and Cloudflare
   posts the link; the ribbon ships; the `/notify` dev stub prints to the

@@ -153,7 +153,9 @@ it is the part that generalises to code not yet written.
    handlers die at once, silently. Cause is ANY failed fetch of the entry
    bundle (a >7-day-old cached HTML naming a pruned chunk, or flaky wifi).
    Something that is NOT your module must be able to say so — boot watchdog,
-   `boot-watchdog.test.js`. **And a bug in one iOS browser but not another is
+   `boot-watchdog.test.js`, and now a browser smoke on every preview asking the
+   page's OWN signal (`window.__samoBooted`), because `npm test` and
+   `npm run build` both pass for a build that never reaches the browser. **And a bug in one iOS browser but not another is
    never the browser** — all iOS browsers are WebKit, so the variable is STATE;
    disprove with a fresh context first (`frontend-ui.md`).
    Also a SELECTOR vs the MARKUP, both ways: a descendant selector styles content

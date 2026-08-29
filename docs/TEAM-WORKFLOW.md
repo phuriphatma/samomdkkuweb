@@ -279,7 +279,8 @@ after the new bundle is confirmed served** (`skills/ship-a-migration.md`).
 | unit + guards | `npm test` | every laptop, every push |
 | build | `npm run build` | CI |
 | live proofs | `npm run proofs` | today the owner against prod; **should run against `samo-dev` in CI** on any PR touching `supabase/` — see the risk in §7.3 |
-| browser | Playwright WebKit, `skills/drive-the-browser.md` | against the preview URL |
+| browser smoke | **`npm run smoke:browser -- <url>`** — 9 checks, no credential | ✅ **automatic on every preview** (`.github/workflows/smoke.yml`), and runnable against production by hand |
+| browser, in depth | headless Chrome / Playwright WebKit, `skills/drive-the-browser.md` | by hand, against the preview URL |
 
 | Question | Answered on |
 |---|---|
@@ -530,7 +531,7 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | 3 | ⏳ **MOSTLY DONE 2026-08-27 — and most of it never needed building.** ✅ Per-PR previews were ALREADY configured on the `samomdkkuweb` Pages project (`preview_deployment_setting: all`, `pr_comments_enabled: true`) — **no Actions job and no `wrangler` are needed**, so §7.4's `functions/` trap does not apply. ✅ Preview env now points at `samo-dev`. ✅ The `pages.dev` guard is narrowed to the two EXACT retired hosts. ✅ Proven end to end on a throwaway PR. ✅ **COMPLETE — corrected 2026-08-29.** All three items this row listed as outstanding were already built and are in the repo today: `src/js/env-ribbon.js` (the ribbon), `functions/notify.js` (the dev `/notify`), and the `noindex`, which Cloudflare sets on preview deployments itself. **This row said "❌ Left" while `STATE.md` and §0b both said BUILT** — the drift §0b warns about, in §0b's own file | done | — |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
 | 5 | Docs site: VitePress over `docs/`, published to GitHub Pages by an Action | ~2 h | after 4, so it does not document a workflow about to change |
-| 6 | ⏳ **PART DONE 2026-08-29.** ✅ The live proofs run against `samo-dev`: **`npm run proofs:dev`**, and a proof can no longer lie about which database answered (`run-proofs.mjs` reads its `→ project:` line back). **All 23 database proofs pass against dev** — the first direct evidence for §7.3's assumption that RLS behaves identically there. Building it found a live bug: two proofs ignored the dev override and answered from PRODUCTION inside a green run (`docs/mistakes/tooling-proofs.md`). ⛔ **NOT in CI, deliberately** — see §7.9. ❌ Left: the browser smoke against the preview URL | ~1 h left | phases 1–3 |
+| 6 | ✅ **DONE 2026-08-29.** ✅ The live proofs run against `samo-dev`: **`npm run proofs:dev`**, and a proof can no longer lie about which database answered (`run-proofs.mjs` reads its `→ project:` line back). **All 23 database proofs pass against dev** — the first direct evidence for §7.3's assumption that RLS behaves identically there. Building it found a live bug: two proofs ignored the dev override and answered from PRODUCTION inside a green run (`docs/mistakes/tooling-proofs.md`). ⛔ **NOT in CI, deliberately** — see §7.9. ✅ **The browser smoke is DONE** — `tools/smoke-browser.mjs`, run automatically on every Cloudflare preview. It needs **no credential** (it loads the site as an anonymous visitor), which is what makes it safe on a public repo where §7.9's job was not | done | phases 1–3 |
 
 ### §8a. What phase 0 still needs — measured 2026-08-26, not assumed
 
