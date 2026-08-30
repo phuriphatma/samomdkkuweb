@@ -186,11 +186,25 @@ function ctaFor(seat) {
 function scopeRows(seat) {
   const rows = [];
   const perms = seat.permissions || [];
+  // ⚠️ A SCOPE UNDER MASTER UNDERSTATES IT. `master` IS the widest value of both
+  // the VitalSound แผนก and the SAMO Passport ฝ่าย, so printing a narrower one
+  // tells a master holder their access is limited when it is not. Measured
+  // 2026-08-30: both master holders in the tree resolve to a vs_dept AND a
+  // passport scope inherited from an ancestor node, so both were being shown
+  // "VitalSound: เฉพาะ อุปนายกฝ่ายบริหารองค์กร" while reading every department.
+  //
+  // This is the same rule `permChipsHtml` already applies in the admin tree —
+  // the SECOND READER of one fact, missed the first time round.
+  //
+  // The หนังสือโครงการ seat is deliberately NOT gated on this: a seat is an
+  // IDENTITY (ผู้ส่ง / เจ้าหน้าที่ / อาจารย์), not a scope, there is no "all
+  // three" desk, and master keeps whichever desk was stored.
+  const hasMaster = perms.includes('master');
 
   const vs = seat.vs_depts || [];
   // `vs` (all depts) and a vs_dept are mutually exclusive by design (0083); if
   // both somehow appear, the broad one is what RLS will honour, so say that.
-  if (vs.length && !perms.includes('vs')) {
+  if (!hasMaster && vs.length && !perms.includes('vs')) {
     rows.push(['VitalSound', `เฉพาะ ${vs.map((d) => VS_DEPT_LABEL[d] || d).join(' · ')}`]);
   }
 
@@ -200,7 +214,7 @@ function scopeRows(seat) {
   }
 
   const pass = seat.passport_scopes || [];
-  if (pass.length && !perms.includes('passport')) {
+  if (!hasMaster && pass.length && !perms.includes('passport')) {
     rows.push(['SAMO Passport', `เฉพาะบางหน่วยงาน (${pass.length})`]);
   }
   return rows;

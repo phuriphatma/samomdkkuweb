@@ -67,7 +67,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - Every signed-in account could read all 531 rows of `public.users`
 - "someone could just book 16.40-20.00 kick me out"
 
-## `authz-grants.md` — The permission / seat / scope channel *(16)*
+## `authz-grants.md` — The permission / seat / scope channel *(17)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -87,6 +87,7 @@ Open when: adding an access channel, a scope, or a seat.
 - "when i select permission as master, i cant select sub of the หนังสือโครงการ"
 - "I set SAMO Passport for the ฝ่าย and it doesn't show"
 - The same bug in three more readers — swept for on purpose, 2026-08-30
+- A scope line under `master` understates it
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(24)*
 
@@ -311,4 +312,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `main`'s CI was red for a day because a guard could not see the commit it was checking
 - A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
 
-_254 entries across 9 files._
+_255 entries across 9 files._

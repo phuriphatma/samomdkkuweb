@@ -784,11 +784,23 @@ three more places plus two that were already right. Numbers are from production
 that day.
 
 **FIXED — `ctaFor()` in `my-seat.js`, the person's own card.** It read only
-`seat.permissions`, so it offered **no way in at all** to
-**42 people** holding a passport ฝ่าย with no `passport` key, and **3** holding a
-VitalSound แผนก with no `vs` key. Their card knew about the scope — `scopeRows()`
-right below it prints one — and the button beside it said nothing. It now takes
-the whole `seat` and treats a scope as the grant it is.
+`seat.permissions`, so the shortcut button was missing for **42 people** holding
+a passport ฝ่าย with no `passport` key, and **3** holding a VitalSound แผนก with
+no `vs` key. Their card knew about the scope — `scopeRows()` right below it
+prints one — and the button beside it said nothing. It now takes the whole
+`seat` and treats a scope as the grant it is.
+
+⚠️ **This was first written up as "offered no way in at all", which is WRONG,
+and the owner caught it**: *"i thought everyone even not admin can open
+samopassport"*. They are right. `passport_admin_context()` is the authority —
+`is_admin` is the blanket permission **or any scope**, and `all_departments` is
+the blanket one alone. **Every kkumail student can open SAMO Passport and
+collect stamps; that was never gated.** The grant is passport ADMIN rights over
+a ฝ่าย's activities. So the defect was a missing SHORTCUT on a card, not a
+lockout — real, worth fixing, and an order of magnitude less severe than first
+stated. *Read what a permission actually gates before describing what its
+absence costs; the function that reads it will tell you, and "permission named
+after an app" does not mean "permission to open the app".*
 
 **FIXED — the collapsed member tag in `team/index.js`.** `${eff.length} สิทธิ์`
 counted capability keys, so a member whose only grant was scoped rendered **no
@@ -816,3 +828,43 @@ every test of that key the same day.* The set is small and enumerable — it too
 one grep — and each hit is either a bug or a deliberate decision worth a
 comment. **Do the sweep at the moment the dropping rule is invented**, not two
 migrations later when someone reports the third symptom of it.
+
+
+## A scope line under `master` understates it — the same rule, a second reader
+
+**Symptom.** None reported; found by scanning for other instances. Both `master`
+holders in the tree were being told, on their own seat card, *"VitalSound:
+เฉพาะ บริหารองค์กร"* and *"SAMO Passport: เฉพาะบางหน่วยงาน (1)"* — while master
+folds every permission and they were in fact reading every department.
+
+**Cause.** They hold `master` on a member row while a vs_dept and a passport
+scope are inherited from an ancestor NODE, so `effective_team_*_for_email`
+correctly returns both. `scopeRows()` printed any scope whose blanket key was
+absent — and a master holder's `permissions` contains `master`, not `vs` or
+`passport`.
+
+`permChipsHtml` in the admin tree **already had this rule** and says why in a
+comment: *"master is already its widest value — so under master it UNDERSTATES"*.
+`scopeRows` is the second reader of the same fact and never learnt it.
+
+**Fix.** `hasMaster` gates both scope lines. The หนังสือโครงการ **seat** is
+deliberately not gated: a seat is an IDENTITY (ผู้ส่ง / เจ้าหน้าที่ / อาจารย์),
+there is no "all three" desk, and master keeps whichever desk was stored — the
+0111 lesson about nulling the seat.
+
+**⚠️ The guard's own first draft asserted nothing.** It matched the raw
+department KEY (`อุปนายกฝ่ายบริหารองค์กร`), which `VS_DEPT_LABEL` never
+renders — it renders `บริหารองค์กร`. The `not.toContain` passed vacuously. Only
+the paired CONTROL — "the same scopes DO show without master" — failed and
+exposed it. **A negative assertion needs a positive twin over the same input**,
+and both must be scoped to the block under test, because `บริหารองค์กร` also
+appears in ordinary copy elsewhere on the card.
+
+**Where it lives now.** `src/js/my-seat.js` `scopeRows()`, guarded by
+`src/js/my-seat.test.js`.
+
+**The general rule.** *When a grant has a WIDEST value, every reader that
+narrows it must know which grants already ARE that value.* Master is the widest
+VS แผนก and the widest passport ฝ่าย, so any UI that says "เฉพาะ …" has to ask
+first. Grep for the rule's existing statement — it was already written down one
+file away.

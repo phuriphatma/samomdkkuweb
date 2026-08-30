@@ -235,3 +235,47 @@ describe('the seat CTA honours a scoped grant', () => {
     expect(el.innerHTML).toMatch(/เปิด SAMO Passport/);
   });
 });
+
+describe('a scope line under master understates it, so it is not drawn', () => {
+  // FOUND 2026-08-30 by scan. Both master holders in the tree inherit a vs_dept
+  // AND a passport scope from an ancestor node, so their own card told them
+  // their VitalSound access was limited to one ฝ่าย while they were in fact
+  // reading every department. `permChipsHtml` already applied this rule in the
+  // admin tree; this was the SECOND reader of the same fact.
+  //
+  // ⚠️ Asserted against the SCOPE BLOCK, not the whole card — `บริหารองค์กร`
+  // also appears in ordinary copy, and the first version of this test matched
+  // the raw dept KEY, which `VS_DEPT_LABEL` never renders. It therefore passed
+  // while asserting nothing at all.
+  const scopeBlock = (el) => el.innerHTML.match(/<dl class="myseat-scopes">[\s\S]*?<\/dl>/)?.[0] || '';
+
+  it('hides the VitalSound and Passport scope lines under master', () => {
+    const el = host();
+    renderMySeat(el, seatWith({
+      permissions: ['master', 'team', 'team_edit'],
+      vs_depts: ['อุปนายกฝ่ายบริหารองค์กร'],
+      passport_scopes: ['d:1'],
+    }));
+    expect(scopeBlock(el), 'a master holder was told their VS access is scoped')
+      .not.toContain('บริหารองค์กร');
+    expect(scopeBlock(el), 'a master holder was told their Passport access is scoped')
+      .not.toContain('เฉพาะบางหน่วยงาน');
+  });
+
+  it('control — the SAME scopes DO show without master', () => {
+    // Without this the assertions above would pass on a renderer that had
+    // stopped drawing scope lines at all.
+    const el = host();
+    renderMySeat(el, seatWith({
+      permissions: [], vs_depts: ['อุปนายกฝ่ายบริหารองค์กร'], passport_scopes: ['d:1'],
+    }));
+    expect(scopeBlock(el)).toContain('บริหารองค์กร');
+    expect(scopeBlock(el)).toContain('เฉพาะบางหน่วยงาน');
+  });
+
+  it('the หนังสือโครงการ seat still shows under master — a seat is an identity', () => {
+    const el = host();
+    renderMySeat(el, seatWith({ permissions: ['master'], project_seats: ['staff'] }));
+    expect(scopeBlock(el)).toContain('เจ้าหน้าที่คณะ');
+  });
+});
