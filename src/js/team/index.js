@@ -827,8 +827,25 @@ function renderMember(m, filter) {
           : '<span class="team-tag team-tag-pending">รอยืนยัน</span>'}
         ${(() => {
           const eff = [...memberEffectivePerms(m)];
-          return eff.length
-            ? `<span class="team-tag team-tag-perm" title="${escHtml(eff.map((p) => PERM_LABEL[p] || p).join(', '))}"><i class="bi bi-shield-lock"></i> ${eff.length} สิทธิ์</span>`
+          const labels = eff.map((p) => PERM_LABEL[p] || p);
+          // A SCOPED grant carries no capability key (0083), so counting keys
+          // alone printed NOTHING for someone who holds one — the collapsed row
+          // said "no permissions" about a person who really had them. Same bug
+          // as the missing chip, one reader along.
+          const inheriting = m.inherit_permissions !== false;
+          if (!eff.includes('vs') && !eff.includes('master')) {
+            const vsAll = new Set(m.vs_dept ? [m.vs_dept] : []);
+            if (inheriting) nodeEffectiveVsDepts(m.node_id).forEach((d) => vsAll.add(d));
+            if (vsAll.size) labels.push(PERM_LABEL.vs);
+          }
+          if (!eff.includes('passport') && !eff.includes('master')) {
+            const own = passportToken(m.passport_dept_id, m.passport_sub_dept_id);
+            const passAll = new Set(own ? [own] : []);
+            if (inheriting) nodeEffectivePassportScopes(m.node_id).forEach((t) => passAll.add(t));
+            if (passAll.size) labels.push(PERM_LABEL.passport);
+          }
+          return labels.length
+            ? `<span class="team-tag team-tag-perm" title="${escHtml(labels.join(', '))}"><i class="bi bi-shield-lock"></i> ${labels.length} สิทธิ์</span>`
             : '';
         })()}
       </span>

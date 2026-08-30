@@ -143,7 +143,22 @@ export const PERM_SECTION = {
  *  `passport` does NOT open /admin/ (admin-main.js canUseAdmin gates on
  *  ADMIN_FEATURES, which excludes it), so linking a passport-only member there
  *  would hand them a door that bounces them. SAMO Passport is its own app. */
-function ctaFor(perms) {
+function ctaFor(seat) {
+  const perms = seat.permissions || [];
+  // ⚠️ A SCOPED grant carries NO capability key. `readPermInputs` drops `vs`
+  // when a แผนก is chosen and `passport` when a ฝ่าย is chosen (0083,
+  // scoped-is-not-full), so for those two the SCOPE *is* the grant. Reading
+  // only `permissions` therefore answered "you have nothing" to the majority of
+  // the people who hold them — measured 2026-08-30: 42 with a passport scope
+  // and no `passport` key, 3 with a VS แผนก and no `vs` key. They were shown no
+  // way in to a system they had been granted.
+  //
+  // `projects` is deliberately NOT in this list: a seat does not drop the key,
+  // it accompanies it (measured: 0 people hold a seat without `projects`).
+  // Adding it anyway would be harmless and is left out on purpose so this list
+  // stays a statement about which keys get DROPPED.
+  const reach = new Set(perms);
+  if ((seat.vs_depts || []).length) reach.add('vs');
   // Land on the section this CARD is about, not the admin landing page. The
   // card's whole subject is ทีม SAMO, so "เปิดหน้าจัดการ" dropping the reader on
   // ภาพรวม made them navigate again to get where the button implied they were
@@ -154,11 +169,11 @@ function ctaFor(perms) {
   }
   // No ทีม SAMO rung but some other admin grant: if it is the ONLY one they
   // hold, go straight there rather than making them pick from a menu of one.
-  const mine = ADMIN_FEATURES.filter((f) => perms.includes(f));
+  const mine = ADMIN_FEATURES.filter((f) => reach.has(f));
   const section = mine.length === 1 ? PERM_SECTION[mine[0]] : null;
   if (section) return { href: `/admin/#${section}`, label: 'เปิดหน้าจัดการ' };
   if (mine.length) return { href: '/admin/', label: 'เปิดหน้าจัดการ' };
-  if (perms.includes('passport')) {
+  if (perms.includes('passport') || (seat.passport_scopes || []).length) {
     return { href: '/passport/', label: 'เปิด SAMO Passport' };
   }
   return null;
@@ -596,7 +611,7 @@ export function renderMySeat(host, seat, opts = {}) {
 
   const perms = seat.permissions || [];
   const rows = scopeRows(seat);
-  const cta = ctaFor(perms);
+  const cta = ctaFor(seat);
   const postings = seat.postings || [];
   const me = postings[0] || {};
   // The person's name, said ONCE. It used to appear twice — in the header and

@@ -194,3 +194,44 @@ describe('renderMySeat', () => {
     expect(el.innerHTML).not.toContain('<b>x</b>');
   });
 });
+
+
+// ============================================================
+// A SCOPED grant is still a grant — the seat card must offer a way in.
+//
+// FOUND 2026-08-30 while sweeping for other instances of the จัดการสิทธิ์ chip
+// bug. `ctaFor` read only `seat.permissions`, but `readPermInputs` DROPS the
+// capability key the moment a scope is chosen (0083). Measured against
+// production that day: 42 people held a passport ฝ่าย with no `passport` key
+// and 3 held a VitalSound แผนก with no `vs` key. Their own seat card offered
+// them no way into a system they had been granted.
+// ============================================================
+describe('the seat CTA honours a scoped grant', () => {
+  it('control — no grants at all offers no button', () => {
+    // Proves the assertions below distinguish "a button appeared" from
+    // "this renderer always produces one".
+    const el = host();
+    renderMySeat(el, seatWith({}));
+    expect(el.innerHTML).not.toMatch(/เปิด SAMO Passport|เปิดหน้าจัดการ/);
+  });
+
+  it('a passport ฝ่าย with NO `passport` key still offers the Passport link', () => {
+    const el = host();
+    renderMySeat(el, seatWith({ permissions: [], passport_scopes: ['d:5'] }));
+    expect(el.innerHTML, 'a scoped passport holder was offered no way in')
+      .toMatch(/เปิด SAMO Passport/);
+  });
+
+  it('a VitalSound แผนก with NO `vs` key still offers the admin link', () => {
+    const el = host();
+    renderMySeat(el, seatWith({ permissions: [], vs_depts: ['วิชาการ'] }));
+    expect(el.innerHTML, 'a scoped VS holder was offered no way in')
+      .toMatch(/เปิดหน้าจัดการ/);
+  });
+
+  it('the blanket keys still work (no regression)', () => {
+    const el = host();
+    renderMySeat(el, seatWith({ permissions: ['passport'] }));
+    expect(el.innerHTML).toMatch(/เปิด SAMO Passport/);
+  });
+});

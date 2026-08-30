@@ -773,3 +773,46 @@ reader. **When you add a scope, grep for every place the OLD scope's value is
 rendered, not just where it is stored.** And when a report says "it does not
 show", establish whether it does not EXIST or does not DISPLAY before touching
 anything — they need opposite fixes, and only one of them is an outage.
+
+
+## The same bug in three more readers — swept for on purpose, 2026-08-30
+
+After the จัดการสิทธิ์ chip was fixed, the obvious question was **where else does
+a reader test for a key that a scoped grant does not carry.** The sweep is one
+grep — `includes('vs')` and `includes('passport')` across `src/` — and it found
+three more places plus two that were already right. Numbers are from production
+that day.
+
+**FIXED — `ctaFor()` in `my-seat.js`, the person's own card.** It read only
+`seat.permissions`, so it offered **no way in at all** to
+**42 people** holding a passport ฝ่าย with no `passport` key, and **3** holding a
+VitalSound แผนก with no `vs` key. Their card knew about the scope — `scopeRows()`
+right below it prints one — and the button beside it said nothing. It now takes
+the whole `seat` and treats a scope as the grant it is.
+
+**FIXED — the collapsed member tag in `team/index.js`.** `${eff.length} สิทธิ์`
+counted capability keys, so a member whose only grant was scoped rendered **no
+tag at all**: the row read as "no permissions" about someone who had them.
+
+**LATENT, left alone deliberately — `userCanAccess('passport')`.** It has an
+explicit branch for a scoped `vs` and for a `projects` seat, and none for
+passport; `managedPassportScopes` is not loaded onto the user object at all.
+**Nothing calls it today** (`passport` is not in `ADMIN_FEATURES` — a passport
+grant is not admin access, and the app has its own gate), so this is a trap
+rather than a bug: the next person to add a passport link to the portal will
+gate on it and deny 42 of the 45 holders. Written down rather than
+speculatively built.
+
+**Already correct, checked not assumed** — `isVsSuper()` in `vs-staff.js` tests
+the blanket key ON PURPOSE (super = every department) and `vsScopeDepts()`
+handles the scoped case; `readPermInputs`'s two confirmation guards read
+`out.permissions`, which by design holds the key only for the escalating
+"ทุกฝ่าย / ทุกแผนก" case; and `team/io.js` carries **both** passport columns for
+nodes and members, so an export/import round-trip does not widen a
+sub-department grant to its whole ฝ่าย.
+
+**The general rule.** *When a value is stored by REMOVING a key, `grep` for
+every test of that key the same day.* The set is small and enumerable — it took
+one grep — and each hit is either a bug or a deliberate decision worth a
+comment. **Do the sweep at the moment the dropping rule is invented**, not two
+migrations later when someone reports the third symptom of it.
