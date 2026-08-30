@@ -88,7 +88,7 @@ the public problem was told nothing. `get_vs_linked_context()` — which already
 answered "is there a public thing to link to, and is it safe to name it?" —
 gained a `self_public` branch returning the caller's OWN id + the SE-written
 title, so no new column had to be added to the submitter read. Banner reads
-"เรื่องของคุณถูกเผยแพร่บนกระดานปัญหาแล้ว: <title>" with a ดูบนกระดานปัญหา CTA.
+`"เรื่องของคุณถูกเผยแพร่บนกระดานปัญหาแล้ว: <title>"` with a ดูบนกระดานปัญหา CTA.
 
 **0099's load-bearing half is a bug fix that the หมวดหมู่ delete opened.**
 `get_vs_linked_context` decided publishability over a LEFT JOIN with

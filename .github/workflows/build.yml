@@ -48,3 +48,9 @@ jobs:
       # access doesn't fail if vars are missing — db.js only logs a warning.
       - run: npm test
       - run: npm run build
+      # The docs site is the AUTHORITATIVE guard for markdown that renders
+      # wrong. `src/js/md-raw-tags.test.js` is a fast local approximation of
+      # the same rule and has been fooled three times; the Vue compiler has
+      # not. This step is inside the REQUIRED `build` check on purpose, so a
+      # doc that would break the published site cannot merge.
+      - run: npm run docs:build

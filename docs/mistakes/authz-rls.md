@@ -320,8 +320,8 @@ serialized chart contains no `@`, no `student_id`, no `kkumail`, no seat.
 the projection first and give it the only grant. If you find yourself adding a
 public SELECT policy to reach a "just the names" view, stop — you are
 publishing the whole row. And put the column allow-list in the function body
-(explicit `jsonb_build_object` keys), never `select *` or `returns setof
-<table>`, so a future `alter table` cannot silently widen it.
+(explicit `jsonb_build_object` keys), never `select *` or a
+`returns setof <table>`, so a future `alter table` cannot silently widen it.
 
 ---
 

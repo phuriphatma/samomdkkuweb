@@ -27,11 +27,15 @@
     "webhook:id": "node tools/discord-webhook-identify.mjs",
     "webhook:provision": "node tools/discord-webhooks-provision.mjs",
     "notify:smoke": "node tools/notify-smoke.mjs",
-    "email:smoke": "node tools/email-smoke.mjs"
+    "email:smoke": "node tools/email-smoke.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",
     "vite": "^6.3.5",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.7"
   },
   "dependencies": {

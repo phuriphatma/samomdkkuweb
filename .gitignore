@@ -33,3 +33,7 @@ supabase/.branches/
 .gas-remote/
 appscript/.clasp.json
 .clasprc.json
+
+# VitePress docs site build output (docs/ itself is tracked)
+docs/.vitepress/dist/
+docs/.vitepress/cache/
