@@ -23,7 +23,7 @@
 // inheritance walk and the SQL resolver — and not this one reader.
 // ============================================================
 import { describe, it, expect } from 'vitest';
-import { permChipsHtml, passportToken } from './team/index.js';
+import { permChipsHtml, passportToken, setPassportCatalog } from './team/index.js';
 
 const chips = (opts) => permChipsHtml({ own: new Set(), ...opts });
 
@@ -70,6 +70,28 @@ describe('a scoped SAMO Passport grant is visible on the row', () => {
     // arrive. A chip with no text reads as a bug, not as "still loading".
     expect(chips({ passOwn: 'd:5' })).toMatch(/ฝ่าย #5/);
     expect(chips({ passOwn: 's:12' })).toMatch(/แผนกย่อย #12/);
+  });
+
+  it('shows the ฝ่าย NAME once the catalog is loaded', () => {
+    // REPORTED 2026-08-30, right after the chip shipped: "currently it render
+    // like ฝ่าย #5". The chip was correct; nothing was fetching the names for
+    // the TREE — only the two modals called the loader. The fallback above is
+    // the transient state, not the destination, so both are pinned.
+    setPassportCatalog(
+      [{ id: 5, name: 'กิจการมหาวิทยาลัย' }, { id: 7, name: 'ยุทธศาสตร์และพัฒนาองค์กร' }],
+      [{ id: 12, department_id: 5, name: 'ประสานงาน' }],
+    );
+    try {
+      expect(chips({ passOwn: 'd:5' }), 'still showing the id fallback')
+        .toMatch(/กิจการมหาวิทยาลัย/);
+      // A sub-department says which ฝ่าย it is in — the token alone (`s:12`)
+      // does not, so the label has to walk back to the parent.
+      expect(chips({ passOwn: 's:12' })).toMatch(/กิจการมหาวิทยาลัย — ประสานงาน/);
+      // An id the catalog does not know still renders legibly rather than blank.
+      expect(chips({ passOwn: 'd:99' })).toMatch(/ฝ่าย #99/);
+    } finally {
+      setPassportCatalog([], []);
+    }
   });
 
   it('is HIDDEN under master, like the VitalSound scope', () => {

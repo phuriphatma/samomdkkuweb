@@ -537,6 +537,9 @@ function render() {
 
   const tree = $('teamTree');
   if (!tree) return;
+  // Scope chips name a ฝ่าย, and the names live in the passport schema behind
+  // an RPC. Without this the tree drew `ฝ่าย #5`.
+  if (mode === 'perms') ensurePassportNames(render);
   destroySortables();
 
   // The ปีการศึกษา pane is a different surface, not a different rendering of the
@@ -1999,14 +2002,40 @@ let passportDepts = [];
 let passportSubs = [];
 const PASS_SCOPE_ALL = '__all__';
 
+/** The one writer of the passport catalog. Exported because the chip labels
+ *  are worth testing without a network. */
+export function setPassportCatalog(depts, subs) {
+  passportDepts = Array.isArray(depts) ? depts : [];
+  passportSubs = Array.isArray(subs) ? subs : [];
+}
+
 async function loadPassportDepts() {
   if (passportDepts.length) return;
   try {
     const { data, error } = await dbRest('/rpc/list_passport_departments', { method: 'POST', body: {} });
     if (error || !data) return;
-    passportDepts = Array.isArray(data.departments) ? data.departments : [];
-    passportSubs = Array.isArray(data.sub_departments) ? data.sub_departments : [];
+    setPassportCatalog(data.departments, data.sub_departments);
   } catch { /* picker falls back to "ทุกฝ่าย" only */ }
+}
+
+/**
+ * The TREE needs the department names too, not just the editor.
+ *
+ * REPORTED 2026-08-30, right after the scope chip shipped: "currently it render
+ * like ฝ่าย #5". Only the two modals called `loadPassportDepts()`, so a row
+ * painted in perms mode had an empty catalog and every chip fell back to its
+ * id. The fallback was doing its job; nothing was ever asking for the names.
+ *
+ * Requested ONCE per page. The flag is set BEFORE the await on purpose: if the
+ * RPC fails, the chips keep their legible `ฝ่าย #5` fallback instead of the
+ * re-render loop that "retry until it works" would produce here — render()
+ * calls this, and this calls render().
+ */
+let passportNamesRequested = false;
+function ensurePassportNames(after) {
+  if (passportNamesRequested) return;
+  passportNamesRequested = true;
+  loadPassportDepts().then(() => { if (passportDepts.length) after(); });
 }
 
 /** Department select. "" = not chosen (blocked on save); PASS_SCOPE_ALL = the
