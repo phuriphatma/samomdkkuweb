@@ -374,6 +374,51 @@ the part that would mislead the next person:
    carried student; 0 profiles drift from their scan sum. If you need to re-check
    any of that, ask the database again — do not quote these.
 
+## ▶ SESSION 2026-08-30 (late) — scoped grants, the docs site, and succession
+
+Long session, four themes. What would mislead the next reader:
+
+1. **`passport` is passport ADMIN rights, NOT permission to open the app.**
+   Every kkumail student can open SAMO Passport and collect stamps — that was
+   never gated. `passport_admin_context()` is the authority: `is_admin` = the
+   blanket key OR any scope; `all_departments` = the blanket key alone. **I got
+   this wrong for an hour and described a missing shortcut button as "42 people
+   locked out".** The owner corrected me. Do not re-derive it from the
+   permission's NAME.
+
+2. **A scoped grant carries NO capability key** (`readPermInputs` drops it —
+   0083). Four readers tested for the key and so showed nothing; a fifth
+   understated master. All fixed and deployed. **The sweep is one grep** —
+   `includes('vs')`, `includes('passport')` — and it is written up in
+   `docs/mistakes/authz-grants.md`. Do that grep the day a dropping rule is
+   invented.
+
+3. **My first investigation of the report was WRONG and nearly called an
+   outage.** I swept for `'passport' = any(permissions)`, which by construction
+   cannot match a scoped grant, and concluded nobody had access. The tell was
+   in the data: `permissions: ['claude']` on that node is exactly what a
+   correctly-saved scoped grant looks like. **Ask whether a thing does not
+   EXIST or does not DISPLAY before touching anything.**
+
+4. **The docs site is live and `npm run docs:build` is in the required CI
+   check.** Markdown that breaks it cannot merge. Building it found three
+   places where GitHub's renderer was silently DELETING words from `docs/`.
+
+5. **Succession is not a GitHub question.** `npm run succession:audit`. The
+   two role gmails handed down each year are the right shape; whether they
+   survive depends on their RECOVERY SETTINGS, not their addresses. The VM ssh
+   key on one Mac and `.env.local` on one machine are the two highest-damage
+   items, and neither is fixed by anything on GitHub.
+
+⚠️ **Two things I did NOT do, both asked for:**
+- **A readable "how to contribute" page for non-developers** (STATE.md A2).
+  `CONTRIBUTING.md` is developer-facing and lives on GitHub, which is the
+  surface the ฝ่าย find intimidating. The docs site is the natural home. Do not
+  just re-render CONTRIBUTING.md.
+- **The GitHub organisation move** — runbook is written and ready
+  (`skills/move-the-repo-to-an-organisation.md`); the owner wants to discuss
+  and plan it further before executing.
+
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 
 1. **A `DEV` folder inside `IT Database` on Drive.** The owner asked for it

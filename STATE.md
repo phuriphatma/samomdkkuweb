@@ -15,44 +15,60 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
-00. ✅ **PASSPORT — a carried student would have lost every km on signing in.
-    FIXED by 0175 before anyone hit it.** 0174 (yesterday) taught
-    `passport.scans` an UPDATE trigger that reads a change of `user_id` as a
-    transfer: debit the old owner, credit the new. The signup re-key
-    (`passport_link_user_by_email`) moves the SCANS first and the PROFILE last,
-    so the debit emptied the student's real profile and the credit landed on an
-    id nothing lived at yet. **Zero students affected** — 144 carried profiles
-    hold km and none of them had signed in inside the window. The re-key now
-    restates the invariant (`total_km` = sum of its own scans) instead of trying
-    to out-order a trigger. Found by the new guard, not by a report:
-    `tools/passport-link-on-signup.sql` (proof #27), which also covers the
-    silent-failure item that was owed. Write-up: `docs/mistakes/postgres-schema.md`.
+000. ✅ **SCOPED GRANTS WERE INVISIBLE IN FOUR READERS — all fixed, deployed.**
+    Reported as "i set samopassport for ฝ่ายกิจการมหาวิทยาลัย and it doesn't show
+    on จัดการสิทธิ์". **The grant was live the whole time** — the server resolver
+    put all 51 people under that ฝ่าย on `d:5`. `readPermInputs` DROPS the
+    capability key when a scope is chosen (0083), so a scoped grant carries no
+    key, and four readers tested for the key: the tree chip, its ฝ่าย names, the
+    seat CTA, and the collapsed member tag. A fifth (`scopeRows` under `master`)
+    understated a master holder's access. Write-ups + the sweep that found them:
+    `docs/mistakes/authz-grants.md`.
+    ⛔ **`passport` is passport ADMIN rights over a ฝ่าย's activities — it is NOT
+    permission to open the app.** Every kkumail student can open SAMO Passport
+    and collect stamps; that was never gated (`passport_admin_context()` is the
+    authority). A session got this wrong for an hour; do not re-derive it.
+    ⚠️ **Still LATENT, deliberately not built**: `userCanAccess('passport')` has
+    no scoped branch and `managedPassportScopes` is never loaded onto the user.
+    Nothing calls it today. The next person to gate a portal link on it will
+    deny 42 of the 45 holders.
 
-01. ✅ **CONTRIBUTING.md said "there is no preview deploy" — it was wrong.**
-    Per-PR previews shipped as phase 3 five weeks of reading ago; the one
-    sentence a new ฝ่าย contributor uses to decide how to test their change
-    denied they existed. Read back from the Cloudflare API before rewriting:
-    `preview_deployment_setting: all`, `pr_comments_enabled: true`, and the
-    preview `VITE_SUPABASE_URL` is **samo-dev**, not production. Corrected, plus
-    the bit no one had written down — a preview is SAFE to submit forms on.
+
+00. ✅ **PASSPORT — a carried student would have lost every km on signing in.
+    FIXED by 0175 before anyone hit it.** 0174's new UPDATE trigger fired on the
+    signup re-key, debiting the real profile and crediting an id nothing lived
+    at yet. **Zero students affected.** Found by the new guard, proof #27
+    (`tools/passport-link-on-signup.sql`). Write-up:
+    `docs/mistakes/postgres-schema.md`.
+
+01. ✅ **CONTRIBUTING.md said "there is no preview deploy" — wrong for weeks.**
+    Per-PR previews point at `samo-dev` and are safe to submit forms on.
     Guard: `src/js/preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md` §9 is the
-    list of files a landed phase must correct; treat it as a checklist, not
-    prose** — every other entry on it had been done.
+    list of files a landed phase must correct — treat it as a checklist.**
+
+02. ✅ **DOCS SITE SHIPPED** — `https://phuriphatma.github.io/samomdkkuweb/`,
+    VitePress over `docs/`, deployed by `.github/workflows/docs.yml`.
+    `npm run docs:build` is inside the REQUIRED `build` check. **noindex on
+    purpose**; `docs/demos/**` excluded. Nothing secret may go in `docs/`.
+
+03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
+    (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
+    every stale reference. **`docs/SUCCESSION.md` + `npm run succession:audit`**
+    map who can recover each system; the org move runbook is
+    `skills/move-the-repo-to-an-organisation.md`.
 
 ## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
 
-Pruned to `docs/state-archive/2026-08-29-passport-email-dev-system.md` on
-2026-08-30. What is still operative, and nothing else:
+Pruned to `docs/state-archive/2026-08-30-status-prune.md`. Still operative:
 
 - **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** 0174 + 0175 close both
-  halves; every total now equals the scans behind it. ⚠️ The salvaged old-project
-  scan dump at `~/samo-passport-old-db-backup-2026-08-29/` **must never be
-  committed** — both repos are PUBLIC and it holds real student emails.
-- **179 passport profiles with no `auth.users` row is the EXPECTED state**, not
-  a bug. It was called one for a day. The re-key happens on first signup.
-- **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND through a relay
-  on 587; it cannot BE or RECEIVE mail. **No password reset exists; mail config
-  is why.** สถิติ's email + GAS numbers are FLOORS.
+  halves. ⚠️ The salvaged old-project scan dump at
+  `~/samo-passport-old-db-backup-2026-08-29/` **must never be committed** — both
+  repos are PUBLIC and it holds real student emails.
+- **179 passport profiles with no `auth.users` row is EXPECTED**, not a bug.
+- **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND via a relay on
+  587; it cannot BE or RECEIVE mail. **No password reset exists; mail config is
+  why.**
 - **Discord notify is rotated; VitalSound routes per ฝ่าย to 12 channels** —
   read the notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.
 
@@ -70,15 +86,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e10c88c` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped-grant
-  sweep: the จัดการสิทธิ์ chip, its ฝ่าย names, the seat CTA (42 people had no way
-  in), and the collapsed member tag. Verified in the SERVED bundles —
-  `is-pass` in `admin-*.js`, and `passport_scopes` + `เปิด SAMO Passport` in the
-  **shared** `analytics-*.js`, which is where `my-seat.js` lands because BOTH
-  entries import it. ⚠️ Grepping `public-*.js` for it returns 0 and means
-  nothing; that is the shared-chunk trap in `docs/INVARIANTS.md`, and it caught
-  me on this very deploy. `smoke:browser` 9/9.
-  Previous: `8d72bab`, and `0784836` before it.
+- ✅ **DEPLOYED = `9ba0e9c` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped-grant
+  sweep, complete: the จัดการสิทธิ์ chip + its ฝ่าย names, the seat CTA, the
+  collapsed member tag, and the master understatement. Verified in the SERVED
+  bundles with controls; `smoke:browser` 9/9.
+  ⚠️ **`my-seat.js` is imported by BOTH entries, so it lands in the SHARED
+  `analytics-*.js` chunk** — grepping `public-*.js` for its strings returns 0
+  and means nothing. That is the shared-chunk trap in `docs/INVARIANTS.md`, and
+  it caught me on this deploy before I read our own note.
+  Previous: `e10c88c`, and `8d72bab` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
@@ -134,10 +150,16 @@ TRUE. That is what the grep is for.
 1. ~~The passport silent-failure guard.~~ ✅ **BUILT** —
    `tools/passport-link-on-signup.sql`, registered as proof #27. It found a live
    regression on its first run (see 00 above), so do not treat it as decoration.
-2. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
+2. **A "how to contribute" page a non-developer can actually read.** ⛔ OWNER
+   ASKED FOR THIS (2026-08-30). `CONTRIBUTING.md` is written for developers and
+   lives on GitHub, which is the surface the ฝ่าย find intimidating. The docs
+   site now exists (`https://phuriphatma.github.io/samomdkkuweb/`) and is the
+   natural home. **Do not just re-render CONTRIBUTING.md** — the ask is a
+   readable page, in Thai, for someone who has never opened a pull request.
+3. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
-3. ~~Phase 5 — a docs site over `docs/`.~~ ✅ **SHIPPED 2026-08-30** —
+4. ~~Phase 5 — a docs site over `docs/`.~~ ✅ **SHIPPED 2026-08-30** —
    **https://phuriphatma.github.io/samomdkkuweb/**, VitePress, deployed by
    `.github/workflows/docs.yml` on any push to `docs/`. `npm run docs:dev` to
    work on it. ⚠️ `npm run docs:build` is now inside the REQUIRED `build`
@@ -161,25 +183,20 @@ TRUE. That is what the grep is for.
    in `#developer-server-notify` and none in a real `#vs-*`. Delivery is
    confirmed (16×204); the DESTINATION needs human eyes.
 
-- ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.**
-  Ask the DATABASE for any runtime state or count; this file must not carry
-  them. The durable rules from these are in `docs/INVARIANTS.md`.
-- ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.** Do not
-  build unprompted.
+- ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.** Ask
+  the DATABASE for runtime state; this file must not carry it.
+- ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.**
 - ✅ **DEV SYSTEM — phases 1, 3, 4, 5 and 6 are DONE.** Only phase 2's last
   item remains and it is OWNER-GATED (§B2). Plan + per-phase status:
-  `docs/TEAM-WORKFLOW.md` §8.
-- **The docs site is `docs/` rendered — it is NOT the status.** `STATE.md` stays
-  at the repo root on purpose; a copy on the site would be a second home for the
-  fastest-decaying file here. Nothing secret may go into `docs/`: it was always
-  a public repo, and now it is also a browsable, indexable site. Plan + per-phase status:
-  `docs/TEAM-WORKFLOW.md` §8. Procedure and every trap:
-  `skills/build-the-dev-database.md`. **`samo-dev` = `xibugtlsphcfuvstnxxh`**
-  (separate account, D7); creds are the `SUPABASE_DEV_*` block in `.env.local`,
-  shareable with the team, URL never published — dev holds REAL student data.
-  Rebuild `CONFIRM=1 npm run dev:refresh`; check `npm run dev:check`;
-  proofs `npm run proofs:dev`. **Google sign-in is OFF on dev** (owner: §B1).
-  What remains is in "What is owed" above — nothing else is blocked.
+  `docs/TEAM-WORKFLOW.md` §8; procedure and every trap
+  `skills/build-the-dev-database.md`. **`samo-dev`'s ref is in
+  `SUPABASE_DEV_URL`** (separate account, D7); creds are the `SUPABASE_DEV_*`
+  block in `.env.local`, shareable with the team, **URL never published — dev
+  holds REAL student data**. Rebuild `CONFIRM=1 npm run dev:refresh`; check
+  `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on
+  dev** (owner: §B1).
+- **The docs site is `docs/` RENDERED — it is NOT the status.** `STATE.md` stays
+  at the repo root on purpose. Nothing secret goes in `docs/`.
 - **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
   Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
   re-litigated) — do not work from this bullet. ✅ Live: branch protection,
@@ -193,12 +210,10 @@ TRUE. That is what the grep is for.
   CHECKOUT. `docs/NEXT.md` §1. The auth blocker is solved; §4 of that skill has
   the recipe and both traps.
 - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
-- `docs/NEXT.md` carries the rest. **§0d is DONE (0168, 2026-08-26)** and is
-  kept there only as a PATTERN worth copying. What is genuinely un-started:
-  §0c (two latent role-only policies, deliberately not swept — nothing in
-  `src/js` takes those paths), §0a (ทีม SAMO admin model, PARKED by the owner),
-  §0b2 and §1 (the browser pass), §0 (`photo_reference_count()` cannot see
-  `houses.icon_url`).
+- `docs/NEXT.md` carries the rest. Genuinely un-started: §0c (two latent
+  role-only policies, deliberately not swept), §0a (ทีม SAMO admin model, PARKED
+  by the owner), §0b2 + §1 (the browser pass), §0 (`photo_reference_count()`
+  cannot see `houses.icon_url`).
 
 ---
 
