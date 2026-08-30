@@ -135,9 +135,13 @@ property.
 
 6. Confirm the **Apps Script + Drive** account is `samomdkku.ai@gmail.com` in
    writing, and that studbeta can reach it too.
-7. **Move the repo to a GitHub organisation** —
-   `skills/move-the-repo-to-an-organisation.md`. Deliberately near the end: the
-   most discussed, the least dangerous.
+7. **Move the repo to a GitHub organisation.** This is the one that stops the
+   owner having to add every contributor by hand. **The complete runbook is
+   `skills/move-the-repo-to-an-organisation.md`** — phases, commands,
+   verification and rollback; do not plan it from this page. Deliberately near
+   the end of this list: the most discussed, the least dangerous. Nothing in
+   the running application routes through GitHub, so no student or ฝ่าย member
+   sees any difference (that runbook §8 has the checked table).
 8. **Name the KKU contact** for the SSO registration and the DNS record.
 
 ### Every year, at the handover
