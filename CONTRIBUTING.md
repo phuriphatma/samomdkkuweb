@@ -58,12 +58,31 @@ git commit -m "ui: bigger headline on home"
 git push -u origin ui/<short-topic>
 ```
 
-There is **no preview deploy** — Cloudflare Pages is retired, so nothing
-comments a per-branch URL. Review visually by running `npm run dev` locally, and
-say in the PR which widths you checked (390 / 820 / 1280 is the usual set).
+**Every branch you push gets its own preview site.** Cloudflare builds it and
+comments the link on your pull request, and the address is stable per branch, so
+you can bookmark it once:
+
+```bash
+npm run preview:url                    # the branch you are on
+npm run preview:url -- feat/my-thing   # any branch
+```
+
+⚠️ **Cloudflare Pages is retired as the PRODUCTION host, not as the preview
+builder.** Those are two different things, and confusing them is why this
+section flatly denied that previews existed until 2026-08-30 — days after they
+started working. Production is the KKU VM; `*.pages.dev` previews are for review
+and nothing else.
+
+✅ **A preview points at `samo-dev`, never at production** — its
+`VITE_SUPABASE_URL` is the dev project, so signing in and submitting on a preview
+touches the copy, not real student records. It carries an environment ribbon so
+you cannot mistake which one you are looking at.
+
+Review visually on the preview link (and/or `npm run dev` locally), and say in
+the PR which widths you checked — 390 / 820 / 1280 is the usual set.
 
 When happy → open a PR against `main`. The maintainer deploys to the VM after
-merging; pushing does not deploy.
+merging; **pushing does not deploy**, and neither does merging.
 
 ## Touch zones — what's safe to merge solo, what to ask first
 

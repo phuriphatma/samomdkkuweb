@@ -338,6 +338,13 @@ survives exactly until the probe logs in, at which point the tree says "this
 person holds nothing" and the columns go back to `{}`. The symptom is a signed-in
 account whose sidebar shows no workspaces, which reads as a broken gate.
 
+⚠️ **"Erased on login" means the `managed_*` columns ONLY** — and the heading
+above is the sloppy version of the sentence, so read this one.
+`sync_my_team_permissions` does not touch `public.users.permissions`, which is
+exactly why `tools/dev-grants.mjs` writes THAT column and not a `managed_*` one.
+Flattening the two is how a session concludes that no hand-written grant can
+survive a login, and abandons a working approach.
+
 **The grant has to come from the tree.** Give the probe a `team_members` row:
 
 ```sql

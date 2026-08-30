@@ -28,38 +28,33 @@ because it held three lifetimes at once. It now holds one: **status**.
     `tools/passport-link-on-signup.sql` (proof #27), which also covers the
     silent-failure item that was owed. Write-up: `docs/mistakes/postgres-schema.md`.
 
-## WHAT CHANGED BEFORE THAT (2026-08-29)
+01. ✅ **CONTRIBUTING.md said "there is no preview deploy" — it was wrong.**
+    Per-PR previews shipped as phase 3 five weeks of reading ago; the one
+    sentence a new ฝ่าย contributor uses to decide how to test their change
+    denied they existed. Read back from the Cloudflare API before rewriting:
+    `preview_deployment_setting: all`, `pr_comments_enabled: true`, and the
+    preview `VITE_SUPABASE_URL` is **samo-dev**, not production. Corrected, plus
+    the bit no one had written down — a preview is SAFE to submit forms on.
+    Guard: `src/js/preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md` §9 is the
+    list of files a landed phase must correct; treat it as a checklist, not
+    prose** — every other entry on it had been done.
 
-0. ✅ **PASSPORT — the "144 students cannot sign in" alarm was FALSE.** 179
-   profiles have no auth row, which is the EXPECTED state: the trigger
-   `on_auth_user_created_passport_link` re-keys a carried profile by email on
-   first signup, so the student keeps their km. It was called a bug here for
-   one commit because the wrong function was read — **check `pg_trigger` on
-   `auth.users`, not a function body.** Residual: that re-key swallows its own
-   errors (`raise warning`), so a failure would be silent. Detail:
-   `docs/state/phuriphatma.md`.
+## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
 
-0b. **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** `total_km` could only
-   go UP (only a BEFORE INSERT trigger since 0056); **0174** adds the
-   delete/update halves. The leaderboard sums SCANS while the tier badge reads
-   `total_km`, so all 11 drifting totals were recalculated from scans (drift 0,
-   no leaderboard position moved). One scan lost in July was restored.
-   ⚠️ **The old Supabase project was DELETED by the owner; its salvaged scan
-   dump is at `~/samo-passport-old-db-backup-2026-08-29/` and must never be
-   committed — both repos are PUBLIC and it holds real student emails.**
+Pruned to `docs/state-archive/2026-08-29-passport-email-dev-system.md` on
+2026-08-30. What is still operative, and nothing else:
 
-## WHAT CHANGED BEFORE THAT (2026-08-27 → 28)
-
-1. **`samo-dev` exists** (`skills/build-the-dev-database.md`); **per-PR previews
-   work**, pointing at it and a dev Discord channel. **Golden Period ships** at
-   `/tools/golden-period` — an IT DRAFT the ฝ่าย own (`docs/DEPT-TOOLS.md` D8).
-2. **Discord notify rotated; VitalSound routes per ฝ่าย to 12 channels.** Two
-   real messages reached a live ฝ่าย channel then — **read the notify rules in
-   `docs/INVARIANTS.md` BEFORE touching notifications.**
-3. **EMAIL AUDITED — read `docs/EMAIL.md` before touching mail.** The VM CAN
-   send via a relay on 587; it cannot BE or RECEIVE mail. **No password reset
-   exists; mail config is why.** สถิติ shows email + GAS quota (0170–0173);
-   nothing is near a limit and both numbers are FLOORS.
+- **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** 0174 + 0175 close both
+  halves; every total now equals the scans behind it. ⚠️ The salvaged old-project
+  scan dump at `~/samo-passport-old-db-backup-2026-08-29/` **must never be
+  committed** — both repos are PUBLIC and it holds real student emails.
+- **179 passport profiles with no `auth.users` row is the EXPECTED state**, not
+  a bug. It was called one for a day. The re-key happens on first signup.
+- **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND through a relay
+  on 587; it cannot BE or RECEIVE mail. **No password reset exists; mail config
+  is why.** สถิติ's email + GAS numbers are FLOORS.
+- **Discord notify is rotated; VitalSound routes per ฝ่าย to 12 channels** —
+  read the notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -174,25 +169,17 @@ TRUE. That is what the grep is for.
   proofs `npm run proofs:dev`. **Google sign-in is OFF on dev** (owner: §B1).
   What remains is in "What is owed" above — nothing else is blocked.
 - **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
-  Read `docs/DEPT-TOOLS.md`; §0a holds owner decisions that must not be
-  re-litigated. **ONE workflow for everybody** — the ฝ่าย use the dev team's
-  pull-request pipeline unchanged and `CODEOWNERS` carries the whole difference.
-  ✅ Live: branch protection ENFORCING · `CODEOWNERS` contributor paths · the
-  Thai tool-request template · `skills/onboard-a-contributor.md`.
-  ✅ **Golden Period ships** at `/tools/golden-period` under ฝ่ายยุทธศาสตร์ —
-  the IT DRAFT (D8). **The ฝ่าย own the page and PR against
-  `src/html/tab-golden-period.html`**, whose header tells them so in Thai.
-  ❌ NOT built: `src/data/tools.js` registry · `public/embed/` + the frame ·
-  `src/js/data/` doors · the starter kit.
+  Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
+  re-litigated) — do not work from this bullet. ✅ Live: branch protection,
+  `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
+  and **Golden Period at `/tools/golden-period`, which is THEIRS to PR against**.
+  ❌ NOT built: the four pieces in A2 above.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
-  CHECKOUT. `docs/NEXT.md` §1. ✅ The auth blocker is solved (§4 of that skill
-  has the recipe and both traps). ⚠️ Its wording "a grant in `public.users` is
-  ERASED at next login" means the **`managed_*`** columns only —
-  `sync_my_team_permissions` does not touch `permissions`, which is why
-  `dev-grants.mjs` writes that one.
+  CHECKOUT. `docs/NEXT.md` §1. The auth blocker is solved; §4 of that skill has
+  the recipe and both traps.
 - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
 - `docs/NEXT.md` carries the rest. **§0d is DONE (0168, 2026-08-26)** and is
   kept there only as a PATTERN worth copying. What is genuinely un-started:
@@ -211,9 +198,9 @@ TRUE. That is what the grep is for.
    session is most likely to get wrong, and what is decided so you do not redo it.
 4. Only then, the archive file for whatever you are about to touch.
 
-**ONE thing is blocked on a credential**: the dev Apps Script deployment needs a
-Google account only the owner can create. FOUR things wait on the owner and none
-should be built unprompted. Ask in plain language:
+**What waits on the owner is section B above — do not restate it here.** These
+are DECISIONS rather than credentials, and none should be built unprompted. Ask
+in plain language:
 
 | # | Question | Where | Recommendation on file |
 |---|---|---|---|
@@ -226,18 +213,10 @@ should be built unprompted. Ask in plain language:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
 round trip. **Check `docs/TEAM-WORKFLOW.md` §0/§1 before asking anything.**
 
-Two more the assistant should offer rather than assume:
-
-- **Build the SLOT for ฝ่าย tools?** — one tool list instead of the two
-  hand-maintained copies, the frame a contributed page drops into, and the
-  starter kit. **The slot is what blocks them, not the page.**
-  📌 **Golden Period itself is THEIRS** — the ฝ่าย build it, IT only drafted a
-  placeholder; hand the route over when their version lands (`docs/DEPT-TOOLS.md`
-  D8). An IT-built page is the page IT owns, which is the bottleneck this design
-  removes.
-- **The ~20-line guard for the repo settings?** The two branch-protection
-  switches live on GitHub, outside git — turn them off and no test goes red,
-  while every contributor rule built on 2026-08-27 silently becomes advisory.
+One thing to OFFER rather than assume: **build the SLOT for ฝ่าย tools?** (A2).
+📌 Golden Period itself is THEIRS — IT only drafted it; hand the route over when
+their version lands. An IT-built page is a page IT owns, which is the bottleneck
+that design removes.
 
 **No deploy is owed.** Check, do not trust this line — and note that it names
 no sha, on purpose. Retyping one into a `git diff` is the bug that opened

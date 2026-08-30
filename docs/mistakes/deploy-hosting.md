@@ -358,3 +358,49 @@ configuration, and verify a change like that by building **with the flag in the
 state that makes the branch live**. Pick a verification string from code that
 runs unconditionally; a control that greps a string you know ships tells you
 whether the instrument or the deploy is the problem.
+
+
+## "There is no preview deploy" — the contributor guide denied a pipeline that had been running for weeks
+
+**Symptom.** `CONTRIBUTING.md` told every contributor: *"There is no preview
+deploy — Cloudflare Pages is retired, so nothing comments a per-branch URL.
+Review visually by running `npm run dev` locally."* Per-PR previews had been
+live since phase 3 of the dev system: Cloudflare builds every branch, comments
+the link on the pull request, and points the build at `samo-dev`. Read back from
+the Cloudflare API, not from a doc: `preview_deployment_setting: all`,
+`pr_comments_enabled: true`, preview `VITE_SUPABASE_URL` = the dev project.
+
+**Cause — one true sentence and one false one welded together.** Cloudflare
+Pages *is* retired **as the production host** (the VM serves
+`samo.md.kku.ac.th`). It is *not* retired as the **preview builder**. The
+paragraph inferred the second from the first, and the inference was written
+before previews were switched on, so it was true when written. Nothing
+re-examined it afterwards: `docs/TEAM-WORKFLOW.md` §9 is an explicit list of the
+files a landed phase must correct, `CONTRIBUTING.md` is on it, and every OTHER
+entry on that list had been done — `README.md`, `.claude/rules/security.md`,
+`skills/deploy-vm.md`. A checklist that is followed four times out of five reads
+exactly like a checklist that was followed.
+
+**The cost is not "a stale doc".** It is the one sentence a new ฝ่าย contributor
+uses to decide how to test their change. It sent them to a local dev server
+pointed at whatever their `.env.local` held — which, for anyone who had not been
+handed the `SUPABASE_DEV_*` block, is production — while a preview wired to the
+dev copy was being built for them and its link posted on their own PR.
+
+**Fix.** The section now describes the real flow, names `npm run preview:url`,
+and says the thing nobody had written down anywhere: **a preview points at
+`samo-dev`, so it is safe to submit forms on.** Guard:
+`src/js/preview-docs.test.js` — it fails if a contributor-facing doc denies
+previews while `tools/preview-url.mjs` and the `preview:url` script exist, and
+it also asserts the doc POSITIVELY explains them, because deleting the paragraph
+would otherwise pass.
+
+**Where it lives now.** `CONTRIBUTING.md`, `src/js/preview-docs.test.js`.
+
+**The general rule.** *A retirement is scoped to a ROLE, not to a technology.*
+"We stopped using X for A" does not license "X does nothing here" — name the
+role you retired it from, and check every other role it still plays before
+writing the general sentence. **And when a design lists the files a landed
+change must correct, that list is a checklist, not prose**: work it in the same
+commit that lands the change, because a half-worked list is indistinguishable
+from a finished one to everyone who comes after.
