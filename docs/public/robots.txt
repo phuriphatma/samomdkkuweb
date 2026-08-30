@@ -1,0 +1,5 @@
+# The SAMO MDKKU documentation site is for the team and the ฝ่าย, who reach it
+# from a link. It is public because the repository is public, not because it is
+# meant to be found by search. See docs/.vitepress/config.mjs for the reasoning.
+User-agent: *
+Disallow: /

@@ -25,7 +25,12 @@ import { join, relative, sep } from 'node:path';
 const DOCS = new URL('..', import.meta.url).pathname;
 
 /** Directories under docs/ that are not pages. */
-const SKIP_DIRS = new Set(['.vitepress', 'templates', 'node_modules', 'package']);
+const SKIP_DIRS = new Set(['.vitepress', 'templates', 'node_modules', 'package', 'demos']);
+// `demos/` is NOT documentation. `docs/demos/about-3d/README.md` is a decision
+// still waiting on the owner, and it links a PRIVATE Claude artifact URL —
+// publishing that link on a browsable site is the wrong shape regardless of
+// whether the artifact itself is reachable. The files stay in the repository,
+// where the person making the decision reads them.
 // ⚠️ `docs/demos/about-3d/package/` is a VENDORED third-party npm tree — 1,195
 // files and 37 MB checked in under docs/. It is not documentation, and building
 // its stray READMEs into the site would publish someone else's package as if it
@@ -93,7 +98,6 @@ const SUBDIR_GROUPS = [
   { key: 'mistakes', text: 'Bug write-ups', collapsed: true },
   { key: 'state', text: 'Session notes', collapsed: true },
   { key: 'state-archive', text: 'Archive — why it was done that way', collapsed: true },
-  { key: 'demos', text: 'Demos', collapsed: true },
   { key: 'design-refs', text: 'Design references', collapsed: true },
 ];
 
@@ -137,7 +141,17 @@ export default defineConfig({
   description: 'Working documentation for the MDKKU SAMO student portal.',
   lang: 'th',
   base: '/samomdkkuweb/',
-  srcExclude: ['**/node_modules/**', 'templates/**', '**/package/**'],
+
+  // ⛔ NOT INDEXED, deliberately. The repository has always been public, so
+  // nothing here is newly exposed — but a rendered, crawlable site is a
+  // different thing from a file in a repo, and this content is engineering
+  // notes: infrastructure detail, a colleague's work email where it is
+  // load-bearing evidence, the reasoning behind access rules. The audience is
+  // the team and the ฝ่าย, who arrive from a link somebody gave them, not from
+  // a search engine. `robots.txt` in `docs/public/` says the same thing to
+  // crawlers that ignore the meta tag.
+  head: [['meta', { name: 'robots', content: 'noindex, nofollow' }]],
+  srcExclude: ['**/node_modules/**', 'templates/**', '**/package/**', 'demos/**'],
   cleanUrls: true,
   lastUpdated: true,
 

@@ -416,7 +416,7 @@ the part that would mislead the next person:
   `skills/build-the-dev-database.md`. **The dump is a build artifact and is NOT
   in the repo** — it lives in the session scratchpad and goes stale; re-run the
   dump rather than reusing an old file.
-- ✅ **`samo-dev` is BUILT, LOADED and PROVEN** (`xibugtlsphcfuvstnxxh`).
+- ✅ **`samo-dev` is BUILT, LOADED and PROVEN** (the ref in `SUPABASE_DEV_URL`).
   Rebuild any time with `CONFIRM=1 npm run dev:refresh`; check it with
   `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
   `.env.local` and are safe to share with the team — that account holds nothing

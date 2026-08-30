@@ -1197,7 +1197,7 @@ its own bug.
 **Where it lives now.** `tools/env-lib.mjs`, `tools/run-proofs.mjs`,
 `.github/workflows/proofs.yml`, guarded by `src/js/proof-targeting.test.js`.
 Both runtime branches were falsified by reintroducing the drift (FAIL: "ran
-against fheueuowbchsnsvbcgil, not xibugtlsphcfuvstnxxh") and by removing the
+against fheueuowbchsnsvbcgil, not the samo-dev ref") and by removing the
 announcement (UNKNOWN), and the static guard by making a proof parse
 `.env.local` again.
 

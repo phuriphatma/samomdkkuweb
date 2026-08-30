@@ -7,7 +7,7 @@
 > three things that had been built that morning. **Correct it in the same commit
 > as the phase it describes, or it will mislead the next person the same way.**
 >
-> ✅ **REAL — use it, do not re-design it:** `samo-dev` (`xibugtlsphcfuvstnxxh`,
+> ✅ **REAL — use it, do not re-design it:** `samo-dev` (the ref in `SUPABASE_DEV_URL`,
 > loaded from production and verified) · `npm run dev:refresh` · `npm run
 > dev:check` · `public.schema_migrations` + `npm run migrate:status` /
 > `migrate:new` · branch protection ENFORCING the `build` check and code-owner
@@ -132,7 +132,7 @@ finished. **When you build one, move it up here in the same commit.**
 `--dev`) · `npm run migrate:new` · `public.schema_migrations` (0169, applied and
 backfilled on BOTH databases) · `tools/migrations-lib.mjs` ·
 `src/js/migration-numbers.test.js` · **the `samo-dev` project**
-(`xibugtlsphcfuvstnxxh`, loaded and verified) · `docs/INVARIANTS.md` ·
+(the ref in `SUPABASE_DEV_URL`, loaded and verified) · `docs/INVARIANTS.md` ·
 `docs/state/<handle>.md` · `.gitattributes` · `skills/build-the-dev-database.md`
 · `skills/onboard-a-contributor.md`
 
@@ -239,7 +239,7 @@ that error page.
 
 1. In the Google Cloud project, create a **NEW** OAuth 2.0 Client ID (Web).
 2. Authorised redirect URI:
-   `https://xibugtlsphcfuvstnxxh.supabase.co/auth/v1/callback`
+   `$SUPABASE_DEV_URL/auth/v1/callback`
 3. Put the client id and secret in `.env.local` as `GOOGLE_DEV_CLIENT_ID` /
    `GOOGLE_DEV_CLIENT_SECRET` — **not into chat**, and not into git.
 
@@ -565,7 +565,7 @@ useful. **Phases 0–3 are what actually unblock five people.**
 | # | Phase | Effort | Prerequisite |
 |---|---|---|---|
 | 0 | ✅ **DONE 2026-08-27** — repo guardrails. `required_status_checks` (`build`) and `require_code_owner_reviews` both ON, read back from the API; `CODEOWNERS` extended; `enforce_admins` deliberately still `false`. Only the project board is outstanding | — | — |
-| 1 | ✅ **DONE 2026-08-27.** `samo-dev` = `xibugtlsphcfuvstnxxh` on the separate account (D7). Schema + data loaded and verified against production: 66 tables, 0 row diffs, 0 grant diffs either way. `public.schema_migrations` + `migrate:status --dev` + `migrate:new` built. Sign-in as a copied account PROVEN end to end. One command: `CONFIRM=1 npm run dev:refresh` | — | — |
+| 1 | ✅ **DONE 2026-08-27.** `samo-dev` = the ref in `SUPABASE_DEV_URL` on the separate account (D7). Schema + data loaded and verified against production: 66 tables, 0 row diffs, 0 grant diffs either way. `public.schema_migrations` + `migrate:status --dev` + `migrate:new` built. Sign-in as a copied account PROVEN end to end. One command: `CONFIRM=1 npm run dev:refresh` | — | — |
 | 2 | ⏳ **NEARLY DONE** — ✅ `dev:refresh` / `dev:check` built and in use; ✅ §7.5 answered; ✅ `#samo-dev-bot` exists (it is `#developer-server-notify`); ✅ **`dev-grants.json` + `npm run dev:grants` shipped 2026-08-28** — refuses any project but samo-dev by ref, expires every entry, re-applied as step 8 of the refresh; ✅ **the mail trap is RETRACTED and its NEED is met** — dev mail is forced to one test inbox at the transport (`resolveRecipients`), so no trap is required to keep test mail off real people (`docs/EMAIL.md`). ❌ Still to do: **the dev GAS deployment under its own Google account** — the last item, and it needs the owner | ~30 min left, owner-gated | — |
 | 3 | ⏳ **MOSTLY DONE 2026-08-27 — and most of it never needed building.** ✅ Per-PR previews were ALREADY configured on the `samomdkkuweb` Pages project (`preview_deployment_setting: all`, `pr_comments_enabled: true`) — **no Actions job and no `wrangler` are needed**, so §7.4's `functions/` trap does not apply. ✅ Preview env now points at `samo-dev`. ✅ The `pages.dev` guard is narrowed to the two EXACT retired hosts. ✅ Proven end to end on a throwaway PR. ✅ **COMPLETE — corrected 2026-08-29.** All three items this row listed as outstanding were already built and are in the repo today: `src/js/env-ribbon.js` (the ribbon), `functions/notify.js` (the dev `/notify`), and the `noindex`, which Cloudflare sets on preview deployments itself. **This row said "❌ Left" while `STATE.md` and §0b both said BUILT** — the drift §0b warns about, in §0b's own file | done | — |
 | 4 | The `STATE.md` split (§6) | ~2 h | none |
