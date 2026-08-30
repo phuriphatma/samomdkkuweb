@@ -7,6 +7,58 @@ The repository lives on a personal GitHub account (`package.json` →
 `repository.url` is the one place that says so). The owner will retire from
 SAMO; the project will not. This is how it moves without losing anything.
 
+⚠️ **This page is only about GitHub. GitHub is the smallest part of the
+handover** — the database, the Google sign-in, the VM key and `.env.local` all
+matter more and are on nothing to do with GitHub. Read **`docs/SUCCESSION.md`**
+first, and run `npm run succession:audit`.
+
+---
+
+## §0a In plain language — how you stop being the one who adds everybody
+
+**The problem.** The project sits in your personal account. GitHub only lets the
+account holder hand out access, so every new person is a job for you, and only
+you.
+
+**The fix, and the bit that keeps being misunderstood: a GitHub "organisation"
+is not a new login.** It is not the shared `samo` email. Nobody signs into it
+and there is no password to pass down. Think of it as **the club's cupboard
+instead of your locker** — the project sits in the cupboard, several people hold
+a key, and everyone still signs in as themselves with their own account and
+their own Copilot.
+
+**Most people will not need anything from you at all.** Three ways in, and only
+the smallest involves you:
+
+| Who | What they do | Your involvement |
+|---|---|---|
+| A ฝ่าย member with one page to add | Makes their own copy and sends the change back for review | **None.** This already works — it is what `CONTRIBUTING.md` describes |
+| Someone working on it regularly | Gets added to a group ("team") | **Any key-holder can do it, not just you** |
+| The 2–3 people running IT | Hold keys to the cupboard | Handed over once, when you retire |
+
+Most ฝ่าย members are the first row. They never needed to be added — they needed
+to be told how. That alone removes most of the clicking.
+
+**The five steps.**
+
+1. Create the organisation. Free, a few minutes.
+2. Give **at least two people** keys — you and one other. Never one: one
+   key-holder is one graduation away from nobody being able to let anyone in.
+3. Move the project into it. One button.
+4. Make a group called `maintainers` and put the regulars in it. Adding someone
+   later means adding them to the group, which any key-holder can do.
+5. **Point the review rule at the group instead of at you.** Today the project
+   says "changes to the login code need Phuri's approval", with a name written
+   in a file. Change it to "needs a maintainer's approval".
+
+Step 5 is the one that actually matters. As it stands, when you stop being the
+maintainer that rule does not switch off — **it keeps blocking every change,
+waiting for an approval that is not coming.**
+
+**Retiring afterwards** is: add the next person as a key-holder, remove
+yourself. The project does not move, no links break, nothing is re-done. Same
+every year after, without you.
+
 ---
 
 ## §0 The decision, and the premise that inverts it

@@ -35,7 +35,8 @@
     "email:smoke": "node tools/email-smoke.mjs",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "succession:audit": "node tools/succession-audit.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",
