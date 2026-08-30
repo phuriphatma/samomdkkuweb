@@ -313,7 +313,8 @@ ever breaks, signup still succeeds and the student gets an empty passport while
 their old profile is orphaned — and nothing surfaces it. A warning in the
 Postgres log is not something anyone reads. Worth a guard that counts profiles
 whose email matches an `auth.users` row with a different id (should be 0 after
-that user signs in). **Not built.**
+that user signs in). ✅ **BUILT 2026-08-30** — `tools/passport-link-on-signup.sql`,
+proof #27. See the block below: it found a live regression on its first run.
 
 ### ✅ OWNER DECISION 2026-08-29 — the tier demotions are ACCEPTED. Do not re-open.
 
@@ -336,6 +337,42 @@ CACHE — hard-refresh before believing it.
   gate), never in `account_migrations`, and now reads 0 km. Possibly a real
   student locked out. 12 other non-kkumail profiles hold 0 km, so nothing is at
   stake for them.
+
+## ▶ SESSION 2026-08-30 — the guard found a bug on its first run
+
+I built the passport silent-failure guard that yesterday's handoff owed
+(`tools/passport-link-on-signup.sql`, proof #27). It went red on a step I had
+written for a completely different reason, and the red was real: **0174, applied
+the day before, would have zeroed the km of any carried student on their first
+signup.** Migration 0175 fixes it. Nobody was affected — 144 carried profiles
+were exposed and none of them signed in inside the window.
+
+The full mechanism is in `docs/mistakes/postgres-schema.md`; what belongs here is
+the part that would mislead the next person:
+
+1. **I did not go looking for this.** The owed item was "the re-key fails
+   silently". The bug I found is the re-key SUCCEEDING and losing the number.
+   Both end with the student on an empty passport, which is why one guard covers
+   both — but do not read the write-up as if the silent-failure risk is now gone.
+   `passport_link_user_by_email` still swallows its own exceptions. The guard
+   makes the RESULT visible; it does not make the failure loud.
+
+2. **The step that caught it is the one I nearly left out.** "The km and the
+   stamps follow the student" felt redundant next to "signing in re-keys the
+   carried profile" — the row moved, what else is there. The row moving and the
+   row arriving INTACT are two different claims, and only the second one was
+   false. When a proof asserts that something moved, assert what it is worth
+   when it lands.
+
+3. **Do not reorder the three updates in that function** to "fix" this. Moving
+   the profile first makes `on_scan_points_changed` DOUBLE the total instead —
+   the no-op just swaps ends. 0175 restates the invariant after the move, which
+   is why a fourth trigger cannot reopen it.
+
+4. **The exposure numbers came from the database, not from arithmetic.** 0174
+   was applied 2026-08-29 15:00 UTC; 2 signups happened after it, neither a
+   carried student; 0 profiles drift from their scan sum. If you need to re-check
+   any of that, ask the database again — do not quote these.
 
 ## ▶ ASKED FOR AND NOT DONE — pick these up first
 

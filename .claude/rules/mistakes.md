@@ -90,7 +90,14 @@ it is the part that generalises to code not yet written.
    (0128) — fill-once means never-correct; same in FORMS: `{...row, student_id:
    typed}` keeps the stale copy (`yearBasis`, 0145). Also a rule
    applied to the writers you HAPPENED to be looking at (the portrait cleanup
-   missed `my-seat.js`). Where a second copy is unavoidable,
+   missed `my-seat.js`). **A TRIGGER belongs to the TABLE, not to the statement
+   it was written for**: 0174's "moving a scan moves the points" also fired on
+   the SIGNUP RE-KEY, where the profile has not moved yet — debiting the real
+   row and crediting an id nothing lived at, so a carried student would have
+   signed in to 0 km (0175). A multi-statement operation is ONE act to its
+   author and N events to Postgres, so a trigger sees the row HALF-MOVED:
+   restate the invariant at the end, do not try to out-order the trigger.
+   Where a second copy is unavoidable,
    the guard is a DIFFERENTIAL test.
    **PROSE IS AN IMPLEMENTATION TOO.** `STATE.md` held six stale claims at once,
    five being a fact with TWO homes where only one was corrected — a proof
@@ -274,7 +281,7 @@ shaving the classes, which are the only part that generalises.
 - `supabase-client.md` *(18)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(14)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
-- `postgres-schema.md` *(23)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
+- `postgres-schema.md` *(24)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(82)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.

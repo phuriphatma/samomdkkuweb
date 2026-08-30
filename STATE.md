@@ -13,7 +13,22 @@ because it held three lifetimes at once. It now holds one: **status**.
 | architecture, RLS, schema, deploy | `docs/CONTEXT.md` |
 | the backlog | `docs/NEXT.md` |
 
-## WHAT CHANGED MOST RECENTLY (2026-08-29)
+## WHAT CHANGED MOST RECENTLY (2026-08-30)
+
+00. ✅ **PASSPORT — a carried student would have lost every km on signing in.
+    FIXED by 0175 before anyone hit it.** 0174 (yesterday) taught
+    `passport.scans` an UPDATE trigger that reads a change of `user_id` as a
+    transfer: debit the old owner, credit the new. The signup re-key
+    (`passport_link_user_by_email`) moves the SCANS first and the PROFILE last,
+    so the debit emptied the student's real profile and the credit landed on an
+    id nothing lived at yet. **Zero students affected** — 144 carried profiles
+    hold km and none of them had signed in inside the window. The re-key now
+    restates the invariant (`total_km` = sum of its own scans) instead of trying
+    to out-order a trigger. Found by the new guard, not by a report:
+    `tools/passport-link-on-signup.sql` (proof #27), which also covers the
+    silent-failure item that was owed. Write-up: `docs/mistakes/postgres-schema.md`.
+
+## WHAT CHANGED BEFORE THAT (2026-08-29)
 
 0. ✅ **PASSPORT — the "144 students cannot sign in" alarm was FALSE.** 179
    profiles have no auth row, which is the EXPECTED state: the trigger
@@ -87,11 +102,11 @@ TRUE. That is what the grep is for.
   concluding a deploy failed; each has been mistaken for one.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
-- **Migrations through 0174.** For the test count run `npm test` — a number
+- **Migrations through 0175.** For the test count run `npm test` — a number
   here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 26 LIVE PROOFS GREEN — re-run
-  2026-08-29** (this count is guarded against `run-proofs.mjs`, unlike the test
-  count, which is not — that is why one is stated here and the other is not), after 0169 was applied to production. Run `npm test` /
+  `state-handoff.test.js` enforces that. **ALL 27 LIVE PROOFS GREEN — re-run
+  2026-08-30** (this count is guarded against `run-proofs.mjs`, unlike the test
+  count, which is not — that is why one is stated here and the other is not), after 0175 was applied to production. Run `npm test` /
   `npm run proofs`; never quote a remembered number.
 
 ---
@@ -119,12 +134,9 @@ TRUE. That is what the grep is for.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-1. **The passport silent-failure guard.** `passport_link_user_by_email` re-keys
-   a carried profile on first signup but wraps the whole thing in
-   `exception when others then raise warning` — a failure is SILENT and the
-   student gets an empty passport. Guard = count profiles whose email matches
-   an `auth.users` row with a DIFFERENT id (0 after that user signs in).
-   Full context: `docs/state/phuriphatma.md`.
+1. ~~The passport silent-failure guard.~~ ✅ **BUILT** —
+   `tools/passport-link-on-signup.sql`, registered as proof #27. It found a live
+   regression on its first run (see 00 above), so do not treat it as decoration.
 2. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.

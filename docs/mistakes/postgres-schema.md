@@ -994,5 +994,78 @@ definition you happen to be looking at).
 ⚠️ **The one REAL finding underneath it**: `passport_link_user_by_email` wraps
 its whole re-key in `exception when others then raise warning`. It fails
 SILENTLY — signup still succeeds and the student silently gets an empty
-passport. A guard counting profiles whose email matches an `auth.users` row
-with a different id would catch it; not built.
+passport. **Built 2026-08-30** as `tools/passport-link-on-signup.sql`, which
+counts profiles whose email matches an `auth.users` row with a different id —
+and which found the entry below on its first run.
+
+
+## A carried passport student would have signed in to 0 km — 0174's new trigger fired on a path it was not written for
+
+**Symptom.** None reported, and none reachable by a bug report: no student had
+hit it yet. A guard written for a *different* hazard the next day reported
+`got = 0 km / 1 scans` where it wanted `100 km / 1 scans`. A student carried over
+from the old passport project, signing in for the first time, would arrive with
+every stamp present and `total_km` at zero — so the leaderboard (which sums
+scans) would still show them, while the tier badge (which reads `total_km`)
+would drop them to Novice.
+
+**Cause — the two halves of one rule, written a day apart and never run
+together.** `public.passport_link_user_by_email()` re-keys a carried profile in
+this order:
+
+```sql
+update passport.scans          set user_id = new.id where user_id = v_old_id;
+update passport.season_results set user_id = new.id where user_id = v_old_id;
+update passport.profiles       set id      = new.id where id      = v_old_id;
+```
+
+For as long as that function had existed, `passport.scans` had no UPDATE
+trigger, so line one was pure re-pointing and the profile carried its `total_km`
+across untouched. **0174 added `on_scan_points_changed`**, which — correctly, for
+the case it was written for — treats a change of `user_id` as a transfer between
+two people: debit `old.user_id`, credit `new.user_id`. At line one the profile
+has not moved yet. There is no row at `new.id`. So the debit emptied the
+student's real profile and the credit updated **zero rows**, and line three then
+carried the emptied profile onto the new id.
+
+0174 was right about transfers and blind to identity: this is not a scan
+changing hands, it is one person's row changing its key. **Reordering does not
+help** — move the profile first and the same trigger DOUBLES the total instead,
+because then the debit is the no-op.
+
+**Fix.** `0175_passport_relink_keeps_the_km.sql`. After the re-key, restate the
+invariant the passport holds everywhere else rather than trying to out-order a
+trigger:
+
+```sql
+update passport.profiles p
+   set total_km = coalesce(
+         (select sum(s.points_awarded) from passport.scans s where s.user_id = p.id), 0)
+ where p.id = new.id;
+```
+
+Measured at the time: all 631 profiles already satisfied that equality (0174's
+reconciliation left drift at 0), so it asserts the property instead of
+compensating for one particular trigger — a fourth trigger written later cannot
+reopen the same hole.
+
+**Exposure: zero students.** The window was 2026-08-29 15:00 UTC (0174 applied)
+to 2026-08-30. 144 carried profiles hold km and have not signed in; every one of
+them was one signup away from losing it. The two signups inside the window were
+not carried students, and no profile drifts from its scans.
+
+**Where it lives now.** `supabase/migrations/0175_…`,
+`tools/passport-link-on-signup.sql` (proof #27 in `run-proofs.mjs`) — step *"the
+km and the stamps follow the student"*.
+
+**The general rule.** *Adding a trigger adds it to every writer of that table,
+including the ones you are not looking at.* A trigger is not a feature of the
+statement you wrote it for; it is a feature of the TABLE, and it fires for every
+path that touches the column — including a maintenance path whose semantics are
+the opposite of the one you had in mind. Before shipping a trigger, `grep` for
+every statement in the codebase that writes the column it keys on, and ask what
+the trigger means on each. **And the tell here is a multi-statement operation
+where the trigger fires between the statements**: the re-key is atomic to the
+person reading it and four separate events to Postgres, so a trigger sees the
+row half-moved. Where one operation spans several statements, the invariant has
+to be RESTATED at the end, not maintained incrementally at each step.

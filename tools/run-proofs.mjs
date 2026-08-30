@@ -55,6 +55,7 @@ const PROOFS = [
   ['claude0167-monitoring-switch.sql', 'a "right now" measurement expires, and an admin can switch it off'],
   ['proj0165-succession-and-prefs.sql', 'the seat reaches what the retired role account reached; ปีงบ + prefs boundaries'],
   ['passport0174-total-km-symmetry.sql', 'a passport total moves DOWN as well as up'],
+  ['passport-link-on-signup.sql', 'a carried student keeps their km, and a re-key that gives up is VISIBLE'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
   ['team0135-name-split.mjs', 'name splitting round-trips'],
