@@ -710,3 +710,55 @@ of where JS says the same thing. And before nulling a field because a stronger
 grant "covers" it, ask whether the field is a SCOPE (has a widest value, which
 the stronger grant is) or an IDENTITY (names one of several roles, which no
 amount of access answers). Only the first is safe to erase.
+
+
+## "I set SAMO Passport for the ฝ่าย and it doesn't show" — the grant was live; only the chip was missing
+
+**Symptom, as reported (urgent).** *"why i set samopassport permission in the
+admin teamsamo ฝ่ายกิจการมหาวิทยาลัย as กิจการมหาวิทยาลัย ทั้งฝ่าย(ทุกแผนกย่อย)
+and it doesn't show on the จัดการสิทธิ์ of admin teamsamo, and i'm not sure if
+they couldn't access it now."* The row for that ฝ่าย showed only
+`จองโควตา Claude`. Reopening the editor showed the tick and the scope correctly.
+
+**They could access it.** Asked of the server's own resolver rather than
+inferred: `node_effective_passport_scopes` returned `d:5` for **all 51** people
+under that ฝ่าย, and all 19 who had ever signed in already carried `d:5` in
+`users.managed_passport_scopes`. Nothing was broken and nobody was locked out.
+
+**Cause.** `readPermInputs` DROPS the `passport` key the moment a scope is
+chosen — scoped-is-not-full, the 0083 rule — so a scoped grant stores
+`passport_dept_id` and **no capability key at all**. `permChipsHtml` renders the
+capability keys plus two hand-passed scopes: the VitalSound แผนก and the
+project seat. There was no passport parameter, so a scoped grant drew nothing.
+
+⚠️ **The first investigation got this wrong and nearly reported an outage.** It
+swept for `'passport' = any(permissions)` — which by construction can never
+match a scoped grant — found only one unrelated ฝ่าย, and concluded nobody had
+access. **The query was built from the same model the bug lives in.** The tell
+was in the data and was misread: the node showed `permissions: ['claude']`,
+which is exactly what a *correctly saved* scoped passport grant looks like.
+
+**Fix.** `permChipsHtml` gains `passOwn` / `passInherited`, with
+`passportToken()` mirroring `public.passport_scope_tokens` (a sub-department
+wins over its department) and an inheritance walk mirroring
+`node_effective_passport_scopes`. Hidden under `master`, like the VS chip, since
+master IS the widest scope and naming a narrower one understates it. The chip
+gets its own CSS class **and a live rule** — a class the renderer emits with no
+rule is a feature nobody built.
+
+**Where it lives now.** `src/js/team/index.js` (`passportToken`,
+`inheritedPassportScopesFor`, `nodeEffectivePassportScopes`,
+`passportScopeLabel`, the chip block), `src/css/team.css` `.is-pass`, guarded by
+`src/js/passport-scope-chip.test.js` — verified by deleting the chip block and
+watching exactly three assertions fail, with the control and the master case
+still passing.
+
+**The general rule.** *A grant that is stored by DROPPING a key needs every
+reader taught the new shape — and the reader people actually look at is the
+one that says whether the grant exists.* This is the SECOND TWIN again (0149):
+VitalSound got a scope chip when scopes were invented; Passport later got the
+column, the editor, the inheritance walk and the SQL resolver, and not this one
+reader. **When you add a scope, grep for every place the OLD scope's value is
+rendered, not just where it is stored.** And when a report says "it does not
+show", establish whether it does not EXIST or does not DISPLAY before touching
+anything — they need opposite fixes, and only one of them is an outage.

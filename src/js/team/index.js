@@ -244,6 +244,64 @@ function nodeEffectiveVsDepts(nodeId) {
   return out;
 }
 
+/** The token the SERVER stores for a passport scope.
+ *
+ *  ⚠️ MIRROR of `public.passport_scope_tokens(dept, sub)` — a sub-department
+ *  wins over its department, because `s:12` already says which ฝ่าย it is in.
+ *  `team-vocab.test.js` pins the rule; if the SQL changes, change both.
+ */
+export function passportToken(deptId, subId) {
+  if (subId != null && subId !== '') return `s:${subId}`;
+  if (deptId != null && deptId !== '') return `d:${deptId}`;
+  return null;
+}
+
+/** Passport scopes a node inherits from its ANCESTORS (mirrors
+ *  inheritedVsDeptsFor, and `public.node_effective_passport_scopes` minus the
+ *  node's own binding). */
+function inheritedPassportScopesFor(nodeId, inheritOn = null) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (!node) return out;
+  const on = inheritOn === null ? node.inherit_permissions !== false : inheritOn;
+  if (!on) return out;
+  let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
+  while (cur) {
+    const t = passportToken(cur.passport_dept_id, cur.passport_sub_dept_id);
+    if (t) out.add(t);
+    if (!cur.inherit_permissions) break;
+    cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
+  }
+  return out;
+}
+
+/** A node's full effective passport scopes = its own binding ∪ inherited. */
+function nodeEffectivePassportScopes(nodeId) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  const own = node && passportToken(node.passport_dept_id, node.passport_sub_dept_id);
+  if (own) out.add(own);
+  inheritedPassportScopesFor(nodeId).forEach((t) => out.add(t));
+  return out;
+}
+
+/** Human label for a scope token. Falls back to the id rather than rendering
+ *  an empty chip: `loadPassportDepts()` is async, so a row can paint before the
+ *  names arrive, and a chip with no text reads as a bug rather than as "still
+ *  loading". */
+function passportScopeLabel(token) {
+  if (!token) return '';
+  const [kind, id] = String(token).split(':');
+  if (kind === 's') {
+    const sub = passportSubs.find((x) => String(x.id) === id);
+    if (!sub) return `แผนกย่อย #${id}`;
+    const dept = passportDepts.find((d) => String(d.id) === String(sub.department_id));
+    return dept ? `${dept.name} — ${sub.name}` : sub.name;
+  }
+  const dept = passportDepts.find((d) => String(d.id) === id);
+  return dept ? dept.name : `ฝ่าย #${id}`;
+}
+
 /** Project seats a node inherits from its ancestors. Unlike permissions and
  *  VS depts, seats are NOT additive: the NEAREST ancestor that names one is the
  *  answer, because a seat is a single role in one workflow and holding two is
@@ -611,6 +669,8 @@ function renderNode(node, filter, depth = 0) {
       vsInherited: inheritedVsDeptsFor(node.id),
       seatOwn: node.project_seat || null,
       seatInherited: inheritedSeatsFor(node.id),
+      passOwn: passportToken(node.passport_dept_id, node.passport_sub_dept_id),
+      passInherited: inheritedPassportScopesFor(node.id),
     });
   }
 
@@ -727,6 +787,8 @@ function renderMember(m, filter) {
       vsInherited: inheriting ? nodeEffectiveVsDepts(m.node_id) : new Set(),
       seatOwn: m.project_seat || null,
       seatInherited: inheriting ? nodeEffectiveSeats(m.node_id) : new Set(),
+      passOwn: passportToken(m.passport_dept_id, m.passport_sub_dept_id),
+      passInherited: inheriting ? nodeEffectivePassportScopes(m.node_id) : new Set(),
     });
     li.innerHTML = `
       ${checkbox}
@@ -1688,7 +1750,8 @@ export function permChip(cls, label, { icon = '', title = '' } = {}) {
  */
 export function permChipsHtml({
   own, inherited = new Set(), vsOwn = null, vsInherited = new Set(),
-  seatOwn = null, seatInherited = new Set(), flat = false,
+  seatOwn = null, seatInherited = new Set(),
+  passOwn = null, passInherited = new Set(), flat = false,
 }) {
   let out = '';
   const hasMaster = own.has('master') || inherited.has('master');
@@ -1733,6 +1796,27 @@ export function permChipsHtml({
       if (d === vsOwn) return;
       out += permChip(st('is-vs', false), VS_DEPT_LABEL[d] || d,
         { icon: 'bi-soundwave', title: `VitalSound: ${d}` });
+    });
+
+    // A SAMO Passport ฝ่าย is a SCOPE, exactly like the VitalSound แผนก above,
+    // and it needs its own chip for the same reason: `readPermInputs` DROPS the
+    // `passport` key when a scope is chosen (scoped-is-not-full, 0083), so a
+    // scoped grant carries no capability key at all. Without this block it
+    // rendered NOTHING — the row said "จองโควตา Claude" and never mentioned
+    // Passport, while all 51 people under it really did hold it.
+    // REPORTED 2026-08-30: "i set samopassport … and it doesn't show on the
+    // จัดการสิทธิ์". The grant was live the whole time; only the chip was
+    // missing. This is the SECOND TWIN again (0149) — VitalSound got its scope
+    // chip when scopes were invented; Passport got the storage, the editor and
+    // the server resolver, and not this.
+    if (passOwn) {
+      out += permChip(st('is-pass', true), passportScopeLabel(passOwn),
+        { icon: 'bi-airplane', title: `SAMO Passport: ${passportScopeLabel(passOwn)}` });
+    }
+    [...passInherited].forEach((t) => {
+      if (t === passOwn) return;
+      out += permChip(st('is-pass', false), passportScopeLabel(t),
+        { icon: 'bi-airplane', title: `SAMO Passport: ${passportScopeLabel(t)} (รับมาจากตำแหน่งแม่)` });
     });
   }
 

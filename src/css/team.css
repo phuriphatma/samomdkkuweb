@@ -417,6 +417,12 @@
 /* หนังสือโครงการ seat (0086) — slate, distinct from the green perms and the
    teal VS dept chips. Admin-only surface, so it lives in team.css which only
    src/admin.css imports. */
+/* SAMO Passport scope — a chip the renderer EMITS, so it needs a live rule.
+   Its own colour, not VitalSound's teal: two different scopes reading as one
+   capability is how someone revokes the wrong one. */
+.team-perm-chip.is-pass.is-own { background: #7c3aed; color: #fff; }
+.team-perm-chip.is-pass.is-inherited { background: transparent; color: #6d28d9; border: 1px dashed #c4b5fd; }
+.team-perm-chip.is-pass .bi { font-size: 0.62rem; }
 .team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
 .team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
 .team-perm-chip.is-seat .bi { font-size: 0.62rem; }
