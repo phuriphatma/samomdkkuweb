@@ -147,6 +147,10 @@ TRUE. That is what the grep is for.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
+⛳ **ONE item below is live: #3, the ฝ่าย tools slot.** The other three shipped
+on 2026-08-30 and are kept struck-through only so nobody rebuilds them.
+
+
 1. ~~The passport silent-failure guard.~~ ✅ **BUILT** —
    `tools/passport-link-on-signup.sql`, registered as proof #27. It found a live
    regression on its first run (see 00 above), so do not treat it as decoration.
