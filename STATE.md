@@ -147,28 +147,14 @@ TRUE. That is what the grep is for.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-⛳ **ONE item below is live: #3, the ฝ่าย tools slot.** The other three shipped
-on 2026-08-30 and are kept struck-through only so nobody rebuilds them.
+⛳ **ONE item is live: the ฝ่าย tools slot.**
+✅ Shipped 2026-08-30, do not rebuild: the passport silent-failure guard
+(proof #27) · the contributor guide (`docs/CONTRIBUTE.md`, live at
+`/CONTRIBUTE`) · the docs site itself (dev-system phase 5).
 
-
-1. ~~The passport silent-failure guard.~~ ✅ **BUILT** —
-   `tools/passport-link-on-signup.sql`, registered as proof #27. It found a live
-   regression on its first run (see 00 above), so do not treat it as decoration.
-2. ~~A "how to contribute" page a non-developer can read.~~ ✅ **BUILT** —
-   `docs/CONTRIBUTE.md`, live at `/CONTRIBUTE` on the docs site. **ONE page both
-   audiences read**, not an easy version beside a real one: §1–5 in Thai for
-   anyone, §6–13 the developer detail, layered. `CONTRIBUTING.md` is now a
-   POINTER — it held a stale copy of the preview workflow for weeks, and one set
-   of instructions gets one home.
-3. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
+1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
-4. ~~Phase 5 — a docs site over `docs/`.~~ ✅ **SHIPPED 2026-08-30** —
-   **https://phuriphatma.github.io/samomdkkuweb/**, VitePress, deployed by
-   `.github/workflows/docs.yml` on any push to `docs/`. `npm run docs:dev` to
-   work on it. ⚠️ `npm run docs:build` is now inside the REQUIRED `build`
-   check: markdown that would break the site cannot merge.
-
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. **A second Google OAuth client for `samo-dev`**, so previews can use Google
