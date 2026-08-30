@@ -70,16 +70,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `8d72bab` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped SAMO
-  Passport chip, plus the ฝ่าย NAMES it needs: a scoped grant stores no
-  capability key, so it drew nothing on จัดการสิทธิ์ while being fully live, and
-  then drew `ฝ่าย #5` because only the modals fetched the catalog. Verified in
-  the SERVED admin bundle by `is-pass`, `list_passport_departments` and the
-  fallback string, with `is-vs` as a control; `smoke:browser` 9/9.
-  ⚠️ **How to verify a deploy — shared chunk, ASCII marker, `functions/` on the
-  VM, no ribbon on prod — is in `docs/INVARIANTS.md`, not here.** Each has been
-  mistaken for a failed deploy at least once.
-  Previous: `0784836`, and `8fd21f4` before it.
+- ✅ **DEPLOYED = `e10c88c` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped-grant
+  sweep: the จัดการสิทธิ์ chip, its ฝ่าย names, the seat CTA (42 people had no way
+  in), and the collapsed member tag. Verified in the SERVED bundles —
+  `is-pass` in `admin-*.js`, and `passport_scopes` + `เปิด SAMO Passport` in the
+  **shared** `analytics-*.js`, which is where `my-seat.js` lands because BOTH
+  entries import it. ⚠️ Grepping `public-*.js` for it returns 0 and means
+  nothing; that is the shared-chunk trap in `docs/INVARIANTS.md`, and it caught
+  me on this very deploy. `smoke:browser` 9/9.
+  Previous: `8d72bab`, and `0784836` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
