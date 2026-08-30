@@ -70,15 +70,16 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `0784836` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped SAMO
-  Passport chip — a scoped grant stores no capability key, so it drew NOTHING on
-  จัดการสิทธิ์ while being fully live. Verified in the SERVED admin bundle by the
-  `is-pass` string literal AND `bi-airplane`, with the `.is-pass` CSS rules in
-  the served stylesheet and `is-vs` as a control.
+- ✅ **DEPLOYED = `8d72bab` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped SAMO
+  Passport chip, plus the ฝ่าย NAMES it needs: a scoped grant stores no
+  capability key, so it drew nothing on จัดการสิทธิ์ while being fully live, and
+  then drew `ฝ่าย #5` because only the modals fetched the catalog. Verified in
+  the SERVED admin bundle by `is-pass`, `list_passport_departments` and the
+  fallback string, with `is-vs` as a control; `smoke:browser` 9/9.
   ⚠️ **How to verify a deploy — shared chunk, ASCII marker, `functions/` on the
   VM, no ribbon on prod — is in `docs/INVARIANTS.md`, not here.** Each has been
   mistaken for a failed deploy at least once.
-  Previous: `8fd21f4`, and `ce23857` before it.
+  Previous: `0784836`, and `8fd21f4` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:

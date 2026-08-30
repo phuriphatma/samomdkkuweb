@@ -753,6 +753,17 @@ rule is a feature nobody built.
 watching exactly three assertions fail, with the control and the master case
 still passing.
 
+**⚠️ AND THE FIX HAD A SECOND HALF, reported minutes later: "currently it
+render like ฝ่าย #5".** The chip was right; nothing was fetching the ฝ่าย NAMES
+for the tree. They live in the passport schema behind
+`list_passport_departments()`, and only the two permission MODALS ever called
+the loader — so a row painted in perms mode had an empty catalog and every chip
+fell back to its id. `render()` now requests the catalog once when the
+permission tree is on screen and re-renders when it arrives. **A legible
+fallback made the gap survivable and also made it invisible**: the chip never
+looked broken, so nothing said the names were missing. When you add a fallback,
+ask what is supposed to RELIEVE it, and whether anything actually does.
+
 **The general rule.** *A grant that is stored by DROPPING a key needs every
 reader taught the new shape — and the reader people actually look at is the
 one that says whether the grant exists.* This is the SECOND TWIN again (0149):
