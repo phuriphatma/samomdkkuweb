@@ -22,8 +22,15 @@
 > Preview builds post there, verified with every action and all 12 ฝ่าย.
 >
 > ❌ **STILL A DESIGN — nothing below about these describes something real:**
-> the mail trap · the dev GAS deployment · `dev-grants.json` · the docs site ·
-> `samo-scratch`.
+> the dev GAS deployment (owner-gated) · the docs site · `samo-scratch`.
+>
+> ⚠️ **This list said `dev-grants.json` and the mail trap until 2026-08-30, both
+> wrong.** `dev-grants.json` + `npm run dev:grants` shipped 2026-08-28 (guarded
+> by `src/js/dev-grants.test.js`), and the mail trap was RETRACTED because its
+> NEED is met at the transport — `resolveRecipients` forces dev mail to one test
+> inbox, so there is nothing for a trap to catch. §8's phase-2 row had both
+> right while this summary had both wrong: **a summary and the table it
+> summarises are two implementations of one fact.** Correct them together.
 >
 > **§0b has the precise line between the two. Read it before building anything.**
 >
