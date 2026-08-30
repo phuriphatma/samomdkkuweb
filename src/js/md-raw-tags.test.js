@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { findRawTags, findTornSpans, stripCodeAndLinks } from './md-raw-tags.js';
+import { findRawTags, findTornSpans, stripCodeAndLinks } from '../../tools/md-raw-tags.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const DOCS = join(ROOT, 'docs');

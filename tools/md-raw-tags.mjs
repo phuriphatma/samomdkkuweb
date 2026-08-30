@@ -1,5 +1,5 @@
 // ============================================================
-// md-raw-tags.js — find angle-bracket placeholders that a markdown renderer
+// md-raw-tags.mjs — find angle-bracket placeholders that a markdown renderer
 // will SILENTLY DELETE.
 //
 // WHY. `docs/state-archive/2026-07-24-full.md` said:
@@ -23,6 +23,12 @@
 //      (`> ```bash`), and a "fix" applied to one of those corrupted the line
 //
 // So: never widen this without adding the case to `md-raw-tags.test.js` first.
+//
+// 📌 IT LIVES IN tools/, NOT src/. It is an instrument for `docs/`, and nothing
+// in the app imports it — but while it sat under `src/js/` it made
+// `npm run deploy:owed` report a deploy owed for a file that can never reach a
+// bundle. A verification step that cries wolf gets ignored, which this repo has
+// already paid to learn (`tools/run-proofs.mjs`).
 // ============================================================
 
 /**
