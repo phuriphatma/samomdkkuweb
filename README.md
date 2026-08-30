@@ -254,6 +254,8 @@ Authorized JavaScript origins.
 | `npm run dev` | Vite dev server on :5174 with HMR |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
+| `npm run docs:dev` | The documentation site (`docs/`) with live reload. Published at **https://phuriphatma.github.io/samomdkkuweb/** on any push to `docs/` |
+| `npm run docs:build` | Build the documentation site. Part of the required CI check — markdown that breaks the site cannot merge |
 | `npm test` | Vitest suite (run this and `build` before every commit) |
 | `npm run email:smoke` | Send one clearly-marked test email through the real Apps Script path, and prove the recipient allow-list still refuses an address that is not on it. Both directions on purpose: that `/exec` URL is public and unauthenticated, so without the allow-list it is an open relay able to send as "MDKKU SAMO". `--to <addr>` picks a recipient. It DOES send. |
 | `npm run dev:grants` | Apply `tools/dev-grants.json` — dev-only guest permissions that expire — to `samo-dev`. Refuses production and any unknown project by ref before it writes. Also runs as the last step of `dev:refresh`, since a rebuild wipes anything applied by hand. |

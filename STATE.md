@@ -135,7 +135,11 @@ TRUE. That is what the grep is for.
 2. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
-3. **Phase 5, optional** — a VitePress docs site over `docs/`.
+3. ~~Phase 5 — a docs site over `docs/`.~~ ✅ **SHIPPED 2026-08-30** —
+   **https://phuriphatma.github.io/samomdkkuweb/**, VitePress, deployed by
+   `.github/workflows/docs.yml` on any push to `docs/`. `npm run docs:dev` to
+   work on it. ⚠️ `npm run docs:build` is now inside the REQUIRED `build`
+   check: markdown that would break the site cannot merge.
 
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
@@ -160,7 +164,13 @@ TRUE. That is what the grep is for.
   them. The durable rules from these are in `docs/INVARIANTS.md`.
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.** Do not
   build unprompted.
-- ✅ **DEV SYSTEM — phases 1, 3, 4 and 6 are DONE.** Plan + per-phase status:
+- ✅ **DEV SYSTEM — phases 1, 3, 4, 5 and 6 are DONE.** Only phase 2's last
+  item remains and it is OWNER-GATED (§B2). Plan + per-phase status:
+  `docs/TEAM-WORKFLOW.md` §8.
+- **The docs site is `docs/` rendered — it is NOT the status.** `STATE.md` stays
+  at the repo root on purpose; a copy on the site would be a second home for the
+  fastest-decaying file here. Nothing secret may go into `docs/`: it was always
+  a public repo, and now it is also a browsable, indexable site. Plan + per-phase status:
   `docs/TEAM-WORKFLOW.md` §8. Procedure and every trap:
   `skills/build-the-dev-database.md`. **`samo-dev` = `xibugtlsphcfuvstnxxh`**
   (separate account, D7); creds are the `SUPABASE_DEV_*` block in `.env.local`,

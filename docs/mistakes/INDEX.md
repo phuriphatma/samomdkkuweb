@@ -259,7 +259,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(10)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(11)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -273,6 +273,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `systemctl enable --now` reported success and scheduled nothing
 - "I grepped the served bundle for the string I just changed and it is not there
 - "There is no preview deploy" — the contributor guide denied a pipeline that had been running for weeks
+- GitHub was silently DELETING words out of the docs, and nothing could tell us until we rendered them somewhere strict
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(29)*
 
@@ -308,4 +309,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `main`'s CI was red for a day because a guard could not see the commit it was checking
 - A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
 
-_251 entries across 9 files._
+_252 entries across 9 files._

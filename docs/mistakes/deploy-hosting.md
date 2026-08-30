@@ -404,3 +404,61 @@ writing the general sentence. **And when a design lists the files a landed
 change must correct, that list is a checklist, not prose**: work it in the same
 commit that lands the change, because a half-worked list is indistinguishable
 from a finished one to everyone who comes after.
+
+
+## GitHub was silently DELETING words out of the docs, and nothing could tell us until we rendered them somewhere strict
+
+**Symptom.** None reported — nobody reads a sentence and thinks "a word is
+missing here". Found only because a VitePress build of `docs/` refused to
+compile. Three places where the published documentation says less than the
+source does, confirmed against **GitHub's own renderer**, which is how these
+files are actually read:
+
+```bash
+gh api -X POST /markdown -f mode=gfm -f text='A full-screen "ย้ายไป <kkumail>" block.'
+# → <p>A full-screen "ย้ายไป " block.</p>
+```
+
+**Cause — two different markdown rules, both invisible.**
+
+1. **An unknown tag is DROPPED, not escaped.** `<kkumail>` and `<gmail>` are
+   placeholders, but to a renderer they are HTML tags nobody knows, so the
+   sanitiser removes them. The sentence keeps its punctuation and loses its
+   subject: *"ย้ายไป "*. Two of these sat in `docs/state-archive/`.
+2. **A line that STARTS with a tag begins an HTML block, and an HTML block
+   interrupts the paragraph** — so an inline code span cannot cross into it.
+   `docs/mistakes/authz-rls.md` had a span opened at the end of one line and
+   closed on the next, which began `<table>`. GitHub emitted a literal
+   backtick, an empty `<table>` element, and a sentence in pieces.
+
+**Fix.** Wrap the placeholders in backticks; keep a code span on one line.
+`0175`-era commit. Guards, in order of authority:
+
+- **`npm run docs:build` inside the required `build` check.** The Vue compiler
+  refuses to build any of the above. This is the real guard.
+- **`src/js/md-raw-tags.test.js`** — a fast local approximation for the same
+  rule, so the failure arrives before CI.
+
+**⚠️ The approximation was WRONG THREE TIMES, in both directions**, which is
+the part worth remembering:
+
+| Miss | What it did |
+|---|---|
+| multi-line inline code spans | reported 20 false hits — "fixing" them would have rewritten SQL in five write-ups for no reason |
+| fenced blocks inside a blockquote (`> ```bash`) | a "fix" applied to one put stray backticks INSIDE a code block |
+| a tag-name regex that swallowed attributes | `<img src="x">` came back as a tag named `img src=` |
+
+Each is now a fixture in that test. A fourth version would be wrong too if it
+were written from the same list the code came from.
+
+**Where it lives now.** `src/js/md-raw-tags.js` + its test,
+`.github/workflows/build.yml`, `docs/.vitepress/config.mjs`.
+
+**The general rule.** *A permissive renderer does not report your mistakes — it
+performs them.* Markdown, HTML and SQL all fail this way: the output looks
+finished, so nobody looks twice. **When you have a choice of renderers, the
+STRICT one is the instrument**, even if you publish with the permissive one —
+its refusal to build is the only signal you are going to get. And when you must
+approximate a renderer with a regex, remember you are re-implementing a parser:
+give each thing it got wrong a fixture, because the next version will get a
+fourth thing wrong.
