@@ -47,7 +47,7 @@ const DENIALS = [
 ];
 
 /** The docs a contributor actually reads before their first pull request. */
-const CONTRIBUTOR_DOCS = ['CONTRIBUTING.md', 'README.md'];
+const CONTRIBUTOR_DOCS = ['CONTRIBUTING.md', 'README.md', 'docs/CONTRIBUTE.md'];
 
 describe('the contributor guide agrees with the preview pipeline', () => {
   it('the denial matcher can find a denial (control)', () => {
@@ -81,16 +81,26 @@ describe('the contributor guide agrees with the preview pipeline', () => {
     });
   }
 
-  it('CONTRIBUTING.md tells a contributor how to reach their preview', () => {
+  it('the guide tells a contributor how to reach their preview', () => {
+    // The canonical home is docs/CONTRIBUTE.md — one page for both audiences.
+    // CONTRIBUTING.md is a POINTER on purpose (it held a stale copy of this
+    // very fact until 2026-08-30), so it is swept for denials above but is not
+    // where the explanation has to live.
+    const text = read('docs/CONTRIBUTE.md');
+    expect(text, 'the guide never mentions npm run preview:url').toMatch(/preview:url/);
+  });
+
+  it('CONTRIBUTING.md points at the guide instead of copying it', () => {
     const text = read('CONTRIBUTING.md');
-    expect(text, 'CONTRIBUTING.md never mentions npm run preview:url').toMatch(/preview:url/);
+    expect(text, 'CONTRIBUTING.md does not link the guide').toMatch(/CONTRIBUTE/);
   });
 
   it('and says a preview points at the dev database, not production', () => {
     // The reason a preview is safe to submit forms on. A contributor who does
     // not know this either avoids testing writes at all, or assumes the same of
     // production. Both are worse than knowing.
-    const text = read('CONTRIBUTING.md');
-    expect(text, 'CONTRIBUTING.md does not say a preview points at samo-dev').toMatch(/preview[\s\S]{0,400}samo-dev/i);
+    const text = read('docs/CONTRIBUTE.md');
+    expect(text, 'the guide does not say a preview points at the dev database')
+      .toMatch(/(preview|ทดลอง)[\s\S]{0,600}(samo-dev|สำเนา)/i);
   });
 });

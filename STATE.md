@@ -150,12 +150,12 @@ TRUE. That is what the grep is for.
 1. ~~The passport silent-failure guard.~~ ✅ **BUILT** —
    `tools/passport-link-on-signup.sql`, registered as proof #27. It found a live
    regression on its first run (see 00 above), so do not treat it as decoration.
-2. **A "how to contribute" page a non-developer can actually read.** ⛔ OWNER
-   ASKED FOR THIS (2026-08-30). `CONTRIBUTING.md` is written for developers and
-   lives on GitHub, which is the surface the ฝ่าย find intimidating. The docs
-   site now exists (`https://phuriphatma.github.io/samomdkkuweb/`) and is the
-   natural home. **Do not just re-render CONTRIBUTING.md** — the ask is a
-   readable page, in Thai, for someone who has never opened a pull request.
+2. ~~A "how to contribute" page a non-developer can read.~~ ✅ **BUILT** —
+   `docs/CONTRIBUTE.md`, live at `/CONTRIBUTE` on the docs site. **ONE page both
+   audiences read**, not an easy version beside a real one: §1–5 in Thai for
+   anyone, §6–13 the developer detail, layered. `CONTRIBUTING.md` is now a
+   POINTER — it held a stale copy of the preview workflow for weeks, and one set
+   of instructions gets one home.
 3. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
