@@ -2,7 +2,11 @@
 // repo-identity.test.js — moving this repo to an organisation must be ONE edit.
 //
 // The project is going to leave a personal GitHub account for an organisation.
-// When it does, `phuriphatma/samomdkkuweb` stops being true. GitHub redirects a
+// When it does, today's owner/repo slug stops being true — and this comment
+// deliberately does not spell it out, because THIS FILE IS SWEPT BY ITS OWN
+// RULE. It named the slug in prose, passed while untracked, and went red the
+// moment `git ls-files` could see it. That is the guard working, and a small
+// reminder that an instrument is part of what it measures. GitHub redirects a
 // transferred repo, so every stale URL keeps WORKING — until the old account is
 // renamed or deleted, and then they fail together, months later, with no commit
 // to blame. That is the worst version of this repo's most repeated bug: one
