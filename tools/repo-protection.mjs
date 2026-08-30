@@ -21,8 +21,12 @@
 // ============================================================
 
 import { execFileSync } from 'node:child_process';
+import { SLUG, OWNER, REPO_NAME } from './repo-identity.mjs';
+import { loadEnv } from './env-lib.mjs';
 
-const REPO = process.env.SAMO_REPO || 'phuriphatma/samomdkkuweb';
+// SLUG comes from package.json's `repository.url` — the ONE home for this
+// repo's identity (tools/repo-identity.mjs). Overridable for a fork.
+const REPO = process.env.SAMO_REPO || SLUG;
 const BRANCH = process.env.SAMO_BRANCH || 'main';
 
 let p;
@@ -59,6 +63,47 @@ const checks = [
     'the OWNER could no longer push main — it is what makes their normal flow work, '
     + 'and it is the escape hatch when their own PR cannot self-approve'],
 ];
+
+// ---------------------------------------------------------------------------
+// The SECOND place this repo's owner is written down, and it is not in git.
+//
+// Cloudflare Pages binds the preview builder to `source.config.owner` +
+// `repo_name` in ITS OWN config. A repository transfer does not follow: the
+// project keeps pointing at the old path, per-PR previews simply STOP being
+// built, and nothing in this repository goes red — the pull request just never
+// gets a preview comment, which looks like Cloudflare being slow.
+//
+// This project is moving to an organisation account, so that day is coming.
+// Reading it here turns an invisible outside-git fact into a failing proof.
+// ---------------------------------------------------------------------------
+const { env } = loadEnv();
+const cfAccount = env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
+const cfToken = env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+
+if (cfAccount && cfToken) {
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cfAccount}/pages/projects/${REPO_NAME}`,
+      { headers: { Authorization: `Bearer ${cfToken}` } });
+    const body = await res.json();
+    const src = body?.result?.source?.config ?? {};
+    checks.push(
+      ['Cloudflare previews still point at this repo',
+        `${src.owner}/${src.repo_name}`, `${OWNER}/${REPO_NAME}`,
+        'the Pages project builds a repository that is no longer this one — per-PR '
+        + 'previews stop, silently, and no test in this repo can see it. Reconnect the '
+        + 'project (and install the Cloudflare GitHub App on the new account).'],
+    );
+  } catch (e) {
+    // An unreachable API is UNKNOWN, never PASS.
+    checks.push(['Cloudflare previews still point at this repo',
+      `unreachable: ${String(e.message).slice(0, 60)}`, `${OWNER}/${REPO_NAME}`,
+      'could not ask Cloudflare; this is not evidence that it is fine']);
+  }
+} else {
+  console.log('– Cloudflare owner check SKIPPED: no CLOUDFLARE_ACCOUNT_ID / '
+    + 'CLOUDFLARE_API_TOKEN in .env.local. After a repo transfer, run this WITH them.');
+}
 
 let failed = 0;
 for (const [name, got, want, consequence] of checks) {

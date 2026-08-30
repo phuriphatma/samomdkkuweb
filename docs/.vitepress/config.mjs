@@ -21,6 +21,10 @@
 import { defineConfig } from 'vitepress';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+// The owner/repo has ONE home — package.json's `repository.url`. This file
+// hardcoded it four times on the day the site was built, which is exactly the
+// drift the move to an organisation account will expose.
+import { GITHUB_URL, PAGES_BASE } from '../../tools/repo-identity.mjs';
 
 const DOCS = new URL('..', import.meta.url).pathname;
 
@@ -140,7 +144,7 @@ export default defineConfig({
   title: 'SAMO MDKKU — docs',
   description: 'Working documentation for the MDKKU SAMO student portal.',
   lang: 'th',
-  base: '/samomdkkuweb/',
+  base: PAGES_BASE,
 
   // ⛔ NOT INDEXED, deliberately. The repository has always been public, so
   // nothing here is newly exposed — but a rendered, crawlable site is a
@@ -176,9 +180,9 @@ export default defineConfig({
       {
         text: 'Repo',
         items: [
-          { text: 'GitHub', link: 'https://github.com/phuriphatma/samomdkkuweb' },
-          { text: 'STATE.md — what is true right now', link: 'https://github.com/phuriphatma/samomdkkuweb/blob/main/STATE.md' },
-          { text: 'CONTRIBUTING.md', link: 'https://github.com/phuriphatma/samomdkkuweb/blob/main/CONTRIBUTING.md' },
+          { text: 'GitHub', link: GITHUB_URL },
+          { text: 'STATE.md — what is true right now', link: `${GITHUB_URL}/blob/main/STATE.md` },
+          { text: 'CONTRIBUTING.md', link: `${GITHUB_URL}/blob/main/CONTRIBUTING.md` },
           { text: 'The live portal', link: 'https://samo.md.kku.ac.th' },
         ],
       },
@@ -205,7 +209,7 @@ export default defineConfig({
     returnToTopLabel: 'กลับขึ้นบน',
     sidebarMenuLabel: 'เมนู',
     editLink: {
-      pattern: 'https://github.com/phuriphatma/samomdkkuweb/edit/main/docs/:path',
+      pattern: `${GITHUB_URL}/edit/main/docs/:path`,
       text: 'Edit this page on GitHub',
     },
     footer: {

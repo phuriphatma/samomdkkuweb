@@ -1,6 +1,11 @@
 {
   "name": "samomdkkuweb",
   "version": "4.6.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phuriphatma/samomdkkuweb.git"
+  },
+  "homepage": "https://phuriphatma.github.io/samomdkkuweb/",
   "description": "MDKKU SAMO Student Council Portal",
   "private": true,
   "scripts": {

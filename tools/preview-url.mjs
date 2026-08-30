@@ -23,9 +23,14 @@
 // person ends up testing a page that does not exist.
 // ============================================================
 import { execFileSync } from 'node:child_process';
+import { REPO_NAME, SLUG } from './repo-identity.mjs';
 
-const PROJECT = 'samomdkkuweb';
-const REPO = 'phuriphatma/samomdkkuweb';
+// The owner/repo has ONE home — package.json's `repository.url`. See
+// tools/repo-identity.mjs: this project is moving to an organisation account,
+// and a hardcoded slug here would keep working (GitHub redirects) right up
+// until it silently didn't.
+const PROJECT = REPO_NAME;
+const REPO = SLUG;
 
 const sh = (cmd, args) => {
   try { return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
