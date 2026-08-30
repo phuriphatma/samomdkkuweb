@@ -27,6 +27,7 @@ const mask = (e) => String(e || '?').replace(/^(.{3}).*(@.*)$/, '$1***$2');
 
 const rows = [];
 const unknown = [];
+const warnings = [];
 const add = (system, holders, note) => rows.push({ system, holders, note });
 
 // ---- GitHub -------------------------------------------------------------
@@ -65,8 +66,21 @@ if (cfTok && cfAcct) {
   try {
     const j = await (await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAcct}/members`,
       { headers: { Authorization: `Bearer ${cfTok}` } })).json();
+    const acct = await (await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAcct}`,
+      { headers: { Authorization: `Bearer ${cfTok}` } })).json();
+    const enforce2fa = acct?.result?.settings?.enforce_twofactor;
     add('Cloudflare account — PR previews',
-      (j.result || []).map((m) => mask(m.user?.email)), 'previews only; prod is the VM');
+      (j.result || []).map((m) => `${mask(m.user?.email)} [2FA ${m.user?.two_factor_authentication_enabled ? 'on' : 'OFF'}]`),
+      `previews only; prod is the VM · account 2FA enforcement: ${enforce2fa ? 'on' : 'OFF'}`);
+    // A password-only Super Administrator is a different risk from a
+    // password-only viewer, so it is called out rather than counted.
+    for (const m of j.result || []) {
+      const su = (m.roles || []).some((r) => /super admin/i.test(r.name || ''));
+      if (su && m.user?.two_factor_authentication_enabled === false) {
+        warnings.push(`Cloudflare: ${mask(m.user.email)} holds Super Administrator with 2FA OFF — `
+          + 'one gmail password is full control of the account.');
+      }
+    }
   } catch (e) { unknown.push(['Cloudflare', String(e.message).slice(0, 80)]); }
 } else unknown.push(['Cloudflare', 'no CLOUDFLARE_* in .env.local']);
 
@@ -74,6 +88,10 @@ if (cfTok && cfAcct) {
 // Listing these is the point. An audit that silently omits what it could not
 // reach is worse than no audit: it reads like a clean bill of health.
 const BLIND = [
+  ['THE RECOVERY SETTINGS on the two role gmails — the one that decides whether any of this works',
+    'studbeta and samomdkku.ai are handed to each year\'s student, so they are meant not to '
+    + 'expire. That is only TRUE if their recovery email is not a kkumail (KKU deletes it) and '
+    + 'their 2FA is not solely on a graduating student\'s phone. Check both, on both accounts.'],
   ['Google Cloud project 593995881808 — the OAuth client behind STUDENT GOOGLE SIGN-IN',
     'Open console.cloud.google.com → IAM. If its only Owner is an account that '
     + 'expires (a graduating kkumail), every student loses Google sign-in when it does.'],
@@ -98,6 +116,10 @@ for (const r of rows) {
   console.log(`${solo ? '⚠ ' : '  '}${r.system}`);
   console.log(`     ${r.holders.length ? r.holders.join(', ') : '(none found)'}   — ${r.note}`);
   if (solo) console.log('     ⚠ ONE person. If that account is lost, so is this.');
+}
+if (warnings.length) {
+  console.log('\nFOUND — act on these:\n');
+  for (const w of warnings) console.log(`  ⚠ ${w}`);
 }
 console.log('\nNOT CHECKABLE FROM HERE — each still needs a human to look:\n');
 for (const [what, how] of BLIND) console.log(`  • ${what}\n      ${how}`);
