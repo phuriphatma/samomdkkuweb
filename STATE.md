@@ -218,6 +218,7 @@ in plain language:
 | 2 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+| 5 | **What URL should the docs site have?** It is on `phuriphatma.github.io/samomdkkuweb/` — a PERSONAL account's name, which reads as unofficial to a ฝ่าย member and dies if the account is ever renamed | `docs/TEAM-WORKFLOW.md` §8 phase 5 | **ask KKU for one CNAME, `docs.samo.md.kku.ac.th` → `phuriphatma.github.io`.** Keeps the automatic deploy; costs one request. ⛔ Do NOT serve it from the VM at `samo.md.kku.ac.th/docs/` — CI cannot reach the VM (deploys need VPN), so that trades a 40-second automatic publish for a manual one |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
