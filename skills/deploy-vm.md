@@ -24,6 +24,36 @@ A bundle that reads a column the live database does not have is 0129's
 code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 (`skills/ship-a-migration.md`).
 
+## ⛔ KNOWN ISSUE FIRST — this script currently HANGS at the docs step
+
+**As of 2026-08-31, `./server/deploy.sh` goes silent right after
+`==> docs site: build with base /docs/` and never finishes.** Three attempts
+were killed at 300 s, 600 s and ~9 min. The **app half completes** before that
+point, so the bundles do get published; what never runs is the docs publish,
+`fix permissions`, the notify restart and the nginx reload.
+
+**The cause is NOT known.** Ruled out by measurement: slow docs build (10 s),
+slow rsync (<1 s), a too-low ceiling (three values), sudo expiry (a keep-alive
+was added and the hang survived it). Evidence and the one diagnostic nobody has
+run — instrumenting this script instead of measuring its steps standalone — are
+in `docs/mistakes/deploy-hosting.md`.
+
+**Publish the docs by hand until it is fixed.** Ten seconds, and this is how the
+site was published on 2026-08-31:
+
+```bash
+ssh samo-vm   # then, with sudo already validated:
+cd ~/samo-projects/samomdkkuweb
+DOCS_BASE=/docs/ npm run docs:build
+sudo mkdir -p /var/www/docs/assets
+sudo rsync -a docs/.vitepress/dist/assets/ /var/www/docs/assets/
+sudo rsync -a --delete --exclude=assets/ docs/.vitepress/dist/ /var/www/docs/
+sudo chown -R www-data:www-data /var/www/docs
+```
+
+⚠️ **`deploy.sh` never installs nginx config**, hang or no hang. That is always
+a separate step — see the header of `server/nginx-samo.conf`.
+
 ## The command
 
 ```bash
