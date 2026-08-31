@@ -137,7 +137,7 @@ parts that are still LIVE rules are kept here:
 PR · VitalSound · News · หนังสือโครงการ · Analytics: unchanged. Write-ups in
 `docs/state-archive/`; architecture in `docs/CONTEXT.md`.
 
-- **Passport** (repo `phuriphatma/samomdkkupassport`, same Supabase project,
+- **Passport** (repo `samomdkku/samomdkkupassport`, same Supabase project,
   `passport` schema): kkumail-only gate live. Dev test still ACTIVE
   (pmphuriphat→phuriphat.ma) — revert SQL in `2026-07-24-full.md`. Old project
   `idwlabpbwiwgaoqwbozz` is a cold backup — rotate its DB password before deleting.

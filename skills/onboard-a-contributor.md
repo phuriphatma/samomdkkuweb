@@ -62,8 +62,8 @@ memory is the deliverable.
    (`supabase-js` needs a global WebSocket).
 2. **Claude Code**, signed in.
 3. `gh auth login` — browser flow, HTTPS.
-4. **Clone.** Collaborator: `gh repo clone phuriphatma/samomdkkuweb`.
-   Everyone else: `gh repo fork phuriphatma/samomdkkuweb --clone` — same result,
+4. **Clone.** Collaborator: `gh repo clone samomdkku/samomdkkuweb`.
+   Everyone else: `gh repo fork samomdkku/samomdkkuweb --clone` — same result,
    their own copy, and `gh pr create` still opens the PR against this repo.
    Then `cd samomdkkuweb && npm ci`.
 5. `npm run dev` → open `localhost:5174`. **They must see the real site running

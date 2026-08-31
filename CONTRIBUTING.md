@@ -14,7 +14,7 @@ send your first change:**
 (Source: [`docs/contributing.md`](docs/contributing.md).)
 
 Both pages are also published to GitHub Pages at
-<https://phuriphatma.github.io/samomdkkuweb/> — same content, built from the
+<https://samomdkku.github.io/samomdkkuweb/> — same content, built from the
 same commit. That copy exists so the documentation is still readable if the KKU
 server is down, which is exactly when you are most likely to want it.
 

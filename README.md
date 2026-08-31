@@ -213,7 +213,7 @@ Prerequisites: Node 22+ (Node 20 lacks a global WebSocket, which supabase-js
 now hard-requires at import — `npm test` fails on it; CI runs Node 22).
 
 ```bash
-git clone https://github.com/phuriphatma/samomdkkuweb.git
+git clone https://github.com/samomdkku/samomdkkuweb.git
 cd samomdkkuweb
 npm install
 ```
@@ -254,7 +254,7 @@ Authorized JavaScript origins.
 | `npm run dev` | Vite dev server on :5174 with HMR |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally on :4173 |
-| `npm run docs:dev` | The documentation site (`docs/`) with live reload. Published at **https://samo.md.kku.ac.th/docs** (rebuilt by `server/deploy.sh`, so it updates on a deploy) and at https://phuriphatma.github.io/samomdkkuweb/ (rebuilt on every push) |
+| `npm run docs:dev` | The documentation site (`docs/`) with live reload. Published at **https://samo.md.kku.ac.th/docs** (rebuilt by `server/deploy.sh`, so it updates on a deploy) and at https://samomdkku.github.io/samomdkkuweb/ (rebuilt on every push) |
 | `npm run docs:build` | Build the documentation site. Part of the required CI check — markdown that breaks the site cannot merge |
 | `npm test` | Vitest suite (run this and `build` before every commit) |
 | `npm run email:smoke` | Send one clearly-marked test email through the real Apps Script path, and prove the recipient allow-list still refuses an address that is not on it. Both directions on purpose: that `/exec` URL is public and unauthenticated, so without the allow-list it is an open relay able to send as "MDKKU SAMO". `--to <addr>` picks a recipient. It DOES send. |

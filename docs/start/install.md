@@ -14,10 +14,10 @@ Pick one, depending on whether you have been invited to the project.
 
 ```bash
 # Option A — you are already a collaborator
-gh repo clone phuriphatma/samomdkkuweb
+gh repo clone samomdkku/samomdkkuweb
 
 # Option B — you are not (this is the default, and needs nobody's permission)
-gh repo fork phuriphatma/samomdkkuweb --clone
+gh repo fork samomdkku/samomdkkuweb --clone
 ```
 
 Both options let you open pull requests here. There is one difference: **option B does not get an automatic preview site**, because GitHub does not give forks access to the project's secrets. If you expect to contribute often, ask a maintainer to invite you as a collaborator and use option A.

@@ -3,10 +3,11 @@
 //
 // The owner is `package.json`'s `repository.url`. Nothing else may hardcode it.
 //
-// WHY THIS EXISTS. The project is going to move off a personal GitHub account
-// onto an organisation. On the day that happens, `phuriphatma/samomdkkuweb`
-// stops being true — and on 2026-08-30 that string had FORTY-TWO homes across
-// nineteen files: two tools, the docs-site config, five workflows and links,
+// WHY THIS EXISTS. The project moved off a personal GitHub account onto the
+// `samomdkku` organisation on 2026-08-31. The old personal slug stopped being
+// true that day — this comment does not spell it out, because THIS FILE IS
+// SWEPT BY ITS OWN RULE — and the day before the move that string had
+// FORTY-TWO homes across nineteen files: two tools, the docs-site config, five workflows and links,
 // and a long tail of prose. GitHub redirects the repo URL after a transfer, so
 // most of them would keep WORKING while being wrong, until the old account is
 // renamed or deleted and they all die at once. That is this repo's single most

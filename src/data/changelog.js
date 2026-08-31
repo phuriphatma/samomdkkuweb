@@ -80,7 +80,7 @@ export const MAJOR_STORY = {
  * product's "Life is a Journey" identity, so it is not a consolation prize.
  *
  * DATES ARE LAUNCH DATES, not "when it joined this codebase". SAMO Passport
- * lives in its own repo (phuriphatma/samomdkkupassport, first commit
+ * lives in its own repo (samomdkku/samomdkkupassport, first commit
  * 2026-05-12) and was dated 2026-07-22 here at first — which is when its
  * DATABASE was merged into this project, an event no student experienced. If a
  * system's launch is not in this repo's git log, go and find it in the right

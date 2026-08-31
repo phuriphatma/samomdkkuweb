@@ -1,8 +1,18 @@
 # CODEOWNERS — who is automatically asked to review what.
 #
-# THERE IS DELIBERATELY NO DEFAULT OWNER LINE. A `*  @phuriphatma` rule would
-# route every pull request to one person, which is the bottleneck this file
-# exists to remove. Anything not listed here still needs one approving review
+# THERE IS DELIBERATELY NO DEFAULT OWNER LINE. A `*` rule would route every
+# pull request at the same group, which is the bottleneck this file exists to
+# remove.
+#
+# OWNERS ARE A TEAM, NOT A PERSON (2026-08-31, on the move to the `samomdkku`
+# organisation). A named individual here does not switch off when that person
+# graduates — it keeps blocking every change, waiting for an approval that is
+# not coming. Membership of @samomdkku/maintainers is the thing to edit, and
+# any org owner can edit it.
+#
+# ⚠️ The team must stay VISIBLE (privacy `closed`, not `secret`) and hold WRITE
+# on this repo. GitHub silently ignores a code-owner team missing either, which
+# looks exactly like the rule working. Anything not listed here still needs one approving review
 # (branch protection), but from ANY collaborator.
 #
 # Listed here = the load-bearing surfaces, taken from the "touch zones" table in
@@ -14,34 +24,34 @@
 # docs/TEAM-WORKFLOW.md §8a.
 
 # Auth, the Supabase client, and anything that talks to the database
-/src/js/auth.js        @phuriphatma
-/src/js/db.js          @phuriphatma
+/src/js/auth.js        @samomdkku/maintainers
+/src/js/db.js          @samomdkku/maintainers
 
 # Notifications and uploads — wrong here is a silent production outage
-/src/js/notify.js      @phuriphatma
-/src/js/uploads.js     @phuriphatma
+/src/js/notify.js      @samomdkku/maintainers
+/src/js/uploads.js     @samomdkku/maintainers
 
 # Schema is the source of truth for the live database
-/supabase/             @phuriphatma
+/supabase/             @samomdkku/maintainers
 
 # Deploy plumbing, the notify service, nginx
-/server/               @phuriphatma
+/server/               @samomdkku/maintainers
 
 # Apps Script — Discord webhooks live here; a redeploy hits production at once
-/appscript/            @phuriphatma
+/appscript/            @samomdkku/maintainers
 
 # Proof scripts and migration tooling
-/tools/                @phuriphatma
+/tools/                @samomdkku/maintainers
 
 # CI, and this file
-/.github/              @phuriphatma
+/.github/              @samomdkku/maintainers
 
 # Agent context: charged to every session on the team, byte-capped
-/CLAUDE.md             @phuriphatma
-/.claude/              @phuriphatma
+/CLAUDE.md             @samomdkku/maintainers
+/.claude/              @samomdkku/maintainers
 
 # The handoff
-/STATE.md              @phuriphatma
+/STATE.md              @samomdkku/maintainers
 
 # ---------------------------------------------------------------------------
 # ฝ่าย CONTRIBUTIONS — added 2026-08-27. See docs/DEPT-TOOLS.md §0b.
@@ -55,15 +65,15 @@
 # contribution arrives, not during it.
 
 # The line that decides what is reachable and who may see it.
-/src/data/tools.js     @phuriphatma
+/src/data/tools.js     @samomdkku/maintainers
 
 # A tool that runs INSIDE the app bundle — it can reach what the app can reach.
-/src/tools/            @phuriphatma
+/src/tools/            @samomdkku/maintainers
 
 # The data doors. Each one answers a single question and carries the access
 # rule. This is the "who may see what" decision, which is the one thing a
 # contributor may never write.
-/src/js/data/          @phuriphatma
+/src/js/data/          @samomdkku/maintainers
 
 # DELIBERATELY NOT LISTED: /public/embed/**
 #

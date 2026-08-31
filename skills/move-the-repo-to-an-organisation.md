@@ -28,7 +28,7 @@ assumed:
 | Base permissions | ✅ already `read` |
 | Require 2FA | ⛔ **OFF, and that is the owner's decision (2026-08-31) — do not re-raise.** Requiring it REMOVES every member who does not already have it, which is not a thing to spring on volunteers mid-term |
 | Phase 0 Copilot test | ✅ `samomdkkupassport` transferred to the org; old URL redirects; `samo.md.kku.ac.th/passport/` still 200 |
-| **`samomdkkuweb`** | ⏳ **STILL `phuriphatma/samomdkkuweb` — not moved** |
+| **`samomdkkuweb`** | ✅ **MOVED 2026-08-31** → `samomdkku/samomdkkuweb` |
 
 **Passport was the right first move and cost nothing**: measured before
 transferring, it had no GitHub Pages, no branch protection and no custom CI, so
