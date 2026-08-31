@@ -79,7 +79,7 @@ export function titleOf(rel) {
 export const TOP_GROUPS = [
   {
     text: 'เริ่มที่นี่ · Start here',
-    files: ['CONTRIBUTE.md', 'DEPT-TOOLS.md', 'TEAM-WORKFLOW.md', 'SUCCESSION.md', 'MERGE-CHECKLIST.md', 'VERSIONING.md'],
+    files: ['CONTRIBUTE.md', 'STEP-BY-STEP.md', 'DEPT-TOOLS.md', 'TEAM-WORKFLOW.md', 'SUCCESSION.md', 'MERGE-CHECKLIST.md', 'VERSIONING.md'],
   },
   {
     text: 'How the system works',

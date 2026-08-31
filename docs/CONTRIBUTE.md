@@ -7,6 +7,10 @@
 > the developer detail is layered underneath. Read until it stops being useful
 > to you, then stop.
 
+> 👉 **อยากได้คู่มือแบบทีละคำสั่ง** ตั้งแต่เปิด Terminal จนถึง PR ถูกรวม พร้อมรูป
+> — อ่าน **[ทีละขั้น · Step by step](/STEP-BY-STEP)**
+> หน้านี้ตอบว่า *แก้อะไรได้ กฎคืออะไร* หน้านั้นตอบว่า *มือต้องพิมพ์อะไร*
+
 ---
 
 ## 1. คุณไม่ต้องขอสิทธิ์อะไรเลย
@@ -84,7 +88,7 @@ and CI must pass before anything merges.
 ## 7. Running it locally
 
 ```bash
-npm install
+npm ci
 npm run dev          # :5174
 npm test             # the suite; CI runs this on every PR
 npm run preview:url  # where your branch's preview lives
@@ -92,32 +96,40 @@ npm run preview:url  # where your branch's preview lives
 
 Point `.env.local` at **`samo-dev`**, the development database — a full copy of
 production on a separate account. Ask the owner for the `SUPABASE_DEV_*` block.
+That is also what every per-PR preview is pointed at, which is why a preview is
+safe to click and submit forms on.
 
 ⚠️ **`samo-dev` holds REAL student data** (a deliberate decision — it is a copy,
 not a fake). Do not publish its URL, and §4 above applies to it exactly as it
 applies to production.
 
+**The keystroke-by-keystroke version — installing Node, `gh auth login`, the
+first clone — is [ทีละขั้น · Step by step](/STEP-BY-STEP) §0.** It is not
+repeated here on purpose.
+
 ## 8. Before you open the PR
 
-- `npm test` and `npm run build` both green — CI will run them anyway
-- Say which widths you checked. 390 / 820 / 1280 is the usual set
+The checklist lives once, in [Step by step](/STEP-BY-STEP), step 10.
+Two items on it are policy rather than procedure, so they are stated here too —
+they are the reason this project's documentation is worth anything:
+
 - **If you fixed a bug, write it up** in the matching `docs/mistakes/*.md`:
-  symptom → cause → fix → the general rule. This project's write-ups are the
-  reason the same bug rarely lands twice, and the symptom line is what the next
-  person greps for
+  symptom → cause → fix → the general rule. These write-ups are the reason the
+  same bug rarely lands twice, and the symptom line **as it was reported** is
+  what the next person greps for
 - **If a person would notice the change**, add a plain-Thai line to `PENDING` in
-  `src/data/changelog.js`, in the same commit
+  `src/data/changelog.js`, in the same commit that ships it — not at release
+  time, when what made the change worth having is already forgotten
 
 ## 9. Branch model
 
 `main` is the only long-lived branch. (`refactor/modular` was merged long ago;
-`docs/MERGE-CHECKLIST.md` is kept as history.)
+`docs/MERGE-CHECKLIST.md` is kept as history.) Branches are short-lived, one
+topic each, squash-merged.
 
-```bash
-git checkout main && git pull origin main
-git checkout -b ui/<short-topic>     # or fix/<topic>, feat/<topic>
-# edit, commit, push -u origin ui/<short-topic>
-```
+**A branch is mandatory** — `main` is protected, so a direct push is refused.
+Naming, the commands, and what to do when one feature depends on another that
+is still in review: [Step by step §2 and §8](/STEP-BY-STEP).
 
 ## 10. ฝ่าย tool contributions
 
@@ -154,6 +166,7 @@ so a green line really is green.
 
 | You want | Read |
 |---|---|
+| The commands, in order, with pictures | [ทีละขั้น · Step by step](/STEP-BY-STEP) |
 | The rules that must not be broken | [INVARIANTS](/INVARIANTS) |
 | How the system is put together | [CONTEXT](/CONTEXT) |
 | Shipping a tool for your ฝ่าย | [DEPT-TOOLS](/DEPT-TOOLS) |

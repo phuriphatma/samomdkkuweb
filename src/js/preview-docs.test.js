@@ -47,7 +47,16 @@ const DENIALS = [
 ];
 
 /** The docs a contributor actually reads before their first pull request. */
-const CONTRIBUTOR_DOCS = ['CONTRIBUTING.md', 'README.md', 'docs/CONTRIBUTE.md'];
+const CONTRIBUTOR_DOCS = [
+  'CONTRIBUTING.md', 'README.md', 'docs/CONTRIBUTE.md',
+  // Added 2026-08-31 with the page itself. docs/CONTRIBUTE.md answers "what may
+  // I change"; docs/STEP-BY-STEP.md answers "what do I type" — and the second
+  // one is where a procedure describes the preview at length, so it is the
+  // likelier home for a future contradiction. A new contributor-facing doc that
+  // is not in this list is a fact with a second, unswept home, which is exactly
+  // the shape that let CONTRIBUTING.md go on denying previews for weeks.
+  'docs/STEP-BY-STEP.md',
+];
 
 describe('the contributor guide agrees with the preview pipeline', () => {
   it('the denial matcher can find a denial (control)', () => {

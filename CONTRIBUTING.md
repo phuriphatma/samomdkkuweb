@@ -7,6 +7,14 @@ developers read the same page:**
 
 (Source: [`docs/CONTRIBUTE.md`](docs/CONTRIBUTE.md) — edit it there.)
 
+**Want the commands, in order, with diagrams?** — from opening Terminal to a
+merged pull request, including what to do when your feature depends on one that
+is still in review:
+
+### 👉 https://phuriphatma.github.io/samomdkkuweb/STEP-BY-STEP
+
+(Source: [`docs/STEP-BY-STEP.md`](docs/STEP-BY-STEP.md).)
+
 ---
 
 This file is deliberately a pointer and not a copy. GitHub shows `CONTRIBUTING.md`
