@@ -245,6 +245,32 @@ Both Cloudflare environments are now pinned to `samo-dev` with
 `VITE_ENV_NAME=preview`, and `tools/repo-protection.mjs` asserts it. Full
 write-up: `docs/mistakes/deploy-hosting.md`.
 
+### 5g. ✅ SETTLED — the passport Pages project's stale binding is NOT debt
+
+`samomdkkupassport`'s Cloudflare Pages project still names the pre-transfer
+owner. **Leave it. Do not raise this as a task.**
+
+Measured 2026-08-31: `samomdkkupassport.pages.dev` serves ONLY the host-guard →
+`moved.html` → `samo.md.kku.ac.th/passport/` (checked live; the VM's real
+passport answers 200). The project builds nothing anyone waits for, and
+Cloudflare keeps serving a deployment whether or not its git link still
+resolves. The single consequence of the stale binding is that editing the splash
+and pushing would not rebuild it — and the splash is finished.
+
+**Why this differs from §5a, where the same stale binding WAS broken:** the
+`samomdkkuweb` project builds per-PR previews, so a dead binding meant no
+previews, silently. Sameness of symptom, opposite severity — the question is
+never "is the binding stale", it is "what does this project BUILD that someone
+waits for".
+
+⛔ Fixing it would also cost something: the Cloudflare GitHub App is
+deliberately scoped to `samomdkkuweb` only, so reconnecting passport means
+widening that grant to repair a thing that is not broken.
+
+📌 Recorded because it was raised once as "known, not fixed", which reads like
+debt and cost the owner a question. A finding with no action is only useful if
+it says so.
+
 ### 5f. A SECOND repo needs its own protection, and NOT a copy of this one's
 
 `samomdkkupassport` had no branch protection, no ruleset, no CODEOWNERS and no
