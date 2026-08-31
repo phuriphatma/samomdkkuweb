@@ -44,11 +44,24 @@ so `deploy.sh` keeps working — this is tidy-up, not breakage.
    `gh api orgs/samomdkku/copilot/billing` returned 0 seats, `unconfigured`, so
    nothing can displace a personal student subscription. §3 has the reasoning
    and the one standing rule (never buy org seats).
-2. Transfer `samomdkkuweb`, then immediately do §5a/§5b/§5c — **§5a fails
-   silently**, so treat "previews look slow" as "previews are dead".
-3. §6 — the `maintainers` team and `CODEOWNERS`. **This is the step that
-   actually removes the bottleneck for reviews**; owners alone do not.
-4. §7 — one line in `package.json`, then `npm test` prints the rest.
+2. ✅ **DONE 2026-08-31 — `samomdkkuweb` is transferred.** Classic protection
+   and Pages survived; **the ruleset's bypass actors did NOT** and refused the
+   next push — §5d, which is new and is the trap on this step.
+3. ✅ **DONE — `@samomdkku/maintainers` exists** (`closed` + `push`, verified
+   from the API before `CODEOWNERS` was edited) and `CODEOWNERS` names it on
+   all sixteen paths instead of a person.
+4. ✅ **DONE — §7.** `package.json` changed, `repo-identity.test.js` named the
+   other thirteen, all fixed, `npm test` green.
+5. ⏳ **§5a — Cloudflare. THE ONE THING STILL BROKEN, and it is silent.**
+   `repo-protection.mjs` fails on it today: the Pages project still builds the
+   OLD personal-account path (named by the proof's output, not here — this file
+   is swept by `repo-identity.test.js` too). Needs the dashboard — install the Cloudflare
+   GitHub App on the org, reconnect the project. **Per-PR previews are dead
+   until then**, with no error anywhere.
+6. ⏳ **The VM's git remote** (§8) — needs VPN. GitHub redirects, so it keeps
+   working and hides the staleness.
+7. ⏳ **§10's last box: someone who is NOT the owner adds a person to a team.**
+   Until that has happened once, nothing has actually changed.
 
 ---
 
@@ -204,6 +217,47 @@ node tools/repo-protection.mjs
 
 Protection lives on GitHub, outside git, and a transfer is exactly the kind of
 event that resets it. **A 404 there means protection is GONE, not "fine".**
+
+📌 **Measured 2026-08-31: classic protection and GitHub Pages BOTH SURVIVED**
+the transfer of `samomdkkuweb`, name unchanged, into the org. A restore script
+was prepared on the assumption they would not, and was not needed. Check
+anyway — but expect green here, and spend the attention on 5a and 5d.
+
+### 5d. Ruleset bypass actors — ⚠️ WIPED, AND THIS IS THE ONE THAT BIT
+
+**The transfer emptied `bypass_actors` on the `main-protect` ruleset.** The very
+next `git push origin main` was refused:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Changes must be made through a pull request.
+```
+
+⛔ **Rulesets are a SECOND enforcement path, separate from classic protection.**
+Before 2026-08-31 `repo-protection.mjs` read only the classic API, so it
+reported six green checks — including `enforce_admins stays OFF`, whose whole
+purpose is the owner's direct push — while pushes were being refused. It now
+reads both. Full write-up: `docs/mistakes/tooling-proofs.md`.
+
+Restore the admin bypass, which is what the owner's normal flow rests on:
+
+```bash
+gh api repos/<org>/samomdkkuweb/rulesets            # find the id
+gh api repos/<org>/samomdkkuweb/rulesets/<id>/history   # GitHub keeps versions —
+                                                        # read what was there BEFORE
+```
+
+then `PUT` the ruleset back with
+`{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}` in
+`bypass_actors` (5 = admin), and confirm with `node tools/repo-protection.mjs`.
+
+📌 **The history endpoint is the point.** It turns "what did the transfer
+change?" from a guess into a diff. Read it before restoring anything.
+
+⚠️ **Three `Integration` (GitHub App) bypasses were also wiped and were
+deliberately NOT restored** — no public endpoint resolves an app id to a name,
+and `gh api orgs/<org>/installations` returned `total_count: 0`, so they granted
+nothing. Do not re-add a bypass you cannot name.
 
 ---
 

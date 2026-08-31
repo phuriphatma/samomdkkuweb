@@ -146,15 +146,15 @@ TRUE. That is what the grep is for.
 its restructure (02 above). ⛔ **No polling timer for the docs** — one was
 built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
-0. ⏳ **THE ORG MOVE IS IN FLIGHT — half done.** `samomdkku` exists;
-   `panascha` is a second ACTIVE OWNER (so adding people is no longer one
-   person's job); base permissions are `read`; **`samomdkkupassport` is
-   transferred** as the Copilot test. ❌ Still to do: `samomdkkuweb` itself +
-   its three repairs, then the `maintainers` team. ⛔ Org-wide 2FA is OFF by
-   OWNER DECISION — do not re-raise.
-   **Status + next actions live in `skills/move-the-repo-to-an-organisation.md`
-   §0a — read that, not this bullet.** ⚠️ Transferring the main repo BREAKS
-   Cloudflare previews SILENTLY (§5a) and can reset branch protection (§5c).
+0. ⏳ **THE ORG MOVE IS ALL BUT DONE — `samomdkku/samomdkkuweb` since
+   2026-08-31.** Protection and Pages survived; `@samomdkku/maintainers` owns
+   all sixteen `CODEOWNERS` paths instead of a person; identity repointed.
+   ❌ **STILL BROKEN, SILENTLY: Cloudflare per-PR previews** — the project
+   builds the old path, no error anywhere, and `node tools/repo-protection.mjs`
+   is the ONLY thing that says so. Also owed: the VM's git remote (VPN).
+   ⛔ Org 2FA is OFF by OWNER DECISION. ⚠️ **A transfer WIPES ruleset bypass
+   actors** — it refused the next push while the proof read all-green (§5d).
+   **Read `skills/move-the-repo-to-an-organisation.md` §0a, not this bullet.**
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
@@ -237,7 +237,7 @@ in plain language:
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
-| 6 | ~~Move to a GitHub organisation?~~ ✅ **DECIDED — YES, and STARTED.** Free org `samomdkku` created, two active owners, passport moved. ⛔ Do not re-litigate, and do not use a shared `samo` login (it loses Copilot and destroys `git blame`) | `skills/move-the-repo-to-an-organisation.md` §0a | Finish it: 2FA, then `samomdkkuweb` + its three repairs, then the `maintainers` team |
+| 6 | ~~Move to a GitHub organisation?~~ ✅ **DONE 2026-08-31 except Cloudflare.** Both repos are in the org, `CODEOWNERS` names a team, Copilot is unaffected (org holds 0 seats — never buy any). ⛔ Do not re-litigate | `skills/move-the-repo-to-an-organisation.md` §0a | **One thing left needs the dashboard: reconnect Cloudflare Pages (§5a), or previews stay dead** |
 | 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. (HOW they get rebuilt is status, not a decision — see the CURRENT DEPLOY block above; `deploy.sh` hangs at that step today.) ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:

@@ -1363,3 +1363,76 @@ its blast radius is everything it silently covers. When you write one, prove it
 with a control — insert the thing it should still catch and watch the build
 fail. And be specific about which STRING the pattern sees: a build tool rewrites
 paths, so the value in the source file is often not the value you are picturing.
+
+---
+
+## `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
+
+**Symptom.** `samomdkkuweb` was transferred to the `samomdkku` organisation.
+The first push of the follow-up commit was rejected:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Required status check "build" is expected.
+remote: - Changes must be made through a pull request.
+```
+
+`node tools/repo-protection.mjs` reported **six of six checks passing**,
+including `enforce_admins stays OFF` — the very check whose stated purpose is
+"it is what lets the owner push main". The proof and the remote disagreed, and
+the proof was the one being trusted.
+
+**Cause — there are TWO enforcement paths, and the proof read one.**
+GitHub enforces branch rules through the classic
+`repos/{r}/branches/main/protection` API *and*, independently, through
+**rulesets** (`repos/{r}/rulesets`). This repo has carried an active ruleset
+named `main-protect` since 2026-05-23. `repo-protection.mjs` never mentioned
+rulesets, so for three months its six green checks described **half the gate**,
+and nothing said so.
+
+The transfer then emptied that ruleset's `bypass_actors`. Read back from the
+ruleset's own version history — GitHub keeps one, which is what turned a theory
+into a fact — the pre-transfer version held four:
+
+```
+RepositoryRole 5 (admin)  bypass_mode always   ← the owner's direct push
+Integration 85455 / 946600 / 1143301           ← three GitHub Apps
+```
+
+and the post-transfer version held `[]`. Nothing reported this. The classic
+`enforce_admins` flag was genuinely untouched, so the check watching it stayed
+truthfully green while the capability it exists to protect was gone.
+
+**Fix.** `RepositoryRole 5` restored with `bypass_mode: always`; the push then
+succeeded (GitHub still prints the bypassed rule as a `remote:` line — that is
+a log of the bypass, not a rejection, and it is easy to misread as failure).
+The three `Integration` bypasses were deliberately **not** restored: they cannot
+be resolved to a named app through any public endpoint, and
+`gh api orgs/samomdkku/installations` returns `total_count: 0`, so they would
+grant nothing to nobody. Re-granting an unidentifiable app the right to bypass
+`main` is not a thing to do to make a red line go green.
+
+`repo-protection.mjs` now reads both paths, and asserts the bypass **by
+property** — "an admin can still push" — rather than re-listing whatever is
+configured today. It also asserts a ruleset governs `main` *before* asserting
+anything about its bypasses, so deleting the ruleset fails loudly instead of
+passing over an empty list.
+
+Proved by the ritual: bypass stripped → `✗ admin can still push main (ruleset
+bypass): expected true, got false` → restored → green.
+
+**Where it lives now.** `tools/repo-protection.mjs`, with the cost written
+above the code. `skills/move-the-repo-to-an-organisation.md` §5d.
+
+**The general rule.** **Ask whether the thing you are reading is the thing that
+DECIDES.** A proof named after a capability ("protection") but bound to one
+API is a proof about that API, and it will keep answering confidently after the
+platform grows a second mechanism beside it. This is the class-7 failure in its
+most convincing form: not a broken assertion, but six true ones that together
+imply something false. When a proof and the real system disagree, the proof is
+the suspect — and when a platform offers two ways to configure one behaviour,
+a guard that reads one of them is guarding nothing.
+
+Corollary, for any transfer or migration: **capability is not configuration.**
+The classic flag survived and the capability did not. Test what you can still
+DO, not what the settings still SAY.

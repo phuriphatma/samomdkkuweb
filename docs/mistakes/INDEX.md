@@ -280,7 +280,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing docs page answered HTTP 200, so a dead link looked healthy
 - The deploy goes silent after "==> docs site"
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(31)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(32)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -315,5 +315,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
 - `npm run deploy:owed` said "production is serving current code" while /docs was a whole rebuild behind
 - Dead-link checking on the docs site had been off since the day it was built
+- `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 
-_259 entries across 9 files._
+_260 entries across 9 files._

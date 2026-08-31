@@ -65,6 +65,66 @@ const checks = [
 ];
 
 // ---------------------------------------------------------------------------
+// RULESETS — the OTHER enforcement path, and the one that actually refused a
+// push on 2026-08-31.
+//
+// Everything above reads `branches/main/protection`, the CLASSIC API. GitHub
+// has a second, newer mechanism — rulesets — which enforces INDEPENDENTLY and
+// does not appear there at all. This repo has carried an active `main-protect`
+// ruleset since 2026-05-23, so for three months these six checks were passing
+// while describing only half of the gate.
+//
+// What it cost. Transferring the repo into the `samomdkku` organisation
+// silently emptied that ruleset's `bypass_actors` — four of them, including
+// `RepositoryRole: 5` (admin), which is what lets the owner push `main`. The
+// classic `enforce_admins stays OFF` check above still reported ✓, because the
+// thing it reads was genuinely untouched. The next `git push` was refused with
+// GH013, and nothing in this file could explain why.
+//
+// So both halves are asserted, and the bypass is asserted BY PROPERTY — "an
+// admin can still push" — not by re-listing whatever is configured today.
+// ---------------------------------------------------------------------------
+let rulesets = null;
+try {
+  const list = JSON.parse(execFileSync('gh',
+    ['api', `repos/${REPO}/rulesets`],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  rulesets = list.map((r) => JSON.parse(execFileSync('gh',
+    ['api', `repos/${REPO}/rulesets/${r.id}`],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })));
+} catch (e) {
+  // An unreachable API is UNKNOWN, never PASS — same rule as Cloudflare below.
+  checks.push(['rulesets readable',
+    `unreachable: ${String(e.stderr || e.message).trim().slice(0, 60)}`, 'yes',
+    'could not ask GitHub for rulesets; this is not evidence that they are fine']);
+}
+
+if (rulesets) {
+  const governsMain = (r) => {
+    const inc = r.conditions?.ref_name?.include ?? [];
+    return inc.includes('refs/heads/main') || inc.includes('~DEFAULT_BRANCH') || inc.includes('~ALL');
+  };
+  const active = rulesets.filter((r) => r.enforcement === 'active' && governsMain(r));
+
+  // Guard the guard. If someone deletes the ruleset, the bypass assertion
+  // below would pass over an empty list — this repo's most-paid-for test
+  // failure. Assert the subject EXISTS before asserting anything about it.
+  checks.push(['a ruleset governs main',
+    active.length > 0, true,
+    'the branch is protected only by the classic API — whoever removed the ruleset '
+    + 'may have believed the six checks above covered it, and they do not']);
+
+  const adminCanPush = active.every((r) => (r.bypass_actors ?? []).some(
+    (a) => a.actor_type === 'RepositoryRole' && a.actor_id === 5 && a.bypass_mode === 'always'));
+  checks.push(['admin can still push main (ruleset bypass)',
+    active.length > 0 ? adminCanPush : 'no ruleset to check', true,
+    'the owner\'s direct push to `main` is REFUSED with GH013 — this repo\'s normal '
+    + 'flow (CLAUDE.md authority model), and the escape hatch when their own PR cannot '
+    + 'self-approve. A repository TRANSFER empties bypass_actors silently; re-add '
+    + 'RepositoryRole 5 (admin) with bypass_mode always']);
+}
+
+// ---------------------------------------------------------------------------
 // The SECOND place this repo's owner is written down, and it is not in git.
 //
 // Cloudflare Pages binds the preview builder to `source.config.owner` +
