@@ -61,12 +61,18 @@ GitHub requests the right reviewer automatically, so you do not need to contact 
 
 A ฝ่าย can build its own tool page using the same process as the development team. The only difference is who approves it.
 
-| Location | Approval needed |
+::: warning Not built yet
+**The tool slot itself does not exist in the code yet** — `public/embed/` and `src/data/tools.js` are planned locations, not directories you can add a file to today. The *workflow* around them is ready (branch protection, review routing, and a worked example at `/tools/golden-period`), but the frame that would load your page has not been written.
+
+If your ฝ่าย wants a tool now, say so — that is the item currently at the top of the build list, and a real request is what should decide its shape.
+:::
+
+| Planned location | Approval it will need |
 |---|---|
 | `public/embed/` — a page that runs in an isolated frame | Any collaborator |
 | `src/data/tools.js` · `src/tools/` | The project owner |
 
-Details and examples — [Department tools](/DEPT-TOOLS).
+Design and decisions — [Department tools](/DEPT-TOOLS).
 
 ## Tests you have to run yourself
 

@@ -67,6 +67,5 @@ The page reloads automatically when you edit a file. Press `Ctrl + C` in the ter
 | Pages, tabs, dialogs | `src/html/` |
 | Colours, spacing, layout | `src/css/` |
 | Behaviour, buttons, forms | `src/js/` |
-| A ฝ่าย's own tool page | `public/embed/` |
 
 Next — [Your first change](/start/first-change)
