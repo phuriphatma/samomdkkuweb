@@ -1302,3 +1302,64 @@ and watch it go red, and treat every `indexOf`, substring or identifier match as
 vacuous until you have seen it fail.* And when a check can be red for a reason
 outside the change, prefer the check that measures the OUTCOME: the boot probe
 catches a CDN outage without ever asserting on the network.
+
+## `npm run deploy:owed` said "production is serving current code" while /docs was a whole rebuild behind
+
+**Symptom.** Right after the docs site was restructured and pushed,
+`npm run deploy:owed` printed **✅ NO DEPLOY OWED — production is serving
+current code.** It was wrong: `samo.md.kku.ac.th/docs/start/install` answered
+404 on the VM while `main` had contained that page for an hour.
+
+**Cause.** `SHIPPED` in `tools/deploy-owed.mjs` was `['src/',
+':!src/**/*.test.js', 'index.html', 'admin/index.html']`. That was a complete
+list on the day it was written — a deploy only published two bundles. Earlier
+the SAME DAY, `server/deploy.sh` learned to build the docs with
+`DOCS_BASE=/docs/` and publish them to `/var/www/docs`, and nobody widened the
+list. The one instrument that answers *is production current* had gone blind to
+half of what production serves, and it answered GREEN, which is the direction
+that gets believed and acted on.
+
+**Fix.** `docs/` (minus `docs/state/**` and `docs/state-archive/**`, which are
+notes rather than published artifacts and would make it cry wolf on every
+handoff), plus `server/nginx-samo.conf` and `server/deploy.sh` — a config change
+also needs a trip to the VM. The reason is written beside the list.
+
+**Where it lives now.** `tools/deploy-owed.mjs`, in the comment above `SHIPPED`.
+
+**The general rule.** **When the deploy learns to publish something new, add it
+to the deploy checker in the SAME COMMIT.** An instrument's subject list is
+correct only for the system it was written against, and nothing tells you when
+the system grows past it — the checker keeps answering confidently about the
+part it still knows. This is the sibling of "a guard cannot see the hazard"
+(§write-a-guard trap #1): here the guard could see fine, it had simply never
+been told the building had another floor.
+
+## Dead-link checking on the docs site had been off since the day it was built
+
+**Symptom.** None — found while sweeping for damage after a large restructure,
+before anyone was misled. The docs site built green through a change that moved
+or deleted every contributor-facing page.
+
+**Cause.** `ignoreDeadLinks` in the VitePress config carried
+`/^\/(?!samomdkkuweb)/`, intended to mean "ignore absolute links that are not
+part of this site". It does the opposite of what its author believed. **In
+markdown you write a site link WITHOUT the base** — `/contributing`,
+`/start/install` — and VitePress prepends `base` at build time. So no link in
+any source file ever begins with `/samomdkkuweb`, the negative lookahead matched
+every one of them, and the whole site's internal links were exempt. A
+restructure could have shipped with completely broken navigation and a passing
+build.
+
+**Fix.** The pattern is deleted. Verified in both directions: the build still
+passes with it gone (so there were no actual dead links), and a deliberately
+inserted `[x](/no-such-page-xyz)` is now reported and fails the build.
+
+**Where it lives now.** `docs/.vitepress/config.mjs`, with a ⛔ note so it is not
+reintroduced by someone reasoning about it the same way.
+
+**The general rule.** **An ignore-pattern is a guard running in reverse, and it
+is never tested.** A wrong assertion goes red; a wrong exemption goes quiet, and
+its blast radius is everything it silently covers. When you write one, prove it
+with a control — insert the thing it should still catch and watch the build
+fail. And be specific about which STRING the pattern sees: a build tool rewrites
+paths, so the value in the source file is often not the value you are picturing.

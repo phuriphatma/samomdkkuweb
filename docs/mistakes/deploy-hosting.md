@@ -462,3 +462,29 @@ its refusal to build is the only signal you are going to get. And when you must
 approximate a renderer with a regex, remember you are re-implementing a parser:
 give each thing it got wrong a fixture, because the next version will get a
 fourth thing wrong.
+
+## A missing docs page answered HTTP 200, so a dead link looked healthy
+
+**Symptom.** `https://samo.md.kku.ac.th/docs/NOPE` — a page that does not exist
+— returned **200 OK**. The reader saw the correct "404" page; every machine saw
+success.
+
+**Cause.** The nginx block ended `try_files $uri $uri.html $uri/
+/docs/404.html;`. A `try_files` fallback to a FILE serves that file with the
+status of a normal hit. It looks right in a browser, which is how it passes
+review, and it lies to everything that is not a human: link checkers, uptime
+monitors, crawlers, and any script asserting a page exists. A broken link then
+survives until somebody happens to mention it.
+
+**Fix.** `try_files $uri $uri.html $uri/ =404;` with `error_page 404
+/docs/404.html;`. The reader still gets the styled page; the status is honest.
+
+**Where it lives now.** `server/nginx-samo.conf`, in the `location /docs/`
+block, with the measurement that found it.
+
+**The general rule.** **A fallback that RENDERS the right thing is not the same
+as one that REPORTS the right thing.** Whenever a rule ends in "…otherwise serve
+this instead", ask what status code goes out with it — the humans are fine
+either way, and the instruments are the ones you are lying to. Probe the DENY
+half of every route, not just the allow half: `/docs/CONTRIBUTE` returning 200
+proved the routing worked and said nothing at all about `/docs/NOPE`.

@@ -262,7 +262,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(11)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(12)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -277,8 +277,9 @@ Open when: deploy.sh, nginx, cache headers.
 - "I grepped the served bundle for the string I just changed and it is not there
 - "There is no preview deploy" — the contributor guide denied a pipeline that had been running for weeks
 - GitHub was silently DELETING words out of the docs, and nothing could tell us until we rendered them somewhere strict
+- A missing docs page answered HTTP 200, so a dead link looked healthy
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(29)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(31)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -311,5 +312,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run proofs` against dev ran two proofs against PRODUCTION and printed one green summary
 - `main`'s CI was red for a day because a guard could not see the commit it was checking
 - A CI gate whose red depended on jsDelivr, and two tests that passed over deleted code
+- `npm run deploy:owed` said "production is serving current code" while /docs was a whole rebuild behind
+- Dead-link checking on the docs site had been off since the day it was built
 
-_255 entries across 9 files._
+_258 entries across 9 files._
