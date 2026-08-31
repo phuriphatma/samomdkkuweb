@@ -278,7 +278,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "There is no preview deploy" — the contributor guide denied a pipeline that had been running for weeks
 - GitHub was silently DELETING words out of the docs, and nothing could tell us until we rendered them somewhere strict
 - A missing docs page answered HTTP 200, so a dead link looked healthy
-- The deploy went silent after "==> docs site" and was killed by its own timeout
+- The deploy goes silent after "==> docs site"
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(31)*
 

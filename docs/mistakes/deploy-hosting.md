@@ -489,49 +489,65 @@ either way, and the instruments are the ones you are lying to. Probe the DENY
 half of every route, not just the allow half: `/docs/CONTRIBUTE` returning 200
 proved the routing worked and said nothing at all about `/docs/NOPE`.
 
-## The deploy went silent after "==> docs site" and was killed by its own timeout — twice
+## The deploy goes silent after "==> docs site" — CAUSE NOT YET FOUND
 
-**Symptom.** `./server/deploy.sh` over ssh printed its three build headings,
-then nothing. Both attempts ended at **exactly** the outer `timeout` value —
-300 s on the first run, 600 s on the second — with no `==> fix permissions` and
-no `==> done`. The site stayed healthy throughout; the docs publish and the
-nginx reload simply never happened, so it read as "the deploy is slow" rather
-than "the deploy is stuck".
+⚠️ **This entry was first written with a confident root cause (sudo's credential
+expiring) and a fix. THE FIX DID NOT WORK — the deploy hung at the same point a
+third time with the keep-alive in place.** The wrong version stood for about
+twenty minutes. It is rewritten rather than deleted because a plausible,
+well-argued, WRONG diagnosis in this file is more dangerous than a gap: the next
+person trusts it and stops looking.
 
-**Cause.** **sudo's credential cache expired mid-run, and the next `sudo` had no
-stdin to prompt on, so it blocked forever.** The deploy is driven by piping the
-password in ONCE at the start (`printf '%s\n' "$PW" | ssh -tt … 'sudo -v && …'`,
-with a short `sleep` to hold the pipe open). That was correct when the script
-built one app and finished in ~90 s. It now runs three `npm ci` and three builds
-— samomdkkuweb, samomdkkupassport and the docs site — and takes over five
-minutes, which outlives the timestamp.
+**Symptom.** `./server/deploy.sh` over ssh prints its three build headings, then
+nothing. Three attempts on 2026-08-31 all stopped immediately after
+`==> docs site: build with base /docs/`, and each ran until it was killed —
+at 300 s, at 600 s, and manually at ~9 min. `==> fix permissions` and
+`==> done` never appear. **The site stays completely healthy throughout**, and
+the docs publish and nginx reload simply never happen.
 
-**Both obvious readings were wrong, and each was checked.** Not a slow build:
-`DOCS_BASE=/docs/ npm run docs:build` measures **10 s** on the VM. Not a slow
-rsync: the whole `publish()` measures **under a second**. Running the identical
-steps with a fresh credential completed in 10 s end to end. What differed was
-only the age of the sudo timestamp.
+**What is RULED OUT, by measurement:**
 
-**Fix.** A keep-alive in `server/deploy.sh`: assert a cached credential up
-front, then `sudo -v` every 45 s in a background loop that exits with its parent
-(`kill -0 "$$"`). `skills/deploy-vm.md` also gained the measured duration — its
-"~90 s" was from the one-app era — and now says to run the deploy with
-`run_in_background` and a generous ceiling, because the ceiling was never the
-thing anyone was waiting on.
+| Suspected | Measured | Verdict |
+|---|---|---|
+| Slow docs build | `DOCS_BASE=/docs/ npm run docs:build` on the VM | **10 s.** Not it |
+| Slow `publish()` rsync | all four steps with a fresh credential | **under 1 s.** Not it |
+| A too-low ceiling | raised 300 → 600 → ~540 | hung every time. Not it |
+| sudo credential expiry | keep-alive added (`sudo -v` every 45 s) | **still hung. NOT IT** |
 
-**Where it lives now.** `server/deploy.sh`, above `publish()`;
-`skills/deploy-vm.md`.
+Running the docs build and the publish by hand, back to back, completes in 10 s
+end to end. Both halves work. Only the combination inside `deploy.sh` hangs.
 
-**The general rules.** Two, and the second is the transferable one:
+**What has NOT been tried, and is the obvious next step.** Nobody has
+instrumented `deploy.sh` ITSELF to find out which line blocks — whether it is
+inside `npm run docs:build` or inside `publish()`. Every measurement so far was
+taken OUTSIDE the failing context, which is exactly why they all came back
+clean. Add per-line timestamps (or `set -x` with `PS4='+ $(date +%T) '`) and run
+it; that answers in one attempt what three theories did not.
 
-1. **A credential handed over once must outlive the longest run, not the
-   original one.** Anything that authenticates at the start and is consumed
-   throughout — sudo, a session token, an ssh agent — becomes a hang the day the
-   work between the first use and the last grows past the lifetime. Refresh it
-   on a timer rather than assuming the run is short.
-2. **A process that stops at EXACTLY its timeout was not slow, it was blocked.**
-   A genuinely slow job finishes at an arbitrary time; only a stuck one lands on
-   the round number. Treat "it hit the ceiling again, at the higher ceiling too"
-   as proof that raising the ceiling is the wrong fix — the second run is the
-   experiment that rules slowness out, so read it that way instead of raising it
-   a third time.
+**Workaround, and it is a good one.** Run the docs build and publish by hand —
+it takes ten seconds and is how the site was published on 2026-08-31:
+
+```bash
+cd ~/samo-projects/samomdkkuweb
+DOCS_BASE=/docs/ npm run docs:build
+sudo mkdir -p /var/www/docs/assets
+sudo rsync -a docs/.vitepress/dist/assets/ /var/www/docs/assets/
+sudo rsync -a --delete --exclude=assets/ docs/.vitepress/dist/ /var/www/docs/
+sudo chown -R www-data:www-data /var/www/docs
+```
+
+**The general rules — these survive even though the diagnosis did not:**
+
+1. **A process that stops at EXACTLY its timeout was not slow, it was blocked.**
+   A genuinely slow job finishes at an arbitrary moment; only a stuck one lands
+   on the round number. The second run, hitting the higher ceiling too, is the
+   experiment that rules slowness out — read it that way instead of raising the
+   ceiling a third time.
+2. **Measuring a step OUTSIDE the context that fails proves nothing about it.**
+   Every "not it" row above was measured standalone, and standalone is precisely
+   the condition under which it works. Instrument the failing run.
+3. **Do not write a root cause into this file until the fix is OBSERVED to
+   work.** "Reintroduce the bug, watch it fail on the assertion you expect,
+   restore" applies to diagnoses as much as to guards. A fix that ships
+   unverified alongside a confident explanation converts a debugging problem
+   into a misinformation problem.

@@ -85,11 +85,16 @@ TRUE. That is what the grep is for.
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `b075225` (2026-08-31)**, verified from the SERVED site, not
-  from the deploy's exit code — which is the only reason it is trustworthy here,
-  because **the deploy script was killed twice by its own `timeout` before this
-  one landed** (`docs/mistakes/deploy-hosting.md`: sudo's credential expired
-  mid-run and the next sudo blocked forever on a closed stdin;
-  `server/deploy.sh` now keeps it alive). Checked live: the app, `/admin/`,
+  from an exit code — which matters here, because one run exited 0 having
+  published nothing.
+  ⛔ **`./server/deploy.sh` CURRENTLY HANGS** — three attempts all went silent
+  right after `==> docs site: build with base /docs/` and had to be killed. The
+  cause is NOT known; sudo-expiry was proposed, fixed, and **the hang survived
+  the fix**. The docs were published by running the build + rsync by hand (ten
+  seconds — the exact commands are in `docs/mistakes/deploy-hosting.md`, along
+  with what is ruled out and the one diagnostic nobody has run yet:
+  instrument `deploy.sh` itself instead of measuring its steps standalone).
+  **The app half of the deploy is unaffected and completes.** Checked live: the app, `/admin/`,
   `/passport/`, `/pr`, `/updates` and `/notify` all 200 · all ten new
   `/docs` pages 200 · `/docs/NOPE` 404 (the deny half) · the two retired doc
   URLs 301 to their new homes · a diagram asset 200.
