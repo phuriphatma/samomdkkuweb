@@ -93,9 +93,17 @@ if (!clientId || !clientSecret) {
 
     1. console.cloud.google.com → APIs & Services → Credentials
     2. Create credentials → OAuth client ID → Web application
-    3. Authorised redirect URI — exactly this, no trailing slash:
+    3. There are TWO url boxes with OPPOSITE rules. Paste into the SECOND.
 
-         ${devUrl}/auth/v1/callback
+         Authorised JavaScript origins  → LEAVE EMPTY.
+              Pasting the callback here answers
+              "Invalid Origin: URIs must not contain a path" — an origin may
+              not have one, and Supabase's flow is a server-side redirect, so
+              no origin is needed at all.
+
+         Authorised redirect URIs       → exactly this, no trailing slash:
+
+              ${devUrl}/auth/v1/callback
 
     4. Copy the id and secret into .env.local:
 

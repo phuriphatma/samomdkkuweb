@@ -240,8 +240,13 @@ that error page.
 **To turn it on** (owner — it needs the Google Cloud console):
 
 1. In the Google Cloud project, create a **NEW** OAuth 2.0 Client ID (Web).
-2. Authorised redirect URI:
+2. Authorised redirect URI — the **"Authorised redirect URIs"** box:
    `$SUPABASE_DEV_URL/auth/v1/callback`
+
+   ⚠️ **Not the "Authorised JavaScript origins" box above it**, which rejects it
+   with *"Invalid Origin: URIs must not contain a path"* — hit for real on
+   2026-08-31. Origins may not carry a path, and Supabase needs none: its flow
+   is a server-side redirect, so leave that box EMPTY.
 3. Put the client id and secret in `.env.local` as `GOOGLE_DEV_CLIENT_ID` /
    `GOOGLE_DEV_CLIENT_SECRET` — **not into chat**, and not into git.
 4. `npm run dev:google` — it does the rest and reads the result back from the
