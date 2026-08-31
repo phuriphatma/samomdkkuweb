@@ -244,6 +244,17 @@ that error page.
    `$SUPABASE_DEV_URL/auth/v1/callback`
 3. Put the client id and secret in `.env.local` as `GOOGLE_DEV_CLIENT_ID` /
    `GOOGLE_DEV_CLIENT_SECRET` — **not into chat**, and not into git.
+4. `npm run dev:google` — it does the rest and reads the result back from the
+   API rather than trusting its own 200. `npm run dev:google -- --check`
+   reports without changing anything, and with no credentials present it prints
+   step 2's exact redirect URI for this project.
+
+📌 **Step 1 is the only part that cannot be automated, and that is Google's
+design, not an omission.** The sole programmatic path is the IAP one, and
+clients created that way are locked to IAP — the redirect URI cannot be set,
+which is the one field Supabase needs. `tools/dev-google-signin.mjs` refuses to
+write if `SUPABASE_DEV_URL` resolves to the production project, checked before
+any write and against the env rather than a hardcoded ref.
 
 ⛔ **Do NOT reuse production's OAuth client for dev.** It is the tempting
 shortcut and it is the wrong trade: `samo-dev`'s credentials are deliberately

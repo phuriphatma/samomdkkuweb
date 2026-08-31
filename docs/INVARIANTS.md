@@ -329,6 +329,21 @@ live in `src/js/org-rung.js`, guarded by `org-rung.test.js`.
 
 ---
 
+## `passport` the GRANT is not `passport` the APP
+
+**`passport` in `permissions` means passport ADMIN rights over a ฝ่าย. It is
+NOT permission to open the app** — every kkumail student can already, and
+`passport_admin_context()` is the authority on who administers what. Moved here
+from `STATE.md` on 2026-08-31; the fix it came from is in
+`docs/mistakes/authz-grants.md`.
+
+⚠️ **LATENT, and it bites the moment someone builds a portal link.**
+`userCanAccess('passport')` has no scoped branch, and `managedPassportScopes` is
+never loaded — so gating a link on it denies **42 of the 45 holders** while
+looking like a working permission check. Scoped grants were invisible to four
+readers once already; this is the fifth, still unfixed, deliberately recorded
+rather than half-fixed.
+
 ## Where the reasoning is — `docs/state-archive/`, newest first
 
 Annotated, because the annotation is the useful part. This list lived in

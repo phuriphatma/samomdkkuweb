@@ -16,12 +16,9 @@ because it held three lifetimes at once. It now holds one: **status**.
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
 000. ✅ **Scoped grants were invisible in four readers — fixed, deployed**
-    (`docs/mistakes/authz-grants.md`). Two things it left behind:
-    ⛔ **`passport` = passport ADMIN rights over a ฝ่าย, NOT permission to open
-    the app** — every kkumail student can; `passport_admin_context()` is the
-    authority. ⚠️ **LATENT**: `userCanAccess('passport')` has no scoped branch
-    and `managedPassportScopes` is never loaded; gating a portal link on it
-    denies 42 of the 45 holders.
+    (`docs/mistakes/authz-grants.md`). The two RULES it left behind moved to
+    `docs/INVARIANTS.md` — what `passport` grants, and one LATENT reader that
+    would deny 42 of 45 holders. Read them there before gating anything on it.
 
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
@@ -168,10 +165,11 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    (`skills/deploy-vm.md`). If it recurs, `set -x` INSIDE the script.
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
-1. **A second Google OAuth client for `samo-dev`**, so previews can use Google
-   sign-in (today they are username/password only). **~2 min; exact steps in
-   `docs/TEAM-WORKFLOW.md` §3a.** ⛔ Do NOT reuse production's client — the dev
-   keys are shared with the whole team.
+1. **A second Google OAuth client for `samo-dev`** (previews are
+   username/password only). **Only the CONSOLE step is yours** — Google exposes
+   no API for it. Paste the id/secret into `.env.local`, then
+   **`npm run dev:google`** does the rest (`-- --check` prints the exact
+   redirect URI). ⛔ Never reuse production's client — dev keys are shared.
 2. **The dev Apps Script deployment under its own Google account** — the last
    item of dev-system phase 2, plus a `DEV` folder in Drive (parent id in
    `docs/state/phuriphatma.md`).
