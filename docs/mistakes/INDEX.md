@@ -262,7 +262,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(14)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(15)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -280,6 +280,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing docs page answered HTTP 200, so a dead link looked healthy
 - The deploy goes silent after "==> docs site"
 - "After I login on the preview link, it navigates back to samo.md.kku.ac.th"
+- The deploy exited 0, published the app, and silently skipped `/docs`
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(32)*
 
@@ -318,4 +319,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Dead-link checking on the docs site had been off since the day it was built
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 
-_261 entries across 9 files._
+_262 entries across 9 files._

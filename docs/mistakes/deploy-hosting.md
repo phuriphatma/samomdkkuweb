@@ -617,3 +617,61 @@ looks like.** A hostname, a ribbon and a branch name are all labels; the only
 answer is the built artifact and the config that produced it. And when a
 warning label and a data path disagree, the label is the thing that gets
 believed — so guard the pairing, not either half.
+
+---
+
+## The deploy exited 0, published the app, and silently skipped `/docs` — after I had written up the hang as "not reproducing"
+
+**Symptom.** `./server/deploy.sh` ran to completion, `ssh` returned **exit 0**,
+and the app bundles were current. `/docs` was not. The served
+`/docs/contributing` still carried text that had been corrected and pushed
+hours earlier.
+
+**How it was caught, and the only tell that works.** Not the exit code, not the
+output. The write times of the three roots:
+
+```
+/var/www/samo-web   2026-08-31 14:35:12   ← this deploy
+/var/www/passport   2026-08-31 14:35:19   ← this deploy
+/var/www/docs       2026-08-31 12:22:12   ← a DIFFERENT, earlier deploy
+```
+
+The VM's own checkout had the correction (`grep` found it in the source), so
+this was not a stale pull. The publish step simply never ran. The captured
+output stops at `==> docs site: build with base /docs/` — the steps after it
+(`fix permissions`, `restart notify`, `nginx reload`, `done`) never printed, and
+neither did the `DEPLOY_EXIT=$?` line, meaning the remote command ended before
+its own last statement while ssh still reported success.
+
+**Cause: still not known.** What IS now known, and is the useful part:
+
+- it is **intermittent** — two full runs earlier the same day completed the
+  docs step and printed `==> done`;
+- it can present as a **hang** (killed by hand, three times) **or as a clean
+  exit 0** (this time). The failure mode is not stable, which is why every
+  theory so far has been "confirmed" by a run that happened to work;
+- ruled out by measurement: sudo expiry · a `timeout` ceiling below the real
+  ~7-minute duration · the `ssh -tt` PTY (a control run streamed output the
+  documented way and completed).
+
+**Fix, for now.** Publish `/docs` by hand — ten seconds, commands in
+`skills/deploy-vm.md` — and **verify by comparing root write times, never by
+the exit code.**
+
+**Where it lives now.** `STATE.md`'s deploy block carries the `stat` one-liner;
+`skills/deploy-vm.md` carries the recurrence.
+
+**The general rule — and I broke it myself, in writing, today.** After two clean
+runs I recorded the hang as "NOT REPRODUCING" and told the owner to "treat
+`deploy.sh` as working". I hedged that two clean runs are not a root cause, and
+then wrote a conclusion that read like one anyway. **An intermittent fault is
+not disproven by successes; it is only ever proven by a failure.** The honest
+record for a flaky step is a count — how many runs, how many failed — never a
+verdict. A green run tells you nothing about the next one.
+
+**Corollary, and the reason this one bit:** *an exit code is a claim about the
+process, not about the artefact.* This project already knew that — `STATE.md`
+carried the words "one run exited 0 having published nothing" — and the check
+that would have caught it in one second is comparing what is ON DISK to what was
+supposed to be written. Verify the artefact, every time, even when the tool says
+it succeeded.

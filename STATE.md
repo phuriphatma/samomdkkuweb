@@ -15,11 +15,6 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
-000. ✅ **Scoped grants were invisible in four readers — fixed, deployed**
-    (`docs/mistakes/authz-grants.md`). The two RULES it left behind moved to
-    `docs/INVARIANTS.md` — what `passport` grants, and one LATENT reader that
-    would deny 42 of 45 holders. Read them there before gating anything on it.
-
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
@@ -68,21 +63,24 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f27ebdd` (2026-08-31)** — app bundles AND `/docs` both
-  current, verified from the SERVED site rather than an exit code (one run
-  exited 0 having published nothing): the served `/docs/start/install` names
-  the ORG slug ten times and the personal one zero times.
-  ✅ **THE HANG DID NOT REPRODUCE.** Two full runs, both exit 0, both ~7 min,
-  docs step INCLUDED — one with output redirected on the VM, one streamed
-  exactly as `skills/deploy-vm.md` documents. **A full deploy takes ~7 minutes**
-  and every earlier report is consistent with a ceiling below that (the skill
-  records `timeout 300` killing a live docs build). ⚠️ NOT proven — two clean
-  runs are not a root cause. Give it `timeout 900`, run it in the BACKGROUND,
-  and do not re-open the sudo or PTY theories: both are now falsified.
-  Checked live: `/`, `/admin/`, `/passport/`, `/pr`, `/updates`, `/notify` and
-  `/docs` all 200 · `/docs/NOPE` 404 (the deny half).
-  ⚠️ Grepping the wrong bundle proves nothing — the SHARED-CHUNK trap lives in
-  `docs/INVARIANTS.md`. Previous: `17bfd01`, `9ba0e9c`.
+- ✅ **DEPLOYED = `defa9d9` (2026-08-31)** — app bundles from `deploy.sh`,
+  `/docs` published BY HAND after the script skipped it. Verified from the
+  SERVED site: `/docs/contributing` carries the day's correction and zero
+  occurrences of the text it replaced.
+  ⛔ **THE DOCS STEP STILL FAILS — AND IT NOW EXITS 0.** It reproduced on the
+  4th run of the day after two clean ones. **The app half published; `/docs`
+  did not, and `ssh` returned success.** Publish docs BY HAND
+  (`skills/deploy-vm.md`) and **never trust the exit code.**
+  ⚠️ **The only reliable tell** — compare when each root was written:
+  ```bash
+  ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'
+  ```
+  Same minute = docs published. Hours apart = the step was skipped.
+  ⛔ Falsified, do not re-open: sudo expiry · a ceiling below ~7 min · the PTY.
+  Two clean runs were NOT a root cause and I wrote them up as one — see
+  `docs/mistakes/deploy-hosting.md`.
+  ⚠️ Grepping the wrong bundle proves nothing (`docs/INVARIANTS.md`).
+  Previous: `f27ebdd`, `17bfd01`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -97,10 +95,8 @@ TRUE. That is what the grep is for.
   ⛔ **Never paste a `git diff <sha>..HEAD` snippet back in** — the sha had four
   homes here and only one got corrected.
 
-- ⚠️ **Verify from the SERVED artifact, and grep the RIGHT one.** Both traps
-  live once — `docs/INVARIANTS.md` (shared chunk) and
-  `docs/mistakes/deploy-hosting.md` (a string behind `import.meta.env` is
-  DELETED, not renamed). Each has been mistaken for a failed deploy.
+- ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
+  live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
 - **Migrations through 0175. ALL 27 LIVE PROOFS GREEN**, re-run 2026-08-30
