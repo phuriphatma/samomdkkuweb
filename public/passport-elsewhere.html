@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>SAMO Passport — ไม่ได้อยู่ในเวอร์ชันทดสอบนี้</title>
+
+  <!--
+    WHY THIS PAGE EXISTS. SAMO Passport lives in a SEPARATE repository
+    (samomdkkupassport) and is served by nginx from /var/www/passport/ on the
+    VM. A Cloudflare preview builds only THIS repo, so /passport/ does not
+    exist there — and because _redirects ends with `/* /index.html 200`, it
+    used to answer 200 with the PUBLIC APP'S OWN HTML. Clicking the Passport
+    button on a preview therefore opened a new tab showing the same site again,
+    with no error anywhere. Reported on 2026-08-31: "i click the samopassport
+    open button ... it doesnt go there".
+
+    A catch-all makes every missing path look like a working one. This page is
+    the honest answer for the one path we KNOW is missing.
+
+    ⚠️ Cloudflare-only. nginx never reads _redirects and serves /passport/ from
+    its own location block, so production is untouched by this file.
+  -->
+  <style>
+    :root {
+      --brand-primary: #105922;
+      --brand-orange: #FF6F30;
+      --ink: #1a1d1a;
+      --muted: #5b625c;
+      --line: #e3e7e3;
+    }
+
+    /* The app is light-only by design — no dark-scheme block here on purpose. */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(180deg, #fff 0%, #f4f6f4 100%);
+      color: var(--ink);
+      font-family: 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      line-height: 1.65;
+    }
+
+    .card {
+      max-width: 30rem;
+      width: 100%;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px 26px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    }
+
+    .mark { font-weight: 700; letter-spacing: .02em; margin-bottom: 18px; }
+    .mark .a { color: var(--brand-primary); }
+    .mark .b { color: var(--brand-orange); }
+
+    h1 { font-size: 1.2rem; margin: 0 0 10px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+
+    .note {
+      background: #fff8f3;
+      border: 1px solid #ffd9c2;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: .92rem;
+      color: #7a3d14;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+
+    a.btn {
+      display: inline-block;
+      padding: 10px 16px;
+      border-radius: 9px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: .95rem;
+      border: 1px solid var(--brand-primary);
+    }
+
+    a.primary { background: var(--brand-primary); color: #fff; }
+    a.ghost { color: var(--brand-primary); background: #fff; }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <div class="mark"><span class="a">MDKKU</span> <span class="b">SAMO</span></div>
+
+    <h1>SAMO Passport ไม่ได้อยู่ในเวอร์ชันทดสอบนี้</h1>
+
+    <p>
+      SAMO Passport เป็นแอปแยกอีกตัวหนึ่ง และถูกสร้างคนละที่กับเว็บหลัก
+      เวอร์ชันทดสอบนี้จึงไม่มี Passport อยู่ข้างใน — ไม่ใช่ความผิดพลาดของคุณ
+    </p>
+
+    <div class="note">
+      ลิงก์ด้านล่างจะพาไปที่ <strong>เว็บจริง</strong> ไม่ใช่เวอร์ชันทดสอบ
+      สิ่งที่แก้ที่นั่นมีผลจริง
+    </div>
+
+    <div class="actions">
+      <a class="btn primary" href="https://samo.md.kku.ac.th/passport/">เปิด Passport ของเว็บจริง</a>
+      <a class="btn ghost" href="/">กลับหน้าแรก</a>
+    </div>
+  </main>
+</body>
+
+</html>

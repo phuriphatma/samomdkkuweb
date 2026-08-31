@@ -10,5 +10,19 @@
 # first match. /admin must be listed before /* so admin URLs don't
 # fall through to the public SPA.
 
-/admin/*  /admin/index.html  200
-/*        /index.html        200
+# /passport/* → SAMO Passport lives in a SEPARATE repo (samomdkkupassport) and
+#              is served by nginx from /var/www/passport/ on the VM. A
+#              Cloudflare preview builds only THIS repo, so the path does not
+#              exist here — and the catch-all below answered it 200 with the
+#              PUBLIC APP'S OWN HTML, so the Passport button opened a new tab
+#              showing the same site again, with no error anywhere. Reported
+#              2026-08-31. A catch-all makes every missing path look like a
+#              working one; this names the one we KNOW is missing.
+#              ⚠️ Cloudflare only — nginx never reads this file and keeps
+#              serving /passport/ from its own location block. Production is
+#              untouched.
+
+/admin/*     /admin/index.html          200
+/passport/*  /passport-elsewhere.html   200
+/passport    /passport-elsewhere.html   200
+/*           /index.html                200
