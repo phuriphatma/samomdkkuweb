@@ -154,6 +154,44 @@ if (cfAccount && cfToken) {
         + 'previews stop, silently, and no test in this repo can see it. Reconnect the '
         + 'project (and install the Cloudflare GitHub App on the new account).'],
     );
+
+    // -----------------------------------------------------------------
+    // WHICH DATABASE A pages.dev COPY TALKS TO. Paid for on 2026-08-31.
+    //
+    // Cloudflare builds `main` as a PRODUCTION deployment, and that
+    // environment's env vars named the REAL Supabase project. So
+    // <hash>.samomdkkuweb.pages.dev served a fully working app wired to live
+    // student data — while `ribbonLabel` showed it an orange PREVIEW ribbon,
+    // because no VITE_ENV_NAME was set and the host ends in .pages.dev. The
+    // instrument that exists to say "this is not real" said the opposite of
+    // the truth, in the dangerous direction. It surfaced only because signing
+    // in there bounced to samo.md.kku.ac.th (the prod site_url fallback).
+    //
+    // The property, not the settings: NOTHING on pages.dev may reach the
+    // production database. Asserted against SUPABASE_DEV_URL rather than a
+    // hardcoded ref, which would rot the first time a project is recreated.
+    // -----------------------------------------------------------------
+    const devUrl = env.SUPABASE_DEV_URL || process.env.SUPABASE_DEV_URL;
+    const cfg = body?.result?.deployment_configs ?? {};
+    const dbOf = (e) => cfg[e]?.env_vars?.VITE_SUPABASE_URL?.value ?? '(unset)';
+    const nameOf = (e) => cfg[e]?.env_vars?.VITE_ENV_NAME?.value ?? '(unset)';
+
+    if (!devUrl) {
+      console.log('– Cloudflare database check SKIPPED: no SUPABASE_DEV_URL in '
+        + '.env.local. It is what "not production" is measured against.');
+    } else {
+      for (const e of ['production', 'preview']) {
+        checks.push([`Cloudflare ${e} uses the DEV database`,
+          dbOf(e), devUrl,
+          `a pages.dev deployment is wired to a database that is not samo-dev. If that `
+          + `is the production project, every form submitted on a preview URL writes REAL `
+          + `student data while the page shows a PREVIEW ribbon.`]);
+        checks.push([`Cloudflare ${e} labels itself non-production`,
+          nameOf(e) !== 'production' && nameOf(e) !== '(unset)', true,
+          `VITE_ENV_NAME is ${nameOf(e)}. Unset makes the ribbon guess from the hostname, `
+          + `which is how a production-data deployment came to display "PREVIEW".`]);
+      }
+    }
   } catch (e) {
     // An unreachable API is UNKNOWN, never PASS.
     checks.push(['Cloudflare previews still point at this repo',

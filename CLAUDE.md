@@ -50,6 +50,7 @@ npm run preview      # serve dist locally on :4173
 | New HTML tab/modal | `src/html/*.html` (HTML partial; include from `index.html`) |
 | New CSS | `src/css/*.css` (then `@import` from `src/main.css`) |
 | New JS module | `src/js/*.js` (ES module) |
+| A ฝ่าย tool (launcher + ฝ่าย page) | **one entry in `src/data/tools.js`** — never markup in `tab-tools.html`, which is generated |
 | Window-bound function (for `onclick=""`) | Wire in `src/js/main.js` |
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |

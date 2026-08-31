@@ -145,15 +145,18 @@ TRUE. That is what the grep is for.
 its restructure (02 above). ⛔ **No polling timer for the docs** — one was
 built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
-0. ⏳ **THE ORG MOVE IS ALL BUT DONE — `samomdkku/samomdkkuweb` since
-   2026-08-31.** Protection and Pages survived; `@samomdkku/maintainers` owns
-   all sixteen `CODEOWNERS` paths instead of a person; identity repointed.
-   ❌ **STILL BROKEN, SILENTLY: Cloudflare per-PR previews** — the project
-   builds the old path, no error anywhere, and `node tools/repo-protection.mjs`
-   is the ONLY thing that says so. Also owed: the VM's git remote (VPN).
-   ⛔ Org 2FA is OFF by OWNER DECISION. ⚠️ **A transfer WIPES ruleset bypass
-   actors** — it refused the next push while the proof read all-green (§5d).
-   **Read `skills/move-the-repo-to-an-organisation.md` §0a, not this bullet.**
+0. ✅ **THE ORG MOVE IS DONE — `samomdkku/samomdkkuweb` since 2026-08-31.**
+   Protection and Pages survived; `@samomdkku/maintainers` owns all sixteen
+   `CODEOWNERS` paths instead of a person; identity repointed; Cloudflare
+   reconnected; the VM's remote repointed and proven by a deploy.
+   **`node tools/repo-protection.mjs` — all 13 pass.** ⛔ Org 2FA is OFF by
+   OWNER DECISION. ⚠️ **A transfer WIPES ruleset bypass actors** — it refused
+   the next push while the proof read all-green (§5d).
+   ❌ **Last box, §10: someone who is NOT the owner must add a person to a team
+   once.** Until that happens the bottleneck has not moved.
+   ⛔ **NOTHING on `*.pages.dev` may reach the production database** — both
+   Cloudflare envs are pinned to `samo-dev` after a production-branch deployment
+   served live student data under a PREVIEW ribbon (`deploy-hosting.md`).
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the

@@ -551,3 +551,69 @@ sudo chown -R www-data:www-data /var/www/docs
    restore" applies to diagnoses as much as to guards. A fix that ships
    unverified alongside a confident explanation converts a debugging problem
    into a misinformation problem.
+
+---
+
+## "After I login on the preview link, it navigates back to samo.md.kku.ac.th" — the redirect was the harmless half
+
+**Symptom, as reported.** Signing in on a `*.samomdkkuweb.pages.dev` URL bounced
+the user to production. Asked whether that was intentional.
+
+**It was correct Supabase behaviour, and it was hiding something much worse.**
+
+**Cause, traced in order.**
+
+1. **There were no preview deployments at all.** Every Cloudflare deployment was
+   `env=production, branch=main` — previews only build for NON-production
+   branches, and no PR branch had been pushed. The "preview link" was a
+   PRODUCTION deployment that merely had a preview-shaped URL.
+2. **That deployment was wired to the real database.** Grepped from the served
+   bundle, not assumed: `https://fheueuowbchsnsvbcgil.supabase.co`.
+3. **`VITE_ENV_NAME` was unset on Cloudflare's production environment**, and
+   `ribbonLabel(undefined, '<hash>.pages.dev')` returns `'PREVIEW'`. So the page
+   displayed an orange PREVIEW ribbon while writing to live student data.
+4. The reported bounce is the LAST link, not the fault: the prod allow-list has
+   `https://samomdkkuweb.pages.dev/**`, which matches paths on that EXACT host
+   and not a hash subdomain. Supabase rejected the return address and fell back
+   to `site_url` — `https://samo.md.kku.ac.th`.
+
+**The dangerous shape**: hand that link to a ฝ่าย member to "try it safely" and
+their test PR request and VitalSound ticket are real. The instrument whose only
+job is to say *this is not real* said the opposite, and only a cosmetic
+redirect made anyone look.
+
+⛔ **The fix NOT to make**, and it is the obvious one: adding
+`https://*.samomdkkuweb.pages.dev/**` to the PRODUCTION allow-list. It removes
+the symptom in one click and makes the cause permanent — sign-in against
+production would then work on every hash URL for ever. **A symptom that is the
+only reason anyone noticed is not the thing to remove.**
+
+**Fix.** Cloudflare's PRODUCTION environment now carries the `samo-dev`
+database and `VITE_ENV_NAME=preview`, exactly like its preview environment, so
+NOTHING served from pages.dev can reach production data. Verified from the
+served bundle after a rebuild (env-var changes only apply to NEW deployments —
+the old ones keep their baked values). The reported redirect fixed itself: dev's
+allow-list already carries `https://*.samomdkkuweb.pages.dev/**`.
+
+Rejected: killing the production build entirely. It is stronger isolation, but
+nothing would then be deployed at `samomdkkuweb.pages.dev`, and the retired-host
+splash that forwards old bookmarks to the VM lives IN that deployment.
+
+**Where it lives now.** `tools/repo-protection.mjs` asserts, for both
+environments, that the database IS `SUPABASE_DEV_URL` and that `VITE_ENV_NAME`
+is set and not `production`. Measured against `SUPABASE_DEV_URL` rather than a
+hardcoded ref, which would rot the first time a project is recreated. Proved by
+reintroducing all three variants — real database, label `production`, label
+deleted — and watching each go red.
+
+📌 **A trap found while proving it: Cloudflare PATCH MERGES `env_vars`.**
+Omitting a key does not clear it, so the first attempt to reintroduce "unset"
+silently changed nothing and the assertion stayed green — a ritual that proved
+nothing while looking like it had. Send `null` to delete. **When a reintroduction
+does not go red, suspect the reintroduction before trusting the guard.**
+
+**The general rule.** **Ask what a deployment is WIRED TO, never what its URL
+looks like.** A hostname, a ribbon and a branch name are all labels; the only
+answer is the built artifact and the config that produced it. And when a
+warning label and a data path disagree, the label is the thing that gets
+believed — so guard the pairing, not either half.

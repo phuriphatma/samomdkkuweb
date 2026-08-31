@@ -811,7 +811,7 @@ Reordered 2026-08-27 for D4–D7. **Framing: this is not a plan beside
 | 3 | Tool-request issue template, in Thai | ✅ **DONE** |
 | 4 | `skills/onboard-a-contributor.md` + the `CONTRIBUTING.md` and PR-template updates | ✅ **DONE** |
 | 5 | Verify §11.1–11.4 on the VM and a real phone | ~30 min |
-| 6 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ~1 session |
+| 6 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ✅ **DONE 2026-08-31.** One renderer (`src/js/tool-card.js`) serves both consumers; `tab-tools.html` ships an empty grid. `dept-tool-mirror.test.js` is GONE, replaced by `tools-registry.test.js`, which keeps both of its properties and ratchets that no card is hand-written beside the registry |
 | 7 | Golden Period **draft** — OPTIONAL (D8). Deliberately plain: วิธีอ่านค่า, the calendar embed, a button to the sheet. Says on the page that it is a placeholder | ~1 session |
 | 8 | **Onboard TWO contributors** — each ending in a merged practice PR (§10.5) | 45 min × 2 |
 | 9 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session |

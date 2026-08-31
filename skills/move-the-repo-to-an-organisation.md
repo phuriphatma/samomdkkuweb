@@ -52,14 +52,12 @@ so `deploy.sh` keeps working — this is tidy-up, not breakage.
    all sixteen paths instead of a person.
 4. ✅ **DONE — §7.** `package.json` changed, `repo-identity.test.js` named the
    other thirteen, all fixed, `npm test` green.
-5. ⏳ **§5a — Cloudflare. THE ONE THING STILL BROKEN, and it is silent.**
-   `repo-protection.mjs` fails on it today: the Pages project still builds the
-   OLD personal-account path (named by the proof's output, not here — this file
-   is swept by `repo-identity.test.js` too). Needs the dashboard — install the Cloudflare
-   GitHub App on the org, reconnect the project. **Per-PR previews are dead
-   until then**, with no error anywhere.
-6. ⏳ **The VM's git remote** (§8) — needs VPN. GitHub redirects, so it keeps
-   working and hides the staleness.
+5. ✅ **DONE — §5a Cloudflare**, reconnected via the GitHub App installed on
+   the ORG, not on a personal account — which is what makes it outlive the
+   person who set it up. ⚠️ It surfaced a separate fault worth reading before
+   you trust any pages.dev URL: **§5e**.
+6. ✅ **DONE — the VM's git remote** (§8), repointed and proven by a completed
+   deploy, which is the only thing that shows the VM can still fetch.
 7. ⏳ **§10's last box: someone who is NOT the owner adds a person to a team.**
    Until that has happened once, nothing has actually changed.
 
@@ -227,6 +225,25 @@ gh api -X POST repos/<org>/samomdkkuweb/pages -f build_type=workflow
 Then push any change under `docs/` and confirm the `docs` workflow deploys.
 **The site's host changes** to `https://<org>.github.io/samomdkkuweb/`; the path
 `/samomdkkuweb/` does not, because the repo name has not changed.
+
+### 5e. What a pages.dev deployment is WIRED TO — check it, do not read the URL
+
+⚠️ **Reconnecting Cloudflare is not the end of it.** Afterwards every deployment
+was `env=production, branch=main`, and that environment's variables named the
+**real Supabase project** — so a `<hash>.samomdkkuweb.pages.dev` URL served a
+working app against live student data **while displaying a PREVIEW ribbon** (no
+`VITE_ENV_NAME` plus a `.pages.dev` host makes `ribbonLabel` guess).
+
+It surfaced only because signing in there bounced to the production host — the
+`site_url` fallback, because a hash subdomain does not match the allow-list
+entry for the bare host.
+
+⛔ **Do not "fix" that by allow-listing the preview wildcard on PRODUCTION.**
+It removes the only symptom and makes the cause permanent.
+
+Both Cloudflare environments are now pinned to `samo-dev` with
+`VITE_ENV_NAME=preview`, and `tools/repo-protection.mjs` asserts it. Full
+write-up: `docs/mistakes/deploy-hosting.md`.
 
 ### 5c. Branch protection
 
